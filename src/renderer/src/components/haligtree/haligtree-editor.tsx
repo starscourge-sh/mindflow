@@ -632,6 +632,9 @@ export interface HaligtreeEditorProps {
   onReady?: (editor: Editor) => void
 }
 
+/** Whether a stored document holds any words at all: stops at the first it meets. */
+const hasWords = (node: JSONContent | null | undefined): boolean => !!node && (typeof node.text === "string" || !!node.content?.some(hasWords))
+
 /** Each editor's drag handle, once found. */
 const gripOf = new WeakMap<Editor, HTMLElement>()
 
@@ -799,7 +802,9 @@ function Surface({
   // Find taken away (the pill): an open bar goes with it.
   useEffect(() => void (!search && setSearchOpen(false)), [search])
   const [sourceOpen, setSourceOpen] = useState(showSource)
-  const emptyAtStart = typeof defaultContent === "string" ? !defaultContent.trim() : !JSON.stringify(defaultContent ?? null).includes('"text":"')
+  // Read once, as the note opens, and only as far as its first word: written out whole to look for one, a
+  // megabyte note cost about 30ms on every draw of this component.
+  const [emptyAtStart] = useState(() => (typeof defaultContent === "string" ? !defaultContent.trim() : !hasWords(defaultContent)))
   // Through a ref: extensions are built once, and the handler can change.
   // A place after the document for `after`, appended once the content box exists:
   // before the frame is painted, so what sits under the words comes with them, not a frame after.
