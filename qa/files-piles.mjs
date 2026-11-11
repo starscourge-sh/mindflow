@@ -1,6 +1,6 @@
 // Files, organised as the user asked (8 Nov: "by default it just feels like a bunch of shit was just vomited onto the
 // page"): "All" opens on one pile per kind (Books, Pictures, Audio), each its newest covers fanned behind a painted,
-// opaque frost with a screw at each corner, then a Recent row; the tabs are All, Books, Pictures, Audio; Pictures go by
+// opaque frost with a screw at each corner, then a Recent row; the tabs are All, Books, Images, Audio; Pictures go by
 // month in a tight square grid with no words under them, drawing only the rows in sight at 5,000; Audio is one line a
 // recording, by day; "Unlinked" (attachments no note holds any more) is a chip after the kinds, with its count, and says what is true per kind.
 // The Add box keeps 16px under the header line. Every frame light and dark, 1440 and 560 wide, 5 / 50 / 500 / 5,000.
@@ -103,12 +103,12 @@ try {
     const want = { pdf: files.filter((f) => f.kind === 'pdf').length, picture: files.filter((f) => f.kind === 'picture').length, audio: files.filter((f) => f.kind === 'audio').length }
     // 1. All: a pile per kind, then Recent.
     const tabs = await chips()
-    check(`${count}: the tabs are All, Books, Pictures, Audio`, tabs.slice(0, 4).join(',') === 'All,Books,Pictures,Audio', tabs.join(','))
+    check(`${count}: the tabs are All, Books, Images, Audio`, tabs.slice(0, 4).join(',') === 'All,Books,Images,Audio', tabs.join(','))
     check(`${count}: "All" is on when Files opens`, await h.evaluate(() => document.querySelector('[data-media-shelf]')?.getAttribute('data-media-shelf') === 'all'))
     const piles = await h.$$eval('[data-pile]', (all) => all.map((one) => ({ id: one.dataset.pile, n: Number(one.dataset.count), text: one.textContent.trim(), covers: one.querySelectorAll('.files-pile-cover').length, screws: one.querySelectorAll('.files-pile-screw').length })))
     check(`${count}: one pile per kind, counted`, piles.length === 3 && piles.every((p) => p.n === want[p.id]), JSON.stringify(piles.map((p) => p.text)))
     check(`${count}: each pile fans its newest covers (up to 4) with four screws`, piles.length > 0 && piles.every((p) => p.covers === Math.min(4, p.n) && p.screws === 4), JSON.stringify(piles.map((p) => [p.covers, p.screws])))
-    check(`${count}: each label reads as "Books · 8 books"`, piles.every((p) => /^(Books|Pictures|Audio) · [\d,]+ (books?|pictures?|recordings?)$/.test(p.text.replace(/\s+/g, ' '))), piles.map((p) => p.text).join(' | '))
+    check(`${count}: each label reads as "Books · 8 books"`, piles.every((p) => /^(Books|Images|Audio) · [\d,]+ (books?|images?|recordings?)$/.test(p.text.replace(/\s+/g, ' '))), piles.map((p) => p.text).join(' | '))
     const frost = await h.evaluate(() => {
       const front = document.querySelector('.files-pile-front')
       const bg = getComputedStyle(front).backgroundColor
@@ -288,7 +288,7 @@ try {
     })
     for (const w of process.env.NARROW_ONLY ? [] : [1280, 1440, 1920]) {
       await size(w, 900)
-      for (const label of ['All', 'Books', 'Pictures', 'Audio']) {
+      for (const label of ['All', 'Books', 'Images', 'Audio']) {
         await tab(label)
         await h.waitForTimeout(label === 'Books' ? 900 : 300)
         const panel = label === 'Books' ? await h.evaluate(() => !!document.querySelector('[data-library] .book-panel')) : false
@@ -317,7 +317,7 @@ try {
       return { pane: Math.round(card.getBoundingClientRect().width), geo, past, wide, under: panel && shelf ? panel.top >= shelf.bottom - 1 && panel.right <= card.getBoundingClientRect().right + 0.5 : null }
     })
     const narrow = async (label) => {
-      for (const kind of ['Books', 'Pictures']) {
+      for (const kind of ['Books', 'Images']) {
         await tab(kind)
         await h.waitForTimeout(900)
         if (kind === 'Books' && !(await h.evaluate(() => !!document.querySelector('[data-library] .book-panel')))) await h.locator('[data-library] [data-book]').first().click().catch(() => {})
@@ -340,7 +340,7 @@ try {
     if (!(await h.evaluate(() => !!document.querySelector('[data-media-grid], [data-library]')))) await go('media')
 
     // 7c. Pictures: squares with small gaps and a small radius; the name rises out of a soft shade only when pointed at.
-    await tab('Pictures')
+    await tab('Images')
     await h.waitForTimeout(700)
     const tile = await h.evaluate(() => {
       const all = [...document.querySelectorAll('[data-media-grid] .files-square')].slice(0, 2).map((one) => one.getBoundingClientRect())
@@ -409,7 +409,7 @@ try {
     await tab('All')
     const toBooks = await film('to-books', () => h.locator('[data-media-kinds] button', { hasText: /^Books$/ }).first().click())
     check('switching to Books: "Continue reading" shows once, its final book in the middle from its first frame, faded in', toBooks.ok, toBooks.frames)
-    await tab('Pictures')
+    await tab('Images')
     const back = await film('back-to-books', () => h.locator('[data-media-kinds] button', { hasText: /^Books$/ }).first().click())
     check('back to Books from Pictures: the same, once', back.ok, back.frames)
     // Files opened afresh on Books: another page, then Back.
@@ -418,7 +418,7 @@ try {
     check('Files opened afresh on Books: the same, once', fresh.ok, fresh.frames)
 
     // 9. Pictures: the month's heading stays at the top while its month scrolls under it, opaque, pushed up by the next.
-    await tab('Pictures')
+    await tab('Images')
     await h.waitForTimeout(500)
     const scrollBy = (y) => h.evaluate((y) => { let el = document.querySelector('[data-media-grid]'); while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement; el.scrollTop += y; return el.scrollTop }, y)
     const held = () => h.evaluate(() => {

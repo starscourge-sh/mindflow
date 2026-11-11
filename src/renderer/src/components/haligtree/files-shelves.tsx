@@ -17,7 +17,7 @@ export type Shelf = 'pdf' | 'picture' | 'audio'
 export const shelfOf = (one: Media): Shelf => (one.kind === 'gif' ? 'picture' : one.kind)
 export const SHELVES: { id: Shelf; label: string; one: string; many: string }[] = [
   { id: 'pdf', label: 'Books', one: 'book', many: 'books' },
-  { id: 'picture', label: 'Pictures', one: 'picture', many: 'pictures' },
+  { id: 'picture', label: 'Images', one: 'image', many: 'images' },
   { id: 'audio', label: 'Audio', one: 'recording', many: 'recordings' }
 ]
 

@@ -104,7 +104,7 @@ async function journey(c, label) {
   const [P, G, D, A] = ['.png', '.gif', '.pdf', '.wav'].map(by)
   const kinds = [P?.kind, G?.kind, D?.kind, A?.kind].join()
   check(`${label}: each under its kind`, kinds === 'picture,gif,pdf,audio', kinds)
-  await kindChip(h, 'Pictures')
+  await kindChip(h, 'Images')
   const shownT = await tiles(h)
   check(`${label}: a new file says it is in no note`, shownT.some((one) => one.src === P.src && one.where === 'In no note yet'), JSON.stringify(shownT.find((one) => one.src === P.src)))
   // --- Undo the whole batch, then again
@@ -151,7 +151,7 @@ async function journey(c, label) {
   await go('media'); await wait(800)
 
   // --- A picture used nowhere opens in the app's own viewer, and Esc comes back
-  await kindChip(h, 'Pictures')
+  await kindChip(h, 'Images')
   await h.locator(`[data-media][data-src="${P.src}"]`).click(); await wait(700)
   check(`${label}: a picture used nowhere opens in the app's own viewer`, await h.evaluate(() => !!document.querySelector('.mf-look')), '')
   await shot(h, `viewer-${label}`)
@@ -238,7 +238,7 @@ async function journey(c, label) {
   check(`${label}: and it goes in as a PDF's block, not a link`, withBook.includes('"attachment"') && withBook.includes(D.src), withBook.slice(0, 280))
   await wait(1500)
   await go('media'); await wait(1000)
-  await kindChip(h, 'Pictures')
+  await kindChip(h, 'Images')
   all = await listed(v)
   const used = all.find((one) => one.src === P.src)
   check(`${label}: its record says where it is used`, used.uses.length === 1 && used.uses[0].id === noteId, JSON.stringify(used.uses))
@@ -250,7 +250,7 @@ async function journey(c, label) {
   const landed = await h.evaluate((id) => [...document.querySelectorAll('[data-pane]')].some((one) => /Field notes/.test(one.textContent)), noteId)
   check(`${label}: its "In …" is a way to that note`, landed)
   await go('media'); await wait(900)
-  await kindChip(h, 'Pictures')
+  await kindChip(h, 'Images')
   // What a file that notes use does on ⌫: it stays, and says so.
   await h.locator(`[data-media][data-src="${P.src}"]`).click({ modifiers: ['Meta'] }); await wait(150)
   await h.keyboard.press('Backspace'); await wait(500)
@@ -366,7 +366,7 @@ if (part('row')) {
     await pickNext(electron, [file])
     await addFiles(h); await wait(800)
     // All draws a pile per kind: the tiles are on Pictures.
-    await kindChip(h, 'Pictures')
+    await kindChip(h, 'Images')
     // A free picture, pointed at, goes to the Bin, and comes back.
     const fresh = (await v('media:list')).find((one) => one.name === 'New for the row.png')
     await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"]`)?.scrollIntoView({ block: 'center' }), fresh.src); await wait(300)
@@ -520,7 +520,7 @@ if (part('book')) {
     const open0 = Date.now()
     await go('home'); await wait(200); await go('media')
     // All draws a pile per kind: the 2,000 GIFs are tiles on Pictures.
-    await kindChip(h, 'Pictures')
+    await kindChip(h, 'Images')
     await h.waitForSelector('[data-page=media] [data-media]', { timeout: 15000 })
     const drawn = await h.evaluate(() => document.querySelectorAll('[data-page=media] [data-media]').length)
     check('2,000 files: the page draws only what is in sight', drawn > 0 && drawn < 200, `${drawn} tiles, ${Date.now() - open0}ms`)
@@ -583,7 +583,7 @@ if (part('ways')) {
     await wait(600)
     await go('media'); await wait(1000)
     // All draws a pile per kind: a picture's tile, its line and its notes are on Pictures.
-    await kindChip(h, 'Pictures')
+    await kindChip(h, 'Images')
     const sharedT = (await v('media:list')).filter((one) => one.src === sharedFile.src)
     check('one file in three notes is one tile, knowing all three', sharedT.length === 1 && sharedT[0].uses.length === 3, JSON.stringify(sharedT[0]?.uses?.map((one) => one.title)))
     // A picture is a square, its note said in its frosted foot; the notes it is in are its right-click's "Used in".
@@ -599,7 +599,7 @@ if (part('ways')) {
     check('and each is a way to that note', await h.evaluate(() => [...document.querySelectorAll('[data-pane] .ProseMirror')].some((one) => /holder/.test(one.textContent))))
     await go('media'); await wait(800)
     // "Make it a note", where it was already: a picture's own, also with no words in it.
-    await kindChip(h, 'Pictures')
+    await kindChip(h, 'Images')
     const count0 = await notesCount(h)
     const loosePic = (await v('media:list')).find((one) => !one.uses.length && one.kind === 'picture')
     await h.locator(`[data-media][data-src="${loosePic.src}"]`).click({ button: 'right' }); await wait(350)
