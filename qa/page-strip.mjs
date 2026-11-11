@@ -81,7 +81,8 @@ try {
     return {
       page: pic?.getAttribute('data-page-picture') ?? null,
       number: pic?.querySelector('[data-page-picture-number]')?.textContent ?? null,
-      drawn: !!pic?.querySelector('.book-thumb-sheet img, .book-thumb-sheet canvas'),
+      // The picture on show: the card keeps a hidden one ready for the next page.
+      drawn: !!pic?.querySelector('.book-thumb-sheet :is(img:not([hidden]), canvas)'),
       arrow: arrow ? arrow.left + arrow.width / 2 : null,
       above: sheet && strip ? sheet.bottom <= strip.top : null,
       width: sheet ? Math.round(sheet.width) : null,
@@ -131,9 +132,12 @@ try {
     // Moved and looked at in the same frame: from cache, the picture is there at once.
     cached.push(await h.evaluate((x) => new Promise((res) => {
       const svg = document.querySelector('[data-page-bar] svg[data-strokes]')
+      // A new picture on show: one not hidden, other than the one there before the move.
+      const shown = () => document.querySelector('[data-page-bar] .book-thumb-sheet :is(img:not([hidden]), canvas)')
+      const was = shown()?.getAttribute('src') ?? null
       const t = performance.now()
       svg.dispatchEvent(new PointerEvent('pointermove', { clientX: x, clientY: svg.getBoundingClientRect().bottom - 4, bubbles: true }))
-      const look = () => (document.querySelector('[data-page-bar] .book-thumb-sheet :is(img, canvas)') ? res(performance.now() - t) : requestAnimationFrame(look))
+      const look = () => { const now = shown(); return now && (now.tagName === 'CANVAS' || now.getAttribute('src') !== was) ? res(performance.now() - t) : requestAnimationFrame(look) }
       requestAnimationFrame(look)
     }), xAt(f)))
   }
@@ -141,7 +145,9 @@ try {
   console.log('COST first time: pointer to picture (ms)', JSON.stringify(stat(first)), 'drawing alone (ms)', JSON.stringify(drawnFirst))
   console.log('COST from cache: pointer to picture (ms)', JSON.stringify(stat(cached)))
   check('a page drawn the first time takes under 150ms at the 95th percentile', drawnFirst.p95 < 150, JSON.stringify(drawnFirst))
-  check('a page from cache shows within a frame or two (under 40ms)', stat(cached).max < 40, JSON.stringify(cached))
+  // A frame of this window, as it runs now: the median gap between 30 frames.
+  const frame = stat(await h.evaluate(() => new Promise((res) => { const gaps = []; let then = performance.now(); const tick = (now) => { gaps.push(now - then); then = now; if (gaps.length < 31) requestAnimationFrame(tick); else res(gaps.slice(1)) }; requestAnimationFrame(tick) }))).p50
+  check(`a page from cache shows within two frames (${Math.round(2 * frame)}ms)`, stat(cached).max <= 2 * frame + 1, JSON.stringify(cached))
 
   // Scrubbing fast: two moves a frame across the whole strip and back, frame gaps measured; never more than one page drawn at a time.
   box = await h.locator('[data-page-bar] svg[data-strokes]').boundingBox()
@@ -171,7 +177,27 @@ try {
   const idle = stat(await h.evaluate(() => new Promise((res) => { const gaps = []; let then = performance.now(); const end = then + 2000; const tick = (now) => { gaps.push(now - then); then = now; if (now < end) requestAnimationFrame(tick); else res(gaps.slice(1)) }; requestAnimationFrame(tick) })))
   console.log('IDLE frame gaps, nothing moving (ms)', JSON.stringify(idle))
   const strokes = await h.evaluate(() => document.querySelectorAll('[data-page-bar] svg [data-stroke]').length)
+  // TRACE=1: what the window's main thread spent the first sweep on, by kind, for finding a slow one.
+  const cdp = process.env.TRACE ? await h.context().newCDPSession(h) : null
+  const events = []
+  cdp?.on('Tracing.dataCollected', (d) => events.push(...d.value))
+  const traced = cdp ? new Promise((r) => cdp.once('Tracing.tracingComplete', r)) : null
+  await cdp?.send('Tracing.start', { categories: 'devtools.timeline,disabled-by-default-devtools.timeline,v8.execute', transferMode: 'ReportEvents' })
   const scrub = await sweep()
+  if (cdp) {
+    await cdp.send('Tracing.end'); await traced
+    const main = events.filter((e) => e.name === 'thread_name' && e.args?.name === 'CrRendererMain').map((e) => e.tid)
+    const top = {}
+    for (const e of events) if (e.ph === 'X' && e.dur && main.includes(e.tid)) top[e.name] = (top[e.name] ?? 0) + e.dur / 1000
+    console.log('TRACE first sweep, main thread ms', JSON.stringify(Object.entries(top).sort((a, b) => b[1] - a[1]).slice(0, 18).map(([k, ms]) => `${k}=${Math.round(ms)}`)))
+    const long = events.filter((e) => e.ph === 'X' && main.includes(e.tid) && e.name === 'RunTask' && e.dur > 40000).map((e) => e.ts)
+    // What ran inside each long task: its biggest children.
+    for (const ts of long.slice(0, 3)) {
+      const task = events.find((e) => e.ts === ts && e.name === 'RunTask')
+      const inside = events.filter((e) => e.ph === 'X' && e.tid === task.tid && e.ts >= ts && e.ts < ts + task.dur && e.name !== 'RunTask').sort((a, b) => b.dur - a.dur).slice(0, 6).map((e) => `${e.name}${e.args?.data?.functionName ? `(${e.args.data.functionName} ${e.args.data.url?.split('/').pop() ?? ''}:${e.args.data.lineNumber ?? ''})` : ''}${e.args?.data?.type ? `[${e.args.data.type}]` : ''}=${Math.round(e.dur / 1000)}`)
+      console.log('TRACE long task', Math.round(task.dur / 1000), 'ms:', inside.join(' '))
+    }
+  }
   const g = stat(scrub.gaps)
   console.log('SCRUB first sweep, frame gaps (ms)', JSON.stringify(g), 'long tasks', JSON.stringify(stat(scrub.long)), 'pages drawn during it', scrub.drew.length, JSON.stringify(stat(scrub.drew)), 'strokes passed', strokes * 2)
   await wait(1500)
