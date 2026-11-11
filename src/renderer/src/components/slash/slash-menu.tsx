@@ -3,7 +3,6 @@ import {
   forwardRef,
   useEffect,
   useImperativeHandle,
-  useLayoutEffect,
   useRef,
   useState,
   type ForwardedRef,
@@ -36,14 +35,8 @@ const SlashList = forwardRef(function SlashList(
   const menuRef = useRef<HTMLDivElement>(null)
   const [peeking, setPeeking] = useState(false)
   const seen = useRef(false)
-  // A row whose name is cut short (a long file name) shows the whole name as
-  // the pointer rests on it; a name that fits needs no tip.
-  useLayoutEffect(() => {
-    for (const row of menuRef.current?.querySelectorAll<HTMLElement>(".tiptap-slash-menu-list > button") ?? []) {
-      const words = row.querySelector<HTMLElement>(".tiptap-slash-menu-title")
-      row.title = words && words.scrollWidth > words.clientWidth ? (words.textContent ?? "") : ""
-    }
-  })
+  // A row whose name is cut short (a long file name) is read whole in its card beside the menu (SlashPeek), as a
+  // block's meaning is: never in a tip over the row, the Mac's own grey one, which a menu row does not wear.
   useEffect(() => {
     const timer = setTimeout(() => setPeeking(true), REST)
     return () => clearTimeout(timer)
@@ -126,7 +119,7 @@ const SlashList = forwardRef(function SlashList(
   return (
     <div className="tiptap-slash-menu" ref={menuRef}>
       {peeking && items[selected] ? (
-        <SlashPeek title={items[selected].title} menuRef={menuRef} fresh={!seen.current} />
+        <SlashPeek title={items[selected].title} words={items[selected].peek} menuRef={menuRef} fresh={!seen.current} />
       ) : null}
       <div className="tiptap-slash-menu-list mf-more">
         {items.map((item, index) => {

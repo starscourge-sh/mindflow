@@ -17,6 +17,8 @@ export interface SlashItem {
   title: string
   /** Set where two can share a title (two files of one name). */
   key?: string
+  /** For a row that is not a command (a file of the book): what its card beside the menu says, its whole name first. */
+  peek?: string
   /** Section header this item sits under. */
   group: string
   /** The markdown shortcut that does the same thing, shown on the right. */

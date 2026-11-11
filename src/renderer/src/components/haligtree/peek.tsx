@@ -41,7 +41,7 @@ export function PeekCard({ art, text, keys, foot, fit = false, whole = false }: 
         </div>
       )}
       <div className="flex items-end gap-2 px-1.5 pt-2 pb-1">
-        <p className="min-w-0 flex-1 text-[13px] leading-snug text-foreground/75">
+        <p className="min-w-0 flex-1 text-[13px] leading-snug text-foreground/75 [overflow-wrap:anywhere]">
           {lead && <strong className="font-semibold text-foreground">{lead}</strong>}
           {lead && rest && ' '}
           {rest && <WithMarks text={rest} />}

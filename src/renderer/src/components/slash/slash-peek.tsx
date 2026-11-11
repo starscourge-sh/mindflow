@@ -124,13 +124,13 @@ function blockPeek(title: string): BlockPeek | undefined {
 }
 
 /** The chosen block's card, beside the `/` menu and level with its row. */
-export function SlashPeek({ title, menuRef, fresh }: { title: string; menuRef: RefObject<HTMLElement | null>; fresh: boolean }): React.JSX.Element | null {
-  const peek = blockPeek(title)
+export function SlashPeek({ title, words, menuRef, fresh }: { title: string; /** A row that is not a block (a file of the book): the words of its card. */ words?: string; menuRef: RefObject<HTMLElement | null>; fresh: boolean }): React.JSX.Element | null {
+  const peek: { text: string; art?: () => ReactNode } | undefined = words ? { text: words } : blockPeek(title)
   if (!peek) return null
   return (
     <BesidePeek menu={() => (menuRef.current?.isConnected ? menuRef.current : document.querySelector<HTMLElement>('.tiptap-slash-menu'))}
       row={(menu) => menu.querySelector('.is-selected')} fresh={fresh} slashed>
-      <PeekCard art={peek.art()} text={peek.text} fit />
+      <PeekCard art={peek.art?.()} text={peek.text} fit />
     </BesidePeek>
   )
 }

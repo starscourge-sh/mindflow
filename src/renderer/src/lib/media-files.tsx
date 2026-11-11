@@ -7,7 +7,7 @@ import { call, haligtree } from './haligtree'
 import { notes, smallPicture } from './notes'
 import { chime, tear } from './sound'
 import { seeTheBin } from './to-bin'
-import { num, plural } from '../../../main/dates'
+import { clock, dated, num, plural } from '../../../main/dates'
 import { quoted } from '../../../main/clip'
 import { addSaid, type AddResult, type MediaKind } from '../../../main/media-words'
 import type { Media } from '../../../main/media'
@@ -128,18 +128,16 @@ export type Loose = { src: string; kind: MediaKind; name: string; size: number; 
 export const KIND_WORD: Record<MediaKind, string> = { picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording', video: 'Video', document: 'Document' }
 
 /**
- * What a file is called in a menu row. A picture pasted into a note has no
- * name of its own, and a row of thumbnails with nothing beside them could
- * not be told apart: such a one is named by its caption or the words around
- * it, else by its kind and the day it came.
+ * What a file is called in a menu row: its name. A picture pasted into a note has no name of its own: it is called
+ * by its kind and when it came ("Picture, 8 Nov at 15:28", as a recording is), told from its neighbours by its
+ * small face beside the words. Never by the words read out of it: for a screenshot those are scraps of whatever
+ * was on screen ("197 words • 1,072 characters Add a thought…"), which named nothing. They still find it in a search.
  */
-export function looseLabel(one: Pick<Media, 'name' | 'near' | 'kind' | 'at'>): string {
+export function looseLabel(one: Pick<Media, 'name' | 'kind' | 'at'>): string {
   const bare = one.name.replace(/\.[^.]+$/, '') || one.name
   if (bare.trim()) return bare
-  const near = one.near.replace(/\s+/g, ' ').trim()
-  if (near) return near.length > 60 ? `${near.slice(0, 60).trim()}…` : near
   const day = one.at ? new Date(one.at) : null
-  const when = day && !Number.isNaN(day.getTime()) ? ` from ${day.toLocaleDateString(undefined, { day: 'numeric', month: 'short', ...(day.getFullYear() === new Date().getFullYear() ? {} : { year: 'numeric' }) })}` : ''
+  const when = day && !Number.isNaN(day.getTime()) ? `, ${dated(day)} at ${clock(day)}` : ''
   return `${KIND_WORD[one.kind] ?? 'File'}${when}`
 }
 

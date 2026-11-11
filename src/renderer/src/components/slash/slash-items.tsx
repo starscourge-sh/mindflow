@@ -78,7 +78,8 @@ export const slashMedia = async (editor: Editor, query: string): Promise<SlashIt
   if (!editor.schema.nodes.image || !editor.schema.nodes.attachment) return []
   const asked = /^(media|from media)\b/i.test(query.trim())
   const files = await looseFiles(asked ? '' : query, query.trim() ? 8 : 4)
-  return files.map((one) => ({ key: one.src, title: one.label, hint: one.word, group: FROM_MEDIA, icon: one.icon, run: (at) => void at.chain().focus().insertContent(blockOf(one)).run() }))
+  // Its card says its whole name: a long one is cut short in the row, and the card is where it is read.
+  return files.map((one) => ({ key: one.src, title: one.label, hint: one.word, group: FROM_MEDIA, icon: one.icon, peek: `**${one.name || one.label}** ${/^[AEIOU]/.test(one.word) ? 'An' : 'A'} ${one.word === 'PDF' || one.word === 'GIF' ? one.word : one.word.toLowerCase()} in Files, in no note yet. Pick it to put it in this note.`, run: (at) => void at.chain().focus().insertContent(blockOf(one)).run() }))
 }
 
 /**
