@@ -13,7 +13,8 @@ const { h, v, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const p = (...content) => ({ type: 'paragraph', content })
 const t = (text, ...marks) => ({ type: 'text', text, ...(marks.length ? { marks: marks.map((type) => ({ type })) } : {}) })
-const note = (...blocks) => h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), JSON.stringify({ type: 'doc', content: blocks }))
+// The body as the editor keeps it (an object): given as text it would be read as the note's words.
+const note = (...blocks) => h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), { type: 'doc', content: blocks })
 const offer = () => h.evaluate(() => { const el = document.querySelector('[data-note-offer]'); return el ? { kind: el.getAttribute('data-note-offer'), text: el.textContent } : null })
 const links = () => h.evaluate(() => { const out = []; document.querySelector('[data-open] .tiptap, .tiptap.ProseMirror.haligtree-editor:not(.is-line)').editor.state.doc.descendants((node) => void (node.type.name === 'noteLink' && out.push({ id: node.attrs.id, label: node.attrs.label, text: node.attrs.text }))); return out })
 const untilOffer = async (kind, ms = 15000) => { for (let i = 0; i < ms / 250; i++) { const now = await offer(); if (now?.kind === kind) return now; await wait(250) } return offer() }
@@ -66,12 +67,67 @@ try {
   check('with its only name put away by ×, no "Names … without a link" line is left', line === '', line)
   // Linked from the other note's list ("N unlinked mentions" on Byzantine Empire): the right words, and Undo's data.
   const linked = await v('mention:link', 'capture', writing, empire)
-  const body = JSON.parse((await h.evaluate((id) => window.api.captures.get(id), writing)).body ?? 'null')
-  const flat = JSON.stringify(body)
+  // The note as kept (its body comes back already read, never as text to parse).
+  const flat = JSON.stringify((await h.evaluate((id) => window.api.captures.get(id), writing)).body ?? null)
   check('"Link" from the other note links the name, not the code', !!linked && flat.includes(`"id":"${empire}"`) && flat.includes('Kappa Architecture') && !flat.includes(`"id":"${kappa}"`), flat.slice(0, 300))
   check('the mention is taken back whole', await v('mention:unlink', 'capture', writing, linked.was, linked.linked))
+
+  // --- "Names N other notes without a link", under a note that names three: each name can be linked from its
+  // row, with the pointer, in the very words that name it; "Link all" does the lot in one step.
+  const sophia = await note(p(t('Hagia Sophia')), p(t('A church, then a mosque, then a museum, then a mosque again.')))
+  const trip = await note(
+    p(t('Reading list for the trip')),
+    p(t('First the Byzantine Empire, for the long view of the city.')),
+    p(t('Then Hagia Sophia itself, and how its dome was rebuilt.')),
+    p(t('And Kappa Architecture on the flight home, for work, with '), t('Hagia Sophia', 'code'), t(' left as code.'))
+  )
+  await send('capture', trip); await wait(3500)
+  const fold = h.locator('[data-named-fold]').first()
+  await fold.scrollIntoViewIfNeeded(); await wait(300)
+  check('under a note that names three notes the line says so', /^Names 3 other notes without a link/.test(((await fold.textContent()) ?? '').trim()), (await fold.textContent()) ?? 'no line')
+  const at = async (locator) => { const box = await locator.boundingBox(); return { x: box.x + box.width / 2, y: box.y + box.height / 2, box } }
+  const press = async (locator) => { const where = await at(locator); await h.mouse.move(where.x, where.y, { steps: 5 }); await wait(150); await h.mouse.down(); await h.mouse.up() }
+  await press(fold); await wait(600)
+  const list = () => h.evaluate(() => { const section = document.querySelector('[data-named-fold]')?.closest('section'); const rows = [...(section?.querySelectorAll('[data-row]') ?? [])].filter((one) => one.closest('.group')?.querySelector('[aria-label="Link it"]')); return rows.map((one) => (one.querySelector('[data-note-hover]')?.textContent ?? '').trim()) })
+  const all = h.locator('[data-link-all]').first()
+  check('unfolded, each of the three has "Link" on its row and the list has "Link all 3"', (await list()).length === 3 && /Link all 3/.test((await all.textContent().catch(() => '')) ?? ''), `${(await list()).join(' | ')} / ${await all.textContent().catch(() => 'no button')}`)
+  // Pointing at a name previews that note in the one hover card, and nothing else floats.
+  const name = h.locator('[data-named-fold]').locator('xpath=ancestor::section').locator('[data-note-hover]', { hasText: 'Hagia Sophia' }).first()
+  const over = await at(name)
+  await h.mouse.move(over.x - 30, over.y - 14, { steps: 3 }); await h.mouse.move(over.x, over.y, { steps: 4 }); await wait(1200)
+  const floating = await h.evaluate(() => ({ cards: document.querySelectorAll('[data-preview-title]').length, card: (document.querySelector('[data-preview-title]')?.textContent ?? '').trim(), tips: document.querySelectorAll('[data-slot="tooltip-content"], [role="tooltip"]').length }))
+  check('pointing at a name shows that note in the one hover card, and no tip with it', floating.cards === 1 && /Hagia Sophia/.test(floating.card) && floating.tips === 0, JSON.stringify(floating))
+  if (process.env.SHOTS) for (const theme of ['light', 'dark']) { await c.look(theme); await h.screenshot({ path: `${process.env.SHOTS}/offers-named-${theme}.png` }) }
+  // "Link" on one row: the hand on it, the words made the link, a notice with Undo, the row out of the list at once.
+  const row = name.locator('xpath=ancestor::div[contains(@class,"group")][1]')
+  const link = row.locator('[aria-label="Link it"]')
+  const spot = await at(link)
+  await h.mouse.move(spot.x, spot.y, { steps: 5 }); await wait(700)
+  const button = await link.evaluate((one) => ({ hand: getComputedStyle(one).cursor, shown: getComputedStyle(one).opacity, tall: Math.round(one.getBoundingClientRect().height) }))
+  check('"Link" shows on the row pointed at, with the hand', button.hand === 'pointer' && button.shown === '1' && button.tall >= 24, JSON.stringify(button))
+  await h.mouse.down(); await h.mouse.up(); await wait(700)
+  let joined = await links()
+  check('"Link" links the very words that name it, to that note, and nothing inside code', joined.length === 1 && joined[0].id === sophia && joined[0].label === 'Hagia Sophia', JSON.stringify(joined))
+  check('a notice says what was linked, with Undo', (await h.getByText('Linked “Hagia Sophia”').count()) >= 1 && (await h.locator('button', { hasText: /^Undo/ }).count()) >= 1, '')
+  check('the row leaves the list at once and the line counts two', (await list()).length === 2 && /^Names 2 other notes/.test(((await fold.textContent()) ?? '').trim()), `${(await list()).join(' | ')} / ${await fold.textContent()}`)
+  const text = await h.evaluate(() => document.querySelector('[data-open] .tiptap, .tiptap.ProseMirror.haligtree-editor:not(.is-line)').editor.getText())
+  check('the sentence round the link reads as it did, and the name in code is still code', /Then Hagia Sophia itself/.test(text) && /with Hagia Sophia left as code/.test(text), text.slice(0, 240))
+  // ⌘Z in the note takes the link back, as any edit; the name is offered in the list again once the note has rested.
+  await h.evaluate(() => document.querySelector('[data-open] .tiptap, .tiptap.ProseMirror.haligtree-editor:not(.is-line)').editor.commands.focus())
+  await h.keyboard.press('Meta+z'); await wait(600)
+  check('⌘Z takes the link back', (await links()).length === 0, JSON.stringify(await links()))
+  for (let n = 0; n < 40 && (await list()).length !== 3; n++) await wait(250)
+  check('with the link taken back, the name is in the list again', (await list()).length === 3, (await list()).join(' | '))
+  // "Link all 3": one step, one notice, one Undo for the lot.
+  await fold.scrollIntoViewIfNeeded(); await press(all); await wait(800)
+  joined = await links()
+  check('"Link all 3" links all three, each in its own words', joined.length === 3 && [empire, sophia, kappa].every((id) => joined.some((one) => one.id === id)), JSON.stringify(joined))
+  check('one notice for the lot: "Linked 3 notes"', (await h.getByText('Linked 3 notes').count()) === 1, '')
+  await press(h.locator('button', { hasText: /^Undo/ }).last()); await wait(700)
+  check('its one Undo takes all three back', (await links()).length === 0, JSON.stringify(await links()))
+  check('no page errors', !c.errors.some((one) => /PAGEERROR/.test(one)), c.errors.join(' / ').slice(0, 300))
 } catch (error) {
-  check('the run finished', false, error.message.split('\n')[0])
+  check('the run finished', false, error.message.split('\n').slice(0, 8).join(' ⏎ '))
 } finally {
   await c.close?.()
 }

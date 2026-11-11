@@ -836,7 +836,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 {/* Named after its page: offered, in place, to be named after its topic. */}
                 <PageThoughts id={open.id} />
                 {meta.kind === 'link' && <div data-chrome className="page-narrow mx-auto mt-1 w-full px-[4.5rem]"><TopicName id={open.id} /></div>}
-                {later && <Mentions id={open.id} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
+                {later && <Mentions id={open.id} editor={editor} onOpen={(type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id))} />}
               </ReadsIn>}
               onReady={(ready) => (words.ready(ready), setEditor(ready))}
               onChange={words.save}

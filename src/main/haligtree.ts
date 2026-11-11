@@ -1722,7 +1722,7 @@ export function registerHaligtree(): void {
   // Backlinks the way Obsidian lists them under a note: every note that links
   // here, with the sentence it does it in; and every note that names this
   // one without linking it yet, which one press turns into a link.
-  type Mention = { type: string; id: string; title: string; snippet: string; private: number }
+  type Mention = { type: string; id: string; title: string; snippet: string; private: number; /** For a note this one names: the very words that name it here, so they can be made its link. */ words?: string }
   const everything = (): { type: string; id: string; title: string; body: string; private: number }[] => [
     ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, private from captures where status != 'discarded'`).all() as never[]),
     ...(db.prepare("select tier as type, id, title, body, private from nuggets where superseded_by is null and tier not in ('card', 'deck')").all() as never[])
@@ -1820,7 +1820,7 @@ export function registerHaligtree(): void {
       const lines = read.get(id)!.lines
       for (const hit of book.find(lines, new Set([id, ...already]), true, name)) {
         const row = rows.get(hit.key)
-        if (row && rare(hit.key)) named.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: snippetAt(lines[hit.line], hit.from, hit.to) })
+        if (row && rare(hit.key)) named.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: snippetAt(lines[hit.line], hit.from, hit.to), words: lines[hit.line].slice(hit.from, hit.to) })
       }
     }
     // The lists show twenty; `more` says when there were more, so a heading never counts what it does not list.

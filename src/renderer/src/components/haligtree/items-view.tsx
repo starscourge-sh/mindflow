@@ -1233,7 +1233,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
               </div>
             )}
             <PageThoughts id={item.id} />
-            {later && <Mentions id={item.id} onOpen={onOpen} />}
+            {later && <Mentions id={item.id} editor={ready} onOpen={onOpen} />}
           </ReadsIn>}
           onReady={(instance) => {
             editor.current = instance

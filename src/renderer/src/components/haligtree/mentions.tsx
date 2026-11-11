@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { enqueue } from '@/lib/reading-queue'
 import { AliveIcon } from '@/components/ui/alive-icon'
@@ -13,14 +13,16 @@ import { canSplit, openItems } from '@/lib/split'
 import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { unloaded, unread, haligtree } from '@/lib/haligtree'
 import { Thumb } from './note-extras'
-import { Count, Tags, Tip, VirtualList, quietly, refuse } from './ui'
+import { Count, Tags, Tip, VirtualList, quietly, refuse, toast } from './ui'
 import { taskName } from '@/lib/tasks'
 import { Tilt } from './tilt'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { glideWay } from '@/lib/motion'
 import { num, plural } from '../../../../main/dates'
 import { hoverNote } from './note-preview'
-import { dismissed } from './note-offers'
+import { canLink, dismissed, linkMany } from './note-offers'
+import type { Editor } from '@tiptap/core'
+import { quoted } from '../../../../main/clip'
 
 type Found = Awaited<ReturnType<typeof haligtree.mentions>>
 type Related = Awaited<ReturnType<typeof haligtree.related>>
@@ -30,13 +32,17 @@ type Related = Awaited<ReturnType<typeof haligtree.related>>
  * the line it does it in, and every note that names this one without a link
  * yet. One press makes that mention a link. Unlinked ones start folded.
  */
-export function Mentions({ id, onOpen, compact = false }: {
+export function Mentions({ id, onOpen, compact = false, editor }: {
   id: string
   onOpen?: (type: string, id: string) => void
   /** Under the box's editor: a single folded line until it is opened, so the writing keeps the room. */
   compact?: boolean
+  /** The open note's editor: with it, a note this one names can be linked from its row, in the words that name it. */
+  editor?: Editor | null
 }): React.JSX.Element | null {
   const [found, setFound] = useState<Found | null>(null)
+  // Names linked from here a moment ago: out of the list at once, before the note's next save has it read again.
+  const [linkedNow, setLinkedNow] = useState<string[]>([])
   const [unfolded, setUnfolded] = useState(false)
   const [namedOpen, setNamedOpen] = useState(false)
   const [related, setRelated] = useState<Related>(() => unread([]))
@@ -58,7 +64,7 @@ export function Mentions({ id, onOpen, compact = false }: {
   }
   useEffect(() => {
     const load = (): void => {
-      void haligtree.mentions(id).then(setFound)
+      void haligtree.mentions(id).then((now) => (setFound(now), setLinkedNow([])))
       void haligtree.related(id).then(setRelated)
     }
     load()
@@ -80,26 +86,42 @@ export function Mentions({ id, onOpen, compact = false }: {
   // A link put away with the offer's × ("Not for this note") is not asked again here: the same pair, the same answer.
   const keyOf = (type: string, one: string): string => (type === 'capture' ? one : `${type}:${one}`)
   const away = dismissed()
-  const named = (found?.named ?? []).filter((one) => !away.has(`${keyOf(found?.me ?? 'capture', id)}|link:${keyOf(one.type, one.id)}`))
+  const named = (found?.named ?? []).filter((one) => !linkedNow.includes(keyOf(one.type, one.id)) && !away.has(`${keyOf(found?.me ?? 'capture', id)}|link:${keyOf(one.type, one.id)}`))
+  // Those whose words stand plain in the open note, where a link can go: each gets "Link", and "Link all" counts them.
+  // Looked for only while the list is unfolded, and once for each list read (never on every draw: a long note is long to walk).
+  const linkable = useMemo(
+    () => (namedOpen && editor ? named.filter((one) => one.words && canLink(editor, one.words)) : []),
+    [namedOpen, editor, found, linkedNow] // eslint-disable-line react-hooks/exhaustive-deps
+  )
+  const linkHere = (list: typeof named): void => {
+    if (!editor || !list.length) return
+    const made = linkMany(editor, list.map((one) => ({ words: one.words ?? '', id: keyOf(one.type, one.id), label: taskName(one.title).text || 'New note' })))
+    if (!made) return refuse('Could not link it here: the name is split by formatting, or already a link. Use @ to link it by hand')
+    chime('noted')
+    const keys = list.map((one) => keyOf(one.type, one.id))
+    setLinkedNow((was) => [...was, ...keys])
+    // One notice and one Undo, for one name or for the lot: they went in as one step.
+    toast(made === 1 ? `Linked ${quoted(taskName(list[0].title).text || 'New note', 80)}` : `Linked ${plural(made, 'note')}`, () => (editor.commands.undo(), setLinkedNow((was) => was.filter((one) => !keys.includes(one)))))
+  }
   // The lists show twenty: past that the heading says "20+", never a count of what it does not list.
   const more = (found as { more?: { unlinked: boolean; named: boolean } } | null)?.more
   if (!found || !(found.linked.length || found.unlinked.length || found.out.length || named.length || related.length)) return null
 
   // `link` makes the plain mention a link: in the other note, or in this one.
-  const row = (one: Found['linked'][number], link?: () => Promise<{ was: string; linked: string } | false>): React.JSX.Element => {
-    const linkIt = (): void => void link?.().then((done) => {
+  const row = (one: Found['linked'][number], link?: () => Promise<{ was: string; linked: string } | false>, here?: () => void): React.JSX.Element => {
+    const linkIt = here ?? ((): void => void link?.().then((done) => {
       if (!done) return refuse('Could not link it there: the name is split by formatting, or already a link. Use @ to link it by hand')
       chime('pin')
       // The row moves to the linked list in front of you; ⌘Z puts the other note's words back.
       quietly(() => void haligtree.unlinkMention(one.type, one.id, done.was, done.linked))
-    })
+    }))
     // Right-click, as on every row: open it where you like, link it, copy a link to it.
     const items: RowItem[] = [
       { label: 'Open', run: () => onOpen?.(one.type, one.id) },
       ...openItems(one.type, one.id),
       { label: 'Open in a new window', run: () => openApart(one.type, one.id) },
       'separator',
-      !!link && { label: 'Link this mention', run: linkIt },
+      (!!link || !!here) && { label: here ? 'Link it' : 'Link this mention', run: linkIt },
       copyLinkItem(one.type === 'capture' ? one.id : `${one.type}:${one.id}`, one.title)
     ]
     return (
@@ -110,8 +132,8 @@ export function Mentions({ id, onOpen, compact = false }: {
         <span className="flex min-w-0 items-center gap-1.5"><span dir="auto" {...hoverNote(one.type, one.id)} className="private-text min-w-0 truncate font-medium text-foreground">{taskName(one.title).text || 'New note'}</span><Tags tags={taskName(one.title).tags} /></span>
         {one.snippet && <span className="private-text line-clamp-2 text-control text-muted-foreground">{one.snippet}</span>}
       </button>
-      {link && (
-        <Tip label="Make this mention a link">
+      {(link || here) && (
+        <Tip label={here ? 'Make its name here a link to it' : 'Make this mention a link'}>
           <button
             type="button"
             aria-label="Link it"
@@ -178,13 +200,22 @@ export function Mentions({ id, onOpen, compact = false }: {
       )}
       {named.length > 0 && (
         <>
-          <button type="button" onClick={() => (chime(namedOpen ? 'fold' : 'slide'), setNamedOpen(!namedOpen))} className="mt-2 mb-0.5 flex min-h-6 items-center gap-1 rounded-md px-2 text-meta text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          {/* The heading that folds the list, and at the row's far end what can be done to the whole list. */}
+          <div className="mt-2 mb-0.5 flex items-center gap-2">
+          <button type="button" data-named-fold onClick={() => (chime(namedOpen ? 'fold' : 'slide'), setNamedOpen(!namedOpen))} className="flex min-h-6 items-center gap-1 rounded-md px-2 text-meta text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <ChevronRight className={`size-3 transition-transform ${namedOpen ? 'rotate-90' : ''}`} />
             Names {num(named.length)}{more?.named ? '+' : ''} other {named.length === 1 ? 'note' : 'notes'} without a link
           </button>
-          {/* No Link button here: this note is open and being written, so its words
-              change under the editor's feet. @ links them in place. */}
-          {namedOpen && <Rows list={named} row={row} />}
+          {namedOpen && linkable.length > 1 && (
+            <button type="button" data-link-all onClick={() => linkHere(linkable)}
+              className="ml-auto flex min-h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-control text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              <AliveIcon icon={LinkIcon} size={14} /> Link all {num(linkable.length)}
+            </button>
+          )}
+          </div>
+          {/* Each name can be linked where it stands, in the open note's own editor (so ⌘Z takes it back as any
+              edit); "Link all" does every one listed in one step, with one notice and one Undo. */}
+          {namedOpen && <Rows list={named} row={(one) => row(one, undefined, linkable.includes(one) ? () => linkHere([one]) : undefined)} />}
         </>
       )}
       {related.length > 0 && <RelatedRow cards={related} onOpen={onOpen} />}

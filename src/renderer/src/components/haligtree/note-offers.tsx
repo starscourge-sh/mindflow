@@ -81,8 +81,30 @@ function findWords(editor: Editor, words: string): { from: number; to: number } 
   return found
 }
 
+/** Whether some words stand in the note where a link can go: plain words, not code, not already a link. */
+export const canLink = (editor: Editor, words: string): boolean => !!findWords(editor, words)
+
+/**
+ * Several names made links at once, as one step: one ⌘Z (or the notice's Undo) takes them all back. Each is the
+ * first place its words stand plain; a name whose words lie inside another's is left for its own press. Says how
+ * many it linked.
+ */
+export const linkMany = (editor: Editor, list: { words: string; id: string; label: string }[]): number => {
+  const found = list.flatMap((one) => { const at = findWords(editor, one.words); return at ? [{ ...one, at }] : [] }).sort((a, b) => a.at.from - b.at.from)
+  const apart = found.filter((one, index) => index === 0 || one.at.from >= found[index - 1].at.to)
+  if (!apart.length) return 0
+  // From the last to the first, so no link moves the words of one still to make.
+  const chain = editor.chain().focus()
+  for (const one of [...apart].reverse()) {
+    const written = editor.state.doc.textBetween(one.at.from, one.at.to)
+    chain.insertContentAt(one.at, { type: 'noteLink', attrs: { id: one.id, label: one.label, text: written === one.label ? '' : written } })
+  }
+  chain.run()
+  return apart.length
+}
+
 /** The words made a link to `id`, in the note, as one step ⌘Z takes back. */
-const linkWords = (editor: Editor, words: string, id: string, label: string, inTitle = true): boolean => {
+export const linkWords = (editor: Editor, words: string, id: string, label: string, inTitle = true): boolean => {
   const at = findWords(editor, words)
   // `inTitle` false: a name met only in the note's title ("The Picture of Dorian Gray") stays plain words, the title as written.
   if (!at || (!inTitle && at.from < (editor.state.doc.firstChild?.nodeSize ?? 0))) return false
