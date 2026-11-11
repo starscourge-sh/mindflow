@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './files.css'
 import { smallPicture } from '@/lib/notes'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
@@ -275,6 +275,7 @@ export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, o
   menuFor: (one: Media) => RowItem[]; onClick: (one: Media, event: React.MouseEvent) => void
 }): React.JSX.Element {
   const lines = useMemo(() => grouped(files, (one) => monthOf(one.at), across), [files, across])
+  const ways = useTileWays(menuFor, onClick)
   const cursorKey = files[cursor] ? keyOf(files[cursor]) : null
   return (
     <>
@@ -290,7 +291,7 @@ export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, o
             const here = line.from + at === cursor
             const picked = chosen.includes(key)
             return (
-              <Square key={key} one={one} here={here} picked={picked} menu={menuFor(one)} onClick={(event) => onClick(one, event)} />
+              <Square key={key} one={one} here={here} picked={picked} ways={ways} />
             )
           })}
         </div>
@@ -300,12 +301,25 @@ export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, o
   )
 }
 
-/** A picture as Photos draws it: a square, its name and note rising out of a frosted foot when pointed at. */
-function Square({ one, here, picked, menu, onClick }: { one: Media; here: boolean; picked: boolean; menu: RowItem[]; onClick: (event: React.MouseEvent) => void }): React.JSX.Element {
+/** The page's ways in, held still for its tiles, as FilesTable holds them for its rows. */
+type Ways = { menuFor: (one: Media) => RowItem[]; onClick: (one: Media, event: React.MouseEvent) => void; onUse?: (use: MediaUse, src: string) => void }
+export type TileWays = React.RefObject<Ways>
+export const useTileWays = (menuFor: Ways['menuFor'], onClick: Ways['onClick'], onUse?: Ways['onUse']): TileWays => {
+  const ways = useRef<Ways>({ menuFor, onClick, onUse })
+  ways.current = { menuFor, onClick, onUse }
+  return ways
+}
+
+/**
+ * A picture as Photos draws it: a square, its name and note rising out of a frosted foot when pointed at. Drawn again
+ * only when what it shows changes, its menu made as it opens: drawn afresh on each frame of a scroll, with a menu
+ * built for each, the squares in sight cost a frame its whole budget (qa/files-table.mjs).
+ */
+const Square = memo(function Square({ one, here, picked, ways }: { one: Media; here: boolean; picked: boolean; ways: TileWays }): React.JSX.Element {
   return (
-    <RowMenu items={menu}>
+    <RowMenu items={() => ways.current.menuFor(one)}>
       <button type="button" data-media={one.kind} data-src={one.src} data-id={one.src} data-cursor={here || undefined} data-picked={picked || undefined}
-        onClick={onClick}
+        onClick={(event) => ways.current.onClick(one, event)}
         className={`files-square group/sq relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[6px] bg-accent text-left outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[6px] after:ring-inset ${picked ? 'after:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] after:ring-2 after:ring-[var(--tt-brand-color-400)]' : here ? 'after:ring-2 after:ring-ring' : 'after:ring-1 after:ring-foreground/10'}`}>
         <Cover one={one} className="size-full" />
         {one.kind === 'gif' && <span className="absolute top-1.5 left-1.5 rounded-[3px] bg-background px-1 text-[11px] font-medium">GIF</span>}
@@ -319,7 +333,7 @@ function Square({ one, here, picked, menu, onClick }: { one: Media; here: boolea
       </button>
     </RowMenu>
   )
-}
+})
 
 /**
  * Recordings as Voice Memos lists them: by day, newest first, one line each
@@ -331,6 +345,7 @@ export function AudioDays({ files, cursor, chosen, keyOf, menuFor, onClick, onUs
   menuFor: (one: Media) => RowItem[]; onClick: (one: Media, event: React.MouseEvent) => void; onUse: (use: MediaUse, src: string) => void
 }): React.JSX.Element {
   const lines = useMemo(() => grouped(files, (one) => dayOf(one.at), 1), [files])
+  const ways = useTileWays(menuFor, onClick, onUse)
   const cursorKey = files[cursor] ? keyOf(files[cursor]) : null
   return (
     <>
@@ -348,21 +363,22 @@ export function AudioDays({ files, cursor, chosen, keyOf, menuFor, onClick, onUs
         const first = 'head' in lines[index - 1]
         const after = lines[index + 1]
         const last = !after || 'head' in after
-        return <AudioPiece key={key} one={one} here={here} picked={picked} island={first && last ? 'one' : first ? 'top' : last ? 'end' : 'mid'} menu={menuFor(one)} onClick={(event) => onClick(one, event)} onUse={(use) => onUse(use, one.src)} />
+        return <AudioPiece key={key} one={one} here={here} picked={picked} island={first && last ? 'one' : first ? 'top' : last ? 'end' : 'mid'} ways={ways} />
       }}
     </VirtualList>
     </>
   )
 }
 
-/** A recording's row, one piece of its day's island (Queue's "Up next"): the first with its top, the last with its foot. */
-function AudioPiece({ one, here, picked, island, menu, onClick, onUse }: {
-  one: Media; here: boolean; picked: boolean; island: 'one' | 'top' | 'mid' | 'end'; menu: RowItem[]
-  onClick: (event: React.MouseEvent) => void; onUse: (use: MediaUse) => void
+/** A recording's row, one piece of its day's island (Queue's "Up next"): the first with its top, the last with its foot. Drawn again only when it changes (Square). */
+const AudioPiece = memo(function AudioPiece({ one, here, picked, island, ways }: {
+  one: Media; here: boolean; picked: boolean; island: 'one' | 'top' | 'mid' | 'end'; ways: TileWays
 }): React.JSX.Element {
+  const onClick = (event: React.MouseEvent): void => ways.current.onClick(one, event)
+  const onUse = (use: MediaUse): void => ways.current.onUse?.(use, one.src)
   return (
     <div data-audio-island={island} className={`files-audio-piece ${ISLAND_SURFACE} ${island === 'one' || island === 'top' ? 'rounded-t-xl border-t' : ''} ${island === 'one' || island === 'end' ? 'rounded-b-xl border-b' : ''}`}>
-    <RowMenu items={menu}>
+    <RowMenu items={() => ways.current.menuFor(one)}>
       <div data-media="audio" data-src={one.src} data-id={one.src} data-cursor={here || undefined} data-picked={picked || undefined} role="button" tabIndex={-1}
         onClick={onClick}
         className={`files-audio-row grid min-h-[60px] cursor-pointer items-center gap-x-4 rounded-md px-3 py-3 transition-[background-color] duration-150 ${picked ? 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_14%,transparent)]' : here ? 'bg-accent/50' : 'hover:bg-accent/50'}`}>
@@ -379,13 +395,14 @@ function AudioPiece({ one, here, picked, island, menu, onClick, onUse }: {
     </RowMenu>
     </div>
   )
-}
+})
 
 /** A book as the Books shelf draws it: its first page standing up, its title in the serif, a quiet line under. */
-function BookTile({ one, here, picked, menu, onClick }: { one: Media; here: boolean; picked: boolean; menu: RowItem[]; onClick: (event: React.MouseEvent) => void }): React.JSX.Element {
+const BookTile = memo(function BookTile({ one, here, picked, ways }: { one: Media; here: boolean; picked: boolean; ways: TileWays }): React.JSX.Element {
+  const onClick = (event: React.MouseEvent): void => ways.current.onClick(one, event)
   const cover = usePdfCover(one.gone ? null : one.src, one.name)
   return (
-    <RowMenu items={menu}>
+    <RowMenu items={() => ways.current.menuFor(one)}>
       <button type="button" data-media="pdf" data-src={one.src} data-id={one.src} data-cursor={here || undefined} data-picked={picked || undefined} onClick={onClick}
         className={`pdf-book min-w-0${here ? ' is-picked' : ''}${picked ? ' is-chosen' : ''}`}>
         <span className="pdf-book-cover" data-pdf-peek={one.gone ? undefined : one.src} data-pdf-peek-name={one.name}>
@@ -396,7 +413,7 @@ function BookTile({ one, here, picked, menu, onClick }: { one: Media; here: bool
       </button>
     </RowMenu>
   )
-}
+})
 
 /** When the last note let a file go, as a heading: "Let go today", "Let go yesterday", "Let go on 6 Nov". */
 const letGoHead = (one: Media): string => {
@@ -452,6 +469,7 @@ export function UnlinkedDays({ files, across, books, cursor, chosen, keyOf, menu
   menuFor: (one: Media) => RowItem[]; onClick: (one: Media, event: React.MouseEvent) => void; onUse: (use: MediaUse, src: string) => void
 }): React.JSX.Element {
   const lines = useMemo(() => unlinkedLines(files, across, books), [files, across, books])
+  const ways = useTileWays(menuFor, onClick, onUse)
   const cursorKey = files[cursor] ? keyOf(files[cursor]) : null
   const size = (line: UnlinkedLine): number => ('head' in line ? HEAD : line.shelf === 'picture' ? PICTURE + PICTURE_GAP : line.shelf === 'audio' ? 64 : 260)
   return (
@@ -464,10 +482,11 @@ export function UnlinkedDays({ files, across, books, cursor, chosen, keyOf, menu
         if ('head' in line) return <Head line={line} />
         const tile = (one: Media, at: number): React.JSX.Element => {
           const key = keyOf(one)
-          const props = { one, here: line.from + at === cursor, picked: chosen.includes(key), menu: menuFor(one), onClick: (event: React.MouseEvent) => onClick(one, event) }
-          return line.shelf === 'picture' ? <Square key={key} {...props} />
-            : line.shelf === 'pdf' ? <BookTile key={key} {...props} />
-            : <AudioPiece key={key} {...props} island={line.island ?? 'one'} onUse={(use) => onUse(use, one.src)} />
+          const here = line.from + at === cursor
+          const picked = chosen.includes(key)
+          return line.shelf === 'picture' ? <Square key={key} one={one} here={here} picked={picked} ways={ways} />
+            : line.shelf === 'pdf' ? <BookTile key={key} one={one} here={here} picked={picked} ways={ways} />
+            : <AudioPiece key={key} one={one} here={here} picked={picked} island={line.island ?? 'one'} ways={ways} />
         }
         // A day's recordings end their island with the room a line of squares leaves under it.
         if (line.shelf === 'audio') return <div style={{ paddingBottom: line.island === 'end' || line.island === 'one' ? PICTURE_GAP : 0 }}>{tile(line.files[0], 0)}</div>

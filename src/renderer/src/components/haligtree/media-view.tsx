@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNav, useStepped } from '@/lib/nav'
 import { AudioLines, Check, Image as ImageIcon, Layers, LayoutGrid, Plus, Unlink } from 'lucide-react'
@@ -26,7 +26,7 @@ import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
 import { heroOpen } from '@/lib/hero'
-import { AudioDays, BOOK, BOOK_GAP, letGoWhen, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RECENT_CARD, RECENT_GAP, RecentGrid, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, type Shelf } from './files-shelves'
+import { AudioDays, BOOK, BOOK_GAP, letGoWhen, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RECENT_CARD, RECENT_GAP, RecentGrid, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, useTileWays, type Shelf, type TileWays } from './files-shelves'
 import { Chip, Display, arrange, useView, type Density, type Facet } from './display'
 import { FILE_SORTS, FilesTable, fileOrder, playFile, stopFile, type FileFacts } from './files-table'
 import { openedHere } from '@/lib/media-opened'
@@ -306,6 +306,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const [carrying, setCarrying] = useState(false)
   const carriesFiles = (event: React.DragEvent): boolean => event.dataTransfer.types.includes('Files')
   const onShow = (src: string): void => setShowing(src)
+  // The grid's tiles take the page's ways through one held ref, so a scroll draws no tile again (files-shelves.tsx).
+  const tileWays = useTileWays(menuFor, clickTile, (use, src) => openUse(use, src, onOpen))
   // The "Add" box, open in the page.
   const [adding, setAdding] = useState(false)
   // In the page's column, over the kinds, on every tab alike (its place in each layout below).
@@ -412,7 +414,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
             <VirtualList items={lines} keyOf={(line) => line.key} holds={(line, key) => line.tiles.some((one) => keyOf(one) === key)} cursor={cursor >= 0 ? Math.floor(cursor / across) : undefined} estimate={TILE * 0.75 + 52 + GAP} rowClass="">
               {(line, row) => (
                 <div className="grid" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: GAP, paddingBottom: GAP }}>
-                  {line.tiles.map((one, at) => <Tile key={keyOf(one)} one={one} at={row * across + at === cursor} picked={chosen.includes(keyOf(one))} menu={menuFor(one)} onClick={(event) => clickTile(one, event)} onUse={(use) => openUse(use, one.src, onOpen)} />)}
+                  {line.tiles.map((one, at) => <Tile key={keyOf(one)} one={one} at={row * across + at === cursor} picked={chosen.includes(keyOf(one))} ways={tileWays} />)}
                 </div>
               )}
             </VirtualList>
@@ -502,7 +504,10 @@ export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onB
   ]
 }
 
-function Tile({ one, at, picked, menu, onClick, onUse }: { one: Media; at: boolean; picked: boolean; menu: RowItem[]; onClick: (event: React.MouseEvent) => void; onUse: (use: MediaUse) => void }): React.JSX.Element {
+/** Drawn again only when what it shows changes, its menu made as it opens (files-shelves.tsx, Square). */
+const Tile = memo(function Tile({ one, at, picked, ways }: { one: Media; at: boolean; picked: boolean; ways: TileWays }): React.JSX.Element {
+  const onClick = (event: React.MouseEvent): void => ways.current.onClick(one, event)
+  const onUse = (use: MediaUse): void => ways.current.onUse?.(use, one.src)
   // A PDF is named by the title it carries, as the reader names it, and shows its first page.
   const cover = usePdfCover(one.kind === 'pdf' && !one.gone ? one.src : null, one.name)
   // A recording by its name without ".wav", as its player names it.
@@ -510,7 +515,7 @@ function Tile({ one, at, picked, menu, onClick, onUse }: { one: Media; at: boole
   const audio = one.kind === 'audio'
   const Press = (audio ? 'div' : 'button') as React.ElementType
   return (
-    <RowMenu items={menu}>
+    <RowMenu items={() => ways.current.menuFor(one)}>
       <div data-cursor={at || undefined} data-picked={picked || undefined} data-id={one.src} className={tileClass(at, false, picked)}>
         {/* A recording's face holds its player's own buttons, and a button cannot hold a button. */}
         <Press data-media={one.kind} data-src={one.src} data-note={one.uses.length ? `${one.type}:${one.id}` : undefined} data-pdf-peek={one.kind === 'pdf' && !one.gone ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined} onClick={onClick} {...(audio ? { role: 'button', tabIndex: 0, onKeyDown: (event: React.KeyboardEvent) => event.key === 'Enter' && event.target === event.currentTarget && onClick(event as unknown as React.MouseEvent) } : { type: 'button' })} className="flex min-w-0 cursor-pointer flex-col text-left">
@@ -521,7 +526,7 @@ function Tile({ one, at, picked, menu, onClick, onUse }: { one: Media; at: boole
       </div>
     </RowMenu>
   )
-}
+})
 
 /**
  * Where a file is used, under its name: each note a way there. Used nowhere, it
