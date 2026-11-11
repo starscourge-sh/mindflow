@@ -359,7 +359,7 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
       {/* Over the panel, the icons end where the panel's own edge does; the
           move there takes the window's glide, its length and its curve, on a
           transform (the strip's padding stays put). */}
-      <div className="relative flex w-full items-center gap-1"
+      <div className="mf-top-row relative flex w-full items-center gap-1"
         style={{ padding: '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span ref={back} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>

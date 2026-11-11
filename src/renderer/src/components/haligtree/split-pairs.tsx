@@ -1,5 +1,5 @@
 import { shownName } from '@/lib/haligtree'
-import { useSyncExternalStore, type ComponentType, type CSSProperties } from 'react'
+import { useState, useSyncExternalStore, type ComponentType, type CSSProperties } from 'react'
 import { Pin, X } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
@@ -76,6 +76,8 @@ function SplitMark({ names }: { names: PaneName[] }): React.JSX.Element {
 /** The row: each pane's icon and name side by side, a thin line between, and one ✕ at its end that unpins it. Its menu opens or unpins it. */
 export function PinnedSplit({ names, narrow, onOpen, onUnpin }: { names: PaneName[]; narrow: boolean; onOpen: (index: number) => void; onUnpin: () => void }): React.JSX.Element {
   const both = names.map((one) => shownName(one.title)).join(' | ')
+  // The unpin ✕ pointed at: the names beside it dim (a row's own state; a :has() rule restyled the whole page on every change).
+  const [unpinHot, setUnpinHot] = useState(false)
   const items: RowItem[] = [{ label: 'Open this split', run: () => onOpen(0) }, 'separator', { label: 'Unpin this split', run: onUnpin }]
   const art = (): React.ReactNode => (
     <div data-pair-card className="flex h-full gap-1.5">
@@ -109,18 +111,19 @@ export function PinnedSplit({ names, narrow, onOpen, onUnpin }: { names: PaneNam
     <RowMenu items={items}>
       <div className="flex min-w-0 flex-col">
         <Peek art={art} text={text}>
-          <div data-pair-row="pinned" data-pinned="" aria-label={both} className="group/pair flex h-8 min-w-0 items-center rounded-md px-0.5 ring-1 ring-inset ring-foreground/8">
+          <div data-pair-row="pinned" data-pinned="" data-x-hover={unpinHot || undefined} aria-label={both} className="group/pair flex h-8 min-w-0 items-center rounded-md px-0.5 ring-1 ring-inset ring-foreground/8">
             {names.map((one, index) => (
               <span key={index} className="relative flex min-w-0 flex-1 items-center">
                 {index > 0 && <span aria-hidden className="mx-0.5 h-3.5 w-px shrink-0 bg-foreground/15" />}
                 <button type="button" data-side-row data-pair-pane={index} data-private={one.private ? '' : undefined} onClick={() => onOpen(index)}
-                  className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1 pr-1 pl-1.5 text-left text-control text-foreground/85 transition-opacity duration-[120ms] group-has-[[data-pair-x-all]:hover]/pair:opacity-45 hover:text-foreground">
+                  className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1 pr-1 pl-1.5 text-left text-control text-foreground/85 transition-opacity duration-[120ms] group-data-[x-hover]/pair:opacity-45 hover:text-foreground">
                   {index === 0 ? <Pin className="size-3.5 shrink-0 text-muted-foreground" /> : <one.icon className="size-3.5 shrink-0" style={{ color: one.tint }} />}
                   <span data-pair-title className={`private-text min-w-0 flex-1 truncate ${index === names.length - 1 ? 'group-hover/pair:[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)]' : ''}`}>{one.title}</span>
                 </button>
                 {index === names.length - 1 && (
                   <button type="button" data-pair-x-all aria-label={`Unpin this split, ${both}`} onClick={onUnpin}
-                    className="absolute top-1/2 right-0.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[5px] text-muted-foreground opacity-0 transition-[opacity,scale] duration-[120ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/pair:opacity-100 group-has-[:focus-visible]/pair:opacity-100 hover:bg-foreground/[0.07] hover:text-foreground focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97]">
+                    onPointerEnter={() => setUnpinHot(true)} onPointerLeave={() => setUnpinHot(false)}
+                    className="absolute top-1/2 right-0.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-[5px] text-muted-foreground opacity-0 transition-[opacity,scale] duration-[120ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/pair:opacity-100 group-focus-within/pair:opacity-100 hover:bg-foreground/[0.07] hover:text-foreground focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97]">
                     <X aria-hidden className="size-3.5" />
                   </button>
                 )}

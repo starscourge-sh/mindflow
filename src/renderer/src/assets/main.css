@@ -3123,15 +3123,15 @@ html[data-book-hue] [data-book-tint] {
    The page fades out calmly under it, so what scrolls past never runs
    through it; the paper's grain stays. Room under the page's last row so it
    always comes to rest clear of the line and its fade. The room has its own. */
-:root:not([data-in-room]):has([data-writer-line]) [data-pane-card] .overflow-y-auto:has([data-day-write]) {
+:root[data-writer-shown]:not([data-in-room]) [data-pane-card] .overflow-y-auto[data-day-path] {
   mask-image: linear-gradient(to top, transparent 0, transparent 2.5rem, #000 7rem);
 }
-:root:not([data-in-room]):has([data-writer-line]) [data-pane-card] .overflow-y-auto:has([data-day-write]) > div { padding-bottom: 8rem; }
+:root[data-writer-shown]:not([data-in-room]) [data-pane-card] .overflow-y-auto[data-day-path] > div { padding-bottom: 8rem; }
 /* Toasts rise over it; and the day's aim is its hairline, not a second bar over the words. */
-:root:not([data-in-room]):has([data-writer-line]) { --toast-bottom: var(--mf-writer-toast, 3.75rem); }
-:root:not([data-in-room]):has([data-writer-line]) [data-day-write] [data-word-aim] { display: none; }
+:root[data-writer-shown]:not([data-in-room]) { --toast-bottom: var(--mf-writer-toast, 3.75rem); }
+:root[data-writer-shown]:not([data-in-room]) [data-day-write] [data-word-aim] { display: none; }
 /* With the aim's bar gone, so is the room kept over the words for it: the caption sits the same small gap over the first line, aim or not. */
-:root:not([data-in-room]):has([data-writer-line]) [data-day-write] .haligtree-editor-wrapper:has(> .mf-aim) > .haligtree-editor-content { padding-top: 0; }
+:root[data-writer-shown]:not([data-in-room]) [data-day-write] .haligtree-editor-wrapper:has(> .mf-aim) > .haligtree-editor-content { padding-top: 0; }
 :root[data-in-room] [data-writer-line] { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3228,9 +3228,9 @@ html[data-book-hue] [data-book-tint] {
    button, a link, a tab, a chip, a switch; over the words inside it too, where the text cursor showed. Weightless
    (:where), so a part that says otherwise (a drag handle's grab, a disabled control's arrow) keeps its own, and
    never over what is typed in. */
-:where(button:not(:disabled), [role='button']:not([aria-disabled='true']), a[href], [data-row], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='option'], summary, label:has(> input[type='checkbox']))
+:where(button:not(:disabled), [role='button']:not([aria-disabled='true']), a[href], [data-row], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='option'], summary, li[data-checked] > label)
   :where(*:not(input, textarea, select, [contenteditable='true'], [contenteditable='true'] *)),
-:where(button:not(:disabled), [role='button']:not([aria-disabled='true']), a[href], [data-row], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='option'], summary, label:has(> input[type='checkbox'])) {
+:where(button:not(:disabled), [role='button']:not([aria-disabled='true']), a[href], [data-row], [role='tab'], [role='switch'], [role='checkbox'], [role='radio'], [role='option'], summary, li[data-checked] > label) {
   cursor: pointer;
 }
 
@@ -3334,8 +3334,9 @@ html[data-overhang] .app-container[data-one-line] [data-drag-strip] {
 html[data-overhang] .app-container[data-one-line] .mf-top {
   pointer-events: auto;
 }
-html[data-overhang] .app-container[data-one-line] [data-drag-strip] > :not(:has(.mf-top)),
-html[data-overhang] .app-container[data-one-line] [data-drag-strip] :has(> .mf-top) > :not(.mf-top) {
+/* Named, not found with :has(): a :has() rule makes every window restyle its whole page as anything changes (11 Nov). */
+html[data-overhang] .app-container[data-one-line] [data-drag-strip] > :not(.mf-top-row),
+html[data-overhang] .app-container[data-one-line] [data-drag-strip] .mf-top-row > :not(.mf-top) {
   display: none;
 }
 html[data-overhang]:not([data-controls-above]) .app-container[data-one-line][data-pill] .mf-top {

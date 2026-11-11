@@ -43,6 +43,9 @@ export const useGrammars = (): boolean =>
 /** Code has its marks: brackets, braces, an equals or an arrow, a semicolon. Plain words and numbers have none. */
 const looksLikeCode = (text: string): boolean => /[{}()[\];=<>]|=>|\$\w|^\s*#!|^\s*(def|import|from|class|function|const|let|var|return)\b/m.test(text)
 
+/** Guesses already made, by the code guessed at. */
+const guessed = new Map<string, Root>()
+
 const NOTHING = { type: "root", children: [], data: { language: undefined, relevance: 0 } } as unknown as Root
 
 /** What the code block extension asks of lowlight, answered by the real one once it is in. */
@@ -53,7 +56,15 @@ export const lowlight = {
   highlightAuto: (...args: Parameters<Lowlight["highlightAuto"]>) => {
     if (!real) return (void loadGrammars(), NOTHING)
     if (!looksLikeCode(args[0])) return { type: "root", children: [{ type: "text", value: args[0] }], data: { language: undefined, relevance: 0 } } as unknown as Root
-    return real.highlightAuto(...args)
+    // Every grammar tried over the code is the costly part: a block's answer is kept, so a note of 17 blocks drawn
+    // twice as it opens (and again as each is touched) guesses each once (11 Nov).
+    const key = args[0]
+    const had = guessed.get(key)
+    if (had) return had
+    const found = real.highlightAuto(...args)
+    if (guessed.size > 300) guessed.delete(guessed.keys().next().value!)
+    guessed.set(key, found)
+    return found
   },
   listLanguages: (): string[] => real?.listLanguages() ?? [],
   registered: (name: string): boolean => real?.registered(name) ?? false,

@@ -289,7 +289,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     : <>No {shelf?.many ?? 'files'} here yet.</>
   return (
     // The page as a whole takes a drop: `contents`, so nothing about how it is laid out changes.
-    <div className="contents" data-media-page
+    // Carrying files, said on the page for files.css to soften it: not found with :has(), a whole-page restyle each change.
+    <div className="contents" data-media-page data-carrying={carrying || undefined}
       onDragEnter={(event) => carriesFiles(event) && (event.preventDefault(), setCarrying(true))}
       onDragOver={(event) => carriesFiles(event) && (event.preventDefault(), (event.dataTransfer.dropEffect = 'copy'))}
       onDragLeave={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setCarrying(false)}

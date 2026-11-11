@@ -104,7 +104,8 @@ try {
   const send = (type, id) => electron.evaluate(({ BrowserWindow }, [type, id]) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home'))?.webContents.send('home:open', type, id), [type, id])
   await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
 
-  const table = sql("select id from nuggets where title = 'Voice Registers' limit 1")
+  // QA_NOTE names another note to open (the heaviest seen: "🎬 Tarantino Monologue — CRAFT REFERENCE", ten tables).
+  const table = sql(`select id from nuggets where title = '${(process.env.QA_NOTE ?? 'Voice Registers').replace(/'/g, "''")}' limit 1`)
   const picture = sql("select id from nuggets where title = 'Reading the primary source' limit 1")
   if (!table || !picture) throw new Error(`notes not found (table ${table}, picture ${picture})`)
 

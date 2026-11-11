@@ -392,7 +392,14 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
   const settings = useLive(haligtree.settings, null as Settings | null)
   const words = held.current
   // Today's line is there from the first moment, with only the time and its controls until there are words.
-  if ((!words && !today) || !column) return null
+  // Said on the root while the line shows, for main.css: asked as :root:has([data-writer-line]), every change anywhere
+  // made the browser look at the whole page again (11 Nov).
+  const shown = !!((words || today) && column)
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-writer-shown', shown)
+    return () => document.documentElement.removeAttribute('data-writer-shown')
+  }, [shown])
+  if (!shown) return null
   const aim = aimOf(`day-${day}`)
   const share = aim ? Math.min(1, words / aim.words) : 0
   const minutes = Math.round(spent / 60_000)

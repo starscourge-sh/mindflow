@@ -141,7 +141,7 @@ export function Cover({
   if (picture)
     return (
       // No caption carried beside the pointer: the tile names its picture itself (its foot, or its name when pointed at), and two names at once read as neither.
-      <Tilt className={`private-text relative overflow-hidden bg-accent ${className}`}>
+      <Tilt className={`tile-pic private-text relative overflow-hidden bg-accent ${className}`}>
         <img
           data-tile-picture=""
           src={picture}
@@ -813,7 +813,7 @@ function SmallTile({ entry, words }: { entry: Entry; words?: string }): React.JS
           Only over a picture: a tile of words already says them, and a second copy over the first read as neither. */}
       <span
         data-tile-name
-        className={`private-text pointer-events-none absolute inset-x-0 bottom-0 line-clamp-3 hidden bg-linear-to-t from-black/75 via-black/55 to-transparent px-2 pt-5 pb-1.5 text-[11px] leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-white opacity-0 transition-opacity duration-150 group-has-[[data-tile-picture]]/row:block group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
+        className={`private-text pointer-events-none absolute inset-x-0 bottom-0 line-clamp-3 hidden bg-linear-to-t from-black/75 via-black/55 to-transparent px-2 pt-5 pb-1.5 text-[11px] leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-white opacity-0 transition-opacity duration-150 [.tile-pic+&]:block group-hover/row:opacity-100 group-data-[cursor]/row:opacity-100`}
       >
         <Named entry={entry} />
         {/* An answered question's answer, under its name, in the same caption. */}
