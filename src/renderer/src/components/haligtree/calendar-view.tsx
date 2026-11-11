@@ -23,7 +23,7 @@ import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu } from './row-menu'
 import { MonthPlan, MonthShowMenu, Passing } from './month-plan'
-import { growFrom, usePinchLevels } from './cal-pinch'
+import { usePinchLevels, zoomLevel } from './cal-pinch'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DaySide, type SideAsk } from './day-side'
 import { Highlight, useFluidHover, Weighted } from './glide'
@@ -198,9 +198,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   }, [])
   const few = mode === 'week' && paneWide < FEW_UNDER
   // Pinch out over a week in Month to open it, over a day in Week to open that; pinch in to go back up (cal-pinch.ts).
-  // The new level grows from where it stood; the D, W and M keys and the view buttons change it at once.
+  // The level left goes on the way the fingers took it while the new one comes to its size about what was under them;
+  // the D, W and M keys and the view buttons change it at once.
   const level = useRef<HTMLDivElement>(null)
-  const zoom = useRef<{ from: DOMRect | null; find?: string } | null>(null)
   usePinchLevels(pane, (el, way) => {
     const now = live.current.mode
     if (way === 'up') return now === 'month' ? null : level.current
@@ -209,36 +209,26 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     const day = el.closest<HTMLElement>('[data-cal-col], [data-cal-head], [data-cal-allday]')
     const key = day?.dataset.calCol ?? day?.dataset.calHead ?? day?.dataset.calAllday
     return key ? document.querySelector<HTMLElement>(`[data-cal-col="${CSS.escape(key)}"]`) : null
-  }, (way, el, rect) => {
+  }, (way, el, rect, release) => {
     const now = live.current.mode
-    setPeek(null)
+    const box = pane.current
+    if (!box) return release()
     if (way === 'up') {
+      // Going up, the part you came from is found in the level drawn (a day's column runs the whole day's height:
+      // what is in sight of it is the pane's height).
       const at = live.current.anchor
-      zoom.current = { from: null, find: now === 'week' ? `[data-month-week="${dayKey(at.startOf('week'))}"]` : `[data-cal-col="${dayKey(at)}"]` }
-      return setMode(now === 'week' ? 'month' : 'week')
+      const find = now === 'week' ? `[data-month-week="${dayKey(at.startOf('week'))}"]` : `[data-cal-col="${dayKey(at)}"]`
+      return zoomLevel(box, way, null, () => (release(), setPeek(null), setMode(now === 'week' ? 'month' : 'week')), () => {
+        const one = box.querySelector<HTMLElement>(find)?.getBoundingClientRect()
+        const frame = box.getBoundingClientRect()
+        return one ? (now === 'day' ? new DOMRect(one.left, frame.top, one.width, frame.height) : one) : null
+      })
     }
-    // A day's column runs the whole day's height: what was in sight of it is the pane's height.
-    const box = pane.current?.getBoundingClientRect()
-    zoom.current = { from: now === 'week' && box ? new DOMRect(rect.left, box.top, rect.width, box.height) : rect }
-    setAnchor(dayjs(now === 'month' ? el.dataset.monthWeek : el.dataset.calCol).startOf('day'))
-    setMode(now === 'month' ? 'week' : 'day')
+    const frame = box.getBoundingClientRect()
+    const from = now === 'week' ? new DOMRect(rect.left, frame.top, rect.width, frame.height) : rect
+    const to = dayjs(now === 'month' ? el.dataset.monthWeek : el.dataset.calCol).startOf('day')
+    zoomLevel(box, way, { x: from.left + from.width / 2, y: from.top + from.height / 2 }, () => (release(), setPeek(null), setAnchor(to), setMode(now === 'month' ? 'week' : 'day')))
   })
-  useLayoutEffect(() => {
-    const ask = zoom.current
-    zoom.current = null
-    const el = level.current
-    if (!ask || !el) return
-    if (ask.from) return growFrom(el, ask.from, false)
-    // Going up, the part you came from is found in the level drawn: the month lays its weeks once it knows its height,
-    // so it is looked for on the frame before the first paint.
-    requestAnimationFrame(() => {
-      const one = ask.find ? el.querySelector<HTMLElement>(ask.find) : null
-      if (!one) return
-      const at = one.getBoundingClientRect()
-      const box = el.getBoundingClientRect()
-      growFrom(el, one.dataset.calCol ? new DOMRect(at.left, box.top, at.width, box.height) : at, true)
-    })
-  }, [mode])
   const days = mode === 'day' ? [anchor] : few ? Array.from({ length: FEW }, (_, at) => anchor.add(at, 'day')) : Array.from({ length: 7 }, (_, at) => anchor.startOf('week').add(at, 'day'))
   // What a step is, as the arrows say it: a day, a week, a month, or the three days shown.
   const unit = few ? `${FEW} days` : mode
