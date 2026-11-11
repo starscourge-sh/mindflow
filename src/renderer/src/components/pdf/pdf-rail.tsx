@@ -68,18 +68,22 @@ export function PdfRail({ tab, tabs, onTab, narrow, onDrag, children }: { tab: R
 }
 
 /**
- * The person's hand on the rail: from a wheel that can move it, or a press on it, until the scroll it
- * made has ended (scrollend) and the press is let go. While it is held, a page turned is owed rather
- * than glided to, so the rail never pulls against the hand; let go, the rail glides to the page you
- * are on then. A wheel or a press with no page turned owes nothing: the rail stays where it was left.
+ * The person's hand on the rail: from a wheel that can move it, or a press on it, for as long as the
+ * pointer stays on the rail, the press is held, or the scroll it set going (a trackpad's glide) has
+ * not ended. While it is held, a page turned is owed rather than glided to, so the rail never pulls
+ * against the hand. It is let go when the pointer leaves the rail and its scroll has ended, when the
+ * press is let go, or when you act anywhere else (a key, a wheel or a press on the pages); then the
+ * rail glides to the page you are on. A wheel or a press with no page turned owes nothing: the rail
+ * stays where it was left. All from the person's own events, never a guess at how long they pause.
  */
-type Hand = { held: boolean; down: boolean; moving: boolean; owed: boolean }
+type Hand = { held: boolean; down: boolean; moving: boolean; over: boolean; owed: boolean }
 const hands = new WeakMap<Element, Hand>()
+const ELSEWHERE = ["keydown", "wheel", "pointerdown"] as const
 function handOn(list: HTMLElement): () => void {
-  const hand: Hand = { held: false, down: false, moving: false, owed: false }
+  const hand: Hand = { held: false, down: false, moving: false, over: false, owed: false }
   hands.set(list, hand)
   const letGo = (): void => {
-    if (!hand.held || hand.down || hand.moving) return
+    if (!hand.held || hand.down || hand.moving || hand.over) return
     hand.held = false
     if (!hand.owed) return
     hand.owed = false
@@ -89,12 +93,18 @@ function handOn(list: HTMLElement): () => void {
     const room = list.scrollHeight - list.clientHeight
     // A wheel against an end moves nothing and so never ends a scroll: it holds nothing either.
     if (!event.deltaY || (event.deltaY < 0 ? list.scrollTop <= 0 : list.scrollTop >= room - 1)) return
-    hand.held = hand.moving = true
+    hand.held = hand.moving = hand.over = true
   }
   const down = (event: PointerEvent): void => void (event.button === 0 && (hand.held = hand.down = true))
   const up = (): void => {
     if (!hand.down) return
     hand.down = false
+    // A press is a choice made (a page picked): the rail follows it at once, wherever the pointer rests.
+    hand.over = false
+    letGo()
+  }
+  const leave = (): void => {
+    hand.over = false
     letGo()
   }
   const scrolled = (): void => void (hand.held && (hand.moving = true))
@@ -102,20 +112,30 @@ function handOn(list: HTMLElement): () => void {
     hand.moving = false
     letGo()
   }
+  // Acting anywhere but the rail (reading on with a key, a wheel or a press on the pages) lets it go.
+  const elsewhere = (event: Event): void => {
+    if (!hand.held || hand.down || list.contains(event.target as Node)) return
+    hand.over = hand.moving = false
+    letGo()
+  }
   list.addEventListener("wheel", wheel, { passive: true })
   list.addEventListener("pointerdown", down)
+  list.addEventListener("pointerleave", leave)
   list.addEventListener("scroll", scrolled, { passive: true })
   list.addEventListener("scrollend", ended)
   window.addEventListener("pointerup", up, true)
   window.addEventListener("pointercancel", up, true)
+  for (const way of ELSEWHERE) window.addEventListener(way, elsewhere, { capture: true, passive: true })
   return () => {
     hands.delete(list)
     list.removeEventListener("wheel", wheel)
     list.removeEventListener("pointerdown", down)
+    list.removeEventListener("pointerleave", leave)
     list.removeEventListener("scroll", scrolled)
     list.removeEventListener("scrollend", ended)
     window.removeEventListener("pointerup", up, true)
     window.removeEventListener("pointercancel", up, true)
+    for (const way of ELSEWHERE) window.removeEventListener(way, elsewhere, { capture: true })
   }
 }
 
