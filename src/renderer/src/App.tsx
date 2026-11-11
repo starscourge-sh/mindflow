@@ -892,10 +892,9 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [reading])
-  // The side panel is open to start (⌘\ hides it). Remembered, and the
-  // window is sized to match on every start. A new key, so a panel shut
-  // before it opened by default starts open once.
-  const [chosenPanel, setPanelOpen] = useStoredFlag('boxPanel', true, ['open', 'closed'])
+  // The side panel is shut to start: quick capture is the box alone. ⌘\ (or "Side panel in quick capture" in
+  // Settings) shows it. Remembered, and the window is sized to match on every start.
+  const [chosenPanel, setPanelOpen] = useStoredFlag('boxPanel', false, ['open', 'closed'])
   // While the welcome runs the box is its small self, the panel unopened whatever was chosen
   // (main sizes the window to match); the choice itself is kept for after.
   const welcoming = useWelcoming()
@@ -913,6 +912,8 @@ export default function App(): React.JSX.Element {
   const panelDrawn = panelKept && !welcoming
   const panelWanted = useRef(panel)
   const pillAfterPanel = useRef(false)
+  /** What main was last told about the panel: a change made elsewhere (Settings) is told too. */
+  const panelTold = useRef<boolean | null>(null)
   panelWanted.current = panel
   const setPanel = (open: boolean): void => {
     chime(open ? 'slide' : 'fold')
@@ -921,6 +922,7 @@ export default function App(): React.JSX.Element {
     if (oneLineOn) setPillPanel(open)
     else setPanelOpen(open)
     panelWanted.current = open
+    panelTold.current = open
     if (open) setPanelDrawn(true)
     // The panel's glide sets the height too; the writing's own waits for it to land.
     box.held.current = true
@@ -933,7 +935,17 @@ export default function App(): React.JSX.Element {
   // Said to main only once the settings are read: before, "One line to start" reads as off, the full box's panel
   // was asked for, and the box widened and narrowed again as it opened.
   const settingsRead = appSettings !== null
-  useEffect(() => void (settingsRead && window.api.setPanel(panel)), [oneLineOn, settingsRead]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (settingsRead && ((panelTold.current = panel), window.api.setPanel(panel))), [oneLineOn, settingsRead]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Turned on or off in Settings: drawn (or not) and the window sized to match, without a sound.
+  useEffect(() => {
+    if (panelTold.current === null || panelTold.current === panel) return
+    panelTold.current = panel
+    if (panel) setPanelDrawn(true)
+    void window.api.setPanel(panel).then(() => {
+      if (!panelWanted.current) setPanelDrawn(false)
+      box.refit()
+    })
+  }, [chosenPanel]) // eslint-disable-line react-hooks/exhaustive-deps
   // From the writing to the list and back without the mouse: ⌃J (or ⌃K, from outside the words) leaves
   // the note for the panel's list (opening the panel if it is shut), and I
   // comes back, as vim's insert does. A menu open in the note keeps ⌃J and ⌃K.
@@ -2151,6 +2163,8 @@ export default function App(): React.JSX.Element {
               { label: 'Hide buttons', hint: 'They show when you point at them', on: hideButtons, keys: '⌥⌘,', set: (on: boolean) => setHideButtons(on) },
               { label: 'Vim keys', on: vim, set: setVim },
               { label: 'Word count', hint: 'Under the note', on: counting, set: setCounting },
+              // Settings' "Auto-close quick capture", here too: off, the box stays open and steps aside (main's stepAside).
+              { label: 'Close when you click away', hint: 'Off: it stays open and steps aside', on: appSettings?.boxAutoHide !== false, set: (boxAutoHide: boolean) => void haligtree.setSettings({ boxAutoHide }) },
               { label: 'Show in screen recordings', on: recordable, set: setRecordable },
               { label: 'Show private titles', hint: 'Until quick capture closes', on: reveal, set: setReveal },
               // For the technical: the note open, as JSON.

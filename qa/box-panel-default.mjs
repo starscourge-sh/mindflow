@@ -1,6 +1,6 @@
-// Quick capture opens with its side panel (Inbox, Tasks, Review, Saved and
-// Recent) open to start, the window wide enough for both; ⌘\ hides it, and
-// that is remembered.
+// Quick capture opens as the box alone, its side panel (Inbox, Tasks, Review, Saved and Recent) shut to start;
+// ⌘\ shows it, and that is remembered. Settings' "Side panel in quick capture" is the same choice: turned off
+// there, the box narrows to match.
 //
 //   npx electron-vite build --outDir out-bp
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-bp/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-panel-default.mjs
@@ -18,14 +18,21 @@ const width = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWind
 const toggle = () => page.locator('button[aria-label="Hide the side panel"], button[aria-label="Show the side panel"]').first()
 try {
   await wait(1500)
-  check('open to start', (await toggle().getAttribute('aria-pressed')) === 'true')
-  check('the window is wide enough for both', (await width()) === 1080, String(await width()))
-  await page.keyboard.press('Meta+Backslash')
+  check('shut to start', (await toggle().getAttribute('aria-pressed')) === 'false')
+  check('the window is the box alone', (await width()) === 640, String(await width()))
+  const oneLine = await app.evaluate(() => globalThis.haligtreeBoxSize?.().height)
+  check('the whole box to start, not the one-line pill', oneLine > 56, `height ${oneLine}`)
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', metaKey: true, bubbles: true })))
   await wait(900)
-  check('⌘\\ hides it', (await toggle().getAttribute('aria-pressed')) === 'false' && (await width()) === 640, String(await width()))
+  check('⌘\\ shows it', (await toggle().getAttribute('aria-pressed')) === 'true' && (await width()) === 1080, `${await toggle().getAttribute('aria-pressed')} ${await width()} ${JSON.stringify(await app.evaluate(() => globalThis.haligtreeBoxSize?.()))}`)
   await page.reload()
   await wait(1500)
-  check('hidden is remembered', (await toggle().getAttribute('aria-pressed')) === 'false')
+  check('shown is remembered', (await toggle().getAttribute('aria-pressed')) === 'true' && (await width()) === 1080, String(await width()))
+  // Settings' switch writes the same choice from another window: the box hears it and narrows.
+  const home = app.windows().find((w) => w.url().includes('view=home'))
+  await home.evaluate(() => localStorage.setItem('boxPanel', 'closed'))
+  await wait(1200)
+  check('turned off in Settings, the box narrows', (await toggle().getAttribute('aria-pressed')) === 'false' && (await width()) === 640, String(await width()))
 } finally {
   await run.close().catch(() => {})
   try { run.electron.process().kill('SIGKILL') } catch {}

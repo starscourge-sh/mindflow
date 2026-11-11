@@ -130,6 +130,21 @@ function AeroSpaceSetting(): React.JSX.Element | null {
   )
 }
 
+/**
+ * Quick capture's side panel (Inbox, Tasks, Review, Saved), shut to start: the box alone is quick capture.
+ * The same choice ⌘\ makes in the box, kept where the box keeps it, so either way it is the one setting.
+ */
+function BoxPanelSetting({ oneLine }: { oneLine: boolean }): React.JSX.Element {
+  const [on, setOn] = useStoredFlag('boxPanel', false, ['open', 'closed'])
+  return (
+    <Setting title="Side panel in quick capture" note="Quick capture opens with your Inbox, Tasks, Review and Saved beside the writing." more="Off to start: quick capture is the box alone. ⌘\ in quick capture shows or hides it too." off={oneLine && '“One line to start” is on, so the panel waits for ⌘\\ for now.'} keywords="side panel inbox tasks review saved recent lists beside quick capture box window wide">
+      {/* The sample: the box, with the panel's strip beside it when on. */}
+      <span aria-hidden className="flex h-7 w-16 items-stretch gap-1 rounded-md border border-border bg-popover p-1"><span className="flex flex-1 flex-col justify-center gap-1"><span className="h-1 w-full rounded-full bg-foreground/50" /><span className="h-1 w-6 rounded-full bg-foreground/30" /></span>{on && <span className="w-4 rounded-sm bg-foreground/15" />}</span>
+      <Switch checked={on} onCheckedChange={setOn} />
+    </Setting>
+  )
+}
+
 /** A slider's value beside it: one width for every slider, so the sliders line up down a section. */
 const SLIDER_VALUE = 'w-24 text-right tabular-nums'
 
@@ -693,7 +708,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <CentredSample on={settings.boxCentred !== false} />
             <Switch checked={settings.boxCentred !== false} onCheckedChange={(boxCentred) => set({ boxCentred })} />
           </Setting>
-          <Setting title="Auto-close quick capture" note="Quick capture puts itself away when you click into another app." more="Like Raycast. What you wrote is kept. On to start; off, it stays up beside what you are reading until Esc or the key again." keywords="close when you click away box window close hide blur focus click away raycast auto">
+          <Setting title="Auto-close quick capture" note="Quick capture puts itself away when you click into another app." more="Like Raycast. What you wrote is kept. On to start; off, it stays open and steps aside when you click near it, until Esc or the key again. Also in quick capture's gear menu, as “Close when you click away”." keywords="close when you click away box window close hide blur focus click away raycast auto">
             <Switch checked={settings.boxAutoHide !== false} onCheckedChange={(boxAutoHide) => set({ boxAutoHide })} />
           </Setting>
           <Setting title="Dim quick capture" note="Quick capture fades to half strength when you click into another app." more="So the window you are in is clear. Off, it stays as bright as when you write in it." off={settings.blur === false && '“Blurring” is off, so no window dims for now.'} keywords="dim when you click away box window dim fade faded transparent opacity blur focus click away lose">
@@ -705,7 +720,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <span aria-hidden className="flex h-7 w-16 items-center gap-1 rounded-md border border-border bg-popover px-2"><span className="h-1 flex-1 rounded-full bg-foreground/50" /><span className="h-3 w-3 rounded-sm border border-foreground/40 transition-opacity duration-200" style={{ opacity: settings.boxHideButtons ? 0.12 : 1 }} /></span>
             <Switch checked={settings.boxHideButtons === true} onCheckedChange={(boxHideButtons) => set({ boxHideButtons })} />
           </Setting>
-          <Setting title="One line to start" note="Quick capture opens as one line, and grows only once there is more to show." more="A second line, what sending it will do, or the kind picker (its icon on the left) grows it. Esc folds a grown one back. No side panel while it is on." keywords="one line pill minimal minimalist small compact single line spotlight raycast grow box window">
+          <BoxPanelSetting oneLine={settings.boxOneLine === true} />
+          <Setting title="One line to start" note="Quick capture opens as one line, like Spotlight, and grows only once there is more to show." more="Off to start: quick capture opens as the whole box. On, a second line, what sending it will do, or the kind picker (its icon on the left) grows it, and Esc folds a grown one back. No side panel while it is on." keywords="one line pill minimal minimalist small compact single line spotlight raycast grow box window">
             {/* The sample: the pill, or the whole box with its row under the writing. */}
             <span aria-hidden className={cn('flex w-16 flex-col justify-center gap-1 border border-border bg-popover px-2 transition-[height,border-radius] duration-200 ease-out motion-reduce:transition-none', settings.boxOneLine ? 'h-4 rounded-full' : 'h-7 rounded-md')}><span className="h-1 w-full rounded-full bg-foreground/50" />{!settings.boxOneLine && <span className="h-1 w-6 self-end rounded-full bg-foreground/30" />}</span>
             <Switch checked={settings.boxOneLine === true} onCheckedChange={(boxOneLine) => set({ boxOneLine })} />

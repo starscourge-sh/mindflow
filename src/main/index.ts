@@ -275,7 +275,7 @@ const PILL = 56
 /** What the writing asks for, as the page last measured it. */
 let fit = FIT_MIN
 /** The side panel and the expander, as the page last asked. */
-let panelOpen = true
+let panelOpen = false
 let expandedNow = false
 /**
  * The side panel as the box wears it now: never while the welcome runs, which
