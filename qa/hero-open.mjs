@@ -263,7 +263,7 @@ await settle(1200)
 
 // 3. A picture in Files' grid: it lifts out of its square into the viewer (its own lift, image-look.tsx).
 {
-  await h.locator('[data-media-kinds] button', { hasText: /^Pictures$/ }).first().click().catch(() => {})
+  await h.locator('[data-media-kinds] button', { hasText: /^Images$/ }).first().click().catch(() => {})
   await settle(1000)
   const at = await rectOf('.files-square')
   await install()
