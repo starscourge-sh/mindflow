@@ -29,6 +29,7 @@ import { dayMonth, num } from '../../../../main/dates'
 import { Overlay, SETTLE, snapshot } from './sortable'
 import { Count, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
+import { ofTheWriting } from '@/lib/writing-floats'
 import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
 import { EASING, still } from '@/lib/motion'
 
@@ -1393,7 +1394,7 @@ function CardEditor({ content, onDone }: { content: JSONContent[]; onDone: (cont
     // A press anywhere outside the card, menus the editor opened aside.
     const away = (event: PointerEvent): void => {
       const target = event.target as HTMLElement
-      if (!box.current?.contains(target) && !target.closest('[data-radix-popper-content-wrapper], [role="menu"], [role="dialog"]')) done()
+      if (!box.current?.contains(target) && !ofTheWriting(target)) done()
     }
     board?.addEventListener('board:done', done)
     document.addEventListener('pointerdown', away, true)

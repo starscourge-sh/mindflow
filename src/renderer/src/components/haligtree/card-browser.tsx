@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, useLive, type Due } from '@/lib/haligtree'
 import { canSplit, openAside, useHere } from '@/lib/split'
+import { ofTheWriting } from '@/lib/writing-floats'
 import { binItem } from '@/lib/to-bin'
 import type { Node as ProseNode } from '@tiptap/pm/model'
 import { HaligtreeEditor } from './haligtree-editor'
@@ -278,7 +279,7 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
     const away = (event: PointerEvent): void => {
       const target = event.target as Element | null
       // Its own parts, and what it opens (the editor's menus and tips, in portals), are not away.
-      if (!target || box.current?.contains(target) || target.closest?.('[data-radix-popper-content-wrapper], [role="menu"], [role="dialog"], .tippy-box')) return
+      if (!target || box.current?.contains(target) || ofTheWriting(target)) return
       // Another card pressed: it opens as this one is kept, in the same moment. Left to its click, the list had
       // already closed up under the pointer and the click landed on nothing.
       const other = target.closest?.('[data-card-row]')?.getAttribute('data-card-row') ?? undefined

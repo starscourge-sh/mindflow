@@ -33,6 +33,7 @@ import { cut } from '../../../../main/clip'
 import { X } from '@/components/ui/icons'
 import { EASING, still } from '@/lib/motion'
 import { menuShowing } from '@/lib/menu-showing'
+import { ofTheWriting } from '@/lib/writing-floats'
 import { liftCard } from '@/lib/card-pointer'
 import { APP_NAME } from '../../../../main/name'
 import { num } from '../../../../main/dates'
@@ -563,11 +564,12 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
       if (!editing && event.key.toLowerCase() === 'e' && !(event.target as Element | null)?.closest?.('textarea, input:not([type=checkbox]), [contenteditable="true"]'))
         return (event.preventDefault(), edit())
     }
-    // A press on such a menu is a press in the writing (the menu is drawn at the foot of the page, outside the
-    // card): leaving then took the editor away before the press reached its row, and the fix was never made.
+    // A press on such a menu, or on the spelling pill, is a press in the writing (both are drawn at the foot of the
+    // page, outside the card): leaving then took the editor away before the press reached it, and the fix was
+    // never made.
     const onDown = (event: PointerEvent): void => {
       const target = event.target as Element | null
-      if (editing && !area.current?.contains(target) && !target?.closest?.('[data-radix-popper-content-wrapper], [role="menu"]')) leave()
+      if (editing && !area.current?.contains(target) && !ofTheWriting(target)) leave()
     }
     const away = (): void => void (editing && leave())
     window.addEventListener('keydown', onKey, true)

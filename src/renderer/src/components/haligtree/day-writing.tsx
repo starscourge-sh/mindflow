@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 
 import { useCounts } from '@/components/count/word-count'
+import { ofTheWriting } from '@/lib/writing-floats'
 import { EASING, still, useStill } from '@/lib/motion'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { read as aimOf } from '@/components/count/word-aim'
@@ -147,7 +148,7 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
     const onPress = (event: PointerEvent): void => {
       if (!root.hasAttribute('data-day-writing')) return
       const at = event.target as Element | null
-      if (at?.closest?.('[data-writer-line], [data-radix-popper-content-wrapper], [role="menu"]') || (at && dom.contains(at))) return
+      if (at?.closest?.('[data-writer-line]') || ofTheWriting(at) || (at && dom.contains(at))) return
       back()
     }
     // Esc brings it all back at once, and is taken: it is not the page's Esc too.
