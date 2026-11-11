@@ -460,7 +460,7 @@ function openFile(one: Media, aside = false, page?: number): void {
   if (one.kind === 'pdf') return void openPdf(one.src, one.name, page ?? lastPage.get(one.src), undefined, aside)
   const tile = document.querySelector(`[data-media][data-src="${CSS.escape(one.src)}"]`)
   if (one.kind === 'audio') return void tile?.querySelector<HTMLElement>('[data-sound-play]')?.click()
-  if (one.kind === 'video' || one.kind === 'document') return openFileLook(one, tile?.querySelector('img') ?? tile)
+  if (one.kind === 'video' || one.kind === 'document') return void openFileLook(one, tile?.querySelector('img') ?? tile)
   void openLook(one.src, tile?.querySelector('img') ?? tile, bare(one.name))
 }
 

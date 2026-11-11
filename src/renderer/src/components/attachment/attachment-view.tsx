@@ -702,7 +702,7 @@ function CardFace({ src, name }: { src: string; name: string }): React.JSX.Eleme
   return (
     <button type="button" data-attachment-face={face ? (face.icon ? "icon" : "page") : ""} aria-label={`Preview ${name || "the file"}`} title="Preview"
       className={`tiptap-attachment-face${face && !face.icon ? " is-page" : ""}`}
-      onClick={(event) => (event.stopPropagation(), openFileLook(one, event.currentTarget))}>
+      onClick={(event) => (event.stopPropagation(), void openFileLook(one, event.currentTarget))}>
       {face?.image ? <img src={face.image} alt="" draggable={false} /> : <File className="tiptap-attachment-icon" />}
     </button>
   )

@@ -8,7 +8,7 @@ import ExternalLinkIcon from "@/components/ui/external-link-icon"
 import { X } from "@/components/ui/icons"
 import { Orb } from "@/components/haligtree/orb"
 import { refuse } from "@/components/haligtree/ui"
-import { kindWord } from "@/components/haligtree/files-shelves"
+import { faceOf, kindWord } from "@/components/haligtree/files-shelves"
 import { useMedia } from "@/components/attachment/attachment-view"
 import { markOpened } from "@/lib/media-opened"
 import { notes } from "@/lib/notes"
@@ -25,8 +25,19 @@ type Shown = Pick<Media, "src" | "kind" | "name" | "gone">
  * app's own controls (the same as a note's, attachment-view.tsx); a document shows its first page as the Mac's Quick
  * Look draws it, large, or, where the Mac draws none, its icon. Either has "Open in its app" and "Show in Finder".
  */
-export function openFileLook(one: Shown, from?: Element | null): void {
+export async function openFileLook(one: Shown, from?: Element | null): Promise<void> {
   markOpened(one.src)
+  const rect = from?.getBoundingClientRect() ?? null
+  // A document's face already on its tile is there at once, at its own shape, while the large one is made: it grows
+  // out of the tile with its page on it, then sharpens, never a loader that pops into a page.
+  const had = one.kind === "document" ? faceOf(one.src) : undefined
+  let start: Start | null = null
+  if (had?.image && !had.icon) {
+    const probe = new Image()
+    probe.src = had.image
+    await probe.decode().catch(() => undefined)
+    if (probe.naturalWidth) start = { image: had.image, width: probe.naturalWidth, height: probe.naturalHeight }
+  }
   const holder = document.createElement("div")
   document.body.append(holder)
   const root = createRoot(holder)
@@ -34,12 +45,13 @@ export function openFileLook(one: Shown, from?: Element | null): void {
     root.unmount()
     holder.remove()
   }
-  root.render(<FileLook one={one} from={from?.getBoundingClientRect() ?? null} onClose={done} />)
+  root.render(<FileLook one={one} from={rect} start={start} onClose={done} />)
 }
 
 const bare = (name: string): string => name.replace(/\.[^.]+$/, "") || name
+type Start = { image: string; width: number; height: number }
 
-function FileLook({ one, from, onClose }: { one: Shown; from: DOMRect | null; onClose: () => void }): React.JSX.Element {
+function FileLook({ one, from, start, onClose }: { one: Shown; from: DOMRect | null; start: Start | null; onClose: () => void }): React.JSX.Element {
   const frame = useRef<HTMLDivElement>(null)
   const backdrop = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
@@ -79,7 +91,7 @@ function FileLook({ one, from, onClose }: { one: Shown; from: DOMRect | null; on
       <div data-drag-strip="" aria-hidden className="absolute inset-x-0 top-0 h-10 [-webkit-app-region:drag]" />
       <div className="pointer-events-none absolute inset-x-12 top-12 bottom-24 flex items-center justify-center">
         <div ref={frame} className="pointer-events-auto flex max-h-full max-w-full items-center justify-center">
-          {one.kind === "video" ? <Player one={one} toggleRef={toggleRef} /> : <Page one={one} />}
+          {one.kind === "video" ? <Player one={one} toggleRef={toggleRef} /> : <Page one={one} start={start} />}
         </div>
       </div>
       <div className="mf-look-foot">
@@ -144,13 +156,17 @@ function Player({ one, toggleRef }: { one: Shown; toggleRef: React.RefObject<() 
 }
 
 /** A document's first page as Quick Look draws it, large; or the Mac's icon for its kind where it draws none. */
-function Page({ one }: { one: Shown }): React.JSX.Element {
-  const [face, setFace] = useState<{ image: string; icon: boolean } | null>(null)
+function Page({ one, start }: { one: Shown; start: Start | null }): React.JSX.Element {
+  const [face, setFace] = useState<{ image: string; icon: boolean } | null>(start && { image: start.image, icon: false })
+  // Its box, from the face it opened with: the large one has the same shape and takes its place without a move.
+  const [room] = useState(() => ({ w: innerWidth - 96, h: innerHeight - 144 }))
+  const box = start ? ((scale) => ({ width: Math.round(start.width * scale), height: Math.round(start.height * scale) }))(Math.min(room.w / start.width, room.h / start.height, 1600 / Math.max(start.width, start.height))) : null
   useEffect(() => {
     let live = true
     void notes.thumb(one.src, 1600)
       .then(async (image) => (image ? { image, icon: false } : { image: await call<string>("media:icon", one.src).catch(() => ""), icon: true }))
-      .then((made) => live && setFace(made), () => live && setFace({ image: "", icon: true }))
+      // Quick Look drew nothing this large, though it did small: the small one stays.
+      .then((made) => live && setFace((was) => (made.icon && was && !was.icon ? was : made)), () => live && setFace((was) => was ?? { image: "", icon: true }))
     return () => void (live = false)
   }, [one.src])
   if (!face) return <span className="grid h-64 w-64 place-items-center"><Orb label="Drawing a preview…" /></span>
@@ -163,5 +179,5 @@ function Page({ one }: { one: Shown }): React.JSX.Element {
       </span>
     )
   }
-  return <img data-file-look-page src={face.image} alt="" draggable={false} className="mf-look-image max-h-[calc(100vh-9rem)] max-w-full cursor-default! bg-white object-contain" style={{ width: "auto", height: "auto" }} />
+  return <img data-file-look-page src={face.image} alt="" draggable={false} className="mf-look-image max-h-[calc(100vh-9rem)] max-w-full cursor-default! bg-white object-contain" style={box ?? { width: "auto", height: "auto" }} />
 }

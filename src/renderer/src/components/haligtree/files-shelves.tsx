@@ -38,6 +38,8 @@ export const kindWord = (one: Pick<Media, 'kind' | 'name' | 'src'>): string => {
 const WEBM = /\.webm$/
 /** Faces found so far, by file and size: a tile scrolled away and back shows its face at once. */
 const faces = new Map<string, { image: string; icon: boolean }>()
+/** A file's face already drawn on a tile, the larger first, for a preview to open with at once. */
+export const faceOf = (src: string): { image: string; icon: boolean } | undefined => faces.get(`true:${src}`) ?? faces.get(`false:${src}`)
 /**
  * A video's or a document's face, made in the main process (notes.ts, quickLook): a frame of the video, a document's
  * first page as Quick Look draws it, or for a file Quick Look cannot draw, the Mac's own icon for its kind (`icon`).
