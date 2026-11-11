@@ -267,8 +267,14 @@ try {
     await c.electron.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view=')); win?.setBounds({ x: 60, y: 60, width: 900, height: 620 }); win?.showInactive() })
     await box.waitForTimeout(900)
     await box.keyboard.press('Control+1'); await box.waitForTimeout(700)
-    // The box has more than one live region: its notice is the one with words.
-    const boxSaid = () => box.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent ?? '').find((text) => text.trim()) ?? '')
+    // The notice, in whichever window of the app shows it (the box has more than one live region; its notice is the one with words).
+    const boxSaid = async () => {
+      for (const win of [box, ...c.electron.windows().filter((one) => one !== box)]) {
+        const text = await win.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent ?? '').find((words) => /Moved|Resolved|Saved/.test(words)) ?? '').catch(() => '')
+        if (text) return text
+      }
+      return ''
+    }
     const rowsIn = () => box.evaluate(() => [...document.querySelectorAll('[data-box-panel] [data-row][data-type="capture"][data-id]')].filter((one) => one.offsetParent).map((one) => one.dataset.id))
     const there = await rowsIn()
     check('quick capture\'s panel lists the Inbox', there.length >= 3, `${there.length} rows`)
