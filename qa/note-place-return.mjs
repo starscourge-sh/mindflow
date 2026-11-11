@@ -111,6 +111,7 @@ async function trip({ name, heading, open, openOther }) {
   if (!left) return check(`${name}: "${heading}" found`, false, JSON.stringify(await h.evaluate(() => [...document.querySelectorAll('.tiptap.ProseMirror :is(h1,h2,h3,h4,h5,h6)')].slice(0, 5).map((el) => [el.textContent, el.getClientRects().length]))))
   console.log(`${name}: left "${heading}" at y ${left.y} (scrolled ${left.top} of ${left.height})`)
   await openOther()
+  if (process.env.DEBUG) { console.log("kept", await h.evaluate(() => localStorage.getItem("note-places"))); await wait(1500); console.log("kept later", await h.evaluate(() => [localStorage.getItem("note-places"), document.querySelectorAll(".tiptap.ProseMirror").length, [...document.querySelectorAll("[data-document]")].map((one) => one.getAttribute("data-document") + ":" + one.getClientRects().length)])) }
   await wait(1500)
   await h.evaluate(findInPage)
   await record(heading, 2000)
@@ -175,7 +176,7 @@ try {
     await s.go('articles')
     await wait(900)
     const row = (title) => h.locator('[data-pane] [data-row]', { hasText: title }).first()
-    for (const [one, other] of [['Heavy One', 'Heavy Two'], ['Heavy Two', 'Heavy One']]) {
+    for (const [one, other] of process.env.QA_ONLY ? [] : [["Heavy One", "Heavy Two"], ["Heavy Two", "Heavy One"]]) {
       await trip({ name: `${one} (list)`, heading: `${one} part 17`, open: () => row(one).click(), openOther: () => row(other).click() })
     }
     // And by a link, as the sidebar and ⌘K open a note.

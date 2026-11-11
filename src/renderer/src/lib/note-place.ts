@@ -67,7 +67,10 @@ function anchorOf(view: EditorView, scroller: HTMLElement): { block: number; int
     if (blocks[middle].getBoundingClientRect().bottom <= edge) low = middle + 1
     else high = middle
   }
-  const top = blocks[low]
+  // The first block that starts on the screen, not the one cut by its edge: a picture above it may load at another
+  // height, and a place partway into it could not be found again. The cut one only when nothing else starts on screen.
+  const next = blocks[low + 1]
+  const top = blocks[low].getBoundingClientRect().top < edge - 0.5 && next && next.getBoundingClientRect().top < edge + scroller.clientHeight / 2 ? next : blocks[low]
   try {
     const at = view.posAtDOM(top, 0)
     const $at = view.state.doc.resolve(at)
@@ -137,17 +140,21 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       if (kept.from > 0 && kept.from < size) editor.commands.setTextSelection(kept.from)
       put()
     }
+    // Where you are now, read when you scroll and when the note changes size under a still screen (a picture loads above it).
+    const read = (): void => {
+      if (!scroller || holding) return
+      // Read to its last screen, a note is finished with: it opens at its top next time, not at the bottom with nothing left to read.
+      top = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < scroller.clientHeight ? 0 : scroller.scrollTop
+      anchor = top ? anchorOf(view, scroller) : null
+    }
     // Held there as the note grows above it: told after each layout, before it is painted.
-    const grows = new ResizeObserver(put)
+    const grows = new ResizeObserver(() => (holding ? put() : read()))
     grows.observe(dom)
     const onScroll = (): void => {
       if (!scroller) return
       // Moved by something else (a link to a heading, find), that wins. The browser's own scroll anchoring keeps the block where it was, so never counts.
       if (holding && Math.abs(scroller.scrollTop - mine) > 1 && Math.abs(drift() ?? 0) > 1) holding = false
-      if (holding) return
-      // Read to its last screen, a note is finished with: it opens at its top next time, not at the bottom with nothing left to read.
-      top = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < scroller.clientHeight ? 0 : scroller.scrollTop
-      anchor = top ? anchorOf(view, scroller) : null
+      read()
     }
     const onSelect = (): void => void (from = editor.state.selection.from)
     scroller?.addEventListener('scroll', onScroll, { passive: true })
