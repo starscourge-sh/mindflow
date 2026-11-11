@@ -239,7 +239,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   if (backs.length) parts.push(backs.length === 1 ? 'a Check back asks you something' : 'a few Check backs ask you something')
   if (deciding) parts.push('it is deciding day')
   if (prompt?.key === 'clue') parts.push('a question has a new clue')
-  if (waiting.tidy) parts.push('new notes are waiting to be sorted')
+  if (waiting.tidy) parts.push('new notes are waiting to be tidied')
   if (reviews) parts.push('a few things come back for review')
   // A marked day a week away or nearer leads: it is what the day is counting toward.
   if (coming && dayjs(coming.day).diff(dayjs(dayKey(now)), 'day') <= 7) parts.unshift(countdown(coming, dayKey(now)))

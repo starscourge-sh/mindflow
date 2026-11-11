@@ -2603,26 +2603,45 @@ export function registerHaligtree(): void {
     }
     return write(id)
   })
-  // A capture moved to Writing: a page with its words, name, properties, source, privacy and date, in the folder
+  // Captures moved to Writing: a page each with its words, name, properties, source, privacy and date, in the folder
   // named (one of Writing's) or loose. Taken from the Inbox only, like every exit. The capture is kept behind it, as
-  // with a question made from one, so every link to it still opens (now on the page: `lineage`, `became`).
-  handle('capture:toWriting', (captureId: string, folder?: string | null) => {
-    const from = db.prepare('select title, named, body, status, private, fields, attribution, medium, aliases, captured_at from captures where id = ?')
-      .get(captureId) as { title: string; named: number; body: string | null; status: string; private: number; fields: string | null; attribution: string | null; medium: string | null; aliases: string | null; captured_at: string } | undefined
-    if (!from || from.status !== 'open') return null
+  // with a question made from one, so every link to it still opens (now on the page: `lineage`, `became`). A pin or
+  // a reminder follows the note to its page, so the sidebar's pin opens what it became. One or many in one write:
+  // fifty picked are one change to every list, not fifty.
+  handle('capture:toWriting', (captureIds: string | string[], folder?: string | null) => {
     const group = folder ? (db.prepare("select id, name from note_groups where id = ? and list = 'article'").get(folder) as { id: string; name: string } | undefined) : undefined
-    const id = randomUUID()
+    const read = db.prepare('select title, named, body, status, private, fields, attribution, medium, aliases, captured_at, pinned_at, remind_at from captures where id = ?')
     // Named by its first line, as every page is, unless it came with a name of its own.
-    db.prepare("insert into nuggets (id, tier, kind, title, body, capture_id, private, fields, attribution, medium, aliases, group_id, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(id, from.named && from.title ? from.title : 'Untitled', from.body ?? 'null', captureId, from.private, from.fields, from.attribution, from.medium, from.aliases, group?.id ?? null, from.captured_at, now())
-    db.prepare("update captures set status = 'promoted' where id = ?").run(captureId)
-    resolveWaiting(linkOf('nuggets', id))
-    return write({ id, folder: group?.name ?? null })
+    const add = db.prepare("insert into nuggets (id, tier, kind, title, body, capture_id, private, fields, attribution, medium, aliases, group_id, pinned_at, remind_at, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    const leave = db.prepare("update captures set status = 'promoted', pinned_at = null, remind_at = null where id = ?")
+    const made: { capture: string; id: string; folder: string | null }[] = []
+    atomically(() => {
+      for (const captureId of [captureIds].flat()) {
+        const from = read.get(captureId) as { title: string; named: number; body: string | null; status: string; private: number; fields: string | null; attribution: string | null; medium: string | null; aliases: string | null; captured_at: string; pinned_at: string | null; remind_at: string | null } | undefined
+        if (!from || from.status !== 'open') continue
+        const id = randomUUID()
+        add.run(id, from.named && from.title ? from.title : 'Untitled', from.body ?? 'null', captureId, from.private, from.fields, from.attribution, from.medium, from.aliases, group?.id ?? null, from.pinned_at, from.remind_at, from.captured_at, now())
+        leave.run(captureId)
+        made.push({ capture: captureId, id, folder: group?.name ?? null })
+      }
+    })
+    // Links written by name before these pages existed now find them (after the write: it makes its own).
+    if (made.length) resolveWaiting(...made.map((one) => linkOf('nuggets', one.id)))
+    return made.length ? write(made) : made
   })
-  // Taken back: the page goes and the capture is open again, as it was.
-  handle('capture:toWriting:undo', (captureId: string, id: string) => {
-    db.prepare("delete from nuggets where id = ? and capture_id = ? and tier = 'article'").run(id, captureId)
-    db.prepare("update captures set status = 'open' where id = ?").run(captureId)
+  // Taken back: each page goes and its capture is open again, as it was, its pin and reminder with it.
+  handle('capture:toWriting:undo', (pairs: { capture: string; id: string }[]) => {
+    const page = db.prepare("select pinned_at, remind_at from nuggets where id = ? and capture_id = ? and tier = 'article'")
+    const drop = db.prepare("delete from nuggets where id = ? and capture_id = ? and tier = 'article'")
+    const back = db.prepare("update captures set status = 'open', pinned_at = coalesce(pinned_at, ?), remind_at = coalesce(remind_at, ?) where id = ? and status = 'promoted'")
+    atomically(() => {
+      for (const one of pairs) {
+        const was = page.get(one.id, one.capture) as { pinned_at: string | null; remind_at: string | null } | undefined
+        if (!was) continue
+        drop.run(one.id, one.capture)
+        back.run(was.pinned_at, was.remind_at, one.capture)
+      }
+    })
     return write(true)
   })
   // Taken back: the question and its clues go, and a capture it came from is open again.
@@ -4832,7 +4851,13 @@ export function registerHaligtree(): void {
     const one = <T>(sql: string, ...args: (string | number)[]): T => db.prepare(sql).get(...args) as T
     const all = <T>(sql: string, ...args: (string | number)[]): T[] => db.prepare(sql).all(...args) as T[]
     return {
-      exits: all<{ status: string; n: number }>('select status, count(*) n from captures group by status'),
+      // Where each went, by what it became: a capture kept behind a page in Writing, or inside a question, is
+      // "promoted" too, and counted as a gem it said so of pages and questions.
+      exits: all<{ status: string; n: number }>(`select case when status != 'promoted' then status
+          when exists (select 1 from nuggets a where a.capture_id = captures.id and a.tier = 'article') then 'writing'
+          when exists (select 1 from nuggets q where q.capture_id = captures.id and q.tier = 'question') then 'question'
+          when exists (select 1 from glosses g join nuggets n on n.id = g.item_id where g.source_id = captures.id and n.tier = 'question') then 'question'
+          else status end as status, count(*) n from captures group by 1`),
       kinds: all<{ kind: string; n: number }>('select kind, count(*) n from captures group by kind order by n desc'),
       week: one<{ n: number }>('select count(*) n from captures where captured_at >= ?', ago(7)).n,
       lastWeek: one<{ n: number }>('select count(*) n from captures where captured_at >= ? and captured_at < ?', ago(14), ago(7)).n,

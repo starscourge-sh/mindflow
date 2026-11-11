@@ -156,12 +156,15 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
   // Only what happened today, each its own clause: tasks closed count as much as captures caught.
   const today = [
     stats.day.captured > 0 && <>noted down <N>{plural(stats.day.captured, 'thing', 'things')}</N></>,
-    stats.day.exits > 0 && <>sorted <N>{plural(stats.day.exits, 'thing', 'things')}</N> from your Inbox</>,
+    stats.day.exits > 0 && <>dealt with <N>{plural(stats.day.exits, 'thing', 'things')}</N> from your Inbox</>,
     stats.day.tasks > 0 && <>closed <N>{plural(stats.day.tasks, 'task', 'tasks')}</N></>,
     stats.day.reviews > 0 && <>reviewed <N>{plural(stats.day.reviews, 'card', 'cards')}</N></>
   ].filter(Boolean)
   const exits = [
     { status: 'promoted', label: 'became gems', tone: TONES[0] },
+    // Kept behind a page or a question, not a gem: counted as what they became (main's `stats`), and shown once there are any.
+    ...(by.writing ? [{ status: 'writing', label: 'moved to Writing', tone: TONES[0] * 0.8 }] : []),
+    ...(by.question ? [{ status: 'question', label: 'went into questions', tone: TONES[0] * 0.64 }] : []),
     { status: 'resolved', label: 'resolved', tone: TONES[1] },
     { status: 'discarded', label: 'moved to the Bin', tone: TONES[2] }
   ]
@@ -267,7 +270,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
 
         <GoalSection example={example} />
 
-        <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'thing sorted from your Inbox' : 'things sorted from your Inbox' }}>
+        <Section title="The doing, this week" big={{ value: stats.lead.exits, label: stats.lead.exits === 1 ? 'thing from your Inbox dealt with' : 'things from your Inbox dealt with' }}>
           <p>No target here, only the trend: the last seven days.</p>
           <Fact label="Thoughts added to your notes" value={num(stats.lead.glosses)} />
           <Fact label="Days you reviewed cards" value={num(stats.lead.reviewDays)} />
@@ -349,7 +352,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
         </Section>
         {!example && <YearOfAnswers />}
 
-        <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'sorted' } : undefined}>
+        <Section title="Where captures go" big={total ? { value: percent(total - (by.open ?? 0), total), label: 'dealt with' } : undefined}>
           {/* No bar until something has taken an exit: an empty one reads as a failing grade. */}
           {exits.some((exit) => by[exit.status]) && (
             <div data-chart="exits">
