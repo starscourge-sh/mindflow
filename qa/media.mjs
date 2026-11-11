@@ -61,6 +61,15 @@ const { h, v, go, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const chip = (name) => h.locator('[data-page=media] [data-media-kinds] button', { hasText: name }).first().click({ timeout: 5000 })
 const tiles = () => h.evaluate(() => [...document.querySelectorAll('[data-page=media] [data-media]')].map((one) => ({ kind: one.dataset.media, src: one.dataset.src, note: one.dataset.note })))
+const search = async (words) => { await h.locator('[data-page=media] input[placeholder^="Find"]').fill(words); await wait(600) }
+/** Every file Files holds, gathered tab by tab: All shows piles, each kind its own view (Books its shelf). */
+const everyTile = async () => {
+  const out = []
+  for (const name of ['Images', 'Audio']) { await chip(name); await wait(700); out.push(...(await tiles())) }
+  await chip('Books'); await wait(1200)
+  out.push(...(await h.evaluate(() => [...document.querySelectorAll('[data-page=media] [data-book]')].map((one) => ({ kind: 'pdf', src: one.dataset.book })))))
+  return out
+}
 try {
   process.env.QA_ARGS = '--sandbox'
   await v('settings:set', { sounds: false, hintRate: 0 })
@@ -86,35 +95,37 @@ try {
   await wait(600)
 
   await go('media'); await wait(1500)
-  const all = await tiles()
+  const all = await everyTile()
   const kinds = Object.fromEntries(['picture', 'gif', 'pdf', 'audio'].map((kind) => [kind, all.filter((one) => one.kind === kind).length]))
   check('tiles for each kind', kinds.picture >= 1 && kinds.gif >= 1 && kinds.pdf >= 1 && kinds.audio >= 1, JSON.stringify(kinds))
   check('the four made here are among them', [png, gif, pdf, wav].every((src) => all.some((one) => one.src === src)), `${all.length} tiles`)
-  const pdfFace = await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"] img`)?.getAttribute('src')?.slice(0, 22) ?? 'file tile', pdf)
+  const pdfFace = await h.evaluate((src) => document.querySelector(`[data-book="${src}"] img`)?.getAttribute('src')?.slice(0, 22) ?? 'file tile', pdf)
   check('the PDF tile shows its first page', pdfFace.startsWith('data:image'), pdfFace)
   check('a gem\'s link back into the PDF is no tile of its own', all.filter((one) => one.src === pdf).length === 1, JSON.stringify(all.filter((one) => one.src === pdf)))
-  const pdfName = await h.evaluate((src) => document.querySelector(`[data-media][data-src="${src}"] .text-sm.font-medium`)?.textContent, pdf)
+  const pdfName = await h.evaluate((src) => document.querySelector(`[data-book="${src}"] .pdf-book-title`)?.textContent, pdf)
   check('the PDF tile is named by its title, else its file name without .pdf', pdfName === 'Lease', pdfName)
   const kept = await v('pdf:cover', pdf)
   check('its cover is kept in the book, ready at once next time', !!kept?.image?.startsWith('data:image/jpeg'), JSON.stringify(kept)?.slice(0, 60))
+  await chip('Audio'); await wait(700)
   check('the recording tile plays where it sits', await h.evaluate((src) => !!document.querySelector(`[data-media][data-src="${src}"] [data-sound-play]`), wav))
   await shot(h, 'media-light')
 
-  await h.locator('[data-page=media] input[placeholder^="Find"]').fill('tomatoes'); await wait(500)
+  await chip('All'); await wait(500)
+  await search('tomatoes')
   const found = await tiles()
   check('the search finds a picture by the words around it', found.some((one) => one.src === png) && !found.some((one) => one.src === gif), `${found.length} tiles`)
-  await h.locator('[data-page=media] input[placeholder^="Find"]').fill('lease'); await wait(500)
+  await search('lease')
   const named = await tiles()
   check('and a file by its name', named.length >= 1 && named.every((one) => one.kind === 'pdf') && named.some((one) => one.src === pdf), JSON.stringify(named.map((one) => one.kind)))
-  await h.locator('[data-page=media] input[placeholder^="Find"]').fill(''); await wait(400)
-  await chip('GIFs'); await wait(500)
+  await search('')
+  await chip('Images'); await wait(500)
   const gifs = await tiles()
-  check('"GIFs" leaves only GIFs', gifs.length >= 1 && gifs.every((one) => one.kind === 'gif'), JSON.stringify(gifs.map((one) => one.kind)))
+  check('"Images" holds the pictures and the GIFs, and only those', gifs.some((one) => one.kind === 'gif') && gifs.every((one) => one.kind === 'gif' || one.kind === 'picture'), JSON.stringify(gifs.map((one) => one.kind)))
   await chip('Audio'); await wait(500)
   const audio = await tiles()
   check('"Audio" leaves only recordings', audio.length >= 1 && audio.every((one) => one.kind === 'audio'), JSON.stringify(audio.map((one) => one.kind)))
-  await chip('Audio'); await wait(500)
-  check('pressed again, "Audio" shows every kind', (await tiles()).length === all.length)
+  await chip('All'); await wait(500)
+  check('"All" shows a pile for each kind', (await h.$$eval('[data-pile]', (one) => one.length)) === 3)
 
   // "PDFs" is a library: each book once as its cover, its name made readable, and an inspector for the one picked.
   await chip('Books'); await wait(1500)
@@ -123,13 +134,15 @@ try {
   check('a file name like "18 - The Law Book (z-lib.org).pdf" reads "The Law Book"', shelf.books.includes('The Law Book'), JSON.stringify(shelf.books))
   check('the inspector shows the book picked, with a way to open it', !!shelf.inspector && shelf.open === 'Start reading', JSON.stringify(shelf))
   await shot(h, 'media-library')
-  await h.locator('[data-library] .pdf-book', { hasText: 'Lease' }).click(); await wait(400)
-  check('a click picks a book for the inspector', await h.evaluate(() => document.querySelector('.book-head-title')?.textContent) === 'Lease', '')
+  // A plain click opens a book now (books-one-click.mjs); ⌘-click picks it, and the inspector shows it.
+  await h.locator('[data-library] .pdf-book', { hasText: 'Lease' }).click({ modifiers: ['Meta'] }); await wait(400)
+  check('⌘-click picks a book for the inspector', await h.evaluate(() => document.querySelector('.book-head-title')?.textContent) === 'Lease', '')
   // The shelf with a book picked, light and dark.
   if (process.env.SHOTS) await c.both(`${process.env.SHOTS}/media-library`)
   await h.locator('.pdf-inspector-open').click(); await wait(1500)
   check('"Start reading" opens it in the reader', await h.evaluate(() => !!document.querySelector('.pdf-reader')), '')
   await go('media'); await wait(1200)
+  await chip('Images'); await wait(700)
 
   // A click: the note opens on the picture, picked.
   await h.locator(`[data-media][data-src="${png}"]`).click(); await wait(1800)
@@ -140,6 +153,8 @@ try {
   check('a click opens the note on the picture', landed.there && landed.picked, JSON.stringify(landed))
 
   await go('media'); await wait(1200)
+  await chip('All'); await wait(400)
+  await search('lease')
   const panes = await h.evaluate(() => document.querySelectorAll('[data-pane]').length)
   await h.locator(`[data-media][data-src="${pdf}"]`).click({ modifiers: ['Alt'] }); await wait(1800)
   const after = await h.evaluate(() => document.querySelectorAll('[data-pane]').length)
@@ -148,6 +163,8 @@ try {
   await shot(h, 'media-aside')
 
   // "Copy link", pasted into another note: the same picture there.
+  await search('')
+  await chip('Images'); await wait(700)
   await h.locator(`[data-media][data-src="${png}"]`).click({ button: 'right' }); await wait(400)
   // A picture's two copies sit together under "Copy", as on every row.
   await h.getByRole('menuitem', { name: 'Copy', exact: true }).hover({ timeout: 5000 }); await wait(500)
@@ -156,6 +173,7 @@ try {
   await h.locator('[role=menu] [role=menuitem]', { hasText: 'Copy link' }).last().click(); await wait(500)
   // Into another note, opened from its own tile.
   await go('media'); await wait(1200)
+  await chip('Images'); await wait(700)
   await h.locator(`[data-media][data-src="${gif}"]`).click(); await wait(1800)
   // It lands with the GIF picked: a step down is the line under it.
   await h.keyboard.press('ArrowDown'); await h.keyboard.press('End'); await wait(200)
