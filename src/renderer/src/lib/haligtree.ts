@@ -897,7 +897,7 @@ export function useAppearance(): void {
     const width = settings.pageWidth ?? (settings.fullWidth ? 'full' : 'narrow')
     document.documentElement.dataset.width = width === 'narrow' ? 'page' : width
     document.documentElement.dataset.linkPictures = settings.linkPictures ?? 'fill'
-    document.documentElement.dataset.avatars = settings.avatars ?? 'shapes'
+    document.documentElement.dataset.avatars = settings.avatars ?? 'initials'
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
     document.documentElement.dataset.postcardBorder = settings.postcardBorder ?? 'auto'

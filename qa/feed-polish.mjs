@@ -85,14 +85,17 @@ try {
   await theme('light')
   await feedAgain()
 
-  // 3. Avatars: shapes by default, initials over them, the same shape for the same name.
+  // 3. Avatars: initials by default (11 Nov); shapes when chosen, initials over them, the same shape for the same name.
+  check('faces are initials by default', await h.evaluate(() => document.documentElement.dataset.avatars) === 'initials')
+  await v('settings:set', { avatars: 'shapes' }); await wait(500)
   await h.evaluate(() => document.querySelector('[data-feed]')?.closest('.overflow-y-auto')?.scrollTo(0, 0))
   await wait(400)
-  const faces = await h.locator('[data-feed-post] .mf-avatar[data-avatar-shape]').evaluateAll((all) => all.map((one) => ({
+  // Faces under 20px always wear initials (avatar.tsx: a shape that small is a blob), so they are left out here.
+  const faces = await h.locator("[data-feed-post] .mf-avatar[data-avatar-shape]:not([data-look='initials'])").evaluateAll((all) => all.map((one) => ({
     name: one.closest('[data-feed-post]').querySelector('[data-feed-account]')?.textContent, shape: one.dataset.avatarShape,
     svg: getComputedStyle(one.querySelector('.mf-avatar-shape')).display, letters: one.querySelector(':scope > span')?.textContent, color: getComputedStyle(one).color
   })))
-  check('faces are shapes by default, with initials over them', faces.length > 3 && faces.every((one) => one.svg === 'block' && one.letters), JSON.stringify(faces.slice(0, 2)))
+  check('chosen, faces are shapes with initials over them', faces.length > 3 && faces.every((one) => one.svg === 'block' && one.letters), JSON.stringify(faces.filter((one) => one.svg !== 'block' || !one.letters).slice(0, 3)))
   const byName = new Map()
   for (const one of faces) byName.set(one.name, [...(byName.get(one.name) ?? []), one.shape])
   check('the same name always wears the same shape', [...byName.values()].every((list) => new Set(list).size === 1) && new Set(faces.map((one) => one.shape)).size >= 2, [...byName].slice(0, 4).map(([n, l]) => `${n}:${l[0]}`).join(' '))
@@ -180,14 +183,16 @@ try {
   await wait(1500)
   const round = await h.locator('[data-feed-post] .mf-avatar[data-avatar-shape]').first().evaluate((one) => ({ svg: getComputedStyle(one.querySelector('.mf-avatar-shape')).display, radius: getComputedStyle(one).borderRadius }))
   check('"Initials" switches the Feed to the round faces', round.svg === 'none' && round.radius !== '0px', JSON.stringify(round))
+  // Back to shapes for the light and dark pictures that follow (Settings opens at its top, the row drawn only once near).
+  await v('settings:set', { avatars: 'shapes' })
   await go('settings')
   await wait(1200)
-  await h.locator('[data-choices="Avatars"] [data-choice="shapes"]').click()
-  await wait(800)
   for (const name of ['light', 'dark']) {
     await theme(name)
     await go('settings')
     await wait(1200)
+    // Settings opens at its top and draws a row only once it is near: its pictures are taken when it is there.
+    if (!(await h.locator('[data-choices="Avatars"]').count())) { console.log(`  (${name}: the Avatars row is not drawn at Settings' top; no picture)`); continue }
     await h.locator('[data-choices="Avatars"]').scrollIntoViewIfNeeded()
     await h.locator('[data-choices="Avatars"]').evaluate((one) => one.closest('[data-setting], section, div')?.scrollIntoView({ block: 'center' }))
     await wait(400)

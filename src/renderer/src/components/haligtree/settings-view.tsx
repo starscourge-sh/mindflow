@@ -686,7 +686,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             below={<YourProfile bio={settings.bio ?? ''} setBio={(bio) => set({ bio })} />} />
           <Setting title="Avatars" note="The face a source, or you, wears in the Feed and on a source's page until it has a picture." more="“Shapes” gives each name its own shape from Coolshapes, tinted by your theme; the same name always wears the same one." keywords="avatars faces initials shapes coolshapes circles people sources feed accounts"
             below={<Choices label="Avatars" options={(['shapes', 'initials'] as const).map((look) => ({ id: look, label: look === 'shapes' ? 'Shapes' : 'Initials', show: <AvatarSample look={look} /> }))}
-              on={(id) => id === (settings.avatars ?? 'shapes')} pick={(avatars) => set({ avatars: avatars as Settings['avatars'] })} />} />
+              on={(id) => id === (settings.avatars ?? 'initials')} pick={(avatars) => set({ avatars: avatars as Settings['avatars'] })} />} />
         </Group>
         <Group section="Appearance" title="Window placement">
           <Setting title="Keep quick capture centred" note="Quick capture grows on both sides when its panel opens, so it stays centred." more="Off, it grows to the right." keywords="box window centre center grow panel expand position place">
