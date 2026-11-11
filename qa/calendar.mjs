@@ -7,7 +7,7 @@
 //   npx electron-vite build --outDir out-calendar
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calendar/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/calendar.mjs
 import { sandbox } from './sandbox-lib.mjs'
-import { THEMES, checkInks, dragAcross, monthKey, nextMonth, swipe, where } from './month-lib.mjs'
+import { THEMES, checkInks, dragAcross, monthKey, nextMonth, where } from './month-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1300, height: 900 })
@@ -88,7 +88,8 @@ try {
   if (process.env.SHOTS) await h.locator(M).screenshot({ path: `${process.env.SHOTS}/month-popover-light.png` })
   await h.mouse.move(5, 5); await h.waitForTimeout(400)
 
-  // Months go sideways on Home: a swipe or ⇧ and the wheel is one month; up and down are the page's.
+  // Home's month moves by its ‹ › buttons, by the keyboard on them too, and by Today. Sideways swipes are Back and Forward
+  // (the user, 11 Nov), so nothing in the month keeps them; up and down are the page's.
   const home = '[data-home-plan]'
   const frame = async () => h.locator(`${M} [data-month-scroll]`).evaluate((el) => el.parentElement.scrollIntoView({ block: 'center' }))
   await h.keyboard.press('Escape'); await go('home'); await h.waitForTimeout(800); await frame(); await h.waitForTimeout(600)
@@ -100,22 +101,27 @@ try {
   check('Home opens on this month', spot.month === now && spot.snapped, JSON.stringify(spot))
   const title = async () => (await h.locator(`${M} [data-month-name]`).innerText()).trim()
   const named = (k) => { const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} ${y}` }
-  await swipe(h, 120)
+  check('nothing in the month keeps sideways swipes from Back and Forward', await h.locator(`${M} [data-swipe-own], ${M}[data-swipe-own]`).count() === 0)
+  await h.locator(`${M} [data-month-next]`).click(); await h.waitForTimeout(900)
   spot = await where(h)
-  check('a sideways swipe moves one month and the title changes', spot.month === nextMonth(now) && spot.snapped && await title() === named(nextMonth(now)), `${JSON.stringify(spot)} ${await title()}`)
-  await swipe(h, -120)
+  check('› moves one month and the title changes', spot.month === nextMonth(now) && spot.snapped && await title() === named(nextMonth(now)), `${JSON.stringify(spot)} ${await title()}`)
+  await h.locator(`${M} [data-month-prev]`).click(); await h.waitForTimeout(900)
   spot = await where(h)
-  check('a swipe the other way comes back a month', spot.month === now && spot.snapped, JSON.stringify(spot))
-  await swipe(h, 120, { shift: true })
+  check('‹ comes back a month', spot.month === now && spot.snapped, JSON.stringify(spot))
+  // By the keyboard: the › button focused, Enter, then Space.
+  await h.locator(`${M} [data-month-next]`).focus()
+  await h.keyboard.press('Enter'); await h.waitForTimeout(500)
   spot = await where(h)
-  check('⇧ and the wheel moves a month too', spot.month === nextMonth(now) && spot.snapped, JSON.stringify(spot))
-  await swipe(h, 2000)
+  check('Enter on › moves a month, at once', spot.month === nextMonth(now) && spot.snapped, JSON.stringify(spot))
+  await h.keyboard.press(' '); await h.waitForTimeout(500)
   spot = await where(h)
-  check('a long swipe is still one month', spot.month === nextMonth(now, 2) && spot.snapped, JSON.stringify(spot))
+  check('Space on › moves another', spot.month === nextMonth(now, 2) && spot.snapped, JSON.stringify(spot))
+  await h.locator(`${M} [data-month-next]`).blur()
   // A plain wheel scrolls Home, never the months.
   const page = h.locator(home).locator('xpath=ancestor::div[contains(@class,"overflow-y-auto")][1]')
   const before = await page.evaluate((el) => el.scrollTop)
-  await swipe(h, 0); await h.mouse.wheel(0, 250); await h.waitForTimeout(900)
+  { const box = await h.locator(`${M} [data-month-scroll]`).boundingBox(); await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2) }
+  await h.mouse.wheel(0, 250); await h.waitForTimeout(900)
   check('a plain wheel over the calendar scrolls Home, not the months', (await page.evaluate((el) => el.scrollTop)) > before + 50 && (await where(h)).month === nextMonth(now, 2), `${before} -> ${await page.evaluate((el) => el.scrollTop)}`)
   await frame(); await h.waitForTimeout(500)
   // Arrows and Today slide there; with Reduce motion they jump.
@@ -157,12 +163,12 @@ try {
   await h.locator('[data-month-captures-switch]').click(); await h.waitForTimeout(500)
   check('ticking Captures shows the marks at once and keeps the menu open', (await v('settings')).monthCaptures === true && await h.locator(`${M} [data-captured]`).count() > 0 && await h.locator('[role="menu"]').count() === 1)
   await h.locator('[data-month-captures-switch]').click(); await h.keyboard.press('Escape'); await h.waitForTimeout(400)
-  // A task carried into next month: held, a swipe on, set down there.
+  // A task carried onto a day of next month the six weeks show (no swipe moves Home's month any more).
   await frame(); await h.waitForTimeout(500)
-  const later = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 10)
-  await dragAcross(h, 'cal move me', key(later))
+  const later = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1)
+  await dragAcross(h, 'cal move me', key(later), undefined, { stay: true })
   const across = (await v('tasks')).find((one) => one.id === moving)
-  check('dragging a task into next month, swiping while held, moves it there', across && key(new Date(across.dueAt)) === key(later), across?.dueAt)
+  check('dragging a task onto a day of next month moves it there', across && key(new Date(across.dueAt)) === key(later), across?.dueAt)
   if (process.env.SHOTS) await h.locator(M).screenshot({ path: `${process.env.SHOTS}/month-after-drag.png` })
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
   check('⌘Z puts it back in this month', key(new Date((await v('tasks')).find((one) => one.id === moving).dueAt)) === key(at(2)))

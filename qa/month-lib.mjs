@@ -85,7 +85,7 @@ export const swipe = async (h, by, { wait = 900, shift = false } = {}) => {
 }
 
 /** A task's or a mark's chip carried from its day, a swipe on to the next month while it is held, and set down there. */
-export const dragAcross = async (h, title, target, chipSelector = '[data-plan-task]') => {
+export const dragAcross = async (h, title, target, chipSelector = '[data-plan-task]', { stay = false } = {}) => {
   const M = '[data-month-plan]'
   const chip = h.locator(`${M} ${chipSelector}`, { hasText: title }).first()
   await chip.scrollIntoViewIfNeeded()
@@ -96,10 +96,12 @@ export const dragAcross = async (h, title, target, chipSelector = '[data-plan-ta
   await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 })
   // On to the next month while it is held: sideways on Home's six weeks, down a few weeks on the Calendar's run of weeks.
   const run = await h.locator(`${M} [data-month-run]`).count()
-  if (run) await h.mouse.wheel(0, 4 * ((await h.locator(`${M} [data-month-week]`).first().boundingBox()).height + 1))
+  // `stay`: the target is already in sight (Home's month, where no swipe moves it any more).
+  if (stay) await h.waitForTimeout(200)
+  else if (run) await h.mouse.wheel(0, 4 * ((await h.locator(`${M} [data-month-week]`).first().boundingBox()).height + 1))
   else await h.mouse.wheel(160, 0)
-  await h.waitForTimeout(run ? 1200 : 700)
-  const to = await h.locator(run ? `${M} [data-day="${target}"]` : `${M} [data-month-grid="${target.slice(0, 7)}"] [data-day="${target}"]`).boundingBox()
+  if (!stay) await h.waitForTimeout(run ? 1200 : 700)
+  const to = await h.locator(run || stay ? `${M} [data-day="${target}"]` : `${M} [data-month-grid="${target.slice(0, 7)}"] [data-day="${target}"]`).boundingBox()
   await h.mouse.move(to.x + to.width / 2, to.y + 40, { steps: 12 })
   await h.mouse.up(); await h.waitForTimeout(1000)
 }
