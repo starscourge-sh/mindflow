@@ -8,7 +8,8 @@ import { Fragment, Slice } from "@tiptap/pm/model"
 import { NodeSelection, Selection as PMSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
-import { EditorContent, EditorContext, useEditor } from "@tiptap/react"
+import { EditorContext, useEditor } from "@tiptap/react"
+import { EditorSurface, holdViews } from "@/components/haligtree/editor-surface"
 import { followPdfLink, isPdfHref, isReadable, openArticle } from "@/components/pdf/pdf-reader"
 import { canSplit } from "@/lib/split"
 import { useNotePlace } from "@/lib/note-place"
@@ -1616,6 +1617,8 @@ function Surface({
     contentType: typeof defaultContent === "string" && shape === "line" ? "markdown" : "json",
     // Its Markdown laid in the moment it has a view, before the frame is painted: laid in on create (a
     // tick later), an imported note showed empty for a frame, then its words, and pushed what was under it down.
+    // Its React blocks have somewhere to be drawn from before it builds its page, so the page is built once (editor-surface.tsx).
+    onBeforeCreate: ({ editor: instance }) => holdViews(instance),
     onMount: ({ editor: instance }) => {
       if (laidIn.has(instance)) return
       laidIn.add(instance)
@@ -2181,13 +2184,13 @@ function Surface({
         {/* A finish line, when this piece has a word aim (word-aim.tsx). */}
         {shape === "document" && !readOnly && documentId != null && <WordAim editor={editor} id={String(documentId)} />}
 
-        <EditorContent
+        <EditorSurface
           editor={editor}
           role="presentation"
           className={`haligtree-editor-content relative p-3 overflow-auto${
             smoothScroll ? " is-smooth" : ""
           }${typing ? " is-typewriter" : ""}${onTokenClick ? "" : " tags-inert"}`}
-          ref={contentRef}
+          innerRef={contentRef}
         />
         {/* After the words, inside the same scroll: added beside ProseMirror's
             own element, never inside it. */}
