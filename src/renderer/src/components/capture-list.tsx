@@ -191,7 +191,7 @@ export const captureWays = (capture: Pick<CaptureMeta, 'id' | 'kind' | 'status'>
     { id: 'task', label: 'Make it a task', tint: 'orange', run: () => then(makeTask({ capture: capture.id }, undefined, { onUndo: back })) },
     // A lookup that did not satisfy keeps being asked; anything else can be held as a question.
     capture.kind === 'word'
-      ? { id: 'keep', label: 'Keep asking', hint: 'An open question, with this as its first clue', run: () => void keepAsking(capture.id) }
+      ? { id: 'keep', label: 'Keep asking', hint: 'An open question, this its first clue', run: () => void keepAsking(capture.id) }
       : way('question', 'Its words become the first clue'),
     { id: 'clue', label: 'Add as a clue to a question…', run: () => void addToQuestion(capture.id) },
     way('resolved', 'Done with it, and out of the Inbox'),
