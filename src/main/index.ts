@@ -1230,33 +1230,37 @@ onHandOff(() => { for (const win of BrowserWindow.getAllWindows()) if (!win.isDe
  * was moved by Haligtree, not by you: not kept as its place, nor nudged on screen.
  */
 const placed = new WeakMap<BrowserWindow, { x: number; y: number }>()
-/** A sticky carried by Haligtree's own hand (its page's press and release): picked up, and put down. */
-const handDrags = new WeakMap<BrowserWindow, { grab: () => void; letGo: () => void }>()
+/** A point on the screen, in the Mac's points: where the pointer is, as a page says (its event's screenX and screenY). */
+type Point = { x: number; y: number }
+/**
+ * A window carried by Haligtree's own hand: picked up where the pointer pressed, carried to each place the page says
+ * the pointer has moved to on the screen, and put down. Screen points, never the page's own: the window moves under
+ * the pointer, so a point inside the page would shift with it and feed back into the next move.
+ */
+type Carry = { grab: (at: Point) => void; carry: (at: Point) => void; letGo: () => void }
+/** The windows carried by hand (lib/carry.ts): stickies, the focus pill, the meeting card; quick capture's is in the window:grab handler. */
+const handDrags = new WeakMap<BrowserWindow, Carry>()
+/** A point a page sent, if it is one. */
+const pointFrom = (x: unknown, y: unknown): Point | null =>
+  typeof x === 'number' && typeof y === 'number' && Number.isFinite(x) && Number.isFinite(y) ? { x: Math.round(x), y: Math.round(y) } : null
 /**
  * A plain floating window (the focus pill, the meeting card) carried by Haligtree on a press of its body or its
  * grabber (lib/carry.ts), as stickies are: it follows the pointer from where it was picked up until let go. Moved
  * by the Mac before (a drag region), the pointer over it was never seen, so its grabber could not show.
  */
 function carriedByHand(win: BrowserWindow): void {
-  let following: ReturnType<typeof setInterval> | null = null
-  const stop = (): void => void (following && clearInterval(following), (following = null))
+  let hold: { from: Electron.Rectangle; start: Point } | null = null
   handDrags.set(win, {
-    grab: () => {
-      if (following || win.isDestroyed()) return
-      const from = win.getBounds()
-      const start = screen.getCursorScreenPoint()
-      following = setInterval(() => {
-        if (win.isDestroyed()) return stop()
-        const now = screen.getCursorScreenPoint()
-        const x = from.x + now.x - start.x
-        const y = from.y + now.y - start.y
-        const at = win.getBounds()
-        if (at.x !== x || at.y !== y) win.setPosition(x, y)
-      }, 8)
+    grab: (at) => void (win.isDestroyed() || hold || (hold = { from: win.getBounds(), start: at })),
+    carry: (now) => {
+      if (!hold || win.isDestroyed()) return
+      const x = hold.from.x + now.x - hold.start.x
+      const y = hold.from.y + now.y - hold.start.y
+      const at = win.getBounds()
+      if (at.x !== x || at.y !== y) win.setPosition(x, y)
     },
-    letGo: stop
+    letGo: () => void (hold = null)
   })
-  win.on('closed', stop)
 }
 const ours = (win: BrowserWindow): boolean => {
   const at = placed.get(win)
@@ -1677,38 +1681,36 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (one && !win.isDestroyed()) one.bounds = cardFrame(key, win)
     keepStuck()
   }
-  // Carried by Haligtree, not the Mac: the page asks on a press (window:grab) and the card follows the pointer from
-  // where it was picked up, drawn onto a guide when near and held there, rigid, until the hand takes it well past,
-  // as Raycast's window does. Carried by the Mac it could not be held, and slid along under the line (10 Nov).
-  let following: ReturnType<typeof setInterval> | null = null
+  // Carried by Haligtree, not the Mac: the page asks on a press (window:grab), then says where the pointer is on the
+  // screen as it moves (window:carry, once a frame), and the card follows from where it was picked up, drawn onto a
+  // guide when near and held there, rigid, until the hand takes it well past, as Raycast's window does. Carried by
+  // the Mac it could not be held, and slid along under the line (10 Nov).
+  let hold: { from: Electron.Rectangle; start: Point } | null = null
   handDrags.set(win, {
-    grab: () => {
-      if (following || win.isDestroyed()) return
+    grab: (at) => {
+      if (hold || win.isDestroyed()) return
       unlift.get(win)?.()
       if (!held.has(win)) (held.add(win), win.webContents.send('sticky:held', true))
-      const from = win.getBounds()
-      const start = screen.getCursorScreenPoint()
-      const inset = insetOf(key)
-      inLine = lineUp(cardOf(from, inset), others(), screen.getDisplayMatching(from).workArea).held
+      hold = { from: win.getBounds(), start: at }
+      inLine = lineUp(cardOf(hold.from, insetOf(key)), others(), screen.getDisplayMatching(hold.from).workArea).held
       if (!colour) void guideColour(win).then((c) => (colour = c))
-      following = setInterval(() => {
-        if (win.isDestroyed()) return void (following && clearInterval(following), (following = null))
-        const now = screen.getCursorScreenPoint()
-        const want = { ...from, x: from.x + now.x - start.x, y: from.y + now.y - start.y }
-        const card = cardOf(want, inset)
-        const lined = lineUp(card, others(), screen.getDisplayMatching(want).workArea, inLine)
-        if (cameOnto(inLine, lined.held)) tap('level')
-        inLine = lined.held
-        const to = { x: want.x + lined.x - card.x, y: want.y + lined.y - card.y }
-        const at = win.getBounds()
-        if (at.x !== to.x || at.y !== to.y) (win.setPosition(to.x, to.y), placed.set(win, to))
-        showGuides(card, lined.lines, colour || GUIDE_BLUE, stillness())
-      }, 8)
+    },
+    carry: (now) => {
+      if (!hold || win.isDestroyed()) return
+      const { from, start } = hold
+      const want = { ...from, x: from.x + now.x - start.x, y: from.y + now.y - start.y }
+      const card = cardOf(want, insetOf(key))
+      const lined = lineUp(card, others(), screen.getDisplayMatching(want).workArea, inLine)
+      if (cameOnto(inLine, lined.held)) tap('level')
+      inLine = lined.held
+      const to = { x: want.x + lined.x - card.x, y: want.y + lined.y - card.y }
+      const at = win.getBounds()
+      if (at.x !== to.x || at.y !== to.y) (win.setPosition(to.x, to.y), placed.set(win, to))
+      showGuides(card, lined.lines, colour || GUIDE_BLUE, stillness())
     },
     letGo: () => {
-      if (!following) return
-      clearInterval(following)
-      following = null
+      if (!hold) return
+      hold = null
       placed.delete(win)
       letGo()
     }
@@ -4795,36 +4797,44 @@ app.whenReady().then(() => {
   // a move like any other (it stops a size glide, and where it is let go is where it opens next); let go, it stays.
   // Carried near the screen's middle, a sticky's edge or a margin in from the screen's edge, it is drawn onto that line
   // with one haptic tick, and a dashed guide shows it (snap-lines.ts, guides.ts); taken on past it, it follows again.
-  let following: ReturnType<typeof setInterval> | null = null
-  const stopFollowing = (): void => void (following && clearInterval(following), (following = null), hideGuides())
-  ipcMain.on('window:grab', (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (win && handDrags.has(win)) return handDrags.get(win)!.grab()
-    if (!win || win !== prompt) return
-    const from = win.getBounds()
-    const start = screen.getCursorScreenPoint()
-    if (following) clearInterval(following)
-    // Picked up already on a line: held there, without a tick.
-    let on = lineUp(from, stickyCards(win), screen.getDisplayMatching(from).workArea).held
-    let colour = ''
-    void guideColour(win).then((c) => (colour = c))
-    following = setInterval(() => {
-      if (win.isDestroyed()) return stopFollowing()
-      const now = screen.getCursorScreenPoint()
+  // The page says where the pointer is on the screen (window:carry, once a frame while held): main never asks the
+  // screen on a timer, so the box moves on the page's own frames, only when the pointer does.
+  let boxHold: { win: BrowserWindow; from: Electron.Rectangle; start: Point; on: Held; colour: string } | null = null
+  const boxCarry: Carry = {
+    grab: (start) => {
+      const win = prompt
+      if (!win || win.isDestroyed()) return
+      const from = win.getBounds()
+      // Picked up already on a line: held there, without a tick.
+      const hold = (boxHold = { win, from, start, on: lineUp(from, stickyCards(win), screen.getDisplayMatching(from).workArea).held, colour: '' })
+      void guideColour(win).then((c) => (hold.colour = c))
+    },
+    carry: (now) => {
+      if (!boxHold || boxHold.win.isDestroyed()) return void (boxHold = null)
+      const { win, from, start } = boxHold
       const at = win.getBounds()
       const want = { ...at, x: from.x + now.x - start.x, y: from.y + now.y - start.y }
-      const lined = lineUp(want, stickyCards(win), screen.getDisplayMatching(want).workArea, on)
-      if (cameOnto(on, lined.held)) tap('level')
-      on = lined.held
+      const lined = lineUp(want, stickyCards(win), screen.getDisplayMatching(want).workArea, boxHold.on)
+      if (cameOnto(boxHold.on, lined.held)) tap('level')
+      boxHold.on = lined.held
       if (at.x !== lined.x || at.y !== lined.y) win.setPosition(lined.x, lined.y)
-      showGuides(want, lined.lines, colour || GUIDE_BLUE, stillness())
-    }, 8)
-  })
-  ipcMain.on('window:let-go', (event) => {
+      showGuides(want, lined.lines, boxHold.colour || GUIDE_BLUE, stillness())
+    },
+    letGo: () => void ((boxHold = null), hideGuides())
+  }
+  const carrierOf = (event: Electron.IpcMainEvent): Carry | null => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (win && handDrags.has(win)) return handDrags.get(win)!.letGo()
-    stopFollowing()
+    return !win ? null : (handDrags.get(win) ?? (win === prompt ? boxCarry : null))
+  }
+  ipcMain.on('window:grab', (event, x: unknown, y: unknown) => {
+    const at = pointFrom(x, y)
+    if (at) carrierOf(event)?.grab(at)
   })
+  ipcMain.on('window:carry', (event, x: unknown, y: unknown) => {
+    const at = pointFrom(x, y)
+    if (at) carrierOf(event)?.carry(at)
+  })
+  ipcMain.on('window:let-go', (event) => carrierOf(event)?.letGo())
   // Double-clicked: back to where it first opens, the top middle of its screen.
   ipcMain.on('window:home', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)

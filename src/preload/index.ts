@@ -186,8 +186,12 @@ const api = {
   onRoomHint: (listen: (room: { top: number; left: number; right: number; bottom: number; side: 'above' | 'below' | 'left' | 'right' | null }) => void): void =>
     void ipcRenderer.on('window:room-hint', (_event, room) => listen(room)),
   roomDrawn: (): void => ipcRenderer.send('window:room-drawn'),
-  /** Quick capture picked up by its grabber: it follows the pointer until let go. */
-  grab: (): void => ipcRenderer.send('window:grab'),
+  /**
+   * This window picked up by the hand (quick capture's grabber, a sticky's card), at a point on the screen; carried to
+   * each point the pointer moves to; put down. Screen points (an event's screenX and screenY): see lib/carry.ts.
+   */
+  grab: (screenX: number, screenY: number): void => ipcRenderer.send('window:grab', screenX, screenY),
+  carry: (screenX: number, screenY: number): void => ipcRenderer.send('window:carry', screenX, screenY),
   letGo: (): void => ipcRenderer.send('window:let-go'),
   /** Quick capture back to where it first opens, the top middle of its screen. */
   boxHome: (): void => ipcRenderer.send('window:home'),

@@ -1,7 +1,8 @@
 // Raycast's guides: quick capture and a sticky, dragged near the screen's
 // middle, another card's edge or a margin in from the screen's edge, show a
 // solid line there with one haptic tick, and the line goes when they are let
-// go. Both are carried by main (window:grab) and held firm on a line until
+// go. Both are carried by main (window:grab, then window:carry with each point
+// the pointer moves to on the screen) and held firm on a line until
 // the hand takes them well past; a sticky moved by the Mac (a window manager,
 // an older page) still lands on the line as it is let go.
 //
@@ -89,13 +90,13 @@ try {
   await place(boxId, work.x + 140, work.y + 120)
   await wait(300)
 
-  // ---- Quick capture, carried by its grabber (main moves it).
+  // ---- Quick capture, carried by its grabber (main moves it): its page says where the pointer is on the screen.
+  const boxPointer = (p) => page.evaluate((p) => window.api.carry(p.x, p.y), p)
   const boxDrag = async (to) => {
     const start = await read()
-    await electron.evaluate((_, p) => { globalThis.qaCursor = p }, { x: start.box.x + 50, y: start.box.y - 5 })
-    await page.evaluate(() => window.api.grab())
+    await page.evaluate((p) => window.api.grab(p.x, p.y), { x: start.box.x + 50, y: start.box.y - 5 })
     await wait(40)
-    await electron.evaluate((_, p) => { globalThis.qaCursor = p }, { x: to.x + 50, y: to.y - 5 })
+    await boxPointer({ x: to.x + 50, y: to.y - 5 })
     await wait(80)
     return read()
   }
@@ -144,11 +145,11 @@ try {
   }
   await picture('box-middle')
   // Held there while the hand goes on a little, then left: it follows exactly again, the line gone.
-  await electron.evaluate((_, p) => { globalThis.qaCursor = p }, { x: centreLeft + 12 + 50, y: work.y + 140 - 5 })
+  await boxPointer({ x: centreLeft + 12 + 50, y: work.y + 140 - 5 })
   await wait(60)
   s = await read()
   check('box: 12 points on, still held to the line (no stutter)', s.box.x === centreLeft, `${s.box.x - centreLeft}`)
-  await electron.evaluate((_, p) => { globalThis.qaCursor = p }, { x: centreLeft + 40 + 50, y: work.y + 140 - 5 })
+  await boxPointer({ x: centreLeft + 40 + 50, y: work.y + 140 - 5 })
   await wait(60)
   s = await read()
   check('box: 40 points on, it follows the pointer exactly, no guide', s.box.x === centreLeft + 40 && !s.guides.shown, `${s.box.x - centreLeft} shown ${s.guides.shown}`)
@@ -246,9 +247,8 @@ try {
   await wait(200)
   s = await read()
   const grip = { x: s.sticky.x + 80, y: s.sticky.y + 30 }
-  const pointer = (dx) => electron.evaluate((_, p) => { globalThis.qaCursor = p }, { x: grip.x + dx, y: grip.y })
-  await pointer(0)
-  await hand('window.api.grab()')
+  const pointer = (dx) => hand(`window.api.carry(${grip.x + dx}, ${grip.y})`)
+  await hand(`window.api.grab(${grip.x}, ${grip.y})`)
   await wait(40)
   const handTaps = (await read()).taps
   await pointer(-57); await wait(80)

@@ -1,6 +1,7 @@
 import { themeActions } from '@/lib/theme'
 import { useReadsIn } from './lib/reads-in'
 import { clock } from '@/lib/clock'
+import { carryWindow } from '@/lib/carry'
 import { useStickiesOut } from '@/lib/stickies-out'
 import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
 import { usePracticeActions } from '@/lib/practices'
@@ -2467,10 +2468,7 @@ export default function App(): React.JSX.Element {
                 with the pointer in. Held, the box follows; double-clicked, it goes back to the top middle. */}
             {!!window.api.room.left && (
               <div data-grabber aria-label="Move quick capture" title=""
-                onPointerDown={(event) => { if (event.button !== 0 || event.detail > 1) return; event.currentTarget.setPointerCapture(event.pointerId); window.api.grab() }}
-                onPointerUp={() => window.api.letGo()}
-                onPointerCancel={() => window.api.letGo()}
-                onLostPointerCapture={() => window.api.letGo()}
+                onPointerDown={(event) => { if (event.button !== 0 || event.detail > 1) return; carryWindow(event.nativeEvent, event.currentTarget) }}
                 onDoubleClick={() => (chime('slide'), window.api.boxHome())}>
                 <span />
               </div>
