@@ -107,6 +107,10 @@ try {
   const box = await h.evaluate(() => { const r = document.querySelector('[data-month-run]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
   await h.mouse.move(box.x, box.y)
   const fingers = async (px, steps = 8, gap = 16) => { for (let i = 0; i < steps; i++) { await h.mouse.wheel(0, Math.round(px / steps)); await wait(gap) } }
+  // Steps sent on a clock of the probe's own, as a trackpad sends them: none waits for the page to answer the one
+  // before (waiting, a page busy drawing weeks, most of all the development build, spread a glide's steps over 60ms apart).
+  const stream = async (steps, every) => { const sent = []; for (const dy of steps) { sent.push(h.mouse.wheel(0, dy)); await new Promise((done) => setTimeout(done, every)) } await Promise.all(sent) }
+  const fading = (from) => { const steps = []; for (let step = from; step >= 1; step *= 0.93) steps.push(Math.round(step)); return steps }
 
   if (parts.includes('run')) {
     const quietFrom = (await cues()).length
@@ -154,12 +158,11 @@ try {
     {
       await record()
       await phase('began')
-      for (let i = 0; i < 6; i++) { await h.mouse.wheel(0, 30); await wait(8) }
+      await stream([30, 30, 30, 30, 30, 30], 12)
       const lifted = await mark()
       await phase('ended')
       await wait(45)
-      let step = 60
-      for (let i = 0; i < 12; i++) { await h.mouse.wheel(0, Math.round(step)); await wait(16); step *= 0.93 }
+      await stream(fading(60).slice(0, 12), 16)
       await wait(700)
       const rec = await stop()
       const got = landing(rec, lifted, size)
@@ -181,10 +184,9 @@ try {
     for (let round = 1, tries = 0; round <= 2; round++) {
       await record()
       await phase('began')
-      for (let i = 0; i < 6; i++) { await h.mouse.wheel(0, flick); await wait(8) }
+      await stream([flick, flick, flick, flick, flick, flick], 12)
       phase('ended')
-      let step = flick
-      while (step >= 1) { await h.mouse.wheel(0, Math.round(step)); await wait(16); step *= 0.93 }
+      await stream(fading(flick), 16)
       await wait(1000)
       const rec = await stop()
       // A busy machine held one of the probe's steps back over 60ms: to the page that is fingers lifted from rest, or a
@@ -297,7 +299,7 @@ try {
   }
 
   // What the frames of a pinch show: each level's and each picture's shape, and how much of a level is on show.
-  const shape = (rec, name) => {
+  const shape = (rec, name, window_wheels) => {
     const seen = rec.flatMap((one) => [one.level, one.swell, one.gone, one.come].filter(Boolean))
     const worst = Math.max(0, ...seen.map(([x, y]) => Math.abs(x / y - 1)))
     const scaled = seen.filter(([x]) => Math.abs(x - 1) > 0.002).length
@@ -318,7 +320,10 @@ try {
     const near = (i) => i >= changed - 2 && i <= changed + 2
     const drawn = Math.round(Math.max(...rec.filter((_, i) => i && near(i)).map((one) => one.dt)) * 10) / 10
     const rest = Math.round(Math.max(...rec.filter((_, i) => i && !near(i)).map((one) => one.dt)) * 10) / 10
-    console.log(`MEASURE ${name}: drawing the new level took a frame of ${drawn}ms; every other frame at most ${rest}ms; load ${load()}`)
+    // From the pinch's last step before the change to the first frame of the new level moving: what the hand waits.
+    const sent = (window_wheels ?? []).filter((one) => one.pinch && one.t <= rec[changed].t)
+    const waited = sent.length ? Math.round(rec[changed].t - sent[sent.length - 1].t) : -1
+    console.log(`MEASURE ${name}: drawing the new level took a frame of ${drawn}ms (frames about the change: ${rec.slice(Math.max(1, changed - 4), changed + 5).map((one) => Math.round(one.dt)).join(' ')}); the new level began to show ${waited}ms after the pinch's step that changed it; every other frame at most ${rest}ms; load ${load()}`)
     check(`${name}: no frame over ${LONG}ms but the one that draws the new level`, rest <= LONG, `longest ${rest}ms, load ${load()}`)
   }
 
@@ -338,7 +343,7 @@ try {
       await silent(async () => { await pinch(spot.x, spot.y, dy); await wait(700) })
       const rec = await stop()
       check(`${name}: the level changed`, (await mode()) === want, await mode())
-      shape(rec, name)
+      shape(rec, name, await wheels())
       check(`${name}: one firm tap`, (await taps('level')) - firm === 1, `${(await taps('level')) - firm} taps`)
       await wait(400)
     }
