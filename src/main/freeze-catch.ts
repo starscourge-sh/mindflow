@@ -1,6 +1,7 @@
 import { app, type BrowserWindow } from 'electron'
 import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
+import { stallReport } from './stalls'
 
 /**
  * In a development run only: when a window's page stops answering for three
@@ -39,6 +40,8 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
     asking = false
     if (answered || win.isDestroyed() || wc.isDestroyed()) return
     caught = true
+    // What main itself had in hand, read at once: a window often stops answering because main's thread is held (stalls.ts).
+    const busy = stallReport()
     const dir = app.getPath('logs')
     mkdirSync(dir, { recursive: true })
     const file = join(dir, `freeze-${name.replace(/\W+/g, '-')}-${new Date().toISOString().replace(/[:.]/g, '-')}.txt`)
@@ -128,10 +131,10 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
         if (back) parts.push(String(await wc.mainFrame.executeJavaScript('window.__freezeNotes ? window.__freezeNotes() : "(no notes in this page)"').catch((error: unknown) => `(could not read the notes: ${String(error)})`)))
       }
       const stack = parts.join('\n\n')
-      writeFileSync(file, `${name} stopped answering at ${new Date().toString()}\n\n${stack}\n`)
+      writeFileSync(file, `${name} stopped answering at ${new Date().toString()}\n\n${stack}\n\n${busy}\n`)
       console.error(`[freeze] ${name} stopped answering; where it was stuck is in ${file}`)
     } catch (error) {
-      writeFileSync(file, `${name} stopped answering at ${new Date().toString()}, and its stack could not be read: ${String(error)}\n`)
+      writeFileSync(file, `${name} stopped answering at ${new Date().toString()}, and its stack could not be read: ${String(error)}\n\n${busy}\n`)
       console.error('[freeze] could not read the stack:', error)
     }
     // Once more after a minute, in case it was a long stall that ended.

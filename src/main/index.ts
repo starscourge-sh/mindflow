@@ -1,4 +1,5 @@
 import { stopTimers } from './timers'
+import './stalls'
 import { ANCHOR } from './tagline'
 import { registerWrite } from './write'
 import { registerReminders } from './reminders'
@@ -4381,9 +4382,12 @@ function updateTray(): void {
 // Asked once, by the main process as it starts and by each window's preload as it loads.
 let twelve: boolean | null = null
 const twelveHour = (): boolean => (twelve ??= macTwelveHour())
+// What every window knows before it draws (its book, the Mac's clock) rides in its environment: a window's process
+// starts with main's, so its preload reads them there. They were asked with calls that wait on main (`sendSync`),
+// the book's at every list a page kept: a window stood still for as long as main was busy. The two channels stay
+// for a window whose process was somehow started without them. (A test run's quiet is read from its own flags.)
+process.env.HALIGTREE_BOOK_HERE = here()
 ipcMain.on('clock:twelve', (event) => void (event.returnValue = twelveHour()))
-// Test runs make no sound: the windows are muted, but the Mac's speech is not theirs to mute.
-ipcMain.on('qa:quiet', (event) => void (event.returnValue = !!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_SOUND))
 ipcMain.on('book:here', (event) => void (event.returnValue = here()))
 // The welcome's first sound plays as it arrives, before anything has been clicked (renderer's lib/sound.ts, ambience).
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
@@ -4391,6 +4395,7 @@ app.whenReady().then(() => {
   // The hand and the I-beam in quick capture, which has the keys while Haligtree is not the active app (haptic.ts).
   cursorInBackground()
   // Every time Haligtree writes, here and in each window, on the Mac's own clock (12 or 24 hours).
+  process.env.HALIGTREE_TWELVE = twelveHour() ? '1' : '0'
   useTwelveHour(twelveHour())
   // The Leaves marks draw on a Noun Project icon used under CC BY 3.0, which asks for this credit.
   // Haligtree's own version and icon, said outright: a dev run is Electron's own app, whose bundle says Electron's
