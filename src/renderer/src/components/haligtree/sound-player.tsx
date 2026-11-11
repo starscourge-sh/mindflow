@@ -255,7 +255,7 @@ export function SoundPlayer({ src, name, length, onLength, onPlaying, status, cl
       <span data-sound-time className="tiptap-media-time mf-sound-time" style={{ minWidth: `${Math.max(inline ? 5 : 0, clock(end).length)}ch` }}>{clock(shown)}</span>
       {inline ? speedButton : <div className="mf-sound-under">
         {name && <span className="tiptap-attachment-name mf-sound-name">{name}</span>}
-        {name && status && <span aria-hidden>·</span>}
+        {name && status && <span className="mf-sound-dot" aria-hidden>·</span>}
         {status && <span data-sound-control className="mf-sound-status">{status}</span>}
         {/* At the line's end, under the time. */}
         {speedButton}

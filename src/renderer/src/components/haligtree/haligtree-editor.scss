@@ -4649,7 +4649,9 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
     .mf-sound-under {
       display: contents;
 
-      > [aria-hidden] {
+      // By its class: a part after a :has() that names a common attribute ([aria-hidden], every icon has it) made
+      // Chromium restyle each one in the window whenever a row came or went (qa/files-table.mjs).
+      > .mf-sound-dot {
         display: none;
       }
     }
