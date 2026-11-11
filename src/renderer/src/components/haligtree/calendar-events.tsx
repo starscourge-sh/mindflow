@@ -423,7 +423,7 @@ export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, cal
           onClick={(event) => event.detail === 0 && peek()}
           onDoubleClick={(event) => !one.readOnly && (event.stopPropagation(), chime('open'), heroOpen(event, () => onOpen(one.key), sideForm))}
           onKeyDown={(event) => (event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly && (event.preventDefault(), void dropOne(one))}
-          className={`flex ${month ? 'h-5' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1.5 pl-2.5 text-left text-control ${carried ? 'opacity-40' : ''}`}
+          className={`flex ${month ? 'mt-0.5 h-[18px]' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1.5 pl-2.5 text-left text-control ${carried ? 'opacity-40' : ''}`}
           {...{ style: { ...tint(one.color, one.cancelled), ...across } }}>
           {time && <span className="shrink-0 tabular-nums opacity-80">{time}</span>}
           <span dir="auto" className="truncate font-semibold">{one.title || 'New event'}</span>

@@ -41,7 +41,7 @@ export function ReviewChip({ n, style }: { n: number; style?: React.CSSPropertie
       <GraduationCap aria-hidden className="size-3.5 shrink-0" style={{ color: STUDY_INK }} />
       {/* Narrow, the count alone beside the cap: "Review · 24 cards" never cut to "Review · 2…", nor "12,345 cards" to
           "12,345 ca…". The count never shrinks; the word wraps onto a hidden second line when it does not fit whole. */}
-      <span className="flex h-6 min-w-0 flex-wrap overflow-hidden tabular-nums"><span className={n >= 1000 ? 'hidden @[11rem]:inline' : 'hidden @[8.5rem]:inline'}>Review ·&nbsp;</span><span className="shrink-0">{num(n)}</span><span className="whitespace-pre"> {n === 1 ? 'card' : 'cards'}</span></span>
+      <span className="flex h-[1lh] min-w-0 flex-wrap overflow-hidden tabular-nums"><span className={n >= 1000 ? 'hidden @[11rem]:inline' : 'hidden @[8.5rem]:inline'}>Review ·&nbsp;</span><span className="shrink-0">{num(n)}</span><span className="whitespace-pre"> {n === 1 ? 'card' : 'cards'}</span></span>
     </button>
   )
 }
