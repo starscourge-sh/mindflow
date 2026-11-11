@@ -644,13 +644,6 @@ const api = {
   /** Put the window away. It keeps its contents and its place on screen. */
   hideWindow: (): void => ipcRenderer.send('window:hide'),
 
-  /** Whether the pointer is over the window, as that changes. */
-  onPointer: (listen: (inside: boolean) => void): (() => void) => {
-    const relay = (_event: unknown, inside: boolean): void => listen(inside)
-    ipcRenderer.on('window:pointer', relay)
-    return () => ipcRenderer.off('window:pointer', relay)
-  },
-
   /** Open a drawing in a window of its own, or bring that window forward. */
   openDrawing: (id: string, scene: unknown, name?: string, picture?: string): void =>
     ipcRenderer.send('drawing:open', id, scene, name, picture),

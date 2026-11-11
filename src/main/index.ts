@@ -3185,22 +3185,8 @@ function createWindow(): void {
     mainWindow.setAlwaysOnTop(true, 'pop-up-menu')
   }
 
-  // Whether the pointer is over the window, for the controls that only show
-  // then. The page cannot tell for itself: macOS handles the drag strip, so
-  // the page never hears the pointer there and takes it for gone. Asked of the
-  // screen instead, a few times a second, and only while the window is shown.
-  let pointerIn = false
-  const pointer = setInterval(() => {
-    if (!mainWindow.isVisible()) return
-    const { x, y } = screen.getCursorScreenPoint()
-    const b = mainWindow.getBounds()
-    const inside = x >= b.x && x < b.x + b.width && y >= b.y && y < b.y + b.height
-    if (inside === pointerIn) return
-    pointerIn = inside
-    mainWindow.webContents.send('window:pointer', inside)
-  }, 80)
   // Gone while up (not put away): back in the Dock all the same.
-  mainWindow.on('closed', () => (clearInterval(pointer), quitting || boxUp(false)))
+  mainWindow.on('closed', () => quitting || boxUp(false))
 
   guard(mainWindow)
   load(mainWindow)

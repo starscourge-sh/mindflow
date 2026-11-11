@@ -36,7 +36,7 @@ async function pills(theme, style) {
   await c.theme(theme)
   await box.reload(); await box.waitForTimeout(1200)
   await box.evaluate(() => window.api.showPrompt()); await box.waitForTimeout(600)
-  await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view='))?.webContents.send('window:pointer', true))
+  await c.page.mouse.move(300, 200)
   await box.waitForTimeout(400)
   const name = `${theme}${style === 'brutal' ? '-brutal' : ''}`
   const at = await segsOf(box, '.mf-pill')

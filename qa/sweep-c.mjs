@@ -157,7 +157,7 @@ try {
     await box.waitForTimeout(600)
     await box.locator('.tiptap.ProseMirror').first().click().catch(() => {})
     await box.keyboard.type('A short note')
-    await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view='))?.webContents.send('window:pointer', true))
+    await c.page.mouse.move(300, 200)
     await box.waitForTimeout(200)
     const gear = box.getByRole('button', { name: 'Options', exact: true })
     // Put away by a part before, quick capture is called up again until its gear is there.

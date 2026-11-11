@@ -34,7 +34,7 @@ const fresh = async () => {
   await page.keyboard.press('Backspace')
   await page.waitForTimeout(200)
   // Parked off screen, the pointer is never over the window: say it is, so the pill shows as it would.
-  await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.webContents.getURL().includes('view='))?.webContents.send('window:pointer', true))
+  await c.page.mouse.move(300, 200)
   await page.waitForTimeout(200)
 }
 const gear = async () => {

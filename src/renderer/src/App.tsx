@@ -488,10 +488,17 @@ export default function App(): React.JSX.Element {
     return () => (clearTimeout(later), stop(), landed())
   }, [])
 
-  // The window's controls show while the pointer is over it. Told by the main
-  // process rather than read from `:hover`, which goes false over the drag strip.
+  // The window's controls show while the pointer is over it, from the page's own pointer events: quick capture has
+  // no native drag strip any more (it is carried by lib/carry.ts), so the page hears the pointer everywhere in its
+  // window, the clear room round the card included (its moves are forwarded there, lib/clear-room.ts).
   const [pointerIn, setPointerIn] = useState(false)
-  useEffect(() => window.api.onPointer(setPointerIn), [])
+  useEffect(() => {
+    const over = (): void => setPointerIn(true)
+    const out = (event: PointerEvent): void => void (event.relatedTarget || setPointerIn(false))
+    window.addEventListener('pointerover', over, true)
+    document.documentElement.addEventListener('pointerleave', out)
+    return () => (window.removeEventListener('pointerover', over, true), document.documentElement.removeEventListener('pointerleave', out))
+  }, [])
 
   const [vim, setVimOn] = useState(currentVim)
   // Once, on a first start after Vim stopped being on for everyone: see `settleVim`.

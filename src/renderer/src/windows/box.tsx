@@ -10,6 +10,7 @@ import '../lib/fade-fits'
 import App from '../App'
 import { start } from '../main'
 import { clearRoom } from '../lib/clear-room'
+import { carryOnPress } from '../lib/carry'
 import { followGlass } from '../lib/glass'
 import { guardFrost } from '../lib/frost-guard'
 import { whileChanging } from '../lib/while-changing'
@@ -25,6 +26,9 @@ if (window.api.room.left) {
   document.documentElement.style.setProperty('--mf-room', `${window.api.room.bottom}px`)
   document.documentElement.style.setProperty('--mf-room-top', `${window.api.room.top}px`)
   clearRoom()
+  // Moved by its empty parts (the strip along its top, the pill's ends, the gaps in the row under the words) as by
+  // its grabber: carried by Haligtree, never a native drag region, which would hide the pointer from the page there.
+  carryOnPress()
   document.documentElement.style.setProperty('--mf-room-left', `${window.api.room.left}px`)
   document.documentElement.style.setProperty('--mf-room-right', `${window.api.room.right}px`)
   // The side its hint goes on, as main made the window (an open somewhere else tells it again, onRoomHint below).

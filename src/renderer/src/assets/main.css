@@ -675,13 +675,18 @@ html[data-overhang] [data-grabber]:active {
 :is(html[data-overhang] [data-grabber], [data-grabber-card]):is(:hover, :active) > span {
   background: color-mix(in oklab, var(--foreground) 62%, transparent);
 }
-/* The empty parts of the card drag too, as a window's own: the footer's gaps and the row of fields under the words,
-   never what is in them. */
-html[data-overhang] main[data-zen-row] {
-  -webkit-app-region: drag;
+/* The empty parts of the card move it too: the strip along its top, the pill's two ends, the footer's gaps and the
+   row of fields under the words, never what is in them. Carried by Haligtree (lib/carry.ts, `--mf-drag`), not a
+   native drag region, so the page still hears the pointer there (whether it is in, App.tsx). */
+html[data-overhang] :is([data-drag-strip], [data-pill-drag], main[data-zen-row]) {
+  -webkit-app-region: no-drag !important;
+  --mf-drag: 1;
 }
 html[data-overhang] main[data-zen-row] > * {
-  -webkit-app-region: no-drag;
+  --mf-drag: 0;
+}
+html[data-overhang] .app-container[data-pill] [data-pill-drag] {
+  pointer-events: auto;
 }
 /* The chosen one fills, as Spotlight's does, and its name shows in the bar, at its right end. */
 html[data-overhang] :is(.mf-pill button, [data-aside] > *)[data-picked] {
