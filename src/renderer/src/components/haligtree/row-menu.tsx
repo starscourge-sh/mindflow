@@ -162,38 +162,55 @@ const pasteInto = (field: HTMLElement): void =>
  * Given an element, the lines act on it (a note's editor) whatever was clicked.
  * `items` may be read as the menu opens, from the field right-clicked.
  */
+/** Whether any line of a menu would show, stopping at the first that does: what a row needs to know before its menu is built. */
+const anyFits = (items: RowItem[], list: boolean): boolean =>
+  items.some((item) => !!item && item !== 'separator' && ('items' in item ? anyFits(item.items, list) : !('run' in item) || !((item.about === 'list' && !list) || (item.can && !item.can()))))
+
 export function RowMenu({ items, writes, list = false, onOpenChange, children }: { items: RowItem[] | ((field: HTMLElement | null) => RowItem[]); writes?: boolean | HTMLElement; /** The list's own menu (its empty space, its heading): lines about the whole list belong here. */ list?: boolean; /** Told as it opens and shuts (a toast stays up while its menu is open). */ onOpenChange?: (open: boolean) => void; children: ReactElement }): React.JSX.Element {
   const [writing, setWriting] = useState<Writing | null>(null)
-  // Read again each time it opens: whether a line can run (a note on show to picture) is a question of that moment.
-  const [, setOpened] = useState(0)
+  // Built only while open, read again each time it opens: whether a line can run (a note on show to picture) is a
+  // question of that moment. A list of hundreds of rows built hundreds of menus on every render and froze the window.
+  const [open, setOpen] = useState(false)
   // A line chosen that moves on (Open, Pick a date…) keeps where it went; an edit line, or none, comes back to the words.
   const after = useRef<'back' | 'stay' | (() => void)>('back')
-  const editable = !!writing && !(writing.field instanceof HTMLTextAreaElement || writing.field instanceof HTMLInputElement ? writing.field.readOnly || writing.field.disabled : false)
-  const edits: RowItem[] = writes && writing
-    ? [
-        'separator',
-        editable && writing.picked && { label: 'Cut', keys: '⌘X', run: () => void (after.current = () => document.execCommand('cut')) },
-        writing.picked && { label: 'Copy', keys: '⌘C', run: () => void (after.current = () => document.execCommand('copy')) },
-        editable && { label: 'Paste', keys: '⌘V', run: () => void (after.current = () => pasteInto(writing.field)) }
-      ]
-    : []
-  const own = dangerLast(fits(typeof items === 'function' ? items(writing?.field ?? null) : items, list))
-  const mark = (list: RowItem[]): RowItem[] => list.map((item) => (item && item !== 'separator' && 'run' in item ? { ...item, run: () => ((after.current = 'stay'), item.run()) } : item && item !== 'separator' && 'items' in item ? { ...item, items: mark(item.items) } : item))
-  // The edit lines after the nesting: their Copy is the words', never folded in with the row's copies.
-  const shown = [...nest(writes ? mark(own) : own), ...edits].filter(Boolean) as Shown[]
-  // Nothing to offer: the row's own right click, not an empty menu.
-  if (!writes && !shown.some((item) => item !== 'separator')) return children
+  // The lines last built: kept while the menu fades out, and read by its keys while it is open.
+  const built = useRef<{ shown: Shown[]; drawn: ReactNode }>({ shown: [], drawn: null })
+  const own = (field: HTMLElement | null): RowItem[] => dangerLast(fits(typeof items === 'function' ? items(field) : items, list))
+  if (open) {
+    const editable = !!writing && !(writing.field instanceof HTMLTextAreaElement || writing.field instanceof HTMLInputElement ? writing.field.readOnly || writing.field.disabled : false)
+    const edits: RowItem[] = writes && writing
+      ? [
+          'separator',
+          editable && writing.picked && { label: 'Cut', keys: '⌘X', run: () => void (after.current = () => document.execCommand('cut')) },
+          writing.picked && { label: 'Copy', keys: '⌘C', run: () => void (after.current = () => document.execCommand('copy')) },
+          editable && { label: 'Paste', keys: '⌘V', run: () => void (after.current = () => pasteInto(writing.field)) }
+        ]
+      : []
+    const mark = (list: RowItem[]): RowItem[] => list.map((item) => (item && item !== 'separator' && 'run' in item ? { ...item, run: () => ((after.current = 'stay'), item.run()) } : item && item !== 'separator' && 'items' in item ? { ...item, items: mark(item.items) } : item))
+    const mine = own(writing?.field ?? null)
+    // The edit lines after the nesting: their Copy is the words', never folded in with the row's copies.
+    const shown = [...nest(writes ? mark(mine) : mine), ...edits].filter(Boolean) as Shown[]
+    built.current = { shown, drawn: lines(shown) }
+  }
+  // Nothing to offer: the row's own right click, not an empty menu. Lines handed over as a list are asked without
+  // building the menu; lines made as it opens (a function) are asked as it opens.
+  if (!writes && typeof items !== 'function' && !anyFits(items, list)) return children
   return (
-    <ContextMenu onOpenChange={(open) => (onOpenChange?.(open), open && ((after.current = 'back'), setOpened((count) => count + 1)))}>
+    <ContextMenu onOpenChange={(now) => (onOpenChange?.(now), now && (after.current = 'back'), setOpen(now))}>
       <ContextMenuTrigger asChild data-row-menu onContextMenuCapture={(event) => {
         // A row stays filled while its menu is open; anything taller (a deck's stack, a card, a tile) is ringed
         // instead (main.css), as Finder rings an icon: a fill behind a card read as the page dimming.
         event.currentTarget.toggleAttribute('data-menu-tall', event.currentTarget.getBoundingClientRect().height > 56)
-        if (!writes) return
+        const shows = (field: HTMLElement | null): boolean => own(field).some((item) => item && item !== 'separator')
+        if (!writes) {
+          // Lines made as it opens, and none of them to show: no empty menu.
+          if (typeof items === 'function' && !shows(null)) event.preventDefault()
+          return
+        }
         const field = writes instanceof HTMLElement ? writes : fieldOf(event.target)
         setWriting(field ? writingAt(field) : null)
         // Off the words with nothing of the row's own to offer: no empty menu.
-        if (!field && !own.some((item) => item && item !== 'separator')) event.preventDefault()
+        if (!field && !shows(null)) event.preventDefault()
       }}>{children}</ContextMenuTrigger>
       <ContextMenuContent
         className="w-60"
@@ -220,7 +237,7 @@ export function RowMenu({ items, writes, list = false, onOpenChange, children }:
           // ⌘X, ⌘C and ⌘V do as the edit lines say, with the menu open.
           const chord = event.metaKey && !event.ctrlKey && !event.altKey ? `⌘${event.key.toUpperCase()}` : ''
           // A line folded into one beside it keeps its key too (Do it next week, W, under Later).
-          const every = flat(shown)
+          const every = flat(built.current.shown)
           if ((event.ctrlKey || event.altKey || event.metaKey) && !every.some((one) => one && one !== 'separator' && one.keys === chord)) return
           const item = every.find((one) => one && one !== 'separator' && (chord ? one.keys === chord : one.keys?.length === 1 && one.keys.toLowerCase() === event.key.toLowerCase()))
           if (!item || item === 'separator') return
@@ -231,7 +248,7 @@ export function RowMenu({ items, writes, list = false, onOpenChange, children }:
           item.run()
         }}
       >
-        {lines(shown)}
+        {built.current.drawn}
       </ContextMenuContent>
     </ContextMenu>
   )
