@@ -1,3 +1,4 @@
+import { markOpened } from '@/lib/media-opened'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Pause, Play, RotateCcw } from 'lucide-react'
 
@@ -149,6 +150,7 @@ export function SoundPlayer({ src, name, length, onLength, onPlaying, status, cl
     if (media.ended) (cue('media-replay'), (media.currentTime = 0))
     else cue(started.current ? 'play' : 'media-start')
     started.current = true
+    markOpened(src)
     void media.play()
   }
   const seek = (share: number): void => {

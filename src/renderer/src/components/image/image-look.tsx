@@ -1,3 +1,4 @@
+import { markOpened } from '@/lib/media-opened'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { blurFor, lookOf } from "@/lib/pictures"
@@ -65,6 +66,8 @@ export async function openLook(src: string, from?: Element | null, caption = "")
 
 /** The viewer on a window of its own, over everything, gone once closed. */
 function mountLook(pictures: Picture[], start: number): void {
+  // Looked at: Files' "Last opened" says so.
+  if (pictures[start]) markOpened(pictures[start].src)
   const holder = document.createElement("div")
   document.body.append(holder)
   const root = createRoot(holder)

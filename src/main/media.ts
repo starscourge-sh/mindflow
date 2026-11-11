@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, systemPreferen
 import { LABEL, changed, database, whenAnyChanged } from './captures'
 import { dayName } from './dates'
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { constants, createReadStream, existsSync, statSync } from 'node:fs'
+import { constants, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import { basename, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
@@ -60,6 +60,10 @@ export type Media = {
   how: 'library' | 'attachment'
   /** When the last note let it go; only for one no note holds. */
   letGoAt?: string
+  /** A recording's length in seconds, once its waveform has been worked out (kept beside it as `.peaks`). */
+  seconds?: number
+  /** When it was last opened as itself (looked at, read, played), from any window. */
+  openedAt?: string
 }
 
 /**
@@ -194,7 +198,7 @@ function mediaIn(body: string | null): Found[] {
   } catch {
     return []
   }
-  type Part = { words: string } | { node: 'image' | 'attachment'; src: string; name: string; size: number; caption: string }
+  type Part = { words: string; timed?: boolean } | { node: 'image' | 'attachment'; src: string; name: string; size: number; caption: string }
   const parts: Part[] = []
   if (typeof doc === 'string') {
     // Words kept as Markdown (an import never opened): a picture is ![..](src), a file [name](src).
@@ -216,7 +220,7 @@ function mediaIn(body: string | null): Found[] {
       }
       if (node.type === 'paragraph' || node.type === 'heading' || node.type === 'codeBlock') {
         const words = wordsOf(node).trim()
-        if (words) parts.push({ words })
+        if (words) parts.push({ words, timed: TIMED.test(words) })
         return
       }
       node.content?.forEach(walk)
@@ -232,12 +236,49 @@ function mediaIn(body: string | null): Found[] {
     seen.add(part.src)
     const before = parts.slice(0, at).reverse().find((one) => 'words' in one) as { words: string } | undefined
     const after = parts.slice(at + 1).find((one) => 'words' in one) as { words: string } | undefined
-    found.push({ src: part.src, kind, name: part.name, size: part.size, near: [part.caption, before && cut(before.words, 200), after && cut(after.words, 200)].filter(Boolean).join(' · ') })
+    // A recording's transcript: the lines under it that start with a time ("[0:12] …"), as transcribe.ts writes them.
+    const said: string[] = []
+    if (kind === 'audio') for (let next = at + 1; next < parts.length; next++) {
+      const line = parts[next]
+      if (!('words' in line) || !line.timed) break
+      said.push(line.words)
+    }
+    found.push({ src: part.src, kind, name: part.name, size: part.size, near: [part.caption, before && cut(before.words, 200), after && cut(after.words, 200)].filter(Boolean).join(' · '), ...(said.length ? { said: said.join('\n') } : {}) })
   })
   return found
 }
 
-type Found = Pick<Media, 'src' | 'kind' | 'name' | 'size' | 'near'>
+type Found = Pick<Media, 'src' | 'kind' | 'name' | 'size' | 'near'> & { /** A recording's transcript, for Files' search only: never sent with the list. */ said?: string }
+/** A transcript's line, as transcribe.ts writes it: a time first. */
+const TIMED = /^\[(?:\d{1,2}:)?\d{1,2}:[0-5]\d\]/
+
+/**
+ * Files' search index: each file's words in lower case (its name, its note, the words around it, the words the
+ * Mac read in a picture, a recording's transcript), built as the list is, so a search is one pass over it in
+ * memory, never a reading of any picture.
+ */
+let findIndex = new Map<string, string>()
+/** Each recording's length, read once from its `.peaks` (the store names files by their bytes, so it never goes stale). */
+const lengths = new Map<string, number | null>()
+const lengthOf = (src: string): number | null => {
+  if (lengths.has(src)) return lengths.get(src)!
+  let seconds: number | null = null
+  try {
+    seconds = Number((JSON.parse(readFileSync(join(assetsDir(), `${src.slice(src.lastIndexOf('/') + 1)}.peaks`), 'utf8')) as { seconds?: unknown }).seconds) || null
+  } catch {
+    // Not worked out yet: the player works it out the first time it is shown, and says so here.
+  }
+  lengths.set(src, seconds)
+  return seconds
+}
+const sizes = new Map<string, number>()
+const sizeOfStored = (src: string): number => {
+  let size = sizes.get(src)
+  if (size === undefined) sizes.set(src, (size = statSync(join(assetsDir(), src.slice(src.lastIndexOf('/') + 1)), { throwIfNoEntry: false })?.size ?? 0))
+  return size
+}
+/** When each file was last opened as itself. */
+const OPENED = 'create table if not exists media_opened (src text primary key, at text not null)'
 
 /** Each note's media, worked out again only when its body changes: a big book is read once, then only what moved. */
 const read = new Map<string, { body: string; found: Found[] }>()
@@ -279,11 +320,29 @@ export function registerMedia(): void {
     const temporary = `${file}.${process.pid}.tmp`
     await writeFile(temporary, JSON.stringify({ peaks, seconds: Number(seconds) }))
     await rename(temporary, file)
+    lengths.set(String(src), Number(seconds))
     return true
   })
   // The Mac's own page for it, from any "No microphone" message (ui.tsx, refuseMic).
   ipcMain.handle('haligtree:mic:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'))
   ipcMain.handle('haligtree:media:list', () => allMedia())
+  // Files' search: every file whose words hold every word asked for, from the index the list keeps.
+  ipcMain.handle('haligtree:media:find', (_event, query: unknown) => {
+    const words = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean).slice(0, 16)
+    if (!words.length) return []
+    if (!findIndex.size) allMedia()
+    const out: string[] = []
+    for (const [key, text] of findIndex) if (words.every((word) => text.includes(word))) out.push(key)
+    return out
+  })
+  // A file opened as itself (a picture looked at, a book read, a recording played), for Files' "Last opened".
+  ipcMain.handle('haligtree:media:opened', (_event, src: unknown) => {
+    if (typeof src !== 'string' || !STORED.test(src)) return false
+    const db = database()
+    db.exec(OPENED)
+    db.prepare('insert into media_opened (src, at) values (?, ?) on conflict(src) do update set at = excluded.at').run(src, new Date().toISOString())
+    return true
+  })
   ipcMain.handle('haligtree:media:pick', async (event) => {
     const owner = BrowserWindow.fromWebContents(event.sender)
     const options: Electron.OpenDialogOptions = {
@@ -413,6 +472,7 @@ function allMedia(): Media[] {
   ] as { type: string; id: string; title: string; body: string; private: number; at: string; deck?: number }[]
   const tiles = new Map<string, Media>()
   const live = new Set<string>()
+  const transcripts = new Map<string, string>()
   // Newest note first, so a file's tile speaks for the newest note holding it.
   for (const row of rows.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))) {
     const key = `${row.type}:${row.id}`
@@ -420,8 +480,9 @@ function allMedia(): Media[] {
     let kept = read.get(key)
     if (kept?.body !== row.body) read.set(key, (kept = { body: row.body, found: mediaIn(row.body) }))
     const title = row.type === 'day' ? dayName(row.id) : row.title
-    for (const one of kept.found) {
+    for (const { said, ...one } of kept.found) {
       const tile = `${row.deck ? 'deck:' : ''}${one.src}`
+      if (said) transcripts.set(tile, transcripts.has(tile) ? `${transcripts.get(tile)}\n${said}` : said)
       const use = { type: row.type, id: row.id, title, private: !!row.private }
       const was = tiles.get(tile)
       if (was) {
@@ -464,7 +525,25 @@ function allMedia(): Media[] {
   }
   const store = assetsDir()
   const all = [...tiles.values()]
-  for (const one of all) one.gone = !existsSync(join(store, one.src.slice(one.src.lastIndexOf('/') + 1)))
+  db.exec(OPENED)
+  const opened = new Map((db.prepare('select src, at from media_opened').all() as { src: string; at: string }[]).map((one) => [one.src, one.at]))
+  const index = new Map<string, string>()
+  for (const one of all) {
+    one.gone = !existsSync(join(store, one.src.slice(one.src.lastIndexOf('/') + 1)))
+    const at = opened.get(one.src)
+    if (at) one.openedAt = at
+    // A picture in a note has no size of its own: its file's, read once (the store names files by their bytes, so it holds).
+    if (!one.size && !one.gone) one.size = sizeOfStored(one.src)
+    if (one.kind === 'audio' && !one.gone) {
+      const seconds = lengthOf(one.src)
+      if (seconds) one.seconds = seconds
+    }
+    const key = `${one.deck ? 'deck:' : ''}${one.src}`
+    // A picture's words as the Mac read them (none read yet: asked for in the background, as search asks).
+    const seen = !one.deck && (one.kind === 'picture' || one.kind === 'gif') ? wordsOfPicture(one.src).split(IN_PICTURE).join('') : ''
+    index.set(key, `${one.title} ${one.name} ${one.near} ${one.uses.map((use) => use.title).join(' ')} ${seen} ${transcripts.get(key) ?? ''}`.toLowerCase())
+  }
+  findIndex = index
   return all.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
 }
 
