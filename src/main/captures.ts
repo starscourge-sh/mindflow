@@ -532,14 +532,25 @@ export function registerCaptures(): void {
          select 'day', day, null, 'day', 'open', '', null, day, day || 'T12:00:00.000Z', ${DAY_WORDS} from (${DAYS}) d
        ) order by capturedAt desc`
     ).all() as unknown as Searchable[]
-    for (const one of rows) one.text = (one.raw = String(one.text ?? '')).toLowerCase()
+    // A note whose words did not change keeps what was made of them last time (its lower case, its words one by
+    // one for forgiving a slip): after a save only the saved note is read through again, not the whole book.
+    const before = new Map((everything?.rows ?? []).map((one) => [`${one.type}:${one.id}`, one]))
+    for (const one of rows) {
+      one.raw = String(one.text ?? '')
+      const was = before.get(`${one.type}:${one.id}`)
+      if (was && was.raw === one.raw) (one.text = was.text), (one.there = was.there)
+      else one.text = one.raw.toLowerCase()
+    }
     // The PDFs kept in notes, by their titles, and files added to Media, among the rest by when their note was made.
     const pdfs = [...pdfsToFind(db), ...articlesToFind(db), ...mediaToFind(db), ...worksToFind(db)]
     if (pdfs.length) rows.push(...pdfs), rows.sort((a, b) => (a.capturedAt < b.capturedAt ? 1 : a.capturedAt > b.capturedAt ? -1 : 0))
     everything = { at: writes(), rows }
     return rows
   }
-  ipcMain.handle('captures:find', (_event, query: unknown) => {
+  // `only`: nothing but these types is looked through (a link finding the PDF or article of its name asks for
+  // those two, and reads a few dozen names instead of every note's words).
+  ipcMain.handle('captures:find', (_event, query: unknown, only: unknown) => {
+    const types = Array.isArray(only) && only.length ? new Set(only.map(String)) : null
     const said = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean)
     // `author:le guin`: a property filter (property-words.ts), its value running to the next filter.
     const { filters, rest: words } = propertyFilters(said, said.some((word) => word.includes(':')) ? propertyNames(db) : [])
@@ -554,7 +565,7 @@ export function registerCaptures(): void {
       const gems = new Set(rows.filter((one) => one.type === 'nugget').map((one) => (fromNote.get(one.id) as { capture_id: string } | undefined)?.capture_id))
       return rows.filter((one) => one.type !== 'capture' || !gems.has(one.id))
     }
-    const rows = searchable().filter((one) => !kind || one.kind === kind)
+    const rows = searchable().filter((one) => (!kind || one.kind === kind) && (!types || types.has(one.type)))
     const take = (keep: (one: Searchable) => boolean, n: number): Searchable[] => {
       const out: Searchable[] = []
       for (const one of rows) if (out.length < n && keep(one)) out.push(one)
@@ -565,25 +576,40 @@ export function registerCaptures(): void {
     const lineOf = (one: Searchable): string | undefined => {
       const raw = one.raw ?? ''
       const name = (one.label ?? '').trim()
-      // The words only, never the who, where and properties after them (char 31 marks where they start).
-      const words = raw.split('\u001f')[0]
-      const body = words.startsWith(name) ? words.slice(name.length) : words
-      const lower = body.toLowerCase()
-      if (!terms.some((term) => lower.includes(term))) return undefined
+      // The words only, never the who, where and properties after them (char 31 marks where they start), nor the
+      // name at their head. Looked through where they lie: a long note's words (a million characters) were copied
+      // three times and cut line by line for every row a search showed, on main's one thread.
+      const mark = raw.indexOf('\u001f')
+      const end = mark < 0 ? raw.length : mark
+      const begin = raw.startsWith(name) ? Math.min(name.length, end) : 0
+      const lower = one.text
+      // Where each word looked for next stands in the words, at or after a place (-1: nowhere from there on).
+      const next = terms.map(() => -2)
+      const stands = (which: number, from: number): number => {
+        if (next[which] === -1 || next[which] >= from) return next[which]
+        const at = lower.indexOf(terms[which], from)
+        return (next[which] = at >= 0 && at + terms[which].length <= end ? at : -1)
+      }
+      if (!terms.some((_, which) => stands(which, begin) >= 0)) return undefined
       // The line holding the most of the words looked for (the earliest of those), not just the first "the":
       // a meeting's line or a long note's sentence is found where it is really said.
-      let start = 0, best = -1
-      for (let from = 0; from <= lower.length;) {
-        const end = lower.indexOf('\n', from)
-        const one = lower.slice(from, end < 0 ? lower.length : end)
-        const score = terms.filter((term) => one.includes(term)).length
+      let start = begin, best = -1
+      for (let from = begin; from <= end;) {
+        const feed = lower.indexOf('\n', from)
+        const to = feed < 0 || feed > end ? end : feed
+        let score = 0
+        for (let which = 0; which < terms.length; which++) {
+          const at = stands(which, from)
+          if (at >= 0 && at + terms[which].length <= to) score++
+        }
         if (score > best) (best = score, (start = from))
-        if (end < 0) break
-        from = end + 1
+        // A line holding them all is the earliest that can: no later line holds more.
+        if (score === terms.length || to >= end) break
+        from = to + 1
       }
       const at = Math.min(...terms.map((term) => lower.indexOf(term, start)).filter((spot) => spot >= 0))
       const stop = lower.indexOf('\n', at)
-      const said = body.slice(start, stop < 0 ? body.length : stop)
+      const said = raw.slice(start, stop < 0 || stop > end ? end : stop)
       // Read as words, as every line that shows a note's text is: no "- [ ]", no link's address, no "**".
       const line = mdWords(said.replace(IN_PICTURE, '')).trim()
       if (!line || line === name) return undefined
@@ -749,8 +775,10 @@ export function registerCaptures(): void {
     // capture edited and then promoted still has what you actually caught.
     // Only your edits count; a link's card or a tag added in bulk do not.
     // And when, for the note's "Edited 2h ago".
+    // The words as they are kept, made into text once: a long note's (4 MB) was made three times over, a save.
+    const kept = patch.body === undefined ? null : JSON.stringify(patch.body)
     if (patch.body !== undefined && !patch.fetched)
-      db.prepare("update captures set original_body = coalesce(original_body, body), edited_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') where id = ? and body is not ?").run(String(id), JSON.stringify(patch.body))
+      db.prepare("update captures set original_body = coalesce(original_body, body), edited_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') where id = ? and body is not ?").run(String(id), kept)
     const row = db.prepare(
       `update captures set
          title  = coalesce(?, title),
@@ -763,14 +791,14 @@ export function registerCaptures(): void {
       patch.title ?? null,
       patch.kind ?? null,
       patch.status ?? null,
-      patch.body === undefined ? null : JSON.stringify(patch.body),
+      kept,
       String(id)
     )
     // When an exit was taken, for the lead measures: "did you take an exit
     // this week" needs the day, not only the state.
     // Words saved without their Markdown (a sticky's tick) are turned into it here, so the copy never lags.
     // #bit written in makes it private, once: taken off by hand, it stays off.
-    if (row && patch.body !== undefined && tagged(JSON.stringify(patch.body), 'bit') && !tagged(before?.body, 'bit'))
+    if (row && kept !== null && tagged(kept, 'bit') && !tagged(before?.body, 'bit'))
       db.prepare('update captures set private = 1 where id = ?').run(String(id))
     // Its "question :: answer" lines kept as review cards.
     if (row && patch.body !== undefined) syncLineCards(`capture:${String(id)}`, patch.body, (db.prepare('select private from captures where id = ?').get(String(id)) as { private: number }).private)

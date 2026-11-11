@@ -348,19 +348,38 @@ if (typeof window !== 'undefined' && !(window as { linksRenamedHeard?: boolean }
   })
 }
 
+/**
+ * The lists every look-up reads whatever the name: open tasks, and once something is typed (the open menu stays
+ * short) who quotes are from, characters and tags.
+ */
+const fresh = (typed: boolean) => Promise.all([
+  haligtree.tasks().catch(() => []),
+  typed ? haligtree.values('attribution').catch(() => []) : [],
+  typed ? sources.characters().catch(() => []) : [],
+  typed ? readTags().catch(() => []) : []
+])
+/**
+ * The same, read once for a burst of look-ups: a note opening resolves each of its links that has only a name, and
+ * every one of them read all four lists again (a note of 50 such links asked main 350 things as it opened, 50 of
+ * them a search through every note's words). Shared while the read is under way, let go when it lands, so the next
+ * burst reads afresh.
+ */
+let shared: ReturnType<typeof fresh> | null = null
+const sharedLists = (): ReturnType<typeof fresh> => (shared ??= fresh(true).finally(() => (shared = null)))
+
 /** What `@` offers in any editor that can link captures. */
 /** `exact`: only a note of just that name is wanted (a link resolved as a note opens), so nothing is forgiven. */
 export async function findCaptures(query: string, { exact = false }: { exact?: boolean } = {}): Promise<NoteSuggestion[]> {
   const words = query.trim().toLowerCase()
-  const [captures, items, tasks, people, cast, tags, files] = await Promise.all([
+  // What does not depend on the name asked (tasks, people, characters, tags), shared by every look-up of one burst.
+  const lists = exact && words ? sharedLists() : fresh(!!words)
+  const [captures, items, [tasks, people, cast, tags], files] = await Promise.all([
     window.api.captures.search(query),
     haligtree.findItems(query),
-    haligtree.tasks().catch(() => []),
-    // Names, tags and files only once something is typed: the open menu stays short.
-    words ? haligtree.values('attribution').catch(() => []) : [],
-    words ? sources.characters().catch(() => []) : [],
-    words ? readTags().catch(() => []) : [],
-    words ? window.api.captures.find(query).then((found) => found.filter((one) => one.type === 'pdf' || one.type === 'web')).catch(() => []) : []
+    lists,
+    // Files only once something is typed, as the names and tags are. A link finding the PDF or article of its
+    // name has main look through those alone, never through every note's words.
+    words ? window.api.captures.find(query, exact ? ['pdf', 'web'] : undefined).then((found) => found.filter((one) => one.type === 'pdf' || one.type === 'web')).catch(() => []) : []
   ])
   // Spelt right, nothing: a slip of the keys still finds it ("tolkein", "hamelt"), forgiven as ⌘K and the slash menu
   // forgive one, by name, among every note and page; only then, so a right spelling never lists near ones.
