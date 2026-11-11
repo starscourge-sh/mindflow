@@ -3,14 +3,14 @@ import { still } from './motion'
 /**
  * How a thing let go of comes to rest, the one way for every swipe, pinch and
  * scroll that lands on a stop (the Calendar's weeks and its levels, the
- * Journal's year, a row of cards): where it would have stopped is read from
+ * Journal's year): where it would have stopped is read from
  * its speed at the lift, the nearest stop to that is chosen, and a spring
  * with no bounce takes it there, stepped by the real time each frame took.
  * A new touch stops the spring where it is.
  */
 
-/** A firm landing: settled in about a fifth of a second from any distance. */
-export const FIRM = 1100
+/** A firm landing: settled in under a fifth of a second from any distance. */
+export const FIRM = 1600
 
 /** Past an edge, less and less follows: the further over, the harder it pulls back. */
 export const rubber = (over: number, room: number, give = 0.55): number => (over * room * give) / (room + give * Math.abs(over))

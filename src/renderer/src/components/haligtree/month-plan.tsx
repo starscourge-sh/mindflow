@@ -492,10 +492,20 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
     // The Mac's word that the fingers touched or lifted (main, as for Back and Forward's swipe; a probe says the same).
     const phase = (kind: string): void => {
       if (kind === 'began') return void ((glide.current = false), free())
-      if (kind !== 'ended' || !moving.current) return
+      if (kind !== 'ended') return
       glide.current = true
-      if (performance.now() - wheeled.current > 40) pace.current = 0
-      if (Math.abs(pace.current) < row * 5) snapNow()
+      // Lifted from a flick, the trackpad's glide follows within a frame or two and the wheel decides when it has
+      // slowed. Lifted from rest there is no glide, and nothing says so: four frames with no step, and it lands now.
+      const lifted = performance.now()
+      cancelAnimationFrame(holding.current)
+      const look = (now: number): void => {
+        if (!glide.current || landing.current) return
+        if (now - wheeled.current < 64) return
+        if (now - lifted < 64) return void (holding.current = requestAnimationFrame(look))
+        pace.current = 0
+        snapNow()
+      }
+      holding.current = requestAnimationFrame(look)
     }
     const probed = (event: Event): void => phase(String((event as CustomEvent).detail))
     window.addEventListener('haligtree:swipe-phase', probed)

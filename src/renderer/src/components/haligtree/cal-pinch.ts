@@ -22,7 +22,9 @@ const QUIET = 300
 /** No pinch event for this long (five frames; a pinch sends one a frame while the fingers move): they stopped, and what swelled goes back. */
 const REST = 80
 /** How far ahead a pinch's speed is read to say where it is heading: a brisk pinch changes the level before the fingers get there. */
-const AHEAD = 0.08
+const AHEAD = 0.05
+/** How much of the way the fingers themselves must have gone before the speed may finish it: a twitch never changes the level. */
+const EARNED = 0.6
 /** How much the week or day swells at the edge of the change, and shrinks pinching in. */
 const SWELL = 0.06
 
@@ -95,7 +97,7 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
         held.style.transformOrigin = `${event.clientX - box.left}px ${event.clientY - box.top}px`
       }
       const heading = project(lz, pace, AHEAD)
-      if (Math.abs(heading) >= OPEN && Math.sign(heading) === Math.sign(lz) && held) {
+      if (Math.abs(heading) >= OPEN && Math.abs(lz) >= OPEN * EARNED && Math.sign(heading) === Math.sign(lz) && held) {
         const was = held
         letGo()
         const rect = was.getBoundingClientRect()

@@ -30,6 +30,9 @@ const mode = () => h.evaluate(() => document.querySelector('[data-cal-mode]')?.g
 const record = () => h.evaluate(() => {
   window.__rec = []
   window.__recOn = true
+  // When each wheel step was made, to know the probe itself sent them as a trackpad does (never 100ms apart).
+  window.__wheels = []
+  window.__wheelSpy ??= (window.addEventListener('wheel', (event) => window.__wheels?.push(event.timeStamp), { capture: true, passive: true }), true)
   let last = performance.now()
   const scaleOf = (el) => { const m = new DOMMatrixReadOnly(getComputedStyle(el).transform); return [Math.hypot(m.a, m.b), Math.hypot(m.c, m.d)] }
   const tick = (now) => {
@@ -44,6 +47,8 @@ const record = () => h.evaluate(() => {
   requestAnimationFrame(tick)
 })
 const stop = () => h.evaluate(() => { window.__recOn = false; return window.__rec })
+// The longest wait between two of the probe's own wheel steps since `record()`.
+const widestGap = () => h.evaluate(() => Math.round(Math.max(0, ...window.__wheels.slice(1).map((at, i) => at - window.__wheels[i]))))
 const mark = () => h.evaluate(() => performance.now())
 const row = () => h.evaluate(() => document.querySelector('[data-month-run] [data-month-week]').offsetHeight + 1)
 // From `from` (the page's clock) on: when the run last moved, where it rests, the longest frame, and how far past its rest it went.
@@ -84,11 +89,11 @@ try {
   }
 
   // 2. A flick: the fingers lift fast and the trackpad glides on, each step shorter than the last.
-  for (const round of [1, 2]) {
+  for (let round = 1, tries = 0; round <= 2; round++) {
     await record()
     await phase('began')
     for (let i = 0; i < 6; i++) { await h.mouse.wheel(0, 30); await wait(8) }
-    await phase('ended')
+    phase('ended')
     let slowed = 0
     let step = 30
     while (step >= 1) {
@@ -100,10 +105,16 @@ try {
     const glideOver = await mark()
     await film(`flick-${round}`, 1200)
     const rec = await stop()
+    // A busy machine held one of the probe's steps back over 60ms: to the page that is fingers lifted from rest, or a
+    // new wheel, as it should be. Not a flick as a trackpad sends it: sent again, three times at most.
+    const gap = await widestGap()
+    if (gap > 60 && tries++ < 4) { console.log(`(flick ${round} sent again: the probe's steps came ${gap}ms apart, load ${load()})`); round--; continue }
     const got = landing(rec, slowed, size)
     check(`flick ${round}: the run rests on a week within ${SETTLE}ms of the glide slowing`, got.onWeek && got.ms <= SETTLE, `${got.ms}ms, glide ran on ${Math.round(glideOver - slowed)}ms, load ${load()}`)
     check(`flick ${round}: it never passes its week nor turns round`, got.past <= 0.5 && got.turns === 0, `${got.past}px past, ${got.turns} turns`)
     check(`flick ${round}: no frame over ${LONG}ms while it lands`, got.long <= LONG, `longest ${got.long}ms, load ${load()}`)
+    const went = Math.abs(got.rest - rec.find((one) => one.top !== null).top)
+    check(`flick ${round}: the flick carries on past where the fingers lifted (180px of fingers)`, went >= 180 + size * 0.5, `${Math.round(went)}px, ${(went / size).toFixed(1)} weeks`)
     check(`flick ${round}: the glide's last steps do not move it again`, new Set(rec.filter((one) => one.t > slowed + got.ms + 20).map((one) => Math.round(one.top))).size === 1)
   }
 
@@ -141,8 +152,9 @@ try {
     await wait(60)
     const lifted = await mark()
     await phase('ended'); await wait(500)
-    const got = landing(await stop(), lifted, size)
-    check('Motion off: on its week within three frames of the lift, no glide', got.onWeek && got.ms <= 50, `${got.ms}ms`)
+    const rec5 = await stop()
+    const got = landing(rec5, lifted, size)
+    check('Motion off: on its week in one step once the lift is known (four frames with no glide), nothing in between', got.onWeek && got.ms <= 110 && new Set(rec5.filter((one) => one.t >= lifted).map((one) => Math.round(one.top))).size <= 2, `${got.ms}ms`)
     await h.evaluate(() => delete document.documentElement.dataset.motion)
   }
 
@@ -180,7 +192,7 @@ try {
   {
     await record()
     const t0 = await mark()
-    await pinch(week.x, week.y, -3, 3)
+    await pinch(week.x, week.y, -2, 3)
     const stopped = await mark()
     await film('short-pinch', 700, 16)
     const rec = await stop()
@@ -197,6 +209,19 @@ try {
     const top = await h.evaluate(() => document.querySelector('[data-month-run]').scrollTop)
     check('→ is there at once, on a week', (await title()) !== before && Math.abs(top / size - Math.round(top / size)) * size < 0.5, `${before} -> ${await title()}`)
     await h.keyboard.press('ArrowLeft'); await wait(300)
+  }
+  // 9. With FRAMES: the level's own animation held still at 0, 40, 80 and 140ms, a picture of each, to read by eye
+  // (a picture takes longer than the whole animation on a busy machine, so the moving frames cannot be filmed live).
+  if (dir) {
+    await h.evaluate(() => { const real = Element.prototype.animate; window.__held = []; Element.prototype.animate = function (...args) { const one = real.apply(this, args); if (this.matches?.('[data-cal-level]')) (one.pause(), window.__held.push(one)); return one } })
+    await h.mouse.move(week.x, week.y); await wait(300)
+    await pinch(week.x, week.y, -6); await wait(500)
+    for (const at of [0, 40, 80, 140]) {
+      await h.evaluate((at) => window.__held.forEach((one) => (one.currentTime = at)), at)
+      await wait(120)
+      await h.screenshot({ path: `${dir}/held-month-to-week-${String(at).padStart(3, '0')}ms.png` })
+    }
+    await h.evaluate(() => window.__held.forEach((one) => one.finish()))
   }
 } catch (error) {
   ok = false
