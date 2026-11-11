@@ -1,6 +1,7 @@
 import { detent, edge } from '@/lib/haptics'
 /**
- * The Journal's year, felt by hand (milestones.tsx, `YearMarks`): the strokes
+ * The Journal's year, felt by hand (milestones.tsx, `YearMarks`), and a book's
+ * page strip the same way (book-links.tsx, `PageBar`): the strokes
  * near the pointer swell like the Dock, and a pinch spreads the year wider
  * inside its card, two fingers sideways moving along it, Esc or a double-click
  * putting the whole year back. Both run on their own frames: the swell writes
@@ -50,12 +51,15 @@ const room = (band: Band, z: number): [number, number] => {
 }
 
 /**
- * Pinch to zoom the year's bands, at the pointer; two fingers sideways move along while zoomed; a plain scroll up or
+ * Each band is a `[data-zoom-band]` (its index) holding a `[data-zoom-clip]`; `deep` is the widest a stroke's spacing
+ * may grow to. Pinch to zoom the year's bands, at the pointer; two fingers sideways move along while zoomed; a plain scroll up or
  * down stays the page's. Past the closest or the widest it gives a little, then springs back once the fingers stop.
  */
-export function useYearZoom(box: RefObject<HTMLElement | null>, bands: Band[]): { view: YearView; whole: () => void } {
+export function useYearZoom(box: RefObject<HTMLElement | null>, bands: Band[], deep = DEEP): { view: YearView; whole: () => void } {
   const geometry = useRef(bands)
   geometry.current = bands
+  const deepAt = useRef(deep)
+  deepAt.current = deep
   const [view, setView] = useState<YearView>({ z: 1, pans: [] })
   const whole = useRef<() => void>(() => {})
   useEffect(() => {
@@ -67,7 +71,7 @@ export function useYearZoom(box: RefObject<HTMLElement | null>, bands: Band[]): 
     let last = 0
     let home = false
     let settling = false
-    const deepest = (): number => Math.log(Math.max(1, DEEP / Math.min(...geometry.current.map((one) => one.base), DEEP)))
+    const deepest = (): number => Math.log(Math.max(1, deepAt.current / Math.min(...geometry.current.map((one) => one.base), deepAt.current)))
     const seen = (): YearView => {
       const z = Math.exp(soft(raw.lz, 0, deepest(), 0.35))
       return { z, pans: geometry.current.map((band, b) => { const [lo, hi] = room(band, z); return soft(raw.pans[b] ?? 0, lo, hi, band.clip) }) }
@@ -119,14 +123,14 @@ export function useYearZoom(box: RefObject<HTMLElement | null>, bands: Band[]): 
     })
     const go = (): void => { then = 0; frames.again() }
     const wheel = (event: WheelEvent): void => {
-      const band = (event.target as Element | null)?.closest<HTMLElement>('[data-year-band]')
-      const b = Number(band?.dataset.yearBand ?? 0)
+      const band = (event.target as Element | null)?.closest<HTMLElement>('[data-zoom-band]')
+      const b = Number(band?.dataset.zoomBand ?? 0)
       const one = geometry.current[b]
       if (!one) return
       const at = seen()
       if (event.ctrlKey) {
         event.preventDefault()
-        const clip = band?.querySelector('[data-year-clip]')?.getBoundingClientRect()
+        const clip = band?.querySelector('[data-zoom-clip]')?.getBoundingClientRect()
         const px = clip ? event.clientX - clip.left : one.clip / 2
         const day = (px + at.pans[b]) / (one.base * at.z)
         raw.lz = Math.log(at.z) - Math.max(-40, Math.min(40, event.deltaY)) * 0.01
@@ -160,6 +164,19 @@ export function useYearZoom(box: RefObject<HTMLElement | null>, bands: Band[]): 
     el.addEventListener('wheel', wheel, { passive: false })
     return () => (el.removeEventListener('wheel', wheel), frames.stop())
   }, [box])
+  // Zoomed, Esc puts the whole back (not while typing, nor when something nearer took the key).
+  const zoomed = view.z > 1.001
+  useEffect(() => {
+    if (!zoomed) return
+    const key = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented || (event.target as Element | null)?.closest?.('input, textarea, [contenteditable="true"]')) return
+      event.preventDefault()
+      event.stopPropagation()
+      whole.current()
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [zoomed])
   return { view, whole: () => whole.current() }
 }
 
@@ -176,8 +193,8 @@ const bell = (u: number): number => Math.exp(-(u * u) / 2)
  * The Dock, on the year: near the pointer the strokes stand taller, grow wider (one pixel to three under it) and
  * brighten, and spread apart, the ones a little further off closing up to make the room, so the row keeps its width
  * and strokes far off never move. Falls off over about ten strokes either side, like Line Sidebar. The stroke under the
- * pointer stays where it is, widest and tallest: the one a click opens. Marked strokes keep their colour and height and
- * move with the spread, their names with them. Written straight onto each stroke's style a frame at a time (React draws
+ * pointer stays where it is, widest and tallest: the one a click opens. Marked strokes (`data-stroke-mark`, their key) keep their colour
+ * and height and move with the spread, their names (`[data-mark-label][data-mark-day]` of that key) with them. Written straight onto each stroke's style a frame at a time (React draws
  * the year once). Nothing moves with Motion off or Reduce motion; the pointed-at stroke still stands up as before.
  */
 export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number): void {
@@ -231,8 +248,8 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
         const w = ws[i]
         const left = lefts[i]
         const at = left + Math.floor((w - 1) / 2)
-        const marked = rect.hasAttribute('data-year-marked')
-        if (marked && at !== x) moved.set(rect.getAttribute('data-year-day') ?? '', at - x)
+        const marked = rect.hasAttribute('data-stroke-mark')
+        if (marked && at !== x) moved.set(rect.getAttribute('data-stroke-mark') ?? '', at - x)
         if (left === x && w === 1 && (marked || lift < 0.02)) {
           if (one.touched.delete(rect)) plain(rect)
           continue
@@ -251,7 +268,7 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
         one.touched.add(rect)
       }
       // A marked stroke's name goes where its stroke went.
-      for (const name of svg.closest('[data-year-band]')?.querySelectorAll<HTMLElement>('[data-mark-label][data-mark-day]') ?? []) {
+      for (const name of svg.closest('[data-zoom-band]')?.querySelectorAll<HTMLElement>('[data-mark-label][data-mark-day]') ?? []) {
         const by = moved.get(name.dataset.markDay ?? '')
         if (by) (name.style.translate = `${by}px 0`, one.touched.add(name))
         else if (one.touched.delete(name)) plain(name)
@@ -289,7 +306,7 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
           on = rect
         }
         // Felt as the lens passes each day, as a dial's notches are: a light tick a day, a firmer one on a marked day.
-        if (one.x !== x && states.has(svg)) (on?.hasAttribute('data-year-marked') ? edge() : detent())
+        if (one.x !== x && states.has(svg)) (on?.hasAttribute('data-stroke-mark') ? edge() : detent())
         one.x = x
         one.to = 1
         states.set(svg, one)

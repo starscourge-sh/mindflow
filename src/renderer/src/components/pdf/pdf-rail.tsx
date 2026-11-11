@@ -115,6 +115,8 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
       shown.width = off.width
       shown.height = off.height
       shown.getContext("2d")?.drawImage(off, 0, 0)
+      // Drawn: the page strip's picture (book-links.tsx) copies it rather than drawing the page again.
+      shown.dataset.drawn = dark ? "dark" : "light"
       drawnAt.current = wide
       drawnDark.current = dark
     })))
@@ -133,7 +135,7 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
     shownOnce.current = true
   }, [here])
   return (
-    <button ref={box} type="button" className={`pdf-thumb${here ? " is-here" : ""}`} aria-label={`Page ${label(page)}`} aria-current={here ? "page" : undefined} onClick={onGo}>
+    <button ref={box} type="button" className={`pdf-thumb${here ? " is-here" : ""}`} data-thumb-page={page} aria-label={`Page ${label(page)}`} aria-current={here ? "page" : undefined} onClick={onGo}>
       <span className="pdf-thumb-sheet" style={{ aspectRatio: `1 / ${shape}` }}>
         <canvas ref={canvas} />
       </span>

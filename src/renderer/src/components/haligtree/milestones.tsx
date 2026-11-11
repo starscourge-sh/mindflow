@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react'
-import { TIP } from '@/lib/float'
-import { GAP, LOW, STEP, STROKE_INK, StrokeAxis, StrokeRule, Strokes, TALL, placeNames, strokeAt, textWidth } from './time-strokes'
+import { GAP, LOW, STEP, STROKE_INK, StrokeAxis, StrokeRule, StrokeTip, Strokes, TALL, placeNames, strokeAt, textWidth } from './time-strokes'
 import { SWELL, shown, useSwell, useYearZoom } from './year-zoom'
 import { useStill } from '@/lib/motion'
 import { useReading } from '@/lib/reads-in'
@@ -423,17 +422,6 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
   const zoomed = view.z > 1.001
   const calm = useStill()
   useSwell(box, () => stepOf(bands[0] ?? { from: 0, to: days }))
-  useEffect(() => {
-    if (!zoomed) return
-    const key = (event: KeyboardEvent): void => {
-      if (event.key !== 'Escape' || event.defaultPrevented || (event.target as Element | null)?.closest?.('input, textarea, [contenteditable="true"]')) return
-      event.preventDefault()
-      event.stopPropagation()
-      whole()
-    }
-    window.addEventListener('keydown', key, true)
-    return () => window.removeEventListener('keydown', key, true)
-  })
   const fromPointer = (clientX: number, svg: SVGSVGElement | null, band: { from: number; to: number }, pan = 0): number | null => {
     if (!svg) return null
     const d = strokeAt(clientX + pan, svg.getBoundingClientRect().left, band.to - band.from, stepOf(band) * view.z)
@@ -485,8 +473,8 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
             // A marked day's name reads at rest (in dark too), only a little quieter than the one pointed at.
             const rest = 0.82 + 0.18 * weeks
             return (
-              <div key={band.from} data-year-band={b} className="relative" style={{ width: clip }}>
-                <div data-year-clip className="overflow-hidden pb-0.5 [contain:layout_paint]" style={{ width: clip }}>
+              <div key={band.from} data-year-band={b} data-zoom-band={b} className="relative" style={{ width: clip }}>
+                <div data-year-clip data-zoom-clip className="overflow-hidden pb-0.5 [contain:layout_paint]" style={{ width: clip }}>
                   <div data-year-track data-year-pan={pan} style={{ width: clip }}>
                     {lines > 0 && (
                       <div data-year-names className="relative" style={{ height: lines * NAME_LINE, width, transform: pan ? `translateX(${-pan}px)` : undefined }}>
@@ -501,7 +489,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
                       ink={(i) => { const d = band.from + i; const one = markOn.get(d); return one ? inkOf(one) : d === at ? STROKE_INK.here : d < at ? STROKE_INK.gone : STROKE_INK.ahead }}
                       // A marked stroke reaches up past the swell's room to its name; with no swell, the pointed-at stroke stands up.
                       tall={(i) => { const d = band.from + i; const row = rowOf.get(d); return row !== undefined ? (row === null ? true : row * NAME_LINE + NAME_LINE / 2 + ROOM - TALL) : d === at || (calm && hover === d) }}
-                      attrs={(i) => { const one = markOn.get(band.from + i); return { 'data-year-day': dayAt(band.from + i), 'data-year-marked': one?.title } }}
+                      attrs={(i) => { const one = markOn.get(band.from + i); return { 'data-year-day': dayAt(band.from + i), 'data-year-marked': one?.title, 'data-stroke-mark': one ? dayAt(band.from + i) : undefined } }}
                       onPointerMove={(event) => setHover(fromPointer(event.clientX, event.currentTarget, band, pan))} onPointerLeave={() => setHover(null)} onClick={open} />
                     <div data-year-months className="relative" style={{ width, transform: pan ? `translateX(${-pan}px)` : undefined }}>
                       <StrokeAxis ticks={daily < 1 ? ticks : []} width={width} from={sight.from} to={sight.to} style={daily ? { opacity: 1 - daily } : undefined} />
@@ -510,11 +498,10 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
                   </div>
                 </div>
                 {hover !== null && hover >= band.from && hover < band.to && (
-                  <span className={`pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap ${TIP}`}
-                    style={{ left: Math.max(70, Math.min(Math.max(clip, 140) - 70, (hover - band.from) * step - pan)), top: '100%', marginTop: 4 }}>
+                  <StrokeTip x={(hover - band.from) * step - pan} width={clip}>
                     <span className="font-medium">{dayMonth(`${dayAt(hover)}T12:00`)}</span>
                     <span className="text-muted-foreground"> · {near ? markName(near) : onOpenDay ? 'click for its page' : 'click to mark it'}</span>
-                  </span>
+                  </StrokeTip>
                 )}
               </div>
             )

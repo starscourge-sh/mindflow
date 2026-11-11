@@ -1,18 +1,23 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { labelFor } from "./pdf-labels"
 import { ChevronRight } from "lucide-react"
 import { chime } from "@/lib/sound"
 import { openApart } from "@/lib/apart"
 import { openItems } from "@/lib/split"
 import { RowMenu, copyLinkItem, type RowItem } from "@/components/haligtree/row-menu"
-import { Tip, VirtualList } from "@/components/haligtree/ui"
+import { VirtualList } from "@/components/haligtree/ui"
 import { hoverNote } from "@/components/haligtree/note-preview"
 import { open, pagesOf, useBookGraph, type Cited } from "./same-book"
 export { useCited, type Cited } from "./same-book"
 import { GraphCanvas } from "@/components/haligtree/graph-canvas"
 import { openPdf } from "./pdf-reader"
 import { plural, num } from '../../../../main/dates'
-import { GAP, STEP, STROKE_INK, StrokeRule, Strokes } from "@/components/haligtree/time-strokes"
+import { GAP, LOW, STEP, STROKE_INK, StrokeAxis, StrokeRule, StrokeTip, Strokes, TALL, strokeAt } from "@/components/haligtree/time-strokes"
+import { SWELL, useSwell, useYearZoom } from "@/components/haligtree/year-zoom"
+import { useStill } from "@/lib/motion"
+import { pdfCover } from "./pdf-cover"
+import { drawnPage, pageImage } from "./pdf-peek"
+import { useDarkPages, usePaperPages } from "./paper"
 
 /** Notes and gems: what "In your notes" lists. Cards show on the page bar alone. */
 export const inNotes = (cited: Cited[]): Cited[] => cited.filter((one) => one.type !== "card" && one.type !== "deck")
@@ -170,25 +175,46 @@ export function InYourNotes({ cited, empty, parts = [], here, src = "" }: { cite
 
 type Mark = { page: number; color?: string | null }
 
+/** How wide a page's picture stands over the strip, in CSS px. */
+const THUMB = 80
+/** How long the pointer stays on a page not yet drawn before it is drawn. */
+const REST = 90
+/** At the closest a pinch goes, how far apart two pages stand: a stroke a page, with room to point at each. */
+const PAGE_DEEP = 8
+/** The strip's height: room for the swell over the low strokes, and for the tallest of the gathered ones. */
+const STRIP_ROOM = Math.max(LOW + SWELL + 2, TALL + 6)
+
 /**
- * The book's length drawn as the Journal's year is (time-strokes.tsx): a hairline for each stretch of pages across
- * the card, solid where read, faint ahead, the stroke you are on taller in the accent, and a stroke standing taller
- * where highlights, notes or cards gather, more there the taller. Pointed at, a stroke says what is in it; pressed, it
- * opens there. Over it the point ("You are on p. 83 of 336") and what the strokes are; under it, the first and last page.
+ * The book's length drawn as the Journal's year is (time-strokes.tsx), and felt as it is (year-zoom.ts): a hairline for
+ * each stretch of pages across the card, solid where read, faint ahead, the stroke you are on taller in the accent, and
+ * a stroke standing taller where highlights, notes or cards gather, more there the taller. The strokes near the pointer
+ * swell; a pinch spreads the book wider (to a stroke a page), page numbers coming in under it, Esc or a double-click
+ * for the whole book. Pointed at, a stroke shows its page's picture over it and says what is in it under it; pressed,
+ * it opens there. Over it the point ("You are on p. 83 of 336") and what the strokes are; under it, the first and last page.
  */
 export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src: string; name: string; pages: number; page?: number | null; cited: Cited[]; marks: Mark[]; /** In the reader: go to the page there. */ onPage?: (page: number) => void }): React.JSX.Element {
   const strip = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = strip.current
     if (!el) return
-    const watch = new ResizeObserver(() => setWidth(Math.floor(el.clientWidth)))
+    const measure = (): void => setWidth(Math.floor(el.clientWidth))
+    measure()
+    const watch = new ResizeObserver(measure)
     watch.observe(el)
     return () => watch.disconnect()
   }, [])
-  // As many hairlines as fit a stroke and a gap each, never more than the pages; spread across the whole card.
-  const count = Math.max(1, Math.min(pages, Math.floor((width + GAP) / STEP)))
-  const step = count > 1 ? Math.max(STEP, (width - 1) / (count - 1)) : STEP
+  // Pinched, the book spreads wider inside the card: each page `base` px apart at the whole book, `PAGE_DEEP` at the closest.
+  const { view, whole } = useYearZoom(strip, [{ base: (width + GAP) / Math.max(1, pages), count: Math.max(1, pages), clip: width }], PAGE_DEEP)
+  const z = view.z
+  const zoomed = z > 1.001
+  const pan = view.pans[0] ?? 0
+  const spread = width * z
+  // As many hairlines as fit a stroke and a gap each, never more than the pages; spread across the whole (pinched) width.
+  const count = Math.max(1, Math.min(pages, Math.floor((spread + GAP) / STEP)))
+  const step = count > 1 ? Math.max(STEP, (spread - 1) / (count - 1)) : STEP
+  useSwell(strip, () => step / z)
+  const calm = useStill()
   const strokeOf = (p: number): number => Math.min(count - 1, Math.floor(((p - 1) * count) / Math.max(1, pages)))
   const stretches = useMemo(() => {
     const all = Array.from({ length: count }, (_, at) => ({ from: Math.floor((at * pages) / count) + 1, to: Math.max(Math.floor((at * pages) / count) + 1, Math.floor(((at + 1) * pages) / count)), marks: 0, notes: 0, cards: 0, first: 0 }))
@@ -205,46 +231,143 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
   const most = Math.max(1, ...stretches.map((one) => one.marks + one.notes + one.cards))
   const here = page ? strokeOf(page) : -1
   const [hover, setHover] = useState<number | null>(null)
+  // A pinch changes how many strokes there are: one pointed at before it may be gone.
+  const lit = hover !== null && hover < count ? hover : null
   const counted = (n: number, one: string, many: string): string => (n ? `${n.toLocaleString()} ${n === 1 ? one : many}` : "")
-  const at = (clientX: number, el: Element): number | null => {
-    const i = Math.round((clientX - el.getBoundingClientRect().left) / step)
-    return i >= 0 && i < count ? i : null
-  }
-  const said = (i: number): string => {
+  const at = (clientX: number, el: Element): number | null => strokeAt(clientX + pan, el.getBoundingClientRect().left, count, step)
+  const whereOf = (i: number): string => {
     const one = stretches[i]
-    const where = one.from === one.to ? `p. ${labelFor(src, one.from)}` : `pp. ${labelFor(src, one.from)} to ${labelFor(src, one.to)}`
-    const what = [counted(one.marks, "highlight", "highlights"), counted(one.notes, "note", "notes"), counted(one.cards, "card", "cards")].filter(Boolean).join(", ")
-    return `${where}${what ? `: ${what}` : ""}${i === here ? " (you are here)" : ""}`
+    return one.from === one.to ? `p. ${labelFor(src, one.from)}` : `pp. ${labelFor(src, one.from)} to ${labelFor(src, one.to)}`
   }
+  const whatOf = (i: number): string => {
+    const one = stretches[i]
+    return [counted(one.marks, "highlight", "highlights"), counted(one.notes, "note", "notes"), counted(one.cards, "card", "cards"), i === here ? "you are here" : ""].filter(Boolean).join(", ")
+  }
+  // The page a stroke opens at: the first one holding something, else its first page.
+  const pageOf = (i: number): number => stretches[i].first || stretches[i].from
   const go = (i: number): void => {
-    const one = stretches[i]
-    const to = one.first || one.from
+    const to = pageOf(i)
     chime("open")
     if (onPage) onPage(to)
     else openPdf(src, name, to)
   }
+  // Zoomed, the pages are numbered under the strokes at a round step that leaves room between the numbers.
+  const every = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000].find((n) => (n * spread) / pages >= 44) ?? 10000
+  const ticks = zoomed
+    ? Array.from({ length: Math.floor(pages / every) + 1 }, (_, k) => Math.max(1, k * every)).flatMap((p) => {
+        const x = strokeOf(p) * step
+        return x >= pan - 90 && x <= pan + width + 10 ? [{ x, text: labelFor(src, p) }] : []
+      })
+    : []
+  const x = lit === null ? 0 : lit * step - pan
   return (
     <div className="book-bar" data-page-bar>
       {/* The point first, in full ink; then what the strip shows; then the strip, the first and last page under it. */}
-      <p className="book-bar-you">{page ? <>You are on p. {labelFor(src, page)} of {labelFor(src, pages)}</> : "Not started"}</p>
-      <StrokeRule>Taller strokes hold highlights and notes</StrokeRule>
-      <div ref={strip} className="book-bar-strip">
+      <p className="book-bar-you">
+        {page ? <>You are on p. {labelFor(src, page)} of {labelFor(src, pages)}</> : "Not started"}
+        {zoomed && <span data-book-zoom-hint className="font-normal text-muted-foreground"> · Esc or a double-click for the whole book</span>}
+      </p>
+      <StrokeRule>Taller strokes hold highlights and notes; pinch to look closer</StrokeRule>
+      <div ref={strip} className="book-bar-strip relative" data-swipe-own data-zoom-band={0} data-book-zoom={Math.round(z * 100) / 100} onDoubleClick={whole}>
         {width > 0 && (
-          <Tip label={hover === null ? "" : said(hover)}>
-            <Strokes count={count} step={step} height={28} role="img" aria-label={page ? `p. ${labelFor(src, page)} of ${labelFor(src, pages)}` : `${pages} pages`} className="cursor-pointer"
-              ink={(i) => (i === here ? STROKE_INK.here : stretches[i].marks + stretches[i].notes + stretches[i].cards ? "var(--foreground)" : i < here ? STROKE_INK.gone : STROKE_INK.ahead)}
-              tall={(i) => { const all = stretches[i].marks + stretches[i].notes + stretches[i].cards; return all ? Math.round(Math.sqrt(all / most) * 6) : i === here || i === hover }}
-              attrs={(i) => { const one = stretches[i]; const all = one.marks + one.notes + one.cards; return { "data-here": i === here ? page ?? undefined : undefined, "data-gone": i < here ? "" : undefined, "data-tick": all ? (one.notes ? "note" : one.marks ? "mark" : "card") : undefined, "data-tick-page": all ? one.first : undefined } }}
-              onPointerMove={(event) => setHover(at(event.clientX, event.currentTarget))} onPointerLeave={() => setHover(null)}
-              onClick={(event) => { const i = (event.target as Element).getAttribute("data-tick-page") ? stretches.findIndex((one) => String(one.first) === (event.target as Element).getAttribute("data-tick-page")) : at(event.clientX, event.currentTarget); if (i !== null && i >= 0) go(i) }} />
-          </Tip>
+          <>
+            <div data-zoom-clip className="overflow-hidden pb-0.5 [contain:layout_paint]">
+              <Strokes count={count} step={step} shift={pan} view={width} height={STRIP_ROOM} role="img" aria-label={page ? `p. ${labelFor(src, page)} of ${labelFor(src, pages)}` : `${pages} pages`} className="cursor-pointer"
+                ink={(i) => (i === here ? STROKE_INK.here : stretches[i].marks + stretches[i].notes + stretches[i].cards ? "var(--foreground)" : i < here ? STROKE_INK.gone : STROKE_INK.ahead)}
+                tall={(i) => { const all = stretches[i].marks + stretches[i].notes + stretches[i].cards; return all ? Math.round(Math.sqrt(all / most) * 6) : i === here || (calm && i === lit) }}
+                attrs={(i) => { const one = stretches[i]; const all = one.marks + one.notes + one.cards; return { "data-here": i === here ? page ?? undefined : undefined, "data-gone": i < here ? "" : undefined, "data-tick": all ? (one.notes ? "note" : one.marks ? "mark" : "card") : undefined, "data-tick-page": all ? one.first : undefined } }}
+                onPointerMove={(event) => setHover(at(event.clientX, event.currentTarget))} onPointerLeave={() => setHover(null)}
+                onClick={(event) => { const i = (event.target as Element).getAttribute("data-tick-page") ? stretches.findIndex((one) => String(one.first) === (event.target as Element).getAttribute("data-tick-page")) : at(event.clientX, event.currentTarget); if (i !== null && i >= 0) go(i) }} />
+            </div>
+            {lit !== null && (
+              <>
+                <PagePicture src={src} page={pageOf(lit)} x={x} width={width} />
+                <StrokeTip x={x} width={width}>
+                  <span className="font-medium">{whereOf(lit)}</span>
+                  <span className="text-muted-foreground"> · {whatOf(lit) || "click for its page"}</span>
+                </StrokeTip>
+              </>
+            )}
+          </>
         )}
       </div>
-      <div className="book-bar-ends">
-        <span>p. {labelFor(src, 1)}</span>
-        <span>p. {labelFor(src, pages)}</span>
-      </div>
+      {zoomed ? (
+        <div data-book-pages className="overflow-hidden" style={{ width }}>
+          <div style={{ width: spread, transform: pan ? `translateX(${-pan}px)` : undefined }}>
+            <StrokeAxis ticks={ticks} width={spread} from={pan - 90} to={pan + width + 10} />
+          </div>
+        </div>
+      ) : (
+        <div className="book-bar-ends">
+          <span>p. {labelFor(src, 1)}</span>
+          <span>p. {labelFor(src, pages)}</span>
+        </div>
+      )}
     </div>
+  )
+}
+
+/** The rail's drawing of a page, if this book's reader has drawn it there in the pages' present look (pdf-rail.tsx). */
+const railDrawn = (near: Element | null, page: number): HTMLCanvasElement | null => {
+  const canvas = near?.closest(".pdf-reader")?.querySelector<HTMLCanvasElement>(`.pdf-thumb[data-thumb-page="${page}"] canvas[data-drawn]`)
+  return canvas && canvas.dataset.drawn === (localStorage.getItem("pdf-dark") === "1" ? "dark" : "light") ? canvas : null
+}
+
+/**
+ * The page pointed at on the strip, small over its stroke, as a macOS popover is over what it is about: its picture and
+ * its number, the pointer arrow on the stroke. Nothing is drawn that is already drawn: page 1 is the cover, a page the
+ * rail has drawn is copied from it, a page drawn for a cover's scrub or the hover card is taken from their cache
+ * (pdf-peek.tsx), and only a page none of those have is drawn, once the pointer rests on it, one at a time, the newest
+ * asked for first. Its number
+ * shows at once; its picture fades in when it comes.
+ */
+function PagePicture({ src, page, x, width }: { src: string; page: number; x: number; width: number }): React.JSX.Element {
+  const box = useRef<HTMLSpanElement>(null)
+  const canvas = useRef<HTMLCanvasElement>(null)
+  const [paperKept] = usePaperPages()
+  const [dark] = useDarkPages()
+  type Shown = { page: number; image: string | HTMLCanvasElement | null; late: boolean }
+  const [shown, setShown] = useState<Shown>({ page, image: null, late: false })
+  // Its shape, kept from the last picture: a sheet that changed shape on every page would jump under the eye.
+  const [shape, setShape] = useState(1.3)
+  useLayoutEffect(() => {
+    const ready = railDrawn(box.current, page) ?? drawnPage(src, page)
+    if (ready !== undefined && ready !== null) return void setShown({ page, image: ready, late: false })
+    setShown({ page, image: null, late: true })
+    let live = true
+    // Drawn only once the pointer rests on the page: a page takes some 35ms to draw (up to 100ms, qa/page-strip.mjs), so
+    // drawing the pages a fast sweep passes dropped frames; swept past, a page shows its number alone.
+    const rest = window.setTimeout(() => {
+      void (page === 1 ? pdfCover(src).then((cover) => cover?.image ?? null) : pageImage(src, page)).then((image) => {
+        if (live) setShown({ page, image, late: true })
+      })
+    }, REST)
+    return () => {
+      live = false
+      clearTimeout(rest)
+    }
+  }, [src, page])
+  const image = shown.page === page ? shown.image : null
+  useLayoutEffect(() => {
+    if (!(image instanceof HTMLCanvasElement) || !canvas.current) return
+    canvas.current.width = image.width
+    canvas.current.height = image.height
+    canvas.current.getContext("2d")?.drawImage(image, 0, 0)
+    setShape(image.height / image.width || 1.3)
+  }, [image])
+  const paper = paperKept && !dark
+  const half = THUMB / 2 + 4
+  // The card stays inside the strip; the arrow stays on the stroke.
+  const left = Math.max(half, Math.min(Math.max(width, 2 * half) - half, x))
+  return (
+    <span ref={box} data-page-picture={page} aria-hidden className="book-thumb" style={{ left, bottom: "100%" }}>
+      <span className={`book-thumb-sheet${paper ? " is-paper" : ""}`} style={{ width: THUMB, height: Math.round(THUMB * shape) }}>
+        {image instanceof HTMLCanvasElement ? <canvas ref={canvas} className={shown.late ? "is-late" : undefined} />
+          : image ? <img src={image} alt="" draggable={false} className={shown.late ? "is-late" : undefined} onLoad={(event) => setShape(event.currentTarget.naturalHeight / event.currentTarget.naturalWidth || 1.3)} /> : null}
+      </span>
+      <span data-page-picture-number className="book-thumb-number">{labelFor(src, page)}</span>
+      <span aria-hidden className="book-thumb-arrow" style={{ left: `calc(50% + ${Math.round(x - left)}px)` }} />
+    </span>
   )
 }
 

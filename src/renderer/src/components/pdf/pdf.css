@@ -370,13 +370,15 @@
 /* The same in the reader and in a PDF shown in a note, so one page never reads two ways. */
 /* The pages in the side strip too, and the hover preview (pdf-peek.tsx), so a page is never white beside its paper self. */
 :is(.pdf-reader, .tiptap-attachment.is-pdf).is-paper :is(.pdf-page, .pdf-thumb-sheet),
-.pdf-peek-face.is-paper {
+.pdf-peek-face.is-paper,
+.book-thumb-sheet.is-paper {
   background: #f4ecdb;
   isolation: isolate;
 }
 
 :is(.pdf-reader, .tiptap-attachment.is-pdf).is-paper :is(.pdf-canvas, .pdf-thumb-sheet canvas),
-.pdf-peek-face.is-paper img {
+.pdf-peek-face.is-paper img,
+.book-thumb-sheet.is-paper :is(img, canvas) {
   mix-blend-mode: multiply;
 }
 
@@ -1889,6 +1891,75 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
 /* The book as the Journal's year is drawn: its strokes (time-strokes.tsx) across the whole card. */
 .book-bar-strip {
   min-width: 0;
+}
+
+/* The page pointed at on the strip, small over its stroke, as a macOS popover is: the sheet, its number under it,
+   and the arrow down onto the stroke. Opaque (a page is paper, never frosted), and never in the pointer's way. */
+.book-thumb {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.4375rem;
+  padding: 0.25rem 0.25rem 0.1875rem;
+  translate: -50% 0;
+  pointer-events: none;
+  border-radius: 0.5rem;
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--mf-panel-shadow), 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+.book-thumb-sheet {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 0.1875rem;
+  background: var(--pdf-paper, #fff);
+  box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
+.book-thumb-sheet :is(img, canvas) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* A page drawn after it was pointed at fades in over its blank sheet; one already drawn is simply there. */
+.book-thumb-sheet .is-late {
+  animation: book-thumb-in 140ms ease-out;
+}
+
+@keyframes book-thumb-in {
+  from { opacity: 0; }
+}
+
+.book-thumb-number {
+  font-size: 0.6875rem;
+  line-height: 1;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The arrow: a small square turned on its point, half under the card, its two outer sides ringed as the card is. */
+.book-thumb-arrow {
+  position: absolute;
+  top: 100%;
+  width: 0.625rem;
+  height: 0.625rem;
+  margin-top: -0.3125rem;
+  translate: -50% 0;
+  rotate: 45deg;
+  background: var(--popover);
+  box-shadow: 1px 1px 0 0 color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-thumb-sheet .is-late { animation: none; }
 }
 
 .book-bar-ends {

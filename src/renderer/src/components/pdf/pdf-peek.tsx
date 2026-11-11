@@ -11,8 +11,26 @@ import { openPdf } from "./pdf-reader"
 
 /** How wide the card draws a page: small, as the card is, and sharp on a Retina screen. */
 const CARD = 132
-/** Pages already drawn for the card, kept for the window's life: scrubbing back is instant. */
+/**
+ * Pages already drawn small, shared by the card, a cover's scrub and a book's page strip (book-links.tsx): scrubbing
+ * back is instant. The most recently seen are kept, up to `KEPT` (a page is a 264px JPEG, some 20 KB), so a sweep
+ * across a 1,000-page book never holds the whole book in memory.
+ */
 const drawn = new Map<string, string | null>()
+const KEPT = 160
+const keep = (key: string, image: string | null): void => {
+  drawn.delete(key)
+  drawn.set(key, image)
+  if (drawn.size > KEPT) drawn.delete(drawn.keys().next().value!)
+}
+/** A page already drawn small, or undefined: nothing is drawn by asking. Seen again, it is kept longer. */
+export function drawnPage(src: string, page: number): string | null | undefined {
+  if (drawnDark !== darkNow()) return undefined
+  const key = `${src}#${page}`
+  const image = drawn.get(key)
+  if (image !== undefined) keep(key, image)
+  return image
+}
 /** The page wanted most now, and pages to draw while nothing is wanted (a ladder across the book). */
 let wantedNow: { src: string; page: number } | null = null
 const ladder: { src: string; page: number }[] = []
@@ -24,6 +42,15 @@ let drawnDark = darkNow()
 
 /** One page drawn small. Only ever one at a time: pdf.js would otherwise queue every page the pointer passed. */
 async function draw(src: string, page: number): Promise<string | null> {
+  const began = performance.now()
+  try {
+    return await drawn1(src, page)
+  } finally {
+    // Each drawing timed, for the probes that hold its cost down (qa/page-strip.mjs).
+    performance.measure("pdf-page-small", { start: began, end: performance.now() })
+  }
+}
+async function drawn1(src: string, page: number): Promise<string | null> {
   const doc = await loadPdf(src)
   const one = await doc.getPage(page)
   const flat = one.getViewport({ scale: 1 })
@@ -54,7 +81,7 @@ async function pump(): Promise<void> {
       const key = `${next.src}#${next.page}`
       if (drawn.has(key)) continue
       const image = await draw(next.src, next.page).catch(() => null)
-      drawn.set(key, image)
+      keep(key, image)
       for (const done of waiting.get(key) ?? []) done(image)
       waiting.delete(key)
     }
@@ -64,7 +91,7 @@ async function pump(): Promise<void> {
 }
 
 /** One page of a PDF as a small picture: at once if drawn, else when the lane reaches it (it goes to the front). */
-function pageImage(src: string, page: number): Promise<string | null> {
+export function pageImage(src: string, page: number): Promise<string | null> {
   // Dark pages turned on or off: the pictures drawn the other way are no use.
   if (drawnDark !== darkNow()) (drawn.clear(), (drawnDark = darkNow()))
   const key = `${src}#${page}`

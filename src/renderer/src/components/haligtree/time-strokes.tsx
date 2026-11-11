@@ -8,6 +8,7 @@
  * squares instead, and the Goals road dots (time-dots.tsx).
  */
 import type { ReactNode } from 'react'
+import { TIP } from '@/lib/float'
 
 /** A stroke's width, the gap between two, and so their step. */
 export const STROKE = 1
@@ -133,4 +134,17 @@ export function StrokeAxis({ ticks, width, lit, from = -Infinity, to = Infinity,
 /** What a stroke is, in one line over the strokes: "Each stroke is a day, the solid ones gone". */
 export function StrokeRule({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element {
   return <p data-stroke-rule className={`text-meta text-foreground/80 ${className}`}>{children}</p>
+}
+
+/**
+ * The line under a row of strokes naming the one pointed at, "10 Nov · click for its page": `x` is that stroke's place
+ * in the row, `width` the row's, and the tip stays inside it. Placed in the row's own positioned box.
+ */
+export function StrokeTip({ x, width, children }: { x: number; width: number; children: ReactNode }): React.JSX.Element {
+  return (
+    <span data-stroke-tip className={`pointer-events-none absolute z-10 -translate-x-1/2 whitespace-nowrap ${TIP}`}
+      style={{ left: Math.max(70, Math.min(Math.max(width, 140) - 70, x)), top: '100%', marginTop: 4 }}>
+      {children}
+    </span>
+  )
 }
