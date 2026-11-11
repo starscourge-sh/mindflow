@@ -618,10 +618,18 @@ export function Slid({ id, children }: { id: string; children: ReactNode }): Rea
 }
 
 /** A thing's name, as it reads on its row: its title, never the age or counts beside it. */
-export const titleOf = (node: HTMLElement): string =>
-  node.dataset.dragTitle ||
-  (node.querySelector<HTMLElement>('.private-text, [data-title]')?.innerText ?? node.innerText).split('\n').map((line) => line.trim()).map((line) => cut(line, 80)).find(Boolean) ||
-  'Untitled'
+export const titleOf = (node: HTMLElement): string => {
+  const first = (text: string): string | undefined => text.split('\n').map((line) => line.trim()).map((line) => cut(line, 80)).find(Boolean)
+  if (node.dataset.dragTitle) return node.dataset.dragTitle
+  // The first of its marked parts that holds words: a row with a picture marks the picture too (blurred with a
+  // private note's words), and read first, with no words in it, a named note was carried as "Untitled".
+  for (const part of node.querySelectorAll<HTMLElement>('.private-text, [data-title]')) {
+    const name = first(part.innerText)
+    if (name) return name
+  }
+  // No name of its own anywhere on it: what every list calls a note without one.
+  return first(node.innerText) ?? 'New note'
+}
 
 /** Put back with Esc while still held: the click its release makes opens nothing either. */
 export const swallowRelease = (): void => window.addEventListener('pointerup', swallowClick, { capture: true, once: true })

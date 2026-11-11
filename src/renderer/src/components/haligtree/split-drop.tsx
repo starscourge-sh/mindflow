@@ -4,6 +4,7 @@ import { AnimatePresence, motion, useMotionValue, useSpring, type MotionValue } 
 import { AppWindow, Columns2 } from 'lucide-react'
 
 import { chime, click } from '@/lib/sound'
+import { detent } from '@/lib/haptics'
 import { canSplit } from '@/lib/split'
 import { enqueue } from '@/lib/reading-queue'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
@@ -186,6 +187,8 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     // The Queue's row in the sidebar, while the carried thing is over it: let go there, it joins the queue.
     // Pinned in the sidebar takes a note the same way (side-menu.tsx).
     let queued: HTMLElement | null = null
+    // The height the card rests at while over that place: just clear of its row.
+    let rest: number | null = null
     // Another pane's page, while the carried thing is over it: let go there, it opens there as a new tab.
     let taking: HTMLElement | null = null
     const takeAt = (px: number, py: number): HTMLElement | null => {
@@ -280,13 +283,6 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         if (far === 0 || within) (toX = zone.left + zone.width / 2 + leant), (toY = zone.top + zone.height / 2 + 64)
         else if (pull > 0 && !quiet) (toX = px - grab.x + (middle.x - px) * 0.32 * pull), (toY = py - grab.y + (middle.y - py) * 0.32 * pull)
       }
-      if (quiet) {
-        card.x.jump(toX)
-        card.y.jump(toY)
-      } else {
-        cardX.set(toX)
-        cardY.set(toY)
-      }
       const found = target ? null : queueAt(px, py)
       // A place that would not take it stays unlit: lit, it promises what letting go there would not do.
       const queue = found && down && !takes(found, down.source.carried, down.source.node) ? null : found
@@ -310,9 +306,25 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         // A folder of the other list takes no note: it stays unlit, and says why on letting go.
         if (queue && wrongFolder(queue, down?.source.node)) queue.dataset.folderNo = ''
         // A tab carried says nothing until it lands: moving one is one act, one sound.
-        else if (queue) (queue.dataset.queueHot = ''), down?.source.carried.tab || click('tick')
+        // A light tap on the trackpad too, as a row coming over a new place in a list gives (lib/haptics.ts).
+        else if (queue) (queue.dataset.queueHot = ''), down?.source.carried.tab || (click('tick'), detent())
         queued = queue
         if (down?.source.node.dataset.type === 'capture') setSaid(toWritingSaid(queue, down.source.node))
+        // Where the card rests while it is over this place, read once as it comes over it.
+        const box = queue && !row ? queue.getBoundingClientRect() : null
+        const tall = (document.querySelector<HTMLElement>('[data-split-card]')?.offsetHeight ?? 32) * 0.86
+        rest = box && (box.bottom + 6 + tall <= innerHeight - 8 ? box.bottom + 6 + tall / 2 : box.top - 6 - tall / 2)
+      }
+      // Over a place in the sidebar (Writing, a folder, the Queue, Pinned): the card rests just under that row (over
+      // it where there is no room under), so the name it is aimed at is never covered; sideways it keeps the side it
+      // was taken by.
+      if (queue && !row && rest !== null) toY = rest
+      if (quiet) {
+        card.x.jump(toX)
+        card.y.jump(toY)
+      } else {
+        cardX.set(toX)
+        cardY.set(toY)
       }
       const take = target || queue ? null : takeAt(px, py)
       if (take !== taking) {
