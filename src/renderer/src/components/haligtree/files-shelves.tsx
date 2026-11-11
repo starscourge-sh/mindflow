@@ -142,7 +142,7 @@ export function RecentGrid({ files, across, when, onOpen, menuFor, onShowAll, mo
       <div data-files-recent-grid className="grid" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: `${RECENT_GAP * 1.5}px ${RECENT_GAP}px` }}>
         {files.map((one) => (
           <RowMenu key={one.src} items={menuFor(one)}>
-            <button type="button" data-recent-file={one.kind} data-media={one.kind} data-src={one.src} onClick={(event) => onOpen(one, event)} className="pdf-book min-w-0">
+            <button type="button" data-recent-file={one.kind} data-src={one.src} onClick={(event) => onOpen(one, event)} className="pdf-book min-w-0">
               <span className={one.kind === 'pdf' ? 'pdf-book-cover' : 'files-recent-face'} data-pdf-peek={one.kind === 'pdf' && !one.gone ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined}>
                 <Cover one={one} className="size-full" />
               </span>

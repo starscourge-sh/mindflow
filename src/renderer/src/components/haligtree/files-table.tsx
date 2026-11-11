@@ -110,7 +110,7 @@ export const stopFile = (): void => void sound?.pause()
 const COL = {
   face: 'size-7 shrink-0',
   kind: `${TABLE_QUIET} w-16 shrink-0 @max-[34rem]/page:hidden`,
-  length: `${TABLE_WHEN} w-[4.5rem] @max-[30rem]/page:hidden`,
+  length: `${TABLE_WHEN} w-[4.5rem] @max-[22rem]/page:hidden`,
   size: `${TABLE_WHEN} w-16 @max-[44rem]/page:hidden`,
   added: `${TABLE_WHEN} w-[5.5rem] @max-[38rem]/page:hidden`,
   opened: `${TABLE_WHEN} w-[5.5rem] @max-[50rem]/page:hidden`,

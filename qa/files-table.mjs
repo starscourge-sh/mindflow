@@ -303,8 +303,8 @@ try {
   check('Audio\'s table: a length on each recording ("0:37")', await h.evaluate(() => [...document.querySelectorAll('[data-files-row] [data-col="length"]')].slice(0, 10).every((one) => /^\d+:\d\d$/.test(one.textContent))))
   await shot('files-table-audio')
   await size(560, 400)
-  const small = await h.evaluate(() => ({ sideways: document.documentElement.scrollWidth > innerWidth || [...document.querySelectorAll('[data-files-table] *')].some((one) => one.scrollWidth > one.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(one).overflowX)), name: Math.round(document.querySelector('[data-files-row] [data-table-name]')?.getBoundingClientRect().width ?? 0), tall: Math.round(document.querySelector('[data-files-row]')?.getBoundingClientRect().height ?? 0) }))
-  check('at 560 x 400 the table folds its quiet columns: nothing sideways, the name keeps room, rows at least 32px', !small.sideways && small.name >= 120 && small.tall >= 32, JSON.stringify(small))
+  const small = await h.evaluate(() => ({ sideways: document.documentElement.scrollWidth > innerWidth || [...document.querySelectorAll('[data-files-table] *')].some((one) => one.scrollWidth > one.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(one).overflowX)), name: Math.round(document.querySelector('[data-files-row] [data-table-name]')?.getBoundingClientRect().width ?? 0), tall: Math.round(document.querySelector('[data-files-row]')?.getBoundingClientRect().height ?? 0), length: (document.querySelector('[data-files-row] [data-col="length"]')?.getBoundingClientRect().width ?? 0) > 0 }))
+  check('at 560 x 400 the table folds its quiet columns but keeps a recording\'s length: nothing sideways, the name keeps room, rows at least 32px', !small.sideways && small.name >= 120 && small.tall >= 32 && small.length, JSON.stringify(small))
   await shot('files-table-audio-560')
   await size(1440, 900)
   // Reload: each tab's choice is kept.
