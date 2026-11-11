@@ -2843,12 +2843,12 @@ html[data-drag-refused], html[data-drag-refused] * { cursor: not-allowed !import
 /* Read's composer: always there to reach, a step quieter while you read. What it holds goes quiet, never the bar
    itself: the bar floats over the page's last words, and a bar part way faded showed them through it ("why does
    this randomly just become transparent", 11 Nov). */
-.mf-read [data-composer] .group\/composer > * {
+.mf-read [data-composer] .group\/composer > :is(ol, div) {
   opacity: 0.6;
   transition: opacity 450ms var(--mf-ease);
 }
-.mf-read:is([data-awake], :has([data-composer] :focus)) [data-composer] .group\/composer > *,
-.mf-read [data-composer]:is(:hover, :focus-within) .group\/composer > * {
+.mf-read[data-awake] [data-composer] .group\/composer > :is(ol, div),
+.mf-read [data-composer]:is(:hover, :focus-within) .group\/composer > :is(ol, div) {
   opacity: 1;
   transition-duration: 140ms;
 }
