@@ -599,36 +599,57 @@ export function PdfPages({
 
   // Which way you are reading: down (1) or up (-1), from the last scroll.
   const heading = useRef(1)
-  // Which sheets are on show: drawn, with a few either side. Watched once the
-  // sheets exist, which needs both the document and the box's width.
+  // Which sheets are on show: drawn, with a few either side. Worked out from where the pages lie under the view, once
+  // the sheets exist (which needs both the document and the box's width), and again on every scroll and change of
+  // size: the first sheet in view is found by halves, then only those in view are read. A watcher on each sheet (1,011
+  // for a 1,000-page book) made the window weigh every one of them on every frame anything on screen moved.
   const laidOut = !!size && width > 0
   useEffect(() => {
     const el = box.current
     if (!el || !doc || !laidOut) return
-    const seen = new Set<number>()
-    const watch = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const page = Number((entry.target as HTMLElement).dataset.page)
-          if (entry.isIntersecting) seen.add(page)
-          else seen.delete(page)
-        }
-        const next = new Map<number, number>()
-        const want = (at: number, rank: number): void => {
-          if (at >= 1 && at <= doc.numPages && !((next.get(at) ?? Infinity) <= rank)) next.set(at, rank)
-        }
-        for (const page of seen) {
-          want(page, IN_VIEW)
-          for (let away = 1; away <= AHEAD; away++) want(page + heading.current * away, rankAt(away, true))
-          for (let away = 1; away <= BEHIND; away++) want(page - heading.current * away, rankAt(away, false))
-        }
-        setShown(next)
-      },
-      { root: scroller?.current ?? null },
-    )
-    el.querySelectorAll<HTMLElement>(".pdf-page").forEach((sheet) => watch.observe(sheet))
+    const root = scroller?.current ?? null
+    let frame = 0
+    let was = ""
+    const look = (): void => {
+      frame = 0
+      if (!el.isConnected) return
+      const r = root ? root.getBoundingClientRect() : { top: 0, bottom: innerHeight }
+      const seen: number[] = []
+      for (let sheet: Element | null = sheetAt(el, (one) => one.bottom >= r.top); sheet; sheet = sheet.nextElementSibling) {
+        const one = sheet.getBoundingClientRect()
+        if (one.top > r.bottom) break
+        const page = Number((sheet as HTMLElement).dataset.page)
+        if (page && one.bottom >= r.top) seen.push(page)
+      }
+      const key = `${seen.join(",")}|${heading.current}`
+      if (key === was) return
+      was = key
+      const next = new Map<number, number>()
+      const want = (at: number, rank: number): void => {
+        if (at >= 1 && at <= doc.numPages && !((next.get(at) ?? Infinity) <= rank)) next.set(at, rank)
+      }
+      for (const page of seen) {
+        want(page, IN_VIEW)
+        for (let away = 1; away <= AHEAD; away++) want(page + heading.current * away, rankAt(away, true))
+        for (let away = 1; away <= BEHIND; away++) want(page - heading.current * away, rankAt(away, false))
+      }
+      setShown(next)
+    }
+    const soon = (): void => void (frame ||= requestAnimationFrame(look))
+    // Any scroll at all, so a PDF in a note follows the note's own scroll too.
+    document.addEventListener("scroll", soon, { capture: true, passive: true })
+    addEventListener("resize", soon)
+    const sized = new ResizeObserver(soon)
+    sized.observe(el)
+    if (root) sized.observe(root)
     if (land && land > 1) el.querySelector<HTMLElement>(`.pdf-page[data-page="${land}"]`)?.scrollIntoView({ block: "start" })
-    return () => watch.disconnect()
+    look()
+    return () => {
+      cancelAnimationFrame(frame)
+      document.removeEventListener("scroll", soon, { capture: true })
+      removeEventListener("resize", soon)
+      sized.disconnect()
+    }
   }, [doc, scroller, laidOut])
 
   // Two a row share the width, less the gap between them; fit height never lets a page outgrow the width either.
