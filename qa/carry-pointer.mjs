@@ -1,4 +1,4 @@
-// Quick capture carried by its grabber follows the page's own pointer events (lib/carry-window.ts), not a timer in main:
+// Quick capture carried by its grabber follows the page's own pointer events (lib/carry.ts), not a timer in main:
 // pressed and moved through Chromium's real input path, the box moves by exactly what the pointer moved, at most once
 // for each move, never while the pointer rests, and stops when the button comes up. Screen points, so the window
 // moving under the pointer does not feed back. Also reports the time from the page hearing a move to main moving the

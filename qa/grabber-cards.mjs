@@ -29,24 +29,17 @@ const read = (page, cardSel) => page.evaluate((cardSel) => {
     grab: (() => { const r = grab.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + 8 } })(), centre: { x: b.left + b.width / 2, y: b.top + b.height / 2 } }
 }, cardSel)
 
-// Held by its grabber, the pointer moved 40 right and 30 down in main: where the window went.
+// Held by its grabber, the pointer moved 40 right and 30 down through the page's own pointer events (lib/carry.ts):
+// where the window went.
 const carried = async (page, wid, at) => {
   await page.mouse.move(at.x, at.y)
-  await electron.evaluate(({ screen }) => {
-    const real = screen.getCursorScreenPoint.bind(screen)
-    globalThis.qaRealCursor ??= real
-    const from = real()
-    globalThis.qaCursor = { ...from }
-    screen.getCursorScreenPoint = () => globalThis.qaCursor
-  })
   const before = await electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).getBounds(), wid)
   await page.mouse.down()
   await page.waitForTimeout(80)
-  await electron.evaluate(() => void ((globalThis.qaCursor = { x: globalThis.qaCursor.x + 40, y: globalThis.qaCursor.y + 30 })))
+  await page.mouse.move(at.x + 40, at.y + 30)
   await page.waitForTimeout(200)
   const after = await electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).getBounds(), wid)
   await page.mouse.up()
-  await electron.evaluate(({ screen }) => void (screen.getCursorScreenPoint = globalThis.qaRealCursor))
   await page.waitForTimeout(150)
   return { dx: after.x - before.x, dy: after.y - before.y }
 }
