@@ -106,6 +106,9 @@ try {
       return { title: group?.querySelector('h2')?.textContent ?? '', now: group?.querySelector('[data-where-now]')?.textContent ?? '', ways: [...(group?.querySelectorAll('[data-way]') ?? [])].map((one) => one.textContent.trim()), rows: [...(group?.querySelectorAll('[data-island-body] > *') ?? [])].map((one) => one.textContent.trim()) }
     })
     check('the island “Where it goes” says “In the Inbox” on its heading, and holds no row that reads “Open”', island.title === 'Where it goes' && island.now === 'In the Inbox' && !island.rows.includes('Open'), JSON.stringify({ title: island.title, now: island.now, first: island.rows[0] }))
+    // Read out, each row is its own words: a tip beside it never takes the name's place.
+    const namedRows = await Promise.all(['Save as a gem', 'Move to Writing', 'Resolve', 'Move to the Bin'].map((name) => h.locator('[data-details-group="Status"]').getByRole('button', { name, exact: true }).count()))
+    check('each row of the island is named by its own words, to a screen reader too', namedRows.every((n) => n === 1), namedRows.join(','))
     check('one list: the chip\'s menu and the island name the same ways out, in the same order', lines.length >= 7 && JSON.stringify(lines) === JSON.stringify(island.ways), `menu ${lines.join(' | ')} ;; island ${island.ways.join(' | ')}`)
     for (const name of ['Save as a gem', 'Move to Writing', 'Make it a task', 'Resolve', 'Move to the Bin', 'Add as a clue to a question…', 'Merge into another note…']) check(`“${name}” is among them`, lines.includes(name))
     check('the Bin is last', lines.at(-1) === 'Move to the Bin', lines.at(-1))

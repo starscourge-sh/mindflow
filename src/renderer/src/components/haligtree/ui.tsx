@@ -646,8 +646,10 @@ export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type
   return does && !value ? <Tip label={does}>{field}</Tip> : field
 }
 
-export function Prop({ icon: Icon, alive, children, onClick, active, tint, secret, tip }: {
+export function Prop({ icon: Icon, alive, children, onClick, active, tint, secret, tip, named }: {
   icon?: LucideIcon
+  /** Its name read out, where its words are wrapped in something (a mark for a probe) and it has a tip: the tip never takes the name's place. */
+  named?: string
   /** What it does, when its short name leaves it unsaid. */
   tip?: string
   /** One of itshover's animated icons instead, for a Prop that is a button. */
@@ -666,7 +668,7 @@ export function Prop({ icon: Icon, alive, children, onClick, active, tint, secre
       type={onClick ? 'button' : undefined}
       onClick={onClick}
       // Named by its own words, so its tip reads as what it does and never takes the name's place.
-      aria-label={tip && typeof children === 'string' ? children : undefined}
+      aria-label={tip ? (typeof children === 'string' ? children : named) : undefined}
       data-private={secret ? '' : undefined}
       className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left ${onClick ? 'hover:bg-accent hover:text-foreground' : ''} ${active ? 'text-foreground' : ''}`}
     >

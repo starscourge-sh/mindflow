@@ -1037,7 +1037,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
           <Fragment key={way.id}>
             {/* The same thought caught twice: found by its words, not a number. Before the Bin, which is last. */}
             {way.id === 'discarded' && inInbox && <MergeInto capture={capture} />}
-            <Prop icon={menuIcon(way.label)} alive={way.id === 'discarded' ? TrashIcon : undefined} tint={way.tint} tip={way.hint} onClick={way.run}>
+            <Prop icon={menuIcon(way.label)} alive={way.id === 'discarded' ? TrashIcon : undefined} tint={way.tint} tip={way.hint} named={way.label} onClick={way.run}>
               <span data-way={way.id} data-to-writing-prop={way.id === 'writing' ? '' : undefined} data-keep-asking-prop={way.id === 'keep' ? '' : undefined}>{way.label}</span>
             </Prop>
             {/* The questions kept in view, one click each, while you tidy. */}
