@@ -12,7 +12,7 @@ import { plural } from './dates'
  */
 type Sent = { text?: string; app?: string; url?: string; title?: string; files?: string }
 let send: ((text: string, url?: string) => void) | null = null
-/** What files picked in Finder become (index.ts: pictures, PDFs and audio into Media, Markdown a note): what it says of them. */
+/** What files picked in Finder become (index.ts: any file into Media, Markdown or text a note): what it says of them. */
 let takeFiles: (paths: string[]) => Promise<{ words: number; said: string }> = async () => ({ words: 0, said: '' })
 export const whenFilesSent = (take: typeof takeFiles): void => void (takeFiles = take)
 

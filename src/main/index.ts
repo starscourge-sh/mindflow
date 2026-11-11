@@ -5582,7 +5582,7 @@ app.whenReady().then(() => {
     }
   }
   for (const path of finderFiles.splice(0)) void openFinderFile(path)
-  // Files sent from Finder's right-click ("Send to Haligtree", services.ts): pictures, PDFs and audio go into Media
+  // Files sent from Finder's right-click ("Send to Haligtree", services.ts): any file but Markdown or text goes into Media
   // as Media's own "Add" takes them, no note made, saying the same words; Markdown or text comes in as one opened with Haligtree does.
   whenFilesSent(async (paths) => {
     const words = paths.filter((path) => /\.(md|markdown|txt)$/i.test(path))

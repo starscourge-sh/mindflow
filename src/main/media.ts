@@ -8,10 +8,10 @@ import { basename, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { assetsDir, lookAhead } from './pictures'
 import { IN_PICTURE, wordsOfPicture } from './picture-words'
-import { AUDIO_ENDS, PICTURE_ENDS, TURNED, sniff, whyNot, type AddResult, type MediaKind, type Taken } from './media-words'
+import { AUDIO_ENDS, PICTURE_ENDS, TURNED, VIDEO_ENDS, sniff, type AddResult, type MediaKind, type Taken } from './media-words'
 
 /**
- * Media: every picture, GIF, PDF and recording kept in the book's notes, found
+ * Media: every picture, GIF, PDF, recording, video and document kept in the book's notes, found
  * where the notes hold them (a capture, a gem, a page, a Journal day), with
  * the note each lives in and the words around it, so a search can find it.
  * Only files in the book's own store count: a picture linked from the web is
@@ -147,10 +147,10 @@ const addedRows = (db: DatabaseSync): AddedRow[] => {
 }
 
 const END_OF = /\.([a-z0-9]+)$/
-/** What a stored file is by its ending alone, as an added file is known. */
-export const kindByEnd = (src: string): MediaKind | null => {
+/** What a stored file is by its ending alone, as an added file is known: anything not a picture, PDF, recording or video is a document. */
+export const kindByEnd = (src: string): MediaKind => {
   const end = END_OF.exec(src)?.[1] ?? ''
-  return end === 'gif' ? 'gif' : end === 'pdf' ? 'pdf' : AUDIO_ENDS.includes(end) ? 'audio' : PICTURE_ENDS.includes(end) ? 'picture' : null
+  return end === 'gif' ? 'gif' : end === 'pdf' ? 'pdf' : AUDIO_ENDS.includes(end) ? 'audio' : PICTURE_ENDS.includes(end) ? 'picture' : VIDEO_ENDS.includes(end) ? 'video' : 'document'
 }
 
 /** The PDFs added with no note, as search and the shelf take them. */
@@ -174,14 +174,17 @@ type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; cont
 const STORED = /^(haligtree|mindflow):\/\/assets\/[a-f0-9]{64}\.[a-z0-9]+$/
 const AUDIO = /\.(mp3|m4a|weba|wav|ogg|aac|flac)$/i
 
-/** What a stored file is, by its ending; null for one Media does not show (a video, a document). */
+/** What a stored file is, by its ending; null for one outside the book's store (a picture linked from the web). */
 export function kindOf(node: 'image' | 'attachment', src: string, name: string): MediaKind | null {
   if (!STORED.test(src)) return null
   if (node === 'image') return /\.gif$/i.test(src) ? 'gif' : 'picture'
   if (/\.pdf$/i.test(name) || /\.pdf$/i.test(src)) return 'pdf'
   if (AUDIO.test(name) || AUDIO.test(src)) return 'audio'
-  return null
+  // As the note's own block decides it (attachment-view.tsx): a video plays, anything else is a file's card.
+  if (VIDEO.test(name)) return 'video'
+  return 'document'
 }
+const VIDEO = /\.(mp4|m4v|mov|webm)$/i
 
 /** A line's words, plainly: a link reads as its name. */
 const wordsOf = (node: Doc): string =>
@@ -277,6 +280,8 @@ const sizeOfStored = (src: string): number => {
   if (size === undefined) sizes.set(src, (size = statSync(join(assetsDir(), src.slice(src.lastIndexOf('/') + 1)), { throwIfNoEntry: false })?.size ?? 0))
   return size
 }
+/** The Mac's icon for each ending, as a data URL, asked for once. */
+const icons = new Map<string, string>()
 /** When each file was last opened as itself. */
 const OPENED = 'create table if not exists media_opened (src text primary key, at text not null)'
 
@@ -326,6 +331,18 @@ export function registerMedia(): void {
   // The Mac's own page for it, from any "No microphone" message (ui.tsx, refuseMic).
   ipcMain.handle('haligtree:mic:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone'))
   ipcMain.handle('haligtree:media:list', () => allMedia())
+  // A document's face when Quick Look draws none: the Mac's own icon for its kind (Finder's), once per ending.
+  ipcMain.handle('haligtree:media:icon', async (_event, src: unknown) => {
+    const found = /^(?:haligtree|mindflow):\/\/assets\/([a-f0-9]{64}\.([a-z0-9]+))$/.exec(String(src ?? ''))
+    if (!found) return ''
+    let made = icons.get(found[2])
+    if (made === undefined) {
+      const icon = await app.getFileIcon(join(assetsDir(), found[1]), { size: 'normal' }).catch(() => null)
+      made = icon && !icon.isEmpty() ? icon.toDataURL({ scaleFactor: 2 }) : ''
+      icons.set(found[2], made)
+    }
+    return made
+  })
   // Files' search: every file whose words hold every word asked for, from the index the list keeps.
   ipcMain.handle('haligtree:media:find', (_event, query: unknown) => {
     const words = String(query ?? '').toLowerCase().split(/\s+/).filter(Boolean).slice(0, 16)
@@ -348,7 +365,7 @@ export function registerMedia(): void {
     const options: Electron.OpenDialogOptions = {
       title: 'Add to Files',
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Pictures, GIFs, PDFs and audio', extensions: [...PICTURE_ENDS, 'pdf', ...AUDIO_ENDS] }]
+      // Any file at all: a picture, a video, a Word or Pages file, a spreadsheet, a ZIP.
     }
     const { filePaths } = await (owner ? dialog.showOpenDialog(owner, options) : dialog.showOpenDialog(options))
     return Promise.all(filePaths.map(async (path) => ({ path, size: (await stat(path).catch(() => null))?.size ?? 0 })))
@@ -596,14 +613,11 @@ export async function addMedia(items: MediaItem[]): Promise<AddResult> {
       let bytes = !path && item?.bytes instanceof Uint8Array ? item.bytes : null
       if (!path && !bytes) { refuse('it could not be read. Drag it in from Finder instead'); continue }
       // HEIC and TIFF come from the Mac's own apps and no window can draw them: the Mac turns them into a PNG once.
-      if (TURNED.test(name)) {
-        const picture = path ? nativeImage.createFromPath(path) : nativeImage.createFromBuffer(Buffer.from(bytes!))
-        if (picture.isEmpty()) { refuse(whyNot(name)); continue }
-        bytes = picture.toPNG()
-      }
+      // One the Mac cannot read either is kept as it came, as a plain file.
+      const turned = TURNED.test(name) ? (path ? nativeImage.createFromPath(path) : nativeImage.createFromBuffer(Buffer.from(bytes!))) : null
+      if (turned && !turned.isEmpty()) bytes = turned.toPNG()
       if ((bytes ? bytes.byteLength : size0!.size) === 0) { refuse('empty'); continue }
-      const looked = sniff(bytes ? bytes.subarray(0, 1024) : await headOf(path), TURNED.test(name) ? 'turned.png' : name)
-      if (!looked) { refuse(whyNot(name)); continue }
+      const looked = sniff(bytes ? bytes.subarray(0, 1024) : await headOf(path), turned && !turned.isEmpty() ? 'turned.png' : name)
       const hash = bytes ? createHash('sha256').update(bytes).digest('hex') : await hashFile(path)
       const file = `${hash}.${looked.end}`
       const src = `haligtree://assets/${file}`

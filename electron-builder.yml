@@ -57,7 +57,7 @@ mac:
           - NSStringPboardType
           - public.utf8-plain-text
         NSRequiredContext: {}
-      # The same for files picked in Finder (right-click, Quick Actions): pictures, PDFs, Markdown and text.
+      # The same for files picked in Finder (right-click, Quick Actions): any file. Markdown and text come in as notes; the rest go in Files.
       - NSMenuItem:
           default: Send to Haligtree
         NSMessage: sendFilesToHaligtree
@@ -66,8 +66,10 @@ mac:
           - public.image
           - com.adobe.pdf
           - public.audio
+          - public.movie
           - net.daringfireball.markdown
           - public.plain-text
+          - public.data
         NSRequiredContext: {}
     NSMicrophoneUsageDescription: Haligtree uses the microphone only while you record a voice note or a meeting, or hold the talk key to type by talking. Everything stays on this Mac and is sent nowhere.
     NSAudioCaptureUsageDescription: Haligtree records the sound from this Mac (the other side of a call, in its app or the browser) only while you record a meeting. Everything stays on this Mac and is sent nowhere.

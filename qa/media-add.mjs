@@ -121,8 +121,10 @@ async function journey(c, label) {
   await pickNext(electron, [copy, bad, fake])
   await addFiles(h); await wait(800)
   const said = await h.evaluate(() => document.body.innerText)
-  check(`${label}: the same bytes under another name are met too`, (await listed(v)).length === before + 4)
-  check(`${label}: a file it cannot take says why, by name`, /notes\.docx: only pictures, GIFs, PDFs and audio go in Files/.test(said) && /fake\.png: not a picture Haligtree can read/.test(said), said.slice(-200))
+  // Any file goes in now: a Word file is a document, and one named as a picture but not one is kept as a plain file, never shown as a picture.
+  const now = await listed(v)
+  check(`${label}: the same bytes under another name are met too`, now.length === before + 6 && !now.some((one) => one.name === 'Another name for it.pdf'), `${now.length - before}`)
+  check(`${label}: a Word file and a file that is not what its name says go in as documents`, now.find((one) => one.name === 'notes.docx')?.kind === 'document' && /\.bin$/.test(now.find((one) => one.name === 'fake.png')?.src ?? '') && now.find((one) => one.name === 'fake.png')?.kind === 'document', said.slice(-200))
 
   // --- A real drop on the page
   const drops = [write('Dropped one.png', await pngFrom(h, 2)), write('Dropped two.png', await pngFrom(h, 3))]
