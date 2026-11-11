@@ -14,9 +14,10 @@ import { placeFootnotes, pullFootnotes } from "@/extensions/footnotes"
  * left at every block, so one long note cost the square of its length. A
  * megabyte took over ten seconds; in pieces it takes well under one.
  */
-function markdownPieces(markdown: string, size = 16000): string[] {
-  // `[x][1]` needs its `[1]: address` in the same piece; rare enough to read whole.
-  if (markdown.length <= size || /^ {0,3}\[[^\]^]+\]:\s/m.test(markdown)) return [markdown]
+const LINK_NAMES = /^ {0,3}\[[^\]^]+\]:\s.*$/gm
+function markdownPieces(markdown: string, size = 16000, whole = true): string[] {
+  // `[x][1]` needs its `[1]: address` in the same piece; rare enough to read whole (`whole`), unless the reader hands each piece the addresses itself.
+  if (markdown.length <= size || (whole && /^ {0,3}\[[^\]^]+\]:\s/m.test(markdown))) return [markdown]
   const lines = markdown.split("\n")
   const pieces: string[] = []
   let start = 0
@@ -221,5 +222,47 @@ export function markdownToDocument(editor: Editor, markdown: string): JSONConten
   const { rest, notes } = footed ? pullFootnotes(untab(markdown)) : { rest: untab(markdown), notes: new Map<string, string>() }
   const content = manager ? markdownPieces(rest).flatMap((piece) => manager.parse(piece).content ?? []) : []
   const doc = tidyDocument({ type: "doc", content: content.length ? content : [{ type: "paragraph" }] })
+  return manager && footed ? placeFootnotes(doc, notes, (words) => manager.parse(words).content ?? []) : doc
+}
+
+/** Lets the window draw and take a key before going on. */
+export const breath = (): Promise<void> => new Promise((done) => {
+  const channel = new MessageChannel()
+  channel.port1.onmessage = () => done()
+  channel.port2.postMessage(0)
+})
+
+/**
+ * The same document, read without holding the window: a breath whenever the
+ * reading has taken a frame's worth of time, so a megabyte of Markdown (a
+ * whole note dropped into quick capture) is read while the box still answers
+ * every key. `markdownToDocument` reads it in one go, a second or more for
+ * that much.
+ */
+export async function markdownToDocumentGently(editor: Editor, markdown: string): Promise<JSONContent> {
+  const manager = editor.markdown
+  const footed = !!editor.schema.nodes.footnoteReference
+  // Each pass over the whole of it is a step of its own, with a breath before the next.
+  await breath()
+  const tabbed = untab(markdown)
+  await breath()
+  const { rest, notes } = footed ? pullFootnotes(tabbed) : { rest: tabbed, notes: new Map<string, string>() }
+  await breath()
+  const content: JSONContent[] = []
+  let since = performance.now()
+  // Smaller pieces than a note read at once: each has to fit in a frame. Read whole, a note with `[1]: address`
+  // lines held the window for seconds: here every piece is given those lines, so its `[x][1]` links still find them.
+  const names = rest.match(LINK_NAMES)
+  const named = names ? `\n\n${names.join("\n")}\n` : ""
+  const pieces = manager ? markdownPieces(rest, 4000, false) : []
+  await breath()
+  for (const piece of pieces) {
+    content.push(...(tidyDocument({ type: "doc", content: manager!.parse(piece + named).content ?? [] }).content ?? []))
+    if (performance.now() - since < 8) continue
+    await breath()
+    since = performance.now()
+  }
+  const doc: JSONContent = { type: "doc", content: content.length ? content : [{ type: "paragraph" }] }
+  await breath()
   return manager && footed ? placeFootnotes(doc, notes, (words) => manager.parse(words).content ?? []) : doc
 }

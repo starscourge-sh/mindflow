@@ -138,6 +138,8 @@ import { clip, quoted } from '../../main/clip'
 import { soundTitle } from './components/haligtree/sound-player'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
 import { caretInLink } from './extensions/link-tidy'
+import { BigPaste } from './extensions/big-paste'
+import { breath, markdownToDocumentGently } from './lib/markdown-doc'
 import { APP_NAME } from '../../main/name'
 import { domOf } from '@/lib/editor-dom'
 
@@ -2797,6 +2799,29 @@ const keepLifted = (ids: string[]): void => {
   localStorage.setItem('capture-lifted', JSON.stringify(lifted))
 }
 
+/**
+ * A paste or a drop too long for the box (a whole note dragged out of
+ * Obsidian) is kept at once as a note of its own in the Inbox, read a breath
+ * at a time so the box answers every key meanwhile (extensions/big-paste.ts).
+ * Said as it starts and when it is kept, with Undo and a way to open it;
+ * never lost, and never drawn in the box.
+ */
+async function keepBigPaste(text: string, editor: Editor | null): Promise<void> {
+  if (!editor) return
+  const words = text.trim().split(/\s+/).length
+  toast(`Keeping ${num(words)} words as a note of their own…`, undefined, 'info')
+  try {
+    const doc = await markdownToDocumentGently(editor, text)
+    // Handing it over is one more step of its own.
+    await breath()
+    const id = await window.api.captures.create({ kind: 'note', body: doc, markdown: text })
+    toast(`${num(words)} words kept as a note in your Inbox: too long for the box`, () => void window.api.captures.save(id, { status: 'discarded' }).then(() => chime('undo')), 'success',
+      { label: 'Open', key: 'O', run: () => window.api.openInHome('capture', id) }, { type: 'capture', id })
+  } catch {
+    toast('Those words could not be kept. They are still on your clipboard: paste them into a note in the main window', undefined, 'error')
+  }
+}
+
 const CapturePrompt = ({
   initial,
   pill = false,
@@ -2838,6 +2863,9 @@ const CapturePrompt = ({
   onOpenNote: (id: string, heading?: string) => void
 }): React.JSX.Element => {
   const [editor, setEditor] = useState<Editor | null>(null)
+  const editorNow = useRef<Editor | null>(null)
+  editorNow.current = editor
+  const [bigPaste] = useState(() => [BigPaste.configure({ onBig: (text) => void keepBigPaste(text, editorNow.current) })])
   return (
     // mf-faded: the note fades out at its top and bottom edges as it scrolls,
     // the way Raycast Notes reads, instead of being cut by a hard line. No
@@ -2850,6 +2878,7 @@ const CapturePrompt = ({
           does and what it is when you leave it out. */}
       <HaligtreeEditor
         shape="document"
+        extensions={bigPaste}
         backToTop={!pill}
         placeholder="Write a thought, a quote, a link… or type / for more"
         defaultContent={initial}

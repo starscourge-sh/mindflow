@@ -236,10 +236,13 @@ try {
   const key = (row) => Math.max(0, ...Object.values(row.keys).filter(Boolean).map((one) => one.median))
   check(`every note shows its first words within ${FIRST_MS} ms`, first(worst(first)) <= FIRST_MS, say(worst(first), first))
   check(`no open blocks the window over ${BLOCK_MS} ms`, all(worst(all)) <= BLOCK_MS, `${say(worst(all), all)}; after the words ${say(worst(block), block)}`)
-  check('wheeling top to bottom, no frame over 34 ms', worst((row) => row.wheel.worst).wheel.worst <= 34, say(worst((row) => row.wheel.worst), (row) => row.wheel.worst))
-  check('the jump to the end draws within 100 ms', worst((row) => row.jump.worst).jump.worst <= 100, say(worst((row) => row.jump.worst), (row) => row.jump.worst))
-  check(`a key costs under ${KEY_MS} ms`, key(worst(key)) <= KEY_MS, say(worst(key), key))
-  check('select all draws within 100 ms', worst((row) => row.selectAll.worst).selectAll.worst <= 100, say(worst((row) => row.selectAll.worst), (row) => row.selectAll.worst))
+  // Not measured when only the opens were timed.
+  if (!process.env.OPEN_ONLY) {
+    check('wheeling top to bottom, no frame over 34 ms', worst((row) => row.wheel.worst).wheel.worst <= 34, say(worst((row) => row.wheel.worst), (row) => row.wheel.worst))
+    check('the jump to the end draws within 100 ms', worst((row) => row.jump.worst).jump.worst <= 100, say(worst((row) => row.jump.worst), (row) => row.jump.worst))
+    check(`a key costs under ${KEY_MS} ms`, key(worst(key)) <= KEY_MS, say(worst(key), key))
+    check('select all draws within 100 ms', worst((row) => row.selectAll.worst).selectAll.worst <= 100, say(worst((row) => row.selectAll.worst), (row) => row.selectAll.worst))
+  }
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } finally {
   await c.close()
