@@ -548,11 +548,11 @@ try {
         await pinch(spot.x, spot.y, dy); await wait(500)
         const held = await h.evaluate(() => window.__held.length)
         for (const at of [0, 40, 80, 140]) {
-          await h.evaluate((at) => window.__held.forEach((one) => (one.currentTime = at)), at)
+          await h.evaluate((at) => window.__held.forEach((one) => one.playState !== 'idle' && (one.currentTime = at)), at)
           await wait(120)
           await h.screenshot({ path: `${dir}/${look}-${name}-${String(at).padStart(3, '0')}ms.png` })
         }
-        await h.evaluate(() => window.__held.forEach((one) => one.finish()))
+        await h.evaluate(() => window.__held.forEach((one) => one.playState !== 'idle' && one.finish()))
         console.log(`STILLS ${look} ${name}: ${held} animation${held === 1 ? '' : 's'} held, now ${await mode()}`)
         await wait(600)
       }
@@ -561,18 +561,19 @@ try {
       {
         await h.evaluate(() => (window.__held = []))
         await pinch(week.x, week.y, -6, 3); await wait(250)
-        await h.evaluate(() => window.__held.forEach((one) => (one.currentTime = 80)))
+        await h.evaluate(() => window.__held.forEach((one) => one.playState !== 'idle' && (one.currentTime = 80)))
         await wait(120)
         await h.screenshot({ path: `${dir}/${look}-turned-out-080ms.png` })
         const out = await h.evaluate(() => window.__held.length)
         await pinch(week.x, week.y, 6, 5); await wait(250)
         const held = await h.evaluate(() => window.__held.length)
         for (const at of [0, 40, 80, 140]) {
-          await h.evaluate(([at, from]) => window.__held.slice(from).forEach((one) => (one.currentTime = at)), [at, out])
+          await h.evaluate(([at, from]) => window.__held.slice(from).forEach((one) => one.playState !== 'idle' && (one.currentTime = at)), [at, out])
           await wait(120)
           await h.screenshot({ path: `${dir}/${look}-turned-back-${String(at).padStart(3, '0')}ms.png` })
         }
-        await h.evaluate(() => window.__held.forEach((one) => { try { one.finish() } catch { /* Already gone. */ } }))
+        // (An animation the app has put away is left so: finished, it would come back and hold its last frame.)
+        await h.evaluate(() => window.__held.forEach((one) => one.playState !== 'idle' && one.finish()))
         console.log(`STILLS ${look} turned round: ${out} animations held out, ${held - out} back, now ${await mode()}`)
         await wait(600)
       }
