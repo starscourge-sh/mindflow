@@ -18,8 +18,6 @@ const heard = channels(ipcRenderer)
 const changes = new Map<(what: Change[] | null) => void, Change['kind'][] | undefined>()
 // A burst of changes, an import or several saves in a row, is told once,
 
-/** Words always written with a capital: the days, the months (not "march", "may" or "august", which are words too), and "I" with its short forms. */
-const CAPITALS = /^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|september|october|november|december|i|i'm|i've|i'll|i'd|i’m|i’ve|i’ll|i’d)$/
 // with every note it touched (null: anything may have changed).
 let telling: ReturnType<typeof setTimeout> | undefined
 let told: Change[] | null | undefined
@@ -74,11 +72,13 @@ heard.on('video:refused', (_event, src: string) => window.dispatchEvent(new Cust
 // Custom APIs for renderer
 const api = {
   /** The Mac tells the time on a 12-hour clock ("9:05 PM"); read by dates.ts `clock`. */
-  twelveHour: ipcRenderer.sendSync('clock:twelve') === true,
+  // Read from this window's own environment, where main put it before any window started (main/index.ts): no
+  // call that waits on main. Asked the old way only by a window whose process was started without it.
+  twelveHour: process.env.HALIGTREE_TWELVE ? process.env.HALIGTREE_TWELVE === '1' : ipcRenderer.sendSync('clock:twelve') === true,
   /** A test run: nothing is said aloud (read-aloud.ts). */
-  quiet: ipcRenderer.sendSync('qa:quiet') === true,
-  /** The book open now (or the sandbox), asked at once: what a page drew last time is kept per book. */
-  book: (): string => String(ipcRenderer.sendSync('book:here')),
+  quiet: !!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_SOUND,
+  /** The book open now (or the sandbox), known at once: what a page drew last time is kept per book. */
+  book: (): string => process.env.HALIGTREE_BOOK_HERE ?? String(ipcRenderer.sendSync('book:here')),
   fetchLinkMetadata: (url: string): Promise<LinkMetadata> =>
     ipcRenderer.invoke('fetch-link-metadata', url),
   /** A card's picture and icon kept with the notes: each comes back local, or as it was. */
@@ -145,15 +145,14 @@ const api = {
   /** Where a dropped file lies on disk, so a picture dragged out and back in is known as the same one. */
   pathOf: (file: File): string => webUtils.getPathForFile(file),
 
-  /** Asked of the page's own spellchecker, which already drew the squiggle. */
-  // A word spelt right but in the wrong case ("monday", "i") is squiggled by the Mac too, though the page's
-  // checker calls it spelt right and has nothing to offer: its capitals, then, for the words always written so.
-  /** The Mac's own guesses for a word, from the spellchecker that draws the underline (main, spell-guesses.ts). */
-  macGuesses: (word: string): Promise<string[] | null> => ipcRenderer.invoke('spell:guesses', word),
-  misspelt: (word: string): string[] | null => {
-    if (webFrame.isWordMisspelled(word)) return webFrame.getWordSuggestions(word)
-    return CAPITALS.test(word) && word === word.toLowerCase() ? [word.charAt(0).toUpperCase() + word.slice(1)] : null
-  },
+  /**
+   * Whether a word is misspelt and what it might be: null when it is spelt right. Asked without waiting: on a Mac
+   * of the Mac's own checker, the one that draws the underline, kept by the main process (spell-guesses.ts). Never
+   * `webFrame.isWordMisspelled` there: that call holds the whole window until the main process answers, and froze
+   * it on a caret move whenever main was busy. Other systems check in the page itself.
+   */
+  spelling: (word: string): Promise<string[] | null> =>
+    process.platform === 'darwin' ? ipcRenderer.invoke('spell:guesses', word) : Promise.resolve(webFrame.isWordMisspelled(word) ? webFrame.getWordSuggestions(word) : null),
 
   /** The picture on the system clipboard, read by the system rather than from a pasted file that may not open. */
   clipboardImage: (): Promise<{ mime: string; bytes: Uint8Array } | null> => ipcRenderer.invoke('clipboard-image'),
@@ -692,7 +691,7 @@ const api = {
     /** Links and captures holding a card, to tidy: read without counting as an open. */
     cards: (): Promise<{ id: string; kind: string; body: unknown }[]> => ipcRenderer.invoke('captures:cards'),
     /** Search the titles and bodies, newest first. */
-    find: (query: string): Promise<{ type: 'capture' | 'pdf' | 'web' | 'media' | 'work' | 'nugget' | 'article' | 'question' | 'goal' | 'task' | 'event' | 'day'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string; /** The line the words were found on, when not in the name. */ line?: string; /** The picture that line was read in. */ picture?: string }[]> => ipcRenderer.invoke('captures:find', query),
+    find: (query: string, /** Only these types are looked through. */ only?: string[]): Promise<{ type: 'capture' | 'pdf' | 'web' | 'media' | 'work' | 'nugget' | 'article' | 'question' | 'goal' | 'task' | 'event' | 'day'; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string; /** The line the words were found on, when not in the name. */ line?: string; /** The picture that line was read in. */ picture?: string }[]> => ipcRenderer.invoke('captures:find', query, only),
     /** Three open captures, leaning old: the rot sampler. */
     rot: (): Promise<Capture[]> => ipcRenderer.invoke('captures:rot'),
     /** What `@` offers for the text typed after it. */

@@ -29,13 +29,6 @@ const spellOn = (editor: Editor): boolean => !!domOf(editor)?.spellcheck && domO
 /** Letters, with an apostrophe inside allowed: "don't" is one word. */
 const WORD = /[\p{L}\p{M}]+(?:['’][\p{L}\p{M}]+)*/gu
 
-/**
- * The misspelt word under the pointer, if there is one.
- *
- * Asked of the same spellchecker that drew the squiggle, so a word is offered
- * here exactly when it is underlined. Nothing when spellcheck is off, the note
- * is locked, or the host has no spellchecker to ask.
- */
 /** The word under a point, and where it is in the document: null outside a word, or where spelling is off. */
 export function wordAt(editor: Editor, x: number, y: number): { word: string; from: number; to: number } | null {
   if (!editor.isEditable || !spellOn(editor)) return null
@@ -53,27 +46,68 @@ export function wordAt(editor: Editor, x: number, y: number): { word: string; fr
   return null
 }
 
-export function misspeltAt(editor: Editor, x: number, y: number): Misspelling | null {
-  const check = host().misspelt
-  if (!check || !editor.isEditable || !spellOn(editor)) return null
-  const found = editor.view.posAtCoords({ left: x, top: y })
-  if (!found) return null
-  const $pos = editor.state.doc.resolve(found.pos)
-  if (!$pos.parent.isTextblock) return null
-  // One character for each inline leaf, so offsets in the text are offsets in the block.
-  const text = $pos.parent.textBetween(0, $pos.parent.content.size, undefined, "￼")
-  for (const match of text.matchAll(WORD)) {
-    const start = match.index
-    if (start > $pos.parentOffset || $pos.parentOffset > start + match[0].length) continue
-    const said = check(match[0])
-    if (!said) return null
-    // A word written in lower case is most likely a lower-case word: those first, names ("Sligo" for "slsig") after.
-    const lower = match[0] === match[0].toLowerCase()
-    const suggestions = lower ? [...said.filter((one) => one === one.toLowerCase()), ...said.filter((one) => one !== one.toLowerCase())] : said
-    const from = $pos.start() + start
-    return { word: match[0], from, to: from + match[0].length, suggestions }
+/** Words always written with a capital: the days, the months (not "march", "may" or "august", which are words too), and "I" with its short forms. */
+const CAPITALS = /^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|september|october|november|december|i|i'm|i've|i'll|i'd|i’m|i’ve|i’ll|i’d)$/
+
+/**
+ * What the spellchecker said of each word asked about so far: its fixes when misspelt, null when spelt right.
+ * The asking never holds the window (host `spelling`, an answer that comes when it comes); what is known is read
+ * at once, so a pill is placed and a menu drawn from here without waiting on anything.
+ */
+const said = new Map<string, string[] | null>()
+const asked = new Map<string, Promise<string[] | null>>()
+/** Ask about a word, once: its fixes when misspelt (maybe none), null when spelt right. */
+export function spelling(word: string): Promise<string[] | null> {
+  let found = asked.get(word)
+  if (!found) {
+    const ask = host().spelling
+    found = (ask ? ask(word).catch(() => null) : Promise.resolve(null)).then((fixes) => {
+      // A word always written with a capital ("monday", "i") counts as a slip even where the checker lets it by.
+      const all = fixes ?? (CAPITALS.test(word) ? [word.charAt(0).toUpperCase() + word.slice(1)] : null)
+      said.set(word, all)
+      return all
+    })
+    asked.set(word, found)
   }
-  return null
+  return found
+}
+
+const misspelling = (here: { word: string; from: number; to: number }, fixes: string[]): Misspelling => {
+  // A word written in lower case is most likely a lower-case word: those first, names ("Sligo" for "slsig") after.
+  const lower = here.word === here.word.toLowerCase()
+  return { ...here, suggestions: lower ? [...fixes.filter((one) => one === one.toLowerCase()), ...fixes.filter((one) => one !== one.toLowerCase())] : fixes }
+}
+
+/**
+ * The misspelt word under a point, from what is already known: null when there is none (or spelling is off, the
+ * note locked, no spellchecker to ask), and `undefined` when the word there has not been asked about yet
+ * (`misspeltSoon` asks).
+ */
+export function misspeltAt(editor: Editor, x: number, y: number): Misspelling | null | undefined {
+  if (!host().spelling) return null
+  const here = wordAt(editor, x, y)
+  if (!here) return null
+  const fixes = said.get(here.word)
+  return fixes ? misspelling(here, fixes) : said.has(here.word) ? null : undefined
+}
+
+/**
+ * Every word of a short text asked about ahead (a sticky, quick capture, a card's answer), as the pointer comes
+ * over it: a right-click there has to decide at once whether its word is misspelt, and then already knows.
+ */
+export function spellAhead(editor: Editor): void {
+  if (!host().spelling || !editor.isEditable || !spellOn(editor)) return
+  const text = editor.getText()
+  if (text.length <= 5000) for (const word of new Set(text.match(WORD) ?? [])) void spelling(word)
+}
+
+/** The same, asked first where the word is new: answered as soon as the spellchecker has said. */
+export async function misspeltSoon(editor: Editor, x: number, y: number): Promise<Misspelling | null> {
+  if (!host().spelling) return null
+  const here = wordAt(editor, x, y)
+  if (!here) return null
+  const fixes = await spelling(here.word)
+  return fixes ? misspelling(here, fixes) : null
 }
 
 /**

@@ -258,7 +258,7 @@ import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
 import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
-import { SpellingMenu, misspeltAt, type Misspelling } from "@/components/turn-into/spelling"
+import { SpellingMenu, misspeltAt, misspeltSoon, spellAhead, type Misspelling } from "@/components/turn-into/spelling"
 import { clickedAt, lookUpIn, type Clicked } from "@/components/turn-into/clicked"
 import { BookOpenText, Plus } from "lucide-react"
 import { FLOAT } from "@/lib/float"
@@ -1802,9 +1802,14 @@ function Surface({
       const edge = drawn instanceof HTMLElement ? drawn.getBoundingClientRect() : null
       const room = edge ? Math.max(window.innerHeight - edge.bottom, edge.top) >= MENU_ROOM : false
       setMenuAt(edge && room ? { x: edge.left, y: edge.top, width: edge.width, height: edge.height } : { x: event.clientX, y: event.clientY })
-      setSpelling(misspeltAt(editor, event.clientX, event.clientY))
       setClicked(clickedAt(editor, event))
-      setTimeout(() => setMenuOpen(true))
+      // Its spelling rows head the menu: a word not asked about yet is asked first (a moment, never a held
+      // window), so the menu opens whole and no row lands under the pointer after it.
+      const spelt = misspeltAt(editor, event.clientX, event.clientY)
+      if (spelt !== undefined) {
+        setSpelling(spelt)
+        setTimeout(() => setMenuOpen(true))
+      } else void misspeltSoon(editor, event.clientX, event.clientY).then((found) => (setSpelling(found), setMenuOpen(true)))
     }
     // Capture, so this runs before the handle's own listener further down.
     dom.addEventListener("mousemove", onMove, true)
@@ -1842,7 +1847,12 @@ function Surface({
     const onContext = (event: MouseEvent): void => {
       // Picked words keep their own one-line "Look up" menu below; a link, a PDF, a tag or a time get theirs.
       if (clickedAt(editor, event)?.kind !== "words" && openClicked(event)) return
-      const found = misspeltAt(editor, event.clientX, event.clientY)
+      // Whether to take the right-click is decided here and now (left alone, a sticky's own menu comes up), so
+      // from what is known: a short text's words are asked ahead as the pointer comes over them (below). A word
+      // still not asked about (a long text) is asked now for next time, and goes on as one spelt right this once.
+      const known = misspeltAt(editor, event.clientX, event.clientY)
+      if (known === undefined) void misspeltSoon(editor, event.clientX, event.clientY)
+      const found = known ?? null
       if (!found) {
         // Picked words (a card's answer in Review, any page without the block
         // menu): one row, "Look up", the same Look Up card as everywhere.
@@ -1857,8 +1867,13 @@ function Surface({
       setMenuAt({ x: event.clientX, y: event.clientY })
       setSpelling(found)
     }
+    const ahead = (): void => spellAhead(editor)
     page?.addEventListener("contextmenu", onContext)
-    return () => page?.removeEventListener("contextmenu", onContext)
+    page?.addEventListener("pointerenter", ahead)
+    return () => {
+      page?.removeEventListener("contextmenu", onContext)
+      page?.removeEventListener("pointerenter", ahead)
+    }
   }, [page, editor, handles])
 
   // Only when the switch actually moves. The extension is built with `vimOn`

@@ -51,8 +51,8 @@ export interface HaligtreeHost {
   imageText?: (src: string) => Promise<string | null>
   /** Drag a stored picture or file out to another app, as the real file under `name`. */
   dragOut?: (src: string, name: string, face?: string) => void
-  /** A word's spelling suggestions when it is misspelt, null when it is not. */
-  misspelt?: (word: string) => string[] | null
+  /** A word's spelling suggestions when it is misspelt, null when it is not: asked, never waited on. */
+  spelling?: (word: string) => Promise<string[] | null>
   /**
    * Open a drawing in a window of its own, and keep it in step.
    *

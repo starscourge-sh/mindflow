@@ -68,7 +68,7 @@ export function spellFixes(word: string): Promise<string[]> {
   let found = spelt.get(word)
   if (!found) {
     // The Mac's own spellchecker first (it draws the underline, so it knows what it means), then Harper's dictionary.
-    const mac = (window as unknown as { api?: { macGuesses?: (word: string) => Promise<string[] | null> } }).api?.macGuesses
+    const mac = (window as unknown as { api?: { spelling?: (word: string) => Promise<string[] | null> } }).api?.spelling
     const harper = (): Promise<string[]> => grammar().then((one) => one.lint(word, { language: 'plaintext' })).then((lints) => {
       const lint = lints.find((one) => one.lint_kind() === 'Spelling')
       return lint ? lint.suggestions().filter((one) => one.kind() === 0).map((one) => one.get_replacement_text()).filter(Boolean) : []
