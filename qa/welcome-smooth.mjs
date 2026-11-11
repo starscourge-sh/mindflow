@@ -26,17 +26,17 @@ try {
   const cdp = await c.electron.context().newCDPSession(h)
   await cdp.send('Performance.enable')
   const metrics = async () => Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((one) => [one.name, one.value]))
-  const frames = []
+  const film = []
   if (SHOTS) {
     mkdirSync(SHOTS, { recursive: true })
     cdp.on('Page.screencastFrame', (frame) => {
-      if (frames.length < 4000) frames.push({ t: frame.metadata.timestamp * 1000, data: frame.data, step: frames.step })
+      if (film.length < 4000) film.push({ t: frame.metadata.timestamp * 1000, data: frame.data, step: film.step })
       void cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {})
     })
     await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 60, everyNthFrame: 3, maxWidth: 800 })
   }
   for (let at = 0; at < steps.length; at++) {
-    frames.step = steps[at]
+    film.step = steps[at]
     const before = await metrics()
     await h.evaluate(() => {
       const w = window
@@ -73,8 +73,8 @@ try {
   }
   if (SHOTS) {
     await cdp.send('Page.stopScreencast')
-    const t0 = frames[0]?.t ?? 0
-    frames.forEach((one, i) => writeFileSync(`${SHOTS}/${String(i).padStart(4, '0')}-${(one.step ?? '').replace(/\W+/g, '-')}-${Math.round(one.t - t0)}ms.jpg`, Buffer.from(one.data, 'base64')))
+    const t0 = film[0]?.t ?? 0
+    film.forEach((one, i) => writeFileSync(`${SHOTS}/${String(i).padStart(4, '0')}-${(one.step ?? '').replace(/\W+/g, '-')}-${Math.round(one.t - t0)}ms.jpg`, Buffer.from(one.data, 'base64')))
   }
   const all = rows.reduce((sum, one) => ({ frames: sum.frames + one.frames, long: sum.long + one.long }), { frames: 0, long: 0 })
   console.log(`\n${all.frames} frames, ${all.long} over 20ms (${((all.long / all.frames) * 100).toFixed(1)}%)`)
