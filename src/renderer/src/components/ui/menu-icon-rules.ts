@@ -61,6 +61,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^paper pages$/i, ScrollText],
   [/^white pages$/i, Sun],
   [/^dark pages$/i, Moon],
+  // The PDF reader's View menu: the rail's other pages in grey.
+  [/^only this page in colour$/i, Palette],
   [/^captures\b/i, Inbox],
   [/^no deck$/i, CircleOff],
   [/^a landscape sketch/i, Mountain],

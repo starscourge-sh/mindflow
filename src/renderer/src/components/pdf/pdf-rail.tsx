@@ -1,4 +1,4 @@
-import { DARK_PAGE, useDarkPages, type PageLayout } from "./paper"
+import { DARK_PAGE, useDarkPages, useOneInColour, type PageLayout } from "./paper"
 import { truePictures } from "./pdf-pages"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { ChevronRight } from "lucide-react"
@@ -29,6 +29,9 @@ export function PdfRail({ tab, tabs, onTab, narrow, onDrag, children }: { tab: R
   // A narrow pane squeezes it to its narrowest on its own (pdf-reader.tsx); a drag is a choice that wins.
   const width = narrow ? NARROW : own
   const [list, setList] = useState<HTMLDivElement | null>(null)
+  useEffect(() => (list ? handOn(list) : undefined), [list])
+  // "Only this page in colour" (the reader's View menu): the other thumbnails greyed by one rule in pdf.css, nothing drawn again.
+  const [oneInColour] = useOneInColour()
   const drag = (event: React.PointerEvent<HTMLDivElement>): void => {
     event.preventDefault()
     onDrag?.()
@@ -45,7 +48,7 @@ export function PdfRail({ tab, tabs, onTab, narrow, onDrag, children }: { tab: R
     handle.addEventListener("pointerup", up, { once: true })
   }
   return (
-    <aside className="pdf-rail" data-narrow={narrow ? "" : undefined} style={{ width }} aria-label="Sidebar">
+    <aside className="pdf-rail" data-narrow={narrow ? "" : undefined} data-one-in-colour={oneInColour ? "" : undefined} style={{ width }} aria-label="Sidebar">
       {/* One list alone needs no tab: a lone full-width "Pages" tab only said what the list already shows. */}
       {tabs.length > 1 && <div className="pdf-rail-tabs" role="tablist">
         {tabs.map((one) => (
@@ -62,6 +65,69 @@ export function PdfRail({ tab, tabs, onTab, narrow, onDrag, children }: { tab: R
       <div className="pdf-rail-edge" role="separator" aria-orientation="vertical" aria-label="Sidebar width" onPointerDown={drag} />
     </aside>
   )
+}
+
+/**
+ * The person's hand on the rail: from a wheel that can move it, or a press on it, until the scroll it
+ * made has ended (scrollend) and the press is let go. While it is held, a page turned is owed rather
+ * than glided to, so the rail never pulls against the hand; let go, the rail glides to the page you
+ * are on then. A wheel or a press with no page turned owes nothing: the rail stays where it was left.
+ */
+type Hand = { held: boolean; down: boolean; moving: boolean; owed: boolean }
+const hands = new WeakMap<Element, Hand>()
+function handOn(list: HTMLElement): () => void {
+  const hand: Hand = { held: false, down: false, moving: false, owed: false }
+  hands.set(list, hand)
+  const letGo = (): void => {
+    if (!hand.held || hand.down || hand.moving) return
+    hand.held = false
+    if (!hand.owed) return
+    hand.owed = false
+    glideIntoView(list.querySelector<HTMLElement>(".pdf-thumb.is-here"), { centre: true })
+  }
+  const wheel = (event: WheelEvent): void => {
+    const room = list.scrollHeight - list.clientHeight
+    // A wheel against an end moves nothing and so never ends a scroll: it holds nothing either.
+    if (!event.deltaY || (event.deltaY < 0 ? list.scrollTop <= 0 : list.scrollTop >= room - 1)) return
+    hand.held = hand.moving = true
+  }
+  const down = (event: PointerEvent): void => void (event.button === 0 && (hand.held = hand.down = true))
+  const up = (): void => {
+    if (!hand.down) return
+    hand.down = false
+    letGo()
+  }
+  const scrolled = (): void => void (hand.held && (hand.moving = true))
+  const ended = (): void => {
+    hand.moving = false
+    letGo()
+  }
+  list.addEventListener("wheel", wheel, { passive: true })
+  list.addEventListener("pointerdown", down)
+  list.addEventListener("scroll", scrolled, { passive: true })
+  list.addEventListener("scrollend", ended)
+  window.addEventListener("pointerup", up, true)
+  window.addEventListener("pointercancel", up, true)
+  return () => {
+    hands.delete(list)
+    list.removeEventListener("wheel", wheel)
+    list.removeEventListener("pointerdown", down)
+    list.removeEventListener("scroll", scrolled)
+    list.removeEventListener("scrollend", ended)
+    window.removeEventListener("pointerup", up, true)
+    window.removeEventListener("pointercancel", up, true)
+  }
+}
+
+/**
+ * The page you are on kept in the rail's middle, except near the book's ends, where the rail's
+ * own ends stop it: one glide per page turned, owed while your hand is on the rail.
+ */
+function centreHere(row: HTMLElement | null, jump: boolean): void {
+  const list = row?.closest(".pdf-rail-list")
+  const hand = list ? hands.get(list) : undefined
+  if (hand?.held) return void (hand.owed = true)
+  glideIntoView(row, { jump, centre: true })
 }
 
 /**
@@ -183,11 +249,11 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
       stop()
     }
   }, [seen, doc, page, dark])
-  // The rail follows the page you are on with a calm glide; opened on a page, it is simply there.
+  // The rail follows the page you are on with a calm glide, keeping it in the middle; opened on a page, it is simply there.
   const shownOnce = useRef(false)
   useEffect(() => {
     // While the pages are scrolled fast the rail keeps up at once: a glide behind every page passed only adds work.
-    if (here) glideIntoView(box.current, { jump: !shownOnce.current || pagesMoving() })
+    if (here) centreHere(box.current, !shownOnce.current || pagesMoving())
     shownOnce.current = true
   }, [here])
   return (

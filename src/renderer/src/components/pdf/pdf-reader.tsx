@@ -26,8 +26,8 @@ import { detailsOutHere, showDetails, useDetailsShown } from "@/lib/reading"
 import { ScanDetail, ScanLine } from "./pdf-scan"
 import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, wordsIn, type PdfMark } from "./pdf-pages"
 import { FitActions } from "@/components/haligtree/ui"
-import { LAYOUTS, LOOKS, useDarkPages, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { LAYOUTS, LOOKS, useDarkPages, useOneInColour, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
+import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
 import { PageLabel, usePageLabels } from "./pdf-labels"
 import { cleanTitle } from "@/lib/clean-title"
@@ -171,6 +171,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const [paper] = usePaperPages()
   const [dark] = useDarkPages()
   const [look, setLook] = usePageLook()
+  const [oneInColour, setOneInColour] = useOneInColour()
   const [layout, setLayout] = usePageLayout(src)
   // The View menu's "Continuous Scroll", "Single Page" and "Two Pages" (app-menu.ts).
   const layoutNow = useRef(setLayout)
@@ -1028,6 +1029,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              {/* The rail's other pages in grey, the one you are on in colour: a switch, kept for every book (paper.ts). */}
+              <DropdownMenuLabel>Thumbnails</DropdownMenuLabel>
+              <DropdownMenuCheckboxItem checked={oneInColour} data-one-in-colour-choice onSelect={(event) => event.preventDefault()} onCheckedChange={(on) => (chime("tap"), setOneInColour(on))}>
+                Only this page in colour
+              </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </FitActions>

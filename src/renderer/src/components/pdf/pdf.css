@@ -918,6 +918,18 @@
   height: 100%;
 }
 
+/*
+ * "Only this page in colour": every other page small in grey, the one you are on in colour. A filter on
+ * what is already drawn, eased as the page changes; no thumbnail is drawn again for it.
+ */
+.pdf-thumb-sheet canvas {
+  transition: filter 200ms ease-out;
+}
+
+.pdf-rail[data-one-in-colour] .pdf-thumb:not(.is-here) .pdf-thumb-sheet canvas {
+  filter: grayscale(1);
+}
+
 .pdf-thumb:hover .pdf-thumb-sheet {
   box-shadow: 0 0 0 1px var(--mf-muted), 0 2px 6px rgb(0 0 0 / 0.12);
 }

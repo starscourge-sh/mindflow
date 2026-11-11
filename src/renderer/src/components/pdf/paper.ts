@@ -59,6 +59,28 @@ export function useDarkPages(): [boolean, (on: boolean) => void] {
   return [dark, set]
 }
 
+/** Told when "Only this page in colour" is turned on or off. */
+const ONE_IN_COLOUR = "haligtree:pdf-one-colour"
+
+/**
+ * "Only this page in colour": the rail's other thumbnails in grey, so the page you are on stands
+ * out at a glance. Off unless turned on; one setting for every reader and every rail.
+ */
+export function useOneInColour(): [boolean, (on: boolean) => void] {
+  const [on, setOn] = useState(() => localStorage.getItem("pdf-one-colour") === "1")
+  useEffect(() => {
+    const read = (): void => setOn(localStorage.getItem("pdf-one-colour") === "1")
+    window.addEventListener(ONE_IN_COLOUR, read)
+    window.addEventListener("storage", read)
+    return () => (window.removeEventListener(ONE_IN_COLOUR, read), window.removeEventListener("storage", read))
+  }, [])
+  const set = (to: boolean): void => {
+    localStorage.setItem("pdf-one-colour", to ? "1" : "0")
+    window.dispatchEvent(new CustomEvent(ONE_IN_COLOUR))
+  }
+  return [on, set]
+}
+
 /** How pages look, one choice of three as Preview's: "Paper pages", "White pages" or "Dark pages". */
 export type PageLook = "paper" | "white" | "dark"
 export const LOOKS: { id: PageLook; label: string }[] = [

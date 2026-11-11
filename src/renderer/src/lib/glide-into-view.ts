@@ -9,7 +9,7 @@ import { still } from './motion'
  * straight there.
  */
 
-type Glide = { row: HTMLElement; at: number; frame: number; stop: () => void }
+type Glide = { row: HTMLElement; centre: boolean; at: number; frame: number; stop: () => void }
 const gliding = new WeakMap<HTMLElement, Glide>()
 
 /** How quickly the gap closes: about two thirds of it each 90ms, settled in about a third of a second. */
@@ -30,35 +30,39 @@ const listOf = (row: HTMLElement): HTMLElement | null => {
  * Where the list's top must be for the row to show whole, the least move from now; read from the
  * row's place as it is now, so rows above it growing as they draw never send the glide astray.
  */
-const wanted = (list: HTMLElement, row: HTMLElement, margin: number): number => {
+const wanted = (list: HTMLElement, row: HTMLElement, margin: number, centre = false): number => {
   const box = list.getBoundingClientRect()
   const it = row.getBoundingClientRect()
   const top = it.top - box.top
   const bottom = it.bottom - box.top
   let move = 0
-  if (top < margin) move = top - margin
+  // Centred: the row's middle on the list's middle, as near as the list's ends allow.
+  if (centre) move = (top + bottom) / 2 - list.clientHeight / 2
+  else if (top < margin) move = top - margin
   else if (bottom > list.clientHeight - margin) move = Math.min(top - margin, bottom - list.clientHeight + margin)
   return Math.max(0, Math.min(list.scrollHeight - list.clientHeight, Math.round(list.scrollTop + move)))
 }
 
-export function glideIntoView(row: HTMLElement | null | undefined, options: { jump?: boolean; margin?: number } = {}): void {
+/** `centre` keeps the row in the list's middle rather than only in view: the PDF rail's current page (pdf-rail.tsx). */
+export function glideIntoView(row: HTMLElement | null | undefined, options: { jump?: boolean; margin?: number; centre?: boolean } = {}): void {
   // Where the row and its list are, read once the page is laid out, never while it is still being built (lib/after-layout.ts).
   if (row) afterLayout(row, () => glideNow(row, options))
 }
 
-function glideNow(row: HTMLElement, { jump = false, margin = 8 }: { jump?: boolean; margin?: number }): void {
+function glideNow(row: HTMLElement, { jump = false, margin = 8, centre = false }: { jump?: boolean; margin?: number; centre?: boolean }): void {
   if (!row.isConnected) return
   const list = listOf(row)
   if (!list) return
   const glide = gliding.get(list)
-  if (glide) return void (glide.row = row)
-  const target = wanted(list, row, margin)
+  if (glide) return void ((glide.row = row), (glide.centre = centre))
+  const target = wanted(list, row, margin, centre)
   if (target === list.scrollTop) return
   if (jump || still()) return void (list.scrollTop = target)
   const far = FAR * list.clientHeight
   if (Math.abs(target - list.scrollTop) > far) list.scrollTop = target - Math.sign(target - list.scrollTop) * far
   const own: Glide = {
     row,
+    centre,
     at: list.scrollTop,
     frame: 0,
     stop: () => {
@@ -75,7 +79,7 @@ function glideNow(row: HTMLElement, { jump = false, margin = 8 }: { jump?: boole
     if (!own.row.isConnected) return own.stop()
     // The list moved under the glide (rows above drawn taller, scroll anchoring): carry on from there.
     if (Math.abs(list.scrollTop - own.at) > 1.5) own.at = list.scrollTop
-    const goal = wanted(list, own.row, margin) - list.scrollTop + own.at
+    const goal = wanted(list, own.row, margin, own.centre) - list.scrollTop + own.at
     own.at += (goal - own.at) * (1 - Math.exp(-(now - then) / PACE))
     then = now
     if (Math.abs(goal - own.at) < 0.5) own.at = goal
