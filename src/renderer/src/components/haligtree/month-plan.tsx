@@ -19,8 +19,8 @@ import { chime, quietFor } from '@/lib/sound'
 import { taskName } from '@/lib/tasks'
 import { loud } from '@/lib/loud'
 import { detent, edge } from '@/lib/haptics'
-import { land, stopFor, type Landing } from '@/lib/snap'
-import { EASE, byKeys, glideWay, glides, useStill } from '@/lib/motion'
+import { CALM, land, stopFor, type Landing } from '@/lib/snap'
+import { EASE, byKeys, glideWay, useStill } from '@/lib/motion'
 import { moveMark, onDay as marksOn, useMilestones, type Milestone } from '@/lib/milestones'
 import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay } from '@/lib/calendar'
 import { DayDots, DotsKey, openedLevel } from './day-dots'
@@ -331,6 +331,10 @@ const indexOf = (day: Dayjs): number => Math.round(day.startOf('week').hour(12).
 const RUN_RULES = '[data-month-run] [data-outside] [data-day-number]:not([aria-current]) { color: color-mix(in oklab, var(--foreground) 40%, transparent); font-weight: 400 } [data-month-run] [data-outside] :is([data-plan-more], [data-plan-task], [data-mark-flag]) { opacity: 0.6 }'
 /** How long the wheel stays quiet before a gesture counts as over: longer than the gap between a fast wheel's notches. */
 const IDLE = 140
+/** A trackpad's glide follows the fingers' last step within two frames: the wheel quiet this long after a lift, there is none. */
+const NO_GLIDE = 32
+/** Sent further than this many weeks, the run sets off from this far short, there at once: the eye follows the last of the way, never a year of weeks streaming past. */
+const FAR = 10
 /** Weeks drawn past those in sight, above and below, so a fling never shows a row not yet drawn: 2 + 6 + 3, eleven in all. */
 const OVER = 2
 /** The month a week at the top names: the month of its last day, so a month is named once its first week reaches the top. */
@@ -364,8 +368,8 @@ export function Passing({ fallback, say }: { fallback: Dayjs; say: (month: Dayjs
 let kept: { month: string; index: number } | null = null
 
 /**
- * The Calendar's weeks as one column that scrolls: the trackpad's own scroll and glide, then a short glide to rest on a
- * week, six weeks to the height of the box. Only the eleven weeks near the screen are drawn; the rest is room. As a new
+ * The Calendar's weeks as one column that scrolls: the trackpad's own scroll and glide, then a firm spring onto a
+ * week as the fingers lift, five weeks to the height of the box. Only the eleven weeks near the screen are drawn; the rest is room. As a new
  * month's first week reaches the top the heading names it (`Passing`) with one firm tap, and nothing else is drawn
  * again; the page above is told the month once the run comes to rest. Asked for another month
  * (the arrows, Today, a key), it glides there, or is there at once by a key or with Motion off or Reduce motion.
@@ -388,6 +392,10 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   // The month named, for the days outside it to dim: kept here, so naming another draws only this rule again.
   const [dim, setDim] = useState(heldKey)
   const gliding = useRef(false)
+  // While the run glides where it was sent, the week it is going to: every week on the way is drawn before it sets
+  // off, so none is drawn while it moves (drawn on the way, each cost the glide a frame, and at its fastest the glide
+  // outran them and showed bare rows).
+  const [toward, setToward] = useState<number | null>(null)
   const placed = useRef(false)
   const where = (el: HTMLElement): number => Math.floor(el.scrollTop / row + 0.02)
   const settle = (el: HTMLElement, tap: boolean): void => {
@@ -412,7 +420,29 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
     el.scrollTop = top * row
     placed.current = true
   }, [row]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Sent to another month by the page above: glide to its first week.
+  // When the wheel last moved (a trackpad's glide sends wheel events too), and the frame that waits for it to go quiet.
+  const wheeled = useRef(-Infinity)
+  // Over the weeks while they move, so the days under the pointer do not light up and tip as they pass: one element
+  // shown and hidden, nothing under it restyled (pointer-events on the weeks themselves restyled every day drawn).
+  const shield = useRef<HTMLDivElement>(null)
+  const moved = useRef(-Infinity)
+  const quiet = useRef(0)
+  const end = useRef<(landed?: boolean, tap?: boolean) => void>(() => {})
+  // The spring taking the run onto a week, its speed as the wheel last gave it, whether the fingers are on the pad
+  // (the Mac's word), whether the trackpad's glide after a lift may still be running, where a landing begun at the
+  // lift set off from (a glide that follows after all turns it from there), and whether the run has moved since it
+  // last rested.
+  const landing = useRef<Landing | null>(null)
+  const pace = useRef(0)
+  const touching = useRef(false)
+  const glide = useRef(false)
+  const early = useRef<number | null>(null)
+  const moving = useRef(false)
+  const holding = useRef(0)
+  useEffect(() => () => (cancelAnimationFrame(quiet.current), cancelAnimationFrame(holding.current), landing.current?.stop(), undefined), [])
+  // Sent to another month by the page above: to its first week. By a key, or with Motion off, Reduce motion or
+  // “Smooth scrolling” off, it is there at once. By the arrows and “Today” it glides on the app's own spring, the calm
+  // one (lib/snap.ts): a second press turns it on its way, a touch or the wheel stops it where it is.
   useEffect(() => {
     const el = body.current
     if (!el || !row || heldKey === named.current) return
@@ -421,27 +451,29 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
     passing.set(held.startOf('month'))
     const to = indexOf(held.startOf('month')) * row
     if (Math.abs(el.scrollTop - to) < 1) return
-    const instant = still || !glides() || byKeys()
+    const instant = still || byKeys() || glideWay() === 'instant'
+    const near = Math.abs(el.scrollTop - to) <= FAR * row
+    if (landing.current && gliding.current && !instant && near) return setToward(to / row), landing.current.aim(to)
+    cancelAnimationFrame(holding.current)
+    el.style.overflowY = ''
     landing.current?.stop()
-    gliding.current = !instant
-    el.scrollTo({ top: to, behavior: instant ? 'instant' : 'smooth' })
+    landing.current = null
+    early.current = null
+    gliding.current = false
+    // (`void`: scrollTo answers with a promise in this Chromium, and an effect may only hand back a way to undo itself.)
+    if (instant) return void el.scrollTo({ top: to, behavior: 'instant' })
+    gliding.current = true
+    const from = near ? el.scrollTop : to - Math.sign(to - el.scrollTop) * FAR * row
+    if (!near) el.scrollTop = from
+    setToward(to / row)
+    const one = land(from, 0, to, (value) => void (el.scrollTop = value), (landed) => {
+      landing.current = null
+      setToward(null)
+      // At rest it says the month and hides the shield; no tap: nothing was let go of.
+      if (landed) end.current(true, false)
+    }, CALM)
+    if (one.running) landing.current = one
   }, [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
-  // When the wheel last moved (a trackpad's glide sends wheel events too), and the frame that waits for it to go quiet.
-  const wheeled = useRef(-Infinity)
-  // Over the weeks while they move, so the days under the pointer do not light up and tip as they pass: one element
-  // shown and hidden, nothing under it restyled (pointer-events on the weeks themselves restyled every day drawn).
-  const shield = useRef<HTMLDivElement>(null)
-  const moved = useRef(-Infinity)
-  const quiet = useRef(0)
-  const end = useRef<(moved?: boolean) => void>(() => {})
-  // The spring taking the run onto a week, its speed as the wheel last gave it, whether the trackpad's glide after a
-  // lift is still running, and whether the run has moved since it last rested.
-  const landing = useRef<Landing | null>(null)
-  const pace = useRef(0)
-  const glide = useRef(false)
-  const moving = useRef(false)
-  const holding = useRef(0)
-  useEffect(() => () => (cancelAnimationFrame(quiet.current), cancelAnimationFrame(holding.current), landing.current?.stop(), undefined), [])
   useEffect(() => {
     const el = body.current
     if (!el) return
@@ -455,7 +487,7 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
     // Onto a week, firmly (lib/snap.ts): the week the run is heading for, read from its speed, by a spring with no
     // bounce. While the trackpad's own glide is still running the run is held (it cannot scroll), so the glide's
     // last steps do not fight the spring; a new touch, or a mouse wheel's next notch, takes the run back at once.
-    const free = (): void => void (cancelAnimationFrame(holding.current), (el.style.overflowY = ''), landing.current?.stop(), (landing.current = null))
+    const free = (): void => void (cancelAnimationFrame(holding.current), (el.style.overflowY = ''), landing.current?.stop(), (landing.current = null), (early.current = null), (gliding.current = false))
     // Landed while the glide still runs: the run stays held until the glide's steps stop coming. A glide's end is not
     // an event the page is told of, so a frame looks at when the wheel last spoke.
     const letRun = (): void => {
@@ -463,17 +495,21 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
       glide.current = false
       el.style.overflowY = ''
     }
-    const snapNow = (): void => {
-      if (!row || landing.current || !moving.current) return
+    const within = (to: number): number => Math.max(0, Math.min((WEEKS - SCREEN) * row, to))
+    // Never under fingers still on the pad: with the Mac's word that they are down, the run waits for them to lift.
+    const snapNow = (speed: number, atLift = false): void => {
+      if (!row || landing.current || !moving.current || touching.current) return
       cancelAnimationFrame(quiet.current)
       quiet.current = 0
       gliding.current = false
       const at = el.scrollTop
-      const to = Math.max(0, Math.min((WEEKS - SCREEN) * row, stopFor(at, pace.current, row)))
+      const to = within(stopFor(at, speed, row))
       if (glide.current) el.style.overflowY = 'hidden'
-      const one = land(at, pace.current, to, (value) => void (el.scrollTop = value), (landed) => {
+      early.current = atLift ? at : null
+      const one = land(at, speed, to, (value) => void (el.scrollTop = value), (landed) => {
         landing.current = null
-        if (landed) end.current(Math.abs(to - at) > 1)
+        early.current = null
+        if (landed) end.current(true, Math.abs(el.scrollTop - at) > 1)
         letRun()
       })
       if (one.running) landing.current = one
@@ -485,27 +521,36 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
       pace.current = gap > 100 ? 0 : pace.current * 0.5 + (event.deltaY / Math.max(4, gap)) * 1000 * 0.5
       // A step long after the last is no glide: a mouse wheel's notch, or fingers the Mac did not announce.
       if (gap > 100) glide.current = false
-      if (landing.current && !glide.current) free()
+      if (landing.current && !glide.current) return free()
+      // A glide's step after a landing begun at the lift (a busy frame held the step back): the landing turns for the
+      // week the glide is heading to, from where it is and with the speed it has, and only ever further the glide's way.
+      if (landing.current && early.current !== null) {
+        const to = within(stopFor(early.current, pace.current, row))
+        if ((to - landing.current.to) * Math.sign(pace.current) > 0) landing.current.aim(to, pace.current)
+        return
+      }
       // The fingers have lifted and the glide has slowed to under five weeks a second: it lands now, not when the glide dies away.
-      if (glide.current && !landing.current && Math.abs(pace.current) < row * 5) snapNow()
+      if (glide.current && !landing.current && Math.abs(pace.current) < row * 5) snapNow(pace.current)
     }
     // The Mac's word that the fingers touched or lifted (main, as for Back and Forward's swipe; a probe says the same).
     const phase = (kind: string): void => {
-      if (kind === 'began') return void ((glide.current = false), free())
+      if (kind === 'began') return void ((touching.current = true), (glide.current = false), free())
       if (kind !== 'ended') return
+      touching.current = false
       glide.current = true
-      // Lifted from a flick, the trackpad's glide follows within a frame or two and the wheel decides when it has
-      // slowed. Lifted from rest there is no glide, and nothing says so: four frames with no step, and it lands now.
-      const lifted = performance.now()
+      // Lifted from a flick, the trackpad's glide follows the fingers' last step within two frames, and the wheel says
+      // when it has slowed. Lifted from rest there is no glide, and nothing says so but the wheel staying quiet: two
+      // frames of that since its last step (already so when the fingers had stopped before they lifted, and then it
+      // lands on this very frame), and the run lands from rest. It never waits to be sure: a glide that comes after
+      // all turns the landing on its way (the wheel, above).
       cancelAnimationFrame(holding.current)
       const look = (now: number): void => {
         if (!glide.current || landing.current) return
-        if (now - wheeled.current < 64) return
-        if (now - lifted < 64) return void (holding.current = requestAnimationFrame(look))
+        if (now - wheeled.current < NO_GLIDE) return void (holding.current = requestAnimationFrame(look))
         pace.current = 0
-        snapNow()
+        snapNow(0, true)
       }
-      holding.current = requestAnimationFrame(look)
+      look(performance.now())
     }
     const probed = (event: Event): void => phase(String((event as CustomEvent).detail))
     window.addEventListener('haligtree:swipe-phase', probed)
@@ -514,9 +559,9 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
     // too; settled there, the glide back to a week cancelled the notches still to come and a fast wheel lost most of its
     // way. So without the Mac's word it waits until the wheel has been quiet a moment and the scroll has stopped. Done
     // here rather than by CSS scroll snap, which snaps only to weeks already drawn and so, sent a year away, pulled back
-    // to the weeks it left.
-    const ended = (landed = false): void => {
-      if (!row || landing.current) return
+    // to the weeks it left. `tap`: one light tap as a run let go of lands on its week.
+    const ended = (landed = false, tap = landed): void => {
+      if (!row || landing.current || touching.current) return
       if (performance.now() - wheeled.current < IDLE && !landed) {
         if (quiet.current) return
         // Read from the events' own times, never the scroll's place: read each frame, that made the page lay itself out again.
@@ -529,14 +574,14 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
         return
       }
       const near = Math.round(el.scrollTop / row) * row
-      if (Math.abs(el.scrollTop - near) > 0.5) return (pace.current = 0), (glide.current = false), snapNow()
+      if (Math.abs(el.scrollTop - near) > 0.5) return (pace.current = 0), (glide.current = false), snapNow(0)
       gliding.current = false
       moving.current = false
       if (shield.current) shield.current.hidden = true
       settle(el, false)
       rest()
-      // One light tap as the run lands on its week (a month's first week has had its firm one on the way).
-      if (landed) detent()
+      // (A month's first week has had its firm tap on the way.)
+      if (tap) detent()
     }
     end.current = ended
     const scrollEnded = (): void => ended()
@@ -557,8 +602,9 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   const room = lines(row)
   // Drawn in steps of two weeks, so a fling commits a new set of weeks every other week rather than every week.
   const base = top - (top % 2)
-  const firstDrawn = Math.max(0, base - OVER)
-  const lastDrawn = Math.min(WEEKS - 1, base + SCREEN + OVER)
+  const far = toward === null ? base : toward - (toward % 2)
+  const firstDrawn = Math.max(0, Math.min(base, far) - OVER)
+  const lastDrawn = Math.min(WEEKS - 1, Math.max(base, far) + SCREEN + OVER)
   return (
     <div ref={body} data-month-scroll data-month-run={dim} data-unfaded className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
       {/* The days outside the month named, dimmed as on Home's month. A rule that never changes: rewritten for each month, it made the whole window restyle. */}

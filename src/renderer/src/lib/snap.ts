@@ -6,33 +6,34 @@ import { still } from './motion'
  * Journal's year): where it would have stopped is read from
  * its speed at the lift, the nearest stop to that is chosen, and a spring
  * with no bounce takes it there, stepped by the real time each frame took.
- * A new touch stops the spring where it is.
+ * A new touch stops the spring where it is; sent somewhere else on the way, it
+ * turns from where it is with the speed it has.
  */
 
-/** A firm landing: settled in under a fifth of a second from any distance. */
-export const FIRM = 1600
+/** A firm landing: at rest an eighth of a second after it is let go, from half a week away or a whole one. */
+export const FIRM = 3200
+/** A calm glide, for a place the app takes you to (an arrow, “Today”): a month's weeks in just over a quarter of a second, slow enough to follow. */
+export const CALM = 1200
 
 /** Past an edge, less and less follows: the further over, the harder it pulls back. */
 export const rubber = (over: number, room: number, give = 0.55): number => (over * room * give) / (room + give * Math.abs(over))
 
-/** One spring step, critically damped: no bounce, settles from wherever it is now, with the speed it has. */
+/**
+ * One spring step, critically damped: no bounce, settles from wherever it is now, with the speed it has. Worked out
+ * exactly for the time given, however long: the same landing at 60 or 120 frames a second and on a busy machine,
+ * where a frame can take 100ms (added up in small steps it came to rest about a tenth later than its stiffness says).
+ */
 export const step = (at: number, speed: number, to: number, dt: number, stiff = 170): [number, number] => {
-  const damp = 2 * Math.sqrt(stiff)
-  const next = speed + ((to - at) * stiff - damp * speed) * dt
-  return [at + next * dt, next]
+  const pull = Math.sqrt(stiff)
+  const gap = at - to
+  const drift = speed + pull * gap
+  const fade = Math.exp(-pull * dt)
+  return [to + (gap + drift * dt) * fade, (speed - pull * drift * dt) * fade]
 }
 
-/**
- * The spring over however long the last frame took, in small steps: on a busy machine a frame can take 100ms or more,
- * and a spring held to a frame's worth of time ran in slow motion there. Over half a second (a window put away and
- * back) it simply lands.
- */
-export const spring = (at: number, speed: number, to: number, elapsed: number, stiff?: number): [number, number] => {
-  if (elapsed > 0.5) return [to, 0]
-  const n = Math.max(1, Math.ceil(elapsed * 240))
-  for (let i = 0; i < n; i++) [at, speed] = step(at, speed, to, elapsed / n, stiff)
-  return [at, speed]
-}
+/** The spring over however long the last frame took. Over half a second (a window put away and back) it simply lands. */
+export const spring = (at: number, speed: number, to: number, elapsed: number, stiff?: number): [number, number] =>
+  elapsed > 0.5 ? [to, 0] : step(at, speed, to, elapsed, stiff)
 
 /** Where a thing moving at `speed` (per second) would stop if left to slow on its own for `glide` seconds' worth of travel. */
 export const project = (at: number, speed: number, glide = 0.12): number => at + speed * glide
@@ -51,7 +52,14 @@ export const noPass = (at: number, speed: number, to: number, stiff = FIRM): num
   return Math.abs(speed) > most ? Math.sign(speed) * most : speed
 }
 
-export type Landing = { stop: () => void; readonly running: boolean }
+export type Landing = {
+  stop: () => void
+  /** Sent to another stop on the way: it turns from where it is, keeping its speed (or `speed`, when that is faster the same way). */
+  aim: (to: number, speed?: number) => void
+  readonly at: number
+  readonly to: number
+  readonly running: boolean
+}
 
 /**
  * Takes a value from `at` to `to` with the firm spring, starting at `speed` (per second), writing each frame's value
@@ -70,7 +78,7 @@ export function land(at: number, speed: number, to: number, write: (value: numbe
   if (still() || Math.abs(to - at) < 0.5) {
     write(to)
     finish(true)
-    return { stop: () => {}, running: false }
+    return { stop: () => {}, aim: () => {}, at: to, to, running: false }
   }
   speed = noPass(at, speed, to, stiff)
   let then = performance.now()
@@ -82,5 +90,15 @@ export function land(at: number, speed: number, to: number, write: (value: numbe
     frame = requestAnimationFrame(tick)
   }
   frame = requestAnimationFrame(tick)
-  return { stop: () => finish(false), get running() { return running } }
+  return {
+    stop: () => finish(false),
+    aim: (next, faster = 0) => {
+      if (!running) return
+      to = next
+      speed = noPass(at, Math.sign(faster) === Math.sign(to - at) && Math.abs(faster) > Math.abs(speed) ? faster : speed, to, stiff)
+    },
+    get at() { return at },
+    get to() { return to },
+    get running() { return running }
+  }
 }
