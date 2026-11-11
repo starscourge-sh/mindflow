@@ -3754,10 +3754,11 @@ textarea[data-talking]::selection {
   .mf-blur-edge > span:nth-child(4) { backdrop-filter: blur(12px); mask-image: linear-gradient(to top, black 0%, transparent 25%); }
 }
 /* Under a bar at a view's foot (BlurEdge bar, blur-edge.tsx: the note's "Add a thought…", read mode's foot, the
-   writing room's foot, the Journal's writer line): the bar's own height and 2.5rem over it, so what scrolls under
-   the bar blurs out as it nears it, and under the bar the page's colour is all but whole (whole at the very foot):
-   words never read through a bar or the band under it. With Reduce Transparency there is no
-   blur: the page's colour, whole under the bar, fades out over the 2.5rem above it, as the bars had before. */
+   writing room's foot, the Journal's writer line): the bar's own height and 2.5rem over it. The words go out in
+   those 2.5rem above the bar, blurring and fading into the page's colour, and from the bar's top edge to the foot
+   the page's colour is whole: nothing reads beside a bar or under it (at 82% a line passing under still read
+   faintly at the bar's own height, to its left and right). With Reduce Transparency there is no blur, only the
+   fade. */
 .mf-blur-edge.mf-blur-bar { height: calc(100% + 2.5rem); background: none; }
 /* Its wash a layer of its own, so a bar that comes and goes fades the wash and each blur layer, never the edge
    itself: an edge part way faded is a parent that fades, and its blur would see nothing (data-hide). */
@@ -3765,13 +3766,12 @@ textarea[data-talking]::selection {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, var(--background), color-mix(in oklab, var(--background) 82%, transparent) calc(100% - 2.5rem), transparent);
+  background: linear-gradient(to top, var(--background) calc(100% - 2.5rem), color-mix(in oklab, var(--background) 82%, transparent) calc(100% - 1.875rem), color-mix(in oklab, var(--background) 45%, transparent) calc(100% - 1rem), transparent);
 }
+/* Its blur layers keep to the fade over the bar: under the bar the wash is whole and a blur there would draw nothing. */
+.mf-blur-bar > span { bottom: auto; height: 2.5rem; }
 .mf-blur-bar::before, .mf-blur-bar > span { transition: opacity 300ms var(--mf-ease); }
 .mf-blur-bar[data-hide]::before, .mf-blur-bar[data-hide] > span { opacity: 0; }
-@media (prefers-reduced-transparency: reduce) {
-  .mf-blur-bar::before { background: linear-gradient(to top, var(--background) calc(100% - 2.5rem), transparent); }
-}
 @media (prefers-reduced-motion: reduce) { .mf-blur-bar::before, .mf-blur-bar > span { transition: none; } }
 /* The bar floated over its scroller's foot (useDockRoom, blur-edge.tsx sets --mf-dock-h, its height): lifted over
    the words by its height, and the words keep that much room, and the fade's, after their last line, so the last
