@@ -27,7 +27,7 @@ import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { EventSource } from './calendar-events'
 import { Mentions } from './mentions'
-import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, flying, takeExit, follow, unpromote, recallOffered } from '@/lib/capture-links'
+import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, flying, takeExit, toWriting, follow, unpromote, recallOffered } from '@/lib/capture-links'
 import type { SaveResult } from '../../../../main/captures'
 import { toMarkdown } from '@/lib/export'
 import { hoursSaid } from '@/lib/day-plan'
@@ -450,6 +450,16 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
       picked.ids = []
     }
   })
+  // A capture (or every picked one, it among them) carried onto Writing or one of its folders in the sidebar (split-drop.tsx).
+  useEffect(() => {
+    const onDrop = (event: Event): void => {
+      const { ids, folder } = (event as CustomEvent<{ ids: string[]; folder: string | null }>).detail
+      const many = ids.length === 1 && chosen.includes(ids[0]) && chosen.length > 1
+      void toWriting(many ? chosen.filter((id) => all.find((capture) => capture.id === id)?.status === 'open') : ids, folder).then(() => many && setChosen([]))
+    }
+    window.addEventListener('haligtree:to-writing', onDrop)
+    return () => window.removeEventListener('haligtree:to-writing', onDrop)
+  }, [chosen, all])
   const bulk = (status: string): void => {
     // Only the open ones: a promoted capture resolved, or undone back to open,
     // would lose where it went.
@@ -633,6 +643,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               inbox.length > 0 && { label: inbox.length === 1 ? 'Make it a task' : `Make ${num(inbox.length)} tasks`, run: makeEach },
               inbox.length > 1 && { label: 'Make one task', hint: 'From all of them', run: makeOne },
               inbox.length > 0 && 'separator',
+              inbox.length > 0 && { label: `Move ${num(inbox.length)} to Writing`, hint: 'A page each, with its words', run: () => void toWriting(inbox).then(() => setChosen([])) },
               inbox.length > 0 && { label: `Resolve ${num(inbox.length)}`, run: () => bulk('resolved') },
               notes.length > 0 && { label: `Add a tag to ${num(notes.length)}…`, run: tagEach },
               notes.length > 0 && { label: archived ? `Unarchive ${num(notes.length)}` : `Archive ${num(notes.length)}`, hint: archived ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('captures', notes, !archived).then(() => setChosen([])) },
@@ -960,6 +971,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const exits = [
     { icon: ArrowUpRight, tint: 'purple', label: 'Save as a gem', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Saved as a gem' },
+    { icon: FileText, tint: 'brown', label: 'Move to Writing', run: () => Promise.resolve(null), said: 'Moved to Writing' },
     { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => makeTask({ capture: capture.id }), said: 'Now a task' },
     { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
     { icon: Trash2, alive: TrashIcon, tint: 'red', label: 'Move to the Bin', run: () => flying(capture.id, 'away', () => window.api.captures.save(capture.id, { status: 'discarded' })), said: 'Moved to the Bin' }
@@ -969,13 +981,18 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
     <Props className={className} fold={fold}>
       {/* Beside its page, the note's properties head its details, as Linear's issues have them. */}
       {fold && <PropertyStrip panel table="captures" id={capture.id} kind={capture.kind} fields={capture.fields} text={capture.label} created={capture.capturedAt} updated={capture.editedAt} cited={!!capture.medium?.trim()} />}
-      <Island compact title="Status">
+      <Island compact title={capture.status === 'open' ? 'Where it goes' : 'Status'}>
         <Prop icon={Status} active>
           {/* A status that changes rolls to the new word: the change is seen. */}
           <Rolling text={statusSaid(capture.status, capture.keptIn)} />
         </Prop>
         {capture.status === 'open'
-          ? exits.map((exit) => (
+          ? exits.map((exit) => exit.label === 'Move to Writing' ? (
+              // A page in Writing with its words: the one shared move (lib/capture-links.tsx), then on to the next capture.
+              <Prop key={exit.label} icon={exit.icon} tint={exit.tint} tip="It becomes a page in Writing, to write out. Links to it open the page" onClick={() => void toWriting([capture.id], null, () => onBack?.(capture.id)).then(() => onExit?.())}>
+                <span data-to-writing-prop>{exit.label}</span>
+              </Prop>
+            ) : (
               <Prop
                 key={exit.label}
                 icon={exit.icon}

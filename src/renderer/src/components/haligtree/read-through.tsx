@@ -632,7 +632,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       // Deal with it while it is in front of you: an exit or a task, then the
       // next page. ⌘Z still takes it back.
       // ⌫ is the Bin, as on every list; D too.
-      else if (item?.type === 'capture' && (event.key === 'Backspace' || event.key === 'Delete' || (event.key.length === 1 && 'prdth'.includes(letter)))) {
+      else if (item?.type === 'capture' && (event.key === 'Backspace' || event.key === 'Delete' || (event.key.length === 1 && 'prdthw'.includes(letter)))) {
         event.preventDefault()
         const key = event.key === 'Backspace' || event.key === 'Delete' ? 'd' : letter
         const next = (): void => setAt((n) => (stepFrom(n, 1) >= 0 ? stepFrom(n, 1) : n))
@@ -649,7 +649,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
           if (to >= 0) setAt(to)
           else onClose()
         })
-        else void exit(item.id, { p: 'promoted', r: 'resolved', h: 'question' }[key as 'p' | 'r' | 'h'], back).then(next)
+        else void exit(item.id, { p: 'promoted', r: 'resolved', h: 'question', w: 'writing' }[key as 'p' | 'r' | 'h' | 'w'], back).then(next)
       }
     }
     // Taken first, so the lists and the editor underneath never see the keys.

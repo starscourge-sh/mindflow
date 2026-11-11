@@ -335,6 +335,9 @@ export const haligtree = {
   /** A question, from nothing or from a capture whose words become its first clue; `dropQuestion` takes it back. */
   newQuestion: (title: string, captureId?: string) => call<string>('question:new', title, captureId),
   dropQuestion: (id: string) => call<boolean>('question:drop', id),
+  /** A capture moved to Writing as a page, into a folder of Writing's or loose; null when it had already left the Inbox. `undoWriting` takes it back. */
+  toWriting: (captureId: string, folder?: string | null) => call<{ id: string; folder: string | null } | null>('capture:toWriting', captureId, folder),
+  undoWriting: (captureId: string, id: string) => call<boolean>('capture:toWriting:undo', captureId, id),
   /** A dated clue: your words, or a capture's (which then leaves the inbox). Gives back its id, for `dropClue`. */
   addClue: (id: string, text: string, sourceId?: string) => call<string | null>('clue', id, text, sourceId),
   dropClue: (clue: string) => call('clue:drop', clue),

@@ -99,12 +99,21 @@ const takes = (place: HTMLElement, carried: Carried, node: HTMLElement | undefin
   const task = carried.open?.startsWith('task:') || !!node?.closest('[data-task-row]')
   if (place.dataset.sideDrop) return !!carried.open && !task
   if (place.dataset.queueDrop !== undefined) return !task
+  // Writing's own row takes a capture alone: it becomes a page there (lib/capture-links.tsx, `toWriting`).
+  if (place.dataset.writingDrop !== undefined) return node?.dataset.type === 'capture'
   return true
+}
+
+/** A capture carried over Writing's row or one of its folders: letting go makes it a page there. What the card says, or null. */
+const toWritingSaid = (place: HTMLElement | null, node: HTMLElement | undefined): string | null => {
+  if (!place || node?.dataset.type !== 'capture') return null
+  if (place.dataset.writingDrop !== undefined) return 'Move to Writing'
+  return place.dataset.folderList === 'article' ? `Move to “${place.dataset.folderName ?? 'this folder'}”` : null
 }
 
 /** A sidebar folder of one list, and a row of the other carried over it. */
 const wrongFolder = (place: HTMLElement, node: HTMLElement | undefined): boolean =>
-  !!place.dataset.folderList && !!node?.dataset.type && node.dataset.type !== place.dataset.folderList
+  !!place.dataset.folderList && !!node?.dataset.type && node.dataset.type !== place.dataset.folderList && !toWritingSaid(place, node)
 
 /** `reach`: the card and everything between it and its side of the page, top to bottom: the pointer at the very edge is in it too. */
 type Zone = { key: string; side: Side; at: number; left: number; top: number; width: number; height: number; reach: { left: number; right: number; top: number; bottom: number } }
@@ -140,6 +149,8 @@ const dropListDrag = (): void => void window.dispatchEvent(new Event('visibility
 
 export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: number) => void; onRow: (carried: Carried, pane: string, at: number) => void }): React.JSX.Element | null {
   const [carried, setCarried] = useState<Carried | null>(null)
+  // What letting go here will do, said under the pointer: only where a capture is over Writing or a folder of it.
+  const [said, setSaid] = useState<string | null | undefined>(undefined)
   // Carried by a list's own drag, which draws its own lifted picture: no second one here.
   const [zones, setZones] = useState<Zone[]>([])
   const [hot, setHot] = useState<string | null>(null)
@@ -190,7 +201,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     // Read under the carried picture too: over the list's path bar it sits right under the pointer.
     const queueAt = (px: number, py: number): HTMLElement | null => {
       for (const one of document.elementsFromPoint(px, py)) {
-        const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop], [data-tab-row]')
+        const place = one.closest<HTMLElement>('[data-queue-drop], [data-side-drop], [data-folder-drop], [data-writing-drop], [data-tab-row]')
         if (place) return place
       }
       return null
@@ -226,6 +237,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
       setCarried(null)
+      setSaid(undefined)
       setHot(null)
     }
     const reset = (): void => {
@@ -242,6 +254,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
       setCarried(null)
+      setSaid(undefined)
       setHot(null)
     }
     const follow = (px: number, py: number): void => {
@@ -299,6 +312,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         // A tab carried says nothing until it lands: moving one is one act, one sound.
         else if (queue) (queue.dataset.queueHot = ''), down?.source.carried.tab || click('tick')
         queued = queue
+        if (down?.source.node.dataset.type === 'capture') setSaid(toWritingSaid(queue, down.source.node))
       }
       const take = target || queue ? null : takeAt(px, py)
       if (take !== taking) {
@@ -360,6 +374,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       for (const side of ['left', 'right'] as const) (leanS[side].jump(0), growS[side].jump(1))
       setZones(shown)
       setCarried(down.source.carried)
+      setSaid(down.source.node.dataset.type === 'capture' ? null : undefined)
       follow(px, py)
       // Up with the pointer already in a place (a list against the page's edge): the card is simply at rest there.
       if (over) (card.x.jump(cardX.get()), card.y.jump(cardY.get()), cardScale.jump(shrink.get()))
@@ -415,6 +430,11 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         dropListDrag()
         event.preventDefault()
         window.dispatchEvent(new CustomEvent('haligtree:side-drop', { detail: { to: queued.dataset.sideDrop, open: what.open } }))
+      } else if (!side && what.row && toWritingSaid(queued, down.source.node)) {
+        // A capture onto Writing or one of its folders: a page there, with every picked capture if it is one (captures-view.tsx).
+        dropListDrag()
+        event.preventDefault()
+        window.dispatchEvent(new CustomEvent('haligtree:to-writing', { detail: { ids: [what.row.id], folder: queued?.dataset.folderDrop ?? null } }))
       } else if (!side && queued?.dataset.folderNo !== undefined && what.row) {
         dropListDrag()
         event.preventDefault()
@@ -511,7 +531,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
             <ZoneBox key={zone.key} zone={zone} hot={hot === zone.key} lean={zone.side === 'between' ? undefined : leanS[zone.side]} grow={zone.side === 'between' ? undefined : growS[zone.side]} />
           ))}
           <motion.div className="absolute top-0 left-0" style={{ x: card.x, y: card.y, scale: cardScale, translateX: '-50%', translateY: '-50%', maxWidth: strip ? strip.width - 16 : '14rem' }}>
-            <CarriedCard attrs={{ 'data-split-card': '' }} className={strip ? 'w-full max-w-full' : undefined} title={carried.title} icon={kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <Columns2 className="size-3.5 shrink-0 opacity-70" />} />
+            <CarriedCard attrs={{ 'data-split-card': '' }} words={said} tint="var(--tt-color-text-brown)" className={strip ? 'w-full max-w-full' : undefined} title={carried.title} icon={kind ? <kind.icon className="size-3.5 shrink-0" style={{ color: kind.tint }} /> : <Columns2 className="size-3.5 shrink-0 opacity-70" />} />
           </motion.div>
         </motion.div>
       )}

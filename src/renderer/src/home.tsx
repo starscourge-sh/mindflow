@@ -2084,6 +2084,8 @@ export function Home(): React.JSX.Element {
                 data-tour={section.id === 'inbox' || section.id === 'review' ? section.id : undefined}
                 data-side-row
                 data-queue-drop={section.id === 'queue' ? '' : undefined}
+                // A capture carried here becomes a page in Writing (split-drop.tsx); lit while it is over it.
+                data-writing-drop={section.id === 'articles' ? '' : undefined}
                 aria-label={section.label}
                 aria-current={here ? 'page' : undefined}
                 onClick={() => open('view', section.id)}

@@ -371,6 +371,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
                 // A row carried here goes in (split-drop.tsx); lit while it is over it, as the Queue's row is. One of the other list stays unlit.
                 data-folder-drop={group.id}
                 data-folder-list={list}
+                data-folder-name={group.name}
                 aria-current={here ? 'page' : undefined}
                 onClick={() => onOpen(group.id)}
                 // Under the row's own icon, a step in for each level.

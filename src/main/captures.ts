@@ -231,6 +231,7 @@ export const LABEL = 'label(title, body, named)'
 // "promoted" too: `keptIn` says which, with the question's name, so the row can say where it went.
 export const KEPT_IN = `case when status = 'promoted' then coalesce(
   (select 'question:' || q.title from nuggets q where q.capture_id = captures.id and q.tier = 'question' limit 1),
+  (select 'writing:' || a.title from nuggets a where a.capture_id = captures.id and a.tier = 'article' limit 1),
   (select 'clue:' || n.title from glosses g join nuggets n on n.id = g.item_id where g.source_id = captures.id and n.tier = 'question' limit 1)
 ) end`
 /** A word or question to look up: asked until its answer (the Word's definition) is written, answered after.

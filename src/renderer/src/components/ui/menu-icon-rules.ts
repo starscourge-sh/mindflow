@@ -191,6 +191,7 @@ const RULES: [RegExp, LucideIcon][] = [
   // Groups.
   [/^new group|^group with|new note in group/i, FolderPlus],
   [/remove from group|^out of its group/i, FolderMinus],
+  [/^move (\d[\d,]* )?to writing/i, FileText],
   [/^move to group|^move .*to (group|list)|^move to list/i, FolderInput],
   [/^move to top/i, ArrowUp],
   [/^move to bottom/i, ArrowDown],

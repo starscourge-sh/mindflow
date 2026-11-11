@@ -56,6 +56,7 @@ export const statusSaid = (status: string, keptIn?: string | null): string => {
     const at = keptIn.indexOf(':')
     const name = keptIn.slice(at + 1).trim()
     const short = clip(name, 40)
+    if (keptIn.startsWith('writing:')) return 'Moved to Writing'
     return keptIn.startsWith('question:') ? 'Made into a question' : short ? `A clue in ${quoted(short, 80)}` : 'A clue in a question'
   }
   return ({ open: 'Open', promoted: 'Saved as a gem', resolved: 'Resolved', discarded: 'In the Bin' } as Record<string, string>)[status] ?? status
@@ -65,10 +66,12 @@ export const statusSaid = (status: string, keptIn?: string | null): string => {
 export const typeSaid = (type: string): string =>
   ({ capture: 'Capture', nugget: 'Gem', article: 'Page', question: 'Question', goal: 'Goal', task: 'Task', card: 'Card', event: 'Event', day: 'Journal', pdf: 'PDF', web: 'Web page', media: 'File' } as Record<string, string>)[type] ?? type
 
-/** The three ways out of a capture, each one key where a card has the focus. */
+/** The ways out of a capture, each one key where a card has the focus. */
 export const EXITS = [
   // Their colours mean the same everywhere: kept, done, let go.
   { key: 'p', status: 'promoted', label: 'Save as a gem', done: 'Saved as a gem', tint: 'purple', what: 'Save it as a gem: it can come back to you, and be tested' },
+  // Not a status of its own either: the capture is kept behind a page in Writing with its words.
+  { key: 'w', status: 'writing', label: 'Move to Writing', done: 'Moved to Writing', tint: 'brown', what: 'It has grown past a note: it becomes a page in Writing, to be written out. Links to it open the page' },
   { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: out of the Inbox, still there with “Show sorted too”' },
   { key: 'd', status: 'discarded', label: 'Move to the Bin', done: 'Moved to the Bin', tint: 'red', what: 'Into the Bin, where it can come back' },
   // Not a status of its own: the capture is kept, inside a new question. H for
@@ -84,6 +87,7 @@ export const EXITS = [
  */
 export async function exit(id: string, status: string, onUndo?: () => void): Promise<void> {
   const one = EXITS.find((e) => e.status === status)
+  if (status === 'writing') return toWriting([id], null, onUndo)
   // Held as a question: one made from it, taken back by the undo.
   if (status === 'question') {
     const question = await flying(id, 'question', () => haligtree.newQuestion('', id))
@@ -107,6 +111,25 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
   // Back to exactly the status it had: always open, as exits are taken from there.
   const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'
   toast(one.done, () => void window.api.captures.save(id, { status: was }).then(() => onUndo?.()), 'success', status === 'discarded' ? seeTheBin : undefined)
+}
+
+/**
+ * Captures moved to Writing, into one of its folders (`folder`, its id) or loose: the one way every button, menu,
+ * key and drop does it. Each becomes a page with its words; one notice says where they went, with Undo, and a single
+ * one offers to open its page. Only captures still in the Inbox go.
+ */
+export async function toWriting(ids: string[], folder?: string | null, onUndo?: () => void): Promise<void> {
+  const made: { capture: string; id: string; folder: string | null }[] = []
+  for (const id of ids) {
+    const page = await flying(id, 'question', () => haligtree.toWriting(id, folder ?? null))
+    if (page) made.push({ capture: id, ...page })
+  }
+  if (!made.length) return refuse(NOT_OPEN)
+  chime('move')
+  const where = made[0].folder ? quoted(made[0].folder, 40) : 'Writing'
+  toast(made.length === 1 ? `Moved to ${where}` : `Moved ${num(made.length)} to ${where}`,
+    () => void Promise.all(made.map((one) => haligtree.undoWriting(one.capture, one.id))).then(() => onUndo?.()), 'success',
+    made.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('article', made[0].id) } : undefined)
 }
 
 /** Said when an exit is asked of a capture that already took one. */

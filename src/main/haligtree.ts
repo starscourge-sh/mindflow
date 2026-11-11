@@ -2603,6 +2603,28 @@ export function registerHaligtree(): void {
     }
     return write(id)
   })
+  // A capture moved to Writing: a page with its words, name, properties, source, privacy and date, in the folder
+  // named (one of Writing's) or loose. Taken from the Inbox only, like every exit. The capture is kept behind it, as
+  // with a question made from one, so every link to it still opens (now on the page: `lineage`, `became`).
+  handle('capture:toWriting', (captureId: string, folder?: string | null) => {
+    const from = db.prepare('select title, named, body, status, private, fields, attribution, medium, aliases, captured_at from captures where id = ?')
+      .get(captureId) as { title: string; named: number; body: string | null; status: string; private: number; fields: string | null; attribution: string | null; medium: string | null; aliases: string | null; captured_at: string } | undefined
+    if (!from || from.status !== 'open') return null
+    const group = folder ? (db.prepare("select id, name from note_groups where id = ? and list = 'article'").get(folder) as { id: string; name: string } | undefined) : undefined
+    const id = randomUUID()
+    // Named by its first line, as every page is, unless it came with a name of its own.
+    db.prepare("insert into nuggets (id, tier, kind, title, body, capture_id, private, fields, attribution, medium, aliases, group_id, created_at, updated_at) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(id, from.named && from.title ? from.title : 'Untitled', from.body ?? 'null', captureId, from.private, from.fields, from.attribution, from.medium, from.aliases, group?.id ?? null, from.captured_at, now())
+    db.prepare("update captures set status = 'promoted' where id = ?").run(captureId)
+    resolveWaiting(linkOf('nuggets', id))
+    return write({ id, folder: group?.name ?? null })
+  })
+  // Taken back: the page goes and the capture is open again, as it was.
+  handle('capture:toWriting:undo', (captureId: string, id: string) => {
+    db.prepare("delete from nuggets where id = ? and capture_id = ? and tier = 'article'").run(id, captureId)
+    db.prepare("update captures set status = 'open' where id = ?").run(captureId)
+    return write(true)
+  })
   // Taken back: the question and its clues go, and a capture it came from is open again.
   handle('question:drop', (id: string) => {
     const row = db.prepare("select capture_id from nuggets where id = ? and tier = 'question'").get(id) as { capture_id: string | null } | undefined

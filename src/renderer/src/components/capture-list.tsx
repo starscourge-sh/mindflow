@@ -139,14 +139,14 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
   'separator',
   // Resolve on its own line, the one most taken; everything it can become, together on one line beside it, so the
-  // menu stays short (each still has its key: P, H). The Bin is the menu's last line, as on every card.
+  // menu stays short (each still has its key: P, W, H). The Bin is the menu's last line, as on every card.
   ...(capture.status === 'open'
     ? [
         { label: 'Resolve', keys: 'R', run: () => void exit(capture.id, 'resolved') },
         // A lookup that did not satisfy: an open question, its words the first clue.
         ...(capture.kind === 'word' ? [{ label: 'Keep asking', hint: 'An open question, this its first clue', run: () => void keepAsking(capture.id) }] : []),
         { label: 'Turn it into', items: [
-          ...EXITS.filter((one) => one.status === 'promoted' || one.status === 'question').map((one) => ({ label: one.label, keys: one.key.toUpperCase(), run: () => void exit(capture.id, one.status) })),
+          ...EXITS.filter((one) => one.status === 'promoted' || one.status === 'writing' || one.status === 'question').map((one) => ({ label: one.label, keys: one.key.toUpperCase(), run: () => void exit(capture.id, one.status) })),
           { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
           // A goal, with a day or none (Someday, for the life list): named from the capture's words, opened on Goals.
           { label: 'Make it a goal…', hint: 'With a day, or Someday with none', run: () => void startGoal((type, id) => window.api.openInHome(type, id), capture.label.split('\n')[0].slice(0, 120)) },

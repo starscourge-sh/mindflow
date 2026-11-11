@@ -311,6 +311,7 @@ const WATCH: Record<string, (args: unknown[], result: unknown) => (Moment | null
   toTask: () => [emptied()],
   'tasks:from': () => [emptied()],
   'question:new': () => [emptied()],
+  'capture:toWriting': () => [emptied()],
   'task:done': () => [finished(), goalSteps()],
   'goal:close': (args) => (args[1] === 'made it' ? [madeIt(args[0])] : []),
   'session:end': () => [finished()],

@@ -17,7 +17,7 @@ import type { Editor, JSONContent } from '@tiptap/core'
 import { convertImports } from './lib/convert-imports'
 import { HaligtreeEditor, TAGS, currentVim, foldEverything, goToHeading, onVimChange, setVim } from './components/haligtree'
 import { settleVim } from './lib/vim'
-import { EXITS, exit, findCaptures, findHeadings, follow } from './lib/capture-links'
+import { EXITS, exit, findCaptures, findHeadings, follow, toWriting } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
 import { CaptureList, inInboxWindow, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
@@ -3265,6 +3265,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
                     { label: 'Make one task', hint: 'From all of them', run: makeOne },
                     'separator',
+                    { label: `Move ${num(chosen.length)} to Writing`, hint: 'A page each, with its words', run: () => void toWriting(chosen).then(() => setChosen([])) },
                     { label: `Resolve ${num(chosen.length)}`, run: () => bulk('resolved') },
                     { label: `Add a tag to ${num(chosen.length)}…`, run: () => void tagCaptures(chosen) },
                     'separator',
