@@ -2840,13 +2840,15 @@ html[data-drag-refused], html[data-drag-refused] * { cursor: not-allowed !import
   box-shadow: none !important;
 }
 
-/* Read's composer: always there to reach, a step quieter while you read. */
-.mf-read [data-composer] {
+/* Read's composer: always there to reach, a step quieter while you read. What it holds goes quiet, never the bar
+   itself: the bar floats over the page's last words, and a bar part way faded showed them through it ("why does
+   this randomly just become transparent", 11 Nov). */
+.mf-read [data-composer] .group\/composer > * {
   opacity: 0.6;
   transition: opacity 450ms var(--mf-ease);
 }
-.mf-read:is([data-awake], :has([data-composer] :focus)) [data-composer],
-.mf-read [data-composer]:is(:hover, :focus-within) {
+.mf-read:is([data-awake], :has([data-composer] :focus)) [data-composer] .group\/composer > *,
+.mf-read [data-composer]:is(:hover, :focus-within) .group\/composer > * {
   opacity: 1;
   transition-duration: 140ms;
 }
@@ -3753,7 +3755,8 @@ textarea[data-talking]::selection {
 }
 /* Under a bar at a view's foot (BlurEdge bar, blur-edge.tsx: the note's "Add a thought…", read mode's foot, the
    writing room's foot, the Journal's writer line): the bar's own height and 2.5rem over it, so what scrolls under
-   the bar blurs out as it nears it, the page's colour thicker at the very foot. With Reduce Transparency there is no
+   the bar blurs out as it nears it, and under the bar the page's colour is all but whole (whole at the very foot):
+   words never read through a bar or the band under it. With Reduce Transparency there is no
    blur: the page's colour, whole under the bar, fades out over the 2.5rem above it, as the bars had before. */
 .mf-blur-edge.mf-blur-bar { height: calc(100% + 2.5rem); background: none; }
 /* Its wash a layer of its own, so a bar that comes and goes fades the wash and each blur layer, never the edge
@@ -3762,7 +3765,7 @@ textarea[data-talking]::selection {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, color-mix(in oklab, var(--background) 72%, transparent), color-mix(in oklab, var(--background) 40%, transparent) calc(100% - 2.5rem), transparent);
+  background: linear-gradient(to top, var(--background), color-mix(in oklab, var(--background) 82%, transparent) calc(100% - 2.5rem), transparent);
 }
 .mf-blur-bar::before, .mf-blur-bar > span { transition: opacity 300ms var(--mf-ease); }
 .mf-blur-bar[data-hide]::before, .mf-blur-bar[data-hide] > span { opacity: 0; }
