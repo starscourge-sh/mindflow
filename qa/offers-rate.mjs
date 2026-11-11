@@ -22,11 +22,12 @@ try {
       if (read >= 60) break
       const one = await window.api.captures.get(meta.id)
       const body = one?.body
-      if (!body || typeof body !== 'object') continue
-      const text = (body.content ?? []).map(words).join('\n')
-      if (text.trim().length < 200) continue
+      if (!body) continue
+      // A note kept as Markdown (an import) is its own words; one the editor wrote is read block by block.
+      const text = typeof body === 'string' ? body : (body.content ?? []).map(words).join('\n')
+      if (text.trim().length < 120) continue
       read++
-      const offers = await call('offers:note', meta.id, text, linked(body)).catch(() => null)
+      const offers = await call('offers:note', meta.id, text, typeof body === 'string' ? [] : linked(body)).catch(() => null)
       const found = await call('mentions', meta.id).catch(() => null)
       for (const link of offers?.links ?? []) rows.push({ kind: 'offer', note: (one.label ?? '').slice(0, 50), to: link.title, words: link.words, line: (text.split('\n').find((line) => line.toLowerCase().includes(String(link.words).toLowerCase())) ?? '').slice(0, 160) })
       for (const name of found?.named ?? []) rows.push({ kind: 'named', note: (one.label ?? '').slice(0, 50), to: name.title, words: name.words ?? '', line: (name.snippet ?? '').slice(0, 160) })

@@ -10,6 +10,8 @@
 //   top:1 top:2 top:3   every command at the top of a note, a third of them a run
 //   places:1   the eight commonest after words and in a list;  places:2   the same in a table cell and in a callout
 //   table      the table's own commands, in a cell
+//   picks      the commands that ask for a choice, taken to their result: a note picked for "Link to a note" and
+//              "Embed a note", a real file handed to "File" and "PDF" through the page's own file picker
 //   files      on a copy of a real book (QA_ARGS= QA_DATA=<copy>): the book's own files in the menu, called by their names
 //   big        BIG=<capture id>, on a copy of a real book: three commands at the end of a very long note
 //
@@ -17,7 +19,7 @@
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
-const SECTIONS = ['menu', 'top:1', 'top:2', 'top:3', 'places:1', 'places:2', 'table', 'files', 'big']
+const SECTIONS = ['menu', 'top:1', 'top:2', 'top:3', 'places:1', 'places:2', 'table', 'picks', 'files', 'big']
 const SECTION = process.argv[2] ?? process.env.SECTION ?? ''
 if (!SECTIONS.includes(SECTION)) {
   console.log(`Say which section to run, one a run: node qa/slash-every.mjs <${SECTIONS.join(' | ')}>`)
@@ -182,6 +184,17 @@ try {
     check('":smi" opened under the resting pointer: one emoji lit', !!faces && emoji.length === 1, faces ? emoji.join(' | ') : 'no emoji list')
     await h.keyboard.press('Escape'); await wait(300)
     await h.mouse.move(640, 760)
+    // A block's own menu (a right-click in the note) shares these rows' look: under a moving pointer its rows light one at a time.
+    await place('after words'); await wait(200)
+    const para = await h.locator(`${sel} p`).first().boundingBox()
+    await h.mouse.move(para.x + 60, para.y + para.height / 2, { steps: 3 })
+    await h.mouse.click(para.x + 60, para.y + para.height / 2, { button: 'right' }); await wait(700)
+    const blockRows = await h.evaluate(() => [...document.querySelectorAll('.tiptap-block-menu-list button')].filter((one) => one.getClientRects().length).slice(0, 4).map((one) => { const r = one.getBoundingClientRect(); return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) } }))
+    const blockLit = []
+    for (const at of blockRows.slice(1, 3)) { await h.mouse.move(at.x, at.y, { steps: 4 }); await wait(180); blockLit.push(await lit('.tiptap-block-menu-list')) }
+    check('a block\'s right-click menu lights the row under a moving pointer, one row at a time', blockRows.length >= 3 && blockLit.length === 2 && blockLit.every((one) => one.length === 1) && blockLit[0][0] !== blockLit[1][0], JSON.stringify({ rows: blockRows.length, blockLit }))
+    for (let n = 0; n < 2 && (await h.evaluate(() => !!document.querySelector('.tiptap-block-menu'))); n++) { await h.keyboard.press('Escape'); await wait(250) }
+    await h.mouse.move(640, 760)
 
     // --- A note is named by its first line, never by a "/" search open on it.
     const named = async () => ({ label: (await h.evaluate((id) => window.api.captures.get(id), id))?.label ?? '', tab: await h.evaluate(() => (document.querySelector('[data-tab-on] [data-tab-name]')?.textContent ?? '').trim()), body: JSON.stringify((await h.evaluate((id) => window.api.captures.get(id), id))?.body ?? '') })
@@ -252,6 +265,49 @@ try {
     const wheres = SECTION === 'places:1' ? ['after words', 'list'] : ['table cell', 'callout']
     for (const where of wheres) for (const title of EVERYWHERE.filter((one) => (!only || only.test(one)) && !SKIP[where]?.includes(one))) rows.push(await walk(title, where))
     report()
+  }
+  if (SECTION === 'picks') {
+    const { writeFileSync } = await import('fs')
+    const { join } = await import('path')
+    const target = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), { type: 'doc', content: [p('Target of the link'), p('Its second line, shown where it is embedded.')] })
+    await wait(800)
+    // ⌘Z until the note is as it was: how many it took (-1 if it never came back).
+    const back = async (before) => { await h.evaluate((sel) => document.querySelector(sel).editor.commands.focus(), sel); let steps = 0; for (; steps < 6 && (await doc()) !== before; steps++) { await h.keyboard.press('Meta+z'); await wait(220) } return (await doc()) === before ? steps : -1 }
+    // A command that lists notes: the name typed, the note picked with Enter.
+    const pickNote = async (title, kind) => {
+      await place('top'); await wait(150)
+      const before = await doc()
+      await h.keyboard.type(`/${title.toLowerCase()}`, { delay: 12 }); await menuWhen(); await wait(700)
+      await h.keyboard.press('Enter'); await wait(800)
+      await h.keyboard.type('Target of', { delay: 25 }); await wait(1000)
+      const offered = await h.evaluate(() => [...document.querySelectorAll('.tiptap-suggestion-popup .tiptap-slash-menu-list > button')].map((one) => (one.textContent ?? '').trim().slice(0, 40)))
+      await h.keyboard.press('Enter'); await wait(1000)
+      const after = await doc()
+      return { offered: offered.slice(0, 3), made: after.includes(`"type":"${kind}"`) && after.includes(target), left: /\[\[|"text":"[^"]*\/[a-z]/.test(after), undo: await back(before) }
+    }
+    const linked = await pickNote('Link to a note', 'noteLink')
+    check('"Link to a note": the note typed is offered, Enter makes the link to it, no "[[" or "/" is left, ⌘Z takes it back', linked.made && !linked.left && linked.undo >= 1, JSON.stringify(linked))
+    const embedded = await pickNote('Embed a note', 'noteEmbed')
+    check('"Embed a note": the note typed is offered, Enter shows it in this one, nothing typed is left, ⌘Z takes it back', embedded.made && !embedded.left && embedded.undo >= 1, JSON.stringify(embedded))
+    // "File" and "PDF" open the page's own file picker: handed a real file here (never the Mac's sheet), the file goes in as its block.
+    const txt = join(process.env.QA_DATA, 'c1-attached-notes.txt')
+    writeFileSync(txt, 'A few words in a file, to attach.\n')
+    const pdf = join(process.env.QA_DATA, 'c1-one-page.pdf')
+    writeFileSync(pdf, '%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n')
+    const attach = async (title, file, name) => {
+      await place('top'); await wait(150)
+      const before = await doc()
+      await h.keyboard.type(`/${title.toLowerCase()}`, { delay: 12 }); const shown = await menuWhen(); await wait(700)
+      const [chooser] = await Promise.all([h.waitForEvent('filechooser', { timeout: 8000 }), h.keyboard.press('Enter')])
+      await chooser.setFiles(file); await wait(2200)
+      const after = await doc()
+      return { first: shown?.first, made: after.includes('"type":"attachment"') && after.includes(name), left: /"text":"[^"]*\/[a-z]/.test(after), undo: await back(before) }
+    }
+    const filed = await attach('File', txt, 'c1-attached-notes')
+    check('"File": the file handed to its picker goes into the note as its card, by its name; ⌘Z takes it out', filed.first === 'File' && filed.made && !filed.left && filed.undo >= 1, JSON.stringify(filed))
+    const paged = await attach('PDF', pdf, 'c1-one-page')
+    check('"PDF": the PDF handed to its picker goes into the note as its block; ⌘Z takes it out', paged.first === 'PDF' && paged.made && !paged.left && paged.undo >= 1, JSON.stringify(paged))
+    console.log(`PICK  Link to a note | ⌘Z ${linked.undo} | Embed a note | ⌘Z ${embedded.undo} | File | ⌘Z ${filed.undo} | PDF | ⌘Z ${paged.undo}`)
   }
   if (SECTION === 'table') {
     await place('table cell'); await h.keyboard.type('/', { delay: 20 }); await menuWhen(); await wait(300)

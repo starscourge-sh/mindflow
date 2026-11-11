@@ -10,7 +10,7 @@ import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const { check, done } = checks()
-const SHOTS = process.argv[2]
+const SHOTS = process.argv[2] ?? process.env.SHOTS
 const c = await sandbox({ width: 1300, height: 860 })
 const { h, v, send, go, electron } = c
 const wait = (ms) => h.waitForTimeout(ms)

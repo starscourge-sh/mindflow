@@ -125,6 +125,17 @@ try {
   check('one notice for the lot: "Linked 3 notes"', (await h.getByText('Linked 3 notes').count()) === 1, '')
   await press(h.locator('button', { hasText: /^Undo/ }).last()); await wait(700)
   check('its one Undo takes all three back', (await links()).length === 0, JSON.stringify(await links()))
+  // The window at its smallest (560 x 400): the line and "Link all" keep to one row, whole, inside the window.
+  for (let n = 0; n < 40 && (await list()).length !== 3; n++) await wait(250)
+  await c.size(560, 400); await wait(600)
+  await fold.scrollIntoViewIfNeeded(); await wait(300)
+  const small = await h.evaluate(() => {
+    const line = document.querySelector('[data-named-fold]'), button = document.querySelector('[data-link-all]')
+    const a = line?.getBoundingClientRect(), b = button?.getBoundingClientRect()
+    return a && b ? { lineTall: Math.round(a.height), buttonTall: Math.round(b.height), oneRow: Math.abs((a.top + a.bottom) / 2 - (b.top + b.bottom) / 2) <= 2, inside: b.right <= innerWidth - 8 && a.left >= 0, apart: Math.round(b.left - a.right), sideways: document.scrollingElement.scrollWidth > innerWidth } : null
+  })
+  check('at 560 x 400 the line and "Link all 3" share one row, neither wrapped nor cut, with no sideways scroll', !!small && small.oneRow && small.inside && small.lineTall <= 28 && small.buttonTall <= 28 && small.apart >= 8 && !small.sideways, JSON.stringify(small))
+  if (process.env.SHOTS) for (const theme of ['light', 'dark']) { await c.look(theme); await h.screenshot({ path: `${process.env.SHOTS}/offers-named-small-${theme}.png` }) }
   check('no page errors', !c.errors.some((one) => /PAGEERROR/.test(one)), c.errors.join(' / ').slice(0, 300))
 } catch (error) {
   check('the run finished', false, error.message.split('\n').slice(0, 8).join(' ⏎ '))
