@@ -217,7 +217,7 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
   // Its picture deleted or changed, the old one fades out over what takes its place (picture-leaving.tsx).
   const [leaving, left] = useLeaving(look.src, card.id)
   return (
-    <RowMenu items={menuFor(card, actions, [card], 0, pinned)}>
+    <RowMenu items={() => menuFor(card, actions, [card], 0, pinned)}>
       <div className="group/tile relative min-w-0" onPointerEnter={() => onHover(look)} onPointerLeave={() => onHover(null)}>
         <Lean by={3}>
         <button
@@ -261,7 +261,7 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
   // Its picture deleted or changed, the old one fades out over the cover that takes its place.
   const [leaving, left] = useLeaving(real ? src : undefined, card.id, picture)
   return (
-    <RowMenu items={menuFor(card, actions, list, at)}>
+    <RowMenu items={() => menuFor(card, actions, list, at)}>
       <div className="group/card relative flex w-(--card) shrink-0 snap-start">
         <Lean className="flex w-full" inner="flex">
         <button
@@ -447,7 +447,7 @@ function List({ title, onAll, children }: { title: ReactNode; onAll?: () => void
 /** A list's row: the same height, padding and hover as Inbox's and Today's. */
 function ListRow({ card, actions, lead, children, aside }: { card: Card; actions: Actions; lead: ReactNode; children: ReactNode; aside?: ReactNode }): React.JSX.Element {
   return (
-    <RowMenu items={menuFor(card, actions, [card], 0)}>
+    <RowMenu items={() => menuFor(card, actions, [card], 0)}>
       <div className="group/row flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent/50 has-[[data-nav]:focus-visible]:bg-accent/50">
         {lead}
         <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
@@ -499,7 +499,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
   // Its picture deleted or changed, the old one fades out over its square's new cover.
   const [leaving, left] = useLeaving(real ? src : undefined, card.id, picture)
   return (
-    <RowMenu items={menuFor(card, actions, [card], 0)}>
+    <RowMenu items={() => menuFor(card, actions, [card], 0)}>
       <div data-home-feature className="relative mx-5 overflow-hidden rounded-xl @[44rem]/page:mx-8" data-private={card.private ? '' : undefined}>
         <div aria-hidden className="absolute inset-0" style={{ background: `color-mix(in oklab, ${tint} 12%, var(--background))` }} />
         {picture && <img aria-hidden src={backdrop} alt="" className="absolute inset-0 size-full scale-125 object-cover opacity-40 blur-2xl saturate-150" />}
@@ -597,7 +597,7 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
       <Heading title={title} onAll={onAll} />
       <div className="grid grid-cols-1 gap-2 @[24rem]/page:grid-cols-2 @[60rem]/page:grid-cols-3">
         {cards.map((card, at) => (
-          <RowMenu key={card.id} items={menuFor(card, actions, cards, at)}>
+          <RowMenu key={card.id} items={() => menuFor(card, actions, cards, at)}>
             <div className="group/card relative" data-private={card.private ? '' : undefined}>
               {/* A card that is settled in place carries its answer under it, in the same paper. */}
               <Lean by={4} className="h-full" inner={`flex flex-col ${card.foot ? 'rounded-xl bg-foreground/[0.04]' : ''}`}>

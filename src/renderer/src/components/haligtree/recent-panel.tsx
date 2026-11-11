@@ -143,7 +143,7 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
             return (
               <Fragment key={`${one.type}-${one.id}`}>
                 {header && <h3 className="px-2 pt-3 pb-1 text-meta text-muted-foreground">{dayHeader(one.at)}</h3>}
-                <RowMenu items={several.menu(one) ?? [...(one.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(one.type, one.id) }] : fullMenu(one.type, one.id, () => onOpen(one.type, one.id)) ?? sideMenu(one.type, one.id, name.text, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status, task, now: taskNow })), ...several.rowItems(one)]}>
+                <RowMenu items={() => several.menu(one) ?? [...(one.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(one.type, one.id) }] : fullMenu(one.type, one.id, () => onOpen(one.type, one.id)) ?? sideMenu(one.type, one.id, name.text, { onOpen, pinned: pins.some((pin) => pin.id === one.id), kind: one.kind, status: one.status, task, now: taskNow })), ...several.rowItems(one)]}>
                 <motion.button
                   layout="position"
                   initial={{ opacity: 0, transform: shift('translateY(-3px)') }}
@@ -229,7 +229,7 @@ export function HistoryPanel({ fresh, onOpen, onClose, className = '' }: {
           return (
             <Fragment key={`${one.type}-${one.id}`}>
               {header && <h3 className="px-2 pt-3 pb-1 text-meta text-muted-foreground">{dayHeader(one.at!)}</h3>}
-              <RowMenu items={fullMenu(one.type, one.id, open) ?? [{ label: 'Open', run: open }]}>
+              <RowMenu items={() => fullMenu(one.type, one.id, open) ?? [{ label: 'Open', run: open }]}>
                 <button type="button" data-history-row={`${one.type}:${one.id}`} data-private={one.private ? '' : undefined} onClick={open}
                   className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-control">
                   <OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" />

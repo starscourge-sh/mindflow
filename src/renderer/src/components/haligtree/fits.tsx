@@ -176,7 +176,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
     const length = task.estimate
     return (
       <motion.li key={task.id} layout={calm ? false : 'position'} transition={{ duration: 0.25, ease: EASE }}>
-        <RowMenu items={menuOf(task)}>
+        <RowMenu items={() => menuOf(task)}>
           <div role="button" tabIndex={-1} data-fit-row={task.id} data-fit-at={here || undefined} data-picked={live.includes(task.id) || undefined}
             onMouseMove={(event) => realMove(event) && index !== at && setAt(index)}
             onClick={(event) => (event.shiftKey || event.metaKey ? toggle(task.id) : begin(task))}

@@ -323,7 +323,7 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, curs
       {/* The mark in a column of its own, so the title and the line under it start in one place. */}
       {room && <span className="mt-[3px] flex shrink-0"><TaskPriority task={task} room /></span>}
       {/* The row opens the task where its notes and sessions are. */}
-      <RowMenu items={several.menu(task) ?? [
+      <RowMenu items={() => several.menu(task) ?? [
         ...taskMenu(task, { open: () => act.current.onOpen(task.id), complete: () => act.current.tick(task), move, frog, now, thought: () => act.current.gloss(task.id) }),
         ...several.rowItems(task.id)
       ]}>

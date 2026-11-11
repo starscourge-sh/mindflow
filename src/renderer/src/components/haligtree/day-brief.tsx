@@ -392,7 +392,7 @@ function TaskRow({ task, today, first, done, pen, onTick, now, room = false }: {
   const text = [done ? 'Done' : first ? `First, as you picked · ${when}` : when, task.blocker && task.blockedByStatus !== 'done' ? `In the way: ${task.blockedByTitle ?? task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
   // The menu every task has: a focus session, done, when (tasks-view.tsx).
   return (
-    <RowMenu items={taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: onTick, now })}>
+    <RowMenu items={() => taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: onTick, now })}>
     <li className="flex items-start gap-3 py-3">
       <Tip label={done ? 'Not done after all' : 'Done'}>
         <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={onTick}

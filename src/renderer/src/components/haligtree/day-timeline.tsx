@@ -66,7 +66,7 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
             const ticked = done(task)
             const name = taskName(task.title)
             return (
-              <RowMenu key={`t:${task.id}`} items={taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: () => onTick(task), now: taskNow })}>
+              <RowMenu key={`t:${task.id}`} items={() => taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: () => onTick(task), now: taskNow })}>
                 <li data-line-task={task.id} className="flex items-start gap-3 py-1.5">
                   <span className={`${TIME_COLUMN} shrink-0 pt-px text-right text-sm text-muted-foreground tabular-nums`}>{clock(task.dueAt!)}</span>
                   <Tip label={ticked ? 'Not done after all' : 'Done'}>

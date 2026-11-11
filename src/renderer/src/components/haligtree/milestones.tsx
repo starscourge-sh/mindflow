@@ -206,7 +206,7 @@ const markTip = (one: Milestone): string =>
  */
 export function MarkChip({ one, open, onOpenDay, className = '', ...rest }: { one: Milestone; open: (type: string, id: string) => void; onOpenDay?: (day: string) => void; className?: string } & Omit<React.ComponentPropsWithRef<'button'>, 'className'>): React.JSX.Element {
   return (
-    <RowMenu items={markMenu(one, open, onOpenDay)}>
+    <RowMenu items={() => markMenu(one, open, onOpenDay)}>
       <span className="flex min-w-0 max-w-full shrink-0">
         <Tip label={markTip(one)}>
           <button type="button" data-mark-flag={one.id} {...rest} onClick={(event) => (event.stopPropagation(), openMark(one, open))}

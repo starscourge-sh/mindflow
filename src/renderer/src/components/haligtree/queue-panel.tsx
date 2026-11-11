@@ -72,7 +72,7 @@ export function QueuePanel({ queue, at, read, onJump, onMove, onRemove, onClose,
             <SortableList items={next} keyOf={(row) => row.id} onMove={onMove}>
               {(rows) => rows.map((row) => (
                 <SortableRow key={row.id} id={row.id}>
-                  <RowMenu items={menuOf(row, { label: 'Read it now', keys: '↵', run: () => onJump(queue.indexOf(row)) })}>
+                  <RowMenu items={() => menuOf(row, { label: 'Read it now', keys: '↵', run: () => onJump(queue.indexOf(row)) })}>
                     <Line row={row} read={read.has(row.id)} grab onClick={() => onJump(queue.indexOf(row))} />
                   </RowMenu>
                 </SortableRow>
@@ -85,7 +85,7 @@ export function QueuePanel({ queue, at, read, onJump, onMove, onRemove, onClose,
             <Heading>Read before</Heading>
             <div data-queue-before="">
               {before.map((row, n) => (
-                <RowMenu key={row.id} items={menuOf(row, { label: 'Go back to it', keys: '↵', run: () => onJump(n) })}>
+                <RowMenu key={row.id} items={() => menuOf(row, { label: 'Go back to it', keys: '↵', run: () => onJump(n) })}>
                   <Line row={row} read={read.has(row.id)} onClick={() => onJump(n)} />
                 </RowMenu>
               ))}

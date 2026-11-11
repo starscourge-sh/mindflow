@@ -614,7 +614,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 <Highlight spot={looseHover.spot} session={looseHover.session} snap={looseHover.snap} className="bg-accent/25" />
                 {looseShown.map((task) => (
                   <li key={task.id}>
-                    <RowMenu items={taskMenu(task, { open: () => pick(task.id), now: taskNow })}>
+                    <RowMenu items={() => taskMenu(task, { open: () => pick(task.id), now: taskNow })}>
                       <Tip label={taskName(task.title).text}>
                       <button type="button" data-cal-loose={task.id} data-open={task.id === picked || undefined}
                         onPointerDown={(event) => start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }), () => pick(task.id))}
@@ -1023,7 +1023,7 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
         {days.map((day) => {
           const key = dayKey(day)
           return (
-            <RowMenu key={key} items={lateItems(late.filter((task) => dayKey(task.dueAt!) === key))}>
+            <RowMenu key={key} items={() => lateItems(late.filter((task) => dayKey(task.dueAt!) === key))}>
             <button type="button" data-cal-head={key} data-cal-late={late.some((task) => dayKey(task.dueAt!) === key) || undefined} onClick={() => (chime('open'), onHead(day))} aria-label={`Open ${day.format('dddd D MMMM')}`}
               className={`@container/head-day flex h-11 min-w-0 items-center gap-1.5 overflow-hidden border-l border-border/60 px-1 text-body @[4.5rem]/head-day:px-2.5 transition-colors duration-150 hover:bg-accent/60 motion-reduce:transition-none ${days.length === 1 ? 'justify-center' : ''} ${weekend(day) ? MUTED_DAY : ''}`}>
               {/* A narrow column keeps the date whole and says the day in two letters; narrower still, the date alone. */}
@@ -1294,7 +1294,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
   const time = (minute: number, which: 'at' | 'end' = 'at'): React.ReactNode => lifted ? <Rolling text={hm(atMinute(day, minute))} eager up={up[which]} /> : hm(atMinute(day, minute))
   const plan = task.estimate && (done > 0 || day <= dayKey()) ? <PlanDid planned={task.estimate} did={done} className={short ? 'hidden shrink-0 truncate text-meta @[12rem]:inline' : 'hidden truncate text-meta leading-tight @[5rem]:block'} /> : null
   return (
-    <RowMenu items={taskMenu(task, { open: () => onPick(task.id), now: taskNow })}>
+    <RowMenu items={() => taskMenu(task, { open: () => onPick(task.id), now: taskNow })}>
       <div role="button" tabIndex={0} data-cal-block={task.id} data-landed={(landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-start={at} data-cal-length={length} aria-label={`${name}, ${clock(atMinute(day, at))}, ${lengthSaid(length)}`}
         onMouseDown={(event) => event.button === 0 && (event.preventDefault(), event.currentTarget.focus({ preventScroll: true }))}
         onPointerDown={(event) => {
@@ -1343,7 +1343,7 @@ function Untimed({ task, due, carry, start, onPick, taskNow, landed }: { task: T
   const name = taskName(task.title).text
   const color = due ? RED : ACCENT
   return (
-    <RowMenu items={taskMenu(task, { open: () => onPick(task.id), now: taskNow })}>
+    <RowMenu items={() => taskMenu(task, { open: () => onPick(task.id), now: taskNow })}>
       <Tip label={`${due ? 'Due: ' : ''}${name}`}>
       <button type="button" data-cal-untimed={task.id} data-landed={(!due && landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-due={due || undefined}
         onPointerDown={due ? undefined : (event) => start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }), () => onPick(task.id))}

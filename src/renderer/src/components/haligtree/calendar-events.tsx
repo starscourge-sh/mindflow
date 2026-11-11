@@ -320,7 +320,7 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onPeek, onNote,
   const target = lift && !lift.allDay ? document.querySelector<HTMLElement>(`[data-cal-col="${lift.day}"]`) : null
   return (
     <>
-      <RowMenu items={eventMenu(one, { open: () => onOpen(one.key), onOpen: onNote, calendars })}>
+      <RowMenu items={() => eventMenu(one, { open: () => onOpen(one.key), onOpen: onNote, calendars })}>
         <div ref={self} role="button" tabIndex={0} data-cal-event={one.key} data-cal-calendar={one.calendarId} data-cal-start={at} data-cal-length={length} data-readonly={one.readOnly || undefined} aria-label={said}
           onPointerDown={(event) => start(event, 'move')}
           onMouseDown={(event) => event.button === 0 && (event.preventDefault(), event.currentTarget.focus({ preventScroll: true }))}
@@ -416,7 +416,7 @@ export function EventChip({ one, day, onOpen, onPeek, onNote, month = false, cal
   const time = one.allDay ? '' : hm(dayKey(one.start) === day ? one.start : dayjs(day).startOf('day').toISOString())
   return (
     <>
-      <RowMenu items={eventMenu(one, { open: () => onOpen(one.key), onOpen: onNote, calendars })}>
+      <RowMenu items={() => eventMenu(one, { open: () => onOpen(one.key), onOpen: onNote, calendars })}>
         <Tip label={`${time ? `${time} ` : ''}${one.title || 'New event'}`}>
         <button ref={self} type="button" data-cal-event-chip={one.key} data-cal-calendar={one.calendarId}
           onPointerDown={start}

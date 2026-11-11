@@ -177,7 +177,7 @@ export function FeedLiked({ tabs, onOpen }: { tabs: React.ReactNode; onOpen: (ty
                   return (
                     <li key={keyOf(post)} className="flex flex-col">
                       {heading && <FeedHeading data-liked-group={group}>{group}</FeedHeading>}
-                      <RowMenu items={menuOf(post)}>
+                      <RowMenu items={() => menuOf(post)}>
                         <div data-liked-row={at} data-liked-key={keyOf(post)} data-liked-day={post.likedOn} data-liked-focus={at === cursor || undefined}
                           onPointerDown={() => setCursor(at)}
                           className={cn('-mx-3 rounded-lg px-3 pt-4 transition-colors', at === cursor && 'bg-accent/30 ring-1 ring-foreground/10')}>

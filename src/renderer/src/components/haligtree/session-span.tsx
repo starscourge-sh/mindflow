@@ -67,7 +67,7 @@ export function SessionRow({ one, now }: { one: SpanSession; now: number }): Rea
   const end = sessionEnd(one, now)
   const running = !one.endedAt
   return (
-    <RowMenu items={sessionMenu(one)}>
+    <RowMenu items={() => sessionMenu(one)}>
       <li data-line-session={one.id} data-running={running || undefined} className="flex items-start gap-3 py-1">
         <span className={`${TIME_COLUMN} shrink-0 pt-1.5 text-right text-sm text-muted-foreground tabular-nums`}>{clock(one.startedAt)}</span>
         <button type="button" onClick={() => (chime('open'), window.api.openInHome('task', one.taskId))}

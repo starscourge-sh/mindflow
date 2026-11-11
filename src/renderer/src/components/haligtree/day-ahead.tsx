@@ -49,7 +49,7 @@ export function DayAhead({ day, tasks, onOpen, menuFor }: {
       {sections.filter(([, , rows]) => rows.length).map(([title, Icon, rows]) => (
         <Island key={title} title={<span className="flex items-center gap-2"><Icon className="size-4 text-foreground/70" /> {title} <Count n={rows.length} className="font-normal" /></span>}>
           {rows.map((row) => (
-            <RowMenu key={`${title}-${row.id}`} items={several.menu(row) ?? [...(row.task ? menuFor(row.task) : []), ...several.rowItems(row)]}>
+            <RowMenu key={`${title}-${row.id}`} items={() => several.menu(row) ?? [...(row.task ? menuFor(row.task) : []), ...several.rowItems(row)]}>
               <button type="button" data-pick={`${row.type}:${row.id}`} data-picked={several.picked(row) || undefined}
                 onClick={(event) => several.click(event, row) || onOpen?.(row.type, row.id)}
                 className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50 ${PICKED_MARK}`}>

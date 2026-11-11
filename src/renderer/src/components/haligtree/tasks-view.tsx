@@ -1370,7 +1370,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
               const subtasks = task.subtasks ?? []
               return (
                       <SortableRow key={task.id} id={task.id}>
-                      <RowMenu items={several.menu(task) ?? [
+                      <RowMenu items={() => several.menu(task) ?? [
                         ...taskMenu(task, { open: () => pick(task.id), complete: () => complete(task), frog: frogOn(settings), now, thought: () => setGlossing(task.id) }),
                         // On Today, a step written in place under it, as a line is.
                         ...(mode === 'today' && task.status === 'open' ? ['separator' as const, { label: 'Add a step', hint: 'Something to do as part of it', run: () => (chime('tuck'), setWriting({ after: task.id, step: task.id, text: '' })) }] : []),

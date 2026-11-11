@@ -394,7 +394,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
               // The shared title: words without tags, then the other tags small and coloured (this tag goes without saying).
               const name = taskName(item.title)
               return (
-                <RowMenu items={several.menu(item) ?? [...(item.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(item.type, item.id) }] : fullMenu(item.type, item.id, () => onOpen(item.type, item.id)) ?? sideMenu(item.type, item.id, name.text, { onOpen, pinned: pins.some((one) => one.id === item.id), task, now: taskNow })), ...several.rowItems(item)]}>
+                <RowMenu items={() => several.menu(item) ?? [...(item.type === 'task' && !task ? [{ label: 'Open', run: () => onOpen(item.type, item.id) }] : fullMenu(item.type, item.id, () => onOpen(item.type, item.id)) ?? sideMenu(item.type, item.id, name.text, { onOpen, pinned: pins.some((one) => one.id === item.id), task, now: taskNow })), ...several.rowItems(item)]}>
                 <button
                   type="button"
                   data-pick={`${item.type}:${item.id}`}
