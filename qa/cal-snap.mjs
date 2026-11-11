@@ -174,7 +174,10 @@ try {
       if (!kept) console.log(`(a glide come late: not judged, the probe's own steps came ${Math.round((late[1]?.t ?? 0) - lifted)}ms after the lift, load ${load()})`)
       check('a glide come late: the landing goes on to a week further that way', got.onWeek && (!kept || got.rest >= near + size - 0.5), `lifted at ${Math.round(got.from)}, nearest week ${near}, rests at ${got.rest}${kept ? '' : ', not judged'}; steps after the lift at ${late.slice(0, 5).map((one) => `${Math.round(one.t - lifted)}ms`).join(' ')}; the run at ${[0, 30, 60, 90, 120, 180, 300].map((ms) => Math.round((rec.find((one) => one.t >= lifted + ms) ?? rec[rec.length - 1]).top - got.from)).join(' ')}px`)
       late1 = kept ? 0 : 1
-      check('a glide come late: it never turns round nor passes its week', got.past <= 0.5 && got.turns === 0, `${got.past}px past, ${got.turns} turns`)
+      // The landing begun at the lift made for the nearest week; when that was behind and the glide goes on ahead, the
+      // spring turns it round once, from where it is (never more, and never past its week).
+      const behind = near < got.from
+      check(`a glide come late: it never passes its week, and turns ${behind ? 'once at most (its nearest week was behind it)' : 'nowhere'}`, got.past <= 0.5 && got.turns <= (behind ? 1 : 0), `${got.past}px past, ${got.turns} turns`)
       check(`a glide come late: no frame over ${LONG}ms`, got.long <= LONG, `longest ${got.long}ms, load ${load()}`)
     }
     // 5. A flick: the fingers go a week and two fifths fast and lift, and the trackpad glides on, each step shorter than

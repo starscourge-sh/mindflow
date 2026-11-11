@@ -142,11 +142,12 @@ try {
   const pinch = (x, y, dy) => h.evaluate(([x, y, dy]) => new Promise((res) => { let i = 0; const send = () => (document.elementFromPoint(x, y) ?? document.body).dispatchEvent(new WheelEvent('wheel', { deltaY: dy, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); const tick = () => { send(); send(); if (++i < 7) setTimeout(tick, 12); else res() }; tick() }), [x, y, dy])
   const week = await h.evaluate(() => { const el = [...document.querySelectorAll('[data-month-run] [data-month-week]')].find((one) => one.getBoundingClientRect().top > 150); const r = el.getBoundingClientRect(); return { monday: el.dataset.monthWeek, x: r.left + r.width / 2, y: r.top + r.height / 2 } })
   const grows = []
-  await h.evaluate(() => { window.__grow = []; const el = document.querySelector('[data-cal-level]'); const tick = () => { window.__grow.push(el.getAnimations().length); if (window.__grow.length < 30) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+  // The change of level is a view transition of the days' pane (cal-pinch.ts): its two pictures are what moves.
+  await h.evaluate(() => { window.__moving = () => document.querySelector('[data-cal-level]').getAnimations().length + document.getAnimations().filter((one) => one.effect?.pseudoElement?.includes('mf-cal-level')).length; window.__grow = []; const tick = () => { window.__grow.push(window.__moving()); if (window.__grow.length < 60) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
   await pinch(week.x, week.y, -6); await wait(700)
   grows.push(...(await h.evaluate(() => window.__grow)))
   check('pinching out over a week opens that week', (await mode()) === 'week' && (await h.evaluate((m) => !!document.querySelector(`[data-cal-col="${m}"]`), week.monday)), `${await mode()} ${week.monday}`)
-  check('the week grows from its row', grows.some((n) => n > 0))
+  check('the week comes in from its row (the two levels move)', grows.some((n) => n > 0))
   await pinch(week.x, week.y, -6); await wait(700)
   const col = await h.evaluate(() => { const el = document.querySelectorAll('[data-cal-col]')[2]; const r = el.getBoundingClientRect(); return { day: el.dataset.calCol, x: r.left + r.width / 2, y: Math.max(r.top, 300) + 100 } })
   await wait(300)
@@ -161,7 +162,7 @@ try {
   await pinch(col.x, col.y, 6); await wait(500)
   check('pinching in on the month stays on the month', (await mode()) === 'month')
   // Keys still change the level, with no animation.
-  await h.keyboard.press('w'); const anims = await h.evaluate(() => document.querySelector('[data-cal-level]').getAnimations().length)
+  await h.keyboard.press('w'); const anims = await h.evaluate(() => window.__moving())
   check('W opens Week at once, nothing grows', (await mode()) === 'week' && anims === 0)
   await h.keyboard.press('m'); await wait(800)
   // Item 3: every kind of line sits the same gap under its date.

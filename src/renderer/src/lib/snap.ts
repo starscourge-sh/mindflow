@@ -54,7 +54,7 @@ export const noPass = (at: number, speed: number, to: number, stiff = FIRM): num
 
 export type Landing = {
   stop: () => void
-  /** Sent to another stop on the way: it turns from where it is, keeping its speed (or `speed`, when that is faster the same way). */
+  /** Sent to another stop on the way: it goes on from where it is, keeping its speed (or `speed`, when it is already going that way and that is faster). */
   aim: (to: number, speed?: number) => void
   readonly at: number
   readonly to: number
@@ -95,7 +95,11 @@ export function land(at: number, speed: number, to: number, write: (value: numbe
     aim: (next, faster = 0) => {
       if (!running) return
       to = next
-      speed = noPass(at, Math.sign(faster) === Math.sign(to - at) && Math.abs(faster) > Math.abs(speed) ? faster : speed, to, stiff)
+      // Its own speed is carried through, raised to the faster one only when it is already going that way: sent back
+      // the way it came, the spring does the turning (a speed swapped for its opposite in one frame reads as a knock).
+      const way = Math.sign(to - at)
+      if (Math.sign(speed) === way && Math.sign(faster) === way && Math.abs(faster) > Math.abs(speed)) speed = faster
+      speed = noPass(at, speed, to, stiff)
     },
     get at() { return at },
     get to() { return to },
