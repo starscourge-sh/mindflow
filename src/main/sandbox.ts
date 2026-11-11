@@ -162,6 +162,9 @@ export function useDataFolder(): boolean {
   app.setPath('userData', realRoot())
   const locked = !!process.env.HALIGTREE_USER_DATA || app.requestSingleInstanceLock()
   app.setPath('userData', dataRoot())
+  // A test run's logs (a freeze log, with what the main process had in hand) stay in its own data folder: never
+  // written among the real ones in ~/Library/Logs.
+  if (process.env.HALIGTREE_USER_DATA) app.setAppLogsPath(join(dataRoot(), 'logs'))
   return locked
 }
 
