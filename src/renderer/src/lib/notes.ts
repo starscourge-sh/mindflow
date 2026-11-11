@@ -9,7 +9,8 @@ import { chime } from '@/lib/sound'
 import { detailsShown, fullWidth, setFullWidth, showDetails } from '@/lib/reading'
 import { call, haligtree } from '@/lib/haligtree'
 import { useKept } from '@/lib/groups'
-import { addToQuestion } from '@/components/haligtree/questions-view'
+import { captureWays, selectionWays } from '@/components/capture-list'
+import { picked } from '@/lib/tasks'
 import { dayKey, num } from '../../../main/dates'
 import { canSplit, frontPane, usePane } from '@/lib/split'
 import { openApart } from '@/lib/apart'
@@ -162,7 +163,7 @@ export function useOwnOrder(list: string): {
 
 // --- the note open now, for ⌘K to act on
 
-export type OpenNote = { table: NoteTable; type: string; id: string; kind: string; archived: boolean }
+export type OpenNote = { table: NoteTable; type: string; id: string; kind: string; archived: boolean; /** A capture's: in the Inbox still (open), or where it went. */ status?: string }
 // One for each pane of a split page ('' outside the panes): ⌘K acts on the front pane's.
 const opened = new Map<string, OpenNote>()
 const currentNote = (): OpenNote | null => opened.get(frontPane() ?? '') ?? (frontPane() ? null : (opened.get('') ?? null))
@@ -176,7 +177,7 @@ export function useOpenNote(note: OpenNote | null): void {
     // Home's "Jump back in" reads these.
     if (note) void call('home:opened', note.type, note.id)
     return () => void (opened.get(pane) === note && (opened.delete(pane), window.dispatchEvent(new Event('haligtree:note-open'))))
-  }, [note?.id, note?.kind, note?.archived]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [note?.id, note?.kind, note?.archived, note?.status]) // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /** Whether any pane has a note open now: a list's hint is about the list, not the note over it. */
@@ -279,15 +280,25 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
   const read: Action[] = frontEditor()?.textContent?.trim()
     ? [readingNow() ? { label: 'Stop reading', hint: 'The voice stops where it is', keys: 'esc', cue: null, run: stopReading } : { label: 'Read it to me', hint: 'Aloud, in your Mac\'s voice', cue: null, run: readFront }]
     : []
-  if (!note) return [...page, ...read, width, all]
+  // A capture's ways out, every one, from the list its details and its right-click menu draw from (capture-list.tsx),
+  // each with its key: for the capture open now, or with none open the one the keys are on in the Inbox; with
+  // several picked, the selection's, taken by the list that holds them as its own keys take them.
+  const lit = note?.type === 'capture' ? { id: note.id, kind: note.kind, status: note.status ?? 'open' } : note ? null : picked.lit
+  const ways: Action[] = picked.inbox.length > 1
+    ? selectionWays(picked.inbox).map((way) => ({ label: way.label, hint: 'Every selected capture still in the Inbox', keys: way.keys, cue: null, own: true, run: () => void window.dispatchEvent(new CustomEvent('haligtree:exit-picked', { detail: way.id })) }))
+    : lit ? captureWays(lit, note ? { merge: () => void window.dispatchEvent(new CustomEvent('haligtree:merge', { detail: lit.id })) } : {})
+      .map((way) => ({ label: way.label, hint: way.hint ?? (note ? 'This note' : 'The highlighted capture'), keys: way.keys, cue: null, own: true, run: way.run }))
+    : []
+  if (!note) return [...page, ...ways, ...read, width, all]
   // Marked as this note's own, so search ranks them above going somewhere.
   return [
     ...page,
     ...([
-      ...(note.type === 'capture' ? [{ label: 'Add as a clue to a question…', cue: null, run: () => void addToQuestion(note.id) }] : []),
+      ...ways,
       { label: 'Change kind…', cue: null, run: () => void changeKind(note.table, note.id, note.kind) },
       { label: note.archived ? 'Unarchive this note' : 'Archive this note', hint: note.archived ? 'Back in sight' : 'Kept, out of sight', cue: null, run: () => void archive(note.table, [note.id], !note.archived) },
-      { label: 'Move to the Bin', hint: 'This note', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) },
+      // A capture's Bin is among its ways out, above.
+      ...(ways.some((way) => way.label === 'Move to the Bin') ? [] : [{ label: 'Move to the Bin', hint: 'This note', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) }]),
       { label: 'Open in a new window', hint: 'This note, in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openApart(note.type, note.id) },
       { label: 'Set a word aim', hint: 'For this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:aim')) },
       ...read,
