@@ -11,13 +11,15 @@ import glassFile from '../../resources/glass.node?asset&asarUnpack'
 let glassy: ((handle: Buffer, dark: boolean, shapes: number[][]) => void) | null | undefined
 type Watch = (listen: (kind: 'began' | 'ended', windowNumber: number) => void) => void
 let watcher: Watch | null = null
+let stayBehind: ((handle: Buffer) => boolean) | null = null
 function load(): typeof glassy {
   if (glassy !== undefined || process.platform !== 'darwin') return glassy ?? null
   try {
-    const module = { exports: {} as { glass?: typeof glassy; watchScroll?: Watch } }
+    const module = { exports: {} as { glass?: typeof glassy; watchScroll?: Watch; nonActivating?: typeof stayBehind } }
     process.dlopen(module, glassFile)
     glassy = module.exports.glass ?? null
     watcher = module.exports.watchScroll ?? null
+    stayBehind = module.exports.nonActivating ?? null
   } catch {
     glassy = null
   }
@@ -31,6 +33,16 @@ export function watchScroll(listen: Parameters<Watch>[0]): void {
   if (!watcher) return
   if (!scrollListeners.length) watcher((kind, number) => scrollListeners.forEach((one) => one(kind, number)))
   scrollListeners.push(listen)
+}
+
+/**
+ * A panel (quick capture, a sticky, a card) that takes the keys and clicks while the app you were in stays the front
+ * app, as Raycast's does. Electron's `type: 'panel'` only claims it (native/glass.mm says why); this tells the Mac.
+ * Whether it took, for the probes.
+ */
+export function nonActivating(win: BrowserWindow): boolean {
+  load()
+  return !!stayBehind && !win.isDestroyed() && stayBehind(win.getNativeWindowHandle())
 }
 
 /** What each window last asked for, for a probe (qa/glass.mjs). */

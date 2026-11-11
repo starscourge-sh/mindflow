@@ -4,9 +4,11 @@
 // fills the whole window with square-ish corners; this is the one piece it cannot do.
 //   glass(handle, dark, shapes)   handle: win.getNativeWindowHandle(); shapes: [[x, y, width, height, radius], ...]
 //                                 in the page's pixels from its top left. No shapes: the glass is taken away.
+//   nonActivating(handle)         a panel that takes the keys and clicks without making Haligtree the front app.
 // Built by native/build-glass.sh into resources/glass.node.
 #import <AppKit/AppKit.h>
 #include <node_api.h>
+#include <objc/message.h>
 #include <vector>
 
 static const NSInteger kTag = 0x6c617373; // "lass": the view this module put in, found again by its tag.
@@ -142,10 +144,32 @@ static napi_value WatchScroll(napi_env env, napi_callback_info info) {
   return nothing;
 }
 
+// Electron's panel (type: 'panel') only says it is non-activating: its styleMask getter adds
+// NSWindowStyleMaskNonactivatingPanel, but its setter never passes the mask on to NSPanel, and NSPanel tells the window
+// server through that setter alone. So the window server was never told (_preventsActivation read NO), and quick capture
+// taking the keys, or a click on it or a sticky, could make Haligtree the front app (SETFRONT in the Mac's log), which
+// AeroSpace followed to the main window's workspace. This sets the one switch NSPanel's own setter sets for that mask.
+// True when the window now prevents activation; false where the Mac has no such switch (nothing is changed then).
+static napi_value NonActivating(napi_env env, napi_callback_info info) {
+  size_t argc = 1;
+  napi_value argv[1], out;
+  napi_get_boolean(env, false, &out);
+  if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc < 1) return out;
+  NSView *content = contentOf(env, argv[0]);
+  NSWindow *window = content.window;
+  SEL set = NSSelectorFromString(@"_setPreventsActivation:"), get = NSSelectorFromString(@"_preventsActivation");
+  // Only a window that already says it is a non-activating panel (Electron's panel is not an NSPanel by class).
+  if (!(window.styleMask & NSWindowStyleMaskNonactivatingPanel) || ![window respondsToSelector:set] || ![window respondsToSelector:get]) return out;
+  ((void (*)(id, SEL, BOOL))objc_msgSend)(window, set, YES);
+  napi_get_boolean(env, ((BOOL (*)(id, SEL))objc_msgSend)(window, get), &out);
+  return out;
+}
+
 NAPI_MODULE_INIT() {
   napi_value fn;
   if (napi_create_function(env, "watchScroll", NAPI_AUTO_LENGTH, WatchScroll, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "watchScroll", fn);
   if (napi_create_function(env, "glass", NAPI_AUTO_LENGTH, Glass, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "glass", fn);
+  if (napi_create_function(env, "nonActivating", NAPI_AUTO_LENGTH, NonActivating, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "nonActivating", fn);
   if (napi_create_function(env, "glassFrame", NAPI_AUTO_LENGTH, GlassFrame, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "glassFrame", fn);
   return exports;
 }

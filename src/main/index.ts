@@ -92,7 +92,7 @@ import { registerStudyAi, registerUnderstand } from './understand'
 import { registerServices, whenFilesSent } from './services'
 import { registerSpotlight, SPOTLIGHT_ITEM } from './spotlight'
 import { registerDictation } from './dictation'
-import { glassShapes, registerGlass, watchScroll } from './glass'
+import { glassShapes, nonActivating, registerGlass, watchScroll } from './glass'
 import { registerPeople } from './people'
 import { registerSources } from './sources'
 import { registerCite } from './cite'
@@ -3251,6 +3251,16 @@ app.on('browser-window-created', (_, win) => {
   win.on('enter-full-screen', () => tell(true))
   win.on('leave-full-screen', () => tell(false))
   win.webContents.on('did-finish-load', () => void (win.isFullScreen() && tell(true)))
+})
+// Every panel (quick capture, the stickies, the cards) takes the keys and clicks while the app you were in stays the
+// front app, so AeroSpace never follows Haligtree to the main window's workspace (glass.ts nonActivating). Ordinary
+// windows are left as they are. What took, by window, for the probes (qa/box-stays-behind.mjs).
+const behind = new Map<number, boolean>()
+;(globalThis as { haligtreeBehind?: Map<number, boolean> }).haligtreeBehind = behind
+app.on('browser-window-created', (_, win) => {
+  const id = win.id
+  behind.set(id, nonActivating(win))
+  win.once('closed', () => behind.delete(id))
 })
 // Test runs only: every window sits past the screen's right edge, unseen,
 // unclickable and never focused, so a run never lands on top of anyone's work.
