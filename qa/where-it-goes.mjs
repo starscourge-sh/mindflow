@@ -61,7 +61,8 @@ try {
   check('an open capture says where it is, in its header: a chip named for the Inbox', (await chip().count()) === 1 && /Inbox/.test((await chip().getAttribute('aria-label')) ?? ''), (await chip().getAttribute('aria-label').catch(() => 'no chip')) ?? '')
   if (await chip().count()) {
     const words = await chip().locator('[data-place-name]').evaluate((el) => (el.offsetParent ? el.textContent : ''))
-    check(small ? 'in the smallest window the chip folds to its mark, as “Details” does' : 'the chip reads “Inbox”', small ? words === '' : words === 'Inbox', `"${words}"`)
+    // Its word is the point of it: it shows wherever it fits, the smallest window included (it folds only under 21rem of pane).
+    check('the chip reads “Inbox”', words === 'Inbox', `"${words}"`)
     check('the chip shows the hand', (await chip().evaluate((el) => getComputedStyle(el).cursor)) === 'pointer')
     const head = await h.evaluate(() => { const one = document.querySelector('[data-note-head]'); const b = one.getBoundingClientRect(); return { wide: one.scrollWidth <= one.clientWidth + 1, tall: Math.round(b.height), cut: [...one.querySelectorAll('button')].filter((el) => el.offsetParent && (el.getBoundingClientRect().right > b.right + 0.5 || el.getBoundingClientRect().left < b.left - 0.5)).length } })
     check('the header stays one line, nothing cut off or pushed out', head.wide && head.cut === 0 && head.tall <= 40, JSON.stringify(head))

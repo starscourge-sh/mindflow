@@ -577,18 +577,20 @@ function PageWidthMenu({ width: everywhere }: { width: PageWidth }): React.JSX.E
 
 /**
  * Where an open note is, said quietly in its header: a chip (display.tsx's, as the list's own kinds wear it) that opens
- * the places it can go in the app's own menu (row-menu.tsx), by a click or a right click. In a narrow pane only its
- * mark shows, as “Details” folds to its icon: the note's tools keep the room.
+ * the places it can go in the app's own menu (row-menu.tsx), by a click or a right click. Its word is the point of it, so
+ * it stays wherever it fits: beside it the header's other words give way first (when the note changed shows a rem
+ * later, a long folder's name ends in “…”), and only in a pane too narrow for the word and the tools (under 21rem) does
+ * the chip fold to its mark, as “Details” folds to its icon.
  */
 export function PlaceChip({ icon, label, tip, items }: { icon: React.ReactNode; /** Where it is now: “Inbox”, a folder's name, “Writing”. */ label: string; /** What the chip is for, as its menu's heading says it. */ tip: string; items: RowItem[] }): React.JSX.Element {
   return (
     <RowMenu items={items}>
       <Tip label={tip}>
         <button type="button" data-place-chip aria-label={`${label}. ${tip}`} aria-haspopup="menu" onClick={openFromGrip}
-          className={`${CHIP} ${CHIP_QUIET} max-w-[14rem] min-w-0 !shrink !rounded-full text-control @max-[30rem]/head:w-7 @max-[30rem]/head:!shrink-0 @max-[30rem]/head:justify-center @max-[30rem]/head:px-0`}>
+          className={`${CHIP} ${CHIP_QUIET} max-w-[14rem] min-w-0 !shrink !rounded-full text-control @max-[21rem]/head:w-7 @max-[21rem]/head:!shrink-0 @max-[21rem]/head:justify-center @max-[21rem]/head:px-0`}>
           {icon}
-          <span data-place-name className="min-w-0 truncate @max-[30rem]/head:hidden">{label}</span>
-          <ChevronDown aria-hidden className="size-3 shrink-0 opacity-60 @max-[30rem]/head:hidden" />
+          <span data-place-name className="min-w-0 truncate @max-[21rem]/head:hidden">{label}</span>
+          <ChevronDown aria-hidden className="size-3 shrink-0 opacity-60 @max-[21rem]/head:hidden" />
         </button>
       </Tip>
     </RowMenu>
@@ -670,7 +672,7 @@ export function NoteHeader({ left, place, back, type = 'capture', edited, captur
           // Beside a place chip the tools keep their width: a long folder's name is what gives way.
           <div className={`ml-auto flex items-center gap-0.5 ${place ? 'shrink-0' : 'min-w-0'}`}>
             <Tip label={moment(at, 'dddd')}>
-              <button type="button" aria-label={said} onClick={open} className="mr-1 hidden shrink-0 rounded-md @[26rem]/head:block px-1.5 py-1 text-meta whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              <button type="button" aria-label={said} onClick={open} className={`mr-1 hidden shrink-0 rounded-md px-1.5 py-1 text-meta whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${place ? '@[27rem]/head:block' : '@[26rem]/head:block'}`}>
                 <span className="hidden @[30rem]/head:inline">{said}</span>
                 <span className="@[30rem]/head:hidden">{short}</span>
               </button>

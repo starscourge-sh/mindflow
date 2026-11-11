@@ -1,5 +1,6 @@
 // Pictures, for the eye: the header of an open capture (its "Inbox" chip) beside its siblings, a Writing page's and a
-// gem's, light and dark, in a window 560, 1000 and 1440 wide; and the chip's box measured beside the stepper and the
+// gem's, light and dark, in a window 560, 1000 and 1440 wide (the chip keeps its word in all three: it folds to its
+// mark only in a pane under 21rem); and the chip's box measured beside the stepper and the
 // tools in each, so the three headers can be read against each other.
 //   SHOT=<path prefix> QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/where-it-goes-look.mjs
 import { sandbox } from './sandbox-lib.mjs'
@@ -34,8 +35,8 @@ try {
         if (await chip.count()) { await chip.scrollIntoViewIfNeeded(); await wait(250) }
         await h.screenshot({ path: `${dir}-${name}-${w}-${theme}.png` })
         const at = await head()
-        check(`${name}, ${w} wide, ${theme}: one line, nothing cut, the chip ${w < 700 ? 'folded to its mark' : 'with its words'}, 24px or more to press`,
-          !!at && at.cut === 0 && at.lines <= 40 && !!at.chip && at.chip.height >= 24 && at.chip.width >= 24 && (w < 700 ? at.words === '' : at.words !== ''), JSON.stringify(at))
+        check(`${name}, ${w} wide, ${theme}: one line, nothing cut, the chip with its words, 24px or more to press`,
+          !!at && at.cut === 0 && at.lines <= 40 && !!at.chip && at.chip.height >= 24 && at.chip.width >= 24 && at.words !== '', JSON.stringify(at))
         await h.keyboard.press('Escape'); await wait(200)
       }
     }
