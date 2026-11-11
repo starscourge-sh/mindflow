@@ -11,6 +11,7 @@ import { EASING, still } from "@/lib/motion"
 import { lookOf, paintWhileLoading, withoutBands } from "@/lib/pictures"
 import { lazyRoot } from "@/lib/lazy-root"
 import { stopLikeTiptap } from "@/lib/plain-node-view"
+import { readThenWrite, writeTogether } from "@/lib/frame-writes"
 import { BookmarkButtons } from "@/components/bookmark/bookmark-view"
 
 /**
@@ -188,22 +189,36 @@ function fit(box: HTMLElement, img: HTMLImageElement, image: string, href: strin
     if (on) box.setAttribute(name, "")
     else box.removeAttribute(name)
   }
-  const check = (): void => {
-    if (!img.naturalWidth || !box.clientHeight) return
+  // Measured, then what to mark given back: every card's measuring is done before any card is marked (lib/frame-writes.ts).
+  const check = (width = box.clientWidth, height = box.clientHeight): (() => void) | void => {
+    if (!img.naturalWidth || !height) return
     const band = cut === 1 && isYouTube(href) && Math.abs(img.naturalWidth / img.naturalHeight - 4 / 3) < 0.02
-    flag("data-banded", band)
-    const off = ((img.naturalWidth / (img.naturalHeight * cut)) * (band ? 4 / 3 : 1)) / (box.clientWidth / box.clientHeight)
-    flag("data-fill", Math.abs(off - 1) <= 0.06)
+    const off = ((img.naturalWidth / (img.naturalHeight * cut)) * (band ? 4 / 3 : 1)) / (width / height)
+    return () => (flag("data-banded", band), flag("data-fill", Math.abs(off - 1) <= 0.06))
   }
   // Not read at once, while the note is still being drawn: the watcher's first report comes once it is laid out.
-  img.addEventListener("load", check)
-  const watch = new ResizeObserver(check)
-  watch.observe(box)
+  const onLoad = (): void => readThenWrite(() => check())
+  img.addEventListener("load", onLoad)
+  fits.set(box, check)
+  watchFit.observe(box)
   return () => {
-    img.removeEventListener("load", check)
-    watch.disconnect()
+    img.removeEventListener("load", onLoad)
+    watchFit.unobserve(box)
+    fits.delete(box)
   }
 }
+
+/**
+ * One watcher of every card's frame, not one each: told together, every frame
+ * is measured from the sizes the watcher hands over (no asking the page) and
+ * only then marked. A watcher a card, each reading its size after the card
+ * before it had marked itself, laid the whole note out once per card.
+ */
+const fits = new WeakMap<Element, (width: number, height: number) => (() => void) | void>()
+const watchFit = new ResizeObserver((entries) => {
+  const writes = entries.map((entry) => fits.get(entry.target)?.(entry.borderBoxSize[0]?.inlineSize ?? entry.contentRect.width, entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height))
+  for (const write of writes) write?.()
+})
 
 /** The two pictures YouTube has for every video, from the id in its address: none for any other link. */
 const youTubeThumbs = (href: string): string[] => {
@@ -241,7 +256,8 @@ function face(href: string, icon: string, site: string): HTMLElement {
     small.src = icon
     const shown = (): void => void (one.dataset.icon = "")
     if (small.complete && small.naturalWidth) shown()
-    else small.addEventListener("load", shown, { once: true })
+    // With the other icons that came this frame, as one change to the note (lib/frame-writes.ts).
+    else small.addEventListener("load", () => writeTogether(shown), { once: true })
     small.addEventListener("error", () => small.remove(), { once: true })
     one.append(small)
   }
@@ -269,12 +285,13 @@ function arrive(frame: HTMLElement, img: HTMLImageElement, image: string, href: 
   const fades = !still()
   if (fades) img.style.opacity = "0"
   const tried = new Set([img.src])
-  const loaded = (): void => {
+  // With the other pictures that came this frame, as one change to the note (lib/frame-writes.ts).
+  const loaded = (): void => writeTogether(() => {
     show()
     if (!fades) return
     img.style.opacity = ""
     if (img.isConnected) img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: EASING })
-  }
+  })
   const failed = (): void => {
     const next = youTubeThumbs(href).find((one) => !tried.has(one))
     if (next) {
