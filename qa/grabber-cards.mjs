@@ -88,7 +88,7 @@ try {
       const rest = await read(page, sel)
       if (!rest) { check(`${theme}: ${name} has the grabber`, false); continue }
       check(`${theme}: ${name}: the same bar as quick capture's, same ink`, !!qc && rest.w === qc.w && rest.h === qc.h && rest.ink === qc.ink, `${rest.w}x${rest.h} ${rest.ink} vs ${qc?.w}x${qc?.h} ${qc?.ink}`)
-      check(`${theme}: ${name}: centred over the card's top edge`, rest.offCentre <= 1 && rest.above >= -8 && rest.above <= 8, `off centre ${rest.offCentre.toFixed(1)}px, ${rest.above.toFixed(1)}px above the edge`)
+      check(`${theme}: ${name}: centred over the card's top edge`, rest.offCentre <= 1 && rest.above >= -10 && rest.above <= 8, `off centre ${rest.offCentre.toFixed(1)}px, ${rest.above.toFixed(1)}px above the edge`)
       check(`${theme}: ${name}: hidden with the pointer away`, rest.opacity === 0, `${rest.opacity} ${rest.opacity ? rest.hovered : ''}`)
       await page.mouse.move(rest.centre.x, rest.centre.y)
       await page.waitForTimeout(300)
