@@ -3120,12 +3120,11 @@ html[data-book-hue] [data-book-tint] {
 :root[data-day-writing] [data-pane-card][data-day-path] { border-color: transparent; transition: border-color 900ms ease-in-out; }
 /* The writer's line (day-writing.tsx): the page's count, kept in view at the
    window's foot as the room's is, a quiet status line and never a divider.
-   The page fades out calmly under it, so what scrolls past never runs
-   through it; the paper's grain stays. Room under the page's last row so it
-   always comes to rest clear of the line and its fade. The room has its own. */
-:root[data-writer-shown]:not([data-in-room]) [data-pane-card] .overflow-y-auto[data-day-path] {
-  mask-image: linear-gradient(to top, transparent 0, transparent 2.5rem, #000 7rem);
-}
+   The page blurs out under it (its BlurEdge), so what scrolls past never runs
+   sharp through it. No mask on the page: masked, the words were gone before
+   they reached the line, and the blur had nothing to soften. Room under the
+   page's last row so it always comes to rest clear of the line and its fade.
+   The room has its own. */
 :root[data-writer-shown]:not([data-in-room]) [data-pane-card] .overflow-y-auto[data-day-path] > div { padding-bottom: 8rem; }
 /* Toasts rise over it; and the day's aim is its hairline, not a second bar over the words. */
 :root[data-writer-shown]:not([data-in-room]) { --toast-bottom: var(--mf-writer-toast, 3.75rem); }
@@ -3170,12 +3169,16 @@ html[data-book-hue] [data-book-tint] {
 :root[data-in-room] :is(:has([data-room])) { scale: none !important; }
 [data-room] [data-room-foot] {
   /* Over the words as they scroll under it (above the page's own layers), and fading them out well before its lines. */
-  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 3rem 1.5rem 1.125rem;
-  background: linear-gradient(to top, var(--background) 70%, transparent);
-  transition: opacity 400ms var(--mf-ease);
+  /* The words blur out under it (BlurEdge bar, writing-room.tsx), over its own height and a fade above. */
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; padding: 1.25rem 1.5rem 1.125rem;
 }
-/* Typing, the bar steps out of the way; the pointer moving brings it back (writing-room.tsx). A tool's panel open keeps it. */
-[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) { opacity: 0; pointer-events: none; }
+[data-room] [data-room-foot] > :not(.mf-blur-edge) { transition: opacity 400ms var(--mf-ease); }
+/* Typing, the bar steps out of the way, its blur with it; the pointer moving brings it back (writing-room.tsx). A tool's panel open keeps it.
+   Its row and the blur's layers fade, never the foot that holds the blur: faded, it would leave the blur nothing to see. */
+[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) { pointer-events: none; }
+[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) > :not(.mf-blur-edge),
+[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) > .mf-blur-edge > span,
+[data-room] [data-room-foot][data-typing]:not(:has([data-state='open'])) > .mf-blur-edge::before { opacity: 0; }
 [data-room] :is([data-apart='foot'], [data-day-count], .tiptap-word-count, [data-property-strip], :has(> [data-composer])) { display: none; }
 [data-room] > [data-note-head] { display: none; }
 /* The words run the room's whole height and the room scrolls them: the page's own editor kept the pane's height and
@@ -3695,7 +3698,8 @@ textarea[data-talking]::selection {
 
 /* A soft blur along an edge that fades away from it (the Map's foot): four layers, each blurring more and kept to
    less of the band, so the blur thins out as it rises instead of stopping at a line. The page colour washes in
-   under it at the edge. Only over a surface with nothing round it that fades, masks or filters (the Map's canvas). */
+   under it at the edge. Only over a surface with nothing round it that fades, masks or filters (the Map's canvas,
+   the bars at a view's foot: qa/foot-blur.mjs). */
 .mf-blur-edge {
   position: absolute;
   inset-inline: 0;
@@ -3714,6 +3718,33 @@ textarea[data-talking]::selection {
   .mf-blur-edge > span:nth-child(3) { backdrop-filter: blur(6px); mask-image: linear-gradient(to top, black 0%, black 12%, transparent 45%); }
   .mf-blur-edge > span:nth-child(4) { backdrop-filter: blur(12px); mask-image: linear-gradient(to top, black 0%, transparent 25%); }
 }
+/* Under a bar at a view's foot (BlurEdge bar, blur-edge.tsx: the note's "Add a thought…", read mode's foot, the
+   writing room's foot, the Journal's writer line): the bar's own height and 2.5rem over it, so what scrolls under
+   the bar blurs out as it nears it, the page's colour thicker at the very foot. With Reduce Transparency there is no
+   blur: the page's colour, whole under the bar, fades out over the 2.5rem above it, as the bars had before. */
+.mf-blur-edge.mf-blur-bar { height: calc(100% + 2.5rem); background: none; }
+/* Its wash a layer of its own, so a bar that comes and goes fades the wash and each blur layer, never the edge
+   itself: an edge part way faded is a parent that fades, and its blur would see nothing (data-hide). */
+.mf-blur-bar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, color-mix(in oklab, var(--background) 72%, transparent), color-mix(in oklab, var(--background) 40%, transparent) calc(100% - 2.5rem), transparent);
+}
+.mf-blur-bar::before, .mf-blur-bar > span { transition: opacity 300ms var(--mf-ease); }
+.mf-blur-bar[data-hide]::before, .mf-blur-bar[data-hide] > span { opacity: 0; }
+@media (prefers-reduced-transparency: reduce) {
+  .mf-blur-bar::before { background: linear-gradient(to top, var(--background) calc(100% - 2.5rem), transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .mf-blur-bar::before, .mf-blur-bar > span { transition: none; } }
+/* The bar floated over its scroller's foot (useDockRoom, blur-edge.tsx sets --mf-dock-h, its height): lifted over
+   the words by its height, and the words keep that much room, and the fade's, after their last line, so the last
+   line still scrolls clear of the bar. A note's word count and session line, and "Top", rise above it too. */
+[data-docked] > :is([data-thought-dock], [data-read-dock]) { margin-top: calc(-1 * var(--mf-dock-h, 0px)); }
+[data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
+[data-docked] > [data-dock-scroll] { padding-bottom: calc(var(--mf-dock-h, 0px) + 2.75rem); }
+[data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line) > :is(.tiptap-word-count, .mf-session-foot),
+[data-docked] [data-back-to-top] { margin-bottom: var(--mf-dock-h, 0px); }
 
 /* A small dot is a whole number of pixels across, or the screen draws it lopsided. Sizes scale with the text
    (6.38px at the default size), so each round dot is snapped to the nearest whole pixel, both ways alike. */

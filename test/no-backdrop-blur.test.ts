@@ -7,7 +7,8 @@
 // the one frost material (main.css .mf-frost, in the main window and in quick
 // capture on glass), whose every surface qa/frost.mjs opens to check nothing
 // round it fades, masks, clips or filters (lib/frost-guard.ts marks any that do), and the edge
-// blur (main.css .mf-blur-edge), laid only over the Map's canvas.
+// blur (main.css .mf-blur-edge), laid only where nothing round it fades, masks or filters for good: the Map's
+// canvas and the bars at a view's foot, whose parents qa/foot-blur.mjs looks at.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync, statSync } from 'node:fs'

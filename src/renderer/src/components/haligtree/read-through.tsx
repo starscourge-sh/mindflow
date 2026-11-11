@@ -17,6 +17,7 @@ import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { makeTask } from '@/lib/tasks'
 import { BackToTop, Kbd, Rolling, Tip, listEnd } from './ui'
+import { BlurEdge, useDockRoom } from './blur-edge'
 import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
 import { ThoughtBar } from './thought-bar'
@@ -340,6 +341,9 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
   const began = useRef(Date.now())
   const [ended, setEnded] = useState<{ titles: { id: string; title: string; private: boolean }[]; minutes: number; last: QueueRow } | null>(null)
   const [leaving, setLeaving] = useState(false)
+  // The foot's bar (a thought, what is up next, where you are) floats over the page's foot: the page keeps its height as room.
+  const readDock = useRef<HTMLDivElement>(null)
+  useDockRoom(readDock, !ended)
   const leave = (): void => {
     if (leaving) return
     const flat = still()
@@ -777,7 +781,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       </div>
       {longform && !writing && <LineRestack host={wordsBox} onLine={longform.onLine} />}
       {ended ? <QueueDone ended={ended} onBack={leave} onPutBack={putBack} /> : <>
-      <div ref={(el) => void ((scroller.current = el), setScrollBox(el))} onScroll={measure} className={cn('min-h-0 flex-1 overflow-y-auto', queue && panel && 'xl:pr-80')}>
+      <div ref={(el) => void ((scroller.current = el), setScrollBox(el))} onScroll={measure} data-dock-scroll className={cn('min-h-0 flex-1 overflow-y-auto', queue && panel && 'xl:pr-80')}>
         {/* j and k turn the page hundreds of times: by key the next one is
             simply there; by the arrows it rises in. */}
         <AnimatePresence mode="wait" initial={false} custom={byKeys()}>
@@ -885,12 +889,11 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       <BackToTop target={scrollBox} />
       {/* A thought (or a clue) the moment it comes, without leaving the page. */}
       {/* Sorting writes in the note itself, so it has no thought bar under it. */}
-      {composerFor && !sorting && <div className="shrink-0 px-6 pt-1 pb-2 sm:px-16"><ThoughtBar key={composerFor} id={composerFor} clue={clueMode} /></div>}
+      {/* What sits at the foot, floated over the page's foot as it blurs out under it; the page keeps room to scroll clear. */}
+      <div ref={readDock} data-read-dock className="relative z-10 shrink-0">
+      <BlurEdge bar />
+      {composerFor && !sorting && <div className="relative shrink-0 px-6 pt-1 pb-2 sm:px-16"><ThoughtBar key={composerFor} id={composerFor} clue={clueMode} /></div>}
       {queue && <UpNext queue={queue} at={at} read={read} onSkip={upNext.skip} onDone={upNext.done} onOpen={upNext.open} />}
-      {queue && panel && (
-        <QueuePanel queue={queue} at={at} read={read} onJump={(to) => to !== at && (flush(), chime('page'), setAt(to))} onMove={reorder} onRemove={unqueue} onClose={togglePanel}
-          onOpen={(row) => (flush(), chime('open'), onClose(), window.api.openInHome(row.type, row.itemId))} onTag={openTag} />
-      )}
       {sorting && item && (
         <SortBar left={items.filter((one) => !sortedHere.includes(one.id) && !binned.includes(one.id)).length} tagging={tagging} moving={moving} groups={groups} own={group}
           onTagging={setTagging} onMoving={setMoving} onKeep={sort.keep} onTag={sort.tag} onMove={sort.move} onBin={sort.bin} />
@@ -905,6 +908,11 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
         </span>}
         {writing && <span>Saved as you go</span>}
       </footer>
+      </div>
+      {queue && panel && (
+        <QueuePanel queue={queue} at={at} read={read} onJump={(to) => to !== at && (flush(), chime('page'), setAt(to))} onMove={reorder} onRemove={unqueue} onClose={togglePanel}
+          onOpen={(row) => (flush(), chime('open'), onClose(), window.api.openInHome(row.type, row.itemId))} onTag={openTag} />
+      )}
       </>}
     </div>,
     document.body

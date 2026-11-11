@@ -1914,7 +1914,8 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
   }, [target])
   return (
     // Bottom right, in a strip of its own, so the spring can own the button's transform.
-    <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-end pr-5">
+    // Over a bar floated at the foot (main.css [data-docked]), it rises above the bar.
+    <div data-back-to-top className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-end pr-5">
     <AnimatePresence>
       {shown && (
         <motion.button

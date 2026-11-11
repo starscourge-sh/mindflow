@@ -13,6 +13,7 @@ import { read as aimOf } from '@/components/count/word-aim'
 import { Rolling } from './ui'
 import { clock, num } from '../../../../main/dates'
 import { useEditorDom } from '@/lib/editor-dom'
+import { BlurEdge } from './blur-edge'
 
 
 /**
@@ -403,11 +404,13 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
   const aim = aimOf(`day-${day}`)
   const share = aim ? Math.min(1, words / aim.words) : 0
   const minutes = Math.round(spent / 60_000)
-  // On a fade of the page's own paint, so the words and tasks scrolling under it never show through its numbers.
+  // Over the words and tasks blurring out under it (BlurEdge), so what scrolls past never runs sharp through its numbers.
+  // Its words and the blur's layers fade, never the line itself: faded, it would leave the blur nothing to see.
   return createPortal(
-    <div data-writer-line data-in-use={inUse || undefined} inert={!inUse} className="pointer-events-none fixed z-40 flex flex-col items-center bg-[linear-gradient(to_bottom,transparent,var(--background)_60%)] pt-7 pb-[1.125rem] text-sm text-muted-foreground tabular-nums transition-opacity duration-300 motion-reduce:transition-none"
-      style={{ left: column.left, width: column.width, bottom: column.foot, opacity: inUse ? 1 : 0 }}>
-      <span className="flex items-center justify-center gap-3">
+    <div data-writer-line data-in-use={inUse || undefined} inert={!inUse} className="pointer-events-none fixed z-40 flex flex-col items-center pt-4 pb-[1.125rem] text-sm text-muted-foreground tabular-nums"
+      style={{ left: column.left, width: column.width, bottom: column.foot }}>
+      <BlurEdge bar hide={!inUse} />
+      <span className="relative flex items-center justify-center gap-3 transition-opacity duration-300 motion-reduce:transition-none" style={{ opacity: inUse ? 1 : 0 }}>
         {[
           words > 0 && <span key="words" data-writer-words className="inline-flex items-center gap-2">
             <span><Rolling text={num(words)} /> {words === 1 ? 'word' : 'words'}{aim ? ` of ${num(aim.words)}` : ''}</span>

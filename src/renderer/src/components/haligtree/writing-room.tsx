@@ -7,6 +7,7 @@ import { Kbd } from './ui'
 import { num, plural } from '../../../../main/dates'
 import { WriterTools, useFocus, useFocusBand, type Focus } from './writer-tools'
 import { domOf } from '@/lib/editor-dom'
+import { BlurEdge } from './blur-edge'
 
 /**
  * The writing room: the page you are writing on, over the whole window, with
@@ -99,6 +100,7 @@ export function RoomFoot({ editor, title, spent, proof, live = proof }: { editor
   }, [editor])
   return (
     <div data-room-foot data-typing={typing || undefined} className="text-sm text-muted-foreground tabular-nums">
+      <BlurEdge bar />
       {/* One quiet bar: what it is, how far, how long on the left; "How it reads", the tools and the way out on the right. */}
       <div className="relative mx-auto flex max-w-[46rem] items-center gap-3">
         <span className="flex min-w-0 items-center gap-2">

@@ -8,6 +8,7 @@ import { Kbd, Pressed, Rolling, Tip, quietly, toast } from './ui'
 import { ShowMore, useShowMore } from './show-more'
 import { keepGloss, putBack, useGlossKey } from './gloss-line'
 import { ArrowUp, X as Cancel, History } from '@/components/ui/icons'
+import { BlurEdge, useDockRoom } from './blur-edge'
 import { num } from '../../../../main/dates'
 
 // Which items have a composer on screen, so their details panel drops its own
@@ -228,14 +229,17 @@ export function ThoughtBar({ id, clue = false, className }: {
 }
 
 /**
- * Where the composer sits under an open note: at the foot of its column,
- * outside the words' own scrolling, so it never covers a line. In a narrow
- * pane, where the whole pane scrolls, it holds to the bottom of the view.
+ * Where the composer sits under an open note: at the foot of its column, floated over the words' foot, which blurs
+ * out under it (BlurEdge), the words keeping room after their last line to scroll clear of it (main.css
+ * [data-docked]). In a narrow pane, where the whole pane scrolls, it holds to the bottom of the view.
  */
 export function ThoughtDock({ id, clue, hidden }: { id: string; clue?: boolean; hidden?: boolean }): React.JSX.Element | null {
+  const bar = useRef<HTMLDivElement>(null)
+  useDockRoom(bar, !hidden)
   if (hidden) return null
   return (
-    <div className="sticky bottom-0 z-10 shrink-0 bg-background px-4 pt-2 pb-3">
+    <div ref={bar} data-thought-dock className="sticky bottom-0 z-10 shrink-0 px-4 pt-2 pb-3">
+      <BlurEdge bar />
       <ThoughtBar id={id} clue={clue} />
     </div>
   )

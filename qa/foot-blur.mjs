@@ -1,0 +1,165 @@
+// Every bar at a view's foot floats over its scroller, the words blurring out under it (main.css .mf-blur-bar): a
+// note's "Add a thought…" (wide, and narrow where the whole pane scrolls), read mode's foot, the writing room's foot
+// and the Journal's writer line. For each: no parent of the blur fades, masks or filters (there a backdrop blur sees
+// nothing), its layers do blur, the words do pass under the bar, the last line still scrolls clear of it, and
+// scrolling stays inside the frame budget. Light and dark pictures of each with a folder: node qa/foot-blur.mjs <dir>
+//
+//   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/foot-blur.mjs [shots]
+import { join } from 'path'
+import { checks } from './harness.mjs'
+import { sandbox } from './sandbox-lib.mjs'
+
+const { check, done } = checks()
+const SHOTS = process.argv[2]
+const c = await sandbox({ width: 1300, height: 860 })
+const { h, v, send, go } = c
+const wait = (ms) => h.waitForTimeout(ms)
+const shot = async (name) => SHOTS && c.both(join(SHOTS, name))
+
+/** The blur under the bar `bar`: what breaks it round it, whether it blurs, the words under it, and room for the last line. */
+const look = (bar) => h.evaluate((bar) => {
+  const edge = document.querySelector(`${bar} .mf-blur-bar`)
+  if (!edge) return { none: bar }
+  const breaks = []
+  for (let at = edge.parentElement; at && at !== document.documentElement; at = at.parentElement) {
+    const s = getComputedStyle(at)
+    if (Number(s.opacity) < 1 || s.maskImage !== 'none' || s.filter !== 'none' || s.clipPath !== 'none' || s.backdropFilter !== 'none' || s.mixBlendMode !== 'normal') breaks.push(`${at.tagName}.${String(at.className).slice(0, 40)}`)
+  }
+  const layers = [...edge.children].map((one) => getComputedStyle(one).backdropFilter)
+  const e = edge.getBoundingClientRect()
+  return { breaks, layers, edgeTop: Math.round(e.top), edgeBottom: Math.round(e.bottom), barTop: Math.round(document.querySelector(bar).getBoundingClientRect().top) }
+}, bar)
+
+/** The scroller under it: scrolled to the end, where its last line of words sits against the bar's top. */
+const toEnd = (scrollSel, lastSel, bar) => h.evaluate(([scrollSel, lastSel, bar]) => {
+  const box = document.querySelector(scrollSel)
+  box.scrollTop = box.scrollHeight
+  const lines = [...document.querySelectorAll(lastSel)].filter((one) => one.getClientRects().length)
+  const last = lines.at(-1)?.getBoundingClientRect()
+  const top = document.querySelector(bar).getBoundingClientRect().top
+  return { lastBottom: last && Math.round(last.bottom), barTop: Math.round(top), clear: !!last && last.bottom <= top + 1 }
+}, [scrollSel, lastSel, bar])
+
+/** Words under the bar's top while scrolled part way: they pass under it rather than stop at a band. */
+const under = (scrollSel, lastSel, bar) => h.evaluate(([scrollSel, lastSel, bar]) => {
+  const box = document.querySelector(scrollSel)
+  box.scrollTop = Math.max(0, (box.scrollHeight - box.clientHeight) / 2)
+  const top = document.querySelector(bar).getBoundingClientRect().top
+  const r = document.querySelector(bar).getBoundingClientRect()
+  return [...document.querySelectorAll(lastSel)].some((one) => { const b = one.getBoundingClientRect(); return b.height && b.top < r.bottom && b.bottom > top + 4 })
+}, [scrollSel, lastSel, bar])
+
+/** Frame times while the scroller is wheeled down: the worst and the 95th percentile, in ms. */
+const frames = async (x, y) => {
+  await h.mouse.move(x, y)
+  const p = h.evaluate(() => new Promise((ok) => { const t = []; let last = performance.now(); const end = last + 1200; const step = (now) => { t.push(now - last); last = now; now < end ? requestAnimationFrame(step) : ok(t) }; requestAnimationFrame(step) }))
+  for (let i = 0; i < 20; i++) { await h.mouse.wheel(0, 60); await wait(30) }
+  const t = (await p).slice(2).sort((a, b) => a - b)
+  return { p95: Math.round(t[Math.floor(t.length * 0.95)] * 10) / 10, worst: Math.round(t.at(-1) * 10) / 10, n: t.length }
+}
+
+const report = (name, seen, end, passing, fr) => {
+  check(`${name}: no parent of the blur fades, masks or filters`, !!seen && !seen.none && seen.breaks.length === 0, JSON.stringify(seen))
+  check(`${name}: its four layers blur`, !!seen?.layers && seen.layers.every((one) => /blur/.test(one)), JSON.stringify(seen?.layers))
+  check(`${name}: the blur rises over the bar's top`, !!seen && seen.edgeTop < seen.barTop - 30, JSON.stringify(seen))
+  check(`${name}: words pass under the bar`, passing)
+  check(`${name}: scrolled to the end, the last line sits clear of the bar`, !!end?.clear, JSON.stringify(end))
+  if (fr) check(`${name}: scrolling keeps to the frame budget (95% of frames under 20ms)`, fr.p95 < 20, JSON.stringify(fr))
+}
+
+try {
+  await v('settings:set', { sounds: false, hintRate: 0 })
+  const p = (t) => ({ type: 'paragraph', content: [{ type: 'text', text: t }] })
+  const content = []
+  for (let n = 0; n < 40; n++) content.push(p(`Line ${n + 1}. Words enough to fill the width of the page and more besides, read slowly and with care.`))
+  const id = await v('article:new'); await v('item:save', id, { title: 'Long Scroll', body: { type: 'doc', content } })
+  await send('article', id); await wait(2500)
+  const NOTE = '.haligtree-editor-content:has(.ProseMirror p)'
+  const LINES = '.note-pane .ProseMirror p'
+
+  // --- A note, wide: the words scroll in the editor's own box.
+  {
+    const seen = await look('[data-thought-dock]')
+    const passing = await under(NOTE, LINES, '[data-thought-dock]')
+    await wait(300)
+    await shot('note-wide')
+    const fr = await frames(950, 500)
+    const end = await toEnd(NOTE, LINES, '[data-thought-dock]')
+    await wait(300)
+    await shot('note-wide-end')
+    const top = await h.evaluate(() => { const b = document.querySelector('.note-pane [data-back-to-top] button')?.getBoundingClientRect(); const bar = document.querySelector('[data-thought-dock] [data-composer]').getBoundingClientRect(); return b ? { clear: b.bottom <= bar.top, b: Math.round(b.bottom), bar: Math.round(bar.top) } : null })
+    check('a note, wide: "Top" sits over the bar, not on it', !!top?.clear, JSON.stringify(top))
+    report('a note, wide', seen, end, passing, fr)
+  }
+  // --- A note, narrow: the whole pane scrolls and the bar holds to its foot.
+  {
+    await c.size(620, 760); await wait(800)
+    const seen = await look('[data-thought-dock]')
+    const pane = await h.evaluate(() => { const one = document.querySelector('.note-pane'); return /(auto|scroll)/.test(getComputedStyle(one).overflowY) })
+    const SCROLL = pane ? '.note-pane' : NOTE
+    const passing = await under(SCROLL, LINES, '[data-thought-dock]')
+    await wait(300)
+    await shot('note-narrow')
+    const end = await toEnd(SCROLL, LINES, '[data-thought-dock]')
+    report('a note, narrow', seen, end, passing)
+    await c.size(1300, 860); await wait(800)
+  }
+  // --- Read mode.
+  {
+    await h.evaluate(() => [...document.querySelectorAll('[aria-label="Read through"]')].find((one) => one.getClientRects().length)?.click()); await wait(1500)
+    if (!(await h.evaluate(() => document.querySelector('.mf-read')))) { await h.keyboard.press('Meta+Shift+r'); await wait(1500) }
+    const seen = await look('[data-read-dock]')
+    const passing = await under('.mf-read [data-dock-scroll]', '.mf-read .ProseMirror p', '[data-read-dock]')
+    await h.mouse.move(650, 700); await wait(400)
+    await shot('read')
+    const fr = await frames(650, 400)
+    const end = await toEnd('.mf-read [data-dock-scroll]', '.mf-read .ProseMirror p', '[data-read-dock]')
+    await wait(300)
+    await shot('read-end')
+    report('read mode', seen, end, passing, fr)
+    await h.keyboard.press('Escape'); await wait(1200)
+  }
+  // --- The writing room, from today's page.
+  {
+    const today = new Date().toLocaleDateString('en-CA')
+    await v('notes:day:save', today, { body: { type: 'doc', content } })
+    await go('day'); await wait(1200)
+    await h.click('[data-room-open]'); await wait(1200)
+    const seen = await look('[data-room-foot]')
+    await h.mouse.move(600, 400); await h.mouse.move(640, 430); await wait(500)
+    const passing = await under('[data-room]', '[data-room] .ProseMirror p', '[data-room-foot]')
+    await wait(300)
+    await shot('room')
+    const fr = await frames(650, 400)
+    const end = await toEnd('[data-room]', '[data-room] .ProseMirror p', '[data-room-foot]')
+    report('the writing room', seen, end, passing, fr)
+    // Typing, the bar and its blur step away: the foot itself never fades.
+    await h.keyboard.type('x'); await wait(700)
+    const typing = await h.evaluate(() => { const foot = document.querySelector('[data-room-foot]'); return { foot: getComputedStyle(foot).opacity, layer: getComputedStyle(foot.querySelector('.mf-blur-bar > span')).opacity } })
+    check('the writing room: typing, the blur fades by its layers, the foot holding the blur never fades', typing.foot === '1' && typing.layer === '0', JSON.stringify(typing))
+    await h.keyboard.press('Backspace')
+    await h.keyboard.press('Escape'); await wait(1200)
+  }
+  // --- Today's page, its writer's line, the caret in the words.
+  {
+    await go('inbox'); await go('day'); await wait(1200)
+    await h.click('[data-page] [data-day-write] .ProseMirror'); await wait(600)
+    await h.mouse.move(600, 400); await h.mouse.move(640, 430); await wait(900)
+    const SCROLL = '[data-pane-card] .overflow-y-auto[data-day-path]'
+    const seen = await look('[data-writer-line]')
+    const passing = await under(SCROLL, '[data-day-write] .ProseMirror p', '[data-writer-line]')
+    await wait(400)
+    await shot('day')
+    const fr = await frames(700, 400)
+    const end = await toEnd(SCROLL, '[data-day-write] .ProseMirror p, [data-day-path] [data-row]', '[data-writer-line]')
+    report('the Journal\'s writer line', seen, end, passing, fr)
+    const line = await h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); return { line: getComputedStyle(one).opacity, mask: getComputedStyle(one.closest('body').querySelector('[data-pane-card] .overflow-y-auto[data-day-path]')).maskImage } })
+    check('the Journal: the line itself never fades (its words and blur do), and the page under it is not masked away', line.line === '1' && line.mask === 'none', JSON.stringify(line))
+  }
+  check('no page errors', !c.errors.some((one) => one.startsWith('PAGEERROR')), c.errors.join(' | '))
+} catch (error) {
+  check('the run finishes', false, String(error).slice(0, 400))
+} finally {
+  await c.close()
+  done()
+}
