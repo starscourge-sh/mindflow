@@ -9,6 +9,7 @@ import { Orb } from "@/components/haligtree/orb"
 import { idThumbs, isYouTube, videoId, wideThumb } from "../../../../main/video-thumbs"
 import { EASING, still } from "@/lib/motion"
 import { lookOf, paintWhileLoading, withoutBands } from "@/lib/pictures"
+import { forget, keptOf, remember } from "@/lib/card-pictures"
 import { lazyRoot } from "@/lib/lazy-root"
 import { stopLikeTiptap } from "@/lib/plain-node-view"
 import { readThenWrite, writeTogether } from "@/lib/frame-writes"
@@ -66,7 +67,10 @@ export function bookmarkNodeView(props: NodeViewRendererProps): NodeView {
     undo?.()
     undo = null
     const attrs = node.attrs as BookmarkAttributes
-    const { href, image: saved, icon, loading } = attrs
+    const { href, image: saved, loading } = attrs
+    // The icon as the note has it, and the copy kept with the book when there is one.
+    const iconFrom = attrs.icon ?? ""
+    const icon = keptOf(iconFrom)
     // Cards kept before entities were decoded on fetching ("What&#x27;s new") read right too.
     const [title, description, site] = [attrs.title, attrs.description, attrs.site].map((text) => decodeHTML(text ?? ""))
     // A card made before thumbnails were taken in 16:9 still points at YouTube's
@@ -85,9 +89,10 @@ export function bookmarkNodeView(props: NodeViewRendererProps): NodeView {
     // picture whole, over itself blurred: a picture of another shape leaves
     // no empty bands, only its own colours carried to the edges.
     const frame = el("span", "tiptap-bookmark-frame")
-    frame.append(face(href, icon && !loading ? icon : "", site))
+    frame.append(face(href, icon && !loading ? icon : "", site, iconFrom))
     parts.push(frame)
-    const wanted = (!loading && image) || youTubeThumbs(href)[0] || ""
+    const from = (!loading && image) || youTubeThumbs(href)[0] || ""
+    const wanted = keptOf(from)
     if (wanted) {
       // Only the picture between any black bands baked into it.
       const img = el("img", "tiptap-bookmark-image") as HTMLImageElement
@@ -98,14 +103,14 @@ export function bookmarkNodeView(props: NodeViewRendererProps): NodeView {
       const box = withoutBands(wanted)
       if (box) img.style.setProperty("object-view-box", box)
       frame.append(img)
-      undo = arrive(frame, img, wanted, href)
+      undo = arrive(frame, img, wanted, href, wanted === from ? "" : from)
       // Kept once it has shown, so the copy never races the picture you are waiting for, and one that never
       // comes (offline, gone) is not asked for twice.
       if (!loading && remote(wanted)) {
-        if (img.complete && img.naturalWidth) keepOnce(props, wanted, icon ?? "")
-        else img.addEventListener("load", () => keepOnce(props, wanted, icon ?? ""), { once: true })
-      } else if (!loading) keepOnce(props, wanted, icon ?? "")
-    } else if (!loading) keepOnce(props, "", icon ?? "")
+        if (img.complete && img.naturalWidth) keepOnce(props, wanted, iconFrom)
+        else img.addEventListener("load", () => keepOnce(props, wanted, iconFrom), { once: true })
+      } else if (!loading) keepOnce(props, "", iconFrom)
+    } else if (!loading) keepOnce(props, "", iconFrom)
 
     const body = el("span", "tiptap-bookmark-body")
     body.append(el("span", "tiptap-bookmark-title", title || href))
@@ -236,7 +241,7 @@ const HUES = ["blue", "purple", "pink", "red", "orange", "yellow", "green"]
  * hues, picked from the domain so a site always wears the same one, and its
  * icon when known, else the first letter of its name.
  */
-function face(href: string, icon: string, site: string): HTMLElement {
+function face(href: string, icon: string, site: string, from = ""): HTMLElement {
   let host = ""
   try {
     host = new URL(href).hostname.replace(/^www\./, "")
@@ -258,7 +263,8 @@ function face(href: string, icon: string, site: string): HTMLElement {
     if (small.complete && small.naturalWidth) shown()
     // With the other icons that came this frame, as one change to the note (lib/frame-writes.ts).
     else small.addEventListener("load", () => writeTogether(shown), { once: true })
-    small.addEventListener("error", () => small.remove(), { once: true })
+    // A kept copy that is gone is forgotten: the site's own is asked for the next time the card is drawn.
+    small.addEventListener("error", () => (small.remove(), from && icon !== from ? forget(from) : undefined), { once: true })
     one.append(small)
   }
   return one
@@ -271,7 +277,7 @@ function face(href: string, icon: string, site: string): HTMLElement {
  * than a broken box. A YouTube picture that is missing tries the 16:9 one
  * every video has first. Returns a way to stop watching.
  */
-function arrive(frame: HTMLElement, img: HTMLImageElement, image: string, href: string): () => void {
+function arrive(frame: HTMLElement, img: HTMLImageElement, image: string, href: string, from = ""): () => void {
   const stop = fit(frame, img, image, href)
   // The blurred copy behind a picture shown whole is set once the picture is
   // here, from the same file, so it never asks for it a second time.
@@ -293,6 +299,13 @@ function arrive(frame: HTMLElement, img: HTMLImageElement, image: string, href: 
     if (img.isConnected) img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: EASING })
   })
   const failed = (): void => {
+    // A kept copy that is gone: forgotten, and the picture asked of the site it came from.
+    if (from && !tried.has(from)) {
+      tried.add(from)
+      forget(from)
+      img.src = from
+      return
+    }
     const next = youTubeThumbs(href).find((one) => !tried.has(one))
     if (next) {
       tried.add(next)
@@ -311,51 +324,27 @@ function arrive(frame: HTMLElement, img: HTMLImageElement, image: string, href: 
 }
 
 /**
- * A picture still on the site, kept with the notes the first time its card is
+ * A picture still on the site, kept with the book the first time its card is
  * shown, the way a pasted picture is: from then on it comes from the book,
  * at once and offline. Each address is asked for once per window, however
  * many cards show it; one that cannot be kept (offline, too big) is left as
- * it is and tried again the next time the app opens. Only an editable note
- * is changed, and not as a step of its own to undo.
+ * it is and tried again the next time the app opens. The note is not
+ * changed: where the copy is, is written beside it (lib/card-pictures.ts).
  */
 const keeping = new Map<string, Promise<string>>()
 function keepOnce(props: NodeViewRendererProps, image: string, icon: string): void {
   const keep = (window as { api?: { keepCardPictures?: (image: string, icon: string) => Promise<{ image: string; icon: string }> } }).api?.keepCardPictures
-  const ask = { image: remote(image) ? image : "", icon: remote(icon) ? icon : "" }
+  const ask = { image: remote(image) && keptOf(image) === image ? image : "", icon: remote(icon) && keptOf(icon) === icon ? icon : "" }
   if (!keep || !props.editor.isEditable || !(ask.image || ask.icon)) return
   // Each address once, a picture apart from an icon: one site's icon on thirty cards is fetched once.
-  const once = (src: string, picture: boolean): Promise<string> => {
-    if (!src) return Promise.resolve("")
+  const once = (src: string, picture: boolean): void => {
+    if (!src) return
     const key = `${picture ? "image" : "icon"} ${src}`
-    let asked = keeping.get(key)
-    if (!asked) keeping.set(key, (asked = keep(picture ? src : "", picture ? "" : src).then((kept) => (picture ? kept.image : kept.icon), () => "")))
-    return asked
+    if (keeping.has(key)) return
+    const asked = keep(picture ? src : "", picture ? "" : src).then((kept) => (picture ? kept.image : kept.icon), () => "")
+    keeping.set(key, asked)
+    void asked.then((kept) => remember(src, kept))
   }
-  const asked = Promise.all([once(ask.image, true), once(ask.icon, false)]).then(([image, icon]) => ({ image, icon }))
-  void asked.then((now) => {
-    const { editor } = props
-    if (editor.isDestroyed) return
-    const at = typeof props.getPos === "function" ? props.getPos() : undefined
-    const node = at == null ? null : editor.state.doc.nodeAt(at)
-    if (at == null || !node || node.type.name !== "bookmark" || node.attrs.loading) return
-    const was = { image: String(node.attrs.image ?? ""), icon: String(node.attrs.icon ?? "") }
-    // Only a copy now stored replaces the address it was kept from (or fills
-    // an empty place, a YouTube card whose page never answered).
-    const kept = (before: string, after: string, from: string): string => (from && after && !remote(after) && (!before || (wideThumb(before) ?? before) === (wideThumb(from) ?? from)) ? after : before)
-    const nextImage = kept(was.image, now.image, ask.image)
-    const nextIcon = kept(was.icon, now.icon, ask.icon)
-    if (nextImage === was.image && nextIcon === was.icon) return
-    editor.view.dispatch(
-      editor.state.tr
-        .setNodeMarkup(at, undefined, {
-          ...node.attrs,
-          image: nextImage,
-          icon: nextIcon,
-          // The site's address stays with the card, beside the copy.
-          imageSource: node.attrs.imageSource || (nextImage !== was.image ? ask.image : ""),
-          iconSource: node.attrs.iconSource || (nextIcon !== was.icon ? ask.icon : ""),
-        })
-        .setMeta("addToHistory", false),
-    )
-  })
+  once(ask.image, true)
+  once(ask.icon, false)
 }

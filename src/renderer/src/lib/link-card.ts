@@ -1,4 +1,5 @@
 import { host } from "@/lib/host"
+import { keptOf, remember } from "@/lib/card-pictures"
 import type { Editor } from "@tiptap/core"
 import { fadeFilled, noteOffline, offline, whenOnline } from "@/lib/offline"
 
@@ -74,9 +75,10 @@ const remote = (src: unknown): boolean => typeof src === 'string' && /^https?:/.
  *
  * A capture saved as a link that is still only its address becomes a card,
  * named after the page. A card anywhere whose picture or icon still lives on
- * the site is looked up again, which stores both with your notes, so the card
- * survives going offline and the site changing. Offline now, nothing changes
- * and the next run tries again.
+ * the site has both kept with the book, so the card survives going offline
+ * and the site changing: where each copy is, is written beside the notes
+ * (lib/card-pictures.ts), and the note itself is left as it was. Offline
+ * now, nothing changes and the card keeps them when it is next shown.
  */
 export async function cardUp(capture: { id: string; kind: string; body: unknown }): Promise<void> {
   const look = host().fetchLinkMetadata
@@ -102,35 +104,23 @@ export async function cardUp(capture: { id: string; kind: string; body: unknown 
     return
   }
   if (typeof body === 'string') return
-  let changed = false
   const visit = async (node: Node): Promise<void> => {
     if (node.type === 'bookmark' && node.attrs && (remote(node.attrs.image) || remote(node.attrs.icon))) {
       // The pictures the card shows, from the addresses it already holds: the
       // page is not asked again, so a site that has since changed its picture
-      // does not swap the one you saw.
+      // does not swap the one you saw. Only those with no copy kept yet.
       const was = { image: String(node.attrs.image ?? ''), icon: String(node.attrs.icon ?? '') }
-      const now = await window.api.keepCardPictures(was.image, was.icon).catch(() => was)
-      // Only a picture that is now stored replaces the address: offline, or
-      // with nothing to store, the card is left as it was.
-      const kept = (before: string, after: string): string => (remote(before) && after && !remote(after) ? after : before)
-      const image = kept(was.image, now.image)
-      const icon = kept(was.icon, now.icon)
-      if (image !== was.image || icon !== was.icon) {
-        node.attrs = {
-          ...node.attrs,
-          image,
-          icon,
-          // The site's address stays with the card, beside the copy.
-          imageSource: node.attrs.imageSource || (image !== was.image ? was.image : ''),
-          iconSource: node.attrs.iconSource || (icon !== was.icon ? was.icon : '')
-        }
-        changed = true
+      const ask = { image: remote(was.image) && keptOf(was.image) === was.image ? was.image : '', icon: remote(was.icon) && keptOf(was.icon) === was.icon ? was.icon : '' }
+      if (ask.image || ask.icon) {
+        const now = await window.api.keepCardPictures(ask.image, ask.icon).catch(() => ({ image: '', icon: '' }))
+        // Only a picture that is now stored is written down: offline, or with nothing to store, nothing changes.
+        remember(ask.image, now.image)
+        remember(ask.icon, now.icon)
       }
     }
     for (const child of node.content ?? []) await visit(child)
   }
   await visit(body)
-  if (changed) await window.api.captures.save(id, { body, fetched: true, base })
 }
 
 /**
