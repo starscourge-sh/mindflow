@@ -1,5 +1,6 @@
 import { fieldOf } from '../capture-list'
 import { Tape } from './tape'
+import { Grabber } from './grabber'
 import { currentVim, onVimChange } from '@/lib/vim'
 import { usePatience } from '@/lib/patience'
 import { useStickyDo } from '@/lib/sticky-do'
@@ -668,8 +669,9 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
         {/* Frosted: the desktop picture behind it, blurred, under the same paper. */}
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />
-        {/* The strip of tape that holds it up. */}
+        {/* The strip of tape that holds it up; the pointer on the card, the grabber that moves it in its place. */}
         <Tape inside={GLASS} />
+        <Grabber label="Move this sticky" inside={GLASS} />
         <StickyHead title={named.tags.length ? <span className="flex min-w-0 items-center gap-1.5"><span className="truncate">{named.text}</span><Tags tags={named.tags} go={false} /></span> : title} titleClass="private-text" open={asking}
           // "All done" gives way first when the title needs the room, down to a ✓.
           slot={todos.length > 0 && !left ? 'basis-15' : ''}

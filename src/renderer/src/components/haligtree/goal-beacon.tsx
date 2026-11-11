@@ -1,5 +1,6 @@
 import { DRAG, STILL } from './sticky-note'
 import { Tape } from './tape'
+import { Grabber } from './grabber'
 import { useEffect, useRef, useState } from 'react'
 import { Flag, Minus } from 'lucide-react'
 import { motion } from 'motion/react'
@@ -75,6 +76,8 @@ function Desk({ shown, children, onEnter, onLeave }: { shown: number; children: 
         <div className="pointer-events-none absolute inset-0 z-30"><SandboxStamp /></div>
         {/* The tape holding it to the desk. */}
         <div className="pointer-events-none absolute inset-0 z-30"><Tape inside={GLASS} /></div>
+        {/* The pointer on the card: the grabber that moves it, in the tape's place, as on every floating card. */}
+        <Grabber label="Move this card" inside={GLASS} style={DRAG} />
       </div>
     </motion.div>
   )

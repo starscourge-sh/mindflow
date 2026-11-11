@@ -623,10 +623,33 @@ html[data-overhang] [data-grabber] {
   opacity: 0;
   transition: opacity 150ms var(--mf-ease);
 }
-html[data-overhang] [data-grabber]:active {
+/* The same grabber on every floating card (grabber.tsx): stickies, goal cards, the meeting and nudge cards and the
+   focus pill. Absolute in the card, centred, just above its top edge in the clear room round it (inside the top edge
+   when the window has none), shown with the pointer on the card. Look, hover and press are quick capture's, below. */
+[data-grabber-card] {
+  position: absolute;
+  z-index: 30;
+  top: -10px;
+  left: calc(50% - 32px);
+  width: 64px;
+  height: 22px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 4px;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 150ms var(--mf-ease);
+}
+[data-grabber-card][data-grabber-inside] { top: -2px; }
+.group:hover [data-grabber-card],
+[data-grabber-card]:active { opacity: 1; }
+/* A sticky's tape steps aside while the grabber is out: one thing at the top middle at a time. */
+html[data-sticky-window] .group:hover .mf-tape { opacity: 0; }
+:is(html[data-overhang] [data-grabber], [data-grabber-card]):active {
   cursor: grabbing;
 }
-html[data-overhang] [data-grabber] > span {
+:is(html[data-overhang] [data-grabber], [data-grabber-card]) > span {
   width: 32px;
   height: 4px;
   border-radius: 999px;
@@ -637,11 +660,11 @@ html[data-overhang] [data-grabber] > span {
    to catch and plainly the thing that moves the box (the user only found it by chance). Only with a real pointer;
    Reduce Motion: no growth, the stronger ink alone. */
 @media (hover: hover) and (pointer: fine) {
-  html[data-overhang] [data-grabber]:hover > span { transform: scale(1.5); }
+  :is(html[data-overhang] [data-grabber], [data-grabber-card]):hover > span { transform: scale(1.5); }
 }
-html[data-overhang] [data-grabber]:active > span { transform: scale(1.5); }
+:is(html[data-overhang] [data-grabber], [data-grabber-card]):active > span { transform: scale(1.5); }
 @media (prefers-reduced-motion: reduce) {
-  html[data-overhang] [data-grabber]:is(:hover, :active) > span { transform: none; }
+  :is(html[data-overhang] [data-grabber], [data-grabber-card]):is(:hover, :active) > span { transform: none; }
 }
 :root[data-motion='off'] [data-grabber]:is(:hover, :active) > span { transform: none; }
 html[data-overhang] .app-container.pointer-in [data-grabber],
@@ -649,7 +672,7 @@ html[data-overhang] [data-grabber]:hover,
 html[data-overhang] [data-grabber]:active {
   opacity: 1;
 }
-html[data-overhang] [data-grabber]:is(:hover, :active) > span {
+:is(html[data-overhang] [data-grabber], [data-grabber-card]):is(:hover, :active) > span {
   background: color-mix(in oklab, var(--foreground) 62%, transparent);
 }
 /* The empty parts of the card drag too, as a window's own: the footer's gaps and the row of fields under the words,
@@ -2693,7 +2716,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   .group:hover > .mf-tape, .group:hover .mf-tape { rotate: -1deg; translate: -50% -1px; }
 }
 /* On the sticky's one lift: 240ms on the same curve as the card and a glass window (LIFT_MS, main/sticky-place.ts). */
-.mf-tape { transition: rotate 240ms var(--mf-ease), translate 240ms var(--mf-ease); }
+.mf-tape { transition: rotate 240ms var(--mf-ease), translate 240ms var(--mf-ease), opacity 150ms var(--mf-ease); }
 :root[data-motion='off'] .mf-tape { transition: none; }
 @media (prefers-reduced-motion: reduce) { .mf-tape { transition: none; } }
 

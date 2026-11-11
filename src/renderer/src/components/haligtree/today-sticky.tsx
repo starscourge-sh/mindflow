@@ -18,6 +18,7 @@ import { StickyCelebration, type Moment } from './celebrate'
 import { SandboxStamp } from '@/components/haligtree/sandbox'
 import { Frost } from './frost'
 import { Tape } from './tape'
+import { Grabber } from './grabber'
 import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, stir, tiltOf, useStickyMotion } from './sticky-note'
 import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
@@ -147,6 +148,7 @@ export function TodaySticky(): React.JSX.Element {
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />
         <Tape inside={GLASS} />
+        <Grabber label="Move this sticky" inside={GLASS} />
         <StickyHead title="Today" open={asking}
           count={todos.length > 0 && (
             <span role="img" className="text-xs whitespace-nowrap tabular-nums" style={{ color: allDone ? 'var(--tt-color-text-green)' : 'var(--muted-foreground)' }} aria-label={todaySaid(todos.length - finished, finished)}>
