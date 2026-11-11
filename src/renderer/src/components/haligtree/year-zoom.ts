@@ -20,12 +20,12 @@ export const SWELL = 14
 const REACH = 12
 
 /** Past an edge, less and less follows: the further over, the harder it pulls back. */
-const rubber = (over: number, room: number, give = 0.55): number => (over * room * give) / (room + give * Math.abs(over))
+export const rubber = (over: number, room: number, give = 0.55): number => (over * room * give) / (room + give * Math.abs(over))
 const soft = (value: number, low: number, high: number, room: number): number =>
   value < low ? low - rubber(low - value, room) : value > high ? high + rubber(value - high, room) : value
 
 /** One spring step, critically damped: no bounce, settles from wherever it is now, with the speed it has. */
-const step = (at: number, speed: number, to: number, dt: number, stiff = 170): [number, number] => {
+export const step = (at: number, speed: number, to: number, dt: number, stiff = 170): [number, number] => {
   const damp = 2 * Math.sqrt(stiff)
   const next = speed + ((to - at) * stiff - damp * speed) * dt
   return [at + next * dt, next]
@@ -47,7 +47,7 @@ const spring = (at: number, speed: number, to: number, elapsed: number, stiff?: 
 export const shown = (px: number, from: number, full: number): number => Math.max(0, Math.min(1, (px - from) / (full - from)))
 
 /** A plain frame loop (`tick` returns false to stop until `again()`): the zoom moves only under the fingers or a key, so it never waits on the window being looked at. */
-const frameLoop = (tick: (now: number) => boolean): { again: () => void; stop: () => void } => {
+export const frameLoop = (tick: (now: number) => boolean): { again: () => void; stop: () => void } => {
   let frame = 0
   const run = (now: number): void => { frame = 0; if (tick(now)) frame = requestAnimationFrame(run) }
   return { again: () => void (frame || (frame = requestAnimationFrame(run))), stop: () => (cancelAnimationFrame(frame), (frame = 0), undefined) }

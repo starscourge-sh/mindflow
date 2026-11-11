@@ -23,6 +23,7 @@ import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu } from './row-menu'
 import { MonthPlan, MonthShowMenu } from './month-plan'
+import { growFrom, usePinchLevels } from './cal-pinch'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DaySide, type SideAsk } from './day-side'
 import { Highlight, useFluidHover, Weighted } from './glide'
@@ -65,8 +66,8 @@ const ACCENT = 'var(--tt-brand-color-400)'
 const LOOSE_FEW = 8
 /** An all-day event over more than one day: a bar across them in Month. */
 const manyDays = (one: Shown): boolean => !!one.allDay && dayKey(one.start) !== dayKey(dayjs(one.end).subtract(1, 'minute'))
-/** A study chip at a month line's height. */
-const MONTH_CHIP: React.CSSProperties = { height: 20, lineHeight: '20px' }
+/** A study chip in a month's line: tinted, so it stands 2px under the line above (the date, or another chip), as a task's words do. */
+const MONTH_CHIP: React.CSSProperties = { height: 18, lineHeight: '18px', marginTop: 2 }
 const MUTED_DAY = 'bg-[color-mix(in_oklab,var(--background)_97%,var(--foreground))]'
 /** The week's number, Monday to Sunday, the way a Mac's Calendar counts it (ISO 8601). */
 const weekOf = (day: Dayjs): number => { const thursday = day.startOf('week').add(3, 'day'); return Math.floor(thursday.diff(thursday.startOf('year'), 'day') / 7) + 1 }
@@ -194,6 +195,48 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     return () => watch.disconnect()
   }, [])
   const few = mode === 'week' && paneWide < FEW_UNDER
+  // Pinch out over a week in Month to open it, over a day in Week to open that; pinch in to go back up (cal-pinch.ts).
+  // The new level grows from where it stood; the D, W and M keys and the view buttons change it at once.
+  const level = useRef<HTMLDivElement>(null)
+  const zoom = useRef<{ from: DOMRect | null; find?: string } | null>(null)
+  usePinchLevels(pane, (el, way) => {
+    const now = live.current.mode
+    if (way === 'up') return now === 'month' ? null : level.current
+    if (now === 'month') return el.closest<HTMLElement>('[data-month-week]')
+    if (now !== 'week') return null
+    const day = el.closest<HTMLElement>('[data-cal-col], [data-cal-head], [data-cal-allday]')
+    const key = day?.dataset.calCol ?? day?.dataset.calHead ?? day?.dataset.calAllday
+    return key ? document.querySelector<HTMLElement>(`[data-cal-col="${CSS.escape(key)}"]`) : null
+  }, (way, el, rect) => {
+    const now = live.current.mode
+    setPeek(null)
+    if (way === 'up') {
+      const at = live.current.anchor
+      zoom.current = { from: null, find: now === 'week' ? `[data-month-week="${dayKey(at.startOf('week'))}"]` : `[data-cal-col="${dayKey(at)}"]` }
+      return setMode(now === 'week' ? 'month' : 'week')
+    }
+    // A day's column runs the whole day's height: what was in sight of it is the pane's height.
+    const box = pane.current?.getBoundingClientRect()
+    zoom.current = { from: now === 'week' && box ? new DOMRect(rect.left, box.top, rect.width, box.height) : rect }
+    setAnchor(dayjs(now === 'month' ? el.dataset.monthWeek : el.dataset.calCol).startOf('day'))
+    setMode(now === 'month' ? 'week' : 'day')
+  })
+  useLayoutEffect(() => {
+    const ask = zoom.current
+    zoom.current = null
+    const el = level.current
+    if (!ask || !el) return
+    if (ask.from) return growFrom(el, ask.from, false)
+    // Going up, the part you came from is found in the level drawn: the month lays its weeks once it knows its height,
+    // so it is looked for on the frame before the first paint.
+    requestAnimationFrame(() => {
+      const one = ask.find ? el.querySelector<HTMLElement>(ask.find) : null
+      if (!one) return
+      const at = one.getBoundingClientRect()
+      const box = el.getBoundingClientRect()
+      growFrom(el, one.dataset.calCol ? new DOMRect(at.left, box.top, at.width, box.height) : at, true)
+    })
+  }, [mode])
   const days = mode === 'day' ? [anchor] : few ? Array.from({ length: FEW }, (_, at) => anchor.add(at, 'day')) : Array.from({ length: 7 }, (_, at) => anchor.startOf('week').add(at, 'day'))
   // What a step is, as the arrows say it: a day, a week, a month, or the three days shown.
   const unit = few ? `${FEW} days` : mode
@@ -245,6 +288,12 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const own = useEvents(span[0].toISOString(), span[1].toISOString())
   const shownEvents: Shown[] = [...own.filter((one) => layers.shown(one.calendarId)).map((one) => ({ ...one, color: colorFor(one, layers.colorOf(one.calendarId)) })), ...macShown(layers.macEvents)]
   const shownTasks = layers.tasks ? tasks : []
+  // Month's events by day, sorted once a draw rather than sought again for each day: a fling draws a new week every few frames.
+  // A single day's all-day event sits on its day; those over several days are the month's bars.
+  const eventsByDay = new Map<string, Shown[]>()
+  // What a week's events are drawn from, as one line: a week of the month is drawn again only when it changed.
+  const eventsSaid = mode === 'month' ? shownEvents.map((one) => `${one.key}|${one.title}|${one.color}|${one.start}|${one.end}|${one.allDay}`).join('\n') : ''
+  if (mode === 'month') for (const one of shownEvents) if (!manyDays(one)) (eventsByDay.get(dayKey(one.start)) ?? (eventsByDay.set(dayKey(one.start), []), eventsByDay.get(dayKey(one.start))!)).push(one)
   // The study plan for the days shown: cards due and books' finishing days ("Study" in My calendars).
   const study = useStudy(dayKey(span[0]), dayKey(span[1].subtract(1, 'minute')), layers.study)
   // Drawn once every read it is made of has answered: drawn before, the calendars' list comes in above the
@@ -581,12 +630,13 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           </aside>
         )}
         <div ref={pane} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          <div ref={level} data-cal-level className="flex min-h-0 flex-1 flex-col">
           {mode === 'month' ? (
             <div className="flex min-h-0 flex-1 flex-col p-3">
-              <MonthPlan bare month={anchor} tasks={shownTasks} onSide={setPanel} onOpen={onOpen}
+              <MonthPlan bare month={anchor} tasks={shownTasks} onSide={setPanel} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars]}
                 dayExtra={(day) => [
                   ...studyChips(study.get(day), MONTH_CHIP),
-                  ...shownEvents.filter((one) => one.allDay ? !manyDays(one) && allDayOn([one], day).length > 0 : dayKey(one.start) === day).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} />)
+                  ...(eventsByDay.get(day) ?? []).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} />)
                 ]}
                 bars={shownEvents.filter(manyDays).map((one) => ({ key: one.key, from: dayKey(one.start), to: dayKey(dayjs(one.end).subtract(1, 'minute')), render: (day: string) => <EventChip one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} /> }))}
                 onShown={(month) => setAnchor(month.isSame(dayjs(), 'month') ? dayjs().startOf('day') : month)}
@@ -595,6 +645,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           ) : (
             <Grid days={days} tasks={shownTasks} marks={marked ? captures : undefined} study={study} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} />
           )}
+          </div>
         </div>
         {/* The right sidebar, as Notion Calendar's: Upcoming, or in its place the event or task being made or opened; closed,
             Upcoming is back. It floats over the days on the shared frost, so they keep their whole width under it. */}

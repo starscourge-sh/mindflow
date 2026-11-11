@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { dragWords } from '@/lib/drag-words'
 import { useReading } from '@/lib/reads-in'
 import { AnimatePresence, motion } from 'motion/react'
@@ -18,6 +18,7 @@ import { MarkChip } from './milestones'
 import { chime, quietFor } from '@/lib/sound'
 import { taskName } from '@/lib/tasks'
 import { loud } from '@/lib/loud'
+import { edge } from '@/lib/haptics'
 import { EASE, byKeys, useStill } from '@/lib/motion'
 import { moveMark, onDay as marksOn, useMilestones, type Milestone } from '@/lib/milestones'
 import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay } from '@/lib/calendar'
@@ -87,21 +88,25 @@ export function MonthShowMenu({ children }: { /** More lines under the switches:
  * drag a task to another day; click a day's empty space or its + to add one.
  * The week numbers open the week's page, the month's name the month's.
  *
- * Months go sideways: a swipe left or right on a trackpad, or ⇧ and the
- * wheel, slides to the next or the one before, one month a swipe. A plain
- * wheel scrolls the page, so the calendar never holds it.
+ * On Home it is six weeks a month, stepped by its arrows. On the Calendar
+ * (`bare`) the weeks run on as Apple Calendar's do: one column of weeks that
+ * scrolls up and down with the trackpad's glide and comes to rest on a week,
+ * the month named above changing as a month's first week reaches the top.
+ * Sideways swipes are never the month's: they are Back and Forward.
  */
-export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, bars = [] }: {
+export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [] }: {
   tasks: Task[]
   /** More chips for a day, before its tasks: the Calendar's events. */
   dayExtra?: (day: string) => React.ReactNode[]
+  /** What `dayExtra` and `bars` are drawn from, compared item by item: a week of the run is drawn again only when it changed. */
+  extraSaid?: unknown[]
   /** Things that run over several days (the Calendar's multi-day events): one bar across the days each covers, as in Week. */
   bars?: Bar[]
   /** The month shown, when the page above steps it (the Calendar); left out, it steps itself. */
   month?: Dayjs
-  /** Told the month when a swipe here brings another one. */
+  /** Told the month when scrolling here brings another one to the top. */
   onShown?: (month: Dayjs) => void
-  /** No heading line of its own, and the days fill the room there is. */
+  /** The Calendar's run of weeks: no heading line of its own, and the weeks fill the room there is. */
   bare?: boolean
   onDay: (day: string) => void
   /** The side panel of the page above, when it keeps one (the Calendar); left out, the month keeps its own. */
@@ -113,24 +118,27 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
 }): React.JSX.Element {
   const [month, setShown] = useState(() => (held ?? dayjs()).startOf('month'))
   // Which way the last move went: the new month comes in from that side. A
-  // move made by a key arrives at once (lib/motion rule 5); a click or a swipe slides.
+  // move made by a key arrives at once (lib/motion rule 5); a click slides.
   const [way, setWay] = useState({ dir: 1, instant: false })
   const first = month.startOf('week')
   const days = Array.from({ length: ROWS * 7 }, (_, index) => first.add(index, 'day'))
   const today = dayKey()
+  // What is read for marks and captures: the six weeks shown, or on the run two months either side of the one named,
+  // so a fling reads afresh once a month, never a week at a time.
+  const [from, to] = bare ? [dayKey(month.subtract(2, 'month').startOf('week')), dayKey(month.add(3, 'month').endOf('month'))] : [dayKey(days[0]), dayKey(days[days.length - 1])]
   // The days you opened Haligtree, and what was captured each day: shown when picked in the Show menu.
   const settings = useLive(haligtree.settings, null as Settings | null)
   const stats = useLive(haligtree.stats, null as Stats | null)
   const back = useLive(haligtree.snoozedBack, [] as Back[])
-  const marks = useMilestones(dayKey(days[0]), dayKey(days[days.length - 1]))
+  const marks = useMilestones(from, to)
   // Its page waits for these too: the marked days, the days opened and those coming back, never a day at a time.
   useReading(!settings || !stats || unloaded(back) || unloaded(marks))
   const marking = settings?.monthOpened === true
-  const opens = new Map((stats?.opens ?? []).map((one) => [one.day, one.n]))
+  const opens = useMemo(() => new Map((stats?.opens ?? []).map((one) => [one.day, one.n])), [stats])
   const counting = settings?.monthCaptures === true
-  const caught = useCaptureMarks(dayKey(days[0]), dayKey(days[days.length - 1]), counting)
-  const on = byDay(tasks, back)
-  const inMonth = days.filter((day) => day.isSame(month, 'month')).reduce((sum, day) => sum + linesOf(on.get(dayKey(day))).length, 0)
+  const caught = useCaptureMarks(from, to, counting)
+  const on = useMemo(() => byDay(tasks, back), [tasks, back])
+  const inMonth = Array.from({ length: month.daysInMonth() }, (_, at) => month.add(at, 'day')).reduce((sum, day) => sum + linesOf(on.get(dayKey(day))).length, 0)
   const still = useStill()
 
   /** To another month, from this side. */
@@ -143,14 +151,14 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   /** A month on or back, said to the page above too. */
   const move = (to: Dayjs, instant?: boolean): void => (goTo(to, instant), onShown?.(to.startOf('month')))
   const step = (by: number): void => (chime('tap'), move(month.add(by, 'month')))
-  // The page above steps it: go there, unless a swipe here already did.
+  // The page above steps it (Home's month steps itself; the run glides there itself, below).
   const heldKey = held?.format('YYYY-MM')
-  useEffect(() => void (held && goTo(held)), [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void (held && !bare && goTo(held)), [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // A week's height, for how many chips a day holds.
   const body = useRef<HTMLDivElement>(null)
   const [row, setRow] = useState(0)
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = body.current
     if (!el) return
     const fit = (): void => setRow(el.clientHeight / ROWS)
@@ -159,58 +167,11 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
     watch.observe(el)
     return () => watch.disconnect()
   }, [])
-  // Each week as tall as its busiest day asks, within limits: a busy week grows, a quiet one gives up its room.
-  const weekDays = Array.from({ length: ROWS }, (_, at) => days.slice(at * 7, at * 7 + 7))
-  const laid = weekDays.map((week) => layBars(bars, dayKey(week[0]), dayKey(week[6])))
-  const busiest = weekDays.map((week, at) => Math.max(...week.map((day) => {
-    const key = dayKey(day)
-    return linesOf(on.get(key)).length + (dayExtra?.(key).length ?? 0) + marksOn(marks, key).length
-  })) + laid[at].lanes)
-  // A quiet week keeps room for a line or two; a busy one grows up to about three times that.
-  const weights = busiest.map((most) => 1 + Math.min(6, most) * 0.3)
-  const whole = weights.reduce((sum, one) => sum + one, 0)
-  const roomOf = (at: number): number => Math.max(1, Math.floor((row * ROWS * (weights[at] / whole) - 1 - HEAD() - FOOT) / LINE()))
   const [carried, setCarried] = useState<Line | { kind: 'mark'; one: Milestone } | null>(null)
   const holding = useRef<{ line?: Line; mark?: Milestone } | null>(null)
   // A tick and a trackpad tap for each new day a carried task comes over; the day it was lifted from is no arrival.
   const ticks = useRef(slotTicker()).current
   const fromDay = useRef(true)
-
-  // A sideways swipe, or ⇧ and the wheel, is one month however long it runs
-  // on: a swipe's glide keeps sending, so the next month waits for a short
-  // quiet. Up and down are left to the page. A task held goes along.
-  const frame = useRef<HTMLDivElement>(null)
-  const gesture = useRef({ sum: 0, done: false, quiet: 0 })
-  const wheeled = (event: WheelEvent): void => {
-    const sideways = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.shiftKey ? event.deltaY : 0
-    if (!sideways) return
-    event.preventDefault()
-    const now = gesture.current
-    window.clearTimeout(now.quiet)
-    now.quiet = window.setTimeout(() => ((now.sum = 0), (now.done = false)), 150)
-    if (now.done) return
-    now.sum += sideways * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 400 : 1)
-    if (Math.abs(now.sum) < 24) return
-    now.done = true
-    chime('page')
-    move(month.add(Math.sign(now.sum), 'month'), false)
-  }
-  const onWheel = useRef(wheeled)
-  onWheel.current = wheeled
-  useEffect(() => {
-    const el = frame.current
-    if (!el) return
-    const turned = (event: WheelEvent): void => onWheel.current(event)
-    el.addEventListener('wheel', turned, { passive: false })
-    return () => el.removeEventListener('wheel', turned)
-  }, [])
-  // While a task is held the pointer is over the task carried, not the calendar: its swipes are heard there too.
-  useEffect(() => {
-    if (!carried) return
-    const turned = (event: WheelEvent): void => void (!frame.current?.contains(event.target as Node) && onWheel.current(event))
-    window.addEventListener('wheel', turned, { passive: false })
-    return () => window.removeEventListener('wheel', turned)
-  }, [carried])
 
   // What the side panel holds (a new task for a day, or a task), and what is being carried.
   const [mine, setMine] = useState<SideAsk | null>(null)
@@ -221,6 +182,73 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   const open = (line: Line): void => (chime('open'), line.kind === 'back' ? window.api.openInHome(line.one.type, line.one.id) : side({ task: line.task.id }))
   const COLS = 'grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] gap-px'
   const isThis = month.isSame(dayjs(), 'month')
+
+  /** Everything a week of the run is drawn from, for it to be drawn again only when one of them changed. */
+  const sign = (monday: Dayjs): unknown[] => {
+    const said: unknown[] = [today, marks, adding, marking, counting, ...extraSaid]
+    for (let at = 0; at < 7; at++) {
+      const key = dayKey(monday.add(at, 'day'))
+      said.push(on.get(key), caught.get(key), opens.get(key))
+    }
+    return said
+  }
+  /** How many lines a day in a week `height` tall holds, before its bars. */
+  const linesIn = (height: number): number => Math.max(1, Math.floor((height - 1 - HEAD() - FOOT) / LINE()))
+  /** One week: its number, its seven days and the bars across them; `place` puts it in the run. */
+  const week = (monday: Dayjs, room: number, laid: ReturnType<typeof layBars>, shown: Dayjs | null, edge: boolean, place?: React.CSSProperties): React.JSX.Element => {
+    const weekDays = Array.from({ length: 7 }, (_, at) => monday.add(at, 'day'))
+    return (
+      <div key={dayKey(monday)} data-month-week={dayKey(monday)} style={place} className={`${COLS} min-h-0 ${edge ? 'pt-px' : ''} ${place ? 'absolute inset-x-0' : 'relative'}`}>
+        <Tip label={`Open the week's page for week ${weekNumber(monday)}`}>
+          <button type="button" data-week-number={dayKey(monday)} onClick={() => (chime('open'), onWeek?.(dayKey(monday)))} aria-label={`Open week ${weekNumber(monday)}`}
+            className="flex justify-center bg-background pt-1.5 text-control text-foreground/70 tabular-nums transition-colors hover:bg-accent hover:text-foreground">
+            {weekNumber(monday)}
+          </button>
+        </Tip>
+        {weekDays.map((day) => {
+          const key = dayKey(day)
+          return <Cell key={key} day={day} lines={linesOf(on.get(key))} today={today} outside={!!shown && !day.isSame(shown, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
+            room={room - laid.lanes} reserve={laid.lanes} extra={dayExtra?.(key)} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} onItem={item} />
+        })}
+        {/* The week's bars, each one piece across the days it covers, under the dates. */}
+        {laid.placed.length > 0 && (
+          <div data-month-bars className="pointer-events-none absolute inset-x-0 grid gap-x-px px-px" style={{ top: HEAD() - 2 + (edge ? 1 : 0), gridTemplateColumns: '2rem repeat(7, minmax(0, 1fr))', gridAutoRows: `${LINE()}px`, rowGap: 0 }}>
+            {laid.placed.map(({ bar, from, to, lane }) => (
+              <div key={`${bar.key}:${dayKey(monday)}`} className="pointer-events-auto grid min-w-0 px-1" style={{ gridColumn: `${from + 2} / ${to + 3}`, gridRow: lane + 1 }}>{bar.render(dayKey(weekDays[from]))}</div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Home's six weeks: each week as tall as its busiest day asks, within limits: a busy week grows, a quiet one gives up its room.
+  const sixWeeks = (): React.JSX.Element => {
+    const mondays = Array.from({ length: ROWS }, (_, at) => days[at * 7])
+    const laid = mondays.map((monday) => layBars(bars, dayKey(monday), dayKey(monday.add(6, 'day'))))
+    const busiest = mondays.map((monday, at) => Math.max(...Array.from({ length: 7 }, (_, d) => {
+      const key = dayKey(monday.add(d, 'day'))
+      return linesOf(on.get(key)).length + (dayExtra?.(key).length ?? 0) + marksOn(marks, key).length
+    })) + laid[at].lanes)
+    // A quiet week keeps room for a line or two; a busy one grows up to about three times that.
+    const weights = busiest.map((most) => 1 + Math.min(6, most) * 0.3)
+    const whole = weights.reduce((sum, one) => sum + one, 0)
+    return (
+      <AnimatePresence initial={false} custom={way}>
+        <motion.div key={month.format('YYYY-MM')} data-month-grid={month.format('YYYY-MM')} custom={way}
+          variants={{
+            in: ({ dir }: typeof way) => ({ transform: `translateX(${dir * 100}%)` }),
+            at: { transform: 'translateX(0%)' },
+            out: ({ dir, instant }: typeof way) => ({ transform: `translateX(${dir * -100}%)`, transition: still || instant ? { duration: 0 } : SLIDE }),
+          }}
+          initial={still || way.instant ? false : 'in'} animate="at" exit="out" transition={still || way.instant ? { duration: 0 } : SLIDE}
+          className="absolute inset-0 grid gap-px" style={{ gridTemplateRows: weights.map((one) => `minmax(0, ${one}fr)`).join(' ') }}>
+          {mondays.map((monday, at) => week(monday, linesIn(row * ROWS * (weights[at] / whole)), laid[at], month, at === 0))}
+        </motion.div>
+      </AnimatePresence>
+    )
+  }
+
   return (
     <section data-month-plan data-month-shown={month.format('YYYY-MM')} className={`flex flex-col gap-2 ${bare ? 'min-h-0 flex-1' : ''}`}>
       {!bare && <div className="flex items-center gap-1">
@@ -244,7 +272,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         onDragCancel={() => setCarried(null)}
         onDragEnd={({ over }) => {
           setCarried(null)
-          // Kept from the lift: a swipe to another month takes the chip's own day, and its data, off the screen.
+          // Kept from the lift: scrolling to another month takes the chip's own day, and its data, off the screen.
           const { line, mark } = holding.current ?? {}
           holding.current = null
           if (mark) return over ? void moveMark(mark, String(over.id)) : chime('stay')
@@ -252,53 +280,17 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
           if (!over || line.kind === 'back' || line.kind === 'ready') return chime('stay')
           moveToDay(line.task, String(over.id), line.kind)
         }}>
-      <div ref={frame} data-swipe-own className={`flex flex-col overflow-hidden rounded-xl border bg-border ${bare ? 'min-h-0 flex-1' : ''}`}>
+      <div className={`flex flex-col overflow-hidden rounded-xl border bg-border ${bare ? 'min-h-0 flex-1' : ''}`}>
         <div className={COLS} aria-hidden>
           <div className="bg-background px-1 py-1 text-center text-control font-medium text-muted-foreground">Wk</div>
           {days.slice(0, 7).map((day) => (
             <div key={day.format('d')} data-month-weekday={day.day() === 0 || day.day() === 6 ? 'weekend' : 'weekday'} className={`bg-background px-2 py-1 text-control font-medium ${day.day() === 0 || day.day() === 6 ? 'text-foreground/60' : 'text-foreground/85'}`}>{day.format('ddd')}</div>
           ))}
         </div>
-        <div ref={body} data-month-scroll className={`relative min-h-0 overflow-hidden ${bare ? 'flex-1' : ''}`}
-          style={bare ? undefined : { height: 'max(40.5rem, calc(100vh - 22rem))' }}>
-          <AnimatePresence initial={false} custom={way}>
-            <motion.div key={month.format('YYYY-MM')} data-month-grid={month.format('YYYY-MM')} custom={way}
-              variants={{
-                in: ({ dir }: typeof way) => ({ transform: `translateX(${dir * 100}%)` }),
-                at: { transform: 'translateX(0%)' },
-                out: ({ dir, instant }: typeof way) => ({ transform: `translateX(${dir * -100}%)`, transition: still || instant ? { duration: 0 } : SLIDE }),
-              }}
-              initial={still || way.instant ? false : 'in'} animate="at" exit="out" transition={still || way.instant ? { duration: 0 } : SLIDE}
-              className="absolute inset-0 grid gap-px" style={{ gridTemplateRows: weights.map((one) => `minmax(0, ${one}fr)`).join(' ') }}>
-              {Array.from({ length: ROWS }, (_, at) => {
-                const monday = days[at * 7]
-                return (
-                  <div key={dayKey(monday)} data-month-week={dayKey(monday)} className={`${COLS} relative min-h-0 ${at ? '' : 'pt-px'}`}>
-                    <Tip label={`Open the week's page for week ${weekNumber(monday)}`}>
-                      <button type="button" data-week-number={dayKey(monday)} onClick={() => (chime('open'), onWeek?.(dayKey(monday)))} aria-label={`Open week ${weekNumber(monday)}`}
-                        className="flex justify-center bg-background pt-1.5 text-control text-foreground/70 tabular-nums transition-colors hover:bg-accent hover:text-foreground">
-                        {weekNumber(monday)}
-                      </button>
-                    </Tip>
-                    {days.slice(at * 7, at * 7 + 7).map((day) => {
-                      const key = dayKey(day)
-                      return <Cell key={key} day={day} lines={linesOf(on.get(key))} today={today} outside={!day.isSame(month, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
-                        room={roomOf(at) - laid[at].lanes} reserve={laid[at].lanes} extra={dayExtra?.(key)} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} onItem={item} />
-                    })}
-                    {/* The week's bars, each one piece across the days it covers, under the dates. */}
-                    {laid[at].placed.length > 0 && (
-                      <div data-month-bars className="pointer-events-none absolute inset-x-0 grid gap-x-px px-px" style={{ top: HEAD() + (at ? 0 : 1), gridTemplateColumns: '2rem repeat(7, minmax(0, 1fr))', gridAutoRows: `${LINE}px`, rowGap: 0 }}>
-                        {laid[at].placed.map(({ bar, from, to, lane }) => (
-                          <div key={`${bar.key}:${dayKey(monday)}`} className="pointer-events-auto grid min-w-0 px-1" style={{ gridColumn: `${from + 2} / ${to + 3}`, gridRow: lane + 1 }}>{bar.render(weekDays[at][from] ? dayKey(weekDays[at][from]) : bar.from)}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </motion.div>
-          </AnimatePresence>
-        </div>
+        {bare
+          ? <WeekRun body={body} row={row} held={held ?? month} shown={month} still={still} bars={bars} lines={linesIn} sign={sign}
+              onShown={(to) => (setShown(to), onShown?.(to))} week={week} />
+          : <div ref={body} data-month-scroll className="relative min-h-0 overflow-hidden" style={{ height: 'max(40.5rem, calc(100vh - 22rem))' }}>{sixWeeks()}</div>}
       </div>
       <Overlay dropAnimation={SETTLE}>
         {carried && carried.kind !== 'back' && <span data-carried-card="" className={`block ${CARD}`}>{carried.kind === 'mark' ? `${carried.one.icon ? `${carried.one.icon} ` : ''}${carried.one.title}` : taskName(carried.task.title).text}</span>}
@@ -306,9 +298,120 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
       </DndContext>
       <DotsKey opened={marking} captures={counting} />
       {!onSide && <DaySide ask={mine} onClose={() => setMine(null)} onOpen={onOpen} />}
-      {/* On the Calendar its line is always kept, so the days do not change height from month to month. */}
+      {/* On the Calendar its line is always kept, so the weeks do not change height from month to month. */}
       {(!inMonth || bare) && <p data-month-empty={!inMonth || undefined} aria-hidden={inMonth > 0 || undefined} className={`px-1 text-body text-foreground/85 ${inMonth ? 'invisible' : ''}`}>Nothing planned in {month.format('MMMM')}. Give a task a day, like “call the dentist friday”, or click a day to add one.</p>}
     </section>
+  )
+}
+
+/** The run's first week, and how many there are: every week from 1900 to 2200, far past any plan, drawn only near the screen. */
+const EPOCH = dayjs('1900-01-01').startOf('week')
+const WEEKS = 15_650
+const weekAt = (index: number): Dayjs => EPOCH.add(index * 7, 'day')
+const indexOf = (day: Dayjs): number => Math.round(day.startOf('week').hour(12).diff(EPOCH.hour(12), 'hour') / (7 * 24))
+/** Weeks drawn past those in sight, above and below, so a fling never shows a row not yet drawn: 3 + 6 + 3, twelve in all. */
+const OVER = 3
+/** The month a week at the top names: the month of its last day, so a month is named once its first week reaches the top. */
+const monthAt = (index: number): Dayjs => weekAt(index).add(6, 'day').startOf('month')
+/**
+ * One week of the run, drawn again only when what it shows changed (the month's data, the month named, its height),
+ * never because the run scrolled: a fling draws just the weeks coming into sight.
+ */
+const RunWeek = memo(function RunWeek({ index, row, room, bars, week }: { index: number; row: number; room: number; bars: Bar[]; week: WeekDraw; said: unknown[] }): React.JSX.Element {
+  const monday = weekAt(index)
+  // One pixel of the grid's line under each week, as between days. The month named dims the days outside it by a
+  // rule the run writes (WeekRun), so a new month at the top draws no week again.
+  return week(monday, room, layBars(bars, dayKey(monday), dayKey(monday.add(6, 'day'))), null, false, { top: index * row, height: row - 1 })
+}, (a, b) => a.index === b.index && a.row === b.row && a.room === b.room && a.said.length === b.said.length && a.said.every((one, at) => one === b.said[at]))
+type WeekDraw = (monday: Dayjs, room: number, laid: ReturnType<typeof layBars>, shown: Dayjs | null, edge: boolean, place?: React.CSSProperties) => React.JSX.Element
+/** Where the run was, kept for the page opened again on the same month: the week at its top. */
+let kept: { month: string; index: number } | null = null
+
+/**
+ * The Calendar's weeks as one column that scrolls: the trackpad's own scroll and glide, a CSS snap to rest on a week,
+ * six weeks to the height of the box. Only the twelve weeks near the screen are drawn; the rest is room. As a new
+ * month's first week reaches the top the month is told to the page above, with one firm tap. Asked for another month
+ * (the arrows, Today, a key), it glides there, or is there at once by a key or with Motion off or Reduce motion.
+ */
+function WeekRun({ body, row, held, shown, still, bars, lines, sign, onShown, week }: {
+  body: React.RefObject<HTMLDivElement | null>
+  row: number
+  held: Dayjs
+  shown: Dayjs
+  still: boolean
+  bars: Bar[]
+  lines: (height: number) => number
+  sign: (monday: Dayjs) => unknown[]
+  onShown: (month: Dayjs) => void
+  week: WeekDraw
+}): React.JSX.Element {
+  const heldKey = held.format('YYYY-MM')
+  const [top, setTop] = useState(() => (kept?.month === heldKey ? kept.index : indexOf(held.startOf('month'))))
+  // The month the run names now, read from the scroll; while the run glides where it was sent, it names nothing on the way.
+  const named = useRef(heldKey)
+  const gliding = useRef(false)
+  const placed = useRef(false)
+  const where = (el: HTMLElement): number => Math.floor(el.scrollTop / row + 0.02)
+  const settle = (el: HTMLElement, tap: boolean): void => {
+    const at = where(el)
+    const month = monthAt(at)
+    kept = { month: month.format('YYYY-MM'), index: at }
+    setTop(at)
+    if (month.format('YYYY-MM') === named.current) return
+    named.current = month.format('YYYY-MM')
+    if (tap) edge()
+    onShown(month)
+  }
+  // Placed before the first paint, and kept on its week when the box changes height.
+  useLayoutEffect(() => {
+    const el = body.current
+    if (!el || !row) return
+    el.scrollTop = top * row
+    placed.current = true
+  }, [row]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Sent to another month by the page above: glide to its first week.
+  useEffect(() => {
+    const el = body.current
+    if (!el || !row || heldKey === named.current) return
+    named.current = heldKey
+    const to = indexOf(held.startOf('month')) * row
+    if (Math.abs(el.scrollTop - to) < 1) return
+    const instant = still || byKeys()
+    gliding.current = !instant
+    el.scrollTo({ top: to, behavior: instant ? 'instant' : 'smooth' })
+  }, [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const el = body.current
+    if (!el) return
+    const scrolled = (): void => void (row && placed.current && (gliding.current ? setTop(where(el)) : settle(el, true)))
+    // Come to rest, after the trackpad's glide: onto the nearest week. Done here rather than by CSS scroll snap, which
+    // snaps only to weeks already drawn and so, sent a year away, pulled back to the weeks it left.
+    const ended = (): void => {
+      if (!row) return
+      gliding.current = false
+      const near = Math.round(el.scrollTop / row) * row
+      if (Math.abs(el.scrollTop - near) > 0.5) return el.scrollTo({ top: near, behavior: still ? 'instant' : 'smooth' })
+      settle(el, false)
+    }
+    el.addEventListener('scroll', scrolled, { passive: true })
+    el.addEventListener('scrollend', ended)
+    return () => (el.removeEventListener('scroll', scrolled), el.removeEventListener('scrollend', ended))
+  })
+  const room = lines(row)
+  const firstDrawn = Math.max(0, top - OVER)
+  const lastDrawn = Math.min(WEEKS - 1, top + ROWS + OVER - 1)
+  return (
+    <div ref={body} data-month-scroll data-month-run={shown.format('YYYY-MM')} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
+      {/* The days outside the month named, dimmed as on Home's month: one rule, so naming a new month draws nothing again. */}
+      <style>{`[data-month-run] [data-day]:not([data-day^="${shown.format('YYYY-MM')}-"]) [data-day-number]:not([aria-current]) { color: color-mix(in oklab, var(--foreground) 40%, transparent); font-weight: 400 } [data-month-run] [data-day]:not([data-day^="${shown.format('YYYY-MM')}-"]) :is([data-plan-more], [data-plan-task], [data-mark-flag]) { opacity: 0.6 }`}</style>
+      <div style={{ height: WEEKS * row }} className="relative">
+        {row > 0 && Array.from({ length: lastDrawn - firstDrawn + 1 }, (_, at) => {
+          const monday = weekAt(firstDrawn + at)
+          const laid = layBars(bars, dayKey(monday), dayKey(monday.add(6, 'day'))).placed.map(({ bar, from, to, lane }) => `${bar.key}:${from}:${to}:${lane}`).join()
+          return <RunWeek key={firstDrawn + at} index={firstDrawn + at} row={row} room={room} bars={bars} week={week} said={[laid, ...sign(monday)]} />
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -370,7 +473,8 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
           </button>
         </Tip>
       </div>
-      {reserve > 0 && <span aria-hidden className="shrink-0" style={{ height: reserve * LINE() + 2 }} />}
+      {/* The bars' lanes; a bar's chip keeps its own 2px under the date, as every tinted chip does. */}
+      {reserve > 0 && <span aria-hidden className="shrink-0" style={{ height: reserve * LINE() }} />}
       {/* Wide enough, each thing by name; narrow (a small window), a dot for each and the count, never words cut to a letter. */}
       <div className="hidden min-h-0 flex-1 flex-col overflow-hidden @[5.5rem]/cell:flex">
         {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
