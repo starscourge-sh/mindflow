@@ -3,7 +3,7 @@
 // something once) or a view (how the list is shown), and check every kind is
 // one unbroken run: filters first on the line's left, by the content they
 // filter, the views at the far right. A filter also stays put when clicked.
-//   Inbox: "Show sorted too" left; Go through…; Display and Spread right; Graph last in the chip row.
+//   Inbox: "Show dealt with too" left; Go through…; Display and Spread right; Graph last in the chip row.
 //   Pages and Questions: All / Questions left; New page; Read through, Display, Spread right.
 //   Goals: Open / Ended / On ice left; Stick all goals, New goal right.
 //   Tasks ⋯: the ticks (Urgent and important, Your order) in one part, "I have 15 min" with the other things to do.
@@ -18,7 +18,7 @@ const { h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 
 const KINDS = {
-  filter: /^(All|Questions|Open|Ended|On ice|Show sorted too|Note|Task|Quote|Word|Link|Check back|Which tasks.*)$/,
+  filter: /^(All|Questions|Open|Ended|On ice|Show dealt with too|Note|Task|Quote|Word|Link|Check back|Which tasks.*)$/,
   action: /^(New page|New question|New goal|Stick all goals|Go through…|\d+ to sort|Two at random)$/,
   view: /^(Read through|Display.*|Spread the list over the page|Back beside the note|Fold the list to pictures|Graph)$/
 }
@@ -66,12 +66,12 @@ try {
   // Inbox: the switch on the left, then what you do, then how it shows.
   await bar('Inbox', 'inbox', ['filter', 'action', 'view'])
   await wait(600)
-  await stays('Inbox "Show sorted too"', () => h.locator(`${HEADER} [data-sorted-too] button[role=switch]`).first().click())
+  await stays('Inbox "Show dealt with too"', () => h.locator(`${HEADER} [data-sorted-too] button[role=switch]`).first().click())
   const chips = await controls('[data-page] [data-kind-chips]')
   check('Inbox chips: the kinds, then Graph at the far end', runs(chips).join(',') === 'filter,view' && chips.at(-1)?.name === 'Graph', said(chips))
   const gap = chips.length > 1 ? chips.at(-1).left - chips.at(-2).left : 0
   check('Inbox chips: Graph stands well apart from the last kind', gap > 200, `${gap}px`)
-  await bar('Inbox, sorted too on', 'all', ['filter', 'action', 'view'])
+  await bar('Inbox, dealt with too on', 'all', ['filter', 'action', 'view'])
 
   // Pages and its questions: the two chips on the left, New page, then the views.
   await bar('Writing', 'articles', ['filter', 'action', 'view'])

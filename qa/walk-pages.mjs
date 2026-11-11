@@ -1,9 +1,9 @@
 // A walk through the main pages and lists as a person meets them, a picture of
-// each: the Day page (Today), Inbox, the Inbox with sorted too, Pages, Gems, a tag page, Tags, Review, Map,
+// each: the Day page (Today), Inbox, the Inbox with dealt with too, Pages, Gems, a tag page, Tags, Review, Map,
 // the Inbox's Graph, Questions, Goals, Calendar, Today, Upcoming, the Bin,
 // Archived, the sidebar's foot menu, ⌘K and Switch book. MODE picks the walk:
 //   basic  (the default) large and light, then small and dark; one ⌘A, ⌫ and
-//          ⌘Z on the Inbox and with "Show sorted too" on, grouped by kind.
+//          ⌘Z on the Inbox and with "Show dealt with too" on, grouped by kind.
 //   looks  Soft, Brutal and Paper, each at 900x700 (a dark theme) and
 //          1600x1000 (Paper's light theme).
 //   keys   the Mac gestures on every list: ↑ ↓, Enter, Esc, ⌘-click, ⇧-click
@@ -29,7 +29,7 @@ const c = await sandbox({ width: 1600, height: 1000, seeded: MODE !== 'empty' })
 const { h, v, go, size, electron } = c
 const shot = async (name) => { await h.waitForTimeout(500); await h.screenshot({ path: `${SHOTS}/${name}.png` }).catch((e) => console.log('no shot', name, e.message)) }
 const esc = async () => { await h.keyboard.press('Escape'); await h.waitForTimeout(300) }
-// Everything is the Inbox with "Show sorted too" on: its page is named so.
+// Everything is the Inbox with "Show dealt with too" on: its page is named so.
 const page = (id) => `[data-page="${({ all: 'inbox' })[id] ?? id}"]`
 
 // What a person would see go wrong on a screen, read off the page.
@@ -66,7 +66,7 @@ const read = (root) => h.evaluate((root) => ({
   rows: (document.querySelector(root) ?? document).querySelectorAll('[data-row][data-id]').length,
   toast: [...document.querySelectorAll('[role=status][aria-live]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ')
 }), root)
-const PAGES = [['home', 'home'], ['today page', 'day'], ['inbox', 'inbox'], ['inbox sorted too', 'all'], ['pages', 'articles'], ['gems', 'nuggets'], ['tags', 'tags'], ['review', 'review'], ['map', 'map'],
+const PAGES = [['home', 'home'], ['today page', 'day'], ['inbox', 'inbox'], ['inbox dealt with too', 'all'], ['pages', 'articles'], ['gems', 'nuggets'], ['tags', 'tags'], ['review', 'review'], ['map', 'map'],
   ['questions', 'questions'], ['goals', 'goals'], ['calendar', 'calendar'], ['today', 'today'], ['upcoming', 'upcoming'], ['bin', 'discarded'], ['archived', 'archived']]
 const style = async (name, theme) => {
   await h.evaluate(([s, t]) => { localStorage.setItem('style', s); localStorage.setItem('theme', t) }, [name, theme])
@@ -327,7 +327,7 @@ try {
     await v('task:add', `🌋 ${long} today`).catch(() => {})
     await v('question:new', `Why ${long}?`).catch(() => {})
     await h.waitForTimeout(800)
-    for (const [name, id] of [['inbox', 'inbox'], ['inbox sorted too', 'all'], ['pages', 'articles'], ['questions', 'questions'], ['tasks', 'today'], ['today page', 'day'], ['home', 'home']]) { await go(id); await look(`long ${name}`, `long-${name}`) }
+    for (const [name, id] of [['inbox', 'inbox'], ['inbox dealt with too', 'all'], ['pages', 'articles'], ['questions', 'questions'], ['tasks', 'today'], ['today page', 'day'], ['home', 'home']]) { await go(id); await look(`long ${name}`, `long-${name}`) }
     await c.send('tag', tag); await h.waitForTimeout(1200); await look('long tag page', 'long-tag-page')
     // Opened: the untitled, the emoji and the broken picture.
     for (const which of ['none', 'emoji', 'broken']) { await c.send('capture', ids[which]); await h.waitForTimeout(1200); await look(`open ${which}`, `open-${which}`); await esc() }

@@ -142,12 +142,12 @@ try {
   const open = caps.filter((one) => one.status === 'open')
   if (open[0]) await h.evaluate((id) => window.api.captures.save(id, { status: 'resolved' }), open[0].id)
   for (const one of open.slice(-2)) await h.evaluate((id) => window.api.haligtree('notes:archive', 'captures', [id], true), one.id).catch(() => {})
-  // Everything is the Inbox with "Show sorted too" on: its page is named so.
+  // Everything is the Inbox with "Show dealt with too" on: its page is named so.
   const page = (id) => `[data-page="${({ all: 'inbox' })[id] ?? id}"]`
-  // The Inbox asked for from "Show sorted too" stays as it is (the page you are on); from elsewhere it opens plain.
+  // The Inbox asked for from "Show dealt with too" stays as it is (the page you are on); from elsewhere it opens plain.
   const main = async (id) => { if (id === 'inbox') await go('day'); await go(id); await h.waitForTimeout(400) }
   const MAIN = [
-    ['Inbox, sorted too', 'all'], ['Inbox', 'inbox'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Writing', 'articles'],
+    ['Inbox, dealt with too', 'all'], ['Inbox', 'inbox'], ['Archived', 'archived'], ['Gems', 'nuggets'], ['Writing', 'articles'],
     ['Questions', 'questions'], ['Goals', 'goals'], ['Tasks', 'today'], ['Upcoming', 'upcoming'], ['Routines', 'routines'], ['Later', 'later'], ['Today page', 'day'], ['Home', 'home']
   ]
   for (const [name, id] of MAIN) await surface(name, h, page(id), () => main(id), { click: id !== 'day' && id !== 'home', emptied: id === 'inbox', kept: id === 'day' })

@@ -1,6 +1,6 @@
 // Order implies purpose: wherever kinds are listed, Note comes first, then
 // Task, then Quote, Term, Link and Check back (kindRank). Read here from the
-// Inbox's kind chips, its chips with "Show sorted too" on, its sections when
+// Inbox's kind chips, its chips with "Show dealt with too" on, its sections when
 // grouped by kind, Pages' and quick capture's kinds. The Inbox, with the switch
 // on or off, groups by date to start, newest first, as Pages does. Pages says
 // "page", never "article": "New page", "Start a page".
@@ -38,10 +38,10 @@ try {
   check('1. the Inbox groups by date to start', offHeads.length > 0 && offHeads.every((one) => AGES.includes(one)), offHeads.join(', '))
   check('1. … newest first', inOrder(offHeads, (one) => AGES.indexOf(one)), offHeads.join(', '))
 
-  // 2. "Show sorted too": everything, by date, Note's chip before the tasks'.
+  // 2. "Show dealt with too": everything, by date, Note's chip before the tasks'.
   await sorted().click(); await wait(1500)
   const onChips = (await chips('[data-everything-filter]')).filter((one) => ORDER.includes(one))
-  check('2. with "Show sorted too", Note comes before Task', onChips.indexOf('Note') >= 0 && onChips.indexOf('Task') > onChips.indexOf('Note'), onChips.join(', '))
+  check('2. with "Show dealt with too", Note comes before Task', onChips.indexOf('Note') >= 0 && onChips.indexOf('Task') > onChips.indexOf('Note'), onChips.join(', '))
   check('2. … and every chip keeps the one order', inOrder(onChips, rank), onChips.join(', '))
   const onHeads = await heads()
   check('2. it groups by date to start: Today, This week, This month…', onHeads.length > 0 && onHeads.every((one) => AGES.includes(one)) && inOrder(onHeads, (one) => AGES.indexOf(one)), onHeads.join(', '))

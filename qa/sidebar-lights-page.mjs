@@ -71,7 +71,7 @@ try {
   await moves('Gems to Pages', () => go('articles'), 'Writing')
   await moves('a question lights Pages', () => go('questions'), 'Writing')
   await moves('to Journal', () => go('day'), 'Journal')
-  await moves('the Inbox with "Show sorted too"', () => go('all'), 'Inbox')
+  await moves('the Inbox with "Show dealt with too"', () => go('all'), 'Inbox')
   await moves("to Week's page", () => go('weekpage'), "Week's page")
   await moves("to Month's page", () => go('monthpage'), "Month's page")
   // The Year has no row: the page it was opened from, Journal, stays lit.

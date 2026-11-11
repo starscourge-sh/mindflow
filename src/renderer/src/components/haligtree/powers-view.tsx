@@ -356,7 +356,7 @@ const PAGE_LINES: Record<string, string> = {
   home: 'What comes back to you, and shelves of what you kept.',
   day: 'The day\'s writing on top, its tasks under it.',
   articles: 'What you write, and the questions you hold open.',
-  inbox: 'Everything you catch, waiting to be looked at; “Show sorted too” lists the rest.',
+  inbox: 'Everything you catch, waiting to be looked at; “Show dealt with too” lists the rest.',
   nuggets: 'What you kept, in your own words.',
   review: 'Gems asking to be remembered, a few a day.',
   today: 'Today, Upcoming, Later and Routines, as tabs.',

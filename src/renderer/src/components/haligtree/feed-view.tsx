@@ -278,7 +278,7 @@ export function FeedView({ onOpen, focus }: { onOpen: (type: string, id: string)
   // ("84 pages to read") and the tab's own switch on its right.
   const tabs = <TabChips name="feed" tabs={FEED_TABS} value={tab} onChange={choose} />
   const extra = tab === 'notes' && settings ? (
-    // Set as the Inbox's "Show sorted too" is: the switch, then its words, on a row that lights on hover.
+    // Set as the Inbox's "Show dealt with too" is: the switch, then its words, on a row that lights on hover.
     <label data-feed-pages className="flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
       <Switch checked={pages} onCheckedChange={(feedPages) => (chime(feedPages ? 'tick' : 'tap'), void haligtree.setSettings({ feedPages }))} />
       Pages too

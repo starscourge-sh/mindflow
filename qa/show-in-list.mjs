@@ -139,17 +139,17 @@ try {
     }
   }
 
-  // A task open in the Inbox's "Show sorted too": its own line has “Show in list” too.
+  // A task open in the Inbox's "Show dealt with too": its own line has “Show in list” too.
   {
     const P = '[data-page="inbox"]'
     await go('inbox'); await wait(900)
     await h.locator(`${P} [data-sorted-too] [role=switch]`).first().click(); await wait(900)
     const id = await h.evaluate((P) => [...document.querySelectorAll(`${P} [data-row][data-id]`)].find((row) => /wrenfield task/.test(row.textContent))?.dataset.id, P)
-    if (!id) check('Show sorted too lists a task', false)
+    if (!id) check('Show dealt with too lists a task', false)
     else {
       await h.locator(ROW(P, id)).first().click({ position: { x: 60, y: 10 } }); await wait(900)
       const line = h.locator(`${P} button, ${P} [role=button]`).filter({ hasText: /^Show in list/ }).first()
-      check('a task open in Show sorted too has “Show in list”', (await line.count()) > 0)
+      check('a task open in Show dealt with too has “Show in list”', (await line.count()) > 0)
       if (await line.count()) {
         await watchLit(P, id)
         await line.click(); await wait(1100)

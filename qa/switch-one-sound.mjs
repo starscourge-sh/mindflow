@@ -1,5 +1,5 @@
 // A switch sounds once: its own "on" or "off", nothing after it. The Inbox's
-// "Show sorted too" once played "on" twice, which reads as a second, other sound.
+// "Show dealt with too" once played "on" twice, which reads as a second, other sound.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/switch-one-sound.mjs
 // It reads what played (window.haligtreeHeard), so it runs muted like every probe.
 import { sandbox } from './sandbox-lib.mjs'
@@ -17,10 +17,10 @@ const since = async (run) => {
 }
 try {
   await go('inbox'); await wait(1500)
-  const sorted = h.getByRole('switch', { name: 'Show sorted too' })
+  const sorted = h.getByRole('switch', { name: 'Show dealt with too' })
   for (const [turn, sound] of [['on', 'on'], ['off', 'off']]) {
     const heard = await since(() => sorted.click())
-    check(`Show sorted too, ${turn}: one "${sound}" and nothing else`, heard.length === 1 && heard[0] === `cue:${sound}`, heard.join(', '))
+    check(`Show dealt with too, ${turn}: one "${sound}" and nothing else`, heard.length === 1 && heard[0] === `cue:${sound}`, heard.join(', '))
   }
   // Settings' own switches, each turned and turned back: one sound for each turn.
   await go('settings'); await wait(1500)

@@ -235,7 +235,7 @@ try {
 
   // Every page of the main window, opened cold. `store`: a remembered choice set first (the calendar's scale).
   const ALL = [
-    // Tomorrow and This week's tasks are the top of Upcoming now; Everything (all) is the Inbox with "Show sorted too" on.
+    // Tomorrow and This week's tasks are the top of Upcoming now; Everything (all) is the Inbox with "Show dealt with too" on.
     'home', 'inbox', 'all', 'archived', 'lookups', 'articles', 'nuggets', 'questions', 'goals', 'today', 'upcoming', 'routines', 'later',
     'calendar@day', 'calendar@week', 'calendar@month', 'matrix', 'review', 'queue', 'tags', 'tag', 'sources', 'stats', 'map', 'settings', 'practices',
     'day', 'weekpage', 'monthpage', 'yearpage', 'discarded',
@@ -366,7 +366,7 @@ try {
       report(name, frames.length > 1 ? frames.slice(1) : frames, false, options)
     }
     // ⌘A and ⌫ send everything on show to the Bin; ⌘Z brings it all back in one step.
-    await moment('The Inbox with sorted too, after ⌘Z of a big Bin move', 'all', async () => {
+    await moment('The Inbox with dealt with too, after ⌘Z of a big Bin move', 'all', async () => {
       await h.keyboard.press('Escape')
       await h.keyboard.press('Meta+a'); await wait(300)
       await h.keyboard.press('Backspace'); await wait(1500)

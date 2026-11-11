@@ -54,7 +54,7 @@ export const WORDS: Word[] = [
     forms: ['Inbox'],
     line: 'Where every capture waits until you deal with it',
     origin: 'From the office in-tray',
-    here: '**Every capture you have not dealt with yet.** Each one leaves when you do: P saves it as a gem, W moves it to Writing as a page, R marks it finished, D moves it to the Bin.',
+    here: '**Every capture you have not dealt with yet.** Each one leaves when you do: P saves it as a gem, W moves it to Writing as a page, R resolves it, D moves it to the Bin. Open one and “Inbox”, over it, lists every place it can go.',
     try: 'Press P, W, R or D on one in the Inbox; leaving one waiting is fine too.',
     history: 'Desks once had two wire trays, in and out: papers arrived in one and left by the other. Email borrowed the in-tray as the inbox.',
     see: ['capture', 'tidy', 'decide']

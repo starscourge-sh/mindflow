@@ -270,7 +270,7 @@ try {
   // 14. Spread over the page, a search cleared: the one looked at is back in view, the keyboard on it.
   await h.evaluate(() => localStorage.setItem('view:captures:All captures', JSON.stringify({ pane: 'wide', wideDensity: 'list', group: 'kind' })))
   await h.reload(); await wait(1800)
-  // Everything is the Inbox with "Show sorted too" on: its own Display, kept as All captures'. By kind, as it was: its last island holds notes, not tasks (a task opens in a pane of its own).
+  // Everything is the Inbox with "Show dealt with too" on: its own Display, kept as All captures'. By kind, as it was: its last island holds notes, not tasks (a task opens in a pane of its own).
   await go('all'); await wait(1200)
   const last = h.locator('[data-page="inbox"] [data-row][data-id]').last()
   await last.click(); await wait(500)

@@ -92,7 +92,7 @@ export const POWERS: Power[] = [
   { id: 'onetask', group: 'Tasks and time', name: 'One task from many notes', line: 'Pick a few notes that are really one job, and turn them into a single task that links back to each.', keys: ['⌘K'],
     show: { view: 'inbox', at: ROW, text: '⇧-click a few rows to pick them, then ⌘K and “Make one task”.' } },
   { id: 'merge', group: 'Writing', name: 'Merge two notes into one', line: 'Merge one note into another, found by its words, and both sets of words stay.',
-    show: { view: 'inbox', at: ROW, text: 'Open a note, click “Details” at its top right, open “Status”, choose “Merge into another note…”, and type a few words of the other note.' } },
+    show: { view: 'inbox', at: ROW, text: 'Open a note, click “Details” at its top right and, under “Where it goes”, choose “Merge into another note…”, then type a few words of the other note.' } },
 
   // Writing
   { id: 'properties', group: 'Writing', name: 'Properties, and tags that bring them', tryIt: 'In any note, type Author:: Ursula Le Guin on a line of its own and press ↵.', line: 'Any note or page can carry properties: a name and a value (words, a number, a date, yes or no, a choice, a link), in a quiet strip under its title. Give one to a tag and every note with that tag gets it, as #book brings Status and Rating. Search author:le guin to find them.', keys: ['⌥⌘P'],

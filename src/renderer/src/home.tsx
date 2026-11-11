@@ -229,11 +229,11 @@ const SPLIT = 'split'
 const fresh = (views: View[] = [{ id: 'day' }]): PaneState => paneOf(newTab(views.map(landing)))
 /** What the + opens, and what the last tab of the only pane goes to when it closes. */
 const LANDING: View = { id: 'day' }
-/** Whether a capture is still in the Inbox without "Show sorted too": asked by `landing` (set by Home). */
+/** Whether a capture is still in the Inbox without "Show dealt with too": asked by `landing` (set by Home). */
 let unsorted: (id: string) => boolean = () => false
 /**
  * Pages that are not places of their own any more, sent where they live now:
- * Everything is the Inbox with "Show sorted too" on (only
+ * Everything is the Inbox with "Show dealt with too" on (only
  * when what it opens needs it), Tomorrow and This week the top of Upcoming.
  */
 function landing(view: View): View {
@@ -448,7 +448,7 @@ export function Home(): React.JSX.Element {
       // Going where you already are is not a step: Back would have to undo it.
       // Nor is the section you are in, asked for again: what is open stays.
       // A day's, week's or month's page asked for by name goes to now, from any other day it is on.
-      // A tab asked for (the Inbox's "Show sorted too", from an Everything link) is a change of its own.
+      // A tab asked for (the Inbox's "Show dealt with too", from an Everything link) is a change of its own.
       if (here.id === next.id && here.folder === next.folder && (here.focus === next.focus || (next.focus === undefined && atNow(here))) && here.nonce === next.nonce && (next.tab === undefined || next.tab === here.tab)) return trail
       if (here.id === next.id && next.focus === undefined && !atNow(here)) chime(here.id === 'day' ? 'page' : 'season')
       // One sound a move: a place reached by something that already spoke (a map dot, ⌘K's Year) stays quiet.
