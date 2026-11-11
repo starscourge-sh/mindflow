@@ -40,9 +40,11 @@ function saveKept(): void {
   for (const [key, one] of kept) out[key] = { stamp: one.stamp, lemmas: one.lemmas }
   void writeFile(keptFile(), JSON.stringify(out)).catch(() => undefined)
 }
-let built: { at: number; index: RootIndex; rows: Row[] } | null = null
-let stale = true
-let building: Promise<{ index: RootIndex; rows: Row[] }> | null = null
+/** The index as last made, and which change of the book it was read at (`as`). */
+let built: { at: number; index: RootIndex; rows: Row[]; as: number } | null = null
+/** How many times the book has changed since launch: an index made at an earlier count is out of date. */
+let changes = 1
+let building: Promise<void> | null = null
 
 const vectorOf = (one: unknown): Float32Array | null => (typeof one === 'string' ? new Float32Array(Buffer.from(one, 'base64').buffer.slice(0)) : null)
 
@@ -80,25 +82,34 @@ function rows(): Row[] {
 }
 
 async function index(): Promise<{ index: RootIndex; rows: Row[] }> {
-  if (built && !stale) return built
-  building ??= (async () => {
-    stale = false
-    const all = rows()
-    loadKept()
-    const fresh = all.filter((row) => kept.get(row.key)?.stamp !== row.stamp)
-    // Roots only, a hundred notes a request: 5,000 notes are read once, in the background, then kept on disk.
-    for (let at = 0; at < fresh.length; at += 100) {
-      const batch = fresh.slice(at, at + 100)
-      const said = await understand('roots', { texts: batch.map((row) => `${row.title}\n${row.text}`) }, 'background')
-      const read = (said.roots as Lemmas[] | undefined) ?? []
-      batch.forEach((row, i) => kept.set(row.key, { stamp: row.stamp, meaning: kept.get(row.key)?.meaning ?? null, lemmas: read[i] ?? {} }))
-    }
-    if (fresh.length) saveKept()
-    const notes: RootNote[] = all.map((row) => ({ key: row.key, title: row.title ?? '', text: row.text ?? '', lemmas: kept.get(row.key)?.lemmas }))
-    built = { at: Date.now(), index: new RootIndex(notes), rows: all }
-    return built
-  })().finally(() => (building = null))
-  return building
+  // Never answer from a book older than the one the asker sees. An ask that came while an index was being made
+  // used to be given that one, begun before the last save: a note written a moment ago was missing from it, so a
+  // name it holds was not offered, and nothing asked again until a key was typed. Now the ask waits for the index
+  // being made and, when the book has changed since that one began, for one more (only changed notes are read).
+  const need = changes
+  while (!built || built.as < need) {
+    building ??= make().finally(() => (building = null))
+    await building
+  }
+  return built
+}
+
+/** The index made again from the book as it is now; only notes changed since they were last read are read. */
+async function make(): Promise<void> {
+  const as = changes
+  const all = rows()
+  loadKept()
+  const fresh = all.filter((row) => kept.get(row.key)?.stamp !== row.stamp)
+  // Roots only, a hundred notes a request: 5,000 notes are read once, in the background, then kept on disk.
+  for (let at = 0; at < fresh.length; at += 100) {
+    const batch = fresh.slice(at, at + 100)
+    const said = await understand('roots', { texts: batch.map((row) => `${row.title}\n${row.text}`) }, 'background')
+    const read = (said.roots as Lemmas[] | undefined) ?? []
+    batch.forEach((row, i) => kept.set(row.key, { stamp: row.stamp, meaning: kept.get(row.key)?.meaning ?? null, lemmas: read[i] ?? {} }))
+  }
+  if (fresh.length) saveKept()
+  const notes: RootNote[] = all.map((row) => ({ key: row.key, title: row.title ?? '', text: row.text ?? '', lemmas: kept.get(row.key)?.lemmas }))
+  built = { at: Date.now(), index: new RootIndex(notes), rows: all, as }
 }
 
 const near = (a: Float32Array | null | undefined, b: Float32Array | null | undefined): number => {
@@ -207,7 +218,7 @@ export const notesAbout = about
 
 export function registerOffers(): void {
   // Anything saved: the index is made again the next time it is asked.
-  whenChanged(() => void (stale = true))
+  whenChanged(() => void changes++)
   ipcMain.handle('haligtree:offers:note', (_event, key: unknown, text: unknown, linked: unknown) => forNote(String(key ?? ''), String(text ?? ''), Array.isArray(linked) ? linked.map(String) : []))
   // Made once the app has settled, so the first offer never waits for the whole book to be read.
   setTimeout(() => void index().catch(() => undefined), 20_000)
@@ -217,7 +228,7 @@ export function registerOffers(): void {
     const db = database()
     const last = (db.prepare('select max(group_order) as at from nuggets where group_id = ?').get(String(group ?? '')) as { at: number | null }).at ?? 0
     db.prepare('update nuggets set group_id = ?, group_order = ?, unsorted = 0 where id = ?').run(group ? String(group) : null, group ? last + 1 : null, String(id))
-    stale = true
+    changes++
     changed()
     return true
   })
