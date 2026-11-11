@@ -51,8 +51,12 @@ export interface HaligtreeHost {
   imageText?: (src: string) => Promise<string | null>
   /** Drag a stored picture or file out to another app, as the real file under `name`. */
   dragOut?: (src: string, name: string, face?: string) => void
-  /** A word's spelling suggestions when it is misspelt, null when it is not: asked, never waited on. */
-  spelling?: (word: string) => Promise<string[] | null>
+  /** Whether the word at `start` in `text` is misspelt, what it might be, and the language the text was read as: asked, never waited on. */
+  spelling?: (text: string, start: number, length: number) => Promise<{ flagged: boolean; guesses: string[]; language: string } | null>
+  /** “Learn spelling”: the word is no longer misspelt, anywhere (`on` false takes that back). */
+  learnSpelling?: (word: string, on?: boolean) => Promise<boolean>
+  /** The window's own right-click menu, where it has one outside the page (a sticky's), for a right-click the words passed on. */
+  ownMenu?: (x: number, y: number, picked: string) => void
   /**
    * Open a drawing in a window of its own, and keep it in step.
    *

@@ -133,7 +133,7 @@ import { decodeHTML } from 'entities'
 import { setAppMenu } from './app-menu'
 import { clip, cut, quoted } from './clip'
 import { APP_NAME } from './name'
-import { registerSpellGuesses } from './spell-guesses'
+import { registerSpelling, wakeSpelling } from './spell-check'
 
 
 /* The standard electron app file structure:
@@ -660,6 +660,20 @@ function overhang(win: BrowserWindow, room: Room): void {
 }
 /** Each overhung window's limits set again for its room as it is now. */
 const relimit = new WeakMap<BrowserWindow, () => void>()
+/**
+ * A window's own right-click menu, drawn by main (a sticky's). Chromium asks for it when the page leaves a right-click
+ * alone. A right-click on a word is taken by the writing first, to ask whether the word is misspelt (its spelling rows
+ * are the page's own menu); spelt right, the page passes the right-click on here (`menu:own`) and the same menu opens.
+ */
+type OwnMenuAsk = Pick<Electron.ContextMenuParams, 'x' | 'y' | 'isEditable' | 'selectionText'> & { editFlags: Pick<Electron.EditFlags, 'canCut' | 'canCopy' | 'canPaste'> }
+const ownMenus = new WeakMap<Electron.WebContents, (params: OwnMenuAsk) => void>()
+ipcMain.on('menu:own', (event, x: unknown, y: unknown, picked: unknown) => {
+  if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) return
+  // The page's pixels to the window's (the app size, ⌘+). Asked from words you can write in: Paste is always there,
+  // Cut and Copy when words are picked (the Mac picks the word under a right-click), as Chromium itself says it.
+  const zoom = event.sender.getZoomFactor() || 1
+  ownMenus.get(event.sender)?.({ x: Math.round(x * zoom), y: Math.round(y * zoom), isEditable: true, selectionText: typeof picked === 'string' ? picked : '', editFlags: { canCut: !!picked, canCopy: !!picked, canPaste: true } })
+})
 // A page asks once, as it loads, how much room its window keeps round the card (0: the window is the card).
 // Asked of main, not passed on the command line: a renderer process can be shared, and its arguments with it.
 ipcMain.on('window:room', (event) => {
@@ -1794,7 +1808,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   win.on('resized', remember)
   // Its right-click menu, drawn by Haligtree (popup-menu.ts): the writing's own Cut, Copy and Paste where
   // you can write, then this sticky's own lines, its paper's colour, and the whole desk under "All stickies".
-  win.webContents.on('context-menu', (_event, params) => {
+  const ownMenu = (params: OwnMenuAsk): void => {
     if (win.isDestroyed()) return
     const page = win.webContents
     // The edit runs in the sticky, its keys handed back first.
@@ -1827,7 +1841,9 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     const lines = groups.flatMap((group, n): PopupLine[] => (n ? [{ separator: true }, ...group] : group))
     const at = win.getBounds()
     void popupMenu(win, { x: at.x + params.x, y: at.y + params.y }, lines, load).then((path) => path && lineAt(lines, path)?.())
-  })
+  }
+  win.webContents.on('context-menu', (_event, params) => ownMenu(params))
+  ownMenus.set(win.webContents, ownMenu)
   // Closed any way but quitting is taken down, so it stays down after a restart.
   // One peeling off after it was taken down is already gone from the lists.
   win.on('closed', () => {
@@ -4455,7 +4471,7 @@ app.whenReady().then(() => {
   registerSandbox()
   atLogin()
   registerHome()
-  registerSpellGuesses()
+  registerSpelling()
   registerNotes({ load, guard, home: (type, id) => sendHome(type, id, undefined, 'window'), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
   registerGroups()
   registerSections()
@@ -6153,8 +6169,9 @@ app.whenReady().then(() => {
     createTray()
     iconReady = true
     wearIcon()
-    // Dates and emoji (src/main/lazy), read a moment later while nothing waits, so their first use is instant.
-    setTimeout(() => (warmChrono(), void warmEmoji()), 1000)
+    // Dates and emoji (src/main/lazy), read a moment later while nothing waits, so their first use is instant; the
+    // Mac's spellchecker woken with them (spell-check.ts).
+    setTimeout(() => (warmChrono(), void warmEmoji(), wakeSpelling()), 1000)
   }
   if (!startedAtLogin || firstRun() || process.argv.includes('--show-home')) {
     openHome()

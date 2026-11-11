@@ -4,7 +4,7 @@ import type { Editor } from "@tiptap/react"
 
 import { Kbd } from "@/components/ui/kbd"
 import { spellFixes } from "@/lib/grammar"
-import { misspeltAt, spelling, wordAt, type Misspelling } from "./spelling"
+import { misspeltAt, onSpellingForgotten, spelling, wordAt, type Misspelling } from "./spelling"
 import { useEditorDom } from "@/lib/editor-dom"
 import { inTrigger } from "@/lib/typed-suggestion"
 
@@ -69,9 +69,6 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
     if (!dom) return
     const box = dom.closest<HTMLElement>(".haligtree-editor-wrapper")
     if (!box) return
-    // The spellchecker's helper is started as a page you can write in opens (one word asked), so the first word
-    // the caret rests on, or the first right-click, is answered at once.
-    void spelling("the")
     let frame = 0
     let typing = 0
     // The word the dictionary was last asked about: its answer counts while the caret is still on it, however
@@ -100,12 +97,14 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
         // answer is in (it shows only if the caret is still on that word then).
         if (flagged === undefined) {
           const here = wordAt(editor, at.left - 1, (at.top + at.bottom) / 2)
-          if (here) void spelling(here.word).then(() => !gone && place())
+          if (here) void spelling(here).then(() => !gone && place())
           return setHint(null)
         }
-        // Underlined but with nothing from the page's checker (its list is short): Harper's dictionary, asked once
+        // Spelt right as the Mac reads it where it stands (a Spanish word in a Spanish sentence): nothing to offer.
+        if (!flagged) return setHint(null)
+        // Underlined but with nothing from the Mac's checker (its list is short): Harper's dictionary, asked once
         // per word, and shown only if the caret is still on that word. Names (a capital) are left alone.
-        if (!flagged?.suggestions.length) {
+        if (!flagged.suggestions.length) {
           const here = wordAt(editor, at.left - 1, (at.top + at.bottom) / 2)
           if (!here || here.word.length < 3 || here.word !== here.word.toLowerCase()) return setHint(null)
           const ask = `${here.from}:${here.word}`
@@ -160,11 +159,14 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
     window.addEventListener("scroll", place, true)
     window.addEventListener("blur", place)
     window.addEventListener("focus", place)
+    // A word learnt or unlearnt, here or in another window: what was said of the word under the caret is asked afresh.
+    const relearnt = onSpellingForgotten(place)
     place()
     return () => {
       cancelAnimationFrame(frame)
       clearTimeout(typing)
       squiggles.disconnect()
+      relearnt()
       gone = true
       setHint(null)
       editor.off("selectionUpdate", place)

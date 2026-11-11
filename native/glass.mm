@@ -5,6 +5,8 @@
 //   glass(handle, dark, shapes)   handle: win.getNativeWindowHandle(); shapes: [[x, y, width, height, radius], ...]
 //                                 in the page's pixels from its top left. No shapes: the glass is taken away.
 //   nonActivating(handle)         a panel that takes the keys and clicks without making Haligtree the front app.
+//   spell(text, start, length)    whether the word at that place in the text is misspelt, as the Mac judges it.
+//   learn(word, how)              the word learnt, unlearnt, or let by for this run.
 // Built by native/build-glass.sh into resources/glass.node.
 #import <AppKit/AppKit.h>
 #include <node_api.h>
@@ -165,11 +167,102 @@ static napi_value NonActivating(napi_env env, napi_callback_info info) {
   return out;
 }
 
+// Spelling, of the Mac's own checker (NSSpellChecker): the one that draws the red underline in every window, asked
+// the same way the underline is (the text round the word, so the language is judged from the sentence and a Spanish
+// word in a Spanish sentence is not "wrong"). A millisecond or so once the checker is awake.
+//   spell(text, start, length)   {flagged, guesses (five at most), language}: the word is text[start, start + length).
+//   spell()                      wakes the checker (its first answer is the slow one) and answers nothing.
+//   learn(word, how)             how 'learn': into the Mac's own dictionary, for every app; 'unlearn': out of it again;
+//                                'ignore': let by until the app quits, nothing written (a test run's way), and
+//                                'unignore': no longer let by.
+static NSInteger spellTag = 0;
+static NSInteger SpellTag() {
+  if (!spellTag) spellTag = [NSSpellChecker uniqueSpellDocumentTag];
+  return spellTag;
+}
+
+static NSString *TextOf(napi_env env, napi_value value) {
+  size_t length = 0;
+  if (napi_get_value_string_utf16(env, value, NULL, 0, &length) != napi_ok) return nil;
+  std::vector<char16_t> units(length + 1);
+  if (napi_get_value_string_utf16(env, value, units.data(), length + 1, &length) != napi_ok) return nil;
+  return [NSString stringWithCharacters:(const unichar *)units.data() length:length];
+}
+
+static napi_value Spell(napi_env env, napi_callback_info info) {
+  size_t argc = 3;
+  napi_value argv[3], nothing, out, value;
+  napi_get_undefined(env, &nothing);
+  if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok) return nothing;
+  @autoreleasepool {
+    NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
+    if (argc < 3) {
+      [checker checkString:@"awake" range:NSMakeRange(0, 5) types:NSTextCheckingTypeSpelling options:nil inSpellDocumentWithTag:SpellTag() orthography:NULL wordCount:NULL];
+      return nothing;
+    }
+    NSString *text = TextOf(env, argv[0]);
+    double start = 0, length = 0;
+    napi_get_value_double(env, argv[1], &start);
+    napi_get_value_double(env, argv[2], &length);
+    if (!text || start < 0 || length < 1 || start + length > text.length) return nothing;
+    NSRange word = NSMakeRange((NSUInteger)start, (NSUInteger)length);
+    NSOrthography *orthography = nil;
+    NSArray<NSTextCheckingResult *> *found = [checker checkString:text range:NSMakeRange(0, text.length) types:NSTextCheckingTypeSpelling options:nil inSpellDocumentWithTag:SpellTag() orthography:&orthography wordCount:NULL];
+    BOOL flagged = NO;
+    for (NSTextCheckingResult *one in found) {
+      if (one.resultType == NSTextCheckingTypeSpelling && NSIntersectionRange(one.range, word).length) flagged = YES;
+    }
+    // The language the Mac read the text as: "und" where it is none of those it checks (nothing is flagged there).
+    // Guesses are asked in that language; where it could not say, in the one the checker is set to.
+    NSString *language = orthography.dominantLanguage ?: @"und";
+    NSArray<NSString *> *guesses = flagged ? [checker guessesForWordRange:word inString:text language:[language isEqualToString:@"und"] ? checker.language : language inSpellDocumentWithTag:SpellTag()] : nil;
+    napi_create_object(env, &out);
+    napi_get_boolean(env, flagged, &value);
+    napi_set_named_property(env, out, "flagged", value);
+    napi_create_string_utf8(env, language.UTF8String ?: "", NAPI_AUTO_LENGTH, &value);
+    napi_set_named_property(env, out, "language", value);
+    napi_value list;
+    uint32_t count = (uint32_t)MIN(guesses.count, (NSUInteger)5);
+    napi_create_array_with_length(env, count, &list);
+    for (uint32_t i = 0; i < count; i++) {
+      napi_create_string_utf8(env, guesses[i].UTF8String, NAPI_AUTO_LENGTH, &value);
+      napi_set_element(env, list, i, value);
+    }
+    napi_set_named_property(env, out, "guesses", list);
+    return out;
+  }
+}
+
+static napi_value Learn(napi_env env, napi_callback_info info) {
+  size_t argc = 2;
+  napi_value argv[2], out;
+  napi_get_boolean(env, false, &out);
+  if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc < 2) return out;
+  @autoreleasepool {
+    NSString *word = TextOf(env, argv[0]), *how = TextOf(env, argv[1]);
+    if (!word.length) return out;
+    NSSpellChecker *checker = [NSSpellChecker sharedSpellChecker];
+    if ([how isEqualToString:@"learn"]) [checker learnWord:word];
+    else if ([how isEqualToString:@"unlearn"]) [checker unlearnWord:word];
+    else if ([how isEqualToString:@"ignore"]) [checker ignoreWord:word inSpellDocumentWithTag:SpellTag()];
+    else if ([how isEqualToString:@"unignore"]) {
+      NSMutableArray<NSString *> *kept = [[checker ignoredWordsInSpellDocumentWithTag:SpellTag()] mutableCopy] ?: [NSMutableArray array];
+      [kept removeObject:word];
+      [checker setIgnoredWords:kept inSpellDocumentWithTag:SpellTag()];
+    }
+    else return out;
+    napi_get_boolean(env, true, &out);
+    return out;
+  }
+}
+
 NAPI_MODULE_INIT() {
   napi_value fn;
   if (napi_create_function(env, "watchScroll", NAPI_AUTO_LENGTH, WatchScroll, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "watchScroll", fn);
   if (napi_create_function(env, "glass", NAPI_AUTO_LENGTH, Glass, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "glass", fn);
   if (napi_create_function(env, "nonActivating", NAPI_AUTO_LENGTH, NonActivating, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "nonActivating", fn);
   if (napi_create_function(env, "glassFrame", NAPI_AUTO_LENGTH, GlassFrame, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "glassFrame", fn);
+  if (napi_create_function(env, "spell", NAPI_AUTO_LENGTH, Spell, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "spell", fn);
+  if (napi_create_function(env, "learn", NAPI_AUTO_LENGTH, Learn, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "learn", fn);
   return exports;
 }

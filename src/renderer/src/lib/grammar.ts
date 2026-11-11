@@ -59,26 +59,21 @@ function textOf(doc: PMNode): { text: string; at: (offset: number) => number } {
 }
 
 /**
- * A word's spelling fixes from Harper's own dictionary, for the words the page's spellchecker underlines but
- * cannot suggest for ("everthing", "mackbook"): its list reaches only the commonest slips. Empty when Harper
- * thinks it spelt right. Kept per word, so a word is asked once.
+ * A word's spelling fixes from Harper's own dictionary, for the words the spellchecker underlines but cannot
+ * suggest for ("everthing", "mackbook"): its list reaches only the commonest slips. Asked only of a word the
+ * spellchecker has flagged where it stands (turn-into/spelling.tsx), never as a second opinion on one it let by
+ * ("feeding" for "feeling"). Empty when Harper thinks it spelt right. Kept per word, so a word is asked once.
  */
 const spelt = new Map<string, Promise<string[]>>()
 export function spellFixes(word: string): Promise<string[]> {
   let found = spelt.get(word)
   if (!found) {
-    // The Mac's own spellchecker first (it draws the underline, so it knows what it means), then Harper's dictionary.
-    const mac = (window as unknown as { api?: { spelling?: (word: string) => Promise<string[] | null> } }).api?.spelling
-    const harper = (): Promise<string[]> => grammar().then((one) => one.lint(word, { language: 'plaintext' })).then((lints) => {
+    found = grammar().then((one) => one.lint(word, { language: 'plaintext' })).then((lints) => {
       const lint = lints.find((one) => one.lint_kind() === 'Spelling')
-      return lint ? lint.suggestions().filter((one) => one.kind() === 0).map((one) => one.get_replacement_text()).filter(Boolean) : []
+      const fixes = lint ? lint.suggestions().filter((one) => one.kind() === 0).map((one) => one.get_replacement_text()).filter(Boolean) : []
+      // A guess that only splits the word ("ever thing") is no fix for a slip.
+      return fixes.filter((one) => !/[\s-]/.test(one))
     }, () => [])
-    // A guess that only splits the word ("ever thing") is no fix for a slip.
-    const whole = (list: string[]): string[] => list.filter((one) => !/[\s-]/.test(one))
-    // Spelt right by the Mac's lights (null): nothing, never Harper's second opinion ("feeding" for "feeling").
-    found = mac
-      ? mac(word).catch(() => [] as string[]).then((guesses) => (guesses === null ? [] : whole(guesses).length ? whole(guesses) : harper().then(whole)))
-      : harper().then(whole)
     spelt.set(word, found)
   }
   return found

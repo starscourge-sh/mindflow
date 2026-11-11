@@ -66,6 +66,8 @@ heard.on('links:renamed', (_event, info: unknown) => window.dispatchEvent(new Cu
 heard.on('transcribe:heard', (_event, src: string, seconds: number) => window.dispatchEvent(new CustomEvent('haligtree:transcribe-heard', { detail: { src, seconds } })))
 // A book made, renamed or deleted: every list of them looks again.
 heard.on('books:changed', () => window.dispatchEvent(new CustomEvent('haligtree:books-changed')))
+// A word learnt or unlearnt (spell-check.ts): what each page was told about spelling is asked afresh.
+heard.on('spelling:changed', () => window.dispatchEvent(new CustomEvent('haligtree:spelling-changed')))
 // A YouTube player YouTube would not serve here (sent on to its "sorry" page): the block says so (youtube-view.tsx).
 heard.on('video:refused', (_event, src: string) => window.dispatchEvent(new CustomEvent('haligtree:video-refused', { detail: src })))
 
@@ -146,13 +148,22 @@ const api = {
   pathOf: (file: File): string => webUtils.getPathForFile(file),
 
   /**
-   * Whether a word is misspelt and what it might be: null when it is spelt right. Asked without waiting: on a Mac
-   * of the Mac's own checker, the one that draws the underline, kept by the main process (spell-guesses.ts). Never
+   * Whether the word at `start` in `text` is misspelt, what it might be, and the language the text was read as.
+   * Asked without waiting: on a Mac of the Mac's own checker, the one that draws the underline, in the main
+   * process (spell-check.ts), with the text round the word so the language is judged as the underline's is. Never
    * `webFrame.isWordMisspelled` there: that call holds the whole window until the main process answers, and froze
-   * it on a caret move whenever main was busy. Other systems check in the page itself.
+   * it on a caret move whenever main was busy. Other systems check in the page itself, the word alone.
    */
-  spelling: (word: string): Promise<string[] | null> =>
-    process.platform === 'darwin' ? ipcRenderer.invoke('spell:guesses', word) : Promise.resolve(webFrame.isWordMisspelled(word) ? webFrame.getWordSuggestions(word) : null),
+  spelling: (text: string, start: number, length: number): Promise<{ flagged: boolean; guesses: string[]; language: string } | null> => {
+    if (process.platform === 'darwin') return ipcRenderer.invoke('spell:check', text, start, length)
+    const word = text.slice(start, start + length)
+    const flagged = webFrame.isWordMisspelled(word)
+    return Promise.resolve({ flagged, guesses: flagged ? webFrame.getWordSuggestions(word) : [], language: '' })
+  },
+  /** “Learn spelling”: the word into the Mac's dictionary (`on` false: out of it again, the notice's Undo). Every window is told. */
+  learnSpelling: (word: string, on = true): Promise<boolean> => ipcRenderer.invoke('spell:learn', word, on),
+  /** A right-click the writing took to ask about its word, and has no menu for: the window's own menu, where main draws one (a sticky's). */
+  ownMenu: (x: number, y: number, picked: string): void => ipcRenderer.send('menu:own', x, y, picked),
 
   /** The picture on the system clipboard, read by the system rather than from a pasted file that may not open. */
   clipboardImage: (): Promise<{ mime: string; bytes: Uint8Array } | null> => ipcRenderer.invoke('clipboard-image'),

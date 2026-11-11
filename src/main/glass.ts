@@ -12,11 +12,19 @@ let glassy: ((handle: Buffer, dark: boolean, shapes: number[][]) => void) | null
 type Watch = (listen: (kind: 'began' | 'ended', windowNumber: number) => void) => void
 let watcher: Watch | null = null
 let stayBehind: ((handle: Buffer) => boolean) | null = null
+/** What the Mac's own spellchecker says of a word where it stands in its text (native/glass.mm `spell`). */
+export type Spelt = { flagged: boolean; guesses: string[]; language: string }
+type Spell = (text?: string, start?: number, length?: number) => Spelt | undefined
+type Learn = (word: string, how: 'learn' | 'unlearn' | 'ignore' | 'unignore') => boolean
+let speller: Spell | null = null
+let learner: Learn | null = null
 function load(): typeof glassy {
   if (glassy !== undefined || process.platform !== 'darwin') return glassy ?? null
   try {
-    const module = { exports: {} as { glass?: typeof glassy; watchScroll?: Watch; nonActivating?: typeof stayBehind } }
+    const module = { exports: {} as { glass?: typeof glassy; watchScroll?: Watch; nonActivating?: typeof stayBehind; spell?: Spell; learn?: Learn } }
     process.dlopen(module, glassFile)
+    speller = module.exports.spell ?? null
+    learner = module.exports.learn ?? null
     glassy = module.exports.glass ?? null
     watcher = module.exports.watchScroll ?? null
     stayBehind = module.exports.nonActivating ?? null
@@ -43,6 +51,17 @@ export function watchScroll(listen: Parameters<Watch>[0]): void {
 export function nonActivating(win: BrowserWindow): boolean {
   load()
   return !!stayBehind && !win.isDestroyed() && stayBehind(win.getNativeWindowHandle())
+}
+
+/** The Mac's spellchecker asked about the word at `start` in `text` (spell-check.ts); with nothing, woken. Null where there is no checker to ask. */
+export function spell(text?: string, start?: number, length?: number): Spelt | null {
+  load()
+  return (text === undefined ? speller?.() : speller?.(text, start, length)) ?? null
+}
+/** A word into the Mac's dictionary or out of it again; or, writing nothing, let by until the app quits and no longer let by. */
+export function learn(word: string, how: 'learn' | 'unlearn' | 'ignore' | 'unignore'): boolean {
+  load()
+  return !!learner?.(word, how)
 }
 
 /** What each window last asked for, for a probe (qa/glass.mjs). */

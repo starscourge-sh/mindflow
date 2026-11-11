@@ -1,5 +1,5 @@
 import {
-  AlarmClock, AppWindow, BellOff, Archive, ArchiveRestore, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
+  AlarmClock, AppWindow, BellOff, Archive, ArchiveRestore, BookPlus, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderCheck, FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
@@ -267,6 +267,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^hold/i, Hourglass],
   [/^stop/i, CircleOff],
   // Learning and thinking.
+  [/^learn spelling/i, BookPlus],
   [/question|clue|^test me|^ask/i, MessageCircleQuestion],
   [/^study|^review|tested/i, GraduationCap],
   [/thought|^comment/i, MessageSquare],
