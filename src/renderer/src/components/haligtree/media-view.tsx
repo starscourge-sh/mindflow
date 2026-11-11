@@ -82,7 +82,7 @@ function AddBox({ onShow, onClose }: { onShow: (src: string) => void; onClose: (
     <div data-media-add-box
       onDragOver={(event) => event.dataTransfer.types.includes('Files') && event.preventDefault()}
       onDrop={(event) => { if (!event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); void addDropped([...event.dataTransfer.files], done) }}
-      className="mx-5 mt-4 mb-2 grid gap-1.5 rounded-[6px] border border-dashed border-foreground/20 px-4 py-4">
+      className="mt-4 mb-2 grid gap-1.5 rounded-[6px] border border-dashed border-foreground/20 px-4 py-4">
       <span className="flex flex-wrap items-center gap-3 text-control text-foreground/80">
         <Button size="sm" className="h-8 cursor-pointer gap-1.5 px-3" data-media-choose onClick={() => void addFromPicker(done)}><Plus className="size-4" />Choose files…</Button>
         <span>or drop them on this box, or paste with <Kbd>⌘V</Kbd></span>
@@ -249,6 +249,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const onShow = (src: string): void => setShowing(src)
   // The "Add" box, open in the page.
   const [adding, setAdding] = useState(false)
+  // In the page's column, over the kinds, on every tab alike (its place in each layout below).
+  const addBox = adding && <AddBox onShow={onShow} onClose={() => setAdding(false)} />
 
   // The tabs: All, then each shelf the book holds (a tab for something you have none of leads to nothing; one asked for by name still shows, to say so).
   const held = SHELVES.filter((one) => one.id === kind || all.some((item) => shelfOf(item) === one.id && !item.deck))
@@ -310,12 +312,14 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       )}
       // Only "Add" on the line, picked or not, so nothing on it moves: what acts on the picked is in their right-click and keys.
       actions={<Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-media-add aria-pressed={adding} onClick={() => (chime(adding ? 'fold' : 'open'), setAdding(!adding))}><Plus className="size-3.5" />Add</Button>}>
-      {adding && <AddBox onShow={onShow} onClose={() => setAdding(false)} />}
       {library ? (
         // PDFs as a library: a shelf of covers, each book once, the picked one's panel docked at the page's edge.
-        <PdfLibrary query={query} top={kinds} files={all} only={unlinkedOnly ? shown.map((one) => one.src) : undefined} keys={!putting} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
+        // The box goes in the shelf's own column, over the kinds as on every other tab: put over the library, it was a
+        // row of the page's docked layout, as wide as the page, and stayed there over the shelf.
+        <PdfLibrary query={query} top={<>{addBox}{kinds}</>} files={all} only={unlinkedOnly ? shown.map((one) => one.src) : undefined} keys={!putting} onPut={(srcs) => setPutting(all.filter((one) => srcs.includes(one.src)))} />
       ) : all.length ? (
         <div ref={box} data-media-grid data-media-shelf={piles ? 'all' : kind} className={`mx-5 mb-4 ${mixed ? 'files-unlinked' : kind === 'audio' ? 'files-audio-list' : ''}`}>
+          {addBox}
           {kinds}
           {!shown.length ? (
             <p data-media-nothing className="my-4 text-control text-muted-foreground">{nothing}</p>
@@ -342,11 +346,12 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
             </VirtualList>
           )}
         </div>
-      ) : unloaded(all) ? null : (
+      ) : unloaded(all) ? null : (<>
+        {addBox && <div className="mx-5">{addBox}</div>}
         <Empty title="No pictures or files yet" action={<Button size="sm" className="h-8 cursor-pointer px-3" data-media-add-empty onClick={() => (chime('open'), setAdding(true))}><Plus className="size-3.5" />Add</Button>}>
           Press “Add”, or drop pictures, GIFs, PDFs and audio anywhere on this page. Paste or drop one into a note and it shows up here too.
         </Empty>
-      )}
+      </>)}
     </Page>
     {putting && createPortal(
       <Search menus={false} placeholder={putting.length === 1 ? `Put ${quoted(bare(putting[0].name || putting[0].title), 80)} in which note?` : `Put ${num(putting.length)} files in which note?`}
