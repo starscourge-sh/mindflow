@@ -20,7 +20,7 @@ import { UNATTRIBUTED, sources } from '@/lib/sources'
 import { TagIcon } from '@/components/haligtree/tag-icon'
 import type { SaveResult } from '../../../main/captures'
 import { clip, cut, quoted } from '../../../main/clip'
-import { ago, dayKey, num } from '../../../main/dates'
+import { ago, dayKey, num, plural } from '../../../main/dates'
 import { NOTE_KEY } from '../../../main/name'
 import { forgives } from '@/lib/slash-rank'
 import { ICE, KIND_ICON, kindOf } from '@/lib/goal-kind'
@@ -189,7 +189,7 @@ export async function exitMany(ids: string[], status: string, onUndo?: () => voi
   }
   const gone = ids.length - made.length - asks
   if (!made.length && !asks) return none()
-  const needs = asks ? `${num(asks)} ${asks === 1 ? 'needs' : 'need'} a source or a meaning first: open ${asks === 1 ? 'it' : 'each'} and press P` : ''
+  const needs = asks ? `${plural(asks, 'needs', 'need')} a source or a meaning first: open ${asks === 1 ? 'it' : 'each'} and press P` : ''
   if (!made.length) return (refuse(`None saved. ${needs}`), false)
   for (const land of lands) land()
   chime('promote')
