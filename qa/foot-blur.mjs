@@ -31,9 +31,12 @@ const look = (bar) => h.evaluate((bar) => {
 }, bar)
 
 /** The scroller under it: scrolled to the end, where its last line of words sits against the bar's top. */
-const toEnd = (scrollSel, lastSel, bar) => h.evaluate(([scrollSel, lastSel, bar]) => {
+const toEnd = (scrollSel, lastSel, bar) => h.evaluate(async ([scrollSel, lastSel, bar]) => {
   const box = document.querySelector(scrollSel)
-  box.scrollTop = box.scrollHeight
+  // At once, and read a frame later: a note's scroller glides (scroll-behavior: smooth), so read straight after
+  // setting it, the page was still on its way and the last line looked short of the end.
+  box.scrollTo({ top: box.scrollHeight, behavior: 'instant' })
+  await new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(ok)))
   const lines = [...document.querySelectorAll(lastSel)].filter((one) => one.getClientRects().length)
   const last = lines.at(-1)?.getBoundingClientRect()
   const top = document.querySelector(bar).getBoundingClientRect().top
