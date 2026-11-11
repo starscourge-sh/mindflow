@@ -3461,13 +3461,13 @@ textarea[data-talking]::selection {
   background: var(--background);
   color: var(--foreground);
   box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.85),
+    inset 0 0 0 1px rgb(255 255 255 / 0.55),
     0 0 0 0.5px rgb(0 0 0 / 0.16),
     0 2px 8px -2px rgb(0 0 0 / 0.08), 0 16px 40px -12px rgb(0 0 0 / 0.3);
 }
 :root:where(.dark:not(.light, .paper, [data-light])) .mf-voice-pill {
   box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.26),
+    inset 0 0 0 1px rgb(255 255 255 / 0.16),
     0 0 0 0.5px rgb(0 0 0 / 0.6),
     0 2px 8px -2px rgb(0 0 0 / 0.3), 0 18px 44px -12px rgb(0 0 0 / 0.55);
 }
