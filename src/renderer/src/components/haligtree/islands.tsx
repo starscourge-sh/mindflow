@@ -165,7 +165,8 @@ export function IslandBox({ name, island, shown, icon, extra, unit, uncounted, p
     </section>
   )
   return (
-    <section data-island={name} className="mt-2 first:mt-0">
+    // The head and its box apart by the app's 8px (DESIGN.md, inset): set flush, the box read as part of the head's row.
+    <section data-island={name} className="mt-2 flex flex-col gap-2 first:mt-0">
       <IslandHead name={name} island={island} icon={icon} extra={extra} unit={unit} uncounted={uncounted} />
       {!island.folded && (
         <div className="mf-island rounded-lg border bg-accent/25 p-1">
