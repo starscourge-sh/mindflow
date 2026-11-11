@@ -98,8 +98,13 @@ export function bookmarkNodeView(props: NodeViewRendererProps): NodeView {
       if (box) img.style.setProperty("object-view-box", box)
       frame.append(img)
       undo = arrive(frame, img, wanted, href)
-      if (!loading) keepOnce(props, wanted, icon ?? "")
-    }
+      // Kept once it has shown, so the copy never races the picture you are waiting for, and one that never
+      // comes (offline, gone) is not asked for twice.
+      if (!loading && remote(wanted)) {
+        if (img.complete && img.naturalWidth) keepOnce(props, wanted, icon ?? "")
+        else img.addEventListener("load", () => keepOnce(props, wanted, icon ?? ""), { once: true })
+      } else if (!loading) keepOnce(props, wanted, icon ?? "")
+    } else if (!loading) keepOnce(props, "", icon ?? "")
 
     const body = el("span", "tiptap-bookmark-body")
     body.append(el("span", "tiptap-bookmark-title", title || href))
@@ -292,14 +297,20 @@ function arrive(frame: HTMLElement, img: HTMLImageElement, image: string, href: 
  * it is and tried again the next time the app opens. Only an editable note
  * is changed, and not as a step of its own to undo.
  */
-const keeping = new Map<string, Promise<{ image: string; icon: string }>>()
+const keeping = new Map<string, Promise<string>>()
 function keepOnce(props: NodeViewRendererProps, image: string, icon: string): void {
   const keep = (window as { api?: { keepCardPictures?: (image: string, icon: string) => Promise<{ image: string; icon: string }> } }).api?.keepCardPictures
   const ask = { image: remote(image) ? image : "", icon: remote(icon) ? icon : "" }
   if (!keep || !props.editor.isEditable || !(ask.image || ask.icon)) return
-  const key = `${ask.image}\n${ask.icon}`
-  let asked = keeping.get(key)
-  if (!asked) keeping.set(key, (asked = keep(ask.image, ask.icon).catch(() => ({ image: "", icon: "" }))))
+  // Each address once, a picture apart from an icon: one site's icon on thirty cards is fetched once.
+  const once = (src: string, picture: boolean): Promise<string> => {
+    if (!src) return Promise.resolve("")
+    const key = `${picture ? "image" : "icon"} ${src}`
+    let asked = keeping.get(key)
+    if (!asked) keeping.set(key, (asked = keep(picture ? src : "", picture ? "" : src).then((kept) => (picture ? kept.image : kept.icon), () => "")))
+    return asked
+  }
+  const asked = Promise.all([once(ask.image, true), once(ask.icon, false)]).then(([image, icon]) => ({ image, icon }))
   void asked.then((now) => {
     const { editor } = props
     if (editor.isDestroyed) return

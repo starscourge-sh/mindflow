@@ -58,6 +58,7 @@ try {
       const url = String(input instanceof URL ? input.href : (input?.url ?? input))
       if (!ours(url)) return globalThis.__realFetch(input, init)
       globalThis.__cards.main += 1
+      await gate()
       return (await answer(url)) ?? new Response('', { status: 404 })
     }
     const ses = BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home')).webContents.session
@@ -79,18 +80,18 @@ try {
   const id = await h.evaluate((content) => window.api.captures.create({ kind: 'note', title: 'Thirty cards', body: { type: 'doc', content: [...content, { type: 'paragraph' }] } }), content)
 
   // How long until every card is drawn, timed in the window from the moment the note is asked for.
-  const open = async () => {
+  const open = async (note = id) => {
     const timing = h.evaluate(() => new Promise((done) => {
       const t0 = performance.now()
       const tick = () => (document.querySelectorAll('.tiptap-bookmark').length >= 30 ? done(Math.round(performance.now() - t0)) : requestAnimationFrame(tick))
       tick()
     }))
-    await send('capture', id)
+    await send('capture', note)
     return timing
   }
 
   // 1. Opened for the first time, the pictures held back by the network.
-  const first = await open()
+  await open()
   await h.waitForTimeout(300)
   const held = await h.evaluate(() => {
     const cards = [...document.querySelectorAll('.tiptap-bookmark')]
@@ -117,7 +118,7 @@ try {
     const img = one.querySelector('.tiptap-bookmark-image')
     return { img: !!img, width: img?.naturalWidth ?? 0, opacity: img ? getComputedStyle(img).opacity : '', face: !!one.querySelector('.tiptap-bookmark-face') }
   }))
-  check('every picture that came is shown, fully', arrived.slice(0, 29).every((one) => one.img && one.width > 0 && one.opacity === '1'), JSON.stringify(arrived.find((one) => !one.img || one.opacity !== '1')))
+  check('every picture that came is shown, fully', arrived.slice(0, 29).every((one) => one.img && one.width > 0 && one.opacity === '1'), JSON.stringify(arrived.slice(0, 29).find((one) => !one.img || one.opacity !== '1')))
   check('a picture that never comes leaves the face, not a broken box', !arrived[29].img && arrived[29].face, JSON.stringify(arrived[29]))
   if (SHOTS) await both(join(SHOTS, 'cards-arrived'))
 
@@ -133,20 +134,41 @@ try {
   check('the site\'s addresses stay beside the copies', attrs[0]?.imageSource === `${SITE}/pic-0.png` && attrs[0]?.iconSource === `${SITE}/icon.png`, `${attrs[0]?.imageSource} ${attrs[0]?.iconSource}`)
   check('the YouTube card keeps its picture too', /^haligtree:/.test(attrs[28]?.image ?? '') && /i\.ytimg\.com/.test(attrs[28]?.imageSource ?? ''), `${attrs[28]?.image} ${attrs[28]?.imageSource}`)
   check('the one that is gone stays as it was', attrs[29]?.image === `${SITE}/missing.png`, attrs[29]?.image)
-  const firstCounts = await counts()
 
-  // 4. Opened again: from the book, asking the network for nothing.
-  await send('view', 'inbox'); await h.waitForTimeout(900)
-  await electron.evaluate(() => Object.assign(globalThis.__cards, { page: 0, main: 0 }))
-  const again = await open()
-  await h.waitForTimeout(1200)
-  const after = await counts()
+  // 4. Measured: thirty cards still on a site (as every card was before), then the same thirty kept in the book,
+  // each opened in a fresh window, timed to every picture shown.
+  const shownAll = () => h.evaluate(() => new Promise((done) => {
+    const t0 = performance.now()
+    const tick = () => {
+      const cards = document.querySelectorAll('.tiptap-bookmark')
+      const pics = [...document.querySelectorAll('.tiptap-bookmark-image')].filter((img) => img.complete && img.naturalWidth > 0 && getComputedStyle(img).opacity === '1')
+      if (cards.length >= 30 && pics.length >= 29) done({ cards: Math.round(performance.now() - t0), pictures: Math.round(performance.now() - t0) })
+      else if (performance.now() - t0 > 15000) done({ cards: -1, pictures: -1 })
+      else requestAnimationFrame(tick)
+    }
+    tick()
+  }))
+  const measure = async (note) => {
+    await h.reload(); await h.waitForTimeout(2500)
+    await electron.evaluate(() => Object.assign(globalThis.__cards, { page: 0, main: 0 }))
+    const drawn = open(note)
+    const pictures = shownAll()
+    const cards = await drawn
+    const all = await pictures
+    await h.waitForTimeout(1500)
+    return { cards, pictures: all.pictures, ...(await counts()) }
+  }
+  const fresh = Array.from({ length: 28 }, (_, n) => ({ ...card(n), attrs: { ...card(n).attrs, image: `${SITE}/pic-${n}.png?again`, id: `f${n}` } }))
+  fresh.push(content[28], { ...content[29], attrs: { ...content[29].attrs, image: `${SITE}/pic-0.png?again` } })
+  const remoteId = await h.evaluate((content) => window.api.captures.create({ kind: 'note', title: 'Thirty cards on a site', body: { type: 'doc', content: [...content, { type: 'paragraph' }] } }), fresh)
+  const onSite = await measure(remoteId)
+  const kept = await measure(id)
   const shown = await h.evaluate(() => [...document.querySelectorAll('.tiptap-bookmark-image')].filter((img) => img.naturalWidth > 0 && /^haligtree:/.test(img.getAttribute('src'))).length)
   check('opened again, the kept pictures are shown from the book', shown >= 29, String(shown))
-  // The gone card's picture is the one address left on a site; asked once, it is not a kept card.
-  check('opened again, the kept cards ask the network for nothing', after.page <= 1 && after.main === 0, JSON.stringify(after))
-  console.log(`MEASURE first opening: cards drawn in ${first}ms, ${firstCounts.page} requests from the window, ${firstCounts.main} from main (keeping copies)`)
-  console.log(`MEASURE opened again: cards drawn in ${again}ms, ${after.page} requests from the window (the one picture that is gone), ${after.main} from main`)
+  // The gone card's picture is the one address left on a site.
+  check('opened again, the kept cards ask the network for nothing but the one picture that is gone', kept.page <= 1 && kept.main === 0, JSON.stringify(kept))
+  console.log(`MEASURE 30 cards on a site, first shown: cards drawn ${onSite.cards}ms, every picture shown ${onSite.pictures}ms, ${onSite.page} requests from the window, ${onSite.main} from main (keeping copies)`)
+  console.log(`MEASURE 30 cards kept in the book: cards drawn ${kept.cards}ms, every picture shown ${kept.pictures}ms, ${kept.page} requests from the window, ${kept.main} from main`)
 
   // 5. A YouTube card whose details are still loading already has its picture.
   const loadingId = await h.evaluate((video) => window.api.captures.create({ kind: 'note', title: 'Loading video', body: { type: 'doc', content: [{ type: 'bookmark', attrs: { href: `https://youtu.be/${video}`, title: `https://youtu.be/${video}`, description: '', image: '', icon: '', site: '', id: 'l1', loading: true } }, { type: 'paragraph' }] } }), VIDEO)
@@ -158,7 +180,9 @@ try {
   })
   check('a YouTube card still loading its details shows its picture', loading.loading && /i\.ytimg\.com\/vi\/dQw4w9WgXcQ\/hqdefault\.jpg$/.test(loading.src) && loading.width > 0, JSON.stringify(loading))
   if (SHOTS) await both(join(SHOTS, 'youtube-loading'))
-  check('no errors in the main window', !c.errors.length, c.errors.slice(0, 3).join(' | '))
+  // The one picture that is gone answers 404 on purpose.
+  const errors = c.errors.filter((one) => !/Failed to load resource.*404/.test(one))
+  check('no errors in the main window', !errors.length, errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
