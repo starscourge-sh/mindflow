@@ -1012,13 +1012,20 @@ export default function FlexCarousel({
       start()
     }
 
-    // Only a sideways wheel turns it: an up and down one still scrolls the page.
+    // Only a sideways wheel turns it: an up and down one still scrolls the page. Decided once per gesture, by the
+    // way its first movement leans, and kept till the wheel rests: a trackpad swipe drifts, and deciding on each
+    // event let a sideways swipe nudge the page and a downward one turn the row part way through.
+    let axis: 'x' | 'y' | null = null
+    let lastWheel = -Infinity
     const onWheel = (e: WheelEvent): void => {
       settling = false
       if (e.ctrlKey) return
       const dx = e.shiftKey && Math.abs(e.deltaX) < Math.abs(e.deltaY) ? e.deltaY : e.deltaX
       const dy = e.shiftKey ? 0 : e.deltaY
-      if (Math.abs(dx) <= Math.abs(dy)) return
+      if (e.timeStamp - lastWheel > 150) axis = null
+      lastWheel = e.timeStamp
+      axis ??= Math.abs(dx) > Math.abs(dy) ? 'x' : Math.abs(dy) > 0 ? 'y' : null
+      if (axis !== 'x') return
       e.preventDefault()
       skipIntro()
       if (closeFocus()) return
@@ -1212,7 +1219,9 @@ export default function FlexCarousel({
         <div
           ref={containerRef}
           data-swipe-own
-          className={`group/row pointer-events-none relative min-w-0 flex-1 cursor-grab touch-pan-y outline-none select-none overflow-hidden overscroll-contain [-webkit-tap-highlight-color:transparent] [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] data-[fits]:[mask-image:none] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing`}
+          className={`group/row pointer-events-none relative min-w-0 flex-1 cursor-grab touch-pan-y outline-none select-none overflow-clip [-webkit-tap-highlight-color:transparent] [mask-image:linear-gradient(to_right,transparent,#000_7%,#000_93%,transparent)] data-[fits]:[mask-image:none] data-[hover=focus]:cursor-zoom-in data-[hover=close]:cursor-zoom-out data-[hover=open]:cursor-pointer data-[dragging]:cursor-grabbing`}
+          // Clipped, never a scroller: as one (overflow hidden, its overscroll contained) it kept an up and down wheel
+          // for itself, and the page under the pointer never scrolled.
           // Taller than the row by the glass's bleed; only the row itself (the box inside) takes the pointer, so the bleed never covers what is above or below.
           style={{ height: `calc(100% + ${BLEED * 2}px)`, marginBlock: -BLEED }}
           role="region"
