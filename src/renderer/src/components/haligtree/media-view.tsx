@@ -19,7 +19,7 @@ import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { useHere } from '@/lib/split'
 import { menuOpen } from '@/lib/menu-keys'
-import { GRACE } from '@/components/pdf/pdf-peek'
+import { GRACE, scrubbedPage } from '@/components/pdf/pdf-peek'
 import { canSplit, openAside } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { pictureLines } from '@/lib/picture-actions'
@@ -139,6 +139,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   // A recording the table started stops as the page goes.
   useEffect(() => stopFile, [])
   const books = useLive(readLibrary, [] as Book[])
+  // Where each book was left, for a PDF opened from a tile, a Recent card or a menu: at its page, as the shelf opens it.
+  useEffect(() => void books.forEach((one) => (one.page ? lastPage.set(one.src, one.page) : lastPage.delete(one.src))), [books])
   const facts = useMemo<FileFacts>(() => {
     const byBook = new Map(books.map((one) => [one.src, one]))
     return {
@@ -201,11 +203,11 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     return out
   }, [shown, across])
 
-  const open = (one: Media): void => {
+  const open = (one: Media, page?: number): void => {
     if (one.uses.length) {
       onOpen(one.type, one.id)
       headingIn(one.type, one.id, one.src)
-    } else openFile(one)
+    } else openFile(one, false, page)
   }
 
   const [putting, setPutting] = useState<Media[] | null>(null)
@@ -287,10 +289,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   }
   // A row of the table opens the file itself, whatever holds it: a book in the reader at your page, a picture in the viewer, a recording played where it is.
   const openAsFile = (one: Media): void => {
-    if (one.gone || (one.kind !== 'audio' && one.kind !== 'pdf')) return openFile(one)
-    if (one.kind === 'audio') return playFile(one.src)
-    chime('open')
-    openPdf(one.src, one.name, books.find((book) => book.src === one.src)?.page ?? undefined)
+    if (one.kind === 'audio' && !one.gone) return playFile(one.src)
+    openFile(one)
   }
   const clickRow = (one: Media, event: React.MouseEvent): void => {
     setCursor(shown.indexOf(one))
@@ -299,7 +299,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     openAsFile(one)
   }
   // A book, or a note holding the file, grows out of its tile (lib/hero.ts); a picture lifts into its own viewer, and a recording plays where it is.
-  const openFrom = (one: Media, event: React.MouseEvent): void => (one.kind === 'pdf' || one.uses.length ? heroOpen(event, () => open(one)) : open(one))
+  // A PDF's scrubbed page is read as the click lands: growing out of its tile ends the scrub.
+  const openFrom = (one: Media, event: React.MouseEvent): void => ((page) => (one.kind === 'pdf' || one.uses.length ? heroOpen(event, () => open(one, page)) : open(one, page)))(scrubbedPage(one.src) ?? undefined)
 
   // Files carried over the page: the whole page takes them.
   const [carrying, setCarrying] = useState(false)
@@ -447,10 +448,13 @@ async function noteTitle(type: string, id: string): Promise<string> {
 }
 
 /** A file used by no note, opened as itself: a picture in the app's viewer, a PDF in the reader, a recording played where it sits. */
-function openFile(one: Media, aside = false): void {
+/** Where each book was left (its last-read page), kept by the page from the shelf's own record. */
+const lastPage = new Map<string, number>()
+
+function openFile(one: Media, aside = false, page?: number): void {
   if (one.gone) return refuse(`${one.name || 'That file'} is gone from the book's files. Add it again to bring it back`)
   chime('open')
-  if (one.kind === 'pdf') return void openPdf(one.src, one.name, undefined, undefined, aside)
+  if (one.kind === 'pdf') return void openPdf(one.src, one.name, page ?? lastPage.get(one.src), undefined, aside)
   const tile = document.querySelector(`[data-media][data-src="${CSS.escape(one.src)}"]`)
   if (one.kind === 'audio') return void tile?.querySelector<HTMLElement>('[data-sound-play]')?.click()
   void openLook(one.src, tile?.querySelector('img') ?? tile, bare(one.name))
