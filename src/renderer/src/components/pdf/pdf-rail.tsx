@@ -107,7 +107,6 @@ function handOn(list: HTMLElement): () => void {
     hand.over = false
     letGo()
   }
-  const scrolled = (): void => void (hand.held && (hand.moving = true))
   const ended = (): void => {
     hand.moving = false
     letGo()
@@ -121,7 +120,6 @@ function handOn(list: HTMLElement): () => void {
   list.addEventListener("wheel", wheel, { passive: true })
   list.addEventListener("pointerdown", down)
   list.addEventListener("pointerleave", leave)
-  list.addEventListener("scroll", scrolled, { passive: true })
   list.addEventListener("scrollend", ended)
   window.addEventListener("pointerup", up, true)
   window.addEventListener("pointercancel", up, true)
@@ -131,7 +129,6 @@ function handOn(list: HTMLElement): () => void {
     list.removeEventListener("wheel", wheel)
     list.removeEventListener("pointerdown", down)
     list.removeEventListener("pointerleave", leave)
-    list.removeEventListener("scroll", scrolled)
     list.removeEventListener("scrollend", ended)
     window.removeEventListener("pointerup", up, true)
     window.removeEventListener("pointercancel", up, true)
