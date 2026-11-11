@@ -17,9 +17,10 @@ import { Count, Tags, Tip, VirtualList, quietly, refuse } from './ui'
 import { taskName } from '@/lib/tasks'
 import { Tilt } from './tilt'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
-import { still } from '@/lib/motion'
+import { glideWay } from '@/lib/motion'
 import { num, plural } from '../../../../main/dates'
 import { hoverNote } from './note-preview'
+import { dismissed } from './note-offers'
 
 type Found = Awaited<ReturnType<typeof haligtree.mentions>>
 type Related = Awaited<ReturnType<typeof haligtree.related>>
@@ -76,7 +77,13 @@ export function Mentions({ id, onOpen, compact = false }: {
   }, [id])
   // Whatever it sits in waits for both (lib/reads-in.tsx): the links, then the related a beat later, moved what was under them.
   useReading(!found || unloaded(related))
-  if (!found || !(found.linked.length || found.unlinked.length || found.out.length || found.named.length || related.length)) return null
+  // A link put away with the offer's × ("Not for this note") is not asked again here: the same pair, the same answer.
+  const keyOf = (type: string, one: string): string => (type === 'capture' ? one : `${type}:${one}`)
+  const away = dismissed()
+  const named = (found?.named ?? []).filter((one) => !away.has(`${keyOf(found?.me ?? 'capture', id)}|link:${keyOf(one.type, one.id)}`))
+  // The lists show twenty: past that the heading says "20+", never a count of what it does not list.
+  const more = (found as { more?: { unlinked: boolean; named: boolean } } | null)?.more
+  if (!found || !(found.linked.length || found.unlinked.length || found.out.length || named.length || related.length)) return null
 
   // `link` makes the plain mention a link: in the other note, or in this one.
   const row = (one: Found['linked'][number], link?: () => Promise<{ was: string; linked: string } | false>): React.JSX.Element => {
@@ -156,7 +163,7 @@ export function Mentions({ id, onOpen, compact = false }: {
         <>
           <button type="button" onClick={() => (chime(unfolded ? 'fold' : 'slide'), setUnfolded(!unfolded))} className="mt-2 mb-0.5 flex min-h-6 items-center gap-1 rounded-md px-2 text-meta text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <ChevronRight className={`size-3 transition-transform ${unfolded ? 'rotate-90' : ''}`} />
-            {num(found.unlinked.length)} unlinked {found.unlinked.length === 1 ? 'mention' : 'mentions'}
+            {num(found.unlinked.length)}{more?.unlinked ? '+' : ''} unlinked {found.unlinked.length === 1 ? 'mention' : 'mentions'}
           </button>
           {unfolded && <Rows list={found.unlinked} row={(one) => row(one, () => haligtree.linkMention(one.type, one.id, id))} />}
         </>
@@ -169,15 +176,15 @@ export function Mentions({ id, onOpen, compact = false }: {
           <Rows list={found.out} row={row} />
         </>
       )}
-      {found.named.length > 0 && (
+      {named.length > 0 && (
         <>
           <button type="button" onClick={() => (chime(namedOpen ? 'fold' : 'slide'), setNamedOpen(!namedOpen))} className="mt-2 mb-0.5 flex min-h-6 items-center gap-1 rounded-md px-2 text-meta text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <ChevronRight className={`size-3 transition-transform ${namedOpen ? 'rotate-90' : ''}`} />
-            Names {num(found.named.length)} other {found.named.length === 1 ? 'note' : 'notes'} without a link
+            Names {num(named.length)}{more?.named ? '+' : ''} other {named.length === 1 ? 'note' : 'notes'} without a link
           </button>
           {/* No Link button here: this note is open and being written, so its words
               change under the editor's feet. @ links them in place. */}
-          {namedOpen && <Rows list={found.named} row={row} />}
+          {namedOpen && <Rows list={named} row={row} />}
         </>
       )}
       {related.length > 0 && <RelatedRow cards={related} onOpen={onOpen} />}
@@ -212,8 +219,7 @@ function RelatedRow({ cards, onOpen }: { cards: Related; onOpen?: (type: string,
     const element = strip.current
     if (!element) return
     chime('slide')
-    const calm = still()
-    element.scrollBy({ left: way * element.clientWidth * 0.8, behavior: calm ? 'auto' : 'smooth' })
+    element.scrollBy({ left: way * element.clientWidth * 0.8, behavior: glideWay() })
   }
   // Faded only on a side with more past it, so a row that fits has hard edges.
   const fade = `linear-gradient(to right, ${ends.start ? '#000' : 'transparent'}, #000 2rem, #000 calc(100% - 2rem), ${ends.end ? '#000' : 'transparent'})`

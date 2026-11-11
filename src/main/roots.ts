@@ -1,4 +1,5 @@
 import { tokens } from './likeness.ts'
+import { nameFrom, nameOf, ordinary, withoutAddresses, writtenAsName } from './name-match.ts'
 
 /**
  * Notes matched by the words they share, each word taken back to its root
@@ -234,8 +235,12 @@ const wordsOf = (index: RootIndex, line: string, lemmas: Lemmas | undefined): Wo
 /** One word of a name against one written: the same word, or the same root ("Stoics" and "Stoicism"). */
 const same = (a: Word, b: Word): boolean => a.lower === b.lower || (a.root !== null && a.root === b.root)
 
-export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefined, leave: string, linked: Set<string> = new Set()): { key: string; title: string; words: string }[] {
-  const lines = text.split(/\r?\n/).map((line) => ({ line, words: wordsOf(index, line, lemmas) })).filter((one) => one.words.length)
+export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefined, leave: string, linked: Set<string> = new Set(), everyday: (word: string) => boolean = () => false): { key: string; title: string; words: string }[] {
+  // Web addresses and file paths hold no names (name-match.ts, the rules shared with the Mentions lists).
+  const lines = text.split(/\r?\n/).map((raw) => withoutAddresses(raw)).map((line) => ({ line, words: wordsOf(index, line, lemmas) })).filter((one) => one.words.length)
+  // The note's own name: another note of the same name (the gem made from a capture) is the note itself, and two of one name are offered once.
+  const own = index.notes.find((note) => note.key === leave)
+  const said = new Set<string>(own ? [nameOf(own.title).toLowerCase()] : [])
   // Every word and root the text holds: a name whose first word is not among them is passed over at once.
   const held = new Set(lines.flatMap((one) => one.words.flatMap((word) => (word.root ? [word.lower, word.root] : [word.lower]))))
   const out: { key: string; title: string; words: string }[] = []
@@ -244,15 +249,22 @@ export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefin
     // A name's tags ("Frankenstein #book") are not its words: "a book club" never names it, and the offer says "Frankenstein".
     const name = note.title.replace(/(?:^|\s)#[\p{L}\p{N}_\/-]+/gu, '').trim()
     const title = index.folded(name, note.lemmas)
-    if (!title.length || title.length > 5 || name.split(/\s+/).length > 6) continue
+    if (!title.length || title.length > 5 || name.split(/\s+/).length > 6 || said.has(nameOf(name).toLowerCase())) continue
+    // "Untitled", a number, a date or a name under four letters names nothing.
+    const plain = nameFrom(note.key, name)
+    if (!plain) continue
     // One in twenty notes at most (three in a small book): a word nearly every note has names nothing.
     if (title.length === 1 && (title[0].length < 5 || index.notesWith(title[0]) > Math.max(3, index.notes.length / 20))) continue
     let want = wordsOf(index, name, note.lemmas)
-    if (want.length > 1 && ARTICLES.has(want[0].lower)) want = want.slice(1)
+    // "The Picture of Dorian Gray" may be written without its "the"; "The Scroll" keeps it, or any "scrolls" would name it.
+    if (want.length > 2 && ARTICLES.has(want[0].lower)) want = want.slice(1)
+    // A name of everyday words ("Protocol", "Reading queue") counts only where it is written as a name.
+    const needsCapitals = ordinary(plain, everyday)
     if (!held.has(want[0].lower) && !(want[0].root !== null && held.has(want[0].root))) continue
     for (const { line, words } of lines) {
-      const at = words.findIndex((_, i) => i + want.length <= words.length && want.every((word, j) => same(word, words[i + j])))
+      const at = words.findIndex((_, i) => i + want.length <= words.length && want.every((word, j) => same(word, words[i + j])) && (!needsCapitals || writtenAsName(line, words[i].from, words[i + want.length - 1].to)))
       if (at < 0) continue
+      said.add(nameOf(name).toLowerCase())
       out.push({ key: note.key, title: name, words: line.slice(words[at].from, words[at + want.length - 1].to) })
       break
     }

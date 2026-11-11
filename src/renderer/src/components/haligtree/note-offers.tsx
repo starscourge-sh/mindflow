@@ -42,7 +42,8 @@ const unnamed = (editor: Editor): boolean => {
   return !line || line.length > 80
 }
 const SEEN = 'note-offers:dismissed'
-const dismissed = (): Set<string> => {
+/** Every offer put away with its ×, as "note|kind:target": kept on this Mac for good. The Mentions lists leave the same pairs out. */
+export const dismissed = (): Set<string> => {
   try {
     return new Set(JSON.parse(localStorage.getItem(SEEN) ?? '[]') as string[])
   } catch {
@@ -57,16 +58,24 @@ const linksIn = (editor: Editor): string[] => {
   return out
 }
 
-/** The first place some words stand as plain text (not in a link or code), as document positions. */
+/**
+ * The first place some words stand as plain text, as document positions: whole words (never "protocol" inside
+ * "protocols" or a longer word), and never in a code block, inline code or a link, where a link to a note cannot go.
+ */
 function findWords(editor: Editor, words: string): { from: number; to: number } | null {
   const look = words.toLowerCase()
   let found: { from: number; to: number } | null = null
+  const edge = /[\p{L}\p{N}]/u
   editor.state.doc.descendants((node, pos) => {
-    if (found) return false
+    if (found || node.type.name === 'codeBlock') return false
     if (!node.isText || !node.text) return true
     if (node.marks.some((mark) => mark.type.name === 'code' || mark.type.name === 'link')) return false
-    const at = node.text.toLowerCase().indexOf(look)
-    if (at >= 0) found = { from: pos + at, to: pos + at + words.length }
+    const text = node.text.toLowerCase()
+    for (let at = text.indexOf(look); at >= 0; at = text.indexOf(look, at + 1)) {
+      if (edge.test(text[at - 1] ?? '') || edge.test(text[at + look.length] ?? '')) continue
+      found = { from: pos + at, to: pos + at + words.length }
+      break
+    }
     return false
   })
   return found
@@ -125,7 +134,8 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       const all: Offer[] = [
         ...(found.same ? [{ kind: 'same' as const, ...found.same }] : []),
         ...(found.folder ? [{ kind: 'folder' as const, ...found.folder }] : []),
-        ...found.links.map((one) => ({ kind: 'link' as const, ...one })),
+        // Only where its words can be made a link: a name standing only in code or inside a link is not offered.
+        ...found.links.filter((one) => findWords(editor, one.words)).map((one) => ({ kind: 'link' as const, ...one })),
         // Someone in a work (named only in its title, or in a note about a book or a film): a character of it, never one of People.
         ...found.characters.filter((one) => !linksIn(editor).includes(`character:${one.name}`)).map((one) => ({ kind: 'character' as const, ...one })),
         ...found.people.filter((one) => !linksIn(editor).includes(`person:${one.name}`)).map((one) => ({ kind: 'person' as const, ...one })),

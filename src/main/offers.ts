@@ -6,6 +6,7 @@ import { LABEL, changed, database, whenChanged } from './captures'
 import { tagsIn, withoutTags } from './tag-words'
 import { understand } from './understand'
 import { readFileSync } from 'node:fs'
+import { everyday } from './name-match'
 import { RootIndex, alreadyWrote, cluesFor, linksIn, peopleIn, whichFolder, type Lemmas, type RootNote } from './roots'
 
 /**
@@ -131,18 +132,8 @@ function workOfNote(key: string, text: string): { work: string; author: string }
   return about && work ? { work, author: row?.attribution ?? '' } : null
 }
 
-/** The Mac's own word list (lower case only: everyday words), read once, for telling a name from a word. */
-let everyday: Set<string> | null = null
-const common = (word: string): boolean => {
-  if (!everyday) {
-    try {
-      everyday = new Set(readFileSync('/usr/share/dict/words', 'utf8').split('\n').filter((one) => one && one === one.toLowerCase()))
-    } catch {
-      everyday = new Set()
-    }
-  }
-  return everyday.has(word)
-}
+/** The Mac's own word list, for telling a name from a word (name-match.ts). */
+const common = everyday
 
 /** The titles of works in the book: notes' titles longer than a name, and where quotes and gems are from. */
 const works = (all: { title?: string | null }[]): string[] => {
@@ -194,7 +185,8 @@ async function forNote(key: string, text: string, linked: string[]): Promise<Not
     else if (!about || lower !== about.author.toLowerCase()) persons.push({ name, known: false })
   }
   return {
-    links: linksIn(book, text, read.lemmas, key, new Set(linked)).slice(0, 3),
+    // A few more than are shown: the page drops any whose words stand only in code or a link (note-offers.tsx).
+    links: linksIn(book, text, read.lemmas, key, new Set(linked), everyday).slice(0, 8),
     same: same ? { key: same.key, title: title(same.key) } : null,
     folder,
     people: persons,

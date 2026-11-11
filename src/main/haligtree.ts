@@ -1,3 +1,4 @@
+import { NameBook, everyday, linkableLines, nameFrom, tooCommon, unlinkable, type Name } from './name-match'
 import { occlusionOf } from './occlusion'
 import { chipLabel } from './cite-ids'
 import { mediaForget, mediaFromBin, mediaInBin, mediaPeek } from './media'
@@ -1748,20 +1749,48 @@ export function registerHaligtree(): void {
     const nugget = db.prepare('select title, tier from nuggets where id = ?').get(id) as { title: string; tier: string } | undefined
     return nugget ? { title: nugget.title, key: '', link: `${nugget.tier}:${id}` } : null
   }
+  // What truly names a note (name-match.ts, the one rule set): each note's lines read once and kept until its words
+  // change, the book of names made again only when a title changes, so a save reads one note, never the book.
+  const linesKept = new Map<string, { body: string; lines: string[]; names: string; held: Set<string> }>()
+  let nameBook: { stamp: string; book: NameBook } | null = null
+  const linesOf = (row: { id: string; body: string }, stamp: string, book: NameBook): { lines: string[]; held: Set<string> } => {
+    let kept = linesKept.get(row.id)
+    if (!kept || kept.body !== row.body) {
+      let doc: unknown = null
+      try { doc = JSON.parse(row.body) } catch { doc = row.body }
+      kept = { body: row.body, lines: linkableLines(doc), names: '', held: new Set() }
+      linesKept.set(row.id, kept)
+    }
+    // Every name standing in it as whole words, read as a name or not: how common a name is, and where to look closer.
+    if (kept.names !== stamp) (kept.held = new Set(book.find(kept.lines, new Set([row.id]), false).map((hit) => hit.key)), (kept.names = stamp))
+    return kept
+  }
+  /** The ids a note's words already link to, read once. */
+  const linkedIn = (body: string): Set<string> => new Set([...body.matchAll(/"id":"(?:[a-z]+:)?([^"]+)"|\[\[@(?:[a-z]+:)?([^|\]]+)\|/g)].map((hit) => hit[1] ?? hit[2]))
   handle('mentions', (id: string) => {
     const me = titleOf(id)
     const name = me?.title.trim() ?? ''
-    // A name worth looking for: not empty, not "Untitled", not one tiny word.
-    const findable = name.length >= 4 && !/^untitled$/i.test(name)
-    const pattern = findable ? new RegExp(`(?<![\\w])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`, 'i') : null
+    const all = everything().filter((row) => row.body)
+    const stamp = all.map((row) => `${row.id}\u0000${row.title}`).join('\u0001')
+    if (nameBook?.stamp !== stamp) nameBook = { stamp, book: new NameBook(all.map((row) => nameFrom(row.id, row.title ?? '')).filter((one): one is Name => !!one), everyday) }
+    const book = nameBook.book
+    const read = new Map(all.map((row) => [row.id, linesOf(row, stamp, book)]))
+    // How many notes hold each name: one that many do names nothing.
+    const held = new Map<string, number>()
+    for (const one of read.values()) for (const key of one.held) held.set(key, (held.get(key) ?? 0) + 1)
+    const rare = (key: string): boolean => !tooCommon(held.get(key) ?? 0, all.length)
+    const snippetAt = (line: string, from: number, to: number): string => around(line, from, to - from).replace(/\s*⁣\s*/g, ' ')
     const linked: Mention[] = []
     const unlinked: Mention[] = []
-    for (const row of everything()) {
-      if (row.id === id || !row.body) continue
+    const mine = all.find((row) => row.id === id)
+    const own = nameFrom(id, name)
+    const ownBook = own && rare(id) ? new NameBook([own], everyday) : null
+    for (const row of all) {
+      if (row.id === id) continue
       // A link as the editor keeps it, or as an imported page still holds it.
-      const links = new RegExp(`"id":"(?:[a-z]+:)?${id}"|\\[\\[@(?:[a-z]+:)?${id}\\|`).test(row.body)
-      const text = words(JSON.parse(row.body))
+      const links = row.body.includes(id) && new RegExp(`"id":"(?:[a-z]+:)?${id}"|\\[\\[@(?:[a-z]+:)?${id}\\|`).test(row.body)
       if (links) {
+        const text = words(JSON.parse(row.body))
         const label = /"label":"([^"]*)"/.exec(row.body.slice(Math.max(0, row.body.search(new RegExp(`"id":"(?:[a-z]+:)?${id}"`)))))?.[1] ??
           new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|([^\\]]+)\\]\\]`).exec(row.body)?.[1] ?? name
         const at = text.indexOf(label)
@@ -1771,29 +1800,31 @@ export function registerHaligtree(): void {
         linked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: bare ? '' : snippet })
         continue
       }
-      const hit = pattern?.exec(text)
-      if (hit) unlinked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: around(text, hit.index, hit[0].length) })
+      // Only a note that holds the name at all is read closer: is it written there as this note's name?
+      const theirs = read.get(row.id)!
+      if (!ownBook || !theirs.held.has(id)) continue
+      const hit = ownBook.find(theirs.lines, new Set(), true, row.title ?? '')[0]
+      if (hit) unlinked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: snippetAt(theirs.lines[hit.line], hit.from, hit.to) })
     }
     // And the other way, as Obsidian's Outgoing links has it: what this note
     // links to, and the notes it names without linking them yet.
-    const all = everything()
-    const mine = all.find((row) => row.id === id)
-    const body = mine?.body ?? ''
-    const text = body ? words(JSON.parse(body)) : ''
     const out: Mention[] = []
     const named: Mention[] = []
-    for (const row of all) {
-      if (row.id === id) continue
-      if (new RegExp(`"id":"(?:[a-z]+:)?${row.id}"|\\[\\[@(?:[a-z]+:)?${row.id}\\|`).test(body)) {
-        out.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: '' })
-        continue
+    if (mine) {
+      const already = linkedIn(mine.body)
+      const rows = new Map(all.map((row) => [row.id, row]))
+      for (const key of already) {
+        const row = rows.get(key)
+        if (row && key !== id) out.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: '' })
       }
-      const title = row.title?.trim() ?? ''
-      if (named.length >= 20 || title.length < 4 || /^untitled$/i.test(title)) continue
-      const hit = new RegExp(`(?<![\\w])${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`, 'i').exec(text)
-      if (hit) named.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: around(text, hit.index, hit[0].length) })
+      const lines = read.get(id)!.lines
+      for (const hit of book.find(lines, new Set([id, ...already]), true, name)) {
+        const row = rows.get(hit.key)
+        if (row && rare(hit.key)) named.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: snippetAt(lines[hit.line], hit.from, hit.to) })
+      }
     }
-    return { linked, unlinked: unlinked.slice(0, 20), out, named, me: mine?.type ?? 'capture' }
+    // The lists show twenty; `more` says when there were more, so a heading never counts what it does not list.
+    return { linked, unlinked: unlinked.slice(0, 20), out, named: named.slice(0, 20), more: { unlinked: unlinked.length > 20, named: named.length > 20 }, me: mine?.type ?? 'capture' }
   })
   // Turn the first plain mention of a note in another into a real link.
   handle('mention:link', (sourceType: string, sourceId: string, targetId: string) => {
@@ -1807,30 +1838,33 @@ export function registerHaligtree(): void {
     const doc: Doc = typeof stored === 'string'
       ? { type: 'doc', content: stored.split('\n').map((line) => ({ type: 'paragraph', content: line ? [{ type: 'text', text: line }] : [] })) }
       : stored ?? { type: 'doc', content: [] }
-    const lower = me.title.toLowerCase()
-    const whole = new RegExp(`(?<![\\w])${me.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w])`, 'i')
+    const own = nameFrom(targetId, me.title)
+    if (!own) return false
+    const one = new NameBook([own], everyday)
     let done = false
-    const walk = (node: Doc): void => {
-      if (done || !node.content) return
+    // The words the mention was found by (name-match.ts): whole words, never in code or a link. First where they read
+    // as the name; then, a name set apart by bold or italics (a piece of its own), wherever they stand.
+    const walk = (node: Doc, strict: boolean): void => {
+      if (done || !node.content || node.type === 'codeBlock') return
       const next: Doc[] = []
       for (const child of node.content) {
-        // The name as a whole word, as the mention was found: never inside "paragraph".
-        const at = !done && child.type === 'text' && !child.marks?.some((mark) => mark.type === 'code') ? (child.text ?? '').search(whole) : -1
-        if (at < 0) {
+        const hit = !done && child.type === 'text' && !unlinkable(child) ? one.find([child.text ?? ''], new Set(), strict)[0] : undefined
+        if (!hit) {
           next.push(child)
-          walk(child)
+          walk(child, strict)
           continue
         }
         const text = child.text ?? ''
-        if (at > 0) next.push({ ...child, text: text.slice(0, at) })
-        // A nugget or article is linked as `tier:id`, the way @ links them.
-        next.push({ type: 'noteLink', attrs: { id: me.link, label: me.title, key: me.key } })
-        if (at + lower.length < text.length) next.push({ ...child, text: text.slice(at + lower.length) })
+        if (hit.from > 0) next.push({ ...child, text: text.slice(0, hit.from) })
+        // A nugget or article is linked as `tier:id`, the way @ links them. The words stay as written ("protocols").
+        next.push({ type: 'noteLink', attrs: { id: me.link, label: me.title, key: me.key, ...(hit.words !== me.title ? { text: hit.words } : {}) } })
+        if (hit.to < text.length) next.push({ ...child, text: text.slice(hit.to) })
         done = true
       }
       node.content = next
     }
-    walk(doc)
+    walk(doc, true)
+    if (!done) walk(doc, false)
     if (!done) return false
     // Captures keep no edit time; nuggets do.
     if (table === 'captures') db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(doc), sourceId)
