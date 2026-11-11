@@ -243,7 +243,7 @@ import { TableControls } from "@/components/table/table-controls"
 import { BlockMenu, type BlockTarget } from "@/components/turn-into/block-menu"
 import { SpellingMenu, misspeltAt, type Misspelling } from "@/components/turn-into/spelling"
 import { clickedAt, lookUpIn, type Clicked } from "@/components/turn-into/clicked"
-import { BookOpenText } from "lucide-react"
+import { BookOpenText, Plus } from "lucide-react"
 import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
 import { hideForMenus, menuShowing } from "@/lib/menu-showing"
@@ -2103,7 +2103,8 @@ function Surface({
                   .run()
               }}
             >
-              +
+              {/* Drawn, not typed: a "+" in the text face sat off its button's middle. */}
+              <Plus aria-hidden />
             </button>
 
             <button
