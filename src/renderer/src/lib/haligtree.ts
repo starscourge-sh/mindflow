@@ -898,6 +898,7 @@ export function useAppearance(): void {
     document.documentElement.dataset.width = width === 'narrow' ? 'page' : width
     document.documentElement.dataset.linkPictures = settings.linkPictures ?? 'fill'
     document.documentElement.dataset.avatars = settings.avatars ?? 'initials'
+    document.documentElement.dataset.smoothScroll = settings.smoothScroll === false ? 'off' : 'on'
     document.documentElement.dataset.motion = settings.motion ? 'on' : 'off'
     document.documentElement.toggleAttribute('data-postcards', !!settings.postcards)
     document.documentElement.dataset.postcardBorder = settings.postcardBorder ?? 'auto'
@@ -931,7 +932,7 @@ export function useAppearance(): void {
     soundOn(settings.sounds)
     setVolume(settings.volume)
     setPack(settings.soundPack)
-  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.avatars, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.highlights, settings?.tagLook, settings?.paper, settings?.pictureSize, settings?.menuIcons, settings?.iconColour, settings?.barWords, settings?.marks, settings?.progressBars, settings?.blur, settings?.boxDim, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
+  }, [settings?.fullWidth, settings?.pageWidth, settings?.linkPictures, settings?.avatars, settings?.smoothScroll, settings?.motion, settings?.postcards, settings?.postcardBorder, settings?.highlights, settings?.tagLook, settings?.paper, settings?.pictureSize, settings?.menuIcons, settings?.iconColour, settings?.barWords, settings?.marks, settings?.progressBars, settings?.blur, settings?.boxDim, settings?.spellcheck, settings?.interfaceSize, settings?.sounds, settings?.volume, settings?.soundPack])
 }
 
 /** The settings as this window last read them, for code that is not a component (a row's menu). */

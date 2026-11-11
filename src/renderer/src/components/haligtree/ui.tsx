@@ -1,4 +1,4 @@
-import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { afterLayout } from '@/lib/after-layout'
 import { useToolKeys } from '@/lib/tool-keys'
 import { caretTakesEscape, layerOpen } from '@/lib/menu-keys'
@@ -1814,12 +1814,24 @@ function useScrollOnlyWhenNeeded(box: HTMLElement | null): void {
   }, [box])
 }
 
+/** The root's smooth-scroll word changing (lib/haligtree.ts sets it from Settings). */
+const watchSmoothSetting = (changed: () => void): (() => void) => {
+  const watch = new MutationObserver(changed)
+  watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-smooth-scroll'] })
+  return () => watch.disconnect()
+}
+
+/** Whether pages glide when scrolled (Settings' smoothScroll), kept live: the note menu's tick reads it. */
+export const useSmoothScrollOn = (): boolean => useSyncExternalStore(watchSmoothSetting, () => document.documentElement.dataset.smoothScroll !== 'off')
+
 /** The same easing on any scrolling box, whose first child is what scrolls. */
 export function useSmooth(box: HTMLElement | null): void {
   useScrollOnlyWhenNeeded(box)
+  // "Smooth scrolling" in a note's "…" menu (Settings' smoothScroll, said on the root): off, the box scrolls as the Mac does.
+  const plain = useSyncExternalStore(watchSmoothSetting, () => document.documentElement.dataset.smoothScroll === 'off')
   useEffect(() => {
     const wrapper = box
-    if (!wrapper || still()) return
+    if (!wrapper || still() || plain) return
     // A box inside the page that can still scroll the way the wheel goes (a
     // sample excerpt, a GIF grid, a list in a panel) takes the wheel itself;
     // the page only moves once that box is at its end.
@@ -1854,7 +1866,7 @@ export function useSmooth(box: HTMLElement | null): void {
       smooth.delete(wrapper)
       lenis.destroy()
     }
-  }, [box])
+  }, [box, plain])
 }
 const smooth = new WeakMap<HTMLElement, Lenis>()
 

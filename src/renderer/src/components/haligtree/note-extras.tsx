@@ -33,7 +33,7 @@ import { canSplit, usePane, usePaneWidth } from '@/lib/split'
 import { openApart } from '@/lib/apart'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { ReadThrough } from './read-through'
-import { Island, Prop, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly } from './ui'
+import { Island, Prop, PropInput, Rolling, Tip, Typed, ask, refuse, toast, quietly, useSmoothScrollOn } from './ui'
 import { Does, GHOST, GhostText } from './ghost'
 import { cn } from '@/lib/cn'
 import ExpandIcon from '@/components/ui/expand-icon'
@@ -608,6 +608,7 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
   details?: boolean
   className?: string
 } & Parameters<typeof Versions>[0]): React.JSX.Element {
+  const smoothOn = useSmoothScrollOn()
   const at = edited && edited > captured ? edited : captured
   const old = age(at)
   const verb = edited && edited > captured ? 'Edited' : made
@@ -698,6 +699,11 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
                 ))}
                 <DropdownMenuSeparator />
                 <PageWidthMenu width={width} />
+                {/* App-wide, as Page width is: every page and note glides when scrolled, or moves as the Mac moves it. */}
+                <DropdownMenuItem data-smooth-scroll-toggle onSelect={(event) => (event.preventDefault(), chime('tap'), void haligtree.setSettings({ smoothScroll: !smoothOn }))}>
+                  <span className="flex-1">Smooth scrolling</span>
+                  <span className="flex w-3.5 justify-center">{smoothOn && <Check />}</span>
+                </DropdownMenuItem>
                 {details && <DropdownMenuItem onSelect={() => showDetails(!detailsOut, inPane)}>{detailsOut ? 'Hide details' : 'Show details'}</DropdownMenuItem>}
                 {items.map((item, index) =>
                   item === 'separator' ? (

@@ -759,6 +759,8 @@ export type Settings = typeof DEFAULTS & {
   linkPictures?: 'fill' | 'whole'
   /** A face with no picture: a shape from Coolshapes with the initials over it, or the initials in a circle. */
   avatars?: 'shapes' | 'initials'
+  /** Pages and notes glide when scrolled (Lenis); off, they move as the Mac moves them. On unless turned off. */
+  smoothScroll?: boolean
   /** A line about you, up to 160 letters, shown with your face. */
   bio?: string
   /** The next marked days in the menu bar's menu, under the bars (read by milestones.ts). */

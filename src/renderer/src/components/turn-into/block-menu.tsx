@@ -25,7 +25,6 @@ import { host, said } from "@/lib/host"
 import { listDirection } from "@/lib/menu-keys"
 import { fitToWidth } from "@/lib/table"
 import { SpellingRows, type Misspelling } from "./spelling"
-import { Kbd } from "@/components/haligtree/ui"
 import { BLOCK_TYPES, nameBlock } from "@/extensions/block-ids"
 import { haligtree } from "@/lib/haligtree"
 import { scrollerOf } from "@/lib/note-place"
@@ -779,7 +778,6 @@ export function BlockMenu({
             <button type="button" data-remove-from-note onClick={() => at(() => (remove(), letGoSaid(stored, storedWhat, undoRemove)))}>
               <MenuGlyph label="Remove from note" />
               <span className="tiptap-slash-menu-title">Remove from note</span>
-              <Kbd>⌫</Kbd>
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -801,7 +799,6 @@ export function BlockMenu({
             >
               <MenuGlyph label="Delete" />
               <span className="tiptap-slash-menu-title">Delete</span>
-              <Kbd>⌫</Kbd>
             </button>
           </DropdownMenuItem>
         ) : null}
