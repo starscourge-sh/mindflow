@@ -19,14 +19,17 @@ try {
       const box = cell.getBoundingClientRect()
       const num = cell.querySelector('[data-day-number]')?.getBoundingClientRect()
       const rows = [...cell.querySelectorAll('.h-5')].filter((row) => row.getClientRects().length).map((row) => row.getBoundingClientRect())
-      return { day: cell.dataset.day, top: num ? Math.round(num.top - box.top) : null, cut: rows.filter((r) => r.bottom > box.bottom + 0.5).length, rows: rows.length }
+      return { day: cell.dataset.day, top: num ? Math.round(num.top - box.top) : null, cut: rows.filter((r) => r.bottom > box.bottom + 0.5).length, rows: rows.length, more: !!cell.querySelector('[data-plan-more], [data-plan-more-events]') }
     }))
     const tight = look.filter((one) => one.top !== null && one.top < 6)
     const cut = look.filter((one) => one.cut)
     check(`${size}%: every date sits 6px or more below its cell's top`, !tight.length && look.length > 27, JSON.stringify(tight.slice(0, 3)))
     check(`${size}%: no line in any day is cut off`, !cut.length, JSON.stringify(cut.slice(0, 3)))
     const busy = look.reduce((a, b) => (b.rows > a.rows ? b : a), look[0])
-    check(`${size}%: the busy day still lists lines`, busy.rows >= 3, JSON.stringify(busy))
+    // Home's six weeks give a busy week more room; the Calendar's run of weeks (11 Nov) keeps every week the same height, so a
+    // busy day there shows the whole lines that fit and "+N more" for the rest, never fewer than one line.
+    const run = await h.evaluate(() => !!document.querySelector('[data-month-run]'))
+    check(`${size}%: the busy day still lists lines`, run ? busy.rows >= 2 && busy.more : busy.rows >= 3, JSON.stringify(busy))
     if (process.env.SHOT) await c.both(`${process.env.SHOT}-${size}`)
   }
 } catch (error) { check('the run finished', false, error.message.split('\n')[0]) }
