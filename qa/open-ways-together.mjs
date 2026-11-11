@@ -100,12 +100,13 @@ try {
       seen.push({ words: one.words, out: (await read(SUB)).length, lit: await h.evaluate((box) => [...document.querySelectorAll(`${box} [role^="menuitem"][data-highlighted]`)].length, SUB), tips: await tips() })
     }
     check(`${theme}: pointing at each line keeps the list out, lights that line alone and shows no tip`, seen.length === 4 && seen.every((one) => one.out === 4 && one.lit === 1 && one.tips === 0), JSON.stringify(seen))
-    // The other list of the menu with hints in it: "Turn it into".
-    const turn = lines.find((one) => one.words.startsWith('Turn it into'))
-    if (turn) {
-      await point(turn.x, turn.y); await wait(500)
-      const into = (await read(SUB)).filter((one) => one.hint)
-      check(`${theme}: the hints inside "Turn it into" keep to one line too (${into.length})`, into.every((one) => one.hint.lines === 1 && !one.hint.cut), into.filter((one) => one.hint.lines !== 1 || one.hint.cut).map((one) => `${one.words}: ${one.hint.words}`).join(' | '))
+    // The other lists of the menu with hints in them: "Turn it into" and "Export".
+    for (const name of ['Turn it into', 'Export']) {
+      const opener = lines.find((one) => one.words.startsWith(name))
+      if (!opener) continue
+      await point(opener.x, opener.y); await wait(500)
+      const inside = (await read(SUB)).filter((one) => one.hint)
+      check(`${theme}: the hints inside "${name}" keep to one line too (${inside.length})`, inside.every((one) => one.hint.lines === 1 && !one.hint.cut), inside.filter((one) => one.hint.lines !== 1 || one.hint.cut).map((one) => `${one.words}: ${one.hint.words}`).join(' | '))
     }
     await shut()
   }

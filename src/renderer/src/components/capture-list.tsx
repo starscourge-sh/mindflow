@@ -178,7 +178,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: 'Export', items: [
     { label: 'Copy text', run: () => copy(capture.label) },
     { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'captures', id: capture.id }]) },
-    { label: 'Publish as a website…', hint: 'It and the notes it links to, as web pages in a folder', run: () => void publishSite(capture.id) },
+    { label: 'Publish as a website…', hint: 'With the notes it links to, as web pages', run: () => void publishSite(capture.id) },
     copyToBookItem([{ table: 'captures', id: capture.id }]),
     ...pictureItems(`capture-${capture.id}`, capture.label),
     // A quote waiting in the Inbox can go out as a card too: its line, who said it and where.

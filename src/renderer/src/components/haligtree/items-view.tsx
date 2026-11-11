@@ -944,7 +944,7 @@ const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[
   // Taking it elsewhere, together, so the menu stays short.
   { label: 'Export', items: [
     { label: 'Save attachments…', hint: 'Its pictures and files, to a folder', run: () => void saveAttachments([{ table: 'nuggets', id: item.id }]) },
-    { label: 'Publish as a website…', hint: 'It and the notes it links to, as web pages in a folder', run: () => void publishSite(item.id) },
+    { label: 'Publish as a website…', hint: 'With the notes it links to, as web pages', run: () => void publishSite(item.id) },
     copyToBookItem([{ table: 'nuggets', id: item.id }]),
     { label: 'Copy title', run: () => copy(item.title) },
     ...pictureItems(`item-${item.id}`, item.title),
