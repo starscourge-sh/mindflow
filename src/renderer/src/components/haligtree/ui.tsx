@@ -1895,6 +1895,8 @@ export function glideTo(box: HTMLElement, top: number): void {
  */
 export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX.Element {
   const [shown, setShown] = useState(false)
+  // In a narrow column (the list beside a note) the arrow alone: two "Top"s side by side read as one word said twice (11 Nov).
+  const [narrow, setNarrow] = useState(false)
   useEffect(() => {
     const box = target
     setShown(false)
@@ -1904,7 +1906,7 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
     // whole page lay itself out again in the middle of a fast scroll.
     // Its height first read when the size watch tells of it, once laid out: read here, as the page mounted, it laid it all out there and then.
     let height = Infinity
-    const sized = new ResizeObserver(() => (height = box.clientHeight))
+    const sized = new ResizeObserver(() => ((height = box.clientHeight), setNarrow(box.clientWidth < 512)))
     sized.observe(box)
     const check = (): void => setShown(box.scrollTop > height * 1.5)
     box.addEventListener('scroll', check, { passive: true })
@@ -1940,9 +1942,9 @@ export function BackToTop({ target }: { target: HTMLElement | null }): React.JSX
           }}
           // Dressed like the app's other floating controls: the popover surface, a
           // hairline edge, the shared panel shadow, the text size of every control.
-          className="pointer-events-auto flex items-center gap-1.5 rounded-full border bg-popover py-1 pr-3 pl-2.5 text-control text-muted-foreground shadow-(--mf-panel-shadow) transition-colors hover:bg-accent hover:text-foreground"
+          className={`pointer-events-auto flex items-center gap-1.5 rounded-full border bg-popover text-control text-muted-foreground shadow-(--mf-panel-shadow) transition-colors hover:bg-accent hover:text-foreground ${narrow ? 'size-8 justify-center' : 'py-1 pr-3 pl-2.5'}`}
         >
-          <ArrowUp className="size-3.5" /> Top
+          <ArrowUp className="size-3.5" />{!narrow && ' Top'}
         </motion.button>
       )}
     </AnimatePresence>
