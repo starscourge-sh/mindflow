@@ -7,6 +7,7 @@ import { tagsIn, withoutTags } from './tag-words'
 import { understand } from './understand'
 import { readFileSync } from 'node:fs'
 import { everyday } from './name-match'
+import { named } from './stalls'
 import { RootIndex, alreadyWrote, cluesFor, linksIn, peopleIn, whichFolder, type Lemmas, type RootNote } from './roots'
 
 /**
@@ -97,7 +98,7 @@ async function index(): Promise<{ index: RootIndex; rows: Row[] }> {
 /** The index made again from the book as it is now; only notes changed since they were last read are read. */
 async function make(): Promise<void> {
   const as = changes
-  const all = rows()
+  const all = named('offers: every note read', rows)
   loadKept()
   const fresh = all.filter((row) => kept.get(row.key)?.stamp !== row.stamp)
   // Roots only, a hundred notes a request: 5,000 notes are read once, in the background, then kept on disk.
@@ -109,7 +110,8 @@ async function make(): Promise<void> {
   }
   if (fresh.length) saveKept()
   const notes: RootNote[] = all.map((row) => ({ key: row.key, title: row.title ?? '', text: row.text ?? '', lemmas: kept.get(row.key)?.lemmas }))
-  built = { at: Date.now(), index: new RootIndex(notes), rows: all, as }
+  // Named, as each long piece of work below is: it runs after a wait, where the handler's own time is no longer counted (stalls.ts).
+  built = { at: Date.now(), index: named('offers: the book indexed again', () => new RootIndex(notes)), rows: all, as }
 }
 
 const near = (a: Float32Array | null | undefined, b: Float32Array | null | undefined): number => {
@@ -158,7 +160,8 @@ async function forNote(key: string, text: string, linked: string[]): Promise<Not
   const { index: book, rows: all } = await index()
   const [read] = await readAll([text])
   const title = (key: string): string => all.find((row) => row.key === key)?.title || 'Untitled'
-  const same = alreadyWrote(book, text, read.lemmas, key, await meaningFor(book, all, text, read.lemmas, key))
+  const meant = await meaningFor(book, all, text, read.lemmas, key)
+  const same = named('offers: nearly the same note', () => alreadyWrote(book, text, read.lemmas, key, meant))
   // Its folder: only a loose note in a list that has folders.
   const own = all.find((row) => row.key === key)
   let folder: NoteOffers['folder'] = null
@@ -197,7 +200,7 @@ async function forNote(key: string, text: string, linked: string[]): Promise<Not
   }
   return {
     // A few more than are shown: the page drops any whose words stand only in code or a link (note-offers.tsx).
-    links: linksIn(book, text, read.lemmas, key, new Set(linked), everyday).slice(0, 8),
+    links: named('offers: names found in the note', () => linksIn(book, text, read.lemmas, key, new Set(linked), everyday)).slice(0, 8),
     same: same ? { key: same.key, title: title(same.key) } : null,
     folder,
     people: persons,
