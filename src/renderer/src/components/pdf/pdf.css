@@ -920,12 +920,9 @@
 
 /*
  * "Only this page in colour": every other page small in grey, the one you are on in colour. A filter on
- * what is already drawn, eased as the page changes; no thumbnail is drawn again for it.
+ * what is already drawn; no thumbnail is drawn again for it. Not eased: a filter that moves is painted
+ * again every frame, and reading fast turns a page several times a second.
  */
-.pdf-thumb-sheet canvas {
-  transition: filter 200ms ease-out;
-}
-
 .pdf-rail[data-one-in-colour] .pdf-thumb:not(.is-here) .pdf-thumb-sheet canvas {
   filter: grayscale(1);
 }
