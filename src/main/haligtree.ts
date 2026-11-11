@@ -1,4 +1,4 @@
-import { NameBook, everyday, linkableLines, nameFrom, tooCommon, unlinkable, type Name } from './name-match'
+import { NameBook, everyday, linkableLines, nameFrom, reading, tooCommon, unlinkable, type Name } from './name-match'
 import { occlusionOf } from './occlusion'
 import { chipLabel } from './cite-ids'
 import { mediaForget, mediaFromBin, mediaInBin, mediaPeek } from './media'
@@ -1753,7 +1753,50 @@ export function registerHaligtree(): void {
   // change, the book of names made again only when a title changes, so a save reads one note, never the book.
   const linesKept = new Map<string, { body: string; lines: string[]; names: string; held: Set<string> }>()
   let nameBook: { stamp: string; book: NameBook } | null = null
-  const linesOf = (row: { id: string; body: string }, stamp: string, book: NameBook): { lines: string[]; held: Set<string> } => {
+  /**
+   * The mentions read every note in the book, on every open and after every save: on a large book (95 MB of notes)
+   * that held main's one thread for 65 to 380 ms each time, and every window with it. So the read is taken in
+   * turns: `turn()` lets the thread go once it has been held 8 ms (whatever waits, a key or a window's question,
+   * goes first) and says false when the answer is no longer wanted, a newer ask having taken its place.
+   */
+  type Turn = () => Promise<boolean>
+  const turns = (wanted: () => boolean): Turn => {
+    let since = performance.now()
+    return async () => {
+      if (performance.now() - since < 8) return true
+      await new Promise((done) => setImmediate(done))
+      since = performance.now()
+      return wanted()
+    }
+  }
+  /** `everything()`, a few notes at a read; null once it is no longer wanted. */
+  const everythingInTurns = async (turn: Turn): Promise<ReturnType<typeof everything> | null> => {
+    const out: ReturnType<typeof everything> = []
+    for (const page of [
+      db.prepare(`select rowid as at, 'capture' as type, id, ${LABEL} as title, body, private from captures where status != 'discarded' and rowid > ? order by rowid limit 30`),
+      db.prepare("select rowid as at, tier as type, id, title, body, private from nuggets where superseded_by is null and tier not in ('card', 'deck') and rowid > ? order by rowid limit 30")
+    ]) {
+      for (let at = 0; ;) {
+        const rows = page.all(at) as unknown as (ReturnType<typeof everything>[number] & { at: number })[]
+        if (!rows.length) break
+        out.push(...rows)
+        at = rows[rows.length - 1].at
+        if (!(await turn())) return null
+      }
+    }
+    return out
+  }
+  /** `book.find` over many lines, a part at a time, with the same answer as in one go (name-match.ts `reading`); `first`: the first hit is enough. */
+  const findInTurns = async (book: NameBook, lines: string[], leave: Set<string>, strict: boolean, own: string, turn: Turn, first = false): Promise<ReturnType<NameBook['find']> | null> => {
+    const part = reading(own)
+    const out: ReturnType<NameBook['find']> = []
+    for (let from = 0; from < lines.length && !(first && out.length); from += 120) {
+      out.push(...book.find(lines.slice(from, from + 120), leave, strict, own, part))
+      if (!(await turn())) return null
+    }
+    return out
+  }
+  const linesOf = async (row: { id: string; body: string }, stamp: string, book: NameBook, turn: Turn): Promise<{ lines: string[]; held: Set<string> } | null> => {
     let kept = linesKept.get(row.id)
     if (!kept || kept.body !== row.body) {
       let doc: unknown = null
@@ -1762,30 +1805,45 @@ export function registerHaligtree(): void {
       linesKept.set(row.id, kept)
     }
     // Every name standing in it as whole words, read as a name or not: how common a name is, and where to look closer.
-    if (kept.names !== stamp) (kept.held = new Set(book.find(kept.lines, new Set([row.id]), false).map((hit) => hit.key)), (kept.names = stamp))
-    return kept
+    if (kept.names !== stamp) {
+      const hits = await findInTurns(book, kept.lines, new Set([row.id]), false, '', turn)
+      if (!hits) return null
+      kept.held = new Set(hits.map((hit) => hit.key))
+      kept.names = stamp
+    }
+    return (await turn()) ? kept : null
   }
   /** The ids a note's words already link to, read once. */
   const linkedIn = (body: string): Set<string> => new Set([...body.matchAll(/"id":"(?:[a-z]+:)?([^"]+)"|\[\[@(?:[a-z]+:)?([^|\]]+)\|/g)].map((hit) => hit[1] ?? hit[2]))
-  handle('mentions', (id: string) => {
+  type Mentions = { linked: Mention[]; unlinked: Mention[]; out: Mention[]; named: Mention[]; more: { unlinked: boolean; named: boolean }; me: string }
+  /** A note's mentions, worked out in turns; null once no longer wanted. */
+  const mentionsOf = async (id: string, turn: Turn): Promise<Mentions | null> => {
     const me = titleOf(id)
     const name = me?.title.trim() ?? ''
-    const all = everything().filter((row) => row.body)
+    const every = await everythingInTurns(turn)
+    if (!every) return null
+    const all = every.filter((row) => row.body)
     const stamp = all.map((row) => `${row.id}\u0000${row.title}`).join('\u0001')
     if (nameBook?.stamp !== stamp) nameBook = { stamp, book: new NameBook(all.map((row) => nameFrom(row.id, row.title ?? '')).filter((one): one is Name => !!one), everyday) }
     const book = nameBook.book
-    const read = new Map(all.map((row) => [row.id, linesOf(row, stamp, book)]))
+    const read = new Map<string, { lines: string[]; held: Set<string> }>()
+    for (const row of all) {
+      const lines = await linesOf(row, stamp, book, turn)
+      if (!lines) return null
+      read.set(row.id, lines)
+    }
     // How many notes hold each name: one that many do names nothing.
     const held = new Map<string, number>()
     for (const one of read.values()) for (const key of one.held) held.set(key, (held.get(key) ?? 0) + 1)
     const rare = (key: string): boolean => !tooCommon(held.get(key) ?? 0, all.length)
-    const snippetAt = (line: string, from: number, to: number): string => around(line, from, to - from).replace(/\s*⁣\s*/g, ' ')
+    const snippetAt = (line: string, from: number, to: number): string => around(line, from, to - from).replace(/\s*\u2063\s*/g, ' ')
     const linked: Mention[] = []
     const unlinked: Mention[] = []
     const mine = all.find((row) => row.id === id)
     const own = nameFrom(id, name)
     const ownBook = own && rare(id) ? new NameBook([own], everyday) : null
     for (const row of all) {
+      if (!(await turn())) return null
       if (row.id === id) continue
       // A link as the editor keeps it, or as an imported page still holds it.
       const links = row.body.includes(id) && new RegExp(`"id":"(?:[a-z]+:)?${id}"|\\[\\[@(?:[a-z]+:)?${id}\\|`).test(row.body)
@@ -1803,7 +1861,9 @@ export function registerHaligtree(): void {
       // Only a note that holds the name at all is read closer: is it written there as this note's name?
       const theirs = read.get(row.id)!
       if (!ownBook || !theirs.held.has(id)) continue
-      const hit = ownBook.find(theirs.lines, new Set(), true, row.title ?? '')[0]
+      const hits = await findInTurns(ownBook, theirs.lines, new Set(), true, row.title ?? '', turn, true)
+      if (!hits) return null
+      const hit = hits[0]
       if (hit) unlinked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: snippetAt(theirs.lines[hit.line], hit.from, hit.to) })
     }
     // And the other way, as Obsidian's Outgoing links has it: what this note
@@ -1818,13 +1878,30 @@ export function registerHaligtree(): void {
         if (row && key !== id) out.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: '' })
       }
       const lines = read.get(id)!.lines
-      for (const hit of book.find(lines, new Set([id, ...already]), true, name)) {
+      const hits = await findInTurns(book, lines, new Set([id, ...already]), true, name, turn)
+      if (!hits) return null
+      for (const hit of hits) {
         const row = rows.get(hit.key)
         if (row && rare(hit.key)) named.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: snippetAt(lines[hit.line], hit.from, hit.to), words: lines[hit.line].slice(hit.from, hit.to) })
       }
     }
     // The lists show twenty; `more` says when there were more, so a heading never counts what it does not list.
     return { linked, unlinked: unlinked.slice(0, 20), out, named: named.slice(0, 20), more: { unlinked: unlinked.length > 20, named: named.length > 20 }, me: mine?.type ?? 'capture' }
+  }
+  // One ask a window: a newer one from the same window takes the older's place (a note you have already left is
+  // not matched to the end; one saved again is answered once, with the newer reading).
+  const asked = new Map<number, { id: string; found: Promise<Mentions> }>()
+  ipcMain.handle('haligtree:mentions', (event, id: string) => {
+    const from = event.sender
+    if (!asked.has(from.id)) from.once('destroyed', () => asked.delete(from.id))
+    const mine: { id: string; found: Promise<Mentions> } = { id, found: null as never }
+    asked.set(from.id, mine)
+    mine.found = mentionsOf(id, turns(() => asked.get(from.id) === mine && !from.isDestroyed())).then((found) => {
+      if (found) return found
+      const newer = asked.get(from.id)
+      return newer && newer !== mine && newer.id === id ? newer.found : { linked: [], unlinked: [], out: [], named: [], more: { unlinked: false, named: false }, me: 'capture' }
+    })
+    return mine.found
   })
   // Turn the first plain mention of a note in another into a real link.
   handle('mention:link', (sourceType: string, sourceId: string, targetId: string) => {

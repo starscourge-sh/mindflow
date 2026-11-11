@@ -104,11 +104,16 @@ export class NameBook {
    * gem made from it) are offered once, the first; a name the same as `own` is the note itself or its twin, never
    * offered. `strict` false counts any whole-word standing (for how common a name is).
    */
-  find(lines: string[], leave: Set<string> = new Set(), strict = true, own = ''): Hit[] {
+  find(lines: string[], leave: Set<string> = new Set(), strict = true, own = '', part?: Reading): Hit[] {
     const out: Hit[] = []
-    const seen = new Set<string>()
-    const said = new Set<string>(own ? [nameOf(own).toLowerCase()] : [])
-    lines.forEach((raw, row) => {
+    // Read a part at a time (a long note, main's thread let go between parts), what the earlier parts found is
+    // carried on in `part`: the answer is the same as for all the lines in one go.
+    const seen = part?.seen ?? new Set<string>()
+    const said = part?.said ?? new Set<string>(own ? [nameOf(own).toLowerCase()] : [])
+    const before = part?.lines ?? 0
+    if (part) part.lines += lines.length
+    lines.forEach((raw, at) => {
+      const row = before + at
       const line = withoutAddresses(raw)
       const tokens = tokensOf(line)
       for (let i = 0; i < tokens.length; i++) {
@@ -132,6 +137,10 @@ export class NameBook {
     return out
   }
 }
+
+/** Where a reading in parts has got to: the names found so far, and how many lines have been read (`NameBook.find`). */
+export type Reading = { seen: Set<string>; said: Set<string>; lines: number }
+export const reading = (own = ''): Reading => ({ seen: new Set(), said: new Set(own ? [nameOf(own).toLowerCase()] : []), lines: 0 })
 
 /** The Mac's own word list (lower case only: everyday words), read once, for telling a name from a word. None off a Mac: every name then counts as one. */
 let macWords: Set<string> | null = null
