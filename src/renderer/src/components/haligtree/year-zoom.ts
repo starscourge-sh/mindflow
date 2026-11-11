@@ -31,6 +31,18 @@ const step = (at: number, speed: number, to: number, dt: number, stiff = 170): [
   return [at + next * dt, next]
 }
 
+/**
+ * The spring over however long the last frame took, in small steps: on a busy machine a frame can take 100ms or more,
+ * and a spring held to a frame's worth of time a frame ran in slow motion there, an Esc taking seconds to put the
+ * whole back. Over half a second (a window put away and back) it simply lands.
+ */
+const spring = (at: number, speed: number, to: number, elapsed: number, stiff?: number): [number, number] => {
+  if (elapsed > 0.5) return [to, 0]
+  const n = Math.max(1, Math.ceil(elapsed * 120))
+  for (let i = 0; i < n; i++) [at, speed] = step(at, speed, to, elapsed / n, stiff)
+  return [at, speed]
+}
+
 /** How much of a level of detail is in sight at a day's spacing: 0 below `from`, 1 past `full`. */
 export const shown = (px: number, from: number, full: number): number => Math.max(0, Math.min(1, (px - from) / (full - from)))
 
@@ -89,7 +101,7 @@ export function useYearZoom(box: RefObject<HTMLElement | null>, bands: Band[], d
     }
     let then = 0
     const frames = frameLoop((now) => {
-      const dt = Math.min(1 / 30, then ? (now - then) / 1000 : 1 / 60)
+      const dt = then ? (now - then) / 1000 : 1 / 60
       then = now
       // The fingers are still on it: what they ask is already drawn.
       if (!home && now - last < 120) return true
@@ -106,8 +118,8 @@ export function useYearZoom(box: RefObject<HTMLElement | null>, bands: Band[], d
         raw.pans = to.pans
       } else {
         const stiff = home ? 320 : 170
-        ;[raw.lz, speed.lz] = step(raw.lz, speed.lz, to.lz, dt, stiff)
-        to.pans.forEach((pan, b) => { [raw.pans[b], speed.pans[b]] = step(raw.pans[b] ?? 0, speed.pans[b] ?? 0, pan, dt, stiff) })
+        ;[raw.lz, speed.lz] = spring(raw.lz, speed.lz, to.lz, dt, stiff)
+        to.pans.forEach((pan, b) => { [raw.pans[b], speed.pans[b]] = spring(raw.pans[b] ?? 0, speed.pans[b] ?? 0, pan, dt, stiff) })
       }
       const done = Math.abs(raw.lz - to.lz) < 0.002 && Math.abs(speed.lz) < 0.01 && to.pans.every((pan, b) => Math.abs((raw.pans[b] ?? 0) - pan) < 0.5 && Math.abs(speed.pans[b] ?? 0) < 5)
       if (done) {
@@ -276,11 +288,11 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
     }
     let then = 0
     const frames = awakeFrames((now) => {
-      const dt = Math.min(1 / 30, then ? (now - then) / 1000 : 1 / 60)
+      const dt = then ? (now - then) / 1000 : 1 / 60
       then = now
       let moving = false
       for (const [svg, one] of states) {
-        ;[one.a, one.speed] = step(one.a, one.speed, one.to, dt, one.to > one.a ? 420 : 200)
+        ;[one.a, one.speed] = spring(one.a, one.speed, one.to, dt, one.to > one.a ? 420 : 200)
         if (Math.abs(one.a - one.to) < 0.004 && Math.abs(one.speed) < 0.05) ((one.a = one.to), (one.speed = 0))
         else moving = true
         draw(svg, one)

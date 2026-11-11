@@ -232,6 +232,9 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
   const here = page ? strokeOf(page) : -1
   const [hover, setHover] = useState<number | null>(null)
   const quick = useRef<Quick | null>(null)
+  // The stroke the pointer last landed on, set in its own event: what the picture shows, and what a click opens, even
+  // when a busy machine has not drawn the strip again since (or a pinch's spring is still settling under it).
+  const pointed = useRef<number | null>(null)
   // A pinch changes how many strokes there are: one pointed at before it may be gone.
   const lit = hover !== null && hover < count ? hover : null
   const counted = (n: number, one: string, many: string): string => (n ? `${n.toLocaleString()} ${n === 1 ? one : many}` : "")
@@ -246,8 +249,7 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
   }
   // The page a stroke opens at: the first one holding something, else its first page.
   const pageOf = (i: number): number => stretches[i].first || stretches[i].from
-  const go = (i: number): void => {
-    const to = pageOf(i)
+  const go = (to: number): void => {
     chime("open")
     if (onPage) onPage(to)
     else openPdf(src, name, to)
@@ -278,11 +280,12 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
                 attrs={(i) => { const one = stretches[i]; const all = one.marks + one.notes + one.cards; return { "data-here": i === here ? page ?? undefined : undefined, "data-gone": i < here ? "" : undefined, "data-tick": all ? (one.notes ? "note" : one.marks ? "mark" : "card") : undefined, "data-tick-page": all ? one.first : undefined } }}
                 onPointerMove={(event) => {
                   const i = at(event.clientX, event.currentTarget)
+                  pointed.current = i === null ? null : pageOf(i)
                   // A page already drawn goes onto the picture now, from this event; React follows with the rest.
                   if (i !== null && i !== lit) quick.current?.(pageOf(i), i * step - pan)
                   setHover(i)
-                }} onPointerLeave={() => setHover(null)}
-                onClick={(event) => { const i = (event.target as Element).getAttribute("data-tick-page") ? stretches.findIndex((one) => String(one.first) === (event.target as Element).getAttribute("data-tick-page")) : at(event.clientX, event.currentTarget); if (i !== null && i >= 0) go(i) }} />
+                }} onPointerLeave={() => ((pointed.current = null), setHover(null))}
+                onClick={(event) => { const i = at(event.clientX, event.currentTarget); const to = pointed.current ?? (i === null ? null : pageOf(i)); if (to !== null) go(to) }} />
             </div>
             {lit !== null && (
               <>
