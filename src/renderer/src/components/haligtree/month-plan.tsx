@@ -28,15 +28,17 @@ import { unloaded, useLive, haligtree, type Settings, type Stats, type Task } fr
 import { dayjs, type Dayjs, dayKey, num, plural } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
 
-/** A day's line (h-5) and the room above the lines: the cell's top padding (6px), its date (h-6) and a 2px gap, read in the app's own
- * text size: counted in fixed pixels at a larger size, one line too many was laid out and showed cut in half (10 Nov). */
+/** A day's line (h-5) and the room above the lines: the cell's top padding (6px) and its date (h-6), read in the app's own
+ * text size: counted in fixed pixels at a larger size, one line too many was laid out and showed cut in half (10 Nov). A tinted
+ * chip keeps its own 2px under the line above it. Counted with a 2px gap that was never drawn, a week 99px tall held two lines
+ * where three fit, and showed a blank line above "+N more". */
 let remSize = 16
 /** The app's text size, read again only when a month's box is measured (its size changes with the app size): read in each
  * draw, it made the page restyle on every week a fling brought in, most of its long frames. */
 const readRem = (): void => void (remSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)
 const rem = (): number => remSize
 const LINE = (): number => 1.25 * rem()
-const HEAD = (): number => 1.5 * rem() + 8
+const HEAD = (): number => 1.5 * rem() + 6
 /** The cell's padding under its last line. */
 const FOOT = 6
 /** Six weeks every month, as Apple Calendar shows them, so the box never changes height from one month to the next. */
@@ -217,7 +219,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         })}
         {/* The week's bars, each one piece across the days it covers, under the dates. */}
         {laid.placed.length > 0 && (
-          <div data-month-bars className="pointer-events-none absolute inset-x-0 grid gap-x-px px-px" style={{ top: HEAD() - 2 + (edge ? 1 : 0), gridTemplateColumns: '2rem repeat(7, minmax(0, 1fr))', gridAutoRows: `${LINE()}px`, rowGap: 0 }}>
+          <div data-month-bars className="pointer-events-none absolute inset-x-0 grid gap-x-px px-px" style={{ top: HEAD() + (edge ? 1 : 0), gridTemplateColumns: '2rem repeat(7, minmax(0, 1fr))', gridAutoRows: `${LINE()}px`, rowGap: 0 }}>
             {laid.placed.map(({ bar, from, to, lane }) => (
               <div key={`${bar.key}:${dayKey(monday)}`} className="pointer-events-auto grid min-w-0 px-1" style={{ gridColumn: `${from + 2} / ${to + 3}`, gridRow: lane + 1 }}>{bar.render(dayKey(weekDays[from]))}</div>
             ))}
