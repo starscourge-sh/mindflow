@@ -1656,7 +1656,12 @@
   z-index: -1;
   display: grid;
   place-items: center;
-  background-color: color-mix(in oklch, var(--bookmark-hue) 14%, var(--mf-surface));
+  background-color: color-mix(in oklch, var(--bookmark-hue) 26%, var(--mf-surface));
+
+  // The icon and the letter share the middle; the icon shows once it has come.
+  > * {
+    grid-area: 1 / 1;
+  }
 }
 
 .tiptap.ProseMirror.haligtree-editor .tiptap-bookmark-face-icon {
@@ -1664,13 +1669,24 @@
   height: 2rem;
   border-radius: 0.375rem;
   object-fit: contain;
+  opacity: 0;
+}
+
+.tiptap.ProseMirror.haligtree-editor .tiptap-bookmark-face[data-icon] {
+  .tiptap-bookmark-face-icon {
+    opacity: 1;
+  }
+
+  .tiptap-bookmark-face-letter {
+    visibility: hidden;
+  }
 }
 
 .tiptap-bookmark-face-letter {
   font-size: 1.75rem;
   font-weight: 600;
   line-height: 1;
-  color: color-mix(in oklch, var(--bookmark-hue) 70%, var(--mf-surface));
+  color: color-mix(in oklch, var(--bookmark-hue) 85%, var(--mf-surface));
   user-select: none;
 }
 

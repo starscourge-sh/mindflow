@@ -232,15 +232,19 @@ function face(href: string, icon: string, site: string): HTMLElement {
   for (const char of host) sum = (sum * 31 + char.charCodeAt(0)) >>> 0
   const one = el("span", "tiptap-bookmark-face")
   one.style.setProperty("--bookmark-hue", `var(--tt-color-text-${HUES[sum % HUES.length]})`)
-  const letter = (): HTMLElement => el("span", "tiptap-bookmark-face-letter", (decodeHTML(site).trim() || host || "?").slice(0, 1).toUpperCase())
+  const letter = el("span", "tiptap-bookmark-face-letter", (decodeHTML(site).trim() || host || "?").slice(0, 1).toUpperCase())
+  one.append(letter)
   if (icon) {
+    // The letter until the icon has come, so the face is never blank; an icon that will not load leaves the letter.
     const small = el("img", "tiptap-bookmark-face-icon") as HTMLImageElement
-    small.src = icon
     small.alt = ""
-    // An icon that will not load leaves its letter, not a broken box.
-    small.addEventListener("error", () => small.replaceWith(letter()), { once: true })
+    small.src = icon
+    const shown = (): void => void (one.dataset.icon = "")
+    if (small.complete && small.naturalWidth) shown()
+    else small.addEventListener("load", shown, { once: true })
+    small.addEventListener("error", () => small.remove(), { once: true })
     one.append(small)
-  } else one.append(letter())
+  }
   return one
 }
 
