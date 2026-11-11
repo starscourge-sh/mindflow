@@ -381,17 +381,17 @@
 }
 
 /* Covers are pages too: wherever one is drawn, it takes the same paper. A cover in a box of its
-   own shape (a Files tile, a Recent icon) is white like a page, and paper with "Paper pages" on,
+   own shape (a Files tile, a Recent icon, the All page's piles and Recent row) is white like a page, and paper with "Paper pages" on,
    so the pages scrubbed over it (.pdf-scrub) are the same sheet turning, never a new colour. */
 .pdf-face-cover {
   background-color: #fff;
 }
-.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover, .pdf-face-cover) {
+.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover, .pdf-face-cover, [data-cover='pdf']) {
   background-color: #f4ecdb;
   background-blend-mode: multiply;
   isolation: isolate;
 }
-.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover, .pdf-face-cover) img {
+.paper-pages :is(.tiptap-pdf-cover, .book-head-cover, .pdf-book-cover, .continue-book-cover, .pdf-face-cover, [data-cover='pdf']) img {
   mix-blend-mode: multiply;
 }
 
