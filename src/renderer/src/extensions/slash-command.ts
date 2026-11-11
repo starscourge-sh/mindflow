@@ -82,7 +82,11 @@ export const SlashCommand = Extension.create<SlashCommandOptions>({
         },
         command: ({ editor, range, props }) => {
           // The item runs against a document that no longer holds the `/query`.
-          editor.chain().focus().deleteRange(range).run()
+          // Taking the `/query` away is not an edit of the note, so it is kept out of the undo history: one ⌘Z after
+          // a command takes back what the command made and never brings "/code" back into the words. (Recorded, a
+          // pick made more than half a second after the last letter, as most are, needed two ⌘Z, the first one
+          // leaving the search text in the note.)
+          editor.chain().focus().deleteRange(range).setMeta("addToHistory", false).run()
           props.run(editor, props.value ?? "")
         },
         render,

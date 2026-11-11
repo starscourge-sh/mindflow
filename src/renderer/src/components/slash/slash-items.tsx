@@ -169,6 +169,8 @@ export const slashItems: SlashItem[] = [
     turnInto: true,
     hint: '>',
     icon: <BlockquoteIcon />,
+    // Only where a quote can be made: on a list's line it did nothing at all.
+    when: (editor) => editor.can().toggleBlockquote(),
     run: (editor) => editor.chain().focus().toggleBlockquote().run()
   },
   {
@@ -270,6 +272,8 @@ export const slashItems: SlashItem[] = [
     turnInto: true,
     hint: 'aside',
     icon: <CalloutIcon />,
+    // Only where a callout can be made: on a list's line it did nothing at all.
+    when: (editor) => editor.can().toggleCallout(),
     run: (editor) => editor.chain().focus().toggleCallout().run()
   },
   // Side by side, each column any blocks. Not inside another row: Markdown
@@ -467,7 +471,8 @@ export const slashItems: SlashItem[] = [
     title,
     group: 'Table',
     icon: <TableIcon />,
-    when: (editor: Editor) => isInTable(editor.state),
+    // "Merge or split cells" only with cells picked to merge, or a merged cell to split: in one plain cell it did nothing.
+    when: (editor: Editor) => isInTable(editor.state) && (title !== 'Merge or split cells' || editor.can().mergeOrSplit()),
     run
   })),
 

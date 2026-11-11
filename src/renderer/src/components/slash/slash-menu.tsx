@@ -160,4 +160,6 @@ const SlashList = forwardRef(function SlashList(
   )
 })
 
-export const slashRenderer = createSuggestionRenderer(SlashList)
+// Esc takes the "/" and what was typed after it: "/hea" is a search for a block, never words of the note, and
+// left behind it had to be deleted by hand. The words round it stay.
+export const slashRenderer = createSuggestionRenderer(SlashList, undefined, { dropOnEscape: true })
