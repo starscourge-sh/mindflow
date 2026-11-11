@@ -11,6 +11,10 @@ import { detent, edge } from '@/lib/haptics'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { awakeFrames, still } from '@/lib/motion'
 import { GAP, LOW } from './time-strokes'
+import { rubber, spring, step } from '@/lib/snap'
+
+// The spring and the give are the app's one way of landing (lib/snap.ts).
+export { rubber, step }
 
 /** How far a day may spread at the deepest zoom: room for its own name, "Mon 24 Nov", with air. */
 export const DEEP = 84
@@ -19,29 +23,8 @@ export const SWELL = 14
 /** How many days either side of the pointer the swell reaches, counted at the whole year's spacing. */
 const REACH = 12
 
-/** Past an edge, less and less follows: the further over, the harder it pulls back. */
-export const rubber = (over: number, room: number, give = 0.55): number => (over * room * give) / (room + give * Math.abs(over))
 const soft = (value: number, low: number, high: number, room: number): number =>
   value < low ? low - rubber(low - value, room) : value > high ? high + rubber(value - high, room) : value
-
-/** One spring step, critically damped: no bounce, settles from wherever it is now, with the speed it has. */
-export const step = (at: number, speed: number, to: number, dt: number, stiff = 170): [number, number] => {
-  const damp = 2 * Math.sqrt(stiff)
-  const next = speed + ((to - at) * stiff - damp * speed) * dt
-  return [at + next * dt, next]
-}
-
-/**
- * The spring over however long the last frame took, in small steps: on a busy machine a frame can take 100ms or more,
- * and a spring held to a frame's worth of time a frame ran in slow motion there, an Esc taking seconds to put the
- * whole back. Over half a second (a window put away and back) it simply lands.
- */
-const spring = (at: number, speed: number, to: number, elapsed: number, stiff?: number): [number, number] => {
-  if (elapsed > 0.5) return [to, 0]
-  const n = Math.max(1, Math.ceil(elapsed * 120))
-  for (let i = 0; i < n; i++) [at, speed] = step(at, speed, to, elapsed / n, stiff)
-  return [at, speed]
-}
 
 /** How much of a level of detail is in sight at a day's spacing: 0 below `from`, 1 past `full`. */
 export const shown = (px: number, from: number, full: number): number => Math.max(0, Math.min(1, (px - from) / (full - from)))

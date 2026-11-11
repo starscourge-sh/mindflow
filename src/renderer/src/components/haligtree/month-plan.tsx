@@ -18,7 +18,8 @@ import { MarkChip } from './milestones'
 import { chime, quietFor } from '@/lib/sound'
 import { taskName } from '@/lib/tasks'
 import { loud } from '@/lib/loud'
-import { edge } from '@/lib/haptics'
+import { detent, edge } from '@/lib/haptics'
+import { land, stopFor, type Landing } from '@/lib/snap'
 import { EASE, byKeys, glideWay, glides, useStill } from '@/lib/motion'
 import { moveMark, onDay as marksOn, useMilestones, type Milestone } from '@/lib/milestones'
 import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay } from '@/lib/calendar'
@@ -421,6 +422,7 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
     const to = indexOf(held.startOf('month')) * row
     if (Math.abs(el.scrollTop - to) < 1) return
     const instant = still || !glides() || byKeys()
+    landing.current?.stop()
     gliding.current = !instant
     el.scrollTo({ top: to, behavior: instant ? 'instant' : 'smooth' })
   }, [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -431,25 +433,81 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   const shield = useRef<HTMLDivElement>(null)
   const moved = useRef(-Infinity)
   const quiet = useRef(0)
-  const end = useRef<() => void>(() => {})
-  useEffect(() => () => cancelAnimationFrame(quiet.current), [])
+  const end = useRef<(moved?: boolean) => void>(() => {})
+  // The spring taking the run onto a week, its speed as the wheel last gave it, whether the trackpad's glide after a
+  // lift is still running, and whether the run has moved since it last rested.
+  const landing = useRef<Landing | null>(null)
+  const pace = useRef(0)
+  const glide = useRef(false)
+  const moving = useRef(false)
+  const holding = useRef(0)
+  useEffect(() => () => (cancelAnimationFrame(quiet.current), cancelAnimationFrame(holding.current), landing.current?.stop(), undefined), [])
   useEffect(() => {
     const el = body.current
     if (!el) return
     // While the weeks move, the shield is up: the days passing under the pointer neither light up nor tip.
     const scrolled = (event: Event): void => {
       moved.current = event.timeStamp
+      moving.current = true
       if (shield.current?.hidden) shield.current.hidden = false
       if (row && placed.current) gliding.current ? setTop(where(el)) : settle(el, true)
     }
-    const wheel = (event: WheelEvent): void => void (wheeled.current = event.timeStamp)
+    // Onto a week, firmly (lib/snap.ts): the week the run is heading for, read from its speed, by a spring with no
+    // bounce. While the trackpad's own glide is still running the run is held (it cannot scroll), so the glide's
+    // last steps do not fight the spring; a new touch, or a mouse wheel's next notch, takes the run back at once.
+    const free = (): void => void (cancelAnimationFrame(holding.current), (el.style.overflowY = ''), landing.current?.stop(), (landing.current = null))
+    // Landed while the glide still runs: the run stays held until the glide's steps stop coming. A glide's end is not
+    // an event the page is told of, so a frame looks at when the wheel last spoke.
+    const letRun = (): void => {
+      if (glide.current && performance.now() - wheeled.current <= 100) return void (holding.current = requestAnimationFrame(letRun))
+      glide.current = false
+      el.style.overflowY = ''
+    }
+    const snapNow = (): void => {
+      if (!row || landing.current || !moving.current) return
+      cancelAnimationFrame(quiet.current)
+      quiet.current = 0
+      gliding.current = false
+      const at = el.scrollTop
+      const to = Math.max(0, Math.min((WEEKS - SCREEN) * row, stopFor(at, pace.current, row)))
+      if (glide.current) el.style.overflowY = 'hidden'
+      const one = land(at, pace.current, to, (value) => void (el.scrollTop = value), (landed) => {
+        landing.current = null
+        if (landed) end.current(Math.abs(to - at) > 1)
+        letRun()
+      })
+      if (one.running) landing.current = one
+    }
+    const wheel = (event: WheelEvent): void => {
+      const gap = event.timeStamp - wheeled.current
+      wheeled.current = event.timeStamp
+      // The run's speed, a second's worth, evened over its last few steps; read from the wheel, never from the page's layout.
+      pace.current = gap > 100 ? 0 : pace.current * 0.5 + (event.deltaY / Math.max(4, gap)) * 1000 * 0.5
+      // A step long after the last is no glide: a mouse wheel's notch, or fingers the Mac did not announce.
+      if (gap > 100) glide.current = false
+      if (landing.current && !glide.current) free()
+      // The fingers have lifted and the glide has slowed to under five weeks a second: it lands now, not when the glide dies away.
+      if (glide.current && !landing.current && Math.abs(pace.current) < row * 5) snapNow()
+    }
+    // The Mac's word that the fingers touched or lifted (main, as for Back and Forward's swipe; a probe says the same).
+    const phase = (kind: string): void => {
+      if (kind === 'began') return void ((glide.current = false), free())
+      if (kind !== 'ended' || !moving.current) return
+      glide.current = true
+      if (performance.now() - wheeled.current > 40) pace.current = 0
+      if (Math.abs(pace.current) < row * 5) snapNow()
+    }
+    const probed = (event: Event): void => phase(String((event as CustomEvent).detail))
+    window.addEventListener('haligtree:swipe-phase', probed)
+    const unhear = window.api.onSwipePhase?.(phase)
     // Come to rest once the whole gesture is over: onto the nearest week. A scroll ends after each notch of a mouse wheel
     // too; settled there, the glide back to a week cancelled the notches still to come and a fast wheel lost most of its
-    // way. So it waits until the wheel has been quiet a moment and the scroll has stopped. Done here rather than by CSS
-    // scroll snap, which snaps only to weeks already drawn and so, sent a year away, pulled back to the weeks it left.
-    const ended = (): void => {
-      if (!row) return
-      if (performance.now() - wheeled.current < IDLE) {
+    // way. So without the Mac's word it waits until the wheel has been quiet a moment and the scroll has stopped. Done
+    // here rather than by CSS scroll snap, which snaps only to weeks already drawn and so, sent a year away, pulled back
+    // to the weeks it left.
+    const ended = (landed = false): void => {
+      if (!row || landing.current) return
+      if (performance.now() - wheeled.current < IDLE && !landed) {
         if (quiet.current) return
         // Read from the events' own times, never the scroll's place: read each frame, that made the page lay itself out again.
         const look = (now: number): void => {
@@ -460,18 +518,23 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
         quiet.current = requestAnimationFrame(look)
         return
       }
-      gliding.current = false
-      if (shield.current) shield.current.hidden = true
       const near = Math.round(el.scrollTop / row) * row
-      if (Math.abs(el.scrollTop - near) > 0.5) return el.scrollTo({ top: near, behavior: still ? 'instant' : glideWay() })
+      if (Math.abs(el.scrollTop - near) > 0.5) return (pace.current = 0), (glide.current = false), snapNow()
+      gliding.current = false
+      moving.current = false
+      if (shield.current) shield.current.hidden = true
       settle(el, false)
       rest()
+      // One light tap as the run lands on its week (a month's first week has had its firm one on the way).
+      if (landed) detent()
     }
     end.current = ended
+    const scrollEnded = (): void => ended()
     el.addEventListener('scroll', scrolled, { passive: true })
-    el.addEventListener('scrollend', ended)
+    el.addEventListener('scrollend', scrollEnded)
     el.addEventListener('wheel', wheel, { passive: true })
-    return () => (el.removeEventListener('scroll', scrolled), el.removeEventListener('scrollend', ended), el.removeEventListener('wheel', wheel))
+    return () => (el.removeEventListener('scroll', scrolled), el.removeEventListener('scrollend', scrollEnded), el.removeEventListener('wheel', wheel),
+      window.removeEventListener('haligtree:swipe-phase', probed), unhear?.())
   })
   // Each day drawn is marked when it is outside the month named, straight on the page: naming another month restyles
   // only the days that change, never the window.

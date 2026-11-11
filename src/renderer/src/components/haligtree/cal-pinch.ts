@@ -1,21 +1,28 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { EASING, still } from '@/lib/motion'
 import { edge } from '@/lib/haptics'
-import { frameLoop, rubber, step } from './year-zoom'
+import { FIRM, project, rubber, spring } from '@/lib/snap'
+import { frameLoop } from './year-zoom'
 
 /**
  * The Calendar's levels, felt by hand: pinching out over a week in Month opens
  * that week, over a day in Week that day; pinching in goes back up. The same
  * pinch as the Journal's year (year-zoom.ts): wheel events with ctrlKey, read
- * in the same log units, its spring and its give. Short of the change, the
- * week or day under the fingers swells with them and springs back when they
- * lift; past it the level changes once, and the rest of that pinch is spent.
+ * in the same log units, with the app's one spring and give (lib/snap.ts).
+ * Short of the change, the week or day under the fingers swells with them,
+ * whole and in proportion, and springs back firmly when they lift; once the
+ * pinch is heading past the line (where it would stop, read from its speed)
+ * the level changes once, and the rest of that pinch is spent.
  */
 
 /** How far a pinch goes, in the year zoom's log units (a fifth wider), before the level changes. */
-const OPEN = 0.22
+const OPEN = 0.18
 /** A gap this long between a pinch's events: the fingers lifted, the next pinch is a new one. A pinch has no glide after it. */
 const QUIET = 300
+/** No pinch event for this long (five frames; a pinch sends one a frame while the fingers move): they stopped, and what swelled goes back. */
+const REST = 80
+/** How far ahead a pinch's speed is read to say where it is heading: a brisk pinch changes the level before the fingers get there. */
+const AHEAD = 0.08
 /** How much the week or day swells at the edge of the change, and shrinks pinching in. */
 const SWELL = 0.06
 
@@ -36,6 +43,7 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
     let held: HTMLElement | null = null
     let heldWay: Way | null = null
     let then = 0
+    let pace = 0
     const draw = (): void => {
       if (!held) return
       const amount = Math.min(1, Math.abs(lz) / OPEN)
@@ -50,10 +58,11 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
     }
     // Once the fingers stop, what swelled springs back.
     const frames = frameLoop((now) => {
-      const dt = Math.min(1 / 30, then ? (now - then) / 1000 : 1 / 60)
+      const dt = then ? (now - then) / 1000 : 1 / 60
       then = now
-      if (now - last < 120) return true
-      ;[lz, speed] = step(lz, speed, 0, dt, 320)
+      if (now - last < REST) return true
+      // Stepped by the time the frame really took, from rest: the fingers had stopped.
+      ;[lz, speed] = spring(lz, speed, 0, dt, FIRM)
       const done = Math.abs(lz) < 0.002 && Math.abs(speed) < 0.01
       if (done) (lz = 0), (speed = 0), (then = 0), letGo()
       else draw()
@@ -66,10 +75,15 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
       // The event's own time, when the fingers moved: a long frame (the level just opened being drawn) holds the rest
       // of the pinch back, and read on arrival they would look like a new pinch and open the next level too.
       const now = event.timeStamp
-      if (now - last > QUIET) (spent = false), (lz = 0), (speed = 0), letGo()
+      if (now - last > QUIET) (spent = false), (lz = 0), (speed = 0), (pace = 0), letGo()
+      const gap = Math.max(4, Math.min(50, now - last))
       last = now
       if (spent) return
-      lz -= Math.max(-40, Math.min(40, event.deltaY)) * 0.01
+      const by = -Math.max(-40, Math.min(40, event.deltaY)) * 0.01
+      // The pinch's speed, a second's worth, evened over its last few events. A spring on its way back is caught where it is.
+      pace = pace * 0.6 + (by / gap) * 1000 * 0.4
+      speed = 0
+      lz += by
       const way: Way = lz >= 0 ? 'closer' : 'up'
       if (way !== heldWay) {
         letGo()
@@ -80,13 +94,15 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
         const box = found.getBoundingClientRect()
         held.style.transformOrigin = `${event.clientX - box.left}px ${event.clientY - box.top}px`
       }
-      if (Math.abs(lz) >= OPEN && held) {
+      const heading = project(lz, pace, AHEAD)
+      if (Math.abs(heading) >= OPEN && Math.sign(heading) === Math.sign(lz) && held) {
         const was = held
         letGo()
         const rect = was.getBoundingClientRect()
         spent = true
         lz = 0
         speed = 0
+        pace = 0
         edge()
         ask.current.go(way, was, rect)
         // The time the new level takes to draw is no pause of the fingers: the quiet that ends this pinch counts from its first frame.
@@ -103,15 +119,15 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
 }
 
 /**
- * The level just opened grows out of where it stood (`from`, a rect on screen) to fill `el`; going back up, the level
- * shown starts with the part you came from (`from`, inside it) filling it, and settles to its own size. Transform
- * and opacity only, on the compositor. With Motion off or Reduce motion it is simply there.
+ * The level just opened comes in around where it stood (`from`, a rect on screen): a touch smaller going closer, a
+ * touch larger going back up, fading in as it settles to its own size. One scale for both ways across, about the
+ * middle of what was under the fingers, so words and blocks keep their shape: stretched from a week's wide strip to
+ * the whole pane, every word was pulled tall and thin on the way. Transform and opacity only, on the compositor.
+ * With Motion off or Reduce motion it is simply there.
  */
 export function growFrom(el: HTMLElement, from: DOMRect, back: boolean): void {
   if (still() || !from.width || !from.height) return
   const to = el.getBoundingClientRect()
-  const [sx, sy] = [from.width / to.width, from.height / to.height]
-  const [tx, ty] = [from.left - to.left, from.top - to.top]
-  const start = back ? `scale(${1 / sx}, ${1 / sy}) translate(${-tx}px, ${-ty}px)` : `translate(${tx}px, ${ty}px) scale(${sx}, ${sy})`
-  el.animate([{ transform: start, transformOrigin: '0 0', opacity: 0.4 }, { transform: 'none', transformOrigin: '0 0', opacity: 1 }], { duration: 280, easing: EASING })
+  const transformOrigin = `${from.left + from.width / 2 - to.left}px ${from.top + from.height / 2 - to.top}px`
+  el.animate([{ transform: `scale(${back ? 1 + SWELL : 1 - SWELL})`, transformOrigin, opacity: 0.35 }, { transform: 'none', transformOrigin, opacity: 1 }], { duration: 200, easing: EASING })
 }
