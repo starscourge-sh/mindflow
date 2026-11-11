@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import { Grabber } from './grabber'
 import { AnimatePresence, animate, motion, useMotionValue, useTransform, type MotionValue, type Transition } from 'motion/react'
 import { Coffee, Pause, Paperclip, Square, X as XSmall } from 'lucide-react'
 
@@ -54,7 +55,8 @@ export const clock = (ms: number): string => {
 export const worked = (focus: Focus, now = Date.now()): number =>
   now - new Date(focus.startedAt).getTime() - focus.pausedMs - (focus.pausedAt ? now - new Date(focus.pausedAt).getTime() : 0)
 
-const DRAG = { WebkitAppRegion: 'drag' } as CSSProperties
+/** Carried by Haligtree when its grabber is pressed (lib/carry.ts), as every floating card is. */
+const DRAG = { '--mf-drag': '1' } as CSSProperties
 
 /** When the screen last glowed: the bubble's beam keeps clear of it, never two lights at once. */
 let glowedAt = 0
@@ -1287,13 +1289,16 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           and in the last minute, since a beam all session kept a core busy. */}
       <motion.div
         ref={shell}
-        className="relative"
+        className="group relative"
         data-tucked={tucked || undefined}
         style={{ width: shape.box.w, height: shape.box.h, filter: lift() }}
         initial={calm ? { opacity: 0 } : morph ? { opacity: 1, y: 0 } : tucked ? false : { y: -(CAPSULE.height + TOP + 4) }}
         animate={{ opacity: 1, y: 0 }}
         transition={calm ? { opacity: { duration: 0.2 }, default: { duration: 0 } } : { y: DROP, opacity: { duration: 0.12 } }}
       >
+      {/* The one place that moves the window: quick capture's grabber over its top edge, as on every floating card.
+          Hung from the notch, it stays where it is. */}
+      {!tucked && <Grabber label="Move the timer" style={DRAG} />}
       {/* Its 1px edge: the same shape a pixel out, behind it, in the edge's colour over the pill's own. */}
       <motion.span aria-hidden className="pointer-events-none absolute -inset-px" style={{ clipPath: shape.edge, backgroundImage: `linear-gradient(${edgeInk}, ${edgeInk}), ${SOLID}`, backgroundColor: 'Canvas' }} />
       {/* Now and then the beam, once round: on the bubble's own outline (this box is its exact size), over everything in it. */}
@@ -1415,13 +1420,6 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             >
               {/* The time on a clock's dot grid, the one figure in the app that ticks. */}
               {count !== null ? <span data-count-in className="flex items-center gap-1.5"><span className="font-medium text-muted-foreground">Starting in</span><DotMatrix text={String(Math.max(1, count))} className="h-[13px]" /></span> : over ? (onBreak ? '' : "Time's up") : <>{paused && 'Paused ·'}<DotMatrix text={clock(leftShown ?? done)} className="h-[13px]" /></>}
-            </span>
-            {/* The one place that moves the window: a grip of six dots, the mark a thing you can pick up wears
-                (a lone bar read as a divider), quieter until you reach for it. */}
-            <span aria-hidden data-pill-grabber className={`-ml-1 flex h-7 w-4 shrink-0 cursor-grab items-center justify-center transition-opacity duration-150 active:cursor-grabbing ${hover ? 'opacity-100' : 'opacity-60'}`} style={DRAG}>
-              <span className="grid grid-cols-2 gap-[2px]">
-                {Array.from({ length: 6 }, (_, i) => <span key={i} className="size-[3px] rounded-full bg-[color-mix(in_oklab,var(--foreground)_55%,transparent)]" />)}
-              </span>
             </span>
           </div>}
 

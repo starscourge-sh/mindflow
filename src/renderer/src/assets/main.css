@@ -641,7 +641,7 @@ html[data-overhang] [data-grabber] {
   opacity: 0;
   transition: opacity 150ms var(--mf-ease);
 }
-[data-grabber-card][data-grabber-inside] { top: -2px; }
+[data-grabber-card][data-grabber-inside] { top: 1px; }
 .group:hover [data-grabber-card],
 [data-grabber-card]:active { opacity: 1; }
 /* A sticky's tape steps aside while the grabber is out: one thing at the top middle at a time. */

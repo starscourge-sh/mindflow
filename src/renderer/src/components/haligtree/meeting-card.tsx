@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import { AudioLines, Bookmark, Check, ChevronDown, ChevronLeft, Mic, MicOff, Minus, Pause, Play, Square } from 'lucide-react'
 
 // The theme's colours: this window has no editor, which is what usually brings them.
@@ -8,6 +8,7 @@ import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { Kbd } from './ui'
 import { Orb } from './orb'
+import { Grabber } from './grabber'
 import { Switch } from '@/components/ui/switch'
 import { clock } from './sound-player'
 import type { Line, Live, SoundApp } from '../../../../main/meeting'
@@ -15,6 +16,8 @@ import { quoted } from '../../../../main/clip'
 
 /** Room round the card for its shadow: the window is this much bigger on every side (index.ts, MEETING_ROOM). */
 const ROOM = 16
+/** Carried by Haligtree when pressed (lib/carry.ts): the grabber sits outside the card, so it says so itself. */
+const MOVES = { '--mf-drag': '1' } as CSSProperties
 const CARD = { width: 388, height: 196 }
 /** Before it records: room for what is recorded, "Sound from", "My microphone" and the line about telling people. */
 const READY = { width: 388, height: 256 }
@@ -38,8 +41,8 @@ const languageOf = (locale: string): string => {
   }
 }
 
-const BUTTON = 'flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-control font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklab,var(--tt-brand-color-500)_30%,transparent)] [-webkit-app-region:no-drag]'
-const ROUND = 'flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,color,scale] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklab,var(--tt-brand-color-500)_30%,transparent)] [-webkit-app-region:no-drag]'
+const BUTTON = 'flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-control font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklab,var(--tt-brand-color-500)_30%,transparent)] [--mf-drag:0]'
+const ROUND = 'flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-[background-color,color,scale] duration-150 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklab,var(--tt-brand-color-500)_30%,transparent)] [--mf-drag:0]'
 
 /**
  * The live card of a meeting being recorded, in a small window of its own over every app (index.ts, meetingWindow):
@@ -100,20 +103,24 @@ export function MeetingCard(): React.JSX.Element {
 
   if (!live) return <div />
   const recording = live.state === 'live' || live.state === 'paused'
-  const shell = cn('mf-meeting-card relative flex flex-col overflow-hidden rounded-[18px] border bg-popover text-foreground [-webkit-app-region:drag]',
+  const shell = cn('mf-meeting-card relative flex flex-col overflow-hidden rounded-[18px] border bg-popover text-foreground [--mf-drag:1]',
     'shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_16%,transparent),0_12px_32px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_32%,transparent)]')
 
   if (tucked && recording) {
     return (
       <div data-clear style={{ padding: ROOM }}>
+        <div className="group relative">
+        {/* Moved by its body or this, as every floating card is (grabber.tsx). */}
+        <Grabber label="Move the meeting card" style={MOVES} />
         <div data-meeting-card="pill" className={cn(shell, 'flex-row items-center gap-2 rounded-full px-2')} style={PILL}>
           <button type="button" aria-label="Show the words" onClick={() => setTucked(false)}
-            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 pl-1.5 text-left [-webkit-app-region:no-drag]">
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 pl-1.5 text-left [--mf-drag:0]">
             <OnAir paused={live.state === 'paused'} />
             <span data-meeting-time className="text-control tabular-nums">{clock(live.seconds)}</span>
             <span className="min-w-0 truncate text-meta text-muted-foreground">{speaking(live) ?? 'Recording'}</span>
           </button>
           <StopButton />
+        </div>
         </div>
       </div>
     )
@@ -121,10 +128,13 @@ export function MeetingCard(): React.JSX.Element {
 
   return (
     <div data-clear style={{ padding: ROOM }}>
+      <div className="group relative">
+      <Grabber label="Move the meeting card" style={MOVES} />
       <div data-meeting-card={live.state} className={shell} style={waiting ? READY : CARD}>
         {choosing ? <SoundFrom live={live} onDone={() => setChoosing(false)} />
           : recording ? <Recording live={live} level={level} onTuck={() => setTucked(true)} onChoose={() => setChoosing(true)} />
           : <Before live={live} onChoose={() => setChoosing(true)} />}
+      </div>
       </div>
     </div>
   )
@@ -235,7 +245,7 @@ function Before({ live, onChoose }: { live: Live; onChoose: () => void }): React
     return body(live.state === 'saved' ? 'Recording kept' : live.stopped ? 'The recording stopped' : 'Nothing was recorded', <p>{live.message}</p>, live.state === 'saved' ? undefined : close)
   return body(live.event?.title ? `Record ${quoted(live.event.title, 80)}` : 'Record a call or lecture', <>
     <p><b className="font-semibold text-foreground">{live.from.mic ? 'Your microphone and the sound from ' : 'The sound from '}{live.from.bundle ? live.from.name || 'one app' : 'this Mac'}</b>{live.from.bundle ? '' : ' (the call, in its app or the browser)'}, kept in your book. Nothing leaves this Mac.</p>
-    <div className="space-y-1 [-webkit-app-region:no-drag]">
+    <div className="space-y-1 [--mf-drag:0]">
       <div className="flex h-7 items-center justify-between gap-3">
         <span className="text-control text-foreground">Sound from</span>
         <button type="button" data-meeting-from-button onClick={onChoose} className={cn(BUTTON, '-mr-2 max-w-[60%] pr-2 text-foreground hover:bg-accent')}>
@@ -275,7 +285,7 @@ function SoundFrom({ live, onDone }: { live: Live; onDone: () => void }): React.
     </button>
   )
   return (
-    <div data-meeting-sound-from className="flex h-full flex-col [-webkit-app-region:no-drag]">
+    <div data-meeting-sound-from className="flex h-full flex-col [--mf-drag:0]">
       <div className="flex h-10 shrink-0 items-center gap-1 px-2 pt-1">
         <button type="button" aria-label="Back" onClick={onDone} className={cn(ROUND, 'text-muted-foreground hover:bg-accent hover:text-foreground')}><ChevronLeft className="size-4" /></button>
         <span className="text-control font-semibold">Sound from</span>

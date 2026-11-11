@@ -1063,6 +1063,7 @@ function showFocus(on: boolean): void {
   focusPill.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
   focusPill.once('ready-to-show', () => pillUp() && focusPill?.showInactive())
   guard(focusPill)
+  carriedByHand(focusPill)
   load(focusPill, '?view=focus')
   // Made now, hidden, so the glow at the end has nothing to load.
   makeGlow()
@@ -1195,6 +1196,7 @@ function meetingWindow(): BrowserWindow {
   passThrough(win, true)
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   win.setBounds({ x: Math.round(workArea.x + (workArea.width - meetingSize.width) / 2), y: workArea.y + workArea.height - meetingSize.height - 24 + MEETING_ROOM, ...meetingSize })
+  carriedByHand(win)
   load(win, '?view=meeting')
   win.on('closed', () => (meetingWin = null))
   meetingWin = win
@@ -1230,6 +1232,32 @@ onHandOff(() => { for (const win of BrowserWindow.getAllWindows()) if (!win.isDe
 const placed = new WeakMap<BrowserWindow, { x: number; y: number }>()
 /** A sticky carried by Haligtree's own hand (its page's press and release): picked up, and put down. */
 const handDrags = new WeakMap<BrowserWindow, { grab: () => void; letGo: () => void }>()
+/**
+ * A plain floating window (the focus pill, the meeting card) carried by Haligtree on a press of its body or its
+ * grabber (lib/carry.ts), as stickies are: it follows the pointer from where it was picked up until let go. Moved
+ * by the Mac before (a drag region), the pointer over it was never seen, so its grabber could not show.
+ */
+function carriedByHand(win: BrowserWindow): void {
+  let following: ReturnType<typeof setInterval> | null = null
+  const stop = (): void => void (following && clearInterval(following), (following = null))
+  handDrags.set(win, {
+    grab: () => {
+      if (following || win.isDestroyed()) return
+      const from = win.getBounds()
+      const start = screen.getCursorScreenPoint()
+      following = setInterval(() => {
+        if (win.isDestroyed()) return stop()
+        const now = screen.getCursorScreenPoint()
+        const x = from.x + now.x - start.x
+        const y = from.y + now.y - start.y
+        const at = win.getBounds()
+        if (at.x !== x || at.y !== y) win.setPosition(x, y)
+      }, 8)
+    },
+    letGo: stop
+  })
+  win.on('closed', stop)
+}
 const ours = (win: BrowserWindow): boolean => {
   const at = placed.get(win)
   const now = win.getBounds()
