@@ -199,7 +199,7 @@ export function crossLevels(old: HTMLElement, next: HTMLElement, way: Way, at: {
     play(nextBody, [{ transform: `scale(${from})` }, { transform: 'scale(1)' }])
   }
   // The names change places in turn: the old row out over the first third, the new one in over the rest.
-  if (oldNames) play(oldNames, [{ opacity: seen(oldNames), easing: 'ease-out' }, { opacity: 0, offset: 0.3 }, { opacity: 0 }], 'linear')
+  if (oldNames) play(oldNames, [{ opacity: seen(oldNames), easing: EASING }, { opacity: 0, offset: 0.3 }, { opacity: 0 }], 'linear')
   if (nextNames) play(nextNames, [{ opacity: fresh ? 0 : seen(nextNames) }, { opacity: 0, offset: 0.3, easing: EASING }, { opacity: 1 }], 'linear')
   play(old, [{ opacity: oldAt }, { opacity: 0 }])
   play(next, [{ opacity: nextAt }, { opacity: 1 }])

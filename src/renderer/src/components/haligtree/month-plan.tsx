@@ -527,10 +527,11 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
       // Where the run really is, each frame: the browser plays a trackpad's glide on its own thread, and goes on doing
       // so until it hears the run is held, a frame later or, behind a busy frame, several. Pushed past its week that
       // way, the landing goes on to the next week the same way, from where the run is: never back.
-      const way = Math.sign(to - at) || Math.sign(speed)
       const real = (): number => {
         const now = el.scrollTop
         const one = landing.current
+        // The way it is going now, from where the spring has it to its week (a glide come late may have turned it since it set off).
+        const way = one ? Math.sign(one.to - one.at) : 0
         if (one && way && (now - one.to) * way > 0.5) one.aim(within((way > 0 ? Math.ceil(now / row) : Math.floor(now / row)) * row))
         return now
       }
