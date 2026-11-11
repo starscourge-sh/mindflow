@@ -981,7 +981,8 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
     <Props className={className} fold={fold}>
       {/* Beside its page, the note's properties head its details, as Linear's issues have them. */}
       {fold && <PropertyStrip panel table="captures" id={capture.id} kind={capture.kind} fields={capture.fields} text={capture.label} created={capture.capturedAt} updated={capture.editedAt} cited={!!capture.medium?.trim()} />}
-      <Island compact title={capture.status === 'open' ? 'Where it goes' : 'Status'}>
+      {/* Still in the Inbox, its ways out are open to see, under words that say what they are; folded by hand, it stays folded. */}
+      <Island compact name="Status" filled={capture.status === 'open' ? true : undefined} title={capture.status === 'open' ? 'Where it goes' : 'Status'}>
         <Prop icon={Status} active>
           {/* A status that changes rolls to the new word: the change is seen. */}
           <Rolling text={statusSaid(capture.status, capture.keptIn)} />

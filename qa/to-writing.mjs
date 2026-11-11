@@ -31,9 +31,12 @@ try {
 
   // 1. W on the lit row.
   {
-    const id = shown[0]
-    await row(id).hover(); await wait(200)
+    // J lights the first row, as on every list; W acts on the lit row. Which capture that was is read from what left.
+    const was = new Set((await open()).map((one) => one.id))
+    await h.keyboard.press('j'); await wait(250)
     await h.keyboard.press('w'); await wait(900)
+    const now = new Set((await open()).map((one) => one.id))
+    const id = [...was].find((one) => !now.has(one)) ?? shown[0]
     await shoot('key')
     const page = await pageOf(id)
     check('W: the notice says where it went', /^Moved to Writing/.test(await said()), await said())
@@ -118,9 +121,9 @@ try {
     const id = shown[5]
     await row(id).click(); await wait(900)
     let button = h.locator('[data-to-writing-prop]').first()
-    if (!(await button.count())) { await h.getByRole('button', { name: /Details/ }).first().click(); await wait(600); button = h.locator('[data-to-writing-prop]').first() }
+    if (!(await h.locator('[data-island-head="Status"], [data-details-group]').count())) { await h.getByRole('button', { name: /Details/ }).first().click(); await wait(600); button = h.locator('[data-to-writing-prop]').first() }
     await shoot('open-capture')
-    check('open capture: "Move to Writing" is among its ways out', (await button.count()) === 1)
+    check('open capture: "Move to Writing" is in sight among its ways out, under "Where it goes", with nothing to unfold', (await button.count()) === 1 && await button.isVisible() && await h.getByText('Where it goes').first().isVisible())
     await button.click(); await wait(1000)
     check('open capture: moved, and said', /^Moved to Writing/.test(await said()) && (await open()).length === before.open - 1 && !!(await pageOf(id)), await said())
     // The notice's Open goes to the page.
