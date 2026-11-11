@@ -4,7 +4,7 @@ import { useToolKeys } from '@/lib/tool-keys'
 import { caretTakesEscape, layerOpen } from '@/lib/menu-keys'
 import { tagHue } from '@/extensions/tokens'
 import { createPortal, flushSync } from 'react-dom'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { elementScroll, useVirtualizer, type VirtualItem, type Virtualizer } from '@tanstack/react-virtual'
 import { Check, ChevronRight, CircleX, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
@@ -2213,6 +2213,24 @@ export function FocusNote(): React.JSX.Element {
 /** A list longer than this measures its new rows once laid out, not as they come in. */
 const LAZY = 500
 
+/**
+ * Whether a row that changed height moves the scroll by as much: only a row
+ * above the screen, judged by where it is on the page, not by where the list
+ * was last read to start (its scroll margin, read after layout). A list low in
+ * a note (its links), measured before its start was known, took its rows for
+ * rows above the screen and pushed a note just put back at its place 20px on,
+ * gliding. Measured before, only a row wholly above the screen and not while
+ * scrolling up, as the virtualizer's own rule (one spanning the edge grows below it).
+ */
+function aboveScreen(item: VirtualItem, delta: number, list: Virtualizer<HTMLElement, Element>): boolean {
+  const row = list.elementsCache.get(item.key)
+  const pane = list.scrollElement
+  if (!row?.isConnected || !pane) return false
+  const edge = pane.getBoundingClientRect().top
+  const at = row.getBoundingClientRect()
+  return list.itemSizeCache.has(item.key) ? at.bottom - delta <= edge && list.scrollDirection !== 'backward' : at.top < edge
+}
+
 export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, sizeOf, className = '', rowClass = 'pb-0.5', children }: {
   items: T[]
   /** Whether a row holds this id, where a row is more than one (a line of tiles): its key is asked otherwise. */
@@ -2288,6 +2306,9 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
     estimateSize: (index) => (sizeOf ? sizeOf(items[index]) : estimate),
     overscan: items.length > LAZY ? 4 : 10,
     scrollMargin: margin,
+    // Keeping what is on screen still as rows above it change height is done at once, never eased: in a scroller
+    // that eases its own scrolls (a note's), the correction glided, and the page drifted under the reader.
+    scrollToFn: (offset, options, list) => elementScroll(offset, options.adjustments ? { ...options, behavior: 'instant' } : options, list),
     getItemKey: (index) => keyOf(items[index]),
     // In a long list, a row newly drawn is measured by the observer once laid out, never read at once: read as each
     // row came in, the whole page was laid out there and then (unfolding a 2,500-note folder spent about 30 ms on it).
@@ -2304,6 +2325,7 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
       return (row as HTMLElement).offsetHeight
     }
   })
+  rows.shouldAdjustScrollPositionOnItemSizeChange = aboveScreen
   // The keyboard's row, drawn or not yet: left still if it shows, to the edge
   // for a step, centred for a jump. Asked again once the scroller is found, so
   // a list opened onto a row far down (a link, ⌘K) lands on it too. A frame
