@@ -1590,10 +1590,11 @@ function DialChapter({ play, report, onPick, mine }: { play: boolean; report: (n
   // turn it yourself, mid-tick or not, and this is the theme you keep.
   const [start] = useState(currentTheme)
   const yours = useRef(false)
-  useEffect(() => () => void (!yours.current && applyTheme(start, false)), []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Put back as the demo put each on: plainly, never a crossfade of the whole page (a 170ms frame as the page settled).
+  useEffect(() => () => void (!yours.current && fadeTo(start)), []) // eslint-disable-line react-hooks/exhaustive-deps
   const settle = (): void => {
     show.settle()
-    if (!yours.current) applyTheme(start, false)
+    if (!yours.current) fadeTo(start)
   }
   useReport(report, show.done, settle, show.part)
   const win = useWindowSize()
