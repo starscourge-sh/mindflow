@@ -1938,15 +1938,37 @@ export function Backdrop({ family, page, arrival = 0, arriving = false, onBloome
 /** Whether the theme worn is a light one, followed as it changes (the welcome's own dial changes it). */
 // Read off the words' own colour, the one thing the gradient must suit: dark words want the light version. A theme's
 // class name, or even its light flag, can say otherwise (a dark custom theme over a paper class).
-const lightNow = (): boolean => {
+const lightRead = (): boolean => {
   const [r, g, b] = (getComputedStyle(document.body).color.match(/[\d.]+/g) ?? ['255', '255', '255']).map(Number)
   return 0.2126 * r + 0.7152 * g + 0.0722 * b < 128
 }
-const watchTheme = (changed: () => void): (() => void) => {
-  const watch = new MutationObserver(changed)
-  watch.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-light', 'data-theme'] })
-  return () => watch.disconnect()
+/**
+ * The theme's colours are read off the page, which makes the browser work out its styles: done on every render (twice
+ * a render in development), it froze the window. So they are read once and kept until the theme itself changes: the
+ * root's class, style or theme flags, or a theme's own rules in the head (an imported theme's style tag). One watcher
+ * for the whole window, made on first use and kept, so a kept value is never stale.
+ */
+const kept: { light?: boolean; palette?: string[] } = {}
+const told = new Set<() => void>()
+let watching = false
+const forget = (): void => {
+  kept.light = undefined
+  kept.palette = undefined
+  for (const one of [...told]) one()
 }
+const watchOnce = (): void => {
+  if (watching) return
+  watching = true
+  const watch = new MutationObserver(forget)
+  watch.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-light', 'data-theme'] })
+  watch.observe(document.head, { childList: true, subtree: true, characterData: true })
+}
+const watchTheme = (changed: () => void): (() => void) => {
+  watchOnce()
+  told.add(changed)
+  return () => void told.delete(changed)
+}
+const lightNow = (): boolean => (watchOnce(), (kept.light ??= lightRead()))
 const unwatched = (): (() => void) => () => undefined
 const notRead = (): boolean => false
 /** `on` false (the welcome closed): nothing is read or watched, so a render of Home costs no style pass. */
@@ -1970,15 +1992,17 @@ const resolve = (color: string): string => {
  */
 const GOLD = '#C9961C'
 const GILT = '#F2C24A'
-const paletteNow = (): string => {
+const paletteRead = (): string[] => {
   const mix = (share: number, other = 'var(--background)', ink = GOLD): string => resolve(`color-mix(in oklab, ${ink} ${share}%, ${other})`)
   // Light: the gold no more than half in, its brightest a wash of gilt on white. Dark: bronze deepening from the page up to the gold, its brightest the gilt.
   const colours = lightNow()
     ? [resolve('var(--background)'), mix(12), mix(26), mix(42), mix(24, 'white', GILT)]
     : [resolve('var(--background)'), mix(28), mix(60), resolve(GOLD), mix(80, 'var(--background)', GILT)]
-  return colours.join('|')
+  return colours
 }
-const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow).split('|')
+/** The same list until the theme changes, so a render reads nothing and the gradient is handed the same colours. */
+const paletteNow = (): string[] => (watchOnce(), (kept.palette ??= paletteRead()))
+const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow)
 
 /**
  * The spark the arrival's light comes from, as Arc's opening has it: a tiny, very bright point that pops in at the
