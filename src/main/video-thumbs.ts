@@ -33,3 +33,20 @@ export const isYouTube = (href: string): boolean => {
     return false
   }
 }
+
+/** The video's id from any of YouTube's addresses: watch, youtu.be, embed, shorts, the no-cookie one. */
+export function videoId(src: string): string | null {
+  try {
+    const url = new URL(src)
+    if (!/(^|\.)(youtube\.com|youtu\.be|youtube-nocookie\.com)$/i.test(url.hostname)) return null
+    const fromPath = url.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{6,})/)?.[1]
+    if (fromPath) return fromPath
+    if (/(^|\.)youtu\.be$/i.test(url.hostname)) return url.pathname.slice(1).split("/")[0] || null
+    return url.searchParams.get("v")
+  } catch {
+    return null
+  }
+}
+
+/** A video's picture straight from its id, with no wait for its page: the sharp 4:3 one (bands cut away where shown), or the 16:9 one every video has. */
+export const idThumbs = (id: string): [string, string] => [`https://i.ytimg.com/vi/${id}/hqdefault.jpg`, `https://i.ytimg.com/vi/${id}/mqdefault.jpg`]

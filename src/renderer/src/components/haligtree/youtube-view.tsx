@@ -1,20 +1,7 @@
 import { useEffect, useState } from "react"
 import { NodeViewWrapper, type NodeViewProps } from "@tiptap/react"
 import { Play } from "lucide-react"
-
-
-/** The video's id from any of YouTube's addresses: watch, youtu.be, embed, shorts, the no-cookie one. */
-function videoId(src: string): string | null {
-  try {
-    const url = new URL(src)
-    const fromPath = url.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{6,})/)?.[1]
-    if (fromPath) return fromPath
-    if (/(^|\.)youtu\.be$/i.test(url.hostname)) return url.pathname.slice(1).split("/")[0] || null
-    return url.searchParams.get("v")
-  } catch {
-    return null
-  }
-}
+import { idThumbs, videoId } from "../../../../main/video-thumbs"
 
 /**
  * A YouTube video in a note: its picture with a play button, not a blank
@@ -69,7 +56,8 @@ export function YoutubeView({ node, editor, getPos }: NodeViewProps): React.JSX.
         <iframe key={player} src={player} title={title ?? "YouTube video"} allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowFullScreen />
       ) : (
         <div className="mf-video-face" contentEditable={false}>
-          {!noPicture && <img src={`https://img.youtube.com/vi/${id}/hqdefault.jpg`} alt="" draggable={false} onError={() => setNoPicture(true)} />}
+          {/* The sharp picture, else the 16:9 one every video has, else the face says what it is. */}
+          {!noPicture && id && <img src={idThumbs(id)[0]} alt="" draggable={false} onError={(event) => (event.currentTarget.src === idThumbs(id)[1] ? setNoPicture(true) : (event.currentTarget.src = idThumbs(id)[1]))} />}
           <button type="button" className="mf-video-play" aria-label={title ? `Play ${title}` : "Play the video"} onMouseDown={(event) => event.preventDefault()} onClick={play}>
             <Play className="size-6" fill="currentColor" />
           </button>

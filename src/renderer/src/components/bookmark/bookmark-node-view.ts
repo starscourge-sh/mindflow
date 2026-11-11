@@ -6,7 +6,8 @@ import type { Decoration, NodeView } from "@tiptap/pm/view"
 
 import type { BookmarkAttributes } from "@/extensions/bookmark"
 import { Orb } from "@/components/haligtree/orb"
-import { isYouTube, wideThumb } from "../../../../main/video-thumbs"
+import { idThumbs, isYouTube, videoId, wideThumb } from "../../../../main/video-thumbs"
+import { EASING, still } from "@/lib/motion"
 import { lookOf, paintWhileLoading, withoutBands } from "@/lib/pictures"
 import { lazyRoot } from "@/lib/lazy-root"
 import { stopLikeTiptap } from "@/lib/plain-node-view"
@@ -76,26 +77,28 @@ export function bookmarkNodeView(props: NodeViewRendererProps): NodeView {
     else card.removeAttribute("data-loading")
     const parts: Node[] = []
 
-    // No grey block pulsing where the picture will be: the orb below is
-    // the one sign of a wait, the same one every wait in Haligtree uses.
-    // The picture whole, over itself blurred: a picture of another shape
-    // leaves no empty bands, only its own colours carried to the edges.
-    if (image && !loading) {
-      const frame = el("span", "tiptap-bookmark-frame")
-      frame.style.setProperty("--bookmark-art", `url(${JSON.stringify(image)})`)
-      // Its colours in its place until it has loaded, and only the picture
-      // between any black bands baked into it.
+    // The picture's place is always there, so the card is one shape from the
+    // moment it goes in: the site's own face (its colour, its icon) first, the
+    // picture faded in over it once it has come, and the face kept if it never
+    // does. A YouTube card has its picture at once, from the video's id. The
+    // picture whole, over itself blurred: a picture of another shape leaves
+    // no empty bands, only its own colours carried to the edges.
+    const frame = el("span", "tiptap-bookmark-frame")
+    frame.append(face(href, icon && !loading ? icon : "", site))
+    parts.push(frame)
+    const wanted = (!loading && image) || youTubeThumbs(href)[0] || ""
+    if (wanted) {
+      // Only the picture between any black bands baked into it.
       const img = el("img", "tiptap-bookmark-image") as HTMLImageElement
-      img.src = image
       img.alt = ""
       img.style.backgroundSize = "cover"
       img.style.backgroundPosition = "center"
-      const box = withoutBands(image)
+      img.src = wanted
+      const box = withoutBands(wanted)
       if (box) img.style.setProperty("object-view-box", box)
       frame.append(img)
-      paintWhileLoading(img)
-      parts.push(frame)
-      undo = fit(frame, img, image, href)
+      undo = arrive(frame, img, wanted, href)
+      if (!loading) keepOnce(props, wanted, icon ?? "")
     }
 
     const body = el("span", "tiptap-bookmark-body")
@@ -195,4 +198,132 @@ function fit(box: HTMLElement, img: HTMLImageElement, image: string, href: strin
     img.removeEventListener("load", check)
     watch.disconnect()
   }
+}
+
+/** The two pictures YouTube has for every video, from the id in its address: none for any other link. */
+const youTubeThumbs = (href: string): string[] => {
+  const id = videoId(href)
+  return id ? idThumbs(id) : []
+}
+
+const remote = (src: string): boolean => /^https?:/i.test(src)
+
+/** The theme's own hues (the ones a book wears), so a face suits every theme; never grey. */
+const HUES = ["blue", "purple", "pink", "red", "orange", "yellow", "green"]
+
+/**
+ * The site's face, under the picture: a quiet tint of one of the theme's own
+ * hues, picked from the domain so a site always wears the same one, and its
+ * icon when known, else the first letter of its name.
+ */
+function face(href: string, icon: string, site: string): HTMLElement {
+  let host = ""
+  try {
+    host = new URL(href).hostname.replace(/^www\./, "")
+  } catch {
+    /* not an address: no domain to colour by */
+  }
+  let sum = 0
+  for (const char of host) sum = (sum * 31 + char.charCodeAt(0)) >>> 0
+  const one = el("span", "tiptap-bookmark-face")
+  one.style.setProperty("--bookmark-hue", `var(--tt-color-text-${HUES[sum % HUES.length]})`)
+  const letter = (): HTMLElement => el("span", "tiptap-bookmark-face-letter", (decodeHTML(site).trim() || host || "?").slice(0, 1).toUpperCase())
+  if (icon) {
+    const small = el("img", "tiptap-bookmark-face-icon") as HTMLImageElement
+    small.src = icon
+    small.alt = ""
+    // An icon that will not load leaves its letter, not a broken box.
+    small.addEventListener("error", () => small.replaceWith(letter()), { once: true })
+    one.append(small)
+  } else one.append(letter())
+  return one
+}
+
+/**
+ * The picture over the face: drawn at once when it is already here (a stored
+ * one, or one the browser has), faded in when it arrives (180ms; at once with
+ * Motion off), and taken away if it never comes, so the face stays rather
+ * than a broken box. A YouTube picture that is missing tries the 16:9 one
+ * every video has first. Returns a way to stop watching.
+ */
+function arrive(frame: HTMLElement, img: HTMLImageElement, image: string, href: string): () => void {
+  const stop = fit(frame, img, image, href)
+  // The blurred copy behind a picture shown whole is set once the picture is
+  // here, from the same file, so it never asks for it a second time.
+  const show = (): void => frame.style.setProperty("--bookmark-art", `url(${JSON.stringify(img.currentSrc || img.src)})`)
+  if (img.complete && img.naturalWidth) {
+    show()
+    return stop
+  }
+  // A stored picture has its own colours to stand in until it is drawn (lib/pictures.ts).
+  paintWhileLoading(img)
+  const fades = !still()
+  if (fades) img.style.opacity = "0"
+  const tried = new Set([img.src])
+  const loaded = (): void => {
+    show()
+    if (!fades) return
+    img.style.opacity = ""
+    if (img.isConnected) img.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: EASING })
+  }
+  const failed = (): void => {
+    const next = youTubeThumbs(href).find((one) => !tried.has(one))
+    if (next) {
+      tried.add(next)
+      img.src = next
+      return
+    }
+    img.remove()
+  }
+  img.addEventListener("load", loaded)
+  img.addEventListener("error", failed)
+  return () => {
+    stop()
+    img.removeEventListener("load", loaded)
+    img.removeEventListener("error", failed)
+  }
+}
+
+/**
+ * A picture still on the site, kept with the notes the first time its card is
+ * shown, the way a pasted picture is: from then on it comes from the book,
+ * at once and offline. Each address is asked for once per window, however
+ * many cards show it; one that cannot be kept (offline, too big) is left as
+ * it is and tried again the next time the app opens. Only an editable note
+ * is changed, and not as a step of its own to undo.
+ */
+const keeping = new Map<string, Promise<{ image: string; icon: string }>>()
+function keepOnce(props: NodeViewRendererProps, image: string, icon: string): void {
+  const keep = (window as { api?: { keepCardPictures?: (image: string, icon: string) => Promise<{ image: string; icon: string }> } }).api?.keepCardPictures
+  const ask = { image: remote(image) ? image : "", icon: remote(icon) ? icon : "" }
+  if (!keep || !props.editor.isEditable || !(ask.image || ask.icon)) return
+  const key = `${ask.image}\n${ask.icon}`
+  let asked = keeping.get(key)
+  if (!asked) keeping.set(key, (asked = keep(ask.image, ask.icon).catch(() => ({ image: "", icon: "" }))))
+  void asked.then((now) => {
+    const { editor } = props
+    if (editor.isDestroyed) return
+    const at = typeof props.getPos === "function" ? props.getPos() : undefined
+    const node = at == null ? null : editor.state.doc.nodeAt(at)
+    if (at == null || !node || node.type.name !== "bookmark" || node.attrs.loading) return
+    const was = { image: String(node.attrs.image ?? ""), icon: String(node.attrs.icon ?? "") }
+    // Only a copy now stored replaces the address it was kept from (or fills
+    // an empty place, a YouTube card whose page never answered).
+    const kept = (before: string, after: string, from: string): string => (from && after && !remote(after) && (!before || (wideThumb(before) ?? before) === (wideThumb(from) ?? from)) ? after : before)
+    const nextImage = kept(was.image, now.image, ask.image)
+    const nextIcon = kept(was.icon, now.icon, ask.icon)
+    if (nextImage === was.image && nextIcon === was.icon) return
+    editor.view.dispatch(
+      editor.state.tr
+        .setNodeMarkup(at, undefined, {
+          ...node.attrs,
+          image: nextImage,
+          icon: nextIcon,
+          // The site's address stays with the card, beside the copy.
+          imageSource: node.attrs.imageSource || (nextImage !== was.image ? ask.image : ""),
+          iconSource: node.attrs.iconSource || (nextIcon !== was.icon ? ask.icon : ""),
+        })
+        .setMeta("addToHistory", false),
+    )
+  })
 }
