@@ -578,9 +578,8 @@ function PageWidthMenu({ width: everywhere }: { width: PageWidth }): React.JSX.E
 /**
  * Where an open note is, said quietly in its header: a chip (display.tsx's, as the list's own kinds wear it) that opens
  * the places it can go in the app's own menu (row-menu.tsx), by a click or a right click. Its word is the point of it, so
- * it stays wherever it fits: beside it the header's other words give way first (when the note changed shows a rem
- * later, a long folder's name ends in “…”), and only in a pane too narrow for the word and the tools (under 21rem) does
- * the chip fold to its mark, as “Details” folds to its icon.
+ * it stays wherever it fits: a long folder's name ends in “…” before the note's tools lose room, and only in a pane too
+ * narrow for the word and the tools (under 21rem) does the chip fold to its mark, as “Details” folds to its icon.
  */
 export function PlaceChip({ icon, label, tip, items }: { icon: React.ReactNode; /** Where it is now: “Inbox”, a folder's name, “Writing”. */ label: string; /** What the chip is for, as its menu's heading says it. */ tip: string; items: RowItem[] }): React.JSX.Element {
   return (
@@ -672,7 +671,7 @@ export function NoteHeader({ left, place, back, type = 'capture', edited, captur
           // Beside a place chip the tools keep their width: a long folder's name is what gives way.
           <div className={`ml-auto flex items-center gap-0.5 ${place ? 'shrink-0' : 'min-w-0'}`}>
             <Tip label={moment(at, 'dddd')}>
-              <button type="button" aria-label={said} onClick={open} className={`mr-1 hidden shrink-0 rounded-md px-1.5 py-1 text-meta whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${place ? '@[27rem]/head:block' : '@[26rem]/head:block'}`}>
+              <button type="button" aria-label={said} onClick={open} className="mr-1 hidden shrink-0 rounded-md @[26rem]/head:block px-1.5 py-1 text-meta whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <span className="hidden @[30rem]/head:inline">{said}</span>
                 <span className="@[30rem]/head:hidden">{short}</span>
               </button>
