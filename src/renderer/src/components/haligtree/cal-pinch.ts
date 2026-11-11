@@ -1,6 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react'
-import { flushSync } from 'react-dom'
-import { EASING, still } from '@/lib/motion'
+import { EASING, motionNow, still } from '@/lib/motion'
 import { edge } from '@/lib/haptics'
 import { FIRM, project, rubber, spring } from '@/lib/snap'
 import { frameLoop } from './year-zoom'
@@ -10,42 +9,51 @@ import { frameLoop } from './year-zoom'
  * that week, over a day in Week that day; pinching in goes back up. The same
  * pinch as the Journal's year (year-zoom.ts): wheel events with ctrlKey, read
  * in the same log units, with the app's one spring and give (lib/snap.ts).
- * Short of the change, the week or day under the fingers swells with them,
- * whole and in proportion, and springs back firmly when they lift; once the
- * pinch is heading past the line (where it would stop, read from its speed)
- * the level changes once, and the rest of that pinch is spent, unless the
- * fingers turn round: then it is theirs again, and can take the level back.
+ * Short of the change, what the level shows (its weeks, its hours) grows or
+ * shrinks with the fingers about the point under them, whole and in
+ * proportion, inside its own frame, and springs back firmly when they lift;
+ * once the pinch is heading past the line (where it would stop, read from its
+ * speed) the level changes once, and the rest of that pinch is spent, unless
+ * the fingers turn round: then it is theirs again, and can take the level back.
  */
 
 /** How far a pinch goes, in the year zoom's log units (a fifth wider), before the level changes. */
 const OPEN = 0.18
 /** A gap this long between a pinch's events: the fingers lifted, the next pinch is a new one. A pinch has no glide after it. */
 const QUIET = 300
-/** No pinch event for this long (five frames; a pinch sends one a frame while the fingers move): they stopped, and what swelled goes back. */
+/** No pinch event for this long (five frames; a pinch sends one a frame while the fingers move): they stopped, and what grew goes back. */
 const REST = 80
 /** How far ahead a pinch's speed is read to say where it is heading: a brisk pinch changes the level before the fingers get there. */
 const AHEAD = 0.05
 /** How much of the way the fingers themselves must have gone before the speed may finish it: a twitch never changes the level. */
 const EARNED = 0.6
-/** How much the week or day swells at the edge of the change, and shrinks pinching in. */
-const SWELL = 0.06
+/**
+ * How much a level grows at the edge of the change, or shrinks pinching in: little enough that what leaves its frame
+ * at the sides is the days' own padding (a week's number, 9px in from the edge, is whole three quarters of the way).
+ */
+const SWELL = 0.03
 /** How far the fingers must come back, of the way to a change, before a spent pinch is theirs again: more than the wobble of a lift. */
 const TURNED = 0.25
-/** The level's name in the window's picture while one gives way to the next, and how long that takes. */
-const NAME = 'mf-cal-level'
+/** How long one level takes to give way to the next, the size the level left goes on to, and the size the next sets off from. */
 const CHANGE = 200
+const GONE = 0.06
+const COME = 0.04
+/** The name of a change's animations, to tell them from any other on the same elements. */
+const NAME = 'mf-cal-level'
 
 export type Way = 'closer' | 'up'
+/** What a pinch would do: `body`, the part of the level in front that follows the fingers, and `to`, the level it would change to. */
+export type Found<T> = { body: HTMLElement; to: T }
 
 /**
- * `target(el, way)` names the element a pinch over `el` would open or leave (a week's row, a day's column, the view),
- * or null when there is no level that way. `go(way, el, rect, release)` changes the level, `rect` where the target
- * stood at its own size; the target is still swollen as the fingers left it, for the old level's picture to be taken
- * so, and `release()` puts it back (call it as the level changes).
+ * `find(el, way)` says what a pinch over `el` that way would open or go back to, or null when there is no level that
+ * way. `ahead(to)` is told as soon as a pinch has set off for a level, for it to be drawn, unseen, before the fingers
+ * get there (null: the pinch came to nothing). `go(way, to, at, release)` changes the level; `at` is the point in the
+ * window the fingers were over, and `release()` gives the body back its own size (call it as the level changes).
  */
-export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: Element, way: Way) => HTMLElement | null, go: (way: Way, el: HTMLElement, rect: DOMRect, release: () => void) => void): void {
-  const ask = useRef({ target, go })
-  ask.current = { target, go }
+export function usePinchLevels<T>(box: RefObject<HTMLElement | null>, find: (el: Element, way: Way) => Found<T> | null, ahead: (to: T | null) => void, go: (way: Way, to: T, at: { x: number; y: number }, release: () => void) => void): void {
+  const ask = useRef({ find, ahead, go })
+  ask.current = { find, ahead, go }
   useEffect(() => {
     let lz = 0
     let speed = 0
@@ -53,23 +61,24 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
     // The way of the pinch that changed the level (1 closer, -1 up, 0 none), and how far the fingers have since come back.
     let spent = 0
     let back = 0
-    let held: HTMLElement | null = null
+    let held: Found<T> | null = null
     let heldWay: Way | null = null
+    let heldAt = { x: 0, y: 0 }
     let then = 0
     let pace = 0
     const draw = (): void => {
       if (!held) return
       const amount = Math.min(1, Math.abs(lz) / OPEN)
-      const scale = lz > 0 ? 1 + SWELL * amount : 1 - (SWELL / 2) * amount
-      held.style.transform = still() || Math.abs(scale - 1) < 0.0005 ? '' : `scale(${scale})`
-      held.style.zIndex = held.style.transform ? '2' : ''
+      const scale = 1 + Math.sign(lz) * SWELL * amount
+      held.body.style.transform = still() || Math.abs(scale - 1) < 0.0005 ? '' : `scale(${scale})`
     }
+    const clear = (body: HTMLElement): void => void ((body.style.transform = ''), (body.style.transformOrigin = ''), (body.style.willChange = ''))
     const letGo = (): void => {
-      if (held) (held.style.transform = ''), (held.style.zIndex = ''), (held.style.transformOrigin = '')
+      if (held) clear(held.body), ask.current.ahead(null)
       held = null
       heldWay = null
     }
-    // Once the fingers stop, what swelled springs back.
+    // Once the fingers stop, what grew springs back.
     const frames = frameLoop((now) => {
       const dt = then ? (now - then) / 1000 : 1 / 60
       then = now
@@ -85,8 +94,8 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
     const wheel = (event: WheelEvent): void => {
       if (!event.ctrlKey || !(event.target instanceof Node) || !box.current?.contains(event.target)) return
       event.preventDefault()
-      // The event's own time, when the fingers moved: a long frame (the level just opened being drawn) holds the rest
-      // of the pinch back, and read on arrival they would look like a new pinch and open the next level too.
+      // The event's own time, when the fingers moved: a long frame holds the rest of the pinch back, and read on
+      // arrival they would look like a new pinch and open the next level too.
       const now = event.timeStamp
       if (now - last > QUIET) (spent = 0), (back = 0), (lz = 0), (speed = 0), (pace = 0), letGo()
       const gap = Math.max(4, Math.min(50, now - last))
@@ -109,22 +118,21 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
       const way: Way = lz >= 0 ? 'closer' : 'up'
       if (way !== heldWay) {
         letGo()
-        const found = event.target instanceof Element ? ask.current.target(event.target, way) : null
+        const found = event.target instanceof Element ? ask.current.find(event.target, way) : null
         if (!found) return void (lz = Math.sign(lz) * rubber(Math.abs(lz), OPEN, 0.2))
         held = found
         heldWay = way
-        const box = found.getBoundingClientRect()
-        held.style.transformOrigin = `${event.clientX - box.left}px ${event.clientY - box.top}px`
+        heldAt = { x: event.clientX, y: event.clientY }
+        // About the point under the fingers, moved as one picture: drawn again at each size, a frame would not keep up.
+        const frame = found.body.getBoundingClientRect()
+        found.body.style.transformOrigin = `${event.clientX - frame.left}px ${event.clientY - frame.top}px`
+        found.body.style.willChange = 'transform'
+        // The level it is heading for is drawn now, unseen, so the change itself has nothing left to draw.
+        ask.current.ahead(found.to)
       }
       const heading = project(lz, pace, AHEAD)
       if (Math.abs(heading) >= OPEN && Math.abs(lz) >= OPEN * EARNED && Math.sign(heading) === Math.sign(lz) && held) {
-        const was = held
-        // Where it stood at its own size, read with the swell off for a moment (a transform asks for no layout); the
-        // swell itself stays on until the level changes, so the old level's picture is what the fingers were holding.
-        const { transform, zIndex, transformOrigin } = was.style
-        was.style.transform = ''
-        const rect = was.getBoundingClientRect()
-        was.style.transform = transform
+        const { body, to } = held
         held = null
         heldWay = null
         spent = way === 'closer' ? 1 : -1
@@ -132,13 +140,8 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
         lz = 0
         speed = 0
         pace = 0
-        ask.current.go(way, was, rect, () => {
-          if (was.style.transform === transform) was.style.transform = ''
-          if (was.style.zIndex === zIndex) was.style.zIndex = ''
-          if (was.style.transformOrigin === transformOrigin) was.style.transformOrigin = ''
-        })
-        // The time the new level takes to draw is no pause of the fingers: the quiet that ends this pinch counts from its first frame.
-        requestAnimationFrame(() => void (last = Math.max(last, performance.now())))
+        // Its own size again under the change's animation, which keeps the point it grows about until it is over (`crossed`).
+        ask.current.go(way, to, heldAt, () => (mine(body).length ? void (body.style.transform = '') : clear(body)))
         return
       }
       draw()
@@ -150,50 +153,70 @@ export function usePinchLevels(box: RefObject<HTMLElement | null>, target: (el: 
   }, [box])
 }
 
-/** The change of level on now: a newer one skips it, which only means the new level is at its own size at once. */
-let turning: ViewTransition | null = null
+const part = (layer: HTMLElement, name: 'body' | 'names'): HTMLElement | null => layer.querySelector<HTMLElement>(`[data-cal-${name}]`)
+const mine = (el: HTMLElement): Animation[] => el.getAnimations().filter((one) => one.id === NAME)
 
 /**
- * One level giving way to the next under a pinch. The level being left stays in sight and carries on the way the
- * fingers were taking it (larger as they spread, smaller as they closed), fading as it goes, while the level opened
- * comes to its own size from the other side, both about what was under the fingers: `at`, a point in the window, or
- * `found()` once the new level is drawn (going back up, the part you came from). So nothing is ever gone before the
- * next thing is there, and both keep their shape: one scale both ways across, never a week's strip pulled to the whole
- * pane. A view transition of `box` alone: one picture of the old level and the new level itself, moved by transform
- * and opacity on the compositor, so the page drawing the new level cannot make it stutter, and the page under it
- * hears the fingers all the while (a pinch turned round mid-way starts from what is on screen). `change()` makes the
- * change. One firm tap, felt in the frame the levels start to move (drawing the new level takes a few frames; felt
- * before that, the tap came ahead of anything seen). With Motion off or Reduce motion the level is simply there.
+ * One level giving way to the next under a pinch: `old` and `next` are the two levels themselves, both drawn, `next`
+ * unseen until now. The level left goes on the way the fingers were taking it (larger as they spread, smaller as they
+ * closed), fading, while the next comes to its own size from the other side, both about `at`, the point in the window
+ * under the fingers: nothing is gone before the next thing is there, and both keep their shape. Only what each level
+ * shows moves (its `data-cal-body`), inside its own frame; the day names over it (`data-cal-names`) stay where they
+ * are and change places, the old ones gone before the new ones come, so two rows of names are never seen at once.
+ * Transform and opacity alone, played by the compositor: nothing is drawn or laid out for the change, and a busy page
+ * cannot make it stutter. A change turned round on its way starts from what is on screen. One firm tap, in the frame
+ * the levels start to move. With the Mac's Reduce motion the levels fade across and nothing grows or travels; with
+ * the app's Motion off it answers null, and the level is simply there.
  */
-export function zoomLevel(box: HTMLElement, way: Way, at: { x: number; y: number } | null, change: () => void, found?: () => DOMRect | null): void {
-  if (still() || typeof document.startViewTransition !== 'function') return edge(), change()
-  turning?.skipTransition()
-  const root = document.documentElement
-  const style = document.createElement('style')
-  box.style.viewTransitionName = NAME
-  root.dataset.calZoom = way
-  const turn = document.startViewTransition(() => {
-    flushSync(change)
-    const frame = box.getBoundingClientRect()
-    const part = found?.()
-    const x = (part ? part.left + part.width / 2 : (at?.x ?? frame.left + frame.width / 2)) - frame.left
-    const y = (part ? part.top + part.height / 2 : (at?.y ?? frame.top + frame.height / 2)) - frame.top
-    const [gone, come] = way === 'closer' ? [1 + SWELL, 1 - SWELL] : [1 - SWELL, 1 + SWELL]
-    // Written before the new picture is taken, so both start in the same frame, on the compositor (as lib/hero.ts does).
-    style.textContent = `@keyframes mf-cal-gone { to { opacity: 0; transform: scale(${gone}); } }
-@keyframes mf-cal-come { from { opacity: 0; transform: scale(${come}); } }
-:root[data-cal-zoom]::view-transition-old(${NAME}) { animation: mf-cal-gone ${CHANGE}ms ${EASING} both; transform-origin: ${x}px ${y}px; }
-:root[data-cal-zoom]::view-transition-new(${NAME}) { animation: mf-cal-come ${CHANGE}ms ${EASING} both; transform-origin: ${x}px ${y}px; }`
-    document.head.append(style)
-  })
-  turning = turn
-  const end = (): void => {
-    style.remove()
-    if (turning !== turn) return
-    turning = null
-    box.style.viewTransitionName = ''
-    delete root.dataset.calZoom
+export function crossLevels(old: HTMLElement, next: HTMLElement, way: Way, at: { x: number; y: number }): { anims: Animation[]; done: Promise<boolean> } | null {
+  edge()
+  const how = motionNow()
+  if (how === 'none') return null
+  const grows = how === 'all'
+  const length = grows ? CHANGE : 160
+  const seen = (el: HTMLElement): number => Number(getComputedStyle(el).opacity)
+  const size = (el: HTMLElement): number => new DOMMatrixReadOnly(getComputedStyle(el).transform).a
+  const anims: Animation[] = []
+  const play = (el: HTMLElement, frames: Keyframe[], easing = EASING): void => {
+    // Read before the last change's animations go: this one sets off from what they were showing.
+    mine(el).forEach((one) => one.cancel())
+    const one = el.animate(frames, { duration: length, easing, fill: 'both' })
+    one.id = NAME
+    anims.push(one)
   }
-  void turn.ready.then(edge, edge)
-  void turn.finished.then(end, end)
+  // A level already on its way (the change turned round) carries on from where it is; one not yet seen sets off from nothing.
+  const fresh = mine(next).length === 0
+  const [oldAt, nextAt] = [seen(old), fresh ? 0 : seen(next)]
+  const [oldBody, nextBody, oldNames, nextNames] = [part(old, 'body'), part(next, 'body'), part(old, 'names'), part(next, 'names')]
+  if (grows && oldBody) {
+    const from = size(oldBody)
+    if (!oldBody.style.transformOrigin) origin(oldBody, at)
+    play(oldBody, [{ transform: `scale(${from})` }, { transform: `scale(${way === 'closer' ? 1 + GONE : 1 - GONE})` }])
+  }
+  if (grows && nextBody) {
+    const from = fresh ? (way === 'closer' ? 1 - COME : 1 + COME) : size(nextBody)
+    if (fresh) origin(nextBody, at)
+    play(nextBody, [{ transform: `scale(${from})` }, { transform: 'scale(1)' }])
+  }
+  // The names change places in turn: the old row out over the first third, the new one in over the rest.
+  if (oldNames) play(oldNames, [{ opacity: seen(oldNames), easing: 'ease-out' }, { opacity: 0, offset: 0.3 }, { opacity: 0 }], 'linear')
+  if (nextNames) play(nextNames, [{ opacity: fresh ? 0 : seen(nextNames) }, { opacity: 0, offset: 0.3, easing: EASING }, { opacity: 1 }], 'linear')
+  play(old, [{ opacity: oldAt }, { opacity: 0 }])
+  play(next, [{ opacity: nextAt }, { opacity: 1 }])
+  return { anims, done: Promise.all(anims.map((one) => one.finished)).then(() => true, () => false) }
+}
+
+/** `at`, a point in the window, as the point `el` grows about. */
+function origin(el: HTMLElement, at: { x: number; y: number }): void {
+  const frame = el.getBoundingClientRect()
+  el.style.transformOrigin = `${at.x - frame.left}px ${at.y - frame.top}px`
+}
+
+/** A change over and done: its animations go (each level is by now at rest as the page itself draws it), and what the bodies grew about with them. */
+export function crossed(anims: Animation[]): void {
+  for (const one of anims) {
+    const el = one.effect instanceof KeyframeEffect ? one.effect.target : null
+    one.cancel()
+    if (el instanceof HTMLElement && el.hasAttribute('data-cal-body')) (el.style.transformOrigin = ''), (el.style.willChange = '')
+  }
 }

@@ -54,6 +54,9 @@ const weekNumber = (monday: Dayjs): number => {
   return Math.floor(thursday.diff(thursday.startOf('year'), 'day') / 7) + 1
 }
 
+/** The Calendar's run as it last fitted its box: a week's height, and whether a day has room for names. */
+let lastFit: { row: number; wide: boolean } | null = null
+
 /** One line in a day: a task planned, due, to get ready for, or something coming back. */
 type Line = { kind: 'planned' | 'due' | 'ready'; task: Task } | { kind: 'back'; one: Back }
 const linesOf = (held: OnDay | undefined): Line[] => !held ? [] : [
@@ -166,18 +169,22 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
 
   // A week's height, for how many chips a day holds.
   const body = useRef<HTMLDivElement>(null)
-  const [row, setRow] = useState(0)
+  // On the run it starts from the last fit (the pane is the size it was): measured afresh from nothing, the weeks were
+  // drawn a second time in the frame the month came in, all at once.
+  const [row, setRow] = useState(() => (bare ? (lastFit?.row ?? 0) : 0))
   // Whether a day is wide enough for its things by name (5.5rem), worked out here from the box's width, once a resize:
   // a container query on each day made every week coming into sight restyle its seven days as it was laid out.
-  const [wide, setWide] = useState(true)
+  const [wide, setWide] = useState(() => (bare ? (lastFit?.wide ?? true) : true))
   useLayoutEffect(() => {
     const el = body.current
     if (!el) return
     const fit = (): void => {
       readRem()
       // On the run, a whole number of pixels a week, so every week's lines fall on whole pixels as it scrolls.
-      setRow(bare ? Math.floor(el.clientHeight / SCREEN) : el.clientHeight / ROWS)
-      setWide((el.clientWidth - 2 * rem() - 8) / 7 >= 5.5 * rem())
+      const fitted = { row: bare ? Math.floor(el.clientHeight / SCREEN) : el.clientHeight / ROWS, wide: (el.clientWidth - 2 * rem() - 8) / 7 >= 5.5 * rem() }
+      setRow(fitted.row)
+      setWide(fitted.wide)
+      if (bare && fitted.row > 0) lastFit = fitted
     }
     fit()
     const watch = new ResizeObserver(fit)
@@ -300,15 +307,18 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
           moveToDay(line.task, String(over.id), line.kind)
         }}>
       <div className={`flex flex-col overflow-hidden rounded-xl border bg-border ${bare ? 'min-h-0 flex-1' : ''}`}>
-        <div className={COLS} aria-hidden>
+        <div data-cal-names={bare || undefined} className={COLS} aria-hidden>
           <div className="bg-background px-1 py-1 text-center text-control font-medium text-muted-foreground">Wk</div>
           {days.slice(0, 7).map((day) => (
             <div key={day.format('d')} data-month-weekday={day.day() === 0 || day.day() === 6 ? 'weekend' : 'weekday'} className={`bg-background px-2 py-1 text-control font-medium ${day.day() === 0 || day.day() === 6 ? 'text-foreground/60' : 'text-foreground/85'}`}>{day.format('ddd')}</div>
           ))}
         </div>
         {bare
-          ? <WeekRun body={body} row={row} held={held ?? month} still={still} bars={bars} lines={linesIn} sign={sign}
-              onShown={(to) => (setShown(to), onShown?.(to))} week={week} />
+          // The weeks grow and shrink with a pinch (cal-pinch.ts) inside this frame: the day names over them stay put.
+          ? <div className="flex min-h-0 flex-1 flex-col overflow-clip">
+              <WeekRun body={body} row={row} held={held ?? month} still={still} bars={bars} lines={linesIn} sign={sign}
+                onShown={(to) => (setShown(to), onShown?.(to))} week={week} />
+            </div>
           : <div ref={body} data-month-scroll className="relative min-h-0 overflow-hidden" style={{ height: 'max(40.5rem, calc(100vh - 22rem))' }}>{sixWeeks()}</div>}
       </div>
       <Overlay dropAnimation={SETTLE}>
@@ -625,7 +635,7 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   const lastDrawn = Math.min(WEEKS - 1, Math.max(base, far) + SCREEN + OVER)
   useLayoutEffect(() => void (drawn.current = [firstDrawn, lastDrawn]))
   return (
-    <div ref={body} data-month-scroll data-month-run={dim} data-unfaded className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
+    <div ref={body} data-month-scroll data-month-run={dim} data-cal-body data-unfaded className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
       {/* The days outside the month named, dimmed as on Home's month. A rule that never changes: rewritten for each month, it made the whole window restyle. */}
       <style>{RUN_RULES}</style>
       <div ref={shield} hidden aria-hidden className="sticky top-0 z-20" style={{ height: row * SCREEN, marginBottom: -row * SCREEN }} />

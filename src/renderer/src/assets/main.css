@@ -2889,12 +2889,6 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
   animation: mf-plain-in 120ms var(--mf-ease) both;
 }
 
-/* The Calendar's levels under a pinch (cal-pinch.ts, zoomLevel): a view transition of the days' pane alone. The rest
-   of the window is not in the picture and stays as it is; the two levels keep inside the pane's own box; the pane
-   itself does not move (the browser's own group animation, on the main thread, is off). */
-:root[data-cal-zoom] { view-transition-name: none; }
-:root[data-cal-zoom]::view-transition-group(mf-cal-level) { animation: none; overflow: clip; }
-
 /* Something clicked growing into what it opens, and back (lib/hero.ts): a
    view transition. The group (the real pictures of the thing and the page)
    is moved with transform alone, from its top left corner, by keyframes

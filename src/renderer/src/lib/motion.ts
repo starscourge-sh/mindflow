@@ -36,6 +36,12 @@ const reduced = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').ma
 export const still = (): boolean => document.documentElement.dataset.motion === 'off' || reduced()
 
 /**
+ * The two told apart, for a change that would otherwise both travel and fade: `none` with the app's Motion off
+ * (it is simply there), `fade` with the Mac's Reduce motion (it still fades across, nothing grows or travels), else `all`.
+ */
+export const motionNow = (): 'none' | 'fade' | 'all' => (document.documentElement.dataset.motion === 'off' ? 'none' : reduced() ? 'fade' : 'all')
+
+/**
  * A frame loop that runs only while the window is looked at (`data-awake`,
  * progress-bar.tsx): away, hidden or behind another window, it holds still and
  * picks up again on return. `tick` returns false to stop until `again()`.

@@ -1,4 +1,4 @@
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, startTransition, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { CARD, swallowRelease } from './carry'
 import { useReading, useReadsIn } from '@/lib/reads-in'
 import { createPortal } from 'react-dom'
@@ -23,7 +23,7 @@ import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu } from './row-menu'
 import { MonthPlan, MonthShowMenu, Passing } from './month-plan'
-import { usePinchLevels, zoomLevel } from './cal-pinch'
+import { crossLevels, crossed, usePinchLevels, type Way } from './cal-pinch'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DaySide, type SideAsk } from './day-side'
 import { Highlight, useFluidHover, Weighted } from './glide'
@@ -43,6 +43,17 @@ import { quoted } from '../../../../main/clip'
 import { studyChips, useStudy, type StudyDay } from './study-days'
 
 type Mode = 'day' | 'week' | 'month'
+/** One level of the Calendar: a month, a week or a day, about a day. */
+type Level = { mode: Mode; anchor: Dayjs }
+/**
+ * A second level in the days' pane beside the one in front, unseen: the one a pinch is heading for, drawn ahead of
+ * the change (`ahead`), or the one just left, on its way out (`leaving`). `top`: where its hours start from, the
+ * place the hours in front are scrolled to, so a week and its day show the same hours through the change.
+ */
+type Shadow = Level & { role: 'ahead' | 'leaving'; top?: number }
+/** Month, week, day, as they sit in the pane: never put in another order, which would lose each one's place. */
+const DEPTH: Record<Mode, number> = { month: 0, week: 1, day: 2 }
+const sameLevel = (a: Level, b: Level): boolean => a.mode === b.mode && a.anchor.isSame(b.anchor, 'day')
 /** The steps a time snaps to (one hour's height on the grid is HOUR, calendar-events.tsx). */
 const SNAP = 15
 /** A timed task with no length of its own is drawn half an hour long. */
@@ -140,9 +151,13 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const setSide = (on: boolean): void => (chime(on ? 'on' : 'off'), store('vigil.calendar.side', on ? 'on' : 'off'), setSideRaw(on))
   // A narrow page has no room for the small month beside a month: the month gets the width.
   const box = useRef<HTMLElement>(null)
-  const [narrow, setNarrow] = useState(false)
+  // The page's width and the app's text size, measured when the page changes size; what fits is worked out from them
+  // as the page is drawn. (Measured again after each change of level, the whole page was drawn a second time in the
+  // frames the level was changing in.)
+  const [sized, setSized] = useState<{ width: number; rem: number } | null>(null)
+  const narrow = !!sized && sized.width < 820
   // Under about 900px the bar has no room for the two panel buttons: they fold into ⋯, so nothing wraps.
-  const [tight, setTight] = useState(false)
+  const tight = !!sized && sized.width < 900
   // Whether the right panel fits beside the days: in a week only while every
   // day keeps the room for a block's whole time on one line ("09:30 – 10:30"),
   // so with the app's sidebar open it folds away first; a day has room for it.
@@ -151,26 +166,23 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const [leftRem, leftGrip] = usePanelWidth(LEFT, 'left')
   const [rightRem, rightGrip] = usePanelWidth(RIGHT, 'right')
   const [editorRem, editorGrip] = usePanelWidth(EDITOR, 'right')
-  const [fits, setFits] = useState({ left: true, right: true })
   useEffect(() => {
     const el = box.current
     if (!el) return
     const measure = (): void => {
-      const width = el.clientWidth
-      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-      const days = mode === 'week' ? 7 * DAY_ROOM + parseFloat(gutterOf(zone)) * rem : 0
-      setNarrow(width < 820)
-      setTight(width < 900)
-      setFits(mode === 'week'
-        // The left panel too folds away once the days would be squeezed under about 4rem each; "Plan" brings it back.
-        ? { left: width >= 7 * 64 + parseFloat(gutterOf(zone)) * rem + leftRem * rem, right: width >= days + (leftRem + rightRem) * rem }
-        : { left: true, right: width >= 1100 })
+      const now = { width: el.clientWidth, rem: parseFloat(getComputedStyle(document.documentElement).fontSize) || 16 }
+      setSized((was) => (was && was.width === now.width && was.rem === now.rem ? was : now))
     }
     measure()
     const watch = new ResizeObserver(measure)
     watch.observe(el)
     return () => watch.disconnect()
-  }, [mode, zone, leftRem, rightRem])
+  }, [])
+  const gutter = sized ? parseFloat(gutterOf(zone)) * sized.rem : 0
+  const fits = !sized ? { left: true, right: true } : mode === 'week'
+    // The left panel too folds away once the days would be squeezed under about 4rem each; "Plan" brings it back.
+    ? { left: sized.width >= 7 * 64 + gutter + leftRem * sized.rem, right: sized.width >= 7 * DAY_ROOM + gutter + (leftRem + rightRem) * sized.rem }
+    : { left: true, right: sized.width >= 1100 }
   // "Plan" pressed while a panel was folded for room: shown all the same, until it is pressed again.
   const [kept, setKept] = useState(false)
   const [keptRight, setKeptRight] = useState(false)
@@ -197,37 +209,78 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     return () => watch.disconnect()
   }, [])
   const few = mode === 'week' && paneWide < FEW_UNDER
+  /** The days a level shows: one, a week's seven, or three from the day shown when the pane is too narrow for seven. */
+  const daysOf = (one: Level): Dayjs[] => one.mode === 'day' ? [one.anchor] : one.mode === 'week' && paneWide < FEW_UNDER ? Array.from({ length: FEW }, (_, at) => one.anchor.add(at, 'day')) : Array.from({ length: 7 }, (_, at) => one.anchor.startOf('week').add(at, 'day'))
   // Pinch out over a week in Month to open it, over a day in Week to open that; pinch in to go back up (cal-pinch.ts).
-  // The level left goes on the way the fingers took it while the new one comes to its size about what was under them;
-  // the D, W and M keys and the view buttons change it at once.
+  // As soon as a pinch sets off, the level it is heading for is drawn in the pane, unseen (`shadow`), in the page's
+  // spare time; at the change the two levels, both there, cross by transform and opacity alone, so the change draws
+  // nothing. The D, W and M keys and the view buttons change the level at once.
   const level = useRef<HTMLDivElement>(null)
-  usePinchLevels(pane, (el, way) => {
-    const now = live.current.mode
-    if (way === 'up') return now === 'month' ? null : level.current
-    if (now === 'month') return el.closest<HTMLElement>('[data-month-week]')
-    if (now !== 'week') return null
+  const [shadow, setShadow] = useState<Shadow | null>(null)
+  // The level in front as the hand has it, for the frames the page takes to say so itself; the change asked for and
+  // waiting for its level to be drawn; and the change now playing.
+  const front = useRef<{ at: Level; el: HTMLElement } | null>(null)
+  const wanted = useRef<{ to: Level; way: Way; at: { x: number; y: number }; release: () => void } | null>(null)
+  const crossing = useRef<{ anims: Animation[]; next: HTMLElement; over: boolean } | null>(null)
+  const inFront = (): { at: Level; el: HTMLElement | null } => front.current ?? { at: { mode: live.current.mode, anchor: live.current.anchor }, el: level.current }
+  const layerOf = (one: Level): HTMLElement | null => pane.current?.querySelector<HTMLElement>(`:scope > [data-cal-depth="${one.mode}"][data-cal-at="${dayKey(one.anchor)}"]`) ?? null
+  const drawAhead = (to: Level | null): void => {
+    if (!to) return startTransition(() => setShadow((was) => (was?.role === 'ahead' ? null : was)))
+    const top = inFront().el?.querySelector<HTMLElement>('[data-cal-scroll]')?.scrollTop
+    startTransition(() => setShadow((was) => (was && sameLevel(was, to) ? was : { ...to, role: 'ahead', top })))
+  }
+  /** The change over and the page saying the same as the hand: its animations go, and the level left with them. */
+  const tidy = (): void => {
+    const one = crossing.current
+    if (front.current && !front.current.el.isConnected) (front.current = null), (crossing.current = null), one && crossed(one.anims)
+    if (!one || !one.over || one.next.dataset.calRole !== 'here') return
+    crossing.current = null
+    front.current = null
+    crossed(one.anims)
+    startTransition(() => setShadow((was) => (was?.role === 'leaving' ? null : was)))
+  }
+  /** The change asked for, made once the level it goes to is drawn: the two cross, and the page is told in its own time. */
+  const cross = (): void => {
+    const ask = wanted.current
+    const now = inFront()
+    const next = ask && layerOf(ask.to)
+    if (!ask || !next || !now.el || next === now.el) return
+    wanted.current = null
+    const how = crossLevels(now.el, next, ask.way, ask.at)
+    ask.release()
+    chime('tap')
+    store('vigil.calendar.mode', ask.to.mode)
+    box.current?.setAttribute('data-cal-mode', ask.to.mode)
+    const said = (): void => (setPeek(null), setAnchor(ask.to.anchor), setModeRaw(ask.to.mode), setShadow(how ? { ...now.at, role: 'leaving' } : null))
+    // With Motion off there is nothing to play: the page says it at once.
+    if (!how) return said()
+    front.current = { at: ask.to, el: next }
+    const mine = { ...how, next, over: false }
+    crossing.current = mine
+    startTransition(said)
+    void how.done.then((whole) => void (whole && crossing.current === mine && ((mine.over = true), tidy())))
+  }
+  useLayoutEffect(() => (cross(), tidy()))
+  // A level drawn ahead that the page reached some other way (a key, a view button) is the level in front now.
+  useEffect(() => void (shadow && shadow.mode === mode && setShadow(null)), [shadow, mode])
+  usePinchLevels<Level>(pane, (el, way) => {
+    const { at, el: layer } = inFront()
+    const body = layer?.querySelector<HTMLElement>('[data-cal-body]')
+    if (!body) return null
+    if (way === 'up') return at.mode === 'month' ? null : { body, to: { mode: at.mode === 'day' ? 'week' : 'month', anchor: at.anchor } }
+    if (at.mode === 'month') {
+      const week = el.closest<HTMLElement>('[data-month-week]')?.dataset.monthWeek
+      return week ? { body, to: { mode: 'week', anchor: dayjs(week).startOf('day') } } : null
+    }
+    if (at.mode !== 'week') return null
     const day = el.closest<HTMLElement>('[data-cal-col], [data-cal-head], [data-cal-allday]')
     const key = day?.dataset.calCol ?? day?.dataset.calHead ?? day?.dataset.calAllday
-    return key ? document.querySelector<HTMLElement>(`[data-cal-col="${CSS.escape(key)}"]`) : null
-  }, (way, el, rect, release) => {
-    const now = live.current.mode
-    const box = pane.current
-    if (!box) return release()
-    if (way === 'up') {
-      // Going up, the part you came from is found in the level drawn (a day's column runs the whole day's height:
-      // what is in sight of it is the pane's height).
-      const at = live.current.anchor
-      const find = now === 'week' ? `[data-month-week="${dayKey(at.startOf('week'))}"]` : `[data-cal-col="${dayKey(at)}"]`
-      return zoomLevel(box, way, null, () => (release(), setPeek(null), setMode(now === 'week' ? 'month' : 'week')), () => {
-        const one = box.querySelector<HTMLElement>(find)?.getBoundingClientRect()
-        const frame = box.getBoundingClientRect()
-        return one ? (now === 'day' ? new DOMRect(one.left, frame.top, one.width, frame.height) : one) : null
-      })
-    }
-    const frame = box.getBoundingClientRect()
-    const from = now === 'week' ? new DOMRect(rect.left, frame.top, rect.width, frame.height) : rect
-    const to = dayjs(now === 'month' ? el.dataset.monthWeek : el.dataset.calCol).startOf('day')
-    zoomLevel(box, way, { x: from.left + from.width / 2, y: from.top + from.height / 2 }, () => (release(), setPeek(null), setAnchor(to), setMode(now === 'month' ? 'week' : 'day')))
+    return key ? { body, to: { mode: 'day', anchor: dayjs(key).startOf('day') } } : null
+  }, drawAhead, (way, to, at, release) => {
+    wanted.current = { to, way, at, release }
+    // Asked for again: a pinch can reach the line on its first step, before anything was asked.
+    drawAhead(to)
+    cross()
   })
   const days = mode === 'day' ? [anchor] : few ? Array.from({ length: FEW }, (_, at) => anchor.add(at, 'day')) : Array.from({ length: 7 }, (_, at) => anchor.startOf('week').add(at, 'day'))
   // What a step is, as the arrows say it: a day, a week, a month, or the three days shown.
@@ -278,8 +331,14 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const pickedEvent = chosenEvent ?? (panel && 'event' in panel ? panel.event : null)
   // Events beside the tasks (calendar-events.tsx): each calendar, the tasks and your Mac's calendars shown or hidden.
   // A month reads its quarter and one either side, so scrolling through the months reads afresh once every three months.
+  // A week and a day read the same span as their month: a change of level then reads nothing afresh, and the level a
+  // pinch is heading for has its events from its first draw. (Each level reading its own days, the answers came back
+  // one by one through the change, and the whole page was drawn again for each.)
+  const showing: Level = { mode, anchor }
+  const levels: (Level | Shadow)[] = shadow && shadow.mode !== mode ? [showing, shadow] : [showing]
   const quarter = anchor.startOf('month').subtract(anchor.month() % 3, 'month')
-  const span = mode === 'month' ? [quarter.subtract(3, 'month'), quarter.add(6, 'month')] : [first.startOf('day'), last.add(1, 'day').startOf('day')]
+  const span = [quarter.subtract(3, 'month'), quarter.add(6, 'month')]
+  const monthUp = levels.some((one) => one.mode === 'month')
   const layers = useLayers(span[0].toDate(), span[1].toDate())
   const own = useEvents(span[0].toISOString(), span[1].toISOString())
   const shownEvents: Shown[] = [...own.filter((one) => layers.shown(one.calendarId)).map((one) => ({ ...one, color: colorFor(one, layers.colorOf(one.calendarId)) })), ...macShown(layers.macEvents)]
@@ -288,8 +347,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // A single day's all-day event sits on its day; those over several days are the month's bars.
   const eventsByDay = new Map<string, Shown[]>()
   // What a week's events are drawn from, as one line: a week of the month is drawn again only when it changed.
-  const eventsSaid = mode === 'month' ? shownEvents.map((one) => `${one.key}|${one.title}|${one.color}|${one.start}|${one.end}|${one.allDay}`).join('\n') : ''
-  if (mode === 'month') for (const one of shownEvents) if (!manyDays(one)) (eventsByDay.get(dayKey(one.start)) ?? (eventsByDay.set(dayKey(one.start), []), eventsByDay.get(dayKey(one.start))!)).push(one)
+  const eventsSaid = monthUp ? shownEvents.map((one) => `${one.key}|${one.title}|${one.color}|${one.start}|${one.end}|${one.allDay}`).join('\n') : ''
+  if (monthUp) for (const one of shownEvents) if (!manyDays(one)) (eventsByDay.get(dayKey(one.start)) ?? (eventsByDay.set(dayKey(one.start), []), eventsByDay.get(dayKey(one.start))!)).push(one)
   // The study plan for the days shown: cards due and books' finishing days ("Study" in My calendars).
   const study = useStudy(dayKey(span[0]), dayKey(span[1].subtract(1, 'minute')), layers.study)
   // Drawn once every read it is made of has answered: drawn before, the calendars' list comes in above the
@@ -491,6 +550,11 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     onWhole: () => (chime('open'), setLooseCount(looseCount + MORE_STEP)), onFewer: () => (chime('fold'), setLooseCount(LOOSE_FEW))
   })
   const blockProps = { carry, start, onPick: pick, taskNow, draft, setDraft, events: shownEvents, onEvent: pickEvent, onPeek, onOpen, landed }
+  /** The events that touch the days a week or a day shows, picked once a draw from the whole span's. */
+  const eventsOn = (shown: Dayjs[]): Shown[] => {
+    const [from, to] = [shown[0].startOf('day').valueOf(), shown[shown.length - 1].add(1, 'day').startOf('day').valueOf()]
+    return shownEvents.filter((one) => new Date(one.start).getTime() < to && new Date(one.end).getTime() > from)
+  }
   const calendarName = (one: Shown): string => one.readOnly ? one.calendarId.replace(/^mac:/, '') : layers.calendars.find((cal) => cal.id === one.calendarId)?.name ?? 'Calendar'
   // The card follows its event as it changes; the time it was opened for stays its anchor.
   const peekNow = peek && { ...peek, one: shownEvents.find((one) => one.key === peek.one.key) ?? peek.one }
@@ -625,23 +689,33 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             </div>
           </aside>
         )}
-        <div ref={pane} className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-          <div ref={level} data-cal-level className="flex min-h-0 flex-1 flex-col">
-          {mode === 'month' ? (
-            <div className="flex min-h-0 flex-1 flex-col p-3">
-              <MonthPlan bare month={anchor} tasks={shownTasks} onSide={setPanel} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars]}
-                dayExtra={(day) => [
-                  ...studyChips(study.get(day), MONTH_CHIP),
-                  ...(eventsByDay.get(day) ?? []).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} />)
-                ]}
-                bars={shownEvents.filter(manyDays).map((one) => ({ key: one.key, from: dayKey(one.start), to: dayKey(dayjs(one.end).subtract(1, 'minute')), render: (day: string) => <EventChip one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} /> }))}
-                onShown={(month) => setAnchor(month.isSame(dayjs(), 'month') ? dayjs().startOf('day') : month)}
-                onDay={(day) => (setAnchor(dayjs(day)), setMode('day'))} onWeek={(monday) => (setAnchor(dayjs(monday)), setMode('week'))} />
-            </div>
-          ) : (
-            <Grid days={days} tasks={shownTasks} marks={marked ? captures : undefined} study={study} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} />
-          )}
-          </div>
+        <div ref={pane} className="relative min-h-0 min-w-0 flex-1">
+          {/* One level in front; beside it, unseen, the one a pinch is heading for or the one just left. Each keeps its
+              own place in the pane, so changing which is in front draws nothing again. */}
+          {[...levels].sort((a, b) => DEPTH[a.mode] - DEPTH[b.mode]).map((one) => {
+            const top = one === showing
+            return (
+              <div key={one.mode} ref={top ? level : undefined} data-cal-level={top ? '' : undefined} data-cal-depth={one.mode} data-cal-at={dayKey(one.anchor)} data-cal-role={top ? 'here' : (one as Shadow).role}
+                inert={!top} className={`absolute inset-0 flex min-h-0 flex-col ${top ? '' : 'opacity-0 [will-change:opacity] [&_[data-cal-body]]:[will-change:transform] [&_[data-cal-names]]:[will-change:opacity]'}`}>
+                <Kept still={!top} of={`${one.mode} ${dayKey(one.anchor)}`}>
+                {one.mode === 'month' ? (
+                  <div className="flex min-h-0 flex-1 flex-col p-3">
+                    <MonthPlan bare month={one.anchor} tasks={shownTasks} onSide={setPanel} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars]}
+                      dayExtra={(day) => [
+                        ...studyChips(study.get(day), MONTH_CHIP),
+                        ...(eventsByDay.get(day) ?? []).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} />)
+                      ]}
+                      bars={shownEvents.filter(manyDays).map((one) => ({ key: one.key, from: dayKey(one.start), to: dayKey(dayjs(one.end).subtract(1, 'minute')), render: (day: string) => <EventChip one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} /> }))}
+                      onShown={(month) => void (top && setAnchor(month.isSame(dayjs(), 'month') ? dayjs().startOf('day') : month))}
+                      onDay={(day) => (setAnchor(dayjs(day)), setMode('day'))} onWeek={(monday) => (setAnchor(dayjs(monday)), setMode('week'))} />
+                  </div>
+                ) : (
+                  <Grid days={daysOf(one)} wide={paneWide} startTop={top ? undefined : (one as Shadow).top} tasks={shownTasks} marks={marked ? captures : undefined} study={study} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} events={eventsOn(daysOf(one))} />
+                )}
+                </Kept>
+              </div>
+            )
+          })}
         </div>
         {/* The right sidebar, as Notion Calendar's: Upcoming, or in its place the event or task being made or opened; closed,
             Upcoming is back. It floats over the days on the shared frost, so they keep their whole width under it. */}
@@ -932,11 +1006,19 @@ function lanes(list: { id: string; start: number; end: number }[]): Map<string, 
   return out
 }
 
+/**
+ * A level of the Calendar that is not in front (unseen ahead of a pinch, or on its way out) is drawn once and left as
+ * it is: drawn again with every change to the page, it doubled the work in the very frames the level changes in.
+ */
+const Kept = memo(function Kept({ children }: { still: boolean; /** Which level it is: another one is drawn afresh. */ of: string; children: React.ReactNode }): React.JSX.Element {
+  return <>{children}</>
+}, (was, now) => now.still && was.of === now.of)
+
 /** Rows a day's all-day lane shows, whole, before the last becomes "+N more" (its height below is these rows exactly). */
 const ALLDAY_ROWS = 5
 
 /** The day or the week by the hour: an untimed line on top, then the hours with the tasks at theirs. */
-function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props }: { days: Dayjs[]; tasks: Task[]; /** Captures, drawn as marks at the minute each was caught. */ marks?: CaptureMeta[]; /** The study plan, a day's chips in the all-day lane. */ study: Map<string, StudyDay>; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
+function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, calendars, ...props }: { days: Dayjs[]; /** The pane's width, for the blocks a day fits side by side to be right from the first draw. */ wide: number; /** The hours it opens on, when it comes in beside another level showing them. */ startTop?: number; tasks: Task[]; /** Captures, drawn as marks at the minute each was caught. */ marks?: CaptureMeta[]; /** The study plan, a day's chips in the all-day lane. */ study: Map<string, StudyDay>; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
   const { carry, start, draft, setDraft, events, onEvent, onPeek, onOpen, taskNow } = props
   // The all-day lane folds to one line with its chevron, and stays so.
   const [folded, setFolded] = useState(() => stored('vigil.calendar.allday', 'open', ['open', 'folded'] as const) === 'folded')
@@ -958,11 +1040,12 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
     return () => watch.disconnect()
   })
   // How many blocks fit side by side in a day and still say their names: one for every 64px of its column, one to six.
-  const [most, setMost] = useState(3)
+  const fitIn = (width: number): number => Math.max(1, Math.min(6, Math.floor((width - 64) / days.length / 64)))
+  const [most, setMost] = useState(() => (Number.isFinite(wide) ? fitIn(wide) : 3))
   useLayoutEffect(() => {
     const el = scroller.current
     if (!el) return
-    const measure = (): void => setMost(Math.max(1, Math.min(6, Math.floor((el.clientWidth - 64) / days.length / 64))))
+    const measure = (): void => setMost(fitIn(el.clientWidth))
     measure()
     const watch = new ResizeObserver(measure)
     watch.observe(el)
@@ -971,8 +1054,8 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
   // Opened near the working day: an hour before now, or at eight.
   useLayoutEffect(() => {
     const el = scroller.current
-    if (el) el.scrollTop = Math.max(0, (dayjs().isSame(days[0], 'week') ? new Date().getHours() - 1 : 8) * HOUR - 8)
-  }, [])
+    if (el) el.scrollTop = startTop ?? Math.max(0, (dayjs().isSame(days[0], 'week') ? new Date().getHours() - 1 : 8) * HOUR - 8)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const keys = days.map(dayKey)
   // Stepping a week or a day on by a click, the days come in from the side they lie on,
   // so the step reads as going forward or back. Only the fade under Reduce motion; by
@@ -1007,8 +1090,8 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
   const nowMinute = now.getHours() * 60 + now.getMinutes()
   return (
     <div ref={grid} data-cal-grid className="flex min-h-0 flex-1 flex-col">
-      {/* The day names and the untimed line stay put while the hours scroll. */}
-      <div className="grid shrink-0 border-b" style={{ gridTemplateColumns: cols }}>
+      {/* The day names and the untimed line stay put while the hours scroll, and while a pinch grows them (cal-pinch.ts). */}
+      <div data-cal-names className="grid shrink-0 border-b" style={{ gridTemplateColumns: cols }}>
         {zone ? <ZoneHeads zone={zone} day={keys[0]} /> : <span data-cal-zone-here className="self-center pr-2 text-right text-meta font-medium text-foreground/70">{zoneShort(Intl.DateTimeFormat().resolvedOptions().timeZone, dayjs(keys[0]).hour(12).toDate())}</span>}
         {days.map((day) => {
           const key = dayKey(day)
@@ -1087,7 +1170,9 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
           </div>
         </div>
       </div>
-      <div ref={scroller} data-cal-scroll className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+      {/* The hours grow and shrink with a pinch inside this frame, never over the names above. */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-clip">
+      <div ref={scroller} data-cal-scroll data-cal-body className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
         onPointerMove={(event) => onPoint(spotAt(event.clientX, event.clientY))} onPointerLeave={() => onPoint(null)}>
         <div className="relative grid" style={{ gridTemplateColumns: cols, height: HOUR * 24 }}>
           <div className="relative">
@@ -1171,6 +1256,7 @@ function Grid({ days, tasks, marks, study, onHead, onPoint, calendars, ...props 
             )
           })}
         </div>
+      </div>
       </div>
     </div>
   )

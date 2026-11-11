@@ -142,8 +142,8 @@ try {
   const pinch = (x, y, dy) => h.evaluate(([x, y, dy]) => new Promise((res) => { let i = 0; const send = () => (document.elementFromPoint(x, y) ?? document.body).dispatchEvent(new WheelEvent('wheel', { deltaY: dy, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); const tick = () => { send(); send(); if (++i < 7) setTimeout(tick, 12); else res() }; tick() }), [x, y, dy])
   const week = await h.evaluate(() => { const el = [...document.querySelectorAll('[data-month-run] [data-month-week]')].find((one) => one.getBoundingClientRect().top > 150); const r = el.getBoundingClientRect(); return { monday: el.dataset.monthWeek, x: r.left + r.width / 2, y: r.top + r.height / 2 } })
   const grows = []
-  // The change of level is a view transition of the days' pane (cal-pinch.ts): its two pictures are what moves.
-  await h.evaluate(() => { window.__moving = () => document.querySelector('[data-cal-level]').getAnimations().length + document.getAnimations().filter((one) => one.effect?.pseudoElement?.includes('mf-cal-level')).length; window.__grow = []; const tick = () => { window.__grow.push(window.__moving()); if (window.__grow.length < 60) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+  // The change of level crosses the two levels themselves (cal-pinch.ts): their animations, by name, are what moves.
+  await h.evaluate(() => { window.__moving = () => document.getAnimations().filter((one) => one.id === 'mf-cal-level').length; window.__grow = []; const tick = () => { window.__grow.push(window.__moving()); if (window.__grow.length < 60) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
   await pinch(week.x, week.y, -6); await wait(700)
   grows.push(...(await h.evaluate(() => window.__grow)))
   check('pinching out over a week opens that week', (await mode()) === 'week' && (await h.evaluate((m) => !!document.querySelector(`[data-cal-col="${m}"]`), week.monday)), `${await mode()} ${week.monday}`)
