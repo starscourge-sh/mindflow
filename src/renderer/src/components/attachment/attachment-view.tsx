@@ -395,14 +395,14 @@ function useLength(props: NodeViewProps): [number | null, (seconds: number) => v
 
 /** A video: the player is the block, sized and placed like a picture. */
 function VideoBlock(props: NodeViewProps): React.JSX.Element {
-  const { src, name, width, align } = props.node.attrs
+  const { src, width, align } = props.node.attrs
   const selected = isNodeSelected(props)
   const shown = useToolbarShown(props)
   const { ref, frame, controls, toggle, playing, state } = useMedia(true, ...useLength(props))
   return (
     <NodeViewWrapper className={`tiptap-attachment is-video${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-align={align ?? undefined} style={{ width: width ?? undefined }}>
       <span ref={frame} className="tiptap-video-frame">
-        <video ref={ref as React.RefObject<HTMLVideoElement>} className="tiptap-attachment-video" src={src} preload="metadata" title={name} onClick={toggle} playsInline />
+        <video ref={ref as React.RefObject<HTMLVideoElement>} className="tiptap-attachment-video" src={src} preload="metadata" onClick={toggle} playsInline />
         {controls}
       </span>
       {shown && <MediaToolbar props={props} />}
