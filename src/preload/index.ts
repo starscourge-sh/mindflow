@@ -376,6 +376,8 @@ const api = {
     const hide = (): void => listen(null)
     heard.on('menu:show', show)
     heard.on('menu:hide', hide)
+    // Said to main, which sends a menu only to a page that hears it (popup-menu.ts).
+    ipcRenderer.send('menu:listening')
     return () => void (heard.off('menu:show', show), heard.off('menu:hide', hide))
   },
   /** The menu window's answer: the place of the line chosen, or null when it was put away. */

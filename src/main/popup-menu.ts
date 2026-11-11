@@ -80,8 +80,20 @@ function made(load: (win: BrowserWindow, query: string) => void): BrowserWindow 
     win = null
     finish(null, false)
   })
-  const page = win
-  ready = new Promise((resolve) => page.webContents.once('did-finish-load', () => resolve()))
+  // Ready once its page says it is listening for a menu, not once it has loaded: the page starts to listen after
+  // its first drawing, a few milliseconds after the load ends, and a menu sent in between was dropped. The window
+  // then came up over the whole screen with nothing in it and took every click: the first right-click on a sticky
+  // after launch, about one time in three on a busy Mac (qa/spell-right-click.mjs, MENU_LATE).
+  const page = win.webContents
+  ready = new Promise((resolve) => {
+    const listening = (event: Electron.IpcMainEvent): void => {
+      if (event.sender !== page) return
+      ipcMain.off('menu:listening', listening)
+      resolve()
+    }
+    ipcMain.on('menu:listening', listening)
+    page.once('destroyed', () => ipcMain.off('menu:listening', listening))
+  })
   load(win, '?view=menu')
   qa.qaPopupMenu = { ...qa.qaPopupMenu, winId: win.id }
   return win
