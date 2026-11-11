@@ -4976,14 +4976,13 @@ app.whenReady().then(() => {
   // the top it hangs from, and goes back once the pill has closed again.
   // The pill naming a session left running in another book: clicked, back to that book, by the main window's own switch.
   ipcMain.handle('haligtree:books:go', (_event, id: unknown) => inHome('haligtree:book-switch', String(id)))
-  // Whether the pointer is over the pill's window now: the open island folds
-  // itself once the pointer has gone, even when the page never heard it leave
-  // (a menu or a tip open as it went, the Mac asleep in between).
+  // Whether the pointer is over the pill's window now, asked once as its right-click menu is put away: the page
+  // heard nothing while the Mac's menu was over it (focus-pill.tsx hears the rest from its own pointer events).
   ipcMain.handle('focus:pointer', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== focusPill || !win.isVisible()) return true
-    // Test runs park the pill off screen and point with a pretend pointer: there, on it unless a probe says not.
-    if (process.env.HALIGTREE_QA_AWAY) return (globalThis as { pillPointer?: boolean }).pillPointer ?? true
+    // Test runs park the pill off screen, where the pointer never is: the probe's own moves say where it is.
+    if (process.env.HALIGTREE_QA_AWAY) return false
     const at = screen.getCursorScreenPoint()
     const { x, y, width, height } = win.getBounds()
     return at.x >= x && at.x < x + width && at.y >= y && at.y < y + height

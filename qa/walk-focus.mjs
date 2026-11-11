@@ -31,7 +31,9 @@ const windowOf = async (part) => {
   }
   throw new Error(`no window ${part}`)
 }
-const pointer = (inside) => electron.evaluate((_, on) => void (globalThis.pillPointer = on), inside)
+// The pointer gone from the pill's window: moved out past its corner, so its page hears it leave (focus-pill.tsx);
+// back on it, the probe moves onto it next.
+const pointer = async (inside) => void (!inside && (await (await windowOf('view=focus')).mouse.move(-40, -40)))
 const island = (pill) => pill.$eval('[data-island]', (one) => one.getAttribute('data-island')).catch(() => null)
 const shoot = async (page, name, selector) => {
   try {
@@ -79,7 +81,6 @@ try {
   for (const shape of ['circle', 'runner', 'progress']) {
     await v('settings:set', { focusBubble: shape })
     await pointer(false)
-    await pill.mouse.move(1, 1)
     await pill.waitForTimeout(2500)
     check(`${shape}: folded when the pointer is away`, (await island(pill)) === 'rest', await island(pill))
     await shoot(pill, `03-bubble-${shape}-rest`, '[data-island-frame]')
@@ -123,7 +124,6 @@ try {
   const kept = (await v('sessions', task.id)).find((one) => one.id === now.id)
   check('Count it keeps the session', !!kept?.endedAt && !kept.abandonedAt)
   await pointer(false)
-  await pill.mouse.move(1, 1)
   await pill.waitForTimeout(9000)
   await pointer(true)
 
@@ -139,7 +139,6 @@ try {
   check('Take a break starts a break', brk?.kind === 'break', brk?.kind)
   await shoot(pill, '08-break-open', '[data-island-frame]')
   await pointer(false)
-  await pill.mouse.move(1, 1)
   await pill.waitForTimeout(2500)
   await shoot(pill, '08-break-rest', '[data-island-frame]')
   await pointer(true)

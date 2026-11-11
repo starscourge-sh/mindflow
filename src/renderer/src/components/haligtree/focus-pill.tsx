@@ -570,20 +570,43 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
     intent.current = setTimeout(() => setOpened(false), 220)
   }
   useEffect(() => () => clearTimeout(intent.current), [])
-  // Open after the pointer came, it folds once the pointer has been gone a
-  // moment, whatever else is open (a tip, a menu, a note that the screen
-  // cannot be seen, the camera): asked of the Mac about once a second, since
-  // a page does not always hear the pointer leave. Words half typed wait in
-  // the field; only a thought being written, in a window you are in, keeps
-  // it open. Time's up opening by itself to ask is left to ask.
+  // Open after the pointer came, it folds once the pointer has been gone from
+  // its window a moment, whatever else is open (a tip, a menu, a note that the
+  // screen cannot be seen, the camera): heard from the window's own pointer
+  // events as they happen. A tip, the camera and the rest are drawn in this
+  // window, so the pointer on them is on it; the right-click menu is the Mac's,
+  // so while it is open the pointer counts as on the pill, and once it is put
+  // away the Mac is asked once where the pointer went. Words half typed wait in
+  // the field; only a thought being written, in a window you are in, keeps it
+  // open. Time's up opening by itself to ask is left to ask.
   const pointed = useRef(false)
   useEffect(() => void (hover && (pointed.current = true)), [hover])
+  const [away, setAway] = useState(false)
+  const [focused, setFocused] = useState(() => document.hasFocus())
+  const menuOpen = useRef(false)
   useEffect(() => {
-    if (!open || stage !== 'rest') return
-    let away = 0
-    const every = setInterval(() => void window.api.focusPointer().then((inside) => {
-      if (inside) return void ((away = 0), (pointed.current = true))
-      if (!pointed.current || (typing && document.hasFocus()) || ++away < 2) return
+    const over = (): void => void ((pointed.current = true), setAway(false))
+    const out = (event: PointerEvent): void => void (event.relatedTarget === null && !menuOpen.current && setAway(true))
+    const into = (): void => setFocused(true)
+    const from = (): void => setFocused(false)
+    document.addEventListener('pointerover', over, true)
+    document.addEventListener('pointerout', out, true)
+    window.addEventListener('focus', into)
+    window.addEventListener('blur', from)
+    return () => (document.removeEventListener('pointerover', over, true), document.removeEventListener('pointerout', out, true), window.removeEventListener('focus', into), window.removeEventListener('blur', from))
+  }, [])
+  /** The Mac's menu open over the pill: the pointer on it is on the pill; put away, where it went is asked once. */
+  const menuShown = <T,>(shown: Promise<T>): Promise<T> => {
+    menuOpen.current = true
+    setAway(false)
+    return shown.finally(() => {
+      menuOpen.current = false
+      void window.api.focusPointer().then((inside) => setAway(!inside))
+    })
+  }
+  useEffect(() => {
+    if (!open || stage !== 'rest' || !away || !pointed.current || (typing && focused)) return
+    const later = setTimeout(() => {
       pointed.current = false
       field.current?.blur()
       setHover(false)
@@ -594,9 +617,9 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
       setSelfie(false)
       setStopping(false)
       setNaming(false)
-    }), 1000)
-    return () => clearInterval(every)
-  }, [open, stage, typing])
+    }, 1000)
+    return () => clearTimeout(later)
+  }, [open, stage, away, typing, focused])
   const collapse = (): void => {
     field.current?.blur()
     setDenied(false)
@@ -1330,7 +1353,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         onContextMenu={(event) => {
           event.preventDefault()
           const on = !!settings?.sessionTick
-          void window.api.focusMenu(on, !timer, focus.plannedMs !== null, focus.kind === 'break', !timer && !over).then((picked) =>
+          void menuShown(window.api.focusMenu(on, !timer, focus.plannedMs !== null, focus.kind === 'break', !timer && !over)).then((picked) =>
             picked === 'notch' || picked === 'free' ? void haligtree.setSettings({ pillSits: picked }).then(() => chime('tap')) : picked === 'abandon' ? abandon() : picked === 'early' ? end() : picked === 'extend' ? extend() : picked === 'end' ? void haligtree.cancelSession(focus.id).then(() => glowEnd('cancel'))
               : picked === 'tick' && haligtree.setSettings({ sessionTick: !on }).then(() => chime(on ? 'off' : 'on')))
         }}

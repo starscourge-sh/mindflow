@@ -36,7 +36,9 @@ const windowOf = async (part) => {
 }
 const heard = (win) => win.evaluate(() => [...(window.haligtreeHeard ?? [])])
 const island = (pill) => pill.$eval('[data-island]', (one) => one.getAttribute('data-island')).catch(() => null)
-const pointer = (inside) => electron.evaluate((_, on) => void (globalThis.pillPointer = on), inside)
+// The pointer gone from the pill's window: moved out past its corner, so its page hears it leave (focus-pill.tsx);
+// back on it, the probe moves onto it next.
+const pointer = async (inside) => void (!inside && (await (await windowOf('view=focus')).mouse.move(-40, -40)))
 const theme = async (name) => {
   await h.evaluate((t) => localStorage.setItem('theme', t), name)
   await h.evaluate(() => window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })))
