@@ -82,8 +82,12 @@ export function FileFace({ one, face, tiny = false }: { one: Media; face: { imag
   }
   return (
     <span data-file-face={one.kind} className="relative block size-full">
-      {/* A document's page on paper, as a book's cover is (pdf.css): the whole face one sheet, never a page between two bars. */}
-      <img src={face.image} alt="" draggable={false} decoding="async" className={`size-full animate-in fade-in-0 duration-200 motion-reduce:animate-none ${one.kind === 'video' ? 'object-cover' : 'bg-[var(--pdf-paper,#fff)] object-contain'}`} />
+      {/* A document's page on paper, as a book's cover is (pdf.css): the whole face one sheet, never a page between two
+          bars. A page (taller than wide) shows its top across the face, where its title is, large enough to read; a
+          square face (the icon Quick Look draws for a ZIP) shows whole. */}
+      <img src={face.image} alt="" draggable={false} decoding="async"
+        onLoad={(event) => { const img = event.currentTarget; if (one.kind === 'document' && img.naturalHeight > img.naturalWidth * 1.15) img.dataset.page = '' }}
+        className={`size-full animate-in fade-in-0 duration-200 motion-reduce:animate-none ${one.kind === 'video' ? 'object-cover' : 'bg-[var(--pdf-paper,#fff)] object-contain data-[page]:object-cover data-[page]:object-top'}`} />
       {one.kind === 'video' && !tiny && (
         <span aria-hidden className="absolute inset-0 m-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-black/55 text-white"><Play className="size-4 translate-x-px fill-current" /></span>
       )}
