@@ -45,6 +45,67 @@ const pdfBytes = (word) => {
   out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`
   return [...Buffer.from(out)]
 }
+/** ABLATE='a;;b': frames again with the style rules whose selectors match each pattern taken out (for finding the cost, not a check). */
+const ablate = async () => {
+  if (process.env.ABLATE) for (const pattern of process.env.ABLATE.split(';;')) {
+    const n = await h.evaluate((pattern) => {
+      const re = new RegExp(pattern); window.__gone = []
+      const walk = (list, owner) => { for (let i = list.length - 1; i >= 0; i--) { const r = list[i]; if (r.selectorText && re.test(r.selectorText)) { window.__gone.push([owner, r.cssText, i]); owner.deleteRule(i) } else if (r.cssRules) walk(r.cssRules, r) } }
+      for (const sheet of document.styleSheets) { try { walk(sheet.cssRules, sheet) } catch {} }
+      return window.__gone.length
+    }, pattern)
+    const t = await frameTimes(3000, 90)
+    console.log(`  ABLATE ${pattern} (${n} rules): ${JSON.stringify(t)}`)
+    await h.evaluate(() => { for (const [owner, text, i] of window.__gone.reverse()) { try { owner.insertRule(text, i) } catch {} } })
+  }
+}
+/** PROFILE=1: where the time goes while `run` goes, by function (for finding what to cut, not a check). */
+const profiled = async (run) => {
+  if (!process.env.PROFILE) return run()
+  const cdp = await h.context().newCDPSession(h)
+  await cdp.send('Profiler.enable'); await cdp.send('Profiler.start')
+  const out = await run()
+  const { profile } = await cdp.send('Profiler.stop')
+  const self = new Map()
+  const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+  profile.samples.forEach((id, i) => { const n = byId.get(id); const key = `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber}`; self.set(key, (self.get(key) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000) })
+  console.log([...self].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, ms]) => `    ${ms.toFixed(0)}ms ${k}`).join('\n'))
+  await cdp.detach()
+  return out
+}
+/** TRACE=1: the window's timeline while `run` goes, printed as time per step kind, the biggest layouts and style recalcs,
+ *  and what invalidated style (for finding what to cut, not a check). */
+const traced = async (run) => {
+  if (!process.env.TRACE) return run()
+  const cdp = await h.context().newCDPSession(h)
+  const events = []
+  cdp.on('Tracing.dataCollected', ({ value }) => events.push(...value))
+  await cdp.send('Tracing.start', { categories: 'devtools.timeline,disabled-by-default-devtools.timeline,disabled-by-default-devtools.timeline.invalidationTracking,blink', transferMode: 'ReportEvents' })
+  const out = await run()
+  const ended = new Promise((d) => cdp.once('Tracing.tracingComplete', d))
+  await cdp.send('Tracing.end'); await ended
+  const total = new Map()
+  for (const e of events) if (e.ph === 'X' && e.dur) total.set(e.name, (total.get(e.name) ?? 0) + e.dur)
+  console.log('  -- ms per step kind:', [...total].sort((a, b) => b[1] - a[1]).slice(0, 45).map(([k, v]) => `${k} ${Math.round(v / 1000)}`).join(', '))
+  const big = (name) => events.filter((e) => e.name === name && e.ph === 'X').sort((a, b) => b.dur - a.dur)
+  const lay = big('Layout')
+  console.log(`  -- Layout: ${lay.length} runs`)
+  for (const e of lay.slice(0, 8)) console.log(`    ${(e.dur / 1000).toFixed(1)}ms dirty ${e.args?.beginData?.dirtyObjects}/${e.args?.beginData?.totalObjects} partial ${e.args?.beginData?.partialLayout} stack ${JSON.stringify(e.args?.beginData?.stackTrace?.[0] ?? '')}`)
+  const sty = big('UpdateLayoutTree')
+  console.log(`  -- UpdateLayoutTree: ${sty.length} runs`)
+  for (const e of sty.slice(0, 6)) console.log(`    ${(e.dur / 1000).toFixed(1)}ms elements ${e.args?.elementCount} ${JSON.stringify(e.args?.beginData?.stackTrace?.[0] ?? '')}`)
+  const why = new Map()
+  for (const e of events) {
+    const d = e.args?.data ?? {}
+    if (/Invalidat|LayoutInvalidationTracking|ScheduleStyleInvalidationTracking|StyleRecalcInvalidationTracking/.test(e.name)) {
+      const k = `${e.name} ${d.reason ?? ''} ${d.nodeName ?? ''} ${(d.selectors ?? []).map((x) => x.selector).join('|') || (d.invalidationList ?? []).map((x) => x.classes?.join('.') ?? x.id ?? '').join('|')}`
+      why.set(k, (why.get(k) ?? 0) + 1)
+    }
+  }
+  ;[...why].sort((a, b) => b[1] - a[1]).slice(0, 30).forEach(([k, n]) => console.log('    why', n, k))
+  await cdp.detach()
+  return out
+}
 /** rAF gaps for `ms`, the page's scroller moved `by` px a frame (0: standing still). */
 const frameTimes = (ms, by) => h.evaluate(async ([ms, by]) => {
   let el = document.querySelector('[data-files-table], [data-media-grid]')
@@ -277,23 +338,14 @@ try {
   // fling does. Beside it, this window standing still (what a parked window's frames are anyway) and Images' own grid
   // at the same 2,000, the list it stands beside.
   const still = await frameTimes(1500, 0)
-  // PROFILE=1: where the time goes while it scrolls, by function (for finding what to cut, not a check).
-  const cdp = process.env.PROFILE ? await h.context().newCDPSession(h) : null
-  if (cdp) (await cdp.send('Profiler.enable'), await cdp.send('Profiler.start'))
-  const rolling = await frameTimes(4000, 90)
-  if (cdp) {
-    const { profile } = await cdp.send('Profiler.stop')
-    const self = new Map()
-    const gap = profile.timeDeltas
-    const byId = new Map(profile.nodes.map((n) => [n.id, n]))
-    profile.samples.forEach((id, i) => { const n = byId.get(id); const key = `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber}`; self.set(key, (self.get(key) ?? 0) + (gap[i] ?? 0) / 1000) })
-    console.log([...self].sort((a, b) => b[1] - a[1]).slice(0, 25).map(([k, ms]) => `    ${ms.toFixed(0)}ms ${k}`).join('\n'))
-  }
+  const rolling = await profiled(() => traced(() => frameTimes(4000, 90)))
+  await ablate()
   console.log(`  frames standing still: ${JSON.stringify(still)}`)
   console.log(`  frames scrolling the 2,000-row table: ${JSON.stringify(rolling)}`)
   await tab('Images'); await viewAs('Grid'); await wait(800)
-  const grid = await frameTimes(4000, 90)
+  const grid = await profiled(() => traced(() => frameTimes(4000, 90)))
   console.log(`  frames scrolling Images' grid of 1,800 for comparison: ${JSON.stringify(grid)}`)
+  await ablate()
   // The machine is shared with other runs, so the bar is Images' own grid scrolled the same way in the same minute, plus a hard ceiling.
   check(`while it scrolls, only the rows in sight are in the page (at most ${rolling.rowsMost} row elements of 2,000)`, rolling.rowsMost > 5 && rolling.rowsMost <= 45, String(rolling.rowsMost))
   check(`scrolling 2,000 rows is as smooth as Images' grid beside it, and no frame over 100ms (table p50 ${rolling.p50} p95 ${rolling.p95} max ${rolling.max}; grid p50 ${grid.p50} p95 ${grid.p95}; still p50 ${still.p50})`, rolling.p50 <= grid.p50 + 2 && rolling.p95 <= grid.p95 + 5 && rolling.max < 100, JSON.stringify({ still, rolling, grid }))
