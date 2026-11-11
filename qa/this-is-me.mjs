@@ -19,7 +19,7 @@ const openPerson = async (who) => { await h.evaluate((d) => window.dispatchEvent
 const headFace = () => h.evaluate(() => { const one = document.querySelector('[data-person-head] .mf-avatar'); return { look: one?.dataset.avatar ?? null, src: one?.querySelector('img')?.getAttribute('src') ?? null } })
 const menuLine = () => h.evaluate(() => document.querySelector('[data-this-is-me]')?.textContent?.trim() ?? null)
 const openMenu = async () => { await h.locator('[data-person-photo]').click({ button: 'right' }); await wait(400) }
-const toastText = () => h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast]')].map((one) => one.textContent).join(' | '))
+const toastText = () => h.evaluate(() => [...document.querySelectorAll('[role=status]')].map((one) => one.textContent).join(' | '))
 
 try {
   for (const who of ['Reed', 'Ann Example']) await make({ kind: 'quote', body: doc(`A line from ${who}.`), attribution: who })
@@ -78,7 +78,7 @@ try {
   await wait(700)
   await h.locator('[data-your-profile]').scrollIntoViewIfNeeded()
   await wait(300)
-  const shownAs = () => h.evaluate(() => document.querySelector('[data-shown-as]')?.textContent?.trim() ?? null)
+  const shownAs = () => h.evaluate(() => document.querySelector('[data-choose-me]')?.parentElement?.textContent?.trim() ?? null)
   check('12. Settings says “Shown as Reed”', /^Shown as\s*Reed/.test(await shownAs() ?? ''), await shownAs())
   if (shots) await both(`${shots}/me-settings`, h.locator('[data-your-profile]').locator('xpath=ancestor::*[@data-setting][1]'))
   // Changed from Settings, by name: the field completes from People.
