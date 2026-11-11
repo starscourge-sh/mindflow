@@ -6,6 +6,7 @@
     "src/renderer/src/**/*.tsx",
     "src/preload/*.d.ts",
     "src/preload/index.ts",
+    "src/preload/hear.ts",
     "src/main/**/*.ts"
   ],
   "compilerOptions": {

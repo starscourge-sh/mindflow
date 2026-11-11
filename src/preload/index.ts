@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
+import { channels } from './hear'
 import type { Frost, LinkMetadata, LookPicture } from './index.d'
 import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../main/captures'
 import type { Moment } from '../main/celebrate'
@@ -8,11 +9,11 @@ import type { PictureLines } from '../main/picture-words'
 // Every live view listens for changes; one IPC listener tells them all,
 // rather than one each past Node's limit of ten.
 // Each says which kinds of note it shows; none means everything.
-// Put away and shown again are heard by many parts of one page at once (each
-// looping picture's useAlive, the beam, the glide, the box's notices: a dozen
-// or more on Settings' Show page), each taking itself off when it goes. That
-// is more than Node's ten before it warns of a leak, though there is none.
-ipcRenderer.setMaxListeners(50)
+// Every channel a page listens to goes through one listener on the wire
+// (hear.ts), so many parts of a page hearing "shown" and "put away" at once
+// (each looping picture, the beam, the glide, the box's notices) never pile
+// up on IpcRenderer itself.
+const heard = channels(ipcRenderer)
 
 const changes = new Map<(what: Change[] | null) => void, Change['kind'][] | undefined>()
 // A burst of changes, an import or several saves in a row, is told once,
@@ -22,7 +23,7 @@ const CAPITALS = /^(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|j
 // with every note it touched (null: anything may have changed).
 let telling: ReturnType<typeof setTimeout> | undefined
 let told: Change[] | null | undefined
-ipcRenderer.on('captures:changed', (_event, what: Change[] | null) => {
+heard.on('captures:changed', (_event, what: Change[] | null) => {
   told = told === null || !what ? null : [...(told ?? []), ...what]
   clearTimeout(telling)
   telling = setTimeout(() => {
@@ -39,36 +40,36 @@ let listed: { rows: CaptureMeta[]; version: number } | null = null
 // A note opened in a window of its own, told by the main process to every
 // other window, which closes it there: two editors on one note would each
 // save over the other's words.
-ipcRenderer.on('collect:item', (_event, copied: unknown) => window.dispatchEvent(new CustomEvent('haligtree:collect-item', { detail: copied })))
-ipcRenderer.on('collect:state', (_event, on: boolean) => window.dispatchEvent(new CustomEvent('haligtree:collect-state', { detail: on })))
-ipcRenderer.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new CustomEvent('haligtree:opened-apart', { detail: id })))
+heard.on('collect:item', (_event, copied: unknown) => window.dispatchEvent(new CustomEvent('haligtree:collect-item', { detail: copied })))
+heard.on('collect:state', (_event, on: boolean) => window.dispatchEvent(new CustomEvent('haligtree:collect-state', { detail: on })))
+heard.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new CustomEvent('haligtree:opened-apart', { detail: id })))
 // A note moving between the main window and its own (lib/apart.ts): its window
 // closed, a caret carried in, or asked to go back home.
-ipcRenderer.on('notes:apart', (_event, what: string, link: string) => window.dispatchEvent(new CustomEvent('haligtree:apart', { detail: { what, link } })))
+heard.on('notes:apart', (_event, what: string, link: string) => window.dispatchEvent(new CustomEvent('haligtree:apart', { detail: { what, link } })))
 // The menu bar's Reset the sandbox: asked in the pill, where Start over is held.
-ipcRenderer.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('haligtree:sandbox-reset')))
+heard.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('haligtree:sandbox-reset')))
 // The View menu's app size items, pressed or clicked: offered first to what is in
 // front (a PDF zooms its pages), else the page steps the size (lib/editor-setup.ts).
-ipcRenderer.on('menu:app-size', (_event, way: 1 | -1 | 0) => {
+heard.on('menu:app-size', (_event, way: 1 | -1 | 0) => {
   if (window.dispatchEvent(new CustomEvent('haligtree:zoom-key', { detail: way, cancelable: true }))) window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: way }))
 })
 // Edit > Select All from the menu bar: a list with the focus takes it
 // (lib/select-all.ts cancels the event); otherwise the words, as before.
-ipcRenderer.on('menu:select-all', () => {
+heard.on('menu:select-all', () => {
   if (window.dispatchEvent(new Event('haligtree:select-all', { cancelable: true }))) document.execCommand('selectAll')
 })
 // File > Close (⌘W): the page closes what is open in front if it can (it cancels the event); otherwise the window.
-ipcRenderer.on('menu:close', () => {
+heard.on('menu:close', () => {
   if (window.dispatchEvent(new Event('haligtree:close-front', { cancelable: true }))) window.close()
 })
 // A note renamed and the links to it written again: the window it was renamed in says so, with an Undo.
-ipcRenderer.on('links:renamed', (_event, info: unknown) => window.dispatchEvent(new CustomEvent('haligtree:links-renamed', { detail: info })))
+heard.on('links:renamed', (_event, info: unknown) => window.dispatchEvent(new CustomEvent('haligtree:links-renamed', { detail: info })))
 // How far into a recording its words have been made out (main/transcribe.ts), as each part comes.
-ipcRenderer.on('transcribe:heard', (_event, src: string, seconds: number) => window.dispatchEvent(new CustomEvent('haligtree:transcribe-heard', { detail: { src, seconds } })))
+heard.on('transcribe:heard', (_event, src: string, seconds: number) => window.dispatchEvent(new CustomEvent('haligtree:transcribe-heard', { detail: { src, seconds } })))
 // A book made, renamed or deleted: every list of them looks again.
-ipcRenderer.on('books:changed', () => window.dispatchEvent(new CustomEvent('haligtree:books-changed')))
+heard.on('books:changed', () => window.dispatchEvent(new CustomEvent('haligtree:books-changed')))
 // A YouTube player YouTube would not serve here (sent on to its "sorry" page): the block says so (youtube-view.tsx).
-ipcRenderer.on('video:refused', (_event, src: string) => window.dispatchEvent(new CustomEvent('haligtree:video-refused', { detail: src })))
+heard.on('video:refused', (_event, src: string) => window.dispatchEvent(new CustomEvent('haligtree:video-refused', { detail: src })))
 
 // Custom APIs for renderer
 const api = {
@@ -183,8 +184,13 @@ const api = {
   /** The room main keeps round this window's card (quick capture's overhang), 0 for a window that is all card. */
   room: ((): { left: number; top: number; right: number; bottom: number; side?: 'above' | 'below' | 'left' | 'right' | null; menu?: number; pill?: number } => ipcRenderer.sendSync('window:room'))(),
   /** Main changed the room round the card while the box was away, for a hint (above it, beside it, or none): the page moves its card to match and says so once drawn. */
-  onRoomHint: (listen: (room: { top: number; left: number; right: number; bottom: number; side: 'above' | 'below' | 'left' | 'right' | null }) => void): void =>
-    void ipcRenderer.on('window:room-hint', (_event, room) => listen(room)),
+  onRoomHint: (listen: (room: { top: number; left: number; right: number; bottom: number; side: 'above' | 'below' | 'left' | 'right' | null }) => void): (() => void) => {
+    const relay = (_event: unknown, room: Parameters<typeof listen>[0]): void => listen(room)
+    heard.on('window:room-hint', relay)
+    return () => heard.off('window:room-hint', relay)
+  },
+  /** How many parts of this page listen on each channel from main now (a count that climbs as notes open and close is a leak). */
+  listening: (): Record<string, number> => heard.counts(),
   roomDrawn: (): void => ipcRenderer.send('window:room-drawn'),
   /**
    * This window picked up by the hand (quick capture's grabber, a sticky's card), at a point on the screen; carried to
@@ -204,8 +210,8 @@ const api = {
   /** Told whenever the main window fills the screen or comes back from it. */
   onFilled: (listen: (filled: boolean) => void): (() => void) => {
     const relay = (_event: unknown, filled: boolean): void => listen(filled)
-    ipcRenderer.on('home:filled', relay)
-    return () => ipcRenderer.off('home:filled', relay)
+    heard.on('home:filled', relay)
+    return () => heard.off('home:filled', relay)
   },
   /** The floating focus timer, shown or put away. */
   showFocus: (on: boolean): void => ipcRenderer.send('focus:show', on),
@@ -222,20 +228,20 @@ const api = {
   /** Told when where the pill sits has changed, or the screens have (`again`: woken, or a screen changed). */
   onFocusPlaced: (listen: (why?: 'again') => void): (() => void) => {
     const relay = (_event: unknown, why?: 'again'): void => listen(why)
-    ipcRenderer.on('focus:placed', relay)
-    return () => ipcRenderer.off('focus:placed', relay)
+    heard.on('focus:placed', relay)
+    return () => heard.off('focus:placed', relay)
   },
   /** ⌃⌥⌘S from anywhere: quick capture opens ⌘K on “Start focus”. */
   onFocusAsk: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('focus:ask', relay)
-    return () => ipcRenderer.off('focus:ask', relay)
+    heard.on('focus:ask', relay)
+    return () => heard.off('focus:ask', relay)
   },
   /** The Mac woke after sleeping in a session that Settings ended there: what ended, and how. */
   onFocusSlept: (listen: (slept: Slept) => void): (() => void) => {
     const relay = (_event: unknown, slept: Parameters<typeof listen>[0]): void => listen(slept)
-    ipcRenderer.on('focus:slept', relay)
-    return () => ipcRenderer.off('focus:slept', relay)
+    heard.on('focus:slept', relay)
+    return () => heard.off('focus:slept', relay)
   },
   /** A screenshot of the pill's screen for the session's log, stored; denied without Screen Recording. */
   focusShot: (): Promise<{ url: string } | { denied: true; asked?: boolean; restart?: boolean; blank?: boolean } | null> => ipcRenderer.invoke('focus:shot'),
@@ -255,29 +261,29 @@ const api = {
   /** `rounded`: the screen is a Mac's own, with rounded corners and a notch, which the light follows. */
   onGlow: (listen: (tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number } | null, rounded?: boolean) => void): (() => void) => {
     const relay = (_event: unknown, tone: 'done' | 'cancel' | 'break', at?: { x: number; y: number } | null, rounded?: boolean): void => listen(tone, at, rounded)
-    ipcRenderer.on('glow', relay)
+    heard.on('glow', relay)
     void (ipcRenderer.invoke('glow:waiting') as Promise<{ tone: 'done' | 'cancel'; rounded: boolean } | null>).then((was) => was && listen(was.tone, null, was.rounded))
-    return () => ipcRenderer.off('glow', relay)
+    return () => heard.off('glow', relay)
   },
   /** In the meeting card's own window (and any window that cares): the meeting as it goes, and how loud each side is. */
   onMeeting: (listen: (live: unknown, level: { you: number; others: number } | null) => void): (() => void) => {
     const relay = (_event: unknown, live: unknown, level: { you: number; others: number } | null): void => listen(live, level)
-    ipcRenderer.on('meeting:live', relay)
+    heard.on('meeting:live', relay)
     void (ipcRenderer.invoke('haligtree:meeting:state') as Promise<unknown>).then((live) => listen(live, null))
-    return () => ipcRenderer.off('meeting:live', relay)
+    return () => heard.off('meeting:live', relay)
   },
   /** The recordings left behind by a crash have changed: a recording ended, or another began. */
   onMeetingLeft: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('meeting:left', relay)
-    return () => ipcRenderer.off('meeting:left', relay)
+    heard.on('meeting:left', relay)
+    return () => heard.off('meeting:left', relay)
   },
   /** In the nudge card's own window: each nudge, including those told while it loaded. */
   onNudge: (listen: (nudge: unknown) => void): (() => void) => {
     const relay = (_event: unknown, nudge: unknown): void => listen(nudge)
-    ipcRenderer.on('nudge', relay)
+    heard.on('nudge', relay)
     void (ipcRenderer.invoke('nudge:waiting') as Promise<unknown[]>).then((all) => all.forEach(listen))
-    return () => ipcRenderer.off('nudge', relay)
+    return () => heard.off('nudge', relay)
   },
   /** The nudge card's height as its cards change; 0 hides it. */
   nudgeSize: (height: number): void => ipcRenderer.send('nudge:size', height),
@@ -285,14 +291,14 @@ const api = {
   floatUndoable: (words: string): void => ipcRenderer.send('float:undoable', words),
   onFloatUndoable: (listen: (words: string) => void): (() => void) => {
     const relay = (_event: unknown, words: string): void => listen(words)
-    ipcRenderer.on('float:undoable', relay)
-    return () => ipcRenderer.off('float:undoable', relay)
+    heard.on('float:undoable', relay)
+    return () => heard.off('float:undoable', relay)
   },
   floatUndo: (): void => ipcRenderer.send('float:undo'),
   onFloatUndo: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('float:undo', relay)
-    return () => ipcRenderer.off('float:undo', relay)
+    heard.on('float:undo', relay)
+    return () => heard.off('float:undo', relay)
   },
   /** Show a nudge card from another window (the pill, when it is not on screen). */
   nudge: (nudge: unknown): void => ipcRenderer.send('nudge:show', nudge),
@@ -306,21 +312,21 @@ const api = {
   /** Told, in the one window main picks, how many were tidied: for the toast with "Put them back". */
   onStickiesTidied: (listen: (count: number) => void): (() => void) => {
     const relay = (_event: unknown, count: number): void => listen(count)
-    ipcRenderer.on('stickies:tidied', relay)
-    return () => ipcRenderer.off('stickies:tidied', relay)
+    heard.on('stickies:tidied', relay)
+    return () => heard.off('stickies:tidied', relay)
   },
   /** How many stickies are out on the screen, so Tidy stickies is offered only when there is something to tidy. */
   stickiesOut: (): Promise<number> => ipcRenderer.invoke('stickies:out'),
   onStickiesOut: (listen: (count: number) => void): (() => void) => {
     const relay = (_event: unknown, count: number): void => listen(count)
-    ipcRenderer.on('stickies:out', relay)
-    return () => ipcRenderer.off('stickies:out', relay)
+    heard.on('stickies:out', relay)
+    return () => heard.off('stickies:out', relay)
   },
   /** Too many goals for cards of their own: they share the goals sticky now, this many of them. */
   onGoalsGathered: (listen: (count: number) => void): (() => void) => {
     const relay = (_event: unknown, count: number): void => listen(count)
-    ipcRenderer.on('goals:gathered', relay)
-    return () => ipcRenderer.off('goals:gathered', relay)
+    heard.on('goals:gathered', relay)
+    return () => heard.off('goals:gathered', relay)
   },
   showFolder: (path: string): void => ipcRenderer.send('folder:show', path),
   /** A sticky's pictures in Haligtree's own Quick Look, in a window over its screen rather than inside the small one. */
@@ -331,8 +337,8 @@ const api = {
   /** The sticky's: its picture is back from the look window. */
   onLookOver: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('look:over', relay)
-    return () => ipcRenderer.off('look:over', relay)
+    heard.on('look:over', relay)
+    return () => heard.off('look:over', relay)
   },
   /** A sticky's own: put just this one away, or size it from its corner grip. */
   hideSticky: (type: string, id: string, title?: string): void => ipcRenderer.send('sticky:hide', type, id, title),
@@ -351,16 +357,16 @@ const api = {
   /** A sticky's own lines chosen in its menu: open it, or take it down at once. */
   onStickyDo: (listen: (what: 'open' | 'down') => void): (() => void) => {
     const relay = (_event: unknown, what: 'open' | 'down'): void => listen(what)
-    ipcRenderer.on('sticky:do', relay)
-    return () => void ipcRenderer.off('sticky:do', relay)
+    heard.on('sticky:do', relay)
+    return () => void heard.off('sticky:do', relay)
   },
   /** The menu window's page (windows/menu.tsx): a menu to show, at a point, and told when to put it away. */
   onPopupMenu: (listen: (menu: { id: number; x: number; y: number; lines: unknown[] } | null) => void): (() => void) => {
     const show = (_event: unknown, menu: { id: number; x: number; y: number; lines: unknown[] }): void => listen(menu)
     const hide = (): void => listen(null)
-    ipcRenderer.on('menu:show', show)
-    ipcRenderer.on('menu:hide', hide)
-    return () => void (ipcRenderer.off('menu:show', show), ipcRenderer.off('menu:hide', hide))
+    heard.on('menu:show', show)
+    heard.on('menu:hide', hide)
+    return () => void (heard.off('menu:show', show), heard.off('menu:hide', hide))
   },
   /** The menu window's answer: the place of the line chosen, or null when it was put away. */
   popupMenuDone: (id: number, path: number[] | null): void => ipcRenderer.send('menu:done', id, path),
@@ -370,27 +376,27 @@ const api = {
   /** Main asking, while clicks pass through, whether this point (in the window) sits over something drawn: an outside drag sends no moves. */
   onProbe: (listen: (x: number, y: number) => void): (() => void) => {
     const relay = (_event: unknown, x: number, y: number): void => listen(x, y)
-    ipcRenderer.on('window:probe', relay)
-    return () => void ipcRenderer.off('window:probe', relay)
+    heard.on('window:probe', relay)
+    return () => void heard.off('window:probe', relay)
   },
   /** A sticky's page has drawn what it holds: it may come onto the desktop now. */
   stickyReady: (): void => ipcRenderer.send('sticky:ready'),
   onStickyMotion: (listen: (what: 'arrive' | 'peel' | 'held' | 'tint', value?: unknown) => void): (() => void) => {
     const relays = (['arrive', 'peel', 'held', 'tint'] as const).map((what) => [`sticky:${what}`, (_event: unknown, value?: unknown): void => listen(what, value)] as const)
-    for (const [channel, relay] of relays) ipcRenderer.on(channel, relay)
-    return () => { for (const [channel, relay] of relays) ipcRenderer.off(channel, relay) }
+    for (const [channel, relay] of relays) heard.on(channel, relay)
+    return () => { for (const [channel, relay] of relays) heard.off(channel, relay) }
   },
   /** In the window in sight: a sticky was taken down from its own X or ⌘W, by its title. */
   onStickyTaken: (listen: (title: string) => void): (() => void) => {
     const relay = (_event: unknown, title: string): void => listen(title)
-    ipcRenderer.on('sticky:taken', relay)
-    return () => ipcRenderer.off('sticky:taken', relay)
+    heard.on('sticky:taken', relay)
+    return () => heard.off('sticky:taken', relay)
   },
   /** In the main window: the note just opened grows out of a small window's place on the screen (main/grow.ts). */
   onHomeGrow: (listen: (grow: { from: { x: number; y: number; width: number; height: number }; title: string; tint?: string; round?: number }) => void): (() => void) => {
     const relay = (_event: unknown, grow: { from: { x: number; y: number; width: number; height: number }; title: string; tint?: string; round?: number }): void => listen(grow)
-    ipcRenderer.on('home:grow', relay)
-    return () => ipcRenderer.off('home:grow', relay)
+    heard.on('home:grow', relay)
+    return () => heard.off('home:grow', relay)
   },
   /** The sticky's whole window wiggles where it stands, and settles back exactly. */
   wiggle: (): void => ipcRenderer.send('sticky:wiggle'),
@@ -404,8 +410,8 @@ const api = {
   /** A card opened out of its tab, the pointer gone from it: slide it back into its edge (true), or, the pointer back on it midway, out again (false). */
   onBeaconFold: (listen: (on: boolean) => void): (() => void) => {
     const relay = (_event: unknown, on: boolean): void => listen(on)
-    ipcRenderer.on('beacon:fold', relay)
-    return () => ipcRenderer.off('beacon:fold', relay)
+    heard.on('beacon:fold', relay)
+    return () => heard.off('beacon:fold', relay)
   },
   /** The slide back into the edge drawn: main makes the window its tab again. */
   beaconFolded: (): void => ipcRenderer.send('beacon:folded'),
@@ -415,35 +421,35 @@ const api = {
   wallpaper: (): Promise<string | null> => ipcRenderer.invoke('wallpaper'),
   onFrost: (listen: (frost: Frost) => void): (() => void) => {
     const relay = (_event: unknown, frost: Frost): void => listen(frost)
-    ipcRenderer.on('frost', relay)
-    return () => ipcRenderer.off('frost', relay)
+    heard.on('frost', relay)
+    return () => heard.off('frost', relay)
   },
   /** Told now and then to stir, so a sticky is seen again. */
   /** A sticky told to be a tab at the screen's edge (tucked: every sticky tucked away; flat: only a small pill), or a goal's card told to peek as a slim tab at that edge of the screen (nudge: it came out by itself), or to be its whole card again (null); opened: a card slid out of its named tab, the tab's strip kept on its screen side; instant: asked by a key, so it lands without a slide. */
   onBeaconPeek: (listen: (peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number; width?: number } | null, instant?: boolean) => void): (() => void) => {
     const relay = (_event: unknown, peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number; width?: number } | null, instant?: boolean): void => listen(peek, instant)
-    ipcRenderer.on('beacon:peek', relay)
+    heard.on('beacon:peek', relay)
     // As it starts listening: what it is now, in case it was told before (or before a reload).
     void ipcRenderer.invoke('beacon:peek:now').then((peek) => peek && listen({ ...peek, nudge: false }), () => undefined)
-    return () => ipcRenderer.off('beacon:peek', relay)
+    return () => heard.off('beacon:peek', relay)
   },
   /** Whether AeroSpace, the tiling window manager, is on this Mac (Settings shows its rule for the stickies). */
   aerospace: (): Promise<boolean> => ipcRenderer.invoke('aerospace:here'),
   onStir: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('sticky:stir', relay)
-    return () => ipcRenderer.off('sticky:stir', relay)
+    heard.on('sticky:stir', relay)
+    return () => heard.off('sticky:stir', relay)
   },
   onFrostAt: (listen: (at: { x: number; y: number }) => void): (() => void) => {
     const relay = (_event: unknown, at: { x: number; y: number }): void => listen(at)
-    ipcRenderer.on('frost:at', relay)
-    return () => ipcRenderer.off('frost:at', relay)
+    heard.on('frost:at', relay)
+    return () => heard.off('frost:at', relay)
   },
   /** Told when every sticky is shown or put away, for its sound. */
   onStickiesShown: (listen: (shown: boolean) => void): (() => void) => {
     const relay = (_event: unknown, shown: boolean): void => listen(shown)
-    ipcRenderer.on('stickies:shown', relay)
-    return () => ipcRenderer.off('stickies:shown', relay)
+    heard.on('stickies:shown', relay)
+    return () => heard.off('stickies:shown', relay)
   },
 
   /** The main window's page has drawn itself, so it may be shown. */
@@ -454,73 +460,73 @@ const api = {
   /** Each time the window is about to be put away. */
   onHiding: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('window:hiding', relay)
-    return () => ipcRenderer.off('window:hiding', relay)
+    heard.on('window:hiding', relay)
+    return () => heard.off('window:hiding', relay)
   },
 
   /** An import has landed: told shown or hidden, so its notes are read into documents at once. */
   onImported: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('imports:ready', relay)
-    return () => ipcRenderer.off('imports:ready', relay)
+    heard.on('imports:ready', relay)
+    return () => heard.off('imports:ready', relay)
   },
 
   /** In the main window: each time the box is brought up, whichever app had the keys. For the welcome. */
   onBoxShown: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('onboarding:box', relay)
-    return () => ipcRenderer.off('onboarding:box', relay)
+    heard.on('onboarding:box', relay)
+    return () => heard.off('onboarding:box', relay)
   },
   /** In any window: a key held back while the welcome runs, to say so in a line. */
   onHeld: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('onboarding:held', relay)
-    return () => ipcRenderer.off('onboarding:held', relay)
+    heard.on('onboarding:held', relay)
+    return () => heard.off('onboarding:held', relay)
   },
   /** In the main window: each time the box is put away. For the welcome. */
   onBoxAway: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('onboarding:box-away', relay)
-    return () => ipcRenderer.off('onboarding:box-away', relay)
+    heard.on('onboarding:box-away', relay)
+    return () => heard.off('onboarding:box-away', relay)
   },
 
   /** Talk to type: each line the listening helper says (main/dictation.ts), as it says it. */
   onDictation: (listen: (line: Record<string, unknown>) => void): (() => void) => {
     const relay = (_event: unknown, line: Record<string, unknown>): void => listen(line)
-    ipcRenderer.on('dictate:line', relay)
-    return () => ipcRenderer.off('dictate:line', relay)
+    heard.on('dictate:line', relay)
+    return () => heard.off('dictate:line', relay)
   },
   /** How much work main has under way (an import, a backup, an export): the beam turns while any is. */
   onBusy: (listen: (count: number) => void): (() => void) => {
     const relay = (_event: unknown, count: number): void => listen(count)
-    ipcRenderer.on('work:busy', relay)
-    return () => ipcRenderer.off('work:busy', relay)
+    heard.on('work:busy', relay)
+    return () => heard.off('work:busy', relay)
   },
   /** How far an import has got, for the main window's chip; null once it is over. */
   onImportProgress: (listen: (at: { done: number; total: number; what: 'notes' | 'opening' | 'pictures' | 'cards' | 'files'; stop?: boolean } | null) => void): (() => void) => {
     const relay = (_event: unknown, at: { done: number; total: number; what: 'notes' | 'opening' | 'pictures' | 'cards' | 'files'; stop?: boolean } | null): void => listen(at)
-    ipcRenderer.on('import:progress', relay)
-    return () => ipcRenderer.off('import:progress', relay)
+    heard.on('import:progress', relay)
+    return () => heard.off('import:progress', relay)
   },
   /** In the main window: the daily backup has failed twice in a row (a reason), or works again (null). */
   onBackupTrouble: (listen: (reason: string | null) => void): (() => void) => {
     const relay = (_event: unknown, reason: string | null): void => listen(reason)
-    ipcRenderer.on('backup:trouble', relay)
-    return () => ipcRenderer.off('backup:trouble', relay)
+    heard.on('backup:trouble', relay)
+    return () => heard.off('backup:trouble', relay)
   },
   /** The box's own colour behind the page, or null for the frosted backing: see setSurface in main. */
   setSurface: (color: string | null): void => ipcRenderer.send('window:surface', color),
   /** In the box: the welcome starting or ending (it wears no side panel while it runs). */
   onWelcoming: (listen: (on: boolean) => void): (() => void) => {
     const relay = (_event: unknown, on: boolean): void => listen(on)
-    ipcRenderer.on('box:welcoming', relay)
-    return () => ipcRenderer.off('box:welcoming', relay)
+    heard.on('box:welcoming', relay)
+    return () => heard.off('box:welcoming', relay)
   },
   /** Each time the window is brought up: the moment the rot cards reshuffle and a hint may show. */
   onShown: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('window:shown', relay)
-    return () => ipcRenderer.off('window:shown', relay)
+    heard.on('window:shown', relay)
+    return () => heard.off('window:shown', relay)
   },
 
   /** Hints: one nugget at a time, with up and down. */
@@ -541,28 +547,28 @@ const api = {
   sayInHome: (said: unknown): void => ipcRenderer.send('say:home', said),
   onSay: (listen: (said: unknown) => void): (() => void) => {
     const relay = (_event: unknown, said: unknown): void => listen(said)
-    ipcRenderer.on('say', relay)
-    return () => ipcRenderer.off('say', relay)
+    heard.on('say', relay)
+    return () => heard.off('say', relay)
   },
   /** A milestone reached by something done in this window. */
   onCelebrate: (listen: (moment: Moment) => void): (() => void) => {
     const relay = (_event: unknown, moment: Moment): void => listen(moment)
-    ipcRenderer.on('celebrate', relay)
-    return () => ipcRenderer.off('celebrate', relay)
+    heard.on('celebrate', relay)
+    return () => heard.off('celebrate', relay)
   },
 
   /** Back at the Mac after four hours or more locked or asleep (main/away.ts): how long, for the catch-up line. */
   onBack: (listen: (ms: number) => void): (() => void) => {
     const relay = (_event: unknown, ms: number): void => listen(ms)
-    ipcRenderer.on('haligtree:back', relay)
-    return () => ipcRenderer.off('haligtree:back', relay)
+    heard.on('haligtree:back', relay)
+    return () => heard.off('haligtree:back', relay)
   },
 
   /** A scanned book's pages being read (main/pdf-text.ts): each page as it is read, then done or why not. */
   onPdfReading: (listen: (said: { src: string; page?: number; of?: number; done?: boolean; lines?: number; pages?: number; error?: string }) => void): (() => void) => {
     const relay = (_event: unknown, said: Parameters<typeof listen>[0]): void => listen(said)
-    ipcRenderer.on('pdf:reading', relay)
-    return () => ipcRenderer.off('pdf:reading', relay)
+    heard.on('pdf:reading', relay)
+    return () => heard.off('pdf:reading', relay)
   },
 
   /** Everything past the capture, by channel. Only `haligtree:` channels pass. `T` is what the channel answers with. */
@@ -587,21 +593,21 @@ const api = {
   /** A picture from ⇧⌘.'s area pick, to put in the note with the caret under it. */
   onPicture: (listen: (shot: { url: string; app: string } | { denied: true; asked: boolean }) => void): (() => void) => {
     const relay = (_event: Electron.IpcRendererEvent, shot: { url: string; app: string } | { denied: true; asked: boolean }): void => listen(shot)
-    ipcRenderer.on('box:picture', relay)
+    heard.on('box:picture', relay)
     void (ipcRenderer.invoke('box:picture') as Promise<{ url: string; app: string } | { denied: true; asked: boolean } | null>).then((shot) => shot && listen(shot))
-    return () => ipcRenderer.off('box:picture', relay)
+    return () => heard.off('box:picture', relay)
   },
   onSeed: (listen: (text: string) => void): (() => void) => {
     const relay = (_event: unknown, text: string): void => listen(text)
-    ipcRenderer.on('box:seed', relay)
+    heard.on('box:seed', relay)
     void (ipcRenderer.invoke('box:seed') as Promise<string | null>).then((text) => text && listen(text))
-    return () => ipcRenderer.off('box:seed', relay)
+    return () => heard.off('box:seed', relay)
   },
   /** In the box: ⌘O was pressed, asking for what is open here to go to the main window. */
   onPromoteAsked: (listen: () => void): (() => void) => {
     const relay = (): void => listen()
-    ipcRenderer.on('box:promote-asked', relay)
-    return () => ipcRenderer.off('box:promote-asked', relay)
+    heard.on('box:promote-asked', relay)
+    return () => heard.off('box:promote-asked', relay)
   },
   /** The box grows toward the main window and fades, and the main window opens on this one thing (or Home). */
   promote: (type: string | null, id: string | null): void => ipcRenderer.send('box:promote', type, id),
@@ -623,15 +629,15 @@ const api = {
   /** In the main window: where the prompt sent you, now and from here on. */
   onSentTo: (listen: (type: string, id: string, heading?: string) => void): (() => void) => {
     const relay = (_event: unknown, type: string, id: string, heading?: string): void => listen(type, id, heading)
-    ipcRenderer.on('home:open', relay)
+    heard.on('home:open', relay)
     void (ipcRenderer.invoke('home:sent') as Promise<[string, string, string?] | null>).then((sent) => sent && listen(...sent))
-    return () => ipcRenderer.off('home:open', relay)
+    return () => heard.off('home:open', relay)
   },
   /** In the main window: how the next thing sent here was found (a notification, quick capture, another window), for the usage counts. */
   onUsageVia: (listen: (via: string) => void): (() => void) => {
     const relay = (_event: unknown, via: string): void => listen(via)
-    ipcRenderer.on('usage:via', relay)
-    return () => ipcRenderer.off('usage:via', relay)
+    heard.on('usage:via', relay)
+    return () => heard.off('usage:via', relay)
   },
 
   /** Whether the Mac scrolls naturally (the wheel's deltas run against the fingers), read fresh from the system. */
@@ -639,8 +645,8 @@ const api = {
   /** In the main window: the trackpad's fingers touched ('began') or lifted ('ended'), from the Mac's scroll events, for swipe back. */
   onSwipePhase: (listen: (kind: 'began' | 'ended') => void): (() => void) => {
     const relay = (_event: unknown, kind: 'began' | 'ended'): void => listen(kind)
-    ipcRenderer.on('swipe:phase', relay)
-    return () => ipcRenderer.off('swipe:phase', relay)
+    heard.on('swipe:phase', relay)
+    return () => heard.off('swipe:phase', relay)
   },
 
   /** Put the window away. It keeps its contents and its place on screen. */
@@ -655,15 +661,15 @@ const api = {
   /** What that window has drawn, for the block it came from to write down. */
   onDrawingChange: (listen: (id: string, scene: unknown) => void): (() => void) => {
     const relay = (_event: unknown, id: string, scene: unknown): void => listen(id, scene)
-    ipcRenderer.on('drawing:changed', relay)
-    return () => ipcRenderer.off('drawing:changed', relay)
+    heard.on('drawing:changed', relay)
+    return () => heard.off('drawing:changed', relay)
   },
 
   /** Whether a drawing is open in a window of its own, as that changes. */
   onDrawingWindow: (listen: (id: string, open: boolean) => void): (() => void) => {
     const relay = (_event: unknown, id: string, open: boolean): void => listen(id, open)
-    ipcRenderer.on('drawing:open', relay)
-    return () => ipcRenderer.off('drawing:open', relay)
+    heard.on('drawing:open', relay)
+    return () => heard.off('drawing:open', relay)
   },
 
   /** The other side: a drawing window asking what it is meant to show. */
@@ -717,4 +723,4 @@ contextBridge.exposeInMainWorld('api', api)
 
 // The Mac's own full screen hides a window's traffic lights, so the page marks
 // itself and closes up the room its toolbar keeps for them.
-ipcRenderer.on('window:fullscreen', (_event, on: boolean) => document.documentElement.toggleAttribute('data-fullscreen', on))
+heard.on('window:fullscreen', (_event, on: boolean) => document.documentElement.toggleAttribute('data-fullscreen', on))
