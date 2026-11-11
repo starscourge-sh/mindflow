@@ -3453,7 +3453,7 @@ textarea[data-talking]::selection {
 }
 
 /* The voice note recorder's floating pill (voice-note.tsx, talk.tsx): quick capture's material (11 Nov), its fine
-   bright hairline brightest along the top edge, a near-black outer line so the edge holds on a pale page, and its
+   bright hairline all round, a near-black outer line so the edge holds on a pale page, and its
    wide soft shadow. Solid, not see-through: in the main window a blur breaks inside the panes' faded edges. */
 .mf-voice-pill {
   height: 36px;
