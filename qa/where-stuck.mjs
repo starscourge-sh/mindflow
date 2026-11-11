@@ -6,6 +6,8 @@
 // what it is.
 //
 //   QA_DATA=<copy of a book> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 NOTE=capture:<id> node qa/where-stuck.mjs
+//
+// THEN=<script> runs in the window once the note is up (a scroll, a key typed), so what follows it is what is watched.
 import { existsSync, readFileSync } from 'fs'
 import { SourceMap } from 'node:module'
 import { loadavg } from 'os'
@@ -40,6 +42,11 @@ try {
     console.log(`asked for ${type} ${id}`)
   }
   await new Promise((done) => setTimeout(done, Number(process.env.AFTER ?? 6) * 1000))
+  // THEN=<script>: run in the window once the note is up (a scroll, a key), and the pauses follow it.
+  if (process.env.THEN) {
+    void h.evaluate((code) => new Function(code)(), process.env.THEN).catch(() => {})
+    await new Promise((done) => setTimeout(done, 1500))
+  }
   const rounds = Number(process.env.ROUNDS ?? 14)
   const seen = new Map()
   let idle = 0

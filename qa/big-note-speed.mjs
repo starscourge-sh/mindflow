@@ -12,7 +12,11 @@
 // first words within 150 ms, no frozen stretch over 100 ms after them, a
 // key under 16 ms of work.
 // BIG=n and SMALL=n change how many notes; ONLY=id runs one; OPEN_ONLY=1
-// times the opens alone; PROF=1 prints where an open's time went.
+// times the opens alone; PROF=1 prints where an open's time went, PROF_KEYS=1
+// where the keys typed at the end went. Beside each open, and around one
+// save, it prints how long the MAIN process could not answer, apart from the
+// page's own frozen stretches; and how long "/" on a new last line takes to
+// show its menu.
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
 import { SourceMap } from 'node:module'
@@ -46,14 +50,21 @@ const notes = process.env.ONLY ? all.filter((one) => one.id.startsWith(process.e
 const c = await sandbox({ width: 1300, height: 900, seeded: false })
 const { h, send } = c
 const rows = []
+const pressed = []
 
 /** A CPU profile of what `run` does in the window, its costliest functions printed. */
-async function profiled(run) {
-  if (!process.env.PROF) return run()
+async function profiled(run, on = process.env.PROF) {
+  if (!on) return run()
   const cdp = await c.electron.context().newCDPSession(h)
+  // The browser's own share beside the script's: working out styles, and laying the page out.
+  await cdp.send('Performance.enable')
+  const spent = async () => Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((one) => [one.name, one.value]))
+  const was = await spent()
   await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start')
   const out = await run()
   const { profile } = await cdp.send('Profiler.stop')
+  const now = await spent()
+  console.log(`--- in all: script ${Math.round((now.ScriptDuration - was.ScriptDuration) * 1000)} ms, styles ${Math.round((now.RecalcStyleDuration - was.RecalcStyleDuration) * 1000)} ms (${now.RecalcStyleCount - was.RecalcStyleCount} times), layout ${Math.round((now.LayoutDuration - was.LayoutDuration) * 1000)} ms (${now.LayoutCount - was.LayoutCount} times), tasks ${Math.round((now.TaskDuration - was.TaskDuration) * 1000)} ms; page elements ${now.Nodes}`)
   const byId = new Map(profile.nodes.map((node) => [node.id, node]))
   const parent = new Map()
   for (const node of profile.nodes) for (const child of node.children ?? []) parent.set(child, node.id)
@@ -146,6 +157,47 @@ async function openNote(note) {
   })
 }
 
+/**
+ * How long the MAIN process could not answer while `run` went, and after it
+ * until it had been quiet for half a second: its longest stretch and their
+ * sum, from a 5 ms tick inside it. The page's own frozen stretches are the
+ * long tasks above; these are the other column (a page waiting on main for a
+ * note's words, or on a blocking call, waits this long too).
+ */
+async function mainBusy(run) {
+  await c.electron.evaluate(() => {
+    const g = globalThis
+    clearInterval(g.__lagTimer)
+    g.__lag = { longest: 0, total: 0, last: performance.now(), late: performance.now() }
+    g.__lagTimer = setInterval(() => {
+      const now = performance.now(), late = now - g.__lag.last - 5
+      if (late > 8) { g.__lag.total += late; g.__lag.late = now; if (late > g.__lag.longest) g.__lag.longest = late }
+      g.__lag.last = now
+    }, 5)
+  })
+  const out = await run()
+  for (let i = 0; i < 300; i++) {
+    if (await c.electron.evaluate(() => performance.now() - globalThis.__lag.late > 500)) break
+    await h.waitForTimeout(100)
+  }
+  const main = await c.electron.evaluate(() => (clearInterval(globalThis.__lagTimer), { longest: Math.round(globalThis.__lag.longest), total: Math.round(globalThis.__lag.total) }))
+  return { out, main }
+}
+const busy = (main) => `main busy ${main.longest} ms at most, ${main.total} ms in all`
+
+/** The page's frozen stretches (long tasks) while `run` goes and for `settle` ms after: the longest and their sum. */
+async function pageBusy(run, settle = 2500) {
+  await h.evaluate(() => {
+    window.__long = []
+    window.__seen?.disconnect()
+    window.__seen = new PerformanceObserver((list) => list.getEntries().forEach((e) => window.__long.push([e.startTime, e.duration])))
+    window.__seen.observe({ type: 'longtask' })
+  })
+  await run()
+  await h.waitForTimeout(settle)
+  return h.evaluate(() => ({ longest: Math.round(Math.max(0, ...window.__long.map(([, d]) => d))), total: Math.round(window.__long.reduce((sum, [, d]) => sum + d, 0)) }))
+}
+
 /** The note's editor: the largest one on the page. */
 const scrollerOf = `(() => { const ed = [...document.querySelectorAll(${JSON.stringify(ED)})].sort((a, b) => b.textContent.length - a.textContent.length)[0]; let box = ed.parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; return { ed, box } })()`
 
@@ -190,6 +242,121 @@ async function typed(where) {
   return out
 }
 
+/**
+ * A capture opened the way a person opens it: its own row in the Inbox, found by scrolling the list, pressed with a
+ * real pointer. From the pointer going down to the note's first words painted, and the longest frozen stretch.
+ * Null when its row is not in the Inbox list.
+ */
+async function pressRow(note) {
+  if (note.type !== 'capture') return null
+  await send('view', 'inbox')
+  await h.waitForTimeout(1200)
+  const spot = await h.evaluate(async (id) => {
+    const frame = () => new Promise((next) => requestAnimationFrame(() => requestAnimationFrame(next)))
+    const find = () => document.querySelector(`[data-row][data-id="${id}"]`)
+    let box = document.querySelector('[data-row]')?.parentElement ?? null
+    while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+    for (let i = 0; i < 400 && !find() && box && box.scrollTop + box.clientHeight < box.scrollHeight - 2; i++) { box.scrollBy({ top: box.clientHeight * 0.8, behavior: 'instant' }); await frame() }
+    const row = find()
+    if (!row) return null
+    row.scrollIntoView({ block: 'center', behavior: 'instant' })
+    await frame()
+    const r = row.getBoundingClientRect()
+    // Another row on show, to open first when this note is the one already open.
+    const other = [...document.querySelectorAll('[data-row][data-id]')].find((one) => one !== row && one.getBoundingClientRect().height > 0 && one.getBoundingClientRect().top > 80 && one.getBoundingClientRect().bottom < innerHeight - 20)
+    const o = other?.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2, open: row.hasAttribute('data-open'), other: o ? { x: o.left + o.width / 2, y: o.top + o.height / 2 } : null }
+  }, note.id)
+  if (!spot) return null
+  if (spot.open && spot.other) { await h.mouse.click(spot.other.x, spot.other.y); await h.waitForTimeout(1500) }
+  await h.mouse.move(spot.x, spot.y)
+  await h.waitForTimeout(400)
+  await h.evaluate((sel) => {
+    window.__long = []
+    window.__seen?.disconnect()
+    window.__seen = new PerformanceObserver((list) => list.getEntries().forEach((e) => window.__long.push([e.startTime, e.duration])))
+    window.__seen.observe({ type: 'longtask' })
+    const before = new Set([...document.querySelectorAll(sel)].map((one) => one.editor?.state.doc))
+    window.__shown = null
+    window.__t0 = null
+    window.addEventListener('pointerdown', () => {
+      window.__t0 = performance.now()
+      const look = () => {
+        const ed = [...document.querySelectorAll(sel)].find((one) => one.isConnected && one.editor && !before.has(one.editor.state.doc) && one.textContent.trim().length > 0 && one.getBoundingClientRect().height > 0)
+        if (ed) requestAnimationFrame(() => (window.__shown ??= performance.now() - window.__t0))
+        else setTimeout(look, 4)
+      }
+      look()
+    }, { capture: true, once: true })
+  }, ED)
+  await h.mouse.click(spot.x, spot.y)
+  await h.waitForFunction(() => window.__shown !== null, null, { timeout: 120000 })
+  await h.waitForFunction(() => { const last = window.__long.at(-1); return performance.now() - Math.max(window.__t0 + window.__shown, last ? last[0] + last[1] : 0) > 500 }, null, { timeout: 120000, polling: 100 })
+  return h.evaluate(() => {
+    const long = window.__long.filter(([at, d]) => at + d >= window.__t0)
+    return { first: Math.round(window.__shown), longest: Math.round(Math.max(0, ...long.map(([, d]) => d))), free: Math.round(Math.max(window.__shown, ...long.map(([at, d]) => at + d - window.__t0))) }
+  })
+}
+
+/** The caret put in a line of words at the top, middle or end of the note, by a real click; false when no line is on show there. */
+async function caretAt(where) {
+  const spot = await h.evaluate(async ([code, where]) => {
+    const { ed, box } = new Function(`return ${code}`)()
+    if (box) box.scrollTo({ top: where === 'top' ? 0 : where === 'middle' ? box.scrollHeight / 2 : box.scrollHeight, behavior: 'instant' })
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+    const frame = (box ?? document.documentElement).getBoundingClientRect()
+    const lines = [...ed.querySelectorAll('p, h1, h2, h3')].filter((p) => p.textContent.trim().length > 3 && !p.closest('[contenteditable="false"]'))
+    const line = lines.find((p) => { const r = p.getBoundingClientRect(); return r.height && r.top >= Math.max(frame.top, 60) && r.bottom <= Math.min(frame.bottom, innerHeight) - 10 })
+    if (!line) return null
+    const r = line.getBoundingClientRect()
+    return { x: r.left + Math.min(40, r.width / 2), y: r.top + r.height / 2 }
+  }, [scrollerOf, where])
+  if (!spot) return false
+  await h.mouse.click(spot.x, spot.y)
+  await h.waitForTimeout(300)
+  if (await h.evaluate((sel) => document.querySelector(sel + '[data-vim-mode="normal"]') !== null, ED)) await h.keyboard.press('i')
+  return true
+}
+
+/** One letter typed and left to save itself: what that save costs the page and the main process, apart. Taken back after. */
+async function saved() {
+  if (!(await caretAt('top'))) return null
+  const { out: page, main } = await mainBusy(() => pageBusy(() => h.keyboard.press('x'), 3000))
+  await h.keyboard.press('Meta+z')
+  await h.waitForTimeout(2500)
+  return { page, main }
+}
+
+/** "/" typed on a new line at the very end of the note: from the key to the menu on show, and the longest frozen stretch. Taken back after. */
+async function slashAtEnd() {
+  if (!(await caretAt('end'))) return null
+  await h.keyboard.press('Meta+ArrowDown')
+  await h.keyboard.press('Enter')
+  await h.waitForTimeout(300)
+  await h.evaluate(() => {
+    window.__menu = null
+    const t0 = performance.now()
+    const once = (e) => {
+      if (e.key !== '/') return
+      window.removeEventListener('keydown', once, true)
+      const at = performance.now()
+      const look = () => {
+        const menu = document.querySelector('.tiptap-suggestion-popup')
+        if (menu && menu.getBoundingClientRect().height > 0) requestAnimationFrame(() => (window.__menu ??= Math.round(performance.now() - at)))
+        else if (performance.now() - t0 < 30000) setTimeout(look, 4)
+      }
+      look()
+    }
+    window.addEventListener('keydown', once, true)
+  })
+  const page = await pageBusy(() => h.keyboard.press('/'), 600)
+  const menu = await h.waitForFunction(() => window.__menu, null, { timeout: 30000 }).then((got) => got.jsonValue(), () => null)
+  await h.keyboard.press('Escape')
+  for (let i = 0; i < 3; i++) await h.keyboard.press('Meta+z')
+  await h.waitForTimeout(300)
+  return { menu, longest: page.longest }
+}
+
 try {
   await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await h.evaluate(() => window.api.haligtree('settings:set', { sounds: false, hintRate: 0 }))
@@ -199,15 +366,19 @@ try {
     const name = `${note.type} ${note.id.slice(0, 8)} ${Math.round(note.size / 1024)} KB`
     // Each opened from another place, twice: the first read, and one that was open before.
     await send('view', 'today'); await h.waitForTimeout(900)
-    const cold = await profiled(() => openNote(note))
+    const { out: cold, main: coldMain } = await mainBusy(() => profiled(() => openNote(note)))
     const coldLoad = load()
     await send('view', 'today'); await h.waitForTimeout(900)
-    const again = await openNote(note)
+    const { out: again, main: againMain } = await mainBusy(() => openNote(note))
+    // And by a real press on its own row in the Inbox (a capture's).
+    const press = await pressRow(note)
+    if (press) console.log(`${name}: pressed on its row in the Inbox, first words ${press.first} ms after the pointer went down, free after ${press.free} ms, longest frozen stretch ${press.longest} ms  [${load()}]`)
+    if (press) pressed.push({ name, ...press })
     // OPEN_ONLY=1: the opens alone, for a quick before and after.
     if (process.env.OPEN_ONLY) {
       const size = await h.evaluate((code) => { const { ed } = new Function(`return ${code}`)(); return { size: ed.editor.state.doc.content.size, blocks: ed.editor.state.doc.childCount } }, scrollerOf)
       rows.push({ name, cold, again, info: size, wheel: { worst: 0 }, jump: { worst: 0 }, keys: {}, selectAll: { worst: 0 } })
-      console.log(`${name}  [${coldLoad}]  ${size.size} positions, ${size.blocks} blocks\n   open: first words ${cold.first} ms, free ${cold.free} ms, longest block ${cold.longest} ms (after words ${cold.after}); again: ${again.first} / ${again.free} / ${again.longest} (${again.after})  [${load()}]`)
+      console.log(`${name}  [${coldLoad}]  ${size.size} positions, ${size.blocks} blocks\n   open: first words ${cold.first} ms, free ${cold.free} ms, longest block ${cold.longest} ms (after words ${cold.after}); again: ${again.first} / ${again.free} / ${again.longest} (${again.after})\n   ${busy(coldMain)}; again: ${busy(againMain)}  [${load()}]`)
       continue
     }
     const info = await h.evaluate((code) => { const { ed, box } = new Function(`return ${code}`)(); return { size: ed.editor.state.doc.content.size, blocks: ed.editor.state.doc.childCount, drawn: ed.childElementCount, tall: box?.scrollHeight ?? 0, view: box?.clientHeight ?? 0 } }, scrollerOf)
@@ -217,10 +388,15 @@ try {
     const wheel = await frames(async () => { for (let i = 0; i < steps; i++) { await h.mouse.wheel(0, Math.ceil(info.tall / steps)); await h.waitForTimeout(16) } })
     const jump = await frames(() => h.evaluate((code) => { const { box } = new Function(`return ${code}`)(); box?.scrollTo({ top: 0, behavior: 'instant' }); return new Promise((done) => requestAnimationFrame(() => { box?.scrollTo({ top: box.scrollHeight, behavior: 'instant' }); requestAnimationFrame(done) })) }, scrollerOf))
     const keys = {}
-    for (const where of ['top', 'middle', 'end']) keys[where] = await typed(where)
+    // PROF_KEYS=1 prints where the keys typed at the end spent their time.
+    for (const where of ['top', 'middle', 'end']) keys[where] = await profiled(() => typed(where), where === 'end' && process.env.PROF_KEYS)
     const selectAll = await frames(async () => { await h.keyboard.press('Meta+a'); await h.waitForTimeout(200); await h.keyboard.press('ArrowLeft') })
-    const row = { name, cold, again, info, wheel, jump, keys, selectAll }
+    // What one save costs each side, and "/" on a new last line: on the big notes, where they are felt.
+    const save = note.size > 100_000 ? await saved() : null
+    const slash = note.size > 100_000 ? await slashAtEnd() : null
+    const row = { name, cold, again, info, wheel, jump, keys, selectAll, save, slash }
     rows.push(row)
+    console.log(`${name}\n   open: ${busy(coldMain)}; again: ${busy(againMain)}${save ? `\n   a save: page frozen ${save.page.longest} ms at most, ${save.page.total} ms in all; ${busy(save.main)}` : ''}${slash ? `\n   "/" on a new last line: menu on show after ${slash.menu ?? 'never (30 s)'} ms, longest frozen stretch ${slash.longest} ms` : ''}`)
     console.log(`${name}  [${coldLoad}]\n   open: first words ${cold.first} ms, free ${cold.free} ms, longest block ${cold.longest} ms (after words ${cold.after}); again: ${again.first} / ${again.free} / ${again.longest} (${again.after})\n   doc ${info.size} positions, ${info.blocks} blocks, ${info.drawn} drawn, ${info.tall}px tall\n   wheel: worst frame ${wheel.worst} ms, ${wheel.over}/${wheel.n} over 17; jump to end: worst ${jump.worst} ms\n   key: top ${JSON.stringify(keys.top)}, middle ${JSON.stringify(keys.middle)}, end ${JSON.stringify(keys.end)}; select all: worst frame ${selectAll.worst} ms  [${load()}]`)
   }
   // Between the two biggest, back and forth.
@@ -234,6 +410,7 @@ try {
   const say = (row, pick) => `${pick(row)} ms on ${row.name}`
   const first = (row) => Math.max(row.cold.first, row.again.first), block = (row) => Math.max(row.cold.after, row.again.after), all = (row) => Math.max(row.cold.longest, row.again.longest)
   const key = (row) => Math.max(0, ...Object.values(row.keys).filter(Boolean).map((one) => one.median))
+  if (pressed.length) check(`a press on a note's row shows its first words within ${FIRST_MS} ms`, pressed.every((one) => one.first <= FIRST_MS), pressed.map((one) => `${one.first} ms on ${one.name}`).join('; '))
   check(`every note shows its first words within ${FIRST_MS} ms`, first(worst(first)) <= FIRST_MS, say(worst(first), first))
   check(`no open blocks the window over ${BLOCK_MS} ms`, all(worst(all)) <= BLOCK_MS, `${say(worst(all), all)}; after the words ${say(worst(block), block)}`)
   // Not measured when only the opens were timed.
