@@ -317,6 +317,9 @@ const EPOCH = dayjs('1900-01-01').startOf('week')
 const WEEKS = 15_650
 const weekAt = (index: number): Dayjs => EPOCH.add(index * 7, 'day')
 const indexOf = (day: Dayjs): number => Math.round(day.startOf('week').hour(12).diff(EPOCH.hour(12), 'hour') / (7 * 24))
+const RUN_RULES = '[data-month-run][data-moving] > div { pointer-events: none } [data-month-run] [data-dim] [data-day-number]:not([aria-current]) { color: color-mix(in oklab, var(--foreground) 40%, transparent); font-weight: 400 } [data-month-run] [data-dim] :is([data-plan-more], [data-plan-task], [data-mark-flag]) { opacity: 0.6 }'
+/** How long the wheel stays quiet before a gesture counts as over: longer than the gap between a fast wheel's notches. */
+const IDLE = 140
 /** Weeks drawn past those in sight, above and below, so a fling never shows a row not yet drawn: 2 + 6 + 3, eleven in all. */
 const OVER = 2
 /** The month a week at the top names: the month of its last day, so a month is named once its first week reaches the top. */
@@ -411,23 +414,61 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
     gliding.current = !instant
     el.scrollTo({ top: to, behavior: instant ? 'instant' : 'smooth' })
   }, [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  // When the wheel last moved (a trackpad's glide sends wheel events too), and the frame that waits for it to go quiet.
+  const wheeled = useRef(-Infinity)
+  const moved = useRef(-Infinity)
+  const quiet = useRef(0)
+  const end = useRef<() => void>(() => {})
+  useEffect(() => () => cancelAnimationFrame(quiet.current), [])
   useEffect(() => {
     const el = body.current
     if (!el) return
-    const scrolled = (): void => void (row && placed.current && (gliding.current ? setTop(where(el)) : settle(el, true)))
-    // Come to rest, after the trackpad's glide: onto the nearest week. Done here rather than by CSS scroll snap, which
-    // snaps only to weeks already drawn and so, sent a year away, pulled back to the weeks it left.
+    // While the weeks move, the pointer does not reach them: a day's tip opening and closing as days pass under it made
+    // every tip in the window, the sidebar's too, draw again (one tip group for the app), and the sidebar's moving rows
+    // with them measure the page. Marked on the box itself, so moving draws nothing.
+    const scrolled = (event: Event): void => {
+      moved.current = event.timeStamp
+      if (!('moving' in el.dataset)) el.dataset.moving = ''
+      if (row && placed.current) gliding.current ? setTop(where(el)) : settle(el, true)
+    }
+    const wheel = (event: WheelEvent): void => void (wheeled.current = event.timeStamp)
+    // Come to rest once the whole gesture is over: onto the nearest week. A scroll ends after each notch of a mouse wheel
+    // too; settled there, the glide back to a week cancelled the notches still to come and a fast wheel lost most of its
+    // way. So it waits until the wheel has been quiet a moment and the scroll has stopped. Done here rather than by CSS
+    // scroll snap, which snaps only to weeks already drawn and so, sent a year away, pulled back to the weeks it left.
     const ended = (): void => {
       if (!row) return
+      if (performance.now() - wheeled.current < IDLE) {
+        if (quiet.current) return
+        // Read from the events' own times, never the scroll's place: read each frame, that made the page lay itself out again.
+        const look = (now: number): void => {
+          quiet.current = 0
+          if (now - wheeled.current < IDLE || now - moved.current < 50) return void (quiet.current = requestAnimationFrame(look))
+          end.current()
+        }
+        quiet.current = requestAnimationFrame(look)
+        return
+      }
       gliding.current = false
+      delete el.dataset.moving
       const near = Math.round(el.scrollTop / row) * row
       if (Math.abs(el.scrollTop - near) > 0.5) return el.scrollTo({ top: near, behavior: still ? 'instant' : 'smooth' })
       settle(el, false)
       rest()
     }
+    end.current = ended
     el.addEventListener('scroll', scrolled, { passive: true })
     el.addEventListener('scrollend', ended)
-    return () => (el.removeEventListener('scroll', scrolled), el.removeEventListener('scrollend', ended))
+    el.addEventListener('wheel', wheel, { passive: true })
+    return () => (el.removeEventListener('scroll', scrolled), el.removeEventListener('scrollend', ended), el.removeEventListener('wheel', wheel))
+  })
+  // Each day drawn is marked when it is outside the month named, straight on the page: naming another month restyles
+  // only the days that change, never the window.
+  useLayoutEffect(() => {
+    for (const cell of body.current?.querySelectorAll<HTMLElement>('[data-day]') ?? []) {
+      const out = !cell.dataset.day?.startsWith(`${dim}-`)
+      if (out !== cell.hasAttribute('data-dim')) cell.toggleAttribute('data-dim', out)
+    }
   })
   const room = lines(row)
   // Drawn in steps of two weeks, so a fling commits a new set of weeks every other week rather than every week.
@@ -435,9 +476,9 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   const firstDrawn = Math.max(0, base - OVER)
   const lastDrawn = Math.min(WEEKS - 1, base + ROWS + OVER)
   return (
-    <div ref={body} data-month-scroll data-month-run={dim} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
-      {/* The days outside the month named, dimmed as on Home's month: one rule, so naming a new month draws nothing again. */}
-      <style>{`[data-month-run] [data-day]:not([data-day^="${dim}-"]) [data-day-number]:not([aria-current]) { color: color-mix(in oklab, var(--foreground) 40%, transparent); font-weight: 400 } [data-month-run] [data-day]:not([data-day^="${dim}-"]) :is([data-plan-more], [data-plan-task], [data-mark-flag]) { opacity: 0.6 }`}</style>
+    <div ref={body} data-month-scroll data-month-run={dim} data-unfaded className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
+      {/* The days outside the month named, dimmed as on Home's month, and nothing under the pointer while the weeks move. A rule that never changes: rewritten for each month, it made the whole window restyle. */}
+      <style>{RUN_RULES}</style>
       <div style={{ height: WEEKS * row }} className="relative">
         {row > 0 && Array.from({ length: lastDrawn - firstDrawn + 1 }, (_, at) => {
           const monday = weekAt(firstDrawn + at)

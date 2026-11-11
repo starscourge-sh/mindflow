@@ -39,8 +39,11 @@ function soon(): void {
   if (!frame) frame = requestAnimationFrame(mark)
 }
 
-// A PDF's pages change by the dozen as they are scrolled, and hold no faded list: their changes are passed over.
-const PASSED = '.pdf-pages'
+// A PDF's pages change by the dozen as they are scrolled, and hold no faded list: their changes are passed over. So are
+// those of anything marked data-unfaded, which holds no faded list and never changes one's size: the Calendar's run of
+// weeks and its heading, which change with each week and month a fling brings in. Counted, each one made every faded list
+// in the window be measured again, a forced layout in most frames of the fling.
+const PASSED = '.pdf-pages, [data-unfaded]'
 const counts = (one: MutationRecord): boolean => !(one.target instanceof Element ? one.target : one.target.parentElement)?.closest(PASSED)
 new MutationObserver((changes) => changes.some(counts) && soon()).observe(document.documentElement, { childList: true, subtree: true, characterData: true })
 soon()

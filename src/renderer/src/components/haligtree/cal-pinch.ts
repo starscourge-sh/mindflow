@@ -15,7 +15,7 @@ import { frameLoop, rubber, step } from './year-zoom'
 /** How far a pinch goes, in the year zoom's log units (a fifth wider), before the level changes. */
 const OPEN = 0.22
 /** A gap this long between a pinch's events: the fingers lifted, the next pinch is a new one. A pinch has no glide after it. */
-const QUIET = 160
+const QUIET = 300
 /** How much the week or day swells at the edge of the change, and shrinks pinching in. */
 const SWELL = 0.06
 

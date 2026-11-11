@@ -67,7 +67,7 @@ const LOOSE_FEW = 8
 /** An all-day event over more than one day: a bar across them in Month. */
 const manyDays = (one: Shown): boolean => !!one.allDay && dayKey(one.start) !== dayKey(dayjs(one.end).subtract(1, 'minute'))
 /** A study chip in a month's line: tinted, so it stands 2px under the line above (the date, or another chip), as a task's words do. */
-const MONTH_CHIP: React.CSSProperties = { height: 18, lineHeight: '18px', marginTop: 2 }
+const MONTH_CHIP: React.CSSProperties = { height: 'calc(1.25rem - 2px)', lineHeight: 'calc(1.25rem - 2px)', marginTop: 2 }
 const MUTED_DAY = 'bg-[color-mix(in_oklab,var(--background)_97%,var(--foreground))]'
 /** The week's number, Monday to Sunday, the way a Mac's Calendar counts it (ISO 8601). */
 const weekOf = (day: Dayjs): number => { const thursday = day.startOf('week').add(3, 'day'); return Math.floor(thursday.diff(thursday.startOf('year'), 'day') / 7) + 1 }
@@ -560,7 +560,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <Popover open={jump} onOpenChange={(open) => (open && chime('open'), setJump(open))}>
             <PopoverTrigger asChild>
               <button type="button" data-cal-jump aria-label={`${title}: go to a date (.)`} className="-ml-1.5 flex min-h-7 min-w-0 items-center gap-1 self-start rounded-md px-1.5 text-left outline-none transition-colors duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
-                <h1 data-cal-title className="truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground"><span className="@[48rem]/head:hidden">{passing((month) => month.format('MMM YYYY'), short)}</span><span className="hidden @[48rem]/head:inline">{passing((month) => month.format('MMMM YYYY'), title)}</span></h1>
+                <h1 data-cal-title data-unfaded className="truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground"><span className="@[48rem]/head:hidden">{passing((month) => month.format('MMM YYYY'), short)}</span><span className="hidden @[48rem]/head:inline">{passing((month) => month.format('MMMM YYYY'), title)}</span></h1>
                 <ChevronDown aria-hidden className={`size-4 shrink-0 text-foreground/70 transition-transform duration-150 motion-reduce:transition-none ${jump ? 'rotate-180' : ''}`} />
               </button>
             </PopoverTrigger>
@@ -575,7 +575,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-6 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
             {/* Narrow, the late pill waits on this line, so the title is never cut for it. */}
             {tight && lateMenu}
-            <span className="min-w-0 truncate"><span className="@[48rem]/head:hidden">{passing((month) => weeksSaid(month, true), said(true))}</span><span className="hidden @[48rem]/head:inline">{passing((month) => weeksSaid(month, false), subtitle)}</span></span>
+            <span data-unfaded className="min-w-0 truncate"><span className="@[48rem]/head:hidden">{passing((month) => weeksSaid(month, true), said(true))}</span><span className="hidden @[48rem]/head:inline">{passing((month) => weeksSaid(month, false), subtitle)}</span></span>
             {!narrow && mode !== 'month' && <span className="hidden min-w-0 items-center gap-1 @[66rem]/head:inline-flex"><PlannedTotal lead tasks={tasks} from={dayKey(first)} to={dayKey(last)} span={mode === 'day' ? (first.isSame(dayjs(), 'day') ? 'today' : 'this day') : current(first) ? 'this week' : 'that week'} /></span>}
           </p>
         </div>
