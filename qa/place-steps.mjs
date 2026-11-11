@@ -40,7 +40,10 @@ const wav = () => {
   for (let i = 0; i < 800; i++) b[44 + i] = 128 + (i % 40)
   return [...b]
 }
-await c.h.evaluate(([p, w]) => window.api.haligtree('media:add', [{ name: 'Walden.pdf', bytes: new Uint8Array(p) }, { name: 'Voice.wav', bytes: new Uint8Array(w) }]), [pdfBytes('Walden'), wav()])
+// And a video and a Word file, so Videos and Documents show too (a film's first box is enough to be known as one).
+const film = [...Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from('ftypisom'), Buffer.alloc(64)])]
+const word = [...Buffer.from('PK\u0003\u0004 a Word file')]
+await c.h.evaluate(([p, w, f, d]) => window.api.haligtree('media:add', [{ name: 'Walden.pdf', bytes: new Uint8Array(p) }, { name: 'Voice.wav', bytes: new Uint8Array(w) }, { name: 'Lecture.mp4', bytes: new Uint8Array(f) }, { name: 'Essay.docx', bytes: new Uint8Array(d) }]), [pdfBytes('Walden'), wav(), film, word])
 const side = async (button) => { await c.h.evaluate((b) => window.dispatchEvent(new MouseEvent('mouseup', { button: b })), button); await wait() }
 
 // Each place: how to open its page, how to pick a place, and what the screen says is picked.
@@ -55,17 +58,17 @@ const PLACES = [
     pick: (one) => `[data-chips="feed"] [data-chip="${one}"]`,
     read: () => c.h.evaluate(() => document.querySelector('[data-chips="feed"] [aria-selected="true"]')?.getAttribute('data-chip') ?? '')
   },
-  // Files' tabs (All, Books, Images, Audio), by their chips, every pair of neighbours.
-  ...[['All', 'Books'], ['Books', 'Images'], ['Images', 'Audio'], ['Audio', 'All']].map(([a, b]) => ({
+  // Files' tabs (All, Books, Images, Audio, Videos, Documents), by their chips, every pair of neighbours.
+  ...[['All', 'Books'], ['Books', 'Images'], ['Images', 'Audio'], ['Audio', 'Videos'], ['Videos', 'Documents'], ['Documents', 'All']].map(([a, b]) => ({
     name: `Files ${a} to ${b} (tabs)`, view: 'media', a, b,
     pick: (one) => `[data-media-kinds] button:has-text("${one}")`,
     read: readKind
   })),
   // And by the piles on All, which open their kind as its tab does: from All, a pile is one step, and Back is All again.
-  ...['pdf', 'picture', 'audio'].map((pile) => ({
+  ...['pdf', 'picture', 'audio', 'video', 'document'].map((pile) => ({
     name: `Files All to ${pile} (pile)`, view: 'media', a: 'All', b: pile,
     act: async (one) => c.h.locator(one === 'All' ? '[data-media-kinds] button:has-text("All")' : `[data-pile="${one}"]`).first().click(),
-    read: async () => ({ Books: 'pdf', Images: 'picture', Audio: 'audio', All: 'All' })[await readKind()] ?? ''
+    read: async () => ({ Books: 'pdf', Images: 'picture', Audio: 'audio', Videos: 'video', Documents: 'document', All: 'All' })[await readKind()] ?? ''
   })),
   {
     name: 'Stats', view: 'stats', a: 'Your month', b: 'Your year',
@@ -164,7 +167,7 @@ if (!process.env.ONLY || process.env.ONLY.includes('show')) {
   const [loose] = (await c.h.evaluate((bytes) => window.api.haligtree('media:add', [{ name: 'Let go.gif', bytes: new Uint8Array(bytes) }]), gif)).added
   await c.h.evaluate((src) => window.api.haligtree('media:keep', src, false), loose.src)
   const lit = () => c.h.evaluate((src) => !!document.querySelector(`[data-cursor][data-media][data-src="${src}"], [data-cursor] [data-media][data-src="${src}"]`), pic.src)
-  for (const left of ['All', 'Images', 'Audio', 'Books', 'Unlinked', 'already on Audio']) {
+  for (const left of ['All', 'Images', 'Audio', 'Books', 'Videos', 'Documents', 'Unlinked', 'already on Audio']) {
     try {
       c.errors.length = 0
       await c.send('view', 'media')

@@ -1,7 +1,8 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNav, useStepped } from '@/lib/nav'
-import { AudioLines, Check, Image as ImageIcon, Layers, LayoutGrid, Plus, Unlink } from 'lucide-react'
+import { AudioLines, Check, Files, Film, Image as ImageIcon, Layers, LayoutGrid, Plus, Unlink } from 'lucide-react'
+import { openFileLook } from '@/components/attachment/file-look'
 import { FileText } from '@/components/ui/icons'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { smallPicture } from '@/lib/notes'
@@ -26,7 +27,7 @@ import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
 import { heroOpen } from '@/lib/hero'
-import { AudioDays, BOOK, BOOK_GAP, letGoWhen, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RECENT_CARD, RECENT_GAP, RecentGrid, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, useTileWays, type Shelf, type TileWays } from './files-shelves'
+import { AudioDays, BOOK, BOOK_GAP, FileFace, kindWord, letGoWhen, useFileFace, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RECENT_CARD, RECENT_GAP, RecentGrid, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, useTileWays, type Shelf, type TileWays } from './files-shelves'
 import { Chip, Display, arrange, useView, type Density, type Facet } from './display'
 import { FILE_SORTS, FilesTable, fileOrder, playFile, stopFile, type FileFacts } from './files-table'
 import { openedHere } from '@/lib/media-opened'
@@ -38,9 +39,9 @@ import type { Media, MediaKind, MediaUse } from '../../../../main/media'
 import { quoted } from '../../../../main/clip'
 
 /** The tabs over the page: every kind at once, then each shelf (a GIF sits with the pictures). */
-const ICONS: Record<Shelf, React.ComponentType<{ className?: string }>> = { pdf: FileText, picture: ImageIcon, audio: AudioLines }
+const ICONS: Record<Shelf, React.ComponentType<{ className?: string }>> = { pdf: FileText, picture: ImageIcon, audio: AudioLines, video: Film, document: Files }
 /** What each tab's own view is called in Display's "View as", beside Table. */
-const OWN_VIEW: Record<'all' | Shelf, string> = { all: 'Piles', pdf: 'Shelf', picture: 'Grid', audio: 'List' }
+const OWN_VIEW: Record<'all' | Shelf, string> = { all: 'Piles', pdf: 'Shelf', picture: 'Grid', audio: 'List', video: 'Grid', document: 'Grid' }
 /** The latest of some dates, written as ISO text; '' when none. */
 const later = (...all: (string | null | undefined)[]): string => all.reduce<string>((most, one) => (one && one > most ? one : most), '')
 /** A tile as wide as a note's in Gems' grid, with the same room between. */
@@ -91,7 +92,7 @@ function AddBox({ onShow, onClose }: { onShow: (src: string) => void; onClose: (
         <Button size="sm" className="h-8 cursor-pointer gap-1.5 px-3" data-media-choose onClick={() => void addFromPicker(done)}><Plus className="size-4" />Choose files…</Button>
         <span>or drop them on this box, or paste with <Kbd>⌘V</Kbd></span>
       </span>
-      <span className="text-xs text-muted-foreground">Pictures, GIFs, PDFs and audio. Pick as many as you like.</span>
+      <span className="text-xs text-muted-foreground">Any file: pictures, videos, PDFs, audio, Word, Pages and spreadsheets, ZIPs. Pick as many as you like.</span>
     </div>
   )
 }
@@ -172,10 +173,10 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   }, [all, query, inside, kind, decks, unlinkedOnly, table])
   // Table's filters, from Display: what kind (where there is more than one), and whether a note holds it.
   const facets = useMemo<Facet<Media>[]>(() => [
-    ...(kind === 'all' ? [{ key: 'kind', label: 'Kind', options: [{ id: 'pdf', label: 'Books' }, { id: 'picture', label: 'Pictures' }, { id: 'gif', label: 'GIFs' }, { id: 'audio', label: 'Recordings' }], test: (one: Media, id: string) => one.kind === id }]
+    ...(kind === 'all' ? [{ key: 'kind', label: 'Kind', options: [{ id: 'pdf', label: 'Books' }, { id: 'picture', label: 'Pictures' }, { id: 'gif', label: 'GIFs' }, { id: 'audio', label: 'Recordings' }, { id: 'video', label: 'Videos' }, { id: 'document', label: 'Documents' }].filter((option) => all.some((one) => one.kind === option.id)), test: (one: Media, id: string) => one.kind === id }]
       : kind === 'picture' ? [{ key: 'kind', label: 'Kind', options: [{ id: 'picture', label: 'Pictures' }, { id: 'gif', label: 'GIFs' }], test: (one: Media, id: string) => one.kind === id }] : []),
     { key: 'where', label: 'In a note', options: [{ id: 'used', label: 'In a note' }, { id: 'free', label: 'In no note' }], test: (one, id) => (one.uses.length > 0) === (id === 'used') }
-  ], [kind])
+  ], [kind, all])
   // In Table, in the order Display or a column asks for; else as each view draws its own.
   const shown = useMemo(() => (table ? arrange(found, view, facets, fileOrder(facts))[0][1] : found), [table, found, view, facets, facts])
   const unlinkedCount = useMemo(() => all.filter(isUnlinked).length, [all])
@@ -423,7 +424,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       ) : unloaded(all) ? null : (<>
         {addBox && <div className="mx-5">{addBox}</div>}
         <Empty title="No pictures or files yet" action={<Button size="sm" className="h-8 cursor-pointer px-3" data-media-add-empty onClick={() => (chime('open'), setAdding(true))}><Plus className="size-3.5" />Add</Button>}>
-          Press “Add”, or drop pictures, GIFs, PDFs and audio anywhere on this page. Paste or drop one into a note and it shows up here too.
+          Press “Add”, or drop any file anywhere on this page: pictures, videos, PDFs, audio, documents. Paste or drop one into a note and it shows up here too.
         </Empty>
       </>)}
     </Page>
@@ -459,6 +460,7 @@ function openFile(one: Media, aside = false, page?: number): void {
   if (one.kind === 'pdf') return void openPdf(one.src, one.name, page ?? lastPage.get(one.src), undefined, aside)
   const tile = document.querySelector(`[data-media][data-src="${CSS.escape(one.src)}"]`)
   if (one.kind === 'audio') return void tile?.querySelector<HTMLElement>('[data-sound-play]')?.click()
+  if (one.kind === 'video' || one.kind === 'document') return openFileLook(one, tile?.querySelector('img') ?? tile)
   void openLook(one.src, tile?.querySelector('img') ?? tile, bare(one.name))
 }
 
@@ -472,14 +474,14 @@ function openUse(use: MediaUse, src: string, onOpen: (type: string, id: string) 
 /** An attachment no note holds any more: Unlinked, in Files' own words. */
 const isUnlinked = (one: Media): boolean => !one.deck && !one.uses.length && one.how === 'attachment'
 
-/** What a file's tile says it is, in place of a picture. */
-const WORD: Record<MediaKind, string> = { picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording' }
 
 /** A picture's or a file's right-click menu, on its tile and in the "Recent pictures" row. */
 export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onBin: () => void, /** In Table, where ↵ opens the file itself and its note is the second way. */ asFile?: () => void): RowItem[] {
   const picture = one.kind === 'picture' || one.kind === 'gif'
   const used = one.uses.length > 0
-  const fileWord = picture ? 'Look at it' : one.kind === 'pdf' ? 'Open in the reader' : 'Play it'
+  const fileWord = picture ? 'Look at it' : one.kind === 'pdf' ? 'Open in the reader' : one.kind === 'document' ? 'Preview it' : 'Play it'
+  // A video or a document opens in its own app too, as Finder's double-click would.
+  const ownApp = (one.kind === 'video' || one.kind === 'document') && !one.gone
   return [
     asFile && { label: fileWord, keys: '↵', run: asFile },
     asFile && used && { label: 'Open note', run: onOpen },
@@ -495,6 +497,7 @@ export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onB
     picture && { label: 'Copy image', run: () => void window.api.copyImage(one.src).then((done) => (done ? (chime('copy'), toast('Copied the picture')) : refuse('Could not copy it', 'error'))) },
     // Its words' lines under one, as on a picture in a note.
     picture && pictureLines(one.src).length > 0 && { label: 'Text in it', items: pictureLines(one.src) },
+    ownApp && { label: 'Open in its app', run: () => void window.api.openFile(one.src).then((done) => (done ? chime('open') : refuse('No app on this Mac opens it'))) },
     { label: 'Show in Finder', run: () => void window.api.showFile(one.src) },
     'separator',
     // On, it stays in Files when no note holds it; off, the last note to let it go leaves it under Unlinked.
@@ -511,7 +514,7 @@ const Tile = memo(function Tile({ one, at, picked, ways }: { one: Media; at: boo
   // A PDF is named by the title it carries, as the reader names it, and shows its first page.
   const cover = usePdfCover(one.kind === 'pdf' && !one.gone ? one.src : null, one.name)
   // A recording by its name without ".wav", as its player names it.
-  const label = cover?.title || (one.kind === 'audio' && one.name ? soundTitle(one.name, null) : one.name ? bare(one.name) : one.title) || (one.uses.length ? 'Untitled' : WORD[one.kind])
+  const label = cover?.title || (one.kind === 'audio' && one.name ? soundTitle(one.name, null) : one.name ? bare(one.name) : one.title) || (one.uses.length ? 'Untitled' : kindWord(one))
   const audio = one.kind === 'audio'
   const Press = (audio ? 'div' : 'button') as React.ElementType
   return (
@@ -539,7 +542,7 @@ function Where({ one, label, onUse }: { one: Media; label: string; onUse: (use: 
   if (!one.uses.length && one.how === 'attachment' && one.letGoAt) return <span data-media-where="unlinked" className={line}>Unlinked {letGoWhen(one.letGoAt)}</span>
   if (!one.uses.length) return <span data-media-where="none" className={line}>{one.added ? 'In no note yet' : 'In no note'}</span>
   const others = label === one.uses[0].title ? one.uses.slice(1) : one.uses
-  if (!others.length) return <span data-media-where="own" className={line}>{WORD[one.kind]}</span>
+  if (!others.length) return <span data-media-where="own" className={line}>{kindWord(one)}</span>
   const way = 'cursor-pointer underline decoration-foreground/25 underline-offset-2 hover:text-foreground hover:decoration-foreground'
   return (
     <span data-media-where="used" className={line}>
@@ -560,6 +563,9 @@ function Where({ one, label, onUse }: { one: Media; label: string; onUse: (use: 
 /** The tile's top: the picture made small, a PDF's first page, or a clean card for a file with none. */
 function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element {
   const [thumb, setSmall] = useState<string | null>(null)
+  // A video's frame or a document's page, from Quick Look in the main process, or the Mac's icon for its kind.
+  const file = one.kind === 'video' || one.kind === 'document'
+  const face = useFileFace(file ? one : null, true)
   // A PDF's face is its cover, drawn by the reader's own renderer (Quick Look often draws none).
   const small = one.kind === 'pdf' ? cover ?? null : thumb
   const [moving, setMoving] = useState(false)
@@ -567,14 +573,20 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
   useEffect(() => () => clearTimeout(rest.current), [])
   // Asked for only once the tile is drawn: a row of the grid out of sight never asks.
   useEffect(() => {
-    if (one.kind === 'audio' || one.kind === 'pdf' || one.gone) return
+    if (one.kind === 'audio' || one.kind === 'pdf' || file || one.gone) return
     let live = true
     void smallPicture(one.src, true).then((made) => live && setSmall(made || ''))
     return () => void (live = false)
   }, [one.src, one.kind, one.gone])
   const frame = `relative aspect-[4/3] w-full overflow-hidden bg-accent ${one.private ? 'private-text' : ''}`
-  if (one.gone) return <span className={`${frame} flex flex-col items-center justify-center gap-1.5 px-3 text-muted-foreground`}><FileText className="size-7" /><span className="text-xs font-medium text-foreground">{WORD[one.kind]}</span></span>
+  if (one.gone) return <span className={`${frame} flex flex-col items-center justify-center gap-1.5 px-3 text-muted-foreground`}><FileText className="size-7" /><span className="text-xs font-medium text-foreground">{kindWord(one)}</span></span>
   if (one.kind === 'audio') return <span className={frame}><AudioFace one={one} /></span>
+  if (file) return (
+    <span className={frame} data-file-kind={one.kind}>
+      <FileFace one={one} face={face} />
+      {!face?.icon && face && <span className="absolute bottom-1.5 left-1.5 rounded bg-background px-1.5 py-px text-xs font-medium">{kindWord(one)}</span>}
+    </span>
+  )
   if (small)
     return (
       // A GIF stands still until rested on (the same grace as a book's cover), then moves: a page of them never runs at once, and a sweep across sets none off.
@@ -582,7 +594,7 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
       // A PDF's cover is a page: drawn on the same paper as the pages scrubbed over it (pdf.css), so the two never read as two looks.
       <span className={one.kind === 'pdf' ? `${frame.replace(' bg-accent', '')} pdf-face-cover` : frame} data-pdf-peek-scrub={one.kind === 'pdf' ? '' : undefined} onPointerEnter={() => one.kind === 'gif' && (clearTimeout(rest.current), (rest.current = window.setTimeout(() => setMoving(true), GRACE)))} onPointerLeave={() => (clearTimeout(rest.current), setMoving(false))}>
         <img src={moving ? one.src : small} alt="" draggable={false} decoding="async" className={`size-full ${one.kind === 'pdf' ? 'object-contain' : 'object-cover'} animate-in fade-in-0 duration-200`} />
-        {one.kind !== 'picture' && <span className="absolute bottom-1.5 left-1.5 rounded bg-background px-1.5 py-px text-xs font-medium">{WORD[one.kind]}</span>}
+        {one.kind !== 'picture' && <span className="absolute bottom-1.5 left-1.5 rounded bg-background px-1.5 py-px text-xs font-medium">{kindWord(one)}</span>}
       </span>
     )
   return (
@@ -590,7 +602,7 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
       {small === '' && (
         <>
           <FileText className="size-7" />
-          <span className="text-xs font-medium text-foreground">{WORD[one.kind]}</span>
+          <span className="text-xs font-medium text-foreground">{kindWord(one)}</span>
         </>
       )}
     </span>

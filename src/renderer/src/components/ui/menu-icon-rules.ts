@@ -39,7 +39,7 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^put .*in a note/i, FilePlus],
   [/^used in$/i, Link],
   [/^show in media$/i, Image],
-  [/^look at it$/i, Eye],
+  [/^look at it$|^preview it$/i, Eye],
   [/^play it$/i, Play],
   [/^a book with no file yet/i, BookOpen],
   // The PDF reader's Pages menu: how pages are laid out, and how they look.

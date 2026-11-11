@@ -68,3 +68,8 @@ test('ticked menu lines and switches set their icon in front, as plain lines do'
     }
   }
 })
+
+// Files' first line for a file used by no note, chosen by its kind in media-view.tsx (mediaMenu), so read by no scan above.
+test("every kind's first line in Files' menu has its icon", () => {
+  for (const label of ['Look at it', 'Open in the reader', 'Play it', 'Preview it', 'Open in its app']) assert.notEqual(menuIcon(label), Dot, label)
+})
