@@ -19,7 +19,7 @@ import { chime, quietFor } from '@/lib/sound'
 import { taskName } from '@/lib/tasks'
 import { loud } from '@/lib/loud'
 import { edge } from '@/lib/haptics'
-import { EASE, byKeys, useStill } from '@/lib/motion'
+import { EASE, byKeys, glideWay, glides, useStill } from '@/lib/motion'
 import { moveMark, onDay as marksOn, useMilestones, type Milestone } from '@/lib/milestones'
 import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay } from '@/lib/calendar'
 import { DayDots, DotsKey, openedLevel } from './day-dots'
@@ -420,7 +420,7 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
     passing.set(held.startOf('month'))
     const to = indexOf(held.startOf('month')) * row
     if (Math.abs(el.scrollTop - to) < 1) return
-    const instant = still || byKeys()
+    const instant = still || !glides() || byKeys()
     gliding.current = !instant
     el.scrollTo({ top: to, behavior: instant ? 'instant' : 'smooth' })
   }, [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -463,7 +463,7 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
       gliding.current = false
       if (shield.current) shield.current.hidden = true
       const near = Math.round(el.scrollTop / row) * row
-      if (Math.abs(el.scrollTop - near) > 0.5) return el.scrollTo({ top: near, behavior: still ? 'instant' : 'smooth' })
+      if (Math.abs(el.scrollTop - near) > 0.5) return el.scrollTo({ top: near, behavior: still ? 'instant' : glideWay() })
       settle(el, false)
       rest()
     }

@@ -144,7 +144,7 @@ import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/haligt
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
 import { ArrowRight, ChevronRight, History } from '@/components/ui/icons'
-import { still } from '@/lib/motion'
+import { glideWay } from '@/lib/motion'
 import { SwipeBack, placesFrom } from '@/components/haligtree/swipe-back'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
 import { dated, dayjs, dayKey, daysFromToday, noon, num, plural } from '../../main/dates'
@@ -1313,10 +1313,9 @@ export function Home(): React.JSX.Element {
   // once the page is drawn, that group's heading scrolled to the top.
   const landOnGroup = (heading: string): void => {
     const until = Date.now() + 3000
-    const calm = still()
     const look = (): void => {
       const found = [...document.querySelectorAll<HTMLElement>('[class*="@container/page"] :is(h2, h3)')].find((one) => one.textContent?.trim().startsWith(heading))
-      if (found) return found.scrollIntoView({ block: 'start', behavior: calm ? 'auto' : 'smooth' })
+      if (found) return found.scrollIntoView({ block: 'start', behavior: glideWay() })
       // A long list draws only what is in sight: a screen further down, and look again.
       const list = [...document.querySelectorAll<HTMLElement>('[class*="@container/page"] *')].find((one) => one.scrollHeight > one.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(one).overflowY))
       if (list) list.scrollTop += list.clientHeight

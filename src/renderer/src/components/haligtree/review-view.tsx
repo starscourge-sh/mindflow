@@ -8,7 +8,7 @@ import { RecallScore } from './recall-score'
 import type { JSONContent } from '@tiptap/core'
 
 import { AnimatePresence, animate, motion, useMotionValue, type AnimationPlaybackControls } from 'motion/react'
-import { byKeys, EASE, shift, spring, still } from '@/lib/motion'
+import { byKeys, EASE, glideWay, shift, spring, still } from '@/lib/motion'
 import { Unfold } from './glide'
 
 import { HaligtreeEditor } from '../haligtree'
@@ -1449,7 +1449,7 @@ function SourcePanel({ source, onClose }: { source: Source; onClose: () => void 
       const flat = (el: HTMLElement): string => (el.textContent ?? '').toLowerCase().replace(/\s+/g, ' ')
       const hit = needles.map((needle) => blocks.find((el) => flat(el).includes(needle))).find(Boolean) ?? blocks[0]
       hit.classList.add('rounded-sm', 'bg-[color-mix(in_srgb,var(--tt-brand-color-400)_16%,transparent)]', 'ring-4', 'ring-[color-mix(in_srgb,var(--tt-brand-color-400)_16%,transparent)]')
-      hit.scrollIntoView({ block: 'center', behavior: still() ? 'auto' : 'smooth' })
+      hit.scrollIntoView({ block: 'center', behavior: glideWay() })
     }
     find()
     return () => cancelAnimationFrame(frame)

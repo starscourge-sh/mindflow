@@ -91,7 +91,8 @@
 
 // Nor anybody with Motion off in Settings: the next heading, the outline and
 // find next jump there at once.
-:root[data-motion='off'] .haligtree-editor-content.is-smooth {
+:root[data-motion='off'] .haligtree-editor-content.is-smooth,
+:root[data-smooth-scroll='off'] .haligtree-editor-content.is-smooth {
   scroll-behavior: auto;
 }
 

@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { call, useLive } from '@/lib/haligtree'
-import { still } from '@/lib/motion'
+import { glideWay, still } from '@/lib/motion'
 import { pictureIn } from '@/lib/answer-picture'
 import { num, plural } from '../../../../main/dates'
 import { boxOf, coverOf, extent, groupsOf, inside, moved, overlap, resized, seen, snapped, stacked, type Cover, type CoverKind, type Hide, type Label, type Occlusion } from '../../../../main/occlusion'
@@ -188,7 +188,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
     if (!picture) return
     const form = room.current?.closest('[data-card-form]') as HTMLElement | null
     if (form && !form.contains(document.activeElement)) form.focus({ preventScroll: true })
-    room.current?.scrollIntoView({ block: 'nearest', behavior: still() ? 'auto' : 'smooth' })
+    room.current?.scrollIntoView({ block: 'nearest', behavior: glideWay() })
   }, [picture?.src]) // eslint-disable-line react-hooks/exhaustive-deps
   const tall = Math.min(typeof window === 'undefined' ? 600 : window.innerHeight * 0.55, 560)
   const fit = size && width ? Math.min(width / size.w, tall / size.h) : 0

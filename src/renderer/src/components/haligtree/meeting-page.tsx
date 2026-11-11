@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { still } from '@/lib/motion'
+import { glideWay } from '@/lib/motion'
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/react'
 import { Bookmark, CalendarDays, Check, CircleHelp, ListChecks, ListTodo, Mic, UserRound, X } from 'lucide-react'
 
@@ -23,7 +23,6 @@ const ROW = 'flex w-full cursor-pointer items-baseline gap-2.5 rounded-md px-2 p
 const CHIP = 'inline-flex h-6 cursor-pointer items-center gap-1 rounded-full border px-2.5 text-meta text-muted-foreground transition-[color,border-color,scale] hover:border-foreground/25 hover:text-foreground active:scale-[0.97]'
 const QUIET_BUTTON = 'flex h-7 shrink-0 cursor-pointer items-center gap-1 rounded-md px-2 text-control text-muted-foreground transition-[color,background-color,scale,opacity] hover:bg-accent hover:text-foreground active:scale-[0.97]'
 /** Motion off in Settings, or Reduce motion on. */
-const reduced = still
 
 /**
  * A meeting's page, its own kind: when and how long, who was there (each voice named with one click), the recording
@@ -108,7 +107,7 @@ export function MeetingView({ node, editor, updateAttributes }: NodeViewProps): 
     if (!following.current || !(inView(r) || (prior && inView(prior)))) return
     // Kept in the middle third: moved only as it nears the foot of the page.
     if (r.bottom > view.top + view.height * 0.7 || r.top < view.top + view.height * 0.15)
-      scroller.scrollBy({ top: r.top - (view.top + view.height * 0.35), behavior: reduced() ? 'instant' : 'smooth' })
+      scroller.scrollBy({ top: r.top - (view.top + view.height * 0.35), behavior: glideWay() })
   }, [lit])
 
   useEffect(() => {

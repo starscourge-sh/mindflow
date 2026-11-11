@@ -1,5 +1,5 @@
 import { afterLayout } from './after-layout'
-import { still } from './motion'
+import { glides } from './motion'
 
 /**
  * Brings a row into its list's view the way a reader's sidebar follows the page: an eased glide,
@@ -57,7 +57,7 @@ function glideNow(row: HTMLElement, { jump = false, margin = 8, centre = false }
   if (glide) return void ((glide.row = row), (glide.centre = centre))
   const target = wanted(list, row, margin, centre)
   if (target === list.scrollTop) return
-  if (jump || still()) return void (list.scrollTop = target)
+  if (jump || !glides()) return void (list.scrollTop = target)
   const far = FAR * list.clientHeight
   if (Math.abs(target - list.scrollTop) > far) list.scrollTop = target - Math.sign(target - list.scrollTop) * far
   const own: Glide = {

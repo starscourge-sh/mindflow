@@ -37,7 +37,7 @@ import { MonthPlan } from './month-plan'
 import { exampleIdeas, exampleInbox, exampleQuestions, exampleTasks } from '@/lib/examples'
 import { Signed } from './signature'
 import { hoverNote } from './note-preview'
-import { byKeys, spring, still, useFirstVisit } from '@/lib/motion'
+import { byKeys, glideWay, spring, still, useFirstVisit } from '@/lib/motion'
 import { Highlight, useChosen, useFluidHover, Weighted } from './glide'
 import { KindBack, backLine, type Returning } from './kind-back'
 import { GoalStrip } from './goals-view'
@@ -374,7 +374,7 @@ function Row({ title, onAll, menu, children }: { title: ReactNode; onAll?: () =>
     const box = scroller.current
     if (!box) return
     chime('riffle')
-    box.scrollBy({ left: by * box.clientWidth * 0.8, behavior: still() ? 'auto' : 'smooth' })
+    box.scrollBy({ left: by * box.clientWidth * 0.8, behavior: glideWay() })
   }
   const mask = `linear-gradient(to right, ${edges.left ? 'transparent 0, black 2rem' : 'black 0'}, ${edges.right ? 'black calc(100% - 3rem), transparent 100%' : 'black 100%'})`
   return (
@@ -405,7 +405,7 @@ function Row({ title, onAll, menu, children }: { title: ReactNode; onAll?: () =>
         const box = scroller.current
         if (!box) return
         chime('riffle')
-        box.scrollTo({ left: at * box.scrollWidth - box.clientWidth / 2, behavior: still() ? 'auto' : 'smooth' })
+        box.scrollTo({ left: at * box.scrollWidth - box.clientWidth / 2, behavior: glideWay() })
       }} />}
     </section>
   )
@@ -809,7 +809,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       const go = (to: HTMLElement | undefined): void => {
         if (!to) return
         to.focus({ preventScroll: true })
-        to.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: still() ? 'auto' : 'smooth' })
+        to.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: glideWay() })
       }
       if (!inside) return go(all[0])
       const from = here.getBoundingClientRect()

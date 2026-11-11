@@ -101,8 +101,14 @@ export const shift = (transform: string): string =>
  * How a scroll the app makes goes: a glide, or there at once with Motion off
  * or Reduce motion. For `scrollIntoView` and `scrollTo`, which ignore the CSS.
  */
-export const glideWay = (): ScrollBehavior =>
-  document.documentElement.dataset.motion === 'off' || reduced() ? 'instant' : 'smooth'
+export const glideWay = (): ScrollBehavior => (glides() ? 'smooth' : 'instant')
+
+/**
+ * Whether a scroll the app makes on its own may glide: Motion on, Reduce motion off, and "Smooth scrolling" on
+ * (Settings' smoothScroll, said on the root by lib/haligtree.ts). The one check every such scroll asks: the page's
+ * wheel (ui.tsx useSmooth), a list following what is read (glide-into-view.ts), a jump to a heading, "Top".
+ */
+export const glides = (): boolean => !still() && document.documentElement.dataset.smoothScroll !== 'off'
 
 // Whether the last thing you did was a key press or a pointer. What a key
 // reaches (G and a letter, j and k, ⌘[) is done hundreds of times a day, so

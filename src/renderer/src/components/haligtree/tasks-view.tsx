@@ -55,7 +55,7 @@ import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
 import { dated, dayjs, dayKey, num, startOfDay } from '../../../../main/dates'
 import { motion } from 'motion/react'
-import { EASE, EASING, shift, still } from '@/lib/motion'
+import { EASE, EASING, glideWay, shift } from '@/lib/motion'
 import { notes, type Day } from '@/lib/notes'
 import { ProgressBar } from './progress-bar'
 import { SessionFooter } from './session-footer'
@@ -1867,7 +1867,7 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
 
   // Sent here from the bubble (its task's name clicked): the panel scrolls to this part.
   const here = useRef<HTMLDivElement>(null)
-  useEffect(() => sessionsAsked(taskId, () => here.current?.scrollIntoView({ block: 'start', behavior: still() ? 'auto' : 'smooth' })), [taskId])
+  useEffect(() => sessionsAsked(taskId, () => here.current?.scrollIntoView({ block: 'start', behavior: glideWay() })), [taskId])
   return (
     <div ref={here} data-task-sessions className="scroll-mt-3">
     <Island compact title={<>Sessions {kept ? <>· <Rolling text={kept} /></> : ''}</>}>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef } from 'react'
-import { still } from './motion'
+import { glideWay } from './motion'
 import { useHere } from './split'
 import { refuse } from '@/components/haligtree/ui'
 
@@ -24,7 +24,7 @@ export function showInList(id: string, tries = 6): void {
     const page = document.activeElement?.closest('[data-page]') ?? document.querySelector('[data-page]')
     const row = page?.querySelector<HTMLElement>(`[data-row][data-id="${CSS.escape(id)}"], [data-task-row][data-id="${CSS.escape(id)}"]`)
     if (!row) return void (tries > 0 ? setTimeout(() => showInList(id, tries - 1), 80) : refuse('It is not in this list'))
-    row.scrollIntoView({ block: 'center', behavior: still() ? 'auto' : 'smooth' })
+    row.scrollIntoView({ block: 'center', behavior: glideWay() })
     row.classList.remove('mf-arrive')
     void row.offsetWidth
     row.classList.add('mf-arrive')

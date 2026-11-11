@@ -9,7 +9,7 @@ import { Check, ChevronRight, CircleX, type LucideIcon } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import XIcon from '@/components/ui/x-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { byKeys, EASE, glideWay, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
+import { byKeys, EASE, glideWay, glides, hush, shift, speak, speakAfter, spring as springs, still, useFirstVisit } from '@/lib/motion'
 import { stepTap } from '@/lib/haptics'
 import { detent, slotTicker } from '@/lib/proximity'
 import { Arrow } from './marks'
@@ -1882,8 +1882,8 @@ export function jumpTo(box: HTMLElement, top: number): void {
 }
 export function glideTo(box: HTMLElement, top: number): void {
   const lenis = smooth.get(box)
-  // Motion can be turned off after the box was set up to glide.
-  const calm = still()
+  // Motion or "Smooth scrolling" can be turned off after the box was set up to glide.
+  const calm = !glides()
   if (lenis) return lenis.scrollTo(top, calm ? { immediate: true } : { duration: 0.4 })
   box.scrollTo({ top, behavior: calm ? 'instant' : 'smooth' })
 }

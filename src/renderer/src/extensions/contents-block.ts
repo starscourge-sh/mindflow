@@ -6,7 +6,7 @@ import { ReactNodeViewRenderer } from "@tiptap/react"
 import { ContentsView } from "@/components/toc/contents-view"
 import { isFolded } from "@/extensions/heading-fold"
 import { cue } from "@/lib/cues"
-import { still } from "@/lib/motion"
+import { glideWay } from "@/lib/motion"
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -50,7 +50,7 @@ export function jumpTo(editor: Editor, pos: number): void {
     }
     const scroller = box as HTMLElement
     const goal = (): number => heading.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 24
-    scroller.scrollTo({ top: goal(), behavior: still() ? "instant" : "smooth" })
+    scroller.scrollTo({ top: goal(), behavior: glideWay() })
     holdOn(scroller, heading, goal)
   })
   setTimeout(() => !view.isDestroyed && view.dispatch(view.state.tr.setMeta(landed, null).setMeta("addToHistory", false)), 1400)

@@ -8,6 +8,7 @@ import { cardListOf } from "../../../main/card-lists"
 import { openPdf } from "@/components/pdf/pdf-reader"
 import { labelFor } from "@/components/pdf/pdf-labels"
 import { isAudio } from "@/lib/transcribe"
+import { glideWay } from "@/lib/motion"
 import { linesTyped } from "@/lib/text-edit"
 
 /** A video file kept in the note, which its times play too. */
@@ -151,7 +152,7 @@ export function playAt(root: HTMLElement, src: string, seconds: number): boolean
   if (!audio) return false
   audio.currentTime = seconds
   void audio.play()
-  audio.closest(".tiptap-attachment")?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+  audio.closest(".tiptap-attachment")?.scrollIntoView({ block: "nearest", behavior: glideWay() })
   return true
 }
 
@@ -254,13 +255,13 @@ export const LineCards = Extension.create({
             if (file && !view.dom.querySelector("[data-youtube-video]")) {
               file.currentTime = Number(time.dataset.seconds)
               void file.play()
-              file.scrollIntoView({ block: "center", behavior: "smooth" })
+              file.scrollIntoView({ block: "center", behavior: glideWay() })
               return true
             }
             const video = view.dom.querySelector<HTMLElement>("[data-youtube-video]")
             if (!video) return false
             window.dispatchEvent(new CustomEvent("haligtree:video-at", { detail: { seconds: Number(time.dataset.seconds), video } }))
-            video.scrollIntoView({ block: "center", behavior: "smooth" })
+            video.scrollIntoView({ block: "center", behavior: glideWay() })
             return true
           },
           // A pasted list of "term - meaning" lines goes in as it is, and a
