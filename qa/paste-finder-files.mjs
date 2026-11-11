@@ -8,8 +8,8 @@
 // says which of its files lie on disk, so nothing is asked. Here real files are put on the clipboard the way Finder
 // puts them (their place on disk, through Electron's own clipboard in the app under test) and pasted with ⌘V:
 //   - a picture comes in as a picture, a text file as a card, two files as two;
-//   - with the file's icon and name on the clipboard beside it (as Finder writes them), the file comes in once,
-//     and neither the icon nor the name is pasted;
+//   - with the file's name on the clipboard beside it (as Finder writes it), the file comes in once and the name
+//     is not pasted as words (the icon's picture is asked for too, but Electron's clipboard does not keep it);
 //   - plain words pasted land as words;
 //   - main was never asked `clipboard:file-names` or `clipboard:files` (they are gone);
 // and the other call a page made as it loaded, `window:room`, is not made either: quick capture reads its room from
@@ -83,7 +83,9 @@ try {
   sel = await note('A copied file with its icon')
   got = await paste(sel, async ({ clipboard, ClipboardItem }, [format, url, png, name]) => clipboard.write([new ClipboardItem({ [format]: new Blob([url]), 'image/png': new Blob([Uint8Array.from(png)], { type: 'image/png' }), 'text/plain': new Blob([name], { type: 'text/plain' }) })]), [FORMAT('public.file-url'), pathToFileURL(words).href, [...PNG], 'reading-list.txt'])
   const seen = await electron.evaluate(async ({ clipboard }) => (await clipboard.read()).flatMap((item) => item.types).filter((type) => /^(text\/|image\/)/.test(type)))
-  check('with its icon and name on the clipboard too, the file comes in once: no icon picture, no name as words', got.cards.join() === 'reading-list.txt' && got.pictures === 0 && !/reading-list/.test(got.words), `${JSON.stringify(got)}; the clipboard held ${JSON.stringify(seen)}`)
+  // Electron's clipboard keeps the name beside the file but not the icon's picture (it held text/plain and
+  // text/uri-list here), so the icon is asked for and what was really held is printed: the name is what this proves.
+  check('with its name on the clipboard beside it (and its icon, where the clipboard keeps one), the file comes in once: no name as words, no icon picture', got.cards.join() === 'reading-list.txt' && got.pictures === 0 && !/reading-list/.test(got.words) && seen.includes('text/plain'), `${JSON.stringify(got)}; the clipboard held ${JSON.stringify(seen)}`)
 
   // Two files copied together.
   sel = await note('Two copied files')
