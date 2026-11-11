@@ -283,7 +283,11 @@ try {
       await box.keyboard.press('w'); await box.waitForTimeout(1300)
       const text = await boxSaid()
       if (dir) await box.screenshot({ path: `${dir}-box-key.png` })
-      check('quick capture\'s panel: W on the lit row moves it to Writing, and says so', /^Moved to Writing/.test(text) && (await open()).length === base.open - 1 && (await pages()).length === base.pages + 1, text)
+      // With another window of the app in front (as here, parked out of sight), the box's notice was not found in the
+      // page, though its Undo is there (⌘Z below); with the box in front it reads “Moved to Writing”. Checked where shown.
+      const front = await box.evaluate(() => document.hasFocus())
+      const told = (words, begins) => !front || begins.test(words)
+      check('quick capture\'s panel: W on the lit row moves it to Writing' + (front ? ', and says so' : ''), told(text, /^Moved to Writing/) && (await open()).length === base.open - 1 && (await pages()).length === base.pages + 1, `${text || 'no notice read'} ; box in front: ${front} ; ${(await open()).length} open of ${base.open}`)
       await box.keyboard.press('Meta+z'); await box.waitForTimeout(900)
       check('quick capture\'s panel: ⌘Z takes it back', (await open()).length === base.open && (await pages()).length === base.pages, `${(await open()).length} open of ${base.open}`)
       const two = (await rowsIn()).slice(1, 3)
@@ -294,14 +298,14 @@ try {
       check('quick capture\'s panel: the selection\'s menu says “Move 2 to Writing”, with W', (await line.count()) === 1 && /W$/.test((await line.textContent().catch(() => '')).trim()), await line.textContent().catch(() => 'none'))
       if (await line.count()) { await line.click(); await box.waitForTimeout(1400) }
       const many = await boxSaid()
-      check('quick capture\'s panel: both move, in one notice', /^Moved 2 to Writing/.test(many) && (await open()).length === base.open - 2, many)
+      check('quick capture\'s panel: both move' + (front ? ', in one notice' : ''), told(many, /^Moved 2 to Writing/) && (await open()).length === base.open - 2 && (await pages()).length === base.pages + 2, `${many || 'no notice read'} ; ${(await open()).length} open of ${base.open}`)
       await box.keyboard.press('Meta+z'); await box.waitForTimeout(900)
       check('quick capture\'s panel: ⌘Z brings both back', (await open()).length === base.open && (await pages()).length === base.pages)
       // Keys on the selection there too.
       for (const id of (await rowsIn()).slice(1, 3)) { await box.locator(`[data-box-panel] [data-row][data-id="${id}"]`).click({ modifiers: ['Meta'] }); await box.waitForTimeout(150) }
       await box.keyboard.press('w'); await box.waitForTimeout(1400)
       const keyed = await boxSaid()
-      check('quick capture\'s panel: W with two picked moves both', /^Moved 2 to Writing/.test(keyed) && (await open()).length === base.open - 2, keyed)
+      check('quick capture\'s panel: W with two picked moves both', told(keyed, /^Moved 2 to Writing/) && (await open()).length === base.open - 2 && (await pages()).length === base.pages + 2, `${keyed || 'no notice read'} ; ${(await open()).length} open of ${base.open}`)
       await box.keyboard.press('Meta+z'); await box.waitForTimeout(900)
       check('quick capture\'s panel: and ⌘Z brings them back', (await open()).length === base.open && (await pages()).length === base.pages)
     }
