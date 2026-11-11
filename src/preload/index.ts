@@ -395,6 +395,14 @@ const api = {
   /** A goal's card: the pointer on it (it stays) or off it, and its X (that goal tucked away). */
   holdBeacon: (on: boolean): void => ipcRenderer.send('beacon:hold', on),
   tuckBeacon: (id: string): void => ipcRenderer.send('beacon:tuck', id),
+  /** A card opened out of its tab, the pointer gone from it: slide it back into its edge (true), or, the pointer back on it midway, out again (false). */
+  onBeaconFold: (listen: (on: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, on: boolean): void => listen(on)
+    ipcRenderer.on('beacon:fold', relay)
+    return () => ipcRenderer.off('beacon:fold', relay)
+  },
+  /** The slide back into the edge drawn: main makes the window its tab again. */
+  beaconFolded: (): void => ipcRenderer.send('beacon:folded'),
   /** A sticky's frost: the desktop picture blurred, its screen and where the window is; asked once, then told on each change. */
   frost: (): Promise<Frost | null> => ipcRenderer.invoke('frost'),
   /** The main screen's desktop picture, small, for Settings' sticky material previews; null when it can't be read. */

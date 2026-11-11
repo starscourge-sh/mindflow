@@ -47,19 +47,50 @@ export function TuckTab(): React.JSX.Element | null {
   const [name, setName] = useState('')
   // Tucked or brought back by its key (⌃⌥⌘H): there at once, no slide.
   const [instant, setInstant] = useState(false)
-  useEffect(() => window.api.onBeaconPeek((peek, byKey = false) => {
-    const now = peek?.tucked ? { side: peek.side, flat: !!peek.flat, opened: !!peek.opened, room: peek.room ?? NO_ROOM, hang: peek.hang ?? 0, strip: peek.strip ?? 0, width: peek.width ?? innerWidth } : null
-    setInstant(byKey)
-    setTuck((was) => {
-      if (!was || was.opened || (now && !now.opened) || byKey || still()) return now
-      // Pointed at, the card is drawn out of its tab: it starts with only the tab's strip on the screen and slides
-      // the rest of the way out, as a card pulled from a file. Brought back from the menu bar, a short slide in from its edge.
-      const sign = was.side === 'right' ? 1 : -1
-      const far = now?.opened ? Math.max(28, now.width - now.hang - now.strip) : 28
-      void animate(document.body, { transform: [`translateX(${sign * far}px)`, 'translateX(0px)'], opacity: [now?.opened ? 0.6 : 0, 1] }, SPRING)
-      return now
+  useEffect(() => {
+    // The card's one motion in and out of its edge, on the page itself (a transform and opacity, nothing laid out):
+    // started from wherever it is, so a pointer that leaves midway reverses it cleanly, and back again.
+    let was: Tuck | null = null
+    let slide: { stop: () => void } | undefined
+    const glide = (x: number, opacity: number, then?: () => void): void => {
+      slide?.stop()
+      const run = animate(document.body, { transform: `translateX(${x}px)`, opacity }, SPRING)
+      slide = run
+      void run.then(() => void (slide === run && then?.()))
+    }
+    // How far it slides: from only the tab's strip on the screen, out to all of it.
+    const far = (now: Tuck): number => (now.side === 'right' ? 1 : -1) * Math.max(28, now.width - now.hang - now.strip)
+    const offPeek = window.api.onBeaconPeek((peek, byKey = false) => {
+      const now: Tuck | null = peek?.tucked ? { side: peek.side, flat: !!peek.flat, opened: !!peek.opened, room: peek.room ?? NO_ROOM, hang: peek.hang ?? 0, strip: peek.strip ?? 0, width: peek.width ?? innerWidth } : null
+      const from = was
+      was = now
+      setInstant(byKey)
+      setTuck(now)
+      slide?.stop()
+      slide = undefined
+      if (!now?.opened || !from || from.opened || byKey || still()) {
+        // Folded back into a tab: the card is hidden in this same task, so it never shows whole for a frame.
+        const root = document.getElementById('root')
+        if (root && now && !now.opened) root.style.visibility = 'hidden'
+        document.body.style.transform = ''
+        document.body.style.opacity = ''
+        return
+      }
+      // Pointed at, the card is drawn out of its tab: placed at its start in this same task, before the window's
+      // new size is drawn (no frame of the whole card where it ends), then slid the rest of the way out.
+      document.body.style.transform = `translateX(${far(now)}px)`
+      document.body.style.opacity = '0.6'
+      glide(0, 1)
     })
-  }), [])
+    // The pointer gone from it (main watches): back into its edge, then main makes it the tab; back on it midway, out again.
+    const offFold = window.api.onBeaconFold((on) => {
+      if (!was?.opened) return
+      if (!on) return glide(0, 1)
+      if (still()) return window.api.beaconFolded()
+      glide(far(was), 0, () => window.api.beaconFolded())
+    })
+    return () => (offPeek(), offFold(), slide?.stop())
+  }, [])
   const right = tuck?.side !== 'left'
   const strip = tuck?.opened ? tuck.strip : 0
   // Out of its tab (main says so with the strip it would have had): the card stands straight.

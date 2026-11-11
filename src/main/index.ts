@@ -2613,16 +2613,34 @@ function shapeCard(key: string, win: BrowserWindow): void {
   // Opened by the pointer: back to the tab once it has gone from the card.
   clearInterval(peekWatch.get(key))
   if (!beaconHeld.has(key)) return
+  // Gone from it for half a second, the card is told to slide back into its edge (one motion, drawn by its page),
+  // and made its tab only once that is drawn (beacon:folded). The pointer back on it midway: it slides out again.
   let away = 0
+  folding.delete(key)
   peekWatch.set(key, setInterval(() => {
-    if (win.isDestroyed() || peeking.has(key) || !beaconHeld.has(key)) return void (clearInterval(peekWatch.get(key)), peekWatch.delete(key))
+    if (win.isDestroyed() || peeking.has(key) || !beaconHeld.has(key)) return void (clearInterval(peekWatch.get(key)), peekWatch.delete(key), folding.delete(key))
     away = inside(screen.getCursorScreenPoint(), win.getBounds()) ? 0 : away + 1
-    if (away < 2) return
-    clearInterval(peekWatch.get(key))
-    peekWatch.delete(key)
-    beaconHeld.delete(key)
-    shapeCard(key, win)
+    if (away === 0 && folding.delete(key)) win.webContents.send('beacon:fold', false)
+    // A page that never says (hung, or reloading) still folds, a second and a half later.
+    if (away === 8 && folding.has(key)) return void foldBack(key, win)
+    if (away !== 2) return
+    folding.add(key)
+    win.webContents.send('beacon:fold', true)
   }, 250))
+}
+/** Cards sliding back into their tab, waiting for their page to say the slide is drawn. */
+const folding = new Set<string>()
+ipcMain.on('beacon:folded', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const key = keyOfSticky(win)
+  if (win && key && folding.has(key)) foldBack(key, win)
+})
+function foldBack(key: string, win: BrowserWindow): void {
+  folding.delete(key)
+  clearInterval(peekWatch.get(key))
+  peekWatch.delete(key)
+  beaconHeld.delete(key)
+  shapeCard(key, win)
 }
 
 /**
