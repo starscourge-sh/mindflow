@@ -219,13 +219,25 @@ export function whichFolder(index: RootIndex, key: string, folders: Map<string, 
 /**
  * "Links suggest themselves": another note's title named in these words, root
  * by root ("the Stoics" names "Stoicism"), where it is not already a link.
- * A one-word title must be a rare root in the book (in one note in twenty
- * at most, or three in a small book), so "Notes" or "Ideas" never asks to be
- * linked everywhere.
+ * The whole name is matched word for word inside one line: its numbers and
+ * short words count ("Board 1 1" is not named by a note saying "Board 1"),
+ * and a name never runs from the end of one line into the next. A leading
+ * "the", "a" or "an" in the name may be left out. A one-word title must be a
+ * rare root in the book (in one note in twenty at most, or three in a small
+ * book), so "Notes" or "Ideas" never asks to be linked everywhere. The words
+ * shown are the words as written in that line.
  */
+type Word = { lower: string; root: string | null; from: number; to: number }
+const ARTICLES = new Set(['the', 'a', 'an'])
+const wordsOf = (index: RootIndex, line: string, lemmas: Lemmas | undefined): Word[] =>
+  [...line.matchAll(/[\p{L}\p{N}]+/gu)].map((match) => ({ lower: match[0].toLowerCase(), root: index.folded(match[0], lemmas)[0] ?? null, from: match.index, to: match.index + match[0].length }))
+/** One word of a name against one written: the same word, or the same root ("Stoics" and "Stoicism"). */
+const same = (a: Word, b: Word): boolean => a.lower === b.lower || (a.root !== null && a.root === b.root)
+
 export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefined, leave: string, linked: Set<string> = new Set()): { key: string; title: string; words: string }[] {
-  const words = text.split(/([^\p{L}\p{N}]+)/u)
-  const said = index.folded(text, lemmas)
+  const lines = text.split(/\r?\n/).map((line) => ({ line, words: wordsOf(index, line, lemmas) })).filter((one) => one.words.length)
+  // Every word and root the text holds: a name whose first word is not among them is passed over at once.
+  const held = new Set(lines.flatMap((one) => one.words.flatMap((word) => (word.root ? [word.lower, word.root] : [word.lower]))))
   const out: { key: string; title: string; words: string }[] = []
   for (const note of index.notes) {
     if (note.key === leave || linked.has(note.key)) continue
@@ -235,12 +247,15 @@ export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefin
     if (!title.length || title.length > 5 || name.split(/\s+/).length > 6) continue
     // One in twenty notes at most (three in a small book): a word nearly every note has names nothing.
     if (title.length === 1 && (title[0].length < 5 || index.notesWith(title[0]) > Math.max(3, index.notes.length / 20))) continue
-    const at = said.findIndex((_, i) => title.every((root, j) => said[i + j] === root))
-    if (at < 0) continue
-    // The words as written, for the offer to show: the run of tokens that matched.
-    const plain = tokens(text)
-    const shown = plain.slice(at, at + title.length).join(' ')
-    out.push({ key: note.key, title: name, words: words.find((one) => one.toLowerCase() === shown) ?? shown })
+    let want = wordsOf(index, name, note.lemmas)
+    if (want.length > 1 && ARTICLES.has(want[0].lower)) want = want.slice(1)
+    if (!held.has(want[0].lower) && !(want[0].root !== null && held.has(want[0].root))) continue
+    for (const { line, words } of lines) {
+      const at = words.findIndex((_, i) => i + want.length <= words.length && want.every((word, j) => same(word, words[i + j])))
+      if (at < 0) continue
+      out.push({ key: note.key, title: name, words: line.slice(words[at].from, words[at + want.length - 1].to) })
+      break
+    }
   }
   return out
 }
