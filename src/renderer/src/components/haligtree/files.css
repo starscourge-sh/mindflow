@@ -88,15 +88,6 @@
   transform: scale(0.97);
   transition: transform 120ms var(--mf-ease);
 }
-.files-recent-row {
-  scrollbar-width: none;
-  /* More past the edge fades out rather than being cut flat. */
-  mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
-}
-.files-recent-book img {
-  object-fit: cover;
-  object-position: top;
-}
 
 /* Audio: name, then the player, then the time, every column one width down the day so they line up; on a narrow
    page the player takes a line of its own under the name. */
@@ -198,4 +189,25 @@
 
 @media (prefers-reduced-motion: reduce) {
   [data-media-page] .overflow-y-auto { transition: none; }
+}
+
+/* Recent: a picture or a recording stands as a book does on the Books shelf (pdf.css, .pdf-book-cover), in the same
+   box and shadow, but never on a page's paper: "Paper pages" multiplies a book's cover into its paper, and would
+   darken a photo. */
+.files-recent-face {
+  position: relative;
+  display: block;
+  aspect-ratio: 3 / 4;
+  margin-bottom: 0.25rem;
+  overflow: hidden;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--tt-border-color), 0 4px 12px rgb(0 0 0 / 0.1);
+  transition: transform 200ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 200ms ease-out;
+}
+.pdf-book:hover .files-recent-face {
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 1px var(--tt-border-color), 0 8px 20px rgb(0 0 0 / 0.14);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pdf-book:hover .files-recent-face { transform: none; }
 }

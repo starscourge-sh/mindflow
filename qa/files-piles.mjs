@@ -116,8 +116,9 @@ try {
       return { bg, blurred }
     })
     check(`${count}: the frost is painted and opaque, no backdrop blur on the page`, !/rgba\(.*,\s*0?\.\d+\)$/.test(frost.bg) && !/ \/ 0?\.\d+\)$/.test(frost.bg) && frost.blurred === 0, JSON.stringify(frost))
-    const recent = await h.$$eval('[data-recent-file]', (all) => all.length)
-    check(`${count}: Recent holds the last ${Math.min(10, count)}`, recent === Math.min(10, count), String(recent))
+    // Recent: a grid, as many across as fit and two lines at most (it was one row of 10).
+    const { recent, across } = await h.evaluate(() => ({ recent: document.querySelectorAll('[data-recent-file]').length, across: getComputedStyle(document.querySelector('[data-files-recent-grid]')).gridTemplateColumns.split(' ').length }))
+    check(`${count}: Recent holds the last ${Math.min(across * 2, count)} (two lines of ${across})`, recent === Math.min(across * 2, count), String(recent))
     check(`${count}: no "In no note" tab among the kinds`, !(await chips()).some((t) => /no note/i.test(t)))
     const unlinkedWant = files.filter((f) => f.how === 'attachment' && !f.uses.length).length
     check(`${count}: "Unlinked" is a chip after the kinds, with its count`, (await h.locator('[data-media-unlinked] button:visible').count()) === 1 && (await h.locator('[data-media-unlinked] button').innerText()).replace(/\s+/g, ' ').trim() === `Unlinked ${unlinkedWant.toLocaleString('en-US')}`, await h.locator('[data-media-unlinked] button').innerText().catch(() => 'none'))
@@ -175,7 +176,7 @@ try {
     await shot(`all-${count}-1440`)
     await size(560, 700)
     await h.waitForTimeout(500)
-    const wide = await h.evaluate(() => { const page = document.querySelector('[data-pane-card]') ?? document.body; return [...page.querySelectorAll('*')].filter((one) => one.scrollWidth > one.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(one).overflowX) && !one.classList.contains('files-recent-row')).length })
+    const wide = await h.evaluate(() => { const page = document.querySelector('[data-pane-card]') ?? document.body; return [...page.querySelectorAll('*')].filter((one) => one.scrollWidth > one.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(one).overflowX) && true).length })
     check(`${count}: 560 wide, nothing scrolls sideways`, wide === 0, String(wide))
     const reach = await h.evaluate(() => {
       const card = document.querySelector('[data-pane-card]').getBoundingClientRect()

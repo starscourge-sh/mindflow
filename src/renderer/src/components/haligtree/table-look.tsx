@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronUp } from 'lucide-react'
 /**
  * The one table: the Bin's look, which every table-like list in Haligtree
  * wears (the Bin, Review › All cards in List and Table). One line a row, 40px
@@ -20,11 +21,34 @@ export const TABLE_QUIET = 'min-w-0 truncate text-xs text-muted-foreground'
 /** The last quiet column, a date or a when, flush right. */
 export const TABLE_WHEN = 'shrink-0 text-right text-xs text-muted-foreground tabular-nums whitespace-nowrap'
 
-/** Column names over a table, each in its own column's box (the same classes, widths and gaps as its rows). */
-export function TableHead({ columns }: { columns: { label: string; className: string }[] }): React.JSX.Element {
+/** A column's order, when its head can be clicked to sort by it: lit while the list goes by it, the arrow saying which way. */
+export type ColumnSort = { on: boolean; down: boolean; pick: () => void }
+
+/**
+ * Column names over a table, each in its own column's box (the same classes, widths and gaps as its rows). A column
+ * given `sort` is a button: clicked, the list goes by it; clicked again, the other way, as Finder's columns do.
+ */
+export function TableHead({ columns }: { columns: { label: string; className: string; sort?: ColumnSort }[] }): React.JSX.Element {
+  const sorts = columns.some((one) => one.sort)
   return (
-    <div data-table-head aria-hidden className="flex items-center gap-3 border-b border-border/60 px-2 pb-1.5 text-xs font-medium text-muted-foreground">
-      {columns.map((one) => <span key={one.label} className={one.className.replace(/\btext-(body|foreground)\b/g, '')}>{one.label}</span>)}
+    <div data-table-head aria-hidden={sorts ? undefined : true} role={sorts ? 'row' : undefined} className="flex items-center gap-3 border-b border-border/60 px-2 pb-1.5 text-xs font-medium text-muted-foreground">
+      {columns.map((one) => {
+        const box = one.className.replace(/\btext-(body|foreground)\b/g, '')
+        if (!one.sort) return <span key={one.label} className={box}>{one.label}</span>
+        const { on, down, pick } = one.sort
+        const Arrow = down ? ChevronDown : ChevronUp
+        const right = box.includes('text-right')
+        return (
+          <button key={one.label} type="button" role="columnheader" aria-sort={on ? (down ? 'descending' : 'ascending') : 'none'} data-sort-column={one.label} onClick={pick}
+            className={`${box} flex cursor-pointer items-center gap-0.5 rounded-sm outline-none transition-colors duration-100 hover:text-foreground focus-visible:text-foreground ${right ? 'justify-end' : ''} ${on ? 'text-foreground' : ''}`}>
+            {/* Its room kept whether lit or not, so a name never shifts as the order moves to it; on the inner side, so
+                the name lines up with its column's words (a right-aligned column's arrow sits before its name). */}
+            {right && <Arrow aria-hidden className={`size-3 shrink-0 ${on ? '' : 'invisible'}`} />}
+            <span className="truncate">{one.label}</span>
+            {!right && <Arrow aria-hidden className={`size-3 shrink-0 ${on ? '' : 'invisible'}`} />}
+          </button>
+        )
+      })}
     </div>
   )
 }

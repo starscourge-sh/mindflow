@@ -110,17 +110,44 @@ export function Pile({ shelf, files, onOpen }: { shelf: (typeof SHELVES)[number]
   )
 }
 
-/** The last few added or opened, any kind, in one row: small faces with their names under. */
-export function RecentRow({ files, onOpen, menuFor }: { files: Media[]; onOpen: (one: Media, event: React.MouseEvent) => void; menuFor: (one: Media) => RowItem[] }): React.JSX.Element {
+/** How wide a Recent card is, and the room between: the Books shelf's (pdf.css, .pdf-library-shelf). */
+export const RECENT_CARD = 136
+export const RECENT_GAP = 16
+
+/**
+ * The last few opened or added, any kind, as the Books shelf draws its books: a face standing up, the name in the
+ * serif, a quiet line saying what it is and when. As many across as fit, two lines at most, and "Show all" for the
+ * rest, in Table by last opened.
+ */
+export function RecentGrid({ files, across, when, onOpen, menuFor, onShowAll, more }: {
+  files: Media[]
+  across: number
+  /** What its quiet line says of when: "Opened today", "Added 9 Nov" (its face says what kind it is). */
+  when: (one: Media) => string
+  onOpen: (one: Media, event: React.MouseEvent) => void
+  menuFor: (one: Media) => RowItem[]
+  onShowAll: () => void
+  /** Whether there are more than the grid holds. */
+  more: boolean
+}): React.JSX.Element {
   return (
     <section data-files-recent className="flex flex-col gap-2">
-      <h3 className="text-body font-medium text-foreground">Recent</h3>
-      <div className="files-recent-row flex gap-3 overflow-x-auto pb-1">
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-body font-medium text-foreground">Recent</h3>
+        {more && (
+          <button type="button" data-files-recent-all onClick={onShowAll}
+            className="cursor-pointer rounded-sm text-control text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline">Show all</button>
+        )}
+      </div>
+      <div data-files-recent-grid className="grid" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: `${RECENT_GAP * 1.5}px ${RECENT_GAP}px` }}>
         {files.map((one) => (
           <RowMenu key={one.src} items={menuFor(one)}>
-            <button type="button" data-recent-file={one.kind} data-src={one.src} onClick={(event) => onOpen(one, event)} className="files-press flex w-[96px] shrink-0 cursor-pointer flex-col gap-1.5 text-left">
-              <Cover one={one} className={`size-[96px] rounded-[4px] ring-1 ring-foreground/10 ${one.kind === 'pdf' ? 'files-recent-book' : ''}`} />
-              <span dir="auto" className={`truncate text-xs text-muted-foreground ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>
+            <button type="button" data-recent-file={one.kind} data-media={one.kind} data-src={one.src} onClick={(event) => onOpen(one, event)} className="pdf-book min-w-0">
+              <span className={one.kind === 'pdf' ? 'pdf-book-cover' : 'files-recent-face'} data-pdf-peek={one.kind === 'pdf' && !one.gone ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined}>
+                <Cover one={one} className="size-full" />
+              </span>
+              <span dir="auto" data-media-name className={`pdf-book-title ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>
+              <span className="pdf-book-meta">{when(one)}</span>
             </button>
           </RowMenu>
         ))}
