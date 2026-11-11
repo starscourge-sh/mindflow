@@ -1959,7 +1959,12 @@ const forget = (): void => {
 const watchOnce = (): void => {
   if (watching) return
   watching = true
-  const watch = new MutationObserver(forget)
+  // In the head only the imported themes' own tag (lib/theme.ts): other style tags come and go there (a page turn
+  // adds and takes one away), which would read the colours again for nothing.
+  const themed = (node: Node | null): boolean => !!node && (node instanceof Element ? node : node.parentElement)?.closest('#mf-custom-themes') != null
+  const watch = new MutationObserver((changes) => {
+    if (changes.some((one) => one.type === 'attributes' || themed(one.target) || [...one.addedNodes, ...one.removedNodes].some(themed))) forget()
+  })
   watch.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-light', 'data-theme'] })
   watch.observe(document.head, { childList: true, subtree: true, characterData: true })
 }
