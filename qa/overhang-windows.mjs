@@ -248,6 +248,8 @@ try {
   const again = await boxWin()
   check('quick capture: put away and summoned, the card is back where it was left', again.card.x === moved.card.x && again.card.y === moved.card.y, JSON.stringify({ moved: moved.card, again: again.card }))
   // A short box: a right-click menu for two tasks hangs past the card's foot, whole, the card staying as it is.
+  // The side panel holds the tasks; it is shut to start, so it is opened first.
+  if (await box.locator('[aria-label="Show the side panel"]').count()) (await box.locator('[aria-label="Show the side panel"]').first().click(), await wait(1200))
   await box.locator('[data-home="task"]').first().click()
   await wait(900)
   const short = await boxWin()

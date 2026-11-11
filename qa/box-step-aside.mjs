@@ -25,8 +25,19 @@ const away = async (px, py) => {
   await wait(1100)
 }
 try {
-  await v('settings:set', { hintRate: 0, rotCount: 0, sounds: false, motion: true, boxAutoHide: false, boxPlace: 'last', boxScreen: 'same' })
+  await v('settings:set', { hintRate: 0, rotCount: 0, sounds: false, motion: true, boxAutoHide: true, boxPlace: 'last', boxScreen: 'same' })
   await page.evaluate(() => window.api.showPrompt()); await wait(1400)
+  // Turned off where the box keeps its own switches: the gear menu's "Close when you click away".
+  const boxPage = page
+  const line = () => boxPage.getByRole('menuitemcheckbox', { name: /Close when you click away/ })
+  await boxPage.getByRole('button', { name: 'Options' }).first().click({ force: true }); await wait(400)
+  check('the gear menu has "Close when you click away", ticked to start, with what off does', (await line().getAttribute('aria-checked')) === 'true' && /stays open and steps aside/.test(await line().innerText()), await line().innerText())
+  await line().click({ force: true }); await wait(400)
+  check('clicked, its tick goes at once', (await line().getAttribute('aria-checked')) === 'false')
+  await boxPage.keyboard.press('Escape'); await wait(300)
+  await boxPage.getByRole('button', { name: 'Options' }).first().click({ force: true }); await wait(400)
+  check('opened again, it is still off', (await line().getAttribute('aria-checked')) === 'false')
+  await boxPage.keyboard.press('Escape'); await wait(300)
   let b = await at()
   const mid = { x: Math.round(b.area.x + (b.area.width - b.width) / 2), y: Math.round(b.area.y + (b.area.height - b.height) / 2) }
   await box('w.setPosition(arg.x, arg.y)', mid); await wait(200)

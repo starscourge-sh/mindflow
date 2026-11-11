@@ -17,19 +17,25 @@ const page = run.page
 const width = () => app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view='))?.getBounds().width)
 const toggle = () => page.locator('button[aria-label="Hide the side panel"], button[aria-label="Show the side panel"]').first()
 try {
+  // Past the welcome, which keeps the box small and its panel shut whatever was chosen.
+  let home
+  for (let i = 0; i < 100 && !home; i++) (home = app.windows().find((w) => w.url().includes('view=home'))) || (await wait(200))
+  await home.waitForLoadState('domcontentloaded')
+  await home.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
+  await page.reload()
   await wait(1500)
+  check('past the welcome', (await page.evaluate(() => window.api.haligtree('onboarding:welcoming'))) === false)
   check('shut to start', (await toggle().getAttribute('aria-pressed')) === 'false')
   check('the window is the box alone', (await width()) === 640, String(await width()))
   const oneLine = await app.evaluate(() => globalThis.haligtreeBoxSize?.().height)
   check('the whole box to start, not the one-line pill', oneLine > 56, `height ${oneLine}`)
-  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '\\', metaKey: true, bubbles: true })))
+  await page.keyboard.press('Meta+Backslash')
   await wait(900)
   check('⌘\\ shows it', (await toggle().getAttribute('aria-pressed')) === 'true' && (await width()) === 1080, `${await toggle().getAttribute('aria-pressed')} ${await width()} ${JSON.stringify(await app.evaluate(() => globalThis.haligtreeBoxSize?.()))}`)
   await page.reload()
   await wait(1500)
   check('shown is remembered', (await toggle().getAttribute('aria-pressed')) === 'true' && (await width()) === 1080, String(await width()))
   // Settings' switch writes the same choice from another window: the box hears it and narrows.
-  const home = app.windows().find((w) => w.url().includes('view=home'))
   await home.evaluate(() => localStorage.setItem('boxPanel', 'closed'))
   await wait(1200)
   check('turned off in Settings, the box narrows', (await toggle().getAttribute('aria-pressed')) === 'false' && (await width()) === 640, String(await width()))
