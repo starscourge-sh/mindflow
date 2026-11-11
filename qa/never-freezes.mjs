@@ -241,6 +241,8 @@ for (const [at, one] of steps.entries()) {
 }
 console.log('Main: the busiest names over the whole run (time on its thread)')
 for (const row of [...rows].sort((a, b) => b.ms - a.ms).slice(0, 12)) console.log(`  ${String(row.ms).padStart(7)} ms in all  ${String(row.calls).padStart(6)} calls  ${String(row.worst).padStart(7)} ms worst  ${row.name}`)
+// How often each was asked does not depend on how busy the machine is: the count to compare two builds by.
+console.log(`Main: asked most often (timers left out): ${[...rows].filter((row) => !row.name.startsWith('timer ')).sort((a, b) => b.calls - a.calls).slice(0, 14).map((row) => `${row.name} ×${row.calls}`).join(', ')}`)
 
 if (profile?.profile) {
   const { nodes, samples, timeDeltas } = profile.profile
