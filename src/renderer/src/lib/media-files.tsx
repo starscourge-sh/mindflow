@@ -125,7 +125,7 @@ export async function putInNote(files: Parameters<typeof blockOf>[0][], type: st
 export type Loose = { src: string; kind: MediaKind; name: string; size: number; icon: React.ReactNode; /** What a menu row calls it: never empty. */ label: string; /** Its kind in a word, beside the label. */ word: string }
 
 /** A kind in a word, as Files' tiles say it. */
-export const KIND_WORD: Record<MediaKind, string> = { picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording' }
+export const KIND_WORD: Record<MediaKind, string> = { picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording', video: 'Video', document: 'Document' }
 
 /**
  * What a file is called in a menu row. A picture pasted into a note has no

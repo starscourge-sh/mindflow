@@ -8,7 +8,7 @@ import { VirtualList } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { TABLE_CURSOR, TABLE_NAME, TABLE_QUIET, TABLE_ROW, TABLE_WHEN, TableHead } from './table-look'
 import { PICKED_ROW } from './task-pick'
-import { Cover, nameOf, shelfOf, type Shelf } from './files-shelves'
+import { Cover, kindWord, nameOf, shelfOf, type Shelf } from './files-shelves'
 import type { Choice } from './display'
 import { num, plural, when } from '../../../../main/dates'
 import type { Media, MediaUse } from '../../../../main/media'
@@ -43,8 +43,7 @@ export const FILE_SORTS: Choice[] = [
   { id: 'notes', label: 'In most notes' }
 ]
 
-const KIND_RANK: Record<Shelf, number> = { pdf: 0, picture: 1, audio: 2 }
-const WORD: Record<Media['kind'], string> = { picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording' }
+const KIND_RANK: Record<Shelf, number> = { pdf: 0, picture: 1, audio: 2, video: 3, document: 4 }
 /** Compared as written: ISO dates sort as text. */
 const plain = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0)
 const words = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true })
@@ -141,8 +140,8 @@ export function FilesTable({ kind, rows, facts, sort, onSort, cursor, chosen, ke
     sort: { on: sort === first || sort === second, down: first === second || sort !== second, pick: () => (chime('tap'), onSort(sort === first ? second : first)) }
   })
   // A column only where it says something: a kind on a page of one kind does not; pictures have no length.
-  const showKind = kind === 'all' || kind === 'picture'
-  const showLength = kind !== 'picture'
+  const showKind = kind === 'all' || kind === 'picture' || kind === 'document'
+  const showLength = kind !== 'picture' && kind !== 'video' && kind !== 'document'
   const lengthWord = kind === 'pdf' ? 'Pages' : 'Length'
   const columns = [
     { label: '', className: COL.face },
@@ -196,7 +195,7 @@ const Row = memo(function Row({ one, at, picked, playing, facts, showKind, showL
           <Cover one={one} tiny className={`${COL.face} rounded-[4px] ring-1 ring-foreground/10`} />
         )}
         <span dir="auto" data-table-name className={`${TABLE_NAME} ${one.private ? 'private-text' : ''}`}>{name}</span>
-        {showKind && <span data-col="kind" className={COL.kind}>{WORD[one.kind]}</span>}
+        {showKind && <span data-col="kind" className={COL.kind}>{kindWord(one)}</span>}
         {showLength && <span data-col="length" className={COL.length}>{length}</span>}
         <span data-col="size" className={COL.size}>{one.size ? sizeOf(one.size) : ''}</span>
         <span data-col="added" className={COL.added}>{when(one.at)}</span>

@@ -8,23 +8,93 @@ import { realMove } from '@/lib/real-move'
 import { VirtualList } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { SoundPlayer, soundTitle } from './sound-player'
-import { BookOpen } from 'lucide-react'
+import { BookOpen, Play } from 'lucide-react'
+import { call } from '@/lib/haligtree'
 import { dayMonth, daysFromToday, num, plural } from '../../../../main/dates'
 import type { Media, MediaUse } from '../../../../main/media'
 
-/** The three shelves Files sorts everything onto: a GIF is a picture that moves. */
-export type Shelf = 'pdf' | 'picture' | 'audio'
+/**
+ * The shelves Files sorts everything onto: a GIF is a picture that moves, and Documents holds every file that is not a
+ * book, a picture, a recording or a video (Word, Pages, a spreadsheet, a slideshow, a ZIP, anything), as Finder's
+ * Documents folder would.
+ */
+export type Shelf = 'pdf' | 'picture' | 'audio' | 'video' | 'document'
 export const shelfOf = (one: Media): Shelf => (one.kind === 'gif' ? 'picture' : one.kind)
 export const SHELVES: { id: Shelf; label: string; one: string; many: string }[] = [
   { id: 'pdf', label: 'Books', one: 'book', many: 'books' },
   { id: 'picture', label: 'Images', one: 'image', many: 'images' },
-  { id: 'audio', label: 'Audio', one: 'recording', many: 'recordings' }
+  { id: 'audio', label: 'Audio', one: 'recording', many: 'recordings' },
+  { id: 'video', label: 'Videos', one: 'video', many: 'videos' },
+  { id: 'document', label: 'Documents', one: 'document', many: 'documents' }
 ]
+
+/** What a file is, in a word: a document by its own ending ("DOCX", "ZIP"), as Finder's Kind column starts. */
+export const kindWord = (one: Pick<Media, 'kind' | 'name' | 'src'>): string => {
+  if (one.kind !== 'document') return ({ picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording', video: 'Video' } as const)[one.kind]
+  const end = /\.([a-z0-9]{1,8})$/i.exec(one.name)?.[1] ?? /\.([a-z0-9]+)$/.exec(one.src)?.[1]
+  return end && end !== 'bin' ? end.toUpperCase() : 'File'
+}
+
+const WEBM = /\.webm$/
+/** Faces found so far, by file and size: a tile scrolled away and back shows its face at once. */
+const faces = new Map<string, { image: string; icon: boolean }>()
+/**
+ * A video's or a document's face, made in the main process (notes.ts, quickLook): a frame of the video, a document's
+ * first page as Quick Look draws it, or for a file Quick Look cannot draw, the Mac's own icon for its kind (`icon`).
+ * Null while it is asked for; asked only once its tile is drawn.
+ */
+export function useFileFace(one: Media | null, large: boolean): { image: string; icon: boolean } | null {
+  // A WebM is a film the Mac's Quick Look cannot open (it draws a QuickTime icon): its first frame comes from the window's own player instead (FileFace).
+  const key = one && !one.gone && (one.kind === 'document' || (one.kind === 'video' && !WEBM.test(one.src))) ? `${large}:${one.src}` : null
+  const [face, setFace] = useState(() => (key ? faces.get(key) ?? null : null))
+  useEffect(() => {
+    if (!key || !one) return setFace(null)
+    const had = faces.get(key)
+    if (had) return setFace(had)
+    let live = true
+    void smallPicture(one.src, large)
+      .then(async (image) => (image ? { image, icon: false } : { image: await call<string>('media:icon', one.src).catch(() => ''), icon: true }))
+      .then((made) => (faces.set(key, made), live && setFace(made)), () => undefined)
+    return () => void (live = false)
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  return face
+}
+
+/** A face as a video's or a document's is drawn: the frame or page whole on its card, or the Mac's icon with its kind under it. */
+export function FileFace({ one, face, tiny = false }: { one: Media; face: { image: string; icon: boolean } | null; tiny?: boolean }): React.JSX.Element | null {
+  if (one.kind === 'video' && WEBM.test(one.src) && !one.gone) {
+    return (
+      <span data-file-face="video" className="relative block size-full bg-black">
+        {/* Its first frame, as the player draws it: loads only what that frame needs, and never plays. */}
+        <video src={`${one.src}#t=0.1`} preload="metadata" muted playsInline tabIndex={-1} className="pointer-events-none size-full object-cover" />
+        {!tiny && <span aria-hidden className="absolute inset-0 m-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-black/55 text-white"><Play className="size-4 translate-x-px fill-current" /></span>}
+      </span>
+    )
+  }
+  if (!face) return null
+  if (face.icon || !face.image) {
+    return (
+      <span data-file-face="icon" className="flex size-full flex-col items-center justify-center gap-1 text-muted-foreground">
+        {face.image && <img src={face.image} alt="" draggable={false} className={tiny ? 'size-full object-contain p-0.5' : 'size-12 object-contain'} />}
+        {!tiny && <span className="text-xs font-medium tracking-wide">{kindWord(one)}</span>}
+      </span>
+    )
+  }
+  return (
+    <span data-file-face={one.kind} className="relative block size-full">
+      {/* A document's page on paper, as a book's cover is (pdf.css): the whole face one sheet, never a page between two bars. */}
+      <img src={face.image} alt="" draggable={false} decoding="async" className={`size-full animate-in fade-in-0 duration-200 motion-reduce:animate-none ${one.kind === 'video' ? 'object-cover' : 'bg-[var(--pdf-paper,#fff)] object-contain'}`} />
+      {one.kind === 'video' && !tiny && (
+        <span aria-hidden className="absolute inset-0 m-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-black/55 text-white"><Play className="size-4 translate-x-px fill-current" /></span>
+      )}
+    </span>
+  )
+}
 
 /** A file's name without its ending, as a person says it. */
 const bare = (name: string): string => name.replace(/\.[^.]+$/, '') || name
 /** What a file is called on its face: a recording by its own name, a picture by its name or else its note's. */
-export const nameOf = (one: Media): string => (one.kind === 'audio' && one.name ? soundTitle(one.name, null) : one.name ? bare(one.name) : one.title) || (one.kind === 'audio' ? 'Voice note' : one.kind === 'pdf' ? 'Book' : 'Picture')
+export const nameOf = (one: Media): string => (one.kind === 'audio' && one.name ? soundTitle(one.name, null) : one.name ? bare(one.name) : one.title) || (one.kind === 'audio' ? 'Voice note' : one.kind === 'pdf' ? 'Book' : one.kind === 'video' ? 'Video' : one.kind === 'document' ? 'Document' : 'Picture')
 
 /** A recording drawn as its own little waveform, the same bars for the same file every time. */
 function Bars({ seed }: { seed: string }): React.JSX.Element {
@@ -43,9 +113,11 @@ function Bars({ seed }: { seed: string }): React.JSX.Element {
 /** A file's face, as small as it is drawn: a picture's cached small copy, a book's first page, a recording's bars. */
 export function Cover({ one, className = '', tiny = false }: { one: Media; className?: string; /** Drawn a few dozen pixels across (a table's face): the 96px copy, not the 320px one. */ tiny?: boolean }): React.JSX.Element {
   const book = usePdfCover(one.kind === 'pdf' && !one.gone ? one.src : null, one.name)
+  const file = one.kind === 'video' || one.kind === 'document'
+  const face = useFileFace(file ? one : null, !tiny)
   const [thumb, setThumb] = useState<string | null>(null)
   useEffect(() => {
-    if (one.kind === 'audio' || one.kind === 'pdf' || one.gone) return
+    if (one.kind === 'audio' || one.kind === 'pdf' || file || one.gone) return
     let live = true
     // No small copy could be made (a format the cache cannot shrink): the picture itself, never an empty square.
     void smallPicture(one.src, !tiny).then((made) => live && setThumb(made || one.src), () => live && setThumb(one.src))
@@ -54,7 +126,7 @@ export function Cover({ one, className = '', tiny = false }: { one: Media; class
   const image = one.kind === 'pdf' ? book?.image : thumb
   return (
     <span data-cover={one.kind} className={`block overflow-hidden bg-accent ${one.private ? 'private-text' : ''} ${className}`}>
-      {one.kind === 'audio' ? <Bars seed={one.src} /> : image ? <img src={image} alt="" draggable={false} decoding="async" className={`size-full animate-in fade-in-0 duration-200 motion-reduce:animate-none ${one.kind === 'pdf' ? 'bg-[var(--pdf-paper,#fff)] object-contain' : 'object-cover'}`} /> : null}
+      {one.kind === 'audio' ? <Bars seed={one.src} /> : file ? <FileFace one={one} face={face} tiny={tiny} /> : image ? <img src={image} alt="" draggable={false} decoding="async" className={`size-full animate-in fade-in-0 duration-200 motion-reduce:animate-none ${one.kind === 'pdf' ? 'bg-[var(--pdf-paper,#fff)] object-contain' : 'object-cover'}`} /> : null}
     </span>
   )
 }
@@ -322,7 +394,7 @@ const Square = memo(function Square({ one, here, picked, ways }: { one: Media; h
         onClick={(event) => ways.current.onClick(one, event)}
         className={`files-square group/sq relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[6px] bg-accent text-left outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[6px] after:ring-inset ${picked ? 'after:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] after:ring-2 after:ring-[var(--tt-brand-color-400)]' : here ? 'after:ring-2 after:ring-ring' : 'after:ring-1 after:ring-foreground/10'}`}>
         <Cover one={one} className="size-full" />
-        {one.kind === 'gif' && <span className="absolute top-1.5 left-1.5 rounded-[3px] bg-background px-1 text-[11px] font-medium">GIF</span>}
+        {(one.kind === 'gif' || one.kind === 'video') && <span className="absolute top-1.5 left-1.5 rounded-[3px] bg-background px-1 text-[11px] font-medium">{kindWord(one)}</span>}
         {/* Pointed at, its name rises out of a frosted foot, the blur thinning as it rises (the Map's own): no band. */}
         <span data-square-foot className="files-square-foot pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end px-2 pt-8 pb-1.5 text-white">
           <span aria-hidden className="mf-blur-edge files-square-blur"><span /><span /><span /><span /></span>
@@ -421,8 +493,8 @@ const letGoHead = (one: Media): string => {
   const days = daysFromToday(one.letGoAt)
   return days === 0 ? 'Let go today' : days === -1 ? 'Let go yesterday' : `Let go on ${dayMonth(one.letGoAt)}`
 }
-const KIND_ORDER: Record<Shelf, number> = { picture: 0, audio: 1, pdf: 2 }
-/** Unlinked, in the order it is drawn: by the day it was let go, newest first; in a day, pictures, then recordings, then books. */
+const KIND_ORDER: Record<Shelf, number> = { picture: 0, audio: 1, pdf: 2, video: 3, document: 4 }
+/** Unlinked, in the order it is drawn: by the day it was let go, newest first; in a day, pictures, recordings, books, videos, documents. */
 export const unlinkedOrder = (files: Media[]): Media[] => {
   const day = new Map(files.map((one) => [one.src, one.letGoAt ? -daysFromToday(one.letGoAt) : Number.MAX_SAFE_INTEGER]))
   return [...files].sort((a, b) => day.get(a.src)! - day.get(b.src)! || KIND_ORDER[shelfOf(a)] - KIND_ORDER[shelfOf(b)] || (b.letGoAt ?? '').localeCompare(a.letGoAt ?? '') || (b.at ?? '').localeCompare(a.at ?? ''))
@@ -438,11 +510,12 @@ function unlinkedLines(files: Media[], across: number, books: number): UnlinkedL
       out.push(line)
       continue
     }
-    for (const shelf of ['picture', 'audio', 'pdf'] as Shelf[]) {
+    for (const shelf of ['picture', 'audio', 'pdf', 'video', 'document'] as Shelf[]) {
       const these = line.files.filter((one) => shelfOf(one) === shelf)
       if (!these.length) continue
       const from = line.from + line.files.indexOf(these[0])
-      const wide = shelf === 'picture' ? across : shelf === 'pdf' ? books : 1
+      // Videos and documents as squares, as the pictures are: each its face.
+      const wide = shelf === 'pdf' ? books : shelf === 'audio' ? 1 : across
       for (let at = 0; at < these.length; at += wide) {
         const island = shelf !== 'audio' ? undefined : these.length === 1 ? 'one' : at === 0 ? 'top' : at === these.length - 1 ? 'end' : 'mid'
         out.push({ key: these[at].src, files: these.slice(at, at + wide), from: from + at, shelf, island })
@@ -471,7 +544,7 @@ export function UnlinkedDays({ files, across, books, cursor, chosen, keyOf, menu
   const lines = useMemo(() => unlinkedLines(files, across, books), [files, across, books])
   const ways = useTileWays(menuFor, onClick, onUse)
   const cursorKey = files[cursor] ? keyOf(files[cursor]) : null
-  const size = (line: UnlinkedLine): number => ('head' in line ? HEAD : line.shelf === 'picture' ? PICTURE + PICTURE_GAP : line.shelf === 'audio' ? 64 : 260)
+  const size = (line: UnlinkedLine): number => ('head' in line ? HEAD : line.shelf === 'audio' ? 64 : line.shelf === 'pdf' ? 260 : PICTURE + PICTURE_GAP)
   return (
     <>
     <StuckHead lines={lines as Line[]} />
@@ -484,15 +557,15 @@ export function UnlinkedDays({ files, across, books, cursor, chosen, keyOf, menu
           const key = keyOf(one)
           const here = line.from + at === cursor
           const picked = chosen.includes(key)
-          return line.shelf === 'picture' ? <Square key={key} one={one} here={here} picked={picked} ways={ways} />
-            : line.shelf === 'pdf' ? <BookTile key={key} one={one} here={here} picked={picked} ways={ways} />
-            : <AudioPiece key={key} one={one} here={here} picked={picked} island={line.island ?? 'one'} ways={ways} />
+          return line.shelf === 'pdf' ? <BookTile key={key} one={one} here={here} picked={picked} ways={ways} />
+            : line.shelf === 'audio' ? <AudioPiece key={key} one={one} here={here} picked={picked} island={line.island ?? 'one'} ways={ways} />
+            : <Square key={key} one={one} here={here} picked={picked} ways={ways} />
         }
         // A day's recordings end their island with the room a line of squares leaves under it.
         if (line.shelf === 'audio') return <div style={{ paddingBottom: line.island === 'end' || line.island === 'one' ? PICTURE_GAP : 0 }}>{tile(line.files[0], 0)}</div>
         return (
           // Books' covers start on the heading's left edge, as the squares do: the tile's own side padding stands down here.
-          <div className={`grid ${line.shelf === 'pdf' ? '[&_.pdf-book]:px-0' : ''}`} style={line.shelf === 'picture'
+          <div className={`grid ${line.shelf === 'pdf' ? '[&_.pdf-book]:px-0' : ''}`} style={line.shelf !== 'pdf'
             ? { gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap: PICTURE_GAP, paddingBottom: PICTURE_GAP }
             : { gridTemplateColumns: `repeat(${books}, minmax(0, 1fr))`, gap: BOOK_GAP, paddingBottom: BOOK_GAP }}>
             {line.files.map(tile)}

@@ -1,5 +1,6 @@
 import { BrowserWindow, dialog, ipcMain, nativeImage, screen } from 'electron'
-import { copyFile, mkdir, readFile, rm, stat } from 'fs/promises'
+import { copyFile, mkdir, readFile, rm, stat, writeFile } from 'fs/promises'
+import { existsSync } from 'fs'
 import { begin, end } from './jobs'
 import { join } from 'path'
 
@@ -52,6 +53,25 @@ const stored = (src: unknown): string | null => {
 }
 
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Doc[] }
+
+/**
+ * A file's face from Quick Look, `tall` pixels at most on its longer side, as a data URL; '' when the Mac draws none
+ * (it then shows its icon). Made once per file and size and kept in `thumbs` beside the store: the store names files
+ * by their bytes, so a kept face never goes stale.
+ */
+async function quickLook(name: string, tall: number): Promise<string> {
+  const folder = join(assetsDir(), '..', 'thumbs')
+  const kept = join(folder, `${name.replace(/\.[a-z0-9]+$/, '')}-ql${tall}`)
+  const had = await readFile(`${kept}.jpg`).catch(() => null)
+  if (had) return `data:image/jpeg;base64,${had.toString('base64')}`
+  if (existsSync(`${kept}.none`)) return ''
+  const frame = await nativeImage.createThumbnailFromPath(join(assetsDir(), name), { width: tall, height: tall }).catch(() => null)
+  await mkdir(folder, { recursive: true })
+  if (!frame || frame.isEmpty()) return (await writeFile(`${kept}.none`, ''), '')
+  const jpeg = frame.toJPEG(80)
+  await writeFile(`${kept}.jpg`, jpeg)
+  return `data:image/jpeg;base64,${jpeg.toString('base64')}`
+}
 
 /** Window helpers from index.ts, passed in so this file never imports it back. */
 type Windows = {
@@ -186,18 +206,26 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   // often megabytes. Made once per picture per run.
   const small = new Map<string, string>()
   handle('notes:thumb', async (src: string, height = 96) => {
-    // Two sizes: a row's, and a grid tile's, which is drawn larger.
+    // Three sizes: a row's, a grid tile's, which is drawn larger, and a file's preview (file-look.tsx), the window's.
     // Twice the size drawn, for Retina screens: a row's picture is about 48px, a tile's up to about 260px.
-    const tall = height > 96 ? 560 : 112
+    const tall = height > 600 ? 1600 : height > 96 ? 560 : 112
     const key = `${tall}:${src}`
     const cached = small.get(key)
     if (cached !== undefined) return cached
     const name = stored(src)
     if (!name) return ''
+    // A video's frame, a document's first page, as Finder's Quick Look draws it, made by the Mac outside the app and
+    // kept on disk beside the store, so each file's is made once, ever. A file Quick Look draws nothing for is said
+    // once too (an empty ".none"), and its card shows the Mac's icon for its kind (media.ts, media:icon).
+    if (!/\.(png|jpe?g|gif|webp|avif|bmp|heic|svg|pdf)$/.test(name)) {
+      const made = await quickLook(name, tall)
+      small.set(key, made)
+      return made
+    }
     // A huge original is never opened for a list: it shows its kind instead.
     if (((await stat(join(assetsDir(), name)).catch(() => null))?.size ?? 0) > 30 * 1024 * 1024) return (small.set(key, ''), '')
-    // A video's first frame, or a PDF's first page, as Finder's Quick Look draws it: no player or reader needed.
-    if (/\.(mp4|m4v|mov|webm|pdf)$/.test(name)) {
+    // A PDF's first page, as Quick Look draws it: no reader needed.
+    if (/\.pdf$/.test(name)) {
       const frame = await nativeImage.createThumbnailFromPath(join(assetsDir(), name), { width: tall * 2, height: tall * 2 }).catch(() => null)
       const made = frame && !frame.isEmpty() ? `data:image/jpeg;base64,${frame.toJPEG(72).toString('base64')}` : ''
       small.set(key, made)

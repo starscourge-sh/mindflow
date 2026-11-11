@@ -4,6 +4,7 @@ import { showMediaFile } from '@/lib/media-files'
 import { aimAt } from '@/lib/meeting'
 import { useSeen } from '@/lib/reads-in'
 import { Fragment, memo, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
+import { smallPicture } from '@/lib/notes'
 import { TASK_KIND } from './haligtree/everything'
 import { FLOAT } from '@/lib/float'
 import { motion, useIsPresent } from 'motion/react'
@@ -742,9 +743,21 @@ function MediaPeek({ label, id, kind }: { label: string; id: string; kind: strin
     <div className="flex flex-col gap-2 p-4">
       <p className="text-base font-medium text-pretty text-foreground">{label}</p>
       <p className="text-body text-muted-foreground">In Files, in no note yet</p>
-      {kind !== 'audio' && <img src={src} alt="" className="max-h-64 w-full rounded-lg object-contain" />}
+      {kind !== 'audio' && <MediaPeekFace src={src} kind={kind} />}
     </div>
   )
+}
+/** A picture as it is; a video's frame or a document's first page as the Mac's Quick Look draws it (none: nothing). */
+function MediaPeekFace({ src, kind }: { src: string; kind: string }): React.JSX.Element | null {
+  const picture = kind === 'picture' || kind === 'gif'
+  const [face, setFace] = useState(picture ? src : '')
+  useEffect(() => {
+    if (picture) return void setFace(src)
+    let live = true
+    void smallPicture(src, true).then((made) => live && setFace(made), () => undefined)
+    return () => void (live = false)
+  }, [src, picture])
+  return face ? <img src={face} alt="" className="max-h-64 w-full rounded-lg object-contain" /> : null
 }
 function PdfPeek({ label, id }: { label: string; id: string }): React.JSX.Element {
   const name = id.slice(id.indexOf('|') + 1)
