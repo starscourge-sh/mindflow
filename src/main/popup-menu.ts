@@ -43,6 +43,12 @@ let win: BrowserWindow | null = null
 let ready: Promise<void> = Promise.resolve()
 let open: { id: number; owner: BrowserWindow; done: (path: number[] | null) => void } | null = null
 let count = 0
+/** Told as each menu is put away, with the window it belonged to. */
+const shut = new Set<(owner: BrowserWindow) => void>()
+/** Whether a menu belonging to this window is open now: the pointer on it counts as on the window. */
+export const menuOpenFor = (owner: BrowserWindow): boolean => open?.owner === owner
+/** Hear each menu put away, with the window it belonged to. */
+export const onMenuShut = (listen: (owner: BrowserWindow) => void): void => void shut.add(listen)
 /** For the probes: the last menu shown, where, and how it ended. */
 const qa = (globalThis as { qaPopupMenu?: Record<string, unknown> })
 
@@ -94,6 +100,7 @@ function finish(path: number[] | null, back: boolean): void {
   qa.qaPopupMenu = { ...qa.qaPopupMenu, open: false, picked: path, focusBack: back && !owner.isDestroyed() }
   if (back && !owner.isDestroyed()) owner.focus()
   done(path)
+  if (!owner.isDestroyed()) for (const listen of shut) listen(owner)
 }
 
 /**

@@ -10,6 +10,7 @@ import { TuckTab } from '../components/haligtree/tuck-tab'
 import { params, start } from '../main'
 import { clearRoom } from '../lib/clear-room'
 import { carryOnPress } from '../lib/carry'
+import { watchCardPointer } from '../lib/card-pointer'
 import { followGlass } from '../lib/glass'
 
 const type = params.get('type')
@@ -17,6 +18,8 @@ const type = params.get('type')
 document.documentElement.dataset.stickyWindow = ''
 // Picked up by a press where the card says so (DRAG in sticky-note.tsx): carried by main until the button comes up.
 carryOnPress()
+// The pointer coming onto the window and leaving it, told to main as it happens: a risen card set down, an opened tab folded.
+watchCardPointer()
 
 start(
   <>

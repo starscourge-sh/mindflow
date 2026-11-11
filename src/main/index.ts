@@ -57,7 +57,7 @@ import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
-import { lineAt, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
+import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
 import { hintRoom, type HintSide } from './hint-room'
 import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
@@ -2555,9 +2555,36 @@ function applyRules(): void {
 const nudging = new Set<string>()
 /** A card opened out of its tab, away from its own place: where that place is. */
 const openedAt = new Map<string, Electron.Rectangle>()
-/** Watches the pointer over a card opened from its tab; gone from it for half a second, it folds back. */
-const peekWatch = new Map<string, ReturnType<typeof setInterval>>()
+/** A card opened from its tab, listening for the pointer to leave it; gone from it for half a second, it folds back. */
+const peekWatch = new Map<string, () => void>()
+/** The wait before a card the pointer has left slides back, then before it is folded even if its page never says the slide is drawn. */
+const peekWait = new Map<string, ReturnType<typeof setTimeout>>()
 const inside = (p: Electron.Point, b: Electron.Rectangle): boolean => p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < b.y + b.height
+/**
+ * Whether the pointer is on a sticky's window, as its page last said from its own pointer events (sticky:pointer),
+ * sent only as the pointer comes and goes. A menu of the card's own open counts as on it; put away, where the pointer
+ * is then is asked once, since the card's page heard nothing while the menu window was over it.
+ */
+const pointerOn = new WeakMap<BrowserWindow, boolean>()
+const pointerHeard = new WeakMap<BrowserWindow, Set<() => void>>()
+const onCard = (win: BrowserWindow): boolean => menuOpenFor(win) || pointerOn.get(win) === true
+const hearPointer = (win: BrowserWindow, listen: () => void): (() => void) => {
+  const all = pointerHeard.get(win) ?? new Set()
+  pointerHeard.set(win, all.add(listen))
+  return () => void all.delete(listen)
+}
+const pointerSaid = (win: BrowserWindow, on: boolean): void => {
+  pointerOn.set(win, on)
+  for (const listen of [...(pointerHeard.get(win) ?? [])]) listen()
+}
+ipcMain.on('sticky:pointer', (event, on: unknown) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (win && !win.isDestroyed()) pointerSaid(win, on === true)
+})
+onMenuShut((owner) => {
+  if (!pointerHeard.get(owner)?.size) return
+  pointerSaid(owner, !process.env.HALIGTREE_QA_AWAY && inside(screen.getCursorScreenPoint(), owner.getBounds()))
+})
 /** A goal's window as a tab or as its card, as its place by the clock says and the pointer allows. */
 function shapeCard(key: string, win: BrowserWindow): void {
   if (win.isDestroyed()) return
@@ -2641,22 +2668,36 @@ function shapeCard(key: string, win: BrowserWindow): void {
   win.setMinimumSize(214, 124)
   win.setBounds(to)
   // Opened by the pointer: back to the tab once it has gone from the card.
-  clearInterval(peekWatch.get(key))
+  stopPeek(key)
   if (!beaconHeld.has(key)) return
   // Gone from it for half a second, the card is told to slide back into its edge (one motion, drawn by its page),
   // and made its tab only once that is drawn (beacon:folded). The pointer back on it midway: it slides out again.
-  let away = 0
+  // Heard from the card's own pointer events as they happen, never by asking where the pointer is.
+  const heard = (): void => {
+    if (win.isDestroyed() || peeking.has(key) || !beaconHeld.has(key)) return stopPeek(key)
+    clearTimeout(peekWait.get(key))
+    peekWait.delete(key)
+    if (onCard(win)) return void (folding.delete(key) && win.webContents.send('beacon:fold', false))
+    if (folding.has(key)) return
+    peekWait.set(key, setTimeout(() => {
+      if (win.isDestroyed() || peeking.has(key) || !beaconHeld.has(key)) return stopPeek(key)
+      if (onCard(win)) return
+      folding.add(key)
+      win.webContents.send('beacon:fold', true)
+      // A page that never says (hung, or reloading) still folds, a second and a half later.
+      peekWait.set(key, setTimeout(() => folding.has(key) && foldBack(key, win), 1500))
+    }, 500))
+  }
+  peekWatch.set(key, hearPointer(win, heard))
+  // Left before it came out (a fast pass over the tab): it goes back as it would have.
+  heard()
+}
+function stopPeek(key: string): void {
+  peekWatch.get(key)?.()
+  peekWatch.delete(key)
+  clearTimeout(peekWait.get(key))
+  peekWait.delete(key)
   folding.delete(key)
-  peekWatch.set(key, setInterval(() => {
-    if (win.isDestroyed() || peeking.has(key) || !beaconHeld.has(key)) return void (clearInterval(peekWatch.get(key)), peekWatch.delete(key), folding.delete(key))
-    away = inside(screen.getCursorScreenPoint(), win.getBounds()) ? 0 : away + 1
-    if (away === 0 && folding.delete(key)) win.webContents.send('beacon:fold', false)
-    // A page that never says (hung, or reloading) still folds, a second and a half later.
-    if (away === 8 && folding.has(key)) return void foldBack(key, win)
-    if (away !== 2) return
-    folding.add(key)
-    win.webContents.send('beacon:fold', true)
-  }, 250))
 }
 /** Cards sliding back into their tab, waiting for their page to say the slide is drawn. */
 const folding = new Set<string>()
@@ -2666,9 +2707,7 @@ ipcMain.on('beacon:folded', (event) => {
   if (win && key && folding.has(key)) foldBack(key, win)
 })
 function foldBack(key: string, win: BrowserWindow): void {
-  folding.delete(key)
-  clearInterval(peekWatch.get(key))
-  peekWatch.delete(key)
+  stopPeek(key)
   beaconHeld.delete(key)
   shapeCard(key, win)
 }
@@ -5249,24 +5288,26 @@ app.whenReady().then(() => {
     if (!win || win.isDestroyed() || stillness() || lifted.has(win) || held.has(win)) return
     const rest = win.getBounds()
     lifted.set(win, { x: rest.x, y: rest.y })
-    // Picked up: wherever your hand puts it is its place, never set back down where it rose from.
-    unlift.set(win, () => (clearInterval(watch), lifted.delete(win), unlift.delete(win)))
-    placed.set(win, { x: rest.x, y: rest.y })
-    let watch: ReturnType<typeof setInterval>
-    // Up first, then watched: a set-down starting mid-rise would fight it.
-    // The same length and curve as a paper card's lift in its page (LIFT_MS), so glass and paper feel one material.
-    glide(win, LIFT_MS, (t) => ({ x: rest.x, y: rest.y - Math.round(RISE * outQuint(t)) }), () => down())
-    const down = (): void => void (watch = setInterval(() => {
-      if (win.isDestroyed()) return clearInterval(watch)
+    let rising = true
+    // Set down once the page says the pointer has gone from it (sticky:pointer), heard as it happens.
+    // The page asks for the lift only from above the window's foot (lib/card-pointer.ts), so the rise
+    // itself never slips the window out from under the pointer.
+    const settle = (): void => {
+      if (rising || win.isDestroyed() || onCard(win)) return
+      done()
       // Dragged while up: wherever you put it is its place now.
-      if (!ours(win)) return (clearInterval(watch), lifted.delete(win), void unlift.delete(win))
-      const p = screen.getCursorScreenPoint()
-      const b = win.getBounds()
-      if (p.x >= b.x && p.x < b.x + b.width && p.y >= b.y && p.y < rest.y + b.height) return
-      clearInterval(watch)
-      const from = b.y
-      glide(win, LIFT_MS, (t) => ({ x: rest.x, y: Math.round(from + (rest.y - from) * outQuint(t)) }), () => (lifted.delete(win), void unlift.delete(win)))
-    }, 80))
+      if (!ours(win)) return
+      const from = win.getBounds().y
+      glide(win, LIFT_MS, (t) => ({ x: rest.x, y: Math.round(from + (rest.y - from) * outQuint(t)) }))
+    }
+    const unhear = hearPointer(win, settle)
+    const done = (): void => void (unhear(), lifted.delete(win), unlift.delete(win))
+    // Picked up: wherever your hand puts it is its place, never set back down where it rose from.
+    unlift.set(win, done)
+    placed.set(win, { x: rest.x, y: rest.y })
+    // Up first, then set down if the pointer went meanwhile: a set-down starting mid-rise would fight it.
+    // The same length and curve as a paper card's lift in its page (LIFT_MS), so glass and paper feel one material.
+    glide(win, LIFT_MS, (t) => ({ x: rest.x, y: rest.y - Math.round(RISE * outQuint(t)) }), () => ((rising = false), settle()))
   })
   // Its corner grip: the window is not resizable (see stick), so the size is set
   // here, once a frame at most (the page sends no more). Pulled past its least or

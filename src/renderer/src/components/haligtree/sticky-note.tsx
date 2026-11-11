@@ -32,6 +32,7 @@ import { Signed } from './signature'
 import { cut } from '../../../../main/clip'
 import { X } from '@/components/ui/icons'
 import { EASING, still } from '@/lib/motion'
+import { liftCard } from '@/lib/card-pointer'
 import { APP_NAME } from '../../../../main/name'
 import { num } from '../../../../main/dates'
 
@@ -654,7 +655,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
       <div
         ref={card}
         // Pointed at, a glass note's window rises a little (main sets it down); paper lifts in its own window.
-        onPointerEnter={() => GLASS && window.api.lift()}
+        onPointerEnter={(event) => GLASS && liftCard(event)}
+        onPointerMove={GLASS ? liftCard : undefined}
         data-private={note?.private ? '' : undefined}
         // Paper: solid, as the timer pill is (a glass theme's colours would let the desktop show through),
         // the theme's own paper (--mf-paper, sticky-note.scss), warmed a little by its own yellow (or the colour you gave it) and lit from the top. Frosted (the setting), <Frost> lays the blurred desktop under it. Leans its own way; pointed at, it straightens and lifts.

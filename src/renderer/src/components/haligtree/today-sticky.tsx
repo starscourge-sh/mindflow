@@ -27,6 +27,7 @@ import { taskMenu, useTaskNow } from './tasks-view'
 import { loud } from '@/lib/loud'
 import { Check, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
+import { liftCard } from '@/lib/card-pointer'
 
 /** When a task is for: the day it is due, else its deadline's. */
 const dueDay = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)
@@ -143,7 +144,7 @@ export function TodaySticky(): React.JSX.Element {
 
   return (
     <div data-clear className={GLASS ? 'h-screen' : 'h-screen p-[20px]'}>
-      <div ref={card} onPointerEnter={() => GLASS && window.api.lift()} onMouseLeave={() => setAsking(false)} className={CARD}
+      <div ref={card} onPointerEnter={(event) => GLASS && liftCard(event)} onPointerMove={GLASS ? liftCard : undefined} onMouseLeave={() => setAsking(false)} className={CARD}
         style={{ ...DRAG, '--tilt': `${tilt}deg`, ...PAPER } as unknown as CSSProperties}>
         {!GLASS && <Frost tint="--mf-paper-tint" lift />}
         <SandboxStamp />

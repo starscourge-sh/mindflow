@@ -11,6 +11,7 @@ import { Tip, sayNow } from './ui'
 
 import { EASE, shift, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
+import { liftCard } from '@/lib/card-pointer'
 import { useStickyDo } from '@/lib/sticky-do'
 import { useAppearance, useLive, haligtree, type ItemFull } from '@/lib/haligtree'
 import { useMilestones, type Milestone } from '@/lib/milestones'
@@ -68,7 +69,8 @@ function Desk({ shown, children, onEnter, onLeave }: { shown: number; children: 
       // Paper keeps room round the card for its shadow (main's insetOf); glass is the card.
       data-clear
       className={GLASS ? 'group h-screen' : 'group h-screen p-[20px]'}
-      onPointerEnter={() => (onEnter?.(), GLASS && window.api.lift())}
+      onPointerEnter={(event) => (onEnter?.(), GLASS && liftCard(event))}
+      onPointerMove={GLASS ? liftCard : undefined}
       onPointerLeave={onLeave}
     >
       <div className="relative h-full">

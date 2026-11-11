@@ -396,6 +396,8 @@ const api = {
   wiggle: (): void => ipcRenderer.send('sticky:wiggle'),
   /** Pointed at: the window rises a little, and sets down once the pointer leaves. */
   lift: (): void => ipcRenderer.send('sticky:lift'),
+  /** The pointer come onto the sticky's window (true) or gone from it (false), from the page's own pointer events. */
+  pointerOn: (on: boolean): void => ipcRenderer.send('sticky:pointer', on),
   /** A goal's card: the pointer on it (it stays) or off it, and its X (that goal tucked away). */
   holdBeacon: (on: boolean): void => ipcRenderer.send('beacon:hold', on),
   tuckBeacon: (id: string): void => ipcRenderer.send('beacon:tuck', id),
