@@ -296,20 +296,23 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
           </>
         )}
       </div>
-      {zoomed ? (
-        <div data-book-pages className="overflow-hidden" style={{ width }}>
-          <div style={{ width: spread, transform: pan ? `translateX(${-pan}px)` : undefined }}>
-            <StrokeAxis ticks={ticks} width={spread} from={pan - 90} to={pan + width + 10} />
+      {/* The line under the strip is the same height either way, so a pinch never moves what is below it. */}
+      <div className="book-bar-under">
+        {zoomed ? (
+          // Placed by where they are in sight, so a page number at either edge is kept inside the strip, as the Year's months are.
+          <div data-book-pages>
+            <StrokeAxis ticks={ticks.map((one) => ({ ...one, x: one.x - pan }))} width={width} from={-10} to={width + 10} className="!mt-0" />
           </div>
-          {/* Under the page numbers, past the tip's reach, where the page's picture over the strip never covers it. */}
-          <p data-book-zoom-hint className="mt-3.5 text-[11px] leading-4 text-muted-foreground">Esc or a double-click for the whole book</p>
-        </div>
-      ) : (
-        <div className="book-bar-ends">
-          <span>p. {labelFor(src, 1)}</span>
-          <span>p. {labelFor(src, pages)}</span>
-        </div>
-      )}
+        ) : (
+          <div className="book-bar-ends">
+            <span>p. {labelFor(src, 1)}</span>
+            <span>p. {labelFor(src, pages)}</span>
+          </div>
+        )}
+      </div>
+      {/* Under the page numbers, past the tip's reach, where the page's picture over the strip never covers it. Its room is
+          kept when not zoomed (empty, and not read out), so nothing below moves as the strip is pinched. */}
+      <p data-book-zoom-hint={zoomed ? "" : undefined} aria-hidden={!zoomed} className="book-bar-hint">{zoomed ? "Esc or a double-click for the whole book" : null}</p>
     </div>
   )
 }

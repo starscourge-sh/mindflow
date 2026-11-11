@@ -1967,11 +1967,25 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   .book-thumb-sheet .is-late { animation: none; }
 }
 
+/* Under the strip: the first and last page, or zoomed, the page numbers in sight; one height for both. */
+.book-bar-under {
+  height: 1.125rem;
+  padding-top: 0.25rem;
+}
+
+/* Zoomed, how to go back, past the tip's reach; at rest an empty line of the same height. */
+.book-bar-hint {
+  height: 1rem;
+  margin-top: 0.25rem;
+  color: var(--mf-muted);
+  font-size: 0.6875rem;
+  line-height: 1rem;
+}
+
 .book-bar-ends {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-top: 0.25rem;
   color: var(--read-quiet, var(--mf-muted));
   font-size: 0.6875rem;
   line-height: 1;

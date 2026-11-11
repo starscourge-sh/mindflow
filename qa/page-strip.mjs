@@ -236,6 +236,9 @@ try {
   box = await h.locator('[data-page-bar] svg[data-strokes]').boundingBox()
   y = box.y + box.height - 4
   await h.mouse.move(xAt(0.5), y)
+  // Where the page bar ends, before the pinch: a pinch moves nothing below it.
+  const below = () => h.evaluate(() => Math.round(document.querySelector('[data-page-bar]').getBoundingClientRect().bottom * 10) / 10)
+  const restBottom = await below()
   for (let i = 0; i < 20; i++) await h.evaluate(([x, yy]) => document.elementFromPoint(x, yy).dispatchEvent(new WheelEvent('wheel', { deltaY: -30, ctrlKey: true, clientX: x, clientY: yy, bubbles: true, cancelable: true })), [xAt(0.5), y])
   await wait(700)
   const zoom = () => h.evaluate(() => Number(document.querySelector('[data-page-bar] [data-book-zoom]')?.getAttribute('data-book-zoom') ?? 0))
@@ -243,6 +246,13 @@ try {
   const words = await h.evaluate(() => [...document.querySelectorAll('[data-page-bar] [data-book-pages] span')].map((s) => s.textContent))
   check('a pinch spreads the book, page numbers under it', z > 2 && words.length >= 2, JSON.stringify({ z, words }))
   check('zoomed, it says how to go back', await h.evaluate(() => !!document.querySelector('[data-book-zoom-hint]')))
+  const zoomBottom = await below()
+  check('zoomed, nothing below the page bar moves', zoomBottom === restBottom, `${restBottom} -> ${zoomBottom}`)
+  const inside = await h.evaluate(() => {
+    const strip = document.querySelector('[data-page-bar] svg[data-strokes]').getBoundingClientRect()
+    return [...document.querySelectorAll('[data-page-bar] [data-book-pages] span')].map((s) => s.getBoundingClientRect()).filter((r) => r.left < strip.left - 0.5 || r.right > strip.right + 0.5).length
+  })
+  check('zoomed, every page number under the strip lies wholly inside it', inside === 0, `${inside} past an edge`)
   await h.mouse.move(xAt(0.55), y)
   await wait(300)
   now = await seen()
