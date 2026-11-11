@@ -34,25 +34,41 @@ export function jumpTo(editor: Editor, pos: number): void {
   // A picture or a file is picked whole; a line takes the cursor.
   const node = tr.doc.nodeAt(pos)
   tr.setSelection(node?.isAtom && NodeSelection.isSelectable(node) ? NodeSelection.create(tr.doc, pos) : TextSelection.near(tr.doc.resolve(pos + 1))).setMeta(landed, pos)
-  view.dispatch(tr)
-  view.focus()
-  cue("heading")
-  // Next frame: whatever hid it (a fold, a far block in a long note) is drawn by then.
-  requestAnimationFrame(() => {
-    if (view.isDestroyed) return
-    const heading = view.nodeDOM(pos)
-    // The editor's own scroll, or whatever the host scrolls it in (the box grows the window instead).
+  // The editor's own scroll, or whatever the host scrolls it in (the box grows the window instead).
+  const scrollerOf = (): HTMLElement | null => {
     let box: Element | null = view.dom.parentElement
     while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement
-    if (!(heading instanceof HTMLElement) || !box || !heading.getClientRects().length) {
-      view.dispatch(view.state.tr.scrollIntoView())
-      return
-    }
-    const scroller = box as HTMLElement
+    return box as HTMLElement | null
+  }
+  // How far off it is before going. Within a couple of screens it glides to the top of the page; from further, or
+  // from a block of a long note that is not on the page, it is there at once, in one step: a glide over tens of
+  // thousands of pixels is a wait, and a long note draws other blocks under it as it goes.
+  const was = view.nodeDOM(pos)
+  const from = scrollerOf()
+  const close = was instanceof HTMLElement && !!from && was.getClientRects().length > 0 && Math.abs(was.getBoundingClientRect().top - from.getBoundingClientRect().top) < from.clientHeight * 2
+  // Asked to be shown with the caret, in the same breath: a long note draws only the blocks near its screen
+  // (extensions/long-document.ts) and draws the place gone to as the caret lands. Left for the next frame, the
+  // screen was still where it had been, the drawn blocks went back to it, and there was nothing to scroll to.
+  view.dispatch(tr.scrollIntoView())
+  view.focus()
+  cue("heading")
+  const place = (): boolean => {
+    const heading = view.nodeDOM(pos)
+    const scroller = scrollerOf()
+    if (!(heading instanceof HTMLElement) || !scroller || !heading.getClientRects().length) return false
     const goal = (): number => heading.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - 24
-    scroller.scrollTo({ top: goal(), behavior: glideWay() })
+    scroller.scrollTo({ top: goal(), behavior: close ? glideWay() : "instant" })
     holdOn(scroller, heading, goal)
-  })
+    return true
+  }
+  // At once where it is drawn already; else next frame, when whatever hid it (a fold opening, a note still being
+  // put on the page) is, asking for the caret to be shown again first.
+  if (!place())
+    requestAnimationFrame(() => {
+      if (view.isDestroyed || place()) return
+      view.dispatch(view.state.tr.scrollIntoView())
+      place()
+    })
   setTimeout(() => !view.isDestroyed && view.dispatch(view.state.tr.setMeta(landed, null).setMeta("addToHistory", false)), 1400)
 }
 
@@ -73,6 +89,9 @@ function holdOn(scroller: HTMLElement, target: HTMLElement, goal: () => number):
   let calm = 0
   let frames = 0
   const step = (): void => {
+    // Taken off the page (a long note's screen gone elsewhere, its far blocks no longer drawn): nothing to hold on
+    // to, and where it "is" would read as the top of the window.
+    if (!target.getClientRects().length) return void events.forEach((name) => window.removeEventListener(name, letGo, { capture: true }))
     // As far as the note goes: a place near its end stops where the note does.
     const want = Math.max(0, Math.min(goal(), scroller.scrollHeight - scroller.clientHeight))
     const at = scroller.scrollTop

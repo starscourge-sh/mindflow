@@ -169,14 +169,20 @@ function iconFor(icon: LucideIcon, color: string): Element | null {
 
 /**
  * A heading link waiting for the note it points into to open. The editor only
- * reports which note; whichever editor mounts next, a moment later, is that
- * note, and it scrolls to the heading itself - so no host has to pass it on.
+ * reports which note; the editor that mounts for that note takes the heading
+ * and scrolls to it itself - so no host has to pass it on.
  */
-let pending: { heading: string; at: number } | null = null
+let pending: { documentId: string | null; heading: string } | null = null
 
-/** The heading a link just asked for, if one did in the last couple of seconds. */
-export function takePendingHeading(): string | null {
-  const wanted = pending && Date.now() - pending.at < 2000 ? pending.heading : null
+/**
+ * The heading a link asked for in this note, if one did: taken by the editor that opens the note, however long
+ * the note takes to open. It was given up after two seconds by the clock, so a link into a very long note (or
+ * into any note on a busy Mac) opened it at its top.
+ */
+export function takePendingHeading(documentId: string | null): string | null {
+  // Left by a click in a note, which knows the note and not the kind of page it opens as: the next note to open.
+  if (!pending || (pending.documentId !== null && pending.documentId !== documentId)) return null
+  const wanted = pending.heading
   pending = null
   return wanted
 }
@@ -229,7 +235,7 @@ export function showHeading(documentId: string, heading: string): void {
   if (open && !open.isDestroyed) {
     pending = null
     goToHeading(open, heading)
-  } else pending = { heading, at: Date.now() }
+  } else pending = { documentId, heading }
 }
 
 /** `[[Note]]`, `[[Note#Heading]]`, `[[Note|shown]]`, `[[#Heading]]` and the rest. */
@@ -304,7 +310,7 @@ async function openGhost(editor: Editor, label: string, heading: string, findNot
   const note = await noteNamed(label, findNotes)
   if (!note || !open || editor.isDestroyed) return
   if (note.made) ghosts.set(`capture-${note.id}`, { id: note.id, name: note.label })
-  pending = heading ? { heading, at: Date.now() } : null
+  pending = heading ? { documentId: null, heading } : null
   open(note.id, heading || undefined)
 }
 
@@ -946,7 +952,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
               return true
             }
             if (!onOpenNote) return false
-            pending = heading ? { heading, at: Date.now() } : null
+            pending = heading ? { documentId: null, heading } : null
             onOpenNote(id, heading || undefined)
             return true
           },

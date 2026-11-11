@@ -3,6 +3,8 @@ import { useEffect } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { EditorView } from '@tiptap/pm/view'
 
+import { screenBlocks, showBlock } from '@/extensions/long-document'
+
 /**
  * Where you were in each note: the block at the top of the screen (and how
  * far down the note that was) and where the caret sat, kept as you leave it and put back when it opens again (later
@@ -54,14 +56,22 @@ export function scrollerOf(element: Element): HTMLElement | null {
   return null
 }
 
-/** The block at the top of the scroller (its position in the note) and how far above the scroller's top edge it starts. */
-function anchorOf(view: EditorView, scroller: HTMLElement): { block: number; into: number } | null {
+/** Notes opened somewhere on purpose (by a link to one of their headings): not put back where they were last left. */
+const elsewhere = new WeakSet<Editor>()
+export const openedElsewhere = (editor: Editor): void => void elsewhere.add(editor)
+
+/**
+ * The block at the top of the scroller (its position in the note) and how far above the scroller's top edge it
+ * starts. `seen`: the blocks on the screen as a long note itself tells them (most of its blocks are off the page,
+ * and looking through them by halves ended on the note's last block, so a long note was never found again).
+ */
+function anchorOf(view: EditorView, scroller: HTMLElement, seen: { first: number; last: number } | null): { block: number; into: number } | null {
   const blocks = view.dom.children
   if (!blocks.length) return null
   const edge = scroller.getBoundingClientRect().top
   // The first block reaching below the edge, found by halves: a dozen reads in a note of thousands of blocks.
-  let low = 0
-  let high = blocks.length - 1
+  let low = seen ? Math.min(seen.first, blocks.length - 1) : 0
+  let high = seen ? low : blocks.length - 1
   while (low < high) {
     const middle = (low + high) >> 1
     if (blocks[middle].getBoundingClientRect().bottom <= edge) low = middle + 1
@@ -102,7 +112,7 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     const off = afterLayout(dom, () => (undo = follow()))
     const follow = (): (() => void) => {
     const scroller = scrollerOf(dom)
-    const kept = placeOf(id)
+    const kept = elsewhere.has(editor) ? null : placeOf(id)
     let holding = !!scroller && !!kept && kept.top > 0
     // Left as kept until you move it: a note closed again before that keeps its place.
     let top = holding && kept ? kept.top : (scroller?.scrollTop ?? 0)
@@ -122,9 +132,15 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       if (!(block instanceof HTMLElement) || block.parentElement !== dom || !block.getClientRects().length) return null
       return block.getBoundingClientRect().top - scroller.getBoundingClientRect().top + anchor.into
     }
-    const put = (): void => {
+    // `opening`: a long note keeps only the blocks near its screen on its page, and the one it was left at is brought
+    // onto it as it opens. Only then: later, off the page means something else took the screen elsewhere.
+    const put = (opening = false): void => {
       if (!holding || !kept || !scroller) return
-      const by = drift()
+      let by = drift()
+      if (by === null && anchor && opening) {
+        showBlock(editor, anchor.block)
+        by = drift()
+      }
       if (by !== null) {
         if (Math.abs(by) >= 0.5) go(scroller.scrollTop + by)
       } else if (scroller.scrollHeight - scroller.clientHeight >= kept.top - 1) {
@@ -138,14 +154,14 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       const size = editor.state.doc.content.size
       // The caret where it was, without taking the keys: the next click or key in the note starts there.
       if (kept.from > 0 && kept.from < size) editor.commands.setTextSelection(kept.from)
-      put()
+      put(true)
     }
     // Where you are now, read when you scroll and when the note changes size under a still screen (a picture loads above it).
     const read = (): void => {
       if (!scroller || holding) return
       // Read to its last screen, a note is finished with: it opens at its top next time, not at the bottom with nothing left to read.
       top = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < scroller.clientHeight ? 0 : scroller.scrollTop
-      anchor = top ? anchorOf(view, scroller) : null
+      anchor = top ? anchorOf(view, scroller, screenBlocks(editor)) : null
     }
     // Held there as the note grows above it: told after each layout, before it is painted.
     const grows = new ResizeObserver(() => (holding ? put() : read()))
@@ -153,7 +169,9 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     const onScroll = (): void => {
       if (!scroller) return
       // Moved by something else (a link to a heading, find), that wins. The browser's own scroll anchoring keeps the block where it was, so never counts.
-      if (holding && Math.abs(scroller.scrollTop - mine) > 1 && Math.abs(drift() ?? 0) > 1) holding = false
+      // Its block no longer on the page (a long note's screen sent far off) is moved as well.
+      const by = drift()
+      if (holding && Math.abs(scroller.scrollTop - mine) > 1 && (by === null ? !!anchor : Math.abs(by) > 1)) holding = false
       read()
     }
     const onSelect = (): void => void (from = editor.state.selection.from)

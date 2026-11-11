@@ -12,7 +12,8 @@ import { EditorContext, useEditor } from "@tiptap/react"
 import { EditorSurface, holdViews } from "@/components/haligtree/editor-surface"
 import { followPdfLink, isPdfHref, isReadable, openArticle } from "@/components/pdf/pdf-reader"
 import { canSplit } from "@/lib/split"
-import { useNotePlace } from "@/lib/note-place"
+import { openedElsewhere, useNotePlace } from "@/lib/note-place"
+import { afterLayout } from "@/lib/after-layout"
 
 // --- Tiptap Core Extensions ---
 import { StarterKit } from "@tiptap/starter-kit"
@@ -1656,9 +1657,14 @@ function Surface({
       // Let go of when it goes, or every editor ever opened stays in memory.
       if (shape === "document") (readers.add(instance), instance.on("destroy", () => readers.delete(instance)))
       tell(instance)
-      // Opened by a link to one of its headings: go there once laid out.
-      const heading = shape === "document" ? takePendingHeading() : null
-      if (heading) requestAnimationFrame(() => goToHeading(instance, heading))
+      // Opened by a link to one of its headings: go there once laid out (told by the page itself, at the note's
+      // first layout: a frame after it was made, a long note was not always on the page yet), and not back to
+      // the place it was last left at.
+      const heading = shape === "document" ? takePendingHeading(documentId != null ? String(documentId) : null) : null
+      if (heading) {
+        openedElsewhere(instance)
+        afterLayout(instance.view.dom, () => void (!instance.isDestroyed && goToHeading(instance, heading)))
+      }
     },
     onUpdate: ({ editor: instance }) => {
       if (!latest.current) return

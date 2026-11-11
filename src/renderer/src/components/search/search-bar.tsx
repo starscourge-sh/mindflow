@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useEditorState, type Editor } from "@tiptap/react"
 
 import { cue } from "@/lib/cues"
+import { scrollerOf } from "@/lib/note-place"
 import { Roll } from "@/lib/roll"
 import { ChevronDown, ChevronRight, ChevronUp, X } from "@/components/ui/icons"
 
@@ -113,6 +114,8 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
 
   const step = (back: boolean): void => {
     if (!editor?.storage.findAndReplace?.results.length) return cue("find-miss")
+    const box = scrollerOf(editor.view.dom)
+    const was = box?.scrollTop
     if (back) editor.commands.goToPreviousResult()
     else editor.commands.goToNextResult()
     cue("find-step", editor.storage.findAndReplace.currentIndex ?? 0)
@@ -120,11 +123,18 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
     // The extension scrolls the selection into view, but the very first step
     // after typing runs before its highlights are in the DOM and the scroll is
     // skipped. Centring the match ourselves is both reliable and nicer to read.
-    requestAnimationFrame(() => {
-      editor.view.dom
-        .querySelector(".find-and-replace-result-current")
-        ?.scrollIntoView({ block: "center" })
-    })
+    // At once when it is drawn already, and in one step when it is far off: a
+    // frame later a long note, which draws only the blocks near its screen, had
+    // gone back to where the screen still was, and there was no match to go to.
+    const centre = (): boolean => {
+      const match = editor.view.dom.querySelector(".find-and-replace-result-current")
+      if (!match?.getClientRects().length) return false
+      // Far: more than a couple of screens off, or the screen already put there by a long note as the step was taken.
+      const far = (!!box && box.scrollTop !== was) || Math.abs(match.getBoundingClientRect().top - window.innerHeight / 2) > window.innerHeight * 2
+      match.scrollIntoView({ block: "center", behavior: far ? "instant" : "auto" })
+      return true
+    }
+    if (!centre()) requestAnimationFrame(centre)
   }
 
   // A locked or read-only note can be searched but not changed. Read at
