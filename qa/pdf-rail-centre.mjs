@@ -112,6 +112,25 @@ try {
   await wait(600)
   const resting = await where()
   check('the pointer resting on the rail after the wheel, the rail stays where the hand left it', resting && resting.top < tops.at(-1) + 100, JSON.stringify(resting))
+  // A thumbnail above the view drawn late and taller, as on a busy machine: the browser keeps the view still
+  // by moving the rail, a scroll no one made, which never ends with a scrollend. It must not keep the rail held.
+  const nudge = await h.evaluate((sel) => new Promise((done) => {
+    const list = document.querySelector(sel)
+    const seen = { scroll: 0, scrollend: 0, by: 0 }
+    const was = list.scrollTop
+    const count = (event) => void seen[event.type]++
+    list.addEventListener('scroll', count)
+    list.addEventListener('scrollend', count)
+    const top = list.getBoundingClientRect().top
+    const above = [...list.querySelectorAll('.pdf-thumb')].reverse().find((one) => one.getBoundingClientRect().bottom < top)
+    above.style.paddingTop = '40px'
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      list.removeEventListener('scroll', count)
+      list.removeEventListener('scrollend', count)
+      done({ ...seen, by: Math.round(list.scrollTop - was) })
+    }))
+  }), LIST)
+  console.log(`MEASURE a thumbnail above grown 40px while the hand rests: ${JSON.stringify(nudge)}`)
   const pages = await h.locator('.pdf-reader .pdf-reader-scroll').boundingBox()
   await h.mouse.move(pages.x + pages.width / 2, pages.y + pages.height / 2)
   await wait(1500)
