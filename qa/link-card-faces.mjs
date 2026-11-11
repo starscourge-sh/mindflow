@@ -79,6 +79,7 @@ try {
   content.push({ type: 'bookmark', attrs: { href: 'https://gone.example.org/page', title: 'A page whose picture is gone', description: '', image: `${SITE}/missing.png`, icon: '', site: 'gone.example.org', id: 'gone', loading: false } })
   const id = await h.evaluate((content) => window.api.captures.create({ kind: 'note', title: 'Thirty cards', body: { type: 'doc', content: [...content, { type: 'paragraph' }] } }), content)
 
+  let loadingId = await h.evaluate((video) => window.api.captures.create({ kind: 'note', title: 'Another note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: video }] }] } }), VIDEO)
   // How long until every card is drawn, timed in the window from the moment the note is asked for.
   const open = async (note = id) => {
     const timing = h.evaluate(() => new Promise((done) => {
@@ -137,26 +138,18 @@ try {
 
   // 4. Measured: thirty cards still on a site (as every card was before), then the same thirty kept in the book,
   // each opened in a fresh window, timed to every picture shown.
-  const shownAll = () => h.evaluate(() => new Promise((done) => {
-    const t0 = performance.now()
-    const tick = () => {
-      const cards = document.querySelectorAll('.tiptap-bookmark')
-      const pics = [...document.querySelectorAll('.tiptap-bookmark-image')].filter((img) => img.complete && img.naturalWidth > 0 && getComputedStyle(img).opacity === '1')
-      if (cards.length >= 30 && pics.length >= 29) done({ cards: Math.round(performance.now() - t0), pictures: Math.round(performance.now() - t0) })
-      else if (performance.now() - t0 > 15000) done({ cards: -1, pictures: -1 })
-      else requestAnimationFrame(tick)
-    }
-    tick()
-  }))
+  // Each opened from another note, timed from asking to every card drawn on screen and every picture shown.
   const measure = async (note) => {
-    await h.reload(); await h.waitForTimeout(2500)
+    await send('capture', loadingId); await h.waitForTimeout(1500)
     await electron.evaluate(() => Object.assign(globalThis.__cards, { page: 0, main: 0 }))
-    const drawn = open(note)
-    const pictures = shownAll()
-    const cards = await drawn
-    const all = await pictures
+    const t0 = Date.now()
+    await send('capture', note)
+    await h.waitForFunction(() => [...document.querySelectorAll('.tiptap-bookmark')].filter((one) => one.checkVisibility()).length >= 30, null, { polling: 'raf', timeout: 20000 })
+    const cards = Date.now() - t0
+    await h.waitForFunction(() => [...document.querySelectorAll('.tiptap-bookmark-image')].filter((img) => img.checkVisibility() && img.complete && img.naturalWidth > 0 && getComputedStyle(img).opacity === '1').length >= 29, null, { polling: 'raf', timeout: 20000 })
+    const pictures = Date.now() - t0
     await h.waitForTimeout(1500)
-    return { cards, pictures: all.pictures, ...(await counts()) }
+    return { cards, pictures, ...(await counts()) }
   }
   const fresh = Array.from({ length: 28 }, (_, n) => ({ ...card(n), attrs: { ...card(n).attrs, image: `${SITE}/pic-${n}.png?again`, id: `f${n}` } }))
   fresh.push(content[28], { ...content[29], attrs: { ...content[29].attrs, image: `${SITE}/pic-0.png?again` } })
@@ -171,7 +164,7 @@ try {
   console.log(`MEASURE 30 cards kept in the book: cards drawn ${kept.cards}ms, every picture shown ${kept.pictures}ms, ${kept.page} requests from the window, ${kept.main} from main`)
 
   // 5. A YouTube card whose details are still loading already has its picture.
-  const loadingId = await h.evaluate((video) => window.api.captures.create({ kind: 'note', title: 'Loading video', body: { type: 'doc', content: [{ type: 'bookmark', attrs: { href: `https://youtu.be/${video}`, title: `https://youtu.be/${video}`, description: '', image: '', icon: '', site: '', id: 'l1', loading: true } }, { type: 'paragraph' }] } }), VIDEO)
+  loadingId = await h.evaluate((video) => window.api.captures.create({ kind: 'note', title: 'Loading video', body: { type: 'doc', content: [{ type: 'bookmark', attrs: { href: `https://youtu.be/${video}`, title: `https://youtu.be/${video}`, description: '', image: '', icon: '', site: '', id: 'l1', loading: true } }, { type: 'paragraph' }] } }), VIDEO)
   await send('capture', loadingId); await h.waitForTimeout(1200)
   const loading = await h.evaluate(() => {
     const one = document.querySelector('.tiptap-bookmark')
