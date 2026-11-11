@@ -17,10 +17,10 @@ import type { Editor, JSONContent } from '@tiptap/core'
 import { convertImports } from './lib/convert-imports'
 import { HaligtreeEditor, TAGS, currentVim, foldEverything, goToHeading, onVimChange, setVim } from './components/haligtree'
 import { settleVim } from './lib/vim'
-import { EXITS, exit, findCaptures, findHeadings, follow, toWriting } from './lib/capture-links'
+import { EXITS, exit, exitMany, findCaptures, findHeadings, follow } from './lib/capture-links'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
-import { CaptureList, inInboxWindow, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
+import { CaptureList, inInboxWindow, selectionWays, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
 import { Example } from './components/haligtree/example'
 import { exampleInbox } from './lib/examples'
 import { Waiting, textOf } from './components/rot-cards'
@@ -1429,7 +1429,7 @@ export default function App(): React.JSX.Element {
   }, [editing?.id, editingMeta?.status]) // eslint-disable-line react-hooks/exhaustive-deps
   // The draft set aside while a kept capture is open, read once a render.
   const waiting = editing ? readDraft() : undefined
-  useOpenNote(editingMeta ? { table: 'captures', type: 'capture', id: editingMeta.id, kind: editingMeta.kind, archived: !!editingMeta.archivedAt } : null)
+  useOpenNote(editingMeta ? { table: 'captures', type: 'capture', id: editingMeta.id, kind: editingMeta.kind, archived: !!editingMeta.archivedAt, status: editingMeta.status } : null)
   useEffect(() => {
     // Opened in a window of its own, from here or another window: put down
     // here, so only one editor saves it.
@@ -3072,13 +3072,30 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
       const capture = captures.find((one) => one.id === id)
       return capture ? [{ id, title: capture.label, private: !!capture.private, capture: true as const, open: capture.status === 'open' }] : []
     })).then((made) => made && setChosen([]))
+  // Every picked capture still in the Inbox takes a way out together (a key, the selection's menu, ⌘K): the one
+  // function the main window's Inbox uses (lib/capture-links.tsx), with one notice that counts them and one Undo.
+  const inboxPicked = chosen.filter((id) => captures.find((one) => one.id === id)?.status === 'open')
+  const exitPicked = (status: string): void => {
+    if (!inboxPicked.length) return refuse('Nothing changed: none of the picked captures is still in the Inbox')
+    void exitMany(inboxPicked, status).then((went) => went && setChosen([]))
+  }
+  const manyWays = selectionWays(inboxPicked, () => setChosen([]))
   useEffect(() => {
     picked.ids = chosen
+    picked.inbox = inboxPicked
+    // The capture the keys are on, in the Inbox's tab: ⌘K offers its ways out.
+    const lit = tab === 'inbox' ? shown[cursorAt.current] : undefined
+    picked.lit = lit ? { id: lit.id, kind: lit.kind, status: lit.status } : null
     const onAsk = (): void => void (chosen.length > 1 && makeOne())
+    const onExit = (event: Event): void => exitPicked((event as CustomEvent<string>).detail)
     window.addEventListener('haligtree:one-task', onAsk)
+    window.addEventListener('haligtree:exit-picked', onExit)
     return () => {
       window.removeEventListener('haligtree:one-task', onAsk)
+      window.removeEventListener('haligtree:exit-picked', onExit)
       picked.ids = []
+      picked.inbox = []
+      picked.lit = null
     }
   })
   const shownNow = useRef(shown)
@@ -3114,31 +3131,24 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
         chime('off')
         return setChosen([])
       }
+      // An open menu takes the keys its own lines show: the list under it stands down.
+      if (menuOpen()) return
       const row = shownNow.current[cursor]
+      const one = EXITS.find((e) => e.key === event.key)
+      // With rows picked, the key is the selection's, never the cursor's row, as in the main window's Inbox. D is ⌫.
+      if (one && chosen.length) {
+        event.preventDefault()
+        return one.status === 'discarded' ? toBin(chosen) : exitPicked(one.status)
+      }
       if (!row) return
       if (event.key === 'x') return picking.toggle(row.id)
-      const one = EXITS.find((e) => e.key === event.key)
       if (one && row.status === 'open') void exit(row.id, one.status)
     }
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
-  }, [tab, cursor, chosen.length])
+  }, [tab, cursor, chosen]) // eslint-disable-line react-hooks/exhaustive-deps
   // ⇧⌘R reads through the inbox as it is shown, from the row under the cursor.
   useReadKey(() => onRead(shownNow.current.map((one) => ({ type: 'capture', id: one.id })), startAt(shownNow.current, editing, cursor)), shown.length, tab === 'inbox')
-  const bulk = (status: string): void => {
-    const ids = chosen
-    setChosen([])
-    void window.api.captures.saveMany(ids.map((id) => ({ id, patch: { status } }))).then((results) => {
-      // Only captures still in the inbox take an exit; the undo puts back only
-      // what this changed, each to the status it had.
-      const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
-      if (!moved.length) return refuse('Nothing changed: none of the picked captures is still in the Inbox')
-      chime('resolve')
-      const skipped = ids.length - moved.length
-      toast(`Resolved ${num(moved.length)}: done with, still there with “Show sorted too”${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void window.api.captures.saveMany(moved.map((one) => ({ id: one.id, patch: { status: one.was } }))))
-    })
-  }
-
   return provide(
     <div ref={panelRoot} data-box-panel className="relative flex h-full w-full flex-col p-2" style={readsStyle}>
       <div data-hover-quiet role="tablist" aria-label="Side panel" className="isolate mb-2 flex gap-1 rounded-lg border border-foreground/10 bg-foreground/[0.045] p-0.5 text-sm">
@@ -3226,7 +3236,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                       <Tip label="A task for each, linked to its note">
                         <Button variant="ghost" size="sm" onClick={makeEach}>{chosen.length === 1 ? 'Make it a task' : `Make ${num(chosen.length)} tasks`}</Button>
                       </Tip>
-                      <Button variant="ghost" size="sm" onClick={() => bulk('resolved')}>Resolve</Button>
+                      <Button variant="ghost" size="sm" onClick={() => exitPicked('resolved')}>Resolve</Button>
                       {/* Short for the narrow panel: the icon and its tip say where they go. */}
                       <Tip label={`Move to the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
                         <Button variant="ghost" size="sm" aria-label="Move to the Bin" onClick={() => toBin(chosen)}><TrashIcon size={14} /> Bin</Button>
@@ -3262,11 +3272,13 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                 {!(graphed && listed > 0) && (islands ? groups.length > 0 : shown.length > 0) && <CaptureList groups={groups} islands={islands} density={density} selected={editing} cursor={cursor} onCursor={setCursor} chosen={chosen} onPick={(id) => onOpen(id, true)} picking={picking}
                   // Right-clicked among several picked, the menu speaks for all of them.
                   menu={(capture, usual) => chosen.includes(capture.id) && chosen.length > 1 ? [
+                    // The same lines, in the same order, as the selection's menu in the main window's Inbox (capture-list.tsx).
+                    ...manyWays.filter((way) => way.id === 'promoted' || way.id === 'writing'),
                     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
                     { label: 'Make one task', hint: 'From all of them', run: makeOne },
+                    ...manyWays.filter((way) => way.id === 'question'),
                     'separator',
-                    { label: `Move ${num(chosen.length)} to Writing`, hint: 'A page each, with its words', run: () => void toWriting(chosen).then(() => setChosen([])) },
-                    { label: `Resolve ${num(chosen.length)}`, run: () => bulk('resolved') },
+                    ...manyWays.filter((way) => way.id === 'resolved'),
                     { label: `Add a tag to ${num(chosen.length)}…`, run: () => void tagCaptures(chosen) },
                     'separator',
                     binItem(binRefs(chosen), () => setChosen([])),
