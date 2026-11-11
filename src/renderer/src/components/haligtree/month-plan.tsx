@@ -30,8 +30,7 @@ import { APP_NAME } from '../../../../main/name'
 
 /** A day's line (h-5) and the room above the lines: the cell's top padding (6px) and its date (h-6), read in the app's own
  * text size: counted in fixed pixels at a larger size, one line too many was laid out and showed cut in half (10 Nov). A tinted
- * chip keeps its own 2px under the line above it. Counted with a 2px gap that was never drawn, a week 99px tall held two lines
- * where three fit, and showed a blank line above "+N more". */
+ * chip keeps its own 2px under the line above it. */
 let remSize = 16
 /** The app's text size, read again only when a month's box is measured (its size changes with the app size): read in each
  * draw, it made the page restyle on every week a fling brought in, most of its long frames. */
