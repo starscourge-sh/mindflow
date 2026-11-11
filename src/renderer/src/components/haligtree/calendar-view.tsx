@@ -15,6 +15,7 @@ import { moveToBin } from '@/lib/to-bin'
 import { useHere } from '@/lib/split'
 import { clock, useMinute } from '@/lib/clock'
 import { placeTask } from '@/lib/calendar'
+import { CALM, land as landOn, type Landing } from '@/lib/snap'
 import { call, unloaded, useLive, haligtree, whenInLine, type Task } from '@/lib/haligtree'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, num, plural, type Dayjs } from '../../../../main/dates'
@@ -288,7 +289,34 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const step = (by: -1 | 1): void => (chime('page'), setPeek(null), setAnchor((now) => few ? now.add(by * FEW, 'day') : now.add(by, mode)))
   // Today brought into sight: its day shown, and the grid scrolled to the now line, so the step is seen even when today was already in view.
   // A glide for the button; by T, or with Motion off or Reduce motion, there at once.
-  const toNow = (): void => void setTimeout(() => document.querySelector('[data-cal-now]')?.scrollIntoView({ block: 'center', behavior: byKeys() ? 'instant' : glideWay() }), 60)
+  // The same glide as Month's (lib/snap.ts, the calm one), set off once the day asked for is drawn: a second press turns
+  // it on its way, a touch or the wheel stops it where it is.
+  const [nowAsk, setNowAsk] = useState<{ keys: boolean } | null>(null)
+  const toNow = (): void => setNowAsk({ keys: byKeys() })
+  const nowGlide = useRef<Landing | null>(null)
+  useLayoutEffect(() => {
+    const hours = level.current?.querySelector<HTMLElement>('[data-cal-scroll]')
+    if (!nowAsk || !hours) return
+    const instant = nowAsk.keys || glideWay() === 'instant'
+    const set = (): void => {
+      const now = new Date()
+      const to = Math.max(0, Math.min(hours.scrollHeight - hours.clientHeight, ((now.getHours() * 60 + now.getMinutes()) / 60) * HOUR - hours.clientHeight / 2))
+      if (nowGlide.current?.running) return nowGlide.current.aim(to)
+      if (instant || Math.abs(hours.scrollTop - to) < 0.5) return void (hours.scrollTop = to)
+      const one = landOn(hours.scrollTop, 0, to, (value) => void (hours.scrollTop = value), () => void (nowGlide.current = null), CALM)
+      if (one.running) nowGlide.current = one
+    }
+    set()
+    // The hours' box changes height as the day's all-day things come in (read as the day is shown): now stays in the
+    // middle through that, told by the box itself, until the hours are scrolled by hand.
+    const watch = new ResizeObserver(set)
+    watch.observe(hours)
+    const mine = (): void => (nowGlide.current?.stop(), watch.disconnect())
+    hours.addEventListener('wheel', mine, { passive: true })
+    hours.addEventListener('pointerdown', mine)
+    return () => (watch.disconnect(), hours.removeEventListener('wheel', mine), hours.removeEventListener('pointerdown', mine))
+  }, [nowAsk])
+  useEffect(() => () => nowGlide.current?.stop(), [])
   const today = (): void => (chime('tap'), setPeek(null), setAnchor(dayjs().startOf('day')), toNow())
   // "+ New event": the panel on Event (or Task), for the next hour on the day being looked at (dayHere).
   const newEvent = (): void => {

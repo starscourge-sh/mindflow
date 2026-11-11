@@ -10,22 +10,26 @@
 //           motion land in one step, one light tap a landing, no sound, and the arrows and "Today" glide on the
 //           same spring (the keys go at once).
 //   pinch   the levels: nothing out of shape in any frame, never less than a whole level on show through a change,
-//           one firm tap a change, a pinch turned round takes the level back, a short pinch goes back, and with
-//           Motion off or Reduce motion the level is simply there.
+//           never two rows of day names at once, one firm tap a change, a pinch turned round takes the level back, a
+//           short pinch goes back; a pinch at a hand's pace (a tenth of a second to the line) finds its level drawn
+//           and changes with no long frame at all; with Motion off the level is simply there, and with Reduce motion
+//           it fades across with nothing grown or moved.
+//   today   "Today" in Week and Day glides the hours to now on the calm spring; T is there at once.
 //   stills  with FRAMES=dir: pictures to read by eye, light and dark: the pinch held a quarter, half and three
 //           quarters of the way to the change (OPEN_AT says how far that is: 0.18 now, 0.22 on the build before),
-//           and each change of level held at 0, 40, 80 and 140ms.
-// No frame may take over LONG ms; the frame that draws a new level is timed apart and printed.
+//           each change of level held at 0, 40, 80 and 140ms, and a change turned round mid-way.
+// No frame may take over LONG ms; the frame that draws a new level is timed apart and printed. QA_W and QA_H set the
+// window's size (1440 by 900), SETTLE how soon a flick must rest (200ms; 250 for the development build).
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/cal-snap.mjs
 import os from 'node:os'
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 const LIFT = 160
-const SETTLE = 200
+const SETTLE = Number(process.env.SETTLE ?? 200)
 const LONG = 16
 const OPEN_AT = Number(process.env.OPEN_AT ?? 0.18)
 const parts = (process.env.PART ?? 'run,pinch').split(',')
-const c = await sandbox({ width: 1440, height: 900, at: '11:30' })
+const c = await sandbox({ width: Number(process.env.QA_W ?? 1440), height: Number(process.env.QA_H ?? 900), at: '11:30' })
 const { h, v, go, electron } = c
 let ok = true
 let passed = 0
@@ -56,7 +60,16 @@ const record = () => h.evaluate(() => {
     const level = document.querySelector('[data-cal-level]')
     const swollen = document.querySelector('[data-cal-level] [style*="scale("], [data-cal-level][style*="scale("]')
     const turning = root.dataset.calZoom && document.getAnimations().some((one) => one.effect?.pseudoElement?.includes('mf-cal-level'))
+    // Each level in the pane (two while one gives way to the other): how strong it is, the size of what it shows, how
+    // strong its row of day names is, and whether a change is moving it.
+    const layers = [...document.querySelectorAll('[data-cal-depth]')].map((layer) => {
+      const body = layer.querySelector('[data-cal-body]')
+      const names = layer.querySelector('[data-cal-names]')
+      return { mode: layer.dataset.calDepth, role: layer.dataset.calRole, o: Number(getComputedStyle(layer).opacity), body: body ? scaleOf(getComputedStyle(body)) : null, names: names ? Number(getComputedStyle(names).opacity) : null, moving: layer.getAnimations({ subtree: true }).some((one) => one.id === 'mf-cal-level') }
+    })
+    const hours = document.querySelector('[data-cal-level] [data-cal-scroll]')
     window.__rec.push({
+      layers, hours: hours ? hours.scrollTop : null,
       t: now, dt: now - last, top: run ? run.scrollTop : null, mode: document.querySelector('[data-cal-mode]')?.getAttribute('data-cal-mode'),
       level: level ? scaleOf(getComputedStyle(level)) : null, swell: swollen ? scaleOf(getComputedStyle(swollen)) : null,
       gone: turning ? scaleOf(getComputedStyle(root, '::view-transition-old(mf-cal-level)')) : null,
@@ -68,6 +81,18 @@ const record = () => h.evaluate(() => {
   requestAnimationFrame(tick)
 })
 const stop = () => h.evaluate(() => { window.__recOn = false; return window.__rec })
+// WHY=1: what each long frame was spent on, as the browser itself reports it (frames of 50ms and over only).
+const why = async (name) => {
+  if (!process.env.WHY) return
+  const frames = await h.evaluate(() => { const got = window.__why ?? []; window.__why = []; return got })
+  for (const one of frames) console.log(`WHY ${name}: a frame of ${Math.round(one.duration)}ms at ${Math.round(one.start)}: ${Math.round(one.work)}ms of scripts, ${Math.round(one.render)}ms drawing (style and layout ${Math.round(one.layout)}ms); ${one.scripts.map((each) => `${each.type} ${each.invoker} ${Math.round(each.duration)}ms${each.forced > 1 ? ` (${Math.round(each.forced)}ms forced layout)` : ''}`).join('; ')}`)
+}
+if (process.env.WHY) await h.evaluate(() => {
+  window.__why = []
+  new PerformanceObserver((list) => {
+    for (const one of list.getEntries()) window.__why.push({ start: one.startTime, duration: one.duration, work: one.renderStart ? one.renderStart - one.startTime : one.duration, render: one.renderStart ? one.startTime + one.duration - one.renderStart : 0, layout: one.styleAndLayoutStart ? one.startTime + one.duration - one.styleAndLayoutStart : 0, scripts: one.scripts.map((each) => ({ type: each.invokerType, invoker: String(each.invoker).slice(0, 60), duration: each.duration, forced: each.forcedStyleAndLayoutDuration })) })
+  }).observe({ type: 'long-animation-frame', buffered: false })
+})
 const wheels = () => h.evaluate(() => window.__wheels)
 const mark = () => h.evaluate(() => performance.now())
 const top = () => h.evaluate(() => document.querySelector('[data-month-run]').scrollTop)
@@ -93,7 +118,8 @@ const landed = (name, got, within, what) => {
 }
 // A pinch: ctrl wheel events at the pointer, as a trackpad sends it, `gap` ms apart.
 const pinch = (x, y, dy, n = 7, gap = 12) => h.evaluate(([x, y, dy, n, gap]) => new Promise((res) => { let i = 0; const send = () => (document.elementFromPoint(x, y) ?? document.body).dispatchEvent(new WheelEvent('wheel', { deltaY: dy, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); const tick = () => { send(); if (++i < n) setTimeout(tick, gap); else res() }; tick() }), [x, y, dy, n, gap])
-const weekSpot = () => h.evaluate(() => { const r = [...document.querySelectorAll('[data-month-run] [data-month-week]')].find((one) => one.getBoundingClientRect().top > document.querySelector('[data-month-run]').getBoundingClientRect().top + 150).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+// A week well inside the run: the first whose top is 150px down it, or in a small window the middle one in sight.
+const weekSpot = () => h.evaluate(() => { const run = document.querySelector('[data-month-run]').getBoundingClientRect(); const weeks = [...document.querySelectorAll('[data-month-run] [data-month-week]')].filter((one) => one.getBoundingClientRect().top >= run.top - 1 && one.getBoundingClientRect().bottom <= run.bottom + 1); const r = (weeks.find((one) => one.getBoundingClientRect().top > run.top + 150) ?? weeks[Math.floor(weeks.length / 2)]).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
 const daySpot = () => h.evaluate(() => { const cols = document.querySelectorAll('[data-cal-col]'); const r = cols[Math.min(3, cols.length - 1)].getBoundingClientRect(); const p = document.querySelector('[data-cal-level]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: p.top + p.height / 2 } })
 // The month, on today's weeks (the sandbox has tasks and events there to see).
 const toMonth = async () => { await h.evaluate(() => localStorage.setItem('vigil.calendar.mode', 'month')); if ((await mode()) !== 'month') { await h.keyboard.press('m'); await wait(700) } await h.keyboard.press('t'); await wait(500) }
@@ -303,26 +329,33 @@ try {
 
   // What the frames of a pinch show: each level's and each picture's shape, and how much of a level is on show.
   const shape = (rec, name, window_wheels) => {
-    const seen = rec.flatMap((one) => [one.level, one.swell, one.gone, one.come].filter(Boolean))
+    const seen = rec.flatMap((one) => [one.level, one.swell, one.gone, one.come, ...one.layers.map((each) => each.body)].filter(Boolean))
     const worst = Math.max(0, ...seen.map(([x, y]) => Math.abs(x / y - 1)))
     const scaled = seen.filter(([x]) => Math.abs(x - 1) > 0.002).length
     check(`${name}: nothing is scaled more one way than the other in any frame`, worst < 0.002, `worst ${(worst * 100).toFixed(1)}% out of shape over ${rec.length} frames`)
     check(`${name}: it does move (frames with a scale)`, scaled > 0, `${scaled} frames`)
     const changed = rec.findIndex((one, i) => i && one.mode !== rec[i - 1].mode)
     if (changed < 0) return
-    const moving = (one) => (one.gone || one.come) || Math.abs(one.level[0] - 1) >= 0.002 || one.level[2] <= 0.995
+    const moving = (one) => (one.gone || one.come) || one.layers.some((each) => each.moving) || (one.level && (Math.abs(one.level[0] - 1) >= 0.002 || one.level[2] <= 0.995))
     let last = rec.length - 1
     while (last > changed && !moving(rec[last])) last--
     const ms = Math.round(rec[Math.min(rec.length - 1, last + 1)].t - rec[changed].t)
     check(`${name}: the new level is at rest within 260ms of the change`, ms <= 260, `${ms}ms, load ${load()}`)
     // How much of a level is on show: the old picture and the new one together, or the level itself.
-    const shown = rec.slice(changed).map((one) => (one.gone && one.come ? one.gone[2] + one.come[2] : one.level[2]))
+    const shown = rec.slice(changed).map((one) => (one.layers.length ? one.layers.reduce((sum, each) => sum + each.o, 0) : one.gone && one.come ? one.gone[2] + one.come[2] : (one.level?.[2] ?? 1)))
     check(`${name}: never less than a whole level on show (the old one stays until the new one is there)`, Math.min(...shown) >= 0.9, `least ${Math.min(...shown).toFixed(2)} of a level`)
+    // The day names: one row at a time. A row counts as seen at a sixth of its strength (its level's times its own).
+    const rows = rec.map((one) => (one.layers.length ? one.layers.filter((each) => each.names !== null && each.o * each.names > 0.16).length : one.gone && one.come ? (one.gone[2] > 0.16) + (one.come[2] > 0.16) : 1))
+    check(`${name}: never two rows of day names at once`, Math.max(...rows) <= 1, `${rows.filter((n) => n > 1).length} frames with two`)
     // Drawing the new level is the page's work, done in the two frames either side of the change (which of them it
     // falls in depends on when the browser runs it); every other frame is the pinch or the level settling.
-    const near = (i) => i >= changed - 2 && i <= changed + 2
+    // With the next level drawn ahead, unseen, as the pinch sets off: the frame it comes into the pane in (the first with
+    // two levels), which may be the frame of the change itself when the pinch reached the line before it was drawn.
+    const came = rec.findIndex((one, i) => i && one.layers.length > rec[i - 1].layers.length && rec[i - 1].layers.length)
+    const near = (i) => (came > 0 ? Math.abs(i - came) <= 1 : i >= changed - 2 && i <= changed + 2)
     const drawn = Math.round(Math.max(...rec.filter((_, i) => i && near(i)).map((one) => one.dt)) * 10) / 10
     const rest = Math.round(Math.max(...rec.filter((_, i) => i && !near(i)).map((one) => one.dt)) * 10) / 10
+    if (came > 0) console.log(`MEASURE ${name}: the next level came into the pane, unseen, ${Math.round(rec[came].t - (window_wheels ?? []).find((one) => one.pinch)?.t)}ms after the pinch's first step and ${Math.round(rec[changed].t - rec[came].t)}ms before the change; the longest frame from the change on ${Math.round(Math.max(...rec.slice(changed).map((one) => one.dt)) * 10) / 10}ms`)
     // From the pinch's last step before the change to the first frame of the new level moving: what the hand waits.
     const sent = (window_wheels ?? []).filter((one) => one.pinch && one.t <= rec[changed].t)
     const waited = sent.length ? Math.round(rec[changed].t - sent[sent.length - 1].t) : -1
@@ -347,6 +380,7 @@ try {
       const rec = await stop()
       check(`${name}: the level changed`, (await mode()) === want, await mode())
       shape(rec, name, await wheels())
+      await why(name)
       check(`${name}: one firm tap`, (await taps('level')) - firm === 1, `${(await taps('level')) - firm} taps`)
       await wait(400)
     }
@@ -382,7 +416,35 @@ try {
       check('and it is back within 240ms of the fingers stopping (80 to know they stopped, 160 to land)', back >= 0 && back <= 240, `${back}ms, load ${load()}`)
     }
     check('one sound a change of level (five changes), none for a pinch that changes nothing', heard.join(' ') === 'tap tap tap tap tap', heard.join(' '))
-    // 5. With Motion off, and with the Mac's Reduce motion, the level is simply there: no travel, one firm tap.
+    // 5. A pinch at a hand's pace: a tenth of a second from its first step to the line, not one frame. The level it is
+    // heading for is drawn, unseen, on the way, so the change draws nothing: no long frame from two frames before it on.
+    // (The build before draws the new level in the frame of the change, whatever the pace.)
+    for (const [name, at, dy, want] of [['a hand\'s pace, month to week', week, -2, 'week'], ['a hand\'s pace, week to day', null, -2, 'day'], ['a hand\'s pace, day to week', null, 2, 'week'], ['a hand\'s pace, week to month', null, 2, 'month']]) {
+      const spot = at ?? await daySpot()
+      const firm = await taps('level')
+      await record()
+      await pinch(spot.x, spot.y, dy, 14, 16)
+      await wait(700)
+      const rec = await stop()
+      const sent = (await wheels()).filter((one) => one.pinch)
+      const changed = rec.findIndex((one, i) => i && one.mode !== rec[i - 1].mode)
+      check(`${name}: the level changed, with one firm tap`, (await mode()) === want && changed > 0 && (await taps('level')) - firm === 1, `${await mode()}, ${(await taps('level')) - firm} taps`)
+      await why(name)
+      if (changed > 0) {
+        const first = rec.findIndex((one) => one.t >= sent[0].t)
+        const came = rec.findIndex((one, i) => i && one.layers.length > rec[i - 1].layers.length && rec[i - 1].layers.length)
+        const through = Math.round(Math.max(...rec.slice(Math.max(1, changed - 2)).map((one) => one.dt)) * 10) / 10
+        const pinching = Math.round(Math.max(0, ...rec.slice(Math.max(1, first), Math.max(1, changed - 2)).map((one) => one.dt)) * 10) / 10
+        console.log(`MEASURE ${name}: the line reached ${Math.round(rec[changed].t - sent[0].t)}ms after the first step; the next level in the pane, unseen, ${came > 0 ? `${Math.round(rec[came].t - sent[0].t)}ms after it (${came < changed ? 'before' : 'at'} the change)` : 'not seen coming in'}; frames from the first step to the change at most ${pinching}ms (${rec.slice(Math.max(1, first), changed).map((one) => Math.round(one.dt)).join(' ')}); from two frames before the change to rest at most ${through}ms (${rec.slice(Math.max(1, changed - 2), changed + 6).map((one) => Math.round(one.dt)).join(' ')}); load ${load()}`)
+        check(`${name}: no frame over ${LONG}ms through the change (from two frames before it to rest)`, through <= LONG, `longest ${through}ms, load ${load()}`)
+        check(`${name}: no frame over ${LONG}ms while the fingers pinch, the next level being drawn under them`, pinching <= LONG, `longest ${pinching}ms, load ${load()}`)
+        const rows = rec.map((one) => one.layers.filter((each) => each.names !== null && each.o * each.names > 0.16).length)
+        check(`${name}: never two rows of day names at once, never less than a whole level`, Math.max(1, ...rows) <= 1 && Math.min(...rec.slice(changed).map((one) => (one.layers.length ? one.layers.reduce((sum, each) => sum + each.o, 0) : 1))) >= 0.9)
+      }
+      await wait(400)
+    }
+    // 6. With Motion off the level is simply there: no travel, no fade, one firm tap. With the Mac's Reduce motion it
+    // fades across (the two are not the same thing): nothing grows or moves, and it is there within 200ms.
     for (const [name, on, off] of [
       ['Motion off', () => h.evaluate(() => (document.documentElement.dataset.motion = 'off')), () => h.evaluate(() => delete document.documentElement.dataset.motion)],
       ['Reduce motion', () => h.emulateMedia({ reducedMotion: 'reduce' }), () => h.emulateMedia({ reducedMotion: null })]
@@ -391,14 +453,55 @@ try {
       const firm = await taps('level')
       await record()
       await pinch(week.x, week.y, -6)
-      await wait(400)
+      await wait(500)
       const rec = await stop()
-      const seen = rec.flatMap((one) => [one.level, one.swell, one.gone, one.come].filter(Boolean))
-      check(`${name}: a pinch opens the week at once, nothing scaled or faded in any frame`, (await mode()) === 'week' && seen.every(([x, , o]) => Math.abs(x - 1) < 0.002 && o > 0.995), `${seen.filter(([x, , o]) => Math.abs(x - 1) >= 0.002 || o <= 0.995).length} frames moving`)
+      const seen = rec.flatMap((one) => [one.level, one.swell, one.gone, one.come, ...one.layers.map((each) => each.body)].filter(Boolean))
+      const sized = seen.filter(([x]) => Math.abs(x - 1) >= 0.002).length
+      const fading = rec.filter((one) => one.layers.some((each) => each.o > 0.005 && each.o < 0.995) || (one.level?.[2] ?? 1) <= 0.995 || one.gone || one.come)
+      if (name === 'Motion off') check(`${name}: a pinch opens the week at once, nothing scaled or faded in any frame`, (await mode()) === 'week' && !sized && !fading.length, `${sized} frames scaled, ${fading.length} fading`)
+      else check(`${name}: a pinch fades the week in across the month, nothing grown or moved, there within 200ms`, (await mode()) === 'week' && !sized && fading.length > 2 && fading[fading.length - 1].t - fading[0].t <= 200, `${sized} frames scaled, ${fading.length} fading over ${fading.length ? Math.round(fading[fading.length - 1].t - fading[0].t) : 0}ms`)
       check(`${name}: one firm tap`, (await taps('level')) - firm === 1, `${(await taps('level')) - firm} taps`)
       await off(); await wait(400)
       await h.keyboard.press('m'); await wait(700)
     }
+  }
+
+  // "Today" in Week and Day: the hours glide to now on the calm spring (as Month's weeks do), set off in the frame the
+  // day is drawn, never after a wait; T, a key, is there at once.
+  if (parts.includes('today')) {
+    const hoursTop = () => h.evaluate(() => document.querySelector('[data-cal-level] [data-cal-scroll]').scrollTop)
+    for (const [key, name] of [['w', 'Week'], ['d', 'Day']]) {
+      await h.keyboard.press(key); await wait(700)
+      await h.keyboard.press('t'); await wait(400)
+      const home = await hoursTop()
+      // A week (or a day) on, scrolled to the small hours, then "Today".
+      await h.click('[data-cal-next]'); await wait(400)
+      await h.evaluate(() => (document.querySelector('[data-cal-level] [data-cal-scroll]').scrollTop = 0)); await wait(200)
+      await record()
+      const pressed = await mark()
+      await h.click('[data-cal-today]')
+      await wait(900)
+      const rec = (await stop()).filter((one) => one.t >= pressed && one.hours !== null)
+      const rest = rec[rec.length - 1].hours
+      let still = rec.length - 1
+      while (still > 0 && Math.abs(rec[still - 1].hours - rest) < 0.5) still--
+      const set = rec.findIndex((one) => one.hours > 0.5)
+      let turns = 0
+      for (let i = 2; i <= still; i++) if ((rec[i].hours - rec[i - 1].hours) * (rec[i - 1].hours - rec[i - 2].hours) < 0) turns++
+      const places = new Set(rec.slice(0, still + 1).map((one) => Math.round(one.hours))).size
+      check(`${name}: “Today” glides the hours to now and rests within 450ms, one way, never past`, Math.abs(rest - home) < 1 && places > 4 && turns === 0 && Math.max(...rec.map((one) => one.hours)) <= rest + 0.5 && rec[still].t - pressed <= 450, `to ${Math.round(rest)} (now is at ${Math.round(home)}), ${places} places, ${turns} turns, at rest ${Math.round(rec[still].t - pressed)}ms after the press, moving ${set >= 0 ? Math.round(rec[set].t - pressed) : -1}ms after it, load ${load()}`)
+      check(`${name}: it sets off within 60ms of the press, the day drawn (no wait added)`, set >= 0 && rec[set].t - pressed <= 60, `${set >= 0 ? Math.round(rec[set].t - pressed) : -1}ms`)
+      const long = Math.round(Math.max(...rec.slice(Math.max(1, set + 1), still + 1).map((one) => one.dt)) * 10) / 10
+      check(`${name}: no frame over ${LONG}ms once it moves`, long <= LONG, `longest ${long}ms, load ${load()}`)
+      await h.click('[data-cal-next]'); await wait(400)
+      await h.evaluate(() => (document.querySelector('[data-cal-level] [data-cal-scroll]').scrollTop = 0)); await wait(200)
+      await record()
+      const keyed = await mark()
+      await h.keyboard.press('t'); await wait(400)
+      const by = (await stop()).filter((one) => one.t >= keyed && one.hours !== null)
+      check(`${name}: T is there at once`, Math.abs(by[by.length - 1].hours - home) < 1 && new Set(by.map((one) => Math.round(one.hours))).size <= 2, `${new Set(by.map((one) => Math.round(one.hours))).size} places`)
+    }
+    await h.keyboard.press('m'); await wait(700)
   }
 
   // Pictures to read by eye. A picture takes longer than a whole change of level, so each is held still: the pinch by
@@ -408,7 +511,7 @@ try {
       window.__held = []
       const hold = (one) => (one.pause(), window.__held.push(one))
       const animate = Element.prototype.animate
-      Element.prototype.animate = function (...args) { const one = animate.apply(this, args); if (this.matches?.('[data-cal-level]')) hold(one); return one }
+      Element.prototype.animate = function (...args) { const one = animate.apply(this, args); if (this.matches?.('[data-cal-level]') || this.closest?.('[data-cal-depth]')) hold(one); return one }
       const turn = document.startViewTransition?.bind(document)
       if (turn) document.startViewTransition = (change) => { const one = turn(change); one.ready.then(() => document.getAnimations().filter((each) => each.effect?.pseudoElement?.includes('mf-cal-level')).forEach(hold), () => {}); return one }
     })
@@ -451,6 +554,26 @@ try {
         }
         await h.evaluate(() => window.__held.forEach((one) => one.finish()))
         console.log(`STILLS ${look} ${name}: ${held} animation${held === 1 ? '' : 's'} held, now ${await mode()}`)
+        await wait(600)
+      }
+      // A change turned round mid-way: out to the week, held 80ms into the change, then the fingers come back without
+      // lifting. The way back starts from what is on screen.
+      {
+        await h.evaluate(() => (window.__held = []))
+        await pinch(week.x, week.y, -6, 3); await wait(250)
+        await h.evaluate(() => window.__held.forEach((one) => (one.currentTime = 80)))
+        await wait(120)
+        await h.screenshot({ path: `${dir}/${look}-turned-out-080ms.png` })
+        const out = await h.evaluate(() => window.__held.length)
+        await pinch(week.x, week.y, 6, 5); await wait(250)
+        const held = await h.evaluate(() => window.__held.length)
+        for (const at of [0, 40, 80, 140]) {
+          await h.evaluate(([at, from]) => window.__held.slice(from).forEach((one) => (one.currentTime = at)), [at, out])
+          await wait(120)
+          await h.screenshot({ path: `${dir}/${look}-turned-back-${String(at).padStart(3, '0')}ms.png` })
+        }
+        await h.evaluate(() => window.__held.forEach((one) => { try { one.finish() } catch { /* Already gone. */ } }))
+        console.log(`STILLS ${look} turned round: ${out} animations held out, ${held - out} back, now ${await mode()}`)
         await wait(600)
       }
     }
