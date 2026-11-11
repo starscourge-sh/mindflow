@@ -28,6 +28,7 @@ import { Archive, ArrowLeft, ArrowUpRight, Calendar, ChevronRight, Library, Plus
 import { Unfold } from './glide'
 
 import { HaligtreeEditor } from '../haligtree'
+import { keptDoc } from './haligtree-editor'
 import { Board, useBoard } from './board-view'
 import { textOf } from '../rot-cards'
 import { firstLineOf } from '@/extensions/tokens'
@@ -1246,7 +1247,8 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             readNames(instance)
             // The editor can tidy a document as it opens (a list first, say);
             // that is not an edit, and saving it once wiped a nugget's title.
-            const now = { body: JSON.stringify(body), line: firstLineOf(instance.state.doc)?.text ?? '' }
+            // Its first line as kept: an open "/" search on it is not yet words of the note (keptDoc).
+            const now = { body: JSON.stringify(body), line: firstLineOf(keptDoc(instance.state))?.text ?? '' }
             if (now.body === seen.current?.body) return
             // Named for its first line with words, and only when that line
             // changed: a blank one, or one the title never came from, keeps it.

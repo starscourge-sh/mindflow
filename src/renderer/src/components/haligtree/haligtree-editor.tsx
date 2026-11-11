@@ -132,6 +132,22 @@ const LINE_MARKS: MarkName[] = ["bold", "italic", "strike", "code"]
 /** How long typing has to stop before the document is handed to the caller. */
 const SAVE_DEBOUNCE_MS = 500
 
+/** Where an open "/" search sits on the page, or null with none open (the "/" menu's plugin wears the default key). */
+const slashOpen = (state: EditorState): { from: number; to: number } | null => {
+  const open = SuggestionPluginKey.getState(state) as { active?: boolean; range?: { from: number; to: number } } | undefined
+  return open?.active && open.range ? open.range : null
+}
+/**
+ * The page as it is kept: while a "/" search is open, its "/query" is a search for a block and not yet words of the
+ * note, so it stays out of what is handed on to be saved. A note takes its name from its first line, and with "/"
+ * typed there it was named "/" in its tab, its list row and Recent for as long as the menu was up. Once the menu
+ * closes, whatever is left on the page is the note's words (and is handed on: see the editor's transaction watch).
+ */
+export const keptDoc = (state: EditorState): ProseMirrorNode => {
+  const open = slashOpen(state)
+  return open ? state.tr.delete(open.from, open.to).doc : state.doc
+}
+
 /** How long the handle stays up after the pointer leaves a block. */
 const HANDLE_GRACE_MS = 1000
 
@@ -267,6 +283,7 @@ import { codeBlockNodeView } from "@/components/code/code-block-node-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems, slashMedia } from "@/components/slash/slash-items"
 import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
+import { SuggestionPluginKey } from "@tiptap/suggestion"
 import { PickedStartsUndoStep, notOnUndo } from "@/lib/undo-exact"
 
 // Undo brings back a link as it was: the words it puts back are not linked anew (lib/undo-exact.ts).
@@ -887,6 +904,8 @@ function Surface({
   const keyed = useLatest(onKeyDown)
   const [extra] = useState(more)
   const pending = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // Whether a "/" search was open after the last transaction, to hand the page on when one closes with its words left.
+  const slashWas = useRef(false)
   // Which block the drag handle is pointing at, so its menu needs no selection.
   // A ref rather than state: `onNodeChange` fires on every pointer move across a
   // block, and re-rendering the editor that often makes the handle flicker.
@@ -1640,8 +1659,22 @@ function Surface({
       clearTimeout(pending.current)
       pending.current = setTimeout(() => {
         pending.current = undefined
-        latest.current?.(instance.getJSON(), instance)
+        latest.current?.(keptDoc(instance.state).toJSON() as JSONContent, instance)
       }, SAVE_DEBOUNCE_MS)
+    },
+    // A "/" search closed with its words left on the page and nothing else changed (the caret moved off it, or
+    // no block answered to it any more): they are the note's words from then on, so the page is handed on as it
+    // is now. Every other way out of the menu (a pick, Esc) changes the page and is handed on by onUpdate.
+    onTransaction: ({ editor: instance, transaction }) => {
+      const open = !!slashOpen(instance.state)
+      if (slashWas.current && !open && !transaction.docChanged && latest.current) {
+        clearTimeout(pending.current)
+        pending.current = setTimeout(() => {
+          pending.current = undefined
+          latest.current?.(keptDoc(instance.state).toJSON() as JSONContent, instance)
+        }, SAVE_DEBOUNCE_MS)
+      }
+      slashWas.current = open
     },
   })
 
@@ -1928,7 +1961,7 @@ function Surface({
       if (!pending.current) return
       clearTimeout(pending.current)
       pending.current = undefined
-      if (editor && !editor.isDestroyed) latest.current?.(editor.getJSON(), editor)
+      if (editor && !editor.isDestroyed) latest.current?.(keptDoc(editor.state).toJSON() as JSONContent, editor)
     }
     window.addEventListener("pagehide", flush)
     // Asked by a note about to move to another window: its words go first.
