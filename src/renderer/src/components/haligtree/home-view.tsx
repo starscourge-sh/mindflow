@@ -537,7 +537,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
                   </button>
                 </Tip>
               )}
-              <MenuButton small items={flatMenu(menuFor(card, actions, [card], 0))} />
+              <MenuButton small items={() => flatMenu(menuFor(card, actions, [card], 0))} />
               <span className="ml-auto hidden text-xs text-muted-foreground @[36rem]/page:inline">{kindLabel(card)}</span>
             </div>
           </div>
