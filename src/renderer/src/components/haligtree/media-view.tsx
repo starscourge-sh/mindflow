@@ -584,7 +584,8 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
   if (file) return (
     <span className={frame} data-file-kind={one.kind}>
       <FileFace one={one} face={face} />
-      {!face?.icon && face && <span className="absolute bottom-1.5 left-1.5 rounded bg-background px-1.5 py-px text-xs font-medium">{kindWord(one)}</span>}
+      {/* Its kind on its face, as a GIF's or a PDF's: a video always (a WebM's frame is drawn by the player, with no face from main), a document over its page (its icon says it already). */}
+      {(one.kind === 'video' || (face && !face.icon)) && <span className="absolute bottom-1.5 left-1.5 rounded bg-background px-1.5 py-px text-xs font-medium">{kindWord(one)}</span>}
     </span>
   )
   if (small)
