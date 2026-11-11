@@ -67,7 +67,9 @@ try {
 
   // A row's "Read": its links open from the start.
   await h.locator(`[data-pane] [data-row][data-id="${aId}"]`).first().click({ button: 'right' }); await wait(500)
-  const rowRead = h.locator('[role="menuitem"]', { hasText: /^Read$/ })
+  // "Read" is one of the ways to open it, under "Open in…" with the others (11 Nov).
+  await h.locator('[role="menuitem"]', { hasText: 'Open in…' }).first().click(); await wait(500)
+  const rowRead = h.locator('[role="menuitem"]', { hasText: /^Read/ })
   check('the row menu has "Read" and no "Expanded view"', (await rowRead.count()) === 1 && (await h.locator('[role="menuitem"]', { hasText: 'Expanded view' }).count()) === 0, (await h.locator('[role="menuitem"]').allTextContents()).join(' | '))
   await rowRead.first().click(); await wait(1500)
   check('a row\'s "Read" opens it with its links in place', (await h.locator(reading).count()) === 1 && (await links()) === 1 && /Zephyrine/.test(await pageText()))

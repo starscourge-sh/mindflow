@@ -218,9 +218,10 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     const shown = clicked.text || label
     const lines: Array<Line | false> = [
       !!id && !!open && { label: "Open", data: "open", run: () => open(id, heading || undefined) },
+      // The other ways in, together under "Open" and in the order every row's menu keeps them (row-menu.tsx WAYS_TO_OPEN).
+      !!id && canSplit() && { label: "Open in a new tab", data: "tab", run: () => openNewTab(type, key) },
       // Beside the pane the note is in, not the one in front: that may be the pane last opened beside it.
       !!id && canSplit() && { label: "Open to the side", data: "aside", run: () => openAside(type, key, editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane")) },
-      !!id && canSplit() && { label: "Open in a new tab", data: "tab", run: () => openNewTab(type, key) },
       !!id && own && { label: "Open in a new window", data: "apart", run: () => openApart(type, key) },
       // A link to one line: that line shown here instead, live (what its preview card once offered).
       !!id && !!editor.state.doc.nodeAt(pos)?.attrs.block && { label: "Show the line here", edits: true, data: "line-here", run: () => showLineHere(editor, pos) },

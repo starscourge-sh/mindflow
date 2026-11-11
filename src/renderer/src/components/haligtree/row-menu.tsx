@@ -61,20 +61,33 @@ export const tidy = <T,>(items: (T | 'separator')[]): (T | 'separator')[] =>
  * so a long menu reads as a few choices: where to open it, the queue, and the
  * copies. Only where two or more of a kind are there; one alone stays a line.
  */
+const OPEN_IN = 'Open in…'
+/** The other ways to open a thing, most used first: the order they take inside "Open in…". */
+const WAYS_TO_OPEN = ['open in a new tab', 'open to the side', 'open in a new window', 'read']
 const NESTS: [string, RegExp][] = [
-  ['Open in…', /^open (in a new window|to the side)$/i],
+  // Every way to open it other than plain "Open", in one place (11 Nov: "Open", "Open in…", "Read" and "Open in a
+  // new tab" stood in four places down one menu).
+  [OPEN_IN, new RegExp(`^(${WAYS_TO_OPEN.join('|')})$`, 'i')],
   ['Queue', /^(add to queue|read next)$/i],
   ['Copy', /^copy\b/i]
 ]
+const labelOf = (item: RowItem): string => (item && item !== 'separator' && 'run' in item ? item.label : '')
 export function nest(items: RowItem[]): RowItem[] {
-  const out: RowItem[] = [...items]
+  let out: RowItem[] = [...items]
   for (const [label, rule] of NESTS) {
-    const fits = (item: RowItem): boolean => !!item && item !== 'separator' && 'run' in item && rule.test(item.label)
+    const fits = (item: RowItem): boolean => rule.test(labelOf(item))
     const found = out.filter(fits)
     if (found.length < 2) continue
-    const at = out.findIndex(fits)
-    out.splice(at, 1, { label, items: found })
-    for (let index = out.length - 1; index > at; index--) if (fits(out[index])) out.splice(index, 1)
+    let at = out.findIndex(fits)
+    if (label === OPEN_IN) {
+      found.sort((a, b) => WAYS_TO_OPEN.indexOf(labelOf(a).toLowerCase()) - WAYS_TO_OPEN.indexOf(labelOf(b).toLowerCase()))
+      // Right under "Open" where the menu has one: a thing's own ways in come first, together.
+      const open = out.findIndex((item) => labelOf(item) === 'Open')
+      if (open >= 0 && open < at) at = open + 1
+    }
+    const rest = out.filter((item, index) => index < at || !fits(item))
+    rest.splice(at, 0, { label, items: found })
+    out = rest
   }
   return out
 }
@@ -109,7 +122,8 @@ export const lines =(items: Shown[]): React.ReactNode =>
     ) : 'items' in item ? (
       <ContextMenuSub key={`${item.label}-${index}`}>
         <ContextMenuSubTrigger>{item.icon}{item.icon ? <span className={MENU_LINE}>{item.label}</span> : item.label}</ContextMenuSubTrigger>
-        <ContextMenuSubContent className="w-52">{lines(item.items.filter(Boolean) as Shown[])}</ContextMenuSubContent>
+        {/* Wider where a line carries a hint under its name, so the hint keeps to two lines. */}
+        <ContextMenuSubContent className={item.items.some((one) => one && one !== 'separator' && 'hint' in one && one.hint) ? 'w-64' : 'w-52'}>{lines(item.items.filter(Boolean) as Shown[])}</ContextMenuSubContent>
       </ContextMenuSub>
     ) : (
       // Its hint on a quiet second line under its name, never a tip: a menu row shows no floating surface.
