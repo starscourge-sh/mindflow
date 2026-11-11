@@ -1,4 +1,4 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { dragWords } from '@/lib/drag-words'
 import { useReading } from '@/lib/reads-in'
 import { AnimatePresence, motion } from 'motion/react'
@@ -30,7 +30,11 @@ import { APP_NAME } from '../../../../main/name'
 
 /** A day's line (h-5) and the room above the lines: the cell's top padding (6px), its date (h-6) and a 2px gap, read in the app's own
  * text size: counted in fixed pixels at a larger size, one line too many was laid out and showed cut in half (10 Nov). */
-const rem = (): number => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+let remSize = 16
+/** The app's text size, read again only when a month's box is measured (its size changes with the app size): read in each
+ * draw, it made the page restyle on every week a fling brought in, most of its long frames. */
+const readRem = (): void => void (remSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)
+const rem = (): number => remSize
 const LINE = (): number => 1.25 * rem()
 const HEAD = (): number => 1.5 * rem() + 8
 /** The cell's padding under its last line. */
@@ -123,9 +127,10 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   const first = month.startOf('week')
   const days = Array.from({ length: ROWS * 7 }, (_, index) => first.add(index, 'day'))
   const today = dayKey()
-  // What is read for marks and captures: the six weeks shown, or on the run two months either side of the one named,
-  // so a fling reads afresh once a month, never a week at a time.
-  const [from, to] = bare ? [dayKey(month.subtract(2, 'month').startOf('week')), dayKey(month.add(3, 'month').endOf('month'))] : [dayKey(days[0]), dayKey(days[days.length - 1])]
+  // What is read for marks and captures: the six weeks shown, or on the run the quarter named and one either side of it,
+  // so a fling reads afresh once every three months, never a week or a month at a time.
+  const quarter = month.subtract(month.month() % 3, 'month')
+  const [from, to] = bare ? [dayKey(quarter.subtract(3, 'month').startOf('week')), dayKey(quarter.add(5, 'month').endOf('month'))] : [dayKey(days[0]), dayKey(days[days.length - 1])]
   // The days you opened Haligtree, and what was captured each day: shown when picked in the Show menu.
   const settings = useLive(haligtree.settings, null as Settings | null)
   const stats = useLive(haligtree.stats, null as Stats | null)
@@ -161,7 +166,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   useLayoutEffect(() => {
     const el = body.current
     if (!el) return
-    const fit = (): void => setRow(el.clientHeight / ROWS)
+    const fit = (): void => (readRem(), setRow(el.clientHeight / ROWS))
     fit()
     const watch = new ResizeObserver(fit)
     watch.observe(el)
@@ -266,7 +271,9 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         <span className="flex-1" />
         <MonthShowMenu />
       </div>}
-      <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={pointerWithin} autoScroll={false} measuring={{ droppable: { strategy: MeasuringStrategy.Always, frequency: 120 } }}
+      {/* The days are measured while a task is carried. On the run never before: every week coming into sight measured all
+          84 days again (a getBoundingClientRect each, with a restyle), most of a fling's long frames. */}
+      <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={pointerWithin} autoScroll={false} measuring={{ droppable: { strategy: bare ? MeasuringStrategy.WhileDragging : MeasuringStrategy.Always, frequency: 120 } }}
         onDragStart={({ active }) => { chime('lift'); fromDay.current = true; holding.current = active.data.current as { line?: Line; mark?: Milestone }; setCarried(holding.current.mark ? { kind: 'mark', one: holding.current.mark } : holding.current.line!) }}
         onDragOver={({ over }) => (fromDay.current ? ticks.start(over?.id) : ticks(over?.id), (fromDay.current = false))}
         onDragCancel={() => setCarried(null)}
@@ -288,7 +295,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
           ))}
         </div>
         {bare
-          ? <WeekRun body={body} row={row} held={held ?? month} shown={month} still={still} bars={bars} lines={linesIn} sign={sign}
+          ? <WeekRun body={body} row={row} held={held ?? month} still={still} bars={bars} lines={linesIn} sign={sign}
               onShown={(to) => (setShown(to), onShown?.(to))} week={week} />
           : <div ref={body} data-month-scroll className="relative min-h-0 overflow-hidden" style={{ height: 'max(40.5rem, calc(100vh - 22rem))' }}>{sixWeeks()}</div>}
       </div>
@@ -309,8 +316,8 @@ const EPOCH = dayjs('1900-01-01').startOf('week')
 const WEEKS = 15_650
 const weekAt = (index: number): Dayjs => EPOCH.add(index * 7, 'day')
 const indexOf = (day: Dayjs): number => Math.round(day.startOf('week').hour(12).diff(EPOCH.hour(12), 'hour') / (7 * 24))
-/** Weeks drawn past those in sight, above and below, so a fling never shows a row not yet drawn: 3 + 6 + 3, twelve in all. */
-const OVER = 3
+/** Weeks drawn past those in sight, above and below, so a fling never shows a row not yet drawn: 2 + 6 + 3, eleven in all. */
+const OVER = 2
 /** The month a week at the top names: the month of its last day, so a month is named once its first week reaches the top. */
 const monthAt = (index: number): Dayjs => weekAt(index).add(6, 'day').startOf('month')
 /**
@@ -324,20 +331,34 @@ const RunWeek = memo(function RunWeek({ index, row, room, bars, week }: { index:
   return week(monday, room, layBars(bars, dayKey(monday), dayKey(monday.add(6, 'day'))), null, false, { top: index * row, height: row - 1 })
 }, (a, b) => a.index === b.index && a.row === b.row && a.room === b.room && a.said.length === b.said.length && a.said.every((one, at) => one === b.said[at]))
 type WeekDraw = (monday: Dayjs, room: number, laid: ReturnType<typeof layBars>, shown: Dayjs | null, edge: boolean, place?: React.CSSProperties) => React.JSX.Element
+/** The month at the top of the Calendar's run while it scrolls, for its heading alone to follow; null when no run is up. */
+const passing = (() => {
+  let now: Dayjs | null = null
+  const heard = new Set<() => void>()
+  return {
+    get: (): Dayjs | null => now,
+    set: (to: Dayjs | null): void => void (now?.format('YYYY-MM') !== to?.format('YYYY-MM') && ((now = to), heard.forEach((one) => one()))),
+    listen: (one: () => void): (() => void) => (heard.add(one), () => void heard.delete(one))
+  }
+})()
+/** The month the run is passing, or `fallback`: what the Calendar's heading says in Month, drawn alone as the run scrolls. */
+export function Passing({ fallback, say }: { fallback: Dayjs; say: (month: Dayjs) => string }): string {
+  return say(useSyncExternalStore(passing.listen, passing.get) ?? fallback)
+}
 /** Where the run was, kept for the page opened again on the same month: the week at its top. */
 let kept: { month: string; index: number } | null = null
 
 /**
- * The Calendar's weeks as one column that scrolls: the trackpad's own scroll and glide, a CSS snap to rest on a week,
- * six weeks to the height of the box. Only the twelve weeks near the screen are drawn; the rest is room. As a new
- * month's first week reaches the top the month is told to the page above, with one firm tap. Asked for another month
+ * The Calendar's weeks as one column that scrolls: the trackpad's own scroll and glide, then a short glide to rest on a
+ * week, six weeks to the height of the box. Only the eleven weeks near the screen are drawn; the rest is room. As a new
+ * month's first week reaches the top the heading names it (`Passing`) with one firm tap, and nothing else is drawn
+ * again; the page above is told the month once the run comes to rest. Asked for another month
  * (the arrows, Today, a key), it glides there, or is there at once by a key or with Motion off or Reduce motion.
  */
-function WeekRun({ body, row, held, shown, still, bars, lines, sign, onShown, week }: {
+function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   body: React.RefObject<HTMLDivElement | null>
   row: number
   held: Dayjs
-  shown: Dayjs
   still: boolean
   bars: Bar[]
   lines: (height: number) => number
@@ -349,6 +370,8 @@ function WeekRun({ body, row, held, shown, still, bars, lines, sign, onShown, we
   const [top, setTop] = useState(() => (kept?.month === heldKey ? kept.index : indexOf(held.startOf('month'))))
   // The month the run names now, read from the scroll; while the run glides where it was sent, it names nothing on the way.
   const named = useRef(heldKey)
+  // The month named, for the days outside it to dim: kept here, so naming another draws only this rule again.
+  const [dim, setDim] = useState(heldKey)
   const gliding = useRef(false)
   const placed = useRef(false)
   const where = (el: HTMLElement): number => Math.floor(el.scrollTop / row + 0.02)
@@ -359,9 +382,14 @@ function WeekRun({ body, row, held, shown, still, bars, lines, sign, onShown, we
     setTop(at)
     if (month.format('YYYY-MM') === named.current) return
     named.current = month.format('YYYY-MM')
+    setDim(named.current)
+    passing.set(month)
     if (tap) edge()
-    onShown(month)
   }
+  // At rest, the page above is told the month: its reads, its arrows and Today follow from there.
+  const rest = (): void => void (named.current !== heldKey && onShown(dayjs(`${named.current}-01`)))
+  // Gone, the heading goes back to the page's own month.
+  useEffect(() => () => passing.set(null), [])
   // Placed before the first paint, and kept on its week when the box changes height.
   useLayoutEffect(() => {
     const el = body.current
@@ -374,6 +402,8 @@ function WeekRun({ body, row, held, shown, still, bars, lines, sign, onShown, we
     const el = body.current
     if (!el || !row || heldKey === named.current) return
     named.current = heldKey
+    setDim(heldKey)
+    passing.set(held.startOf('month'))
     const to = indexOf(held.startOf('month')) * row
     if (Math.abs(el.scrollTop - to) < 1) return
     const instant = still || byKeys()
@@ -392,18 +422,21 @@ function WeekRun({ body, row, held, shown, still, bars, lines, sign, onShown, we
       const near = Math.round(el.scrollTop / row) * row
       if (Math.abs(el.scrollTop - near) > 0.5) return el.scrollTo({ top: near, behavior: still ? 'instant' : 'smooth' })
       settle(el, false)
+      rest()
     }
     el.addEventListener('scroll', scrolled, { passive: true })
     el.addEventListener('scrollend', ended)
     return () => (el.removeEventListener('scroll', scrolled), el.removeEventListener('scrollend', ended))
   })
   const room = lines(row)
-  const firstDrawn = Math.max(0, top - OVER)
-  const lastDrawn = Math.min(WEEKS - 1, top + ROWS + OVER - 1)
+  // Drawn in steps of two weeks, so a fling commits a new set of weeks every other week rather than every week.
+  const base = top - (top % 2)
+  const firstDrawn = Math.max(0, base - OVER)
+  const lastDrawn = Math.min(WEEKS - 1, base + ROWS + OVER)
   return (
-    <div ref={body} data-month-scroll data-month-run={shown.format('YYYY-MM')} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
+    <div ref={body} data-month-scroll data-month-run={dim} className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
       {/* The days outside the month named, dimmed as on Home's month: one rule, so naming a new month draws nothing again. */}
-      <style>{`[data-month-run] [data-day]:not([data-day^="${shown.format('YYYY-MM')}-"]) [data-day-number]:not([aria-current]) { color: color-mix(in oklab, var(--foreground) 40%, transparent); font-weight: 400 } [data-month-run] [data-day]:not([data-day^="${shown.format('YYYY-MM')}-"]) :is([data-plan-more], [data-plan-task], [data-mark-flag]) { opacity: 0.6 }`}</style>
+      <style>{`[data-month-run] [data-day]:not([data-day^="${dim}-"]) [data-day-number]:not([aria-current]) { color: color-mix(in oklab, var(--foreground) 40%, transparent); font-weight: 400 } [data-month-run] [data-day]:not([data-day^="${dim}-"]) :is([data-plan-more], [data-plan-task], [data-mark-flag]) { opacity: 0.6 }`}</style>
       <div style={{ height: WEEKS * row }} className="relative">
         {row > 0 && Array.from({ length: lastDrawn - firstDrawn + 1 }, (_, at) => {
           const monday = weekAt(firstDrawn + at)

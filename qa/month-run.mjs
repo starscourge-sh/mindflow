@@ -57,11 +57,33 @@ try {
   const box = await h.evaluate(() => { const r = document.querySelector('[data-month-plan] [data-day]').closest('[data-month-scroll]').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
   await h.mouse.move(box.x, box.y)
   const startTitle = await title()
+  // PROFILE=n: where the fling's time goes, as qa/freeze-open.mjs reads it: the main thread's totals and the n costliest functions.
+  let stopProfile = async () => {}
+  if (process.env.PROFILE) {
+    const cdp = await h.context().newCDPSession(h)
+    await cdp.send('Performance.enable')
+    const metric = async () => Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map((m) => [m.name, m.value]))
+    const before = await metric()
+    await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start')
+    stopProfile = async () => {
+      const { profile } = await cdp.send('Profiler.stop')
+      const after = await metric()
+      console.log('PROFILE ms in', ['ScriptDuration', 'TaskDuration', 'LayoutDuration', 'RecalcStyleDuration', 'LayoutCount', 'RecalcStyleCount'].map((k) => `${k} ${/Count/.test(k) ? after[k] - before[k] : Math.round((after[k] - before[k]) * 1000)}`).join(', '))
+      const byId = new Map(profile.nodes.map((n) => [n.id, n])); const parent = new Map()
+      for (const n of profile.nodes) for (const ch of n.children ?? []) parent.set(ch, n.id)
+      const self = new Map(); const incl = new Map()
+      const key = (n) => `${n.callFrame.functionName || '(anon)'} ${n.callFrame.url.split('/').pop()}:${n.callFrame.lineNumber}`
+      profile.samples.forEach((sid, i) => { const us = profile.timeDeltas[i] ?? 0; self.set(key(byId.get(sid)), (self.get(key(byId.get(sid))) ?? 0) + us); const seen = new Set(); for (let cur = sid; cur; cur = parent.get(cur)) { const k = key(byId.get(cur)); if (!seen.has(k)) { seen.add(k); incl.set(k, (incl.get(k) ?? 0) + us) } } })
+      console.log('PROFILE self'); [...self].sort((a, b) => b[1] - a[1]).slice(0, Number(process.env.PROFILE)).forEach(([k, v]) => console.log('  ', Math.round(v / 1000), k))
+      console.log('PROFILE inclusive'); [...incl].sort((a, b) => b[1] - a[1]).slice(0, Number(process.env.PROFILE)).forEach(([k, v]) => console.log('  ', Math.round(v / 1000), k))
+    }
+  }
   await frames.start()
   if (isRun) { const r = await run(); await fling(52 * r.row, box.x, box.y) }
   else for (let i = 0; i < 12; i++) { await h.click('[data-cal-next]'); await wait(300) }
   await settle(); await wait(300)
   const flung = await frames.stop()
+  await stopProfile()
   const after = await h.evaluate(() => ({ heapMB: Math.round(performance.memory.usedJSHeapSize / 1048576), nodes: document.querySelectorAll('[data-month-plan] *').length }))
   console.log(`MEASURE 12 months ${isRun ? 'flung' : 'stepped'}: ${JSON.stringify(flung)}; heap after ${after.heapMB} MB; month DOM nodes ${after.nodes}; ${startTitle} -> ${await title()}`)
   if (process.env.MEASURE_ONLY) throw new Error('measured only')
@@ -161,17 +183,30 @@ try {
         const words = [...firstLine.querySelectorAll('span')].find((one) => one.textContent.trim()) ?? firstLine
         const range = document.createRange(); range.selectNodeContents(words)
         const r = tinted ? firstLine.getBoundingClientRect() : range.getBoundingClientRect()
-        out[kind] = { gap: Math.round((r.top - date.bottom) * 10) / 10, tinted, h: Math.round(r.height) }
+        out[kind] = { gap: Math.round((r.top - date.bottom) * 10) / 10, mid: Math.round((r.top + r.height / 2 - date.bottom) * 10) / 10, tinted, h: Math.round(r.height) }
         break
       }
     }
     return out
   })
   console.log('gaps under the date', JSON.stringify(gaps))
-  const tops = Object.values(gaps).map((one) => one.gap)
-  check('the review chip has room above it, as a task line does', gaps.review && gaps.review.gap >= 2, JSON.stringify(gaps.review))
-  check('every kind of line starts the same gap under its date', tops.length >= 3 && Math.max(...tops) - Math.min(...tops) <= 1.5, JSON.stringify(gaps))
-  if (process.env.SHOT) await c.both(process.env.SHOT)
+  // A tinted chip's edge starts where a task's line of words does; an untinted line (a mark) has its words on the same middle as a task's.
+  const tinted = Object.values(gaps).filter((one) => one.tinted)
+  const plain = Object.values(gaps).filter((one) => !one.tinted)
+  check('the review chip has room above it, as a task line does', gaps.review && gaps.review.gap >= 2 && gaps.task && Math.abs(gaps.review.gap - gaps.task.gap) <= 1, JSON.stringify(gaps.review))
+  check('every tinted chip starts where a task\'s words do', tinted.length >= 2 && tinted.every((one) => Math.abs(one.gap - gaps.task.gap) <= 1), JSON.stringify(gaps))
+  check('every untinted line has its words on a task\'s middle', plain.length >= 2 && plain.every((one) => Math.abs(one.mid - gaps.task.mid) <= 1), JSON.stringify(gaps))
+  if (process.env.SHOT) {
+    await c.both(`${process.env.SHOT}-rest`)
+    // Mid-scroll: half a week along, shot before it comes to rest.
+    for (const name of ['light', 'dark']) {
+      await c.look(name)
+      await h.evaluate(() => { const el = document.querySelector('[data-month-run]'); el.scrollTop += el.clientHeight / 12 })
+      await h.screenshot({ path: `${process.env.SHOT}-mid-${name}.png` })
+      await wait(600)
+    }
+    await c.look('light')
+  }
 } catch (error) { if (error.message !== 'measured only') check('the run finished', false, error.message.split('\n')[0]) }
 const errs = c.errors.filter((one) => !/Autofill|DevTools/.test(one))
 if (!process.env.MEASURE_ONLY) check('no errors on the page', !errs.length, errs.slice(0, 2).join(' | '))

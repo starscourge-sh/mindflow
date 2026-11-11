@@ -22,7 +22,7 @@ import { Rolling, Tip, typing } from './ui'
 import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu } from './row-menu'
-import { MonthPlan, MonthShowMenu } from './month-plan'
+import { MonthPlan, MonthShowMenu, Passing } from './month-plan'
 import { growFrom, usePinchLevels } from './cal-pinch'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DaySide, type SideAsk } from './day-side'
@@ -71,6 +71,8 @@ const MONTH_CHIP: React.CSSProperties = { height: 18, lineHeight: '18px', margin
 const MUTED_DAY = 'bg-[color-mix(in_oklab,var(--background)_97%,var(--foreground))]'
 /** The week's number, Monday to Sunday, the way a Mac's Calendar counts it (ISO 8601). */
 const weekOf = (day: Dayjs): number => { const thursday = day.startOf('week').add(3, 'day'); return Math.floor(thursday.diff(thursday.startOf('year'), 'day') / 7) + 1 }
+/** A month's weeks, "Weeks 44 – 49", or "Wk 44–49" narrow. */
+const weeksSaid = (month: Dayjs, narrow: boolean): string => narrow ? `Wk ${weekOf(month.startOf('month'))}–${weekOf(month.endOf('month'))}` : `Weeks ${weekOf(month.startOf('month'))} – ${weekOf(month.endOf('month'))}`
 /** "Oct 12 – 18", or "Sept 28 – Oct 4" across a month's end. */
 const rangeSaid = (a: Dayjs, b: Dayjs): string => a.isSame(b, 'month') ? `${a.format('MMM D')} – ${b.date()}` : `${a.format('MMM D')} – ${b.format('MMM D')}`
 
@@ -264,7 +266,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     : mode === 'day' ? (narrow ? anchor.format('ddd D') : `${anchor.format('dddd, MMM D')} · Week ${weekOf(anchor)}`)
     // Narrow, beside the late count, "Weeks 44 – 49" was cut to "Weeks 4…", "Mon, Nov 9" to "Mon, No…" and "3 days · Nov 9 – 11"
     // to "3 days · …": the short forms keep their numbers whole (the month is in the title above, the dates on the days' heads).
-    : narrow ? `Wk ${weekOf(anchor.startOf('month'))}–${weekOf(anchor.endOf('month'))}` : `Weeks ${weekOf(anchor.startOf('month'))} – ${weekOf(anchor.endOf('month'))}`
+    : weeksSaid(anchor, narrow)
+  // In Month the heading follows the run as it scrolls, drawn on its own (month-plan.tsx, `Passing`): the page is drawn again only once it rests.
+  const passing = (say: (month: Dayjs) => string, otherwise: string): React.ReactNode => mode === 'month' ? <Passing fallback={anchor.startOf('month')} say={say} /> : otherwise
   const subtitle = said(false)
   // The day being looked at, for anything new without a day of its own ("+ New event", either tab; ⌘K's "New task"):
   // today while it is in view, otherwise the day picked (the small month, a day's head, "Go to"), never just the grid's first day.
@@ -283,7 +287,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const [chosenEvent, setChosenEvent] = useState<string | null>(null)
   const pickedEvent = chosenEvent ?? (panel && 'event' in panel ? panel.event : null)
   // Events beside the tasks (calendar-events.tsx): each calendar, the tasks and your Mac's calendars shown or hidden.
-  const span = mode === 'month' ? [anchor.startOf('month').subtract(2, 'month'), anchor.endOf('month').add(3, 'month')] : [first.startOf('day'), last.add(1, 'day').startOf('day')]
+  // A month reads its quarter and one either side, so scrolling through the months reads afresh once every three months.
+  const quarter = anchor.startOf('month').subtract(anchor.month() % 3, 'month')
+  const span = mode === 'month' ? [quarter.subtract(3, 'month'), quarter.add(6, 'month')] : [first.startOf('day'), last.add(1, 'day').startOf('day')]
   const layers = useLayers(span[0].toDate(), span[1].toDate())
   const own = useEvents(span[0].toISOString(), span[1].toISOString())
   const shownEvents: Shown[] = [...own.filter((one) => layers.shown(one.calendarId)).map((one) => ({ ...one, color: colorFor(one, layers.colorOf(one.calendarId)) })), ...macShown(layers.macEvents)]
@@ -554,7 +560,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <Popover open={jump} onOpenChange={(open) => (open && chime('open'), setJump(open))}>
             <PopoverTrigger asChild>
               <button type="button" data-cal-jump aria-label={`${title}: go to a date (.)`} className="-ml-1.5 flex min-h-7 min-w-0 items-center gap-1 self-start rounded-md px-1.5 text-left outline-none transition-colors duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
-                <h1 data-cal-title className="truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground"><span className="@[48rem]/head:hidden">{short}</span><span className="hidden @[48rem]/head:inline">{title}</span></h1>
+                <h1 data-cal-title className="truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground"><span className="@[48rem]/head:hidden">{passing((month) => month.format('MMM YYYY'), short)}</span><span className="hidden @[48rem]/head:inline">{passing((month) => month.format('MMMM YYYY'), title)}</span></h1>
                 <ChevronDown aria-hidden className={`size-4 shrink-0 text-foreground/70 transition-transform duration-150 motion-reduce:transition-none ${jump ? 'rotate-180' : ''}`} />
               </button>
             </PopoverTrigger>
@@ -569,7 +575,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-6 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
             {/* Narrow, the late pill waits on this line, so the title is never cut for it. */}
             {tight && lateMenu}
-            <span className="min-w-0 truncate"><span className="@[48rem]/head:hidden">{said(true)}</span><span className="hidden @[48rem]/head:inline">{subtitle}</span></span>
+            <span className="min-w-0 truncate"><span className="@[48rem]/head:hidden">{passing((month) => weeksSaid(month, true), said(true))}</span><span className="hidden @[48rem]/head:inline">{passing((month) => weeksSaid(month, false), subtitle)}</span></span>
             {!narrow && mode !== 'month' && <span className="hidden min-w-0 items-center gap-1 @[66rem]/head:inline-flex"><PlannedTotal lead tasks={tasks} from={dayKey(first)} to={dayKey(last)} span={mode === 'day' ? (first.isSame(dayjs(), 'day') ? 'today' : 'this day') : current(first) ? 'this week' : 'that week'} /></span>}
           </p>
         </div>
