@@ -41,16 +41,16 @@ function Bars({ seed }: { seed: string }): React.JSX.Element {
 }
 
 /** A file's face, as small as it is drawn: a picture's cached small copy, a book's first page, a recording's bars. */
-export function Cover({ one, className = '' }: { one: Media; className?: string }): React.JSX.Element {
+export function Cover({ one, className = '', tiny = false }: { one: Media; className?: string; /** Drawn a few dozen pixels across (a table's face): the 96px copy, not the 320px one. */ tiny?: boolean }): React.JSX.Element {
   const book = usePdfCover(one.kind === 'pdf' && !one.gone ? one.src : null, one.name)
   const [thumb, setThumb] = useState<string | null>(null)
   useEffect(() => {
     if (one.kind === 'audio' || one.kind === 'pdf' || one.gone) return
     let live = true
     // No small copy could be made (a format the cache cannot shrink): the picture itself, never an empty square.
-    void smallPicture(one.src, true).then((made) => live && setThumb(made || one.src), () => live && setThumb(one.src))
+    void smallPicture(one.src, !tiny).then((made) => live && setThumb(made || one.src), () => live && setThumb(one.src))
     return () => void (live = false)
-  }, [one.src, one.kind, one.gone])
+  }, [one.src, one.kind, one.gone, tiny])
   const image = one.kind === 'pdf' ? book?.image : thumb
   return (
     <span data-cover={one.kind} className={`block overflow-hidden bg-accent ${one.private ? 'private-text' : ''} ${className}`}>

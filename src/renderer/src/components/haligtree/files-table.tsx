@@ -193,7 +193,7 @@ const Row = memo(function Row({ one, at, picked, playing, facts, showKind, showL
             {playing ? <Pause className="size-3.5" /> : <AudioLines className="size-4" />}
           </span>
         ) : (
-          <Cover one={one} className={`${COL.face} rounded-[4px] ring-1 ring-foreground/10`} />
+          <Cover one={one} tiny className={`${COL.face} rounded-[4px] ring-1 ring-foreground/10`} />
         )}
         <span dir="auto" data-table-name className={`${TABLE_NAME} ${one.private ? 'private-text' : ''}`}>{name}</span>
         {showKind && <span data-col="kind" className={COL.kind}>{WORD[one.kind]}</span>}
