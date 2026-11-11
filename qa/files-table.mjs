@@ -50,6 +50,7 @@ const frameTimes = (ms, by) => h.evaluate(async ([ms, by]) => {
   let el = document.querySelector('[data-files-table], [data-media-grid]')
   while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement
   const gaps = []
+  let rowsMost = 0
   let last = performance.now()
   const end = last + ms
   let long = 0
@@ -59,6 +60,7 @@ const frameTimes = (ms, by) => h.evaluate(async ([ms, by]) => {
     const step = (now) => {
       gaps.push(now - last)
       last = now
+      rowsMost = Math.max(rowsMost, document.querySelectorAll('[data-files-row]').length)
       if (by) {
         el.scrollTop += by
         if (el.scrollTop + el.clientHeight >= el.scrollHeight - 2) el.scrollTop = 0
@@ -72,7 +74,7 @@ const frameTimes = (ms, by) => h.evaluate(async ([ms, by]) => {
   const s = [...gaps].sort((a, b) => a - b)
   const pick = (q) => s[Math.min(s.length - 1, Math.floor(q * s.length))]
   const r = (n) => Math.round(n * 10) / 10
-  return { frames: gaps.length, p50: r(pick(0.5)), p95: r(pick(0.95)), max: r(s[s.length - 1]), over34: gaps.filter((g) => g > 34).length, long }
+  return { rowsMost, frames: gaps.length, p50: r(pick(0.5)), p95: r(pick(0.95)), max: r(s[s.length - 1]), over34: gaps.filter((g) => g > 34).length, long }
 }, [ms, by])
 const store = await electron.evaluate(({ app }) => process.mainModule.require('path').join(app.getPath('userData'), 'assets'))
 const write = (name, bytes) => electron.evaluate((_, [dir, name, bytes]) => { const fs = process.mainModule.require('fs'); fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(process.mainModule.require('path').join(dir, name), Buffer.from(bytes)) }, [store, name, bytes])
@@ -211,6 +213,8 @@ try {
   await go('home'); await go('media')
   await wait(1200)
   await tab('All')
+  // On a busy machine the 2,000-file list can come after the page shows the last one: everything below waits for it.
+  check('the 2,000 files are in (within 30s)', await waitFor(() => h.evaluate(() => /2,000 files/.test(document.querySelector('[data-page=media]')?.textContent ?? document.body.textContent)), 30000))
   if (await h.evaluate(() => !!document.querySelector('[data-files-table]'))) await viewAs('Piles')
 
   // ── 3. Recent on All: a grid, two lines at most, "Show all" ──
@@ -291,16 +295,36 @@ try {
   const grid = await frameTimes(4000, 90)
   console.log(`  frames scrolling Images' grid of 1,800 for comparison: ${JSON.stringify(grid)}`)
   // The machine is shared with other runs, so the bar is Images' own grid scrolled the same way in the same minute, plus a hard ceiling.
+  check(`while it scrolls, only the rows in sight are in the page (at most ${rolling.rowsMost} row elements of 2,000)`, rolling.rowsMost > 5 && rolling.rowsMost <= 45, String(rolling.rowsMost))
   check(`scrolling 2,000 rows is as smooth as Images' grid beside it, and no frame over 100ms (table p50 ${rolling.p50} p95 ${rolling.p95} max ${rolling.max}; grid p50 ${grid.p50} p95 ${grid.p95}; still p50 ${still.p50})`, rolling.p50 <= grid.p50 + 2 && rolling.p95 <= grid.p95 + 5 && rolling.max < 100, JSON.stringify({ still, rolling, grid }))
 
   // Books and Audio as tables at scale, each with its own length column.
   await tab('Books')
   await viewAs('Table')
   const bookHeads = await h.$$eval('[data-files-table] [data-table-head] > *', (all) => all.map((one) => one.textContent.trim()).filter(Boolean))
+  /** Row elements in the page now, and at the foot of the list (the last file drawn, still only a screenful). */
+  const drawnHereAndFoot = async () => {
+    const here = await rowsDrawn()
+    const foot = await h.evaluate(async () => {
+      let el = document.querySelector('[data-files-table]')
+      while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement
+      el.scrollTop = el.scrollHeight
+      await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+      await new Promise((done) => setTimeout(done, 300))
+      const rows = document.querySelectorAll('[data-files-row]').length
+      el.scrollTop = 0
+      return rows
+    })
+    return { here, foot }
+  }
+  const booksDrawn = await drawnHereAndFoot()
+  check(`Books' table draws only the rows in sight, at its top and at its foot (${booksDrawn.here} and ${booksDrawn.foot} of 40)`, booksDrawn.here > 5 && booksDrawn.here < 40 && booksDrawn.foot > 5 && booksDrawn.foot < 40, JSON.stringify(booksDrawn))
   check('Books\' table: Name, Pages, Size, Added, Opened, In; a page count on each', bookHeads.join(',') === 'Name,Pages,Size,Added,Opened,In' && await h.evaluate(() => [...document.querySelectorAll('[data-files-row] [data-col="length"]')].every((one) => /pages?$/.test(one.textContent))), bookHeads.join(','))
   await shot('files-table-books')
   await tab('Audio')
   await viewAs('Table')
+  const audioDrawn = await drawnHereAndFoot()
+  check(`Audio's table draws only the rows in sight, at its top and at its foot (${audioDrawn.here} and ${audioDrawn.foot} of 100)`, audioDrawn.here > 5 && audioDrawn.here <= 45 && audioDrawn.foot > 5 && audioDrawn.foot <= 45, JSON.stringify(audioDrawn))
   check('Audio\'s table: a length on each recording ("0:37")', await h.evaluate(() => [...document.querySelectorAll('[data-files-row] [data-col="length"]')].slice(0, 10).every((one) => /^\d+:\d\d$/.test(one.textContent))))
   await shot('files-table-audio')
   await size(560, 400)
