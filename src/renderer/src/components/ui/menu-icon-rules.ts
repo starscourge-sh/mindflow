@@ -3,7 +3,7 @@ import {
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderCheck, FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
-  Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
+  Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, Merge, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Languages, Scissors, Pause, Play, Scale, ScanText, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
   PanelTop, PanelsTopLeft, Speech, ThumbsDown, ThumbsUp, Unlink, User, UserCheck, UserX, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, StarOff, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Users, Magnet, Mountain, PaintBucket, Telescope, type LucideIcon
@@ -26,6 +26,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^insert column left$/i, ArrowLeft],
   [/^insert column right$/i, ArrowRight],
   [/^merge or split cells$/i, LayoutGrid],
+  // Two notes made one (a capture's “Where it goes”): the same mark its row in the details wears.
+  [/^merge into/i, Merge],
   [/^clear (row|column) contents$/i, Eraser],
   // A person made a character of a work, or a character a real person again (avatar.tsx).
   [/^make a character of a work/i, BookOpen],

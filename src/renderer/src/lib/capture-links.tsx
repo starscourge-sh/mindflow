@@ -1,4 +1,4 @@
-import { seeTheBin } from './to-bin'
+import { moveToBin, seeTheBin } from './to-bin'
 import { Images } from 'lucide-react'
 import { blockOf, looseFiles } from './media-files'
 import { via } from './usage'
@@ -72,7 +72,7 @@ export const EXITS = [
   { key: 'p', status: 'promoted', label: 'Save as a gem', done: 'Saved as a gem', tint: 'purple', what: 'Save it as a gem: it can come back to you, and be tested' },
   // Not a status of its own either: the capture is kept behind a page in Writing with its words.
   { key: 'w', status: 'writing', label: 'Move to Writing', done: 'Moved to Writing', tint: 'brown', what: 'It has grown past a note: it becomes a page in Writing, to be written out. Links to it open the page' },
-  { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: out of the Inbox, still there with “Show sorted too”' },
+  { key: 'r', status: 'resolved', label: 'Resolve', done: 'Resolved', tint: 'green', what: 'Done with it: out of the Inbox, still there with “Show dealt with too”' },
   { key: 'd', status: 'discarded', label: 'Move to the Bin', done: 'Moved to the Bin', tint: 'red', what: 'Into the Bin, where it can come back' },
   // Not a status of its own: the capture is kept, inside a new question. H for
   // hold: Q is already the promote toast's "Add a question" for review.
@@ -83,23 +83,24 @@ export const EXITS = [
  * Take an exit and say so, with the sound and an undo: the one way every list,
  * card and menu does it, so the same action never answers differently. A
  * resolve or discard can be taken back; a promotion has made a nugget, which
- * stays.
+ * stays. True once it is taken: a cancelled question or a refusal is not.
  */
-export async function exit(id: string, status: string, onUndo?: () => void): Promise<void> {
+export async function exit(id: string, status: string, onUndo?: () => void): Promise<boolean> {
   const one = EXITS.find((e) => e.status === status)
   if (status === 'writing') return toWriting([id], null, onUndo)
   // Held as a question: one made from it, taken back by the undo.
   if (status === 'question') {
     const question = await flying(id, 'question', () => haligtree.newQuestion('', id))
-    if (!question) return refuse(NOT_OPEN)
+    if (!question) return (refuse(NOT_OPEN), false)
     chime('hold')
-    return toast('Now a question: it is in Questions, under Writing', () => void haligtree.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+    toast('Now a question: it is in Questions, under Writing', () => void haligtree.dropQuestion(question).then(() => onUndo?.()), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('question', question) })
+    return true
   }
   const result = status === 'promoted' ? await flying(id, 'nugget', () => takeExit(id, status)) : status === 'discarded' ? await flying(id, 'away', () => takeExit(id, status)) : await takeExit(id, status)
-  if (result === 'cancelled' || !one) return
+  if (result === 'cancelled' || !one) return false
   // Only a capture still in the inbox takes an exit: one already promoted,
   // resolved or let go keeps the one it took.
-  if (result === 'not-open' || (result as SaveResult | null)?.refused) return refuse(NOT_OPEN)
+  if (result === 'not-open' || (result as SaveResult | null)?.refused) return (refuse(NOT_OPEN), false)
   // After the work, so a cancelled question or a refusal makes no false promise.
   // Let go: paper tearing, as it goes through the shredder.
   if (status === 'discarded') tear()
@@ -107,29 +108,93 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
   // Kept as a nugget: the question review will test it with is one key away.
   // Kept, and it can be taken back like the other exits: the nugget goes, the capture is open again.
   const fresh = status === 'promoted' && recallOffered((await window.api.captures.get(id))?.capturedAt)
-  if (status === 'promoted') return toast(one.done, typeof result === 'string' ? () => void unpromote(id, result).then(() => onUndo?.()) : undefined, 'success', typeof result === 'string' && fresh ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+  if (status === 'promoted') toast(one.done, typeof result === 'string' ? () => void unpromote(id, result).then(() => onUndo?.()) : undefined, 'success', typeof result === 'string' && fresh ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
   // Back to exactly the status it had: always open, as exits are taken from there.
-  const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'
-  toast(one.done, () => void window.api.captures.save(id, { status: was }).then(() => onUndo?.()), 'success', status === 'discarded' ? seeTheBin : undefined)
+  else toast(one.done, () => void window.api.captures.save(id, { status: ((result as SaveResult | null)?.was ?? 'open') as 'open' }).then(() => onUndo?.()), 'success', status === 'discarded' ? seeTheBin : undefined)
+  return true
 }
+
+/** How many of a selection fly at once: the first few on show, so fifty picked are a handful of squares, never a swarm. */
+const FLIGHTS = 5
 
 /**
  * Captures moved to Writing, into one of its folders (`folder`, its id) or loose: the one way every button, menu,
- * key and drop does it. Each becomes a page with its words; one notice says where they went, with Undo, and a single
- * one offers to open its page. Only captures still in the Inbox go.
+ * key and drop does it. Each becomes a page with its words, all in one write; one notice says where they went, with
+ * Undo, and a single one offers to open its page. Only captures still in the Inbox go. True once any went.
  */
-export async function toWriting(ids: string[], folder?: string | null, onUndo?: () => void): Promise<void> {
-  const made: { capture: string; id: string; folder: string | null }[] = []
-  for (const id of ids) {
-    const page = await flying(id, 'question', () => haligtree.toWriting(id, folder ?? null))
-    if (page) made.push({ capture: id, ...page })
-  }
-  if (!made.length) return refuse(NOT_OPEN)
+export async function toWriting(ids: string[], folder?: string | null, onUndo?: () => void): Promise<boolean> {
+  // Their pictures taken first, while they are still on screen; they fly once the pages are made.
+  const lands = ids.slice(0, 40).flatMap((id) => lift(id, 'question') ?? []).slice(0, FLIGHTS)
+  const made = await haligtree.toWriting(ids, folder ?? null)
+  if (!made.length) return (refuse(NOT_OPEN), false)
+  for (const land of lands) land()
   chime('move')
   const where = made[0].folder ? quoted(made[0].folder, 40) : 'Writing'
   toast(made.length === 1 ? `Moved to ${where}` : `Moved ${num(made.length)} to ${where}`,
-    () => void Promise.all(made.map((one) => haligtree.undoWriting(one.capture, one.id))).then(() => onUndo?.()), 'success',
+    () => void haligtree.undoWriting(made).then(() => onUndo?.()), 'success',
     made.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('article', made[0].id) } : undefined)
+  return true
+}
+
+/** The switch that lists what has left the Inbox beside what waits, as its label says it: named in the notices that send you to it. */
+export const DEALT_TOO = 'Show dealt with too'
+
+/**
+ * An exit taken on several captures at once (what is picked, by a key or the selection's menu): each one's own exit,
+ * with one sound, one notice that counts them and one Undo for them all. Only those still in the Inbox go; any that
+ * stayed are counted in the notice. One alone is `exit`, with its own notice. True once any went.
+ */
+export async function exitMany(ids: string[], status: string, onUndo?: () => void): Promise<boolean> {
+  if (ids.length === 1) return exit(ids[0], status, onUndo)
+  if (!ids.length) return false
+  const none = (): false => (refuse('Nothing changed: none of the picked captures is still in the Inbox'), false)
+  const stayed = (n: number): string => (n ? `. ${num(n)} already dealt with stayed as ${n === 1 ? 'it was' : 'they were'}` : '')
+  if (status === 'writing') return toWriting(ids, null, onUndo)
+  // The Bin's own way for many: the paper crumples, one notice, one Undo (lib/to-bin.tsx).
+  if (status === 'discarded') return !!(await moveToBin(ids.map((id) => ({ type: 'capture' as const, id, status: 'open' })), onUndo))
+  if (status === 'resolved') {
+    const results = await window.api.captures.saveMany(ids.map((id) => ({ id, patch: { status } })))
+    // The undo puts back only what this changed, each to the status it had.
+    const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
+    if (!moved.length) return none()
+    chime('resolve')
+    toast(`Resolved ${num(moved.length)}: done with, still there with “${DEALT_TOO}”${stayed(ids.length - moved.length)}`, () => void window.api.captures.saveMany(moved.map((one) => ({ id: one.id, patch: { status: one.was } }))).then(() => onUndo?.()))
+    return true
+  }
+  if (status === 'question') {
+    const lands = ids.slice(0, 40).flatMap((id) => lift(id, 'question') ?? []).slice(0, FLIGHTS)
+    const made: string[] = []
+    for (const id of ids) {
+      const question = await haligtree.newQuestion('', id)
+      if (question) made.push(question)
+    }
+    if (!made.length) return none()
+    for (const land of lands) land()
+    chime('hold')
+    toast(`Now ${num(made.length)} questions: they are in Questions, under Writing${stayed(ids.length - made.length)}`, () => void Promise.all(made.map((one) => haligtree.dropQuestion(one))).then(() => onUndo?.()), 'success')
+    return true
+  }
+  if (status !== 'promoted') return false
+  // A gem each. One that must be asked something first (who said a quote, what a word means) is left where it is and
+  // counted: a run of questions, one after another, is not what one key on fifty asked for.
+  const lands = ids.slice(0, 40).flatMap((id) => lift(id, 'nugget') ?? []).slice(0, FLIGHTS)
+  const made: { id: string; gem: string }[] = []
+  let asks = 0
+  for (const id of ids) {
+    let result: unknown = await haligtree.promote(id)
+    // A line of your own beside it is never forced: kept without, as "Keep it without" does for one.
+    if (result === 'needs-words') result = await haligtree.promote(id, '', true)
+    if (result === 'needs-source' || result === 'needs-meaning') asks += 1
+    else if (typeof result === 'string' && result !== 'not-open' && result !== 'needs-words') made.push({ id, gem: result })
+  }
+  const gone = ids.length - made.length - asks
+  if (!made.length && !asks) return none()
+  const needs = asks ? `${num(asks)} ${asks === 1 ? 'needs' : 'need'} a source or a meaning first: open ${asks === 1 ? 'it' : 'each'} and press P` : ''
+  if (!made.length) return (refuse(`None saved. ${needs}`), false)
+  for (const land of lands) land()
+  chime('promote')
+  toast(`Saved ${num(made.length)} as gems${needs ? `. ${needs}` : ''}${stayed(gone)}`, () => void Promise.all(made.map((one) => unpromote(one.id, one.gem))).then(() => onUndo?.()), 'success')
+  return true
 }
 
 /** Said when an exit is asked of a capture that already took one. */
@@ -372,7 +437,7 @@ export const follow = (link: string, open: (type: string, id: string) => void, h
  * or a question is that now, and its link opens what it became, not the old
  * capture filed in the Inbox. Any other capture opens as itself.
  */
-const keptAs = async (id: string): Promise<{ type: string; id: string }> => {
+export const keptAs = async (id: string): Promise<{ type: string; id: string }> => {
   const capture = await window.api.captures.get(id)
   if (capture?.status !== 'promoted') return { type: 'capture', id }
   const { became } = await haligtree.lineage(id)

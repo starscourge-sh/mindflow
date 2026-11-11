@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { chime } from '@/lib/sound'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
-import { EXITS, exit, statusSaid } from '@/lib/capture-links'
+import { EXITS, exit, exitMany, statusSaid, toWriting } from '@/lib/capture-links'
 import { splitTags, together, unread, haligtree } from '@/lib/haligtree'
 import { backSaid, makeTask, snoozeItems } from '@/lib/tasks'
 import { Tip, ask, pin, toast, quietly } from './haligtree/ui'
@@ -17,7 +17,10 @@ import type { Density } from './haligtree/display'
 import { archive, changeKind, publishSite, saveAttachments } from '@/lib/notes'
 import { openApart } from '@/lib/apart'
 import { openItems } from '@/lib/split'
-import { binItem } from '@/lib/to-bin'
+import { binItem, moveToBin } from '@/lib/to-bin'
+import { FileText } from 'lucide-react'
+import { isFolder, type NoteGroup } from '@/lib/groups'
+import { GroupIcon } from './haligtree/kept-groups'
 import { queueMenu } from '@/lib/reading-queue'
 import { copyToBookItem } from '@/lib/books'
 import { addToQuestion, keepAsking } from './haligtree/questions-view'
@@ -134,30 +137,110 @@ export async function tagCaptures(ids: string[]): Promise<void> {
   ]))).then(() => chime('undo')))
 }
 
+/**
+ * One way a capture can go: a menu's line (row-menu.tsx draws it, its icon from its words) that the details' island
+ * draws as a row too, in the colour its exit has everywhere.
+ */
+export type Way = { id: string; label: string; hint?: string; keys?: string; tint?: string; danger?: boolean; run: () => void; /** The places inside it, opened beside the line in a menu. */ items?: RowItem[] }
+
+/**
+ * Where a capture can go: the ONE list its details' island (“Where it goes”), the chip over its open page, ⌘K and
+ * its right-click menu draw from, so a way out has one name, one key and one way of happening wherever it is taken.
+ * In the Inbox: what it can become first, then the ways to be done with it, the Bin last. Out of the Inbox: the way
+ * back, and the Bin. `folders`: Writing's folders, offered beside “Move to Writing” where a menu can open them.
+ */
+export const captureWays = (capture: Pick<CaptureMeta, 'id' | 'kind' | 'status'>, { onExit, onBack, folders = [], merge }: {
+  /** Once it has taken a way out: on to the next one. */ onExit?: () => void
+  /** That way out undone: back on it. */ onBack?: (id: string) => void
+  folders?: NoteGroup[]
+  /** Opens the picker of the note to merge it into, where one is on the page. */ merge?: () => void
+} = {}): Way[] => {
+  const back = onBack && ((): void => onBack(capture.id))
+  const then = (went: Promise<unknown>): void => void went.then((done) => done && onExit?.())
+  if (capture.status !== 'open') return [
+    // A promoted capture stays out: what it became is where it lives now.
+    ...(capture.status !== 'promoted' ? [{ id: 'back', label: 'Back to the Inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }] : []),
+    // Dealt with, it can still go to the Bin, and comes back from there as it was.
+    ...(capture.status !== 'discarded' ? [{ id: 'discarded', label: 'Move to the Bin', tint: 'red', danger: true, run: () => void moveToBin([{ type: 'capture', id: capture.id, status: capture.status }]) }] : [])
+  ]
+  const way = (status: string, hint?: string): Way => {
+    const one = EXITS.find((each) => each.status === status)!
+    return { id: status, label: one.label, hint, keys: one.key.toUpperCase(), tint: one.tint, run: () => then(exit(capture.id, status, back)) }
+  }
+  // Writing's folders, each under the folders it sits in ("History / Renaissance"), as its own list orders them.
+  const places = folders.filter(isFolder)
+  const pathOf = (one: NoteGroup): string => {
+    const path = [one.name]
+    for (let up = places.find((other) => other.id === one.parent); up && path.length < 4; up = places.find((other) => other.id === up!.parent)) path.unshift(up.name)
+    return path.join(' / ')
+  }
+  const writing = way('writing', 'It becomes a page, to write out')
+  return [
+    way('promoted', 'It can come back to you, and be tested'),
+    places.length ? {
+      ...writing,
+      items: [
+        { label: 'Writing', hint: 'In no folder', keys: writing.keys, icon: <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />, run: writing.run },
+        'separator',
+        ...places.map((one) => ({ id: `folder-${one.id}`, label: pathOf(one), icon: <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />, run: () => then(toWriting([capture.id], one.id, back)) }))
+      ]
+    } : writing,
+    { id: 'task', label: 'Make it a task', tint: 'orange', run: () => then(makeTask({ capture: capture.id }, undefined, { onUndo: back })) },
+    // A lookup that did not satisfy keeps being asked; anything else can be held as a question.
+    capture.kind === 'word'
+      ? { id: 'keep', label: 'Keep asking', hint: 'An open question, with this as its first clue', run: () => void keepAsking(capture.id) }
+      : way('question', 'Its words become the first clue'),
+    { id: 'clue', label: 'Add as a clue to a question…', run: () => void addToQuestion(capture.id) },
+    way('resolved', 'Done with it, and out of the Inbox'),
+    ...(merge ? [{ id: 'merge', label: 'Merge into another note…', run: merge }] : []),
+    { ...way('discarded'), danger: true }
+  ]
+}
+
+/** What a way out is called for several picked at once ("Move 3 to Writing"), by the exit's own name for one. */
+const MANY: Record<string, (n: string) => string> = {
+  promoted: (n) => `Save ${n} as gems`,
+  writing: (n) => `Move ${n} to Writing`,
+  question: (n) => `Start ${n} open questions`,
+  resolved: (n) => `Resolve ${n}`
+}
+
+/**
+ * The ways out for several captures picked at once, each with the key that takes it on the selection: the same lines
+ * in the selection's right-click menu and in ⌘K, taken through `exitMany` as the keys take them.
+ */
+export const selectionWays = (ids: string[], after?: () => void): Way[] =>
+  !ids.length ? [] : (['promoted', 'writing', 'question', 'resolved'] as const).map((status) => {
+    const one = EXITS.find((each) => each.status === status)!
+    // One capture among what is picked (the rest tasks): the exit by its own name.
+    return { id: status, label: ids.length === 1 ? one.label : MANY[status](num(ids.length)), keys: one.key.toUpperCase(), tint: one.tint, run: () => void exitMany(ids, status).then((went) => went && after?.()) }
+  })
+
 /** A capture's right-click menu: the same on a row in the list and on a card. */
 export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void): RowItem[] => [
   { label: 'Open', run: () => onPick?.(capture.id), keys: '↵' },
   'separator',
-  // Resolve on its own line, the one most taken; everything it can become, together on one line beside it, so the
-  // menu stays short (each still has its key: P, W, H). The Bin is the menu's last line, as on every card.
-  ...(capture.status === 'open'
-    ? [
-        { label: 'Resolve', keys: 'R', run: () => void exit(capture.id, 'resolved') },
-        // A lookup that did not satisfy: an open question, its words the first clue.
-        ...(capture.kind === 'word' ? [{ label: 'Keep asking', hint: 'An open question, this its first clue', run: () => void keepAsking(capture.id) }] : []),
-        { label: 'Turn it into', items: [
-          ...EXITS.filter((one) => one.status === 'promoted' || one.status === 'writing' || one.status === 'question').map((one) => ({ label: one.label, keys: one.key.toUpperCase(), run: () => void exit(capture.id, one.status) })),
-          { label: 'Make it a task', run: () => void makeTask({ capture: capture.id }) },
-          // A goal, with a day or none (Someday, for the life list): named from the capture's words, opened on Goals.
-          { label: 'Make it a goal…', hint: 'With a day, or Someday with none', run: () => void startGoal((type, id) => window.api.openInHome(type, id), capture.label.split('\n')[0].slice(0, 120)) },
-          { label: 'Add as a clue to a question…', hint: 'Filed under a question you already have', run: () => void addToQuestion(capture.id) },
-          'separator' as const,
-          { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) }
-        ] }
-      ]
-    : [
-        capture.status !== 'promoted' && { label: 'Back to the Inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }
-      ]),
+  // Its ways out, from the one list every surface draws them from (`captureWays`). Resolve on its own line, the one
+  // most taken; everything it can become together on one line beside it, so the menu stays short (each still has its
+  // key: P, W, H). The Bin is the menu's last line, as on every card.
+  ...((): RowItem[] => {
+    const ways = captureWays(capture)
+    const by = (id: string): Way[] => ways.filter((one) => one.id === id)
+    return capture.status === 'open'
+      ? [
+          ...by('resolved').map(({ hint: _, ...one }) => one),
+          ...by('keep'),
+          { label: 'Turn it into', items: [
+            ...['promoted', 'writing', 'question', 'task'].flatMap((id) => by(id)).map(({ hint: _, ...one }) => one),
+            // A goal, with a day or none (Someday, for the life list): named from the capture's words, opened on Goals.
+            { label: 'Make it a goal…', hint: 'With a day, or Someday with none', run: () => void startGoal((type, id) => window.api.openInHome(type, id), capture.label.split('\n')[0].slice(0, 120)) },
+            ...by('clue').map((one) => ({ ...one, hint: 'Filed under a question you already have' })),
+            'separator' as const,
+            { label: 'Change kind…', run: () => void changeKind('captures', capture.id, capture.kind) }
+          ] }
+        ]
+      : by('back')
+  })(),
   capture.status !== 'discarded' && snoozeItems('capture', capture, () => onPick?.(capture.id)),
   'separator',
   { label: 'Add a tag…', run: () => void tagCaptures([capture.id]) },

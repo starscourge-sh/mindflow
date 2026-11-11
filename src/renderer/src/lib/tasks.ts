@@ -195,8 +195,10 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
 /**
  * The captures selected in the list on screen now, for ⌘K's "Make one task":
  * the palette asks with `haligtree:one-task`, and the list with them answers.
+ * `inbox`: those of them still in the Inbox, which a way out takes (⌘K asks with `haligtree:exit-picked` and the
+ * exit's status). `lit`: the capture the keys are on with none open, whose ways out ⌘K offers as for an open one.
  */
-export const picked = { ids: [] as string[] }
+export const picked = { ids: [] as string[], inbox: [] as string[], lit: null as { id: string; kind: string; status: string } | null }
 
 /**
  * A task's name as every list and card shows it: the words without their

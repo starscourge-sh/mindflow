@@ -5,7 +5,7 @@ import type { Editor, JSONContent } from '@tiptap/core'
 
 import { HaligtreeEditor } from '../haligtree'
 import { useCaptures } from '../capture-list'
-import { CaptureProps, captureDots } from './captures-view'
+import { CapturePlace, CaptureProps, captureDots } from './captures-view'
 import { ItemDetail } from './items-view'
 import { NotePreview } from './note-preview'
 import { Mentions } from './mentions'
@@ -28,6 +28,7 @@ import { themeActions } from '@/lib/theme'
 import { chime } from '@/lib/sound'
 import { toast, typing } from './ui'
 import { EXITS, exit } from '@/lib/capture-links'
+import { menuOpen } from '@/lib/menu-keys'
 import { noteLinkText, follow, headingIn } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
@@ -176,7 +177,8 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
     if (!open || boardShown) return
     let afterG = false
     const onKey = (event: KeyboardEvent): void => {
-      if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
+      // An open menu (“Where it goes”, the dots) takes the keys its own lines show: the window under it stands down.
+      if (typing() || menuOpen() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
       // G then a letter is a place to go, not an exit.
       const g = afterG
       afterG = event.key === 'g'
@@ -197,7 +199,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
     <ReadsIn className="contents">
     <div className="note-pane flex min-w-0 flex-1 flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <NoteHeader back={<OpenHere />} table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
+        <NoteHeader back={<OpenHere />} place={<CapturePlace capture={meta} />} table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
             setCapture(found)
             setRev((n) => n + 1)
           })}

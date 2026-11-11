@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useShowLine } from '@/lib/show-in-list'
 import { layerOpen } from '@/lib/menu-keys'
 import { createPortal } from 'react-dom'
-import { AlignLeft, CalendarDays, PenLine, Plus, Star } from 'lucide-react'
+import { AlignLeft, CalendarDays, ChevronDown, PenLine, Plus, Star } from 'lucide-react'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ClockIcon from '@/components/ui/clock-icon'
 import PenIcon from '@/components/ui/pen-icon'
@@ -22,8 +22,8 @@ import { chime, step, type Cue } from '@/lib/sound'
 import { tintFor } from '@/lib/pictures'
 import { notes, readFront, smallPicture, useThumb, type GraphNode, type MapEdge, type NoteTable, type Version } from '@/lib/notes'
 import { useLive, haligtree } from '@/lib/haligtree'
-import { Chips } from './display'
-import { copy, fits, flat, type MenuItem, type RowItem } from './row-menu'
+import { CHIP, CHIP_QUIET, Chips } from './display'
+import { RowMenu, copy, fits, flat, openFromGrip, type MenuItem, type RowItem } from './row-menu'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import BookIcon from '@/components/ui/book-icon'
@@ -575,6 +575,26 @@ function PageWidthMenu({ width: everywhere }: { width: PageWidth }): React.JSX.E
   )
 }
 
+/**
+ * Where an open note is, said quietly in its header: a chip (display.tsx's, as the list's own kinds wear it) that opens
+ * the places it can go in the app's own menu (row-menu.tsx), by a click or a right click. In a narrow pane only its
+ * mark shows, as “Details” folds to its icon: the note's tools keep the room.
+ */
+export function PlaceChip({ icon, label, tip, items }: { icon: React.ReactNode; /** Where it is now: “Inbox”, a folder's name, “Writing”. */ label: string; /** What the chip is for, as its menu's heading says it. */ tip: string; items: RowItem[] }): React.JSX.Element {
+  return (
+    <RowMenu items={items}>
+      <Tip label={tip}>
+        <button type="button" data-place-chip aria-label={`${label}. ${tip}`} aria-haspopup="menu" onClick={openFromGrip}
+          className={`${CHIP} ${CHIP_QUIET} max-w-[14rem] min-w-0 !shrink !rounded-full text-control @max-[30rem]/head:w-7 @max-[30rem]/head:!shrink-0 @max-[30rem]/head:justify-center @max-[30rem]/head:px-0`}>
+          {icon}
+          <span data-place-name className="min-w-0 truncate @max-[30rem]/head:hidden">{label}</span>
+          <ChevronDown aria-hidden className="size-3 shrink-0 opacity-60 @max-[30rem]/head:hidden" />
+        </button>
+      </Tip>
+    </RowMenu>
+  )
+}
+
 /** A note's header button, the same in every surface a note is shown in (its page, its window, a board, reading). */
 export const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground data-[state=open]:bg-accent data-[state=open]:text-foreground [&_svg]:size-4'
 
@@ -583,8 +603,10 @@ export const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md
  * right, quietly, when it last changed (a click goes back through its
  * versions), a book to read it, and everything else behind the dots. `looking` takes the right side while an older text is shown.
  */
-export function NoteHeader({ left, back, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, board, tools, details = true, className = '', ...versions }: {
+export function NoteHeader({ left, place, back, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, board, tools, details = true, className = '', ...versions }: {
   left?: React.ReactNode
+  /** Where the note is and where it can go (`PlaceChip`), after its place in the list: the last thing on the left, so its words changing move nothing else in the row. */
+  place?: React.ReactNode
   /** In a note's own window: the way back into the main window, among the note's own tools where "Open in its own window" sits in the main one. */
   back?: React.ReactNode
   /** What it is, for reading it: capture, nugget, article, question. */
@@ -641,11 +663,12 @@ export function NoteHeader({ left, back, type = 'capture', edited, captured, mad
     <>
     <div data-note-head className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[clamp(0.75rem,10%,4.25rem)] ${className}`}>
       {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
-      {left ?? <span />}
+      {place ? <div data-head-left className="flex min-w-0 items-center gap-2">{left}{place}</div> : left ?? <span />}
       {looking ?? (
         <Versions {...versions} trigger={(open) => (
           // On the right even when there is no list position to its left.
-          <div className="ml-auto flex min-w-0 items-center gap-0.5">
+          // Beside a place chip the tools keep their width: a long folder's name is what gives way.
+          <div className={`ml-auto flex items-center gap-0.5 ${place ? 'shrink-0' : 'min-w-0'}`}>
             <Tip label={moment(at, 'dddd')}>
               <button type="button" aria-label={said} onClick={open} className="mr-1 hidden shrink-0 rounded-md @[26rem]/head:block px-1.5 py-1 text-meta whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <span className="hidden @[30rem]/head:inline">{said}</span>

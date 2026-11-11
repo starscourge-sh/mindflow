@@ -20,6 +20,17 @@ import { hoverNote } from './note-preview'
  */
 export function MergeInto({ capture }: { capture: CaptureMeta }): React.JSX.Element {
   const [open, setOpen] = useState(false)
+  return (
+    <>
+      <Prop icon={Merge} onClick={() => (chime('open'), setOpen(true))}><span data-way="merge">Merge into another note…</span></Prop>
+      {open && <MergePicker capture={capture} onClose={() => setOpen(false)} />}
+    </>
+  )
+}
+
+/** The picker alone, for whatever opens it: the details' row, or “Where it goes” over the open page. */
+export function MergePicker({ capture, onClose }: { capture: Pick<CaptureMeta, 'id'>; onClose: () => void }): React.JSX.Element {
+  const setOpen = (_: false): void => onClose()
   const all = useCaptures()
   const others = all.filter((one) => one.id !== capture.id && one.status !== 'discarded')
   const merge = (into: CaptureMeta): void => {
@@ -30,10 +41,7 @@ export function MergeInto({ capture }: { capture: CaptureMeta }): React.JSX.Elem
       toast(`Merged into ${quoted(into.label || 'New note', 40)}`, () => void haligtree.unmerge(capture.id, merged).then(() => chime('undo')))
     })
   }
-  return (
-    <>
-      <Prop icon={Merge} onClick={() => (chime('open'), setOpen(true))}>Merge into another note…</Prop>
-      {open && createPortal(
+  return createPortal(
         <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => setOpen(false)}>
           <div role="dialog" aria-modal="true" aria-label="Merge into another note" className="w-[min(30rem,90vw)] overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
             <Command onKeyDown={(event) => {
@@ -59,7 +67,5 @@ export function MergeInto({ capture }: { capture: CaptureMeta }): React.JSX.Elem
           </div>
         </div>,
         document.body
-      )}
-    </>
-  )
+      )
 }

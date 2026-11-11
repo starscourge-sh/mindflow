@@ -4,7 +4,10 @@ import { SimilarNotes } from './similar-notes'
 import { SameBook, pdfIn } from '@/components/pdf/same-book'
 import { propertySorts } from '@/lib/property-sorts'
 import { ReadsIn } from '@/lib/reads-in'
-import { cloneElement, startTransition, useEffect, useRef, useState } from 'react'
+import { Fragment, cloneElement, startTransition, useEffect, useRef, useState } from 'react'
+import { menuIcon } from '@/components/ui/menu-icon-rules'
+import { useGroups } from '@/lib/groups'
+import { SECTIONS } from './places'
 import { spring, still } from '@/lib/motion'
 import type { Editor, JSONContent } from '@tiptap/core'
 import { Archive, Tag } from 'lucide-react'
@@ -18,7 +21,7 @@ import { openSource, voiceOf } from '@/lib/sources'
 import { Proofread } from './proofread'
 import { RecentIsland } from './recent-island'
 import { askProofread } from '@/lib/grammar'
-import { CaptureList, fieldOf, captureEntry, captureMenu, inInboxWindow, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
+import { CaptureList, fieldOf, captureEntry, captureMenu, captureWays, inInboxWindow, selectionWays, tagCaptures, useCaptures, whereFrom, type CaptureMeta } from '../capture-list'
 import { tagTint } from './tag-icon'
 import { AGES, Display, FilterChips, arrange, islandsOn, period, useView, type Choice, type Density, type Facet, type View } from './display'
 import { useIslands, useShowOpen, type IslandState } from './islands'
@@ -27,23 +30,22 @@ import { DatePicker } from './date-picker'
 import { Lineage } from './lineage'
 import { EventSource } from './calendar-events'
 import { Mentions } from './mentions'
-import { EXITS, NOT_OPEN, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, flying, takeExit, toWriting, follow, unpromote, recallOffered } from '@/lib/capture-links'
-import type { SaveResult } from '../../../../main/captures'
+import { DEALT_TOO, EXITS, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, exitMany, toWriting, follow } from '@/lib/capture-links'
 import { toMarkdown } from '@/lib/export'
 import { hoursSaid } from '@/lib/day-plan'
 import { useKept, useNav as useNavNow } from '@/lib/nav'
 import { Switch } from '@/components/ui/switch'
 import { splitTags, unloaded, useInboxDays, useLastAsked, useLive, haligtree, type Settings, type Task, type TaskFull } from '@/lib/haligtree'
-import { makeTask, makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
+import { makeTasks, oneTask, picked, taskName } from '@/lib/tasks'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { manyTaskItems } from './late-tasks'
-import { binItem, moveToBin, seeTheBin, useCameBack } from '@/lib/to-bin'
+import { binItem, moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
-import { chime, tear, pageShown, pageTurn } from '@/lib/sound'
-import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, askQuestion, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
+import { chime, pageShown, pageTurn } from '@/lib/sound'
+import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
 import { Term } from './term'
 import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -51,11 +53,11 @@ import { RemindMe, SourceRow, sourceField } from './items-view'
 import { openPdf } from '@/components/pdf/pdf-reader'
 import { bookOf } from '@/lib/pdf-in'
 import { BookOpen, Quote } from 'lucide-react'
-import { addToQuestion, keepAsking } from './questions-view'
+import { keepAsking } from './questions-view'
 import { ReadThrough } from './read-through'
 import { enqueue, readQueue } from '@/lib/reading-queue'
 import { showDetails } from '@/lib/reading'
-import { MergeInto } from './merge-picker'
+import { MergeInto, MergePicker } from './merge-picker'
 import { decideDay, openPass } from './pass'
 import { InboxLines } from './inbox-lines'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuShortcut, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -64,7 +66,7 @@ import { Tip } from '@/components/haligtree/ui'
 import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import TrashIcon from '@/components/ui/trash-icon'
-import { Aliases, KindFields, LocalGraph, NoteHeader, TopicName, WritingSpent } from './note-extras'
+import { Aliases, KindFields, LocalGraph, NoteHeader, PlaceChip, TopicName, WritingSpent } from './note-extras'
 import { ListSearch, NoteRail, PaneButtons, Peek, matches } from './note-list'
 import { archive, changeKind, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
 import { askBook } from '@/lib/books'
@@ -87,8 +89,7 @@ import { SessionFooter } from './session-footer'
 import { keepTitle, useHere, usePane } from '@/lib/split'
 import { ShowAgain, TaskDetail, completeTask, useTaskNow } from './tasks-view'
 import { MadeChip, MadeCue, SnoozedChip, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
-import { Paperclip } from 'lucide-react'
-import { ArchiveRestore, ArrowUpRight, CheckCircle2, CloudSun, Download, Eye, EyeOff, FileText, Tag as Hash, Inbox, Laptop, ListTodo, Orbit, Bookmark as Pin, Timer, Trash2, X } from '@/components/ui/icons'
+import { ArchiveRestore, CloudSun, Download, Eye, EyeOff, FileText, Tag as Hash, Laptop, Orbit, Bookmark as Pin, Timer, Trash2, X } from '@/components/ui/icons'
 import { menuOpen } from '@/lib/menu-keys'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
@@ -100,7 +101,7 @@ type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
  */
 /** What waits in the Inbox: what has no exit yet; archived is kept, out of sight, so not waiting here. */
 export const keepInbox = (capture: CaptureMeta): boolean => capture.status === 'open' && !capture.archivedAt
-/** With "Show sorted too": every note kept and every task, the Bin aside. */
+/** With "Show dealt with too": every note kept and every task, the Bin aside. */
 const keepEverything = (capture: CaptureMeta): boolean => capture.status !== 'discarded'
 
 export function CapturesView({ title, keep: given, focus, onOpen, archived = false, inbox: inboxPage = false, lookups: lookupsPage = false, lead: given_lead, said }: {
@@ -115,13 +116,13 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   focus?: string
   /** The Archived view: what is out of sight, and only that. */
   archived?: boolean
-  /** The Inbox: with "Show sorted too" on, everything (once G L), the tasks too, its kind chips filtering all of it. */
+  /** The Inbox: with "Show dealt with too" on, everything (once G L), the tasks too, its kind chips filtering all of it. */
   inbox?: boolean
   /** Go to another thing: a nugget it became, a page that links to it. */
   onOpen?: (type: string, id: string) => void
 }): React.JSX.Element {
   const all = useCaptures(true)
-  // "Show sorted too", kept in the step: off each time the Inbox is opened, on for a link to
+  // "Show dealt with too", kept in the step: off each time the Inbox is opened, on for a link to
   // something sorted (home.tsx sends Everything's links here with tab 'sorted'); Back finds it as it was.
   const nav = useNavNow()
   const [sortedToo, setSortedToo] = useState(nav?.here.tab === 'sorted')
@@ -223,7 +224,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const whole: Row[] = narrowed.flatMap(([, list]) => list)
   const stepTo = (to: number): void => void (whole[to] && pick(whole[to].id))
   // The Inbox emptied in front of you: its moment, not the quiet empty page.
-  // Not watched while "Show sorted too" is on: the waiting list is then not on screen, and its
+  // Not watched while "Show dealt with too" is on: the waiting list is then not on screen, and its
   // going out of sight is not it emptying (that once played the Inbox-cleared chord).
   // Every open one, older ones too: one growing older than the Inbox's days has not been dealt with.
   const cleared = useJustCleared(title === 'Inbox' && !everything ? all.filter(keep) : [], all, !unloaded(all) && !everything)
@@ -395,9 +396,20 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         chime('off')
         return setChosen([])
       }
-      // P, R and D take that exit on the row under the cursor, as the menu says.
+      // A menu that is open takes the keys its own lines show (row-menu.tsx), on what it was opened for: the list
+      // under it stands down, or one press took the way out twice, once here and once there, and the second said no.
+      if (menuOpen()) return
+      // P, W, R, D and H take that way out on the row under the cursor, as the menu says.
       // Shift alone is not an exit: Shift+R is half of G R typed in capitals.
       const one = !event.shiftKey && EXITS.find((e) => e.key === event.key)
+      // With rows picked, the key is the selection's, never the cursor's row: every picked capture still in the Inbox
+      // takes it, as from the selection's menu, with one notice that counts them and one Undo. D is ⌫: whatever is picked.
+      if (one && chosen.length) {
+        // Tasks alone are picked: the key is theirs (W, a week on), not this list's.
+        if (!inbox.length) return
+        event.preventDefault()
+        return one.status === 'discarded' ? toBin(chosen) : exitPicked(one.status)
+      }
       if (one && shown[cursor]?.status === 'open' && !shown[cursor].task) return void exit(shown[cursor].id, one.status)
       // E marks the task under the cursor done, as it does in Today.
       const doing = shown[cursor]?.task ?? (cursor < 0 ? taskOf(task?.id) : undefined)
@@ -425,6 +437,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const notes = chosen.filter((id) => !taskOf(id))
   const inbox = notes.filter((id) => all.find((one) => one.id === id)?.status === 'open')
   const picks = chosen.flatMap((id) => taskOf(id) ?? [])
+  const manyWays = selectionWays(inbox, () => setChosen([]))
   const doneEach = (): void => void doneTasks(picks.filter((one) => one.status === 'open')).then(() => setChosen([]))
   // ⌘-click, ⇧-click, ⇧↑ and ⇧↓ pick as Finder does; x is a ⌘-click on the row under the cursor.
   const picking = usePicking(shown.map((one) => one.id), chosen, setChosen)
@@ -441,13 +454,27 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
     const ids = notes
     void tagCaptures(ids)
   }
+  // Every picked capture still in the Inbox takes a way out together (a key, the selection's menu, ⌘K): one function.
+  const exitPicked = (status: string): void => {
+    if (!inbox.length) return refuse('Nothing changed: none of the picked captures is still in the Inbox')
+    void exitMany(inbox, status).then((went) => went && setChosen([]))
+  }
   useEffect(() => {
     picked.ids = chosen
+    picked.inbox = inbox
+    // The capture the keys are on, with none open: ⌘K offers its ways out too.
+    const lit = here() && !open && !task ? shown[cursor] : undefined
+    picked.lit = lit && !lit.task ? { id: lit.id, kind: lit.kind, status: lit.status } : null
     const onAsk = (): void => void (chosen.length > 1 && makeOne())
+    const onExit = (event: Event): void => exitPicked((event as CustomEvent<string>).detail)
     window.addEventListener('haligtree:one-task', onAsk)
+    window.addEventListener('haligtree:exit-picked', onExit)
     return () => {
       window.removeEventListener('haligtree:one-task', onAsk)
+      window.removeEventListener('haligtree:exit-picked', onExit)
       picked.ids = []
+      picked.inbox = []
+      picked.lit = null
     }
   })
   // A capture (or every picked one, it among them) carried onto Writing or one of its folders in the sidebar (split-drop.tsx).
@@ -455,26 +482,11 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
     const onDrop = (event: Event): void => {
       const { ids, folder } = (event as CustomEvent<{ ids: string[]; folder: string | null }>).detail
       const many = ids.length === 1 && chosen.includes(ids[0]) && chosen.length > 1
-      void toWriting(many ? chosen.filter((id) => all.find((capture) => capture.id === id)?.status === 'open') : ids, folder).then(() => many && setChosen([]))
+      void toWriting(many ? inbox : ids, folder).then((went) => went && many && setChosen([]))
     }
     window.addEventListener('haligtree:to-writing', onDrop)
     return () => window.removeEventListener('haligtree:to-writing', onDrop)
-  }, [chosen, all])
-  const bulk = (status: string): void => {
-    // Only the open ones: a promoted capture resolved, or undone back to open,
-    // would lose where it went.
-    const ids = chosen.filter((id) => all.find((capture) => capture.id === id)?.status === 'open')
-    if (!ids.length) return refuse('Nothing changed: none of the picked captures is still in the Inbox')
-    void window.api.captures.saveMany(ids.map((id) => ({ id, patch: { status } }))).then((results) => {
-      // The undo puts back only what this changed, each to the status it had.
-      const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
-      chime('resolve')
-      const skipped = chosen.length - moved.length
-      setChosen([])
-      // Where they went, and why any picked one stayed as it was.
-      toast(`Resolved ${num(moved.length)}: done with, still there with “Show sorted too”${skipped ? `. ${num(skipped)} already dealt with stayed as ${skipped === 1 ? 'it was' : 'they were'}` : ''}`, () => void window.api.captures.saveMany(moved.map((one) => ({ id: one.id, patch: { status: one.was } }))))
-    })
-  }
+  }, [chosen, all]) // eslint-disable-line react-hooks/exhaustive-deps
   // A task's row: its tick, its day, its steps, and the task's own menu.
   // Where it came from, or what it became, said quietly in its line: a click opens it.
   const titleOf = (id: string): string => {
@@ -519,6 +531,14 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   // What is around a note's words (who links to it, a thought on it) comes the frame after them.
   const later = useAfterFirstPaint()
 
+  // The open capture dealt with (from its details or the chip over it): on to the next one, as mail does, rather than left on what is gone.
+  const afterExit = (): void => {
+    const at = shown.findIndex((one) => one.id === open?.id)
+    const next = shown[at + 1] ?? shown[at - 1]
+    if (next && next.id !== open?.id) pick(next.id)
+    else setOpen(null)
+  }
+
   return (
     // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx): never the note, then the list.
     <ReadsIn className="contents">
@@ -531,13 +551,13 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         waiting={listUnread || !listShown}
         apart={sent}
         title={title}
-        // What the Inbox holds, waiting only or sorted too: a filter, so at the line's left, always in the same place, away from Go through and the views on the right.
+        // What the Inbox holds, waiting only or dealt with too: a filter, so at the line's left, always in the same place, away from Go through and the views on the right.
         lead={inboxPage && !chosen.length ? (
-          <Tip label={everything ? 'Every note and task, sorted or not. Off: only what waits' : 'What was sorted out of the Inbox too, and every task'}>
+          <Tip label={everything ? 'Every note and task, dealt with or not. Off: only what waits' : 'What you have dealt with too (resolved, saved as a gem, moved to Writing), and every task'}>
             <label data-sorted-too className="-ml-2 flex h-7 cursor-pointer items-center gap-2 rounded-md px-2 text-control whitespace-nowrap text-foreground/85 hover:bg-accent/60">
-              <Switch checked={everything} onCheckedChange={(on) => (setChosen([]), setSortedToo(on))} aria-label="Show sorted too" />
+              <Switch checked={everything} onCheckedChange={(on) => (setChosen([]), setSortedToo(on))} aria-label={DEALT_TOO} />
               {/* Its words only while the list has the page's width: beside a note (or one looked at, spread out) the switch alone. */}
-              {!open && !task && !(spread && peek) ? 'Show sorted too' : <span className="sr-only">Show sorted too</span>}
+              {!open && !task && !(spread && peek) ? DEALT_TOO : <span className="sr-only">{DEALT_TOO}</span>}
             </label>
           </Tip>
         ) : chosen.length ? undefined : given_lead}
@@ -561,7 +581,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                   <Button variant={picks.length ? 'ghost' : 'secondary'} size="default" onClick={makeEach}>{notes.length === 1 ? 'Make it a task' : `Make ${num(notes.length)} tasks`}</Button>
                 </Tip>
               )}
-              {notes.length > 0 && <Button variant="ghost" size="default" onClick={() => bulk('resolved')}>Resolve</Button>}
+              {notes.length > 0 && <Tip label="Done with them, and out of the Inbox  R"><Button variant="ghost" size="default" onClick={() => exitPicked('resolved')}>Resolve</Button></Tip>}
               <Tip label={`Into the Bin, where ${chosen.length === 1 ? 'it' : 'they'} can come back  ⌫`}>
                 <Button variant="ghost" size="default" onClick={() => toBin(chosen)}><Trash2 className="size-3.5" /> Move to the Bin</Button>
               </Tip>
@@ -639,12 +659,14 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               // Their day, priority and tags, as one task's menu has them; said as the tasks' only when notes are picked too.
               ...manyTaskItems(picks.map((one) => one.id), { mixed: notes.length > 0, after: () => setChosen([]) }),
               picks.length > 0 && 'separator',
-              // Only those still in the inbox can become tasks or be resolved: the rest have taken their exit.
+              // Only those still in the inbox take a way out: the rest have taken theirs. What they can become first, each
+              // with the key that does it on the selection, then being done with them (one list, capture-list.tsx).
+              ...manyWays.filter((way) => way.id === 'promoted' || way.id === 'writing'),
               inbox.length > 0 && { label: inbox.length === 1 ? 'Make it a task' : `Make ${num(inbox.length)} tasks`, run: makeEach },
               inbox.length > 1 && { label: 'Make one task', hint: 'From all of them', run: makeOne },
+              ...manyWays.filter((way) => way.id === 'question'),
               inbox.length > 0 && 'separator',
-              inbox.length > 0 && { label: `Move ${num(inbox.length)} to Writing`, hint: 'A page each, with its words', run: () => void toWriting(inbox).then(() => setChosen([])) },
-              inbox.length > 0 && { label: `Resolve ${num(inbox.length)}`, run: () => bulk('resolved') },
+              ...manyWays.filter((way) => way.id === 'resolved'),
               notes.length > 0 && { label: `Add a tag to ${num(notes.length)}…`, run: tagEach },
               notes.length > 0 && { label: archived ? `Unarchive ${num(notes.length)}` : `Archive ${num(notes.length)}`, hint: archived ? 'Back in sight' : 'Kept, out of sight', run: () => void archive('captures', notes, !archived).then(() => setChosen([])) },
               'separator',
@@ -739,6 +761,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 setRev((n) => n + 1)
               })}
               left={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={whole.findIndex((one) => one.id === open.id)} total={whole.length} onStep={stepTo} /></ReadsIn>}
+              place={<CapturePlace capture={meta} onExit={afterExit} onBack={comeBack} />}
               edited={meta.editedAt} captured={meta.capturedAt}
               pinned={!!meta.pinnedAt} onPin={() => pin('captures', meta.id, !meta.pinnedAt)} copyKey={noteLinkText(meta.id, meta.label)}
               menu={[
@@ -862,12 +885,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             {/* From the first frame: its height is the same whatever it holds, and coming a frame late it pushed the page up. */}
             <ThoughtDock id={open.id} hidden={boardShown} />
           </div>
-          {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} onExit={() => {
-            const at = shown.findIndex((one) => one.id === meta.id)
-            const next = shown[at + 1] ?? shown[at - 1]
-            if (next && next.id !== meta.id) pick(next.id)
-            else setOpen(null)
-          }} onBack={comeBack} />}
+          {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={onOpen} fold={!boardShown} onExit={afterExit} onBack={comeBack} />}
         </motion.div>
         </Apart></ShowInListContext.Provider>
       ) : null}
@@ -931,16 +949,50 @@ export function GoThrough({ compact, canRead, onRead, className = '' }: { compac
 export const captureDots = (capture: CaptureMeta): (MenuItem | { label: string; items: RowItem[] })[] =>
   captureMenu(capture).flatMap((item): (MenuItem | { label: string; items: RowItem[] })[] => (item && item !== 'separator' && 'items' in item ? [item] : flatMenu([item]))).filter((item) => !item || item === 'separator' || item.label !== 'Open')
 
+/** The Inbox as the sidebar lists it: its mark and its colour. */
+const INBOX = SECTIONS.find((one) => one.id === 'inbox')!
+
+/**
+ * Where an open capture is, and where it can go, on the capture itself: “Inbox” beside its place in the list, which
+ * opens the same ways out its details list under “Where it goes” (one list, capture-list.tsx), Writing's folders
+ * beside “Move to Writing”. One that has left the Inbox says where it went, with the way back.
+ */
+export function CapturePlace({ capture, onExit, onBack }: { capture: Pick<CaptureMeta, 'id' | 'kind' | 'status' | 'keptIn'>; onExit?: () => void; onBack?: (id: string) => void }): React.JSX.Element {
+  const folders = useGroups('article')
+  const [merging, setMerging] = useState(false)
+  // ⌘K's “Merge into another note…” opens the picker here, on the capture it is about.
+  useEffect(() => {
+    const onAsk = (event: Event): void => void ((event as CustomEvent<string>).detail === capture.id && setMerging(true))
+    window.addEventListener('haligtree:merge', onAsk)
+    return () => window.removeEventListener('haligtree:merge', onAsk)
+  }, [capture.id])
+  const inInbox = capture.status === 'open'
+  const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
+  const ways = captureWays(capture, { onExit, onBack, folders, merge: () => (chime('open'), setMerging(true)) })
+  // What it can become, a rule, then the ways to be done with it; the menu puts the Bin last itself.
+  const done = ways.findIndex((way) => way.id === 'resolved')
+  return (
+    <>
+      <PlaceChip
+        label={inInbox ? 'Inbox' : statusSaid(capture.status, capture.keptIn)}
+        // The Inbox's own mark and colour, as the sidebar draws its row.
+        icon={inInbox ? <INBOX.icon aria-hidden className="size-3.5 shrink-0" style={{ color: `var(--mf-icon-tint, var(--tt-color-text-${INBOX.tint}))` }} /> : <Status aria-hidden className="size-3.5 shrink-0" />}
+        tip={inInbox ? 'Where it goes' : 'Where it went'}
+        items={[{ heading: inInbox ? 'Where it goes' : 'Where it went' }, ...(done > 0 ? [...ways.slice(0, done), 'separator' as const, ...ways.slice(done)] : ways)]} />
+      {merging && <MergePicker capture={capture} onClose={() => setMerging(false)} />}
+    </>
+  )
+}
+
 /** Status and the exits, then what the capture is, then where it came from. */
 export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack }: { capture: CaptureMeta; onOpen?: (type: string, id: string) => void; className?: string; /** Beside the open note: put away until asked for. */ fold?: boolean; /** Once it has taken a way out: on to the next one. */ onExit?: () => void; /** That way out undone: back on it. */ onBack?: (id: string) => void }): React.JSX.Element {
   const Status = STATUS_ICON[capture.status as keyof typeof STATUS_ICON] ?? STATUS_ICON.open
   // Whichever window shows these, ⌘K there acts on this capture.
-  useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt })
+  useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt, status: capture.status })
   // Its lineage, its map and the notes like it come the frame after the note's words.
   const later = useAfterFirstPaint()
   // A PDF its words link into: its book's map, with this note lit among the others from it.
   const pdfOfNote = useLive(() => window.api.captures.get(capture.id).then((one) => pdfIn(one?.body)), null as ReturnType<typeof pdfIn>, [capture.id])
-  const reopen =(): void => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo'))
   const [who, setWho] = useState(capture.attribution ?? '')
   const [where, setWhere] = useState(capture.medium ?? '')
   // Saved as typed, as before: a quote's who, emptied, waits for the blur to ask, never saved blank by a retype.
@@ -969,82 +1021,29 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
     setWho(capture.attribution ?? '')
     setWhere(capture.medium ?? '')
   }, [capture.id]) // eslint-disable-line react-hooks/exhaustive-deps
-  const exits = [
-    { icon: ArrowUpRight, tint: 'purple', label: 'Save as a gem', run: () => flying(capture.id, 'nugget', () => takeExit(capture.id, 'promoted')), said: 'Saved as a gem' },
-    { icon: FileText, tint: 'brown', label: 'Move to Writing', run: () => Promise.resolve(null), said: 'Moved to Writing' },
-    { icon: ListTodo, tint: 'orange', label: 'Make it a task', run: () => makeTask({ capture: capture.id }), said: 'Now a task' },
-    { icon: CheckCircle2, tint: 'green', label: 'Resolve', run: () => window.api.captures.save(capture.id, { status: 'resolved' }), said: 'Resolved' },
-    { icon: Trash2, alive: TrashIcon, tint: 'red', label: 'Move to the Bin', run: () => flying(capture.id, 'away', () => window.api.captures.save(capture.id, { status: 'discarded' })), said: 'Moved to the Bin' }
-  ]
+  // Its ways out, from the one list every surface draws them from (capture-list.tsx).
+  const ways = captureWays(capture, { onExit, onBack })
+  const inInbox = capture.status === 'open'
 
   return (
     <Props className={className} fold={fold}>
       {/* Beside its page, the note's properties head its details, as Linear's issues have them. */}
       {fold && <PropertyStrip panel table="captures" id={capture.id} kind={capture.kind} fields={capture.fields} text={capture.label} created={capture.capturedAt} updated={capture.editedAt} cited={!!capture.medium?.trim()} />}
-      {/* Still in the Inbox, its ways out are open to see, under words that say what they are; folded by hand, it stays folded. */}
-      <Island compact name="Status" filled={capture.status === 'open' ? true : undefined} title={capture.status === 'open' ? 'Where it goes' : 'Status'}>
-        <Prop icon={Status} active>
-          {/* A status that changes rolls to the new word: the change is seen. */}
-          <Rolling text={statusSaid(capture.status, capture.keptIn)} />
-        </Prop>
-        {capture.status === 'open'
-          ? exits.map((exit) => exit.label === 'Move to Writing' ? (
-              // A page in Writing with its words: the one shared move (lib/capture-links.tsx), then on to the next capture.
-              <Prop key={exit.label} icon={exit.icon} tint={exit.tint} tip="It becomes a page in Writing, to write out. Links to it open the page" onClick={() => void toWriting([capture.id], null, () => onBack?.(capture.id)).then(() => onExit?.())}>
-                <span data-to-writing-prop>{exit.label}</span>
-              </Prop>
-            ) : (
-              <Prop
-                key={exit.label}
-                icon={exit.icon}
-                alive={exit.alive}
-                tint={exit.tint}
-                onClick={() => {
-                  void exit.run().then((result) => {
-                    if (result === 'cancelled') return
-                    // A task was heard, said and made undoable where it was made, and a capture gone or a page to sort said there too.
-                    if (exit.label === 'Make it a task') return void (result && onExit?.())
-                    if (result === 'needs-source') return refuse('A quote needs to say who said it: add a source below first')
-                    // Taken elsewhere a moment ago (the other window, a read-through): it keeps that exit.
-                    if (result === 'not-open' || (result as SaveResult | null)?.refused) return refuse(NOT_OPEN)
-                    // The sound once it went through, so a refusal never sounds like success first.
-                    if (exit.label === 'Move to the Bin') tear()
-                    else chime(exit.label === 'Save as a gem' ? 'promote' : 'resolve')
-                    // Dealt with: on to the next one, as mail does, rather than left on what is gone.
-                    onExit?.()
-                    if (exit.label === 'Save as a gem')
-                      return toast(exit.said, typeof result === 'string' ? () => void unpromote(capture.id, result).then(() => onBack?.(capture.id)) : undefined, 'success', typeof result === 'string' && recallOffered(capture.capturedAt) ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
-                    // Back to exactly the status it had.
-                    const was = ((result as SaveResult | null)?.was ?? 'open') as 'open'
-                    toast(exit.said, () => void window.api.captures.save(capture.id, { status: was }).then(() => (chime('undo'), onBack?.(capture.id))), 'success', exit.label === 'Move to the Bin' ? seeTheBin : undefined)
-                  })
-                }}
-              >
-                {exit.label}
-              </Prop>
-            ))
-          // A promoted capture stays out: its nugget is where it lives now, and
-          // back in the inbox it could be promoted again, into a second one.
-          : (
-            <>
-              {capture.status !== 'promoted' && <Prop icon={Inbox} onClick={reopen}>Back to the inbox</Prop>}
-              {/* Dealt with, it can still go to the Bin, and comes back from there as it was. */}
-              {capture.status !== 'discarded' && <Prop icon={Trash2} alive={TrashIcon} tint="red" onClick={() => void moveToBin([{ type: 'capture', id: capture.id, status: capture.status }])}>Move to the Bin</Prop>}
-            </>
-          )}
-        {/* The question routes: a new one held from it, or a clue in one you are holding. */}
-        {capture.status === 'open' && (
-          <>
-            {capture.kind === 'word'
-              ? <Prop icon={Orbit} tip="Not answered yet: an open question, with what you looked up as its first clue" onClick={() => void keepAsking(capture.id)}><span data-keep-asking-prop>Keep asking</span></Prop>
-              : <Prop icon={Orbit} tip="Something you keep thinking about. It collects clues, and is never tested" onClick={() => void exit(capture.id, 'question')}>Start an open question from this</Prop>}
-            <Prop icon={Paperclip} tip="Files this note under a question you already have" onClick={() => void addToQuestion(capture.id)}>Add as a clue to a question…</Prop>
+      {/* Where it can go, open to see; where it is now is the island's own state, at its heading's end, never a row
+          among the things to press. Folded by hand, it stays folded. */}
+      <Island compact name="Status" filled title="Where it goes"
+        actions={<span data-where-now className="flex items-center gap-1 text-xs whitespace-nowrap text-muted-foreground"><Status aria-hidden className="size-3.5 shrink-0" /><Rolling text={inInbox ? 'In the Inbox' : statusSaid(capture.status, capture.keptIn)} /></span>}>
+        {ways.map((way) => (
+          <Fragment key={way.id}>
+            {/* The same thought caught twice: found by its words, not a number. Before the Bin, which is last. */}
+            {way.id === 'discarded' && inInbox && <MergeInto capture={capture} />}
+            <Prop icon={menuIcon(way.label)} alive={way.id === 'discarded' ? TrashIcon : undefined} tint={way.tint} tip={way.hint} onClick={way.run}>
+              <span data-way={way.id} data-to-writing-prop={way.id === 'writing' ? '' : undefined} data-keep-asking-prop={way.id === 'keep' ? '' : undefined}>{way.label}</span>
+            </Prop>
             {/* The questions kept in view, one click each, while you tidy. */}
-            <PinnedQuestions className="px-2 py-1.5" onPick={(question) => void clueInto(question, { captureId: capture.id })} />
-          </>
-        )}
-        {/* The same thought caught twice: found by its words, not a number. */}
-        {capture.status === 'open' && <MergeInto capture={capture} />}
+            {way.id === 'clue' && <PinnedQuestions className="px-2 py-1.5" onPick={(question) => void clueInto(question, { captureId: capture.id })} />}
+          </Fragment>
+        ))}
       </Island>
 
       <Island compact title="Kind">

@@ -319,6 +319,10 @@ const Row = ({ label, changed, children }: { label: string; changed: boolean; ch
   </div>
 )
 
+/** A chip's shape, and its look at rest: shared with a chip that is not a filter (a note's place, note-extras.tsx), so every chip is one part. */
+export const CHIP = 'flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2.5 transition-[background-color,border-color,color] duration-80'
+export const CHIP_QUIET = 'border-border bg-transparent text-muted-foreground hover:border-foreground/25 hover:text-foreground data-[fluid-hover-active]:border-foreground/25 data-[fluid-hover-active]:text-foreground'
+
 /**
  * A filter chip that says plainly whether it is on: off, a hairline outline
  * on the page; on, filled in the accent with a tick, the outline darkened.
@@ -336,7 +340,7 @@ export function Chip({ on, onClick, children, addon, mark }: {
 }): React.JSX.Element {
   const look = on
     ? 'border-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,transparent)] bg-[color-mix(in_srgb,var(--tt-brand-color-400)_18%,transparent)] text-foreground'
-    : 'border-border bg-transparent text-muted-foreground hover:border-foreground/25 hover:text-foreground data-[fluid-hover-active]:border-foreground/25 data-[fluid-hover-active]:text-foreground'
+    : CHIP_QUIET
   const press = (event: React.MouseEvent<HTMLElement>): void => (onClick(), event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: glideWay() }))
   const face = (
     <>
@@ -353,7 +357,7 @@ export function Chip({ on, onClick, children, addon, mark }: {
   )
   return (
     <button type="button" aria-pressed={on} onClick={press}
-      className={`flex h-6 shrink-0 items-center gap-1.5 rounded-full border px-2.5 transition-[background-color,border-color,color] duration-80 ${look}`}>
+      className={`${CHIP} ${look}`}>
       {face}
     </button>
   )

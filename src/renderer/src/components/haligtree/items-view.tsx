@@ -69,7 +69,7 @@ import { Button } from '@/components/ui/button'
 import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
-import { Aliases, KindFields, LocalGraph, NoteHeader, WritingSpent } from './note-extras'
+import { Aliases, KindFields, LocalGraph, NoteHeader, PlaceChip, WritingSpent } from './note-extras'
 import { RoomFoot, useWritingRoom } from './writing-room'
 import { useWritingSound } from './writing-sound'
 import { writerMenu } from './writer-tools'
@@ -94,6 +94,7 @@ import { useReveal } from './islands'
 import { cleanName, sharedWords } from '@/lib/group-name'
 import { DEPTH, dropMany, flatten, gather, groupId, groupOf, isGroup, KEY, layoutOf, moveMany, reorderAs, sameLayout, shownKeys, step as stepLayout, tidy, type Layout } from '@/lib/group-layout'
 import type { Cue } from '@/lib/sound'
+import { SECTIONS } from './places'
 import { GroupIcon, SectionHeads, type Bundle, type Folds, type GroupView, type Part as KeptPart } from './kept-groups'
 import { openItems, useHere } from '@/lib/split'
 import { queueMenu } from '@/lib/reading-queue'
@@ -645,6 +646,23 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     binItem(binRefs([item.id]))
   ]
 
+  // Where the open page lives, said over it: its folder, or the list's own name, and the folders it can move to: the
+  // lines its row's menu has under “Move to folder”, so the move, its notice and its Undo are the list's one way.
+  // Writing and Gems, which have folders; Questions is a view by kind, not a place.
+  const placeOf = (one: Item): React.ReactNode => {
+    const section = SECTIONS.find((each) => each.id === (tier === 'article' ? 'articles' : 'nuggets'))
+    if (questionsOnly || gatherer || one.tier === 'question' || !section) return null
+    const folder = folding.home(one.id)
+    const lines = folding.menu([one.id])
+    const move = lines.find((line): line is { label: string; items: RowItem[] } => !!line && line !== 'separator' && 'items' in line && line.label === 'Move to folder')
+    const to = (move?.items ?? []).filter(Boolean)
+    const out = lines.filter((line) => !!line && line !== 'separator' && 'run' in line && line.label === 'Remove from folder')
+    return (
+      <PlaceChip label={folder?.name ?? section.label} tip="Move to folder"
+        icon={folder ? <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /> : <section.icon aria-hidden className="size-3.5 shrink-0" style={{ color: `var(--mf-icon-tint, var(--tt-color-text-${section.tint}))` }} />}
+        items={[{ heading: 'Move to folder' }, ...to, ...(to.length ? [] : [{ label: 'New folder…', run: folding.newFolder }]), 'separator', ...out]} />
+    )
+  }
   // A row (or every picked row, it among them) carried onto one of this list's folders in the sidebar (split-drop.tsx).
   const moveIntoRef = useRef(folding.moveInto)
   moveIntoRef.current = folding.moveInto
@@ -923,7 +941,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           }}
         />
       )}
-      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <ShowInListContext.Provider value={showOpen}><Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>} key={open.id} item={open} board={{ onShown: setBoarded, list: listOut, onList: setListOut }} onOpen={(type, id) => ((questionsOnly ? type === 'question' : type === tier) ? pick(id) : onOpen?.(type, id))} /></Apart></ShowInListContext.Provider>}
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.title} /> : open && <ShowInListContext.Provider value={showOpen}><Apart type={open.tier} id={open.id} title={open.title} hidden={!!open.private} onBack={() => haligtree.item(open.id).then((fresh) => fresh && setOpen(fresh))}><ItemDetail top={<div data-head-left className="flex min-w-0 items-center gap-2"><ReadsIn apart reading={listUnread} className="contents" data-apart="stepper"><Stepper turns at={items.findIndex((one) => one.id === open.id)} total={items.length} onStep={(to) => ((stepped.current = true), pick(items[to].id))} /></ReadsIn>{placeOf(open)}</div>} key={open.id} item={open} board={{ onShown: setBoarded, list: listOut, onList: setListOut }} onOpen={(type, id) => ((questionsOnly ? type === 'question' : type === tier) ? pick(id) : onOpen?.(type, id))} /></Apart></ShowInListContext.Provider>}
     </ReadsIn>
   )
 }
@@ -1859,6 +1877,8 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   moveInto: (group: string, ids: string[]) => boolean
   /** A new, empty folder in the one open (or the list itself), its name open for typing. */
   newFolder: () => void
+  /** The folder a note lives in (through any group it is in there), or null for one loose in the list. */
+  home: (id: string) => NoteGroup | null
   /** The picked notes (or one) gathered into a new group in place, Figma's ⌘G. */
   groupNew: (ids: string[]) => void
   /** The groups these notes (or groups) are in taken apart, their notes staying where they are: Figma's ⇧⌘G. */
@@ -2293,5 +2313,9 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     return true
   }
   const newFolder = (): void => void noteGroupsApi.make(tier, 'New folder', within ?? null).then((id) => (chime('promote'), setRenaming(id), setBorn(id), quietly(() => void noteGroupsApi.remove(id))))
-  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, groupNew, ungroup, folds, reveal, moveInto, newFolder }
+  const home = (id: string): NoteGroup | null => {
+    for (let at = groupOf(layout, id), up = 0; at && up < 8; at = groupOf(layout, KEY + at), up++) if (folders.has(at)) return info.get(at) ?? null
+    return null
+  }
+  return { rows: shown ? rowsOf(layout) : null, tiles, step, menu, gatherNew, groupNew, ungroup, folds, reveal, moveInto, newFolder, home }
 }
