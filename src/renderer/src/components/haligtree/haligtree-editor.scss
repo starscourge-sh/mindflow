@@ -186,6 +186,14 @@
   pointer-events: none;
 }
 
+// A band never leaves the box its line is in. A code block is one line to the band and a box of its own: lit, the
+// band hid behind the block's fill and showed only past both its sides, as tall as the block. None there, as in a
+// table's cell (vim-mode.ts leaves cells out); in a callout it is clipped to the callout (below, .tiptap-callout).
+// (Written as the band's own rule is, with `pre` added, so it outranks it.)
+.tiptap.ProseMirror.haligtree-editor:focus-within:not(.is-line):not(:is([data-day-write], [data-room], [data-caret-room]) *) pre.vim-cursor-line:not(.is-empty[data-placeholder])::before {
+  content: none;
+}
+
 .tiptap.ProseMirror.haligtree-editor [data-type=horizontalRule] {
   margin: 1rem 0 0;
 }
@@ -3909,6 +3917,10 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   // here, "behind" means behind this box's tint as well, and the band vanished
   // for every line inside a callout.
   isolation: isolate;
+  // And it keeps to the box its line is in: the band is drawn far past both ends of its line (the page clips it),
+  // so here it ran the whole width of the pane behind the callout and showed past both sides of its box. Clipped,
+  // not hidden: nothing scrolls, and the box's round corners trim the band's ends.
+  overflow: clip;
   // The same gap above and below as a code block's.
   margin: 1em 0;
   padding: 0.625rem 1rem 0.625rem 2.375rem;
