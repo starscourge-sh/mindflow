@@ -42,6 +42,8 @@ const HEAD = (): number => 1.5 * rem() + 6
 const FOOT = 6
 /** Six weeks every month, as Apple Calendar shows them, so the box never changes height from one month to the next. */
 const ROWS = 6
+/** Weeks to a screen on the Calendar's run: five, so even a busy week keeps room for a few whole lines. */
+const SCREEN = 5
 /** The slide from one month to the next. */
 const SLIDE = { duration: 0.28, ease: EASE }
 
@@ -164,10 +166,18 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   // A week's height, for how many chips a day holds.
   const body = useRef<HTMLDivElement>(null)
   const [row, setRow] = useState(0)
+  // Whether a day is wide enough for its things by name (5.5rem), worked out here from the box's width, once a resize:
+  // a container query on each day made every week coming into sight restyle its seven days as it was laid out.
+  const [wide, setWide] = useState(true)
   useLayoutEffect(() => {
     const el = body.current
     if (!el) return
-    const fit = (): void => (readRem(), setRow(el.clientHeight / ROWS))
+    const fit = (): void => {
+      readRem()
+      // On the run, a whole number of pixels a week, so every week's lines fall on whole pixels as it scrolls.
+      setRow(bare ? Math.floor(el.clientHeight / SCREEN) : el.clientHeight / ROWS)
+      setWide((el.clientWidth - 2 * rem() - 8) / 7 >= 5.5 * rem())
+    }
     fit()
     const watch = new ResizeObserver(fit)
     watch.observe(el)
@@ -191,7 +201,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
 
   /** Everything a week of the run is drawn from, for it to be drawn again only when one of them changed. */
   const sign = (monday: Dayjs): unknown[] => {
-    const said: unknown[] = [today, marks, adding, marking, counting, ...extraSaid]
+    const said: unknown[] = [today, marks, adding, marking, counting, wide, ...extraSaid]
     for (let at = 0; at < 7; at++) {
       const key = dayKey(monday.add(at, 'day'))
       said.push(on.get(key), caught.get(key), opens.get(key))
@@ -213,7 +223,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         </Tip>
         {weekDays.map((day) => {
           const key = dayKey(day)
-          return <Cell key={key} day={day} lines={linesOf(on.get(key))} today={today} outside={!!shown && !day.isSame(shown, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
+          return <Cell key={key} wide={wide} day={day} lines={linesOf(on.get(key))} today={today} outside={!!shown && !day.isSame(shown, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
             room={room - laid.lanes} reserve={laid.lanes} extra={dayExtra?.(key)} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} onItem={item} />
         })}
         {/* The week's bars, each one piece across the days it covers, under the dates. */}
@@ -317,7 +327,7 @@ const EPOCH = dayjs('1900-01-01').startOf('week')
 const WEEKS = 15_650
 const weekAt = (index: number): Dayjs => EPOCH.add(index * 7, 'day')
 const indexOf = (day: Dayjs): number => Math.round(day.startOf('week').hour(12).diff(EPOCH.hour(12), 'hour') / (7 * 24))
-const RUN_RULES = '[data-month-run][data-moving] > div { pointer-events: none } [data-month-run] [data-dim] [data-day-number]:not([aria-current]) { color: color-mix(in oklab, var(--foreground) 40%, transparent); font-weight: 400 } [data-month-run] [data-dim] :is([data-plan-more], [data-plan-task], [data-mark-flag]) { opacity: 0.6 }'
+const RUN_RULES = '[data-month-run] [data-outside] [data-day-number]:not([aria-current]) { color: color-mix(in oklab, var(--foreground) 40%, transparent); font-weight: 400 } [data-month-run] [data-outside] :is([data-plan-more], [data-plan-task], [data-mark-flag]) { opacity: 0.6 }'
 /** How long the wheel stays quiet before a gesture counts as over: longer than the gap between a fast wheel's notches. */
 const IDLE = 140
 /** Weeks drawn past those in sight, above and below, so a fling never shows a row not yet drawn: 2 + 6 + 3, eleven in all. */
@@ -416,6 +426,9 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   }, [heldKey]) // eslint-disable-line react-hooks/exhaustive-deps
   // When the wheel last moved (a trackpad's glide sends wheel events too), and the frame that waits for it to go quiet.
   const wheeled = useRef(-Infinity)
+  // Over the weeks while they move, so the days under the pointer do not light up and tip as they pass: one element
+  // shown and hidden, nothing under it restyled (pointer-events on the weeks themselves restyled every day drawn).
+  const shield = useRef<HTMLDivElement>(null)
   const moved = useRef(-Infinity)
   const quiet = useRef(0)
   const end = useRef<() => void>(() => {})
@@ -423,12 +436,10 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   useEffect(() => {
     const el = body.current
     if (!el) return
-    // While the weeks move, the pointer does not reach them: a day's tip opening and closing as days pass under it made
-    // every tip in the window, the sidebar's too, draw again (one tip group for the app), and the sidebar's moving rows
-    // with them measure the page. Marked on the box itself, so moving draws nothing.
+    // While the weeks move, the shield is up: the days passing under the pointer neither light up nor tip.
     const scrolled = (event: Event): void => {
       moved.current = event.timeStamp
-      if (!('moving' in el.dataset)) el.dataset.moving = ''
+      if (shield.current?.hidden) shield.current.hidden = false
       if (row && placed.current) gliding.current ? setTop(where(el)) : settle(el, true)
     }
     const wheel = (event: WheelEvent): void => void (wheeled.current = event.timeStamp)
@@ -450,7 +461,7 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
         return
       }
       gliding.current = false
-      delete el.dataset.moving
+      if (shield.current) shield.current.hidden = true
       const near = Math.round(el.scrollTop / row) * row
       if (Math.abs(el.scrollTop - near) > 0.5) return el.scrollTo({ top: near, behavior: still ? 'instant' : 'smooth' })
       settle(el, false)
@@ -467,18 +478,19 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   useLayoutEffect(() => {
     for (const cell of body.current?.querySelectorAll<HTMLElement>('[data-day]') ?? []) {
       const out = !cell.dataset.day?.startsWith(`${dim}-`)
-      if (out !== cell.hasAttribute('data-dim')) cell.toggleAttribute('data-dim', out)
+      if (out !== cell.hasAttribute('data-outside')) cell.toggleAttribute('data-outside', out)
     }
   })
   const room = lines(row)
   // Drawn in steps of two weeks, so a fling commits a new set of weeks every other week rather than every week.
   const base = top - (top % 2)
   const firstDrawn = Math.max(0, base - OVER)
-  const lastDrawn = Math.min(WEEKS - 1, base + ROWS + OVER)
+  const lastDrawn = Math.min(WEEKS - 1, base + SCREEN + OVER)
   return (
     <div ref={body} data-month-scroll data-month-run={dim} data-unfaded className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:none]">
-      {/* The days outside the month named, dimmed as on Home's month, and nothing under the pointer while the weeks move. A rule that never changes: rewritten for each month, it made the whole window restyle. */}
+      {/* The days outside the month named, dimmed as on Home's month. A rule that never changes: rewritten for each month, it made the whole window restyle. */}
       <style>{RUN_RULES}</style>
+      <div ref={shield} hidden aria-hidden className="sticky top-0 z-20" style={{ height: row * SCREEN, marginBottom: -row * SCREEN }} />
       <div style={{ height: WEEKS * row }} className="relative">
         {row > 0 && Array.from({ length: lastDrawn - firstDrawn + 1 }, (_, at) => {
           const monday = weekAt(firstDrawn + at)
@@ -490,7 +502,9 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   )
 }
 
-function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd, onDay, onLine, onItem, room, reserve = 0, extra = [] }: {
+function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, onAdd, onDay, onLine, onItem, room, reserve = 0, extra = [] }: {
+  /** Room for each thing by name; narrow (a small window), a dot for each and the count. */
+  wide: boolean
   day: Dayjs
   /** Lines kept empty under the date for the week's bars. */
   reserve?: number
@@ -527,7 +541,7 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
   return (
     <div ref={setNodeRef} data-day={key} data-outside={outside || undefined} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? openedLevel(count) : undefined} data-captured={caught === undefined ? undefined : caught && caughtLevel(caught)} data-late={late || undefined} data-weekend={weekend || undefined}
       onClick={(event) => event.target === event.currentTarget && (chime('tap'), onAdd())}
-      className={`group/day @container/cell relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))]' : 'bg-background'} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
+      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))]' : 'bg-background'} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${plural(caught, 'capture')}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}
@@ -551,19 +565,19 @@ function Cell({ day, lines, today, outside, count, caught, flags, adding, onAdd,
       {/* The bars' lanes; a bar's chip keeps its own 2px under the date, as every tinted chip does. */}
       {reserve > 0 && <span aria-hidden className="shrink-0" style={{ height: reserve * LINE() }} />}
       {/* Wide enough, each thing by name; narrow (a small window), a dot for each and the count, never words cut to a letter. */}
-      <div className="hidden min-h-0 flex-1 flex-col overflow-hidden @[5.5rem]/cell:flex">
+      {wide && <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
         {events}
         {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} />)}
-      </div>
+      </div>}
       {/* "+N more" sits outside the clipped list, so it is never cut. */}
-      <div className="hidden shrink-0 @[5.5rem]/cell:block">
+      {wide && <div className="shrink-0">
         {events.length < extra.length && <button type="button" data-plan-more-events onClick={() => (chime('open'), onDay(key))} className="mf-hit relative h-5 w-full shrink-0 truncate rounded-sm px-1 text-left text-control font-medium text-foreground hover:bg-accent">+{num(hiddenCount)} more</button>}
         {lines.length > shown && events.length === extra.length && <More day={day} lines={lines} hidden={lines.length - shown} gone={gone} onDay={onDay} onLine={onLine} />}
-      </div>
-      {total > 0 && (
+      </div>}
+      {total > 0 && !wide && (
         <button type="button" data-month-dots={total} aria-label={`Open ${day.format('dddd D MMMM')}: ${plural(total, 'thing')}`} onClick={() => (chime('open'), onDay(key))}
-          className="flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-meta text-foreground/80 tabular-nums hover:bg-accent @[5.5rem]/cell:hidden">
+          className="flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-meta text-foreground/80 tabular-nums hover:bg-accent">
           <span aria-hidden className="flex gap-0.5">{Array.from({ length: Math.min(3, total) }, (_, at) => <span key={at} className={`size-1.5 rounded-full ${gone && lines.length ? 'bg-[var(--tt-color-text-orange)]' : 'bg-foreground/55'}`} />)}</span>
           {num(total)}
         </button>
