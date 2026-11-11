@@ -6,7 +6,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Languages, Scissors, Pause, Play, Scale, ScanText, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  Speech, ThumbsDown, ThumbsUp, Unlink, User, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, StarOff, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Users, Magnet, Mountain, PaintBucket, Telescope, type LucideIcon
+  Speech, ThumbsDown, ThumbsUp, Unlink, User, UserCheck, UserX, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, StarOff, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Users, Magnet, Mountain, PaintBucket, Telescope, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -32,6 +32,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^change the work/i, BookOpen],
   [/^make a real person$/i, User],
   [/^add as a character$/i, BookOpen],
+  // A person marked as you, wearing your photo, or not you any more (avatar.tsx's markMe).
+  [/^this is me$/i, UserCheck],
+  [/^this is not me$/i, UserX],
   // Media: a file into a note, where it is used, and how to look at one.
   [/^put .*in a note/i, FilePlus],
   [/^used in$/i, Link],

@@ -33,14 +33,14 @@ import { useCaptures, inInboxWindow } from '../capture-list'
 import { appSizeOf, call, unloaded, useLive, haligtree, windowRootSize, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/haligtree'
 import { wearFinish } from './review-toolbar'
 import { Chips } from './display'
-import { Avatar } from './avatar'
-import { pickAvatar, setAvatar, useAvatar } from '@/lib/people'
+import { Avatar, markMe } from './avatar'
+import { isMe, pickAvatar, setAvatar, useAvatar, useMe } from '@/lib/people'
 import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
 import { SoundPacks } from './sound-packs'
 import { FontPicker } from './font-picker'
 import { TEXT_SIZES } from '@/lib/editor-setup'
 import { SCRUB, ScrubField } from '../pdf/scrub-field'
-import { BackToTop, Kbd, Rolling, Tip, listEnd, quietly, refuse, stopJob, toast, useSmooth, waiting } from './ui'
+import { BackToTop, Kbd, Rolling, Tip, ask, listEnd, quietly, refuse, stopJob, toast, useSmooth, waiting } from './ui'
 import { working } from './beam'
 import { Term } from './term'
 import { Button } from '@/components/ui/button'
@@ -697,7 +697,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <span data-deck-shapes-sample className="flex items-center gap-1.5"><DeckFace name="Biology" due={12} fresh={30} shapes={settings.deckShapes === true} small /></span>
             <Switch aria-label="Shapes on decks" checked={settings.deckShapes === true} onCheckedChange={(deckShapes) => set({ deckShapes })} />
           </Setting>
-          <Setting title="Your photo" note="Your face in the Feed, on your replies and wherever you are shown; without one, you wear your shape." keywords="profile photo picture avatar face me you owner portrait upload"
+          <Setting title="Your photo" note="Your face in the Feed, on your replies and wherever you are shown, and on the person in People who is you; without one, you wear your shape." more="Choose who you are here, or with “This is me” on their page." keywords="profile photo picture avatar face me you owner portrait upload this is me shown as person myself"
             below={<YourProfile bio={settings.bio ?? ''} setBio={(bio) => set({ bio })} />} />
           <Setting title="Avatars" note="The face a source, or you, wears in the Feed and on a source's page until it has a picture." more="“Shapes” gives each name its own shape from Coolshapes, tinted by your theme; the same name always wears the same one." keywords="avatars faces initials shapes coolshapes circles people sources feed accounts"
             below={<Choices label="Avatars" options={(['shapes', 'initials'] as const).map((look) => ({ id: look, label: look === 'shapes' ? 'Shapes' : 'Initials', show: <AvatarSample look={look} /> }))}
@@ -2316,8 +2316,18 @@ function PutAwayBefore(): React.JSX.Element {
 
 /** A few faces as they would look: the names a Feed is likely to hold. */
 /** Your own face and a line about you: a photo cut to a circle (kept in the book), or your shape; and a bio of up to 160 letters. */
+/** Which person is you, asked by name (completing from People); “No one” leaves no one as you. */
+async function chooseMe(me: string, at: Element): Promise<void> {
+  const said = await ask('Which person is you? They wear your photo wherever their face is shown.', 'e.g. Reed', { field: 'attribution', initial: me || undefined, skip: me ? 'No one' : undefined, action: 'This is me', at })
+  if (said === null) return
+  const who = said.trim()
+  // Choosing them again changes nothing; "No one" turns off whoever it was.
+  if (who ? !isMe(who) : !!me) await markMe(who || me)
+}
+
 function YourProfile({ bio, setBio }: { bio: string; setBio: (bio: string) => void }): React.JSX.Element {
   const photo = useAvatar('You')
+  const me = useMe()
   const [text, setText] = useState(bio)
   useEffect(() => setText(bio), [bio])
   return (
@@ -2327,6 +2337,13 @@ function YourProfile({ bio, setBio }: { bio: string; setBio: (bio: string) => vo
         <Button variant="outline" size="sm" data-your-photo className="min-w-[8.5rem]" onClick={() => void pickAvatar('You')}>{photo ? 'Change photo…' : 'Add a photo…'}</Button>
         {/* Always there, so the button beside it never moves; it does nothing without a photo. */}
         <Button variant="ghost" size="sm" data-remove-photo disabled={!photo} onClick={() => void setAvatar('You', null)}>Remove photo</Button>
+      </div>
+      {/* Which person in People is you (“This is me” on their page): they wear this photo wherever their face is shown. */}
+      <div data-shown-as={me || undefined} className="flex min-h-8 items-center gap-2 text-body text-foreground">
+        {me
+          ? <><span className="shrink-0">Shown as</span><Avatar name={me} size={20} /><span data-shown-as-name className="min-w-0 truncate font-medium">{me}</span></>
+          : <span>Not anyone in People yet</span>}
+        <Button variant="ghost" size="sm" data-choose-me className="shrink-0" onClick={(event) => void chooseMe(me, event.currentTarget)}>{me ? 'Change…' : 'Choose who you are…'}</Button>
       </div>
       <label className="flex flex-col gap-1">
         <span className="flex items-baseline justify-between text-body text-foreground">

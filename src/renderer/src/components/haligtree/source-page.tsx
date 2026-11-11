@@ -34,8 +34,8 @@ const tally = (one: { count: number; quotes: number }): string => {
   const rest = one.count - one.quotes
   return [one.quotes ? plural(one.quotes, 'quote') : '', rest ? plural(rest, one.quotes ? 'other note' : 'note') : ''].filter(Boolean).join(' · ')
 }
-import { avatarOf, setAvatar, pickAvatar, useAvatar } from '@/lib/people'
-import { PersonMenu, turnCharacter } from './avatar'
+import { avatarOf, isMe, setAvatar, pickAvatar, useAvatar, useMe } from '@/lib/people'
+import { PersonMenu, markMe, turnCharacter } from './avatar'
 import type { Character, SourceCard, SourceFacts, SourcePage } from '@/lib/sources'
 import { notes, type NoteTable } from '@/lib/notes'
 import { menuOpen } from '@/lib/menu-keys'
@@ -378,7 +378,8 @@ const blobOf = (data: string): Blob => {
 function Bio({ field, name, page }: { field: SourceField; name: string; page: SourcePage | null }): React.JSX.Element | null {
   const asked = !page || !!page.bioAt
   // A person whose line came from Wikipedia but who has no face yet is asked again (kept, so offline-quick) for the picture.
-  const wantFace = !!page && field === 'attribution' && !!page.bioUrl && !avatarOf(name)
+  // Never for the person who is you: they wear your photo, and a picture found for them would become it.
+  const wantFace = !!page && field === 'attribution' && !!page.bioUrl && !avatarOf(name) && !isMe(name)
   const wiki = useWiki(asked && !wantFace ? null : name)
   useEffect(() => {
     if (!page || (wiki.state !== 'found' && wiki.state !== 'missing')) return
@@ -397,7 +398,7 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
     if (!page.what && wiki.page!.description) void sources.facts(field, name, { what: wiki.page!.description[0].toUpperCase() + wiki.page!.description.slice(1) })
     // A person's lead picture as their face, when they have none: only a freely licensed one from Wikimedia Commons
     // (wiki.ts keeps no other). Fetched by the app, never by the page, and shrunk like any face you add.
-    if (field === 'attribution' && wiki.page!.picture && !avatarOf(name))
+    if (field === 'attribution' && wiki.page!.picture && !avatarOf(name) && !isMe(name))
       void window.api.haligtree<string | null>('feed:picture', wiki.page!.picture).then(async (data) => {
         if (data && !avatarOf(name)) await setAvatar(name, blobOf(data))
       })
@@ -789,6 +790,8 @@ function FaceGrid({ people, title = 'People' }: { people: SourceSummary[]; title
 export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => void }): React.JSX.Element {
   const list = useLive(sources.list, [] as SourceSummary[])
   const missing = useLive(sources.missing, [] as Awaited<ReturnType<typeof sources.missing>>)
+  // Who is you: a row's “This is me” reads again when it moves.
+  const me = useMe()
   const make = async (field: SourceField): Promise<void> => {
     const name = (await ask(field === 'attribution' ? 'Name the person' : 'Name the source', field === 'attribution' ? 'e.g. Marcus Aurelius' : 'e.g. Meditations, or a podcast', { field, action: field === 'attribution' ? 'Add the person' : 'Add the source' }))?.trim()
     if (!name) return
@@ -832,6 +835,8 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
       { label: 'Open the page', run: () => openSource(field, one.name) },
       { label: 'Rename…', run: () => askRename(field, one.name) },
       ...(field !== 'attribution' ? [] : one.work ? [{ label: 'Change the work…', run: () => void turnCharacter(one.name, 'character') }, { label: 'Make a real person', run: () => void turnCharacter(one.name, 'person') }] : [{ label: 'Make a character of a work…', run: () => void turnCharacter(one.name, 'character') }]),
+      // You, among the people (avatar.tsx's markMe): the line reads as it would undo.
+      ...(field !== 'attribution' || one.work ? [] : [{ label: me && isMe(one.name) ? 'This is not me' : 'This is me', run: () => void markMe(one.name) }]),
       ...(one.count ? [] : [{ label: 'Remove the page', run: () => void sources.dropAll([{ field, name: one.name }]).then((undo) => toast(`Removed ${one.name}’s page`, undo)) }])
     ]
   }))

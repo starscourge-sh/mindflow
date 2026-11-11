@@ -763,6 +763,8 @@ export type Settings = typeof DEFAULTS & {
   smoothScroll?: boolean
   /** A line about you, up to 160 letters, shown with your face. */
   bio?: string
+  /** The person who is you (“This is me” on their page): they wear your photo everywhere a face is shown. Unset or '', no one. */
+  me?: string
   /** The next marked days in the menu bar's menu, under the bars (read by milestones.ts). */
   milestonesInMenu?: boolean
   /** After `closeDayAt`, a “For tomorrow” box at the end of Today and Today's page. */

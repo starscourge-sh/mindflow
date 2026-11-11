@@ -13,16 +13,26 @@ export type { Person }
 type People = Record<string, Person>
 
 let people: People = {}
+/** The person who is you (Settings' `me`, kept in the book): they wear your photo, the one saved as "You". '' for no one. */
+let me = ''
+/** What a face reads, one object, new whenever the pictures or who is you change. */
+let state = { people, me }
 let asked = false
 // Read once yet: until then a face cannot say whether it has a picture.
 let read = false
 const listeners = new Set<() => void>()
+const tell = (): void => {
+  state = { people, me }
+  listeners.forEach((listen) => listen())
+}
 const load = (): void =>
-  void (window.api.haligtree<People>('people')).then((next) => {
-    if (read && JSON.stringify(next) === JSON.stringify(people)) return
+  void Promise.all([window.api.haligtree<People>('people'), window.api.haligtree<{ me?: string }>('settings')]).then(([next, settings]) => {
+    const who = settings?.me ?? ''
+    if (read && who === me && JSON.stringify(next) === JSON.stringify(people)) return
     read = true
     people = next ?? {}
-    listeners.forEach((listen) => listen())
+    me = who
+    tell()
   }, () => undefined)
 const subscribe = (listen: () => void): (() => void) => {
   listeners.add(listen)
@@ -35,16 +45,40 @@ const subscribe = (listen: () => void): (() => void) => {
   return () => void listeners.delete(listen)
 }
 
+/** The name your own photo is kept under (Settings' “Your photo”). */
+export const YOU = 'You'
+
+/** The picture a name wears: your photo for the person who is you (while you have one), else their own. */
+const faceOf = (now: typeof state, name: string): string | null => {
+  const key = personKey(name)
+  if (now.me && key === personKey(now.me)) return now.people[personKey(YOU)]?.avatar ?? now.people[key]?.avatar ?? null
+  return now.people[key]?.avatar ?? null
+}
+
 /** The picture kept for a name, if any. */
 export const useAvatar = (name: string | null | undefined): string | null => {
-  const all = useSyncExternalStore(subscribe, () => people)
-  return name ? (all[personKey(name)]?.avatar ?? null) : null
+  const now = useSyncExternalStore(subscribe, () => state)
+  return name ? faceOf(now, name) : null
 }
 
 /** The picture kept for a name, outside a component (a hover card): read now, from what this window holds. */
 export const avatarOf = (name: string): string | null => {
   if (!asked) subscribe(() => undefined)
-  return people[personKey(name)]?.avatar ?? null
+  return faceOf(state, name)
+}
+
+/** The person who is you, as named ('' for no one). */
+export const useMe = (): string => useSyncExternalStore(subscribe, () => state).me
+
+/** Whether a name is the person who is you. */
+export const isMe = (name: string): boolean => !!me && !!name.trim() && personKey(name) === personKey(me)
+
+/** Make a person you ('' for no one), kept in the book's settings: every face of theirs follows at once, in every window. */
+export async function setMe(name: string): Promise<void> {
+  if (!asked) subscribe(() => undefined)
+  await window.api.haligtree('settings:set', { me: name.trim() })
+  me = name.trim()
+  tell()
 }
 
 /** Whether the pictures have been read in this window: a face waits for it, so it never shows its initials and then its picture. */
@@ -111,8 +145,10 @@ async function shrink(blob: Blob): Promise<string | null> {
   return url || null
 }
 
-/** A picture for a person, or none: saved once for the name, wherever it is written. */
-export async function setAvatar(name: string, picture: Blob | null): Promise<boolean> {
+/** A picture for a person, or none: saved once for the name, wherever it is written. The person who is you wears your
+ *  photo, so a picture given to them is your photo, and taking theirs away takes yours (theirs, once you have none). */
+export async function setAvatar(given: string, picture: Blob | null): Promise<boolean> {
+  const name = isMe(given) && (picture || people[personKey(YOU)]) ? YOU : given
   const url = picture ? await shrink(picture) : null
   if (picture && !url) return false
   const done = await window.api.haligtree<boolean>('people:set', name, url)
@@ -121,7 +157,7 @@ export async function setAvatar(name: string, picture: Blob | null): Promise<boo
     people = { ...people }
     if (url) people[personKey(name)] = { name, avatar: url }
     else delete people[personKey(name)]
-    listeners.forEach((listen) => listen())
+    tell()
     chime(url ? 'noted' : 'off')
   }
   return done

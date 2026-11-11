@@ -2,7 +2,7 @@ import { askRename, openSource, sources } from '@/lib/sources'
 import { chime } from '@/lib/sound'
 import { useState, type CSSProperties, type ReactElement } from 'react'
 
-import { hueOf, initials, pasteAvatar, peopleRead, pickAvatar, setAvatar, useAvatar } from '@/lib/people'
+import { YOU, avatarOf, hueOf, initials, isMe, pasteAvatar, peopleRead, pickAvatar, setAvatar, setMe, useAvatar, useMe } from '@/lib/people'
 import { useDecoded } from '@/lib/decoded'
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuLabel, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { SHAPES, TINTS } from './coolshapes'
@@ -122,6 +122,24 @@ export async function turnCharacter(name: string, to: 'character' | 'person'): P
 }
 
 /**
+ * “This is me” on a person: they become you and wear your photo everywhere a face is shown; only one person is you,
+ * so choosing another moves it. Chosen again (“This is not me”), no one is. One notice, one Undo.
+ */
+export async function markMe(name: string): Promise<void> {
+  const { toast } = await import('./ui')
+  const who = name.trim()
+  if (!who) return
+  const was = isMe(who) ? who : ''
+  const before = (await window.api.haligtree<{ me?: string }>('settings'))?.me ?? ''
+  await setMe(was ? '' : who)
+  chime(was ? 'off' : 'noted')
+  const photo = !!avatarOf(YOU)
+  const said = was ? `${who} is not you any more`
+    : before ? `${who} is you now, not ${before}` : photo ? `${who} is you now, and wears your photo` : `${who} is you now: add your photo in Settings and they wear it`
+  toast(said, () => void setMe(before).then(() => chime('undo')))
+}
+
+/**
  * What a right click on a person offers: a picture from a file or the
  * clipboard, or none, and making them a character of a work (or a real person
  * again). Always the same wrapper, so a field inside it keeps its caret as the
@@ -130,6 +148,7 @@ export async function turnCharacter(name: string, to: 'character' | 'person'): P
  */
 export function PersonMenu({ name, work, children }: { name: string; work?: string; children: ReactElement }): React.JSX.Element {
   const avatar = useAvatar(name)
+  const me = useMe()
   if (avatar) ensureDuotone()
   const who = name.trim()
   // Read as the menu opens: "Paste a picture" only with a picture on the clipboard, so it never answers "none there".
@@ -157,6 +176,8 @@ export function PersonMenu({ name, work, children }: { name: string; work?: stri
             <ContextMenuItem data-make-person onSelect={() => void turnCharacter(who, 'person')}>Make a real person</ContextMenuItem>
           </>
           : <ContextMenuItem data-make-character onSelect={() => void turnCharacter(who, 'character')}>Make a character of a work…</ContextMenuItem>}
+        {/* You, among the people: they wear your photo. Never a character. Read as it reads, so it is turned off where it was turned on. */}
+        {!inWork && <ContextMenuItem data-this-is-me={me && isMe(who) ? 'on' : 'off'} onSelect={() => void markMe(who)}>{me && isMe(who) ? 'This is not me' : 'This is me'}</ContextMenuItem>}
         {avatar && <ContextMenuItem variant="destructive" onSelect={() => void setAvatar(who, null)}>Remove the picture</ContextMenuItem>}
       </ContextMenuContent>
     </ContextMenu>
