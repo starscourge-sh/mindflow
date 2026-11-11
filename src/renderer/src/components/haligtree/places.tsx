@@ -424,15 +424,15 @@ export function ShowList({ places: every, setting, counts }: { places: Place[]; 
             <PlaceIcon place={place} full={on} />
             <span className={`flex-1 truncate transition-colors ${on ? '' : 'text-muted-foreground'}`}>{place.label}</span>
             {place.key && <span className="flex gap-0.5 opacity-60"><Pressed keys={`G ${place.key.toUpperCase()}`} /></span>}
-            {/* Every row keeps the chip's room, so the letters and switches stand in one column. */}
-            {setting === 'sidebarShown' && !COUNTED.includes(place.id) && <span aria-hidden className="w-10 shrink-0" />}
+            {/* Every row keeps the chip's room, so the letters and switches stand in one column; room for the whole word "Count" (it was cut to "Co..."). */}
+            {setting === 'sidebarShown' && !COUNTED.includes(place.id) && <span aria-hidden className="w-14 shrink-0" />}
             {setting === 'sidebarShown' && COUNTED.includes(place.id) && (
               // Its count, as a quiet chip that dims when off; a click here is the chip's, never the row's switch.
               <Tip label={countsOff.includes(place.id) ? 'Show its count' : 'Hide its count'}>
                 <span role="switch" tabIndex={countsOn ? 0 : -1} aria-checked={!countsOff.includes(place.id)} aria-label={`${place.label}'s count`} data-count-chip={place.id}
                   onClick={(event) => (event.preventDefault(), void flipCount(place.id))}
                   onKeyDown={(event) => (event.key === ' ' || event.key === 'Enter') && (event.preventDefault(), void flipCount(place.id))}
-                  className={`w-10 shrink-0 truncate cursor-pointer rounded-md bg-accent/70 px-1 py-px text-center text-xs tabular-nums transition-opacity hover:bg-accent ${!countsOn ? 'pointer-events-none opacity-30' : countsOff.includes(place.id) ? 'text-muted-foreground opacity-45' : 'text-foreground/80'}`}>
+                  className={`w-14 shrink-0 cursor-pointer whitespace-nowrap rounded-md bg-accent/70 px-1.5 py-px text-center text-xs tabular-nums transition-opacity hover:bg-accent ${!countsOn ? 'pointer-events-none opacity-30' : countsOff.includes(place.id) ? 'text-muted-foreground opacity-45' : 'text-foreground/80'}`}>
                   {counts ? num(counts[place.id] ?? 0) : 'Count'}
                 </span>
               </Tip>
