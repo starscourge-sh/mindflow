@@ -28,6 +28,12 @@ import { still } from '@/lib/motion'
  */
 // The rock is shown once a session: a hint, not a habit.
 
+/** The event the welcome sends the dial to turn it one detent for you (`turnDial`): a glide, not a key's jump. */
+const DIAL_TURN = 'haligtree:dial-turn'
+/** Turns the dial on the page one detent, gliding, as the welcome's demo does. */
+export const turnDial = (by: 1 | -1): void =>
+  void document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')?.dispatchEvent(new CustomEvent(DIAL_TURN, { detail: by }))
+
 /** -180..180: how far `deg` is from the top. */
 const offTop = (deg: number): number => ((((deg + 180) % 360) + 360) % 360) - 180
 /** 1 at the notch, falling smoothly to 0 at `reach` degrees away. */
@@ -141,6 +147,21 @@ export function ThemeDial({ size: asked = 200, big = false, calm = false, wear =
   // No wheel: scrolling over the dial scrolls the page, as everywhere. A drag or ← and → turn it.
   const ring = useRef<HTMLDivElement>(null)
 
+  // Turned for you (the welcome's demo, `turnDial`): one detent, gliding there on the same spring a release lands
+  // on, never jumped. A drag or a key of yours stops it where it is (`turn.stop()` in each) and turns from there.
+  const handled = useRef(false)
+  const nudgeRef = useRef(nudge)
+  nudgeRef.current = nudge
+  useEffect(() => {
+    const el = ring.current
+    if (!el) return
+    // Once you have turned it yourself, it is never turned for you again: the demo never fights your hand.
+    const shown = (event: Event): void => void (!drag.current && !handled.current && nudgeRef.current((event as CustomEvent<1 | -1>).detail))
+    el.addEventListener(DIAL_TURN, shown)
+    return () => el.removeEventListener(DIAL_TURN, shown)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // A drag: the ring follows the angle of the pointer around its middle, 1:1.
   const drag = useRef<{ from: number; turn: number; last: number; moved: number; samples: { t: number; deg: number }[] } | null>(null)
   const angleOf = (event: React.PointerEvent): number => {
@@ -149,6 +170,7 @@ export function ThemeDial({ size: asked = 200, big = false, calm = false, wear =
   }
   const onDown = (event: React.PointerEvent): void => {
     if (event.button !== 0) return
+    if (event.isTrusted) handled.current = true
     // A pointer the system did not make (the welcome's hand) cannot be captured, and needs not be.
     try {
       ring.current?.setPointerCapture(event.pointerId)
@@ -218,6 +240,7 @@ export function ThemeDial({ size: asked = 200, big = false, calm = false, wear =
           if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight' && event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return
           event.preventDefault()
           event.stopPropagation()
+          if (event.isTrusted) handled.current = true
           turn.stop()
           nudge(event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : -1, 'key')
         }}

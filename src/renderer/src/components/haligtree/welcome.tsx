@@ -29,7 +29,7 @@ import { dayjs } from '../../../../main/dates'
 import { clock, when } from '@/lib/clock'
 import { readTask } from '../../../../main/task-words'
 import { NOISE } from './grain'
-import { ThemeDial } from './theme-dial'
+import { ThemeDial, turnDial } from './theme-dial'
 import { Kbd, toast } from './ui'
 import { FULL_TURN, glyph, inClay, konami } from './welcome-eggs'
 import { WelcomeBackdrop, type Family } from './welcome-backdrop'
@@ -1566,16 +1566,18 @@ const fadeTo = (theme: Theme): void => {
   void start.call(document, go).ready.catch(() => undefined)
 }
 
-/** Turns the dial one detent, as its arrow keys do: the ring ticks round and the page changes. */
-const tickDial = (key: 'ArrowDown' | 'ArrowUp'): void =>
-  void document.querySelector<HTMLElement>('[role="slider"][aria-label="Theme"]')?.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }))
 
-/** Two ticks of the dial, one on and one back, so the page you had is the page you keep: the first as soon as the words are glanced at. Real milliseconds. */
+/**
+ * Two turns of the dial, one on and one back, so the page you had is the page you keep: the first as soon as the
+ * words are glanced at, and never before the page has landed (PAGE's rest: 0.22s wait and 0.45s in). A theme put on
+ * while the page still came in crossfaded a still picture of it, half in, over the live page moving on: a double.
+ * Real milliseconds.
+ */
 const DIAL_BEATS: Beat<DialState>[] = [
   { at: 0, to: {} },
-  { at: 50, to: { ticks: 1 }, cue: () => tickDial('ArrowDown') },
-  { at: 1300, to: { ticks: 2 }, cue: () => tickDial('ArrowUp') },
-  { at: 1900, to: {} }
+  { at: 700, to: { ticks: 1 }, cue: () => turnDial(1) },
+  { at: 1950, to: { ticks: 2 }, cue: () => turnDial(-1) },
+  { at: 2550, to: {} }
 ]
 
 /** Named from the dial's own list (lib/theme.ts, THEMES): Paper is the lightest, Gruvbox a warm dark one. */
