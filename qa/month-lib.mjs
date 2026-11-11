@@ -57,6 +57,14 @@ export const checkInks = async (h, check, theme) => {
  */
 export const where = (h) => h.evaluate(() => {
   const M = document.querySelector('[data-month-plan]')
+  // The Calendar's run of weeks (11 Nov): the month named, and settled when its first week rests at the top.
+  const run = M.querySelector('[data-month-run]')
+  if (run) {
+    const top = [...run.querySelectorAll('[data-month-week]')].find((one) => Math.abs(one.offsetTop - run.scrollTop) < 2)
+    const days = top ? [...top.querySelectorAll('[data-day]')].map((one) => one.dataset.day) : []
+    const month = run.dataset.monthRun
+    return { month, grids: 1, offset: 0, snapped: days.includes(`${month}-01`), top: days[0] }
+  }
   const grids = [...M.querySelectorAll('[data-month-grid]')]
   const month = M.dataset.monthShown
   const grid = grids.find((one) => one.dataset.monthGrid === month)
@@ -86,8 +94,12 @@ export const dragAcross = async (h, title, target, chipSelector = '[data-plan-ta
   await h.mouse.move(from.x + 30, from.y + 15, { steps: 4 }); await h.waitForTimeout(300)
   const box = await h.locator(`${M} [data-month-scroll]`).boundingBox()
   await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 })
-  await h.mouse.wheel(160, 0); await h.waitForTimeout(700)
-  const to = await h.locator(`${M} [data-month-grid="${target.slice(0, 7)}"] [data-day="${target}"]`).boundingBox()
+  // On to the next month while it is held: sideways on Home's six weeks, down a few weeks on the Calendar's run of weeks.
+  const run = await h.locator(`${M} [data-month-run]`).count()
+  if (run) await h.mouse.wheel(0, 4 * ((await h.locator(`${M} [data-month-week]`).first().boundingBox()).height + 1))
+  else await h.mouse.wheel(160, 0)
+  await h.waitForTimeout(run ? 1200 : 700)
+  const to = await h.locator(run ? `${M} [data-day="${target}"]` : `${M} [data-month-grid="${target.slice(0, 7)}"] [data-day="${target}"]`).boundingBox()
   await h.mouse.move(to.x + to.width / 2, to.y + 40, { steps: 12 })
   await h.mouse.up(); await h.waitForTimeout(1000)
 }

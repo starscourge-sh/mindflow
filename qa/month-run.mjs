@@ -17,7 +17,7 @@ const title = () => h.evaluate(() => document.querySelector('[data-cal-title] sp
 const mode = () => h.evaluate(() => document.querySelector('[data-cal-mode]')?.getAttribute('data-cal-mode'))
 const taps = async () => (await electron.evaluate(() => globalThis.haligtreeTapKinds())).filter((one) => one === 'level').length
 const monthName = (by) => { const d = c.now(); d.setDate(1); d.setMonth(d.getMonth() + by); return d.toLocaleString('en-US', { month: 'long', year: 'numeric' }) }
-const run = () => h.evaluate(() => { const el = document.querySelector('[data-month-run]'); if (!el) return null; const rows = [...el.querySelectorAll('[data-month-week]')]; const row = el.clientHeight / 6; return { top: el.scrollTop, row, rows: rows.length, rest: Math.abs(el.scrollTop / row - Math.round(el.scrollTop / row)) * row, at: Math.round(el.scrollTop / row) } })
+const run = () => h.evaluate(() => { const el = document.querySelector('[data-month-run]'); if (!el) return null; const rows = [...el.querySelectorAll('[data-month-week]')]; const row = el.querySelector('[data-month-week]').offsetHeight + 1; return { top: el.scrollTop, row, rows: rows.length, rest: Math.abs(el.scrollTop / row - Math.round(el.scrollTop / row)) * row, at: Math.round(el.scrollTop / row) } })
 const settle = async () => { for (let i = 0; i < 40; i++) { const a = await run(); await wait(120); const b = await run(); if (a && b && Math.abs(a.top - b.top) < 0.5) return b } return run() }
 const at = (by, hour) => { const d = c.now(); d.setHours(hour, 0, 0, 0); d.setDate(d.getDate() + by); return d }
 // Fingers on a trackpad, in the page's own input: a run of wheel steps that fades, as a fling's glide does.
@@ -92,6 +92,7 @@ try {
   check('the month is one run of weeks that scrolls', isRun)
   const rested = await run()
   check('it rests on a week after a fling', rested.rest < 1, JSON.stringify(rested))
+  check('five weeks to a screen', Math.abs(rested.row * 5 - (await h.evaluate(() => document.querySelector('[data-month-run]').clientHeight))) < 5, `${rested.row}px a week`)
   check('only the weeks near the screen are drawn (8 to 12)', rested.rows >= 8 && rested.rows <= 12, `${rested.rows} weeks`)
   check('the title went on about a year', (await title()) !== startTitle, `${startTitle} -> ${await title()}`)
   // Back to now, then one week at a time down: the title changes once, as the next month's first week reaches the top, with one firm tap.
@@ -103,7 +104,7 @@ try {
   const tapped = (await taps()) - tapsBefore
   check('six weeks down passes into the next month, named once', names.has(monthName(1)) && names.size <= 2, [...names].join(' | '))
   check('one firm tap as the month changed', tapped === 1, `${tapped} taps`)
-  check('the title changed only when the month\'s first week was at the top', await h.evaluate(() => { const el = document.querySelector('[data-month-run]'); const row = el.clientHeight / 6; const top = [...el.querySelectorAll('[data-month-week]')].find((one) => Math.abs(one.offsetTop - el.scrollTop) < row / 2); const sunday = new Date(top.dataset.monthWeek + 'T12:00'); sunday.setDate(sunday.getDate() + 6); return document.querySelector('[data-cal-title] span:last-child').textContent === sunday.toLocaleString('en-US', { month: 'long', year: 'numeric' }) }))
+  check('the title changed only when the month\'s first week was at the top', await h.evaluate(() => { const el = document.querySelector('[data-month-run]'); const row = el.querySelector('[data-month-week]').offsetHeight + 1; const top = [...el.querySelectorAll('[data-month-week]')].find((one) => Math.abs(one.offsetTop - el.scrollTop) < row / 2); const sunday = new Date(top.dataset.monthWeek + 'T12:00'); sunday.setDate(sunday.getDate() + 6); return document.querySelector('[data-cal-title] span:last-child').textContent === sunday.toLocaleString('en-US', { month: 'long', year: 'numeric' }) }))
   // Item 1: sideways over a day box, twice, leaves the month alone; the month no longer keeps the swipe for itself.
   const before1 = await run()
   const cell = await h.evaluate(() => { const r = document.querySelector('[data-month-run] [data-day]:not([data-outside])').getBoundingClientRect(); return { x: r.left + 20, y: r.top + 40 } })

@@ -123,23 +123,32 @@ try {
   // Month chips and +N more.
   await h.keyboard.press('m'); await h.waitForTimeout(800)
   const cell = h.locator(`[data-month-plan] [data-day="${key(new Date())}"]`)
-  const shown = Number(await cell.getAttribute('data-shown'))
-  check('a month cell fits more than two chips', shown > 2, String(shown))
+  // Five equal weeks to the screen (11 Nov): a busy day shows the whole lines that fit, more than one, and "+N more" for the rest.
+  // (It asked for more than two task lines when a busy week grew taller; the day's events now come first in the same room.)
+  const lines = await cell.evaluate((el) => [...el.querySelectorAll('[data-plan-task], [data-cal-event-chip], [data-study-review], [data-study-book], [data-mark-flag]')].filter((one) => !one.closest('[data-month-bars]') && one.getClientRects().length && one.getBoundingClientRect().bottom <= el.getBoundingClientRect().bottom + 0.5).length)
+  check('a busy month cell shows whole lines and "+N more"', lines >= 2 && await cell.locator('[data-plan-more], [data-plan-more-events]').count() === 1, String(lines))
   await cell.locator('[data-plan-more]').click(); await h.waitForTimeout(500)
   const pop = await h.locator('[data-plan-popover]').innerText().catch(() => '')
   check('"+N more" opens every task that day', [1, 5, 9].every((n) => pop.includes(`cal2 busy ${n}`)))
   await h.keyboard.press('Escape'); await h.mouse.move(5, 5); await h.waitForTimeout(300)
 
-  // Months go sideways: a swipe is a month, the title follows, ← → and T slide there; the Show menu is in the heading.
+  // Months run downward as one column of weeks (11 Nov): scrolling a month's weeks brings the next, the title follows, ← → and T
+  // glide there, a sideways swipe is Back and Forward and never the month's; the Show menu is in the heading.
   const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
   const named = (k) => { const [y, m] = k.split('-').map(Number); return `${MONTHS[m - 1]} ${y}` }
   const now = monthKey(new Date())
   const calTitle = async () => (await h.locator('[data-cal-title]').innerText()).trim()
   let spot = await where(h)
   check('the month opens on this month, its first week at the top', spot.month === now && spot.snapped, JSON.stringify(spot))
-  await swipe(h, 120)
+  {
+    const box = await h.locator('[data-month-plan] [data-month-scroll]').boundingBox()
+    await h.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    const week = (await h.locator('[data-month-plan] [data-month-week]').first().boundingBox()).height + 1
+    const weeks = await h.evaluate((m) => { const first = new Date(`${m}-01T12:00`); const next = new Date(first.getFullYear(), first.getMonth() + 1, 1, 12); const monday = (d) => { const x = new Date(d); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x }; return Math.round((monday(next) - monday(first)) / (7 * 864e5)) }, now)
+    await h.mouse.wheel(0, weeks * week); await h.waitForTimeout(1500)
+  }
   spot = await where(h)
-  check('a sideways swipe moves one month and the title changes', spot.month === nextMonth(now) && spot.snapped && await calTitle() === named(nextMonth(now)), `${JSON.stringify(spot)} ${await calTitle()}`)
+  check('scrolling down a month of weeks brings the next month and the title changes', spot.month === nextMonth(now) && spot.snapped && await calTitle() === named(nextMonth(now)), `${JSON.stringify(spot)} ${await calTitle()}`)
   await h.keyboard.press('ArrowLeft'); await h.waitForTimeout(1200)
   spot = await where(h)
   check('← glides back a month', spot.month === now && spot.snapped && await calTitle() === named(now), JSON.stringify(spot))
@@ -151,7 +160,7 @@ try {
   spot = await where(h)
   check('T comes back to this month', spot.month === now && spot.snapped && await h.locator('[data-cal-today]').isDisabled(), JSON.stringify(spot))
   await swipe(h, 0); await h.mouse.wheel(0, 300); await h.waitForTimeout(800)
-  check('a plain wheel does not change the month', (await where(h)).month === now)
+  check('a short scroll stays in this month', (await where(h)).month === now)
   check('the heading has a Show menu, no switches', await h.locator('header [data-month-show]').count() === 1 && await h.locator('header [role="switch"], [data-month-plan] [role="switch"]').count() === 0)
   await h.locator('header [data-month-show]').click(); await h.waitForTimeout(300)
   await h.locator('[data-month-opened-switch]').click(); await h.waitForTimeout(500)
@@ -161,7 +170,7 @@ try {
   const chip =await h.locator(`[data-month-plan] [data-day="${key(new Date())}"] [data-plan-task]`).first().innerText()
   await dragAcross(h, chip.trim(), key(later))
   const carried = (await v('tasks')).filter((one) => one.dueAt && key(new Date(one.dueAt)) === key(later))
-  check('a chip carried into next month, swiping while held, lands there', carried.length === 1, String(carried.length))
+  check('a chip carried into next month, scrolling while held, lands there', carried.length === 1, String(carried.length))
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
   check('⌘Z brings it back', carried[0] && key(new Date((await find(carried[0].id)).dueAt)) === key(new Date()), chip)
   await h.keyboard.press('t'); await h.waitForTimeout(1000)
