@@ -314,22 +314,22 @@ export const ImageDrop = Extension.create<ImageDropOptions>({
             const { images, rest } = sort(event.clipboardData)
             // Files copied in Finder come in as dropping them does: a PDF its
             // block, a picture a picture, anything else a card. Not the icon
-            // or the file's name, which the clipboard holds as well.
-            const copied = rest.length ? [] : (host().copiedFileNames?.() ?? [])
+            // or the file's name, which the clipboard holds as well: only what
+            // lies on disk, and the paste itself says which files do (each
+            // with its place there). Their names were asked of main before,
+            // with a call that waits on it, on every paste of anything.
+            const lies = host().pathOf
+            const copied = lies ? [...(event.clipboardData?.files ?? [])].filter((file) => lies(file)) : []
             if (rest.length || copied.length) {
               event.preventDefault()
               const { schema } = view.state
               const { from, to } = view.state.selection
-              const save = (file: File): Promise<ProseMirrorNode> => file.type.startsWith("image/")
-                ? saveImage(file).then((src) => schema.nodes.image.create({ src }))
-                : saveAttachment(file).then((attrs) => schema.nodes.attachment.create(attrs))
-              const read = (name: string, n: number): Promise<ProseMirrorNode> => (host().copiedFiles?.() ?? Promise.resolve([])).then((found) => {
-                const one = found[n]
-                if (!one) throw new Error(`${name} could not be read`)
-                const ext = one.name.split(".").pop()?.toLowerCase() ?? ""
-                return save(new File([one.bytes as BlobPart], one.name, { type: PICTURE_TYPES[ext] ?? "" }))
-              })
-              hold(view, rest.length ? [...images, ...rest].map(save) : copied.map(read), { from, to }, onError)
+              const picture = (file: File): Promise<ProseMirrorNode> => saveImage(file).then((src) => schema.nodes.image.create({ src }))
+              const card = (file: File): Promise<ProseMirrorNode> => saveAttachment(file).then((attrs) => schema.nodes.attachment.create(attrs))
+              // A file on disk is a picture by its name's ending; one that is only on the clipboard, by its type.
+              const onDisk = (file: File): Promise<ProseMirrorNode> => (PICTURE_TYPES[file.name.split(".").pop()?.toLowerCase() ?? ""] ? picture(file) : card(file))
+              const save = (file: File): Promise<ProseMirrorNode> => (file.type.startsWith("image/") ? picture(file) : card(file))
+              hold(view, copied.length ? copied.map(onDisk) : [...images, ...rest].map(save), { from, to }, onError)
               return true
             }
             if (!images.length) return false

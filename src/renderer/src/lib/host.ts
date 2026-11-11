@@ -18,10 +18,8 @@ export interface HaligtreeHost {
   saveFile?: (name: string, bytes: Uint8Array) => Promise<string>
   /** The picture on the system clipboard, as PNG bytes, or null when there is none. */
   clipboardImage?: () => Promise<{ mime: string; bytes: Uint8Array } | null>
-  /** The names of files copied in Finder, if the clipboard holds any, asked at once. */
-  copiedFileNames?: () => string[]
-  /** The files copied in Finder, read. */
-  copiedFiles?: () => Promise<{ name: string; bytes: Uint8Array }[]>
+  /** Where a file lies on disk, '' for one that is only in memory (a picture copied from a page): a pasted file with a place there was copied in Finder. */
+  pathOf?: (file: File) => string
   /** A PDF on the web, kept in the book's files once: where it is kept now, and its name. */
   fetchPdf?: (href: string) => Promise<{ src: string; name: string } | null>
   /** A web page read into an article and kept offline: its id, or why it could not be read. */

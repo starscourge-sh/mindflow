@@ -71,6 +71,20 @@ heard.on('spelling:changed', () => window.dispatchEvent(new CustomEvent('haligtr
 // A YouTube player YouTube would not serve here (sent on to its "sorry" page): the block says so (youtube-view.tsx).
 heard.on('video:refused', (_event, src: string) => window.dispatchEvent(new CustomEvent('haligtree:video-refused', { detail: src })))
 
+type RoomHere = { left: number; top: number; right: number; bottom: number; side?: 'above' | 'below' | 'left' | 'right' | null; menu?: number; pill?: number }
+/** Quick capture's window: the one page that is not another kind's (main's pages.ts), and the only one with room round its card. */
+const boxHere = /\/index\.html$/.test(window.location.pathname)
+/**
+ * The room round this window's card, known at once. The box reads it from its own environment, where main wrote it
+ * before the page loaded (main's `roomInEnv`): no call that waits on main, which held the box still while main was
+ * busy. Asked the old way only by a box whose process was started without it. Every other window is all card.
+ */
+const roomHere = (): RoomHere =>
+  !boxHere ? { left: 0, top: 0, right: 0, bottom: 0 } : process.env.HALIGTREE_BOX_ROOM ? JSON.parse(process.env.HALIGTREE_BOX_ROOM) : ipcRenderer.sendSync('window:room')
+// Main moves the room for a hint and tells the page (onRoomHint): kept here too, in this process's own environment,
+// so the page loaded again in the same process reads the room as it is now, not as it was when the process began.
+if (boxHere) heard.on('window:room-hint', (_event, room: Partial<RoomHere>) => void (process.env.HALIGTREE_BOX_ROOM = JSON.stringify({ ...roomHere(), ...room })))
+
 // Custom APIs for renderer
 const api = {
   /** The Mac tells the time on a 12-hour clock ("9:05 PM"); read by dates.ts `clock`. */
@@ -169,10 +183,6 @@ const api = {
   clipboardImage: (): Promise<{ mime: string; bytes: Uint8Array } | null> => ipcRenderer.invoke('clipboard-image'),
   /** Collect what you copy anywhere on the Mac into this window's note (main/collect.ts). */
   collect: { start: (): Promise<boolean> => ipcRenderer.invoke('collect:start'), stop: (): Promise<void> => ipcRenderer.invoke('collect:stop') },
-  /** The names of files copied in Finder, if the clipboard holds any: asked at once, as a paste decides there and then. */
-  copiedFileNames: (): string[] => ipcRenderer.sendSync('clipboard:file-names') ?? [],
-  /** The files copied in Finder, read. */
-  copiedFiles: (): Promise<{ name: string; bytes: Uint8Array }[]> => ipcRenderer.invoke('clipboard:files'),
 
   /** Read a linked image, which the renderer's own content policy forbids. */
   fetchImage: (href: string): Promise<{ mime: string; bytes: Uint8Array } | null> =>
@@ -192,7 +202,7 @@ const api = {
   /** The box's height as its writing needs it: it grows down to it, up to its full size. */
   fitBox: (height: number, snap = false): void => ipcRenderer.send('window:fit', height, snap),
   /** The room main keeps round this window's card (quick capture's overhang), 0 for a window that is all card. */
-  room: ((): { left: number; top: number; right: number; bottom: number; side?: 'above' | 'below' | 'left' | 'right' | null; menu?: number; pill?: number } => ipcRenderer.sendSync('window:room'))(),
+  room: roomHere(),
   /** Main changed the room round the card while the box was away, for a hint (above it, beside it, or none): the page moves its card to match and says so once drawn. */
   onRoomHint: (listen: (room: { top: number; left: number; right: number; bottom: number; side: 'above' | 'below' | 'left' | 'right' | null }) => void): (() => void) => {
     const relay = (_event: unknown, room: Parameters<typeof listen>[0]): void => listen(room)

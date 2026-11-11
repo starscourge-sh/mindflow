@@ -674,15 +674,30 @@ ipcMain.on('menu:own', (event, x: unknown, y: unknown, picked: unknown) => {
   const zoom = event.sender.getZoomFactor() || 1
   ownMenus.get(event.sender)?.({ x: Math.round(x * zoom), y: Math.round(y * zoom), isEditable: true, selectionText: typeof picked === 'string' ? picked : '', editFlags: { canCut: !!picked, canCopy: !!picked, canPaste: true } })
 })
-// A page asks once, as it loads, how much room its window keeps round the card (0: the window is the card).
-// Asked of main, not passed on the command line: a renderer process can be shared, and its arguments with it.
-ipcMain.on('window:room', (event) => {
-  const win = BrowserWindow.fromWebContents(event.sender)
-  // The box hears which side its hint room is on too, set as it was made (createWindow).
-  // `menu`: the room below the card it keeps for its own menus' feet, whatever a hint below adds to it (fit-box.ts).
-  // `pill`: the pill's own width, so the page measures words wrapping only once the card is at it (App.tsx).
-  event.returnValue = win && rooms.has(win) ? { ...rooms.get(win), ...(win === prompt ? { side: hintSide ?? null, menu: BOX_ROOM.bottom, pill: WIDTH } : {}) } : evenRoom(0)
-})
+/**
+ * What the box's page knows as it loads: the room its window keeps round the card, and with it
+ * `side`: which side its hint room is on, set as it was made (createWindow);
+ * `menu`: the room below the card it keeps for its own menus' feet, whatever a hint below adds to it (fit-box.ts);
+ * `pill`: the pill's own width, so the page measures words wrapping only once the card is at it (App.tsx).
+ */
+const boxRoom = (): (Room & { side: HintSide; menu: number; pill: number }) | null => {
+  const room = prompt && !prompt.isDestroyed() ? rooms.get(prompt) : undefined
+  return room ? { ...room, side: hintSide ?? null, menu: BOX_ROOM.bottom, pill: WIDTH } : null
+}
+/**
+ * The box's room written where its page reads it as it loads: the environment a window's process starts with, as
+ * the book and the clock are (HALIGTREE_BOOK_HERE). The page asked for it with a call that waits on main, once per
+ * load: the box stood still for as long as main was busy. Only the box has room (every other window is all card and
+ * asks nothing); written before its page loads and again whenever the room or its hint's side changes, so a process
+ * started later reads it as it is now. Not on the command line: a renderer process can be shared, and its arguments
+ * with it.
+ */
+const roomInEnv = (): void => {
+  const room = boxRoom()
+  if (room) process.env.HALIGTREE_BOX_ROOM = JSON.stringify(room)
+}
+// The old way, for a box whose process was somehow started without it: a call that waits.
+ipcMain.on('window:room', (event) => void (event.returnValue = (BrowserWindow.fromWebContents(event.sender) === prompt && boxRoom()) || evenRoom(0)))
 /**
  * Room round the box's card for a hint, out of the card (hint-room.ts says where). Changed only while the box is
  * away, the page told first; resolves once it has drawn the card at the new room. Null when it is as it was, the
@@ -697,6 +712,7 @@ function roomForHint(win: BrowserWindow, place: Electron.Rectangle): Promise<voi
   hintSide = side
   hintBelow = room.bottom
   setRoom(win, room)
+  roomInEnv()
   return new Promise((resolve) => {
     const done = (): void => (clearTimeout(late), ipcMain.removeListener('window:room-drawn', heard), resolve())
     const heard = (event: Electron.IpcMainEvent): void => void (event.sender === win.webContents && done())
@@ -719,6 +735,7 @@ function setRoom(win: BrowserWindow, room: Room): void {
   rooms.set(win, { ...room })
   relimit.get(win)?.()
   win.setBounds(card)
+  roomInEnv()
 }
 
 function load(win: BrowserWindow, query = ''): void {
@@ -3141,6 +3158,8 @@ function createWindow(): void {
   hintSide = start.side
   hintBelow = start.room.bottom
   overhang(mainWindow, start.room)
+  // Its page reads the room from its environment as it loads (roomInEnv): there before the page is.
+  roomInEnv()
   mainWindow.setBounds(first)
   // Moved while a size glide is under way (dragged by hand, or put somewhere by main): the glide stops, landing its
   // size where the box is now. Left going, its target kept the old place, and putting the box away landed it there
@@ -5875,30 +5894,8 @@ app.whenReady().then(() => {
   // hands the page a file that points into Notes' own folder and cannot be
   // read; the picture itself is still on the clipboard, and this reads it.
   // A TIFF (what Notes often offers) goes through the system's reader into a PNG.
-  // Files copied in Finder: the clipboard holds where they are (and their icon
-  // and name, which a paste would take otherwise). Asked at once, as the paste
-  // decides there and then; the bytes are read after.
-  const copiedFiles = async (): Promise<string[]> => {
-    try {
-      for (const item of await clipboard.read()) {
-        if (!item.types.includes('text/uri-list')) continue
-        const list = await (await item.getType('text/uri-list') as Blob).text()
-        return list.split(/\r?\n/).map((line) => line.trim()).filter((line) => line.startsWith('file://')).map((line) => fileURLToPath(line))
-      }
-    } catch {
-      // Nothing readable: the paste goes on as it would have.
-    }
-    return []
-  }
-  ipcMain.on('clipboard:file-names', (event) => void copiedFiles().then((paths) => (event.returnValue = paths.map((path) => basename(path)))))
-  ipcMain.handle('clipboard:files', async () => {
-    const found: { name: string; bytes: Uint8Array }[] = []
-    for (const path of await copiedFiles()) {
-      const info = await stat(path).catch(() => null)
-      if (info?.isFile()) found.push({ name: basename(path), bytes: new Uint8Array(await readFile(path)) })
-    }
-    return found
-  })
+  // (Files copied in Finder are in the paste itself, each with where it lies: the page takes them from there,
+  // extensions/image-drop.ts. Their names were asked here, with a call that waited on main at every paste.)
   ipcMain.handle('clipboard-image', async () => {
     try {
       for (const item of await clipboard.read()) {
