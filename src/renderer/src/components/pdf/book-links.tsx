@@ -231,6 +231,7 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
   const most = Math.max(1, ...stretches.map((one) => one.marks + one.notes + one.cards))
   const here = page ? strokeOf(page) : -1
   const [hover, setHover] = useState<number | null>(null)
+  const quick = useRef<Quick | null>(null)
   // A pinch changes how many strokes there are: one pointed at before it may be gone.
   const lit = hover !== null && hover < count ? hover : null
   const counted = (n: number, one: string, many: string): string => (n ? `${n.toLocaleString()} ${n === 1 ? one : many}` : "")
@@ -276,12 +277,17 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
                 ink={(i) => (i === here ? STROKE_INK.here : stretches[i].marks + stretches[i].notes + stretches[i].cards ? "var(--foreground)" : i < here ? STROKE_INK.gone : STROKE_INK.ahead)}
                 tall={(i) => { const all = stretches[i].marks + stretches[i].notes + stretches[i].cards; return all ? Math.round(Math.sqrt(all / most) * 6) : i === here || (calm && i === lit) }}
                 attrs={(i) => { const one = stretches[i]; const all = one.marks + one.notes + one.cards; return { "data-here": i === here ? page ?? undefined : undefined, "data-gone": i < here ? "" : undefined, "data-tick": all ? (one.notes ? "note" : one.marks ? "mark" : "card") : undefined, "data-tick-page": all ? one.first : undefined } }}
-                onPointerMove={(event) => setHover(at(event.clientX, event.currentTarget))} onPointerLeave={() => setHover(null)}
+                onPointerMove={(event) => {
+                  const i = at(event.clientX, event.currentTarget)
+                  // A page already drawn goes onto the picture now, from this event; React follows with the rest.
+                  if (i !== null && i !== lit) quick.current?.(pageOf(i), i * step - pan)
+                  setHover(i)
+                }} onPointerLeave={() => setHover(null)}
                 onClick={(event) => { const i = (event.target as Element).getAttribute("data-tick-page") ? stretches.findIndex((one) => String(one.first) === (event.target as Element).getAttribute("data-tick-page")) : at(event.clientX, event.currentTarget); if (i !== null && i >= 0) go(i) }} />
             </div>
             {lit !== null && (
               <>
-                <PagePicture src={src} page={pageOf(lit)} x={x} width={width} />
+                <PagePicture src={src} page={pageOf(lit)} x={x} width={width} quick={quick} />
                 <StrokeTip x={x} width={width}>
                   <span className="font-medium">{whereOf(lit)}</span>
                   <span className="text-muted-foreground"> · {whatOf(lit) || "click for its page"}</span>
@@ -313,41 +319,54 @@ const railDrawn = (near: Element | null, page: number): HTMLCanvasElement | null
   return canvas && canvas.dataset.drawn === (localStorage.getItem("pdf-dark") === "1" ? "dark" : "light") ? canvas : null
 }
 
+/** Shows a page on the picture at once, from the pointer's own event: the page, and where its stroke is along the strip. */
+type Quick = (page: number, x: number) => void
+
+/** The picture's left edge for a stroke at `x`: the card stays inside the strip; the arrow stays on the stroke. */
+const cardLeft = (x: number, width: number): number => {
+  const half = THUMB / 2 + 4
+  return Math.max(half, Math.min(Math.max(width, 2 * half) - half, x))
+}
+
 /**
- * The page pointed at on the strip, small over its stroke, as a macOS popover is over what it is about: its picture and
- * its number, the pointer arrow on the stroke. Nothing is drawn that is already drawn: page 1 is the cover, a page the
- * rail has drawn is copied from it, a page drawn for a cover's scrub or the hover card is taken from their cache
- * (pdf-peek.tsx), and only a page none of those have is drawn, once the pointer rests on it, one at a time, the newest
- * asked for first. Its number
- * shows at once; its picture fades in when it comes.
+ * The page pointed at on the strip, small over its stroke, as a macOS popover is over what it is about: opaque, ringed
+ * and shadowed as every popover is, its picture and its number, the pointer arrow on the stroke. Nothing is drawn that
+ * is already drawn: page 1 is the cover, a page the rail has drawn is copied from it, a page drawn for a cover's scrub
+ * or the hover card is taken from their cache (pdf-peek.tsx), and only a page none of those have is drawn, once the
+ * pointer rests on it, one at a time, the newest asked for first. A page already drawn is shown from the pointer's own
+ * event (`quick`), before React draws again; its number shows at once either way, and a page drawn late fades in.
  */
-function PagePicture({ src, page, x, width }: { src: string; page: number; x: number; width: number }): React.JSX.Element {
+function PagePicture({ src, page, x, width, quick }: { src: string; page: number; x: number; width: number; quick: React.MutableRefObject<Quick | null> }): React.JSX.Element {
   const box = useRef<HTMLSpanElement>(null)
+  const img = useRef<HTMLImageElement>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
+  const number = useRef<HTMLSpanElement>(null)
+  const arrow = useRef<HTMLSpanElement>(null)
   const [paperKept] = usePaperPages()
   const [dark] = useDarkPages()
-  type Shown = { page: number; image: string | HTMLCanvasElement | null; late: boolean }
-  const [shown, setShown] = useState<Shown>({ page, image: null, late: false })
+  // A page drawn after it was asked for: kept here once it comes.
+  const [late, setLate] = useState<{ page: number; image: string | null } | null>(null)
   // Its shape, kept from the last picture: a sheet that changed shape on every page would jump under the eye.
   const [shape, setShape] = useState(1.3)
-  useLayoutEffect(() => {
-    const ready = railDrawn(box.current, page) ?? drawnPage(src, page)
-    if (ready !== undefined && ready !== null) return void setShown({ page, image: ready, late: false })
-    setShown({ page, image: null, late: true })
+  // Looked up as it is drawn: a page already drawn is on the first frame, never a frame later.
+  const ready = railDrawn(box.current, page) ?? drawnPage(src, page) ?? null
+  useEffect(() => {
+    if (ready) return
     let live = true
     // Drawn only once the pointer rests on the page: a page takes some 35ms to draw (up to 100ms, qa/page-strip.mjs), so
     // drawing the pages a fast sweep passes dropped frames; swept past, a page shows its number alone.
     const rest = window.setTimeout(() => {
       void (page === 1 ? pdfCover(src).then((cover) => cover?.image ?? null) : pageImage(src, page)).then((image) => {
-        if (live) setShown({ page, image, late: true })
+        if (live) setLate({ page, image })
       })
     }, REST)
     return () => {
       live = false
       clearTimeout(rest)
     }
-  }, [src, page])
-  const image = shown.page === page ? shown.image : null
+  }, [src, page, ready])
+  const image = ready ?? (late?.page === page ? late.image : null)
+  const fading = !ready && !!image
   useLayoutEffect(() => {
     if (!(image instanceof HTMLCanvasElement) || !canvas.current) return
     canvas.current.width = image.width
@@ -355,18 +374,35 @@ function PagePicture({ src, page, x, width }: { src: string; page: number; x: nu
     canvas.current.getContext("2d")?.drawImage(image, 0, 0)
     setShape(image.height / image.width || 1.3)
   }, [image])
+  // The pointer's fast way in: a page already drawn as a picture goes straight onto the card, with its number and place.
+  // React then draws the same, so the two never disagree.
+  useLayoutEffect(() => {
+    quick.current = (to, at) => {
+      const now = drawnPage(src, to)
+      const node = box.current
+      if (!node || !img.current || typeof now !== "string" || railDrawn(node, to)) return
+      const left = cardLeft(at, width)
+      node.style.left = `${left}px`
+      if (arrow.current) arrow.current.style.left = `calc(50% + ${Math.round(at - left)}px)`
+      const words = number.current?.firstChild
+      if (words) words.nodeValue = labelFor(src, to)
+      img.current.src = now
+      img.current.hidden = false
+    }
+    return () => void (quick.current = null)
+  })
   const paper = paperKept && !dark
-  const half = THUMB / 2 + 4
-  // The card stays inside the strip; the arrow stays on the stroke.
-  const left = Math.max(half, Math.min(Math.max(width, 2 * half) - half, x))
+  const left = cardLeft(x, width)
   return (
     <span ref={box} data-page-picture={page} aria-hidden className="book-thumb" style={{ left, bottom: "100%" }}>
       <span className={`book-thumb-sheet${paper ? " is-paper" : ""}`} style={{ width: THUMB, height: Math.round(THUMB * shape) }}>
-        {image instanceof HTMLCanvasElement ? <canvas ref={canvas} className={shown.late ? "is-late" : undefined} />
-          : image ? <img src={image} alt="" draggable={false} className={shown.late ? "is-late" : undefined} onLoad={(event) => setShape(event.currentTarget.naturalHeight / event.currentTarget.naturalWidth || 1.3)} /> : null}
+        {image instanceof HTMLCanvasElement ? <canvas ref={canvas} className={fading ? "is-late" : undefined} /> : null}
+        {/* Always there, so the pointer's fast way in has a picture to put a page on. */}
+        <img key={fading ? `late${page}` : "img"} ref={img} src={typeof image === "string" ? image : undefined} hidden={typeof image !== "string"} alt="" draggable={false} decoding="sync"
+          className={fading ? "is-late" : undefined} onLoad={(event) => setShape(event.currentTarget.naturalHeight / event.currentTarget.naturalWidth || 1.3)} />
       </span>
-      <span data-page-picture-number className="book-thumb-number">{labelFor(src, page)}</span>
-      <span aria-hidden className="book-thumb-arrow" style={{ left: `calc(50% + ${Math.round(x - left)}px)` }} />
+      <span ref={number} data-page-picture-number className="book-thumb-number">{labelFor(src, page)}</span>
+      <span ref={arrow} aria-hidden className="book-thumb-arrow" style={{ left: `calc(50% + ${Math.round(x - left)}px)` }} />
     </span>
   )
 }

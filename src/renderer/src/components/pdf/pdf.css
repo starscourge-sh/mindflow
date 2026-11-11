@@ -1929,6 +1929,11 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   object-position: top;
 }
 
+/* The picture kept ready for the next page while the page on show has none (or is the rail's canvas). */
+.book-thumb-sheet img[hidden] {
+  display: none;
+}
+
 /* A page drawn after it was pointed at fades in over its blank sheet; one already drawn is simply there. */
 .book-thumb-sheet .is-late {
   animation: book-thumb-in 140ms ease-out;
