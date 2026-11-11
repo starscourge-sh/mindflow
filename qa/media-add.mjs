@@ -141,7 +141,7 @@ async function journey(c, label) {
   const books = await v('pdf:library')
   check(`${label}: a PDF added here is a book on the shelf`, books.some((one) => one.src === D.src) && await h.locator(`[data-library] [data-book="${D.src}"]`).count() === 1)
   await shot(h, `shelf-${label}`)
-  await h.locator(`[data-library] [data-book="${D.src}"]`).dblclick(); await wait(1400)
+  await h.locator(`[data-library] [data-book="${D.src}"]`).click(); await wait(1400)
   check(`${label}: and opens in the reader`, await h.evaluate(() => !!document.querySelector('.pdf-reader')))
   // On All, the book is in the Recent row; a click there opens the reader at once.
   await go('media'); await wait(800)
@@ -507,7 +507,7 @@ if (part('book')) {
     // The window stays alive with it on the page: its cover is drawn off to one side.
     const alive = await Promise.race([h.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(true)))), new Promise((done) => setTimeout(() => done(false), 8000))])
     check('and the window keeps answering', alive === true)
-    await h.locator(`[data-library] [data-book="${huge.src}"]`).dblclick(); await wait(4000)
+    await h.locator(`[data-library] [data-book="${huge.src}"]`).click(); await wait(4000)
     check('and opens in the reader', await h.evaluate(() => !!document.querySelector('.pdf-reader')))
     await go('media'); await wait(800)
     // 2,000 added: the page reads fast, draws only what is in sight, and has a chip for those in no note once a note uses some.

@@ -55,8 +55,8 @@ const PLACES = [
     pick: (one) => `[data-chips="feed"] [data-chip="${one}"]`,
     read: () => c.h.evaluate(() => document.querySelector('[data-chips="feed"] [aria-selected="true"]')?.getAttribute('data-chip') ?? '')
   },
-  // Files' tabs (All, Books, Pictures, Audio), by their chips, every pair of neighbours.
-  ...[['All', 'Books'], ['Books', 'Pictures'], ['Pictures', 'Audio'], ['Audio', 'All']].map(([a, b]) => ({
+  // Files' tabs (All, Books, Images, Audio), by their chips, every pair of neighbours.
+  ...[['All', 'Books'], ['Books', 'Images'], ['Images', 'Audio'], ['Audio', 'All']].map(([a, b]) => ({
     name: `Files ${a} to ${b} (tabs)`, view: 'media', a, b,
     pick: (one) => `[data-media-kinds] button:has-text("${one}")`,
     read: readKind
@@ -65,7 +65,7 @@ const PLACES = [
   ...['pdf', 'picture', 'audio'].map((pile) => ({
     name: `Files All to ${pile} (pile)`, view: 'media', a: 'All', b: pile,
     act: async (one) => c.h.locator(one === 'All' ? '[data-media-kinds] button:has-text("All")' : `[data-pile="${one}"]`).first().click(),
-    read: async () => ({ Books: 'pdf', Pictures: 'picture', Audio: 'audio', All: 'All' })[await readKind()] ?? ''
+    read: async () => ({ Books: 'pdf', Images: 'picture', Audio: 'audio', All: 'All' })[await readKind()] ?? ''
   })),
   {
     name: 'Stats', view: 'stats', a: 'Your month', b: 'Your year',
@@ -154,7 +154,7 @@ if (!process.env.ONLY || process.env.ONLY.includes('relaunch')) {
   }
 }
 
-// ⌘K's "show it in Files" on a picture, with Files last left on each kind: it opens on Pictures with the keys on
+// ⌘K's "show it in Files" on a picture, with Files last left on each kind: it opens on Images with the keys on
 // that tile, never crashes (two writers of the kind once took turns for ever, React #185), and ⌘[ is where you were.
 if (!process.env.ONLY || process.env.ONLY.includes('show')) {
   const pics = (await c.h.evaluate(() => window.api.haligtree('media:list'))).filter((one) => one.kind === 'picture' && !one.deck)
@@ -164,7 +164,7 @@ if (!process.env.ONLY || process.env.ONLY.includes('show')) {
   const [loose] = (await c.h.evaluate((bytes) => window.api.haligtree('media:add', [{ name: 'Let go.gif', bytes: new Uint8Array(bytes) }]), gif)).added
   await c.h.evaluate((src) => window.api.haligtree('media:keep', src, false), loose.src)
   const lit = () => c.h.evaluate((src) => !!document.querySelector(`[data-cursor][data-media][data-src="${src}"], [data-cursor] [data-media][data-src="${src}"]`), pic.src)
-  for (const left of ['All', 'Pictures', 'Audio', 'Books', 'Unlinked', 'already on Audio']) {
+  for (const left of ['All', 'Images', 'Audio', 'Books', 'Unlinked', 'already on Audio']) {
     try {
       c.errors.length = 0
       await c.send('view', 'media')
@@ -179,7 +179,7 @@ if (!process.env.ONLY || process.env.ONLY.includes('show')) {
       const kind = await readKind(), on = await lit()
       await key('Meta+BracketLeft')
       const back = left.startsWith('already') ? await readKind() : await c.h.evaluate(() => document.querySelector('[data-page]')?.dataset.page)
-      const ok = kind === 'Pictures' && on && !c.errors.length && back === (left.startsWith('already') ? 'Audio' : 'home')
+      const ok = kind === 'Images' && on && !c.errors.length && back === (left.startsWith('already') ? 'Audio' : 'home')
       results.push({ name: `show in Files from ${left}`, ok })
       console.log(`${ok ? 'PASS' : 'FAIL'}  show in Files from ${left}: on ${kind}, tile lit ${on}, ⌘[ ${back}${c.errors.length ? `, errors: ${c.errors.slice(0, 2).join(' | ')}` : ''}`)
     } catch (error) {
@@ -189,12 +189,12 @@ if (!process.env.ONLY || process.env.ONLY.includes('show')) {
   }
 }
 
-// Relaunched on Files: it opens on the kind its step kept (Audio, reached by a pile), and Back is All, then Pictures.
+// Relaunched on Files: it opens on the kind its step kept (Audio, reached by a pile), and Back is All, then Images.
 if (!process.env.ONLY || process.env.ONLY.includes('relaunch')) {
   try {
     await c.send('view', 'media')
     await wait(1200)
-    await c.h.locator('[data-media-kinds] button:has-text("Pictures")').first().click()
+    await c.h.locator('[data-media-kinds] button:has-text("Images")').first().click()
     await wait()
     await c.h.locator('[data-media-kinds] button:has-text("All")').first().click()
     await wait()
@@ -208,7 +208,7 @@ if (!process.env.ONLY || process.env.ONLY.includes('relaunch')) {
     const back = await readKind()
     await key('Meta+BracketLeft')
     const again = await readKind()
-    const ok = kind === 'Audio' && back === 'All' && again === 'Pictures'
+    const ok = kind === 'Audio' && back === 'All' && again === 'Images'
     results.push({ name: 'relaunch Files', ok })
     console.log(`${ok ? 'PASS' : 'FAIL'}  relaunch Files: opens on ${kind || '(not on Files)'}, ⌘[ ${back}, ⌘[ ${again}`)
   } catch (error) {

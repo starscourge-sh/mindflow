@@ -186,7 +186,7 @@ await settle(1200)
   const src = await h.locator(sel).first().getAttribute('data-book')
   const at = await rectOf(`[data-book="${src}"]`)
   await install()
-  await film('book-open', () => h.locator(sel).first().dblclick())
+  await film('book-open', () => h.locator(sel).first().click())
   await settle()
   const opened = await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))
   check('Books: the shelf\'s cover opens the reader', opened === 'pdf', opened)
@@ -201,7 +201,7 @@ await settle(1200)
   if (shots) {
     await look('dark')
     await install()
-    await film('book-open-dark', () => h.locator(sel).first().dblclick())
+    await film('book-open-dark', () => h.locator(sel).first().click())
     await settle()
     await back()
     await look('light')
@@ -223,7 +223,7 @@ await settle(1200)
     ['⌘[', () => h.keyboard.press('Meta+BracketLeft')],
     ['the mouse\'s back button', () => h.evaluate(() => window.dispatchEvent(new MouseEvent('mouseup', { button: 3, bubbles: true })))]
   ]) {
-    await h.locator(sel).first().dblclick()
+    await h.locator(sel).first().click()
     await settle(1200)
     const inReader = (await h.evaluate(() => document.querySelector('[data-page]')?.getAttribute('data-page'))) === 'pdf'
     await install()
@@ -448,7 +448,7 @@ if (runs(4)) {
     { name: 'Sources, a face', view: 'sources', sel: '[data-pane-card] [data-face]' },
     { name: 'Files All, Recent', view: 'media', kind: 'All', sel: '[data-pane-card] [data-recent-file="pdf"]' },
     { name: 'Files All, a shelf', view: 'media', kind: 'All', sel: '[data-pane-card] [data-pile]' },
-    { name: 'Files Books, a cover', view: 'media', kind: 'Books', sel: '[data-pane-card] [data-library] [data-book]', dbl: true },
+    { name: 'Files Books, a cover', view: 'media', kind: 'Books', sel: '[data-pane-card] [data-library] [data-book]' },
     { name: 'Files Books, Continue reading', view: 'media', kind: 'Books', sel: '[data-pane-card] [data-shelf-continue] [data-reading-row]', canvas: true, optional: true },
     { name: 'Writing, a note row', view: 'articles', sel: '[data-pane-card] [data-list-space] [data-row]', beside: true },
     { name: 'Review, a deck row', view: 'review', list: true, sel: '[data-pane-card] [data-deck-row]' }

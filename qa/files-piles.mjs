@@ -258,7 +258,8 @@ try {
     await tab('Books')
     await h.waitForTimeout(1200)
     const shelf = await h.evaluate(() => ({ library: !!document.querySelector('[data-library]'), books: document.querySelectorAll('[data-library] [data-book]').length, going: !!document.querySelector('[data-shelf-continue]') }))
-    check(`${count}: Books is the library shelf, every book on it, "Continue reading" kept at its top`, shelf.library && shelf.books === want.pdf && shelf.going, JSON.stringify(shelf))
+    // Continue reading waits until the shelf is too long to see at once (more than 4 books, pdf-library.tsx FEW).
+    check(`${count}: Books is the library shelf, every book on it, "Continue reading" at its top once there are more than 4`, shelf.library && shelf.books === want.pdf && shelf.going === want.pdf > 4, JSON.stringify(shelf))
     await shot(`books-${count}-1440`)
     // "Dark pages" on: a cover keeps its own colours (drawn in the dark pages' two colours, it went black and white).
     if (count === 5) {
