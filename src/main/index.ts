@@ -1686,20 +1686,24 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // guide when near and held there, rigid, until the hand takes it well past, as Raycast's window does. Carried by
   // the Mac it could not be held, and slid along under the line (10 Nov).
   let hold: { from: Electron.Rectangle; start: Point } | null = null
+  // Picked up while risen on hover (glass): it is carried exactly under the hand, still risen, its guides judged by
+  // where it would lie, and it settles down onto its place only once let go. Before, the guides took the rise for
+  // being off its line and pulled the card 6 points away from the pointer.
+  let rise = 0
   handDrags.set(win, {
     grab: (at) => {
       if (hold || win.isDestroyed()) return
-      unlift.get(win)?.()
+      rise = unlift.get(win)?.() ?? 0
       if (!held.has(win)) (held.add(win), win.webContents.send('sticky:held', true))
       hold = { from: win.getBounds(), start: at }
-      inLine = lineUp(cardOf(hold.from, insetOf(key)), others(), screen.getDisplayMatching(hold.from).workArea).held
+      inLine = lineUp(cardOf({ ...hold.from, y: hold.from.y + rise }, insetOf(key)), others(), screen.getDisplayMatching(hold.from).workArea).held
       if (!colour) void guideColour(win).then((c) => (colour = c))
     },
     carry: (now) => {
       if (!hold || win.isDestroyed()) return
       const { from, start } = hold
       const want = { ...from, x: from.x + now.x - start.x, y: from.y + now.y - start.y }
-      const card = cardOf(want, insetOf(key))
+      const card = cardOf({ ...want, y: want.y + rise }, insetOf(key))
       const lined = lineUp(card, others(), screen.getDisplayMatching(want).workArea, inLine)
       if (cameOnto(inLine, lined.held)) tap('level')
       inLine = lined.held
@@ -1770,17 +1774,20 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (win.isDestroyed()) return
     if (held.delete(win)) win.webContents.send('sticky:held', false)
     hideGuides()
+    const risen = rise
+    rise = 0
     if (ours(win)) return
     // Put down by hand, a card opened out of its tab rests where it was put.
     openedAt.delete(key)
-    const now = win.getBounds()
+    const real = win.getBounds()
+    const now = { ...real, y: real.y + risen }
     const inset = insetOf(key)
     const area = screen.getDisplayMatching(now).workArea
     const inView = cardInView(now, inset, area)
     const pulled = lineUp(cardOf(inView, inset), others(), area, inLine, CARRIED)
     inLine = {}
     const { x, y } = cardInView({ ...now, x: pulled.x - inset.left, y: pulled.y - inset.top }, inset, area)
-    if (x !== now.x || y !== now.y) moveStickies([[key, win, { x, y }]], false)
+    if (x !== real.x || y !== real.y) moveStickies([[key, win, { x, y }]], false)
     else remember()
   }
   win.on('resized', remember)
@@ -2774,7 +2781,7 @@ function gatherStickies(): void {
 const moving = new WeakSet<BrowserWindow>()
 const held = new WeakSet<BrowserWindow>()
 /** A sticky's lift on hover, called off when your hand picks it up. */
-const unlift = new WeakMap<BrowserWindow, () => void>()
+const unlift = new WeakMap<BrowserWindow, () => number>()
 
 /**
  * Move a sticky's window along a path, a step every display frame on the one
@@ -5300,7 +5307,8 @@ app.whenReady().then(() => {
       glide(win, LIFT_MS, (t) => ({ x: rest.x, y: Math.round(from + (rest.y - from) * outQuint(t)) }))
     }
     const unhear = hearPointer(win, settle)
-    const done = (): void => void (unhear(), lifted.delete(win), unlift.delete(win))
+    // Called off: how far up it stands now, so a hand that takes it judges the guides by its place, not its rise.
+    const done = (): number => (unhear(), lifted.delete(win), unlift.delete(win), win.isDestroyed() ? 0 : Math.max(0, rest.y - win.getBounds().y))
     // Picked up: wherever your hand puts it is its place, never set back down where it rose from.
     unlift.set(win, done)
     placed.set(win, { x: rest.x, y: rest.y })
