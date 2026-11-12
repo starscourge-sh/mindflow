@@ -74,6 +74,28 @@ try {
     check(`${look}: the date jump is whole at every step of its entrance, never faded`, seen.every((one) => one && one.opacity === 1 && !one.fades), said(seen))
     await h.keyboard.press('Escape')
     await wait(350)
+    // 5. Tooltips and a title tip (12 Nov): they are frosted too, and faded in until now. Four tooltips, each after its own
+    // wait (one shown at once, the pointer already among tips, plays nothing), then the app's tip for a native title.
+    const grows = (seen) => seen.every((one) => one && one.opacity === 1 && !one.fades) && seen[0]?.n > 0 && seen[0].clip !== seen.at(-1).clip
+    for (const [sel, name] of [['[data-cal-prev]', 'tip-prev'], ['[data-cal-next]', 'tip-next'], ['[data-cal-new-event]', 'tip-new'], ['[data-cal-level] [data-cal-event-chip]', 'tip-chip']]) {
+      await h.mouse.move(700, 500)
+      await wait(1100)
+      if (!(await h.locator(sel).count())) { check(`${look}: ${sel} is there to point at`, false); continue }
+      await hold('[data-slot="tooltip-content"]')
+      await h.locator(sel).first().hover()
+      seen = await step('[data-slot="tooltip-content"]', name, look)
+      check(`${look}: the tooltip of ${sel} is whole at every step of its entrance, never faded, and grows from its trigger's side`, grows(seen), `${said(seen)}; ${seen[0]?.clip} to ${seen.at(-1)?.clip}`)
+    }
+    await h.mouse.move(700, 500)
+    await wait(1100)
+    if (await h.locator('[data-cal-grip][title]').count()) {
+      await hold('[data-title-tips]')
+      await h.locator('[data-cal-grip][title]').first().hover()
+      seen = await step('[data-title-tips]', 'titletip', look)
+      check(`${look}: a title tip (a panel's grip) is whole at every step of its entrance, never faded, and grows from the grip's side`, grows(seen), `${said(seen)}; ${seen[0]?.clip} to ${seen.at(-1)?.clip}`)
+    } else console.log(`NOTE  ${look}: no grip with a title is on the Calendar to point at`)
+    await h.mouse.move(700, 500)
+    await wait(400)
     // 4. One in Settings: the second time zone's list.
     await go('settings')
     await wait(900)

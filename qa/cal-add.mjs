@@ -19,6 +19,9 @@
 //           ↵, its menu's "Open" and ⌘K open the same popover on it, tied to it, its name in the line; "Open" there is its
 //           page in the side panel; a name typed over is kept with Undo and ⌘Z. In Month, Week and Day, for an event and
 //           for a task, then from Upcoming, and from Home's month and the Journal's.
+//   rows    the quiet rows under an open thing's line: an event's calendar, place, people, reminder and repeat, a task's
+//           day and time and its tags; each one line that opens in place, the width one, the height following, each
+//           change kept as it is made with Undo and ⌘Z; at 560 by 400 the rows scroll inside the popover.
 //   frames  with FRAMES=dir: a picture every 50ms through the popover growing, Event to Task, adding, and a pinch with its
 //           lit block, light and dark; and the popover beside two of the app's own (the small month, an event's card).
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/cal-add.mjs
@@ -26,7 +29,7 @@ import os from 'node:os'
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
-const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open').split(',')
+const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open,rows').split(',')
 const c = await sandbox({ width: Number(process.env.QA_W ?? 1440), height: Number(process.env.QA_H ?? 900), at: '11:30' })
 const { h, v, go } = c
 let passed = 0
@@ -75,6 +78,8 @@ try {
   await v('settings:set', { hintRate: 0 })
   await go('calendar')
   await wait(800)
+  // LOOK=dark: the whole run in the dark look (for pictures of a part other than `frames`, which takes both itself).
+  if (process.env.LOOK) { await c.look(process.env.LOOK); await wait(400) }
 
   if (parts.includes('month')) {
     await toMode('m')
@@ -524,37 +529,70 @@ try {
     }
   }
 
-  if (parts.includes('open')) {
+  const SEL = {
+    event: '[data-cal-level] [data-cal-event], [data-cal-level] [data-cal-event-chip]',
+    task: '[data-cal-level] [data-cal-block], [data-cal-level] [data-plan-task], [data-cal-level] [data-cal-untimed]'
+  }
+  /** The thing on the page, by its name: where it is, and whether it wears the ring of the one picked. */
+  const thing = (sel, label, scroll = true) => h.evaluate(([sel, label, scroll]) => {
+    const el = [...document.querySelectorAll(sel)].find((one) => one.textContent.includes(label))
+    if (!el) return null
+    if (scroll) el.scrollIntoView({ block: 'center' })
+    const r = el.getBoundingClientRect()
+    const style = getComputedStyle(el)
+    return { x: r.left, y: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom, ring: `${style.outlineStyle} ${style.outlineWidth}` }
+  }, [sel, label, scroll])
+  const side = () => h.evaluate(() => document.querySelector('[data-day-side]')?.getAttribute('data-day-side') ?? null)
+  const openOn = () => h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); return pop ? { id: pop.getAttribute('data-cal-open'), page: !!pop.querySelector('[data-cal-open-page]') } : null })
+  const clear = (s, box) => s.pop && box && (s.pop.x >= box.r - 0.5 || s.pop.r <= box.x + 0.5 || s.pop.y >= box.b - 0.5 || s.pop.b <= box.y + 0.5)
+  const shut = async () => { await h.keyboard.press('Escape'); await wait(450) }
+  let thingsDay = null
+  /** An event and a task for a coming day, made once, the way a person makes them: what the open and rows parts are about. */
+  const things = async () => {
     await c.size(1440, 900)
     await go('calendar')
     await wait(700)
     await toMode('m')
-    const a = dayKeyOf(1)
-    // An event and a task for tomorrow, made the way a person makes them.
+    if ((await eventsNamed('Opens here')).length) return
+    // On the first of the coming days with nothing on it, so the month has room to name both.
+    const free = await h.evaluate((keys) => keys.find((key) => { const el = document.querySelector(`[data-cal-level] [data-day="${key}"]`); return el && !el.querySelector('[data-plan-task], [data-cal-event-chip], [data-plan-more], [data-plan-more-events], [data-mark-flag]') }) ?? keys[0], [1, 2, 3, 4, 5, 6, 7, 8, 9].map(dayKeyOf))
+    console.log(`NOTE  the event and the task are made on ${free}`)
+    thingsDay = free
     for (const [kind, words] of [['event', 'Opens here 2pm'], ['task', 'Opened task 4pm']]) {
-      await dbl(...corner(await cell(a)))
+      await dbl(...corner(await cell(free)))
       if (kind === 'task') { await h.click('[data-cal-add] [data-day-side-kind="task"]'); await wait(300) }
       await h.keyboard.type(words, { delay: 8 })
       await h.keyboard.press('Enter')
       await wait(900)
     }
-    const SEL = {
-      event: '[data-cal-level] [data-cal-event], [data-cal-level] [data-cal-event-chip]',
-      task: '[data-cal-level] [data-cal-block], [data-cal-level] [data-plan-task], [data-cal-level] [data-cal-untimed]'
+  }
+  /** A view, turned to the day the things are on: from today, forward a week or a day at a time until one of them is drawn. */
+  const reach = async (key, sel = SEL.event, label = 'Opens here') => {
+    await toMode(key)
+    await h.keyboard.press('t')
+    await wait(600)
+    for (let n = 0; key !== 'm' && n < 12 && !(await thing(sel, label)); n++) { await h.keyboard.press('ArrowRight'); await wait(700) }
+  }
+  /** The popover opened on a thing in the week, by a double-click clear of a task's tick. */
+  const openIn = async (kind, label) => {
+    await reach('w', SEL[kind], label)
+    if (!(await thing(SEL[kind], label))) return false
+    await wait(300)
+    const now = await thing(SEL[kind], label, false)
+    await h.mouse.dblclick(now.x + Math.max(16, Math.min(now.w * 0.6, now.w - 8)), now.y + Math.min(now.h / 2, 10))
+    await wait(700)
+    return true
+  }
+
+  if (parts.includes('open')) {
+    await things()
+    {
+      // A time alone in a new event's words is on the day its draft is on, as a task's is: never today's.
+      const made = (await eventsNamed('Opens here'))[0]
+      const on = made && new Date(made.start)
+      const key = on && `${on.getFullYear()}-${String(on.getMonth() + 1).padStart(2, '0')}-${String(on.getDate()).padStart(2, '0')}`
+      if (thingsDay) check('"Opens here 2pm" written on a coming day\'s draft is made on that day at 14:00, not today', key === thingsDay && on.getHours() === 14, `${made?.start} for ${thingsDay}`)
     }
-    /** The thing on the page, by its name: where it is, and whether it wears the ring of the one picked. */
-    const thing = (sel, label, scroll = true) => h.evaluate(([sel, label, scroll]) => {
-      const el = [...document.querySelectorAll(sel)].find((one) => one.textContent.includes(label))
-      if (!el) return null
-      if (scroll) el.scrollIntoView({ block: 'center' })
-      const r = el.getBoundingClientRect()
-      const style = getComputedStyle(el)
-      return { x: r.left, y: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom, ring: `${style.outlineStyle} ${style.outlineWidth}` }
-    }, [sel, label, scroll])
-    const side = () => h.evaluate(() => document.querySelector('[data-day-side]')?.getAttribute('data-day-side') ?? null)
-    const openOn = () => h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); return pop ? { id: pop.getAttribute('data-cal-open'), page: !!pop.querySelector('[data-cal-open-page]') } : null })
-    const clear = (s, box) => s.pop && box && (s.pop.x >= box.r - 0.5 || s.pop.r <= box.x + 0.5 || s.pop.y >= box.b - 0.5 || s.pop.b <= box.y + 0.5)
-    const shut = async () => { await h.keyboard.press('Escape'); await wait(450) }
     /** Every way of opening one thing, where it is drawn: `sel` finds it, `label` is its name. */
     const ways = async (name, kind, sel, label, { menu = true, bar = true } = {}) => {
       let box = await thing(sel, label)
@@ -629,13 +667,12 @@ try {
       check(`${name}: Esc closes the page`, !(await side()))
     }
     for (const [key, name] of [['m', 'Month'], ['w', 'Week'], ['d', 'Day']]) {
-      await toMode(key)
-      if (key !== 'm' && !(await thing(SEL.event, 'Opens here'))) { await h.keyboard.press('ArrowRight'); await wait(700) }
+      await reach(key)
       await ways(name, 'event', SEL.event, 'Opens here')
       await ways(name, 'task', SEL.task, 'Opened task')
     }
     // A change is kept as it is made, said with Undo, and ⌘Z takes it back.
-    await toMode('w')
+    await reach('w')
     for (const [kind, label, next] of [['event', 'Opens here', 'Opens renamed'], ['task', 'Opened task', 'Opened anew']]) {
       const box = await thing(SEL[kind], label)
       if (!box) { check(`a name typed over the ${kind}: it is on the page`, false); continue }
@@ -669,7 +706,7 @@ try {
         await wait(900)
         const moved = (await eventsNamed('Opens here'))[0]
         const s = await state()
-        check('"9am" typed after an event\'s name reads back as its new time, and ↵ moves it there, said with Undo', /09:00/.test(said ?? '') && new Date(moved?.start).getHours() === 9 && /Moved to/.test(s.toast) && /Undo/.test(s.toast), `${said}; ${moved?.start}; ${s.toast.slice(0, 50)}`)
+        check('"9am" typed after an event\'s name reads back as its new time, and ↵ moves it there, said with Undo', /\b0?9:00/.test(said ?? '') && new Date(moved?.start).getHours() === 9 && /Moved to/.test(s.toast) && /Undo/.test(s.toast), `${said}; ${moved?.start}; ${s.toast.slice(0, 50)}`)
         await h.keyboard.press('Meta+z')
         await wait(800)
         check('  and ⌘Z puts it back at 14:00', new Date((await eventsNamed('Opens here'))[0]?.start).getHours() === 14)
@@ -690,6 +727,7 @@ try {
     // 560 by 400: the popover on a thing is whole, inside the window, and never over it.
     await c.size(560, 400)
     await wait(700)
+    await reach('w')
     for (const [kind, label] of [['event', 'Opens here'], ['task', 'Opened task']]) {
       const box = await thing(SEL[kind], label)
       if (!box) { console.log(`NOTE  560 by 400: the ${kind} is not drawn by name at this size`); continue }
@@ -698,9 +736,10 @@ try {
       await h.mouse.dblclick(now.x + Math.max(16, now.w * 0.6), now.y + Math.min(now.h / 2, 10))
       await wait(700)
       const s = await state()
-      const cut = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); if (!pop) return null; const box = pop.getBoundingClientRect(); return [...pop.querySelectorAll('input, button, p')].filter((el) => el.offsetParent && (el.getBoundingClientRect().bottom > box.bottom + 0.5 || el.getBoundingClientRect().right > box.right + 0.5)).length })
+      // What it holds under its top row scrolls inside it when the window is this short; nothing else may run past its edges.
+      const cut = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); if (!pop) return null; const box = pop.getBoundingClientRect(); const sized = pop.querySelector('[data-cal-add-sized]'); const inner = sized.getBoundingClientRect(); return { out: [...pop.querySelectorAll('input, button, p')].filter((el) => el.offsetParent && !sized.contains(el) && (el.getBoundingClientRect().bottom > box.bottom + 0.5 || el.getBoundingClientRect().right > box.right + 0.5)).length + (inner.bottom > box.bottom + 0.5 || inner.right > box.right + 0.5 ? 1 : 0), scrolls: sized.scrollHeight > sized.clientHeight + 1 } })
       await shot(`open-560-${kind}`)
-      check(`560 by 400: the popover on the ${kind} is inside the window, never over it, with nothing cut`, inside(s) && clear(s, await thing(SEL[kind], label, false)) && cut === 0, `side ${s.pop?.side}; ${cut} cut; ${JSON.stringify(s.pop && [Math.round(s.pop.x), Math.round(s.pop.y), Math.round(s.pop.r), Math.round(s.pop.b)])}`)
+      check(`560 by 400: the popover on the ${kind} is inside the window, never over it, with nothing cut (what does not fit scrolls inside it)`, inside(s) && clear(s, await thing(SEL[kind], label, false)) && cut?.out === 0, `side ${s.pop?.side}; ${cut?.out} cut; scrolls ${cut?.scrolls}; ${JSON.stringify(s.pop && [Math.round(s.pop.x), Math.round(s.pop.y), Math.round(s.pop.r), Math.round(s.pop.b)])}`)
       await shut()
     }
     await c.size(1440, 900)
@@ -714,6 +753,121 @@ try {
       if (!there) { check(`${name} is on the page`, false); continue }
       await ways(name, 'task', '[data-month-own] [data-plan-task]', 'Opened task', { bar: false })
     }
+  }
+
+  if (parts.includes('rows')) {
+    await things()
+    /** The popover's box, the rows it holds, and whether anything in it runs past its own edges. */
+    const rows = () => h.evaluate(() => {
+      const pop = document.querySelector('[data-cal-add]')
+      if (!pop) return null
+      const box = pop.getBoundingClientRect()
+      const sized = pop.querySelector('[data-cal-add-sized]')
+      return {
+        w: box.width, h: box.height, x: box.left, y: box.top, r: box.right, b: box.bottom,
+        quiet: [...pop.querySelectorAll('[data-quiet-row]')].map((el) => `${el.dataset.quietRow}${el.dataset.open !== undefined ? ':open' : ''}`),
+        said: Object.fromEntries([...pop.querySelectorAll('[data-quiet-row]')].map((el) => [el.dataset.quietRow, el.querySelector('[data-quiet-said]')?.textContent ?? ''])),
+        place: !!pop.querySelector('[data-event-rows] input[aria-label="Place"], [data-event-rows] input[placeholder="Place"]'), people: !!pop.querySelector('[data-event-rows] [data-event-people]'),
+        day: !!pop.querySelector('[data-task-rows] button, [data-task-rows] [data-date-picker]'), tags: !!pop.querySelector('[data-task-rows] [data-task-tags] input'),
+        wide: [...pop.querySelectorAll('*')].filter((el) => el.offsetParent && el.getBoundingClientRect().right > box.right + 0.5).length,
+        scrolls: sized ? sized.scrollHeight > sized.clientHeight + 1 : false, mask: sized ? getComputedStyle(sized).maskImage !== 'none' : false
+      }
+    })
+    const theEvent = async () => (await eventsNamed('Opens here'))[0]
+    const fits = (r) => r && r.x >= 11.5 && r.y >= 51.5 && r.r <= innerW - 11.5 && r.b <= innerH - 11.5
+    let innerW = 1440
+    let innerH = 900
+    if (await openIn('event', 'Opens here')) {
+      let r = await rows()
+      await shot('rows-event')
+      check('an open event has its quiet rows: calendar, place, people, reminder and repeat, each one line', r?.quiet.join() === 'calendar,remind,repeat' && r.place && r.people, JSON.stringify(r && { quiet: r.quiet, place: r.place, people: r.people }))
+      const shutHeight = r?.h
+      // The reminder: a line that opens its choices in place; the width is one, the height follows.
+      const tall = await h.evaluate(() => { window.__h = []; const pop = document.querySelector('[data-cal-add]'); const t0 = performance.now(); const tick = () => { window.__h.push(Math.round(pop.getBoundingClientRect().height)); if (performance.now() - t0 < 700) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+      await film('rows-remind-open', async () => { await h.click('[data-cal-add] [data-quiet-row="remind"] > button'); await wait(700) }, 8)
+      r = await rows()
+      const heights = await h.evaluate(() => [...new Set(window.__h)])
+      check('"Reminder" opens its choices in place: the width stays 320, the height grows through steps, and it stays inside the window', r?.quiet.includes('remind:open') && Math.abs(r.w - 320) < 1 && r.h > shutHeight + 20 && heights.length > 3 && fits(r) && r.wide === 0, `${shutHeight} to ${r?.h}px through ${heights.length} heights; ${r?.w}px wide; ${r?.wide} past its edge`)
+      await shot('rows-remind')
+      const before = (await theEvent())?.remind
+      await h.click('[data-cal-add] [data-remind="30"]')
+      await wait(900)
+      let s = await state()
+      r = await rows()
+      check('a reminder picked is kept at once, said with Undo, and its line says it', (await theEvent())?.remind === 30 && /Reminds you/.test(s.toast) && /Undo/.test(s.toast) && /30 minutes/.test(r?.said.remind ?? '') && !!s.pop, `${(await theEvent())?.remind}; ${s.toast.slice(0, 50)}; ${r?.said.remind}`)
+      await h.keyboard.press('Meta+z')
+      await wait(900)
+      check('  and ⌘Z takes it back', (await theEvent())?.remind === before, `${(await theEvent())?.remind} was ${before}`)
+      // One row open at a time: Repeat opens, Reminder folds.
+      await h.click('[data-cal-add] [data-quiet-row="repeat"] > button')
+      await wait(700)
+      r = await rows()
+      check('"Repeat" opens its choices and "Reminder" folds: one row open at a time, the width the same', r?.quiet.join() === 'calendar,remind,repeat:open' && Math.abs(r.w - 320) < 1 && r.wide === 0 && fits(r) && await h.locator('[data-cal-add] [data-repeat-choices] [data-repeat]').count() >= 5, JSON.stringify(r?.quiet))
+      await h.click('[data-cal-add] [data-quiet-row="repeat"] > button')
+      await wait(500)
+      // The place: the field its page has, written in where it is.
+      const place = h.locator('[data-cal-add] [data-event-rows] input[placeholder="Place"], [data-cal-add] [data-event-rows] input[aria-label="Place"]').first()
+      await place.click()
+      await h.keyboard.type('Cafe on the corner', { delay: 8 })
+      await h.keyboard.press('Enter')
+      await wait(900)
+      s = await state()
+      check('a place typed in its row is kept, said with Undo, and read back under the line', (await theEvent())?.place === 'Cafe on the corner' && /At Cafe on the corner/.test(s.toast) && /Undo/.test(s.toast) && /Cafe on the corner/.test(s.pop?.said ?? ''), `${(await theEvent())?.place}; ${s.toast.slice(0, 50)}; ${s.pop?.said}`)
+      await h.keyboard.press('Meta+z')
+      await wait(900)
+      check('  and ⌘Z takes the place away again', !(await theEvent())?.place, `${(await theEvent())?.place}`)
+      // The calendar: its chips under its line; another one picked moves it there.
+      await h.click('[data-cal-add] [data-quiet-row="calendar"] > button')
+      await wait(600)
+      const was = (await theEvent())?.calendarId
+      const other = h.locator('[data-cal-add] [data-quiet-row="calendar"] [data-new-event-calendar][aria-checked="false"]').first()
+      if (await other.count()) {
+        await other.click()
+        await wait(900)
+        s = await state()
+        check('another calendar picked in its row moves the event there at once, said with Undo', (await theEvent())?.calendarId !== was && /On .* now/.test(s.toast) && /Undo/.test(s.toast), `${was} to ${(await theEvent())?.calendarId}; ${s.toast.slice(0, 50)}`)
+        await h.keyboard.press('Meta+z')
+        await wait(900)
+        check('  and ⌘Z puts it back on its calendar', (await theEvent())?.calendarId === was)
+      } else console.log('NOTE  one calendar only: nothing to move the event to')
+      await shut()
+    } else check('the event is on the week to open', false)
+    if (await openIn('task', 'Opened task')) {
+      const r = await rows()
+      await shot('rows-task')
+      check('an open task has its rows: its day and time, and its tags', r?.day && r.tags && Math.abs(r.w - 320) < 1 && r.wide === 0, JSON.stringify(r && { day: r.day, tags: r.tags, w: r.w, wide: r.wide }))
+      await h.locator('[data-cal-add] [data-task-rows] [data-task-tags] input').click()
+      await h.keyboard.type('errand', { delay: 8 })
+      await h.keyboard.press('Enter')
+      await wait(900)
+      const s = await state()
+      const tagged = (await tasksNamed('Opened task'))[0]
+      check('a tag typed in its row is kept on the task, said with Undo', /#errand\b/.test(tagged?.title ?? '') && /Tagged #errand/.test(s.toast) && /Undo/.test(s.toast), `${tagged?.title}; ${s.toast.slice(0, 50)}`)
+      await h.keyboard.press('Escape')
+      await wait(300)
+      await h.mouse.click(700, 30).catch(() => {})
+      await h.keyboard.press('Meta+z')
+      await wait(900)
+      check('  and ⌘Z takes the tag off', !/#errand\b/.test((await tasksNamed('Opened task'))[0]?.title ?? ''), (await tasksNamed('Opened task'))[0]?.title)
+      await shut()
+    } else check('the task is on the week to open', false)
+    // 560 by 400: the rows scroll inside the popover, under the app's fading edge, and nothing is cut by the window.
+    await c.size(560, 400)
+    innerW = 560
+    innerH = 400
+    await wait(700)
+    if (await openIn('event', 'Opens here')) {
+      await h.click('[data-cal-add] [data-quiet-row="repeat"] > button')
+      await wait(800)
+      const r = await rows()
+      await shot('rows-560')
+      check('560 by 400, "Repeat" open: the popover is inside the window at its one width (the window less its margins), its rows scroll inside it under the fading edge, nothing runs past its edge', fits(r) && r.w <= 320.5 && r.scrolls && r.mask && r.wide === 0, JSON.stringify(r && { w: r.w, h: r.h, box: [Math.round(r.x), Math.round(r.y), Math.round(r.r), Math.round(r.b)], scrolls: r.scrolls, mask: r.mask, wide: r.wide }))
+      const reached = await h.evaluate(() => { const sized = document.querySelector('[data-cal-add] [data-cal-add-sized]'); sized.scrollTop = sized.scrollHeight; const last = [...sized.querySelectorAll('[data-repeat]')].at(-1); const a = last.getBoundingClientRect(); const b = sized.getBoundingClientRect(); return a.bottom <= b.bottom + 0.5 && a.top >= b.top - 0.5 })
+      check('  and its last choice is reached by scrolling inside it', reached)
+      await shut()
+    } else console.log('NOTE  560 by 400: the event is not drawn by name at this size')
+    await c.size(1440, 900)
+    await wait(500)
   }
 
   if (parts.includes('frames') && dir) {
