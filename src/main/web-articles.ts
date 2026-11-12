@@ -1,29 +1,17 @@
 import { ipcMain, app } from 'electron'
 import { randomUUID } from 'crypto'
-import type { DatabaseSync } from 'node:sqlite'
 import { Readability } from '@mozilla/readability'
 import { parseHTML } from 'linkedom'
 import { database } from './captures'
 import { fetchOutside } from './outside'
 import { begin, end } from './jobs'
+import { WEB_ARTICLES as TABLE } from './find-files'
 
 /** An article kept from the web: its words and pictures, read offline in the reader. */
 export type Article = { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }
 
-const TABLE = 'create table if not exists web_articles (id text primary key, href text unique not null, title text not null, byline text not null, site text not null, published text not null, html text not null, saved_at text not null)'
-
 /** What may stay in a kept article: words, lists, tables, quotes, code, pictures and links. Anything else goes, with what it held. */
 const DROP = 'script, style, iframe, object, embed, form, input, button, select, textarea, noscript, svg, canvas, video, audio, link, meta'
-
-type FoundArticle = { type: 'web'; id: string; number: null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string; text: string }
-
-/** Every kept article, as ⌘K lists it: found by its title, site and byline. */
-export function articlesToFind(db: DatabaseSync): FoundArticle[] {
-  db.exec(TABLE)
-  const rows = db.prepare('select href, title, byline, site, saved_at as at from web_articles').all() as { href: string; title: string; byline: string; site: string; at: string }[]
-  // Its id is the reader's own address for it: the page's link.
-  return rows.map((one) => ({ type: 'web', id: one.href, number: null, kind: 'web', status: 'open', source: one.site, attribution: one.site, label: one.title, capturedAt: one.at, text: `${one.title} ${one.site} ${one.byline}`.toLowerCase() }))
-}
 
 /**
  * Why a page gave no article, in plain words: the reader says this in its

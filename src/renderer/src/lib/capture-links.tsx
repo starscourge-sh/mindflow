@@ -373,14 +373,10 @@ export async function findCaptures(query: string, { exact = false }: { exact?: b
   const words = query.trim().toLowerCase()
   // What does not depend on the name asked (tasks, people, characters, tags), shared by every look-up of one burst.
   const lists = exact && words ? sharedLists() : fresh(!!words)
-  const [captures, items, [tasks, people, cast, tags], files] = await Promise.all([
-    window.api.captures.search(query),
-    haligtree.findItems(query),
-    lists,
-    // Files only once something is typed, as the names and tags are. A link finding the PDF or article of its
-    // name has main look through those alone, never through every note's words.
-    words ? window.api.captures.find(query, exact ? ['pdf', 'web'] : undefined).then((found) => found.filter((one) => one.type === 'pdf' || one.type === 'web')).catch(() => []) : []
-  ])
+  // Notes, pages and files of that name in one ask (it was three, each a wait on main for every link of a note as
+  // it opened). Files only once something is typed, as the names and tags are; a link finding the PDF or article
+  // of its name has those alone looked through, never every note's words.
+  const [{ captures, items, files }, [tasks, people, cast, tags]] = await Promise.all([window.api.captures.named(query, exact), lists])
   // Spelt right, nothing: a slip of the keys still finds it ("tolkein", "hamelt"), forgiven as ⌘K and the slash menu
   // forgive one, by name, among every note and page; only then, so a right spelling never lists near ones.
   // Never for an exact name: every note's name read and forgiven, per link, made a note of unresolved links slow to open.

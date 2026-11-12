@@ -16,7 +16,8 @@ import { reviewsADay } from './review-cost'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
 import { rollOver } from './held'
-import { KEPT_IN, LABEL, LIST, atomically, changed, database, like, movedOn, type Change } from './captures'
+import { KEPT_IN, LABEL, LIST, atomically, changed, database, movedOn, quietly, type Change } from './captures'
+import { ask as askReader } from './reader'
 import { docList, tasksSaid } from './day-lines'
 import { advance, dateIn, leadingTag, readTask } from './task-words'
 import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay, plural } from './dates'
@@ -1469,8 +1470,11 @@ export function registerHaligtree(): void {
   handle('settings', () => settings())
   handle('settings:set', (patch: Partial<Settings>) => {
     const wasSafe = settings().safeMode
-    for (const [key, value] of Object.entries(patch))
-      db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
+    // A setting is in no list and no search: kept without moving the book's stamp (captures.ts).
+    quietly(() => {
+      for (const [key, value] of Object.entries(patch))
+        db.prepare('insert or replace into settings (key, value) values (?, ?)').run(key, JSON.stringify(value))
+    })
     // Snoozed things shown or hidden: every list looks again.
     if ('showSnoozed' in patch) changed()
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
@@ -1960,8 +1964,8 @@ export function registerHaligtree(): void {
   })
 
   // What @ offers besides captures: nuggets and articles by name.
-  handle('items:find', (query: unknown) =>
-    db.prepare("select id, tier, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as name, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, updated_at as updatedAt, goal_at as goalAt, closed_how as closedHow from nuggets where tier not in ('card', 'deck') and (name like ? escape '\\' or coalesce(aliases, '') like ? escape '\\') and superseded_by is null order by updated_at desc limit 6").all(`%${like(String(query))}%`, `%${like(String(query))}%`))
+  // Every gem's and page's name is read for it, so it is asked of the reading thread (reader.ts, book-find.ts).
+  handle('items:find', (query: unknown) => askReader('items', [query]))
   // A page of your own from nothing: notes on linear algebra, say. An article
   // with no nuggets behind it, there to be written in.
   handle('article:new', () => {

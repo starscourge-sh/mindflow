@@ -5,6 +5,7 @@ import { BrowserWindow, ipcMain } from 'electron'
 import helper from '../../resources/labels?asset&asarUnpack'
 import { database } from './captures'
 import { assetsDir } from './pictures'
+import { PICTURE, STORED, pictureLines, pictureNamed, type Pictures } from './picture-lines'
 
 /**
  * The words in every picture you keep (a screenshot, a photo of a slide, a
@@ -17,9 +18,6 @@ import { assetsDir } from './pictures'
  * first time search reads its note (captures.ts `words`), and read a moment
  * later; none is ever read twice.
  */
-
-const PICTURE = /^[a-f0-9]{64}\.(png|jpe?g|webp|gif|heic|tiff?|bmp)$/i
-const STORED = /^(?:haligtree|mindflow):\/\/assets\/([a-f0-9]{64}\.[a-z0-9]+)$/i
 
 let made = false
 const db = (): ReturnType<typeof database> => {
@@ -130,29 +128,26 @@ async function work(): Promise<void> {
   if (found) told?.()
 }
 
-/** Marks a line of search's words as one read in a picture (captures.ts says so in a result, with the picture). */
-export const IN_PICTURE = '\u001e'
-
-/** The stored picture whose words hold this line, for a search result to show. */
-export function pictureHolding(line: string): string | undefined {
-  const plain = line.replace(/^…/, '').replace(/…$/, '').trim().toLowerCase()
-  for (const [name, text] of words()) if (text.toLowerCase().includes(plain)) return `haligtree://assets/${name}`
-  return undefined
-}
-
 /** A picture's words for search, a line each marked as the picture's, if read; asked for in the background if not. */
 export function wordsOfPicture(src: unknown): string {
-  if (typeof src !== 'string') return ''
-  const name = STORED.exec(src)?.[1]
-  if (!name || !PICTURE.test(name)) return ''
+  const name = pictureNamed(src)
+  if (!name) return ''
   const kept = words().get(name)
-  if (kept !== undefined) return kept.trim() ? `\n${kept.split('\n').map((line) => IN_PICTURE + line).join('\n')}\n` : ''
-  if (process.platform === 'darwin' && !queue.has(name)) {
-    queue.add(name)
-    setImmediate(() => void work())
-  }
+  if (kept !== undefined) return pictureLines(kept)
+  readSoon([name])
   return ''
 }
+
+/** Pictures search met with no words yet (here, or on the reading thread, reader.ts): each read in the background, once. */
+export function readSoon(names: string[]): void {
+  if (process.platform !== 'darwin') return
+  const fresh = names.filter((name) => PICTURE.test(name) && !words().has(name) && !queue.has(name))
+  for (const name of fresh) queue.add(name)
+  if (fresh.length) setImmediate(() => void work())
+}
+
+/** The book's pictures as main reads them (picture-lines.ts). */
+export const pictures: Pictures = { wordsOf: wordsOfPicture, known: () => words() }
 
 /** `forget` empties search's memory of each note's words, so the new picture words are read in. */
 export function registerPictureWords(forget: () => void): void {

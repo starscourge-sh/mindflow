@@ -1,5 +1,4 @@
 import { ipcMain } from 'electron'
-import type { DatabaseSync } from 'node:sqlite'
 
 import { LABEL, changed, database } from './captures'
 import { personKey } from './names'
@@ -75,15 +74,6 @@ const clean = (work: unknown): Work | null => {
     if (typeof value === 'string') out[key] = value.trim().slice(0, 400)
   }
   return out.title ? out : null
-}
-
-/** Works for ⌘K: found by title, author, DOI or ISBN; opened on their own page. */
-export function worksToFind(db: DatabaseSync): { type: 'work'; id: string; number: null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string; text: string; raw: string }[] {
-  const rows = db.prepare("select name, authors, born, doi, isbn, updated_at from source_pages where field = 'medium' and (authors != '' or doi != '' or isbn != '')").all() as { name: string; authors: string; born: string; doi: string; isbn: string; updated_at: string }[]
-  return rows.map((one) => {
-    const raw = [one.name, one.authors, one.doi, one.isbn].filter(Boolean).join(' ')
-    return { type: 'work', id: one.name, number: null, kind: 'work', status: 'open', source: [one.authors.split(';').map((who) => who.trim()).join(', '), one.born].filter(Boolean).join(', '), attribution: null, label: one.name, capturedAt: one.updated_at, text: raw.toLowerCase(), raw }
-  })
 }
 
 export function registerCite(): void {

@@ -1,6 +1,5 @@
 import { ipcMain } from 'electron'
 import { finishBy, type Day } from './pace'
-import { cleanTitle } from './clean-title'
 import { randomUUID } from 'crypto'
 import { readFile, writeFile } from 'fs/promises'
 import { statSync } from 'fs'
@@ -9,59 +8,7 @@ import { assetsDir } from './pictures'
 import { fetchOutside } from './outside'
 import type { DatabaseSync } from 'node:sqlite'
 import { LABEL, database } from './captures'
-import { articlesToFind } from './web-articles'
-import { addedPdfs } from './media'
-
-/** A PDF's own title, as the reader read it out of the file: what search finds it by. */
-const TITLES = 'create table if not exists pdf_titles (src text primary key, title text not null)'
-
-type FoundPdf = { type: 'pdf'; id: string; number: null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string; text: string }
-
-/**
- * Every PDF kept in a note or gem or added to Media, once each, as search lists it: found by
- * its title (once read) and the name it arrived under, opened in the reader.
- * Its id is the reader's own address for it, `src|name`.
- */
-export function pdfsToFind(db: DatabaseSync): FoundPdf[] {
-  db.exec(TITLES)
-  const titles = new Map((db.prepare('select src, title from pdf_titles').all() as { src: string; title: string }[]).map((one) => [one.src, one.title]))
-  const rows = db.prepare(`select body, captured_at as at from captures where status != 'discarded' and body like '%"attachment"%' and body like '%.pdf%'
-    union all select body, created_at from nuggets where binned_at is null and tier not in ('card', 'deck') and body like '%"attachment"%' and body like '%.pdf%'`).all() as { body: string; at: string }[]
-  const found = new Map<string, FoundPdf>()
-  type Node = { type?: string; attrs?: Record<string, unknown>; content?: Node[] }
-  const walk = (node: Node | null | undefined, at: string): void => {
-    if (!node || typeof node !== 'object') return
-    const src = String(node.attrs?.src ?? ''), name = String(node.attrs?.name ?? '')
-    const pdf = node.type === 'attachment' && /^(haligtree|mindflow):\/\/assets\//.test(src) && (/\.pdf$/i.test(name) || /\.pdf$/i.test(src))
-    // One PDF kept under two names is found by either.
-    const known = pdf ? found.get(src) : undefined
-    if (known && name) known.text += ` ${name.toLowerCase()}`
-    else if (pdf) {
-      const title = titles.get(src) ?? (cleanTitle(name.replace(/\.pdf$/i, '')) || name.replace(/\.pdf$/i, '') || 'PDF')
-      found.set(src, { type: 'pdf', id: `${src}|${name}`, number: null, kind: 'pdf', status: 'open', source: '', attribution: null, label: title, capturedAt: at, text: `${title} ${name}`.toLowerCase() })
-    }
-    node.content?.forEach((one) => walk(one, at))
-  }
-  for (const row of rows) {
-    try {
-      walk(JSON.parse(row.body) as Node, row.at)
-    } catch {
-      // A body kept as Markdown holds no PDF block.
-    }
-  }
-  // Added to Media with no note: a book on the shelf all the same. Its name there is the name it came under.
-  for (const one of addedPdfs(db)) {
-    const known = found.get(one.src)
-    if (known) {
-      known.id = `${one.src}|${one.name}`
-      if (one.at > known.capturedAt) known.capturedAt = one.at
-      continue
-    }
-    const title = titles.get(one.src) ?? (cleanTitle(one.name.replace(/\.pdf$/i, '')) || one.name.replace(/\.pdf$/i, '') || 'PDF')
-    found.set(one.src, { type: 'pdf', id: `${one.src}|${one.name}`, number: null, kind: 'pdf', status: 'open', source: '', attribution: null, label: title, capturedAt: one.at, text: `${title} ${one.name}`.toLowerCase() })
-  }
-  return [...found.values()]
-}
+import { PDF_TITLES as TITLES, articlesToFind, pdfsToFind } from './find-files'
 
 /**
  * What a link to a file points at, `pdf:` and the PDF's address or `web:`

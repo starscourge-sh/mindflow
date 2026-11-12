@@ -38,6 +38,10 @@ function spent(row: Row, began: number): void {
   if (slow.length > 300) slow.shift()
 }
 
+/** What else the freeze log should say of this run, a line each: the reading thread stopping (reader.ts). */
+const notes: string[] = []
+export const noted = (line: string): void => void notes.push(`${new Date().toISOString().slice(11, 23)}  ${line}`)
+
 /** Run a job under its name: the time it holds main's thread is counted, and how long its answer took when it is a promise. */
 export function named<T>(name: string, run: () => T): T {
   let row = rows.get(name)
@@ -103,6 +107,8 @@ export type Stalls = {
   slow: { name: string; ms: number; at: number }[]
   /** Every name, the worst first. */
   rows: Row[]
+  /** What else the freeze log says of this run. */
+  notes: string[]
 }
 
 /** The table, and the delay since it was last read (reading starts the delay afresh). */
@@ -112,7 +118,8 @@ export function stalls(): Stalls {
     delay: { worst: delay.count ? ms(delay.max) : 0, mean: delay.count ? ms(delay.mean) : 0, most: delay.count ? ms(delay.percentile(99)) : 0 },
     running: [...running.values()].map((one) => ({ name: one.name, seconds: Math.round((Date.now() - one.since) / 100) / 10 })),
     slow: [...slow],
-    rows: [...rows.values()].map((row) => ({ ...row, ms: Math.round(row.ms), worst: Math.round(row.worst * 10) / 10, waited: Math.round(row.waited) })).sort((a, b) => b.worst - a.worst)
+    rows: [...rows.values()].map((row) => ({ ...row, ms: Math.round(row.ms), worst: Math.round(row.worst * 10) / 10, waited: Math.round(row.waited) })).sort((a, b) => b.worst - a.worst),
+    notes: [...notes]
   }
   delay.reset()
   return out
@@ -130,7 +137,8 @@ export function stallReport(): string {
     minute.length
       ? `  held its thread ${SLOW} ms or more in the last minute:\n${minute.map((one) => `    ${String(one.ms).padStart(8)} ms  ${new Date(one.at).toISOString().slice(11, 23)}  ${one.name}`).join('\n')}`
       : `  nothing with a name held its thread ${SLOW} ms or more in the last minute`,
-    `  the slowest this run:\n${now.rows.slice(0, 12).map(line).join('\n')}`
+    `  the slowest this run:\n${now.rows.slice(0, 12).map(line).join('\n')}`,
+    ...(now.notes.length ? [`  also this run:\n${now.notes.map((one) => `    ${one}`).join('\n')}`] : [])
   ].join('\n')
 }
 

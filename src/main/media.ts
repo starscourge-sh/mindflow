@@ -7,8 +7,10 @@ import { createHash, randomUUID } from 'node:crypto'
 import { basename, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { assetsDir, lookAhead } from './pictures'
-import { IN_PICTURE, wordsOfPicture } from './picture-words'
-import { AUDIO_ENDS, PICTURE_ENDS, TURNED, VIDEO_ENDS, sniff, type AddResult, type MediaKind, type Taken } from './media-words'
+import { wordsOfPicture } from './picture-words'
+import { IN_PICTURE } from './picture-lines'
+import { MEDIA_ADDED as ADDED, addedRows, kindByEnd } from './find-files'
+import { TURNED, sniff, type AddResult, type MediaKind, type Taken } from './media-words'
 
 /**
  * Media: every picture, GIF, PDF, recording, video and document kept in the book's notes, found
@@ -136,37 +138,6 @@ export function keepInFiles(src: string, on: boolean): void {
       db.prepare('delete from media_added where src = ? and binned_at is null').run(src)
     }
   }
-}
-
-/** What Media was given with no note: the file is in the store; this says it belongs to the book. */
-const ADDED = 'create table if not exists media_added (src text primary key, name text not null, size integer not null, added_at text not null, binned_at text)'
-type AddedRow = { src: string; name: string; size: number; at: string }
-const addedRows = (db: DatabaseSync): AddedRow[] => {
-  db.exec(ADDED)
-  return db.prepare('select src, name, size, added_at as at from media_added where binned_at is null').all() as AddedRow[]
-}
-
-const END_OF = /\.([a-z0-9]+)$/
-/** What a stored file is by its ending alone, as an added file is known: anything not a picture, PDF, recording or video is a document. */
-export const kindByEnd = (src: string): MediaKind => {
-  const end = END_OF.exec(src)?.[1] ?? ''
-  return end === 'gif' ? 'gif' : end === 'pdf' ? 'pdf' : AUDIO_ENDS.includes(end) ? 'audio' : PICTURE_ENDS.includes(end) ? 'picture' : VIDEO_ENDS.includes(end) ? 'video' : 'document'
-}
-
-/** The PDFs added with no note, as search and the shelf take them. */
-export const addedPdfs = (db: DatabaseSync): AddedRow[] => addedRows(db).filter((one) => kindByEnd(one.src) === 'pdf')
-
-/**
- * Pictures and recordings added with no note, as search lists them: found by
- * name and, for a picture, by the words the Mac read in it, as any note's are.
- * (An added PDF is found as every PDF is: pdf-highlights.ts.)
- */
-export function mediaToFind(db: DatabaseSync): { type: 'media'; id: string; number: null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string; text: string; raw: string }[] {
-  return addedRows(db).filter((one) => kindByEnd(one.src) !== 'pdf').map((one) => {
-    const label = one.name.replace(/\.[^.]+$/, '') || one.name
-    const raw = `${label}${wordsOfPicture(one.src)}`
-    return { type: 'media', id: `${one.src}|${one.name}`, number: null, kind: kindByEnd(one.src) ?? 'picture', status: 'open', source: '', attribution: null, label, capturedAt: one.at, text: `${raw} ${one.name}`.toLowerCase(), raw }
-  })
 }
 
 type Doc = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Doc[] }

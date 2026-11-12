@@ -3,7 +3,7 @@ import { BookMarked, Image as ImageIcon } from 'lucide-react'
 import { showMediaFile } from '@/lib/media-files'
 import { aimAt } from '@/lib/meeting'
 import { useSeen } from '@/lib/reads-in'
-import { Fragment, memo, useEffect, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
+import { Fragment, memo, useEffect, useId, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
 import { smallPicture } from '@/lib/notes'
 import { TASK_KIND } from './haligtree/everything'
 import { FLOAT } from '@/lib/float'
@@ -238,11 +238,13 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // Notion's highlight pane: on by default, and a button to put it away.
   const [pane, setPane] = useState(true)
   const roomy = useSyncExternalStore(followRoomy, () => matchMedia(ROOMY).matches) && !inCard
+  // This box, by name: of its asks, one main has not begun gives way to the next letter's.
+  const asker = useId()
   useEffect(() => {
     let old = false
     const late = setTimeout(() => setSlow(true), 300)
     // Asked at every letter, at once: a reply for words since changed is dropped, so an older one never lands over a newer.
-    void window.api.captures.find(query).then((list) => {
+    void window.api.captures.find(query, undefined, asker).then((list) => {
       if (old) return
       clearTimeout(late)
       setSlow(false)

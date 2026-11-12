@@ -132,6 +132,9 @@ function useCelebrating(): boolean {
   return now
 }
 
+/** How many views of a note have asked for offers in this window: each asks under its own name. */
+let views = 0
+
 export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 'nuggets'; id: string; editor: Editor | null; onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [offer, setOffer] = useState<Offer | null>(null)
   const [on, setOn] = useState(true)
@@ -145,12 +148,15 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     if (!editor || !on) return
     let timer = 0
     let live = true
+    // This view of this note, by name: of its asks, one main has not begun gives way to a newer one, and once the
+    // note is left nothing more is read for it.
+    const asker = `${id} ${++views}`
     const ask = async (): Promise<void> => {
       const turn = ++asked.current
       const own = key ?? `${(await haligtree.item(id).catch(() => null))?.tier ?? 'nugget'}:${id}`
       const text = editor.getText({ blockSeparator: '\n' })
       if (text.trim().length < 12) return setOffer(null)
-      const found = await call<Offers>('offers:note', own, text, linksIn(editor)).catch(() => null)
+      const found = await call<Offers | null>('offers:note', own, text, linksIn(editor), asker).catch(() => null)
       if (!live || turn !== asked.current || !found) return
       const gone = dismissed()
       const all: Offer[] = [
@@ -182,6 +188,7 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       live = false
       window.clearTimeout(timer)
       editor.off('update', later)
+      void call('offers:left', asker).catch(() => undefined)
     }
   }, [editor, on, id, key])
   const ownKey = useRef('')

@@ -16,6 +16,10 @@
 //   the main window, from its long animation frames: every stretch of
 //     BLOCK_MS (100) or more in which it could not paint or take a key.
 //
+// Search and link offers read the whole book on a thread of their own
+// (src/main/reader.ts): the session also says what was asked of it, and fails
+// if it stopped or left an ask to main.
+//
 // It fails on any main stall, in any step, and on any window block that is
 // not in NOT_MINE below. REST=ms changes the rest after a step (1500),
 // NOTES=n how many notes (30), PROF=1 prints where main's own time went.
@@ -215,6 +219,8 @@ for (let turn = 1; turn <= (SHORT ? 0 : 4); turn++) {
 await close()
 
 const profile = profiling ? await electron.evaluate(() => globalThis.mainProfile(false)) : null
+// The reading thread (src/main/reader.ts): what was asked of it, and whether it answered it all itself.
+const reader = await electron.evaluate(() => globalThis.readerStats?.() ?? null)
 const blocks = await h.evaluate(() => window.__blocks.map((one) => ({ ...one, step: window.__steps.findLast((step) => step.at <= one.at) })))
 await c.close()
 
@@ -241,6 +247,8 @@ for (const [at, one] of steps.entries()) {
 }
 console.log('Main: the busiest names over the whole run (time on its thread)')
 for (const row of [...rows].sort((a, b) => b.ms - a.ms).slice(0, 12)) console.log(`  ${String(row.ms).padStart(7)} ms in all  ${String(row.calls).padStart(6)} calls  ${String(row.worst).padStart(7)} ms worst  ${row.name}`)
+// Every name that came near the bar: what to look at next.
+console.log(`Main: every name that held its thread 20 ms or more at its worst: ${[...rows].filter((row) => row.worst >= 20).sort((a, b) => b.worst - a.worst).map((row) => `${row.name} ${Math.round(row.worst)} (×${row.calls})`).join(', ') || 'none'}`)
 // How often each was asked does not depend on how busy the machine is: the count to compare two builds by.
 console.log(`Main: asked most often (timers left out): ${[...rows].filter((row) => !row.name.startsWith('timer ')).sort((a, b) => b.calls - a.calls).slice(0, 14).map((row) => `${row.name} ×${row.calls}`).join(', ')}`)
 
@@ -280,6 +288,10 @@ const kept = String(book.prepare(`select body from ${largest.type === 'capture' 
 book.close()
 check(`the largest note kept ${SHORT ? 'its save' : 'both saves, in order'}, every character (“${TYPED}”), read back after the app was killed`, kept.includes(TYPED), `${kept.length.toLocaleString()} characters kept; starts ${JSON.stringify(kept.slice(0, 140))}`)
 
+if (reader) {
+  console.log(`\nThe reading thread: ${reader.asked} asks; ${reader.gaveWay} gave way to a newer one; ${reader.left} dropped for a note that was left; ${reader.onMain} answered on main; search's whole list read ${reader.reads} times`)
+  check('the reading thread answered everything asked of it, and is still running', reader.alive && reader.onMain === 0 && !reader.stopped, reader.stopped || `${reader.onMain} answered on main`)
+}
 const worstNamed = named[0]
 check(`main: nothing with a name held its thread ${MAIN_MS} ms or more`, named.length === 0, worstNamed ? `${named.reduce((sum, row) => sum + row.count, 0)} stalls under ${named.length} names; worst ${worstNamed.name} ${worstNamed.worst} ms  [${load()}]` : load())
 check(`main: its event loop never ran ${MAIN_MS} ms late`, late.length === 0, late.length ? `${late.length} steps; worst ${late[0].late} ms in “${late[0].name}”  [${load()}]` : load())
