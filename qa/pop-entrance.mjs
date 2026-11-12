@@ -22,17 +22,17 @@ if (dir) mkdirSync(dir, { recursive: true })
 const STEPS = [0, 16, 33, 50, 100, 150]
 const dayKeyOf = (by) => { const d = c.now(); d.setDate(d.getDate() + by); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 /** Stops the entrance of whatever matches `sel` as it starts (asked before the pointer opens it). */
-const hold = (sel) => h.evaluate((sel) => { window.__heldN = null; const t0 = performance.now(); const tick = () => { const el = document.querySelector(sel); const list = el?.getAnimations() ?? []; if (list.length) { list.forEach((one) => one.pause()); window.__heldN = list.length } else if (el && performance.now() - t0 > 600) window.__heldN = 0; else if (performance.now() - t0 < 4000) requestAnimationFrame(tick); else window.__heldN = -1 }; requestAnimationFrame(tick) }, sel)
+const hold = (sel, on = h) => on.evaluate((sel) => { window.__heldN = null; const t0 = performance.now(); const tick = () => { const el = document.querySelector(sel); const list = el?.getAnimations() ?? []; if (list.length) { list.forEach((one) => one.pause()); window.__heldN = list.length } else if (el && performance.now() - t0 > 600) window.__heldN = 0; else if (performance.now() - t0 < 4000) requestAnimationFrame(tick); else window.__heldN = -1 }; requestAnimationFrame(tick) }, sel)
 /** The entrance stepped by hand: at each step, how whole the surface is, and a picture. */
-const step = async (sel, name, look) => {
-  await h.waitForFunction(() => window.__heldN !== null, null, { timeout: 6000 }).catch(() => {})
+const step = async (sel, name, look, on = h) => {
+  await on.waitForFunction(() => window.__heldN !== null, null, { timeout: 6000 }).catch(() => {})
   const seen = []
   for (const t of STEPS) {
-    const at = await h.evaluate(([sel, t]) => { const el = document.querySelector(sel); if (!el) return null; const list = el.getAnimations(); list.forEach((one) => { one.currentTime = t }); const style = getComputedStyle(el); return { n: list.length, opacity: Number(style.opacity), clip: style.clipPath.slice(0, 44), scale: Number(new DOMMatrixReadOnly(style.transform).a.toFixed(3)), fades: list.some((one) => one.effect?.getKeyframes?.().some((key) => 'opacity' in key)) } }, [sel, t])
+    const at = await on.evaluate(([sel, t]) => { const el = document.querySelector(sel); if (!el) return null; const list = el.getAnimations(); list.forEach((one) => { one.currentTime = t }); const style = getComputedStyle(el); return { n: list.length, opacity: Number(style.opacity), clip: style.clipPath.slice(0, 44), scale: Number(new DOMMatrixReadOnly(style.transform).a.toFixed(3)), fades: list.some((one) => one.effect?.getKeyframes?.().some((key) => 'opacity' in key)) } }, [sel, t])
     seen.push(at)
-    if (dir) await h.screenshot({ path: `${dir}/${name}-${look}-${String(t).padStart(3, '0')}.png` })
+    if (dir) await on.screenshot({ path: `${dir}/${name}-${look}-${String(t).padStart(3, '0')}.png` })
   }
-  await h.evaluate((sel) => document.querySelector(sel)?.getAnimations().forEach((one) => one.finish()), sel)
+  await on.evaluate((sel) => document.querySelector(sel)?.getAnimations().forEach((one) => one.finish()), sel)
   return seen
 }
 const said = (seen) => seen.map((one) => (one ? `${one.opacity}${one.scale !== 1 ? `×${one.scale}` : ''}` : 'gone')).join(' ')
@@ -111,6 +111,26 @@ try {
       await h.keyboard.press('Escape')
       await wait(350)
     } else check(`${look}: the second time zone's picker is in Settings`, false)
+    // 6. A sheet (12 Nov): Display, opened from its button in quick capture, where it comes as a sheet inside the card.
+    // It is frosted too, and faded in until now; it grows out of the edge it sits on.
+    {
+      const box = c.page
+      await box.evaluate(() => window.api.showPrompt())
+      await box.waitForTimeout(900)
+      const toggle = box.locator('button[aria-label="Show the side panel"]')
+      if (await toggle.count()) { await toggle.first().click(); await box.waitForTimeout(800) }
+      await box.keyboard.press('Control+1')
+      await box.waitForTimeout(800)
+      const button = box.locator('[data-display]').first()
+      if (await button.count()) {
+        await hold('[data-slot="sheet-content"]', box)
+        await button.click()
+        seen = await step('[data-slot="sheet-content"]', 'sheet', look, box)
+        check(`${look}: a sheet (Display, in quick capture) is whole at every step of its entrance, never faded, and grows from its edge`, grows(seen), `${said(seen)}; ${seen[0]?.clip} to ${seen.at(-1)?.clip}`)
+        await box.keyboard.press('Escape')
+        await box.waitForTimeout(500)
+      } else check(`${look}: quick capture has a Display button to open the sheet from`, false)
+    }
   }
   await c.look('light')
   // Simply there: opened by a key, with Reduce motion, and with Motion off, nothing is played.
