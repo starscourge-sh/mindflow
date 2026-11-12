@@ -907,7 +907,8 @@ try {
     await things()
     /**
      * The popover's sized box, read at every frame for `ms` from now while `run` plays out: when, how tall it is drawn,
-     * how tall the whole popover is, and the height the box is held at (its own style; empty when nothing holds it).
+     * how tall the whole popover is, the height the box is held at (its own style; empty when nothing holds it), and
+     * where the popover's top is.
      */
     const trace = async (run, ms = 1300) => {
       await h.evaluate((ms) => {
@@ -916,7 +917,7 @@ try {
         window.__t = []
         window.__tDone = false
         const t0 = performance.now()
-        const tick = () => { window.__t.push([Math.round(performance.now() - t0), Math.round(box.getBoundingClientRect().height * 10) / 10, Math.round(pop.getBoundingClientRect().height * 10) / 10, box.style.height]); if (performance.now() - t0 < ms) requestAnimationFrame(tick); else window.__tDone = true }
+        const tick = () => { window.__t.push([Math.round(performance.now() - t0), Math.round(box.getBoundingClientRect().height * 10) / 10, Math.round(pop.getBoundingClientRect().height * 10) / 10, box.style.height, Math.round(pop.getBoundingClientRect().top * 10) / 10]); if (performance.now() - t0 < ms) requestAnimationFrame(tick); else window.__tDone = true }
         requestAnimationFrame(tick)
       }, ms)
       await run()
@@ -924,6 +925,9 @@ try {
       return h.evaluate(() => window.__t)
     }
     /** What a trace shows: where the box began and ended, every height it was drawn at on the way, and whether it went one way (a spring may pass its end by a few px and come back). */
+    const astray = []
+    /** Of the traces read since `from`: how many frames had the popover placed somewhere off its path, and where. */
+    const tied = (from = 0) => { const seen = astray.slice(from); const off = seen.filter((one) => one.off); return { ok: seen.length > 0 && !off.length, said: `${seen.reduce((n, one) => n + one.off, 0)} of ${seen.reduce((n, one) => n + one.frames, 0)} frames off its path in ${seen.length} changes${off.length ? `: ${off.map((one) => `top at ${one.at.join(' ')}px on a path of ${one.path}`).join('; ')}` : ` (its top ${[...new Set(seen.map((one) => one.path))].slice(0, 3).join(', ')})`}` } }
     const read = (t) => {
       const tall = t.map((one) => one[1])
       const [from, to] = [tall[0], tall.at(-1)]
@@ -933,6 +937,12 @@ try {
       const oneWay = tall.every((n, at) => at === 0 || (up ? n >= tall[at - 1] - 6 : n <= tall[at - 1] + 6))
       const moving = t.filter((one, at) => at > 0 && one[1] !== t[at - 1][1])
       const took = moving.length ? moving.at(-1)[0] - moving[0][0] : 0
+      // Tied where it is: its top goes from where it began to where it ended (12px past either for the spring's last
+      // give), and is never anywhere else, not for one frame.
+      const tops = t.map((one) => one[4])
+      const [low, high] = [Math.min(tops[0], tops.at(-1)) - 12, Math.max(tops[0], tops.at(-1)) + 12]
+      const off = tops.filter((n) => n < low || n > high)
+      astray.push({ frames: t.length, off: off.length, at: [...new Set(off.map((n) => Math.round(n)))], path: `${Math.round(tops[0])} to ${Math.round(tops.at(-1))}px` })
       return { from, to, between: between.length, oneWay, took, held: t[0][3] || 'nothing', frames: t.length, said: `${from} to ${to}px, ${between.length} in-between heights over ${took}ms of ${t.length} frames (${seen.join(' ')}); held at ${t[0][3] || 'nothing'} before, ${t.at(-1)[3] || 'nothing'} after` }
     }
     /**
@@ -988,6 +998,24 @@ try {
       await wait(300)
       // And with motion back, it springs again.
       sprung('motion back on, a row opening', await trace(() => h.click('[data-cal-add] [data-quiet-row="repeat"] > button')))
+      await h.click('[data-cal-add] [data-quiet-row="repeat"] > button')
+      await wait(600)
+      // Opened and closed four more times: the spring's last pixels are where a frame could be placed by the popover's
+      // other end (it is moved up to fit the window here, 14:00 in a window 900 tall).
+      for (let n = 0; n < 8; n++) read(await trace(() => h.click('[data-cal-add] [data-quiet-row="remind"] > button'), 700))
+      const whole = tied()
+      check('through every change the popover stays tied where it is: never placed elsewhere, not for one frame', whole.ok, whole.said)
+      // The same with the interface a size up (Settings, "Interface size": the page's root size, as the app sets it), where
+      // the popover's top row is no longer a whole number of pixels tall.
+      const before = astray.length
+      const root = await h.evaluate(() => { const was = document.documentElement.style.fontSize; document.documentElement.style.fontSize = `${parseFloat(getComputedStyle(document.documentElement).fontSize) * 1.1}px`; return was })
+      await wait(900)
+      for (let n = 0; n < 6; n++) read(await trace(() => h.click('[data-cal-add] [data-quiet-row="remind"] > button'), 700))
+      const bigger = tied(before)
+      const sized = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); return { root: getComputedStyle(document.documentElement).fontSize, pop: pop.getBoundingClientRect().height, head: pop.firstElementChild.getBoundingClientRect().height } })
+      check('the same with the interface a size up (110%): never placed elsewhere for a frame', bigger.ok, `${bigger.said}; ${JSON.stringify(sized)}`)
+      await h.evaluate((was) => { document.documentElement.style.fontSize = was }, root)
+      await wait(600)
       await shut()
     } else check('the event is on the week to open', false)
   }
