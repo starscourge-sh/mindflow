@@ -16,7 +16,7 @@ import { reviewsADay } from './review-cost'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
 import { rollOver } from './held'
-import { KEPT_IN, LABEL, LIST, atomically, changed, database, movedOn, quietly, type Change } from './captures'
+import { KEPT_IN, LABEL, LIST, atomically, bookStamp, changed, database, movedOn, quietly, type Change } from './captures'
 import { ask as askReader } from './reader'
 import { docList, tasksSaid } from './day-lines'
 import { advance, dateIn, leadingTag, readTask } from './task-words'
@@ -5062,7 +5062,8 @@ export function registerHaligtree(): void {
   // Written a few seconds after the notes stop changing, not on every keystroke.
   setInterval(() => {
     if (!settings().markdownCopy) return
-    const n = (db.prepare('select total_changes() as n').get() as { n: number }).n
+    // The book's stamp (captures.ts): a note opened or a setting kept changes no note, so no copy is written for it.
+    const n = bookStamp()
     if (n === copy.seen) return
     copy.seen = n
     if (copy.quiet) clearTimeout(copy.quiet)
