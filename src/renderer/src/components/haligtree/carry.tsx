@@ -1,4 +1,4 @@
-import { Fragment, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { Fragment, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import { useDndContext } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { AnimatePresence, animate, cubicBezier, motion, motionValue, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
@@ -224,7 +224,7 @@ const CLEAR = 6
  * does. Heard from the pointer, a list scrolling and the line itself, never read
  * on a clock. A spring there; with Reduce motion or Motion off it is simply there.
  */
-function useClear(): { ref: (node: HTMLElement | null) => void; y: MotionValue<number> } {
+function useClear(base?: () => number): { ref: (node: HTMLElement | null) => void; y: MotionValue<number> } {
   const to = useMotionValue(0)
   const y = useSpring(to, { stiffness: 520, damping: 38, mass: 0.6 })
   const card = useRef<HTMLElement | null>(null)
@@ -241,8 +241,10 @@ function useClear(): { ref: (node: HTMLElement | null) => void; y: MotionValue<n
         const at = line.top + line.height / 2
         // The side the pointer is on, kept through a few pixels round the line so the card never flutters across it.
         side = side === 'under' ? (pointerY < at - 4 ? 'over' : 'under') : side === 'over' ? (pointerY > at + 4 ? 'under' : 'over') : pointerY >= at ? 'under' : 'over'
-        // Where its middle would be by the pointer alone, and how far that is from clear of the line.
-        const middle = (box.top + box.bottom) / 2 - y.get()
+        // Where its middle would be by the pointer alone, and how far that is from clear of the line. Read off the box that
+        // holds it, which its own spring never moves: read off the card itself mid-spring, it came to rest a little short.
+        const home = card.current?.parentElement?.getBoundingClientRect()
+        const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : (box.top + box.bottom) / 2 - y.get()
         const reach = (box.bottom - box.top) / 2 + CLEAR
         next = side === 'under' ? Math.max(0, at + reach - middle) : Math.min(0, at - reach - middle)
       } else side = null
@@ -267,21 +269,45 @@ export function Clear({ children }: { children: ReactNode }): React.JSX.Element 
   return <motion.div ref={clear.ref} style={{ y: clear.y }}>{children}</motion.div>
 }
 
-export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id: string; children: ReactNode; inner?: CSSProperties; indent?: number; /** A list that draws its own handle says so. */ grip?: boolean }): React.JSX.Element {
+type RowProps = { id: string; children: ReactNode; inner?: CSSProperties; indent?: number; /** A list that draws its own handle says so. */ grip?: boolean }
+
+/**
+ * A row of a list that carries. It reads the carry and hands the row only its own part in it (its slide, its light,
+ * whether it is in the hand), so a new place draws again the two rows it moves, not every row on show: drawing them
+ * all at each place cost frames in a long list.
+ */
+export function CarryRow({ id, children, inner, indent = 0, grip = true }: RowProps): React.JSX.Element {
+  const carry = useContext(Carrying)
+  const { aim, ys, along, snap, give, hand } = carry
+  const mine = aim?.target === id
+  const forming = mine && !!aim.make
+  return (
+    <Carried id={id} inner={inner} indent={indent} grip={grip} y={Math.round(ys.get(id) ?? 0)} snap={snap} kick={give.n} pushed={give.rows.has(id)}
+      how={mine ? aim.how : undefined} step={mine && aim.act === 'step'} forming={forming} faded={along.has(id)}
+      // The row in hand draws the room where it would land, and a row a group would form on its preview: they alone read the whole carry.
+      carry={hand === id || forming ? carry : null}>
+      {children}
+    </Carried>
+  )
+}
+
+const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = true, y, snap, kick, pushed, how, step, forming, faded, carry }: RowProps & {
+  y: number; snap: boolean; kick: number; pushed: boolean; how: How | undefined; step: boolean; forming: boolean; faded: boolean; carry: Carry | null
+}): React.JSX.Element {
   // dnd-kit says where each row goes; the row glides there on the same clock as the groups' panels (PanelParts), so a
   // row and the box around it always move together, even turned back halfway. Its own CSS transition is off.
   // dnd-kit's own slide of a row whose place in the list changed (its layout animation) is off too: the list is redrawn as it lands.
   const { setNodeRef, attributes, listeners, isDragging } = useSortable({ id, transition: null, animateLayoutChanges: () => false })
-  const { aim, height, span, along, snap, ys, inset, give } = useContext(Carrying)
+  const aim = carry?.aim ?? null
+  const [height, span, inset] = [carry?.height ?? 0, carry?.span ?? 0, carry?.inset ?? 0]
   // What is carried never slides through the other rows: its room is simply there, shown once they have made way.
   // Let go, the list is drawn as the drop left it, so every row is at once in place.
-  const glide = useGlide(Math.round(ys.get(id) ?? 0), 1, isDragging || snap, give.n, [give.rows.has(id) ? GIVE : 0, 0])
+  const glide = useGlide(y, 1, isDragging || snap, kick, [pushed ? GIVE : 0, 0])
   const ref = useCallback((node: HTMLElement | null): void => void (setNodeRef(node), glide.ref(node)), [setNodeRef, glide.ref]) // eslint-disable-line react-hooks/exhaustive-deps
   // Anything that moves the room draws it anew, so it never shows while the rows are still making way.
   const place = aim ? `${aim.gap}:${aim.snug}:${aim.fit}:${span}` : ''
   const wait = still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both`
   // A new group would form here: this row lifts, with a panel around it and the room under it.
-  const forming = !!aim?.make && aim.target === id
   const lifted = forming
   // The carried row's own place travels to where it would land: the room the rows open, with a line in it.
   const room = isDragging && !!aim && aim.gap !== null
@@ -289,11 +315,11 @@ export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id:
     <motion.div
       ref={ref}
       data-sortable-id={id}
-      data-aim={aim?.target === id ? aim.how : undefined}
+      data-aim={how}
       // In the hand a row is its one line: whatever hangs under it (a task's steps, its question) folds away (main.css).
       data-held={isDragging || undefined}
       // A row that would take the carried one in as its own (a task, its step) lights, and nothing opens.
-      data-nest-hot={(aim?.act === 'step' && aim.target === id) || undefined}
+      data-nest-hot={step || undefined}
       {...attributes}
       {...listeners}
       tabIndex={-1}
@@ -307,7 +333,7 @@ export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id:
         // One hint per drop: a soft band the size of the room, the line through its middle. Drawn anew at each new place.
         // It waits for the rows to make way, so it never shows over one sliding past.
         <Fragment key={place}>
-          <span aria-hidden data-drop-room={along.size + 1} className={ROOM} style={{ top: -inset, height: span - 2, animation: wait }} />
+          <span aria-hidden data-drop-room={(carry?.along.size ?? 0) + 1} className={ROOM} style={{ top: -inset, height: span - 2, animation: wait }} />
           {!aim.make && <DropLine how={aim.how} style={{ left: (aim.indent ?? (aim.into ? INDENT : 0)) + 12, top: span / 2 - inset, animation: wait }} />}
         </Fragment>
       )}
@@ -333,13 +359,13 @@ export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id:
       </AnimatePresence>
       <div
         className="transition-[scale,translate,opacity] duration-200 motion-reduce:transition-none"
-        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(isDragging ? { opacity: 0 } : along.has(id) ? { opacity: 0.3 } : {}) }}
+        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(isDragging ? { opacity: 0 } : faded ? { opacity: 0.3 } : {}) }}
       >
         {children}
       </div>
     </motion.div>
   )
-}
+})
 
 /**
  * How far everything slides while something is carried, from where it was
@@ -661,7 +687,7 @@ export function Hand({ grab, from, rest, at, children }: { grab: number; from: n
   const x = useTransform(() => (calm ? dragX.get() : sideways.get()))
   const lean = useSpring(useTransform(() => (calm ? 0 : Math.max(-3, Math.min(3, (dragX.get() - sideways.get()) * 0.12)))), { stiffness: 400, damping: 30 })
   // Up or down it rests where a list says (useCardPlace), and always clear of the line.
-  const clear = useClear()
+  const clear = useClear(() => rest?.get() ?? 0)
   const y = useTransform(() => (rest?.get() ?? 0) + clear.y.get())
   return (
     <div className="relative h-full w-full">

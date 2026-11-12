@@ -1,4 +1,4 @@
-import { Fragment, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { Fragment, createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { dragWords } from '@/lib/drag-words'
 import { createPortal } from 'react-dom'
 import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
@@ -109,9 +109,17 @@ const carriedOf = (id: string, event: Event): Lift | null => {
   // Its list's own part of the page: the nearest thing round it that holds another row.
   let within = node.parentElement
   while (within && within !== document.body && within.querySelectorAll('[data-sortable-id]').length < 2) within = within.parentElement
-  return { id, title: titleOf(node), icon: icon?.outerHTML, grab: x - box.left, from: x, top: y - box.top, tall: box.height, within }
+  // In the hand a row is its one line (carry.tsx marks it, main.css folds what hangs under it): how tall that is, read
+  // here at the press, while nothing else on the page has changed, so the lift itself is drawn once and reads nothing.
+  let folded = box.height
+  if (node.querySelector('.mf-held-folds')) {
+    node.setAttribute('data-held', '')
+    folded = node.getBoundingClientRect().height
+    node.removeAttribute('data-held')
+  }
+  return { id, title: titleOf(node), icon: icon?.outerHTML, grab: x - box.left, from: x, top: y - box.top, tall: box.height, folded, within }
 }
-type Lift = { id: string; title: string; icon?: string; grab: number; from: number; /** How far down the row it was taken, and how tall the row was then. */ top: number; tall: number; within: HTMLElement | null }
+type Lift = { id: string; title: string; icon?: string; grab: number; from: number; /** How far down the row it was taken, how tall the row was then, and how tall it is folded in the hand. */ top: number; tall: number; folded: number; within: HTMLElement | null }
 
 function Lifted({ shot, axis = 'y', words, refused, at }: { shot: Lift; axis?: 'x' | 'y'; /** What letting go here does. */ words?: string | null; refused?: boolean; at?: number }): React.JSX.Element {
   return (
@@ -205,12 +213,6 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
   }
   const read = useRef((): void => undefined)
   const { rested, undwell } = useRest(() => read.current())
-  // In the hand a row folds to its one line (CarryRow marks it, main.css folds it): its room is that tall, read once it has folded.
-  useLayoutEffect(() => {
-    if (!shot) return
-    const node = (shot.within ?? document).querySelector(`[data-sortable-id="${CSS.escape(shot.id)}"]`)
-    if (node) setSpan(node.getBoundingClientRect().height)
-  }, [shot])
   // Sideways the list's own drag says nothing (it goes up and down only): along a row of tabs the pointer itself is followed.
   // Only a move that is sideways alone: up or down the drag itself says, and reading twice a move cost frames in a long list.
   const tabs = !!places
@@ -288,7 +290,7 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
     start(String(active.id), null)
     carrying.current = lift
     setShot(lift)
-    setSpan(lift?.tall ?? 0)
+    setSpan(lift?.folded ?? 0)
   }
   const onDragEnd = ({ active }: DragEndEvent): void => {
     const now = aimed.current
