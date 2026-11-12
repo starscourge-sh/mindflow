@@ -221,7 +221,7 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
     <div data-hover-quiet ref={(node) => { box.current = node; if (sideways) row.ref(node) }} {...hover.handlers} style={sideways ? row.style : undefined}
       className={`relative isolate flex gap-x-1 gap-y-0.5 ${sideways ? row.className : ''} ${className}`}>
       {single && <Highlight spot={chosen.spot} snap={chosen.snap} travel={spring.moderate} className="rounded-full bg-accent" />}
-      <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="rounded-full bg-accent/50" />
+      <Highlight light={hover.light} className="rounded-full bg-accent/50" />
       {options.map((option) => (
         <Tip key={option.id} label={option.tip ?? ''}>
         <button
@@ -404,7 +404,7 @@ export function FilterChips<T>({ view, onChange, facets, defaults = {}, quick = 
     // One line that scrolls sideways, fading where there is more, never wrapping under itself.
     // Only a chip itself toggles: a click in the space beside one does nothing (the light's own click-through is left out here).
     <div data-hover-quiet data-filter-chips ref={(node) => { box.current = node; if (!wrap) row.ref(node) }} {...hover.handlers} onClick={undefined} style={wrap ? undefined : row.style} className={`isolate flex min-w-0 items-center gap-1 text-xs ${extra ? 'flex-1' : ''} ${wrap ? 'relative flex-wrap gap-y-1' : row.className} ${extra ? '' : className}`}>
-      <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="rounded-full bg-accent/60" />
+      <Highlight light={hover.light} className="rounded-full bg-accent/60" />
       {/* Chosen filters from other facets first; the quick facet's options
           stay in their own order whether on or off, so a click never moves
           the chip out from under the pointer. */}

@@ -74,7 +74,7 @@ export function EarlierPages({ scale, current, onPick }: { scale: 'week' | 'mont
     <section className="mt-16 border-t pt-8" aria-label={scale === 'week' ? 'Earlier weeks' : 'Earlier months'}>
       <h2 className={`mb-5 text-center text-title font-normal text-foreground ${SERIF}`}>{scale === 'week' ? 'Earlier weeks' : 'Earlier months'}</h2>
       <ol ref={cards} data-hover-quiet {...hover.handlers} className="relative isolate grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(11.5rem,1fr))]">
-        <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="rounded-xl bg-accent/45" />
+        <Highlight light={hover.light} className="rounded-xl bg-accent/45" />
         {past.map((issue, index) => {
           const headline = scale === 'week' ? issue.fields.theme || firstLine(issue.fields.summary) : issue.fields.season || issue.fields.focus
           const date = scale === 'week' ? `Week ${weekOfYear(issue.start)}` : dayjs(issue.start).format("MMM 'YY")

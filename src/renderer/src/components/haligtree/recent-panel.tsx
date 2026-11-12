@@ -127,7 +127,7 @@ export function RecentPanel({ until, onOpen, onClose, className = '' }: {
       </header>
       {several.bar && <div data-pick-bar className="shrink-0 border-b px-2 py-1.5">{several.bar}</div>}
       <div ref={rows} {...hover.handlers} className="mf-more relative isolate min-h-0 flex-1 overflow-y-auto px-1.5 pb-3">
-        <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} />
+        <Highlight light={hover.light} />
         {list && !list.length && (
           <p className="px-2 py-4 text-control text-muted-foreground">
             <Typed text={until ? 'Nothing was made that week.' : `Nothing made in the last ${days === 1 ? 'day' : `${days} days`}. What you capture, keep or plan shows here, newest first.`} step={28} />
@@ -217,7 +217,7 @@ export function HistoryPanel({ fresh, onOpen, onClose, className = '' }: {
       </header>
       <p className="shrink-0 px-3.5 pt-2.5 text-control text-muted-foreground">Notes, books and pages you opened, in any tab or window.</p>
       <div ref={rows} {...hover.handlers} className="mf-more relative isolate min-h-0 flex-1 overflow-y-auto px-1.5 pb-3">
-        <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} />
+        <Highlight light={hover.light} />
         {list && !list.length && (
           <p className="px-2 py-4 text-control text-muted-foreground">
             <Typed text="Nothing opened yet. What you open, in any tab, shows here, newest first." step={28} />

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { AnimatePresence, motion, useReducedMotion, type Transition } from 'motion/react'
 import { flushSync } from 'react-dom'
 import { cn } from '@/lib/cn'
-import { byKeys, spring, WEIGHT } from '@/lib/motion'
+import { byKeys, spring, still, WEIGHT } from '@/lib/motion'
 
 /**
  * One light per list that glides to whichever row is nearest the pointer, so
@@ -49,9 +49,11 @@ const shown = (el: HTMLElement): boolean => el.offsetWidth > 0 || el.offsetHeigh
  * view. While the window is hidden there are no frames, so it measures at once
  * instead of waiting for one.
  */
-function useReflow(box: RefObject<HTMLElement | null>, then: () => void): void {
+function useReflow(box: RefObject<HTMLElement | null>, then: () => void, /** Told the moment a change is heard, before the frame: what was measured is out of date. */ stale?: () => void): void {
   const call = useRef(then)
   call.current = then
+  const old = useRef(stale)
+  old.current = stale
   const watching = useRef<{ el: HTMLElement; stop: () => void } | null>(null)
   // After every commit, but it only starts over when the list itself is new.
   useEffect(() => {
@@ -62,6 +64,7 @@ function useReflow(box: RefObject<HTMLElement | null>, then: () => void): void {
     if (!el) return
     let frame = 0
     const soon = (): void => {
+      old.current?.()
       cancelAnimationFrame(frame)
       if (document.hidden) return call.current()
       frame = requestAnimationFrame(() => call.current())
@@ -119,36 +122,168 @@ function useReflow(box: RefObject<HTMLElement | null>, then: () => void): void {
   }, [])
 }
 
+/** How long the pointer's light takes to reach the next row: two frames at 60 a second, so it is wholly there within 50ms of the pointer. */
+const GLIDE_MS = 32
+/** The light coming in on a row, and going out as the pointer leaves the list. */
+const FADE_MS = 32
+/** A glide starts this far along its way, so the light is seen to move in the very frame the pointer crossed over. */
+const LEAD = 0.35
+/** The glide's curve (ease-out cubic), once for the browser and once for working out where the light is part way. */
+const GLIDE_EASE = 'cubic-bezier(0.215, 0.61, 0.355, 1)'
+const eased = (p: number): number => 1 - (1 - p) ** 3
+const between = (a: Spot, b: Spot, p: number): Spot => ({
+  top: a.top + (b.top - a.top) * p,
+  left: a.left + (b.left - a.left) * p,
+  width: a.width + (b.width - a.width) * p,
+  height: a.height + (b.height - a.height) * p
+})
+
+/**
+ * The light a pointer carries over a list, moved by hand: the pointer's own
+ * event places it with the browser's animations (a transform and a fade, run
+ * off the page's thread), and React draws nothing for it. Held in state, it
+ * drew its whole owner again for every row the pointer crossed (the sidebar's
+ * owner is the main window itself) and set off a second later, which is what
+ * made it trail the hand.
+ */
+export type Light = {
+  /** Given to the light's element as its ref. */
+  mount: (el: HTMLElement | null) => void
+  /** Go to `spot` (null: the pointer has left). `snap` arrives at once, as rows moving under a resting light do. */
+  to: (spot: Spot | null, snap: boolean, danger?: boolean) => void
+}
+
+export function makeLight(): Light {
+  let el: HTMLElement | null = null
+  // Where it rests or is going; null while the pointer is away.
+  let at: Spot | null = null
+  // The size the box is drawn at: a glide stretches it to each row by its transform, and at rest it takes the row's own.
+  let base = { width: -1, height: -1 }
+  let flight: { from: Spot; to: Spot; began: number } | null = null
+  let move: Animation | null = null
+  let fade: Animation | null = null
+  const drawn = (spot: Spot): string => `translate(${spot.left}px, ${spot.top}px) scale(${spot.width / base.width}, ${spot.height / base.height})`
+  /** Where it is drawn this moment, worked out from the glide's own clock rather than asked of the page. */
+  const now = (): Spot | null => {
+    if (!flight) return at
+    const p = (performance.now() - flight.began) / GLIDE_MS
+    return p >= 1 ? flight.to : between(flight.from, flight.to, eased(Math.max(0, p)))
+  }
+  /** There at once, at the row's own size. */
+  const put = (spot: Spot): void => {
+    if (!el) return
+    move?.cancel()
+    move = null
+    flight = null
+    if (base.width !== spot.width || base.height !== spot.height) {
+      base = { width: spot.width, height: spot.height }
+      el.style.width = `${spot.width}px`
+      el.style.height = `${spot.height}px`
+    }
+    el.style.transform = `translate(${spot.left}px, ${spot.top}px)`
+  }
+  /** How lit it is this moment: part way through a fade, or at its end. */
+  const glow = (): number => {
+    const p = fade?.playState === 'running' ? fade.effect?.getComputedTiming().progress : null
+    return typeof p === 'number' ? (at ? p : 1 - p) : at ? 1 : 0
+  }
+  const fadeTo = (on: boolean): void => {
+    if (!el) return
+    const from = glow()
+    const to = on ? 1 : 0
+    fade?.cancel()
+    fade = null
+    el.style.opacity = String(to)
+    // Motion off: simply there, simply gone. Reduce motion keeps the fade and loses the travel.
+    if (from === to || document.hidden || document.documentElement.dataset.motion === 'off') return
+    fade = el.animate({ opacity: [from, to] }, { duration: FADE_MS * Math.abs(to - from), easing: 'linear' })
+  }
+  return {
+    mount(node) {
+      if (node === el) return
+      move?.cancel()
+      fade?.cancel()
+      move = fade = flight = null
+      el = node
+      base = { width: -1, height: -1 }
+      if (el && at) (put(at), (el.style.opacity = '1'))
+    },
+    to(spot, snap, danger = false) {
+      if (!el) return void (at = spot)
+      if (!spot) {
+        if (!at) return
+        fadeTo(false)
+        at = null
+        return
+      }
+      el.toggleAttribute('data-danger', danger)
+      if (!at) {
+        // The pointer just come in: the light fades in on the row under it, never sliding over from where it last was.
+        const was = glow()
+        // Already a little lit in its first frame, as a glide is already on its way.
+        const from = was + (1 - was) * LEAD
+        put(spot)
+        at = spot
+        fade?.cancel()
+        fade = null
+        el.style.opacity = '1'
+        if (was < 1 && !document.hidden && document.documentElement.dataset.motion !== 'off') fade = el.animate({ opacity: [from, 1] }, { duration: FADE_MS * (1 - was), easing: 'linear' })
+        return
+      }
+      if (same(at, spot)) return
+      const here = now() ?? spot
+      at = spot
+      // More than a row behind (a fast sweep, a jump over a gap), it goes straight there: the light is never
+      // seen on a row the pointer left long ago.
+      const far =
+        Math.abs(spot.top + spot.height / 2 - here.top - here.height / 2) > (spot.height + here.height) * 0.75 ||
+        Math.abs(spot.left + spot.width / 2 - here.left - here.width / 2) > (spot.width + here.width) * 0.75
+      if (snap || far || document.hidden || still()) return put(spot)
+      const from = between(here, spot, LEAD)
+      move?.cancel()
+      // Its place is written at once and the glide played over it, so when the glide ends nothing is handed back.
+      el.style.transform = drawn(spot)
+      flight = { from, to: spot, began: performance.now() }
+      const glide = (move = el.animate({ transform: [drawn(from), drawn(spot)] }, { duration: GLIDE_MS, easing: GLIDE_EASE }))
+      // At rest on a row of another size it takes that size (its corners round again).
+      glide.onfinish = () => void (move === glide && at && put(at))
+    }
+  }
+}
+
 type FluidHover = {
-  /** Where the light is, or null while the pointer is away. */
-  spot: Spot | null
-  /** Counts each time the pointer comes in, so the light fades in where it lands instead of sliding over from where it last was. */
-  session: number
-  /** True when the rows moved under a resting light (a fold, a reflow): it follows at once rather than travelling. */
-  snap: boolean
+  /** The list's light: hand it to `<Highlight light>`. */
+  light: Light
   handlers: {
     onMouseMove: (event: React.MouseEvent) => void
-    onMouseEnter: () => void
     onMouseLeave: () => void
+    onPointerDown: (event: React.PointerEvent) => void
     onClick: (event: React.MouseEvent) => void
   }
 }
+
+const OFF = ':disabled, [aria-disabled="true"]'
 
 /**
  * The light for the list in `box`: its rows are what `items` finds there.
  * Pointed into a gap, the nearest row lights (`axis` says nearest along what:
  * y for a column, x for a strip, xy for rows that wrap), and a click there
  * goes to that row. The lit row carries `data-fluid-hover-active`, so it can
- * look pointed at too (its icon in colour, its text in full).
+ * look pointed at too (its icon in colour, its text in full). None of this is
+ * React state: a pointer crossing rows draws no component again.
  */
 export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis = 'y' }: { items: string; axis?: 'x' | 'y' | 'xy' }): FluidHover {
-  const [lit, setLit] = useState<{ el: HTMLElement; spot: Spot; snap: boolean } | null>(null)
-  const [session, setSession] = useState(0)
+  const [light] = useState(makeLight)
   const pointer = useRef<{ x: number; y: number } | null>(null)
-  const entered = useRef(false)
-  const frame = useRef(0)
   const litRef = useRef<HTMLElement | null>(null)
-  litRef.current = lit?.el ?? null
+  // Each row's place, measured once and kept until the list next changes size or place (useReflow says when): a
+  // pointer crossing rows it has crossed before reads nothing from the page, so no move ever lays the page out.
+  const [spots] = useState(() => new Map<HTMLElement, Spot>())
+  const spotFor = useCallback((row: HTMLElement, el: HTMLElement): Spot => {
+    let spot = spots.get(row)
+    if (!spot) spots.set(row, (spot = spotOf(row, el)))
+    return spot
+  }, [spots])
 
   const pick = useCallback((x: number, y: number): HTMLElement | null => {
     const el = box.current
@@ -164,8 +299,9 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
     // width bar) is no one's, so a click out there picks nothing.
     const reach = { left: Infinity, top: Infinity, right: -Infinity, bottom: -Infinity }
     for (const row of el.querySelectorAll<HTMLElement>(items)) {
-      if (!shown(row) || row.matches(':disabled, [aria-disabled="true"]')) continue
-      const s = spotOf(row, el)
+      const s = spotFor(row, el)
+      // A row on show (one folded away has no size), and one that can be pressed.
+      if ((!s.width && !s.height) || row.matches(OFF)) continue
       const inside = px >= s.left && px <= s.left + s.width && py >= s.top && py <= s.top + s.height
       if (inside) return row
       reach.left = Math.min(reach.left, s.left)
@@ -183,46 +319,56 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
     const SLACK = 6
     if (px < reach.left - SLACK || px > reach.right + SLACK || py < reach.top - SLACK || py > reach.bottom + SLACK) return null
     return nearest
-  }, [box, items, axis])
+  }, [box, items, axis, spotFor])
 
-  const light = useCallback((row: HTMLElement | null, snap: boolean): void => {
+  /** The row the pointer is straight on, told from what it touched: nothing is measured for it. */
+  const under = useCallback((target: Element): HTMLElement | null => {
     const el = box.current
-    setLit((was) => {
-      if (!row || !el) return null
-      const spot = spotOf(row, el)
-      return was && was.el === row && same(was.spot, spot) ? was : { el: row, spot, snap }
-    })
-  }, [box])
+    if (!el) return null
+    // `:scope` means the list itself, which only the list can answer.
+    const row = items.includes(':scope')
+      ? ([...el.querySelectorAll<HTMLElement>(items)].find((one) => one.contains(target)) ?? null)
+      : target.closest<HTMLElement>(items)
+    return row && el.contains(row) && !row.matches(OFF) ? row : null
+  }, [box, items])
+
+  const lightOn = useCallback((row: HTMLElement | null, snap: boolean): void => {
+    const el = box.current
+    const was = litRef.current
+    if (!row || !el) {
+      was?.removeAttribute('data-fluid-hover-active')
+      litRef.current = null
+      return light.to(null, false)
+    }
+    // Read (if it must be) before anything is written, so the page is never laid out for it.
+    const spot = spotFor(row, el)
+    if (was !== row) {
+      // Said in the page too, for the lit row's own look and for tests to read.
+      was?.removeAttribute('data-fluid-hover-active')
+      row.setAttribute('data-fluid-hover-active', '')
+      litRef.current = row
+    }
+    light.to(spot, snap, row.dataset.variant === 'destructive')
+  }, [box, light, spotFor])
 
   // The rows moved under the light: it follows them at once, or picks again if its row went.
   useReflow(box, () => {
     const row = litRef.current
     if (!row) return
-    if (row.isConnected && shown(row)) return light(row, true)
-    light(pointer.current ? pick(pointer.current.x, pointer.current.y) : null, true)
-  })
+    if (row.isConnected && shown(row)) return lightOn(row, true)
+    lightOn(pointer.current ? pick(pointer.current.x, pointer.current.y) : null, true)
+  }, () => spots.clear())
 
-  // Said in the page too, for the lit row's own look and for tests to read.
-  useEffect(() => {
-    const row = lit?.el
-    const el = box.current
-    if (!row || !el) return el?.removeAttribute('data-fluid-hover-active-index')
-    row.setAttribute('data-fluid-hover-active', '')
-    el.setAttribute('data-fluid-hover-active-index', String([...el.querySelectorAll(items)].indexOf(row)))
-    return () => row.removeAttribute('data-fluid-hover-active')
-  }, [lit?.el, box, items])
-
-  useEffect(() => () => cancelAnimationFrame(frame.current), [])
   // The window put away or left with the pointer still on a row never hears it leave:
   // the light goes then, so it is not waiting, stale, on a row nobody points at when the window is back.
   useEffect(() => {
-    const away = (): void => void ((pointer.current = null), light(null, false))
+    const away = (): void => void ((pointer.current = null), lightOn(null, false))
     const hidden = (): void => void (document.hidden && away())
     addEventListener('blur', away)
     document.addEventListener('visibilitychange', hidden)
     const offHiding = window.api?.onHiding?.(away)
-    return () => (removeEventListener('blur', away), document.removeEventListener('visibilitychange', hidden), offHiding?.())
-  }, [light])
+    return () => (removeEventListener('blur', away), document.removeEventListener('visibilitychange', hidden), offHiding?.(), void litRef.current?.removeAttribute('data-fluid-hover-active'))
+  }, [lightOn])
 
   const pressedRow = useRef(false)
   const handlers = {
@@ -231,21 +377,14 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
       if (!(event.currentTarget as Node).contains(event.target as Node)) return
       const { clientX: x, clientY: y } = event
       pointer.current = { x, y }
-      cancelAnimationFrame(frame.current)
-      frame.current = requestAnimationFrame(() => {
-        const row = pick(x, y)
-        if (entered.current && row !== litRef.current) {
-          entered.current = false
-          setSession((n) => n + 1)
-        }
-        light(row, false)
-      })
+      const on = under(event.target as Element)
+      // Still on the lit row: nothing to do, and nothing read.
+      if (on && on === litRef.current) return
+      lightOn(on ?? pick(x, y), false)
     },
-    onMouseEnter: () => void (entered.current = true),
     onMouseLeave: () => {
-      cancelAnimationFrame(frame.current)
       pointer.current = null
-      light(null, false)
+      lightOn(null, false)
     },
     // Pressed on a row and let go elsewhere (a row dragged, or a drag put back with Esc), the click lands between rows: it is no click on the lit one.
     onPointerDown: (event: React.PointerEvent) => void (pressedRow.current = !!(event.target as Element).closest?.(items)),
@@ -259,7 +398,7 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
       row.click()
     }
   }
-  return { spot: lit?.spot ?? null, session, snap: lit?.snap ?? false, handlers }
+  return { light, handlers }
 }
 
 /**
@@ -307,28 +446,32 @@ export function useChosen(box: RefObject<HTMLElement | null>, selector: string, 
   return chosen
 }
 
+const LIGHT = 'pointer-events-none absolute top-0 left-0 -z-10 origin-top-left rounded-md bg-accent/60'
+
 /**
  * The light itself, drawn behind the rows: the list holding it is `relative
  * isolate`, so it sits under every row without each needing a place of its
  * own. It moves on a transform alone, on the compositor: a box the size of the
  * row it started on, moved and scaled to each row it travels to, and quietly
  * given its row's own size once it rests there. With Reduce motion it only fades.
+ *
+ * Two kinds. A pointer's light (`light`, from useFluidHover) is one element
+ * that stays in the page, moved by the pointer's own events. The mark of what
+ * is chosen (`spot`, from useChosen) changes only when the choice does, and is
+ * drawn from state.
  */
-export function Highlight({ spot, session = 0, snap, travel = spring.fast, className }: {
-  spot: Spot | null
-  session?: number
-  snap?: boolean
-  travel?: Transition
-  className?: string
-}): React.JSX.Element {
-  const still = useReducedMotion()
+export function Highlight(props: { light: Light; className?: string } | { spot: Spot | null; snap?: boolean; travel?: Transition; className?: string }): React.JSX.Element {
+  if ('light' in props) return <div ref={props.light.mount} aria-hidden data-glide="" className={cn(LIGHT, 'opacity-0', props.className)} />
+  return <Chosen {...props} />
+}
+
+function Chosen({ spot, snap, travel = spring.fast, className }: { spot: Spot | null; snap?: boolean; travel?: Transition; className?: string }): React.JSX.Element {
+  const calm = useReducedMotion()
   // No frames run in a hidden window: a glide started there would be left part
   // way, so it arrives at once.
-  const now = snap || still || (typeof document !== 'undefined' && document.hidden)
-  // The size the box is drawn at, fixed for a visit; the transform stretches it to each row.
+  const now = snap || calm || (typeof document !== 'undefined' && document.hidden)
+  // The size the box is drawn at; the transform stretches it to each row.
   const base = useRef<{ width: number; height: number } | null>(null)
-  const visit = useRef(session)
-  if (visit.current !== session) void ((visit.current = session), (base.current = null))
   if (!base.current && spot) base.current = { width: spot.width, height: spot.height }
   const size = base.current ?? { width: 1, height: 1 }
   const at = (one: Spot): { transform: string } => ({ transform: `translate(${one.left}px, ${one.top}px) scale(${one.width / size.width}, ${one.height / size.height})` })
@@ -347,13 +490,10 @@ export function Highlight({ spot, session = 0, snap, travel = spring.fast, class
     <AnimatePresence>
       {spot && (
         <motion.div
-          key={session}
           aria-hidden
           data-glide=""
-          className={cn('pointer-events-none absolute top-0 left-0 -z-10 origin-top-left rounded-md bg-accent/60', className)}
+          className={cn(LIGHT, className)}
           style={size}
-          // A fresh light (the pointer just come in) fades in where it lands, on the row under the pointer from
-          // its first frame: grown out of the chosen row, it was drawn on its way there, over rows not pointed at.
           initial={{ opacity: 0, ...at(spot) }}
           animate={{ opacity: 1, ...at(spot) }}
           exit={{ opacity: 0, transition: spring.fast.exit }}

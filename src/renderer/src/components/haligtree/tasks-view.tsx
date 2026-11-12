@@ -1314,7 +1314,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         {!listShown ? null : rows.length ? (
           <Example on={example} tryIt={TRY_TASKS[mode]}>
           <div ref={rowsBox} {...rowsHover.handlers} className="relative isolate">
-          <Highlight spot={rowsHover.spot} session={rowsHover.session} snap={rowsHover.snap} className="bg-accent/25" />
+          <Highlight light={rowsHover.light} className="bg-accent/25" />
           {/* On Today, a row is dragged into your own order, or onto the Upcoming or Later tab. */}
           {/* On every list, a row rested on another's middle becomes its step. */}
           <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined} onNest={example || several.chosen.length ? undefined : nestRow} nests={nests}

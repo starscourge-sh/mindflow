@@ -412,7 +412,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
         </Tip>
       </div>
       <ol ref={rows} {...hover.handlers} className="relative isolate flex flex-col">
-        <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} className="bg-foreground/[0.045]" />
+        <Highlight light={hover.light} className="bg-foreground/[0.045]" />
         {queue.slice(0, 3).map((row, at) => {
           const kind = kindOf(row)
           return (

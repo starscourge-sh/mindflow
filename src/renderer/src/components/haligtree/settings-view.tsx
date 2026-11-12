@@ -609,7 +609,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="App icon" note={`The icon ${APP_NAME} shows in the Dock.`} more="“Leaves” and “Gold leaves” are a gathering of leaves, as a commonplace book gathers the best lines." keywords="app icon dock logo mark gold leaves">
             <div ref={iconRow} {...iconHover.handlers} role="radiogroup" aria-label="App icon" className="relative isolate -mr-1 flex gap-2">
               <Highlight spot={iconChosen.spot} snap={iconChosen.snap} travel={spring.moderate} className="rounded-lg bg-accent" />
-              <Highlight spot={iconHover.spot} session={iconHover.session} snap={iconHover.snap} className="rounded-lg" />
+              <Highlight light={iconHover.light} className="rounded-lg" />
               {([['bronze', 'Leaves', iconBronze], ['gold', 'Gold leaves', iconGold]] as const).map(([id, label, src]) => {
                 const on = (settings.appIcon ?? 'bronze') === id
                 return (

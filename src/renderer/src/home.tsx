@@ -2005,7 +2005,7 @@ export function Home(): React.JSX.Element {
         {/* Rows' previews: once one is up, the next swaps in at once, even after a short pause between rows. */}
         <TooltipProvider delayDuration={600} skipDelayDuration={900}>
         <Highlight spot={sideChosen.spot} snap={sideChosen.snap} travel={spring.moderate} className="bg-accent" />
-        <Highlight spot={sideHover.spot} session={sideHover.session} snap={sideHover.snap} />
+        <Highlight light={sideHover.light} />
         <nav className="flex flex-col gap-px">
           {(() => {
             // Where a promoted capture or a new task flies to (lib/fly-home.ts).

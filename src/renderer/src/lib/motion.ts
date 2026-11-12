@@ -29,8 +29,9 @@ export const EASE = [0.16, 1, 0.3, 1] as const
 /** The same curve as a CSS easing string, for the Web Animations API and inline styles. */
 export const EASING = `cubic-bezier(${EASE.join(', ')})`
 
-/** Reduce motion is on: things still fade, but nothing moves or grows. */
-const reduced = (): boolean => matchMedia('(prefers-reduced-motion: reduce)').matches
+/** Reduce motion is on: things still fade, but nothing moves or grows. Asked of one kept query: the hover light asks on every row crossed. */
+let reduceQuery: MediaQueryList | null = null
+const reduced = (): boolean => (reduceQuery ??= matchMedia('(prefers-reduced-motion: reduce)')).matches
 
 /** Motion off (the app's setting) or Reduce motion (the system's): nothing travels. */
 export const still = (): boolean => document.documentElement.dataset.motion === 'off' || reduced()

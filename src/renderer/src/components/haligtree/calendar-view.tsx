@@ -693,7 +693,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             <IslandBox name="Unscheduled" island={looseIsland} shown={looseShown.length} icon={<CalendarX2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
               {!unscheduled.length && <p className="px-2 py-1.5 text-body text-foreground/85">Every open task has a day.</p>}
               <ul ref={looseBox} {...looseHover.handlers} data-cal-unscheduled className="relative isolate flex flex-col">
-                <Highlight spot={looseHover.spot} session={looseHover.session} snap={looseHover.snap} className="bg-accent/25" />
+                <Highlight light={looseHover.light} className="bg-accent/25" />
                 {looseShown.map((task) => (
                   <li key={task.id}>
                     <RowMenu items={() => taskMenu(task, { open: () => pick(task.id), now: taskNow })}>

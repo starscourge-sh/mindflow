@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn"
 import { openCue } from "@/lib/sound"
 import { blinkThen } from "./menu-blink"
 import { byKeys, markKeyed } from "@/lib/motion"
-import { Highlight, spotOf, type Spot } from "@/components/haligtree/glide"
+import { Highlight, makeLight, spotOf } from "@/components/haligtree/glide"
 import { ContextMenu as ContextMenuPrimitive } from "radix-ui"
 import { notTheOpeningRelease, onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
@@ -84,18 +84,18 @@ function ContextMenuContent({
  */
 export function MenuScroll({ children }: { children: React.ReactNode }): React.JSX.Element {
   const box = React.useRef<HTMLDivElement>(null)
-  const [lit, setLit] = React.useState<{ spot: Spot; snap: boolean; danger: boolean; session: number } | null>(null)
+  // The light is moved by the menu's own events (glide.tsx makeLight): no row crossed draws the menu again.
+  const [light] = React.useState(makeLight)
   const litRow = React.useRef<HTMLElement | null>(null)
   React.useEffect(() => {
     const el = box.current
     if (!el) return
-    let sessions = 0
     const rowOf = (node: EventTarget | null): HTMLElement | null => (node instanceof Element ? node.closest<HTMLElement>('[role^="menuitem"]') : null)
     // A submenu open from here keeps its row lit, wherever the pointer goes on its way there.
     const held = (): boolean => !!el.querySelector('[role^="menuitem"][data-state="open"]')
     const show = (row: HTMLElement, snap: boolean): void => {
       litRow.current = row
-      setLit((was) => ({ spot: spotOf(row, el), snap: snap && !!was, danger: row.dataset.variant === "destructive", session: was ? was.session : ++sessions }))
+      light.to(spotOf(row, el), snap, row.dataset.variant === "destructive")
     }
     const focused = (event: FocusEvent): void => {
       const row = rowOf(event.target)
@@ -118,7 +118,7 @@ export function MenuScroll({ children }: { children: React.ReactNode }): React.J
     const left = (): void => {
       if (held()) return
       litRow.current = null
-      setLit(null)
+      light.to(null, false)
     }
     const clicked = (event: MouseEvent): void => {
       const row = litRow.current
@@ -134,10 +134,10 @@ export function MenuScroll({ children }: { children: React.ReactNode }): React.J
       el.removeEventListener("pointerleave", left)
       el.removeEventListener("click", clicked)
     }
-  }, [])
+  }, [light])
   return (
     <div ref={box} data-menu-scroll className="mf-more relative isolate min-h-0 overflow-x-hidden overflow-y-auto overscroll-contain p-1">
-      <Highlight spot={lit?.spot ?? null} session={lit?.session} snap={lit?.snap} className={lit?.danger ? "bg-destructive/10 dark:bg-destructive/20" : "bg-accent"} />
+      <Highlight light={light} className="bg-accent data-[danger]:bg-destructive/10 dark:data-[danger]:bg-destructive/20" />
       {children}
     </div>
   )

@@ -45,7 +45,7 @@ export function SectionTabs({ sections, section, pick, searching = false, label,
       }}
     >
       <Highlight spot={chosen.spot} snap={chosen.snap} travel={spring.moderate} className="bg-accent" />
-      <Highlight spot={hover.spot} session={hover.session} snap={hover.snap} />
+      <Highlight light={hover.light} />
       {sections.map((one) => {
         const on = !searching && section === one.title
         return (
