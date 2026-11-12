@@ -82,10 +82,9 @@ try {
     await startOnDay(h, cell, 'task')
     await h.keyboard.press('Escape'); await h.waitForTimeout(500)
     check(`${theme}: Esc closes it`, await h.locator(`${P}, ${S}`).count() === 0)
-    // A chip opens the same page.
-    const chip = h.locator(`${M} [data-plan-task]`, { hasText: `cal5 again ${theme}` }).first()
-    await chip.click(); await h.waitForTimeout(1000)
-    check(`${theme}: a chip opens the same task page`, await h.locator(`${S}[data-day-side="task"] [data-open="${two.id}"] [contenteditable="true"]`).count() > 0)
+    // Another task's line opens the same page: a double-click on it, then "Open" in its popover (a click alone picks it).
+    await openFromMonth(h, two.id, `cal5 again ${theme}`)
+    check(`${theme}: another task's line opens the same task page`, await h.locator(`${S}[data-day-side="task"] [data-open="${two.id}"] [contenteditable="true"]`).count() > 0)
     await h.locator(S).focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(500)
 
     // A slot on the Calendar says its time before it is made, and keeps it: a double-click there, turned to Task.
