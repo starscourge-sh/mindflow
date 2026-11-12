@@ -213,7 +213,10 @@ if (on('switch')) {
       const list = await choices(c)
       check('it opens the books as ⌘K’s own second step, the open one left out', list.length === 2 && list[0].words === 'My book' && list[1].words === 'Reading' && list[0].lit, JSON.stringify(list))
       check('no box for switching: the list is inside ⌘K', (await count(c, BOX)) === 0 && (await count(c, PALETTE)) === 1)
-      check('each book in ⌘K’s list wears its mark', list.every((one) => !!one.mark), JSON.stringify(list.map((one) => one.mark)))
+      check('each book in ⌘K’s list wears its mark', list.length > 0 && list.every((one) => !!one.mark), JSON.stringify(list.map((one) => one.mark)))
+      // The first choice is the one ↵ takes: its words must be drawn over the light under the rows, not under it.
+      const over = await c.h.evaluate((box) => { const row = document.querySelector(`${box} [data-choice-at]`); const light = row?.parentElement?.firstElementChild; return { row: row ? getComputedStyle(row).position : null, light: light ? `${getComputedStyle(light).position} z ${getComputedStyle(light).zIndex}` : null, after: !!row && !!light && !!(light.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING) } }, PALETTE)
+      check('the lit choice’s words are drawn over its light (the first one is the one ↵ takes)', over.row === 'relative' && over.after, JSON.stringify(over))
       await picture(c, 'cmdk-switch-light')
       // Typing narrows it.
       await c.h.keyboard.type('read')
@@ -298,6 +301,20 @@ if (on('colour')) {
     check('a book’s mark is an icon, never a dot', rows.length >= 3 && rows.every((one) => one.mark && one.dots === 0), JSON.stringify(rows.map((one) => [one.name, one.hue, one.dots])))
     check('in the book’s colour, or the theme’s accent when it has none', mine(work)?.mark === green && mine('default')?.mark === accent && mine(reading)?.mark === accent, JSON.stringify({ work: mine(work)?.mark, green, mine: mine('default')?.mark, accent }))
     await picture(c, 'menu-light')
+    {
+      const row = await c.h.locator(`${MENU} [data-book="${work}"]`).boundingBox()
+      await c.h.mouse.move(row.x + 30, row.y + row.height / 2); await c.h.mouse.move(row.x + 42, row.y + row.height / 2)
+      await c.h.waitForTimeout(250)
+      const lit = await c.h.$eval(`${MENU} [data-book="${work}"]`, (one) => ({ lit: one.hasAttribute('data-highlighted'), lines: [...one.querySelectorAll('svg[data-book-mark] *')].map((part) => getComputedStyle(part).stroke) }))
+      check('a mark keeps its colour while its row is lit', lit.lit && lit.lines.length > 0 && lit.lines.every((one) => one === green), JSON.stringify(lit))
+    }
+    await shut(c)
+    // ⌘K's other second step, the themes: its lit row's words over the light too (Esc puts the theme back).
+    await palette(c, 'change theme')
+    await c.h.keyboard.press('Enter')
+    await c.h.waitForTimeout(400)
+    const themeRow = await c.h.evaluate(() => { const row = document.querySelector('[data-theme-at]'); return row ? getComputedStyle(row).position : null })
+    check('⌘K’s theme list draws its lit row’s words over the light too', themeRow === 'relative', String(themeRow))
     await shut(c)
 
     // 1. Settings: “Your book”, first group, this book first.
@@ -365,6 +382,9 @@ if (on('colour')) {
     // 3. A right-click on the book, in the sidebar's menu.
     await openFoot(c)
     await c.h.click(`${MENU} [data-book="default"]`, { button: 'right' })
+    // Two frames on: the book's own menu is up, and the menu it was in is already gone (no fade left under it).
+    const swap = await c.h.evaluate(([menu, own]) => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(() => { const under = document.querySelector(menu); done({ own: !!document.querySelector(own), under: under ? getComputedStyle(under).display : 'gone' }) }))), [MENU, OWN])
+    check('the menu it was in is gone in the same frames the book’s own menu comes: nothing fades under it', swap.own && (swap.under === 'gone' || swap.under === 'none'), JSON.stringify(swap))
     await c.h.waitForSelector(OWN, { timeout: 4000 })
     await c.h.waitForTimeout(350)
     const own = await c.h.evaluate((s) => { const menu = document.querySelector(s); return { words: [...menu.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()), heading: menu.querySelector('[data-slot="context-menu-label"]')?.textContent ?? menu.textContent.slice(0, 40), swatches: [...menu.querySelectorAll('[role="menuitemradio"]')].map((one) => [one.getAttribute('aria-label'), one.getAttribute('aria-checked')]) } }, OWN)
@@ -643,15 +663,17 @@ if (PART === 'shots' && shots) {
       await c.h.waitForTimeout(600)
       await picture(c, `${look}-4-box-copy`)
       await shut(c)
-      // Settings: “Your book”, and a sibling section.
+      // Settings: “Your book” (a book copied while its Settings stood elsewhere opens there), and a sibling section.
       await c.go('settings')
       await c.h.waitForTimeout(700)
+      await c.h.locator('button', { hasText: 'Your book' }).first().click()
+      await c.h.waitForTimeout(700)
       await picture(c, `${look}-5-settings-your-book`)
-      await c.h.evaluate(() => [...document.querySelectorAll('button')].find((one) => one.textContent.trim() === 'Import and backups')?.click())
+      await c.h.locator('button', { hasText: 'Import and backups' }).first().click()
       await c.h.waitForTimeout(700)
       await picture(c, `${look}-5-settings-sibling`)
-      await c.h.evaluate(() => [...document.querySelectorAll('button')].find((one) => one.textContent.trim() === 'Your book')?.click())
-      await c.h.waitForTimeout(500)
+      await c.h.locator('button', { hasText: 'Your book' }).first().click()
+      await c.h.waitForTimeout(600)
       // A colour picked: what wears it turns in place, frame by frame.
       const next = here.color === 'pink' ? 'blue' : 'pink'
       await c.h.click(`[data-setting-anchor="book:${here.id}"] [data-hue="${next}"]`)

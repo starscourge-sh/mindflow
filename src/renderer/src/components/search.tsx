@@ -554,7 +554,9 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                   // By its place too: two books may share a name.
                   key={`${index}:${one.label}`}
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
+                  // `relative`: drawn over the light under the rows, as an action's row is. Without it the lit choice's
+                  // words were painted under the light, so the first choice (the one ↵ takes) showed as an empty band.
+                  className="relative flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
                   data-choice=""
                   data-choice-at={index === choiceAt || undefined}
                   onMouseMove={(event) => realMove(event) && setChoiceAt(index)}
@@ -572,7 +574,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                 <button
                   key={one}
                   type="button"
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
+                  className="relative flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
                   data-theme-at={index === themeAt || undefined}
                   // Only a mouse that really moves: a repaint under a resting
                   // cursor would otherwise pull the highlight back to it.

@@ -1083,6 +1083,8 @@ export function Home(): React.JSX.Element {
   // The menu under the book's name, opened and shut from here: a right-click on one of its books shuts it as
   // that book's own menu opens where it was pressed, so there is never one menu left up under another.
   const [footMenu, setFootMenu] = useState(false)
+  // Shut that way it is gone at once: its 60ms fade would show for a moment under the book's own menu.
+  const [footCut, setFootCut] = useState(false)
   const bookMenuAt = useRef<HTMLSpanElement>(null)
   const bookMenuFor = useRef<Book | null>(null)
   const footGave = useRef(false)
@@ -1091,6 +1093,7 @@ export function Home(): React.JSX.Element {
     if (!book) return
     bookMenuFor.current = book
     footGave.current = footMenu
+    if (footMenu) setFootCut(true)
     setFootMenu(false)
     bookMenuAt.current?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: event.clientX, clientY: event.clientY, button: 2 }))
   }
@@ -2547,7 +2550,7 @@ export function Home(): React.JSX.Element {
           <RowMenu items={() => { const book = bookMenuFor.current ?? openBook; return book ? bookMenu(book, (rename) => setView({ id: 'settings', focus: `${rename ? 'book-rename' : 'book'}:${book.id}`, nonce: Date.now() })) : [] }}>
             <span ref={bookMenuAt} aria-hidden data-book-menu-at className="pointer-events-none fixed top-0 left-0 size-0" />
           </RowMenu>
-          <DropdownMenu modal={false} open={footMenu} onOpenChange={setFootMenu}>
+          <DropdownMenu modal={false} open={footMenu} onOpenChange={(open) => (open && setFootCut(false), setFootMenu(open))}>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label={`${APP_NAME} menu`} onContextMenu={(event) => openBookMenu(event, openBook)}
                 className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
@@ -2556,7 +2559,7 @@ export function Home(): React.JSX.Element {
                 {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-60"
+            <DropdownMenuContent side="top" align="start" className={`w-60 ${footCut ? 'data-[state=closed]:hidden' : ''}`}
               // Shut by a right-click on one of its books: the keys go to that book's menu, not back to the button.
               onCloseAutoFocus={(event) => { if (footGave.current) (footGave.current = false, event.preventDefault()) }}>
               {/* Each row's card beside the menu: what it does, before you choose it. A book's says its whole name, however long. */}

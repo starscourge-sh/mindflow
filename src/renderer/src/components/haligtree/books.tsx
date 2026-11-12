@@ -34,7 +34,9 @@ export async function askNewBook(): Promise<void> {
  * as radio buttons.
  */
 export function BookMark({ hue, className = 'size-3.5' }: { hue: Hue | null; className?: string }): React.JSX.Element {
-  return <BookIcon aria-hidden data-book-mark={hue ?? 'none'} className={`shrink-0 ${className}`} style={{ color: markInk(hue) }} />
+  // The stroke said outright as well as the colour: a lit menu row turns the `color` of everything inside it to
+  // the lit ink, and an icon's lines take `currentColor` from themselves, so the mark went to ink under the pointer.
+  return <BookIcon aria-hidden data-book-mark={hue ?? 'none'} className={`shrink-0 ${className}`} style={{ color: markInk(hue), stroke: markInk(hue) }} />
 }
 
 /** The nine a book can wear, the theme's own first, as every picker of them names and paints them. */
