@@ -3491,10 +3491,33 @@ if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
     app.on('browser-window-created', (_, win) => virtual.set(win, getBounds.call(win)))
   }
   app.on('browser-window-created', (_, win) => away(win))
+  // Shown and hidden are what the app did, never what the Mac can see. Electron says 'show' and 'hide' as macOS
+  // reports a window visible or covered: with the screen locked (12 Nov, 20:30 to 21:13, the screen saver after an
+  // hour idle) no 'show' ever came, so whatever waited for one waited for good (a sticky made again as glass kept
+  // its old window beside the new: two cards for one goal; the main window's own "shown" was never noted) and three
+  // checks failed on every build until the screen was unlocked. In a test run a window says 'show' once when the app
+  // shows it and 'hide' once when the app hides it, a turn later as the Mac's own word comes; what the Mac says of
+  // either is dropped, so a run reads the same with the screen locked, covered or in view.
+  const up = new WeakSet<BrowserWindow>()
+  const emit = proto.emit as (this: BrowserWindow, name: string | symbol, ...args: unknown[]) => boolean
+  ;(proto as { emit: typeof emit }).emit = function (this: BrowserWindow, name: string | symbol, ...args: unknown[]) {
+    return name === 'show' || name === 'hide' ? false : emit.call(this, name, ...args)
+  }
+  const say = (win: BrowserWindow, name: 'show' | 'hide'): void => {
+    if ((name === 'show') === up.has(win)) return
+    if (name === 'show') up.add(win)
+    else up.delete(win)
+    setImmediate(() => win.isDestroyed() || emit.call(win, name))
+  }
+  // Made already showing (no show() of its own): said once it exists, so its listeners are on by then.
+  const isVisible = proto.isVisible
+  app.on('browser-window-created', (_, win) => setImmediate(() => !win.isDestroyed() && isVisible.call(win) && say(win, 'show')))
   // Shown without show(), parked all the same: the pill, the glow and the stickies call showInactive themselves.
   const showInactive = proto.showInactive
-  proto.showInactive = function (this: BrowserWindow) { away(this); showInactive.call(this) }
-  proto.show = function (this: BrowserWindow) { away(this); showInactive.call(this) }
+  proto.showInactive = function (this: BrowserWindow) { away(this); showInactive.call(this); say(this, 'show') }
+  proto.show = function (this: BrowserWindow) { away(this); showInactive.call(this); say(this, 'show') }
+  const hide = proto.hide
+  proto.hide = function (this: BrowserWindow) { hide.call(this); say(this, 'hide') }
   // Full screen is a Space of its own, past any parking: only what was asked is kept, for the checks to read.
   const full = new WeakMap<BrowserWindow, boolean>()
   proto.setFullScreen = function (this: BrowserWindow, on: boolean) { if (full.get(this) === on) return; full.set(this, on); this.emit(on ? 'enter-full-screen' : 'leave-full-screen') }
