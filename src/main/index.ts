@@ -72,7 +72,7 @@ import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
 import { peopleNow, registerEvents, whenEvents } from './events'
 import { followEvents, forgetAnyway, setSignal, showAnyway, shownAnyway, watchMac, whenMeeting } from './in-meeting'
-import { awayWhy, deskAway } from './meeting-away'
+import { anywayKept, awayWhy, deskAway } from './meeting-away'
 import { registerReadingQueue } from './reading-queue'
 import { registerPractices, whenPracticeOffer } from './practices'
 import { registerIssues } from './issues'
@@ -1617,16 +1617,23 @@ const shield = (win: BrowserWindow): void => (shielded.add(win), protect(win))
  * there again where it was, with no drop, fade or sound: nobody asked for a show.
  */
 function applyStickies(atOnce = false): void {
+  const away = deskIsAway()
   for (const [key, win] of stickies) {
     if (win.isDestroyed()) continue
+    const up = stickyUp(key)
+    // Going away, it is out of sight before anything about it changes shape: a tab at the edge is made its whole
+    // card again below, and that must never be seen on the way out (a call just started).
+    if (!up) win.hide()
+    // Away for a meeting or quiet hours, it keeps the shape it has (a tab stays a tab, its page still drawn as one),
+    // so it is back exactly as it was, with nothing to draw again in front of you.
+    if (!up && away) continue
     // Coming out, each fades in and settles, one after another.
     // A goal's card in its place by the clock, a slim tab or the whole card, before it comes in: it arrives as what it is.
     // Tucked away, every one is a tab (or a flat pill) at the screen's edge.
     shapeCard(key, win)
     // One still drawing comes in by itself once it has (see stick): never shown empty.
-    if (!stickyUp(key)) win.hide()
-    else if (!stickyReady.has(win)) continue
-    else if (atOnce) void (win.isVisible() || (win.setOpacity(1), win.showInactive()))
+    if (!up || !stickyReady.has(win)) continue
+    if (atOnce) void (win.isVisible() || (win.setOpacity(1), win.showInactive()))
     else arriveSticky(win)
   }
   // Named tabs overlap down their edge: each lower one sits over the foot of the one above, as file tabs do.
@@ -1654,8 +1661,9 @@ const deskSaid = (): DeskSaid => ({ why: deskWhy, hidden: deskHidden, seen: meet
 function applyDesk(): void {
   const { meeting, quiet, blackout } = gate()
   const why = awayWhy(meeting, quiet)
-  // “Show anyway”, and what was stuck by hand, last as long as what hid the rest.
-  if (!why) (forgetAnyway(), askedFor.clear())
+  // “Show anyway”, and what was stuck by hand, last only while what hid the rest stays the same: a call starting in
+  // quiet hours hides them again.
+  if (!anywayKept(true, deskWhy, why)) (forgetAnyway(), askedFor.clear())
   const hidden = deskAway(meeting, quiet, shownAnyway())
   const same = why === deskWhy && hidden === deskHidden
   deskWhy = why
@@ -4475,7 +4483,7 @@ function updateTray(): void {
           ...awayItems(),
           // Ticked as they are on the screen; chosen, they come out or go away as the tick now says.
           { label: 'Show sticky notes', type: 'checkbox', checked: stickiesTicked(), accelerator: chordFor('⌃⌥⌘N'), click: (item) => void showStickies(item.checked) },
-          { label: 'Bring them here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
+          { label: 'Bring them here', enabled: !safe && !deskHidden && stickies.size > 0, click: () => gatherStickies() },
           ...(safe ? [] : tuckItems()),
           // Only with a sticky out to tidy; the key does nothing then either.
           ...(!safe && stickiesOut() > 0 ? [{ label: 'Tidy them', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies() }] : []),
@@ -5328,12 +5336,9 @@ app.whenReady().then(() => {
   whenMeeting(applyDesk)
   whenStepAway(applyDesk)
   watchMac()
-  // The sandbox's events are make-believe: they hide nothing (a probe may ask for them to count).
-  if (!SANDBOX || (process.env.HALIGTREE_QA_SIGNALS ?? '').includes('calendar')) {
-    const lookAtEvents = followEvents(peopleNow)
-    whenEvents(lookAtEvents)
-    lookAtEvents()
-  }
+  const lookAtEvents = followEvents(peopleNow)
+  whenEvents(lookAtEvents)
+  lookAtEvents()
   applyDesk()
   ipcMain.handle('desk:away', () => deskSaid())
   ipcMain.on('desk:anyway', (_event, on: unknown) => showAnyway(on !== false))

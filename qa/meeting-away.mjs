@@ -11,8 +11,6 @@ import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
-// The sandbox's events are make-believe and hide nothing; here the book's own events are followed, to test that path.
-process.env.HALIGTREE_QA_SIGNALS ??= 'calendar'
 
 const shots = process.env.SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
@@ -86,7 +84,7 @@ try {
   await wait(300)
   const lines = await menu()
   check('the menu bar says “Hidden for a meeting” with “Show anyway”, beside “Show sticky notes”', lines.includes('Hidden for a meeting') && lines.indexOf('Show anyway') === lines.indexOf('Hidden for a meeting') + 1 && lines.indexOf('Show sticky notes') === lines.indexOf('Show anyway') + 1, lines.slice(-12).join(' | '))
-  check('Settings says what it sees', (await said()).seen === 'A camera is on: stickies and goal cards are hidden', (await said()).seen)
+  check('Settings says what it sees', (await said()).seen === 'A camera is on' && (await said()).hidden === true, JSON.stringify(await said()))
   check('“Show anyway” is there to choose', await choose('Show anyway'))
   await wait(300)
   check('“Show anyway”: they are out again, in the meeting', same(await desk(), rest))
@@ -96,7 +94,6 @@ try {
   check('“Show anyway” was for that meeting only: the next one hides them again', up(await flip('camera', true)) === 0)
 
   // ⌘K has the same, driven to its result.
-  await h.bringToFront().catch(() => undefined)
   await h.keyboard.press('Meta+k')
   await wait(500)
   await h.keyboard.type('sticky notes anyway', { delay: 15 })
@@ -112,7 +109,7 @@ try {
   // The setting off: nothing hides, and it still says what it sees.
   await v('settings:set', { stepAway: false })
   check('“Step away in meetings” off: a signal hides nothing', same(await flip('mic', true), rest))
-  check('and Settings says they stay out', (await said()).seen === 'Another app is using the microphone: stickies and goal cards stay out', (await said()).seen)
+  check('and Settings still says what it sees, with nothing hidden', (await said()).seen === 'Another app has the microphone' && (await said()).hidden === false, JSON.stringify(await said()))
   await v('settings:set', { stepAway: true })
   await wait(200)
   check('switched on in a call: they hide at once', up(await desk()) === 0)
@@ -130,6 +127,26 @@ try {
   check('the meeting over: every one is on the desktop again', up(await desk()) === (await desk()).length)
   const rested = await desk()
 
+  // A nudge that is due waits for the meeting to end (as in quiet hours), and one on the screen goes with the rest.
+  const nudgeUp = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.webContents.getURL().includes('view=nudge') && w.isVisible()))
+  await v('settings:set', { notify: 'alerts' })
+  await flip('camera', true)
+  const task = await v('task:add', 'Call the dentist back')
+  await v('task:save', task?.id ?? task, { allDay: 0, due: new Date(Date.now() - 2 * 60_000).toISOString() })
+  await v('alerts:check')
+  await wait(1200)
+  check('a task due in a meeting brings no nudge card', !(await nudgeUp()))
+  check('nor a hint, a question back or a practice offer', (await v('nudge')) === null && (await v('question:back')) === null)
+  await flip('camera', false)
+  await v('alerts:check')
+  await wait(2500)
+  const card = electron.windows().find((one) => one.url().includes('view=nudge'))
+  check('the meeting over, the task held is asked about', (await nudgeUp()) && /Call the dentist/.test(await card?.evaluate(() => document.body.textContent).catch(() => '')))
+  await flip('mic', true)
+  check('a nudge card on the screen goes away with the rest when a call starts', !(await nudgeUp()) && up(await desk()) === 0)
+  await flip('mic', false)
+  check('and is back with them when it ends', (await nudgeUp()) && same(await desk(), rested))
+
   // Safe mode and quiet hours still do their part.
   await v('settings:set', { safeMode: true })
   await wait(400)
@@ -144,6 +161,11 @@ try {
   await wait(300)
   check('quiet hours: every sticky and goal card is away, the “Always” goal card too', up(await desk()) === 0)
   check('the menu bar says “Hidden for quiet hours” with “Show anyway”', (await menu()).includes('Hidden for quiet hours') && (await menu()).includes('Show anyway'))
+  check('“Show anyway” is there in quiet hours too', await choose('Show anyway'))
+  await wait(300)
+  check('chosen in quiet hours, they are out again', same(await desk(), rested))
+  check('a call starting in those quiet hours hides them all the same', up(await flip('camera', true)) === 0)
+  check('and the call over, quiet hours keep them away', up(await flip('camera', false)) === 0)
   await v('settings:set', { quietStart: '00:00', quietEnd: '00:00' })
   await wait(300)
   check('quiet hours over: back where they were', same(await desk(), rested))
@@ -151,7 +173,7 @@ try {
   // The Calendar's own part: an event with other people now, then dropped.
   const made = await v('event:add', { title: 'Reading group', start: new Date(Date.now() - 5 * 60_000).toISOString(), end: new Date(Date.now() + 30 * 60_000).toISOString(), people: ['Paul Atreides'] })
   await wait(300)
-  check('a Calendar event with other people happening now hides them', up(await desk()) === 0 && /Calendar event/.test((await said()).seen), (await said()).seen)
+  check('a Calendar event with other people happening now hides them', up(await desk()) === 0 && (await said()).seen === 'A meeting is on in Calendar', (await said()).seen)
   await v('event:save', made.key, { people: [] }, 'one')
   await wait(300)
   check('the same event with nobody else on it hides nothing', same(await desk(), rested))
@@ -166,15 +188,95 @@ try {
   check('Settings shows “Step away in meetings” with what it sees now', (await h.locator('[data-desk-seen]').textContent()) === 'Now: Nothing is on', await h.locator('[data-desk-seen]').textContent())
   await flip('camera', true)
   await wait(400)
-  check('and the line follows a signal as it comes on', (await h.locator('[data-desk-seen]').textContent()) === 'Now: A camera is on: stickies and goal cards are hidden', await h.locator('[data-desk-seen]').textContent())
+  check('and the line follows a signal as it comes on', (await h.locator('[data-desk-seen]').textContent()) === 'Now: A camera is on', await h.locator('[data-desk-seen]').textContent())
   if (shots) await c.both(`${shots}/settings-step-away-in-a-call`)
   await flip('camera', false)
   await wait(300)
   if (shots) await c.both(`${shots}/settings-step-away`)
+
+  // Stillness: a signal coming on changes the line's words and nothing else moves; the switch shows the hand.
+  const boxes = () => h.evaluate(() => {
+    const row = document.querySelector('[data-desk-seen]').closest('[data-setting]')
+    const box = (el) => { const b = el.getBoundingClientRect(); return [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)] }
+    return { row: box(row), toggle: box(row.querySelector('[role=switch]')), next: box(row.nextElementSibling ?? row), cursor: getComputedStyle(row.querySelector('[role=switch]')).cursor, sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth }
+  })
+  const still = await boxes()
+  // Frames through the change, as fast as the page gives them, light and dark.
+  for (const name of shots ? ['light', 'dark'] : []) {
+    await c.look(name)
+    // One frame before the signal, then the signal, then a frame as often as the page gives one: each named by when it was taken.
+    await h.screenshot({ path: `${shots}/frames-${name}-00-before.png` })
+    const started = Date.now()
+    await flip('camera', true)
+    for (let i = 1; i < 8; i++) {
+      await h.screenshot({ path: `${shots}/frames-${name}-${String(i).padStart(2, '0')}-${String(Date.now() - started).padStart(4, '0')}ms.png` })
+      await wait(50)
+    }
+    await flip('camera', false)
+    await wait(300)
+  }
+  if (shots) await c.look('light')
+  await flip('camera', true)
+  await wait(300)
+  const moved = await boxes()
+  check('a signal coming on moves nothing in the row or under it', JSON.stringify([moved.row, moved.toggle, moved.next]) === JSON.stringify([still.row, still.toggle, still.next]), `${JSON.stringify(still)} to ${JSON.stringify(moved)}`)
+  check('the switch shows the hand', moved.cursor === 'pointer', moved.cursor)
+  // The switch pressed with a real pointer: off, they are out though the camera is on; on again, hidden.
+  const before = (await v('settings')).stepAway
+  await h.locator('[data-desk-seen]').locator('xpath=ancestor::*[@data-setting][1]').locator('[role=switch]').click()
+  await wait(400)
+  check('the switch pressed: off, and the stickies are out though a camera is on', before !== false && (await v('settings')).stepAway === false && up(await desk()) === (await desk()).length, (await h.locator('[data-desk-seen]').textContent()))
+  await h.locator('[data-desk-seen]').locator('xpath=ancestor::*[@data-setting][1]').locator('[role=switch]').click()
+  await wait(400)
+  check('pressed again: on, and they are hidden', (await v('settings')).stepAway === true && up(await desk()) === 0)
+  // The window at its smallest, with the longest line it can say: the row whole, nothing cut off or scrolling sideways.
+  await flip('camera', false)
+  await flip('mic', true)
+  await c.size(560, 400)
+  await h.locator('[data-desk-seen]').scrollIntoViewIfNeeded()
+  await wait(400)
+  const small = await boxes()
+  check('at 560 by 400 the row fits: no sideways scroll, the switch inside the window', !small.sideways && small.toggle[0] + small.toggle[2] <= 560 && small.toggle[0] > 0, JSON.stringify(small))
+  check('the longest line is the one shown', (await h.locator('[data-desk-seen]').textContent()) === 'Now: Another app has the microphone', await h.locator('[data-desk-seen]').textContent())
+  if (shots) await h.screenshot({ path: `${shots}/settings-step-away-560x400.png` })
+  await flip('mic', false)
+  await wait(300)
+  const smallOff = await boxes()
+  check('at 560 by 400 a signal going off moves nothing either', JSON.stringify([smallOff.row, smallOff.toggle, smallOff.next]) === JSON.stringify([small.row, small.toggle, small.next]), `${JSON.stringify(small.row)} to ${JSON.stringify(smallOff.row)}`)
+  await c.size(1280, 800)
+
+  // Tucked to the screen's edge as tabs: the tabs hide too, and are back as the same tabs.
+  await v('settings:set', { stickiesTucked: 'tabs' })
+  await wait(2000)
+  const tabs = await desk()
+  check('tucked, every one is a tab at the edge', tabs.length >= 3 && tabs.every((one) => one.visible && one.at.width < 140), tabs.map((one) => `${one.key.slice(0, 10)} ${one.visible} ${one.at.width}`).join(' '))
+  check('a call hides every tab', up(await flip('camera', true)) === 0)
+  check('and they are back as the same tabs, in the same places, when it ends', same(await flip('camera', false), tabs))
+  await v('settings:set', { stickiesTucked: 'off' })
+  await wait(2000)
+  check('brought back out, every one is on the desktop again', up(await desk()) === (await desk()).length && (await desk()).every((one) => one.at.width > 140))
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
+}
+console.log(c.errors.length ? 'errors: ' + c.errors.slice(0, 3).join(' | ') : 'no page errors')
+await c.close()
+
+// Opened in the middle of a call: the stickies left on the desktop last time do not come up, until it ends.
+process.env.HALIGTREE_QA_SIGNALS = 'camera'
+const again = await sandbox({ width: 1280, height: 800 })
+try {
+  const stickies = () => again.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.webContents.getURL().includes('view=sticky')).map((w) => w.isVisible()))
+  await again.h.waitForTimeout(6000)
+  const started = await stickies()
+  check('opened in a call: the stickies left out last time are made but none comes up', started.length >= 3 && started.every((one) => !one), `${started.filter(Boolean).length} of ${started.length} up`)
+  const after = await again.electron.evaluate(({ BrowserWindow }) => {
+    globalThis.haligtreeSignal('camera', false)
+    return BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.webContents.getURL().includes('view=sticky')).map((w) => w.isVisible())
+  })
+  check('the call over: all of them are there the same instant', after.length === started.length && after.every(Boolean), `${after.filter(Boolean).length} of ${after.length} up`)
+} catch (error) {
+  check('the second run ran to the end', false, error.message.split('\n')[0])
 } finally {
-  console.log(c.errors.length ? 'errors: ' + c.errors.slice(0, 3).join(' | ') : 'no page errors')
-  await c.close()
+  await again.close()
   done()
 }

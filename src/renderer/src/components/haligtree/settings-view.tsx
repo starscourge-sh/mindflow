@@ -969,7 +969,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Marked days" note="The next three marked days in the menu bar's menu, with the days to go." more="A day is marked from its page, a right-click on any day, or !milestone in quick capture." keywords="marked days in the menu bar milestones marked days exam launch birthday menu bar countdown">
             <Switch checked={settings.milestonesInMenu !== false} onCheckedChange={(milestonesInMenu) => set({ milestonesInMenu })} />
           </Setting>
-          <Setting title="Goal on screen" note="A small card on your desktop with the days left to each goal." more="“Now and then” shows it once a day and every few hours, for a minute; in a goal's last week it stays. A goal can choose its own." keywords="goals beacon on screen window stack cards always sometimes off">
+          <Setting title="Goal on screen" note="A small card on your desktop with the days left to each goal." more="“Now and then” shows it once a day and every few hours, for a minute; in a goal's last week it stays. None shows in quiet hours or a meeting. A goal can choose its own." keywords="goals beacon on screen window stack cards always sometimes off">
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
@@ -1085,7 +1085,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
-          <Setting title="Quiet hours" note="Sticky notes and goal cards are away, and no private notes, old captures, nudges or alerts come up unasked." more="Every sticky and goal card, those set to “Always” and in their last week too; one you stick in these hours shows. They come back as they were when the hours end. Search and lists still show everything." keywords="quiet hours night sticky notes goal cards hidden away do not disturb">
+          <Setting title="Quiet hours" note="Sticky notes and goal cards are away, and no private notes, old captures, nudges or alerts come up unasked." more="Every sticky and goal card, those set to “Always” and in their last week too; one you stick in these hours shows, and “Show anyway” in the menu bar and ⌘K brings them all out. They come back as they were when the hours end. Search and lists still show everything." keywords="quiet hours night sticky notes goal cards hidden away do not disturb">
             <TimeField label="Quiet hours start" value={settings.quietStart} onChange={(quietStart) => set({ quietStart })} />
             <span className="text-muted-foreground">to</span>
             <TimeField label="Quiet hours end" value={settings.quietEnd} onChange={(quietEnd) => set({ quietEnd })} />
@@ -1097,8 +1097,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
               quietly(() => set({ safeMode: !safeMode }))
             }} />
           </Setting>
-          <Setting title="Step away in meetings" note="Sticky notes and goal cards hide while a call may be on, and come back when it ends." more="A call may be on when a camera is on, another app is using the microphone, the screen is mirrored, a Calendar event with other people is happening, or Haligtree is recording a meeting. Only whether they are in use is read: nothing is listened to or watched. Alerts and nudges wait too. The menu bar's “Sticky notes” has “Show anyway”, for that meeting only." keywords="step away in meetings meeting call zoom teams facetime camera microphone screen share mirrored hide sticky notes goal cards presentation projector"
-            below={<p data-desk-seen className="text-control text-foreground"><strong className="font-semibold">Now:</strong> {desk?.seen ?? 'Nothing is on'}</p>}>
+          <Setting title="Step away in meetings" note="Sticky notes and goal cards hide while a call may be on, and come back when it ends." more="A call may be on when a camera is on, another app is using the microphone, the screen is mirrored, a Calendar event with other people is happening, or Haligtree is recording. Only whether they are in use is read: nothing is heard or seen. Alerts wait too. “Show anyway”, in the menu bar and ⌘K, brings them out for that meeting only." keywords="step away in meetings meeting call zoom teams facetime camera microphone screen share mirrored hide sticky notes goal cards presentation projector"
+            off={<span data-desk-seen>Now: {desk?.seen ?? 'Nothing is on'}</span>}>
             <Switch checked={settings.stepAway !== false} onCheckedChange={(stepAway) => set({ stepAway })} />
           </Setting>
           <Setting title="Open at login" note={`${APP_NAME} starts quietly with your Mac, in the Dock and the menu bar.`} more={`No window opens. ⌘. works straight away, and your sticky notes are back where you left them. Opening ${APP_NAME} yourself, or clicking it in the Dock, shows the main window.`}>

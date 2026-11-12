@@ -30,7 +30,7 @@ import { bookHome } from './book-home'
 import { bookMentions } from './book-mentions'
 import { foldKept, goalsOut, toCheckBack } from './properties'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
-import { meetingSignals, shownAnyway } from './in-meeting'
+import { meetingSignals } from './in-meeting'
 import { inMeeting, seenSaid } from './meeting-away'
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
@@ -980,7 +980,7 @@ export function gate(): { blackout: boolean; hidePrivate: boolean; meeting: bool
 let stepAwayTold: () => void = () => undefined
 export const whenStepAway = (tell: () => void): void => void (stepAwayTold = tell)
 /** What “Step away in meetings” sees now, for its row in Settings. */
-export const meetingSeen = (): string => seenSaid(meetingSignals(), settings().stepAway !== false, shownAnyway())
+export const meetingSeen = (): string => seenSaid(meetingSignals())
 // An untriaged capture counts as private, the plan's fail-safe: you have not
 // looked at it since you wrote it, so in quiet hours it is not volunteered.
 // Taking an exit is what clears it, so the default resolves itself.

@@ -8,7 +8,7 @@
  *   mirrored   the screen mirrored to another: read when Electron says the displays changed
  * Nothing is asked again and again. A test run (HALIGTREE_QA_AWAY) never listens to the Mac: whether the person at it
  * is on a call must not change a probe. Its signals are HALIGTREE_QA_SIGNALS ("camera,mic") as it starts, and
- * globalThis.haligtreeSignal(name, on) from then on; "calendar" in HALIGTREE_QA_SIGNALS follows the book's own events.
+ * globalThis.haligtreeSignal(name, on) from then on. The book's own events are followed in every run.
  */
 import { screen } from 'electron'
 import { mirrored, watchInUse } from './glass'

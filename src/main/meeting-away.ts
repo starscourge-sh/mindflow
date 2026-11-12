@@ -31,23 +31,22 @@ export const awayWhy = (meeting: boolean, quiet: boolean): 'meeting' | 'quiet' |
 /** The desk is away: a meeting or quiet hours, unless “Show anyway” was asked for. */
 export const deskAway = (meeting: boolean, quiet: boolean, shownAnyway: boolean): boolean => (meeting || quiet) && !shownAnyway
 
-/** “Show anyway” lasts as long as what hid them: forgotten once the meeting and quiet hours are both over. */
-export const anywayKept = (shownAnyway: boolean, meeting: boolean, quiet: boolean): boolean => shownAnyway && (meeting || quiet)
+/**
+ * “Show anyway”, and a sticky stuck by hand, last only while what hid the rest stays the same: forgotten when it ends,
+ * and when a call starts in quiet hours (asked for at night, they still hide for the call) or ends into them.
+ */
+export const anywayKept = (shownAnyway: boolean, was: 'meeting' | 'quiet' | null, now: 'meeting' | 'quiet' | null): boolean =>
+  shownAnyway && now !== null && now === was
 
 const SEEN: Record<Signal, string> = {
-  recording: 'Haligtree is recording a meeting',
+  recording: 'Haligtree is recording',
   camera: 'A camera is on',
-  mic: 'Another app is using the microphone',
-  event: 'A Calendar event with other people is on',
+  mic: 'Another app has the microphone',
+  event: 'A meeting is on in Calendar',
   mirrored: 'The screen is mirrored'
 }
 /**
- * What it sees now, in plain words, for Settings: the surest signal named,
- * and what that means for the stickies and goal cards.
+ * What it sees now, in plain words, for Settings: the surest signal named. Each is short enough for one line in the
+ * narrowest window, so the row never grows or shrinks as a call starts and ends (qa/meeting-away.mjs measures it).
  */
-export function seenSaid(signals: Signals, setting: boolean, shownAnyway: boolean): string {
-  const [first] = signalsOn(signals)
-  if (!first) return 'Nothing is on'
-  if (!setting) return `${SEEN[first]}: stickies and goal cards stay out`
-  return `${SEEN[first]}: stickies and goal cards are ${shownAnyway ? 'shown anyway' : 'hidden'}`
-}
+export const seenSaid = (signals: Signals): string => SEEN[signalsOn(signals)[0]] ?? 'Nothing is on'

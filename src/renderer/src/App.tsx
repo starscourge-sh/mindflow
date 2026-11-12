@@ -2081,7 +2081,7 @@ export default function App(): React.JSX.Element {
               const show = appSettings?.stickiesShown === false
               void haligtree.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void haligtree.setSettings({ stickiesShown: !show })))
             } },
-            { label: 'Bring sticky notes here', hint: 'Every sticky note, fanned out at the top right of this screen', cue: null, run: () => window.api.gatherStickies() },
+            ...(desk?.hidden ? [] : [{ label: 'Bring sticky notes here', hint: 'Every sticky note, fanned out at the top right of this screen', cue: null, run: () => window.api.gatherStickies() }]),
             ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', hint: 'Line the sticky notes up in a neat column', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
             { label: reveal ? 'Blur private titles again' : 'Show private titles', hint: reveal ? 'Private titles blurred until you point at them' : 'For now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), quietly(() => setReveal(reveal))) },
             { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', hint: editing || reading || hasContent(body) ? 'This note in the main window, kept first' : 'Every page of your book', keys: '⌘O', first: true, run: () => void promote() },
