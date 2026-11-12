@@ -1,5 +1,5 @@
 import { Extension, type Editor } from "@tiptap/core"
-import { Plugin, PluginKey, Selection, TextSelection, type EditorState } from "@tiptap/pm/state"
+import { AllSelection, Plugin, PluginKey, Selection, TextSelection, type EditorState } from "@tiptap/pm/state"
 import { DecorationSet, type EditorView } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
@@ -727,6 +727,16 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
     focus()
     bring()
   }
+  // Edit > Select All from the menu bar reaches the page as an event that a list may take (lib/select-all.ts).
+  // Left alone, the page runs the browser's own "select all" (src/preload), which puts the selection at the
+  // note's very first and last places, among blocks that are not drawn, and the browser looks through every
+  // hidden block for where to show each end. A long note that holds the keys takes it, and picks itself whole
+  // as ⌘A does.
+  const pickAll = (event: Event): void => {
+    if (!band || event.defaultPrevented || !view.hasFocus()) return
+    event.preventDefault()
+    view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
+  }
   // And the browser never scrolls a long note by itself to hold a block still (`rest`).
   style.textContent = `${at} > [${OFF}] { display: none !important; } ${at} { overflow-anchor: none; }`
   drawnOf.set(view.dom, {
@@ -748,6 +758,7 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
   document.addEventListener("scroll", scrolled, { capture: true, passive: true })
   document.addEventListener("scrollend", rested, { capture: true, passive: true })
   window.addEventListener("resize", respace)
+  window.addEventListener("haligtree:select-all", pickAll)
   // Once the note is on the page: drawn round a caret at the end before it
   // was, the note opened on blank space until it was scrolled.
   const settle = (): void => {
@@ -844,6 +855,7 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
       document.removeEventListener("scroll", scrolled, { capture: true })
       document.removeEventListener("scrollend", rested, { capture: true })
       window.removeEventListener("resize", respace)
+      window.removeEventListener("haligtree:select-all", pickAll)
       cancelIdleCallback(resting)
     },
   }
