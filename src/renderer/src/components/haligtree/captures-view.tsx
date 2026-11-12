@@ -31,7 +31,6 @@ import { Lineage } from './lineage'
 import { EventSource } from './calendar-events'
 import { Mentions } from './mentions'
 import { DEALT_TOO, EXITS, STATUS_ICON, captureKey, statusSaid, noteLinkText, exit, exitMany, toWriting, follow } from '@/lib/capture-links'
-import { toMarkdown } from '@/lib/export'
 import { hoursSaid } from '@/lib/day-plan'
 import { useKept, useNav as useNavNow } from '@/lib/nav'
 import { Switch } from '@/components/ui/switch'
@@ -271,8 +270,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
     setView({ ...view, pane: next })
   }
   // Saved only over the words it was opened on: another window's never lost.
-  const words = useSameWords('captures', open?.id, open?.body, (id, body, base, editor) =>
-    window.api.captures.save(id, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
+  const words = useSameWords('captures', open?.id, open?.body, (id, words, wordsBase, markdown) => window.api.captures.save(id, { words, wordsBase, markdown }))
   // The open note's editor, which its board, when shown, edits in its place.
   const [editor, setEditor] = useState<Editor | null>(null)
   // Opened onto one note, the note is drawn first and the list beside it the

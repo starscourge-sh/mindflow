@@ -1042,7 +1042,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   const [restored, setRestored] = useState<{ body: unknown; rev: number } | null>(null)
   // Saved only over the words it was opened on: another window's never lost.
-  const words = useSameWords('nuggets', item.id, restored ? restored.body : item.body, (id, body, base) => haligtree.saveItem(id, { body, base }))
+  const words = useSameWords('nuggets', item.id, restored ? restored.body : item.body, (id, words, wordsBase) => haligtree.saveItem(id, { words, wordsBase }))
   useOpenNote({ table: 'nuggets', type: item.tier, id: item.id, kind: item.kind, archived: !!item.archivedAt })
   // Its words seen as a board, in their place, as an Inbox note can be (board-view.tsx).
   const [ready, setReady] = useState<Editor | null>(null)

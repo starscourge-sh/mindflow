@@ -30,7 +30,6 @@ import { toast, typing } from './ui'
 import { EXITS, exit } from '@/lib/capture-links'
 import { menuOpen } from '@/lib/menu-keys'
 import { noteLinkText, follow, headingIn } from '@/lib/capture-links'
-import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
 import { useAppearance, haligtree, shownName, type ItemFull } from '@/lib/haligtree'
 import { openInHaligtree, useCarriedHere } from '@/lib/apart'
@@ -162,8 +161,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   const [rev, setRev] = useState(0)
   useEffect(() => void window.api.captures.get(id).then(setCapture), [id])
   // Saved only over the words it was opened on: another window's never lost.
-  const words = useSameWords('captures', capture?.id, capture?.body, (at, body, base, editor) =>
-    window.api.captures.save(at, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
+  const words = useSameWords('captures', capture?.id, capture?.body, (at, words, wordsBase, markdown) => window.api.captures.save(at, { words, wordsBase, markdown }))
   const [editor, setEditor] = useState<Editor | null>(null)
   const board = useBoard('captures', capture?.id, editor, capture?.fields)
   const boardShown = board.on && !past && !!editor && !editor.isDestroyed

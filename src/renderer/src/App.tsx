@@ -1544,8 +1544,7 @@ export default function App(): React.JSX.Element {
   }
   // An open capture's words, saved only over what it was opened on: the same
   // note open in the main window, or a merge into it, is never written over.
-  const words = useSameWords('captures', editing?.id, editing?.body, (id, body, base, editor) =>
-    window.api.captures.save(id, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) }))
+  const words = useSameWords('captures', editing?.id, editing?.body, (id, words, wordsBase, markdown) => window.api.captures.save(id, { words, wordsBase, markdown }))
 
   // The box closing after a send, still to come: an undo straight after keeps it open.
   const leaving = useRef<ReturnType<typeof setTimeout>>(undefined)

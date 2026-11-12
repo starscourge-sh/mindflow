@@ -9,13 +9,15 @@ import { join, posix } from 'path'
 import { hostname } from 'os'
 import { registerPictureWords, wordsOfPicture } from './picture-words'
 
-import { backUpWatched, checkMarkdown, writeMarkdown } from './backup'
+import { backUpWatched, checkMarkdown, writeMarkdown, writeMarkdownNow } from './backup'
 import { openDatabase } from './db-open'
 import { busy } from './busy'
 import { markdown, plain } from './haligtree'
 import { tagsIn } from './tag-words'
 import { celebrateAfter } from './celebrate'
-import { syncLineCards } from './line-cards'
+import { lineCardsSoon, syncLineCards } from './line-cards'
+import { keptTagged, readKept, stillBase, wordsOf, type Kept } from './kept-words'
+import { named } from './stalls'
 import { readValue, takeBodyProperties, type PropType } from './property-words'
 import { tagged, withTag } from './kinds'
 import { chunks, createdOf, guessKind, isBit, kindOf, propertiesOf, titleOfMarkdown, unstamp, withoutNotionId } from './import'
@@ -97,6 +99,14 @@ export type CapturePatch = Partial<Pick<Capture, 'title' | 'kind' | 'status' | '
   fetched?: boolean
   /** The body this one was made from: the words land only if they are still what is stored. */
   base?: unknown
+  /**
+   * An editor's save: the words as they are kept (the document written out as JSON, as UTF-8 bytes), in place of
+   * `body`, and the words they were made from the same way, in place of `base` (kept-words.ts).
+   */
+  words?: Uint8Array
+  wordsBase?: Uint8Array
+  /** With `markdown` alone: the copy an editor owes for the save that answered with this number (SaveResult `copy`). */
+  copy?: number
   plainTags?: string[]
   /**
    * Moved to the Bin, or back out of it, from wherever it is: a capture
@@ -109,13 +119,16 @@ export type CapturePatch = Partial<Pick<Capture, 'title' | 'kind' | 'status' | '
  * What a save did. `was` is the status before it, for an undo to put back
  * exactly; `refused` is an exit asked of a capture that is no longer open;
  * `conflict` means the words were changed elsewhere since `base`, so none
- * were written, and `body` is what is stored now.
+ * were written, and `body` is what is stored now. `copy` is owed by the
+ * editor of a long note, whose words land without their Markdown: it sends
+ * that after, with this number, once the note has rested (lib/same-words.ts).
  */
 export interface SaveResult {
   was?: string
   refused?: boolean
   conflict?: boolean
   body?: unknown
+  copy?: number
 }
 
 /**
@@ -175,6 +188,9 @@ const Patch = z.object({
   fetched: z.boolean().optional(),
   bin: z.boolean().optional(),
   base: z.unknown().optional(),
+  words: z.instanceof(Uint8Array).optional(),
+  wordsBase: z.instanceof(Uint8Array).optional(),
+  copy: z.number().optional(),
   /** Tags the box was told to keep as plain text: "#bit" that does not make it private, "#book" that is not a book. */
   plainTags: z.array(z.string()).optional()
 })
@@ -182,22 +198,13 @@ const Patch = z.object({
 /**
  * The words stored now, when they are no longer the `base` a save was made
  * from: another window, a merge or a renamed tag wrote them since. Null when
- * the save may land. Compared as parsed JSON, so spacing never counts.
+ * the save may land. The slow, exact look (kept-words.ts `stillBase`): a save
+ * asks the database first (`body is $base`, compared where the words lie),
+ * and comes here only when that says no.
  */
-export function movedOn(table: 'captures' | 'nuggets', id: string, base: unknown): { body: unknown } | null {
+export function movedOn(table: 'captures' | 'nuggets', id: string, base: Kept): { body: unknown } | null {
   const row = db.prepare(`select body from ${table} where id = ?`).get(id) as { body: string | null } | undefined
-  if (!row) return null
-  // The words are kept as this same text of them: letter for letter the base, nothing has moved. Told so without
-  // reading the stored words back into a document and out again (39 ms of main's thread for a 4 MB note; 10 now).
-  const based = JSON.stringify(base ?? null)
-  if ((row.body ?? 'null') === based) return null
-  let now: unknown
-  try {
-    now = JSON.parse(row.body ?? 'null')
-  } catch {
-    now = row.body
-  }
-  return JSON.stringify(now ?? null) === based ? null : { body: now }
+  return !row || stillBase(row.body, base) ? null : { body: readKept(row.body) }
 }
 
 /**
@@ -280,14 +287,28 @@ export const whenChanged = (tell: () => void): void => void afterChange.push(tel
 const afterAny: (() => void)[] = []
 export const whenAnyChanged = (tell: () => void): void => void afterAny.push(tell)
 
-export const changed = (what?: Change): void => {
-  if (listed && what?.kind === 'capture') {
-    const at = listed.rows.findIndex((row) => row.id === what.id)
-    const row = db.prepare(`select ${LIST} from captures where id = ?`).get(what.id)
+/**
+ * The notes saved since the list was last asked for. Each one's row is put right then (`relisted`), not inside
+ * its save: reading the row works its name out of its words again, 16 ms of a long note's save.
+ */
+const unlisted = new Set<string>()
+function relisted(): void {
+  for (const id of unlisted) {
+    if (!listed) break
+    const at = listed.rows.findIndex((row) => row.id === id)
+    const row = db.prepare(`select ${LIST} from captures where id = ?`).get(id) as Record<string, unknown> | undefined
     // Typing past a note's first line changes nothing a list shows.
     const same = at >= 0 && JSON.stringify(row) === JSON.stringify(listed.rows[at])
-    if (at >= 0 && row) listed = { rows: same ? listed.rows : listed.rows.with(at, row), at: bookStamp(), version: same ? listed.version : ++versions }
+    if (at >= 0 && row) listed = { rows: same ? listed.rows : listed.rows.with(at, row), at: listed.at, version: same ? listed.version : ++versions }
     else listed = null
+  }
+  unlisted.clear()
+}
+
+export const changed = (what?: Change): void => {
+  if (listed && what?.kind === 'capture') {
+    unlisted.add(what.id)
+    listed = { ...listed, at: bookStamp() }
   } else if (what?.kind === 'item') {
     if (listed) listed = { ...listed, at: bookStamp() }
   } else listed = null
@@ -401,7 +422,10 @@ export function registerCaptures(): void {
 
   // Null when the window's copy, `held`, is this one still.
   ipcMain.handle('captures:list', (_event, held?: number) => {
-    if (!listed || listed.at !== bookStamp()) listed = { rows: db.prepare(`select ${LIST} from captures order by captured_at desc`).all() as Record<string, unknown>[], at: bookStamp(), version: ++versions }
+    // Kept and nothing else has written since: only the rows saved since are read again. Otherwise the whole list is.
+    if (listed?.at === bookStamp()) relisted()
+    else unlisted.clear()
+    if (!listed || listed.at !== bookStamp()) listed ={ rows: db.prepare(`select ${LIST} from captures order by captured_at desc`).all() as Record<string, unknown>[], at: bookStamp(), version: ++versions }
     // One hidden until a later day is out of the list, unless snoozed ones are
     // asked for; one in the Bin is there as any other. Kept per day, so it comes back on its own.
     const today = new Date().toLocaleDateString('sv')
@@ -521,72 +545,118 @@ export function registerCaptures(): void {
     if (last) celebrateAfter('captures:save', event.sender, [last.id, last.patch], results[list.indexOf(last)])
     return results
   })
-  /** One capture saved; `tell` says the windows now, or leaves it to a batch's one telling. */
+  /**
+   * The Markdown copies editors owe: a long note's words land without one (making it held the note's window
+   * 100 ms a save), and its editor sends it after them once the note has rested, or as the note is left
+   * (lib/same-words.ts), under the number its save was answered with. If the app shuts first, the copy is
+   * written here from the stored words, so quitting never leaves one behind.
+   */
+  const owed = new Map<string, { number: number; copy: number }>()
+  let copies = 0
+  onShut(() => {
+    for (const [id, { number }] of owed) {
+      const row = db.prepare('select body from captures where id = ?').get(id) as { body: string | null } | undefined
+      if (row) writeMarkdownNow(number, markdown(readKept(row.body)))
+    }
+    owed.clear()
+  })
+  /**
+   * One capture saved; `tell` says the windows now, or leaves it to a batch's one telling.
+   *
+   * What holds main's thread here is the write and little else. An editor's words arrive as they are kept, as
+   * bytes, and go to the database that way; the row is read once, and never its words, which the database compares
+   * where they lie; what is worked out of the words (line cards, the name watch, the list's row, the Markdown
+   * copy) comes after this has answered. A 4 MB note's save held the app 120 to 150 ms before (12 Nov).
+   */
   function saveOne(sender: Electron.WebContents, id: unknown, raw: unknown, tell: boolean): SaveResult {
     const patch = Patch.parse(raw)
+    const key = String(id)
     // A meeting in the shape it had before 6 Nov (an old version put back, a copy): kept the new way, every word in it.
     if (patch.body !== undefined) patch.body = foldMeeting(patch.body)
-    // Two editors on one note, or an editor and a merge: words written since
-    // this editor last looked are never written over. It is told what is
-    // there now, and folds its own words in.
-    const moved = patch.body !== undefined && patch.base !== undefined ? movedOn('captures', String(id), patch.base) : null
-    if (moved) {
-      patch.body = undefined
-      patch.markdown = undefined
-    }
+    const { kept, base } = wordsOf(patch)
     // An exit is taken from the inbox only: a promoted capture resolved, or a
     // resolved one discarded, would leave its undo nothing true to go back to.
-    const before = db.prepare(`select status, body, ${LABEL} as label from captures where id = ?`).get(String(id)) as { status: string; body: string | null; label: string } | undefined
+    const before = db.prepare(`select status, private, first_used_at is null as unused, ${LABEL} as label from captures where id = ?`).get(key) as { status: string; private: number; unused: number; label: string } | undefined
     const was = before?.status
     // The Bin takes a capture from wherever it is, and remembers where, so it
     // comes back exactly there; an undo out of the Bin goes back the same way.
     const binning = !!patch.bin && (patch.status === 'discarded' || was === 'discarded')
     const refused = !binning && !!patch.status && patch.status !== 'open' && was !== 'open'
     if (refused) patch.status = undefined
-    if (binning && patch.status === 'discarded' && was !== 'discarded') db.prepare('update captures set binned_was = ? where id = ?').run(was ?? 'open', String(id))
-    if (binning && patch.status && patch.status !== 'discarded') db.prepare('update captures set binned_was = null where id = ?').run(String(id))
-    // The words as first written, kept the first time you change them: a
-    // capture edited and then promoted still has what you actually caught.
-    // Only your edits count; a link's card or a tag added in bulk do not.
-    // And when, for the note's "Edited 2h ago".
-    // The words as they are kept, made into text once: a long note's (4 MB) was made three times over, a save.
-    const kept = patch.body === undefined ? null : JSON.stringify(patch.body)
-    // One write of the row, not two: a note's row holds its words and the words as first written, so the write
-    // that kept the original and the time, before the one that kept the words, wrote a long note's 8 MB twice.
-    // (`$edit`: these are your words, and they differ from what is kept. Every value on the right is the row as it was.)
-    const row = db.prepare(
-      `update captures set
-         original_body = case when $edit and body is not $body then coalesce(original_body, body) else original_body end,
-         edited_at = case when $edit and body is not $body then strftime('%Y-%m-%dT%H:%M:%fZ', 'now') else edited_at end,
-         title  = coalesce($title, title),
-         kind   = coalesce($kind, kind),
-         status = coalesce($status, status),
-         body   = coalesce($body, body)
-       where id = $id
-       returning number`
-    ).get({
-      $edit: patch.body !== undefined && !patch.fetched ? 1 : 0,
-      $title: patch.title ?? null,
-      $kind: patch.kind ?? null,
-      $status: patch.status ?? null,
-      $body: kept,
-      $id: String(id)
-    })
-    // When an exit was taken, for the lead measures: "did you take an exit
-    // this week" needs the day, not only the state.
-    // Words saved without their Markdown (a sticky's tick) are turned into it here, so the copy never lags.
-    // #bit written in makes it private, once: taken off by hand, it stays off.
-    if (row && kept !== null && tagged(kept, 'bit') && !tagged(before?.body, 'bit'))
-      db.prepare('update captures set private = 1 where id = ?').run(String(id))
-    // Its "question :: answer" lines kept as review cards.
-    if (row && patch.body !== undefined) syncLineCards(`capture:${String(id)}`, patch.body, (db.prepare('select private from captures where id = ?').get(String(id)) as { private: number }).private)
-    if (row && (patch.markdown !== undefined || patch.body !== undefined)) void writeMarkdown(row.number as number, patch.markdown ?? markdown(patch.body))
-    else if (patch.status) checkMarkdown(String(id))
-    if (tell) changed({ kind: 'capture', id: String(id) })
-    // Renamed: once the new name rests, every link to it says it (renames.ts).
+    if (binning && patch.status === 'discarded' && was !== 'discarded') db.prepare('update captures set binned_was = ? where id = ?').run(was ?? 'open', key)
+    if (binning && patch.status && patch.status !== 'discarded') db.prepare('update captures set binned_was = null where id = ?').run(key)
+    // #bit written in makes it private, once: taken off by hand, it stays off. The words as they were are asked
+    // only of a note not private yet whose new words carry the tag.
+    const bit = kept !== null && !!before && !before.private && keptTagged(kept, 'bit')
+    const hadBit = bit && tagged((db.prepare('select body from captures where id = ?').get(key) as { body: string | null } | undefined)?.body, 'bit')
+    // One write of the row, of what the patch carries and nothing else: a column set to itself still wakes the
+    // rules that watch it, each of which reads a long note's row through again. With the words go the words as
+    // first written, kept the first time you change them (a capture edited and then promoted still has what you
+    // actually caught; only your edits count, a link's card or a tag added in bulk do not), and when, for the
+    // note's "Edited 2h ago". (`$edit`: these are your words. Every value on the right is the row as it was.)
+    const fields = ([['title', patch.title], ['kind', patch.kind], ['status', patch.status]] as const).filter(([, value]) => value !== undefined)
+    const NEW = 'cast($body as text)'
+    // "Are these other words than the ones kept?" An editor's bytes are compared with their base here, where both
+    // already are; the database then has nothing to compare (each time it is asked, it copies the 4 MB once more).
+    const other = kept instanceof Uint8Array && base instanceof Uint8Array ? Buffer.compare(kept, base) !== 0 : null
+    const land = (words: Kept | null, from: Kept | null): { number: number } | undefined => {
+      // Known already, when the write itself checks that the words kept are the base.
+      const known = from !== null && other !== null
+      const edited = known ? '$edit' : `$edit and body is not ${NEW}`
+      const sets = [
+        ...(words === null || (known && (patch.fetched || !other)) ? [] : [
+          `original_body = case when ${edited} then coalesce(original_body, body) else original_body end`,
+          `edited_at = case when ${edited} then strftime('%Y-%m-%dT%H:%M:%fZ', 'now') else edited_at end`
+        ]),
+        ...(words === null ? [] : [`body = ${NEW}`]),
+        ...fields.map(([name]) => `${name} = $${name}`)
+      ]
+      // A note not used yet is marked used by its first save past its first minute (the rule on `status`, haligtree.ts).
+      if (sets.length && before?.unused && !patch.status) sets.push('status = status')
+      // Nothing of the row to change (its Markdown copy alone, or words that gave way): only whether it is there.
+      if (!sets.length) return db.prepare('select number from captures where id = ?').get(key) as { number: number } | undefined
+      // Two editors on one note, or an editor and a merge: words written since this editor last looked are never
+      // written over. `body is $base` is that question, asked in the write itself.
+      return db.prepare(`update captures set ${sets.join(', ')} where id = $id${from === null ? '' : ' and body is cast($base as text)'} returning number`).get({
+        $id: key,
+        ...(words === null ? {} : { $body: words }),
+        ...(words === null || (known && (patch.fetched || !other)) ? {} : { $edit: patch.fetched ? 0 : 1 }),
+        ...(from === null ? {} : { $base: from }),
+        ...Object.fromEntries(fields.map(([name, value]) => [`$${name}`, value as string]))
+      }) as { number: number } | undefined
+    }
+    let row = named('save: the write', () => land(kept, base))
+    // Not written: the note is gone, or its words are not the base letter for letter. The slow look says whether
+    // they have moved on (the editor is told what is there now, and folds its own words in; the rest of the patch
+    // still lands) or are the same words kept with other spacing (they land).
+    const moved = !row && kept !== null && base !== null ? movedOn('captures', key, base) : null
+    if (!row && kept !== null && base !== null) row = land(moved ? null : kept, null)
+    const landed = !!row && kept !== null && !moved
+    if (landed && bit && !hadBit) db.prepare('update captures set private = 1 where id = ?').run(key)
+    // Its "question :: answer" lines kept as review cards: after this has answered for an editor's words.
+    if (landed && patch.words) lineCardsSoon('captures', key)
+    else if (landed) syncLineCards(`capture:${key}`, patch.body, (db.prepare('select private from captures where id = ?').get(key) as { private: number }).private)
+    // The Markdown copy. It comes with an ordinary note's words. A long note's editor sends it after them, under
+    // the number its save was answered with, and it is taken only while those are still the last words saved;
+    // a document saved without one (a sticky's tick) is turned into it here.
+    if (row && patch.markdown !== undefined && !moved) {
+      const mine = patch.copy
+      if (mine === undefined) {
+        if (landed) owed.delete(key)
+        void writeMarkdown(row.number, patch.markdown)
+        // Owed until it is on the disk: a quit before that writes one from the stored words.
+      } else if (owed.get(key)?.copy === mine) void writeMarkdown(row.number, patch.markdown).then(() => void (owed.get(key)?.copy === mine && owed.delete(key)))
+    } else if (landed && patch.words) owed.set(key, { number: row!.number, copy: ++copies })
+    else if (landed) {
+      owed.delete(key)
+      void writeMarkdown(row!.number, markdown(patch.body))
+    } else if (patch.status) checkMarkdown(key)
+    // A copy alone changes nothing a window shows.
+    if (tell && !(patch.markdown !== undefined && kept === null && !fields.length)) changed({ kind: 'capture', id: key })
+    // Renamed: once the new name rests, every link to it says it (renames.ts), looked at once this has answered.
     // Only a name you changed: a link card filling in its page's title, or a book being set out, is written as fetched and renames nothing.
-    if (row && before && !patch.fetched && (patch.body !== undefined || patch.title !== undefined)) watchName(String(id), before.label ?? '', sender)
-    const result = { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}) }
+    if (row && before && !patch.fetched && (landed || patch.title !== undefined)) setImmediate(() => named('save: the name watched', () => watchName(key, before.label ?? '', sender)))
+    const result: SaveResult = { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}), ...(landed && patch.words && patch.markdown === undefined ? { copy: owed.get(key)?.copy } : {}) }
     if (tell && patch.status) celebrateAfter('captures:save', sender, [id, patch], result)
     return result
   }

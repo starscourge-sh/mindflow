@@ -5,10 +5,22 @@ import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { toast } from '@/components/haligtree/ui'
 import { notes, type NoteTable } from '@/lib/notes'
 import { forget } from '@/lib/early-read'
+import { toMarkdown } from '@/lib/export'
 import { retryIn, saveFailed, saveLanded } from '@/lib/save-trouble'
 
-/** What a save answers when the words changed elsewhere first. */
-type Answer = { conflict?: boolean; body?: unknown } | unknown
+/** What a save answers when the words changed elsewhere first; `copy` when a capture's Markdown copy is owed for it. */
+type Answer = { conflict?: boolean; body?: unknown; copy?: number } | unknown
+
+/**
+ * A note's words as they are kept: the document written out as JSON, as UTF-8 bytes. A save hands main these, and
+ * the words it was made from the same way, so main neither rebuilds two documents from the message nor writes
+ * them out again (a 4 MB note's save held the whole app 120 to 150 ms; src/main/kept-words.ts).
+ */
+const encoder = new TextEncoder()
+/** A note is long past this many letters as kept (about 20,000 words): its Markdown copy is then made apart from its saves. */
+const LONG = 200_000
+/** How long a long note rests after a save before its Markdown copy is made. */
+const COPY_REST_MS = 2000
 
 /**
  * A note's words as they stood at one moment, to ask later "are these still
@@ -95,23 +107,64 @@ export function showIn(ed: Editor, doc: unknown): void {
  * Restore. And a note open with nothing waiting to save follows changes made
  * elsewhere, so the next keystroke builds on them rather than on old words.
  */
-export function useSameWords(table: NoteTable, id: string | undefined, loaded: unknown, send: (id: string, body: JSONContent, base: unknown, editor?: Editor) => Promise<Answer>): {
+export function useSameWords(table: NoteTable, id: string | undefined, loaded: unknown, /** `words` and `base` as they are kept (`encoder` above); `markdown` is a capture's copy, when it goes with its words. */ send: (id: string, words: Uint8Array, base: Uint8Array, markdown?: string) => Promise<Answer>): {
   ready: (editor: Editor) => void
   save: (body: JSONContent, editor?: Editor) => void
 } {
   // The note each editor was built on, one at a time: a change that arrives
   // late from one already closed still goes to that note, from its own base.
   // `sent` is its words as last saved or shown; anything else is typing still to save.
-  // `baseText` is `base` written out, kept once made: asked for only when the note changes elsewhere.
-  type Note = { id: string; base: unknown; baseText?: string; sent: Words; editor: Editor }
+  // `baseText` is `base` written out, and `baseKept` that as bytes, each kept once made: a save that lands
+  // leaves its own behind as the next one's base, so only a note's first save writes its base out.
+  // `long` says its last save was of a long note (LONG); `farewell` is such a note's Markdown as its editor went,
+  // for a save still on its way then.
+  type Note = { id: string; base: unknown; baseText?: string; baseKept?: Uint8Array; sent: Words; editor: Editor; long?: boolean; farewell?: string }
   const open = useRef<Note | null>(null)
   const seen = useRef<Note[]>([])
   const queue = useRef<{ note: Note; body: JSONContent; words: Words }[]>([])
   const rebase = (note: Note, base: unknown): void => {
     note.base = base
     note.baseText = undefined
+    note.baseKept = undefined
   }
   const running = useRef(false)
+
+  // A capture's Markdown copy (kept beside the backups). An ordinary note's goes with its words, as it always
+  // has. A long note's (LONG) is made apart from its saves, where it held the window 100 ms each time: once the
+  // note has rested, or at once when its editor goes, and sent under the number its save was answered with.
+  // Main takes it only while those are still the last words saved, and writes one itself if the app quits first.
+  const copied = (editor: Editor): string | undefined => ((editor.storage as { markdown?: unknown }).markdown ? toMarkdown(editor) : undefined)
+  const copies = useRef(new Map<Note, { copy: number; timer: ReturnType<typeof setTimeout> }>())
+  const copyNow = (note: Note, markdown = note.editor.isDestroyed ? undefined : copied(note.editor)): void => {
+    const owed = copies.current.get(note)
+    if (!owed) return
+    clearTimeout(owed.timer)
+    copies.current.delete(note)
+    if (markdown !== undefined) void window.api.captures.save(note.id, { markdown, copy: owed.copy })
+  }
+  const owe = (note: Note, copy: number): void => {
+    clearTimeout(copies.current.get(note)?.timer)
+    copies.current.set(note, { copy, timer: setTimeout(() => copyNow(note), COPY_REST_MS) })
+    // Its editor went while the save was on its way: the copy made as it went is sent now.
+    if (note.farewell !== undefined) copyNow(note, note.farewell)
+    note.farewell = undefined
+  }
+  /** An editor is going (another note opened, its window closed): what is owed for its note is made while it can be. */
+  const leaving = (editor: Editor): void => {
+    const note = seen.current.find((one) => one.editor === editor)
+    if (!note) return
+    if (copies.current.has(note)) copyNow(note, copied(editor))
+    else if (note.long && (running.current || queue.current.some((one) => one.note === note))) note.farewell = copied(editor)
+  }
+  // The window is closing, or this editor's owner is: the same for every copy still owed.
+  useEffect(() => {
+    const all = (): void => { for (const note of [...copies.current.keys()]) copyNow(note) }
+    window.addEventListener('pagehide', all)
+    return () => {
+      window.removeEventListener('pagehide', all)
+      all()
+    }
+  }, [])
   const latest = useRef(send)
   latest.current = send
   const read = useRef({ id, loaded })
@@ -126,11 +179,18 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
   }
 
   const once = async (note: Note, body: JSONContent, words: Words): Promise<void> => {
-    const live = !note.editor.isDestroyed
-    const answer = (await latest.current(note.id, body, note.base, live ? note.editor : undefined)) as { conflict?: boolean; body?: unknown } | undefined
+    const text = JSON.stringify(body)
+    const kept = encoder.encode(text)
+    const from = (note.baseKept ??= encoder.encode((note.baseText ??= JSON.stringify(note.base ?? null))))
+    note.long = text.length > LONG
+    const withCopy = table === 'captures' && !note.long && !note.editor.isDestroyed
+    const answer = (await latest.current(note.id, kept, from, withCopy ? copied(note.editor) : undefined)) as { conflict?: boolean; body?: unknown; copy?: number } | undefined
     if (!answer?.conflict) {
       rebase(note, body)
+      note.baseText = text
+      note.baseKept = kept
       note.sent = words
+      if (answer?.copy !== undefined) owe(note, answer.copy)
       return
     }
     // Changed elsewhere first. Read the editor now: it holds any typing since.
@@ -218,6 +278,7 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
       const { id: at, loaded: body } = read.current
       open.current = at ? { id: at, base: body, sent: wordsOf(editor, body), editor } : null
       if (open.current) seen.current = [open.current, ...seen.current.slice(0, 4)]
+      if (open.current) editor.on('destroy', () => leaving(editor))
     },
     save: (body, editor) => {
       const note = editor ? seen.current.find((one) => one.editor === editor) : open.current

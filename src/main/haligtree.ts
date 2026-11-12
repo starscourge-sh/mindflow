@@ -37,7 +37,8 @@ import { keepPins, warmGiphy } from './giphy'
 import { YEAR, daysBetween, daysLeft, leftSaid } from './goal-days'
 import { hintedTimes } from './study-ai'
 import { LEECH_AT, balancedDay, bucketOf, thingsIn, withinTagLimits, daysInARow, fitFirstDays, minutesFor, shuffleNew, struggling, siblingsOf, burySiblings, type Bucket } from './study'
-import { syncLineCards } from './line-cards'
+import { lineCardsSoon, syncLineCards } from './line-cards'
+import { keptTagged, textOf, wordsOf } from './kept-words'
 import { busy } from './busy'
 import { LEARN_DECK, LEARN_EARLIER, LEARN_TAG } from './learn-deck'
 import { EXAMPLE_DECK, EXAMPLE_TAG, FORGETTING_CURVE } from './example-deck'
@@ -2297,25 +2298,32 @@ export function registerHaligtree(): void {
     const unnamed = row.tier === 'article' && row.line != null
     return { ...body(row), title: unnamed ? row.title || 'New note' : row.own, origins: JSON.parse((row.origins as string) ?? '[]'), glosses }
   })
-  handle('item:save', (id: string, patch: { body?: unknown; base?: unknown; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; medium?: string | null; context?: string | null; mode?: string; why?: string | null }) => {
+  handle('item:save', (id: string, patch: { body?: unknown; base?: unknown; words?: Uint8Array; wordsBase?: Uint8Array; title?: string; prompt?: string | null; kind?: string; suspended?: boolean; attribution?: string | null; medium?: string | null; context?: string | null; mode?: string; why?: string | null }) => {
+    // The words as they are kept, and the words they were made from: an editor's arrive that way, as bytes, and a
+    // document is written out once (kept-words.ts), as for a capture.
+    const { kept, base } = wordsOf(patch, false)
     // Words written since this editor last looked are never written over: it
-    // is told what is there now, as a capture's editor is.
-    const moved = patch.body !== undefined && patch.base !== undefined ? movedOn('nuggets', id, patch.base) : null
-    if (moved) patch = { ...patch, body: undefined }
-    const allowed = ['body', 'title', 'prompt', 'kind', 'suspended', 'attribution', 'medium', 'context', 'mode', 'why']
+    // is told what is there now, as a capture's editor is. The database is asked, where the words lie; the slow,
+    // exact look only when it says no.
+    const still = kept === null || base === null || !!(db.prepare('select body is cast(? as text) as same from nuggets where id = ?').get(base, id) as { same: number } | undefined)?.same
+    const moved = still ? null : movedOn('nuggets', id, base!)
+    const words = moved ? null : kept
+    const allowed = ['title', 'prompt', 'kind', 'suspended', 'attribution', 'medium', 'context', 'mode', 'why']
     const sets = Object.entries(patch).filter(([key, value]) => value !== undefined && allowed.includes(key))
     // A meaningful change to something you are tested on brings it back sooner,
     // a 30% cut to what is left of its interval, never a reset: fixing a
     // sentence should not cost months. Once per review, not once per save, or
     // typing would shrink it to nothing. "Meaningful" is more than a few
     // letters: what differs once the shared start and end are taken off.
-    const before = db.prepare("select body, prompt, state, due_at, edited_since_review, updated_at, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as name from nuggets where id = ?").get(id) as
-      { body: string; prompt: string | null; state: string | null; due_at: string | null; edited_since_review: number; updated_at: string | null; name: string } | undefined
-    // The words as they were and as they are now, each read out of its document once: the three questions below
-    // (does it come back sooner, was it rewritten, did it gain a tag) each read both through again, a long page's save.
-    let were: string | undefined, are: string | undefined
-    const wordsWere = (): string => (were ??= plain(JSON.parse(before?.body ?? 'null')))
-    const wordsNow = (): string => (are ??= plain(patch.body))
+    const before = db.prepare("select prompt, state, due_at, edited_since_review, updated_at, unsorted, private, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as name from nuggets where id = ?").get(id) as
+      { prompt: string | null; state: string | null; due_at: string | null; edited_since_review: number; updated_at: string | null; unsorted: number; private: number; name: string } | undefined
+    // The words as they were and as they are now, each read out of its document once, and only for a question
+    // below that needs them (does it come back sooner, was it rewritten, did it gain a tag, is #bit new): the
+    // stored words are left where they lie by every other save. All four are asked before the write.
+    let stored: { body: string | null } | undefined, were: string | undefined, are: string | undefined
+    const wordsStored = (): string | null => (stored ??= { body: (db.prepare('select body from nuggets where id = ?').get(id) as { body: string | null } | undefined)?.body ?? null }).body
+    const wordsWere = (): string => (were ??= plain(JSON.parse(wordsStored() ?? 'null')))
+    const wordsNow = (): string => (are ??= plain(words === null ? undefined : patch.words ? JSON.parse(textOf(words)) : patch.body))
     const changed = (a: string, b: string): boolean => {
       let start = 0
       while (start < a.length && a[start] === b[start]) start++
@@ -2324,35 +2332,38 @@ export function registerHaligtree(): void {
       return Math.max(a.length, b.length) - start - end > 12
     }
     if (before?.state && !before.edited_since_review && before.due_at && new Date(before.due_at).getTime() > Date.now() &&
-      ((patch.body !== undefined && changed(wordsWere(), wordsNow())) ||
+      ((words !== null && changed(wordsWere(), wordsNow())) ||
         (patch.prompt !== undefined && changed(before.prompt ?? '', patch.prompt ?? '')))) {
       const left = new Date(before.due_at).getTime() - Date.now()
       db.prepare('update nuggets set due_at = ?, edited_since_review = 1 where id = ?').run(new Date(Date.now() + left * 0.7).toISOString(), id)
     }
     // Rewritten, counted: the one sign an item got better. Once per sitting,
     // not once per autosave: only when the last change is ten minutes old.
-    if (before && patch.body !== undefined && changed(wordsWere(), wordsNow()) &&
-      Date.now() - new Date(before.updated_at ?? 0).getTime() > 600000)
+    if (before && words !== null && Date.now() - new Date(before.updated_at ?? 0).getTime() > 600000 && changed(wordsWere(), wordsNow()))
       db.prepare('update nuggets set revisions = revisions + 1 where id = ?').run(id)
-    for (const [key, value] of sets) {
-      const stored = key === 'body' ? JSON.stringify(value) : key === 'suspended' ? (value ? 1 : 0) : value
-      db.prepare(`update nuggets set ${key} = ?, updated_at = ? where id = ?`).run(stored as string, now(), id)
-    }
-    // A tag written in sorts an imported note: it has a place now.
-    if (patch.body !== undefined && !moved && before) {
+    // A tag written in sorts an imported note: it has a place now. Asked only of one still unsorted.
+    if (words !== null && before?.unsorted) {
       const had = new Set(tagsIn(wordsWere()))
       if (tagsIn(wordsNow()).some((tag) => !had.has(tag))) db.prepare('update nuggets set unsorted = 0 where id = ? and unsorted = 1').run(id)
     }
-    // #bit written in makes it private, once, as it would a capture.
-    if (patch.body !== undefined && !moved && hasTag(JSON.stringify(patch.body), 'bit') && !hasTag(before?.body, 'bit'))
-      db.prepare('update nuggets set private = 1 where id = ?').run(id)
-    // Its "question :: answer" lines kept as cards; a card's own body is only its answer.
-    if (patch.body !== undefined && !moved) {
+    // #bit written in makes it private, once, as it would a capture: asked of the words as they were only for
+    // one not private yet whose new words carry the tag.
+    const bit = words !== null && !!before && !before.private && keptTagged(words, 'bit') && !hasTag(wordsStored(), 'bit')
+    if (words !== null) timed('save: the write', () => db.prepare('update nuggets set body = cast(? as text), updated_at = ? where id = ?').run(words, now(), id))
+    for (const [key, value] of sets) {
+      const stored = key === 'suspended' ? (value ? 1 : 0) : value
+      db.prepare(`update nuggets set ${key} = ?, updated_at = ? where id = ?`).run(stored as string, now(), id)
+    }
+    if (bit) db.prepare('update nuggets set private = 1 where id = ?').run(id)
+    // Its "question :: answer" lines kept as cards, after this has answered for an editor's words; a card's own
+    // body is only its answer.
+    if (words !== null && patch.words) lineCardsSoon('nuggets', id)
+    else if (words !== null) {
       const own = db.prepare('select tier, private from nuggets where id = ?').get(id) as { tier: string; private: number } | undefined
       if (own && own.tier !== 'card') syncLineCards(`nugget:${id}`, patch.body, own.private)
     }
-    // Renamed: once the new name rests, every link to it says it (renames.ts).
-    if (before && (patch.body !== undefined || patch.title !== undefined)) watchName(linkOf('nuggets', id), before.name ?? '')
+    // Renamed: once the new name rests, every link to it says it (renames.ts), looked at once this has answered.
+    if (before && (words !== null || patch.title !== undefined)) setImmediate(() => timed('save: the name watched', () => watchName(linkOf('nuggets', id), before.name ?? '')))
     // Said to be this item, so lists of captures do not read every body again.
     return write(moved ? { conflict: true, body: moved.body } : true, { kind: 'item', id })
   })
@@ -2464,7 +2475,7 @@ export function registerHaligtree(): void {
   // written in since (then nothing of theirs is lost: they stay as they are),
   // and this one back to the status it had.
   handle('capture:merge:undo', (id: string, merged: { into: string; was: unknown; joined: unknown; status: string }) => {
-    if (!movedOn('captures', merged.into, merged.joined)) db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(merged.was), merged.into)
+    if (!movedOn('captures', merged.into, JSON.stringify(merged.joined ?? null))) db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(merged.was), merged.into)
     db.prepare('update captures set status = ? where id = ?').run(merged.status, id)
     checkMarkdown(id)
     return write(true)

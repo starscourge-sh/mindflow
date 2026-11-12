@@ -23,7 +23,6 @@ import { itemName } from '@/lib/tasks'
 import { chime, paper } from '@/lib/sound'
 import { useAppearance, useLive, haligtree } from '@/lib/haligtree'
 import { doneById, shownDone, taskAt } from '../../../../main/linked-lines'
-import { toMarkdown } from '@/lib/export'
 import { useSameWords } from '@/lib/same-words'
 import { StickyCelebration, type Moment } from './celebrate'
 import { SandboxStamp } from '@/components/haligtree/sandbox'
@@ -507,10 +506,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // While editing, the first line stays hidden as long as it only repeats the title and the caret is elsewhere.
   const [hideFirst, setHideFirst] = useState(false)
   const titled = useRef('')
-  const typed = useSameWords(type === 'capture' ? 'captures' : 'nuggets', editing ? id : undefined, editing?.body, (at, next, base, editor) =>
-    type === 'capture'
-      ? window.api.captures.save(at, { body: next as never, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) })
-      : haligtree.saveItem(at, { body: next, base }))
+  const typed = useSameWords(type === 'capture' ? 'captures' : 'nuggets', editing ? id : undefined, editing?.body, (at, words, wordsBase, markdown) =>
+    type === 'capture' ? window.api.captures.save(at, { words, wordsBase, markdown }) : haligtree.saveItem(at, { words, wordsBase }))
   // A double-click says where: the caret goes there. E starts at the end.
   const edit = (at?: { left: number; top: number; line: string; offset: number }): void => {
     if (!note || editing) return

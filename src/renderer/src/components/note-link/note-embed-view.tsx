@@ -5,7 +5,6 @@ import type { Editor, JSONContent } from "@tiptap/core"
 import { HaligtreeEditor, TAGS } from "@/components/haligtree"
 import { findCaptures, findHeadings, follow } from "@/lib/capture-links"
 import { useSameWords } from "@/lib/same-words"
-import { toMarkdown } from "@/lib/export"
 import { haligtree } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
 import { noteNamed } from "@/extensions/note-link"
@@ -67,10 +66,8 @@ export function EmbeddedNote({ link, label, onUnembed, powers = false, reading =
     void read.then((found) => live && setNote(found), () => live && setNote(null))
     return () => void (live = false)
   }, [table, id])
-  const words = useSameWords(table, note ? id : undefined, note?.body, (at, body, base, editor) =>
-    table === "captures"
-      ? window.api.captures.save(at, { body, base, ...(editor ? { markdown: toMarkdown(editor) } : {}) })
-      : haligtree.saveItem(at, { body, base }))
+  const words = useSameWords(table, note ? id : undefined, note?.body, (at, words, wordsBase, markdown) =>
+    table === "captures" ? window.api.captures.save(at, { words, wordsBase, markdown }) : haligtree.saveItem(at, { words, wordsBase }))
   const name = note?.title || label || "New note"
   const looped = around.includes(link) || around.length >= DEEPEST
   return (

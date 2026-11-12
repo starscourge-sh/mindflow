@@ -1,5 +1,5 @@
 import { BrowserWindow, app } from 'electron'
-import { existsSync } from 'fs'
+import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'fs'
 import { copyFile, mkdir, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import type { DatabaseSync } from 'node:sqlite'
 import { homedir } from 'os'
@@ -131,6 +131,9 @@ async function backUp(db: DatabaseSync): Promise<void> {
   // gone altogether is taken away: copies made before this rule go too.
   const captures = join(backupDir(), 'captures')
   for (const name of existsSync(captures) ? await readdir(captures) : []) {
+    // A copy an earlier run was cut short in writing (never this run's, which may be in hand).
+    const cut = /\.md\.(\d+)\.\d+\.part$/.exec(name)
+    if (cut && Number(cut[1]) !== process.pid) await rm(join(captures, name), { force: true })
     // MF- and V- were the handle before: an old copy goes once its new one is there.
     const [, old, number] = /^(MF|V|H)-(\d+)\.md$/.exec(name) ?? []
     if (number && (!mayCopy(Number(number)) || (old !== NOTE_KEY && existsSync(fileOf(Number(number)))))) await rm(join(captures, name), { force: true })
@@ -143,6 +146,13 @@ const copiesOn = (): boolean => setting<unknown>('markdownCopies', true) !== fal
 const mayCopy = (number: number): boolean =>
   copiesOn() && !!database().prepare("select 1 from captures where number = ? and private = 0 and status != 'discarded'").get(number)
 const fileOf = (number: number): string => join(backupDir(), 'captures', `${NOTE_KEY}-${number}.md`)
+/**
+ * A copy is written beside its file and renamed in, so it is never there half-written: a quit that cuts a write
+ * short leaves the last whole copy, and two writes of one note (an editor's, and the one made as the app shuts)
+ * each land whole.
+ */
+let parts = 0
+const partOf = (number: number): string => `${fileOf(number)}.${process.pid}.${++parts}.part`
 
 /** A capture as Markdown, under its handle, replacing the last version of it. */
 export async function writeMarkdown(number: number, markdown: string): Promise<void> {
@@ -150,9 +160,24 @@ export async function writeMarkdown(number: number, markdown: string): Promise<v
   if (!mayCopy(number)) return void (await rm(fileOf(number), { force: true }).catch(() => undefined))
   // A copy that cannot be written (iCloud full, a folder made read-only) is
   // only a copy: the capture itself is already safe in the database.
+  const part = partOf(number)
   await mkdir(join(backupDir(), 'captures'), { recursive: true })
-    .then(() => writeFile(fileOf(number), markdown))
+    .then(() => writeFile(part, markdown))
+    .then(() => rename(part, fileOf(number)))
     .catch((error) => console.error('Markdown copy failed:', error))
+}
+
+/** The same, written before this returns: for a copy still owed as the app shuts (captures.ts), when nothing waited for would be done. */
+export function writeMarkdownNow(number: number, markdown: string): void {
+  try {
+    if (!mayCopy(number)) return rmSync(fileOf(number), { force: true })
+    mkdirSync(join(backupDir(), 'captures'), { recursive: true })
+    const part = partOf(number)
+    writeFileSync(part, markdown)
+    renameSync(part, fileOf(number))
+  } catch (error) {
+    console.error('Markdown copy failed:', error)
+  }
 }
 
 /** A capture just made private or discarded loses its copy now, not at the next hourly pass. */

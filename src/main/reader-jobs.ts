@@ -9,6 +9,7 @@ import { bookMentions } from './book-mentions'
 import { bookTags } from './book-tags'
 import { bookMap } from './book-map'
 import { wordCounter } from './word-count'
+import { linesOf } from './kept-words'
 
 /**
  * Everything the reading thread can be asked (reader.ts), by name: search,
@@ -67,6 +68,9 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
         and not exists (select 1 from card_tries t where t.id = captures.id and t.body = captures.body)`).all() as { id: string; kind: string; body: string }[],
       /** The Map (book-map.ts). */
       map: (_gone: Gone, stamp: number) => map(stamp),
+      /** The "question :: answer" lines of a note an editor has just saved, from its words as stored (line-cards.ts `lineCardsSoon`). */
+      'note:lines': (_gone: Gone, table: 'captures' | 'nuggets', id: string) =>
+        linesOf((db.prepare(`select body from ${table === 'nuggets' ? 'nuggets' : 'captures'} where id = ?`).get(id) as { body: string | null } | undefined)?.body),
       /** The words a save gained (word-count.ts): the words as they were, and as they are. */
       'words:gained': (_gone: Gone, was: string, now: string) => gained(was, now)
     },

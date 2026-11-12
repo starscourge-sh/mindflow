@@ -361,7 +361,7 @@ export const haligtree = {
   /** A question still open, come back as a hint; null most of the time. */
   questionBack: () => call<{ id: string; title: string; createdAt: string; clues: number; event: number } | null>('question:back'),
   item: (id: string) => call<ItemFull | null>('item', id),
-  saveItem: (id: string, patch: Partial<{ body: unknown; base: unknown; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; medium: string | null; context: string | null; mode: string; why: string | null }>) =>
+  saveItem: (id: string, patch: Partial<{ body: unknown; base: unknown; /** An editor's save: the words as they are kept, and the words they were made from (lib/same-words.ts). */ words: Uint8Array; wordsBase: Uint8Array; title: string; prompt: string | null; kind: string; suspended: boolean; attribution: string | null; medium: string | null; context: string | null; mode: string; why: string | null }>) =>
     call('item:save', id, patch),
   /** "Behind the answer" saved: the merged words into `context` first, and only once they are kept is the old `why` cleared, so nothing is lost. */
   saveBehind: async (id: string, text: string | null): Promise<void> => {

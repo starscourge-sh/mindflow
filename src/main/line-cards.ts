@@ -1,7 +1,11 @@
 import { randomUUID } from 'crypto'
-import { database } from './captures'
-import { lineCardsIn, matchLineCards, wordsIn } from './study'
-import { tagsIn } from './tag-words'
+import { changed, database } from './captures'
+import { linesIn } from './kept-words'
+import { ask } from './reader'
+import { named } from './stalls'
+import { matchLineCards } from './study'
+
+type Line = { question: string; answer: string }
 
 /**
  * Cards written inside a note: every "question :: answer" line in a capture,
@@ -15,16 +19,20 @@ import { tagsIn } from './tag-words'
  */
 export function syncLineCards(source: string, body: unknown, privacy = 0): boolean {
   if (body === undefined) return false
+  const { lines, tags } = linesIn(body)
+  return keepLineCards(source, lines, tags, privacy)
+}
+
+/**
+ * The cards of a note put in step with its lines, once those are read out of its words: `tags` are the note's
+ * #tags, which go on each of its cards (kept as the card's title, which every tag count, filter and export already
+ * reads), so studying #biology asks the cards written in a #biology note. One small write; whether anything changed.
+ */
+export function keepLineCards(source: string, lines: Line[], tags: string, privacy = 0): boolean {
   const db = database()
   const had = db.prepare("select id, prompt, body, title, archived_at as archivedAt, state, private from nuggets where tier = 'card' and line_of = ? order by created_at, rowid").all(source) as
     { id: string; prompt: string | null; body: string; title: string | null; archivedAt: string | null; state: string | null; private: number }[]
-  const read = typeof body === 'string' ? (body.trim().startsWith('{') ? safe(body) : body) : body
-  const lines = lineCardsIn(read)
   if (!lines.length && !had.some((card) => !card.archivedAt)) return false
-  // The note's #tags go on each of its cards (kept as the card's title, which
-  // every tag count, filter and export already reads), so studying #biology
-  // asks the cards written in a #biology note.
-  const tags = tagsIn(wordsIn(read)).map((tag) => `#${tag}`).join(' ')
   const { keep, add, drop } = matchLineCards(had, lines)
   const at = new Date().toISOString()
   let moved = false
@@ -48,11 +56,23 @@ export function syncLineCards(source: string, body: unknown, privacy = 0): boole
   return moved
 }
 
-const safe = (text: string): unknown => {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return text
-  }
+/**
+ * The same for a note an editor has just saved, without holding the save: its lines are read out of the stored
+ * words on the reading thread (the whole document is walked: 15 ms of main's thread for a 4 MB note), and its
+ * cards put in step here when that answers, a few milliseconds later for an ordinary note. A newer save of the same
+ * note while one is being read waits its turn and takes the place of any save waiting before it (reader.ts `slot`),
+ * so the cards always end as the last words have them. A card of a note is never read for cards of its own.
+ */
+export function lineCardsSoon(table: 'captures' | 'nuggets', id: string): void {
+  void ask('note:lines', [table, id], `lines:${table}:${id}`).then((found) => {
+    if (!found) return
+    named('save: line cards kept', () => {
+      const own = database().prepare(`select ${table === 'nuggets' ? 'tier' : "'' as tier"}, private from ${table} where id = ?`).get(id) as { tier: string; private: number } | undefined
+      if (!own || own.tier === 'card') return
+      // Cards came or went: said as theirs (by what they point back at, never the note's own id), so no editor
+      // of the note reads its words again for it.
+      const source = `${table === 'nuggets' ? 'nugget' : 'capture'}:${id}`
+      if (keepLineCards(source, found.lines, found.tags, own.private)) changed({ kind: 'item', id: source })
+    })
+  }, (error) => console.error('The cards written in a note were not read:', error))
 }
-
