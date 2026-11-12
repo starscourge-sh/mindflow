@@ -83,7 +83,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
   return (
     <TooltipProvider delayDuration={600}>
       <div className="relative flex h-screen flex-col bg-background text-foreground">
-        <Toaster />
+        <div data-toast-lane className="contents"><Toaster /></div>
         <ShortcutSheet />
         <WordNotes />
         {searching && (

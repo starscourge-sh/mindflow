@@ -63,12 +63,33 @@ const shiftOf = (words: HTMLElement): number => {
  * at every element in the window each time anything was added anywhere
  * (about 20 ms a time on a full page, several times over as a note or a tag
  * opened), whether a day page was open or not.
+ *
+ * And each box beside that way marked too (`data-day-aside`; what sits in a wrapper of display: contents is marked
+ * `in`, for opacity skips the wrapper), so the rules that fade them name them. Named only as "a child of the way
+ * that is not on it", they were rules that could reach any box at all, and each time a day page opened or shut
+ * (Home coming and going) the browser worked out every box in the window again: 150 ms and more with a long note
+ * still on the page behind it. What is added beside the way later (a toast, a menu) is marked as it comes.
  */
+const besides = typeof MutationObserver === 'undefined' ? null : new MutationObserver(() => markDayPaths())
 function markDayPaths(): void {
-  for (const one of document.querySelectorAll('[data-day-path]')) one.removeAttribute('data-day-path')
   const open = document.querySelectorAll('[data-day-write]')
-  for (const words of open)
-    for (let up = words.parentElement; up && up !== document.body; up = up.parentElement) up.setAttribute('data-day-path', '')
+  const way = new Set<Element>()
+  for (const words of open) for (let up = words.parentElement; up && up !== document.body; up = up.parentElement) way.add(up)
+  const aside = new Map<Element, string>()
+  if (open.length)
+    for (const on of [document.body, ...way])
+      for (const beside of on.children) {
+        if (way.has(beside)) continue
+        aside.set(beside, '')
+        if (beside.classList.contains('contents')) for (const inner of beside.children) aside.set(inner, 'in')
+      }
+  // Only what changed is touched: a mark taken off and put back is still a change the browser must answer.
+  for (const one of document.querySelectorAll('[data-day-path]')) if (!way.has(one)) one.removeAttribute('data-day-path')
+  for (const one of way) if (!one.hasAttribute('data-day-path')) one.setAttribute('data-day-path', '')
+  for (const one of document.querySelectorAll('[data-day-aside]')) if (!aside.has(one)) one.removeAttribute('data-day-aside')
+  for (const [one, kind] of aside) if (one.getAttribute('data-day-aside') !== kind) one.setAttribute('data-day-aside', kind)
+  besides?.disconnect()
+  if (open.length) for (const on of [document.body, ...way, ...[...aside.keys()].filter((one) => one.classList.contains('contents'))]) besides?.observe(on, { childList: true })
   // And a day page open at all, said on the root: asked of the page as :root:has([data-day-write]), it cost the same look at every element.
   document.documentElement.toggleAttribute('data-day-open', open.length > 0)
 }
@@ -374,7 +395,8 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
   useEffect(() => {
     if (!dom) return
     const page = dom.closest('[data-pane-card]')
-    const root = document.documentElement
+    // Where the notices are (home.tsx, note-window.tsx): what they keep clear of is said there, not on the root (main.css).
+    const lane = document.querySelector<HTMLElement>('[data-toast-lane]')
     const measure = (): void => {
       const box = dom.getBoundingClientRect()
       // Lifted by what sits under the page (a hint), never by the window's own frame round it: with nothing under the
@@ -382,7 +404,7 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
       const bottom = page?.getBoundingClientRect().bottom ?? window.innerHeight
       const foot = page && frameFoot(page) - bottom > 1 ? Math.max(0, window.innerHeight - bottom) : 0
       // Notices keep clear of the line, in plain pixels: the toast lane reads this as a number.
-      root.style.setProperty('--mf-writer-toast', `${foot + 60}px`)
+      lane?.style.setProperty('--mf-writer-toast', `${foot + 60}px`)
       setColumn((was) => (was && Math.abs(was.left - box.left) < 1 && Math.abs(was.width - box.width) < 1 && Math.abs(was.foot - foot) < 1 ? was : { left: box.left, width: box.width, foot }))
     }
     measure()
@@ -393,7 +415,7 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
     return () => {
       watch.disconnect()
       window.removeEventListener('resize', measure)
-      root.style.removeProperty('--mf-writer-toast')
+      lane?.style.removeProperty('--mf-writer-toast')
     }
   }, [dom])
   const [, tick] = useState(0)

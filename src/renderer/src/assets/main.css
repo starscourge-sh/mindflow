@@ -3181,11 +3181,14 @@ html[data-book-hue] [data-book-tint] {
    body: faded with the rest, it could not be seen or pressed while Tab still took its
    word). Opacity only, so nothing moves, and nothing gone can be
    clicked. A hand on the pointer or a pause brings it back slowly, a beat
-   after: the words are already there. */
-:root[data-day-open] :is(:is(body, [data-day-path]) > :not([data-day-path], [data-day-write], [data-writer-line], [data-spell-hint], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup)), :is(body, [data-day-path]) > .contents:not([data-day-path]) > *) {
+   after: the words are already there. Each box to fade is named (data-day-aside,
+   put on by day-writing.tsx): written as "any child of the way that is not on
+   it", the rule could reach any box at all, and a day page opening or shutting
+   made the browser work out every box in the window again. */
+:root[data-day-open] :is([data-day-aside]:not([data-day-write], [data-writer-line], [data-spell-hint], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup)), [data-day-aside='in']) {
   transition: opacity 800ms var(--mf-ease) 250ms;
 }
-:root[data-day-writing] :is(:is(body, [data-day-path]) > :not([data-day-path], [data-day-write], [data-writer-line], [data-spell-hint], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup), [data-radix-popper-content-wrapper], :has([data-scape-choice])), :is(body, [data-day-path]) > .contents:not([data-day-path]) > *) {
+:root[data-day-writing] :is([data-day-aside]:not([data-day-write], [data-writer-line], [data-spell-hint], .tiptap-suggestion-popup, :has(.tiptap-suggestion-popup), [data-radix-popper-content-wrapper], :has([data-scape-choice])), [data-day-aside='in']) {
   opacity: 0; pointer-events: none;
   transition: opacity 900ms ease-in-out;
 }
@@ -3211,16 +3214,20 @@ html[data-book-hue] [data-book-tint] {
    they reached the line, and the blur had nothing to soften. Room under the
    page's last row so it always comes to rest clear of the line and its fade.
    The room has its own. */
-:root[data-writer-shown]:not([data-in-room]) [data-pane-card] .overflow-y-auto[data-day-path] > div { padding-bottom: 8rem; }
-/* Toasts rise over it; and the day's aim is its hairline, not a second bar over the words. */
-:root[data-writer-shown]:not([data-in-room]) { --toast-bottom: var(--mf-writer-toast, 3.75rem); }
+/* (Its subject is named, as the fade's are: written `> div`, the browser took every div under each box of the
+   way, and under the root, for one it might mean.) */
+:root[data-writer-shown]:not([data-in-room]) [data-pane-card] .overflow-y-auto[data-day-path] > :is([data-day-path], [data-day-aside]) { padding-bottom: 8rem; }
+/* Toasts rise over it; and the day's aim is its hairline, not a second bar over the words. Said on the box the
+   notices are in ([data-toast-lane]) and never on the root: a value the root hands down is handed to every box in
+   the window, and each is worked out again when it changes (143 ms with a long note still on the page). */
+:root[data-writer-shown]:not([data-in-room]) [data-toast-lane] { --toast-bottom: var(--mf-writer-toast, 3.75rem); }
 :root[data-writer-shown]:not([data-in-room]) [data-day-write] [data-word-aim] { display: none; }
 /* With the aim's bar gone, so is the room kept over the words for it: the caption sits the same small gap over the first line, aim or not. */
 :root[data-writer-shown]:not([data-in-room]) [data-day-write] .haligtree-editor-wrapper:has(> .mf-aim) > .haligtree-editor-content { padding-top: 0; }
 :root[data-in-room] [data-writer-line] { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
-  :root[data-day-open] :is(body, [data-day-path]) > * { transition-duration: 200ms !important; transition-delay: 0s !important; }
+  :root[data-day-open] :is([data-day-path], [data-day-aside]) { transition-duration: 200ms !important; transition-delay: 0s !important; }
 }
 /* The day page's writer's line is the day page's own: never over the welcome laid across it. */
 /* Nor over anything laid across the page: the opening and leaving screens, a dialog or a sheet. */
