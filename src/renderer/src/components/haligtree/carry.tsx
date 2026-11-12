@@ -186,6 +186,18 @@ function useGlide(y: number, scaleY: number, instant: boolean, kick = 0, over: [
   return { ref: useCallback((node: HTMLElement | null) => void (el.current = node), []), style: { y: my, scaleY: ms } }
 }
 
+/** The room's quiet band, wherever one is drawn. */
+const ROOM = 'pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]'
+
+/**
+ * Where it lands, the one line every list draws: a dot at its start. In a row's
+ * room it runs through the band's middle; `fixed`, it is laid over the page at a
+ * place read off it, for rows that stay where they are (the sidebar's trees).
+ */
+export function DropLine({ how, style, fixed = false }: { how: string; style: CSSProperties; fixed?: boolean }): React.JSX.Element {
+  return <span aria-hidden data-drop-line={how} style={style} className={cn('pointer-events-none h-0.5 -translate-y-1/2 rounded-full shrink-0 bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background', fixed ? 'fixed z-[70]' : 'absolute right-2')} />
+}
+
 export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id: string; children: ReactNode; inner?: CSSProperties; indent?: number; /** A list that draws its own handle says so. */ grip?: boolean }): React.JSX.Element {
   // dnd-kit says where each row goes; the row glides there on the same clock as the groups' panels (PanelParts), so a
   // row and the box around it always move together, even turned back halfway. Its own CSS transition is off.
@@ -209,11 +221,15 @@ export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id:
       ref={ref}
       data-sortable-id={id}
       data-aim={aim?.target === id ? aim.how : undefined}
+      // In the hand a row is its one line: whatever hangs under it (a task's steps, its question) folds away (main.css).
+      data-held={isDragging || undefined}
+      // A row that would take the carried one in as its own (a task, its step) lights, and nothing opens.
+      data-nest-hot={(aim?.act === 'step' && aim.target === id) || undefined}
       {...attributes}
       {...listeners}
       tabIndex={-1}
       role={undefined}
-      className="group/grip relative isolate"
+      className="group/grip relative isolate rounded-md data-[nest-hot]:bg-accent data-[nest-hot]:ring-1 data-[nest-hot]:ring-ring"
       style={glide.style}
     >
       {/* That a row can be carried, said quietly: a grip in the margin by its left edge, as soon as the pointer is on it, as Today's lines show theirs. */}
@@ -222,19 +238,12 @@ export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id:
         // One hint per drop: a soft band the size of the room, the line through its middle. Drawn anew at each new place.
         // It waits for the rows to make way, so it never shows over one sliding past.
         <Fragment key={place}>
-          <span aria-hidden data-drop-room={along.size + 1} className="pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]" style={{ top: -inset, height: span - 2, animation: wait }} />
-          {!aim.make && (
-            <span
-              aria-hidden
-              data-drop-line={aim.how}
-              className="pointer-events-none absolute right-2 h-0.5 -translate-y-1/2 rounded-full shrink-0 bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
-              style={{ left: (aim.indent ?? (aim.into ? INDENT : 0)) + 12, top: span / 2 - inset, animation: wait }}
-            />
-          )}
+          <span aria-hidden data-drop-room={along.size + 1} className={ROOM} style={{ top: -inset, height: span - 2, animation: wait }} />
+          {!aim.make && <DropLine how={aim.how} style={{ left: (aim.indent ?? (aim.into ? INDENT : 0)) + 12, top: span / 2 - inset, animation: wait }} />}
         </Fragment>
       )}
       {/* Its own place, while nothing else is open for it: the same quiet room, never a faded copy of it. */}
-      {isDragging && !room && <span aria-hidden className="pointer-events-none absolute inset-x-1 inset-y-0 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]" />}
+      {isDragging && !room && <span aria-hidden data-own-room="" className={cn(ROOM, 'inset-y-0')} />}
       <AnimatePresence>
         {forming && (
           <motion.div
@@ -298,7 +307,7 @@ function slideOf(from: number, gap: number, span: number, rect: (index: number) 
  * bottom its last row, and a group the carried row would land in takes the
  * room in too. So the panel lights exactly the group named, on its own edges.
  */
-export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: mid, snap, blocks, footRoom = true, children }: { aim: Aim | null; keys: string[]; hand: string | null; home?: string | null; many: string[]; span: number; inset: number; row: number; snap: boolean; blocks: { id: string; rows: string[] }[]; /** Its panels have air under their last rows, to draw in over. */ footRoom?: boolean; children: ReactNode }): React.JSX.Element {
+export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: mid, snap, blocks, footRoom = true, within, children }: { aim: Aim | null; keys: string[]; hand: string | null; home?: string | null; many: string[]; span: number; inset: number; row: number; snap: boolean; blocks: { id: string; rows: string[] }[]; /** Its panels have air under their last rows, to draw in over. */ footRoom?: boolean; /** The list's own part of the page, where two lists on it hold the same rows (two panes): rows are read there alone. */ within?: ParentNode | null; children: ReactNode }): React.JSX.Element {
   const { droppableRects } = useDndContext()
   const gap = aim?.gap ?? null
   const shapes = new Map<string, Shape>()
@@ -311,7 +320,7 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
     // before a folded group sprang open, and the carried row's room then opened a whole group's rows too low.
     // Each row read once a draw, and only rows drawn: one search of the page for each of 2,500 keys, several times over, was slow.
     const drawn = new Map<string, HTMLElement>()
-    for (const node of document.querySelectorAll<HTMLElement>('[data-sortable-id]')) drawn.set(node.dataset.sortableId!, node)
+    for (const node of (within ?? document).querySelectorAll<HTMLElement>('[data-sortable-id]')) drawn.set(node.dataset.sortableId!, node)
     const read = new Map<string, { top: number; height: number } | undefined>()
     const box = (key: string | undefined): { top: number; height: number } | undefined => {
       if (key === undefined) return undefined
@@ -431,10 +440,10 @@ export function useTall(block: RefObject<HTMLElement | null>): number {
 }
 
 /** The row whose place the pointer is over, as the list lies before anything slid aside; in the air between two, the nearer. */
-export function rowAt(known: Set<string>, y: number): { id: string; node: HTMLElement; top: number; height: number } | null {
+export function rowAt(known: Set<string>, y: number, within: ParentNode | null = null): { id: string; node: HTMLElement; top: number; height: number } | null {
   let over: { id: string; node: HTMLElement; top: number; height: number } | null = null
   let far = Infinity
-  for (const node of document.querySelectorAll<HTMLElement>('[data-sortable-id]')) {
+  for (const node of (within ?? document).querySelectorAll<HTMLElement>('[data-sortable-id]')) {
     const id = node.dataset.sortableId!
     if (!known.has(id)) continue
     const box = node.getBoundingClientRect()
@@ -486,6 +495,9 @@ export function useAim(): { aim: Aim | null; aimed: RefObject<Aim | null>; start
     if (same(aimed.current, next)) return
     aimed.current = next
     setAim(next)
+    // Refused: the pointer says so too, wherever it is (main.css).
+    if (next?.refused) document.documentElement.dataset.dragRefused = ''
+    else delete document.documentElement.dataset.dragRefused
     if (!next && !own) return
     const now = next ? (next.make ? `make:${next.target}` : next.into) : homed.current
     const firm = now !== ring.current
@@ -495,10 +507,12 @@ export function useAim(): { aim: Aim | null; aimed: RefObject<Aim | null>; start
   return { aim, aimed, start, point }
 }
 
-/** Where the pointer is across the page: a list's own drag reads only up and down. */
+/** Where the pointer is on the page: a list's own drag reads only up and down. */
 let pointerX = 0
-if (typeof window !== 'undefined') window.addEventListener('pointermove', (event) => void (pointerX = event.clientX), true)
+let pointerY = 0
+if (typeof window !== 'undefined') window.addEventListener('pointermove', (event) => void ((pointerX = event.clientX), (pointerY = event.clientY)), true)
 export const pointerNow = (): number => pointerX
+export const pointerAt = (): { x: number; y: number } => ({ x: pointerX, y: pointerY })
 /** Going left alone moves nothing a list's own drag reads, so crossing OUTDENT reads the aim afresh itself. */
 export function useCarriedLeft(from: number | null, on: boolean, again: () => void): void {
   const read = useRef(again)
@@ -553,7 +567,7 @@ export function CarriedCard({ icon, title, strong = false, words, tint, refused 
  * late and leans into the way it is moving, as a card held loosely does (the
  * list itself reads only up and down). Null: a list that already moves it sideways.
  */
-export function Hand({ grab, from, rest, children }: { grab: number; from: number | null; /** How far up or down of the pointer it rests just now (useCardPlace). */ rest?: MotionValue<number>; children: ReactNode }): React.JSX.Element {
+export function Hand({ grab, from, rest, at, children }: { grab: number; from: number | null; /** How far up or down of the pointer it rests just now (useCardPlace). */ rest?: MotionValue<number>; /** How far down the lifted place the card rides, where that place is taller than the row in hand (a task lifted with its steps open): its middle otherwise. */ at?: number; children: ReactNode }): React.JSX.Element {
   const dragX = useMotionValue(0)
   useLayoutEffect(() => {
     if (from === null) return
@@ -567,7 +581,7 @@ export function Hand({ grab, from, rest, children }: { grab: number; from: numbe
   const lean = useSpring(useTransform(() => (calm ? 0 : Math.max(-3, Math.min(3, (dragX.get() - sideways.get()) * 0.12)))), { stiffness: 400, damping: 30 })
   return (
     <div className="relative h-full w-full">
-      <div className="absolute top-1/2" style={{ left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}>
+      <div className="absolute" style={{ top: at ?? '50%', left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}>
         <motion.div className="relative w-fit" style={{ x, y: rest, rotate: lean }}>{children}</motion.div>
       </div>
     </div>

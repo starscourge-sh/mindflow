@@ -1,5 +1,5 @@
 import { TabChips } from './tab-chips'
-import { SortableList, SortableRow } from './sortable'
+import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Branches } from './branches'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { remindersItem } from '@/lib/reminders'
@@ -1055,6 +1055,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     if (task.recurrence) return { refused: 'A repeating task stays a task' }
     return true
   }
+  // The part of Today each row stands in (Overdue, Today), by its heading: a date or a state puts a task there, never where it is dropped.
+  const partOf = new Map(groups.flatMap(([heading, list]) => list.map((task) => [task.id, heading] as const)))
+  /** A row carried over another part's rows: out of Overdue into Today it is moved to today; no other part is filled by dragging. */
+  const takenBy = (id: string, part: string): { words: string } | { refused: string } =>
+    part === 'Today' && partOf.get(id) === 'Overdue' ? { words: 'Move to Today' } : { refused: `Dragging can’t move it to “${part}”` }
   /** A row let go on another's middle: its step now, last among its steps, unfolded so it is seen; said with Undo, and ⌘Z. */
   const nestRow = (id: string, target: string): void => {
     const [task, parent] = [tasks.find((one) => one.id === id), tasks.find((one) => one.id === target)]
@@ -1318,7 +1323,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           {/* On Today, a row is dragged into your own order, or onto the Upcoming or Later tab. */}
           {/* On every list, a row rested on another's middle becomes its step. */}
           <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined} onNest={example || several.chosen.length ? undefined : nestRow} nests={nests}
-            places={sortable ? { drop: dropOnTab, said: (place) => (place === 'upcoming' ? 'Drop to do it tomorrow' : 'Drop to put it in Later, someday') } : undefined}>
+            places={sortable ? { drop: dropOnTab, said: (place) => (place === 'upcoming' ? 'Move to tomorrow' : 'Move to Later, someday') } : undefined}
+            parts={sortable ? { of: (id) => partOf.get(id), take: takenBy, drop: (id) => { const task = shown.find((one) => one.id === id); if (task) moveTo(task, 0) } } : undefined}>
           {() => (
           <VirtualList
             items={rows}
@@ -1358,7 +1364,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                     </button>
                   </h2>
                 ) : row.heading ? (
-                  <h2 {...loud(row.heading === 'Overdue' && mode === 'today' ? 'late' : undefined, 'list-ink mt-6 mb-1 truncate border-b pb-1.5 text-meta font-medium')}>
+                  // A row carried over this part's rows from another part: its heading lights, and the card says what letting go does.
+                  <h2 data-row-part={row.heading} {...loud(row.heading === 'Overdue' && mode === 'today' ? 'late' : undefined, `list-ink mt-6 mb-1 truncate border-b pb-1.5 text-meta font-medium ${DROP_LIT} data-[drop-hot]:rounded-md data-[drop-hot]:border-transparent`)}>
                     {row.heading} <span className="font-normal text-muted-foreground"><Rolling text={row.count} /></span>
                     {/* Every late one moved at once, with one Undo. */}
                     {row.heading === 'Overdue' && mode === 'today' && <LateMenu tasks={base} className="float-right -my-1.5" />}
@@ -1444,7 +1451,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         {/* Grouped by note, or getting ready for its due-by day, the subtasks show under their task, tickable where they are. */}
                         {/* Or while a step is being written into it, the new one last. */}
                         {((view.group === 'note' || gettingReady(task) || stepsOpen.has(task.id)) && subtasks.length > 0 || writing?.step === task.id) && (
-                          <Branches current={-1} rows="li" className="w-full pt-0.5">
+                          <Branches current={-1} rows="li" className="mf-held-folds w-full pt-0.5">
                           <ul data-steps-of={task.id} className="w-full space-y-0.5 pl-3">
                             {subtasks.map((one, at) => (
                               <li key={at} className="flex items-center gap-2 text-control">
@@ -1465,8 +1472,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                           </ul>
                           </Branches>
                         )}
-                        <TaskAsk task={task} ask={carryAsk} onPick={() => pick(task.id)} className="mt-1" />
-                        {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept with its logs" className="w-full" />}
+                        {/* In the hand a task is its own row: its steps above, this question and a thought being written fold away (.mf-held-folds). */}
+                        <TaskAsk task={task} ask={carryAsk} onPick={() => pick(task.id)} className="mf-held-folds mt-1" />
+                        {glossing === task.id && <GlossLine id={task.id} open onDone={() => setGlossing(null)} placeholder="A thought on it, kept with its logs" className="mf-held-folds w-full" />}
                         </div>
                         {/* A thought without opening it: on hover, in the row's own line, so it never lands on the title. */}
                         <GlossButton className="static -mt-0.5 shrink-0" onClick={() => setGlossing(task.id)} />

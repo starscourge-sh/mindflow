@@ -2749,7 +2749,9 @@ html[data-dragging] [data-grip] { visibility: hidden; }
 [data-carried-line] [data-day-line] { background: transparent !important; }
 /* A line's tools and its + stand down while anything is carried, whichever line held the focus. */
 html[data-dragging] :is([data-line-tools], [data-add-below]) { visibility: hidden; }
-/* A row's own place while it is carried: a quiet room, never a faded copy of it. */
+/* In the hand a row is its one line, as a group folds in the hand: what hangs under it (a task's steps, its question) is put away until it is let go (carry.tsx marks the row). */
+[data-sortable-id][data-held] .mf-held-folds { display: none; }
+/* A thing's own place while it is carried, where it is not a list's row (a tab, a day's line, a Matrix card): a quiet room, never a faded copy of it. */
 .mf-carried-place { position: relative; }
 .mf-carried-place > * { opacity: 0; }
 .mf-carried-place::before { content: ''; position: absolute; inset: 0 0.25rem; border-radius: 0.5rem; background: color-mix(in srgb, var(--tt-brand-color-400) 6%, transparent); }

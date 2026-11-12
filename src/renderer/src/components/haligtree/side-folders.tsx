@@ -13,7 +13,7 @@ import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { GroupIcon, IconChoice, binGroup } from './kept-groups'
-import { CarriedCard, swallowClick, swallowRelease } from './carry'
+import { CarriedCard, DropLine, swallowClick, swallowRelease } from './carry'
 import { pastEdge } from '@/lib/drag-edge'
 import { slotTicker } from '@/lib/proximity'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
@@ -138,6 +138,8 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
   const rowBox = (id: string): DOMRect | undefined => document.querySelector(`[data-side-folders="${list}"] [data-side-folder="${CSS.escape(id)}"]`)?.closest('[data-folder-line]')?.getBoundingClientRect()
   const treeOf = (id: string): string[] => [id, ...kids(id).filter(isFolder).flatMap((one) => treeOf(one.id))]
   const parentIn = (id: string | null | undefined): string | null => (id && all.find((one) => one.id === id)?.parent) || null
+  /** Letting go there would put it deeper than folders go: refused, as the drop itself would be. */
+  const tooDeep = (id: string, to: Aim): boolean => levelOf(to.how === 'into' ? to.target : parentIn(to.target)) + heightOf(id) > DEPTH
   const read = (id: string, x: number, y: number): Aim | null => {
     const tree = document.querySelector(`[data-side-folders="${list}"]`)?.getBoundingClientRect()
     // Off the sidebar's side, nothing here takes it; the same for far under the last folder.
@@ -176,6 +178,9 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
       if (JSON.stringify(aimRef.current) === JSON.stringify(next)) return
       aimRef.current = next
       setAim(next)
+      // Deeper than folders go: the pointer says no, as the card says why.
+      if (next && tooDeep(id, next)) document.documentElement.dataset.dragRefused = ''
+      else delete document.documentElement.dataset.dragRefused
       if (!next) return
       // What would hold it: crossing a folder's edge either way is the firm tap, a new place among the same folder's the light one.
       const holds = next.how === 'into' ? next.target : parentIn(next.target)
@@ -201,6 +206,7 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
       window.removeEventListener('pointercancel', cancel, true)
       window.removeEventListener('keydown', key, true)
       delete document.documentElement.dataset.dragging
+      delete document.documentElement.dataset.dragRefused
       aimRef.current = null
       setAim(null)
       setCarried(null)
@@ -275,16 +281,14 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
       {/* The folder carried, as a row is carried in the list: lifted under the pointer, in the app's own look. */}
       {lifted && createPortal(
         <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ left: carried.x + 18, top: carried.y, translate: '0 -50%' }}>
-          <CarriedCard attrs={{ 'data-folder-ghost': lifted.id }} icon={<GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />} title={lifted.name} />
+          {/* It says what letting go would do, as a list's card does: beside a folder, or inside the one that is lit. */}
+          <CarriedCard attrs={{ 'data-folder-ghost': lifted.id }} icon={<GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />} title={lifted.name} refused={!!aim && tooDeep(lifted.id, aim)}
+            words={!aim ? null : tooDeep(lifted.id, aim) ? `Folders go ${DEPTH} levels deep` : aim.how === 'into' ? `Put inside ${all.find((one) => one.id === aim.target)?.name ?? 'it'}` : 'Move here'} />
         </div>,
         document.body
       )}
-      {/* Where it lands, as the list draws it: a line with a ring at its start, at the edge it was read against. */}
-      {aim && aim.how !== 'into' && createPortal(
-        <span aria-hidden data-drop-line={aim.how} className="pointer-events-none fixed z-[70] h-0.5 -translate-y-1/2 rounded-full shrink-0 bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background"
-          style={{ top: aim.y, left: aim.left, width: aim.right - aim.left }} />,
-        document.body
-      )}
+      {/* Where it lands, the line every list draws (carry.tsx), at the edge it was read against. */}
+      {aim && aim.how !== 'into' && createPortal(<DropLine fixed how={aim.how} style={{ top: aim.y, left: aim.left, width: aim.right - aim.left }} />, document.body)}
     </Unfold>
   )
 }

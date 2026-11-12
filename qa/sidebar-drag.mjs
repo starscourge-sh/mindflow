@@ -36,7 +36,8 @@ async function carry(h, id, y) {
   const shown = await h.evaluate(() => ({
     line: document.querySelector('[data-drop-line]')?.getAttribute('data-drop-line') ?? null,
     refused: document.documentElement.hasAttribute('data-drag-refused'),
-    said: document.querySelector('[data-drop-refused]')?.textContent ?? '',
+    // Said on the carried card itself, as every list's refusal is (carry.tsx's CarriedCard).
+    said: document.querySelector('[data-carried-card] [data-drag-label][data-refused]')?.textContent ?? '',
     cursor: getComputedStyle(document.body).cursor
   }))
   await h.mouse.up()

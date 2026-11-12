@@ -6,6 +6,10 @@
 // drag; no line moving sideways and nothing left faded; a step lifted alone; a
 // task to a step and back, each with Undo; Esc cancels every drag; a term's row in
 // Archived and in Lookups. Frames go to SHOTS.
+// "One look" (12 Nov): on Tasks, the Queue, the sidebar's pins, pages and folders and in Writing, mid-carry, one card
+// under the pointer with words on it; exactly one line (a dot at its start, through the middle of one band) or one lit
+// target; the room as tall as the carried row folded; no row over another; Esc puts every box back; a drop said, with
+// Undo and ⌘Z; the window at 560 x 400. PART="One look" runs those alone; LONG=1 adds a list of 500 with its frames timed.
 //   npx electron-vite build --outDir out-onedrag
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-onedrag/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/one-drag.mjs
 import { mkdirSync } from 'fs'
@@ -317,8 +321,8 @@ await part("Today's list", async () => {
     const top = await rowOf(before[0]).boundingBox()
     // Its own place, while carried: the gap stays faintly where it was, one lifted card follows the pointer.
     await carry(last, { x: top.x + 220, y: top.y + 4 }, { name: `today-drag-${look}`, hold: true })
-    const lifted = await h.evaluate((id) => ({ place: !!document.querySelector(`[data-sortable-id="${id}"].mf-carried-place`), cards: document.querySelectorAll('[data-dnd-overlay], [data-carried]').length }), last)
-    check(`${look}: a carried task keeps its place faintly where it was`, lifted.place, JSON.stringify(lifted))
+    const lifted = await h.evaluate((id) => ({ place: !!document.querySelector(`[data-sortable-id="${id}"] > [data-drop-room]`) && document.querySelectorAll('[data-drop-line]').length === 1, cards: document.querySelectorAll('[data-dnd-overlay], [data-carried]').length }), last)
+    check(`${look}: a carried task's room opens where it will land, one line through it`, lifted.place, JSON.stringify(lifted))
     await wait(150); await h.mouse.up(); await wait(1200)
     if (FILM) await h.screenshot({ path: `${FILM}/today-drag-${look}-dropped.png` })
     const after = await order()
@@ -327,7 +331,7 @@ await part("Today's list", async () => {
     const was = await order()
     await carry(was[2], { x: top.x + 220, y: top.y + 4 }, { hold: true })
     await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(900)
-    check(`${look}: Esc mid-drag puts it back, nothing left faded`, (await order()).join() === was.join() && !(await h.locator('.mf-carried-place').count()), (await order()).join(','))
+    check(`${look}: Esc mid-drag puts it back, nothing left faded`, (await order()).join() === was.join() && !(await h.locator('.mf-carried-place, [data-held], [data-drop-room], [data-drop-line]').count()), (await order()).join(','))
   }
   await c.look('light'); await wait(200)
   // Onto the Later tab: someday; onto the Upcoming tab: tomorrow.
@@ -366,7 +370,7 @@ await part('A task onto a task makes a step', async () => {
     // Esc while lit: nothing changes.
     await onto(ids.pots, ids.water, { name: `nest-esc-${look}` })
     check(`${look}: rested on a task's middle, that task is lit`, (await lit()) === ids.water, String(await lit()))
-    check(`${look}: the card says “Make it a step”`, (await said()) === 'Make it a step', await said())
+    check(`${look}: the card says whose step it would be`, (await said()) === 'Make it a step of “Water the plants”', await said())
     await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(900)
     check(`${look}: Esc puts it back: still a task, no step, nothing lit`, (await task(ids.pots))?.status === 'open' && !(await stepsOf(ids.water)).length && !(await lit()), JSON.stringify(await stepsOf(ids.water)))
     // Let go while lit: a step.
@@ -464,6 +468,239 @@ await part('Esc ends the whole press', async () => {
   await esc('a task on the Calendar', centreOf(h.locator('[data-cal-loose]'), 40), { far: 40, lifts: false })
   await c.go('monthpage'); await wait(900)
   await esc('a line in the Month plan', centreOf(h.locator('[data-plan-task]'), 20))
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+})
+
+// --- 5c. One look for every drag (playbook interaction.md): on every list, mid-carry, one card under the pointer with
+// words on it; exactly one line (its dot at the start, through the middle of one band) or one lit target; the room as
+// tall as the carried row folded; no row over another; Esc puts every box back; a drop is said, with Undo and ⌘Z.
+/** What a carry draws just now, read off the page. The rows are the carried row's own list. */
+const drawn = () => h.evaluate(() => {
+  const seen = (one) => { if (!one.getClientRects().length) return false; for (let at = one; at; at = at.parentElement) if (+getComputedStyle(at).opacity < 0.05) return false; return true }
+  const box = (one) => { const r = one.getBoundingClientRect(); return { top: r.top, bottom: r.bottom, left: r.left, right: r.right, height: r.height } }
+  const cards = [...document.querySelectorAll('[data-carried-card]')].filter(seen)
+  const lines = [...document.querySelectorAll('[data-drop-line]')].filter(seen)
+  const rooms = [...document.querySelectorAll('[data-drop-room]')].filter(seen)
+  const [line, room] = [lines[0] && box(lines[0]), rooms[0] && box(rooms[0])]
+  const dot = lines[0] ? getComputedStyle(lines[0], '::before') : null
+  const held = document.querySelector('[data-sortable-id][data-held], .mf-carried-place')
+  let within = held?.parentElement
+  while (within && within !== document.body && within.querySelectorAll('[data-sortable-id]').length < 3) within = within.parentElement
+  const list = [...(within?.querySelectorAll('[data-sortable-id]') ?? [])].filter((one) => one !== held && seen(one) && !one.querySelector('[data-sortable-id]')).map(box).sort((a, b) => a.top - b.top)
+  let overlap = 0
+  for (let i = 1; i < list.length; i++) overlap = Math.max(overlap, list[i - 1].bottom - list[i].top)
+  return {
+    cards: cards.length, words: cards[0]?.querySelector('[data-drag-label]')?.textContent ?? '', refused: !!cards[0]?.querySelector('[data-refused]'), card: cards[0] && box(cards[0]),
+    lines: lines.length, rooms: rooms.length, dot: !!dot && parseFloat(dot.width) >= 6 && parseFloat(dot.borderTopWidth) >= 1,
+    lineIn: !!line && !!room && line.top >= room.top - 1 && line.bottom <= room.bottom + 1 && Math.abs((line.top + line.bottom) / 2 - (room.top + room.bottom) / 2) <= 2,
+    room: room?.height ?? 0, held: held ? box(held).height : 0, overlap: Math.round(overlap * 10) / 10,
+    onRoom: room ? list.filter((one) => Math.min(one.bottom, room.bottom) - Math.max(one.top, room.top) > 1.5).length : 0,
+    lit: [...document.querySelectorAll('[data-drop-hot], [data-nest-hot]')].filter(seen).length, pointer: getComputedStyle(document.body).cursor
+  }
+})
+/** Every row's box on the page, for Esc putting each back. */
+const boxes = () => h.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return [one.dataset.sortableId, `${Math.round(r.top)}:${Math.round(r.height)}`] })))
+/** The seven points, checked where the pointer is `at`. `want`: the card's words, and `lit` (a target lights), `refused`, `bare` (a line with no band: rows that stay put) or a room with its line. */
+const oneLook = async (name, at, want) => {
+  await wait(450)
+  const d = await drawn()
+  const told = JSON.stringify(d)
+  check(`${name}: one card, under the pointer`, d.cards === 1 && !!d.card && at.y >= d.card.top - 10 && at.y <= d.card.bottom + 10 && at.x >= d.card.left - 60 && at.x <= d.card.right, JSON.stringify({ cards: d.cards, card: d.card, at }))
+  check(`${name}: the card says ${want.words}`, want.words instanceof RegExp ? want.words.test(d.words) : d.words === want.words, d.words || '(no words)')
+  if (want.lit) check(`${name}: one lit target, no line, no room`, d.lit === 1 && !d.lines && !d.rooms, told)
+  else if (want.refused) check(`${name}: refused on the card, the pointer says no, nothing opens`, d.refused && d.pointer === 'not-allowed' && !d.lines && !d.rooms && !d.lit, told)
+  else if (want.bare) check(`${name}: exactly one line, with its dot`, d.lines === 1 && d.dot && !d.lit, told)
+  else {
+    check(`${name}: exactly one line, with its dot, through the middle of one band`, d.lines === 1 && d.rooms === 1 && d.dot && d.lineIn && !d.lit, told)
+    check(`${name}: the room is as tall as the carried row, folded (within 2px)`, d.held > 0 && Math.abs(d.room + 2 - d.held) <= 2 && (!want.tall || d.held <= want.tall + 2), `room ${d.room}, row in hand ${d.held}${want.tall ? `, a plain row ${want.tall}` : ''}`)
+    check(`${name}: no row is over another, or over the room`, d.overlap <= 1 && !d.onRoom, `overlap ${d.overlap}px, ${d.onRoom} on the room`)
+  }
+  if (SHOTS) for (const look of ['light', 'dark']) { await c.look(look); await wait(150); await h.screenshot({ path: `${SHOTS}/look-${name.replace(/\W+/g, '-')}-${look}.png` }) }
+  if (SHOTS) { await c.look('light'); await wait(150) }
+  return d
+}
+/** A held carry put back with Esc: every box where it was. */
+const putBack = async (name, was) => {
+  await h.keyboard.press('Escape'); await wait(350); await h.mouse.up(); await wait(450)
+  const now = await boxes()
+  const moved = Object.keys(was).filter((id) => was[id] !== now[id])
+  check(`${name}: Esc puts every box back, nothing carried`, !moved.length && !(await card()), moved.slice(0, 4).map((id) => `${id} ${was[id]} -> ${now[id]}`).join('; '))
+}
+/** From a point to a point with a real pointer, in steps, and held there. */
+const hold = async (from, to) => {
+  await h.mouse.move(from.x, from.y); await h.mouse.down()
+  for (let i = 1; i <= 12; i++) { await h.mouse.move(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12); await wait(30) }
+  return to
+}
+const sortRow = (id) => h.evaluate((one) => { const r = document.querySelector(`[data-pane] [data-sortable-id="${CSS.escape(one)}"], aside [data-sortable-id="${CSS.escape(one)}"]`)?.getBoundingClientRect(); return r && { x: r.x, y: r.y, w: r.width, h: r.height } }, id)
+await part('One look: Tasks', async () => {
+  await c.look('light')
+  for (const old of await v('tasks')) if (old.status === 'open') await v('task:save', old.id, { status: 'dropped' })
+  const t = { late: await addLine('Renew the passport'), plumber: await addLine('Pay the plumber'), wash: await addLine('Wash the car'), bake: await addLine('Bake bread', ['Feed the starter', 'Shape the loaf', 'Heat the oven']), mend: await addLine('Mend the gate'), weed: await addLine('Weed the beds') }
+  const yesterday = new Date(c.now()); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(9, 0, 0, 0)
+  for (const id of [t.late, t.plumber]) await v('task:save', id, { due: yesterday.toISOString() })
+  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'when' })))
+  await h.reload(); await wait(1500); await c.go('today'); await wait(1200)
+  // A task with its steps open is a tall row: in the hand it is its one row, and the room is that row's.
+  await h.locator(`[data-steps-fold="${t.bake}"]`).click(); await wait(500)
+  const plain = (await sortRow(t.mend)).h
+  const tall = (await sortRow(t.bake)).h
+  check('Tasks: a task with its steps open is taller than a plain one (the case the pictures showed)', tall > plain + 30, `${tall} against ${plain}`)
+  const today = (await order()).filter((id) => [t.wash, t.bake, t.mend, t.weed].includes(id))
+  const next = today[today.indexOf(t.bake) + 1] ?? today[today.indexOf(t.bake) - 1]
+  const down = today.indexOf(next) > today.indexOf(t.bake)
+  const grip = async (id) => { const r = await sortRow(id); return { x: r.x + 220, y: r.y + 14 } }
+  const edge = async (id, low) => { const r = await sortRow(id); return { x: r.x + 220, y: r.y + r.h * (low ? 0.86 : 0.14) } }
+  // Folded in the hand, the rows under it come up by what it folded away: the row aimed at is that much higher by then.
+  const aimed = async () => { const to = await edge(next, down); return down ? { x: to.x, y: to.y - (tall - plain) } : to }
+  let was = await boxes()
+  let at = await hold(await grip(t.bake), await aimed())
+  await oneLook('Tasks, a task with steps open carried among Today', at, { words: 'Move here', tall: plain })
+  await putBack('Tasks, among Today', was)
+  const before = await order()
+  await hold(await grip(t.bake), await aimed()); await wait(350); await h.mouse.up(); await wait(1200)
+  const after = await order()
+  check('Tasks: let go, it stands where the room was', down ? after.indexOf(t.bake) === after.indexOf(next) + 1 : after.indexOf(t.bake) === after.indexOf(next) - 1, `${before.join()} -> ${after.join()}`)
+  await h.mouse.click(5, 450); await h.keyboard.press('Meta+z'); await wait(1200)
+  check('Tasks: ⌘Z puts the order back', (await order()).join() === before.join(), (await order()).join())
+  // Out of Overdue over Today's rows: Today's heading lights, the card says where it goes, and the drop is said with Undo.
+  was = await boxes()
+  at = await hold(await grip(t.late), await edge(t.wash, true))
+  await oneLook('Tasks, Overdue carried over Today', at, { words: 'Move to Today', lit: true })
+  await putBack('Tasks, Overdue over Today', was)
+  await hold(await grip(t.late), await edge(t.wash, true)); await wait(350); await h.mouse.up(); await wait(1300)
+  const moved = await task(t.late)
+  check('Tasks: let go, it is due today, said with Undo', new Date(moved.dueAt).toDateString() === c.now().toDateString() && /Moved to/.test(await toastSaid()) && (await toastSaid()).includes('Undo'), `${moved.dueAt} | ${await toastSaid()}`)
+  await h.mouse.click(5, 450); await h.keyboard.press('Meta+z'); await wait(1300)
+  check('Tasks: ⌘Z makes it late again', new Date((await task(t.late)).dueAt).toDateString() === yesterday.toDateString(), String((await task(t.late)).dueAt))
+  // Today's over Overdue's rows: refused in words, the pointer says no, nothing moves.
+  was = await boxes()
+  at = await hold(await grip(t.wash), await edge(t.plumber, false))
+  await oneLook('Tasks, Today carried over Overdue', at, { words: /can’t move it to “Overdue”/, refused: true })
+  await h.mouse.up(); await wait(900)
+  check('Tasks: refused, let go: nothing moved', JSON.stringify(await boxes()) === JSON.stringify(was) && new Date((await task(t.wash)).dueAt).toDateString() === c.now().toDateString(), '')
+  // Rested on a task's middle: that task lights and the card names it.
+  const mid = await sortRow(t.wash)
+  at = await hold(await grip(t.weed), { x: mid.x + 220, y: mid.y + mid.h / 2 }); await wait(750)
+  await h.mouse.move(at.x + 1, at.y); await wait(100)
+  await oneLook('Tasks, a task rested on a task', at, { words: 'Make it a step of “Wash the car”', lit: true })
+  await putBack('Tasks, rested on a task', was)
+  // Onto a tab: the tab lights, the card says where it goes.
+  const tab = await h.locator('[data-page] header button[aria-label="Later"]').first().boundingBox()
+  at = await hold(await grip(t.mend), { x: tab.x + tab.width / 2, y: tab.y + tab.height / 2 })
+  await h.mouse.move(at.x + 1, at.y); await wait(350)
+  const onTab = await drawn()
+  check('Tasks, carried onto the “Later” tab: one card that says where it goes, the tab lit, no line', onTab.cards === 1 && onTab.words === 'Move to Later, someday' && onTab.lit === 1 && !onTab.lines && !onTab.rooms, JSON.stringify(onTab))
+  await shot('look-tasks-onto-a-tab')
+  await putBack('Tasks, onto a tab', was)
+})
+await part('One look: the Queue', async () => {
+  let was, at
+  await c.look('light')
+  await h.reload(); await wait(1500)
+  await c.go('queue'); await wait(900)
+  const queue = await h.evaluate(() => [...document.querySelectorAll('[data-pane] [data-sortable-id]')].map((one) => one.dataset.sortableId))
+  if (queue.length >= 3) {
+    was = await boxes()
+    const [a, b] = [await sortRow(queue[0]), await sortRow(queue[1])]
+    at = await hold({ x: a.x + 200, y: a.y + a.h / 2 }, { x: a.x + 200, y: b.y + b.h * 0.86 })
+    await oneLook('The Queue, a row carried down', at, { words: 'Move here' })
+    await putBack('The Queue', was)
+  } else console.log(`SKIP  One look: the Queue has ${queue.length} rows`)
+})
+await part('One look: the sidebar', async () => {
+  let was, at
+  // A pin among the pins, a page among the pages (rows that stay put: a bare line), a folder among folders.
+  for (const id of [ids.Oak, ids.Pine]) await v('pin', 'nuggets', id, true).catch(() => {})
+  await h.reload(); await wait(1500)
+  await c.go('articles'); await wait(900)
+  const pins = await h.evaluate(() => { const one = [...document.querySelectorAll('aside [data-sortable-id]')].find((el) => el.textContent.includes('Start here')); let box = one?.parentElement; while (box && box.querySelectorAll('[data-sortable-id]').length < 2) box = box.parentElement; return one ? [...box.querySelectorAll('[data-sortable-id]')].map((el) => el.dataset.sortableId).filter((id) => id.split(':')[0] === one.dataset.sortableId.split(':')[0] || id === one.dataset.sortableId) : [] })
+  if (pins.length >= 2) {
+    was = await boxes()
+    const [a, b] = [await sortRow(pins[0]), await sortRow(pins[1])]
+    at = await hold({ x: a.x + 40, y: a.y + a.h / 2 }, { x: a.x + 40, y: b.y + b.h * 0.86 })
+    await oneLook('The sidebar, a pin carried down', at, { words: 'Move here' })
+    await putBack('The sidebar, a pin', was)
+  } else console.log(`SKIP  One look: ${pins.length} pins in the sidebar`)
+  const pages = await h.evaluate(() => [...document.querySelectorAll('aside nav [data-drop-list] [data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => one.dataset.sortableId))
+  if (pages.length >= 3) {
+    was = await boxes()
+    const [a, b] = [await sortRow(pages[0]), await sortRow(pages[2])]
+    at = await hold({ x: a.x + 40, y: a.y + a.h / 2 }, { x: a.x + 40, y: b.y + b.h * 0.9 })
+    await oneLook('The sidebar, a page carried down', at, { words: 'Move here', bare: true })
+    await putBack('The sidebar, a page', was)
+  } else console.log(`SKIP  One look: ${pages.length} pages in the sidebar`)
+  await v('groups:arrange', 'article', { top: ['g:f-a', 'g:f-b', 'g:f-c', ids.Ash], groups: { 'f-a': [ids.Birch], 'f-b': [ids.Cedar], 'f-c': [ids.Elm] }, revive: ['f-a', 'f-b', 'f-c'].map((id, n) => ({ id, name: ['Alder', 'Beech', 'Chestnut'][n], icon: null, color: null, folded: 0, folder: 1 })) })
+  await c.go('articles'); await wait(900)
+  const fa = await h.locator('[data-side-folder="f-a"]').boundingBox(), fc = await h.locator('[data-side-folder="f-c"]').boundingBox()
+  was = await boxes()
+  at = await hold({ x: fa.x + 50, y: fa.y + fa.height / 2 }, { x: fa.x + 50, y: fc.y + fc.height * 0.9 })
+  await oneLook('The sidebar, a folder carried below another', at, { words: 'Move here', bare: true })
+  await h.mouse.move(at.x, fc.y + fc.height / 2, { steps: 4 }); await wait(350)
+  const into = await drawn()
+  check('The sidebar, a folder over a folder’s middle: the card names it, no line', into.cards === 1 && into.words === 'Put inside Chestnut' && !into.lines, JSON.stringify(into))
+  await shot('look-sidebar-folder-into')
+  await putBack('The sidebar, a folder', was)
+  for (const id of ['f-a', 'f-b', 'f-c']) await v('groups:delete', id)
+  for (const id of [ids.Oak, ids.Pine]) await v('pin', 'nuggets', id, false).catch(() => {})
+})
+// The window at its smallest, 560 x 400: the card inside the window, the room and its line still one each, nothing scrolling sideways.
+await part('One look: 560 x 400', async () => {
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+  await c.size(560, 400); await wait(600)
+  const rows = await h.evaluate(() => [...document.querySelectorAll('[data-pane] [data-sortable-id]')].filter((one) => { const r = one.getBoundingClientRect(); return r.top > 150 && r.bottom < innerHeight - 20 }).map((one) => one.dataset.sortableId))
+  if (rows.length >= 2) {
+    const [a, b] = [await sortRow(rows[0]), await sortRow(rows[1])]
+    const at = await hold({ x: a.x + 120, y: a.y + 14 }, { x: a.x + 120, y: b.y + b.h * 0.86 })
+    await wait(450)
+    const d = await drawn()
+    const fits = await h.evaluate(() => ({ width: innerWidth, sideways: document.documentElement.scrollWidth > innerWidth }))
+    check('560 x 400: one card inside the window, one line in one band, nothing scrolls sideways', d.cards === 1 && d.card.left >= 0 && d.card.right <= fits.width && d.lines === 1 && d.rooms === 1 && d.lineIn && !fits.sideways, JSON.stringify({ card: d.card, lines: d.lines, rooms: d.rooms, fits, at }))
+    await shot('look-560x400-task-carried')
+    await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(300)
+  } else check('560 x 400: two task rows on show to carry between', false, `${rows.length} rows`)
+  await c.size(1200, 900); await wait(400)
+})
+// A list of 500 (LONG=1, timed with `solo --quiet`): only the rows near the screen are drawn, the carry draws the one
+// look, the list scrolls by itself at its edge, and every frame while carrying is timed.
+if (process.env.LONG) await part('One look: 500 rows', async () => {
+  for (const old of await v('tasks')) if (old.status === 'open') await v('task:save', old.id, { status: 'dropped' })
+  for (let i = 0; i < 500; i++) await v('task:add', `Long list task ${i + 1} today`)
+  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'when' })))
+  await h.reload(); await wait(2500); await c.go('today'); await wait(1800)
+  const count = await h.locator('[data-pane] [data-sortable-id]').count()
+  check('500 tasks: only the rows near the screen are drawn', count > 5 && count < 120, `${count} rows drawn`)
+  const first = await h.locator('[data-pane] [data-task-row]').nth(2).boundingBox()
+  const pane = await h.evaluate(() => { let el = document.querySelector('[data-pane] [data-vlist]'); while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement; el.dataset.qaScroller = ''; const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom } })
+  await h.evaluate(() => { window.__frames = []; let last = performance.now(); const tick = (now) => { window.__frames.push(now - last); last = now; window.__raf = requestAnimationFrame(tick) }; window.__raf = requestAnimationFrame(tick) })
+  await h.mouse.move(first.x + 220, first.y + 14); await h.mouse.down()
+  for (let i = 1; i <= 40; i++) { await h.mouse.move(first.x + 220, first.y + 14 + i * 8); await wait(16) }
+  await wait(450)
+  const d = await drawn()
+  check('500 tasks: one card, one line through one band, no row over another', d.cards === 1 && d.lines === 1 && d.rooms === 1 && d.lineIn && d.overlap <= 1 && !d.onRoom, JSON.stringify(d))
+  const top0 = await h.evaluate(() => document.querySelector('[data-qa-scroller]').scrollTop)
+  await h.mouse.move(first.x + 220, pane.bottom - 10, { steps: 12 })
+  const began = Date.now()
+  for (let i = 0; i < 30; i++) { await h.mouse.move(first.x + 220 + (i % 2), pane.bottom - 10); await wait(50) }
+  const top1 = await h.evaluate(() => document.querySelector('[data-qa-scroller]').scrollTop)
+  const speed = Math.round((top1 - top0) / ((Date.now() - began) / 1000))
+  const frames = (await h.evaluate(() => { cancelAnimationFrame(window.__raf); return window.__frames })).slice(3)
+  const sorted = [...frames].sort((a, b) => a - b)
+  const [worst, p95, over] = [sorted.at(-1), sorted[Math.floor(sorted.length * 0.95)], frames.filter((one) => one > 17.5).length]
+  console.log(`TIMING 500 rows carried: ${frames.length} frames, worst ${worst.toFixed(1)} ms, 95th ${p95.toFixed(1)} ms, ${over} over 17.5 ms (${((over / frames.length) * 100).toFixed(1)}%), the list scrolled by itself at ${speed} px/s`)
+  check('500 tasks: at its bottom edge the list scrolls by itself, no faster than about 1000 px a second', speed > 60 && speed < 1300, `${speed} px/s`)
+  await shot('look-500-tasks-carried')
+  await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(400)
+})
+await part('One look: Writing, the reference', async () => {
+  // A row carried among a group's rows.
+  await scene()
+  const was = await boxes()
+  let at
+  const [ash, birch] = [await row('Ash').boundingBox(), await row('Birch').boundingBox()]
+  at = await hold({ x: ash.x + 200, y: ash.y + ash.height / 2 }, { x: ash.x + 200, y: birch.y + birch.height * 0.86 })
+  await oneLook('Writing, a note carried down', at, { words: /^Move here/ })
+  await putBack('Writing, a note', was)
   await h.reload(); await wait(1500); await c.go('today'); await wait(900)
 })
 
