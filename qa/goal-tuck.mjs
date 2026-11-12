@@ -33,8 +33,11 @@ try {
   }, dune.id)
   const page = async () => electron.windows().find((p) => p.url().includes('view=sticky') && p.url().includes(`id=${dune.id}`))
   const tick = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home'))?.webContents.send('noop'))
+  /** The card's own place as the book's folder keeps it (stickies.json). */
+  const keptPlace = async () => (await electron.evaluate(({ app }) => JSON.parse(process.getBuiltinModule('fs').readFileSync(process.getBuiltinModule('path').join(app.getPath('userData'), 'stickies.json'), 'utf8')))).find((one) => `${one.type}:${one.id}` === key)?.bounds
   await wait(1500)
   const rest = (await card()).b
+  const keptAtRest = await keptPlace()
   check('to start, the card is up in full', (await card())?.visible && rest.width > 200)
 
   // Between the hours: a slim tab at the nearer edge, level with the card.
@@ -59,10 +62,12 @@ try {
   await electron.evaluate(() => (globalThis.qaCursor = { x: 5, y: 5 }))
   await wait(1200)
   check('the pointer gone, it folds back to the tab', (await card()).b.width === 46)
-  // Its own place is kept as it was, never the tab's.
-  const kept = await electron.evaluate(({ app }) => JSON.parse(process.getBuiltinModule('fs').readFileSync(process.getBuiltinModule('path').join(app.getPath('userData'), 'stickies.json'), 'utf8')))
-  const own = kept.find((one) => `${one.type}:${one.id}` === key)?.bounds
-  check('its own place is kept as it was, not the tab\'s', own && own.width === rest.width && own.x === rest.x && own.y === rest.y, JSON.stringify([own, rest]))
+  // Its own place is kept as it was, never the tab's: compared with what was kept before it tucked, not with where
+  // the window stands. A place kept on one screen (the example book's, 16 from the top of a screen with no menu bar)
+  // is brought into view on another (under a 37 px menu bar) without being written over, so the two differ there:
+  // on 12 Nov the Mac's screen changed between runs and this line failed with nothing wrong.
+  const own = await keptPlace()
+  check('its own place is kept as it was, not the tab\'s', !!own && !!keptAtRest && own.width === rest.width && own.height === rest.height && own.x === keptAtRest.x && own.y === keptAtRest.y, JSON.stringify([own, keptAtRest, rest]))
 
   // Out of sight in between, when chosen.
   await v('settings:set', { goalBetween: 'tuck' })
