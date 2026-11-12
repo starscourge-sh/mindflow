@@ -100,7 +100,6 @@ const snap = (minute: number, by = SNAP): number => Math.max(0, Math.min(24 * 60
 const RING = 'var(--ring)'
 const RING_QUIET = 'color-mix(in oklab, var(--ring) 45%, transparent)'
 /** A task on the page, wherever it is drawn: a block at its hour, a chip on the all-day lane, a row of Unscheduled, a line in a month's day. */
-
 const TASK_AT = '[data-cal-block], [data-cal-untimed], [data-cal-loose], [data-plan-task]'
 const taskAt = (el: HTMLElement): string | null => el.dataset.calBlock ?? el.dataset.calUntimed ?? el.dataset.calLoose ?? (el.dataset.planTask || null)
 const minuteOf = (iso: string): number => { const at = dayjs(iso); return at.hour() * 60 + at.minute() }
@@ -192,8 +191,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // double-click on it, ↵, its menu's “Open”, ⌘K, a row of Upcoming. A click on the grid only picks.
   const [opened, setOpened] = useState<Opened | null>(null)
   const openAdd = (to: Add): void => (setOpened(null), setPanel(null), setPickedDay(to.day), setAdd(to))
-  const openTask = (id: string, at: HTMLElement | null = null): void => (setAdd(null), setPanel(null), setChosenEvent(null), setChosen(id), setOpened({ kind: 'task', id, at }))
-  const openEvent = (key: string, at: HTMLElement | null = null): void => (setAdd(null), setPanel(null), setChosen(null), setChosenEvent(key), setOpened({ kind: 'event', key, at }))
+  const openTask = (id: string, at: HTMLElement | null = null, words?: string): void => (setAdd(null), setPanel(null), setChosenEvent(null), setChosen(id), setOpened({ kind: 'task', id, at, words }))
+  const openEvent = (key: string, at: HTMLElement | null = null, words?: string): void => (setAdd(null), setPanel(null), setChosen(null), setChosenEvent(key), setOpened({ kind: 'event', key, at, words }))
   // Its whole page, from the popover's “Open”.
   const toPage = (ask: SideAsk): void => (chime('open'), setOpened(null), setPanel(ask))
   // A week too narrow to read (the days' pane under 640px, a small window): three days from the day shown, as Fantastical and Apple's Calendar do.
@@ -790,7 +789,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         <DaySide inline ask={panel} width={`${editorRem}rem`} grip={editorGrip} onClose={() => setPanel(null)} onOpen={onOpen} />
       </div>
       {add && <AddPopover key={`${add.day}|${add.minute}|${add.words ?? ''}`} add={add} level={level} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} />}
-      {!add && openNow && <OpenPopover key={openNow.kind === 'event' ? openNow.key : openNow.id} opened={openNow} event={openedEvent ?? undefined} task={openedTask ?? undefined} level={level} onClose={() => setOpened(null)}
+      {!add && openNow && <OpenPopover key={`${openNow.kind === 'event' ? openNow.key : openNow.id}|${openNow.words ?? ''}`} opened={openNow} onAgain={(words) => (openNow.kind === 'event' ? openEvent(openNow.key, openNow.at, words) : openTask(openNow.id, openNow.at, words))} event={openedEvent ?? undefined} task={openedTask ?? undefined} level={level} onClose={() => setOpened(null)}
         onPage={() => toPage(openNow.kind === 'event' ? { event: openNow.key } : { task: openNow.id })} onKey={(key) => setOpened((was) => (was?.kind === 'event' ? { ...was, key } : was))} />}
       {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}

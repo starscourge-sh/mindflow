@@ -648,7 +648,9 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, one }: {
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
           <input ref={field} data-new-event-words value={text} readOnly={one?.readOnly} onChange={(event) => setText(event.target.value)} aria-label={one ? 'The event’s name' : `A new event for ${dayjs(ask.day).format('dddd D MMMM')}`}
             placeholder="Lunch with Sam fri 1pm" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
-          <Button type="submit" size="sm" data-new-event-add aria-label={one ? 'Keep' : 'Add'}><span className="hidden @[40rem]/page:inline">{one ? 'Keep' : 'Add'}</span> <Kbd>↵</Kbd></Button>
+          {/* A new one's ↵ is the popover's one filled button; on one that exists it is a quiet key (keeping a name is not
+              the main thing there), and one of your Mac's, read only, has nothing to keep. */}
+          {!one?.readOnly && <Button type="submit" size="sm" variant={one ? 'ghost' : undefined} data-new-event-add aria-label={one ? 'Keep' : 'Add'}><span className="hidden @[40rem]/page:inline">{one ? 'Keep' : 'Add'}</span> <Kbd>↵</Kbd></Button>}
         </div>
         {/* What it will be, plain to read, before it is made. */}
         <div data-new-event-said className="flex flex-col gap-1 text-body text-foreground">

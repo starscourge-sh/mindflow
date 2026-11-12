@@ -222,7 +222,7 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
   // A task picked by a click on its line (ringed), and the one open in the popover a new one is written in, tied to its
   // line: a double-click or ↵. “Open” there is its whole page, in the side panel.
   const [pickedTask, setPickedTask] = useState<string | null>(null)
-  const [openedOwn, setOpenedOwn] = useState<{ id: string; at: HTMLElement | null } | null>(null)
+  const [openedOwn, setOpenedOwn] = useState<{ id: string; at: HTMLElement | null; words?: string } | null>(null)
   // A task's own right-click menu on its line, the one every list has; kept in hand so a week drawn before it changed reads it as it is now.
   const nowTask = useTaskNow()
   const taskNow = useRef(nowTask)
@@ -367,7 +367,7 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
       <DotsKey opened={marking} captures={counting} />
       {!onSide && <DaySide ask={mine} onClose={() => setMine(null)} onOpen={onOpen} />}
       {own && add && <AddPopover key={`${add.day}|${add.words ?? ''}`} add={add} level={frame} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} />}
-      {own && !add && openedOwn && openedTask && <OpenPopover key={openedOwn.id} opened={{ kind: 'task', ...openedOwn }} task={openedTask} level={frame} onClose={() => setOpenedOwn(null)}
+      {own && !add && openedOwn && openedTask && <OpenPopover key={`${openedOwn.id}|${openedOwn.words ?? ''}`} opened={{ kind: 'task', ...openedOwn }} task={openedTask} level={frame} onClose={() => setOpenedOwn(null)} onAgain={(words) => (setPickedTask(openedOwn.id), setOpenedOwn({ ...openedOwn, words }))}
         onPage={() => (chime('open'), setOpenedOwn(null), setMine({ task: openedOwn.id }))} onKey={() => undefined} />}
       {/* On the Calendar its line is always kept, so the weeks do not change height from month to month. */}
       {(!inMonth || bare) && <p data-month-empty={!inMonth || undefined} aria-hidden={inMonth > 0 || undefined} className={`px-1 text-body text-foreground/85 ${inMonth ? 'invisible' : ''}`}>Nothing planned in {month.format('MMMM')}. Give a task a day, like “call the dentist friday”, or double-click a day to add one.</p>}

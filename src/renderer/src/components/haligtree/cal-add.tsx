@@ -148,7 +148,8 @@ function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, on
       onBlurCapture={(event) => void (opened && !event.relatedTarget && event.currentTarget.focus({ preventScroll: true }))} side={side} align={beside ? 'start' : 'center'} alignOffset={beside ? -14 : 0} sideOffset={6} arrowPadding={14} collisionPadding={ROOM}
       style={{ width: WIDE }} className="max-w-[calc(100vw-1.5rem)] gap-0 overflow-visible rounded-xl p-0 text-control"
       onOpenAutoFocus={(event) => event.preventDefault()}
-      onEscapeKeyDown={(event) => (event.preventDefault(), onEscape())}
+      // Esc in a "which times" asked over it answers the ask alone: the popover stays, with its words.
+      onEscapeKeyDown={(event) => (event.preventDefault(), !document.querySelector('[data-scope-ask]') && onEscape())}
       // ⌘↵ keeps it too, as ↵ does (the key the side panel kept for "keep and close").
       onKeyDown={(event) => {
         if (event.key !== 'Enter' || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return
@@ -240,7 +241,11 @@ export function AddPopover({ add, level, onChange, onClose, onAgain }: {
 }
 
 /** An event or a task that is open in the popover, and the thing on the page it was opened from (a block, a chip, a row). */
-export type Opened = { kind: 'event'; key: string; at: HTMLElement | null } | { kind: 'task'; id: string; at: HTMLElement | null }
+export type Opened = ({ kind: 'event'; key: string } | { kind: 'task'; id: string }) & {
+  at: HTMLElement | null
+  /** The words its line opens holding, when they are not its name: a name typed and not kept, brought back by a notice's Undo. */
+  words?: string
+}
 
 /**
  * The same popover, open on an event or a task that exists: tied to it where
@@ -248,9 +253,10 @@ export type Opened = { kind: 'event'; key: string; at: HTMLElement | null } | { 
  * words are: "fri 1pm" moves it), where it is read back under it, and “Open”
  * for its whole page. Each change is kept as it is made and said with Undo.
  * ↵ keeps the line and closes; so does a click anywhere else; Esc closes and
- * leaves the name as it was.
+ * leaves the name as it was, and with a name typed and not kept a notice says
+ * so, whose Undo brings the popover back holding the words, as a new one's does.
  */
-export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey }: {
+export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey, onAgain }: {
   opened: Opened
   /** The event, as the page has it now. */
   event?: Shown
@@ -262,8 +268,13 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
   onPage: () => void
   /** A change made it another one (one time of a repeating event, cut loose): the popover follows it. */
   onKey: (key: string) => void
+  /** Open on it again, its line holding these words: what the Undo of "Not kept" asks for. */
+  onAgain: (words: string) => void
 }): React.JSX.Element | null {
   const held = useRef<(() => Promise<void>) | null>(null)
+  // Its name as its line shows it (a task's without its #tags), and the words in the line, kept here so Esc knows them.
+  const name = event ? event.title : task ? taskName(task.title).text : ''
+  const words = useState(opened.words ?? name)
   const id = opened.kind === 'event' ? opened.key : opened.id
   const day = event ? dayKey(event.start) : task?.dueAt ? dayKey(task.dueAt) : null
   // What it is tied to: the thing it was opened from while that is on the page; then its block or chip on the level in
@@ -272,9 +283,9 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
   const [side, setSide] = useState<Side>('right')
   const looked = useRef(false)
   useLayoutEffect(() => {
-    const name = CSS.escape(id)
+    const mark = CSS.escape(id)
     const found = opened.at?.isConnected ? opened.at
-      : level.current?.querySelector<HTMLElement>(opened.kind === 'event' ? `[data-cal-event="${name}"], [data-cal-event-chip="${name}"]` : `[data-cal-block="${name}"], [data-cal-untimed="${name}"], [data-plan-task="${name}"]`)
+      : level.current?.querySelector<HTMLElement>(opened.kind === 'event' ? `[data-cal-event="${mark}"], [data-cal-event-chip="${mark}"]` : `[data-cal-block="${mark}"], [data-cal-untimed="${mark}"], [data-plan-task="${mark}"]`)
         ?? (day ? level.current?.querySelector<HTMLElement>(`[data-day="${day}"], [data-cal-col="${day}"]`) : null) ?? null
     // Nowhere on the page to tie it to (a crowded day's "+3 more", a month too narrow to name its things): its page
     // instead, never a click that does nothing. Gone from the page later (binned, moved out of sight): closed.
@@ -288,7 +299,13 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
     setSide(sideFor(at.getBoundingClientRect()))
   }, [at])
   if (!at || !(event || task)) return null
-  const close = (): void => (chime('away'), onClose())
+  const close = (): void => {
+    const typed = words[0].trim()
+    chime('away')
+    onClose()
+    // A name typed and not kept: said, with the way back to it.
+    if (typed && typed !== name.trim() && !event?.readOnly) toast(`Not kept: ${quoted(typed, 60)}`, () => onAgain(typed), 'info')
+  }
   const keep = (): void => {
     // A field of its rows being written in (the place) is kept as it lets go of the keys, as on its page.
     const active = document.activeElement as HTMLElement | null
@@ -320,11 +337,11 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
         }>
         {event
           ? <>
-              <NewEvent key={event.key} one={event} ask={slot} held={held} onMade={(key) => (key !== event.key ? onKey(key) : undefined, onClose())} />
+              <NewEvent key={event.key} one={event} ask={slot} held={held} words={words} onMade={(key) => (key !== event.key ? onKey(key) : undefined, onClose())} />
               {!event.readOnly && <EventRows one={event} onKey={onKey} />}
             </>
           : <>
-              <NewTask key={task!.id} task={task} ask={slot} held={held} first={taskName(task!.title).text} onMade={onClose} onBack={() => undefined} />
+              <NewTask key={task!.id} task={task} ask={slot} held={held} words={words} first="" onMade={onClose} onBack={() => undefined} />
               <TaskRows task={task!} />
             </>}
       </Shell>

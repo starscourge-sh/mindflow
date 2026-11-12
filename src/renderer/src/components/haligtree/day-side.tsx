@@ -260,7 +260,7 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, task 
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
           <TaskInput inputRef={field} value={text} onChange={setText} label={task ? 'The task’s name' : `A new task for ${dayjs(day).format('dddd D MMMM')}`}
             placeholder="Call the dentist 10am #home !!" />
-          <Button type="submit" size="sm" data-day-side-add aria-label={task ? 'Keep' : 'Add'}><Kbd>↵</Kbd></Button>
+          <Button type="submit" size="sm" variant={task ? 'ghost' : undefined} data-day-side-add aria-label={task ? 'Keep' : 'Add'}><Kbd>↵</Kbd></Button>
         </div>
         {/* Where it lands (or, open on a task, where it is), plain to read. */}
         {task && !task.dueAt
