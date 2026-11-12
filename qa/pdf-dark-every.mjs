@@ -48,6 +48,16 @@ const meanOf = ([x1, y1, x2, y2]) => {
   return sum.map((one) => Math.round(one / n))
 }
 const magazine = (x, y) => ((x - 200) ** 2 + (y - 300) ** 2 < 80 ** 2 ? [235, 120, 30] : [255, 255, 255])
+/** A scan with a red band and four black drawings under it, bare paper between band and drawing (3, 5, 8 and 12 pixels
+ * of it): the Science Book's introduction, where the drawings were taken for the band's shadow and left black in blocks,
+ * their rims alone turned light (12 Nov). Print under them. */
+const GAPS = [3, 5, 8, 12]
+const bandPage = (x, y) => {
+  if (y >= 100 && y < 220 && x >= 60 && x < 740) return [246, 45, 39]
+  for (let i = 0; i < GAPS.length; i++) if (x >= 80 + i * 165 && x < 210 + i * 165 && y >= 220 + GAPS[i] && y < 480 + GAPS[i]) return [20, 20, 20]
+  if (y >= 720 && y < 900 && x >= 80 && x < 720 && (y - 720) % 32 < 14) return [18, 18, 18]
+  return [252, 251, 248]
+}
 
 const makePdf = async () => {
   const pdf = await PDFDocument.create()
@@ -68,6 +78,8 @@ const makePdf = async () => {
   words(three)
   // 4: a page laid as one picture holding print and a dark painted portrait.
   pdf.addPage([W, H]).drawImage(await pdf.embedPng(png(800, 1120, portraitPage)), { x: 0, y: 0, width: W, height: H })
+  // 5: a scan with black drawings under a red band.
+  pdf.addPage([W, H]).drawImage(await pdf.embedPng(png(800, 1120, bandPage)), { x: 0, y: 0, width: W, height: H })
   return [...(await pdf.save())]
 }
 
@@ -109,6 +121,7 @@ try {
       n: 4, name: 'a page drawn as one picture with print and a dark portrait', print: [0.1, 0.07, 0.9, 0.36], ground: [0.62, 0.75, 0.95, 0.95], disc: [0.7, 0.5, 0.85, 0.64],
       true: [['the portrait\'s dark ground', [0.12, 0.45, 0.2, 0.52]], ['its face', [0.29, 0.58, 0.36, 0.64]], ['its hair', [0.29, 0.52, 0.36, 0.54]], ['its black robe', [0.15, 0.83, 0.5, 0.91]], ['its edge, beside the paper', [0.5, 0.6, 0.548, 0.7]]],
     },
+    { n: 5, name: 'a scan with black drawings under a red band', print: [0.1, 0.645, 0.9, 0.8], band: [0.12, 0.11, 0.9, 0.18] },
   ]
   for (const kind of kinds) {
     await show(kind.n); await wait(2500)
@@ -126,12 +139,26 @@ try {
       const off = Math.max(...want.map((one, k) => Math.abs(one - (got?.colour[k] ?? 999))))
       check(`${kind.name}: ${name} keeps its own colours (within 18)`, off <= 18, `${JSON.stringify(got?.colour)} against ${JSON.stringify(want)}`)
     }
+    if (kind.band) {
+      const [r, g, b] = (await read(kind.n, kind.band))?.colour ?? [0, 0, 0]
+      check(`${kind.name}: the band stays red`, r > 200 && g < 90 && b < 90, JSON.stringify([r, g, b]))
+      // How many canvas pixels of paper lie between the band and each drawing at this size, and how light each drawing is, its top edge included.
+      const scale = (await h.evaluate((n) => [...document.querySelectorAll(`.pdf-reader .pdf-page[data-page="${n}"] canvas`)].at(-1)?.width ?? 0, kind.n)) / 800
+      const drawn = []
+      for (let i = 0; i < GAPS.length; i++) {
+        const got = await read(kind.n, [(90 + i * 165) / 800, (224 + GAPS[i]) / 1120, (200 + i * 165) / 800, (470 + GAPS[i]) / 1120])
+        drawn.push({ paper: +(GAPS[i] * scale).toFixed(1), mean: got?.mean })
+      }
+      const clear = drawn.filter((one) => one.paper >= 4)
+      check(`${kind.name}: with paper between them, each drawing turns light whole, none left black (mean lightness over 0.78)`, clear.length > 0 && clear.every((one) => one.mean > 0.78), JSON.stringify(drawn))
+    }
     await c.both(`${SHOT}-page${kind.n}`)
   }
   // Every line of the Pages menu has its icon.
   await h.click('.pdf-reader button[aria-label="View"]'); await wait(400)
   const lines = await h.evaluate(() => [...document.querySelectorAll('[data-page-layout-menu] [role^="menuitem"]')].map((one) => ({ words: one.textContent, icon: !!one.querySelector('svg[data-menu-icon]:not(.lucide-dot)') })))
-  check('every line of the Pages menu has its icon', lines.length === 6 && lines.every((one) => one.icon), JSON.stringify(lines))
+  // Seven lines since “Only this page in colour” joined the three layouts and the three kinds of page (the count was pinned at six).
+  check('every line of the Pages menu has its icon', lines.length >= 6 && ['Continuous scroll', 'Single page', 'Two pages', 'Paper pages', 'White pages', 'Dark pages'].every((words) => lines.some((one) => one.words === words)) && lines.every((one) => one.icon), JSON.stringify(lines))
   await c.both(`${SHOT}-menu`)
   await h.keyboard.press('Escape'); await wait(300)
 

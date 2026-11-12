@@ -300,7 +300,9 @@ const tileFor = (pageWidth: number): number => Math.max(4, Math.min(24, Math.rou
  * in-between tone (a cheek, a gradient). Print takes the dark page's ground
  * and ink, coloured pixels kept; photo pieces keep every pixel true. A piece
  * that is one flat dark (a black robe, a painting's dark ground) belongs to
- * the photo it touches, else to the print (inside a heavy letter). The
+ * the photo it touches, its tones running up to the dark with no bare paper
+ * between, else to the print (inside a heavy letter, or a black drawing
+ * beside a coloured band). The
  * weights blend across each piece's middle, so no grid shows; bare white
  * paper always darkens and dark beside a photo stays the photo's, so no pale
  * rim is left round a photo.
@@ -326,9 +328,11 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
   const bins = new Uint32Array(32)
   // How much of each piece is dark ink: the inside of a big letter is, a word on a grey panel is not.
   const dim = new Float32Array(cols * rows)
+  // Pieces that are paper, ink and one strong colour and nothing else: the edge of a coloured band, with something black by it.
+  const banded = new Uint8Array(cols * rows)
   for (let ty = 0; ty < rows; ty++) for (let tx = 0; tx < cols; tx++) {
     bins.fill(0)
-    let seen = 0, paper = 0, inked = 0, dimmed = 0
+    let seen = 0, paper = 0, inked = 0, dimmed = 0, vivid = 0
     // Every other pixel each way is enough to tell.
     for (let py = ty * TILE; py < Math.min(h, ty * TILE + TILE); py += 2) for (let px = tx * TILE; px < Math.min(w, tx * TILE + TILE); px += 2) {
       const i = (py * w + px) * 4
@@ -339,6 +343,7 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
       seen++
       if (lum > 190 && chroma < 30) paper++
       else if (lum < 70) inked++
+      else if (chroma >= 96) vivid++
       if (lum < 110) dimmed++
     }
     // A photo's tones gather (a cheek, a gradient); the soft edges of print spread thin across many.
@@ -346,6 +351,7 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
     for (let bin = 9; bin < 30; bin++) if (bins[bin] > gathered) gathered = bins[bin]
     kind[ty * cols + tx] = gathered / seen >= 0.15 ? 1 : paper / seen >= 0.1 && inked / seen < 0.5 ? 0 : 2
     dim[ty * cols + tx] = dimmed / seen
+    if (inked && paper * 10 >= seen && vivid * 5 >= (seen - paper - inked) * 4) banded[ty * cols + tx] = 1
   }
   // A piece mostly under the page's own words and mostly dark ink is print, whatever its tones: the inside of a big
   // black letter. Words on a grey panel are left to the tones (a light panel kept true, as before).
@@ -355,18 +361,78 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
       if (cover >= (TILE * TILE) / 2 && dim[ty * cols + tx] >= 0.5) kind[ty * cols + tx] = 0
     }
   }
-  // Flat pieces join the photo they touch.
+  // Flat pieces join the photo they touch, and touch means no bare paper lies between the photo's tones and the dark:
+  // a black drawing under a red band, paper between the two, is its own thing. It was taken for the band's shadow
+  // wherever a piece of the band held the drawing's tip (or a piece of the drawing a sliver of the band), and was
+  // left black in blocks, its rim alone turned light (12 Nov). Bare paper is what the mix below always darkens.
+  const bare = (i: number): boolean => {
+    const r = o[i], g = o[i + 1], b = o[i + 2]
+    return ((r * 77 + g * 150 + b * 29) >> 8) > 235 && (r > g ? r - g : g - r) < 16 && (g > b ? g - b : b - g) < 16
+  }
+  // How far a piece must run back from an edge, with no paper in the way, to be at that edge: more than the soft rim
+  // of a black shape, or a sliver of a band, is.
+  const deep = Math.max(2, TILE >> 2)
+  const seed = Uint8Array.from(kind, (one) => (one === 1 ? 1 : 0))
+  // Whether `from` (a photo's piece, or a flat one that joined it) reaches the flat piece `to` across the edge they
+  // share: along a quarter of that edge or more, both sides run back from it `deep` pixels with no paper, the photo's
+  // own piece into its tones (anything that is not ink).
+  const reach = (from: number, to: number): boolean => {
+    const tx = from % cols, ty = (from - tx) / cols
+    const down = to - from === cols, up = from - to === cols, right = to - from === 1
+    // The first pixel past the edge on `to`'s side, the step along the edge, and the step from it into `to`.
+    const x0 = right ? (tx + 1) * TILE : up || down ? tx * TILE : tx * TILE - 1
+    const y0 = down ? (ty + 1) * TILE : up ? ty * TILE - 1 : ty * TILE
+    const along = up || down ? 4 : w * 4, on = (down ? w : up ? -w : right ? 1 : -1) * 4
+    const length = up || down ? Math.min(w, tx * TILE + TILE) - tx * TILE : Math.min(h, ty * TILE + TILE) - ty * TILE
+    // How far `to` runs past the edge before its own far side, and `from` back from it: a piece cut short by the picture's edge is shorter.
+    const ahead = up ? TILE : right ? Math.min(TILE, w - x0) : down ? Math.min(TILE, h - y0) : TILE
+    const behind = up ? Math.min(TILE, h - ty * TILE) : down || right ? TILE : Math.min(TILE, w - tx * TILE)
+    let met = 0
+    for (let j = 0, i = (y0 * w + x0) * 4; j < length; j++, i += along) {
+      let run = 0
+      for (let step = 0, at = i; step < ahead && !bare(at) && ++run < deep; step++) at += on
+      if (run < deep && run < ahead) continue
+      run = 0
+      for (let step = 0, at = i - on; step < behind && !bare(at); step++, at -= on) if ((!seed[from] || ((o[at] * 77 + o[at + 1] * 150 + o[at + 2] * 29) >> 8) >= 70) && ++run >= deep) break
+      if (run >= deep) met++
+    }
+    return met * 4 >= length
+  }
   const queue: number[] = []
   kind.forEach((one, at) => one === 1 && queue.push(at))
   while (queue.length) {
     const at = queue.pop()!
     const tx = at % cols, ty = (at - tx) / cols
     for (const next of [tx > 0 ? at - 1 : -1, tx < cols - 1 ? at + 1 : -1, ty > 0 ? at - cols : -1, ty < rows - 1 ? at + cols : -1]) {
-      if (next >= 0 && kind[next] === 2) (kind[next] = 1, queue.push(next))
+      if (next >= 0 && kind[next] === 2 && reach(at, next)) (kind[next] = 1, queue.push(next))
     }
   }
   // How much of the dark page's tones each piece takes: 1 for print, 0 for a photo.
   const weight = Float32Array.from(kind, (one) => (one === 1 ? 0 : 1))
+  // Whose the dark in each piece is: the photo's (0) or print's (1). A band's edge that also holds the tip of a black
+  // drawing, paper between the two, keeps its colour and gives the tip to the print: down every column and along
+  // every row of the piece, a run between bare paper holds its ink only with `deep` pixels of the colour in it.
+  const dark = Float32Array.from(weight)
+  for (let at = 0; at < kind.length; at++) {
+    if (!seed[at] || !banded[at]) continue
+    const x1 = (at % cols) * TILE, y1 = ((at - (at % cols)) / cols) * TILE, x2 = Math.min(w, x1 + TILE), y2 = Math.min(h, y1 + TILE)
+    let ink = 0, held = 0
+    for (let turn = 0; turn < 2; turn++) {
+      for (let a = turn ? y1 : x1; a < (turn ? y2 : x2); a++) {
+        let tones = 0, inks = 0
+        for (let b = turn ? x1 : y1, end = turn ? x2 : y2; b <= end; b++) {
+          const i = (turn ? a * w + b : b * w + a) * 4
+          if (b === end || bare(i)) {
+            ink += inks
+            if (tones >= deep) held += inks
+            tones = inks = 0
+          } else if (((o[i] * 77 + o[i + 1] * 150 + o[i + 2] * 29) >> 8) < 70) inks++
+          else tones++
+        }
+      }
+    }
+    if (ink > 0 && held * 10 < ink) dark[at] = 1
+  }
   // Each column's piece and how far across it, worked out once; each row's weights blended once.
   const left = new Int32Array(w), across = new Float32Array(w)
   for (let px = 0; px < w; px++) {
@@ -409,7 +475,7 @@ function mixPaper(o: Uint8ClampedArray, d: Uint8ClampedArray, w: number, h: numb
       // Bare paper always darkens, so no pale rim is left round a photo; dark ink goes with the piece it is in: a photo's
       // shadow stays the photo's, a word beside the photo turns light with the rest of its line, never left half grey.
       const mix = lum > 235 && (r > g ? r - g : g - r) < 16 && (g > bl ? g - bl : bl - g) < 16 ? 1
-        : lum < 90 ? weight[(py / TILE | 0) * cols + Math.min(cols - 1, px / TILE | 0)]
+        : lum < 90 ? dark[(py / TILE | 0) * cols + Math.min(cols - 1, px / TILE | 0)]
         : a === b ? a : a + (b - a) * across[px]
       if (mix === 0) {
         d[i] = r, d[i + 1] = g, d[i + 2] = bl
