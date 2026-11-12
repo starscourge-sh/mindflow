@@ -63,6 +63,7 @@ import { prefetchTag, renameTag } from './components/haligtree/tag-read'
 import { TasksView, askDate, askSessions } from './components/haligtree/tasks-view'
 import { CalendarView } from './components/haligtree/calendar-view'
 import { MatrixView } from './components/haligtree/matrix-view'
+import { comingBack } from '@/lib/note-place'
 import { bucket, onToday, picked, taskName } from './lib/tasks'
 import { stickOnDesktop } from './components/haligtree/sticky-note'
 import { Count, Kbd, Toaster, sayNow, toast, refuse, typing, HELD, FocusNote, useFocusMode, SoundToggle, quietly } from './components/haligtree/ui'
@@ -601,6 +602,7 @@ export function Home(): React.JSX.Element {
       const scroll = scrolled(key)
       chime('tap')
       tabChosen.current = true
+      comingBack(true)
       setSplit((now) => selectTab(withScroll(now, key, scroll), key, tab))
     }
     toFront(key)
@@ -617,6 +619,8 @@ export function Home(): React.JSX.Element {
     at: trail.at + 1
   })
   const setView = (asked: View, key = frontRef.current): void => {
+    // Opened, not returned to (lib/note-place.ts): said before the tab already on it is chosen, which says otherwise.
+    comingBack(false)
     // ⌘-clicked: a new tab. ⌥-clicked: to the side. Whatever the click was on.
     const how = takeClick()
     if (how) return placed(asked, how, key)
@@ -648,6 +652,8 @@ export function Home(): React.JSX.Element {
   const step = (by: number, key = frontRef.current): void => stepBy(by, key)
   const stepBy = (by: number, key: string): void => {
     via('back')
+    // A page returned to: a note on it is exactly where it was left (lib/note-place.ts).
+    comingBack(true)
     const scroll = scrolled(key)
     setTrail(key, ({ views, at }) => {
       const next = Math.max(0, Math.min(views.length - 1, at + by))

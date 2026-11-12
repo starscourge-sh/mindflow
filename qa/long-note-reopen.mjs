@@ -2,8 +2,9 @@
 // one, within 8px of where it sat. On a copy of a real book (its largest note):
 //   QA_DATA=<book copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/long-note-reopen.mjs
 // VIM=on|off (off). WAYS=wheel,jump,fling: how the screen got there (hard pushes of the wheel that come to rest; sent
-// to 45% in one step, as the thumb dragged; left in the middle of a fling). LEAVES=view,note,quit: to another page
-// and back, to another note and back, the app quit and launched again. A caret is first put in the note's first
+// to 45% in one step, as the thumb dragged; left in the middle of a fling). LEAVES=view,note,quit,back,forward,tab:
+// to another page and back, to another note and back, the app quit and launched again, another note then Back,
+// Back then Forward, another tab then the note's tab. A caret is first put in the note's first
 // screen with a real click, so it is left behind (CLICK=off for none). TRACE=1 prints every scroll the page set as
 // the note opened again, and who set it. SHOTS=<folder> keeps the screen as it was left and as it came back.
 import { DatabaseSync } from 'node:sqlite'
@@ -153,9 +154,36 @@ const rest = async (h) => {
 }
 const show = (one) => (one ? `block ${one.index} at ${one.at}px (scroll ${one.top} of ${one.tall}, ${one.drawn} drawn) "${one.text}"` : 'nothing')
 
+// How the note is left, and how it is come back to. `back`: another note opened (a step on), then Back (⌘[).
+// `forward`: Back to the step before the note, then Forward (⌘]). `tab`: a new tab opened beside the note's, then
+// the note's tab pressed. The others: another page or another note opened, then the note opened again by name.
+const press = async (h, keys) => { await h.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur()); await h.keyboard.press(keys) }
+let tabOf = null
+const away = async (c, leave) => {
+  if (leave === 'note' || leave === 'back') await c.send('capture', other.id)
+  else if (leave === 'view') await c.send('view', 'today')
+  else if (leave === 'forward') await press(c.h, 'Meta+BracketLeft')
+  else if (leave === 'tab') {
+    tabOf = await c.h.evaluate(() => document.querySelector('[data-tab][data-tab-on]')?.getAttribute('data-tab') ?? null)
+    await c.h.click('[data-tab-add]')
+  }
+}
+const comeBack = async (c, leave) => {
+  const t = Date.now()
+  if (leave === 'back') await press(c.h, 'Meta+BracketLeft')
+  else if (leave === 'forward') await press(c.h, 'Meta+BracketRight')
+  else if (leave === 'tab') await c.h.click(`[data-tab="${tabOf}"] [role="tab"]`)
+  else return openNote(c)
+  await c.h.waitForFunction((count) => window.__a6.open(count), size - 1, { timeout: 60000, polling: 50 })
+  return Date.now() - t
+}
+
 let c = await launch()
 try {
   console.log(`build ${process.env.QA_ENTRY.split('/').slice(-3, -2)}; Vim ${VIM}; note ${note.id} (${size} blocks); other ${other?.id}  (${load()})`)
+  // A page before the note in its tab's trail, so Back from the note has somewhere to go.
+  await c.send('view', 'today')
+  await c.h.waitForTimeout(900)
   console.log(`opened in ${await openNote(c)} ms: ${show(await c.h.evaluate(() => window.__a6.first()))}`)
   await c.h.waitForTimeout(1500)
   for (const leave of LEAVES) {
@@ -183,14 +211,12 @@ try {
         await rest(h)
         const flung = fling(electron, where.x, where.y, 12000, 1)
         await h.waitForTimeout(350)
-        if (leave === 'note') await send('capture', other.id)
-        else if (leave === 'view') await send('view', 'today')
+        await away(c, leave)
         await flung
       }
       if (way !== 'fling') {
         if (process.env.SHOTS) { mkdirSync(process.env.SHOTS, { recursive: true }); await h.screenshot({ path: join(process.env.SHOTS, `${way}-${leave}-left.png`) }) }
-        if (leave === 'note') await send('capture', other.id)
-        else if (leave === 'view') await send('view', 'today')
+        await away(c, leave)
       }
       if (leave === 'quit') {
         if (way === 'fling') { await h.waitForTimeout(60) }
@@ -217,7 +243,7 @@ try {
       }
       const kept = await c.h.evaluate((id) => JSON.parse(localStorage.getItem('note-places') ?? '{}')[`capture-${id}`] ?? null, note.id)
       if (process.env.TRACE) await c.h.evaluate(() => window.__a6.trace(true))
-      const took = await openNote(c)
+      const took = await comeBack(c, leave)
       // SHOTS=<folder>: the screen as the note came back (three frames, one after another), to set beside it as it was left.
       if (process.env.SHOTS) for (let n = 0; n < 3; n++) await c.h.screenshot({ path: join(process.env.SHOTS, `${way}-${leave}-back-${n}.png`) })
       const samples = []

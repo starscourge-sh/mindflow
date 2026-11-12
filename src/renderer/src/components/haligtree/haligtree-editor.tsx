@@ -12,7 +12,7 @@ import { EditorContext, useEditor } from "@tiptap/react"
 import { EditorSurface, holdViews } from "@/components/haligtree/editor-surface"
 import { followPdfLink, isPdfHref, isReadable, openArticle } from "@/components/pdf/pdf-reader"
 import { canSplit } from "@/lib/split"
-import { openedElsewhere, useNotePlace } from "@/lib/note-place"
+import { PLACED, openedElsewhere, useNotePlace } from "@/lib/note-place"
 import { afterLayout } from "@/lib/after-layout"
 
 // --- Tiptap Core Extensions ---
@@ -2217,6 +2217,9 @@ function Surface({
           className={`haligtree-editor-content relative p-3 overflow-auto${
             smoothScroll ? " is-smooth" : ""
           }${typing ? " is-typewriter" : ""}${onTokenClick ? "" : " tags-inert"}`}
+          // The scroller whose place lib/note-place.ts keeps (`useNotePlace` below is on for the same notes): the
+          // pane leaves its scroll alone (panes.tsx), so a note's place has one owner.
+          {...(shape === "document" && documentId != null ? { [PLACED]: "" } : {})}
           innerRef={contentRef}
         />
         {/* After the words, inside the same scroll: added beside ProseMirror's

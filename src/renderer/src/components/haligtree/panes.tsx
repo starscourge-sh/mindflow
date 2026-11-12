@@ -8,6 +8,7 @@ import { takeLanding } from './split-drop'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
 import { jumpTo } from './ui'
+import { placedHere } from '@/lib/note-place'
 import { TabRow, type TabActions, type TabGroup, type TabShown } from './tab-row'
 
 /** What the main window needs of a pane to keep Back exact: how its page is scrolled. */
@@ -171,6 +172,10 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
     const root = pageRef.current
     const onScroll = (event: Event): void => {
       if (!root || !(event.target instanceof Element)) return
+      // A note's own scroller is not kept here: its place is a block, kept and put back by lib/note-place.ts alone.
+      // (Kept here too, by distance, Back to a long note was put back twice over, and every scroll event of a
+      // note paid for the walk up the page that finds its box's path.)
+      if (placedHere(event.target)) return
       const path = pathTo(root, event.target)
       seen.current.set(path, { box: event.target, top: event.target.scrollTop })
       heard.current.set(path, event.target.scrollTop)
@@ -229,6 +234,8 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       let height = 0
       for (const [path, top] of want) {
         const box = atPath(root, path)
+        // A note's own scroller (a step kept before it was left alone, or another box's path now leading to it): not this one's to move.
+        if (box && placedHere(box)) continue
         // Through its smooth scrolling, which otherwise takes a plain scrollTop back to the top.
         if (box && Math.abs(box.scrollTop - top) > 2) jumpTo(box as HTMLElement, top)
         if (!box || Math.abs(box.scrollTop - top) > 2) left = true

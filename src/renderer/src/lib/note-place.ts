@@ -18,6 +18,8 @@ type Place = {
   /** The block at the top of the screen, as its position in the note, and how far the screen's top edge is into it. */
   block?: number
   into?: number
+  /** Left within its last screen: read to its end. */
+  done?: boolean
 }
 const KEY = 'note-places'
 const KEEP = 300
@@ -84,6 +86,24 @@ export function scrollerOf(element: Element): HTMLElement | null {
   }
   return null
 }
+
+/**
+ * The mark on a scroller whose place is kept here (components/haligtree/haligtree-editor.tsx puts it on a note's own
+ * scroller). The pane keeps how far every other box of a page was scrolled and puts each back by that distance,
+ * frame by frame, when a step is returned to (components/haligtree/panes.tsx); a note's place is a block, not a
+ * distance (the sizes above the screen of a long note are guesses that move), so its scroller is this file's alone.
+ * With both at it, Back to a long note landed where the two left it between them.
+ */
+export const PLACED = 'data-note-place'
+export const placedHere = (box: Element): boolean => box.hasAttribute(PLACED)
+
+/**
+ * Whether the page now opening is one returned to (Back, Forward, another tab chosen): said by the shell as it steps
+ * (home.tsx), unsaid as it opens anything new. Returned to, a note is exactly where it was left, its very end
+ * included; opened anew, a note read to its end starts over at its top.
+ */
+let returned = false
+export const comingBack = (on: boolean): void => void (returned = on)
 
 /** Notes opened somewhere on purpose (by a link to one of their headings): not put back where they were last left. */
 const elsewhere = new WeakSet<Editor>()
@@ -155,7 +175,10 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     const talls = heightsKept(id)
     if (talls) takeHeights(editor, talls)
     const kept = elsewhere.has(editor) ? null : placeOf(id)
-    let holding = !!scroller && !!kept && kept.top > 0
+    // Read to its last screen, a note is finished with: opened anew it starts at its top, not at the bottom with
+    // nothing left to read. Returned to (Back, Forward, its tab chosen) it is where it was left, like any other.
+    let done = !!kept?.done
+    let holding = !!scroller && !!kept && kept.top > 0 && (!done || returned)
     // Left as kept until you move it: a note closed again before that keeps its place.
     let top = holding && kept ? kept.top : (scroller?.scrollTop ?? 0)
     let anchor = holding && kept?.block != null && kept.into != null ? { block: kept.block, into: kept.into } : null
@@ -211,12 +234,13 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       // Not as the note is taken off the page (closed, or its pane hidden): nothing is where it was then, the
       // scroller reads as at its top, and the place just read was lost in the moment before it was kept.
       if (!scroller || holding || !dom.isConnected || !scroller.clientHeight) return
-      // Read to its last screen, a note is finished with: it opens at its top next time, not at the bottom with nothing left to read.
-      const now = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < scroller.clientHeight ? 0 : scroller.scrollTop
+      const now = scroller.scrollTop
       const found = now ? anchorOf(view, scroller, screenBlocks(editor)) : null
       if (found === undefined) return
       top = now
       anchor = found
+      // Within its last screen: read to its end (`done`, above). The place itself is kept all the same.
+      done = now > 0 && scroller.scrollHeight - scroller.clientHeight - now < scroller.clientHeight
     }
     // Held there as the note grows above it: told after each layout, before it is painted. And as what stands
     // beside the note in the same scroller changes size (the strip under its title, what comes after its words:
@@ -256,7 +280,7 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     editor.on('selectionUpdate', onSelect)
     const save = (): void => {
       // Only a place worth coming back to: the top with the caret at the start is where it opens anyway.
-      if (top > 0 || from > 1) keep(id, { top, from, at: Date.now(), ...(top > 0 && anchor ? anchor : {}) })
+      if (top > 0 || from > 1) keep(id, { top, from, at: Date.now(), ...(top > 0 && anchor ? anchor : {}), ...(top > 0 && done ? { done: true } : {}) })
       const heights = heightsOf(editor)
       if (heights) keepHeights(id, heights)
     }
