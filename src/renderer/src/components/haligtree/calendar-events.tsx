@@ -907,7 +907,8 @@ function PeopleField({ people, known, onSave }: { people: string[]; known: strin
   return (
     <div data-event-people className="flex flex-col gap-1 px-2 py-1.5">
       <div className="flex flex-wrap items-center gap-1">
-        <Users className="size-4 shrink-0" />
+        {/* As far from its words as the place's mark is from its own (8px), so the two fields' words start on one edge. */}
+        <Users className="mr-1 size-4 shrink-0" />
         {people.map((name) => (
           <span key={name} className="flex h-6 items-center gap-1 rounded-full bg-accent pr-1 pl-2 text-control text-foreground">
             {name}
