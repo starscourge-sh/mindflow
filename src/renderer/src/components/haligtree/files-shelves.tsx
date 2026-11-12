@@ -221,7 +221,7 @@ export function RecentGrid({ files, across, when, onOpen, menuFor, onShowAll, mo
         {files.map((one) => (
           <RowMenu key={one.src} items={menuFor(one)}>
             <button type="button" data-recent-file={one.kind} data-src={one.src} onClick={(event) => onOpen(one, event)} className="pdf-book min-w-0">
-              <span className={one.kind === 'pdf' ? 'pdf-book-cover' : 'files-recent-face'} data-pdf-peek={one.kind === 'pdf' && !one.gone ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined}>
+              <span className={one.kind === 'pdf' ? 'pdf-book-cover' : 'files-recent-face'} data-pdf-peek={one.kind === 'pdf' && !one.gone ? one.src : undefined} data-pdf-peek-name={one.kind === 'pdf' ? one.name : undefined} data-pdf-peek-scrub={one.kind === 'pdf' && !one.gone ? '' : undefined}>
                 <Cover one={one} className="size-full" />
               </span>
               <span dir="auto" data-media-name className={`pdf-book-title ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>
@@ -483,7 +483,7 @@ const BookTile = memo(function BookTile({ one, here, picked, ways }: { one: Medi
     <RowMenu items={() => ways.current.menuFor(one)}>
       <button type="button" data-media="pdf" data-src={one.src} data-id={one.src} data-cursor={here || undefined} data-picked={picked || undefined} onClick={onClick}
         className={`pdf-book min-w-0${here ? ' is-picked' : ''}${picked ? ' is-chosen' : ''}`}>
-        <span className="pdf-book-cover" data-pdf-peek={one.gone ? undefined : one.src} data-pdf-peek-name={one.name}>
+        <span className="pdf-book-cover" data-pdf-peek={one.gone ? undefined : one.src} data-pdf-peek-name={one.name} data-pdf-peek-scrub={one.gone ? undefined : ''}>
           {cover?.image ? <img src={cover.image} alt="" draggable={false} /> : <span className="pdf-book-blank"><BookOpen className="size-6" /></span>}
         </span>
         <span dir="auto" data-media-name className={`pdf-book-title ${one.private ? 'private-text' : ''}`}>{cover?.title || nameOf(one)}</span>
