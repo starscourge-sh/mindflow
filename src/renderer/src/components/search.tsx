@@ -546,7 +546,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
           {/* An island's fold or "Show more" clicked hands the keys straight back to the box, as a chip does. */}
           <div ref={rows} data-answers={searched ?? undefined} onClick={(event) => (event.target as HTMLElement).closest('[data-island-head], [data-island-more]') && box.current?.focus()} className={`mf-more relative isolate min-h-0 min-w-0 flex-1 scroll-pt-8 scroll-pb-12 overflow-y-auto p-2 ${shown ? 'w-1/2 flex-none' : ''}`}>
             {/* Over the islands' surfaces and under the rows (each row `relative`, drawn after it): at -z-10 an island's surface hid it. */}
-            <Highlight spot={lit.spot} snap={lit.snap} className="z-0 rounded-md bg-accent" />
+            <Highlight chosen={lit} className="z-0 rounded-md bg-accent" />
             {choosing ? <>
               <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">{choosing.action.label.replace(/…$/, '')}</div>
               {choices.map((one, index) => (

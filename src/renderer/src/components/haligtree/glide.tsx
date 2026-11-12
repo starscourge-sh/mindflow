@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
 import { AnimatePresence, motion, useReducedMotion, type Transition } from 'motion/react'
 import { flushSync } from 'react-dom'
 import { cn } from '@/lib/cn'
@@ -413,19 +413,46 @@ export function useFluidHover(box: RefObject<HTMLElement | null>, { items, axis 
   return { light, handlers }
 }
 
+/** Where the chosen row sits, and whether the mark goes there at once. */
+type Place = { spot: Spot | null; snap: boolean }
+
 /**
- * Where the chosen row in `box` is (what `selector` finds), followed as it
- * changes: a new choice travels there, unless it was reached by a key, which
- * arrives at once; the rows moving under it it simply follows.
+ * Where a list's chosen row is, kept out of React's state: only the mark reads it (`<Highlight chosen>`), so a
+ * choice moving draws that one element again and never the list's owner. Held in the owner's state, every new
+ * choice drew the owner a second time, and the sidebar's owner is the main window: each page change drew the whole
+ * window once more only to move the mark.
  */
-export function useChosen(box: RefObject<HTMLElement | null>, selector: string, key: unknown): { spot: Spot | null; snap: boolean } {
-  const [chosen, setChosen] = useState<{ spot: Spot | null; snap: boolean }>({ spot: null, snap: true })
+export type Mark = { get: () => Place; subscribe: (heard: () => void) => () => void }
+
+function makeMark(): Mark & { set: (next: (was: Place) => Place) => void } {
+  let now: Place = { spot: null, snap: true }
+  const hearers = new Set<() => void>()
+  return {
+    get: () => now,
+    subscribe: (heard) => (hearers.add(heard), () => void hearers.delete(heard)),
+    set: (next) => {
+      const to = next(now)
+      if (to === now) return
+      now = to
+      for (const heard of hearers) heard()
+    }
+  }
+}
+
+/**
+ * The mark for the chosen row in `box` (what `selector` finds), followed as it
+ * changes: a new choice travels there, unless it was reached by a key, which
+ * arrives at once; the rows moving under it it simply follows. Hand what this
+ * gives to `<Highlight chosen>`.
+ */
+export function useChosen(box: RefObject<HTMLElement | null>, selector: string, key: unknown): Mark {
+  const [mark] = useState(makeMark)
   const read = useCallback((snap: boolean) => {
     const el = box.current
     const row = el?.querySelector<HTMLElement>(selector)
     const spot = el && row && shown(row) ? spotOf(row, el) : null
-    setChosen((was) => (same(was.spot, spot) ? was : { spot, snap: snap || !was.spot }))
-  }, [box, selector])
+    mark.set((was) => (same(was.spot, spot) ? was : { spot, snap: snap || !was.spot }))
+  }, [box, selector, mark])
   // Where it sits is read once the window has drawn the change, not in the
   // middle of drawing it: reading then would lay out a whole new page twice
   // (opening a note from the sidebar was held up by it). The first is read in
@@ -455,7 +482,7 @@ export function useChosen(box: RefObject<HTMLElement | null>, selector: string, 
     return () => (cancelAnimationFrame(frame), clearTimeout(after))
   }, [read, key])
   useReflow(box, () => read(performance.now() - chosenAt.current > 400 || byKeys()))
-  return chosen
+  return mark
 }
 
 const LIGHT = 'pointer-events-none absolute top-0 left-0 -z-10 origin-top-left rounded-md bg-accent/60'
@@ -469,12 +496,17 @@ const LIGHT = 'pointer-events-none absolute top-0 left-0 -z-10 origin-top-left r
  *
  * Two kinds. A pointer's light (`light`, from useFluidHover) is one element
  * that stays in the page, moved by the pointer's own events. The mark of what
- * is chosen (`spot`, from useChosen) changes only when the choice does, and is
- * drawn from state.
+ * is chosen (`chosen`, from useChosen) changes only when the choice does: it
+ * reads its own place, so it alone is drawn again when that moves.
  */
-export function Highlight(props: { light: Light; className?: string } | { spot: Spot | null; snap?: boolean; travel?: Transition; className?: string }): React.JSX.Element {
+export function Highlight(props: { light: Light; className?: string } | { chosen: Mark; travel?: Transition; className?: string }): React.JSX.Element {
   if ('light' in props) return <div ref={props.light.mount} aria-hidden data-glide="" className={cn(LIGHT, 'opacity-0', props.className)} />
-  return <Chosen {...props} />
+  return <ChosenAt {...props} />
+}
+
+function ChosenAt({ chosen, travel, className }: { chosen: Mark; travel?: Transition; className?: string }): React.JSX.Element {
+  const { spot, snap } = useSyncExternalStore(chosen.subscribe, chosen.get)
+  return <Chosen spot={spot} snap={snap} travel={travel} className={className} />
 }
 
 function Chosen({ spot, snap, travel = spring.fast, className }: { spot: Spot | null; snap?: boolean; travel?: Transition; className?: string }): React.JSX.Element {

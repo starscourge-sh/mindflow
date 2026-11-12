@@ -911,7 +911,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           <div className="flex flex-col gap-4">
             {/* What the page holds: first, so nothing above it changes as a chip is picked. */}
             <div ref={chipRow} {...chipHover.handlers} role="tablist" aria-label="Show" className="relative isolate flex flex-wrap gap-1.5 px-5 @[44rem]/page:px-8">
-              <Highlight spot={chipChosen.spot} snap={chipChosen.snap} travel={spring.moderate} className="rounded-full bg-foreground" />
+              <Highlight chosen={chipChosen} travel={spring.moderate} className="rounded-full bg-foreground" />
               <Highlight light={chipHover.light} className="rounded-full bg-foreground/[0.05]" />
               {CHIPS.map((one) => (
                 <button key={one.id} type="button" role="tab" aria-selected={chip === one.id}

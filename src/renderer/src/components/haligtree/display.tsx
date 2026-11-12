@@ -220,7 +220,7 @@ export function Chips({ options, on, pick, className = 'flex-wrap', sideways = f
   return (
     <div data-hover-quiet ref={(node) => { box.current = node; if (sideways) row.ref(node) }} {...hover.handlers} style={sideways ? row.style : undefined}
       className={`relative isolate flex gap-x-1 gap-y-0.5 ${sideways ? row.className : ''} ${className}`}>
-      {single && <Highlight spot={chosen.spot} snap={chosen.snap} travel={spring.moderate} className="rounded-full bg-accent" />}
+      {single && <Highlight chosen={chosen} travel={spring.moderate} className="rounded-full bg-accent" />}
       <Highlight light={hover.light} className="rounded-full bg-accent/50" />
       {options.map((option) => (
         <Tip key={option.id} label={option.tip ?? ''}>

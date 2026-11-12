@@ -44,7 +44,7 @@ export function SectionTabs({ sections, section, pick, searching = false, label,
         event.currentTarget.querySelector<HTMLElement>(`[data-section="${next.title}"]`)?.focus()
       }}
     >
-      <Highlight spot={chosen.spot} snap={chosen.snap} travel={spring.moderate} className="bg-accent" />
+      <Highlight chosen={chosen} travel={spring.moderate} className="bg-accent" />
       <Highlight light={hover.light} />
       {sections.map((one) => {
         const on = !searching && section === one.title

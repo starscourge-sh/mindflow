@@ -66,7 +66,7 @@ export function CoverChoice({ settings, set }: { settings: Settings; set: (patch
   return (
     <div className="mt-3 flex flex-col gap-2">
       <div ref={box} {...hover.handlers} data-hover-quiet data-cover-choice className="relative isolate grid grid-cols-1 gap-2 @[40rem]/page:grid-cols-2">
-        <Highlight spot={chosen.spot} snap={chosen.snap} travel={spring.moderate} className="rounded-lg bg-accent" />
+        <Highlight chosen={chosen} travel={spring.moderate} className="rounded-lg bg-accent" />
         <Highlight light={hover.light} className="rounded-lg bg-accent/50" />
         {options.map((option) => (
           <button key={option.id} type="button" data-cover-option={option.id} aria-pressed={style === option.id}

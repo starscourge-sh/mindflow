@@ -2004,7 +2004,7 @@ export function Home(): React.JSX.Element {
           className={`mf-fade-end ${narrow ? 'mf-fade-tall' : ''} relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3`}>
         {/* Rows' previews: once one is up, the next swaps in at once, even after a short pause between rows. */}
         <TooltipProvider delayDuration={600} skipDelayDuration={900}>
-        <Highlight spot={sideChosen.spot} snap={sideChosen.snap} travel={spring.moderate} className="bg-accent" />
+        <Highlight chosen={sideChosen} travel={spring.moderate} className="bg-accent" />
         <Highlight light={sideHover.light} />
         <nav className="flex flex-col gap-px">
           {(() => {

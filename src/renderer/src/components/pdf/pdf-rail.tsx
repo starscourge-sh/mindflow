@@ -414,7 +414,7 @@ function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; he
   }
   return (
     <nav ref={list} {...hover.handlers} className="pdf-outline relative isolate" aria-label="Outline">
-      <Highlight spot={chosen.spot} snap={chosen.snap} travel={spring.moderate} className="bg-accent" />
+      <Highlight chosen={chosen} travel={spring.moderate} className="bg-accent" />
       <Highlight light={hover.light} />
       <div className="-ml-3"><Tree nodes={tree} here={hereAt} row={row} open={(node) => !folded.has(node.at)} className="ml-5 flex flex-col gap-px" /></div>
     </nav>
