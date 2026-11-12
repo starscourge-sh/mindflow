@@ -2129,7 +2129,8 @@ export function Home(): React.JSX.Element {
               const here = light === `place:${section.id}`
               return (
               <SortableRow key={section.id} id={section.id} glide={still ? undefined : `side-${section.id}`}>
-              <RowMenu items={placeMenu(section, among)}>
+              {/* Its menu is made as it opens (RowMenu): made with the row, sixteen menus were built each time the window drew. */}
+              <RowMenu items={() => placeMenu(section, among)}>
               {/* A row that has just joined the sidebar rises in, once. */}
               <motion.div className="flex flex-col" initial={risen.has(section.id) ? { opacity: 0, y: 6 } : false} animate={{ opacity: 1, y: 0 }}
                 transition={{ type: 'spring', duration: 0.42, bounce: 0 }} onAnimationComplete={() => risen.delete(section.id)}>
@@ -2252,7 +2253,7 @@ export function Home(): React.JSX.Element {
           {/* Dragged into your own order, as the pages and pins above are; saved. */}
           <SortableList items={sideTags} keyOf={(one) => one.tag} onMove={narrow ? undefined : dropOrder('tagOrder', tags.map((one) => one.tag), (id) => `#${id}`)}>{(items) => items.map(({ tag, count, color }) => (
             <SortableRow key={tag} id={tag} glide={`side-tag-${tag}`}>
-            <RowMenu items={[
+            <RowMenu items={() => [
               { label: 'Open', run: () => setView({ id: 'tags', focus: tag }) },
               { label: 'Rename or merge…', run: () => void renameTag(tag, (now) => view.id === 'tags' && view.focus === tag && setView({ id: 'tags', focus: now })) },
               sideTagLine(tag, settings?.sideTags, tags.map((one) => one.tag)),
@@ -2290,7 +2291,7 @@ export function Home(): React.JSX.Element {
             }
             const heading = (group: Place, open: boolean, fold: (open: boolean) => void, near?: string): React.JSX.Element =>
               narrow ? <div key={group.id} className="mt-3" /> : (
-                <RowMenu key={group.id} items={[
+                <RowMenu key={group.id} items={() => [
                   // Library is not one to switch off: its rows are, each, in Customize.
                   ...sectionMoves(group.id, sideOrder(settings?.sideSections)),
                   ...(group.id === LIBRARY.id ? [] : [{ label: showWords(group, true).label, run: () => void hideGroup(group) }]),
@@ -2369,8 +2370,12 @@ export function Home(): React.JSX.Element {
                   // Pins drag into your own order too; carried off the sidebar, one still opens to the side.
                   <SortableList key="pins" items={pins} keyOf={(pin) => `${pin.type}:${pin.id}`} onMove={narrow ? undefined : dropOrder('pinOrder', pinsUsual.map((pin) => `${pin.type}:${pin.id}`), (id) => pinsUsual.find((pin) => `${pin.type}:${pin.id}` === id)?.title || 'New note')}>{(items) => items.map((pin) => {
                   const kind = CAPTURE_TYPES.find((type) => type.id === pin.kind) ?? CAPTURE_TYPES[0]
-                  const menu = fullMenu(pin.type, pin.id, () => open(pin.type, pin.id)) ?? sideMenu(pin.type, pin.id, pin.title, { onOpen: open, pinned: true, kind: pin.kind, status: captures.find((one) => one.id === pin.id)?.status })
-                  menu.splice(menu.lastIndexOf('separator'), 0, 'separator', ...orderItems({ setting: 'pinOrder', usual: pinsUsual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: items.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'New note' }, pinSaved.length > 0))
+                  // Made as the menu opens (RowMenu), not with every row each time the window draws.
+                  const menu = (): RowItem[] => {
+                    const lines = fullMenu(pin.type, pin.id, () => open(pin.type, pin.id)) ?? sideMenu(pin.type, pin.id, pin.title, { onOpen: open, pinned: true, kind: pin.kind, status: captures.find((one) => one.id === pin.id)?.status })
+                    lines.splice(lines.lastIndexOf('separator'), 0, 'separator', ...orderItems({ setting: 'pinOrder', usual: pinsUsual.map((one) => `${one.type}:${one.id}`), id: `${pin.type}:${pin.id}`, among: items.map((one) => `${one.type}:${one.id}`), what: 'Pinned', name: pin.title || 'New note' }, pinSaved.length > 0))
+                    return lines
+                  }
                   return (
                     <SortableRow key={pin.id} id={`${pin.type}:${pin.id}`} glide={`pin-${pin.id}`}>
                     <RowMenu items={menu}>
