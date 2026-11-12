@@ -52,8 +52,10 @@ export function bookFinder(db: DatabaseSync, pictures: Pictures): {
   // A journal day: its page and its two answers (journal.ts), found as one, by its day.
   const DAYS = 'select day from day_pages union select day from journal'
   const DAY_WORDS = "(coalesce(words('day:' || d.day, (select body from day_pages p where p.day = d.day)), '') || ' ' || coalesce((select group_concat(answer, ' ') from journal j where j.day = d.day), ''))"
-  // An event's words: its name, place, people and notes.
-  const EVENT_WORDS = "(title || ' ' || coalesce(place, '') || ' ' || coalesce(people, '') || ' ' || coalesce(notes, ''))"
+  // An event's words: its name, place, people and notes. The people are kept as a list (["Sam","Ada"]): read out
+  // as names after the place ("Cafe Riva with Sam, Ada"), never the list as it is stored, which showed in ⌘K's line.
+  const EVENT_PEOPLE = "(select group_concat(value, ', ') from json_each(case when json_valid(people) then people else '[]' end))"
+  const EVENT_WORDS = `(title || ' ' || coalesce(place, '') || coalesce(' with ' || ${EVENT_PEOPLE}, '') || ' ' || coalesce(notes, ''))`
   // A gem's, Page's or question's words are its body; a goal's page shows no
   // body, so a goal is found by the "Why it matters" its page does show.
   const SHOWN_WORDS = "(case when tier = 'goal' then coalesce(why, '') else words(id, body) end)"

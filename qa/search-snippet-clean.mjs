@@ -54,6 +54,17 @@ try {
     await h.keyboard.press('Escape')
     await h.waitForTimeout(300)
   }
+  // An event's line reads as words too: its place and who it is with, never the stored list of people (["Sam","Zelimir"]).
+  const noon = new Date(); noon.setHours(13, 0, 0, 0)
+  await v('event:add', { title: 'Lunch at the quay', start: noon.toISOString(), end: new Date(noon.getTime() + 3600000).toISOString(), place: 'Cafe Riva', people: ['Sam', 'Zelimir'], calendarId: 'personal' })
+  await go('home')
+  await h.keyboard.press('Meta+k'); await h.waitForTimeout(500)
+  // Searched by one of its people: the line under its name is drawn from where the word was found.
+  await h.keyboard.type('Zelimir'); await h.waitForTimeout(900)
+  const eventRow = await h.evaluate(() => [...document.querySelectorAll('div[aria-label="Search"] button[data-row]')].find((one) => one.innerText.includes('Lunch at the quay'))?.innerText ?? null)
+  check('an event is found by one of its people', !!eventRow, String(eventRow))
+  check('an event\'s line names its place and people in words, no brackets or quotes', !!eventRow && /Cafe Riva with Sam, Zelimir/.test(eventRow) && !/[\[\]"]/.test(eventRow), JSON.stringify(eventRow))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(300)
   check('no page errors', !c.errors.filter((e) => /PAGEERROR/.test(e)).length, c.errors.join(' | ').slice(0, 300))
 } finally {
   await c.close()
