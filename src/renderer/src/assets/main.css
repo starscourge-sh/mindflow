@@ -2445,6 +2445,18 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
    while the welcome is up, so a theme change (the dial) restyles only the
    welcome, a third of the work, and its frames stay smooth. */
 :root[data-welcoming] .mf-welcome ~ * { content-visibility: hidden; }
+/* The welcome arriving out of the desktop (welcome.tsx, in a window made see-through for it: main arrival.ts). Until
+   its mist has drawn in to the window the page paints nothing of its own, so the desktop shows through exactly as it
+   was: no page colour, none of the app under the welcome, only what the welcome draws (its mist, its title). */
+html[data-see-through],
+html[data-see-through] body { background: transparent; }
+html[data-see-through] #root { visibility: hidden; }
+html[data-see-through] .mf-welcome { visibility: visible; background: transparent; }
+/* The arrival's two controls come in with the mist, after its beat of nothing (welcome-mist.tsx: CLEAR_MS, IN_MS). */
+@keyframes mf-with-mist { from { opacity: 0; } }
+.mf-with-mist { animation: mf-with-mist 2000ms 350ms ease-in-out backwards; }
+/* Held by the arrival probe while it reads the page before the mist's first step (welcome-mist.tsx). */
+html[data-arrival-hold] .mf-with-mist { animation-play-state: paused; }
 :root[data-welcoming]::view-transition-old(mf-theme-dial) { display: none; }
 :root[data-welcoming]::view-transition-new(mf-theme-dial), :root[data-welcoming]::view-transition-group(mf-theme-dial) { animation: none; }
 /* The words that carry the point, in the welcome: the accent with a lighter

@@ -256,11 +256,30 @@ export function Welcome(): React.JSX.Element | null {
   // The Sounds setting, for the arrival's own sound button.
   const [loud, setLoud] = useState(true)
   const gatherTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // The arrival out of the desktop, in a window made see-through for it (main: arrival.ts): 'over' while the mist lies
+  // over the desktop and no window has been seen, 'in' while the mist draws in to the window, then off for good.
+  const [desk, setDesk] = useState<'off' | 'over' | 'in'>('off')
+  // The window's own page under the mist: not drawn while the mist is over the desktop (welcome-mist.tsx brings it up).
+  const plate = useRef<HTMLDivElement>(null)
+  const drawIn = (): void => setDesk((now) => (now === 'over' ? 'in' : now))
+  // Whether this arrival came out of the desktop: its two controls keep the ground they came in on until they go.
+  const [fromDesk, setFromDesk] = useState(false)
+  // The mist over the desktop has drawn its first frame: the spark in it keeps the mist's time from there.
+  const [deskLit, setDeskLit] = useState(false)
+  /** The window is a window again: the page paints itself, and the window has its shadow and buttons back (main: landClear). */
+  const land = (): void => {
+    setDesk('off')
+    if (!document.documentElement.hasAttribute('data-see-through')) return
+    document.documentElement.removeAttribute('data-see-through')
+    window.api.landed()
+  }
   const rush = (): void => {
     clearTimeout(veilTimer.current)
     // A first run's window, still over the whole screen, gathers in at once.
     clearTimeout(gatherTimer.current)
     window.api.gather()
+    // Over the desktop: the mist draws in to the window at once.
+    drawIn()
     setVeiled(false)
     setRushed(true)
   }
@@ -332,6 +351,13 @@ export function Welcome(): React.JSX.Element | null {
     // Opened again over a page still up: that page's way on (a part still to come) must not carry over to the opening.
     reel.current = { done: true, settle: () => undefined }
     setAt(WHY)
+    // Out of the desktop when this window was made for it and nothing says otherwise (main: arrivesClear): the page
+    // paints nothing and the mist comes in over the desktop. Otherwise inside the window, as it always has.
+    const clear = !still() && window.api.arrive()
+    setFromDesk(clear)
+    setDeskLit(false)
+    if (clear) (document.documentElement.setAttribute('data-see-through', ''), setDesk('over'))
+    else land()
     if (still()) chime('read')
     else {
       setMist(true)
@@ -345,14 +371,18 @@ export function Welcome(): React.JSX.Element | null {
       veilTimer.current = setTimeout(() => setVeiled(false), ARRIVE_MS)
       // The title card whole and held a breath: a first run's window gathers in from the whole screen.
       clearTimeout(gatherTimer.current)
-      gatherTimer.current = setTimeout(() => window.api.gather(), GATHER_AT)
+      // Over the desktop it is the mist that gathers, in to the window, on the same beat.
+      gatherTimer.current = setTimeout(() => (window.api.gather(), drawIn()), GATHER_AT)
       void haligtree.settings().then((now) => setLoud(now.sounds !== false))
     }
   }
 
+  // The welcome gone while its window was still see-through (it cannot be, but a see-through window must never be left): the page paints itself.
+  useEffect(() => void (at < 0 && desk !== 'off' && land()), [at, desk]) // eslint-disable-line react-hooks/exhaustive-deps
   useCarriedWelcome()
   useEffect(() => {
-    void onboarding.state().then((now) => now.firstRun && open(false))
+    // No welcome to open after all, in a window that started see-through for one (main.tsx): the page paints itself.
+    void onboarding.state().then((now) => (now.firstRun ? open(false) : land()))
     const again = (): void => open(true)
     window.addEventListener('haligtree:welcome', again)
     window.addEventListener('haligtree:tour', again)
@@ -627,10 +657,15 @@ export function Welcome(): React.JSX.Element | null {
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
     <motion.div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
-      data-closing={closing ? '' : undefined} data-story={story().id} data-dial={at === DIAL ? '' : undefined} data-page={lightPage ? 'light' : 'dark'} onPointerDown={() => void (closing && closed())}
+      data-closing={closing ? '' : undefined} data-story={story().id} data-dial={at === DIAL ? '' : undefined} data-page={lightPage ? 'light' : 'dark'} data-desk={desk === 'off' ? undefined : desk}
+      // Over the desktop a click anywhere ends the arrival at once (its own two buttons and the name keep their clicks): nothing that looks like the desktop holds a click for long.
+      onPointerDown={(event) => void (closing ? closed() : desk === 'over' && event.isTrusted && !(event.target as HTMLElement).closest('button, [data-title-name]') && rush())}
       initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? (quiet ? { duration: 0.4, ease: 'easeOut' } : { delay: 0.45, duration: 0.9, ease: MOVE }) : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
-      <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} onBloomed={() => (setBloomed(true), !rushed && titleChime(0.45))} />
+      {/* The window's own page. Arriving out of the desktop it is not drawn while the mist lies over the desktop, and comes up under the mist as it draws in (welcome-mist.tsx). */}
+      <div ref={plate} data-plate="" className="absolute inset-0 bg-background">
+        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} onBloomed={() => (setBloomed(true), !rushed && titleChime(0.45))} />
+      </div>
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). On the
           dial's page and the last, a slow stream of them is drawn in and sinks behind the dial's ring or
@@ -639,11 +674,16 @@ export function Welcome(): React.JSX.Element | null {
       {WELCOME_BACKGROUND === 'paper' && <WelcomeLeaves on={at === WHY && play} open={play} motes={at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing}
         lure={closing ? null : at === LAST ? '.mf-welcome [data-recommended]' : at === DIAL ? '.mf-welcome [role="slider"][aria-label="Theme"]' : null} />}
       {/* The paper's arrival is a mist; the gradient's is its own bloom (GrainBackdrop). */}
-      {mist && WELCOME_BACKGROUND === 'paper' && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
+      {mist && WELCOME_BACKGROUND === 'paper' && desk === 'off' && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
+      {/* Out of the desktop: the same mist over the desktop's own picture, drawing in to the window on the title's beat, or at once on Esc or a click. */}
+      {desk !== 'off' && <WelcomeMist key={`desk-${arrival}`} desk drawIn={desk === 'in'} hurry={rushed} plate={plate} onGone={land} onStart={() => setDeskLit(true)} />}
+      {/* The arrival's spark and its burst (GrainBackdrop draws them on the page, which is not yet there): in the mist, where the title will stand, so the notes that go with them still have their light. */}
+      {desk === 'over' && deskLit && <div className="pointer-events-none absolute inset-0 z-[35]"><IntroSpark key={`desk-spark-${arrival}`} /></div>}
       {/* Before the first words: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
       {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} />}
-      <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
+      {/* Not a handle while the window is unseen over the desktop: a press there ends the arrival, as anywhere. */}
+      <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: desk === 'over' ? 'no-drag' : 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}
       <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
@@ -651,7 +691,7 @@ export function Welcome(): React.JSX.Element | null {
             Soft ink soaked into the paper, fading out at its top and foot as a notebook's rule does, never a loose line. */}
         <motion.div aria-hidden data-margin="" className="pointer-events-none absolute -top-11 bottom-0 left-[calc(clamp(1.5rem,5vw,4rem)*0.45)] w-px origin-top"
           style={{ background: 'linear-gradient(to bottom, transparent, color-mix(in oklab, var(--tt-color-text-red) 20%, transparent) 14%, color-mix(in oklab, var(--tt-color-text-red) 20%, transparent) 80%, transparent)' }}
-          initial={false} animate={{ transform: veiled ? 'scaleY(0)' : 'scaleY(1)' }} transition={{ duration: quiet ? 0 : 1.6, ease: ENTER }} />
+          initial={false} animate={{ transform: veiled ? 'scaleY(0)' : 'scaleY(1)' }} transition={{ duration: quiet || desk === 'over' ? 0 : 1.6, ease: ENTER }} />
         <main className="relative min-h-0 flex-1">
           <AnimatePresence initial={false} custom={turning}>
             <motion.section key={at} custom={turning} variants={PAGE}
@@ -678,6 +718,8 @@ export function Welcome(): React.JSX.Element | null {
             the way past the intro. The footer comes up in their place once the first words have. */}
         {mist && at === WHY && (
           // With no mist to say the arrival is over, it is over once these have faded out.
+          // Out of the desktop they come in with the mist, never before it (nothing is drawn at first), each on its own opaque
+          // ground: the mist is thin at the screen's foot, and words on the desktop's own picture cannot be counted on to read.
           <div data-intro="" onTransitionEnd={(event) => void (event.target === event.currentTarget && !veiled && WELCOME_BACKGROUND !== 'paper' && setMist(false))} className={`pointer-events-auto absolute inset-x-0 bottom-0 z-50 flex h-[clamp(4rem,9vmin,5.5rem)] items-center px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-700 ${veiled ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
             <button type="button" data-intro-sound="" aria-pressed={loud} aria-label={loud ? 'Sounds on' : 'Sounds off'} onClick={() => {
               const next = !loud
@@ -685,16 +727,16 @@ export function Welcome(): React.JSX.Element | null {
               soundOn(next)
               if (next) ambience()
               void haligtree.setSettings({ sounds: next })
-            }} className={QUIET_BUTTON}>
+            }} className={fromDesk ? DESK_BUTTON : QUIET_BUTTON}>
               {loud ? <Volume2 className="size-4" strokeWidth={1.8} /> : <VolumeX className="size-4" strokeWidth={1.8} />}
               <span>{loud ? 'Sound on' : 'Sound off'}</span>
             </button>
-            <button type="button" data-skip-intro="" onClick={rush} className={`${QUIET_BUTTON} ml-auto whitespace-nowrap`}>
+            <button type="button" data-skip-intro="" onClick={rush} className={`${fromDesk ? DESK_BUTTON : QUIET_BUTTON} ml-auto whitespace-nowrap`}>
               Skip intro <Kbd className="h-6 min-w-6"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd>
             </button>
           </div>
         )}
-        <footer className={`relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)] transition-opacity ${closing ? 'duration-300' : 'duration-1000'} ${veiled || closing ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
+        <footer className={`relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)] transition-opacity ${closing ? 'duration-300' : desk === 'over' ? 'duration-0' : 'duration-1000'} ${veiled || closing ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
           <div className="mr-auto flex min-w-0 items-center gap-[clamp(0.5rem,2vw,1.5rem)]">
             <Progress at={at} seen={played} onBack={back} />
             {/* The ways past a page sit with Back and the marks, far from the arrow, so the arrow only ever points from nothing to Next.
@@ -2096,6 +2138,8 @@ export const QUIET = 'text-[clamp(0.9375rem,min(2.2vw,3.2vh),1.5rem)] leading-sn
 const LINE_KEY = 'h-[1.3em] min-w-[1.3em] rounded-[0.3em] px-[0.3em] text-[0.62em]'
 /** A way past a page, beside the one accent button: quiet until pointed at. */
 const QUIET_BUTTON = 'flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]'
+/** The same button standing over the desktop's own picture (the arrival out of the desktop): on the app's opaque floating ground (lib/float.ts), which stays opaque under the pointer, and coming in with the mist (main.css, mf-with-mist). */
+const DESK_BUTTON = 'mf-with-mist flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] bg-popover px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 transition-colors hover:text-foreground active:scale-[0.97]'
 
 /** Keys written in a sentence, as small caps. */
 function InlineKeys({ keys }: { keys: string }): React.JSX.Element {

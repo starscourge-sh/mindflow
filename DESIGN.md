@@ -431,7 +431,7 @@ The one look for any hover that has content: a 320px Parchment card (14px corner
 
 ### Don't:
 - **Don't** use em dashes anywhere in the interface, nor " - " standing in for one.
-- **Don't** use `backdrop-filter` blur or any see-through layer in the main window, or blur inside anything that fades, masks or filters.
+- **Don't** use `backdrop-filter` blur or any see-through layer in the main window, or blur inside anything that fades, masks or filters. (One thing is see-through on purpose, and it is the whole window, never a layer over the app: a first run's welcome arrives out of the desktop, the window clear until the welcome's mist has drawn in to it; `src/main/arrival.ts` says when, and when not.)
 - **Don't** stack two hover surfaces, or put a tooltip on a menu row or over an open menu or dialog; a tip never rewrites what it sits on.
 - **Don't** draw a menu under a hover card, or let a popover over text hide the words around the selection.
 - **Don't** use a second shadow or a heavy multi-layer shadow for floating things, or a second grey for their fill.

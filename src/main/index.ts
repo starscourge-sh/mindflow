@@ -82,6 +82,7 @@ import { registerScenery, sceneryDir } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import type { Nudge } from './nudge'
 import { firstRun, isWelcoming, keepWindowBeforeWelcome, noteChord, welcomeBoxSpot, windowBeforeWelcome, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
+import { CLEAR_LIMIT, plainArrival } from './arrival'
 import { registerUnused } from './unused'
 import { registerMedia } from './media'
 import { registerCollect } from './collect'
@@ -988,7 +989,8 @@ whenWelcoming((on) => {
   // A first run's opening gathers in to the work area itself (gatherIn); its window-to-be is the size kept.
   if (home && !home.isDestroyed() && !home.isFullScreen()) {
     if (on) {
-      if (!windowBeforeWelcome()) keepWindowBeforeWelcome({ bounds: gathering?.rest ?? home.getNormalBounds(), maximized: home.isMaximized() })
+      // A first run arriving out of the desktop never spread (it stands over the work area from the start): its window-to-be is the same one.
+      if (!windowBeforeWelcome()) keepWindowBeforeWelcome({ bounds: gathering?.rest ?? (homeClear && firstRun() ? ownPlace(screen.getDisplayMatching(home.getBounds()).workArea) : home.getNormalBounds()), maximized: home.isMaximized() })
       if (!gathering) home.setBounds(screen.getDisplayMatching(home.getBounds()).workArea)
     } else {
       const was = windowBeforeWelcome()
@@ -2321,11 +2323,19 @@ function openHome(): void {
       // A brand-new Haligtree arrives as Arc and Dia do: the window comes up almost clear, the desktop
       // still showing through, and grows solid over a few seconds as the welcome's mist lifts.
       const misty = firstRun() && !homeTimes.shown
-      if (misty) win.setOpacity(0)
+      // Made see-through for it (makeHome): the window comes up with nothing drawn, no frame, no shadow, no buttons,
+      // and the welcome's own mist comes in over the desktop (welcome-mist.tsx). No fade of the whole window then,
+      // and no spreading: a window fading in is a window seen opening.
+      const clear = misty && arrivesClear()
+      if (clear) standClear(win)
+      // Made see-through and arriving the plain way after all, or opened with no welcome to play: a window as any other.
+      // (Not one standing clear this moment: asked for again from the Dock mid-arrival, it stays as it is until the mist draws in.)
+      else if (!clearUntil) landClear(win)
+      if (misty && !clear) win.setOpacity(0)
       // Not in a test run unless asked: a probe keeps the size it set (qa/welcome-intro.mjs asks).
-      if (misty && !stillness() && (!process.env.HALIGTREE_QA_AWAY || process.env.HALIGTREE_QA_GATHER)) spread(win)
+      if (misty && !clear && !stillness() && (!process.env.HALIGTREE_QA_AWAY || process.env.HALIGTREE_QA_GATHER)) spread(win)
       win.show()
-      if (misty) {
+      if (misty && !clear) {
         const from = performance.now()
         const LIFT = stillness() ? 400 : 3200
         const step = setInterval(() => {
@@ -2484,13 +2494,15 @@ function keepHomePlace(win: BrowserWindow): void {
  * only once it has landed, never the screen's on the way.
  */
 let gathering: { from: Electron.Rectangle; rest: Electron.Rectangle; at: ReturnType<typeof setTimeout>; going?: boolean } | null = null
-function spread(win: BrowserWindow): void {
-  const display = screen.getDisplayMatching(win.getBounds())
-  const area = display.workArea
-  // Large, but a window: the desk shows a little all round it.
+/** A first run's window-to-be on this screen, once its welcome is over: large, but a window, the desk showing a little all round it. */
+function ownPlace(area: Electron.Rectangle): Electron.Rectangle {
   const width = Math.min(1440, Math.round(area.width * 0.86))
   const height = Math.min(940, Math.round(area.height * 0.88))
-  const rest = { x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2), width, height }
+  return { x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2), width, height }
+}
+function spread(win: BrowserWindow): void {
+  const display = screen.getDisplayMatching(win.getBounds())
+  const rest = ownPlace(display.workArea)
   // Never asked (the page could not say): it gathers in on its own all the same.
   gathering = { from: { ...display.bounds }, rest, at: setTimeout(() => gatherIn(win), 12000) }
   if (process.platform === 'darwin') win.setWindowButtonVisibility(false)
@@ -2519,6 +2531,42 @@ function gatherIn(win: BrowserWindow): void {
     keepHomePlace(win)
   }, 16)
 }
+
+/**
+ * The welcome arriving out of the desktop (arrival.ts). The main window was made see-through (makeHome) and its page
+ * paints nothing until the welcome's mist has drawn in to the window. While it stands clear it has no shadow and no
+ * window buttons, so nothing says a window is there; landed, it has both again, as any window.
+ */
+let homeClear = false
+/** Standing clear now, until this fires: the page could not say it landed (it broke, or never drew), and a see-through window must never be left over the desktop taking its clicks. */
+let clearUntil: ReturnType<typeof setTimeout> | null = null
+/** Whether the welcome may arrive out of the desktop now: the window was made for it, and nothing since says to do the plain thing. */
+function arrivesClear(): boolean {
+  if (!home || home.isDestroyed() || !homeClear) return false
+  return !plainArrival({ mac: true, welcome: true, test: false, still: stillness(), safe: gate().blackout, solid: nativeTheme.prefersReducedTransparency, secondDisplay: onSecondDisplay(home.getBounds()), fullScreen: home.isFullScreen() })
+}
+/** Not on the Mac's main screen. A test that asks for the arrival parks its window past the screen's edge, nearest whichever screen: it is taken as the main one. */
+const onSecondDisplay = (place: Electron.Rectangle): boolean => !process.env.HALIGTREE_QA_ARRIVAL && screen.getDisplayMatching(place).id !== screen.getPrimaryDisplay().id
+function standClear(win: BrowserWindow): void {
+  if (clearUntil) return
+  win.setHasShadow(false)
+  win.setWindowButtonVisibility(false)
+  clearUntil = setTimeout(() => landClear(win, true), CLEAR_LIMIT)
+}
+/** The mist has drawn in: the window is a window again. `forced` when the page never said so, and is told to paint itself. */
+function landClear(win: BrowserWindow, forced = false): void {
+  if (clearUntil) clearTimeout(clearUntil)
+  clearUntil = null
+  // Only a window made see-through was ever without them (and one that arrived the plain way after all was made without its shadow).
+  if (win.isDestroyed() || !homeClear) return
+  if (forced) void win.webContents.executeJavaScript("document.documentElement.removeAttribute('data-see-through')").catch(() => undefined)
+  win.setHasShadow(true)
+  // Worked out afresh from the window as it now is, whole to its corners: a see-through window's shadow follows what is drawn in it.
+  win.invalidateShadow()
+  win.setWindowButtonVisibility(true)
+}
+/** What the arrival probe reads: whether the window was made see-through, and whether it stands clear now. */
+;(globalThis as { haligtreeArrival?: () => { made: boolean; clear: boolean } }).haligtreeArrival = () => ({ made: homeClear, clear: !!clearUntil })
 
 /**
  * Whether a window covers its screen's work area, read from where it is (or
@@ -2565,11 +2613,23 @@ function makeHome(): BrowserWindow {
 
   // Large to start, filling the screen's usable part, then where you leave it.
   const place = homePlace()
+  // See-through for this run when the welcome is to arrive out of the desktop (arrival.ts): a window is see-through
+  // or not from the moment it is made. Otherwise made as it always was, and the welcome arrives inside it.
+  homeClear = !plainArrival({
+    mac: process.platform === 'darwin',
+    welcome: firstRun() || !!process.env.HALIGTREE_QA_ARRIVAL,
+    test: !!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_ARRIVAL,
+    still: stillness(),
+    safe: gate().blackout,
+    solid: nativeTheme.prefersReducedTransparency,
+    secondDisplay: onSecondDisplay(place),
+    fullScreen: false
+  })
   home = new BrowserWindow({
     ...place,
     show: false,
     title: APP_NAME,
-    backgroundColor: '#1c1c1c',
+    ...(homeClear ? { transparent: true, hasShadow: false, backgroundColor: '#00000000' } : { backgroundColor: '#1c1c1c' }),
     autoHideMenuBar: true,
     // The app draws its own toolbar, with the traffic lights set into it the
     // way Claude's and Linear's are, rather than a grey strip saying "Electron".
@@ -2612,7 +2672,8 @@ function makeHome(): BrowserWindow {
   for (const change of ['maximize', 'unmaximize', 'resized', 'moved', 'enter-full-screen', 'leave-full-screen'] as const)
     home.on(change as 'resized', () => void (home && pending?.win !== home && (tellFilled(home), keepHomePlace(home))))
   guard(home)
-  load(home, '?view=home')
+  // A first run's page is told it starts clear, the one thing it must know before it paints (main.tsx).
+  load(home, homeClear && firstRun() ? '?view=home&clear=1' : '?view=home')
   // A freeze in a development run says where it was stuck (src/main/freeze-catch.ts).
   catchFreezes(home, 'main window')
   return home
@@ -5437,6 +5498,14 @@ app.whenReady().then(() => {
   })
   // From the welcome: the box put away, as its own Esc would.
   ipcMain.on('welcome:gather', (event) => void (home && event.sender === home.webContents && gatherIn(home)))
+  // The welcome about to arrive: whether it may come out of the desktop (answered at once, the page waits on it), the
+  // window made ready if so. And the mist drawn in: the window is a window again.
+  ipcMain.on('welcome:arrive', (event) => {
+    const clear = !!home && event.sender === home.webContents && arrivesClear()
+    if (clear) standClear(home!)
+    event.returnValue = clear
+  })
+  ipcMain.on('welcome:landed', (event) => void (home && event.sender === home.webContents && landClear(home)))
   ipcMain.on('prompt:hide', () => void (prompt?.isVisible() && hideWindow(prompt)))
   // The first-run step and Settings import the way the menu bar does.
   // From the vault picker too: one of the vaults it showed, or null for the folder dialog.

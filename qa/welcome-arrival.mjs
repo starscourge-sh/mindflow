@@ -6,18 +6,22 @@
 // shifting with each page and coming home on the last; reduced motion with
 // the words simply there.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-w/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-arrival.mjs [shots folder] [light|dark]
-import { mkdirSync } from 'fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 delete process.env.QA_ARGS
+// Out of the desktop: the main window made see-through for the arrival, as a first run's is (src/main/arrival.ts).
+// Every other probe leaves this unset and gets the plain arrival, inside the window.
+process.env.HALIGTREE_QA_ARRIVAL = '1'
+const TIMING = !!process.env.QA_ARRIVAL_TIMING
 const SHOTS = process.argv[2] ?? ''
 const THEME = process.argv[3] ?? 'light'
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const c = await sandbox({ width: 1440, height: 900, seeded: false })
-const { h, errors, close } = c
+const { h, errors, close, electron } = c
 const WHOLE = [
   'Most notes are written once and never seen again.',
   'Your writing lives in one app.',
@@ -50,6 +54,9 @@ const look = () => h.evaluate(() => {
 try {
   // The page notes when the intro first comes (a watcher put in before it loads), so every time below is from the arrival itself.
   await c.electron.context().addInitScript(() => {
+    // The window looked at, as a person's is at a first launch: a parked test window never has the keys, and the
+    // mist over the desktop is not drawn on unseen (welcome-mist.tsx).
+    document.hasFocus = () => true
     new MutationObserver((_, watch) => {
       if (document.querySelector('[data-intro]')) (window.qaIntroAt = performance.now()), watch.disconnect()
     }).observe(document, { childList: true, subtree: true })
@@ -59,6 +66,26 @@ try {
     if (!(await h.$('.mf-welcome'))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   }
   await h.waitForSelector('[data-intro]', { timeout: 8000 })
+  if (TIMING) {
+    // A timing run (QA_ARRIVAL_TIMING=1, under solo --quiet): a first run's own arrival out of the desktop, straight
+    // after its page loads, with nothing asked of the page meanwhile. Every frame's gap, by the page's own clock.
+    await h.waitForFunction(() => window.haligtreeArrival?.landed, null, { timeout: 40000, polling: 500 })
+    const frames = await h.evaluate(() => window.haligtreeArrival.frames)
+    const gaps = frames.slice(1).map((one, i) => ({ at: one[0], ms: one[0] - frames[i][0], page: one[2] }))
+    const drawAt = frames.find((one) => one[2] > 0)?.[0] ?? Infinity
+    const say = (name, list) => console.log(`${name}: ${list.length} frames, longest ${Math.max(0, ...list.map((one) => one.ms)).toFixed(1)} ms, mean ${(list.reduce((sum, one) => sum + one.ms, 0) / (list.length || 1)).toFixed(2)} ms, over 17 ms: ${list.filter((one) => one.ms > 17).map((one) => `${one.ms.toFixed(1)}@${Math.round(one.at)}`).join(' ') || 'none'}`)
+    say('nothing, then the mist coming in (to 2.4 s)', gaps.filter((one) => one.at < 2400))
+    say('the mist holding, the title coming out of it', gaps.filter((one) => one.at >= 2400 && one.at < drawAt))
+    say('the mist drawing in to the window', gaps.filter((one) => one.at >= drawAt))
+    check('the mist drew in, and the window stands whole', frames.length > 300 && frames.at(-1)[2] === 1 && Number.isFinite(drawAt), `${frames.length} frames, draws in at ${Math.round(drawAt)} ms`)
+    check('no frame over 16.7 ms after the first, the whole arrival', gaps.slice(1).every((one) => one.ms <= 17.5), `longest ${Math.max(...gaps.slice(1).map((one) => one.ms)).toFixed(1)} ms`)
+    const table = await electron.evaluate(() => globalThis.mainStalls?.() ?? null)
+    const mine = (table?.rows ?? []).filter((row) => /welcome:(arrive|landed|gather)/.test(row.name)).map((row) => `${row.name} ${row.calls}x worst ${Number(row.worst).toFixed(1)} ms`)
+    check('the main process is never held 50 ms by the arrival', mine.length > 0 && (table?.rows ?? []).filter((row) => /welcome:(arrive|landed|gather)/.test(row.name)).every((row) => row.worst < 50), `${mine.join('; ')}; other stalls of 50 ms or more in this run: ${(table?.slow ?? []).map((one) => `${one.name} ${Math.round(one.ms)} ms`).join(', ') || 'none'}`)
+    check('no page errors', errors.length === 0, errors.join(' | '))
+    await close()
+    done()
+  }
   const start = Date.now()
   let first = Infinity
   let frame = 0
@@ -154,6 +181,198 @@ try {
   check('reduced motion: no title card', (await h.locator('[data-title-card]').count()) === 0)
   check('reduced motion: the words are there at once', JSON.stringify(await words()) === JSON.stringify(WHOLE), (await words()).join(' | '))
   check('reduced motion: no pointer', (await h.locator('[data-pointer]').count()) === 0)
+
+  // --- Out of the desktop --------------------------------------------------------------------------------------
+  {
+  // The welcome arriving in a window made see-through for it: nothing drawn at first, the mist coming in over the
+  // desktop, only ever growing, then drawing in to the window, which ends whole, where it was, with its shadow.
+  const arrival = () => electron.evaluate(() => globalThis.haligtreeArrival?.() ?? null)
+  const windowNow = () => electron.evaluate(({ BrowserWindow }) => {
+    const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))
+    return win ? { bounds: win.getBounds(), shadow: win.hasShadow(), url: win.webContents.getURL() } : null
+  })
+  // The page captured with nothing behind it, and read for how see-through it is: every pixel's alpha (0 clear, 255 solid).
+  const alpha = async (points = []) => {
+    const png = await h.screenshot({ type: 'png', omitBackground: true, scale: 'css' })
+    return electron.evaluate(({ nativeImage }, [encoded, points]) => {
+      const image = nativeImage.createFromBuffer(Buffer.from(encoded, 'base64'))
+      const { width, height } = image.getSize()
+      const data = image.toBitmap()
+      let most = 0, least = 255, total = 0, drawn = 0
+      // Where anything at all is drawn (left, top, right, bottom), to name what it is when the page should be clear.
+      const box = [width, height, -1, -1]
+      for (let i = 3; i < data.length; i += 4) {
+        const a = data[i]
+        if (a > most) most = a
+        if (a < least) least = a
+        total += a
+        if (!a) continue
+        drawn++
+        const x = ((i - 3) / 4) % width, y = Math.floor((i - 3) / 4 / width)
+        if (x < box[0]) box[0] = x
+        if (y < box[1]) box[1] = y
+        if (x > box[2]) box[2] = x
+        if (y > box[3]) box[3] = y
+      }
+      const at = points.map(([x, y]) => data[(Math.min(height - 1, Math.round(y * (height - 1))) * width + Math.min(width - 1, Math.round(x * (width - 1)))) * 4 + 3])
+      return { most, least, mean: total / (data.length / 4), at, drawn, box: drawn ? box : null, size: [width, height] }
+    }, [png.toString('base64'), points])
+  }
+  const page = () => h.evaluate(() => {
+    const trace = window.haligtreeArrival
+    const last = trace?.frames.at(-1)
+    const plate = document.querySelector('[data-plate]')
+    return { t: last?.[0] ?? -1, amount: last?.[1] ?? 0, plate: last?.[2] ?? 0, soft: last?.[3] ?? 0, landed: !!trace?.landed, clear: document.documentElement.hasAttribute('data-see-through'), mist: !!document.querySelector('[data-welcome-mist="desk"]'), box: plate ? plate.getBoundingClientRect().toJSON() : null, inner: [innerWidth, innerHeight] }
+  })
+  // The window looked at, as a person's is: the mist is not drawn on unseen (welcome-mist.tsx).
+  const looked = () => h.evaluate(() => { document.hasFocus = () => true; window.dispatchEvent(new Event('focus')) })
+  const replay = async (held = false) => {
+    await looked()
+    await h.evaluate((held) => { document.documentElement.toggleAttribute('data-arrival-hold', held); window.dispatchEvent(new CustomEvent('haligtree:welcome')) }, held)
+    await h.waitForFunction(() => !!document.querySelector('[data-thesis], [data-intro]'), null, { timeout: 5000 })
+  }
+  // A picture stood behind the page for the desktop, so the frames show what a person would see: a busy one, or a plain one.
+  const desktop = (kind) => h.evaluate((kind) => {
+    document.getElementById('qa-desktop')?.remove()
+    if (!kind) return
+    const el = document.createElement('div')
+    el.id = 'qa-desktop'
+    el.style.cssText = `position:fixed;inset:0;z-index:-1;background:${kind === 'busy'
+      ? 'repeating-linear-gradient(115deg, rgba(255,255,255,.22) 0 10px, transparent 10px 64px), repeating-linear-gradient(24deg, rgba(0,0,0,.28) 0 5px, transparent 5px 92px), radial-gradient(circle at 78% 64%, #1f6b3a 0 17%, transparent 17.3%), radial-gradient(circle at 21% 28%, #ffd166 0 8%, transparent 8.3%), radial-gradient(circle at 50% 50%, #e63946 0 5%, transparent 5.3%), linear-gradient(180deg, #f78fb3 0%, #b28dff 38%, #4a78b8 62%, #1d3f72 100%)'
+      : '#4a78b8'}`
+    document.body.prepend(el)
+  }, kind)
+
+  const made = await arrival()
+  check('a first run\'s window is made see-through for the arrival, and its page told to start clear', made?.made === true && /[?&]clear=1/.test((await windowNow())?.url ?? ''), JSON.stringify(made))
+
+  // The plain thing, page side: Reduce motion (just played, above) and the app's own Motion off.
+  check('Reduce motion: the window simply there, nothing see-through', !(await page()).clear && (await alpha()).least === 255 && (await arrival())?.clear === false, JSON.stringify(await page()))
+  await h.emulateMedia({ reducedMotion: 'no-preference' })
+  await h.evaluate(() => (document.documentElement.dataset.motion = 'off'))
+  await replay()
+  await h.waitForTimeout(300)
+  check('Motion off: the window simply there, nothing see-through', !(await page()).clear && (await alpha()).least === 255 && (await arrival())?.clear === false, JSON.stringify(await page()))
+  await h.evaluate(() => delete document.documentElement.dataset.motion)
+
+  // The arrival itself, held at its start: the page with nothing drawn.
+  await replay(true)
+  await h.waitForSelector('[data-welcome-mist="desk"]', { timeout: 4000 })
+  // The window has taken the welcome's size by now (main: whenWelcoming); held, the mist's clock has not started.
+  await h.waitForTimeout(400)
+  const before = await windowNow()
+  const empty = await alpha()
+  check('the window is drawn empty at its start: every pixel of the page fully clear', empty.most === 0, JSON.stringify(empty))
+  check('and it stands with no shadow, nothing saying a window is there', before?.shadow === false && (await arrival())?.clear === true, JSON.stringify(before))
+  await h.evaluate(() => document.documentElement.removeAttribute('data-arrival-hold'))
+  // Followed to its end: the page read about ten times a second, the mist's own record of every frame kept beside it.
+  const curve = []
+  const began = Date.now()
+  while (Date.now() - began < 20000) {
+    // A timing run (QA_ARRIVAL_TIMING, under solo --quiet) takes no pictures: a capture holds the page's frames up.
+    const seen = TIMING ? { mean: 0, at: [0, 0, 0, 0, 0], least: 0 } : await alpha([[0.5, 0.5], [0.5, 0], [0, 0.5], [0, 0], [0.22, 0.28]])
+    if (TIMING) await h.waitForTimeout(250)
+    const now = await page()
+    curve.push({ t: now.t, amount: now.amount, plate: now.plate, soft: now.soft, mean: Math.round(seen.mean * 10) / 10, centre: seen.at[0], top: seen.at[1], left: seen.at[2], corner: seen.at[3], side: seen.at[4], least: seen.least })
+    if (now.landed || !now.mist) break
+  }
+  const after = await page()
+  const trace = await h.evaluate(() => window.haligtreeArrival?.frames ?? [])
+  const steps = trace.slice(1).map((one, i) => one[0] - trace[i][0])
+  if (SHOTS) writeFileSync(join(SHOTS, `${THEME}-curve.json`), JSON.stringify({ curve, trace, steps }))
+  console.log(`curve (ms, mist, page, soft edge px, mean alpha): ${curve.filter((_, i) => i % 3 === 0).map((one) => `${Math.round(one.t)}:${one.amount}/${one.plate}/${one.soft}/${one.mean}`).join(' ')}`)
+  const drawAt = trace.findIndex((one) => one[2] > 0)
+  const wholeAt = trace.findIndex((one) => one[2] >= 1)
+  const falls = (list) => list.some((one, i) => i > 0 && one < list[i - 1] - 1e-6)
+  check('the mist comes in from nothing over about two seconds', trace.length > 60 && trace[0][1] === 0 && (trace.find((one) => one[0] >= 350 + 2000)?.[1] ?? 0) >= 0.999 && (trace.find((one) => one[0] >= 1300)?.[1] ?? 1) < 0.9, JSON.stringify(trace.filter((_, i) => i % 20 === 0).slice(0, 10)))
+  check('the mist never thins before the window\'s page is whole under it', drawAt > 0 && wholeAt > drawAt && !falls(trace.slice(0, wholeAt + 1).map((one) => one[1])), `draws in from frame ${drawAt}, whole at ${wholeAt} of ${trace.length}`)
+  check('the window\'s page only ever grows, and never past whole', !falls(trace.map((one) => one[2])) && trace.every((one) => one[2] <= 1))
+  check('the mist\'s soft edge only ever hardens, out to the window\'s own edge', !falls(trace.map((one) => -one[3])) && trace.at(-1)[3] === 0 && trace[0][3] > 20, `${trace[0][3]}px to ${trace.at(-1)[3]}px`)
+  // What covers the desktop, read from the pictures: never less from one look to the next (the banks drift, so by a hair's allowance).
+  check('what covers the desktop only ever grows, read from the page itself', TIMING || (curve.length > 12 && !curve.some((one, i) => i > 0 && one.mean < curve[i - 1].mean - 4)), curve.map((one) => one.mean).join(' '))
+  const over = curve.filter((one) => one.t > 3500 && one.plate === 0)
+  check('over the desktop it is mist, not a sheet: the picture still shows through it, its middle is ground enough for words, and its edges are clear', TIMING || (over.length > 3 && over.every((one) => one.centre >= 200 && one.side > 110 && one.side < 246 && one.top <= 2 && one.left <= 2 && one.corner <= 2)), JSON.stringify(over.slice(0, 3)))
+  // Timed from the welcome's opening; the mist's own clock starts after the probe's hold, so a little under eleven seconds here.
+  check('it draws in on the title\'s beat, about eleven seconds in', drawAt > 0 && trace[drawAt][0] > 8000 && trace[drawAt][0] < 11500, `${trace[drawAt]?.[0]}ms`)
+  check('the drawing in is one motion of about a second and a half', wholeAt > drawAt && trace.at(-1)[0] - trace[drawAt][0] > 900 && trace.at(-1)[0] - trace[drawAt][0] < 2200, `${Math.round(trace.at(-1)[0] - trace[drawAt][0])}ms`)
+  const end = await alpha()
+  const stood = await windowNow()
+  check('what is left is the window, whole to its corners, the page painting itself again', after.landed && !after.clear && !after.mist && end.least === 255, JSON.stringify({ after, end }))
+  check('the page under the mist ends at the window\'s own bounds, within 1 px', !!after.box && Math.abs(after.box.x) <= 1 && Math.abs(after.box.y) <= 1 && Math.abs(after.box.width - after.inner[0]) <= 1 && Math.abs(after.box.height - after.inner[1]) <= 1, JSON.stringify(after.box))
+  check('the window never moved or changed size on the way, and has its shadow again', JSON.stringify(stood?.bounds) === JSON.stringify(before?.bounds) && stood?.shadow === true && (await arrival())?.clear === false, JSON.stringify({ before, stood }))
+  const late = steps.slice(1).filter((one) => one > 20).length
+  console.log(`frames: ${steps.length} drawn, longest gap ${Math.max(...steps.slice(1)).toFixed(1)} ms, ${late} over 20 ms (not a timing run unless under solo --quiet)`)
+
+  // Esc, and a click: the arrival ends at once.
+  for (const way of ['Esc', 'a click']) {
+    await replay()
+    await h.waitForSelector('[data-welcome-mist="desk"]', { timeout: 4000 })
+    await h.waitForTimeout(1500)
+    const mid = await alpha([[0.5, 0.5]])
+    const pressed = Date.now()
+    if (way === 'Esc') await h.keyboard.press('Escape')
+    else await h.mouse.click(160, 300)
+    await h.waitForFunction(() => !document.documentElement.hasAttribute('data-see-through'), null, { timeout: 4000 }).catch(() => {})
+    const took = Date.now() - pressed
+    const whole = await alpha()
+    // By the page's own clock: from the first frame of the drawing in to the window whole and the mist gone.
+    const quick = await h.evaluate(() => { const frames = window.haligtreeArrival?.frames ?? []; const from = frames.find((one) => one[2] > 0); return from ? frames.at(-1)[0] - from[0] : -1 })
+    check(`${way} ends the arrival at once: the window whole, with its shadow, in well under a second`, mid.at[0] > 0 && mid.least === 0 && quick > 0 && quick < 800 && took < 3000 && whole.least === 255 && (await windowNow())?.shadow === true && JSON.stringify(await words()) === JSON.stringify(WHOLE), `${Math.round(quick)}ms by the page's clock, ${took}ms from here, ${JSON.stringify(whole)}`)
+  }
+
+  // Frames for the eye: the whole arrival over a busy desktop picture and a plain one, a frame as often as the page can be captured where it moves.
+  if (SHOTS && !TIMING) {
+    for (const kind of ['busy', 'plain']) {
+      await replay(true)
+      await h.waitForSelector('[data-welcome-mist="desk"]', { timeout: 4000 })
+      await desktop(kind)
+      await h.evaluate(() => document.documentElement.removeAttribute('data-arrival-hold'))
+      const from = Date.now()
+      const files = []
+      const shoot = async (label) => {
+        const file = `${THEME}-${kind}-${String(files.length).padStart(3, '0')}-${label}.jpg`
+        await h.screenshot({ type: 'jpeg', quality: 70, scale: 'css', path: join(SHOTS, file) })
+        files.push(file)
+      }
+      while (Date.now() - from < 20000) {
+        const now = await page()
+        // Every frame while it comes in and while it draws in; about one a second while it holds.
+        const moving = now.t < 2800 || now.plate > 0 || now.t > 9600
+        await shoot(`${Math.max(0, Math.round(now.t))}ms`)
+        if (now.landed || !now.mist) break
+        if (!moving) await h.waitForTimeout(900)
+      }
+      await h.waitForTimeout(400)
+      await shoot('landed')
+      await desktop(null)
+      // The frames side by side, in order, six to a row, for reading by eye: the page draws them onto one picture.
+      for (let part = 0; part * 30 < files.length; part++) {
+        const tiles = files.slice(part * 30, part * 30 + 30).map((file) => ({ label: file.replace(/^.*-([^-]+)\.jpg$/, '$1'), data: readFileSync(join(SHOTS, file)).toString('base64') }))
+        const sheet = await h.evaluate(async (tiles) => {
+          const pictures = []
+          for (const one of tiles) { const picture = new Image(); picture.src = `data:image/jpeg;base64,${one.data}`; await picture.decode(); pictures.push(picture) }
+          const width = 480
+          const height = Math.round(width * pictures[0].naturalHeight / pictures[0].naturalWidth)
+          const canvas = document.createElement('canvas')
+          canvas.width = 6 * width
+          canvas.height = Math.ceil(tiles.length / 6) * height
+          const ctx = canvas.getContext('2d')
+          pictures.forEach((picture, i) => {
+            const x = (i % 6) * width, y = Math.floor(i / 6) * height
+            ctx.drawImage(picture, x, y, width, height)
+            ctx.fillStyle = 'rgba(0,0,0,0.75)'
+            ctx.fillRect(x, y, 104, 24)
+            ctx.fillStyle = 'white'
+            ctx.font = '15px ui-monospace, monospace'
+            ctx.fillText(tiles[i].label, x + 6, y + 17)
+          })
+          return canvas.toDataURL('image/jpeg', 0.82).split(',')[1]
+        }, tiles).catch((error) => (console.log(`(no sheet: ${error.message})`), null))
+        if (sheet) writeFileSync(join(SHOTS, `sheet-${THEME}-${kind}-${part + 1}.jpg`), Buffer.from(sheet, 'base64'))
+      }
+    }
+  }
+  }
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await close()

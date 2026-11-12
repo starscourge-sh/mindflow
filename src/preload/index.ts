@@ -686,6 +686,10 @@ const api = {
   hidePrompt: (): void => ipcRenderer.send('prompt:hide'),
   /** A first run's window, spread over the screen for the title card, gathers in to its own size. */
   gather: (): void => ipcRenderer.send('welcome:gather'),
+  /** The welcome about to arrive: whether it may come out of the desktop, this window see-through and standing clear (main: arrivesClear). Answered at once, asked once a welcome. */
+  arrive: (): boolean => ipcRenderer.sendSync('welcome:arrive') === true,
+  /** The welcome's mist has drawn in to the window (or it arrived the plain way after all): the window has its shadow and buttons again. */
+  landed: (): void => ipcRenderer.send('welcome:landed'),
   /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
   importFrom: (what: 'vault' | 'files' | 'apple-notes', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
   /** Anki decks (.apkg) dropped on a note: imported as cards, not attached. */
