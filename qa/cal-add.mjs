@@ -148,6 +148,10 @@ try {
     // Esc.
     const other = await cell(b)
     await dbl(...corner(other))
+    // ↵ with nothing typed: nothing is made, a notice says why, and the popover stays to be written in.
+    const refused = await heard(async () => { await h.keyboard.press('Enter'); await wait(400) })
+    s = await state()
+    check('↵ with nothing typed makes nothing and says why, with the refusal sound, the popover still open', !!s.pop && !!s.draft && s.pop.focused && /Nothing to add yet/.test(s.toast) && refused.join() === 'nope', `${s.toast.slice(0, 70)}; cues ${refused.join()}`)
     await h.keyboard.press('Escape')
     await wait(350)
     s = await state()
@@ -174,6 +178,15 @@ try {
     await wait(400)
     s = await state()
     check('a click elsewhere with nothing typed takes the draft away', !s.pop && !s.draft && (await eventsNamed('')).length === 0)
+    // ⌘↵ makes it too (the key the side panel kept for it), and the popover goes.
+    await dbl(...corner(other))
+    await h.keyboard.type('Cmd enter one')
+    await h.keyboard.press('Meta+Enter')
+    await wait(800)
+    s = await state()
+    check('⌘↵ makes it too, and the popover goes', !s.pop && !s.draft && (await eventsNamed('Cmd enter one')).length === 1 && /Added for/.test(s.toast), `${(await eventsNamed('Cmd enter one')).length} made; ${s.toast.slice(0, 50)}`)
+    await h.keyboard.press('Meta+z')
+    await wait(500)
     // A notice's Undo pressed while the popover holds words is the notice's own act, never a click away that makes the draft.
     await dbl(...corner(other))
     await h.keyboard.type('First one')

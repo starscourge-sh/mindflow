@@ -7,7 +7,7 @@ import { spring, still } from '@/lib/motion'
 import { quoted } from '../../../../main/clip'
 import { NewEvent, tint } from './calendar-events'
 import { KindSwitch, NewTask } from './day-side'
-import { toast } from './ui'
+import { refuse, toast } from './ui'
 import type { RowItem } from './row-menu'
 
 /**
@@ -149,6 +149,17 @@ export function AddPopover({ add, level, onChange, onClose, onAgain }: {
         style={{ width: WIDE }} className="max-w-[calc(100vw-1.5rem)] gap-0 overflow-visible rounded-xl p-0 text-control"
         onOpenAutoFocus={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => (event.preventDefault(), away())}
+        // ⌘↵ makes it too, as ↵ does (the key the side panel kept for "keep and close"); with nothing typed it says why not.
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return
+          event.preventDefault()
+          event.stopPropagation()
+          const save = held.current
+          if (!save) return refuse(add.kind === 'event' ? 'Nothing to add yet: type a name for the event' : 'Nothing to add yet: type the task')
+          held.current = null
+          void save()
+          onClose()
+        }}
         onFocusOutside={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => {
           event.preventDefault()

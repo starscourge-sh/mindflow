@@ -100,7 +100,10 @@ try {
 
   // 4. The words: "lunch with Sam fri 1-2pm @Cafe".
   const allDay = h.locator(`[data-cal-allday="${day}"]`)
-  await allDay.dblclick({ position: { x: 5, y: 5 } }); await h.waitForTimeout(700)
+  // An empty part of that day's all-day line (its own things lie over the rest of it): where the line itself is under the pointer.
+  const free = await allDay.evaluate((el) => { const r = el.getBoundingClientRect(); const hit = [[r.right - 6, r.bottom - 5], [r.left + r.width / 2, r.bottom - 5], [r.right - 6, r.top + 6], [r.left + 5, r.top + 5]].find(([x, y]) => document.elementFromPoint(x, y) === el); return hit ? { x: hit[0], y: hit[1] } : null })
+  if (!free) throw new Error('No empty part of the all-day line to double-click')
+  await h.mouse.dblclick(free.x, free.y); await h.waitForTimeout(700)
   await h.locator('[data-cal-add] [data-new-event-words]').fill('lunch with Sam fri 1-2pm @Cafe'); await h.waitForTimeout(300)
   const said = await h.locator('[data-cal-add] [data-new-event-said]').innerText()
   check('the popover says what the words mean before it is made', said.includes('Lunch with Sam') && said.includes('Cafe') && said.includes('Fri') && said.includes('Sam'), said)
