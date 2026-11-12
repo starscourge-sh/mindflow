@@ -78,9 +78,16 @@ function heightsKept(id: string): KeptHeights | null {
   }
 }
 
-/** The element the note scrolls in: the nearest one above it that scrolls. */
+/**
+ * The element the note scrolls in: the nearest one above it that scrolls. A box held still for now because all it
+ * shows fits (ui.tsx useScrollOnlyWhenNeeded hides its overflow and marks it `data-scroll-held`) is that box all
+ * the same: read by its overflow alone it was no scroller at all, so a list whose rows came back into it (the
+ * Inbox emptied into the Bin beside an open note, then Undo) found none, drew no rows, and so the box went on
+ * fitting and the rows never showed.
+ */
 export function scrollerOf(element: Element): HTMLElement | null {
   for (let at = element.parentElement; at; at = at.parentElement) {
+    if (at.hasAttribute('data-scroll-held')) return at
     const { overflowY } = getComputedStyle(at)
     if (/(auto|scroll)/.test(overflowY)) return at
   }

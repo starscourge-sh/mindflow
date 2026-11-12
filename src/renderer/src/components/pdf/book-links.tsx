@@ -4,6 +4,7 @@ import { ChevronRight } from "lucide-react"
 import { chime } from "@/lib/sound"
 import { openApart } from "@/lib/apart"
 import { openItems } from "@/lib/split"
+import { scrollerOf } from "@/lib/note-place"
 import { RowMenu, copyLinkItem, type RowItem } from "@/components/haligtree/row-menu"
 import { VirtualList } from "@/components/haligtree/ui"
 import { hoverNote } from "@/components/haligtree/note-preview"
@@ -84,8 +85,8 @@ export function StuckHead<T>({ lines, onFold }: { lines: Line<T>[]; onFold: (par
   const [stuck, setStuck] = useState<string | null>(null)
   useEffect(() => {
     const list = spot.current?.parentElement
-    let scroller = list?.parentElement ?? null
-    while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement
+    // The panel's scroller, found even while it is held still because the list fits (scrollerOf).
+    const scroller = list ? scrollerOf(list) : null
     if (!list || !scroller) return
     let asked = 0
     const read = (): void => {

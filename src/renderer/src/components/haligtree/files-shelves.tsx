@@ -5,6 +5,7 @@ import { usePdfCover } from '@/components/pdf/pdf-cover'
 import { chime } from '@/lib/sound'
 import { heroOpen } from '@/lib/hero'
 import { realMove } from '@/lib/real-move'
+import { scrollerOf } from '@/lib/note-place'
 import { VirtualList } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { SoundPlayer, soundTitle } from './sound-player'
@@ -301,8 +302,8 @@ function StuckHead({ lines }: { lines: Line[] }): React.JSX.Element {
   const [held, setHeld] = useState<{ head: string; count: number; push: number } | null>(null)
   useLayoutEffect(() => {
     const mark = at.current
-    let scroller = mark?.parentElement ?? null
-    while (scroller && !/auto|scroll/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement
+    // The page's scroller, found even while it is held still because the shelves fit (scrollerOf).
+    const scroller = mark ? scrollerOf(mark) : null
     const list = mark?.nextElementSibling
     if (!mark || !scroller || !list) return
     const read = (): void => {

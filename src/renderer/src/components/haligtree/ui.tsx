@@ -1,5 +1,6 @@
 import { Children, cloneElement, createContext, isValidElement, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
 import { afterLayout } from '@/lib/after-layout'
+import { scrollerOf } from '@/lib/note-place'
 import { useToolKeys } from '@/lib/tool-keys'
 import { caretTakesEscape, layerOpen } from '@/lib/menu-keys'
 import { tagHue } from '@/extensions/tokens'
@@ -1796,6 +1797,8 @@ function useScrollOnlyWhenNeeded(box: HTMLElement | null): void {
         box.scrollTop = 0
       }
       box.style.overflowY = fits ? 'hidden' : ''
+      // Still the box its lists scroll in, said so for whoever looks for it by its overflow (lib/note-place.ts scrollerOf).
+      box.toggleAttribute('data-scroll-held', fits)
     }
     const soon = (): void => void (frame ||= requestAnimationFrame(check))
     const watch = new ResizeObserver(soon)
@@ -1812,6 +1815,7 @@ function useScrollOnlyWhenNeeded(box: HTMLElement | null): void {
       watch.disconnect()
       changes.disconnect()
       box.style.overflowY = ''
+      box.removeAttribute('data-scroll-held')
     }
   }, [box])
 }
@@ -2259,8 +2263,8 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
   // and brought back with Undo) can find none at first, and with no scroller
   // it would draw no rows at all.
   const findScroller = (now?: boolean): boolean => {
-    let parent = box.current?.parentElement ?? null
-    while (parent && !/auto|scroll/.test(getComputedStyle(parent).overflowY)) parent = parent.parentElement
+    // A box held still while all it shows fits is found too (scrollerOf): the rows drawn in it are what stop it fitting.
+    const parent = box.current ? scrollerOf(box.current) : null
     if (parent) (now ? flushSync(() => setScroller(parent)) : setScroller(parent))
     return !!parent
   }
