@@ -652,7 +652,7 @@ await part('One look: Tasks', async () => {
   // Today's over Overdue's rows: refused in words, the pointer says no, nothing moves.
   was = await boxes()
   at = await hold(await grip(t.wash), await edge(t.plumber, false))
-  await oneLook('Tasks, Today carried over Overdue', at, { words: /can’t move it to “Overdue”/, refused: true })
+  await oneLook('Tasks, Today carried over Overdue', at, { words: /date puts a task in “Overdue”/, refused: true })
   await h.mouse.up(); await wait(900)
   check('Tasks: refused, let go: nothing moved', JSON.stringify(await boxes()) === JSON.stringify(was) && new Date((await task(t.wash)).dueAt).toDateString() === c.now().toDateString(), '')
   // Rested on a task's middle: that task lights and the card names it.
@@ -831,8 +831,16 @@ await part('One look: the Matrix', async () => {
 // Quick capture's tabs, carried sideways: the same card with its words, and the same quiet band where the tab will land.
 await part('One look: quick capture’s tabs', async () => {
   const box = c.page
-  const tabs = await box.evaluate(() => [...document.querySelectorAll('[data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return { id: one.dataset.sortableId, x: r.x + r.width / 2, y: r.y + r.height / 2 } }))
-  if (tabs.length < 2) return console.log(`SKIP  One look: quick capture shows ${tabs.length} tabs to carry`)
+  // The box draws its side panel, and so its row of tabs, once its window is up (parked off screen, as every probe's is).
+  await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !/[?&](view|note)=/.test(w.webContents.getURL()))?.show())
+  // Its side panel opens on a tab's own key where it is not open already.
+  if (!(await box.waitForSelector('[data-box-panel] [data-sortable-id]', { timeout: 3000 }).catch(() => null))) {
+    await box.keyboard.press('Control+1')
+    await box.waitForSelector('[data-box-panel] [data-sortable-id]', { timeout: 4000 }).catch(() => null)
+  }
+  await wait(600)
+  const tabs = await box.evaluate(() => [...document.querySelectorAll('[data-box-panel] [data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return { id: one.dataset.sortableId, x: r.x + r.width / 2, y: r.y + r.height / 2 } }))
+  if (tabs.length < 2) return check('Quick capture: two tabs on show to carry between', false, `${tabs.length} tabs`)
   await box.mouse.move(tabs[0].x, tabs[0].y); await box.mouse.down()
   for (let i = 1; i <= 8; i++) { await box.mouse.move(tabs[0].x + ((tabs[1].x - tabs[0].x) * i) / 8, tabs[0].y + 1); await wait(30) }
   await wait(450)
@@ -841,6 +849,19 @@ await part('One look: quick capture’s tabs', async () => {
   if (SHOTS) await box.screenshot({ path: `${SHOTS}/look-quick-capture-a-tab-carried.png` })
   await box.keyboard.press('Escape'); await wait(300); await box.mouse.up(); await wait(400)
   check('Quick capture’s tabs: Esc puts it back, nothing carried', !(await box.locator('[data-carried-card]').count()) && !(await box.locator('[data-own-room]').count()), '')
+  // Let go over the next tab: it stands after it, said once with Undo; ⌘Z puts it back.
+  const tabOrder = () => box.evaluate(() => [...document.querySelectorAll('[data-box-panel] [data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => one.dataset.sortableId))
+  const tabSaid = () => box.evaluate(() => [...document.querySelectorAll('[role=status]')].map((one) => one.textContent ?? '').filter((one) => /Undo/.test(one)))
+  const was = await tabOrder()
+  for (let i = 0; i < 40 && (await tabSaid()).length; i++) await wait(250)
+  await box.mouse.move(tabs[0].x, tabs[0].y); await box.mouse.down()
+  for (let i = 1; i <= 8; i++) { await box.mouse.move(tabs[0].x + ((tabs[1].x - tabs[0].x) * i) / 8, tabs[0].y + 1); await wait(30) }
+  await wait(400); await box.mouse.up(); await wait(1200)
+  const now = await tabOrder()
+  const heard = await tabSaid()
+  check('Quick capture’s tabs: let go over the next tab, it stands after it, said once with Undo', now.indexOf(was[0]) === now.indexOf(was[1]) + 1 && heard.length === 1 && /^Moved “/.test(heard[0]), `${was.join()} -> ${now.join()} | ${heard.join(' | ') || '(no notice)'}`)
+  await box.keyboard.press('Meta+z'); await wait(1200)
+  check('Quick capture’s tabs: ⌘Z puts it back', (await tabOrder()).join() === was.join(), (await tabOrder()).join())
 })
 // The main book (BOOK=1, QA_ARGS empty, QA_DATA a copy of it): what is there is carried and dropped; nothing is seeded.
 if (BOOK) await part('One look: the main book', async () => {
