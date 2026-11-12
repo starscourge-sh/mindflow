@@ -418,7 +418,9 @@ try {
   }
 
   // The fingers on a trackpad, as the page gets them on a Mac: wheel steps with ctrlKey, a frame apart (as qa/cal-snap.mjs sends them).
-  const pinch = (x, y, dy, n) => h.evaluate(([x, y, dy, n]) => new Promise((res) => { let i = 0; const send = () => { (document.elementFromPoint(x, y) ?? document.body).dispatchEvent(new WheelEvent('wheel', { deltaY: dy, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); if (++i < n) setTimeout(send, 14); else res() }; send() }), [x, y, dy, n])
+  // It answers with what is lit in the very moment the last step is sent: read a round trip later, on a busy machine the
+  // light of a short pinch (which goes a quarter of a second after the fingers stop) had already gone.
+  const pinch = (x, y, dy, n) => h.evaluate(([x, y, dy, n]) => new Promise((res) => { let i = 0; const read = () => ({ lit: [...document.querySelectorAll('[data-cal-lit]')].map((el) => el.dataset.monthWeek ? `week ${el.dataset.monthWeek}` : el.dataset.calCol ? `col ${el.dataset.calCol}` : el.dataset.calHead ? `head ${el.dataset.calHead}` : `allday ${el.dataset.calAllday}`), wash: (() => { const el = document.querySelector('[data-month-week][data-cal-lit], [data-cal-col][data-cal-lit]'); return el ? getComputedStyle(el, '::after').backgroundColor : '' })(), landed: !!document.querySelector('[data-cal-landed]'), mode: document.querySelector('[data-cal-mode]')?.getAttribute('data-cal-mode') }); const send = () => { (document.elementFromPoint(x, y) ?? document.body).dispatchEvent(new WheelEvent('wheel', { deltaY: dy, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })); if (++i < n) setTimeout(send, 14); else res(read()) }; send() }), [x, y, dy, n])
   const lights = () => h.evaluate(() => ({ lit: [...document.querySelectorAll('[data-cal-lit]')].map((el) => el.dataset.monthWeek ? `week ${el.dataset.monthWeek}` : el.dataset.calCol ? `col ${el.dataset.calCol}` : el.dataset.calHead ? `head ${el.dataset.calHead}` : `allday ${el.dataset.calAllday}`), wash: (() => { const el = document.querySelector('[data-month-week][data-cal-lit], [data-cal-col][data-cal-lit]'); return el ? getComputedStyle(el, '::after').backgroundColor : '' })(), landed: !!document.querySelector('[data-cal-landed]'), mode: document.querySelector('[data-cal-mode]')?.getAttribute('data-cal-mode') }))
   const weekRow = () => h.evaluate(() => { const frame = document.querySelector('[data-cal-level]').getBoundingClientRect(); const rows = [...document.querySelectorAll('[data-cal-level] [data-month-week]')].filter((el) => { const r = el.getBoundingClientRect(); return r.top >= frame.top && r.bottom <= frame.bottom }); const el = rows[2]; const r = el.getBoundingClientRect(); return { key: el.dataset.monthWeek, x: r.left + r.width / 2, y: r.top + r.height / 2 } })
 
@@ -426,8 +428,7 @@ try {
     await toMode('m')
     const row = await weekRow()
     // A short pinch, short of the change: the week is lit while the fingers are on it, and unlit once they have gone.
-    await pinch(row.x, row.y, -3, 3)
-    let l = await lights()
+    let l = await pinch(row.x, row.y, -3, 3)
     await shot('pinch-month-lit')
     check('a pinch over a week in Month lights that week, and only it', l.lit.join() === `week ${row.key}` && /0\.07|\/ 7%|0\.0[5-9]/.test(l.wash) && l.mode === 'month', `${l.lit.join()}; wash ${l.wash}`)
     await wait(900)
@@ -442,8 +443,7 @@ try {
     check('pinched on, the week opens, arrives lit, and the light is gone once it has landed', l.mode === 'week' && seen.some((one) => one.landed) && !l.landed && l.lit.length === 0, `${seen.filter((one) => one.landed).length} frames lit; landed now ${l.landed}; lit ${l.lit.join()}`)
     // A day in the week.
     const col = await h.evaluate(() => { const el = [...document.querySelectorAll('[data-cal-level] [data-cal-col]')][3]; const r = el.getBoundingClientRect(); const sc = el.closest('[data-cal-scroll]').getBoundingClientRect(); return { key: el.dataset.calCol, x: r.left + r.width / 2, y: sc.top + sc.height / 2 } })
-    await pinch(col.x, col.y, -3, 3)
-    l = await lights()
+    l = await pinch(col.x, col.y, -3, 3)
     await shot('pinch-week-lit')
     check('a pinch over a day in Week lights that day: its head, its all-day line and its hours', l.lit.sort().join() === [`allday ${col.key}`, `col ${col.key}`, `head ${col.key}`].join() && l.mode === 'week', l.lit.join())
     await wait(900)
