@@ -3087,6 +3087,22 @@ html[data-book-hue] [data-book-tint] {
   :is([data-cal-block], [data-cal-untimed])[data-landed] { animation: mf-cal-ring 400ms ease-out; }
 }
 :root[data-motion='off'] :is([data-cal-block], [data-cal-untimed])[data-landed] { animation: mf-cal-ring 400ms ease-out; }
+/* A popover's entrance, the same for every one (components/ui/popover.tsx, and the Calendar's event card): it grows out of
+   the side its trigger is on, the surface whole from its first frame. Revealed by a clip, never by a fade: a frosted
+   surface fading in draws no blur until the fade ends, and the page shows sharp through it (DESIGN.md, The Shared Frost
+   Rule). It leaves the way it came, quicker. Reached by a key, with Reduce motion or with Motion off, it is simply
+   there. The clip reaches 48px past the box, so the point and the shadow are inside it. */
+.mf-pop { --mf-pop-from: inset(-48px -48px 70% -48px); --mf-pop-gone: inset(-48px -48px 100% -48px); }
+.mf-pop[data-side='top'] { --mf-pop-from: inset(70% -48px -48px -48px); --mf-pop-gone: inset(100% -48px -48px -48px); }
+.mf-pop[data-side='right'] { --mf-pop-from: inset(-48px 70% -48px -48px); --mf-pop-gone: inset(-48px 100% -48px -48px); }
+.mf-pop[data-side='left'] { --mf-pop-from: inset(-48px -48px -48px 70%); --mf-pop-gone: inset(-48px -48px -48px 100%); }
+@keyframes mf-pop-in { from { clip-path: var(--mf-pop-from); } to { clip-path: inset(-48px -48px -48px -48px); } }
+@keyframes mf-pop-out { from { clip-path: inset(-48px -48px -48px -48px); } to { clip-path: var(--mf-pop-gone); } }
+.mf-pop[data-state='open'] { animation: mf-pop-in 150ms var(--mf-ease); }
+.mf-pop[data-state='closed'] { animation: mf-pop-out 100ms var(--mf-ease) forwards; }
+.mf-pop[data-keyed] { animation: none; }
+@media (prefers-reduced-motion: reduce) { .mf-pop { animation: none !important; } }
+:root[data-motion='off'] .mf-pop { animation: none !important; }
 /* The Calendar under a pinch (calendar-view.tsx): the week in a month, or the day in a week, that the fingers are opening
    is lit (7% of the ink), so it is plain which block grows into the next level; the level it becomes arrives lit and lets
    the light go once it has landed. A wash over the block, shown and faded by opacity alone, so Reduce motion keeps it;

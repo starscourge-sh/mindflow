@@ -3,7 +3,7 @@ import { CARD, swallowRelease } from './carry'
 import { useReading, useReadsIn } from '@/lib/reads-in'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
-import { CalendarClock, CalendarPlus, CalendarX2, Check, ChevronDown, PanelLeft, Plus, Repeat as RepeatIcon, SquareCheck } from 'lucide-react'
+import { CalendarClock, CalendarX2, Check, ChevronDown, PanelLeft, Plus, Repeat as RepeatIcon } from 'lucide-react'
 import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
@@ -23,7 +23,7 @@ import { Rolling, Tip, typing } from './ui'
 import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu, type RowItem } from './row-menu'
-import { AddPopover, DraftMark, type Add } from './cal-add'
+import { AddPopover, DraftMark, addLines as addMenu, type Add } from './cal-add'
 import { MonthPlan, MonthShowMenu, Passing } from './month-plan'
 import { crossLevels, crossed, usePinchLevels, type Way } from './cal-pinch'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -340,11 +340,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     const minute = on.isSame(dayjs(), 'day') ? Math.min(23 * 60, (dayjs().hour() + 1) * 60) : 9 * 60
     openAdd(mode === 'month' ? { day: dayKey(on), minute: null, length: 0, kind: 'event' } : { day: dayKey(on), minute, length: 60, kind: 'event' })
   }
-  /** A day's (or a time's) own right-click lines: something new, there. */
-  const addLines = (day: string, minute: number | null): RowItem[] => [
-    { label: 'New event here', icon: <CalendarPlus />, run: () => openAdd({ day, minute, length: minute === null ? 0 : 60, kind: 'event' }) },
-    { label: 'New task here', icon: <SquareCheck />, run: () => openAdd({ day, minute, length: minute === null ? 0 : USUAL, kind: 'task' }) }
-  ]
+  /** A day's (or a time's) own right-click lines: something new, there (cal-add.tsx, the same two on every month). */
+  const addLines = (day: string, minute: number | null): RowItem[] => addMenu(openAdd, day, minute, USUAL)
   const first = days[0]
   const last = days[days.length - 1]
   const title = mode !== 'week' || first.month() === last.month() ? anchor.format('MMMM YYYY')
@@ -750,7 +747,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                   <div className="flex min-h-0 flex-1 flex-col p-3">
                     <MonthPlan bare month={one.anchor} tasks={shownTasks} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars, top && add ? `${add.day}|${add.kind}|${draftColor}` : '']}
                       // A double-click on a day: an event there, all day, written in the popover beside its draft. A task in the month opens in the side panel, as it did.
-                      onSide={(ask) => ('day' in ask ? openAdd({ day: ask.day, minute: null, length: 0, kind: 'event' }) : setPanel(ask))}
+                      onSide={setPanel} onAddDay={(day) => openAdd({ day, minute: null, length: 0, kind: 'event' })}
                       onPickDay={setPickedDay} dayMenu={(day) => addLines(day, null)}
                       dayExtra={(day) => [
                         ...(top && add && add.day === day ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={add.kind} color={draftColor} /></PopoverAnchor>] : []),
@@ -1192,7 +1189,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
               )
             })}
           </div>
-          <div ref={lane} onScroll={laneFade} className={`pointer-events-none relative grid min-h-8 gap-x-1 gap-y-[3px] overflow-y-auto px-[3px] py-[3px] ${folded ? 'max-h-8 overflow-hidden' : days.length === 1 ? 'max-h-[276px]' : 'max-h-[138px]'} ${below && !folded ? '[mask-image:linear-gradient(to_bottom,#000_calc(100%-16px),transparent)]' : ''}`}
+          <div ref={lane} onScroll={laneFade} className={`pointer-events-none relative grid min-h-8 gap-x-1 gap-y-[3px] overflow-y-auto py-[3px] pl-[3px] ${days.length === 1 ? 'pr-10' : 'pr-[3px]'} ${folded ? 'max-h-8 overflow-hidden' : days.length === 1 ? 'max-h-[276px]' : 'max-h-[138px]'} ${below && !folded ? '[mask-image:linear-gradient(to_bottom,#000_calc(100%-16px),transparent)]' : ''}`}
             style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))`, gridAutoFlow: 'row dense', gridAutoRows: '24px' }}>
             {/* Bars over more than one day first, so they keep the top rows; a one-day event joins its day's list below. */}
             {events.filter((one) => one.allDay && manyDays(one) && dayKey(one.start) <= keys[keys.length - 1] && dayKey(dayjs(one.end).subtract(1, 'minute')) >= keys[0]).map((one) => {

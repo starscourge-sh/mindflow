@@ -55,7 +55,9 @@ function PopoverContent({
         // entrance a second time: the mark came with the first key and went with the next click.
         className={cn(
           FLOAT,
-          "z-50 flex max-h-(--radix-popover-content-available-height) w-72 origin-(--radix-popover-content-transform-origin) flex-col gap-4 overflow-y-auto rounded-lg p-2.5 text-xs outline-hidden duration-150 ease-[var(--mf-ease)] data-[keyed]:animate-none data-[state=closed]:duration-100 data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
+          // Its entrance and exit are `mf-pop` (main.css): grown out of the trigger's side by a clip, the surface whole from
+          // its first frame, never faded (a frosted surface fading in shows the page sharp through it until the fade ends).
+          "mf-pop z-50 flex max-h-(--radix-popover-content-available-height) w-72 flex-col gap-4 overflow-y-auto rounded-lg p-2.5 text-xs outline-hidden",
           className
         )}
         {...props}

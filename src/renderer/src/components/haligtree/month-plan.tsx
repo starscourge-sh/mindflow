@@ -26,6 +26,8 @@ import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay }
 import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
 import { RowMenu, type RowItem } from './row-menu'
+import { AddPopover, DraftMark, addLines, type Add } from './cal-add'
+import { inkOf, useCalendars } from '@/lib/events'
 import { unloaded, useLive, haligtree, type Settings, type Stats, type Task } from '@/lib/haligtree'
 import { dayjs, type Dayjs, dayKey, num, plural } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
@@ -106,7 +108,7 @@ export function MonthShowMenu({ children }: { /** More lines under the switches:
  * the month named above changing as a month's first week reaches the top.
  * Sideways swipes are never the month's: they are Back and Forward.
  */
-export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [], onPickDay, dayMenu }: {
+export function MonthPlan({ tasks, onDay, onSide, onAddDay, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [], onPickDay, dayMenu }: {
   tasks: Task[]
   /** The page above keeps a picked day (the Calendar): a click on a day's empty part picks it, and a double-click starts something new there. Left out, a click starts it. */
   onPickDay?: (day: string) => void
@@ -125,8 +127,10 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   /** The Calendar's run of weeks: no heading line of its own, and the weeks fill the room there is. */
   bare?: boolean
   onDay: (day: string) => void
-  /** The side panel of the page above, when it keeps one (the Calendar); left out, the month keeps its own. */
+  /** The side panel of the page above, when it keeps one (the Calendar), for a task opened from a day; left out, the month keeps its own. */
   onSide?: (ask: SideAsk) => void
+  /** The page above's own way of adding to a day (the Calendar's draft and popover); left out, the month keeps its own. */
+  onAddDay?: (day: string) => void
   /** Where a link inside a task opened in the panel goes. */
   onOpen?: (type: string, id: string) => void
   onWeek?: (monday: string) => void
@@ -202,10 +206,20 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
   const ticks = useRef(slotTicker()).current
   const fromDay = useRef(true)
 
-  // What the side panel holds (a new task for a day, or a task), and what is being carried.
+  // What the side panel holds (a task opened from a day), and what is being carried.
   const [mine, setMine] = useState<SideAsk | null>(null)
   const side = onSide ?? setMine
-  const adding = mine && 'day' in mine ? mine.day : null
+  // A month that keeps its own adding (Home's, the Journal's; the Calendar keeps its own above, `onSide`): a click picks
+  // a day, a double-click starts a task there, drawn on the day and written in the popover beside it (cal-add.tsx), the
+  // way the Calendar adds. These months show tasks, so a task is what a double-click starts; "Event" is one press away.
+  const own = !onAddDay
+  const [add, setAdd] = useState<Add | null>(null)
+  const [pickedOwn, setPickedOwn] = useState<string | null>(null)
+  const openAdd = (to: Add): void => (setMine(null), setPickedOwn(to.day), setAdd(to))
+  const frame = useRef<HTMLElement>(null)
+  const calendars = useCalendars()
+  const draftColor = inkOf(calendars.find((one) => one.id === add?.calendar)?.color ?? calendars.find((one) => !one.hidden)?.color ?? calendars[0]?.color)
+  const adding = own ? (add?.day ?? null) : null
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const item = onOpen ?? ((type: string, id: string): void => window.api.openInHome(type, id))
   const open = (line: Line): void => (chime('open'), line.kind === 'back' ? window.api.openInHome(line.one.type, line.one.id) : side({ task: line.task.id }))
@@ -214,7 +228,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
 
   /** Everything a week of the run is drawn from, for it to be drawn again only when one of them changed. */
   const sign = (monday: Dayjs): unknown[] => {
-    const said: unknown[] = [today, marks, adding, marking, counting, wide, ...extraSaid]
+    const said: unknown[] = [today, marks, adding, add?.kind, draftColor, marking, counting, wide, ...extraSaid]
     for (let at = 0; at < 7; at++) {
       const key = dayKey(monday.add(at, 'day'))
       said.push(on.get(key), caught.get(key), opens.get(key))
@@ -237,7 +251,12 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         {weekDays.map((day) => {
           const key = dayKey(day)
           return <Cell key={key} wide={wide} day={day} lines={linesOf(on.get(key))} today={today} outside={!!shown && !day.isSame(shown, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
-            room={room - laid.lanes} reserve={laid.lanes} extra={dayExtra?.(key)} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onPick={onPickDay && (() => onPickDay(key))} menu={dayMenu && (() => dayMenu(key))} onDay={onDay} onLine={open} onItem={item} />
+            room={room - laid.lanes} reserve={laid.lanes} adding={adding === key} onDay={onDay} onLine={open} onItem={item}
+            // The draft of what is being made here leads the day's things, and the popover is tied to it.
+            extra={own && add && add.day === key ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={add.kind} color={draftColor} /></PopoverAnchor>, ...(dayExtra?.(key) ?? [])] : dayExtra?.(key)}
+            onAdd={() => (onAddDay ? onAddDay(key) : openAdd({ day: key, minute: null, length: 0, kind: 'task' }))}
+            onPick={onPickDay ? () => onPickDay(key) : own ? () => setPickedOwn(key) : undefined}
+            menu={dayMenu ? () => dayMenu(key) : own ? () => addLines(openAdd, key, null) : undefined} />
         })}
         {/* The week's bars, each one piece across the days it covers, under the dates. */}
         {laid.placed.length > 0 && (
@@ -278,8 +297,10 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
     )
   }
 
-  return (
-    <section data-month-plan data-month-shown={month.format('YYYY-MM')} className={`flex flex-col gap-2 ${bare ? 'min-h-0 flex-1' : ''}`}>
+  const plan = (
+    <section ref={frame} data-month-plan data-month-own={own || undefined} data-month-shown={month.format('YYYY-MM')} className={`flex flex-col gap-2 ${bare ? 'min-h-0 flex-1' : ''}`}>
+      {/* The day picked wears the small month's mark: a quiet band of the accent behind its date. */}
+      {own && pickedOwn && <style>{`[data-month-own] [data-day="${pickedOwn}"] [data-day-number] { box-shadow: 0 0 0 3px var(--accent) } [data-month-own] [data-day="${pickedOwn}"] [data-day-number]:not([aria-current]) { background: var(--accent) }`}</style>}
       {!bare && <div className="flex items-center gap-1">
         <h2 className="min-w-0 truncate">
           <Tip label="Open the month's page">
@@ -332,10 +353,13 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
       </DndContext>
       <DotsKey opened={marking} captures={counting} />
       {!onSide && <DaySide ask={mine} onClose={() => setMine(null)} onOpen={onOpen} />}
+      {own && add && <AddPopover key={`${add.day}|${add.words ?? ''}`} add={add} level={frame} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} />}
       {/* On the Calendar its line is always kept, so the weeks do not change height from month to month. */}
-      {(!inMonth || bare) && <p data-month-empty={!inMonth || undefined} aria-hidden={inMonth > 0 || undefined} className={`px-1 text-body text-foreground/85 ${inMonth ? 'invisible' : ''}`}>Nothing planned in {month.format('MMMM')}. Give a task a day, like “call the dentist friday”, or click a day to add one.</p>}
+      {(!inMonth || bare) && <p data-month-empty={!inMonth || undefined} aria-hidden={inMonth > 0 || undefined} className={`px-1 text-body text-foreground/85 ${inMonth ? 'invisible' : ''}`}>Nothing planned in {month.format('MMMM')}. Give a task a day, like “call the dentist friday”, or double-click a day to add one.</p>}
     </section>
   )
+  // Its own popover's root, so the draft drawn in a day is what the popover is tied to; on the Calendar the page's root is that.
+  return own ? <Popover open={!!add} onOpenChange={(open) => void (!open && setAdd(null))}>{plan}</Popover> : plan
 }
 
 /** The run's first week, and how many there are: every week from 1900 to 2200, far past any plan, drawn only near the screen. */
@@ -704,7 +728,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
     <div ref={setNodeRef} data-day={key} data-outside={outside || undefined} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? openedLevel(count) : undefined} data-captured={caught === undefined ? undefined : caught && caughtLevel(caught)} data-late={late || undefined} data-weekend={weekend || undefined}
       onClick={(event) => empty(event) && (onPick ? onPick() : (chime('tap'), onAdd()))}
       onDoubleClick={onPick ? (event) => empty(event) && onAdd() : undefined}
-      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : rest} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
+      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${isOver ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : adding ? 'bg-[color-mix(in_oklab,var(--foreground)_7%,var(--background))]' : rest} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${plural(caught, 'capture')}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}

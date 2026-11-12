@@ -8,11 +8,11 @@ import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { chime } from '@/lib/sound'
-import { byKeys } from '@/lib/motion'
+import { EASE, byKeys, still } from '@/lib/motion'
 import { clock } from '@/lib/clock'
 import { moveToBin } from '@/lib/to-bin'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
-import { changeEvent, events, inZone, inkOf, useCalendars, useEvents, whenSaid, zoneGap, zoneShort, ZONES, cityOf, type Occurrence, type Repeat, type Scope, type useLayers } from '@/lib/events'
+import { changeEvent, events, inZone, inkOf, useCalendars, whenSaid, zoneGap, zoneShort, ZONES, cityOf, type Occurrence, type Repeat, type Scope, type useLayers } from '@/lib/events'
 import { readEvent } from '../../../../main/event-words'
 import { atOn, timeAlone } from '@/lib/tasks'
 import { readTask } from '../../../../main/task-words'
@@ -23,7 +23,7 @@ import { dayjs, dayKey, num } from '../../../../main/dates'
 import { DatePicker } from './date-picker'
 import { TimeField } from './time-field'
 import { RowMenu, copyLink, copyLinkItem, type RowItem } from './row-menu'
-import { Island, Kbd, Prop, PropInput, Props, Tip, toast } from './ui'
+import { Island, Kbd, Prop, PropInput, Props, Tip, refuse, toast } from './ui'
 import { quoted } from '../../../../main/clip'
 import { IslandBox, useFold } from './islands'
 
@@ -473,6 +473,11 @@ function EventCard({ peek, calendar, onEdit, onClose, onNote }: {
       : { left: Math.max(edge, Math.min(at.left + 24, window.innerWidth - w - edge)), top: Math.max(edge + 40, Math.min(at.top + 28, window.innerHeight - h - edge)), from: 'over' })
   }, [at, one.key])
   useEffect(() => void requestAnimationFrame(() => card.current?.focus({ preventScroll: true })), [one.key])
+  // Whether a key opened it, read once as it opens: then it is simply there.
+  const [keyed] = useState(() => byKeys())
+  // The side its block is on, for the shared entrance (main.css, mf-pop) to grow from and leave to.
+  const side = spot?.from === 'left' ? 'left' : spot?.from === 'over' ? 'bottom' : 'right'
+  const gone = side === 'left' ? 'inset(-48px -48px -48px 100%)' : side === 'bottom' ? 'inset(-48px -48px 100% -48px)' : 'inset(-48px 100% -48px -48px)'
   // A press anywhere else puts it away; so does ⌘K, which then is about the event.
   useEffect(() => {
     const away = (event: PointerEvent): void => void (!card.current?.contains(event.target as Node) && !(event.target as HTMLElement).closest?.('[role="menu"], [data-scope-ask]') && onClose())
@@ -496,8 +501,9 @@ function EventCard({ peek, calendar, onEdit, onClose, onNote }: {
   )
   return createPortal(
     <motion.div ref={card} data-cal-pop={one.key} role="region" aria-label={`${one.title || 'New event'}, ${when}`} tabIndex={-1}
-      initial={byKeys() ? false : { opacity: 0, transform: 'scale(0.96)' }} animate={{ opacity: spot ? 1 : 0, transform: spot ? 'scale(1)' : 'scale(0.96)' }} exit={{ opacity: 0, transform: 'scale(0.97)', transition: { duration: 0.1 } }}
-      transition={{ type: 'spring', stiffness: 620, damping: 40 }}
+      // In by the shared entrance (a clip from its block's side, never a fade: it is frosted), out the way it came.
+      data-state="open" data-side={side} data-keyed={keyed || undefined}
+      initial={false} exit={still() ? { clipPath: gone, transition: { duration: 0 } } : { clipPath: gone, transition: { duration: 0.1, ease: EASE } }}
       onKeyDown={(event) => {
         if (event.key === 'Escape') return (event.preventDefault(), event.stopPropagation(), chime('away'), onClose())
         if ((event.target as HTMLElement).tagName === 'BUTTON' && event.target !== card.current) return
@@ -505,8 +511,8 @@ function EventCard({ peek, calendar, onEdit, onClose, onNote }: {
         if ((event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly) return (event.preventDefault(), bin())
       }}
       onDoubleClick={() => !one.readOnly && edit()}
-      style={{ left: spot?.left ?? -9999, top: spot?.top ?? 0, width: CARD, transformOrigin: spot?.from === 'left' ? 'right top' : 'left top' }}
-      className="mf-frost fixed z-50 flex flex-col gap-3 rounded-xl border bg-popover px-4 pt-3 pb-4 text-popover-foreground shadow-(--mf-panel-shadow) outline-none">
+      style={{ left: spot?.left ?? -9999, top: spot?.top ?? 0, width: CARD, clipPath: 'inset(-48px -48px -48px -48px)' }}
+      className="mf-pop mf-frost fixed z-50 flex flex-col gap-3 rounded-xl border bg-popover px-4 pt-3 pb-4 text-popover-foreground shadow-(--mf-panel-shadow) outline-none">
       <div className="-mr-2 flex items-center gap-2">
         <span aria-hidden className="size-3 shrink-0 rounded-[3px]" style={{ background: one.color }} />
         <span data-cal-pop-calendar className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{calendar}{one.readOnly ? ' (read only)' : ''}</span>
@@ -651,19 +657,18 @@ function CalendarEdit({ one, onDone }: { one: { id: string; name: string; color:
   )
 }
 
-// --- a new event from words, in the side panel
+// --- a new event from words, in the popover beside its draft
 
 /**
- * The new event's first line: its words say the rest ("lunch with Sam fri
- * 1-2pm @Cafe"), and the slot dragged across fills in what they leave out.
- * What it understood is shown under it as you type, before it is made.
+ * The new event's first line, in the popover beside its draft (cal-add.tsx):
+ * its words say the rest ("lunch with Sam fri 1-2pm @Cafe"), and the slot
+ * drawn fills in what they leave out. What it understood is shown under it as
+ * you type, before it is made.
  */
-export function NewEvent({ ask, held, onMade, pop = false, words, picked, onName }: {
+export function NewEvent({ ask, held, onMade, words, picked, onName }: {
   ask: { day: string; minute: number | null; length: number }
   held?: React.MutableRefObject<(() => Promise<void>) | null>
   onMade: (key: string) => void
-  /** In the Calendar's popover beside a slot (cal-add.tsx): the same line, reading and calendars, with no heading and no page margins. */
-  pop?: boolean
   /** The words, when what holds this form keeps them (the popover, so they stay as Event turns to Task). */
   words?: [string, (text: string) => void]
   /** The calendar chosen, kept by what holds this form too: the draft on the grid wears its colour. */
@@ -690,7 +695,7 @@ export function NewEvent({ ask, held, onMade, pop = false, words, picked, onName
   const on = calendar ?? calendars.find((one) => !one.hidden)?.id ?? calendars[0]?.id ?? 'personal'
   const busy = useRef(false)
   const save = async (stay = true): Promise<void> => {
-    if (!read.title) return chime('nope')
+    if (!read.title) return refuse('Nothing to add yet: type a name for the event')
     if (busy.current) return
     busy.current = true
     const made = await events.add({ title: read.title, start, end: fixedEnd, allDay, place: read.place, people: read.people, repeat: read.repeat, calendarId: on })
@@ -701,9 +706,8 @@ export function NewEvent({ ask, held, onMade, pop = false, words, picked, onName
   // Kept as the panel goes (clicked away from, ⌘↵): made, said in the notice.
   if (held) held.current = read.title ? () => save(false) : null
   return (
-    <form data-new-event className={pop ? 'flex flex-col px-3 pt-2.5 pb-3' : 'mf-more flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4'} onSubmit={(event) => (event.preventDefault(), void save())}>
-      {!pop && <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New event</h2>}
-      <div className={pop ? 'flex w-full flex-col gap-2.5' : 'page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12'}>
+    <form data-new-event className="flex flex-col px-3 pt-2.5 pb-3" onSubmit={(event) => (event.preventDefault(), void save())}>
+      <div className="flex w-full flex-col gap-2.5">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
           <input ref={field} data-new-event-words value={text} onChange={(event) => setText(event.target.value)} aria-label={`A new event for ${dayjs(ask.day).format('dddd D MMMM')}`}
             placeholder="Lunch with Sam fri 1pm" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
@@ -722,50 +726,10 @@ export function NewEvent({ ask, held, onMade, pop = false, words, picked, onName
             </button>
           ))}
         </div>
-        {/* One quiet line: in the panel the event opens here next; in the popover it is made and the popover goes, so the line says what the words can hold. */}
-        <p data-new-event-hint className={`text-control text-muted-foreground ${pop ? '[@media(max-height:520px)]:hidden' : ''}`}>{pop ? 'Read from the words: a day and a time, @ a place, with a person, every week.' : 'Place, people, reminder and repeat come next, on the event.'}</p>
-        {/* Beside the grid the day is in sight around the draft itself: only the panel, which covers it, lists the day. */}
-        {!pop && <DayAround start={start} end={fixedEnd} allDay={allDay} />}
+        {/* One quiet line, never a paragraph, saying by example what the words can hold; it gives way in a short window, so nothing in the popover is cut. */}
+        <p data-new-event-hint className="truncate text-control text-muted-foreground [@media(max-height:520px)]:hidden">Reads fri 1pm, @Cafe, with Sam, every week.</p>
       </div>
     </form>
-  )
-}
-
-/**
- * The day the new event lands on, around it: that day's events and timed
- * tasks in order of time, with the new one in its place among them, so a
- * clash or a gap is seen before it is made. Follows the words as they change
- * the day or the time.
- */
-function DayAround({ start, end, allDay }: { start: string; end: string; allDay: boolean }): React.JSX.Element {
-  const day = dayjs(start).startOf('day')
-  const list = useEvents(day.toISOString(), day.add(1, 'day').toISOString())
-  const tasks = useLive(haligtree.tasks, [] as Awaited<ReturnType<typeof haligtree.tasks>>)
-  type Row = { key: string; from: number; to: number; title: string; color: string; mine?: boolean }
-  const minute = (iso: string): number => Math.max(0, dayjs(iso).diff(day, 'minute'))
-  const rows = ([
-    ...list.filter((one) => !one.allDay).map((one) => ({ key: one.key, from: minute(one.start), to: Math.min(24 * 60, minute(one.end)), title: one.title || 'New event', color: 'var(--foreground)' })),
-    ...(Array.isArray(tasks) ? tasks : []).filter((task) => task.status === 'open' && task.dueAt && !task.allDay && dayjs(task.dueAt).isSame(day, 'day'))
-      .map((task) => ({ key: task.id, from: minute(task.dueAt!), to: minute(task.dueAt!) + (task.estimate ?? 30), title: task.title.replace(/\s#\S+/g, ''), color: 'var(--tt-brand-color-400)' })),
-    ...(allDay ? [] : [{ key: 'new', from: minute(start), to: minute(end), title: 'This one', color: 'var(--ring)', mine: true }])
-  ] as Row[]).sort((a, b) => a.from - b.from || (a.mine ? 1 : -1))
-  const clash = !allDay && rows.some((one) => !one.mine && one.from < minute(end) && one.to > minute(start))
-  const hhmm = (at: number): string => hm(day.add(at, 'minute').toDate())
-  return (
-    <section data-new-event-day className="mt-3 flex flex-col gap-1 border-t pt-3">
-      <h3 className="text-meta font-medium text-muted-foreground">{day.format('dddd D MMMM')}{clash && <span data-new-event-clash className="ml-1.5 font-medium" style={{ color: 'var(--tt-color-text-orange)' }}>· clashes with something</span>}</h3>
-      {rows.length === (allDay ? 0 : 1) ? <p className="text-control text-foreground/75">Nothing else on that day.</p> : (
-        <ol className="flex flex-col">
-          {rows.map((one) => (
-            <li key={one.key} data-new-event-row={one.mine ? 'new' : undefined} className={`flex h-7 min-w-0 items-center gap-2 rounded-md px-1.5 text-control ${one.mine ? 'bg-accent font-medium text-foreground' : 'text-foreground/85'}`}>
-              <span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: one.color, opacity: one.mine ? 1 : 0.5 }} />
-              <span className="w-24 shrink-0 tabular-nums text-foreground/70">{hhmm(one.from)} – {hhmm(one.to)}</span>
-              <span dir="auto" className="min-w-0 truncate">{one.title}</span>
-            </li>
-          ))}
-        </ol>
-      )}
-    </section>
   )
 }
 

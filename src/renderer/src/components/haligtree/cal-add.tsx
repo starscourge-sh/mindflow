@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { motion } from 'motion/react'
+import { CalendarPlus, SquareCheck } from 'lucide-react'
 import { PopoverAnchor, PopoverArrow, PopoverContent } from '@/components/ui/popover'
 import { chime } from '@/lib/sound'
 import { spring, still } from '@/lib/motion'
@@ -7,6 +8,7 @@ import { quoted } from '../../../../main/clip'
 import { NewEvent, tint } from './calendar-events'
 import { KindSwitch, NewTask } from './day-side'
 import { toast } from './ui'
+import type { RowItem } from './row-menu'
 
 /**
  * What is being made on the Calendar, where it will be: a day, or a time on
@@ -27,6 +29,15 @@ const sideFor = (at: DOMRect): Side => {
   if (at.left >= need) return 'left'
   return window.innerHeight - at.bottom >= at.top - ROOM.top ? 'bottom' : 'top'
 }
+
+/**
+ * A day's (or a time's) own right-click lines, the same two wherever a thing can be added to a day: the Calendar's
+ * month, its hours and its all-day lane, Home's month and the Journal's.
+ */
+export const addLines = (open: (to: Add) => void, day: string, minute: number | null, taskLength = 30): RowItem[] => [
+  { label: 'New event here', icon: <CalendarPlus />, run: () => open({ day, minute, length: minute === null ? 0 : 60, kind: 'event' }) },
+  { label: 'New task here', icon: <SquareCheck />, run: () => open({ day, minute, length: minute === null ? 0 : taskLength, kind: 'task' }) }
+]
 
 // The draft's words as they are typed, for the draft on the grid alone: the page itself is not drawn again for a letter.
 let said = ''
@@ -151,8 +162,8 @@ export function AddPopover({ add, level, onChange, onClose, onAgain }: {
         </div>
         <Sized>
           {add.kind === 'event'
-            ? <NewEvent pop ask={add} held={held} words={words} picked={[add.calendar ?? null, (calendar) => onChange({ calendar })]} onMade={onClose} onName={say} />
-            : <NewTask pop ask={add} held={held} words={words} first="" onMade={onClose} onBack={(_id, typed) => onAgain({ ...add, words: typed })} onName={say} />}
+            ? <NewEvent ask={add} held={held} words={words} picked={[add.calendar ?? null, (calendar) => onChange({ calendar })]} onMade={onClose} onName={say} />
+            : <NewTask ask={add} held={held} words={words} first="" onMade={onClose} onBack={(_id, typed) => onAgain({ ...add, words: typed })} onName={say} />}
         </Sized>
         <PopoverArrow />
       </PopoverContent>
