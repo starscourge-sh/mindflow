@@ -145,7 +145,8 @@ export function AddPopover({ add, level, onChange, onClose, onAgain }: {
           if ((event.target as Element | null)?.closest?.('[data-cal-draft], [data-sonner-toaster], [role="menu"]')) return
           outside()
         }}>
-        <div className="flex shrink-0 items-center px-2 pt-2">
+        {/* On the one left edge the line and the reading under it keep. */}
+        <div className="flex shrink-0 items-center px-3 pt-3">
           <KindSwitch kind={add.kind} onKind={(kind) => onChange({ kind })} />
         </div>
         <Sized>
