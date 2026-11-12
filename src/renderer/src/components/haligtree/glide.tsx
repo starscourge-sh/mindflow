@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { AnimatePresence, motion, useReducedMotion, type Transition } from 'motion/react'
 import { flushSync } from 'react-dom'
 import { cn } from '@/lib/cn'
@@ -505,8 +505,15 @@ export function Highlight(props: { light: Light; className?: string } | { chosen
 }
 
 function ChosenAt({ chosen, travel, className }: { chosen: Mark; travel?: Transition; className?: string }): React.JSX.Element {
-  const { spot, snap } = useSyncExternalStore(chosen.subscribe, chosen.get)
-  return <Chosen spot={spot} snap={snap} travel={travel} className={className} />
+  const [place, setPlace] = useState(chosen.get)
+  // Listening from the moment it is in the page (a layout effect), not a moment after it is painted: a list's first
+  // place is read in its very first frame (useChosen), and heard then, the mark is drawn in that frame too. React's
+  // own store hook starts listening only after the first paint, which left a new list one frame without its mark.
+  useLayoutEffect(() => {
+    setPlace(chosen.get())
+    return chosen.subscribe(() => setPlace(chosen.get()))
+  }, [chosen])
+  return <Chosen spot={place.spot} snap={place.snap} travel={travel} className={className} />
 }
 
 function Chosen({ spot, snap, travel = spring.fast, className }: { spot: Spot | null; snap?: boolean; travel?: Transition; className?: string }): React.JSX.Element {
