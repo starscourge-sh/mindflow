@@ -240,7 +240,9 @@ export function ThoughtDock({ id, clue, hidden }: { id: string; clue?: boolean; 
   useDockRoom(bar, !hidden)
   if (hidden) return null
   return (
-    <div ref={bar} data-thought-dock className="sticky bottom-0 z-10 shrink-0 px-4 pt-2 pb-3">
+    // A press on the dock's own bare edge (the room round the composer) is a press on nothing: the keys stay where
+    // they are. Left to the browser it took them from the note to the page, and the next words typed went nowhere.
+    <div ref={bar} data-thought-dock className="sticky bottom-0 z-10 shrink-0 px-4 pt-2 pb-3" onMouseDown={(event) => void (event.target === event.currentTarget && event.preventDefault())}>
       <BlurEdge bar />
       <ThoughtBar id={id} clue={clue} />
     </div>
