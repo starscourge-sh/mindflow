@@ -141,8 +141,8 @@ export function AddPopover({ add, level, onChange, onClose, onAgain }: {
         onFocusOutside={(event) => event.preventDefault()}
         onPointerDownOutside={(event) => {
           event.preventDefault()
-          // The draft is part of it, and so are the notices and any menu over it.
-          if ((event.target as Element | null)?.closest?.('[data-cal-draft], [data-sonner-toaster], [role="menu"]')) return
+          // The draft is part of it, and so are a notice (its Undo is the notice's own act, not a click away) and any menu over it.
+          if ((event.target as Element | null)?.closest?.('[data-cal-draft], [role="status"], [role="menu"]')) return
           outside()
         }}>
         {/* On the one left edge the line and the reading under it keep. */}

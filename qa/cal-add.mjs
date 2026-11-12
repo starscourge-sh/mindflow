@@ -172,6 +172,24 @@ try {
     await wait(400)
     s = await state()
     check('a click elsewhere with nothing typed takes the draft away', !s.pop && !s.draft && (await eventsNamed('')).length === 0)
+    // A notice's Undo pressed while the popover holds words is the notice's own act, never a click away that makes the draft.
+    await dbl(...corner(other))
+    await h.keyboard.type('First one')
+    await h.keyboard.press('Enter')
+    await wait(500)
+    await dbl(...corner(await cell(a)))
+    await h.keyboard.type('Second one')
+    const undo = h.locator('[role="status"] button', { hasText: 'Undo' }).first()
+    if (!(await undo.count())) console.log('NOTE  the notice had gone before its Undo could be pressed with the popover open: not checked this run')
+    else {
+      await undo.click({ timeout: 3000 }).catch(() => {})
+      await wait(700)
+      s = await state()
+      check('Undo on a notice, pressed while the popover holds words, takes back what the notice was about and leaves the popover as it was', (await eventsNamed('First one')).length === 0 && (await eventsNamed('Second one')).length === 0 && s.pop?.words === 'Second one', `${(await eventsNamed('First one')).length} of the first left, ${(await eventsNamed('Second one')).length} of the second made; popover holds ${s.pop?.words}`)
+    }
+    if ((await state()).pop) { await h.keyboard.press('Meta+a'); await h.keyboard.press('Backspace'); await h.keyboard.press('Escape'); await wait(300) }
+    for (const left of [...(await eventsNamed('First one')), ...(await eventsNamed('Second one'))]) await v('event:drop', left.key)
+    await wait(300)
     // The other ways in.
     await h.mouse.click(...corner(other))
     await wait(200)

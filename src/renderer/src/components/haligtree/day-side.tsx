@@ -142,7 +142,7 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip, res
     if (!inline || !ask) return
     const away = (event: PointerEvent): void => {
       const at = event.target as Element | null
-      if (!at || panel.current?.contains(at) || at.closest('[data-radix-popper-content-wrapper], [role="menu"], [role="dialog"], [data-sonner-toaster], [data-cal-draft], [data-scope-ask]')) return
+      if (!at || panel.current?.contains(at) || at.closest('[data-radix-popper-content-wrapper], [role="menu"], [role="dialog"], [role="status"], [data-cal-draft], [data-scope-ask]')) return
       keep()
     }
     window.addEventListener('pointerdown', away, true)
