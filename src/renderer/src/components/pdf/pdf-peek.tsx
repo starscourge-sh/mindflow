@@ -236,12 +236,14 @@ export function PdfPeek(): React.JSX.Element | null {
       }, GRACE)
     }
     const over = (event: PointerEvent): void => {
-      // Never over a menu: one open is what is being read (lib/menu-showing.ts).
-      if (menuShowing()) return
       // A button held down is a press or the start of a drag: no card comes up under it.
       if (event.buttons) return away()
       const found = pdfAt(event.target as Element | null)
       if (!found || found.target === on.current || card.current?.contains(found.target)) return
+      // Never over a menu: one open is what is being read (lib/menu-showing.ts). Asked only with a PDF under the
+      // pointer: it looks through the whole page, and a long note scrolled under a still pointer sends an "over"
+      // every frame (an eighth of the time a far wheel through a 7,017-block note took).
+      if (menuShowing()) return
       const box = scrubBoxOf(found.target)
       if (box) return arm(found.target, box, found)
       // A small cover: the card, after the same rest, so a sweep past never brings one up.

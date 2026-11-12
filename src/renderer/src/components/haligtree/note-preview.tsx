@@ -147,10 +147,12 @@ export function NotePreview(): React.JSX.Element | null {
     const onOver = (event: MouseEvent): void => {
       // On the card itself: it stays, so its buttons can be reached.
       if ((event.target as Element | null)?.closest?.('[data-note-preview]')) return void clearTimeout(leaving)
-      // Never over a menu: one open is what is being read (lib/menu-showing.ts).
-      if (menuShowing()) return void (clearTimeout(timer), (over = null))
       // An @ link in a note, or a row's title that offers the same card (the Bin's: data-note-hover).
       const found = (event.target as Element | null)?.closest?.('a.tiptap-note-link[data-note], [data-note-hover][data-note]') ?? null
+      // Never over a menu: one open is what is being read (lib/menu-showing.ts). Asked only with a link under the
+      // pointer or one's card on its way: it looks through the whole page, and a long note scrolled under a still
+      // pointer sends an "over" every frame.
+      if ((found || over) && menuShowing()) return void (clearTimeout(timer), (over = null))
       if (found !== pressed) pressed = null
       const link = found === pressed ? null : found
       // Still on the same link: the card stays. Still off every link: its leaving keeps running (a move here once put
