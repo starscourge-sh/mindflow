@@ -163,7 +163,7 @@ export function startReader(db: DatabaseSync, file: string): void {
   thread.unref()
   // A development or test run reads what was asked, and can stop the thread as a fault would.
   if (!app.isPackaged || process.env.HALIGTREE_QA_AWAY)
-    Object.assign(globalThis, { readerStats: () => ({ ...stats, alive: !!thread, inHand: sent.size, waiting: behind.size }), readerCrash: () => tell({ crash: true }) })
+    Object.assign(globalThis, { readerStats: () => ({ ...stats, alive: !!thread, inHand: sent.size, waiting: behind.size, doing: [...sent.values()].map((one) => one.kind) }), readerCrash: () => tell({ crash: true }) })
 }
 
 /**
