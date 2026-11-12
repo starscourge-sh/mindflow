@@ -41,6 +41,7 @@ window.EXCALIDRAW_ASSET_PATH = window.location.protocol === 'file:' ? 'haligtree
 // this and the modern path comes back.
 delete (window as { showOpenFilePicker?: unknown }).showOpenFilePicker
 
+import * as React from 'react'
 import { Component, StrictMode, type ReactNode } from 'react'
 import { applyTheme, currentTheme } from './lib/theme'
 import { TitleTips } from './components/ui/title-tips'
@@ -57,6 +58,18 @@ import { installTextUndo } from './lib/text-undo'
 import { APP_NAME } from '../../main/name'
 import { toasters, whyFailed } from './components/haligtree/ui'
 import { chime } from './lib/sound'
+
+// `npm run dev` only (React's development build; the built app has none of this). For its own warnings to name the
+// component that made an element, that build records where each element was made, an Error and a console task
+// apiece, for the first 10,000 elements after any second in which it drew nothing. A page change makes more than
+// that, so every press paid for all 10,000: about 70ms of a press that takes 110 without it (qa/press-answers.mjs
+// says how many each press recorded). React keeps a count of them and stops recording once it passes 10,000: read
+// here as always past it, nothing is recorded. To chase a React warning with its owner stack, run
+// `localStorage['haligtree:owner-stacks'] = 'on'` in the console and reload.
+{
+  const internals = (React as unknown as { __CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE?: object }).__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE
+  if (internals && 'recentlyCreatedOwnerStacks' in internals && localStorage.getItem('haligtree:owner-stacks') !== 'on') Object.defineProperty(internals, 'recentlyCreatedOwnerStacks', { configurable: true, get: () => 1e9, set: () => undefined })
+}
 
 // Before the first paint, and before anything renders: the page wears a theme
 // whether or not an editor is on screen.
