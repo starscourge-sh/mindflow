@@ -369,7 +369,9 @@ export function PdfPeek(): React.JSX.Element | null {
       <div
         role="button"
         aria-label={`Open ${peek.name || "the PDF"} at page ${peek.page}`}
-        className={cn(FLOAT, "pdf-peek-face", paper && "is-paper !bg-[#f4ecdb]", "relative size-full cursor-pointer overflow-hidden rounded-md animate-in fade-in-0 zoom-in-95 duration-100")}
+        // In by `mf-pop` (main.css), as a popover is: grown out of the link's side by a clip, never faded (it is frosted).
+        data-state="open" data-side={above ? "top" : "bottom"}
+        className={cn(FLOAT, "pdf-peek-face", paper && "is-paper !bg-[#f4ecdb]", "mf-pop relative size-full cursor-pointer overflow-hidden rounded-md")}
         // A page is paper, never frosted glass: the frost's see-through fill would show through it.
         data-frost-off={paper ? "" : undefined}
         onPointerMove={(event) => {

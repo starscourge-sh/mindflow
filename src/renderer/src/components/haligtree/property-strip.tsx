@@ -504,7 +504,8 @@ function NewProp({ className, size, names, waiting, onField, onName, onCancel }:
           }}
           className="h-7 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60" />
         {count > 0 && (
-          <div role="listbox" data-name-options className={`${FLOAT} absolute top-full left-0 z-50 mt-1 flex max-h-80 ${fields.length ? 'w-72' : 'w-56'} flex-col overflow-y-auto rounded-lg p-1 duration-150 animate-in fade-in-0 slide-in-from-top-1`}>
+          // In by `mf-pop` (main.css), as a popover is: grown down from the field by a clip, never faded (it is frosted).
+          <div role="listbox" data-name-options data-state="open" data-side="bottom" className={`${FLOAT} mf-pop absolute top-full left-0 z-50 mt-1 flex max-h-80 ${fields.length ? 'w-72' : 'w-56'} flex-col overflow-y-auto rounded-lg p-1`}>
             {fields.map((one, index) => {
               const KindIcon = ICONS[one.type] ?? Text
               return (
