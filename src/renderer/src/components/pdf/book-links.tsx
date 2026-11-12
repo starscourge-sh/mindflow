@@ -320,10 +320,10 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
   )
 }
 
-/** The rail's drawing of a page, if this book's reader has drawn it there in the pages' present look (pdf-rail.tsx). */
+/** The rail's drawing of a page, if this book's reader has drawn it there as printed (pdf-rail.tsx): the strip's pictures show a page as it is, never dark. */
 const railDrawn = (near: Element | null, page: number): HTMLCanvasElement | null => {
   const canvas = near?.closest(".pdf-reader")?.querySelector<HTMLCanvasElement>(`.pdf-thumb[data-thumb-page="${page}"] canvas[data-drawn]`)
-  return canvas && canvas.dataset.drawn === (localStorage.getItem("pdf-dark") === "1" ? "dark" : "light") ? canvas : null
+  return canvas && canvas.dataset.drawn === "light" ? canvas : null
 }
 
 /** Shows a page on the picture at once, from the pointer's own event: the page, and where its stroke is along the strip. */

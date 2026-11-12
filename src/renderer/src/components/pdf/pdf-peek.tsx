@@ -5,8 +5,8 @@ import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
 import { hideForMenus, menuShowing } from "@/lib/menu-showing"
 import { pdfCover } from "./pdf-cover"
-import { DARK_PAGE, useDarkPages, usePaperPages } from "./paper"
-import { loadPdf, truePictures } from "./pdf-pages"
+import { useDarkPages, usePaperPages } from "./paper"
+import { loadPdf } from "./pdf-pages"
 import { openPdf } from "./pdf-reader"
 
 /** How wide the card draws a page: small, as the card is, and sharp on a Retina screen. */
@@ -25,7 +25,6 @@ const keep = (key: string, image: string | null): void => {
 }
 /** A page already drawn small, or undefined: nothing is drawn by asking. Seen again, it is kept longer. */
 export function drawnPage(src: string, page: number): string | null | undefined {
-  if (drawnDark !== darkNow()) return undefined
   const key = `${src}#${page}`
   const image = drawn.get(key)
   if (image !== undefined) keep(key, image)
@@ -37,10 +36,11 @@ const ladder: { src: string; page: number }[] = []
 const waiting = new Map<string, ((image: string | null) => void)[]>()
 let drawing = false
 
-const darkNow = (): boolean => localStorage.getItem("pdf-dark") === "1"
-let drawnDark = darkNow()
-
-/** One page drawn small. Only ever one at a time: pdf.js would otherwise queue every page the pointer passed. */
+/**
+ * One page drawn small, as it is printed: white paper and its own colours, whatever "Dark pages" is set to in the
+ * reader. A small picture is for finding a page, not for reading it, and drawing it dark took a second pass over
+ * every picture on the page (the user, 12 Nov: "you can show the pages as they are"). "Paper pages" still tints it,
+ * in CSS, at no cost. Only ever one at a time: pdf.js would otherwise queue every page the pointer passed. */
 async function draw(src: string, page: number): Promise<string | null> {
   const began = performance.now()
   try {
@@ -60,13 +60,9 @@ async function drawn1(src: string, page: number): Promise<string | null> {
   canvas.height = Math.round(viewport.height)
   const ink = canvas.getContext("2d")
   if (!ink) return null
-  const dark = darkNow()
-  if (!dark) {
-    ink.fillStyle = "#fff"
-    ink.fillRect(0, 0, canvas.width, canvas.height)
-  }
-  await one.render({ canvasContext: ink, viewport, canvas, ...(dark ? { pageColors: DARK_PAGE } : {}) }).promise
-  if (dark) await truePictures(one, viewport, canvas, 1)
+  ink.fillStyle = "#fff"
+  ink.fillRect(0, 0, canvas.width, canvas.height)
+  await one.render({ canvasContext: ink, viewport, canvas }).promise
   return canvas.toDataURL("image/jpeg", 0.8)
 }
 
@@ -92,8 +88,6 @@ async function pump(): Promise<void> {
 
 /** One page of a PDF as a small picture: at once if drawn, else when the lane reaches it (it goes to the front). */
 export function pageImage(src: string, page: number): Promise<string | null> {
-  // Dark pages turned on or off: the pictures drawn the other way are no use.
-  if (drawnDark !== darkNow()) (drawn.clear(), (drawnDark = darkNow()))
   const key = `${src}#${page}`
   if (drawn.has(key)) return Promise.resolve(drawn.get(key)!)
   wantedNow = { src, page }
@@ -284,15 +278,23 @@ export function PdfPeek(): React.JSX.Element | null {
         const r = turning.box.getBoundingClientRect()
         const page = Math.min(turning.count, Math.max(1, Math.floor(((event.clientX - r.left) / r.width) * turning.count) + 1))
         if (turning.moved && page === turning.page) return
-        // Each page the pointer crosses on a cover is felt, as a scrubbed number is; not the first reading of where it came in.
-        if (turning.moved || page !== turning.page) stepTap(page, 1, turning.count)
         const image = drawn.get(`${turning.src}#${page}`) ?? nearestDrawn(turning.src, page, turning.count) ?? turning.image
+        // Nothing says "turning" before there is a page to show (the user, 12 Nov: "dont tell me im seeking until
+        // everhitng is ready"): no tick, no number, and a click still opens the book where it was left. A big book
+        // takes a second or two to open the first time; until then the cover is simply the cover.
+        // Each page the pointer crosses on a cover is felt, as a scrubbed number is; not the first reading of where it came in.
+        if (image && (turning.moved || page !== turning.page)) stepTap(page, 1, turning.count)
         const next = { ...turning, page, image, moved: true }
         scrubbing.current = next
-        scrubbedNow = { src: turning.src, page }
+        scrubbedNow = image ? { src: turning.src, page } : null
         setScrub(next)
         void (page === 1 ? pdfCover(turning.src).then((cover) => cover?.image ?? null) : pageImage(turning.src, page)).then((made) =>
-          setScrub((now) => (now && now.src === turning.src && now.page === page ? { ...now, image: made } : now)))
+          setScrub((now) => {
+            if (!now || now.src !== turning.src || now.page !== page) return now
+            // The first page to be ready: from here the cover is turning, and a click opens at the page on show.
+            if (made) scrubbedNow = { src: now.src, page }
+            return { ...now, image: made }
+          }))
         return
       }
       const target = on.current
@@ -335,10 +337,11 @@ export function PdfPeek(): React.JSX.Element | null {
   }
 
   // The cover itself as the page: its picture and "71 / 336" on it, over the cover's own box; leaving puts the cover back.
-  const inPlace = scrub?.moved
+  // Only once there is a page to show: before that nothing is put over the cover, no blank sheet and no number.
+  const inPlace = scrub?.moved && scrub.image
     ? createPortal(
         <span data-pdf-scrub className={cn("pdf-scrub", paper && "is-paper")} aria-hidden>
-          {scrub.image ? <img src={scrub.image} alt="" draggable={false} /> : null}
+          <img src={scrub.image} alt="" draggable={false} />
           <span data-pdf-scrub-page className="pdf-scrub-page">
             {scrub.page} / {scrub.count}
           </span>

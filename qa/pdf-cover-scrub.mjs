@@ -26,7 +26,9 @@ const makePdf = async (title) => {
 const c = await sandbox({ width: 1440, height: 900 })
 const { h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const state = () => h.evaluate(() => ({ scrub: !!document.querySelector('[data-pdf-scrub]'), inCover: !!document.querySelector('.pdf-book-cover [data-pdf-scrub], [data-media] [data-pdf-scrub], [data-still-picture] [data-pdf-scrub]'), chip: document.querySelector('[data-pdf-scrub-page]')?.textContent ?? '', card: !!document.querySelector('[data-pdf-peek-card]') }))
+const state = () => h.evaluate(() => ({ scrub: !!document.querySelector('[data-pdf-scrub]'), inCover: !!document.querySelector('.pdf-book-cover [data-pdf-scrub], [data-media] [data-pdf-scrub], [data-still-picture] [data-pdf-scrub]'), chip: document.querySelector('[data-pdf-scrub-page]')?.textContent ?? '', card: !!document.querySelector('[data-pdf-peek-card]'),
+  // A sheet or a page number over the cover with no page on it: a blank page, or a cover that claims to be turning.
+  blank: (() => { const sheet = document.querySelector('[data-pdf-scrub]'); return !!sheet && !sheet.querySelector('img')?.getAttribute('src') })() }))
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
@@ -73,11 +75,56 @@ try {
     check(`${theme}: sliding after the rest turns the cover itself into the page, "n / 20" on it`, sliding.at(-1).inCover && /^\d+ \/ 20$/.test(sliding.at(-1).chip), JSON.stringify(sliding.at(-1)))
     check(`${theme}: the pages turn as it slides (from low to high)`, Number(sliding.at(-1).chip.split(' ')[0]) > Number(sliding[1]?.chip.split(' ')[0] || 0), sliding.map((one) => one.chip).join(','))
     check(`${theme}: never a second floating card`, frames.every((one) => !one.card), '')
+    check(`${theme}: never a sheet or a number over the cover without a page`, frames.every((one) => !one.blank), JSON.stringify(frames.filter((one) => one.blank).length))
     await h.mouse.move(5, 450)
     for (let i = 0; i < 4; i++) { await wait(50); await h.screenshot({ path: `${SHOT}-frames/${theme}-leave-${i}.png`, clip }) }
     check(`${theme}: leaving puts the cover back`, !(await state()).scrub, '')
   }
   await c.look('light')
+
+  // Nothing says "turning" before a page is ready (the user, 12 Nov: "it showing the cover while claiming to be seeking is
+  // also not a good experience, rather dont tell me im seeking until everhitng is ready"). A cover never rested on before,
+  // the pointer already sliding as the rest ends, so the first moves come before any of its pages is drawn: whenever a
+  // sheet is put over the cover it holds a page, and then it does turn.
+  const second = covers[1]
+  await h.evaluate(() => {
+    window.__bare = 0; window.__sheets = 0
+    new MutationObserver((changes) => {
+      for (const one of changes) for (const node of one.addedNodes) {
+        const sheet = node.nodeType === 1 && (node.matches?.('[data-pdf-scrub]') ? node : node.querySelector?.('[data-pdf-scrub]'))
+        if (!sheet) continue
+        window.__sheets++
+        if (!sheet.querySelector('img')?.getAttribute('src')) window.__bare++
+      }
+    }).observe(document.body, { childList: true, subtree: true })
+  })
+  await h.mouse.move(second.x + 8, mid(second).y); await wait(520)
+  for (let i = 1; i <= 40; i++) { await h.mouse.move(second.x + 8 + i * 3, mid(second).y); await wait(8) }
+  await wait(1200)
+  const seek = await h.evaluate(() => ({ bare: window.__bare, sheets: window.__sheets, on: !!document.querySelector('[data-pdf-scrub] img')?.getAttribute('src'), chip: document.querySelector('[data-pdf-scrub-page]')?.textContent ?? '' }))
+  check('the cover is left alone until a page is ready: no sheet or page number is put over it without a page', seek.bare === 0, JSON.stringify(seek))
+  check('and then it turns: a page with its number is over the cover', seek.on && /^\d+ \/ 20$/.test(seek.chip), JSON.stringify(seek))
+  await h.mouse.move(5, 450); await wait(300)
+
+  // "Dark pages" on in the reader: a turned cover still shows the page as it is printed, white paper and its own
+  // colours (the user, 12 Nov: "you can show the pages as they are"; drawing it dark took a second pass over every picture).
+  await h.evaluate(() => { localStorage.setItem('pdf-dark', '1'); window.dispatchEvent(new Event('haligtree:pdf-dark')) })
+  await h.mouse.move(last.x + 10, mid(last).y); await wait(750)
+  for (let i = 1; i <= 8; i++) { await h.mouse.move(last.x + 10 + (i * (last.w - 20)) / 8, mid(last).y); await wait(60) }
+  await wait(900)
+  const ground = await h.evaluate(async () => {
+    const img = document.querySelector('[data-pdf-scrub] img')
+    if (!img?.getAttribute('src')) return null
+    await img.decode().catch(() => {})
+    const canvas = document.createElement('canvas'); canvas.width = 40; canvas.height = 52
+    const ink = canvas.getContext('2d'); ink.drawImage(img, 0, 0, 40, 52)
+    const px = ink.getImageData(0, 0, 40, 52).data
+    let sum = 0; for (let i = 0; i < px.length; i += 4) sum += (px[i] + px[i + 1] + px[i + 2]) / 765
+    return Math.round((sum / (px.length / 4)) * 100) / 100
+  })
+  check('with "Dark pages" on, a turned cover shows the page as printed (a light ground, mean lightness over 0.8)', ground !== null && ground > 0.8, String(ground))
+  await h.evaluate(() => { localStorage.setItem('pdf-dark', '0'); window.dispatchEvent(new Event('haligtree:pdf-dark')) })
+  await h.mouse.move(5, 450); await wait(300)
 
   // Files' first page, "All": a book under "Recent" turns its pages on its own cover too, never in a card beside it
   // (the user, 12 Nov: "why the heck does a separate thumbnail popup show up ... the pdf itself already has a thumbnail").
