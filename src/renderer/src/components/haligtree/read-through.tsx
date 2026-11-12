@@ -22,7 +22,7 @@ import { exit } from '@/lib/capture-links'
 import { GlossComposer, openGloss } from './gloss-line'
 import { ThoughtBar } from './thought-bar'
 import { Signed } from './signature'
-import { dequeue, finish, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
+import { dequeue, finish, moveSaid, openLink, readingQueue, type QueueRow } from '@/lib/reading-queue'
 import { QueuePanel } from './queue-panel'
 import { TAG, tagsIn } from '../../../../main/tag-words'
 import { ArrowDown, ArrowUp, X as ReadDone } from '@/components/ui/icons'
@@ -248,6 +248,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
   }
   /** Up next dragged into a new order: here at once, and saved to the queue. */
   const reorder = (id: string, target: string, after: boolean): void => {
+    const was = line
     setLine((rows) => {
       if (!rows) return rows
       const moved = rows.find((row) => row.id === id)
@@ -258,7 +259,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
       rest.splice(after ? to + 1 : to, 0, moved)
       return rest
     })
-    void readingQueue.move(id, target, after).then(() => chime('settled'))
+    // Said, with Undo: back where it stood, here and in the queue.
+    moveSaid((was ?? []).map((row) => row.id), id, target, after, () => setLine(was))
   }
   /** Out of the queue from the panel: gone from this reading too, the page in front of you kept. */
   const unqueue = (row: QueueRow): void => {

@@ -1045,7 +1045,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     order.splice(order.indexOf(target) + (after ? 1 : 0), 0, id)
     if (view.sort !== 'manual') setView({ ...view, sort: 'manual' })
     chime('shift')
-    void haligtree.saveTasks(order.map((one, n) => ({ id: one, patch: { sortOrder: n } }))).then(() => quietly(() => void haligtree.saveTasks(was)))
+    // Said, as a drop in Writing is (“Moved”), with its Undo.
+    sayNow(haligtree.saveTasks(order.map((one, n) => ({ id: one, patch: { sortOrder: n } }))), 'Moved', () => void haligtree.saveTasks(was))
   }
   /** A row rested on another's middle: it may become its step, unless it has steps of its own, repeats, or the other is done. */
   const nests = (id: string, target: string): true | { refused: string } | false => {

@@ -155,7 +155,8 @@ export function useOwnOrder(list: string): {
     void notes.setOrder(list, next).then(() => {
       // A list that was sorted some other way says so, even from the keyboard, so its label never lies.
       if (unsort) toast('Now in your own order', () => (unsort(), void notes.setOrder(list, was)))
-      else if (!quiet) quietly(() => void notes.setOrder(list, was))
+      // A drop says so, as a drop in Writing does (“Moved”), with its Undo; a key's step is quick to step back.
+      else if (!quiet) toast('Moved', () => void notes.setOrder(list, was))
     })
   }
   return { order, compare, move }

@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch'
 import { chime } from '@/lib/sound'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
 import { useEmojiIcons } from '@/lib/icon-style'
-import { Pressed, Tip, toast, quietly } from './ui'
+import { Pressed, Tip, toast } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { BlockList, SortableList, SortableRow } from './sortable'
 import { LayoutGroup } from 'motion/react'
@@ -220,7 +220,7 @@ export async function reorder(setting: Ordered, usual: string[], change: (order:
   chime('shift')
   await haligtree.setSettings({ [setting]: isUsual(next, usual) ? [] : next })
   // Said in a word, with Undo (and so ⌘Z) to put it back where it was.
-  if (said) quietly(() => void haligtree.setSettings({ [setting]: was }).then(() => chime('shift')))
+  if (said) toast(said, () => void haligtree.setSettings({ [setting]: was }).then(() => chime('shift')))
   return true
 }
 /** A row dropped on another: before it going up, after it going down. `nameOf` names it in what is said. */
@@ -301,7 +301,8 @@ export async function dropInBlock(id: string, block: string, before: string | nu
   const usual = SECTIONS.map((one) => one.id)
   chime('shift')
   await haligtree.setSettings({ sidebarOrder: isUsual(next, usual) ? [] : next, sidebarGroups: groups })
-  quietly(() => void haligtree.setSettings(was).then(() => chime('shift')))
+  // Said, as every drop is, with Undo (and so ⌘Z) to put it back where it was.
+  toast(`Moved ${quoted(place.label, 80)}`, () => void haligtree.setSettings(was).then(() => chime('shift')))
 }
 
 /**

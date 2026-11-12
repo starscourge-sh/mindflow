@@ -7,7 +7,7 @@ import { BookOpen, CircleCheck, GripVertical, ListEnd, ListStart, RotateCcw, Tra
 import { chime } from '@/lib/sound'
 import { EASE } from '@/lib/motion'
 import { unloaded } from '@/lib/haligtree'
-import { dequeue, enqueue, finishAll, kindOf, openLink, readQueue, readingQueue, saidOf, useQueue, type QueueRow } from '@/lib/reading-queue'
+import { dequeue, enqueue, finishAll, kindOf, moveSaid, openLink, readQueue, readingQueue, saidOf, useQueue, type QueueRow } from '@/lib/reading-queue'
 import { useSelectAll } from '@/lib/select-all'
 import { useHere } from '@/lib/split'
 import { Button } from '@/components/ui/button'
@@ -95,8 +95,8 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
     { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(rows, at) },
     at > 0 && { label: 'Read next', hint: 'To the top of Up next', run: () => void enqueue([row.itemId], true) },
     // The drag's moves, for the keyboard and for anyone who never finds the grip.
-    at > 0 && { label: 'Move up', run: () => void readingQueue.move(row.id, rows[at - 1].id, false).then(() => chime('settled')) },
-    at < rows.length - 1 && { label: 'Move down', run: () => void readingQueue.move(row.id, rows[at + 1].id, true).then(() => chime('settled')) },
+    at > 0 && { label: 'Move up', run: () => moveSaid(rows.map((one) => one.id), row.id, rows[at - 1].id, false) },
+    at < rows.length - 1 && { label: 'Move down', run: () => moveSaid(rows.map((one) => one.id), row.id, rows[at + 1].id, true) },
     { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
     !row.bare && { label: 'Open in new window', run: () => openApart(row.type, row.itemId) },
     !!taskName(row.title).tags[0] && { label: `Go to #${taskName(row.title).tags[0]}`, run: () => window.api.openInHome('tag', taskName(row.title).tags[0]) },
@@ -310,7 +310,7 @@ export function QueueView(): React.JSX.Element {
                   </span>
                 }>
                 <div ref={nextBox}>
-                <SortableList items={nextShown} keyOf={(row) => row.id} onMove={(id, target, after) => void readingQueue.move(id, target, after).then(() => chime('settled'))}>
+                <SortableList items={nextShown} keyOf={(row) => row.id} onMove={(id, target, after) => moveSaid(nextShown.map((row) => row.id), id, target, after)}>
                   {(rows) => rows.map((row, at) => (
                     <SortableRow key={row.id} id={row.id}><QueueLine row={row} at={at} rows={rows} pick={pickOf(row, at)} /></SortableRow>
                   ))}

@@ -58,6 +58,14 @@ export async function dequeue(rows: QueueRow | QueueRow[]): Promise<void> {
     was.length ? () => void Promise.all(was.map((one) => readingQueue.restore(one))).then(() => chime('undo')) : undefined)
 }
 
+/** A row dropped at a new place among `ids` (the queue as shown): said, with Undo back to where it stood (`back`: anything else to put back). */
+export function moveSaid(ids: string[], id: string, target: string, after: boolean, back?: () => void): void {
+  const at = ids.indexOf(id)
+  const [before, next] = [ids[at - 1], ids[at + 1]]
+  const saved = readingQueue.move(id, target, after).then(() => chime('settled'))
+  toast('Moved', () => void saved.then(() => (back?.(), before ? readingQueue.move(id, before, true) : next ? readingQueue.move(id, next, false) : false)).then(() => chime('undo')))
+}
+
 /** Several marked read at once: into Read, with one notice and one Undo. */
 export async function finishAll(rows: QueueRow[]): Promise<void> {
   await Promise.all(rows.map((row) => readingQueue.done(row.id)))
