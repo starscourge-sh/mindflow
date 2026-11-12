@@ -23,7 +23,7 @@ const AT_MOST = 1500
  * `apart`: a part that comes in whole on its own, never holding the page it
  * is on (what sits under a note's words never keeps the words waiting).
  */
-export function useReadsIn(reading = false, apart = false): { provide: (children: ReactNode) => ReactNode; style: CSSProperties | undefined } {
+export function useReadsIn(reading = false, apart = false): { provide: (children: ReactNode) => ReactNode; style: CSSProperties | undefined; counted: boolean } {
   // Kept where a part's say is seen at once: a part that comes in (a section
   // mounted a frame later) says it is reading in its layout effect, which runs
   // before this page's own, so the page never counts itself ready without it.
@@ -55,7 +55,8 @@ export function useReadsIn(reading = false, apart = false): { provide: (children
   }, [shown])
   const seen = shown || ready
   const provide = (children: ReactNode): ReactNode => <Holding.Provider value={hold}><Seen.Provider value={seen}>{children}</Seen.Provider></Holding.Provider>
-  return { provide, style: seen ? undefined : { visibility: 'hidden' } }
+  // `counted`: its parts have had their first say, so a page still unseen now is one that is truly reading.
+  return { provide, style: seen ? undefined : { visibility: 'hidden' }, counted }
 }
 
 /** A part of a page still waiting on a read: the page it is on waits with it. */
