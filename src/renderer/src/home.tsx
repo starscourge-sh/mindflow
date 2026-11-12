@@ -177,6 +177,16 @@ function useRemembered(key: string, start = false): [boolean, (open: boolean) =>
   }]
 }
 
+/**
+ * A sidebar group that folds by itself: whether it is open is its own state (remembered under `kept`), so folding
+ * it draws its heading and its rows and nothing else. Held by the main window, one fold drew the whole window.
+ * `held` keeps it open whatever was chosen (the page you are on is inside it, or the sidebar is its narrow rail).
+ */
+function Folding({ kept, held, head, children }: { kept: string; held: boolean; head: (open: boolean, fold: (open: boolean) => void) => React.ReactNode; children: React.ReactNode }): React.JSX.Element {
+  const [open, setOpen] = useRemembered(kept)
+  return <>{head(open || held, setOpen)}<Unfold open={open || held}>{children}</Unfold></>
+}
+
 /** The top bar's buttons, one size and one look, each named with its key on hover. */
 const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground [&_svg]:size-4'
 /** Joined buttons, and the one button that matters, wear an edge: a hairline pill the height of the rest. */
@@ -1046,9 +1056,6 @@ export function Home(): React.JSX.Element {
   const [tagsKept, keepTags] = useRemembered('sidebar:tags')
   // Pinned folds, Notion's way, and starts open.
   const [pinsOpen, setPinsOpen] = useRemembered('sidebar:pinned', true)
-  // Library and Look back fold under their headings, folded to start; each stays as you leave it.
-  const [libraryOpen, setLibraryOpen] = useRemembered('sidebar:library', false)
-  const [lookOpen, setLookOpen] = useRemembered('sidebar:look', false)
   // A section's heading dragged moves the whole section (lib/side-sections.ts).
   const sectionDrag = useSectionDrag()
   // Recent: the last few notes you opened, under Pinned, a short list (four at most: ⌘K has the rest), kept folded or open as you left it.
@@ -2455,13 +2462,16 @@ export function Home(): React.JSX.Element {
                   {/* Each run after the first gets a gap the height of a heading, with no heading: what you write, then what you do, then the rest. */}
                   {/* Library, what you keep (Gems, Sources, Files), under a heading of its own that folds as Pinned's does. */}
                   {(block === 'Library' || block === 'Look') && items.length > 0 ? (() => {
-                    const [head, open, setOpen, id] = block === 'Library' ? [LIBRARY, libraryOpen, setLibraryOpen, 'library'] as const : [LOOK_BACK, lookOpen, setLookOpen, 'look'] as const
+                    const [head, id] = block === 'Library' ? [LIBRARY, 'library'] as const : [LOOK_BACK, 'look'] as const
                     // The page you are on stays in sight: its fold opens when you go there from elsewhere.
                     const here = items.some((one) => light === `place:${one.id}`)
+                    // Library and Look back fold under their headings, folded to start; each stays as you leave it,
+                    // and keeps that itself (Folding), so a fold draws the group alone.
                     return (<div data-side-section={id} style={sectionAt(id)} className="flex flex-col">
-                      {heading(head, open || here || narrow, setOpen)}
-                      {/* Hung off a trunk under its heading, as Pinned's and Recent's are: they are its children. */}
-                      <Unfold open={open || here || narrow}><Branches bare={narrow} rows=":scope > [data-drop-list] > *" current={items.findIndex((one) => light === `place:${one.id}`)} className={narrow ? '' : 'ml-5'}>{box}</Branches></Unfold>
+                      <Folding kept={`sidebar:${id}`} held={here || narrow} head={(open, fold) => heading(head, open, fold)}>
+                        {/* Hung off a trunk under its heading, as Pinned's and Recent's are: they are its children. */}
+                        <Branches bare={narrow} rows=":scope > [data-drop-list] > *" current={items.findIndex((one) => light === `place:${one.id}`)} className={narrow ? '' : 'ml-5'}>{box}</Branches>
+                      </Folding>
                     </div>)
                   })() : (<div className="flex flex-col" style={block === 'rest' ? { order: 9 } : undefined}>
                     {at > 0 && items.length > 0 && <div data-side-gap aria-hidden className={narrow ? 'mt-3' : 'mt-2.5 mb-0.5 min-h-1'} />}
