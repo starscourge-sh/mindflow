@@ -56,9 +56,15 @@ async function open(args = '') {
   // A thing that is not there fails its line in seconds, not half a minute.
   h.setDefaultTimeout(6000)
   const v = (channel, ...rest) => h.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, rest])
+  // Asked again until the page is that wide: on a busy machine the app's own first sizing can land after the
+  // first asking, and a check of a small window must never be taken on a large one. True once it is.
   const size = async (w, hh) => {
-    await app.evaluate(({ BrowserWindow }, [w, hh]) => { const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home')); win?.setBounds({ x: 40, y: 40, width: w, height: hh }); win?.show() }, [w, hh])
-    await h.waitForTimeout(500)
+    for (let i = 0; i < 10; i++) {
+      await app.evaluate(({ BrowserWindow }, [w, hh]) => { const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home')); win?.setBounds({ x: 40, y: 40, width: w, height: hh }); win?.show() }, [w, hh])
+      await h.waitForTimeout(500)
+      if (Math.abs((await h.evaluate(() => innerWidth)) - w) < 8) return true
+    }
+    return false
   }
   await size(1180, 760)
   const send = (type, id) => app.evaluate(({ BrowserWindow }, [type, id]) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home'))?.webContents.send('home:open', type, id), [type, id])
@@ -530,7 +536,8 @@ if (on('edges')) {
     await shut(c)
 
     // The window at its smallest.
-    await c.size(560, 400)
+    const small560 = await c.size(560, 400)
+    check('the window is at its smallest for the next three lines: 560 by 400', small560, `${await c.h.evaluate(() => `${innerWidth} by ${innerHeight}`)}`)
     await openFoot(c)
     box = await inWindow(c, MENU)
     const scrolls = await c.h.evaluate((s) => { const menu = document.querySelector(s); const inner = [menu, ...menu.querySelectorAll('*')].find((one) => one.scrollHeight > one.clientHeight + 2 && /auto|scroll/.test(getComputedStyle(one).overflowY)); return !!inner }, MENU)
