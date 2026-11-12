@@ -445,12 +445,14 @@ export function registerCaptures(): void {
   // answer. Left to SQLite, it is folded at the end of whichever statement comes after a save once the log has
   // grown past 4 MB: every save of a long note (8 to 12 MB a save), 10 to 25 ms inside whatever was asked next.
   // Now: FOLD_REST_MS after the last change told to the windows; or, typing that never rests that long, in a
-  // turn of its own after the answer once the log has passed LOG_CAP. SQLite's own fold stays as the far
-  // backstop (256 MB). Nothing is lost if the app dies before a fold: the log is the book, read with the file at
-  // the next opening; and a quit folds it (`shutDatabase`).
+  // turn of its own after the answer once the log has passed LOG_CAP (four saves of a 4 MB note). SQLite's own
+  // fold stays as the backstop, at 64 MB (16,384 pages), for writing that tells the windows nothing until its
+  // end (an import): where it folded every 4 MB of such writing, it folds every 64. Nothing is lost if the app
+  // dies before a fold: the log is the book, read with the file at the next opening; and a quit folds it
+  // (`shutDatabase`).
   const FOLD_REST_MS = 1500
-  const LOG_CAP = 48 * 1024 * 1024
-  db.exec('pragma wal_autocheckpoint = 65536')
+  const LOG_CAP = 32 * 1024 * 1024
+  db.exec('pragma wal_autocheckpoint = 16384')
   let folding: NodeJS.Timeout | null = null
   const fold = (): void => {
     folding = null
@@ -574,9 +576,11 @@ export function registerCaptures(): void {
    * disk is always whole, never a poorer one made here from the stored words (main's own converter writes
    * nothing for a drawing, a graph, a contents block or an embed). While one is owed the note is marked in the
    * book (`copies_owed`), so the mark outlives the app however it ends:
-   *   a quit asks every window for what it owes and waits for it before the book shuts (below);
-   *   if the app dies instead (a crash, a kill, the power), or a window cannot answer, the last whole copy
-   *   stays, and the first editor on a page after the next launch writes the owed ones (lib/owed-copies.ts).
+   *   a window that closes, the app quitting or not, hands over what it owes as it goes, with a call that is
+   *   answered before it is gone (`captures:save-now`, below), and the copy is on the disk by then;
+   *   if the app dies instead (a crash, a kill, the power), or a window is gone without a word, the last whole
+   *   copy stays, and the first editor on a page after the next launch writes the owed ones (lib/owed-copies.ts).
+   * A quit is never held up for any of this: holding one would call off a log out or a restart of the Mac.
    */
   db.exec('create table if not exists copies_owed (id text primary key)')
   const owed = new Map<string, { number: number; copy: number }>()
@@ -604,37 +608,29 @@ export function registerCaptures(): void {
     leftOwed.add(row.id)
   }
   ipcMain.handle('haligtree:copies:left', () => [...leftOwed].flatMap((id) => (owed.has(id) ? [{ id, copy: owed.get(id)!.copy }] : [])))
-  // A quit: every window first hands over what it has (typing still to be saved, then each long note's copy),
-  // and main waits for them, HAND_MS at most, before the book shuts. A copy that arrives meanwhile is written
-  // before it is answered, so none is cut short by the app ending.
-  const HAND_MS = 2000
-  let handing = false
-  // True only while the quit that follows a hand-over is being asked for (`before-quit` is told inside
-  // `app.quit()`): that one goes through, and any quit after it, one called off meanwhile say, asks again.
-  let handed = false
-  app.on('before-quit', (event) => {
-    if (handed) return
-    event.preventDefault()
-    if (handing) return
-    handing = true
-    const hands = BrowserWindow.getAllWindows().filter((win) => !win.isDestroyed()).map((win) =>
-      win.webContents.mainFrame.executeJavaScript('window.haligtreeHandOver ? window.haligtreeHandOver() : null').catch(() => null))
-    void Promise.race([Promise.all(hands), new Promise((done) => setTimeout(done, HAND_MS))]).finally(() => {
-      handing = false
-      handed = true
-      app.quit()
-      handed = false
-    })
+  // A window on its way out (lib/same-words.ts `pageGoing`): its last words, or a copy it still owes, saved and
+  // answered before it is gone, the Markdown written before the answer, so neither is cut short by the app ending.
+  // Once a quit has been asked for, every copy is written that way, however it arrives.
+  let quitting = false
+  app.on('before-quit', () => void (quitting = true))
+  ipcMain.on('captures:save-now', (event, id: unknown, raw: unknown) => {
+    try {
+      event.returnValue = saveOne(event.sender, id, raw, true, true)
+    } catch (error) {
+      console.error('A save made as its window went did not land:', error)
+      event.returnValue = null
+    }
   })
   /**
-   * One capture saved; `tell` says the windows now, or leaves it to a batch's one telling.
+   * One capture saved; `tell` says the windows now, or leaves it to a batch's one telling; `now` writes its
+   * Markdown copy before this returns.
    *
    * What holds main's thread here is the write and little else. An editor's words arrive as they are kept, as
    * bytes, and go to the database that way; the row is read once, and never its words, which the database compares
    * where they lie; what is worked out of the words (line cards, the name watch, the list's row, the Markdown
    * copy) comes after this has answered. A 4 MB note's save held the app 120 to 150 ms before (12 Nov).
    */
-  function saveOne(sender: Electron.WebContents, id: unknown, raw: unknown, tell: boolean): SaveResult {
+  function saveOne(sender: Electron.WebContents, id: unknown, raw: unknown, tell: boolean, now = false): SaveResult {
     const patch = Patch.parse(raw)
     const key = String(id)
     // A meeting in the shape it had before 6 Nov (an old version put back, a copy): kept the new way, every word in it.
@@ -706,20 +702,19 @@ export function registerCaptures(): void {
     // the number its save was answered with, and it is taken only while those are still the last words saved;
     // a document saved without one (a sticky's tick) is turned into it here.
     let copy: number | undefined
+    // For a window on its way out, and once the app is quitting, the copy is on the disk before this answers.
+    const written = (number: number, text: string): Promise<void> => (now || quitting ? (writeMarkdownNow(number, text), Promise.resolve()) : writeMarkdown(number, text))
     if (row && patch.markdown !== undefined && !moved) {
       const mine = patch.copy
       if (mine === undefined) {
         if (landed) settled(key)
-        void writeMarkdown(row.number, patch.markdown)
-      } else if (owed.get(key)?.copy === mine) {
-        // Owed until it is on the disk. During a quit it is written before this answers.
-        if (handing) (writeMarkdownNow(row.number, patch.markdown), settled(key))
-        else void writeMarkdown(row.number, patch.markdown).then(() => void (owed.get(key)?.copy === mine && settled(key)))
-      }
+        void written(row.number, patch.markdown)
+        // Owed until it is on the disk.
+      } else if (owed.get(key)?.copy === mine) void written(row.number, patch.markdown).then(() => void (owed.get(key)?.copy === mine && settled(key)))
     } else if (landed && patch.words) copy = owe(key, row!.number)
     else if (landed) {
       settled(key)
-      void writeMarkdown(row!.number, markdown(patch.body))
+      void written(row!.number, markdown(patch.body))
     } else if (patch.status) checkMarkdown(key)
     // A copy alone changes nothing a window shows.
     if (tell && !(patch.markdown !== undefined && kept === null && !fields.length)) changed({ kind: 'capture', id: key })
