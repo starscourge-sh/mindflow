@@ -1119,7 +1119,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             below={<Choices label="Sticky note material" options={stickyChoices} on={(id) => id === (settings.stickiesFrosted !== false && settings.stickiesGlass ? 'glass' : 'paper')}
               pick={(id) => set({ stickiesFrosted: id === 'glass', stickiesGlass: id === 'glass' })} />} />
           <AeroSpaceSetting />
-          <Setting title="Hide from recordings" note="Leaves a window out of a shared screen, while you still see it." more="Screenshots and some recorders still show it, so try yours once. All are hidden to start; turn one off for a demo or a Loom. ⌘K shows or hides them all at once." keywords="hide from screen recordings and shares record recording screen share sharing zoom loom demo screenshot capture hide show main window quick capture sticky notes goal cards session bubble">
+          <Setting title="Hide from recordings" note="Leaves a window out of a shared screen, while you still see it." more="Screenshots and some recorders still show it, so try yours once. All show to start; turn one on before you share your screen. ⌘K hides or shows them all at once." keywords="hide from screen recordings and shares record recording screen share sharing zoom loom demo screenshot capture hide show main window quick capture sticky notes goal cards session bubble">
             {/* What the windows are now: all seen, or some blank to a camera. */}
             <AliveIcon icon={RECORDING_KINDS.some((kind) => !recorded[kind]) ? CameraOffIcon : CameraIcon} size={16} className="text-muted-foreground" />
           </Setting>

@@ -5,8 +5,9 @@ import { APP_NAME } from '../../../main/name'
 
 /**
  * Which of Haligtree's windows show in screen shares, recordings and screenshots.
- * Each kind has its own switch in Settings (all hidden to start); ⌘K and the
- * box's menu turn them all on or off at once.
+ * Each kind has its own switch in Settings (none hidden to start: a new book's
+ * inRecordings is every window shown, main/haligtree.ts); ⌘K and the box's menu
+ * turn them all on or off at once.
  */
 export type Recordings = Settings['inRecordings']
 export const RECORDING_KINDS = ['main', 'box', 'stickies', 'bubble'] as const
