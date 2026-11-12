@@ -134,12 +134,17 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   // or more cut, a paste over the lot, say): that is kept whatever the clock
   // says, or the words written since the last version would be gone for good.
   // A day's page keeps them too, as `day:` and its date.
+  // The sizes are counted in bytes (`cast(… as blob)`), which the database knows without reading the words:
+  // counted in letters, every save of a long note read its 4 MB through four times here (9 ms). A letter outside
+  // ASCII is two to four bytes: a cut of such words is kept a little sooner than at 240 letters, never later, and
+  // "under 60%" reads the same but for a note that mixes scripts.
   const stamp = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+  const size = (words: string): string => `length(cast(${words} as blob))`
   const keep = (key: string): string => `
       when old.body is not new.body and old.body is not null and old.body not in ('null', '""')
         and (coalesce((select max(saved_at) from versions where item_id = ${key}), '') < strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-10 minutes')
-          or coalesce(length(new.body), 0) < length(old.body) * 0.6
-          or length(old.body) - coalesce(length(new.body), 0) > 240)
+          or coalesce(${size('new.body')}, 0) < ${size('old.body')} * 0.6
+          or ${size('old.body')} - coalesce(${size('new.body')}, 0) > 240)
       begin
         insert into versions (item_id, body, saved_at) values (${key}, old.body, ${stamp});
         delete from versions where item_id = ${key} and id not in (select id from versions where item_id = ${key} order by id desc limit 50);
