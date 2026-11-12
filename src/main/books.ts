@@ -44,13 +44,20 @@ export const nameOf = (id: BookId): string => {
 /** The hues a book can wear: the theme's own, so each one suits every theme. */
 export const HUES = ['blue', 'purple', 'pink', 'red', 'orange', 'yellow', 'green', 'gray'] as const
 const hueOf = (color: unknown): string | null => (HUES as readonly unknown[]).includes(color) ? (color as string) : null
-/** Every book, My book first, each with its colour or null. */
-export const books = (): { id: BookId; name: string; createdAt: string | null; current: boolean; color: string | null }[] => {
+/**
+ * Every book, each with its colour or null, in the one order every list of them keeps: the open one first, then the
+ * others by when each was last opened, so the first of the others is the book you were just in. One never opened
+ * since that was kept comes after those, My book before the rest, as they were made.
+ */
+export const books = (): { id: BookId; name: string; createdAt: string | null; current: boolean; color: string | null; openedAt: number | null }[] => {
   const shelf = readShelf()
+  const at = (id: BookId): number => (typeof shelf.opened?.[id] === 'number' ? shelf.opened[id] : 0)
   return [
     { id: 'default', name: nameOf('default'), createdAt: null, current: here() === 'default', color: hueOf(shelf.defaultColor) },
     ...shelf.books.map((one) => ({ id: one.id, name: one.name, createdAt: one.createdAt, current: here() === one.id, color: hueOf(one.color) }))
-  ]
+  ].map((one, made) => ({ ...one, openedAt: at(one.id) || null, made }))
+    .sort((a, b) => Number(b.current) - Number(a.current) || (b.openedAt ?? 0) - (a.openedAt ?? 0) || a.made - b.made)
+    .map(({ made: _made, ...one }) => one)
 }
 const folderOf = (id: BookId): string | null => (id === 'default' ? realRoot() : isBookId(id) && readShelf().books.some((one) => one.id === id) ? bookRoot(id) : null)
 const cleanName = (name: unknown): string => cut(String(name ?? '').replace(/\s+/g, ' ').trim(), 60)
@@ -257,6 +264,11 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
     if (!welcomed && empty) db.prepare("insert or replace into settings (key, value) values ('welcomed', ?)").run(JSON.stringify(new Date().toISOString()))
   }
   void takeArrivals().catch((error) => console.error('Copies from another book:', error))
+  // Opened now: kept on the shelf, for the order every list of books keeps. Never from the sandbox, which leaves your own folder as it was.
+  if (!SANDBOX) {
+    const shelf = readShelf()
+    writeShelf({ ...shelf, opened: { ...shelf.opened, [here()]: Date.now() } })
+  }
 
   handle('list', () => ({ current: here(), name: nameOf(here()), books: books(), color: SANDBOX ? null : (books().find((one) => one.current)?.color ?? null) }))
 
@@ -316,7 +328,8 @@ export function registerBooks(backupBase: () => string, onChange: () => void): v
       else return null
     }
     const shelf = readShelf()
-    writeShelf({ ...shelf, books: shelf.books.filter((one) => one.id !== id), last: shelf.last === id ? 'default' : shelf.last })
+    const { [id]: _gone, ...opened } = shelf.opened ?? {}
+    writeShelf({ ...shelf, books: shelf.books.filter((one) => one.id !== id), last: shelf.last === id ? 'default' : shelf.last, opened })
     tell()
     return kept
   })

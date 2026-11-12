@@ -4505,11 +4505,15 @@ function updateTray(): void {
       {
         label: SANDBOX ? 'Book: Sandbox' : `Book: ${nameOf(here())}`,
         submenu: [
-          ...books().map((book) => ({ label: book.name, type: 'radio' as const, checked: book.current, click: () => void (book.current || inHome('haligtree:book-switch', book.id)) })),
-          { label: 'Sandbox', type: 'radio' as const, checked: SANDBOX, click: () => void (SANDBOX || openSandbox()) },
+          // Your books in the order every list of them keeps (the open one, then the one you were just in). In the
+          // sandbox none of them is open, so none is a ticked choice: plain lines, each a way out to that book.
+          ...books().map((book) => (SANDBOX
+            ? { label: book.name, click: () => inHome('haligtree:book-switch', book.id) }
+            : { label: book.name, type: 'radio' as const, checked: book.current, click: () => void (book.current || inHome('haligtree:book-switch', book.id)) })),
           { type: 'separator' as const },
           { label: 'New book…', enabled: !SANDBOX, click: () => inHome('haligtree:book-new') },
-          ...(SANDBOX ? [] : [{ label: 'Restore from a backup…', click: () => void restore() }])
+          // The sandbox is someone else's book, never one of yours: its own line, as in the sidebar's menu. In it, the way back is at this menu's top.
+          ...(SANDBOX ? [] : [{ label: 'Open the sandbox…', click: () => openSandbox() }, { label: 'Restore from a backup…', click: () => void restore() }])
         ]
       },
       {
