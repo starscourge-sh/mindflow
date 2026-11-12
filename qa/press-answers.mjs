@@ -34,7 +34,7 @@ const INSTRUMENT = `(() => {
     if (prev && next.child === prev.child) return
     for (let c = next.child; c; c = c.sibling) walk(c, c.alternate)
   }
-  window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
+  if (!window.__paNoHook) window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
     renderers: new Map(), supportsFiber: true, checkDCE() {},
     inject(r) { const id = this.renderers.size + 1; this.renderers.set(id, r); return id },
     onScheduleFiberRoot() {}, onCommitFiberUnmount() {}, onPostCommitFiberRoot() {}, setStrictMode() {},
@@ -106,11 +106,13 @@ const table = []
 const skipped = []
 try {
   await h.waitForTimeout(2500)
+  // NO_HOOK=1 leaves React's devtools hook out (no count of what React drew), to see the times without it.
+  if (process.env.NO_HOOK) await electron.context().addInitScript('window.__paNoHook = true')
   await electron.context().addInitScript(INSTRUMENT)
   await h.reload()
   await h.waitForSelector('aside[data-chrome] [data-side-row]', { timeout: 60000 })
   await h.waitForTimeout(5000)
-  const dev = await h.evaluate(() => [...window.__REACT_DEVTOOLS_GLOBAL_HOOK__.renderers.values()].some((r) => r.bundleType === 1))
+  const dev = process.env.DEV === '1' || (await h.evaluate(() => [...(window.__REACT_DEVTOOLS_GLOBAL_HOOK__?.renderers?.values?.() ?? [])].some((r) => r.bundleType === 1)))
   const BAR = Number(process.env.FIRST_MS ?? (dev ? 150 : 100))
   const can = await h.evaluate(() => window.__pa.can)
   console.log(`${dev ? 'dev-mode' : 'plain'} build; bar ${BAR}ms; Event Timing ${can.events ? 'on' : 'missing'}, Long Animation Frames ${can.loaf ? 'on' : 'missing'}  (${load()})`)

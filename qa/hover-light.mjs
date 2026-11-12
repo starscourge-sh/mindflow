@@ -153,20 +153,24 @@ try {
       arrivals.push({ row: v.row, stayed: v.until - v.came, ms: on ? on.now - v.came : null })
     }
     let behind = 0
+    let worstAt = ''
     let between = 0
     for (const f of frames) {
       if (f.top === null || f.o < 0.05) continue
       const m = [...moves].reverse().find((one) => one.t <= f.now)
       if (!m) continue
       const lightRow = rowAt(f.top + f.h / 2)
-      behind = Math.max(behind, Math.abs(rowAt(m.y) - lightRow))
+      const by = Math.abs(rowAt(m.y) - lightRow)
+      // The worst frame, said in full when the light fell behind: where the pointer was, where the light, how long after the move.
+      if (by > behind) worstAt = `pointer at ${Math.round(m.y)} on row ${rowAt(m.y)} (top ${Math.round(rows[rowAt(m.y)].top)}, ${Math.round(rows[rowAt(m.y)].h)} tall), light at ${Math.round(f.top)} to ${Math.round(f.top + f.h)} lit ${f.o.toFixed(2)} nearest row ${lightRow} (top ${Math.round(rows[lightRow].top)}), ${Math.round(f.now - m.t)}ms after the move; rows' tops ${rows.map((r) => Math.round(r.top)).join(' ')}`
+      behind = Math.max(behind, by)
       if (!rows.some((r) => Math.abs(r.top - f.top) <= 1)) between++
     }
     const gaps = frames.slice(1).map((f, i) => f.t - frames[i].t)
     const sorted = [...gaps].sort((a, b) => a - b)
     return {
       frames: frames.length, worst: Math.max(0, ...gaps), p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0, missed: gaps.filter((g) => g > 25).length,
-      crossed: visits.length - 1, arrivals, behind, between, commits, tips,
+      crossed: visits.length - 1, arrivals, behind, worstAt, between, commits, tips,
       other: Object.entries(other).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, n]) => `${name} x${n}`).join(', '),
       drawn: Object.entries(drawn).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, n]) => `${name} x${n}`).join(', ')
     }
@@ -183,9 +187,33 @@ try {
     commitsInAll += seen.commits
     console.log(`${name} (${speed} px/s): ${seen.frames} frames, worst frame ${seen.worst.toFixed(1)}ms, 95th ${seen.p95.toFixed(1)}ms, ${seen.missed} missed; ${seen.crossed} rows crossed, ${stayed.length} stayed on; light wholly on: median ${ms(times_[Math.floor(times_.length / 2)])}, worst ${ms(times_[times_.length - 1])}; most rows behind ${seen.behind}; React commits ${seen.commits}, ${seen.tips} of them a row's tip or preview card${seen.drawn ? ` (${seen.drawn})` : ''}  (${load()})`)
     if (name !== 'fast') check(`${name}: the light is wholly on each row the pointer stays on within ${WITHIN}ms`, stayed.length > 0 && late.length === 0, `${late.length} of ${stayed.length} late: ${late.slice(0, 6).map((a) => `row ${a.row} ${ms(a.ms)}`).join(', ')}`)
-    if (name !== 'slow') check(`${name}: the light is never more than one row behind the pointer`, seen.behind <= 1, `${seen.behind} rows behind at worst`)
+    if (name !== 'slow') check(`${name}: the light is never more than one row behind the pointer`, seen.behind <= 1, `${seen.behind} rows behind at worst${seen.behind > 1 ? `: ${seen.worstAt}` : ''}`)
     check(`${name}: no frame of the sweep is missed`, seen.missed === 0, `${seen.missed} frames over 25ms, worst ${seen.worst.toFixed(1)}ms`)
     check(`${name}: a pointer move draws nothing in React (a row's own tip or preview card apart)`, seen.commits - seen.tips === 0, `${seen.commits - seen.tips} commits besides ${seen.tips} for tips, over ${seen.crossed} rows crossed: ${seen.other}`)
+  }
+
+  // Pointed into the widest gap between two rows, exactly one row is lit (the nearer) and the light is wholly on it.
+  {
+    const rows = await h.evaluate(() => { const rows = window.__hl.start(); window.__hl.stop(); return rows })
+    let at = 0
+    rows.forEach((r, i) => { if (i < rows.length - 1 && rows[i + 1].top - r.top - r.h > rows[at + 1].top - rows[at].top - rows[at].h) at = i })
+    const gap = rows[at + 1].top - rows[at].top - rows[at].h
+    const y = rows[at].top + rows[at].h + gap * 0.3
+    await h.mouse.move(rows[0].x + 400, y)
+    await h.waitForTimeout(1100)
+    await h.mouse.move(rows[0].x, y)
+    await h.waitForTimeout(150)
+    const lit = await h.evaluate(() => {
+      const list = document.querySelector('aside[data-chrome] [data-side-row]').closest('.isolate')
+      const rows = [...list.querySelectorAll('[data-side-row][data-fluid-hover-active]')]
+      const light = [...list.querySelectorAll('[data-glide]')].filter((el) => el.className.includes('bg-accent/60')).find((el) => parseFloat(getComputedStyle(el).opacity) > 0.9)
+      const a = rows[0]?.getBoundingClientRect()
+      const b = light?.getBoundingClientRect()
+      return { rows: rows.length, top: a?.top, light: b ? { top: b.top, h: b.height } : null, h: a?.height }
+    })
+    check('in a gap between two rows, one row is lit: the nearer, with the light wholly on it', lit.rows === 1 && Math.abs(lit.top - rows[at].top) <= 1 && !!lit.light && Math.abs(lit.light.top - lit.top) <= 1 && Math.abs(lit.light.h - lit.h) <= 1, `gap of ${Math.round(gap)}px under the row at ${Math.round(rows[at].top)}: ${JSON.stringify(lit)}`)
+    await h.mouse.move(rows[0].x + 400, y)
+    await h.waitForTimeout(200)
   }
 
   // Reduce motion, then the app's own Motion switch: the light goes from row to row and is never seen between two.
