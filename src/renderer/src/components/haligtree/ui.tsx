@@ -74,6 +74,14 @@ import { formatBarShown } from '@/components/selection/selection-menu'
  */
 let pickingWords = false
 let pressInWords = false
+/**
+ * How many popovers that are tied to a thing on the page and hold the stage are up (the Calendar's, on a draft or
+ * on an event or a task): while one is, no tip comes up beside or over it from anything outside it, the thing's
+ * own name included. One floating thing at a time, as with the format bar. Counted, so two never leave it stuck.
+ */
+let staged = 0
+/** Call as such a popover comes up; what it gives back is called as it goes. */
+export const stage = (): (() => void) => (staged++, () => void staged--)
 if (typeof document !== 'undefined') {
   document.addEventListener('pointerdown', (event) => {
     pressInWords = event.target instanceof Element && !!event.target.closest('[contenteditable=true]')
@@ -2158,8 +2166,9 @@ function Tipped({ label, offset, side, handed: { ref: outer, ...handed } = {}, c
   // Kept as it closes, so the tip fades out with its words still in it.
   const [shown, setShown] = useState<ReactNode>(label)
   const onOpenChange = (next: boolean): void => {
-    // No tip while a format bar is up, or while a drag is picking words: one floating thing at a time.
-    if (next && (!label || formatBarShown() || pickingWords)) return
+    // No tip while a format bar is up, while a drag is picking words, or from outside a popover that holds the stage
+    // (its own controls keep theirs): one floating thing at a time.
+    if (next && (!label || formatBarShown() || pickingWords || (staged > 0 && !trigger.current?.closest('[data-takes-keys]')))) return
     place.onShow?.(next)
     if (!next || typeof label !== 'string') return (setShown(next ? label : shown), setOpen(next))
     const seen = (trigger.current?.innerText ?? '').replace(/\s+/g, ' ').trim().toLowerCase()

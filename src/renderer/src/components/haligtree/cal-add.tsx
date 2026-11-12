@@ -12,7 +12,7 @@ import { dayjs, dayKey } from '../../../../main/dates'
 import { EventRows, NewEvent, tint, type Shown } from './calendar-events'
 import { KindSwitch, NewTask } from './day-side'
 import { TaskRows } from './tasks-view'
-import { Tip, refuse, toast } from './ui'
+import { refuse, stage, toast } from './ui'
 import type { RowItem } from './row-menu'
 
 /**
@@ -135,6 +135,8 @@ function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, on
   onOutside: () => void
 }): React.JSX.Element {
   const beside = side === 'right' || side === 'left'
+  // While it is up, no tip comes up beside or over it from the page (ui.tsx, `stage`): one floating thing at a time.
+  useEffect(() => stage(), [])
   return (
     <PopoverContent data-cal-add={kind} data-cal-open={opened} data-takes-keys role="dialog" aria-label={label}
       // Open on a thing that exists, it is beside the page as its side panel is (ui.tsx, `typing`): a change made in its rows
@@ -310,12 +312,10 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
         head={
           <div className="flex h-8 min-w-0 flex-1 items-center gap-2 pl-0.5">
             {mark}
-            <span data-cal-open-kind className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{kind === 'event' ? 'Event' : 'Task'}</span>
-            {!event?.readOnly && (
-              <Tip label={kind === 'event' ? 'Open the event’s page, with its notes' : 'Open the task’s page, with its steps and notes'}>
-                <Button type="button" variant="ghost" size="sm" data-cal-open-page className="-mr-1.5" onClick={onPage}>Open</Button>
-              </Tip>
-            )}
+            {/* One of your Mac's says whose it is and that it is read only, where the others say what they are. */}
+            <span data-cal-open-kind className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{event?.readOnly ? `${event.calendarId.replace(/^mac:/, '')}, read only` : kind === 'event' ? 'Event' : 'Task'}</span>
+            {/* No tip on it: nothing floats over the popover, and its word says what it does. */}
+            {!event?.readOnly && <Button type="button" variant="ghost" size="sm" data-cal-open-page aria-label={kind === 'event' ? 'Open the event’s page' : 'Open the task’s page'} className="-mr-1.5" onClick={onPage}>Open</Button>}
           </div>
         }>
         {event
