@@ -168,10 +168,15 @@ function useHeld<T>(items: T[], keyOf: (item: T) => string): { shown: T[]; keys:
   const incoming = items.map(keyOf).join('\n')
   // The saved order (or anything else) has arrived: it is the truth again.
   useEffect(() => setHeld(null), [incoming])
-  const byId = new Map(items.map((item) => [keyOf(item), item]))
-  const shown = held ? held.map((id) => byId.get(id)).filter((one): one is T => !!one) : items
+  // The same list from one draw to the next unless the rows or their held order change: what is drawn from it is kept (Rows).
+  const shown = useMemo(() => {
+    if (!held) return items
+    const byId = new Map(items.map((item) => [keyOf(item), item]))
+    return held.map((id) => byId.get(id)).filter((one): one is T => !!one)
+  }, [held, items]) // eslint-disable-line react-hooks/exhaustive-deps
+  const keys = useMemo(() => shown.map(keyOf), [shown]) // eslint-disable-line react-hooks/exhaustive-deps
   return {
-    shown, keys: shown.map(keyOf), setHeld, sorting,
+    shown, keys, setHeld, sorting,
     lifting: () => (clearTimeout(settle.current), setSorting(true)),
     // A row gliding to a new place from a menu stays put until the drop has settled (Sorting).
     landed: () => (clearTimeout(settle.current), void (settle.current = setTimeout(() => setSorting(false), 320)))
@@ -217,8 +222,12 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
     return () => window.removeEventListener('pointermove', follow)
   }, [shot, tabs])
   // The rows' names, once a draw: asked on every move of the pointer.
-  const known = useMemo(() => new Set(keys), [keys.join('\n')]) // eslint-disable-line react-hooks/exhaustive-deps
-  if (!onMove && !onNest) return <>{children(items)}</>
+  const known = useMemo(() => new Set(keys), [keys])
+  // The rows as the page draws them, drawn again only when the page or their order changes. Each new place while carrying
+  // draws this list again; drawing every row's own contents with it (a task's menu, marks and steps) cost frames in a long
+  // list. Each row's slide still reaches it, through carry.tsx's own context.
+  const drawn = useMemo(() => children(shown), [children, shown])
+  if (!onMove && !onNest) return <>{drawn}</>
   read.current = (): void => {
     const lift = carrying.current
     if (!lift) return
@@ -305,7 +314,7 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
       <SortableContext items={keys} strategy={stayPut}>
         <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={keys.join('\n')}>
           <Shaped aim={aim} keys={keys} hand={shot?.id ?? null} many={shot ? [shot.id] : []} span={span} inset={0} row={span} snap={snap} blocks={[]} footRoom={false} within={shot?.within}>
-            {children(shown)}
+            {drawn}
             {/* Folded in the hand, the list keeps the height it had: one scrolled to its end does not jump. */}
             {folded > 0.5 && <div aria-hidden data-kept-height="" style={{ height: folded }} />}
           </Shaped>

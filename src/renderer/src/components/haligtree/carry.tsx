@@ -231,16 +231,19 @@ function useClear(): { ref: (node: HTMLElement | null) => void; y: MotionValue<n
   useLayoutEffect(() => {
     let side: 'under' | 'over' | null = null
     const look = (): void => {
-      const box = card.current?.getBoundingClientRect()
+      const own = card.current?.getBoundingClientRect()
+      // As it is drawn: a card turned a little in the hand (the Matrix's) reaches past the box that holds it.
+      const turned = card.current?.firstElementChild?.getBoundingClientRect()
+      const box = own && { top: Math.min(own.top, turned?.top ?? own.top), bottom: Math.max(own.bottom, turned?.bottom ?? own.bottom) }
       const line = lineNow?.isConnected ? lineNow.getBoundingClientRect() : null
       let next = 0
-      if (box?.height && line?.width) {
+      if (box && box.bottom > box.top && line?.width) {
         const at = line.top + line.height / 2
         // The side the pointer is on, kept through a few pixels round the line so the card never flutters across it.
         side = side === 'under' ? (pointerY < at - 4 ? 'over' : 'under') : side === 'over' ? (pointerY > at + 4 ? 'under' : 'over') : pointerY >= at ? 'under' : 'over'
         // Where its middle would be by the pointer alone, and how far that is from clear of the line.
-        const middle = box.top + box.height / 2 - y.get()
-        const reach = box.height / 2 + CLEAR
+        const middle = (box.top + box.bottom) / 2 - y.get()
+        const reach = (box.bottom - box.top) / 2 + CLEAR
         next = side === 'under' ? Math.max(0, at + reach - middle) : Math.min(0, at - reach - middle)
       } else side = null
       if (still()) (to.jump(next), y.jump(next))
@@ -507,17 +510,29 @@ export function useTall(block: RefObject<HTMLElement | null>): number {
 
 /** The row whose place the pointer is over, as the list lies before anything slid aside; in the air between two, the nearer. */
 export function rowAt(known: Set<string>, y: number, within: ParentNode | null = null): { id: string; node: HTMLElement; top: number; height: number } | null {
-  let over: { id: string; node: HTMLElement; top: number; height: number } | null = null
-  let far = Infinity
-  for (const node of (within ?? document).querySelectorAll<HTMLElement>('[data-sortable-id]')) {
-    const id = node.dataset.sortableId!
-    if (!known.has(id)) continue
+  const nodes: HTMLElement[] = []
+  for (const node of (within ?? document).querySelectorAll<HTMLElement>('[data-sortable-id]')) if (known.has(node.dataset.sortableId!)) nodes.push(node)
+  if (!nodes.length) return null
+  const read = (node: HTMLElement): { id: string; node: HTMLElement; top: number; height: number; off: number } => {
     const box = node.getBoundingClientRect()
     const top = box.top - new DOMMatrixReadOnly(getComputedStyle(node).transform).m42
-    const off = y < top ? top - y : y > top + box.height ? y - top - box.height : 0
-    if (off < far) (far = off), (over = { id, node, top, height: box.height })
+    return { id: node.dataset.sortableId!, node, top, height: box.height, off: y < top ? top - y : y > top + box.height ? y - top - box.height : 0 }
   }
-  return over
+  // Rows stand in order down the page, so the one at the pointer is found by halving: a handful of rows read on each
+  // move of the pointer, where every row on show was (in a long list that cost frames while carrying).
+  let [low, high] = [0, nodes.length - 1]
+  while (low < high) {
+    const mid = (low + high + 1) >> 1
+    if (read(nodes[mid]).top <= y) low = mid
+    else high = mid - 1
+  }
+  let over = read(nodes[low])
+  // In the air between two (or past either end), every row is read and the nearest taken.
+  if (over.off > 0) for (const node of nodes) {
+    const one = read(node)
+    if (one.off < over.off) over = one
+  }
+  return { id: over.id, node: over.node, top: over.top, height: over.height }
 }
 
 /** A dead band round a row's middle: the side kept until the pointer is well past it, so small moves never flip it. */
