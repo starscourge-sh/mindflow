@@ -38,7 +38,12 @@ const step = async (sel, name, look, on = h) => {
 const said = (seen) => seen.map((one) => (one ? `${one.opacity}${one.scale !== 1 ? `×${one.scale}` : ''}` : 'gone')).join(' ')
 
 try {
-  await v('settings:set', { hintRate: 0 })
+  // No hint sentences typing themselves in; the timers read in quick capture's line (a new book starts with them off);
+  // and two property names in use, so a new property has names to offer.
+  await v('settings:set', { hintRate: 0, focusTools: true })
+  await v('props:type', 'Deadline', 'date')
+  await v('props:type', 'Director', 'text')
+  let note
   for (const look of ['light', 'dark']) {
     await c.look(look)
     await go('calendar')
@@ -130,6 +135,42 @@ try {
         await box.keyboard.press('Escape')
         await box.waitForTimeout(500)
       } else check(`${look}: quick capture has a Display button to open the sheet from`, false)
+    }
+    // 7. The hint over a token in quick capture's line (12 Nov): frosted, and faded in until now. "25m" is lit as a timer;
+    // the pointer on it brings the hint, which grows down from the token.
+    {
+      const box = c.page
+      await box.evaluate(() => window.api.showPrompt())
+      await box.waitForTimeout(400)
+      await c.qa.reset()
+      await box.keyboard.type('25m reading', { delay: 15 })
+      await box.waitForTimeout(600)
+      const token = box.locator('.box-token[data-box-token="timer"]').first()
+      if (await token.count()) {
+        await box.mouse.move(5, 5)
+        await hold('[data-token-hint]', box)
+        await token.hover()
+        seen = await step('[data-token-hint]', 'tokenhint', look, box)
+        check(`${look}: the hint over a token in quick capture is whole at every step of its entrance, never faded, and grows from the token's side`, grows(seen), `${said(seen)}; ${seen[0]?.clip} to ${seen.at(-1)?.clip}`)
+        await box.mouse.move(5, 5)
+      } else check(`${look}: "25m" in quick capture's line is lit as a timer to point at`, false)
+      await c.qa.reset()
+    }
+    // 8. The names under a new property's name, on a note's strip (12 Nov): the same.
+    {
+      note ??= await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A film to see' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Somewhere below the title' }] }] } }))
+      await go('captures')
+      await c.send('capture', note)
+      await wait(1500)
+      const add = h.locator('[data-property-strip] [data-add-property]').first()
+      if (await add.count()) {
+        await hold('[data-name-options]')
+        await add.click()
+        seen = await step('[data-name-options]', 'propnames', look)
+        check(`${look}: the names under a new property are whole at every step of their entrance, never faded, and grow down from the field`, grows(seen), `${said(seen)}; ${seen[0]?.clip} to ${seen.at(-1)?.clip}`)
+        await h.keyboard.press('Escape')
+        await wait(350)
+      } else check(`${look}: the note's strip has "Add property"`, false)
     }
   }
   await c.look('light')
