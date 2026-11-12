@@ -55,6 +55,10 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
   listRef.current = list
   const props = useRef({ front, trailOf, nameOf, go })
   props.current = { front, trailOf, nameOf, go }
+  // What the open list does with the wheel, and how the page under a swipe is let go of: made where the swipe is
+  // heard (the first effect), used where the list is watched (the second).
+  const listWheel = useRef<(event: WheelEvent) => void>(() => undefined)
+  const letMove = useRef<() => void>(() => undefined)
 
   useEffect(() => {
     let g: G | null = null
@@ -64,6 +68,7 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
     let hold = 0
     let rest = 0
     let dy = 0
+    let stopping = false // the wheel now in hand came by the list's own listener, which may stop it
     // With natural scrolling (the Mac's default) the wheel's deltas run against the fingers. Read again as each swipe starts.
     let natural = true
     const readNatural = (): void => void window.api.naturalScrolling?.().then((on) => (natural = on))
@@ -80,12 +85,33 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
     // wheel: it never starts a swipe nor opens the list, which is only for fingers resting past the tap.
     let touching = false
     const draw = (): void => setShown(g ? { way: g.way, rect: g.rect, pull: g.pull, armed: g.armed } : null)
+    // The page never moves under a swipe or under the list. The wheel itself is not stopped for that (below): every
+    // box under the pointer that scrolls up and down is held still instead, for as long as the swipe or its list
+    // lasts, by taking its scrolling away (its bar keeps its room, so nothing in it is laid out again; a page that
+    // glides reads the same sign and leaves the wheel be, ui.tsx useSmooth), and given it back after.
+    let stilled: [box: HTMLElement, overflow: string, gutter: string][] = []
+    const holdStill = (target: Element | null): void => {
+      for (let el = target; el && el !== document.body; el = el.parentElement) {
+        if (!(el instanceof HTMLElement) || el.scrollHeight <= el.clientHeight + 1 || !/(auto|scroll)/.test(getComputedStyle(el).overflowY)) continue
+        stilled.push([el, el.style.overflowY, el.style.scrollbarGutter])
+        el.style.overflowY = 'hidden'
+        el.style.scrollbarGutter = 'stable'
+        // Said on the box, for whoever asks which boxes scroll (qa/swipe-back.mjs).
+        el.setAttribute('data-swipe-held', '')
+      }
+    }
+    const move = (): void => {
+      for (const [el, overflow, gutter] of stilled) ((el.style.overflowY = overflow), (el.style.scrollbarGutter = gutter), el.removeAttribute('data-swipe-held'))
+      stilled = []
+    }
+    letMove.current = move
     const end = (why: string): void => {
       note({ end: why, pull: g ? Math.round(g.pull) : null, armed: g?.armed ?? null })
       clearTimeout(hold)
       clearTimeout(rest)
       g = null
       spent = true
+      move()
       draw()
     }
     const goBy = (key: string, to: number): void => {
@@ -147,8 +173,10 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       last = now
       const open = listRef.current
       if (open) {
-        // The list has the fingers while it is up: the page under it never scrolls.
-        event.preventDefault()
+        // The list has the fingers while it is up: the page under it never scrolls. Stopped by the list's own
+        // listener (the second effect); the rest of the swipe that opened it cannot be stopped any more, and the
+        // boxes under it are still held from the swipe.
+        if (stopping) event.preventDefault()
         // Two fingers up and down move the pick, a light tap a row.
         if (spent && !fresh) return
         spent = false
@@ -172,8 +200,8 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
         if (phases && !touching) return void ((ignored = true), note({ skip: 'the glide after the fingers lifted', dx: event.deltaX }))
         g = startable(event)
         if (!g) return void ((ignored = true), note({ skip: 'a scroller, the Map or nowhere to go', dx: event.deltaX }))
+        holdStill(event.target instanceof Element ? event.target : null)
       }
-      event.preventDefault()
       const fingers = fingersX(event) * -g.way // toward the middle of the page from the edge it came from
       g.pull = Math.max(0, g.pull + fingers)
       g.steps.push(Math.abs(event.deltaX))
@@ -201,19 +229,32 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
     }
     // A probe sends the same words the Mac would (qa/swipe-back.mjs).
     const onProbe = (event: Event): void => onPhase(String((event as CustomEvent).detail))
-    window.addEventListener('wheel', onWheel, { passive: false })
+    // The wheel is heard, never stopped, here. A listener on the window that may stop the wheel makes every wheel
+    // gesture anywhere in the window wait for the page's script before the browser may scroll, whatever the
+    // gesture turns out to be: each push of the fingers over a long note waited for the note to finish drawing.
+    // The page is held still under a swipe another way (`holdStill`), and the one listener that may stop the
+    // wheel exists only while the list is up (the second effect).
+    window.addEventListener('wheel', onWheel, { passive: true })
     // While the list is up it hears the fingers before anything on the page (the page's smooth scroll included).
-    const onListWheel = (event: WheelEvent): void => void (listRef.current && (event.stopPropagation(), onWheel(event)))
-    window.addEventListener('wheel', onListWheel, { passive: false, capture: true })
+    listWheel.current = (event) => {
+      if (!listRef.current) return
+      event.stopPropagation()
+      stopping = true
+      try {
+        onWheel(event)
+      } finally {
+        stopping = false
+      }
+    }
     window.addEventListener('haligtree:swipe-phase', onProbe)
     const off = window.api.onSwipePhase?.(onPhase)
     return () => {
       window.removeEventListener('wheel', onWheel)
-      window.removeEventListener('wheel', onListWheel, { capture: true })
       window.removeEventListener('haligtree:swipe-phase', onProbe)
       off?.()
       clearTimeout(hold)
       clearTimeout(rest)
+      move()
     }
   }, [])
 
@@ -233,11 +274,18 @@ export function SwipeBack({ front, trailOf, nameOf, go }: Props): React.JSX.Elem
       event.stopPropagation()
     }
     const onDown = (event: PointerEvent): void => void (!(event.target as Element)?.closest?.('[data-swipe-list]') && setList(null))
+    // The only listener that may stop the wheel, and only while the list is up: fingers that come down again move
+    // its pick, and the page under it stays where it is.
+    const onListWheel = (event: WheelEvent): void => listWheel.current(event)
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('pointerdown', onDown, true)
+    window.addEventListener('wheel', onListWheel, { passive: false, capture: true })
     return () => {
       window.removeEventListener('keydown', onKey, true)
       window.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('wheel', onListWheel, { capture: true })
+      // The list gone: the page under it scrolls again.
+      letMove.current()
     }
   }, [list !== null]) // eslint-disable-line react-hooks/exhaustive-deps
 
