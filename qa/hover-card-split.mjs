@@ -25,7 +25,10 @@ const rested = async (locator) => {
   const name = await locator.boundingBox()
   await h.mouse.move(name.x - 30, name.y - 30)
   await h.mouse.move(name.x + 4, name.y + name.height / 2, { steps: 4 })
-  await wait(1100)
+  // The card comes after its pause and its words are read from the book: waited for, up to three seconds (a fixed
+  // second read "no card" on a busy machine), then given a moment to settle where it stands.
+  await card().first().waitFor({ state: 'visible', timeout: 3000 }).catch(() => {})
+  await wait(250)
   const up = await card().boundingBox().catch(() => null)
   const panes = await h.evaluate(() => [...document.querySelectorAll('[data-pane]')].filter((one) => one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return { left: Math.round(r.left), right: Math.round(r.right) } }))
   const round = (box) => box && { x: Math.round(box.x), y: Math.round(box.y), w: Math.round(box.width), h: Math.round(box.height) }
