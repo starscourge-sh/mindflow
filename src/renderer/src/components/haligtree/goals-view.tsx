@@ -83,20 +83,59 @@ const loggedSaid = (item: Pick<Item, 'clues' | 'lastLog'>): string => item.clues
 /** The goal just crossed off, so its page presses the stamp once, with its thud; every later visit finds it already there. */
 let crossing: string | null = null
 
-/** Whether a goal is chosen for Home: kept in starred_at, which only practice cards otherwise use. */
-const onHome = (goal: Item): boolean => !!goal.starredAt
-/** Choose a goal for the strip on Home and Today's page, or take it off; undoable. */
-const setOnHome = (goal: Item, on: boolean): void => {
+/**
+ * What Home shows of your goals (and today's Journal page with it): nothing until you ask, the nearest few, or only
+ * the ones you chose, in the order you put them. Kept in Settings (goalsOnHome, goalsNearest, goalsChosen); read here
+ * as the settings last said, so a menu built outside a component (goalMenu) says the same as the page it is on.
+ */
+type HomeGoals = { mode: 'off' | 'nearest' | 'chosen'; nearest: number; ids: string[] }
+/** The most that can be chosen: the strip is a glance, never a list. */
+export const HOME_GOALS = 3
+let homeGoals: HomeGoals = { mode: 'off', nearest: 2, ids: [] }
+const homeOf = (settings: Settings | null): HomeGoals => ({ mode: settings?.goalsOnHome ?? 'off', nearest: settings?.goalsNearest ?? 2, ids: settings?.goalsChosen ?? [] })
+/** The settings, read in whatever component draws goals: Home's choice of them follows as it changes. */
+export const useHomeGoals = (settings: Settings | null): HomeGoals => (homeGoals = homeOf(settings))
+const keepHome = (next: Partial<Pick<Settings, 'goalsOnHome' | 'goalsNearest' | 'goalsChosen'>>): Promise<unknown> => haligtree.setSettings(next)
+/** The goals Home shows now, out of the open ones (nearest first): the chosen in their own order, or the nearest few. */
+export const goalsForHome = (open: Item[], home: HomeGoals): Item[] =>
+  home.mode === 'off' ? []
+    : home.mode === 'nearest' ? open.slice(0, home.nearest)
+      : home.ids.map((id) => open.find((one) => one.id === id)).filter((one): one is Item => !!one).slice(0, HOME_GOALS)
+/** Whether a goal is one of those chosen for Home. */
+const onHome = (goal: Item): boolean => homeGoals.mode === 'chosen' && homeGoals.ids.includes(goal.id)
+/**
+ * Choose a goal for Home, or take it off; undoable. Choosing one is also how Home's goals are turned on: from off, or
+ * from the nearest few, Home then shows only what was chosen.
+ */
+export const setOnHome = (goal: Item, on: boolean): void => {
+  const was = homeGoals
+  const chosen = was.mode === 'chosen' ? was.ids : []
+  if (on && chosen.filter((id) => id !== goal.id).length >= HOME_GOALS) return refuse(`Home shows ${HOME_GOALS} goals at most: take one off first`)
+  const ids = on ? [...chosen.filter((id) => id !== goal.id), goal.id] : chosen.filter((id) => id !== goal.id)
   chime(on ? 'stick' : 'unstick')
-  void haligtree.star(goal.id, on).then(() =>
-    toast(on ? 'Shown on Home: only the goals you choose show there' : 'Off Home', () => void haligtree.star(goal.id, !on)))
+  void keepHome({ goalsOnHome: 'chosen', goalsChosen: ids }).then(() =>
+    toast(on ? (was.mode === 'chosen' ? 'Shown on Home' : 'Shown on Home: only the goals you choose show there') : ids.length ? 'Off Home' : 'Off Home: none is chosen now, so no goals show there',
+      () => void keepHome({ goalsOnHome: was.mode, goalsChosen: was.ids })))
+}
+/** A chosen goal a place up or down among the chosen; undoable. */
+export const moveOnHome = (goal: Item, by: -1 | 1): void => {
+  const was = homeGoals.ids
+  const at = was.indexOf(goal.id)
+  const to = at + by
+  if (homeGoals.mode !== 'chosen' || at < 0 || to < 0 || to >= was.length) return chime('nope')
+  const ids = [...was]
+  ids.splice(at, 1)
+  ids.splice(to, 0, goal.id)
+  chime('tap')
+  void keepHome({ goalsChosen: ids }).then(() => toast(by < 0 ? 'Moved up on Home' : 'Moved down on Home', () => void keepHome({ goalsChosen: was })))
 }
 
-/** The goals strip put away from Home and today's Journal page; undoable, and Settings › Goals brings it back. */
+/** The goals put away from Home and today's Journal page; undoable, and Settings brings them back. */
 const hideStrip = (): void => {
+  const was = homeGoals.mode
   chime('unstick')
-  void haligtree.setSettings({ goalStrip: false }).then(() =>
-    toast('Goals hidden here. “Goals at the top” in Settings brings them back', () => void haligtree.setSettings({ goalStrip: true })))
+  void keepHome({ goalsOnHome: 'off' }).then(() =>
+    toast('Goals hidden here. “Goals on Home” in Settings brings them back', () => void keepHome({ goalsOnHome: was })))
 }
 
 /** The short name a goal is logged under in quick capture: its last two words, as "+chapter three:" is for "Finish chapter three" (clueTarget finds the goal from it). */
@@ -420,6 +459,8 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   // shows under each tab with only that tab's goals in it; goals in no group stay loose below the groups, in the tab's
   // own order (a drag only joins or leaves a group).
   const own = useOwnOrder('goal')
+  // Home's choice of goals, for each row's “Show on Home”.
+  useHomeGoals(useLive(haligtree.settings, null as Settings | null))
   const letGo = useRef<() => void>(() => undefined)
   const folding = useFolding('goal', all, (a, b) => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt), own.order, items, false, () => letGo.current(), [], () => undefined,
     show === 'open' ? sectionsOf(items, today) : undefined, undefined, { noun: ['goal', 'goals'] })
@@ -587,6 +628,7 @@ export function Answers({ item, small = false, onPick }: { item: { id: string; g
 function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): React.JSX.Element {
   const today = useToday()
   const settings = useLive(haligtree.settings, null as Settings | null)
+  useHomeGoals(settings)
   // A someday goal: no day, so no countdown, no road and nothing warming; its own colour, calm.
   const dateless = someday(item)
   const target = item.goalAt ?? today
@@ -748,7 +790,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
                 {beacon === 'always' ? 'On every Space, whenever sticky notes are out.' : beacon === 'sometimes' ? 'Out a few times a day, then tucked away. In the last week it stays.' : 'The menu bar and Home still show it.'}
               </span>
             </div>
-            <Prop icon={ICON(ACT.home(onHome(item)))} active={onHome(item)} onClick={() => setOnHome(item, !onHome(item))} tip={onHome(item) ? 'Shown at the top of Home' : 'Once you choose any, only the ones you choose show at the top of Home'}>
+            <Prop icon={ICON(ACT.home(onHome(item)))} active={onHome(item)} onClick={() => setOnHome(item, !onHome(item))} tip={onHome(item) ? 'Shown at the top of Home' : 'Home then shows only the goals you choose, in the order you chose them'}>
               <span data-goal-home={onHome(item) ? 'on' : 'off'}>{ACT.home(onHome(item))}</span>
             </Prop>
           </Island>
@@ -1359,28 +1401,43 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
   // Whatever page it is on waits for it (lib/reads-in.tsx): never a card popping in over the rest.
   useReading(!settings || unloaded(all))
   const today = useToday()
+  const home = useHomeGoals(settings)
   const open = openOnes(all)
-  if (!open.length || settings?.goalStrip === false) return null
-  // Chosen for Home, only those show (three at most); none chosen, the nearest two.
-  const chosen = open.filter(onHome).slice(0, 3)
-  const shown = chosen.length ? chosen : open.slice(0, 2)
+  // Off until asked for; then the nearest few, or only the chosen, in the order they were put.
+  const shown = goalsForHome(open, home)
+  if (!shown.length) return null
+  const chosen = home.mode === 'chosen'
   return (
-    <div className={`flex flex-col ${className}`} role="group" aria-label="Goals">
-      {shown.map((goal) => {
+    <div className={`flex flex-col ${className}`} role="group" aria-label="Goals" data-goals-home={home.mode}>
+      {shown.map((goal, at) => {
         const left = daysLeft(goal.goalAt!, today)
         const way = wayThrough(goal.goalFrom ?? today, goal.goalAt!)
-        // Right-click: what to do with this goal here, and the strip itself put away (Settings, Goals, brings it back).
+        // Right-click: this goal here, its place among the chosen, what Home shows at all, and the strip put away.
         const menu: MenuItem[] = [
           { label: 'Open the goal', run: () => onOpen?.('goal', goal.id) },
-          { label: onHome(goal) ? 'Take off Home' : 'Show on Home', run: () => setOnHome(goal, !onHome(goal)) },
+          chosen && at > 0 && { label: 'Move up', keys: '⌥↑', run: () => moveOnHome(goal, -1) },
+          chosen && at < shown.length - 1 && { label: 'Move down', keys: '⌥↓', run: () => moveOnHome(goal, 1) },
+          chosen ? { label: 'Take off Home', run: () => setOnHome(goal, false) } : { label: 'Show only this one', hint: 'Home then shows the goals you choose', run: () => setOnHome(goal, true) },
           'separator',
+          { label: 'Choose what shows here…', hint: 'In Settings', run: () => window.dispatchEvent(new CustomEvent('haligtree:settings-at', { detail: 'goals-home' })) },
           { label: 'Hide goals here', run: hideStrip }
         ]
         return (
           <RowMenu key={goal.id} items={menu}>
           <div role="button" tabIndex={0} data-strip-goal={goal.id} data-private={goal.private ? '' : undefined}
             onClick={() => (chime('open'), onOpen?.('goal', goal.id))}
-            onKeyDown={(event) => event.key === 'Enter' && event.target === event.currentTarget && onOpen?.('goal', goal.id)}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget) return
+              if (event.key === 'Enter') return void onOpen?.('goal', goal.id)
+              // Among the chosen, ⌥↑ and ⌥↓ (or ⌥K and ⌥J) move it, as they move a row in any list of your own order.
+              const by = !chosen || !event.altKey || event.metaKey || event.ctrlKey ? 0 : event.code === 'ArrowUp' || event.code === 'KeyK' ? -1 : event.code === 'ArrowDown' || event.code === 'KeyJ' ? 1 : 0
+              if (!by) return
+              event.preventDefault()
+              moveOnHome(goal, by as -1 | 1)
+              // The row keeps the keys as it moves: the same goal, in its new place.
+              const id = goal.id
+              requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-strip-goal="${CSS.escape(id)}"]`)?.focus())
+            }}
             className="group/goal flex cursor-pointer flex-col gap-1.5 rounded-md px-2 py-1.5 text-control outline-none transition-colors hover:bg-foreground/[0.045] focus-visible:bg-foreground/[0.045]">
             <span className="flex min-w-0 items-center gap-2">
               <Flag className="size-3.5 shrink-0" style={{ color: warmth(Math.max(left, 0)) }} />

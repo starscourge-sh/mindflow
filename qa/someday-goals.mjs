@@ -105,7 +105,8 @@ try {
     check('Undo makes it someday again', (await goal(made.id)).goalAt === null)
   } else check('the day picker offers “in 3 months”', false)
   await h.keyboard.press('Escape')
-  // 5. Home and the sticky, with a someday goal there.
+  // 5. Home and the sticky, with a someday goal there (Home's goals turned on: they are off in a new book).
+  await v('settings:set', { goalsOnHome: 'nearest', goalsNearest: 3 })
   await go('home')
   await wait(1200)
   const home = await h.evaluate(() => document.body.innerText)

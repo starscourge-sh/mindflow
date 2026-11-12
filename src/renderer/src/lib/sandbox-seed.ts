@@ -152,7 +152,8 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   // Practice tasks never send a notification, and nothing celebrates while
   // the examples go in; the sandbox's own look is set by the caller.
   // One goal's card on the desktop (Dune's, set below), no other: two stickies in all, with Today's.
-  await call('settings:set', { notify: 'quiet', celebrate: false, goalBeacon: 'off', bio: 'Reads on the bus, cooks on Sundays, and keeps the lines worth keeping.' })
+  // The example book has turned its goals on for Home (off in a new book): the nearest two, where a newcomer looks first.
+  await call('settings:set', { notify: 'quiet', celebrate: false, goalBeacon: 'off', goalsOnHome: 'nearest', goalsNearest: 2, bio: 'Reads on the bus, cooks on Sundays, and keeps the lines worth keeping.' })
 
   const [tablet, plaque, head, dot, mona, annunciation, supper, adam, primavera] = await Promise.all(
     [tabletUrl, plaqueUrl, headUrl, dotUrl, monaUrl, annunciationUrl, supperUrl, adamUrl, primaveraUrl].map(picture))

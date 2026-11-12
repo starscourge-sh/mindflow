@@ -30,9 +30,11 @@ import { Switch as PlainSwitch } from '@/components/ui/switch'
 import { FitToMe } from './study'
 import { onboarding, tryWelcome, useOnboarding } from '@/lib/onboarding'
 import { useCaptures, inInboxWindow } from '../capture-list'
-import { appSizeOf, call, unloaded, useLive, haligtree, windowRootSize, type GiphyMedia, type GiphyPin, type MomentKind, type Settings } from '@/lib/haligtree'
+import { appSizeOf, call, unloaded, useLive, haligtree, windowRootSize, type GiphyMedia, type GiphyPin, type Item, type MomentKind, type Settings } from '@/lib/haligtree'
 import { wearFinish } from './review-toolbar'
 import { Chips } from './display'
+import { HOME_GOALS, goalsForHome, moveOnHome, openOnes, setOnHome, useHomeGoals } from './goals-view'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Avatar, markMe } from './avatar'
 import { isMe, pickAvatar, setAvatar, useAvatar, useMe } from '@/lib/people'
 import { setPageWidth, widthOf, type PageWidth } from '@/lib/reading'
@@ -555,11 +557,16 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
   const iconHover = useFluidHover(iconRow, { items: ':scope > button', axis: 'x' })
   const iconChosen = useChosen(iconRow, ':scope > button[aria-checked="true"]', settings?.appIcon ?? 'bronze')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
-  // Asked for the reader card, or for a book: their section, with no search hiding it.
+  // Asked for the reader card or a book, or for what Home shows of your goals: its section, with no search hiding
+  // it, and for the goals the row brought into view.
   useEffect(() => {
-    if (asked !== 'reader-card' && !asked?.startsWith('book')) return
+    const row = asked === 'reader-card' || asked?.startsWith('book') ? ['Your book', ''] : asked === 'goals-home' ? ['What comes back to you', 'Goals on Home'] : null
+    if (!row) return
     setQuery('')
-    setSection('Your book')
+    setSection(row[0])
+    if (!row[1]) return
+    const frame = requestAnimationFrame(() => document.querySelector(`[data-setting-title="${row[1]}"]`)?.scrollIntoView({ block: 'center' }))
+    return () => cancelAnimationFrame(frame)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [asked, nonce])
   if (!settings) return <section className="flex-1" />
@@ -965,9 +972,17 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Goals">
-          <Setting title="Goals at the top" note="Open goals in a slim strip at the top of Home and of today in the Journal." more="The days left, a line of the time gone, and when you last logged. Right-click a goal there to put it first, or to hide the strip." keywords="goals strip home journal today countdown hide show visibility">
-            <Switch checked={settings.goalStrip !== false} onCheckedChange={(goalStrip) => set({ goalStrip })} />
+          <Setting title="Goals on Home" note="Your goals in a slim strip at the top of Home and of today in the Journal." more="Off to start. “Nearest” shows the next few by their day. “Chosen” shows only the goals you pick, in the order you put them: right-click any goal and choose “Show on Home”, or add one here. Each says its days left, a line of the time gone, and when you last logged." keywords="goals strip home journal today countdown hide show visibility at the top nearest closest chosen pick order opt in">
+            <Chips className="shrink-0" options={[{ id: 'off', label: 'Off' }, { id: 'nearest', label: 'Nearest' }, { id: 'chosen', label: 'Chosen' }]}
+              on={(id) => id === (settings.goalsOnHome ?? 'off')} pick={(goalsOnHome) => set({ goalsOnHome: goalsOnHome as Settings['goalsOnHome'] })} />
           </Setting>
+          {settings.goalsOnHome === 'nearest' && (
+            <Setting under title="How many" note="The nearest by their day, soonest first." keywords="goals home nearest closest count how many">
+              <Chips className="shrink-0" options={[{ id: '1', label: '1' }, { id: '2', label: '2' }, { id: '3', label: '3' }]}
+                on={(id) => Number(id) === (settings.goalsNearest ?? 2)} pick={(id) => set({ goalsNearest: Number(id) as Settings['goalsNearest'] })} />
+            </Setting>
+          )}
+          {settings.goalsOnHome === 'chosen' && <HomeGoalRows settings={settings} />}
           <Setting title="Time as dots" note="How far through the day, week, month and year you are, in the menu bar." more="As beads, or as plain bars." keywords="tempus menu bar day week month year dots bars progress">
             <TempusSample dots={settings.tempusDots === true} />
             <Switch checked={settings.tempusDots === true} onCheckedChange={(tempusDots) => set({ tempusDots })} />
@@ -1349,6 +1364,48 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
 
 /** The ask from a book's own menu already answered here: Settings left and come back to (Back, another section) does not start its name again. */
 let bookAsked = 0
+
+/**
+ * The goals chosen for Home, in their order: each moved a place or taken off, and one more added (three at most, as
+ * the strip is a glance). The same choice as “Show on Home” on a goal anywhere; kept in Settings (goalsChosen).
+ */
+function HomeGoalRows({ settings }: { settings: Settings }): React.JSX.Element {
+  const all = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
+  const home = useHomeGoals(settings)
+  const open = openOnes(all)
+  const shown = goalsForHome(open, home)
+  const rest = open.filter((one) => !shown.includes(one))
+  // A private goal is not named here in plain words: Settings is often on a shared screen.
+  const nameOf = (goal: Item): string => (goal.private ? 'A private goal' : goal.title)
+  const full = shown.length >= HOME_GOALS
+  return (
+    <>
+      {shown.map((goal, at) => (
+        <Setting key={goal.id} under title={nameOf(goal)} note={`${at === 0 ? 'First' : at === 1 ? 'Second' : 'Third'} on Home.`} keywords="goals home chosen order move up down take off">
+          {/* Always there, greyed at the ends: the buttons never shift as a goal moves. */}
+          <Button variant="ghost" size="sm" data-home-goal-up={goal.id} disabled={at === 0} onClick={() => moveOnHome(goal, -1)}>Up</Button>
+          <Button variant="ghost" size="sm" data-home-goal-down={goal.id} disabled={at === shown.length - 1} onClick={() => moveOnHome(goal, 1)}>Down</Button>
+          <Button variant="ghost" size="sm" data-home-goal-off={goal.id} onClick={() => setOnHome(goal, false)}>Take off</Button>
+        </Setting>
+      ))}
+      <Setting under title={shown.length ? 'Another goal' : 'No goal chosen yet'} keywords="goals home chosen add pick"
+        note={full ? `Home shows ${HOME_GOALS} at most: take one off to add another.` : rest.length ? 'Pick one here, or right-click a goal anywhere and choose “Show on Home”.' : open.length ? 'Every open goal with a day is on Home already.' : 'You have no open goal with a day yet.'}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" data-home-goal-add disabled={full || !rest.length}>Add a goal…</Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="max-h-72 w-72 overflow-y-auto">
+            {rest.map((goal) => (
+              <DropdownMenuItem key={goal.id} data-home-goal-pick={goal.id} onSelect={() => setOnHome(goal, true)}>
+                <span className="min-w-0 flex-1 truncate">{nameOf(goal)}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </Setting>
+    </>
+  )
+}
 
 /**
  * Your books, under “Your book”: the open one first with its name and its colour (the nine, eased into where

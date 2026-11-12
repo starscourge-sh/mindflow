@@ -19,8 +19,8 @@ try {
   const open = (await v('items', 'goal')).filter((one) => !one.closedAt && !one.archivedAt && one.goalAt).sort((a, b) => a.goalAt.localeCompare(b.goalAt))
   const g = open[0]
   await v('goal:beacon:set', g.id, 'always').catch(() => {})
-  // Chosen for Home (the sandbox chooses the Odyssey, and then only chosen goals show there), so the strip has it.
-  await v('review:star', g.id, true)
+  // Chosen for Home (goals show there only once asked for), so the strip has it.
+  await v('settings:set', { goalsOnHome: 'chosen', goalsChosen: [g.id] })
   await go('home')
   await h.waitForTimeout(600)
   check('on Home\'s strip to start with', (await strip()).includes(g.id), JSON.stringify(await strip()))

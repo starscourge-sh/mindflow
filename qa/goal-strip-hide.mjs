@@ -1,4 +1,4 @@
-// The goals at the top of Home can be put away where they are: right-click a goal, "Hide goals here"; Settings brings them back.
+// The goals at the top of Home (once asked for) can be put away where they are: right-click a goal, "Hide goals here"; “Goals on Home” in Settings brings them back.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/goal-strip-hide.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -8,7 +8,8 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 900 })
 const { h, go } = c
 try {
-  await h.evaluate(() => window.api.haligtree('settings:set', { sounds: false, hintRate: 0 }))
+  // Goals on Home are asked for (off in a new book): the nearest two, for this check.
+  await h.evaluate(() => window.api.haligtree('settings:set', { sounds: false, hintRate: 0, goalsOnHome: 'nearest', goalsNearest: 2 }))
   await go('home')
   const row = h.locator('[data-strip-goal]').first()
   await row.waitFor({ timeout: 8000 })
@@ -23,8 +24,8 @@ try {
   await h.waitForTimeout(800)
   check('the goals are gone from Home', (await h.locator('[data-strip-goal]').count()) === 0)
   const saved = await h.evaluate(() => window.api.haligtree('settings').catch(() => null))
-  check('and it is kept as the setting', saved?.goalStrip === false, JSON.stringify(saved?.goalStrip))
-  await h.evaluate(() => window.api.haligtree('settings:set', { goalStrip: true }))
+  check('and it is kept as the setting', saved?.goalsOnHome === 'off', JSON.stringify(saved?.goalsOnHome))
+  await h.evaluate(() => window.api.haligtree('settings:set', { goalsOnHome: 'nearest' }))
   await h.waitForTimeout(800)
   check('turned back on, they return', (await h.locator('[data-strip-goal]').count()) > 0)
 } catch (error) {

@@ -911,6 +911,12 @@ export function Home(): React.JSX.Element {
     window.addEventListener('haligtree:source', onSource)
     return () => window.removeEventListener('haligtree:source', onSource)
   })
+  // Settings opened at one of its rows (the goals at the top of Home: “Choose what shows here…”): its section, the row in view.
+  useEffect(() => {
+    const onAt = (event: Event): void => (chime('page'), setView({ id: 'settings', focus: String((event as CustomEvent).detail ?? ''), nonce: Date.now() }))
+    window.addEventListener('haligtree:settings-at', onAt)
+    return () => window.removeEventListener('haligtree:settings-at', onAt)
+  })
   // What's new, asked for by the card, ⌘K or the Haligtree menu: its built-in pages.
   useEffect(() => {
     const onNews = (): void => (chime('page'), setView({ id: 'whatsnew' }))
@@ -1892,6 +1898,26 @@ export function Home(): React.JSX.Element {
                   })
                 }))
               })
+            }] : []),
+            // What Home shows of your goals: none, the nearest few, or only the ones you choose. Settings has the same, and their order.
+            ...(goals.some((one) => !one.archivedAt && !one.closedAt) ? [{
+              label: 'Goals on Home…', hint: 'None, the nearest few, or only the ones you choose', words: 'strip top show hide nearest closest chosen pick', cue: null, run: () => {},
+              choices: () => {
+                const was = { goalsOnHome: settings?.goalsOnHome ?? 'off', goalsNearest: settings?.goalsNearest ?? 2 } as const
+                const keep = (next: { goalsOnHome: 'off' | 'nearest' | 'chosen'; goalsNearest?: 1 | 2 | 3 }, said: string) => (): void => void haligtree.setSettings(next).then(() => {
+                  chime(next.goalsOnHome === 'off' ? 'unstick' : 'stick')
+                  toast(said, () => void haligtree.setSettings(was))
+                })
+                const here = (mode: string, count?: number): boolean => was.goalsOnHome === mode && (count === undefined || was.goalsNearest === count)
+                return [
+                  !here('off') && { label: 'No goals on Home', note: 'the strip goes', run: keep({ goalsOnHome: 'off' }, 'No goals on Home now') },
+                  ...([1, 2, 3] as const).filter((count) => !here('nearest', count)).map((count) => ({
+                    label: count === 1 ? 'The nearest goal' : `The nearest ${count} goals`, note: 'by their day, soonest first',
+                    run: keep({ goalsOnHome: 'nearest', goalsNearest: count }, count === 1 ? 'Home shows your nearest goal' : `Home shows your nearest ${count} goals`)
+                  })),
+                  !here('chosen') && { label: 'Only the goals I choose', note: 'in the order you put them', run: keep({ goalsOnHome: 'chosen' }, 'Home shows the goals you choose: right-click a goal and choose “Show on Home”') }
+                ].filter((one): one is { label: string; note: string; run: () => void } => !!one)
+              }
             }] : []),
             ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, first: true, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
             { label: 'Stick Today on the desktop', hint: 'Today’s tasks on a sticky note, over every window', cue: null, run: () => stickOnDesktop('today', 'today') },

@@ -515,8 +515,12 @@ const DEFAULTS = {
   // A question you are holding comes back now and then as a hint card: still
   // open, how long, how many clues. Off in Settings.
   questionsBack: true,
-  // Open goals in a slim strip at the top of Home and Today's page.
-  goalStrip: true,
+  // Goals at the top of Home and of today's Journal page. Off until asked for (the user, 12 Nov: "showing goals on
+  // home should be opt in and i should be able to pick"); then the nearest few (goalsNearest), or only the ones
+  // chosen, in the order they were put (goalsChosen, their ids).
+  goalsOnHome: 'off' as 'off' | 'nearest' | 'chosen',
+  goalsNearest: 2 as 1 | 2 | 3,
+  goalsChosen: [] as string[],
   // Pages in the Feed's Notes, beside gems and notes: off to start, as a Feed of short things reads best; Reading has the pages.
   feedPages: false,
   // Notes with a picture in them, and a mostly imported book's notes, in the Feed too: off, so the Feed holds only what you chose to keep.
