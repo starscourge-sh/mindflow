@@ -17,7 +17,10 @@
 //             it writes, so it runs only with WRITES=1 (on a copy kept for writing).
 // PART=caret  a click and typing in a far block, ⌘Z bringing the view back to them, a selection carried over
 //             five screens by ⇧-click, ⌘A, and what each would copy; a hard fling away from a caret just placed;
-//             leaving mid-fling and coming back.
+//             leaving mid-fling and coming back. ONLY=click runs its first step alone (the click and the word,
+//             a word of its own each run, taken out again after), for running it many times over. TRACE=1 writes
+//             down what happens to the selection round that click: each event, each time the browser's selection
+//             is set and by whom, each change ProseMirror makes.
 // PART=far    a caret placed by a click in the first screen, then the wheel pushed hard, push on push, from the top
 //             of the note to its very end and back: the window answers throughout, no frame comes more than 100 ms
 //             after the last, and the words never move against the wheel. WAY=down or WAY=up runs one way,
@@ -363,10 +366,19 @@ const film = async (name, run, { every = 50, ms = 1500 } = {}) => {
   return out
 }
 
-/** A line of words well inside the screen, in any kind of block: where to click, and which block it is in. */
-const find = () => h.evaluate(() => {
+/**
+ * A line of words well inside the screen, in any kind of block: where to click, and which block it is in. Never a
+ * line that something else stands over: the dock at the foot of a note covers the words under it (two rows of it
+ * in a narrow pane reach 95px up from the note's foot, past the 60px kept clear here), and a press there is a press
+ * on the dock, which takes the keys from the note: the caret stays where it was and what is typed lands nowhere.
+ * That was the caret part's first step failing: after ⌘↓ and 1,400px back, the line it chose was under the dock
+ * whenever the note's end stood 200px higher. `low` takes the lowest such line instead of the first (LOW=1, to
+ * try the foot of the screen on purpose); COVERED=allow takes covered lines too, as it once did.
+ */
+const find = (low = false) => h.evaluate(([low, covered]) => {
   const e = window.__ln.ed()
   const view = window.__ln.box().getBoundingClientRect()
+  let found = null
   for (const block of e.children) {
     const box = block.getBoundingClientRect()
     if (!box.height || box.bottom < view.top + 60) continue
@@ -379,10 +391,61 @@ const find = () => h.evaluate(() => {
       range.setStart(node, 2)
       range.setEnd(node, 3)
       const r = range.getClientRects()[0]
-      if (r && r.top > view.top + 60 && r.bottom < view.bottom - 60 && r.left > view.left && r.right < view.right - 80) return { x: Math.round(r.left + 1), y: Math.round(r.top + r.height / 2), index: Array.prototype.indexOf.call(e.children, block), words: node.data.trim().slice(0, 40) }
+      if (!r || r.top <= view.top + 60 || r.bottom >= view.bottom - 60 || r.left <= view.left || r.right >= view.right - 80) continue
+      const at = { x: Math.round(r.left + 1), y: Math.round(r.top + r.height / 2), index: Array.prototype.indexOf.call(e.children, block), words: node.data.trim().slice(0, 40) }
+      if (!covered && !block.contains(document.elementFromPoint(at.x, at.y))) continue
+      if (!low) return at
+      found = at
     }
   }
-  return null
+  return found
+}, [low, process.env.COVERED === 'allow'])
+/**
+ * Such a line, the note moved on a little at a time until one is on the screen: the screen may hold none (a long
+ * code block or a table fills it), or only one that the dock covers.
+ */
+const seek = async (low = false) => {
+  let at = await find(low)
+  for (let i = 0; i < 6 && !at; i++) {
+    await h.evaluate(() => window.__ln.box().scrollBy({ top: 150, behavior: 'instant' }))
+    await h.waitForTimeout(450)
+    at = await find(low)
+  }
+  return at
+}
+/**
+ * TRACE=1: what happens to the selection from here on is written down in the page (`window.__tr`), a line each:
+ * every pointer, key and focus event, every time the browser's selection is set (and from where in the script),
+ * every change ProseMirror makes, with where the browser's selection and ProseMirror's are after each.
+ */
+const traced = () => h.evaluate(() => {
+  const e = window.__ln.ed()
+  const { view } = e.editor
+  const log = (window.__tr = [])
+  const blockOf = (node) => { let block = node; while (block && block.parentElement !== e) block = block.parentElement; return block ? Array.prototype.indexOf.call(e.children, block) : -1 }
+  const where = () => {
+    const s = getSelection()
+    const { selection } = view.state
+    return `browser ${s.rangeCount ? `${blockOf(s.anchorNode)}:${s.anchorOffset}${s.isCollapsed ? '' : ` to ${blockOf(s.focusNode)}:${s.focusOffset}`}` : 'none'}, ProseMirror ${selection.$anchor.index(0)}${selection.empty ? '' : ` to ${selection.$head.index(0)}`}, keys ${document.activeElement === e ? 'in the note' : (document.activeElement?.nodeName ?? 'nowhere')}, vim ${e.getAttribute('data-vim-mode')}, editable ${view.editable}`
+  }
+  const who = () => (new Error().stack ?? '').split('\n').slice(3, 11).map((line) => line.trim().replace(/^at /, '').replace(/\(?file:.*\/assets\//, '(').slice(0, 64)).join(' < ')
+  const say = (what, stack = false) => log.push(`${performance.now().toFixed(1)} ${what}: ${where()}${stack ? `; by ${who()}` : ''}`)
+  for (const name of ['collapse', 'setBaseAndExtent', 'addRange', 'removeAllRanges', 'extend', 'setPosition', 'empty', 'selectAllChildren', 'collapseToStart', 'collapseToEnd']) {
+    const real = Selection.prototype[name]
+    Selection.prototype[name] = function (...args) { const out = real.apply(this, args); say(`selection.${name}`, true); return out }
+  }
+  const focus = HTMLElement.prototype.focus
+  HTMLElement.prototype.focus = function (...args) { const out = focus.apply(this, args); say(`focus() on ${this === e ? 'the note' : this.nodeName}`, true); return out }
+  const tell = (window.__tell = (one) => `${one.nodeName.toLowerCase()}${typeof one.className === 'string' && one.className.trim() ? '.' + one.className.trim().split(/\s+/).slice(0, 4).join('.') : ''}${[...(one.attributes ?? [])].filter((a) => a.name.startsWith('data-') || a.name === 'role' || a.name === 'aria-label' || a.name === 'inert').slice(0, 5).map((a) => `[${a.name}${a.value ? `="${a.value.slice(0, 24)}"` : ''}]`).join('')}`)
+  const named = (event) => `${event.type}${event.key ? ` ${event.key}` : ''}${event.inputType ? ` ${event.inputType}` : ''} on ${event.target === e ? 'the note' : e.contains(event.target) ? `block ${blockOf(event.target)}` : event.target?.nodeName ? tell(event.target) : ''}`
+  for (const type of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click', 'focusin', 'focusout', 'keydown', 'beforeinput', 'input', 'scroll', 'scrollend']) {
+    window.addEventListener(type, (event) => say(`event ${named(event)}`), true)
+    if (/down|up|click|input/.test(type)) window.addEventListener(type, (event) => say(`  after its listeners, ${named(event)}${event.defaultPrevented ? ': DEFAULT PREVENTED' : ''}`))
+  }
+  document.addEventListener('selectionchange', () => say('event selectionchange'), true)
+  const idle = window.requestIdleCallback
+  window.requestIdleCallback = (run, options) => idle.call(window, (deadline) => { say('an idle callback runs'); run(deadline); say('  the idle callback is done') }, options)
+  e.editor.on('transaction', ({ transaction }) => say(`ProseMirror change${transaction.docChanged ? ', words' : ''}${transaction.selectionSet ? ', selection' : ''}${transaction.scrolledIntoView ? ', into view' : ''}${Object.keys(transaction.meta ?? {}).length ? `, meta ${Object.keys(transaction.meta).join(' ')}` : ''}`, true))
 })
 /** Whether block `index` has any part of it on the screen. */
 const showing = (index) => h.evaluate((index) => {
@@ -396,6 +459,8 @@ try {
   await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await h.evaluate((smooth) => window.api.haligtree('settings:set', { sounds: false, hintRate: 0, smoothScroll: smooth }), process.env.SMOOTH !== 'off')
   if (process.env.THEME) await c.look(process.env.THEME)
+  // FRESH=1: as on a book this app has never opened the note in: no place kept for it, no heights kept from last time.
+  if (process.env.FRESH) await h.evaluate(() => { for (const key of Object.keys(localStorage)) if (key === 'note-places' || key.startsWith('note-heights')) localStorage.removeItem(key) })
   await h.waitForTimeout(1500)
   await send('capture', note.id)
   await opened(original.content.length - 1)
@@ -732,24 +797,69 @@ try {
     } else if (wants('contents') && only) console.log('(a contents block is put in the note for this: run it with WRITES=1 on a copy kept for writing)')
   }
 
-  if (PART === 'caret') {
+  if (PART === 'caret') caret: {
     const size = original.content.length
+    const alone = process.env.ONLY === 'click'
+    const word = alone ? `Zq${1000 + (Date.now() % 9000)}x` : 'Zq7x'
     // To the end, then a click in a block on the screen and a word typed.
+    if (process.env.TRACE) await traced()
+    const before = await h.evaluate(() => window.__ln.ed().editor.state.doc.content.size)
     await h.evaluate(() => window.__ln.ed().editor.commands.focus('start'))
     await h.keyboard.press('Meta+ArrowDown')
     await h.waitForTimeout(900)
     await h.evaluate(() => window.__ln.box().scrollBy({ top: -1400, behavior: 'instant' }))
     await h.waitForTimeout(900)
-    const spot = await find()
-    if (!spot) check('a real paragraph is on screen to click in', false, JSON.stringify(await state()))
-    else {
+    const spot = await seek(!!process.env.LOW)
+    if (!spot) {
+      check('a real paragraph is on screen to click in', false, JSON.stringify(await state()))
+      if (alone) break caret
+    } else {
+      // PUT=815: the line chosen is first put that many px down the window (the note scrolled by the difference),
+      // covered or not: 815 is under the dock at the foot of a note in a narrow pane, in a 900px window.
+      if (process.env.PUT) {
+        await h.evaluate(([y, to]) => window.__ln.box().scrollBy({ top: y - to, behavior: 'instant' }), [spot.y, Number(process.env.PUT)])
+        await h.waitForTimeout(700)
+        const again = await h.evaluate(([index, words]) => {
+          const walk = document.createTreeWalker(window.__ln.ed().children[index], NodeFilter.SHOW_TEXT)
+          for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+            if (!node.data.trim().startsWith(words)) continue
+            const range = document.createRange()
+            range.setStart(node, 2)
+            range.setEnd(node, 3)
+            const r = range.getClientRects()[0]
+            return r ? { x: Math.round(r.left + 1), y: Math.round(r.top + r.height / 2) } : null
+          }
+          return null
+        }, [spot.index, spot.words])
+        if (again) Object.assign(spot, again)
+      }
+      if (process.env.TRACE) {
+        await h.evaluate((spot) => window.__tr.push(`${performance.now().toFixed(1)} THE CLICK, on block ${spot.index} at ${spot.x},${spot.y}`), spot)
+        console.log('under the click, topmost first:\n    ' + (await h.evaluate(([x, y]) => {
+          const box = window.__ln.box()
+          const view = box.getBoundingClientRect()
+          const under = document.elementsFromPoint(x, y).slice(0, 9).map((one) => { const r = one.getBoundingClientRect(); return `${window.__tell(one)}  at ${Math.round(r.left)},${Math.round(r.top)}, ${Math.round(r.width)} by ${Math.round(r.height)}, pointer-events ${getComputedStyle(one).pointerEvents}` })
+          return under.join('\n    ') + `\n  the note's scroller: ${Math.round(view.top)} to ${Math.round(view.bottom)} down the window (${innerWidth} by ${innerHeight}); scrolled to ${Math.round(box.scrollTop)} of ${box.scrollHeight - box.clientHeight}`
+        }, [spot.x, spot.y])))
+      }
       await h.mouse.click(spot.x, spot.y)
       await h.waitForTimeout(250)
       if (await h.evaluate((sel) => document.querySelector(sel + '[data-vim-mode="normal"]') !== null, ED)) await h.keyboard.press('i')
-      await h.keyboard.type('Zq7x ', { delay: 30 })
+      await h.keyboard.type(`${word} `, { delay: 30 })
       await h.waitForTimeout(400)
-      const typed = await h.evaluate((index) => { const e = window.__ln.ed(); const { doc, selection } = e.editor.state; const at = selection.$head.index(0); return { at, words: doc.child(at).textContent.includes('Zq7x'), count: doc.childCount, shown: e.children[index]?.textContent.includes('Zq7x') } }, spot.index)
-      check('a click in a far block and a word typed: the word lands there', typed.words && typed.shown && Math.abs(typed.at - spot.index) <= 4, `clicked block ${spot.index} ("${spot.words}"), caret in ${typed.at}, typed there ${typed.words}, on the page ${typed.shown}`)
+      const typed = await h.evaluate(([index, word]) => { const e = window.__ln.ed(); const { doc, selection } = e.editor.state; const at = selection.$head.index(0); return { at, words: doc.child(at).textContent.includes(word), count: doc.childCount, shown: e.children[index]?.textContent.includes(word) } }, [spot.index, word])
+      check('a click in a far block and a word typed: the word lands there', typed.words && typed.shown && Math.abs(typed.at - spot.index) <= 4, `clicked block ${spot.index} ("${spot.words}"), caret in ${typed.at}, typed there ${typed.words}, on the page ${typed.shown}  (${load()})`)
+      // TRACE=all prints every line from ⌘↓ on; else from a little before the click.
+      if (process.env.TRACE) console.log('round the click:\n  ' + (await h.evaluate((all) => window.__tr.slice(all ? 0 : Math.max(0, window.__tr.findIndex((line) => line.includes('THE CLICK')) - 14)), process.env.TRACE === 'all')).join('\n  '))
+      if (alone) {
+        // What was typed taken out again (the word, or whatever the keys did instead), so the copy of the book
+        // is as it was for the next run.
+        const same = () => h.evaluate(([word, was]) => { const { doc } = window.__ln.ed().editor.state; return doc.content.size === was && !doc.textContent.includes(word) }, [word, before])
+        for (let i = 0; i < 8 && !(await same()); i++) { await h.keyboard.press('Meta+z'); await h.waitForTimeout(300) }
+        check('what was typed is taken out again', await same())
+        await h.waitForTimeout(1500)
+        break caret
+      }
       // Away five screens, then ⌘Z: the view comes back to the words taken out.
       await h.evaluate(() => { const box = window.__ln.box(); box.scrollBy({ top: -box.clientHeight * 5, behavior: 'instant' }) })
       await h.waitForTimeout(900)
@@ -759,18 +869,18 @@ try {
       await h.waitForTimeout(1200)
       const back = await state()
       const here = await showing(typed.at)
-      const undone = await h.evaluate(() => !window.__ln.ed().editor.state.doc.textContent.includes('Zq7x'))
+      const undone = await h.evaluate((word) => !window.__ln.ed().editor.state.doc.textContent.includes(word), word)
       check('⌘Z after scrolling five screens away brings the view back to the words', undone && Math.abs(back.caret - typed.at) <= 2 && here && gone && back.far === 0 && (await answers()), `typed in block ${typed.at}; scrolled to block ${away.first} (the typed block off the screen: ${gone}); after ⌘Z first block ${back.first}, caret ${back.caret}, the typed block on the screen: ${here}, undone ${undone}, undrawn on screen ${back.far}`)
     }
     // A selection begun on one screen, carried five screens down by ⇧-click.
     await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * 0.3, behavior: 'instant' }) })
     await h.waitForTimeout(1000)
-    const one = await find()
+    const one = await seek()
     if (one) await h.mouse.click(one.x, one.y)
     await h.waitForTimeout(300)
     await h.evaluate(() => { const box = window.__ln.box(); box.scrollBy({ top: box.clientHeight * 5, behavior: 'instant' }) })
     await h.waitForTimeout(1000)
-    const two = await find()
+    const two = await seek()
     if (two) { await h.keyboard.down('Shift'); await h.mouse.click(two.x, two.y); await h.keyboard.up('Shift') }
     await h.waitForTimeout(500)
     // What a copy would take, asked of the page with a copy event of its own: the real clipboard is yours, and left alone.
@@ -796,11 +906,13 @@ try {
     await h.waitForTimeout(700)
     await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * 0.3, behavior: 'instant' }) })
     await h.waitForTimeout(900)
-    const far = await find()
+    const far = await seek()
     const fixed = await h.evaluate(() => window.__ln.ed().editor.state.selection.$anchor.index(0))
     console.log(`(before the ⇧-click the caret is in block ${fixed}; the click is on block ${far?.index})`)
+    if (process.env.TRACE && far) await h.evaluate((far) => window.__tr.push(`${performance.now().toFixed(1)} THE SHIFT CLICK, on block ${far.index} at ${far.x},${far.y}`), far)
     let began = Date.now()
     if (far) { await h.keyboard.down('Shift'); await h.mouse.click(far.x, far.y); await h.keyboard.up('Shift') }
+    if (process.env.TRACE && far) { await h.waitForTimeout(400); console.log('round the ⇧-click:\n  ' + (await h.evaluate(() => window.__tr.slice(Math.max(0, window.__tr.findIndex((line) => line.includes('THE SHIFT CLICK')) - 8)).filter((line) => !/event scroll/.test(line)).slice(0, 60))).join('\n  ')) }
     const picked = (await answersWithin(30)) ? await h.evaluate(() => { const { selection, doc } = window.__ln.ed().editor.state; return { from: selection.$from.index(0), to: selection.$to.index(0), blocks: doc.childCount } }) : null
     const pickedIn = Date.now() - began
     check('⇧-click with the caret left at the far end picks from the place clicked to the caret, at once', !!far && !!picked && pickedIn < 2000 && Math.abs(picked.from - far.index) <= 1 && picked.to >= picked.blocks - 2, picked ? `clicked block ${far?.index}; picked blocks ${picked.from} to ${picked.to} of ${picked.blocks}; the window answered ${pickedIn} ms after the click  (${load()})` : `the window did not answer for 30 s after the click  (${load()})`)
@@ -813,7 +925,7 @@ try {
     // A caret placed by a click, then two hard flings away from it: the blocks it is in leave the page.
     await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * 0.2, behavior: 'instant' }) })
     await h.waitForTimeout(900)
-    const here = await find()
+    const here = await seek()
     if (here) await h.mouse.click(here.x, here.y)
     await h.waitForTimeout(400)
     await h.evaluate(() => { window.__ln.start(); window.__ln.mark('start') })
