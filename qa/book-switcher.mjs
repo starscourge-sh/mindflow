@@ -483,6 +483,21 @@ if (on('colour')) {
     const afterRight = { menus: await count(c, '[role="menu"]'), heading: await c.h.$eval(`${OWN} [data-slot="context-menu-label"]`, (one) => one.textContent).catch(() => '') }
     check('with one book’s colours up, a press on the book’s name leaves one menu or none, never two, and a right-click there leaves that book’s alone', /Colour of Reading/.test(upFirst) && afterPress <= 1 && afterRight.menus === 1 && /Colour of My book/.test(afterRight.heading), JSON.stringify({ upFirst, afterPress, afterRight }))
     await shut(c)
+    // The same with a press on a sidebar row and on “New”: at most one thing floats after, never two.
+    const floating = () => c.h.evaluate(() => [...document.querySelectorAll('[role="menu"], [role="dialog"], [data-slot="popover-content"]')].filter((one) => one.getClientRects().length && getComputedStyle(one).visibility !== 'hidden').length)
+    const pressed = {}
+    for (const [name, target] of [['a sidebar row', 'aside [data-sortable-id]'], ['“New”', 'button:has-text("New")']]) {
+      await openFoot(c)
+      await c.h.click(`${MENU} [data-book="${reading}"]`, { button: 'right' })
+      await c.h.waitForSelector(OWN, { timeout: 4000 })
+      await c.h.waitForTimeout(300)
+      const at = await c.h.locator(target).first().boundingBox()
+      await c.h.mouse.click(at.x + at.width / 2, at.y + at.height / 2)
+      await c.h.waitForTimeout(450)
+      pressed[name] = await floating()
+      await shut(c)
+    }
+    check('and a press on a sidebar row or on “New” with a book’s colours up leaves one floating thing or none, never two', Object.values(pressed).length === 2 && Object.values(pressed).every((n) => n <= 1), JSON.stringify(pressed))
     await c.v('books:color', 'default', null)
     check('no errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
   } catch (error) {
