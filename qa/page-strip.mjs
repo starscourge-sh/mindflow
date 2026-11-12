@@ -243,6 +243,22 @@ try {
   await wait(700)
   const zoom = () => h.evaluate(() => Number(document.querySelector('[data-page-bar] [data-book-zoom]')?.getAttribute('data-book-zoom') ?? 0))
   const z = await zoom()
+  // The pointer has not moved since before the pinch (reported 12 Nov: "when you zoom in, the components of the seek get
+  // messed up and lose their place"): the picture and the line under the strip are still on the pointer and show the
+  // page now under it, the one a fresh move at the same spot shows. They stayed with the stroke pointed at before.
+  const pinched = await seen()
+  await h.mouse.move(xAt(0.5), y - 1); await h.mouse.move(xAt(0.5), y); await wait(300)
+  const fresh = await seen()
+  check('pinched under a still pointer, the picture stays on the pointer', pinched.page !== null && Math.abs(pinched.arrow - xAt(0.5)) <= 9, JSON.stringify({ arrow: pinched.arrow, pointer: xAt(0.5), page: pinched.page }))
+  check('...and shows the page under it, as a fresh move there does', pinched.page !== null && pinched.page === fresh.page && pinched.tip === fresh.tip, JSON.stringify({ pinched: [pinched.page, pinched.tip], fresh: [fresh.page, fresh.tip] }))
+  // Two fingers sideways under the same still pointer: the pages slide along, the picture stays and turns to the page now there.
+  for (let i = 0; i < 6; i++) await h.evaluate(([x, yy]) => document.elementFromPoint(x, yy).dispatchEvent(new WheelEvent('wheel', { deltaX: 40, deltaY: 0, clientX: x, clientY: yy, bubbles: true, cancelable: true })), [xAt(0.5), y])
+  await wait(700)
+  const slid = await seen()
+  await h.mouse.move(xAt(0.5), y - 1); await h.mouse.move(xAt(0.5), y); await wait(300)
+  const fresh2 = await seen()
+  check('swiped along under a still pointer, the picture stays on the pointer', slid.page !== null && Math.abs(slid.arrow - xAt(0.5)) <= 9, JSON.stringify({ arrow: slid.arrow, pointer: xAt(0.5), page: slid.page }))
+  check('...and turns to the page now under it', slid.page !== null && slid.page === fresh2.page && Number(slid.page) > Number(fresh.page), JSON.stringify({ before: fresh.page, slid: slid.page, fresh: fresh2.page }))
   const words = await h.evaluate(() => [...document.querySelectorAll('[data-page-bar] [data-book-pages] span')].map((s) => s.textContent))
   check('a pinch spreads the book, page numbers under it', z > 2 && words.length >= 2, JSON.stringify({ z, words }))
   check('zoomed, it says how to go back', await h.evaluate(() => !!document.querySelector('[data-book-zoom-hint]')))

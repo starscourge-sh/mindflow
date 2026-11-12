@@ -182,11 +182,21 @@ try {
   check('...past the deepest it gives a little, then springs back', over > deep * 1.02 && Math.abs(back - deep) < deep * 0.01, `${deep} -> ${over} -> ${back}`)
 
   // --- along, sideways
+  // The pointer rests on a day first. The swipe moves the days under it: the line under the strokes stays on the pointer
+  // and names the day now there (12 Nov: it stayed with the day pointed at before, as a book's page strip did).
+  await h.mouse.move(x, y); await wait(250)
+  const tip = () => h.evaluate(() => { const one = document.querySelector('[data-year-marks] [data-stroke-tip]'); const r = one?.getBoundingClientRect(); return one ? { text: one.textContent, mid: Math.round(r.left + r.width / 2) } : null })
+  const tip0 = await tip()
   const p0 = await pan()
   await swipe(x, y, 40, 10)
   await wait(100)
   const p1 = await pan()
   check('two fingers sideways move along while zoomed', p1 > p0 + 300, `${p0} -> ${p1}`)
+  await wait(300)
+  const tip1 = await tip()
+  await h.mouse.move(x, y - 1); await h.mouse.move(x, y); await wait(250)
+  const tip2 = await tip()
+  check('...under a still pointer the line names the day now there, where a fresh move puts it', !!tip0 && !!tip1 && !!tip2 && tip1.text !== tip0.text && tip1.text === tip2.text && Math.abs(tip1.mid - tip2.mid) <= 1, JSON.stringify({ before: tip0, after: tip1, fresh: tip2 }))
   await film('pastend', async () => { await swipe(x, y, -400, 60) }); await wait(700)
   const p2 = await pan()
   check('...past the start it springs back to the start', p2 === 0, String(p2))

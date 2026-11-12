@@ -376,7 +376,10 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
   useReading(unloaded(all))
   const box = useRef<HTMLDivElement>(null)
   const [w, setW] = useState(0)
-  const [hover, setHover] = useState<number | null>(null)
+  // Where the pointer is: which band of the year, and how far along it in px from its left edge. The day pointed at is
+  // read from this every time the year is drawn: a pinch or a swipe along moves the days under a pointer that has not
+  // moved, and the line under the strokes stayed with the day pointed at before (12 Nov; a book's page strip the same).
+  const [aim, setAim] = useState<{ band: number; px: number } | null>(null)
   const [aimed, setAimed] = useState<string>(`${year}-01-01`)
   useLayoutEffect(() => {
     const el = box.current
@@ -422,11 +425,12 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
   const zoomed = view.z > 1.001
   const calm = useStill()
   useSwell(box, () => stepOf(bands[0] ?? { from: 0, to: days }))
-  const fromPointer = (clientX: number, svg: SVGSVGElement | null, band: { from: number; to: number }, pan = 0): number | null => {
-    if (!svg) return null
-    const d = strokeAt(clientX + pan, svg.getBoundingClientRect().left, band.to - band.from, stepOf(band) * view.z)
+  const hover = ((): number | null => {
+    const band = aim ? bands[aim.band] : undefined
+    if (!aim || !band) return null
+    const d = strokeAt(aim.px + (view.pans[aim.band] ?? 0), 0, band.to - band.from, stepOf(band) * view.z)
     return d === null ? null : band.from + d
-  }
+  })()
   // The marked day the pointer is on, or within two days of: a stroke is a pixel or two wide, too thin to land on.
   const near = hover === null ? null : [0, -1, 1, -2, 2].map((by) => markOn.get(hover + by)).find(Boolean) ?? null
   const gone = Math.max(0, Math.min(days, at))
@@ -490,7 +494,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
                       // A marked stroke reaches up past the swell's room to its name; with no swell, the pointed-at stroke stands up.
                       tall={(i) => { const d = band.from + i; const row = rowOf.get(d); return row !== undefined ? (row === null ? true : row * NAME_LINE + NAME_LINE / 2 + ROOM - TALL) : d === at || (calm && hover === d) }}
                       attrs={(i) => { const one = markOn.get(band.from + i); return { 'data-year-day': dayAt(band.from + i), 'data-year-marked': one?.title, 'data-stroke-mark': one ? dayAt(band.from + i) : undefined } }}
-                      onPointerMove={(event) => setHover(fromPointer(event.clientX, event.currentTarget, band, pan))} onPointerLeave={() => setHover(null)} onClick={open} />
+                      onPointerMove={(event) => { const px = event.clientX - event.currentTarget.getBoundingClientRect().left; setAim((was) => (was && was.band === b && was.px === px ? was : { band: b, px })) }} onPointerLeave={() => setAim(null)} onClick={open} />
                     <div data-year-months className="relative" style={{ width, transform: pan ? `translateX(${-pan}px)` : undefined }}>
                       <StrokeAxis ticks={daily < 1 ? ticks : []} width={width} from={sight.from} to={sight.to} style={daily ? { opacity: 1 - daily } : undefined} />
                       {daily > 0 && <StrokeAxis ticks={dayTicks} width={width} className="!absolute inset-x-0 top-0" style={{ opacity: daily }} />}

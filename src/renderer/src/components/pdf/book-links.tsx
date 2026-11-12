@@ -230,13 +230,15 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
   }, [cited, marks, pages, count])
   const most = Math.max(1, ...stretches.map((one) => one.marks + one.notes + one.cards))
   const here = page ? strokeOf(page) : -1
-  const [hover, setHover] = useState<number | null>(null)
+  // Where the pointer is along the strip, in px from its left edge. The stroke it points at is read from this every
+  // time the strip is drawn: a pinch or a swipe along moves the pages under a pointer that has not moved, and the
+  // picture and the line under it stayed with the stroke pointed at before, pushed to the strip's edge (12 Nov).
+  const [aim, setAim] = useState<number | null>(null)
   const quick = useRef<Quick | null>(null)
-  // The stroke the pointer last landed on, set in its own event: what the picture shows, and what a click opens, even
-  // when a busy machine has not drawn the strip again since (or a pinch's spring is still settling under it).
+  const lit = aim === null ? null : strokeAt(aim + pan, 0, count, step)
+  // The page the picture shows, which is what a click opens: set in the pointer's own event (a busy machine may not
+  // have drawn the strip again since), and again each time the strip is drawn (the pages moved under the pointer).
   const pointed = useRef<number | null>(null)
-  // A pinch changes how many strokes there are: one pointed at before it may be gone.
-  const lit = hover !== null && hover < count ? hover : null
   const counted = (n: number, one: string, many: string): string => (n ? `${n.toLocaleString()} ${n === 1 ? one : many}` : "")
   const at = (clientX: number, el: Element): number | null => strokeAt(clientX + pan, el.getBoundingClientRect().left, count, step)
   const whereOf = (i: number): string => {
@@ -249,6 +251,9 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
   }
   // The page a stroke opens at: the first one holding something, else its first page.
   const pageOf = (i: number): number => stretches[i].first || stretches[i].from
+  useLayoutEffect(() => {
+    pointed.current = lit === null ? null : pageOf(lit)
+  })
   const go = (to: number): void => {
     chime("open")
     if (onPage) onPage(to)
@@ -283,8 +288,8 @@ export function PageBar({ src, name, pages, page, cited, marks, onPage }: { src:
                   pointed.current = i === null ? null : pageOf(i)
                   // A page already drawn goes onto the picture now, from this event; React follows with the rest.
                   if (i !== null && i !== lit) quick.current?.(pageOf(i), i * step - pan)
-                  setHover(i)
-                }} onPointerLeave={() => ((pointed.current = null), setHover(null))}
+                  setAim(event.clientX - event.currentTarget.getBoundingClientRect().left)
+                }} onPointerLeave={() => ((pointed.current = null), setAim(null))}
                 onClick={(event) => { const i = at(event.clientX, event.currentTarget); const to = pointed.current ?? (i === null ? null : pageOf(i)); if (to !== null) go(to) }} />
             </div>
             {lit !== null && (

@@ -198,7 +198,19 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
   useEffect(() => {
     const el = box.current
     if (!el) return
-    type One = { a: number; speed: number; x: number; to: number; touched: Set<SVGRectElement | HTMLElement> }
+    type One = { a: number; speed: number; x: number; /** Where the pointer is along the row. */ px: number; to: number; touched: Set<SVGRectElement | HTMLElement> }
+    // The stroke at or before `px` along a row, by where it stands with nothing spread.
+    const under = (svg: SVGSVGElement, px: number): { x: number; on: SVGRectElement | null } => {
+      let x = 0
+      let on: SVGRectElement | null = null
+      for (const rect of svg.querySelectorAll<SVGRectElement>('rect[data-stroke]')) {
+        const rx = rect.x.baseVal.value
+        if (rx > px) break
+        x = rx
+        on = rect
+      }
+      return { x, on }
+    }
     const states = new Map<SVGSVGElement, One>()
     const plain = (node: SVGRectElement | HTMLElement): void => {
       if (node instanceof HTMLElement) return void node.style.removeProperty('translate')
@@ -288,18 +300,12 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
       const svg = (event.target as Element | null)?.closest<SVGSVGElement>('svg[data-strokes]') ?? null
       for (const [other, one] of states) if (other !== svg) one.to = 0
       if (svg && !still()) {
-        const one = states.get(svg) ?? { a: 0, speed: 0, x: 0, to: 1, touched: new Set() }
+        const one = states.get(svg) ?? { a: 0, speed: 0, x: 0, px: 0, to: 1, touched: new Set() }
         // Centred on the stroke pointed at (the day the tip names, by where it stands with nothing spread), so that
         // one stays put under the pointer and is the one a click opens.
         const px = event.clientX - svg.getBoundingClientRect().left + GAP / 2
-        let x = 0
-        let on: SVGRectElement | null = null
-        for (const rect of svg.querySelectorAll<SVGRectElement>('rect[data-stroke]')) {
-          const rx = rect.x.baseVal.value
-          if (rx > px) break
-          x = rx
-          on = rect
-        }
+        const { x, on } = under(svg, px)
+        one.px = px
         // Felt as the lens passes each day, as a dial's notches are: a light tick a day, a firmer one on a marked day.
         if (one.x !== x && states.has(svg)) (on?.hasAttribute('data-stroke-mark') ? edge() : detent())
         one.x = x
@@ -317,12 +323,13 @@ export function useSwell(box: RefObject<HTMLElement | null>, reach: () => number
     el.addEventListener('pointermove', move)
     el.addEventListener('pointerleave', leave)
     // The strokes moved under a swell (a pinch, a pan, the strokes in view drawn afresh): the swell is laid again at
-    // once from their new places. Its styles win over their own positions, so left as they were, the strokes bunched
-    // where they had been and left gaps where they now are.
+    // once from their new places, centred on the stroke now under the pointer (the pointer has not moved, the strokes
+    // have). Its styles win over their own positions, so left as they were, the strokes bunched where they had been
+    // and left gaps where they now are.
     const redraw = new MutationObserver(() => {
       for (const [svg, one] of states) {
         if (!svg.isConnected) (one.touched.forEach(plain), states.delete(svg))
-        else draw(svg, one)
+        else (one.x = under(svg, one.px).x, draw(svg, one))
       }
     })
     redraw.observe(el, { subtree: true, childList: true, attributeFilter: ['x', 'width'] })
