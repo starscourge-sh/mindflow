@@ -1644,6 +1644,8 @@ function applyStickies(atOnce = false): void {
  */
 let deskWhy: 'meeting' | 'quiet' | null = null
 let deskHidden = false
+/** What the windows were last told, so they are told again only when it changes. */
+let deskTold = ''
 /** Nudge cards on the screen as the desk went away: back with it, if they still hold a card. */
 const nudgesAway = new Set<BrowserWindow>()
 const nudgeTall = new WeakMap<BrowserWindow, number>()
@@ -1658,8 +1660,13 @@ function applyDesk(): void {
   const same = why === deskWhy && hidden === deskHidden
   deskWhy = why
   deskHidden = hidden
-  // What a signal says is in Settings as it changes, whether or not the desk moved.
-  for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('desk:away', deskSaid())
+  // What a signal says is in Settings as it changes, whether or not the desk moved: told only when the words did
+  // (the clock runs this every half minute, and no window is to draw again for nothing).
+  const said = JSON.stringify(deskSaid())
+  if (said !== deskTold) {
+    deskTold = said
+    for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('desk:away', deskSaid())
+  }
   if (same) return
   if (!blackout) {
     applyStickies(true)
