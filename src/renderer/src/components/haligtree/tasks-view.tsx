@@ -1542,6 +1542,30 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   )
 }
 
+/**
+ * The quiet rows under an open task's line in its popover (cal-add.tsx): its day and time, and its tags, each the
+ * control its page has (the Scheduled date, the tags under its name). A change is kept as it is made, said with Undo.
+ */
+export function TaskRows({ task }: { task: Task }): React.JSX.Element {
+  const tagField = useRef<HTMLInputElement>(null)
+  const named = splitTags(task.title)
+  const retag = (tags: string[], said: string): void => {
+    const was = task.title
+    void haligtree.saveTask(task.id, { title: [named.text.trim(), ...[...new Set(tags)].map((tag) => `#${tag}`)].filter(Boolean).join(' ') || task.title })
+      .then(() => (chime('tap'), toast(said, () => void haligtree.saveTask(task.id, { title: was }))))
+  }
+  return (
+    <div data-task-rows className="flex flex-col px-1 pb-2">
+      <DatePicker time allDay={!!task.allDay} value={task.dueAt} onChange={(due, timed) => setDue(task, due, timed)} placeholder="Not scheduled" />
+      {/* Its tags, after their mark on the rows' one left edge, as the date above and an event's people are. */}
+      <div data-task-tags className="flex items-start gap-2 px-2 py-1.5 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:flex-1">
+        <Tag aria-hidden className="mt-0.5 size-4 shrink-0" />
+        <TagRow tags={named.tags} field={tagField} onAdd={(tag) => retag([...named.tags, tag], `Tagged #${tag}`)} onRemove={(tag) => retag(named.tags.filter((one) => one !== tag), `#${tag} taken off`)} onDone={() => tagField.current?.blur()} />
+      </div>
+    </div>
+  )
+}
+
 /** The open task: its notes, and down the right when it is and what it has been. */
 export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFull; onClose: () => void; onOpen?: (type: string, id: string) => void; top?: React.ReactNode }): React.JSX.Element {
   // Read again on every change, so a toggle shows what it now is.

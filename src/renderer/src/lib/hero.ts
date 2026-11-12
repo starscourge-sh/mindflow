@@ -71,9 +71,6 @@ export const opensTo = (): Element | null => {
   return note ?? card
 }
 
-/** An event's form in the Calendar's right sidebar (day-side.tsx): there once it is open. */
-export const sideForm = (): Element | null => document.querySelector('[data-day-side="event"]')
-
 /**
  * The click, with the thing that grows being the row or post around what was
  * clicked (a post's title, a deck row's name): the first ancestor matching

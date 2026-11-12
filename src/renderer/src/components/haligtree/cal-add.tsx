@@ -9,8 +9,9 @@ import { taskName } from '@/lib/tasks'
 import type { Task } from '@/lib/haligtree'
 import { quoted } from '../../../../main/clip'
 import { dayjs, dayKey } from '../../../../main/dates'
-import { NewEvent, tint, type Shown } from './calendar-events'
+import { EventRows, NewEvent, tint, type Shown } from './calendar-events'
 import { KindSwitch, NewTask } from './day-side'
+import { TaskRows } from './tasks-view'
 import { Tip, refuse, toast } from './ui'
 import type { RowItem } from './row-menu'
 
@@ -92,7 +93,7 @@ function Sized({ children }: { children: React.ReactNode }): React.JSX.Element {
     return () => watch.disconnect()
   }, [])
   return (
-    <motion.div data-cal-add-sized initial={false} animate={height === null ? undefined : { height }} transition={still() ? { duration: 0 } : spring.slow} className="min-h-0 shrink overflow-x-hidden overflow-y-auto [scrollbar-width:none]">
+    <motion.div data-cal-add-sized initial={false} animate={height === null ? undefined : { height }} transition={still() ? { duration: 0 } : spring.slow} className="mf-more min-h-0 shrink overflow-x-hidden overflow-y-auto [scrollbar-width:none]">
       <div ref={inner}>{children}</div>
     </motion.div>
   )
@@ -132,7 +133,7 @@ function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, on
       onPointerDownOutside={(event) => {
         event.preventDefault()
         // The draft is part of it, and so are a notice (its Undo is the notice's own act, not a click away), any menu over it and a "which times" asked.
-        if ((event.target as Element | null)?.closest?.('[data-cal-draft], [role="status"], [role="menu"], [data-scope-ask]')) return
+        if ((event.target as Element | null)?.closest?.('[data-cal-draft], [role="status"], [role="menu"], [data-scope-ask], [data-radix-popper-content-wrapper]')) return
         onOutside()
       }}>
       {/* On the one left edge the line and the reading under it keep. */}
@@ -242,11 +243,16 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
   // front (after "fri 1pm" moved it); with neither drawn (a crowded day's "+3 more"), its day.
   const [at, setAt] = useState<HTMLElement | null>(null)
   const [side, setSide] = useState<Side>('right')
+  const looked = useRef(false)
   useLayoutEffect(() => {
     const name = CSS.escape(id)
     const found = opened.at?.isConnected ? opened.at
       : level.current?.querySelector<HTMLElement>(opened.kind === 'event' ? `[data-cal-event="${name}"], [data-cal-event-chip="${name}"]` : `[data-cal-block="${name}"], [data-cal-untimed="${name}"], [data-plan-task="${name}"]`)
         ?? (day ? level.current?.querySelector<HTMLElement>(`[data-day="${day}"], [data-cal-col="${day}"]`) : null) ?? null
+    // Nowhere on the page to tie it to (a crowded day's "+3 more", a month too narrow to name its things): its page
+    // instead, never a click that does nothing. Gone from the page later (binned, moved out of sight): closed.
+    if (!found) (looked.current ? onClose : onPage)()
+    looked.current = true
     setAt((was) => (was === found ? was : found))
   })
   useLayoutEffect(() => {
@@ -257,6 +263,9 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
   if (!at || !(event || task)) return null
   const close = (): void => (chime('away'), onClose())
   const keep = (): void => {
+    // A field of its rows being written in (the place) is kept as it lets go of the keys, as on its page.
+    const active = document.activeElement as HTMLElement | null
+    if (active?.closest('[data-event-rows], [data-task-rows]')) active.blur()
     const save = held.current
     held.current = null
     if (save) void save()
@@ -278,15 +287,21 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
             {mark}
             <span data-cal-open-kind className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{kind === 'event' ? 'Event' : 'Task'}</span>
             {!event?.readOnly && (
-              <Tip label={kind === 'event' ? 'Open the event’s page: its notes, repeat and reminder' : 'Open the task’s page: its steps and notes'}>
+              <Tip label={kind === 'event' ? 'Open the event’s page, with its notes' : 'Open the task’s page, with its steps and notes'}>
                 <Button type="button" variant="ghost" size="sm" data-cal-open-page className="-mr-1.5" onClick={onPage}>Open</Button>
               </Tip>
             )}
           </div>
         }>
         {event
-          ? <NewEvent key={event.key} one={event} ask={slot} held={held} onMade={(key) => (key !== event.key ? onKey(key) : undefined, onClose())} />
-          : <NewTask key={task!.id} task={task} ask={slot} held={held} first={taskName(task!.title).text} onMade={onClose} onBack={() => undefined} />}
+          ? <>
+              <NewEvent key={event.key} one={event} ask={slot} held={held} onMade={(key) => (key !== event.key ? onKey(key) : undefined, onClose())} />
+              {!event.readOnly && <EventRows one={event} onKey={onKey} />}
+            </>
+          : <>
+              <NewTask key={task!.id} task={task} ask={slot} held={held} first={taskName(task!.title).text} onMade={onClose} onBack={() => undefined} />
+              <TaskRows task={task!} />
+            </>}
       </Shell>
     </>
   )

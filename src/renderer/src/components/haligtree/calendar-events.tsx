@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { Ban, Bell, CalendarDays, Check, Clock, Copy, CopyPlus, FileText, Globe, Laptop, Link2, MapPin, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
+import { Ban, Bell, CalendarDays, Check, ChevronRight, Clock, Copy, CopyPlus, FileText, Globe, Laptop, Link2, MapPin, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -607,9 +607,14 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, one }: {
   // Open on an event: what its line would set, read the way its name is read on its page.
   const set = useMemo(() => (one ? renamed(one, text.trim() || one.title, known) : null), [one, text, known])
   const changed = !!one && !one.readOnly && !!text.trim() && (set!.name !== one.title || !!set!.patch.start)
+  // A time alone ("lunch 2pm") is on the day its draft is on, as a task's is (lib/tasks.ts, timeAlone); words that name a
+  // day keep their own. Read as today's, a new event written on Friday's draft was made today.
+  const alone = !one && !!read.start && !read.allDay && timeAlone(text)
+  const readStart = alone ? atOn(read.start!, slotStart.toISOString()) : read.start
+  const readEnd = alone && read.end ? dayjs(readStart).add(dayjs(read.end).diff(dayjs(read.start)), 'ms').toISOString() : read.end
   const allDay = one ? (set!.patch.allDay ?? one.allDay) : read.start ? read.allDay : ask.minute === null
-  const start = one ? (set!.patch.start ?? one.start) : read.start ?? slotStart.toISOString()
-  const end = read.start ? (read.end ?? dayjs(read.start).add(1, allDay ? 'day' : 'hour').toISOString()) : slotEnd.toISOString()
+  const start = one ? (set!.patch.start ?? one.start) : readStart ?? slotStart.toISOString()
+  const end = readStart ? (readEnd ?? dayjs(readStart).add(1, allDay ? 'day' : 'hour').toISOString()) : slotEnd.toISOString()
   const fixedEnd = one ? (set!.patch.end ?? one.end) : allDay ? dayjs(start).startOf('day').add(Math.max(1, dayjs(end).diff(dayjs(start).startOf('day'), 'day')), 'day').toISOString() : end
   const on = one?.calendarId ?? calendar ?? calendars.find((cal) => !cal.hidden)?.id ?? calendars[0]?.id ?? 'personal'
   const place = one ? (set!.patch.place ?? one.place) : read.place
@@ -650,21 +655,86 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, one }: {
           <p><strong className="font-semibold">{(one ? set!.name : read.title) || 'An event'}</strong>, {whenSaid(start, fixedEnd, allDay, clock)}{one ? (one.repeatSaid ? `, ${one.repeatSaid.toLowerCase()}` : '') : read.repeat ? `, ${repeatSaid(read.repeat, start).toLowerCase()}` : ''}.</p>
           {(place || people.length > 0) && <p>{place && <>At <strong className="font-semibold">{place}</strong>. </>}{people.length > 0 && <>With <strong className="font-semibold">{people.join(', ')}</strong>.</>}</p>}
         </div>
-        {/* Which calendar it is on: picked for a new one; for one that exists, moved there at once, said with Undo. */}
-        {!one?.readOnly && <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="On which calendar">
-          {calendars.map((cal) => (
-            <button key={cal.id} type="button" role="radio" aria-checked={on === cal.id} data-new-event-calendar={cal.id} onClick={() => one ? (on !== cal.id && void changeOne(one, { calendarId: cal.id }, `On ${cal.name} now`)) : (chime('tap'), setCalendar(cal.id))}
-              className="flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-control text-foreground transition-colors hover:bg-accent aria-checked:bg-accent aria-checked:font-medium motion-reduce:transition-none">
-              <span aria-hidden className="size-2 rounded-full shrink-0" style={{ background: inkOf(cal.color) }} />{cal.name}
-            </button>
-          ))}
-        </div>}
+        {/* Which calendar a new one will be on; one that exists has it as a row under its line (EventRows). */}
+        {!one && <CalendarPick calendars={calendars} on={on} onPick={(cal) => (chime('tap'), setCalendar(cal.id))} />}
         {/* One quiet line, never a paragraph, saying by example what the words can hold; it gives way in a short window, so nothing in the popover is cut. */}
         {one?.readOnly
           ? <p data-new-event-hint className="text-control text-muted-foreground">From your Mac’s calendar: change it in Calendar.</p>
           : <p data-new-event-hint className="truncate text-control text-muted-foreground [@media(max-height:520px)]:hidden">{one ? 'Type fri 1pm, @Cafe or with Sam to change it.' : 'Reads fri 1pm, @Cafe, with Sam, every week.'}</p>}
       </div>
     </form>
+  )
+}
+
+/** The calendars, each a chip with its colour, the one it is on lit: for a new event's line, and an open event's Calendar row. */
+function CalendarPick({ calendars, on, onPick }: { calendars: ReturnType<typeof useCalendars>; on: string; onPick: (cal: { id: string; name: string }) => void }): React.JSX.Element {
+  return (
+    <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="On which calendar">
+      {calendars.map((cal) => (
+        <button key={cal.id} type="button" role="radio" aria-checked={on === cal.id} data-new-event-calendar={cal.id} onClick={() => onPick(cal)}
+          className="flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-control text-foreground transition-colors hover:bg-accent aria-checked:bg-accent aria-checked:font-medium motion-reduce:transition-none">
+          <span aria-hidden className="size-2 rounded-full shrink-0" style={{ background: inkOf(cal.color) }} />{cal.name}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/**
+ * One quiet line of the popover an event or a task is open in (cal-add.tsx): what it is, what it says now, and, opened
+ * in place under it, the control that changes it (the one its page has). The popover keeps its width; its height
+ * follows on the app's spring.
+ */
+export function QuietRow({ icon: Icon, name, said, open, onOpen, row, children }: {
+  icon: typeof Bell; name: string; said: React.ReactNode; open: boolean; onOpen: (open: boolean) => void
+  /** Its name for a probe. */
+  row: string
+  children: React.ReactNode
+}): React.JSX.Element {
+  return (
+    <div data-quiet-row={row} data-open={open || undefined} className="flex flex-col">
+      <button type="button" aria-expanded={open} onClick={() => (chime(open ? 'fold' : 'open'), onOpen(!open))}
+        className="group/head flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-control text-foreground outline-none transition-colors hover:bg-accent focus-visible:bg-accent motion-reduce:transition-none">
+        <Icon aria-hidden className="size-4 shrink-0" />
+        <span className="shrink-0">{name}</span>
+        <span data-quiet-said className="min-w-0 flex-1 truncate text-right font-medium">{said}</span>
+        <ChevronRight aria-hidden className={`size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-(--mf-ease) group-hover/head:text-foreground motion-reduce:transition-none ${open ? 'rotate-90' : ''}`} />
+      </button>
+      {open && <div data-quiet-body className="pb-1.5">{children}</div>}
+    </div>
+  )
+}
+
+/**
+ * The quiet rows under an open event's line in its popover: its calendar, place, people, reminder and repeat, what
+ * the app keeps for an event today. Place and people are the fields its page has, written in where they are; the
+ * others are a line that opens its choices in place, one at a time. Each change is kept as it is made, said with Undo.
+ */
+export function EventRows({ one, onKey }: { one: Shown; onKey: (key: string) => void }): React.JSX.Element {
+  const calendars = useCalendars()
+  const known = useKnownPeople()
+  const [open, setOpen] = useState<'calendar' | 'remind' | 'repeat' | null>(null)
+  const turn = (row: 'calendar' | 'remind' | 'repeat') => (on: boolean): void => setOpen(on ? row : null)
+  const save = async (patch: Parameters<typeof events.save>[1], said: string, offerOne = true): Promise<void> => {
+    const key = await changeOne(one, patch, said, offerOne)
+    if (key && key !== one.key) onKey(key)
+  }
+  const on = calendars.find((cal) => cal.id === one.calendarId)
+  return (
+    <div data-event-rows className="flex flex-col px-1 pb-2">
+      <QuietRow row="calendar" icon={CalendarDays} name="Calendar" open={open === 'calendar'} onOpen={turn('calendar')}
+        said={<span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: inkOf(on?.color) }} />{on?.name ?? 'Calendar'}</span>}>
+        <div className="px-1"><CalendarPick calendars={calendars} on={one.calendarId} onPick={(cal) => cal.id !== one.calendarId && void save({ calendarId: cal.id }, `On ${cal.name} now`)} /></div>
+      </QuietRow>
+      <PropInput key={`place-${one.place ?? ''}`} icon={MapPin} value={one.place ?? ''} placeholder="Place" lead="At" ghost="Place: Cafe on the corner" does="Where it is. It shows on the block, and in the reminder" onSave={(place) => place !== (one.place ?? '') && void save({ place: place || null }, place ? `At ${place}` : 'No place now')} />
+      <PeopleField people={one.people} known={known} onSave={(people) => void save({ people }, people.length ? `With ${people.join(', ')}` : 'Nobody named now')} />
+      <QuietRow row="remind" icon={Bell} name="Reminder" said={remindName(one.remind)} open={open === 'remind'} onOpen={turn('remind')}>
+        <RemindChoices value={one.remind} allDay={one.allDay} start={one.start} onSave={(remind) => void save({ remind }, remind === null ? 'No reminder now' : `Reminds you ${remindName(remind).toLowerCase()}`)} />
+      </QuietRow>
+      <QuietRow row="repeat" icon={RepeatIcon} name="Repeat" said={one.repeatSaid || 'Does not repeat'} open={open === 'repeat'} onOpen={turn('repeat')}>
+        <RepeatChoices one={one} onSave={(repeat) => void save({ repeat }, repeat ? repeatSaid(repeat, one.start) : 'Does not repeat now', false)} />
+      </QuietRow>
+    </div>
   )
 }
 
@@ -857,10 +927,18 @@ function PeopleField({ people, known, onSave }: { people: string[]; known: strin
 
 /** How long before it reminds you: the usual choices, and any number of minutes. */
 function RemindPicker({ value, onSave, allDay = false, start, task = false }: { value: number | null; onSave: (minutes: number | null) => void; allDay?: boolean; start: string; task?: boolean }): React.JSX.Element {
+  return (
+    <Island compact title={task ? 'Remind me before' : 'Reminder'} actions={<span data-remind-said className="text-control font-medium text-foreground">{remindName(value)}</span>}>
+      <RemindChoices value={value} onSave={onSave} allDay={allDay} start={start} task={task} />
+    </Island>
+  )
+}
+/** The reminder's choices themselves: in its island on the event's page, and under its row in the event's popover. */
+function RemindChoices({ value, onSave, allDay = false, start, task = false }: { value: number | null; onSave: (minutes: number | null) => void; allDay?: boolean; start: string; task?: boolean }): React.JSX.Element {
   const choices = task ? REMINDERS.filter(([minutes]) => minutes !== 0) : REMINDERS
   const custom = value !== null && !choices.some(([minutes]) => minutes === value)
   return (
-    <Island compact title={task ? 'Remind me before' : 'Reminder'} actions={<span data-remind-said className="text-control font-medium text-foreground">{remindName(value)}</span>}>
+    <>
       <div data-remind-choices className="grid grid-cols-4 gap-1 p-1">
         {choices.map(([minutes, label]) => (
           <Button key={label} variant={value === minutes ? 'secondary' : 'ghost'} size="sm" className={plan} data-remind={minutes ?? 'none'} onClick={() => value !== minutes && onSave(minutes)}>{label}</Button>
@@ -869,7 +947,7 @@ function RemindPicker({ value, onSave, allDay = false, start, task = false }: { 
       <PropInput icon={Bell} type="number" value={custom ? String(value) : ''} placeholder="Custom" ghost="Custom: 45" does="Any number of minutes before" suffix="minutes before"
         onSave={(minutes) => minutes !== '' && Number(minutes) !== value && onSave(Math.max(0, Number(minutes)))} />
       {value !== null && <p className="px-2 py-1.5 text-xs leading-relaxed">A Mac notification: {quoted(remindSaid(value, start, allDay), 80)}. Held in quiet hours, and shown once they end.</p>}
-    </Island>
+    </>
   )
 }
 
@@ -879,6 +957,14 @@ function RemindPicker({ value, onSave, allDay = false, start, task = false }: { 
  * years, the weekdays, the nth weekday or the date), with how it ends.
  */
 function RepeatPicker({ one, onSave }: { one: Occurrence; onSave: (repeat: Repeat | null) => void }): React.JSX.Element {
+  return (
+    <Island compact title="Repeat" actions={<span data-repeat-said className="max-w-40 truncate text-control font-medium text-foreground">{one.repeat ? 'Repeats' : 'Does not repeat'}</span>}>
+      <RepeatChoices one={one} onSave={onSave} />
+    </Island>
+  )
+}
+/** How it repeats, the choices themselves: in its island on the event's page, and under its row in the event's popover. */
+function RepeatChoices({ one, onSave }: { one: Occurrence; onSave: (repeat: Repeat | null) => void }): React.JSX.Element {
   const at = dayjs(one.start)
   const nth = nthOf(at)
   const last = isLast(at)
@@ -898,7 +984,7 @@ function RepeatPicker({ one, onSave }: { one: Occurrence; onSave: (repeat: Repea
   const [custom, setCustom] = useState(picked === 'custom')
   const keepEnd = (next: Repeat | null): Repeat | null => (next && rule ? { ...next, until: rule.until, count: rule.count } : next)
   return (
-    <Island compact title="Repeat" actions={<span data-repeat-said className="max-w-40 truncate text-control font-medium text-foreground">{rule ? 'Repeats' : 'Does not repeat'}</span>}>
+    <>
       <div data-repeat-choices className="flex flex-col p-1">
         {presets.map(([id, preset]) => (
           <button key={id} type="button" data-repeat={id} aria-pressed={picked === id && !custom} onClick={() => (setCustom(false), !same(preset, rule) && onSave(keepEnd(preset)))}
@@ -914,7 +1000,7 @@ function RepeatPicker({ one, onSave }: { one: Occurrence; onSave: (repeat: Repea
       </div>
       {(custom || picked === 'custom') && <CustomRepeat start={one.start} rule={rule ?? { freq: 'weekly', days: [at.day()] }} onSave={onSave} />}
       {rule && <RepeatEnd rule={rule} onSave={onSave} />}
-    </Island>
+    </>
   )
 }
 
