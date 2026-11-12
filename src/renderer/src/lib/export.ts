@@ -1,14 +1,18 @@
 import { host } from "@/lib/host"
-import type { Editor } from "@tiptap/core"
+import type { Editor, JSONContent } from "@tiptap/core"
 import { cut } from "../../../main/clip"
 import { withBlockMarks } from "../../../main/blocks"
 import { currentTheme, isLight } from "@/lib/theme"
 
-/** The document as Markdown. Through the manager: `getMarkdown` is a command on
- * the editor, but the serializer is what turns a document into text. */
-export const toMarkdown = (editor: Editor): string =>
+/** A document as Markdown, written by an editor's own serializer: its own document, or any other of the same kind
+ * (a note whose editor is not open). Through the manager: `getMarkdown` is a command on the editor, but the
+ * serializer is what turns a document into text. */
+export const markdownOf = (editor: Editor, doc: JSONContent): string =>
   // A line a link lands on ends in its `^id`, as Obsidian writes one.
-  editor.storage.markdown.manager.serialize(withBlockMarks(editor.getJSON()))
+  editor.storage.markdown.manager.serialize(withBlockMarks(doc))
+
+/** The editor's document as Markdown. */
+export const toMarkdown = (editor: Editor): string => markdownOf(editor, editor.getJSON())
 
 type ExportFormat = "markdown" | "json" | "html" | "pdf"
 

@@ -546,19 +546,57 @@ export function registerCaptures(): void {
     return results
   })
   /**
-   * The Markdown copies editors owe: a long note's words land without one (making it held the note's window
-   * 100 ms a save), and its editor sends it after them once the note has rested, or as the note is left
-   * (lib/same-words.ts), under the number its save was answered with. If the app shuts first, the copy is
-   * written here from the stored words, so quitting never leaves one behind.
+   * The Markdown copies owed. A long note's words land without one (making it held the note's window 100 ms a
+   * save); its editor sends it after them once the note has rested, or as the note is left (lib/same-words.ts),
+   * under the number its save was answered with. Such a copy is only ever written by an editor, so the one on
+   * disk is always whole, never a poorer one made here from the stored words (main's own converter writes
+   * nothing for a drawing, a graph, a contents block or an embed). While one is owed the note is marked in the
+   * book (`copies_owed`), so the mark outlives the app however it ends:
+   *   a quit asks every window for what it owes and waits for it before the book shuts (below);
+   *   if the app dies instead (a crash, a kill, the power), or a window cannot answer, the last whole copy
+   *   stays, and the first editor on a page after the next launch writes the owed ones (lib/owed-copies.ts).
    */
+  db.exec('create table if not exists copies_owed (id text primary key)')
   const owed = new Map<string, { number: number; copy: number }>()
+  /** Owed since before this run: no editor is on its way with them. */
+  const leftOwed = new Set<string>()
   let copies = 0
-  onShut(() => {
-    for (const [id, { number }] of owed) {
-      const row = db.prepare('select body from captures where id = ?').get(id) as { body: string | null } | undefined
-      if (row) writeMarkdownNow(number, markdown(readKept(row.body)))
-    }
-    owed.clear()
+  const mark = db.prepare('insert or ignore into copies_owed (id) values (?)')
+  const unmark = db.prepare('delete from copies_owed where id = ?')
+  // The marks are in no list and no search: the book's stamp stays where it was.
+  const owe = (id: string, number: number): number => {
+    if (!owed.has(id)) quietly(() => mark.run(id))
+    leftOwed.delete(id)
+    owed.set(id, { number, copy: ++copies })
+    return copies
+  }
+  /** Its copy is on the disk (or it may have none any more): nothing is owed for it. */
+  const settled = (id: string): void => {
+    if (!owed.delete(id)) return
+    leftOwed.delete(id)
+    quietly(() => unmark.run(id))
+  }
+  quietly(() => db.exec('delete from copies_owed where id not in (select id from captures)'))
+  for (const row of db.prepare('select o.id, c.number from copies_owed o join captures c on c.id = o.id').all() as { id: string; number: number }[]) {
+    owed.set(row.id, { number: row.number, copy: ++copies })
+    leftOwed.add(row.id)
+  }
+  ipcMain.handle('haligtree:copies:left', () => [...leftOwed].flatMap((id) => (owed.has(id) ? [{ id, copy: owed.get(id)!.copy }] : [])))
+  // A quit: every window first hands over what it has (typing still to be saved, then each long note's copy),
+  // and main waits for them, HAND_MS at most, before the book shuts. A copy that arrives meanwhile is written
+  // before it is answered, so none is cut short by the app ending.
+  const HAND_MS = 2000
+  let handing: 'not yet' | 'now' | 'done' = 'not yet'
+  app.on('before-quit', (event) => {
+    if (handing !== 'not yet') return
+    event.preventDefault()
+    handing = 'now'
+    const hands = BrowserWindow.getAllWindows().filter((win) => !win.isDestroyed()).map((win) =>
+      win.webContents.mainFrame.executeJavaScript('window.haligtreeHandOver ? window.haligtreeHandOver() : null').catch(() => null))
+    void Promise.race([Promise.all(hands), new Promise((done) => setTimeout(done, HAND_MS))]).finally(() => {
+      handing = 'done'
+      app.quit()
+    })
   })
   /**
    * One capture saved; `tell` says the windows now, or leaves it to a batch's one telling.
@@ -639,16 +677,20 @@ export function registerCaptures(): void {
     // The Markdown copy. It comes with an ordinary note's words. A long note's editor sends it after them, under
     // the number its save was answered with, and it is taken only while those are still the last words saved;
     // a document saved without one (a sticky's tick) is turned into it here.
+    let copy: number | undefined
     if (row && patch.markdown !== undefined && !moved) {
       const mine = patch.copy
       if (mine === undefined) {
-        if (landed) owed.delete(key)
+        if (landed) settled(key)
         void writeMarkdown(row.number, patch.markdown)
-        // Owed until it is on the disk: a quit before that writes one from the stored words.
-      } else if (owed.get(key)?.copy === mine) void writeMarkdown(row.number, patch.markdown).then(() => void (owed.get(key)?.copy === mine && owed.delete(key)))
-    } else if (landed && patch.words) owed.set(key, { number: row!.number, copy: ++copies })
+      } else if (owed.get(key)?.copy === mine) {
+        // Owed until it is on the disk. During a quit it is written before this answers.
+        if (handing === 'now') (writeMarkdownNow(row.number, patch.markdown), settled(key))
+        else void writeMarkdown(row.number, patch.markdown).then(() => void (owed.get(key)?.copy === mine && settled(key)))
+      }
+    } else if (landed && patch.words) copy = owe(key, row!.number)
     else if (landed) {
-      owed.delete(key)
+      settled(key)
       void writeMarkdown(row!.number, markdown(patch.body))
     } else if (patch.status) checkMarkdown(key)
     // A copy alone changes nothing a window shows.
@@ -656,7 +698,7 @@ export function registerCaptures(): void {
     // Renamed: once the new name rests, every link to it says it (renames.ts), looked at once this has answered.
     // Only a name you changed: a link card filling in its page's title, or a book being set out, is written as fetched and renames nothing.
     if (row && before && !patch.fetched && (landed || patch.title !== undefined)) setImmediate(() => named('save: the name watched', () => watchName(key, before.label ?? '', sender)))
-    const result: SaveResult = { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}), ...(landed && patch.words && patch.markdown === undefined ? { copy: owed.get(key)?.copy } : {}) }
+    const result: SaveResult = { was, refused, ...(moved ? { conflict: true, body: moved.body } : {}), ...(copy === undefined ? {} : { copy }) }
     if (tell && patch.status) celebrateAfter('captures:save', sender, [id, patch], result)
     return result
   }

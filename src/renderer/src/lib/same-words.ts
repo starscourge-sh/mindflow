@@ -6,6 +6,7 @@ import { toast } from '@/components/haligtree/ui'
 import { notes, type NoteTable } from '@/lib/notes'
 import { forget } from '@/lib/early-read'
 import { toMarkdown } from '@/lib/export'
+import { writeOwedCopies } from '@/lib/owed-copies'
 import { retryIn, saveFailed, saveLanded } from '@/lib/save-trouble'
 
 /** What a save answers when the words changed elsewhere first; `copy` when a capture's Markdown copy is owed for it. */
@@ -21,6 +22,17 @@ const encoder = new TextEncoder()
 const LONG = 200_000
 /** How long a long note rests after a save before its Markdown copy is made. */
 const COPY_REST_MS = 2000
+
+/**
+ * A quit: main asks each window, once, to hand over what it has, and waits for it before the book shuts
+ * (src/main/captures.ts). Every editor's typing still to be saved goes first, then each long note's Markdown
+ * copy, so the copy on disk after a quit is the one an editor writes of the words in the book.
+ */
+const handers = new Set<() => Promise<unknown>>()
+;(window as unknown as { haligtreeHandOver?: () => Promise<true> }).haligtreeHandOver = () => {
+  window.dispatchEvent(new Event('haligtree:flush'))
+  return Promise.all([...handers].map((hand) => hand())).then(() => true as const)
+}
 
 /**
  * A note's words as they stood at one moment, to ask later "are these still
@@ -132,33 +144,42 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
   // A capture's Markdown copy (kept beside the backups). An ordinary note's goes with its words, as it always
   // has. A long note's (LONG) is made apart from its saves, where it held the window 100 ms each time: once the
   // note has rested, or at once when its editor goes, and sent under the number its save was answered with.
-  // Main takes it only while those are still the last words saved, and writes one itself if the app quits first.
+  // Main takes it only while those are still the last words saved. Only an editor ever writes one: a quit waits
+  // for this window to hand its copies over (`handers`), and one still owed when the app dies is written by the
+  // first editor on a page after the next launch (lib/owed-copies.ts).
   const copied = (editor: Editor): string | undefined => ((editor.storage as { markdown?: unknown }).markdown ? toMarkdown(editor) : undefined)
   const copies = useRef(new Map<Note, { copy: number; timer: ReturnType<typeof setTimeout> }>())
-  const copyNow = (note: Note, markdown = note.editor.isDestroyed ? undefined : copied(note.editor)): void => {
+  const copyNow = (note: Note, markdown = note.editor.isDestroyed ? undefined : copied(note.editor)): Promise<unknown> | undefined => {
     const owed = copies.current.get(note)
-    if (!owed) return
+    if (!owed) return undefined
     clearTimeout(owed.timer)
     copies.current.delete(note)
-    if (markdown !== undefined) void window.api.captures.save(note.id, { markdown, copy: owed.copy })
+    return markdown === undefined ? undefined : window.api.captures.save(note.id, { markdown, copy: owed.copy })
   }
+  // The saves on their way: a quit waits for them, since a long note's save is what says a copy is owed.
+  const draining = useRef<Promise<void>>(Promise.resolve())
+  useEffect(() => {
+    const hand = (): Promise<unknown> => draining.current.then(() => Promise.all([...copies.current.keys()].map((note) => copyNow(note))), () => undefined)
+    handers.add(hand)
+    return () => void handers.delete(hand)
+  }, [])
   const owe = (note: Note, copy: number): void => {
     clearTimeout(copies.current.get(note)?.timer)
-    copies.current.set(note, { copy, timer: setTimeout(() => copyNow(note), COPY_REST_MS) })
+    copies.current.set(note, { copy, timer: setTimeout(() => void copyNow(note), COPY_REST_MS) })
     // Its editor went while the save was on its way: the copy made as it went is sent now.
-    if (note.farewell !== undefined) copyNow(note, note.farewell)
+    if (note.farewell !== undefined) void copyNow(note, note.farewell)
     note.farewell = undefined
   }
   /** An editor is going (another note opened, its window closed): what is owed for its note is made while it can be. */
   const leaving = (editor: Editor): void => {
     const note = seen.current.find((one) => one.editor === editor)
     if (!note) return
-    if (copies.current.has(note)) copyNow(note, copied(editor))
+    if (copies.current.has(note)) void copyNow(note, copied(editor))
     else if (note.long && (running.current || queue.current.some((one) => one.note === note))) note.farewell = copied(editor)
   }
   // The window is closing, or this editor's owner is: the same for every copy still owed.
   useEffect(() => {
-    const all = (): void => { for (const note of [...copies.current.keys()]) copyNow(note) }
+    const all = (): void => { for (const note of [...copies.current.keys()]) void copyNow(note) }
     window.addEventListener('pagehide', all)
     return () => {
       window.removeEventListener('pagehide', all)
@@ -279,6 +300,8 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
       open.current = at ? { id: at, base: body, sent: wordsOf(editor, body), editor } : null
       if (open.current) seen.current = [open.current, ...seen.current.slice(0, 4)]
       if (open.current) editor.on('destroy', () => leaving(editor))
+      // An editor is on the page: copies still owed from the app's last run can be written now.
+      writeOwedCopies()
     },
     save: (body, editor) => {
       const note = editor ? seen.current.find((one) => one.editor === editor) : open.current
@@ -292,7 +315,8 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
       queue.current = [...queue.current.filter((one) => one.note !== note), { note, body, words }]
       // What this window read of it before is old now: Back reads it again.
       forget(note.id)
-      void pump()
+      const sending = pump()
+      draining.current = Promise.all([draining.current, sending]).then(() => undefined, () => undefined)
     }
   }
 }

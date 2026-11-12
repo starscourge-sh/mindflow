@@ -305,6 +305,7 @@ import { GripVertical } from '@/components/ui/icons'
 import { BackToTop } from '@/components/haligtree/ui'
 import { domOf, useEditorDom } from '@/lib/editor-dom'
 import { installBlockCarry } from '@/lib/block-carry'
+import { markdownOf } from '@/lib/export'
 
 // A block dragged by its grip lifts into a card that follows the pointer (lib/block-carry.ts).
 installBlockCarry()
@@ -340,6 +341,18 @@ export function readMarkdown(markdown: string): JSONContent | null {
   for (const reader of readers) {
     if (reader.isDestroyed) readers.delete(reader)
     else return markdownToDocument(reader, markdown)
+  }
+  return null
+}
+
+/**
+ * The other way: a document as Markdown, written the way the editor showing it would write it, for a note whose
+ * own editor is not open (lib/owed-copies.ts). Null until a document editor is on the page.
+ */
+export function writeMarkdown(doc: JSONContent): string | null {
+  for (const reader of readers) {
+    if (reader.isDestroyed) readers.delete(reader)
+    else return markdownOf(reader, doc)
   }
   return null
 }

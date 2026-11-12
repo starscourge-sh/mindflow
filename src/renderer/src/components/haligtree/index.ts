@@ -4,7 +4,7 @@
  * without warning.
  */
 
-export { HaligtreeEditor, readMarkdown } from "@/components/haligtree/haligtree-editor"
+export { HaligtreeEditor, readMarkdown, writeMarkdown } from "@/components/haligtree/haligtree-editor"
 
 /** The editor dressed for small boxes: a comment, a description, one line. */
 export { CommentEditor, DescriptionEditor, LineEditor } from "@/components/haligtree/presets"
