@@ -10,6 +10,8 @@ import { bookTags } from './book-tags'
 import { bookMap } from './book-map'
 import { wordCounter } from './word-count'
 import { linesOf } from './kept-words'
+import { firstPictures } from './first-pictures'
+import { pdfIn } from './pdf-in'
 
 /**
  * Everything the reading thread can be asked (reader.ts), by name: search,
@@ -30,6 +32,7 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
   const tags = bookTags(db)
   const map = bookMap(db)
   const gained = wordCounter()
+  const firstOfEach = firstPictures(db)
   type Gone = () => boolean
   return {
     jobs: {
@@ -71,6 +74,10 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
       /** The "question :: answer" lines of a note an editor has just saved, from its words as stored (line-cards.ts `lineCardsSoon`). */
       'note:lines': (_gone: Gone, table: 'captures' | 'nuggets', id: string) =>
         linesOf((db.prepare(`select body from ${table === 'nuggets' ? 'nuggets' : 'captures'} where id = ?`).get(id) as { body: string | null } | undefined)?.body),
+      /** Each note's first stored picture, for the pictures in lists (first-pictures.ts). */
+      thumbs: (_gone: Gone) => firstOfEach(),
+      /** The PDF a note's words link into, read from its words as stored (pdf-in.ts): asked after every change of an open note. */
+      'note:pdf': (_gone: Gone, id: string) => pdfIn((db.prepare('select body from captures where id = ?').get(id) as { body: string | null } | undefined)?.body ?? ''),
       /** The words a save gained (word-count.ts): the words as they were, and as they are. */
       'words:gained': (_gone: Gone, was: string, now: string) => gained(was, now)
     },

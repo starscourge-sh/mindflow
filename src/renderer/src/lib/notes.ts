@@ -69,6 +69,8 @@ export const notes = {
   keep: (id: string, body: unknown) => call<number>('notes:version:keep', id, body),
   /** A note's words as stored now, without counting as an open. */
   body: (table: NoteTable, id: string) => call<unknown>('notes:body', table, id),
+  /** Whether a note's stored words are still these, as kept (lib/same-words.ts): asked before reading them back. */
+  still: (table: NoteTable, id: string, kept: Uint8Array) => call<boolean>('notes:still', table, id, kept),
   graph: (id: string) => call<{ out: GraphNode[]; in: GraphNode[] }>('notes:graph', id),
   /** Every note with a link, each pair of linked notes once, and how many notes have none. */
   map: () => call<NoteMap>('notes:graph:all'),

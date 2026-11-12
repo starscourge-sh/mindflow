@@ -41,10 +41,6 @@ const parse = (text: string | null | undefined): unknown => {
     return text
   }
 }
-/** A stored picture's address: the first one in a body is its thumbnail. */
-const PICTURE = /haligtree:\/\/assets\/[a-f0-9]{64}\.(?:png|jpe?g|gif|webp|avif|bmp|heic|svg)/
-/** A stored video: a note with no picture shows its first frame instead. */
-const VIDEO = /haligtree:\/\/assets\/[a-f0-9]{64}\.(?:mp4|m4v|mov|webm)/
 /**
  * A stored file's name in the store, from its address, or null: only a bare
  * hash and extension, so an address cannot lead anywhere outside the store.
@@ -167,12 +163,16 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   }
 
   // --- pictures in lists
-  // The first stored picture in each note, worked out once per wording.
-  const firsts: Kept<string> = new Map()
-  handle('notes:thumbs', () => {
-    const rows = db.prepare(`select id, body from captures where body like '%haligtree://assets/%' union all select id, body from nuggets where body like '%haligtree://assets/%'`).all() as { id: string; body: string }[]
-    return Object.fromEntries(rows.map((row) => [row.id, remember(firsts, row.id, row.body, () => PICTURE.exec(row.body)?.[0] ?? VIDEO.exec(row.body)?.[0] ?? '')]).filter(([, src]) => src))
-  })
+  // The first stored picture in each note: every note that holds a file is read for it, so it is asked of the
+  // reading thread (first-pictures.ts), never read here.
+  handle('notes:thumbs', () => ask('thumbs', []))
+  // The PDF a note's words link into (its book's map lights the note): asked for by itself, of the reading thread,
+  // where the whole note was read back to its window after every save for it (pdf-in.ts).
+  handle('notes:pdf', (id: string) => ask('note:pdf', [String(id)]))
+  // "Are these still its words?", asked of the book where they lie (kept-words.ts): an editor that hears of a
+  // change asks this first, and reads the words back only when they are no longer the ones it holds.
+  handle('notes:still', (name: string, id: string, kept: Uint8Array) =>
+    !!(db.prepare(`select body is cast(? as text) as same from ${table(name)} where id = ?`).get(kept, String(id)) as { same: number } | undefined)?.same)
   // Small and kept: a list shows dozens at once, and the full picture is
   // often megabytes. Made once per picture per run.
   const small = new Map<string, string>()

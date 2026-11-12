@@ -287,6 +287,10 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
       if (!note || (what && !what.some((one) => one.id === note.id))) return
       const idle = (): boolean => note === open.current && !note.editor.isDestroyed && !running.current && !queue.current.length && sameWords(wordsOf(note.editor, null), note.sent)
       if (!idle()) return
+      // Asked of the book where the words lie, "still these?": they are read back (a long note's 4 MB, rebuilt on
+      // both sides, after every save of it) only when they are no longer the ones this editor holds.
+      const held = (note.baseKept ??= encoder.encode((note.baseText ??= JSON.stringify(note.base ?? null))))
+      if (await notes.still(table, note.id, held)) return
       const now = await notes.body(table, note.id)
       if (!idle() || JSON.stringify(now ?? null) === (note.baseText ??= JSON.stringify(note.base ?? null))) return
       show(note, now)

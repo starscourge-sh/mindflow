@@ -989,8 +989,9 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
   useOpenNote({ table: 'captures', type: 'capture', id: capture.id, kind: capture.kind, archived: !!capture.archivedAt, status: capture.status })
   // Its lineage, its map and the notes like it come the frame after the note's words.
   const later = useAfterFirstPaint()
-  // A PDF its words link into: its book's map, with this note lit among the others from it.
-  const pdfOfNote = useLive(() => window.api.captures.get(capture.id).then((one) => pdfIn(one?.body)), null as ReturnType<typeof pdfIn>, [capture.id])
+  // A PDF its words link into: its book's map, with this note lit among the others from it. Asked for by
+  // itself: the whole note was read back for it after every save (33 ms of main's thread for a long one).
+  const pdfOfNote = useLive(() => window.api.haligtree<ReturnType<typeof pdfIn>>('notes:pdf', capture.id), null as ReturnType<typeof pdfIn>, [capture.id])
   const [who, setWho] = useState(capture.attribution ?? '')
   const [where, setWhere] = useState(capture.medium ?? '')
   // Saved as typed, as before: a quote's who, emptied, waits for the blur to ask, never saved blank by a retype.
