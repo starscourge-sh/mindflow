@@ -1,9 +1,8 @@
-import { afterLayout } from './after-layout'
 import { useEffect } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { EditorView } from '@tiptap/pm/view'
 
-import { screenBlocks, showBlock } from '@/extensions/long-document'
+import { heightsOf, screenBlocks, showBlock, takeHeights, type KeptHeights } from '@/extensions/long-document'
 
 /**
  * Where you were in each note: the block at the top of the screen (and how
@@ -44,6 +43,36 @@ function keep(id: string, place: Place): void {
     localStorage.setItem(KEY, JSON.stringify(all))
   } catch {
     // Kept for this run only.
+  }
+}
+
+/**
+ * How tall each block of a long note stood when it was last open, kept beside its place: only the blocks near the
+ * screen of a long note are on its page (extensions/long-document.ts), the rest stand as space that is guessed
+ * until each has been drawn once, and with these the page is as tall as it truly is from the moment it opens.
+ * One entry a note; the last 8 long notes are kept.
+ */
+const TALLS = 'note-heights'
+const KEEP_TALLS = 8
+
+function keepHeights(id: string, heights: KeptHeights): void {
+  try {
+    const ids = (JSON.parse(localStorage.getItem(TALLS) ?? '[]') as string[]).filter((one) => one !== id)
+    ids.push(id)
+    for (const old of ids.splice(0, Math.max(0, ids.length - KEEP_TALLS))) localStorage.removeItem(`${TALLS}:${old}`)
+    localStorage.setItem(`${TALLS}:${id}`, JSON.stringify(heights))
+    localStorage.setItem(TALLS, JSON.stringify(ids))
+  } catch {
+    // Kept for this run only.
+  }
+}
+
+function heightsKept(id: string): KeptHeights | null {
+  try {
+    const kept = JSON.parse(localStorage.getItem(`${TALLS}:${id}`) ?? 'null') as KeptHeights | null
+    return kept && Array.isArray(kept.sizes) && Array.isArray(kept.talls) && Array.isArray(kept.airs) ? kept : null
+  } catch {
+    return null
   }
 }
 
@@ -107,11 +136,20 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     if (!on || !editor || !id) return
     const view = editor.view
     const dom = view.dom
-    // Set up once the note is laid out, where the page scrolls read then for nothing (lib/after-layout.ts).
+    // Set up once the note is laid out, where the page scrolls read then for nothing (a size watch tells of an
+    // element after the page next lays itself out and before that frame is painted, as lib/after-layout.ts does).
+    // And only once it is on the page: a long note is taken off it for a moment as its blocks are drawn
+    // (extensions/long-document.ts), and told of then, it had no scroller: it was never put back where it was
+    // left, nor was its place kept as it was closed. The watch tells again when it comes back and has a size.
     let undo = (): void => undefined
-    const off = afterLayout(dom, () => (undo = follow()))
+    const laidOut = new ResizeObserver(() => dom.isConnected && (laidOut.disconnect(), (undo = follow())))
+    laidOut.observe(dom)
+    const off = (): void => laidOut.disconnect()
     const follow = (): (() => void) => {
     const scroller = scrollerOf(dom)
+    // A long note's blocks as tall as they were last drawn, before it is put back where it was left.
+    const talls = heightsKept(id)
+    if (talls) takeHeights(editor, talls)
     const kept = elsewhere.has(editor) ? null : placeOf(id)
     let holding = !!scroller && !!kept && kept.top > 0
     // Left as kept until you move it: a note closed again before that keeps its place.
@@ -158,7 +196,9 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     }
     // Where you are now, read when you scroll and when the note changes size under a still screen (a picture loads above it).
     const read = (): void => {
-      if (!scroller || holding) return
+      // Not as the note is taken off the page (closed, or its pane hidden): nothing is where it was then, the
+      // scroller reads as at its top, and the place just read was lost in the moment before it was kept.
+      if (!scroller || holding || !dom.isConnected || !scroller.clientHeight) return
       // Read to its last screen, a note is finished with: it opens at its top next time, not at the bottom with nothing left to read.
       top = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < scroller.clientHeight ? 0 : scroller.scrollTop
       anchor = top ? anchorOf(view, scroller, screenBlocks(editor)) : null
@@ -183,6 +223,8 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     const save = (): void => {
       // Only a place worth coming back to: the top with the caret at the start is where it opens anyway.
       if (top > 0 || from > 1) keep(id, { top, from, at: Date.now(), ...(top > 0 && anchor ? anchor : {}) })
+      const heights = heightsOf(editor)
+      if (heights) keepHeights(id, heights)
     }
     window.addEventListener('pagehide', save)
     return () => {
