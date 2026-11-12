@@ -346,7 +346,14 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Questions is a view by kind, not a place: every question is a plain row there, and a folder (Writing's or Gems')
   // shows only in the section that owns it. A question in one says so on its row (`inFolder`, qa/questions-no-folders.mjs).
   const folding = useFolding(tier, all, ownOrder, order, !gatherer && !questionsOnly && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? everyShown : null,
-    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id)
+    view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, undefined, heads ? (id) => heads.get(id) : undefined)
+  // Under headings (by kind, by date) the list's own rule says which heading a row stands under: carried over another
+  // heading's rows it is refused in words, as Tasks' rows are (carry.tsx's useTargets), never offered a place it would not keep.
+  const underHeads = heads ? {
+    of: (id: string) => heads.get(id),
+    take: (_id: string, part: string) => ({ refused: `Grouped by ${view.group === 'letter' ? 'first letter' : view.group}: that puts a ${tier === 'nugget' ? 'gem' : 'page'} under “${part}”, not where it is dropped` }),
+    drop: () => undefined
+  } : undefined
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
   const noteGroups = questionsOnly || gatherer ? NO_GROUPS : filed
   const tiled = (density === 'grid' || density === 'small') && !(spread && query.trim())
@@ -905,7 +912,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pickRow} onOpen={spread ? pickRow : undefined}
             picking={picking} onMove={view.sort === 'manual' ? onMove : undefined} after={glossAfter} className={spread ? 'list-edge my-3' : 'list-edge my-2'}
-            folds={folding.rows ? { ...folding.folds(menuFor, entryOf), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined } : undefined} />
+            folds={folding.rows ? { ...folding.folds(menuFor, entryOf), onNewNote: pick, onSort: setSorting, onSorted: markSorted, onOpenFolder: onFolder ?? undefined, parts: underHeads,
+              // Already in your own order, under headings: a row moves among the rows under its own.
+              ...(view.sort === 'manual' && heads ? { hint: { name: 'grouped-drag', said: 'Drag a row to move it among the rows under its heading. Hold it on another row to make a group.' } } : {}) } : undefined} />
           </div>
           </SectionHeads.Provider>
           </RowMenu>
@@ -1860,8 +1869,14 @@ const ORDER = new WeakMap<Layout, Map<string, number>>()
 const TOP = ':top'
 
 export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: Item) => number, order: string[], shown: Item[] | null, ordered: boolean, done: () => void, chosen: string[], toOwn: () => (() => void) | undefined, heads?: Map<string, string>, within?: string,
-  /** Another kind of list using these groups (Goals): what its rows are called, its menu only the group lines, and its rows kept in the list's own sort (a drag only joins or leaves a group). */
-  kind?: { noun: [string, string] }): {
+  /** Another kind of list using these groups (Goals): what its rows are called, its menu only the group lines, and its rows kept in the list's own sort (a drag joins or leaves a group, or orders the rows of one part among themselves). */
+  kind?: { noun: [string, string] },
+  /**
+   * The part of the list each row stands in, where a rule of the list's own says so (a goal's day, a page's kind
+   * under its heading): a drop never puts a row among another part's rows. In a list of another kind, the rows of
+   * one part stand in your own order.
+   */
+  part?: (id: string) => string | undefined): {
   rows: Item[] | null
   /** The list as tiles: each group as one folder, at the top, then the loose notes. */
   tiles: (list: Item[]) => ({ group: NoteGroup; items: Item[] } | { item: Item })[]
@@ -1951,7 +1966,11 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   const blocks = (from: Layout, list = shown ?? every, root: string | null | undefined = within): Block[] => {
     const visible = new Map(list.map((one) => [one.id, one]))
     const rank = new Map(list.map((one, at) => [one.id, at]))
-    const bySort = (a: Item, b: Item): number => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
+    // A list of another kind with parts (Goals, by day): the rows of one part stand in your own order, as the layout
+    // has them (a drop just made is read off the layout held, so the row is at once where it was put); the list's own
+    // sort decides between parts. Rows never placed stand first in their part, as `ownOrder` has them.
+    const spot = kind && part ? new Map(flatten(from).map((key, at) => [key, at])) : null
+    const bySort = (a: Item, b: Item): number => (spot && part!(a.id) !== undefined && part!(a.id) === part!(b.id) ? (spot.get(a.id) ?? -1) - (spot.get(b.id) ?? -1) : 0) || (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0)
     // A group's parts, its subgroups' within them, three levels deep; an empty group stands, as a folder does.
     const partsIn = (group: string, depth: number): Part[] => {
       const parts = (from.groups[group] ?? []).flatMap((id): Part[] => {
@@ -2206,6 +2225,9 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
       n > 1 && { label: `Archive ${num(n)} notes`, hint: 'Kept, out of sight', run: () => (done(), void archive('nuggets', these, true)) }
     ]
   }
+  // Between rows, a list with parts (or of another kind) takes one move only: a row among the rows of its own part.
+  // Anywhere else its own rule would put the row straight back, so nothing is offered there (the list says why: kept-groups).
+  const amongOwn = (ids: string[], target: string): boolean => (part ? !isGroup(target) && ids.every((id) => part(id) !== undefined && part(id) === part(target)) : !kind)
   // Grouped by kind or date, each section of loose notes under its name, with how many are loose in it.
   const sectionOf = (one: Block): string | undefined => (one.group ? undefined : heads?.get(one.items[0].id))
   const loose = new Map<string, number>()
@@ -2232,13 +2254,13 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     }),
     preview: (ids, target, how) => {
       const next = dropMany(base, ids, target, how, shut, () => ({ id: 'new', name: '' }))
-      // Another kind keeps its own sort: a drop there only joins, leaves or makes a group.
-      if (kind && next && !next.make && ids.every((id) => groupOf(base, id) === groupOf(next, id))) return null
+      // Where the list's own rule places a row, a drop joins, leaves or makes a group, or moves it among the rows of its own part.
+      if (next && !next.make && ids.every((id) => groupOf(base, id) === groupOf(next, id)) && !amongOwn(ids, target)) return null
       return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) && !folderInGroup(next) ? { before: base, after: next, shown: shownKeys(next, shut, within), root: within ?? null } : null
     },
     onDrop: (ids, target, how) => {
       const seen = dropMany(base, ids, target, how, shut, make([target, ...ids]))
-      if (!seen || sameLayout(seen, base) || !ids.every((id) => inside(seen, id)) || folderInGroup(seen) || (kind && !seen.make && ids.every((id) => groupOf(base, id) === groupOf(seen, id)))) return chime('stay')
+      if (!seen || sameLayout(seen, base) || !ids.every((id) => inside(seen, id)) || folderInGroup(seen) || (!seen.make && ids.every((id) => groupOf(base, id) === groupOf(seen, id)) && !amongOwn(ids, target))) return chime('stay')
       // Only a move within where it already is needs your own order, laid out as you saw it. Joining or leaving a
       // group keeps the sort, and your own order as it was: the row takes its sorted place in its new group.
       const reorder = !ordered && !seen.make && groupOf(base, ids[0]) === groupOf(seen, ids[0])
@@ -2256,6 +2278,9 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
     picked: chosen,
     onLetGo: () => done(),
     ordered,
+    own: !!kind,
+    // Sorted some other way, a row still carries: what that does is said once over the list, so the grip promises nothing else.
+    hint: ordered || kind ? undefined : { name: 'sorted-drag', said: 'Drag a row to move it: that puts this list in “Custom order”. Hold it on another row to make a group.' },
     onFold: (group, open) => {
       if (group.folder) return
       setOpened((was) => ({ ...was, [group.id]: open }))

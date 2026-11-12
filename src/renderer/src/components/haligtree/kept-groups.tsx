@@ -23,8 +23,8 @@ import { byKeys, spring as springs, still } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
-import { Overlay, SETTLE, upDown } from './sortable'
-import { CARD, CarriedCard, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, type Aim } from './carry'
+import { DROP_LIT, Overlay, SETTLE, upDown } from './sortable'
+import { CARD, CarriedCard, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, Slid, type Aim, type Parts, type Places } from './carry'
 import { Hinted, copy } from './row-menu'
 import { Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
@@ -75,7 +75,8 @@ export const SectionHead = ({ head, first, day = false }: { head: [string, numbe
       <span className="text-meta text-muted-foreground tabular-nums"><Rolling text={head[1]} /></span>
     </div>
   ) :
-  <div data-group-head={head[0]} data-group-count={head[1]} className={day ? `mx-2 mb-1 border-b pb-1.5 text-meta font-medium text-foreground ${first ? 'mt-1' : 'mt-6'}` : `px-2 pb-1 text-xs text-muted-foreground ${first ? 'pt-1' : 'pt-4'}`}>
+  // A heading is its part's name to a carried row (`data-row-part`): lit while letting go would move the row to it, as Tasks' are.
+  <div data-group-head={head[0]} data-group-count={head[1]} data-row-part={head[0]} className={day ? `mx-2 mb-1 border-b pb-1.5 text-meta font-medium text-foreground ${DROP_LIT} data-[drop-hot]:rounded-md data-[drop-hot]:border-transparent data-[drop-hot]:ring-offset-4 data-[drop-hot]:ring-offset-accent ${first ? 'mt-1' : 'mt-6'}` : `px-2 pb-1 text-xs text-muted-foreground ${first ? 'pt-1' : 'pt-4'}`}>
     {head[0]} <span className={`tabular-nums ${day ? 'font-normal text-muted-foreground' : ''}`}><Rolling text={head[1]} /></span>
   </div>
   )
@@ -119,6 +120,17 @@ export type Folds = {
   onSort?: (ids: string[]) => void
   /** Kept as they are: these notes sorted, or back to not yet sorted (for Undo). */
   onSorted?: (ids: string[], sorted: boolean) => void
+  /**
+   * The list's sections as parts, where a rule of the list's own says which a row is in (a goal's day, a page's
+   * kind): a row carried over another part's rows opens no room there (carry.tsx's useTargets, as Tasks).
+   */
+  parts?: Parts
+  /** Places on the page a carried row can be let go on (the page's tabs). */
+  places?: Places
+  /** The list keeps a sort of its own that moving a row never switches (Goals): “Move here” says no more. */
+  own?: boolean
+  /** What carrying a row does here, said once in a line over the list until “Got it”. In your own order, the list's usual line. */
+  hint?: { name: string; said: string }
 }
 
 /** Over a row, that row; in the hair between two, the nearest. */
@@ -134,7 +146,7 @@ const collide: CollisionDetection = (args) => {
  * every list does; `index` counts rows on show, which is what the keyboard's
  * cursor counts.
  */
-export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, suggested, onRenaming, born, noun, days, onSort, onSorted, face, after, arrived, cursor, estimate, className }: Folds & {
+export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo, onFold, onNewNote, onOpenFolder, renaming, suggested, onRenaming, born, noun, days, onSort, onSorted, parts, places, own: ownSort, hint, face, after, arrived, cursor, estimate, className }: Folds & {
   face: (entry: Entry, index: number) => React.JSX.Element
   after?: (entry: Entry) => ReactNode
   arrived: (id: string) => boolean
@@ -191,10 +203,14 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   const card = useCardPlace(aim, (now) => !!now.make)
   // The groups the pointer last read as inside, for their edges' dead band.
   const inside = useRef(new Set<string>())
+  // The pane the row was lifted in: its headings are read there alone (two panes can hold lists with the same parts).
+  const pane = useRef<HTMLElement | null>(null)
   // Where what is carried was lifted from.
   const homeOf = (id: string | null): string | null => (id ? (isGroup(id) ? parentOf.get(id.slice(KEY.length)) : home.get(id)) ?? null : null)
   const onDragStart = ({ active, activatorEvent }: DragStartEvent): void => {
     const id = String(active.id)
+    const pressed = activatorEvent?.target
+    pane.current = pressed instanceof Element ? pressed.closest<HTMLElement>('[data-pane]') : null
     dragY.jump(0)
     setFrom(activatorEvent instanceof PointerEvent ? activatorEvent.clientX : null)
     inside.current.clear()
@@ -232,6 +248,10 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   }
   // Rested on a row's middle: once it has been there DWELL, letting go there makes a new folder, and the row lights to say so.
   const { rested, undwell } = useRest(() => lastMove.current && onDragMove(lastMove.current))
+  // A tab, or another part's heading, lit while the carried row would go there (carry.tsx, one for every list).
+  const targets = useTargets(places, parts, !!carried, () => lastMove.current && onDragMove(lastMove.current))
+  // Aimed at the rows themselves (or at nothing): nothing else on the page stays lit.
+  const aimAt = (next: Aim | null, mine?: boolean): void => (targets.dim(), point(next, mine))
   const name = (group: string | null | undefined): string => info.get(group ?? '')?.name ?? 'the group'
   // A group carried over the middle of anything inside a top-level group (its row, a subgroup's row, a note) aims at that group as a whole.
   const outerOf = (key: string): string | undefined => {
@@ -253,11 +273,17 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     }
     const pointer = activatorEvent instanceof PointerEvent ? { x: activatorEvent.clientX + delta.x, y: activatorEvent.clientY + delta.y } : null
     // With the split places up, letting go opens it there: nothing in the list lights too, whatever row it is level with.
-    if (!pointer || 'splitDrag' in document.documentElement.dataset) return point(null)
+    if (!pointer || 'splitDrag' in document.documentElement.dataset) return aimAt(null)
+    // One row carried (not a group, not several) can go to a place on the page or to another part of the list.
+    const alone = !isGroup(id) && manyRef.current.length < 2
+    // A place on the page (a tab): it lights, and the card says what letting go there does.
+    const spot = alone ? targets.place(id) : null
+    if (spot) return (unspring(), undwell(), point(spot))
     // The row whose place the pointer is over, as the list lies before anything slid aside (as a sortable list reads it:
     // the room then opens just where the pointer is, and what it shows never feeds back into what is aimed at).
-    const over = rowAt(new Set(keys), pointer.y)
-    if (!over) return point(null)
+    // (Level with a part's heading, that part's first loose row: on a heading its part is meant, whichever row is nearer.)
+    const over = (alone ? headRow(parts, () => keys.filter((key) => !isGroup(key) && !home.has(key)), pointer.y, pane.current) : null) ?? rowAt(new Set(keys), pointer.y)
+    if (!over) return aimAt(null)
     const target = over.id
     // Past the real edge of a group round that row, for any group however far down the list: out of it, even with no row
     // below to be nearer to. Its own block is no edge to a group carried.
@@ -273,14 +299,14 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     // Over its own place: nothing changes.
     // Carried well to the left: out of its folder, never into a new one, even over its own place.
     const outward = activatorEvent instanceof PointerEvent && activatorEvent.clientX - pointerNow() > OUTDENT
-    if (target === id && !past && !outward) return point(null, true)
+    if (target === id && !past && !outward) return aimAt(null, true)
     const shut = target && !isGroup(id) ? info.get(target.slice(KEY.length)) : undefined
     if (!shut || shut.open || !isGroup(target!)) unspring()
     else if (spring.current?.key !== target) {
       unspring()
       spring.current = { key: target!, timer: setTimeout(() => (click('tick'), onFold(shut, true), (spring.current = null)), 600) }
     }
-    if (!past && manyRef.current.length > 1 && manyRef.current.includes(target)) return point(null)
+    if (!past && manyRef.current.length > 1 && manyRef.current.includes(target)) return aimAt(null)
     const ids = manyRef.current.length > 1 ? manyRef.current : [id]
     const at = (pointer.y - over.top) / over.height
     const mover = ids[0]
@@ -328,6 +354,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
         if (whole && KEY + whole !== id) tries.push([KEY + whole, 'join'])
       } else if (middle) tries.push([target, 'join'])
       tries.push([beside, how])
+      // Where the list's own rule places its rows, a place beside a group is none: the group's whole row takes the carried one in.
+      if ((parts || ownSort) && isGroup(target) && !isGroup(id) && !middle) tries.push([target, 'join'])
     }
     for (const [where, how] of tries) {
       const land = preview(ids, where, how)
@@ -356,10 +384,11 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const words =
         make ? (sub ? (n > 1 ? `New subgroup of ${num(n + 1)}` : `New subgroup in ${name(outer)}`) : n > 1 ? `New group of ${num(n + 1)}` : 'New group')
         : into !== own ? (into ? (isGroup(lead) ? `Put inside ${name(into)}` : own ? `Move ${some}to ${name(into)}` : `Add ${some}to ${name(into)}`) : isGroup(lead) ? `Move out of ${name(own)}` : `Remove ${some}from ${name(own)}`)
-        : `${n > 1 ? `Move ${num(n)} here` : 'Move here'}${ordered ? '' : ' · Custom order'}`
+        : `${n > 1 ? `Move ${num(n)} here` : 'Move here'}${ordered || ownSort ? '' : ' · Custom order'}`
       // In the gap row's own group (or first in the group whose row it is), the room sits close under it.
       const gapRow = gap !== null && gap >= 0 ? keys[gap] : undefined
-      const snug = gapRow !== undefined && (isGroup(gapRow) ? gapRow.slice(KEY.length) === (make ? outer : into) : (home.get(gapRow) ?? null) === (make ? outer : into))
+      // First in its part, the row before it on show is another part's: the room sits just over the next row, under their heading.
+      const snug = gapRow !== undefined && (isGroup(gapRow) ? gapRow.slice(KEY.length) === (make ? outer : into) : (home.get(gapRow) ?? null) === (make ? outer : into) && (!parts || parts.of(gapRow) === parts.of(lead)))
       // A group's block sits in 8px of air at the top level and 4px inside a group.
       const fit = isGroup(lead) ? (into ? 4 : 8) - (own ? 4 : 8) : 0
       // Last in a group whose next row on show is outside it (Group 3 carried below Group 2, the last thing in Apple Notes /
@@ -370,9 +399,15 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const list = box?.querySelector<HTMLElement>(':scope > [data-fold] > div > div > div')
       const node = next && document.querySelector(`[data-sortable-id="${CSS.escape(next)}"]`)
       const until = list && node && !box!.contains(node) ? Math.round(list.getBoundingClientRect().bottom - parseFloat(getComputedStyle(list).paddingBottom)) : undefined
-      return point({ target: where, how, into: make ? outer : into, label: words, make, gap, snug, fit, until, around: make ? around.slice(1) : around, tint: tintOf(info.get((make ? outer : into) ?? own ?? '')?.color) })
+      return aimAt({ target: where, how, into: make ? outer : into, label: words, make, gap, snug, fit, until, around: make ? around.slice(1) : around, tint: tintOf(info.get((make ? outer : into) ?? own ?? '')?.color) })
     }
-    point(null)
+    // Over a row of another part, where the list's own rule says which part a row is in: nothing opens. That part's
+    // heading lights (the row itself, where no heading stands over it) and the card says what letting go does, or why
+    // it cannot go there. Never a quiet band that says nothing.
+    const other = alone && !isGroup(target) ? targets.part(id, target, pane.current, over.node) : null
+    if (other) return point(other)
+    if (parts && !alone && !isGroup(id) && !isGroup(target) && parts.of(target) !== undefined) return aimAt({ target, how: 'join', into: null, label: 'Carry one at a time to move it there', gap: null, around: [], refused: true })
+    aimAt(null)
   }
   useCarriedLeft(from, !!carried, () => lastMove.current && onDragMove(lastMove.current))
   // Rows changed under a still pointer (a folded group sprung open): aimed afresh once they have settled.
@@ -392,12 +427,15 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     undwell()
     setMany([])
     setCarried(null)
-    point(null)
+    aimAt(null)
   }
   const onDragEnd = ({ active }: DragEndEvent): void => {
     const now = aimed.current
     end()
     if (!now || now.target === String(active.id)) return chime('stay')
+    // A refusal, a tab or another part's heading: said or done by the list's own rule, and no row changes place.
+    const done = targets.drop(String(active.id), now)
+    if (done) return void (done.said !== undefined && refuse(done.said))
     setSnap(true)
     onDrop(manyRef.current.length > 1 ? manyRef.current : [String(active.id)], now.target, now.how)
   }
@@ -431,7 +469,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} home={homeOf(carried)} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
-          {ordered && <OwnOrderHint />}
+          {(hint || ordered) && <DragHint key={(hint ?? OWN_ORDER).name} {...(hint ?? OWN_ORDER)} />}
           <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0].id)} holds={({ one }, id) => one.entries.some((entry) => entry.id === id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
             // A big group's line is keyed apart from a small one's: emptied in one step (2,500 rows to none), the list
             // would place every row under it by the height it measured before, scroll there and draw it all twice.
@@ -444,7 +482,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
                 </div>
               ) : one.head ? (
                 <>
-                  <SectionHead head={one.head} first={start === 0} day={days} />
+                  {/* A group forming on a row above it moves every row after that row down: the heading goes with them. */}
+                  <Slid by={aim?.make && aim.gap === null && keys.indexOf(one.entries[0].id) > keys.indexOf(aim.target) ? rowH + 6 : 0}><SectionHead head={one.head} first={start === 0} day={days} /></Slid>
                   {row(one.entries[0], start)}
                 </>
               ) : airAbove(n) ? (
@@ -482,7 +521,7 @@ function Ghost({ carried, bundles, many, aim, grab, from, rest, dragY }: { carri
     <Hand grab={grab} from={from} rest={rest}>
       {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} dragY={dragY} />).reverse()}
       <CarriedCard attrs={{ 'data-ghost': '' }} icon={group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
-        title={group?.name ?? (entry?.title || 'New note')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} />
+        title={group?.name ?? (entry?.title || 'New note')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} refused={!!aim?.refused} />
       {/* How many, hanging just under the stack. */}
       {many.length > 1 && <CarriedCount n={many.length} />}
     </Hand>
@@ -516,11 +555,14 @@ function Fanned({ entry, depth, dragY }: { entry: Entry; depth: number; dragY: M
   )
 }
 
-/** Said once, the first time a list is in your own order: rows can be carried, and gathered. */
-function OwnOrderHint(): React.JSX.Element | null {
+/** A list in your own order: rows can be carried, and gathered. */
+const OWN_ORDER = { name: 'own-order', said: "Drag a row to move it, or past its group's edge to take it out. Hold it on another row to make a group." }
+
+/** What carrying a row does in this list, said once in a line over it (each kind of list once, by `name`) until “Got it”: the grip on a row promises only what this says. */
+function DragHint({ name, said }: { name: string; said: string }): React.JSX.Element | null {
   const [seen, setSeen] = useState(() => {
     try {
-      return !!localStorage.getItem('hint:own-order')
+      return !!localStorage.getItem(`hint:${name}`)
     } catch {
       return true
     }
@@ -529,15 +571,15 @@ function OwnOrderHint(): React.JSX.Element | null {
   const done = (): void => {
     setSeen(true)
     try {
-      localStorage.setItem('hint:own-order', '1')
+      localStorage.setItem(`hint:${name}`, '1')
     } catch {
       // Not kept: it shows again next time, which is harmless.
     }
   }
   return (
-    <p data-own-order-hint="" className="mb-1 flex items-center gap-2 px-2 text-xs text-muted-foreground animate-in fade-in-0 duration-300">
+    <p data-drag-hint={name} {...(name === OWN_ORDER.name ? { 'data-own-order-hint': '' } : {})} className="mb-1 flex items-center gap-2 px-2 text-xs text-muted-foreground animate-in fade-in-0 duration-300">
       <GripVertical aria-hidden className="size-3 shrink-0" />
-      <span className="min-w-0 flex-1">Drag a row to move it, or past its group's edge to take it out. Hold it on another row to make a group.</span>
+      <span className="min-w-0 flex-1">{said}</span>
       <button type="button" onClick={done} className="flex h-6 shrink-0 items-center rounded px-1.5 hover:bg-accent hover:text-foreground">Got it</button>
     </p>
   )

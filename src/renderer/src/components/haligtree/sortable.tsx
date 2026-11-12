@@ -6,7 +6,7 @@ import { RowSensor } from '@/lib/own-press'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { EASING, spring, still } from '@/lib/motion'
-import { CarriedCard, CarryRow, DropLine, HELD, Hand, OwnRoom, Shaped, pointerAt, rowAt, swallowRelease, titleOf, useAim, useRest } from './carry'
+import { CarriedCard, CarryRow, DropLine, HELD, Hand, OwnRoom, Shaped, pointerAt, rowAt, swallowRelease, titleOf, useAim, useRest, useTargets, headRow, type Parts, type Places } from './carry'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { refuse } from './ui'
@@ -149,14 +149,14 @@ type ListProps<T> = {
    * tab, a card): any element marked `data-row-drop` with what it is. Lit
    * while the row is over one, and the card says what letting go there does.
    */
-  places?: { drop: (id: string, place: string) => void; said: (place: string) => string }
+  places?: Places
   /**
    * Rows standing in parts under a heading each (Overdue, Today), where a rule
    * of the part's own says what is in it. Carried over another part's rows,
    * nothing opens: that part's heading (`data-row-part`) lights and the card
    * says what letting go does (`words`), or why it cannot go there (`refused`).
    */
-  parts?: { of: (id: string) => string | undefined; take: (id: string, part: string) => { words: string } | { refused: string }; drop: (id: string, part: string) => void }
+  parts?: Parts
   children: (items: T[]) => ReactNode
 }
 
@@ -204,26 +204,10 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
   const [quiet, setQuiet] = useState(false)
   // What letting go would do, with the tick and tap of each new place.
   const { aim, aimed, start, point } = useAim()
-  // A place on the page lit while the carried row would go there (a tab, a part's heading).
-  const lit = useRef<HTMLElement | null>(null)
-  const light = (next: HTMLElement | null): void => {
-    if (lit.current === next) return
-    if (lit.current) delete lit.current.dataset.dropHot
-    if (next) next.dataset.dropHot = ''
-    lit.current = next
-  }
   const read = useRef((): void => undefined)
   const { rested, undwell } = useRest(() => read.current())
-  // Sideways the list's own drag says nothing (it goes up and down only): along a row of tabs the pointer itself is followed.
-  // Only a move that is sideways alone: up or down the drag itself says, and reading twice a move cost frames in a long list.
-  const tabs = !!places
-  const readAt = useRef(-1)
-  useEffect(() => {
-    if (!shot || !tabs) return
-    const follow = (event: PointerEvent): void => void (event.clientY === readAt.current && read.current())
-    window.addEventListener('pointermove', follow)
-    return () => window.removeEventListener('pointermove', follow)
-  }, [shot, tabs])
+  // A place on the page, or another part's heading, lit while the carried row would go there (carry.tsx, one for every list).
+  const targets = useTargets(places, parts, !!shot, () => read.current())
   // The rows' names, once a draw: asked on every move of the pointer.
   const known = useMemo(() => new Set(keys), [keys])
   // The rows as the page draws them, drawn again only when the page or their order changes. Each new place while carrying
@@ -235,38 +219,29 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
     const lift = carrying.current
     if (!lift) return
     const id = lift.id
-    const { x, y } = pointerAt()
-    readAt.current = y
+    const { y } = pointerAt()
     // A place on the page: it lights, and the card says what letting go there does.
-    const spot = places ? document.elementsFromPoint(x, y).map((one) => one.closest<HTMLElement>('[data-row-drop]')).find((one) => !!one) : undefined
-    if (spot && places) {
-      const place = spot.dataset.rowDrop ?? ''
-      return (undwell(), light(spot), point({ target: place, how: 'join', into: place, label: places.said(place), gap: null, around: [], act: 'place' }))
-    }
-    // The row whose place the pointer is over, as the list lies before anything slid aside.
-    const over = rowAt(known, y, lift.within)
-    if (!over || over.id === id) return (undwell(), light(null), point(null, true))
+    const spot = targets.place(id)
+    if (spot) return (undwell(), point(spot))
+    // The row whose place the pointer is over, as the list lies before anything slid aside (level with a part's heading, that part's first row).
+    const over = headRow(parts, () => keys, y, lift.within) ?? rowAt(known, y, lift.within)
+    if (!over || over.id === id) return (undwell(), targets.dim(), point(null, true))
     const target = over.id
     const at = (y - over.top) / over.height
     // Rested on a row's middle: its step, or the reason it cannot be. Until it has rested there, it only moves beside it.
     const may = onNest && at > 0.28 && at < 0.72 ? (nests ? nests(id, target) : true) : false
     if (!may) undwell()
     else if (rested(target)) {
-      light(null)
+      targets.dim()
       return point(may === true
         ? { target, how: 'join', into: target, label: `Make it a step of “${titleOf(over.node)}”`, gap: null, around: [], act: 'step' }
         : { target, how: 'join', into: null, label: may.refused, gap: null, around: [], refused: true })
     }
-    if (!onMove) return (light(null), point(null, true))
+    if (!onMove) return (targets.dim(), point(null, true))
     // Another part of the list, whose own rule says what is in it: its heading lights and nothing opens.
-    const part = parts?.of(target)
-    if (parts && part !== undefined && part !== parts.of(id)) {
-      const take = parts.take(id, part)
-      const no = 'refused' in take
-      light(no ? null : (lift.within?.querySelector<HTMLElement>(`[data-row-part="${CSS.escape(part)}"]`) ?? null))
-      return point({ target: part, how: 'join', into: no ? null : part, label: no ? take.refused : take.words, gap: null, around: [], refused: no || undefined, act: 'part' })
-    }
-    light(null)
+    const part = targets.part(id, target, lift.within)
+    if (part) return point(part)
+    targets.dim()
     // Among the rows, the one under the pointer makes way: up if the carried row came from above it, down if from below.
     const [from, to] = [keys.indexOf(id), keys.indexOf(target)]
     const gap = from < to ? to : to - 1
@@ -278,7 +253,7 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
     carrying.current = null
     setShot(null)
     undwell()
-    light(null)
+    targets.dim()
     point(null)
     landed()
   }
@@ -299,9 +274,8 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
     end()
     setQuiet(!now || now.gap === null)
     if (!now) return chime('stay')
-    if (now.refused) return refuse(now.label ?? '')
-    if (now.act === 'place') return places?.drop(id, now.target)
-    if (now.act === 'part') return parts?.drop(id, now.target)
+    const done = targets.drop(id, now)
+    if (done) return void (done.said !== undefined && refuse(done.said))
     setSnap(true)
     if (now.act === 'step') return (setHeld(keys.filter((one) => one !== id)), onNest?.(id, now.target))
     const [from, to] = [keys.indexOf(id), keys.indexOf(now.target)]

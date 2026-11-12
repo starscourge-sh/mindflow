@@ -213,6 +213,8 @@ export function DropLine({ how, style, fixed = false }: { how: string; style: CS
 }
 /** The line drawn just now, if any, and who hears of it moving. */
 let lineNow: HTMLElement | null = null
+/** The place on the page lit for the carried row just now (useTargets): the card rides clear of that too. */
+let litNow: HTMLElement | null = null
 const lineHeard = new Set<() => void>()
 /** How far the card stays from the line it is about. */
 const CLEAR = 6
@@ -237,6 +239,9 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
       const turned = card.current?.firstElementChild?.getBoundingClientRect()
       const box = own && { top: Math.min(own.top, turned?.top ?? own.top), bottom: Math.max(own.bottom, turned?.bottom ?? own.bottom) }
       const line = lineNow?.isConnected ? lineNow.getBoundingClientRect() : null
+      // A small place the card is carried onto (a tab): it rides just under it, so the place's own name stays in sight.
+      // Lit, the place is under the pointer, so the card is on it or about to be (sideways it follows a touch late).
+      const place = !line?.width && litNow?.isConnected && litNow.dataset.rowDrop !== undefined ? litNow.getBoundingClientRect() : null
       let next = 0
       if (box && box.bottom > box.top && line?.width) {
         const at = line.top + line.height / 2
@@ -248,7 +253,14 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
         const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : (box.top + box.bottom) / 2 - y.get()
         const reach = (box.bottom - box.top) / 2 + CLEAR
         next = side === 'under' ? Math.max(0, at + reach - middle) : Math.min(0, at - reach - middle)
-      } else side = null
+      } else {
+        side = null
+        if (box && place && place.height <= 48) {
+          const home = card.current?.parentElement?.getBoundingClientRect()
+          const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : (box.top + box.bottom) / 2 - y.get()
+          next = Math.max(0, place.bottom + CLEAR + (box.bottom - box.top) / 2 - middle)
+        }
+      }
       if (still()) (to.jump(next), y.jump(next))
       else to.set(next)
     }
@@ -332,7 +344,8 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
       {...listeners}
       tabIndex={-1}
       role={undefined}
-      className="group/grip relative isolate rounded-md data-[nest-hot]:bg-accent data-[nest-hot]:ring-1 data-[nest-hot]:ring-ring"
+      // Lit too as the one thing standing for its part, where that part has no heading over it (useTargets).
+      className="group/grip relative isolate rounded-md data-[nest-hot]:bg-accent data-[nest-hot]:ring-1 data-[nest-hot]:ring-ring data-[drop-hot]:bg-accent data-[drop-hot]:ring-1 data-[drop-hot]:ring-ring"
       style={glide.style}
     >
       {/* That a row can be carried, said quietly: a grip in the margin by its left edge, as soon as the pointer is on it, as Today's lines show theirs. */}
@@ -600,6 +613,97 @@ export function useRest(again: () => void): { rested: (key: string) => boolean; 
 }
 
 /**
+ * Places on the page a row can be dropped on as well as among its rows (a tab, a card): any element marked
+ * `data-row-drop` with what it is. Lit while the row is over one, and the card says what letting go there does
+ * (`said`; null: that place takes nothing from this row, and stays unlit).
+ */
+export type Places = { drop: (id: string, place: string) => void; said: (place: string, id: string) => string | null }
+/**
+ * Rows standing in parts under a heading each (Overdue, Today; a goal's day), where a rule of the part's own says
+ * what is in it. Carried over another part's rows, nothing opens: that part's heading (`data-row-part`) lights and
+ * the card says what letting go does (`words`), or why it cannot go there (`refused`).
+ */
+export type Parts = { of: (id: string) => string | undefined; take: (id: string, part: string) => { words: string } | { refused: string }; drop: (id: string, part: string) => void }
+
+/**
+ * Level with a part's own heading, that part is meant, whichever row is nearer (the heading's top half is nearer the
+ * part before it): the first of `rows` that is in it stands for it. Null anywhere else.
+ */
+export function headRow(parts: Parts | undefined, rows: () => string[], y: number, within: ParentNode | null): ReturnType<typeof rowAt> {
+  if (!parts) return null
+  for (const head of (within ?? document).querySelectorAll<HTMLElement>('[data-row-part]')) {
+    const box = head.getBoundingClientRect()
+    if (y < box.top || y > box.bottom) continue
+    const first = rows().find((key) => parts.of(key) === head.dataset.rowPart)
+    return first === undefined ? null : rowAt(new Set([first]), y, within)
+  }
+  return null
+}
+
+/**
+ * A carried row over a place or over another part of its list: the one thing lit, the aim the card reads, and what
+ * letting go there does. One for every list that carries (Tasks' rows, and the lists with groups).
+ */
+export function useTargets(places: Places | undefined, parts: Parts | undefined, on: boolean, again: () => void): {
+  /** The place under the pointer, lit: the aim at it, or null where there is none. */
+  place: (id: string) => Aim | null
+  /** `target` is a row of another part: that part's heading lit (`row`, where it stands under no heading), or the refusal. Null in its own part. */
+  part: (id: string, target: string, within: ParentNode | null, row?: HTMLElement) => Aim | null
+  /** Nothing lit. */
+  dim: () => void
+  /** Let go on a refusal, a place or a part: done here, `said` the refusal to say. Null for any other aim. */
+  drop: (id: string, aim: Aim) => { said?: string } | null
+} {
+  const lit = useRef<HTMLElement | null>(null)
+  const light = (next: HTMLElement | null): void => {
+    if (lit.current === next) return
+    if (lit.current) delete lit.current.dataset.dropHot
+    if (next) next.dataset.dropHot = ''
+    lit.current = litNow = next
+    for (const tell of lineHeard) tell()
+  }
+  // Sideways the list's own drag says nothing (it goes up and down only): along a row of tabs the pointer itself is followed.
+  // Only a move that is sideways alone: up or down the drag itself says, and reading twice a move cost frames in a long list.
+  const readAt = useRef(-1)
+  const read = useRef(again)
+  read.current = again
+  const tabs = !!places
+  useEffect(() => {
+    if (!on || !tabs) return
+    const follow = (event: PointerEvent): void => void (event.clientY === readAt.current && read.current())
+    window.addEventListener('pointermove', follow)
+    return () => window.removeEventListener('pointermove', follow)
+  }, [on, tabs])
+  return {
+    place: (id) => {
+      readAt.current = pointerY
+      if (!places) return null
+      const spot = document.elementsFromPoint(pointerX, pointerY).map((one) => one.closest<HTMLElement>('[data-row-drop]')).find((one) => !!one)
+      const name = spot?.dataset.rowDrop ?? ''
+      const said = spot ? places.said(name, id) : null
+      if (!spot || said === null) return null
+      light(spot)
+      return { target: name, how: 'join', into: name, label: said, gap: null, around: [], act: 'place' }
+    },
+    part: (id, target, within, row) => {
+      const to = parts?.of(target)
+      if (!parts || to === undefined || to === parts.of(id)) return null
+      const take = parts.take(id, to)
+      const no = 'refused' in take
+      light(no ? null : ((within ?? document).querySelector<HTMLElement>(`[data-row-part="${CSS.escape(to)}"]`) ?? row ?? null))
+      return { target: to, how: 'join', into: no ? null : to, label: no ? take.refused : take.words, gap: null, around: [], refused: no || undefined, act: 'part' }
+    },
+    dim: () => light(null),
+    drop: (id, aim) => {
+      if (aim.refused) return { said: aim.label ?? '' }
+      if (aim.act === 'place') return (places?.drop(id, aim.target), {})
+      if (aim.act === 'part') return (parts?.drop(id, aim.target), {})
+      return null
+    }
+  }
+}
+
+/**
  * What letting go now would do, with the tick and tap of each new place: the
  * light tap between rows, and the firm one with its own tick on crossing what
  * holds it (a group's or a line's edge, either way, or a new group forming).
@@ -668,12 +772,13 @@ export function CarriedCard({ icon, title, strong = false, words, tint, refused 
       {icon}
       <span className={cn('private-text min-w-0 flex-1 truncate', strong && 'font-semibold')}>{title}</span>
       {words !== undefined && (
-        <span className={cn('grid shrink-0 justify-items-end text-xs text-muted-foreground', refused && 'basis-full justify-items-start')}>
+        <span className={cn('grid justify-items-end text-xs text-muted-foreground', refused ? 'min-w-0 basis-full justify-items-start' : 'shrink-0')}>
           <AnimatePresence initial={false}>
             {words && (
-              <motion.span key={words} data-drag-label="" data-refused={refused ? '' : undefined} className={cn('col-start-1 row-start-1 flex items-center gap-1.5 whitespace-nowrap', refused && 'text-foreground')}
+              <motion.span key={words} data-drag-label="" data-refused={refused ? '' : undefined} // A refusal says why and what would do it instead: a sentence, which takes a second line inside the card before it runs out of it.
+                className={cn('col-start-1 row-start-1 flex gap-1.5', refused ? 'items-start text-foreground' : 'items-center whitespace-nowrap')}
                 initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -3, transition: { duration: 0.08 } }} transition={still() ? { duration: 0 } : springs.fast}>
-                <span className="size-1.5 rounded-full shrink-0" style={{ background: tint ?? 'var(--muted-foreground)' }} />
+                <span className={cn('size-1.5 rounded-full shrink-0', refused && 'mt-[0.45em]')} style={{ background: tint ?? 'var(--muted-foreground)' }} />
                 {words}
               </motion.span>
             )}
@@ -707,7 +812,9 @@ export function Hand({ grab, from, rest, at, children }: { grab: number; from: n
   const y = useTransform(() => (rest?.get() ?? 0) + clear.y.get())
   return (
     <div className="relative h-full w-full">
-      <div className="absolute" style={{ top: at ?? '50%', left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}>
+      {/* Never past the window's right edge: in a narrow window a row taken hold of far along it carried its card partly out of
+          sight. Where the row starts is the pointer at the lift less how far along the row that was: nothing is read off the page. */}
+      <div className="absolute" style={{ top: at ?? '50%', left: from === null ? `min(${grab + 18}px, 40%)` : `min(${grab + 18}px, 40%, calc(100vw - ${Math.round(from - grab)}px - min(20rem, calc(100vw - 9rem)) - 8px))`, translate: '0 -50%' }}>
         <motion.div ref={clear.ref} className="relative w-fit" style={{ x, y, rotate: lean }}>{children}</motion.div>
       </div>
     </div>
@@ -743,18 +850,14 @@ export function useCardPlace(aim: Aim | null, takes: (aim: Aim) => boolean): { r
   return { rest, follow: (at) => ((by.current = at), go()), lift: () => ((place.current = null), y.jump(0), rest.jump(0)) }
 }
 
-/** A thing between a list's rows that is not one of them (a small heading): it slides with them, so none passes over it. */
-export function Slid({ id, children }: { id: string; children: ReactNode }): React.JSX.Element {
-  const { ys, snap } = useContext(Carrying)
-  const glide = useGlide(Math.round(ys.get(id) ?? 0), 1, snap)
-  const pushed = Math.max(0, Math.round(ys.get(id) ?? 0))
-  return (
-    <>
-      <motion.div ref={glide.ref} data-sortable-id={id} style={glide.style}>{children}</motion.div>
-      {/* What comes after the list makes way too, so what slid down never runs into it. */}
-      <div aria-hidden className="transition-[height] duration-200 motion-reduce:transition-none" style={{ height: pushed, transitionTimingFunction: OUT }} />
-    </>
-  )
+/**
+ * A thing between a list's rows that is not one of them (a section's heading): it slides `by` on the rows' own clock,
+ * so the rows that make way under a group forming above it never leave it behind, under the new group's panel.
+ */
+export function Slid({ by, children }: { by: number; children: ReactNode }): React.JSX.Element {
+  const { snap } = useContext(Carrying)
+  const glide = useGlide(Math.round(by), 1, snap)
+  return <motion.div ref={glide.ref} style={glide.style}>{children}</motion.div>
 }
 
 /** A thing's name, as it reads on its row: its title, never the age or counts beside it. */

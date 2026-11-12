@@ -438,6 +438,9 @@ const ACT = {
 }
 /** A panel line's icon: the one its words wear in every menu. */
 const ICON = menuIcon
+/** The someday list as one part of its page, and a goal that stands alone in a list kept the latest first (carry.tsx's Parts). */
+const SOMEDAY = ':someday'
+const ALONE = ':alone:'
 
 /** How it ends, or that it goes on ice: the lines a goal keeper comes for, in the row's menu and the page's panel. */
 const endings = (item: Item): MenuItem[] => onIce(item) ? [{ label: ACT.thaw, hint: 'Open again, its day moved out by the days it waited', run: () => thaw(item) }]
@@ -492,8 +495,48 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   // Home's choice of goals, for each row's “Show on Home”.
   useHomeGoals(useLive(haligtree.settings, null as Settings | null))
   const letGo = useRef<() => void>(() => undefined)
-  const folding = useFolding('goal', all, (a, b) => own.compare(a.id, b.id) || b.createdAt.localeCompare(a.createdAt), own.order, items, false, () => letGo.current(), [], () => undefined,
-    show === 'open' ? sectionsOf(items, today) : undefined, undefined, { noun: ['goal', 'goals'] })
+  // The part of the list a goal stands in, as Tasks has parts (carry.tsx's useTargets). Under Goals, its day, the far
+  // ones together under their heading: goals of one part take your own order, and the day still decides the part. The
+  // someday list is one part. Where a list is kept the latest first (crossed off, on ice, ended), each goal stands alone.
+  const byId = new Map(all.map((one) => [one.id, one]))
+  const partOf = (id: string): string | undefined => {
+    const one = byId.get(id)
+    if (!one) return undefined
+    return show === 'open' && one.goalAt ? (farOff(one.goalAt, today) ? FAR_HEAD : dayMonth(`${one.goalAt}T12:00`, 'always')) : show === 'someday' && !one.closedAt ? SOMEDAY : ALONE + id
+  }
+  // Carried over another part's rows: another day takes it (its day becomes that day); a stretch of time, or a list kept the latest first, says why not.
+  const takes = (_id: string, part: string): { words: string } | { refused: string } =>
+    part === FAR_HEAD ? { refused: `Its day puts a goal under “${FAR_HEAD}”: change its day on its page to move it` }
+      : part === SOMEDAY ? { refused: `It is crossed off: “${ACT.reopen}” puts it back on the list` }
+      : part.startsWith(ALONE) ? { refused: `${show === 'someday' ? 'Crossed-off goals' : show === 'iced' ? 'Goals on ice' : 'Ended goals'} stand the latest first: they are not arranged by hand` }
+      : { words: `Move to ${part}` }
+  const toDay = (id: string, part: string): void => {
+    const one = byId.get(id)
+    const day = items.find((other) => partOf(other.id) === part)?.goalAt
+    if (!one || !day) return
+    const was = { target: one.goalAt, from: one.goalFrom }
+    void haligtree.goalDates(id, { target: day }).then((ok) => {
+      if (!ok) return chime('nope')
+      chime('shift')
+      toast(`Moved to ${part}`, () => void haligtree.goalDates(id, was.target ? { target: was.target, from: was.from ?? undefined } : { target: null }))
+    })
+  }
+  // A tab takes a carried goal where the goal's own menu has that move, under the menu's words; any other tab stays unlit.
+  const tabMove = (id: string, to: string): { label: string; run: () => void } | null => {
+    const one = byId.get(id)
+    if (!one || to === tabOf(one)) return null
+    if (to === 'iced') return one.closedAt ? null : { label: ACT.ice, run: () => settle(one, 'on ice') }
+    if (to !== (someday(one) ? 'someday' : 'open')) return null
+    return onIce(one) ? { label: ACT.thaw, run: () => thaw(one) } : one.closedAt ? { label: ACT.reopen, run: () => reopen(one) } : null
+  }
+  // What carrying a goal does under this tab, said once over the list: the grip on a row promises no more than this.
+  const dragSaid = show === 'open' ? 'Drag a goal to order it among the goals of its day, or onto another day to move it there. Hold it on another goal to make a group.'
+    : show === 'someday' ? 'Drag a goal to put the list in your own order. Hold it on another goal to make a group.'
+    : `Drag a goal onto “Goals” or “Someday” above to ${show === 'iced' ? 'take it off ice' : 'open it again'}, or hold it on another goal to make a group.`
+  // Your own order, and for goals never placed the order every list of goals has (nearest first, then newest): so what
+  // is saved is what was on the page, and an Undo, or a group made, moves no goal that was not carried.
+  const folding = useFolding('goal', all, (a, b) => own.compare(a.id, b.id) || (a.goalAt ?? '').localeCompare(b.goalAt ?? '') || b.createdAt.localeCompare(a.createdAt), own.order, items, false, () => letGo.current(), [], () => undefined,
+    show === 'open' ? sectionsOf(items, today) : undefined, undefined, { noun: ['goal', 'goals'] }, partOf)
   // The rows in the order they show: the groups first, then the loose goals.
   const rows = folding.rows ?? items
   // Only the last pick lands: a late answer for the goal before is dropped.
@@ -574,7 +617,7 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
           the goal never waits for the list, which comes in whole beside it once drawn. */}
       <Page aside={!!open || !!coming} waiting={unloaded(all) || unloaded(own.order) || (!!focus && (coming ?? open?.id) !== focus) || !listShown} apart={sent} title="Goals" count={several.chosen.length || undefined} unit={several.chosen.length ? ['selected', 'selected'] : ['goal', 'goals']}
         // Which goals show, at the line's left before the count, on the list's edges as Tasks' tabs (qa/list-edges.mjs): apart from the buttons that make or gather goals.
-        lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><TabChips name="goals" tabs={TABS.map((one) => ({ value: one.id, label: one.label, count: unloaded(all) ? undefined : listOf(one.id).length }))} value={show} onChange={switchTo} /></div>}
+        lead={several.bar ? undefined : <div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><TabChips name="goals" tabs={TABS.map((one) => ({ value: one.id, label: one.label, count: unloaded(all) ? undefined : listOf(one.id).length }))} value={show} onChange={switchTo} drops={Object.fromEntries(TABS.map((one) => [one.id, one.id]))} /></div>}
         actions={several.bar ??
           <span className="flex items-center gap-2">
             {openOnes(all).length > 1 && <Button variant="outline" size="sm" className="h-7 cursor-pointer px-3" data-all-goals-sticky onClick={showAllGoals} title="Every open goal on one sticky, each in its own colour"><StickyNote className="size-3.5" />Stick all goals</Button>}
@@ -585,7 +628,9 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
       >
         {!listShown ? null : items.length ? (
           <NoteList groups={[['', entries]]} density="list" table="nuggets" selected={coming ?? open?.id} cursor={cursor} onCursor={setCursor} onPick={pick} chosen={several.chosen} picking={several.picking} className="list-edge my-2"
-            folds={folding.rows ? { ...folding.folds(menuFor, entryOf), picked: several.chosen, days: show === 'open', onNewNote: pick } : undefined} />
+            folds={folding.rows ? { ...folding.folds(menuFor, entryOf), picked: several.chosen, days: show === 'open', onNewNote: pick,
+              parts: { of: partOf, take: takes, drop: toDay }, places: { said: (place, id) => tabMove(id, place)?.label ?? null, drop: (id, place) => tabMove(id, place)?.run() },
+              hint: { name: `goals-${show}`, said: dragSaid } } : undefined} />
         ) : unloaded(all) ? null : !all.length ? (
           // None set yet: the page as it will look, with a few made-up ones.
           <Example tryIt={<><strong><button type="button" onClick={() => void startGoal(go)} className="text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60">set a goal</button>: a day you are aiming for.</strong> It counts down at the top of Home and keeps a log of the road there. Or leave the day out: a someday goal, for the life list.</>}>
