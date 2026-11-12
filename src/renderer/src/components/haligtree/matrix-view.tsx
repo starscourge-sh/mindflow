@@ -17,13 +17,12 @@ import { useOpened } from '@/lib/nav'
 import { readFresh, readNow } from '@/lib/early-read'
 import { isUrgent, quadrantOf, type Quadrant } from '../../../../main/task-words'
 import { dayjs, num } from '../../../../main/dates'
-import { Page, Pressed, Rolling, Tags, listEnd, toast, typing, quietly } from './ui'
+import { Page, Pressed, Rolling, Tags, listEnd, toast, typing } from './ui'
 import { markRoom } from './task-input'
 import { TaskDetail, TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { RowMenu } from './row-menu'
 import { MORE_STEP, ShowMore } from './show-more'
-import { CARD } from './carry'
-import { cn } from '@/lib/cn'
+import { CarriedCard, Clear, DropLine, HELD, OwnRoom } from './carry'
 import { Overlay, SETTLE, underPointer } from './sortable'
 import { Button } from '@/components/ui/button'
 import { useHere } from '@/lib/split'
@@ -133,9 +132,8 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
     void haligtree.saveTask(task.id, patch).then((before) => {
       chime('shift')
       const back = (): void => void haligtree.saveTask(task.id, { ...was, ...(before === true ? {} : before) })
-      // Only importance changed: the card landing in its box says it all. A date moved is worth the words.
-      if (patch.due || patch.deadline) toast(said, back)
-      else quietly(back)
+      // A drop always says where it went, with its Undo: the box, and what that changed.
+      toast(said, back)
     })
   }
   /** A box's cards in a new order, kept as each task's own order; undoable. */
@@ -146,7 +144,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
     saving.current++
     void haligtree.saveTasks(list.map((task, index) => ({ id: task.id, patch: { sortOrder: index } }))).then(() => {
       saving.current--
-      quietly(() => void haligtree.saveTasks(was.map(([id, sortOrder]) => ({ id, patch: { sortOrder } }))))
+      toast('Moved', () => void haligtree.saveTasks(was.map(([id, sortOrder]) => ({ id, patch: { sortOrder } }))))
     })
   }
   /** A task to another box: its importance, and its date when it goes into an urgent one. */
@@ -328,7 +326,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                       initial={!byKeys() && (landing?.id === task.id || pushing?.task.id === task.id) ? { opacity: 0.4, scale: 0.97, rotate: -1.5 } : false}
                       animate={{ opacity: 1, scale: 1, rotate: 0 }} transition={{ type: 'spring', stiffness: 520, damping: 34 }}>
                       {/* Where a card carried in its own box will go: a line above or below this one. */}
-                      {between?.id === task.id && <span aria-hidden data-between className={`absolute inset-x-1 z-10 h-0.5 rounded-full bg-ring ${between.after ? '-bottom-[3px]' : '-top-[3px]'}`} />}
+                      {between?.id === task.id && <DropLine how={between.after ? 'after' : 'before'} style={{ left: 12, zIndex: 10, top: between.after ? 'calc(100% + 2px)' : -2 }} />}
                       <Carried id={task.id}>
                         <RowMenu items={example ? [] : several.menu(task) ?? taskMenu(task, { open: () => (setAt({ q, id: task.id }), pick(task.id)), now: taskNow })}>
                           <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} room={room} onClick={(event) => (setAt({ q, id: task.id }), several.click(event, task.id) || pick(task.id))} /></div>
@@ -347,12 +345,15 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
           </Example>
           <Overlay modifiers={[underPointer]} dropAnimation={document.documentElement.dataset.motion === 'off' || landing ? null : SETTLE}>
             {carried ? (
-              <motion.div initial={{ rotate: 0, scale: 1 }} animate={{ rotate: -2.5, scale: 1.03 }} transition={{ type: 'spring', stiffness: 600, damping: 30 }}
-                style={{ width: Math.min(carried.width, 260) }}
-                data-carried-card="" className={cn('flex cursor-grabbing items-center gap-2', CARD)}>
-                <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: `var(--tt-color-text-${QUADS.find((quad) => quad.id === quadrantOf(carried.task))!.tint})` }} />
-                <span dir="auto" className="min-w-0 flex-1 truncate">{taskName(carried.task.title).text}</span>
-              </motion.div>
+              // The card every list carries (carry.tsx), clear of the line as theirs rides, with the Matrix's own tilt. It says
+              // what letting go does: into another box, or beside a card in its own.
+              <Clear>
+                <motion.div className="w-fit" initial={{ rotate: 0, scale: 1 }} animate={{ rotate: -2.5, scale: 1.03 }} transition={{ type: 'spring', stiffness: 600, damping: 30 }}>
+                  <CarriedCard title={taskName(carried.task.title).text}
+                    words={over && over !== boxOf(carried.task) ? `Move to ${quoted(QUADS.find((quad) => quad.id === over)!.title, 40)}` : between ? 'Move here' : null}
+                    icon={<span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: `var(--tt-color-text-${QUADS.find((quad) => quad.id === quadrantOf(carried.task))!.tint})` }} />} />
+                </motion.div>
+              </Clear>
             ) : null}
           </Overlay>
         </DndContext>
@@ -463,5 +464,6 @@ function Carried({ id, children }: { id: string; children: ReactNode }): React.J
   const { setNodeRef, listeners, isDragging } = useDraggable({ id })
   // Also somewhere to drop: another card let go on it goes beside it.
   const { setNodeRef: dropOn } = useDroppable({ id: `on:${id}` })
-  return <div ref={(node) => (setNodeRef(node), dropOn(node))} data-sortable-id={id} {...listeners} className={isDragging ? 'mf-carried-place' : undefined}>{children}</div>
+  // Its own place while carried: the quiet band every list draws (carry.tsx).
+  return <div ref={(node) => (setNodeRef(node), dropOn(node))} data-sortable-id={id} {...listeners} className={isDragging ? HELD : undefined}>{isDragging && <OwnRoom />}{children}</div>
 }

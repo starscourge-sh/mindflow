@@ -1,11 +1,11 @@
-import { Fragment, createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { Fragment, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { dragWords } from '@/lib/drag-words'
 import { createPortal } from 'react-dom'
 import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { EASING, spring, still } from '@/lib/motion'
-import { CarriedCard, CarryRow, DropLine, Hand, Shaped, pointerAt, rowAt, swallowRelease, titleOf, useAim, useRest } from './carry'
+import { CarriedCard, CarryRow, DropLine, HELD, Hand, OwnRoom, Shaped, pointerAt, rowAt, swallowRelease, titleOf, useAim, useRest } from './carry'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { refuse } from './ui'
@@ -207,19 +207,24 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
     if (node) setSpan(node.getBoundingClientRect().height)
   }, [shot])
   // Sideways the list's own drag says nothing (it goes up and down only): along a row of tabs the pointer itself is followed.
+  // Only a move that is sideways alone: up or down the drag itself says, and reading twice a move cost frames in a long list.
   const tabs = !!places
+  const readAt = useRef(-1)
   useEffect(() => {
     if (!shot || !tabs) return
-    const follow = (): void => read.current()
+    const follow = (event: PointerEvent): void => void (event.clientY === readAt.current && read.current())
     window.addEventListener('pointermove', follow)
     return () => window.removeEventListener('pointermove', follow)
   }, [shot, tabs])
+  // The rows' names, once a draw: asked on every move of the pointer.
+  const known = useMemo(() => new Set(keys), [keys.join('\n')]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!onMove && !onNest) return <>{children(items)}</>
   read.current = (): void => {
     const lift = carrying.current
     if (!lift) return
     const id = lift.id
     const { x, y } = pointerAt()
+    readAt.current = y
     // A place on the page: it lights, and the card says what letting go there does.
     const spot = places ? document.elementsFromPoint(x, y).map((one) => one.closest<HTMLElement>('[data-row-drop]')).find((one) => !!one) : undefined
     if (spot && places) {
@@ -227,7 +232,7 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
       return (undwell(), light(spot), point({ target: place, how: 'join', into: place, label: places.said(place), gap: null, around: [], act: 'place' }))
     }
     // The row whose place the pointer is over, as the list lies before anything slid aside.
-    const over = rowAt(new Set(keys), y, lift.within)
+    const over = rowAt(known, y, lift.within)
     if (!over || over.id === id) return (undwell(), light(null), point(null, true))
     const target = over.id
     const at = (y - over.top) / over.height
@@ -318,11 +323,14 @@ function TabRow<T>({ items, keyOf, onMove, children }: ListProps<T>): React.JSX.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const { shown, keys, setHeld, sorting, lifting, landed } = useHeld(items, keyOf)
   const [shot, setShot] = useState<Lift | null>(null)
+  // Over another tab's place: letting go moves it there, and the card says so.
+  const [onto, setOnto] = useState(false)
   // A soft tick as the lifted tab comes over each new place in the row.
   const ticks = useRef(slotTicker()).current
   if (!onMove) return <>{children(items)}</>
   const onDragEnd = ({ active, over }: DragEndEvent): void => {
     setShot(null)
+    setOnto(false)
     landed()
     if (!over || over.id === active.id) return chime('stay')
     const [from, to] = [keys.indexOf(String(active.id)), keys.indexOf(String(over.id))]
@@ -332,11 +340,11 @@ function TabRow<T>({ items, keyOf, onMove, children }: ListProps<T>): React.JSX.
   return (
     <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCenter} modifiers={[sideways]}
       onDragStart={({ active, activatorEvent }) => (chime('lift'), lifting(), ticks.start(String(active.id)), setShot(carriedOf(String(active.id), activatorEvent)))}
-      onDragOver={({ over }) => ticks(over?.id)} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), landed(), chime('stay'))}>
+      onDragOver={({ active, over }) => (ticks(over?.id), setOnto(!!over && over.id !== active.id))} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), setOnto(false), landed(), chime('stay'))}>
       <SortableContext items={keys} strategy={horizontalListSortingStrategy}>
         <Axis.Provider value="x"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={keys.join('\n')}>{children(shown)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
-      <Overlay dropAnimation={still() ? null : SETTLE}>{shot && <Lifted shot={shot} axis="x" />}</Overlay>
+      <Overlay dropAnimation={still() ? null : SETTLE}>{shot && <Lifted shot={shot} axis="x" words={onto ? 'Move here' : null} />}</Overlay>
     </DndContext>
   )
 }
@@ -369,9 +377,11 @@ function Tab({ id, className, children }: { id: string; className?: string; chil
       // The tab's own button keeps the focus and the keys; this is only the grip.
       tabIndex={-1}
       role={undefined}
-      className={`${className ?? ''} ${isDragging ? 'mf-carried-place' : ''} rounded-md`}
+      className={`${className ?? ''} ${isDragging ? HELD : ''} rounded-md`}
       style={{ transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition }}
     >
+      {/* Its own place slides along to where it will land: the quiet band every list draws there (carry.tsx). */}
+      {isDragging && <OwnRoom />}
       {children}
     </div>
   )

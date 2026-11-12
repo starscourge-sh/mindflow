@@ -99,7 +99,7 @@ try {
   await h.mouse.down()
   for (let i = 1; i <= 14; i++) { await h.mouse.move(from.x + from.width / 2, from.y + from.height / 2 + ((to.y + 4 - (from.y + from.height / 2)) * i) / 14); await h.waitForTimeout(30) }
   await h.waitForTimeout(250)
-  const line = await h.evaluate(() => !!document.querySelector('[data-quadrant="do"] [data-between]'))
+  const line = await h.evaluate(() => !!document.querySelector('[data-quadrant="do"] [data-drop-line]'))
   if (SHOTS) await h.screenshot({ path: `${SHOTS}/matrix-reorder-carried.png` })
   check('Matrix: a line shows where it will go in its own box', line)
   await h.mouse.up(); await h.waitForTimeout(1200)

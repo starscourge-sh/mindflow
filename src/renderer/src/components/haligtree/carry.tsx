@@ -188,6 +188,10 @@ function useGlide(y: number, scaleY: number, instant: boolean, kick = 0, over: [
 
 /** The room's quiet band, wherever one is drawn. */
 const ROOM = 'pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]'
+/** A carried thing's own place, while nothing else is open for it: the same quiet band, never a faded copy of it. */
+export const OwnRoom = (): React.JSX.Element => <span aria-hidden data-own-room="" className={cn(ROOM, 'inset-y-0')} />
+/** What holds that band where the thing is not a list's row (a tab, a Matrix card): everything in it but the band goes out of sight. */
+export const HELD = 'relative [&>*:not([data-own-room])]:opacity-0'
 
 /**
  * Where it lands, the one line every list draws: a dot at its start. In a row's
@@ -305,7 +309,7 @@ export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id:
         </Fragment>
       )}
       {/* Its own place, while nothing else is open for it: the same quiet room, never a faded copy of it. */}
-      {isDragging && !room && <span aria-hidden data-own-room="" className={cn(ROOM, 'inset-y-0')} />}
+      {isDragging && !room && <OwnRoom />}
       <AnimatePresence>
         {forming && (
           <motion.div
