@@ -408,15 +408,19 @@ function nearScreen(view: EditorView, name: string): { edges: () => [number, num
     else space()
   }
   /**
-   * The space kept above made what the sizes say. The words on screen stay where they are: the browser keeps the
-   * block at the top of the screen in its place when what is above it changes height, by scrolling as far itself.
-   * (Scrolled from here as well, the note went twice as far: left far down and opened again, it came back some
-   * 200 blocks on, then 200 more.)
+   * The space kept above made what the sizes say, and the scroll moved by what it was out by: nothing on screen
+   * moves. The browser's own way of holding the screen still when what is above it changes height is switched
+   * off for a long note (`overflow-anchor`, below), so this is the one thing that scrolls: the browser does it
+   * for a note that does not hold the keys and not for one that does, so with it on, a note opened again came
+   * back twice as far on (scrolled here and by the browser), and left to the browser alone, a note being typed
+   * in was not scrolled at all and its words jumped.
    */
   const rest = (): void => {
     if (!slip) return
+    const by = -slip
     slip = 0
     space()
+    view.dom.parentElement?.scrollBy({ top: by, behavior: "instant" })
   }
   const rested = (event: Event): void => {
     if (event.target instanceof Node && event.target.contains(view.dom)) rest()
@@ -672,7 +676,8 @@ function nearScreen(view: EditorView, name: string): { edges: () => [number, num
     focus()
     bring()
   }
-  style.textContent = `${at} > [${OFF}] { display: none !important; }`
+  // And the browser never scrolls a long note by itself to hold a block still (`rest`).
+  style.textContent = `${at} > [${OFF}] { display: none !important; } ${at} { overflow-anchor: none; }`
   drawnOf.set(view.dom, {
     screen: () => {
       const seen = band && view.dom.isConnected ? onScreen() : null
