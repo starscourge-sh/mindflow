@@ -3884,13 +3884,13 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
 }
 
 // --- Long documents ---------------------------------------------------------
-// Blocks far from the screen are not laid out until they come near it. The
-// size each was last drawn at is remembered, so the scrollbar settles.
-
-.tiptap.ProseMirror.haligtree-editor[data-long] > * {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 2.5em;
-}
+// Only the blocks near the screen are on the page (extensions/long-document.ts
+// marks the rest and takes them off it), and every block that is on it is laid
+// out in full. They used to be left unlaid until they came near the screen
+// (`content-visibility: auto`), each standing at 2.5em until then: a block's
+// height changed as the screen reached it, so the page's height moved under
+// the wheel, the heights remembered for the blocks off the page were the
+// stand-in's and not the block's, and a fast scroll showed empty boxes.
 
 // --- Callouts -------------------------------------------------------------
 // An aside. One accent does all the work: the tint and the border are mixed

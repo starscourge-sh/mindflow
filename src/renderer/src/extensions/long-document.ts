@@ -35,6 +35,78 @@ Object.assign(DecorationSet.prototype, {
 
 let made = 0
 
+/** What a block's height is guessed from, in px: the column's width, the size of its type, and a letter's width. */
+type Column = { width: number; em: number; letter: number }
+
+const HEADING = [1.5, 1.25, 1.125, 1, 1, 1]
+/** Lines a run of `chars` letters takes in `width`, with `breaks` line breaks of its own; a line loses about a word's width to wrapping. */
+const linesOf = (chars: number, breaks: number, width: number, letter: number): number => breaks + Math.max(1, Math.ceil((chars * letter) / Math.max(letter * 8, width - letter * 5)))
+
+/**
+ * How tall a block's own box will be once drawn, near enough, from its words
+ * and the column's width: nothing on the page is asked. The numbers are the
+ * stylesheet's (a paragraph's line is 1.6 of its type, a code line 1.4 of
+ * 0.875). The air between it and the next block is not in it: that is learnt
+ * from the blocks that are drawn (`nearScreen`).
+ */
+function tallOf(node: ProseMirrorNode, column: Column, width = column.width): number {
+  const { em, letter } = column
+  const name = node.type.name
+  if (name === "codeBlock") {
+    // Its code wraps where the block ends; a line of it is 1.4 of 0.875 of the type, in a box padded top and bottom.
+    const inside = Math.max(em * 8, width - em * 2)
+    let rows = 0
+    for (const row of node.textContent.split("\n")) rows += Math.max(1, Math.ceil((row.length * em * 0.875 * 0.6) / inside))
+    return rows * em * 0.875 * 1.4 + em * 5.9
+  }
+  if (node.isTextblock) {
+    const size = name === "heading" ? (HEADING[Number(node.attrs.level ?? 1) - 1] ?? 1) : 1
+    let breaks = 0
+    node.forEach((child) => void (child.type.name === "hardBreak" && breaks++))
+    return linesOf(node.content.size, breaks, width, letter * size) * em * size * (name === "heading" ? 1.3 : 1.6)
+  }
+  if (name === "table") {
+    // Each row is as tall as its tallest cell; a column is never narrower than 160px (the table scrolls sideways past the page).
+    let tall = 0
+    node.forEach((row) => {
+      const cell = Math.max(160, width / Math.max(1, row.childCount)) - em * 1.5
+      let most = em * 1.6
+      row.forEach((one) => {
+        let inside = 0
+        one.forEach((part) => void (inside += tallOf(part, column, cell)))
+        most = Math.max(most, inside)
+      })
+      tall += most + em
+    })
+    // Measured: a table's cells are wider than their share of the column says, so its rows are shorter.
+    return tall * 0.82
+  }
+  if (name === "bookmark") return em * 11.3
+  if (name === "imagePlaceholder") return em * 6.2
+  if (name === "horizontalRule") return 1
+  if (name === "image") return Number(node.attrs.height) || em * 18
+  if (node.isLeaf || !node.childCount) return em * 3
+  // A list, a quote, a callout, a fold: its parts one under another, set in a little from the column's edge.
+  const list = name === "bulletList" || name === "orderedList" || name === "taskList"
+  const inner = list || name === "blockquote" ? width - em * 1.5 : width
+  let tall = 0
+  node.forEach((child, _offset, index) => void (tall += tallOf(child, column, inner) + (index && !list && child.type.name === "paragraph" ? em * 1.25 : 0)))
+  return tall
+}
+
+/** A letter's width in the note's own type, from a line of ordinary words: asked of a canvas, not of the page. */
+function letterOf(font: string, em: number): number {
+  const sample = "The quick brown fox jumps over the lazy dog, and then it reads forty more pages before bed."
+  const context = document.createElement("canvas").getContext("2d")
+  if (!context) return em * 0.5
+  context.font = font
+  const wide = context.measureText(sample).width
+  return wide > 0 ? wide / sample.length : em * 0.5
+}
+
+/** The column of the last long note drawn in this window: the next one is most likely as wide. */
+let lastColumn: Column | null = null
+
 /**
  * The page's selection, kept to the blocks that are drawn.
  *
@@ -92,8 +164,15 @@ function caretWent(before: EditorState, state: EditorState): boolean {
 const shown = new PluginKey<number>("longDocumentShown")
 const asks = (state: EditorState): number => shown.getState(state) ?? 0
 
+/**
+ * A long note's blocks as tall as each was last drawn, to be kept for the next time it is opened: by block, with
+ * each block's size in the note to know it by (-1 for a block never drawn), the column they were drawn in, and
+ * the air learnt between blocks of each kind ("" for all kinds), so the blocks never drawn are guessed the same.
+ */
+export type KeptHeights = { width: number; em: number; sizes: number[]; talls: number[]; airs: [kind: string, sum: number, n: number][] }
+
 /** What the rest of the app may ask of a long note's drawn blocks, by the editor's own element. */
-const drawnOf = new WeakMap<Element, { screen: () => { first: number; last: number } | null; show: (index: number) => void }>()
+const drawnOf = new WeakMap<Element, { screen: () => { first: number; last: number } | null; show: (index: number) => void; kept: () => KeptHeights | null; take: (kept: KeptHeights) => void }>()
 
 /** The blocks on the screen of a long note, as their places among its blocks; null for a note with every block drawn. */
 export const screenBlocks = (editor: Editor): { first: number; last: number } | null => drawnOf.get(editor.view.dom)?.screen() ?? null
@@ -107,19 +186,37 @@ export function showBlock(editor: Editor, pos: number): void {
   if (pos >= 0 && pos <= doc.content.size) drawnOf.get(editor.view.dom)?.show(doc.resolve(pos).index(0))
 }
 
+/** How tall each block of a long note was last drawn, to keep as the note is left; null for a note that is not long, or not drawn yet. */
+export const heightsOf = (editor: Editor): KeptHeights | null => (editor.isDestroyed ? null : (drawnOf.get(editor.view.dom)?.kept() ?? null))
+
+/** The heights kept when a long note was last open, given back as it opens: its page is as tall as it was, before anything is scrolled to. */
+export const takeHeights = (editor: Editor, kept: KeptHeights): void => void (editor.isDestroyed || drawnOf.get(editor.view.dom)?.take(kept))
+
 /** The keys the browser itself answers where its selection is, beside the letters: those that move it or rub out. */
 const LANDS = new Set(["Enter", "Backspace", "Delete", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Process", "Dead"])
 
 /** The mark on a block that is off the page. */
 const OFF = "data-off"
 
-/** Blocks either side of the screen kept drawn, and how close the screen or the caret may come to the edge of them. */
-const AROUND = 150
-const SLACK = 50
+/**
+ * Blocks either side of the screen kept drawn, and how close the screen or the caret may come to the edge of them.
+ * Every drawn block is laid out in full, so each move of the drawn blocks costs what its new blocks cost to lay
+ * out: they are moved a few at a time (`STEP` further each side than they reach now), and a screen sent somewhere
+ * far in one step (a hard push of the wheel, a jump, the thumb dragged) gets only the blocks round it (`NEAR`),
+ * the rest as the page rests.
+ */
+const AROUND = 90
+const SLACK = 45
+const NEAR = 40
+const STEP = 30
 /** How many blocks in from the drawn edge a caret left behind is told to the browser, when it must be told one. */
 const PARK = 20
-/** A block never drawn yet is taken to be this tall until it is. */
+/** A block never drawn is taken to be this tall until the column's width is known, and its height guessed from that. */
 const GUESS = 32
+/** How many blocks of a kind the air between blocks is learnt from. */
+const AIR = 60
+/** How many widths of column a note's learnt heights are kept for. */
+const WIDTHS = 4
 
 /**
  * Only the blocks near the screen are on the page.
@@ -143,9 +240,10 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
   // is in a sheet of its own, which touches only the note's own edges.
   const style = document.createElement("style")
   const spaces = document.createElement("style")
-  const heights = new WeakMap<Element, number>()
   let band: [number, number] | null = null
   let spaced: [number, number] = [0, 0]
+  // What the space kept above is out by, on purpose (`hold`): put right when the scrolling comes to rest.
+  let slip = 0
   // The drawn blocks have just gone to a far caret: "shown" when the change asked for its caret to be shown.
   let leap: false | "shown" | "set" = false
   // How many asks to show the caret had been counted in the last state read.
@@ -155,28 +253,120 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
   let last: EditorState | null = null
   const at = `.tiptap.ProseMirror.haligtree-editor[data-long="${name}"]`
   const blocks = (): HTMLCollection => view.dom.children
-  // A block never drawn is taken to be as tall as the drawn ones are on average.
-  let sum = 0
-  let counted = 0
-  const tall = (block: Element): number => heights.get(block) ?? (counted ? sum / counted : GUESS)
-  // Remember how tall the drawn blocks are, from where each next one starts.
-  // Not while the note is off the page as it opens: every block reads as no
-  // height there, and the space kept above and below came out as none, so the
-  // scrollbar lied and gg and G landed in the wrong place.
-  const measure = (): void => {
-    if (!band || !view.dom.isConnected) return
-    const all = blocks()
-    const last = Math.min(band[1], all.length - 1)
-    for (let i = band[0]; i < last; i++) {
-      const here = all[i] as HTMLElement
-      const next = all[i + 1] as HTMLElement
-      const height = next.offsetTop - here.offsetTop
-      if (height < 0) continue
-      const had = heights.get(here)
-      if (had === undefined) counted++
-      sum += height - (had ?? 0)
-      heights.set(here, height)
+  // How tall each block stands, from its top to the top of the next: as it was when last drawn, or, never drawn,
+  // guessed from its own words and the column's width. (Never-drawn blocks were all taken to be as tall as the
+  // drawn ones on average. The average moved with every block drawn, so the whole page's height moved with it, by
+  // hundreds of thousands of pixels on a 7,017-block note: where the screen was in the note changed under a wheel
+  // that had not, and the words went against it.) A drawn height is kept by the block itself, not its element,
+  // which ProseMirror makes again: it holds for as long as the note is open and the block is not changed.
+  //
+  // And the air between a block and the next, which no guess holds: what the first blocks drawn of each kind stood
+  // above their guess, then fixed, so the guesses for the rest of the note hold still.
+  //
+  // All of it is for one width of column, and kept by width: a pane sliding open passes through a dozen widths,
+  // and what was learnt at the width it comes back to is still there (the last few widths are kept).
+  type Known = { real: WeakMap<object, number>; guesses: WeakMap<ProseMirrorNode, number>; airs: Map<string, { sum: number; n: number }>; air: { sum: number; n: number } }
+  const fresh = (): Known => ({ real: new WeakMap(), guesses: new WeakMap(), airs: new Map(), air: { sum: 0, n: 0 } })
+  const widths = new Map<string, Known>()
+  let known = fresh()
+  let column: Column | null = lastColumn
+  const nodeOf = (block: Element): ProseMirrorNode | undefined => (block as unknown as { pmViewDesc?: { node?: ProseMirrorNode } }).pmViewDesc?.node
+  const rawOf = (node: ProseMirrorNode): number => {
+    let raw = known.guesses.get(node)
+    if (raw === undefined) known.guesses.set(node, (raw = column ? tallOf(node, column) : GUESS))
+    return raw
+  }
+  const tall = (block: Element): number => {
+    // Folded away under its heading: it takes no room, drawn or not.
+    if (block.classList.contains("mf-fold-hidden")) return 0
+    const node = nodeOf(block)
+    const drawn = known.real.get(node ?? block)
+    if (drawn !== undefined) return drawn
+    // What is no block of the note (a mark ProseMirror puts between them) takes no room until it is seen to.
+    if (!node) return 0
+    const kind = known.airs.get(node.type.name)
+    return rawOf(node) + (kind?.n ? kind.sum / kind.n : known.air.n ? known.air.sum / known.air.n : 0)
+  }
+  const learn = (block: Element, height: number): void => {
+    const node = nodeOf(block)
+    const key = node ?? block
+    const had = known.real.get(key)
+    // Before the block above it (set apart from the others, out of their run): no height to learn.
+    if (had === height || height < 0) return
+    known.real.set(key, height)
+    if (!node || had !== undefined) return
+    let kind = known.airs.get(node.type.name)
+    if (!kind) known.airs.set(node.type.name, (kind = { sum: 0, n: 0 }))
+    for (const one of [kind, known.air]) if (one.n < AIR) ((one.sum += height - rawOf(node)), one.n++)
+  }
+  // The column the guesses are made for: read with the sizes, and when it is another (the window resized, the
+  // text made larger), what is known is what was learnt at that width, or nothing yet.
+  const sizeUp = (): void => {
+    const look = getComputedStyle(view.dom)
+    const width = view.dom.clientWidth - (parseFloat(look.paddingLeft) || 0) - (parseFloat(look.paddingRight) || 0)
+    const em = parseFloat(look.fontSize) || 16
+    if (width <= 0) return
+    if (!sized || !column || Math.abs(column.width - width) >= 1 || column.em !== em) {
+      column = lastColumn = { width, em, letter: letterOf(`${look.fontStyle} ${look.fontWeight} ${em}px ${look.fontFamily}`, em) }
+      const key = `${Math.round(width)} ${em}`
+      const had = widths.get(key)
+      widths.delete(key)
+      widths.set(key, (known = had ?? fresh()))
+      if (widths.size > WIDTHS) widths.delete(widths.keys().next().value as string)
     }
+    sized = true
+    handOver()
+  }
+  // The heights kept from the last time the note was open (`takeHeights`), used when this column is the one they
+  // were read in (at once, or when the pane comes to that width): each goes to the block at the same place in
+  // the note, if it is still as long.
+  let sized = false
+  let handed: KeptHeights | null = null
+  const handOver = (): void => {
+    const given = handed
+    if (!given || !column || !sized || Math.abs(given.width - column.width) >= 1 || given.em !== column.em) return
+    handed = null
+    view.state.doc.forEach((node, _offset, index) => {
+      const was = given.talls[index]
+      if (was >= 0 && given.sizes[index] === node.nodeSize && known.real.get(node) === undefined) known.real.set(node, was)
+    })
+    for (const [kind, sum, n] of given.airs) {
+      if (kind) known.airs.set(kind, { sum, n })
+      else ((known.air.sum = sum), (known.air.n = n))
+    }
+  }
+  const kept = (): KeptHeights | null => {
+    if (!column || !sized || !band) return null
+    const sizes: number[] = []
+    const talls: number[] = []
+    let any = false
+    view.state.doc.forEach((node) => {
+      const tall = known.real.get(node)
+      sizes.push(node.nodeSize)
+      talls.push(tall === undefined ? -1 : Math.round(tall * 100) / 100)
+      if (tall !== undefined) any = true
+    })
+    return any ? { width: column.width, em: column.em, sizes, talls, airs: [["", known.air.sum, known.air.n], ...[...known.airs].map(([kind, one]): [string, number, number] => [kind, one.sum, one.n])] } : null
+  }
+  // Remember how tall the drawn blocks are, from where each next one starts.
+  // Not while the note is off the page as it opens, or hidden with its pane:
+  // every block reads as no height there, and the space kept above and below
+  // came out as none, so the scrollbar lied and gg and G landed in the wrong place.
+  const measure = (): void => {
+    if (!band || !view.dom.isConnected || !(view.dom as HTMLElement).offsetHeight) return
+    sizeUp()
+    const all = blocks()
+    const end = Math.min(band[1], all.length - 1)
+    let before: HTMLElement | null = null
+    for (let i = band[0]; i <= end; i++) {
+      const here = all[i] as HTMLElement
+      // Not laid out (folded away): it takes no room, and the block before it ends where the next laid-out one starts.
+      if (!here.offsetParent) continue
+      if (before) learn(before, here.offsetTop - before.offsetTop)
+      before = here
+    }
+    // The note's last block has no next one to end at.
+    if (before && end === all.length - 1) learn(before, before.offsetHeight)
   }
   const draw = (from: number, to: number, coming?: number): void => {
     const all = blocks()
@@ -193,8 +383,43 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     for (let i = to + 1; i < all.length; i++) below += tall(all[i])
     spaced = [above, below]
     mark()
-    const room = `${at}::before { content: ""; display: block; height: ${above}px; }` + `${at}::after { content: ""; display: block; height: ${below}px; }`
+    // Nothing may stand above the note's first block: what the space is out by is put right now.
+    if (from === 0 && slip) rest()
+    else space()
+  }
+  const space = (): void => {
+    const room = `${at}::before { content: ""; display: block; height: ${Math.max(0, spaced[0] + slip)}px; }` + `${at}::after { content: ""; display: block; height: ${spaced[1]}px; }`
     if (spaces.textContent !== room) spaces.textContent = room
+  }
+  /**
+   * The words on screen kept where they are when the blocks just drawn above them stand taller or shorter than
+   * was guessed (`moved`: how far the block at the top of the screen went). The space kept above takes up the
+   * difference, and the scroll is left alone. Scrolled back by the difference instead, as it used to be, the
+   * wheel lost its place: a scroll set from here replaces what the wheel has moved since the frame began, so
+   * the words jumped back against the wheel (319 of 1,020 frames of a push up a 7,017-block note) and more than
+   * half of what the wheel sent was thrown away, so the note's end was never reached. What the space is out by
+   * is put right when the scrolling comes to rest (`rest`), or at once where it cannot wait: at the note's
+   * first block, which nothing may stand above, and when the space would have to be less than none.
+   */
+  const hold = (moved: number): void => {
+    if (!band || Math.abs(moved) < 0.01) return
+    slip -= moved
+    if (band[0] === 0 || spaced[0] + slip < 0) rest()
+    else space()
+  }
+  /**
+   * The space kept above made what the sizes say. The words on screen stay where they are: the browser keeps the
+   * block at the top of the screen in its place when what is above it changes height, by scrolling as far itself.
+   * (Scrolled from here as well, the note went twice as far: left far down and opened again, it came back some
+   * 200 blocks on, then 200 more.)
+   */
+  const rest = (): void => {
+    if (!slip) return
+    slip = 0
+    space()
+  }
+  const rested = (event: Event): void => {
+    if (event.target instanceof Node && event.target.contains(view.dom)) rest()
   }
   // Before the blocks holding the browser's selection are taken off the page, it is let go of: left in them, the
   // browser looked through the hidden blocks for somewhere to show it, each time it drew. It is told the
@@ -245,6 +470,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
   made.observe(view.dom, { childList: true })
   const clear = (): void => {
     band = null
+    slip = 0
     mark()
     spaces.textContent = ""
   }
@@ -254,10 +480,8 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     const before = at ?? anchor?.getBoundingClientRect().top
     letGo(from, to)
     draw(from, to)
-    const scroller = view.dom.parentElement
     // Only when it is still drawn: a band moved far, after the caret, has nothing to keep still.
-    // At once, never eased: the words have to stay where they were.
-    if (anchor && before !== undefined && scroller && anchor.getClientRects().length) scroller.scrollBy({ top: anchor.getBoundingClientRect().top - before, behavior: "instant" })
+    if (anchor && before !== undefined && anchor.getClientRects().length) hold(anchor.getBoundingClientRect().top - before)
     resync()
   }
   // The block at the top of the screen, as an index into the note, and its element when it is drawn.
@@ -288,20 +512,51 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     // Scrolled into the space kept for the others: counted from the remembered sizes.
     let y = shown.top - spaced[0]
     let first = 0
-    while (first < all.length - 1 && y + tall(all[first]) < top) y += tall(all[first++])
+    for (let height = tall(all[0]); first < all.length - 1 && y + height < top; height = tall(all[first])) ((y += height), first++)
     const at = y
     let last = first
     while (last < all.length - 1 && y < bottom) y += tall(all[last++])
     return { first, last, anchor: all[first], at }
   }
-  const follow = (): void => {
-    if (!band || !view.dom.isConnected) return
+  /**
+   * The drawn blocks a step nearer to reaching `AROUND` blocks either side of `first`..`last` (the screen, or the
+   * caret's block): the side that has come short gets `STEP` more, the other is cut back to `AROUND`.
+   */
+  const step = (first: number, last: number): [number, number] => {
+    const [from, to] = band!
+    return [first - from < SLACK ? Math.max(first - AROUND, from - STEP) : Math.max(from, first - AROUND), to - last < SLACK ? Math.min(last + AROUND, to + STEP) : Math.min(to, last + AROUND)]
+  }
+  /** The drawn blocks brought round the screen, when it has come near their edge: whether they moved. */
+  const follow = (): boolean => {
+    if (!band || !view.dom.isConnected) return false
     const seen = onScreen()
-    if (!seen) return
+    if (!seen) return false
     const { first, last, anchor, at } = seen
     // Still well inside the band: nothing to change.
-    if ((first - band[0] >= SLACK || band[0] === 0) && (band[1] - last >= SLACK || band[1] >= blocks().length - 1)) return
-    shift(first - AROUND, last + AROUND, anchor, at)
+    if ((first - band[0] >= SLACK || band[0] === 0) && (band[1] - last >= SLACK || band[1] >= blocks().length - 1)) return false
+    // Gone outside the drawn blocks altogether: only the blocks round the screen for now. Else a step further.
+    if (at !== undefined) shift(first - NEAR, last + NEAR, anchor, at)
+    else shift(...step(first, last), anchor)
+    more()
+    return true
+  }
+  // The rest of the blocks round the screen, a step at a time, each when the page has nothing else to do; and
+  // once they are all there, how tall each stands is read, so it is known before the note is next moved or left.
+  let resting = 0
+  const more = (): void => {
+    cancelIdleCallback(resting)
+    resting = requestIdleCallback(() => void (view.isDestroyed || follow() || measure()), { timeout: 400 })
+  }
+  /**
+   * The sizes read again and the space kept above and below worked out from them, the block at the top of the
+   * screen kept where it is: once the note is first on the page (its column's width is known only then, and the
+   * air between its blocks), and when the window changes size.
+   */
+  const respace = (): void => {
+    if (!band || !view.dom.isConnected || follow()) return
+    const top = onScreen()
+    shift(band[0], band[1], top?.anchor ?? null, top?.at)
+    more()
   }
   const scrolled = (event: Event): void => {
     if (event.target instanceof Node && event.target.contains(view.dom)) follow()
@@ -375,8 +630,9 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
   const show = (index: number): void => {
     if (!band || !view.dom.isConnected || (index >= band[0] && index <= band[1])) return
     measure()
-    letGo(index - AROUND, index + AROUND)
-    draw(index - AROUND, index + AROUND)
+    letGo(index - NEAR, index + NEAR)
+    draw(index - NEAR, index + NEAR)
+    more()
   }
   /**
    * The screen put where the caret is, at once, the caret's line in its middle. ProseMirror brings the caret to the
@@ -413,17 +669,24 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       return seen && { first: seen.first, last: seen.last }
     },
     show,
+    kept,
+    // Given before the note is first measured, they wait for that (`sizeUp`); after, the page is spaced by them now.
+    take: (kept) => {
+      handed = kept
+      if (sized) (handOver(), respace())
+    },
   })
   view.dom.addEventListener("keydown", keyed, true)
   view.dom.addEventListener("beforeinput", keyed, true)
   document.head.append(style, spaces)
   document.addEventListener("scroll", scrolled, { capture: true, passive: true })
-  window.addEventListener("resize", follow)
+  document.addEventListener("scrollend", rested, { capture: true, passive: true })
+  window.addEventListener("resize", respace)
   // Once the note is on the page: drawn round a caret at the end before it
   // was, the note opened on blank space until it was scrolled.
   const settle = (): void => {
     if (view.isDestroyed) return
-    if (view.dom.isConnected) follow()
+    if (view.dom.isConnected) respace()
     else requestAnimationFrame(settle)
   }
   return {
@@ -449,9 +712,9 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       // long note): drawn round the caret before its blocks arrive, or every
       // one of them was laid out, and the selection placed across them all.
       if ((went || show) && !across && (!band || index < band[0] || index > band[1])) {
-        if (band) (measure(), letGo(index - AROUND, index + AROUND))
+        if (band) (measure(), letGo(index - NEAR, index + NEAR))
         // As many elements as now (the note's blocks, and what is drawn among them), with the blocks this change adds.
-        draw(index - AROUND, index + AROUND, before && blocks().length ? blocks().length + state.doc.childCount - before.doc.childCount : Infinity)
+        draw(index - NEAR, index + NEAR, before && blocks().length ? blocks().length + state.doc.childCount - before.doc.childCount : Infinity)
         leap = show ? "shown" : "set"
         early = true
       }
@@ -480,7 +743,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       const moved = caretWent(previous, view.state)
       if (!band || early) {
         early = false
-        draw(index - AROUND, index + AROUND)
+        draw(index - NEAR, index + NEAR)
         // The browser told the selection where the drawn blocks now are (a change that only asks for the caret to
         // be shown hands it nothing), and the screen goes with a caret that asked to be shown, in the same breath.
         if (leapt) resync()
@@ -490,7 +753,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
         // Only for a caret among the drawn blocks, near their edge. One outside them was left where it is on
         // purpose (`ahead`): ⌘A's far end took the drawn blocks to the note's last lines, and the screen went blank.
         const top = onScreen()
-        shift(index - AROUND, index + AROUND, top?.anchor ?? null, top?.at)
+        shift(...step(index, index), top?.anchor ?? null, top?.at)
       }
     },
     destroy: () => {
@@ -502,7 +765,9 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       style.remove()
       spaces.remove()
       document.removeEventListener("scroll", scrolled, { capture: true })
-      window.removeEventListener("resize", follow)
+      document.removeEventListener("scrollend", rested, { capture: true })
+      window.removeEventListener("resize", respace)
+      cancelIdleCallback(resting)
     },
   }
 }
