@@ -8,18 +8,33 @@
 const letters = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const graphemes = (text: string): string[] => Array.from(letters.segment(text), (one) => one.segment)
 
-/** At most `n` characters of `text`, cut cleanly, with no mark: for a stored or measured piece. */
+/**
+ * At most `n` characters of `text`, cut cleanly, with no mark: for a stored or measured piece.
+ * Read only as far as the cut: the first 220 characters of a long note's million used to cost a pass over them
+ * all (a tenth of a second on main's thread, for every card Home and the Related list showed of it).
+ */
 export function cut(text: string, n: number): string {
   // No more code units than `n` means no more characters either.
   if (text.length <= n) return text
-  return graphemes(text).slice(0, Math.max(0, n)).join('')
+  let end = 0, count = 0
+  for (const one of letters.segment(text)) {
+    if (count++ >= n) break
+    end = one.index + one.segment.length
+  }
+  return text.slice(0, end)
 }
 
-/** `text` in at most `n` characters, ending "…" when it was cut: for words shown in a sentence or a menu. */
+/** `text` in at most `n` characters, ending "…" when it was cut: for words shown in a sentence or a menu. Read only as far as it takes to know it is too long. */
 export function clip(text: string, n: number): string {
   if (text.length <= n) return text
-  const all = graphemes(text)
-  return all.length <= n ? text : `${all.slice(0, Math.max(1, n - 1)).join('').trimEnd()}…`
+  const keep = Math.max(1, n - 1)
+  let end = 0, count = 0
+  for (const one of letters.segment(text)) {
+    if (count < keep) end = one.index + one.segment.length
+    count++
+    if (count > n && count >= keep) return `${text.slice(0, end).trimEnd()}…`
+  }
+  return count > n ? `${text.slice(0, end).trimEnd()}…` : text
 }
 
 /** The most a title holds; past it, the words go on in the notes. */
