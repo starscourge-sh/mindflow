@@ -345,15 +345,14 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
           </Example>
           <Overlay modifiers={[underPointer]} dropAnimation={document.documentElement.dataset.motion === 'off' || landing ? null : SETTLE}>
             {carried ? (
-              // The card every list carries (carry.tsx), clear of the line as theirs rides, with the Matrix's own tilt. It says
-              // what letting go does: into another box, or beside a card in its own.
-              <Clear>
-                <motion.div className="w-fit" initial={{ rotate: 0, scale: 1 }} animate={{ rotate: -2.5, scale: 1.03 }} transition={{ type: 'spring', stiffness: 600, damping: 30 }}>
-                  <CarriedCard title={taskName(carried.task.title).text}
-                    words={over && over !== boxOf(carried.task) ? `Move to ${quoted(QUADS.find((quad) => quad.id === over)!.title, 40)}` : between ? 'Move here' : null}
-                    icon={<span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: `var(--tt-color-text-${QUADS.find((quad) => quad.id === quadrantOf(carried.task))!.tint})` }} />} />
-                </motion.div>
-              </Clear>
+              // The card every list carries (carry.tsx), clear of the line as theirs rides. It stands straight in the hand, as a
+              // paper sticky straightens when lifted: turned a little, its corner reached onto the line it must stay clear of.
+              // It says what letting go does: into another box, or beside a card in its own.
+              <div className="w-fit"><Clear>
+                <CarriedCard title={taskName(carried.task.title).text}
+                  words={over && over !== boxOf(carried.task) ? `Move to ${quoted(QUADS.find((quad) => quad.id === over)!.title, 40)}` : between ? 'Move here' : null}
+                  icon={<span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: `var(--tt-color-text-${QUADS.find((quad) => quad.id === quadrantOf(carried.task))!.tint})` }} />} />
+              </Clear></div>
             ) : null}
           </Overlay>
         </DndContext>
