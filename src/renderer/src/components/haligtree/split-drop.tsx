@@ -407,12 +407,17 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         // Over the sidebar's Queue or Pinned (not the one it came from): it can go there too.
         const side = queueAt(px, event.clientY)
         const elsewhere = !!side && !side.contains(down.source.node)
-        const atEdge = !!box && ((px >= box.left && px < box.left + EDGE) || (px <= box.right && px > box.right - EDGE))
+        const nearEdge = !!box && ((px >= box.left && px < box.left + EDGE) || (px <= box.right && px > box.right - EDGE))
+        // Over a place on the page that takes rows (a page's tab): the list's own drag has it there, even at the page's
+        // edge. The first tab of a page stands in that edge, and carried onto it a row was offered a split, never the tab.
+        // Looked for only at the edge (or with the places up): a carry down the middle of a long list reads nothing more.
+        const onPlace = (nearEdge || active) && document.elementsFromPoint(px, event.clientY).some((one) => !!one.closest('[data-row-drop]'))
+        const atEdge = nearEdge && !onPlace
         // Out past the list's own column to either side (Pages' rows sit in a narrow column): the list is left, the places come up.
         const out = !down.source.edgeOnly && (px < down.column.left - OUTSIDE || px > down.column.right + OUTSIDE)
         const edge = elsewhere || atEdge || out
         // Back in over its column, away from the edge: they go, and the list's drag carries on.
-        const back = !elsewhere && !out && (!box || (px > box.left + INSET + NARROW && px < box.right - INSET - NARROW) || px < box.left || px > box.right)
+        const back = !elsewhere && !out && (onPlace || !box || (px > box.left + INSET + NARROW && px < box.right - INSET - NARROW) || px < box.left || px > box.right)
         if (active && back) return hide()
         if (!active && !edge) return
       }
