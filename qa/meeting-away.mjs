@@ -127,25 +127,25 @@ try {
   check('the meeting over: every one is on the desktop again', up(await desk()) === (await desk()).length)
   const rested = await desk()
 
-  // A nudge that is due waits for the meeting to end (as in quiet hours), and one on the screen goes with the rest.
+  // What you set yourself never waits for a meeting: a task due in one alerts as usual, while the stickies stay hidden
+  // and what Haligtree offers on its own (a hint, a question coming back, the review reminder) waits.
   const nudgeUp = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().some((w) => !w.isDestroyed() && w.webContents.getURL().includes('view=nudge') && w.isVisible()))
   await v('settings:set', { notify: 'alerts' })
   await flip('camera', true)
   const task = await v('task:add', 'Call the dentist back')
   await v('task:save', task?.id ?? task, { allDay: 0, due: new Date(Date.now() - 2 * 60_000).toISOString() })
   await v('alerts:check')
-  await wait(1200)
-  check('a task due in a meeting brings no nudge card', !(await nudgeUp()))
-  check('nor a hint, a question back or a practice offer', (await v('nudge')) === null && (await v('question:back')) === null)
-  await flip('camera', false)
-  await v('alerts:check')
   await wait(2500)
   const card = electron.windows().find((one) => one.url().includes('view=nudge'))
-  check('the meeting over, the task held is asked about', (await nudgeUp()) && /Call the dentist/.test(await card?.evaluate(() => document.body.textContent).catch(() => '')))
+  check('a task due in a meeting alerts as usual: its card is up with the task', (await nudgeUp()) && /Call the dentist/.test(await card?.evaluate(() => document.body.textContent).catch(() => '')))
+  check('while every sticky and goal card stays hidden', up(await desk()) === 0)
+  check('and no hint or question comes back in the meeting', (await v('nudge')) === null && (await v('question:back')) === null)
+  await flip('camera', false)
+  check('the meeting over: the stickies are back and the task\'s card is still up', same(await desk(), rested) && (await nudgeUp()))
   await flip('mic', true)
-  check('a nudge card on the screen goes away with the rest when a call starts', !(await nudgeUp()) && up(await desk()) === 0)
+  check('a call starting leaves a task\'s alert on the screen, and hides the stickies', (await nudgeUp()) && up(await desk()) === 0)
   await flip('mic', false)
-  check('and is back with them when it ends', (await nudgeUp()) && same(await desk(), rested))
+  check('and the stickies are back when it ends', same(await desk(), rested))
 
   // Safe mode and quiet hours still do their part.
   await v('settings:set', { safeMode: true })

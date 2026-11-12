@@ -1097,7 +1097,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
               quietly(() => set({ safeMode: !safeMode }))
             }} />
           </Setting>
-          <Setting title="Step away in meetings" note="Sticky notes and goal cards hide while a call may be on, and come back when it ends." more="A call may be on when a camera is on, another app has the microphone, the screen is mirrored, a Calendar event with other people is on, or Haligtree is recording. Only whether they are in use is read. Alerts wait too. “Show anyway” is in the menu bar and ⌘K." keywords="step away in meetings meeting call zoom teams facetime camera microphone screen share mirrored hide sticky notes goal cards presentation projector"
+          <Setting title="Step away in meetings" note="Sticky notes and goal cards hide while a call may be on, and come back when it ends." more="A call may be on when a camera is on, another app has the microphone, the screen is mirrored, a Calendar event with other people is on, or Haligtree is recording. Only whether they are in use is read. Alerts and reminders you set still come. “Show anyway” is in the menu bar and ⌘K." keywords="step away in meetings meeting call zoom teams facetime camera microphone screen share mirrored hide sticky notes goal cards presentation projector"
             off={<span data-desk-seen>Now: {desk?.seen ?? 'Nothing is on'}</span>}>
             <Switch checked={settings.stepAway !== false} onCheckedChange={(stepAway) => set({ stepAway })} />
           </Setting>

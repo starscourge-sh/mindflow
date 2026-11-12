@@ -950,8 +950,8 @@ function settings(): Settings {
 
 /**
  * What may surface unasked right now. Safe mode is a blackout on everything
- * the app volunteers; quiet hours, and a meeting, keep private items back and
- * the stickies and goal cards away (index.ts, applyDesk). Search, lists
+ * the app volunteers; quiet hours, and a meeting, keep private items back
+ * (and a meeting takes the stickies and goal cards away: index.ts, applyDesk). Search, lists
  * and a review you opened are never gated: you can hide what the app offers,
  * never what you asked for.
  */
@@ -960,21 +960,25 @@ export const feedTakesPages = (): boolean => settings().feedPages === true
 export const feedTakesPictures = (): boolean => settings().feedPictures === true
 
 /**
- * A meeting (in-meeting.ts, Settings' “Step away in meetings”) is quiet hours come early: whatever quiet hours keep
- * back is kept back while a call may be on (`hidePrivate`), the stickies and goal cards are away in both (index.ts),
- * and `meeting` says it is a meeting, for the few things quiet hours let through and a call must not (a celebration).
- * `quiet` is quiet hours by the clock alone.
+ * `hidePrivate`: quiet hours by the clock (and safe mode), as it always was. What you set for a time yourself, a
+ *   task's alert and an event's or a task's reminder, waits for these alone.
+ * `meeting`: a call may be on (in-meeting.ts, Settings' “Step away in meetings”).
+ * `held`: either of the two. What Haligtree volunteers on its own waits in both: hints, old captures and questions
+ *   coming back, memories, offers, the review reminder, the Sunday digest, a goal card's moments, private names in
+ *   the menu bar. A reminder never waits for a meeting: the one to join the next call is needed most during the call
+ *   before it.
+ * `quiet`: quiet hours by the clock alone.
  */
-export function gate(): { blackout: boolean; hidePrivate: boolean; meeting: boolean; quiet: boolean } {
+export function gate(): { blackout: boolean; hidePrivate: boolean; meeting: boolean; held: boolean; quiet: boolean } {
   // Handed off to another book or the sandbox: nothing of this one surfaces any more.
-  if (handedOff()) return { blackout: true, hidePrivate: true, meeting: false, quiet: false }
+  if (handedOff()) return { blackout: true, hidePrivate: true, meeting: false, held: true, quiet: false }
   const { safeMode, quietStart, quietEnd, stepAway } = settings()
   const meeting = inMeeting(meetingSignals(), stepAway !== false)
   const time = new Date().toTimeString().slice(0, 5)
   const quiet =
     quietStart <= quietEnd ? time >= quietStart && time < quietEnd : time >= quietStart || time < quietEnd
-  if (safeMode) return { blackout: true, hidePrivate: true, meeting, quiet }
-  return { blackout: false, hidePrivate: quiet || meeting, meeting, quiet }
+  if (safeMode) return { blackout: true, hidePrivate: true, meeting, held: true, quiet }
+  return { blackout: false, hidePrivate: quiet, meeting, held: quiet || meeting, quiet }
 }
 /** Told when “Step away in meetings” is switched: the desk follows at once. */
 let stepAwayTold: () => void = () => undefined
@@ -1859,7 +1863,7 @@ export function registerHaligtree(): void {
   // never a queue to finish. Gated: nothing in safe mode, no private ones in
   // quiet hours.
   ipcMain.handle('captures:rot', () => {
-    const { blackout, hidePrivate } = gate()
+    const { blackout, held } = gate()
     if (blackout) return []
     // Not one whose nugget was a hint in the last three days, and the same the
     // other way: the same thing twice in a row is a nag, not a surprise.
@@ -1868,7 +1872,7 @@ export function registerHaligtree(): void {
         // Fair by kind, as the hints are: each kind's own best first, then taken
         // in turns, so a pile of bits cannot fill every card.
         `select * from (select ${LIST}, body, back_at as backAt, row_number() over (partition by kind order by (julianday('now') - julianday(${AGED}) + 1) * (abs(random()) % 1000) desc) as turn
-         from captures where status = 'open' and archived_at is null and back_at is null and ${OWED} < ? and ${SHOWN} ${hidePrivate ? 'and 0' : ''}
+         from captures where status = 'open' and archived_at is null and back_at is null and ${OWED} < ? and ${SHOWN} ${held ? 'and 0' : ''}
          and id not in (select nugget_id from hint_events where shown_at >= ? union select capture_id from nuggets where capture_id is not null and id in (select nugget_id from hint_events where shown_at >= ?)))
          order by turn, abs(random()) limit ${Math.max(0, Math.min(10, settings().rotCount))}`
       )
@@ -1884,7 +1888,7 @@ export function registerHaligtree(): void {
   // ones not seen for longest and the ones voted up. Logged, so a stop rate can
   // be worked out. Gated like everything else that arrives unasked.
   ipcMain.handle('hints:next', () => {
-    const { blackout, hidePrivate } = gate()
+    const { blackout, held } = gate()
     if (blackout) return null
     // A third of the time, a note-to-self on rotation: the one that has gone
     // longest unseen, unconditionally. Otherwise a weighted random encounter.
@@ -1900,7 +1904,7 @@ export function registerHaligtree(): void {
     // then one of its captures, so three hundred bits do not crowd out the
     // dozen links and words. Within a kind, older and voted-up come first.
     const candidates = `from captures where status = 'open' and archived_at is null and coalesce(surfaced_at, '') < ? and ${SHOWN}
-      and ${OWED} < ? and private = 0 ${hidePrivate ? 'and 0' : ''}
+      and ${OWED} < ? and private = 0 ${held ? 'and 0' : ''}
       and id not in (select nugget_id from hint_events where shown_at >= ?)
       and ${LABEL} not like 'http%'`
     // A bare address says nothing at a glance: a link comes up as a hint once
@@ -2086,8 +2090,8 @@ export function registerHaligtree(): void {
   setInterval(() => {
     const at = new Date()
     if (at.getDay() !== 0 || at.getHours() < 18 || settings().weeklyDigest === false || !Notification.isSupported()) return
-    const { blackout, hidePrivate } = gate()
-    if (blackout || hidePrivate) return
+    const { blackout, held } = gate()
+    if (blackout || held) return
     const day = dayKey()
     if ((db.prepare("select day from nudges where key = 'weekly-digest'").get() as { day: string } | undefined)?.day === day) return
     db.prepare("insert or replace into nudges (key, day) values ('weekly-digest', ?)").run(day)
@@ -2630,8 +2634,8 @@ export function registerHaligtree(): void {
   // Gated like a nudge (never in quiet hours or safe mode), off in Settings,
   // at most one a day, and never the same one twice in a fortnight.
   handle('question:back', () => {
-    const { blackout, hidePrivate } = gate()
-    if (blackout || hidePrivate || !settings().questionsBack) return null
+    const { blackout, held } = gate()
+    if (blackout || held || !settings().questionsBack) return null
     const row = db.prepare(`select id, title, created_at as createdAt, (select count(*) from glosses where item_id = nuggets.id) as clues from nuggets
       where tier = 'question' and closed_at is null and archived_at is null and private = 0 and id not in (select nugget_id from hint_events where shown_at >= ?)
       order by random() limit 1`).get(ago(14)) as { id: string; title: string; createdAt: string; clues: number } | undefined
@@ -3684,8 +3688,8 @@ export function registerHaligtree(): void {
     return null
   }
   handle('nudge', () => {
-    const { blackout, hidePrivate } = gate()
-    if (blackout || hidePrivate) return null
+    const { blackout, held } = gate()
+    if (blackout || held) return null
     const { examNudges, dailyTidy } = settings()
     if (examNudges)
       for (const exam of readiness())
@@ -3710,14 +3714,14 @@ export function registerHaligtree(): void {
   // --- memories, the way Photos brings them: a day in an earlier year, or
   // things that share a source. Each says which it is.
   handle('memory', () => {
-    const { blackout, hidePrivate } = gate()
+    const { blackout, held } = gate()
     if (blackout || !settings().memories) return null
     const year = dayjs().year()
     const today = dayKey()
     const lastYear = `${year - 1}${today.slice(4)}`
     // Never a private one, and in quiet hours nothing you have not dealt with.
     const from = `select id, id as captureId, kind, ${LABEL} as title, body, captured_at as at, attribution, surfacing_weight as weight from captures
-      where status != 'discarded' and archived_at is null and private = 0 and not exists (select 1 from nuggets where capture_id = captures.id and private = 1) ${hidePrivate ? "and status != 'open'" : ''} and id not in (select nugget_id from hint_events where shown_at >= ?)`
+      where status != 'discarded' and archived_at is null and private = 0 and not exists (select 1 from nuggets where capture_id = captures.id and private = 1) ${held ? "and status != 'open'" : ''} and id not in (select nugget_id from hint_events where shown_at >= ?)`
     // Weighted by your thumbs: down makes a memory come up less, up more.
     const pick = <T,>(rows: T[]): T | undefined => {
       const weight = (row: T): number => Number((row as { weight?: number }).weight ?? 1)
@@ -3765,8 +3769,8 @@ export function registerHaligtree(): void {
   // How many rot cards would come up now: none in safe mode or quiet hours,
   // when the cards themselves hold back. For the box's "3 old" chip.
   handle('rot:waiting', () => {
-    const { blackout, hidePrivate } = gate()
-    return blackout || hidePrivate ? 0 : Math.min(settings().rotCount, (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${OWED} < ? and ${SHOWN}`).get(ago(1)) as { n: number }).n)
+    const { blackout, held } = gate()
+    return blackout || held ? 0 : Math.min(settings().rotCount, (db.prepare(`select count(*) n from captures where status = 'open' and archived_at is null and ${OWED} < ? and ${SHOWN}`).get(ago(1)) as { n: number }).n)
   })
 
   // --- the two passes: a daily tidy that only makes things findable, and a
@@ -4403,9 +4407,9 @@ export function registerHaligtree(): void {
   // A page or a gem with no name of its own is listed by its first line, as every list names it: a capture moved
   // to Writing with its pin showed in the sidebar as “Untitled”.
   handle('pins', () => {
-    const { blackout, hidePrivate } = gate()
+    const { blackout, held } = gate()
     if (blackout) return []
-    const privacy = hidePrivate ? 'and private = 0' : ''
+    const privacy = held ? 'and private = 0' : ''
     return db
       .prepare(
         `select id, 'capture' as type, kind, ${LABEL} as title, pinned_at as pinnedAt, private from captures where pinned_at is not null and archived_at is null and status != 'discarded' ${privacy}
@@ -4764,7 +4768,7 @@ export function registerHaligtree(): void {
       })(),
       // Leeches, named: a card forgotten four times wants rewriting, not hiding.
       // Private cards never by name, and none at all in safe mode or quiet hours, as the recap.
-      leeches: gate().hidePrivate ? [] : all<{ title: string }>(
+      leeches: gate().held ? [] : all<{ title: string }>(
         "select title from nuggets where private = 0 and (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) >= 4").map((row) => row.title),
       // A hint "stopped you" if you voted it up, or it stayed on screen four
       // seconds or more: the rare signal and the universal one together.
@@ -4965,14 +4969,14 @@ export function registerHaligtree(): void {
     const ids = JSON.stringify([id, ...ranked.map((row) => row.id)])
     const rows = new Map((detail.all(ids, ids) as { id: string; title: string; body: string | null; private: number; at: string }[]).map((row) => [row.id, row]))
     const mine = rows.get(id)?.body ?? ''
-    const { hidePrivate } = gate()
+    const { held } = gate()
     // A capture kept as a gem is said once, as the gem: the two carry the same words and tags.
     const kept = new Set((db.prepare('select capture_id from nuggets where capture_id is not null and id in (select value from json_each(?))').all(ids) as { capture_id: string }[]).map((row) => row.capture_id))
     return ranked
       .filter((one) => !kept.has(one.id))
       .map((one) => ({ ...one, ...rows.get(one.id)! }))
       // Linked either way, an id in the other's words; private, when hidden.
-      .filter((row) => row.title !== undefined && !(row.body ?? '').includes(id) && !mine.includes(row.id) && !(hidePrivate && row.private))
+      .filter((row) => row.title !== undefined && !(row.body ?? '').includes(id) && !mine.includes(row.id) && !(held && row.private))
       // Equal scores, the newest first.
       .sort((a, b) => b.score - a.score || String(b.at).localeCompare(String(a.at)))
       .slice(0, 12)
@@ -5023,8 +5027,8 @@ function remindNow(): string | null {
   if (!at || !/^\d{2}:\d{2}$/.test(at)) return null
   const [hours, minutes] = at.split(':').map(Number)
   const set = new Date().setHours(hours, minutes, 0, 0)
-  const { blackout, hidePrivate } = gate()
-  if (blackout || hidePrivate) return null
+  const { blackout, held } = gate()
+  if (blackout || held) return null
   const db = database()
   // Asked again: an hour after the first (or when “In an hour” runs out), once, the same day, while cards still wait.
   const again = db.prepare("select day from nudges where key = 'review-again'").get() as { day: string } | undefined
@@ -5160,11 +5164,11 @@ export function registerHome(): void {
 
   // Home is read on the reading thread (book-home.ts): it reads every note. What only main knows goes with the ask.
   const { returning } = bookHome(db)
-  ipcMain.handle('haligtree:returning', () => returning().filter((one) => !(gate().hidePrivate && one.private)))
+  ipcMain.handle('haligtree:returning', () => returning().filter((one) => !(gate().held && one.private)))
   // In the box, as a hint would come: each at most once a day, never private, never in quiet hours.
   ipcMain.handle('haligtree:returning:hint', () => {
-    const { blackout, hidePrivate } = gate()
-    if (blackout || hidePrivate) return null
+    const { blackout, held } = gate()
+    if (blackout || held) return null
     const shown = new Set((db.prepare('select nugget_id as id from hint_events where shown_at >= ?').all(new Date(startOfDay()).toISOString()) as { id: string }[]).map((row) => row.id))
     const one = returning().find((row) => !row.private && !shown.has(row.id))
     if (!one) return null
@@ -5173,10 +5177,10 @@ export function registerHome(): void {
   })
 
   ipcMain.handle('haligtree:home', () => {
-    const { blackout, hidePrivate } = gate()
+    const { blackout, held } = gate()
     // Due is Review's own list, its daily limit and paused tags kept, so Home never offers a card Review would not.
     const due = timed('haligtree:home, what is due', () => (reviewQueue() as { id: string }[]).slice(0, 12).map((one) => one.id))
-    return askReader('home', [{ blackout, hidePrivate, due }])
+    return askReader('home', [{ blackout, hidePrivate: held, due }])
   })
 
 }

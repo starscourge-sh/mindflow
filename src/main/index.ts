@@ -1195,6 +1195,8 @@ function showNudge(nudge: Nudge): boolean {
     nudgeWins.set(spot, held)
   }
   const { win } = held
+  // Which kinds of card it holds, until it is empty again: only what Haligtree offered on its own goes with the desk.
+  nudgeKinds.set(win, (nudgeKinds.get(win) ?? new Set<string>()).add(nudge.kind))
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   // A site blocked is said just under the pill, where the eye already goes for the session (top middle with no pill up).
   const pill = spot === 'pill' && focusPill && !focusPill.isDestroyed() && focusPill.isVisible() ? focusPill.getBounds() : null
@@ -1645,7 +1647,7 @@ function applyStickies(atOnce = false): void {
 }
 /**
  * The desk as a meeting, quiet hours and “Show anyway” say now (in-meeting.ts, meeting-away.ts). Away: every sticky
- * note, the Today sticky, every goal card and tab hides at once, and a nudge card left on the screen with them. Back:
+ * note, the Today sticky, every goal card and tab hides at once, and a card Haligtree offered on its own with them. Back:
  * each where it was, at once and silent, and no moment missed is made up for. Run when a signal comes or goes, when
  * the setting or quiet hours are changed, when “Show anyway” is chosen, and by the clock (quiet hours' start and end).
  */
@@ -1653,9 +1655,16 @@ let deskWhy: 'meeting' | 'quiet' | null = null
 let deskHidden = false
 /** What the windows were last told, so they are told again only when it changes. */
 let deskTold = ''
-/** Nudge cards on the screen as the desk went away: back with it, if they still hold a card. */
+/**
+ * Nudge cards on the screen as the desk went away: back with it, if they still hold a card. Only a window whose
+ * cards Haligtree offered on its own (the review reminder, a practice): a task's alert is yours, and stays up in a
+ * meeting as it would with none, as does an answer to something you just did (a sticky hidden, a site sent away).
+ */
 const nudgesAway = new Set<BrowserWindow>()
 const nudgeTall = new WeakMap<BrowserWindow, number>()
+const nudgeKinds = new WeakMap<BrowserWindow, Set<string>>()
+const OFFERED = ['review', 'practice']
+const onlyOffered = (win: BrowserWindow): boolean => [...(nudgeKinds.get(win) ?? [])].every((kind) => OFFERED.includes(kind))
 type DeskSaid = { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }
 const deskSaid = (): DeskSaid => ({ why: deskWhy, hidden: deskHidden, seen: meetingSeen() })
 function applyDesk(): void {
@@ -1679,7 +1688,7 @@ function applyDesk(): void {
   if (!blackout) {
     applyStickies(true)
     if (hidden) {
-      for (const { win } of nudgeWins.values()) if (!win.isDestroyed() && win.isVisible()) (nudgesAway.add(win), win.hide())
+      for (const { win } of nudgeWins.values()) if (!win.isDestroyed() && win.isVisible() && onlyOffered(win)) (nudgesAway.add(win), win.hide())
     } else {
       for (const win of nudgesAway) if (!win.isDestroyed() && (nudgeTall.get(win) ?? 0) > 0) win.showInactive()
       nudgesAway.clear()
@@ -2564,8 +2573,8 @@ function tuckLater(key: string): void {
 }
 /** A moment for the now-and-then beacons to come out: each kind once a day, the three-hourly one as it comes. */
 function beaconMoment(kind: 'wake' | 'open' | 'active'): void {
-  const { blackout, hidePrivate } = gate()
-  if (blackout || hidePrivate || !stickyPrefs().shown) return
+  const { blackout, held } = gate()
+  if (blackout || held || !stickyPrefs().shown) return
   if (kind !== 'active') {
     if (moments().get(kind) === dayKey()) return
     moments().set(kind, dayKey())
@@ -4398,7 +4407,7 @@ function updateTray(): void {
   // Tempus: how far through the day, week, month and year, each a drawn bar
   // of one width, so the four line up whatever their words.
   const time = tempus()
-  const hidden = safe || gate().hidePrivate
+  const hidden = safe || gate().held
   const marked = nextMilestones()
   // The nearest three: the rest are a click away in the app.
   const goalItems: Electron.MenuItemConstructorOptions[] = goals.slice(0, 3).map((goal) => {
@@ -5252,6 +5261,7 @@ app.whenReady().then(() => {
     if (!win) return
     const next = Math.round(Math.max(0, Math.min(520, Number(height) || 0)))
     nudgeTall.set(win, next)
+    if (!next) nudgeKinds.delete(win)
     if (!next) return void win.hide()
     win.setBounds({ ...win.getBounds(), height: next })
   })

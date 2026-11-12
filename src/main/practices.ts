@@ -217,9 +217,9 @@ export function registerPractices(): void {
 
   // --- the offer: one at a time, never in quiet hours (nor safe mode) or while a session or timer runs.
   const offerNow = (): Offer | null => {
-    const { blackout, hidePrivate } = gate()
+    const { blackout, held } = gate()
     // Never over the welcome: it comes once the welcome closes (looked at again then, below).
-    if (blackout || hidePrivate || isWelcoming()) return null
+    if (blackout || held || isWelcoming()) return null
     if (db.prepare('select 1 from sessions where ended_at is null').get()) return null
     const today = dayKey()
     for (const row of rows()) {
