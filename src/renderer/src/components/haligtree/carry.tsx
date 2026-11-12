@@ -575,17 +575,25 @@ export function sideOf(kept: { key: string; how: 'before' | 'after' } | null, ke
   return was === 'after' ? (at < 0.38 ? 'before' : 'after') : was === 'before' ? (at > 0.62 ? 'after' : 'before') : at < 0.5 ? 'before' : 'after'
 }
 
-/** Rested on a row's middle: `rested` says when it has been there DWELL. A pointer held still sends no moves, so `again` reads the aim afresh then. */
+/** How far the pointer may drift and still be resting: a hand held still wavers a little. */
+const STILL = 4
+/**
+ * Rested on a row's middle: `rested` says when the pointer has been held still there DWELL. Held still, not merely
+ * over it: a row carried slowly past was a long time over each row's middle, so a group began to form under it and
+ * was gone again as it moved on. Once rested it stays so until the pointer leaves that middle. A pointer held still
+ * sends no moves, so `again` reads the aim afresh then.
+ */
 export function useRest(again: () => void): { rested: (key: string) => boolean; undwell: () => void } {
-  const dwell = useRef<{ key: string; since: number; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const dwell = useRef<{ key: string; since: number; x: number; y: number; done: boolean; timer: ReturnType<typeof setTimeout> } | null>(null)
   const undwell = (): void => {
     if (dwell.current) clearTimeout(dwell.current.timer)
     dwell.current = null
   }
   const rested = (key: string): boolean => {
-    if (dwell.current?.key === key) return performance.now() - dwell.current.since >= DWELL
+    const now = dwell.current
+    if (now?.key === key && (now.done || Math.hypot(pointerX - now.x, pointerY - now.y) <= STILL)) return (now.done ||= performance.now() - now.since >= DWELL)
     undwell()
-    dwell.current = { key, since: performance.now(), timer: setTimeout(again, DWELL) }
+    dwell.current = { key, since: performance.now(), x: pointerX, y: pointerY, done: false, timer: setTimeout(again, DWELL) }
     return false
   }
   return { rested, undwell }
