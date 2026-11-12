@@ -13,6 +13,12 @@
 // pictures for lists are not read on main (notes:thumbs), and the log of saves is folded into the file under its
 // own name once the app has rested, not inside whatever is asked next.
 //
+// Two more saves follow once the notes related by tag have been asked for (any note's footer asks): from then on
+// the app keeps every note's tags in step as notes are saved, and that may add nothing to a save's write. Then
+// the write itself, on a copy of the note made for the purpose, through the app's own connection: with the rules
+// the app keeps on a note's words (the word log, the tags), and with each taken away in turn, so what each adds
+// stands beside it. They may add under 8 ms between them: none hands the note's words to JavaScript as text.
+//
 // Then it types once more and quits the app inside the note's two-second rest: the Markdown copy beside the
 // backups must be, byte for byte, the one its editor wrote after the rest with the new words in it (never a
 // poorer one made by main), and it says how long the quit took with a note this size to hand over.
@@ -26,6 +32,8 @@ import { checks } from './harness.mjs'
 const { check, done } = checks()
 const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const SAVES = Number(process.env.SAVES ?? 4)
+/** Saves made after the notes related by tag have been asked for. */
+const AFTER = 2
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 const root = process.env.QA_DATA
 if (!root) throw new Error('QA_DATA must be a copy of a book')
@@ -86,7 +94,12 @@ if (await h.evaluate((sel) => document.querySelector(sel + '[data-vim-mode="norm
 const rowsOf = (stalls) => new Map(stalls.rows.map((row) => [row.name, row]))
 const saves = []
 let typed = ''
-for (let n = 1; n <= SAVES; n++) {
+for (let n = 1; n <= SAVES + AFTER; n++) {
+  if (n === SAVES + 1) {
+    // The notes related by tag, asked for once: the app makes its list of every note's tags, and keeps it from here on.
+    await h.evaluate((id) => window.api.haligtree('related', id), note.id)
+    await h.waitForTimeout(1500)
+  }
   // Typed, then left alone for four seconds: what follows is the save and what it sets off.
   const word = `s${n} `
   typed += word
@@ -100,6 +113,44 @@ for (let n = 1; n <= SAVES; n++) {
   const blocks = await h.evaluate((from) => window.__blocks.filter((one) => one.at >= from).map((one) => Math.round(one.ms)), from)
   saves.push({ late: stalls.delay.worst, named, blocks, load: loadavg()[0] })
 }
+
+// The write itself, with the rules the app keeps on a note's words and without: a copy of the note made for this,
+// written through the app's own connection (a test run's `qaFeedSql`), five writes each after one to warm up, the
+// log folded between. The rules are this connection's own, so a bench on a connection of its own never sees them.
+const rules = await electron.evaluate((_, id) => {
+  const sql = globalThis.qaFeedSql
+  if (!sql) return null
+  const enc = new TextEncoder()
+  const copy = 'save-asks-probe-copy'
+  sql('pragma wal_autocheckpoint = 0')
+  sql("insert into captures (id, number, title, kind, body, captured_at, source, private) select ?, (select max(number) + 1 from captures), 'save-asks probe copy', kind, body, captured_at, '', 1 from captures where id = ?", copy, id)
+  let text = sql('select body from captures where id = ?', copy)[0].body
+  const write = () => {
+    const next = text.replace('"text":"', '"text":"x')
+    const [to, from] = [enc.encode(next), enc.encode(text)]
+    const began = performance.now()
+    const wrote = sql("update captures set original_body = coalesce(original_body, body), edited_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), body = cast(? as text) where id = ? and body is cast(? as text)", to, copy, from)
+    const ms = performance.now() - began
+    if (!wrote.changes) throw new Error('the probe copy was not written')
+    text = next
+    return ms
+  }
+  const run = () => {
+    write()
+    const times = Array.from({ length: 5 }, write).sort((a, b) => a - b)
+    sql('pragma wal_checkpoint(PASSIVE)')
+    return { median: times[2], least: times[0], most: times[4] }
+  }
+  const mine = () => sql("select name from sqlite_temp_master where type = 'trigger' and tbl_name = 'captures' order by name").map((row) => row.name)
+  const steps = [{ name: 'as the app keeps them', left: mine(), ...run() }]
+  for (const [name, gone] of [['without the word log', /^word_log/], ['and without the tags kept for related notes', /^note_tag/]]) {
+    for (const one of mine().filter((each) => gone.test(each))) sql(`drop trigger temp."${one}"`)
+    steps.push({ name, left: mine(), ...run() })
+  }
+  sql('delete from captures where id = ?', copy)
+  return steps
+}, note.id)
+await h.waitForTimeout(1500)
 
 // Typed once more, saved, and the app quit inside the note's rest: the copy its window hands over as it goes.
 const rested = copyOf()
@@ -135,6 +186,21 @@ check('after a save its editor asks whether its words are still the ones kept, a
   of('haligtree:notes:body', 'calls').every((n) => n === 0) && of('haligtree:notes:still', 'calls').some((n) => n > 0), `${said('haligtree:notes:body')}; ${said('haligtree:notes:still')}`)
 check("the first pictures for lists hold main's thread under 2 ms a save (notes:thumbs: read on the reading thread)", of('haligtree:notes:thumbs', 'ms').every((ms) => ms < 2), said('haligtree:notes:thumbs'))
 check('the log of saves is folded into the file under its own name, once the app has rested, after every save', of('book: the log folded into the file', 'calls').every((n) => n >= 1), said('book: the log folded into the file'))
+
+// What the tags kept for related notes add to a save's write, in the app's own saves: the last two against the middle ones.
+const middle = (list) => [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)]
+const writes = of('save: the write', 'ms')
+const [before, after] = [middle(writes.slice(1, SAVES)), middle(writes.slice(SAVES))]
+check('once the notes related by tag have been asked for, a save’s write holds main no longer than before (within 6 ms)', after - before < 6, `${before} ms before, ${after} ms after (the write of each save: ${writes.join(', ')} ms)`)
+// And the write itself, with each of the app's rules on a note's words taken away in turn.
+if (!rules) console.log('  (no test hook for the app’s own connection in this build: the rules were not measured)')
+else {
+  console.log('The write of a copy of the largest note through the app’s own connection (ms on main’s thread, the middle of five)')
+  for (const step of rules) console.log(`  ${step.name.padEnd(48)} ${step.median.toFixed(1)}  (${step.least.toFixed(1)} to ${step.most.toFixed(1)})   rules left on the note’s words: ${step.left.join(', ') || 'none'}`)
+  const added = rules[0].median - rules.at(-1).median
+  check('the rules the app keeps on a note’s words (the word log, the tags) add under 8 ms to the write of the largest note', added < 8,
+    `${added.toFixed(1)} ms: the word log ${(rules[0].median - rules[1].median).toFixed(1)}, the tags for related notes ${(rules[1].median - rules[2].median).toFixed(1)}`)
+}
 
 // The quit inside the rest. A private note has no copy, and nothing to hold here.
 const parts = (got, want) => {

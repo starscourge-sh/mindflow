@@ -77,6 +77,9 @@ try {
   check('the editor shows both', (await shown('written-elsewhere')) && (await shown('mine-words')))
   const versions = book('select count(*) as n from versions where item_id = ?', id)[0].n
   console.log(`  (versions kept of it: ${versions})`)
+  // The words each of those saves gained are counted (the word log is handed them as they are kept, as bytes).
+  const counted = await v('words:note', id)
+  check('the words those saves gained are counted for the note: three, one for each', counted.words === 3, JSON.stringify(counted))
 
   // --- a card written on a line, then taken out
   await h.keyboard.press('Meta+ArrowDown')
@@ -137,6 +140,18 @@ try {
   check('a page: #bit typed in makes it private', pageSecret() === 1 && kept(page, 'nuggets').includes('#bit'), String(pageSecret()))
   await v('item:save', page, { prompt: 'What does the probe keep?' })
   check('a page: a save of its question alone keeps the question and the words', (await v('item', page)).prompt === 'What does the probe keep?' && kept(page, 'nuggets').includes('page-typed page-mine'))
+
+  // --- the notes related by tag follow a save: a saved note's tags are read after it, by the reading thread
+  const tagged = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), doc('Related probe first note #relprobe'))
+  const plainOne = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), doc('Related probe second note', 'Related probe last line'))
+  const relatedTo = async (one) => (await v('related', one)).map((row) => row.id)
+  check('before its tag is typed, a note is not related to the one that carries it', !(await relatedTo(tagged)).includes(plainOne))
+  await openAtEnd(plainOne, 'Related probe last line')
+  await h.keyboard.type(' #relprobe', { delay: 30 })
+  await wait(1600)
+  check('a tag typed into a note makes it related to the note that carries it, both ways, once saved', kept(plainOne).includes('#relprobe') && (await relatedTo(tagged)).includes(plainOne) && (await relatedTo(plainOne)).includes(tagged), kept(plainOne).slice(-120))
+  await h.evaluate(([id, body]) => window.api.captures.save(id, { body }), [plainOne, doc('Related probe second note', 'Related probe last line, its tag taken out')])
+  check('the tag taken out again, it no longer is', !(await relatedTo(tagged)).includes(plainOne) && !(await relatedTo(plainOne)).includes(tagged))
 
   // --- the Markdown copy: after a rest, and at a quit
   const copies = join(folder, 'backups', 'captures')
