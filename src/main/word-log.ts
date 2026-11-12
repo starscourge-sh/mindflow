@@ -57,7 +57,28 @@ export function registerWordLog(): void {
   const db = database()
   db.exec('create table if not exists word_days (day text not null, id text not null, kind text not null, words integer not null default 0, primary key (day, id))')
   if (!(db.prepare('select 1 from pragma_table_info(?) where name = ?').get('word_days', 'seconds'))) db.exec('alter table word_days add column seconds integer not null default 0')
-  db.function('words_gained', (was, now) => Math.max(0, wordsIn(now) - wordsIn(was)))
+  // A save asks for the words gained twice (were there any, then how many), and each ask counted the words as they
+  // were and as they are: four counts of a long note's every word, inside the write, on main's thread (about 130 ms
+  // for a 4 MB note). The last few wordings keep their count, by their text: the words as they were are the ones the
+  // save before counted as they are, so a save counts once.
+  const counted = new Map<string, number>()
+  const count = (body: unknown): number => {
+    const raw = String(body ?? '')
+    const kept = counted.get(raw)
+    if (kept !== undefined) return kept
+    const words = wordsIn(raw)
+    // Only a wording long enough to be worth it, and three at most: each is held whole.
+    if (raw.length > 20_000) {
+      if (counted.size >= 3) counted.delete(counted.keys().next().value!)
+      counted.set(raw, words)
+    }
+    return words
+  }
+  db.function('words_gained', (was, now) => {
+    // As they were first: it is the one already counted, and must not be let go of to make room for the new one.
+    const before = count(was)
+    return Math.max(0, count(now) - before)
+  })
   db.function('writing_seconds', (key) => writingSeconds(String(key)))
   for (const { table, key, kind } of TABLES) {
     const there = db.prepare("select 1 from sqlite_master where type = 'table' and name = ?").get(table)
