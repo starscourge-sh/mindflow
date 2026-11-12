@@ -26,7 +26,8 @@ import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay }
 import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
 import { RowMenu, type RowItem } from './row-menu'
-import { AddPopover, DraftMark, addLines, type Add } from './cal-add'
+import { AddPopover, DraftMark, OpenPopover, addLines, type Add } from './cal-add'
+import { taskMenu, useTaskNow } from './tasks-view'
 import { inkOf, useCalendars } from '@/lib/events'
 import { unloaded, useLive, haligtree, type Settings, type Stats, type Task } from '@/lib/haligtree'
 import { dayjs, type Dayjs, dayKey, num, plural } from '../../../../main/dates'
@@ -108,7 +109,9 @@ export function MonthShowMenu({ children }: { /** More lines under the switches:
  * the month named above changing as a month's first week reaches the top.
  * Sideways swipes are never the month's: they are Back and Forward.
  */
-export function MonthPlan({ tasks, onDay, onSide, onAddDay, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [], onPickDay, dayMenu }: {
+export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [], onPickDay, dayMenu }: {
+  /** A task opened from a day (a double-click on its line, ↵): the page's own popover, tied to `at`. Left out, the month opens it in its own. */
+  onTask?: (id: string, at: HTMLElement | null) => void
   tasks: Task[]
   /** The page above keeps a picked day (the Calendar): a click on a day's empty part picks it, and a double-click starts something new there. Left out, a click starts it. */
   onPickDay?: (day: string) => void
@@ -208,27 +211,36 @@ export function MonthPlan({ tasks, onDay, onSide, onAddDay, onOpen, onWeek, onMo
 
   // What the side panel holds (a task opened from a day), and what is being carried.
   const [mine, setMine] = useState<SideAsk | null>(null)
-  const side = onSide ?? setMine
   // A month that keeps its own adding (Home's, the Journal's; the Calendar keeps its own above, `onSide`): a click picks
   // a day, a double-click starts a task there, drawn on the day and written in the popover beside it (cal-add.tsx), the
   // way the Calendar adds. These months show tasks, so a task is what a double-click starts; "Event" is one press away.
   const own = !onAddDay
   const [add, setAdd] = useState<Add | null>(null)
   const [pickedOwn, setPickedOwn] = useState<string | null>(null)
-  const openAdd = (to: Add): void => (setMine(null), setPickedOwn(to.day), setAdd(to))
+  const openAdd = (to: Add): void => (setMine(null), setOpenedOwn(null), setPickedOwn(to.day), setAdd(to))
   const frame = useRef<HTMLElement>(null)
+  // A task picked by a click on its line (ringed), and the one open in the popover a new one is written in, tied to its
+  // line: a double-click or ↵. “Open” there is its whole page, in the side panel.
+  const [pickedTask, setPickedTask] = useState<string | null>(null)
+  const [openedOwn, setOpenedOwn] = useState<{ id: string; at: HTMLElement | null } | null>(null)
+  // A task's own right-click menu on its line, the one every list has; kept in hand so a week drawn before it changed reads it as it is now.
+  const nowTask = useTaskNow()
+  const taskNow = useRef(nowTask)
+  taskNow.current = nowTask
+  const openedTask = openedOwn ? tasks.find((task) => task.id === openedOwn.id) ?? null : null
   const calendars = useCalendars()
   const draftColor = inkOf(calendars.find((one) => one.id === add?.calendar)?.color ?? calendars.find((one) => !one.hidden)?.color ?? calendars[0]?.color)
   const adding = own ? (add?.day ?? null) : null
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const item = onOpen ?? ((type: string, id: string): void => window.api.openInHome(type, id))
-  const open = (line: Line): void => (chime('open'), line.kind === 'back' ? window.api.openInHome(line.one.type, line.one.id) : side({ task: line.task.id }))
+  const open = (line: Line, at: HTMLElement | null = null): void => line.kind === 'back' ? (chime('open'), window.api.openInHome(line.one.type, line.one.id))
+    : onTask ? onTask(line.task.id, at) : (setAdd(null), setMine(null), setPickedTask(line.task.id), setOpenedOwn({ id: line.task.id, at }))
   const COLS = 'grid grid-cols-[2rem_repeat(7,minmax(0,1fr))] gap-px'
   const isThis = month.isSame(dayjs(), 'month')
 
   /** Everything a week of the run is drawn from, for it to be drawn again only when one of them changed. */
   const sign = (monday: Dayjs): unknown[] => {
-    const said: unknown[] = [today, marks, adding, add?.kind, draftColor, marking, counting, wide, ...extraSaid]
+    const said: unknown[] = [today, marks, adding, add?.kind, draftColor, marking, counting, wide, !onTask, ...extraSaid]
     for (let at = 0; at < 7; at++) {
       const key = dayKey(monday.add(at, 'day'))
       said.push(on.get(key), caught.get(key), opens.get(key))
@@ -251,7 +263,7 @@ export function MonthPlan({ tasks, onDay, onSide, onAddDay, onOpen, onWeek, onMo
         {weekDays.map((day) => {
           const key = dayKey(day)
           return <Cell key={key} wide={wide} day={day} lines={linesOf(on.get(key))} today={today} outside={!!shown && !day.isSame(shown, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
-            room={room - laid.lanes} reserve={laid.lanes} adding={adding === key} onDay={onDay} onLine={open} onItem={item}
+            room={room - laid.lanes} reserve={laid.lanes} adding={adding === key} onDay={onDay} onLine={open} onPickLine={onTask ? undefined : (line) => line.kind !== 'back' && setPickedTask(line.task.id)} lineMenu={(line) => (line.kind === 'back' ? [] : taskMenu(line.task, { open: () => open(line), now: taskNow.current }))} onItem={item}
             // The draft of what is being made here leads the day's things, and the popover is tied to it.
             extra={own && add && add.day === key ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={add.kind} color={draftColor} /></PopoverAnchor>, ...(dayExtra?.(key) ?? [])] : dayExtra?.(key)}
             onAdd={() => (onAddDay ? onAddDay(key) : openAdd({ day: key, minute: null, length: 0, kind: 'task' }))}
@@ -300,6 +312,7 @@ export function MonthPlan({ tasks, onDay, onSide, onAddDay, onOpen, onWeek, onMo
   const plan = (
     <section ref={frame} data-month-plan data-month-own={own || undefined} data-month-shown={month.format('YYYY-MM')} className={`flex flex-col gap-2 ${bare ? 'min-h-0 flex-1' : ''}`}>
       {/* The day picked wears the small month's mark: a quiet band of the accent behind its date. */}
+      {own && pickedTask && <style>{`[data-month-own] [data-plan-task="${CSS.escape(pickedTask)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
       {own && pickedOwn && <style>{`[data-month-own] [data-day="${pickedOwn}"] [data-day-number] { box-shadow: 0 0 0 3px var(--accent) } [data-month-own] [data-day="${pickedOwn}"] [data-day-number]:not([aria-current]) { background: var(--accent) }`}</style>}
       {!bare && <div className="flex items-center gap-1">
         <h2 className="min-w-0 truncate">
@@ -354,12 +367,14 @@ export function MonthPlan({ tasks, onDay, onSide, onAddDay, onOpen, onWeek, onMo
       <DotsKey opened={marking} captures={counting} />
       {!onSide && <DaySide ask={mine} onClose={() => setMine(null)} onOpen={onOpen} />}
       {own && add && <AddPopover key={`${add.day}|${add.words ?? ''}`} add={add} level={frame} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} />}
+      {own && !add && openedOwn && openedTask && <OpenPopover key={openedOwn.id} opened={{ kind: 'task', ...openedOwn }} task={openedTask} level={frame} onClose={() => setOpenedOwn(null)}
+        onPage={() => (chime('open'), setOpenedOwn(null), setMine({ task: openedOwn.id }))} onKey={() => undefined} />}
       {/* On the Calendar its line is always kept, so the weeks do not change height from month to month. */}
       {(!inMonth || bare) && <p data-month-empty={!inMonth || undefined} aria-hidden={inMonth > 0 || undefined} className={`px-1 text-body text-foreground/85 ${inMonth ? 'invisible' : ''}`}>Nothing planned in {month.format('MMMM')}. Give a task a day, like “call the dentist friday”, or double-click a day to add one.</p>}
     </section>
   )
   // Its own popover's root, so the draft drawn in a day is what the popover is tied to; on the Calendar the page's root is that.
-  return own ? <Popover open={!!add} onOpenChange={(open) => void (!open && setAdd(null))}>{plan}</Popover> : plan
+  return own ? <Popover open={!!add || !!(openedOwn && openedTask)} onOpenChange={(open) => void (!open && (setAdd(null), setOpenedOwn(null)))}>{plan}</Popover> : plan
 }
 
 /** The run's first week, and how many there are: every week from 1900 to 2200, far past any plan, drawn only near the screen. */
@@ -680,7 +695,7 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   )
 }
 
-function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, onAdd, onPick, menu, onDay, onLine, onItem, room, reserve = 0, extra = [] }: {
+function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, onAdd, onPick, menu, onDay, onLine, onPickLine, lineMenu, onItem, room, reserve = 0, extra = [] }: {
   /** Room for each thing by name; narrow (a small window), a dot for each and the count. */
   wide: boolean
   day: Dayjs
@@ -703,7 +718,12 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
   /** The day's own right-click menu, on its empty part. */
   menu?: () => RowItem[]
   onDay: (day: string) => void
-  onLine: (line: Line) => void
+  /** A line opened: a double-click on it, or ↵. `at` is the line itself, for its popover to be tied to. */
+  onLine: (line: Line, at?: HTMLElement | null) => void
+  /** A line clicked: picked. Left out where the page marks what is picked itself (the Calendar). */
+  onPickLine?: (line: Line) => void
+  /** A task's own right-click menu, on its line. */
+  lineMenu?: (line: Line) => RowItem[]
   /** Where what a marked day points at opens. */
   onItem: (type: string, id: string) => void
 }): React.JSX.Element {
@@ -748,7 +768,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
       {wide && <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
         {events}
-        {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} />)}
+        {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} onPick={onPickLine} menu={lineMenu} />)}
       </div>}
       {/* "+N more" sits outside the clipped list, so it is never cut. */}
       {wide && <div className="shrink-0">
@@ -792,8 +812,12 @@ function layBars(bars: Bar[], monday: string, sunday: string): { placed: { bar: 
   return { placed, lanes: ends.length }
 }
 
-/** A task's or a note's line in a day: dragged to move it, clicked to open it. */
-function LineChip({ line, late, onOpen, drag = true }: { line: Line; late: boolean; onOpen: (line: Line) => void; drag?: boolean }): React.JSX.Element {
+/**
+ * A task's or a note's line in a day. A task's is dragged to move it, clicked to pick it, and opened by a double-click or
+ * ↵, as an event's chip is; in the list "+N more" opens (`drag` off), a click opens it, as a row of any list does. A
+ * note coming back opens on a click: it is a way to its note.
+ */
+function LineChip({ line, late, onOpen, onPick, menu, drag = true }: { line: Line; late: boolean; onOpen: (line: Line, at?: HTMLElement | null) => void; onPick?: (line: Line) => void; menu?: (line: Line) => RowItem[]; drag?: boolean }): React.JSX.Element {
   const movable = drag && (line.kind === 'planned' || line.kind === 'due')
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: `${lineKey(line)}${drag ? '' : ':more'}`, data: { line }, disabled: !movable })
   const title = line.kind === 'back' ? line.one.title : taskName(line.task.title).text
@@ -801,16 +825,18 @@ function LineChip({ line, late, onOpen, drag = true }: { line: Line; late: boole
   const tone = line.kind === 'due' ? (late ? 'late' : 'deadline') : line.kind === 'planned' && late ? 'late' : undefined
   const said = line.kind === 'due' ? 'Due: ' : line.kind === 'ready' ? 'Get ready: ' : line.kind === 'back' ? 'Back: ' : late ? 'Late: ' : ''
   const Icon = line.kind === 'due' || line.kind === 'ready' ? CalendarClock : line.kind === 'back' ? Telescope : null
-  return (
+  const chip = (
     <Tip label={isDragging ? '' : `${said}${title}`}>
-    <button ref={setNodeRef} type="button" data-plan-task data-plan-kind={line.kind} {...(movable ? attributes : {})} {...(movable ? listeners : {})}
-      onClick={() => onOpen(line)}
+    <button ref={setNodeRef} type="button" data-plan-task={line.kind === 'back' ? '' : line.task.id} data-plan-kind={line.kind} {...(movable ? attributes : {})} {...(movable ? listeners : {})}
+      onClick={(event) => line.kind === 'back' || !drag || event.detail === 0 ? onOpen(line, drag ? event.currentTarget : null) : onPick?.(line)}
+      onDoubleClick={(event) => line.kind !== 'back' && drag && (event.stopPropagation(), onOpen(line, event.currentTarget))}
       {...loud(tone, `mf-hit relative flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-left text-control leading-snug transition-colors hover:bg-accent ${tone ? '' : line.kind === 'planned' ? 'text-foreground' : 'text-foreground/85'} ${isDragging ? 'mf-carried-place' : ''} ${movable ? 'touch-none' : ''}`)}>
       {Icon ? <Icon className="size-3 shrink-0" /> : <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current opacity-70" />}
       <span dir="auto" className="truncate">{title}</span>
     </button>
     </Tip>
   )
+  return menu && line.kind !== 'back' ? <RowMenu items={() => menu(line)}>{chip}</RowMenu> : chip
 }
 
 /** "+N more": click it, or rest the pointer on it, to see everything the day holds; its date there opens the day's page. */

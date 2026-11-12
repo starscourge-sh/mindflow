@@ -6,10 +6,10 @@ import { AnimatePresence, motion } from 'motion/react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
-import { atOn, makeTask, taskName, timeAlone } from '@/lib/tasks'
+import { atOn, makeTask, renameTask, taskName, timeAlone } from '@/lib/tasks'
 import { readTask } from '../../../../main/task-words'
 import { sameTask } from '@/lib/calendar'
-import { haligtree, whenInLine, type TaskFull } from '@/lib/haligtree'
+import { haligtree, whenInLine, type Task, type TaskFull } from '@/lib/haligtree'
 import { clock, dayjs, plural } from '../../../../main/dates'
 import { TaskInput } from './task-input'
 import { TaskDetail } from './tasks-view'
@@ -183,7 +183,9 @@ export function KindSwitch({ kind, onKind }: { kind: 'event' | 'task'; onKind: (
  * say the rest (a day, a time, #tags, !! for priority) as everywhere else,
  * and the day or slot clicked fills in what they leave out.
  */
-export function NewTask({ ask, first, held, onMade, onBack, words, onName }: {
+export function NewTask({ ask, first, held, onMade, onBack, words, onName, task }: {
+  /** The task the line is open on: its name to write over, read as a new one's words are; ↵ keeps the change, said with Undo. */
+  task?: Task
   ask: Slot
   /** Set to its save while it holds words: the popover makes them when clicked away from. */
   held: React.MutableRefObject<(() => Promise<void>) | null>
@@ -206,10 +208,28 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName }: {
   const length = minute === null ? 0 : ask.length
   const at = minute === null ? dayjs(day).hour(9).minute(0).startOf('minute') : dayjs(day).startOf('day').add(minute, 'minute')
   const busy = useRef(false)
+  // Open on a task: its name without its #tags, as its page shows it; they are kept as the name changes.
+  const named = task ? taskName(task.title) : null
+  const changed = !!named && !!text.trim() && text.trim() !== named.text.trim()
   // Kept as the panel goes (clicked away from, ⌘↵): made, said in the notice, not shown here.
-  held.current = text.trim() ? () => save(false) : null
+  held.current = (task ? changed : text.trim()) ? () => save(false) : null
   const save = async (stay = true): Promise<void> => {
     const words = text.trim()
+    if (task) {
+      if (!words) return refuse('A task needs a name: type one')
+      // Nothing changed: ↵ only closes it.
+      if (!changed) return void (stay && onMade(task.id, null))
+      if (busy.current) return
+      busy.current = true
+      const was = task.title
+      // A day, a time or a priority written into the name is read as everywhere else a task is typed, and said with Undo.
+      const set = await renameTask(task, [words, ...[...new Set(named!.tags)].map((tag) => `#${tag}`)].join(' '))
+      busy.current = false
+      chime('tap')
+      toast(set ? set.said : 'Renamed', set ? set.undo : () => void haligtree.saveTask(task.id, { title: was }))
+      if (stay) onMade(task.id, null)
+      return
+    }
     if (!words) return refuse('Nothing to add yet: type the task')
     if (busy.current) return
     busy.current = true
@@ -235,19 +255,21 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName }: {
     if (stay) onMade(made.id, undo)
   }
   return (
-    <form data-day-side-draft className="flex flex-col px-3 pt-2.5 pb-3" onSubmit={(event) => (event.preventDefault(), void save())}>
+    <form data-day-side-draft data-task-open={task?.id} className="flex flex-col px-3 pt-2.5 pb-3" onSubmit={(event) => (event.preventDefault(), void save())}>
       <div className="flex w-full flex-col gap-2.5">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
-          <TaskInput inputRef={field} value={text} onChange={setText} label={`A new task for ${dayjs(day).format('dddd D MMMM')}`}
+          <TaskInput inputRef={field} value={text} onChange={setText} label={task ? 'The task’s name' : `A new task for ${dayjs(day).format('dddd D MMMM')}`}
             placeholder="Call the dentist 10am #home !!" />
-          <Button type="submit" size="sm" data-day-side-add aria-label="Add"><Kbd>↵</Kbd></Button>
+          <Button type="submit" size="sm" data-day-side-add aria-label={task ? 'Keep' : 'Add'}><Kbd>↵</Kbd></Button>
         </div>
-        {/* Where it lands, plain to read, before it is made. */}
-        <p data-day-side-when className="text-body text-foreground">
-          For <strong className="font-semibold">{at.format('dddd D MMMM')}</strong>{minute !== null && <> at <strong className="font-semibold">{clock(at)}</strong></>}{length ? <>, for <strong className="font-semibold">{lasting(length)}</strong></> : null}.
-        </p>
+        {/* Where it lands (or, open on a task, where it is), plain to read. */}
+        {task && !task.dueAt
+          ? <p data-day-side-when className="text-body text-foreground">No day yet.</p>
+          : <p data-day-side-when className="text-body text-foreground">
+              For <strong className="font-semibold">{at.format('dddd D MMMM')}</strong>{minute !== null && <> at <strong className="font-semibold">{clock(at)}</strong></>}{length ? <>, for <strong className="font-semibold">{lasting(length)}</strong></> : null}.
+            </p>}
         {/* One quiet line, never a paragraph, saying by example what the words can hold; it gives way in a short window, so nothing in the popover is cut. */}
-        <p data-day-side-hint className="truncate text-control text-muted-foreground [@media(max-height:520px)]:hidden">Reads fri 1pm, #home, and !! for priority.</p>
+        <p data-day-side-hint className="truncate text-control text-muted-foreground [@media(max-height:520px)]:hidden">{task ? 'Type fri 1pm or !! to change it.' : 'Reads fri 1pm, #home, and !! for priority.'}</p>
       </div>
     </form>
   )

@@ -1,13 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { motion } from 'motion/react'
 import { CalendarPlus, SquareCheck } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { PopoverAnchor, PopoverArrow, PopoverContent } from '@/components/ui/popover'
 import { chime } from '@/lib/sound'
 import { spring, still } from '@/lib/motion'
+import { taskName } from '@/lib/tasks'
+import type { Task } from '@/lib/haligtree'
 import { quoted } from '../../../../main/clip'
-import { NewEvent, tint } from './calendar-events'
+import { dayjs, dayKey } from '../../../../main/dates'
+import { NewEvent, tint, type Shown } from './calendar-events'
 import { KindSwitch, NewTask } from './day-side'
-import { refuse, toast } from './ui'
+import { Tip, refuse, toast } from './ui'
 import type { RowItem } from './row-menu'
 
 /**
@@ -95,6 +99,51 @@ function Sized({ children }: { children: React.ReactNode }): React.JSX.Element {
 }
 
 /**
+ * The popover itself, the one a new event or task is written in and the one an
+ * event or a task opens in: one width, its top row (which never moves), then
+ * the line and what is under it, as tall as they are; tied by its point to what
+ * it is about, beside it and never over it.
+ */
+function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, onOutside }: {
+  kind: 'event' | 'task'; label: string; side: Side
+  /** The event's key or the task's id, when it is open on one that exists. */
+  opened?: string
+  head: React.ReactNode
+  children: React.ReactNode
+  onEscape: () => void
+  /** ⌘↵: kept (or made), and closed. */
+  onKeep: () => void
+  onOutside: () => void
+}): React.JSX.Element {
+  const beside = side === 'right' || side === 'left'
+  return (
+    <PopoverContent data-cal-add={kind} data-cal-open={opened} data-takes-keys role="dialog" aria-label={label} side={side} align={beside ? 'start' : 'center'} alignOffset={beside ? -14 : 0} sideOffset={6} arrowPadding={14} collisionPadding={ROOM}
+      style={{ width: WIDE }} className="max-w-[calc(100vw-1.5rem)] gap-0 overflow-visible rounded-xl p-0 text-control"
+      onOpenAutoFocus={(event) => event.preventDefault()}
+      onEscapeKeyDown={(event) => (event.preventDefault(), onEscape())}
+      // ⌘↵ keeps it too, as ↵ does (the key the side panel kept for "keep and close").
+      onKeyDown={(event) => {
+        if (event.key !== 'Enter' || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return
+        event.preventDefault()
+        event.stopPropagation()
+        onKeep()
+      }}
+      onFocusOutside={(event) => event.preventDefault()}
+      onPointerDownOutside={(event) => {
+        event.preventDefault()
+        // The draft is part of it, and so are a notice (its Undo is the notice's own act, not a click away), any menu over it and a "which times" asked.
+        if ((event.target as Element | null)?.closest?.('[data-cal-draft], [role="status"], [role="menu"], [data-scope-ask]')) return
+        onOutside()
+      }}>
+      {/* On the one left edge the line and the reading under it keep. */}
+      <div className="flex shrink-0 items-center px-3 pt-3">{head}</div>
+      <Sized>{children}</Sized>
+      <PopoverArrow />
+    </PopoverContent>
+  )
+}
+
+/**
  * The popover a new event or task is written in, tied by its point to the
  * draft on the grid, as Calendar on the Mac ties its own: "Event | Task" at
  * the top (it never moves), then the one line to type in with what it
@@ -141,43 +190,104 @@ export function AddPopover({ add, level, onChange, onClose, onAgain }: {
     else chime('away')
     onClose()
   }
-  const beside = side === 'right' || side === 'left'
+  const keep = (): void => {
+    const save = held.current
+    // With nothing typed it says why not.
+    if (!save) return refuse(add.kind === 'event' ? 'Nothing to add yet: type a name for the event' : 'Nothing to add yet: type the task')
+    held.current = null
+    void save()
+    onClose()
+  }
   return (
     <>
       {bare && <PopoverAnchor virtualRef={{ current: bare }} />}
-      <PopoverContent data-cal-add={add.kind} data-takes-keys role="dialog" aria-label={add.kind === 'event' ? 'A new event' : 'A new task'} side={side} align={beside ? 'start' : 'center'} alignOffset={beside ? -14 : 0} sideOffset={6} arrowPadding={14} collisionPadding={ROOM}
-        style={{ width: WIDE }} className="max-w-[calc(100vw-1.5rem)] gap-0 overflow-visible rounded-xl p-0 text-control"
-        onOpenAutoFocus={(event) => event.preventDefault()}
-        onEscapeKeyDown={(event) => (event.preventDefault(), away())}
-        // ⌘↵ makes it too, as ↵ does (the key the side panel kept for "keep and close"); with nothing typed it says why not.
-        onKeyDown={(event) => {
-          if (event.key !== 'Enter' || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return
-          event.preventDefault()
-          event.stopPropagation()
-          const save = held.current
-          if (!save) return refuse(add.kind === 'event' ? 'Nothing to add yet: type a name for the event' : 'Nothing to add yet: type the task')
-          held.current = null
-          void save()
-          onClose()
-        }}
-        onFocusOutside={(event) => event.preventDefault()}
-        onPointerDownOutside={(event) => {
-          event.preventDefault()
-          // The draft is part of it, and so are a notice (its Undo is the notice's own act, not a click away) and any menu over it.
-          if ((event.target as Element | null)?.closest?.('[data-cal-draft], [role="status"], [role="menu"]')) return
-          outside()
-        }}>
-        {/* On the one left edge the line and the reading under it keep. */}
-        <div className="flex shrink-0 items-center px-3 pt-3">
-          <KindSwitch kind={add.kind} onKind={(kind) => onChange({ kind })} />
-        </div>
-        <Sized>
-          {add.kind === 'event'
-            ? <NewEvent ask={add} held={held} words={words} picked={[add.calendar ?? null, (calendar) => onChange({ calendar })]} onMade={onClose} onName={say} />
-            : <NewTask ask={add} held={held} words={words} first="" onMade={onClose} onBack={(_id, typed) => onAgain({ ...add, words: typed })} onName={say} />}
-        </Sized>
-        <PopoverArrow />
-      </PopoverContent>
+      <Shell kind={add.kind} label={add.kind === 'event' ? 'A new event' : 'A new task'} side={side} onEscape={away} onKeep={keep} onOutside={outside}
+        head={<KindSwitch kind={add.kind} onKind={(kind) => onChange({ kind })} />}>
+        {add.kind === 'event'
+          ? <NewEvent ask={add} held={held} words={words} picked={[add.calendar ?? null, (calendar) => onChange({ calendar })]} onMade={onClose} onName={say} />
+          : <NewTask ask={add} held={held} words={words} first="" onMade={onClose} onBack={(_id, typed) => onAgain({ ...add, words: typed })} onName={say} />}
+      </Shell>
+    </>
+  )
+}
+
+/** An event or a task that is open in the popover, and the thing on the page it was opened from (a block, a chip, a row). */
+export type Opened = { kind: 'event'; key: string; at: HTMLElement | null } | { kind: 'task'; id: string; at: HTMLElement | null }
+
+/**
+ * The same popover, open on an event or a task that exists: tied to it where
+ * it is on the page, its name in the line (typed over and read as a new one's
+ * words are: "fri 1pm" moves it), where it is read back under it, and “Open”
+ * for its whole page. Each change is kept as it is made and said with Undo.
+ * ↵ keeps the line and closes; so does a click anywhere else; Esc closes and
+ * leaves the name as it was.
+ */
+export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey }: {
+  opened: Opened
+  /** The event, as the page has it now. */
+  event?: Shown
+  task?: Task
+  /** Where its block or chip is looked for when the thing it was opened from is gone (it moved to another day). */
+  level: React.RefObject<HTMLElement | null>
+  onClose: () => void
+  /** Its whole page (the side panel). */
+  onPage: () => void
+  /** A change made it another one (one time of a repeating event, cut loose): the popover follows it. */
+  onKey: (key: string) => void
+}): React.JSX.Element | null {
+  const held = useRef<(() => Promise<void>) | null>(null)
+  const id = opened.kind === 'event' ? opened.key : opened.id
+  const day = event ? dayKey(event.start) : task?.dueAt ? dayKey(task.dueAt) : null
+  // What it is tied to: the thing it was opened from while that is on the page; then its block or chip on the level in
+  // front (after "fri 1pm" moved it); with neither drawn (a crowded day's "+3 more"), its day.
+  const [at, setAt] = useState<HTMLElement | null>(null)
+  const [side, setSide] = useState<Side>('right')
+  useLayoutEffect(() => {
+    const name = CSS.escape(id)
+    const found = opened.at?.isConnected ? opened.at
+      : level.current?.querySelector<HTMLElement>(opened.kind === 'event' ? `[data-cal-event="${name}"], [data-cal-event-chip="${name}"]` : `[data-cal-block="${name}"], [data-cal-untimed="${name}"], [data-plan-task="${name}"]`)
+        ?? (day ? level.current?.querySelector<HTMLElement>(`[data-day="${day}"], [data-cal-col="${day}"]`) : null) ?? null
+    setAt((was) => (was === found ? was : found))
+  })
+  useLayoutEffect(() => {
+    if (!at) return
+    at.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    setSide(sideFor(at.getBoundingClientRect()))
+  }, [at])
+  if (!at || !(event || task)) return null
+  const close = (): void => (chime('away'), onClose())
+  const keep = (): void => {
+    const save = held.current
+    held.current = null
+    if (save) void save()
+    onClose()
+  }
+  const kind = opened.kind
+  const mark = event
+    ? <span aria-hidden className="size-3 shrink-0 rounded-[4px]" style={{ background: event.color }} />
+    : <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: TASK_INK }} />
+  const slot = event
+    ? { day: dayKey(event.start), minute: event.allDay ? null : dayjs(event.start).hour() * 60 + dayjs(event.start).minute(), length: Math.max(15, dayjs(event.end).diff(dayjs(event.start), 'minute')) }
+    : { day: day ?? dayKey(), minute: !task!.dueAt || task!.allDay ? null : dayjs(task!.dueAt).hour() * 60 + dayjs(task!.dueAt).minute(), length: task!.estimate ?? 0 }
+  return (
+    <>
+      <PopoverAnchor virtualRef={{ current: at }} />
+      <Shell kind={kind} opened={id} label={kind === 'event' ? 'The event' : 'The task'} side={side} onEscape={close} onKeep={keep} onOutside={keep}
+        head={
+          <div className="flex h-8 min-w-0 flex-1 items-center gap-2 pl-0.5">
+            {mark}
+            <span data-cal-open-kind className="min-w-0 flex-1 truncate text-control font-medium text-foreground">{kind === 'event' ? 'Event' : 'Task'}</span>
+            {!event?.readOnly && (
+              <Tip label={kind === 'event' ? 'Open the event’s page: its notes, repeat and reminder' : 'Open the task’s page: its steps and notes'}>
+                <Button type="button" variant="ghost" size="sm" data-cal-open-page className="-mr-1.5" onClick={onPage}>Open</Button>
+              </Tip>
+            )}
+          </div>
+        }>
+        {event
+          ? <NewEvent key={event.key} one={event} ask={slot} held={held} onMade={(key) => (key !== event.key ? onKey(key) : undefined, onClose())} />
+          : <NewTask key={task!.id} task={task} ask={slot} held={held} first={taskName(task!.title).text} onMade={onClose} onBack={() => undefined} />}
+      </Shell>
     </>
   )
 }

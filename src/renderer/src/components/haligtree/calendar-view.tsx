@@ -23,7 +23,7 @@ import { Rolling, Tip, typing } from './ui'
 import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu, type RowItem } from './row-menu'
-import { AddPopover, DraftMark, addLines as addMenu, type Add } from './cal-add'
+import { AddPopover, DraftMark, OpenPopover, addLines as addMenu, type Add, type Opened } from './cal-add'
 import { MonthPlan, MonthShowMenu, Passing } from './month-plan'
 import { crossLevels, crossed, usePinchLevels, type Way } from './cal-pinch'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -33,7 +33,7 @@ import { LateMenu, lateItems, lateOnes } from './late-tasks'
 import { PlanDid, PlannedTotal, useFocusOn } from './planned-did'
 import { calendarHere } from '@/lib/calendar-scope'
 import { useLayers, useEvents, events as eventsApi, zoneShort } from '@/lib/events'
-import { CalendarLayers, EventBlock, EventCardLayer, EventChip, HOUR, ZoneHeads, ZoneHours, allDayOn, colorFor, copyEvent, cutEvent, duplicateEvent, eventSpans, gutterOf, holding, hm, macShown, pasteEvent, span as timeSpan, useSecondZone, type Peek, type Shown } from './calendar-events'
+import { CalendarLayers, EventBlock, EventChip, HOUR, ZoneHeads, ZoneHours, allDayOn, colorFor, copyEvent, cutEvent, duplicateEvent, eventSpans, gutterOf, holding, hm, macShown, pasteEvent, span as timeSpan, useSecondZone, type Shown } from './calendar-events'
 import { completeTask } from './tasks-view'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -96,6 +96,9 @@ const store = (key: string, value: string): void => { try { localStorage.setItem
 const current = (day: Dayjs): boolean => day.isSame(dayjs(), 'week')
 const weekend = (day: Dayjs): boolean => day.day() === 0 || day.day() === 6
 const snap = (minute: number, by = SNAP): number => Math.max(0, Math.min(24 * 60 - by, Math.round(minute / by) * by))
+/** A task on the page, wherever it is drawn: a block at its hour, a chip on the all-day lane, a row of Unscheduled, a line in a month's day. */
+const TASK_AT = '[data-cal-block], [data-cal-untimed], [data-cal-loose], [data-plan-task]'
+const taskAt = (el: HTMLElement): string | null => el.dataset.calBlock ?? el.dataset.calUntimed ?? el.dataset.calLoose ?? (el.dataset.planTask || null)
 const minuteOf = (iso: string): number => { const at = dayjs(iso); return at.hour() * 60 + at.minute() }
 const timed = (task: Task): boolean => task.status === 'open' && !!task.dueAt && !task.allDay
 /** On the grid: open timed tasks, and the ones done, struck through where they were. */
@@ -141,7 +144,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const setMarked = (on: boolean): void => (chime('tap'), store('vigil.calendar.captures', on ? 'on' : 'off'), setMarkedRaw(on))
   const captures = useCaptures(true)
   const [anchor, setAnchor] = useState(() => (focus && dayjs(focus).isValid() ? dayjs(focus) : dayjs()).startOf('day'))
-  const setMode = (to: Mode): void => (to !== mode && chime('tap'), setPeek(null), setAdd(null), store('vigil.calendar.mode', to), setModeRaw(to))
+  const setMode = (to: Mode): void => (to !== mode && chime('tap'), setOpened(null), setAdd(null), store('vigil.calendar.mode', to), setModeRaw(to))
   const setSide = (on: boolean): void => (chime(on ? 'on' : 'off'), store('vigil.calendar.side', on ? 'on' : 'off'), setSideRaw(on))
   // A narrow page has no room for the small month beside a month: the month gets the width.
   const box = useRef<HTMLElement>(null)
@@ -175,18 +178,20 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // Until the room changes: grown, it is not needed; shrunk again, the panel folds as before.
   useEffect(() => setKept(false), [fits.left])
   const roomless = narrow && mode === 'month'
-  // The side panel: a task or an event opened from the grid.
+  // The side panel: the whole page of a task or an event, one step on from its popover (“Open”).
   const [panel, setPanel] = useState<SideAsk | null>(null)
   // What is being made, drawn where it will be with its popover beside it (cal-add.tsx).
   const [add, setAdd] = useState<Add | null>(null)
   // The day a click picked: N, ↵ and “New event” are about it. Marked as the small month marks the days shown.
   const [pickedDay, setPickedDay] = useState<string | null>(null)
-  const openAdd = (to: Add): void => (setPeek(null), setPanel(null), setPickedDay(to.day), setAdd(to))
-  const pick = (id: string): void => (chime('open'), setPeek(null), setPanel({ task: id }))
-  const pickEvent = (key: string): void => (setPeek(null), setPanel({ event: key }))
-  // A click on an event: its small card beside it (calendar-events.tsx), not the whole panel.
-  const [peek, setPeek] = useState<Peek | null>(null)
-  const onPeek = (one: Shown, at: DOMRect): void => (setPanel(null), setPeek({ one, at }))
+  // An event or a task open in the popover a new one is written in (cal-add.tsx), tied to it where it is: a
+  // double-click on it, ↵, its menu's “Open”, ⌘K, a row of Upcoming. A click on the grid only picks.
+  const [opened, setOpened] = useState<Opened | null>(null)
+  const openAdd = (to: Add): void => (setOpened(null), setPanel(null), setPickedDay(to.day), setAdd(to))
+  const openTask = (id: string, at: HTMLElement | null = null): void => (setAdd(null), setPanel(null), setChosenEvent(null), setChosen(id), setOpened({ kind: 'task', id, at }))
+  const openEvent = (key: string, at: HTMLElement | null = null): void => (setAdd(null), setPanel(null), setChosen(null), setChosenEvent(key), setOpened({ kind: 'event', key, at }))
+  // Its whole page, from the popover's “Open”.
+  const toPage = (ask: SideAsk): void => (chime('open'), setOpened(null), setPanel(ask))
   // A week too narrow to read (the days' pane under 640px, a small window): three days from the day shown, as Fantastical and Apple's Calendar do.
   const pane = useRef<HTMLDivElement>(null)
   const [paneWide, setPaneWide] = useState(Infinity)
@@ -262,7 +267,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     chime('tap')
     store('vigil.calendar.mode', ask.to.mode)
     box.current?.setAttribute('data-cal-mode', ask.to.mode)
-    const said = (): void => (setPeek(null), setAnchor(ask.to.anchor), setModeRaw(ask.to.mode), setShadow(how ? { ...now.at, role: 'leaving' } : null))
+    const said = (): void => (setOpened(null), setAnchor(ask.to.anchor), setModeRaw(ask.to.mode), setShadow(how ? { ...now.at, role: 'leaving' } : null))
     // With Motion off there is nothing to play: the page says it at once.
     if (!how) return said()
     front.current = { at: ask.to, el: next }
@@ -299,7 +304,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const days = mode === 'day' ? [anchor] : few ? Array.from({ length: FEW }, (_, at) => anchor.add(at, 'day')) : Array.from({ length: 7 }, (_, at) => anchor.startOf('week').add(at, 'day'))
   // What a step is, as the arrows say it: a day, a week, a month, or the three days shown.
   const unit = few ? `${FEW} days` : mode
-  const step = (by: -1 | 1): void => (chime('page'), setPeek(null), setAnchor((now) => few ? now.add(by * FEW, 'day') : now.add(by, mode)))
+  const step = (by: -1 | 1): void => (chime('page'), setOpened(null), setAnchor((now) => few ? now.add(by * FEW, 'day') : now.add(by, mode)))
   // Today brought into sight: its day shown, and the grid scrolled to the now line, so the step is seen even when today was already in view.
   // A glide for the button; by T, or with Motion off or Reduce motion, there at once.
   // The same glide as Month's (lib/snap.ts, the calm one), set off once the day asked for is drawn: a second press turns
@@ -330,7 +335,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     return () => (watch.disconnect(), hours.removeEventListener('wheel', mine), hours.removeEventListener('pointerdown', mine))
   }, [nowAsk])
   useEffect(() => () => nowGlide.current?.stop(), [])
-  const today = (): void => (chime('tap'), setPeek(null), setAnchor(dayjs().startOf('day')), toNow())
+  const today = (): void => (chime('tap'), setOpened(null), setAnchor(dayjs().startOf('day')), toNow())
   // The day picked, while it is among the days shown: stepped or scrolled away from, it is no longer what a key is about.
   const pickedHere = (): string | null => pickedDay && (mode === 'month' ? dayjs(pickedDay).isSame(anchor, 'month') : days.some((day) => dayKey(day) === pickedDay)) ? pickedDay : null
   // "+ New event", N, and ↵ on a picked day: a draft on the day picked (the day being looked at, dayHere, when none is), with
@@ -418,7 +423,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   live.current = { tasks, picked, anchor, mode, side, layers, shownEvents, pickedEvent, dayHere }
   useEffect(() => calendarHere(here, {
     chosenEvent: () => live.current.shownEvents.find((one) => one.key === live.current.pickedEvent && !one.readOnly) ?? null,
-    openEvent: (key) => pickEvent(key),
+    openEvent: (key) => openEvent(key),
     settleEvent: (key) => {
       setPanel(null)
       setChosen(null)
@@ -436,13 +441,12 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     chosen: () => live.current.pickedEvent ? null : live.current.tasks.find((task) => task.id === live.current.picked && task.status === 'open') ?? null,
     day: () => live.current.dayHere(),
     mode: () => live.current.mode,
-    go: (day) => (chime('page'), setPeek(null), setAnchor(dayjs(day).startOf('day')), dayjs(day).isSame(dayjs(), 'day') && toNow()),
+    go: (day) => (chime('page'), setOpened(null), setAnchor(dayjs(day).startOf('day')), dayjs(day).isSame(dayjs(), 'day') && toNow()),
     setMode: (to) => setMode(to),
-    open: (id) => pick(id),
+    open: (id) => openTask(id),
     reveal: (task) => {
       setAnchor(dayjs(task.dueAt ?? task.deadline!).startOf('day'))
-      setChosen(task.id)
-      pick(task.id)
+      openTask(task.id)
       // Brought into sight once it is drawn there.
       setTimeout(() => document.querySelector(`[data-cal-block="${task.id}"], [data-cal-untimed="${task.id}"], [data-plan-task="${task.id}"]`)?.scrollIntoView({ block: 'center' }), 120)
     },
@@ -468,9 +472,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       // ↵ with a day picked and the keys nowhere else (a block or a button with the keys takes its own ↵): something new on it.
       if (key === 'Enter' && !add && pickedHere() && (!document.activeElement || document.activeElement === document.body)) return take(newEvent)
       // Esc lets go of the task or event picked, as on every list, so ⌘K is the Calendar's own again.
-      if (key === 'Escape' && !panel && !peek && (chosen || chosenEvent)) return take(() => (chime('away'), setChosen(null), setChosenEvent(null), (document.activeElement as HTMLElement | null)?.blur()))
+      if (key === 'Escape' && !panel && !openNow && (chosen || chosenEvent)) return take(() => (chime('away'), setChosen(null), setChosenEvent(null), (document.activeElement as HTMLElement | null)?.blur()))
       // Then of the day picked.
-      if (key === 'Escape' && !panel && !peek && !add && pickedDay) return take(() => (chime('away'), setPickedDay(null)))
+      if (key === 'Escape' && !panel && !openNow && !add && pickedDay) return take(() => (chime('away'), setPickedDay(null)))
       if (key === '.') return take(() => (chime('open'), setJump(true)))
       if (key === 'ArrowLeft' || key === 'ArrowRight') return take(() => step(key === 'ArrowLeft' ? -1 : 1))
     }
@@ -489,7 +493,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       event.preventDefault()
       event.stopPropagation()
       if (event.key === 'c') copyEvent(one)
-      else if (event.key === 'x') (setPeek(null), cutEvent(one))
+      else if (event.key === 'x') (setOpened(null), cutEvent(one))
       else void duplicateEvent(one)
     }
     window.addEventListener('keydown', onKey)
@@ -597,15 +601,16 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   })
   // The draft wears the colour of the calendar it will be on: the one picked in its popover, or the first one shown.
   const draftColor = layers.colorOf(add?.calendar ?? layers.calendars.find((one) => !one.hidden)?.id ?? layers.calendars[0]?.id ?? 'personal')
-  const blockProps = { carry, start, onPick: pick, taskNow, draft: add, draftColor, onAdd: openAdd, onPickDay: setPickedDay, events: shownEvents, onEvent: pickEvent, onPeek, onOpen, landed }
+  const blockProps = { carry, start, onPick: openTask, taskNow, draft: add, draftColor, onAdd: openAdd, onPickDay: setPickedDay, events: shownEvents, onEvent: openEvent, onOpen, landed }
   /** The events that touch the days a week or a day shows, picked once a draw from the whole span's. */
   const eventsOn = (shown: Dayjs[]): Shown[] => {
     const [from, to] = [shown[0].startOf('day').valueOf(), shown[shown.length - 1].add(1, 'day').startOf('day').valueOf()]
     return shownEvents.filter((one) => new Date(one.start).getTime() < to && new Date(one.end).getTime() > from)
   }
+  const openedEvent = opened?.kind === 'event' ? shownEvents.find((one) => one.key === opened.key) ?? null : null
+  const openedTask = opened?.kind === 'task' ? tasks.find((task) => task.id === opened.id) ?? null : null
+  const openNow = opened && (openedEvent || openedTask) ? opened : null
   const calendarName = (one: Shown): string => one.readOnly ? one.calendarId.replace(/^mac:/, '') : layers.calendars.find((cal) => cal.id === one.calendarId)?.name ?? 'Calendar'
-  // The card follows its event as it changes; the time it was opened for stays its anchor.
-  const peekNow = peek && { ...peek, one: shownEvents.find((one) => one.key === peek.one.key) ?? peek.one }
   const left = side && !roomless && (fits.left || kept)
   // The left panel's switch: on while it is up, off hides it; on again shows it, room or not.
   const leftPanel = (): void => {
@@ -614,7 +619,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     if (side) chime('on')
     else setSide(true)
   }
-  const lateMenu = <LateMenu tasks={tasks} pill className="shrink-0" onTask={(task) => (setAnchor(dayjs(task.dueAt).startOf('day')), setChosen(task.id), pick(task.id))} />
+  const lateMenu = <LateMenu tasks={tasks} pill className="shrink-0" onTask={(task) => (setAnchor(dayjs(task.dueAt).startOf('day')), openTask(task.id))} />
   // The left panel as a line of ⋯, for a bar with no room for its button.
   const panelLines = (
     <>
@@ -626,24 +631,29 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const goTo = (day: Dayjs): void => void (!days.some((one) => one.isSame(day, 'day')) && setAnchor(day.startOf('day')))
   return provide(
     // What is being made has its popover tied to its draft on the grid: one root over the page, so the draft, wherever it
-    // is drawn (a month's day, the all-day lane, an hour), is the popover's anchor.
-    <Popover open={!!add} onOpenChange={(open) => void (!open && setAdd(null))}>
+    // is drawn (a month's day, the all-day lane, an hour), is the popover's anchor. An event or a task that is open has the
+    // same popover, tied to it.
+    <Popover open={!!add || !!openNow} onOpenChange={(open) => void (!open && (setAdd(null), setOpened(null)))}>
     <section ref={box} data-cal-mode={mode} data-cal-days={mode === 'month' ? undefined : days.length} data-cal-chosen={picked ?? undefined} style={readsStyle} className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
       onFocusCapture={(event) => {
-        const one = (event.target as HTMLElement).closest<HTMLElement>('[data-cal-block], [data-cal-untimed], [data-cal-loose]')
-        if (one) (setChosen(one.dataset.calBlock ?? one.dataset.calUntimed ?? one.dataset.calLoose ?? null), setChosenEvent(null))
-        const ev = (event.target as HTMLElement).closest<HTMLElement>('[data-cal-event], [data-cal-event-chip], [data-cal-pop]')
-        if (ev) (setChosenEvent(ev.dataset.calEvent ?? ev.dataset.calEventChip ?? ev.dataset.calPop ?? null), setChosen(null))
+        const one = (event.target as HTMLElement).closest<HTMLElement>(TASK_AT)
+        if (one) (setChosen(taskAt(one)), setChosenEvent(null))
+        const ev = (event.target as HTMLElement).closest<HTMLElement>('[data-cal-event], [data-cal-event-chip]')
+        if (ev) (setChosenEvent(ev.dataset.calEvent ?? ev.dataset.calEventChip ?? null), setChosen(null))
       }}
       onPointerDownCapture={(event) => {
+        // A press on an event or a task picks it: ringed, and what ↵, ⌫, ⌘C and ⌘K are about. A double-click opens it.
+        // A press in the popover is about the one it is open on, which stays picked.
         const at = event.target as HTMLElement
-        if (!at.closest('[data-cal-block], [data-cal-untimed], [data-cal-loose]')) setChosen(null)
-        const ev = at.closest<HTMLElement>('[data-cal-event], [data-cal-event-chip], [data-cal-pop]')
-        setChosenEvent(ev ? (ev.dataset.calEvent ?? ev.dataset.calEventChip ?? ev.dataset.calPop ?? null) : null)
+        if (at.closest('[data-cal-add]')) return
+        const one = at.closest<HTMLElement>(TASK_AT)
+        setChosen(one ? taskAt(one) : null)
+        const ev = at.closest<HTMLElement>('[data-cal-event], [data-cal-event-chip]')
+        setChosenEvent(ev ? (ev.dataset.calEvent ?? ev.dataset.calEventChip ?? null) : null)
       }}>
-      {pickedEvent && !panel && !peek && <style>{`[data-cal-event="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-event-chip="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
+      {pickedEvent && !panel && <style>{`[data-cal-event="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-event-chip="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
       {/* The ring of the one picked: round a block, inside a chip, so the lane's edge never cuts it. */}
-      {picked && <style>{`[data-cal-block="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-untimed="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
+      {picked && <style>{`[data-cal-block="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-untimed="${CSS.escape(picked)}"], [data-plan-task="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
       {/* The day picked wears the small month's mark for the days shown (a quiet band of the accent behind its date), on a month's day and on a week's or a day's head. */}
       {pickedDay && <style>{`[data-cal-level] :is([data-day="${pickedDay}"] [data-day-number], [data-cal-head="${pickedDay}"] > span:last-child) { box-shadow: 0 0 0 3px var(--accent) } [data-cal-level] :is([data-day="${pickedDay}"] [data-day-number]:not([aria-current]), [data-cal-head="${pickedDay}"]:not([data-cal-today]) > span:last-child) { background: var(--accent) }`}</style>}
       {/* While something is being made on a day, the day stays lit (a slot's draft is its own light). */}
@@ -665,7 +675,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
               </button>
             </PopoverTrigger>
             <PopoverContent align="start" className="w-72 p-3" data-cal-jump-month>
-              <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setPeek(null), setAnchor(day), setJump(false))} />
+              <MiniMonth anchor={anchor} days={mode === 'month' ? [] : days} onPick={(day) => (chime('tap'), setOpened(null), setAnchor(day), setJump(false))} />
             </PopoverContent>
           </Popover>
           {/* What is late, counted calmly beside the title; its menu holds "Reschedule all…" and the late ones. */}
@@ -702,7 +712,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             {leftGrip}
             {/* Faded at the edge it goes on past, as every long side list is. */}
             <div className="mf-more flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
-            <MiniMonth anchor={anchor} days={mode === 'month' ? (pickedDay ? [dayjs(pickedDay)] : []) : days} onPick={(day) => (chime('tap'), setPeek(null), setAnchor(day), setPickedDay(dayKey(day)))} />
+            <MiniMonth anchor={anchor} days={mode === 'month' ? (pickedDay ? [dayjs(pickedDay)] : []) : days} onPick={(day) => (chime('tap'), setOpened(null), setAnchor(day), setPickedDay(dayKey(day)))} />
             <CalendarLayers layers={layers} />
             {/* The Inbox's island: what it holds, how many, and a fold. Drag one onto a day or an hour to give it a time. */}
             <IslandBox name="Unscheduled" island={looseIsland} shown={looseShown.length} icon={<CalendarX2 aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
@@ -711,12 +721,12 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 <Highlight light={looseHover.light} className="bg-accent/25" />
                 {looseShown.map((task) => (
                   <li key={task.id}>
-                    <RowMenu items={() => taskMenu(task, { open: () => pick(task.id), now: taskNow })}>
+                    <RowMenu items={() => taskMenu(task, { open: () => openTask(task.id, looseBox.current?.querySelector<HTMLElement>(`[data-cal-loose="${CSS.escape(task.id)}"]`) ?? null), now: taskNow })}>
                       <Tip label={taskName(task.title).text}>
                       <button type="button" data-cal-loose={task.id} data-open={task.id === picked || undefined}
-                        onPointerDown={(event) => start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }), () => pick(task.id))}
+                        onPointerDown={(event) => { const row = event.currentTarget; start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }), () => openTask(task.id, row)) }}
                         onKeyDown={(event) => {
-                          if (event.key === 'Enter') (event.preventDefault(), pick(task.id))
+                          if (event.key === 'Enter') (event.preventDefault(), openTask(task.id, event.currentTarget))
                           if (event.key === 'Backspace' || event.key === 'Delete') (event.preventDefault(), void moveToBin([{ type: 'task', id: task.id, status: task.status }]))
                         }}
                         className={`flex h-8 w-full touch-none items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground transition-[scale] duration-150 ease-out active:scale-[0.98] motion-reduce:transition-none ${task.id === picked ? 'bg-accent' : ''} ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}>
@@ -730,7 +740,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
               </ul>
             </IslandBox>
             {/* What is coming in the next seven days, under them: as tall as what it holds, and not there when nothing is coming. */}
-            <Upcoming tasks={shownTasks} name={calendarName} onPeek={(one, at) => (goTo(dayjs(one.start)), onPeek(one, at))} onTask={(task) => (goTo(dayjs(task.dueAt!)), setChosen(task.id), pick(task.id))} />
+            <Upcoming tasks={shownTasks} name={calendarName} onEvent={(one, at) => (goTo(dayjs(one.start)), openEvent(one.key, at))} onTask={(task, at) => (goTo(dayjs(task.dueAt!)), openTask(task.id, at))} />
             </div>
           </aside>
         )}
@@ -746,15 +756,15 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 {one.mode === 'month' ? (
                   <div className="flex min-h-0 flex-1 flex-col p-3">
                     <MonthPlan bare month={one.anchor} tasks={shownTasks} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars, top && add ? `${add.day}|${add.kind}|${draftColor}` : '']}
-                      // A double-click on a day: an event there, all day, written in the popover beside its draft. A task in the month opens in the side panel, as it did.
-                      onSide={setPanel} onAddDay={(day) => openAdd({ day, minute: null, length: 0, kind: 'event' })}
+                      // A double-click on a day: an event there, all day, written in the popover beside its draft. A task in the month is picked by a click and opens, in that popover, by a double-click.
+                      onSide={setPanel} onTask={openTask} onAddDay={(day) => openAdd({ day, minute: null, length: 0, kind: 'event' })}
                       onPickDay={setPickedDay} dayMenu={(day) => addLines(day, null)}
                       dayExtra={(day) => [
                         ...(top && add && add.day === day ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={add.kind} color={draftColor} /></PopoverAnchor>] : []),
                         ...studyChips(study.get(day), MONTH_CHIP),
-                        ...(eventsByDay.get(day) ?? []).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} />)
+                        ...(eventsByDay.get(day) ?? []).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={openEvent} onNote={onOpen} />)
                       ]}
-                      bars={shownEvents.filter(manyDays).map((one) => ({ key: one.key, from: dayKey(one.start), to: dayKey(dayjs(one.end).subtract(1, 'minute')), render: (day: string) => <EventChip one={one} day={day} month calendars={layers.calendars} onOpen={pickEvent} onPeek={onPeek} onNote={onOpen} /> }))}
+                      bars={shownEvents.filter(manyDays).map((one) => ({ key: one.key, from: dayKey(one.start), to: dayKey(dayjs(one.end).subtract(1, 'minute')), render: (day: string) => <EventChip one={one} day={day} month calendars={layers.calendars} onOpen={openEvent} onNote={onOpen} /> }))}
                       onShown={(month) => void (top && setAnchor(month.isSame(dayjs(), 'month') ? dayjs().startOf('day') : month))}
                       onDay={(day) => (setAnchor(dayjs(day)), setMode('day'))} onWeek={(monday) => (setAnchor(dayjs(monday)), setMode('week'))} />
                   </div>
@@ -772,13 +782,14 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         <DaySide inline ask={panel} width={`${editorRem}rem`} grip={editorGrip} onClose={() => setPanel(null)} onOpen={onOpen} />
       </div>
       {add && <AddPopover key={`${add.day}|${add.minute}|${add.words ?? ''}`} add={add} level={level} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} />}
+      {!add && openNow && <OpenPopover key={openNow.kind === 'event' ? openNow.key : openNow.id} opened={openNow} event={openedEvent ?? undefined} task={openedTask ?? undefined} level={level} onClose={() => setOpened(null)}
+        onPage={() => toPage(openNow.kind === 'event' ? { event: openNow.key } : { task: openNow.id })} onKey={(key) => setOpened((was) => (was?.kind === 'event' ? { ...was, key } : was))} />}
       {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}
           className={`pointer-events-none fixed z-50 flex max-w-56 items-center gap-2 ${CARD}`}>
           <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: ACCENT }} />
           <span dir="auto" className="truncate">{taskName(carry.task.title).text}</span>
         </div>, document.body)}
-      <EventCardLayer peek={peekNow} calendar={peekNow ? calendarName(peekNow.one) : ''} onEdit={pickEvent} onClose={() => setPeek(null)} onNote={onOpen} />
     </section>
     </Popover>
   ) as React.JSX.Element
@@ -851,7 +862,8 @@ function usePanelWidth(at: { key: string; home: number; least: number; most: num
 type BlockProps = {
   carry: Carry | null
   start: (event: React.PointerEvent, begin: (x: number, y: number) => Carry | null, click?: () => void) => void
-  onPick: (id: string) => void
+  /** A task opened (a double-click, ↵, its menu's “Open”): the popover, tied to `at`, the thing it was opened from. A click only picks it. */
+  onPick: (id: string, at?: HTMLElement | null) => void
   taskNow: ReturnType<typeof useTaskNow>
   /** What is being made (cal-add.tsx), drawn where it will be, in the colour of the calendar it will be on. */
   draft: Add | null
@@ -860,11 +872,9 @@ type BlockProps = {
   onAdd: (to: Add) => void
   /** A click on a day's empty part picks the day. */
   onPickDay: (day: string) => void
-  /** The events shown, and the way one opens in the panel. */
+  /** The events shown, and the way one opens: its popover, tied to the thing it was opened from. */
   events: Shown[]
-  onEvent: (key: string) => void
-  /** An event clicked: its small card beside it. */
-  onPeek: (one: Shown, at: DOMRect) => void
+  onEvent: (key: string, at?: HTMLElement | null) => void
   onOpen?: (type: string, id: string) => void
   /** The task just set down, to settle in once it is drawn at its new time. */
   landed: { id: string; due: string } | null
@@ -931,9 +941,9 @@ function ViewPick({ mode, onPick, short = false }: { mode: Mode; onPick: (mode: 
  * Upcoming, the next seven days, at the foot of the left panel: each day's events and
  * timed tasks, a colour dot, the name, then its time and calendar. Today
  * leaves out what is over, and says so when nothing is left. A row clicked
- * opens it: an event's card beside the row, a task in the panel.
+ * opens it in the popover a new one is written in, tied to the row.
  */
-function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: Shown) => string; onPeek: (one: Shown, at: DOMRect) => void; onTask: (task: Task) => void }): React.JSX.Element {
+function Upcoming({ tasks, name, onEvent, onTask }: { tasks: Task[]; name: (one: Shown) => string; onEvent: (one: Shown, at: HTMLElement) => void; onTask: (task: Task, at: HTMLElement) => void }): React.JSX.Element {
   const now = useMinute()
   const from = dayjs(now).startOf('day')
   const to = from.add(7, 'day')
@@ -969,7 +979,7 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
     {next && (
     <section data-cal-next-up className="flex flex-col gap-1.5">
       {(
-        <button type="button" data-cal-next-row={next.key} onClick={(event) => (chime('open'), onPeek(next, event.currentTarget.getBoundingClientRect()))}
+        <button type="button" data-cal-next-row={next.key} onClick={(event) => onEvent(next, event.currentTarget)}
           className="flex items-start gap-2.5 rounded-lg border bg-background px-3 py-2.5 text-left outline-none transition-colors duration-150 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none">
           <span aria-hidden className="mt-[7px] size-2 shrink-0 rounded-[2px]" style={{ background: next.color }} />
           <span className="flex min-w-0 flex-1 flex-col">
@@ -992,7 +1002,7 @@ function Upcoming({ tasks, name, onPeek, onTask }: { tasks: Task[]; name: (one: 
           {day.rows.map((row) => (
             <Tip key={row.key} label={`${row.title} ${row.said}`}>
             <button type="button" data-cal-upcoming-row={row.key}
-              onClick={(event) => row.one ? (chime('open'), onPeek(row.one, event.currentTarget.getBoundingClientRect())) : row.task && onTask(row.task)}
+              onClick={(event) => row.one ? onEvent(row.one, event.currentTarget) : row.task && onTask(row.task, event.currentTarget)}
               className="flex items-start gap-2.5 rounded-md px-2 py-1 text-left outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
               <span aria-hidden className={`mt-1.5 size-2 shrink-0 ${row.task ? 'rounded-full border-[1.5px]' : 'rounded-[2px]'}`} style={row.task ? { borderColor: row.color } : { background: row.color }} />
               <span className="flex min-w-0 flex-1 flex-col">
@@ -1077,7 +1087,7 @@ const ALLDAY_ROWS = 5
 
 /** The day or the week by the hour: an untimed line on top, then the hours with the tasks at theirs. */
 function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, calendars, menuAt, ...props }: { /** A day's own right-click lines, on its empty part: `timed` at the hour pointed at, otherwise for the whole day. */ menuAt: (day: string, timed: boolean) => RowItem[]; days: Dayjs[]; /** The pane's width, for the blocks a day fits side by side to be right from the first draw. */ wide: number; /** The hours it opens on, when it comes in beside another level showing them. */ startTop?: number; tasks: Task[]; /** Captures, drawn as marks at the minute each was caught. */ marks?: CaptureMeta[]; /** The study plan, a day's chips in the all-day lane. */ study: Map<string, StudyDay>; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
-  const { carry, start, draft, draftColor, onAdd, onPickDay, events, onEvent, onPeek, onOpen, taskNow } = props
+  const { carry, start, draft, draftColor, onAdd, onPickDay, events, onEvent, onOpen, taskNow } = props
   // The all-day lane folds to one line with its chevron, and stays so.
   const [folded, setFolded] = useState(() => stored('vigil.calendar.allday', 'open', ['open', 'folded'] as const) === 'folded')
   const fold = (): void => (chime(folded ? 'on' : 'off'), store('vigil.calendar.allday', folded ? 'open' : 'folded'), setFolded(!folded))
@@ -1196,7 +1206,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
               const from = Math.max(0, keys.indexOf(dayKey(one.start)) < 0 ? 0 : keys.indexOf(dayKey(one.start)))
               const lastKey = dayKey(dayjs(one.end).subtract(1, 'minute'))
               const to = keys.indexOf(lastKey) < 0 ? keys.length - 1 : keys.indexOf(lastKey)
-              return <EventChip key={one.key} one={one} day={keys[from]} calendars={calendars} span={{ gridColumn: `${from + 1} / ${to + 2}`, pointerEvents: 'auto' }} onOpen={onEvent} onPeek={onPeek} onNote={onOpen} />
+              return <EventChip key={one.key} one={one} day={keys[from]} calendars={calendars} span={{ gridColumn: `${from + 1} / ${to + 2}`, pointerEvents: 'auto' }} onOpen={onEvent} onNote={onOpen} />
             })}
             {/* The study plan: each day's reviews and the book you finish then, in the lane before its tasks. */}
             {keys.flatMap((key, at) => studyChips(study.get(key), { gridColumn: at + 1 }, key))}
@@ -1215,7 +1225,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
               const more = all.length - shown.length
               return [
               ...shown.map((item) => 'one' in item
-                ? <EventChip key={item.one.key} one={item.one} day={key} calendars={calendars} span={{ gridColumn: at + 1, pointerEvents: 'auto' }} onOpen={onEvent} onPeek={onPeek} onNote={onOpen} />
+                ? <EventChip key={item.one.key} one={item.one} day={key} calendars={calendars} span={{ gridColumn: at + 1, pointerEvents: 'auto' }} onOpen={onEvent} onNote={onOpen} />
                 : <div key={`${item.due ? 'due' : 'on'}:${item.task.id}`} className="pointer-events-auto grid min-w-0" style={{ gridColumn: at + 1 }}><Untimed task={item.task} due={item.due} {...props} /></div>
               ),
               ...(more ? [
@@ -1294,7 +1304,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
                 {spans.filter((span) => placed.get(span.id)).map((span) => span.capture ? (
                   <CaptureMark key={span.id} one={span.capture} at={span.start} lane={placed.get(span.id)!} onOpen={props.onOpen} />
                 ) : span.one ? (
-                  <EventBlock key={span.id} one={span.one} day={key} at={span.start} length={span.end - span.start} lane={placed.get(span.id)!} calendars={calendars} onOpen={onEvent} onPeek={onPeek} onNote={onOpen} />
+                  <EventBlock key={span.id} one={span.one} day={key} at={span.start} length={span.end - span.start} lane={placed.get(span.id)!} calendars={calendars} onOpen={onEvent} onNote={onOpen} />
                 ) : (
                   <Block key={span.id} task={span.task!} day={key} at={span.start} length={span.end - span.start} lane={placed.get(span.id)!}
                     lifted={moving?.task.id === span.id} did={did.get(span.id)} {...props} />
@@ -1435,15 +1445,15 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
   const plan = task.estimate && (done > 0 || day <= dayKey()) ? <PlanDid planned={task.estimate} did={done} className={short ? 'hidden shrink-0 truncate text-meta @[12rem]:inline' : 'hidden truncate text-meta leading-tight @[5rem]:block'} /> : null
   return (
     <RowMenu items={() => taskMenu(task, { open: () => onPick(task.id), now: taskNow })}>
-      <div role="button" tabIndex={0} data-cal-block={task.id} data-landed={(landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-start={at} data-cal-length={length} aria-label={`${name}, ${clock(atMinute(day, at))}, ${lengthSaid(length)}`}
+      <div role="button" tabIndex={0} data-cal-block={task.id} onDoubleClick={(event) => (event.stopPropagation(), onPick(task.id, event.currentTarget))} data-landed={(landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-start={at} data-cal-length={length} aria-label={`${name}, ${clock(atMinute(day, at))}, ${lengthSaid(length)}`}
         onMouseDown={(event) => event.button === 0 && (event.preventDefault(), event.currentTarget.focus({ preventScroll: true }))}
         onPointerDown={(event) => {
           const box = event.currentTarget.getBoundingClientRect()
           const grab = ((event.clientY - box.top) / HOUR) * 60
-          start(event, (x, y) => ({ kind: 'move', task, grab, length, x, y, to: null }), () => onPick(task.id))
+          start(event, (x, y) => ({ kind: 'move', task, grab, length, x, y, to: null }))
         }}
         onKeyDown={(event) => {
-          if (event.key === 'Enter') (event.preventDefault(), onPick(task.id))
+          if (event.key === 'Enter') (event.preventDefault(), onPick(task.id, event.currentTarget))
           if (event.key === 'Backspace' || event.key === 'Delete') (event.preventDefault(), void moveToBin([{ type: 'task', id: task.id, status: task.status }]))
         }}
         className={`group/block @container absolute z-[1] flex cursor-grab touch-none overflow-hidden rounded-[6px] text-left text-control leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring ${finished ? 'text-foreground/70' : 'text-foreground'} transition-[translate,box-shadow] duration-150 ease-out motion-reduce:transition-none ${lifted || busy ? 'z-30 translate-x-1.5 -translate-y-1 cursor-grabbing shadow-(--mf-shadow-lift)' : 'hover:shadow-sm'}`}
@@ -1486,8 +1496,10 @@ function Untimed({ task, due, carry, start, onPick, taskNow, landed }: { task: T
     <RowMenu items={() => taskMenu(task, { open: () => onPick(task.id), now: taskNow })}>
       <Tip label={`${due ? 'Due: ' : ''}${name}`}>
       <button type="button" data-cal-untimed={task.id} data-landed={(!due && landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-due={due || undefined}
-        onPointerDown={due ? undefined : (event) => start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }), () => onPick(task.id))}
-        onClick={due ? () => onPick(task.id) : undefined}
+        onPointerDown={due ? undefined : (event) => start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }))}
+        // A click picks it (the page's own press, above); ↵ on it, or a double-click, opens it.
+        onClick={(event) => event.detail === 0 && onPick(task.id, event.currentTarget)}
+        onDoubleClick={(event) => (event.stopPropagation(), onPick(task.id, event.currentTarget))}
         className={`flex h-6 min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1 pl-1.5 text-left text-control text-foreground transition-colors duration-150 motion-reduce:transition-none ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}
         style={{ background: `color-mix(in oklab, ${color} 14%, var(--background))` }}>
         <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />
