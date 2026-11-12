@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { motion } from 'motion/react'
+import { animate, motion, useMotionValue, type MotionValue } from 'motion/react'
 import { CalendarPlus, SquareCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PopoverAnchor, PopoverArrow, PopoverContent } from '@/components/ui/popover'
 import { chime } from '@/lib/sound'
-import { spring, still } from '@/lib/motion'
+import { byKeys, spring, still } from '@/lib/motion'
 import { taskName } from '@/lib/tasks'
 import type { Task } from '@/lib/haligtree'
 import { quoted } from '../../../../main/clip'
@@ -80,20 +80,38 @@ export function DraftMark({ kind, color, shape, time, style, ref }: {
   )
 }
 
-/** A box that takes its height from what it holds, and moves to a new one on the app's spring (at once with Motion off or Reduce motion). */
+/**
+ * A box that takes its height from what it holds, and moves to a new one on the app's spring (at once with Motion off
+ * or Reduce motion, and when a key made the change). The height is held here, in a value of the box's own, from its first measure. Left to Motion's
+ * `animate` with `initial={false}`, the first height (known only a render after the box is made) was taken as the place
+ * the box already was: noted, never written to it. So the box held no height, grew at once with what it holds, and the
+ * first change of every popover (Event to Task, a row opening) had nothing left to move; only the second sprang.
+ */
 function Sized({ children }: { children: React.ReactNode }): React.JSX.Element {
   const inner = useRef<HTMLDivElement>(null)
-  const [height, setHeight] = useState<number | null>(null)
+  const height = useMotionValue<number | string>('auto')
   useLayoutEffect(() => {
     const el = inner.current
     if (!el) return
-    setHeight(el.offsetHeight)
-    const watch = new ResizeObserver(() => setHeight(el.offsetHeight))
+    let going: { stop: () => void } | null = null
+    // Read as what it holds is laid out anew (a ResizeObserver runs once layout is done, so the read costs nothing).
+    const fit = (): void => {
+      const to = Math.ceil(el.getBoundingClientRect().height)
+      const from = height.get()
+      going?.stop()
+      going = null
+      // Its first height, or nothing may travel, or a key did it (words typed in the line change what is read back
+      // under it at every letter; reached by a key, nothing moves): simply that tall.
+      if (typeof from !== 'number' || still() || byKeys()) return height.set(to)
+      if (from !== to) going = animate(height as MotionValue<number>, to, spring.slow)
+    }
+    fit()
+    const watch = new ResizeObserver(fit)
     watch.observe(el)
-    return () => watch.disconnect()
-  }, [])
+    return () => (watch.disconnect(), going?.stop())
+  }, [height])
   return (
-    <motion.div data-cal-add-sized initial={false} animate={height === null ? undefined : { height }} transition={still() ? { duration: 0 } : spring.slow} className="mf-more min-h-0 shrink overflow-x-hidden overflow-y-auto [scrollbar-width:none]">
+    <motion.div data-cal-add-sized style={{ height }} className="mf-more min-h-0 shrink overflow-x-hidden overflow-y-auto [scrollbar-width:none]">
       <div ref={inner}>{children}</div>
     </motion.div>
   )
