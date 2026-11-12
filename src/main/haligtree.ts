@@ -1250,6 +1250,8 @@ export function registerHaligtree(): void {
   column('nuggets', 'edited_since_review integer not null default 0')
   // A card written inside a note ("question :: answer"): the note it lives in. See line-cards.ts.
   column('nuggets', 'line_of text')
+  // Every save of a note looks for the cards made from its lines: found by this, not by reading through every gem's and page's words to reach the column.
+  db.exec('create index if not exists nuggets_by_line_of on nuggets(line_of) where line_of is not null')
   // Starred in Review (S): a card you want to come back to, with a round of its own.
   column('nuggets', 'starred_at text')
   // What lineage looks up on every change: where each nugget and task came from.
@@ -2464,6 +2466,11 @@ export function registerHaligtree(): void {
     // letters: what differs once the shared start and end are taken off.
     const before = db.prepare("select body, prompt, state, due_at, edited_since_review, updated_at, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as name from nuggets where id = ?").get(id) as
       { body: string; prompt: string | null; state: string | null; due_at: string | null; edited_since_review: number; updated_at: string | null; name: string } | undefined
+    // The words as they were and as they are now, each read out of its document once: the three questions below
+    // (does it come back sooner, was it rewritten, did it gain a tag) each read both through again, a long page's save.
+    let were: string | undefined, are: string | undefined
+    const wordsWere = (): string => (were ??= plain(JSON.parse(before?.body ?? 'null')))
+    const wordsNow = (): string => (are ??= plain(patch.body))
     const changed = (a: string, b: string): boolean => {
       let start = 0
       while (start < a.length && a[start] === b[start]) start++
@@ -2472,14 +2479,14 @@ export function registerHaligtree(): void {
       return Math.max(a.length, b.length) - start - end > 12
     }
     if (before?.state && !before.edited_since_review && before.due_at && new Date(before.due_at).getTime() > Date.now() &&
-      ((patch.body !== undefined && changed(plain(JSON.parse(before.body ?? 'null')), plain(patch.body))) ||
+      ((patch.body !== undefined && changed(wordsWere(), wordsNow())) ||
         (patch.prompt !== undefined && changed(before.prompt ?? '', patch.prompt ?? '')))) {
       const left = new Date(before.due_at).getTime() - Date.now()
       db.prepare('update nuggets set due_at = ?, edited_since_review = 1 where id = ?').run(new Date(Date.now() + left * 0.7).toISOString(), id)
     }
     // Rewritten, counted: the one sign an item got better. Once per sitting,
     // not once per autosave: only when the last change is ten minutes old.
-    if (before && patch.body !== undefined && changed(plain(JSON.parse(before.body ?? 'null')), plain(patch.body)) &&
+    if (before && patch.body !== undefined && changed(wordsWere(), wordsNow()) &&
       Date.now() - new Date(before.updated_at ?? 0).getTime() > 600000)
       db.prepare('update nuggets set revisions = revisions + 1 where id = ?').run(id)
     for (const [key, value] of sets) {
@@ -2488,8 +2495,8 @@ export function registerHaligtree(): void {
     }
     // A tag written in sorts an imported note: it has a place now.
     if (patch.body !== undefined && !moved && before) {
-      const had = new Set(tagsIn(plain(JSON.parse(before.body ?? 'null'))))
-      if (tagsIn(plain(patch.body)).some((tag) => !had.has(tag))) db.prepare('update nuggets set unsorted = 0 where id = ? and unsorted = 1').run(id)
+      const had = new Set(tagsIn(wordsWere()))
+      if (tagsIn(wordsNow()).some((tag) => !had.has(tag))) db.prepare('update nuggets set unsorted = 0 where id = ? and unsorted = 1').run(id)
     }
     // #bit written in makes it private, once, as it would a capture.
     if (patch.body !== undefined && !moved && hasTag(JSON.stringify(patch.body), 'bit') && !hasTag(before?.body, 'bit'))

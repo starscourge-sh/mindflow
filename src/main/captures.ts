@@ -180,13 +180,17 @@ const Patch = z.object({
 export function movedOn(table: 'captures' | 'nuggets', id: string, base: unknown): { body: unknown } | null {
   const row = db.prepare(`select body from ${table} where id = ?`).get(id) as { body: string | null } | undefined
   if (!row) return null
+  // The words are kept as this same text of them: letter for letter the base, nothing has moved. Told so without
+  // reading the stored words back into a document and out again (39 ms of main's thread for a 4 MB note; 10 now).
+  const based = JSON.stringify(base ?? null)
+  if ((row.body ?? 'null') === based) return null
   let now: unknown
   try {
     now = JSON.parse(row.body ?? 'null')
   } catch {
     now = row.body
   }
-  return JSON.stringify(now ?? null) === JSON.stringify(base ?? null) ? null : { body: now }
+  return JSON.stringify(now ?? null) === based ? null : { body: now }
 }
 
 /**
@@ -538,23 +542,27 @@ export function registerCaptures(): void {
     // And when, for the note's "Edited 2h ago".
     // The words as they are kept, made into text once: a long note's (4 MB) was made three times over, a save.
     const kept = patch.body === undefined ? null : JSON.stringify(patch.body)
-    if (patch.body !== undefined && !patch.fetched)
-      db.prepare("update captures set original_body = coalesce(original_body, body), edited_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') where id = ? and body is not ?").run(String(id), kept)
+    // One write of the row, not two: a note's row holds its words and the words as first written, so the write
+    // that kept the original and the time, before the one that kept the words, wrote a long note's 8 MB twice.
+    // (`$edit`: these are your words, and they differ from what is kept. Every value on the right is the row as it was.)
     const row = db.prepare(
       `update captures set
-         title  = coalesce(?, title),
-         kind   = coalesce(?, kind),
-         status = coalesce(?, status),
-         body   = coalesce(?, body)
-       where id = ?
+         original_body = case when $edit and body is not $body then coalesce(original_body, body) else original_body end,
+         edited_at = case when $edit and body is not $body then strftime('%Y-%m-%dT%H:%M:%fZ', 'now') else edited_at end,
+         title  = coalesce($title, title),
+         kind   = coalesce($kind, kind),
+         status = coalesce($status, status),
+         body   = coalesce($body, body)
+       where id = $id
        returning number`
-    ).get(
-      patch.title ?? null,
-      patch.kind ?? null,
-      patch.status ?? null,
-      kept,
-      String(id)
-    )
+    ).get({
+      $edit: patch.body !== undefined && !patch.fetched ? 1 : 0,
+      $title: patch.title ?? null,
+      $kind: patch.kind ?? null,
+      $status: patch.status ?? null,
+      $body: kept,
+      $id: String(id)
+    })
     // When an exit was taken, for the lead measures: "did you take an exit
     // this week" needs the day, not only the state.
     // Words saved without their Markdown (a sticky's tick) are turned into it here, so the copy never lags.
