@@ -11,7 +11,7 @@ import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
 import { useAbandonAction } from '@/lib/abandon'
 import { warmBin } from '@/lib/fly-home'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react'
 import { wearFinish } from './components/haligtree/review-toolbar'
 import { BookOpen, ChevronsDownUp, ChevronsUpDown, Compass, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
@@ -341,6 +341,178 @@ async function startList(icon: string, name: string): Promise<string> {
   toast(`${quoted(name, 80)} is a list in Gems now`, () => void groups.remove(made))
   return made
 }
+
+/** A capture kind's own page ("kind:idea"), if that is where a step is. */
+const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
+/** Which captures each list of them keeps. */
+const keep: Record<string, (capture: CaptureMeta) => boolean> = {
+  // What has no exit yet; archived is kept, out of sight, so not waiting here.
+  inbox: keepInbox,
+  all: (capture) => capture.status !== 'discarded',
+  // Nothing is destroyed: a discard lands here, and comes back from here.
+  discarded: (capture) => capture.status === 'discarded',
+  // Out of sight but kept: one moved to the Bin is in the Bin, not here.
+  archived: (capture) => !!capture.archivedAt && capture.status !== 'discarded',
+  // Every word or term looked up (Questions, Looked up): one kept asking is an open question now, listed there instead.
+  lookups: (capture) => capture.kind === 'word' && capture.status !== 'discarded' && capture.status !== 'question' && !capture.archivedAt
+}
+
+/**
+ * The same functions every time, each calling the newest one it was given: how a part of the window that is kept
+ * as drawn (a pane's page) still reaches what the window does now, without being drawn again each time the window is.
+ */
+function useNewest<T extends Record<string, (...args: never[]) => unknown>>(now: T): T {
+  const newest = useRef(now)
+  newest.current = now
+  const [same] = useState(() => Object.fromEntries(Object.keys(now).map((name) => [name, (...args: never[]) => newest.current[name](...args)])) as T)
+  return same
+}
+
+/** What a pane's page asks of the window: each is the window's newest (useNewest), so a page kept as drawn is never behind. */
+type PageDoes = {
+  open: (type: string, id: string, key?: string) => void
+  toScale: (scale: Scale, key?: string) => void
+  setView: (asked: View, key?: string) => void
+  setTrail: (key: string, change: (trail: Trail) => Trail, tab?: string) => void
+  closeTabIn: (key?: string, tab?: string) => void
+  aside: (next: View, from?: string) => void
+  openTab: (asked: View, key?: string, always?: boolean) => void
+  setRecent: (until: string | null | 'close') => void
+  navFor: (key: string, tab: string, view: View) => Nav
+  placesTo: (key?: string) => Action[]
+  /** The sidebar's pages in their order, for which way a page settles in. */
+  order: () => string[]
+}
+
+/**
+ * A pane's page: the step it is on, drawn with everything it opens kept in that pane. Its own component, drawn
+ * again only when its step, its tab or its pane changes: the window draws for many reasons that are not the page's
+ * (a fold in the sidebar, a count, a letter typed into ⌘K, the sidebar's mark moving), and drawn from inside the
+ * window each of those drew the whole page again, two or three times for one page change.
+ */
+const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen, tabChosen, splitRef }: {
+  does: PageDoes
+  pane: string
+  tab: string
+  view: View
+  /** “Recent” is open beside the page (the week's page lights its button). */
+  recentOpen: boolean
+  tabChosen: RefObject<boolean>
+  splitRef: RefObject<SplitState>
+}): React.JSX.Element {
+  const go = (type: string, id: string): void => does.open(type, id, key)
+  const scale = (to: Scale): void => does.toScale(to, key)
+  // What the page sees of its pane's trail: the same for as long as it is on this step, and each call asks the window as it is now.
+  const nav = useMemo<Nav>(() => ({
+    here: view,
+    go: (focus) => does.navFor(key, tab, view).go(focus),
+    step: (patch) => does.navFor(key, tab, view).step(patch),
+    keep: (patch) => does.navFor(key, tab, view).keep(patch)
+  }), [does, key, tab, view])
+  // ⌘K's places for a pane's own picker: each runs the window's newest.
+  const places = useMemo(() => (view.id === 'pick' ? does.placesTo(key).map((one, at) => ({ ...one, run: () => does.placesTo(key)[at].run() })) : []), [does, key, view.id])
+  return (
+    // Views are switched all day, as Finder and Mail switch them: the new
+    // one goes on show whole the frame its reads are in, the old one staying
+    // up until then and gone in that same frame (page-swap.tsx), so no frame
+    // shows two pages, two notes, an empty window, or the window through two
+    // faint ones. Clicked to, it only settles in: down the sidebar it comes
+    // up from below, up it from above. A transform string, so it stays
+    // smooth while the view mounts. Each page keeps its own step.
+    // Two tabs on one kind of page share it, as Back and Forward do: only the note changes, so a switch never builds the list again.
+    <PageSwap id={view.id}>
+    <NavContext.Provider value={nav}>
+    <motion.div
+      key={view.id}
+      data-page={view.id}
+      // Keyboard travel (G and a letter, ⌘[ and ⌘]) is done hundreds of times a day: no settle then.
+      initial={byKeys() || tabChosen.current || heroing() ? false : { transform: shift(`translateY(${(pageTravel(key, view.id, does.order()) || 1) * 6}px)`) }}
+      animate={{ transform: shift('translateY(0px)') }}
+      transition={{ duration: 0.16, ease: EASE }}
+      className="flex min-w-0 flex-1"
+    >
+      {view.id === 'pick' ? (
+        // ⌥⌘\'s new pane, or ⌘O in any pane: ⌘K's own search, as the pane's page, for anything to open here.
+        // Asked for over a page (⌘O), Esc goes back to that page; on a new tab, it closes the tab.
+        (() => {
+          const shown = splitRef.current.panes.find((one) => one.key === key)
+          const before = (shown ? activeTab(shown).trail.at : 0) > 0
+          return (
+        <Search inPane={{ title: 'Open anything here', lead: <>A page, a list, a note, a task, a day, or a place like the Inbox or the Calendar. <Kbd>↵</Kbd> opens it in this pane, <Kbd>esc</Kbd> {before ? 'goes back' : 'closes the tab'}.</> }}
+          actions={places} placeholder="Type a name, or a place to go…"
+          onClose={() => (before ? does.setTrail(key, (trail) => ({ ...trail, views: trail.views.slice(0, trail.at), at: trail.at - 1 })) : does.closeTabIn(key, tab))}
+          onOpen={(type, id) => (via('search'), go(type, id))} onAside={(type, id) => (via('search'), does.aside(stepOf(type, id), key))} onTab={(type, id) => (via('search'), does.openTab(stepOf(type, id), key))} />
+          )
+        })()
+      ) : view.id === 'home' ? (
+        <HomeView onOpen={(type, id) => (via('home'), go(type, id))} onView={(id, focus) => (via('home'), does.setView({ id, focus }, key))} />
+      ) : view.id === 'discarded' ? (
+        <BinView onOpen={go} focus={view.focus} />
+      ) : view.id === 'lookups' || (view.id === 'questions' && view.folder === 'looked') ? (
+        // Lookups are questions answered at once: Questions' Looked up list. An old link to Lookups lands here too.
+        <CapturesView title="Questions" lookups keep={keep.lookups} focus={view.focus} onOpen={go}
+          lead={<div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><QuestionTabs on="looked" pick={(one) => does.setView({ id: 'questions', folder: one }, key)} /></div>} said={<QuestionsSaid on="looked" />} />
+      ) : view.id === 'inbox' || view.id === 'archived' ? (
+        <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} inbox={view.id === 'inbox'} />
+      ) : view.id === 'day' ? (
+        <DayView start={view.focus} onOpen={go} onScale={scale} onView={(id, focus) => does.setView({ id, focus }, key)} />
+      ) : view.id === 'weekpage' ? (
+        <WeekPage start={view.focus} onOpen={go} onScale={scale} onRecent={does.setRecent} recentOpen={recentOpen} onDay={(day) => go('day', day)} />
+      ) : view.id === 'monthpage' ? (
+        <MonthPage start={view.focus} onScale={scale} onDay={(day) => go('day', day)} />
+      ) : view.id === 'yearpage' ? (
+        <YearPage start={view.focus} onScale={scale} onMonth={(month) => does.setView({ id: 'monthpage', focus: month }, key)} onDay={(day) => go('day', day)} />
+      ) : view.id === 'practices' || view.id === 'kind:practice' ? (
+        <PracticesView key={view.focus === 'new' ? `new-${view.nonce ?? ''}` : 'practices'} focus={view.focus} onOpen={go} />
+      ) : kind(view) ? (
+        <CapturesView title={kind(view)!.label} keep={(capture) => capture.kind === kind(view)!.id && capture.status !== 'discarded'} focus={view.focus} onOpen={go} />
+      ) : view.id === 'review' ? (
+        <ReviewArea key={view.focus ?? ''} focus={view.focus} onOpen={go} />
+      ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' || view.id === 'alltasks' ? (
+        <TasksView mode={view.id} focus={view.focus} onOpen={go} />
+      ) : view.id === 'calendar' ? (
+        <CalendarView focus={view.focus} onOpen={go} />
+      ) : view.id === 'matrix' ? (
+        <MatrixView focus={view.focus} onOpen={go} />
+      ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
+        // Questions are pages in Pages: sent to one, Writing opens with its "Questions" chip on.
+        <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus}
+          ask={view.id === 'questions' && (view.folder === 'answered' || view.folder === 'words') ? view.folder : 'open'} onAsk={view.id === 'questions' ? (one: Asked) => does.setView({ id: 'questions', folder: one }, key) : undefined}
+          folder={view.id !== 'questions' ? view.folder : undefined} onFolder={(id) => does.setView({ id: view.id, folder: id ?? undefined })} onOpen={go} />
+      ) : view.id === 'goals' ? (
+        <GoalsView focus={view.focus} onOpen={go} />
+      ) : view.id === 'queue' ? (
+        <QueueView />
+      ) : view.id === 'tags' ? (
+        <TagsView onOpen={go} focus={view.focus} />
+      ) : view.id === 'sources' ? (
+        <SourcesView onOpen={go} />
+      ) : view.id === 'source' ? (
+        <SourcePageView key={view.focus} focus={view.focus} onOpen={go} />
+      ) : view.id === 'stats' ? (
+        <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
+      ) : view.id === 'map' ? (
+        <MapView onOpen={go} />
+      ) : view.id === 'media' ? (
+        <MediaView onOpen={go} />
+      ) : view.id === 'pdf' && view.focus ? (
+        <PdfReader key={view.focus} {...fromPdfFocus(view.focus)} page={Number(view.tab) || undefined} onPage={(page) => nav.keep({ tab: String(page) })} />
+      ) : view.id === 'web' && view.focus ? (
+        <WebReader key={view.focus} href={view.focus} />
+      ) : view.id === 'whatsnew' ? (
+        <WhatsNewPage focus={view.focus} onView={(id, focus) => does.setView({ id, focus }, key)} />
+      ) : view.id === 'feed' ? (
+        <FeedView onOpen={go} focus={view.focus} />
+      ) : view.id === 'powers' ? (
+        <PowersView onView={(id, focus) => does.setView({ id, focus }, key)} />
+      ) : (
+        <SettingsView focus={view.focus} nonce={view.nonce} />
+      )}
+    </motion.div>
+    </NavContext.Provider>
+    </PageSwap>
+  )
+})
 
 export function Home(): React.JSX.Element {
   // Escape in a note lets go of the note, and never goes back: ⌘[ does.
@@ -1393,23 +1565,11 @@ export function Home(): React.JSX.Element {
     landPromoted(type, id)
   }), [])
 
-  const kind = (view: View): (typeof CAPTURE_TYPES)[number] | undefined => CAPTURE_TYPES.find((type) => `kind:${type.id}` === view.id)
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
   const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' || view.id === 'lookups' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New tab' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'web' ? articleName(view.focus ?? '') : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
-  }
-  const keep: Record<string, (capture: CaptureMeta) => boolean> = {
-    // What has no exit yet; archived is kept, out of sight, so not waiting here.
-    inbox: keepInbox,
-    all: (capture) => capture.status !== 'discarded',
-    // Nothing is destroyed: a discard lands here, and comes back from here.
-    discarded: (capture) => capture.status === 'discarded',
-    // Out of sight but kept: one moved to the Bin is in the Bin, not here.
-    archived: (capture) => !!capture.archivedAt && capture.status !== 'discarded',
-    // Every word or term looked up (Questions, Looked up): one kept asking is an open question now, listed there instead.
-    lookups: (capture) => capture.kind === 'word' && capture.status !== 'discarded' && capture.status !== 'question' && !capture.archivedAt
   }
 
   /**
@@ -1621,112 +1781,10 @@ export function Home(): React.JSX.Element {
     ...([['Upcoming', 'upcoming', 'U'], ['Later', 'later', 'Z'], ['Routines', 'routines', 'O'], ['All tasks', 'alltasks', '*'], ['Urgent and important', 'matrix', 'Q'], ['Questions: Looked up', 'lookups', '.']] as const).map(([name, id, letter]) => ({ label: `Go to ${name}`, hint: pageSaid(id), keys: `G ${letter}`, run: () => setView({ id }, key) }))
   ]
 
-  /** A pane's page: the step it is on, drawn with everything it opens kept in that pane. */
-  const pageFor = (key: string, tab: string, view: View): React.JSX.Element => {
-    const go = (type: string, id: string): void => open(type, id, key)
-    const scale = (to: Scale): void => toScale(to, key)
-    return (
-      // Views are switched all day, as Finder and Mail switch them: the new
-      // one goes on show whole the frame its reads are in, the old one staying
-      // up until then and gone in that same frame (page-swap.tsx), so no frame
-      // shows two pages, two notes, an empty window, or the window through two
-      // faint ones. Clicked to, it only settles in: down the sidebar it comes
-      // up from below, up it from above. A transform string, so it stays
-      // smooth while the view mounts. Each page keeps its own step.
-      // Two tabs on one kind of page share it, as Back and Forward do: only the note changes, so a switch never builds the list again.
-      <PageSwap id={view.id}>
-      <NavContext.Provider value={navFor(key, tab, view)}>
-      <motion.div
-        key={view.id}
-        data-page={view.id}
-        // Keyboard travel (G and a letter, ⌘[ and ⌘]) is done hundreds of times a day: no settle then.
-        initial={byKeys() || tabChosen.current || heroing() ? false : { transform: shift(`translateY(${(pageTravel(key, view.id, ordered.map((section) => section.id)) || 1) * 6}px)`) }}
-        animate={{ transform: shift('translateY(0px)') }}
-        transition={{ duration: 0.16, ease: EASE }}
-        className="flex min-w-0 flex-1"
-      >
-        {view.id === 'pick' ? (
-          // ⌥⌘\'s new pane, or ⌘O in any pane: ⌘K's own search, as the pane's page, for anything to open here.
-          // Asked for over a page (⌘O), Esc goes back to that page; on a new tab, it closes the tab.
-          (() => {
-            const shown = splitRef.current.panes.find((one) => one.key === key)
-            const before = (shown ? activeTab(shown).trail.at : 0) > 0
-            return (
-          <Search inPane={{ title: 'Open anything here', lead: <>A page, a list, a note, a task, a day, or a place like the Inbox or the Calendar. <Kbd>↵</Kbd> opens it in this pane, <Kbd>esc</Kbd> {before ? 'goes back' : 'closes the tab'}.</> }}
-            actions={placesTo(key)} placeholder="Type a name, or a place to go…"
-            onClose={() => (before ? setTrail(key, (trail) => ({ ...trail, views: trail.views.slice(0, trail.at), at: trail.at - 1 })) : closeTabIn(key, tab))}
-            onOpen={(type, id) => (via('search'), go(type, id))} onAside={(type, id) => (via('search'), aside(stepOf(type, id), key))} onTab={(type, id) => (via('search'), openTab(stepOf(type, id), key))} />
-            )
-          })()
-        ) : view.id === 'home' ? (
-          <HomeView onOpen={(type, id) => (via('home'), go(type, id))} onView={(id, focus) => (via('home'), setView({ id, focus }, key))} />
-        ) : view.id === 'discarded' ? (
-          <BinView onOpen={go} focus={view.focus} />
-        ) : view.id === 'lookups' || (view.id === 'questions' && view.folder === 'looked') ? (
-          // Lookups are questions answered at once: Questions' Looked up list. An old link to Lookups lands here too.
-          <CapturesView title="Questions" lookups keep={keep.lookups} focus={view.focus} onOpen={go}
-            lead={<div data-list-tabs className="flex shrink-0" style={{ marginLeft: 'calc(var(--list-edge) - var(--list-ink) - 3px)' }}><QuestionTabs on="looked" pick={(one) => setView({ id: 'questions', folder: one }, key)} /></div>} said={<QuestionsSaid on="looked" />} />
-        ) : view.id === 'inbox' || view.id === 'archived' ? (
-          <CapturesView title={SECTIONS.find((section) => section.id === view.id)!.label} keep={keep[view.id]} focus={view.focus} onOpen={go} archived={view.id === 'archived'} inbox={view.id === 'inbox'} />
-        ) : view.id === 'day' ? (
-          <DayView start={view.focus} onOpen={go} onScale={scale} onView={(id, focus) => setView({ id, focus }, key)} />
-        ) : view.id === 'weekpage' ? (
-          <WeekPage start={view.focus} onOpen={go} onScale={scale} onRecent={setRecent} recentOpen={!!recent} onDay={(day) => go('day', day)} />
-        ) : view.id === 'monthpage' ? (
-          <MonthPage start={view.focus} onScale={scale} onDay={(day) => go('day', day)} />
-        ) : view.id === 'yearpage' ? (
-          <YearPage start={view.focus} onScale={scale} onMonth={(month) => setView({ id: 'monthpage', focus: month }, key)} onDay={(day) => go('day', day)} />
-        ) : view.id === 'practices' || view.id === 'kind:practice' ? (
-          <PracticesView key={view.focus === 'new' ? `new-${view.nonce ?? ''}` : 'practices'} focus={view.focus} onOpen={go} />
-        ) : kind(view) ? (
-          <CapturesView title={kind(view)!.label} keep={(capture) => capture.kind === kind(view)!.id && capture.status !== 'discarded'} focus={view.focus} onOpen={go} />
-        ) : view.id === 'review' ? (
-          <ReviewArea key={view.focus ?? ''} focus={view.focus} onOpen={go} />
-        ) : view.id === 'today' || view.id === 'upcoming' || view.id === 'routines' || view.id === 'later' || view.id === 'alltasks' ? (
-          <TasksView mode={view.id} focus={view.focus} onOpen={go} />
-        ) : view.id === 'calendar' ? (
-          <CalendarView focus={view.focus} onOpen={go} />
-        ) : view.id === 'matrix' ? (
-          <MatrixView focus={view.focus} onOpen={go} />
-        ) : view.id === 'nuggets' || view.id === 'articles' || view.id === 'questions' ? (
-          // Questions are pages in Pages: sent to one, Writing opens with its "Questions" chip on.
-          <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus}
-            ask={view.id === 'questions' && (view.folder === 'answered' || view.folder === 'words') ? view.folder : 'open'} onAsk={view.id === 'questions' ? (one: Asked) => setView({ id: 'questions', folder: one }, key) : undefined}
-            folder={view.id !== 'questions' ? view.folder : undefined} onFolder={(id) => setView({ id: view.id, folder: id ?? undefined })} onOpen={go} />
-        ) : view.id === 'goals' ? (
-          <GoalsView focus={view.focus} onOpen={go} />
-        ) : view.id === 'queue' ? (
-          <QueueView />
-        ) : view.id === 'tags' ? (
-          <TagsView onOpen={go} focus={view.focus} />
-        ) : view.id === 'sources' ? (
-          <SourcesView onOpen={go} />
-        ) : view.id === 'source' ? (
-          <SourcePageView key={view.focus} focus={view.focus} onOpen={go} />
-        ) : view.id === 'stats' ? (
-          <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
-        ) : view.id === 'map' ? (
-          <MapView onOpen={go} />
-        ) : view.id === 'media' ? (
-          <MediaView onOpen={go} />
-        ) : view.id === 'pdf' && view.focus ? (
-          <PdfReader key={view.focus} {...fromPdfFocus(view.focus)} page={Number(view.tab) || undefined} onPage={(page) => navFor(key, tab, view).keep({ tab: String(page) })} />
-        ) : view.id === 'web' && view.focus ? (
-          <WebReader key={view.focus} href={view.focus} />
-        ) : view.id === 'whatsnew' ? (
-          <WhatsNewPage focus={view.focus} onView={(id, focus) => setView({ id, focus }, key)} />
-        ) : view.id === 'feed' ? (
-          <FeedView onOpen={go} focus={view.focus} />
-        ) : view.id === 'powers' ? (
-          <PowersView onView={(id, focus) => setView({ id, focus }, key)} />
-        ) : (
-          <SettingsView focus={view.focus} nonce={view.nonce} />
-        )}
-      </motion.div>
-      </NavContext.Provider>
-      </PageSwap>
-    )
-  }
+  /** What a pane's page asks of the window, the same functions for the window's whole life (useNewest). */
+  const pageDoes = useNewest<PageDoes>({ open, toScale, setView, setTrail, closeTabIn, aside, openTab, setRecent, navFor, placesTo, order: () => ordered.map((section) => section.id) })
+  /** A pane's page: the step it is on (PanePage). */
+  const pageFor = (key: string, tab: string, view: View): React.JSX.Element => <PanePage does={pageDoes} pane={key} tab={tab} view={view} recentOpen={!!recent} tabChosen={tabChosen} splitRef={splitRef} />
 
   return (
     <TooltipProvider delayDuration={600} skipDelayDuration={400}>
