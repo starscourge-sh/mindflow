@@ -122,7 +122,10 @@ function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, on
       // Open on a thing that exists, it is beside the page as its side panel is (ui.tsx, `typing`): a change made in its rows
       // is taken back by ⌘Z while it is still open, and a plain key typed in it stays in it. A new one being written
       // holds every key, as before.
-      data-beside={opened ? '' : undefined} side={side} align={beside ? 'start' : 'center'} alignOffset={beside ? -14 : 0} sideOffset={6} arrowPadding={14} collisionPadding={ROOM}
+      data-beside={opened ? '' : undefined}
+      // A field in it that lets go of the keys (↵ in the place, a tag kept) hands them to the popover itself, never to the
+      // page under it: there, the next ↵ started a new event on the day picked.
+      onBlurCapture={(event) => void (opened && !event.relatedTarget && event.currentTarget.focus({ preventScroll: true }))} side={side} align={beside ? 'start' : 'center'} alignOffset={beside ? -14 : 0} sideOffset={6} arrowPadding={14} collisionPadding={ROOM}
       style={{ width: WIDE }} className="max-w-[calc(100vw-1.5rem)] gap-0 overflow-visible rounded-xl p-0 text-control"
       onOpenAutoFocus={(event) => event.preventDefault()}
       onEscapeKeyDown={(event) => (event.preventDefault(), onEscape())}

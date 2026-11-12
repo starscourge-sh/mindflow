@@ -815,6 +815,11 @@ try {
       await wait(900)
       s = await state()
       check('a place typed in its row is kept, said with Undo, and read back under the line', (await theEvent())?.place === 'Cafe on the corner' && /At Cafe on the corner/.test(s.toast) && /Undo/.test(s.toast) && /Cafe on the corner/.test(s.pop?.said ?? ''), `${(await theEvent())?.place}; ${s.toast.slice(0, 50)}; ${s.pop?.said}`)
+      // The field let go of the keys: they stay in the popover, so another ↵ starts nothing on the page under it.
+      await h.keyboard.press('Enter')
+      await wait(500)
+      s = await state()
+      check('  the keys stay in the popover once the field lets go: another ↵ starts no new event on the page', await h.evaluate(() => !!document.activeElement?.closest('[data-cal-add]')) && !s.draft && !!(await openOn())?.id, `draft ${JSON.stringify(s.draft)}; on ${(await openOn())?.id}`)
       await h.keyboard.press('Meta+z')
       await wait(900)
       check('  and ⌘Z takes the place away again', !(await theEvent())?.place, `${(await theEvent())?.place}`)
