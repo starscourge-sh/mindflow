@@ -23,20 +23,27 @@ try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
   await v('settings:set', { safeMode: false, motion: false, quietStart: '03:00', quietEnd: '03:01' })
   await c.theme('paper')
-  check('the Learn Haligtree gems are added', (await v('learn:add')) > 0)
+  // In a new book they are added now. The example book was set out with them (sandbox-seed.ts), and asked again
+  // "learn:add" adds none, by design (never the deck twice): either way they are in the book for what follows.
+  const added = await v('learn:add')
+  const held = await v('learn:count')
+  check('the Learn Haligtree gems are in the book', held > 0, `${added} added now, ${held} in the book`)
   const tag = (await v('tags')).map((one) => one.tag).find((one) => one.startsWith('learn-')) ?? ''
   check('the deck\'s tag is named after the app', tag === 'learn-haligtree', tag)
   const bareTag = new RegExp(`(^|\\s)${tag}\\b`, 'm')
   // The page's words with the sidebar's Tags list out of the way for a moment.
   const shown = () => h.evaluate(() => { const side = document.querySelector('aside[data-book-tint]'); if (side) side.style.display = 'none'; const words = document.body.innerText; if (side) side.style.display = ''; return words })
-  // Opened, so they come back under "Jump back in".
-  const gems = (await v('home')).week.slice(0, 6)
-  for (const gem of gems) await v('home:opened', gem.type, gem.id)
+  // Opened, so they come back under "Jump back in": the Learn gems themselves, whatever else the book holds (a new
+  // book's week is only them; the example book's week is its own notes, and none of the deck was among Home's cards).
+  const learn = (await v('tag:cards', tag)).slice(0, 6)
+  for (const gem of learn) await v('home:opened', 'nugget', gem.id)
   const home = await v('home')
   const all = [...home.opened, ...home.edited, ...home.week]
+  const theirs = home.opened.filter((card) => learn.some((gem) => gem.id === card.id))
+  check('the Learn gems are among Home\'s cards, under “Jump back in”', learn.length > 0 && theirs.length === learn.length, `${theirs.length} of ${learn.length}`)
   const bare = all.filter((card) => bareTag.test(card.excerpt ?? ''))
   check('no snippet carries the tag as a bare word', all.length > 0 && bare.length === 0, bare.map((card) => card.excerpt.slice(-60)).join(' | ') || `${all.length} cards`)
-  check('the snippets still have their words', home.opened.some((card) => (card.excerpt ?? '').length > 20), home.opened[0]?.excerpt)
+  check('the snippets still have their words', theirs.some((card) => (card.excerpt ?? '').length > 20), theirs[0]?.excerpt)
   await c.go('home')
   await h.waitForTimeout(1200)
   check(`Home shows no bare “${tag}”`, !bareTag.test(await shown()))
