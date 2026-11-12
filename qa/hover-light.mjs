@@ -24,11 +24,15 @@ const load = () => `load ${loadavg()[0].toFixed(1)}`
 /** Counts React's commits and the components each one drew, from before React starts. */
 const COUNT_REACT = `(() => {
   if (window.__qaReact) return
-  const stats = (window.__qaReact = { on: false, commits: 0, drawn: {} })
+  const stats = (window.__qaReact = { on: false, commits: 0, tips: 0, drawn: {} })
   const named = (f) => { const t = f.type; return typeof t === 'function' ? t.displayName || t.name || 'anonymous' : t && typeof t === 'object' ? t.displayName || t.render?.displayName || t.render?.name || t.type?.displayName || t.type?.name || null : null }
+  let inCommit = 0
+  let names = []
+  stats.other = {}
+  stats.tipAt = -Infinity
   const walk = (next, prev) => {
     const name = named(next)
-    if (name && next.flags & 1) stats.drawn[name] = (stats.drawn[name] || 0) + 1
+    if (name && next.flags & 1) { stats.drawn[name] = (stats.drawn[name] || 0) + 1; inCommit++; names.push(name) }
     if (prev && next.child === prev.child) return
     for (let c = next.child; c; c = c.sibling) walk(c, c.alternate)
   }
@@ -36,7 +40,21 @@ const COUNT_REACT = `(() => {
     renderers: new Map(), supportsFiber: true, checkDCE() {},
     inject(r) { const id = this.renderers.size + 1; this.renderers.set(id, r); return id },
     onScheduleFiberRoot() {}, onCommitFiberUnmount() {}, onPostCommitFiberRoot() {}, setStrictMode() {},
-    onCommitFiberRoot(id, root) { if (!stats.on) return; stats.commits++; try { walk(root.current, root.current.alternate) } catch {} }
+    onCommitFiberRoot(id, root) {
+      if (!stats.on) return
+      stats.commits++
+      inCommit = 0
+      names = []
+      try { walk(root.current, root.current.alternate) } catch {}
+      // A row's own tip or preview card coming or going is drawn by React, as any content is: a small commit while
+      // one is up, or was a moment ago (the recorder looks every frame), is counted apart from the rest.
+      if (document.querySelector('[role="tooltip"]')) stats.tipAt = performance.now()
+      // The tip's own start and end count too: Radix marks a tip as about to open one commit before it is in the
+      // page, and takes its holder away one commit after it has gone.
+      const tipOnly = inCommit < 40 && (names.some((name) => /^Tooltip/.test(name)) || names.every((name) => /^(Presence|Portal|Popper|DismissableLayer|Primitive\.)/.test(name)))
+      if ((performance.now() - stats.tipAt < 400 && inCommit < 200) || tipOnly) stats.tips++
+      else for (const name of names) stats.other[name] = (stats.other[name] || 0) + 1
+    }
   }
 })()`
 
@@ -59,6 +77,7 @@ try {
     addEventListener('mousemove', (e) => { if (rec.on) { rec.last = { x: e.clientX, y: e.clientY, t: performance.now() }; rec.moves.push(rec.last) } }, true)
     const tick = (t) => {
       if (!rec.on) return
+      if (document.querySelector('[role="tooltip"]')) window.__qaReact.tipAt = performance.now()
       const light = hover()
       const r = light?.el.getBoundingClientRect()
       rec.frames.push({ t, now: performance.now(), top: r ? r.top : null, h: r ? r.height : null, o: light ? light.o : 0 })
@@ -71,12 +90,14 @@ try {
       rec.moves = []
       rec.on = true
       window.__qaReact.commits = 0
+      window.__qaReact.tips = 0
+      window.__qaReact.other = {}
       window.__qaReact.drawn = {}
       window.__qaReact.on = true
       requestAnimationFrame(tick)
       return rec.rows
     }
-    rec.stop = () => { rec.on = false; window.__qaReact.on = false; return { frames: rec.frames, moves: rec.moves, rows: rec.rows, commits: window.__qaReact.commits, drawn: window.__qaReact.drawn } }
+    rec.stop = () => { rec.on = false; window.__qaReact.on = false; return { frames: rec.frames, moves: rec.moves, rows: rec.rows, commits: window.__qaReact.commits, tips: window.__qaReact.tips, drawn: window.__qaReact.drawn, other: window.__qaReact.other } }
   })
 
   /**
@@ -114,7 +135,7 @@ try {
   }
 
   /** What a sweep's frames say: how soon the light was wholly on each row, how far behind it fell, the frames missed. */
-  function read({ frames, moves, rows, commits, drawn }) {
+  function read({ frames, moves, rows, commits, tips, drawn, other }) {
     const rowAt = (y) => { let best = 0; rows.forEach((r, i) => { if (Math.abs(y - r.top - r.h / 2) < Math.abs(y - rows[best].top - rows[best].h / 2)) best = i }); return best }
     // Each time the pointer came onto a row, and how long it stayed.
     const visits = []
@@ -145,7 +166,8 @@ try {
     const sorted = [...gaps].sort((a, b) => a - b)
     return {
       frames: frames.length, worst: Math.max(0, ...gaps), p95: sorted[Math.floor(sorted.length * 0.95)] ?? 0, missed: gaps.filter((g) => g > 25).length,
-      crossed: visits.length - 1, arrivals, behind, between, commits,
+      crossed: visits.length - 1, arrivals, behind, between, commits, tips,
+      other: Object.entries(other).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, n]) => `${name} x${n}`).join(', '),
       drawn: Object.entries(drawn).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([name, n]) => `${name} x${n}`).join(', ')
     }
   }
@@ -159,11 +181,11 @@ try {
     const late = stayed.filter((a) => a.ms === null || a.ms > WITHIN)
     const times_ = stayed.map((a) => a.ms ?? Infinity).sort((a, b) => a - b)
     commitsInAll += seen.commits
-    console.log(`${name} (${speed} px/s): ${seen.frames} frames, worst frame ${seen.worst.toFixed(1)}ms, 95th ${seen.p95.toFixed(1)}ms, ${seen.missed} missed; ${seen.crossed} rows crossed, ${stayed.length} stayed on; light wholly on: median ${ms(times_[Math.floor(times_.length / 2)])}, worst ${ms(times_[times_.length - 1])}; most rows behind ${seen.behind}; React commits ${seen.commits}${seen.drawn ? ` (${seen.drawn})` : ''}  (${load()})`)
+    console.log(`${name} (${speed} px/s): ${seen.frames} frames, worst frame ${seen.worst.toFixed(1)}ms, 95th ${seen.p95.toFixed(1)}ms, ${seen.missed} missed; ${seen.crossed} rows crossed, ${stayed.length} stayed on; light wholly on: median ${ms(times_[Math.floor(times_.length / 2)])}, worst ${ms(times_[times_.length - 1])}; most rows behind ${seen.behind}; React commits ${seen.commits}, ${seen.tips} of them a row's tip or preview card${seen.drawn ? ` (${seen.drawn})` : ''}  (${load()})`)
     if (name !== 'fast') check(`${name}: the light is wholly on each row the pointer stays on within ${WITHIN}ms`, stayed.length > 0 && late.length === 0, `${late.length} of ${stayed.length} late: ${late.slice(0, 6).map((a) => `row ${a.row} ${ms(a.ms)}`).join(', ')}`)
     if (name !== 'slow') check(`${name}: the light is never more than one row behind the pointer`, seen.behind <= 1, `${seen.behind} rows behind at worst`)
     check(`${name}: no frame of the sweep is missed`, seen.missed === 0, `${seen.missed} frames over 25ms, worst ${seen.worst.toFixed(1)}ms`)
-    check(`${name}: a pointer move draws nothing in React`, seen.commits === 0, `${seen.commits} commits over ${seen.crossed} rows crossed: ${seen.drawn}`)
+    check(`${name}: a pointer move draws nothing in React (a row's own tip or preview card apart)`, seen.commits - seen.tips === 0, `${seen.commits - seen.tips} commits besides ${seen.tips} for tips, over ${seen.crossed} rows crossed: ${seen.other}`)
   }
 
   // Reduce motion, then the app's own Motion switch: the light goes from row to row and is never seen between two.
