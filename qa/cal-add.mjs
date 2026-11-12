@@ -25,7 +25,7 @@
 //           change kept as it is made with Undo and ⌘Z; at 560 by 400 the rows scroll inside the popover.
 //   spring  the popover's height on the app's spring: its box read every frame through Event to Task and back, a row
 //           opening and a row closing (six or more in-between heights each, one way), and one height by a key, with
-//           Motion off and with Reduce motion. With FRAMES=dir, a picture every 50ms through each, in the look LOOK names.
+//           Motion off and with Reduce motion. With FRAMES=dir, every frame the page drew through each, in the look LOOK names.
 //   unhappy the paths that go wrong, on a thing that is open: an empty name (it says why not and keeps the old one), one of
 //           your Mac's events (read only: no "Open", no rows, a line that cannot be typed in), a repeating event's "which
 //           times" (asked from the line and from a row; Esc there leaves the popover up), and Esc with a name typed and
@@ -37,7 +37,7 @@
 //           lit block, light and dark; and the popover beside two of the app's own (the small month, an event's card).
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/cal-add.mjs
 import os from 'node:os'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open,rows,spring,unhappy,quiet').split(',')
@@ -935,7 +935,28 @@ try {
       const took = moving.length ? moving.at(-1)[0] - moving[0][0] : 0
       return { from, to, between: between.length, oneWay, took, held: t[0][3] || 'nothing', frames: t.length, said: `${from} to ${to}px, ${between.length} in-between heights over ${took}ms of ${t.length} frames (${seen.join(' ')}); held at ${t[0][3] || 'nothing'} before, ${t.at(-1)[3] || 'nothing'} after` }
     }
-    // With a picture taken every 50ms the page draws fewer frames, so a filmed run only says what it saw; the count is judged on a run without pictures.
+    /**
+     * The frames the page itself drew while `run` plays out and for `ms` after, each kept as a picture named by the
+     * milliseconds since `run` began. (A picture asked for takes 120ms or more of a window this size, half the spring:
+     * these are the page's own frames, as it showed them.)
+     */
+    const cast = async (name, run, ms = 450) => {
+      if (!dir) return run()
+      const cdp = await h.context().newCDPSession(h)
+      const got = []
+      cdp.on('Page.screencastFrame', (frame) => { got.push([frame.metadata.timestamp * 1000, frame.data]); cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {}) })
+      await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 90 })
+      await wait(250)
+      const t0 = Date.now()
+      await run()
+      await wait(ms)
+      await cdp.send('Page.stopScreencast').catch(() => {})
+      await cdp.detach().catch(() => {})
+      const kept = got.filter(([at]) => at >= t0 - 30 && at <= t0 + ms + 150)
+      for (const [at, data] of kept) writeFileSync(`${dir}/${name}-${String(Math.max(0, Math.round(at - t0))).padStart(3, '0')}ms.jpg`, Buffer.from(data, 'base64'))
+      console.log(`NOTE  ${name}: ${kept.length} of the page's own frames kept, drawn ${kept.map(([at]) => Math.max(0, Math.round(at - t0))).join(' ')}ms after the press was asked for`)
+    }
+    // With pictures being kept the page draws fewer frames, so a filmed run only says what it saw; the count is judged on a run without pictures.
     const sprung = (name, t) => { const r = read(t); if (dir) console.log(`NOTE  ${name}, filmed: ${r.said}`); else check(`${name}: the height moves on the spring, six or more in-between heights, one way`, r.from !== r.to && r.between >= 6 && r.oneWay, r.said); return r }
     const atOnce = (name, t) => { const r = read(t); check(`${name}: the height is simply the new one, with no height in between`, r.from !== r.to && r.between === 0, r.said); return r }
     console.log(`NOTE  spring: the Motion setting is ${JSON.stringify((await v('settings'))?.motion)}; data-motion ${await h.evaluate(() => document.documentElement.dataset.motion ?? 'unset')}; Reduce motion ${await h.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)}`)
@@ -943,13 +964,13 @@ try {
     await toMode('m')
     await dbl(...corner(await cell(dayKeyOf(2))))
     await wait(500)
-    sprung('Event to Task', await trace(() => film('spring-to-task', () => h.click('[data-cal-add] [data-day-side-kind="task"]'), 10)))
-    sprung('Task to Event', await trace(() => film('spring-to-event', () => h.click('[data-cal-add] [data-day-side-kind="event"]'), 10)))
+    sprung('Event to Task', await trace(() => cast('spring-to-task', () => h.click('[data-cal-add] [data-day-side-kind="task"]'))))
+    sprung('Task to Event', await trace(() => cast('spring-to-event', () => h.click('[data-cal-add] [data-day-side-kind="event"]'))))
     await shut()
     // A thing that exists: a row opening, then closing.
     if (await openIn('event', 'Opens here')) {
-      sprung('a row opening ("Reminder")', await trace(() => film('spring-row-open', () => h.click('[data-cal-add] [data-quiet-row="remind"] > button'), 10)))
-      sprung('a row closing', await trace(() => film('spring-row-close', () => h.click('[data-cal-add] [data-quiet-row="remind"] > button'), 10)))
+      sprung('a row opening ("Reminder")', await trace(() => cast('spring-row-open', () => h.click('[data-cal-add] [data-quiet-row="remind"] > button'))))
+      sprung('a row closing', await trace(() => cast('spring-row-close', () => h.click('[data-cal-add] [data-quiet-row="remind"] > button'))))
       // Reached by a key, nothing moves: ↵ on the row opens and closes it at once.
       await h.locator('[data-cal-add] [data-quiet-row="remind"] > button').focus()
       atOnce('by a key (↵ on the row), opening', await trace(() => h.keyboard.press('Enter'), 900))
