@@ -16,10 +16,25 @@ import { meets, standIn, type Caps } from './needs'
 const NONE: Caps = { macos: '0', major: 0, silicon: false, embeddings: [], ai: 'too-old', translation: false }
 
 let asked: Promise<Caps> | null = null
+/** The last answer, and when it was asked for. */
+let last: { caps: Caps; at: number } | null = null
+/** How long a "not ready" stands before the Mac is asked again. */
+export const ASK_AGAIN_MS = 60_000
 
+/**
+ * One answer a run, with one exception: "not ready" (macOS still downloading or setting up Apple Intelligence) is the
+ * one answer that changes by itself, so once it is a minute old the Mac is asked again by whoever asks next (a window
+ * come back to, Settings opened: lib/needs.ts). The four features then turn on in the same run; before, the first
+ * answer was kept until Haligtree was quit and opened again.
+ */
 export function caps(): Promise<Caps> {
+  // A test run may shorten the minute (HALIGTREE_QA_ASK_AGAIN, ms), so a check need not sit through it.
+  const stands = Number(process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_ASK_AGAIN) || ASK_AGAIN_MS
+  if (asked && last?.caps.ai === 'not-ready' && Date.now() - last.at >= stands) asked = null
   asked ??= new Promise<Caps>((done) => {
-    if (process.platform !== 'darwin') return done(NONE)
+    const at = Date.now()
+    const answer = (caps: Caps): void => ((last = { caps, at }), done(caps))
+    if (process.platform !== 'darwin') return answer(NONE)
     execFile(helper, ['--status'], { timeout: 15_000 }, (error, out) => {
       let real = NONE
       try {
@@ -27,7 +42,7 @@ export function caps(): Promise<Caps> {
       } catch {
         // Unreadable: this Mac is said to have nothing beyond every Mac's.
       }
-      done(process.env.HALIGTREE_QA_CAPS ? standIn(process.env.HALIGTREE_QA_CAPS, real) : real)
+      answer(process.env.HALIGTREE_QA_CAPS ? standIn(process.env.HALIGTREE_QA_CAPS, real) : real)
     })
   })
   return asked

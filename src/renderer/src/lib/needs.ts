@@ -14,6 +14,15 @@ export function readCaps(): Promise<Caps> {
   return asking
 }
 
+/** Those waiting on Apple Intelligence becoming ready in this window: told when the answer changes. */
+const waiting = new Set<(caps: Caps) => void>()
+/** Asked again (main asks the Mac at most once a minute): whoever shows "not ready" is told if it no longer is. */
+function readAgain(): void {
+  const was = kept
+  asking = null
+  void readCaps().then((now) => { if (now.ai !== was?.ai) for (const tell of waiting) tell(now) }, () => undefined)
+}
+
 /** What this Mac has, for a menu built in one go; asked as this window opens, so a menu opened later has it. */
 export const capsNow = (): Caps | null => kept
 if (typeof window !== 'undefined' && window.api) void readCaps().catch(() => undefined)
@@ -24,6 +33,18 @@ export function useCaps(): Caps | null {
   useEffect(() => {
     if (!kept) void readCaps().then(setCaps)
   }, [])
+  // "Not ready" is macOS still downloading Apple Intelligence: the one answer that changes by itself, and macOS tells
+  // nobody when it does. So while it stands, the Mac is asked again as this window is come back to and each minute it
+  // is in front, and what waited on it turns on without Haligtree being opened again.
+  const unready = caps?.ai === 'not-ready'
+  useEffect(() => {
+    if (!unready) return
+    waiting.add(setCaps)
+    const again = (): void => void (document.hidden || readAgain())
+    const each = setInterval(again, 60_000)
+    window.addEventListener('focus', again)
+    return () => (waiting.delete(setCaps), clearInterval(each), window.removeEventListener('focus', again))
+  }, [unready])
   return caps
 }
 

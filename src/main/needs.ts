@@ -38,11 +38,18 @@ export const WHICH: Record<Need, string> = {
   ai: 'Macs with Apple Intelligence'
 }
 
-/** Said, once and plainly, where a feature this Mac lacks would be. */
-export function lacks(caps: Caps | null, need: Need): string {
+/**
+ * Said, once and plainly, where a feature this Mac lacks would be. `whole`: where there is a line to say it in
+ * (Settings), rather than a card's foot: what is happening, that nothing need be done, and where to see how far it is.
+ * "Not ready" is macOS still downloading or setting up Apple Intelligence (the user's Mac, 12 Nov: "13% complete" in
+ * System Settings, where the app said only "still getting ready" and they had to ask what that meant).
+ */
+export function lacks(caps: Caps | null, need: Need, whole = false): string {
   if (need === 'ai' && caps && caps.major >= 26) {
     if (caps.ai === 'not-enabled') return 'Needs Apple Intelligence, turned on in System Settings'
-    if (caps.ai === 'not-ready') return 'Apple Intelligence is still getting ready on this Mac'
+    if (caps.ai === 'not-ready') return whole
+      ? `macOS is still downloading or setting up Apple Intelligence on this Mac. These turn on by themselves when it is ready; System Settings › ${caps.major >= 27 ? 'Siri' : 'Apple Intelligence & Siri'} shows how far it is.`
+      : 'Apple Intelligence is still downloading'
   }
   return { every: '', macos15: 'Needs macOS 15', macos26: 'Needs macOS 26', ai: 'Needs Apple Intelligence' }[need]
 }
@@ -54,5 +61,7 @@ export function standIn(level: string, real: Caps): Caps {
   if (level === 'macos15') return at(15, 'too-old')
   if (level === 'macos26') return at(26, 'not-enabled')
   if (level === 'ai') return { ...at(26, 'available'), silicon: true }
+  // macOS still downloading it: what the app says meanwhile, and that it asks again (understand.ts caps).
+  if (level === 'not-ready') return { ...at(27, 'not-ready'), silicon: true }
   return real
 }

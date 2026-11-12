@@ -2395,7 +2395,7 @@ function StudyAiSetting({ on, set }: { on: boolean; set: (on: boolean) => void }
       <Setting title="Apple Intelligence" note="Typed answers checked by meaning, a hint when stuck (H), cards from a chapter, and a name for a group."
         more={has ? 'Five cards from a chapter, in the reader. On this Mac, with nothing sent anywhere. It only ever suggests: the grade is yours, a hint is never the answer, no card is made until you keep it, and a group’s name is yours to type over.' : undefined}
         keywords="apple intelligence ai meaning hint cards chapter typed answer check group name foundation model"
-        off={has ? undefined : lacks(caps, 'ai')}>
+        off={has ? undefined : lacks(caps, 'ai', true)}>
         {has && <Switch aria-label="Apple Intelligence" checked={on} onCheckedChange={set} />}
       </Setting>
     </div>
