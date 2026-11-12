@@ -224,6 +224,8 @@ const isBlockPage = (url: string | null | undefined): boolean => /^http:\/\/127\
 /** The cat peeking up from the bottom edge of the block page, read once, carried in the page itself. */
 let catData: string | null = null
 let meowData: string | null = null
+/** How loud the meow is, of the browser's own full volume (the user's ask, 13 Nov: 60%). */
+const MEOW_LEVEL = 0.6
 /** Its meow, for whoever clicks it: an easter egg. */
 const catMeow = (): string => {
   if (meowData === null) {
@@ -279,7 +281,7 @@ ${look ? `body{background:${look.bg};color:${look.fg}}p{color:${look.muted}}
 <p>This tab goes on to the page you asked for once the round ends, and a refresh then takes you there too.</p></main>${catImage() ? `<img id="cat" src="${catImage()}" alt="" draggable="false">` : ''}${catMeow() ? `<audio id="meow" src="${catMeow()}" preload="auto"></audio>` : ''}
 <script>
 var cat = document.getElementById('cat'), meow = document.getElementById('meow')
-if (cat && meow) cat.addEventListener('click', function () { meow.currentTime = 0; meow.play().catch(function () {}) })
+if (cat && meow) cat.addEventListener('click', function () { meow.volume = ${MEOW_LEVEL}; meow.currentTime = 0; meow.play().catch(function () {}) })
 var q = new URLSearchParams(location.search), until = ${JSON.stringify(until)}
 var u = document.getElementById('until')
 if (u && until) u.textContent = new Date(until).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
