@@ -1058,9 +1058,15 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   }
   // The part of Today each row stands in (Overdue, Today), by its heading: a date or a state puts a task there, never where it is dropped.
   const partOf = new Map(groups.flatMap(([heading, list]) => list.map((task) => [task.id, heading] as const)))
-  /** A row carried over another part's rows: out of Overdue into Today it is moved to today; no other part is filled by dragging. */
+  /**
+   * A row carried over another part's rows: out of Overdue into Today it is moved to today. No other part is filled
+   * by dragging, and the refusal says what does put a task there.
+   */
   const takenBy = (id: string, part: string): { words: string } | { refused: string } =>
-    part === 'Today' && partOf.get(id) === 'Overdue' ? { words: 'Move to Today' } : { refused: `Dragging can’t move it to “${part}”` }
+    part === 'Today' && partOf.get(id) === 'Overdue' ? { words: 'Move to Today' }
+    : part === 'Overdue' ? { refused: 'Its date puts a task in “Overdue”: change the date to move it' }
+    : part === 'Waiting on someone' ? { refused: 'Who it waits on puts a task there: change that to move it' }
+    : { refused: `What a task is puts it in “${part}”, not where it is dropped` }
   /** A row let go on another's middle: its step now, last among its steps, unfolded so it is seen; said with Undo, and ⌘Z. */
   const nestRow = (id: string, target: string): void => {
     const [task, parent] = [tasks.find((one) => one.id === id), tasks.find((one) => one.id === target)]
