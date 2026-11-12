@@ -16,7 +16,7 @@ const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const MENU = '.tiptap-block-menu'
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  const id = await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A picture below #picmenu' }] }] } }))
+  const id = await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: ['A picture below #picmenu', 'A second line over the picture.', 'And a third, for the pointer to cross.'].map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })) } }))
   await send('capture', id)
   await h.locator(ED).waitFor({ timeout: 10000 })
   await wait(2000)
@@ -53,6 +53,30 @@ try {
   check('and the block\'s lines in the same list, its file\'s two ways out and "Keep in Files"', ['Duplicate', 'Keep in Files', 'Remove from note', 'Remove and move to the Bin'].every(has) && !has('Delete'), JSON.stringify(menu.titles))
   check('no line twice', new Set(menu.titles).size === menu.titles.length, JSON.stringify(menu.titles))
   await h.screenshot({ path: `${shots}/picture-menu.png` })
+  // The pointer moved about the page under the open menu (reported 12 Nov: "the context menu starts dancing ... if i
+  // open right click on image then move the cursor around"): the menu stays where it opened, and so does the block
+  // handle it is tied to, which used to follow the pointer from block to block and take the menu with it.
+  const place = () => h.evaluate((menu) => {
+    const at = document.querySelector(menu)?.getBoundingClientRect()
+    const grip = document.querySelector('.tiptap-drag-handle')?.getBoundingClientRect()
+    return at ? { x: Math.round(at.x), y: Math.round(at.y), w: Math.round(at.width), h: Math.round(at.height), grip: grip ? Math.round(grip.y) : null } : null
+  }, MENU)
+  const opened = await place()
+  const lines = await h.evaluate((sel) => [...document.querySelectorAll(`${sel} > p`)].map((one) => { const r = one.getBoundingClientRect(); return { x: r.x, y: r.y + r.height / 2 } }), ED)
+  const moved = []
+  for (const [x, y] of [[lines[0].x + 40, lines[0].y], [box.x + 30, box.y + box.height - 12], [lines[1].x + 180, lines[1].y], [lines[2].x + 60, lines[2].y], [box.x + box.width - 20, box.y + 20], [lines[0].x + 240, lines[0].y]]) {
+    await h.mouse.move(x, y, { steps: 8 }); await wait(150)
+    moved.push(await place())
+  }
+  check('three lines over the picture for the pointer to cross', lines.length >= 3, String(lines.length))
+  check('the pointer moved over the other blocks: the menu is still open, where it opened', !!opened && moved.every((one) => one && one.x === opened.x && one.y === opened.y && one.w === opened.w && one.h === opened.h), JSON.stringify({ opened, moved }))
+  check('and the block handle it is tied to has not moved', !!opened && moved.every((one) => one && one.grip === opened.grip), JSON.stringify({ opened: opened?.grip, moved: moved.map((one) => one?.grip) }))
+  await h.screenshot({ path: `${shots}/picture-menu-after-moves.png` })
+  // Closed, the handle follows the pointer again.
+  await h.keyboard.press('Escape'); await wait(400)
+  await h.mouse.move(lines[0].x + 40, lines[0].y, { steps: 6 }); await wait(300)
+  const free = await h.evaluate(() => Math.round(document.querySelector('.tiptap-drag-handle')?.getBoundingClientRect().y ?? -1))
+  check('closed, the handle goes to the line pointed at again', Math.abs(free - (lines[0].y - 12)) < 24, JSON.stringify({ grip: free, line: Math.round(lines[0].y) }))
 } finally { await c.close() }
 const passed = results.filter(Boolean).length
 console.log(`\n${passed}/${results.length} passed`)

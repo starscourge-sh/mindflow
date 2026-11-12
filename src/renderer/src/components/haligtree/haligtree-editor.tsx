@@ -1866,6 +1866,17 @@ function Surface({
     return () => page?.removeEventListener("contextmenu", onContext)
   }, [page, editor, handles])
 
+  // While a block's menu is open its handle stays where it is. The menu is tied to the handle, and the handle went
+  // on following the pointer from block to block under the open menu, taking the menu with it: it jumped about the
+  // page as the pointer moved (12 Nov). Held the plugin's own way, so nothing behind an open menu moves, as on the Mac.
+  useEffect(() => {
+    if (!editor || !handles || !menuOpen) return
+    editor.view.dispatch(editor.state.tr.setMeta("lockDragHandle", true))
+    return () => {
+      if (!editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta("lockDragHandle", false))
+    }
+  }, [editor, handles, menuOpen])
+
   // Only when the switch actually moves. The extension is built with `vimOn`
   // already, so running this on mount changed nothing except the one thing it
   // had no business changing: `setVimMode` puts you in normal mode, which
