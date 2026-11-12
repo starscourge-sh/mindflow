@@ -160,12 +160,15 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     let top = holding && kept ? kept.top : (scroller?.scrollTop ?? 0)
     let anchor = holding && kept?.block != null && kept.into != null ? { block: kept.block, into: kept.into } : null
     let from = editor.state.selection.from
-    // Where this last scrolled the note to: its own scroll is no reason to let go.
-    let mine = -1
+    // Where the scroller stood when last looked at, and how far a long note had by then moved it by itself: what
+    // it has moved by since, beyond the note's own share, is someone else's doing. Looked at after each scroll made
+    // here, so a scroll of this file's own is no reason to let go either.
+    let seen: [top: number, own: number] = [scroller?.scrollTop ?? 0, scroller ? scrolledItself(scroller) : 0]
+    const look = (): void => void (scroller && (seen = [scroller.scrollTop, scrolledItself(scroller)]))
     const go = (to: number): void => {
       if (!scroller) return
       scroller.scrollTo({ top: to, behavior: 'instant' })
-      mine = scroller.scrollTop
+      look()
     }
     // How far the kept block has moved from where it was left; null when it is not on the page.
     const drift = (): number | null => {
@@ -232,8 +235,12 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       // A long note's own scroll, as it puts right the space kept above its drawn blocks, is not a move by something
       // else, even when the kept block is off its place by then (a font or a picture arriving in the same moment,
       // as they do while the app is starting): taken for one, the place was let go of, and the note launched again
-      // came back some blocks from where it was left. It is put back instead.
-      const own = Math.abs(scroller.scrollTop - mine) <= 1 || scrolledItself(scroller)
+      // came back some blocks from where it was left. It is put back instead. Only that scroll and this file's
+      // own count: the scroller is where it was last seen plus what the note has moved it by since, to the pixel.
+      // Anything more is a scroll someone asked for (the app sending the note to its top, a jump, a hand), and
+      // that is never undone: the place is let go of.
+      const own = Math.abs(scroller.scrollTop - (seen[0] + scrolledItself(scroller) - seen[1])) <= 1
+      look()
       if (holding && !own && (by === null ? !!anchor : Math.abs(by) > 1)) holding = false
       if (holding && own && by !== null && Math.abs(by) >= 0.5) put()
       read()

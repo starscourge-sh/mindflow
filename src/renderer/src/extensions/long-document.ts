@@ -192,14 +192,15 @@ export const heightsOf = (editor: Editor): KeptHeights | null => (editor.isDestr
 /** The heights kept when a long note was last open, given back as it opens: its page is as tall as it was, before anything is scrolled to. */
 export const takeHeights = (editor: Editor, kept: KeptHeights): void => void (editor.isDestroyed || drawnOf.get(editor.view.dom)?.take(kept))
 
-/** Where a long note last left the scroller it is in, when it scrolled it itself to put its sizes right (`rest`). */
+/**
+ * How far a long note has scrolled the scroller it is in by itself, in all, as it puts its sizes right (`rest`).
+ * Whoever keeps the note's place reads it at each scroll: what the scroller moved by since the last reading that is
+ * not in this is someone else's doing (a hand, a jump, the app sending the note to its top). It was once only where
+ * the note last left the scroller, and a scroll set by the app to the note's very top, where the note puts its
+ * sizes right in the same breath, was taken for the note's own: the kept place pulled the note back from it.
+ */
 const ownScrolls = new WeakMap<Element, number>()
-
-/** Whether the scroller stands where the long note in it last put it itself: such a scroll is no one's hand, and no jump. */
-export const scrolledItself = (scroller: Element): boolean => {
-  const at = ownScrolls.get(scroller)
-  return at !== undefined && Math.abs(scroller.scrollTop - at) <= 1
-}
+export const scrolledItself = (scroller: Element): number => ownScrolls.get(scroller) ?? 0
 
 /** The keys the browser itself answers where its selection is, beside the letters: those that move it or rub out. */
 const LANDS = new Set(["Enter", "Backspace", "Delete", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Process", "Dead"])
@@ -430,8 +431,10 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; edges: 
     slip = 0
     space()
     const scroller = view.dom.parentElement
-    scroller?.scrollBy({ top: by, behavior: "instant" })
-    if (scroller) ownScrolls.set(scroller, scroller.scrollTop)
+    if (!scroller) return
+    const before = scroller.scrollTop
+    scroller.scrollBy({ top: by, behavior: "instant" })
+    ownScrolls.set(scroller, scrolledItself(scroller) + scroller.scrollTop - before)
   }
   const rested = (event: Event): void => {
     if (event.target instanceof Node && event.target.contains(view.dom)) rest()
