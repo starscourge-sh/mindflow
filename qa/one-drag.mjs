@@ -10,6 +10,9 @@
 // under the pointer with words on it; exactly one line (a dot at its start, through the middle of one band) or one lit
 // target; the room as tall as the carried row folded; no row over another; Esc puts every box back; a drop said, with
 // Undo and ⌘Z; the window at 560 x 400. PART="One look" runs those alone; LONG=1 adds a list of 500 with its frames timed.
+// "Kept in order" (12 Nov): the lists a rule of their own keeps in order carry the same way: Goals (each tab), Writing
+// sorted A to Z and Gems under headings. PART="kept in order" runs those alone, and SKIP="kept in order" everything but
+// them (the two together are the whole probe, for a queue that stops a job after ten minutes).
 //   npx electron-vite build --outDir out-onedrag
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-onedrag/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/one-drag.mjs
 import { mkdirSync } from 'fs'
@@ -28,7 +31,7 @@ if (!BOOK) for (const list of ['article', 'nugget']) for (const group of await v
 const wait = (ms) => h.waitForTimeout(ms)
 h.setDefaultTimeout(4000)
 /** A part of the probe: a part that cannot even run on old code is a fail, and the rest still runs. */
-const part = async (name, run) => { if (process.env.PART && !name.includes(process.env.PART)) return; try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
+const part = async (name, run) => { if ((process.env.PART && !name.includes(process.env.PART)) || (process.env.SKIP && name.includes(process.env.SKIP))) return; try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
 const shot = (name) => (SHOTS ? h.screenshot({ path: `${SHOTS}/${name}.png` }) : null)
 const film = async (name, n = 6) => { if (SHOTS) for (let i = 0; i < n; i++) { await h.screenshot({ path: `${SHOTS}/${name}-${i}.png` }); await wait(50) } }
 const both = async (name) => { if (!SHOTS) return; for (const look of ['light', 'dark']) { await c.look(look); await wait(120); await h.screenshot({ path: `${SHOTS}/${name}-${look}.png` }) } await c.look('light'); await wait(120) }
@@ -521,7 +524,8 @@ const oneLook = async (name, at, want) => {
   await wait(450)
   const d = await drawn()
   const told = JSON.stringify(d)
-  check(`${name}: one card, under the pointer`, d.cards === 1 && !!d.card && at.y >= d.card.top - 10 && at.y <= d.card.bottom + 10 && at.x >= d.card.left - 60 && at.x <= d.card.right, JSON.stringify({ cards: d.cards, card: d.card, at }))
+  // (Carried onto a tab, the card rides just under the tab, so the tab's own name stays in sight.)
+  check(`${name}: one card, under the pointer`, d.cards === 1 && !!d.card && at.y >= d.card.top - (want.lit ? 36 : 10) && at.y <= d.card.bottom + 10 && at.x >= d.card.left - 60 && at.x <= d.card.right, JSON.stringify({ cards: d.cards, card: d.card, at }))
   check(`${name}: the card says ${want.words}`, want.words instanceof RegExp ? want.words.test(d.words) : d.words === want.words, d.words || '(no words)')
   if (want.lit) check(`${name}: one lit target, no line, no room`, d.lit === 1 && !d.lines && !d.rooms, told)
   else if (want.refused) check(`${name}: refused on the card, the pointer says no, nothing opens`, d.refused && d.pointer === 'not-allowed' && !d.lines && !d.rooms && !d.lit, told)
@@ -540,6 +544,7 @@ const oneLook = async (name, at, want) => {
 const putBack = async (name, was) => {
   await h.keyboard.press('Escape'); await wait(350); await h.mouse.up(); await wait(450)
   const now = await boxes()
+  // (Only the rows it was given: a part that reads the page's rows alone gives those.)
   const moved = Object.keys(was).filter((id) => was[id] !== now[id])
   check(`${name}: Esc puts every box back, nothing carried`, !moved.length && !(await card()), moved.slice(0, 4).map((id) => `${id} ${was[id]} -> ${now[id]}`).join('; '))
 }
@@ -953,6 +958,277 @@ await part('One look: Writing, the reference', async () => {
   at = await hold({ x: ash.x + 200, y: ash.y + ash.height / 2 }, { x: ash.x + 200, y: birch.y + birch.height * 0.86 })
   await oneLook('Writing, a note carried down', at, { words: /^Move here/ })
   await putBack('Writing, a note', was)
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+})
+
+// --- 5d. The lists a rule of their own keeps in order (Goals by day; Writing and Gems sorted, or under headings): the
+// same card, room and line where a row can stand, a lit target or a refusal in words where it cannot, never a quiet
+// band that says nothing; a group only after a rest; what a drag does said over the list.
+const ROWS = '[data-sortable-id]:not(aside[data-chrome] *)'
+const paneBoxes = () => h.evaluate(() => {
+  const scrolled = (one) => { for (let at = one.parentElement; at; at = at.parentElement) if (/auto|scroll/.test(getComputedStyle(at).overflowY) && at.scrollHeight > at.clientHeight) return at.scrollTop; return 0 }
+  return Object.fromEntries([...document.querySelectorAll('[data-sortable-id]')].filter((one) => one.getClientRects().length && !one.closest('aside[data-chrome]')).map((one) => { const r = one.getBoundingClientRect(); return [one.dataset.sortableId, `${Math.round(r.top + scrolled(one))}:${Math.round(r.height)}`] }))
+})
+const paneRow = (id) => h.evaluate((one) => { const r = [...document.querySelectorAll(`[data-sortable-id="${CSS.escape(one)}"]`)].find((el) => !el.closest('aside[data-chrome]'))?.getBoundingClientRect(); return r && { x: r.x, y: r.y, w: r.width, h: r.height } }, id)
+/** A row lifted by its name's line and carried, in steps, to a place down another row (0.86: just under its middle, past it). */
+const carryTo = async (aId, bId, at = 0.86) => {
+  const a = await paneRow(aId)
+  const from = { x: a.x + 200, y: a.y + 16 }
+  await h.mouse.move(from.x, from.y); await h.mouse.down(); await h.mouse.move(from.x, from.y + 8, { steps: 3 }); await wait(250)
+  const b = await paneRow(bId)
+  const to = { x: from.x, y: b.y + b.h * at }
+  for (let i = 1; i <= 12; i++) { await h.mouse.move(from.x, from.y + 8 + ((to.y - from.y - 8) * i) / 12); await wait(30) }
+  return to
+}
+/** Whether a group is forming under the carried row, watched on every frame the page draws until `stop()`. */
+const watchForming = () => h.evaluate(() => {
+  const seen = (window.__forming = { frames: 0, forming: 0, words: [], stall: 0, last: performance.now() })
+  const tick = (now) => {
+    seen.frames++
+    seen.stall = Math.max(seen.stall, now - seen.last)
+    seen.last = now
+    const words = document.querySelector('[data-carried-card] [data-drag-label]')?.textContent ?? ''
+    if (document.querySelector('[data-preview]') || /New (sub)?group/.test(words)) seen.forming++
+    if (seen.words.at(-1) !== words) seen.words.push(words)
+    seen.raf = requestAnimationFrame(tick)
+  }
+  seen.raf = requestAnimationFrame(tick)
+})
+const stopForming = () => h.evaluate(() => { const seen = window.__forming; cancelAnimationFrame(seen.raf); return { frames: seen.frames, forming: seen.forming, words: seen.words, stall: Math.round(seen.stall) } })
+/** A pass at a steady, slow pace (about 40px a second) from one row down across the rows under it: no group forms on the way. */
+const steadyPass = async (name, ids) => {
+  // A pass counts only while the pointer truly kept moving: on a loaded machine the pointer (or the page) can stand still
+  // for half a second, which is a rest, and a rest rightly forms a group. Such a pass is made again, three times at most.
+  let pass
+  for (let go = 0; go < 3; go++) {
+    const [first, last] = [await paneRow(ids[0]), await paneRow(ids.at(-1))]
+    const from = { x: first.x + 200, y: first.y + 16 }
+    await h.mouse.move(from.x, from.y); await h.mouse.down(); await h.mouse.move(from.x, from.y + 8, { steps: 3 }); await wait(250)
+    await watchForming()
+    let [gap, then] = [0, Date.now()]
+    for (let y = from.y + 8; y <= last.y + last.h * 0.6; y += 2) { await h.mouse.move(from.x, y); await wait(50); gap = Math.max(gap, Date.now() - then); then = Date.now() }
+    pass = { ...(await stopForming()), gap }
+    await h.keyboard.press('Escape'); await wait(350); await h.mouse.up(); await wait(450)
+    if (pass.gap < 350 && pass.stall < 350) break
+    console.log(`NOTE  ${name}: the pass stood still ${Math.max(pass.gap, pass.stall)} ms (a loaded machine), so it is made again`)
+  }
+  const steady = pass.gap < 350 && pass.stall < 350
+  check(`${name}: carried at a steady pace across ${ids.length - 1} rows, no “New group” look on any frame`, steady && pass.frames > 40 && pass.forming === 0, `${pass.forming} of ${pass.frames} frames${steady ? '' : `; never steady: the pointer stood still ${Math.max(pass.gap, pass.stall)} ms`}; the card said: ${pass.words.filter(Boolean).join(' | ')}`)
+}
+/** Held still on another row's middle: after the rest, the group forms there and the card says so. */
+const restMakes = async (name, aId, bId) => {
+  const was = await paneBoxes()
+  await carryTo(aId, bId, 0.5); await wait(1100)
+  const d = await h.evaluate(() => ({ forming: document.querySelectorAll('[data-preview]').length, words: document.querySelector('[data-carried-card] [data-drag-label]')?.textContent ?? '' }))
+  check(`${name}: held still on another row, a group forms there and the card says “New group”`, d.forming === 1 && d.words === 'New group', JSON.stringify(d))
+  await shot(`look-${name.replace(/\W+/g, '-')}-rest`)
+  await putBack(`${name}, a rest`, was)
+}
+const hintSaid = () => h.evaluate(() => document.querySelector('[data-drag-hint]')?.textContent ?? '')
+const day = (n) => { const d = new Date(Date.now() + n * 86_400_000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+const goalTab = async (id) => { await h.locator(`[data-chips="goals"] [data-chip="${id}"]`).click(); await wait(700) }
+const goalNow = async (id) => (await v('items', 'goal')).find((one) => one.id === id)
+if (!BOOK) await part('One look, kept in order: Goals', async () => {
+  // Its own goals: two that share a day, one alone on a later day, two more than a year off; three for someday; two on ice; two ended.
+  for (const old of await v('items', 'goal')) await v('goal:drop', old.id)
+  const g = {}
+  for (const [title, when] of [['Beech goal', 60], ['Cypress goal', 60], ['Alder goal', 90], ['Elder goal', 500], ['Fig goal', 520], ['Gum goal', null], ['Holly goal', null], ['Ivy goal', null], ['Juniper goal', 70], ['Kauri goal', 75], ['Larch goal', 80], ['Maple goal', 85]]) {
+    g[title.split(' ')[0]] = await v('goal:new', title, when === null ? null : day(when)); await wait(15)
+  }
+  await v('goal:close', g.Juniper, 'on ice'); await v('goal:close', g.Kauri, 'on ice'); await v('goal:close', g.Larch, 'let go'); await v('goal:close', g.Maple, 'missed')
+  await v('goal:beacon:set', g.Alder, 'always')
+  await h.evaluate(() => { for (const key of Object.keys(localStorage)) if (key.startsWith('hint:')) localStorage.removeItem(key) })
+  await h.reload(); await wait(1500); await c.go('goals'); await wait(1200)
+  await goalTab('open')
+  let rows = await standing(ROWS)
+  const shared = rows.filter((id) => id === g.Beech || id === g.Cypress)
+  const far = rows.filter((id) => id === g.Elder || id === g.Fig)
+  check('Goals: its rows stand by day: the two that share a day, the one alone, the two more than a year off', rows.length === 5 && rows.slice(0, 2).join() === shared.join() && rows[2] === g.Alder && rows.slice(3).join() === far.join(), rows.map((id) => Object.keys(g).find((name) => g[name] === id)).join())
+  check('Goals: a line over the list says what dragging a goal does there', /order it among the goals of its day/.test(await hintSaid()), (await hintSaid()) || '(no line)')
+  // Among the goals of its day: the room, its one line, “Move here”.
+  let was = await paneBoxes()
+  let at = await carryTo(shared[0], shared[1])
+  await oneLook('Goals, a goal carried among the goals of its day', at, { words: 'Move here' })
+  await putBack('Goals, among its day', was)
+  // More than a year off: one part, in your own order too.
+  was = await paneBoxes()
+  at = await carryTo(far[0], far[1])
+  await oneLook('Goals, a goal carried among those more than a year off', at, { words: 'Move here' })
+  await putBack('Goals, more than a year off', was)
+  // Over another day's goals: that day's heading lights, the card names the day, nothing opens.
+  was = await paneBoxes()
+  at = await carryTo(g.Alder, shared[1], 0.84)
+  let d = await oneLook('Goals, a goal carried over another day', at, { words: /^Move to \d{1,2} \w{3} \d{4}$/, lit: true })
+  const lit = await h.evaluate(() => { const one = document.querySelector('[data-drop-hot]'); return one ? { part: one.dataset.rowPart ?? null, head: one.dataset.groupHead ?? null } : null })
+  check('Goals, over another day: what lights is that day’s heading', !!lit?.part && lit.part === lit.head && d.words === `Move to ${lit.part}`, JSON.stringify(lit))
+  await putBack('Goals, over another day', was)
+  // On a heading itself its own part is meant, whichever row is nearer (its top edge is nearer the part before it).
+  const heads = await h.evaluate(() => [...document.querySelectorAll('[data-row-part]')].filter((one) => !one.closest('aside[data-chrome]') && one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return { part: one.dataset.rowPart, y: r.y, h: r.height } }))
+  check('Goals: each day and the far ones stand under a heading', heads.length === 3, heads.map((one) => one.part).join(' | '))
+  if (heads.length === 3) {
+    was = await paneBoxes()
+    let a0 = await paneRow(shared[0])
+    at = await hold({ x: a0.x + 200, y: a0.y + 16 }, { x: a0.x + 200, y: heads[1].y + heads[1].h * 0.2 })
+    d = await oneLook('Goals, a goal carried onto the top edge of another day’s heading', at, { words: `Move to ${heads[1].part}`, lit: true })
+    check('Goals, on another day’s heading: that heading lights, not the one before it', (await h.evaluate(() => document.querySelector('[data-drop-hot]')?.dataset.rowPart ?? null)) === heads[1].part, heads[1].part)
+    await putBack('Goals, on another day’s heading', was)
+    was = await paneBoxes()
+    a0 = await paneRow(far[1])
+    at = await hold({ x: a0.x + 200, y: a0.y + 16 }, { x: a0.x + 200, y: heads[2].y + heads[2].h * 0.2 })
+    await oneLook('Goals, a goal carried onto its own part’s heading: first under it', at, { words: 'Move here' })
+    await putBack('Goals, on its own heading', was)
+  }
+  // Over the stretch of time at the foot: refused in words, with what would move it.
+  was = await paneBoxes()
+  at = await carryTo(shared[0], far[0], 0.16)
+  await oneLook('Goals, a goal carried over “More than a year away”', at, { words: /^Its day puts a goal under “More than a year away”: change its day on its page to move it$/, refused: true })
+  await putBack('Goals, over the far ones', was)
+  // A pass at a steady pace across the rows under it: no group begins to form; a rest makes one.
+  await steadyPass('Goals', rows.slice(0, 4))
+  await restMakes('Goals', shared[0], g.Alder)
+  // The tabs: lit where the goal’s own menu has that move, under its words; unlit where it has none.
+  was = await paneBoxes()
+  await carryTo(shared[0], shared[1]); await wait(200)
+  const chip = async (id) => { const r = await h.locator(`[data-chips="goals"] [data-chip="${id}"]`).boundingBox(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 } }
+  const overTab = async (id) => { const to = await chip(id); await h.mouse.move(to.x - 6, to.y, { steps: 8 }); await h.mouse.move(to.x, to.y, { steps: 3 }); await wait(450); const now = await drawn(); return { words: now.words, lit: now.lit, lines: now.lines, ...(await h.evaluate(() => { const hot = document.querySelector('[data-drop-hot]'); const [a, b] = [hot?.getBoundingClientRect(), document.querySelector('[data-carried-card]')?.getBoundingClientRect()]; return { hot: hot?.dataset.chip ?? null, covered: !!a && !!b && Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1 } })) } }
+  let tab = await overTab('iced')
+  check('Goals, a goal carried onto “On ice”: the tab lights and the card says “Put on ice”', tab.words === 'Put on ice' && tab.lit === 1 && tab.hot === 'iced' && !tab.lines, JSON.stringify(tab))
+  check('Goals, a goal carried onto “On ice”: the card stands clear of the tab it names', !tab.covered, JSON.stringify(tab))
+  await both('look-Goals-a-goal-over-the-On-ice-tab')
+  tab = await overTab('settled')
+  check('Goals, a goal carried onto “Ended” (its menu has three ways to end it): the tab stays unlit', tab.hot === null, JSON.stringify(tab))
+  tab = await overTab('someday')
+  check('Goals, a goal carried onto “Someday” (its menu has no such move): the tab stays unlit', tab.hot === null, JSON.stringify(tab))
+  await putBack('Goals, over the tabs', was)
+  // Let go among the goals of its day: it stands there at once, said once with Undo, and Undo and ⌘Z put it back.
+  await dropSaid('Goals, a goal among the goals of its day', ROWS)
+  // Moved, the order is kept in the book, and the page reads it again the same.
+  await carryUnder(shared[0], shared[1], 200, ROWS); await wait(450); await h.mouse.up(); await wait(1200)
+  const moved = await standing(ROWS)
+  const saved = (await v('notes:order', 'goal')).filter((id) => shared.includes(id))
+  await h.reload(); await wait(1500); await c.go('goals'); await wait(1200); await goalTab('open')
+  rows = await standing(ROWS)
+  check('Goals: a goal moved within its day keeps its place in the book, and the page read again shows it', moved.slice(0, 2).join() === [shared[1], shared[0]].join() && saved.join() === [shared[1], shared[0]].join() && rows.slice(0, 2).join() === [shared[1], shared[0]].join(), `on the page ${moved.slice(0, 2).map((id) => (id === g.Beech ? 'Beech' : 'Cypress')).join()}, in the book ${saved.map((id) => (id === g.Beech ? 'Beech' : 'Cypress')).join()}, read again ${rows.slice(0, 2).map((id) => (id === g.Beech ? 'Beech' : 'Cypress')).join()}`)
+  // Let go on another day: the goal's day becomes that day, on its page, its card on the desktop and in the menu bar; Undo puts all three back.
+  const cardOf = async (id) => { const win = electron.windows().find((one) => !one.isClosed() && one.url().includes('view=sticky') && one.url().includes('type=goal&') && one.url().includes(id)); return win ? await win.evaluate(() => document.querySelector('[data-goal-left-said]')?.getAttribute('title') ?? '(no day on the card)').catch(() => '(card not read)') : '(no card)' }
+  const menuOf = (title) => electron.evaluate((_electron, name) => (globalThis.trayMenu ?? []).find((one) => one.label === name)?.sublabel ?? '(not in the menu)', title)
+  const pageOf = async () => { await h.locator(`${ROWS}[data-sortable-id="${g.Alder}"] button[data-row]`).first().click(); await wait(900); const left = await h.evaluate(() => document.querySelector('[data-goal-left]')?.textContent ?? '(no page)'); await h.keyboard.press('Meta+BracketLeft'); await wait(900); return left }
+  const three = async () => ({ day: (await goalNow(g.Alder)).goalAt, page: await pageOf(), card: await cardOf(g.Alder), menu: await menuOf('Alder goal') })
+  await wait(1500)
+  const before = await three()
+  for (let i = 0; i < 40 && (await notices()).length; i++) await wait(250)
+  await carryTo(g.Alder, rows[1], 0.84); await wait(450); await h.mouse.up(); await wait(1800)
+  const after = await three()
+  const told = await notices()
+  check('Goals, let go on another day: said once where it went, with Undo', told.length === 1 && /^Moved to \d{1,2} \w{3} \d{4}/.test(told[0]), told.join(' | ') || '(no notice)')
+  check('Goals, let go on another day: its day is that day, on its page, its card on the desktop and in the menu bar', after.day === day(60) && before.day === day(90) && /\b(59|60)\b/.test(after.page) && after.card !== before.card && after.card.includes((told[0] ?? '(none)').replace(/^Moved to (\d{1,2} \w{3}).*$/, '$1')) && /\b(59|60) days left/.test(after.menu), JSON.stringify({ before, after }))
+  await shot('look-Goals-a-day-changed-by-a-drop')
+  await h.locator('[role=status] button', { hasText: 'Undo' }).last().click().catch(() => {}); await wait(1800)
+  const undone = await three()
+  check('Goals, a day changed by a drop: “Undo” puts its day back on all three', undone.day === before.day && undone.page === before.page && undone.card === before.card && undone.menu === before.menu, JSON.stringify({ before, undone }))
+  // Someday: the life list in your own order.
+  await goalTab('someday')
+  rows = await standing(ROWS)
+  check('Goals, Someday: a line over the list says what dragging a goal does there', /your own order/.test(await hintSaid()), (await hintSaid()) || '(no line)')
+  was = await paneBoxes()
+  at = await carryTo(rows[0], rows[1])
+  await oneLook('Goals, Someday: a goal carried among the others', at, { words: 'Move here' })
+  await putBack('Goals, Someday', was)
+  await steadyPass('Goals, Someday', rows.slice(0, 3))
+  await dropSaid('Goals, Someday: a goal among the others', ROWS)
+  // On ice, the latest first: refused in words among the rows; the tab it came from takes it off ice.
+  await goalTab('iced')
+  rows = await standing(ROWS)
+  was = await paneBoxes()
+  at = await carryTo(rows[0], rows[1], 0.16)
+  await oneLook('Goals, On ice: a goal carried over another', at, { words: 'Goals on ice stand the latest first: they are not arranged by hand', refused: true })
+  tab = await overTab('open')
+  check('Goals, On ice: carried onto “Goals”, the tab lights, the card stands clear of it and says “Take off ice”', tab.words === 'Take off ice' && tab.lit === 1 && tab.hot === 'open' && !tab.covered, JSON.stringify(tab))
+  await putBack('Goals, On ice', was)
+  // Ended, the latest first: the same, and “Open it again” on the tab it came from.
+  await goalTab('settled')
+  rows = await standing(ROWS)
+  was = await paneBoxes()
+  at = await carryTo(rows[0], rows[1], 0.16)
+  await oneLook('Goals, Ended: a goal carried over another', at, { words: 'Ended goals stand the latest first: they are not arranged by hand', refused: true })
+  tab = await overTab('open')
+  check('Goals, Ended: carried onto “Goals”, the tab lights, the card stands clear of it and says “Open it again”', tab.words === 'Open it again' && tab.lit === 1 && tab.hot === 'open' && !tab.covered, JSON.stringify(tab))
+  await putBack('Goals, Ended', was)
+  // Let go on the tab: done as the menu does it, said with Undo.
+  await goalTab('iced')
+  rows = await standing(ROWS)
+  for (let i = 0; i < 40 && (await notices()).length; i++) await wait(250)
+  await carryTo(rows[0], rows[1], 0.16); await overTab('open'); await h.mouse.up(); await wait(1500)
+  const thawed = await notices()
+  check('Goals, On ice: let go on “Goals”, it is off ice, said once with Undo', thawed.length === 1 && /^Off ice/.test(thawed[0]) && (await standing(ROWS)).length === rows.length - 1, thawed.join(' | ') || '(no notice)')
+  await h.locator('[role=status] button', { hasText: 'Undo' }).last().click().catch(() => {}); await wait(1500)
+  check('Goals, On ice: “Undo” puts it back on ice', (await standing(ROWS)).length === rows.length, String((await standing(ROWS)).length))
+  // The window at its smallest.
+  await goalTab('open')
+  await c.size(560, 400); await wait(700)
+  rows = (await standing(ROWS)).filter((id) => shared.includes(id))
+  const [a560, b560] = [await paneRow(rows[0]), await paneRow(rows[1])]
+  if (a560 && b560 && b560.y + b560.h < 400) {
+    at = await carryTo(rows[0], rows[1])
+    await wait(450)
+    d = await drawn()
+    const fits = await h.evaluate(() => ({ width: innerWidth, sideways: document.documentElement.scrollWidth > innerWidth }))
+    check('Goals at 560 x 400: one card inside the window that says “Move here”, one line in one band, nothing scrolls sideways', d.cards === 1 && d.card.left >= 0 && d.card.right <= fits.width && d.words === 'Move here' && d.lines === 1 && d.rooms === 1 && d.lineIn && !fits.sideways, JSON.stringify({ card: d.card, words: d.words, lines: d.lines, rooms: d.rooms, fits }))
+    await shot('look-560x400-goal-carried')
+    await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(300)
+  } else check('Goals at 560 x 400: two goals of one day on show to carry between', false, JSON.stringify({ a560, b560 }))
+  await c.size(1200, 900); await wait(500)
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+})
+// Writing and Gems sorted some other way: a row carried between rows says the list goes to “Custom order”; under
+// headings (by kind), over another heading's rows it is refused in words. What a drag does there is said over the list.
+if (!BOOK) await part('One look, kept in order: Writing and Gems', async () => {
+  await h.evaluate(() => { for (const key of Object.keys(localStorage)) if (key.startsWith('hint:')) localStorage.removeItem(key) })
+  await scene({ loose: true, top: Object.values(ids), groups: {} })
+  await h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'name', group: 'none', filter: {}, density: 'list' })))
+  await h.reload(); await wait(1500); await c.go('articles'); await wait(1200)
+  let rows = await standing(ROWS)
+  check('Writing, A to Z: a line over the list says what dragging a row does there', /puts this list in “Custom order”/.test(await hintSaid()), (await hintSaid()) || '(no line)')
+  let was = await paneBoxes()
+  let at = await carryTo(rows[0], rows[1])
+  await oneLook('Writing, A to Z: a page carried between two others', at, { words: 'Move here · Custom order' })
+  await putBack('Writing, A to Z', was)
+  await steadyPass('Writing, A to Z', rows.slice(0, 4))
+  await restMakes('Writing, A to Z', rows[0], rows[2])
+  // Gems under headings, by kind: among the rows of its own heading it moves; over another heading's rows it is refused in words.
+  for (const words of ['The obstacle is the way: a quote for the probe', 'Festina lente: a second quote for the probe']) await v('nugget:from', words, { kind: 'quote' })
+  await h.evaluate(() => localStorage.setItem('view:nugget', JSON.stringify({ sort: 'newest', group: 'kind', filter: {}, density: 'list' })))
+  await c.go('nuggets'); await wait(1500)
+  // To the foot of the list, where the last heading stands with a row of another kind just over it.
+  await h.evaluate(() => { let el = [...document.querySelectorAll('[data-sortable-id]')].find((one) => !one.closest('aside[data-chrome]')); while (el && !(/auto|scroll/.test(getComputedStyle(el).overflowY) && el.scrollHeight > el.clientHeight + 1)) el = el.parentElement; if (el) el.scrollTop = el.scrollHeight })
+  await wait(900)
+  const foot = await h.evaluate(() => {
+    let before = null
+    let out = null
+    for (const one of document.querySelectorAll('[data-group-head], [data-sortable-id]')) {
+      const box = one.getBoundingClientRect()
+      if (one.closest('aside[data-chrome]') || one.closest('[data-group-block]') || !box.height || box.top < 90 || box.bottom > innerHeight - 4) continue
+      if (one.dataset.groupHead !== undefined) out = { head: one.dataset.groupHead, before, rows: [] }
+      else if (out) out.rows.push(one.dataset.sortableId)
+      else before = one.dataset.sortableId
+      if (one.dataset.groupHead === undefined) before = one.dataset.sortableId
+    }
+    return out
+  })
+  check('Gems, by kind: at the foot of the list a heading stands with a gem of another kind over it', !!foot?.before && foot.rows.length >= 1, JSON.stringify(foot && { head: foot.head, rows: foot.rows.length, before: !!foot.before }))
+  if (foot?.before && foot.rows.length >= 1) {
+    if (foot.rows.length >= 2) {
+      was = await paneBoxes()
+      at = await carryTo(foot.rows[0], foot.rows[1])
+      await oneLook('Gems, by kind: a gem carried among the rows of its own heading', at, { words: 'Move here · Custom order' })
+      await putBack('Gems, by kind, its own heading', was)
+    }
+    was = await paneBoxes()
+    at = await carryTo(foot.before, foot.rows[0], 0.16)
+    await oneLook('Gems, by kind: a gem carried over another heading’s rows', at, { words: `Grouped by kind: that puts a gem under “${foot.head}”, not where it is dropped`, refused: true })
+    await putBack('Gems, by kind, another heading', was)
+  }
+  await h.evaluate(() => { localStorage.removeItem('view:nugget'); localStorage.setItem('view:article', JSON.stringify({ sort: 'manual', group: 'none', filter: {}, density: 'list' })) })
   await h.reload(); await wait(1500); await c.go('today'); await wait(900)
 })
 
