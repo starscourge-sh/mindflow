@@ -6,6 +6,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { z } from 'zod'
 import Papa from 'papaparse'
 import { join, posix } from 'path'
+import { statSync } from 'fs'
 import { hostname } from 'os'
 import { registerPictureWords, wordsOfPicture } from './picture-words'
 
@@ -440,6 +441,27 @@ export function registerCaptures(): void {
   // search box asking: of its asks, one not yet begun gives way to a newer one.
   makeFindTables(db)
   startReader(db, file)
+  // The log of saves (haligtree.db-wal) is folded into the file when the app rests, by name, never inside an
+  // answer. Left to SQLite, it is folded at the end of whichever statement comes after a save once the log has
+  // grown past 4 MB: every save of a long note (8 to 12 MB a save), 10 to 25 ms inside whatever was asked next.
+  // Now: FOLD_REST_MS after the last change told to the windows; or, typing that never rests that long, in a
+  // turn of its own after the answer once the log has passed LOG_CAP. SQLite's own fold stays as the far
+  // backstop (256 MB). Nothing is lost if the app dies before a fold: the log is the book, read with the file at
+  // the next opening; and a quit folds it (`shutDatabase`).
+  const FOLD_REST_MS = 1500
+  const LOG_CAP = 48 * 1024 * 1024
+  db.exec('pragma wal_autocheckpoint = 65536')
+  let folding: NodeJS.Timeout | null = null
+  const fold = (): void => {
+    folding = null
+    if (db.isOpen) named('book: the log folded into the file', () => db.exec('pragma wal_checkpoint(PASSIVE)'))
+  }
+  whenAnyChanged(() => {
+    if (folding) clearTimeout(folding)
+    const grown = (statSync(`${file}-wal`, { throwIfNoEntry: false })?.size ?? 0) > LOG_CAP
+    folding = setTimeout(fold, grown ? 0 : FOLD_REST_MS)
+    folding.unref?.()
+  })
   // New words read in a picture: every note's words and search's list are read again.
   registerPictureWords(() => (forgetRead(), forgetWords()))
   ipcMain.handle('captures:search', (_event, query: unknown) => ask('search', [query]))
