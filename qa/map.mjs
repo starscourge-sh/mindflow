@@ -12,6 +12,9 @@ mkdirSync(dir, { recursive: true })
 const c = await sandbox({ width: 1100, height: 760, seeded: !empty })
 const { h, v, go } = c
 const fail = []
+// The Map's own canvas. Never "a canvas": the paper a note crumples into on its way to the Bin is a canvas too, laid
+// over the whole window from the moment the app is idle (paper-crumple.ts), whatever page is open.
+const MAP = '[data-page="map"] canvas'
 try {
   // A new, empty book: the welcome marked as seen, so the page itself shows.
   if (empty) { await v('onboarding:set', { welcomed: new Date().toISOString(), pageHints: false }); await h.reload(); await h.waitForTimeout(1500) }
@@ -21,8 +24,8 @@ try {
 
   // A dot found by its colour on the canvas, then pointed at; of a few, the one with the most links.
   const pointAtHub = async () => {
-    const spots = await h.evaluate(() => {
-      const canvas = document.querySelector('canvas')
+    const spots = await h.evaluate((MAP) => {
+      const canvas = document.querySelector(MAP)
       if (!canvas) return []
       const { width, height } = canvas
       const data = canvas.getContext('2d').getImageData(0, 0, width, height).data
@@ -34,7 +37,7 @@ try {
           if (a > 250) found.push([rect.left + x / dpr, rect.top + y / dpr])
         }
       return found.filter((_, i) => i % Math.max(1, Math.floor(found.length / 40)) === 0)
-    })
+    }, MAP)
     let best = null
     for (const [x, y] of spots) {
       await h.mouse.move(x, y)
@@ -63,21 +66,26 @@ try {
 
   if (!empty) {
     // Zoom in at the middle, then fit again.
-    const box = await h.evaluate(() => { const r = document.querySelector('canvas').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2] })
+    const box = await h.evaluate((MAP) => { const r = document.querySelector(MAP).getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2] }, MAP)
     await h.mouse.move(box[0], box[1])
     await h.keyboard.down('Meta'); await h.mouse.wheel(0, -200); await h.keyboard.up('Meta')
     await h.waitForTimeout(300)
     await h.screenshot({ path: `${dir}/zoomed-dark.png` })
-    // Clicking a dot opens its note: the page is no longer the map.
+    // Clicking a dot opens its note: the page is no longer the map, and the tab now lit is that note's, by the name
+    // its dot gave when pointed at.
     const hub = await pointAtHub()
     if (hub) {
       await h.mouse.click(hub.x, hub.y)
       await h.waitForTimeout(1200)
-      const still = await h.evaluate(() => !!document.querySelector('canvas'))
-      console.log('click opened a note:', !still, hub.said, await h.evaluate(() => document.querySelector('h1')?.textContent))
-      if (still) fail.push('click did not open the note')
+      const now = await h.evaluate((MAP) => {
+        const tab = document.querySelector('[data-tab][data-tab-on]')
+        return { map: !!document.querySelector(MAP), holds: tab?.dataset.tabOpen ?? '', name: tab?.dataset.dragTitle ?? '' }
+      }, MAP)
+      const opened = !now.map && !!now.holds && !!now.name && hub.said.startsWith(now.name.slice(0, 16))
+      console.log('click opened a note:', opened, hub.said, JSON.stringify(now))
+      if (!opened) fail.push('click did not open the note')
       await h.screenshot({ path: `${dir}/opened-dark.png` })
-    }
+    } else fail.push('no dot to click once zoomed in')
     // With reduced motion the map is drawn settled at once.
     await h.emulateMedia({ reducedMotion: 'reduce' })
     await go('map')
@@ -110,21 +118,21 @@ try {
     console.log(`600 dots while settling: median frame ${sorted[60].toFixed(1)}ms, slowest ${sorted.at(-1).toFixed(1)}ms`)
     await h.waitForTimeout(6000)
     await h.screenshot({ path: `${dir}/many-dark.png` })
-    const busy = await h.evaluate(() => new Promise((done) => {
-      const ctx = document.querySelector('canvas').getContext('2d'); let draws = 0
+    const busy = await h.evaluate((MAP) => new Promise((done) => {
+      const ctx = document.querySelector(MAP).getContext('2d'); let draws = 0
       const clear = ctx.clearRect.bind(ctx); ctx.clearRect = (...a) => (draws++, clear(...a))
       setTimeout(() => done(draws), 1000)
-    }))
+    }), MAP)
     // Settled, the dots only breathe: about 25 drawings a second, none with reduced motion.
     console.log('redraws in a second once settled (breathing):', busy)
     if (busy > 30) fail.push(`drawing ${busy} times a second once settled`)
     await h.emulateMedia({ reducedMotion: 'reduce' })
     await h.waitForTimeout(300)
-    const resting = await h.evaluate(() => new Promise((done) => {
-      const ctx = document.querySelector('canvas').getContext('2d'); let draws = 0
+    const resting = await h.evaluate((MAP) => new Promise((done) => {
+      const ctx = document.querySelector(MAP).getContext('2d'); let draws = 0
       const clear = ctx.clearRect.bind(ctx); ctx.clearRect = (...a) => (draws++, clear(...a))
       setTimeout(() => done(draws), 1000)
-    }))
+    }), MAP)
     console.log('redraws in a second with reduced motion:', resting)
     if (resting) fail.push('still drawing with reduced motion')
   }
