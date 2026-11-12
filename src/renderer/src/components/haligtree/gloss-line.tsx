@@ -6,7 +6,7 @@ import { chime } from '@/lib/sound'
 import { unloaded, useLive, haligtree, when, type Gloss } from '@/lib/haligtree'
 import { useReading } from '@/lib/reads-in'
 import { cn } from '@/lib/cn'
-import { Island, Kbd, Rolling, Tip, toast, typing, Pressed } from './ui'
+import { Island, Kbd, Rolling, Tip, quietly, toast, typing, Pressed } from './ui'
 import { Term } from './term'
 import { GhostText } from './ghost'
 import { ago } from '../../../../main/dates'
@@ -98,14 +98,19 @@ export function GlossButton({ onClick, className }: { onClick: () => void; class
 
 /**
  * Keep a gloss, with its sound and a way back. Taken back, `onUndo` is given
- * the words, for the field they were typed in to have them again.
+ * the words, for the field they were typed in to have them again. `counted`:
+ * kept from a bar whose own count goes up beside the field (the bar under a
+ * note): the count says it was kept, so no notice is shown over the note's
+ * last lines; ⌘Z still takes it back.
  */
-export async function keepGloss(id: string, text: string, onUndo?: (words: string) => void): Promise<void> {
+export async function keepGloss(id: string, text: string, onUndo?: (words: string) => void, counted = false): Promise<void> {
   const words = text.trim()
   if (!words) return
   const gloss = await haligtree.gloss(id, words)
   chime('noted')
-  toast('Your thought is kept, dated today', () => (void haligtree.dropGloss(gloss), onUndo?.(words)))
+  const undo = (): void => (void haligtree.dropGloss(gloss), onUndo?.(words))
+  if (counted) quietly(undo)
+  else toast('Your thought is kept, dated today', undo)
 }
 
 /**

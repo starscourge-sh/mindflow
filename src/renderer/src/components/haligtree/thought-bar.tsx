@@ -102,13 +102,15 @@ export function ThoughtBar({ id, clue = false, className }: {
       return
     }
     const back = (): void => putBack(field, setWords, text)
-    if (!clue) return void keepGloss(id, text, back)
+    // The count beside the field goes up: that says it was kept, so no notice (the user: "the count looks like it is enough information").
+    if (!clue) return void keepGloss(id, text, back, true)
     // Written as a list: a clue a line, with one Undo.
     void keepLines(id, text).then((many) => {
       if (many) return (chime('clue'), toast(`${num(many.length)} clues, a line each`, () => (void dropLines(many), back())))
       void haligtree.addClue(id, text).then((made) => {
         chime('clue')
-        toast('A clue, kept', made ? () => (void haligtree.dropClue(made), back()) : undefined)
+        // One clue: the count says it, as for a thought. ⌘Z still takes it back.
+        quietly(made ? () => (void haligtree.dropClue(made), back()) : undefined)
       })
     })
   }
