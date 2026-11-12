@@ -166,8 +166,8 @@ export const SHORTCUTS: Shortcut[] = [
 
   { group: 'Lists', keys: 'J', does: 'Next row', where: 'Lists' },
   { group: 'Lists', keys: 'K', does: 'Row before', where: 'Lists' },
-  { group: 'Lists', keys: 'G G', does: 'First row', where: 'Lists' },
-  { group: 'Lists', keys: '⇧G', does: 'Last row', where: 'Lists' },
+  { group: 'Lists', keys: 'G G', does: 'First row; in a PDF, its first page', where: 'Lists' },
+  { group: 'Lists', keys: '⇧G', does: 'Last row; in a PDF, its last page', where: 'Lists' },
   { group: 'Lists', keys: '↵', does: 'Open the row', where: 'Lists' },
   { group: 'Lists', keys: 'O', does: 'On Today: start a new task line under the row (⌘↵ too; ⇧O above it)', where: 'Tasks' },
   { group: 'Lists', keys: '⇥', does: 'Writing in Today: make the line a step of the task above (⇧⇥ back out, ⌫ on an empty line takes it away, Esc stops)', where: 'Tasks' },

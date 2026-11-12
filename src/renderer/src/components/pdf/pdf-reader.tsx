@@ -25,7 +25,7 @@ import { usePdfCover } from "./pdf-cover"
 import { detailsOutHere, showDetails, useDetailsShown } from "@/lib/reading"
 import { ScanDetail, ScanLine } from "./pdf-scan"
 import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, wordsIn, type PdfMark } from "./pdf-pages"
-import { FitActions } from "@/components/haligtree/ui"
+import { FitActions, listEnd } from "@/components/haligtree/ui"
 import { LAYOUTS, LOOKS, useDarkPages, useOneInColour, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { ScrubField } from "./scrub-field"
@@ -910,12 +910,22 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     return () => (window.removeEventListener("haligtree:zoom-key", onMenu), window.removeEventListener("keydown", onKey, true))
   })
   // ← → turn a page, as in Preview and Books; Space and Page Down a whole page on, ⇧Space and Page Up back, while the
-  // page fits the width (zoomed in, they scroll a screen, as the browser does). Never while typing or with a floating bar up.
+  // page fits the width (zoomed in, they scroll a screen, as the browser does). g g and G go to the book's first page
+  // and its last, as they go to a list's first and last row and a note's first and last line (asked for 12 Nov: "gg and
+  // G should navigate here too"). Never while typing or with a floating bar up.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
+      // Asked before anything turns the key away, so the first g of a pair is heard (ui.tsx listEnd).
+      const end = listEnd(event)
       if (event.metaKey || event.ctrlKey || event.altKey || event.defaultPrevented || !keysHere(pane)) return
       if (event.target instanceof HTMLElement && event.target.closest("input, textarea, select, [contenteditable=true], [role=menu], [role=dialog]")) return
       if (picked || carding || looking || whyFor || snipping) return
+      if (end) {
+        event.preventDefault()
+        const last = doc?.numPages ?? 1
+        if ((end === "first" ? 1 : last) === page) return chime("nope")
+        return go(end === "first" ? 1 : last)
+      }
       const by = layout === "spread" ? 2 : 1
       const whole = zoom <= 1
       const way = event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1

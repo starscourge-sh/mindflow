@@ -42,6 +42,14 @@ try {
   check('← turns back', (await box()).value === '48', JSON.stringify(await box()))
   await h.keyboard.press(' '); await wait(600)
   check('Space turns a whole page at Fit width', (await box()).value === '49', JSON.stringify(await box()))
+  // g g and G: the book's first page and its last, as a list's first and last row (asked for 12 Nov: "gg and G should
+  // navigate here too").
+  await h.keyboard.press('Shift+G'); await wait(1400)
+  check('G goes to the book\'s last page', /(^|\D)354 of 354/.test((await box()).file ?? ''), JSON.stringify(await box()))
+  await h.keyboard.press('g'); await wait(500)
+  check('one g alone moves nothing', /(^|\D)354 of 354/.test((await box()).file ?? ''), JSON.stringify(await box()))
+  await h.keyboard.press('g'); await wait(1400)
+  check('g g goes to its first page', (await box()).value === 'CA' && /(^|\D)1 of 354/.test((await box()).file ?? ''), JSON.stringify(await box()))
 
   // Find: floats over the pages (they never move), the first hit soon, the count growing, working shown.
   const pagesTop = () => h.evaluate(() => Math.round(document.querySelector('.pdf-reader-scroll').getBoundingClientRect().top))
