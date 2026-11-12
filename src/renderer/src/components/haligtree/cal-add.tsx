@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { animate, motion, useMotionValue, type MotionValue } from 'motion/react'
+import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { CalendarPlus, SquareCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PopoverAnchor, PopoverArrow, PopoverContent } from '@/components/ui/popover'
@@ -90,12 +90,22 @@ export function DraftMark({ kind, color, shape, time, style, ref }: {
 function Sized({ children }: { children: React.ReactNode }): React.JSX.Element {
   const inner = useRef<HTMLDivElement>(null)
   const height = useMotionValue<number | string>('auto')
+  // What the rest of the popover adds to the box: its top row and its edges (not a whole number at every interface size).
+  const rest = useRef(0)
+  // Drawn so that the whole popover is a whole number of pixels tall, at every frame. The spring gives a height with a
+  // fraction; the popover's placement reads that back to three decimals, and its sum (moved up to fit the window, then
+  // asked once more whether it fits) could leave a hair over, 1e-13px. For that frame the popover was placed by its
+  // other end, some 270px away, and came back on the next: a flash at the end of every row opened low in the window.
+  const whole = useTransform(height, (now) => (typeof now === 'number' ? Math.ceil(now + rest.current - 0.001) - rest.current : now))
   useLayoutEffect(() => {
     const el = inner.current
     if (!el) return
     let going: { stop: () => void } | null = null
     // Read as what it holds is laid out anew (a ResizeObserver runs once layout is done, so the read costs nothing).
     const fit = (): void => {
+      const box = el.parentElement
+      const pop = box?.parentElement
+      if (box && pop) rest.current = pop.getBoundingClientRect().height - box.getBoundingClientRect().height
       const to = Math.ceil(el.getBoundingClientRect().height)
       const from = height.get()
       going?.stop()
@@ -111,7 +121,7 @@ function Sized({ children }: { children: React.ReactNode }): React.JSX.Element {
     return () => (watch.disconnect(), going?.stop())
   }, [height])
   return (
-    <motion.div data-cal-add-sized style={{ height }} className="mf-more min-h-0 shrink overflow-x-hidden overflow-y-auto [scrollbar-width:none]">
+    <motion.div data-cal-add-sized style={{ height: whole }} className="mf-more min-h-0 shrink overflow-x-hidden overflow-y-auto [scrollbar-width:none]">
       <div ref={inner}>{children}</div>
     </motion.div>
   )
