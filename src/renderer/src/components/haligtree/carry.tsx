@@ -195,7 +195,69 @@ const ROOM = 'pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in
  * place read off it, for rows that stay where they are (the sidebar's trees).
  */
 export function DropLine({ how, style, fixed = false }: { how: string; style: CSSProperties; fixed?: boolean }): React.JSX.Element {
-  return <span aria-hidden data-drop-line={how} style={style} className={cn('pointer-events-none h-0.5 -translate-y-1/2 rounded-full shrink-0 bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background', fixed ? 'fixed z-[70]' : 'absolute right-2')} />
+  const line = useRef<HTMLSpanElement>(null)
+  // Said to the card each time it is drawn at a place, and when it goes: the card rides clear of it (useClear).
+  useLayoutEffect(() => {
+    lineNow = line.current
+    for (const tell of lineHeard) tell()
+    return () => {
+      lineNow = null
+      for (const tell of lineHeard) tell()
+    }
+  })
+  return <span ref={line} aria-hidden data-drop-line={how} style={style} className={cn('pointer-events-none h-0.5 -translate-y-1/2 rounded-full shrink-0 bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background', fixed ? 'fixed z-[70]' : 'absolute right-2')} />
+}
+/** The line drawn just now, if any, and who hears of it moving. */
+let lineNow: HTMLElement | null = null
+const lineHeard = new Set<() => void>()
+/** How far the card stays from the line it is about. */
+const CLEAR = 6
+
+/**
+ * The card never covers the line it is about (in a narrow list it hid nearly all
+ * of it): where it would, it rides just clear of it, on the side of the line the
+ * pointer is on, so the pointer stays on the card, and crosses over as the pointer
+ * does. Heard from the pointer, a list scrolling and the line itself, never read
+ * on a clock. A spring there; with Reduce motion or Motion off it is simply there.
+ */
+function useClear(): { ref: (node: HTMLElement | null) => void; y: MotionValue<number> } {
+  const to = useMotionValue(0)
+  const y = useSpring(to, { stiffness: 520, damping: 38, mass: 0.6 })
+  const card = useRef<HTMLElement | null>(null)
+  useLayoutEffect(() => {
+    let side: 'under' | 'over' | null = null
+    const look = (): void => {
+      const box = card.current?.getBoundingClientRect()
+      const line = lineNow?.isConnected ? lineNow.getBoundingClientRect() : null
+      let next = 0
+      if (box?.height && line?.width) {
+        const at = line.top + line.height / 2
+        // The side the pointer is on, kept through a few pixels round the line so the card never flutters across it.
+        side = side === 'under' ? (pointerY < at - 4 ? 'over' : 'under') : side === 'over' ? (pointerY > at + 4 ? 'under' : 'over') : pointerY >= at ? 'under' : 'over'
+        // Where its middle would be by the pointer alone, and how far that is from clear of the line.
+        const middle = box.top + box.height / 2 - y.get()
+        const reach = box.height / 2 + CLEAR
+        next = side === 'under' ? Math.max(0, at + reach - middle) : Math.min(0, at - reach - middle)
+      } else side = null
+      if (still()) (to.jump(next), y.jump(next))
+      else to.set(next)
+    }
+    lineHeard.add(look)
+    window.addEventListener('pointermove', look, true)
+    window.addEventListener('scroll', look, true)
+    return () => {
+      lineHeard.delete(look)
+      window.removeEventListener('pointermove', look, true)
+      window.removeEventListener('scroll', look, true)
+    }
+  }, [to, y])
+  return { ref: useCallback((node: HTMLElement | null) => void (card.current = node), []), y }
+}
+
+/** A card drawn by the page itself, not in a list's lifted place (the sidebar's folders): it rides clear of the line too. */
+export function Clear({ children }: { children: ReactNode }): React.JSX.Element {
+  const clear = useClear()
+  return <motion.div ref={clear.ref} style={{ y: clear.y }}>{children}</motion.div>
 }
 
 export function CarryRow({ id, children, inner, indent = 0, grip = true }: { id: string; children: ReactNode; inner?: CSSProperties; indent?: number; /** A list that draws its own handle says so. */ grip?: boolean }): React.JSX.Element {
@@ -579,10 +641,13 @@ export function Hand({ grab, from, rest, at, children }: { grab: number; from: n
   const sideways = useSpring(dragX, { stiffness: 700, damping: 42, mass: 0.5 })
   const x = useTransform(() => (calm ? dragX.get() : sideways.get()))
   const lean = useSpring(useTransform(() => (calm ? 0 : Math.max(-3, Math.min(3, (dragX.get() - sideways.get()) * 0.12)))), { stiffness: 400, damping: 30 })
+  // Up or down it rests where a list says (useCardPlace), and always clear of the line.
+  const clear = useClear()
+  const y = useTransform(() => (rest?.get() ?? 0) + clear.y.get())
   return (
     <div className="relative h-full w-full">
       <div className="absolute" style={{ top: at ?? '50%', left: `min(${grab + 18}px, 40%)`, translate: '0 -50%' }}>
-        <motion.div className="relative w-fit" style={{ x, y: rest, rotate: lean }}>{children}</motion.div>
+        <motion.div ref={clear.ref} className="relative w-fit" style={{ x, y, rotate: lean }}>{children}</motion.div>
       </div>
     </div>
   )

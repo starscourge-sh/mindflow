@@ -13,7 +13,7 @@ import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { GroupIcon, IconChoice, binGroup } from './kept-groups'
-import { CarriedCard, DropLine, swallowClick, swallowRelease } from './carry'
+import { CarriedCard, Clear, DropLine, swallowClick, swallowRelease } from './carry'
 import { pastEdge } from '@/lib/drag-edge'
 import { slotTicker } from '@/lib/proximity'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
@@ -281,9 +281,11 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
       {/* The folder carried, as a row is carried in the list: lifted under the pointer, in the app's own look. */}
       {lifted && createPortal(
         <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ left: carried.x + 18, top: carried.y, translate: '0 -50%' }}>
-          {/* It says what letting go would do, as a list's card does: beside a folder, or inside the one that is lit. */}
-          <CarriedCard attrs={{ 'data-folder-ghost': lifted.id }} icon={<GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />} title={lifted.name} refused={!!aim && tooDeep(lifted.id, aim)}
-            words={!aim ? null : tooDeep(lifted.id, aim) ? `Folders go ${DEPTH} levels deep` : aim.how === 'into' ? `Put inside ${all.find((one) => one.id === aim.target)?.name ?? 'it'}` : 'Move here'} />
+          {/* It says what letting go would do, as a list's card does: beside a folder, or inside the one that is lit. It rides clear of the line, as a list's card does. */}
+          <Clear>
+            <CarriedCard attrs={{ 'data-folder-ghost': lifted.id }} icon={<GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />} title={lifted.name} refused={!!aim && tooDeep(lifted.id, aim)}
+              words={!aim ? null : tooDeep(lifted.id, aim) ? `Folders go ${DEPTH} levels deep` : aim.how === 'into' ? `Put inside ${all.find((one) => one.id === aim.target)?.name ?? 'it'}` : 'Move here'} />
+          </Clear>
         </div>,
         document.body
       )}
