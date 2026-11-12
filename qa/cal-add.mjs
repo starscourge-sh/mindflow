@@ -783,11 +783,13 @@ try {
       check('an open event has its quiet rows: calendar, place, people, reminder and repeat, each one line', r?.quiet.join() === 'calendar,remind,repeat' && r.place && r.people, JSON.stringify(r && { quiet: r.quiet, place: r.place, people: r.people }))
       const shutHeight = r?.h
       // The reminder: a line that opens its choices in place; the width is one, the height follows.
-      const tall = await h.evaluate(() => { window.__h = []; const pop = document.querySelector('[data-cal-add]'); const t0 = performance.now(); const tick = () => { window.__h.push(Math.round(pop.getBoundingClientRect().height)); if (performance.now() - t0 < 700) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
-      await film('rows-remind-open', async () => { await h.click('[data-cal-add] [data-quiet-row="remind"] > button'); await wait(700) }, 8)
+      // Every height the popover is drawn at for a second and a half from here. (With pictures being taken the page draws
+      // few frames, so the steps are counted only on a run without them.)
+      await h.evaluate(() => { window.__h = []; const pop = document.querySelector('[data-cal-add]'); const t0 = performance.now(); const tick = () => { window.__h.push(Math.round(pop.getBoundingClientRect().height)); if (performance.now() - t0 < 1500) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+      await film('rows-remind-open', async () => { await h.click('[data-cal-add] [data-quiet-row="remind"] > button'); await wait(1000) }, 8)
       r = await rows()
       const heights = await h.evaluate(() => [...new Set(window.__h)])
-      check('"Reminder" opens its choices in place: the width stays 320, the height grows through steps, and it stays inside the window', r?.quiet.includes('remind:open') && Math.abs(r.w - 320) < 1 && r.h > shutHeight + 20 && heights.length > 3 && fits(r) && r.wide === 0, `${shutHeight} to ${r?.h}px through ${heights.length} heights; ${r?.w}px wide; ${r?.wide} past its edge`)
+      check(`"Reminder" opens its choices in place: the width stays 320, the height grows${dir ? '' : ' through steps'}, and it stays inside the window`, r?.quiet.includes('remind:open') && Math.abs(r.w - 320) < 1 && r.h > shutHeight + 20 && (!!dir || heights.length > 3) && fits(r) && r.wide === 0, `${shutHeight} to ${r?.h}px through ${heights.length} heights; ${r?.w}px wide; ${r?.wide} past its edge`)
       await shot('rows-remind')
       const before = (await theEvent())?.remind
       await h.click('[data-cal-add] [data-remind="30"]')
