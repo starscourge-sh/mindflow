@@ -78,7 +78,9 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
         style={{ minWidth: Math.min(54 + [...tab.label].length * 7, 124) }}
         className={`group/tab relative mx-0.5 flex h-full max-w-52 flex-[1_1_0] items-stretch py-[3px] ${on ? 'z-10' : ''} ${faint ? 'opacity-40' : ''}`}>
         {on && (
-          <span aria-hidden className="pointer-events-none absolute inset-x-1 inset-y-0 rounded-t-[9px] border border-b-0 border-(--mf-tab-line) bg-(--mf-tab)">
+          // As wide as the tab's own place, as the other tabs' shapes are: drawn a quarter rem in from each side, its
+          // icon and its ✕ sat half as far from its edge as theirs do from theirs ("tab looks thin on the sides", 12 Nov).
+          <span aria-hidden className="pointer-events-none absolute inset-0 rounded-t-[9px] border border-b-0 border-(--mf-tab-line) bg-(--mf-tab)">
             <Foot side="left" /><Foot side="right" />
           </span>
         )}
@@ -141,7 +143,7 @@ function Tabs({ group, actions }: { group: TabGroup; actions: TabActions }): Rea
         const next = group.tabs[(at + by + group.tabs.length) % group.tabs.length]
         box.current?.querySelector<HTMLElement>(`[data-tab="${next.key}"] [role="tab"]`)?.focus()
       }}
-      className="mf-tabs-fade relative flex h-full min-w-0 overflow-x-auto overflow-y-hidden px-3 [scrollbar-width:none] data-[queue-hot]:bg-transparent">
+      className="mf-tabs-fade relative flex h-full min-w-0 overflow-x-auto overflow-y-hidden px-4 [scrollbar-width:none] data-[queue-hot]:bg-transparent">
       {parts}
     </div>
   )
