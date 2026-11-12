@@ -26,8 +26,9 @@ const look = (bar) => h.evaluate((bar) => {
     if (Number(s.opacity) < 1 || s.maskImage !== 'none' || s.filter !== 'none' || s.clipPath !== 'none' || s.backdropFilter !== 'none' || s.mixBlendMode !== 'normal') breaks.push(`${at.tagName}.${String(at.className).slice(0, 40)}`)
   }
   const layers = [...edge.children].map((one) => getComputedStyle(one).backdropFilter)
+  const shown = [...edge.children].map((one) => getComputedStyle(one).display)
   const e = edge.getBoundingClientRect()
-  return { breaks, layers, edgeTop: Math.round(e.top), edgeBottom: Math.round(e.bottom), barTop: Math.round(document.querySelector(bar).getBoundingClientRect().top) }
+  return { breaks, layers, shown, edgeTop: Math.round(e.top), edgeBottom: Math.round(e.bottom), barTop: Math.round(document.querySelector(bar).getBoundingClientRect().top), rem: parseFloat(getComputedStyle(document.documentElement).fontSize) }
 }, bar)
 
 /** The scroller under it: scrolled to the end, where its last line of words sits against the bar's top. */
@@ -90,8 +91,11 @@ const frames = async (x, y) => {
 
 const report = (name, seen, end, passing, fr, flat) => {
   check(`${name}: no parent of the blur fades, masks or filters`, !!seen && !seen.none && seen.breaks.length === 0, JSON.stringify(seen))
-  check(`${name}: its four layers blur`, !!seen?.layers && seen.layers.every((one) => /blur/.test(one)), JSON.stringify(seen?.layers))
-  check(`${name}: the blur rises over the bar's top`, !!seen && seen.edgeTop < seen.barTop - 30, JSON.stringify(seen))
+  // Under a bar the words dim evenly over 3rem and soften only once mostly gone: two light layers, never the edge's four
+  // (12 Nov: one smeared line stood over an empty band above the bar, "that bridge between the blur starting and the comment input").
+  check(`${name}: two layers blur, lightly (2px and 5px), and the other two draw nothing`, !!seen?.layers && /blur\(2px\)/.test(seen.layers[0]) && /blur\(5px\)/.test(seen.layers[1]) && seen.shown.slice(2).every((one) => one === 'none'), JSON.stringify([seen?.layers, seen?.shown]))
+  // 3rem, whatever the app's own size makes a rem (17px at the usual size: 51px).
+  check(`${name}: the fade stands 3rem over the bar's top`, !!seen && Math.abs(seen.barTop - seen.edgeTop - 3 * seen.rem) <= 2, JSON.stringify(seen))
   check(`${name}: words pass under the bar`, passing)
   check(`${name}: nothing reads at the bar's own height, beside it or under it (the band is one flat colour, light and dark)`, !!flat && flat.every((one) => one.step <= 3), JSON.stringify(flat))
   check(`${name}: scrolled to the end, the last line sits clear of the bar`, !!end?.clear, JSON.stringify(end))

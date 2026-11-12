@@ -3789,22 +3789,30 @@ textarea[data-talking]::selection {
   .mf-blur-edge > span:nth-child(4) { backdrop-filter: blur(12px); mask-image: linear-gradient(to top, black 0%, transparent 25%); }
 }
 /* Under a bar at a view's foot (BlurEdge bar, blur-edge.tsx: the note's "Add a thought…", read mode's foot, the
-   writing room's foot, the Journal's writer line): the bar's own height and 2.5rem over it. The words go out in
-   those 2.5rem above the bar, blurring and fading into the page's colour, and from the bar's top edge to the foot
-   the page's colour is whole: nothing reads beside a bar or under it (at 82% a line passing under still read
-   faintly at the bar's own height, to its left and right). With Reduce Transparency there is no blur, only the
-   fade. */
-.mf-blur-edge.mf-blur-bar { height: calc(100% + 2.5rem); background: none; }
+   writing room's foot, the Journal's writer line): the bar's own height and 3rem over it. The words go out in
+   those 3rem above the bar: they dim first, evenly, and soften only once they are more than half gone, so no line
+   ever stands as bright letters with a blurred copy round them over an empty band (12 Nov, the user: "that bridge
+   between the blur starting and the comment input"; the wash used to reach 82% two thirds of the way down while the
+   blur began at the top). From the bar's top edge to the foot the page's colour is whole: nothing reads beside a
+   bar or under it. With Reduce Transparency there is no blur, only the fade. */
+.mf-blur-edge.mf-blur-bar { height: calc(100% + 3rem); background: none; }
+/* Two blur layers, not the edge's four, each as tall as the fade (below) and kept to its lower half, where the
+   wash is already past half: 2px from 1.7rem over the bar down, 5px from 1.1rem down. */
+@media (prefers-reduced-transparency: no-preference) {
+  .mf-blur-edge.mf-blur-bar > span:nth-child(1) { backdrop-filter: blur(2px); mask-image: linear-gradient(to top, black 0, black 1rem, transparent 1.7rem); }
+  .mf-blur-edge.mf-blur-bar > span:nth-child(2) { backdrop-filter: blur(5px); mask-image: linear-gradient(to top, black 0, black 0.4rem, transparent 1.1rem); }
+  .mf-blur-edge.mf-blur-bar > span:nth-child(n+3) { display: none; }
+}
 /* Its wash a layer of its own, so a bar that comes and goes fades the wash and each blur layer, never the edge
    itself: an edge part way faded is a parent that fades, and its blur would see nothing (data-hide). */
 .mf-blur-bar::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, var(--background) calc(100% - 2.5rem), color-mix(in oklab, var(--background) 82%, transparent) calc(100% - 1.875rem), color-mix(in oklab, var(--background) 45%, transparent) calc(100% - 1rem), transparent);
+  background: linear-gradient(to top, var(--background) calc(100% - 3rem), color-mix(in oklab, var(--background) 92%, transparent) calc(100% - 2.6rem), color-mix(in oklab, var(--background) 76%, transparent) calc(100% - 2.1rem), color-mix(in oklab, var(--background) 52%, transparent) calc(100% - 1.5rem), color-mix(in oklab, var(--background) 26%, transparent) calc(100% - 0.9rem), color-mix(in oklab, var(--background) 8%, transparent) calc(100% - 0.4rem), transparent);
 }
 /* Its blur layers keep to the fade over the bar: under the bar the wash is whole and a blur there would draw nothing. */
-.mf-blur-bar > span { bottom: auto; height: 2.5rem; }
+.mf-blur-bar > span { bottom: auto; height: 3rem; }
 .mf-blur-bar::before, .mf-blur-bar > span { transition: opacity 300ms var(--mf-ease); }
 .mf-blur-bar[data-hide]::before, .mf-blur-bar[data-hide] > span { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .mf-blur-bar::before, .mf-blur-bar > span { transition: none; } }
@@ -3813,7 +3821,7 @@ textarea[data-talking]::selection {
    line still scrolls clear of the bar. A note's word count and session line, and "Top", rise above it too. */
 [data-docked] > :is([data-thought-dock], [data-read-dock]) { margin-top: calc(-1 * var(--mf-dock-h, 0px)); }
 [data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content,
-[data-docked] > [data-dock-scroll] { padding-bottom: calc(var(--mf-dock-h, 0px) + 2.75rem); }
+[data-docked] > [data-dock-scroll] { padding-bottom: calc(var(--mf-dock-h, 0px) + 3.25rem); }
 [data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line) > :is(.tiptap-word-count, .mf-session-foot),
 [data-docked] [data-back-to-top] { margin-bottom: var(--mf-dock-h, 0px); }
 
