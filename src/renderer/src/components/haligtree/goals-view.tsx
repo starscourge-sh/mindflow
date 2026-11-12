@@ -745,7 +745,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
               <Chips options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
                 on={(id) => id === beacon} pick={(id) => setBeacon(id as Beacon)} />
               <span className="text-meta leading-snug text-muted-foreground">
-                {beacon === 'always' ? 'On every Space, all the time.' : beacon === 'sometimes' ? 'Out a few times a day, then tucked away. In the last week it stays.' : 'The menu bar and Home still show it.'}
+                {beacon === 'always' ? 'On every Space, but for quiet hours and meetings.' : beacon === 'sometimes' ? 'Out a few times a day, then tucked away. In the last week it stays.' : 'The menu bar and Home still show it.'}
               </span>
             </div>
             <Prop icon={ICON(ACT.home(onHome(item)))} active={onHome(item)} onClick={() => setOnHome(item, !onHome(item))} tip={onHome(item) ? 'Shown at the top of Home' : 'Once you choose any, only the ones you choose show at the top of Home'}>
