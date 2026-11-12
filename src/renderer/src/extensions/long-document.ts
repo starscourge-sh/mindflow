@@ -650,10 +650,17 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
   // the browser lays out: with the caret deep in a long note, a press that changed the page stopped the window
   // for seconds. What hides a note is said on something above it (an attribute: inert, hidden, a style, a class),
   // so those are watched, and the selection is let go of before the browser next lays the page out.
-  const hidden = new MutationObserver(() => void (held() && away() && release()))
+  //
+  // Whether a change took the note off the page is read from the changed box itself (inert, hidden, not displayed
+  // by its own style, or wearing the app's class for that), and only those four things are listened for. Asked of
+  // the browser instead (where the selection is, whether the note can be seen), it brought every style in the
+  // window up to date there and then, in the middle of the page's own work: 140 ms with a long note open, on any
+  // change at all to any box above the note.
+  const hides = (above: Node): boolean => above instanceof HTMLElement && (above.inert || above.hidden || above.style.display === "none" || above.style.contentVisibility === "hidden" || above.classList.contains("hidden"))
+  const hidden = new MutationObserver((records) => void (records.some((record) => hides(record.target)) && release()))
   const watchAbove = (): void => {
     hidden.disconnect()
-    for (let above = view.dom.parentElement; above; above = above.parentElement) hidden.observe(above, { attributes: true })
+    for (let above = view.dom.parentElement; above; above = above.parentElement) hidden.observe(above, { attributes: true, attributeFilter: ["inert", "hidden", "style", "class"] })
   }
   // A place a caret can be, kept on the page at each end of the note, beside it in its scroller. Whenever the
   // browser's selection is at a place no caret can be (the edge of a box: where a press on bare chrome puts it,
