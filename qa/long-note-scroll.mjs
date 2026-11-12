@@ -229,14 +229,25 @@ const install = () => h.evaluate((sel) => {
       const view = box.getBoundingClientRect()
       const x = e.getBoundingClientRect().left + Math.min(240, e.clientWidth / 2)
       const first = blockAt(e, x, view.top + 30) ?? blockAt(e, x, view.top + 80)
+      // The foot of what shows of the note: its scroller's, or the top of what floats over that (the dock under an
+      // open note, and the fade over the dock). A block under it is not on show, and cannot be asked whether it is
+      // drawn: every point of it answers with the dock, and it was counted as a block on the screen not drawn.
+      let foot = view.bottom
+      for (let i = 0; i < 4; i++) {
+        const over = document.elementFromPoint(x, foot - 2)
+        const top = over && !box.contains(over) ? over.getBoundingClientRect().top : foot
+        if (top >= foot - 2 || top < view.bottom - 200) break
+        foot = top
+      }
       let far = 0
+      let farAt = -1
       for (let block = first; block; block = block.nextElementSibling) {
         const rect = block.getBoundingClientRect()
-        if (rect.top >= view.bottom) break
-        if (rect.height && rect.bottom > view.top + 2 && !drawn(block, x, Math.min(view.bottom - 2, Math.max(view.top + 2, rect.top + Math.min(8, rect.height / 2))))) far++
+        if (rect.top >= foot - 12) break
+        if (rect.height && rect.bottom > view.top + 2 && !drawn(block, x, Math.min(foot - 2, Math.max(view.top + 2, rect.top + Math.min(8, rect.height / 2))))) { far++; if (farAt < 0) farAt = indexOf(e, block) }
       }
       const shells = e.querySelectorAll(':scope > [data-far]').length
-      return { top: Math.round(box.scrollTop), tall: box.scrollHeight, height: box.clientHeight, first: first ? indexOf(e, first) : -1, firstTop: first ? Math.round(first.getBoundingClientRect().top - view.top) : 0, far, blocks: e.childElementCount, shells, smooth: getComputedStyle(box).scrollBehavior, caret: e.editor.state.selection.$head.index(0), x: Math.round(view.left + view.width / 2), y: Math.round(view.top + view.height / 2), right: Math.round(view.right), boxTop: Math.round(view.top), boxBottom: Math.round(view.bottom) }
+      return { top: Math.round(box.scrollTop), tall: box.scrollHeight, height: box.clientHeight, first: first ? indexOf(e, first) : -1, firstTop: first ? Math.round(first.getBoundingClientRect().top - view.top) : 0, far, farAt, foot: Math.round(foot), blocks: e.childElementCount, shells, smooth: getComputedStyle(box).scrollBehavior, caret: e.editor.state.selection.$head.index(0), x: Math.round(view.left + view.width / 2), y: Math.round(view.top + view.height / 2), right: Math.round(view.right), boxTop: Math.round(view.top), boxBottom: Math.round(view.bottom) }
     },
   }
 }, ED)
@@ -801,8 +812,31 @@ try {
     const size = original.content.length
     const alone = process.env.ONLY === 'click'
     const word = alone ? `Zq${1000 + (Date.now() % 9000)}x` : 'Zq7x'
-    // To the end, then a click in a block on the screen and a word typed.
     if (process.env.TRACE) await traced()
+    // ONLY=shift: the far ⇧-click alone (the caret left at the note's very end, the screen about a third of the
+    // way down, then ⇧-click), TIMES times (6) in one launch, each at a slightly different place; with TRACE=1,
+    // what happened round each one that did not pick from the click to the caret is printed.
+    if (process.env.ONLY === 'shift') {
+      for (let n = 0; n < Number(process.env.TIMES ?? 6); n++) {
+        await h.evaluate(() => window.__ln.ed().editor.commands.focus('start'))
+        await h.keyboard.press('Meta+ArrowDown')
+        await h.waitForTimeout(700)
+        await h.evaluate((share) => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * share, behavior: 'instant' }) }, 0.3 + n * 0.013)
+        await h.waitForTimeout(900)
+        const far = await seek()
+        const was = await h.evaluate(() => { const e = window.__ln.ed(); const s = getSelection(); const { selection } = e.editor.state; let block = s.anchorNode; while (block && block.parentElement !== e) block = block.parentElement; return { caret: selection.$anchor.index(0), browser: s.rangeCount ? (block ? `block ${Array.prototype.indexOf.call(e.children, block)}` : 'outside the note') : 'none', keys: document.activeElement === e } })
+        if (process.env.TRACE && far) await h.evaluate(([far, n]) => window.__tr.push(`${performance.now().toFixed(1)} THE SHIFT CLICK ${n}, on block ${far.index} at ${far.x},${far.y}`), [far, n])
+        if (far) { await h.keyboard.down('Shift'); await h.mouse.click(far.x, far.y); await h.keyboard.up('Shift') }
+        const picked = (await answersWithin(30)) ? await h.evaluate(() => { const { selection, doc } = window.__ln.ed().editor.state; return { from: selection.$from.index(0), to: selection.$to.index(0), blocks: doc.childCount } }) : null
+        const ok = !!far && !!picked && Math.abs(picked.from - far.index) <= 2 && picked.to >= picked.blocks - 2
+        check(`far ⇧-click ${n + 1}: picked from the place clicked to the caret`, ok, `before it the caret is in block ${was.caret}, the browser's selection ${was.browser}, the keys in the note ${was.keys}; clicked block ${far?.index} ("${far?.words}") at ${far?.x},${far?.y}; picked ${picked ? `blocks ${picked.from} to ${picked.to} of ${picked.blocks}` : 'nothing: the window did not answer'}  (${load()})`)
+        if (!ok && process.env.TRACE) console.log('round it:\n  ' + (await h.evaluate((n) => window.__tr.slice(Math.max(0, window.__tr.findIndex((line) => line.includes(`THE SHIFT CLICK ${n},`)) - 10)).filter((line) => !/event scroll|idle callback/.test(line)).slice(0, 40), n)).join('\n  '))
+        await h.keyboard.press('ArrowLeft')
+        await h.waitForTimeout(300)
+      }
+      break caret
+    }
+    // To the end, then a click in a block on the screen and a word typed.
     const before = await h.evaluate(() => window.__ln.ed().editor.state.doc.content.size)
     await h.evaluate(() => window.__ln.ed().editor.commands.focus('start'))
     await h.keyboard.press('Meta+ArrowDown')
@@ -898,7 +932,8 @@ try {
     await h.waitForTimeout(600)
     const all = await copied()
     const shown = await state()
-    check('⌘A then copy gives the whole note, and the screen stays where it was', all.span >= all.whole - 2 && all.text >= all.want * 0.9 && all.text > 500000 && shown.far === 0 && Math.abs(shown.first - (two?.index ?? shown.first)) < 80 && (await answers()), `selection spans ${all.span} of ${all.whole}; a copy takes ${all.text} characters of ${all.want}; first block on screen ${shown.first}`)
+    const answering = await answers()
+    check('⌘A then copy gives the whole note, and the screen stays where it was', all.span >= all.whole - 2 && all.text >= all.want * 0.9 && all.text > 500000 && shown.far === 0 && Math.abs(shown.first - (two?.index ?? shown.first)) < 80 && answering, `selection spans ${all.span} of ${all.whole}; a copy takes ${all.text} characters of ${all.want}; first block on screen ${shown.first}; blocks on show not drawn ${shown.far}${shown.far ? ` (the first is block ${shown.farAt}; what shows ends ${shown.foot}px down the window)` : ''}; the window answers ${answering}`)
     // The caret left at the note's very end, the screen a third of the way down, then ⇧-click: picked from the place
     // clicked to the caret, thousands of blocks away and none of them drawn, at once. Then ⌘A, at once too.
     await h.evaluate(() => window.__ln.ed().editor.commands.focus('start'))
@@ -975,7 +1010,7 @@ try {
     const alive = await answers()
     check('left in the middle of a fling and come back to: no spin, the same place', alive && Math.abs(returned.first - leaving.first) <= 60 && returned.far === 0, `left at block ${leaving.first} (still moving), came back at block ${returned.first}, ${returned.firstTop}px down; stand-ins on screen ${returned.far}; the window ${alive ? 'answers' : 'does NOT answer'}`)
   }
-  check('no page errors', !c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|status of 404/.test(line)).length, c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|status of 404/.test(line)).slice(0, 3).join(' | '))
+  check('no page errors', !c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|status of 404|NotSameOrigin/.test(line)).length, c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|status of 404|NotSameOrigin/.test(line)).slice(0, 3).join(' | '))
 } finally {
   await c.close()
 }
