@@ -6,14 +6,20 @@
 //
 //   npx electron-vite build --outDir out-study
 //   QA_ENTRY=out-study/main/index.js SHOTS=<dir> node qa/study.mjs
+//
+// CARDS=1 runs only the lines about cards written in a note, on the data folder given (a copy of the seeded
+// sandbox: QA_ARGS=--sandbox QA_DATA=<the copy>), with no fresh install and no seeding of its own.
 import { mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 
 const dir = process.env.SHOTS ?? join(tmpdir(), 'study-shots')
 mkdirSync(dir, { recursive: true })
-process.env.QA_DATA = mkdtempSync(join(tmpdir(), 'haligtree-study-'))
-process.env.QA_ARGS = ''
+const CARDS = !!process.env.CARDS
+if (!CARDS) {
+  process.env.QA_DATA = mkdtempSync(join(tmpdir(), 'haligtree-study-'))
+  process.env.QA_ARGS = ''
+}
 const { sandbox } = await import('./sandbox-lib.mjs')
 
 let failed = 0
@@ -59,18 +65,20 @@ try {
 
   // --- the review reminder, with nothing due: silent ------------------------------------
   const minuteAgo = new Date(Date.now() - 60000).toTimeString().slice(0, 5)
-  await v('settings:set', { reviewReminder: minuteAgo, quietStart: '03:00', quietEnd: '03:01' })
-  check('reminder: silent when nothing is due', (await v('review:reminder:now')) === null)
+  if (!CARDS) await v('settings:set', { reviewReminder: minuteAgo, quietStart: '03:00', quietEnd: '03:01' })
+  if (!CARDS) check('reminder: silent when nothing is due', (await v('review:reminder:now')) === null)
   // Off again until its own test, so the half-minute check cannot send it first.
   await v('settings:set', { reviewReminder: null })
 
   // --- cards written in a note ----------------------------------------------------------
   const note = await h.evaluate((body) => window.api.captures.create({ body }), doc('Trip to Peru', 'Capital of Peru :: Lima', 'std::vector is not a card'))
-  let cards = (await v('items', 'card')).filter((one) => !one.archivedAt)
+  // This note's cards: in a fresh book they are the only ones.
+  const ofNote = (list) => list.filter((one) => !one.archivedAt && one.lineOf === `capture:${note}`)
+  let cards = ofNote(await v('items', 'card'))
   check('a :: line becomes a card', cards.length === 1 && cards[0].prompt === 'Capital of Peru' && cards[0].lineOf === `capture:${note}`, JSON.stringify(cards.map((one) => [one.prompt, one.lineOf])))
   const cardId = cards[0]?.id
   await h.evaluate(([id, body]) => window.api.captures.save(id, { body }), [note, doc('Trip to Peru', 'Capital city of Peru :: Lima', 'Highest lake :: Titicaca')])
-  cards = (await v('items', 'card')).filter((one) => !one.archivedAt)
+  cards = ofNote(await v('items', 'card'))
   check('an edited line keeps its card, a new line adds one', cards.length === 2 && cards.some((one) => one.id === cardId && one.prompt === 'Capital city of Peru'), cards.map((one) => one.prompt).join(' | '))
   const full = await v('item', cardId)
   check('the card answers with the words after ::', full?.body === 'Lima', JSON.stringify(full?.body))
@@ -81,34 +89,45 @@ try {
   await wait(1500)
   const marks = await h.evaluate(() => [...document.querySelectorAll('.mf-line-card')].map((one) => one.parentElement?.textContent ?? ''))
   check('a card mark at the end of each card line', marks.length === 2 && marks.every((one) => one.includes('::')), JSON.stringify(marks))
-  for (const [theme, brutal, name] of [['paper', false, 'line-cards-paper'], ['github', false, 'line-cards-dark']]) {
+  for (const [theme, brutal, name] of CARDS ? [] : [['paper', false, 'line-cards-paper'], ['github', false, 'line-cards-dark']]) {
     await look(theme, brutal)
     await send('capture', note)
     await wait(1500)
     await shot(name)
   }
-  await look('paper')
+  if (!CARDS) await look('paper')
   // In Review: where it is from, and R opens the note at that line.
-  await reviewTo('Capital city of Peru')
-  check('Review says which note a card is from', (await text('[data-line-from]')).includes('Trip to Peru'), await text('[data-line-from]'))
-  await shot('line-card-review')
-  await h.keyboard.press('r')
-  await wait(1800)
-  const landed = await h.evaluate(() => {
-    const node = getSelection()?.anchorNode
-    const block = node?.nodeType === 3 ? node.parentElement : node
-    return (block?.closest?.('p, li') ?? block)?.textContent ?? ''
-  })
-  check('R opens the note at the card’s line', landed.includes('Capital city of Peru'), landed)
+  // In a book with other cards due (CARDS on the seeded sandbox) another card may come first: said, not failed.
+  const first = await reviewTo('Capital city of Peru').then(() => true, (error) => (CARDS ? false : Promise.reject(error)))
+  if (!first) console.log('SKIP  Review’s two lines (which note a card is from, R opens it at the line): another card is first in this book')
+  else {
+    check('Review says which note a card is from', (await text('[data-line-from]')).includes('Trip to Peru'), await text('[data-line-from]'))
+    await shot('line-card-review')
+    await h.keyboard.press('r')
+    await wait(1800)
+    const landed = await h.evaluate(() => {
+      const node = getSelection()?.anchorNode
+      const block = node?.nodeType === 3 ? node.parentElement : node
+      return (block?.closest?.('p, li') ?? block)?.textContent ?? ''
+    })
+    check('R opens the note at the card’s line', landed.includes('Capital city of Peru'), landed)
+  }
   // A line taken out takes its card with it.
   await h.evaluate(([id, body]) => window.api.captures.save(id, { body }), [note, doc('Trip to Peru', 'Highest lake :: Titicaca')])
-  cards = (await v('items', 'card')).filter((one) => !one.archivedAt)
+  cards = ofNote(await v('items', 'card'))
   check('a line taken out takes its card out of Review', cards.length === 1 && cards[0].prompt === 'Highest lake', cards.map((one) => one.prompt).join(' | '))
   // A day's page works the same.
   const today = await h.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
   await v('notes:day:save', today, { body: doc('Longest river :: The Nile') })
   check('a day’s page makes cards too', (await v('items', 'card')).some((one) => one.lineOf === `day:${today}` && one.prompt === 'Longest river'))
   await v('notes:day:save', today, { body: doc('') })
+  // Only the cards written in a note were asked for.
+  if (CARDS) {
+    check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.filter((one) => one.includes('PAGEERROR')).join(' | '))
+    await c.close()
+    console.log(failed ? `${failed} failed` : 'all passed')
+    process.exit(failed ? 1 : 0)
+  }
 
   // --- the card that keeps slipping ------------------------------------------------------
   const lagrange = await gem('Five points where a small body sits still between two large ones. Webb is at L2. #astro', 'What are the Lagrange points?', [3, 1, 1, 1])
