@@ -28,12 +28,21 @@ const pictureIn = (body: unknown): string | null => {
   return body && typeof body === 'object' ? walk(body as { content?: unknown[] }) : null
 }
 
-/** The narrow scrolling list a row sits in, if it is one (under three fifths of the window wide). */
+/**
+ * The narrow scrolling list a row sits in, if it is one (under three fifths of the window wide). A page is not a list,
+ * however narrow the window's split makes it: the scroller that fills its own pane is that pane's page, and a card for
+ * a name on it comes up at the name. The Feed in half a split counted as a narrow list, so a name's card came up
+ * beside it, over the page in the other half (12 Nov).
+ */
 const sideList = (el: Element): Element | null => {
   for (let at = el.parentElement; at && at !== document.body; at = at.parentElement) {
     const { overflowY } = getComputedStyle(at)
-    if ((overflowY === 'auto' || overflowY === 'scroll') && at.scrollHeight > at.clientHeight)
-      return at.getBoundingClientRect().width < window.innerWidth * 0.6 ? at : null
+    if ((overflowY === 'auto' || overflowY === 'scroll') && at.scrollHeight > at.clientHeight) {
+      const wide = at.getBoundingClientRect().width
+      if (wide >= window.innerWidth * 0.6) return null
+      const pane = at.closest('[data-pane]')
+      return pane && wide >= pane.getBoundingClientRect().width * 0.8 ? null : at
+    }
   }
   return null
 }
