@@ -98,6 +98,8 @@ await h.evaluate(() => {
 
 const steps = []
 let seenSlow = 0
+/** Main's clock (ms) as its profile began; 0 without PROF. */
+let profileAt = 0
 /** Close the step in hand: what main held and how late its loop ran while it lasted. */
 async function close() {
   const last = steps.at(-1)
@@ -114,7 +116,8 @@ async function close() {
 /** Begin a step: `owner` says whose its window blocks are (a key of NOT_MINE, or 'mine'). */
 async function step(name, owner, run) {
   await close()
-  steps.push({ name, owner, slow: [], late: 0 })
+  // With PROF=1, when the step began by main's own clock: its profile's samples are told apart step by step.
+  steps.push({ name, owner, slow: [], late: 0, at: profileAt ? await electron.evaluate(() => performance.now()) : 0 })
   await h.evaluate(([name, owner]) => window.__steps.push({ at: performance.now(), name, owner }), [name, owner])
   await run()
 }
@@ -145,6 +148,7 @@ async function open(note) {
 }
 
 const profiling = process.env.PROF ? await electron.evaluate(() => globalThis.mainProfile(true)).then(() => true) : false
+profileAt = profiling ? await electron.evaluate(() => performance.now()) : 0
 // Counted from here: the app is up and its window has loaded. What main held while starting is printed apart.
 const starting = await electron.evaluate(() => globalThis.mainStalls?.())
 if (!starting) throw new Error('this build has no stall table (src/main/stalls.ts)')
@@ -239,9 +243,11 @@ const late = steps.filter((one) => one.late >= MAIN_MS).sort((a, b) => b.late - 
 console.log(`Main: steps in which its event loop ran ${MAIN_MS} ms or more late (${late.length} of ${steps.length})`)
 for (const one of late.slice(0, 25)) console.log(`  ${String(one.late).padStart(7)} ms  ${one.name}  [load ${one.load.toFixed(1)}]${one.slow.length ? `  named: ${one.slow.map((stall) => `${stall.name} ${stall.ms}`).join(', ').slice(0, 220)}` : '  nothing named'}`)
 const rows = steps.at(-1).rows
-// What a save asks of main: every name called while the largest note saved, and its time on main's thread.
+// What a save asks of main: every name called while the largest note saved, and its time on main's thread. The
+// same for every step in which the loop ran late with nothing named: several asks answered one after another with
+// no turn of the loop between them add up, though each is under the bar.
 for (const [at, one] of steps.entries()) {
-  if (!/saves/.test(one.name)) continue
+  if (!/saves/.test(one.name) && !(one.late >= MAIN_MS && !one.slow.length)) continue
   const before = new Map((steps[at - 1]?.rows ?? []).map((row) => [row.name, row]))
   const asked = one.rows.map((row) => ({ name: row.name, calls: row.calls - (before.get(row.name)?.calls ?? 0), ms: row.ms - (before.get(row.name)?.ms ?? 0) })).filter((row) => row.calls > 0).sort((a, b) => b.ms - a.ms)
   console.log(`Main: while “${one.name}” (loop ${one.late} ms late at worst): ${asked.slice(0, 10).map((row) => `${row.name} ×${row.calls} ${row.ms} ms`).join(', ')}`)
@@ -268,6 +274,19 @@ if (profile?.profile) {
   })
   const top = (map, n) => [...map].filter(([key]) => !/^\((idle|program|root)\)/.test(key)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([key, us]) => `  ${(us / 1000).toFixed(0).padStart(7)} ms  ${key}`).join('\n')
   console.log(`Main: where its own time went (self time)\n${top(self, 25)}\nMain: the same, callers included\n${top(total, 45)}`)
+  // Each step in which the loop ran late with nothing named: where main's thread was meanwhile, from the samples
+  // taken between that step's start and the next one's. `(program)` is the thread in Electron's own code, not the
+  // app's; `(garbage collector)` is memory being reclaimed.
+  let clock = profileAt
+  const times = timeDeltas.map((us) => (clock += us / 1000))
+  for (const [at, one] of steps.entries()) {
+    if (!(one.late >= MAIN_MS && !one.slow.length)) continue
+    const until = steps[at + 1]?.at ?? Infinity
+    const spent = new Map()
+    samples.forEach((id, i) => { if (times[i] >= one.at && times[i] < until) spent.set(where(byId.get(id)), (spent.get(where(byId.get(id))) ?? 0) + (timeDeltas[i] ?? 0) / 1000) })
+    const busy = [...spent].filter(([key]) => !key.startsWith('(idle)')).sort((a, b) => b[1] - a[1])
+    console.log(`Main: in “${one.name}” (loop ${one.late} ms late, nothing named; ${Math.round(busy.reduce((sum, [, ms]) => sum + ms, 0))} ms of it not idle): ${busy.slice(0, 8).map(([key, ms]) => `${key} ${Math.round(ms)} ms`).join(', ')}`)
+  }
   // UNDER=<a function's name>: the same two lists for that function's own work alone (what a save is made of: UNDER=saveOne).
   if (process.env.UNDER) {
     const inSelf = new Map(), inTotal = new Map()

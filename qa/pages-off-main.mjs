@@ -80,7 +80,9 @@ for (const one of READS) {
   answers[one.channel] = got
   check(`${one.name}: answered`, one.has(got), JSON.stringify(got)?.slice(0, 160))
   check(`${one.name}: read by the thread, not on main`, after.asked > before.asked && after.onMain === before.onMain, `${after.asked - before.asked} asked of the thread, ${after.onMain - before.onMain} answered on main`)
-  check(`${one.name}: held main under ${MAIN_MS} ms`, worst < MAIN_MS, `${worst} ms at worst (${rows.map((row) => `${row.name} ${row.worst}`).join(', ') || 'nothing of it on main'})  [${load()}]`)
+  // How long the page waited for its answer: the thread's time, or (a build that reads on main) the time main was held.
+  const waited = Math.max(worst, ...rows.map((row) => row.waited ?? 0))
+  check(`${one.name}: held main under ${MAIN_MS} ms`, worst < MAIN_MS, `${worst} ms at worst (${rows.map((row) => `${row.name} ${row.worst}`).join(', ') || 'nothing of it on main'}); answered in ${Math.round(waited)} ms  [${load()}]`)
 }
 // Asked again: the same. (The Feed's first look of a day picks its set; the second finds it kept, or picks the same.)
 for (const one of READS) {
