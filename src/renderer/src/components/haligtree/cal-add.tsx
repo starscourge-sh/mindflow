@@ -118,7 +118,11 @@ function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, on
 }): React.JSX.Element {
   const beside = side === 'right' || side === 'left'
   return (
-    <PopoverContent data-cal-add={kind} data-cal-open={opened} data-takes-keys role="dialog" aria-label={label} side={side} align={beside ? 'start' : 'center'} alignOffset={beside ? -14 : 0} sideOffset={6} arrowPadding={14} collisionPadding={ROOM}
+    <PopoverContent data-cal-add={kind} data-cal-open={opened} data-takes-keys role="dialog" aria-label={label}
+      // Open on a thing that exists, it is beside the page as its side panel is (ui.tsx, `typing`): a change made in its rows
+      // is taken back by ⌘Z while it is still open, and a plain key typed in it stays in it. A new one being written
+      // holds every key, as before.
+      data-beside={opened ? '' : undefined} side={side} align={beside ? 'start' : 'center'} alignOffset={beside ? -14 : 0} sideOffset={6} arrowPadding={14} collisionPadding={ROOM}
       style={{ width: WIDE }} className="max-w-[calc(100vw-1.5rem)] gap-0 overflow-visible rounded-xl p-0 text-control"
       onOpenAutoFocus={(event) => event.preventDefault()}
       onEscapeKeyDown={(event) => (event.preventDefault(), onEscape())}
