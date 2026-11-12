@@ -11,6 +11,8 @@
 //   week    Week and Day: a double-click at a time, a press dragged across the hours, a click that picks, N, right-click
 //           "New task here", the all-day lane, and Upcoming's place.
 //   narrow  560 by 400 and 1000 wide: the popover inside the window, never over its draft.
+//   home    Home's month and the Journal's month (today's page) add the same way: the fill, a click that picks, a
+//           double-click that starts a task in the same popover (never the tall side panel), ↵, Undo, right-click.
 //   pinch   the light under a pinch: the week (in a month) or the day (in a week) the fingers are opening is lit while they
 //           are on it, unlit when the pinch comes to nothing, and the level it becomes arrives lit and lets the light go.
 //   frames  with FRAMES=dir: a picture every 50ms through the popover growing, Event to Task, adding, and a pinch with its
@@ -20,7 +22,7 @@ import os from 'node:os'
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
-const parts = (process.env.PART ?? 'month,week,narrow,pinch').split(',')
+const parts = (process.env.PART ?? 'month,week,narrow,pinch,home').split(',')
 const c = await sandbox({ width: Number(process.env.QA_W ?? 1440), height: Number(process.env.QA_H ?? 900), at: '11:30' })
 const { h, v, go } = c
 let passed = 0
@@ -36,7 +38,7 @@ const heard = async (run) => { await h.evaluate(() => { if (window.haligtreeCued
 const state = () => h.evaluate(() => {
   const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom } }
   const pop = document.querySelector('[data-cal-add]')
-  const draft = document.querySelector('[data-cal-level] [data-cal-draft]')
+  const draft = document.querySelector('[data-cal-level] [data-cal-draft], [data-month-own] [data-cal-draft]')
   const field = pop?.querySelector('input')
   return {
     pop: pop && { ...box(pop), kind: pop.dataset.calAdd, side: pop.dataset.side, keyed: pop.hasAttribute('data-keyed'), arrow: box(pop.querySelector('[data-slot="popover-arrow"]')), sw: box(pop.querySelector('[role="radiogroup"]')),
@@ -446,6 +448,63 @@ try {
     l = await lights()
     check('with Motion off the week is simply there, with no light left', l.mode === 'week' && !l.landed && l.lit.length === 0, JSON.stringify(l))
     await h.evaluate(() => document.documentElement.removeAttribute('data-motion'))
+  }
+
+  if (parts.includes('home')) {
+    await c.size(1440, 900)
+    await v('settings:set', { hintRate: 0, homeCalendar: true })
+    for (const [view, name] of [['home', 'Home'], ['day', 'the Journal']]) {
+      await go(view)
+      await wait(1600)
+      const key = dayKeyOf(4)
+      const sel = `[data-month-own] [data-day="${key}"]`
+      const there = await h.locator(sel).count()
+      check(`${name}'s month is on the page`, there === 1, `${there} of ${sel}`)
+      if (!there) continue
+      await h.locator(sel).scrollIntoViewIfNeeded()
+      await wait(500)
+      const box = () => h.evaluate((sel) => { const el = document.querySelector(sel); const r = el.getBoundingClientRect(); return { r: r.right, b: r.bottom, bg: getComputedStyle(el).backgroundColor, mark: getComputedStyle(el.querySelector('[data-day-number]')).boxShadow } }, sel)
+      const rest = await box()
+      check(`${name}'s month: no "+" waits on a day`, await h.evaluate(() => document.querySelectorAll('[data-day-add]').length === 0))
+      await h.mouse.move(rest.r - 5, rest.b - 5)
+      await wait(300)
+      check(`${name}'s month: a day under the pointer takes the faint fill`, (await box()).bg !== rest.bg, `${rest.bg} to ${(await box()).bg}`)
+      await h.mouse.click(rest.r - 5, rest.b - 5)
+      await wait(400)
+      let s = await state()
+      check(`${name}'s month: a click picks the day and opens nothing`, (await box()).mark !== 'none' && !s.pop && await h.evaluate(() => !document.querySelector('[data-day-side]')), `mark ${(await box()).mark.slice(0, 30)}`)
+      const opened = await heard(() => dbl(rest.r - 5, rest.b - 5))
+      s = await state()
+      await shot(`${view}-month-task`)
+      check(`${name}'s month: a double-click starts a task there, in the same popover, never the side panel`, s.pop?.kind === 'task' && s.draft?.kind === 'task' && s.draft.day === key && Math.abs(s.pop.w - 320) < 1 && s.pop.focused && await h.evaluate(() => !document.querySelector('[data-day-side]')), JSON.stringify({ kind: s.pop?.kind, day: s.draft?.day, w: s.pop?.w }))
+      check(`${name}'s month: it is inside the window, beside its draft, with its point, and opening made one sound`, inside(s) && apart(s) && !!s.pop?.arrow && opened.length === 1, `side ${s.pop?.side}; ${JSON.stringify(s.pop && [Math.round(s.pop.x), Math.round(s.pop.y), Math.round(s.pop.r), Math.round(s.pop.b)])}; cues ${opened.join()}`)
+      await h.keyboard.type(`${name} month task`)
+      await h.keyboard.press('Enter')
+      await wait(800)
+      s = await state()
+      const made = (await tasksNamed(`${name} month task`))[0]
+      check(`${name}'s month: ↵ makes the task on that day, the popover goes, and a notice says so with Undo`, !s.pop && !s.draft && !!made?.dueAt && dayKeyOf(4) === `${new Date(made.dueAt).getFullYear()}-${String(new Date(made.dueAt).getMonth() + 1).padStart(2, '0')}-${String(new Date(made.dueAt).getDate()).padStart(2, '0')}` && /Added for/.test(s.toast) && /Undo/.test(s.toast), `${made?.dueAt}; ${s.toast.slice(0, 60)}`)
+      await h.keyboard.press('Meta+z')
+      await wait(700)
+      s = await state()
+      check(`${name}'s month: ⌘Z takes it back and the words come back to the line`, (await tasksNamed(`${name} month task`)).length === 0 && s.pop?.words === `${name} month task`, `${(await tasksNamed(`${name} month task`)).length} left; ${s.pop?.words}`)
+      await h.keyboard.press('Meta+a')
+      await h.keyboard.press('Backspace')
+      await h.keyboard.press('Escape')
+      await wait(300)
+      await h.mouse.click(rest.r - 5, rest.b - 5, { button: 'right' })
+      await wait(400)
+      const lines = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [role="menuitem"]')].map((el) => el.textContent.trim()))
+      check(`${name}'s month: a right-click offers the Calendar's two lines`, lines.join() === 'New event here,New task here', lines.join())
+      if (lines.includes('New event here')) {
+        await h.locator('[role="menu"] [role="menuitem"]', { hasText: 'New event here' }).click()
+        await wait(600)
+        s = await state()
+        check(`${name}'s month: "New event here" opens the popover on Event, the line holding the keys`, s.pop?.kind === 'event' && s.draft?.kind === 'event' && s.pop.focused, `${s.pop?.kind}; focused ${s.pop?.focused}`)
+        await h.keyboard.press('Escape')
+        await wait(300)
+      } else await h.keyboard.press('Escape')
+    }
   }
 
   if (parts.includes('frames') && dir) {
