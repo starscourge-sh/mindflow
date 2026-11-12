@@ -173,7 +173,13 @@
 // placeholder, and the band's fill drew a box round the hint's words. Nor on
 // today's page, in the writing room or in quick capture, where the words sit
 // on the page (in the box a full-width band read as a stray bar).
-.tiptap.ProseMirror.haligtree-editor:focus-within:not(.is-line):not(:is([data-day-write], [data-room], [data-caret-room]) *) .vim-cursor-line:not(.is-empty[data-placeholder])::before {
+//
+// "Where the caret is" is ProseMirror's own class for a note that holds the keys, not `:focus-within`. A rule
+// that asks `:focus-within` of the note itself makes the browser look at the note again whenever the keys come
+// or go, and with the app's group variants in the stylesheet (`group-focus-within:`, which reach any element
+// under their group) it looks at every box under the note: 70 ms each way in a 7,017-block note, on every press
+// outside it. A class asks only the lines that wear `vim-cursor-line`.
+.tiptap.ProseMirror.haligtree-editor.ProseMirror-focused:not(.is-line):not(:is([data-day-write], [data-room], [data-caret-room]) *) .vim-cursor-line:not(.is-empty[data-placeholder])::before {
   content: "";
   position: absolute;
   z-index: -1;
@@ -190,7 +196,7 @@
 // band hid behind the block's fill and showed only past both its sides, as tall as the block. None there, as in a
 // table's cell (vim-mode.ts leaves cells out); in a callout it is clipped to the callout (below, .tiptap-callout).
 // (Written as the band's own rule is, with `pre` added, so it outranks it.)
-.tiptap.ProseMirror.haligtree-editor:focus-within:not(.is-line):not(:is([data-day-write], [data-room], [data-caret-room]) *) pre.vim-cursor-line:not(.is-empty[data-placeholder])::before {
+.tiptap.ProseMirror.haligtree-editor.ProseMirror-focused:not(.is-line):not(:is([data-day-write], [data-room], [data-caret-room]) *) pre.vim-cursor-line:not(.is-empty[data-placeholder])::before {
   content: none;
 }
 
