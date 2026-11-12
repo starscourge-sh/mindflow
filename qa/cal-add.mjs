@@ -18,7 +18,8 @@
 //   open    one way for making and for opening: a click on an event or a task picks it and opens nothing; a double-click,
 //           ↵, its menu's "Open" and ⌘K open the same popover on it, tied to it, its name in the line; "Open" there is its
 //           page in the side panel; a name typed over is kept with Undo and ⌘Z. In Month, Week and Day, for an event and
-//           for a task, then from Upcoming, and from Home's month and the Journal's.
+//           for a task, then from Upcoming, and from Home's month and the Journal's. OPEN=month|week|day|rest runs
+//           one of its four stretches alone.
 //   rows    the quiet rows under an open thing's line: an event's calendar, place, people, reminder and repeat, a task's
 //           day and time and its tags; each one line that opens in place, the width one, the height following, each
 //           change kept as it is made with Undo and ⌘Z; at 560 by 400 the rows scroll inside the popover.
@@ -683,11 +684,15 @@ try {
       if (await side()) { await h.keyboard.press('Escape'); await wait(500) }
       check(`${name}: Esc closes the page`, !(await side()))
     }
+    // OPEN=month,week,day,rest: the part in shorter runs, each well under a minute and a half (all four by default).
+    const only = (process.env.OPEN ?? 'month,week,day,rest').split(',')
     for (const [key, name] of [['m', 'Month'], ['w', 'Week'], ['d', 'Day']]) {
+      if (!only.includes(name.toLowerCase())) continue
       await reach(key)
       await ways(name, 'event', SEL.event, 'Opens here')
       await ways(name, 'task', SEL.task, 'Opened task')
     }
+    if (only.includes('rest')) {
     // A change is kept as it is made, said with Undo, and ⌘Z takes it back.
     await reach('w')
     for (const [kind, label, next] of [['event', 'Opens here', 'Opens renamed'], ['task', 'Opened task', 'Opened anew']]) {
@@ -769,6 +774,7 @@ try {
       const there = await h.locator('[data-month-own]').count()
       if (!there) { check(`${name} is on the page`, false); continue }
       await ways(name, 'task', '[data-month-own] [data-plan-task]', 'Opened task', { bar: false })
+    }
     }
   }
 
