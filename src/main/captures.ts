@@ -608,16 +608,22 @@ export function registerCaptures(): void {
   // and main waits for them, HAND_MS at most, before the book shuts. A copy that arrives meanwhile is written
   // before it is answered, so none is cut short by the app ending.
   const HAND_MS = 2000
-  let handing: 'not yet' | 'now' | 'done' = 'not yet'
+  let handing = false
+  // True only while the quit that follows a hand-over is being asked for (`before-quit` is told inside
+  // `app.quit()`): that one goes through, and any quit after it, one called off meanwhile say, asks again.
+  let handed = false
   app.on('before-quit', (event) => {
-    if (handing !== 'not yet') return
+    if (handed) return
     event.preventDefault()
-    handing = 'now'
+    if (handing) return
+    handing = true
     const hands = BrowserWindow.getAllWindows().filter((win) => !win.isDestroyed()).map((win) =>
       win.webContents.mainFrame.executeJavaScript('window.haligtreeHandOver ? window.haligtreeHandOver() : null').catch(() => null))
     void Promise.race([Promise.all(hands), new Promise((done) => setTimeout(done, HAND_MS))]).finally(() => {
-      handing = 'done'
+      handing = false
+      handed = true
       app.quit()
+      handed = false
     })
   })
   /**
@@ -707,7 +713,7 @@ export function registerCaptures(): void {
         void writeMarkdown(row.number, patch.markdown)
       } else if (owed.get(key)?.copy === mine) {
         // Owed until it is on the disk. During a quit it is written before this answers.
-        if (handing === 'now') (writeMarkdownNow(row.number, patch.markdown), settled(key))
+        if (handing) (writeMarkdownNow(row.number, patch.markdown), settled(key))
         else void writeMarkdown(row.number, patch.markdown).then(() => void (owed.get(key)?.copy === mine && settled(key)))
       }
     } else if (landed && patch.words) copy = owe(key, row!.number)
