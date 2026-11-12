@@ -347,11 +347,11 @@ await part("Today's list", async () => {
 // --- 5b. A task rested on another's middle becomes its step, on Today and on Later: lit while it waits, edges still
 // reorder, Esc cancels, the notice and ⌘Z undo it, the steps unfold under their task on a tree line. Filmed every 50ms.
 const sortBox = (id) => h.evaluate((one) => { const r = document.querySelector(`[data-sortable-id="${one}"]`)?.getBoundingClientRect(); return r && { x: r.x, y: r.y, h: r.height } }, id)
-/** Carried from one row until the carried card's middle sits on another's middle (or `at` of its height), filmed. */
+/** Carried from one row until the pointer sits on another's middle (or `at` of its height), as Writing reads a row rested on, filmed. */
 const onto = async (id, target, { name, at = 0.5, rest = 900 } = {}) => {
   const [a, b] = [await sortBox(id), await sortBox(target)]
   const from = { x: a.x + 220, y: a.y + 14 }
-  const to = { x: from.x, y: from.y + (b.y + b.h * at) - (a.y + a.h / 2) }
+  const to = { x: from.x, y: b.y + b.h * at }
   await h.mouse.move(from.x, from.y); await h.mouse.down()
   let n = 0
   const frame = async () => { if (FILM && name) await h.screenshot({ path: `${FILM}/${name}-${String(n++).padStart(2, '0')}.png` }) }
@@ -483,7 +483,8 @@ const drawn = () => h.evaluate(() => {
   const rooms = [...document.querySelectorAll('[data-drop-room]')].filter(seen)
   const [line, room] = [lines[0] && box(lines[0]), rooms[0] && box(rooms[0])]
   const dot = lines[0] ? getComputedStyle(lines[0], '::before') : null
-  const held = document.querySelector('[data-sortable-id][data-held], .mf-carried-place')
+  // The row in hand: marked so, or (before 12 Nov, in Writing) the one that holds the room.
+  const held = document.querySelector('[data-sortable-id][data-held], .mf-carried-place') ?? rooms[0]?.closest('[data-sortable-id]')
   let within = held?.parentElement
   while (within && within !== document.body && within.querySelectorAll('[data-sortable-id]').length < 3) within = within.parentElement
   const list = [...(within?.querySelectorAll('[data-sortable-id]') ?? [])].filter((one) => one !== held && seen(one) && !one.querySelector('[data-sortable-id]')).map(box).sort((a, b) => a.top - b.top)
@@ -499,7 +500,13 @@ const drawn = () => h.evaluate(() => {
   }
 })
 /** Every row's box on the page, for Esc putting each back. */
-const boxes = () => h.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return [one.dataset.sortableId, `${Math.round(r.top)}:${Math.round(r.height)}`] })))
+const boxes = () => h.evaluate(() => {
+  // Where it stands in its own scroller, so a list that scrolled by itself while carrying is not read as rows moved.
+  const scrolled = (one) => { for (let at = one.parentElement; at; at = at.parentElement) if (/auto|scroll/.test(getComputedStyle(at).overflowY) && at.scrollHeight > at.clientHeight) return at.scrollTop; return 0 }
+  return Object.fromEntries([...document.querySelectorAll('[data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return [one.dataset.sortableId, `${Math.round(r.top + scrolled(one))}:${Math.round(r.height)}`] }))
+})
+/** The sidebar back at its top: carrying near its foot scrolls it, as any list does. */
+const sideTop = () => h.evaluate(() => { for (const one of document.querySelectorAll('aside, aside *')) if (one.scrollTop) one.scrollTop = 0 })
 /** The seven points, checked where the pointer is `at`. `want`: the card's words, and `lit` (a target lights), `refused`, `bare` (a line with no band: rows that stay put) or a room with its line. */
 const oneLook = async (name, at, want) => {
   await wait(450)
@@ -608,13 +615,23 @@ await part('One look: the Queue', async () => {
     await putBack('The Queue', was)
   } else console.log(`SKIP  One look: the Queue has ${queue.length} rows`)
 })
+await part('One look: the Inbox', async () => {
+  await c.go('inbox'); await wait(900)
+  const rows = await h.evaluate(() => [...document.querySelectorAll('[data-pane] [data-sortable-id]')].filter((one) => { const r = one.getBoundingClientRect(); return r.height > 0 && r.top > 120 && r.bottom < innerHeight - 80 }).map((one) => one.dataset.sortableId))
+  if (rows.length < 3) return console.log(`SKIP  One look: the Inbox shows ${rows.length} rows that can be carried`)
+  const was = await boxes()
+  const [a, b] = [await sortRow(rows[0]), await sortRow(rows[1])]
+  const at = await hold({ x: a.x + 200, y: a.y + Math.min(20, a.h / 2) }, { x: a.x + 200, y: b.y + b.h * 0.86 })
+  await oneLook('The Inbox, a note carried down', at, { words: 'Move here' })
+  await putBack('The Inbox', was)
+})
 await part('One look: the sidebar', async () => {
   let was, at
   // A pin among the pins, a page among the pages (rows that stay put: a bare line), a folder among folders.
   for (const id of [ids.Oak, ids.Pine]) await v('pin', 'nuggets', id, true).catch(() => {})
   await h.reload(); await wait(1500)
   await c.go('articles'); await wait(900)
-  const pins = await h.evaluate(() => { const one = [...document.querySelectorAll('aside [data-sortable-id]')].find((el) => el.textContent.includes('Start here')); let box = one?.parentElement; while (box && box.querySelectorAll('[data-sortable-id]').length < 2) box = box.parentElement; return one ? [...box.querySelectorAll('[data-sortable-id]')].map((el) => el.dataset.sortableId).filter((id) => id.split(':')[0] === one.dataset.sortableId.split(':')[0] || id === one.dataset.sortableId) : [] })
+  const pins = await h.evaluate(() => [...document.querySelectorAll('aside nav [data-side-drop="pinned"] [data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => one.dataset.sortableId))
   if (pins.length >= 2) {
     was = await boxes()
     const [a, b] = [await sortRow(pins[0]), await sortRow(pins[1])]
@@ -622,16 +639,28 @@ await part('One look: the sidebar', async () => {
     await oneLook('The sidebar, a pin carried down', at, { words: 'Move here' })
     await putBack('The sidebar, a pin', was)
   } else console.log(`SKIP  One look: ${pins.length} pins in the sidebar`)
-  const pages = await h.evaluate(() => [...document.querySelectorAll('aside nav [data-drop-list] [data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => one.dataset.sortableId))
+  await sideTop(); await wait(300)
+  const pages =await h.evaluate(() => [...document.querySelectorAll('aside nav [data-drop-list] [data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => one.dataset.sortableId))
   if (pages.length >= 3) {
     was = await boxes()
     const [a, b] = [await sortRow(pages[0]), await sortRow(pages[2])]
     at = await hold({ x: a.x + 40, y: a.y + a.h / 2 }, { x: a.x + 40, y: b.y + b.h * 0.9 })
     await oneLook('The sidebar, a page carried down', at, { words: 'Move here', bare: true })
     await putBack('The sidebar, a page', was)
+    // Over Pinned, which takes no page: said on the card, the pointer says no, no line, and letting go moves nothing.
+    const pinned = await h.evaluate(() => { const r = document.querySelector('aside nav [data-side-drop="pinned"]')?.getBoundingClientRect(); return r && r.height > 0 ? r.top + r.height / 2 : null })
+    if (pinned !== null) {
+      at = await hold({ x: a.x + 40, y: a.y + a.h / 2 }, { x: a.x + 40, y: pinned })
+      await oneLook('The sidebar, a page carried over Pinned', at, { words: /can’t go in Pinned/, refused: true })
+      await h.mouse.up(); await wait(700)
+      const now = await boxes()
+      check('The sidebar, a page let go over Pinned: nothing moved', Object.keys(was).every((id) => was[id] === now[id]), '')
+      await sideTop(); await wait(200)
+    }
   } else console.log(`SKIP  One look: ${pages.length} pages in the sidebar`)
   await v('groups:arrange', 'article', { top: ['g:f-a', 'g:f-b', 'g:f-c', ids.Ash], groups: { 'f-a': [ids.Birch], 'f-b': [ids.Cedar], 'f-c': [ids.Elm] }, revive: ['f-a', 'f-b', 'f-c'].map((id, n) => ({ id, name: ['Alder', 'Beech', 'Chestnut'][n], icon: null, color: null, folded: 0, folder: 1 })) })
   await c.go('articles'); await wait(900)
+  await sideTop(); await wait(300)
   const fa = await h.locator('[data-side-folder="f-a"]').boundingBox(), fc = await h.locator('[data-side-folder="f-c"]').boundingBox()
   was = await boxes()
   at = await hold({ x: fa.x + 50, y: fa.y + fa.height / 2 }, { x: fa.x + 50, y: fc.y + fc.height * 0.9 })
@@ -648,7 +677,11 @@ await part('One look: the sidebar', async () => {
 await part('One look: 560 x 400', async () => {
   await h.reload(); await wait(1500); await c.go('today'); await wait(900)
   await c.size(560, 400); await wait(600)
-  const rows = await h.evaluate(() => [...document.querySelectorAll('[data-pane] [data-sortable-id]')].filter((one) => { const r = one.getBoundingClientRect(); return r.top > 150 && r.bottom < innerHeight - 20 }).map((one) => one.dataset.sortableId))
+  // Its own tasks, on Today alone: two short rows fit in the little room a 400px window leaves.
+  for (const old of await v('tasks')) if (old.status === 'open') await v('task:save', old.id, { status: 'dropped' })
+  for (const title of ['Sweep the yard', 'Oil the hinges', 'Sort the post']) await addLine(title)
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+  const rows = await h.evaluate(() => [...document.querySelectorAll('[data-pane] [data-sortable-id]')].filter((one) => { const r = one.getBoundingClientRect(); return r.top > 60 && r.bottom < innerHeight }).map((one) => one.dataset.sortableId))
   if (rows.length >= 2) {
     const [a, b] = [await sortRow(rows[0]), await sortRow(rows[1])]
     const at = await hold({ x: a.x + 120, y: a.y + 14 }, { x: a.x + 120, y: b.y + b.h * 0.86 })
