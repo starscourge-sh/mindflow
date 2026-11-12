@@ -229,7 +229,7 @@ const WIDTHS = 4
  * it scrolls and the caret as it moves, and the words on screen stay put when
  * it shifts. The document itself never changes.
  */
-function nearScreen(view: EditorView, name: string): { edges: () => [number, number] | null; ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
+function nearScreen(view: EditorView, name: string): { view: EditorView; edges: () => [number, number] | null; ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
   // Which blocks are drawn, and the space kept for the rest. A block off the
   // page carries a mark, and one rule that never changes hides the marked:
   // moving the drawn blocks then touches only the blocks that change sides.
@@ -705,6 +705,7 @@ function nearScreen(view: EditorView, name: string): { edges: () => [number, num
     else requestAnimationFrame(settle)
   }
   return {
+    view,
     edges: drawnEdges,
     // A jump out of the band (gg, G, a search, the outline) draws its
     // destination before the caret is put there: placed in a block that is not
@@ -727,7 +728,13 @@ function nearScreen(view: EditorView, name: string): { edges: () => [number, num
       // And a note that grows long while open (Undo bringing back a whole
       // long note): drawn round the caret before its blocks arrive, or every
       // one of them was laid out, and the selection placed across them all.
-      if ((went || show) && !across && (!band || index < band[0] || index > band[1])) {
+      //
+      // Only a caret that asked to be shown takes the drawn blocks with it, once there are drawn blocks. One that
+      // was only set (the caret put back where it was left as a note opens, a change landing in its block from
+      // elsewhere) took them away from the screen, which stood on empty space until they came back by guess: a
+      // note left far down opened again some 200 blocks from where it was left. A caret set off the drawn blocks
+      // is not told to the browser (`keepSelectionDrawn`), and a key pressed there brings the note to it (`keyed`).
+      if ((show || (went && !band)) && !across && (!band || index < band[0] || index > band[1])) {
         if (band) (measure(), letGo(index - NEAR, index + NEAR))
         // As many elements as now (the note's blocks, and what is drawn among them), with the blocks this change adds.
         draw(index - NEAR, index + NEAR, before && blocks().length ? blocks().length + state.doc.childCount - before.doc.childCount : Infinity)
@@ -852,8 +859,13 @@ export const LongDocument = Extension.create({
         view: (view) => {
           let views = view.props.nodeViews
           let away = false
-          near = nearScreen(view, name)
-          const { update, destroy } = near
+          // What is known of a note's drawn blocks is the note's, made once and kept until the note itself goes.
+          // ProseMirror makes every plugin's view again each time a plugin is added to an open note or taken
+          // from it (a menu, a preview: it happens within a note's first second), and made again with it, the
+          // drawn blocks went back to the caret, the screen stood on empty space until they came back to it by
+          // guess, and every height learnt, or kept from the last time the note was open, was thrown away.
+          const mine = near?.view === view ? near : (near?.destroy(), (near = nearScreen(view, name)))
+          const { update } = mine
           const aside = (): void => {
             const parent = view.dom.parentNode
             // Never while it holds the caret (Undo bringing back a long note):
@@ -879,7 +891,8 @@ export const LongDocument = Extension.create({
               if (long(view.state) && (drawn || !long(previous))) aside()
               update(previous)
             },
-            destroy,
+            // Asked a moment later, when it is known whether the note went or only its plugins changed.
+            destroy: () => void queueMicrotask(() => void (view.isDestroyed && (mine.destroy(), near === mine && (near = undefined)))),
           }
         },
       }),

@@ -94,7 +94,7 @@ export const openedElsewhere = (editor: Editor): void => void elsewhere.add(edit
  * starts. `seen`: the blocks on the screen as a long note itself tells them (most of its blocks are off the page,
  * and looking through them by halves ended on the note's last block, so a long note was never found again).
  */
-function anchorOf(view: EditorView, scroller: HTMLElement, seen: { first: number; last: number } | null): { block: number; into: number } | null {
+function anchorOf(view: EditorView, scroller: HTMLElement, seen: { first: number; last: number } | null): { block: number; into: number } | null | undefined {
   const blocks = view.dom.children
   if (!blocks.length) return null
   const edge = scroller.getBoundingClientRect().top
@@ -106,10 +106,14 @@ function anchorOf(view: EditorView, scroller: HTMLElement, seen: { first: number
     if (blocks[middle].getBoundingClientRect().bottom <= edge) low = middle + 1
     else high = middle
   }
+  // A long note's screen standing, for this moment, on blocks that are not drawn (its drawn blocks are on their way
+  // to it): the block there is only a guess from remembered sizes, and it has no place on the page to read. Nothing
+  // to keep: what was read last stays.
+  if (seen && !blocks[low].getClientRects().length) return undefined
   // The first block that starts on the screen, not the one cut by its edge: a picture above it may load at another
   // height, and a place partway into it could not be found again. The cut one only when nothing else starts on screen.
   const next = blocks[low + 1]
-  const top = blocks[low].getBoundingClientRect().top < edge - 0.5 && next && next.getBoundingClientRect().top < edge + scroller.clientHeight / 2 ? next : blocks[low]
+  const top = blocks[low].getBoundingClientRect().top < edge - 0.5 && next?.getClientRects().length && next.getBoundingClientRect().top < edge + scroller.clientHeight / 2 ? next : blocks[low]
   try {
     const at = view.posAtDOM(top, 0)
     const $at = view.state.doc.resolve(at)
@@ -170,12 +174,17 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       if (!(block instanceof HTMLElement) || block.parentElement !== dom || !block.getClientRects().length) return null
       return block.getBoundingClientRect().top - scroller.getBoundingClientRect().top + anchor.into
     }
-    // `opening`: a long note keeps only the blocks near its screen on its page, and the one it was left at is brought
-    // onto it as it opens. Only then: later, off the page means something else took the screen elsewhere.
-    const put = (opening = false): void => {
-      if (!holding || !kept || !scroller) return
+    // A long note keeps only the blocks near its screen on its page: the one it was left at is brought onto it as
+    // it opens, and again if it has gone from the page while the place is still held. (Later, the place was then
+    // taken from the distance kept instead, which is no place in a long note: the sizes above it are guesses that
+    // move as its blocks are drawn, and it came back some 200 blocks further on.) Whatever takes the screen
+    // elsewhere on purpose lets go of the place first (`stop`).
+    const put = (): void => {
+      // Not while the note is off the page or hidden with its pane: nothing has a place then, and the layout that
+      // brings it back tells again.
+      if (!holding || !kept || !scroller || !dom.isConnected || !scroller.clientHeight) return
       let by = drift()
-      if (by === null && anchor && opening) {
+      if (by === null && anchor) {
         showBlock(editor, anchor.block)
         by = drift()
       }
@@ -192,7 +201,7 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       const size = editor.state.doc.content.size
       // The caret where it was, without taking the keys: the next click or key in the note starts there.
       if (kept.from > 0 && kept.from < size) editor.commands.setTextSelection(kept.from)
-      put(true)
+      put()
     }
     // Where you are now, read when you scroll and when the note changes size under a still screen (a picture loads above it).
     const read = (): void => {
@@ -200,8 +209,11 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       // scroller reads as at its top, and the place just read was lost in the moment before it was kept.
       if (!scroller || holding || !dom.isConnected || !scroller.clientHeight) return
       // Read to its last screen, a note is finished with: it opens at its top next time, not at the bottom with nothing left to read.
-      top = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < scroller.clientHeight ? 0 : scroller.scrollTop
-      anchor = top ? anchorOf(view, scroller, screenBlocks(editor)) : null
+      const now = scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop < scroller.clientHeight ? 0 : scroller.scrollTop
+      const found = now ? anchorOf(view, scroller, screenBlocks(editor)) : null
+      if (found === undefined) return
+      top = now
+      anchor = found
     }
     // Held there as the note grows above it: told after each layout, before it is painted.
     const grows = new ResizeObserver(() => (holding ? put() : read()))
@@ -215,6 +227,10 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       read()
     }
     const onSelect = (): void => void (from = editor.state.selection.from)
+    // A caret asked into view is a jump (the contents, find, a key that moves it): the screen is going there, and
+    // the place is let go of before the note next changes size, not a scroll later.
+    const onJump = ({ transaction }: { transaction: { scrolledIntoView: boolean } }): void => void (transaction.scrolledIntoView && stop())
+    editor.on('transaction', onJump)
     scroller?.addEventListener('scroll', onScroll, { passive: true })
     scroller?.addEventListener('wheel', stop, { passive: true })
     scroller?.addEventListener('pointerdown', stop)
@@ -236,6 +252,7 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       window.removeEventListener('keydown', stop, true)
       window.removeEventListener('pagehide', save)
       editor.off('selectionUpdate', onSelect)
+      editor.off('transaction', onJump)
     }
     }
     return () => (off(), undo())
