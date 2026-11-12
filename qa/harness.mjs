@@ -61,8 +61,11 @@ export async function open() {
   // Never Electron's own welcome window on someone's screen: a run whose
   // build is missing stops here instead of opening a bare Electron.
   const entry = process.env.QA_ENTRY ?? join(process.cwd(), 'out/main/index.js')
-  if (!existsSync(entry)) throw new Error(`No build at ${entry}: build first (npx electron-vite build --outDir out-x)`)
-  const app = await electron.launch({ args: [entry, ...extra], env: { HALIGTREE_QA_AWAY: '1', ...process.env, HALIGTREE_USER_DATA: data } })
+  // QA_APP runs a packaged app instead, by the path of its program (…/Haligtree.app/Contents/MacOS/Haligtree):
+  // its own Electron and the code inside it, to check what only a packaged app does (where its files are loaded from).
+  const packaged = process.env.QA_APP
+  if (packaged ? !existsSync(packaged) : !existsSync(entry)) throw new Error(`No build at ${packaged ?? entry}: build first (npx electron-vite build --outDir out-x)`)
+  const app = await electron.launch({ ...(packaged ? { executablePath: packaged, args: extra } : { args: [entry, ...extra] }), env: { HALIGTREE_QA_AWAY: '1', ...process.env, HALIGTREE_USER_DATA: data } })
   // Never left running: the app keeps its windows when asked to close (a
   // window put away, not quit), so a plain kill can leave it stuck exiting.
   // However the run ends (done, failed, interrupted), it is killed outright.
