@@ -221,8 +221,9 @@ const CLEAR = 6
  * The card never covers the line it is about (in a narrow list it hid nearly all
  * of it): where it would, it rides just clear of it, on the side of the line the
  * pointer is on, so the pointer stays on the card, and crosses over as the pointer
- * does. Heard from the pointer, a list scrolling and the line itself, never read
- * on a clock. A spring there; with Reduce motion or Motion off it is simply there.
+ * does. Heard from the pointer, the card's own holder being moved, a list scrolling
+ * and the line itself, never read on a clock. A spring there; with Reduce motion or
+ * Motion off it is simply there.
  */
 function useClear(base?: () => number): { ref: (node: HTMLElement | null) => void; y: MotionValue<number> } {
   const to = useMotionValue(0)
@@ -254,7 +255,14 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
     lineHeard.add(look)
     window.addEventListener('pointermove', look, true)
     window.addEventListener('scroll', look, true)
+    // Read again once what holds the card has itself been moved (a list's lifted place, or the page's own box for it):
+    // the pointer's move comes a step before that. Where nothing else read it again (the Matrix, whose line sits on
+    // another card), the card stopped one step short of clear and touched its line.
+    const holder = card.current?.closest('.mf-drag-picture') ?? card.current?.parentElement ?? null
+    const moved = new MutationObserver(look)
+    if (holder) moved.observe(holder, { attributes: true, attributeFilter: ['style'] })
     return () => {
+      moved.disconnect()
       lineHeard.delete(look)
       window.removeEventListener('pointermove', look, true)
       window.removeEventListener('scroll', look, true)
