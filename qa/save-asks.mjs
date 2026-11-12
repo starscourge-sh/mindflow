@@ -13,11 +13,11 @@
 // pictures for lists are not read on main (notes:thumbs), and the log of saves is folded into the file under its
 // own name once the app has rested, not inside whatever is asked next.
 //
-// Two more saves follow once the notes related by tag have been asked for (any note's footer asks): from then on
-// the app keeps every note's tags in step as notes are saved, and that may add nothing to a save's write. Then
-// the write itself, on a copy of the note made for the purpose, through the app's own connection: with the rules
-// the app keeps on a note's words (the word log, the tags), and with each taken away in turn, so what each adds
-// stands beside it. They may add under 8 ms between them: none hands the note's words to JavaScript as text.
+// Then the write itself, on a copy of the note made for the purpose, through the app's own connection: with the
+// rules the app keeps on a note's words (the word log; the tags kept for related notes, asked for first so they
+// are there), and with each taken away in turn, so what each adds stands beside it. They may add under 8 ms
+// between them: none hands the note's words to JavaScript as text. (The app's own saves cannot show it: one
+// save differs from the next by more than that on a busy machine.)
 //
 // Then it types once more and quits the app inside the note's two-second rest: the Markdown copy beside the
 // backups must be, byte for byte, the one its editor wrote after the rest with the new words in it (never a
@@ -32,8 +32,6 @@ import { checks } from './harness.mjs'
 const { check, done } = checks()
 const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const SAVES = Number(process.env.SAVES ?? 4)
-/** Saves made after the notes related by tag have been asked for. */
-const AFTER = 2
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 const root = process.env.QA_DATA
 if (!root) throw new Error('QA_DATA must be a copy of a book')
@@ -94,12 +92,7 @@ if (await h.evaluate((sel) => document.querySelector(sel + '[data-vim-mode="norm
 const rowsOf = (stalls) => new Map(stalls.rows.map((row) => [row.name, row]))
 const saves = []
 let typed = ''
-for (let n = 1; n <= SAVES + AFTER; n++) {
-  if (n === SAVES + 1) {
-    // The notes related by tag, asked for once: the app makes its list of every note's tags, and keeps it from here on.
-    await h.evaluate((id) => window.api.haligtree('related', id), note.id)
-    await h.waitForTimeout(1500)
-  }
+for (let n = 1; n <= SAVES; n++) {
   // Typed, then left alone for four seconds: what follows is the save and what it sets off.
   const word = `s${n} `
   typed += word
@@ -117,6 +110,9 @@ for (let n = 1; n <= SAVES + AFTER; n++) {
 // The write itself, with the rules the app keeps on a note's words and without: a copy of the note made for this,
 // written through the app's own connection (a test run's `qaFeedSql`), five writes each after one to warm up, the
 // log folded between. The rules are this connection's own, so a bench on a connection of its own never sees them.
+// The notes related by tag are asked for first (any note's footer asks): the app then keeps every note's tags.
+await h.evaluate((id) => window.api.haligtree('related', id), note.id)
+await h.waitForTimeout(1500)
 const rules = await electron.evaluate((_, id) => {
   const sql = globalThis.qaFeedSql
   if (!sql) return null
@@ -188,12 +184,7 @@ check("the first pictures for lists hold main's thread under 2 ms a save (notes:
 check('the log of saves is folded into the file under its own name, once the app has rested, after every save', of('book: the log folded into the file', 'calls').every((n) => n >= 1), said('book: the log folded into the file'))
 check('a note’s fields are read without its words: under 2 ms of main’s thread a save (notes:fields)', of('haligtree:notes:fields', 'ms').every((ms) => ms < 2), said('haligtree:notes:fields'))
 
-// What the tags kept for related notes add to a save's write, in the app's own saves: the last two against the middle ones.
-const middle = (list) => [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)]
-const writes = of('save: the write', 'ms')
-const [before, after] = [middle(writes.slice(1, SAVES)), middle(writes.slice(SAVES))]
-check('once the notes related by tag have been asked for, a save’s write holds main no longer than before (within 6 ms)', after - before < 6, `${before} ms before, ${after} ms after (the write of each save: ${writes.join(', ')} ms)`)
-// And the write itself, with each of the app's rules on a note's words taken away in turn.
+// The write itself, with each of the app's rules on a note's words taken away in turn.
 if (!rules) console.log('  (no test hook for the app’s own connection in this build: the rules were not measured)')
 else {
   console.log('The write of a copy of the largest note through the app’s own connection (ms on main’s thread, the middle of five)')
