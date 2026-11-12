@@ -101,7 +101,8 @@ try {
   await h.click('[data-cal-add] [data-day-side-kind="task"]'); await h.waitForTimeout(300)
   await h.keyboard.type('cal2 slot add'); await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
   const slot = (await v('tasks')).find((one) => one.title.includes('cal2 slot add'))
-  check('a double-click on a slot, then "Task", adds a task at that time', slot && new Date(slot.dueAt).getHours() === 14 && !slot.allDay && slot.estimate === 30, `${slot?.dueAt} ${slot?.estimate}`)
+  // As long as its draft was drawn: an hour (the menu's "New task here" draws, and makes, half an hour).
+  check('a double-click on a slot, then "Task", adds a task at that time, as long as its draft', slot && new Date(slot.dueAt).getHours() === 14 && !slot.allDay && slot.estimate === 60, `${slot?.dueAt} ${slot?.estimate}`)
   // The popover goes once it is made; Esc lets go of anything still picked.
   await h.keyboard.press('Escape'); await h.waitForTimeout(400)
 

@@ -111,7 +111,7 @@ try {
 
   // 4. My calendars.
   const boxes = h.locator('[data-cal-layers] [role="checkbox"]')
-  check('"My calendars" lists each calendar, Tasks too, as ticks', (await h.locator('[data-cal-layers] h2').innerText()) === 'My calendars' && await boxes.count() >= 7 && await h.locator('[data-cal-layer="tasks"] [role="checkbox"]').count() === 1, await boxes.count())
+  check('"My calendars" lists each calendar, Tasks too, as ticks', await h.locator('[data-cal-layers] [data-island="My calendars"]').count() === 1 && await boxes.count() >= 7 && await h.locator('[data-cal-layer="tasks"] [role="checkbox"]').count() === 1, await boxes.count())
   await h.locator(`[data-cal-layer="${social}"] [role="checkbox"]`).click(); await h.waitForTimeout(700)
   check('unticking Social hides its events', await h.locator('[data-cal-event]', { hasText: 'Quick Catch-up' }).count() === 0)
   await h.locator(`[data-cal-layer="${social}"] [role="checkbox"]`).click(); await h.waitForTimeout(700)

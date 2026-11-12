@@ -102,7 +102,10 @@ try {
   await h.keyboard.press('ArrowRight')
   list = await anims(); rows = await p
   console.log('Week step, by →:'); list.forEach((s) => console.log(`  ${s}`)); print('first day column', rows)
-  check('week step by → moves nothing', !list.some((s) => s.includes('data-cal-col') || s.includes('data-cal-head')) && settled(rows) === 0, list.join('; '))
+  // Nothing glides: no column or head is animated, and what does shift (a week with a taller all-day lane sits a few
+  // pixels lower) does so in one frame. (Asked for none at all, the line failed whenever its first reading came a frame
+  // before the step.)
+  check('week step by → moves nothing', !list.some((s) => s.includes('data-cal-col') || s.includes('data-cal-head')) && settled(rows) <= 34, `settled in ${settled(rows)}ms; ${list.join('; ')}`)
   await motionOff(true)
   await h.locator('[data-cal-prev]').first().click(); list = await anims()
   check('week step with Motion off moves nothing', !list.some((s) => s.includes('data-cal-col')), list.join('; '))
@@ -151,7 +154,8 @@ try {
   await h.keyboard.press('Escape')
   list = await anims(); rows = await p
   console.log('Popover, Esc:'); list.forEach((s) => console.log(`  ${s}`)); print('popover', rows)
-  check('Esc takes the popover away, quicker than it came', rows.some((r) => r.gone) && lasts(rows) > 0 && lasts(rows) < inAt, `gone at ${rows.find((r) => r.gone)?.t}ms, out ${lasts(rows)}ms, in took ${inAt}ms`)
+  // By a key nothing moves: it is simply gone.
+  check('Esc takes the popover away at once', rows.some((r) => r.gone) && lasts(rows) === 0 && (rows.find((r) => r.gone)?.t ?? 999) <= 50, `gone at ${rows.find((r) => r.gone)?.t}ms, out ${lasts(rows)}ms, in took ${inAt}ms`)
   await wait(500)
 
   // 4. An event opened by a double-click: the same popover, on it (12 Nov: the card a click opened is gone).

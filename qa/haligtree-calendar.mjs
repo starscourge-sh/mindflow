@@ -109,8 +109,8 @@ try {
   const moved = await v('task', drag)
   check('58. it landed an hour later', new Date(moved.dueAt).getHours() === (soon.getHours() + 1) % 24, moved.dueAt)
 
-  // 54. A week stepped on comes in from its side.
-  await h.keyboard.press('ArrowRight'); await wait(40)
+  // 54. A week stepped on by its button comes in from its side (by ← → nothing moves: qa/cal-tasks-motion.mjs).
+  await h.locator('[data-cal-next]').first().click(); await wait(40)
   const slid = await h.evaluate(() => [...document.querySelectorAll('[data-cal-col]')].some((el) => el.getAnimations().length > 0))
   check('54. the next week slides in from the right', slid)
   await wait(500)
