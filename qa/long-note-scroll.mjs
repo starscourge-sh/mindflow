@@ -379,14 +379,18 @@ const film = async (name, run, { every = 50, ms = 1500 } = {}) => {
 
 /**
  * A line of words well inside the screen, in any kind of block: where to click, and which block it is in. Never a
- * line that something else stands over: the dock at the foot of a note covers the words under it (two rows of it
- * in a narrow pane reach 95px up from the note's foot, past the 60px kept clear here), and a press there is a press
- * on the dock, which takes the keys from the note: the caret stays where it was and what is typed lands nowhere.
- * That was the caret part's first step failing: after ⌘↓ and 1,400px back, the line it chose was under the dock
+ * line that something else stands over: the dock at the foot of an open note (the thought composer, 76px tall in
+ * a 455px pane) covers the words under it, past the 60px kept clear here, and a press there is a press on the
+ * dock, which takes the keys from the note: the caret stays where it was and what is typed lands nowhere. That
+ * was the caret part's first step failing: after ⌘↓ and 1,400px back, the line it chose was under the dock
  * whenever the note's end stood 200px higher. `low` takes the lowest such line instead of the first (LOW=1, to
- * try the foot of the screen on purpose); COVERED=allow takes covered lines too, as it once did.
+ * try the foot of the screen on purpose); COVERED=allow takes covered lines too, as it once did. `plain` keeps
+ * out of tables, for a ⇧-click: a selection that begins in a table's cell and ends outside it at the very start
+ * of a block (a caret left in the empty last paragraph of a note) is cut back to the cell's own words by the
+ * tables' own rule (prosemirror-tables, normalizeSelection), in any note, and that was the far ⇧-click picking
+ * only the block clicked: it failed when the line found was in one of the note's 212 tables.
  */
-const find = (low = false) => h.evaluate(([low, covered]) => {
+const find = (low = false, plain = false) => h.evaluate(([low, covered, plain]) => {
   const e = window.__ln.ed()
   const view = window.__ln.box().getBoundingClientRect()
   let found = null
@@ -397,7 +401,7 @@ const find = (low = false) => h.evaluate(([low, covered]) => {
     if (block.hasAttribute('data-far') || block.matches('[contenteditable="false"]')) continue
     const walk = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
     for (let node = walk.nextNode(); node; node = walk.nextNode()) {
-      if (node.data.trim().length < 20 || node.parentElement.closest('[contenteditable="false"], button, pre, summary')) continue
+      if (node.data.trim().length < 20 || node.parentElement.closest('[contenteditable="false"], button, pre, summary') || (plain && node.parentElement.closest('td, th'))) continue
       const range = document.createRange()
       range.setStart(node, 2)
       range.setEnd(node, 3)
@@ -410,17 +414,17 @@ const find = (low = false) => h.evaluate(([low, covered]) => {
     }
   }
   return found
-}, [low, process.env.COVERED === 'allow'])
+}, [low, process.env.COVERED === 'allow', plain])
 /**
  * Such a line, the note moved on a little at a time until one is on the screen: the screen may hold none (a long
  * code block or a table fills it), or only one that the dock covers.
  */
-const seek = async (low = false) => {
-  let at = await find(low)
+const seek = async (low = false, plain = false) => {
+  let at = await find(low, plain)
   for (let i = 0; i < 6 && !at; i++) {
     await h.evaluate(() => window.__ln.box().scrollBy({ top: 150, behavior: 'instant' }))
     await h.waitForTimeout(450)
-    at = await find(low)
+    at = await find(low, plain)
   }
   return at
 }
@@ -823,7 +827,7 @@ try {
         await h.waitForTimeout(700)
         await h.evaluate((share) => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * share, behavior: 'instant' }) }, 0.3 + n * 0.013)
         await h.waitForTimeout(900)
-        const far = await seek()
+        const far = await seek(false, true)
         const was = await h.evaluate(() => { const e = window.__ln.ed(); const s = getSelection(); const { selection } = e.editor.state; let block = s.anchorNode; while (block && block.parentElement !== e) block = block.parentElement; return { caret: selection.$anchor.index(0), browser: s.rangeCount ? (block ? `block ${Array.prototype.indexOf.call(e.children, block)}` : 'outside the note') : 'none', keys: document.activeElement === e } })
         if (process.env.TRACE && far) await h.evaluate(([far, n]) => window.__tr.push(`${performance.now().toFixed(1)} THE SHIFT CLICK ${n}, on block ${far.index} at ${far.x},${far.y}`), [far, n])
         if (far) { await h.keyboard.down('Shift'); await h.mouse.click(far.x, far.y); await h.keyboard.up('Shift') }
@@ -914,7 +918,7 @@ try {
     await h.waitForTimeout(300)
     await h.evaluate(() => { const box = window.__ln.box(); box.scrollBy({ top: box.clientHeight * 5, behavior: 'instant' }) })
     await h.waitForTimeout(1000)
-    const two = await seek()
+    const two = await seek(false, true)
     if (two) { await h.keyboard.down('Shift'); await h.mouse.click(two.x, two.y); await h.keyboard.up('Shift') }
     await h.waitForTimeout(500)
     // What a copy would take, asked of the page with a copy event of its own: the real clipboard is yours, and left alone.
@@ -941,7 +945,7 @@ try {
     await h.waitForTimeout(700)
     await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * 0.3, behavior: 'instant' }) })
     await h.waitForTimeout(900)
-    const far = await seek()
+    const far = await seek(false, true)
     const fixed = await h.evaluate(() => window.__ln.ed().editor.state.selection.$anchor.index(0))
     console.log(`(before the ⇧-click the caret is in block ${fixed}; the click is on block ${far?.index})`)
     if (process.env.TRACE && far) await h.evaluate((far) => window.__tr.push(`${performance.now().toFixed(1)} THE SHIFT CLICK, on block ${far.index} at ${far.x},${far.y}`), far)
