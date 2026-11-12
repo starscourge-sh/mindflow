@@ -1,7 +1,7 @@
 import { Orb } from './orb'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { hoverNote } from './note-preview'
-import { ArrowUpRight, BookMarked, BookOpen, CalendarDays, FileText, Library, Link2, PenLine, Plus, Quote, User } from 'lucide-react'
+import { ArrowUpRight, BookMarked, BookOpen, CalendarDays, ChevronRight, FileText, Library, Link2, PenLine, Plus, Quote, User } from 'lucide-react'
 import { Camera, Fit } from '@/components/ui/icons'
 import { openLook } from '@/components/image/image-look'
 
@@ -274,12 +274,12 @@ function Fact({ value, placeholder, label, onSave }: { value: string; placeholde
  * their name, and one plain line of what they did and when they lived. Every
  * part is changed where it is: click or drop on the photo, type in the line.
  */
-function PersonHead({ page, name }: { page: SourcePage | null; name: string }): React.JSX.Element {
+function PersonHead({ page, name, close = false }: { page: SourcePage | null; name: string; /** Under the page's path: less room over it. */ close?: boolean }): React.JSX.Element {
   const photo = useAvatar(name)
   const [over, setOver] = useState(false)
   const facts = (patch: Partial<SourceFacts>): void => void sources.facts('attribution', name, patch).then(() => chime('noted'))
   return (
-    <header data-person-head className="px-5 pt-8">
+    <header data-person-head className={`px-5 ${close ? 'pt-4' : 'pt-8'}`}>
       <div className="flex items-start gap-5">
         <PersonMenu name={name} work={page?.character?.work ?? ''}>
           <div className="group/photo relative shrink-0"
@@ -351,8 +351,10 @@ function CharacterLine({ name, character }: { name: string; character: Character
       <span className="px-1 text-muted-foreground">in</span>
       <button type="button" data-character-work-open {...(note ? hoverNote(note.type, note.id) : {})}
         onClick={() => (chime('page'), note ? window.api.openInHome(note.type, note.id) : openSource('medium', character.work))}
-        className="flex max-w-full cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground hover:bg-accent">
-        <BookOpen className="size-3.5 shrink-0 text-muted-foreground" /><span className="truncate">{character.work}</span>
+        // On the line's own baseline by its words, not by its icon: a row of words lines a chip up by the first thing
+        // in it, and an icon's baseline is its bottom edge, so the work's name sat higher than "in" and "played by".
+        className="flex max-w-full cursor-pointer items-baseline gap-1 rounded-md px-1 py-0.5 font-medium text-foreground hover:bg-accent">
+        <BookOpen className="size-3.5 shrink-0 self-center text-muted-foreground" /><span className="truncate">{character.work}</span>
       </button>
       <span aria-hidden className="px-0.5">·</span>
       <span className="px-0.5 text-muted-foreground">played by</span>
@@ -595,7 +597,7 @@ const dayFull = (at: string): string => new Date(at).toLocaleDateString('en-GB',
  * about them, their words as quotes, what you make of them, what connects to
  * them, and when you first met them. Said to you throughout.
  */
-export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (type: string, id: string) => void }): React.JSX.Element {
+export function SourcePageView({ focus, onOpen, onSources }: { focus?: string; onOpen: (type: string, id: string) => void; /** To the Sources page, from the path over this one. */ onSources?: () => void }): React.JSX.Element {
   const which = readFocus(focus)
   const page = useLive(() => (which ? sources.page(which.field, which.name) : Promise.resolve(null)), null, [focus])
   const near = useLive(() => (which?.field === 'attribution' ? sources.near(page?.name ?? which.name) : Promise.resolve([])), [] as Near, [focus, page?.name, page?.items.length])
@@ -648,8 +650,20 @@ export function SourcePageView({ focus, onOpen }: { focus?: string; onOpen: (typ
   return (
     <Page title={name} count={page?.items.length ?? 0} unit={['note', 'notes']}>
       <div className="page-column pb-16" data-source-page={field}>
-        {field === 'attribution' ? <PersonHead page={page} name={name} /> : (
-        <div className="flex items-center gap-3 px-5 pt-8">
+        {/* Where this page is: "Sources › Lord Henry", the way up one press away, as a folder's path is over Gems and
+            Writing (items-view.tsx, the same parts). Reached from a name in the Feed or a note, a source's page had no way
+            to the rest of them but the sidebar (asked 12 Nov: "why no easy jump to sources through breadcrumb"). */}
+        {onSources && (
+          <nav data-source-path aria-label="Sources path" className="flex min-w-0 items-center gap-0.5 px-5 pt-4 text-body">
+            <Tip label="Sources  G J">
+              <button type="button" data-source-back onClick={() => (chime('tuck'), onSources())} className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><span className="truncate">Sources</span></button>
+            </Tip>
+            <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground/60" />
+            <span aria-current="page" className="flex min-w-0 items-center gap-1.5 px-1.5 py-0.5 font-medium text-foreground"><span className="truncate">{name}</span></span>
+          </nav>
+        )}
+        {field === 'attribution' ? <PersonHead page={page} name={name} close={!!onSources} /> : (
+        <div className={`flex items-center gap-3 px-5 ${onSources ? 'pt-4' : 'pt-8'}`}>
           <Icon className="size-8 text-muted-foreground" />
           <div className="min-w-0">
             <p className="text-control text-muted-foreground">{FIELD_SAID[field].one}</p>

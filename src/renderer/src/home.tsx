@@ -498,7 +498,7 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
       ) : view.id === 'sources' ? (
         <SourcesView onOpen={go} />
       ) : view.id === 'source' ? (
-        <SourcePageView key={view.focus} focus={view.focus} onOpen={go} />
+        <SourcePageView key={view.focus} focus={view.focus} onOpen={go} onSources={() => does.setView({ id: 'sources' }, key)} />
       ) : view.id === 'stats' ? (
         <StatsView key={`${view.focus}-${view.nonce}`} recap={view.focus} />
       ) : view.id === 'map' ? (

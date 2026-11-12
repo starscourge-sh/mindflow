@@ -95,6 +95,44 @@ try {
   check('20. a source lists its quotes as quotes too', await h.locator('[data-portrait="words"] [data-row]').count() === 2)
   await shot('source-page-light')
 
+  // The page's path, as a folder's over Gems and Writing: "Sources › Ada Example", "Sources" the way to all of them
+  // (asked 12 Nov: "why no easy jump to sources through breadcrumb or something? e.g like with writing").
+  await openPage('attribution', 'Ada Example')
+  const path = await h.evaluate(() => {
+    const nav = document.querySelector('[data-source-path]')
+    const back = nav?.querySelector('[data-source-back]')
+    const words = back?.querySelector('span')
+    const box = back?.getBoundingClientRect(), text = words && (() => { const r = document.createRange(); r.selectNodeContents(words); return r.getBoundingClientRect() })()
+    const head = document.querySelector('[data-person-head]')?.getBoundingClientRect()
+    return nav ? { said: nav.innerText.replace(/\s+/g, ' ').trim(), here: nav.querySelector('[aria-current="page"]')?.textContent, left: box && text ? Math.round((text.left - box.left) * 10) / 10 : null, right: box && text ? Math.round((box.right - text.right) * 10) / 10 : null, over: head ? Math.round(head.top - nav.getBoundingClientRect().bottom) : null } : null
+  })
+  check('21. a person\'s page says where it is: "Sources", then their name', !!path && /^Sources\s*Ada Example$/.test(path.said) && path.here === 'Ada Example', JSON.stringify(path))
+  check('22. "Sources" has the same room at its left as at its right', !!path && path.left !== null && Math.abs(path.left - path.right) <= 1, JSON.stringify(path))
+  await shot('source-path-light')
+  // With no path to press (an older build), the next three say so and the checks after them still run.
+  const pressed = await h.locator('[data-source-back]').count() > 0
+  if (pressed) { await h.click('[data-source-back]'); await wait(1000) }
+  check('23. a press on "Sources" opens the Sources page', pressed && await h.evaluate(() => !document.querySelector('[data-source-page]') && /Sources/.test(document.querySelector('[data-tab-on]')?.textContent ?? '')), await h.evaluate(() => document.querySelector('[data-tab-on]')?.textContent ?? ''))
+  if (pressed) { await h.keyboard.press('Meta+['); await wait(1000) }
+  check('24. ⌘[ comes back to the person', pressed && await h.evaluate(() => document.querySelector('[data-source-path] [aria-current="page"]')?.textContent === 'Ada Example'))
+  await openPage('medium', 'Made-up Book')
+  check('25. a work\'s page has the path too', await h.evaluate(() => /^Sources\s*Made-up Book$/.test(document.querySelector('[data-source-path]')?.innerText.replace(/\s+/g, ' ').trim() ?? '')))
+
+  // A character's line, "in <work> · played by": the work's chip sits on the line by its words (reported 12 Nov: "does
+  // not feel vertically aligned"; the chip lined up by the bottom of its book icon, its words higher than the rest).
+  await openPage('attribution', 'Lord Henry')
+  const line = await h.evaluate(() => {
+    const row = document.querySelector('[data-character-line]')
+    if (!row) return null
+    const foot = (node) => { const r = document.createRange(); r.selectNodeContents(node); return Math.round(r.getBoundingClientRect().bottom * 10) / 10 }
+    const words = [...row.querySelectorAll(':scope > span')]
+    const work = row.querySelector('[data-character-work-open] span')
+    const played = words.find((one) => one.textContent === 'played by')
+    return { in: foot(words[0]), work: work ? foot(work) : null, played: played ? foot(played) : null, said: row.innerText.replace(/\s+/g, ' ').trim().slice(0, 60) }
+  })
+  check('26. a character\'s work sits on the line of "in" and "played by" (its words within a pixel of theirs)', !!line && line.work !== null && line.played !== null && Math.abs(line.work - line.in) <= 1 && Math.abs(line.work - line.played) <= 1, JSON.stringify(line))
+  await shot('character-line-light')
+
   // Beside the note page, for the look.
   const id = await make({ kind: 'note', body: doc('A note to sit beside the person page') })
   await h.evaluate((one) => window.api.openInHome?.('capture', one), id).catch(() => {})
