@@ -229,7 +229,7 @@ const WIDTHS = 4
  * it scrolls and the caret as it moves, and the words on screen stay put when
  * it shifts. The document itself never changes.
  */
-function nearScreen(view: EditorView, name: string): { ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
+function nearScreen(view: EditorView, name: string): { edges: () => [number, number] | null; ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
   // Which blocks are drawn, and the space kept for the rest. A block off the
   // page carries a mark, and one rule that never changes hides the marked:
   // moving the drawn blocks then touches only the blocks that change sides.
@@ -585,8 +585,18 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
       const at = parking ? parked(Math.max(anchor, head) < edges[0]) : null
       return at === null ? null : [at, at]
     }
-    const keep = (at: number): number => Math.min(Math.max(at, edges[0]), edges[1])
-    return [keep(anchor), keep(head)]
+    // An end that is past the drawn blocks (⌘A, a long ⇧-click) is told as a place some blocks in from their edge,
+    // as a caret left behind is: told as the edge itself, next to the hidden blocks, the browser looked through
+    // every one of them for somewhere to show it, on every change (⌘A in a 7,017-block note: over a minute).
+    // The screen is further in than that, so what it shows as picked is the same. Never past the other end.
+    const inside = (at: number): number => Math.min(Math.max(at, edges[0]), edges[1])
+    const keep = (at: number, other: number): number => {
+      if (at >= edges[0] && at <= edges[1]) return at
+      const before = at < edges[0]
+      const near = parked(before)
+      return near === null || (before ? near > other : near < other) ? other : near
+    }
+    return [keep(anchor, inside(head)), keep(head, inside(anchor))]
   })
   // Where a caret with no part drawn is told to the browser as the note is given the keys: the start of a block
   // some way in from the drawn edge nearest it. Off the screen (the drawn blocks reach further past it than
@@ -690,6 +700,7 @@ function nearScreen(view: EditorView, name: string): { ahead: (state: EditorStat
     else requestAnimationFrame(settle)
   }
   return {
+    edges: drawnEdges,
     // A jump out of the band (gg, G, a search, the outline) draws its
     // destination before the caret is put there: placed in a block that is not
     // drawn, the browser walked every hidden letter to find where it could
@@ -801,6 +812,25 @@ export const LongDocument = Extension.create({
             if (!long(state)) return {}
             near?.ahead(state)
             return { "data-long": name }
+          },
+          // ⇧-click with the selection's fixed end left behind in blocks no longer drawn. The browser stretches its
+          // own selection to the click, and it has none there to stretch (a selection with no part drawn is not
+          // told to it): it started from the note's very first place, looking through every hidden block on the
+          // way (23 seconds on a 7,017-block note), and what was picked began at the first drawn block, not at
+          // the caret. Picked here instead, from where the selection was begun to the place clicked.
+          handleDOMEvents: {
+            mousedown: (view, event) => {
+              if (!event.shiftKey || event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || !long(view.state)) return false
+              const edges = near?.edges()
+              const { $anchor } = view.state.selection
+              if (!edges || ($anchor.pos >= edges[0] && $anchor.pos <= edges[1])) return false
+              const at = view.posAtCoords({ left: event.clientX, top: event.clientY })
+              if (!at) return false
+              event.preventDefault()
+              view.dispatch(view.state.tr.setSelection(TextSelection.between($anchor, view.state.doc.resolve(at.pos))))
+              view.focus()
+              return true
+            },
           },
           // ⌘↑ and ⌘↓ are left to the browser elsewhere, which would stop at
           // the last block drawn: here they go to the true start and end.
