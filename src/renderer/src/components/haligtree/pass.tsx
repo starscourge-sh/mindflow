@@ -502,7 +502,13 @@ function Action({ label, tip, tint, on, run }: { label: string; tip: string; tin
  * already use offered as you type. Enter, Tab, a space or a comma keeps it;
  * ⌫ in the empty field takes the last one off; Escape goes back to the words.
  */
-export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false }: {
+export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false, bare = false }: {
+  /**
+   * In a row of a popover (the Calendar popover's tags row): the field wears no pill and sits flush, at the row's own
+   * size, with no room kept under it; and the tags it offers are listed under it in the row's own flow, as the names an
+   * event's people field offers are, never floated: a list floated inside a popover that scrolls is cut by it.
+   */
+  bare?: boolean
   tags: string[]
   /** Takes the keys as soon as it shows, as it does when asked for from a card. */
   autoFocus?: boolean
@@ -527,7 +533,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
     setText('')
   }
   return (
-    <div className="relative mb-3 flex flex-wrap items-center gap-1.5 text-xs">
+    <div className={`relative flex flex-wrap items-center gap-1.5 ${bare ? 'min-w-0 flex-1 text-control' : 'mb-3 text-xs'}`}>
       {tags.map((one) => (
         <TagChip key={one} tag={one} color={all.find((other) => other.tag === one)?.color} className="group/tag">
           <button type="button" aria-label={`Take #${one} off`} onMouseDown={(event) => event.preventDefault()} onClick={() => onRemove(one)}
@@ -546,7 +552,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
         onBlur={() => setFocused(false)}
         placeholder={tags.length ? 'another tag' : 'add a tag'}
         aria-label="Add a tag"
-        className="rounded-full px-2 py-0.5 hover:bg-accent/50 focus-within:bg-accent/60"
+        className={bare ? '' : 'rounded-full px-2 py-0.5 hover:bg-accent/50 focus-within:bg-accent/60'}
         inputClassName="field-sizing-content min-w-20"
         onKeyDown={(event) => {
           event.stopPropagation()
@@ -572,7 +578,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
         }}
       />
       {focused && offered.length > 0 && (
-        <div className={`absolute top-full left-0 z-30 mt-1 min-w-48 overflow-hidden rounded-lg p-1 text-control ${FLOAT}`}>
+        <div data-tag-offers className={bare ? 'flex basis-full flex-col' : `absolute top-full left-0 z-30 mt-1 min-w-48 overflow-hidden rounded-lg p-1 text-control ${FLOAT}`}>
           {offered.map((one, index) => (
             <button key={one.tag} type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => keep(one.tag)}
               // One lit row: the pointer chooses once it moves, and at rest under the list it lights nothing of its own.

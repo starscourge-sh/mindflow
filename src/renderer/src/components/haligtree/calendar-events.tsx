@@ -653,7 +653,7 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, one }: {
           {!one?.readOnly && <Button type="submit" size="sm" variant={one ? 'ghost' : undefined} data-new-event-add aria-label={one ? 'Keep' : 'Add'}><span className="hidden @[40rem]/page:inline">{one ? 'Keep' : 'Add'}</span> <Kbd>↵</Kbd></Button>}
         </div>
         {/* What it will be, plain to read, before it is made. */}
-        <div data-new-event-said className="flex flex-col gap-1 text-body text-foreground">
+        <div data-new-event-said className="flex flex-col gap-1 text-body text-foreground [overflow-wrap:anywhere]">
           <p><strong className="font-semibold">{(one ? set!.name : read.title) || 'An event'}</strong>, {whenSaid(start, fixedEnd, allDay, clock)}{one ? (one.repeatSaid ? `, ${one.repeatSaid.toLowerCase()}` : '') : read.repeat ? `, ${repeatSaid(read.repeat, start).toLowerCase()}` : ''}.</p>
           {(place || people.length > 0) && <p>{place && <>At <strong className="font-semibold">{place}</strong>. </>}{people.length > 0 && <>With <strong className="font-semibold">{people.join(', ')}</strong>.</>}</p>}
         </div>
@@ -696,7 +696,8 @@ export function QuietRow({ icon: Icon, name, said, open, onOpen, row, children }
   return (
     <div data-quiet-row={row} data-open={open || undefined} className="flex flex-col">
       <button type="button" aria-expanded={open} onClick={() => (chime(open ? 'fold' : 'open'), onOpen(!open))}
-        className="group/head flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-control text-foreground outline-none transition-colors hover:bg-accent focus-visible:bg-accent motion-reduce:transition-none">
+        // A press answers at once: the row gives a little, as every row of a list here does (DESIGN.md, Alive Not Ingratiating).
+        className="group/head flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-control text-foreground outline-none transition-[background-color,scale] duration-150 ease-(--mf-ease) hover:bg-accent focus-visible:bg-accent active:scale-[0.98] motion-reduce:transition-none">
         <Icon aria-hidden className="size-4 shrink-0" />
         <span className="shrink-0">{name}</span>
         <span data-quiet-said className="min-w-0 flex-1 truncate text-right font-medium">{said}</span>
@@ -728,7 +729,9 @@ export function EventRows({ one, onKey }: { one: Shown; onKey: (key: string) => 
         said={<span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: inkOf(on?.color) }} />{on?.name ?? 'Calendar'}</span>}>
         <div className="px-1"><CalendarPick calendars={calendars} on={one.calendarId} onPick={(cal) => cal.id !== one.calendarId && void save({ calendarId: cal.id }, `On ${cal.name} now`)} /></div>
       </QuietRow>
-      <PropInput key={`place-${one.place ?? ''}`} icon={MapPin} value={one.place ?? ''} placeholder="Place" lead="At" ghost="Place: Cafe on the corner" does="Where it is. It shows on the block, and in the reminder" onSave={(place) => place !== (one.place ?? '') && void save({ place: place || null }, place ? `At ${place}` : 'No place now')} />
+      {/* The page's own field, without its example and its tip here: in a popover the example read as a place already set,
+          and nothing floats over the popover. Its word, like “People” under it, says what goes there. */}
+      <PropInput key={`place-${one.place ?? ''}`} icon={MapPin} value={one.place ?? ''} placeholder="Place" lead="At" onSave={(place) => place !== (one.place ?? '') && void save({ place: place || null }, place ? `At ${place}` : 'No place now')} />
       <PeopleField people={one.people} known={known} onSave={(people) => void save({ people }, people.length ? `With ${people.join(', ')}` : 'Nobody named now')} />
       <QuietRow row="remind" icon={Bell} name="Reminder" said={remindName(one.remind)} open={open === 'remind'} onOpen={turn('remind')}>
         <RemindChoices value={one.remind} allDay={one.allDay} start={one.start} onSave={(remind) => void save({ remind }, remind === null ? 'No reminder now' : `Reminds you ${remindName(remind).toLowerCase()}`)} />

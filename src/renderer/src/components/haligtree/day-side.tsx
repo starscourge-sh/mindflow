@@ -265,7 +265,7 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, task 
         {/* Where it lands (or, open on a task, where it is), plain to read. */}
         {task && !task.dueAt
           ? <p data-day-side-when className="text-body text-foreground">No day yet.</p>
-          : <p data-day-side-when className="text-body text-foreground">
+          : <p data-day-side-when className="text-body text-foreground [overflow-wrap:anywhere]">
               For <strong className="font-semibold">{at.format('dddd D MMMM')}</strong>{minute !== null && <> at <strong className="font-semibold">{clock(at)}</strong></>}{length ? <>, for <strong className="font-semibold">{lasting(length)}</strong></> : null}.
             </p>}
         {/* One quiet line, never a paragraph, saying by example what the words can hold; it gives way in a short window, so nothing in the popover is cut. */}

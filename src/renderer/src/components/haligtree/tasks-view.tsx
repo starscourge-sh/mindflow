@@ -1557,10 +1557,12 @@ export function TaskRows({ task }: { task: Task }): React.JSX.Element {
   return (
     <div data-task-rows className="flex flex-col px-1 pb-2">
       <DatePicker time allDay={!!task.allDay} value={task.dueAt} onChange={(due, timed) => setDue(task, due, timed)} placeholder="Not scheduled" />
-      {/* Its tags, after their mark on the rows' one left edge, as the date above and an event's people are. */}
-      <div data-task-tags className="flex items-start gap-2 px-2 py-1.5 [&>div]:mb-0 [&>div]:min-w-0 [&>div]:flex-1">
-        <Tag aria-hidden className="mt-0.5 size-4 shrink-0" />
-        <TagRow tags={named.tags} field={tagField} onAdd={(tag) => retag([...named.tags, tag], `Tagged #${tag}`)} onRemove={(tag) => retag(named.tags.filter((one) => one !== tag), `#${tag} taken off`)} onDone={() => tagField.current?.blur()} />
+      {/* Its tags in a row shaped as an event's people are: the mark on the rows' one left edge, the words on the date's
+          words' edge, the tags it offers listed under the field; a press anywhere on the row puts the caret in it. */}
+      <div data-task-tags onClick={(event) => !(event.target as Element).closest('input, button') && tagField.current?.focus()}
+        className="flex cursor-text items-start gap-2 px-2 py-1.5">
+        <Tag aria-hidden className="mt-px size-4 shrink-0" />
+        <TagRow bare tags={named.tags} field={tagField} onAdd={(tag) => retag([...named.tags, tag], `Tagged #${tag}`)} onRemove={(tag) => retag(named.tags.filter((one) => one !== tag), `#${tag} taken off`)} onDone={() => tagField.current?.blur()} />
       </div>
     </div>
   )
