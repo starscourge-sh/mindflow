@@ -104,13 +104,12 @@ export function TitleTips(): React.JSX.Element | null {
   }, [tip])
   if (!tip) return null
   return (
-    // Placed by the outer box and faded in by the inner one: on one box the
-    // fade's own transform replaced the placing one while it ran, so the tip
-    // first showed over the thing pointed at, then jumped above it.
+    // Placed by the outer box; the inner one comes in by `mf-pop` (main.css), as a popover and a tooltip do: grown from
+    // the side the thing pointed at is on by a clip, never faded (it is frosted).
     // As wide as its words (never narrowed by the window's edge it is centred near), up to the inner box's own limit.
     <div ref={box} className="pointer-events-none fixed z-[100] w-max" style={{ left: tip.x, top: tip.y, transform: `translate(-50%, ${tip.below ? '0' : '-100%'})` }}>
-      <div role="tooltip" data-title-tips
-        className={cn(FLOAT, 'w-fit max-w-[min(20rem,calc(100vw-1rem))] rounded-md px-2.5 py-1.5 text-xs [overflow-wrap:anywhere] animate-in fade-in-0 zoom-in-95 duration-100')}>
+      <div role="tooltip" data-title-tips data-state="open" data-side={tip.below ? 'bottom' : 'top'}
+        className={cn(FLOAT, 'mf-pop w-fit max-w-[min(20rem,calc(100vw-1rem))] rounded-md px-2.5 py-1.5 text-xs [overflow-wrap:anywhere]')}>
         <TipText text={tip.text} />
       </div>
     </div>

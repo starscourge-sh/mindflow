@@ -3117,7 +3117,8 @@ html[data-book-hue] [data-book-tint] {
 .mf-pop[data-side='left'] { --mf-pop-from: inset(-48px -48px -48px 70%); --mf-pop-gone: inset(-48px -48px -48px 100%); }
 @keyframes mf-pop-in { from { clip-path: var(--mf-pop-from); } to { clip-path: inset(-48px -48px -48px -48px); } }
 @keyframes mf-pop-out { from { clip-path: inset(-48px -48px -48px -48px); } to { clip-path: var(--mf-pop-gone); } }
-.mf-pop[data-state='open'] { animation: mf-pop-in 150ms var(--mf-ease); }
+/* A tip that waited its moment (Radix: delayed-open) comes the same way; one shown at once, the pointer already among tips, is simply there. */
+.mf-pop:is([data-state='open'], [data-state='delayed-open']) { animation: mf-pop-in 150ms var(--mf-ease); }
 .mf-pop[data-state='closed'] { animation: mf-pop-out 100ms var(--mf-ease) forwards; }
 .mf-pop[data-keyed] { animation: none; }
 @media (prefers-reduced-motion: reduce) { .mf-pop { animation: none !important; } }

@@ -56,6 +56,9 @@ function SheetContent({
       <SheetPrimitive.Content
         ref={setPanel}
         data-slot="sheet-content"
+        // The side its entrance grows towards, in `mf-pop`'s words (a popover on the left of its trigger grows leftwards):
+        // a sheet on the window's right edge grows out of that edge, to the left.
+        data-side={({ right: 'left', left: 'right', top: 'bottom', bottom: 'top' } as const)[side]}
         // Radix puts the focus on the first thing in here that takes it, which
         // is the close button - so a panel you opened to read came up with a
         // ring around its X. The panel itself takes it instead: the focus is
@@ -67,16 +70,14 @@ function SheetContent({
           panel.current?.focus()
         }}
         className={cn(
-          // Frosted in the main window (main.css .mf-frost); its shade is a sibling, so nothing over it fades.
-          "mf-frost bg-background outline-hidden data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-(--mf-panel-shadow) ease-[cubic-bezier(0.16,1,0.3,1)] data-[state=closed]:duration-150 data-[state=open]:duration-200",
-          side === "right" &&
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-right-2 data-[state=open]:slide-in-from-right-2 inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
-          side === "left" &&
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-left-2 data-[state=open]:slide-in-from-left-2 inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
-          side === "top" &&
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 inset-x-0 top-0 h-auto border-b",
-          side === "bottom" &&
-            "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:slide-out-to-bottom-2 data-[state=open]:slide-in-from-bottom-2 inset-x-0 bottom-0 h-auto border-t",
+          // Frosted in the main window (main.css .mf-frost); its shade is a sibling, so nothing over it fades. It comes in
+          // and goes by `mf-pop` (main.css), as a popover does: grown out of the window's edge it sits on by a clip, whole
+          // from its first frame, never faded (fading in, a frosted sheet showed the page sharp through it until the fade ended).
+          "mf-pop mf-frost bg-background outline-hidden fixed z-50 flex flex-col gap-4 shadow-(--mf-panel-shadow)",
+          side === "right" && "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm",
+          side === "left" && "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
+          side === "top" && "inset-x-0 top-0 h-auto border-b",
+          side === "bottom" && "inset-x-0 bottom-0 h-auto border-t",
           className
         )}
         {...props}
