@@ -6,10 +6,14 @@
 // call gets the same date); a suspended card is never asked; the day stays 15 to
 // 25 posts and the end line names the polls and quiz cards.
 import { mkdirSync } from 'fs'
+import { tmpdir } from 'os'
+import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
-const SHOTS = process.env.SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/briefs/shots/feed5'
+// Its pictures go where the run says (SHOTS), or to a folder of their own in the Mac's temp folder: never to a path
+// on one Mac (it named the scratch folder of the session that wrote it).
+const SHOTS = process.env.SHOTS ?? process.env.QA_SHOTS ?? join(tmpdir(), 'haligtree-feed-polls')
 mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const s = await sandbox({ width: 1600, height: 1000 })
@@ -48,7 +52,12 @@ try {
   // A quiz card suspended after the morning is not asked on the next read.
   await go('feed')
   await h.waitForTimeout(1200)
-  check('the end line names the polls and quiz cards', /\b1 poll\b/.test(await h.locator('[data-feed-end]').textContent()) && /quiz card/.test(await h.locator('[data-feed-end]').textContent()), await h.locator('[data-feed-end]').textContent())
+  // The end line names the three kinds the day has most of and counts the rest as "and N more" (feed-view.tsx, since
+  // 24 Oct; qa/feed-scale.mjs holds it to three). A day's one poll and its quiz cards are few, so they are never among
+  // the three named: they are in the count, which adds up to every post of the day, or they were left out of it.
+  const summary = (await h.locator('[data-feed-summary]').textContent()) ?? ''
+  const counted = (summary.match(/\d[\d,]*/g) ?? []).reduce((sum, n) => sum + Number(n.replace(/,/g, '')), 0)
+  check('the end line counts the poll and the quiz cards in what came up', counted === total && polls.length + quizzes.length > 0, `“${summary}”: ${counted} of ${total} posts, ${polls.length} poll, ${quizzes.length} quiz`)
 
   // --- the poll
   const poll = h.locator('[data-feed-post="poll"]').first()
