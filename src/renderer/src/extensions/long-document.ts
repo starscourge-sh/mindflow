@@ -239,7 +239,7 @@ const WIDTHS = 4
  * it scrolls and the caret as it moves, and the words on screen stay put when
  * it shifts. The document itself never changes.
  */
-function nearScreen(view: EditorView, name: string): { view: EditorView; edges: () => [number, number] | null; ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
+function nearScreen(view: EditorView, name: string): { view: EditorView; release: () => void; edges: () => [number, number] | null; ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
   // Which blocks are drawn, and the space kept for the rest. A block off the
   // page carries a mark, and one rule that never changes hides the marked:
   // moving the drawn blocks then touches only the blocks that change sides.
@@ -594,13 +594,17 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; edges: 
   const unclamp = keepSelectionDrawn(view, (anchor, head) => {
     const edges = view.dom.hasAttribute("data-long") ? drawnEdges() : null
     if (!edges) return [anchor, head]
-    // No part of it drawn (a caret left behind as the screen went elsewhere): the browser is not told. Told where
-    // it is, among blocks taken off the page, it looked through every hidden block for somewhere to show it, each
-    // time it drew, and the window stopped answering for minutes. Only as the note is given the keys is it told
-    // the edge of the drawn blocks nearest the caret, well off the screen (`parking`, below). A key lands at the
-    // true caret all the same: the note comes back to it first (`keyed`).
+    // No part of it drawn (a caret left behind as the screen went elsewhere): the browser is told a place that
+    // stands in for it, some blocks in from the edge of the drawn ones nearest the caret, well off the screen
+    // (`parked`, below). Told where it truly is, among blocks taken off the page, it looked through every hidden
+    // block for somewhere to show it, each time it drew, and the window stopped answering for minutes. And told
+    // nothing, as it once was while the note held the keys, the browser put a caret of its own at the note's very
+    // first place the next time it had cause to (a press anywhere, the window coming to the front), and from then
+    // on walked from there through every hidden block to the first drawn one each time it laid the page out or
+    // was asked where the selection was: 5 to 12 seconds a time, ten times over for one press on "New tab". A
+    // key lands at the true caret all the same: the note comes back to it first (`keyed`).
     if (Math.max(anchor, head) < edges[0] || Math.min(anchor, head) > edges[1]) {
-      const at = parking ? parked(Math.max(anchor, head) < edges[0]) : null
+      const at = parked(Math.max(anchor, head) < edges[0])
       return at === null ? null : [at, at]
     }
     // An end that is past the drawn blocks (⌘A, a long ⇧-click) is told as a place some blocks in from their edge,
@@ -616,8 +620,8 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; edges: 
     }
     return [keep(anchor, inside(head)), keep(head, inside(anchor))]
   })
-  // Where a caret with no part drawn is told to the browser as the note is given the keys: the start of a block
-  // some way in from the drawn edge nearest it. Off the screen (the drawn blocks reach further past it than
+  // Where a caret with no part drawn is told to the browser: the start of a block some way in from the drawn
+  // edge nearest it. Off the screen (the drawn blocks reach further past it than
   // that), and with drawn blocks either side: at the very edge, next to the hidden ones, the browser looked
   // through those for the caret's place.
   const parked = (before: boolean): number | null => {
@@ -628,31 +632,63 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; edges: 
     const block = all[before ? Math.min(first + PARK, end) : Math.max(end - PARK, first)] as unknown as { pmViewDesc?: { node?: unknown; posAtStart: number } } | undefined
     return block?.pmViewDesc?.node ? block.pmViewDesc.posAtStart : null
   }
-  // The drawn blocks moved: the browser is told the selection again when some of it is drawn now (a range's new
-  // edge, the caret itself once its blocks are back). One with no part drawn stays untold.
+  // The drawn blocks moved: a note that holds the keys is told its selection again, as far as it is drawn now (a
+  // range's new edge, the caret itself once its blocks are back), or the place that stands in for it. A note with
+  // the keys is never left with no selection: the browser then makes one of its own, at the note's first place.
   const resync = (): void => {
-    if (!view.hasFocus()) return
-    const { from, to } = view.state.selection
-    const edges = drawnEdges()
-    if (edges && to >= edges[0] && from <= edges[1]) focus()
+    if (view.hasFocus() && drawnEdges()) focus()
+  }
+  // The browser's selection taken out of this note.
+  const release = (): void => {
+    if (held()) view.dom.ownerDocument.getSelection()?.removeAllRanges()
+  }
+  // Whether the note is off the page whole: not in it, hidden with what holds it, or held as a picture under the
+  // page taking its place (`inert`, components/haligtree/page-swap.tsx). It can take no keys then.
+  const away = (): boolean => !view.dom.isConnected || !!view.dom.closest("[inert]") || !view.dom.checkVisibility()
+  // A note that is off the page whole keeps no selection. All its blocks are off the page then, and a selection
+  // left among them (the caret's, a range's, the stand-in's) is looked for through every one of them each time
+  // the browser lays out: with the caret deep in a long note, a press that changed the page stopped the window
+  // for seconds. What hides a note is said on something above it (an attribute: inert, hidden, a style, a class),
+  // so those are watched, and the selection is let go of before the browser next lays the page out.
+  const hidden = new MutationObserver(() => void (held() && away() && release()))
+  const watchAbove = (): void => {
+    hidden.disconnect()
+    for (let above = view.dom.parentElement; above; above = above.parentElement) hidden.observe(above, { attributes: true })
+  }
+  // A place a caret can be, kept on the page at each end of the note, beside it in its scroller. Whenever the
+  // browser's selection is at a place no caret can be (the edge of a box: where a press on bare chrome puts it,
+  // or where an editor that held it has just been taken away), the browser looks from there, forward and back
+  // through the page, letter by letter, for the nearest place one can be, each time it lays out. With a long
+  // note in its way that was every block of the note that is not drawn: 5 to 12 seconds a time, half a minute
+  // and more for one press. The walk now ends at the note's edge. Each is a line break in a box of no height:
+  // nothing to see, nothing to press, outside the note's own words.
+  const ends = [0, 1].map(() => {
+    const end = document.createElement("span")
+    end.setAttribute("data-long-end", "")
+    end.setAttribute("aria-hidden", "true")
+    end.contentEditable = "false"
+    end.style.cssText = "display:block;height:0;overflow:hidden;pointer-events:none"
+    end.append(document.createElement("br"))
+    return end
+  })
+  const fence = (): void => {
+    if (!view.dom.parentElement) return
+    if (ends[0].nextSibling !== view.dom) view.dom.before(ends[0])
+    if (ends[1].previousSibling !== view.dom) view.dom.after(ends[1])
   }
   // Given the keys with no selection in it, the browser puts a caret of its own at the note's very first place:
   // off the page in a long note scrolled down, and it looked through every hidden block from there for somewhere
   // to show it (seconds). So a selection is in the note before the keys are: the note's own, or with none of
-  // that drawn, the drawn edge nearest it.
-  let parking = false
+  // that drawn, the place that stands in for it. A note that cannot take the keys is given none, and one that
+  // did not get them keeps none.
   const focus = view.focus.bind(view)
   view.focus = (): void => {
-    if (band && view.dom.isConnected && !view.hasFocus() && !held()) {
+    if (band && !view.hasFocus() && !held() && !away()) {
       const { anchor, head } = view.state.selection
-      parking = true
-      try {
-        ;(view as unknown as { docView: Desc }).docView.setSelection(anchor, head, view)
-      } finally {
-        parking = false
-      }
+      ;(view as unknown as { docView: Desc }).docView.setSelection(anchor, head, view)
     }
     focus()
+    if (band && !view.hasFocus()) release()
   }
   /** Draw the blocks round block `index`, if it is not among the drawn ones. */
   const show = (index: number): void => {
@@ -660,6 +696,7 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; edges: 
     measure()
     letGo(index - NEAR, index + NEAR)
     draw(index - NEAR, index + NEAR)
+    resync()
     more()
   }
   /**
@@ -715,11 +752,12 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; edges: 
   // was, the note opened on blank space until it was scrolled.
   const settle = (): void => {
     if (view.isDestroyed) return
-    if (view.dom.isConnected) respace()
+    if (view.dom.isConnected) (watchAbove(), fence(), respace())
     else requestAnimationFrame(settle)
   }
   return {
     view,
+    release,
     edges: drawnEdges,
     // A jump out of the band (gg, G, a search, the outline) draws its
     // destination before the caret is put there: placed in a block that is not
@@ -797,6 +835,8 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; edges: 
       unclamp()
       drawnOf.delete(view.dom)
       made.disconnect()
+      hidden.disconnect()
+      for (const end of ends) end.remove()
       view.dom.removeEventListener("keydown", keyed, true)
       view.dom.removeEventListener("beforeinput", keyed, true)
       style.remove()
@@ -888,6 +928,9 @@ export const LongDocument = Extension.create({
             if (away || !parent || !view.dom.isConnected || view.hasFocus()) return
             const next = view.dom.nextSibling
             away = true
+            // Its selection goes first: taken off the page with one in it, the browser kept it at the place the
+            // note had been, a place no caret can be, and looked from there through the note's hidden blocks.
+            mine.release()
             view.dom.remove()
             setTimeout(() => {
               away = false

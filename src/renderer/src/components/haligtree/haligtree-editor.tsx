@@ -1933,6 +1933,18 @@ function Surface({
   useEffect(() => (documentId != null && editor ? showingDocument(String(documentId), editor) : undefined), [editor, documentId])
   // A note opens where you were in it: its scroll and caret, kept as you leave it (note-place.ts).
   useNotePlace(editor, documentId != null ? String(documentId) : null, shape === "document")
+  // An editor that goes takes the browser's selection with it. Left behind, the browser keeps it at the place in
+  // the page the editor was taken from, a place no caret can be, and from then on looks from there for the
+  // nearest place one can be each time it lays out: with a long note next in the page, through every block of
+  // it that is not drawn (the window stopped for half a minute at a press). Let go of before the editor is taken
+  // out of the page, which is when this runs.
+  useLayoutEffect(() => {
+    if (!editor) return
+    return () => {
+      const selection = document.getSelection()
+      if (selection?.rangeCount && !editor.isDestroyed && editor.view.dom.contains(selection.anchorNode)) selection.removeAllRanges()
+    }
+  }, [editor])
 
   // The first line, watched against the window rather than the scroller: in
   // the box the document scrolls itself, in a page its column does, and only
