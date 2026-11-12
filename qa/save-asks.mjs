@@ -186,6 +186,7 @@ check('after a save its editor asks whether its words are still the ones kept, a
   of('haligtree:notes:body', 'calls').every((n) => n === 0) && of('haligtree:notes:still', 'calls').some((n) => n > 0), `${said('haligtree:notes:body')}; ${said('haligtree:notes:still')}`)
 check("the first pictures for lists hold main's thread under 2 ms a save (notes:thumbs: read on the reading thread)", of('haligtree:notes:thumbs', 'ms').every((ms) => ms < 2), said('haligtree:notes:thumbs'))
 check('the log of saves is folded into the file under its own name, once the app has rested, after every save', of('book: the log folded into the file', 'calls').every((n) => n >= 1), said('book: the log folded into the file'))
+check('a note’s fields are read without its words: under 2 ms of main’s thread a save (notes:fields)', of('haligtree:notes:fields', 'ms').every((ms) => ms < 2), said('haligtree:notes:fields'))
 
 // What the tags kept for related notes add to a save's write, in the app's own saves: the last two against the middle ones.
 const middle = (list) => [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)]

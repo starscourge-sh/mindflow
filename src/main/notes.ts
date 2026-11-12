@@ -266,12 +266,15 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   // Read on the reading thread (book-tags.ts): a long note's every word is read for them, at each open and each save.
   handle('notes:tags', (name: string, id: string) => ask('note:tags', [table(name), id]))
   handle('notes:fields', (name: string, id: string) => {
-    const row = db.prepare(`select fields${table(name) === 'captures' ? ', kind, title, body' : ''} from ${table(name)} where id = ?`).get(id) as { fields: string | null; kind?: string; title?: string | null; body?: string | null } | undefined
+    // Its words are not read with its fields: asked after every save of an open note, that read a long note whole
+    // (4 ms of main's thread for 4 MB) for the one case below, a Word with no name of its own.
+    const row = db.prepare(`select fields${table(name) === 'captures' ? ', kind, title' : ''} from ${table(name)} where id = ?`).get(id) as { fields: string | null; kind?: string; title?: string | null } | undefined
     const fields = (parse(row?.fields ?? null) as Record<string, unknown> | null) ?? {}
     // A Word saved with its forms for a meaning ("(runs) (, running)…", an older reading of the Mac's Dictionary):
     // read again once, as it is next shown, and the new meaning kept in its place.
     if (row?.kind === 'word' && typeof fields.definition === 'string' && garbled(fields.definition) && !fields._meaningRead) {
-      const word = (row.title?.trim() || plain(parse(row.body ?? null)).trim()).split(/\s+/)[0] ?? ''
+      const words = (): string => plain(parse((db.prepare('select body from captures where id = ?').get(id) as { body: string | null } | undefined)?.body ?? null))
+      const word = (row.title?.trim() || words().trim()).split(/\s+/)[0] ?? ''
       void defineAgain(word).then((found) => {
         const now = (parse((db.prepare(`select fields from captures where id = ?`).get(id) as { fields: string | null } | undefined)?.fields ?? null) as Record<string, unknown> | null) ?? {}
         const next = { ...now, _meaningRead: 1, ...(found ? { definition: found.definition, ...(found.example && !now.example ? { example: found.example } : {}) } : {}) }
