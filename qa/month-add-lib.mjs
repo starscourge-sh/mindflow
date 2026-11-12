@@ -1,7 +1,7 @@
 // Shared by the probes that add a task to a month's day (12 Nov): the "+" on a hovered day is gone, and the tall side
 // panel with it. A double-click on a day's empty part puts a draft there and opens the popover tied to it (cal-add.tsx),
-// its line holding the keys; ↵ makes the thing and the popover goes. The thing's own page is then one step away: its
-// chip on its day opens it in the side panel, as before.
+// its line holding the keys; ↵ makes the thing and the popover goes. A thing that exists opens in the same popover (a
+// double-click on it, or ↵), and its own page is one step on from there: "Open" in the popover, in the side panel.
 
 /**
  * A double-click on an empty part of a month's day: the popover is up, on `kind` when one is asked for. The empty part
@@ -29,11 +29,24 @@ export async function startOnDay(h, cell, kind) {
   await h.waitForTimeout(450)
 }
 
-/** A task's page, opened from the month by its chip on its day: the side panel holding it. `name` is the chip's words. */
+/** A task's page, opened from the month: a double-click on its line on its day opens the popover on it, and "Open" there is its page, in the side panel. `name` is the line's words. */
 export async function openFromMonth(h, id, name) {
   const chip = h.locator('[data-month-plan] [data-plan-task]', { hasText: name }).first()
   await chip.scrollIntoViewIfNeeded()
-  await chip.click()
+  await chip.dblclick()
+  await h.locator(`[data-cal-add][data-cal-open="${id}"] [data-cal-open-page]`).click({ timeout: 5000 })
   await h.locator(`[data-day-side="task"] [data-open="${id}"]`).waitFor({ timeout: 5000 })
+  await h.waitForTimeout(400)
+}
+
+/**
+ * The page of an event or a task on the Calendar (the side panel): a double-click on it opens its popover, and "Open"
+ * there is its page. `thing` is a locator for its block, chip or line.
+ */
+export async function openPage(h, thing) {
+  await thing.scrollIntoViewIfNeeded()
+  await thing.dblclick()
+  await h.locator('[data-cal-add][data-cal-open] [data-cal-open-page]').click({ timeout: 5000 })
+  await h.locator('[data-day-side]').waitFor({ timeout: 5000 })
   await h.waitForTimeout(400)
 }

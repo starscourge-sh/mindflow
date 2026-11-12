@@ -2,7 +2,7 @@
 // until the fade ends, and the page shows sharp through it. So a popover grows out of the side its trigger is on, the
 // surface whole from its first frame (revealed by a clip), and leaves the way it came. Reached by a key, with Reduce
 // motion or with Motion off, it is simply there.
-// Four different popovers are opened with a real pointer: the Calendar's new event (its own), an event's card, the date
+// Four different popovers are opened with a real pointer: the Calendar's new event (its own), the same popover open on an event, the date
 // jump under the Calendar's title, and the second time zone's list in Settings. A picture takes longer than an entrance
 // lasts, so each entrance is stopped as it starts and stepped by hand (0, 16, 33, 50, 100, 150ms), a picture at each step
 // with FRAMES=dir, light and dark, and at each step the surface's own opacity is read: it must be whole (1) at every one.
@@ -57,13 +57,13 @@ try {
     check(`${look}: and it does grow: its entrance is played, from its trigger's side`, seen[0]?.n > 0 && seen[0].clip !== seen.at(-1).clip, `${seen[0]?.clip} to ${seen.at(-1)?.clip}`)
     await h.keyboard.press('Escape')
     await wait(350)
-    // 2. An event's card: a click on an event in the month.
+    // 2. The same popover open on an event (the card a click once opened is gone): a double-click on an event in the month.
     const chip = await h.evaluate(() => { const el = document.querySelector('[data-cal-level] [data-cal-event-chip]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
     if (chip) {
-      await hold('[data-cal-pop]')
-      await h.mouse.click(chip.x, chip.y)
-      seen = await step('[data-cal-pop]', 'card', look)
-      check(`${look}: an event's card is whole at every step of its entrance, never faded`, seen.every((one) => one && one.opacity === 1 && !one.fades), said(seen))
+      await hold('[data-cal-add][data-cal-open]')
+      await h.mouse.dblclick(chip.x, chip.y)
+      seen = await step('[data-cal-add][data-cal-open]', 'opened', look)
+      check(`${look}: the popover open on an event is whole at every step of its entrance, never faded`, seen.every((one) => one && one.opacity === 1 && !one.fades), said(seen))
       await h.keyboard.press('Escape')
       await wait(350)
     } else check(`${look}: an event is on the month to click`, false)

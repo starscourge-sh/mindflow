@@ -150,8 +150,10 @@ try {
   await h.mouse.dblclick(cb.x + cb.width / 2, y0 + 120); await h.waitForTimeout(600)
   check('1: a double-click opens "New event"', (await h.locator('[data-new-event-words]').count()) === 1, await h.locator(P).getAttribute('aria-label').catch(() => 'none'))
   await h.keyboard.press('Escape'); await h.waitForTimeout(400)
-  // An event opened (a double-click): in the panel on the right edge, on the frost.
+  // An event opened (a double-click): the popover on it, with no sidebar; "Open" there is its page, in the panel on the right edge, on the frost.
   await h.locator('[data-cal-event]', { hasText: 'Tea with Ana' }).first().dblclick(); await h.waitForTimeout(700)
+  check('1: a double-click on an event opens the popover on it, its name in the line, and no sidebar', (await h.locator('[data-cal-add][data-cal-open] [data-new-event-words]').inputValue().catch(() => '')) === 'Tea with Ana' && (await h.locator('[data-day-side]').count()) === 0)
+  await h.locator('[data-cal-add][data-cal-open] [data-cal-open-page]').click(); await h.waitForTimeout(700)
   check('1: an event opened shows in the sidebar', (await h.locator('[data-day-side]').getAttribute('data-day-side')) === 'event' && onEdge(await sidebar()))
   check('1: the grid keeps its width with an event open', JSON.stringify(await gridBox()) === JSON.stringify(before))
   await h.locator('[data-day-side-close]').click(); await h.waitForTimeout(450)

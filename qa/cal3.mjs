@@ -38,12 +38,16 @@ try {
     await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', modifiers: 1, key: '#', code: 'Digit3', windowsVirtualKeyCode: 51 })
     await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', modifiers: 0, key: 'Alt', code: 'AltLeft', windowsVirtualKeyCode: 18 })
   }
+  /** A month's day, waited for until it is the only one of its kind on the page in front. */
+  const theDay = async (sel) => { await h.waitForFunction((sel) => document.querySelectorAll(sel).length === 1, sel, { timeout: 15000 }); return h.locator(sel) }
   for (const theme of ['light', 'dark']) {
     await c.theme(theme)
     await go('home'); await h.waitForTimeout(1500)
     const M = '[data-month-plan]'
     const day = at(6)
-    const cell = h.locator(`${M} [data-day="${key(day)}"]`)
+    // The one day meant, once it is the only one: on a busy machine the page just left (the Calendar, with its own month)
+    // is still in the document for a moment, and the same day was found twice (load 28, 12 Nov).
+    const cell = await theDay(`${M}[data-month-own] [data-day="${key(day)}"]`)
     // A double-click on the day starts the task in the popover tied to its draft there (12 Nov: the "+" and the tall panel are gone).
     await startOnDay(h, cell, 'task')
     check(`${theme}: a double-click on a day opens the popover on Task, and no side panel`, await h.locator(`${P}[data-cal-add="task"]`).count() === 1 && await h.locator(S).count() === 0)
@@ -84,8 +88,11 @@ try {
     await h.mouse.move(200, 600, { steps: 5 }); await h.waitForTimeout(600); await chip.hover(); await h.waitForTimeout(1600)
     check(`${theme}: a chip's tip says "Late: …"`, (await tips()).includes('Late: cal3 late chip'), await tips())
     await shot(`cal3-tip-${theme}`)
-    await chip.click(); await h.waitForTimeout(1000)
-    check(`${theme}: clicking a chip opens it in the side panel`, await h.locator(`${S}[data-day-side="task"] [data-open="${late}"]`).count() === 1 && await h.locator('[data-page="task"]').count() === 0)
+    // A click picks the chip; a double-click opens the popover on it, and "Open" there is its page in the side panel.
+    await chip.click(); await h.waitForTimeout(500)
+    check(`${theme}: a click on a chip picks it and opens nothing`, await h.locator(S).count() === 0 && await h.locator(P).count() === 0)
+    await chip.dblclick(); await h.locator('[data-cal-add][data-cal-open] [data-cal-open-page]').click(); await h.waitForTimeout(1000)
+    check(`${theme}: a double-click on a chip, then "Open", opens it in the side panel`, await h.locator(`${S}[data-day-side="task"] [data-open="${late}"]`).count() === 1 && await h.locator('[data-page="task"]').count() === 0)
     await shot(`cal3-task-${theme}`)
     await h.locator(S).focus(); await h.keyboard.press('Escape')
     // Gone within two seconds: it slides out (160ms) before it is taken away, and a busy machine has taken longer than half a second over it.
@@ -108,7 +115,7 @@ try {
     check(`${theme}: saved at the slot time with its tag`, slot && new Date(slot.dueAt).getHours() === (theme === "light" ? 14 : 16) && !slot.allDay && /#sag\b/.test(slot.title), `${slot?.title} ${slot?.dueAt}`)
     await h.keyboard.press('Escape'); await h.waitForTimeout(400)
     await h.keyboard.press('m'); await h.waitForTimeout(800)
-    const calCell = h.locator(`[data-month-plan] [data-day="${key(at(2))}"]`)
+    const calCell = await theDay(`[data-cal-level] [data-month-plan] [data-day="${key(at(2))}"]`)
     await startOnDay(h, calCell)
     check(`${theme}: the Calendar's month opens the same popover`, await h.locator(P).count() === 1 && await h.locator(S).count() === 0)
     await h.keyboard.press('Escape'); await h.waitForTimeout(400)

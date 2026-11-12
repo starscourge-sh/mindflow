@@ -15,6 +15,10 @@
 //           double-click that starts a task in the same popover (never the tall side panel), ↵, Undo, right-click.
 //   pinch   the light under a pinch: the week (in a month) or the day (in a week) the fingers are opening is lit while they
 //           are on it, unlit when the pinch comes to nothing, and the level it becomes arrives lit and lets the light go.
+//   open    one way for making and for opening: a click on an event or a task picks it and opens nothing; a double-click,
+//           ↵, its menu's "Open" and ⌘K open the same popover on it, tied to it, its name in the line; "Open" there is its
+//           page in the side panel; a name typed over is kept with Undo and ⌘Z. In Month, Week and Day, for an event and
+//           for a task, then from Upcoming, and from Home's month and the Journal's.
 //   frames  with FRAMES=dir: a picture every 50ms through the popover growing, Event to Task, adding, and a pinch with its
 //           lit block, light and dark; and the popover beside two of the app's own (the small month, an event's card).
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/cal-add.mjs
@@ -22,7 +26,7 @@ import os from 'node:os'
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
-const parts = (process.env.PART ?? 'month,week,narrow,pinch,home').split(',')
+const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open').split(',')
 const c = await sandbox({ width: Number(process.env.QA_W ?? 1440), height: Number(process.env.QA_H ?? 900), at: '11:30' })
 const { h, v, go } = c
 let passed = 0
@@ -520,6 +524,198 @@ try {
     }
   }
 
+  if (parts.includes('open')) {
+    await c.size(1440, 900)
+    await go('calendar')
+    await wait(700)
+    await toMode('m')
+    const a = dayKeyOf(1)
+    // An event and a task for tomorrow, made the way a person makes them.
+    for (const [kind, words] of [['event', 'Opens here 2pm'], ['task', 'Opened task 4pm']]) {
+      await dbl(...corner(await cell(a)))
+      if (kind === 'task') { await h.click('[data-cal-add] [data-day-side-kind="task"]'); await wait(300) }
+      await h.keyboard.type(words, { delay: 8 })
+      await h.keyboard.press('Enter')
+      await wait(900)
+    }
+    const SEL = {
+      event: '[data-cal-level] [data-cal-event], [data-cal-level] [data-cal-event-chip]',
+      task: '[data-cal-level] [data-cal-block], [data-cal-level] [data-plan-task], [data-cal-level] [data-cal-untimed]'
+    }
+    /** The thing on the page, by its name: where it is, and whether it wears the ring of the one picked. */
+    const thing = (sel, label, scroll = true) => h.evaluate(([sel, label, scroll]) => {
+      const el = [...document.querySelectorAll(sel)].find((one) => one.textContent.includes(label))
+      if (!el) return null
+      if (scroll) el.scrollIntoView({ block: 'center' })
+      const r = el.getBoundingClientRect()
+      const style = getComputedStyle(el)
+      return { x: r.left, y: r.top, w: r.width, h: r.height, r: r.right, b: r.bottom, ring: `${style.outlineStyle} ${style.outlineWidth}` }
+    }, [sel, label, scroll])
+    const side = () => h.evaluate(() => document.querySelector('[data-day-side]')?.getAttribute('data-day-side') ?? null)
+    const openOn = () => h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); return pop ? { id: pop.getAttribute('data-cal-open'), page: !!pop.querySelector('[data-cal-open-page]') } : null })
+    const clear = (s, box) => s.pop && box && (s.pop.x >= box.r - 0.5 || s.pop.r <= box.x + 0.5 || s.pop.y >= box.b - 0.5 || s.pop.b <= box.y + 0.5)
+    const shut = async () => { await h.keyboard.press('Escape'); await wait(450) }
+    /** Every way of opening one thing, where it is drawn: `sel` finds it, `label` is its name. */
+    const ways = async (name, kind, sel, label, { menu = true, bar = true } = {}) => {
+      let box = await thing(sel, label)
+      check(`${name}: the ${kind} is on the page`, !!box, sel.slice(0, 50))
+      if (!box) return
+      await wait(300)
+      box = await thing(sel, label, false)
+      // Clear of a task's tick at its left and of a block's lower edge, which stretches it.
+      const at = [box.x + Math.max(24, Math.min(box.w * 0.6, box.w - 8)), box.y + Math.min(box.h / 2, 10)]
+      const picks = await heard(() => h.mouse.click(...at))
+      box = await thing(sel, label, false)
+      let s = await state()
+      check(`${name}: a click on the ${kind} picks it, ringed, and opens nothing`, box.ring === 'solid 2px' && !s.pop && !(await side()) && !picks.includes('open'), `ring ${box.ring}; cues ${picks.join() || 'none'}`)
+      const cuesOpen = await heard(() => film(`open-${name}-${kind}`.toLowerCase().replace(/[^a-z-]/g, ''), () => h.mouse.dblclick(...at)))
+      box = await thing(sel, label, false)
+      s = await state()
+      let on = await openOn()
+      await shot(`open-${name}-${kind}`.toLowerCase().replace(/[^a-z-]/g, ''))
+      check(`${name}: a double-click opens the same popover on the ${kind}, 320 wide, its name in the line with the keys`, s.pop?.kind === kind && !!on?.id && Math.abs(s.pop.w - 320) < 1 && !!s.pop.words?.includes(label) && s.pop.focused, `${s.pop?.w}px; words ${s.pop?.words}; focused ${s.pop?.focused}`)
+      check(`${name}: it is beside the ${kind}, never over it, inside the window, with its point, and made one sound`, inside(s) && clear(s, box) && !!s.pop?.arrow && cuesOpen.filter((cue) => cue === 'open').length === 1, `side ${s.pop?.side}; cues ${cuesOpen.join()}; ${JSON.stringify(s.pop && [Math.round(s.pop.x), Math.round(s.pop.y), Math.round(s.pop.r), Math.round(s.pop.b)])} by ${JSON.stringify([Math.round(box.x), Math.round(box.y), Math.round(box.r), Math.round(box.b)])}`)
+      check(`${name}: the side panel stays shut, and where the ${kind} is reads under the line`, !(await side()) && (kind === 'event' ? /14:00/ : /16:00/).test(s.pop?.said ?? ''), `${await side()}; ${s.pop?.said}`)
+      await shut()
+      check(`${name}: Esc closes it and the ${kind} stays picked`, !(await state()).pop && (await thing(sel, label, false))?.ring === 'solid 2px')
+      // ↵ on the one picked.
+      await h.mouse.click(...at)
+      await wait(250)
+      await h.keyboard.press('Enter')
+      await wait(650)
+      s = await state()
+      on = await openOn()
+      check(`${name}: ↵ on the picked ${kind} opens it`, s.pop?.kind === kind && !!on?.id && !(await side()), `${s.pop?.kind}; ${on?.id}`)
+      await shut()
+      if (menu) {
+        await h.mouse.click(...at, { button: 'right' })
+        await wait(500)
+        const line = h.locator('[role="menu"] [role="menuitem"]', { hasText: /^Open/ }).first()
+        const there = await line.count()
+        if (there) await line.click()
+        else await h.keyboard.press('Escape')
+        await wait(700)
+        s = await state()
+        on = await openOn()
+        check(`${name}: right-click, "Open" opens the ${kind}`, !!there && s.pop?.kind === kind && !!on?.id && !(await side()), `${there} line; ${s.pop?.kind}`)
+        await shut()
+      }
+      if (bar) {
+        await h.mouse.click(...at)
+        await wait(250)
+        await h.keyboard.press('Meta+k')
+        await wait(500)
+        await h.keyboard.type('open', { delay: 15 })
+        await wait(700)
+        const first = await h.locator('[data-search-at]').first().innerText().catch(() => '')
+        if (/open/i.test(first) && first.includes(label.slice(0, 8))) await h.keyboard.press('Enter')
+        else await h.keyboard.press('Escape')
+        await wait(900)
+        s = await state()
+        on = await openOn()
+        check(`${name}: ⌘K, "Open" opens the ${kind}`, s.pop?.kind === kind && !!on?.id && !(await side()), `first row: ${first.replace(/\s+/g, ' ').slice(0, 70)}`)
+        await shut()
+      }
+      // "Open" in the popover: its whole page, in the side panel.
+      await h.mouse.dblclick(...at)
+      await wait(650)
+      const page = h.locator('[data-cal-add] [data-cal-open-page]')
+      const pages = await heard(async () => { if (await page.count()) await page.click() })
+      s = await state()
+      check(`${name}: "Open" in the popover goes to the ${kind}'s page in the side panel, and the popover goes`, (await side()) === kind && !s.pop, `${await side()}; cues ${pages.join()}`)
+      await h.keyboard.press('Escape')
+      await wait(500)
+      if (await side()) { await h.keyboard.press('Escape'); await wait(500) }
+      check(`${name}: Esc closes the page`, !(await side()))
+    }
+    for (const [key, name] of [['m', 'Month'], ['w', 'Week'], ['d', 'Day']]) {
+      await toMode(key)
+      if (key !== 'm' && !(await thing(SEL.event, 'Opens here'))) { await h.keyboard.press('ArrowRight'); await wait(700) }
+      await ways(name, 'event', SEL.event, 'Opens here')
+      await ways(name, 'task', SEL.task, 'Opened task')
+    }
+    // A change is kept as it is made, said with Undo, and ⌘Z takes it back.
+    await toMode('w')
+    for (const [kind, label, next] of [['event', 'Opens here', 'Opens renamed'], ['task', 'Opened task', 'Opened anew']]) {
+      const box = await thing(SEL[kind], label)
+      if (!box) { check(`a name typed over the ${kind}: it is on the page`, false); continue }
+      await wait(300)
+      const now = await thing(SEL[kind], label, false)
+      await h.mouse.dblclick(now.x + Math.max(24, now.w * 0.6), now.y + Math.min(now.h / 2, 10))
+      await wait(650)
+      await h.keyboard.press('Meta+a')
+      await h.keyboard.type(next, { delay: 8 })
+      await h.keyboard.press('Enter')
+      await wait(900)
+      let s = await state()
+      const named = async (title) => kind === 'event' ? (await eventsNamed(title)).length : (await tasksNamed(title)).length
+      check(`a name typed over the ${kind}, then ↵: it is renamed, the popover goes, and a notice offers Undo`, !s.pop && (await named(next)) === 1 && (await named(label)) === 0 && /Renamed/.test(s.toast) && /Undo/.test(s.toast), `${await named(next)} named anew; ${s.toast.slice(0, 60)}`)
+      await h.keyboard.press('Meta+z')
+      await wait(800)
+      check(`  and ⌘Z gives the ${kind} its name back`, (await named(label)) === 1 && (await named(next)) === 0, `${await named(label)} with the old name`)
+    }
+    // Words that hold a time move it, as a new one's words place it.
+    {
+      const box = await thing(SEL.event, 'Opens here')
+      await wait(300)
+      const now = box && await thing(SEL.event, 'Opens here', false)
+      if (now) {
+        await h.mouse.dblclick(now.x + Math.max(24, now.w * 0.6), now.y + Math.min(now.h / 2, 10))
+        await wait(650)
+        await h.keyboard.type(' 9am', { delay: 8 })
+        await wait(300)
+        const said = (await state()).pop?.said
+        await h.keyboard.press('Enter')
+        await wait(900)
+        const moved = (await eventsNamed('Opens here'))[0]
+        const s = await state()
+        check('"9am" typed after an event\'s name reads back as its new time, and ↵ moves it there, said with Undo', /09:00/.test(said ?? '') && new Date(moved?.start).getHours() === 9 && /Moved to/.test(s.toast) && /Undo/.test(s.toast), `${said}; ${moved?.start}; ${s.toast.slice(0, 50)}`)
+        await h.keyboard.press('Meta+z')
+        await wait(800)
+        check('  and ⌘Z puts it back at 14:00', new Date((await eventsNamed('Opens here'))[0]?.start).getHours() === 14)
+      } else check('"9am" typed after an event\'s name: it is on the page', false)
+    }
+    // Upcoming, in the left panel: a row opens the same popover, tied to the row.
+    for (const [kind, label] of [['event', 'Opens here'], ['task', 'Opened task']]) {
+      const row = await thing('[data-cal-upcoming-row]', label)
+      if (!row) { check(`Upcoming: the ${kind}'s row is there`, false); continue }
+      await wait(300)
+      const at = await thing('[data-cal-upcoming-row]', label, false)
+      const cuesRow = await heard(() => h.mouse.click(at.x + at.w / 2, at.y + at.h / 2))
+      const s = await state()
+      const on = await openOn()
+      check(`Upcoming: a click on the ${kind}'s row opens the same popover, tied to the row, with one sound, and no side panel`, s.pop?.kind === kind && !!on?.id && clear(s, await thing('[data-cal-upcoming-row]', label, false)) && inside(s) && cuesRow.filter((cue) => cue === 'open').length === 1 && !(await side()), `side ${s.pop?.side}; cues ${cuesRow.join()}`)
+      await shut()
+    }
+    // 560 by 400: the popover on a thing is whole, inside the window, and never over it.
+    await c.size(560, 400)
+    await wait(700)
+    for (const [kind, label] of [['event', 'Opens here'], ['task', 'Opened task']]) {
+      const box = await thing(SEL[kind], label)
+      if (!box) { console.log(`NOTE  560 by 400: the ${kind} is not drawn by name at this size`); continue }
+      await wait(300)
+      const now = await thing(SEL[kind], label, false)
+      await h.mouse.dblclick(now.x + Math.max(16, now.w * 0.6), now.y + Math.min(now.h / 2, 10))
+      await wait(700)
+      const s = await state()
+      const cut = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); if (!pop) return null; const box = pop.getBoundingClientRect(); return [...pop.querySelectorAll('input, button, p')].filter((el) => el.offsetParent && (el.getBoundingClientRect().bottom > box.bottom + 0.5 || el.getBoundingClientRect().right > box.right + 0.5)).length })
+      await shot(`open-560-${kind}`)
+      check(`560 by 400: the popover on the ${kind} is inside the window, never over it, with nothing cut`, inside(s) && clear(s, await thing(SEL[kind], label, false)) && cut === 0, `side ${s.pop?.side}; ${cut} cut; ${JSON.stringify(s.pop && [Math.round(s.pop.x), Math.round(s.pop.y), Math.round(s.pop.r), Math.round(s.pop.b)])}`)
+      await shut()
+    }
+    await c.size(1440, 900)
+    await wait(500)
+    // Home's month and the Journal's: a task's line is picked by a click and opens the same way.
+    await v('settings:set', { hintRate: 0, homeCalendar: true })
+    for (const [view, name] of [['home', 'Home\'s month'], ['day', 'the Journal\'s month']]) {
+      await go(view)
+      await wait(1600)
+      const there = await h.locator('[data-month-own]').count()
+      if (!there) { check(`${name} is on the page`, false); continue }
+      await ways(name, 'task', '[data-month-own] [data-plan-task]', 'Opened task', { bar: false })
+    }
+  }
+
   if (parts.includes('frames') && dir) {
     await toMode('m')
     for (const look of ['light', 'dark']) {
@@ -557,7 +753,7 @@ try {
       await h.keyboard.press('Escape')
       await wait(300)
       const chip = await h.evaluate(() => { const el = document.querySelector('[data-cal-level] [data-cal-event-chip]'); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
-      if (chip) { await h.mouse.click(chip.x, chip.y); await wait(500); await shot(`sib-${look}-card`); await h.keyboard.press('Escape'); await wait(300) }
+      if (chip) { await h.mouse.dblclick(chip.x, chip.y); await wait(500); await shot(`sib-${look}-opened`); await h.keyboard.press('Escape'); await wait(300) }
       // The pinch with its lit block, held short of the change, then through it.
       const row = await weekRow()
       await pinch(row.x, row.y, -3, 3)

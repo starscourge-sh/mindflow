@@ -76,8 +76,10 @@ try {
   check('Esc closes it, and the days are clear', (await h.locator(`${P}, ${S}, [data-cal-draft]`).count()) === 0)
   // An event opened in full.
   const block = h.locator('[data-cal-event]', { hasText: 'Panels standup' }).first()
-  await block.dblclick(); await wait(900)
-  check('a double-click opens the event in the floating panel', await h.locator(`${S}[data-day-side="event"]`).count() === 1 && await floats())
+  await block.dblclick(); await wait(700)
+  check('a double-click opens the popover on the event, and no panel', await h.locator('[data-cal-add][data-cal-open]').count() === 1 && await h.locator(S).count() === 0)
+  await h.locator('[data-cal-add][data-cal-open] [data-cal-open-page]').click(); await wait(900)
+  check('"Open" there opens the event in the floating panel', await h.locator(`${S}[data-day-side="event"]`).count() === 1 && await floats())
   if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/cal-panels-event.png` })
   await h.locator(`${S} [data-day-side-close]`).click(); await wait(600)
   check('"Close" closes it', await h.locator(S).count() === 0)
