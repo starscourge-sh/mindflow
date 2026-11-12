@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { AnimatePresence, motion, useReducedMotion, type Transition } from 'motion/react'
 import { flushSync } from 'react-dom'
 import { cn } from '@/lib/cn'
-import { byKeys, spring, still, WEIGHT } from '@/lib/motion'
+import { byKeys, EASE, EASING, motionOff, spring, still, WEIGHT } from '@/lib/motion'
 
 /**
  * One light per list that glides to whichever row is nearest the pointer, so
@@ -128,9 +128,21 @@ const GLIDE_MS = 32
 const FADE_MS = 32
 /** A glide starts this far along its way, so the light is seen to move in the very frame the pointer crossed over. */
 const LEAD = 0.35
-/** The glide's curve (ease-out cubic), once for the browser and once for working out where the light is part way. */
-const GLIDE_EASE = 'cubic-bezier(0.215, 0.61, 0.355, 1)'
-const eased = (p: number): number => 1 - (1 - p) ** 3
+/**
+ * The app's one curve (lib/motion EASE) worked out at `p`, for knowing where a glide is part way; the browser plays
+ * the same curve (EASING). Along a curve like this x only rises, so halving finds where on it `p` falls.
+ */
+const along = (t: number, a: number, b: number): number => 3 * (1 - t) ** 2 * t * a + 3 * (1 - t) * t ** 2 * b + t ** 3
+const eased = (p: number): number => {
+  let low = 0
+  let high = 1
+  for (let i = 0; i < 12; i++) {
+    const t = (low + high) / 2
+    if (along(t, EASE[0], EASE[2]) < p) low = t
+    else high = t
+  }
+  return along((low + high) / 2, EASE[1], EASE[3])
+}
 const between = (a: Spot, b: Spot, p: number): Spot => ({
   top: a.top + (b.top - a.top) * p,
   left: a.left + (b.left - a.left) * p,
@@ -195,7 +207,7 @@ export function makeLight(): Light {
     fade = null
     el.style.opacity = String(to)
     // Motion off: simply there, simply gone. Reduce motion keeps the fade and loses the travel.
-    if (from === to || document.hidden || document.documentElement.dataset.motion === 'off') return
+    if (from === to || document.hidden || motionOff()) return
     fade = el.animate({ opacity: [from, to] }, { duration: FADE_MS * Math.abs(to - from), easing: 'linear' })
   }
   return {
@@ -227,7 +239,7 @@ export function makeLight(): Light {
         fade?.cancel()
         fade = null
         el.style.opacity = '1'
-        if (was < 1 && !document.hidden && document.documentElement.dataset.motion !== 'off') fade = el.animate({ opacity: [from, 1] }, { duration: FADE_MS * (1 - was), easing: 'linear' })
+        if (was < 1 && !document.hidden && !motionOff()) fade = el.animate({ opacity: [from, 1] }, { duration: FADE_MS * (1 - was), easing: 'linear' })
         return
       }
       if (same(at, spot)) return
@@ -244,7 +256,7 @@ export function makeLight(): Light {
       // Its place is written at once and the glide played over it, so when the glide ends nothing is handed back.
       el.style.transform = drawn(spot)
       flight = { from, to: spot, began: performance.now() }
-      const glide = (move = el.animate({ transform: [drawn(from), drawn(spot)] }, { duration: GLIDE_MS, easing: GLIDE_EASE }))
+      const glide = (move = el.animate({ transform: [drawn(from), drawn(spot)] }, { duration: GLIDE_MS, easing: EASING }))
       // At rest on a row of another size it takes that size (its corners round again).
       glide.onfinish = () => void (move === glide && at && put(at))
     }

@@ -33,8 +33,11 @@ export const EASING = `cubic-bezier(${EASE.join(', ')})`
 let reduceQuery: MediaQueryList | null = null
 const reduced = (): boolean => (reduceQuery ??= matchMedia('(prefers-reduced-motion: reduce)')).matches
 
+/** Motion off (the app's setting): everything is simply there, fades included. */
+export const motionOff = (): boolean => document.documentElement.dataset.motion === 'off'
+
 /** Motion off (the app's setting) or Reduce motion (the system's): nothing travels. */
-export const still = (): boolean => document.documentElement.dataset.motion === 'off' || reduced()
+export const still = (): boolean => motionOff() || reduced()
 
 /**
  * The two told apart, for a change that would otherwise both travel and fade: `none` with the app's Motion off
