@@ -123,7 +123,7 @@ const INSTRUMENT = `(() => {
     // The app's own components among them (a dev-mode build keeps their names), the libraries' wrappers left out.
     const own = drawn.filter(([name]) => !/[.]|^(Presence|Popper|Portal|Slot|Tooltip|Menu|Dropdown|ContextMenu|Dismissable|FocusScope|Collection|Roving|Primitive|Provider|anonymous|Anonymous|Dialog|Popover|Switch|Checkbox|Direction|Motion|LayoutGroup|PresenceChild|PopChild|MeasureLayout|Alive)/.test(name) && !/Provider$|Context$|Impl$|Slot$/.test(name))
     pa.own = own.slice(0, 10).map(([name, n]) => name + ' x' + n).join(', ')
-    return { why: react.why, madeBefore: pa.madeBefore, madeAfter: made(), down: pa.down, up: pa.up, firstAt: pa.firstAt, firstPaint: pa.firstPaint, shownPaint: pa.shownPaint, lastPaint: pa.lastPaint, asked: !!pa.shown, already: pa.already, batches: pa.batches, loaf: pa.loaf, events: pa.events, gaps: pa.gaps, commits: react.commits, drawn: drawn.reduce((n, one) => n + one[1], 0), top: drawn.slice(0, 5).map(([name, n]) => name + ' x' + n).join(', '), own: pa.own }
+    return { why: react.why, madeBefore: pa.madeBefore, madeAfter: made(), down: pa.down, up: pa.up, firstAt: pa.firstAt, firstPaint: pa.firstPaint, shownAt: pa.shownAt, shownPaint: pa.shownPaint, lastPaint: pa.lastPaint, asked: !!pa.shown, already: pa.already, batches: pa.batches, loaf: pa.loaf, events: pa.events, gaps: pa.gaps, commits: react.commits, drawn: drawn.reduce((n, one) => n + one[1], 0), top: drawn.slice(0, 5).map(([name, n]) => name + ' x' + n).join(', '), own: pa.own }
   }
 })()`
 
@@ -175,8 +175,11 @@ try {
     await h.waitForFunction(() => window.__pa.ready(), null, { timeout: 4000 }).catch(() => {})
     await h.waitForTimeout(settle)
     const r = await h.evaluate(() => window.__pa.collect())
-    // A press that acts as the button goes down (a menu) is counted from there; one that acts on the click, from the release.
-    const t0 = r.up !== null && (r.firstAt === null || r.firstAt >= r.up) ? r.up : r.down
+    // A press that acts as the button goes down (a menu) is counted from there; one that acts on the click, from the
+    // release. Told by when what the press was for came, not by the first change of any kind: a row's preview card
+    // closing as the button goes down is a change too, and made a page press count from the button going down.
+    const acted = r.asked ? r.shownAt : r.firstAt
+    const t0 = r.up !== null && (acted === null || acted >= r.up) ? r.up : r.down
     const since = (t) => (t === null || t0 === null ? null : t - t0)
     const until = r.shownPaint ?? r.firstPaint ?? (t0 ?? 0) + 300
     const frames = r.loaf.filter((one) => one.start + one.duration >= (r.down ?? 0) && one.start <= until)
