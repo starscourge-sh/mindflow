@@ -22,7 +22,9 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 900 })
 const { h, v, electron } = c
-for (const list of ['article', 'nugget']) for (const group of await v('groups', list)) await v('groups:delete', group.id)
+// BOOK=1: a copy of a real book, where nothing is seeded, binned or taken apart: only the part that carries what is there runs.
+const BOOK = !!process.env.BOOK
+if (!BOOK) for (const list of ['article', 'nugget']) for (const group of await v('groups', list)) await v('groups:delete', group.id)
 const wait = (ms) => h.waitForTimeout(ms)
 h.setDefaultTimeout(4000)
 /** A part of the probe: a part that cannot even run on old code is a fail, and the rest still runs. */
@@ -48,9 +50,11 @@ const pads = {}
 
 const TITLES = ['Ash', 'Birch', 'Cedar', 'Elm', 'Fir', 'Hazel', 'Oak', 'Pine', 'Yew']
 const ids = {}
-for (const title of TITLES) { const id = await v('article:new'); await v('item:save', id, { title }); ids[title] = id }
-const others = (await v('items', 'article')).map((one) => one.id).filter((id) => !Object.values(ids).includes(id))
-for (const id of others) await v('bin:put', id)
+if (!BOOK) {
+  for (const title of TITLES) { const id = await v('article:new'); await v('item:save', id, { title }); ids[title] = id }
+  const others = (await v('items', 'article')).map((one) => one.id).filter((id) => !Object.values(ids).includes(id))
+  for (const id of others) await v('bin:put', id)
+}
 let box, a, before, t
 const row = (title) => h.locator('button[data-row]:not([data-lifted] *)', { hasText: new RegExp(`^${title}`) }).first()
 const blockBox = (id) => h.evaluate((g) => { const r = document.querySelector(`[data-group-block="${g}"]`)?.getBoundingClientRect(); return r && { top: r.top, bottom: r.bottom, left: r.left, right: r.right } }, id)
@@ -490,7 +494,12 @@ const drawn = () => h.evaluate(() => {
   const list = [...(within?.querySelectorAll('[data-sortable-id]') ?? [])].filter((one) => one !== held && seen(one) && !one.querySelector('[data-sortable-id]')).map(box).sort((a, b) => a.top - b.top)
   let overlap = 0
   for (let i = 1; i < list.length; i++) overlap = Math.max(overlap, list[i - 1].bottom - list[i].top)
+  // How much of the line the card leaves in sight, and whether its dot is: the card never covers the line it is about.
+  const card = cards[0] && box(cards[0])
+  const level = !!card && !!line && Math.min(card.bottom, line.bottom + 3) - Math.max(card.top, line.top - 3) > 0
+  const hidden = level ? Math.max(0, Math.min(card.right, line.right) - Math.max(card.left, line.left)) : 0
   return {
+    lineSeen: line ? Math.round((1 - hidden / (line.right - line.left)) * 100) / 100 : 0, dotSeen: !!line && !(level && card.left < line.left && card.right > line.left - 8),
     cards: cards.length, words: cards[0]?.querySelector('[data-drag-label]')?.textContent ?? '', refused: !!cards[0]?.querySelector('[data-refused]'), card: cards[0] && box(cards[0]),
     lines: lines.length, rooms: rooms.length, dot: !!dot && parseFloat(dot.width) >= 6 && parseFloat(dot.borderTopWidth) >= 1,
     lineIn: !!line && !!room && line.top >= room.top - 1 && line.bottom <= room.bottom + 1 && Math.abs((line.top + line.bottom) / 2 - (room.top + room.bottom) / 2) <= 2,
@@ -522,6 +531,7 @@ const oneLook = async (name, at, want) => {
     check(`${name}: the room is as tall as the carried row, folded (within 2px)`, d.held > 0 && Math.abs(d.room + 2 - d.held) <= 2 && (!want.tall || d.held <= want.tall + 2), `room ${d.room}, row in hand ${d.held}${want.tall ? `, a plain row ${want.tall}` : ''}`)
     check(`${name}: no row is over another, or over the room`, d.overlap <= 1 && !d.onRoom, `overlap ${d.overlap}px, ${d.onRoom} on the room`)
   }
+  if (!want.lit && !want.refused) check(`${name}: with the card up, the dot and at least two thirds of the line are in sight`, d.dotSeen && d.lineSeen >= 0.667, `dot ${d.dotSeen ? 'in sight' : 'covered'}, ${Math.round(d.lineSeen * 100)}% of the line in sight`)
   if (SHOTS) for (const look of ['light', 'dark']) { await c.look(look); await wait(150); await h.screenshot({ path: `${SHOTS}/look-${name.replace(/\W+/g, '-')}-${look}.png` }) }
   if (SHOTS) { await c.look('light'); await wait(150) }
   return d
@@ -540,12 +550,62 @@ const hold = async (from, to) => {
   return to
 }
 const sortRow = (id) => h.evaluate((one) => { const r = document.querySelector(`[data-pane] [data-sortable-id="${CSS.escape(one)}"], aside [data-sortable-id="${CSS.escape(one)}"]`)?.getBoundingClientRect(); return r && { x: r.x, y: r.y, w: r.width, h: r.height } }, id)
+/** The rows of a list as they stand, by a selector. */
+const standing = (rows) => h.evaluate((sel) => [...document.querySelectorAll(sel)].filter((one) => one.getClientRects().length).map((one) => one.dataset.sortableId ?? one.dataset.id), rows)
+const notices = () => h.evaluate(() => [...document.querySelectorAll('[role=status]')].map((one) => one.textContent ?? '').filter((one) => /Undo/.test(one)))
+/** A row lifted, then carried to just under another as the list lies once it is in the hand (a tall row folds, and the rows under it come up). */
+const carryUnder = async (aId, bId, x = 200, rows) => {
+  // Read in its own list where one is named: the sidebar, Settings' sidebar list and its tab lists hold the same names.
+  const boxIn = (id) => (rows ? h.evaluate(([sel, one]) => { const r = [...document.querySelectorAll(sel)].find((el) => (el.dataset.sortableId ?? el.dataset.id) === one)?.getBoundingClientRect(); return r && { x: r.x, y: r.y, w: r.width, h: r.height } }, [rows, id]) : sortRow(id))
+  const a = await boxIn(aId)
+  const from = { x: a.x + Math.min(x, a.w / 2), y: a.y + Math.min(a.h / 2, 16) }
+  await h.mouse.move(from.x, from.y); await h.mouse.down(); await h.mouse.move(from.x, from.y + 8, { steps: 3 }); await wait(250)
+  const b = await boxIn(bId)
+  const to = { x: from.x, y: b.y + b.h * 0.86 }
+  await h.mouse.move(to.x, to.y, { steps: 10 })
+  return to
+}
+/**
+ * A drop always says where it went (point 6): the first row let go under the second stands after it, said once in a notice
+ * with Undo; Undo puts it back; dropped again, ⌘Z puts it back.
+ */
+const dropSaid = async (name, rows, { x = 200, words = /^Moved/ } = {}) => {
+  // In sight first: the sidebar's tags stand under its fold.
+  await h.locator(rows).nth(2).scrollIntoViewIfNeeded().catch(() => {})
+  await h.locator(rows).nth(0).scrollIntoViewIfNeeded().catch(() => {})
+  await wait(300)
+  const before = await standing(rows)
+  if (before.length < 2) return console.log(`SKIP  ${name}: ${before.length} rows to carry between`)
+  const [a, b] = before
+  // Any notice still up from before has gone first, so the one this drop says is counted alone.
+  for (let i = 0; i < 40 && (await notices()).length; i++) await wait(250)
+  await carryUnder(a, b, x, rows); await wait(450)
+  // The rows that stand over the room (or the line) as it is let go: a list that scrolled itself under the pointer
+  // (the sidebar's foot) shows its room further down than the row first aimed at, and that is where it must land.
+  const over = await h.evaluate(([sel, carried]) => {
+    const place = (document.querySelector('[data-drop-room]') ?? document.querySelector('[data-drop-line]'))?.getBoundingClientRect()
+    return place ? [...document.querySelectorAll(sel)].filter((one) => one.getClientRects().length && (one.dataset.sortableId ?? one.dataset.id) !== carried && one.getBoundingClientRect().top < place.top).map((one) => one.dataset.sortableId ?? one.dataset.id) : null
+  }, [rows, a])
+  await h.mouse.up(); await wait(1200)
+  const after = await standing(rows)
+  check(`${name}: let go, it stands at once where the room was, under another row`, !!over && after.indexOf(a) > 0 && after.slice(0, after.indexOf(a)).join() === over.join(), `${before.slice(0, 4).join()} -> ${after.slice(0, 4).join()}; over the room: ${over?.slice(-2).join()}`)
+  const now = await notices()
+  check(`${name}: said once where it went, with Undo`, now.length === 1 && words.test(now[0]), now.join(' | ') || '(no notice)')
+  await shot(`said-${name.replace(/\W+/g, '-')}`)
+  await h.locator('[role=status] button', { hasText: 'Undo' }).last().click().catch(() => {}); await wait(1200)
+  check(`${name}: “Undo” puts it back`, (await standing(rows)).join() === before.join(), (await standing(rows)).slice(0, 4).join())
+  await carryUnder(a, b, x, rows); await wait(450); await h.mouse.up(); await wait(1200)
+  await h.mouse.click(5, 450); await h.keyboard.press('Meta+z'); await wait(1200)
+  check(`${name}: dropped again, ⌘Z puts it back`, (await standing(rows)).join() === before.join(), (await standing(rows)).slice(0, 4).join())
+}
 await part('One look: Tasks', async () => {
   await c.look('light')
   for (const old of await v('tasks')) if (old.status === 'open') await v('task:save', old.id, { status: 'dropped' })
   const t = { late: await addLine('Renew the passport'), plumber: await addLine('Pay the plumber'), wash: await addLine('Wash the car'), bake: await addLine('Bake bread', ['Feed the starter', 'Shape the loaf', 'Heat the oven']), mend: await addLine('Mend the gate'), weed: await addLine('Weed the beds') }
   const yesterday = new Date(c.now()); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(9, 0, 0, 0)
   for (const id of [t.late, t.plumber]) await v('task:save', id, { due: yesterday.toISOString() })
+  // Carried over many times: this one shows its “Carried over … What now?” question under its row, as in the user's picture.
+  await v('task:save', t.plumber, { rollovers: 9 }).catch(() => {})
   await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'when' })))
   await h.reload(); await wait(1500); await c.go('today'); await wait(1200)
   // A task with its steps open is a tall row: in the hand it is its one row, and the room is that row's.
@@ -570,6 +630,15 @@ await part('One look: Tasks', async () => {
   check('Tasks: let go, it stands where the room was', down ? after.indexOf(t.bake) === after.indexOf(next) + 1 : after.indexOf(t.bake) === after.indexOf(next) - 1, `${before.join()} -> ${after.join()}`)
   await h.mouse.click(5, 450); await h.keyboard.press('Meta+z'); await wait(1200)
   check('Tasks: ⌘Z puts the order back', (await order()).join() === before.join(), (await order()).join())
+  // The task with its “Carried over” question: in the hand it is its one row, and the room is that row's.
+  const ask = await h.evaluate((id) => { const one = document.querySelector(`[data-pane] [data-sortable-id="${id}"]`); const q = one?.querySelector('[data-task-ask]'); return q ? { tall: Math.round(one.getBoundingClientRect().height), question: Math.round(q.getBoundingClientRect().height) } : null }, t.plumber)
+  check('Tasks: a task carried over many times shows its question under its row', !!ask && ask.tall > plain + 30, JSON.stringify(ask))
+  if (ask) {
+    was = await boxes()
+    at = await hold(await grip(t.plumber), await edge(t.late, false))
+    await oneLook('Tasks, a task with its “Carried over” question carried', at, { words: 'Move here', tall: plain })
+    await putBack('Tasks, a task with its question', was)
+  }
   // Out of Overdue over Today's rows: Today's heading lights, the card says where it goes, and the drop is said with Undo.
   was = await boxes()
   at = await hold(await grip(t.late), await edge(t.wash, true))
@@ -600,6 +669,18 @@ await part('One look: Tasks', async () => {
   check('Tasks, carried onto the “Later” tab: one card that says where it goes, the tab lit, no line', onTab.cards === 1 && onTab.words === 'Move to Later, someday' && onTab.lit === 1 && !onTab.lines && !onTab.rooms, JSON.stringify(onTab))
   await shot('look-tasks-onto-a-tab')
   await putBack('Tasks, onto a tab', was)
+  // The Paper and Brutal styles: the same room, line and card.
+  for (const style of ['paper', 'brutal']) {
+    await h.evaluate((one) => { localStorage.setItem('style', one); window.dispatchEvent(new StorageEvent('storage', { key: 'style' })) }, style)
+    // The style's own faces and edges take a moment to settle: the rows are read once they have.
+    await wait(1500)
+    was = await boxes()
+    at = await hold(await grip(t.mend), await edge(t.weed, true))
+    await oneLook(`Tasks in the ${style} style`, at, { words: 'Move here' })
+    await putBack(`Tasks in the ${style} style`, was)
+  }
+  await h.evaluate(() => { localStorage.setItem('style', 'soft'); window.dispatchEvent(new StorageEvent('storage', { key: 'style' })) })
+  await wait(300)
 })
 await part('One look: the Queue', async () => {
   let was, at
@@ -673,6 +754,119 @@ await part('One look: the sidebar', async () => {
   for (const id of ['f-a', 'f-b', 'f-c']) await v('groups:delete', id)
   for (const id of [ids.Oak, ids.Pine]) await v('pin', 'nuggets', id, false).catch(() => {})
 })
+// A drop always says where it went (point 6 of “One look for every drag”): on each list, the notice once with Undo, Undo, and ⌘Z.
+await part('A drop is said: Tasks', async () => {
+  await h.reload(); await wait(1500); await c.go('today'); await wait(1000)
+  await dropSaid('Tasks', '[data-pane] [data-task-row]')
+})
+await part('A drop is said: the Queue', async () => {
+  await c.go('queue'); await wait(900)
+  await dropSaid('The Queue', '[data-pane] [data-sortable-id]')
+})
+await part('A drop is said: the Inbox', async () => {
+  await c.go('inbox'); await wait(900)
+  await dropSaid('The Inbox', '[data-pane] [data-sortable-id]', { words: /^(Moved|Now in your own order)/ })
+})
+await part('A drop is said: the sidebar', async () => {
+  for (const id of [ids.Oak, ids.Pine]) await v('pin', 'nuggets', id, true).catch(() => {})
+  await h.reload(); await wait(1500); await c.go('articles'); await wait(900)
+  await dropSaid('The sidebar, a pin', 'aside nav [data-side-drop="pinned"] [data-sortable-id]', { x: 40, words: /^Moved “/ })
+  await sideTop(); await wait(300)
+  await dropSaid('The sidebar, a tag', 'aside nav [data-side-drop="tags"] [data-sortable-id]', { x: 40, words: /^Moved “#/ })
+  await sideTop(); await wait(300)
+  await dropSaid('The sidebar, a page', 'aside nav [data-drop-list] [data-sortable-id]', { x: 40, words: /^Moved “/ })
+  for (const id of [ids.Oak, ids.Pine]) await v('pin', 'nuggets', id, false).catch(() => {})
+})
+await part('A drop is said: Settings', async () => {
+  await c.go('settings'); await wait(900)
+  const TABS = '[data-show-part] [data-sortable-id]:not([data-drop-list] *)'
+  let found = false
+  for (const name of await h.evaluate(() => [...document.querySelectorAll('[data-section]')].map((one) => one.getAttribute('data-section')))) {
+    await h.click(`[data-section="${name}"]`); await wait(500)
+    if ((await h.locator(TABS).count()) >= 2) { found = true; break }
+  }
+  if (!found) return console.log('SKIP  A drop is said: no list of tabs found in Settings')
+  await h.locator(TABS).first().scrollIntoViewIfNeeded(); await wait(400)
+  await dropSaid('Settings, the quick capture tabs', TABS, { x: 60, words: /^Moved “/ })
+})
+// The Matrix: a card beside another in its box (the one line, the card clear of it), over another box (the box lit, the
+// card naming it), its own place the one quiet band; a drop said with Undo, and ⌘Z.
+await part('One look: the Matrix', async () => {
+  for (const old of await v('tasks')) if (old.status === 'open') await v('task:save', old.id, { status: 'dropped' })
+  const m = [await addLine('Chase the invoice'), await addLine('Book the dentist'), await addLine('Tidy the desk')]
+  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'matrix' })))
+  await h.reload(); await wait(1500); await c.go('today'); await wait(1200)
+  const boxOf = (id) => h.evaluate((one) => document.querySelector(`[data-pane] [data-sortable-id="${one}"]`)?.closest('[data-quadrant]')?.getAttribute('data-quadrant') ?? null, id)
+  const home = await boxOf(m[0])
+  const cards = await h.evaluate((q) => [...document.querySelectorAll(`[data-quadrant="${q}"] [data-sortable-id]`)].map((one) => one.dataset.sortableId), home)
+  check('The Matrix: the tasks stand together in one box', cards.length >= 2, `${home}: ${cards.length} cards`)
+  let was = await boxes()
+  const [a, b] = [await sortRow(cards[0]), await sortRow(cards[1])]
+  // Taken by its name's line, clear of its date and tick, which are pressed on their own.
+  const grab = { x: a.x + a.w / 2, y: a.y + 14 }
+  let at = await hold(grab, { x: grab.x, y: b.y + b.h * 0.8 })
+  await wait(450)
+  let d = await drawn()
+  check('The Matrix, a card carried beside another in its box: one card that says “Move here”, one line with its dot in sight', d.cards === 1 && d.words === 'Move here' && d.lines === 1 && d.dot && d.dotSeen && d.lineSeen >= 0.667, JSON.stringify(d))
+  check('The Matrix: the carried card’s own place is the one quiet band', (await h.locator('[data-own-room]').count()) === 1 && !(await h.locator('.mf-carried-place').count()), '')
+  await both('look-The-Matrix-a-card-carried-beside-another')
+  await putBack('The Matrix, beside another card', was)
+  const to = home === 'do' ? 'handoff' : 'do'
+  const other = await h.evaluate((q) => { const one = document.querySelector(`[data-quadrant="${q}"]`); const r = one.getBoundingClientRect(); return { title: one.querySelector('h2 span')?.textContent ?? '', x: r.x + r.width / 2, y: r.y + r.height * 0.7 } }, to)
+  at = await hold(grab, other)
+  await wait(450)
+  d = await drawn()
+  const lit = await h.evaluate((q) => /ring-1/.test(document.querySelector(`[data-quadrant="${q}"]`)?.className ?? ''), to)
+  check('The Matrix, a card carried over another box: the card names the box, the box lit, no line', d.cards === 1 && d.words === `Move to “${other.title}”` && lit && !d.lines, JSON.stringify({ words: d.words, lit, lines: d.lines }))
+  await both('look-The-Matrix-a-card-carried-over-another-box')
+  await putBack('The Matrix, over another box', was)
+  for (let i = 0; i < 40 && (await notices()).length; i++) await wait(250)
+  await hold(grab, other); await wait(400); await h.mouse.up(); await wait(1300)
+  const said = await notices()
+  check('The Matrix: let go there, it is in that box, said once with Undo', (await boxOf(cards[0])) === to && said.length === 1 && said[0].includes(other.title), `${await boxOf(cards[0])} | ${said.join(' | ')}`)
+  await h.locator('[role=status] button', { hasText: 'Undo' }).last().click().catch(() => {}); await wait(1300)
+  check('The Matrix: “Undo” puts it back in its box', (await boxOf(cards[0])) === home, String(await boxOf(cards[0])))
+  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'when' })))
+})
+// Quick capture's tabs, carried sideways: the same card with its words, and the same quiet band where the tab will land.
+await part('One look: quick capture’s tabs', async () => {
+  const box = c.page
+  const tabs = await box.evaluate(() => [...document.querySelectorAll('[data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return { id: one.dataset.sortableId, x: r.x + r.width / 2, y: r.y + r.height / 2 } }))
+  if (tabs.length < 2) return console.log(`SKIP  One look: quick capture shows ${tabs.length} tabs to carry`)
+  await box.mouse.move(tabs[0].x, tabs[0].y); await box.mouse.down()
+  for (let i = 1; i <= 8; i++) { await box.mouse.move(tabs[0].x + ((tabs[1].x - tabs[0].x) * i) / 8, tabs[0].y + 1); await wait(30) }
+  await wait(450)
+  const d = await box.evaluate(() => ({ cards: [...document.querySelectorAll('[data-carried-card]')].filter((one) => one.getClientRects().length).length, words: document.querySelector('[data-carried-card] [data-drag-label]')?.textContent ?? '', band: document.querySelectorAll('[data-own-room]').length, old: document.querySelectorAll('.mf-carried-place').length }))
+  check('Quick capture’s tabs, a tab carried over the next: one card that says “Move here”, its place the one quiet band', d.cards === 1 && d.words === 'Move here' && d.band === 1 && !d.old, JSON.stringify(d))
+  if (SHOTS) await box.screenshot({ path: `${SHOTS}/look-quick-capture-a-tab-carried.png` })
+  await box.keyboard.press('Escape'); await wait(300); await box.mouse.up(); await wait(400)
+  check('Quick capture’s tabs: Esc puts it back, nothing carried', !(await box.locator('[data-carried-card]').count()) && !(await box.locator('[data-own-room]').count()), '')
+})
+// The main book (BOOK=1, QA_ARGS empty, QA_DATA a copy of it): what is there is carried and dropped; nothing is seeded.
+if (BOOK) await part('One look: the main book', async () => {
+  await c.look('light')
+  await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'when' })))
+  await h.reload(); await wait(4000); await c.go('today'); await wait(2500)
+  const rows = await standing('[data-pane] [data-task-row]')
+  check('The main book, Tasks: rows on show to carry', rows.length >= 2, `${rows.length} rows`)
+  // A task with its “Carried over” question, as in the user's picture: in the hand it is its one row.
+  const asked = await h.evaluate(() => { const one = document.querySelector('[data-pane] [data-sortable-id] [data-task-ask]')?.closest('[data-sortable-id]'); return one ? { id: one.dataset.sortableId, tall: Math.round(one.getBoundingClientRect().height), question: Math.round(one.querySelector('[data-task-ask]').getBoundingClientRect().height) } : null })
+  if (asked) {
+    const next = rows[rows.indexOf(asked.id) + 1] ?? rows[rows.indexOf(asked.id) - 1]
+    const was = await boxes()
+    const at = await carryUnder(asked.id, next)
+    const d = await oneLook('The main book, a task with its “Carried over” question', at, { words: 'Move here' })
+    check('The main book: in the hand the task is its one row, its question folded away', d.held > 0 && d.held <= asked.tall - asked.question + 2, `${asked.tall} with its question (${asked.question}), ${Math.round(d.held)} in the hand, room ${Math.round(d.room)}`)
+    await putBack('The main book, Tasks', was)
+  } else console.log('SKIP  The main book: no task on show has the “Carried over” question')
+  await dropSaid('The main book, Tasks', '[data-pane] [data-task-row]')
+  await c.go('queue'); await wait(1800)
+  await dropSaid('The main book, the Queue', '[data-pane] [data-sortable-id]')
+  await c.go('inbox'); await wait(2200)
+  await dropSaid('The main book, the Inbox', '[data-pane] [data-sortable-id]', { words: /^(Moved|Now in your own order)/ })
+  await sideTop(); await wait(300)
+  await dropSaid('The main book, a pin', 'aside nav [data-side-drop="pinned"] [data-sortable-id]', { x: 40, words: /^Moved “/ })
+})
 // The window at its smallest, 560 x 400: the card inside the window, the room and its line still one each, nothing scrolling sideways.
 await part('One look: 560 x 400', async () => {
   await h.reload(); await wait(1500); await c.go('today'); await wait(900)
@@ -696,13 +890,14 @@ await part('One look: 560 x 400', async () => {
 })
 // A list of 500 (LONG=1, timed with `solo --quiet`): only the rows near the screen are drawn, the carry draws the one
 // look, the list scrolls by itself at its edge, and every frame while carrying is timed.
-if (process.env.LONG) await part('One look: 500 rows', async () => {
+const MANY = Number(process.env.LONG) > 1 ? Number(process.env.LONG) : 500
+if (process.env.LONG) await part(`One look: ${MANY} rows`, async () => {
   for (const old of await v('tasks')) if (old.status === 'open') await v('task:save', old.id, { status: 'dropped' })
-  for (let i = 0; i < 500; i++) await v('task:add', `Long list task ${i + 1} today`)
+  for (let i = 0; i < MANY; i++) await v('task:add', `Long list task ${i + 1} today`)
   await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'manual', group: 'when' })))
   await h.reload(); await wait(2500); await c.go('today'); await wait(1800)
   const count = await h.locator('[data-pane] [data-sortable-id]').count()
-  check('500 tasks: only the rows near the screen are drawn', count > 5 && count < 120, `${count} rows drawn`)
+  check(`${MANY} tasks: only the rows near the screen are drawn`, count > 5 && count < 120, `${count} rows drawn`)
   const first = await h.locator('[data-pane] [data-task-row]').nth(2).boundingBox()
   const pane = await h.evaluate(() => { let el = document.querySelector('[data-pane] [data-vlist]'); while (el && !/auto|scroll/.test(getComputedStyle(el).overflowY)) el = el.parentElement; el.dataset.qaScroller = ''; const r = el.getBoundingClientRect(); return { top: r.top, bottom: r.bottom } })
   await h.evaluate(() => { window.__frames = []; let last = performance.now(); const tick = (now) => { window.__frames.push(now - last); last = now; window.__raf = requestAnimationFrame(tick) }; window.__raf = requestAnimationFrame(tick) })
@@ -710,19 +905,22 @@ if (process.env.LONG) await part('One look: 500 rows', async () => {
   for (let i = 1; i <= 40; i++) { await h.mouse.move(first.x + 220, first.y + 14 + i * 8); await wait(16) }
   await wait(450)
   const d = await drawn()
-  check('500 tasks: one card, one line through one band, no row over another', d.cards === 1 && d.lines === 1 && d.rooms === 1 && d.lineIn && d.overlap <= 1 && !d.onRoom, JSON.stringify(d))
+  check(`${MANY} tasks: one card, one line through one band, no row over another`, d.cards === 1 && d.lines === 1 && d.rooms === 1 && d.lineIn && d.overlap <= 1 && !d.onRoom, JSON.stringify(d))
   const top0 = await h.evaluate(() => document.querySelector('[data-qa-scroller]').scrollTop)
   await h.mouse.move(first.x + 220, pane.bottom - 10, { steps: 12 })
   const began = Date.now()
-  for (let i = 0; i < 30; i++) { await h.mouse.move(first.x + 220 + (i % 2), pane.bottom - 10); await wait(50) }
+  // Held at the list's foot for four seconds: it scrolls by itself, and the carried row goes down the list with it.
+  for (let i = 0; i < 80; i++) { await h.mouse.move(first.x + 220 + (i % 2), pane.bottom - 10); await wait(50) }
   const top1 = await h.evaluate(() => document.querySelector('[data-qa-scroller]').scrollTop)
   const speed = Math.round((top1 - top0) / ((Date.now() - began) / 1000))
   const frames = (await h.evaluate(() => { cancelAnimationFrame(window.__raf); return window.__frames })).slice(3)
   const sorted = [...frames].sort((a, b) => a - b)
-  const [worst, p95, over] = [sorted.at(-1), sorted[Math.floor(sorted.length * 0.95)], frames.filter((one) => one > 17.5).length]
-  console.log(`TIMING 500 rows carried: ${frames.length} frames, worst ${worst.toFixed(1)} ms, 95th ${p95.toFixed(1)} ms, ${over} over 17.5 ms (${((over / frames.length) * 100).toFixed(1)}%), the list scrolled by itself at ${speed} px/s`)
-  check('500 tasks: at its bottom edge the list scrolls by itself, no faster than about 1000 px a second', speed > 60 && speed < 1300, `${speed} px/s`)
-  await shot('look-500-tasks-carried')
+  const [worst, p95, over] = [sorted.at(-1), sorted[Math.floor(sorted.length * 0.95)], frames.filter((one) => one > 16).length]
+  // Where in the carry the slow frames fall, as a share of the way through it (the lift is at the very start).
+  const slow = frames.map((one, at) => (one > 16 ? `${Math.round((at / frames.length) * 100)}%: ${one.toFixed(0)} ms` : null)).filter(Boolean).join(', ')
+  console.log(`TIMING ${MANY} rows carried: ${frames.length} frames, worst ${worst.toFixed(1)} ms, 95th ${p95.toFixed(1)} ms, median ${sorted[Math.floor(sorted.length / 2)].toFixed(1)} ms, ${over} over 16 ms (${((over / frames.length) * 100).toFixed(1)}%), the list scrolled by itself ${Math.round(top1 - top0)} px at ${speed} px/s; slow frames at ${slow || 'none'}`)
+  check(`${MANY} tasks: at its bottom edge the list scrolls by itself, no faster than about 1000 px a second`, speed > 60 && speed < 1300, `${speed} px/s`)
+  await shot(`look-${MANY}-tasks-carried`)
   await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(400)
 })
 await part('One look: Writing, the reference', async () => {
