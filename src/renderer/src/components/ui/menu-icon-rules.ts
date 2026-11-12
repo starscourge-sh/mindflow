@@ -287,6 +287,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/card/i, StickyNote],
   [/sticky|desktop|^stick all/i, StickyNote],
   // Pages and places.
+  // A book's colour is a colour first: the palette, as "Colour" and the themes wear.
+  [/^book colou?r/i, Palette],
   [/^new book|^switch book|book/i, Library],
   [/^new capture|^new note|^new|^add/i, Plus],
   [/version|history/i, History],

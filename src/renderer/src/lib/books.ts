@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 
 import { SANDBOX, barsOf, enterSandbox, gatherCarry, leaveSandbox, momentOn } from './sandbox'
 import { haligtree } from './haligtree'
-import { EASING, still } from '@/lib/motion'
+import { EASING, byKeys, still } from '@/lib/motion'
 import { num } from '../../../main/dates'
 
 /**
@@ -10,7 +10,8 @@ import { num } from '../../../main/dates'
  * folder (see src/main/books.ts). Switching is the sandbox's restart, so it
  * looks and sounds the same.
  */
-export type Book = { id: string; name: string; createdAt: string | null; current: boolean; color: Hue | null }
+/** `openedAt`: when it was last opened, which sets the order main lists them in (the open one, then the one you were just in); null for one not opened since that was kept. */
+export type Book = { id: string; name: string; createdAt: string | null; current: boolean; color: Hue | null; openedAt?: number | null }
 export type Shelf = { current: string; name: string; books: Book[]; color: Hue | null }
 /** A capture or a note (captures), or an idea, article, question or goal (nuggets). */
 export type BookRef = { table: 'captures' | 'nuggets'; id: string }
@@ -25,10 +26,20 @@ export type Hue = (typeof HUES)[number]
 export const hueName = (hue: Hue | null): string => (hue ? hue[0].toUpperCase() + hue.slice(1) : 'No colour')
 /** A hue as a colour the page can paint with. */
 export const hueVar = (hue: Hue | null): string => (hue ? `var(--tt-color-text-${hue})` : 'var(--muted-foreground)')
+/** What a book's mark is drawn in: its hue, or the theme's own accent when it has none (the theme's, not the one this window wears for the open book). */
+export const markInk = (hue: Hue | null): string => (hue ? `var(--tt-color-text-${hue})` : 'var(--mf-theme-accent, var(--primary))')
 
 const HUE_KEY = 'book-hue'
 const worn = (): Hue | null => (document.documentElement.dataset.bookHue as Hue | undefined) ?? null
+/**
+ * The colour this window is on its way to (a turn or a wash still under way): as good as worn to anything that
+ * asks. Word of the same change coming back from the shelf a moment after a pick then starts nothing a second time.
+ */
+let turning: { hue: Hue | null } | null = null
+const wearing = (): Hue | null => (turning ? turning.hue : worn())
+/** Worn now. Anything still on its way to another colour gives way: the last word wins, never the slower one. */
 const wear = (hue: Hue | null): void => {
+  turning = null
   if (hue) document.documentElement.dataset.bookHue = hue
   else delete document.documentElement.dataset.bookHue
   try {
@@ -39,14 +50,38 @@ const wear = (hue: Hue | null): void => {
   }
 }
 
+let turns = 0
 /**
- * The new colour washed across the window from the left, as Arc does when
- * you move to another space: a soft band of it sweeps over in 300ms, the
- * accent and the sidebar turn as it passes the middle, and the band fades.
- * With Motion off, the colour is simply there.
+ * A book's colour changed where you are, picked here or in another window: what wears it (the sidebar's tint,
+ * and the accent wherever it shows: links, the caret, what is selected, ticks and marks) eases into the new
+ * colour in place, as a theme turns over: one picture of the window fading into the next in 200ms, colour only,
+ * nothing crossing the page (main.css, data-hue-turn). A wash across the whole window for a tint on the sidebar
+ * read as a flash, so it is kept for arriving in another book. Reached by a key, with Motion off or Reduce
+ * motion, or in a window out of sight, the colour is simply there.
  */
-export function washTo(hue: Hue | null, always = false): void {
-  if (hue === worn() && !always) return
+export function turnTo(hue: Hue | null): void {
+  if (hue === wearing()) return
+  const root = document.documentElement
+  const eased = !still() && !byKeys() && !document.hidden && typeof document.startViewTransition === 'function'
+  // For a probe: each turn, and whether it eased.
+  ;((window as unknown as { haligtreeTurns?: string[] }).haligtreeTurns ??= []).push(`${hue ?? 'none'}:${eased ? 'eased' : 'at once'}`)
+  if (!eased) return wear(hue)
+  const mine = (turning = { hue })
+  const turn = ++turns
+  root.setAttribute('data-hue-turn', '')
+  // The picture of the window as it was is taken first; the colour goes on for the one it fades into.
+  const crossing = document.startViewTransition(() => void (turning === mine && wear(hue)))
+  crossing.ready.catch(() => undefined)
+  void crossing.finished.catch(() => undefined).finally(() => turn === turns && root.removeAttribute('data-hue-turn'))
+}
+
+/**
+ * Arriving in another book after a switch, where the whole page changes: its colour washed across the window
+ * from the left, as Arc does when you move to another space. A soft band of it sweeps over in 300ms, the accent
+ * and the sidebar turn as it passes the middle, and the band fades. Only then: a colour picked or changed in
+ * place eases in where it is worn (turnTo). With Motion off, the colour is simply there.
+ */
+function washIn(hue: Hue | null): void {
   if (still() || document.hidden) return wear(hue)
   ;((window as unknown as { haligtreeWashes?: string[] }).haligtreeWashes ??= []).push(hue ?? 'none')
   const band = document.createElement('div')
@@ -55,12 +90,23 @@ export function washTo(hue: Hue | null, always = false): void {
   band.style.setProperty('--wash', hueVar(hue))
   document.body.appendChild(band)
   const sweep = band.animate([{ transform: 'translateX(-100%)' }, { transform: 'translateX(0)' }], { duration: 300, easing: EASING, fill: 'forwards' })
-  setTimeout(() => wear(hue), 150)
+  // The turn itself, as the band passes the middle: part of the wash's own timing, not a wait for anything.
+  // Only if this wash is still the last word (a colour changed since has taken its place otherwise).
+  const mine = (turning = { hue })
+  setTimeout(() => turning === mine && wear(hue), 150)
   void sweep.finished.then(() => band.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 240, easing: 'ease-out', fill: 'forwards' }).finished).catch(() => undefined).finally(() => band.remove())
 }
 
-/** A book's colour, chosen in the switcher or in Settings. The open book washes into it. */
+/** A book's colour, kept on the shelf: every window hears of it. */
 export const setBookColor = (id: string, hue: Hue | null): Promise<boolean> => window.api.haligtree<boolean>('books:color', id, hue)
+/**
+ * A book's colour picked, wherever it is picked (Settings, ⌘K, its right-click): what wears the open book's
+ * colour in this window eases into it at once, and the shelf keeps it for every other window and list.
+ */
+export function pickBookColor(book: Pick<Book, 'id' | 'current'>, hue: Hue | null): void {
+  if (!SANDBOX && book.current) turnTo(hue)
+  void setBookColor(book.id, hue)
+}
 
 // Before the first paint: the colour this book wore last time, so the window never flashes the theme's.
 if (!SANDBOX) {
@@ -74,16 +120,16 @@ if (!SANDBOX) {
 let followed = false
 /**
  * The open book's colour, kept worn in this window: from the shelf as the
- * window opens, washed in after a switch into this book, and washed again
- * when it is changed here or anywhere else.
+ * window opens, washed in once after a switch into this book, and eased into
+ * in place when it is changed here or anywhere else.
  */
 export function followBookHue(): void {
   if (followed || SANDBOX) return
   followed = true
   const look = (arriving: boolean): void => void shelf().then((now) => {
-    if (!arriving || now.color === null) return now.color === worn() ? undefined : document.hasFocus() ? washTo(now.color) : wear(now.color)
+    if (!arriving || now.color === null) return now.color === wearing() ? undefined : document.hasFocus() ? turnTo(now.color) : wear(now.color)
     // Arrived by a switch: once the window is on screen, its colour washes across it.
-    const go = (): void => void setTimeout(() => washTo(now.color, true), 180)
+    const go = (): void => void setTimeout(() => washIn(now.color), 180)
     if (!document.hidden) go()
     else document.addEventListener('visibilitychange', go, { once: true })
   })
@@ -92,11 +138,13 @@ export function followBookHue(): void {
   window.addEventListener('storage', (event) => event.key === HUE_KEY && !document.hasFocus() && wear((event.newValue as Hue | null) ?? null))
 }
 
-/** The books, kept current as one is made, renamed or deleted. */
+/** The shelf as this window last read it: a list of books drawn later (Settings, the box) is whole in its first frame, never dropped in a moment after. */
+let lastShelf: Shelf | null = null
+/** The books, kept current as one is made, renamed, coloured or deleted, in any window. */
 export function useShelf(): Shelf | null {
-  const [now, setNow] = useState<Shelf | null>(null)
+  const [now, setNow] = useState<Shelf | null>(lastShelf)
   useEffect(() => {
-    const load = (): void => void shelf().then(setNow)
+    const load = (): void => void shelf().then((read) => setNow((lastShelf = read)))
     load()
     window.addEventListener('haligtree:books-changed', load)
     return () => window.removeEventListener('haligtree:books-changed', load)
@@ -176,8 +224,11 @@ export const deleteBook = (id: string): Promise<string | null> => window.api.hal
 /** How many were copied into that book. */
 export const copyToBook = (refs: BookRef[], id: string): Promise<number> => window.api.haligtree<number>('books:copy', refs, id)
 
-/** The pickers, over the page: which book to go to, copy into, or import into. */
-export const askBook = (mode: 'switch' | 'copy' | 'import', detail: { refs?: BookRef[]; what?: 'vault' | 'files' } = {}): void =>
+/**
+ * The box over the page, for the two asks where a new book's name can be typed: which book to copy into, or to
+ * import into. Going to a book needs no box: the sidebar's menu and ⌘K list them.
+ */
+export const askBook = (mode: 'copy' | 'import', detail: { refs?: BookRef[]; what?: 'vault' | 'files' } = {}): void =>
   void window.dispatchEvent(new CustomEvent('haligtree:book-ask', { detail: { mode, ...detail } }))
 
 /** The row menus' line: copies of these, with their pictures and files, into another book. */

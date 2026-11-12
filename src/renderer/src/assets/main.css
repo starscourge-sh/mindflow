@@ -2890,6 +2890,20 @@ html:is([data-dragging], [data-split-drag]) :is([data-peek-card], [data-slash-pe
 :root[data-theme-glide]::view-transition-new(root) {
   animation: mf-plain-in 120ms var(--mf-ease) both;
 }
+/* A book's colour changed in place (lib/books.ts, turnTo): the same plain crossing, on the app's short clock.
+   The two pictures differ only where the colour is worn (the sidebar's tint, the accent), so that is all that
+   is seen to change: no blur, and nothing crossing the page. */
+:root[data-hue-turn]::view-transition-old(root) {
+  animation: mf-plain-out 200ms var(--mf-ease) both;
+}
+:root[data-hue-turn]::view-transition-new(root) {
+  animation: mf-plain-in 200ms var(--mf-ease) both;
+}
+/* The window keeps its size and place through it: nothing to glide, so the crossing ends with the fade (the
+   browser's own 250ms glide of the group would otherwise hold it open a little longer, moving nothing). */
+:root[data-hue-turn]::view-transition-group(root) {
+  animation: none;
+}
 
 /* Something clicked growing into what it opens, and back (lib/hero.ts): a
    view transition. The group (the real pictures of the thing and the page)

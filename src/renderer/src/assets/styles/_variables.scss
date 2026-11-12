@@ -65,6 +65,8 @@
   --tt-brand-color-200: rgba(195, 189, 255, 1);
   --tt-brand-color-300: rgba(157, 138, 255, 1);
   --tt-brand-color-400: rgba(122, 82, 255, 1);
+  /* The theme's own accent, kept where a book's colour (main.css, [data-book-hue]) takes the ramp over: a book with no colour is marked in it. */
+  --mf-theme-accent: rgba(122, 82, 255, 1);
   --tt-brand-color-500: rgba(98, 41, 255, 1);
   --tt-brand-color-600: rgba(84, 0, 229, 1);
   --tt-brand-color-700: rgba(75, 0, 204, 1);
@@ -185,6 +187,7 @@
   // the selection all came out a colour nothing else on the page shares.
   --tt-brand-color-500: #9f2d00;
   --tt-brand-color-400: #c23600;
+  --mf-theme-accent: #c23600;
   // Links: the accent, unless the accent is a red. Red means "this removes
   // something" and nothing else, so here links are the ink, underlined.
   --mf-link: var(--foreground);
@@ -251,6 +254,7 @@ $mf-hues: "gray", "brown", "orange", "yellow", "green", "blue", "purple", "pink"
     --tt-brand-color-#{list.nth($mf-steps, $i)}: #{color.mix($accent, #fff, list.nth($mf-tints, $i))};
   }
   --tt-brand-color-400: #{$accent};
+  --mf-theme-accent: #{$accent};
   --mf-link: #{$accent};
   @for $i from 1 through 6 {
     --tt-brand-color-#{list.nth($mf-shade-steps, $i)}: #{color.mix($accent, #000, list.nth($mf-shades, $i))};

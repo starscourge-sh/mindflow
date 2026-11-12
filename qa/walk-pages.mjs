@@ -87,9 +87,12 @@ async function walk(t, tag) {
   await go('home')
   await h.locator('button[aria-label$=" menu"]').last().click().catch(() => {})
   await h.waitForTimeout(500); await look(`${t} foot menu`, `${t}-foot-menu`)
-  await h.locator('[data-peek="switch"]').click().catch(() => {})
-  await h.waitForTimeout(700); await look(`${t} switch book`, `${t}-switch-book`)
   await esc(); await esc()
+  // The books as ⌘K's own second step (with one book only there is no such line, and the palette is pictured as it is).
+  await h.keyboard.press('Meta+k'); await h.waitForTimeout(500); await h.keyboard.type('switch book'); await h.waitForTimeout(400)
+  if (await h.evaluate(() => document.querySelector('[data-search-at] [data-action-label]')?.textContent === 'Switch book…')) { await h.keyboard.press('Enter'); await h.waitForTimeout(500) }
+  await look(`${t} switch book`, `${t}-switch-book`)
+  await esc(); await esc(); await esc()
   await h.keyboard.press('Meta+k'); await h.waitForTimeout(500); await look(`${t} ⌘K`, `${t}-cmdk`)
   await h.keyboard.type('bin'); await h.waitForTimeout(400); await look(`${t} ⌘K typed`, `${t}-cmdk-typed`)
   await esc(); await esc()

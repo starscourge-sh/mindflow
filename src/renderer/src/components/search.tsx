@@ -68,8 +68,8 @@ export type Action = { label: string; /** What it does, said in the preview besi
 /** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
 export type Keep = 'note' | 'task' | 'question' | 'box'
 const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
-/** One of an action's choices: what it does, and a quiet word on where it stands now. */
-export type Choice = { label: string; note?: string; run: () => void }
+/** One of an action's choices: what it does, and a quiet word on where it stands now. `mark`: its own drawing before its words (a book's mark in its colour). */
+export type Choice = { label: string; note?: string; mark?: ReactNode; run: () => void }
 
 /** Room for the preview beside the list: the box's 640px window has none, so there it never shows. */
 const ROOMY = '(min-width: 700px)'
@@ -551,15 +551,19 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
               <div className="px-2 pt-1 pb-1 text-xs text-muted-foreground">{choosing.action.label.replace(/…$/, '')}</div>
               {choices.map((one, index) => (
                 <button
-                  key={one.label}
+                  // By its place too: two books may share a name.
+                  key={`${index}:${one.label}`}
                   type="button"
                   className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left"
+                  data-choice=""
                   data-choice-at={index === choiceAt || undefined}
                   onMouseMove={(event) => realMove(event) && setChoiceAt(index)}
                   onClick={() => choose(one)}
                 >
-                  <span className="min-w-0 flex-1 truncate">{one.label}</span>
-                  {one.note && <span className="shrink-0 text-xs text-muted-foreground">{one.note}</span>}
+                  {one.mark}
+                  {/* Cut where it runs long, the whole of it on rest (a title is shown only when its words are cut). */}
+                  <span title={one.label} className="min-w-0 flex-1 truncate">{one.label}</span>
+                  {one.note && <span data-choice-note className="shrink-0 text-xs text-muted-foreground">{one.note}</span>}
                 </button>
               ))}
               {!choices.length && <p className="px-2 py-3 text-sm text-muted-foreground"><Typed text="None by that name." /></p>}

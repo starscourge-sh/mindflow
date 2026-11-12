@@ -1,6 +1,7 @@
-// Arc's spaces and sidebar in Haligtree: a book's colour (picked in the book
-// switcher and in Settings, shown as dots, washed across the window, worn
-// again after a switch), Recent in ⌘K (the notes opened last, newest first,
+// Arc's spaces and sidebar in Haligtree: a book's colour (picked in Settings
+// under “Your book”, shown on each book's mark, worn in place with no band
+// across the window, washed in once on arriving after a switch;
+// qa/book-switcher.mjs has ⌘K and the right-click), Recent in ⌘K (the notes opened last, newest first,
 // before anything is typed; the sidebar has no Recent), and Close the day's
 // two lines looking back.
 //
@@ -77,44 +78,38 @@ let bookId
   const first = await c.v('books:list')
   check('a book starts with no colour: the theme as drawn', first.color === null && first.books.every((one) => one.color === null) && (await hueNow(c)) === null)
   const accent = await css(c, '--tt-brand-color-400')
-  // The switcher: every book with a dot, and the open book's colour row.
-  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:book-ask', { detail: { mode: 'switch' } })))
-  await c.h.waitForSelector('[data-book-colour]', { timeout: 4000 })
-  check('the switcher offers the open book\'s colour, ten choices', (await c.h.$$('[data-book-colour] [role="radio"]')).length === 9)
-  await shot(c, 'switcher-none')
-  await c.h.click('[data-book-colour] [data-hue="pink"]')
+  // Settings, “Your book”: this book first, with its nine colours.
+  await c.go('settings')
+  await c.h.waitForSelector('[data-setting-anchor="book:default"] [role="radiogroup"][aria-label="Book colour"]', { timeout: 4000 })
+  check('Settings’ “Your book” offers the open book\'s colour, nine choices', (await c.h.$$('[data-setting-anchor="book:default"] [role="radio"]')).length === 9)
+  await shot(c, 'settings-none')
+  await c.h.click('[data-setting-anchor="book:default"] [data-hue="pink"]')
   await c.h.waitForTimeout(80)
   const banded = await c.h.evaluate(() => !!document.querySelector('[data-book-wash]'))
   await c.h.waitForTimeout(700)
   const after = await c.v('books:list')
   check('picking pink keeps it on the shelf', after.color === 'pink' && after.books.find((one) => one.current).color === 'pink', JSON.stringify(after.books))
-  check('the window washes into it: a band sweeps across, then is gone', banded && (await washes(c)).includes('pink') && !(await c.h.$('[data-book-wash]')))
+  check('what wears it turns in place: no band crosses the window', !banded && (await washes(c)).length === 0 && !(await c.h.$('[data-book-wash]')), JSON.stringify(await washes(c)))
   check('the accent turns to the theme\'s pink', (await hueNow(c)) === 'pink' && (await css(c, '--tt-brand-color-400')) === (await css(c, '--tt-color-text-pink')) && (await css(c, '--tt-brand-color-400')) !== accent, `${accent} -> ${await css(c, '--tt-brand-color-400')}`)
   const tint = await c.h.$eval('aside[data-book-tint]', (one) => getComputedStyle(one).backgroundImage)
   check('the sidebar takes a tint of it', tint.includes('gradient'), tint.slice(0, 60))
-  await shot(c, 'switcher-pink')
-  await c.h.keyboard.press('Escape')
-  await c.h.waitForTimeout(300)
-  await shot(c, 'home-blue')
-  // A second book, shown in the switcher with its own dot.
+  await shot(c, 'settings-pink')
+  // A second book, shown in the menu under the book's name with its own mark.
   bookId = await c.v('books:create', 'Work')
   await c.v('books:color', bookId, 'green')
-  await c.h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:book-ask', { detail: { mode: 'switch' } })))
-  await c.h.waitForSelector(`[data-book="${bookId}"]`, { timeout: 4000 })
-  const dots = await c.h.$$eval('[data-book] span[aria-hidden]', (all) => all.map((one) => one.getAttribute('style') ?? ''))
-  check('the switcher shows each book\'s colour as a dot', dots.some((one) => one.includes('pink')) && dots.some((one) => one.includes('green')), JSON.stringify(dots))
-  await shot(c, 'switcher-two')
+  await c.h.waitForTimeout(400)
+  await c.h.click('[aria-label="Haligtree menu"]')
+  await c.h.waitForSelector(`[data-slot="dropdown-menu-content"] [data-book="${bookId}"]`, { timeout: 4000 })
+  const marks = await c.h.$$eval('[data-slot="dropdown-menu-content"] [data-book] svg[data-book-mark]', (all) => all.map((one) => one.getAttribute('data-book-mark')))
+  check('the menu under the book\'s name shows each book\'s colour on its mark', marks.includes('pink') && marks.includes('green'), JSON.stringify(marks))
+  await shot(c, 'menu-two')
   await c.h.keyboard.press('Escape')
   await c.h.waitForTimeout(300)
-  check('Escape puts the switcher away', !(await c.h.$('[data-book-colour]')))
-  // Settings: the same dots under each book.
-  await c.go('settings')
-  await c.h.evaluate(() => [...document.querySelectorAll('[data-section]')].find((one) => one.getAttribute('data-section') === 'Import and backups')?.click())
-  await c.h.waitForTimeout(700)
+  check('Escape puts the menu away', !(await c.h.$('[data-slot="dropdown-menu-content"]')))
+  // Settings: the same swatches under each book.
   const rows = await c.h.$$('[data-setting] [role="radiogroup"][aria-label="Book colour"]')
   check('Settings has a colour row under each book', rows.length === 2, `${rows.length}`)
-  await c.h.evaluate(() => document.querySelector('[role="radiogroup"][aria-label="Book colour"] [data-hue="purple"]')?.scrollIntoView({ block: 'center' }))
-  await c.h.click('[role="radiogroup"][aria-label="Book colour"] [data-hue="purple"]')
+  await c.h.click('[data-setting-anchor="book:default"] [data-hue="purple"]')
   await c.h.waitForTimeout(700)
   check('a colour picked in Settings is worn at once', (await hueNow(c)) === 'purple' && (await c.v('books:list')).color === 'purple')
   await shot(c, 'settings-books')
@@ -122,7 +117,7 @@ let bookId
   await c.h.evaluate(() => (document.documentElement.dataset.motion = 'off', window.haligtreeWashes = []))
   await c.v('books:color', 'default', 'orange')
   await c.h.waitForTimeout(500)
-  check('with Motion off, no wash: the colour is simply there', (await hueNow(c)) === 'orange' && (await washes(c)).length === 0)
+  check('with Motion off the colour is simply there', (await hueNow(c)) === 'orange' && (await washes(c)).length === 0)
   await c.h.evaluate(() => delete document.documentElement.dataset.motion)
   // Back to none: the theme's own accent again.
   await c.h.click('[role="radiogroup"][aria-label="Book colour"] [data-hue="none"]')

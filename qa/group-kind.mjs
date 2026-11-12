@@ -1,7 +1,8 @@
 // Lists start grouped by kind, each kind its own island; a list of one kind
 // stays a plain list (on the sandbox, with no list's display kept). In your
-// own book, the foot menu's book line is "Switch book…", with "New book…"
-// inside it (run without the sandbox, which has no new books).
+// own book, the foot menu lists your books at its top, the open one ticked,
+// with "New book…" under them and no "Switch book…" (run without the sandbox,
+// which has no new books).
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/group-kind.mjs
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/group-kind.mjs
 import { sandbox } from './sandbox-lib.mjs'
@@ -30,10 +31,12 @@ try {
   await go('home'); await wait(900)
   await h.locator('button[aria-label$=" menu"]').last().click(); await wait(500)
   const items = await h.locator('[role=menuitem]').allInnerTexts()
-    check('the foot menu has no "New book…" line', !items.some((t) => /^New book/.test(t.trim())), items.join(' | '))
-    check('and has "Switch book…"', items.some((t) => /^Switch book/.test(t.trim())))
-    await h.getByRole('menuitem', { name: /Switch book/ }).click(); await wait(600)
-    check('Switch book offers "New book…" inside it', /New book/.test(await h.locator('[role=dialog]').innerText()))
+    check('the foot menu lists your books first, the open one ticked', await h.locator('[role=menu] [data-book]').count() >= 1 && await h.locator('[role=menu] [data-book]').first().locator('[data-book-open]').count() === 1, items.join(' | '))
+    check('with "New book…" under them', items.some((t) => /^New book…/.test(t.trim())))
+    check('and no "Switch book…": a book is one press away', !items.some((t) => /^Switch book/.test(t.trim())))
+    await h.getByRole('menuitem', { name: /New book/ }).click(); await wait(700)
+    check('"New book…" asks for its name', /Name the new book/.test(await h.locator('[data-ask]').innerText().catch(() => '')))
+    await h.keyboard.press('Escape'); await wait(300)
   }
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } finally { await c.close() }

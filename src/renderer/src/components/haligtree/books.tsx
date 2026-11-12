@@ -1,27 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Check, FlaskConical, Plus } from 'lucide-react'
+import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
-import { HUES, askBook, copyToBook, followBookHue, hueName, hueVar, newBook, setBookColor, shelf, switchBook, useShelf, washTo, type BookRef, type Hue, type RunningAsk, type Shelf } from '@/lib/books'
+import { HUES, askBook, copyToBook, followBookHue, hueName, markInk, newBook, pickBookColor, shelf, switchBook, useShelf, type Book, type BookRef, type Hue, type RunningAsk } from '@/lib/books'
 import { SANDBOX } from '@/lib/sandbox'
 import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
 import { haligtree } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Tip, ask, refuse, toast, whyFailed } from './ui'
+import { Swatch, type RowItem } from './row-menu'
 import { APP_NAME } from '../../../../main/name'
-import { quoted } from '../../../../main/clip'
+import { cut, quoted } from '../../../../main/clip'
 
-type Asked = { mode: 'switch' | 'copy' | 'import'; refs?: BookRef[]; what?: 'vault' | 'files' }
+/** The box's two asks. Going to a book has no box: the sidebar's menu and ⌘K list them. */
+type Asked = { mode: 'copy' | 'import'; refs?: BookRef[]; what?: 'vault' | 'files' }
 
 const TITLE: Record<Asked['mode'], string> = {
-  switch: 'Switch to which book…',
   copy: 'Copy into which book…',
   import: 'Import into which book…'
 }
 
-/** Name a new book, then go into it. From the pickers, the Haligtree menu, ⌘K and the menu bar. */
+/** Name a new book, then go into it. From the sidebar's menu, ⌘K and the menu bar. */
 export async function askNewBook(): Promise<void> {
   if (SANDBOX) return refuse('Leave the sandbox first, then make a new book')
   const name = (await ask('Name the new book', 'e.g. Fresh start, or Notion test', { action: 'Make the book' }))?.trim()
@@ -29,59 +29,75 @@ export async function askNewBook(): Promise<void> {
 }
 
 /**
- * A book's mark that changes its colour on a click, as a group's icon opens its
- * picker: the colours in a small popover. A span: it sits inside a list row,
- * and a press never picks the row.
+ * A book's mark, wherever books are listed (the sidebar's menu, ⌘K, the box, Settings): a small book in its
+ * colour, or in the theme's own accent when it has none. Never a dot: hollow and filled dots down a list read
+ * as radio buttons.
  */
-function HueMark({ id, hue, onPicked }: { id: string; hue: Hue | null; onPicked: (hue: Hue | null) => void }): React.JSX.Element {
-  const [open, setOpen] = useState(false)
-  const hold = (event: React.SyntheticEvent): void => event.stopPropagation()
-  return (
-    <Popover open={open} onOpenChange={(next) => (next && chime('open'), setOpen(next))}>
-      <PopoverTrigger asChild>
-        <span role="button" tabIndex={-1} data-book-mark={id} aria-label="Change its colour" title="Change colour" onPointerDown={hold} onMouseDown={hold}
-          onClick={(event) => (event.stopPropagation(), event.preventDefault(), setOpen(!open))}
-          className="grid size-5 shrink-0 place-items-center rounded-md transition-colors hover:bg-foreground/10"><HueDot hue={hue} /></span>
-      </PopoverTrigger>
-      <PopoverContent align="start" className="z-[70] w-auto p-2" onPointerDown={hold} onMouseDown={hold} onClick={hold} onKeyDown={hold}>
-        <HueDots id={id} value={hue} onPicked={(next) => (setOpen(false), onPicked(next))} />
-      </PopoverContent>
-    </Popover>
-  )
+export function BookMark({ hue, className = 'size-3.5' }: { hue: Hue | null; className?: string }): React.JSX.Element {
+  return <BookIcon aria-hidden data-book-mark={hue ?? 'none'} className={`shrink-0 ${className}`} style={{ color: markInk(hue) }} />
 }
 
-/** A book's colour as a dot: filled with its hue, or a ring for none. */
-function HueDot({ hue, className = 'size-2.5' }: { hue: Hue | null; className?: string }): React.JSX.Element {
-  return <span aria-hidden className={`shrink-0 rounded-full ${className}`} style={hue ? { background: hueVar(hue) } : { boxShadow: 'inset 0 0 0 1.5px var(--muted-foreground)' }} />
-}
+/** The nine a book can wear, the theme's own first, as every picker of them names and paints them. */
+const NINE = ([null, ...HUES] as (Hue | null)[]).map((hue) => ({ hue, label: hue ? hueName(hue) : 'No colour: the theme’s own', ink: markInk(hue) }))
 
 /**
- * A book's colour, picked from a row of dots: none (the theme's own) or one
- * of the theme's hues. The open book washes into it at once.
+ * A book's colour, picked from its nine swatches in Settings: the theme's own, or one of the theme's hues, drawn
+ * as a right-click's swatches are (row-menu.tsx), the one worn ticked and named beside them. What wears the
+ * open book's colour eases into it in place.
  */
-export function HueDots({ id, value, onPicked }: { id: string; value: Hue | null; onPicked?: (hue: Hue | null) => void }): React.JSX.Element {
-  const shelfNow = useShelf()
+export function HueDots({ book }: { book: Book }): React.JSX.Element {
   const pick = (hue: Hue | null): void => {
-    if (hue === value) return chime('nope')
+    if (hue === book.color) return chime('nope')
     chime('tap')
-    onPicked?.(hue)
-    // The open book's colour washes across this window at once; the others follow quietly.
-    if (!SANDBOX && shelfNow?.current === id) washTo(hue)
-    void setBookColor(id, hue)
+    pickBookColor(book, hue)
   }
   return (
-    <span role="radiogroup" aria-label="Book colour" className="flex items-center gap-1">
-      {[null, ...HUES].map((hue) => (
-        <Tip key={hue ?? 'none'} label={hue ? hueName(hue) : 'No colour: the theme’s own'}>
-          <button type="button" role="radio" aria-checked={hue === value} aria-label={hueName(hue)} data-hue={hue ?? 'none'} onClick={() => pick(hue)}
-            className={`grid size-6 place-items-center rounded-full transition-[box-shadow,transform] duration-150 motion-safe:hover:scale-110 active:scale-95 ${hue === value ? 'shadow-[0_0_0_1.5px_var(--foreground)]' : ''}`}>
-            <HueDot hue={hue} className="size-3.5" />
-          </button>
-        </Tip>
-      ))}
+    <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+      <span role="radiogroup" aria-label="Book colour" className="flex items-center gap-1">
+        {NINE.map(({ hue, label, ink }) => (
+          <Tip key={hue ?? 'none'} label={label}>
+            <button type="button" role="radio" aria-checked={hue === book.color} aria-label={hueName(hue)} data-hue={hue ?? 'none'} onClick={() => pick(hue)}
+              className="grid size-6 place-items-center rounded-md transition-[background-color,scale] duration-100 hover:bg-foreground/10 active:scale-[0.94]">
+              <Swatch color={ink} on={hue === book.color} />
+            </button>
+          </Tip>
+        ))}
+      </span>
+      {/* The one worn, in words: nobody has to point at a swatch to learn its name. */}
+      <span data-book-colour-name className="text-control text-muted-foreground">{book.color ? hueName(book.color) : 'The theme’s own colour'}</span>
     </span>
   )
 }
+
+/**
+ * A book's colour picked where the picker then goes away (⌘K, its right-click): said, with Undo. In Settings
+ * the swatches stay in view and say it themselves.
+ */
+export function colourBook(book: Book, hue: Hue | null): void {
+  if (hue === book.color) return chime('nope')
+  chime('tap')
+  pickBookColor(book, hue)
+  toast(hue ? `${cut(book.name, 40)} is ${hueName(hue).toLowerCase()} now` : `${cut(book.name, 40)} wears the theme’s own colour now`, () => pickBookColor(book, book.color), 'info')
+}
+
+/** “Book colour…” in ⌘K: the nine as its second step, each marked as the book would be, the one worn said. */
+export const colourChoices = (book: Book): { label: string; note?: string; mark: React.JSX.Element; run: () => void }[] =>
+  NINE.map(({ hue, label }) => ({ label, note: hue === book.color ? 'worn now' : undefined, mark: <BookMark hue={hue} />, run: () => colourBook(book, hue) }))
+
+/**
+ * A book's own right-click menu, wherever it is listed: its colour (the nine, as a calendar's), its name, and
+ * where everything else about it is. `inSettings`: Settings on “Your book”, with its name ready to type when
+ * asked. The sandbox is someone else's book, and no book's colour or name can be changed from inside it.
+ */
+export const bookMenu = (book: Book, inSettings: (rename: boolean) => void): RowItem[] => [
+  ...(SANDBOX ? [] : [
+    { heading: `Colour of ${cut(book.name, 28)}` },
+    { swatches: NINE.map(({ hue, label, ink }) => ({ color: ink, label, on: hue === book.color, run: () => colourBook(book, hue) })) },
+    'separator' as const,
+    { label: 'Rename…', run: () => inSettings(true) }
+  ]),
+  { label: 'Show in Settings', run: () => inSettings(false) }
+]
 
 /** What the main window wears as a book opens: your look as it came along, once. */
 function useCarried(): void {
@@ -103,13 +119,16 @@ function useCarried(): void {
 }
 
 /**
- * The book picker over the page: type to narrow, Enter to choose. Switching
- * lists the Sandbox too; copying and importing offer a new book by the words typed.
+ * The box over the page, for the two asks where a new book's name can be typed: “Copy into which book…” and
+ * “Import into which book…”. Type to narrow, Enter to choose, or name a new book by the words typed. Your
+ * other books, the one you were in last first; never the open one (both asks are about another book), never
+ * the Sandbox. It also asks about a session running as you switch, from any way of switching.
  */
 export function BookAsker(): React.JSX.Element | null {
   const [asked, setAsked] = useState<Asked | null>(null)
   const [typed, setTyped] = useState('')
-  const [now, setNow] = useState<Shelf | null>(null)
+  // Kept current: a book renamed or deleted in another window while the box is up is renamed or gone here too.
+  const now = useShelf()
   // A session running as you switch: End it, or Keep it running.
   const [running, setRunning] = useState<RunningAsk | null>(null)
   useEffect(() => {
@@ -126,10 +145,12 @@ export function BookAsker(): React.JSX.Element | null {
   useEffect(followBookHue, [])
   useEffect(() => {
     const onAsk = (event: Event): void => {
+      const detail = (event as CustomEvent<Asked>).detail
+      // Only its two asks: there is no box for going to a book.
+      if (detail?.mode !== 'copy' && detail?.mode !== 'import') return
       chime('open')
       setTyped('')
-      void shelf().then(setNow)
-      setAsked((event as CustomEvent<Asked>).detail)
+      setAsked(detail)
     }
     // From the menu bar, which has no page of its own to ask on.
     const onSwitch = (event: Event): void => void switchBook(String((event as CustomEvent).detail))
@@ -164,34 +185,28 @@ export function BookAsker(): React.JSX.Element | null {
   }
   if (!asked || !now) return null
   const close = (): void => setAsked(null)
-  const pick = async (id: string): Promise<void> => {
+  const pick = async (id: string, name = now.books.find((one) => one.id === id)?.name ?? 'the book'): Promise<void> => {
     close()
-    if (asked.mode === 'switch') return switchBook(id)
-    const name = now.books.find((one) => one.id === id)?.name ?? 'the book'
-    if (asked.mode === 'import') {
-      if (id === now.current) return void window.api.importFrom(asked.what ?? 'vault')
-      return switchBook(id, asked.what ?? 'vault')
-    }
+    if (asked.mode === 'import') return switchBook(id, asked.what ?? 'vault')
     const made = await copyToBook(asked.refs ?? [], id)
     if (!made) return refuse('Nothing was copied')
     chime('copy')
     toast(made === 1 ? `Copied one into ${name}, with its pictures and files. It shows there next time you open it` : `Copied ${made} into ${name}, with their pictures and files. They show there next time you open it`)
   }
-  // A new book by the words typed: copied or imported into, then made.
+  // A new book, by the words typed or by a name asked for: made, then copied or imported into. Never made and left empty.
   const fresh = async (): Promise<void> => {
-    const name = typed.trim()
     close()
-    if (asked.mode === 'switch' || !name) return void askNewBook()
+    const name = typed.trim() || (await ask('Name the new book', 'e.g. Fresh start, or Notion test', { action: asked.mode === 'import' ? 'Make it and import' : 'Make it and copy' }))?.trim()
+    if (!name) return
     const id = await window.api.haligtree<string>('books:create', name).catch(() => null)
     if (!id) return refuse(`Could not make ${quoted(name, 80)}`, 'error')
     // Made, but what was to go into it did not: said, never dropped.
-    await pick(id).catch((cause: unknown) => refuse(`Made ${quoted(name, 80)}, but ${asked.mode === 'import' ? 'the import' : 'the copy'} did not work: ${whyFailed(cause)}`, 'error'))
+    await pick(id, name).catch((cause: unknown) => refuse(`Made ${quoted(name, 80)}, but ${asked.mode === 'import' ? 'the import' : 'the copy'} did not work: ${whyFailed(cause)}`, 'error'))
   }
-  const listed = now.books.filter((one) => asked.mode !== 'copy' || !one.current)
+  const listed = now.books.filter((one) => !one.current)
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={close}>
-      <div role="dialog" aria-modal="true" aria-label={TITLE[asked.mode]} className="w-[min(28rem,90vw)] overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}
-        // Escape from anywhere in it, a colour dot included.
+      <div role="dialog" aria-modal="true" aria-label={TITLE[asked.mode]} className="w-[min(24rem,90vw)] overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={(event) => event.key === 'Escape' && (event.stopPropagation(), close())}>
         <Command onKeyDown={(event) => {
           event.stopPropagation()
@@ -202,37 +217,19 @@ export function BookAsker(): React.JSX.Element | null {
             <CommandEmpty>No book by that name yet.</CommandEmpty>
             {listed.map((one) => (
               <CommandItem key={one.id} value={`${one.name} ${one.id}`} data-book={one.id} onSelect={() => void pick(one.id)}>
-                {SANDBOX ? <span className="grid size-4 shrink-0 place-items-center"><HueDot hue={one.color} /></span>
-                  : <HueMark id={one.id} hue={one.color} onPicked={(color) => setNow({ ...now, books: now.books.map((book) => (book.id === one.id ? { ...book, color } : book)) })} />}
-                <span className="min-w-0 flex-1 truncate">{one.name}</span>
-                {one.current && <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Check className="size-3" />Open now</span>}
+                <BookMark hue={one.color} />
+                {/* Cut where it runs long, the whole name on rest (a title is shown only when its words are cut: title-tips.tsx). */}
+                <span title={one.name} className="min-w-0 flex-1 truncate">{one.name}</span>
               </CommandItem>
             ))}
-            {asked.mode === 'switch' && (
-              <CommandItem value="sandbox practice examples peek someone" data-book="sandbox" onSelect={() => void pick('sandbox')}>
-                <FlaskConical className="text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">Sandbox</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{SANDBOX ? 'Open now' : "Someone else's book"}</span>
-              </CommandItem>
-            )}
             {!SANDBOX && (
-              <CommandItem value={`new book ${typed}`} forceMount onSelect={() => void fresh()}>
+              <CommandItem value={`new book ${typed}`} forceMount data-book-fresh onSelect={() => void fresh()}>
                 <Plus className="text-muted-foreground" />
-                <span className="min-w-0 flex-1 truncate">{typed.trim() && asked.mode !== 'switch' ? `Into a new book: ${quoted(typed.trim(), 80)}` : 'New book…'}</span>
+                <span className="min-w-0 flex-1 truncate">{typed.trim() ? `Into a new book: ${quoted(typed.trim(), 80)}` : 'Into a new book…'}</span>
               </CommandItem>
             )}
           </CommandList>
         </Command>
-        {/* The open book's colour, Arc's way with its spaces: picked here, washed across the window at once. */}
-        {asked.mode === 'switch' && !SANDBOX && (() => {
-          const open = now.books.find((one) => one.current)
-          return open && (
-            <div data-book-colour className="flex items-center gap-3 border-t px-3 py-2.5">
-              <span className="min-w-0 flex-1 truncate text-control text-foreground"><strong className="font-semibold">Colour</strong> <span className="text-muted-foreground">for {open.name}</span></span>
-              <HueDots id={open.id} value={open.color} onPicked={(color) => setNow({ ...now, color, books: now.books.map((one) => (one.current ? { ...one, color } : one)) })} />
-            </div>
-          )
-        })()}
       </div>
     </div>
   )

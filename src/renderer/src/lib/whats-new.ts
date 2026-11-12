@@ -83,8 +83,8 @@ export const NEWS: News[] = [
     show: { view: 'inbox', at: ROW, text: 'Open a note, then press ; to add a thought under it.' } },
   { id: 'groups', release: 'groups-and-books', day: '2026-10-08', lead: 'Groups.', text: 'Gather notes in a list into named, coloured groups that fold away.', keys: ['G N'],
     show: { view: 'nuggets', at: ROW, text: 'Select a few rows and press ⌃⌘N, or right-click them and choose “New group”.' } },
-  { id: 'books', release: 'groups-and-books', day: '2026-10-08', lead: 'Books.', text: 'Keep a separate book of notes for a project or a test, and switch between them from ⌘K or the menu bar.', keys: ['⌘K'],
-    show: { view: 'day', text: 'Press ⌘K and choose “Switch book” or “New book”.' } }
+  { id: 'books', release: 'groups-and-books', day: '2026-10-08', lead: 'Books.', text: 'Keep a separate book of notes for a project or a test, and switch between them from the menu under your book’s name, ⌘K or the menu bar.', keys: ['⌘K'],
+    show: { view: 'day', text: 'Press ⌘K and choose “New book”. Once you have two, “Switch book” lists them, the one you were in last first.' } }
 ]
 
 /** Where the newest entry seen is kept. */

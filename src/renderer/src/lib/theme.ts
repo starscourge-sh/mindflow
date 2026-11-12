@@ -369,7 +369,9 @@ function paintCustom(): void {
     .map(({ id, vars }) => {
       // A theme file is someone else's: only plain variable names, and no
       // value that points the page at a file or an address (url()).
-      const body = Object.entries(vars).filter(([key, value]) => /^--[\w-]+$/.test(key) && !/url\s*\(|\\/i.test(String(value)))
+      // Its own accent, kept where a book's colour takes the ramp over (a book with no colour is marked in it): said here, so a theme added before this was kept has it too.
+      const own = vars["--mf-theme-accent"] ?? vars["--tt-brand-color-400"] ?? vars["--primary"]
+      const body = Object.entries(own ? { ...vars, "--mf-theme-accent": own } : vars).filter(([key, value]) => /^--[\w-]+$/.test(key) && !/url\s*\(|\\/i.test(String(value)))
         .map(([key, value]) => `${key}: ${String(value).replace(/[;{}<]/g, "")};`).join(" ")
       const dot = (n: number, colour?: string): string => (colour ? `.mf-swatch-${id} i:nth-child(${n}) { background: ${colour.replace(/[;{}<]/g, "")}; }` : "")
       // Its page in small, for Settings' theme tiles.

@@ -13,7 +13,7 @@ import { createContext, useContext, useEffect, useRef, useState, type ReactNode 
 import { useStepped } from '@/lib/nav'
 import { PACKS, SCAPES, TICKS, scapeSample, type Scape, chime, click, setVolume, soundOn, step, tickSample, type PackName, type TickSound } from '@/lib/sound'
 import { NOTE_FONTS } from '@/lib/editor-setup'
-import { CalendarDays, Check, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, RotateCcw, Shuffle, Star, type LucideIcon } from 'lucide-react'
+import { CalendarDays, Check, FlaskConical, FolderPlus, Image as ImageIcon, Keyboard, Pin, Play, RotateCcw, Shuffle, Star, type LucideIcon } from 'lucide-react'
 import { SecondZoneSetting } from './calendar-events'
 import InfoCircleIcon from '@/components/ui/info-circle-icon'
 import CameraIcon from '@/components/ui/camera-icon'
@@ -74,8 +74,8 @@ import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
 import { SiteBlockField, openAutomation, useBlockRefused } from './site-block-field'
-import { askBook, deleteBook, newBook, renameBook, switchBook, useShelf } from '@/lib/books'
-import { HueDots } from './books'
+import { askBook, deleteBook, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
+import { BookMark, HueDots } from './books'
 import { NameInPlace } from './name-in-place'
 import { useHere } from '@/lib/split'
 import { Lead, plain } from './lead'
@@ -149,8 +149,12 @@ function BoxPanelSetting({ oneLine }: { oneLine: boolean }): React.JSX.Element {
 /** A slider's value beside it: one width for every slider, so the sliders line up down a section. */
 const SLIDER_VALUE = 'w-24 text-right tabular-nums'
 
-export function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off, naming }: {
+export function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off, naming, mark, anchor }: {
   title: string
+  /** Its own drawing before its title (a book's mark in its colour), centred on the title's first line. */
+  mark?: ReactNode
+  /** A name for its row on the page (data-setting-anchor), to bring it into view when it is asked for from elsewhere. */
+  anchor?: string
   /** Its name being typed where the title stands (a book named or renamed), in place of the title. */
   naming?: ReactNode
   /** What the one-line note had no room for, behind a “?” beside the title. Searched too. */
@@ -177,10 +181,12 @@ export function Setting({ title, aka, children, note, more, below, beside, keywo
   if (!all && !matches(query, title, plain(note), `${keywords} ${aka ?? ''} ${more ?? ''}`)) return null
   const shown = all ? '' : query
   return (
-    <div data-setting data-setting-title={title} className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
+    <div data-setting data-setting-title={title} data-setting-anchor={anchor} className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
       <div className={`flex flex-wrap justify-between gap-x-6 ${beside ? 'items-start gap-y-4' : 'items-center gap-y-2'}`}>
         <div className="min-w-0 flex-[1_1_13rem]">
-          <div className="text-body font-medium text-foreground">{naming ?? <Marked text={title} query={shown} />}{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
+          <div className="text-body font-medium text-foreground">{mark
+            ? <span className={`inline-flex items-start gap-1.5 align-top ${naming ? 'w-full max-w-80' : ''}`}><span className="flex h-[1lh] shrink-0 items-center">{mark}</span>{naming ?? <span className="min-w-0"><Marked text={title} query={shown} /></span>}</span>
+            : naming ?? <Marked text={title} query={shown} />}{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
             {more && (
               <Tip label={more}>
                 <button type="button" data-setting-more aria-label={`More about ${quoted(title, 80)}`} className="relative after:absolute after:-inset-1 after:rounded-full shrink-0 ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
@@ -461,7 +467,7 @@ function FoldersFollowSample({ on }: { on: boolean }): React.JSX.Element {
   )
 }
 
-export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from ⌘K's “Your reader card”: its section, and the card brought into view. */ focus?: string; nonce?: number } = {}): React.JSX.Element {
+export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from ⌘K's “Your reader card”: its section, and the card brought into view. 'book:<id>' and 'book-rename:<id>', from a book's own menu: “Your book”, with that book's row in view and, to rename it, its name ready to type. */ focus?: string; nonce?: number } = {}): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Settings | null)
   // What “Step away in meetings” sees this moment, said under its row as it changes.
   const desk = useDeskAway()
@@ -549,9 +555,9 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
   const iconHover = useFluidHover(iconRow, { items: ':scope > button', axis: 'x' })
   const iconChosen = useChosen(iconRow, ':scope > button[aria-checked="true"]', settings?.appIcon ?? 'bronze')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
-  // Asked for the reader card: its section, with no search hiding it.
+  // Asked for the reader card, or for a book: their section, with no search hiding it.
   useEffect(() => {
-    if (asked !== 'reader-card') return
+    if (asked !== 'reader-card' && !asked?.startsWith('book')) return
     setQuery('')
     setSection('Your book')
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1274,6 +1280,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
         </Group>
 
+        {/* Where a person looks for their book's name and colour: first in Settings' first section. */}
+        <Group section="Your book" title="Books">
+          <BookRows asked={asked} nonce={nonce} />
+        </Group>
         <Group section="Your book" title="Your card" bare>
           <Setting title="Reader card" note="Your book on a card: a title drawn for you, the day it began, and a stamp for each milestone." more="“Randomize” draws another title, colours and shape; the card is kept until you do. Stamps come at 100 and 1,000 notes, a first link, a first gem reviewed, 30 days of Journal and a year in." keywords="reader card member profile name title stamps milestones share picture image randomize arc shape coolshapes"
             beside={<ReaderCard seed={settings.readerSeed} point={asked === 'reader-card' ? nonce : undefined} />} />
@@ -1297,9 +1307,6 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
         </Group>
 
-        <Group section="Import and backups" title="Books">
-          <BookRows />
-        </Group>
         <Group section="Import and backups" title="Import and export">
           <Setting title="Import" note="Notes from Apple Notes, Obsidian or Notion, highlights and cards." more="Apple Notes and an Obsidian vault folder by folder, into Writing, to sort. An unzipped Notion export, Readwise or Kindle highlights, Markdown files, bookmarks or Anki cards." keywords="import apple notes obsidian vault notion export readwise kindle markdown bookmarks anki flashcard flashcards apkg bring move">
             <ImportButton what="apple-notes">Apple Notes…</ImportButton>
@@ -1340,14 +1347,27 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
   )
 }
 
+/** The ask from a book's own menu already answered here: Settings left and come back to (Back, another section) does not start its name again. */
+let bookAsked = 0
+
 /**
- * Each book: its name to change, and, for any but My book
- * and the one open, deleting it, held, with a whole copy kept first.
+ * Your books, under “Your book”: the open one first with its name and its colour (the nine, eased into where
+ * the colour is worn as one is picked), then the others, each with its name to change, a way in, its colour, and, for any
+ * but My book, deleting it, held, with a whole copy kept first. In main's order: the one you were in last first.
  */
-function BookRows(): React.JSX.Element {
+function BookRows({ asked, nonce = 0 }: { /** 'book:<id>' or 'book-rename:<id>', from a book's own menu. */ asked?: string; nonce?: number }): React.JSX.Element | null {
   const shelf = useShelf()
   // A book named where it is listed, as Finder names a folder: a new one on its own row under the others, or one renamed in its row.
   const [naming, setNaming] = useState<string | null>(null)
+  const loaded = !!shelf
+  useEffect(() => {
+    const [, what, id] = /^(book|book-rename):(.+)$/.exec(asked ?? '') ?? []
+    if (!what || !loaded || nonce === bookAsked) return
+    bookAsked = nonce
+    if (what === 'book-rename' && !SANDBOX) setNaming(id)
+    document.querySelector(`[data-setting-anchor="book:${CSS.escape(id)}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [asked, nonce, loaded])
+  if (!shelf) return null
   const nameField = (book: { id: string; name: string } | null): React.JSX.Element => (
     <NameInPlace initial={book?.name ?? ''} placeholder="Name the book" label="Book name"
       className="w-full max-w-72 rounded-[4px] bg-transparent px-1 -mx-1 text-foreground outline-none ring-1 ring-ring/45 placeholder:font-normal placeholder:text-muted-foreground"
@@ -1361,26 +1381,43 @@ function BookRows(): React.JSX.Element {
   const remove = async (id: string, name: string): Promise<void> => {
     const kept = await deleteBook(id).catch(() => null)
     // Nothing goes until its whole copy is safe with the backups: that is the one way it fails.
-    if (!kept) return refuse(`${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was. Check the backup folder below, then try again`, 'error')
+    if (!kept) return refuse(`${name} wasn't deleted: its copy couldn't be made with your backups, so it was left as it was. Check the backup folder under “Import and backups”, then try again`, 'error')
     chime('away')
     toast(`${name} is deleted. A whole copy of it is kept with your backups, under deleted books`, undefined, 'info')
   }
+  const open = shelf.books.find((one) => one.current)
+  const others = shelf.books.filter((one) => !one.current)
+  const made = (book: Book): string => (book.id === 'default' ? 'Your first book, which cannot be deleted.' : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}.`)
   return (
     <>
-      <Setting title="Books" note={`Each book is a ${APP_NAME} of its own, with its own notes and settings.`} more="Its own pictures and Getting started; your look comes along, and every book's notes are backed up each day they change. Give each a colour to tell them apart at a glance." keywords="books book vault vaults switch new another scratch library workspace">
+      {open ? (
+        <Setting anchor={`book:${open.id}`} mark={<BookMark hue={open.color} className="size-4" />} title={open.name} naming={naming === open.id ? nameField(open) : undefined}
+          note="The book open now. Its colour tints the sidebar and takes the accent's place (links, the caret, what is selected), to tell your books apart at a glance."
+          more={`${made(open)} ${open.id === 'default' ? `It is where ${APP_NAME} has always kept your notes.` : 'Switch to another book to delete this one.'} ⌘K’s “Book colour…” and a right-click on the book’s name in the sidebar pick a colour too.`}
+          keywords="this book name rename colour color accent tint hue space arc books vault workspace"
+          below={<div className="mt-2.5"><HueDots book={open} /></div>}>
+          <Button variant="ghost" size="sm" data-book-rename={open.id} onClick={() => setNaming(open.id)}>Rename</Button>
+        </Setting>
+      ) : (
+        // The sandbox: someone else's book, with no colour of yours to change. Said where the colour would be.
+        <Setting anchor="book:sandbox" mark={<FlaskConical aria-hidden className="size-4 text-muted-foreground" />} title="Sandbox" note="You are in the sandbox now: a peek into someone else's book."
+          off="It has no colour to change: it is someone else’s book, and wears the theme’s own. Your books keep theirs."
+          keywords="this book sandbox colour color accent tint hue books" />
+      )}
+      <Setting title={open ? 'Your other books' : 'Your books'} note={others.length || !open ? `Each book is a ${APP_NAME} of its own, with its own notes and settings.` : `None yet. A new book is a ${APP_NAME} of its own, with its own notes and settings.`}
+        more="Its own pictures and Getting started; your look comes along, and every book's notes are backed up each day they change. The one you were in last is listed first, here, in the sidebar's menu and in ⌘K." keywords="books book vault vaults switch new another scratch library workspace">
         {!SANDBOX && <Button variant="outline" size="sm" data-book-new onClick={() => (chime('open'), setNaming('new'))}>New book</Button>}
-        <Button variant="outline" size="sm" onClick={() => askBook('switch')}>Switch…</Button>
       </Setting>
-      {shelf?.books.map((book) => (
-        <Setting key={book.id} under title={book.name} naming={naming === book.id ? nameField(book) : undefined}
-          note={book.id === 'default' ? `Your first book, which cannot be deleted${book.current ? ', open now' : ''}.` : `Made ${book.createdAt ? new Date(book.createdAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'here'}${book.current ? ', open now' : ''}.${!SANDBOX && book.id !== 'default' && !book.current ? ' **Deleting it deletes everything in it, for good.**' : ''}`}
-          more={book.id === 'default' ? `Where ${APP_NAME} has always kept your notes.` : book.current ? 'Switch to another book to delete this one.' : undefined}
-          keywords="book rename reveal finder delete colour color accent tint space arc"
-          below={SANDBOX ? undefined : <div className="mt-2 -ml-1"><HueDots id={book.id} value={book.color} /></div>}>
+      {others.map((book) => (
+        <Setting key={book.id} under anchor={`book:${book.id}`} mark={<BookMark hue={book.color} />} title={book.name} naming={naming === book.id ? nameField(book) : undefined}
+          note={`${made(book)}${!SANDBOX && book.id !== 'default' ? ' **Deleting it deletes everything in it, for good.**' : ''}`}
+          more={book.id === 'default' ? `Where ${APP_NAME} has always kept your notes.` : undefined}
+          keywords="book rename delete open switch colour color accent tint hue space arc"
+          below={SANDBOX ? undefined : <div className="mt-2"><HueDots book={book} /></div>}>
           {!SANDBOX && <Button variant="ghost" size="sm" data-book-rename={book.id} onClick={() => setNaming(book.id)}>Rename</Button>}
           {/* No "Show in Finder": a book is the app's own files deep in the system's folders, nothing to open by hand. */}
-          {!book.current && <Button variant="ghost" size="sm" onClick={() => void switchBook(book.id)}>Open</Button>}
-          {!SANDBOX && book.id !== 'default' && !book.current && (
+          <Button variant="ghost" size="sm" data-book-open={book.id} onClick={() => void switchBook(book.id)}>Open</Button>
+          {!SANDBOX && book.id !== 'default' && (
             <HoldButton hint={`${book.name} and everything in it, for good`} done="Deleting…" onHold={() => void remove(book.id, book.name)}>Hold to delete</HoldButton>
           )}
         </Setting>

@@ -73,7 +73,7 @@ import { GrowFrom } from './components/haligtree/grow-from'
 import { FocusScenery } from './components/haligtree/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
 import { SidePeek } from './components/haligtree/page-peeks'
-import { MenuPeek } from './components/haligtree/menu-peeks'
+import { MenuPeek, bookPeeks } from './components/haligtree/menu-peeks'
 import { useStickiesOut } from './lib/stickies-out'
 import { useReadsIn } from './lib/reads-in'
 import { call, unloaded, useAppearance, useLive, haligtree, type Item, type Pin, type Settings, type Task } from './lib/haligtree'
@@ -96,9 +96,9 @@ import { UnusedFiles } from '@/components/haligtree/unused-files'
 import { Tour } from '@/components/haligtree/tour'
 import { SandboxHost, SandboxPill } from '@/components/haligtree/sandbox'
 import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
-import { askBook } from '@/lib/books'
+import { askBook, switchBook, useShelf, type Book } from '@/lib/books'
 import { nameNewDeck, useMadeDecks } from './components/haligtree/decks'
-import { BookName, askNewBook } from '@/components/haligtree/books'
+import { BookMark, BookName, askNewBook, bookMenu, colourChoices } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
 import { PageHint, pageSaid } from '@/components/haligtree/page-hint'
 import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
@@ -145,7 +145,7 @@ import { openCloseWeek } from '@/components/haligtree/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/haligtree/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
-import { ArrowRight, ChevronRight, History } from '@/components/ui/icons'
+import { ArrowRight, Check, ChevronRight, History } from '@/components/ui/icons'
 import { glideWay } from '@/lib/motion'
 import { SwipeBack, placesFrom } from '@/components/haligtree/swipe-back'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
@@ -1075,6 +1075,25 @@ export function Home(): React.JSX.Element {
   // Journal's Week, Month and Year fold as Writing's folders do, open to start.
   const [journalOpen, setJournalOpen] = useRemembered('sidebar:journal', true)
   const [customizing, setCustomizing] = useState(false)
+  // Your books, for the menu under the book's name and for ⌘K, kept current as one is made, renamed, coloured or
+  // deleted in any window: the open one first, then the others by when each was last opened (main keeps that order).
+  const shelfNow = useShelf()
+  const openBook = shelfNow?.books.find((one) => one.current)
+  const otherBooks = shelfNow?.books.filter((one) => !one.current) ?? []
+  // The menu under the book's name, opened and shut from here: a right-click on one of its books shuts it as
+  // that book's own menu opens where it was pressed, so there is never one menu left up under another.
+  const [footMenu, setFootMenu] = useState(false)
+  const bookMenuAt = useRef<HTMLSpanElement>(null)
+  const bookMenuFor = useRef<Book | null>(null)
+  const footGave = useRef(false)
+  const openBookMenu = (event: React.MouseEvent, book: Book | undefined): void => {
+    event.preventDefault()
+    if (!book) return
+    bookMenuFor.current = book
+    footGave.current = footMenu
+    setFootMenu(false)
+    bookMenuAt.current?.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: event.clientX, clientY: event.clientY, button: 2 }))
+  }
   // One light for the whole sidebar list, gliding to the row nearest the
   // pointer, and the page you are on marked by one fill that travels to the
   // next. A row folding shut is left out of both.
@@ -1880,9 +1899,15 @@ export function Home(): React.JSX.Element {
             { label: 'Import Obsidian or Notion…', hint: 'A vault or a Notion export', words: 'markdown vault bring in', cue: null, run: () => void window.api.importFrom('vault') },
             { label: 'Import from Apple Notes…', hint: 'Folder by folder, into Writing, to sort', cue: null, run: () => void window.api.importFrom('apple-notes') },
             { label: 'Import highlights and files…', hint: 'Readwise, Kindle, Markdown, bookmarks, Anki decks (.apkg, .colpkg) or CSV', words: 'import anki flashcards cards apkg kindle', cue: null, run: () => void window.api.importFrom('files') },
-            { label: 'Switch book…', hint: 'Another book of yours, or the sandbox', cue: null, run: () => askBook('switch') },
+            // Your other books as this list's own second step, the one you were in last first: ↵ flips between the two. Not offered with no other book to go to.
+            ...(otherBooks.length ? [{
+              label: 'Switch book…', hint: 'Another book of yours: the one you were in last comes first', words: 'open change go to other book vault workspace space', cue: null, run: () => {},
+              choices: () => otherBooks.map((book, index) => ({ label: book.name, mark: <BookMark hue={book.color} />, note: index === 0 && book.openedAt ? 'you were in it last' : undefined, run: () => void switchBook(book.id) }))
+            }] : []),
             ...(SANDBOX ? [] : [
               { label: 'New book…', hint: 'An empty one, apart from this', cue: null, run: () => void askNewBook() },
+              // The sandbox is someone else's book: its colour is not offered there.
+              ...(openBook ? [{ label: 'Book colour…', hint: `The colour ${openBook.name} wears on its sidebar and in the accent’s place, to tell your books apart at a glance`, words: 'color accent tint hue space theme', cue: null, run: () => {}, choices: () => colourChoices(openBook) }] : []),
               { label: 'Import into another book…', hint: 'Bring notes into one of your other books, not this one', cue: null, run: () => askBook('import') }
             ]),
             // In the sandbox, restoring reads as a risk to your notes: it is not offered there.
@@ -2516,18 +2541,40 @@ export function Home(): React.JSX.Element {
             Safe mode, Blurring, the keys and the tour wait behind Haligtree's name.
             Safe mode on still shows, since a quiet box should say why. */}
         <div className={`mx-2 mb-2 flex shrink-0 items-center gap-1 border-t pt-2 ${narrow ? 'flex-col' : ''}`}>
-          <DropdownMenu modal={false}>
+          {/* A book's own menu (its colour, its name, its place in Settings), opened where it was right-clicked: on
+              its row in the menu below, which shuts as this opens, or on the book's name here. Held by a point of
+              its own, so the menu below can go without taking it along. */}
+          <RowMenu items={() => { const book = bookMenuFor.current ?? openBook; return book ? bookMenu(book, (rename) => setView({ id: 'settings', focus: `${rename ? 'book-rename' : 'book'}:${book.id}`, nonce: Date.now() })) : [] }}>
+            <span ref={bookMenuAt} aria-hidden data-book-menu-at className="pointer-events-none fixed top-0 left-0 size-0" />
+          </RowMenu>
+          <DropdownMenu modal={false} open={footMenu} onOpenChange={setFootMenu}>
             <DropdownMenuTrigger asChild>
-              <button type="button" aria-label={`${APP_NAME} menu`}
+              <button type="button" aria-label={`${APP_NAME} menu`} onContextMenu={(event) => openBookMenu(event, openBook)}
                 className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
                 <AliveIcon icon={GearIcon} size={16} />
                 {!narrow && <span data-sidebar-book-name className="flex-1 truncate text-left">{SANDBOX ? 'Sandbox' : <BookName />}</span>}
                 {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent side="top" align="start" className="w-60">
-              {/* Each row's card beside the menu: what it does, before you choose it. */}
-              <MenuPeek />
+            <DropdownMenuContent side="top" align="start" className="w-60"
+              // Shut by a right-click on one of its books: the keys go to that book's menu, not back to the button.
+              onCloseAutoFocus={(event) => { if (footGave.current) (footGave.current = false, event.preventDefault()) }}>
+              {/* Each row's card beside the menu: what it does, before you choose it. A book's says its whole name, however long. */}
+              <MenuPeek more={() => bookPeeks(shelfNow?.books ?? [])} />
+              {/* Your books first, one press each: the open one ticked (pressed, its name and colour in Settings), then the one you were in last. */}
+              {shelfNow?.books.map((book) => (
+                <DropdownMenuItem key={book.id} data-book={book.id} data-peek={`book:${book.id}`} aria-current={book.current || undefined} className={book.current ? 'pr-8' : undefined}
+                  onContextMenu={(event) => openBookMenu(event, book)}
+                  onSelect={() => (book.current ? setView({ id: 'settings', focus: `book:${book.id}`, nonce: Date.now() }) : void switchBook(book.id))}>
+                  <BookMark hue={book.color} />
+                  {/* Cut within the menu's own width, however long: the whole name is in its card beside the menu. */}
+                  <span className="max-w-44 min-w-0 flex-1 truncate">{book.name}</span>
+                  {/* Ticked as every ticked menu line is (dropdown-menu.tsx). */}
+                  {book.current && <span data-book-open className="pointer-events-none absolute right-2 flex items-center justify-center"><Check aria-label="Open now" /></span>}
+                </DropdownMenuItem>
+              ))}
+              {!SANDBOX && <DropdownMenuItem data-peek="new-book" onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
+              <DropdownMenuSeparator />
               {/* Customize leads (the user's ask, 928); Settings closes the menu, its ⌘, still beside it. */}
               <DropdownMenuItem data-peek="customize" onSelect={() => setTimeout(() => setCustomizing(true), 0)}>Customize sidebar…</DropdownMenuItem>
               {/* Every way to bring notes in, under one line. */}
@@ -2552,7 +2599,7 @@ export function Home(): React.JSX.Element {
               <DropdownMenuItem data-peek="shortcuts" onSelect={() => window.dispatchEvent(new CustomEvent('haligtree:shortcuts'))}>Keyboard shortcuts<DropdownMenuShortcut>?</DropdownMenuShortcut></DropdownMenuItem>
               <DropdownMenuItem data-peek="welcome" onSelect={() => playWelcome()}>Show the welcome again</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem data-peek="switch" onSelect={() => askBook('switch')}>Switch book…</DropdownMenuItem>
+              {/* The sandbox is someone else's book, never one of yours: its own line, not a row among your books. */}
               {SANDBOX ? (<>
                 <DropdownMenuItem data-peek="back" onSelect={() => void leaveSandbox()}>Back to my notes</DropdownMenuItem>
                 <DropdownMenuItem data-peek="reset" onSelect={() => void resetSandbox()}>Reset the sandbox</DropdownMenuItem>

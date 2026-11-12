@@ -96,6 +96,13 @@ export function nest(items: RowItem[]): RowItem[] {
 export const flat = (items: RowItem[]): MenuItem[] =>
   fits(items).flatMap((item): MenuItem[] => (item && item !== 'separator' && 'items' in item ? flat(item.items) : item && item !== 'separator' && ('heading' in item || 'swatches' in item || 'panel' in item) ? [] : [item as MenuItem]))
 
+/** One colour to pick, as every row of them draws it (a menu's swatches, a book's nine in Settings): a small square of it, ticked and outlined when it is the one in use. */
+export const Swatch = ({ color, on }: { color: string; on: boolean }): React.JSX.Element => (
+  <span aria-hidden data-swatch={on ? 'on' : ''} className={`flex size-4 shrink-0 items-center justify-center rounded-[4px] ${on ? 'outline-2 outline-offset-1 outline-foreground/60' : ''}`} style={{ background: color }}>
+    {on && <svg viewBox="0 0 12 12" className="size-3 text-background"><path d="M2.5 6.2 5 8.5l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+  </span>
+)
+
 /** The lines of a menu, drawn: shared by the menu and the ones that open beside it, and by a sticky's menu window (windows/menu.tsx). */
 export const lines =(items: Shown[]): React.ReactNode =>
   tidy(items).map((item, index) =>
@@ -106,9 +113,7 @@ export const lines =(items: Shown[]): React.ReactNode =>
         {item.swatches.map((one) => (
           <ContextMenuItem key={one.label} aria-label={one.label} aria-checked={one.on} role="menuitemradio" onSelect={one.run}
             className="flex size-6 items-center justify-center rounded-md p-0 focus:bg-accent">
-            <span aria-hidden className={`flex size-4 items-center justify-center rounded-[4px] ${one.on ? "outline-2 outline-offset-1 outline-foreground/60" : ""}`} style={{ background: one.color }}>
-              {one.on && <svg viewBox="0 0 12 12" className="size-3 text-background"><path d="M2.5 6.2 5 8.5l4.5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-            </span>
+            <Swatch color={one.color} on={one.on} />
           </ContextMenuItem>
         ))}
       </div>
