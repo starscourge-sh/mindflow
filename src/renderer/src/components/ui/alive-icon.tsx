@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ComponentType, type CSSProperties, type RefAttributes } from 'react'
+import { memo, useEffect, useRef, type ComponentType, type CSSProperties, type RefAttributes } from 'react'
 import type { LucideIcon, LucideProps } from 'lucide-react'
 
 import type { AnimatedIconHandle, AnimatedIconProps } from '@/components/ui/types'
@@ -10,7 +10,9 @@ import { still } from '@/lib/motion'
  * Motion is off. Kept here rather than with Haligtree's views so the editor's own
  * node views can use it too.
  */
-export function AliveIcon({ icon: Icon, size = 16, className, style, play = false }: {
+export const AliveIcon = memo(AliveIconDrawn, sameLook)
+
+function AliveIconDrawn({ icon: Icon, size = 16, className, style, play = false }: {
   icon: ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
   size?: number
   className?: string
@@ -78,6 +80,11 @@ function useAlive(box: React.RefObject<HTMLElement | null>, handle: React.RefObj
  * their own; their svg takes its size, so a size class sizes the drawing.
  */
 export function alive(Icon: Drawing, turn = ''): LucideIcon {
+  // Kept as drawn while its look is the same: a page's every row and button holds a drawing or two, each a handful
+  // of moving parts, and a press that redrew a page redrew thousands of them for nothing.
+  const Kept = memo(Alive, sameLook)
+  Kept.displayName = `Alive(${Icon.displayName ?? 'Icon'})`
+  return Kept as unknown as LucideIcon
   function Alive({ className, size, style, strokeWidth, color, 'aria-label': label }: LucideProps): React.JSX.Element {
     const handle = useRef<AnimatedIconHandle>(null)
     const box = useRef<HTMLSpanElement>(null)
@@ -90,6 +97,20 @@ export function alive(Icon: Drawing, turn = ''): LucideIcon {
       </span>
     )
   }
-  Alive.displayName = `Alive(${Icon.displayName ?? 'Icon'})`
-  return Alive as unknown as LucideIcon
+}
+
+/** The same look as last time: every prop the same, a `style` written in place compared by what it holds. */
+function sameLook(was: object, now: object): boolean {
+  const a = was as Record<string, unknown>
+  const b = now as Record<string, unknown>
+  const keys = Object.keys(a)
+  return keys.length === Object.keys(b).length && keys.every((key) => (key === 'style' ? sameStyle(a.style, b.style) : Object.is(a[key], b[key])))
+}
+function sameStyle(was: unknown, now: unknown): boolean {
+  if (was === now) return true
+  if (!was || !now || typeof was !== 'object' || typeof now !== 'object') return false
+  const a = was as Record<string, unknown>
+  const b = now as Record<string, unknown>
+  const keys = Object.keys(a)
+  return keys.length === Object.keys(b).length && keys.every((key) => Object.is(a[key], b[key]))
 }
