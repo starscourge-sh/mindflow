@@ -62,7 +62,7 @@ import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type Pop
 import { hintRoom, type HintSide } from './hint-room'
 import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
-import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
+import { PEEK_OUT_MS, cardComesDown, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
 import { fetchOutside, isOutside } from './outside'
 import { registerNotes } from './notes'
@@ -1310,7 +1310,9 @@ const stickyFile = (): string => join(app.getPath('userData'), 'stickies.json')
 // Hidden: put away on its own ("Hide this one") until the stickies are next shown.
 // Tint: its paper's colour from its right-click menu (STICKY_TINTS); plain when none.
 // Bounds: the card's own frame, not its window's, so a card made again as glass (no room round it) or paper (room round it) stays put.
-type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean; tint?: string }
+// Asked: a goal's own card stuck by a page's ask (window.api.stick), not put up by the goal's “Goal on screen”: yours,
+// so it stays until you take it down, as any sticky does, whatever the goal's setting says (beacons).
+type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean; tint?: string; asked?: boolean }
 let stuck: Stuck[] = []
 const keepStuck = (): void => void writeWhole(stickyFile(), JSON.stringify(stuck)).catch(() => undefined)
 const stuckAs = (key: string): Stuck | undefined => stuck.find((one) => `${one.type}:${one.id}` === key)
@@ -1534,7 +1536,7 @@ function takeDownSticky(win: BrowserWindow | null, title: string): void {
   if (!win || !key) return
   const [type, ...rest] = key.split(':')
   const id = rest.join(':')
-  takenDown = { type, id, bounds: cardFrame(key, win), tint: stuckAs(key)?.tint, title, until: Date.now() + TAKEN_FOR }
+  takenDown = { type, id, bounds: cardFrame(key, win), tint: stuckAs(key)?.tint, asked: stuckAs(key)?.asked, title, until: Date.now() + TAKEN_FOR }
   stick(type, id, false)
   const seen = (one: BrowserWindow | null | undefined): one is BrowserWindow => !!one && !one.isDestroyed() && one.isVisible()
   const voice = [home, prompt].find(seen)
@@ -1545,10 +1547,10 @@ function takeDownSticky(win: BrowserWindow | null, title: string): void {
 /** Back where it was, with its colour, coming in as any sticky does. */
 function putStickyBack(): void {
   if (!canPutBack() || !takenDown) return
-  const { type, id, bounds, tint } = takenDown
+  const { type, id, bounds, tint, asked } = takenDown
   takenDown = null
   byHand(`${type}:${id}`)
-  stuck.push({ type, id, bounds, tint })
+  stuck.push({ type, id, bounds, tint, ...(asked ? { asked } : {}) })
   stick(type, id, true, bounds)
   updateTray()
 }
@@ -2534,7 +2536,11 @@ function beacons(): void {
   const crowded = out.length > GOAL_CARDS
   const together = (goal: OpenGoal): boolean => goals.some((other) => other !== goal && Math.abs(made(other) - made(goal)) < BULK_MS)
   const own = new Set((crowded ? out.filter((goal) => goal.beacon === 'always') : out.filter((goal) => goal.beacon === 'always' || !together(goal))).filter((goal) => goal.beacon === 'always' || !fresh.includes(goal)).slice(0, GOAL_CARDS).map((goal) => `goal:${goal.id}`))
-  for (const key of [...stickies.keys()]) if (key.startsWith('goal:') && !own.has(key)) stick('goal', key.slice(5), false)
+  // None for the rest, but one: a card stuck by hand (a page asked for it) is the person's own, and stays while its
+  // goal is open. Taken down here it went by itself at the next look, half a minute at most after it was stuck
+  // (the menu bar's clock runs this), with nothing changed: seen as a card that vanishes.
+  const open = new Set(goals.map((goal) => `goal:${goal.id}`))
+  for (const key of [...stickies.keys()]) if (key.startsWith('goal:') && cardComesDown(own.has(key), stuckAs(key)?.asked === true, open.has(key))) stick('goal', key.slice(5), false)
   for (const goal of goals) {
     if (!own.has(`goal:${goal.id}`) || stickies.has(`goal:${goal.id}`)) continue
     const at = stackWas
@@ -5323,6 +5329,9 @@ app.whenReady().then(() => {
     // Stuck by hand in a meeting or quiet hours: this one was asked for, so it shows.
     if (on) byHand(`${type}:${id}`)
     stick(type, id, Boolean(on))
+    // A goal's own card stuck by hand is kept as asked for, so the look at the goals leaves it up (beacons).
+    const one = on && type === 'goal' ? stuckAs(`${type}:${id}`) : undefined
+    if (one && !one.asked) ((one.asked = true), keepStuck())
   })
   // Beacons once the stickies are back, then as goals change, and at their moments.
   registerFrost()
@@ -5365,7 +5374,8 @@ app.whenReady().then(() => {
   })
   ipcMain.on('beacon:tuck', (_event, id: unknown) => {
     const key = `goal:${id}`
-    if (!beaconModes.has(key)) return
+    // One stuck by hand has no mode of its goal's: its own “Hide it for now” still works, till tomorrow as for an always one.
+    if (!beaconModes.has(key) && !stuckAs(key)?.asked) return
     tucked.set(key, beaconModes.get(key) === 'sometimes' ? Infinity : new Date().setHours(24, 0, 0, 0))
     beaconHeld.delete(key)
     applyStickies()

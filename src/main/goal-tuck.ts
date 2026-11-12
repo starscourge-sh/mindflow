@@ -45,3 +45,11 @@ export const PEEK_OUT_MS = 10 * 60_000
 export function peeksOut(rest: Rest, rules: TuckRules, lastSeen: number | undefined, nudgedOn: string | undefined, now: number, today: string): boolean {
   return rules.on && rules.peekOut && rest === 'tuck' && nudgedOn !== today && lastSeen !== undefined && now - lastSeen >= OUT_OF_SIGHT_MS
 }
+
+/**
+ * Whether a goal's card that is up comes down when the goals are looked at again (index.ts, beacons: as a goal
+ * changes, and every half minute by the menu bar's clock). It stays while its goal asks for a card of its own; and
+ * one stuck by hand stays while its goal is open, whatever the goal's “Goal on screen” says: it is the person's own,
+ * and taken down here it vanished by itself within half a minute of being stuck, with nothing changed.
+ */
+export const cardComesDown = (goalAsksForIt: boolean, stuckByHand: boolean, goalOpen: boolean): boolean => !goalAsksForIt && !(stuckByHand && goalOpen)

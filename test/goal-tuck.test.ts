@@ -2,7 +2,7 @@
 // A goal card's place by the clock: shown, peeking or tucked, and when it peeks out on its own.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-const { restNow, peeksOut, OUT_OF_SIGHT_MS } = await import('../src/main/goal-tuck.ts')
+const { restNow, peeksOut, cardComesDown, OUT_OF_SIGHT_MS } = await import('../src/main/goal-tuck.ts')
 
 const rules = { on: true, showUntil: '09:00', showFrom: '17:00', between: 'peek' as const, inFocus: 'tuck' as const, peekOut: true }
 
@@ -41,4 +41,17 @@ test('out of sight two days, it peeks out once that day', () => {
   assert.equal(peeksOut('tuck', rules, now - OUT_OF_SIGHT_MS + 1, undefined, now, '2026-10-21'), false)
   assert.equal(peeksOut('peek', rules, now - OUT_OF_SIGHT_MS, undefined, now, '2026-10-21'), false)
   assert.equal(peeksOut('tuck', { ...rules, peekOut: false }, now - OUT_OF_SIGHT_MS, undefined, now, '2026-10-21'), false)
+})
+
+test('a goal card comes down when its goal no longer asks for one, but not one stuck by hand while its goal is open', () => {
+  // The goal asks for a card of its own: it stays, stuck by hand or not.
+  assert.equal(cardComesDown(true, false, true), false)
+  assert.equal(cardComesDown(true, true, true), false)
+  // The goal does not ask for one: its card comes down...
+  assert.equal(cardComesDown(false, false, true), true)
+  // ...unless it was stuck by hand: that one is the person's own, and stays while the goal is open.
+  assert.equal(cardComesDown(false, true, true), false)
+  // A goal that is over keeps no card, stuck by hand or not.
+  assert.equal(cardComesDown(false, true, false), true)
+  assert.equal(cardComesDown(false, false, false), true)
 })
