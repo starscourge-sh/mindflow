@@ -1,7 +1,7 @@
 // Something clicked grows into what it opens and shrinks back on the way out
 // (lib/hero.ts): a book's cover on Files' shelf and in "Continue reading" into
 // the reader, a note's tile on Home into the note, a picture into its viewer,
-// a deck into studying, a Calendar event into its side form, and (part 4) every
+// a deck into studying, and (part 4) every
 // way in the user clicks: Home's pinned rows, "Jump back in", "Coming back" and
 // "Continue reading", a Feed post, a face in Sources, Files' Recent row and
 // shelves, a book's cover, a note row in Writing, a deck row in Review's list.
@@ -19,7 +19,7 @@ import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const shots = process.argv[2] && process.argv[2] !== '-' ? process.argv[2] : null
-// Run in parts, each its own launch, to stay well inside a probe's time: 1 books and pictures, 2 notes and the ways that do not fly, 3 decks and the Calendar.
+// Run in parts, each its own launch, to stay well inside a probe's time: 1 books and pictures, 2 notes and the ways that do not fly, 3 decks.
 const part = Number(process.argv[3] ?? 0)
 const runs = (n) => !part || part === n
 if (shots) mkdirSync(shots, { recursive: true })
@@ -406,34 +406,9 @@ if (runs(3)) {
   await flew('Decks, back', 'close', after, 220)
 }
 
-// 5. A Calendar event: a double click grows it into the side form; its close shrinks it back.
-if (runs(3)) {
-  await go('calendar')
-  await settle(1500)
-  const sel = await h.evaluate(() => {
-    const el = [...document.querySelectorAll('[data-cal-event], [data-cal-event-chip]')].find((one) => !one.hasAttribute('data-readonly') && one.getBoundingClientRect().height > 12)
-    if (!el) return null
-    el.scrollIntoView({ block: 'center' })
-    return el.hasAttribute('data-cal-event') ? `[data-cal-event="${el.getAttribute('data-cal-event')}"]` : `[data-cal-event-chip="${el.getAttribute('data-cal-event-chip')}"]`
-  })
-  if (!sel) check('Calendar: an event to open', false)
-  else {
-    await settle(300)
-    const at = await rectOf(sel)
-    await install()
-    await film('event-open', () => h.locator(sel).first().dblclick())
-    await settle()
-    check('Calendar: the event\'s side form is open', await h.evaluate(() => !!document.querySelector('[data-day-side="event"]')))
-    await flew('Calendar', 'open', at, 260)
-    const form = await rectOf('[data-day-side="event"]')
-    check('Calendar: it grows into the side form', near((await log()).find((r) => r.kind === 'open')?.group?.last, form), say(form))
-    await install()
-    await film('event-close', () => h.locator('[data-day-side-close]').first().click())
-    await settle()
-    check('Calendar: closed', await h.evaluate(() => !document.querySelector('[data-day-side="event"]')))
-    await flew('Calendar, back', 'close', await rectOf(sel), 220)
-  }
-}
+// 5. (A Calendar event grew into its side form here. Since 12 Nov a double click on an event opens the popover tied to
+// it, with no flight, and the side form comes from the popover's "Open", sliding in from its edge: qa/cal-add.mjs,
+// PART=open, drives that. Nothing on the Calendar grows into a page any more, so there is nothing here to fly.)
 
 // 6. Every way in the user clicks, by a real pointer (the mouse moved to the thing and pressed): a flight runs,
 // starts on the thing, holds the old picture only briefly (`wait`, the press to the first moving frame), and

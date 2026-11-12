@@ -1,11 +1,12 @@
 // The Calendar page laid out as a Mac calendar, driven on sandbox data at
 // 10:30: a title with the week's number under it, Today, the ‹ › pair, Day |
-// Week | Month, search and "+ New event"; the zone over the hours, today's
+// Week | Month and "+ New event"; the zone over the hours, today's
 // date in a pill, now in a red pill; soft filled events with their time under
 // the name, tasks as outlines; "My calendars" as coloured ticks; the small
-// month and "Upcoming · Next 7 days"; and a click on an event opening a small
-// card beside it (pencil, bin with Undo, close; when, place, reminder, notes)
-// that flips to stay on screen, with Esc, double-click and ⌫. Then the
+// month and "Upcoming · Next 7 days"; and (12 Nov) a click on an event picking
+// it, a double-click or ↵ opening the popover a new one is written in, tied to
+// it (its name, when, calendar, place and reminder; "Open" for its page), which
+// flips to stay on screen, with Esc, and ⌫ on the picked block. Then the
 // Notion Calendar and Todoist parts: blocks with a coloured left edge, a
 // called-off event and a done task struck through in a dashed outline, an
 // all-day lane with a three-day event across its days that folds, the
@@ -32,7 +33,8 @@ const today = c.now(); today.setHours(0, 0, 0, 0)
 const monday = new Date(today); monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7))
 const at = (day, h0, m0 = 0) => { const d = new Date(monday); d.setDate(d.getDate() + day); d.setHours(h0, m0, 0, 0); return d.toISOString() }
 const S = '[data-day-side]'
-const P = '[data-cal-pop]'
+// The popover open on an event (cal-add.tsx): the card a click once opened is gone.
+const P = '[data-cal-add][data-cal-open]'
 try {
   await v('settings:set', { hintRate: 0 })
   // Six calendars, in the reference's colours.
@@ -79,15 +81,12 @@ try {
   const sub = await h.locator('[data-cal-subtitle]').innerText()
   check('the title says the month, the week\'s number and days under it', /^Week \d+ · \w+ \d+ – (\w+ )?\d+/.test(sub.trim()) && /\w+ \d{4}/.test(await h.locator('[data-cal-title]').innerText()), sub)
   // Since 12 Nov Upcoming is in the left panel, so the bar has no right panel toggle.
-  check('‹ | Today | › as one control, Day | Week | Month, search and "+ New event" are there, and no right panel toggle', await h.locator('[data-cal-step] [data-cal-today]').count() === 1 && await h.locator('[data-cal-step] [data-cal-prev]').count() === 1 && await h.locator('[data-cal-side-toggle]').count() === 0 && await h.locator('[data-cal-views] [role="radio"]').count() === 3 && await h.locator('[data-cal-search]').count() === 1 && (await h.locator('[data-cal-new-event]').innerText()).includes('New event'))
+  check('‹ | Today | › as one control, Day | Week | Month and "+ New event" are there, and no right panel toggle', await h.locator('[data-cal-step] [data-cal-today]').count() === 1 && await h.locator('[data-cal-step] [data-cal-prev]').count() === 1 && await h.locator('[data-cal-side-toggle]').count() === 0 && await h.locator('[data-cal-views] [role="radio"]').count() === 3 && (await h.locator('[data-cal-new-event]').innerText()).includes('New event'))
   await h.locator('[data-cal-view="day"]').click(); await h.waitForTimeout(400)
   check('Day in the switch shows a day', (await h.locator('[data-cal-mode]').getAttribute('data-cal-mode')) === 'day' && (await h.locator('[data-cal-view="day"]').getAttribute('aria-checked')) === 'true')
   await h.locator('[data-cal-view="week"]').click(); await h.waitForTimeout(400)
-  await h.locator('[data-cal-search]').click(); await h.waitForTimeout(600)
-  check('the search mark opens ⌘K', await h.locator('[data-search-at], [data-search-scope], input[placeholder]').count() > 0 && await h.evaluate(() => !!document.activeElement?.closest('[role="dialog"]')))
-  await h.keyboard.press('Escape'); await h.waitForTimeout(500)
   await h.locator('[data-cal-new-event]').click(); await h.waitForTimeout(700)
-  check('"+ New event" opens the panel on Event', await h.locator(`${S}[data-day-side="new"] [data-day-side-kind="event"][aria-checked="true"]`).count() === 1)
+  check('"+ New event" opens the popover on Event, beside its draft, and no panel', await h.locator('[data-cal-add] [data-day-side-kind="event"][aria-checked="true"]').count() === 1 && await h.locator('[data-cal-draft]').count() === 1 && await h.locator(S).count() === 0)
   await h.keyboard.press('Escape'); await h.waitForTimeout(500)
 
   // 2. The grid.
@@ -128,9 +127,9 @@ try {
   check('a row says its time and calendar: "09:00 – 09:30 · Work"', up.includes('09:00 – 09:30 · Work'), up)
   const row = h.locator(`[data-cal-upcoming-row]`, { hasText: 'Product Sync' }).first()
   await row.click(); await h.waitForTimeout(600)
-  check('a row clicked opens its card', await h.locator(P).count() === 1 && (await h.locator(`${P} [data-cal-pop-title]`).innerText()) === 'Product Sync')
+  check('a row clicked opens the popover on it, its name in the line', await h.locator(P).count() === 1 && (await h.locator(`${P} [data-new-event-words]`).inputValue()) === 'Product Sync')
   const rb = await row.boundingBox(); const pb = await h.locator(P).boundingBox()
-  check('  beside the row, on its left (no room on its right)', pb.x + pb.width <= rb.x + 1, `${pb.x + pb.width} <= ${rb.x}`)
+  check('  beside the row, never over it', pb.x >= rb.x + rb.width - 1 || pb.x + pb.width <= rb.x + 1 || pb.y >= rb.y + rb.height - 1 || pb.y + pb.height <= rb.y + 1, `${JSON.stringify(pb)} by ${JSON.stringify(rb)}`)
   await h.keyboard.press('Escape'); await h.waitForTimeout(400)
   check('Esc puts it away', await h.locator(P).count() === 0)
   await h.keyboard.press('t'); await h.waitForTimeout(600)
@@ -138,14 +137,17 @@ try {
   check('the next event and its countdown, or nothing when there is none', (await h.locator('[data-cal-next-up]').count()) === 0 || /^In \d|On now/.test((await h.locator('[data-cal-next-up]').innerText()).trim()))
   check('no "Useful shortcuts" in the rail: each key is in its own button\'s tip and in ?', (await h.locator('[data-cal-shortcuts]').count()) === 0)
 
-  // 6. The card.
+  // 6. The popover on an event: a click picks, a double-click opens.
   await plain.click(); await h.waitForTimeout(600)
+  check('a click on an event picks it and opens nothing', await h.locator(P).count() === 0 && await h.locator(S).count() === 0)
+  await plain.dblclick(); await h.waitForTimeout(700)
   const card = await h.locator(P).innerText()
-  check('a click on an event shows its card, not the panel', await h.locator(P).count() === 1 && await h.locator(S).count() === 0)
-  check('  its calendar, its name, when, where, the reminder and notes', card.includes('Reminders') && card.includes('Plan Next Week') && /\w{3}, \w+ \d+ · 16:00 – 17:00/.test(card) && card.includes('Home office') && card.includes('10 minutes before') && card.includes('Review priorities'), card)
-  check('  with edit, the bin and close', await h.locator(`${P} [data-cal-pop-edit]`).count() === 1 && await h.locator(`${P} [data-cal-pop-bin]`).count() === 1 && await h.locator(`${P} [data-cal-pop-close]`).count() === 1)
+  check('a double-click opens the popover on it, not the panel', await h.locator(P).count() === 1 && await h.locator(S).count() === 0)
+  check('  its name in the line, when, its calendar, where and the reminder', (await h.locator(`${P} [data-new-event-words]`).inputValue()) === 'Plan Next Week' && /\w{3} \d+ \w{3}, 16:00 – 17:00/.test(card) && card.includes('Reminders') && card.includes('Home office') && card.includes('10 minutes before'), card)
+  check('  with "Open" for its page', await h.locator(`${P} [data-cal-open-page]`).count() === 1)
   const bb = await plain.boundingBox(); const cb = await h.locator(P).boundingBox()
-  check('  anchored next to the block, on screen', (cb.x >= bb.x + bb.width || cb.x + cb.width <= bb.x) && cb.x >= 0 && cb.y >= 0 && cb.y + cb.height <= 1000 && Math.abs(cb.y - bb.y) < 200, JSON.stringify([bb, cb]))
+  check('  anchored next to the block, on screen', (cb.x >= bb.x + bb.width || cb.x + cb.width <= bb.x) && cb.x >= 0 && cb.y >= 0 && cb.y + cb.height <= 1000, JSON.stringify([bb, cb]))
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
   for (const theme of ['paper', 'light', 'dark']) {
     if (theme !== 'paper') await c.theme(theme)
     for (const [w, hh] of [[1600, 1000], [1200, 800]]) {
@@ -154,10 +156,10 @@ try {
       await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 6.6 * 56)); await h.waitForTimeout(300)
       await shot(`week-${theme}-${w}`)
       const target = h.locator(`[data-cal-event="${plan.key}"]`)
-      await target.scrollIntoViewIfNeeded(); await target.click(); await h.waitForTimeout(700)
-      await shot(`card-${theme}-${w}`)
+      await target.scrollIntoViewIfNeeded(); await target.dblclick(); await h.waitForTimeout(700)
+      await shot(`popover-${theme}-${w}`)
       const inside = await h.locator(P).boundingBox()
-      check(`${theme} ${w}: the card stays on screen`, inside && inside.x >= 0 && inside.x + inside.width <= w && inside.y + inside.height <= hh, JSON.stringify(inside))
+      check(`${theme} ${w}: the popover stays on screen`, inside && inside.x >= 0 && inside.x + inside.width <= w && inside.y + inside.height <= hh, JSON.stringify(inside))
       await h.keyboard.press('Escape'); await h.waitForTimeout(300)
       if (w === 1600) { await h.keyboard.press('m'); await h.waitForTimeout(800); await shot(`month-${theme}-${w}`); await h.keyboard.press('d'); await h.waitForTimeout(600); await shot(`day-${theme}-${w}`); await h.keyboard.press('w') }
     }
@@ -166,27 +168,22 @@ try {
   await h.keyboard.press('w'); await h.keyboard.press('t'); await h.waitForTimeout(600)
   const blk = h.locator(`[data-cal-event="${plan.key}"]`)
   await blk.scrollIntoViewIfNeeded()
-  // The pencil opens the full panel; a double-click too.
-  await blk.click(); await h.waitForTimeout(500)
-  await h.locator(`${P} [data-cal-pop-edit]`).click(); await h.waitForTimeout(800)
-  check('the pencil opens the full panel', await h.locator(`${S} [data-event-detail="${plan.key}"]`).count() === 1 && await h.locator(P).count() === 0)
+  // "Open" in the popover is the full panel.
+  await blk.dblclick(); await h.waitForTimeout(600)
+  await h.locator(`${P} [data-cal-open-page]`).click(); await h.waitForTimeout(800)
+  check('"Open" in the popover opens the full panel, and the popover goes', await h.locator(`${S} [data-event-detail="${plan.key}"]`).count() === 1 && await h.locator(P).count() === 0)
   await h.keyboard.press('Escape'); await h.waitForTimeout(500)
-  await blk.dblclick(); await h.waitForTimeout(800)
-  check('a double-click opens the full panel', await h.locator(`${S} [data-event-detail="${plan.key}"]`).count() === 1 && await h.locator(P).count() === 0)
-  await h.keyboard.press('Escape'); await h.waitForTimeout(500)
-  // The bin, with Undo.
+  // ⌫ on the picked block takes it to the Bin, with Undo.
   await blk.click(); await h.waitForTimeout(500)
-  await h.locator(`${P} [data-cal-pop-bin]`).click(); await h.waitForTimeout(900)
-  check('the bin takes it to the Bin and shuts the card', !(await v('events', at(0, 0), at(8, 0))).some((one) => one.key === plan.key) && await h.locator(P).count() === 0)
+  await h.keyboard.press('Backspace'); await h.waitForTimeout(900)
+  check('⌫ on the picked block takes it to the Bin', !(await v('events', at(0, 0), at(8, 0))).some((one) => one.key === plan.key) && await h.locator(P).count() === 0)
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
   check('⌘Z brings it back', (await v('events', at(0, 0), at(8, 0))).some((one) => one.title === 'Plan Next Week'))
-  // ↵ on a focused block opens the card; ⌫ in the card bins it.
-  await blk.focus(); await h.keyboard.press('Enter'); await h.waitForTimeout(500)
-  check('↵ on a block opens its card', await h.locator(P).count() === 1)
-  await h.keyboard.press('Backspace'); await h.waitForTimeout(900)
-  check('⌫ in the card bins it', !(await v('events', at(0, 0), at(8, 0))).some((one) => one.title === 'Plan Next Week'))
-  await h.keyboard.press('Meta+z'); await h.waitForTimeout(900)
-  // A block dragged still moves (no card on a drag), lifted over a dashed outline where it lands.
+  // ↵ on a focused block opens the popover on it.
+  await blk.focus(); await h.keyboard.press('Enter'); await h.waitForTimeout(600)
+  check('↵ on a block opens its popover', await h.locator(P).count() === 1)
+  await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+  // A block dragged still moves (no popover on a drag), lifted over a dashed outline where it lands.
   const sprint = h.locator('[data-cal-event]', { hasText: 'Sprint Planning' })
   await sprint.scrollIntoViewIfNeeded()
   const sb = await sprint.boundingBox()
@@ -197,7 +194,7 @@ try {
   await shot('drag-light-1600')
   await h.mouse.up(); await h.waitForTimeout(900)
   const moved = (await v('events', at(0, 0), at(8, 0))).find((one) => one.title === 'Sprint Planning')
-  check('dragging a block still moves it, with no card', new Date(moved.start).getHours() === 10 && await h.locator(P).count() === 0, moved.start)
+  check('dragging a block still moves it, with no popover', new Date(moved.start).getHours() === 10 && await h.locator(P).count() === 0, moved.start)
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(800)
 
   // 7. Notion's blocks: a coloured left edge; called off and done struck through in a dashed outline.
@@ -282,7 +279,7 @@ try {
     await h.locator('[data-cal-event]', { hasText: 'Project Review' }).click({ button: 'right' }); await h.waitForTimeout(500)
     await shot(`menu-${theme}-1600`)
     await h.keyboard.press('Escape'); await h.waitForTimeout(300)
-    await h.locator('[data-cal-event]', { hasText: 'Project Review' }).dblclick(); await h.waitForTimeout(900)
+    await h.locator('[data-cal-event]', { hasText: 'Project Review' }).dblclick(); await h.locator(`${P} [data-cal-open-page]`).click(); await h.waitForTimeout(900)
     await shot(`editor-${theme}-1600`)
     if (theme === 'light') check('the editor says when as "11:00 → 12:00 1 h", the day and the zone', /11:00\s*→\s*12:00\s*1 h/.test(await h.locator('[data-event-when]').innerText()), await h.locator('[data-event-when]').innerText())
     await h.keyboard.press('Escape'); await h.waitForTimeout(400)

@@ -1,6 +1,6 @@
 // The Calendar page, driven on sandbox data: D, W and M change the view, T
 // comes back, ← → step; a block dragged moves and its edge stretches, each
-// undone with ⌘Z; a slot clicked adds a task there; an Unscheduled task
+// undone with ⌘Z; a slot double-clicked adds a task there; an Unscheduled task
 // dragged onto the grid gets that time; the red line is at now; the month's
 // cells show chips and "+N more" opens the rest; no sideways page scroll.
 //
@@ -93,15 +93,16 @@ try {
   check('right-clicking a block gives the task menu', await h.locator('[role="menu"]').count() > 0)
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
 
-  // Click a slot at 14:00 tomorrow-ish (today's column), type, Enter.
+  // A double-click on a slot at 14:00 (today's column) puts a draft there with its popover (12 Nov): on "Task", type, Enter.
   const col = h.locator(`[data-cal-col="${key(new Date())}"]`)
   await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 12 * 56))
   const cb = await col.boundingBox()
-  await h.mouse.click(cb.x + 5, cb.y + 14 * 56 + 5); await h.waitForTimeout(400)
+  await h.mouse.dblclick(cb.x + 5, cb.y + 14 * 56 + 5); await h.waitForTimeout(600)
+  await h.click('[data-cal-add] [data-day-side-kind="task"]'); await h.waitForTimeout(300)
   await h.keyboard.type('cal2 slot add'); await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
   const slot = (await v('tasks')).find((one) => one.title.includes('cal2 slot add'))
-  check('clicking a slot adds a task at that time', slot && new Date(slot.dueAt).getHours() === 14 && !slot.allDay && slot.estimate === 30, `${slot?.dueAt} ${slot?.estimate}`)
-  // The side panel stays open for the next one; Esc puts it away.
+  check('a double-click on a slot, then "Task", adds a task at that time', slot && new Date(slot.dueAt).getHours() === 14 && !slot.allDay && slot.estimate === 30, `${slot?.dueAt} ${slot?.estimate}`)
+  // The popover goes once it is made; Esc lets go of anything still picked.
   await h.keyboard.press('Escape'); await h.waitForTimeout(400)
 
   // Drag from Unscheduled onto 16:00.

@@ -28,7 +28,7 @@ const sample = (sel, ms = 450) => h.evaluate(([sel, ms]) => new Promise((done) =
     if (el) {
       const cs = getComputedStyle(el)
       const r = el.getBoundingClientRect()
-      out.push({ t, rot: cs.rotate, tf: cs.transform === 'none' ? '-' : cs.transform.replace(/matrix\((.*)\)/, (_, m) => { const n = m.split(',').map(Number); return `s${n[0].toFixed(3)} x${n[4].toFixed(1)} y${n[5].toFixed(1)}` }), op: Number(cs.opacity).toFixed(2), r: `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}` })
+      out.push({ t, rot: cs.rotate, tf: cs.transform === 'none' ? '-' : cs.transform.replace(/matrix\((.*)\)/, (_, m) => { const n = m.split(',').map(Number); return `s${n[0].toFixed(3)} x${n[4].toFixed(1)} y${n[5].toFixed(1)}` }), op: Number(cs.opacity).toFixed(2), r: `${Math.round(r.x)},${Math.round(r.y)} ${Math.round(r.width)}x${Math.round(r.height)}`, cl: cs.clipPath === 'none' ? '-' : cs.clipPath.replace(/\s+/g, ' ').slice(0, 48), du: Math.round(Math.max(0, ...el.getAnimations().map((a) => Number(a.effect?.getComputedTiming().duration) || 0))) })
     } else out.push({ t, gone: true })
     if (t < ms) requestAnimationFrame(tick)
     else done(out)
@@ -46,8 +46,10 @@ const anims = () => h.evaluate(() => document.getAnimations().filter((a) => a.pl
 const print = (label, rows) => {
   console.log(`  ${label}:`)
   const keep = rows.filter((row, i) => i === 0 || i === rows.length - 1 || JSON.stringify({ ...row, t: 0 }) !== JSON.stringify({ ...rows[i - 1], t: 0 }))
-  for (const row of keep) console.log(`    ${String(row.t).padStart(4)}ms ${row.gone ? 'gone' : `${row.tf.padEnd(26)} ${row.rot !== 'none' ? `rot ${row.rot} ` : ''}op ${row.op}  ${row.r}`}`)
+  for (const row of keep) console.log(`    ${String(row.t).padStart(4)}ms ${row.gone ? 'gone' : `${row.tf.padEnd(26)} ${row.rot !== 'none' ? `rot ${row.rot} ` : ''}op ${row.op}  ${row.r}${row.cl && row.cl !== '-' ? `  clip ${row.cl}` : ''}`}`)
 }
+/** How long the thing's own entrance or exit is set to last (the longest animation seen on it), in ms: read from the animation, not from the clock, so a busy machine does not change it. */
+const lasts = (rows) => Math.max(0, ...rows.map((row) => row.du ?? 0))
 /** How long the frames kept changing: the time of the last change. */
 const settled = (rows) => { let first = -1, last = 0; for (let i = 1; i < rows.length; i++) if (JSON.stringify({ ...rows[i], t: 0 }) !== JSON.stringify({ ...rows[i - 1], t: 0 })) { if (first < 0) first = rows[i - 1].t; last = rows[i].t } return first < 0 ? 0 : last - first }
 const settledOld = (rows) => { let last = 0; for (let i = 1; i < rows.length; i++) if (JSON.stringify({ ...rows[i], t: 0 }) !== JSON.stringify({ ...rows[i - 1], t: 0 })) last = rows[i].t; return last }
@@ -123,54 +125,54 @@ try {
   check('month step by ← moves nothing', !list.some((s) => s.includes('data-month-grid')) && settled(rows) === 0, list.join('; '))
   await wait(400)
 
-  // 3. "New event" (clicked): the side form; closed by its own button and by Esc.
+  // 3. "New event" (clicked): the popover beside its draft (12 Nov: nothing is written in the side form any more); away
+  // by a click elsewhere and by Esc. It comes and goes by its clip (frosted: never faded), and goes faster than it came.
   await h.keyboard.press('w'); await wait(700)
   await h.keyboard.press('t'); await wait(700)
-  p = sample('[data-day-side]', 450)
+  p = sample('[data-cal-add]', 450)
   await h.locator('[data-cal-new-event]').first().click()
   list = await anims(); rows = await p
-  console.log('New event side form, clicked:'); list.forEach((s) => console.log(`  ${s}`)); print('side form', rows)
-  const inAt = settled(rows)
+  console.log('New event popover, clicked:'); list.forEach((s) => console.log(`  ${s}`)); print('popover', rows)
+  const inAt = lasts(rows)
+  check('the new event\'s popover comes in whole, by its clip alone, in 150ms', rows.filter((r) => !r.gone).every((r) => r.op === '1.00' && r.tf === '-') && inAt > 0 && inAt <= 150, `${inAt}ms; ${[...new Set(rows.filter((r) => !r.gone).map((r) => r.op))].join(' ')}`)
   await wait(400)
   // Away by a click outside it: the pointer, not a key.
-  p = sample('[data-day-side]', 400)
+  p = sample('[data-cal-add]', 400)
   await h.mouse.click(400, 500)
   list = await anims(); rows = await p
-  console.log('Side form, closed by a click:'); list.forEach((s) => console.log(`  ${s}`)); print('side form', rows)
-  const outAt = rows.findIndex((r) => r.gone) >= 0 ? rows.find((r) => r.gone).t : settled(rows)
-  check('the side form leaves faster than it came', outAt < inAt || inAt === 0, `in ${inAt}ms, out ${outAt}ms`)
+  console.log('Popover, closed by a click:'); list.forEach((s) => console.log(`  ${s}`)); print('popover', rows)
+  const outAt = lasts(rows)
+  check('the popover leaves faster than it came', rows.some((r) => r.gone) && outAt > 0 && outAt < inAt, `in ${inAt}ms, out ${outAt}ms`)
   await wait(500)
-  await film('side-form-open', () => h.locator('[data-cal-new-event]').first().click())
-  await film('side-form-close', () => h.mouse.click(400, 500))
+  await film('popover-open', () => h.locator('[data-cal-new-event]').first().click())
+  await film('popover-close', () => h.mouse.click(400, 500))
   await h.locator('[data-cal-new-event]').first().click(); await wait(600)
-  p = sample('[data-day-side]', 300)
+  p = sample('[data-cal-add]', 300)
   await h.keyboard.press('Escape')
   list = await anims(); rows = await p
-  console.log('Side form, Esc:'); list.forEach((s) => console.log(`  ${s}`)); print('side form', rows)
-  // By Esc it slides out too, as day-side.tsx means it to, and as quickly as by a click.
-  check('Esc takes the side form away, quicker than it came', rows.some((r) => r.gone) && rows.find((r) => r.gone).t < inAt, `gone at ${rows.find((r) => r.gone)?.t}ms, in took ${inAt}ms`)
+  console.log('Popover, Esc:'); list.forEach((s) => console.log(`  ${s}`)); print('popover', rows)
+  check('Esc takes the popover away, quicker than it came', rows.some((r) => r.gone) && lasts(rows) > 0 && lasts(rows) < inAt, `gone at ${rows.find((r) => r.gone)?.t}ms, out ${lasts(rows)}ms, in took ${inAt}ms`)
   await wait(500)
 
-  // 4. An event's card on a click.
+  // 4. An event opened by a double-click: the same popover, on it (12 Nov: the card a click opened is gone).
   const ev = await h.evaluate(() => { const el = [...document.querySelectorAll('[data-cal-event]')].find((one) => one.getBoundingClientRect().height > 12); el?.scrollIntoView({ block: 'center' }); return el ? `[data-cal-event="${el.getAttribute('data-cal-event')}"]` : null })
   if (ev) {
     await wait(300)
-    p = sample('[data-cal-pop]', 400)
-    await h.locator(ev).first().click()
+    p = sample('[data-cal-add][data-cal-open]', 500)
+    await h.locator(ev).first().dblclick()
     list = await anims(); rows = await p
-    console.log('Event card, clicked:'); list.forEach((s) => console.log(`  ${s}`)); print('card', rows)
-    const shown = rows.find((r) => !r.gone && Number(r.op) >= 0.95)?.t ?? 999
-    const began = rows.find((r) => !r.gone)?.t ?? 0
-    check('the event card is 95% there within 200ms', shown - began <= 200, `${shown - began}ms`)
+    console.log('Event popover, double-clicked:'); list.forEach((s) => console.log(`  ${s}`)); print('popover', rows)
+    const there = rows.filter((r) => !r.gone)
+    check('the popover on an event is whole from its first frame, in by its clip in 150ms', there.length > 0 && there.every((r) => r.op === '1.00') && lasts(rows) > 0 && lasts(rows) <= 150, `${lasts(rows)}ms; ${there.length} frames`)
     await wait(300)
-    p = sample('[data-cal-pop]', 300)
+    p = sample('[data-cal-add][data-cal-open]', 300)
     await h.mouse.click(60, 780)
     list = await anims(); rows = await p
-    console.log('Event card, closed by a click:'); list.forEach((s) => console.log(`  ${s}`)); print('card', rows)
+    console.log('Event popover, closed by a click:'); list.forEach((s) => console.log(`  ${s}`)); print('popover', rows)
     await wait(400)
-    await film('event-card', () => h.locator(ev).first().click())
+    await film('event-open', () => h.locator(ev).first().dblclick())
     await h.mouse.click(60, 780); await wait(400)
-  } else check('an event to click', false)
+  } else check('an event to open', false)
 
   // 5. "T": today brought in without a smooth scroll; by the button, a smooth one.
   await h.keyboard.press('ArrowRight'); await wait(400)
@@ -189,14 +191,14 @@ try {
   await h.locator('[data-display]').first().click()
   list = await anims(); rows = await p
   console.log('Display popover, clicked:'); list.forEach((s) => console.log(`  ${s}`)); print('popover', rows)
-  const popIn = settled(rows)
+  const popIn = lasts(rows)
   await wait(300)
   p = sample(pop, 300)
   await h.mouse.click(60, 780)
   list = await anims(); rows = await p
   console.log('Display popover, closed by a click:'); list.forEach((s) => console.log(`  ${s}`)); print('popover', rows)
-  const popOut = rows.find((r) => r.gone)?.t ?? 999
-  check('Display popover in under 260ms, out faster', popIn <= 260 && popOut < popIn, `in ${popIn}ms, out ${popOut}ms`)
+  const popOut = rows.some((r) => r.gone) ? lasts(rows) : 999
+  check('Display popover in under 260ms, out faster', popIn > 0 && popIn <= 260 && popOut > 0 && popOut < popIn, `in ${popIn}ms, out ${popOut}ms`)
   await wait(400)
   await film('display-popover', () => h.locator('[data-display]').first().click())
   await h.mouse.click(60, 780); await wait(400)
