@@ -32,8 +32,12 @@ try {
   await node.screenshot({ path: `${SHOTS}/feed-pair.png` })
   await c.look('dark'); await node.screenshot({ path: `${SHOTS}/feed-pair-dark.png` }); await c.look('light')
   await node.locator(`[data-feed-pair-note="${b.id}"] [data-feed-quoted]`).click(); await h.waitForTimeout(1500)
-  const page = await h.evaluate(() => document.querySelector('.ProseMirror')?.textContent ?? '')
-  check('a note in it opens that note', page.toLowerCase().includes(b.title.toLowerCase().slice(0, 20)), `${b.title.slice(0, 30)} :: ${page.slice(0, 60)}`)
+  // Its own tab is the one lit (a tab says what it holds: "nugget:<id>"), and its words are on the page. Which pair
+  // the day finds is the book's to say: a study card's page shows its answer, its question naming the tab and its
+  // row, so the page is matched by the note's name or by its words, whichever it is written in.
+  const opened = await h.evaluate(() => ({ tab: document.querySelector('[data-tab][data-tab-on]')?.dataset.tabOpen ?? '', page: (document.querySelector('.ProseMirror')?.textContent ?? '').toLowerCase() }))
+  const onPage = (words) => !!words && opened.page.includes(words.toLowerCase().slice(0, 20))
+  check('a note in it opens that note', opened.tab.endsWith(`:${b.id}`) && (onPage(b.title) || onPage(b.text)), `${b.title.slice(0, 30)} :: tab ${opened.tab} :: ${opened.page.slice(0, 60)}`)
   check('no errors', !errors.length, errors.join('\n'))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
