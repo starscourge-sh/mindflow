@@ -3,6 +3,17 @@ import { KEPT_IN, LABEL } from './book-words'
 import { plain } from './card-words'
 import { tagsIn } from './tag-words'
 
+/** One note's tags, from its name and its words as kept: read the same way on main and on the reading thread. */
+export function noteTags(title: unknown, body: unknown): string[] {
+  let words = ''
+  try {
+    words = plain(JSON.parse(String(body ?? 'null')))
+  } catch {
+    words = String(body ?? '')
+  }
+  return tagsIn(`${title ?? ''} ${words}`)
+}
+
 /**
  * The tags, as a read of the book and nothing else (no Electron in it): they
  * are worked out from every note's words, so they are asked of the reading

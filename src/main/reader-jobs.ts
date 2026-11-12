@@ -6,7 +6,7 @@ import { bookFeed, type FeedAsk, type Takes } from './book-feed'
 import { bookHome, type HomeAsk } from './book-home'
 import { bookRepeats } from './book-repeats'
 import { bookMentions } from './book-mentions'
-import { bookTags } from './book-tags'
+import { bookTags, noteTags } from './book-tags'
 import { bookMap } from './book-map'
 import { wordCounter } from './word-count'
 import { linesOf } from './kept-words'
@@ -78,8 +78,13 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
       thumbs: (_gone: Gone) => firstOfEach(),
       /** The PDF a note's words link into, read from its words as stored (pdf-in.ts): asked after every change of an open note. */
       'note:pdf': (_gone: Gone, id: string) => pdfIn((db.prepare('select body from captures where id = ?').get(id) as { body: string | null } | undefined)?.body ?? ''),
-      /** The words a save gained (word-count.ts): the words as they were, and as they are. */
-      'words:gained': (_gone: Gone, was: string, now: string) => gained(was, now)
+      /** One note's tags as it is kept now, every one its words carry, null when it is gone: for the notes related by tag, after a save of it (haligtree.ts `fresh`). */
+      'related:tags': (_gone: Gone, table: string, id: string) => {
+        const row = db.prepare(`select title, body from ${table === 'nuggets' ? 'nuggets' : 'captures'} where id = ?`).get(id) as { title: string | null; body: string | null } | undefined
+        return row ? noteTags(row.title, row.body) : null
+      },
+      /** The words a save gained (word-count.ts): the words as they were, and as they are, each as the bytes it is kept as. */
+      'words:gained': (_gone: Gone, was: Uint8Array | string, now: Uint8Array | string) => gained(was, now)
     },
     /** New words were read in a picture: search's list is read again. */
     forget: finder.forget,

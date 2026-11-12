@@ -8,10 +8,13 @@
 
 type Part = { type?: string; text?: string; content?: Part[] }
 const WORD = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu
+const utf8 = new TextDecoder()
+/** A body as its text: text as it is, or the bytes it is kept as (how a save hands its words over, word-log.ts). */
+const textOf = (body: unknown): string => (body instanceof Uint8Array ? utf8.decode(body) : String(body ?? ''))
 
 /** How many words a stored body holds: a document's text, or Markdown as it is. */
 export function wordsIn(body: unknown): number {
-  const raw = String(body ?? '')
+  const raw = textOf(body)
   if (!raw) return 0
   let text = raw
   try {
@@ -31,7 +34,7 @@ export function wordsIn(body: unknown): number {
 export function wordCounter(): (was: unknown, now: unknown) => number {
   const counted = new Map<string, number>()
   const count = (body: unknown): number => {
-    const raw = String(body ?? '')
+    const raw = textOf(body)
     const kept = counted.get(raw)
     if (kept !== undefined) return kept
     const words = wordsIn(raw)

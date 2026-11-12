@@ -39,8 +39,11 @@ const TABLES = [
   { table: 'periods', key: 'period', kind: 'period' }
 ] as const
 
+/** A note's words as the database hands them to its rule: the bytes they are kept as (text, from a rule that hands text). */
+type Words = Uint8Array | string
+const kept = (words: unknown): Words => (words instanceof Uint8Array ? words : String(words ?? ''))
 /** A save whose words are being counted: what it was and is, and when it was made. */
-type Save = { kind: string; key: string; was: string; now: string; at: number; day: string; counted: Promise<void> }
+type Save = { kind: string; key: string; was: Words; now: Words; at: number; day: string; counted: Promise<void> }
 const waiting = new Set<Save>()
 
 export function registerWordLog(): void {
@@ -52,6 +55,9 @@ export function registerWordLog(): void {
   // The trigger only hands over the words as they were and as they are; the day and the time are the save's own,
   // and the gain is written when the count comes back, in the order the saves were made. That write is in no list
   // and no search, so it leaves the book's stamp where it was (captures.ts `quietly`).
+  // They are handed over as the bytes they are kept as (`cast(... as blob)`), and read as text by the thread that
+  // counts them: handed over as text, both wordings of a long note were made into text here, inside the write, and
+  // copied to the reading thread as text (4 MB twice over, on main's one thread, in every save of a 4 MB note).
   const add = db.prepare('insert into word_days (day, id, kind, words, seconds) values (?, ?, ?, ?, ?) on conflict (day, id) do update set words = words + excluded.words, seconds = seconds + excluded.seconds')
   const settle = (save: Save, gained: number): void => {
     if (!waiting.delete(save) || gained <= 0) return
@@ -62,7 +68,7 @@ export function registerWordLog(): void {
   const dayOf = (at: number): string => { const day = new Date(at); return `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, '0')}-${String(day.getDate()).padStart(2, '0')}` }
   db.function('word_log', (kind, key, was, now) => {
     const at = Date.now()
-    const save: Save = { kind: String(kind), key: String(key), was: String(was ?? ''), now: String(now ?? ''), at, day: dayOf(at), counted: null as never }
+    const save: Save = { kind: String(kind), key: String(key), was: kept(was), now: kept(now), at, day: dayOf(at), counted: null as never }
     waiting.add(save)
     save.counted = ask('words:gained', [save.was, save.now]).then((gained) => settle(save, gained), () => settle(save, here(save.was, save.now)))
     return 0
@@ -78,7 +84,7 @@ export function registerWordLog(): void {
     db.exec(`create temp trigger if not exists word_log_${table} after update of body on main.${table}
       when coalesce(new.body, '') != coalesce(old.body, '')
       begin
-        select word_log('${kind}', new.${key}, old.body, new.body);
+        select word_log('${kind}', new.${key}, cast(old.body as blob), cast(new.body as blob));
       end`)
   }
 

@@ -26,6 +26,7 @@ import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } f
 import { SANDBOX, handedOff } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { cardWords, plain } from './card-words'
+import { noteTags } from './book-tags'
 import { bookHome } from './book-home'
 import { bookMentions } from './book-mentions'
 import { foldKept, goalsOut, toCheckBack } from './properties'
@@ -4924,31 +4925,33 @@ export function registerHaligtree(): void {
   // Each note's tags in a table of this connection's own, kept true by
   // triggers as notes are written, so asking is one indexed query rather than
   // reading every note. Temporary: nothing on disk, built on first use.
-  db.function('note_tags', (title, body) => {
-    let words = ''
-    try {
-      words = plain(JSON.parse(String(body ?? 'null')))
-    } catch {
-      words = String(body ?? '')
-    }
-    return JSON.stringify(tagsIn(`${title ?? ''} ${words}`))
-  })
+  // A new note's tags are read as it is made. A note saved again only loses its old ones there and is marked due
+  // (`note_tag_due`): they are read again by the reading thread before the next ask is answered (`fresh`, below).
+  // Read inside the write, as they were, every save of a long note rebuilt the whole note on main's one thread
+  // to look for its tags, once any note's related ones had been asked for.
+  db.function('note_tags', (title, body) => JSON.stringify(noteTags(title, body)))
   // Made in turns, the first time it is asked for: filling it reads every note's words (150 ms of main's one thread
   // on a book of 95 MB, every window waiting behind it). Its triggers come first, so a note written while it fills
   // is kept true by them; each turn then clears and fills forty notes, and lets the thread go once it has been
   // held 8 ms. Whoever asks waits for the whole of it.
   let indexing: Promise<void> | null = null
   const index = (): Promise<void> => (indexing ??= (async () => {
-    const fill = (type: string, row: string): string => `insert into temp.note_tag select ${row}.id, ${type}, value from json_each(note_tags(${row}.title, ${row}.body))`
+    // The tables these rules change are named without `temp.`: a rule of this connection's own finds them there
+    // first, and SQLite as Node ships it (3.51) takes no schema name on a table changed inside a rule.
+    const fill = (type: string, row: string): string => `insert into note_tag select ${row}.id, ${type}, value from json_each(note_tags(${row}.title, ${row}.body))`
+    // `at` tells one marking of a note from the next, so tags read for words since written over are not kept.
+    const due = (type: string): string => `delete from note_tag where id = old.id; insert or replace into note_tag_due (id, type, at) values (new.id, ${type}, (select coalesce(max(at), 0) + 1 from temp.note_tag_due))`
+    const out = 'delete from note_tag where id = old.id; delete from note_tag_due where id = old.id'
     db.exec(`create temp table note_tag (id text not null, type text not null, tag text not null);
       create index temp.note_tag_by_tag on note_tag(tag);
       create index temp.note_tag_by_id on note_tag(id);
+      create temp table note_tag_due (id text primary key, type text not null, at integer not null);
       create temp trigger note_tag_capture_in after insert on main.captures begin ${fill("'capture'", 'new')}; end;
-      create temp trigger note_tag_capture_edit after update of title, body on main.captures begin delete from temp.note_tag where id = old.id; ${fill("'capture'", 'new')}; end;
-      create temp trigger note_tag_capture_out after delete on main.captures begin delete from temp.note_tag where id = old.id; end;
+      create temp trigger note_tag_capture_edit after update of title, body on main.captures begin ${due("'capture'")}; end;
+      create temp trigger note_tag_capture_out after delete on main.captures begin ${out}; end;
       create temp trigger note_tag_nugget_in after insert on main.nuggets begin ${fill('new.tier', 'new')}; end;
-      create temp trigger note_tag_nugget_edit after update of title, body, tier on main.nuggets begin delete from temp.note_tag where id = old.id; ${fill('new.tier', 'new')}; end;
-      create temp trigger note_tag_nugget_out after delete on main.nuggets begin delete from temp.note_tag where id = old.id; end;`)
+      create temp trigger note_tag_nugget_edit after update of title, body, tier on main.nuggets begin ${due('new.tier')}; end;
+      create temp trigger note_tag_nugget_out after delete on main.nuggets begin ${out}; end;`)
     let since = performance.now()
     for (const [table, type] of [['captures', "'capture'"], ['nuggets', 't.tier']]) {
       const next = db.prepare(`select max(rowid) as upTo from (select rowid from ${table} where rowid > ? order by rowid limit 40)`)
@@ -4981,10 +4984,28 @@ export function registerHaligtree(): void {
     spread as (select tag, count(*) as n from alive group by tag)
     select a.type, a.id, sum(1.0 / ln(1 + s.n)) as score, json_group_array(json_array(s.tag, s.n)) as shared
       from alive a join spread s using (tag) where a.id != :id group by a.id order by score desc limit 60`
+  // The notes saved since their tags were last read (`note_tag_due`) have them read again, by the reading thread,
+  // and kept here: a row or two written, nothing read on this thread.
+  const fresh = async (): Promise<void> => {
+    // Twice at most: a note saved again while its tags were being read stays due, and is read once more.
+    for (let round = 0; round < 2; round++) {
+      const due = db.prepare('select id, type, at from temp.note_tag_due').all() as { id: string; type: string; at: number }[]
+      if (!due.length) return
+      await Promise.all(due.map(async (one) => {
+        const tags = await askReader('related:tags', [one.type === 'capture' ? 'captures' : 'nuggets', one.id])
+        // Saved again meanwhile: these are not its tags any more, and it is still due.
+        if (!db.prepare('delete from temp.note_tag_due where id = ? and at = ?').run(one.id, one.at).changes) return
+        db.prepare('delete from temp.note_tag where id = ?').run(one.id)
+        const add = db.prepare('insert into temp.note_tag (id, type, tag) values (?, ?, ?)')
+        for (const tag of tags ?? []) add.run(one.id, one.type, tag)
+      }))
+    }
+  }
   let related: ReturnType<typeof db.prepare> | undefined
   let detail: ReturnType<typeof db.prepare> | undefined
   handle('related', async (id: string) => {
     await index()
+    await fresh()
     // Prepared on first use: some columns it reads are added after this runs.
     related ??= db.prepare(RELATED)
     detail ??= db.prepare(`select id, ${LABEL} as title, body, private, coalesce(edited_at, captured_at) as at from captures where id in (select value from json_each(?))
