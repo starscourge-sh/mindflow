@@ -53,8 +53,20 @@ try {
   // A note of the book's, stuck on the desktop.
   const note = (await h.evaluate(() => window.api.captures.list?.() ?? [])).find((one) => one?.id)?.id
   await h.evaluate((id) => window.api.stick('capture', id, true), note)
-  await wait(4000)
-  const rest = await desk()
+  // Waited for, not slept through: on a busy Mac a card can take seconds to come in. All three up, whole, and still.
+  const settled = async (most = 30_000) => {
+    const started = Date.now()
+    let last = ''
+    while (Date.now() - started < most) {
+      const now = await desk()
+      const said = JSON.stringify(now)
+      if (now.length >= 3 && now.every((one) => one.visible && one.opacity === 1) && said === last) return now
+      last = said
+      await wait(500)
+    }
+    return desk()
+  }
+  const rest = await settled()
   const kinds = new Set(rest.map((one) => one.key.split(':')[0]))
   check('to start, a stuck note, the Today sticky and a goal card are all on the desktop', up(rest) === rest.length && rest.length >= 3 && kinds.has('today') && kinds.has('goal') && [...kinds].some((kind) => !['today', 'goal', 'goals'].includes(kind)), rest.map((one) => `${one.key.slice(0, 14)}:${one.visible}`).join(' '))
   check('and nothing says a meeting is on', (await said()).why === null && (await said()).seen === 'Nothing is on', JSON.stringify(await said()))
@@ -118,7 +130,7 @@ try {
   await h.evaluate(() => window.api.stick('today', 'today', false))
   await wait(600)
   await h.evaluate(() => window.api.stick('today', 'today', true))
-  await wait(4000)
+  for (let i = 0; i < 40 && !(await desk()).some((one) => one.key === 'today:today' && one.visible && one.opacity === 1); i++) await wait(500)
   const inCall = await desk()
   check('a sticky stuck by hand in the meeting shows, the rest stay hidden', inCall.filter((one) => one.visible).map((one) => one.key).join() === 'today:today', inCall.map((one) => `${one.key.slice(0, 12)}:${one.visible}`).join(' '))
   check('the main window stayed throughout', (await others()).every(Boolean))
@@ -256,6 +268,20 @@ try {
   await wait(300)
   const smallOff = await boxes()
   check('at 560 by 400 a signal going off moves nothing either', JSON.stringify([smallOff.row, smallOff.toggle, smallOff.next]) === JSON.stringify([small.row, small.toggle, small.next]), `${JSON.stringify(small.row)} to ${JSON.stringify(smallOff.row)}`)
+  // The row under “Quiet hours” at the same small size, with the longest line it can say: one line still, the row as tall.
+  const quietRow = () => h.evaluate(() => ({ height: Math.round(document.querySelector('[data-quiet-seen]').closest('[data-setting]').getBoundingClientRect().height), words: document.querySelector('[data-quiet-seen]').textContent, sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth }))
+  await h.locator('[data-quiet-seen]').scrollIntoViewIfNeeded()
+  await wait(300)
+  const calm = await quietRow()
+  await v('settings:set', { quietStart: hhmm(-60), quietEnd: hhmm(60), quietDesk: true })
+  await wait(300)
+  await choose('Show anyway')
+  await wait(400)
+  const longest = await quietRow()
+  check('under “Quiet hours” at 560 by 400: its longest line fits in one, the row no taller, nothing scrolling sideways', longest.words === 'Now: In quiet hours, shown anyway' && longest.height === calm.height && !longest.sideways, JSON.stringify([calm, longest]))
+  if (shots) await h.screenshot({ path: `${shots}/settings-quiet-row-560x400.png` })
+  await v('settings:set', { quietStart: '00:00', quietEnd: '00:00', quietDesk: false })
+  await wait(300)
   await c.size(1280, 800)
 
   // Tucked to the screen's edge as tabs: the tabs hide too, and are back as the same tabs.
@@ -279,7 +305,9 @@ process.env.HALIGTREE_QA_SIGNALS = 'camera'
 const again = await sandbox({ width: 1280, height: 800 })
 try {
   const stickies = () => again.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.webContents.getURL().includes('view=sticky')).map((w) => w.isVisible()))
-  await again.h.waitForTimeout(6000)
+  // Until the three left out last time are made (seconds, on a busy Mac), then long enough for one to have come up if it were going to.
+  for (let i = 0; i < 60 && (await stickies()).length < 3; i++) await again.h.waitForTimeout(500)
+  await again.h.waitForTimeout(5000)
   const started = await stickies()
   check('opened in a call: the stickies left out last time are made but none comes up', started.length >= 3 && started.every((one) => !one), `${started.filter(Boolean).length} of ${started.length} up`)
   const after = await again.electron.evaluate(({ BrowserWindow }) => {
