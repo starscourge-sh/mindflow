@@ -97,15 +97,24 @@ export const Typewriter = Extension.create<{ on: () => boolean }>({
       new Plugin({
         // Plugin views update before ProseMirror scrolls, so whether this
         // update changed the words is known by the time it asks.
-        view: () => ({
-          update: (view, before) => {
-            changed = view.state.doc !== before.doc
-          },
-          destroy: () => {
-            stop()
-            following = null
-          },
-        }),
+        view: (view) => {
+          // The wheel stops the glide where it is, as a press does. Heard here, where it can be said to change
+          // nothing, and not as one of the handlers below: ProseMirror listens for those in a way that lets them
+          // stop the event, and a wheel that a listener may stop waits for the page's script before the note
+          // may scroll: every wheel over every note waited for it, typewriter mode on or off.
+          const dom = view.dom
+          dom.addEventListener("wheel", stop, { passive: true })
+          return {
+            update: (view, before) => {
+              changed = view.state.doc !== before.doc
+            },
+            destroy: () => {
+              dom.removeEventListener("wheel", stop)
+              stop()
+              following = null
+            },
+          }
+        },
         props: {
           handleDOMEvents: {
             keydown: typed,
@@ -114,10 +123,6 @@ export const Typewriter = Extension.create<{ on: () => boolean }>({
             // Your own hand on the page stops the glide where it is.
             pointerdown: () => {
               typedAt = 0
-              stop()
-              return false
-            },
-            wheel: () => {
               stop()
               return false
             },
