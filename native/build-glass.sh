@@ -8,6 +8,6 @@ VERSION=$(node -p process.versions.node)
 HEADERS="$HOME/Library/Caches/node-gyp/$VERSION/include/node"
 [ -f "$HEADERS/node_api.h" ] || npx node-gyp install "$VERSION"
 clang++ -x objective-c++ -std=c++17 -O2 -fobjc-arc -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 \
-  -bundle -undefined dynamic_lookup -I"$HEADERS" -framework AppKit \
+  -bundle -undefined dynamic_lookup -I"$HEADERS" -framework AppKit -framework CoreAudio -framework CoreMediaIO \
   native/glass.mm -o resources/glass.node
 echo "built resources/glass.node"

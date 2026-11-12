@@ -420,8 +420,6 @@ const api = {
     heard.on('home:grow', relay)
     return () => heard.off('home:grow', relay)
   },
-  /** The sticky's whole window wiggles where it stands, and settles back exactly. */
-  wiggle: (): void => ipcRenderer.send('sticky:wiggle'),
   /** Pointed at: the window rises a little, and sets down once the pointer leaves. */
   lift: (): void => ipcRenderer.send('sticky:lift'),
   /** The pointer come onto the sticky's window (true) or gone from it (false), from the page's own pointer events. */
@@ -446,7 +444,6 @@ const api = {
     heard.on('frost', relay)
     return () => heard.off('frost', relay)
   },
-  /** Told now and then to stir, so a sticky is seen again. */
   /** A sticky told to be a tab at the screen's edge (tucked: every sticky tucked away; flat: only a small pill), or a goal's card told to peek as a slim tab at that edge of the screen (nudge: it came out by itself), or to be its whole card again (null); opened: a card slid out of its named tab, the tab's strip kept on its screen side; instant: asked by a key, so it lands without a slide. */
   onBeaconPeek: (listen: (peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number; width?: number } | null, instant?: boolean) => void): (() => void) => {
     const relay = (_event: unknown, peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number; width?: number } | null, instant?: boolean): void => listen(peek, instant)
@@ -457,11 +454,18 @@ const api = {
   },
   /** Whether AeroSpace, the tiling window manager, is on this Mac (Settings shows its rule for the stickies). */
   aerospace: (): Promise<boolean> => ipcRenderer.invoke('aerospace:here'),
-  onStir: (listen: () => void): (() => void) => {
-    const relay = (): void => listen()
-    heard.on('sticky:stir', relay)
-    return () => heard.off('sticky:stir', relay)
+  /**
+   * The desk (stickies, goal cards, their tabs) away for a meeting or quiet hours, or not: why, whether they are hidden
+   * now, and what “Step away in meetings” sees. Asked once, then told on each change.
+   */
+  deskAway: (): Promise<{ why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }> => ipcRenderer.invoke('desk:away'),
+  onDeskAway: (listen: (said: { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }) => void): (() => void) => {
+    const relay = (_event: unknown, said: { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }): void => listen(said)
+    heard.on('desk:away', relay)
+    return () => heard.off('desk:away', relay)
   },
+  /** “Show anyway”: the stickies and goal cards out again for this meeting (or these quiet hours) only; false hides them again. */
+  showDeskAnyway: (on = true): void => ipcRenderer.send('desk:anyway', on),
   onFrostAt: (listen: (at: { x: number; y: number }) => void): (() => void) => {
     const relay = (_event: unknown, at: { x: number; y: number }): void => listen(at)
     heard.on('frost:at', relay)

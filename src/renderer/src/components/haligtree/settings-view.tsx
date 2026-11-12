@@ -82,7 +82,8 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, StirSample, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
+import { BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
+import { useDeskAway } from '@/lib/desk-away'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { forgives } from '@/lib/slash-rank'
@@ -462,6 +463,8 @@ function FoldersFollowSample({ on }: { on: boolean }): React.JSX.Element {
 
 export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from ⌘K's “Your reader card”: its section, and the card brought into view. */ focus?: string; nonce?: number } = {}): React.JSX.Element {
   const settings = useLive(haligtree.settings, null as Settings | null)
+  // What “Step away in meetings” sees this moment, said under its row as it changes.
+  const desk = useDeskAway()
   // The search at the top: rows that do not match go, and the words are marked.
   const [query, setQuery] = useState('')
   // Vim keys here too: j and k move between the controls, h and l turn a
@@ -1082,7 +1085,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
-          <Setting title="Quiet hours" note="No private notes, old captures, nudges or alerts come up unasked." more="Goal cards wait to come out, unless set to “Always” or in their last week; other pins stay, and search and lists still show everything.">
+          <Setting title="Quiet hours" note="Sticky notes and goal cards are away, and no private notes, old captures, nudges or alerts come up unasked." more="Every sticky and goal card, those set to “Always” and in their last week too; one you stick in these hours shows. They come back as they were when the hours end. Search and lists still show everything." keywords="quiet hours night sticky notes goal cards hidden away do not disturb">
             <TimeField label="Quiet hours start" value={settings.quietStart} onChange={(quietStart) => set({ quietStart })} />
             <span className="text-muted-foreground">to</span>
             <TimeField label="Quiet hours end" value={settings.quietEnd} onChange={(quietEnd) => set({ quietEnd })} />
@@ -1093,6 +1096,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
               // The switch and its note say it; ⌥⌘S keeps its toast.
               quietly(() => set({ safeMode: !safeMode }))
             }} />
+          </Setting>
+          <Setting title="Step away in meetings" note="Sticky notes and goal cards hide while a call may be on, and come back when it ends." more="A call may be on when a camera is on, another app is using the microphone, the screen is mirrored, a Calendar event with other people is happening, or Haligtree is recording a meeting. Only whether they are in use is read: nothing is listened to or watched. Alerts and nudges wait too. The menu bar's “Sticky notes” has “Show anyway”, for that meeting only." keywords="step away in meetings meeting call zoom teams facetime camera microphone screen share mirrored hide sticky notes goal cards presentation projector"
+            below={<p data-desk-seen className="text-control text-foreground"><strong className="font-semibold">Now:</strong> {desk?.seen ?? 'Nothing is on'}</p>}>
+            <Switch checked={settings.stepAway !== false} onCheckedChange={(stepAway) => set({ stepAway })} />
           </Setting>
           <Setting title="Open at login" note={`${APP_NAME} starts quietly with your Mac, in the Dock and the menu bar.`} more={`No window opens. ⌘. works straight away, and your sticky notes are back where you left them. Opening ${APP_NAME} yourself, or clicking it in the Dock, shows the main window.`}>
             <Switch checked={settings.openAtLogin !== false} onCheckedChange={(openAtLogin) => set({ openAtLogin })} />
@@ -1107,12 +1114,8 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Sticky note material" note="What sticky notes and goal cards look like on the desktop." keywords="sticky notes are made of paper glass sticky notes frosted glass blur wallpaper desktop transparent see-through solid opaque vibrancy"
             below={<Choices label="Sticky note material" options={stickyChoices} on={(id) => id === (settings.stickiesFrosted !== false && settings.stickiesGlass ? 'glass' : 'paper')}
               pick={(id) => set({ stickiesFrosted: id === 'glass', stickiesGlass: id === 'glass' })} />} />
-          <Setting title="Stickies stir" note="Every half hour or so, one sticky lifts a little, so your eye finds it." more="Like paper in a draught. Never while you write in it." keywords="stickies stir now and then sticky notes stir move motion wiggle attention banner blindness notice">
-            <StirSample on={settings.stickiesStir !== false} />
-            <Switch checked={settings.stickiesStir !== false} onCheckedChange={(stickiesStir) => set({ stickiesStir })} />
-          </Setting>
           <AeroSpaceSetting />
-          <Setting title="Hide from recordings" note="A hidden window is blank in shares, recordings and screenshots, while you still see it." more="All are hidden to start; turn one off for a demo or a Loom. ⌘K shows or hides them all at once." keywords="hide from screen recordings and shares record recording screen share sharing zoom loom demo screenshot capture hide show main window quick capture sticky notes goal cards session bubble">
+          <Setting title="Hide from recordings" note="Asks your Mac to leave a window out of shares, recordings and screenshots, while you still see it." more="Not a promise: since macOS 15, apps that record the screen the newer way can still show a hidden window, so do not count on it for anything private. “Step away in meetings” and Safe mode take sticky notes and goal cards off the screen itself. All are hidden to start; turn one off for a demo or a Loom. ⌘K shows or hides them all at once." keywords="hide from screen recordings and shares record recording screen share sharing zoom loom demo screenshot capture hide show main window quick capture sticky notes goal cards session bubble">
             {/* What the windows are now: all seen, or some blank to a camera. */}
             <AliveIcon icon={RECORDING_KINDS.some((kind) => !recorded[kind]) ? CameraOffIcon : CameraIcon} size={16} className="text-muted-foreground" />
           </Setting>

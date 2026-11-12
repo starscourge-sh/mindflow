@@ -333,7 +333,7 @@ export function celebrateAfter(channel: string, sender: WebContents, args: unkno
   try {
     if (!WATCH[channel] || sender.isDestroyed() || !hosts.has(sender.id)) return
     const { on } = celebrationPrefs()
-    if (!on || gate().blackout) return
+    if (!on || gate().blackout || gate().meeting) return
     const last = (database().prepare('select max(at) as at from celebrations').get() as { at: string | null }).at
     const best = last && Date.now() - new Date(last).getTime() < APART ? undefined
       : WATCH[channel](args, result).filter((one): one is Moment => !!one).sort((a, b) => b.rank - a.rank)[0]
@@ -388,7 +388,7 @@ const stickyAt = new Map<string, number>()
 function stickyDone(id: unknown): Moment | null {
   if (typeof id !== 'string') return null
   const { on } = celebrationPrefs()
-  if (!on || gate().blackout) return null
+  if (!on || gate().blackout || gate().meeting) return null
   const last = stickyAt.get(id)
   if (last && Date.now() - last < STICKY_APART) return null
   stickyAt.set(id, Date.now())
@@ -405,7 +405,7 @@ export function startedMoment(name = ''): Moment | null | false {
     // Already given: false, so nothing asks again.
     if (fired('started')) return false
     const { on } = celebrationPrefs()
-    if (!on || gate().blackout) return null
+    if (!on || gate().blackout || gate().meeting) return null
     const last = (database().prepare('select max(at) as at from celebrations').get() as { at: string | null }).at
     // Never on top of another card; but a minute apart, not ten: the checklist
     // is often finished within ten minutes of the first capture's own card.

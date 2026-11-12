@@ -369,11 +369,15 @@ export const eventFromBin = (id: string): boolean => {
   const row = database().prepare('select binned_at from events where id = ?').get(id) as { binned_at: string | null } | undefined
   if (!row?.binned_at) return false
   database().prepare('update events set binned_at = null where (id = ? or series_id = ?) and binned_at = ?').run(id, id, row.binned_at)
+  eventsTold()
   return true
 }
-export const eventToBin = (id: string): boolean =>
-  database().prepare('update calendars set binned_at = ? where id = ? and binned_at is null').run(now(), id).changes > 0 ||
-  database().prepare('update events set binned_at = ? where (id = ? or series_id = ?) and binned_at is null').run(now(), id, id).changes > 0
+export const eventToBin = (id: string): boolean => {
+  const gone = database().prepare('update calendars set binned_at = ? where id = ? and binned_at is null').run(now(), id).changes > 0 ||
+    database().prepare('update events set binned_at = ? where (id = ? or series_id = ?) and binned_at is null').run(now(), id, id).changes > 0
+  if (gone) eventsTold()
+  return gone
+}
 /** Let go for good: only one in the Bin, and with it its changed times and its note links (the notes stay). A calendar takes its events. */
 export const forgetEvents = (id?: string): number => {
   const d = database()
@@ -420,6 +424,20 @@ function remindersBetween(from: number, to: number): Due[] {
   return out.sort((a, b) => a.fire - b.fire)
 }
 
+/** Told when an event is made, moved, dropped or brought back: whether a meeting is on now may have changed (in-meeting.ts). */
+let eventsTold: () => void = () => undefined
+export const whenEvents = (tell: () => void): void => void (eventsTold = tell)
+/**
+ * Whether an event with other people is happening now, and the next moment that can change: one starting or ending
+ * in the day ahead, or a day from now when none does. All-day and called-off events are no meeting.
+ */
+export function peopleNow(at = Date.now()): { on: boolean; next: number } {
+  const day = 86_400_000
+  const met = eventsBetween(new Date(at).toISOString(), new Date(at + day).toISOString()).filter((one) => !one.allDay && !one.cancelled && one.people.length > 0)
+  const edges = met.flatMap((one) => [Date.parse(one.start), Date.parse(one.end)]).filter((edge) => edge > at)
+  return { on: met.some((one) => Date.parse(one.start) <= at && Date.parse(one.end) > at), next: Math.min(at + day, ...edges) }
+}
+
 let timer: ReturnType<typeof setTimeout> | undefined
 function checkReminders(): number {
   const { blackout, hidePrivate } = gate()
@@ -455,7 +473,11 @@ export function registerEvents(open: (type: string, id: string) => void): void {
   home = open
   tables()
   const handle = (channel: string, run: (...args: never[]) => unknown): void =>
-    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => run(...(args as never[])))
+    void ipcMain.handle(`haligtree:${channel}`, (_event, ...args) => {
+      const result = run(...(args as never[]))
+      if (/^(event:(add|save|drop)|events:undo|calendar:)/.test(channel)) eventsTold()
+      return result
+    })
 
   handle('calendars', () => calendars())
   // Made or changed: name, colour, shown or hidden. Gives back what it was, for an undo.

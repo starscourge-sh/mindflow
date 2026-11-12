@@ -1,4 +1,5 @@
 import { themeActions } from '@/lib/theme'
+import { deskAwayAction, useDeskAway } from '@/lib/desk-away'
 import { useReadsIn } from './lib/reads-in'
 import { clock } from '@/lib/clock'
 import { carryWindow } from '@/lib/carry'
@@ -562,6 +563,7 @@ export default function App(): React.JSX.Element {
   const practiceActions = usePracticeActions()
   // Tidy stickies only with a sticky out to tidy.
   const stickiesOut = useStickiesOut()
+  const desk = useDeskAway()
   // What the side panel's Inbox has waiting on you: pinned notes,
   // for the chip at the top while the panel is shut.
   const pinned = useLive(haligtree.pins, [] as Awaited<ReturnType<typeof haligtree.pins>>)
@@ -2073,6 +2075,8 @@ export default function App(): React.JSX.Element {
               sayNow(haligtree.setSettings({ safeMode: on }), on ? 'Safe mode on' : 'Safe mode off', () => void haligtree.setSettings({ safeMode: !on }))
             } },
             { label: recordable ? 'Hide from recordings' : 'Show in recordings', hint: `${APP_NAME} in screen recordings and shares`, cue: recordable ? 'off' : 'on', icon: recordable ? CameraOffIcon : CameraIcon, run: () => setRecordable(!recordable) },
+            // Away for a meeting or quiet hours: the way to have them out all the same.
+            ...deskAwayAction(desk),
             { label: appSettings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', hint: appSettings?.stickiesShown === false ? 'Your sticky notes back on the desktop' : 'Off the desktop for now, kept as they are', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = appSettings?.stickiesShown === false
               void haligtree.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void haligtree.setSettings({ stickiesShown: !show })))

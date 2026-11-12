@@ -214,7 +214,7 @@ export const WORDS: Word[] = [
     forms: ['Sticky', 'Stickies', 'Sticky notes', 'Sticky note'],
     line: 'A note stuck on your desktop, where you left it',
     origin: 'After the Post-it',
-    here: '**Any note, stuck on the desktop where you put it.** Now and then one stirs a little, so your eye finds it again.',
+    here: '**Any note, stuck on the desktop where you put it.** It steps out of sight while you are in a meeting, and comes back after.',
     try: '⌃⌥⌘N shows or hides them all.',
     history: 'In 1968 Spencer Silver at 3M made a glue too weak to be useful. Years later his colleague Art Fry used it to keep bookmarks from falling out of his hymn book, and Post-it notes went on sale in 1980.',
     see: ['beacon', 'surfacing', 'scenery']

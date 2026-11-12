@@ -176,8 +176,7 @@ try {
     await setting({ tempusDots: false })
     check(await h.locator('[data-choices="Sticky note material"] [data-choice]').count() === 3, `${theme}: sticky materials have thumbnails`)
     await shoot('[data-choices="Sticky note material"]', `sticky-made-${theme}`)
-    check(await h.locator('[data-preview="stir"]').count() === 1, `${theme}: Stickies stir has its sample`)
-    await shoot('[data-preview="stir"]', `stir-${theme}`)
+    check(await h.locator('[data-desk-seen]').count() === 1, `${theme}: Step away in meetings says what it sees now`)
 
     // Sort and view: each way to view a list is named under its picture.
     await go('inbox')

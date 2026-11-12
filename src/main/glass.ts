@@ -18,13 +18,18 @@ type Spell = (text?: string, start?: number, length?: number) => Spelt | undefin
 type Learn = (word: string, how: 'learn' | 'unlearn' | 'ignore' | 'unignore') => boolean
 let speller: Spell | null = null
 let learner: Learn | null = null
+type InUse = (listen: (mic: boolean, camera: boolean) => void) => void
+let inUse: InUse | null = null
+let mirroring: (() => boolean) | null = null
 function load(): typeof glassy {
   if (glassy !== undefined || process.platform !== 'darwin') return glassy ?? null
   try {
-    const module = { exports: {} as { glass?: typeof glassy; watchScroll?: Watch; nonActivating?: typeof stayBehind; spell?: Spell; learn?: Learn } }
+    const module = { exports: {} as { glass?: typeof glassy; watchScroll?: Watch; nonActivating?: typeof stayBehind; spell?: Spell; learn?: Learn; watchInUse?: InUse; mirrored?: () => boolean } }
     process.dlopen(module, glassFile)
     speller = module.exports.spell ?? null
     learner = module.exports.learn ?? null
+    inUse = module.exports.watchInUse ?? null
+    mirroring = module.exports.mirrored ?? null
     glassy = module.exports.glass ?? null
     watcher = module.exports.watchScroll ?? null
     stayBehind = module.exports.nonActivating ?? null
@@ -62,6 +67,21 @@ export function spell(text?: string, start?: number, length?: number): Spelt | n
 export function learn(word: string, how: 'learn' | 'unlearn' | 'ignore' | 'unignore'): boolean {
   load()
   return !!learner?.(word, how)
+}
+
+/**
+ * A microphone in use by an app other than Haligtree, a camera by any (in-meeting.ts): said as they are now, then on
+ * every change. Only the Mac's own "in use" flags are read, on a thread of the module's own; nothing is opened, so
+ * there is no permission to ask for and no prompt (native/glass.mm says how).
+ */
+export function watchInUse(listen: Parameters<InUse>[0]): void {
+  load()
+  inUse?.(listen)
+}
+/** Whether one screen is showing another's picture this moment (a projector, a television). */
+export function mirrored(): boolean {
+  load()
+  return !!mirroring?.()
 }
 
 /** What each window last asked for, for a probe (qa/glass.mjs). */

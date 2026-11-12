@@ -1,4 +1,5 @@
 import { detailsShown, showDetails } from '@/lib/reading'
+import { deskAwayAction, useDeskAway } from '@/lib/desk-away'
 import { heroBack, heroing } from '@/lib/hero'
 import { createPortal } from 'react-dom'
 import { CarriedCard } from '@/components/haligtree/carry'
@@ -1320,6 +1321,7 @@ export function Home(): React.JSX.Element {
 
   // Tidy stickies is offered only with a sticky out to tidy.
   const stickiesOut = useStickiesOut()
+  const desk = useDeskAway()
 
   const safeMode = (): void => {
     const on = !settings?.safeMode
@@ -1937,6 +1939,8 @@ export function Home(): React.JSX.Element {
               toast(was ? 'Sounds off' : 'Sounds on', () => (soundOn(was), void haligtree.setSettings({ sounds: was })))
             } },
             { label: settings?.safeMode ? 'Turn safe mode off' : 'Turn safe mode on', hint: settings?.safeMode ? 'Hints, pins, sticky notes and goal cards come back' : 'Nothing comes up unasked, for sharing your screen', keys: '⌥⌘S', cue: null, run: safeMode },
+            // Away for a meeting or quiet hours: the way to have them out all the same.
+            ...deskAwayAction(desk),
             { label: settings?.stickiesShown === false ? 'Show sticky notes' : 'Hide sticky notes', hint: settings?.stickiesShown === false ? 'Your sticky notes back on the desktop' : 'Off the desktop for now, kept as they are', keys: '⌃⌥⌘N', cue: null, run: () => {
               const show = settings?.stickiesShown === false
               void haligtree.setSettings({ stickiesShown: show }).then(() => (show ? quietly : (undo: () => void) => toast('Sticky notes hidden. ⌃⌥⌘N brings them back', undo))(() => void haligtree.setSettings({ stickiesShown: !show })))

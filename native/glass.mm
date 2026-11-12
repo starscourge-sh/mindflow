@@ -7,10 +7,16 @@
 //   nonActivating(handle)         a panel that takes the keys and clicks without making Haligtree the front app.
 //   spell(text, start, length)    whether the word at that place in the text is misspelt, as the Mac judges it.
 //   learn(word, how)              the word learnt, unlearnt, or let by for this run.
+//   watchInUse(listen), mirrored()   a microphone or camera in use by another app, the screen mirrored: read, never opened.
 // Built by native/build-glass.sh into resources/glass.node.
 #import <AppKit/AppKit.h>
+#import <CoreAudio/CoreAudio.h>
+#import <CoreMediaIO/CMIOHardware.h>
+#include <algorithm>
+#include <libproc.h>
 #include <node_api.h>
 #include <objc/message.h>
+#include <unistd.h>
 #include <vector>
 
 static const NSInteger kTag = 0x6c617373; // "lass": the view this module put in, found again by its tag.
@@ -256,8 +262,166 @@ static napi_value Learn(napi_env env, napi_callback_info info) {
   }
 }
 
+// Whether a call may be on (main/in-meeting.ts): a microphone or a camera in use by another app, or the screen
+// mirrored. Only the Mac's own "in use" flags are read, the way OverSight (objective-see) watches them: nothing is
+// opened, started or captured, so there is no permission to ask for, no prompt, and no orange or green dot of
+// Haligtree's own. The flags change as events (property listeners), never by asking again and again.
+//   watchInUse(listen)  listen(mic, camera): as they are now, then again whenever a microphone or a camera starts or
+//                       stops or the devices change. Read on a thread of its own, never the app's.
+//   mirrored()          whether a screen is showing another's picture, this moment.
+// The microphone, macOS 14 and later: each app that has sound open is a "process object" that says whether it is
+// taking sound in (kAudioProcessPropertyIsRunningInput), so Haligtree's own voice note, talk to type and meeting
+// recorder (this process and the ones it started) are told apart from another app's call, on any microphone. Before
+// macOS 14 only the default microphone says "in use somewhere" (kAudioDevicePropertyDeviceIsRunningSomewhere), by
+// anyone, Haligtree too. Cameras: each one's kCMIODevicePropertyDeviceIsRunningSomewhere.
+static const AudioObjectPropertySelector kProcessList = 'prs#', kProcessPid = 'ppid', kProcessInput = 'piri';
+
+static AudioObjectPropertyAddress AudioAt(AudioObjectPropertySelector selector) {
+  return { selector, kAudioObjectPropertyScopeGlobal, 0 };
+}
+static CMIOObjectPropertyAddress CameraAt(CMIOObjectPropertySelector selector) {
+  return { selector, kCMIOObjectPropertyScopeGlobal, 0 };
+}
+
+/** Haligtree itself, or a program it started (its pages, its sound helper, talk to type, the meeting recorder). */
+static bool Ours(pid_t pid) {
+  for (int step = 0; step < 6 && pid > 1; step++) {
+    if (pid == getpid()) return true;
+    struct proc_bsdinfo info;
+    if (proc_pidinfo(pid, PROC_PIDTBSDINFO, 0, &info, sizeof(info)) <= 0) return false;
+    pid = (pid_t)info.pbi_ppid;
+  }
+  return false;
+}
+
+template <typename ID, typename Address, typename Size, typename Read>
+static std::vector<ID> ListOf(ID owner, Address at, Size size, Read read) {
+  UInt32 bytes = 0;
+  if (size(owner, &at, &bytes) != 0 || bytes < sizeof(ID)) return {};
+  std::vector<ID> ids(bytes / sizeof(ID));
+  if (read(owner, &at, &bytes, ids.data()) != 0) return {};
+  ids.resize(bytes / sizeof(ID));
+  return ids;
+}
+static std::vector<AudioObjectID> AudioList(AudioObjectID owner, AudioObjectPropertySelector selector) {
+  return ListOf<AudioObjectID>(owner, AudioAt(selector),
+    [](AudioObjectID o, AudioObjectPropertyAddress *a, UInt32 *n) { return AudioObjectGetPropertyDataSize(o, a, 0, NULL, n); },
+    [](AudioObjectID o, AudioObjectPropertyAddress *a, UInt32 *n, AudioObjectID *out) { return AudioObjectGetPropertyData(o, a, 0, NULL, n, out); });
+}
+static std::vector<CMIOObjectID> CameraList() {
+  return ListOf<CMIOObjectID>(kCMIOObjectSystemObject, CameraAt(kCMIOHardwarePropertyDevices),
+    [](CMIOObjectID o, CMIOObjectPropertyAddress *a, UInt32 *n) { return CMIOObjectGetPropertyDataSize(o, a, 0, NULL, n); },
+    [](CMIOObjectID o, CMIOObjectPropertyAddress *a, UInt32 *n, CMIOObjectID *out) { UInt32 used = 0; OSStatus said = CMIOObjectGetPropertyData(o, a, 0, NULL, *n, &used, out); *n = used; return said; });
+}
+static UInt32 AudioNumber(AudioObjectID object, AudioObjectPropertySelector selector) {
+  AudioObjectPropertyAddress at = AudioAt(selector);
+  UInt32 value = 0, bytes = sizeof(value);
+  return AudioObjectGetPropertyData(object, &at, 0, NULL, &bytes, &value) == noErr ? value : 0;
+}
+static bool HasProcessList() {
+  AudioObjectPropertyAddress at = AudioAt(kProcessList);
+  return AudioObjectHasProperty(kAudioObjectSystemObject, &at);
+}
+
+static bool MicInUse() {
+  if (HasProcessList()) {
+    for (AudioObjectID process : AudioList(kAudioObjectSystemObject, kProcessList))
+      if (AudioNumber(process, kProcessInput) && !Ours((pid_t)AudioNumber(process, kProcessPid))) return true;
+    return false;
+  }
+  AudioObjectID device = AudioNumber(kAudioObjectSystemObject, kAudioHardwarePropertyDefaultInputDevice);
+  return device != kAudioObjectUnknown && AudioNumber(device, kAudioDevicePropertyDeviceIsRunningSomewhere) != 0;
+}
+static bool CameraInUse() {
+  CMIOObjectPropertyAddress at = CameraAt(kCMIODevicePropertyDeviceIsRunningSomewhere);
+  for (CMIOObjectID camera : CameraList()) {
+    UInt32 running = 0, used = 0;
+    if (CMIOObjectGetPropertyData(camera, &at, 0, NULL, sizeof(running), &used, &running) == 0 && running) return true;
+  }
+  return false;
+}
+/** One screen showing another's picture: a projector or a television mirroring this Mac. */
+static bool Mirrored() {
+  CGDirectDisplayID displays[16];
+  uint32_t count = 0;
+  if (CGGetOnlineDisplayList(16, displays, &count) != kCGErrorSuccess) return false;
+  for (uint32_t i = 0; i < count; i++)
+    if (CGDisplayMirrorsDisplay(displays[i]) != kCGNullDirectDisplay) return true;
+  return false;
+}
+
+static napi_value IsMirrored(napi_env env, napi_callback_info info) {
+  napi_value out;
+  napi_get_boolean(env, Mirrored(), &out);
+  return out;
+}
+
+static napi_threadsafe_function inUseListener = NULL;
+static dispatch_queue_t inUseQueue = NULL;
+static std::vector<AudioObjectID> heardAudio;
+static std::vector<CMIOObjectID> heardCameras;
+
+static void CallInUse(napi_env env, napi_value js, void *context, void *data) {
+  if (!env) return;
+  napi_value global, args[2];
+  napi_get_global(env, &global);
+  napi_get_boolean(env, ((uintptr_t)data & 1) != 0, &args[0]);
+  napi_get_boolean(env, ((uintptr_t)data & 2) != 0, &args[1]);
+  napi_call_function(env, global, js, 2, args, NULL);
+}
+/** Read on inUseQueue, never on the app's own thread (the first read wakes the Mac's sound and camera services, a quarter of a second), and handed over. */
+static void SayInUse() {
+  if (!inUseListener) return;
+  uintptr_t said = (MicInUse() ? 1 : 0) | (CameraInUse() ? 2 : 0);
+  napi_call_threadsafe_function(inUseListener, (void *)said, napi_tsfn_nonblocking);
+}
+/** Those in `now` not listened to yet; `heard` becomes `now`, so one that went (its listener went with it) is new again if its number comes back. */
+template <typename ID>
+static std::vector<ID> NotHeard(std::vector<ID> &heard, const std::vector<ID> &now) {
+  std::vector<ID> fresh;
+  for (ID one : now) if (std::find(heard.begin(), heard.end(), one) == heard.end()) fresh.push_back(one);
+  heard = now;
+  return fresh;
+}
+/** Each thing that can start or stop taking sound or pictures is listened to once; run on inUseQueue only. */
+static void HearInUse() {
+  bool processes = HasProcessList();
+  AudioObjectID device = processes ? kAudioObjectUnknown : AudioNumber(kAudioObjectSystemObject, kAudioHardwarePropertyDefaultInputDevice);
+  AudioObjectPropertyAddress taking = AudioAt(processes ? kProcessInput : kAudioDevicePropertyDeviceIsRunningSomewhere);
+  std::vector<AudioObjectID> audio = processes ? AudioList(kAudioObjectSystemObject, kProcessList) : device != kAudioObjectUnknown ? std::vector<AudioObjectID>{device} : std::vector<AudioObjectID>{};
+  for (AudioObjectID one : NotHeard(heardAudio, audio))
+    AudioObjectAddPropertyListenerBlock(one, &taking, inUseQueue, ^(UInt32, const AudioObjectPropertyAddress *) { SayInUse(); });
+  CMIOObjectPropertyAddress running = CameraAt(kCMIODevicePropertyDeviceIsRunningSomewhere);
+  for (CMIOObjectID camera : NotHeard(heardCameras, CameraList()))
+    CMIOObjectAddPropertyListenerBlock(camera, &running, inUseQueue, ^(UInt32, const CMIOObjectPropertyAddress *) { SayInUse(); });
+}
+
+static napi_value WatchInUse(napi_env env, napi_callback_info info) {
+  size_t argc = 1;
+  napi_value argv[1], nothing, name;
+  napi_get_undefined(env, &nothing);
+  if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc < 1 || inUseListener) return nothing;
+  napi_create_string_utf8(env, "inUse", NAPI_AUTO_LENGTH, &name);
+  if (napi_create_threadsafe_function(env, argv[0], NULL, name, 0, 1, NULL, NULL, NULL, CallInUse, &inUseListener) != napi_ok) return nothing;
+  napi_unref_threadsafe_function(env, inUseListener);
+  inUseQueue = dispatch_queue_create("haligtree.in-use", DISPATCH_QUEUE_SERIAL);
+  // The lists themselves: an app opening sound for the first time, another microphone made the default, a camera
+  // plugged in. Each is listened to from then on, and the answer read again.
+  void (^again)(void) = ^{ HearInUse(); SayInUse(); };
+  dispatch_async(inUseQueue, ^{
+    AudioObjectPropertyAddress list = AudioAt(HasProcessList() ? kProcessList : kAudioHardwarePropertyDefaultInputDevice);
+    AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &list, inUseQueue, ^(UInt32, const AudioObjectPropertyAddress *) { again(); });
+    CMIOObjectPropertyAddress cameras = CameraAt(kCMIOHardwarePropertyDevices);
+    CMIOObjectAddPropertyListenerBlock(kCMIOObjectSystemObject, &cameras, inUseQueue, ^(UInt32, const CMIOObjectPropertyAddress *) { again(); });
+    again();
+  });
+  return nothing;
+}
+
 NAPI_MODULE_INIT() {
   napi_value fn;
+  if (napi_create_function(env, "mirrored", NAPI_AUTO_LENGTH, IsMirrored, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "mirrored", fn);
+  if (napi_create_function(env, "watchInUse", NAPI_AUTO_LENGTH, WatchInUse, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "watchInUse", fn);
   if (napi_create_function(env, "watchScroll", NAPI_AUTO_LENGTH, WatchScroll, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "watchScroll", fn);
   if (napi_create_function(env, "glass", NAPI_AUTO_LENGTH, Glass, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "glass", fn);
   if (napi_create_function(env, "nonActivating", NAPI_AUTO_LENGTH, NonActivating, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "nonActivating", fn);

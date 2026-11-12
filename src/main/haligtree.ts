@@ -30,6 +30,8 @@ import { bookHome } from './book-home'
 import { bookMentions } from './book-mentions'
 import { foldKept, goalsOut, toCheckBack } from './properties'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
+import { meetingSignals, shownAnyway } from './in-meeting'
+import { inMeeting, seenSaid } from './meeting-away'
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { YEAR, daysBetween, daysLeft, leftSaid } from './goal-days'
@@ -710,8 +712,8 @@ const DEFAULTS = {
   stickiesFrosted: true,
   // Frosted by the Mac itself: real glass that blurs whatever is behind, sitting straight (no lean).
   stickiesGlass: true,
-  // Now and then one sticky stirs, as paper does in a draught, so it never turns into wallpaper.
-  stickiesStir: true,
+  // Stickies and goal cards out of sight while a call may be on (in-meeting.ts), back the moment it ends.
+  stepAway: true,
   // Keys you changed: { the keys it came with: yours, or null for none }.
   keys: {} as Record<string, string | null>
 }
@@ -846,7 +848,6 @@ export function atLogin(): void {
 export const stickyFrost = (): boolean => settings().stickiesFrosted !== false
 /** Frosted by the Mac's own blur rather than the desktop picture. */
 export const stickyGlass = (): boolean => settings().stickiesFrosted !== false && settings().stickiesGlass === true
-export const stickyStir = (): boolean => settings().stickiesStir !== false
 export const stickyPrefs = (): { shown: boolean } => ({ shown: settings().stickiesShown })
 /** How the stickies are tucked at the screen's edge: not at all, as named tabs, or as small flat pills. */
 export const stickyTuck = (): 'off' | 'tabs' | 'flat' => (['tabs', 'flat'].includes(settings().stickiesTucked) ? settings().stickiesTucked : 'off')
@@ -949,7 +950,8 @@ function settings(): Settings {
 
 /**
  * What may surface unasked right now. Safe mode is a blackout on everything
- * the app volunteers; quiet hours only keep private items back. Search, lists
+ * the app volunteers; quiet hours, and a meeting, keep private items back and
+ * the stickies and goal cards away (index.ts, applyDesk). Search, lists
  * and a review you opened are never gated: you can hide what the app offers,
  * never what you asked for.
  */
@@ -957,16 +959,28 @@ function settings(): Settings {
 export const feedTakesPages = (): boolean => settings().feedPages === true
 export const feedTakesPictures = (): boolean => settings().feedPictures === true
 
-export function gate(): { blackout: boolean; hidePrivate: boolean } {
+/**
+ * A meeting (in-meeting.ts, Settings' “Step away in meetings”) is quiet hours come early: whatever quiet hours keep
+ * back is kept back while a call may be on (`hidePrivate`), the stickies and goal cards are away in both (index.ts),
+ * and `meeting` says it is a meeting, for the few things quiet hours let through and a call must not (a celebration).
+ * `quiet` is quiet hours by the clock alone.
+ */
+export function gate(): { blackout: boolean; hidePrivate: boolean; meeting: boolean; quiet: boolean } {
   // Handed off to another book or the sandbox: nothing of this one surfaces any more.
-  if (handedOff()) return { blackout: true, hidePrivate: true }
-  const { safeMode, quietStart, quietEnd } = settings()
-  if (safeMode) return { blackout: true, hidePrivate: true }
+  if (handedOff()) return { blackout: true, hidePrivate: true, meeting: false, quiet: false }
+  const { safeMode, quietStart, quietEnd, stepAway } = settings()
+  const meeting = inMeeting(meetingSignals(), stepAway !== false)
   const time = new Date().toTimeString().slice(0, 5)
   const quiet =
     quietStart <= quietEnd ? time >= quietStart && time < quietEnd : time >= quietStart || time < quietEnd
-  return { blackout: false, hidePrivate: quiet }
+  if (safeMode) return { blackout: true, hidePrivate: true, meeting, quiet }
+  return { blackout: false, hidePrivate: quiet || meeting, meeting, quiet }
 }
+/** Told when “Step away in meetings” is switched: the desk follows at once. */
+let stepAwayTold: () => void = () => undefined
+export const whenStepAway = (tell: () => void): void => void (stepAwayTold = tell)
+/** What “Step away in meetings” sees now, for its row in Settings. */
+export const meetingSeen = (): string => seenSaid(meetingSignals(), settings().stepAway !== false, shownAnyway())
 // An untriaged capture counts as private, the plan's fail-safe: you have not
 // looked at it since you wrote it, so in quiet hours it is not volunteered.
 // Taking an exit is what clears it, so the default resolves itself.
@@ -1453,6 +1467,7 @@ export function registerHaligtree(): void {
     // Snoozed things shown or hidden: every list looks again.
     if ('showSnoozed' in patch) changed()
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
+    if ('stepAway' in patch || 'quietStart' in patch || 'quietEnd' in patch) stepAwayTold()
     if (patch.keys) keysTold(patch.keys)
     // Spotlight's switch: notes put in or taken out now (spotlight.ts).
     if ('spotlight' in patch) app.emit('haligtree:spotlight')

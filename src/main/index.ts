@@ -60,7 +60,7 @@ import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
 import { hintRoom, type HintSide } from './hint-room'
-import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, stickyStir, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
+import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
@@ -70,7 +70,9 @@ import { registerGroups } from './groups'
 import { registerSections } from './sections'
 import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
-import { registerEvents } from './events'
+import { peopleNow, registerEvents, whenEvents } from './events'
+import { followEvents, forgetAnyway, setSignal, showAnyway, shownAnyway, watchMac, whenMeeting } from './in-meeting'
+import { awayWhy, deskAway } from './meeting-away'
 import { registerReadingQueue } from './reading-queue'
 import { registerPractices, whenPracticeOffer } from './practices'
 import { registerIssues } from './issues'
@@ -1241,6 +1243,8 @@ const sendMeeting = (live: Live, level?: { you: number; others: number }): void 
   // The menu bar's lines follow what the meeting is doing, not its every word.
   const shape = `${live.state}`
   if (shape !== meetingShape) (meetingShape = shape, updateTray())
+  // Haligtree's own recorder running is a meeting: the desk steps away for it (in-meeting.ts).
+  setSignal('recording', meetingNow())
 }
 
 /** The card window a page belongs to, if it is one. */
@@ -1259,7 +1263,7 @@ const stickies = new Map<string, BrowserWindow>()
 // (afterHome). gate() is a blackout from here on, so none of them comes back while this run lingers.
 onHandOff(() => { for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed() && win !== home) win.hide() })
 /**
- * Where Haligtree itself last put a sticky (a wiggle, a lift). A window found there
+ * Where Haligtree itself last put a sticky (a lift, a glide). A window found there
  * was moved by Haligtree, not by you: not kept as its place, nor nudged on screen.
  */
 const placed = new WeakMap<BrowserWindow, { x: number; y: number }>()
@@ -1541,12 +1545,31 @@ function putStickyBack(): void {
   if (!canPutBack() || !takenDown) return
   const { type, id, bounds, tint } = takenDown
   takenDown = null
+  byHand(`${type}:${id}`)
   stuck.push({ type, id, bounds, tint })
   stick(type, id, true, bounds)
   updateTray()
 }
-/** Whether a sticky is on the desktop now: not in safe mode, the stickies shown, and not put away on its own. */
-const stickyUp = (key: string): boolean => !gate().blackout && stickyPrefs().shown && !stuckAs(key)?.hidden && (tucked.get(key) ?? 0) <= Date.now() && ruled.get(key) !== 'tuck'
+/**
+ * Stuck or brought back by hand while the desk is away (a meeting, quiet hours): asked for, so it shows. Forgotten
+ * when the desk comes back.
+ */
+const askedFor = new Set<string>()
+/** The desk is away: a meeting or quiet hours, and “Show anyway” not asked for (meeting-away.ts). */
+const deskIsAway = (): boolean => {
+  const { meeting, quiet } = gate()
+  return deskAway(meeting, quiet, shownAnyway())
+}
+/** Done by hand (stuck, put back, brought back): while the desk is away, that one shows all the same. */
+const byHand = (key: string): void => void (deskIsAway() && askedFor.add(key))
+/**
+ * Whether a sticky is on the desktop now: not in safe mode, a meeting or quiet hours (unless asked for by hand in
+ * them), the stickies shown, and not put away on its own.
+ */
+const stickyUp = (key: string): boolean => {
+  const { blackout, meeting, quiet } = gate()
+  return !blackout && (!deskAway(meeting, quiet, shownAnyway()) || askedFor.has(key)) && stickyPrefs().shown && !stuckAs(key)?.hidden && (tucked.get(key) ?? 0) <= Date.now() && ruled.get(key) !== 'tuck'
+}
 /** How many stickies are out on the screen: Tidy stickies is offered only when there is one to tidy. */
 const stickiesOut = (): number => [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible()).length
 let toldOut = -1
@@ -1589,8 +1612,11 @@ function tellStickiesOut(): void {
 const shielded = new WeakSet<BrowserWindow>()
 /** A sticky, a goal card or the Look over one, shown in screen recordings as their switch says. */
 const shield = (win: BrowserWindow): void => (shielded.add(win), protect(win))
-/** Every sticky as the settings say now: shown or away. */
-function applyStickies(): void {
+/**
+ * Every sticky as the settings say now: shown or away. `atOnce`: back from a meeting or quiet hours, each is simply
+ * there again where it was, with no drop, fade or sound: nobody asked for a show.
+ */
+function applyStickies(atOnce = false): void {
   for (const [key, win] of stickies) {
     if (win.isDestroyed()) continue
     // Coming out, each fades in and settles, one after another.
@@ -1598,8 +1624,10 @@ function applyStickies(): void {
     // Tucked away, every one is a tab (or a flat pill) at the screen's edge.
     shapeCard(key, win)
     // One still drawing comes in by itself once it has (see stick): never shown empty.
-    if (stickyUp(key)) void (stickyReady.has(win) && arriveSticky(win))
-    else win.hide()
+    if (!stickyUp(key)) win.hide()
+    else if (!stickyReady.has(win)) continue
+    else if (atOnce) void (win.isVisible() || (win.setOpacity(1), win.showInactive()))
+    else arriveSticky(win)
   }
   // Named tabs overlap down their edge: each lower one sits over the foot of the one above, as file tabs do.
   if (stickyTuck() === 'tabs')
@@ -1608,6 +1636,48 @@ function applyStickies(): void {
   retellFrost()
   tellStickiesOut()
 }
+/**
+ * The desk as a meeting, quiet hours and “Show anyway” say now (in-meeting.ts, meeting-away.ts). Away: every sticky
+ * note, the Today sticky, every goal card and tab hides at once, and a nudge card left on the screen with them. Back:
+ * each where it was, at once and silent, and no moment missed is made up for. Run when a signal comes or goes, when
+ * the setting or quiet hours are changed, when “Show anyway” is chosen, and by the clock (quiet hours' start and end).
+ */
+let deskWhy: 'meeting' | 'quiet' | null = null
+let deskHidden = false
+/** Nudge cards on the screen as the desk went away: back with it, if they still hold a card. */
+const nudgesAway = new Set<BrowserWindow>()
+const nudgeTall = new WeakMap<BrowserWindow, number>()
+type DeskSaid = { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }
+const deskSaid = (): DeskSaid => ({ why: deskWhy, hidden: deskHidden, seen: meetingSeen() })
+function applyDesk(): void {
+  const { meeting, quiet, blackout } = gate()
+  const why = awayWhy(meeting, quiet)
+  // “Show anyway”, and what was stuck by hand, last as long as what hid the rest.
+  if (!why) (forgetAnyway(), askedFor.clear())
+  const hidden = deskAway(meeting, quiet, shownAnyway())
+  const same = why === deskWhy && hidden === deskHidden
+  deskWhy = why
+  deskHidden = hidden
+  // What a signal says is in Settings as it changes, whether or not the desk moved.
+  for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed()) win.webContents.send('desk:away', deskSaid())
+  if (same) return
+  if (!blackout) {
+    applyStickies(true)
+    if (hidden) {
+      for (const { win } of nudgeWins.values()) if (!win.isDestroyed() && win.isVisible()) (nudgesAway.add(win), win.hide())
+    } else {
+      for (const win of nudgesAway) if (!win.isDestroyed() && (nudgeTall.get(win) ?? 0) > 0) win.showInactive()
+      nudgesAway.clear()
+    }
+  }
+  updateTray()
+}
+/** The menus' lines while the desk is away, beside “Show sticky notes”: why, and the way to have them out all the same. */
+const awayItems = (): Electron.MenuItemConstructorOptions[] =>
+  !deskWhy ? [] : deskHidden
+    ? [{ label: deskWhy === 'meeting' ? 'Hidden for a meeting' : 'Hidden for quiet hours', enabled: false }, { label: 'Show anyway', click: () => showAnyway(true) }]
+    : [{ label: deskWhy === 'meeting' ? 'Shown anyway for this meeting' : 'Shown anyway for these quiet hours', enabled: false }, { label: 'Hide them again', click: () => showAnyway(false) }]
+
 /** Which stickies were made as real glass, so a change of the setting remakes the rest. */
 const builtGlass = new Map<string, boolean>()
 
@@ -1632,7 +1702,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     if (one?.hidden) (one.hidden = false), keepStuck()
     if (!stickyPrefs().shown) return void showStickies(true)
     // Still drawing what it holds: it comes in by itself once it has, never shown empty.
-    return void (gate().blackout || !stickyReady.has(open) || arriveSticky(open))
+    return void (gate().blackout || (deskIsAway() && !askedFor.has(key)) || !stickyReady.has(open) || arriveSticky(open))
   }
   // One window per sticky, ever: a copy left behind (not its own, not on its way out) goes now.
   for (const other of BrowserWindow.getAllWindows())
@@ -2566,6 +2636,9 @@ const seenNow = (): Seen => {
 const keepSeen = (): void => void ((seenKept = Date.now()), writeFile(seenFile(), JSON.stringify(seenNow())).catch(() => undefined))
 /** Each card's place now, and every card moved to it. */
 function applyRules(): void {
+  // Quiet hours start and end by the same clock.
+  applyDesk()
+  const away = deskIsAway()
   const rules = tuckRules()
   const clockNow = new Date().toTimeString().slice(0, 5)
   const base = restNow(rules, clockNow, rules.on && !!activeSession())
@@ -2577,7 +2650,8 @@ function applyRules(): void {
   for (const [key, mode] of beaconModes) {
     let rest: Rest = mode === 'always' ? base : 'show'
     record.last[key] ??= now
-    if (peeksOut(rest, rules, record.last[key], record.nudged[key], now, today)) {
+    // Away for a meeting or quiet hours, nothing peeks out: its once a day is kept for when it can be seen.
+    if (!away && peeksOut(rest, rules, record.last[key], record.nudged[key], now, today)) {
       record.nudged[key] = today
       peekingOut.set(key, now + PEEK_OUT_MS)
       nudging.add(key)
@@ -4263,6 +4337,7 @@ function updateDock(): void {
       // A fresh box, as ⌘N in it makes one: whatever was in it can be brought back.
       { label: 'New note', click: newNote },
       { label: 'Today', click: () => sendHome('view', 'today', undefined, 'window') },
+      ...awayItems(),
       { label: 'Show sticky notes', type: 'checkbox', checked: stickiesTicked(), click: (item) => void showStickies(item.checked) }
     ])
   )
@@ -4389,6 +4464,8 @@ function updateTray(): void {
       {
         label: 'Sticky notes',
         submenu: [
+          // Away for a meeting or quiet hours: said first, with the way to have them out all the same.
+          ...awayItems(),
           // Ticked as they are on the screen; chosen, they come out or go away as the tick now says.
           { label: 'Show sticky notes', type: 'checkbox', checked: stickiesTicked(), accelerator: chordFor('⌃⌥⌘N'), click: (item) => void showStickies(item.checked) },
           { label: 'Bring them here', enabled: !safe && stickies.size > 0, click: () => gatherStickies() },
@@ -5159,6 +5236,7 @@ app.whenReady().then(() => {
     const win = nudgeHeld(event.sender)?.win
     if (!win) return
     const next = Math.round(Math.max(0, Math.min(520, Number(height) || 0)))
+    nudgeTall.set(win, next)
     if (!next) return void win.hide()
     win.setBounds({ ...win.getBounds(), height: next })
   })
@@ -5219,7 +5297,10 @@ app.whenReady().then(() => {
   ipcMain.handle('stickies:out', () => stickiesOut())
   ipcMain.on('stickies:untidy', () => untidyStickies())
   ipcMain.on('sticky', (_event, type: unknown, id: unknown, on: unknown) => {
-    if (typeof type === 'string' && typeof id === 'string') stick(type, id, Boolean(on))
+    if (typeof type !== 'string' || typeof id !== 'string') return
+    // Stuck by hand in a meeting or quiet hours: this one was asked for, so it shows.
+    if (on) byHand(`${type}:${id}`)
+    stick(type, id, Boolean(on))
   })
   // Beacons once the stickies are back, then as goals change, and at their moments.
   registerFrost()
@@ -5235,16 +5316,20 @@ app.whenReady().then(() => {
   setInterval(() => {
     if (powerMonitor.getSystemIdleTime() < 120 && Date.now() - lastAppear >= 3 * 3600_000) beaconMoment('active')
   }, 5 * 60_000)
-  // Now and then one sticky stirs, so it is seen again rather than becoming
-  // part of the desktop: every 25 to 45 minutes, while you are at the Mac,
-  // one at a time in turn. The sticky itself declines if you are writing in it.
-  let stirred = 0
-  const stirLater = (): void => void setTimeout(() => {
-    const up = [...stickies.entries()].filter(([key, win]) => !win.isDestroyed() && win.isVisible() && stickyUp(key)).map(([, win]) => win)
-    if (stickyStir() && motionOn() && !gate().blackout && up.length && powerMonitor.getSystemIdleTime() < 120) up[stirred++ % up.length].webContents.send('sticky:stir')
-    stirLater()
-  }, (25 + Math.random() * 20) * 60_000)
-  stirLater()
+  // A meeting or quiet hours: the desk steps away, and comes back as it was (applyDesk). Each signal is an event:
+  // the Mac's own (a camera or microphone in use, the screen mirrored), the Calendar's, the recorder's (sendMeeting).
+  whenMeeting(applyDesk)
+  whenStepAway(applyDesk)
+  watchMac()
+  // The sandbox's events are make-believe: they hide nothing (a probe may ask for them to count).
+  if (!SANDBOX || (process.env.HALIGTREE_QA_SIGNALS ?? '').includes('calendar')) {
+    const lookAtEvents = followEvents(peopleNow)
+    whenEvents(lookAtEvents)
+    lookAtEvents()
+  }
+  applyDesk()
+  ipcMain.handle('desk:away', () => deskSaid())
+  ipcMain.on('desk:anyway', (_event, on: unknown) => showAnyway(on !== false))
   // Pointed at, a goal's card stays; let go, one out now and then tucks a
   // minute later. Its X tucks it: till its next moment, or for an always
   // one, till tomorrow. The other goals' cards stay.
@@ -5325,20 +5410,9 @@ app.whenReady().then(() => {
     if (!one?.hidden) return
     delete one.hidden
     keepStuck()
+    byHand(String(key))
     if (!stickyPrefs().shown) return void showStickies(true)
     applyStickies()
-  })
-  // A sticky's whole window wiggles where it stands, as a Mac's own window shakes
-  // at a wrong password: a few quick, shrinking swings side to side, then exactly
-  // back. Now and then, when it stirs. A drag mid-move always wins.
-  const wiggled = new WeakMap<BrowserWindow, number>()
-  ipcMain.on('sticky:wiggle', (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win || win.isDestroyed() || stillness() || lifted.has(win) || held.has(win) || Date.now() - (wiggled.get(win) ?? 0) < 1500) return
-    wiggled.set(win, Date.now())
-    const { x, y } = win.getBounds()
-    placed.set(win, { x, y })
-    glide(win, 420, (t) => ({ x: t >= 1 ? x : x + Math.round(5 * Math.sin(t * Math.PI * 6) * (1 - t) ** 1.5), y }))
   })
   // Pointed at, a sticky's window rises a few points, as a card picked off the
   // desk does, and sets down again once the pointer has left it. The pointer is

@@ -720,26 +720,6 @@ export const stickyChoices = [
   { id: 'glass', label: 'Glass', said: 'Your desktop shows through, blurred.' }
 ].map((one) => ({ ...one, show: <Sticky made={one.id as 'paper'} /> }))
 
-/** A sticky that now and then lifts a little and settles, every few seconds here (every half hour or so for real), and when pointed at. */
-export function StirSample({ on }: { on: boolean }): React.JSX.Element {
-  const note = useRef<HTMLSpanElement>(null)
-  const moving = useAlive()
-  const stir = (): void => void note.current?.animate([{ transform: 'rotate(-2deg)' }, { transform: 'translateY(-3px) rotate(-4deg)', offset: 0.35 }, { transform: 'translateY(0.5px) rotate(-1.5deg)', offset: 0.75 }, { transform: 'rotate(-2deg)' }], { duration: 1100, easing: 'cubic-bezier(0.45, 0, 0.55, 1)' })
-  useEffect(() => {
-    if (!on || !moving) return
-    stir()
-    const every = setInterval(stir, 4200)
-    return () => clearInterval(every)
-  }, [on, moving])
-  return (
-    <span data-preview="stir" onPointerEnter={() => on && moving && stir()} className="relative block h-9 w-16 overflow-hidden rounded-md border" style={{ background: WALL }}>
-      <span ref={note} className="absolute top-1.5 left-4 block h-6 w-8 rounded-[3px] bg-[#f6e7a6] shadow-[0_3px_6px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)]" style={{ transform: 'rotate(-2deg)' }}>
-        <span className="block scale-75">{NOTE_LINES('rgb(40 34 25 / 0.55)')}</span>
-      </span>
-    </span>
-  )
-}
-
 /**
  * A goal's card tucked away by the clock, small: on, it waits as a slim tab
  * at the desktop's edge and opens out of it while pointed at, as the real one does.

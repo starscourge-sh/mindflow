@@ -263,26 +263,6 @@ export const PAPER: CSSProperties = GLASS
  */
 export const CARD = GLASS ? 'mf-card group relative flex h-full flex-col rounded-[10px] text-control text-foreground [&>*]:transition-transform [&>*]:duration-240 [&>*]:ease-(--mf-ease) hover:[&>*]:-translate-y-0.5 data-held:[&>*]:-translate-y-1! motion-reduce:[&>*]:transition-none' : 'mf-card group relative flex h-full rotate-(--tilt) flex-col rounded-lg border border-(--mf-float-ring) text-control text-foreground shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_4px_10px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_16%,transparent)] transition-[rotate,scale,box-shadow] duration-240 ease-(--mf-ease) hover:scale-102 hover:rotate-0 hover:shadow-[0_2px_4px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent),0_10px_18px_-4px_color-mix(in_oklab,var(--mf-shadow-ink)_24%,transparent)] data-held:scale-103! data-held:rotate-0! data-held:shadow-[0_4px_8px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_18px_30px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_30%,transparent)]! motion-reduce:transition-none'
 
-/**
- * Told now and then to stir (see main), the card lifts a little and settles,
- * as paper does in a draught, so it is seen again. Not while you write in it
- * (a key in the last 15 seconds), nor with Motion off; added to its own lean.
- */
-export function stir(card: HTMLElement | null, lastKey: number): void {
-  if (!card || Date.now() - lastKey < 15_000 || still()) return
-  // The window itself stirs too, as well as what is drawn in it.
-  window.api.wiggle()
-  // On glass the note is the window, so the paper stays and its words and tape lift instead.
-  const moving = GLASS ? [...card.children] : [card]
-  for (const one of moving)
-    one.animate(
-      GLASS
-        ? [{ transform: 'translateY(0)' }, { transform: 'translateY(-3px)', offset: 0.3 }, { transform: 'translateY(-1px)', offset: 0.62 }, { transform: 'translateY(0)' }]
-        : [{ transform: 'translateY(0) rotate(0deg)' }, { transform: 'translateY(-4px) rotate(1.6deg)', offset: 0.3 }, { transform: 'translateY(-1px) rotate(-0.9deg)', offset: 0.62 }, { transform: 'translateY(0) rotate(0deg)' }],
-      { duration: 1200, easing: 'cubic-bezier(0.37, 0, 0.63, 1)', composite: 'add' }
-    )
-}
-
 /** How long a list stays all ticked before it is celebrated, so an untick straight after takes it back unseen. */
 export const GRACE = 2500
 
@@ -485,16 +465,6 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const area = useRef<HTMLDivElement>(null)
   // The picture out in the look window: its place here stands empty till it comes back.
   const out = useRef<HTMLImageElement | null>(null)
-  // Told now and then to stir (see main): it lifts a little and settles, as
-  // paper does in a draught, so it is seen again. Not while you write in it,
-  // nor with Motion off; added to its own lean, never instead of it.
-  const lastKey = useRef(0)
-  useEffect(() => {
-    const note = (): void => void (lastKey.current = Date.now())
-    window.addEventListener('keydown', note, true)
-    return () => window.removeEventListener('keydown', note, true)
-  }, [])
-  useEffect(() => window.api.onStir(() => stir(card.current, lastKey.current)), [])
   useEffect(() => window.api.onLookOver(() => {
     if (out.current) out.current.style.visibility = ''
     out.current = null

@@ -19,7 +19,7 @@ import { SandboxStamp } from '@/components/haligtree/sandbox'
 import { Frost } from './frost'
 import { Tape } from './tape'
 import { Grabber } from './grabber'
-import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, stir, tiltOf, useStickyMotion } from './sticky-note'
+import { CARD, DRAG, GLASS, GRACE, Grip, PAPER, STICKY_BUTTON, STILL, StickyHead, tiltOf, useStickyMotion } from './sticky-note'
 import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { stickyMenu } from './row-menu'
@@ -56,7 +56,6 @@ export function TodaySticky(): React.JSX.Element {
   const [ticked, setTicked] = useState<Record<string, Ticked>>({})
   const [asking, setAsking] = useState(false)
   const card = useRef<HTMLDivElement>(null)
-  const lastKey = useRef(0)
   const tilt = GLASS ? 0 : tiltOf('today', Number(new URLSearchParams(location.search).get('nth')) || 0)
   useStickyMotion(card, tilt)
   // Taking it down: the first press asks, the second peels it off and the window in sight offers "Put it back".
@@ -78,7 +77,6 @@ export function TodaySticky(): React.JSX.Element {
     document.body.style.background = 'transparent'
     document.body.dataset.sticky = GLASS ? 'glass' : 'paper'
     const key = (event: KeyboardEvent): void => {
-      lastKey.current = Date.now()
       if (event.key === 'Escape') return setAsking(false)
       // ⌘W does just what its X does: the window has no close of its own.
       if (!event.metaKey || event.key.toLowerCase() !== 'w') return
@@ -88,7 +86,6 @@ export function TodaySticky(): React.JSX.Element {
     window.addEventListener('keydown', key, true)
     return () => window.removeEventListener('keydown', key, true)
   }, [])
-  useEffect(() => window.api.onStir(() => stir(card.current, lastKey.current)), [])
 
   // What is on Today, by the rule the sidebar and Today's brief count by, and
   // those of them done today; a tick here keeps its row even once a routine
