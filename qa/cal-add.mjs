@@ -37,7 +37,9 @@ let all = 0
 const check = (name, pass, detail = '') => { all++; if (pass) passed++; console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 const wait = (ms) => h.waitForTimeout(ms)
 const dir = process.env.FRAMES
-if (dir) mkdirSync(dir, { recursive: true })
+// SHOTS=dir: the still pictures only, with no film beside them (a film slows the page: the rows part counts a spring's steps only without one).
+const stills = process.env.SHOTS ?? dir
+if (stills) mkdirSync(stills, { recursive: true })
 const dayKeyOf = (by) => { const d = c.now(); d.setDate(d.getDate() + by); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 const cues = () => h.evaluate(() => [...(window.haligtreeCued ?? [])])
 /** The cues an action played, by name: the app keeps its last fifty, so the list is emptied first and read whole after. */
@@ -63,7 +65,7 @@ const eventsNamed = async (title) => (await v('events', new Date(c.now().getTime
 const tasksNamed = async (title) => (await v('tasks')).filter((one) => one.title.startsWith(title))
 const inside = (s) => s.pop && s.pop.x >= 11.5 && s.pop.y >= 51.5 && s.pop.r <= s.win.w - 11.5 && s.pop.b <= s.win.h - 11.5
 const apart = (s) => s.pop && s.draft && (s.pop.x >= s.draft.r - 0.5 || s.pop.r <= s.draft.x + 0.5 || s.pop.y >= s.draft.b - 0.5 || s.pop.b <= s.draft.y + 0.5)
-const shot = async (name) => { if (dir) await h.screenshot({ path: `${dir}/${name}.png` }) }
+const shot = async (name) => { if (stills) await h.screenshot({ path: `${stills}/${name}.png` }) }
 /** A picture every 50ms while `run` plays out. */
 const film = async (name, run, n = 8) => {
   if (!dir) return run()
