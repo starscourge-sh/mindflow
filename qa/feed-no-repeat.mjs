@@ -11,6 +11,10 @@ import { open, checks } from './harness.mjs'
 const { check, done } = checks()
 const data = mkdtempSync(join(tmpdir(), 'haligtree-feed-'))
 process.env.QA_DATA = data
+// A plain new book of its own, whatever the run was given: started with --sandbox (as a run of every check is), the
+// example book's own quotes and gems were in the Feed too, and its database sits in a folder of its own (sandbox/),
+// so the day moved back below was looked for in a file that was not there and the check stopped without a line.
+delete process.env.QA_ARGS
 const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
 const feed = async (page) => (await page.evaluate(() => window.api.haligtree('feed'))).posts.filter((one) => one.kind === 'quote' || one.type === 'nugget').map((one) => `${one.type}:${one.id}`)
 let first = []
