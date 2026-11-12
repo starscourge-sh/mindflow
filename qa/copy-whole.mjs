@@ -60,13 +60,15 @@ async function openNote(id, words, at) {
   await wait(700)
   if (!at) return
   // A note opened again is put back where it was last left, a moment after its words show (it may scroll): so a
-  // click on a line in view to take the keys, then ⌘↑ to the top of the note and ⌘→ to the end of its first line,
-  // made again until the caret stands there.
+  // click on a line in view to take the keys, ⌘↑ to the top of the note, then a click at the end of its first
+  // line's last row (a note's first line is drawn large, and wraps once it has grown) and ⌘→, made again until the
+  // caret stands at the end of the line.
+  let stood = 'no line of the note was in view to click'
   for (let tries = 0; tries < 6; tries++) {
     await wait(tries ? 900 : 1500)
     const spot = await h.evaluate(([sel, words]) => {
       const ed = [...document.querySelectorAll(sel)].find((one) => one.isConnected && one.editor && one.textContent.includes(words))
-      const line = [...ed.querySelectorAll(':scope > p')].find((one) => { const box = one.getBoundingClientRect(); return one.textContent.trim().length > 3 && box.height && box.top >= 60 && box.bottom <= innerHeight - 10 })
+      const line = [...ed.querySelectorAll('p')].find((one) => { const box = one.getBoundingClientRect(); return one.textContent.trim().length > 3 && !one.closest('[contenteditable="false"]') && box.height && box.top >= 60 && box.bottom <= innerHeight - 10 })
       const box = line?.getBoundingClientRect()
       return box ? { x: box.left + 12, y: box.top + box.height / 2 } : null
     }, [ED, words])
@@ -75,16 +77,29 @@ async function openNote(id, words, at) {
     await wait(250)
     if (await h.evaluate((sel) => document.querySelector(sel + '[data-vim-mode="normal"]') !== null, ED)) await h.keyboard.press('i')
     await h.keyboard.press('Meta+ArrowUp')
+    await wait(300)
+    const end = await h.evaluate(([sel, words]) => {
+      const ed = [...document.querySelectorAll(sel)].find((one) => one.isConnected && one.editor && one.textContent.includes(words))
+      const line = [...ed.querySelectorAll('p')].find((one) => one.textContent.includes(words))
+      if (!line) return null
+      const range = document.createRange()
+      range.selectNodeContents(line)
+      const row = [...range.getClientRects()].at(-1)
+      return row && row.top >= 0 && row.bottom <= innerHeight ? { x: row.right - 2, y: row.top + row.height / 2 } : null
+    }, [ED, words])
+    if (!end) continue
+    await h.mouse.click(end.x, end.y)
     await h.keyboard.press('Meta+ArrowRight')
     await wait(250)
-    const placed = await h.evaluate(([sel, words]) => {
+    stood = await h.evaluate(([sel, words]) => {
       const ed = [...document.querySelectorAll(sel)].find((one) => one.isConnected && one.editor && one.textContent.includes(words))
       const { $head, empty } = ed.editor.state.selection
-      return empty && ed.editor.isFocused && $head.parent.textContent.startsWith(words) && $head.parentOffset === $head.parent.content.size
+      const placed = empty && $head.parent.textContent.startsWith(words) && $head.parentOffset === $head.parent.content.size
+      return placed ? '' : `the caret stands at ${$head.parentOffset} of ${$head.parent.content.size} in “${$head.parent.textContent.slice(0, 60)}” (${empty ? 'a caret' : 'a selection'}; the editor ${ed.editor.isFocused ? 'has' : 'has not'} the keys)`
     }, [ED, words])
-    if (placed) return
+    if (!stood) return
   }
-  throw new Error(`the caret could not be put at the end of “${words}”`)
+  throw new Error(`the caret could not be put at the end of “${words}”: ${stood}`)
 }
 /** Type at the end of the long note's first line, and leave it time to save (well inside its 2 s rest). */
 async function typeInFirst(words) {

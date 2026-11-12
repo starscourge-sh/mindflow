@@ -347,12 +347,22 @@ export function readMarkdown(markdown: string): JSONContent | null {
 
 /**
  * The other way: a document as Markdown, written the way the editor showing it would write it, for a note whose
- * own editor is not open (lib/owed-copies.ts). Null until a document editor is on the page.
+ * own editor is not open (lib/owed-copies.ts). Only by an editor that knows every kind of block and mark in the
+ * document: one that does not (a host given fewer) would leave those out of the copy. Null until such an editor
+ * is on the page.
  */
 export function writeMarkdown(doc: JSONContent): string | null {
+  const blocks = new Set<string>()
+  const marks = new Set<string>()
+  const look = (node: JSONContent): void => {
+    if (node.type) blocks.add(node.type)
+    for (const mark of node.marks ?? []) marks.add(mark.type)
+    node.content?.forEach(look)
+  }
+  look(doc)
   for (const reader of readers) {
     if (reader.isDestroyed) readers.delete(reader)
-    else return markdownOf(reader, doc)
+    else if ([...blocks].every((name) => reader.schema.nodes[name]) && [...marks].every((name) => reader.schema.marks[name])) return markdownOf(reader, doc)
   }
   return null
 }

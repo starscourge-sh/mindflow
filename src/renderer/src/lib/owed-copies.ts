@@ -20,15 +20,20 @@ export function writeOwedCopies(): void {
   void (async () => {
     try {
       const left = await window.api.haligtree<{ id: string; copy: number }[]>('copies:left')
+      let unwritten = 0
       for (const { id, copy } of left) {
         const body = await notes.body('captures', id)
         // Words kept as Markdown already are their own copy.
         const markdown = typeof body === 'string' ? body : body && typeof body === 'object' ? writeMarkdown(body as JSONContent) : ''
-        if (markdown === null) return
+        // No editor on this page yet that knows every kind of block in it: left for one that does.
+        if (markdown === null) {
+          unwritten++
+          continue
+        }
         await window.api.captures.save(id, { markdown, copy })
         await new Promise((breathe) => setTimeout(breathe, 0))
       }
-      none = true
+      none = unwritten === 0
     } finally {
       running = false
     }
