@@ -804,6 +804,9 @@ try {
       let r = await rows()
       await shot('rows-event')
       check('an open event has its quiet rows: calendar, place, people, reminder and repeat, each one line', r?.quiet.join() === 'calendar,remind,repeat' && r.place && r.people, JSON.stringify(r && { quiet: r.quiet, place: r.place, people: r.people }))
+      // One left edge: every row's mark starts where the first row's does, and the place's and the people's words start together.
+      const edges = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); const left = (el) => el ? Math.round(el.getBoundingClientRect().left * 10) / 10 : null; return { marks: [...pop.querySelectorAll('[data-event-rows] svg:first-child, [data-event-rows] label > svg, [data-event-people] svg')].filter((el) => el.getBoundingClientRect().width >= 14).map(left), place: left(pop.querySelector('[data-event-rows] input[placeholder="Place"]')), people: left(pop.querySelector('[data-event-people] input')) } })
+      check('the rows start on one left edge, and the words of "Place" and "People" start together (within 1px)', edges.marks.length >= 5 && Math.max(...edges.marks) - Math.min(...edges.marks) <= 1 && Math.abs(edges.place - edges.people) <= 1, JSON.stringify(edges))
       const shutHeight = r?.h
       // The reminder: a line that opens its choices in place; the width is one, the height follows.
       // Every height the popover is drawn at for a second and a half from here. (With pictures being taken the page draws
