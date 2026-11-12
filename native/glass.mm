@@ -355,6 +355,17 @@ static napi_value IsMirrored(napi_env env, napi_callback_info info) {
   napi_get_boolean(env, Mirrored(), &out);
   return out;
 }
+// For a check (qa/in-use-native.mjs): whether a process counts as Haligtree's own when the microphone is read, so its
+// voice note, talk to type and meeting recorder are not "another app". Checked without any microphone being opened.
+static napi_value IsOurs(napi_env env, napi_callback_info info) {
+  size_t argc = 1;
+  napi_value argv[1], out;
+  double pid = 0;
+  napi_get_boolean(env, false, &out);
+  if (napi_get_cb_info(env, info, &argc, argv, NULL, NULL) != napi_ok || argc < 1 || napi_get_value_double(env, argv[0], &pid) != napi_ok) return out;
+  napi_get_boolean(env, Ours((pid_t)pid), &out);
+  return out;
+}
 
 static napi_threadsafe_function inUseListener = NULL;
 static dispatch_queue_t inUseQueue = NULL;
@@ -422,6 +433,7 @@ NAPI_MODULE_INIT() {
   napi_value fn;
   if (napi_create_function(env, "mirrored", NAPI_AUTO_LENGTH, IsMirrored, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "mirrored", fn);
   if (napi_create_function(env, "watchInUse", NAPI_AUTO_LENGTH, WatchInUse, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "watchInUse", fn);
+  if (napi_create_function(env, "ours", NAPI_AUTO_LENGTH, IsOurs, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "ours", fn);
   if (napi_create_function(env, "watchScroll", NAPI_AUTO_LENGTH, WatchScroll, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "watchScroll", fn);
   if (napi_create_function(env, "glass", NAPI_AUTO_LENGTH, Glass, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "glass", fn);
   if (napi_create_function(env, "nonActivating", NAPI_AUTO_LENGTH, NonActivating, NULL, &fn) == napi_ok) napi_set_named_property(env, exports, "nonActivating", fn);
