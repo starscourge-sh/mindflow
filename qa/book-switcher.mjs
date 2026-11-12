@@ -30,6 +30,9 @@ if (shots) mkdirSync(shots, { recursive: true })
 const results = []
 const check = (name, ok, detail = '') => { results.push({ name, ok: !!ok, detail }); console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`) }
 const wait = (ms) => new Promise((done) => setTimeout(done, ms))
+// Told to stop (its turn in a queue is over), it stops at once and takes its apps with it: left to the test
+// library, a stop waits for the app to quit, which an app with its restart caught never does.
+for (const signal of ['SIGTERM', 'SIGINT', 'SIGHUP']) process.on(signal, () => process.exit(130))
 // A run that hangs says so and ends, its apps with it, instead of holding its turn.
 setTimeout(() => { console.log('FAIL  the probe ran past four minutes and was stopped'); process.exit(2) }, 240_000).unref()
 // The worst names a person could really give a book (60 characters is the most main keeps): long ones, one
@@ -457,6 +460,22 @@ if (on('colour')) {
     await c.h.click(FOOT, { button: 'right' })
     await c.h.waitForTimeout(500)
     check('a right-click on the book’s name in the sidebar opens the same menu', (await count(c, `${OWN} [role="menuitemradio"]`)) === 9 && (await count(c, MENU)) === 0)
+    await shut(c)
+    // With one book's colours up, a press on another book's mark leaves one up, never two (no press is stopped
+    // on its way to the document, so whatever is open hears it). The other mark in reach is the book's name.
+    await openFoot(c)
+    await c.h.click(`${MENU} [data-book="${reading}"]`, { button: 'right' })
+    await c.h.waitForSelector(OWN, { timeout: 4000 })
+    await c.h.waitForTimeout(300)
+    const upFirst = await c.h.$eval(`${OWN} [data-slot="context-menu-label"]`, (one) => one.textContent)
+    const foot = await c.h.locator(FOOT).boundingBox()
+    await c.h.mouse.click(foot.x + foot.width / 2, foot.y + foot.height / 2)
+    await c.h.waitForTimeout(350)
+    const afterPress = await count(c, '[role="menu"]')
+    await c.h.mouse.click(foot.x + foot.width / 2, foot.y + foot.height / 2, { button: 'right' })
+    await c.h.waitForTimeout(450)
+    const afterRight = { menus: await count(c, '[role="menu"]'), heading: await c.h.$eval(`${OWN} [data-slot="context-menu-label"]`, (one) => one.textContent).catch(() => '') }
+    check('with one book’s colours up, a press on the book’s name leaves one menu or none, never two, and a right-click there leaves that book’s alone', /Colour of Reading/.test(upFirst) && afterPress <= 1 && afterRight.menus === 1 && /Colour of My book/.test(afterRight.heading), JSON.stringify({ upFirst, afterPress, afterRight }))
     await shut(c)
     await c.v('books:color', 'default', null)
     check('no errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
