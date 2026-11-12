@@ -20,7 +20,13 @@
 //             leaving mid-fling and coming back.
 // PART=far    a caret placed by a click in the first screen, then the wheel pushed hard, push on push, from the top
 //             of the note to its very end and back: the window answers throughout, no frame comes more than 100 ms
-//             after the last, and the words never move against the wheel.
+//             after the last, and the words never move against the wheel. WAY=down or WAY=up runs one way,
+//             PUSHES=<n> is the most pushes a way may take (260).
+// PART=sizes  the page's height against the truth. Only the blocks near the screen are on the page, the rest stand
+//             as space guessed from their words until each has been drawn once: every block is drawn in turn and
+//             measured, and the page as it opened must be within 6% of that; ⌘↓ must end on the note's last
+//             block with nothing left to scroll; and the note left and opened again must be as tall, to the
+//             pixel near enough, as it was left (the heights drawn are kept beside the book).
 // SMOOTH=off  turns "Smooth scrolling" off in Settings first. ONLY_SPEED=12000 flings at one speed.
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, mkdirSync, readFileSync } from 'fs'
@@ -51,10 +57,45 @@ console.log(`note ${note.id.slice(0, 8)}: ${original.content.length} blocks, par
 
 const c = await sandbox({ width: 1300, height: 900, seeded: false })
 const { h, send, electron } = c
-const opened = (count) => h.waitForFunction(([sel, count]) => {
+const isOpen = ([sel, count]) => {
   const ed = [...document.querySelectorAll(sel)].filter((one) => one.editor).sort((a, b) => b.editor.state.doc.childCount - a.editor.state.doc.childCount)[0]
   return !!ed && ed.isConnected && ed.editor.state.doc.childCount >= count && ed.textContent.trim().length > 0
-}, [ED, count], { timeout: 120000 })
+}
+// OPEN_WAIT=<seconds> is how long a note is given to open (120). One that does not says where the window is stuck.
+const opened = (count) => h.waitForFunction(isOpen, [ED, count], { timeout: Number(process.env.OPEN_WAIT ?? 120) * 1000 }).catch(async (error) => {
+  console.log(await whereStuck(count))
+  throw error
+})
+/** A note that did not open: whether the window answers, what is on the page, and what its script is doing (as qa/where-stuck.mjs reads it). */
+const whereStuck = async (count) => {
+  const lines = []
+  const answers = () => Promise.race([h.evaluate(() => 1).then(() => true, () => false), new Promise((next) => setTimeout(() => next(false), 3000))])
+  lines.push(`NOT OPEN: the window ${(await answers()) ? 'answers' : 'does NOT answer'}  (load ${loadavg()[0].toFixed(1)})`)
+  const page = await Promise.race([h.evaluate(([sel, count]) => {
+    const all = [...document.querySelectorAll(sel)].filter((one) => one.editor)
+    return { page: location.search, editors: all.map((ed) => ({ blocks: ed.editor.state.doc.childCount, wanted: count, connected: ed.isConnected, elements: ed.childElementCount, off: ed.querySelectorAll(':scope > [data-off]').length, letters: ed.isConnected ? ed.textContent.length : -1 })), every: document.querySelectorAll('.tiptap.ProseMirror').length, keys: (document.activeElement?.className ?? '').toString().slice(0, 60), frames: window.__freezeNotes?.() ?? null }
+  }, [ED, count]).catch((error) => String(error)), new Promise((next) => setTimeout(() => next('(no answer in 5 s)'), 5000))])
+  lines.push(`on the page: ${JSON.stringify(page)}`)
+  const cdp = await electron.context().newCDPSession(h)
+  await cdp.send('Debugger.enable')
+  const seen = new Map()
+  let idle = 0
+  for (let round = 0; round < 8; round++) {
+    const hit = await new Promise((next) => {
+      const timer = setTimeout(() => next(null), 2000)
+      cdp.once('Debugger.paused', (params) => (clearTimeout(timer), next(params)))
+      cdp.send('Debugger.pause').catch(() => next(null))
+    })
+    if (!hit) { idle++; continue }
+    for (const line of new Set(hit.callFrames.slice(0, 20).map((one) => `${one.functionName || '(anon)'} ${(one.url ?? '').split('/').pop()}:${one.location.lineNumber + 1}:${one.location.columnNumber}`))) seen.set(line, (seen.get(line) ?? 0) + 1)
+    await cdp.send('Debugger.resume').catch(() => {})
+    await new Promise((next) => setTimeout(next, 250))
+  }
+  lines.push(`${idle} of 8 pauses found no script running (idle, or held in layout or paint)`)
+  for (const [line, n] of [...seen].sort((a, b) => b[1] - a[1]).slice(0, 25)) lines.push(`  ${String(n).padStart(2)}  ${line}`)
+  await cdp.detach().catch(() => {})
+  return lines.join('\n')
+}
 
 /** What the page is asked through: the note's editor, its scroller, and a reader of each frame. */
 const install = () => h.evaluate((sel) => {
@@ -418,6 +459,9 @@ try {
     await h.waitForTimeout(500)
     const held = await h.evaluate(() => { const e = window.__ln.ed(); return { caret: e.editor.state.selection.$head.index(0), keys: document.activeElement === e } })
     check('a click in the first screen puts the caret there and gives the note the keys', !!spot && held.keys && Math.abs(held.caret - spot.index) <= 3, spot ? `clicked block ${spot.index} ("${spot.words}"), caret in ${held.caret}, the note has the keys: ${held.keys}` : 'no line of words found to click')
+    // As many pushes as it may take: about 7,200px each, and the page is as tall as its blocks truly are
+    // (1,240,000px for the 7,017-block note in a 1300px window, which the old count of 120 could never cross).
+    const CAP = Number(process.env.PUSHES ?? 260)
     /** Hard pushes of the wheel, each before the last has died away, until the note is at its end (or its top). */
     const travel = async (way) => {
       await h.evaluate(() => { window.__ln.start(); window.__ln.mark('start') })
@@ -425,29 +469,36 @@ try {
       let pushes = 0
       let reached = false
       let stuck = null
-      for (; pushes < 120 && !reached && !stuck; pushes++) {
-        await fling(first.x, first.y, 40000, way, { hold: 260 })
+      // What the wheel sent in all, to set beside how far the note went: a page that throws part of it away falls short.
+      let sent = 0
+      for (; pushes < CAP && !reached && !stuck; pushes++) {
+        sent += (await fling(first.x, first.y, 40000, way, { hold: 260 })).sent
         if (pushes % 4 !== 3) continue
         if (!(await answersWithin(45))) { stuck = `the window did not answer for 45 s after ${pushes + 1} pushes`; break }
         const at = await h.evaluate(() => { const box = window.__ln.box(); return [box.scrollTop, box.scrollHeight - box.clientHeight] })
         reached = way > 0 ? at[0] >= at[1] - 2 : at[0] <= 2
       }
-      if (!stuck) await fling(first.x, first.y, 12000, way)
+      if (!stuck) sent += (await fling(first.x, first.y, 12000, way)).sent
       if (!stuck && !(await answersWithin(45))) stuck = 'the window did not answer for 45 s after the last push'
       if (stuck) return { stuck, pushes, ms: Date.now() - began }
       await h.evaluate(() => window.__ln.mark('end'))
       await h.waitForTimeout(900)
       const got = read(await h.evaluate(() => window.__ln.stop()), way)
       const at = await state()
-      return { ...got, pushes, reached, ms: Date.now() - began, at }
+      return { ...got, pushes, reached, ms: Date.now() - began, at, sent }
     }
+    // WAY=down or WAY=up runs one way only (up starts from the end, gone to by the scroller itself: the caret stays where it was put).
     for (const [way, name, from, to] of [[1, 'down', 'the top', 'the very end'], [-1, 'up', 'the end', 'the top']]) {
-      const went = await travel(way)
+      if (process.env.WAY && process.env.WAY !== name) continue
+      if (process.env.WAY === 'up') { await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight, behavior: 'instant' }) }); await h.waitForTimeout(1200) }
+      // SHOTS=<folder> keeps a frame every 50 ms of the first three seconds of each way, for reading by eye (not for timing).
+      const went = await film(`far-${name}`, () => travel(way), { ms: 3000 })
       if (went.stuck) {
         check(`the wheel from ${from} to ${to}: the window answers throughout`, false, `${went.stuck}, ${Math.round(went.ms / 1000)} s in  (${load()})`)
         throw new Error(`the page spins as the wheel goes ${name}`)
       }
       console.log(`the wheel ${name}, ${went.pushes} pushes in ${Math.round(went.ms / 1000)} s: ${say(went)}  (${load()})`)
+      console.log(`the wheel sent ${went.sent}px and the note went ${Math.abs(went.went)}px: ${Math.round((Math.abs(went.went) / Math.max(1, went.sent)) * 100)}% of it; the page is ${went.at.tall}px tall`)
       check(`the wheel from ${from} to ${to}: the window answers throughout and it gets there`, went.reached && Math.abs(went.went) > 100000, `${went.reached ? 'got there' : 'did NOT get there'}: ${went.went}px in ${went.pushes} pushes, ${Math.round(went.ms / 1000)} s; first block on screen ${went.at.first} of ${original.content.length}`)
       check(`the wheel ${name}: no frame more than 100 ms after the last`, went.worstGap <= 100, `longest ${went.worstGap} ms; ${went.over} of ${went.frames} frames over 17.5 ms`)
       check(`the wheel ${name}: the words never move against the wheel`, went.back === 0 && went.thumbBack === 0, `${went.back} frames went back${went.back ? ` (by up to ${went.worstBack}px)` : ''}; the thumb went back in ${went.thumbBack}`)
@@ -455,6 +506,57 @@ try {
     }
     const end = await h.evaluate(() => { const e = window.__ln.ed(); return { caret: e.editor.state.selection.$head.index(0), keys: document.activeElement === e } })
     check('after it the caret is where it was put, and the note still has the keys', end.keys && end.caret === held.caret, `caret in block ${end.caret} (was ${held.caret}), the note has the keys: ${end.keys}`)
+  }
+
+  if (PART === 'sizes') {
+    const size = original.content.length
+    // Every block drawn in turn, 400 at a time, and measured from where the next one starts; then hidden again.
+    const truth = () => h.evaluate(() => {
+      const e = window.__ln.ed()
+      const { view } = e.editor
+      const all = e.children
+      const style = getComputedStyle(e)
+      view.domObserver.stop()
+      let total = 0
+      for (let from = 0; from < all.length; from += 400) {
+        const to = Math.min(all.length, from + 401)
+        const was = []
+        for (let i = from; i < to; i++) { was.push(all[i].hasAttribute('data-off')); all[i].removeAttribute('data-off') }
+        total += all[to - 1].offsetTop - all[from].offsetTop
+        if (to === all.length) total += all[to - 1].offsetHeight
+        for (let i = from; i < to; i++) if (was[i - from]) all[i].setAttribute('data-off', '')
+      }
+      view.domObserver.start()
+      return { total: Math.round(total), page: Math.round(e.offsetHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)), drawn: e.querySelectorAll(':scope > :not([data-off])').length }
+    })
+    const page = () => h.evaluate(() => { const e = window.__ln.ed(); const style = getComputedStyle(e); return Math.round(e.offsetHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom)) })
+    const opened0 = await page()
+    const real = await truth()
+    const out = (a, b) => `${((a / b - 1) * 100).toFixed(1)}%`
+    console.log(`the page as it opened: ${opened0}px for its blocks; every block drawn and measured: ${real.total}px (${(real.total / size).toFixed(1)}px a block); ${real.drawn} blocks on the page  (${load()})`)
+    check('the page is as tall as its blocks truly are, within 6%, from the moment it opens', Math.abs(opened0 - real.total) / real.total <= 0.06, `${opened0}px against ${real.total}px: ${out(opened0, real.total)} out`)
+    // To the end: the last block on the screen, nothing left to scroll.
+    await h.evaluate(() => window.__ln.ed().editor.commands.focus('start'))
+    await h.keyboard.press('Meta+ArrowDown')
+    await h.waitForTimeout(900)
+    const end = await h.evaluate(() => { const e = window.__ln.ed(); const box = window.__ln.box(); const last = e.lastElementChild.getBoundingClientRect(); const view = box.getBoundingClientRect(); return { left: Math.round(box.scrollHeight - box.clientHeight - box.scrollTop), shows: last.height > 0 && last.bottom > view.top && last.top < view.bottom, caret: e.editor.state.selection.$head.index(0) } })
+    const atEnd = await page()
+    check('⌘↓ ends on the last block, with nothing left to scroll', end.shows && end.left <= 2 && end.caret >= size - 2, `the last block on screen: ${end.shows}; ${end.left}px left to scroll; caret in block ${end.caret} of ${size}`)
+    check('the page is still as tall, within 6%, with the end drawn', Math.abs(atEnd - real.total) / real.total <= 0.06, `${atEnd}px against ${real.total}px: ${out(atEnd, real.total)} out`)
+    // Part of the way back up by the wheel, so blocks never drawn are drawn above the screen: the height holds.
+    for (let i = 0; i < 3; i++) await fling(first.x, first.y, 12000, -1)
+    await h.waitForTimeout(900)
+    const left = await page()
+    check('the page is still as tall, within 6%, after three pushes of the wheel back up', Math.abs(left - real.total) / real.total <= 0.06, `${left}px against ${real.total}px: ${out(left, real.total)} out`)
+    // Left and opened again: as tall as it was left, the drawn heights kept.
+    await send('view', 'today')
+    await h.waitForTimeout(1500)
+    await send('capture', note.id)
+    await opened(size - 1)
+    await h.waitForTimeout(2500)
+    await install()
+    const again = await page()
+    check('left and opened again, the page is as tall as it was left: the heights drawn are kept', Math.abs(again - left) <= Math.max(40, left * 0.001), `${left}px as it was left, ${again}px opened again (${again - left}px apart)`)
   }
 
   if (PART === 'jumps') {
@@ -687,6 +789,27 @@ try {
     const all = await copied()
     const shown = await state()
     check('⌘A then copy gives the whole note, and the screen stays where it was', all.span >= all.whole - 2 && all.text >= all.want * 0.9 && all.text > 500000 && shown.far === 0 && Math.abs(shown.first - (two?.index ?? shown.first)) < 80 && (await answers()), `selection spans ${all.span} of ${all.whole}; a copy takes ${all.text} characters of ${all.want}; first block on screen ${shown.first}`)
+    // The caret left at the note's very end, the screen a third of the way down, then ⇧-click: picked from the place
+    // clicked to the caret, thousands of blocks away and none of them drawn, at once. Then ⌘A, at once too.
+    await h.evaluate(() => window.__ln.ed().editor.commands.focus('start'))
+    await h.keyboard.press('Meta+ArrowDown')
+    await h.waitForTimeout(700)
+    await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * 0.3, behavior: 'instant' }) })
+    await h.waitForTimeout(900)
+    const far = await find()
+    const fixed = await h.evaluate(() => window.__ln.ed().editor.state.selection.$anchor.index(0))
+    console.log(`(before the ⇧-click the caret is in block ${fixed}; the click is on block ${far?.index})`)
+    let began = Date.now()
+    if (far) { await h.keyboard.down('Shift'); await h.mouse.click(far.x, far.y); await h.keyboard.up('Shift') }
+    const picked = (await answersWithin(30)) ? await h.evaluate(() => { const { selection, doc } = window.__ln.ed().editor.state; return { from: selection.$from.index(0), to: selection.$to.index(0), blocks: doc.childCount } }) : null
+    const pickedIn = Date.now() - began
+    check('⇧-click with the caret left at the far end picks from the place clicked to the caret, at once', !!far && !!picked && pickedIn < 2000 && Math.abs(picked.from - far.index) <= 1 && picked.to >= picked.blocks - 2, picked ? `clicked block ${far?.index}; picked blocks ${picked.from} to ${picked.to} of ${picked.blocks}; the window answered ${pickedIn} ms after the click  (${load()})` : `the window did not answer for 30 s after the click  (${load()})`)
+    began = Date.now()
+    await h.keyboard.press('Meta+a')
+    const whole = (await answersWithin(30)) ? await h.evaluate(() => { const { selection, doc } = window.__ln.ed().editor.state; return { span: selection.to - selection.from, whole: doc.content.size } }) : null
+    const wholeIn = Date.now() - began
+    check('⌘A after it picks the whole note, at once', !!whole && wholeIn < 2000 && whole.span >= whole.whole - 2, whole ? `picked ${whole.span} of ${whole.whole}; the window answered ${wholeIn} ms after the keys  (${load()})` : `the window did not answer for 30 s after ⌘A  (${load()})`)
+    if (!whole) throw new Error('the page spins after ⌘A')
     // A caret placed by a click, then two hard flings away from it: the blocks it is in leave the page.
     await h.evaluate(() => { const box = window.__ln.box(); box.scrollTo({ top: box.scrollHeight * 0.2, behavior: 'instant' }) })
     await h.waitForTimeout(900)
@@ -706,8 +829,12 @@ try {
     const flown = read(await h.evaluate(() => window.__ln.stop()), 1)
     const after = await state()
     check('two hard flings away from a caret just placed: the page answers, no frame over 100 ms', !!here && flown.worstGap <= 100 && Math.abs(after.caret - here.index) <= 2 && after.first - here.index > 200, `caret left in block ${here?.index}, the screen went to block ${after.first} (${flown.went}px); longest frame ${flown.worstGap} ms (${flown.over} over 17.5 ms) in ${flown.frames} frames  (${load()})`)
-    // A letter typed with the caret left behind: the note comes back to it, and the letter lands there.
-    if (await h.evaluate((sel) => document.querySelector(sel + '[data-vim-mode="normal"]') !== null, ED)) await h.keyboard.press('i')
+    // A letter typed with the caret left behind: the note comes back to it, and the letter lands there. With Vim
+    // on, from whatever mode the steps before left it in (⌘A leaves it picking: "Qz9k" was then four commands,
+    // no word was typed and this step failed on any build): Esc for its normal mode, then i to write.
+    const vim = await h.evaluate((sel) => document.querySelector(sel)?.getAttribute('data-vim-mode') ?? null, ED)
+    if (vim) { await h.keyboard.press('Escape'); await h.keyboard.press('i') }
+    console.log(`(Vim is ${vim ? `on, in its "${vim}" mode before the word` : 'off'})`)
     await h.keyboard.type('Qz9k', { delay: 40 })
     await h.waitForTimeout(700)
     if (!(await answersWithin(60))) { check('a word typed with the caret left far behind lands at the caret, and the note comes back to it', false, 'the page did not answer for a minute after it: it spins'); throw new Error('the page spins after typing far from the screen') }

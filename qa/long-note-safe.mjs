@@ -219,7 +219,10 @@ async function typeThree() {
   let share = centre.max > 0 ? centre.top / centre.max : 1
   let stuck = false
   const wheeling = Date.now()
-  for (let events = 0; share < MID - 0.02 && events < 240 && !stuck && Date.now() - wheeling < 45000; ) {
+  let events = 0
+  // As many events as the page is tall: 3,000px each, to the middle of a page that is as tall as its blocks truly are.
+  const most = Math.max(240, Math.ceil((centre.max * MID) / 3000) + 40)
+  for (; share < MID - 0.02 && events < most && !stuck && Date.now() - wheeling < 45000; ) {
     for (let i = 0; i < 4 && !stuck; i++, events++) stuck = (await within(8000, h.mouse.wheel(0, 3000).then(() => true))) === null
     await wait(100)
     const at = stuck ? null : await within(8000, page(h, scrollOf))
@@ -227,6 +230,10 @@ async function typeThree() {
     else share = at.max > 0 ? at.top / at.max : 1
   }
   const wheeled = Date.now() - wheeling
+  // And it was the wheel that took it there: a run that found the note already far down, or a scroller with
+  // nothing to scroll, passed this with no wheel event sent at all.
+  const reached = stuck ? null : await within(8000, page(h, scrollOf))
+  check('the wheel itself moved the note there: it started at the top and wheel events were sent', !!reached && events > 0 && centre.max > 0 && centre.top < centre.max * 0.05 && reached.top - centre.top > centre.max * 0.3, `${events} wheel events; the note went from ${Math.round(centre.top)}px to ${reached ? Math.round(reached.top) : 'no answer'}px of ${Math.round(centre.max)}px`)
   // How far the wheel got is the scrolling's business, said here plainly; the letter goes in whatever far block it reached.
   check(`the wheel reaches the middle of the note (${Math.round(MID * 100)}% of the way down) within 45 seconds`, !stuck && share >= MID - 0.02, `${(share * 100).toFixed(0)}% of the way down after ${wheeled} ms (${load()})`)
   if (!check('after the wheel the window still answers', !stuck && (await answers(h)), stuck ? 'a wheel event or a read of the page took over 8 s' : '')) return { typed, stopped: true }
