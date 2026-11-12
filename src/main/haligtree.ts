@@ -796,6 +796,16 @@ let goalsTold: () => void = () => undefined
 export const whenGoals = (tell: () => void): void => void (goalsTold = tell)
 /** The goal cards read the goals again now: one went to the Bin, the archive, or back. */
 export const tellGoals = (): void => goalsTold()
+/**
+ * One goal's “Goal on screen”: 'always', 'sometimes' or 'off', or null to follow Settings again. From its page
+ * (goal:beacon:set), and from its card on the desktop: taken down by hand, its goal's goes to off (index.ts
+ * takeDownSticky), and “Put it back” makes it what it was.
+ */
+export function setGoalBeacon(id: string, mode: 'always' | 'sometimes' | 'off' | null): boolean {
+  const done = database().prepare("update nuggets set goal_beacon = ? where id = ? and tier = 'goal'").run(['always', 'sometimes', 'off'].includes(mode ?? '') ? mode : null, id).changes > 0
+  goalsTold()
+  return done
+}
 /** Each goal's beacon unless the goal says otherwise: 'always', 'sometimes' or 'off'. */
 export const beaconDefault = (): 'always' | 'sometimes' | 'off' => settings().goalBeacon
 /** The goal cards' tuck-away rules (see goalTuck above). */
@@ -2717,11 +2727,7 @@ export function registerHaligtree(): void {
     return write(done)
   })
   // How often this goal's beacon shows; null goes back to the Settings default.
-  handle('goal:beacon:set', (id: string, mode: 'always' | 'sometimes' | 'off' | null) => {
-    const done = db.prepare("update nuggets set goal_beacon = ? where id = ? and tier = 'goal'").run(['always', 'sometimes', 'off'].includes(mode ?? '') ? mode : null, id).changes > 0
-    goalsTold()
-    return write(done)
-  })
+  handle('goal:beacon:set', (id: string, mode: 'always' | 'sometimes' | 'off' | null) => write(setGoalBeacon(id, mode)))
   // Taken back: the goal and its logs go, and a capture logged in it is open again.
   handle('goal:drop', (id: string) => {
     if (!db.prepare("select 1 from nuggets where id = ? and tier = 'goal'").get(id)) return write(false)

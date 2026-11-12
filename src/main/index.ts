@@ -60,7 +60,7 @@ import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
 import { hintRoom, type HintSide } from './hint-room'
-import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
+import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, setGoalBeacon, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, cardComesDown, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
@@ -1527,7 +1527,8 @@ function fadeOutSticky(win: BrowserWindow): void {
 }
 
 /** The last sticky taken down from its own X or ⌘W, for "Put it back" while it is fresh. */
-let takenDown: (Stuck & { title: string; until: number }) | null = null
+// Beacon: its goal's “Goal on screen” as it was, when taking the card down turned it off (see takeDownSticky).
+let takenDown: (Stuck & { title: string; until: number; beacon?: { was: OpenGoal['beacon'] } }) | null = null
 const TAKEN_FOR = 30_000
 const canPutBack = (): boolean => !!takenDown && takenDown.until > Date.now() && !stickies.has(`${takenDown.type}:${takenDown.id}`)
 /** A sticky taken down by its own hand: peeled off, said where it is seen, and kept a while for "Put it back". */
@@ -1537,7 +1538,14 @@ function takeDownSticky(win: BrowserWindow | null, title: string): void {
   const [type, ...rest] = key.split(':')
   const id = rest.join(':')
   takenDown = { type, id, bounds: cardFrame(key, win), tint: stuckAs(key)?.tint, asked: stuckAs(key)?.asked, title, until: Date.now() + TAKEN_FOR }
+  // A goal's card that its goal's “Goal on screen” put up stays down once taken down: the goal's setting goes to off,
+  // so its page says what is true (“The menu bar and Home still show it”). Left as it was, the next look at the
+  // goals put the card straight back (beacons: as a goal changes, and every half minute), seen as “Take it down”
+  // doing nothing. One only stuck by hand, on a goal that asks for no card of its own, is just unstuck.
+  const goal = type === 'goal' && ownCards.has(key) ? openGoals().find((one) => one.id === id) : undefined
+  if (goal) takenDown.beacon = { was: goal.beacon }
   stick(type, id, false)
+  if (goal) setGoalBeacon(id, 'off')
   const seen = (one: BrowserWindow | null | undefined): one is BrowserWindow => !!one && !one.isDestroyed() && one.isVisible()
   const voice = [home, prompt].find(seen)
   voice?.webContents.send('sticky:taken', title)
@@ -1547,11 +1555,13 @@ function takeDownSticky(win: BrowserWindow | null, title: string): void {
 /** Back where it was, with its colour, coming in as any sticky does. */
 function putStickyBack(): void {
   if (!canPutBack() || !takenDown) return
-  const { type, id, bounds, tint, asked } = takenDown
+  const { type, id, bounds, tint, asked, beacon } = takenDown
   takenDown = null
   byHand(`${type}:${id}`)
   stuck.push({ type, id, bounds, tint, ...(asked ? { asked } : {}) })
   stick(type, id, true, bounds)
+  // Its goal's “Goal on screen” as it was, after the card is up again where it was (the look that follows finds it there).
+  if (beacon) setGoalBeacon(id, beacon.was)
   updateTray()
 }
 /**
@@ -2475,6 +2485,8 @@ let stackWas: Electron.Rectangle | undefined
 /** When each beacon may show again; Infinity is "at its next moment". */
 const tucked = new Map<string, number>()
 const beaconModes = new Map<string, 'always' | 'sometimes'>()
+/** The goals whose “Goal on screen” asks for a card of their own, as of the last look at the goals (beacons). */
+let ownCards = new Set<string>()
 /** The goal cards the pointer is on: they never tuck away. */
 const beaconHeld = new Set<string>()
 const tuckTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -2539,6 +2551,7 @@ function beacons(): void {
   // None for the rest, but one: a card stuck by hand (a page asked for it) is the person's own, and stays while its
   // goal is open. Taken down here it went by itself at the next look, half a minute at most after it was stuck
   // (the menu bar's clock runs this), with nothing changed: seen as a card that vanishes.
+  ownCards = own
   const open = new Set(goals.map((goal) => `goal:${goal.id}`))
   for (const key of [...stickies.keys()]) if (key.startsWith('goal:') && cardComesDown(own.has(key), stuckAs(key)?.asked === true, open.has(key))) stick('goal', key.slice(5), false)
   for (const goal of goals) {
