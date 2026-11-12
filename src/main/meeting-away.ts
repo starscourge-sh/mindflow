@@ -1,7 +1,7 @@
 /**
  * Whether the desk steps away: every sticky note, the Today sticky, every
  * goal card and their tabs at the edge, out of sight while a call may be on
- * (or in quiet hours) and back the moment it ends. What says a call may be on
+ * (or in quiet hours, where Settings says so) and back the moment it ends. What says a call may be on
  * is a signal, each an event from the Mac or the book (in-meeting.ts), never
  * looked up again and again.
  *
@@ -25,11 +25,15 @@ export const signalsOn = (signals: Signals): Signal[] => SIGNALS.filter((one) =>
 /** A meeting is on: any signal, while the setting (“Step away in meetings”) is on. */
 export const inMeeting = (signals: Signals, setting: boolean): boolean => setting && signalsOn(signals).length > 0
 
-/** Why the desk would be away now: a meeting first, then quiet hours; null when neither. */
-export const awayWhy = (meeting: boolean, quiet: boolean): 'meeting' | 'quiet' | null => (meeting ? 'meeting' : quiet ? 'quiet' : null)
+/**
+ * Why the desk would be away now: a meeting first; then quiet hours, but only where Settings' “Sticky notes and goal
+ * cards step away too” is on (off to start: quiet hours by themselves leave the desk as it is); null when neither.
+ */
+export const awayWhy = (meeting: boolean, quiet: boolean, quietTakesDesk: boolean): 'meeting' | 'quiet' | null =>
+  meeting ? 'meeting' : quiet && quietTakesDesk ? 'quiet' : null
 
-/** The desk is away: a meeting or quiet hours, unless “Show anyway” was asked for. */
-export const deskAway = (meeting: boolean, quiet: boolean, shownAnyway: boolean): boolean => (meeting || quiet) && !shownAnyway
+/** The desk is away: there is a reason for it, and “Show anyway” was not asked for. */
+export const deskAway = (why: 'meeting' | 'quiet' | null, shownAnyway: boolean): boolean => why !== null && !shownAnyway
 
 /**
  * “Show anyway”, and a sticky stuck by hand, last only while what hid the rest stays the same: forgotten when it ends,
@@ -50,3 +54,10 @@ const SEEN: Record<Signal, string> = {
  * narrowest window, so the row never grows or shrinks as a call starts and ends (qa/meeting-away.mjs measures it).
  */
 export const seenSaid = (signals: Signals): string => SEEN[signalsOn(signals)[0]] ?? 'Nothing is on'
+
+/**
+ * What the row under “Quiet hours” says now, as short: whether it is quiet hours, and where the stickies and goal
+ * cards are (`hidden`: off the desktop this moment, for quiet hours or a meeting).
+ */
+export const quietSaid = (quiet: boolean, takesDesk: boolean, hidden: boolean): string =>
+  !quiet ? 'Outside quiet hours' : hidden ? 'In quiet hours, they are away' : takesDesk ? 'In quiet hours, shown anyway' : 'In quiet hours, they stay out'

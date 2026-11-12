@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
-/** The desk (stickies, goal cards, their tabs) away for a meeting or quiet hours: why, whether hidden now, and what “Step away in meetings” sees. */
-export type DeskAway = { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }
+/** The desk (stickies, goal cards, their tabs) away for a meeting or quiet hours: why, whether hidden now, what “Step away in meetings” sees, and what the row under “Quiet hours” says. */
+export type DeskAway = { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string; quiet: string }
 
 /** As main says it now, and again on each change (a signal come or gone, “Show anyway”, quiet hours' start and end). */
 export function useDeskAway(): DeskAway | null {

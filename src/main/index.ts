@@ -60,7 +60,7 @@ import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
 import { hintRoom, type HintSide } from './hint-room'
-import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
+import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
@@ -72,7 +72,7 @@ import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
 import { peopleNow, registerEvents, whenEvents } from './events'
 import { followEvents, forgetAnyway, setSignal, showAnyway, shownAnyway, watchMac, whenMeeting } from './in-meeting'
-import { anywayKept, awayWhy, deskAway } from './meeting-away'
+import { anywayKept, deskAway } from './meeting-away'
 import { registerReadingQueue } from './reading-queue'
 import { registerPractices, whenPracticeOffer } from './practices'
 import { registerIssues } from './issues'
@@ -1553,24 +1553,21 @@ function putStickyBack(): void {
   updateTray()
 }
 /**
- * Stuck or brought back by hand while the desk is away (a meeting, quiet hours): asked for, so it shows. Forgotten
+ * Stuck or brought back by hand while the desk is away (a meeting, or quiet hours set to take it): asked for, so it shows. Forgotten
  * when the desk comes back.
  */
 const askedFor = new Set<string>()
-/** The desk is away: a meeting or quiet hours, and “Show anyway” not asked for (meeting-away.ts). */
-const deskIsAway = (): boolean => {
-  const { meeting, quiet } = gate()
-  return deskAway(meeting, quiet, shownAnyway())
-}
+/** The desk is away: a meeting, or quiet hours where Settings says so, and “Show anyway” not asked for (meeting-away.ts). */
+const deskIsAway = (): boolean => deskAway(gate().away, shownAnyway())
 /** Done by hand (stuck, put back, brought back): while the desk is away, that one shows all the same. */
 const byHand = (key: string): void => void (deskIsAway() && askedFor.add(key))
 /**
- * Whether a sticky is on the desktop now: not in safe mode, a meeting or quiet hours (unless asked for by hand in
- * them), the stickies shown, and not put away on its own.
+ * Whether a sticky is on the desktop now: not in safe mode, nor away for a meeting or for quiet hours set to take the
+ * desk (unless asked for by hand in them), the stickies shown, and not put away on its own.
  */
 const stickyUp = (key: string): boolean => {
-  const { blackout, meeting, quiet } = gate()
-  return !blackout && (!deskAway(meeting, quiet, shownAnyway()) || askedFor.has(key)) && stickyPrefs().shown && !stuckAs(key)?.hidden && (tucked.get(key) ?? 0) <= Date.now() && ruled.get(key) !== 'tuck'
+  const { blackout, away } = gate()
+  return !blackout && (!deskAway(away, shownAnyway()) || askedFor.has(key)) && stickyPrefs().shown && !stuckAs(key)?.hidden && (tucked.get(key) ?? 0) <= Date.now() && ruled.get(key) !== 'tuck'
 }
 /** How many stickies are out on the screen: Tidy stickies is offered only when there is one to tidy. */
 const stickiesOut = (): number => [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible()).length
@@ -1646,7 +1643,8 @@ function applyStickies(atOnce = false): void {
   tellStickiesOut()
 }
 /**
- * The desk as a meeting, quiet hours and “Show anyway” say now (in-meeting.ts, meeting-away.ts). Away: every sticky
+ * The desk as a meeting, quiet hours (where Settings' “Sticky notes and goal cards step away too” is on) and “Show
+ * anyway” say now (in-meeting.ts, meeting-away.ts). Away: every sticky
  * note, the Today sticky, every goal card and tab hides at once, and a card Haligtree offered on its own with them. Back:
  * each where it was, at once and silent, and no moment missed is made up for. Run when a signal comes or goes, when
  * the setting or quiet hours are changed, when “Show anyway” is chosen, and by the clock (quiet hours' start and end).
@@ -1665,15 +1663,14 @@ const nudgeTall = new WeakMap<BrowserWindow, number>()
 const nudgeKinds = new WeakMap<BrowserWindow, Set<string>>()
 const OFFERED = ['review', 'practice']
 const onlyOffered = (win: BrowserWindow): boolean => [...(nudgeKinds.get(win) ?? [])].every((kind) => OFFERED.includes(kind))
-type DeskSaid = { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }
-const deskSaid = (): DeskSaid => ({ why: deskWhy, hidden: deskHidden, seen: meetingSeen() })
+type DeskSaid = { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string; quiet: string }
+const deskSaid = (): DeskSaid => ({ why: deskWhy, hidden: deskHidden, seen: meetingSeen(), quiet: quietSeen(deskHidden) })
 function applyDesk(): void {
-  const { meeting, quiet, blackout } = gate()
-  const why = awayWhy(meeting, quiet)
+  const { away: why, blackout } = gate()
   // “Show anyway”, and what was stuck by hand, last only while what hid the rest stays the same: a call starting in
   // quiet hours hides them again.
   if (!anywayKept(true, deskWhy, why)) (forgetAnyway(), askedFor.clear())
-  const hidden = deskAway(meeting, quiet, shownAnyway())
+  const hidden = deskAway(why, shownAnyway())
   const same = why === deskWhy && hidden === deskHidden
   deskWhy = why
   deskHidden = hidden

@@ -456,11 +456,11 @@ const api = {
   aerospace: (): Promise<boolean> => ipcRenderer.invoke('aerospace:here'),
   /**
    * The desk (stickies, goal cards, their tabs) away for a meeting or quiet hours, or not: why, whether they are hidden
-   * now, and what “Step away in meetings” sees. Asked once, then told on each change.
+   * now, what “Step away in meetings” sees, and what the row under “Quiet hours” says. Asked once, then told on each change.
    */
-  deskAway: (): Promise<{ why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }> => ipcRenderer.invoke('desk:away'),
-  onDeskAway: (listen: (said: { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }) => void): (() => void) => {
-    const relay = (_event: unknown, said: { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string }): void => listen(said)
+  deskAway: (): Promise<{ why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string; quiet: string }> => ipcRenderer.invoke('desk:away'),
+  onDeskAway: (listen: (said: { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string; quiet: string }) => void): (() => void) => {
+    const relay = (_event: unknown, said: { why: 'meeting' | 'quiet' | null; hidden: boolean; seen: string; quiet: string }): void => listen(said)
     heard.on('desk:away', relay)
     return () => heard.off('desk:away', relay)
   },

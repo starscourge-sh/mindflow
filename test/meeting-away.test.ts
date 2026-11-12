@@ -1,7 +1,7 @@
 // Run with: node --test test/meeting-away.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { NO_SIGNALS, SIGNALS, anywayKept, awayWhy, deskAway, inMeeting, seenSaid, signalsOn, type Signals } from '../src/main/meeting-away.ts'
+import { NO_SIGNALS, SIGNALS, anywayKept, awayWhy, deskAway, inMeeting, quietSaid, seenSaid, signalsOn, type Signals } from '../src/main/meeting-away.ts'
 
 const only = (...on: (typeof SIGNALS)[number][]): Signals => ({ ...NO_SIGNALS, ...Object.fromEntries(on.map((one) => [one, true])) })
 
@@ -14,7 +14,7 @@ test('no signal, no meeting', () => {
 test('each signal by itself is a meeting', () => {
   for (const one of SIGNALS) {
     assert.equal(inMeeting(only(one), true), true, one)
-    assert.equal(deskAway(inMeeting(only(one), true), false, false), true, one)
+    assert.equal(deskAway(awayWhy(inMeeting(only(one), true), false, false), false), true, one)
   }
 })
 
@@ -33,10 +33,11 @@ test('the setting off: nothing is a meeting, and Settings still says what it see
 })
 
 test('“Show anyway” brings the desk back, for a meeting and for quiet hours', () => {
-  assert.equal(deskAway(true, false, true), false)
-  assert.equal(deskAway(false, true, true), false)
-  assert.equal(deskAway(true, true, false), true)
-  assert.equal(deskAway(false, false, false), false)
+  assert.equal(deskAway('meeting', true), false)
+  assert.equal(deskAway('quiet', true), false)
+  assert.equal(deskAway('meeting', false), true)
+  assert.equal(deskAway('quiet', false), true)
+  assert.equal(deskAway(null, false), false)
 })
 
 test('“Show anyway” lasts as long as what hid them, and no longer', () => {
@@ -51,9 +52,28 @@ test('“Show anyway” lasts as long as what hid them, and no longer', () => {
 })
 
 test('why the desk is away: a meeting is said before quiet hours', () => {
-  assert.equal(awayWhy(true, true), 'meeting')
-  assert.equal(awayWhy(false, true), 'quiet')
-  assert.equal(awayWhy(false, false), null)
+  assert.equal(awayWhy(true, true, true), 'meeting')
+  assert.equal(awayWhy(false, true, true), 'quiet')
+  assert.equal(awayWhy(false, false, true), null)
+})
+
+test('quiet hours take the desk only where Settings says so: off to start, they leave it as it is', () => {
+  assert.equal(awayWhy(false, true, false), null)
+  assert.equal(deskAway(awayWhy(false, true, false), false), false)
+  // A meeting hides it whatever the quiet hours switch says.
+  assert.equal(awayWhy(true, true, false), 'meeting')
+  assert.equal(awayWhy(true, false, false), 'meeting')
+})
+
+test('what the quiet hours row says: whether it is quiet hours, and where the stickies are', () => {
+  assert.equal(quietSaid(false, false, false), 'Outside quiet hours')
+  assert.equal(quietSaid(false, true, false), 'Outside quiet hours')
+  assert.equal(quietSaid(true, false, false), 'In quiet hours, they stay out')
+  assert.equal(quietSaid(true, true, true), 'In quiet hours, they are away')
+  assert.equal(quietSaid(true, true, false), 'In quiet hours, shown anyway')
+  // Hidden for a meeting in quiet hours, with the switch off: away all the same.
+  assert.equal(quietSaid(true, false, true), 'In quiet hours, they are away')
+  for (const said of [quietSaid(false, false, false), quietSaid(true, false, false), quietSaid(true, true, true), quietSaid(true, true, false)]) assert.ok(said.length <= 30, said)
 })
 
 test('what it sees names the surest signal, in words short enough for one line', () => {

@@ -31,7 +31,7 @@ import { bookMentions } from './book-mentions'
 import { foldKept, goalsOut, toCheckBack } from './properties'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
 import { meetingSignals } from './in-meeting'
-import { inMeeting, seenSaid } from './meeting-away'
+import { awayWhy, inMeeting, quietSaid, seenSaid } from './meeting-away'
 import type { MomentSource } from './moment-source'
 import { keepPins, warmGiphy } from './giphy'
 import { YEAR, daysBetween, daysLeft, leftSaid } from './goal-days'
@@ -714,6 +714,8 @@ const DEFAULTS = {
   stickiesGlass: true,
   // Stickies and goal cards out of sight while a call may be on (in-meeting.ts), back the moment it ends.
   stepAway: true,
+  // And in quiet hours too, only if asked: off to start, quiet hours leave the stickies and goal cards as they are.
+  quietDesk: false,
   // Keys you changed: { the keys it came with: yours, or null for none }.
   keys: {} as Record<string, string | null>
 }
@@ -951,7 +953,7 @@ function settings(): Settings {
 /**
  * What may surface unasked right now. Safe mode is a blackout on everything
  * the app volunteers; quiet hours, and a meeting, keep private items back
- * (and a meeting takes the stickies and goal cards away: index.ts, applyDesk). Search, lists
+ * (a meeting takes the stickies and goal cards away too, and quiet hours where Settings says so: index.ts, applyDesk). Search, lists
  * and a review you opened are never gated: you can hide what the app offers,
  * never what you asked for.
  */
@@ -968,23 +970,28 @@ export const feedTakesPictures = (): boolean => settings().feedPictures === true
  *   the menu bar. A reminder never waits for a meeting: the one to join the next call is needed most during the call
  *   before it.
  * `quiet`: quiet hours by the clock alone.
+ * `away`: why the stickies and goal cards would be off the desktop now (index.ts, applyDesk): a meeting, or quiet
+ *   hours where Settings' “Sticky notes and goal cards step away too” is on; null when neither.
  */
-export function gate(): { blackout: boolean; hidePrivate: boolean; meeting: boolean; held: boolean; quiet: boolean } {
+export function gate(): { blackout: boolean; hidePrivate: boolean; meeting: boolean; held: boolean; quiet: boolean; away: 'meeting' | 'quiet' | null } {
   // Handed off to another book or the sandbox: nothing of this one surfaces any more.
-  if (handedOff()) return { blackout: true, hidePrivate: true, meeting: false, held: true, quiet: false }
-  const { safeMode, quietStart, quietEnd, stepAway } = settings()
+  if (handedOff()) return { blackout: true, hidePrivate: true, meeting: false, held: true, quiet: false, away: null }
+  const { safeMode, quietStart, quietEnd, stepAway, quietDesk } = settings()
   const meeting = inMeeting(meetingSignals(), stepAway !== false)
   const time = new Date().toTimeString().slice(0, 5)
   const quiet =
     quietStart <= quietEnd ? time >= quietStart && time < quietEnd : time >= quietStart || time < quietEnd
-  if (safeMode) return { blackout: true, hidePrivate: true, meeting, held: true, quiet }
-  return { blackout: false, hidePrivate: quiet, meeting, held: quiet || meeting, quiet }
+  const away = awayWhy(meeting, quiet, quietDesk === true)
+  if (safeMode) return { blackout: true, hidePrivate: true, meeting, held: true, quiet, away }
+  return { blackout: false, hidePrivate: quiet, meeting, held: quiet || meeting, quiet, away }
 }
 /** Told when “Step away in meetings” is switched: the desk follows at once. */
 let stepAwayTold: () => void = () => undefined
 export const whenStepAway = (tell: () => void): void => void (stepAwayTold = tell)
 /** What “Step away in meetings” sees now, for its row in Settings. */
 export const meetingSeen = (): string => seenSaid(meetingSignals())
+/** What the row under “Quiet hours” says now: whether it is quiet hours, and where the stickies are (`hidden`: off the desktop this moment). */
+export const quietSeen = (hidden: boolean): string => quietSaid(gate().quiet, settings().quietDesk === true, hidden)
 // An untriaged capture counts as private, the plan's fail-safe: you have not
 // looked at it since you wrote it, so in quiet hours it is not volunteered.
 // Taking an exit is what clears it, so the default resolves itself.
@@ -1471,7 +1478,7 @@ export function registerHaligtree(): void {
     // Snoozed things shown or hidden: every list looks again.
     if ('showSnoozed' in patch) changed()
     if (patch.safeMode !== undefined && patch.safeMode !== wasSafe) safeModeTold(patch.safeMode)
-    if ('stepAway' in patch || 'quietStart' in patch || 'quietEnd' in patch) stepAwayTold()
+    if ('stepAway' in patch || 'quietDesk' in patch || 'quietStart' in patch || 'quietEnd' in patch) stepAwayTold()
     if (patch.keys) keysTold(patch.keys)
     // Spotlight's switch: notes put in or taken out now (spotlight.ts).
     if ('spotlight' in patch) app.emit('haligtree:spotlight')

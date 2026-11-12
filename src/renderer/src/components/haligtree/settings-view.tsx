@@ -969,7 +969,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Marked days" note="The next three marked days in the menu bar's menu, with the days to go." more="A day is marked from its page, a right-click on any day, or !milestone in quick capture." keywords="marked days in the menu bar milestones marked days exam launch birthday menu bar countdown">
             <Switch checked={settings.milestonesInMenu !== false} onCheckedChange={(milestonesInMenu) => set({ milestonesInMenu })} />
           </Setting>
-          <Setting title="Goal on screen" note="A small card on your desktop with the days left to each goal." more="“Now and then” shows it once a day and every few hours, for a minute; in a goal's last week it stays. None shows in quiet hours or a meeting. A goal can choose its own." keywords="goals beacon on screen window stack cards always sometimes off">
+          <Setting title="Goal on screen" note="A small card on your desktop with the days left to each goal." more="“Now and then” shows it once a day and every few hours, for a minute; in a goal's last week it stays. They step away whenever the sticky notes do. A goal can choose its own." keywords="goals beacon on screen window stack cards always sometimes off">
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
@@ -1085,10 +1085,14 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
         </Group>
         <Group section="What comes back to you" title="Keeping it quiet">
-          <Setting title="Quiet hours" note="Sticky notes and goal cards are away, and no private notes, old captures, nudges or alerts come up unasked." more="Every sticky and goal card, those set to “Always” and in their last week too; one you stick in these hours shows, and “Show anyway” in the menu bar and ⌘K brings them all out. They come back as they were when the hours end. Search and lists still show everything." keywords="quiet hours night sticky notes goal cards hidden away do not disturb">
+          <Setting title="Quiet hours" note="No private notes, old captures, nudges or alerts come up unasked." more="Goal cards wait to come out, unless set to “Always” or in their last week; other pins stay, unless the switch below sends them away too. Search and lists still show everything.">
             <TimeField label="Quiet hours start" value={settings.quietStart} onChange={(quietStart) => set({ quietStart })} />
             <span className="text-muted-foreground">to</span>
             <TimeField label="Quiet hours end" value={settings.quietEnd} onChange={(quietEnd) => set({ quietEnd })} />
+          </Setting>
+          <Setting under title="Sticky notes and goal cards step away too" note="In quiet hours every sticky note and goal card leaves the desktop, and is back when the hours end." more="Off, quiet hours leave them as they are. On, they all go, “Always” and last-week goal cards too; one you stick in those hours shows, and “Show anyway” in the menu bar and ⌘K brings them all out." keywords="quiet hours night sticky notes goal cards hidden away step away do not disturb"
+            off={<span data-quiet-seen>Now: {desk?.quiet ?? 'Outside quiet hours'}</span>}>
+            <Switch checked={settings.quietDesk === true} onCheckedChange={(quietDesk) => set({ quietDesk })} />
           </Setting>
           <Setting title="Safe mode" note="Nothing comes up unasked at all, for screen shares; ⌥⌘S in any Haligtree window." more="No hints, old captures coming back or pins on Home, and sticky notes, goal cards, the session bubble and notes in their own windows hide.">
             <Switch checked={settings.safeMode} onCheckedChange={(safeMode) => {

@@ -43,7 +43,7 @@ const sounds = async () => (await Promise.all(electron.windows().filter((p) => p
 const others = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && /view=home/.test(w.webContents.getURL())).map((w) => w.isVisible()))
 
 try {
-  await v('settings:set', { sounds: true, hintRate: 0, quietStart: '00:00', quietEnd: '00:00', stepAway: true })
+  await v('settings:set', { sounds: true, hintRate: 0, quietStart: '00:00', quietEnd: '00:00', stepAway: true, quietDesk: false })
   // No event of the sandbox's own with people on at this hour: the Calendar's part is tested with one made here.
   const around = await v('events', new Date(Date.now() - 60_000).toISOString(), new Date(Date.now() + 60_000).toISOString())
   for (const one of around) if (!one.allDay && one.people.length) await v('event:save', one.key, { people: [] }, 'one')
@@ -159,16 +159,28 @@ try {
   const hhmm = (minutes) => { const d = new Date(now.getTime() + minutes * 60_000); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
   await v('settings:set', { quietStart: hhmm(-60), quietEnd: hhmm(60) })
   await wait(300)
-  check('quiet hours: every sticky and goal card is away, the “Always” goal card too', up(await desk()) === 0)
+  check('quiet hours as they come (the switch under them off): every sticky and goal card stays where it is', same(await desk(), rested))
+  check('and the menus say nothing of it', !(await menu()).some((line) => /quiet hours|anyway/i.test(line)), (await menu()).slice(-8).join(' | '))
+  check('Settings says so', (await said()).quiet === 'In quiet hours, they stay out' && (await said()).why === null, JSON.stringify(await said()))
+  await v('settings:set', { quietDesk: true })
+  await wait(300)
+  check('“Sticky notes and goal cards step away too” on: every one is away, the “Always” goal card too', up(await desk()) === 0)
+  check('Settings says they are away', (await said()).quiet === 'In quiet hours, they are away' && (await said()).why === 'quiet', JSON.stringify(await said()))
   check('the menu bar says “Hidden for quiet hours” with “Show anyway”', (await menu()).includes('Hidden for quiet hours') && (await menu()).includes('Show anyway'))
   check('“Show anyway” is there in quiet hours too', await choose('Show anyway'))
   await wait(300)
   check('chosen in quiet hours, they are out again', same(await desk(), rested))
   check('a call starting in those quiet hours hides them all the same', up(await flip('camera', true)) === 0)
   check('and the call over, quiet hours keep them away', up(await flip('camera', false)) === 0)
+  await v('settings:set', { quietDesk: false })
+  await wait(300)
+  check('the switch off again, in quiet hours: back where they were at once', same(await desk(), rested))
+  await v('settings:set', { quietDesk: true })
+  await wait(300)
   await v('settings:set', { quietStart: '00:00', quietEnd: '00:00' })
   await wait(300)
-  check('quiet hours over: back where they were', same(await desk(), rested))
+  check('quiet hours over, the switch still on: back where they were', same(await desk(), rested) && (await said()).quiet === 'Outside quiet hours')
+  await v('settings:set', { quietDesk: false })
 
   // The Calendar's own part: an event with other people now, then dropped.
   const made = await v('event:add', { title: 'Reading group', start: new Date(Date.now() - 5 * 60_000).toISOString(), end: new Date(Date.now() + 30 * 60_000).toISOString(), people: ['Paul Atreides'] })
@@ -186,6 +198,7 @@ try {
   await h.locator('[data-desk-seen]').scrollIntoViewIfNeeded()
   await wait(400)
   check('Settings shows “Step away in meetings” with what it sees now', (await h.locator('[data-desk-seen]').textContent()) === 'Now: Nothing is on', await h.locator('[data-desk-seen]').textContent())
+  check('and under “Quiet hours”, the switch for the stickies, off, saying where things stand', (await h.locator('[data-quiet-seen]').textContent()) === 'Now: Outside quiet hours' && (await h.locator('[data-quiet-seen]').locator('xpath=ancestor::*[@data-setting][1]').locator('[role=switch]').getAttribute('aria-checked')) === 'false', await h.locator('[data-quiet-seen]').textContent())
   await flip('camera', true)
   await wait(400)
   check('and the line follows a signal as it comes on', (await h.locator('[data-desk-seen]').textContent()) === 'Now: A camera is on', await h.locator('[data-desk-seen]').textContent())
