@@ -301,7 +301,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   }
   // A book, or a note holding the file, grows out of its tile (lib/hero.ts); a picture lifts into its own viewer, and a recording plays where it is.
   // A PDF's scrubbed page is read as the click lands: growing out of its tile ends the scrub.
-  const openFrom = (one: Media, event: React.MouseEvent): void => ((page) => (one.kind === 'pdf' || one.uses.length ? heroOpen(event, () => open(one, page)) : open(one, page)))(scrubbedPage(one.src) ?? undefined)
+  // A cover turned to a page opens the book there, whatever note holds it: the page on show is what was asked for.
+  const openFrom = (one: Media, event: React.MouseEvent): void => ((page) => (page !== undefined ? heroOpen(event, () => openFile(one, false, page)) : one.kind === 'pdf' || one.uses.length ? heroOpen(event, () => open(one)) : open(one)))(scrubbedPage(one.src) ?? undefined)
 
   // Files carried over the page: the whole page takes them.
   const [carrying, setCarrying] = useState(false)

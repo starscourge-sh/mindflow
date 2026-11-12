@@ -79,6 +79,31 @@ try {
   }
   await c.look('light')
 
+  // Files' first page, "All": a book under "Recent" turns its pages on its own cover too, never in a card beside it
+  // (the user, 12 Nov: "why the heck does a separate thumbnail popup show up ... the pdf itself already has a thumbnail").
+  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'All' }).first().click(); await wait(1200)
+  const recent = await h.evaluate(() => { const one = document.querySelector('[data-files-recent-grid] [data-recent-file=pdf] .pdf-book-cover'); one?.scrollIntoView({ block: 'center' }); const r = one?.getBoundingClientRect(); return r && { x: r.left, y: r.top, w: r.width, h: r.height } })
+  check('"Recent" on Files\' first page shows a book', !!recent, '')
+  if (recent) {
+    await h.mouse.move(recent.x + 10, recent.y + recent.h / 2); await wait(750)
+    const rested = await state()
+    check('Recent: resting on the cover brings up nothing, no card', !rested.card && !rested.scrub, JSON.stringify(rested))
+    for (let i = 1; i <= 8; i++) { await h.mouse.move(recent.x + 10 + (i * (recent.w - 20)) / 8, recent.y + recent.h / 2); await wait(60) }
+    await wait(200)
+    const turned = await state()
+    check('Recent: sliding turns the cover itself into the page, "n / 20" on it, and no card beside it', turned.inCover && !turned.card && /^\d+ \/ 20$/.test(turned.chip), JSON.stringify(turned))
+    await h.screenshot({ path: `${SHOT}-recent.png` })
+    // A click lands on the page on show.
+    const at = turned.chip.split(' ')[0]
+    await h.mouse.down(); await h.mouse.up()
+    let opened = null
+    for (let i = 0; i < 16 && !opened; i++) { await wait(500); opened = await h.evaluate(() => document.querySelector('.pdf-reader-page-field')?.value ?? null) }
+    // The book is held by a note: the turned page still opens the book there, not the note.
+    check('Recent: a click on the turned cover opens the book at the page on show', !!at && opened === at, `chip ${at}, reader ${opened}`)
+    await go('media'); await wait(1000)
+    await h.mouse.move(5, 450); await wait(300)
+  }
+
   // A Media tile: the same, among what a search under All finds (All itself shows a pile per kind).
   await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'All' }).first().click(); await wait(800)
   await h.locator('[data-page=media] input').first().fill('Alpha'); await wait(1500)
