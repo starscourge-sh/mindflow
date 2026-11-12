@@ -2398,7 +2398,7 @@ export function Home(): React.JSX.Element {
                         aria-current={light === `pin:${pin.id}` ? 'page' : undefined}
                         onClick={() => open(pin.type, pin.id)}
                         // ⌫ unpins, as the menu's line does.
-                        onKeyDown={(event) => onRemoveKey(event, menu, 'Unpin')}
+                        onKeyDown={(event) => onRemoveKey(event, menu(), 'Unpin')}
                         className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-foreground/80'} ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
                         <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
