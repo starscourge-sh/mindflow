@@ -6,9 +6,11 @@
 // seconds and more.) On a copy of a real book (its largest note):
 //   QA_DATA=<book copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/long-note-leave.mjs
 // WAYS=chrome,palette,menu,window,tab,newtab (all). LIMIT=150 (ms). A way that stops the window for more than 20 s
-// ends the run there: nothing after it could be told apart from it.
+// ends the run there: nothing after it could be told apart from it. SMALL=1: on a note of about twenty blocks.
+// FILM=<folder>: each leave and each way back filmed, a picture a frame. After a leave by a tab, the way back by the
+// note's own tab is timed too (when its blocks were there, and the longest the page's clock stood still).
 import { DatabaseSync } from 'node:sqlite'
-import { readFileSync } from 'fs'
+import { mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { loadavg } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
@@ -16,7 +18,11 @@ import { sandbox } from './sandbox-lib.mjs'
 const root = process.env.QA_DATA
 const shelf = JSON.parse(readFileSync(join(root, 'books.json'), 'utf8'))
 const db = new DatabaseSync(join(root, 'books', shelf.last, 'haligtree.db'), { readOnly: true })
-const note = db.prepare("select id, body from captures where status = 'open' and kind = 'note' and body is not null order by length(body) desc limit 1").get()
+// SMALL=1: a note of about twenty blocks in its place, to see that a short note's leave is no slower for the long note's sake.
+const blocksOf = (body) => { try { return JSON.parse(body).content?.length ?? 0 } catch { return 0 } }
+const note = process.env.SMALL
+  ? db.prepare("select id, body from captures where status = 'open' and kind = 'note' and body is not null and length(body) between 1500 and 12000 limit 400").all().sort((one, two) => Math.abs(blocksOf(one.body) - 20) - Math.abs(blocksOf(two.body) - 20))[0]
+  : db.prepare("select id, body from captures where status = 'open' and kind = 'note' and body is not null order by length(body) desc limit 1").get()
 db.close()
 const size = JSON.parse(note.body).content.length
 const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
@@ -29,6 +35,21 @@ const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok 
 
 const c = await sandbox({ width: 1300, height: 900, seeded: false })
 const { h, send } = c
+// FILM=<folder>: each leave, and each way back to the note, filmed as the window draws it (every frame, by the
+// browser's own screencast, as qa/sandbox-flash.mjs films), a picture a frame, named by the ms since the first.
+const FILM = process.env.FILM ?? null
+if (FILM) mkdirSync(FILM, { recursive: true })
+const cdp = FILM ? await h.context().newCDPSession(h).catch(() => null) : null
+let frames = []
+if (cdp) cdp.on('Page.screencastFrame', ({ data, sessionId, metadata }) => { frames.push({ t: metadata.timestamp, data }); cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {}) })
+const filming = async () => { if (!cdp) return; frames = []; await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 55, everyNthFrame: 1 }).catch(() => {}); await h.waitForTimeout(250) }
+const filmed = async (name) => {
+  if (!cdp) return
+  await cdp.send('Page.stopScreencast').catch(() => {})
+  const first = frames[0]?.t ?? 0
+  frames.forEach((frame, i) => writeFileSync(join(FILM, `${name}-${String(i).padStart(3, '0')}-${Math.round((frame.t - first) * 1000)}ms.jpg`), Buffer.from(frame.data, 'base64')))
+  console.log(`(filmed ${name}: ${frames.length} frames over ${Math.round(((frames[frames.length - 1]?.t ?? first) - first) * 1000)} ms)`)
+}
 const install = () => h.evaluate((sel) => {
   const ed = () => [...document.querySelectorAll(sel)].filter((one) => one.editor && one.isConnected).sort((a, b) => b.editor.state.doc.childCount - a.editor.state.doc.childCount)[0]
   const boxOf = (e) => { let box = e?.parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; return box }
@@ -93,6 +114,7 @@ try {
       const before = await setUp(share)
       const said = `at ${Math.round(share * 100)}% (caret left in block ${before.caret}, the keys in the note: ${before.keys}, the browser's selection ${before.selection})`
       await h.evaluate(() => { window.__leave.stall(); window.__leave.note = window.__leave.ed() })
+      await filming()
       const began = Date.now()
       // The way out, not waited for: a window that stops never says it is done.
       let act = Promise.resolve()
@@ -134,6 +156,7 @@ try {
       }
       await h.waitForTimeout(2000)
       const stall = await h.evaluate(() => window.__leave.stall())
+      await filmed(`leave-${way}-${Math.round(share * 100)}`)
       // Whether the way out was really taken: the keys are no longer in the note, or the window no longer in front.
       const left = await h.evaluate((way) => (way === 'window' ? !document.hasFocus() : document.activeElement !== window.__leave.note), way)
       check(`${what}, ${said}: the window answers within ${LIMIT} ms`, stall <= LIMIT && left, `its clock stood still for ${stall} ms at most; it answered the probe ${back} ms after${left ? '' : '; BUT the keys never left the note'}  (${load()})`)
@@ -141,9 +164,16 @@ try {
       if (way === 'palette' || way === 'menu') { await h.keyboard.press('Escape'); await h.waitForTimeout(300) }
       if (way === 'window') await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))?.focusOnWebView())
       if (way === 'tab' || way === 'newtab') {
+        // The way back: the note's own tab chosen again. How long the page's clock stood still while it came.
+        await filming()
+        await h.evaluate(() => window.__leave.stall())
+        const went = Date.now()
         await press(`[data-tab="${mine}"] [role="tab"]`)
         await h.waitForFunction((count) => window.__leave.open(count), size - 1, { timeout: 60000, polling: 50 })
+        const openIn = Date.now() - went
         await h.waitForTimeout(1200)
+        console.log(`(back to the note by its tab after ${what}: its blocks were there ${openIn} ms after the press; the page's clock stood still for ${await h.evaluate(() => window.__leave.stall())} ms at most  (${load()}))`)
+        await filmed(`back-${way}-${Math.round(share * 100)}`)
       }
     }
   }

@@ -235,6 +235,7 @@ try {
     const said = `${now.keys}, caret in block ${now.block === now.blocks - 1 ? 'last' : now.block}`
     console.log(`(${name}, ${at.from}px ${share === 1 ? 'under the last block' : 'over the first'}, on ${at.under}: the keys ${said}; the browser's selection in a kept place: ${now.inMark})`)
     if (now.keys === 'in the note') check(`${name}: taken by the note, the caret is in the note`, !now.inMark && now.inNote, JSON.stringify(now))
+    if (inside && share === 1) check(`${name}: the caret is at the note's end`, now.block === now.blocks - 1, `caret in block ${now.block} of ${now.blocks}`)
     return said
   }
   same.pressUnderInNote = await press(1, true, 'a press under the last line, in the note\'s own box')
@@ -243,6 +244,19 @@ try {
   await wait(700)
   same.pressOverInNote = await press(0, true, 'a press over the first line, in the note\'s own box')
   same.pressOverOutside = await press(0, false, 'a press over the note, in its scroller')
+
+  // A press on the bare edge of the dock under an open note (the room round the composer) is a press on nothing:
+  // the keys stay in the note.
+  await h.evaluate(() => { window.__ends.to(0.4); window.__ends.ed().editor.commands.focus(null, { scrollIntoView: false }) })
+  await wait(700)
+  const edge = await h.evaluate(() => { const dock = document.querySelector('[data-thought-dock]'); if (!dock) return null; const r = dock.getBoundingClientRect(); for (let y = r.top + 2; y < r.bottom - 1; y += 2) for (let x = r.left + 4; x < r.right - 4; x += 8) if (document.elementFromPoint(x, y) === dock) return { x: Math.round(x), y: Math.round(y) }; return null })
+  if (edge) {
+    const had = await h.evaluate(() => window.__ends.where())
+    await h.mouse.click(edge.x, edge.y)
+    await wait(400)
+    const has = await h.evaluate(() => window.__ends.where())
+    check('a press on the bare edge of the dock under the note leaves the keys in the note', had.keys === 'in the note' && has.keys === 'in the note' && has.head === had.head, `the keys before: ${had.keys}; after: ${has.keys}; the caret ${has.head === had.head ? 'where it was' : 'moved'}`)
+  } else console.log('(no bare edge of a dock under the note on this page)')
 
   // 9. A change that carries only a word for another part of the editor (the block handle held still while its
   // menu is open: a `lockDragHandle` change as the menu opens and another as it shuts) moves nothing of a long
