@@ -106,3 +106,19 @@ export function worksToFind(db: DatabaseSync): (Found<'work'> & { raw: string })
     return { type: 'work', id: one.name, number: null, kind: 'work', status: 'open', source: [one.authors.split(';').map((who) => who.trim()).join(', '), one.born].filter(Boolean).join(', '), attribution: null, label: one.name, capturedAt: one.updated_at, text: raw.toLowerCase(), raw }
   })
 }
+
+/**
+ * What a link to a file points at, `pdf:` and the PDF's address or `web:`
+ * and a kept article's link: its title and the reader's id for it, or
+ * undefined when it is not one, or no longer kept. Any note can link to them.
+ */
+export function fileLink(db: DatabaseSync, link: string): { type: 'pdf' | 'web'; id: string; title: string } | undefined {
+  const at = link.indexOf(':')
+  const type = link.slice(0, at), id = link.slice(at + 1)
+  if (type === 'pdf') {
+    const found = pdfsToFind(db).find((one) => one.id.startsWith(`${id}|`))
+    return found ? { type, id, title: found.label } : undefined
+  }
+  const article = type === 'web' ? articlesToFind(db).find((one) => one.id === id) : undefined
+  return article ? { type: 'web', id, title: article.label } : undefined
+}

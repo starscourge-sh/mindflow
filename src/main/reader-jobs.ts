@@ -5,6 +5,10 @@ import type { Pictures } from './picture-lines'
 import { bookFeed, type FeedAsk, type Takes } from './book-feed'
 import { bookHome, type HomeAsk } from './book-home'
 import { bookRepeats } from './book-repeats'
+import { bookMentions } from './book-mentions'
+import { bookTags } from './book-tags'
+import { bookMap } from './book-map'
+import { wordCounter } from './word-count'
 
 /**
  * Everything the reading thread can be asked (reader.ts), by name: search,
@@ -21,6 +25,10 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
   const feed = bookFeed(db)
   const home = bookHome(db)
   const repeats = bookRepeats(db)
+  const mentions = bookMentions(db, needs.named)
+  const tags = bookTags(db)
+  const map = bookMap(db)
+  const gained = wordCounter()
   type Gone = () => boolean
   return {
     jobs: {
@@ -45,7 +53,22 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
       /** How near the Feed is to full. */
       'feed:goal': (_gone: Gone, takes: Takes) => feed.goal(takes),
       /** The same idea, caught again and again (book-repeats.ts). */
-      repeats: (_gone: Gone, ids: string[]) => repeats(ids)
+      repeats: (_gone: Gone, ids: string[]) => repeats(ids),
+      /** A note's mentions, both ways (book-mentions.ts). */
+      mentions: (gone: Gone, id: string) => mentions.of(id, gone),
+      /** Every tag with its counts; one tag's notes; one tag's notes to read (book-tags.ts). `stamp`: the book's. */
+      tags: (_gone: Gone, stamp: number) => tags.tags(stamp),
+      tag: (_gone: Gone, stamp: number, name: string) => tags.tag(stamp, name),
+      'tag:read': (_gone: Gone, stamp: number, name: string) => tags.read(stamp, name),
+      /** One note's own #tags. */
+      'note:tags': (_gone: Gone, table: 'captures' | 'nuggets', id: string) => tags.ofNote(table, id),
+      /** The link cards not looked up yet as they now read (captures.ts keeps which were tried). */
+      cards: (_gone: Gone) => db.prepare(`select id, kind, body from captures where (kind = 'link' or body like '%"bookmark"%')
+        and not exists (select 1 from card_tries t where t.id = captures.id and t.body = captures.body)`).all() as { id: string; kind: string; body: string }[],
+      /** The Map (book-map.ts). */
+      map: (_gone: Gone, stamp: number) => map(stamp),
+      /** The words a save gained (word-count.ts): the words as they were, and as they are. */
+      'words:gained': (_gone: Gone, was: string, now: string) => gained(was, now)
     },
     /** New words were read in a picture: search's list is read again. */
     forget: finder.forget,

@@ -1,4 +1,4 @@
-import { NameBook, everyday, linkableLines, nameFrom, reading, tooCommon, unlinkable, type Name } from './name-match'
+import { NameBook, everyday, nameFrom, unlinkable } from './name-match'
 import { occlusionOf } from './occlusion'
 import { chipLabel } from './cite-ids'
 import { mediaForget, mediaFromBin, mediaInBin, mediaPeek } from './media'
@@ -16,8 +16,8 @@ import { reviewsADay } from './review-cost'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
 import { rollOver } from './held'
-import { KEPT_IN, LABEL, LIST, atomically, bookStamp, changed, database, movedOn, quietly, type Change } from './captures'
-import { ask as askReader } from './reader'
+import { LABEL, LIST, atomically, bookStamp, changed, database, movedOn, quietly, type Change } from './captures'
+import { ask as askReader, left as leftReader } from './reader'
 import { named as timed } from './stalls'
 import { docList, tasksSaid } from './day-lines'
 import { advance, dateIn, leadingTag, readTask } from './task-words'
@@ -25,9 +25,9 @@ import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, st
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
 import { SANDBOX, handedOff } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
-import { mdWords } from './md-words'
 import { cardWords, plain } from './card-words'
 import { bookHome } from './book-home'
+import { bookMentions } from './book-mentions'
 import { foldKept, goalsOut, toCheckBack } from './properties'
 import { celebrateAfter, goalPassed, watches, type MomentKind } from './celebrate'
 import type { MomentSource } from './moment-source'
@@ -1698,191 +1698,23 @@ export function registerHaligtree(): void {
       linked: [...links('captures', LABEL), ...links('nuggets', 'title')].filter((row) => row.id !== id)
     }
   })
-  // Backlinks the way Obsidian lists them under a note: every note that links
-  // here, with the sentence it does it in; and every note that names this
-  // one without linking it yet, which one press turns into a link.
-  type Mention = { type: string; id: string; title: string; snippet: string; private: number; /** For a note this one names: the very words that name it here, so they can be made its link. */ words?: string }
-  const everything = (): { type: string; id: string; title: string; body: string; private: number }[] => [
-    ...(db.prepare(`select 'capture' as type, id, ${LABEL} as title, body, private from captures where status != 'discarded'`).all() as never[]),
-    ...(db.prepare("select tier as type, id, title, body, private from nuggets where superseded_by is null and tier not in ('card', 'deck')").all() as never[])
-  ]
-  const around = (text: string, at: number, length: number): string => {
-    const start = Math.max(0, text.lastIndexOf('\n', at) + 1, at - 80)
-    const end = Math.min(text.length, at + length + 80)
-    const line = text.slice(start, end).split('\n')[0]
-    return `${start > 0 && text[start - 1] !== '\n' ? '…' : ''}${line}${end < text.length && !text.slice(at, end).includes('\n') ? '…' : ''}`
-  }
-  // The words as read: inline pieces run together, links as their names,
-  // blocks on their own lines.
-  const words = (value: unknown): string => {
-    // An imported page's Markdown reads as words, its [[@link|name]] as its name.
-    if (typeof value === 'string') return mdWords(value)
-    const walk = (node: Doc): string =>
-      node.type === 'noteLink' ? String(node.attrs?.label ?? '') :
-      node.text ?? (node.content ?? []).map(walk).join(node.content?.every((child) => child.type === 'text' || child.type === 'noteLink' || child.type === 'hardBreak') ? '' : '\n')
-    return value ? walk(value as Doc) : ''
-  }
-  const titleOf = (id: string): { title: string; key: string; link: string } | null => {
-    const capture = db.prepare(`select ${LABEL} as title, number from captures where id = ?`).get(id) as { title: string; number: number } | undefined
-    if (capture) return { title: capture.title, key: `${NOTE_KEY}-${capture.number}`, link: id }
-    const nugget = db.prepare('select title, tier from nuggets where id = ?').get(id) as { title: string; tier: string } | undefined
-    return nugget ? { title: nugget.title, key: '', link: `${nugget.tier}:${id}` } : null
-  }
-  // What truly names a note (name-match.ts, the one rule set): each note's lines read once and kept until its words
-  // change, the book of names made again only when a title changes, so a save reads one note, never the book.
-  const linesKept = new Map<string, { body: string; lines: string[]; names: string; held: Set<string> }>()
-  let nameBook: { stamp: string; book: NameBook } | null = null
-  /**
-   * The mentions read every note in the book, on every open and after every save: on a large book (95 MB of notes)
-   * that held main's one thread for 65 to 380 ms each time, and every window with it. So the read is taken in
-   * turns: `turn()` lets the thread go once it has been held 8 ms (whatever waits, a key or a window's question,
-   * goes first) and says false when the answer is no longer wanted, a newer ask having taken its place.
-   * A turn is as long as its longest step, and after the first wait a handler's time has no name (stalls.ts):
-   * each step is named here, so one that holds the thread too long shows in the table as itself.
-   */
-  type Turn = () => Promise<boolean>
-  const turns = (wanted: () => boolean): Turn => {
-    let since = performance.now()
-    return async () => {
-      if (performance.now() - since < 8) return true
-      await new Promise((done) => setImmediate(done))
-      since = performance.now()
-      return wanted()
-    }
-  }
-  /** `everything()`, a few notes at a read; null once it is no longer wanted. */
-  const everythingInTurns = async (turn: Turn): Promise<ReturnType<typeof everything> | null> => {
-    const out: ReturnType<typeof everything> = []
-    for (const page of [
-      db.prepare(`select rowid as at, 'capture' as type, id, ${LABEL} as title, body, private from captures where status != 'discarded' and rowid > ? order by rowid limit 30`),
-      db.prepare("select rowid as at, tier as type, id, title, body, private from nuggets where superseded_by is null and tier not in ('card', 'deck') and rowid > ? order by rowid limit 30")
-    ]) {
-      for (let at = 0; ;) {
-        const rows = timed('mentions: thirty notes read', () => page.all(at)) as unknown as (ReturnType<typeof everything>[number] & { at: number })[]
-        if (!rows.length) break
-        out.push(...rows)
-        at = rows[rows.length - 1].at
-        if (!(await turn())) return null
-      }
-    }
-    return out
-  }
-  /** `book.find` over many lines, a part at a time, with the same answer as in one go (name-match.ts `reading`); `first`: the first hit is enough. */
-  const findInTurns = async (book: NameBook, lines: string[], leave: Set<string>, strict: boolean, own: string, turn: Turn, first = false): Promise<ReturnType<NameBook['find']> | null> => {
-    const part = reading(own)
-    const out: ReturnType<NameBook['find']> = []
-    for (let from = 0; from < lines.length && !(first && out.length); from += 120) {
-      out.push(...timed('mentions: names looked for in 120 lines', () => book.find(lines.slice(from, from + 120), leave, strict, own, part)))
-      if (!(await turn())) return null
-    }
-    return out
-  }
-  const linesOf = async (row: { id: string; body: string }, stamp: string, book: NameBook, turn: Turn): Promise<{ lines: string[]; held: Set<string> } | null> => {
-    let kept = linesKept.get(row.id)
-    if (!kept || kept.body !== row.body) {
-      kept = timed("mentions: a note's lines read", () => {
-        let doc: unknown = null
-        try { doc = JSON.parse(row.body) } catch { doc = row.body }
-        return { body: row.body, lines: linkableLines(doc), names: '', held: new Set<string>() }
-      })
-      linesKept.set(row.id, kept)
-    }
-    // Every name standing in it as whole words, read as a name or not: how common a name is, and where to look closer.
-    if (kept.names !== stamp) {
-      const hits = await findInTurns(book, kept.lines, new Set([row.id]), false, '', turn)
-      if (!hits) return null
-      kept.held = new Set(hits.map((hit) => hit.key))
-      kept.names = stamp
-    }
-    return (await turn()) ? kept : null
-  }
-  /** The ids a note's words already link to, read once. */
-  const linkedIn = (body: string): Set<string> => new Set([...body.matchAll(/"id":"(?:[a-z]+:)?([^"]+)"|\[\[@(?:[a-z]+:)?([^|\]]+)\|/g)].map((hit) => hit[1] ?? hit[2]))
-  type Mentions = { linked: Mention[]; unlinked: Mention[]; out: Mention[]; named: Mention[]; more: { unlinked: boolean; named: boolean }; me: string }
-  /** A note's mentions, worked out in turns; null once no longer wanted. */
-  const mentionsOf = async (id: string, turn: Turn): Promise<Mentions | null> => {
-    const me = titleOf(id)
-    const name = me?.title.trim() ?? ''
-    const every = await everythingInTurns(turn)
-    if (!every) return null
-    const all = every.filter((row) => row.body)
-    const stamp = all.map((row) => `${row.id}\u0000${row.title}`).join('\u0001')
-    if (nameBook?.stamp !== stamp) nameBook = { stamp, book: timed('mentions: the book of names made', () => new NameBook(all.map((row) => nameFrom(row.id, row.title ?? '')).filter((one): one is Name => !!one), everyday)) }
-    const book = nameBook.book
-    const read = new Map<string, { lines: string[]; held: Set<string> }>()
-    for (const row of all) {
-      const lines = await linesOf(row, stamp, book, turn)
-      if (!lines) return null
-      read.set(row.id, lines)
-    }
-    // How many notes hold each name: one that many do names nothing.
-    const held = new Map<string, number>()
-    for (const one of read.values()) for (const key of one.held) held.set(key, (held.get(key) ?? 0) + 1)
-    const rare = (key: string): boolean => !tooCommon(held.get(key) ?? 0, all.length)
-    const snippetAt = (line: string, from: number, to: number): string => around(line, from, to - from).replace(/\s*\u2063\s*/g, ' ')
-    const linked: Mention[] = []
-    const unlinked: Mention[] = []
-    const mine = all.find((row) => row.id === id)
-    const own = nameFrom(id, name)
-    const ownBook = own && rare(id) ? new NameBook([own], everyday) : null
-    for (const row of all) {
-      if (!(await turn())) return null
-      if (row.id === id) continue
-      // A link as the editor keeps it, or as an imported page still holds it.
-      const links = row.body.includes(id) && new RegExp(`"id":"(?:[a-z]+:)?${id}"|\\[\\[@(?:[a-z]+:)?${id}\\|`).test(row.body)
-      if (links) {
-        const text = timed('mentions: a note that links here read', () => words(JSON.parse(row.body)))
-        const label = /"label":"([^"]*)"/.exec(row.body.slice(Math.max(0, row.body.search(new RegExp(`"id":"(?:[a-z]+:)?${id}"`)))))?.[1] ??
-          new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|([^\\]]+)\\]\\]`).exec(row.body)?.[1] ?? name
-        const at = text.indexOf(label)
-        const snippet = at >= 0 ? around(text, at, label.length) : cut(text, 160)
-        // A line that is only the link and tags says nothing the row does not: none then.
-        const bare = !withoutTags(snippet.replace(label, '')).replace(row.title ?? '', '').replace(/[\s….,:;·-]/g, '')
-        linked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: bare ? '' : snippet })
-        continue
-      }
-      // Only a note that holds the name at all is read closer: is it written there as this note's name?
-      const theirs = read.get(row.id)!
-      if (!ownBook || !theirs.held.has(id)) continue
-      const hits = await findInTurns(ownBook, theirs.lines, new Set(), true, row.title ?? '', turn, true)
-      if (!hits) return null
-      const hit = hits[0]
-      if (hit) unlinked.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: snippetAt(theirs.lines[hit.line], hit.from, hit.to) })
-    }
-    // And the other way, as Obsidian's Outgoing links has it: what this note
-    // links to, and the notes it names without linking them yet.
-    const out: Mention[] = []
-    const named: Mention[] = []
-    if (mine) {
-      const already = linkedIn(mine.body)
-      const rows = new Map(all.map((row) => [row.id, row]))
-      for (const key of already) {
-        const row = rows.get(key)
-        if (row && key !== id) out.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: '' })
-      }
-      const lines = read.get(id)!.lines
-      const hits = await findInTurns(book, lines, new Set([id, ...already]), true, name, turn)
-      if (!hits) return null
-      for (const hit of hits) {
-        const row = rows.get(hit.key)
-        if (row && rare(hit.key)) named.push({ type: row.type, id: row.id, title: row.title, private: row.private, snippet: snippetAt(lines[hit.line], hit.from, hit.to), words: lines[hit.line].slice(hit.from, hit.to) })
-      }
-    }
-    // The lists show twenty; `more` says when there were more, so a heading never counts what it does not list.
-    return { linked, unlinked: unlinked.slice(0, 20), out, named: named.slice(0, 20), more: { unlinked: unlinked.length > 20, named: named.length > 20 }, me: mine?.type ?? 'capture' }
-  }
-  // One ask a window: a newer one from the same window takes the older's place (a note you have already left is
-  // not matched to the end; one saved again is answered once, with the newer reading).
-  const asked = new Map<number, { id: string; found: Promise<Mentions> }>()
+  // Backlinks the way Obsidian lists them under a note (book-mentions.ts), read on the reading thread: they read
+  // every note in the book. One ask a window: a newer one from the same window takes the older's place (a note you
+  // have already left is not matched to the end; one saved again is answered once, with the newer reading).
+  const { titleOf, words } = bookMentions(db, timed)
+  const NO_MENTIONS = { linked: [], unlinked: [], out: [], named: [], more: { unlinked: false, named: false }, me: 'capture' }
+  const asked = new Map<number, { id: string; found: Promise<unknown> }>()
   ipcMain.handle('haligtree:mentions', (event, id: string) => {
     const from = event.sender
-    if (!asked.has(from.id)) from.once('destroyed', () => asked.delete(from.id))
-    const mine: { id: string; found: Promise<Mentions> } = { id, found: null as never }
+    const slot = `mentions:${from.id}`
+    if (!asked.has(from.id)) from.once('destroyed', () => (asked.delete(from.id), leftReader(slot)))
+    leftReader(slot)
+    const mine: { id: string; found: Promise<unknown> } = { id, found: null as never }
     asked.set(from.id, mine)
-    mine.found = mentionsOf(id, turns(() => asked.get(from.id) === mine && !from.isDestroyed())).then((found) => {
+    mine.found = askReader('mentions', [id], slot).then((found) => {
       if (found) return found
       const newer = asked.get(from.id)
-      return newer && newer !== mine && newer.id === id ? newer.found : { linked: [], unlinked: [], out: [], named: [], more: { unlinked: false, named: false }, me: 'capture' }
+      return newer && newer !== mine && newer.id === id ? newer.found : NO_MENTIONS
     })
     return mine.found
   })
@@ -3931,26 +3763,36 @@ export function registerHaligtree(): void {
   column('captures', 'passed_at text')
   // The last week's captures not yet tidied, oldest first, the way they were
   // written. Not an import: a vault arriving is not something you caught.
+  const TIDY = "status = 'open' and archived_at is null and tidied_at is null and imported_at is null and captured_at >= ?"
   const tidyList = (): Record<string, unknown>[] =>
-    db.prepare(`select ${LIST}, body, back_at as backAt from captures where status = 'open' and archived_at is null and tidied_at is null
-      and imported_at is null and captured_at >= ? order by captured_at`).all(ago(7)).map(body)
+    db.prepare(`select ${LIST}, body, back_at as backAt from captures where ${TIDY} order by captured_at`).all(ago(7)).map(body)
   // What deciding walks: everything marked to come back to; anything never
   // tidied, a week on; and, so nothing rots unseen, the few tidied ones open
   // longest that it has not shown for two months. A dozen of each at most.
+  const DECIDE = {
+    back: "status = 'open' and archived_at is null and back_at is not null",
+    untidied: `status = 'open' and archived_at is null and back_at is null and tidied_at is null and ${OWED} < ? and coalesce(passed_at, '') < ?`,
+    longest: `status = 'open' and archived_at is null and back_at is null and tidied_at is not null and ${AGED} < ? and coalesce(passed_at, '') < ?`
+  }
   const decideList = (): Record<string, unknown>[] => {
     const rows = [
-      ...db.prepare(`select ${LIST}, body, back_at as backAt, 'back' as why from captures where status = 'open' and archived_at is null and back_at is not null order by back_at`).all(),
-      ...db.prepare(`select ${LIST}, body, back_at as backAt, 'untidied' as why from captures where status = 'open' and archived_at is null and back_at is null and tidied_at is null
-        and ${OWED} < ? and coalesce(passed_at, '') < ? order by captured_at limit 12`).all(ago(7), ago(21)),
-      ...db.prepare(`select ${LIST}, body, back_at as backAt, 'longest' as why from captures where status = 'open' and archived_at is null and back_at is null and tidied_at is not null
-        and ${AGED} < ? and coalesce(passed_at, '') < ? order by captured_at limit 5`).all(ago(30), ago(60))
+      ...db.prepare(`select ${LIST}, body, back_at as backAt, 'back' as why from captures where ${DECIDE.back} order by back_at`).all(),
+      ...db.prepare(`select ${LIST}, body, back_at as backAt, 'untidied' as why from captures where ${DECIDE.untidied} order by captured_at limit 12`).all(ago(7), ago(21)),
+      ...db.prepare(`select ${LIST}, body, back_at as backAt, 'longest' as why from captures where ${DECIDE.longest} order by captured_at limit 5`).all(ago(30), ago(60))
     ] as Record<string, unknown>[]
     return rows.map(body)
   }
   handle('pass:tidy', tidyList)
   handle('pass:decide', decideList)
   // How many each would walk, for whether to offer it at all; never shown as a number to clear.
-  handle('pass:waiting', () => ({ tidy: tidyList().length, decide: decideList().length }))
+  // Counted where they are kept: the lists themselves read every one's words, a long note's too, for two numbers
+  // (asked at every change, about 25 ms of main each time on a book with a 4 MB note in its Inbox).
+  const countOf = (where: string, most: number | null, ...args: string[]): number =>
+    (db.prepare(`select count(*) as n from (select 1 from captures where ${where}${most ? ` limit ${most}` : ''})`).get(...args) as { n: number }).n
+  handle('pass:waiting', () => ({
+    tidy: countOf(TIDY, null, ago(7)),
+    decide: countOf(DECIDE.back, null) + countOf(DECIDE.untidied, 12, ago(7), ago(21)) + countOf(DECIDE.longest, 5, ago(30), ago(60))
+  }))
   // Moved on from in the tidy pass: findable now. Not a change to undo.
   handle('pass:tidied', (id: string) => write(db.prepare('update captures set tidied_at = ? where id = ? and tidied_at is null').run(now(), id)))
   // Come back to this on deciding day, or not after all; `at` puts back what it was.
@@ -4411,59 +4253,9 @@ export function registerHaligtree(): void {
     return load
   })
 
-  // --- tags, worked out from the words every time so they cannot go stale
-  // What a tag holds is one list, whoever asks: the sidebar, the Tags page and
-  // the tag's own page count the same things. Out of it: the Bin, the
-  // archive, cards, and a note made into tasks that are all in the Bin (it
-  // went there with them). Kept but not shown until asked (`later`): a task
-  // done, a to-do note dealt with, and a note made into a task, which lives
-  // on as that task, as Everything shows them.
-  const madeInto = (status: string): string => `exists (select 1 from tasks t where t.status ${status} and (t.origin_capture_id = captures.id or t.id in (select task_id from task_links where item_id = captures.id)))`
-  const TAG_CAPTURES = `status != 'discarded' and archived_at is null and not (status = 'resolved' and ${madeInto("= 'dropped'")} and not ${madeInto("!= 'dropped'")})`
-  const CAPTURE_LATER = `select status = 'resolved' and (kind = 'todo' or ${madeInto("!= 'dropped'")})`
-  let tagsOf = new Map<string, { title: string; body: string; tags: string[] }>()
-  const tagged = (): { tag: string; id: string; type: string; title: string; private: boolean; later: boolean; at: string; fromNote?: string }[] => {
-    const rows = [
-      ...(db.prepare(`select id, 'capture' as type, ${LABEL} as title, body, private, (${CAPTURE_LATER}) as later, captured_at as at from captures where ${TAG_CAPTURES}`).all() as Record<string, string>[]),
-      ...(db.prepare("select id, tier as type, title, body, private, 0 as later, created_at as at, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')").all() as Record<string, string>[]),
-      // A task in the Bin is out of every tag, as a capture there is.
-      ...(db.prepare("select id, 'task' as type, title, notes as body, 0 as private, status = 'done' as later, created_at as at from tasks where status != 'dropped'").all() as Record<string, string>[])
-    ]
-    // An alias counts as the tag it stands for, without the words changing.
-    const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
-    // Each note's tags kept with the words they came from, per note: an
-    // autosave reads one body again, not every body there is.
-    const was = tagsOf
-    tagsOf = new Map()
-    // A note saved as a gem shows once, as the gem, wherever the gem carries the tag too.
-    const once = <T extends { tag: string; id: string; type: string; fromNote?: string }>(list: T[]): T[] => {
-      const gems = new Set(list.filter((one) => one.fromNote).map((one) => `${one.tag} ${one.fromNote}`))
-      return list.filter((one) => one.type !== 'capture' || !gems.has(`${one.tag} ${one.id}`))
-    }
-    return once(rows.flatMap((row) => {
-      const key = `${row.type}:${row.id}`
-      let kept = was.get(key)
-      if (kept?.title !== row.title || kept.body !== row.body)
-        kept = { title: row.title, body: row.body, tags: tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`) }
-      tagsOf.set(key, kept)
-      return [...new Set(kept.tags.map((tag) => alias.get(tag) ?? tag))].map((tag) => ({ tag, id: row.id, type: row.type, title: row.title, private: !!Number(row.private), later: !!Number(row.later), at: row.at, fromNote: row.fromNote || undefined }))
-    }))
-  }
-  // `count` is what the tag's page shows at first; `later`, the done ones it keeps under a click.
-  handle('tags', () => {
-    // `last`: when it was last written into anything; `recent`: how many carrying it are from the last 30 days, so Tags can say which are growing.
-    const counts = new Map<string, { count: number; later: number; last: string; recent: number }>()
-    const month = new Date(Date.now() - 30 * 86_400_000).toISOString()
-    for (const { tag, later, at } of tagged()) {
-      const one = counts.get(tag) ?? { count: 0, later: 0, last: '', recent: 0 }
-      one[later ? 'later' : 'count'] += 1
-      if (at && at > one.last) one.last = at
-      if (!later && at >= month) one.recent += 1
-      counts.set(tag, one)
-    }
-    const meta = new Map((db.prepare('select tag, color, action, exam_at, priority, lands from tag_meta').all() as { tag: string; color: string | null; action: number; exam_at: string | null; priority: string | null; lands: string | null }[]).map((row) => [row.tag, row]))
-    return [...counts].map(([tag, { count, later, last, recent }]) => ({ tag, count, later, last: last || null, recent, color: meta.get(tag)?.color ?? null, action: !!meta.get(tag)?.action, examAt: meta.get(tag)?.exam_at ?? null, priority: meta.get(tag)?.priority ?? null, lands: meta.get(tag)?.lands ?? null })).sort((a, b) => b.count - a.count || b.later - a.later)
-  })
+  // --- tags, worked out from the words every time so they cannot go stale: read on the reading thread
+  // (book-tags.ts), which reads every note's words for them. The book's stamp goes with each ask.
+  handle('tags', () => askReader('tags', [bookStamp()]))
   // Each tag whose answers are read aloud, and in what language.
   handle('tag:speak', () => Object.fromEntries((db.prepare('select tag, speak from tag_meta where speak is not null').all() as { tag: string; speak: string }[]).map((row) => [row.tag, row.speak])))
   // How each tag's typed answers are checked, and the tags with their own new cards a day.
@@ -4549,31 +4341,9 @@ export function registerHaligtree(): void {
     }
     return write(true)
   })
-  handle('tag', (tag: string) => tagged().filter((row) => row.tag === tag))
-  // A tag as something to read: the whole of everything carrying it, newest
-  // first, each with its other tags. The same things the tag's count counts,
-  // tasks too; `later` marks the done ones the page keeps under a click.
-  // Which notes carry it comes from the same list the count does, so the two
-  // can never differ; a body is read only for a note that carries it, once.
-  const readOf = new Map<string, { body: string; parsed: unknown }>()
-  handle('tag:read', (tag: string) => {
-    const tagsBy = new Map<string, string[]>()
-    for (const one of tagged()) tagsBy.set(`${one.type}:${one.id}`, [...(tagsBy.get(`${one.type}:${one.id}`) ?? []), one.tag])
-    const rows = [
-      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed, ${KEPT_IN} as keptIn, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES}`).all(),
-      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')").all(),
-      ...db.prepare("select id, 'task' as type, 'task' as kind, status, title, title as label, notes as body, 0 as private, created_at as at, coalesce(completed_at, created_at) as changed, status = 'done' as later from tasks where status != 'dropped'").all()
-    ] as Record<string, string>[]
-    return rows.flatMap((row) => {
-      const key = `${row.type}:${row.id}`
-      const tags = tagsBy.get(key)
-      if (!tags?.includes(tag)) return []
-      let kept = readOf.get(key)
-      if (kept?.body !== row.body) kept = { body: row.body, parsed: JSON.parse(row.body ?? 'null') }
-      readOf.set(key, kept)
-      return [{ ...row, at: row.at, body: kept.parsed, private: !!Number(row.private), later: !!Number(row.later), tags: tags.filter((one) => one !== tag) }]
-    }).sort((a, b) => String(b.at).localeCompare(String(a.at)))
-  })
+  handle('tag', (tag: string) => askReader('tag', [bookStamp(), tag]))
+  // A tag as something to read: the whole of everything carrying it, newest first, each with its other tags.
+  handle('tag:read', (tag: string) => askReader('tag:read', [bookStamp(), tag]))
   // Rename everywhere at once; renaming onto a tag that exists is a merge. The
   // words themselves change, since the words are where tags live.
   // What the last rename changed, word for word, so its Undo puts back
@@ -5120,14 +4890,14 @@ export function registerHaligtree(): void {
     }
     return JSON.stringify(tagsIn(`${title ?? ''} ${words}`))
   })
-  let indexed = false
-  const index = (): void => {
-    if (indexed) return
-    indexed = true
+  // Made in turns, the first time it is asked for: filling it reads every note's words (150 ms of main's one thread
+  // on a book of 95 MB, every window waiting behind it). Its triggers come first, so a note written while it fills
+  // is kept true by them; each turn then clears and fills forty notes, and lets the thread go once it has been
+  // held 8 ms. Whoever asks waits for the whole of it.
+  let indexing: Promise<void> | null = null
+  const index = (): Promise<void> => (indexing ??= (async () => {
     const fill = (type: string, row: string): string => `insert into temp.note_tag select ${row}.id, ${type}, value from json_each(note_tags(${row}.title, ${row}.body))`
     db.exec(`create temp table note_tag (id text not null, type text not null, tag text not null);
-      insert into temp.note_tag select c.id, 'capture', j.value from captures c, json_each(note_tags(c.title, c.body)) j;
-      insert into temp.note_tag select n.id, n.tier, j.value from nuggets n, json_each(note_tags(n.title, n.body)) j;
       create index temp.note_tag_by_tag on note_tag(tag);
       create index temp.note_tag_by_id on note_tag(id);
       create temp trigger note_tag_capture_in after insert on main.captures begin ${fill("'capture'", 'new')}; end;
@@ -5136,7 +4906,22 @@ export function registerHaligtree(): void {
       create temp trigger note_tag_nugget_in after insert on main.nuggets begin ${fill('new.tier', 'new')}; end;
       create temp trigger note_tag_nugget_edit after update of title, body, tier on main.nuggets begin delete from temp.note_tag where id = old.id; ${fill('new.tier', 'new')}; end;
       create temp trigger note_tag_nugget_out after delete on main.nuggets begin delete from temp.note_tag where id = old.id; end;`)
-  }
+    let since = performance.now()
+    for (const [table, type] of [['captures', "'capture'"], ['nuggets', 't.tier']]) {
+      const next = db.prepare(`select max(rowid) as upTo from (select rowid from ${table} where rowid > ? order by rowid limit 40)`)
+      const clear = db.prepare(`delete from temp.note_tag where id in (select id from ${table} where rowid > ? and rowid <= ?)`)
+      const add = db.prepare(`insert into temp.note_tag select t.id, ${type}, j.value from ${table} t, json_each(note_tags(t.title, t.body)) j where t.rowid > ? and t.rowid <= ?`)
+      for (let at = 0; ;) {
+        const { upTo } = next.get(at) as { upTo: number | null }
+        if (upTo === null) break
+        timed('related: forty notes indexed', () => (clear.run(at, upTo), add.run(at, upTo)))
+        at = upTo
+        if (performance.now() - since < 8) continue
+        await new Promise((done) => setImmediate(done))
+        since = performance.now()
+      }
+    }
+  })())
   // Ranked by the tags they share, a rare tag worth more than a common one
   // (one on 3 notes says more than one on 300), then the newest. An alias
   // counts as its tag. Notes linked either way are left out after: the panel
@@ -5155,8 +4940,8 @@ export function registerHaligtree(): void {
       from alive a join spread s using (tag) where a.id != :id group by a.id order by score desc limit 60`
   let related: ReturnType<typeof db.prepare> | undefined
   let detail: ReturnType<typeof db.prepare> | undefined
-  handle('related', (id: string) => {
-    index()
+  handle('related', async (id: string) => {
+    await index()
     // Prepared on first use: some columns it reads are added after this runs.
     related ??= db.prepare(RELATED)
     detail ??= db.prepare(`select id, ${LABEL} as title, body, private, coalesce(edited_at, captured_at) as at from captures where id in (select value from json_each(?))

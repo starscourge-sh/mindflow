@@ -133,8 +133,15 @@ export const database = (): DatabaseSync => db
  * Shut the database cleanly as this run ends: its log (-wal) folded back into
  * the file and gone, so a copy of the file alone is whole. Safe to call twice.
  */
+/** Run as the book shuts, while it can still be written: what must not be lost to a quit (word-log.ts). */
+const shutting: (() => void)[] = []
+export const onShut = (run: () => void): void => void shutting.push(run)
+
 export function shutDatabase(): void {
   if (!db?.isOpen) return
+  for (const run of shutting) {
+    try { run() } catch (error) { console.error('A last write did not finish:', error) }
+  }
   // The reading thread lets go of the book first: a reader left on it would keep the log beside the file.
   endReader()
   try {
@@ -451,10 +458,11 @@ export function registerCaptures(): void {
   // Each card is looked up once per wording: a site whose picture cannot be
   // kept is not asked again every launch. None at all in safe mode.
   db.exec('create table if not exists card_tries (id text primary key, body text)')
-  ipcMain.handle('captures:cards', () => {
+  // Which cards those are is read on the reading thread (reader-jobs.ts `cards`): it looks through every note's
+  // words for a bookmark. Main writes down the ones it hands out.
+  ipcMain.handle('captures:cards', async () => {
     if (setting('safeMode', false)) return []
-    const rows = db.prepare(`select id, kind, body from captures where (kind = 'link' or body like '%"bookmark"%')
-      and not exists (select 1 from card_tries t where t.id = captures.id and t.body = captures.body)`).all() as { id: string; kind: string; body: string }[]
+    const rows = await ask('cards', [])
     const tried = db.prepare('insert or replace into card_tries (id, body) values (?, ?)')
     // That a card was looked up is in no list or search: the book's stamp stays where it was.
     quietly(() => { for (const row of rows) tried.run(row.id, row.body) })

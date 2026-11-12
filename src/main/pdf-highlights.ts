@@ -8,23 +8,9 @@ import { assetsDir } from './pictures'
 import { fetchOutside } from './outside'
 import type { DatabaseSync } from 'node:sqlite'
 import { LABEL, database } from './captures'
-import { PDF_TITLES as TITLES, articlesToFind, pdfsToFind } from './find-files'
+import { PDF_TITLES as TITLES, fileLink, pdfsToFind } from './find-files'
 
-/**
- * What a link to a file points at, `pdf:` and the PDF's address or `web:`
- * and a kept article's link: its title and the reader's id for it, or
- * undefined when it is not one, or no longer kept. Any note can link to them.
- */
-export function fileLink(db: DatabaseSync, link: string): { type: 'pdf' | 'web'; id: string; title: string } | undefined {
-  const at = link.indexOf(':')
-  const type = link.slice(0, at), id = link.slice(at + 1)
-  if (type === 'pdf') {
-    const found = pdfsToFind(db).find((one) => one.id.startsWith(`${id}|`))
-    return found ? { type, id, title: found.label } : undefined
-  }
-  const article = type === 'web' ? articlesToFind(db).find((one) => one.id === id) : undefined
-  return article ? { type: 'web', id, title: article.label } : undefined
-}
+export { fileLink }
 
 type Inline = { type?: string; text?: string; attrs?: Record<string, unknown>; marks?: { type: string; attrs?: Record<string, unknown> }[]; content?: Inline[] }
 
