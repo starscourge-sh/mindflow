@@ -240,10 +240,12 @@ export function RowMenu({ items, writes, list = false, onOpenChange, children }:
           }
           // A line chosen took you on (a panel, a calendar): the words do not take the caret back from it.
           if (writes) event.preventDefault()
-          const picker = document.querySelector<HTMLElement>('[aria-modal="true"]')
+          // A sheet over the page, or a popover a line opened to write in (the Calendar's new event): it keeps the keys.
+          const picker = document.querySelector<HTMLElement>('[aria-modal="true"], [data-takes-keys]')
           if (!picker) return
           event.preventDefault()
-          picker.querySelector<HTMLElement>('input, textarea, button')?.focus()
+          // A popover to write in gives the keys to its line, not to the first button over it.
+          ;((picker.matches('[data-takes-keys]') ? picker.querySelector<HTMLElement>('input, textarea') : null) ?? picker.querySelector<HTMLElement>('input, textarea, button'))?.focus()
         }}
         // The key a row shows works here too, on the row that was
         // right-clicked: press R with the menu open and that row resolves.

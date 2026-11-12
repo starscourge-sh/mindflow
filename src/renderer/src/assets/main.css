@@ -3087,6 +3087,23 @@ html[data-book-hue] [data-book-tint] {
   :is([data-cal-block], [data-cal-untimed])[data-landed] { animation: mf-cal-ring 400ms ease-out; }
 }
 :root[data-motion='off'] :is([data-cal-block], [data-cal-untimed])[data-landed] { animation: mf-cal-ring 400ms ease-out; }
+/* The Calendar under a pinch (calendar-view.tsx): the week in a month, or the day in a week, that the fingers are opening
+   is lit (7% of the ink), so it is plain which block grows into the next level; the level it becomes arrives lit and lets
+   the light go once it has landed. A wash over the block, shown and faded by opacity alone, so Reduce motion keeps it;
+   with Motion off nothing is played, so there is no light to leave. */
+:is([data-month-week], [data-cal-col])[data-cal-lit]::after,
+[data-cal-depth][data-cal-landed]::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+:is([data-cal-head], [data-cal-allday])[data-cal-lit] { background-color: color-mix(in oklab, var(--foreground) 7%, var(--background)); }
+@keyframes mf-cal-landed { from { opacity: 1; } to { opacity: 0; } }
+[data-cal-depth][data-cal-landed]::after { animation: mf-cal-landed 360ms var(--mf-ease) 160ms both; }
+:root[data-motion='off'] [data-cal-depth][data-cal-landed]::after { display: none; }
 /* Today's empty page: the question it is typing (DayBreath, day-view.tsx). */
 [data-day-write] .tiptap.ProseMirror .is-empty[data-placeholder]:has(> .ProseMirror-trailingBreak:only-child)::before {
   content: var(--mf-day-ph, attr(data-placeholder));

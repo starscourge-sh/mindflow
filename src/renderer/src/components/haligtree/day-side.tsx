@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { heroBack, heroing } from '@/lib/hero'
 import { EASE, byKeys, still } from '@/lib/motion'
 import { createPortal } from 'react-dom'
@@ -6,7 +6,8 @@ import { AnimatePresence, motion } from 'motion/react'
 import { Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
-import { atOn, makeTask, timeAlone } from '@/lib/tasks'
+import { atOn, makeTask, taskName, timeAlone } from '@/lib/tasks'
+import { readTask } from '../../../../main/task-words'
 import { sameTask } from '@/lib/calendar'
 import { haligtree, whenInLine, type TaskFull } from '@/lib/haligtree'
 import { clock, dayjs, plural } from '../../../../main/dates'
@@ -198,16 +199,7 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip, res
           {!ask ? <div className="mf-more flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-4">{rest}</div> : <>
           {/* The bar over the task, as the page's own top bar: the next one, and away. */}
           <div className="flex shrink-0 items-center gap-1 px-2 pt-2">
-            {asking && (
-              <div role="radiogroup" aria-label="An event or a task" className="flex gap-0.5 rounded-full bg-accent/60 p-0.5">
-                {([['event', 'Event', 'Something at a time: a meeting, a class, lunch'], ['task', 'Task', 'Something to do, with a tick']] as const).map(([id, label, tip]) => (
-                  <Tip key={id} label={tip}>
-                    <button type="button" role="radio" aria-checked={kind === id} data-day-side-kind={id} onClick={() => kind !== id && (chime('tap'), setKind(id))}
-                      className="h-7 rounded-full px-3 text-control text-foreground transition-colors duration-150 aria-checked:bg-background aria-checked:font-medium aria-checked:shadow-sm motion-reduce:transition-none">{label}</button>
-                  </Tip>
-                ))}
-              </div>
-            )}
+            {asking && <KindSwitch kind={kind} onKind={setKind} />}
             {!asking && !eventKey && (
               <Tip label="Start another task">
                 <Button variant="ghost" size="sm" data-day-side-new onClick={() => (!day && setStart({ day: dayjs(full?.dueAt ?? undefined).format('YYYY-MM-DD'), minute: null, length: 0 }), fresh())}>
@@ -237,11 +229,29 @@ export function DaySide({ ask, onClose, onOpen, inline = false, width, grip, res
 }
 
 /**
+ * "Event | Task": which of the two is being made, the one control for it
+ * wherever a new one is started (this panel, and the Calendar's popover
+ * beside a slot, cal-add.tsx). It stays where it is as the form under it changes.
+ */
+export function KindSwitch({ kind, onKind }: { kind: 'event' | 'task'; onKind: (kind: 'event' | 'task') => void }): React.JSX.Element {
+  return (
+    <div role="radiogroup" aria-label="An event or a task" className="flex gap-0.5 rounded-full bg-accent/60 p-0.5">
+      {([['event', 'Event', 'Something at a time: a meeting, a class, lunch'], ['task', 'Task', 'Something to do, with a tick']] as const).map(([id, label, tip]) => (
+        <Tip key={id} label={tip}>
+          <button type="button" role="radio" aria-checked={kind === id} data-day-side-kind={id} onClick={() => kind !== id && (chime('tap'), onKind(id))}
+            className="h-7 cursor-pointer rounded-full px-3 text-control text-foreground transition-colors duration-150 aria-checked:bg-background aria-checked:font-medium aria-checked:shadow-sm motion-reduce:transition-none">{label}</button>
+        </Tip>
+      ))}
+    </div>
+  )
+}
+
+/**
  * The new task's first line, where the task page has its name: the words
  * say the rest (a day, a time, #tags, !! for priority) as everywhere else,
  * and the day or slot clicked fills in what they leave out.
  */
-function NewTask({ ask, first, held, onMade, onBack }: {
+export function NewTask({ ask, first, held, onMade, onBack, pop = false, words, onName }: {
   ask: Extract<SideAsk, { day: string }>
   /** Set to its save while it holds words: the panel keeps them when clicked away from. */
   held: React.MutableRefObject<(() => Promise<void>) | null>
@@ -249,10 +259,19 @@ function NewTask({ ask, first, held, onMade, onBack }: {
   /** Made (or found already there): the panel shows it. `undo` takes it back, and the line comes back with its words. */
   onMade: (id: string, undo: (() => void) | null) => void
   onBack: (id: string, words: string) => void
+  /** In the Calendar's popover beside a slot (cal-add.tsx): the same line and reading, with no heading and no page margins. */
+  pop?: boolean
+  /** The words, when what holds this form keeps them (the popover, so they stay as Event turns to Task). */
+  words?: [string, (text: string) => void]
+  /** Told the name read out of the words as it changes: the draft on the grid says it. */
+  onName?: (name: string) => void
 }): React.JSX.Element {
-  const [text, setText] = useState(first)
+  const own = useState(first)
+  const [text, setText] = words ?? own
+  const name = useMemo(() => taskName(readTask(text).title).text.trim(), [text])
+  useEffect(() => onName?.(name), [name]) // eslint-disable-line react-hooks/exhaustive-deps
   const field = useRef<HTMLInputElement>(null)
-  useEffect(() => (requestAnimationFrame(() => field.current?.focus()), () => void (held.current = null)), []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => (requestAnimationFrame(() => (field.current?.focus(), field.current?.setSelectionRange(field.current.value.length, field.current.value.length))), () => void (held.current = null)), []) // eslint-disable-line react-hooks/exhaustive-deps
   const { day, minute } = ask
   const length = minute === null ? 0 : ask.length
   const at = minute === null ? dayjs(day).hour(9).minute(0).startOf('minute') : dayjs(day).startOf('day').add(minute, 'minute')
@@ -286,20 +305,20 @@ function NewTask({ ask, first, held, onMade, onBack }: {
     if (stay) onMade(made.id, undo)
   }
   return (
-    <form data-day-side-draft className="mf-more flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
-      <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New task</h2>
-      <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12">
+    <form data-day-side-draft className={pop ? 'flex flex-col px-3 pt-2.5 pb-3' : 'mf-more flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4'} onSubmit={(event) => (event.preventDefault(), void save())}>
+      {!pop && <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New task</h2>}
+      <div className={pop ? 'flex w-full flex-col gap-2.5' : 'page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12'}>
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
           <TaskInput inputRef={field} value={text} onChange={setText} label={`A new task for ${dayjs(day).format('dddd D MMMM')}`}
             placeholder="Call the dentist 10am #home !!" />
-          <Button type="submit" size="sm" data-day-side-add>Add <Kbd>↵</Kbd></Button>
+          <Button type="submit" size="sm" data-day-side-add aria-label="Add">{!pop && 'Add '}<Kbd>↵</Kbd></Button>
         </div>
         {/* Where it lands, plain to read, before it is made. */}
         <p data-day-side-when className="text-body text-foreground">
           For <strong className="font-semibold">{at.format('dddd D MMMM')}</strong>{minute !== null && <> at <strong className="font-semibold">{clock(at)}</strong></>}{length ? <>, for <strong className="font-semibold">{lasting(length)}</strong></> : null}.
         </p>
-        {/* One quiet line, as New event's: the rest is set on the task once it opens here. */}
-        <p data-day-side-hint className="text-control text-muted-foreground">Notes, steps and tags come next, on the task.</p>
+        {/* One quiet line: in the panel the task opens here next; in the popover it is made and the popover goes, so the line says what the words can hold. */}
+        <p data-day-side-hint className={`text-control text-muted-foreground ${pop ? '[@media(max-height:520px)]:hidden' : ''}`}>{pop ? 'Read from the words: a day or a time, #tags, and !! for priority.' : 'Notes, steps and tags come next, on the task.'}</p>
       </div>
     </form>
   )

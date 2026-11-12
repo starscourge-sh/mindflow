@@ -329,7 +329,7 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onPeek, onNote,
             if (event.key === 'Enter') (event.preventDefault(), peek())
             if ((event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly) (event.preventDefault(), void dropOne(one))
           }}
-          className={`group/event @container absolute z-[2] flex touch-none overflow-hidden rounded-[6px] text-left text-control leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring ${one.readOnly ? 'cursor-default' : 'cursor-grab'} ${lift ? 'opacity-35' : 'transition-[filter] duration-150 hover:brightness-[0.97] motion-reduce:transition-none'}`}
+          className={`group/event @container absolute z-[2] flex touch-none overflow-hidden rounded-[6px] text-left text-control leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring ${one.readOnly ? 'cursor-pointer' : 'cursor-grab'} ${lift ? 'opacity-35' : 'transition-[filter] duration-150 hover:brightness-[0.97] motion-reduce:transition-none'}`}
           style={{ top: (at / 60) * HOUR + 1, height: Math.max(20, (length / 60) * HOUR - 2), left: `calc(${lane.lane * width}% + ${lane.lane ? 1 : 3}px)`, width: `calc(${width}% - ${(lane.of === 1 ? 7 : lane.lane ? 3 : 4) + (lane.room ?? 0)}px)`, ...fill }}>
           <BlockWords one={one} day={day} at={at} length={length} short={short} />
           {!one.readOnly && (
@@ -658,16 +658,31 @@ function CalendarEdit({ one, onDone }: { one: { id: string; name: string; color:
  * 1-2pm @Cafe"), and the slot dragged across fills in what they leave out.
  * What it understood is shown under it as you type, before it is made.
  */
-export function NewEvent({ ask, held, onMade }: { ask: { day: string; minute: number | null; length: number }; held?: React.MutableRefObject<(() => Promise<void>) | null>; onMade: (key: string) => void }): React.JSX.Element {
-  const [text, setText] = useState('')
+export function NewEvent({ ask, held, onMade, pop = false, words, picked, onName }: {
+  ask: { day: string; minute: number | null; length: number }
+  held?: React.MutableRefObject<(() => Promise<void>) | null>
+  onMade: (key: string) => void
+  /** In the Calendar's popover beside a slot (cal-add.tsx): the same line, reading and calendars, with no heading and no page margins. */
+  pop?: boolean
+  /** The words, when what holds this form keeps them (the popover, so they stay as Event turns to Task). */
+  words?: [string, (text: string) => void]
+  /** The calendar chosen, kept by what holds this form too: the draft on the grid wears its colour. */
+  picked?: [string | null, (id: string) => void]
+  /** Told the name read out of the words as it changes: the draft on the grid says it. */
+  onName?: (name: string) => void
+}): React.JSX.Element {
+  const ownText = useState('')
+  const [text, setText] = words ?? ownText
   const field = useRef<HTMLInputElement>(null)
-  useEffect(() => (requestAnimationFrame(() => field.current?.focus()), () => void (held && (held.current = null))), []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => (requestAnimationFrame(() => (field.current?.focus(), field.current?.setSelectionRange(field.current.value.length, field.current.value.length))), () => void (held && (held.current = null))), []) // eslint-disable-line react-hooks/exhaustive-deps
   const known = useKnownPeople()
   const calendars = useCalendars()
-  const [calendar, setCalendar] = useState<string | null>(null)
+  const ownCalendar = useState<string | null>(null)
+  const [calendar, setCalendar] = picked ?? ownCalendar
   const slotStart = ask.minute === null ? dayjs(ask.day).startOf('day') : dayjs(ask.day).startOf('day').add(ask.minute, 'minute')
   const slotEnd = ask.minute === null ? slotStart.add(1, 'day') : slotStart.add(Math.max(SNAP, ask.length || 60), 'minute')
   const read = useMemo(() => readEvent(text, new Date(), known), [text, known])
+  useEffect(() => onName?.(read.title), [read.title]) // eslint-disable-line react-hooks/exhaustive-deps
   const allDay = read.start ? read.allDay : ask.minute === null
   const start = read.start ?? slotStart.toISOString()
   const end = read.start ? (read.end ?? dayjs(read.start).add(1, allDay ? 'day' : 'hour').toISOString()) : slotEnd.toISOString()
@@ -686,9 +701,9 @@ export function NewEvent({ ask, held, onMade }: { ask: { day: string; minute: nu
   // Kept as the panel goes (clicked away from, ⌘↵): made, said in the notice.
   if (held) held.current = read.title ? () => save(false) : null
   return (
-    <form data-new-event className="mf-more flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4" onSubmit={(event) => (event.preventDefault(), void save())}>
-      <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New event</h2>
-      <div className="page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12">
+    <form data-new-event className={pop ? 'flex flex-col px-3 pt-2.5 pb-3' : 'mf-more flex min-h-0 flex-1 flex-col overflow-y-auto pt-4 pb-4'} onSubmit={(event) => (event.preventDefault(), void save())}>
+      {!pop && <h2 className="page-narrow mx-auto mb-3 w-full px-4 @[40rem]/page:px-12 font-heading text-title font-semibold tracking-[-0.018em] text-foreground">New event</h2>}
+      <div className={pop ? 'flex w-full flex-col gap-2.5' : 'page-narrow mx-auto flex w-full flex-col gap-3 px-4 @[40rem]/page:px-12'}>
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
           <input ref={field} data-new-event-words value={text} onChange={(event) => setText(event.target.value)} aria-label={`A new event for ${dayjs(ask.day).format('dddd D MMMM')}`}
             placeholder="Lunch with Sam fri 1pm" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
@@ -702,14 +717,15 @@ export function NewEvent({ ask, held, onMade }: { ask: { day: string; minute: nu
         <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="On which calendar">
           {calendars.map((one) => (
             <button key={one.id} type="button" role="radio" aria-checked={on === one.id} data-new-event-calendar={one.id} onClick={() => (chime('tap'), setCalendar(one.id))}
-              className="flex h-7 items-center gap-1.5 rounded-full px-2.5 text-control text-foreground transition-colors hover:bg-accent aria-checked:bg-accent aria-checked:font-medium motion-reduce:transition-none">
+              className="flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-control text-foreground transition-colors hover:bg-accent aria-checked:bg-accent aria-checked:font-medium motion-reduce:transition-none">
               <span aria-hidden className="size-2 rounded-full shrink-0" style={{ background: inkOf(one.color) }} />{one.name}
             </button>
           ))}
         </div>
-        {/* One quiet line: the rest is set on the event itself once it opens here. */}
-        <p data-new-event-hint className="text-control text-muted-foreground">Place, people, reminder and repeat come next, on the event.</p>
-        <DayAround start={start} end={fixedEnd} allDay={allDay} />
+        {/* One quiet line: in the panel the event opens here next; in the popover it is made and the popover goes, so the line says what the words can hold. */}
+        <p data-new-event-hint className={`text-control text-muted-foreground ${pop ? '[@media(max-height:520px)]:hidden' : ''}`}>{pop ? 'Read from the words: a day and a time, @ a place, with a person, every week.' : 'Place, people, reminder and repeat come next, on the event.'}</p>
+        {/* Beside the grid the day is in sight around the draft itself: only the panel, which covers it, lists the day. */}
+        {!pop && <DayAround start={start} end={fixedEnd} allDay={allDay} />}
       </div>
     </form>
   )

@@ -3,7 +3,7 @@ import { dragWords } from '@/lib/drag-words'
 import { useReading } from '@/lib/reads-in'
 import { AnimatePresence, motion } from 'motion/react'
 import { DndContext, MeasuringStrategy, PointerSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from '@dnd-kit/core'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -25,6 +25,7 @@ import { moveMark, onDay as marksOn, useMilestones, type Milestone } from '@/lib
 import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay } from '@/lib/calendar'
 import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
+import { RowMenu, type RowItem } from './row-menu'
 import { unloaded, useLive, haligtree, type Settings, type Stats, type Task } from '@/lib/haligtree'
 import { dayjs, type Dayjs, dayKey, num, plural } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
@@ -105,8 +106,12 @@ export function MonthShowMenu({ children }: { /** More lines under the switches:
  * the month named above changing as a month's first week reaches the top.
  * Sideways swipes are never the month's: they are Back and Forward.
  */
-export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [] }: {
+export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [], onPickDay, dayMenu }: {
   tasks: Task[]
+  /** The page above keeps a picked day (the Calendar): a click on a day's empty part picks it, and a double-click starts something new there. Left out, a click starts it. */
+  onPickDay?: (day: string) => void
+  /** A day's own right-click menu, on its empty part (the Calendar's “New event here”, “New task here”). */
+  dayMenu?: (day: string) => RowItem[]
   /** More chips for a day, before its tasks: the Calendar's events. */
   dayExtra?: (day: string) => React.ReactNode[]
   /** What `dayExtra` and `bars` are drawn from, compared item by item: a week of the run is drawn again only when it changed. */
@@ -232,7 +237,7 @@ export function MonthPlan({ tasks, onDay, onSide, onOpen, onWeek, onMonth, onSho
         {weekDays.map((day) => {
           const key = dayKey(day)
           return <Cell key={key} wide={wide} day={day} lines={linesOf(on.get(key))} today={today} outside={!!shown && !day.isSame(shown, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
-            room={room - laid.lanes} reserve={laid.lanes} extra={dayExtra?.(key)} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onDay={onDay} onLine={open} onItem={item} />
+            room={room - laid.lanes} reserve={laid.lanes} extra={dayExtra?.(key)} adding={adding === key} onAdd={() => side({ day: key, minute: null, length: 0 })} onPick={onPickDay && (() => onPickDay(key))} menu={dayMenu && (() => dayMenu(key))} onDay={onDay} onLine={open} onItem={item} />
         })}
         {/* The week's bars, each one piece across the days it covers, under the dates. */}
         {laid.placed.length > 0 && (
@@ -651,7 +656,7 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   )
 }
 
-function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, onAdd, onDay, onLine, onItem, room, reserve = 0, extra = [] }: {
+function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, onAdd, onPick, menu, onDay, onLine, onItem, room, reserve = 0, extra = [] }: {
   /** Room for each thing by name; narrow (a small window), a dot for each and the count. */
   wide: boolean
   day: Dayjs
@@ -669,6 +674,10 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
   flags: ReturnType<typeof marksOn>
   adding: boolean
   onAdd: () => void
+  /** A click on the day's empty part picks it, and a double-click adds; left out, a click adds. */
+  onPick?: () => void
+  /** The day's own right-click menu, on its empty part. */
+  menu?: () => RowItem[]
   onDay: (day: string) => void
   onLine: (line: Line) => void
   /** Where what a marked day points at opens. */
@@ -687,10 +696,15 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
   const weekend = day.day() === 0 || day.day() === 6
   const gone = key < today
   const late = gone && lines.some((line) => line.kind === 'planned' || line.kind === 'due')
-  return (
+  // The day's empty part: anywhere in it that is not one of its things (each a button of its own) nor the draft being written.
+  const empty = (event: React.MouseEvent): boolean => !(event.target as Element).closest('button, a, [role="button"], [data-cal-draft]')
+  // Under the pointer a day takes a very faint fill (2 to 3% of the ink over what it rests at), so it is plain which day a click or a double-click is about.
+  const rest = weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))] hover:bg-[color-mix(in_oklab,var(--background)_95.5%,var(--foreground))]' : 'bg-background hover:bg-[color-mix(in_oklab,var(--background)_97.5%,var(--foreground))]'
+  const cell = (
     <div ref={setNodeRef} data-day={key} data-outside={outside || undefined} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? openedLevel(count) : undefined} data-captured={caught === undefined ? undefined : caught && caughtLevel(caught)} data-late={late || undefined} data-weekend={weekend || undefined}
-      onClick={(event) => event.target === event.currentTarget && (chime('tap'), onAdd())}
-      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))]' : 'bg-background'} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
+      onClick={(event) => empty(event) && (onPick ? onPick() : (chime('tap'), onAdd()))}
+      onDoubleClick={onPick ? (event) => empty(event) && onAdd() : undefined}
+      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${isOver || adding ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : rest} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${plural(caught, 'capture')}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}
@@ -703,13 +717,6 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
             <button type="button" data-day-dots tabIndex={-1} onClick={() => (chime('open'), onDay(key))} className="flex h-5 items-center rounded-sm px-1 transition-colors hover:bg-accent"><DayDots opened={count} caught={caught} /></button>
           </Tip>
         )}
-        <span className="min-w-0 flex-1" onClick={() => (chime('tap'), onAdd())} />
-        <Tip label={`Add a task for ${day.format('ddd D MMM')}`}>
-          <button type="button" data-day-add aria-label={`Add a task for ${day.format('dddd D MMMM')}`} onClick={() => (chime('tap'), onAdd())}
-            className="flex size-5 shrink-0 items-center justify-center rounded-md text-foreground opacity-0 transition-opacity group-hover/day:opacity-100 hover:bg-accent focus-visible:opacity-100">
-            <Plus className="size-3.5" />
-          </button>
-        </Tip>
       </div>
       {/* The bars' lanes; a bar's chip keeps its own 2px under the date, as every tinted chip does. */}
       {reserve > 0 && <span aria-hidden className="shrink-0" style={{ height: reserve * LINE() }} />}
@@ -733,6 +740,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
       )}
     </div>
   )
+  return menu ? <RowMenu items={menu}>{cell}</RowMenu> : cell
 }
 
 /** A marked day's line in a day: clicked to open what it belongs to, right-clicked for its menu, dragged to another day. */
