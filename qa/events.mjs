@@ -50,14 +50,15 @@ try {
   await h.mouse.move(await xMid(), await yAt(20 * 60 + 5)); await h.mouse.down()
   await h.mouse.move(await xMid(), await yAt(20 * 60 + 30), { steps: 4 }); await h.mouse.move(await xMid(), await yAt(21 * 60 - 5), { steps: 4 })
   await h.mouse.up(); await h.waitForTimeout(800)
-  check('dragging across a slot opens the panel on "Event"', await h.locator(`${S}[data-day-side="new"] [data-day-side-kind="event"][aria-checked="true"]`).count() === 1)
+  // Since 12 Nov a new event is written in the popover tied to its draft on the grid, not in the side panel.
+  check('dragging across a slot opens the popover on "Event"', await h.locator('[data-cal-add="event"] [data-day-side-kind="event"][aria-checked="true"]').count() === 1 && await h.locator(S).count() === 0)
   check('the slot is drawn as "New event"', (await col.innerText()).includes('New event'))
   await h.keyboard.type('Team sync')
   await shot('events-new-' + 'light')
   await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
   let made = (await byTitle('Team sync'))[0]
   check('↵ makes the event for the slot dragged', made && hm(made.start) === '20:00' && hm(made.end) === '21:00' && key(new Date(made.start)) === day, made && `${made.start} ${made.end}`)
-  check('the panel turns into the event', await h.locator(`${S}[data-day-side="event"] [data-event-detail]`).count() === 1)
+  check('the popover goes, and the event is on the grid', made && await h.locator('[data-cal-add]').count() === 0 && await h.locator(`[data-cal-event="${made.key}"]`).count() === 1)
   await esc()
   const block = h.locator(`[data-cal-event="${made.key}"]`)
   check('it is drawn as a solid block, not a task outline', await block.count() === 1 && (await block.evaluate((el) => getComputedStyle(el).backgroundColor)) !== (await h.locator('[data-cal-scroll]').evaluate((el) => getComputedStyle(document.body).backgroundColor)))
@@ -99,11 +100,10 @@ try {
 
   // 4. The words: "lunch with Sam fri 1-2pm @Cafe".
   const allDay = h.locator(`[data-cal-allday="${day}"]`)
-  await allDay.click({ position: { x: 5, y: 5 } }); await h.waitForTimeout(600)
-  await h.locator(`${S} [data-day-side-kind="event"]`).click(); await h.waitForTimeout(400)
-  await h.locator(`${S} [data-new-event-words]`).fill('lunch with Sam fri 1-2pm @Cafe'); await h.waitForTimeout(300)
-  const said = await h.locator(`${S} [data-new-event-said]`).innerText()
-  check('the panel says what the words mean before it is made', said.includes('Lunch with Sam') && said.includes('Cafe') && said.includes('Fri') && said.includes('Sam'), said)
+  await allDay.dblclick({ position: { x: 5, y: 5 } }); await h.waitForTimeout(700)
+  await h.locator('[data-cal-add] [data-new-event-words]').fill('lunch with Sam fri 1-2pm @Cafe'); await h.waitForTimeout(300)
+  const said = await h.locator('[data-cal-add] [data-new-event-said]').innerText()
+  check('the popover says what the words mean before it is made', said.includes('Lunch with Sam') && said.includes('Cafe') && said.includes('Fri') && said.includes('Sam'), said)
   await shot('events-words-light')
   await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
   const lunch = (await byTitle('Lunch with Sam'))[0]

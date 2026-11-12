@@ -4,6 +4,7 @@ import { mkdirSync } from 'fs'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { openFromMonth, startOnDay } from './month-add-lib.mjs'
 
 const SHOTS = process.argv[2] ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
@@ -17,9 +18,13 @@ const make = async (words, by) => {
   const day = new Date(); day.setDate(day.getDate() + by)
   await go('home'); await h.waitForTimeout(1200)
   const cell = h.locator(`[data-month-plan] [data-day="${key(day)}"]`)
-  await cell.scrollIntoViewIfNeeded(); await cell.hover(); await cell.locator('[data-day-add]').click(); await h.waitForTimeout(500)
+  // A double-click on the day starts the task in the popover there (the "+" and its panel are gone, 12 Nov); made, its
+  // page is opened from its chip on the day, where the rest of this probe works.
+  await startOnDay(h, cell, 'task')
   await h.keyboard.type(words); await h.keyboard.press('Enter'); await h.waitForTimeout(1300)
-  return (await v('tasks')).find((one) => one.title === words)
+  const made = (await v('tasks')).find((one) => one.title === words)
+  if (made) await openFromMonth(h, made.id, words)
+  return made
 }
 try {
   await v('settings:set', { sounds: false, hintRate: 0, homeCalendar: true })

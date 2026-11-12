@@ -96,7 +96,6 @@ try {
   await go('calendar'); await wait(1500)
   for (const [w, label] of [[1440, '1440'], [760, '760']]) {
     await size(w, 900); await wait(600)
-    if (await h.locator('[data-cal-right]').count() && await h.locator('[data-cal-side-toggle]').count()) { await h.locator('[data-cal-side-toggle]').click(); await wait(600) }
     for (const [k, mode] of [['d', 'day'], ['w', 'week'], ['m', 'month']]) {
       await h.keyboard.press('Escape'); await h.keyboard.press('t'); await h.keyboard.press(k); await wait(900)
       if (mode !== 'month') {
@@ -121,12 +120,11 @@ try {
     }
     // The sidebar: Upcoming, then New event.
     await h.keyboard.press('w'); await wait(600)
-    // Narrow, there is no right panel to show (Upcoming moves into the view's menu).
-    if (await h.locator('[data-cal-side-toggle]').count()) { await h.locator('[data-cal-side-toggle]').click(); await wait(800); await pass(`cal-${label}-upcoming`) }
+    // Since 12 Nov Upcoming is an island in the left panel (there while the panel is), and "New event" opens the popover beside its draft.
+    if (await h.locator('[data-cal-side] [data-cal-upcoming]').count()) await pass(`cal-${label}-upcoming`)
     await h.locator('[data-cal-new-event]').click(); await wait(800)
     await pass(`cal-${label}-new`)
     await h.keyboard.press('Escape'); await wait(400)
-    if (await h.locator('[data-cal-right]').count() && await h.locator('[data-cal-side-toggle]').count()) { await h.locator('[data-cal-side-toggle]').click(); await wait(600) }
     // An empty day, well past everything.
     await h.keyboard.press('d'); for (let n = 0; n < 45; n++) await h.keyboard.press('ArrowRight')
     await wait(900)

@@ -5,6 +5,7 @@ import { mkdirSync } from 'fs'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { startOnDay } from './month-add-lib.mjs'
 
 const SHOTS = process.argv[2] ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
@@ -19,7 +20,8 @@ const make = async (words, by, named) => {
   const day = c.now(); day.setDate(day.getDate() + by)
   await go('home'); await wait(1200)
   const cell = h.locator(`[data-month-plan] [data-day="${key(day)}"]`)
-  await cell.scrollIntoViewIfNeeded(); await cell.hover(); await cell.locator('[data-day-add]').click(); await wait(500)
+  // A double-click on the day starts the task in the popover there (the "+" and its panel are gone, 12 Nov).
+  await startOnDay(h, cell, 'task')
   await h.keyboard.type(words); await h.keyboard.press('Enter'); await wait(1300)
   return [(await v('tasks')).find((one) => one.title === named), key(day)]
 }
@@ -30,7 +32,6 @@ try {
   check('at 10:00 on the day it was typed on, not today', !!one && key(new Date(one.dueAt)) === day && new Date(one.dueAt).getHours() === 10 && !one.allDay, `${one?.dueAt} allDay=${one?.allDay} want ${day}`)
   check('the notice says that day at 10:00', /Added for .*10:00/.test(await said()) && !/today/.test(await said()), await said())
   if (SHOTS) await h.screenshot({ path: join(SHOTS, 'day-time-alone.png') })
-  await h.locator('[data-day-side-close]').click(); await wait(500)
   const [two] = await make('call mum tomorrow 3pm', 4, 'call mum')
   const tomorrow = c.now(); tomorrow.setDate(tomorrow.getDate() + 1)
   check('words with a day of their own keep it', !!two && key(new Date(two.dueAt)) === key(tomorrow) && new Date(two.dueAt).getHours() === 15, two?.dueAt)

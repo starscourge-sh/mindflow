@@ -8,6 +8,7 @@
 //   npx electron-vite build --outDir out-cal3
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-cal3/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/cal3.mjs
 import { sandbox } from './sandbox-lib.mjs'
+import { startOnDay } from './month-add-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1400, height: 900 })
@@ -19,6 +20,7 @@ const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate(
 const at = (by) => { const d = new Date(); d.setHours(9, 0, 0, 0); d.setDate(d.getDate() + by); return d }
 const shot = async (name) => process.env.SHOTS && h.screenshot({ path: `${process.env.SHOTS}/${name}.png` })
 const S = '[data-day-side]'
+const P = '[data-cal-add]'
 const find = async (words) => (await v('tasks')).find((one) => one.title.includes(words))
 try {
   await v('settings:set', { hintRate: 0, homeCalendar: true })
@@ -42,8 +44,9 @@ try {
     const M = '[data-month-plan]'
     const day = at(6)
     const cell = h.locator(`${M} [data-day="${key(day)}"]`)
-    await cell.scrollIntoViewIfNeeded(); await cell.hover(); await cell.locator('[data-day-add]').click(); await h.waitForTimeout(600)
-    check(`${theme}: the + opens the side panel`, await h.locator(`${S}[data-day-side="new"]`).count() === 1)
+    // A double-click on the day starts the task in the popover tied to its draft there (12 Nov: the "+" and the tall panel are gone).
+    await startOnDay(h, cell, 'task')
+    check(`${theme}: a double-click on a day opens the popover on Task, and no side panel`, await h.locator(`${P}[data-cal-add="task"]`).count() === 1 && await h.locator(S).count() === 0)
     const tag = `${theme}`
     await h.keyboard.type(`cal3 opt ${tag} `); await optHash(); await h.keyboard.type('sa'); await h.waitForTimeout(300)
     check(`${theme}: "#sa" offers the tags in use`, await h.locator('[data-tag-offer="sag"]').count() === 1 && await h.locator('[data-tag-offer="sagas"]').count() === 1)
@@ -52,23 +55,24 @@ try {
     const one = await find(`cal3 opt ${tag}`)
     check(`${theme}: "#sag" typed with ⌥3 saves the tag`, one && /#sag\b/.test(one.title), one?.title)
     check(`${theme}: it lands on the day clicked`, one && key(new Date(one.dueAt)) === key(day), one?.dueAt)
-    check(`${theme}: the panel shows the task made`, one && await h.locator(`${S}[data-day-side="task"] [data-open="${one?.id}"]`).count() === 1)
-    await h.locator(S).focus(); await h.keyboard.press('Meta+n'); await h.waitForTimeout(500)
-    check(`${theme}: ⌘N starts the next one, empty`, await h.locator(`${S} [data-task-input]`).inputValue() === '')
+    check(`${theme}: the popover goes once it is made, and its chip is on the day`, one && await h.locator(P).count() === 0 && await h.locator(`${M} [data-day="${key(day)}"] [data-plan-task]`, { hasText: `cal3 opt ${tag}` }).count() >= 1)
+    await startOnDay(h, cell, 'task')
+    check(`${theme}: the next one starts empty`, await h.locator(`${P} [data-task-input]`).inputValue() === '')
     // Plain "#"; then a tag offer taken with Tab.
     await h.keyboard.type(`cal3 plain ${tag} #sag`)
     await shot(`cal3-new-${theme}`)
     await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
     const two = await find(`cal3 plain ${tag}`)
     check(`${theme}: a plain "#" saves the tag`, two && /#sag\b/.test(two.title), two?.title)
-    await h.locator(S).focus(); await h.keyboard.press('Meta+n'); await h.waitForTimeout(500)
+    await startOnDay(h, cell, 'task')
     await h.keyboard.type(`cal3 tab ${tag} #sa`); await h.waitForTimeout(200); await h.keyboard.press('Tab'); await h.keyboard.type('tomorrow'); await h.waitForTimeout(200)
-    check(`${theme}: Tab takes the offered tag`, (await h.locator(`${S} [data-task-input]`).inputValue()) === `cal3 tab ${tag} #sag tomorrow`, await h.locator(`${S} [data-task-input]`).inputValue())
+    check(`${theme}: Tab takes the offered tag`, (await h.locator(`${P} [data-task-input]`).inputValue()) === `cal3 tab ${tag} #sag tomorrow`, await h.locator(`${P} [data-task-input]`).inputValue())
     await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
     const three = await find(`cal3 tab ${tag}`)
     check(`${theme}: a day said in the words wins over the day clicked`, three && key(new Date(three.dueAt)) === key(at(1)), three?.dueAt)
-    await h.locator(S).focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(500)
-    check(`${theme}: Esc closes the panel`, await h.locator(S).count() === 0)
+    await startOnDay(h, cell, 'task')
+    await h.keyboard.press('Escape'); await h.waitForTimeout(500)
+    check(`${theme}: Esc closes the popover`, await h.locator(`${P}, ${S}`).count() === 0)
     // A chip opens its task in the same panel, with a Haligtree tip, not the grey one.
     const chip = h.locator(`${M} [data-plan-task]`, { hasText: 'cal3 late chip' }).first()
     check(`${theme}: chips carry no native title`, (await chip.getAttribute('title')) === null)
@@ -83,7 +87,9 @@ try {
     await chip.click(); await h.waitForTimeout(1000)
     check(`${theme}: clicking a chip opens it in the side panel`, await h.locator(`${S}[data-day-side="task"] [data-open="${late}"]`).count() === 1 && await h.locator('[data-page="task"]').count() === 0)
     await shot(`cal3-task-${theme}`)
-    await h.locator(S).focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(500)
+    await h.locator(S).focus(); await h.keyboard.press('Escape')
+    // Gone within two seconds: it slides out (160ms) before it is taken away, and a busy machine has taken longer than half a second over it.
+    await h.locator(S).waitFor({ state: 'detached', timeout: 2000 }).catch(() => {})
     check(`${theme}: Esc closes the task panel`, await h.locator(S).count() === 0)
 
     // The Calendar page: a slot opens the same panel; D, W and M go into the words.
@@ -91,27 +97,23 @@ try {
     if (await h.locator('[data-cal-mode="week"]').count() === 0) { await h.keyboard.press('w'); await h.waitForTimeout(500) }
     const colBox = await h.locator(`[data-cal-col="${key(at(0))}"]`).boundingBox()
     await h.locator('[data-cal-scroll]').evaluate((el) => (el.scrollTop = 13 * 56))
-    await h.mouse.click(colBox.x + colBox.width / 2, (await h.locator(`[data-cal-col="${key(at(0))}"]`).boundingBox()).y + (theme === "light" ? 14 : 16) * 56 + 10); await h.waitForTimeout(700)
-    check(`${theme}: a slot on the Calendar opens the panel at its time`, await h.locator(`${S}[data-day-side="new"]`).count() === 1)
+    await h.mouse.dblclick(colBox.x + colBox.width - 12, (await h.locator(`[data-cal-col="${key(at(0))}"]`).boundingBox()).y + (theme === "light" ? 14 : 16) * 56 + 10); await h.waitForTimeout(700)
+    await h.click(`${P} [data-day-side-kind="task"]`); await h.waitForTimeout(500)
+    check(`${theme}: a double-click on a slot on the Calendar opens the popover at its time`, await h.locator(`${P}[data-cal-add="task"]`).count() === 1 && await h.locator(S).count() === 0)
     await h.keyboard.type(`cal3 slot ${tag} dwmt `); await optHash(); await h.keyboard.type('sag'); await h.waitForTimeout(300)
-    check(`${theme}: D, W, M and T typed there stay in the words`, await h.locator('[data-cal-mode="week"]').count() === 1 && (await h.locator(`${S} [data-task-input]`).inputValue()) === `cal3 slot ${tag} dwmt #sag`)
+    check(`${theme}: D, W, M and T typed there stay in the words`, await h.locator('[data-cal-mode="week"]').count() === 1 && (await h.locator(`${P} [data-task-input]`).inputValue()) === `cal3 slot ${tag} dwmt #sag`)
     await shot(`cal3-calendar-${theme}`)
     await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
     const slot = await find(`cal3 slot ${tag}`)
     check(`${theme}: saved at the slot time with its tag`, slot && new Date(slot.dueAt).getHours() === (theme === "light" ? 14 : 16) && !slot.allDay && /#sag\b/.test(slot.title), `${slot?.title} ${slot?.dueAt}`)
-    await h.locator(S).focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+    await h.keyboard.press('Escape'); await h.waitForTimeout(400)
     await h.keyboard.press('m'); await h.waitForTimeout(800)
     const calCell = h.locator(`[data-month-plan] [data-day="${key(at(2))}"]`)
-    await calCell.hover(); await calCell.locator('[data-day-add]').click(); await h.waitForTimeout(600)
-    check(`${theme}: the Calendar's month opens the same panel`, await h.locator(`${S}[data-day-side="new"]`).count() === 1)
+    await startOnDay(h, calCell)
+    check(`${theme}: the Calendar's month opens the same popover`, await h.locator(P).count() === 1 && await h.locator(S).count() === 0)
     await h.keyboard.press('Escape'); await h.waitForTimeout(400)
 
-    // The week board.
-    await go('week'); await h.waitForTimeout(1000)
-    const col = h.locator('section[data-day="3"]'); await col.hover(); await col.locator('[data-week-add]').click(); await h.waitForTimeout(600)
-    check(`${theme}: the week board's + opens the same panel`, await h.locator(`${S}[data-day-side="new"]`).count() === 1)
-    await shot(`cal3-week-${theme}`)
-    await h.keyboard.press('Escape'); await h.waitForTimeout(400)
+    // (The week board's "+" was checked here; the board is gone from the app, and this step timed out on premium-pass too.)
   }
   check('no page errors', !c.errors.length, c.errors.join(' | '))
 } finally {

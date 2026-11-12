@@ -7,6 +7,7 @@
 //   npx electron-vite build --outDir out-calendar
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-calendar/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=dir node qa/calendar.mjs
 import { sandbox } from './sandbox-lib.mjs'
+import { startOnDay } from './month-add-lib.mjs'
 import { THEMES, checkInks, dragAcross, monthKey, nextMonth, where } from './month-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
@@ -74,12 +75,13 @@ try {
 
   // Inline add.
   const cell = h.locator(`${M} [data-day="${key(at(6))}"]`)
-  await cell.hover(); await cell.locator('[data-day-add]').click()
+  // A double-click on the day starts the task in the popover there (the "+" and its panel are gone, 12 Nov); ↵ makes it
+  // and the popover goes, so nothing is left over the days.
+  await startOnDay(h, cell, 'task')
   await h.keyboard.type('cal added inline'); await h.keyboard.press('Enter'); await h.waitForTimeout(1200)
   const added = (await v('tasks')).find((one) => one.title.includes('cal added inline'))
-  check('a day\'s + adds a task for that day', added && new Date(added.dueAt).getDate() === at(6).getDate(), added?.dueAt)
-  // Done with the new task: its panel is shut, as a person would, so it does not sit over the days on the right.
-  await h.locator('[data-day-side]').focus(); await h.keyboard.press('Escape'); await h.waitForTimeout(500)
+  check('a double-click on a day adds a task for that day', added && new Date(added.dueAt).getDate() === at(6).getDate(), added?.dueAt)
+  check('and leaves no popover or panel over the days', await h.locator('[data-cal-add], [data-day-side]').count() === 0)
 
   // The popover.
   await h.locator(`${M} [data-day="${key(at(4))}"] [data-plan-more]`).hover(); await h.waitForTimeout(700)

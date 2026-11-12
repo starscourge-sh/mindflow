@@ -62,15 +62,20 @@ try {
   await pull('[data-cal-grip="left"]', -900)
   const left3 = await width('[data-cal-side]')
   check('1. and at its least, 12rem', Math.abs(left3 - 12 * rem) <= 1, `${left3}`)
+  // Since 12 Nov nothing rests on the right (Upcoming is in the left panel): the right panel is the one a task or an
+  // event opens in, so an unscheduled task is opened to have it, and again after the reload.
+  await h.locator('[data-cal-loose]').first().click(); await wait(900)
   const right0 = await width('[data-cal-right]')
   await pull('[data-cal-grip="right"]', -80)
   const right1 = await width('[data-cal-right]')
   check('1. the right panel drags wider from its left edge', right1 >= right0 + 70, `${right0} → ${right1}`)
   await h.reload(); await wait(1800); await go('calendar'); await wait(1200)
+  await h.locator('[data-cal-loose]').first().click(); await wait(900)
   check('1. both widths are kept after a reload', Math.abs(await width('[data-cal-side]') - 12 * rem) <= 1 && Math.abs(await width('[data-cal-right]') - right1) <= 1)
+  // The right panel's own edge first, while the task is open in it (a press anywhere else closes it), then the left's.
+  await h.locator('[data-cal-grip="right"]').dblclick(); await wait(300)
   await h.locator('[data-cal-grip="left"]').dblclick(); await wait(300)
   check('1. a double-click puts the left panel back to 14rem', Math.abs(await width('[data-cal-side]') - 14 * rem) <= 1)
-  await h.locator('[data-cal-grip="right"]').dblclick(); await wait(300)
 
   // 52. Unscheduled, capped.
   const loose = await h.locator('[data-cal-loose]').count()

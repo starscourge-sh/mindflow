@@ -1,5 +1,5 @@
-// The rest of the list (b23 wave 3), in the sandbox: the Calendar's panel
-// switches sit on their own sides and "Go to today" from ⌘K brings the now
+// The rest of the list (b23 wave 3), in the sandbox: the Calendar's left panel
+// switch sits on its own side and "Go to today" from ⌘K brings the now
 // line into sight; a calendar deleted keeps its events in another, and a
 // double click on + makes one calendar; Page previews switch off; a tag's
 // colour dot opens its picker; Check back in quick capture opens its calendar.
@@ -24,9 +24,10 @@ try {
   if (await h.locator('[data-cal-mode="week"]').count() === 0) { await h.keyboard.press('w'); await wait(500) }
   const sides = await h.evaluate(() => {
     const x = (sel) => document.querySelector(sel)?.getBoundingClientRect().left ?? -1
-    return { left: x('[data-cal-left-toggle]'), title: x('[data-cal-jump]'), plan: x('[data-cal-side-toggle]'), mid: innerWidth / 2 }
+    return { left: x('[data-cal-left-toggle]'), title: x('[data-cal-jump]'), plan: x('[data-cal-side-toggle]'), add: x('[data-cal-new-event]'), mid: innerWidth / 2 }
   })
-  check('5: the left panel\'s switch sits left of the title, "Plan" on the right', sides.left >= 0 && sides.left < sides.title && sides.plan > sides.mid, JSON.stringify(sides))
+  // Since 12 Nov Upcoming is in the left panel, so the right panel's switch ("Plan") is gone; "New event" ends the bar.
+  check('5: the left panel\'s switch sits left of the title, "New event" on the right, and no right panel\'s switch is left', sides.left >= 0 && sides.left < sides.title && sides.plan === -1 && sides.add > sides.mid, JSON.stringify(sides))
   const hadLeft = await h.locator('[data-cal-side]').count()
   await h.locator('[data-cal-left-toggle]').click(); await wait(400)
   check('5: the left switch folds the left panel', (await h.locator('[data-cal-side]').count()) !== hadLeft)

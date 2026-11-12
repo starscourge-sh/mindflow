@@ -78,7 +78,8 @@ try {
   // 1. The header.
   const sub = await h.locator('[data-cal-subtitle]').innerText()
   check('the title says the month, the week\'s number and days under it', /^Week \d+ · \w+ \d+ – (\w+ )?\d+/.test(sub.trim()) && /\w+ \d{4}/.test(await h.locator('[data-cal-title]').innerText()), sub)
-  check('‹ | Today | › as one control, Day | Week | Month, search, the right panel toggle and "+ New event" are there', await h.locator('[data-cal-step] [data-cal-today]').count() === 1 && await h.locator('[data-cal-step] [data-cal-prev]').count() === 1 && /Upcoming/.test(await h.locator('[data-cal-side-toggle]').getAttribute('aria-label')) && await h.locator('[data-cal-views] [role="radio"]').count() === 3 && await h.locator('[data-cal-search]').count() === 1 && (await h.locator('[data-cal-new-event]').innerText()).includes('New event'))
+  // Since 12 Nov Upcoming is in the left panel, so the bar has no right panel toggle.
+  check('‹ | Today | › as one control, Day | Week | Month, search and "+ New event" are there, and no right panel toggle', await h.locator('[data-cal-step] [data-cal-today]').count() === 1 && await h.locator('[data-cal-step] [data-cal-prev]').count() === 1 && await h.locator('[data-cal-side-toggle]').count() === 0 && await h.locator('[data-cal-views] [role="radio"]').count() === 3 && await h.locator('[data-cal-search]').count() === 1 && (await h.locator('[data-cal-new-event]').innerText()).includes('New event'))
   await h.locator('[data-cal-view="day"]').click(); await h.waitForTimeout(400)
   check('Day in the switch shows a day', (await h.locator('[data-cal-mode]').getAttribute('data-cal-mode')) === 'day' && (await h.locator('[data-cal-view="day"]').getAttribute('aria-checked')) === 'true')
   await h.locator('[data-cal-view="week"]').click(); await h.waitForTimeout(400)
@@ -120,8 +121,8 @@ try {
   // 5. The right panel.
   const mini = h.locator('[data-cal-side] [data-cal-mini]')
   check('the small month tops the left panel, single-letter weekdays, today in a pill', await mini.count() === 1 && (await mini.innerText()).includes('M\nT\nW') && await mini.locator(`[data-cal-mini-day="${key(today)}"] span`).evaluate((el) => getComputedStyle(el).backgroundColor !== 'rgba(0, 0, 0, 0)'))
-  // At 1600 with the sidebar open the right panel folds for the week's room: "Plan" brings it back (qa/cal-panels.mjs).
-  if (await h.locator('[data-cal-right]').count() === 0) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(500) }
+  // Upcoming is an island in the left panel (qa/cal-panels.mjs): there while the panel is.
+  if (await h.locator('[data-cal-side]').count() === 0) { await h.locator('[data-cal-left-toggle]').click(); await h.waitForTimeout(500) }
   const up = await h.locator('[data-cal-upcoming]').innerText()
   check('"Upcoming · Next 7 days", by day', up.startsWith('Upcoming') && up.includes('Next 7 days') && /Today, \w+ \d+/.test(up) && /Tomorrow, \w+ \d+/.test(up), up.slice(0, 200))
   check('a row says its time and calendar: "09:00 – 09:30 · Work"', up.includes('09:00 – 09:30 · Work'), up)
@@ -269,12 +270,10 @@ try {
   await h.keyboard.press('.'); await h.waitForTimeout(400)
   check('. opens it too', await h.locator('[data-cal-jump-month]').count() === 1)
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
-  // Each panel's switch on its own side: the left one hides the left panel, "Plan" the right.
+  // The left panel's switch hides it, Upcoming with it; nothing rests on the right.
   if (await h.locator('[data-cal-side]').count()) { await h.locator('[data-cal-left-toggle]').click(); await h.waitForTimeout(400) }
-  if (await h.locator('[data-cal-right]').count()) { await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(400) }
-  check('the two switches hide the side panels', await h.locator('[data-cal-side], [data-cal-right]').count() === 0)
+  check('the left switch hides the side panel, and nothing is left over the days', await h.locator('[data-cal-side], [data-cal-right], [data-cal-upcoming]').count() === 0)
   await h.locator('[data-cal-left-toggle]').click(); await h.waitForTimeout(400)
-  await h.locator('[data-cal-side-toggle]').click(); await h.waitForTimeout(400)
   // Shots of the new parts in each theme.
   for (const theme of ['paper', 'dark', 'light']) {
     await c.theme(theme); await go('calendar'); await h.waitForTimeout(900)
