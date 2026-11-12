@@ -98,18 +98,26 @@ export function bookFeed(db: DatabaseSync) {
   }
 
 
-  /** The @ links in a stored body, Markdown's `[[@article:id|Label]]` or the editor's noteLink, so the Feed can show them as links. */
+  /** A note's words as the Feed writes them: its #tags taken out (they show under the post). */
+  const untagged = (text: string): string => text.replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gmu, '')
+
+  /**
+   * The @ links in a stored body, Markdown's `[[@article:id|Label]]` or the editor's noteLink, so the Feed can show
+   * them as links. Each label is given as the post's words write it (`words`, below): a note linked by a name that
+   * carries its #tag ("Two-minute rule #work") is written there without the tag, and with the tag left on, its label
+   * was never found in the words, so it showed as plain words and opened nothing.
+   */
   const linksOf = (raw: string): { to: string; label: string }[] => {
     let value: unknown = raw
     try { value = JSON.parse(raw) } catch { /* Markdown, as it is */ }
-    if (typeof value === 'string') return [...value.matchAll(/\[\[@([^|\]]+)\|([^\]]+)\]\]/g)].map((one) => ({ to: one[1], label: one[2] }))
     const out: { to: string; label: string }[] = []
+    if (typeof value === 'string') for (const one of value.matchAll(/\[\[@([^|\]]+)\|([^\]]+)\]\]/g)) out.push({ to: one[1], label: one[2] })
     const walk = (node: { type?: string; attrs?: { id?: unknown; label?: unknown }; content?: unknown[] }): void => {
       if (node?.type === 'noteLink' && node.attrs?.id && node.attrs.label) out.push({ to: String(node.attrs.id), label: String(node.attrs.label) })
       for (const child of node?.content ?? []) walk(child as typeof node)
     }
     if (value && typeof value === 'object') walk(value as never)
-    return out
+    return out.map((one) => ({ to: one.to, label: untagged(one.label).trim() })).filter((one) => one.label)
   }
 
   /** Where a quote came from: the first link back into a kept PDF (at its page) or a kept web page, as the readers write it. */
@@ -129,7 +137,7 @@ export function bookFeed(db: DatabaseSync) {
   }
 
   const words = (row: Row): string => {
-    let text = cardWords(row.body ?? '').replace(/(?<=^|\s)#\p{L}[\p{L}\p{N}_/-]*/gmu, '')
+    let text = untagged(cardWords(row.body ?? ''))
     const lines = text.split('\n').map((line) => line.trim()).filter(Boolean)
     // The title is said once: lines it already says go, as Home's cards drop them. A quote keeps its words whole.
     const flat = (said: string): string => said.toLowerCase().replace(/#\p{L}[\p{L}\p{N}_/-]*/gu, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()

@@ -31,8 +31,13 @@ try {
   const quote = posts.find((one) => one.kind === 'quote' && one.who)
   const other = posts.find((one) => (one.type === 'nugget' || one.type === 'article') && one.id !== quote?.id)
   check('the Feed has a quote with a name, and another note', quote && other, `${quote?.who}, ${other?.title}`)
-  // Its body the way an import keeps it: Markdown in a string, ending "Connected to: [[@type:id|Label]]".
-  await v('item:save', quote.id, { body: `${quote.text}\n\nConnected to: [[@${other.type}:${other.id}|${other.title}]]` })
+  // Its body the way an import keeps it: Markdown in a string, ending "Connected to: [[@type:id|Label]]". The label is
+  // the linked note's name with a #tag in it, whichever note the day's Feed gave: a note is linked by its whole name
+  // (similar-notes.tsx), "Two-minute rule #work" and all, while the Feed writes its words without their tags. On the
+  // days the Feed's first other note had a tag in its name, the label was plain words and opened nothing.
+  const TAGS = /(^|\s)#\p{L}[\p{L}\p{N}_/-]*/gu
+  const name = other.title.replace(TAGS, '').trim()
+  await v('item:save', quote.id, { body: `${quote.text}\n\nConnected to: [[@${other.type}:${other.id}|${name} #linked]]` })
   // A picture for the person, as one set by hand.
   const avatar = await h.evaluate(async () => {
     const canvas = Object.assign(document.createElement('canvas'), { width: 8, height: 8 })
@@ -48,7 +53,7 @@ try {
   const post = h.locator(`[data-feed-id="${quote.id}"]`)
   check('the quote is in the Feed', await post.count() === 1)
   const link = post.locator('[data-feed-link]')
-  check('its "Connected to" label is a link', await link.count() === 1, await link.first().textContent().catch(() => ''))
+  check('its "Connected to" label is a link, though the name it links by carries a #tag', await link.count() === 1 && (await link.first().textContent().catch(() => '')) === name, await link.first().textContent().catch(() => ''))
 
   // A person's name.
   await rest(post.locator('[data-feed-account]'))
@@ -81,7 +86,8 @@ try {
   check('off the name, the card goes', await card().count() === 0)
   await rest(link)
   await h.waitForTimeout(250)
-  check('the next link swaps in at once', (await card().locator('[data-preview-title]').textContent().catch(() => '')) === other.title)
+  const led = (await card().locator('[data-preview-title]').textContent().catch(() => '')) ?? ''
+  check('the next link swaps in at once', led.replace(TAGS, '').trim() === name, led)
   await h.keyboard.press('Escape')
   await h.waitForTimeout(200)
   check('Esc puts it away', await card().count() === 0)
@@ -91,7 +97,9 @@ try {
   await h.waitForTimeout(400)
   await link.click()
   await h.waitForTimeout(1200)
-  check('a click on the link opens its note', await h.evaluate((title) => document.body.innerText.includes(title) && !document.querySelector('[data-feed-id]'), other.title))
+  // The Feed gives way to the note: its own tab is the one lit (a tab says what it holds, "nugget:<id>").
+  const opened = await h.evaluate(() => ({ feed: !!document.querySelector('[data-feed-id]'), tab: document.querySelector('[data-tab][data-tab-on]')?.dataset.tabOpen ?? '' }))
+  check('a click on the link opens its note', !opened.feed && opened.tab.endsWith(`:${other.id}`), JSON.stringify(opened))
   console.log('errors:', c.errors?.slice?.(0, 5))
 } catch (error) {
   console.log('FAIL  probe stopped:', error.message)
