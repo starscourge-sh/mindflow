@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { EditorView } from '@tiptap/pm/view'
 
-import { heightsOf, screenBlocks, showBlock, takeHeights, type KeptHeights } from '@/extensions/long-document'
+import { heightsOf, screenBlocks, scrolledItself, showBlock, takeHeights, type KeptHeights } from '@/extensions/long-document'
 
 /**
  * Where you were in each note: the block at the top of the screen (and how
@@ -215,25 +215,36 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       top = now
       anchor = found
     }
-    // Held there as the note grows above it: told after each layout, before it is painted.
+    // Held there as the note grows above it: told after each layout, before it is painted. And as what stands
+    // beside the note in the same scroller changes size (the strip under its title, what comes after its words:
+    // filled a moment after the note is on the page, later still while the app is starting): that moves the note
+    // on the screen without changing its size, and nothing was told of it.
     const grows = new ResizeObserver(() => (holding ? put() : read()))
     grows.observe(dom)
+    const besides = (): void => { if (scroller) for (const one of scroller.children) grows.observe(one) }
+    const beside = new MutationObserver(besides)
+    if (scroller) (besides(), beside.observe(scroller, { childList: true }))
     const onScroll = (): void => {
       if (!scroller) return
       // Moved by something else (a link to a heading, find), that wins. The browser's own scroll anchoring keeps the block where it was, so never counts.
       // Its block no longer on the page (a long note's screen sent far off) is moved as well.
       const by = drift()
-      if (holding && Math.abs(scroller.scrollTop - mine) > 1 && (by === null ? !!anchor : Math.abs(by) > 1)) holding = false
+      // A long note's own scroll, as it puts right the space kept above its drawn blocks, is not a move by something
+      // else, even when the kept block is off its place by then (a font or a picture arriving in the same moment,
+      // as they do while the app is starting): taken for one, the place was let go of, and the note launched again
+      // came back some blocks from where it was left. It is put back instead.
+      const own = Math.abs(scroller.scrollTop - mine) <= 1 || scrolledItself(scroller)
+      if (holding && !own && (by === null ? !!anchor : Math.abs(by) > 1)) holding = false
+      if (holding && own && by !== null && Math.abs(by) >= 0.5) put()
       read()
     }
     const onSelect = (): void => void (from = editor.state.selection.from)
-    // A caret asked into view is a jump (the contents, find, a key that moves it): the screen is going there, and
-    // the place is let go of before the note next changes size, not a scroll later.
-    const onJump = ({ transaction }: { transaction: { scrolledIntoView: boolean } }): void => void (transaction.scrolledIntoView && stop())
-    editor.on('transaction', onJump)
     scroller?.addEventListener('scroll', onScroll, { passive: true })
     scroller?.addEventListener('wheel', stop, { passive: true })
-    scroller?.addEventListener('pointerdown', stop)
+    // A press anywhere lets go of the place, not only one in the note: a heading pressed in the contents beside it
+    // is a jump, and the screen is going there. (A caret asked into view with no press and no key is the app's own
+    // doing, as when the note is given the keys while it opens: the place is kept through that.)
+    window.addEventListener('pointerdown', stop, true)
     window.addEventListener('keydown', stop, true)
     editor.on('selectionUpdate', onSelect)
     const save = (): void => {
@@ -246,13 +257,13 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     return () => {
       save()
       grows.disconnect()
+      beside.disconnect()
       scroller?.removeEventListener('scroll', onScroll)
       scroller?.removeEventListener('wheel', stop)
-      scroller?.removeEventListener('pointerdown', stop)
+      window.removeEventListener('pointerdown', stop, true)
       window.removeEventListener('keydown', stop, true)
       window.removeEventListener('pagehide', save)
       editor.off('selectionUpdate', onSelect)
-      editor.off('transaction', onJump)
     }
     }
     return () => (off(), undo())
