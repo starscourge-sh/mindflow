@@ -2208,7 +2208,8 @@ export function Home(): React.JSX.Element {
                 <Branches current={inScale ? scales.findIndex((one) => one.id === view.id) : -1} className="ml-5 flex flex-col gap-px">
                   {scales.map((one) => (
                     <button key={one.id} type="button" data-side-row data-side-scale={one.id} aria-current={light === `scale:${one.id}` ? 'page' : undefined}
-                      onPointerDown={(event) => event.stopPropagation()}
+                      // Its own press, not the Journal row's carry (lib/own-press.ts): the press itself travels on.
+                      data-own-press=""
                       onClick={() => setView({ id: one.id })}
                       className={`group flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${view.id === one.id ? 'text-foreground' : 'text-foreground/80'}`}>
                       <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5"><PlaceIcon place={one} full={view.id === one.id} /></span>
@@ -2223,8 +2224,9 @@ export function Home(): React.JSX.Element {
                 <RailFolders list={list} onOpen={(id) => setView({ id: section.id, folder: id })} />
               )}
               {folders && list && (
-                // Its own drags, not the row's: a folder pressed on is not Writing carried away.
-                <div onPointerDown={(event) => event.stopPropagation()}>
+                // Its own drags, not the row's: a folder pressed on is not Writing carried away (lib/own-press.ts). The
+                // press is not stopped: every open popover hears it, so a folder's icon picker shuts when another is pressed.
+                <div data-own-press="">
                   <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} noteRow={light.startsWith('note:') && noteList === list ? noteRow : undefined} shown={shownIn(list, folders)}
                     onOpen={(id) => setView({ id: section.id, folder: id })} onUnfold={() => setUnfolded(true)} />
                 </div>

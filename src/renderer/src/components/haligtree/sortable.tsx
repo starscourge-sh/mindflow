@@ -1,7 +1,8 @@
 import { Fragment, createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { dragWords } from '@/lib/drag-words'
 import { createPortal } from 'react-dom'
-import { DndContext, DragOverlay, useDndMonitor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
+import { DndContext, DragOverlay, useDndMonitor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
+import { RowSensor } from '@/lib/own-press'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { EASING, spring, still } from '@/lib/motion'
@@ -192,7 +193,7 @@ function useHeld<T>(items: T[], keyOf: (item: T) => string): { shown: T[]; keys:
 }
 
 function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children }: ListProps<T>): React.JSX.Element {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const sensors = useSensors(useSensor(RowSensor, { activationConstraint: { distance: 5 } }))
   const { shown, keys, setHeld, sorting, lifting, landed } = useHeld(items, keyOf)
   const [shot, setShot] = useState<Lift | null>(null)
   const carrying = useRef<Lift | null>(null)
@@ -331,7 +332,7 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
 
 /** A row of tabs, carried side to side: they slide along to make room, the carried one's place kept quiet where it will land. */
 function TabRow<T>({ items, keyOf, onMove, children }: ListProps<T>): React.JSX.Element {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const sensors = useSensors(useSensor(RowSensor, { activationConstraint: { distance: 5 } }))
   const { shown, keys, setHeld, sorting, lifting, landed } = useHeld(items, keyOf)
   const [shot, setShot] = useState<Lift | null>(null)
   // Over another tab's place: letting go moves it there, and the card says so.
@@ -425,7 +426,7 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   /** A block's box of rows, with whatever goes around it (a gap before, a part after). */
   around: (block: string, at: number, box: ReactNode, items: T[]) => ReactNode
 }): React.JSX.Element {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  const sensors = useSensors(useSensor(RowSensor, { activationConstraint: { distance: 5 } }))
   const list = useId()
   const [held, setHeld] = useState<{ key: string; ids: string[] }[] | null>(null)
   const [shot, setShot] = useState<Lift | null>(null)
