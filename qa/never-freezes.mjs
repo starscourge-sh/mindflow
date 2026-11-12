@@ -22,7 +22,8 @@
 //
 // It fails on any main stall, in any step, and on any window block that is
 // not in NOT_MINE below. REST=ms changes the rest after a step (1500),
-// NOTES=n how many notes (30), PROF=1 prints where main's own time went.
+// NOTES=n how many notes (30), PROF=1 prints where main's own time went,
+// and with UNDER=saveOne what one function's own work is made of.
 //
 // SHORT=1 is the same in about a minute, for working on a fix: the three
 // largest notes, one save of the largest, three searches and three pages.
@@ -267,6 +268,21 @@ if (profile?.profile) {
   })
   const top = (map, n) => [...map].filter(([key]) => !/^\((idle|program|root)\)/.test(key)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([key, us]) => `  ${(us / 1000).toFixed(0).padStart(7)} ms  ${key}`).join('\n')
   console.log(`Main: where its own time went (self time)\n${top(self, 25)}\nMain: the same, callers included\n${top(total, 45)}`)
+  // UNDER=<a function's name>: the same two lists for that function's own work alone (what a save is made of: UNDER=saveOne).
+  if (process.env.UNDER) {
+    const inSelf = new Map(), inTotal = new Map()
+    samples.forEach((id, at) => {
+      const us = timeDeltas[at] ?? 0
+      const chain = []
+      for (let up = id; up; up = parent.get(up)) chain.push(byId.get(up))
+      const from = chain.findIndex((node) => node.callFrame.functionName === process.env.UNDER)
+      if (from < 0) return
+      inSelf.set(where(chain[0]), (inSelf.get(where(chain[0])) ?? 0) + us)
+      const seen = new Set()
+      for (const node of chain.slice(0, from + 1)) { const key = where(node); if (!seen.has(key)) (seen.add(key), inTotal.set(key, (inTotal.get(key) ?? 0) + us)) }
+    })
+    console.log(`Main: inside ${process.env.UNDER} (self time)\n${top(inSelf, 20)}\nMain: inside ${process.env.UNDER}, callers included\n${top(inTotal, 30)}`)
+  }
 }
 
 // --- the window: every block, by whose it is.

@@ -18,6 +18,7 @@ import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters
 import { rollOver } from './held'
 import { KEPT_IN, LABEL, LIST, atomically, bookStamp, changed, database, movedOn, quietly, type Change } from './captures'
 import { ask as askReader } from './reader'
+import { named as timed } from './stalls'
 import { docList, tasksSaid } from './day-lines'
 import { advance, dateIn, leadingTag, readTask } from './task-words'
 import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay, plural } from './dates'
@@ -1764,6 +1765,8 @@ export function registerHaligtree(): void {
    * that held main's one thread for 65 to 380 ms each time, and every window with it. So the read is taken in
    * turns: `turn()` lets the thread go once it has been held 8 ms (whatever waits, a key or a window's question,
    * goes first) and says false when the answer is no longer wanted, a newer ask having taken its place.
+   * A turn is as long as its longest step, and after the first wait a handler's time has no name (stalls.ts):
+   * each step is named here, so one that holds the thread too long shows in the table as itself.
    */
   type Turn = () => Promise<boolean>
   const turns = (wanted: () => boolean): Turn => {
@@ -1783,7 +1786,7 @@ export function registerHaligtree(): void {
       db.prepare("select rowid as at, tier as type, id, title, body, private from nuggets where superseded_by is null and tier not in ('card', 'deck') and rowid > ? order by rowid limit 30")
     ]) {
       for (let at = 0; ;) {
-        const rows = page.all(at) as unknown as (ReturnType<typeof everything>[number] & { at: number })[]
+        const rows = timed('mentions: thirty notes read', () => page.all(at)) as unknown as (ReturnType<typeof everything>[number] & { at: number })[]
         if (!rows.length) break
         out.push(...rows)
         at = rows[rows.length - 1].at
@@ -1797,7 +1800,7 @@ export function registerHaligtree(): void {
     const part = reading(own)
     const out: ReturnType<NameBook['find']> = []
     for (let from = 0; from < lines.length && !(first && out.length); from += 120) {
-      out.push(...book.find(lines.slice(from, from + 120), leave, strict, own, part))
+      out.push(...timed('mentions: names looked for in 120 lines', () => book.find(lines.slice(from, from + 120), leave, strict, own, part)))
       if (!(await turn())) return null
     }
     return out
@@ -1805,9 +1808,11 @@ export function registerHaligtree(): void {
   const linesOf = async (row: { id: string; body: string }, stamp: string, book: NameBook, turn: Turn): Promise<{ lines: string[]; held: Set<string> } | null> => {
     let kept = linesKept.get(row.id)
     if (!kept || kept.body !== row.body) {
-      let doc: unknown = null
-      try { doc = JSON.parse(row.body) } catch { doc = row.body }
-      kept = { body: row.body, lines: linkableLines(doc), names: '', held: new Set() }
+      kept = timed("mentions: a note's lines read", () => {
+        let doc: unknown = null
+        try { doc = JSON.parse(row.body) } catch { doc = row.body }
+        return { body: row.body, lines: linkableLines(doc), names: '', held: new Set<string>() }
+      })
       linesKept.set(row.id, kept)
     }
     // Every name standing in it as whole words, read as a name or not: how common a name is, and where to look closer.
@@ -1830,7 +1835,7 @@ export function registerHaligtree(): void {
     if (!every) return null
     const all = every.filter((row) => row.body)
     const stamp = all.map((row) => `${row.id}\u0000${row.title}`).join('\u0001')
-    if (nameBook?.stamp !== stamp) nameBook = { stamp, book: new NameBook(all.map((row) => nameFrom(row.id, row.title ?? '')).filter((one): one is Name => !!one), everyday) }
+    if (nameBook?.stamp !== stamp) nameBook = { stamp, book: timed('mentions: the book of names made', () => new NameBook(all.map((row) => nameFrom(row.id, row.title ?? '')).filter((one): one is Name => !!one), everyday)) }
     const book = nameBook.book
     const read = new Map<string, { lines: string[]; held: Set<string> }>()
     for (const row of all) {
@@ -1854,7 +1859,7 @@ export function registerHaligtree(): void {
       // A link as the editor keeps it, or as an imported page still holds it.
       const links = row.body.includes(id) && new RegExp(`"id":"(?:[a-z]+:)?${id}"|\\[\\[@(?:[a-z]+:)?${id}\\|`).test(row.body)
       if (links) {
-        const text = words(JSON.parse(row.body))
+        const text = timed('mentions: a note that links here read', () => words(JSON.parse(row.body)))
         const label = /"label":"([^"]*)"/.exec(row.body.slice(Math.max(0, row.body.search(new RegExp(`"id":"(?:[a-z]+:)?${id}"`)))))?.[1] ??
           new RegExp(`\\[\\[@(?:[a-z]+:)?${id}\\|([^\\]]+)\\]\\]`).exec(row.body)?.[1] ?? name
         const at = text.indexOf(label)
@@ -5352,8 +5357,10 @@ type Returning = Shelved & { ask: string; answer: string }
 export function registerHome(): void {
   const db = database()
   db.exec('create table if not exists note_opens (id text primary key, type text not null, at text not null)')
+  // Written at every note opened, and in no list or search: it leaves the book's stamp where it was (captures.ts),
+  // or search read every note again after each one opened.
   ipcMain.handle('haligtree:home:opened', (_event, type: string, id: string) =>
-    void db.prepare('insert into note_opens (id, type, at) values (?, ?, ?) on conflict(id) do update set at = excluded.at, type = excluded.type').run(id, type, now()))
+    void quietly(() => db.prepare('insert into note_opens (id, type, at) values (?, ?, ?) on conflict(id) do update set at = excluded.at, type = excluded.type').run(id, type, now())))
   // The notes opened most lately, newest first, for the "Recent" island under a note's details: looked up one by
   // one (a few at most), never the whole shelf, and only those still there.
   ipcMain.handle('haligtree:home:recent-opened', (_event, limit: number) => {

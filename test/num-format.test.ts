@@ -29,7 +29,7 @@ const ALLOWED: [file: string, bit: string, why: string][] = [
   ['src/renderer/src/lib/people.ts', '${used.size}', 'part of an id made from initials'],
   ['src/main/freeze-catch.ts', '${all.length} lines', 'a log line for us, not shown in the app'],
   ['src/main/celebrate.ts', '${facts.size}', 'a cache key from a file size'],
-  ['src/main/captures.ts', '${raw.length}', 'a key for finding the same capture twice'],
+  ['src/main/book-words.ts', '${raw.length}', 'a key for finding the same capture twice'],
   ['src/main/scenery.ts', '${facts.size}', 'a cache key from a file size'],
   ['src/main/frost.ts', '${file.size}', 'a cache key from a file size'],
   ['src/main/index.ts', '"${stored.size}"', 'a byte count kept in a link title, read back by code'],

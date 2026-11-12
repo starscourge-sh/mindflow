@@ -456,7 +456,8 @@ export function registerCaptures(): void {
     const rows = db.prepare(`select id, kind, body from captures where (kind = 'link' or body like '%"bookmark"%')
       and not exists (select 1 from card_tries t where t.id = captures.id and t.body = captures.body)`).all() as { id: string; kind: string; body: string }[]
     const tried = db.prepare('insert or replace into card_tries (id, body) values (?, ?)')
-    for (const row of rows) tried.run(row.id, row.body)
+    // That a card was looked up is in no list or search: the book's stamp stays where it was.
+    quietly(() => { for (const row of rows) tried.run(row.id, row.body) })
     return rows.map((row) => ({ ...row, body: JSON.parse(row.body ?? 'null') }))
   })
 

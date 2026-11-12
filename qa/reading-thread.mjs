@@ -47,8 +47,21 @@ const named = await h.evaluate(() => window.api.captures.named('Zebrafish quokka
 const after = await stats()
 check('a link written by name asks once for the notes, pages and files of that name', named.captures.some((row) => row.id === one) && Array.isArray(named.items) && Array.isArray(named.files) && after.asked - before.asked === 1, `${after.asked - before.asked} asks; ${named.captures.length} notes, ${named.items.length} pages, ${named.files.length} files`)
 
-// Opening notes writes that they were opened: search's list is not read again for it. (Each is opened once
-// first: a note the page tidies as it first opens it, and saves, has changed, and is rightly read again.)
+// A note read to be opened is marked as opened, and a setting is kept: neither is a change a list or a search
+// could show, so search's list of everything is not read again for them.
+await find('marmoset')
+const rested = await stats()
+for (const id of [one, two, one]) await h.evaluate((id) => window.api.captures.get(id), id)
+await v('settings:set', { readingThreadProbe: Date.now() })
+await find('marmoset')
+const read = await stats()
+check('three notes read to be opened, and a setting kept, read search’s whole list no more times', read.reads === rested.reads, `read ${rested.reads} times before, ${read.reads} after`)
+
+// The same in the window, as a person opens them (each is opened once first: a note the page tidies as it first
+// opens it, and saves, has changed, and is rightly read again). Opening a note writes that it was opened
+// (`home:opened`), which once moved the stamp: if it moves, what main was asked meanwhile is said.
+/** How many times each of main's handlers has been called (src/main/stalls.ts). */
+const calls = async () => new Map((await electron.evaluate(() => globalThis.mainStalls().rows)).map((row) => [row.name, row.calls]))
 const openAll = async (ids) => {
   for (const id of ids) {
     await send('capture', id)
@@ -56,17 +69,15 @@ const openAll = async (ids) => {
     await h.waitForTimeout(700)
   }
 }
-/** How many times each of main's handlers has been called (src/main/stalls.ts). */
-const calls = async () => new Map((await electron.evaluate(() => globalThis.mainStalls().rows)).map((row) => [row.name, row.calls]))
 await openAll([one, two])
 await find('marmoset')
-const rested = await stats()
 const callsBefore = await calls()
+const readsBefore = (await stats()).reads
 await openAll([one, two, one])
 await find('marmoset')
 const opened = await stats()
 const asked = [...(await calls())].filter(([name, n]) => n > (callsBefore.get(name) ?? 0) && !name.startsWith('timer ')).map(([name, n]) => `${name} ×${n - (callsBefore.get(name) ?? 0)}`)
-check('opening three notes reads search’s whole list no more times', opened.reads === rested.reads, `read ${rested.reads} times before, ${opened.reads} after${opened.reads === rested.reads ? '' : `; main was asked: ${asked.join(', ')}`}`)
+check('three notes opened in the window read search’s whole list no more times', opened.reads === readsBefore, `read ${readsBefore} times before, ${opened.reads} after${opened.reads === readsBefore ? '' : `; main was asked: ${asked.join(', ')}`}`)
 
 // Typed into the open note, with real keys; once it has saved, the new word is found, after one more read.
 await h.click(ED)
