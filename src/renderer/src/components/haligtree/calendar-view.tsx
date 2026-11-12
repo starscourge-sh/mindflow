@@ -651,9 +651,10 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         const ev = at.closest<HTMLElement>('[data-cal-event], [data-cal-event-chip]')
         setChosenEvent(ev ? (ev.dataset.calEvent ?? ev.dataset.calEventChip ?? null) : null)
       }}>
-      {pickedEvent && !panel && <style>{`[data-cal-event="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-event-chip="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
+      {/* The one picked wears its ring whether or not it has the keys: the page's own focus rules (no ring after a click, a thinner one after a key) would take it off the thing just clicked. */}
+      {pickedEvent && !panel && <style>{`[data-cal-event="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring) !important; outline-offset: 1px !important } [data-cal-event-chip="${CSS.escape(pickedEvent)}"] { outline: 2px solid var(--ring) !important; outline-offset: -2px !important }`}</style>}
       {/* The ring of the one picked: round a block, inside a chip, so the lane's edge never cuts it. */}
-      {picked && <style>{`[data-cal-block="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: 1px } [data-cal-untimed="${CSS.escape(picked)}"], [data-plan-task="${CSS.escape(picked)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
+      {picked && <style>{`[data-cal-block="${CSS.escape(picked)}"] { outline: 2px solid var(--ring) !important; outline-offset: 1px !important } [data-cal-untimed="${CSS.escape(picked)}"], [data-plan-task="${CSS.escape(picked)}"] { outline: 2px solid var(--ring) !important; outline-offset: -2px !important }`}</style>}
       {/* The day picked wears the small month's mark for the days shown (a quiet band of the accent behind its date), on a month's day and on a week's or a day's head. */}
       {pickedDay && <style>{`[data-cal-level] :is([data-day="${pickedDay}"] [data-day-number], [data-cal-head="${pickedDay}"] > span:last-child) { box-shadow: 0 0 0 3px var(--accent) } [data-cal-level] :is([data-day="${pickedDay}"] [data-day-number]:not([aria-current]), [data-cal-head="${pickedDay}"]:not([data-cal-today]) > span:last-child) { background: var(--accent) }`}</style>}
       {/* While something is being made on a day, the day stays lit (a slot's draft is its own light). */}

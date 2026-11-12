@@ -312,7 +312,7 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
   const plan = (
     <section ref={frame} data-month-plan data-month-own={own || undefined} data-month-shown={month.format('YYYY-MM')} className={`flex flex-col gap-2 ${bare ? 'min-h-0 flex-1' : ''}`}>
       {/* The day picked wears the small month's mark: a quiet band of the accent behind its date. */}
-      {own && pickedTask && <style>{`[data-month-own] [data-plan-task="${CSS.escape(pickedTask)}"] { outline: 2px solid var(--ring); outline-offset: -2px }`}</style>}
+      {own && pickedTask && <style>{`[data-month-own] [data-plan-task="${CSS.escape(pickedTask)}"] { outline: 2px solid var(--ring) !important; outline-offset: -2px !important }`}</style>}
       {own && pickedOwn && <style>{`[data-month-own] [data-day="${pickedOwn}"] [data-day-number] { box-shadow: 0 0 0 3px var(--accent) } [data-month-own] [data-day="${pickedOwn}"] [data-day-number]:not([aria-current]) { background: var(--accent) }`}</style>}
       {!bare && <div className="flex items-center gap-1">
         <h2 className="min-w-0 truncate">
