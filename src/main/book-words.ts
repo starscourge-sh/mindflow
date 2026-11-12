@@ -3,6 +3,7 @@ import { transcriptLines, type MeetingLine } from './meeting-doc'
 import { emojiReady } from './lazy/emoji'
 import { firstLine } from './import'
 import { cut } from './clip'
+import { startOf } from './kept-words'
 
 /**
  * How a book's notes are read out of its database: the two SQL functions
@@ -59,8 +60,10 @@ export function bookFunctions(db: DatabaseSync, pictureWords: (src: unknown) => 
     let name = names.get(key)
     if (name === undefined) {
       try {
+        // A long note's first line is looked for in its first blocks alone: each save of one changes its length,
+        // so its name was worked out again every time by reading all of it (16 ms of main's thread for 4 MB).
+        const line = (long && firstLine(startOf(raw, HEAD), true)) || firstLine(JSON.parse(raw || 'null'))
         // A bare address with a name of its own (an imported bookmark) goes by the name.
-        const line = firstLine(JSON.parse(raw || 'null'))
         const bare = !!title && /^https?:\/\/\S+$/.test(line)
         // With no words at all, named for what it holds rather than "Untitled".
         name = (bare ? '' : line) || String(title ?? '') ||

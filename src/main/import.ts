@@ -240,7 +240,7 @@ const textBlocks = (node: Node): Node[] =>
  * editor's JSON, a line runs to the end of its block or a line break, with its
  * bold and links kept whole; from Markdown, its first line without markers.
  */
-export function firstLine(body: unknown): string {
+export function firstLine(body: unknown, /** Only the start of a document was read: tags alone are no answer, as words may follow them. */ start = false): string {
   if (typeof body === 'string') return titleOfMarkdown(body.replace(/^\s*\n/, ''))
   // A line of tags alone ("#bit" over a joke) names nothing: the first line
   // with words does, its tags kept after it so lists still show them.
@@ -257,5 +257,5 @@ export function firstLine(body: unknown): string {
       return tags ? `${line} ${tags}` : line
     }
   }
-  return tags
+  return start ? '' : tags
 }
