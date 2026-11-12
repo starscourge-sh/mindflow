@@ -19,6 +19,7 @@ import { cut } from './clip'
 import { mdWords } from './md-words'
 import { NOTE_KEY } from './name'
 import { fileLink } from './pdf-highlights'
+import { linkedAmong, mentionsIn } from './links-in'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -87,32 +88,8 @@ type Box = { x: number; y: number; width: number; height: number }
 /** Where a note was being read and written: the selection, and the place in the words at the top of the view. */
 type Carry = { from: number; to: number; top: number | null }
 
-// The links written in a note's words, as the editor keeps them or an import left them.
-// Each note linked to, with how many times the words link to it.
-export const mentionsIn = (body: string | null | undefined): Map<string, number> => {
-  const out = new Map<string, number>()
-  const add = (id: string): void => void out.set(id, (out.get(id) ?? 0) + 1)
-  const walk = (node: Doc | string | null): void => {
-    if (!node) return
-    if (typeof node === 'string') return void [...node.matchAll(/\[\[@([^|#\]]+)/g)].forEach((match) => add(match[1]))
-    if (node.type === 'noteLink' && node.attrs?.id) add(String(node.attrs.id))
-    node.content?.forEach(walk)
-  }
-  walk(parse(body) as Doc | string | null)
-  return out
-}
-/** The notes among these with a link either way to another of them: the Map's linked notes; the rest are its "not linked to anything yet". */
-export const linkedAmong = (rows: { id: string; body: string | null }[]): Set<string> => {
-  const known = new Set(rows.map((row) => row.id))
-  const out = new Set<string>()
-  for (const row of rows)
-    for (const link of mentionsIn(row.body).keys()) {
-      // A link names its note as `id` or `tier:id`.
-      const to = link.includes(':') ? link.split(':')[1] : link
-      if (to !== row.id && known.has(to)) (out.add(row.id), out.add(to))
-    }
-  return out
-}
+// A note's links are read in links-in.ts (the reading thread reads them too); named here for the files that always found them here.
+export { linkedAmong, mentionsIn }
 
 export function registerNotes({ load, guard, home, homeWindow }: Windows): void {
   const db = database()

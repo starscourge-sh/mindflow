@@ -2,10 +2,14 @@ import type { DatabaseSync } from 'node:sqlite'
 import { bookFinder } from './book-find'
 import { bookOffers, type OffersNeeds } from './book-offers'
 import type { Pictures } from './picture-lines'
+import { bookFeed, type FeedAsk, type Takes } from './book-feed'
+import { bookHome, type HomeAsk } from './book-home'
+import { bookRepeats } from './book-repeats'
 
 /**
- * Everything the reading thread can be asked (reader.ts), by name: search and
- * what a note is offered, each a read of the book and nothing else. One
+ * Everything the reading thread can be asked (reader.ts), by name: search,
+ * what a note is offered, and the pages that read every note (Home, the
+ * Feed), each a read of the book and nothing else. One
  * place, so the thread and main (which answers only if the thread has
  * stopped) run the very same code. No Electron in it.
  *
@@ -14,6 +18,9 @@ import type { Pictures } from './picture-lines'
 export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeeds) {
   const finder = bookFinder(db, pictures)
   const offers = bookOffers(db, needs)
+  const feed = bookFeed(db)
+  const home = bookHome(db)
+  const repeats = bookRepeats(db)
   type Gone = () => boolean
   return {
     jobs: {
@@ -30,7 +37,15 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
       /** The notes on what a question or an event is about. */
       'offers:about': (_gone: Gone, need: number, text: string, leave?: string) => offers.about(need, text, leave),
       /** The offers' index made ahead of the first ask. */
-      'offers:warm': (_gone: Gone, need: number) => offers.warm(need)
+      'offers:warm': (_gone: Gone, need: number) => offers.warm(need),
+      /** Home's shelves (book-home.ts). */
+      home: (_gone: Gone, asked: HomeAsk) => home.home(asked),
+      /** The Feed: the day's set picked, and each post as it now reads (book-feed.ts). */
+      feed: (_gone: Gone, asked: FeedAsk) => feed.feed(asked),
+      /** How near the Feed is to full. */
+      'feed:goal': (_gone: Gone, takes: Takes) => feed.goal(takes),
+      /** The same idea, caught again and again (book-repeats.ts). */
+      repeats: (_gone: Gone, ids: string[]) => repeats(ids)
     },
     /** New words were read in a picture: search's list is read again. */
     forget: finder.forget,
