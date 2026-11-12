@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useReading } from '@/lib/reads-in'
 import { X as Clear } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { BookOpen, CircleCheck, GripVertical, ListEnd, ListStart, RotateCcw, Trash2 } from 'lucide-react'
+import { BookOpen, Check, CircleCheck, GripVertical, ListEnd, ListStart, RotateCcw, Trash2 } from 'lucide-react'
 
 import { chime } from '@/lib/sound'
 import { EASE } from '@/lib/motion'
@@ -351,8 +351,9 @@ export function QueueView(): React.JSX.Element {
                         data-read-row data-read-id={row.id} data-picked={picked ? '' : undefined} data-private={row.private ? '' : undefined}
                         onClickCapture={(event) => (event.metaKey || event.shiftKey) && !event.altKey && (event.preventDefault(), event.stopPropagation(), readToggle(row.id))}
                         className={`group/r flex items-center gap-3 rounded-md px-3 py-2 ${PICKED_MARK}`}>
-                        {/* Under Up next's numbers, so its icons and names stand in the same columns as the rows above. */}
-                        <span aria-hidden className="w-5 shrink-0" />
+                        {/* Under Up next's numbers, a quiet tick: read, where the rows above say their place in line. Left
+                            empty, the column read as something missing (the user, 12 Nov). */}
+                        <span aria-hidden data-read-tick="" className="flex w-5 shrink-0 justify-end text-muted-foreground/70"><Check className="size-3.5" /></span>
                         <button type="button" onClick={() => window.api.openInHome(row.type, row.itemId)} className="-my-0.5 flex min-w-0 flex-1 items-center gap-2.5 py-0.5 text-left text-body text-muted-foreground hover:text-foreground">
                           {kind ? <kind.icon className="size-4 shrink-0 opacity-60" style={{ color: kind.tint }} /> : <ListStart className="size-4 shrink-0 text-muted-foreground" />}
                           <span className="private-text min-w-0 flex-1 truncate">{taskName(row.title).text}</span>

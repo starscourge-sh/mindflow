@@ -110,6 +110,16 @@ try {
   // --- the history
   const history = await h.locator('[data-read-row]').allInnerTexts()
   check('Read lists them, newest first, with the day', history[0]?.includes(order[2].title.slice(0, 12)) && /\d/.test(history[0]), history[0]?.replace(/\s+/g, ' '))
+  // “Read” rows carry a tick where “Up next” rows carry their place in line: one column, never an empty one
+  // (the user, 12 Nov: "the 'read' section has nothing to take the place of the handler/numbers").
+  const column = await h.evaluate(() => {
+    const right = (one) => Math.round(one.getBoundingClientRect().right)
+    const numbers = [...document.querySelectorAll('[data-queue-row] > span:first-child')].map(right)
+    const ticks = [...document.querySelectorAll('[data-read-row]')].map((row) => { const tick = row.querySelector('[data-read-tick]'); return { right: tick ? right(tick) : null, drawn: !!tick?.querySelector('svg') && tick.getBoundingClientRect().width > 0 } })
+    return { numbers: [...new Set(numbers)], ticks }
+  })
+  check('every Read row has a tick, in the column of Up next\'s numbers', column.ticks.length > 0 && column.numbers.length === 1 && column.ticks.every((one) => one.drawn && Math.abs(one.right - column.numbers[0]) <= 1), JSON.stringify(column))
+  if (SHOTS) await h.screenshot({ path: `${SHOTS}/queue-read-ticks.png` })
   check("the progress moved on: '4 of", (await h.locator('[data-queue-progress]').innerText()).replace(/\s+/g, ' ').includes('4 of'))
 
   // --- Home's panel
