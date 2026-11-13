@@ -174,7 +174,12 @@ async function comeBack(where, name, way, gone = 1500) {
 const same = {}
 try {
   await h.waitForTimeout(3000)
+  // First the page the book reopens on (its last tab: in the user's book, a list), then Home itself.
   for (const [name, way] of Object.entries(WAYS)) same[`home ${name}`] = await comeBack('Home', name, way)
+  await send('view', 'home')
+  await h.waitForFunction(() => document.querySelector('[data-pane-front] [data-page], [data-page]')?.getAttribute('data-page') === 'home', null, { timeout: 30000, polling: 200 }).catch(() => undefined)
+  await h.waitForTimeout(2500)
+  for (const [name, way] of Object.entries(WAYS)) same[`home opened ${name}`] = await comeBack('Home (opened)', name, way)
   // The largest note open: the page that costs most to draw again.
   await send('capture', largest.id)
   await h.waitForFunction(() => [...document.querySelectorAll('.tiptap.ProseMirror')].some((one) => one.editor?.state.doc.childCount > 1000), null, { timeout: 90000, polling: 200 })
