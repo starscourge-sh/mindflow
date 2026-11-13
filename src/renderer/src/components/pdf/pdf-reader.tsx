@@ -952,12 +952,23 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (!pages?.querySelector(".pdf-page")) return
     const below = sheetAt(pages, (r) => r.top > line)
     const at = Math.max(1, below ? Number(below.dataset.page) - 1 : doc?.numPages ?? 1)
-    if (at !== page) {
-      setPage(at)
-      onPage?.(at)
-      // Each page coming into place taps the trackpad (a fling's in-between pages fold into one); its ends and chapters, firmly.
-    }
+    if (at !== page) setPage(at)
   }
+  // The pane keeps the page you are on (Back from anywhere comes back to it) once the pages come to rest, never on
+  // every page passed: each keep draws the whole window's panes again and saves them, and a fling through a long book
+  // did that for every page it went by. A jump keeps its page at once (go).
+  const rested = useRef({ page, start, onPage })
+  rested.current = { page, start, onPage }
+  useEffect(() => {
+    const box = scroller.current
+    if (!box) return
+    const rest = (): void => {
+      const { page: now, start: kept, onPage: keep } = rested.current
+      if (now !== kept) keep?.(now)
+    }
+    box.addEventListener("scrollend", rest)
+    return () => box.removeEventListener("scrollend", rest)
+  }, [])
 
   // The chapter you are in: the outline's latest entry that starts on or
   // before this page, so every page of a chapter lights it, not only its first.
