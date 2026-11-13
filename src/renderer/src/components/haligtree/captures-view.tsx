@@ -548,6 +548,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
         <NoteRail entries={shown.map((one) => entryOf?.(one) ?? captureEntry(one, pick))} cursor={cursor} selected={open.id} onPick={pickRow} onShow={() => (boardShown ? setListOut(true) : setPane('list'))} />
       ) : (
       <Page aside={!!open || !!task || !!coming}
+        // The graph takes the page's height, as the Map does: a box of 290 pixels sat over as much empty page.
+        fit={graphed}
         // Its count and Display come with the list: for Everything, with its tasks and which captures became them too.
         waiting={listUnread || !listShown}
         apart={sent}
