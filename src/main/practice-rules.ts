@@ -1,4 +1,5 @@
 import { isMorning } from './day-parts.ts'
+import { plural } from './dates.ts'
 
 /**
  * Practices, the rules on their own: what a session's minutes count as, how
@@ -69,8 +70,7 @@ export function offerDue(p: { days: number[]; at: string }, now: Date, state: { 
 export function offerLate(at: string, now: Date): string | null {
   const minutes = now.getHours() * 60 + now.getMinutes() - minutesOf(at)
   if (minutes < 60) return null
-  const hours = Math.floor(minutes / 60)
-  return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+  return `${plural(Math.floor(minutes / 60), 'hour')} ago`
 }
 
 /** Whether two hours of the day are within one of each other, round the clock. */
