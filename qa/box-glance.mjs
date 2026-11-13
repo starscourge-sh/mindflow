@@ -4,15 +4,16 @@
 // added for today (a day in its words wins), ticked in place, and still ticked when the app is opened again; Esc goes
 // back to Write and then puts the box away; with the switch off the pill is as it was.
 //   cp -cR <seeded sandbox> <copy>; QA_ARGS=--sandbox QA_DATA=<copy> QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-glance.mjs
-// PART=tabs|notes|today|looks|off runs one part (all of them without it). QA_SHOTS=dir saves pictures;
-// QA_FILM=dir saves every frame the page drew through each change (PART=film).
+// PART=tabs|swap|notes|today|looks|off runs one part, or several joined by commas (all of them without it).
+// QA_SHOTS=dir saves pictures; QA_FILM=dir saves every frame the page drew through each change (PART=film, and
+// PART=swap's every change of tab).
 import { createHash } from 'node:crypto'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const PART = process.env.PART ?? 'all'
-const part = (name) => PART === 'all' || PART === name
+const part = (name) => PART === 'all' || PART.split(',').includes(name)
 // PART=foot puts the box near the screen's foot: each window keeps the place it is given while parked off screen.
 if (PART === 'foot') process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const shots = process.env.QA_SHOTS
@@ -177,6 +178,68 @@ if (part('tabs')) {
   await wait(1700)
   at = await drawn()
   check('…back to one line, the pill and its tabs are as they were', at.pill && same(at.tabs.map((one) => [one.x, one.y, one.w, one.h]), start.page.tabs.map((one) => [one.x, one.y, one.w, one.h])) && same(at.card, start.page.card), JSON.stringify(at.tabs.map((one) => [one.x, one.y])))
+}
+
+if (part('swap')) {
+  // Every change of tab, by pointer and by key, in both looks: each tab's fill read from every frame the page drew
+  // through the change (its screencast), at two points inside the tab, beside the pill's own fill in the same frame.
+  // A tab with no fill (a bare ring) or a doubled one at any frame fails.
+  const cdp = await page.context().newCDPSession(page)
+  // What carries an unchosen tab's fill, and how it changes: on the button it fades by every button's 120ms.
+  console.log(`NOTE  an unchosen tab's fill: ${await page.evaluate(() => {
+    const tab = document.querySelector('[data-glance-tab]:not([aria-selected="true"])')
+    const holder = tab?.querySelector('[data-glance-round]') ?? tab
+    if (!holder) return 'no tab'
+    const style = getComputedStyle(holder)
+    return `on ${holder === tab ? 'the button' : 'its own round'}, ${style.backgroundColor}, changes by “${style.transitionProperty}” over ${style.transitionDuration}`
+  })}`)
+  const changes = [['notes', 'pointer'], ['today', 'pointer'], ['write', 'pointer'], ['today', 'pointer'], ['notes', 'pointer'], ['write', 'pointer'],
+    ['notes', 'Control+Alt+Digit2'], ['today', 'Control+Alt+Digit3'], ['write', 'Control+Alt+Digit1'],
+    ['notes', 'Meta+Shift+BracketRight'], ['today', 'Meta+Shift+BracketRight'], ['write', 'Meta+Shift+BracketRight'],
+    ['today', 'Meta+Shift+BracketLeft'], ['notes', 'Meta+Shift+BracketLeft'], ['write', 'Meta+Shift+BracketLeft']]
+  for (const theme of ['paper', 'dark']) {
+    await look(theme)
+    await wait(1200)
+    await fresh()
+    const bad = []
+    let frames = 0
+    let from = 'write'
+    for (const [to, by] of changes) {
+      const got = []
+      const onFrame = ({ data, sessionId }) => { got.push(data); cdp.send('Page.screencastFrameAck', { sessionId }).catch(() => {}) }
+      cdp.on('Page.screencastFrame', onFrame)
+      await cdp.send('Page.startScreencast', { format: 'png', everyNthFrame: 1 })
+      await wait(150)
+      if (by === 'pointer') await page.click(`[data-glance-tab="${to}"]`)
+      else await page.keyboard.press(by)
+      await wait(450)
+      await cdp.send('Page.stopScreencast')
+      cdp.off('Page.screencastFrame', onFrame)
+      const at = await drawn()
+      const row = await page.evaluate(() => document.querySelector('[data-glance-tabs]')?.getBoundingClientRect().bottom ?? 0)
+      // The pill's fill clear of its words, then 5px in from each end of each tab, where its round or its tab shape is.
+      const points = [[at.card.x + at.card.w * 0.7, at.card.y + 5], ...at.tabs.flatMap((one) => [[one.x + 5, row - 19], [one.x + one.w - 5, row - 19]])]
+      const alphas = await electron.evaluate(({ nativeImage }, { list, points, inner }) => list.map((data) => {
+        const image = nativeImage.createFromBuffer(Buffer.from(data, 'base64'))
+        const { width } = image.getSize()
+        const scale = width / inner
+        const bits = image.toBitmap()
+        return points.map(([x, y]) => bits[(Math.round(y * scale) * width + Math.round(x * scale)) * 4 + 3])
+      }), { list: got, points, inner: at.inner[0] })
+      frames += alphas.length
+      const how = by === 'pointer' ? 'pointer' : by.replace('Meta+Shift+Bracket', '⇧⌘').replace('Right', ']').replace('Left', '[').replace('Control+Alt+Digit', '⌃⌥')
+      alphas.forEach(([pill, ...tabs], index) => {
+        const off = tabs.flatMap((alpha, k) => (Math.abs(alpha - pill) > 16 ? [`${at.tabs[k >> 1].id} ${alpha}`] : []))
+        if (off.length) bad.push(`${from} to ${to} by ${how}, frame ${index} of ${alphas.length}: ${[...new Set(off)].join(', ')} beside the pill's ${pill}`)
+      })
+      if (film) got.forEach((data, index) => writeFileSync(`${film}/swap-${theme}-${from}-to-${to}-${how.replace(/[^a-z0-9]/gi, (sign) => ({ '⇧': 'S', '⌘': 'M', '⌃': 'C', '⌥': 'A', ']': 'next', '[': 'back' })[sign] ?? '')}-${String(index).padStart(2, '0')}.png`, Buffer.from(data, 'base64')))
+      from = to
+    }
+    check(`${theme}: every tab wears its fill in every frame of ${changes.length} changes, by pointer and by key (${frames} frames read)`, frames >= changes.length && bad.length === 0, `${bad.length} frames with a tab bare or doubled: ${bad.slice(0, 6).join(' | ')}`)
+  }
+  await cdp.detach().catch(() => {})
+  await look('paper')
+  await wait(600)
 }
 
 if (part('notes')) {

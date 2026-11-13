@@ -3516,11 +3516,16 @@ html[data-overhang] [data-glance-edge] {
   box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop);
   clip-path: polygon(-96px -96px, var(--glance-from, 0px) -96px, var(--glance-from, 0px) 1.5px, var(--glance-to, 0px) 1.5px, var(--glance-to, 0px) -96px, calc(100% + 96px) -96px, calc(100% + 96px) calc(100% + 96px), -96px calc(100% + 96px));
 }
-html[data-overhang] [data-glance-tab]:not([aria-selected='true']) {
+/* An unchosen tab's round: a shape of its own inside the tab (box-glance.tsx), made as the tab loses the choice, so its
+   fill is there in the first frame. Worn by the button, the fill came in by every button's 120ms fade ("Every button
+   answers the press", above) while its hairline came at once: a bare ring for a few frames at each change. A pointer
+   on it still eases its fill, as the round controls' does. */
+html[data-overhang] [data-glance-round] {
   background: var(--mf-glass-fill);
   box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop-small);
+  transition: background-color 120ms var(--mf-ease);
 }
-html[data-overhang] [data-glance-tab]:not([aria-selected='true']):hover {
+html[data-overhang] [data-glance-tab]:hover > [data-glance-round] {
   background: color-mix(in oklab, var(--foreground) 8%, var(--mf-glass-fill));
 }
 /* A tab's own line, in the writing's place: the same words at the same size (the rule for the writing, above), and

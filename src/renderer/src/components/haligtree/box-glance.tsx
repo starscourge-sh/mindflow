@@ -129,14 +129,19 @@ export function BoxGlance({ on, pick, captures, onOpen }: {
           return (
             <Tip key={one.id} label={`${one.does}  ${one.keys}`}>
               <button type="button" role="tab" tabIndex={-1} data-glance-tab={one.id} aria-selected={chosen}
-                {...(chosen ? {} : { 'data-glance-glass': '' })}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => pick(one.id)}
                 // Pressed from its foot, so the chosen one never lifts off the pill as it answers.
                 className={`relative flex shrink-0 origin-bottom cursor-pointer items-center px-3 whitespace-nowrap transition-[scale] duration-[120ms] outline-none active:scale-[0.97] ${chosen ? 'h-full text-foreground' : 'mb-[7px] h-6 rounded-full text-muted-foreground hover:text-foreground'}`}>
                 {/* The chosen one stands on the pill in the pill's own material, the app's tab shape: tab and line are
-                    one surface. Its glass (windows/box.tsx) runs a little way into the pill, so the two join. */}
-                {chosen && <><span data-glance-glass aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -bottom-3 rounded-[9px]" /><TabShape /></>}
+                    one surface. Its glass (windows/box.tsx) runs a little way into the pill, so the two join. The
+                    others are a round of the same material (main.css, data-glance-round). Each look is a shape of its
+                    own, made new as a tab gains or loses the choice, so it is whole in the first frame: worn by the
+                    button itself, the round's fill came in by every button's 120ms fade while its hairline came at
+                    once, and a bare ring showed for a few frames at every change. */}
+                {chosen
+                  ? <><span data-glance-glass aria-hidden className="pointer-events-none absolute inset-x-0 top-0 -bottom-3 rounded-[9px]" /><TabShape /></>
+                  : <span data-glance-glass data-glance-round aria-hidden className="pointer-events-none absolute inset-0 rounded-full" />}
                 <span className="relative">{one.label}</span>
               </button>
             </Tip>
