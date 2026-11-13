@@ -7,6 +7,8 @@ import { useStickyDo } from '@/lib/sticky-do'
 import { Suspense, createContext, lazy, useContext, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
 import type { JSONContent } from '@tiptap/core'
 import { Plugin } from '@tiptap/pm/state'
+import type { EditorView } from '@tiptap/pm/view'
+import { pressUnderLastLine } from '@/lib/press-under'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import ExternalLinkIcon from '@/components/ui/external-link-icon'
 import { Minus } from 'lucide-react'
@@ -492,6 +494,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   const hold = (): void => void (held.current = firstInSight(area.current))
   // Drawn from the editor's words at once: the store has them only once the save lands.
   const writing = useRef<{ destroyed: boolean; doc: () => unknown } | null>(null)
+  // The editor's own view while writing, for a press on the card's room under the last line (lib/press-under.ts).
+  const writerView = useRef<EditorView | null>(null)
   const leave = (): void => {
     hold()
     if (writing.current && !writing.current.destroyed && note) setTicked({ on: note.body, body: writing.current.doc() })
@@ -693,6 +697,8 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           // Scrolled down, the top fades as the bottom does (see sticky-note.scss), so nothing is cut flat.
           onScroll={(event) => event.currentTarget.toggleAttribute('data-scrolled', event.currentTarget.scrollTop > 0)}
           onDoubleClick={(event) => !(event.target as Element).closest('input, img') && edit(spot(event.clientX, event.clientY))}
+          // Writing, a press on the card's own room under the last line puts the caret at the end, as in every editor.
+          onMouseDown={(event) => void (editing && event.target === event.currentTarget && writerView.current && !writerView.current.isDestroyed && pressUnderLastLine(writerView.current, event.nativeEvent))}
           // A picture opens in Haligtree's Quick Look, over the whole screen, edited or not.
           onClick={(event) => event.target instanceof HTMLImageElement && lookFrom(event.target)}
           // The editor's own double-click and Space would open its viewer inside this small window instead.
@@ -713,6 +719,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
                   toolbar={false} handles={false} slash={false} outline={false} search={false} vim={vimOn} smoothScroll={false} autofocus={editing.at ? false : 'end'}
                   onReady={(editor) => {
                     typed.ready(editor)
+                    writerView.current = editor.view
                     writing.current = { get destroyed() { return editor.isDestroyed }, doc: () => editor.getJSON() }
                     // The page keeps a third of the window clear round the caret, more than this card has:
                     // every key scrolled it one way, then the other. Here it moves only as far as keeps the caret in sight, above the fade.
