@@ -39,13 +39,18 @@ const { h, v, size, look, errors } = c
 const shots = process.env.QA_SHOTS
 const wait = (ms) => h.waitForTimeout(ms)
 const names = (list) => list.map((one) => one[0]).sort().join(', ')
-// Every 50ms from the press that opens it: the first frame the Sources page's faces show, and what each is then.
-const firstGrid = () => h.evaluate(() => new Promise((resolve) => {
+// Every 50ms, from just before Sources is asked for: the first frame its faces can be seen (the page keeps itself unseen
+// until its pictures are read), what each face is then, and whether any of them changes in the second after.
+const firstGrid = async () => {
+  const watching = watchGrid()
+  await c.send('view', 'sources')
+  return watching
+}
+const watchGrid = () => h.evaluate(() => new Promise((resolve) => {
   const start = performance.now()
-  window.dispatchEvent(new CustomEvent('haligtree:view', { detail: 'sources' }))
   const read = () => {
     const grid = document.querySelector('[data-people-grid]')
-    if (!grid || !grid.checkVisibility({ opacityProperty: true })) return null
+    if (!grid || !grid.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return null
     const faces = {}
     for (const one of document.querySelectorAll('[data-face]')) {
       const face = one.querySelector('.mf-avatar')
@@ -54,12 +59,22 @@ const firstGrid = () => h.evaluate(() => new Promise((resolve) => {
     }
     return { faces, people: [...document.querySelectorAll('[data-people-grid] [data-face]')].map((one) => one.dataset.face), characters: [...document.querySelectorAll('[data-characters-grid] [data-face]')].map((one) => one.dataset.face) }
   }
+  let first = null
+  let frames = 0
+  const changed = new Set()
   const tick = setInterval(() => {
+    const now = performance.now() - start
     const seen = read()
-    if (seen || performance.now() - start > 4000) (clearInterval(tick), resolve(seen ? { t: Math.round(performance.now() - start), ...seen } : null))
+    if (seen && !first) first = { t: Math.round(now), ...seen }
+    else if (seen && first) {
+      frames++
+      for (const [name, one] of Object.entries(seen.faces)) if (one.kind !== first.faces[name]?.kind || !one.drawn) changed.add(name)
+    }
+    if ((first && now - first.t > 1000) || now > 5000) (clearInterval(tick), resolve(first ? { ...first, frames, changed: [...changed] } : null))
   }, 50)
 }))
-// The same for one person's page: the first frame it shows, its line (words, the wait for Wikipedia, or the ask for one) and its photo.
+// The same for one person's page: the first frame it can be seen, its line (words, the wait for Wikipedia, or the ask for
+// one) and its photo, and whether either changes in the half second after.
 const firstFrame = (name) => h.evaluate((name) => new Promise((resolve) => {
   const start = performance.now()
   window.dispatchEvent(new CustomEvent('haligtree:source', { detail: `attribution:${name}` }))
@@ -68,13 +83,18 @@ const firstFrame = (name) => h.evaluate((name) => new Promise((resolve) => {
     const head = document.querySelector('[data-person-head]')
     // The name is a field you can type in, so it is read from the fields as well as the words.
     const said = head ? `${head.innerText} ${[...head.querySelectorAll('input, textarea')].map((one) => one.value).join(' ')}`.replace(/\s+/g, ' ') : ''
-    if (!page || !head || !page.checkVisibility({ opacityProperty: true }) || !said.includes(name)) return null
+    if (!page || !head || !page.checkVisibility({ opacityProperty: true, visibilityProperty: true }) || !said.includes(name)) return null
     const line = document.querySelector('[data-bio-room], [data-bio], [data-bio-add]')
     return { photo: document.querySelector('[data-person-photo]')?.dataset.personPhoto, line: line ? (line.hasAttribute('data-bio-room') ? 'looking up' : line.hasAttribute('data-bio') ? 'words' : 'add') : 'none', head: said.slice(0, 140) }
   }
+  let first = null
+  let steady = true
   const tick = setInterval(() => {
+    const now = performance.now() - start
     const seen = read()
-    if (seen || performance.now() - start > 3000) (clearInterval(tick), resolve(seen ? { t: Math.round(performance.now() - start), ...seen } : null))
+    if (seen && !first) first = { t: Math.round(now), ...seen }
+    else if (seen && first && (seen.photo !== first.photo || seen.line !== first.line)) steady = false
+    if ((first && now - first.t > 500) || now > 3500) (clearInterval(tick), resolve(first ? { ...first, steady } : null))
   }, 50)
 }), name)
 
@@ -107,31 +127,60 @@ try {
     const grid = await firstGrid()
     const everyone = [...PEOPLE.map(([name, face]) => [name, face]), ...CHARACTERS.map(([name, , face]) => [name, face])]
     const wrong = everyone.filter(([name, face]) => { const one = grid?.faces[name]; return !one || one.kind !== (face ? 'picture' : 'initials') || !one.drawn || one.w !== one.h || one.w < 100 })
-    check(`Sources: all ${everyone.length} faces in the first frame shown, pictures drawn, each a circle`, !!grid && !wrong.length, grid ? `first frame ${grid.t}ms; wrong: ${wrong.map(([name]) => `${name} ${JSON.stringify(grid.faces[name])}`).join(' | ') || 'none'}` : 'the grid never showed')
+    check(`Sources: all ${everyone.length} faces in the first frame seen, pictures drawn, each a circle`, !!grid && !wrong.length, grid ? `first frame ${grid.t}ms; wrong: ${wrong.map(([name]) => `${name} ${JSON.stringify(grid.faces[name])}`).join(' | ') || 'none'}` : 'the grid never showed')
+    check('Sources: no face changes after it is first seen (never initials, then the picture)', !!grid && grid.frames >= 10 && !grid.changed.length, grid ? `${grid.frames} frames over the next second; changed: ${grid.changed.join(', ') || 'none'}` : '')
     check('Sources: People and Characters hold the same names as kept', !!grid && [...grid.people].sort().join() === PEOPLE.map((one) => one[0]).sort().join() && [...grid.characters].sort().join() === CHARACTERS.map((one) => one[0]).sort().join(), grid ? `${grid.people.length} people, ${grid.characters.length} characters` : '')
     await wait(600)
+    // The page pictured from its top to the end of Characters, a window's height at a time, at both sizes, light and dark.
+    const scrollTo = (to) => h.evaluate((to) => {
+      let box = document.querySelector('[data-people-grid]')?.parentElement
+      while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement
+      if (!box) return { top: 0, end: 0, step: 0 }
+      const cast = document.querySelector('[data-characters-grid]')
+      box.scrollTop = to
+      const end = cast ? Math.max(0, cast.getBoundingClientRect().bottom - box.getBoundingClientRect().bottom + box.scrollTop) : box.scrollHeight - box.clientHeight
+      return { top: box.scrollTop, end, step: Math.max(120, box.clientHeight - 60) }
+    }, to)
     if (shots) for (const [w, hh] of [[1440, 900], [560, 400]]) {
       await size(w, hh)
       for (const name of ['light', 'dark']) {
         await look(name)
-        await h.evaluate(() => document.querySelector('[data-people-grid]')?.scrollIntoView({ block: 'start' }))
-        await wait(300)
-        await h.screenshot({ path: `${shots}/sources-${w}-${name}.png` })
-        await h.evaluate(() => document.querySelector('[data-characters-grid]')?.scrollIntoView({ block: 'start' }))
-        await wait(300)
-        await h.screenshot({ path: `${shots}/sources-${w}-${name}-characters.png` })
+        let at = await scrollTo(0)
+        for (let n = 1; n <= 16; n++) {
+          await wait(350)
+          await h.screenshot({ path: `${shots}/sources-${w}x${hh}-${name}-${n}.png` })
+          if (!at.step || at.top >= at.end - 2) break
+          const next = await scrollTo(Math.min(at.end, at.top + at.step))
+          if (next.top <= at.top) break
+          at = next
+        }
       }
       await look('light')
     }
+    await scrollTo(0)
     await size(1440, 900)
 
     // Each page, opened: its line is there in the first frame (never "Looking up"), its face as kept, and nothing is asked.
     const before = asks.length
     for (const [name, face] of everyone) {
       const page = await firstFrame(name)
-      check(`${name}'s page: its line and ${face ? 'photo' : 'shape'} in the first frame`, page?.line === 'words' && page.photo === (face ? 'picture' : 'shape'), JSON.stringify(page))
-      await wait(700)
-      if (shots && ['Oscar Wilde', 'Homer', 'Frank Herbert', 'Lord Henry', 'Count Dracula', 'Napoleon Bonaparte'].includes(name)) await h.screenshot({ path: `${shots}/page-${name.toLowerCase().replace(/\s+/g, '-')}.png` })
+      check(`${name}'s page: its line and ${face ? 'photo' : 'shape'} in the first frame, and they stay`, page?.line === 'words' && page.photo === (face ? 'picture' : 'shape') && page.steady, JSON.stringify(page))
+      await wait(300)
+      if (shots) {
+        const file = name.toLowerCase().replace(/\s+/g, '-')
+        await h.locator('[data-person-head]').screenshot({ path: `${shots}/head-${file}.png` })
+        if (['Oscar Wilde', 'Homer', 'Frank Herbert', 'Lord Henry', 'Count Dracula', 'Leonardo da Vinci'].includes(name)) await h.screenshot({ path: `${shots}/page-${file}.png` })
+        // The photo whole, as a click on the face opens it (the one place a face is not round).
+        if (page?.photo === 'picture' && ['Oscar Wilde', 'Lord Henry', 'Count Dracula', 'Leonardo da Vinci'].includes(name)) {
+          await h.locator('[data-person-photo="picture"]').click()
+          await wait(900)
+          await h.screenshot({ path: `${shots}/whole-${file}.png` })
+          await h.keyboard.press('Escape')
+          await wait(500)
+          // Off the face again, so the next head is pictured at rest (a face pointed at shows its own colours).
+          await h.mouse.move(1000, 760)
+        }
+      }
     }
     await wait(1500)
     check(`opening all ${everyone.length} pages asked Wikipedia nothing`, asks.length === before && before === 0, `${asks.length} asks: ${asks.join(' | ').slice(0, 300)}`)
