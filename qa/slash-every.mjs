@@ -14,12 +14,14 @@
 //              "Embed a note", a real file handed to "File" and "PDF" through the page's own file picker
 //   files      on a copy of a real book (QA_ARGS= QA_DATA=<copy>): the book's own files in the menu, called by their names
 //   big        BIG=<capture id>, on a copy of a real book: three commands at the end of a very long note
+//   card:1 card:2   every command once more inside a card's answer, opened in place in Review's All cards (its own
+//              editor, whose Enter keeps the card and whose Esc drops the edit), half of them a run
 //
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/slash-every.mjs <section>
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
-const SECTIONS = ['menu', 'top:1', 'top:2', 'top:3', 'places:1', 'places:2', 'table', 'picks', 'files', 'big']
+const SECTIONS = ['menu', 'top:1', 'top:2', 'top:3', 'places:1', 'places:2', 'table', 'picks', 'files', 'big', 'card:1', 'card:2']
 const SECTION = process.argv[2] ?? process.env.SECTION ?? ''
 if (!SECTIONS.includes(SECTION)) {
   console.log(`Say which section to run, one a run: node qa/slash-every.mjs <${SECTIONS.join(' | ')}>`)
@@ -29,7 +31,9 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const sel = '[data-open] .tiptap'
+// A card's answer opened in All cards is its own editor; everywhere else, the note open in the page.
+const CARD = SECTION.startsWith('card:')
+const sel = CARD ? '[data-card-edit-answer] .tiptap' : '[data-open] .tiptap'
 const p = (text) => (text ? { type: 'paragraph', content: [{ type: 'text', text }] } : { type: 'paragraph' })
 const doc = () => h.evaluate((sel) => JSON.stringify(document.querySelector(sel).editor.getJSON()), sel)
 const kinds = (json) => [...new Set([...json.matchAll(/"type":"([a-zA-Z]+)"/g)].map((one) => one[1]))]
@@ -129,8 +133,15 @@ const report = () => {
 }
 try {
   await v('settings:set', { sounds: false, hintRate: 0, safeMode: false })
-  const id = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), { type: 'doc', content: [p('Slash every')] })
-  await c.send('capture', id); await wait(2500)
+  if (CARD) {
+    // Review's All cards, the first card opened in place by a press on its row, as a person opens one to fix it.
+    await c.go('review', ':cards'); await wait(2000)
+    await h.locator('[data-card-row]').first().locator('button, [role="button"]').first().click(); await wait(900)
+    check('All cards: a card pressed opens in place, its answer an editor', await h.evaluate((sel) => !!document.querySelector(sel)?.editor, sel))
+  } else {
+    const id = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), { type: 'doc', content: [p('Slash every')] })
+    await c.send('capture', id); await wait(2500)
+  }
   // A real press in the note first, as a person makes: the page has the keys from then on.
   await h.locator(sel).first().click(); await wait(400)
   await place('top'); await wait(300)
@@ -261,6 +272,16 @@ try {
       for (const one of outside) console.log(`NOTE  console: ${one.slice(0, 260)}`)
       check('a drawing asks nothing of the web: no fetch outside the app, no error logged', outside.length === 0, outside.join(' / ').slice(0, 300))
     }
+  }
+  if (CARD) {
+    // Half the commands a run, in the menu's own order, each at the top of the answer.
+    const part = Number(SECTION.slice(5)) - 1
+    const size = Math.ceil(titles.length / 2)
+    const mine = titles.slice(part * size, (part + 1) * size)
+    console.log(`NOTE  ${titles.length} commands in a card's answer; this run walks ${mine.length}: ${mine.join(', ')}`)
+    for (const title of mine) rows.push(await walk(title, 'top'))
+    report()
+    check('the card is still open in place after every command, never kept or dropped by a key the menu took', await h.evaluate((sel) => !!document.querySelector(sel), sel))
   }
   if (SECTION.startsWith('places:')) {
     const wheres = SECTION === 'places:1' ? ['after words', 'list'] : ['table cell', 'callout']
