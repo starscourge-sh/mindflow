@@ -74,6 +74,13 @@ async function presses(name) {
     const now = await h.evaluate(() => window.__under.where())
     const after = await top()
     check(`${what}: the caret is at the end and the page did not move`, now.keys === 'in the page' && now.atEnd && after === before, `${at.from}px under, on ${at.on}: the keys ${now.keys}, the caret at ${now.head} of ${now.size}; scrolled ${before} then ${after}`)
+    // Then typed: the words land at the end, where the press put the caret, and come off again with ⌘Z.
+    const word = inside ? ' qzin' : ' qzout'
+    await h.keyboard.type(word)
+    await wait(300)
+    const typed = await h.evaluate(() => window.__under.ed().editor.state.doc.lastChild?.textContent ?? '')
+    check(`${what}: then typed, the words land at the end`, typed.endsWith(word), `the last block ends "${typed.slice(-30)}"`)
+    for (let i = 0; i < 3 && (await h.evaluate((word) => (window.__under.ed().editor.state.doc.lastChild?.textContent ?? '').endsWith(word), word)); i++) await h.keyboard.press('Meta+z')
   }
 }
 
