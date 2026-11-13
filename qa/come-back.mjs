@@ -29,11 +29,22 @@ const { h, electron, send } = c
 await electron.context().addInitScript(() => {
   // drawn: components that did work; onPage: those of them that draw something on the page (a component that
   // draws nothing, such as the beam while it has nothing to show, changes nothing a person sees).
-  const rec = (window.__renders = { on: false, commits: 0, drawn: 0, onPage: 0, names: {}, from: {} })
+  const rec = (window.__renders = { on: false, commits: 0, drawn: 0, onPage: 0, names: {}, from: {}, why: [] })
   // Which components drew in a commit, found as React DevTools finds them: only down the parts of the tree that
   // changed (a part left as it was keeps its children), each one that did work named, with the element it draws.
   const host = (fiber) => { for (let at = fiber; at; at = at.child) if (at.stateNode instanceof Element) return at.stateNode; return null }
   const say = (el) => (el ? `${el.nodeName.toLowerCase()}${el.dataset && Object.keys(el.dataset).length ? `[${Object.keys(el.dataset).slice(0, 2).join(',')}]` : ''}${typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}` : '-')
+  // Why a redraw began: which of its first component's own hooks hold something new (a read's new answer shows the
+  // start of its words; effects, made anew on every draw, are left out).
+  const why = (fiber) => {
+    const out = []
+    for (let now = fiber.memoizedState, was = fiber.alternate?.memoizedState, i = 0; now && i < 300; now = now.next, was = was?.next, i++) {
+      const v = now.memoizedState
+      if (!was || v === was.memoizedState || (v && typeof v === 'object' && 'create' in v && 'deps' in v)) continue
+      out.push(`#${i} ${v && typeof v === 'object' ? (typeof v.json === 'string' ? `read ${v.json.slice(0, 70)}` : Array.isArray(v) ? `memo [${String(v[1]).slice(0, 50)}]` : `{${Object.keys(v).slice(0, 4).join(',')}}`) : String(v).slice(0, 50)}`)
+    }
+    return out.slice(0, 5).join(' | ')
+  }
   // `from`: where each redraw began, the top-most component that drew with none above it drawing.
   const visit = (first, above) => {
     for (let fiber = first; fiber; fiber = fiber.sibling) {
@@ -44,7 +55,10 @@ await electron.context().addInitScript(() => {
         if (el) rec.onPage++
         const name = `${fiber.type.displayName || fiber.type.name || '?'} ${say(el)}`
         rec.names[name] = (rec.names[name] ?? 0) + 1
-        if (!above) rec.from[name] = (rec.from[name] ?? 0) + 1
+        if (!above) {
+          rec.from[name] = (rec.from[name] ?? 0) + 1
+          if (el) rec.why.push(`${name}: ${why(fiber)}`)
+        }
         drew = true
       }
       if (!fiber.alternate || fiber.child !== fiber.alternate.child) visit(fiber.child, drew)
@@ -81,13 +95,16 @@ await h.evaluate(() => {
     }
   }).observe({ type: 'long-animation-frame' })
   let rec = null
+  // Every change message main sends the page while a return is measured: which notes, or null for anything.
+  window.api.captures.onChange((what) => void (rec?.on && rec.told.push(what === null ? 'anything' : what.map((one) => one.kind).join(','))))
   window.__back = {
     /** How long since the window last drew a long frame (ms). */
     calm: () => performance.now() - Math.max(0, ...long.map((one) => one.at + one.ms)),
     seen: (state) => { forced = state; document.dispatchEvent(new Event('visibilitychange')) },
     start: () => {
       rec = { from: performance.now(), frames: [], changes: 0, where: new Map(), on: true }
-      Object.assign(window.__renders, { commits: 0, drawn: 0, onPage: 0, names: {}, from: {}, on: true })
+      Object.assign(window.__renders, { commits: 0, drawn: 0, onPage: 0, names: {}, from: {}, why: [], on: true })
+      rec.told = []
       let last = performance.now()
       const loop = (t) => { if (!rec?.on) return; rec.frames.push(t - last); last = t; requestAnimationFrame(loop) }
       requestAnimationFrame(loop)
@@ -113,7 +130,8 @@ await h.evaluate(() => {
         changes: rec.changes, where: [...rec.where].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([key, n]) => `${n} ${key}`),
         commits: window.__renders.commits, drawn: window.__renders.drawn, onPage: window.__renders.onPage,
         names: Object.entries(window.__renders.names).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, n]) => `${n} ${name}`),
-        from: Object.entries(window.__renders.from).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, n]) => `${n} ${name}`)
+        from: Object.entries(window.__renders.from).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, n]) => `${n} ${name}`),
+        why: window.__renders.why.slice(0, 4), told: rec.told
       }
     }
   }
@@ -163,6 +181,7 @@ async function comeBack(where, name, way, gone = 1500) {
   console.log(`\n${where}, ${name}${gone > 2000 ? ` (${Math.round(gone / 1000)} s away)` : ''}  [${load()}]`)
   console.log(`  the window: worst frame ${seenThere.worst} ms, ${seenThere.over50} of ${seenThere.frames} frames over 50 ms; ${seenThere.commits} React commits, ${seenThere.drawn} components drawn again (${seenThere.onPage} of them drawing on the page)${seenThere.names.length ? ` (${seenThere.names.join(', ')}; begun at ${seenThere.from.join(', ')})` : ''}; ${seenThere.changes} changes on the page${seenThere.where.length ? `: ${seenThere.where.join(', ')}` : ''}`)
   if (seenThere.long.length) console.log(`  long frames: ${seenThere.long.join(' | ')}`)
+  if (seenThere.why.length || seenThere.told.length) console.log(`  why: ${seenThere.why.join(' || ') || '-'}; main told the page of changes: ${seenThere.told.join(' ; ') || 'none'}`)
   console.log(`  main: asked ${ran.reduce((sum, row) => sum + row.calls, 0)} times, ${ran.reduce((sum, row) => sum + row.ms, 0)} ms in all, held its thread ${heldMost} ms at most; event loop worst ${after.delay.worst} ms`)
   console.log(`    ${ran.slice(0, 10).map((row) => `${row.name} x${row.calls} ${row.ms} ms`).join(' · ') || 'nothing'}`)
   check(`${where}, ${name}: no frame over 100 ms`, seenThere.worst <= 100, `worst ${seenThere.worst} ms  [${load()}]`)
