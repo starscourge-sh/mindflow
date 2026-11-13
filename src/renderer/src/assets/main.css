@@ -3912,10 +3912,6 @@ textarea[data-talking]::selection {
 [data-board]:not(:has([data-board-card]:hover)) [data-board-card][data-board-cursor] > [data-card-more] { opacity: 1; }
 /* Its menu open, a card or list keeps its ⋯ showing, as the button it came from. */
 [data-board-card][data-state='open'] > [data-card-more], [data-lane] header[data-state='open'] [data-lane-more] { opacity: 1; }
-.mf-board-lift { rotate: 1.5deg; scale: 1.02; animation: mf-board-lift 180ms var(--mf-ease) both; }
-@keyframes mf-board-lift { from { rotate: 0deg; scale: 1; } }
-@media (prefers-reduced-motion: reduce) { .mf-board-lift { rotate: none; scale: none; animation: none; } }
-:root[data-motion='off'] .mf-board-lift { rotate: none; scale: none; animation: none; }
 
 /* A soft blur along an edge that fades away from it (the Map's foot): four layers, each blurring more and kept to
    less of the band, so the blur thins out as it rises instead of stopping at a line. The page colour washes in

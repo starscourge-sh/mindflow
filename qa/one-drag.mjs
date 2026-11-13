@@ -946,9 +946,6 @@ await part('One look: the sidebar', async () => {
 // go does (“Move here” in its list, “Move to “Doing”” in another), the room as tall as the card with the one line through
 // its band where it would land, Esc, the drop said once with Undo and ⌘Z; a list carried sideways leaves the quiet band, never a faded copy.
 await part('One look: the board', async () => {
-  // (13 Nov) Not yet so on any build: the board's change for it stopped a dev-mode window when a card went into another
-  // list, and was taken back. These lines are the board's standard; they run when asked for by name until it is met.
-  if (!process.env.PART?.includes('the board')) return console.log('SKIP  One look: the board (PART="One look: the board" runs it; not met yet)')
   const id = await v('article:new')
   await v('item:save', id, { title: 'Board to carry on', body: '## Todo\n\n- [ ] Alpha card\n- [ ] Beta card\n- [ ] Gamma card\n\n## Doing\n\n- [ ] Delta card\n' })
   await v('notes:fields:set', 'nuggets', id, 'kanban-plugin', 'board')

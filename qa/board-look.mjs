@@ -136,7 +136,9 @@ try {
       const lifted = document.querySelector('[data-board-lifted]')
       const doing = [...document.querySelectorAll('[data-board] [data-lane]')].find((one) => one.querySelector('h3')?.textContent === 'Doing')
       const gap = doing && [...doing.querySelectorAll('[data-board-card]')].some((one) => one.firstElementChild && getComputedStyle(one.firstElementChild).visibility === 'hidden')
-      const box = lifted?.getBoundingClientRect()
+      // Where the carried thing settles: the lifted place that holds the card under the hand (13 Nov: the one card every
+      // list carries rides at the point it was taken by, inside that place, as a list's does).
+      const box = lifted ? (lifted.closest('.mf-drag-picture') ?? lifted).getBoundingClientRect() : undefined
       // Two cards of one list drawn over each other (each card's top above the last one's foot).
       const overlap = [...document.querySelectorAll('[data-board] [data-lane]')].some((lane) => [...lane.querySelectorAll('[data-board-card]')].map((one) => one.getBoundingClientRect()).some((r, at, all) => at > 0 && r.top < all[at - 1].bottom - 2))
       window.__boardFrames.push({ overlap, t: performance.now(), lifted: !!lifted, x: box?.left ?? null, y: box?.top ?? null, rotate: lifted ? getComputedStyle(lifted).rotate : null, scale: lifted ? getComputedStyle(lifted).scale : null, shadow: lifted ? getComputedStyle(lifted).boxShadow !== 'none' : null, gap: !!gap })
@@ -160,10 +162,11 @@ try {
     await h.mouse.move(x, y)
     await film()
     tapsAt.push((await kinds()).length - taps0)
-    if (at === 6) lifted = await h.evaluate(() => { const one = document.querySelector('[data-board-lifted]'); return one && { rotate: getComputedStyle(one).rotate, scale: getComputedStyle(one).scale, shadow: getComputedStyle(one).boxShadow !== 'none' } })
+    if (at === 6) lifted = await h.evaluate(() => { const one = document.querySelector('[data-board-lifted]'); return one && { card: one.hasAttribute('data-carried-card'), words: one.querySelector('[data-drag-label]')?.textContent ?? '', shadow: getComputedStyle(one).boxShadow !== 'none' } })
     await wait(Math.max(0, 50 - (Date.now() - t0)))
   }
-  check('the carried card lifts on a shadow, a little larger and turned', !!lifted && lifted.shadow && lifted.rotate !== 'none' && lifted.scale !== 'none', JSON.stringify(lifted))
+  // (13 Nov) A board's card is carried as every row in the app is: the one card under the hand, saying what letting go does.
+  check('the carried card lifts as the one card every list carries, on a shadow, saying what letting go does', !!lifted && lifted.card && lifted.shadow && /^Move/.test(lifted.words), JSON.stringify(lifted))
   const gapOpen = await h.evaluate(() => window.__boardFrames.some((one) => one.gap))
   check('a gap opens in Doing where the card would land', gapOpen)
   await wait(200)
@@ -258,7 +261,7 @@ try {
     const head = await h.locator('[data-board] [data-lane] h3', { hasText: 'Doing' }).boundingBox()
     const first = await h.locator('[data-board] [data-lane]').first().boundingBox()
     const t0 = (await kinds()).length
-    await h.evaluate(() => { window.__laneFrames = []; const read = () => { const one = document.querySelector('[data-board-lifted]'); const box = one?.getBoundingClientRect(); window.__laneFrames.push({ t: performance.now(), x: box?.left ?? null }); if (window.__laneFrames.length < 3000) requestAnimationFrame(read) }; requestAnimationFrame(read) })
+    await h.evaluate(() => { window.__laneFrames = []; const read = () => { const one = document.querySelector('.mf-drag-picture'); const box = one?.getBoundingClientRect(); window.__laneFrames.push({ t: performance.now(), x: box?.left ?? null }); if (window.__laneFrames.length < 3000) requestAnimationFrame(read) }; requestAnimationFrame(read) })
     await h.mouse.move(head.x + 10, head.y + head.height / 2)
     await h.mouse.down()
     for (let at = 1; at <= 12; at++) { await h.mouse.move(head.x + 10 + ((first.x + 20 - head.x) * at) / 12, head.y + head.height / 2); await wait(40) }

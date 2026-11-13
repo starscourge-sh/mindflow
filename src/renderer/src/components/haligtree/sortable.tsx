@@ -88,15 +88,6 @@ const Order = createContext<string | undefined>(undefined)
 /** A row rested on another's middle: what may happen there. `refused` says why it cannot. */
 export type NestCheck = (carried: string, target: string) => true | { refused: string } | false
 
-/** A card on the Board, as it looked when picked up: a card lifted is the same card. */
-export const snapshot = (id: string): Shot | null => {
-  const node = document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(id)}"]`)
-  if (!node) return null
-  const box = node.getBoundingClientRect()
-  return { id, html: node.innerHTML, width: box.width, height: box.height }
-}
-type Shot = { id: string; html: string; width: number; height: number }
-
 /** What a lifted row's card says, read as it is picked up: the row itself may scroll away under the pointer. */
 const carriedOf = (id: string, event: Event): Lift | null => {
   const row = `[data-sortable-id="${CSS.escape(id)}"]`
