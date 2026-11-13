@@ -92,6 +92,7 @@ import { Calc } from "@/extensions/calc"
 import { Collect, CollectPill } from "@/extensions/collect"
 import { TypePause } from "@/extensions/type-pause"
 import { markdownToDocument } from "@/lib/markdown-doc"
+import { liftBlocks } from "@/lib/lift-blocks"
 import { FootnoteKit } from "@/extensions/footnotes"
 import { Citation } from "@/extensions/citation"
 import { LongDocument } from "@/extensions/long-document"
@@ -1645,7 +1646,14 @@ function Surface({
     // Its Markdown laid in the moment it has a view, before the frame is painted: laid in on create (a
     // tick later), an imported note showed empty for a frame, then its words, and pushed what was under it down.
     // Its React blocks have somewhere to be drawn from before it builds its page, so the page is built once (editor-surface.tsx).
-    onBeforeCreate: ({ editor: instance }) => holdViews(instance),
+    onBeforeCreate: ({ editor: instance }) => {
+      holdViews(instance)
+      // A picture or rule stored inside a line of words is put on a line of its own before the page is built from
+      // it, with this editor's own schema (lib/lift-blocks.ts): left in, the first edit near it threw. Only shown
+      // so: it is saved in this shape when the person next edits the note, never on opening.
+      const { content } = instance.options
+      if (content && typeof content === "object" && !Array.isArray(content)) instance.setOptions({ content: liftBlocks(content, instance.schema) })
+    },
     onMount: ({ editor: instance }) => {
       if (laidIn.has(instance)) return
       laidIn.add(instance)

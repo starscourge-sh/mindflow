@@ -7,6 +7,7 @@ import { notes, type NoteTable } from '@/lib/notes'
 import { forget } from '@/lib/early-read'
 import { toMarkdown } from '@/lib/export'
 import { writeOwedCopies } from '@/lib/owed-copies'
+import { liftBlocks } from '@/lib/lift-blocks'
 import { retryIn, saveFailed, saveLanded } from '@/lib/save-trouble'
 
 /** What a save answers when the words changed elsewhere first; `copy` when a capture's Markdown copy is owed for it. */
@@ -93,8 +94,10 @@ function foldIn(base: unknown, mine: unknown, theirs: unknown): unknown | null {
  * undo step: ⌘Z takes back your typing, not the other window's. Markdown (an
  * import never opened) is read whole.
  */
-export function showIn(ed: Editor, doc: unknown): void {
+export function showIn(ed: Editor, given: unknown): void {
   if (ed.isDestroyed) return
+  // Stored, so perhaps with a picture inside a line of words: on a line of its own, as an editor opening it shows it.
+  const doc = given && typeof given === 'object' ? liftBlocks(given as JSONContent, ed.schema) : given
   try {
     if (typeof doc === 'string') throw new Error('markdown')
     const next = ed.schema.nodeFromJSON(doc ?? { type: 'doc', content: [] })
