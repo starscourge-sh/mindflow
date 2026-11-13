@@ -54,7 +54,7 @@ const ROUND = 'flex size-6 shrink-0 cursor-pointer items-center justify-center r
 const Foot = ({ side }: { side: 'left' | 'right' }): React.JSX.Element => (
   // A small inward curve where the tab meets the page, as a browser's tab has: the tab's top corners are round
   // of themselves, so its sides stand straight and it never reads as a flat-topped ridge.
-  <svg aria-hidden viewBox="0 0 8 8" className={`pointer-events-none absolute bottom-0 size-2 ${side === 'left' ? 'right-[calc(100%-1px)]' : 'left-[calc(100%-1px)] -scale-x-100'}`}>
+  <svg aria-hidden data-tab-foot viewBox="0 0 8 8" className={`pointer-events-none absolute bottom-0 size-2 ${side === 'left' ? 'right-[calc(100%-1px)]' : 'left-[calc(100%-1px)] -scale-x-100'}`}>
     <path d="M8 0 V8 H0 A8 8 0 0 0 8 0 Z" fill="var(--mf-tab)" />
     <path d="M0 7.5 A7.5 7.5 0 0 0 7.5 0" fill="none" stroke="var(--mf-tab-line)" vectorEffect="non-scaling-stroke" />
   </svg>

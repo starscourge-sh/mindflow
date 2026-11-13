@@ -90,3 +90,11 @@ html:root[data-style='paper'] {
   border: 0 !important;
 }
 
+/* Quick capture draws its own card in a see-through window, so its card is a shape of the app's, not the window's:
+   square here too, the one-line pill and the tabs on it alike. Only the main window's .app-container is the
+   window's own shape, whose rounding macOS draws. And a tab's foot is a drawn curve, which no border-radius reaches:
+   gone, so the open tab stands square on its page (the user, 13 Nov, the box in Paper: "notice the issue here, im on
+   the paper style which has no rounded corners"). */
+html:root[data-style='paper'][data-overhang] { --mf-box-radius: 0px; }
+:root[data-style='paper'][data-overhang] .app-container:is(*, [data-pill]) { border-radius: 0 !important; }
+:root[data-style='paper'] [data-tab-foot] { display: none; }
