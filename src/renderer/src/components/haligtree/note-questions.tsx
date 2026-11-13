@@ -144,7 +144,10 @@ export function NoteQuestions(): React.JSX.Element | null {
   const close = (): void => (chime('fold'), put(pane, null))
   // Asked for, it is brought into sight at once: under the note in a narrow window, it would otherwise open out of view.
   const box = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => box.current?.scrollIntoView({ block: 'nearest' }), [here?.turn])
+  // In braces: Chromium's scrollIntoView hands back a promise, and an effect must return nothing (or React calls it on the way out).
+  useLayoutEffect(() => {
+    box.current?.scrollIntoView({ block: 'nearest' })
+  }, [here?.turn])
   // Esc puts the list away, as the reader's does, before anything under it hears it; a menu over it and the note's
   // own editor (Vim's Esc, a slash menu) keep theirs.
   useEffect(() => {

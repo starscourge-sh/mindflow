@@ -250,6 +250,11 @@ async function phraseDrafts(drafts: unknown[], on: () => boolean): Promise<{ dra
     // away, a gap keeps its blank, and it changed more than its capitals and stops: else the note's own draft stands.
     if (!better || better.question.length > 240 || !answerInNote(better.answer, one.from) || givesAway(better.question, better.answer)) return one
     if ((one.rule === 'gap') !== better.question.includes('_____') || (flat(better.question) === flat(one.question) && flat(better.answer) === flat(one.answer))) return one
+    // Half or more of the answer's longer words already in the question ("What survives the build?" for "what survives
+    // the build, not what precedes it") gives it away as surely as the whole of it.
+    const long = flat(better.answer).split(' ').filter((word) => word.length >= 4)
+    const asked = new Set(flat(better.question).split(' '))
+    if (long.length && long.filter((word) => asked.has(word)).length * 2 >= long.length) return one
     phrased++
     return { ...one, question: better.question, answer: better.answer }
   })

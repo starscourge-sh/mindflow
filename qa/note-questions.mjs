@@ -43,7 +43,7 @@ const panel = () => h.evaluate(() => {
   const one = document.querySelector('[data-note-questions]')
   if (!one) return null
   const r = one.getBoundingClientRect()
-  const editor = document.querySelector('.tiptap.ProseMirror')?.getBoundingClientRect()
+  const editor = [...document.querySelectorAll('.tiptap.ProseMirror')].find((one) => one.editor && !one.editor.isDestroyed)?.getBoundingClientRect()
   return {
     state: one.getAttribute('data-note-questions'), by: one.getAttribute('data-questions-by'),
     title: one.querySelector('h3')?.textContent ?? '', note: one.querySelector('.chapter-cards-note')?.textContent ?? '',
@@ -59,7 +59,7 @@ try {
   await v('settings:set', { hintRate: 0 })
   const id = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), NOTE)
   await send('capture', id)
-  await h.waitForFunction(() => /Photosynthesis/.test(document.querySelector('.tiptap.ProseMirror')?.textContent ?? ''), null, { timeout: 15000 })
+  await h.waitForFunction(() => /Photosynthesis/.test([...document.querySelectorAll('.tiptap.ProseMirror')].find((one) => one.editor && !one.editor.isDestroyed)?.textContent ?? ''), null, { timeout: 15000 })
   await wait(600)
   const before = await cards()
 
@@ -80,7 +80,7 @@ try {
   check(`${book}, ${level}: it says where they came from and that nothing is made until kept`,
     !!first && (ai ? /^(Phrased|\d+ of \d+ phrased) by Apple Intelligence, (all )?from your words/.test(first.note) && first.by === 'ai' :/From your headings and definitions/.test(first.note) && first.by === 'note' && !/Apple Intelligence/.test(first.note)) && /Nothing is made until you keep it/.test(first.note), first?.note)
   check(`${book}, ${level}: nothing was made by drafting`, !!first?.drafts.length && (await cards()) === before)
-  const words = flat(await h.evaluate(() => document.querySelector('.tiptap.ProseMirror')?.innerText ?? ''))
+  const words = flat(await h.evaluate(() => [...document.querySelectorAll('.tiptap.ProseMirror')].find((one) => one.editor && !one.editor.isDestroyed)?.innerText ?? ''))
   const inNote = (answer) => answer.split('; ').every((part) => ` ${words} `.includes(` ${flat(part.replace(/…$/, ''))} `))
   check(`${book}, ${level}: every draft's answer is in the note's own words`, !!first && first.drafts.every((one) => inNote(one.a ?? '')), JSON.stringify(first?.drafts.map((one) => one.a)))
   if (ai) check(`${book}, ai: the model's made-up answer was dropped by the check, the note's own draft kept`, !!first && first.drafts.every((one) => !/never gave/.test(one.a ?? '')) && first.drafts.some((one) => /stand-in/.test(one.q ?? '')), JSON.stringify(first?.drafts))
@@ -135,7 +135,15 @@ try {
 
   // 3. ⌘K, from the note (not typing in it: there ⌘K adds a link).
   await h.evaluate(() => document.activeElement?.blur())
+  // ⌘K is held back while a dialog is over the page (home.tsx, ui.tsx HELD): say which, if one is.
+  const holding = await h.evaluate(() => [...document.querySelectorAll('[role="dialog"]:not([data-beside])')].map((one) => `${one.getAttribute('aria-label') ?? ''}|${(one.textContent ?? '').slice(0, 60)}`))
+  if (holding.length) console.log('dialogs over the page:', JSON.stringify(holding))
   await h.keyboard.press('Meta+k')
+  // The same palette from the sidebar's “Search… ⌘K”, if the key did not open it.
+  if (!(await waitFor(() => h.evaluate(() => !!document.querySelector('[cmdk-input], [cmdk-root]')), 2000))) {
+    console.log('⌘K did not open the palette; opening it from the sidebar search instead')
+    await h.getByRole('button', { name: /^Search/ }).first().click().catch(() => {})
+  }
   await wait(500)
   await h.keyboard.type('Make study questions', { delay: 15 })
   // The palette ranks by the words once its search has settled; until then it shows the note's first few actions.
@@ -151,7 +159,7 @@ try {
 
   // 4. A picked phrase: the pointer double-clicks a word, then right-clicks it.
   const at = await h.evaluate(() => {
-    const walker = document.createTreeWalker(document.querySelector('.tiptap.ProseMirror'), NodeFilter.SHOW_TEXT)
+    const walker = document.createTreeWalker([...document.querySelectorAll('.tiptap.ProseMirror')].find((one) => one.editor && !one.editor.isDestroyed), NodeFilter.SHOW_TEXT)
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
       const n = node.textContent.indexOf('mitochondria')
       if (n < 0) continue
@@ -192,7 +200,7 @@ try {
     ...Array.from({ length: 7 }, () => para(text(filler)))] }
   const longId = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), long)
   await send('capture', longId)
-  await h.waitForFunction(() => /Tidal glyphs/.test(document.querySelector('.tiptap.ProseMirror')?.textContent ?? ''), null, { timeout: 15000 })
+  await h.waitForFunction(() => /Tidal glyphs/.test([...document.querySelectorAll('.tiptap.ProseMirror')].find((one) => one.editor && !one.editor.isDestroyed)?.textContent ?? ''), null, { timeout: 15000 })
   const offerShown = await waitFor(() => h.evaluate(() => !!document.querySelector('[data-note-offer="questions"]')), 12000)
   const offerWords = await h.evaluate(() => document.querySelector('[data-note-offer]')?.textContent ?? '')
   check(`${book}, ${level}: a long note with no cards is offered “Make study questions from this?” under it`, offerShown && /Make study questions from this\?/.test(offerWords), offerWords)
@@ -209,7 +217,7 @@ try {
   // 6. The unhappy path: a note with nothing to ask about says so.
   const bare = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), BARE)
   await send('capture', bare)
-  await h.waitForFunction(() => /Lovely walk/.test(document.querySelector('.tiptap.ProseMirror')?.textContent ?? ''), null, { timeout: 15000 })
+  await h.waitForFunction(() => /Lovely walk/.test([...document.querySelectorAll('.tiptap.ProseMirror')].find((one) => one.editor && !one.editor.isDestroyed)?.textContent ?? ''), null, { timeout: 15000 })
   await wait(500)
   await h.click('[data-note-head] button[aria-label="More"]')
   await wait(400)
@@ -222,6 +230,8 @@ try {
 } catch (error) {
   check(`${book}, ${level}: ran without throwing`, false, String(error?.stack ?? error))
 } finally {
+  // What the page itself complained of, if anything: a dev-only fault shows here first.
+  if (c.errors?.length) console.log('page errors:', JSON.stringify(c.errors.slice(0, 6)).slice(0, 2400))
   await c.close?.()
 }
 done()

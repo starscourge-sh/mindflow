@@ -61,7 +61,7 @@ test('no question from a subject that is not a name, a predicate that is not wha
 test('no question from a note with nothing to ask about, from a card line, a generic heading or a pronoun', () => {
   assert.deepEqual(draftQuestions(doc(para(text('Lovely walk today, the light was soft.')))), [])
   assert.deepEqual(draftQuestions(doc(para(text('What is entropy? :: a measure of disorder')))), [])
-  assert.deepEqual(draftQuestions(doc(heading('Notes'), para(text('A few things I want to come back to some other day, maybe.'))))), [])
+  assert.deepEqual(draftQuestions(doc(heading('Notes'), para(text('A few things I want to come back to some other day, maybe.')))), [])
   assert.deepEqual(draftQuestions(doc(para(text('This is the best book I have read all year.')))), [])
   assert.deepEqual(draftQuestions(null), [])
 })
