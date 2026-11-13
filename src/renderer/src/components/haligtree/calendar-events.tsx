@@ -592,6 +592,9 @@ export function renamed(one: Pick<Occurrence, 'title' | 'start' | 'end' | 'allDa
 
 // --- a new event from words, in the popover beside its draft
 
+/** A phrase carried on after a comma: its first letter small, the rest as it is (a day's name keeps its capital). */
+const smallStart = (said: string): string => said.charAt(0).toLowerCase() + said.slice(1)
+
 /**
  * The new event's first line, in the popover beside its draft (cal-add.tsx):
  * its words say the rest ("lunch with Sam fri 1-2pm @Cafe"), and the slot
@@ -672,9 +675,10 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, one }: {
               the main thing there), and one of your Mac's, read only, has nothing to keep. */}
           {!one?.readOnly && <Button type="submit" size="sm" variant={one ? 'ghost' : undefined} data-new-event-add aria-label={one ? 'Keep' : 'Add'}><span className="hidden @[40rem]/page:inline">{one ? 'Keep' : 'Add'}</span> <Kbd>↵</Kbd></Button>}
         </div>
-        {/* What it will be, plain to read, before it is made. */}
+        {/* What it will be, plain to read, before it is made. The repeat goes on after a comma, so only its first letter
+            turns small: a day's name keeps its capital ("weekly on Sunday", never "weekly on sunday"). */}
         <div data-new-event-said className="flex flex-col gap-1 text-body text-foreground [overflow-wrap:anywhere]">
-          <p><strong className="font-semibold">{(one ? set!.name : read.title) || 'An event'}</strong>, {whenSaid(start, fixedEnd, allDay, clock)}{one ? (one.repeatSaid ? `, ${one.repeatSaid.toLowerCase()}` : '') : read.repeat ? `, ${repeatSaid(read.repeat, start).toLowerCase()}` : ''}.</p>
+          <p><strong className="font-semibold">{(one ? set!.name : read.title) || 'An event'}</strong>, {whenSaid(start, fixedEnd, allDay, clock)}{one ? (one.repeatSaid ? `, ${smallStart(one.repeatSaid)}` : '') : read.repeat ? `, ${smallStart(repeatSaid(read.repeat, start))}` : ''}.</p>
           {(place || people.length > 0) && <p>{place && <>At <strong className="font-semibold">{place}</strong>. </>}{people.length > 0 && <>With <strong className="font-semibold">{people.join(', ')}</strong>.</>}</p>}
         </div>
         {/* Which calendar a new one will be on; one that exists has it as a row under its line (EventRows). */}
