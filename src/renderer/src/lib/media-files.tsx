@@ -177,10 +177,10 @@ export const refreshKept = (): Promise<void> => call<string[]>('media:kept').the
 export const isKept = (src: string): boolean => kept.has(src)
 if (typeof window !== 'undefined' && window.api) {
   void refreshKept()
-  // Read again as any menu is asked for, and when the window comes back, so a change made elsewhere is known.
+  // Read again as any menu is asked for (main answers at once while nothing was written since: media.ts, keptFiles).
   window.addEventListener('contextmenu', () => void refreshKept(), true)
-  window.addEventListener('focus', () => void refreshKept())
-  // A change no note made (a file added, kept, binned): what is kept may have changed.
+  // A change no note made (a file added, kept, binned), in this window or another: what is kept may have changed. A
+  // window put away is told on its return, so coming back needs no read of its own.
   window.api.captures?.onChange?.(() => void refreshKept(), [])
 }
 

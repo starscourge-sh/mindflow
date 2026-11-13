@@ -1,5 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, systemPreferences } from 'electron'
-import { LABEL, changed, database, whenAnyChanged } from './captures'
+import { LABEL, bookStamp, changed, database, whenAnyChanged } from './captures'
 import { dayName } from './dates'
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { constants, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
@@ -367,7 +367,7 @@ export function registerMedia(): void {
   })
   // "Keep in Files", from a note's picture or file and from Files: on, it is a library file and outlives its notes.
   ipcMain.handle('haligtree:media:keep', (_event, src: unknown, on: unknown) => (keepInFiles(String(src), !!on), changed(), true))
-  ipcMain.handle('haligtree:media:kept', () => allMedia().filter((one) => one.how === 'library').map((one) => one.src))
+  ipcMain.handle('haligtree:media:kept', () => keptFiles())
   // "Move all to the Bin" on Unlinked: every attachment no note holds, and only those; Undo puts them back under Unlinked.
   ipcMain.handle('haligtree:media:bin-unlinked', () => {
     const db = database()
@@ -532,8 +532,19 @@ function allMedia(): Media[] {
     index.set(key, `${one.title} ${one.name} ${one.near} ${one.uses.map((use) => use.title).join(' ')} ${seen} ${transcripts.get(key) ?? ''}`.toLowerCase())
   }
   findIndex = index
+  // Said with the book's stamp after this read's own writes: until something is written again, the answer stands.
+  library = { at: bookStamp(), srcs: all.filter((one) => one.how === 'library').map((one) => one.src) }
   return all.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
 }
+
+/**
+ * The library's files (added on purpose or kept in Files), as every window asks for them: on each right-click, and
+ * after a file is added, kept or binned. Read again only once the book was written to since: reading means every note body that
+ * holds a file (about 100 ms of this thread on a big book), and three windows asking after one write, or a window
+ * come back to, asked it again for an answer that could not have changed.
+ */
+let library: { at: number; srcs: string[] } | null = null
+const keptFiles = (): string[] => (library && library.at === bookStamp() ? library.srcs : (allMedia(), library!.srcs))
 
 const HASHED = /assets\/([a-f0-9]{64})\./
 const hashOf = (src: string): string => HASHED.exec(src)?.[1] ?? ''
