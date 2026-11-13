@@ -3137,6 +3137,15 @@ html[data-book-hue] [data-book-tint] {
 }
 :is([data-cal-head], [data-cal-allday])[data-cal-lit] { background-color: color-mix(in oklab, var(--foreground) 7%, var(--background)); }
 @keyframes mf-cal-landed { from { opacity: 1; } to { opacity: 0; } }
+/* The Calendar's all-day lane (Week and Day), set apart from the hours as a table's header row is set apart from its
+   rows (haligtree-editor.scss `th`): the same fine dot screen, fainter (the user, 13 Nov: "use the same styling ...
+   for the table headers, but fainter"). On each day's cell, so a weekend's tint and a carry's light keep their colour
+   under it, and on the "All-day" label beside the lane. */
+[data-cal-allday],
+:is(span, div):has(+ [data-cal-allday-lane]) {
+  background-image: radial-gradient(color-mix(in oklab, var(--foreground) 8%, transparent) 0.6px, transparent 0.9px);
+  background-size: 4px 4px;
+}
 [data-cal-depth][data-cal-landed]::after { animation: mf-cal-landed 360ms var(--mf-ease) 160ms both; }
 :root[data-motion='off'] [data-cal-depth][data-cal-landed]::after { display: none; }
 /* Today's empty page: the question it is typing (DayBreath, day-view.tsx). */
