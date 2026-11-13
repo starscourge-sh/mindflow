@@ -286,7 +286,7 @@ try {
 
   // Folded into their pills in the desk's stack (the menu bar's ⌃⌥⌘H line): the pills hide too, and are back as the same pills.
   // Today was stuck again above: a Today sticky starts as a pill, so only the cards open now are folded, and opened again.
-  const openBefore = (await desk()).filter((one) => one.at.width > 140).map((one) => one.key)
+  const openBefore = (await desk()).filter((one) => one.at.height > 100).map((one) => one.key)
   check('the menu bar folds every card into its pill', await choose('Fold every card into its pill'))
   await wait(2000)
   const tabs = await desk()
