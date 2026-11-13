@@ -847,10 +847,30 @@ export function sheetAt(pages: Element | null | undefined, test: (box: DOMRect) 
   return found
 }
 
-/** One sheet: its size always, its picture and words only while near the view. Drawn again only when its own props change. */
+/**
+ * One sheet: its size always, its picture and words only while near the view (PageDrawing). Drawn again only when its
+ * own props change. A sheet far from the view is a bare box: a 1,011-page book mounted a drawing's worth of state and
+ * effects for every page on opening and unmounted them all on leaving, a task of 100 to 200ms each way.
+ */
 const PdfPage = memo(function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = false }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; rank?: number; marks: PdfMark[]; flash?: string | null; onWords?: (mark: PdfMark, quote: string) => void; dark?: boolean }): React.JSX.Element {
   const sheet = useRef<HTMLDivElement>(null)
+  // Its own size once drawn, kept after it leaves the view: the sheets above the one you read never change height.
   const [own, setOwn] = useState<{ w: number; h: number } | null>(null)
+  const size = own ?? guess
+  return (
+    <div
+      ref={sheet}
+      className="pdf-page"
+      data-page={page}
+      style={{ width: size.w * scale, height: size.h * scale, "--total-scale-factor": scale } as React.CSSProperties}
+    >
+      {rank !== undefined && <PageDrawing sheet={sheet} doc={doc} page={page} scale={scale} rank={rank} marks={marks} flash={flash} onWords={onWords} dark={dark} onOwn={setOwn} />}
+    </div>
+  )
+})
+
+/** A sheet's picture and words, drawn in its turn while it is near the view; gone with them when it leaves. Renders nothing itself. */
+function PageDrawing({ sheet, doc, page, scale, rank, marks, flash, onWords, dark, onOwn }: { sheet: React.RefObject<HTMLDivElement | null>; doc: PDFDocumentProxy; page: number; scale: number; rank: number; marks: PdfMark[]; flash?: string | null; onWords?: (mark: PdfMark, quote: string) => void; dark: boolean; onOwn: React.Dispatch<React.SetStateAction<{ w: number; h: number } | null>> }): null {
   // The words on this page are laid out: marks can be measured against them.
   const [worded, setWorded] = useState(0)
   const key = marks.map((mark) => `${mark.id}:${mark.color ?? ""}`).join(" ")
@@ -859,29 +879,22 @@ const PdfPage = memo(function PdfPage({ doc, page, scale, guess, rank, marks, fl
     // Marks are compared by their ids and colours: a new array with the same ones is no change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [worded, key, flash])
-  const size = own ?? guess
 
-  const drawn = rank !== undefined
   // How wanted it is now: a page drawn ahead that comes into view moves up the queue, its drawing kept going.
   const wanted = useRef(rank)
   wanted.current = rank
   const turn = useRef<Turn | null>(null)
-  // Drawn since it last left the view: its pdf.js page holds memory to let go.
+  // Read from the file since it came near the view: its pdf.js page holds memory to let go.
   const opened = useRef(false)
-  useEffect(() => void (rank !== undefined && turn.current?.rerank(rank)), [rank])
+  useEffect(() => void turn.current?.rerank(rank), [rank])
+  // Far from the view again: the sheet keeps its size and lets its picture go, and pdf.js the page's fonts and pictures.
+  useEffect(() => () => {
+    sheet.current?.replaceChildren()
+    if (opened.current) void doc.getPage(page).then((proxy) => proxy.cleanup()).catch(() => {})
+  }, [doc, page, sheet])
   useEffect(() => {
     const el = sheet.current
     if (!el) return
-    // Far from the view: the sheet keeps its size and lets its picture go, and pdf.js the page's fonts and pictures.
-    if (!drawn) {
-      el.replaceChildren()
-      if (opened.current) {
-        opened.current = false
-        void doc.getPage(page).then((proxy) => proxy.cleanup()).catch(() => {})
-      }
-      return
-    }
-    opened.current = true
     let live = true
     let stop = (): void => {}
     const ratio = window.devicePixelRatio || 1
@@ -915,8 +928,9 @@ const PdfPage = memo(function PdfPage({ doc, page, scale, guess, rank, marks, fl
       })
     }
     const sized = (proxy: PDFPageProxy): void => {
-      const base = proxy.getViewport({ scale: 1 })
-      setOwn({ w: base.width, h: base.height })
+      opened.current = true
+      const { width: w, height: h } = proxy.getViewport({ scale: 1 })
+      onOwn((was) => (was && was.w === w && was.h === h ? was : { w, h }))
     }
     // Drawn sharp a moment ago: shown at once, without waiting a turn; only its words are laid again.
     const cached = keptPage(key)
@@ -978,14 +992,8 @@ const PdfPage = memo(function PdfPage({ doc, page, scale, guess, rank, marks, fl
       turn.current?.()
       stop()
     }
-  }, [doc, page, scale, drawn, dark])
-
-  return (
-    <div
-      ref={sheet}
-      className="pdf-page"
-      data-page={page}
-      style={{ width: size.w * scale, height: size.h * scale, "--total-scale-factor": scale } as React.CSSProperties}
-    />
-  )
-})
+    // The sheet and its size handler never change; the queue's rank is read live (wanted).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, page, scale, dark])
+  return null
+}
