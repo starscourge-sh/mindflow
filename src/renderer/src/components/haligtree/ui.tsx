@@ -1397,6 +1397,17 @@ export function Toaster(): React.JSX.Element | null {
   const [shown, setShown] = useState<{ text: string; undo?: () => void; tone?: ToastTone; action?: ToastAction; made?: Made; key: number } | null>(null)
   const shownNow = useRef(shown)
   shownNow.current = shown
+  // The steps ⌘Z holds besides the notice's own, oldest first: changes made quietly, and the Undo of each notice a
+  // newer one took the place of, so ⌫ twice then ⌘Z twice brings both back, newest first. Kept a while after the last.
+  const [held, setHeld] = useState<{ undo: () => void; key: number; nudge?: boolean }[]>([])
+  const heldClock = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const keepHeld = (): void => (clearTimeout(heldClock.current), void (heldClock.current = setTimeout(() => setHeld([]), 10000)))
+  /** The notice's time is up: it goes, and with its Undo every older step held (⌘Z never takes one back out of turn). */
+  const expire = (): void => {
+    const gone = shownNow.current
+    setShown(null)
+    if (gone?.undo) setHeld((was) => was.filter((one) => one.key > gone.key))
+  }
   const [wait, setWait] = useState<{ label: string; state: OrbState; job?: string } | null>(null)
   useEffect(() => {
     const onWait = (event: Event): void => setWait((event as CustomEvent).detail)
@@ -1462,7 +1473,7 @@ export function Toaster(): React.JSX.Element | null {
     if (!at.held.delete(why) || at.held.size || at.timer !== undefined || !at.left) return
     at.left = Math.max(1500, at.left)
     at.since = Date.now()
-    at.timer = setTimeout(() => (at.timer = undefined, at.left = 0, setShown(null)), at.left)
+    at.timer = setTimeout(() => (at.timer = undefined, at.left = 0, expire()), at.left)
   }, [])
   useEffect(() => {
     const blur = (): void => hold('blur')
@@ -1489,9 +1500,9 @@ export function Toaster(): React.JSX.Element | null {
         return
       }
       stop()
-      // A notice with nothing to take back, over one that had an Undo: that Undo stays ⌘Z's.
+      // A notice over one that had an Undo: that Undo stays ⌘Z's, a step behind this one's (if it has one).
       const before = shownNow.current
-      if (before?.undo && !detail.undo) quietly(before.undo)
+      if (before?.undo && before.undo !== detail.undo) window.dispatchEvent(new CustomEvent('haligtree:undoable', { detail: { undo: before.undo, at: before.key } }))
       setShown({ ...detail, key: Date.now() })
       // Longer when it can be taken back, so the undo is there to reach.
       // A problem stays as long, so what to do about it can be read.
@@ -1501,7 +1512,7 @@ export function Toaster(): React.JSX.Element | null {
       at.held.delete('pointer')
       at.held.delete('menu')
       if (document.hidden) at.held.add('hidden')
-      if (!at.held.size) at.timer = setTimeout(() => (at.timer = undefined, at.left = 0, setShown(null)), at.left)
+      if (!at.held.size) at.timer = setTimeout(() => (at.timer = undefined, at.left = 0, expire()), at.left)
     }
     // A save that failed on the way to the database says so, rather than the
     // success toast just never coming.
@@ -1528,25 +1539,21 @@ export function Toaster(): React.JSX.Element | null {
       window.removeEventListener('unhandledrejection', onFail)
     }
   }, [])
-  // A change made without a toast (quietly): its undo held out of sight, for ⌘Z.
-  const [held, setHeld] = useState<{ undo: () => void; key: number; nudge?: boolean } | null>(null)
+  // A change made without a toast (quietly), or a notice's Undo a newer notice took the place of: held out of sight, for ⌘Z.
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>
+    const hold = (one: { undo: () => void; key: number; nudge?: boolean }): void => (setHeld((was) => [...was, one].sort((a, b) => a.key - b.key)), keepHeld())
     const onHeld = (event: Event): void => {
-      clearTimeout(timer)
-      setHeld({ undo: (event as CustomEvent<{ undo: () => void }>).detail.undo, key: Date.now() })
-      timer = setTimeout(() => setHeld(null), 10000)
+      const { undo, at } = (event as CustomEvent<{ undo: () => void; at?: number }>).detail
+      hold({ undo, key: at ?? Date.now() })
     }
     window.addEventListener('haligtree:undoable', onHeld)
     // An answer on a nudge card or the focus pill (their windows rarely have the keys): ⌘Z here
     // takes it back, until their own Undo did (said with no words).
     const offNudge = window.api?.onFloatUndoable?.((words) => {
-      clearTimeout(timer)
-      if (!words) return setHeld((was) => (was?.nudge ? null : was))
-      setHeld({ undo: () => window.api.floatUndo(), key: Date.now(), nudge: true })
-      timer = setTimeout(() => setHeld(null), 10000)
+      if (!words) return setHeld((was) => was.filter((one) => !one.nudge))
+      hold({ undo: () => window.api.floatUndo(), key: Date.now(), nudge: true })
     })
-    return () => (clearTimeout(timer), offNudge?.(), window.removeEventListener('haligtree:undoable', onHeld))
+    return () => (clearTimeout(heldClock.current), offNudge?.(), window.removeEventListener('haligtree:undoable', onHeld))
   }, [])
   // The toast's next step on its own key, while it is up and you are not writing: a tool's key
   // (lib/tool-keys.ts), asked before the app's own, so a toast's C is never also a new capture.
@@ -1559,16 +1566,18 @@ export function Toaster(): React.JSX.Element | null {
   // ⌘Z takes back what the toast offers (or the newer quiet change), outside a
   // field or the editor, which keep their own undo.
   useEffect(() => {
-    // Whichever came last is what ⌘Z takes back.
-    const back = held && (!shown?.undo || held.key > shown.key) ? held : shown?.undo ? { undo: shown.undo, key: shown.key } : null
+    // Whichever came last is what ⌘Z takes back; the next ⌘Z, the one before it.
+    const top = held.at(-1)
+    const back = top && (!shown?.undo || top.key > shown.key) ? top : shown?.undo ? { undo: shown.undo, key: shown.key } : null
     if (!back && !shown?.action) return
     const undo = (): void => {
       if (!back) return
       chime('undo')
       quietFor(UNDO_HUSH)
       back.undo()
-      if (back === held) setHeld(null)
+      if (back === top) setHeld((was) => was.filter((one) => one !== top))
       else setShown(null)
+      keepHeld()
     }
     const onKey = (event: KeyboardEvent): void => {
       // Reading full screen counts as a list, not as typing, unless writing in it.
@@ -1707,6 +1716,7 @@ export function Toaster(): React.JSX.Element | null {
             quietFor(UNDO_HUSH)
             shown.undo?.()
             setShown(null)
+            keepHeld()
           }}
         >
           Undo <kbd className="ml-0.5 font-sans text-key opacity-70">⌘Z</kbd>
