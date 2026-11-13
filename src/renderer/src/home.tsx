@@ -1649,7 +1649,14 @@ export function Home(): React.JSX.Element {
   }, [captures, nuggets, articles, questions, goals, tasks])
   const noteIn = (view: View): { type: string; id: string; name: PaneName } | null => {
     if (!view.focus || !holdsNotes(view.id)) return null
-    const { capture, item, task } = known.get(view.focus) ?? {}
+    const found = known.get(view.focus) ?? {}
+    const { item, task } = found
+    // A capture made a moment ago (by a link) is not in the list yet: its copy read on the press names it from the
+    // first frame, so the tab never says "Inbox" over it while the list catches up.
+    const capture = found.capture ?? (!item && !task ? peekRead<CaptureMeta>('capture', view.focus) : undefined)
+    // A list of captures (the Inbox, Archived, a kind's own list) shows only a capture, and the Inbox a task: never
+    // named by a gem or a page that has the same id (an older link's step did that: the tab named the gem over an empty Inbox).
+    if ((['inbox', 'all', 'archived', 'lookups'].includes(view.id) || kind(view) || (view.id === 'questions' && view.folder === 'looked')) && !capture && !(task && ['inbox', 'all'].includes(view.id))) return null
     if (capture) {
       const kind = CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]
       return { type: 'capture', id: capture.id, name: { title: taskName(capture.label).text || 'New note', icon: kind.icon, tint: kind.tint, private: !!capture.private, kind: kind.label } }
