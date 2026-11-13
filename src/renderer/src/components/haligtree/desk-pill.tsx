@@ -204,7 +204,7 @@ export function DeskPill(): React.JSX.Element | null {
 
 /** The pill's small mark: a ring of how much is gone, or a note's paper as a dot. */
 function PillMark({ words }: { words: PillWords }): React.JSX.Element {
-  if (!words.ring) return <span aria-hidden data-pill-dot className="size-2.5 shrink-0 rounded-full border border-foreground/20" style={{ background: words.dot ?? 'var(--mf-pill-dot)' }} />
+  if (!words.ring) return <span aria-hidden data-pill-dot className="size-2.5 shrink-0 rounded-full border border-foreground/45" style={{ background: words.dot ?? 'var(--mf-pill-dot)' }} />
   const R = 5.5
   const round = 2 * Math.PI * R
   return (

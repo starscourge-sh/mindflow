@@ -65,10 +65,11 @@ try {
   const stackNow = () => now.all.filter((one) => one.pill && one.visible).sort((a, b) => a.pill.sy - b.pill.sy)
   const right = now.area.x + now.area.width
   let top18 = now.area.y + Math.round(now.area.height * 0.18)
+  let leftEdge = false
   const geometry = (label, stack, first = top18) => {
     const said = stack.map((one) => `${one.key.split(':')[0]} ${Math.round(one.pill.sx)},${Math.round(one.pill.sy)} ${Math.round(one.pill.w)}x${Math.round(one.pill.h)}`).join(' | ')
     check(`${label}: each pill is 28 tall`, stack.every((one) => Math.round(one.pill.h) === 28), said)
-    check(`${label}: each 8 in from the right edge, all of it on the screen`, stack.every((one) => Math.round(one.pill.sx + one.pill.w) === right - 8), said)
+    check(`${label}: each 8 in from the ${leftEdge ? 'left' : 'right'} edge, all of it on the screen`, stack.every((one) => (leftEdge ? Math.round(one.pill.sx) === now.area.x + 8 : Math.round(one.pill.sx + one.pill.w) === right - 8)), said)
     check(`${label}: each 96 to 220 wide`, stack.every((one) => one.pill.w >= 95.5 && one.pill.w <= 220.5), said)
     check(`${label}: 6 apart, none over another`, stack.every((one, n) => !n || Math.round(one.pill.sy - (stack[n - 1].pill.sy + stack[n - 1].pill.h)) === 6), said)
     check(`${label}: the first where the stack stands (${first === top18 ? '18% down the screen' : 'where it was carried'})`, Math.abs(stack[0].pill.sy - first) <= 1, said)

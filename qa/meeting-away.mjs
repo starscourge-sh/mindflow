@@ -285,6 +285,8 @@ try {
   await c.size(1280, 800)
 
   // Folded into their pills in the desk's stack (the menu bar's ⌃⌥⌘H line): the pills hide too, and are back as the same pills.
+  // Today was stuck again above: a Today sticky starts as a pill, so only the cards open now are folded, and opened again.
+  const openBefore = (await desk()).filter((one) => one.at.width > 140).map((one) => one.key)
   check('the menu bar folds every card into its pill', await choose('Fold every card into its pill'))
   await wait(2000)
   const tabs = await desk()
@@ -293,7 +295,8 @@ try {
   check('and they are back as the same pills, in the same places, when it ends', same(await flip('camera', false), tabs))
   check('the menu bar opens the cards it folded', await choose('Open the cards it folded'))
   await wait(2000)
-  check('opened again, every one is on the desktop as its card', up(await desk()) === (await desk()).length && (await desk()).every((one) => one.at.width > 140 && one.at.height > 100))
+  const after = await desk()
+  check('opened again, every card it folded is on the desktop as its card, and a pill before stays a pill', up(after) === after.length && openBefore.length >= 2 && after.every((one) => openBefore.includes(one.key) ? one.at.width > 140 && one.at.height > 100 : one.at.height < 40), JSON.stringify(after.map((one) => [one.key.slice(0, 10), one.at.width, one.at.height, openBefore.includes(one.key)])))
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
 }

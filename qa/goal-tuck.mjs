@@ -55,12 +55,13 @@ try {
   now = await card()
   check('pointed at, the card opens out of its pill, beside the stack', now.b.width > rest.width && now.b.height === rest.height && now.b.x + now.b.width === now.work.x + now.work.width - 2, JSON.stringify(now.b))
   check('opened, it shows the whole card, its pill lit beside it', await p.evaluate(() => !!document.querySelector('[data-goal-card]') && document.querySelector('[data-desk-pill]')?.getAttribute('data-desk-pill') === 'open'))
-  // Still pointed at, it stays open; then the pointer leaves and it folds back.
-  await electron.evaluate((_, b) => (globalThis.qaCursor = { x: b.x + 100, y: b.y + 100 }), now.b)
+  // Still pointed at (a real pointer on its card), it stays open; then the pointer leaves and it folds back.
+  await p.mouse.move(100, 100)
   await wait(1000)
   check('while pointed at, it stays open', (await card()).b.height === rest.height)
   await electron.evaluate(() => (globalThis.qaCursor = { x: 5, y: 5 }))
-  await wait(1200)
+  await p.mouse.move(-40, -40)
+  await wait(1500)
   check('the pointer gone, it folds back into its pill', (await card()).b.height === 36)
   // Its own place is kept as it was, never the tab's: compared with what was kept before it tucked, not with where
   // the window stands. A place kept on one screen (the example book's, 16 from the top of a screen with no menu bar)
