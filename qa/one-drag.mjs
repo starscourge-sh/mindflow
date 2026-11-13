@@ -595,7 +595,9 @@ const drawn = () => h.evaluate(() => {
   const ROWS = pieces ? '[data-carry-piece]' : '[data-sortable-id]'
   let within = held?.parentElement
   while (within && within !== document.body && within.querySelectorAll(ROWS).length < 3) within = within.parentElement
-  const list = [...(within?.querySelectorAll(ROWS) ?? [])].filter((one) => one !== held && seen(one) && (pieces || !one.querySelector('[data-sortable-id]'))).map(box).sort((a, b) => a.top - b.top)
+  // Only rows in the carried row's own column can be over it or over its room (a board's lists stand side by side).
+  const column = held && box(held)
+  const list = [...(within?.querySelectorAll(ROWS) ?? [])].filter((one) => one !== held && seen(one) && (pieces || !one.querySelector('[data-sortable-id]'))).map(box).filter((one) => !column || (one.right > column.left + 1 && one.left < column.right - 1)).sort((a, b) => a.top - b.top)
   let overlap = 0
   for (let i = 1; i < list.length; i++) overlap = Math.max(overlap, list[i - 1].bottom - list[i].top)
   // How much of the line the card leaves in sight, and whether its dot is: the card never covers the line it is about.
