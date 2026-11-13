@@ -469,7 +469,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} home={homeOf(carried)} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
-          {(hint || ordered) && <DragHint key={(hint ?? OWN_ORDER).name} {...(hint ?? OWN_ORDER)} />}
+          {(hint || ordered) && <DragHint {...(hint ?? OWN_ORDER)} />}
           <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0].id)} holds={({ one }, id) => one.entries.some((entry) => entry.id === id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
             // A big group's line is keyed apart from a small one's: emptied in one step (2,500 rows to none), the list
             // would place every row under it by the height it measured before, scroll there and draw it all twice.
@@ -560,16 +560,22 @@ const OWN_ORDER = { name: 'own-order', said: "Drag a row to move it, or past its
 
 /** What carrying a row does in this list, said once in a line over it (each kind of list once, by `name`) until “Got it”: the grip on a row promises only what this says. */
 function DragHint({ name, said }: { name: string; said: string }): React.JSX.Element | null {
-  const [seen, setSeen] = useState(() => {
+  const said_ = (kind: string): boolean => {
     try {
-      return !!localStorage.getItem(`hint:${name}`)
+      return !!localStorage.getItem(`hint:${kind}`)
     } catch {
       return true
     }
-  })
-  if (seen) return null
+  }
+  // Which kind of list's line this is, and whether it is up. A kind already said stays unsaid, with one exception:
+  // the list changes kind under a line that is showing (a row let go in a sorted list turns it to your own order).
+  // Then the new kind's line takes the old one's place, so the rows do not jump up by a line under the row just let
+  // go (qa/group-drag-hints.mjs, "it sits where the room was": 26px off before this).
+  const [up, setUp] = useState(() => ({ name, on: !said_(name) }))
+  if (up.name !== name) setUp({ name, on: up.on || !said_(name) })
+  if (!up.on || up.name !== name) return null
   const done = (): void => {
-    setSeen(true)
+    setUp({ name, on: false })
     try {
       localStorage.setItem(`hint:${name}`, '1')
     } catch {
