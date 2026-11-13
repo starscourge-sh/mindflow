@@ -9,7 +9,7 @@
 // task's own page counts it under “Focus so far”; by the minute, from the first whole minute; against the task's
 // length when it has one. Sessions here are made with known lengths: started, the clock moved on, ended.
 //
-//   QA_DATA=<a copy of the seeded sandbox> QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] [PART=dot,time,timer,lists,look] node qa/task-in-session.mjs
+//   QA_DATA=<a copy of the seeded sandbox> QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] [PART=dot,time,timer,lists,journal,box,sticky,week,matrix,tag,fits,everything,stats,search,page,bubble,look] [DAY=1|-1] node qa/task-in-session.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox, shiftClock, CALM_HOUR } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
@@ -17,7 +17,9 @@ process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.SHOTS ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-const PART = (process.env.PART ?? 'dot,time,timer,lists,look').split(',')
+const PART = (process.env.PART ?? 'dot,time,timer,lists,journal,box,sticky,week,matrix,tag,fits,everything,stats,search,page,bubble,look').split(',')
+// The clock a day on or a day back (DAY=1, DAY=-1): which list a day's page draws a task in changes with the day.
+const DAY = Number(process.env.DAY ?? 0)
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900, at: CALM_HOUR })
 const { electron, h, v, go } = c
@@ -167,15 +169,119 @@ const film = async (name, id, n = 28) => {
 }
 /** One part of the probe: anything in it that cannot be driven is one failing line, whatever is up is put away, and the next part still runs. */
 const part = async (name, run) => {
+  const from = Date.now()
   try { await run() } catch (error) {
     check(`${name}: could be driven to its end`, false, String(error?.message ?? error).split('\n')[0].slice(0, 200))
     await h.mouse.up().catch(() => {})
     for (let n = 0; n < 2; n++) { await h.keyboard.press('Escape').catch(() => {}); await wait(200) }
   }
+  console.log(`(${name}: ${Math.round((Date.now() - from) / 1000)} s)`)
+}
+const nowMs = () => Date.now() + base + ahead
+const dayKeyOf = (ms) => { const at = new Date(ms); return `${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, '0')}-${String(at.getDate()).padStart(2, '0')}` }
+/**
+ * A task's row in any list, in any window: where its dot stands and whether it is in sight there (nothing over it, not
+ * cut off), what the row says of its time (in words, or in its name's tip), and the places of the things that must not
+ * move as the dot comes: the row, its name and its tick or mark, told from the row's own corner so a scroll changes nothing.
+ */
+const rowIn = async (page, sel, parts) => {
+  const got = await rowRead(page, sel, parts)
+  // No such row: a picture of the window as it stands, to see why.
+  if (!got && SHOTS) await page.screenshot({ path: `${SHOTS}/missing-${sel.replace(/[^a-z0-9]+/gi, '-').slice(0, 48)}.png` }).catch(() => {})
+  return got
+}
+const rowRead = (page, sel, parts) => page.evaluate(([sel, parts]) => {
+  const found = document.querySelector(sel)
+  const rowEl = found && parts.up ? found.closest(parts.up) : found
+  if (!rowEl) return null
+  rowEl.scrollIntoView({ block: 'center' })
+  const edge = rowEl.getBoundingClientRect()
+  const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom, w: r.width, h: r.height, cy: r.top + r.height / 2 } }
+  const within = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return [r.left - edge.left, r.top - edge.top, r.height].map((n) => Math.round(n * 100) / 100).join(' ') }
+  const q = (one) => (one ? rowEl.querySelector(one) : null)
+  const dotEl = q('[data-session-dot] .mf-listening')
+  const dot = box(dotEl)
+  const spent = q('[data-task-spent]')
+  const meta = q('[data-task-meta]')
+  const tipped = q('[data-task-spent-tip]')
+  const top = dot ? document.elementFromPoint(dot.x + dot.w / 2, dot.cy) : null
+  const main = rowEl.matches('button') ? rowEl : rowEl.querySelector('button[data-pick], button[data-row]') ?? rowEl.querySelector('button:last-of-type') ?? rowEl
+  return { row: box(rowEl), dot, seen: !!top && !!top.closest('[data-session-dot]'), name: box(q(parts.name)), lead: box(q(parts.lead)),
+    spent: spent?.textContent ?? null, spentLast: !!meta && !!spent && (meta.lastElementChild === spent || !!meta.lastElementChild?.contains(spent) || meta.textContent.trim().endsWith(spent.textContent)),
+    lastInRow: !!spent && (main.lastElementChild === spent || !!main.lastElementChild?.contains(spent)), dotLeads: !!meta && !!dotEl && !!meta.firstElementChild?.contains(dotEl),
+    tip: tipped?.getAttribute('data-task-spent-tip') ?? null, still: JSON.stringify({ row: [Math.round(edge.left * 100) / 100, Math.round(edge.width * 100) / 100, Math.round(edge.height * 100) / 100].join(' '), name: within(q(parts.name)), lead: within(q(parts.lead)) }) }
+}, [sel, parts])
+/** A session started on a task, its time parked five seconds past a whole minute so no row can turn while it is read; gives the time as a row says it. */
+const inSession = async (id) => {
+  await ran(id, 1000, 'run', 25 * MIN)
+  await until(id, (Math.floor((await totalMs(id)) / MIN) + 1) * MIN + 5_000)
+  await nudge()
+  return length(Math.round((await totalMs(id)) / MIN))
+}
+const over = async () => { const now = await running(); if (now) await v('session:cancel', now.id); await wait(450) }
+/** A list's own switch in the page's bar (List, Page, Matrix), pressed. */
+const viewChip = async (label) => {
+  const at = await h.evaluate((label) => {
+    // A chip's label is drawn twice over (the bold copy keeps its width, the rolling letters their own): read once.
+    const said = (one) => { const t = one.textContent.trim(); return [...t.slice(0, t.length / 2)].filter((_, i) => i % 2 === 0).join('') }
+    const one = [...document.querySelectorAll('header button[aria-pressed]')].find((b) => said(b) === label || b.textContent.trim() === label)
+    if (!one) return null
+    const r = one.getBoundingClientRect()
+    return [r.left + r.width / 2, r.top + r.height / 2]
+  }, label)
+  if (at) { await h.mouse.click(at[0], at[1]); await wait(900) }
+  return !!at
+}
+/** A picture of a row and what is round it, in both looks, kept for the two sheets drawn at the end (every list beside Tasks' own row). */
+const clips = { light: [], dark: [] }
+const snap = async (label, page, sel, up) => {
+  if (!SHOTS) return
+  const r = await page.evaluate(([sel, up]) => { const found = document.querySelector(sel); const one = found && up ? found.closest(up) : found; if (!one) return null; one.scrollIntoView({ block: 'center' }); const b = one.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height, vw: innerWidth, vh: innerHeight } }, [sel, up ?? null])
+  if (!r) return
+  const x = Math.max(0, Math.floor(r.x - 64))
+  const y = Math.max(0, Math.floor(r.y - 22))
+  const clip = { x, y, width: Math.max(40, Math.min(620, r.vw - x, Math.ceil(r.w + 84))), height: Math.max(20, Math.min(r.vh - y, Math.ceil(r.h + 44))) }
+  for (const look of ['light', 'dark']) {
+    await c.look(look)
+    await wait(350)
+    clips[look].push({ label, wide: clip.width, png: (await page.screenshot({ clip })).toString('base64') })
+  }
+  await c.look('light')
+}
+const sheets = async () => {
+  if (!SHOTS) return
+  for (const look of ['light', 'dark']) {
+    if (!clips[look].length) continue
+    await c.look(look)
+    await h.evaluate((frames) => {
+      const sheet = Object.assign(document.createElement('div'), { id: 't1-sheet' })
+      sheet.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:var(--background);display:flex;flex-wrap:wrap;align-content:flex-start;gap:10px 14px;padding:10px;font:11px/1.3 ui-monospace,monospace;color:var(--foreground);overflow:hidden'
+      for (const one of frames) {
+        const cell = document.createElement('div')
+        const img = new Image()
+        img.src = `data:image/png;base64,${one.png}`
+        img.style.cssText = `display:block;width:${Math.round(one.wide * 0.7)}px;margin-bottom:2px`
+        cell.append(img, one.label)
+        sheet.append(cell)
+      }
+      document.body.append(sheet)
+    }, clips[look])
+    await wait(700)
+    await h.screenshot({ path: `${SHOTS}/lists-${look}-sheet.png` })
+    await h.evaluate(() => document.getElementById('t1-sheet')?.remove())
+  }
+  await c.look('light')
 }
 const around = async (id, pad = 28) => { const b = await box(row(id)); return b && { x: Math.max(0, b.x - 60), y: Math.max(0, b.y - pad), width: Math.min(760, b.w + 80), height: b.h + pad * 2 } }
 
 try {
+  if (DAY) {
+    await forward(DAY * 86_400_000)
+    await h.reload()
+    await wait(2500)
+    await c.page.reload().catch(() => {})
+    await wait(500)
+  }
   await v('settings:set', { focusTools: true, countIn: false })
   // The probe's own tasks, on Today: one with two kept sessions and an abandoned one, one with thirty and a length, one with a step, one new.
   const A = (await v('task:add', 't1 alpha', undefined, true)).id
@@ -196,6 +302,19 @@ try {
   const W = (await v('task:add', 't1 with a long small line', undefined, true)).id
   await v('task:save', W, { waitingOn: 'Hermione Granger at the library desk on the second floor', subtasks: [{ text: 'ask', done: false }] })
   await ran(W, 12 * MIN + 10_000)
+  // For the other lists: one with a time today (a day's page draws it in its line by the hour), one with a tag, one
+  // planned for yesterday and still open, and one kept session today, so the day's page has its line from the start.
+  const atFour = new Date(nowMs())
+  atFour.setHours(16, 0, 0, 0)
+  const T = (await v('task:add', 't1 at four today', undefined, true)).id
+  await v('task:save', T, { due: atFour.toISOString(), allDay: 0 })
+  const G = (await v('task:add', 't1 tagged #t1tag', undefined, true)).id
+  const noonBefore = new Date(nowMs() - 86_400_000)
+  noonBefore.setHours(12, 0, 0, 0)
+  const Y = (await v('task:add', 't1 gone by plan')).id
+  await v('task:save', Y, { due: noonBefore.toISOString(), allDay: 1 })
+  const Z = (await v('task:add', 't1 so the day has a session', undefined, true)).id
+  await ran(Z, MIN + 5_000)
   await go('today')
   await wait(1200)
   // One of the day's three, its number in the margin, and what stands there.
@@ -507,7 +626,7 @@ try {
     // The Journal's day: whichever task its list shows first, given a kept session of 2:10 and one running for 3:10.
     await go('day')
     await wait(1500)
-    const name = await h.evaluate(() => document.querySelector('li [data-task-tick]')?.closest('li')?.querySelector('[data-task-title]')?.textContent ?? null)
+    const name = await h.evaluate(() => [...document.querySelectorAll('li [data-task-tick]')].find((one) => one.getAttribute('aria-checked') !== 'true')?.closest('li')?.querySelector('[data-task-title]')?.textContent ?? null)
     const J = name && (await v('tasks')).find((one) => one.status === 'open' && one.title.includes(name))
     const dayRow = () => h.evaluate((name) => {
       const li = [...document.querySelectorAll('li [data-task-tick]')].map((one) => one.closest('li')).find((one) => one?.querySelector('[data-task-title]')?.textContent === name)
@@ -549,13 +668,15 @@ try {
       const dot = rowEl.querySelector('[data-session-dot] .mf-listening')?.getBoundingClientRect()
       const t = rowEl.querySelector('[data-task-tick]').getBoundingClientRect()
       const r = rowEl.getBoundingClientRect()
-      return { dot: dot ? { r: dot.right, x: dot.left, y: dot.top + dot.height / 2, w: dot.width } : null, tick: { x: t.left, y: t.top + t.height / 2 }, row: [r.left, r.top, r.width, r.height].join(' '), name: rowEl.querySelector('[data-task-title]').getBoundingClientRect().left }
+      return { dot: dot ? { r: dot.right, x: dot.left, y: dot.top + dot.height / 2, w: dot.width } : null, tick: { x: t.left, y: t.top + t.height / 2 }, row: [r.left, r.top, r.width, r.height].join(' '), name: rowEl.querySelector('[data-task-title]').getBoundingClientRect().left, tip: rowEl.querySelector('[data-task-spent-tip]')?.getAttribute('data-task-spent-tip') ?? null }
     }, first)
     const homeBefore = first && (await homeRow())
-    if (first) await v('session:start', first, '', 25 * MIN)
+    if (first) { await ran(first, 2 * MIN + 10_000); await v('session:start', first, '', 25 * MIN) }
     await wait(600)
     const onHome = first && (await homeRow())
+    const homeMinutes = first ? Math.round((await totalMs(first)) / MIN) : 0
     check('4 Home\'s “Next up”: the row of the task in a session has the dot in its margin, level with its tick, and the row did not move', !!onHome?.dot && onHome.dot.w === 6 && onHome.dot.r <= onHome.tick.x - 3 && onHome.dot.x >= 2 && Math.abs(onHome.dot.y - onHome.tick.y) < 2.5 && onHome.row === homeBefore.row && onHome.name === homeBefore.name, JSON.stringify({ first, onHome, homeBefore }))
+    check('2 Home\'s “Next up”: the row has no small line, so the time is in its name\'s tip', !!onHome && homeMinutes >= 2 && onHome.tip === String(homeMinutes), JSON.stringify({ tip: onHome?.tip, homeMinutes }))
     if (SHOTS) await shot('home-light')
     // The same session, in the Tasks list: “All” has every open task, so the same task's row is there with its dot.
     await go('alltasks')
@@ -564,6 +685,320 @@ try {
     check('4 the same task in “All”: its row has the dot too (one session, every list that shows the row)', !!first && !!(await box(dot(first))))
     if (first) await v('session:cancel', (await running())?.id)
     await wait(400)
+  })
+
+  // ---- Every other list that shows a task (ask 47, second stage). In each: the dot where that list has room for it,
+  // nothing of the row moved as it came, and the time last in the row's small line, or in its name's tip where it has none.
+
+  if (PART.includes('journal')) await part('the Journal’s day, whole', async () => {
+    // Today by the hour: a task with a time today is drawn in the day's line, not in the list of the day's tasks.
+    await go('day')
+    await wait(1500)
+    const line = `li[data-line-task="${T}"]`
+    const lineParts = { name: '[data-task-title]', lead: '[data-task-tick]' }
+    const lineBefore = await rowIn(h, line, lineParts)
+    let said = await inSession(T)
+    const inLine = await rowIn(h, line, lineParts)
+    check('1 the Journal’s day, “Today by the hour”: a task with a time has the dot in the page’s margin, level with its tick, nothing moved, and its time last in its small line', !!inLine?.dot && inLine.dot.w === 6 && inLine.seen && inLine.dot.x >= 2 && inLine.dot.r <= inLine.lead.x - 2 && Math.abs(inLine.dot.cy - inLine.lead.cy) < 3 && inLine.still === lineBefore?.still && inLine.spent === `${said} so far` && inLine.spentLast, JSON.stringify({ inLine, before: lineBefore?.still, said }))
+    await snap('the day, by the hour', h, line)
+    await over()
+    // What was done: its line in the day's log, and its row in “Done” (or struck in the day's tasks), say its final time.
+    await v('task:done', E)
+    await wait(900)
+    const done = await h.evaluate((id) => {
+      const log = [...document.querySelectorAll('li[data-log-row="done"]')].find((one) => one.textContent.includes('t1 under its length'))
+      log?.scrollIntoView({ block: 'center' })
+      const brief = [...document.querySelectorAll('li')].find((one) => one.querySelector('[data-task-tick]') && one.querySelector('[data-task-title]')?.textContent === 't1 under its length')
+      return { log: log?.querySelector('[data-task-spent]')?.textContent ?? null, logLast: !!log && !!log.querySelector('button')?.lastElementChild?.querySelector('[data-task-spent]'), island: document.querySelector(`[data-pick="task:${id}"] [data-task-spent]`)?.textContent ?? null, brief: brief?.querySelector('[data-task-meta]')?.textContent ?? null }
+    }, E)
+    check('1 the Journal’s day, what was done: its line in “The day, hour by hour” says “40 min of focus” last, and its row in “Done” (or struck among the day’s tasks) “40 min of 1 h”', done.log === '40 min of focus' && done.logLast && (done.island === '40 min of 1 h' || /^Done · 40 min of 1 h$/.test(done.brief ?? '')), JSON.stringify(done))
+    await snap('the day, hour by hour and done', h, 'li[data-log-row="done"]')
+    // A day still to come: what is planned for it.
+    await c.send('day', dayKeyOf(nowMs() + 86_400_000))
+    await wait(1500)
+    const ahead = `[data-day-ahead] [data-pick="task:${D}"]`
+    const aheadParts = { name: '.truncate', lead: 'svg' }
+    const aheadBefore = await rowIn(h, ahead, aheadParts)
+    said = await inSession(D)
+    const onAhead = await rowIn(h, ahead, aheadParts)
+    check('1 the Journal, a day ahead, “Planned”: the dot stands before the row’s mark in the room its own edge gives, level with it, nothing moved, and the time is last in the row', !!onAhead?.dot && onAhead.dot.w === 6 && onAhead.seen && onAhead.dot.x >= onAhead.row.x + 2 && onAhead.dot.r <= onAhead.lead.x - 2 && Math.abs(onAhead.dot.cy - onAhead.lead.cy) < 3 && onAhead.still === aheadBefore?.still && onAhead.spent === `${said} so far` && onAhead.lastInRow, JSON.stringify({ onAhead, before: aheadBefore?.still, said }))
+    await snap('a day ahead', h, ahead)
+    await over()
+    // Another day, gone by: a task planned for it and still open, in that day's log.
+    await c.send('day', dayKeyOf(nowMs() - 86_400_000))
+    await wait(1500)
+    await h.evaluate(() => [...document.querySelectorAll('li[data-log-row]')].find((one) => one.textContent.includes('t1 gone by plan'))?.setAttribute('data-t1', 'gone-by'))
+    const gone = 'li[data-t1="gone-by"]'
+    const goneParts = { name: '.private-text', lead: 'svg' }
+    const goneBefore = await rowIn(h, gone, goneParts)
+    said = await inSession(Y)
+    await h.evaluate(() => [...document.querySelectorAll('li[data-log-row]')].find((one) => one.textContent.includes('t1 gone by plan'))?.setAttribute('data-t1', 'gone-by'))
+    const onGone = await rowIn(h, gone, goneParts)
+    // And every task that day's “Done” holds says its time, if it has any: read against the app's own sum for each.
+    const sums = (await v('sessions:spent').catch(() => null))?.spent ?? {}
+    const doneThen = await h.evaluate(() => [...document.querySelectorAll('button[data-pick^="task:"]')].map((one) => ({ id: one.getAttribute('data-pick').slice(5), spent: one.querySelector('[data-task-spent]')?.textContent ?? null })))
+    const unsaid = doneThen.filter((one) => Math.round((sums[one.id]?.[0] ?? 0) / MIN) >= 1 && !one.spent)
+    check('1 the Journal, another day’s page: a task planned for that day has the dot in the margin of “The day, hour by hour”, nothing moved, and its time last in its line; every task in that day’s “Done” with time on it says it', !!onGone?.dot && onGone.dot.w === 6 && onGone.seen && onGone.dot.x >= 2 && onGone.dot.r <= onGone.row.x && Math.abs(onGone.dot.cy - onGone.lead.cy) < 4 && onGone.still === goneBefore?.still && onGone.spent === `${said} so far` && onGone.lastInRow && !unsaid.length, JSON.stringify({ onGone, before: goneBefore?.still, said, done: doneThen.length, unsaid }))
+    await snap('another day', h, gone)
+    await over()
+  })
+
+  if (PART.includes('box')) await part('quick capture’s Today', async () => {
+    await v('settings:set', { boxOneLine: false })
+    await c.page.evaluate(() => window.api.showPrompt())
+    await wait(1300)
+    if (!(await c.page.locator('[aria-label="Hide the side panel"]').count())) await c.page.locator('[aria-label="Show the side panel"]').click()
+    await wait(900)
+    const tab = c.page.locator('[data-box-panel] [role="tab"]', { hasText: /^Tasks/ }).first()
+    if (await tab.count()) { await tab.click(); await wait(700) }
+    const sel = `[data-box-panel] div:has(> [data-row][data-id="${A}"])`
+    const parts = { name: '[data-task-title]', lead: '[data-task-tick]' }
+    const before = await rowIn(c.page, sel, parts)
+    const said = await inSession(A)
+    const now = await rowIn(c.page, sel, parts)
+    check('2 quick capture’s Today: the dot stands in the day’s number column (or leads the small line where the list keeps no column), left of the name, the name and tick unmoved, and the time is last in the small line', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= now.row.x + 1 && now.dot.r <= now.name.x && now.still === before?.still && now.spent === `${said} so far` && now.spentLast, JSON.stringify({ now, before: before?.still, said }))
+    await snap('quick capture’s Today', c.page, sel)
+    await over()
+  })
+
+  if (PART.includes('sticky')) await part('the desk sticky', async () => {
+    await go('today')
+    await wait(600)
+    await h.evaluate(() => window.api.stick('today', 'today', true))
+    let sticky
+    for (let n = 0; n < 40 && !sticky; n++) { sticky = electron.windows().find((one) => /view=sticky/.test(one.url()) && /type=today/.test(one.url())); if (!sticky) await wait(250) }
+    if (!sticky) throw new Error('no sticky of Today came up')
+    await sticky.evaluate(`(${shiftClock.toString()})(${base + ahead})`).catch(() => {})
+    await wait(1500)
+    const sel = `li:has([data-sticky-task="${A}"])`
+    const parts = { name: '[data-sticky-task]', lead: '[data-task-tick]' }
+    const before = await rowIn(sticky, sel, parts)
+    await inSession(A)
+    const minutes = Math.round((await totalMs(A)) / MIN)
+    const now = await rowIn(sticky, sel, parts)
+    check('2 the desk sticky: the dot stands in the paper’s side room, level with the tick, nothing moved, and the time is in the name’s tip (the row has no small line)', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= 2 && now.dot.r <= now.lead.x - 2 && Math.abs(now.dot.cy - now.lead.cy) < 3 && now.still === before?.still && now.tip === String(minutes) && now.spent === null, JSON.stringify({ now, before: before?.still, minutes }))
+    await snap('the desk sticky', sticky, sel)
+    await over()
+    await h.evaluate(() => window.api.stick('today', 'today', false))
+    await wait(500)
+  })
+
+  if (PART.includes('week')) await part('the week’s tasks', async () => {
+    await go('weekpage')
+    await wait(1500)
+    const sel = `[data-week-task="${A}"]`
+    const parts = { name: '.private-text', lead: 'button' }
+    const before = await rowIn(h, sel, parts)
+    const said = await inSession(A)
+    const now = await rowIn(h, sel, parts)
+    check('2 the week’s tasks: the dot in the page’s margin, level with the tick, nothing moved, and the time last in the small line', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= 2 && now.dot.r <= now.lead.x - 2 && Math.abs(now.dot.cy - now.lead.cy) < 3 && now.still === before?.still && now.spent === `${said} so far` && now.spentLast, JSON.stringify({ now, before: before?.still, said }))
+    await snap('the week’s tasks', h, sel)
+    await over()
+  })
+
+  if (PART.includes('matrix')) await part('the Matrix', async () => {
+    await go('today')
+    await wait(900)
+    if (!(await viewChip('Matrix'))) throw new Error('no “Matrix” switch on Today')
+    try {
+      const sel = `button[data-row][data-id="${A}"]`
+      const parts = { name: '[data-task-title]', lead: null }
+      const before = await rowIn(h, sel, parts)
+      const said = await inSession(A)
+      const now = await rowIn(h, sel, parts)
+      check('2 the Matrix: a card has no margin, so the dot leads its small line under the name; the name and the card did not move, and the time is last in that line', !!now?.dot && now.dot.w === 6 && now.seen && now.dotLeads && now.dot.x >= now.row.x + 4 && now.still === before?.still && now.spent === `${said} so far` && now.spentLast, JSON.stringify({ now, before: before?.still, said }))
+      await snap('the Matrix', h, sel)
+      await over()
+    } finally {
+      await viewChip('List')
+    }
+  })
+
+  if (PART.includes('tag')) await part('a tag’s page', async () => {
+    await c.send('tag', 't1tag')
+    await h.waitForSelector('[data-tag-page]', { timeout: 15000 }).catch(() => {})
+    await wait(900)
+    const sel = `[data-tag-page] [data-id="${G}"]`
+    const parts = { name: '.private-text', lead: null }
+    const before = await rowIn(h, sel, parts)
+    const said = await inSession(G)
+    const now = await rowIn(h, sel, parts)
+    check('2 a tag’s page: a task there is a row with a picture tile and no tick, so the dot stands with the row’s marks at the end of its name’s line; the name did not move, and the time is last in its small line', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= now.name.x && now.dot.r <= now.row.r && now.still === before?.still && now.spent === `${said} so far`, JSON.stringify({ now, before: before?.still, said }))
+    await snap('a tag’s page', h, sel)
+    // The same tag under “Manage”, where what it holds is a plain list of one-line rows.
+    const manage = h.locator('button', { hasText: /^Manage$/ }).first()
+    if (await manage.count()) {
+      await manage.click()
+      await wait(900)
+      const line = `button[data-pick="task:${G}"]`
+      const minutes = Math.round((await totalMs(G)) / MIN)
+      const managed = await rowIn(h, line, { name: '.private-text', lead: 'svg' })
+      check('2 the Tags page, “Manage”: a task’s one-line row has the dot in the margin beside it, level with its mark, and its time in its name’s tip', !!managed?.dot && managed.dot.w === 6 && managed.seen && managed.dot.x >= 2 && managed.dot.r <= managed.row.x && Math.abs(managed.dot.cy - managed.lead.cy) < 3 && managed.tip === String(minutes), JSON.stringify({ managed, minutes }))
+      await snap('Tags, “Manage”', h, line)
+      await h.locator('button', { hasText: /^Read$/ }).first().click().catch(() => {})
+      await wait(400)
+    }
+    await over()
+  })
+
+  if (PART.includes('fits')) await part('“What fits”', async () => {
+    await go('today')
+    await wait(700)
+    await inSession(B)
+    const minutes = Math.round((await totalMs(B)) / MIN)
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:fits', { detail: 60 })))
+    await wait(1200)
+    const sel = `[data-fit-row="${B}"]`
+    const now = await rowIn(h, sel, { name: '.line-clamp-2', lead: '[data-quad]' })
+    check('2 “What fits”: the task already in a session has the dot with the row’s marks, after its box’s mark and before its name, and its time in the name’s tip', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= now.lead.r && now.dot.r <= now.name.x && now.tip === String(minutes), JSON.stringify({ now, minutes }))
+    await snap('“What fits”', h, sel)
+    await h.keyboard.press('Escape')
+    await wait(500)
+    await over()
+  })
+
+  if (PART.includes('everything')) await part('Everything', async () => {
+    await go('all')
+    await wait(1500)
+    const parts = { name: null, lead: '[data-task-tick]', up: 'div.relative' }
+    const sel = `[data-id="${A}"]`
+    const before = await rowIn(h, sel, parts)
+    const said = await inSession(A)
+    const now = await rowIn(h, sel, parts)
+    check('2 Everything: the dot stands beside the tick, in the room the row keeps for a note’s picture, level with it, nothing moved, and the time is last in the small line', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= now.lead.r + 2 && Math.abs(now.dot.cy - now.lead.cy) < 3 && now.still === before?.still && !!now.spent && now.spent === `${said} so far`, JSON.stringify({ now, before: before?.still, said }))
+    await snap('Everything', h, sel, 'div.relative')
+    await over()
+  })
+
+  if (PART.includes('stats')) await part('Stats’ lists of tasks', async () => {
+    await go('stats')
+    let id = null
+    for (let n = 0; n < 40 && !id; n++) { await wait(250); id = await h.evaluate(() => document.querySelector('[data-task-time]')?.getAttribute('data-task-time') ?? null) }
+    if (!id) { if (SHOTS) await h.screenshot({ path: `${SHOTS}/missing-stats.png` }); throw new Error('Stats shows no “How long each task took” list') }
+    const sel = `[data-task-time="${id}"]`
+    const parts = { name: '.truncate', lead: null }
+    const before = await rowIn(h, sel, parts)
+    await inSession(id)
+    const now = await rowIn(h, sel, parts)
+    check('2 Stats, “How long each task took”: the dot stands in the card’s side room before the task’s name, level with it, and nothing moved (the row says its own time already)', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.r <= now.name.x - 2 && Math.abs(now.dot.cy - now.name.cy) < 4 && now.still === before?.still, JSON.stringify({ now, before: before?.still }))
+    await snap('Stats', h, sel)
+    await over()
+  })
+
+  if (PART.includes('search')) await part('⌘K', async () => {
+    await go('today')
+    await wait(700)
+    const said = await inSession(A)
+    await h.keyboard.press('Meta+k')
+    await wait(800)
+    await h.keyboard.type('t1 alpha')
+    await wait(1500)
+    await h.evaluate(() => [...document.querySelectorAll('[data-row-title]')].find((one) => one.textContent.trim() === 't1 alpha')?.closest('button')?.setAttribute('data-t1', 'found'))
+    const sel = 'button[data-t1="found"]'
+    const at = await centre(`${sel} [data-row-title]`)
+    if (at) { await h.mouse.move(at[0] + 2, at[1] + 1); await h.mouse.move(at[0], at[1]); await wait(700) }
+    const now = await rowIn(h, sel, { name: '[data-row-title]', lead: 'svg' })
+    const facts = await h.evaluate(() => document.querySelector('[data-task-facts]')?.textContent ?? null)
+    check('2 ⌘K: the dot stands with the task’s marks after its words (a title there starts where a note’s does), and its time is last of the facts in its preview', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= now.name.r && (facts ?? '').endsWith(`${said} so far`), JSON.stringify({ now, facts, said }))
+    await snap('⌘K', h, sel)
+    await h.keyboard.press('Escape')
+    await wait(500)
+    await over()
+  })
+
+  if (PART.includes('page')) await part('the task’s own page', async () => {
+    await go('today')
+    await wait(900)
+    await see(A)
+    await inSession(A)
+    await snap('Tasks’ own row', h, row(A))
+    await h.locator(`${row(A)} [data-title]`).click()
+    await wait(1300)
+    const read = () => h.evaluate(() => {
+      const part = document.querySelector('[data-task-sessions]')
+      const live = part?.querySelector('[data-live-dot]')
+      const style = live && getComputedStyle(live)
+      return { dot: !!live && live.classList.contains('mf-listening'), name: style?.animationName ?? null, opacity: style ? Number(style.opacity) : null, colour: style?.backgroundColor ?? null, red: !!part?.querySelector('.animate-pulse'),
+        heading: (part?.innerText.match(/Sessions\s*·\s*([\d,]+)/) ?? [])[1] ?? null, focus: ((document.querySelector('[data-task-focus] p')?.innerText ?? '').match(/in ([\d,]+) sessions?/) ?? [])[1] ?? null,
+        row: (() => { const one = document.querySelector('[data-task-row] [data-session-dot] .mf-listening'); return one ? getComputedStyle(one).backgroundColor : null })() }
+    })
+    const live = await read()
+    await v('session:pause', (await running())?.id)
+    await wait(500)
+    const held = await read()
+    await v('session:resume', (await running())?.id)
+    await wait(300)
+    check('3 the task’s own page marks a running session with the same dot as its row (the welcome’s, the accent, breathing), still and dimmed when paused; no red pulse', live.dot && live.name === 'mf-listen' && !live.red && live.colour === live.row && held.dot && held.name === 'none' && Math.abs(held.opacity - 0.4) < 0.01, JSON.stringify({ live, held }))
+    check('3 “Sessions · N” and “in N sessions” on the task’s page are one number', !!live.heading && live.heading === live.focus, JSON.stringify({ heading: live.heading, focus: live.focus }))
+    await snap('the task’s own page', h, '[data-task-sessions]')
+    await h.keyboard.press('Escape')
+    await wait(400)
+    await over()
+  })
+
+  if (PART.includes('bubble')) await part('the dot goes when the bubble goes', async () => {
+    await go('today')
+    await wait(900)
+    await see(A)
+    // Twice: once read by main every few milliseconds for the two times, once with a picture of each window at every step to look at.
+    const watch = async (pictures) => {
+      await inSession(A)
+      await h.evaluate(() => window.api.showFocus(true))
+      await wait(900)
+      const id = (await running())?.id
+      const clip = pictures ? await h.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: Math.max(0, Math.round(r.left - 46)), y: Math.round(r.top), width: 260, height: Math.round(r.height) } }, row(A)) : null
+      return electron.evaluate(async ({ BrowserWindow }, [rowSel, id, clip]) => {
+        const all = BrowserWindow.getAllWindows()
+        const home = all.find((one) => one.webContents.getURL().includes('view=home'))
+        const pill = all.find((one) => one.webContents.getURL().includes('view=focus'))
+        if (!home || !pill) return null
+        const dotThere = `!!document.querySelector(${JSON.stringify(`${rowSel} [data-session-dot]`)})`
+        const bubbleSaid = `(() => { const one = document.querySelector('[data-island]'); return one ? 'session:' + (one.getAttribute('data-over') ?? '') : document.querySelector('[data-after]') ? 'after' : 'none' })()`
+        const from = performance.now()
+        const seen = []
+        let ended = null
+        for (let n = 0; performance.now() - from < (clip ? 1600 : 2200); n++) {
+          const [dot, bubble] = await Promise.all([home.webContents.executeJavaScript(dotThere), pill.webContents.executeJavaScript(bubbleSaid)])
+          const at = Math.round((performance.now() - from) * 10) / 10
+          const soon = (shot) => Promise.race([shot.then((image) => image.toPNG().toString('base64')), new Promise((none) => setTimeout(() => none(''), 300))])
+          const shots = clip ? await Promise.all([soon(home.webContents.capturePage(clip)), soon(pill.webContents.capturePage())]) : ['', '']
+          seen.push({ at, dot, bubble, home: shots[0], pill: shots[1] })
+          if (ended === null && at > (clip ? 250 : 300)) { ended = at; void pill.webContents.executeJavaScript(`window.api.haligtree('session:end', ${JSON.stringify(id)}, '', false)`) }
+        }
+        return { seen, ended }
+      }, [row(A), id, clip])
+    }
+    const read = await watch(false)
+    const first = (list, gone) => list.find((one) => one.at > read.ended && gone(one))?.at ?? null
+    const dotGone = read && first(read.seen, (one) => !one.dot)
+    const start = read?.seen.find((one) => one.at <= read.ended)?.bubble
+    const bubbleGone = read && first(read.seen, (one) => one.bubble !== start)
+    const apart = dotGone !== null && bubbleGone !== null ? Math.round((dotGone - bubbleGone) * 10) / 10 : null
+    const step = read ? Math.round((read.seen.at(-1).at / read.seen.length) * 10) / 10 : null
+    check(`4 the dot goes when the bubble goes: read by the main process every ${step} ms, the row’s dot left ${apart} ms after the bubble’s session did (two windows, one change notice: each draws it with its own reads, so not one frame; under a tenth of a second)`, apart !== null && start?.startsWith('session') && Math.abs(apart) <= 100, JSON.stringify({ ended: read?.ended, dotGone, bubbleGone, start, steps: read?.seen.length }))
+    await wait(600)
+    const filmed = await watch(true)
+    if (filmed && SHOTS) {
+      await h.evaluate((frames) => {
+        const sheet = Object.assign(document.createElement('div'), { id: 't1-sheet' })
+        sheet.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:var(--background);display:flex;flex-wrap:wrap;align-content:flex-start;gap:8px 12px;padding:10px;font:11px/1.3 ui-monospace,monospace;color:var(--foreground);overflow:hidden'
+        for (const one of frames) {
+          const cell = document.createElement('div')
+          for (const [png, wide] of [[one.home, 260], [one.pill, 200]]) { if (!png) { cell.append('(put away: no picture) '); continue } const img = new Image(); img.src = `data:image/png;base64,${png}`; img.style.cssText = `display:block;width:${wide}px;margin-bottom:2px`; cell.append(img) }
+          cell.append(`${one.at} ms  dot ${one.dot ? 'there' : 'gone'}  bubble ${one.bubble}`)
+          sheet.append(cell)
+        }
+        document.body.append(sheet)
+      }, filmed.seen)
+      await wait(600)
+      await h.screenshot({ path: `${SHOTS}/bubble-and-dot-sheet.png` })
+      await h.evaluate(() => document.getElementById('t1-sheet')?.remove())
+    }
+    const lastBoth = filmed?.seen.filter((one) => one.dot && one.bubble.startsWith('session')).at(-1)?.at ?? null
+    const firstNeither = filmed?.seen.find((one) => one.at > filmed.ended && !one.dot && !one.bubble.startsWith('session'))?.at ?? null
+    const mixed = filmed?.seen.filter((one) => one.at > filmed.ended && one.dot !== one.bubble.startsWith('session')).length ?? -1
+    check('4 pictures of both windows at each step, stamped by the main process: both show the session, then neither, with at most two steps between where one has gone and the other not yet', !!filmed && lastBoth !== null && firstNeither !== null && mixed <= 2, JSON.stringify({ ended: filmed?.ended, lastBoth, firstNeither, mixed, steps: filmed?.seen.map((one) => `${one.at}:${one.dot ? 'd' : '-'}${one.bubble.startsWith('session') ? 'b' : '-'}`) }))
+    await over()
   })
 
   if (PART.includes('look')) await part('the looks and sizes', async () => {
@@ -585,6 +1020,7 @@ try {
     }
     await shape('light')
     if (SHOTS) await shot('look-light', await around(B))
+    await snap('Tasks’ own row', h, row(B))
     await c.look('dark')
     await shape('dark')
     const filmedDark = (await box(dot(B))) ? await film('breath-dark', B) : []
@@ -622,6 +1058,7 @@ try {
     await c.size(1400, 900)
     await v('session:cancel', (await running())?.id)
   })
+  await part('the sheets of every list', sheets)
 } finally {
   await c.close()
 }

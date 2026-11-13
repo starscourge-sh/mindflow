@@ -12,6 +12,7 @@ import { readLines, tasksOf } from '../../../../main/day-lines'
 import { Count, Empty, Tags, typing, useListKeys, Strip, VirtualList } from './ui'
 import { Chips, Display, arrange, useView } from './display'
 import { TaskPriority, TaskWhen, landed, useTickOff, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
+import { DOT_IN_LINE, SessionDot, TaskSpent, useTaskTime, type TaskTime } from './task-time'
 import { frogOn } from '@/lib/day-plan'
 import { TaskInput, markRoom, setPriority } from './task-input'
 import { RowMenu } from './row-menu'
@@ -108,6 +109,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const settings = useLive(haligtree.settings, null as Awaited<ReturnType<typeof haligtree.settings>> | null)
   const frog = frogOn(settings)
   const now = useTaskNow()
+  // The time on these tasks and the session running on one: one read for the list (task-time.tsx).
+  const time = useTaskTime()
   // Split, only the pane in front answers keys.
   const here = useHere()
   // Several at once, as on the Tasks pages: x, ⇧-click, ⌘A, ⌫ to the Bin, Esc to let go.
@@ -232,7 +235,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         const row = (task: Task, index: number): React.JSX.Element => (
           <TaskRow key={task.id} task={task} act={act} scope={scope} room={room} rank={ranked ? three.indexOf(task.id) + 1 : undefined}
             open={task.id === open} cursor={index === cursor} picked={several.chosen.includes(task.id)} picking={several.chosen.length}
-            ticking={ticking(task.id)} glossing={glossing === task.id} frog={frog} focus={now.focus} long={long} />
+            ticking={ticking(task.id)} glossing={glossing === task.id} frog={frog} focus={now.focus} long={long} time={time} />
         )
         return long ? (
           <PresenceContext.Provider value={null}>
@@ -269,8 +272,10 @@ type RowActs = {
  * marks (open, cursor, picked, ticking), how many are picked (its menu), the
  * frog or a focus session (its menu too).
  */
-const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, cursor, picked, picking, ticking, glossing, long }: {
+const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, cursor, picked, picking, ticking, glossing, long, time }: {
   task: Task
+  /** The time on the list's tasks and the session running on one: the same thing until a read or the minute changes it. */
+  time: TaskTime
   /** In a long list drawn only where it shows: no gliding to a new place, which measured every row on each change. */
   long?: boolean
   /** Its number among today's three (0 for none), with a column kept for it when the list has any. */
@@ -301,7 +306,8 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, curs
       exit="gone"
       className={`group group/item relative flex flex-wrap items-start gap-2 rounded-md px-2 py-1.5 pr-8 hover:bg-accent/50 ${picked ? PICKED_ROW : open ? "bg-accent" : cursor ? "bg-accent/50" : ""}`}
     >
-      {rank !== undefined && <span className="mt-px flex w-2.5 shrink-0 justify-center">{rank > 0 && <ThreeMark n={rank} />}</span>}
+      {/* A focus session running on it: the dot stands in the number's column while it runs, as in Tasks, and nothing in the row moves. */}
+      {rank !== undefined && <span className="mt-px flex w-2.5 shrink-0 justify-center">{time.running?.taskId === task.id ? <SessionDot id={task.id} time={time} className="relative flex h-[1.125rem] items-center" /> : rank > 0 && <ThreeMark n={rank} />}</span>}
       <Tip label="Complete">
       <button
         type="button"
@@ -334,9 +340,12 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, curs
           <span data-task-title className={`truncate ${ticking ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
           <Tags tags={taskName(task.title).tags} />
         </p>
-        <p data-task-meta className="flex items-center gap-2 text-xs text-muted-foreground">
+        <p data-task-meta className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+          {/* A list with no number column has no room beside the tick (8px): there the dot leads the small line. */}
+          {rank === undefined && <SessionDot id={task.id} time={time} className={DOT_IN_LINE} />}
           <TaskWhen task={task} />
           {later && !task.dueAt && <span>{BUCKETS[later]}</span>}
+          <TaskSpent task={task} time={time} />
         </p>
       </button>
       </RowMenu>

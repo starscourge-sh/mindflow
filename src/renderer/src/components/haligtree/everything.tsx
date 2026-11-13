@@ -6,6 +6,7 @@ import { BUCKETS, bucket, placed, taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { num, startOfDay, plural } from '../../../../main/dates'
 import { TaskDate, TaskLength, TaskPriority, completeTask, dayTone, notDone, taskMenu, type TaskNow } from './tasks-view'
+import { SessionDot, TaskSpentWords, type TaskTime } from './task-time'
 import type { Choice } from './display'
 import type { Entry } from './note-list'
 import type { RowItem } from './row-menu'
@@ -266,7 +267,7 @@ function TaskTick({ task }: { task: Task }): React.JSX.Element {
 }
 
 /** A task as the list draws it: its tick, its words and tags, when, its priority and its steps, and its usual menu. */
-export function taskEntry(task: Task, { open, now, done }: { open: () => void; now: TaskNow; done?: () => void }): Entry {
+export function taskEntry(task: Task, { open, now, done, time }: { open: () => void; now: TaskNow; done?: () => void; /** The time on the list's tasks and the session running on one (task-time.tsx). */ time?: TaskTime }): Entry {
   const { text, tags } = taskName(task.title)
   const steps = task.subtasks ?? []
   const later = bucket(task)
@@ -278,7 +279,9 @@ export function taskEntry(task: Task, { open, now, done }: { open: () => void; n
     tags,
     icon: TASK_KIND.icon,
     tint: TASK_KIND.tint,
-    lead: <TaskTick task={task} />,
+    // A focus session running on it: the dot beside its tick, in the room the row keeps for a note's picture
+    // (none in the compact list, whose room is the tick's own width).
+    lead: <><TaskTick task={task} />{time && <SessionDot id={task.id} time={time} className="absolute inset-y-0 right-0 flex w-3 items-center justify-center [.size-4>&]:hidden" />}</>,
     // When it is to be done, in Today's colours; a done one says when it was.
     // Late said in words as well as red: a colour alone is a code to learn.
     age: finished ? (task.completedAt ? `Done ${whenInLine(task.completedAt)}` : 'Done') : task.dueAt ? `${loudOf(task.dueAt) === 'late' ? 'Late · ' : ''}${when(task.dueAt, !!task.allDay)}` : undefined,
@@ -286,13 +289,18 @@ export function taskEntry(task: Task, { open, now, done }: { open: () => void; n
     ageLoud: finished ? undefined : loudOf(task.dueAt),
     ageEdit: finished || !task.dueAt ? undefined : (age) => <TaskDate task={task} tip={loudOf(task.dueAt) === 'late' ? 'Late: the day you meant to do it has passed' : 'When you mean to do it'} className="shrink-0">{age}</TaskDate>,
     alert: !finished && task.deadline ? { text: `Due by ${whenInLine(task.deadline, !task.deadlineTimed)}`, kind: deadlineLoud(task.deadline)! } : undefined,
-    sub: finished ? undefined : [
-      later && BUCKETS[later],
-      !task.dueAt && !task.deadline && !later && 'No date',
-      task.recurrence && `Repeats ${task.recurrence}`,
-      task.waitingOn && `Waiting on ${task.waitingOn}`,
-      steps.length > 0 && `${steps.filter((one) => one.done).length}/${num(steps.length)} steps`
-    ].filter(Boolean).join(' · ') || undefined,
+    sub: (() => {
+      const said = finished ? '' : [
+        later && BUCKETS[later],
+        !task.dueAt && !task.deadline && !later && 'No date',
+        task.recurrence && `Repeats ${task.recurrence}`,
+        task.waitingOn && `Waiting on ${task.waitingOn}`,
+        steps.length > 0 && `${steps.filter((one) => one.done).length}/${num(steps.length)} steps`
+      ].filter(Boolean).join(' · ')
+      // The time spent on it, last in its small line; a done one says its final time.
+      const spent = time?.of(task.id) ? <TaskSpentWords task={task} time={time} lead={said ? ' · ' : ''} /> : null
+      return said || spent ? <>{said}{spent}</> : undefined
+    })(),
     marks: (
       <>
         <TaskPriority task={task} className="size-3.5 shrink-0" />

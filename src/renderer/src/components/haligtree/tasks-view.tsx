@@ -51,7 +51,7 @@ import { OptionsMenu } from './options-menu'
 import { deadlineLoud, loud, loudOf } from '@/lib/loud'
 import { stickOnDesktop } from './sticky-note'
 import { TaskLog } from './task-log'
-import { SessionDot, TaskSpent, useTaskTime } from './task-time'
+import { LiveDot, SessionDot, TaskSpent, heldStill, useTaskTime } from './task-time'
 import { SiteBlockField } from './site-block-field'
 import { RoutineNumbers, TaskFocusNumbers } from './focus-stats'
 import { GlossButton, GlossLine } from './gloss-line'
@@ -1866,8 +1866,9 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
   // The task's pane waits for its sessions: drawn before, the list came in and pushed its dates down.
   useReading(unloaded(sessions))
   const running = sessions.find((session) => !session.endedAt)
-  // Abandoned ones stay in the Log below, but are not counted here.
-  const kept = sessions.filter((session) => !session.abandonedAt).length
+  // Abandoned ones stay in the Log below, but are not counted here; nor are its practice's, which “Focus so far”
+  // under this does not count either: “Sessions · 3” and “in 3 sessions” are one number.
+  const kept = sessions.filter((session) => !session.abandonedAt && !session.practice).length
   const [recap, setRecap] = useState('')
   const [tick, setTick] = useState(Date.now())
   useEffect(() => {
@@ -1894,7 +1895,8 @@ function Sessions({ taskId, title }: { taskId: string; title: string }): React.J
       {running ? (
         <div className="space-y-1 p-1">
           <div className="flex items-center gap-2 px-1 text-foreground">
-            <span className="size-1.5 motion-safe:animate-pulse rounded-full shrink-0 bg-[var(--tt-color-text-red)]" />
+            {/* The same dot the task's row has in every list: breathing while it runs, still and dimmed while paused. */}
+            <LiveDot paused={heldStill(running)} />
             <span className="text-lg font-semibold tabular-nums">{clock(Math.max(0, tick - new Date(running.startedAt).getTime() - running.pausedMs - (running.pausedAt ? tick - new Date(running.pausedAt).getTime() : 0)))}</span>
             {/* From when to when, moved on by a pause or ten more minutes. */}
             <SpanPill className="ml-auto" from={Date.parse(running.startedAt)} to={sessionEnd({ ...running, plannedMs: running.plannedMs ?? null }, Math.floor(tick / 60_000) * 60_000)} />

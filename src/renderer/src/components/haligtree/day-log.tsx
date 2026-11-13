@@ -9,6 +9,7 @@ import { TIME_COLUMN, clock } from '@/lib/clock'
 import { Brain, CheckCircle2, Gem, Inbox, ListTodo } from '@/components/ui/icons'
 import { CalendarClock } from 'lucide-react'
 import { num } from '../../../../main/dates'
+import { DOT_IN_MARGIN, SessionDot, TaskSpent, useTaskTime } from './task-time'
 
 /**
  * A day as a time log, built from what happened in it: every capture, every
@@ -57,6 +58,8 @@ export function DayLog({ day, given, only, onOpen, title = 'The day, hour by hou
   const read = given === undefined ? own : given
   // A busy day (an import, a hundred captures) shows its latest few, the rest a click away: a list of hundreds made every page opened from here wait.
   const [all, setAll] = useState(false)
+  // The time on the day's tasks and the session running on one (task-time.tsx).
+  const time = useTaskTime()
   if (!read || read.day !== day) return null
   const every = dayLog(read, only)
   const rows = all ? every : every.slice(-FEW)
@@ -72,7 +75,9 @@ export function DayLog({ day, given, only, onOpen, title = 'The day, hour by hou
             const name = itemName(row.type, row.title)
             const timed = row.at && !(row.what === 'dated' && row.allDay)
             return (
-              <li key={`${row.what}:${row.id}`} data-log-row={row.what} data-private={row.private ? '' : undefined}>
+              <li key={`${row.what}:${row.id}`} data-log-row={row.what} data-private={row.private ? '' : undefined} className="relative">
+                {/* A focus session running on a task: the dot in the page's margin, level with its line. */}
+                {row.type === 'task' && <SessionDot id={row.id} time={time} className={`${DOT_IN_MARGIN} top-1 h-6`} />}
                 <button type="button" disabled={!onOpen} onClick={() => onOpen && (chime('open'), onOpen(row.type, row.id))}
                   className="flex w-full items-baseline gap-3 rounded-md px-1 py-1 text-left enabled:hover:bg-accent/50">
                   <span className={`${TIME_COLUMN} shrink-0 text-right text-control text-muted-foreground tabular-nums`}>{timed ? clock(row.at!) : 'All day'}</span>
@@ -82,6 +87,8 @@ export function DayLog({ day, given, only, onOpen, title = 'The day, hour by hou
                     <span className="private-text hyphens-auto [overflow-wrap:break-word]">{name.text || 'New note'}</span>
                     {!!name.tags.length && <span className="ml-1.5 inline-flex align-middle"><Tags tags={name.tags} go={false} /></span>}
                   </span>
+                  {/* The time spent on a task, last in its line. */}
+                  {row.type === 'task' && <span className="flex shrink-0 self-center"><TaskSpent task={{ id: row.id, estimate: null, status: row.what === 'done' || row.status === 'done' ? 'done' : 'open' }} time={time} className="text-xs text-muted-foreground" /></span>}
                 </button>
               </li>
             )

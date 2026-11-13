@@ -20,6 +20,7 @@ import { dayjs, num } from '../../../../main/dates'
 import { Page, Pressed, Rolling, Tags, listEnd, toast, typing } from './ui'
 import { markRoom } from './task-input'
 import { TaskDetail, TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { DOT_IN_LINE, SessionDot, TaskSpent, useTaskTime, type TaskTime } from './task-time'
 import { RowMenu } from './row-menu'
 import { MORE_STEP, ShowMore } from './show-more'
 import { CarriedCard, Clear, DropLine, HELD, OwnRoom } from './carry'
@@ -69,6 +70,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
   const vim = useVim()
   const real = useLive(haligtree.tasks, [] as Task[])
   const taskNow = useTaskNow()
+  const time = useTaskTime()
   // No open tasks yet: four boxes of made-up ones show how it sorts them, dimmed and out of reach. Today's own Matrix says it is empty instead.
   const example = !today && !unloaded(real) && !real.some((task) => task.status === 'open')
   const examples = useMemo(exampleTasks, [])
@@ -329,7 +331,7 @@ export function MatrixView({ focus, onOpen, today }: { focus?: string; onOpen?: 
                       {between?.id === task.id && <DropLine how={between.after ? 'after' : 'before'} style={{ left: 12, zIndex: 10, top: between.after ? 'calc(100% + 2px)' : -2 }} />}
                       <Carried id={task.id}>
                         <RowMenu items={example ? [] : several.menu(task) ?? taskMenu(task, { open: () => (setAt({ q, id: task.id }), pick(task.id)), now: taskNow })}>
-                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} room={room} onClick={(event) => (setAt({ q, id: task.id }), several.click(event, task.id) || pick(task.id))} /></div>
+                          <div><Card task={task} at={at.id === task.id && at.q === q} open={open?.id === task.id} picked={several.chosen.includes(task.id)} room={room} time={time} onClick={(event) => (setAt({ q, id: task.id }), several.click(event, task.id) || pick(task.id))} /></div>
                         </RowMenu>
                       </Carried>
                     </motion.div>
@@ -393,7 +395,7 @@ function TodayLine({ left, done, ready, onAll }: { left: number; done: number; r
 }
 
 /** One task, as the week draws it: its priority, its name, and when. */
-function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boolean; open: boolean; picked: boolean; room: boolean; onClick: (event: React.MouseEvent) => void }): React.JSX.Element {
+function Card({ task, at, open, picked, room, time, onClick }: { task: Task; at: boolean; open: boolean; picked: boolean; room: boolean; /** The time on the tasks here and the session running on one (task-time.tsx). */ time: TaskTime; onClick: (event: React.MouseEvent) => void }): React.JSX.Element {
   const { text, tags } = taskName(task.title)
   return (
     <button type="button" data-row data-id={task.id} data-picked={picked || undefined} data-cursor={at || undefined} onClick={onClick}
@@ -403,9 +405,12 @@ function Card({ task, at, open, picked, room, onClick }: { task: Task; at: boole
       <span className="flex min-w-0 flex-1 flex-col items-start gap-0.5">
       <span data-task-title className="line-clamp-2 min-w-0 text-pretty hyphens-auto [overflow-wrap:break-word]">{text}</span>
       <span data-task-meta className="flex min-w-0 flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">
+        {/* A focus session running on it: the dot leads the card's line of marks (a card has no margin, and 8px at its edge). */}
+        <SessionDot id={task.id} time={time} className={DOT_IN_LINE} />
         <TaskWhen task={task} />
         {!task.dueAt && !task.deadline && <span>No date</span>}
         <Tags tags={tags} alone />
+        <TaskSpent task={task} time={time} />
       </span>
       </span>
     </button>

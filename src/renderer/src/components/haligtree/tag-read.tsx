@@ -18,6 +18,7 @@ import { chime } from '@/lib/sound'
 import { Empty, ask, pin, refuse, sayNow, toast, typing, useListKeys, useReadKey } from './ui'
 import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
+import { DOT_IN_LINE, SessionDot, TaskSpentWords, useTaskTime } from './task-time'
 import { ReadThrough, type Readable } from './read-through'
 import { addToQuestion } from './questions-view'
 import { PlayButton, ViewSwitch, pictureIn } from './collection-header'
@@ -190,6 +191,8 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   // Each note's full right-click menu, as its own page has it.
   const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
+  // The time on the tasks this tag holds and the session running on one (task-time.tsx).
+  const taskTime = useTaskTime()
   const [view, setView] = useState(readView)
   const [reading, setReading] = useState<{ list: Readable[]; start: number } | null>(null)
   // Sort and filter, kept for each tag on its own; the words looked for are not kept.
@@ -356,7 +359,9 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
       tint: item.type === 'capture' ? kind?.tint : undefined,
       // A task says the day it is for, as on Today; everything else when it was written.
       age: item.type === 'task' ? (task?.dueAt ? dayMonth(task.dueAt) : undefined) : age(item.at),
-      sub: sub || undefined,
+      // A task's time, last in its small line; in a focus session, the dot with its row's marks (a row here has a picture tile, no tick and no margin).
+      sub: item.type === 'task' && taskTime.of(item.id) ? <>{sub}<TaskSpentWords task={{ id: item.id, estimate: task?.estimate ?? null, status: task?.status ?? (item.status === 'done' ? 'done' : 'open') }} time={taskTime} lead={sub ? ' · ' : ''} /></> : sub || undefined,
+      marks: item.type === 'task' && taskTime.running?.taskId === item.id ? <SessionDot id={item.id} time={taskTime} className={DOT_IN_LINE} /> : undefined,
       private: item.private,
       done: item.later
     }

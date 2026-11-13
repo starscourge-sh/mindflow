@@ -26,7 +26,7 @@ import { RowMenu, copyLinkItem, flat as flatMenu, type MenuItem, type RowItem } 
 import { binItem } from '@/lib/to-bin'
 import { tagColour } from './tag-read'
 import { TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
-import { SessionDot, useTaskTime, type TaskTime } from './task-time'
+import { SessionDot, SpentTip, useTaskTime, type TaskTime } from './task-time'
 import { sideMenu, useFullMenu } from './side-menu'
 import { byPriority, markRoom } from './task-input'
 import { Tags, Tip, pin, sayNow } from './ui'
@@ -483,7 +483,10 @@ function TaskRow({ task, actions, room = false, time }: { task: Task; actions: A
     } aside={at || task.recurrence ? <span className="mt-0.5 flex shrink-0 items-center gap-2 text-xs text-muted-foreground"><TaskWhen task={task} /></span> : undefined}>
       <span className="flex min-w-0 items-start gap-2">
         {room && <span className="mt-[0.3rem]"><TaskPriority task={task} room /></span>}
-        <span data-task-title className={`line-clamp-2 hyphens-auto [overflow-wrap:break-word] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>
+        {/* The time spent on it: in its name's tip, the row having no small line. */}
+        {time
+          ? <SpentTip task={task} time={time}><span data-task-title className={`line-clamp-2 hyphens-auto [overflow-wrap:break-word] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span></SpentTip>
+          : <span data-task-title className={`line-clamp-2 hyphens-auto [overflow-wrap:break-word] transition-colors ${done ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{nameOf(card)}</span>}
         {/* The tags give way before the name does: a long one is cut to "…" while the name keeps its line. */}
         <span className="mt-[0.2rem] flex min-w-12 max-w-[40%] shrink-[4]"><Tags tags={taskName(task.title).tags} alone /></span>
       </span>

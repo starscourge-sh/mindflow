@@ -5,6 +5,7 @@ import { dayjs, dayKey } from '../../../../main/dates'
 import { RepeatMark, TaskWhen, completeTask } from './tasks-view'
 import { Tags } from './ui'
 import { MeetingItems } from './meeting-items'
+import { DOT_IN_MARGIN, SessionDot, TaskSpent, useTaskTime } from './task-time'
 
 /** The day a task is meant for, or due by: the one it shows under. */
 const dayFor = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)
@@ -16,6 +17,8 @@ const dayFor = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) :
  */
 export function WeekTasks({ monday, onOpen }: { monday: string; onOpen?: (type: string, id: string) => void }): React.JSX.Element {
   const tasks = useLive(haligtree.tasks, [] as Task[])
+  // The time on the week's tasks and the session running on one (task-time.tsx).
+  const time = useTaskTime()
   const days = Array.from({ length: 7 }, (_, at) => dayjs(monday).add(at, 'day').format('YYYY-MM-DD'))
   const open = tasks.filter((task) => task.status === 'open' && days.includes(dayFor(task) ?? ''))
   const byDay = days.map((day) => [day, open.filter((task) => dayFor(task) === day)] as const).filter(([, list]) => list.length)
@@ -33,12 +36,13 @@ export function WeekTasks({ monday, onOpen }: { monday: string; onOpen?: (type: 
           <p className="text-meta font-medium text-muted-foreground">{dayjs(day).format('dddd D MMMM')}</p>
           <ul className="divide-y divide-border/50">
             {list.map((task) => (
-              <li key={task.id} data-week-task={task.id} className="flex items-start gap-3 py-2">
+              <li key={task.id} data-week-task={task.id} className="relative flex items-start gap-3 py-2">
+                <SessionDot id={task.id} time={time} className={`${DOT_IN_MARGIN} top-2 h-[1.375rem]`} />
                 <button type="button" aria-label={`Done: ${taskName(task.title).text}`} onClick={() => void completeTask(task)}
                   className="mt-0.5 size-[1.125rem] shrink-0 rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:border-foreground hover:bg-foreground/10" />
                 <button type="button" onClick={() => onOpen?.('task', task.id)} className="min-w-0 flex-1 text-left">
                   <span className="private-text flex items-center gap-1.5 text-[0.9375rem] text-foreground">{taskName(task.title).text}<Tags tags={taskName(task.title).tags} /></span>
-                  <span className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground"><TaskWhen task={task} /><RepeatMark task={task} /></span>
+                  <span data-task-meta className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground"><TaskWhen task={task} /><RepeatMark task={task} /><TaskSpent task={task} time={time} /></span>
                 </button>
               </li>
             ))}

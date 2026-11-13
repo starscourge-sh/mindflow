@@ -24,6 +24,7 @@ import { useHere } from '@/lib/split'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
 import { sideMenu, useFullMenu } from './side-menu'
 import { useTaskNow } from './tasks-view'
+import { DOT_IN_MARGIN, SessionDot, SpentTip, useTaskTime } from './task-time'
 import { useOpened, useStepped } from '@/lib/nav'
 import { typeSaid } from '@/lib/capture-links'
 import { Empty, Kbd, Page, Tags, useListKeys } from './ui'
@@ -112,6 +113,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   const pins = useLive(haligtree.pins, [] as Pin[])
   const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
+  // The time on the tasks a tag holds and the session running on one (task-time.tsx).
+  const taskTime = useTaskTime()
   const managing = !!chosen && tab !== 'read'
   const several = usePickMixed(managing ? items.map((item) => ({ type: item.type, id: item.id, title: item.title, private: item.private, status: item.type === 'task' ? allTasks.find((task) => task.id === item.id)?.status : undefined })) : [], { here: useHere(), keys: managing })
   // A long list can be narrowed by typing: inside words and across hyphens.
@@ -402,11 +405,15 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
                   // ⌘-click and ⇧-click pick as Finder does; ⌥⌘-click: a note in a window of its own; a task opens where tasks live.
                   onClick={(event) => (event.metaKey && event.altKey && item.type !== 'task' ? openApart(item.type, item.id) : several.click(event, item) || onOpen(item.type, item.id))}
                   data-private={item.private ? '' : undefined}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/60 ${PICKED_MARK}`}
+                  className={`relative flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent/60 ${PICKED_MARK}`}
                 >
+                  {/* A task in a focus session: the dot in the page's margin; its time in its name's tip, the row being one line. */}
+                  {item.type === 'task' && <SessionDot id={item.id} time={taskTime} className={`${DOT_IN_MARGIN} inset-y-0`} />}
                   <Icon className="size-4 shrink-0 text-muted-foreground" />
                   <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                    <span className="private-text truncate">{name.text || 'New note'}</span>
+                    {item.type === 'task'
+                      ? <SpentTip task={{ id: item.id, estimate: task?.estimate ?? null, status: task?.status ?? 'open' }} time={taskTime}><span className="private-text truncate">{name.text || 'New note'}</span></SpentTip>
+                      : <span className="private-text truncate">{name.text || 'New note'}</span>}
                     <Tags tags={name.tags.filter((one) => one !== chosen)} />
                   </span>
                   <span className="text-xs text-muted-foreground">{typeSaid(item.type)}</span>

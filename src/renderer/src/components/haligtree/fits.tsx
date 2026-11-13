@@ -12,6 +12,7 @@ import { Chips } from './display'
 import { RowMenu, copy, type RowItem } from './row-menu'
 import { Kbd, Rolling, Tags, Tip, listEnd, toast, quietly } from './ui'
 import { LengthChip, completeTask, startOn, taskMenu, useTaskNow } from './tasks-view'
+import { DOT_IN_LINE, SessionDot, SpentTip, useTaskTime } from './task-time'
 import { PICKED_ROW } from './task-pick'
 import { QUADS, byMatrix } from './matrix-view'
 import { quadrantOf } from '../../../../main/task-words'
@@ -73,6 +74,8 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
   const [minutes, setMinutes] = useState(start)
   const all = useLive(haligtree.tasks, [] as Task[])
   const now = useTaskNow()
+  // The time on these tasks and the session running on one (task-time.tsx).
+  const time = useTaskTime()
   const open = useMemo(() => all.filter(doable), [all])
   const fit = useMemo(() => byMatrix(open.filter((task) => task.estimate !== null && task.estimate <= minutes)), [open, minutes])
   const unsized = useMemo(() => byMatrix(open.filter((task) => task.estimate === null)), [open])
@@ -184,7 +187,9 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
             <Tip label={`${quad.title}: ${quad.said.split('.')[0].toLowerCase()}`}>
               <span role="img" aria-label={quad.title} data-quad={quad.id} className="size-2 shrink-0 rounded-[2px]" style={{ background: `var(--tt-color-text-${quad.tint})` }} />
             </Tip>
-            <span className="line-clamp-2 min-w-0 flex-auto text-body text-foreground hyphens-auto [overflow-wrap:break-word]">{taskName(task.title).text || 'Untitled task'}</span>
+            {/* Already in a focus session: the dot with the row's marks, before its name. Its time is in the name's tip. */}
+            <SessionDot id={task.id} time={time} className={DOT_IN_LINE} />
+            <SpentTip task={task} time={time}><span className="line-clamp-2 min-w-0 flex-auto text-body text-foreground hyphens-auto [overflow-wrap:break-word]">{taskName(task.title).text || 'Untitled task'}</span></SpentTip>
             <Tags tags={taskName(task.title).tags} max={2} go={false} />
             {length !== null ? (
               <>

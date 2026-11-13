@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { cloneElement, useEffect, useMemo, useState, type ReactNode } from 'react'
 
 import { Hourglass } from 'lucide-react'
 import { chime } from '@/lib/sound'
@@ -46,7 +46,7 @@ export function useTaskTime(): TaskTime {
   const { spent, running } = read
   // The time already on the task the session runs on, in its sessions that have ended.
   const before = running ? (spent[running.taskId]?.[0] ?? 0) : 0
-  const [, turn] = useState(0)
+  const [turned, turn] = useState(0)
   useEffect(() => {
     if (!running || running.pausedAt) return
     let timer: ReturnType<typeof setTimeout>
@@ -64,7 +64,9 @@ export function useTaskTime(): TaskTime {
     return () => (clearTimeout(timer), document.removeEventListener('visibilitychange', shown))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [running?.id, running?.startedAt, running?.pausedMs, running?.pausedAt, before])
-  return {
+  // The same thing until a read changes it or the minute turns: a list whose rows are drawn again only when what
+  // they are given changes (quick capture's Today) is not drawn again for nothing.
+  return useMemo((): TaskTime => ({
     reading,
     running,
     of: (id) => {
@@ -74,7 +76,27 @@ export function useTaskTime(): TaskTime {
       const minutes = Math.round(total / MINUTE)
       return minutes >= 1 && (!on || total >= MINUTE) ? { minutes, sessions: sessions + (on ? 1 : 0) } : null
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [read, reading, turned])
+}
+
+/**
+ * Where the dot stands. A row with a margin beside it (Tasks, Home, a day's page): in that margin, level with its
+ * tick. A row with none (a row in an island, quick capture, the sticky): before its name, in the room the row's own
+ * left padding already gives its marks. Each list adds how far down and how tall or how wide; nothing in a row moves.
+ */
+export const DOT_IN_MARGIN = 'absolute right-full mr-1 flex w-3 items-center justify-end'
+export const DOT_IN_ROOM = 'absolute inset-y-0 left-0 flex items-center justify-center'
+/** In a card or a one-line row with neither: the first mark in the line its marks already stand in. */
+export const DOT_IN_LINE = 'relative inline-flex h-[1em] w-1.5 shrink-0 items-center self-center'
+
+/** Paused by someone: not the hold at its very start while the pill counts it in. */
+export const heldStill = (one: { startedAt: string; pausedAt: string | null; pausedMs: number }): boolean =>
+  !!one.pausedAt && !(one.pausedAt === one.startedAt && !one.pausedMs)
+
+/** The welcome's own dot (`.mf-listening`, main.css): breathing while a session runs, still and dimmed while it is paused. */
+export function LiveDot({ paused = false }: { paused?: boolean }): React.JSX.Element {
+  return <span aria-hidden data-live-dot data-paused={paused ? '' : undefined} className="mf-listening shrink-0" />
 }
 
 /** “24 min left”, “12 min so far”, “time’s up”: where a running session stands, in whole minutes. */
@@ -105,7 +127,7 @@ function DotSaid({ running }: { running: Running }): ReactNode {
 export function SessionDot({ id, time, className = '' }: { id: string; time: TaskTime; className?: string }): React.JSX.Element | null {
   const running = time.running
   if (!running || running.taskId !== id) return null
-  const paused = running.pausedAt && !countingIn(running) ? '' : undefined
+  const paused = heldStill(running) ? '' : undefined
   const show = (): void => (chime('open'), window.api.showFocus(true))
   return (
     <Tip label={<DotSaid running={running} />}>
@@ -119,7 +141,7 @@ export function SessionDot({ id, time, className = '' }: { id: string; time: Tas
           show()
         }}
         className={`cursor-pointer after:absolute after:-inset-x-1.5 after:-inset-y-0.5 ${className}`}>
-        <span aria-hidden data-paused={paused} className="mf-listening shrink-0" />
+        <LiveDot paused={paused === ''} />
       </span>
     </Tip>
   )
@@ -145,4 +167,20 @@ export function TaskSpent({ task, time, className = '' }: { task: Pick<Task, 'id
       </span>
     </Tip>
   )
+}
+
+/** The same time as words in a line of words (“Today, any time · 40 min so far”): last, after the line's own dot, with the same tip. */
+export function TaskSpentWords({ task, time, lead = ' · ' }: { task: Pick<Task, 'id' | 'estimate' | 'status'>; time: TaskTime; /** What parts it from the words before it; nothing when it is the line's only words. */ lead?: string }): React.JSX.Element | null {
+  const spent = time.of(task.id)
+  if (!spent) return null
+  return <>{lead}<Tip label={spentCounts(spent.sessions)}><span data-task-spent={spent.minutes} className="tabular-nums">{spentSaid(task, spent.minutes)}</span></Tip></>
+}
+
+/**
+ * For a row with no small line: the time said in a tip on its name, with what it counts. With no time on the task
+ * the tip has no words and stays shut, and the name keeps the same parents either way.
+ */
+export function SpentTip({ task, time, children }: { task: Pick<Task, 'id' | 'estimate' | 'status'>; time: TaskTime; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
+  const spent = time.of(task.id)
+  return <Tip label={spent ? `${spentSaid(task, spent.minutes)}. ${spentCounts(spent.sessions)}` : ''}>{cloneElement(children, { 'data-task-spent-tip': spent?.minutes } as object)}</Tip>
 }

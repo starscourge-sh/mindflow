@@ -24,6 +24,7 @@ import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { stickyMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
+import { SessionDot, SpentTip, useTaskTime } from './task-time'
 import { loud } from '@/lib/loud'
 import { Check, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
@@ -47,6 +48,8 @@ export function TodaySticky(): React.JSX.Element {
   const tasks = useLive(haligtree.tasks, undefined as Task[] | undefined)
   // A session running and the frog, for each task's right-click menu.
   const taskNow = useTaskNow()
+  // The time on these tasks and the session running on one (task-time.tsx).
+  const time = useTaskTime()
   // Looked at again each minute, so midnight turns the day over.
   const [now, setNow] = useState(() => new Date())
   useEffect(() => {
@@ -181,8 +184,10 @@ export function TodaySticky(): React.JSX.Element {
                 const late = (dueDay(task) ?? '') < today
                 const pen = !!ticked[task.id]?.pen
                 return (
-                  <motion.li key={task.id} layout="position" className="flex items-start gap-2 py-1"
+                  <motion.li key={task.id} layout="position" className="relative flex items-start gap-2 py-1"
                     initial={{ opacity: 0, transform: shift('translateY(-4px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} exit={{ opacity: 0, transition: { duration: 0.15, ease: EASE } }}>
+                    {/* A focus session running on it: the dot in the middle of the paper's side room, level with the tick. */}
+                    <SessionDot id={task.id} time={time} className="absolute top-1 right-full mr-[0.2rem] flex h-[calc(0.4em+0.875rem)] w-1.5 items-center" />
                     <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={() => tick(task)}
                       className="relative after:absolute after:-inset-[5px] after:rounded-full mt-[0.2em] grid size-3.5 shrink-0 place-items-center rounded-full border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
                       style={{
@@ -203,11 +208,14 @@ export function TodaySticky(): React.JSX.Element {
                     ) : (
                       <span className="flex min-w-0 flex-1 items-start gap-2">
                       {/* Right-clicked, the menu a task has on every list, drawn by the Mac: ours would not fit the sticky. The sticky's own menu stays on the rest of it. */}
+                      {/* The time spent on it: said in its name's tip, the row having no small line. */}
+                      <SpentTip task={task} time={time}>
                       <button type="button" data-task-title data-sticky-task={task.id} onClick={() => (chime('open'), window.api.openSticky('task', task.id, task.title, false))}
                         onContextMenu={(event) => (event.preventDefault(), void stickyMenu(taskMenu(task, { open: () => (chime('open'), window.api.openSticky('task', task.id, task.title, false)), complete: () => tick(task), now: taskNow }), { x: event.clientX, y: event.clientY }))}
                         className="relative min-w-0 text-left leading-snug text-foreground decoration-foreground/30 underline-offset-2 after:absolute after:-inset-y-1 after:inset-x-0 hover:underline">
                         {taskName(task.title).text}
                       </button>
+                      </SpentTip>
                       {/* The tag right after the words, as every list has it. */}
                       <span className="flex min-w-0 max-w-[40%] shrink-0 pt-0.5"><Tags tags={taskName(task.title).tags} alone /></span>
                       </span>

@@ -35,6 +35,7 @@ import { GlossButton, GlossLine } from './gloss-line'
 import { DaySessions } from './session-timeline'
 import { DayLog } from './day-log'
 import { DayAhead } from './day-ahead'
+import { DOT_IN_ROOM, SessionDot, TaskSpent, useTaskTime } from './task-time'
 import { DayMoments } from './day-moments'
 import { useSeen } from '@/lib/reads-in'
 import { Versions } from './note-extras'
@@ -83,6 +84,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
   const settings = useLive(haligtree.settings, null as Settings | null)
   const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
+  // The time on the day's tasks and the session running on one, for every list of what the day held (task-time.tsx).
+  const taskTime = useTaskTime()
   const data = read?.day === day ? read : null
   const today = dayOf()
   // A day still to come: what is planned for it, not what it held.
@@ -292,7 +295,9 @@ export function DayView({ onOpen, start, onScale, onView }: {
                 <button type="button" data-private={entry.private ? '' : undefined}
                   data-pick={`${entry.type}:${entry.id}`} data-picked={several.picked(entry) || undefined}
                   onClick={(event) => several.click(event, entry) || onOpen?.(entry.type, entry.id)}
-                  className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50 ${PICKED_MARK}`}>
+                  className={`relative flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50 ${PICKED_MARK}`}>
+                  {/* A focus session running on it: the dot before its mark, in the room the row's own edge gives (no margin inside an island). */}
+                  {entry.type === 'task' && <SessionDot id={entry.id} time={taskTime} className={`${DOT_IN_ROOM} w-4`} />}
                   <Mark className="size-4 shrink-0" style={kind && entry.type === 'capture' ? { color: kind.tint } : undefined} />
                   {/* Dealt with, it stays where it was made, struck through: the page keeps what you meant to do and that you did it. */}
                   {/* A task reads as it does in every list: its words without the #tags, the tags small and coloured after. */}
@@ -302,6 +307,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
                   </span>
                   {/* Why a row is struck or where it went, in words: never the stored status. */}
                   {entry.status && entry.status !== 'open' && !(title === 'Done' && entry.status === 'done') && <span className="text-xs text-muted-foreground">{({ done: 'Done', dropped: 'In the Bin', closed: 'Closed' } as Record<string, string>)[entry.status] ?? statusSaid(entry.status)}</span>}
+                  {/* The time spent on a task, last in its row, where the row's quiet words go. */}
+                  {entry.type === 'task' && <TaskSpent task={{ id: entry.id, estimate: tasks.find((one) => one.id === entry.id)?.estimate ?? null, status: entry.status === 'open' ? 'open' : 'done' }} time={taskTime} className="text-xs text-muted-foreground" />}
                   {glossable && <span aria-hidden className="w-6 shrink-0" />}
                 </button>
                 </RowMenu>

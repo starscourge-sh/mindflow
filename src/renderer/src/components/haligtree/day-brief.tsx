@@ -19,7 +19,7 @@ import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
-import { SessionDot, spentCounts, spentSaid, useTaskTime, type TaskTime } from './task-time'
+import { DOT_IN_MARGIN, SessionDot, TaskSpentWords, useTaskTime, type TaskTime } from './task-time'
 import { TomorrowBox } from './tomorrow-lines'
 import { frogFirst, frogOn } from '@/lib/day-plan'
 import { useMacEvents } from '@/lib/mac-calendar'
@@ -320,7 +320,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
       <NextMark className="mt-3 -mx-1 px-1 py-1 hover:bg-foreground/[0.035]" />
       {/* The day's events from your Mac's calendar, read only, in one line with the tasks that have a time. */}
       {lined && (
-        <DayTimeline events={mac.events} tasks={inLine} sessions={sessions} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} />
+        <DayTimeline events={mac.events} tasks={inLine} sessions={sessions} now={now} done={struck} pen={(task) => !!ticked[task.id]?.pen} onTick={tick} time={taskTime} />
       )}
       {/* The next event's notes from your book, a line before it. */}
       {day === dayjs(now).format('YYYY-MM-DD') && <EventNotes events={mac.events} now={now} onOpen={(type, id) => onOpen?.(type, id)} />}
@@ -392,14 +392,12 @@ function TaskRow({ task, today, first, done, pen, onTick, now, time, room = fals
     : task.dueAt && !task.allDay ? `Today at ${clock(task.dueAt)}` : 'Today, any time'
   const name = taskName(task.title)
   const text = [done ? 'Done' : first ? `First, as you picked · ${when}` : when, task.blocker && task.blockedByStatus !== 'done' ? `In the way: ${task.blockedByTitle ?? task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
-  // The time spent on it, last in its line: “so far” while it is open, its final time once done (task-time.tsx).
-  const spent = time.of(task.id)
   // The menu every task has: a focus session, done, when (tasks-view.tsx).
   return (
     <RowMenu items={() => taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: onTick, now })}>
     <li className="relative flex items-start gap-3 py-3">
       {/* A focus session running on it: the dot in the margin, as Today's rows have it. */}
-      <SessionDot id={task.id} time={time} className="absolute right-full mr-1 flex w-3 items-center justify-end top-3 h-6" />
+      <SessionDot id={task.id} time={time} className={`${DOT_IN_MARGIN} top-3 h-6`} />
       <Tip label={done ? 'Not done after all' : 'Done'}>
         <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={onTick}
           className="relative mt-[0.1875rem] grid size-[1.125rem] shrink-0 place-items-center rounded-full before:absolute before:-inset-1.5 before:content-[''] border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
@@ -422,7 +420,7 @@ function TaskRow({ task, today, first, done, pen, onTick, now, time, room = fals
         </span>
         <Tags tags={name.tags} />
         </span>
-        <span data-task-meta className="mt-0.5 block truncate text-sm text-muted-foreground">{text}{spent && <> · <Tip label={spentCounts(spent.sessions)}><span data-task-spent={spent.minutes} className="tabular-nums">{spentSaid({ estimate: task.estimate, status: done ? 'done' : task.status }, spent.minutes)}</span></Tip></>}</span>
+        <span data-task-meta className="mt-0.5 block truncate text-sm text-muted-foreground">{text}{/* The time spent on it, last in its line: “so far” while it is open, its final time once done (task-time.tsx). */}<TaskSpentWords task={{ id: task.id, estimate: task.estimate, status: done ? 'done' : task.status }} time={time} /></span>
       </button>
     </li>
     </RowMenu>

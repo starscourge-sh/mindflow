@@ -9,6 +9,7 @@ import { useLive, haligtree, type Task } from '@/lib/haligtree'
 import { Count, Island, Tags } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
 import { PICKED_MARK, usePickMixed } from './pick-mixed'
+import { DOT_IN_ROOM, SessionDot, TaskSpent, useTaskTime } from './task-time'
 
 /**
  * A day still to come: what is planned for it, due by it, to get ready for
@@ -22,6 +23,8 @@ export function DayAhead({ day, tasks, onOpen, menuFor }: {
   menuFor: (task: Task) => RowItem[]
 }): React.JSX.Element {
   const back = useLive(haligtree.snoozedBack, [] as Back[])
+  // The time on these tasks and the session running on one (task-time.tsx).
+  const time = useTaskTime()
   const held = byDay(tasks, back).get(day)
   const [text, setText] = useState('')
   const here = useHere()
@@ -52,12 +55,16 @@ export function DayAhead({ day, tasks, onOpen, menuFor }: {
             <RowMenu key={`${title}-${row.id}`} items={() => several.menu(row) ?? [...(row.task ? menuFor(row.task) : []), ...several.rowItems(row)]}>
               <button type="button" data-pick={`${row.type}:${row.id}`} data-picked={several.picked(row) || undefined}
                 onClick={(event) => several.click(event, row) || onOpen?.(row.type, row.id)}
-                className={`flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50 ${PICKED_MARK}`}>
+                className={`relative flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-accent/50 ${PICKED_MARK}`}>
+                {/* A focus session running on it: the dot before its mark, in the room the row's own edge gives. */}
+                {row.task && <SessionDot id={row.id} time={time} className={`${DOT_IN_ROOM} w-4`} />}
                 {row.type === 'task' ? <ListTodo className="size-4 shrink-0" /> : <Inbox className="size-4 shrink-0" />}
                 <span className="flex min-w-0 flex-1 items-center gap-1.5">
                   <span className="truncate">{itemName(row.type, row.title).text || 'New note'}</span>
                   <Tags tags={itemName(row.type, row.title).tags} />
                 </span>
+                {/* The time already spent on it, last in its row. */}
+                {row.task && <TaskSpent task={row.task} time={time} className="text-xs text-muted-foreground" />}
               </button>
             </RowMenu>
           ))}

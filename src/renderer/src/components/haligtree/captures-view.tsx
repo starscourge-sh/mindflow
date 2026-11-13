@@ -87,6 +87,7 @@ import { Signed } from './signature'
 import { SessionFooter } from './session-footer'
 import { keepTitle, useHere, usePane } from '@/lib/split'
 import { ShowAgain, TaskDetail, completeTask, useTaskNow } from './tasks-view'
+import { useTaskTime } from './task-time'
 import { MadeChip, MadeCue, SnoozedChip, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
 import { ArchiveRestore, CloudSun, Download, Eye, EyeOff, FileText, Tag as Hash, Laptop, Orbit, Bookmark as Pin, Timer, Trash2, X } from '@/components/ui/icons'
 import { menuOpen } from '@/lib/menu-keys'
@@ -200,6 +201,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const kinds = view.filter.kind ?? []
   const arranged: [string, Row[]][] = everything && listed.length > 0 && listed.some((one) => one.task) && listed.every((one) => one.task || one.kind === 'todo') && view.sort !== 'manual' ? taskGroups(listed) : sorted
   const now = useTaskNow()
+  // The time on the tasks among these and the session running on one (task-time.tsx).
+  const taskTime = useTaskTime()
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -496,7 +499,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const withCue = (cue: React.ReactNode, rest: React.ReactNode): React.ReactNode => <>{cue}{rest ? <> · {rest}</> : null}</>
   const entryOf = everything ? (one: Row): ReturnType<typeof taskEntry> | undefined => {
     if (one.task) {
-      const entry = taskEntry(one.task, { open: () => pick(one.id), now })
+      const entry = taskEntry(one.task, { open: () => pick(one.id), now, time: taskTime })
       const from = (sources.from.get(one.id) ?? []).filter((id) => all.some((capture) => capture.id === id))
       return from.length ? { ...entry, sub: withCue(<MadeCue way="from" said={fromSaid(from.length)} kin={from.map((id) => ({ id, title: titleOf(id) }))} onOpen={pick} />, entry.sub) } : entry
     }

@@ -16,6 +16,7 @@ import { Check } from '@/components/ui/icons'
 import { SessionRow } from './session-span'
 import type { SpanSession } from '@/lib/haligtree'
 import { num } from '../../../../main/dates'
+import { DOT_IN_MARGIN, SessionDot, TaskSpentWords, type TaskTime } from './task-time'
 
 const RED = 'var(--tt-color-text-red)'
 
@@ -25,7 +26,9 @@ const RED = 'var(--tt-color-text-red)'
  * colour and is read only; a task has its round tick. Tasks with no time stay
  * in the to-dos below.
  */
-export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTick }: {
+export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTick, time }: {
+  /** The time on the day's tasks and the session running on one, read once by the brief this line is part of (task-time.tsx). */
+  time: TaskTime
   events: MacEvent[]
   /** Today's focus sessions, running or done: blocks in the line at the time they began. */
   sessions?: SpanSession[]
@@ -67,7 +70,9 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
             const name = taskName(task.title)
             return (
               <RowMenu key={`t:${task.id}`} items={() => taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: () => onTick(task), now: taskNow })}>
-                <li data-line-task={task.id} className="flex items-start gap-3 py-1.5">
+                <li data-line-task={task.id} className="relative flex items-start gap-3 py-1.5">
+                  {/* A focus session running on it: the dot in the page's margin, where the list of the day's tasks has it. */}
+                  <SessionDot id={task.id} time={time} className={`${DOT_IN_MARGIN} top-1.5 h-6`} />
                   <span className={`${TIME_COLUMN} shrink-0 pt-px text-right text-sm text-muted-foreground tabular-nums`}>{clock(task.dueAt!)}</span>
                   <Tip label={ticked ? 'Not done after all' : 'Done'}>
                     <button type="button" data-task-tick role="checkbox" aria-checked={ticked} aria-label={task.title} onClick={() => onTick(task)}
@@ -84,7 +89,8 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
                       </span>
                       <Tags tags={name.tags} />
                     </span>
-                    <span className="mt-0.5 block truncate text-sm text-muted-foreground">{ticked ? 'Done' : task.estimate ? `A task, about ${lengthSaid(task.estimate)}` : 'A task'}</span>
+                    {/* Its length is said in the line already, so the time spent reads “so far”, and “of focus” once it is done. */}
+                    <span data-task-meta className="mt-0.5 block truncate text-sm text-muted-foreground">{ticked ? 'Done' : task.estimate ? `A task, about ${lengthSaid(task.estimate)}` : 'A task'}<TaskSpentWords task={{ id: task.id, estimate: null, status: ticked ? 'done' : task.status }} time={time} /></span>
                   </button>
                 </li>
               </RowMenu>

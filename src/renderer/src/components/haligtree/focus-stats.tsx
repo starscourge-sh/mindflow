@@ -11,7 +11,7 @@ import { Chips } from './display'
 import { Island, Rolling, Tags, Tip } from './ui'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
-import { useTaskTime } from './task-time'
+import { DOT_IN_MARGIN, SessionDot, useTaskTime } from './task-time'
 import { taskName } from '@/lib/tasks'
 import type { Task } from '@/lib/haligtree'
 import { N, Section } from './stats-view'
@@ -185,6 +185,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
   // Where the focus went: each task opens, and right-clicks with its own menu, as in every list.
   const tasks = useLive(haligtree.tasks, [] as Task[])
   const taskNow = useTaskNow()
+  // The session running on a task, for its dot in the lists of tasks here (each row says its own time already).
+  const taskTime = useTaskTime()
   const focus = example ? exampleFocus() : real
   // Stats is drawn once every section's read is in (lib/reads-in.tsx), never a section popping in between two others.
   useReading(!focus || unloaded(tasks))
@@ -279,7 +281,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
               const task = tasks.find((t) => t.id === one.taskId)
               return (
               <RowMenu key={one.taskId} items={example || !task ? [] : taskMenu(task, { open: () => openTask(task.id), now: taskNow })}>
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+              <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+                <SessionDot id={one.taskId} time={taskTime} className={`${DOT_IN_MARGIN} top-0 h-6`} />
                 <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
                   <span dir="auto" className="truncate">{taskName(one.title).text}</span>
                   <Tags tags={taskName(one.title).tags} />
@@ -305,7 +308,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
             {/* One bar a task, the average a line down them all; a task whose sessions got longer says so in words beside it. */}
             <div data-task-times className="relative space-y-2.5">
               {focus.taskTimes.tasks.map((one) => (
-                <div key={one.taskId} data-task-time={one.taskId} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+                <div key={one.taskId} data-task-time={one.taskId} className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 text-sm">
+                  <SessionDot id={one.taskId} time={taskTime} className={`${DOT_IN_MARGIN} top-0 h-6`} />
                   <button type="button" disabled={example} onClick={() => openTask(one.taskId)} className="flex min-h-6 min-w-0 items-center gap-1.5 text-left text-foreground hover:underline decoration-foreground/30 underline-offset-2 disabled:no-underline">
                     <span dir="auto" className="truncate">{taskName(one.title).text}</span>
                   </button>

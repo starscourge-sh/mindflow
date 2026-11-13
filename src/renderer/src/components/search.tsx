@@ -33,6 +33,7 @@ import { Tip } from '@/components/haligtree/ui'
 import { useLive, haligtree, whenInLine, type Pin, type Task, type TaskFull } from '@/lib/haligtree'
 import { RowMenu, type RowItem } from './haligtree/row-menu'
 import { taskMenu, useTaskNow } from './haligtree/tasks-view'
+import { DOT_IN_LINE, SessionDot, spentSaid, useTaskTime } from './haligtree/task-time'
 import { sideMenu, useFullMenu } from './haligtree/side-menu'
 import { recentlyOpened } from '@/lib/open-today'
 import { PriorityMark } from './haligtree/task-input'
@@ -212,6 +213,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const pins = useLive(haligtree.pins, [] as Pin[])
   const fullMenu = useFullMenu()
   const taskNow = useTaskNow()
+  // The session running on a task, for its dot among a task row's marks (task-time.tsx).
+  const taskTime = useTaskTime()
   const menuOf = (one: Capture): RowItem[] => {
     const task = one.type === 'task' ? tasks.find((each) => each.id === one.id) : null
     // An event found: its own menu is on the Calendar; here it opens.
@@ -409,6 +412,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                       <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                       <span {...(shown || capture.type === 'pdf' || capture.type === 'web' || capture.type === 'media' || capture.type === 'work' ? {} : hoverNote(capture.type, capture.id, { kind: capture.kind }))} {...(capture.type === 'pdf' ? { 'data-pdf-peek': capture.id.split('|')[0], 'data-pdf-peek-name': capture.id.split('|').slice(1).join('|') } : {})} data-row-title className="min-w-0 truncate leading-5">{/* A task's or an Inbox note's #tags as tags, never in its name: so it reads as it does on its own list. */}{(capture.type === 'day' ? dayName(capture.id) : taskName(capture.label ?? '').text) || 'New note'}</span>
                       {/* After the words, so a task's title starts where a note's does. */}
+                      {/* In a focus session: the dot, first of the marks after its words. Its time is in its preview beside the list. */}
+                      {capture.type === 'task' && <SessionDot id={capture.id} time={taskTime} className={DOT_IN_LINE} />}
                       {capture.type === 'task' && !!tasks.find((one) => one.id === capture.id)?.priority && <PriorityMark level={tasks.find((one) => one.id === capture.id)!.priority} />}
                       {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
                       {capture.type === 'task' && <TaskDay task={tasks.find((one) => one.id === capture.id)} />}
@@ -835,25 +840,29 @@ function NotePreview({ capture }: { capture: Capture }): React.JSX.Element | nul
  */
 function TaskPreview({ id }: { id: string }): React.JSX.Element | null {
   const [task, setTask] = useState<TaskFull | null>(null)
+  const time = useTaskTime()
   useEffect(() => {
     let old = false
     void haligtree.task(id).then((found) => !old && setTask(found))
     return () => void (old = true)
   }, [id])
+  // The time spent on it, last of its facts: the row itself is one line with no room for it.
+  const spent = time.of(id)
   if (!task) return null
   const later = bucket(task)
   const facts = [
     task.dueAt ? `Scheduled ${whenInLine(task.dueAt, !!task.allDay)}` : later ? BUCKETS[later] : 'No date',
     task.deadline && `Due by ${whenInLine(task.deadline, !task.deadlineTimed)}`,
     task.priority ? PRIORITY_NAMES[task.priority] : null,
-    task.status !== 'open' && (task.status === 'done' ? 'Done' : 'Dropped')
+    task.status !== 'open' && (task.status === 'done' ? 'Done' : 'Dropped'),
+    spent && spentSaid(task, spent.minutes)
   ].filter(Boolean)
   const notes = /"text":|"src":/.test(JSON.stringify(task.notes ?? null))
   return (
     <div key={task.id} className="flex flex-col gap-3 p-4 text-body">
       <div>
         <p className="flex items-center gap-2 text-base font-medium text-foreground"><span className="min-w-0">{taskName(task.title).text || 'Untitled task'}</span><Tags tags={taskName(task.title).tags} go={false} /></p>
-        <p className="mt-1 text-muted-foreground">{facts.join(' · ')}</p>
+        <p data-task-facts className="mt-1 text-muted-foreground">{facts.join(' · ')}</p>
       </div>
       {task.subtasks.length > 0 && (
         <ul className="flex flex-col gap-1">
