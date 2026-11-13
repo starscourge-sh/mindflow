@@ -280,6 +280,9 @@ try {
     check('the card folds into its pill with a −, said to keep the goal, never a × that reads as deleting it', await stack.evaluate(() => { const b = document.querySelector('button[aria-label="Fold it into its pill"]'); return !!b && !b.querySelector('[class*=x-icon], .lucide-x') }))
     check('each answer is whole on one line, never broken inside', lines.length === 4 && lines.every(([, n]) => n === 1), JSON.stringify(lines))
     await stack.screenshot({ path: `${SHOT}/beacon-ask-light.png` })
+    // A goal's card that comes out by itself is a pill at the screen's edge: a click on the pill pins it open, and the
+    // question is answered on the card.
+    if (await stack.$('[data-desk-pill]')) (await stack.click('[data-desk-pill]'), await stack.waitForTimeout(900))
     await stack.click('button:has-text("Made it")')
     await stack.waitForTimeout(500)
     const thanks = await stack.$eval('[data-beacon-said]', (one) => one.textContent).catch(() => '')

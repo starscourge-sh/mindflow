@@ -464,7 +464,9 @@ try {
     }, pick)
     const pillLook = await look(pillPage, '[data-desk-pill]')
     const bubbleLook = await look(bubble, 'button, div')
-    check('the pill wears the session bubble\'s fill and edge, its words the same size', !!pillLook && !!bubbleLook && pillLook.fill === bubbleLook.fill && pillLook.edge === bubbleLook.edge && pillLook.size === '13px', JSON.stringify({ pillLook, bubbleLook }))
+    // The same fill and words as the bubble, round at both ends as it is; its 1px ring is the floating material's
+    // (DESIGN.md, Float: a ring of ink at 10%), which the bubble's island leaves to its lift.
+    check('the pill wears the session bubble\'s fill, its words the same size, round at both ends', !!pillLook && !!bubbleLook && pillLook.fill === bubbleLook.fill && pillLook.size === bubbleLook.size && parseFloat(pillLook.radius) >= 14 && parseFloat(bubbleLook.radius) >= 14, JSON.stringify({ pillLook, bubbleLook }))
     // A notice: a note taken down from its pill's own menu, said in the main window with "Put it back".
     const note = stackNow().find((one) => one.key.startsWith('capture:'))
     const notePage = note && pageOf(note.url)
