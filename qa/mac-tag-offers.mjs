@@ -1,6 +1,6 @@
 // Tags from your own notes (every Mac): a note is offered the tags the notes most like it carry, on the one quiet
 // offer line under it (note-offers.tsx), driven as a person to its outcome.
-//   Three notes on sourdough carry #baking; a new one, untagged, is offered “Tag it #baking?”.
+//   Four notes on sourdough carry #baking; a new one, untagged, is offered “Tag it #baking?”.
 //   “Add the tag” writes #baking into its words where the strip's “+” would, says “Tagged #baking”, and ⌘Z takes it back.
 //   Never offered: a tag the note has, a tag only private or #bit notes carry, a tag one note in the book carries.
 //   × puts it away for good; Settings' “Offers from your notes” off, none is offered.
@@ -44,12 +44,15 @@ try {
     'Feed the sourdough starter twice a day; the starter is ready when it doubles and smells sour. #baking',
     'A wet sourdough dough opens a big crumb: fold the dough every half hour while the starter works. #baking #crumbshot',
     'Score the sourdough loaf with a razor and bake the dough in a lidded pot; a lively starter makes it rise. #baking',
+    'An overproofed sourdough dough spreads flat in the pot: the starter was past its peak and the loaf baked dense. #baking',
   ]) await make(text)
-  for (const text of ['Sourdough starter diary: the starter doubled, the dough rose, the loaf was good. #starterdiary', 'Sourdough starter diary again: fed the starter, folded the dough twice. #starterdiary']) {
+  // Three private notes and three #bit notes, each on a subject of their own: were they read, a note on that
+  // subject would be offered their tag (three of three nearest carry it).
+  for (const text of ['Kombucha brew: the scoby floated and the tea turned sour in the jar. #brewlog', 'Kombucha again: a new scoby, sweet tea, two weeks in the jar. #brewlog', 'Kombucha batch three: the scoby sank, the brew fizzed in the jar. #brewlog']) {
     const id = await make(text)
     await v('private', 'captures', id, true)
   }
-  for (const text of ['Sourdough starter bits: the dough and the loaf and the starter. #bit #ovenlog', 'More sourdough bits: starter, dough, loaf, crumb. #bit #ovenlog']) await make(text)
+  for (const text of ['Kimchi: salted cabbage, chilli paste and brine packed in the crock. #bit #picklejar', 'Kimchi again: cabbage and radish in brine, chilli, a week in the crock. #bit #picklejar', 'Kimchi batch: the cabbage softened in the brine and the crock smelled of chilli. #bit #picklejar']) await make(text)
 
   // A new note, untagged, on the same subject.
   const note = await make('My sourdough starter doubled overnight, so I folded the dough and baked the loaf in the lidded pot.')
@@ -60,11 +63,13 @@ try {
   console.log(`first offer after ${Date.now() - asked} ms`)
   check('a new note on sourdough is offered the tag its nearest notes carry: “Tag it #baking?”', one?.kind === 'tag' && /Tag it #baking\?/.test(one.text) && /notes most like it carry it/.test(one.text), JSON.stringify(one))
   check('one offer at a time', (await h.evaluate(() => document.querySelectorAll('[data-note-offer]').length)) === 1)
-  const said = await v('offers:note', note, 'My sourdough starter doubled overnight, so I folded the dough and baked the loaf in the lidded pot.', [], 'probe')
-  const offered = (said?.tags ?? []).map((one) => one.tag)
-  check('never a tag one note in the book carries (#crumbshot)', !offered.includes('crumbshot'), JSON.stringify(offered))
-  check('never a tag only private notes carry (#starterdiary)', !offered.includes('starterdiary'), JSON.stringify(offered))
-  check('never a tag of #bit notes (#ovenlog), nor #bit itself', !offered.includes('ovenlog') && !offered.includes('bit'), JSON.stringify(offered))
+  const tagsFor = async (text) => ((await v('offers:note', note, text, [], 'probe'))?.tags ?? []).map((one) => one.tag)
+  const offered = await tagsFor('My sourdough starter doubled overnight, so I folded the dough and baked the loaf in the lidded pot.')
+  check('never a tag one note in the book carries (#crumbshot)', offered.includes('baking') && !offered.includes('crumbshot'), JSON.stringify(offered))
+  const brewing = await tagsFor('Kombucha: the scoby floated, the sweet tea turned sour in the jar after two weeks.')
+  check('never a tag only private notes carry (#brewlog), on their very subject', !brewing.includes('brewlog'), JSON.stringify(brewing))
+  const pickling = await tagsFor('Kimchi: cabbage and radish in brine with chilli paste, packed in the crock for a week.')
+  check('never a tag of #bit notes (#picklejar), nor #bit itself, on their very subject', !pickling.includes('picklejar') && !pickling.includes('bit'), JSON.stringify(pickling))
   if (SHOT) await c.both(`${SHOT}/tag-offer`)
   await film('tag-offer-rest', 4)
 

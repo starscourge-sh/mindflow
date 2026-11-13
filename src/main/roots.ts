@@ -209,10 +209,12 @@ export function cluesFor(index: RootIndex, text: string, lemmas: Lemmas | undefi
 
 /**
  * "Tags from your own notes": of the `of` notes most like it, those at least `score` alike are its nearest; a tag
- * is offered when `carry` of them or more carry it, and that is at least `share` of them. On the bench, 0.15 alike
- * let in wrong ones (94%); 0.2 to 0.3 were all right, so it sits in the middle.
+ * is offered when `carry` of them or more carry it, and that is at least `share` of them. Every setting near this
+ * one was right every time on the bench; on a copy of a real book of 648 notes, each tagged note read without its
+ * tags (any tag it did not have counted wrong), this one was right 88% of the time and gave a quarter of them one
+ * of their own tags back, the most of any setting right more than 85%. Two of five alike at 0.25 was right 80%.
  */
-export const TAG_NEAR = { of: 5, score: 0.25, carry: 2, share: 0.5 }
+export const TAG_NEAR = { of: 8, score: 0.15, carry: 3, share: 0.6 }
 
 /**
  * The tags the notes most like these words carry, likeliest first, each with how many of them carry it (`notes`)
