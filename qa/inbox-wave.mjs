@@ -215,19 +215,31 @@ try {
     await wait(1500)
     const graph = await page.evaluate(() => ({ on: document.querySelector('[data-inbox-graph]')?.getAttribute('data-inbox-graph'), canvas: !!document.querySelector('[data-inbox-graph] canvas'), said: document.querySelector('[data-inbox-graph-said]')?.textContent ?? '', rows: document.querySelectorAll('[data-row]').length }))
     check('the box shows captures clustered by shared tags', graph.on === 'captures' && graph.canvas && /captures?/.test(graph.said), JSON.stringify(graph))
-    // A cluster clicked lists its notes: clicked where the dots are drawn, found by scanning the canvas.
+    // A cluster's tag clicked lists its notes (a capture clicked opens it): clicked where a tag's dot is drawn, as the
+    // canvas reports it; a build that does not say where it draws a dot is scanned for one that lights as a #tag.
     const box = await page.locator('[data-inbox-graph] canvas').boundingBox()
     let listed = 0
+    const tagAt = await page.evaluate(() => {
+      const canvas = document.querySelector('[data-inbox-graph] canvas'), at = canvas.getBoundingClientRect()
+      const one = canvas.mapDots?.().find((dot) => String(dot.title).startsWith('#') && dot.screen)
+      return one ? [at.x + one.screen[0], at.y + one.screen[1]] : null
+    })
+    if (tagAt) {
+      await page.mouse.click(tagAt[0], tagAt[1])
+      await wait(500)
+      listed = await page.evaluate(() => document.querySelectorAll('[data-inbox-cluster] [data-cluster-row]').length)
+    }
     for (let y = 0.2; y <= 0.8 && !listed; y += 0.05)
       for (let x = 0.2; x <= 0.8 && !listed; x += 0.05) {
         await page.mouse.move(box.x + box.width * x, box.y + box.height * y)
-        if (await page.evaluate(() => getComputedStyle(document.querySelector('[data-inbox-graph] canvas')).cursor === 'pointer')) {
+        if (await page.evaluate(() => getComputedStyle(document.querySelector('[data-inbox-graph] canvas')).cursor === 'pointer') &&
+          await page.waitForFunction(() => document.querySelector('[data-inbox-graph] canvas')?.dataset.lit?.startsWith('#'), null, { timeout: 600 }).then(() => true, () => false)) {
           await page.mouse.click(box.x + box.width * x, box.y + box.height * y)
           await wait(500)
           listed = await page.evaluate(() => document.querySelectorAll('[data-inbox-cluster] [data-cluster-row]').length)
         }
       }
-    check('clicking a cluster lists its notes', listed >= 2, `${listed} listed`)
+    check('clicking a cluster\'s tag lists its notes', listed >= 2, `${listed} listed`)
     await shot('graph-cluster')
     await shot('graph-captures')
     await page.locator('[data-inbox-graph] button[aria-label="Tags"]').click()
