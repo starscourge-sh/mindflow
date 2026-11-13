@@ -27,12 +27,30 @@ const { h, electron, send } = c
 // React's own door for tools (the one React DevTools uses): each commit counted, from the page's first frame. Set
 // before the page is read again, once it has settled (a reload in its first moments can take the renderer down).
 await electron.context().addInitScript(() => {
-  const rec = (window.__renders = { on: false, commits: 0 })
+  // drawn: components that did work; onPage: those of them that draw something on the page (a component that
+  // draws nothing, such as the beam while it has nothing to show, changes nothing a person sees).
+  const rec = (window.__renders = { on: false, commits: 0, drawn: 0, onPage: 0, names: {} })
+  // Which components drew in a commit, found as React DevTools finds them: only down the parts of the tree that
+  // changed (a part left as it was keeps its children), each one that did work named, with the element it draws.
+  const host = (fiber) => { for (let at = fiber; at; at = at.child) if (at.stateNode instanceof Element) return at.stateNode; return null }
+  const say = (el) => (el ? `${el.nodeName.toLowerCase()}${el.dataset && Object.keys(el.dataset).length ? `[${Object.keys(el.dataset).slice(0, 2).join(',')}]` : ''}${typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}` : '-')
+  const visit = (first) => {
+    for (let fiber = first; fiber; fiber = fiber.sibling) {
+      if (typeof fiber.type === 'function' && fiber.flags & 1) {
+        rec.drawn++
+        const el = host(fiber)
+        if (el) rec.onPage++
+        const name = `${fiber.type.displayName || fiber.type.name || '?'} ${say(el)}`
+        rec.names[name] = (rec.names[name] ?? 0) + 1
+      }
+      if (!fiber.alternate || fiber.child !== fiber.alternate.child) visit(fiber.child)
+    }
+  }
   window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
     renderers: new Map(), supportsFiber: true, isDisabled: false,
     inject(renderer) { this.renderers.set(this.renderers.size + 1, renderer); return this.renderers.size },
     onScheduleFiberRoot() {}, onCommitFiberUnmount() {}, onPostCommitFiberRoot() {}, checkDCE() {}, setStrictMode() {},
-    onCommitFiberRoot() { if (rec.on) rec.commits++ }
+    onCommitFiberRoot(_id, root) { if (!rec.on) return; rec.commits++; visit(root.current.child) }
   }
 })
 await h.waitForTimeout(1500)
@@ -40,6 +58,8 @@ await h.reload()
 await h.waitForLoadState('domcontentloaded')
 await h.waitForFunction(() => !!document.querySelector('[data-page]'), null, { timeout: 90000, polling: 200 })
 await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
+// Set behind the page's back, as no person does: the page is told once (a return reads it), before anything is measured.
+await h.evaluate(() => window.dispatchEvent(new Event('focus')))
 
 // The page's own record: every frame's length (a frame loop), the long frames the browser saw with the script that
 // took most of each, and how many things on the page changed (nodes in and out, attributes, words).
@@ -63,8 +83,7 @@ await h.evaluate(() => {
     seen: (state) => { forced = state; document.dispatchEvent(new Event('visibilitychange')) },
     start: () => {
       rec = { from: performance.now(), frames: [], changes: 0, where: new Map(), on: true }
-      window.__renders.commits = 0
-      window.__renders.on = true
+      Object.assign(window.__renders, { commits: 0, drawn: 0, onPage: 0, names: {}, on: true })
       let last = performance.now()
       const loop = (t) => { if (!rec?.on) return; rec.frames.push(t - last); last = t; requestAnimationFrame(loop) }
       requestAnimationFrame(loop)
@@ -88,7 +107,8 @@ await h.evaluate(() => {
         worst: Math.round(Math.max(0, ...frames)), over50: frames.filter((ms) => ms > 50).length, frames: frames.length,
         long: long.filter((one) => one.at >= rec.from).map((one) => `${one.ms} ms: ${one.what}`),
         changes: rec.changes, where: [...rec.where].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([key, n]) => `${n} ${key}`),
-        commits: window.__renders.commits
+        commits: window.__renders.commits, drawn: window.__renders.drawn, onPage: window.__renders.onPage,
+        names: Object.entries(window.__renders.names).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, n]) => `${n} ${name}`)
       }
     }
   }
@@ -136,13 +156,19 @@ async function comeBack(where, name, way, gone = 1500) {
   const held = after.slow.filter((one) => !before.slow.some((old) => old.at === one.at && old.name === one.name))
   const heldMost = Math.max(0, ...held.map((one) => one.ms))
   console.log(`\n${where}, ${name}${gone > 2000 ? ` (${Math.round(gone / 1000)} s away)` : ''}  [${load()}]`)
-  console.log(`  the window: worst frame ${seenThere.worst} ms, ${seenThere.over50} of ${seenThere.frames} frames over 50 ms; ${seenThere.commits} React commits; ${seenThere.changes} changes on the page${seenThere.where.length ? `: ${seenThere.where.join(', ')}` : ''}`)
+  console.log(`  the window: worst frame ${seenThere.worst} ms, ${seenThere.over50} of ${seenThere.frames} frames over 50 ms; ${seenThere.commits} React commits, ${seenThere.drawn} components drawn again (${seenThere.onPage} of them drawing on the page)${seenThere.names.length ? ` (${seenThere.names.join(', ')})` : ''}; ${seenThere.changes} changes on the page${seenThere.where.length ? `: ${seenThere.where.join(', ')}` : ''}`)
   if (seenThere.long.length) console.log(`  long frames: ${seenThere.long.join(' | ')}`)
   console.log(`  main: asked ${ran.reduce((sum, row) => sum + row.calls, 0)} times, ${ran.reduce((sum, row) => sum + row.ms, 0)} ms in all, held its thread ${heldMost} ms at most; event loop worst ${after.delay.worst} ms`)
   console.log(`    ${ran.slice(0, 10).map((row) => `${row.name} x${row.calls} ${row.ms} ms`).join(' · ') || 'nothing'}`)
   check(`${where}, ${name}: no frame over 100 ms`, seenThere.worst <= 100, `worst ${seenThere.worst} ms  [${load()}]`)
   check(`${where}, ${name}: main's thread never held 100 ms`, heldMost < 100, held.map((one) => `${one.name} ${one.ms} ms`).join(', ') || 'none')
-  return { worst: seenThere.worst, held: heldMost, commits: seenThere.commits, changes: seenThere.changes, asks: ran.reduce((sum, row) => sum + row.calls, 0) }
+  // Nothing changed while away: nothing is drawn again, and main is asked nothing whose answer could not have moved
+  // (the kept files and a note's links are told by the change message a window gets on its return; the welcome's
+  // state is one read for the window, never one per page).
+  check(`${where}, ${name}: nothing on the page drawn again`, seenThere.onPage === 0, `${seenThere.onPage} of ${seenThere.drawn} components drawn again draw on the page, in ${seenThere.commits} commits${seenThere.names.length ? `: ${seenThere.names.join(', ')}` : ''}`)
+  const needless = ran.filter((row) => /media:kept|lineage|mentions/.test(row.name) || (/onboarding:state/.test(row.name) && row.calls > 1))
+  check(`${where}, ${name}: main asked nothing that could not have changed`, needless.length === 0, needless.map((row) => `${row.name} x${row.calls} ${row.ms} ms`).join(', ') || 'none')
+  return { worst: seenThere.worst, held: heldMost, commits: seenThere.commits, drawn: seenThere.drawn, onPage: seenThere.onPage, changes: seenThere.changes, asks: ran.reduce((sum, row) => sum + row.calls, 0) }
 }
 
 const same = {}

@@ -230,14 +230,16 @@ try {
       return null
     }, [share === 1, inside])
     if (!at) { console.log(`(${name}: no such bare place on the screen)`); return 'no such place' }
+    const screenBefore = await h.evaluate(() => Math.round(window.__ends.box().scrollTop))
     await h.mouse.click(at.x, at.y)
     await wait(500)
     const now = await h.evaluate(() => window.__ends.where())
+    now.moved = (await h.evaluate(() => Math.round(window.__ends.box().scrollTop))) - screenBefore
     const said = `${now.keys}, caret in block ${now.block === now.blocks - 1 ? 'last' : now.block}`
     console.log(`(${name}, ${at.from}px ${share === 1 ? 'under the last block' : 'over the first'}, on ${at.under}: the keys ${said}; the browser's selection in a kept place: ${now.inMark})`)
     if (now.keys === 'in the note') check(`${name}: taken by the note, the caret is in the note`, !now.inMark && now.inNote, JSON.stringify(now))
     // Under the last line, in the note's box or the bare scroller below it: the keys in the note, the caret at its end.
-    if (share === 1) check(`${name}: the caret is at the note's end`, now.keys === 'in the note' && now.atEnd, `the keys ${now.keys}, caret in block ${now.block} of ${now.blocks}${now.atEnd ? ', at its end' : `, at ${now.head} of ${now.size}`}`)
+    if (share === 1) check(`${name}: the caret is at the note's end and the note did not move`, now.keys === 'in the note' && now.atEnd && now.moved === 0, `the keys ${now.keys}, caret in block ${now.block} of ${now.blocks}${now.atEnd ? ', at its end' : `, at ${now.head} of ${now.size}`}; the note moved ${now.moved}px`)
     return said
   }
   same.pressUnderInNote = await press(1, true, 'a press under the last line, in the note\'s own box')
