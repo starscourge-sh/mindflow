@@ -20,10 +20,15 @@ try {
   check('Library hangs on a trunk, a twig per row', twigs >= 4, String(twigs))
   // Drag Library's heading down past Pinned.
   const lib = await h.locator('[data-side-section-handle="library"]').boundingBox()
-  const pin = await h.locator('[data-side-section="pinned"]').first().boundingBox()
   await h.mouse.move(lib.x + 30, lib.y + lib.height / 2); await h.mouse.down()
-  for (let i = 1; i <= 14; i++) { await h.mouse.move(lib.x + 30, lib.y + lib.height / 2 + ((pin.y + pin.height + 4 - lib.y - lib.height / 2) * i) / 14); await wait(30) }
-  check('carried, a line shows where it lands', (await h.locator('[data-side-section-line]').count()) === 1)
+  // Lifted, an open section folds to its heading in the hand, as a group does (13 Nov), and the sections under it come
+  // up: Pinned is read where it then stands, as a person sees it, and the pointer goes just past it.
+  await h.mouse.move(lib.x + 30, lib.y + lib.height / 2 + 10, { steps: 3 }); await wait(250)
+  const pin = await h.locator('[data-side-section="pinned"]').first().boundingBox()
+  for (let i = 1; i <= 14; i++) { await h.mouse.move(lib.x + 30, lib.y + lib.height / 2 + 10 + ((pin.y + pin.height + 4 - lib.y - lib.height / 2 - 10) * i) / 14); await wait(30) }
+  await wait(300)
+  // The one line every list draws (carry.tsx), through the room the sections open.
+  check('carried, a line shows where it lands', (await h.locator('[data-drop-line]').count()) === 1 && (await h.locator('[data-drop-room]').count()) === 1)
   check('carried, a lifted card named Library follows the pointer', /Library/.test((await h.locator('[data-section-card]').textContent().catch(() => '')) ?? ''))
   check('carried, the hover light stands still (the drag flag is up)', await h.evaluate(() => document.documentElement.hasAttribute('data-dragging')))
   if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/side-drag.png`, clip: { x: 0, y: 0, width: 260, height: 1300 } })
