@@ -1712,8 +1712,8 @@ function takeDownSticky(win: BrowserWindow | null, title: string): void {
   const [type, ...rest] = key.split(':')
   const id = rest.join(':')
   // Taken down as a pill (or a card open out of one), it is kept as that pill, with its card's own place.
-  const rest = peeking.get(key) ?? openedAt.get(key)
-  takenDown = { type, id, bounds: rest ? cardOf(rest, insetOf(key)) : cardFrame(key, win), tint: stuckAs(key)?.tint, asked: stuckAs(key)?.asked, pill: stuckAs(key)?.pill, title, until: Date.now() + TAKEN_FOR }
+  const ownPlace = peeking.get(key) ?? openedAt.get(key)
+  takenDown = { type, id, bounds: ownPlace ? cardOf(ownPlace, insetOf(key)) : cardFrame(key, win), tint: stuckAs(key)?.tint, asked: stuckAs(key)?.asked, pill: stuckAs(key)?.pill, title, until: Date.now() + TAKEN_FOR }
   // A goal's card that its goal's “Goal on screen” put up stays down once taken down: the goal's setting goes to off,
   // so its page says what is true (“The menu bar and Home still show it”). Left as it was, the next look at the
   // goals put the card straight back (beacons: as a goal changes, and every half minute), seen as “Take it down”
