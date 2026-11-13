@@ -11,7 +11,9 @@ export async function pictureWatch(page, rows, ms = 1500) {
     const seen = {}
     let frames = 0
     const from = performance.now()
-    const keyOf = (row) => row.dataset.id ?? row.closest('[data-id]')?.dataset.id ?? row.getAttribute('aria-label') ?? row.textContent.trim().slice(0, 40)
+    // A row by its note (a list's row, a board's card, a tag's entry), or by its words (a grid's tile).
+    const keyOf = (row) => row.dataset.id ?? row.dataset.sortableId ?? row.querySelector('[data-pick]')?.dataset.pick ?? row.closest('[data-id]')?.dataset.id ?? row.getAttribute('aria-label') ?? row.textContent.trim().slice(0, 40)
+    window.__pictureRows = { rows, keyOf }
     const fading = (el, top) => {
       for (let at = el; at && at !== top.parentElement; at = at.parentElement)
         if (at.getAnimations().some((one) => one.playState === 'running' && JSON.stringify(one.effect?.getKeyframes?.() ?? []).includes('opacity'))) return true
@@ -53,8 +55,9 @@ export async function pictureVerdict(page) {
     const { seen, frames } = window.__pictureSeen
     const late = []
     let pictured = 0
+    const { rows, keyOf } = window.__pictureRows
     for (const [key, first] of Object.entries(seen)) {
-      const row = [...document.querySelectorAll('[data-id]')].find((one) => one.dataset.id === key)
+      const row = [...document.querySelectorAll(rows)].find((one) => keyOf(one) === key)
       const name = (img) => { const src = img.getAttribute('src') ?? ''; return src.startsWith('data:') ? `${src.slice(0, 24)}…${src.slice(-16)}` : src.split('/').pop() }
       const rest = row ? [...row.querySelectorAll('img')].filter((img) => img.checkVisibility({ visibilityProperty: true })).map((img) => ({ src: name(img), opacity: Number(getComputedStyle(img).opacity) })) : []
       if (!rest.length && !first.pictures.length && !first.coming) continue

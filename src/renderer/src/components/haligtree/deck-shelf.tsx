@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
 import { num, plural } from '../../../../main/dates'
-import { ask, askSure, quietly, refuse, toast } from './ui'
+import { Decoded, FIRST_PICTURES, ask, askSure, quietly, refuse, toast } from './ui'
+import { ReadsIn } from '@/lib/reads-in'
 import { EXAMPLE_TAG } from '../../../../main/name'
 import { Button } from '@/components/ui/button'
 import { Chip, Chips } from './display'
@@ -397,16 +398,19 @@ function Gallery({ deck, onOpen }: { deck: string; onOpen: (type: string, id: st
   const pictures = useLive(() => call<{ id: string; src: string; who: string | null }[]>('decks:pictures', deck), null as { id: string; src: string; who: string | null }[] | null, [deck], ['item'])
   if (unloaded(pictures)) return <div className="h-24" />
   return (
+    // Comes in whole, its first pictures drawn in its first frame (each a small copy, never a whole photo for a square).
+    <ReadsIn>
     <ul data-deck-pictures className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">
-      {(pictures ?? []).map((one) => (
+      {(pictures ?? []).map((one, at) => (
         <li key={one.id}>
           <button type="button" className="group grid w-full cursor-pointer gap-1 text-left" onClick={() => (chime('tap'), onOpen('nugget', one.id))}>
-            <img src={small(one.src, 640)} alt="" loading="lazy" decoding="async" className="aspect-square w-full rounded-md object-cover transition-opacity group-hover:opacity-90" />
+            <Decoded src={small(one.src, 640)} ahead={at < FIRST_PICTURES} className="aspect-square w-full rounded-md object-cover transition-opacity group-hover:opacity-90" />
             {one.who && <span className="truncate text-meta text-muted-foreground">{one.who}</span>}
           </button>
         </li>
       ))}
     </ul>
+    </ReadsIn>
   )
 }
 

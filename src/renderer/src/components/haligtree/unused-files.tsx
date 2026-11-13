@@ -4,7 +4,9 @@ import { haligtree } from '@/lib/haligtree'
 import { byKeys } from '@/lib/motion'
 import { Button } from '@/components/ui/button'
 import { dayMonth, num } from '../../../../main/dates'
-import { Kbd, Rolling, Typed, refuse, toast, whyFailed } from './ui'
+import { Decoded, FIRST_PICTURES, Kbd, Rolling, Typed, refuse, toast, whyFailed } from './ui'
+import { ReadsIn } from '@/lib/reads-in'
+import { small } from '@/lib/small-picture'
 import { Orb } from './orb'
 import { Check, FileText } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
@@ -124,8 +126,9 @@ export function UnusedFiles(): React.JSX.Element | null {
           {found && !Array.isArray(found) && <p className="py-4 text-center text-control text-muted-foreground">{found.error} Nothing was moved.</p>}
           {Array.isArray(found) && !found.length && <p className="py-4 text-center text-control text-muted-foreground"><Typed text="Nothing unused: every picture and file is in a note or in Files." delay={200} /></p>}
           {list.length > 0 && (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">
-              {list.map((one) => {
+            // Comes in whole, its first pictures drawn in its first frame (small copies, never a whole photo for a square).
+            <ReadsIn data-unused-grid="" className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-3">
+              {list.map((one, at) => {
                 const keep = kept.has(one.name)
                 return (
                   <button
@@ -146,7 +149,7 @@ export function UnusedFiles(): React.JSX.Element | null {
                   >
                     <span data-set-aside={keep ? '' : undefined} className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-accent/30">
                       {one.image && one.size < DRAWN && !broken.has(one.name)
-                        ? <img src={`haligtree://assets/${one.name}`} alt="" loading="lazy" decoding="async" className="size-full object-cover"
+                        ? <Decoded src={small(`haligtree://assets/${one.name}`, 640)} ahead={at < FIRST_PICTURES} className="size-full object-cover"
                             onError={() => setBroken((was) => new Set(was).add(one.name))} />
                         : <span className="flex flex-col items-center gap-1 text-muted-foreground"><FileText className="size-6" /><span className="text-meta uppercase">{one.name.split('.').pop()}</span></span>}
                       <span className={`absolute top-1.5 right-1.5 flex size-4.5 items-center justify-center rounded-full border transition-colors ${keep ? 'border-foreground/30 bg-background' : 'border-transparent bg-primary text-primary-foreground'}`}>
@@ -160,7 +163,7 @@ export function UnusedFiles(): React.JSX.Element | null {
                   </button>
                 )
               })}
-            </div>
+            </ReadsIn>
           )}
         </div>
 

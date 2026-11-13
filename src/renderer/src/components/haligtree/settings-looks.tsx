@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { useLive, haligtree, type Scene, type Settings } from '@/lib/haligtree'
 import { DRAWINGS, GRADIENTS, GrainFill, type Cover } from './grain'
-import { Rolling, Tip, refuse, stopJob, toast } from './ui'
+import { Decoded, Rolling, Tip, refuse, stopJob, toast } from './ui'
+import { ReadsIn } from '@/lib/reads-in'
 import { StopButton } from './orb'
 import { Highlight, useChosen, useFluidHover } from './glide'
 import { spring } from '@/lib/motion'
@@ -109,17 +110,17 @@ export function CoverChoice({ settings, set }: { settings: Settings; set: (patch
   )
 }
 
-/** A strip of a few of a folder's pictures, from Haligtree's small copies. */
+/** A strip of a few of a folder's pictures, from Haligtree's small copies: it comes in whole, each picture in its first frame. */
 function Strip({ scenes }: { scenes: Scene[] }): React.JSX.Element {
   return (
-    <span className="flex gap-1">
+    <ReadsIn data-scene-strip="" className="flex gap-1">
       {scenes.slice(0, 6).map((scene) => (
         <span key={scene.id} className="relative h-11 flex-1 overflow-hidden rounded-[5px]" style={{ background: scene.color }}>
-          {scene.small && <img src={scene.small} alt="" loading="lazy" decoding="async" draggable={false} className="absolute inset-0 size-full object-cover" />}
+          {scene.small && <Decoded src={scene.small} className="absolute inset-0 size-full object-cover" />}
         </span>
       ))}
       {Array.from({ length: Math.max(0, 6 - scenes.length) }, (_, n) => <span key={`gap${n}`} className="h-11 flex-1 rounded-[5px] bg-foreground/[0.05]" />)}
-    </span>
+    </ReadsIn>
   )
 }
 

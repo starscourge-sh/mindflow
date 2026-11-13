@@ -29,7 +29,7 @@ import { taskSaid, haligtree } from '@/lib/haligtree'
 import { dayMonth, num } from '../../../../main/dates'
 import { Overlay, SETTLE } from './sortable'
 import { CarriedCard, HELD, Hand, RoomIn, offWindow, titleOf } from './carry'
-import { Count, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
+import { Count, Decoded, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
 import { followLink } from '@/components/pdf/pdf-reader'
 import { ofTheWriting } from '@/lib/writing-floats'
@@ -1408,7 +1408,7 @@ function CardBox({ id, place, lane, editor, card, here, editing, disabled, onPic
         // Carried away: the place it left stays open as a faint slot in the list's colour, the size of the card.
         isDragging ? '[&>*:not([data-own-room],[data-drop-room],[data-drop-line])]:invisible' : `${CARD_FILL} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent)] ring-1 ring-foreground/[0.07] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--board-card))]`
       } ${here ? 'ring-2! ring-ring/70!' : ''}`}>
-      {cover && !editing && <img src={small(cover, 640)} alt="" draggable={false} decoding="async" data-card-cover="" className="h-20 w-full shrink-0 object-cover" />}
+      {cover && !editing && <Decoded src={small(cover, 640)} data-card-cover="" className="h-20 w-full shrink-0 object-cover" />}
       <div className="flex min-w-0 items-start gap-2 px-2.5 py-2">
         {task && (
           <button type="button" role="checkbox" aria-checked={checked} aria-label={checked ? 'Not done' : 'Done'} onClick={(event) => (event.stopPropagation(), onTick())}

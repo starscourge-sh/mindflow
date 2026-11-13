@@ -8,7 +8,8 @@ import { glideWay, still } from '@/lib/motion'
 import { pictureIn } from '@/lib/answer-picture'
 import { num, plural } from '../../../../main/dates'
 import { boxOf, coverOf, extent, groupsOf, inside, moved, overlap, resized, seen, snapped, stacked, type Cover, type CoverKind, type Hide, type Label, type Occlusion } from '../../../../main/occlusion'
-import { Kbd, refuse, Tip, toast } from './ui'
+import { Decoded, FIRST_PICTURES, Kbd, refuse, Tip, toast } from './ui'
+import { ReadsIn } from '@/lib/reads-in'
 import { Orb } from './orb'
 import { deckTagOf, deckTitle } from './decks'
 import { CARD_FIELD, CardForm, CardFormFoot, tagsIn } from './card-form'
@@ -667,15 +668,16 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
           {!!sources?.length && (
             <span className="grid gap-2">
               <span className="text-xs text-muted-foreground">Or one you already have: snips from your books, then pictures in your notes</span>
-              <span data-picture-sources data-lenis-prevent className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto overscroll-contain">
-                {sources.map((one) => (
+              {/* Comes in whole, its first pictures drawn in its first frame. */}
+              <ReadsIn data-picture-sources="" data-lenis-prevent="" className="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] gap-2 overflow-y-auto overscroll-contain">
+                {sources.map((one, at) => (
                   <button key={one.src} type="button" data-picture-source onClick={() => choose(one.src, one.id ? { id: one.id } : null, one.title)}
                     className="grid cursor-pointer content-start gap-1 rounded-[4px] border border-foreground/10 p-1.5 text-left transition-colors hover:bg-accent/60">
-                    <img src={small(one.src)} alt="" loading="lazy" decoding="async" className="aspect-square w-full rounded-[3px] bg-accent/40 object-cover" />
+                    <Decoded src={small(one.src)} ahead={at < FIRST_PICTURES} className="aspect-square w-full rounded-[3px] bg-accent/40 object-cover" />
                     <span className="truncate text-xs text-(--mf-muted-strong)">{one.title}</span>
                   </button>
                 ))}
-              </span>
+              </ReadsIn>
             </span>
           )}
         </div>

@@ -18,6 +18,7 @@ import Lenis from 'lenis'
 import { afterPaint, call, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED } from '@/lib/sources'
 import { useReading, useReadsIn, useSeen } from '@/lib/reads-in'
+import { useDecoded } from '@/lib/decoded'
 import { chime, quietFor, setVolume, soundOn, type Cue } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
@@ -2322,6 +2323,19 @@ export function FocusNote(): React.JSX.Element {
     </div>
   )
 }
+
+/**
+ * A picture in a grid or a list, whole in the first frame it is drawn: decoded before the page it is on first paints,
+ * the page waiting a moment at most (lib/decoded.ts `useDecoded`), never loaded lazily or faded in. A grid or a list
+ * that comes in after its page holds itself for its pictures the same way inside a `ReadsIn`. `ahead` false: a picture
+ * far down a long grid, loaded as it nears the screen, so a grid of thousands never decodes them all at once.
+ */
+export function Decoded({ src, ahead = true, alt = '', ...rest }: Omit<React.ComponentProps<'img'>, 'src' | 'loading'> & { src: string; ahead?: boolean }): React.JSX.Element {
+  useDecoded(ahead ? src : null)
+  return <img src={src} alt={alt} draggable={false} decoding="async" loading={ahead ? undefined : 'lazy'} {...rest} />
+}
+/** How many of a long grid's pictures are drawn whole in its first frame: more than a window shows at once. */
+export const FIRST_PICTURES = 30
 
 /**
  * A long list that draws only the rows in view, with TanStack Virtual. It

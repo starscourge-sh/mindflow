@@ -16,7 +16,7 @@ import { rowBody } from '@/lib/row-body'
 import { taggedBlocks } from '@/lib/tagged-blocks'
 import { quoted } from '../../../../main/clip'
 import { chime } from '@/lib/sound'
-import { Empty, ask, pin, refuse, sayNow, toast, typing, useListKeys, useReadKey, whyFailed } from './ui'
+import { Decoded, Empty, ask, pin, refuse, sayNow, toast, typing, useListKeys, useReadKey, whyFailed } from './ui'
 import { Button } from '@/components/ui/button'
 import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -466,7 +466,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
               {/* The day stays in view while its notes scroll under it. */}
               {day && <h2 className="sticky top-(--tag-band) z-10 bg-background pt-4 pb-1.5 text-control font-semibold text-foreground">{named(day)}</h2>}
               {/* The same menu, picking and picked look as the List view: what ⌘A picks is seen picked here too. */}
-              {list.map((item) => <Entry key={`${item.type}-${item.id}`} tag={tag} item={item} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
+              {list.map((item) => <Entry key={`${item.type}-${item.id}`} tag={tag} item={item} ahead={shown.indexOf(item) < FIRST_READ} onOpen={onOpen} picked={several.picked(item)} onPick={(event) => several.click(event, item)}
                 menu={several.menu(item) ?? [...rowMenu(item, shown.indexOf(item)), ...several.rowItems(item)]} differs={differs} />)}
             </section>
           ))}
@@ -635,12 +635,15 @@ const wordsOf = (item: TagRead): string => {
   return said.split('\n').map((line) => line.replace(/(?:^|\s+)(?:#[^\s#]+\s*)+$/u, '').trim()).filter(Boolean).join('\n')
 }
 
+/** How many of the stream's notes have their picture in its first frame: more than a window shows at once. Whole photos, so not all of a long tag's. */
+const FIRST_READ = 8
+
 /**
  * One note in the stream, read as a page of a commonplace book: its title
  * when it has one, then its own words (a few lines, clean), then its picture
  * at a reading size. Beside it, only what sets it apart from the rest.
  */
-function Entry({ tag, item, onOpen, picked, onPick, menu, differs }: { /** The page's tag: a note that carries it on some of its blocks shows those blocks. */ tag: string; item: TagRead; onOpen: (type: string, id: string) => void; picked: boolean; /** ⌘ or ⇧ held: picked as Finder picks, and true. */ onPick: (event: React.MouseEvent | React.KeyboardEvent) => boolean; menu: RowItem[]; differs: Differs }): React.JSX.Element {
+function Entry({ tag, item, ahead, onOpen, picked, onPick, menu, differs }: { /** The page's tag: a note that carries it on some of its blocks shows those blocks. */ tag: string; item: TagRead; /** One of the first few: its picture is drawn in the page's first frame; one further down loads as it nears the screen. */ ahead: boolean; onOpen: (type: string, id: string) => void; picked: boolean; /** ⌘ or ⇧ held: picked as Finder picks, and true. */ onPick: (event: React.MouseEvent | React.KeyboardEvent) => boolean; menu: RowItem[]; differs: Differs }): React.JSX.Element {
   const kind = CAPTURE_TYPES.find((one) => one.id === item.kind)
   const Icon = item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem
   // ⌥⌘-click: in a window of its own, as in every list; ⌘-click and ⇧-click pick it.
@@ -678,7 +681,7 @@ function Entry({ tag, item, onOpen, picked, onPick, menu, differs }: { /** The p
         ) : <>
         {title && <h3 data-entry-title className="mb-1 font-semibold text-foreground">{title}</h3>}
         <p data-entry-words className="max-w-[68ch] text-[0.9375rem] leading-relaxed whitespace-pre-line text-foreground/90" style={{ display: '-webkit-box', WebkitBoxOrient: 'vertical', WebkitLineClamp: LINES, overflow: 'hidden' }}>{lead || 'New note'}</p></>}
-        {picture && !blocks && <img data-entry-picture src={picture} alt="" loading="lazy" draggable={false} className="mt-2.5 max-h-60 max-w-full rounded-md object-contain" />}
+        {picture && !blocks && <Decoded data-entry-picture="" src={picture} ahead={ahead} className="mt-2.5 max-h-60 max-w-full rounded-md object-contain" />}
       </div>
       {/* Only what sets it apart: its kind where kinds are mixed, a state, tags the others do not carry. Quiet, out of the words' way. */}
       {aside && (
