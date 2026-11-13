@@ -2143,6 +2143,8 @@ function Surface({
       // Which note it is ("capture-…", "item-…"), so a note's menu can find its page to draw it as a picture.
       data-document={documentId ?? undefined}
       style={style}
+      // The room under the words where the scroller ends with them (quick capture's card): the note's end too.
+      onMouseDown={(event) => void (event.target === event.currentTarget && editor && !editor.isDestroyed && pressUnderLastLine(editor.view, event.nativeEvent))}
     >
       <EditorContext.Provider value={{ editor }}>
         {sourceOpen ? <SourceView editor={editor} /> : null}
