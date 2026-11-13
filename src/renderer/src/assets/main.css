@@ -1711,8 +1711,10 @@ body {
   opacity: 0.55;
 }
 /* Except the floating timer: it is never the window you are in, and a
-   pill at half strength read as a timer that had stopped. */
-[data-blurred='on'] body:has(.mf-floating) {
+   pill at half strength read as a timer that had stopped. Marked on the root by
+   its own window (windows/pill.tsx, nudge.tsx): asked as body:has(.mf-floating),
+   every focus and blur of any window looked through its whole page for one. */
+:root[data-floating][data-blurred='on'] body {
   opacity: 1;
 }
 /* A window with a page in it dims under a veil of its own background instead
