@@ -584,7 +584,8 @@ A long quote is a passage you mean to mine. **Try it:** select one sentence and 
 
 *Odysseus home at last. A clay plaque from Melos, about 450 BC. The Met, open access.*
 `)
-  await field(odyssey, 'location', 'Book 1, the opening lines')
+  // The book is said in where it is from, so its place there is only the lines: said once, not "Book 1 … Book 1".
+  await field(odyssey, 'location', 'the opening lines')
 
   await write(leonardo, `
 Leonardo's notebooks
