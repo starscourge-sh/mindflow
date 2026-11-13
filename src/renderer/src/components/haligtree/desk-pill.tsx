@@ -83,12 +83,15 @@ export function DeskPill(): React.JSX.Element | null {
       const corner = right ? left + frame.x + frame.width : left + frame.x
       const dx = right ? at.x + at.width - corner : at.x - corner
       const dy = at.y - frame.y
+      // The pill's round ends, but square in Paper (a clip is a shape no border-radius rule reaches: the card grew out
+      // of its pill with round corners in a style that has none), as the session pill's are (focus-pill.tsx).
+      const ends = wornStyle() === 'paper' ? 0 : at.height / 2
       const cut = right
-        ? `inset(${frame.y}px ${card - frame.x - frame.width}px ${tall - frame.y - at.height}px ${frame.x + frame.width - at.width}px round ${at.height / 2}px)`
-        : `inset(${frame.y}px ${card - frame.x - at.width}px ${tall - frame.y - at.height}px ${frame.x}px round ${at.height / 2}px)`
+        ? `inset(${frame.y}px ${card - frame.x - frame.width}px ${tall - frame.y - at.height}px ${frame.x + frame.width - at.width}px round ${ends}px)`
+        : `inset(${frame.y}px ${card - frame.x - at.width}px ${tall - frame.y - at.height}px ${frame.x}px round ${ends}px)`
       return {
         from: { clipPath: cut, transform: `translate(${dx}px, ${dy}px)` },
-        to: { clipPath: `inset(0px 0px 0px 0px round ${at.height / 2}px)`, transform: 'translate(0px, 0px)' }
+        to: { clipPath: `inset(0px 0px 0px 0px round ${ends}px)`, transform: 'translate(0px, 0px)' }
       }
     }
     let run: ReturnType<typeof animate> | undefined

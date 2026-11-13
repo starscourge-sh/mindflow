@@ -193,6 +193,29 @@ try {
   const toMost = backXs.slice(0, backXs.findIndex((x) => Math.abs(x) === most) + 1).map(Math.abs)
   check('the pointer gone, it folds back into its pill', await until(isPill, 2500))
   check('folding, it goes back the way it came, only going out, before it is the pill again', most > 20 && toMost.every((x, n) => !n || x >= toMost[n - 1] - 0.5), backXs.join(','))
+  // In Paper the card grows out of its pill with square corners. A clip is a shape no border-radius rule reaches, and
+  // it grew with the pill's round ends in a style that has none (the user, 13 Nov: "im guessting other elements that
+  // have their own windows have the same issues"). Every clip seen while it opens, read each frame.
+  await goalPage.evaluate(() => { document.documentElement.dataset.style = 'paper' })
+  const clipsSeen = goalPage.evaluate(() => new Promise((resolve) => {
+    const seen = new Set()
+    const t0 = performance.now()
+    const step = () => {
+      for (const el of document.querySelectorAll('[style*="clip-path"]')) if (el.style.clipPath) seen.add(el.style.clipPath)
+      if (performance.now() - t0 < 1200) requestAnimationFrame(step)
+      else resolve([...seen])
+    }
+    requestAnimationFrame(step)
+  }))
+  ;[px, py] = await pillCentre()
+  await goalPage.mouse.move(px, py)
+  await until(isOpen, 1500)
+  const paperClips = await clipsSeen
+  const rounded = paperClips.filter((one) => /round\s+(?!0px)[\d.]+px/.test(one))
+  check('in Paper the card grows out of its pill square: no clip with round ends while it opens', paperClips.length > 0 && rounded.length === 0, JSON.stringify(paperClips.slice(0, 3)))
+  await goalPage.mouse.move(-40, -40)
+  await until(isPill, 2500)
+  await goalPage.evaluate(() => { delete document.documentElement.dataset.style })
   // Turned back midway: out again while the pointer comes back before it has folded.
   ;[px, py] = await pillCentre()
   await goalPage.mouse.move(px, py)
