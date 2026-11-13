@@ -264,8 +264,9 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     lead = `Tag it #${offer.tag}?`
     rest = offer.notes === offer.of ? `The ${offer.of} notes most like it carry it.` : `${offer.notes} of the ${offer.of} notes most like it carry it.`
     // Written in as the strip's "+" writes a tag: after the last tag in the words, or at the end of the title line.
+    // The keys go back to the note, as after "Link it", so ⌘Z takes the tag back after its notice has gone too.
     actions = [{ label: 'Add the tag', data: 'tag', run: () => {
-      if (putTag(editor, offer.tag)) (chime('noted'), toast(`Tagged #${offer.tag}`, () => editor.commands.undo()))
+      if (putTag(editor, offer.tag)) (editor.commands.focus(), chime('noted'), toast(`Tagged #${offer.tag}`, () => editor.commands.undo()))
       done()
     } }]
   } else if (offer.kind === 'character') {

@@ -85,9 +85,11 @@ try {
   check('the offer line goes once it is taken', !(await h.evaluate(() => document.querySelector('[data-note-offer="tag"]'))))
   const strip = await h.evaluate(() => [...document.querySelectorAll('[data-tag-chip]')].map((el) => el.getAttribute('data-tag-chip')))
   check('the note’s tag chips show #baking at once', strip.includes('baking'), JSON.stringify(strip))
+  // After its notice has gone: the keys are back in the note, as after "Link it", so ⌘Z is the note's own.
+  for (let t = 0; t < 9000 && await h.evaluate(() => /Tagged #baking/.test([...document.querySelectorAll('[data-sonner-toast], [data-toast], [role="status"]')].map((el) => el.textContent).join(' '))); t += 250) await wait(250)
   await h.keyboard.press('Meta+z')
   await wait(2500)
-  check('⌘Z takes the tag back off', !(await words(note)).includes('#baking'), (await words(note)).slice(0, 300))
+  check('⌘Z takes the tag back off, after its notice has gone', !(await words(note)).includes('#baking'), (await words(note)).slice(0, 300))
 
   // A note that has the tag is not offered it.
   const has = await make('Sourdough again: the starter doubled and the dough rose in the lidded pot. #baking')
