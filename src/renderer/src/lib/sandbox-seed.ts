@@ -166,7 +166,8 @@ export async function seedSandbox(read: Read): Promise<SeedCounts> {
   const napoleon = await capture({ kind: 'quote', attribution: 'Napoleon Bonaparte' }, earlier(23))
   const blueDot = await capture({ kind: 'link', title: 'The Pale Blue Dot' }, earlier(31))
   const apophenia = await capture({ kind: 'word' }, earlier(38))
-  const odyssey = await capture({ kind: 'quote', attribution: 'Homer, tr. Samuel Butler', medium: 'The Odyssey, Book 1 (1900)' }, earlier(46))
+  // Who said it is Homer; whose English it is belongs with where it is from, as Marcus Aurelius's lines have it.
+  const odyssey = await capture({ kind: 'quote', attribution: 'Homer', medium: 'The Odyssey, Book 1, tr. Samuel Butler (1900)' }, earlier(46))
   const leonardo = await capture({}, earlier(54))
   const endurance = await capture({}, earlier(61))
   const prestige = await capture({}, earlier(69))
