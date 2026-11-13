@@ -268,6 +268,10 @@ try {
       const back = await waitFor(async () => { const now = await alone(); return now.review && !now.noteShown }, 6000)
       await shot('review-back-from-note')
       check('Back from the note: the review alone on the page, the note\'s page gone (never drawn over it)', back, JSON.stringify(await alone()))
+      // Gone from the page, not only out of sight, a moment later, even in a window that draws no frame (parked, or on a
+      // locked screen): a page left up out of sight keeps its keys and takes an Esc meant for the page on show.
+      const leftUp = async () => h.evaluate(() => [...document.querySelectorAll('[data-page]')].filter((one) => one.parentElement?.parentElement?.classList.contains('absolute')).map((one) => one.getAttribute('data-page')).filter((one) => one !== 'review'))
+      check('Back from the note: a moment later the note\'s page is gone from the page, not just hidden', await waitFor(async () => (await leftUp()).length === 0, 2000), JSON.stringify(await leftUp()))
       if (!back) await go('review', ':today')
       await waitFor(async () => /Which river/.test(await asked()))
     }
