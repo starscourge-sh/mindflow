@@ -63,7 +63,7 @@ try {
   const line = await waitFor(() => has('[data-hint-line="deck-due"]'), 4000)
   await h.waitForTimeout(1500)
   const said = await text('[data-hint-line="deck-due"]')
-  check('2. the due line shows over the decks', line && /A card comes back just before you’d forget it\. When it’s back, it’s due\./.test(said), said)
+  check('2. the due line shows over the decks', line && /A card comes back as you start to forget it\. When it’s back, it’s due\./.test(said), said)
   check('2. it sits above the decks and their counts', await h.evaluate(() => { const hint = document.querySelector('[data-hint-line="deck-due"]'); const grid = document.querySelector('[data-deck-grid]'); return !!hint && !!grid && hint.getBoundingClientRect().bottom <= grid.getBoundingClientRect().top + 1 }))
   await shoot('due-hint')
   await h.locator('[data-hint-line="deck-due"] button', { hasText: 'Got it' }).click()
