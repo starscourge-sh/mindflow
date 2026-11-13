@@ -25,6 +25,11 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 900 })
 const { h, v, electron } = c
+// CONSOLE=1: every error the page reports as it comes (in a dev-mode build, React's own words and where it broke).
+if (process.env.CONSOLE) {
+  h.on('console', (m) => void (m.type() === 'error' && console.log(`PAGE ERROR ${m.text().slice(0, 2000)}`)))
+  h.on('pageerror', (e) => void console.log(`PAGE EXCEPTION ${String(e.stack ?? e).slice(0, 2000)}`))
+}
 // BIN_TRACE=<n> (13 Nov): once, in one run of the Goals part, a goal was found in the Bin with no key of the probe's
 // pressed. With the switch on, every call that bins anything is recorded in main (when, what, which window had the
 // keys), and in the page every key, press, release and click it gets and who asked for a row by its id (the first
