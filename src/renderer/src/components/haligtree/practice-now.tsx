@@ -7,8 +7,17 @@ import { OFFER_LENGTH, answerOffer, offerLead, offerSaid, practices, startPracti
 import { refuse, toast, whyFailed } from './ui'
 import { LengthMark } from './length-mark'
 
-/** The words of the window's notice asking about an offer now, if one is up: Home's card showing takes it away, so the two are never up together. */
+/**
+ * The words of the window's notice asking about an offer now, if one is up: Home's card asking takes it away, so the
+ * two are never up together. A card already up is told as a notice is raised, and looks again once the notice is
+ * drawn: taking it away in the same breath it was raised in found nothing drawn yet to take (seen in the dev build).
+ */
 let noticed = ''
+const cards = new Set<() => void>()
+const notice = (words: string): void => {
+  noticed = words
+  cards.forEach((tell) => tell())
+}
 
 const WORD = 'flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2 text-control font-medium text-foreground/75 transition-colors hover:bg-foreground/[0.05] hover:text-foreground'
 
@@ -27,12 +36,19 @@ export function PracticeNow(): React.JSX.Element | null {
     return window.api.onPracticeCorner?.(setInCorner)
   }, [])
   const asking = !!offer && inCorner !== offer.id
-  // This card asking: the window's notice for the same offer (raised from another page a moment ago) goes.
+  // This card asking: the window's notice for the same offer (raised from another page a moment ago) goes. Looked at
+  // after each time this card is drawn, and it is drawn again when a notice is raised: the notice is drawn by then.
+  const [, drawAgain] = useState(0)
+  useEffect(() => {
+    const tell = (): void => drawAgain((n) => n + 1)
+    cards.add(tell)
+    return () => void cards.delete(tell)
+  }, [])
   useEffect(() => {
     if (!asking || !noticed) return
     window.dispatchEvent(new CustomEvent('haligtree:untoast', { detail: { text: noticed } }))
     noticed = ''
-  }, [asking])
+  })
   if (!offer || !asking) return null
   const refused = (error: unknown): void => refuse(`Not saved: ${whyFailed(error)}.`, 'error')
   const answer = (how: 'skip' | 'later'): void => void answerOffer(offer, how).then((said) => toast(said.words, () => void said.undo()), refused)
@@ -67,8 +83,9 @@ export function PracticeAsked({ onHome }: { onHome: boolean }): null {
     // A window that is not in front (the sandbox's, behind your work) asks without a sound.
     if (document.hasFocus()) chime('hint')
     if (home.current) return
-    noticed = offerSaid(offer)
-    toast(noticed, undefined, 'info', { label: 'Start', key: 'S', run: () => void startPractice(offer.id) }, { type: 'view', id: 'home' })
+    const words = offerSaid(offer)
+    notice(words)
+    toast(words, undefined, 'info', { label: 'Start', key: 'S', run: () => void startPractice(offer.id) }, { type: 'view', id: 'home' })
   })), [])
   // The sandbox's review reminder (the example person's): the window's notice says it, where a book of your own gets the corner's card.
   useEffect(() => window.api.onReviewOffered?.((text, again) => {
