@@ -2606,8 +2606,10 @@ function remakeHome(split: unknown): void {
     app.focus({ steal: true })
     made.show()
     const shown = performance.now()
-    if (!old.isDestroyed()) old.close()
+    // Off the screen at once (a close waits on its page a while), then closed: its page's last saves are made as it goes.
+    if (!old.isDestroyed()) old.hide()
     swapped = { shown, gone: performance.now() }
+    if (!old.isDestroyed()) old.close()
   })
 }
 

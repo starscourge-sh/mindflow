@@ -9,6 +9,7 @@ import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcom
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { flushSync } from 'react-dom'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
@@ -349,9 +350,14 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     // the new window is up and this one goes, in the same moment.
     if (how === 'again') {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-      window.dispatchEvent(new Event('haligtree:flush'))
-      setReadying(true)
-      return window.api.remake(handOver?.() ?? null)
+      // The loader first, drawn before anything else is done: a long note's words take a moment to hand over, and main
+      // making the new window holds this window's next frame. The rest once it is on screen (after the next paint).
+      flushSync(() => setReadying(true))
+      requestAnimationFrame(() => setTimeout(() => {
+        window.dispatchEvent(new Event('haligtree:flush'))
+        window.api.remake(handOver?.() ?? null)
+      }))
+      return
     }
     const clear = how === 'clear'
     // A story of its own for each run of the welcome (welcome-stories.ts), kept until it opens again, so Back and Next show the same one.
