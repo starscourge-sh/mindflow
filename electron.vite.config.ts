@@ -1,7 +1,7 @@
-import { cpSync, existsSync, readFileSync } from 'fs'
+import { cpSync, existsSync, readFileSync, realpathSync } from 'fs'
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
-import type { Plugin } from 'vite'
+import { searchForWorkspaceRoot, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -87,6 +87,10 @@ export default defineConfig({
   main: { plugins: [lazy()], build: { externalizeDeps: { exclude: ['chrono-node'] } } },
   preload: {},
   renderer: {
+    // Run from a git worktree whose node_modules is a link to the main checkout's, the fonts and other files a page
+    // asks for out of node_modules (Fraunces, KaTeX's) were refused by the dev server, outside its allowed folders,
+    // so headings and maths fell back to other fonts in `npm run dev` only. The folder the link leads to is allowed too.
+    server: { fs: { allow: [searchForWorkspaceRoot(process.cwd()), realpathSync(resolve('node_modules'))] } },
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src'),
