@@ -1,4 +1,4 @@
-import { AudioLines, Camera, CircleCheck, FileOutput, Gem, Inbox, Repeat2 } from 'lucide-react'
+import { AudioLines, Camera, CircleCheck, FileOutput, Gem, Inbox, MousePointer2, Repeat2 } from 'lucide-react'
 import { tidySpeech } from '@/lib/fillers'
 import { Orb } from './orb'
 import { PlaceIcon, SECTIONS } from './places'
@@ -824,6 +824,24 @@ export const pillSitsChoices = [
     show: <Screen><span className="absolute right-2.5 bottom-3 flex h-3 w-14 items-center gap-1 rounded-full bg-popover px-1 shadow-sm ring-1 ring-foreground/20"><span className="size-1.5 rounded-full shrink-0 border border-[var(--tt-brand-color-400)]" /><span className="h-[2px] flex-1 rounded-full bg-foreground/40" /></span></Screen>
   }
 ]
+
+/**
+ * “Steps aside for the pointer”, shown: the bubble on a small screen with the pointer at rest just under it. On, it
+ * has glided along the top to the corner, clear of the pointer; off, it stays over it. It glides as the switch turns.
+ */
+export function StepAsideSample({ on }: { on: boolean }): React.JSX.Element {
+  return (
+    <span data-step-aside-sample={on ? 'aside' : 'stays'} aria-hidden className="relative block h-12 w-[5.5rem] shrink-0">
+      <Screen>
+        <span className={`absolute top-[9px] left-1/2 flex h-2.5 w-9 items-center gap-1 rounded-full bg-popover px-1 shadow-sm ring-1 ring-foreground/20 ${still() ? '' : 'transition-transform duration-[420ms] ease-out'}`}
+          style={{ transform: on ? 'translateX(calc(-50% - 17px))' : 'translateX(-50%)' }}>
+          <span className="size-1.5 shrink-0 rounded-full border border-[var(--tt-brand-color-400)]" /><span className="h-[2px] flex-1 rounded-full bg-foreground/40" />
+        </span>
+        <MousePointer2 className="absolute top-[19px] left-[46px] size-2.5 fill-foreground text-foreground" />
+      </Screen>
+    </span>
+  )
+}
 
 /** A page in a window: its column narrow, wide, or edge to edge. */
 const Column = ({ width }: { width: string }): React.JSX.Element => (

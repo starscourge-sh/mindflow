@@ -307,6 +307,33 @@ const api = {
     void (ipcRenderer.invoke('nudge:waiting') as Promise<unknown[]>).then((all) => all.forEach(listen))
     return () => heard.off('nudge', relay)
   },
+  /** In the nudge card's own window: a practice's offer is over (started or answered elsewhere, or now asked inside the main window), so its card goes. */
+  onNudgeDrop: (listen: (id: string) => void): (() => void) => {
+    const relay = (_event: unknown, id: string): void => listen(id)
+    heard.on('nudge:drop', relay)
+    return () => heard.off('nudge:drop', relay)
+  },
+  /** From the nudge card's window: a practice's card has left the corner, answered or let go. */
+  practiceCardGone: (id: string): void => ipcRenderer.send('nudge:practice-gone', id),
+  /** In the main window: the practice the corner's card is asking about now (null for none), now and as it changes. */
+  practiceCorner: (): Promise<string | null> => ipcRenderer.invoke('practice:corner'),
+  onPracticeCorner: (listen: (id: string | null) => void): (() => void) => {
+    const relay = (_event: unknown, id: string | null): void => listen(id)
+    heard.on('practice:corner', relay)
+    return () => heard.off('practice:corner', relay)
+  },
+  /** In the sandbox's main window: its review reminder, said inside the window and never over the desktop. */
+  onReviewOffered: (listen: (text: string, again: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, text: string, again: boolean): void => listen(text, again)
+    heard.on('review:offered', relay)
+    return () => heard.off('review:offered', relay)
+  },
+  /** In the main window: a practice is offered while this window is the place to ask it (it is in front, or it is the sandbox's). */
+  onPracticeOffered: (listen: () => void): (() => void) => {
+    const relay = (): void => listen()
+    heard.on('practice:offered', relay)
+    return () => heard.off('practice:offered', relay)
+  },
   /** The nudge card's height as its cards change; 0 hides it. */
   nudgeSize: (height: number): void => ipcRenderer.send('nudge:size', height),
   /** An answer that can be taken back on something floating on its own, told to the main window so its ⌘Z can (and asked back from it). */

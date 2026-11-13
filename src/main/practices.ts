@@ -66,8 +66,12 @@ const asPractice = (row: Row): Practice => {
 }
 
 let told: ((offer: Offer) => void) | null = null
-/** Said once a new offer is up, so the main process can bring the bubble (or the nudge card) up for it. */
-export const whenPracticeOffer = (tell: (offer: Offer) => void): void => void (told = tell)
+let over: ((id: string) => void) | null = null
+/**
+ * Said once a new offer is up, so the main process can ask it (inside the main window, or the corner's card), and
+ * once one is over (started, answered, or its time gone), so a card still up for it anywhere goes.
+ */
+export const whenPracticeOffer = (tell: (offer: Offer) => void, gone?: (id: string) => void): void => void ((told = tell), (over = gone ?? null))
 
 /** The practices in the Bin, for the Bin's list (haligtree.ts). */
 export const practicesInBin = (): { type: string; id: string; title: string; kind: string; at: string }[] =>
@@ -240,6 +244,7 @@ export function registerPractices(): void {
       db.prepare('insert into practice_declines (practice_id, at, slot) values (?, ?, ?)').run(id, now(), row.at)
     }
     lastOffer = null
+    over?.(id)
     return write(true)
   })
   // Undo of either answer: offered again as before, the decline not counted.
@@ -281,6 +286,7 @@ export function registerPractices(): void {
     db.prepare("insert into sessions (id, task_id, started_at, goal, planned_ms, kind, practice_id) values (?, '', ?, ?, null, 'focus', ?)").run(session, at, row.name, row.id)
     db.prepare('update practices set later_at = null where id = ?').run(id)
     lastOffer = null
+    over?.(id)
     changed()
     return session
   })
@@ -412,6 +418,9 @@ export function registerPractices(): void {
     const offer = offerNow()
     const key = offer ? `${offer.id}:${dayKey()}:${offer.later}` : null
     if (key !== lastOffer) {
+      // The one offered before is over (its time gone, a session begun): a card still up for it goes.
+      const was = lastOffer?.split(':')[0]
+      if (was && was !== offer?.id) over?.(was)
       lastOffer = key
       tell()
       if (offer) told?.(offer)

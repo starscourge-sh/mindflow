@@ -61,6 +61,18 @@ export function offerDue(p: { days: number[]; at: string }, now: Date, state: { 
   return minute >= from && minute < Math.min(24 * 60, from + OFFER_WINDOW_MIN)
 }
 
+/**
+ * How late an offer is being made, in the words the app says how long ago with (“2 hours ago”): null within the
+ * hour of its time, when “Practice at 21:00” is true as it stands. Made later than that (the Mac was locked, the
+ * app closed, a meeting or quiet hours held it), the card says so.
+ */
+export function offerLate(at: string, now: Date): string | null {
+  const minutes = now.getHours() * 60 + now.getMinutes() - minutesOf(at)
+  if (minutes < 60) return null
+  const hours = Math.floor(minutes / 60)
+  return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+}
+
 /** Whether two hours of the day are within one of each other, round the clock. */
 const near = (a: number, b: number): boolean => Math.min((a - b + 24) % 24, (b - a + 24) % 24) <= 1
 

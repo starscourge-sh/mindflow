@@ -1,4 +1,5 @@
 import { TabChips } from './tab-chips'
+import { LengthMark } from './length-mark'
 import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Branches } from './branches'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -188,11 +189,7 @@ const setReminder = (task: Pick<Task, 'id' | 'notify'>, level: Task['notify']): 
 
 /** How long a task should take, from "~30m": a small grey chip after its name. */
 export function LengthChip({ minutes }: { minutes: number }): React.JSX.Element {
-  return (
-    <span data-length-chip className="shrink-0 rounded-md px-1.5 py-px text-xs tabular-nums" style={{ background: 'var(--mf-chip-bg-gray)', color: 'var(--mf-chip-ink-gray)' }}>
-      ~{hoursSaid(minutes)}
-    </span>
-  )
+  return <LengthMark data-length-chip>~{hoursSaid(minutes)}</LengthMark>
 }
 
 /** The frog: the task picked to do first today, last night or with “Do this first today”. */

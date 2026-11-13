@@ -60,7 +60,7 @@ import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
 import { hintRoom, type HintSide } from './hint-room'
-import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, setGoalBeacon, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, sleepChoice, sunPlace } from './haligtree'
+import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, setGoalBeacon, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, pillYields, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, cardComesDown, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
@@ -74,7 +74,7 @@ import { peopleNow, registerEvents, whenEvents } from './events'
 import { followEvents, forgetAnyway, setSignal, showAnyway, shownAnyway, watchMac, whenMeeting } from './in-meeting'
 import { anywayKept, deskAway } from './meeting-away'
 import { registerReadingQueue } from './reading-queue'
-import { registerPractices, whenPracticeOffer } from './practices'
+import { registerPractices, whenPracticeOffer, type Offer } from './practices'
 import { registerIssues } from './issues'
 import { brief, clock, dayKey, dayMonth, dayName, howLong, num, useTwelveHour, plural } from './dates'
 import { macTwelveHour } from './mac-clock'
@@ -105,6 +105,7 @@ import { grab, whenLetGo } from './hand'
 import { guideColour, hideGuides, showGuides } from './guides'
 import { CARRIED, cameOnto, lineUp, type Held } from './snap-lines'
 import { throwSpot } from './throw-spot'
+import { CORNERS, REST_MS, beside, clearPlace, cornerPlace, overlaps, topPlaces, type Corner } from './step-aside'
 import { cardInView, cardOf, LIFT_MS, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
 import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
@@ -1051,7 +1052,53 @@ function placeFocusOn(focusPill: BrowserWindow): { notch: number } {
   return { notch: 0 }
 }
 let focusTucked = false
+/**
+ * The bubble steps aside (step-aside.ts): when the pointer comes to rest beside it without being on it, it glides,
+ * whole, to the nearest of its three places (the left, middle and right of the top of its screen) that is clear of
+ * the pointer, and stays there: it never creeps back.
+ * Only where it sits free: under the notch it is in the menu bar, over nothing of yours. A test run's pointer is
+ * the Mac's real one, so the rule runs there only when asked for (HALIGTREE_QA_STEPASIDE, as quick capture's does).
+ */
+const stepsAside = (): boolean => pillYields() && !(process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_STEPASIDE)
+/**
+ * Taller than this, its window is not at rest: the bubble has opened into the island, or is asking how a session
+ * went. At rest the window is as tall as the bubble, the room over it and its shadow's (64 to about 76).
+ */
+const PILL_OPEN = 110
+/** Where it was before it stepped aside: its place, where it is again at the next session or when sent back. */
+let pillHome: Point | null = null
+/** Put somewhere by hand in this session: it stays there until the session is over, wherever the pointer rests. */
+let pillByHand = false
+let pillGliding: (() => void) | null = null
+const pillGlide = (to: Point): void => {
+  if (!focusPill || focusPill.isDestroyed()) return
+  pillGliding?.()
+  pillGliding = glideTo(focusPill, to, () => void (pillGliding = null))
+}
+function pillStepsAside(at: Point): void {
+  const pill = focusPill
+  if (!pill || pill.isDestroyed() || !pill.isVisible() || pillByHand || focusTucked || pillGliding) return
+  const box = pill.getBounds()
+  // Opened into the island, written in, or the pointer on anything it draws (a button held too): you are using it.
+  if (box.height > PILL_OPEN || pill.isFocused() || !through.get(pill) || !beside(at, box)) return
+  const to = clearPlace(box, at, topPlaces(box, screen.getDisplayMatching(box).workArea))
+  if (!to) return
+  pillHome ??= { x: box.x, y: box.y }
+  pillGlide(to)
+}
+/** Back to its place: at once as a new session brings it up, or gliding when sent back from its menu. */
+function pillGoesHome(glide: boolean): void {
+  const to = pillHome
+  pillHome = null
+  if (!to || !focusPill || focusPill.isDestroyed() || focusTucked) return
+  if (glide) return pillGlide(to)
+  pillGliding?.()
+  pillGliding = null
+  focusPill.setPosition(to.x, to.y)
+}
 function showFocus(on: boolean): void {
+  // A new session (the bubble was down): it starts in its place again, and whatever was put by hand last time is that place.
+  if (on && !focusWanted) (pillByHand = false, pillGoesHome(false))
   focusWanted = on
   // A session begun or over: the goal cards tuck or come back as their rules say, once it is saved.
   setTimeout(applyRules, 300)
@@ -1091,6 +1138,9 @@ function showFocus(on: boolean): void {
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
   })
   focusPill.setAlwaysOnTop(true, 'floating')
+  // Its place said again once made, as a sticky's is: a QA run's parked window keeps it as its own (HALIGTREE_QA_VIRTUAL),
+  // and the place such a window is first given is the middle of the screen, not the one asked for.
+  if (process.env.HALIGTREE_QA_VIRTUAL) focusPill.setBounds({ x: Math.round(workArea.x + workArea.width / 2 - 170), y: workArea.y + 6, width: 340, height: PILL_REST })
   // The window is wider and taller than the pill: the room round it lets clicks through to the app behind.
   passThrough(focusPill, true)
   focusTucked = false
@@ -1099,6 +1149,25 @@ function showFocus(on: boolean): void {
   focusPill.once('ready-to-show', () => pillUp() && focusPill?.showInactive())
   guard(focusPill)
   carriedByHand(focusPill)
+  // A drag always wins: it stops a step aside part way, and where the bubble is put down is its place for this session.
+  const pill = focusPill
+  const hand = handDrags.get(pill)!
+  let liftedAt: Electron.Rectangle | null = null
+  handDrags.set(pill, {
+    grab: (at) => {
+      pillGliding?.()
+      pillGliding = null
+      liftedAt ??= pill.isDestroyed() ? null : pill.getBounds()
+      hand.grab(at)
+    },
+    carry: hand.carry,
+    letGo: () => {
+      hand.letGo()
+      const now = pill.isDestroyed() ? null : pill.getBounds()
+      if (liftedAt && now && (now.x !== liftedAt.x || now.y !== liftedAt.y)) (pillByHand = true, pillHome = null)
+      liftedAt = null
+    }
+  })
   load(focusPill, '?view=focus')
   // Made now, hidden, so the glow at the end has nothing to load.
   makeGlow()
@@ -1173,8 +1242,93 @@ const NUDGE_WIDTH = 360
 let screenLocked = false
 /** The window whose answer ⌘Z in the main window would take back (float:undoable). */
 let floatUndoFrom: Electron.WebContents | null = null
+/**
+ * The corner the corner's cards are in. The top right to start, as ever; the next corner round while Haligtree's own
+ * window is in front with its top there (its tabs, “New” and the sound button are never under a card), or while the
+ * pointer is at rest there. The window keeps its corner as it grows: down from a top corner, up from a bottom one.
+ */
+let cardCorner: Corner = 'top-right'
+let cardGliding: (() => void) | null = null
+/**
+ * A practice's offer up in the corner now: asked inside the main window instead the moment that comes to the front.
+ * The main window is told which, so its “Now” card waits while the corner has it: one surface, never both.
+ */
+let cornerOffer: Offer | null = null
+const cornerHolds = (offer: Offer | null): void => {
+  cornerOffer = offer
+  if (home && !home.isDestroyed()) home.webContents.send('practice:corner', offer?.id ?? null)
+}
+/** How tall the top of the main window is, at its own size: the row with “New” and the sound button, and the tabs under it (they end 85 points down). */
+const HOME_BAR = 88
+const homeInFront = (): boolean => !!home && !home.isDestroyed() && home.isVisible() && !home.isMinimized() && home.isFocused()
+const homeBar = (): Electron.Rectangle | null => {
+  if (!home || !homeInFront()) return null
+  const { x, y, width } = home.getBounds()
+  return { x, y, width, height: Math.round(HOME_BAR * home.webContents.getZoomFactor()) }
+}
+const cardAt = (corner: Corner, height: number, area: Electron.Rectangle): Electron.Rectangle =>
+  ({ ...cornerPlace(corner, { width: NUDGE_WIDTH, height }, area), width: NUDGE_WIDTH, height })
+/** The corners a card of this height may be in now: every one that is off Haligtree's own bar. */
+const freeCorners = (height: number, area: Electron.Rectangle): { corner: Corner; x: number; y: number }[] => {
+  const bar = homeBar()
+  return CORNERS.map((corner) => ({ corner, ...cardAt(corner, height, area) })).filter((box) => !(bar && overlaps({ ...box, width: NUDGE_WIDTH, height }, bar)))
+}
+function cardStepsAside(at: Point): void {
+  const win = nudgeWins.get('corner')?.win
+  // The pointer on a card (anything it draws) is you reaching for it: it stays.
+  if (!win || win.isDestroyed() || !win.isVisible() || cardGliding || !through.get(win)) return
+  const box = win.getBounds()
+  if (!beside(at, box)) return
+  const to = clearPlace(box, at, freeCorners(box.height, screen.getDisplayMatching(box).workArea))
+  if (!to) return
+  cardCorner = to.corner
+  cardGliding = glideTo(win, to, () => void (cardGliding = null))
+}
+/**
+ * Haligtree's main window has come to the front. What the corner was offering is asked inside the window instead
+ * (one surface, never both), and a card still up (a task due) moves off the window's own bar.
+ */
+function homeCameForward(): void {
+  const win = nudgeWins.get('corner')?.win
+  // Really in front: a window is told 'focus' at other moments too (as it loads again), with another app still in front.
+  if (!homeInFront() || !win || win.isDestroyed() || !win.isVisible()) return
+  if (cornerOffer) {
+    win.webContents.send('nudge:drop', cornerOffer.id)
+    cornerHolds(null)
+    home?.webContents.send('practice:offered')
+  }
+  const box = win.getBounds()
+  const free = freeCorners(box.height, screen.getDisplayMatching(box).workArea)
+  if (!free.length || free.some((one) => one.corner === cardCorner)) return
+  cardCorner = free[0].corner
+  cardGliding?.()
+  cardGliding = glideTo(win, free[0], () => void (cardGliding = null))
+}
+/**
+ * A practice offered (practices.ts): Haligtree volunteers it, so it waits through a meeting and quiet hours. With the
+ * main window in front it is asked inside the window (Home's “Now” card, or the window's own notice from any other
+ * page), never as a card over the window's tabs and buttons. The sandbox's offers are the example person's and never
+ * leave its window: nothing of the sandbox is raised over your desktop. Otherwise, the corner card.
+ */
+function offerPractice(offer: Offer): void {
+  if (home && !home.isDestroyed() && home.isVisible() && (SANDBOX || homeInFront())) return void home.webContents.send('practice:offered')
+  if (SANDBOX) return
+  if (showNudge({ kind: 'practice', id: offer.id, offer })) cornerHolds(offer)
+}
+/** A practice started, answered or past its time, anywhere: its card in the corner goes, with nothing more said. */
+function offerOver(id: string): void {
+  if (cornerOffer?.id === id) cornerHolds(null)
+  const win = nudgeWins.get('corner')?.win
+  if (win && !win.isDestroyed()) win.webContents.send('nudge:drop', id)
+}
 function showNudge(nudge: Nudge): boolean {
   if (screenLocked) return false
+  // The sandbox keeps what it volunteers to its own window: its review reminder is said by that window's notice, never
+  // by a card over your desktop (a practice's offer goes the same way, offerPractice). With its window closed, nothing.
+  if (SANDBOX && nudge.kind === 'review') {
+    if (home && !home.isDestroyed() && home.isVisible()) home.webContents.send('review:offered', nudge.text, nudge.again)
+    return true
+  }
   const spot: NudgeSpot = nudge.kind === 'blocked' ? 'pill' : 'corner'
   let held = nudgeWins.get(spot)
   if (!held || held.win.isDestroyed()) {
@@ -1200,9 +1354,19 @@ function showNudge(nudge: Nudge): boolean {
   const { workArea } = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   // A site blocked is said just under the pill, where the eye already goes for the session (top middle with no pill up).
   const pill = spot === 'pill' && focusPill && !focusPill.isDestroyed() && focusPill.isVisible() ? focusPill.getBounds() : null
-  const at = spot === 'corner' ? { x: workArea.x + workArea.width - NUDGE_WIDTH - 10, y: workArea.y + 8 }
-    : pill ? { x: Math.round(pill.x + pill.width / 2 - NUDGE_WIDTH / 2), y: pill.y + PILL_REST - 6 } : { x: Math.round(workArea.x + workArea.width / 2 - NUDGE_WIDTH / 2), y: workArea.y + 8 }
-  win.setBounds({ ...at, width: NUDGE_WIDTH, height: win.getBounds().height })
+  const under = pill ? { x: Math.round(pill.x + pill.width / 2 - NUDGE_WIDTH / 2), y: pill.y + PILL_REST - 6 } : { x: Math.round(workArea.x + workArea.width / 2 - NUDGE_WIDTH / 2), y: workArea.y + 8 }
+  if (spot === 'corner') {
+    // Coming up: the first corner that is off Haligtree's own bar and clear of a pointer at rest. Up already: it keeps its corner.
+    const tall = win.getBounds().height
+    if (!win.isVisible()) {
+      const resting = stepsAside() && rested >= REST_MS ? screen.getCursorScreenPoint() : null
+      const free = freeCorners(tall, workArea)
+      cardCorner = (free.find((one) => !(resting && beside(resting, { ...one, width: NUDGE_WIDTH, height: tall }))) ?? free[0])?.corner ?? 'top-right'
+    }
+    cardGliding?.()
+    cardGliding = null
+    win.setBounds(cardAt(cardCorner, tall, workArea))
+  } else win.setBounds({ ...under, width: NUDGE_WIDTH, height: win.getBounds().height })
   if (win.webContents.isLoading()) held.waiting.push(nudge)
   else win.webContents.send('nudge', nudge)
   win.showInactive()
@@ -1357,12 +1521,19 @@ const through = new WeakMap<BrowserWindow, boolean>()
  */
 const watched = new Set<BrowserWindow>()
 let lastPoint = ''
+/** How long the pointer has lain exactly where it is, counted on the same readings. */
+let rested = 0
 setInterval(() => {
   if (!watched.size) return
   const at = screen.getCursorScreenPoint()
   const key = `${at.x},${at.y}`
-  if (key === lastPoint) return
+  if (key === lastPoint) {
+    // Come to rest: what floats beside it steps aside, once for each rest (step-aside.ts). A pass across never gets here.
+    if ((rested += 100) === REST_MS && stepsAside()) (pillStepsAside(at), cardStepsAside(at))
+    return
+  }
   lastPoint = key
+  rested = 0
   for (const win of watched) {
     if (win.isDestroyed()) { watched.delete(win); continue }
     if (!through.get(win) || !win.isVisible()) continue
@@ -2370,6 +2541,7 @@ function makeHome(): BrowserWindow {
   // Its place said again once made: a window made before it is shown can be
   // put in the middle of the screen instead of where it was asked to be.
   home.setBounds(place)
+  home.on('focus', homeCameForward)
   home.on('close', (event) => {
     if (quitting) return
     event.preventDefault()
@@ -3158,13 +3330,24 @@ function throwBox(win: BrowserWindow, dx: number, dy: number, speed = 0): void {
     keepSpot(display.id, to)
     if (!app.isPackaged) console.log(`[haligtree] box thrown to ${to.x},${to.y} on screen ${display.id}`)
   }
+  throwing = glideTo(win, to, land, speed)
+}
+/**
+ * One window gliding, whole, to a place: the one clock for everything of Haligtree's that moves out of the way
+ * (quick capture thrown or stepping aside, the session bubble and the corner's cards stepping aside). One curve from
+ * start to end on the display's own frames, easing out, never past and back: 300 ms and a little more for a long
+ * way, 520 at most, or a flick's own speed (`speed`, px a ms). At once with Motion off or Reduce motion. Gives back
+ * the way to stop it part way; null when it is there already.
+ */
+function glideTo(win: BrowserWindow, to: { x: number; y: number }, land: () => void, speed = 0): (() => void) | null {
+  const from = win.getBounds()
   const far = Math.hypot(to.x - from.x, to.y - from.y)
-  if (stillness() || far < 1) return (win.setPosition(to.x, to.y), land())
+  if (stillness() || far < 1) return (win.setPosition(to.x, to.y), land(), null)
   // An ease-out sine leaves at pi/2 times the average speed: matched to the fingers' when flicked.
   const ms = Math.round(speed > 0 ? Math.max(120, Math.min(560, ((Math.PI / 2) * far) / speed)) : Math.min(520, 300 + far * 0.12))
   // A frame in already: the first step comes at once, a frame's worth, so the fingers' last move flows straight on.
   const lead = 1000 / 60 / ms
-  throwing = tween(ms, (t) => {
+  return tween(ms, (t) => {
     if (win.isDestroyed()) return false
     const k = Math.sin((Math.min(1, t + lead) * Math.PI) / 2)
     win.setPosition(Math.round(from.x + (to.x - from.x) * k), Math.round(from.y + (to.y - from.y) * k))
@@ -4648,8 +4831,9 @@ app.whenReady().then(() => {
   registerEvents((type, id) => sendHome(type, id, undefined, 'notification'))
   registerReadingQueue()
   registerPractices()
-  // A practice's offer is asked in one place, the nudge card at the top right with the other asks: it never starts by itself.
-  whenPracticeOffer((offer) => void showNudge({ kind: 'practice', id: offer.id, offer }))
+  // A practice's offer is asked in one place at a time: inside the main window when that is in front, else the corner's
+  // card with the other asks. It never starts by itself.
+  whenPracticeOffer(offerPractice, offerOver)
   registerIssues()
   registerScenery()
   registerCelebrations()
@@ -5176,7 +5360,9 @@ app.whenReady().then(() => {
         // Where it sits, switched from the pill itself: Settings' "Bubble sits", in its words.
         { type: 'separator' as const },
         { label: 'Under the notch', type: 'radio', checked: pillInNotch(), click: () => resolve('notch') },
-        { label: 'Where I put it', type: 'radio', checked: !pillInNotch(), click: () => resolve('free') }
+        { label: 'Where I put it', type: 'radio', checked: !pillInNotch(), click: () => resolve('free') },
+        // Stepped aside for the pointer: sent back where it was by a press (it is back by itself at the next session).
+        ...(pillHome && !focusTucked ? [{ label: 'Back to its place', click: () => (pillGoesHome(true), resolve(null)) }] : [])
       ]).popup({ window: win, callback: () => setTimeout(() => resolve(null), 100) })
     })
   )
@@ -5201,6 +5387,9 @@ app.whenReady().then(() => {
     const bounds = win.getBounds()
     const next = Math.round(Math.max(PILL_REST, Math.min(640, Number(height) || PILL_REST)))
     if (next !== bounds.height) win.setBounds({ ...bounds, height: next })
+    // Back at rest with the pointer already lying beside it (it opens for a moment as a session begins, and whenever
+    // it is pointed at): it steps aside now, as it would have had it been at rest when the pointer stopped.
+    if (bounds.height > PILL_OPEN && next <= PILL_OPEN && rested >= REST_MS && stepsAside()) pillStepsAside(screen.getCursorScreenPoint())
     return true
   })
   // A screenshot for the session's log: the screen the pill is on, without
@@ -5299,6 +5488,9 @@ app.whenReady().then(() => {
   // The nudge card: what it was told before it could listen, its height as its cards change, and gone once empty.
   whenNudge(showNudge)
   ipcMain.handle('nudge:waiting', (event) => nudgeHeld(event.sender)?.waiting.splice(0) ?? [])
+  // A practice's card has left the corner (answered, or let go after its two minutes): the main window's “Now” card has it from here.
+  ipcMain.on('nudge:practice-gone', (_event, id: unknown) => void (cornerOffer?.id === id && cornerHolds(null)))
+  ipcMain.handle('practice:corner', () => cornerOffer?.id ?? null)
   ipcMain.on('nudge:size', (event, height: unknown) => {
     const win = nudgeHeld(event.sender)?.win
     if (!win) return
@@ -5306,7 +5498,12 @@ app.whenReady().then(() => {
     nudgeTall.set(win, next)
     if (!next) nudgeKinds.delete(win)
     if (!next) return void win.hide()
-    win.setBounds({ ...win.getBounds(), height: next })
+    const bounds = win.getBounds()
+    if (nudgeWins.get('corner')?.win !== win) return void win.setBounds({ ...bounds, height: next })
+    // The corner's cards keep their corner as they come and go: down from a top corner, up from a bottom one.
+    cardGliding?.()
+    cardGliding = null
+    win.setBounds(cardAt(cardCorner, next, screen.getDisplayMatching(bounds).workArea))
   })
   // An answer that can be taken back on something floating on its own (a nudge card's Done, the pill's
   // "Session abandoned"): ⌘Z in the main window takes it back too, since those windows rarely have the keys.

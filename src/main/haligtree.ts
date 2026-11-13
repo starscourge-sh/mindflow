@@ -562,6 +562,8 @@ const DEFAULTS = {
   // Where the session pill sits: tucked under the notch on a Mac that has
   // one, compact until pointed at, or wherever you dragged it.
   pillSits: 'free' as 'notch' | 'free',
+  // The bubble and the corner's cards step aside when the pointer comes to rest beside them (step-aside.ts). On to start.
+  pillYields: true,
   // The five-second rule: a session counts 5, 4, 3, 2, 1 with a tick before its clock starts.
   // On to start; anyone who turned it off keeps their own saved choice.
   countIn: true,
@@ -841,6 +843,8 @@ export const focusBubbleShown = (): boolean => settings().focusShows !== 'note'
 export const sunPlace = (): string => settings().sunPlace ?? ''
 /** The pill tucked under the notch, where the Mac has one. */
 export const pillInNotch = (): boolean => settings().pillSits === 'notch'
+/** What floats over your work steps aside for a pointer at rest beside it (Settings, “Steps aside for the pointer”). */
+export const pillYields = (): boolean => settings().pillYields !== false
 /** What a session does when the Mac sleeps in it (Settings, “When the Mac sleeps”). */
 export const sleepChoice = (): Settings['sessionSleep'] => settings().sessionSleep
 /** The focus timer and website blocking on (Settings, Tasks): off, nothing of either is offered. */

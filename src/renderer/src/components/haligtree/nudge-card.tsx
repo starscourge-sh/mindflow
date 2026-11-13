@@ -13,16 +13,16 @@ import '@/assets/styles/_variables.scss'
 import { chime } from '@/lib/sound'
 import { call, useAppearance, haligtree } from '@/lib/haligtree'
 import { taskName } from '@/lib/tasks'
-import { clock } from '@/lib/clock'
+import { clock, useMinute } from '@/lib/clock'
 import { Tip, whyFailed } from './ui'
+import { LengthMark } from './length-mark'
 import { usePatience } from '@/lib/patience'
 import type { Nudge } from '../../../../main/nudge'
 import { sleptSaid } from '@/lib/slept'
 import { still } from '@/lib/motion'
 import { offerUndo, takeBack } from '@/lib/float-undo'
-import { answerOffer, offerSaid, practices, startPractice, suggestSaid, timeSaid } from '@/lib/practices'
+import { OFFER_LENGTH, answerOffer, offerLead, offerSaid, practices, startPractice, suggestSaid, timeSaid } from '@/lib/practices'
 import CheckIcon from '@/components/ui/checked-icon'
-import { START_MIN } from '../../../../main/practice-rules'
 import { APP_NAME } from '../../../../main/name'
 import { quoted } from '../../../../main/clip'
 
@@ -76,7 +76,11 @@ export function NudgeCards(): React.JSX.Element {
     watch.observe(box.current)
     return () => watch.disconnect()
   }, [cards.length])
-  const drop = (nudge: Nudge): void => setCards((all) => all.filter((card) => keyOf(card) !== keyOf(nudge)))
+  const drop = (nudge: Nudge): void => {
+    setCards((all) => all.filter((card) => keyOf(card) !== keyOf(nudge)))
+    // A practice's card gone from the corner: Home's “Now” card has the offer from here, if it is still open.
+    if (nudge.kind === 'practice') window.api.practiceCardGone?.(nudge.id)
+  }
   const calm = still()
   return (
     <div data-clear className="mf-floating h-screen overflow-hidden p-[10px] font-sans text-[13px] text-foreground">
@@ -216,15 +220,20 @@ function Blocked({ nudge, wait, act }: { nudge: Extract<Nudge, { kind: 'blocked'
   )
 }
 
-/** The head every card shares: its icon in a soft disc, what it is, and what it is about. */
-function Head({ icon, lead, words, children }: { icon: Parameters<typeof AliveIcon>[0]['icon']; lead: string; words: string; children?: React.ReactNode }): React.JSX.Element {
+/** The head every card shares: its icon in a soft disc, what it is, and what it is about. `mark`: a quiet fact of its own at the end of the first line (a practice's “5 min”). */
+function Head({ icon, lead, words, mark, children }: { icon: Parameters<typeof AliveIcon>[0]['icon']; lead: string; words: string; mark?: string; children?: React.ReactNode }): React.JSX.Element {
   return (
     <div className="flex items-start gap-2.5">
       <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--tt-brand-color-400)_16%,var(--mf-float))] text-[var(--tt-brand-color-400)]">
         <AliveIcon icon={icon} size={15} play />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{lead}</span>
+        {mark ? (
+          <span className="flex items-center gap-2">
+            <span data-nudge-lead className="min-w-0 flex-1 text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{lead}</span>
+            <LengthMark data-nudge-mark>{mark}</LengthMark>
+          </span>
+        ) : <span data-nudge-lead className="block text-[12.5px] font-semibold text-[var(--tt-brand-color-400)]">{lead}</span>}
         <span data-nudge-words className="line-clamp-2 text-[14.5px] leading-[19px] font-semibold">{words}</span>
       </span>
       {children}
@@ -240,13 +249,19 @@ function Head({ icon, lead, words, children }: { icon: Parameters<typeof AliveIc
  */
 function PracticeOffer({ nudge, wait, onDone, onSaid }: { nudge: Extract<Nudge, { kind: 'practice' }>; wait: ReturnType<typeof usePatience>; onDone: () => void; onSaid: (said: { words: string; undo: () => Promise<unknown> }) => void }): React.JSX.Element {
   const offer = nudge.offer
+  // Its first line tells the time truthfully for as long as it is up: how late it is asked, once past the hour.
+  const now = useMinute()
   const [failed, setFailed] = useState<string | null>(null)
-  const refused = (error: unknown): void => (chime('nope'), setFailed(`Not saved: ${whyFailed(error)}.`))
-  const answer = (how: 'skip' | 'later'): void => void answerOffer(offer, how).then(onSaid, refused)
+  const refused = (error: unknown): void => (chime('nope'), (answering.current = false), setFailed(`Not saved: ${whyFailed(error)}.`))
+  // Started or answered in another window, or asked inside the main window now that it is in front: this card goes,
+  // with nothing more said. Never while its own answer is on the way: that one stays to say so, with Undo.
+  const answering = useRef(false)
+  useEffect(() => window.api.onNudgeDrop?.((id) => void (id === offer.id && !answering.current && onDone())), [offer.id])
+  const answer = (how: 'skip' | 'later'): void => ((answering.current = true), void answerOffer(offer, how).then(onSaid, refused))
   const move = (to: string | null): void => void practices.move(offer.id, to).then(() => chime(to ? 'move' : 'tap'), refused)
   return (
-    <div {...wait} data-nudge-practice data-practice-offer={offer.id} role="group" aria-label={offerSaid(offer)} className={`${SHEET} px-3.5 pt-3 pb-3`}>
-      <Head icon={ClockIcon} lead={offer.later ? 'Practice, asked again' : `Practice at ${timeSaid(offer.at)}`} words={`${offer.name}, ${START_MIN} minutes?`} />
+    <div {...wait} data-nudge-practice data-practice-offer={offer.id} role="group" aria-label={offerSaid(offer, now)} className={`${SHEET} px-3.5 pt-3 pb-3`}>
+      <Head icon={ClockIcon} lead={offerLead(offer, now)} mark={OFFER_LENGTH} words={offer.name} />
       <div className="mt-2.5 flex flex-wrap items-center gap-1 pl-[38px]">
         <button type="button" data-practice-start onClick={() => void startPractice(offer.id).then(onDone, refused)} className={PRIMARY}>Start</button>
         <button type="button" data-practice-skip onClick={() => answer('skip')} className={WORD}>Not tonight</button>

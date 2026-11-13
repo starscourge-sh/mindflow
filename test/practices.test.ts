@@ -2,7 +2,7 @@
 // A practice: what its minutes count as, the pill's bar, when it is offered, and the better time.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { bestHour, fillOf, honestOf, logLine, nextProblem, offerDue, partOfDay, stageOf } from '../src/main/practice-rules.ts'
+import { bestHour, fillOf, honestOf, logLine, nextProblem, offerDue, offerLate, partOfDay, stageOf } from '../src/main/practice-rules.ts'
 
 const MIN = 60_000
 
@@ -78,4 +78,13 @@ test('the honest record: real minutes a day over two weeks, only days it was off
   assert.equal(honestOf([...done, on(6, 33)], weekdays, now)!.average, 23)
   // Begun 3 days ago: only those days.
   assert.deepEqual(honestOf([on(1, 15), on(2, 25)], { ...daily, createdAt: new Date(2026, 9, 22).toISOString() }, now), { planned: 30, average: 20, days: 3 })
+})
+
+test('an offer made within the hour of its time is not late; after that it says how late, in hours', () => {
+  const at = (h: number, m: number): Date => new Date(2026, 10, 12, h, m)
+  assert.equal(offerLate('21:00', at(21, 0)), null)
+  assert.equal(offerLate('21:00', at(21, 59)), null)
+  assert.equal(offerLate('21:00', at(22, 0)), '1 hour ago')
+  assert.equal(offerLate('21:00', at(23, 20)), '2 hours ago')
+  assert.equal(offerLate('07:30', at(9, 29)), '1 hour ago')
 })

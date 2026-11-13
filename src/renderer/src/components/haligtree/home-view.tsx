@@ -51,6 +51,7 @@ import { PowersLine } from './powers-view'
 import { WhatsNewCard } from './whats-new'
 import { TodaysFeedCard } from './feed-view'
 import { CloseDayOffer } from './close-day'
+import { PracticeNow } from './practice-now'
 import { MorningSortOffer } from './sort-out'
 import { WeeklyDigest } from './weekly-digest'
 import { Tilt } from './tilt'
@@ -883,6 +884,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* After the welcome: the firsts, ticking themselves, until they are done. */}
       <div className="page-column relative w-full px-3 pt-4 empty:hidden @[44rem]/page:px-6"><GettingStarted onOpen={onOpen} onView={onView} /></div>
       <div data-now={6} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><PowersLine onView={onView} /></div>
+      {/* A practice at its time: asked here while this window is in front, and waiting here once the corner's card has let it go. */}
+      <div data-now={0.5} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><PracticeNow /></div>
       {/* In the evening, once: the offer to close the day. */}
       <div data-now={1} className="page-column relative w-full px-3 pt-3 empty:hidden @[44rem]/page:px-6"><CloseDayOffer /></div>
       {/* In the morning, once: the offer to sort the Inbox in about ten minutes. */}

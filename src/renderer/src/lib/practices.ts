@@ -2,7 +2,8 @@ import { chime } from '@/lib/sound'
 import { call, useLive } from '@/lib/haligtree'
 import { addBreakSource } from '@/lib/break-moment'
 import type { Ended, LoadKind, Loaded, Offer, Practice, PracticeRow } from '../../../main/practices'
-import { START_MIN, minutesOf, offerDue } from '../../../main/practice-rules'
+import { START_MIN, minutesOf, offerDue, offerLate } from '../../../main/practice-rules'
+import { SANDBOX } from '@/lib/sandbox'
 import { num } from '../../../main/dates'
 export type { Ended, LoadKind, Loaded, Offer, Practice, PracticeRow }
 
@@ -42,8 +43,20 @@ export function timeSaid(hhmm: string, short = false): string {
   const hour = h % 12 || 12
   return short && !m ? `${hour}${h < 12 ? 'am' : 'pm'}` : `${hour}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`
 }
-/** The offer's one line: "9:00 Design patterns, 5 minutes?" */
-export const offerSaid = (offer: Pick<Offer, 'name' | 'at' | 'later'>): string => `${offer.later ? 'Again:' : timeSaid(offer.at)} ${offer.name}, ${START_MIN} minutes?`
+/**
+ * What an offer is, above its name: “Practice at 21:00” within the hour of its time; made later than that, how late
+ * too (“Practice at 21:00, 2 hours ago”). In the sandbox it is the example person's: “Their practice at 21:00”.
+ */
+export function offerLead(offer: Pick<Offer, 'at' | 'later'>, now = new Date()): string {
+  const whose = SANDBOX ? 'Their practice' : 'Practice'
+  if (offer.later) return `${whose}, asked again`
+  const late = offerLate(offer.at, now)
+  return `${whose} at ${timeSaid(offer.at)}${late ? `, ${late}` : ''}`
+}
+/** How long it starts with, as a mark of its own beside the name, never run into it: “5 min”. */
+export const OFFER_LENGTH = `${START_MIN} min`
+/** The whole offer in one line, for a screen reader and the window's notice: “Practice at 21:00: Design patterns, 5 min to start”. */
+export const offerSaid = (offer: Pick<Offer, 'name' | 'at' | 'later'>, now = new Date()): string => `${offerLead(offer, now)}: ${offer.name}, ${OFFER_LENGTH} to start`
 /** Moving it: "You keep skipping 9pm. Mornings at 7 seem to work for you." */
 export const suggestSaid = (suggest: NonNullable<PracticeRow['suggest']>): string =>
   `You keep skipping ${timeSaid(suggest.from, true)}. ${suggest.part} at ${timeSaid(suggest.to, true).replace(/:00$/, '')} seem to work for you.`

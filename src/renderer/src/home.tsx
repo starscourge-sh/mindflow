@@ -39,6 +39,7 @@ import { landPromoted } from './lib/promote'
 import { CapturesView, keepInbox } from './components/haligtree/captures-view'
 import { sources, type SourceSummary } from '@/lib/sources'
 import { HomeView } from './components/haligtree/home-view'
+import { PracticeAsked } from './components/haligtree/practice-now'
 import { LAST_PLACE } from './components/haligtree/resume-cards'
 import { ItemsView } from './components/haligtree/items-view'
 import { QuestionTabs, QuestionsSaid, startQuestion, type Asked } from './components/haligtree/questions-view'
@@ -1834,6 +1835,7 @@ export function Home(): React.JSX.Element {
     <div data-frame={settings?.darkFrame === false ? undefined : 'dark'} data-frame-grain={settings?.frameGrain === false ? undefined : ''} style={{ '--mf-frame-depth': settings?.frameDepth ?? 75 } as CSSProperties} className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
+      <PracticeAsked onHome={split.panes.some((one) => onShow(one).id === 'home')} />
       <PickDays />
       {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
       <GrowFrom />

@@ -84,7 +84,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
+import { StepAsideSample, BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
 import { useDeskAway } from '@/lib/desk-away'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
@@ -704,6 +704,11 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting off={settings.focusShows === 'note' && <BubbleOff set={set} />} title="Bubble sits" note="On a Mac with a notch, the bubble can wrap round it as a slim black band." more="It opens when you point at it." keywords="focus session pill bubble notch island menu bar top dynamic where place"
             below={<Choices label="Bubble sits" options={pillSitsChoices} on={(id) => id === (settings.pillSits ?? 'free')} pick={(pillSits) => set({ pillSits: pillSits as Settings['pillSits'] })} />} />
           </>}
+          {/* The bubble and the corner's cards get out of the way of a pointer at rest (main/step-aside.ts): shown on the small screen as the switch turns. */}
+          <Setting title="Steps aside for the pointer" note="When the pointer comes to rest beside the session bubble or a card in the corner, it glides clear and stays there: the bubble along the top of the screen, a card to another corner." more="Point at it and it stays. Drag the bubble and it stays where you put it for that session. It is back in its place at the next session, or from “Back to its place” in its right-click menu." keywords="pill bubble card corner move out of the way step aside yield pointer cursor mouse rest dodge glide typing cover covers hide">
+            <StepAsideSample on={settings.pillYields !== false} />
+            <Switch checked={settings.pillYields !== false} onCheckedChange={(pillYields) => set({ pillYields })} />
+          </Setting>
           <Setting title="Pictures in lists" note="A note's first picture, small, at the end of its row and on its card.">
             <ListPictureSample on={settings.thumbnails !== false} />
             <Switch checked={settings.thumbnails !== false} onCheckedChange={(thumbnails) => set({ thumbnails })} />

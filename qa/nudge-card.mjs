@@ -73,16 +73,16 @@ try {
   // What stays is the "Done: …" line with its Undo, never the question again.
   check('and it is not asked about again', !(await card.evaluate(() => [...document.querySelectorAll('[data-nudge="task"]')].some((one) => one.textContent.includes('Call the dentist') && one.querySelector('[data-nudge-done]')))))
 
-  // --- The daily review.
+  // --- The daily review. This run is the sandbox, whose reminder is said inside its own window since 13 Nov (nothing
+  // the sandbox volunteers goes over your desktop): the window's notice, as theirs, with “Review now”. The corner's
+  // card for a book of your own, with “In an hour”, is read in qa/practice-offer-corner.mjs.
   await v('settings:set', { reviewReminder: hhmm(Date.now() - 60000) })
   await v('alerts:check')
   await card.waitForTimeout(900)
-  const review = await card.$eval('[data-nudge="review"]', (one) => one.textContent).catch(() => '')
-  check('the review reminder is a card too, with Review now and In an hour', review.includes('Time to review') && review.includes('Review now') && review.includes('In an hour'), review)
-  await card.screenshot({ path: `${SHOT}/review.png` })
-  await card.click('[data-nudge-later]')
-  await card.waitForTimeout(700)
-  check('“In an hour” puts it away', !(await card.$('[data-nudge="review"]')))
+  const review = await h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent).join(' | '))
+  check('the sandbox’s review reminder is said in its own window, as theirs, with Review now', review.includes('for their review') && review.includes('Review now'), review)
+  await h.screenshot({ path: `${SHOT}/review.png` })
+  check('and no card for it goes over the desktop', !(await card.$('[data-nudge="review"]')))
 
   // --- Ended while away, with the time kept in the note: the card says it.
   await v('settings:set', { focusShows: 'note' })

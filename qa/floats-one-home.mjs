@@ -1,7 +1,9 @@
-// The floating surfaces, 10 Nov: a practice's offer is asked in one place, the
-// nudge card at the top right (no band at the top middle, no card in quick
-// capture), with Start, Not tonight and In 30 min and no keycaps it cannot
-// honour; Not tonight, In 30 min and a task's Done each say so with Undo; the
+// The floating surfaces, 10 Nov: a practice's offer is asked in one place (no
+// band at the top middle, no card in quick capture), with Start, Not tonight
+// and In 30 min and no keycaps it cannot honour. Since 13 Nov that place is
+// inside the window for the sandbox, whose offers never go over the desktop:
+// Home's “Now” card (qa/practice-offer-inside.mjs; the corner's card, for a book
+// of your own, is qa/practice-offer-corner.mjs). In 30 min and a task's Done each say so with Undo; the
 // practice pill is whole in its window, with one bar; a timer that starts and
 // ends in the same minute shows no "21:04 → 21:04".
 //
@@ -26,22 +28,22 @@ const whole = (f) => f.evaluate(() => {
 try {
   await v('settings:set', { sounds: false, countIn: false, focusShows: 'bubble', notify: 'alerts', quietStart: '00:00', quietEnd: '00:00' })
   await v('practices:check'); await wait(2500)
-  const n = await win('view=nudge')
-  const offered = n && await n.waitForSelector('[data-nudge-practice]', { timeout: 6000 }).then(() => true, () => false)
-  const words = offered ? await n.evaluate(() => document.querySelector('[data-nudge-practice]').innerText) : ''
-  check('the offer comes up in the nudge card', offered && /Practice at 21:00/.test(words) && /Read twenty pages before bed, 5 minutes\?/.test(words), JSON.stringify(words))
+  const offered = await h.waitForSelector('[data-practice-now]', { timeout: 6000 }).then(() => true, () => false)
+  const words = offered ? await h.evaluate(() => document.querySelector('[data-practice-now]').innerText) : ''
+  check('the offer comes up on Home’s “Now” card', offered && /Their practice at 21:00/.test(words) && /Read twenty pages before bed/.test(words) && /5 min/.test(words) && !/minutes\?/.test(words), JSON.stringify(words))
   check('with Start, Not tonight and In 30 min', ['Start', 'Not tonight', 'In 30 min'].every((one) => words.includes(one)))
-  check('and no keycaps it cannot honour (the card never takes the keys)', offered && await n.evaluate(() => !document.querySelector('[data-nudge-practice] kbd, [data-nudge-practice] [data-kbd]')))
+  check('and no keycaps it cannot honour', offered && await h.evaluate(() => !document.querySelector('[data-practice-now] kbd, [data-practice-now] [data-kbd]')))
   const up = await shown()
+  check('the sandbox raises no card over the desktop for it', !up.some((u) => u.includes('view=nudge')), JSON.stringify(up))
   check('no band at the top middle: the focus window is not up for it', !up.some((u) => u.includes('view=focus')), JSON.stringify(up))
   await page.evaluate(() => window.api.showPrompt()); await wait(1500)
   check('quick capture has no offer card in it', await page.evaluate(() => !document.querySelector('[data-box-practice], [data-practice-offer]')))
   await page.evaluate(() => window.api.hidePrompt()); await wait(500)
 
-  await n.click('[data-practice-later]'); await wait(700)
-  const said = await n.evaluate(() => document.querySelector('[data-nudge-said]')?.innerText ?? '')
+  await h.click('[data-practice-now] [data-practice-later]'); await wait(700)
+  const said = await h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.innerText).join(' | '))
   check('“In 30 min” says so, with Undo', /again in 30 minutes/.test(said) && /Undo/.test(said), JSON.stringify(said))
-  await n.click('[data-nudge-undo]'); await wait(1500)
+  await h.keyboard.press('Meta+z'); await wait(1500)
   check('Undo puts the offer back', !!(await v('practices:offer')))
 
   const list = await v('practices:list'); const p = list.find((x) => /read twenty/i.test(x.name)) ?? list[0]
@@ -63,6 +65,7 @@ try {
 
   const made = await v('task:add', 'Call the dentist back'); const id = made?.id ?? made
   await h.evaluate(([one]) => window.api.nudge({ kind: 'task', id: one, title: 'Call the dentist back', again: false }), [id])
+  const n = await win('view=nudge')
   await n.waitForSelector('[data-nudge-done]', { timeout: 6000 })
   await n.click('[data-nudge-done]'); await wait(700)
   const done = await n.evaluate(() => document.querySelector('[data-nudge-said]')?.innerText ?? '')

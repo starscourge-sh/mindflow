@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { LengthMark } from './length-mark'
 import { num } from '../../../../main/dates'
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react'
 import { Bell, BellOff, Check, ChevronRight, Eye, FileText, FlagTriangleRight, Folder, Lock, Pause, Repeat, ScanText, Sparkles, Star, Unlock } from 'lucide-react'
@@ -745,7 +746,8 @@ const PractiseItDemo: Demo = ({ live }) => {
       <AnimatePresence>
         {at === 1 && (
           <motion.div key="offer" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spring.slow} className="rounded-xl border bg-popover px-3 py-2 text-meta shadow-[0_6px_16px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_25%,transparent)]">
-            <span className="text-foreground">7:30 Spanish, 5 minutes?</span>
+            {/* The offer as it is asked now: what it is and when, its name, and its length as a mark of its own. */}
+            <span className="text-foreground">Practice at 7:30: Spanish</span> <LengthMark>5 min</LengthMark>
             <span className="ml-2 text-muted-foreground">Opens #spanish, then asks “What stuck?”</span>
           </motion.div>
         )}
