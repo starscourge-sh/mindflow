@@ -370,6 +370,7 @@ function hideWindow(win: BrowserWindow): void {
   cameFrom = null
   const notes = win === prompt ? [...stickies.values()].filter((one) => one !== back && !one.isDestroyed() && one.isFocusable()) : []
   for (const one of notes) one.setFocusable(false)
+  if (win === prompt) seeBoxFiling(win)
   win.hide()
   // Back in the Dock once the box has gone, and before any Haligtree window is
   // given the keys again (see `boxUp`).
@@ -580,9 +581,8 @@ function toggleWindow(): void {
   // The room above the card, for a hint: set while the box is still away, and shown only once the page has moved
   // its card down to match, so the card never jumps as it opens (qa/hint-room.mjs).
   const roomed = roomForHint(win, place)
-  // AeroSpace keeps the box on the workspace it was first seen on, and hides it there by parking it in the screen's
-  // bottom-right corner: opened from another workspace it came up and was taken away again, or flashed in the
-  // corner. It is moved to the workspace in view first, as the stickies are (followWorkspace).
+  // Filed by AeroSpace under a workspace (boxFiled), the box is moved to the one in view first: left where it was
+  // filed, it took you there.
   const here = boxToWorkspaceHere(win)
   if (roomed || here) return void Promise.all([roomed, here]).then(() => win.isDestroyed() || showPrompt(win))
   showPrompt(win)
@@ -603,6 +603,7 @@ function showPrompt(win: BrowserWindow): void {
   // you are in stays the active one and the main window stays where it is,
   // behind it. No `app.focus` here, which would raise every Haligtree window.
   win.focus()
+  setTimeout(() => seeBoxFiling(win), 400)
 }
 
 /**
@@ -2346,7 +2347,8 @@ function openHome(): void {
 // first seen on. The main window is made once and kept, so opening it would
 // take you back to that workspace instead of coming to the one you are on.
 // Where AeroSpace is installed, it is asked to move the window here first.
-const AEROSPACE = ['/opt/homebrew/bin/aerospace', '/usr/local/bin/aerospace'].find((path) => existsSync(path))
+// A test run may name a stand-in for it (qa/box-aerospace.mjs), so no probe ever asks the real one to move anything.
+const AEROSPACE = (process.env.HALIGTREE_QA_AWAY && process.env.HALIGTREE_AEROSPACE) || ['/opt/homebrew/bin/aerospace', '/usr/local/bin/aerospace'].find((path) => existsSync(path))
 const aerospace = (...args: string[]): Promise<string> =>
   new Promise((done) => execFile(AEROSPACE!, args, { timeout: 1500 }, (error, out) => done(error ? '' : out.trim())))
 
@@ -2376,19 +2378,57 @@ function parkedBy(win: BrowserWindow): void {
   followWorkspace()
 }
 /**
- * The box to the AeroSpace workspace in view before it shows (null without AeroSpace, or in a test run): moved by its
- * window number, as AeroSpace names it. Never slower than AeroSpace's own answer, 1.5 seconds at the very most.
+ * Whether AeroSpace has the box filed under a workspace: the box's window number and the AeroSpace that listed it while
+ * it was up (seeBoxFiling), else null. AeroSpace decides once, the first time it sees a window, and keeps to it
+ * (AeroSpace 0.20, MacWindow.swift getOrRegister): shown over Haligtree's own window (Haligtree an ordinary app with a
+ * Dock icon, see `arrive`) the box is filed under the workspace in view, for good; summoned from another app (Haligtree
+ * a menu bar app for the moment, boxUp) it is a popup of no workspace (AxUiElementWindowType.swift isWindowHeuristic).
+ * Filed, it took you back to its workspace each time it came up anywhere else, and once it had been up while you
+ * changed workspace it took you to that one instead (the user, 13 Nov: "if i then move to any other workspace, and
+ * open the prompt, it takes me back to workspace three"). AeroSpace leaves a hidden window out of its list, so the box
+ * cannot be found there while it is away, which is why the move before it shows never happened: this note is taken
+ * while it is up instead.
+ */
+let boxFiled: { id: string; by: string } | null = null
+/** A window's number as AeroSpace names it (the Mac's own window number). */
+const windowNumber = (win: BrowserWindow): string => win.getMediaSourceId().split(':')[1]
+const aerospaceAway = (): boolean => !AEROSPACE || (!!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_FOLLOW)
+/** Which AeroSpace is running (its process number): one started again since has forgotten every window it filed. */
+const aerospaceRunning = (): Promise<string> =>
+  new Promise((done) => execFile('/usr/bin/pgrep', ['-x', 'AeroSpace'], { timeout: 1500 }, (error, out) => done(error ? '' : out.trim())))
+
+/**
+ * The box to the AeroSpace workspace in view before it shows, when AeroSpace has it filed under one (boxFiled): moved by
+ * its window number, then put back where it was just placed, in case AeroSpace gave it a place of its own. A popup is
+ * never moved, since AeroSpace would tile it into the workspace, nor a box filed by an AeroSpace that has since started
+ * again; with nothing to move the box opens without asking AeroSpace anything. Null when nothing is to be done.
  */
 function boxToWorkspaceHere(win: BrowserWindow): Promise<void> | null {
-  if (!AEROSPACE || (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_FOLLOW)) return null
+  if (aerospaceAway()) return null
+  const id = windowNumber(win)
+  if (boxFiled?.id !== id) return null
+  const at = boundsOf(win)
   return (async () => {
-    const here = await aerospace('list-workspaces', '--focused')
+    const [here, by] = await Promise.all([aerospace('list-workspaces', '--focused'), aerospaceRunning()])
+    if (by !== boxFiled?.by) return void (boxFiled = null)
     if (!here || win.isDestroyed()) return
-    const id = win.getMediaSourceId().split(':')[1]
-    const rows = await aerospace('list-windows', '--all', '--format', '%{window-id}|%{workspace}')
-    const mine = rows.split('\n').map((row) => row.split('|')).find(([one]) => one === id)
-    if (mine && mine[1] !== here) await aerospace('move-node-to-workspace', '--window-id', id, here)
+    await aerospace('move-node-to-workspace', '--window-id', id, here)
+    if (!win.isDestroyed() && !sameBox(win.getBounds(), at)) win.setBounds(at)
   })()
+}
+
+/**
+ * Whether AeroSpace has filed the box (boxFiled), read from its list while the box is up: AeroSpace takes a window in on
+ * its own time after the Mac tells it one appeared, so it is read once the box has been up a moment, and again as it
+ * is put away (for a box up only a moment). Only ever set: AeroSpace never un-files a window it has filed while that
+ * AeroSpace runs, and a popup is never listed.
+ */
+function seeBoxFiling(win: BrowserWindow): void {
+  if (aerospaceAway() || win.isDestroyed() || !win.isVisible()) return
+  const id = windowNumber(win)
+  void Promise.all([aerospace('list-windows', '--all', '--format', '%{window-id}'), aerospaceRunning()]).then(([rows, by]) => {
+    if (rows.split('\n').includes(id)) boxFiled = { id, by }
+  })
 }
 let following: ReturnType<typeof setTimeout> | null = null
 function followWorkspace(): void {
@@ -3669,13 +3709,12 @@ function createWindow(): void {
     // simply Safari's again. An ordinary window would have to bring Haligtree
     // forward, and with it every Haligtree window, the main one included.
     type: 'panel',
-    // No window buttons at all which, with being on every Space (below), is
-    // what keeps a tiling window manager's hands off this window. Haligtree has a
-    // Dock icon, so AeroSpace's rule for menu bar apps (a window with no
-    // close button is "not even a real window") no longer covers it; measured
-    // with AeroSpace 0.20, a window with no buttons that is on every Space is
-    // never listed, tiled or filed under a workspace, focused or not. Summon
-    // it from anywhere and it turns up where you are.
+    // No window buttons at all: AeroSpace leaves a window with no close button
+    // alone ("not even a real window") when its app is a menu bar app at the
+    // moment it first sees it, which the box is while summoned from another app
+    // (boxUp). Seen first over Haligtree's own window, an ordinary app's, it is
+    // filed under that workspace instead, and moved to yours before each showing
+    // (boxFiled, boxToWorkspaceHere). Either way it turns up where you are.
     //
     // All three, not just `closable`: macOS drops the button row only when the
     // style mask has none of them left, and until then the close button is
