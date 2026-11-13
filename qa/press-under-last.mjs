@@ -38,17 +38,22 @@ const install = (page) => page.evaluate(() => {
       const bottom = blocks[blocks.length - 1].getBoundingClientRect().bottom
       const x = Math.round(e.getBoundingClientRect().left + e.clientWidth / 2)
       const met = []
+      // Bare room: a holder with no words of its own, never a heading, a field or a control a page draws there.
+      const bareRoom = (one) => /^(DIV|SECTION)$/.test(one.nodeName) && ![...one.childNodes].some((child) => child.nodeType === 3 && child.textContent.trim()) && !one.closest('button, a, textarea, input, label, [role=button], [role=link], [role=menuitem], [role=tab], [role=checkbox], [role=textbox]')
       const said = (one) => `${one.nodeName.toLowerCase()}${typeof one.className === 'string' && one.className ? '.' + one.className.trim().split(/\s+/).slice(0, 2).join('.') : ''}`
+      // The room below is this editor's own: its scroller, or the card or page that holds it.
+      const scroller = e.closest('.haligtree-editor-content')
+      const room = (one) => (!!scroller && scroller.contains(one)) || !!one.closest('[data-day-write], .sticky-text')
       for (let step = 3; step < 400; step += 3) {
         const y = Math.round(bottom + step)
         if (y >= innerHeight - 2) break
         const under = document.elementFromPoint(x, y)
         if (under && met.at(-1) !== said(under)) met.push(said(under))
         if (!under || blocks.some((one) => one.contains(under))) continue
-        // Below the words, only bare room counts: a holder with no words of its own, never a heading, a field or a
-        // button that the page draws there (Writing's sections under a piece are content, not room).
-        const bare = (one) => /^(DIV|SECTION)$/.test(one.nodeName) && ![...one.childNodes].some((child) => child.nodeType === 3 && child.textContent.trim()) && !one.closest('button, a, textarea, input, label, [role=button], [role=link], [role=menuitem], [role=tab], [role=checkbox], [role=textbox]')
-        if (inside ? under === e : !e.contains(under) && bare(under) && !!under.closest('.haligtree-editor-content, [data-day-write], .sticky-text')) return { x, y, on: said(under), from: step }
+        // Below the words, only the first thing there decides: bare room of this editor's own, or none at all.
+        if (!inside && under !== e && !e.contains(under)) return bareRoom(under) && room(under) ? { x, y, on: said(under), from: step } : { none: `the first thing under the last line is ${said(under)}, not bare room` }
+        // In the editor's own box: its bare room under the last line.
+        if (inside && under === e) return { x, y, on: said(under), from: step }
       }
       // Said, when there is none: what lay under the pointer on the way down.
       return { none: `the last line ends at ${Math.round(bottom)}px of ${innerHeight}; under it: ${met.join(', ') || 'nothing'}` }
@@ -111,8 +116,12 @@ try {
   await wait(500)
   await presses('Quick capture', box)
   // A sticky on the desk: E starts writing in it, then the same presses in its own window.
-  // A note's sticky (Today's and a goal's hold no words to write in).
-  const sticky = c.electron.windows().find((one) => /view=sticky&type=(capture|nugget|article)&/.test(one.url()))
+  // A note's sticky (Today's and a goal's hold no words to write in): the note put up on the desk as a person does.
+  if (note) await h.evaluate((id) => window.api.stick('capture', id, true), note.id)
+  let sticky = null
+  for (let i = 0; i < 60 && !sticky; i++) (sticky = c.electron.windows().find((one) => /view=sticky&type=(capture|nugget|article)&/.test(one.url())) ?? null) || (await wait(250))
+  if (sticky) await sticky.waitForLoadState('domcontentloaded').catch(() => {})
+  await wait(1500)
   if (sticky) {
     await sticky.keyboard.press('e')
     await sticky.waitForFunction(`!!(${writer.toString()})()`, null, { timeout: 15000, polling: 200 }).catch(() => {})
