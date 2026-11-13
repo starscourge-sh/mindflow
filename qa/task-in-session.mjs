@@ -711,6 +711,16 @@ try {
     check('1 the Journal’s day, “Today by the hour”: a task with a time has the dot in the page’s margin, level with its tick, nothing moved, and its time last in its small line', !!inLine?.dot && inLine.dot.w === 6 && inLine.seen && inLine.dot.x >= 2 && inLine.dot.r <= inLine.lead.x - 2 && Math.abs(inLine.dot.cy - inLine.lead.cy) < 3 && inLine.still === lineBefore?.still && inLine.spent === `${said} so far` && inLine.spentLast, JSON.stringify({ inLine, before: lineBefore?.still, said }))
     await snap('the day, by the hour', h, line)
     await over()
+    // “Today’s tasks”: a task with no time stays in the list under the line; whichever open one it shows first.
+    const todaysName = await h.evaluate(() => { const li = [...document.querySelectorAll('li:not([data-line-task])')].find((one) => one.querySelector('[data-task-meta]') && one.querySelector('[data-task-tick]')?.getAttribute('aria-checked') === 'false'); li?.setAttribute('data-t1', 'todays'); return li?.querySelector('[data-task-title]')?.textContent ?? null })
+    const K = todaysName && (await v('tasks')).find((one) => one.status === 'open' && one.title.includes(todaysName))
+    const todays = 'li[data-t1="todays"]'
+    const todaysBefore = await rowIn(h, todays, lineParts)
+    said = K ? await inSession(K.id) : ''
+    const inTodays = await rowIn(h, todays, lineParts)
+    check('1 the Journal’s day, “Today’s tasks”: a task with no time has the dot in the page’s margin, level with its tick, nothing moved, and its time last in its small line', !!K && !!inTodays?.dot && inTodays.dot.w === 6 && inTodays.seen && inTodays.dot.x >= 2 && inTodays.dot.r <= inTodays.lead.x - 2 && Math.abs(inTodays.dot.cy - inTodays.lead.cy) < 3 && inTodays.still === todaysBefore?.still && (inTodays.spent === `${said} so far` || inTodays.spent?.startsWith(`${said} of `)) && inTodays.spentLast, JSON.stringify({ name: todaysName, inTodays, before: todaysBefore?.still, said }))
+    await snap('the day, its tasks', h, todays)
+    await over()
     // What was done: its line in the day's log, and its row in “Done” (or struck in the day's tasks), say its final time.
     await v('task:done', E)
     await wait(900)
