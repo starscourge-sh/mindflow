@@ -45,7 +45,10 @@ const install = () => h.evaluate(() => {
         const under = document.elementFromPoint(x, y)
         if (under && met.at(-1) !== said(under)) met.push(said(under))
         if (!under || blocks.some((one) => one.contains(under))) continue
-        if (inside ? under === e : !e.contains(under) && !!under.closest('.haligtree-editor-content, [data-day-write]')) return { x, y, on: said(under), from: step }
+        // Below the words, only bare room counts: a holder with no words of its own, never a heading, a field or a
+        // button that the page draws there (Writing's sections under a piece are content, not room).
+        const bare = (one) => /^(DIV|SECTION)$/.test(one.nodeName) && ![...one.childNodes].some((child) => child.nodeType === 3 && child.textContent.trim()) && !one.closest('button, a, [role], textarea, input, label')
+        if (inside ? under === e : !e.contains(under) && bare(under) && !!under.closest('.haligtree-editor-content, [data-day-write]')) return { x, y, on: said(under), from: step }
       }
       // Said, when there is none: what lay under the pointer on the way down.
       return { none: `the last line ends at ${Math.round(bottom)}px of ${innerHeight}; under it: ${met.join(', ') || 'nothing'}` }
