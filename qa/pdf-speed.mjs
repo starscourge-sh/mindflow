@@ -132,12 +132,21 @@ const install = () => h.evaluate(() => {
     return { seen, blank, blurred, page }
   }
   // The thumbnails in the rail's view, and how many are drawn.
+  // Found by halves, as the rail finds them: reading all 1,011 thumbnails' boxes every frame was work of the probe's own.
   t.rail = () => {
     const list = document.querySelector('.pdf-reader .pdf-rail-list')
     if (!list) return null
     const r = list.getBoundingClientRect()
-    const near = [...list.querySelectorAll('.pdf-thumb')].filter((one) => { const b = one.getBoundingClientRect(); return b.bottom > r.top + 4 && b.top < r.bottom - 4 })
-    return { seen: near.length, drawn: near.filter((one) => one.querySelector('canvas[data-drawn]')).length }
+    const all = list.getElementsByClassName('pdf-thumb')
+    let lo = 0, hi = all.length - 1, first = all.length
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (all[mid].getBoundingClientRect().bottom > r.top + 4) (first = mid), (hi = mid - 1); else lo = mid + 1 }
+    let seen = 0, drawn = 0
+    for (let i = first; i < all.length; i++) {
+      if (all[i].getBoundingClientRect().top >= r.bottom - 4) break
+      seen++
+      if (all[i].querySelector('canvas[data-drawn]')) drawn++
+    }
+    return { seen, drawn }
   }
   // The next press (a pointer or a key) starts the clock.
   t.arm = () => {
