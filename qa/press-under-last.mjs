@@ -53,7 +53,9 @@ async function presses(name) {
   await install()
   for (const inside of [true, false]) {
     await h.evaluate(() => window.__under.ed().editor.commands.focus('start'))
-    await wait(300)
+    // Scrolled to its end, where the last line and the room under it are on the screen.
+    await h.evaluate(() => { let box = window.__under.ed().parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; box?.scrollTo({ top: box.scrollHeight, behavior: 'instant' }) })
+    await wait(500)
     const at = await h.evaluate((inside) => window.__under.spot(inside), inside)
     const what = `${name}: a press under the last line, ${inside ? "in the page's own box" : 'in the room below it'}`
     if (!at) { console.log(`(${what}: no bare place there on the screen)`); continue }
