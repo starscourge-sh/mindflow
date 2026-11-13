@@ -60,13 +60,20 @@ try {
   check('the thumbnails in view show their pages within 1.2s of the page itself', gap <= 1200, `page at ${Math.round(pageAt)}ms, every thumbnail in view at ${Math.round(thumbsAt)}ms, ${Math.round(gap)}ms behind`)
   if (SHOT) await h.screenshot({ path: `${SHOT}-open.png` })
 
-  // A thumbnail already in view: the rail stays where it is.
+  // A thumbnail already in view, picked: it stays in view, and the rail moves only the little way that brings it to the
+  // middle (the page you are on is kept in the rail's middle, one glide a page turned: qa/pdf-rail-centre.mjs, 11 Nov),
+  // never a jump. This line used to want the rail still, which the rail's middle-keeping rightly ended on every build.
   await wait(600)
   const top = () => h.evaluate(() => document.querySelector('.pdf-rail-list').scrollTop)
   const before = await top()
   await h.click('.pdf-rail-list .pdf-thumb[aria-label="Page 2"]')
   await wait(400)
-  check('picking a thumbnail already in view leaves the rail still', Math.abs((await top()) - before) < 1, `${before} then ${await top()}`)
+  const picked = await h.evaluate(() => {
+    const list = document.querySelector('.pdf-rail-list'); const r = list.getBoundingClientRect()
+    const b = list.querySelector('.pdf-thumb[aria-label="Page 2"]').getBoundingClientRect()
+    return { top: list.scrollTop, inView: b.top >= r.top - 1 && b.bottom <= r.bottom + 1, tall: Math.round(b.height) }
+  })
+  check('picking a thumbnail already in view keeps it in view, the rail moving no more than one thumbnail to bring it to the middle', picked.inView && Math.abs(picked.top - before) <= picked.tall, `${before} then ${picked.top}, a thumbnail ${picked.tall}px, in view ${picked.inView}`)
 
   // A jump far down: the rail glides there over several frames, and gets there.
   const tops = await h.evaluate(async () => {
