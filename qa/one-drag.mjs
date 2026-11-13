@@ -1530,5 +1530,8 @@ if (SHOTS) await part('Frames', async () => {
   await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(300)
   check('50 task lines: a carry keeps up', count50 >= 50 && moved50 < 1500, `${count50} lines, carry over 10 moves ${moved50}ms`)
 })
+// BIN_TRACE: what went to the Bin in the parts that ran and was not said by a part of its own. A run of PART=look
+// only carries and puts back, so the count is nothing; anything else is named, with what the page got just before.
+if (BIN_TRACE) { const bins = await binsSince(); console.log(`BIN calls in this run, not said by a part: ${bins.length}${bins.map((one) => `\n  BIN ${JSON.stringify(one).slice(0, 500)}`).join('')}`) }
 await c.close()
 done()
