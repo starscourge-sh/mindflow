@@ -37,6 +37,39 @@ try {
   check('while held, the page is in selecting', during === true, String(during))
   check('overshot at an angle: every line to the last is selected', said.includes('Line 1') && /Line 6 of the page, a few words long\.\s*$/.test(said), JSON.stringify(said.slice(-80)))
   check('let go, the page is no longer selecting', await h.evaluate(() => !document.querySelector('.textLayer.selecting')))
+
+  // A magazine's page (the user, 13 Nov: "why all the selection, because i was just tryign to select this line first",
+  // a DK book): its words in columns, and a box at the top whose words come LAST in the page's own order. One line low
+  // on the page, picked from its start to past its end, is that line alone; it never takes the box and everything
+  // between. Only a drag below the page's lowest words goes to the end of the page.
+  const mag = await PDFDocument.create(); const serif = await mag.embedFont(StandardFonts.TimesRoman)
+  const sheet = mag.addPage([420, 600])
+  const body = ['Without a trace', 'On the night of 16 February 2003,', 'the thieves broke into the vault.', 'Despite ten layers of security,', 'they left without setting it off.']
+  body.forEach((line, n) => sheet.drawText(line, { x: 40, y: 300 - n * 24, size: 14, font: serif }))
+  // The box, drawn last: last in the page's order, highest on the page.
+  ;['IN CONTEXT', 'LOCATION Antwerp, Belgium', 'THEME Vault heist'].forEach((line, n) => sheet.drawText(line, { x: 40, y: 540 - n * 22, size: 12, font: serif }))
+  const magPath = join(dir, 'Magazine.pdf'); writeFileSync(magPath, await mag.save())
+  const magAdded = await h.evaluate(async (p) => window.api.haligtree('media:add', [{ path: p }]), magPath)
+  await h.evaluate((src) => window.dispatchEvent(new CustomEvent('haligtree:pdf', { detail: { src, name: 'Magazine.pdf' } })), magAdded.added[0].src)
+  await wait(2500)
+  const words = (text) => h.locator('.pdf-reader .pdf-page[data-page="1"] .textLayer span', { hasText: text }).first()
+  const night = await words('On the night').boundingBox()
+  const box = await words('THEME').boundingBox()
+  check('the box sits above the line, and its words come after it in the page', !!night && !!box && box.y < night.y && await h.evaluate(() => { const spans = [...document.querySelectorAll('.pdf-reader .pdf-page[data-page="1"] .textLayer span')].map((one) => one.textContent); return spans.findIndex((one) => /THEME/.test(one)) > spans.findIndex((one) => /On the night/.test(one)) }))
+  const pick = async (from, to) => {
+    await h.evaluate(() => window.getSelection()?.removeAllRanges())
+    await h.mouse.move(from.x, from.y); await h.mouse.down()
+    for (let i = 1; i <= 12; i++) { await h.mouse.move(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12); await wait(25) }
+    await h.mouse.up(); await wait(300)
+    return h.evaluate(() => window.getSelection()?.toString() ?? '')
+  }
+  // Along the line, and on past its end over the blank page beside it.
+  const one = await pick({ x: night.x + 1, y: night.y + night.height / 2 }, { x: night.x + night.width + 60, y: night.y + night.height / 2 + 3 })
+  check('one line low on the page, picked along and past its end, is that line alone', /On the night of 16 February 2003,/.test(one) && !/THEME|LOCATION|CONTEXT|vault|Despite/.test(one), JSON.stringify(one.slice(0, 160)))
+  // Below every word on the page: to the end of the page's words, as before.
+  const low = await words('they left').boundingBox()
+  const all = await pick({ x: night.x + 1, y: night.y + night.height / 2 }, { x: low.x + 60, y: low.y + low.height + 120 })
+  check('a drag below the page\'s lowest words still goes to the end of the page', /On the night/.test(all) && /setting it off\./.test(all) && /THEME Vault heist\s*$/.test(all), JSON.stringify(all.slice(-120)))
 } catch (e) { check('ran', false, e.message.split('\n')[0]) }
 await close()
 rmSync(dir, { recursive: true, force: true })
