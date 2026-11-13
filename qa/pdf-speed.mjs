@@ -17,6 +17,7 @@
 // BOOK=<hash prefix> picks the book (default db97c775, the largest by pages), PARTS=open,rail,... a few parts, LOOK=dark
 // runs it all in "Dark pages", QA_STRICT=1 adds the bars as checks.
 import os from 'os'
+import { mkdirSync, writeFileSync } from 'fs'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -39,11 +40,35 @@ const c = await sandbox({ width: 1440, height: 900 })
 const { h, v, send, close } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const rows = {}
+// Each opening's page against the page the book was left on.
+const landed = []
 const row = (label, data) => {
   rows[label] = data
   console.log(`${label.padEnd(14)} ${Object.entries(data).map(([k, x]) => `${k} ${typeof x === 'number' ? Math.round(x) : x}`).join(', ')}; load ${load()}`)
 }
 // PROFILE=<part>: the window's own thread sampled through that part, and the functions it spent most time in.
+// FILM=<folder>: the window filmed through the first open, the fling and the zoom, every frame it draws, as JPEGs
+// named by the ms since that part began (a filmed run is for looking at, never for its timings).
+const film = process.env.FILM ? await h.context().newCDPSession(h) : null
+const filming = async (name, run) => {
+  if (!film) return run()
+  const dir = `${process.env.FILM}/${name}`
+  mkdirSync(dir, { recursive: true })
+  let n = 0
+  const t0 = Date.now()
+  const onFrame = ({ data, sessionId }) => {
+    writeFileSync(`${dir}/${String(Date.now() - t0).padStart(5, '0')}.jpg`, Buffer.from(data, 'base64'))
+    n++
+    film.send('Page.screencastFrameAck', { sessionId }).catch(() => {})
+  }
+  film.on('Page.screencastFrame', onFrame)
+  await film.send('Page.startScreencast', { format: 'jpeg', quality: 70, everyNthFrame: 1 })
+  try { return await run() } finally {
+    await film.send('Page.stopScreencast').catch(() => {})
+    film.off('Page.screencastFrame', onFrame)
+    console.log(`FILM ${name}: ${n} frames in ${dir}`)
+  }
+}
 const cdp = process.env.PROFILE ? await h.context().newCDPSession(h) : null
 const profiled = async (part, body) => {
   const run = () => body().catch((error) => check(`${part} ran`, false, String(error?.message ?? error).split('\n')[0]))
@@ -55,7 +80,7 @@ const profiled = async (part, body) => {
   const byId = new Map(profile.nodes.map((one) => [one.id, one]))
   profile.samples.forEach((id, i) => {
     const f = byId.get(id).callFrame
-    const name = `${f.functionName || '(anonymous)'} ${f.url.split('/').pop()}:${f.lineNumber + 1}`
+    const name = `${f.functionName || '(anonymous)'} ${f.url.split("/").pop()}:${f.lineNumber + 1}:${f.columnNumber + 1}`
     self.set(name, (self.get(name) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000)
   })
   const total = [...self.values()].reduce((a, b) => a + b, 0)
@@ -158,6 +183,7 @@ const opened = async (label, how) => {
   await h.evaluate(() => window.__f1.arm())
   await how()
   const out = await h.evaluate(([page]) => window.__f1.until(page, true), [page])
+  landed.push([out.page, page])
   row(label, { reader: out.reader, first: out.first, sharp: out.sharp, rail: out.rail, blankFrames: out.blankFrames, elsewhere: out.elsewhere, dropped: out.dropped, worst: out.worst, longest: out.longest, page: `${out.page} of place ${page}` })
   await wait(1200)
   return out
@@ -172,8 +198,11 @@ try {
   console.log(`${book.title} (${key}), load ${load()}, look ${process.env.LOOK === 'dark' ? 'Dark pages' : 'Paper pages'}`)
   // The first open since the app started: the file read and laid out afresh (as a link in a note opens it).
   const first = await place()
-  await h.evaluate(([src, name]) => (window.__f1.arm(), (window.__f1.pressed = performance.now()), window.dispatchEvent(new CustomEvent('haligtree:pdf', { detail: { src, name } }))), [src, name])
-  const cold = await h.evaluate(([page]) => window.__f1.until(page, true), [first])
+  const cold = await filming('open', async () => {
+    await h.evaluate(([src, name]) => (window.__f1.arm(), (window.__f1.pressed = performance.now()), window.dispatchEvent(new CustomEvent('haligtree:pdf', { detail: { src, name } }))), [src, name])
+    return h.evaluate(([page]) => window.__f1.until(page, true), [first])
+  })
+  landed.push([cold.page, first])
   row('open first', { reader: cold.reader, first: cold.first, sharp: cold.sharp, rail: cold.rail, blankFrames: cold.blankFrames, elsewhere: cold.elsewhere, dropped: cold.dropped, worst: cold.worst, longest: cold.longest, page: `${cold.page} of place ${first}`, trail: cold.trail.trim().split(" ").slice(0, 8).join(" ") })
   await reader(); await wait(1500); await home()
 
@@ -222,7 +251,7 @@ try {
     const out = await h.evaluate(() => { const t = window.__f1; t.sampling = false; return { ...t.frames(), blank: t.samples.filter((s) => s.blank).length, blurred: t.samples.filter((s) => !s.blank && s.blurred).length, samples: t.samples.length } })
     row('first scroll', { dropped: out.dropped, frames: out.frames, worst: out.worst, longest: out.longest, blankFrames: out.blank, blurredFrames: out.blurred })
   })
-  if (PARTS.has('fling')) await profiled('fling', async () => {
+  if (PARTS.has('fling')) await profiled('fling', () => filming('fling', async () => {
     // From the first page to the middle of the book, fast, then rest: frames while it moves, and how long the pages it rests on take.
     // g g: the first page, as on every list.
     await h.locator('.pdf-reader-scroll').click({ position: { x: 4, y: 4 } })
@@ -243,7 +272,7 @@ try {
     const rest = await h.evaluate(() => window.__f1.until(0, false))
     row('fling', { moves, dropped: during.dropped, frames: during.frames, worst: during.worst, longest: during.longest, sharpAfter: rest.sharp, blankAfter: rest.blankFrames, page: rest.page })
     await wait(1200)
-  })
+  }))
   if (PARTS.has('jump')) await profiled('jump', async () => {
     const to = Math.max(2, Math.round(pages * 0.8))
     const from = await h.evaluate(() => window.__f1.state().page)
@@ -269,7 +298,7 @@ try {
       await wait(1500)
     }
   })
-  if (PARTS.has('zoom')) await profiled('zoom', async () => {
+  if (PARTS.has('zoom')) await profiled('zoom', () => filming('zoom', async () => {
     await h.mouse.move(middle.x, middle.y)
     // A pinch: a ctrl wheel, small steps, one a frame, as a trackpad sends it.
     await h.evaluate(() => window.__f1.arm())
@@ -289,7 +318,7 @@ try {
       await wait(1200)
     }
     await h.keyboard.press('Meta+0'); await h.evaluate(() => window.__f1.until(0, false)); await wait(1000)
-  })
+  }))
   if (PARTS.has('dark')) await profiled('dark', async () => {
     const was = await h.evaluate(() => localStorage.getItem('pdf-dark') === '1')
     await h.evaluate(() => (window.__f1.arm(), (window.__f1.pressed = performance.now()), localStorage.setItem('pdf-dark', '1'), window.dispatchEvent(new CustomEvent('haligtree:pdf-dark'))))
@@ -358,8 +387,15 @@ try {
   })
   console.log(`RESULT ${JSON.stringify({ book: key, load: load(), rows })}`)
   check('no page errors', !c.errors.filter((e) => !/ResizeObserver/.test(e)).length, c.errors.slice(0, 3).join(' | '))
+  // Each opening (the first since launch, the shelf, a note's card, ⌘K, Back and Forward) shows the page the book was
+  // left on: the old build opened Fluent Python at p. 452 when it was left at p. 338, and kept 452.
+  if (landed.length) check('every opening shows the page the book was left on', landed.every(([at, left]) => at === left), landed.map(([at, left]) => `${at} of ${left}`).join(', '))
+  // Reading on at the wheel's pace: the whole window was drawn again for every page passed (the pane's kept page, the
+  // rail's every thumbnail); a frame in ten or more came late.
+  const scroll = rows['first scroll']
+  if (scroll) check('the first scroll: fewer than one frame in ten comes late', scroll.dropped * 10 < scroll.frames, `${scroll.dropped} of ${scroll.frames} late, the longest gap ${Math.round(scroll.worst)}ms`)
   if (strict) {
-    // The bars, once the fixes are in: see the report for which each one proves.
+    // The bars themselves (the user's: no frame over 16ms): not all met yet, see the report.
     for (const [label, one] of Object.entries(rows)) if (one.dropped !== undefined) check(`${label}: no frame over 16ms`, one.dropped === 0, `${one.dropped} dropped, worst ${Math.round(one.worst)}ms`)
   }
 } catch (error) {
