@@ -101,10 +101,12 @@ try {
   if (shots) for (const name of ['light', 'dark']) { await look(name); await wait(400); await h.screenshot({ path: `${shots}/ghost-${name}.png` }) }
   await look('light')
 
-  // 3. Back: the graph again, no note open.
+  // 3. Back: the graph again, no note open. Started from the graph with nothing open: the Inbox is left and come back
+  // to, so Back has a step of its own to return to (sent to the Inbox it was already on, the new note stayed open).
+  await send('view', 'home'); await wait(700)
   await graphOn()
   s = await shown()
-  const backTo = s.graph
+  const backTo = s.graph && !s.note
   // 2. ⌘K, typed and Enter: a capture opened by its name in Graph view shows.
   await h.keyboard.press('Meta+k'); await wait(600)
   await h.keyboard.type('Call the bank', { delay: 15 }); await wait(700)
