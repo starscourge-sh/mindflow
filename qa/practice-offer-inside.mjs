@@ -173,6 +173,8 @@ try {
   await offered()
   said = await cardSays()
   check('at 23:22 the card says how late: “Their practice at 21:00, 2 hours ago.”', said?.lead === 'Their practice at 21:00, 2 hours ago.', JSON.stringify(said?.lead))
+  // It was asked by the notice a moment ago, on Settings: Home's card asking takes the notice away.
+  check('opened on Home while the notice was asking: the card asks and the notice has gone, never both', (await notices()).every((one) => !/practice/i.test(one)), (await notices()).join(' | '))
   await h.screenshot({ path: `${SHOT}/now-card-late.png` })
   check('no errors in the window', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } catch (error) {
