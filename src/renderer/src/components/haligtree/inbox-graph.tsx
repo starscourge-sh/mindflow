@@ -172,7 +172,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
       </div>
       {graph.nodes.length ? (
         <>
-          <GraphCanvas key={`${mode}-${range}`} map={graph} fit={fit} hold={HOLD} paint={looseTint} counts={countOf} className={`flex-1 rounded-lg border bg-accent/20 ${compact ? 'min-h-44' : 'min-h-64'}`} onOpen={pick} />
+          <GraphCanvas key={`${mode}-${range}`} map={graph} fit={fit} hold={HOLD} keepFit paint={looseTint} counts={countOf} className={`flex-1 rounded-lg border bg-accent/20 ${compact ? 'min-h-44' : 'min-h-64'}`} onOpen={pick} />
           {picked && (
             <div data-inbox-cluster className="mt-2 shrink-0 rounded-lg border bg-accent/25 p-1">
               <div className="flex items-center gap-2 px-2 py-1">

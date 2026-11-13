@@ -171,7 +171,7 @@ const takeFocus = (): string | null => ((id) => ((asked = null), id))(asked)
  * scroll left to the page around it. `focus` lights a note up and brings it
  * close once drawn.
  */
-export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0, fit: fitRef, fly, replay, look, paint, calm = false, className, children }: {
+export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0, keepFit = false, fit: fitRef, fly, replay, look, paint, calm = false, className, children }: {
   map: Graph
   /** `aside`: ⌥ was held, to open it beside. */
   onOpen: (type: string, id: string, aside?: boolean) => void
@@ -185,6 +185,10 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
   /** How hard a dot with no line is pulled to the middle, at the least, whatever the Map's "Layout" says: with none,
    * every other dot pushes it out to the edge and the whole picture shrinks to fit it (the Inbox's captures on their own). */
   hold?: number
+  /** A map nobody has moved stays fitted to its frame: fitted again when the frame changes size, and kept fitted
+   * while it settles, so a small or squeezed frame never loses a dot past its edge (the Inbox's graph). Not the
+   * Map's: its entry, from close in out to the whole of it with its fade, is a move of its own (qa/local-graph.mjs). */
+  keepFit?: boolean
   fit?: React.RefObject<() => void>
   /** Glide to a note and light it, as a find does; false when it is not on the map. */
   fly?: React.RefObject<(id: string) => boolean>
@@ -1078,7 +1082,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
       .force('y', forceY<Dot>(0).strength(small ? 0.06 : 0.1))
       // Nobody has moved it since it was fitted: the view keeps it fitted as it settles, so a map that spreads a little
       // after its first fit (a tall frame zooms in close) never runs past the frame's edge.
-      .on('tick', () => ((reach = Math.max(40, ...dots.map((dot) => Math.hypot(dot.x!, dot.y!)))), (washes = null), asFitted && !following && !drag && !goal && width && Object.assign(view, fitted()), redraw()))
+      .on('tick', () => ((reach = Math.max(40, ...dots.map((dot) => Math.hypot(dot.x!, dot.y!)))), (washes = null), keepFit && asFitted && !following && !drag && !goal && width && Object.assign(view, fitted()), redraw()))
       .on('end', () => {
         for (const dot of dots) placed.current.set(dot.id, { x: dot.x!, y: dot.y! })
       })
@@ -1325,7 +1329,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
       el.style.height = `${height}px`
       // Nobody has moved it since it was fitted: fitted again to the new frame, at once (a window made smaller kept the
       // old zoom, and the map's edges went past the canvas's).
-      if (resized && asFitted && !following && width && height) glide(fitted(), 0)
+      if (keepFit && resized && asFitted && !following && width && height) glide(fitted(), 0)
       draw()
     }
     size()
