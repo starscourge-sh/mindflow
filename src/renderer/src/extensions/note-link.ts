@@ -18,6 +18,7 @@ import { typedOnly } from "@/lib/typed-suggestion"
 import { changedSpan } from "@/lib/text-edit"
 import { iconMarkup } from "@/lib/icon-markup"
 import { nameWithoutTags } from "../../../main/tag-words"
+import { num } from "../../../main/dates"
 
 /** One note the `@` menu can offer. The app decides what is findable. */
 export interface NoteSuggestion {
@@ -379,7 +380,7 @@ export function chooseNote(paths: string[], at: { x: number; y: number }, pick: 
     at,
     onClose: close,
     sections: [
-      { label: `${paths.length} notes of this name in your vault: which?`, items: paths.map((path) => ({ label: shown(path), run: () => (close(), pick(path)) })) },
+      { label: `${num(paths.length)} notes of this name in your vault: which?`, items: paths.map((path) => ({ label: shown(path), run: () => (close(), pick(path)) })) },
       { items: [{ label: "A new empty note instead", run: () => (close(), none()) }] }
     ]
   })))
