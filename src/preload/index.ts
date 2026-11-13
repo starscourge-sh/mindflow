@@ -489,10 +489,13 @@ const api = {
   },
   /** A sticky told to be its pill in the desk's stack on that edge (nudge: it came out by itself), or its whole card again (null); opened: the card grown out of its pill, the pill where it stands in the window and the card's width; instant: asked by a key, so it lands without a motion. */
   onBeaconPeek: (listen: (peek: PillPeek | null, instant?: boolean) => void): (() => void) => {
-    const relay = (_event: unknown, peek: PillPeek | null, instant?: boolean): void => listen(peek, instant)
+    // Told once it listens, what it was told wins: the answer to the question below can come after a newer word
+    // (folded as the page loaded, then opened), and must never put the old shape back.
+    let told = false
+    const relay = (_event: unknown, peek: PillPeek | null, instant?: boolean): void => ((told = true), listen(peek, instant))
     heard.on('beacon:peek', relay)
     // As it starts listening: what it is now, in case it was told before (or before a reload).
-    void ipcRenderer.invoke('beacon:peek:now').then((peek) => peek && listen({ ...peek, nudge: false }), () => undefined)
+    void ipcRenderer.invoke('beacon:peek:now').then((peek) => peek && !told && listen({ ...peek, nudge: false }), () => undefined)
     return () => heard.off('beacon:peek', relay)
   },
   /** Whether AeroSpace, the tiling window manager, is on this Mac (Settings shows its rule for the stickies). */

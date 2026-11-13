@@ -2,7 +2,7 @@
 // windows/menu.tsx), never the Mac's see-through one. Each kind of sticky (a note, Today, all goals, one goal) is
 // right-clicked: the menu opens at the pointer, inside the screen, opaque (its fill's alpha read, and the window's
 // page captured and saved, light and dark); its own lines come first ("Open in Haligtree", "Take it down"), then
-// the desk's lines (Tidy, Tuck) in the same menu, the screen round it left clear; Esc and a click off it put it away and hand the keys back; Open and
+// the desk's lines (Tidy, the fold into pills) in the same menu, the screen round it left clear; Esc and a click off it put it away and hand the keys back; Open and
 // Take it down do their jobs; Today's task menu opens through the same window.
 //
 //   npx electron-vite build --outDir out-sm
@@ -111,7 +111,7 @@ try {
     check(`${theme}: the window covers the screen's work area`, JSON.stringify(s.area) && l.width === s.area.width && l.height === s.area.height, JSON.stringify({ area: s.area, l }))
     check(`${theme}: the menu is opaque (fill alpha 1, no backdrop blur)`, l.alpha === 1 && (l.frost === 'none' || !l.frost), `${l.fill} ${l.frost}`)
     const said = await words(m)
-    check(`${theme}: its own lines come first, then every sticky's lines in the menu itself (no "All stickies" step)`, said[0] === 'Open in Haligtree' && said[1] === 'Take it down' && said.includes('Paper colour') && !said.includes('All stickies') && /^(Tuck sticky notes away|Bring sticky notes back)/.test(said.at(-1) ?? '') && said.some((one) => one.startsWith('Tidy stickies')), said.join(' | '))
+    check(`${theme}: its own lines come first, then every sticky's lines in the menu itself (no "All stickies" step)`, said[0] === 'Open in Haligtree' && said[1] === 'Take it down' && said.includes('Paper colour') && !said.includes('All stickies') && /^(Fold every card into its pill|Open the cards it folded)/.test(said.at(-1) ?? '') && said.some((one) => one.startsWith('Tidy stickies')), said.join(' | '))
     // The window's clear room stays clear while the menu is open: filled, the whole screen went the theme's colour.
     const room = await m.$eval('[data-menu-room]', (el) => getComputedStyle(el).backgroundColor)
     check(`${theme}: the screen round the menu stays clear`, /rgba\(0, 0, 0, 0\)|transparent/.test(room), room)
@@ -183,7 +183,9 @@ try {
     check(`${name}: right-click opens the menu window`, !!m && s.open)
     if (!m) continue
     const said = await words(m)
-    check(`${name}: Open in Haligtree and Take it down first, Tidy and Tuck last`, said[0] === 'Open in Haligtree' && said[1] === 'Take it down' && /^(Tuck sticky notes away|Bring sticky notes back)/.test(said.at(-1) ?? '') && said.some((one) => one.startsWith('Tidy stickies')), said.join(' | '))
+    // A pill (a goal's card starts as one) says "Keep open" before the card's own lines.
+    const own = said[0] === 'Keep open' ? said.slice(1) : said
+    check(`${name}: Open in Haligtree and Take it down first (after "Keep open" on a pill), Tidy and the fold last`, own[0] === 'Open in Haligtree' && own[1] === 'Take it down' && /^(Fold every card into its pill|Open the cards it folded)/.test(said.at(-1) ?? '') && said.some((one) => one.startsWith('Tidy stickies')), said.join(' | '))
     check(`${name}: opaque`, (await looks(m)).alpha === 1)
     console.log(`  ${name}: ${await capture(`${type}-menu`)}`)
     await esc(m)

@@ -2095,6 +2095,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     const { x, y } = cardInView({ ...now, x: pulled.x - inset.left, y: pulled.y - inset.top }, inset, area)
     if (x !== real.x || y !== real.y) moveStickies([[key, win, { x, y }]], false)
     else remember()
+    // Put down in the stack's column, or taken out of it: the stack stands clear of it again.
+    layStack()
   }
   win.on('resized', remember)
   // Its right-click menu, drawn by Haligtree (popup-menu.ts): the writing's own Cut, Copy and Paste where
@@ -2949,7 +2951,18 @@ function stackPlaces(): { area: Electron.Rectangle; at: Map<string, Electron.Rec
   const keys = all.slice(0, STACK_MAX)
   const step = PILL_H + PILL_GAP
   const tall = keys.length * step - PILL_GAP
-  const top = Math.max(area.y + PILL_IN, Math.min(stackTop ?? area.y + Math.round(area.height * STACK_TOP), area.y + area.height - PILL_IN - tall))
+  const wanted = Math.max(area.y + PILL_IN, Math.min(stackTop ?? area.y + Math.round(area.height * STACK_TOP), area.y + area.height - PILL_IN - tall))
+  // Never over an open card's words: the stack's band steps below any card standing in its column, where there is
+  // room; with none, it stays where it was wanted.
+  const widest = Math.max(PILL_MIN, ...keys.map((key) => pillWidth.get(key) ?? PILL_GUESS))
+  const column = stackSide === 'right' ? { x: area.x + area.width - PILL_IN - widest, right: area.x + area.width } : { x: area.x, right: area.x + PILL_IN + widest }
+  const cards = [...stickies].filter(([key, win]) => !win.isDestroyed() && win.isVisible() && !peeking.has(key) && !fromPill.has(key))
+    .map(([key, win]) => cardOf(win.getBounds(), insetOf(key)))
+    .filter((one) => one.x < column.right && one.x + one.width > column.x)
+    .sort((a, b) => a.y - b.y)
+  let top = wanted
+  for (const one of cards) if (top < one.y + one.height + PILL_GAP && top + tall > one.y - PILL_GAP) top = one.y + one.height + PILL_GAP
+  if (top + tall > area.y + area.height - PILL_IN) top = wanted
   const at = new Map<string, Electron.Rectangle>()
   keys.forEach((key, nth) => {
     const width = pillWidth.get(key) ?? PILL_GUESS
@@ -3278,7 +3291,15 @@ ipcMain.on('sticky:pin', (event, on: unknown) => {
 function freeSpot(area: Electron.Rectangle, width: number, height: number, inset: Inset): Electron.Rectangle {
   const gap = 16
   // Cards apart and on screen, not windows: a paper card's clear room may overlap a neighbour's and hang past the edge.
-  const taken = [...stickies].filter(([, win]) => !win.isDestroyed()).map(([key, win]) => cardOf(win.getBounds(), insetOf(key)))
+  // A pill is no card: the stack's whole band is taken instead, from its first pill to its last, so a new card is
+  // never laid over the pills.
+  const taken = [...stickies].filter(([key, win]) => !win.isDestroyed() && !peeking.has(key) && !fromPill.has(key)).map(([key, win]) => cardOf(win.getBounds(), insetOf(key)))
+  const band = [...stackPlaces().at.values()]
+  if (band.length) {
+    const x = Math.min(...band.map((one) => one.x))
+    const y = band[0].y
+    taken.push({ x, y, width: Math.max(...band.map((one) => one.x + one.width)) - x, height: band.at(-1)!.y + PILL_H - y })
+  }
   const card = cardOf({ x: 0, y: 0, width, height }, inset)
   const clear = (spot: Electron.Rectangle): boolean =>
     taken.every((one) => spot.x + spot.width + gap <= one.x || one.x + one.width + gap <= spot.x || spot.y + spot.height + gap <= one.y || one.y + one.height + gap <= spot.y)

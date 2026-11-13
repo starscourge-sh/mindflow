@@ -97,11 +97,13 @@ try {
     await page.hover('[data-goal-card], .mf-card').catch(() => {})
     await page.locator('[aria-label="Fold it into its pill"]').first().dispatchEvent('click')
   }
+  // The goal card still stands open at the top right, in the stack's column: the one pill steps below it, never over its words.
+  const goalBottom = goal.bounds.y + await pageOf(goal.url).evaluate(() => document.querySelector('[data-goal-card]').getBoundingClientRect().bottom)
   await fold(today)
   check('Today\'s “–” folds it into its pill', await until(async () => (await pills()).length === 1, 3000))
   await wait(500)
   now = await desk(c.electron)
-  geometry('1 pill', stackNow())
+  geometry('1 pill, below the open goal card standing in its column', stackNow(), Math.round(goalBottom + 6))
   await fold(goal)
   check('the goal\'s “–” folds it too: two pills', await until(async () => (await pills()).length === 2, 3000))
   await wait(600)
