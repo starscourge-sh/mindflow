@@ -15,9 +15,10 @@ import type { ContentMatch, NodeType, Schema } from "@tiptap/pm/model"
  * picture came first), and a holder that can take no block is left as it was.
  *
  * Pure, and the same object comes back when nothing needed lifting, so a caller can tell that nothing changed.
+ * `moved` is told of each block taken out of a line.
  */
-export function liftBlocks(doc: JSONContent, schema: Schema): JSONContent {
-  return lift(doc, schema)
+export function liftBlocks(doc: JSONContent, schema: Schema, moved?: (block: JSONContent) => void): JSONContent {
+  return lift(doc, schema, moved)
 }
 
 const typeOf = (schema: Schema, node: JSONContent): NodeType | undefined => (node.type ? schema.nodes[node.type] : undefined)
@@ -43,7 +44,7 @@ function trimBreaks(words: JSONContent[], start: boolean, end: boolean): JSONCon
 }
 
 /** A line holding a block, as its parts: the words before, the block, the words after. Null when it holds none. */
-function split(line: JSONContent, schema: Schema): JSONContent[] | null {
+function split(line: JSONContent, schema: Schema, moved?: (block: JSONContent) => void): JSONContent[] | null {
   const content = line.content ?? []
   if (!content.some((child) => typeOf(schema, child)?.isBlock)) return null
   const parts: JSONContent[] = []
@@ -65,8 +66,9 @@ function split(line: JSONContent, schema: Schema): JSONContent[] | null {
       continue
     }
     close(true)
+    moved?.(child)
     // A line inside the line (a heading pasted into one) is split the same way.
-    parts.push(...((type.isTextblock && split(child, schema)) || [lift(child, schema)]))
+    parts.push(...((type.isTextblock && split(child, schema, moved)) || [lift(child, schema, moved)]))
     afterBlock = true
   }
   close(false)
@@ -84,13 +86,13 @@ function fits(holder: NodeType, children: JSONContent[], schema: Schema): boolea
   return match.validEnd
 }
 
-function lift(node: JSONContent, schema: Schema): JSONContent {
+function lift(node: JSONContent, schema: Schema, moved?: (block: JSONContent) => void): JSONContent {
   if (!node.content?.length) return node
   const holder = typeOf(schema, node)
   // A line's own children are lifted by its holder, where there is room for them.
   if (holder?.isTextblock) return node
-  const kept = node.content.map((child) => lift(child, schema))
-  const lifted = kept.flatMap((child) => (typeOf(schema, child)?.isTextblock && split(child, schema)) || [child])
+  const kept = node.content.map((child) => lift(child, schema, moved))
+  const lifted = kept.flatMap((child) => (typeOf(schema, child)?.isTextblock && split(child, schema, moved)) || [child])
   const same = lifted.length === node.content.length && lifted.every((child, at) => child === node.content![at])
   if (same) return node
   if (!holder || fits(holder, lifted, schema)) return { ...node, content: lifted }

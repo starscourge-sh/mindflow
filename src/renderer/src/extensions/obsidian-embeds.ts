@@ -170,18 +170,25 @@ async function settle(view: EditorView): Promise<void> {
 }
 
 /**
+ * Pictures a note was stored with inside a line of words, put on a line of their own as it was read
+ * (lib/lift-blocks.ts), by address. Not looked for in a vault on opening: a picture found is saved at once, and a
+ * note is saved in its mended shape only when the person edits it. Once it is, they are found as it next opens.
+ */
+export const readInLine = new WeakMap<object, Set<string>>()
+
+/**
  * A note already here with a line that is only an Obsidian picture's path,
  * or a picture whose address is one: the picture, if a vault has it. One
  * edit, so ⌘Z puts the path back; one not found is left exactly as it was.
  */
-async function mend(view: EditorView): Promise<void> {
+async function mend(view: EditorView, held?: Set<string>): Promise<void> {
   if (!view.editable || !host().bringEmbeds) return
   const lines = (doc: ProseMirrorNode): { pos: number; node: ProseMirrorNode; embeds: EmbedAt[]; parent: ProseMirrorNode; index: number }[] => {
     const out: { pos: number; node: ProseMirrorNode; embeds: EmbedAt[]; parent: ProseMirrorNode; index: number }[] = []
     doc.descendants((node, pos, parent, index) => {
       if (out.length >= 50 || node.type.spec.code) return false
       if (node.type.name === "image") {
-        const ref = cleanRef(String(node.attrs.src ?? ""))
+        const ref = held?.has(String(node.attrs.src ?? "")) ? null : cleanRef(String(node.attrs.src ?? ""))
         if (ref && parent) out.push({ pos, node, embeds: [{ from: 0, to: 0, ref }], parent, index })
         return false
       }
@@ -238,7 +245,8 @@ export const ObsidianEmbeds = Extension.create({
   name: "obsidianEmbeds",
 
   addProseMirrorPlugins() {
-    const { schema } = this.editor
+    const { editor } = this
+    const { schema } = editor
     if (!schema.nodes.imagePlaceholder || !schema.nodes.image) return []
     let pasting = false
 
@@ -267,7 +275,7 @@ export const ObsidianEmbeds = Extension.create({
         view: (view) => {
           let seen = key.getState(view.state)
           // Once the note is laid out (a Markdown one is read in just after): pictures left waiting, and old paths.
-          const opened = setTimeout(() => void settle(view).then(() => mend(view)), 300)
+          const opened = setTimeout(() => void settle(view).then(() => mend(view, readInLine.get(editor))), 300)
           return {
             update: (next) => {
               const now = key.getState(next.state)

@@ -107,6 +107,12 @@ test('a line keeps its name (what a link lands on) on its first part only', () =
   assert.equal(lifted.content?.[2].attrs?.blockId, null)
 })
 
+test('each block taken out of a line is told, once, and nothing else', () => {
+  const told: unknown[] = []
+  liftBlocks(doc(p(text('a'), pic('x')), p(rule, text('\n'), pic('y')), pic('z')), schema, (block) => told.push(block.attrs?.src ?? block.type))
+  assert.deepEqual(told, ['x', 'horizontalRule', 'y'])
+})
+
 test('a document with nothing to lift comes back as the very same object', () => {
   const stored = doc(p(text('words')), pic(), { type: 'bulletList', content: [{ type: 'listItem', content: [p(text('point'))] }] })
   assert.equal(liftBlocks(stored, schema), stored)

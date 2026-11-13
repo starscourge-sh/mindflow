@@ -58,7 +58,7 @@ import { HeadingFold } from "@/extensions/heading-fold"
 import { ImageDrop } from "@/extensions/image-drop"
 import { DragOut } from "@/extensions/drag-out"
 import { ImagePlaceholder } from "@/extensions/image-placeholder"
-import { ObsidianEmbeds } from "@/extensions/obsidian-embeds"
+import { ObsidianEmbeds, readInLine } from "@/extensions/obsidian-embeds"
 import { BlockColor } from "@/extensions/block-color"
 import { JoinLists } from "@/extensions/join-lists"
 import { OutdentLists } from "@/extensions/outdent-lists"
@@ -1650,9 +1650,13 @@ function Surface({
       holdViews(instance)
       // A picture or rule stored inside a line of words is put on a line of its own before the page is built from
       // it, with this editor's own schema (lib/lift-blocks.ts): left in, the first edit near it threw. Only shown
-      // so: it is saved in this shape when the person next edits the note, never on opening.
+      // so: it is saved in this shape when the person next edits the note, never on opening, so those pictures
+      // are not looked for in a vault as it opens either (a find is saved at once).
       const { content } = instance.options
-      if (content && typeof content === "object" && !Array.isArray(content)) instance.setOptions({ content: liftBlocks(content, instance.schema) })
+      if (!content || typeof content !== "object" || Array.isArray(content)) return
+      const held = new Set<string>()
+      instance.setOptions({ content: liftBlocks(content, instance.schema, (block) => void (block.attrs?.src && held.add(String(block.attrs.src)))) })
+      if (held.size) readInLine.set(instance, held)
     },
     onMount: ({ editor: instance }) => {
       if (laidIn.has(instance)) return
