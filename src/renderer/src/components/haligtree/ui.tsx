@@ -548,8 +548,8 @@ export function Props({ children, className, fold = false }: { children: ReactNo
   // One size for every row, whatever window it sits in: the prompt's larger
   // base made some rows grow and others not. A caller's classes are merged
   // over these, so the prompt's drawer can drop the width and the rule.
-  // Questions take the width of the reader's chapter list (20rem), so a line's link and the foot stay on one line.
-  const aside = <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className, fold && questions && '@[40rem]/page:w-80')}>{fold && questions ? <NoteQuestions /> : children}</aside>
+  // Questions take the Details' own width: wider, they squeezed the note to a letter a line beside a list.
+  const aside = <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className)}>{fold && questions ? <NoteQuestions /> : children}</aside>
   return fold ? <FoldIslands.Provider value>{aside}</FoldIslands.Provider> : aside
 }
 /** Where reading a list starts: the note open now, else the keyboard cursor, else the top. */
