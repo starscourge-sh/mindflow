@@ -12,6 +12,8 @@ type MenuActs = {
   newNote: () => void
   /** Something the main window does, told by name (`inHome`). */
   inHome: (event: string, detail?: unknown) => void
+  /** “Show the welcome again” (welcomeAgain): told to the main window, brought forward first only when it is not made again for it. */
+  welcomeAgain: () => void
   /** A place in the main window, by its id (`sendHome('view', …)`). */
   view: (id: string) => void
   importVault: () => void
@@ -50,7 +52,7 @@ export function setAppMenu(acts: MenuActs): void {
             { label: `About ${acts.name}`, click: () => acts.about() },
             // The welcome's goodbye and What Haligtree can do say both wait here, as in ⌘K.
             { label: "What's new", click: () => acts.inHome('haligtree:whats-new') },
-            { label: 'Show the welcome again', click: () => acts.inHome('haligtree:welcome') },
+            { label: 'Show the welcome again', click: () => acts.welcomeAgain() },
             { type: 'separator' as const },
             { label: 'Settings…', ...shown('Command+,'), click: () => acts.view('settings') },
             { type: 'separator' as const },

@@ -2321,6 +2321,8 @@ function openHome(): void {
     void (async () => {
       const here = AEROSPACE ? await aerospace('list-workspaces', '--focused') : ''
       const seen = await bringHere(win, here)
+      // Made again in its place meanwhile, for the welcome (remakeHome): that one shows itself.
+      if (win.isDestroyed()) return
       // A brand-new Haligtree arrives as Arc and Dia do: the window comes up almost clear, the desktop
       // still showing through, and grows solid over a few seconds as the welcome's mist lifts.
       const misty = firstRun() && !homeTimes.shown
@@ -2598,6 +2600,8 @@ function remakeHome(split: unknown): void {
   whenHomeDrawn(() => {
     if (made.isDestroyed() || made !== home) return
     standClear(made)
+    // Forward, as openHome brings the window: asked from the menu bar with another app in front, showing alone may not.
+    app.focus({ steal: true })
     made.show()
   })
 }
@@ -5010,6 +5014,9 @@ function appMenu(): void {
     capture: () => void (prompt?.isFocused() || toggleWindow()),
     newNote,
     inHome,
+    // Made again for it (remakeHome), the main window is told without being brought forward first: put away (⌘W), it was
+    // seen to come up and go at once. Its page hands over, and the window made in its place comes forward with the mist.
+    welcomeAgain: () => (arrivesRemade() ? inHomeQuietly('haligtree:welcome', null) : inHome('haligtree:welcome')),
     view: (id) => sendHome('view', id, undefined, 'window'),
     importVault: () => void importVault(),
     importFiles: () => void importFiles(),
