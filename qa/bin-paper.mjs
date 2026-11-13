@@ -75,7 +75,7 @@ try {
     await h.getByRole('menuitem', { name: /^Move (\d+ )?to the Bin/ }).first().click()
     await wait(1500)
     const key = [x, y, width, height].map(Math.round).join(',')
-    const taken = await electron.evaluate((key) => globalThis.__pictures.filter((one) => one.rect === key).map((one) => one.png), key)
+    const taken = await electron.evaluate((_, key) => globalThis.__pictures.filter((one) => one.rect === key).map((one) => one.png), key)
     const asked = await electron.evaluate(() => globalThis.__pictures.map((one) => one.rect))
     const paper = taken.at(-1)
     const diff = before && paper ? await differ(before, paper) : null
