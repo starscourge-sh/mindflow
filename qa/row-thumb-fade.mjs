@@ -43,7 +43,9 @@ try {
     const start = performance.now()
     const tick = () => {
       const leaving = tile.querySelector('[data-picture-leaving]')
-      const own = [...tile.querySelectorAll('img')].find((img) => !img.hasAttribute('data-picture-leaving') && !img.closest('svg') && img.className.includes('size-full object-cover animate-in'))
+      // The row's own picture: the tile's own <img> (a paper cover's is inside its cover). Found by its fade-in class
+      // before, which went when a row's picture stopped fading in (it is decoded before the row is drawn).
+      const own = [...tile.querySelectorAll('img')].find((img) => !img.hasAttribute('data-picture-leaving') && !img.closest('svg') && img.parentElement === tile)
       const anim = leaving?.getAnimations()[0]
       out.push({ t: Math.round(performance.now() - start), at: anim ? Math.round(anim.currentTime) + '/' + anim.effect.getComputedTiming().duration + ' ' + anim.effect.getComputedTiming().easing : null, leaving: leaving ? +getComputedStyle(leaving).opacity : null, own: own?.getAttribute('src')?.slice(-12) ?? null, icon: !!tile.querySelector('svg') })
       if (performance.now() - start < 3000) requestAnimationFrame(tick)

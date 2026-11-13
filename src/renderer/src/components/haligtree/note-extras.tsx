@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button'
 import { stepTap } from '@/lib/haptics'
 import { chime, step, type Cue } from '@/lib/sound'
 import { tintFor } from '@/lib/pictures'
-import { notes, readFront, smallPicture, useThumb, type GraphNode, type MapEdge, type NoteTable, type Version } from '@/lib/notes'
+import { notes, readFront, useSmallPicture, useThumb, type GraphNode, type MapEdge, type NoteTable, type Version } from '@/lib/notes'
 import { useLive, haligtree } from '@/lib/haligtree'
 import { CHIP, CHIP_QUIET, Chips } from './display'
 import { RowMenu, copy, fits, flat, openFromGrip, type MenuItem, type RowItem } from './row-menu'
@@ -52,17 +52,14 @@ import { quoted } from '../../../../main/clip'
 /** A note's first picture, small, or nothing at all. Rows are only drawn in view, so this is lazy already. */
 export function Thumb({ id, className = 'size-9' }: { id: string; className?: string }): React.JSX.Element | null {
   const src = useThumb(id)
-  const [shown, setShown] = useState<string | null>(null)
-  useEffect(() => {
-    setShown(null)
-    if (src) void smallPicture(src).then(setShown)
-  }, [src])
+  // Made small and decoded before its row is first drawn (its page waits, 150 ms at most): whole in that frame.
+  const shown = useSmallPicture(src)
   if (!src) return null
   return (
     // Blurred with the words when its row is private: a picture says as much.
-    // Its colour until the small copy arrives (lib/pictures.ts).
+    // Its colour until the small copy arrives (lib/pictures.ts), which then takes its place in one frame.
     <span className={`private-text block shrink-0 overflow-hidden rounded-md border bg-accent/40 ${className}`} style={{ backgroundColor: shown ? undefined : tintFor(src) }}>
-      {shown && <img src={shown} alt="" loading="lazy" decoding="async" draggable={false} className="size-full object-cover animate-in fade-in-0 duration-200" />}
+      {shown && <img src={shown} alt="" decoding="async" draggable={false} className="size-full object-cover" />}
     </span>
   )
 }

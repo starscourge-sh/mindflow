@@ -5,7 +5,7 @@ import { AudioLines, Check, Files, Film, Image as ImageIcon, Layers, LayoutGrid,
 import { openFileLook } from '@/components/attachment/file-look'
 import { FileText } from '@/components/ui/icons'
 import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
-import { smallPicture } from '@/lib/notes'
+import { useSmallPicture } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
 import { PdfLibrary, titleOf } from '@/components/pdf/pdf-library'
@@ -563,22 +563,17 @@ function Where({ one, label, onUse }: { one: Media; label: string; onUse: (use: 
 
 /** The tile's top: the picture made small, a PDF's first page, or a clean card for a file with none. */
 function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element {
-  const [thumb, setSmall] = useState<string | null>(null)
   // A video's frame or a document's page, from Quick Look in the main process, or the Mac's icon for its kind.
   const file = one.kind === 'video' || one.kind === 'document'
   const face = useFileFace(file ? one : null, true)
+  // Asked for only once the tile is drawn (a row of the grid out of sight never asks), made small and decoded before
+  // the tile is first drawn (its page waits, 150 ms at most), so it is whole in that frame.
+  const thumb = useSmallPicture(one.kind === 'audio' || one.kind === 'pdf' || file || one.gone ? null : one.src, true)
   // A PDF's face is its cover, drawn by the reader's own renderer (Quick Look often draws none).
-  const small = one.kind === 'pdf' ? cover ?? null : thumb
+  const small = one.kind === 'pdf' ? cover ?? null : (thumb ?? null)
   const [moving, setMoving] = useState(false)
   const rest = useRef(0)
   useEffect(() => () => clearTimeout(rest.current), [])
-  // Asked for only once the tile is drawn: a row of the grid out of sight never asks.
-  useEffect(() => {
-    if (one.kind === 'audio' || one.kind === 'pdf' || file || one.gone) return
-    let live = true
-    void smallPicture(one.src, true).then((made) => live && setSmall(made || ''))
-    return () => void (live = false)
-  }, [one.src, one.kind, one.gone])
   const frame = `relative aspect-[4/3] w-full overflow-hidden bg-accent ${one.private ? 'private-text' : ''}`
   if (one.gone) return <span className={`${frame} flex flex-col items-center justify-center gap-1.5 px-3 text-muted-foreground`}><FileText className="size-7" /><span className="text-xs font-medium text-foreground">{kindWord(one)}</span></span>
   if (one.kind === 'audio') return <span className={frame}><AudioFace one={one} /></span>
@@ -595,7 +590,7 @@ function Face({ one, cover }: { one: Media; cover?: string }): React.JSX.Element
       // A PDF's cover turns into its pages in place when rested on and slid across (pdf-peek.tsx).
       // A PDF's cover is a page: drawn on the same paper as the pages scrubbed over it (pdf.css), so the two never read as two looks.
       <span className={one.kind === 'pdf' ? `${frame.replace(' bg-accent', '')} pdf-face-cover` : frame} data-pdf-peek-scrub={one.kind === 'pdf' ? '' : undefined} onPointerEnter={() => one.kind === 'gif' && (clearTimeout(rest.current), (rest.current = window.setTimeout(() => setMoving(true), GRACE)))} onPointerLeave={() => (clearTimeout(rest.current), setMoving(false))}>
-        <img src={moving ? one.src : small} alt="" draggable={false} decoding="async" className={`size-full ${one.kind === 'pdf' ? 'object-contain' : 'object-cover'} animate-in fade-in-0 duration-200`} />
+        <img src={moving ? one.src : small} alt="" draggable={false} decoding="async" className={`size-full ${one.kind === 'pdf' ? 'object-contain' : 'object-cover'}`} />
         {one.kind !== 'picture' && <span className="absolute bottom-1.5 left-1.5 rounded bg-background px-1.5 py-px text-xs font-medium">{kindWord(one)}</span>}
       </span>
     )

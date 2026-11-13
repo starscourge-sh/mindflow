@@ -14,6 +14,7 @@ import { picked } from '@/lib/tasks'
 import { dayKey, num } from '../../../main/dates'
 import { canSplit, frontPane, usePane } from '@/lib/split'
 import { openApart } from '@/lib/apart'
+import { useMade, warm } from '@/lib/decoded'
 
 /**
  * The main process's `notes:` channels, typed, and the actions built on them
@@ -107,6 +108,16 @@ const subscribe = (listen: () => void): (() => void) => {
 }
 /** Whether the pictures have been read in this window: a page waits for it, so a picture never arrives after its row. */
 export const thumbsRead = (): boolean => thumbsIn
+/** The same, as a hook that draws again once they are read (asked for, it starts the read). */
+export const useThumbsRead = (): boolean => useSyncExternalStore(subscribe, () => thumbsIn)
+/**
+ * A note's picture made small and decoded ahead, before any row asks (the Notes glance's, while its tabs stand), so
+ * its row draws it in its first frame without a wait. Nothing when the pictures are not read yet or it has none.
+ */
+export const warmThumb = (id: string, large = false): void => {
+  const src = showThumbs ? thumbs[id] : undefined
+  if (src) void smallPicture(src, large).then((url) => void (url && warm(url)), () => undefined)
+}
 /** The first picture in a note, or nothing; nothing too when the setting is off. */
 export const useThumb = (id: string): string | undefined =>
   useSyncExternalStore(subscribe, () => (showThumbs ? thumbs[id] : undefined))
@@ -116,9 +127,18 @@ const small = new Map<string, Promise<string>>()
 export const smallPicture = (src: string, large = false): Promise<string> => {
   const key = `${large}:${src}`
   let made = small.get(key)
-  if (!made) small.set(key, (made = notes.thumb(src, large ? 320 : 96)))
+  if (!made) small.set(key, (made = notes.thumb(src, large ? 320 : 96).then((url) => (smallNow.set(key, url), url))))
   return made
 }
+/** Each small copy once made, at hand without waiting a turn for its promise. */
+const smallNow = new Map<string, string>()
+/**
+ * A picture made small for a row, in the row's first frame: made and decoded before its page first paints (150 ms at
+ * most), and at once in every row after (lib/decoded.ts `useMade`). Null while it is not ready yet; '' when it cannot
+ * be shown. Asked for as a row first drew and then faded in, every picture came two to four frames after its row.
+ */
+export const useSmallPicture = (src: string | null | undefined, large = false): string | null | undefined =>
+  useMade(src ? `${large}:${src}` : null, () => smallPicture(src!, large), () => smallNow.get(`${large}:${src}`))
 
 // --- your own order
 

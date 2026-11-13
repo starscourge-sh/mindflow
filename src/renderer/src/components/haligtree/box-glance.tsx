@@ -13,6 +13,9 @@ import { quoted } from '../../../../main/clip'
 import { CaptureList, type CaptureMeta } from '../capture-list'
 import { EventLine, allDayOn, colorFor, macShown, span, type Shown } from './calendar-events'
 import { Orb } from './orb'
+import { ReadsIn } from '@/lib/reads-in'
+import { useThumbsRead, warmThumb } from '@/lib/notes'
+import { readCovers } from './grain'
 import { TabShape } from './tab-row'
 import { TaskInput } from './task-input'
 import { TodayPanel, addTyped, pasteTasks } from './today-panel'
@@ -63,6 +66,13 @@ export function BoxGlance({ on, pick, captures, onOpen }: {
   useLive(haligtree.tasks, [] as Task[])
   const day = today(useMinute())
   useEvents(day.from.toISOString(), day.to.toISOString())
+  // So too the pictures of the notes Notes opens on: which have one read, each made small and decoded, and the paper
+  // drawings decoded, while the tabs stand. Asked only once Notes was chosen, they came frames after their rows.
+  const pictured = useThumbsRead()
+  useEffect(() => readCovers(), [])
+  useEffect(() => {
+    if (pictured) for (const one of latestNotes(captures).slice(0, NOTES)) warmThumb(one.id)
+  }, [pictured, captures])
   // Each tab starts on an empty line, with the caret in it.
   useEffect(() => {
     setWords('')
@@ -168,11 +178,15 @@ export function BoxGlance({ on, pick, captures, onOpen }: {
               <kbd className="font-sans text-key text-muted-foreground">↵</kbd>
             </span>
           </div>
-          <Panel on={on} above={above}>
-            {on === 'notes'
-              ? <NotesGlance words={words} captures={captures} acts={acts} onOpen={onOpen} onMade={() => setWords('')} onBack={setWords} />
-              : <TodayGlance words={words} acts={acts} onOpen={onOpen} onAdded={() => setWords('')} onBack={(text) => (setWords((now) => (now.trim() ? `${text} ${now}` : text)), line.current?.focus())} />}
-          </Panel>
+          {/* Drawn whole, its rows' pictures with them: at each open the glance waits for pictures not yet decoded in
+              this window (150 ms at most, lib/decoded.ts), where its rows came first and their pictures frames later. */}
+          <ReadsIn className="contents">
+            <Panel on={on} above={above}>
+              {on === 'notes'
+                ? <NotesGlance words={words} captures={captures} acts={acts} onOpen={onOpen} onMade={() => setWords('')} onBack={setWords} />
+                : <TodayGlance words={words} acts={acts} onOpen={onOpen} onAdded={() => setWords('')} onBack={(text) => (setWords((now) => (now.trim() ? `${text} ${now}` : text)), line.current?.focus())} />}
+            </Panel>
+          </ReadsIn>
         </>
       )}
     </>
@@ -227,6 +241,10 @@ function useHangsAbove(): boolean {
   return above
 }
 
+/** The notes Notes opens on: those in use, changed most recently first. */
+const latestNotes = (captures: CaptureMeta[]): CaptureMeta[] =>
+  captures.filter((one) => one.status !== 'discarded' && !one.archivedAt).sort((a, b) => (b.editedAt ?? b.capturedAt).localeCompare(a.editedAt ?? a.capturedAt))
+
 /**
  * Notes: the ones changed most recently, and typing narrows them by name with ⌘K's own matcher (main/book-find.ts).
  * ↵ opens the lit one in the main window; ⌘↵ starts a note with the name typed (lib/keep-typed.ts, as ⌘K's
@@ -253,7 +271,7 @@ function NotesGlance({ words, captures, acts, onOpen, onMade, onBack }: {
   }, [typed, asker])
   const shown = useMemo(() => {
     const live = captures.filter((one) => one.status !== 'discarded' && !one.archivedAt)
-    const latest = [...live].sort((a, b) => (b.editedAt ?? b.capturedAt).localeCompare(a.editedAt ?? a.capturedAt))
+    const latest = latestNotes(captures)
     if (!typed) return latest.slice(0, NOTES)
     // By name, as ⌘K's "Names only" narrows: every word typed is in the note's name. Until the first answer is in,
     // the latest ones narrowed the same way stand in, so the list never blinks empty at the first letter.

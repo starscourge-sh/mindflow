@@ -10,7 +10,9 @@ import {
 import { passes, propertyFilters } from '../../../../main/property-words'
 import { Minimize2 } from 'lucide-react'
 
-import { notes, smallPicture, useThumb, type NoteTable } from '@/lib/notes'
+import { notes, useSmallPicture, useThumb, useThumbsRead, type NoteTable } from '@/lib/notes'
+import { useReading } from '@/lib/reads-in'
+import { tintFor } from '@/lib/pictures'
 import { openApart } from '@/lib/apart'
 import { useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
@@ -98,20 +100,26 @@ export type Entry = {
   head?: Headword & { asked?: boolean; where?: string }
 }
 
-/** A note's first picture, made small (or tile-sized) once. Undefined: it has none; null: on its way; '': too big to show. */
-function usePicture(id: string, large: boolean): [string | null | undefined, () => void] {
+/**
+ * A note's first picture, made small (or tile-sized) and decoded before its row is first drawn (useSmallPicture).
+ * Undefined: it has none; null: on its way; '': too big to show. With it, the picture's own tone, for its square
+ * while it is on its way.
+ */
+function usePicture(id: string, large: boolean): [string | null | undefined, () => void, string | undefined] {
   const src = useThumb(id)
-  // Which note the picture made belongs to: a row drawn again for another note never shows the last one's.
-  const [shown, setShown] = useState<{ id: string; url: string } | null>(null)
+  // Its page waits for the window's first read of which notes have pictures, as Home's cards do: a row drawn before
+  // it showed its paper drawing, then its picture in its place.
+  useReading(!useThumbsRead())
+  const made = useSmallPicture(src, large)
+  // A picture changed for another keeps the old one up until the new one is made, then they cross (PictureLeaving).
+  // Kept with its note: a row drawn again for another note never shows the last one's.
+  const last = useRef<{ id: string; url: string } | null>(null)
+  if (made) last.current = { id, url: made }
+  else if (!src || last.current?.id !== id) last.current = null
   // A picture whose file has gone is no picture: the note falls back to its cover, as Home's cards do.
-  const [broken, setBroken] = useState(false)
-  useEffect(() => {
-    // A picture changed for another keeps the old one up until the new one is made, then they cross (PictureLeaving).
-    if (!src) setShown(null)
-    setBroken(false)
-    if (src) void smallPicture(src, large).then((url) => setShown({ id, url }), () => setBroken(true))
-  }, [id, src, large])
-  return [src && !broken ? (shown?.id === id ? shown.url : null) : undefined, () => setBroken(true)]
+  const [broken, setBroken] = useState<string | null>(null)
+  const picture = src && broken !== src ? (made ?? last.current?.url ?? null) : undefined
+  return [picture, () => setBroken(src ?? null), picture === null ? tintFor(src) : undefined]
 }
 
 
@@ -132,25 +140,28 @@ export function Cover({
   className?: string
 }): React.JSX.Element {
   // A tile is a tile whichever grid it is in: always the tile-sized picture, or a small grid blurs.
-  const [picture, broken] = usePicture(entry.id, true)
+  const [picture, broken, tone] = usePicture(entry.id, true)
   // No picture of its own: its grain cover, its words in white on it.
   const grain = useNoteCover(picture === undefined ? entry.id : null)
   const paper = !!grain?.paper
   // Its picture deleted or changed, the old one fades out over what replaces it, whichever box that is drawn in.
   const [leaving, left] = useLeaving(picture, entry.id)
+  // Not ready in time (never made in this window, and slow to make): a still square in the picture's own tone, which
+  // the picture replaces in one frame. Never its kind's icon first, then the picture.
+  if (picture === null) return <span data-picture-coming="" className={`tile-pic private-text relative overflow-hidden bg-accent ${className}`} style={tone ? { backgroundColor: tone } : undefined} />
   if (picture)
     return (
       // No caption carried beside the pointer: the tile names its picture itself (its foot, or its name when pointed at), and two names at once read as neither.
+      // Decoded before the tile is drawn (usePicture), so it is whole in the tile's first frame: never loaded late or faded in.
       <Tilt className={`tile-pic private-text relative overflow-hidden bg-accent ${className}`}>
         <img
           data-tile-picture=""
           src={picture}
           alt=""
-          loading="lazy"
           decoding="async"
           draggable={false}
           onError={broken}
-          className="size-full object-cover animate-in fade-in-0 duration-200"
+          className="size-full object-cover"
         />
         <LeavingPicture src={leaving} onDone={left} />
       </Tilt>
@@ -201,26 +212,30 @@ export function Lead({
   entry: Entry
   className?: string
 }): React.JSX.Element {
-  const [picture, broken] = usePicture(entry.id, false)
+  const [picture, broken, tone] = usePicture(entry.id, false)
   const grain = useNoteCover(picture === undefined && !entry.face ? entry.id : null)
   if (entry.face) return <span data-row-mark="" className={cn(ROW_TILE, 'overflow-visible', className)}>{entry.face}</span>
+  // Not ready in time (never made in this window, and slow to make): a still square in the picture's own tone, which
+  // the picture replaces in one frame. Never its kind's icon first, then the picture.
+  const coming = picture === null
   return (
     <span
       // A paper cover is a light drawing: on a dark page a column of them read as bright squares, so there it is a quiet square instead (main.css, data-lead-paper).
       data-lead-paper={!picture && grain?.paper ? '' : undefined}
       data-row-mark=""
-      className={cn(ROW_TILE, picture && 'private-text bg-accent', className)}
-      style={picture || grain ? undefined : tileTint(entry.tint)}
+      data-picture-coming={coming ? '' : undefined}
+      className={cn(ROW_TILE, (picture || coming) && 'private-text bg-accent', className)}
+      style={coming ? (tone ? { backgroundColor: tone } : undefined) : picture || grain ? undefined : tileTint(entry.tint)}
     >
-      {picture ? (
+      {coming ? null : picture ? (
+        // Decoded before the row is drawn (usePicture), so it is whole in the row's first frame: never loaded late or faded in.
         <img
           src={picture}
           alt=""
-          loading="lazy"
           decoding="async"
           draggable={false}
           onError={broken}
-          className="size-full object-cover animate-in fade-in-0 duration-200"
+          className="size-full object-cover"
         />
       ) : grain ? (
         <>

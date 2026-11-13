@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore, type CSSProperties } from 'react'
 import { haligtree, type Scene } from '@/lib/haligtree'
+import { useDecoded, warm } from '@/lib/decoded'
 
 /**
  * Covers: soft, grainy pictures from one folder (Settings › Appearance ›
@@ -71,6 +72,9 @@ function start(): void {
     const was = style
     style = settings.coverStyle === 'gradients' ? 'gradients' : 'paper'
     if (style !== was) told.forEach((tell) => tell())
+    // The drawings decoded now, ahead of any list's first draw (22 of them, held by lib/decoded.ts): decoded only as
+    // each row first drew, they came in after the rows on a busy machine.
+    if (style === 'paper') for (const one of DRAWINGS) void warm(one.url)
     // Asked even with no folder, so the main process stops copying a cleared one.
     const found = (await haligtree.scenery(folder ? [folder] : [], 'covers')).scenes.filter((one) => one.small)
     // In name order, so the same thing keeps the same cover from one start to the next.
@@ -84,6 +88,9 @@ function start(): void {
   void load()
   window.api.captures.onChange(() => void load())
 }
+
+/** The covers read and the paper drawings decoded ahead of the first list to wear them (quick capture's tabs). */
+export const readCovers = (): void => start()
 
 const subscribe = (tell: () => void): (() => void) => {
   start()
@@ -176,6 +183,8 @@ export function GrainFill({ cover, tint, large = false, shade = 'foot', classNam
 }): React.JSX.Element {
   // A copy that failed to load is tried again a little later, a few times: it may be being made again.
   const [tries, setTries] = useState(0)
+  // Decoded and held before it is drawn (its page waits for it, 150 ms at most): whole in its box's first frame.
+  useDecoded(cover.paper ? null : large ? cover.url : cover.small)
   if (cover.paper) return <PaperFill cover={cover} tint={tint} shade={shade} className={className} style={style} />
   return (
     <span aria-hidden className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`} style={{ background: cover.color, ...style }}>
@@ -212,6 +221,9 @@ function PaperFill({ cover, tint, shade, className, style }: {
   className: string
   style?: CSSProperties
 }): React.JSX.Element {
+  // Decoded and held before it is drawn (its page waits for it, 150 ms at most), so it is whole in its box's first
+  // frame; one later than that comes in over the paper's own tone, never fading up.
+  useDecoded(cover.url)
   return (
     <span aria-hidden data-paper-cover className={`mf-paper-cover pointer-events-none absolute inset-0 overflow-hidden ${className}`} style={{ background: cover.color, ...style }}>
       {/* A busy or dark drawing is faded further toward the paper, so it sits as quietly as the rest. */}

@@ -91,6 +91,26 @@ await fresh()
 const start = { screen: await onScreen(), page: await drawn() }
 console.log(`the pill: on screen ${JSON.stringify(start.screen?.card)}, in its page ${JSON.stringify(start.page.card)}, window ${start.page.inner.join('x')}`)
 
+if (part('first')) {
+  // The first Notes open since the app started (so before any other part opens it), read in the page at every frame
+  // from the press: each row with a picture (its own, or its paper drawing) has it loaded, whole and at its resting
+  // look in the first frame the row is seen, never a frame of an empty square or a picture still fading in.
+  // QA_FILM=dir keeps the page's own frames of it (qa/cast-lib.mjs).
+  const { pictureWatch, pictureVerdict } = await import('./picture-frames.mjs')
+  // THEME=dark: the same, in the dark look.
+  if (process.env.THEME) (await look(process.env.THEME), await wait(900))
+  await pictureWatch(page, '[data-glance-panel] [data-row]')
+  const act = () => page.click('[data-glance-tab="notes"]')
+  if (film) await (await import('./cast-lib.mjs')).castFrames(page, film, `notes-first-open-${process.env.THEME ?? 'paper'}`, act, 700)
+  else await act()
+  await wait(1300)
+  const { rows, pictured, late, frames, shownAfter } = await pictureVerdict(page)
+  console.log(`NOTE  the first Notes open: its rows first seen ${shownAfter} ms after the press`)
+  check(`the first Notes open: each of its ${pictured} rows with a picture has it, whole, in the first frame the row is seen (${rows} rows, ${frames} frames read)`, pictured > 0 && late.length === 0,
+    `${late.length} late: ${JSON.stringify(late.slice(0, 4))}`)
+  await pick('write')
+}
+
 if (part('tabs')) {
   const now = start.page
   check('on: the pill opens on Write, with Write, Notes and Today standing on it', now.pill && same(now.tabs.map((one) => one.id), ['write', 'notes', 'today']) && chosen(now) === 'write', JSON.stringify(now.tabs.map((one) => `${one.id}${one.on ? '*' : ''}`)))

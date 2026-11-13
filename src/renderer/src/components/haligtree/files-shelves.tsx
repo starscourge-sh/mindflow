@@ -1,6 +1,7 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './files.css'
-import { smallPicture } from '@/lib/notes'
+import { smallPicture, useSmallPicture } from '@/lib/notes'
+import { useMade } from '@/lib/decoded'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
 import { chime } from '@/lib/sound'
 import { heroOpen } from '@/lib/hero'
@@ -49,18 +50,12 @@ export const faceOf = (src: string): { image: string; icon: boolean } | undefine
 export function useFileFace(one: Media | null, large: boolean): { image: string; icon: boolean } | null {
   // A WebM is a film the Mac's Quick Look cannot open (it draws a QuickTime icon): its first frame comes from the window's own player instead (FileFace).
   const key = one && !one.gone && (one.kind === 'document' || (one.kind === 'video' && !WEBM.test(one.src))) ? `${large}:${one.src}` : null
-  const [face, setFace] = useState(() => (key ? faces.get(key) ?? null : null))
-  useEffect(() => {
-    if (!key || !one) return setFace(null)
-    const had = faces.get(key)
-    if (had) return setFace(had)
-    let live = true
-    void smallPicture(one.src, large)
-      .then(async (image) => (image ? { image, icon: false } : { image: await call<string>('media:icon', one.src).catch(() => ''), icon: true }))
-      .then((made) => (faces.set(key, made), live && setFace(made)), () => undefined)
-    return () => void (live = false)
-  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
-  return face
+  // Made and decoded before its tile is first drawn (its page waits, 150 ms at most), so it is whole in that frame.
+  const made = useMade(key && `face:${key}`, () =>
+    smallPicture(one!.src, large)
+      .then(async (image) => (image ? { image, icon: false } : { image: await call<string>('media:icon', one!.src).catch(() => ''), icon: true }))
+      .then((face) => (faces.set(key!, face), face.image)))
+  return key && typeof made === 'string' ? faces.get(key) ?? null : null
 }
 
 /** A face as a video's or a document's is drawn: the frame or page whole on its card, or the Mac's icon with its kind under it. */
@@ -90,7 +85,7 @@ export function FileFace({ one, face, tiny = false }: { one: Media; face: { imag
           square face (the icon Quick Look draws for a ZIP) shows whole. */}
       <img src={face.image} alt="" draggable={false} decoding="async"
         onLoad={(event) => { const img = event.currentTarget; if (one.kind === 'document' && img.naturalHeight > img.naturalWidth * 1.15) img.dataset.page = '' }}
-        className={`size-full animate-in fade-in-0 duration-200 motion-reduce:animate-none ${one.kind === 'video' ? 'object-cover' : 'bg-[var(--pdf-paper,#fff)] object-contain data-[page]:object-cover data-[page]:object-top'}`} />
+        className={`size-full ${one.kind === 'video' ? 'object-cover' : 'bg-[var(--pdf-paper,#fff)] object-contain data-[page]:object-cover data-[page]:object-top'}`} />
       {one.kind === 'video' && !tiny && (
         <span aria-hidden className="absolute inset-0 m-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-black/55 text-white"><Play className="size-4 translate-x-px fill-current" /></span>
       )}
@@ -122,18 +117,14 @@ export function Cover({ one, className = '', tiny = false }: { one: Media; class
   const book = usePdfCover(one.kind === 'pdf' && !one.gone ? one.src : null, one.name)
   const file = one.kind === 'video' || one.kind === 'document'
   const face = useFileFace(file ? one : null, !tiny)
-  const [thumb, setThumb] = useState<string | null>(null)
-  useEffect(() => {
-    if (one.kind === 'audio' || one.kind === 'pdf' || file || one.gone) return
-    let live = true
-    // No small copy could be made (a format the cache cannot shrink): the picture itself, never an empty square.
-    void smallPicture(one.src, !tiny).then((made) => live && setThumb(made || one.src), () => live && setThumb(one.src))
-    return () => void (live = false)
-  }, [one.src, one.kind, one.gone, tiny])
+  // Made small and decoded before its tile is first drawn (its page waits, 150 ms at most), so it is whole in that frame.
+  const made = useSmallPicture(one.kind === 'audio' || one.kind === 'pdf' || file || one.gone ? null : one.src, !tiny)
+  // No small copy could be made (a format the cache cannot shrink): the picture itself, never an empty square.
+  const thumb = made === '' ? one.src : made
   const image = one.kind === 'pdf' ? book?.image : thumb
   return (
     <span data-cover={one.kind} className={`block overflow-hidden bg-accent ${one.private ? 'private-text' : ''} ${className}`}>
-      {one.kind === 'audio' ? <Bars seed={one.src} /> : file ? <FileFace one={one} face={face} tiny={tiny} /> : image ? <img src={image} alt="" draggable={false} decoding="async" className={`size-full animate-in fade-in-0 duration-200 motion-reduce:animate-none ${one.kind === 'pdf' ? 'bg-[var(--pdf-paper,#fff)] object-contain' : 'object-cover'}`} /> : null}
+      {one.kind === 'audio' ? <Bars seed={one.src} /> : file ? <FileFace one={one} face={face} tiny={tiny} /> : image ? <img src={image} alt="" draggable={false} decoding="async" className={`size-full ${one.kind === 'pdf' ? 'bg-[var(--pdf-paper,#fff)] object-contain' : 'object-cover'}`} /> : null}
     </span>
   )
 }

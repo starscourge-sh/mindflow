@@ -17,7 +17,7 @@ import { Arrow } from './marks'
 import Lenis from 'lenis'
 import { afterPaint, call, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED } from '@/lib/sources'
-import { useReadsIn, useSeen } from '@/lib/reads-in'
+import { useReading, useReadsIn, useSeen } from '@/lib/reads-in'
 import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
@@ -2273,6 +2273,11 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
   const [margin, setMargin] = useState(0)
   // Bumped to place the keyboard's row again, once where the list starts is read afresh.
   const [again, setAgain] = useState(0)
+  // The page the list is on waits for its first rows (lib/reads-in.tsx), and so for what they wait on (their pictures):
+  // drawn once the list is laid out, after the page had its first say, the rows came into a page already counted
+  // ready, and each showed its square a few frames before its picture. Looked once is enough, scroller or none.
+  const [looked, setLooked] = useState(false)
+  useReading(!looked)
   // The nearest parent that scrolls. Looked for again until found: a list
   // that mounts while its page is still settling (a list emptied into the Bin
   // and brought back with Undo) can find none at first, and with no scroller
@@ -2280,14 +2285,16 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
   const findScroller = (now?: boolean): boolean => {
     // A box held still while all it shows fits is found too (scrollerOf): the rows drawn in it are what stop it fitting.
     const parent = box.current ? scrollerOf(box.current) : null
-    if (parent) (now ? flushSync(() => setScroller(parent)) : setScroller(parent))
+    const take = (): void => (parent && setScroller(parent), setLooked(true))
+    if (now) flushSync(take)
+    else take()
     return !!parent
   }
   // Looked for once the list is laid out, before that frame is painted, its first rows drawn in the same frame:
   // looked for as it mounted, every list in a pane opening worked out the half-built page's styles again (lib/after-layout.ts).
   useLayoutEffect(() => {
     let again = 0
-    const off = box.current ? afterLayout(box.current, () => void (findScroller(true) || (again = window.setInterval(() => findScroller() && clearInterval(again), 100)))) : () => undefined
+    const off = box.current ? afterLayout(box.current, () => void (findScroller(true) || (again = window.setInterval(() => findScroller() && clearInterval(again), 100)))) : (setLooked(true), () => undefined)
     return () => (off(), clearInterval(again))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // The list keeps its own place as rows above the screen change height (the
