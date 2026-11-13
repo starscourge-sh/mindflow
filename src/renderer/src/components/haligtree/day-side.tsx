@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
-import { atOn, makeTask, renameTask, taskName, timeAlone } from '@/lib/tasks'
+import { atOn, makeTask, renameTask, repeatAlone, taskName, timeAlone } from '@/lib/tasks'
 import { readTask } from '../../../../main/task-words'
 import { sameTask } from '@/lib/calendar'
 import { haligtree, whenInLine, type Task, type TaskFull } from '@/lib/haligtree'
@@ -240,9 +240,9 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, task 
     // The same task is already on the list: it stays on its own day unless asked to move here, and opens.
     if (made.existed && got) return (sameTask(got, { due: at.toISOString(), allDay: minute === null ? 1 : 0 }), onMade(made.id, null))
     // Words that named a day of their own ("call mum friday") keep it; otherwise it is for this day.
-    // Only a time ("call the dentist 10am"): at that time on this day.
+    // Only a time ("call the dentist 10am"): at that time on this day. Only a repeat that names no day ("every week"): from this day.
     const alone = !!got?.dueAt && timeAlone(words)
-    const own = !!got?.dueAt && !alone
+    const own = !!got?.dueAt && !alone && !repeatAlone(words)
     const due = alone ? atOn(got!.dueAt!, day) : at.toISOString()
     const allDay = !alone && minute === null
     await haligtree.saveTask(made.id, {

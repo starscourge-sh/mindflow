@@ -348,15 +348,25 @@ export function planKey(which: keyof typeof BUCKETS): string {
   return which === 'someday' ? 'someday' : which === 'year' ? String(now.year()) : which === 'next' ? String(now.year() + 1) : monthKey(now.toDate())
 }
 
+/** A repeat that names its own days ("every monday", "every weekday", "every last friday"): words with one keep them. */
+const ownDays = (rule: string | null): boolean => !!rule && /\b(?:mon(?!th)|tue|wed|thu|fri|sat|sun)|weekday|\blast\b/i.test(rule)
+
 /**
  * Words whose only when is a time ("call the dentist 10am", "at 3"): typed
  * on a day (a calendar day's panel, its New task box), they are for that day
- * at that time, not today.
+ * at that time, not today. A repeat that names no day goes with them ("every
+ * week 9am" typed on Friday starts on Friday at 9).
  */
 export function timeAlone(words: string): boolean {
   const read = readTask(words, new Date())
   const span = read.spans.find((one) => one.kind === 'date')
-  return !!span && !read.recurrence && /^(at\s+)?(\d{1,2}([:.]\d{2})?\s*(am|pm)?|noon|midday|midnight)$/i.test(words.slice(span.from, span.to).trim())
+  return !!span && !ownDays(read.recurrence) && /^(at\s+)?(\d{1,2}([:.]\d{2})?\s*(am|pm)?|noon|midday|midnight)$/i.test(words.slice(span.from, span.to).trim())
+}
+
+/** Words whose only when is a repeat that names no day ("water the plants every week"): typed on a day, the series starts on it, never today. */
+export function repeatAlone(words: string): boolean {
+  const read = readTask(words, new Date())
+  return !!read.recurrence && !ownDays(read.recurrence) && !read.spans.some((one) => one.kind === 'date' || one.kind === 'deadline')
 }
 /** The hour and minute of `iso`, on `day`. */
 export const atOn = (iso: string, day: string): string => dayjs(day).hour(dayjs(iso).hour()).minute(dayjs(iso).minute()).startOf('minute').toISOString()
@@ -372,8 +382,9 @@ export const atOn = (iso: string, day: string): string => dayjs(day).hour(dayjs(
 export async function renameTask(task: Pick<Task, 'id' | 'title' | 'priority' | 'estimate' | 'dueAt' | 'allDay' | 'deadline' | 'deadlineTimed' | 'recurrence' | 'repeatUntil' | 'planFor'>, words: string, plain: { from: number; to: number }[] = [], on?: string): Promise<{ said: string; undo: () => void } | null> {
   if (!words || words === task.title) return null
   const read = readTask(words, new Date(), plain)
-  // A line for a later day (tomorrow's list): a time with no day of its own is on that day, as a line made there is.
-  if (on && read.due && !read.recurrence && dayKey(read.due) < on) read.due = dayjs(on).hour(dayjs(read.due).hour()).minute(dayjs(read.due).minute()).startOf('minute').toISOString()
+  // A line for a later day (tomorrow's list): a time with no day of its own is on that day, as a line made there is, and
+  // so is a repeat that names no day ("every week"): it starts there, never today.
+  if (on && read.due && !ownDays(read.recurrence) && dayKey(read.due) < on) read.due = dayjs(on).hour(dayjs(read.due).hour()).minute(dayjs(read.due).minute()).startOf('minute').toISOString()
   if (!(read.priority || read.estimate || read.due || read.deadline || read.recurrence || read.plan) || !read.title.trim()) return void (await haligtree.saveTask(task.id, { title: words })), null
   const was = { title: task.title, priority: task.priority ?? 0, estimate: task.estimate ?? null, due: task.dueAt ?? null, allDay: task.allDay ?? 0, deadline: task.deadline ?? null, deadlineTimed: task.deadlineTimed ? 1 : 0, recurrence: task.recurrence ?? null, until: task.repeatUntil ?? null, plan: task.planFor ?? null }
   await haligtree.saveTask(task.id, {

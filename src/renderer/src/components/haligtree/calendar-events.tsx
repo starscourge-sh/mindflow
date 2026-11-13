@@ -626,8 +626,9 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, one }: {
   // Open on an event: what its line would set, read the way its name is read on its page.
   const set = useMemo(() => (one ? renamed(one, text.trim() || one.title, known) : null), [one, text, known])
   const changed = !!one && !one.readOnly && !!text.trim() && (set!.name !== one.title || !!set!.patch.start)
-  // A time alone ("lunch 2pm") is on the day its draft is on, as a task's is (lib/tasks.ts, timeAlone); words that name a
-  // day keep their own. Read as today's, a new event written on Friday's draft was made today.
+  // A time alone ("lunch 2pm", "standup every week 9am") is on the day its draft is on, as a task's is (lib/tasks.ts,
+  // timeAlone); words that name a day keep their own. Read as today's, a new event written on Friday's draft was made
+  // today, and a weekly one started from today.
   const alone = !one && !!read.start && !read.allDay && timeAlone(text)
   const readStart = alone ? atOn(read.start!, slotStart.toISOString()) : read.start
   const readEnd = alone && read.end ? dayjs(readStart).add(dayjs(read.end).diff(dayjs(read.start)), 'ms').toISOString() : read.end
