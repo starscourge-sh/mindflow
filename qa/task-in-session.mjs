@@ -219,17 +219,26 @@ const inSession = async (id) => {
   return length(Math.round((await totalMs(id)) / MIN))
 }
 const over = async () => { const now = await running(); if (now) await v('session:cancel', now.id); await wait(450) }
-/** A list's own switch in the page's bar (List, Page, Matrix), pressed. */
-const viewChip = async (label) => {
-  const at = await h.evaluate((label) => {
-    // A chip's label is drawn twice over (the bold copy keeps its width, the rolling letters their own): read once.
-    const said = (one) => { const t = one.textContent.trim(); return [...t.slice(0, t.length / 2)].filter((_, i) => i % 2 === 0).join('') }
-    const one = [...document.querySelectorAll('header button[aria-pressed]')].find((b) => said(b) === label || b.textContent.trim() === label)
-    if (!one) return null
-    const r = one.getBoundingClientRect()
-    return [r.left + r.width / 2, r.top + r.height / 2]
-  }, label)
-  if (at) { await h.mouse.click(at[0], at[1]); await wait(900) }
+/** Today's own Matrix on or off, as a person turns it: “Urgent and important” in Today's “More” menu, with the pointer. */
+const todayMatrix = async (on) => {
+  await rest()
+  const more = h.locator('button[aria-label="More"]:visible').first()
+  if (!(await more.count())) return false
+  await more.click()
+  await wait(450)
+  const line = h.locator('[role="menuitemcheckbox"], [role="menuitem"]', { hasText: 'Urgent and important' }).first()
+  if (!(await line.count())) { await h.keyboard.press('Escape'); await wait(200); return false }
+  if (((await line.getAttribute('aria-checked')) === 'true') !== on) await line.click()
+  else await h.keyboard.press('Escape')
+  await wait(900)
+  return true
+}
+/** A chip pressed with the pointer, found by the name it is given (its label is drawn twice over as it rolls). */
+const pressChip = async (sel) => {
+  await h.evaluate((sel) => document.querySelector(sel)?.scrollIntoView({ block: 'center' }), sel)
+  await wait(150)
+  const at = await centre(sel)
+  if (at) { await rest(); await h.mouse.click(at[0], at[1]); await wait(900) }
   return !!at
 }
 /** A picture of a row and what is round it, in both looks, kept for the two sheets drawn at the end (every list beside Tasks' own row). */
@@ -712,7 +721,9 @@ try {
       return { log: log?.querySelector('[data-task-spent]')?.textContent ?? null, logLast: !!log && !!log.querySelector('button')?.lastElementChild?.querySelector('[data-task-spent]'), island: document.querySelector(`[data-pick="task:${id}"] [data-task-spent]`)?.textContent ?? null, brief: brief?.querySelector('[data-task-meta]')?.textContent ?? null }
     }, E)
     check('1 the Journal’s day, what was done: its line in “The day, hour by hour” and its row in “Done” (or struck among the day’s tasks) both say “40 min of 1 h”, last, as Tasks says it', done.log === '40 min of 1 h' && done.logLast && (done.island === '40 min of 1 h' || /^Done · 40 min of 1 h$/.test(done.brief ?? '')), JSON.stringify(done))
-    await snap('the day, hour by hour and done', h, 'li[data-log-row="done"]')
+    await h.evaluate(() => [...document.querySelectorAll('li[data-log-row="done"]')].find((one) => one.textContent.includes('t1 under its length'))?.setAttribute('data-t1', 'done-log'))
+    await snap('the day, hour by hour and done', h, 'li[data-t1="done-log"]')
+    if (SHOTS) await shot('journal-log-done-light')
     // A day still to come: what is planned for it.
     await c.send('day', dayKeyOf(nowMs() + 86_400_000))
     await wait(1500)
@@ -727,6 +738,8 @@ try {
     // Another day, gone by: a task planned for it and still open, in that day's log.
     await c.send('day', dayKeyOf(nowMs() - 86_400_000))
     await wait(1500)
+    // A busy day shows its latest lines, the rest under “Show all”: an all-day task goes first, so it may be there.
+    if (await h.evaluate(() => ![...document.querySelectorAll('li[data-log-row]')].some((one) => one.textContent.includes('t1 gone by plan')))) await pressChip('button[data-log-more]')
     await h.evaluate(() => [...document.querySelectorAll('li[data-log-row]')].find((one) => one.textContent.includes('t1 gone by plan'))?.setAttribute('data-t1', 'gone-by'))
     const gone = 'li[data-t1="gone-by"]'
     const goneParts = { name: '.private-text', lead: 'svg' }
@@ -778,6 +791,7 @@ try {
     const now = await rowIn(sticky, sel, parts)
     check('2 the desk sticky: the dot stands in the paper’s side room, level with the tick, nothing moved, and the time is in the name’s tip (the row has no small line)', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= 2 && now.dot.r <= now.lead.x - 2 && Math.abs(now.dot.cy - now.lead.cy) < 3 && now.still === before?.still && now.tip === String(minutes) && now.spent === null, JSON.stringify({ now, before: before?.still, minutes }))
     await snap('the desk sticky', sticky, sel)
+    if (SHOTS) await sticky.screenshot({ path: `${SHOTS}/sticky-light.png` })
     await over()
     await h.evaluate(() => window.api.stick('today', 'today', false))
     await wait(500)
@@ -799,7 +813,7 @@ try {
   if (PART.includes('matrix')) await part('the Matrix', async () => {
     await go('today')
     await wait(900)
-    if (!(await viewChip('Matrix'))) throw new Error('no “Matrix” switch on Today')
+    if (!(await todayMatrix(true))) throw new Error('no “Urgent and important” in Today’s “More” menu')
     try {
       const sel = `button[data-row][data-id="${A}"]`
       const parts = { name: '[data-task-title]', lead: null }
@@ -810,7 +824,7 @@ try {
       await snap('the Matrix', h, sel)
       await over()
     } finally {
-      await viewChip('List')
+      await todayMatrix(false)
     }
   })
 
@@ -825,19 +839,16 @@ try {
     const now = await rowIn(h, sel, parts)
     check('2 a tag’s page: a task there is a row with a picture tile and no tick, so the dot stands with the row’s marks at the end of its name’s line; the name did not move, and the time is last in its small line', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= now.name.x && now.dot.r <= now.row.r && now.still === before?.still && now.spent === `${said} so far`, JSON.stringify({ now, before: before?.still, said }))
     await snap('a tag’s page', h, sel)
+    if (SHOTS) await shot('tag-page-light')
     // The same tag under “Manage”, where what it holds is a plain list of one-line rows.
-    const manage = h.locator('button', { hasText: /^Manage$/ }).first()
-    if (await manage.count()) {
-      await manage.click()
-      await wait(900)
+    if (await pressChip('button[aria-label="Manage"]')) {
       const line = `button[data-pick="task:${G}"]`
       const minutes = Math.round((await totalMs(G)) / MIN)
       const managed = await rowIn(h, line, { name: '.private-text', lead: 'svg' })
       check('2 the Tags page, “Manage”: a task’s one-line row has the dot in the margin beside it, level with its mark, and its time in its name’s tip', !!managed?.dot && managed.dot.w === 6 && managed.seen && managed.dot.x >= 2 && managed.dot.r <= managed.row.x && Math.abs(managed.dot.cy - managed.lead.cy) < 3 && managed.tip === String(minutes), JSON.stringify({ managed, minutes }))
       await snap('Tags, “Manage”', h, line)
-      await h.locator('button', { hasText: /^Read$/ }).first().click().catch(() => {})
-      await wait(400)
-    }
+      await pressChip('button[aria-label="Read"]')
+    } else check('2 the Tags page, “Manage”: its chip is there to press', false)
     await over()
   })
 
@@ -872,6 +883,9 @@ try {
 
   if (PART.includes('stats')) await part('Stats’ lists of tasks', async () => {
     await go('stats')
+    await wait(600)
+    // The lists of focus time are on “Your month”, a chip away from “At a glance”.
+    await pressChip('[data-chips="stats"] [data-chip="month"]')
     let id = null
     for (let n = 0; n < 40 && !id; n++) { await wait(250); id = await h.evaluate(() => document.querySelector('[data-task-time]')?.getAttribute('data-task-time') ?? null) }
     if (!id) { if (SHOTS) await h.screenshot({ path: `${SHOTS}/missing-stats.png` }); throw new Error('Stats shows no “How long each task took” list') }
@@ -989,7 +1003,8 @@ try {
           sheet.append(cell)
         }
         document.body.append(sheet)
-      }, filmed.seen)
+        // From a little before the end was sent: the frames that show the two going, not the ones before them.
+      }, filmed.seen.filter((one) => one.at >= filmed.ended - 80))
       await wait(600)
       await h.screenshot({ path: `${SHOTS}/bubble-and-dot-sheet.png` })
       await h.evaluate(() => document.getElementById('t1-sheet')?.remove())
