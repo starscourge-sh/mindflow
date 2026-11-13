@@ -1,6 +1,7 @@
 import { BrowserWindow, app } from 'electron'
+import { copyNew } from './copy-new'
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'fs'
-import { copyFile, mkdir, readdir, rename, rm, stat, writeFile } from 'fs/promises'
+import { mkdir, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import type { DatabaseSync } from 'node:sqlite'
 import { homedir } from 'os'
 import { join } from 'path'
@@ -121,11 +122,7 @@ async function backUp(db: DatabaseSync): Promise<void> {
   const to = join(backupDir(), 'assets')
   await mkdir(to, { recursive: true })
   const have = new Set(await readdir(to))
-  for (const name of existsSync(from) ? await readdir(from) : []) {
-    // Copied beside and renamed in: a copy cut short (Haligtree quit mid-way) would
-    // otherwise count as backed up and never be copied again.
-    if (!have.has(name)) await copyFile(join(from, name), join(to, `${name}.part`)).then(() => rename(join(to, `${name}.part`), join(to, name)))
-  }
+  await copyNew(from, to, have)
 
   // A Markdown copy whose capture has since gone private, been discarded or
   // gone altogether is taken away: copies made before this rule go too.
