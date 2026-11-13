@@ -1047,12 +1047,18 @@ try {
       if (await onEvent('d', 'Late one')) { await toggles('Day, an event at 23:00'); await shut() } else check('Day: the event at 23:00 opens', false)
     }
     if (only.includes('month')) {
-      // Month's last week: a free day in its last row, an event made on it, then a new one beside it.
+      // Month's last week on screen: a free day in its last row, an event made on it, then a new one beside it. The
+      // Calendar's month is a run of weeks that scrolls, so its last row on screen is the lowest drawn whole inside its
+      // scroller (the week under it is cut off by the scroller, and a hint at the window's foot is over it). Each
+      // double-click goes to a point of the day's own empty part that nothing is over.
       await toMode('m')
-      const low = await h.evaluate(() => { const days = [...document.querySelectorAll('[data-cal-level] [data-day]')].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 40 && r.height > 40 && r.top > 0 && r.bottom <= innerHeight + 1 }); const months = {}; for (const el of days) months[el.dataset.day.slice(0, 7)] = (months[el.dataset.day.slice(0, 7)] ?? 0) + 1; const month = Object.keys(months).sort((a, b) => months[b] - months[a])[0]; const own = days.filter((el) => el.dataset.day.startsWith(month) && !el.querySelector('[data-plan-task], [data-cal-event-chip], [data-plan-more], [data-plan-more-events]')); const lowest = Math.max(...own.map((el) => el.getBoundingClientRect().top)); const last = own.filter((el) => el.getBoundingClientRect().top >= lowest - 2); return (last[Math.min(2, last.length - 1)])?.dataset.day ?? null })
-      if (!low) check('Month: its last week has a free day', false)
+      const spotIn = (day) => h.evaluate((day) => { const el = document.querySelector(`[data-cal-level] [data-day="${day}"]`); if (!el) return null; const r = el.getBoundingClientRect(); for (const fy of [0.6, 0.75, 0.45, 0.9]) for (const fx of [0.5, 0.25, 0.75]) { const [x, y] = [r.left + r.width * fx, r.top + r.height * fy]; const under = document.elementFromPoint(x, y); if (under?.closest('[data-day]') === el && !under.closest('button, a, [role="button"], [data-cal-draft]')) return [x, y] } return null }, day)
+      const lows = await h.evaluate(() => { const days = [...document.querySelectorAll('[data-cal-level] [data-day]')].filter((el) => { const r = el.getBoundingClientRect(); const box = (el.closest('[data-month-scroll]') ?? document.documentElement).getBoundingClientRect(); return r.width > 40 && r.height > 40 && r.top >= Math.max(0, box.top) - 1 && r.bottom <= Math.min(innerHeight, box.bottom) + 1 }); const months = {}; for (const el of days) months[el.dataset.day.slice(0, 7)] = (months[el.dataset.day.slice(0, 7)] ?? 0) + 1; const month = Object.keys(months).sort((a, b) => months[b] - months[a])[0]; const own = days.filter((el) => el.dataset.day.startsWith(month) && !el.querySelector('[data-plan-task], [data-cal-event-chip], [data-plan-more], [data-plan-more-events]')); const lowest = Math.max(...own.map((el) => el.getBoundingClientRect().top)); const last = own.filter((el) => el.getBoundingClientRect().top >= lowest - 2); return [...last.slice(2), ...last.slice(0, 2)].map((el) => el.dataset.day) })
+      let low = null
+      for (const day of lows) if (await spotIn(day)) { low = day; break }
+      if (!low) check('Month: its last week on screen has a free day with room to double-click', false, JSON.stringify(lows))
       else {
-        const lowAt = async () => { const box = await cell(low); return [box.x + box.w / 2, box.y + box.h * 0.6] }
+        const lowAt = async () => (await spotIn(low)) ?? [0, 0]
         if (!(await eventsNamed('Low one')).length) {
           await dbl(...(await lowAt()))
           if ((await state()).pop) { await h.keyboard.type('Low one 3pm', { delay: 8 }); await h.keyboard.press('Enter'); await wait(900) }
