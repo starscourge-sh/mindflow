@@ -41,6 +41,9 @@
 //           words (a long name with a word that cannot break, a long place, three people) and a task with no day.
 //   quiet   one floating thing at a time: with the popover open, no tooltip comes up beside or over it (the thing's own
 //           name, the place field, "Open", another thing on the page); closed, the thing's tip is back.
+//   last    the last three of ask 18: "every week 9am" (and as a task, "every week" with no time) typed on a later day's
+//           draft starts on that day, never from today; ↵ on a row turns its chevron at once, as its choices are there at
+//           once (a click still turns it); the tag field's hint sits under the field in the row's own flow, whole.
 //   frames  with FRAMES=dir: a picture every 50ms through the popover growing, Event to Task, adding, and a pinch with its
 //           lit block, light and dark; and the popover beside two of the app's own (the small month, an event's card).
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/cal-add.mjs
@@ -49,7 +52,7 @@ import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { castFrames } from './cast-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
-const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open,rows,put,one,leave,spring,unhappy,quiet').split(',')
+const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open,rows,put,one,leave,spring,unhappy,quiet,last').split(',')
 // Your Mac's calendar, stood in for the unhappy part: one event tomorrow morning on "Family", read only.
 if (parts.includes('unhappy')) {
   const at = new Date(); at.setDate(at.getDate() + 1); at.setHours(7, 0, 0, 0)
@@ -1540,6 +1543,106 @@ try {
       check('closed again, the chip\'s tip is back', /Quiet as a long name/.test(after), after || 'no tip')
       await rest()
     } else check('the event is on the month', false)
+  }
+
+  if (parts.includes('last')) {
+    await things()
+    const later = dayKeyOf(2)
+    const keyOf = (iso) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+    const at = (iso) => iso ? `${keyOf(iso)} ${String(new Date(iso).getHours()).padStart(2, '0')}:${String(new Date(iso).getMinutes()).padStart(2, '0')}` : 'none'
+    // 1. A repeat that names no day, typed on a later day's draft, starts on that day: never from today.
+    await toMode('m')
+    await dbl(...corner(await cell(later)))
+    await h.keyboard.type('Standup every week 9am', { delay: 8 })
+    await wait(300)
+    const weekly = (await state()).pop?.said ?? ''
+    await shot('last-weekly-said')
+    await h.keyboard.press('Enter')
+    await wait(900)
+    const times = (await eventsNamed('Standup')).map((one) => one.start).sort()
+    console.log(`NOTE  read back before it was made: ${weekly}`)
+    const gap = times.length > 1 ? Math.round((new Date(times[1]) - new Date(times[0])) / 36e5) : 0
+    check(`"Standup every week 9am" typed on a later day's draft (${later}) starts on that day at 9:00, then every week`, times.length > 1 && at(times[0]) === `${later} 09:00` && gap >= 167 && gap <= 169, `first ${at(times[0])}, then ${at(times[1])}; ${times.length} times shown`)
+    await h.keyboard.press('Meta+z')
+    await wait(700)
+    for (const [words, name, time] of [['Water the plants every week 9am', 'Water the plants', '09:00'], ['Call home every week', 'Call home', null]]) {
+      await dbl(...corner(await cell(later)))
+      await h.click('[data-cal-add] [data-day-side-kind="task"]')
+      await wait(400)
+      await h.keyboard.type(words, { delay: 8 })
+      await h.keyboard.press('Enter')
+      await wait(900)
+      const made = (await tasksNamed(name))[0]
+      check(`  and as a task, "${words}" on that day's draft is due on that day${time ? ` at ${time}` : ''}`, !!made?.dueAt && keyOf(made.dueAt) === later && (!time || at(made.dueAt).endsWith(time)), `${made ? `due ${at(made.dueAt)}${made.allDay ? ' (all day)' : ''}; repeats ${made.recurrence ?? made.repeat ?? '?'}` : 'not made'}`)
+      await h.keyboard.press('Meta+z')
+      await wait(700)
+    }
+    // 2. A row's chevron by a key: simply turned, as what it opens is simply there; by a click it turns as its choices come.
+    if (await openIn('event', 'Opens here')) {
+      const row = '[data-cal-add] [data-quiet-row="remind"]'
+      const chevron = () => h.evaluate((row) => { const svg = document.querySelector(`${row} > button svg:last-of-type`); const body = document.querySelector(`${row} [data-quiet-body]`); return { rotate: getComputedStyle(svg).rotate, moving: svg.getAnimations().length, open: document.querySelector(row).hasAttribute('data-open'), body: body ? Math.round(body.getBoundingClientRect().height) : 0 } }, row)
+      await h.locator(`${row} > button`).focus()
+      await h.keyboard.press('Enter')
+      const keyOpen = await chevron()
+      await wait(400)
+      await h.keyboard.press('Enter')
+      const keyShut = await chevron()
+      await wait(400)
+      check('↵ on a row: its choices are there at once, and its chevron is simply turned with them (no turn playing), both ways', keyOpen.open && keyOpen.body > 20 && keyOpen.moving === 0 && keyOpen.rotate === '90deg' && !keyShut.open && keyShut.moving === 0 && keyShut.rotate !== '90deg', `opening: ${JSON.stringify(keyOpen)}; closing: ${JSON.stringify(keyShut)}`)
+      await h.click(`${row} > button`)
+      const clickOpen = await chevron()
+      await wait(500)
+      const clickRest = await chevron()
+      await h.click(`${row} > button`)
+      await wait(500)
+      check('  and a click on it turns the chevron as its choices come, ending turned', clickOpen.open && clickOpen.moving > 0 && clickRest.open && clickRest.rotate === '90deg' && clickRest.moving === 0, `at the click: ${JSON.stringify(clickOpen)}; at rest: ${JSON.stringify(clickRest)}`)
+      // With FRAMES=dir: the page's own frames through ↵ opening and closing the row, and a click opening it.
+      if (dir) {
+        await h.locator(`${row} > button`).focus()
+        await cast('last-chevron-key-open', () => h.keyboard.press('Enter'), 300)
+        await cast('last-chevron-key-shut', () => h.keyboard.press('Enter'), 300)
+        await cast('last-chevron-click-open', () => h.click(`${row} > button`), 400)
+        await h.click(`${row} > button`)
+        await wait(400)
+      }
+      await shut()
+    } else check('the event is on the week to open', false)
+    // The same in the Calendar's other fold with a chevron: the all-day lane's, by ↵ (folded and opened again, as it was).
+    await toMode('w')
+    const lane = () => h.evaluate(() => { const svg = document.querySelector('[data-cal-allday-fold] svg'); return svg ? { moving: svg.getAnimations().length, rotate: getComputedStyle(svg).rotate, folded: document.querySelector('[data-cal-allday-lane]')?.hasAttribute('data-folded') } : null })
+    if (await h.locator('[data-cal-allday-fold]').count()) {
+      await h.locator('[data-cal-allday-fold]').focus()
+      await h.keyboard.press('Enter')
+      const one = await lane()
+      await wait(400)
+      await h.keyboard.press('Enter')
+      const two = await lane()
+      await wait(400)
+      check('  and ↵ on the all-day lane\'s fold: the lane folds and opens at once, its chevron simply turned with it, both ways', !!one && !!two && one.folded !== two.folded && one.moving === 0 && two.moving === 0, `${JSON.stringify(one)}; ${JSON.stringify(two)}`)
+      await h.keyboard.press('Escape')
+    } else check('the all-day lane\'s fold is on the week', false)
+    // 3. The tag field's hint: in the row's own flow under the field, on its words' edge, whole inside the popover.
+    if (await openIn('task', 'Opened task')) {
+      await h.locator('[data-cal-add] [data-task-rows] [data-task-tags] input').click()
+      await h.keyboard.type('ab!', { delay: 8 })
+      await wait(400)
+      const hint = await h.evaluate(() => {
+        const pop = document.querySelector('[data-cal-add]')
+        const el = pop?.querySelector('[data-tag-hint]')
+        const sized = pop?.querySelector('[data-cal-add-sized]')
+        // The field with its "#", and the row's words (its tags, then the field) whose left edge the row's lines keep.
+        const field = pop?.querySelector('[data-task-tags] input')?.parentElement
+        const words = field?.parentElement
+        if (!el || !sized || !field || !words) return { here: !!el }
+        const [a, b, f, w] = [el.getBoundingClientRect(), sized.getBoundingClientRect(), field.getBoundingClientRect(), words.getBoundingClientRect()]
+        return { here: true, text: el.textContent, floats: getComputedStyle(el).position === 'absolute', whole: a.top >= b.top - 0.5 && a.bottom <= b.bottom + 0.5 && a.left >= b.left - 0.5 && a.right <= b.right + 0.5, edge: Math.round((a.left - w.left) * 10) / 10, under: a.top >= f.bottom - 0.5, scrolls: sized.scrollHeight > sized.clientHeight + 1 }
+      })
+      check('the tag field\'s hint ("ab!" typed) sits under the field in the row\'s own flow, on its words\' edge, whole inside the popover, which does not scroll for it', hint.here && !hint.floats && hint.whole && hint.under && Math.abs(hint.edge) <= 1 && !hint.scrolls, JSON.stringify(hint))
+      await shot('last-tag-hint')
+      await h.keyboard.press('Escape')
+      await wait(300)
+      await shut()
+    } else check('the task is on the week to open', false)
   }
 
   if (parts.includes('frames') && dir) {
