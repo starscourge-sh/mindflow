@@ -2303,7 +2303,8 @@ export default function App(): React.JSX.Element {
               locked={locked}
               outline={outline}
               autofocus={!quietOpen.current}
-              onTitleOut={setTopTitle}
+              // Named as its tab and lists name it: a vault note by its own title, not a first line that says something else.
+              onTitleOut={(line) => setTopTitle(line && (captures.find((one) => one.id === editing?.id)?.label || line))}
               onReady={(editor) => {
                 quietOpen.current = false
                 editorRef.current = editor

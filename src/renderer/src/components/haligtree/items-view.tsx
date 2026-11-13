@@ -1219,7 +1219,9 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           {...(item.tier === 'article' && !titled && !item.line ? { autofocus: 'start' as const } : {})}
           // A tag opens its page: everything carrying it.
           {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: name, titled: item.tier === 'article', created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, attribution: item.attribution, from: item.id }, cites: leadIsWho ? undefined : { who: item.attribution, where: item.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
-          onTitleOut={(title) => !onBoard.current && showTopTitle(title)}
+          // Its first line gone under the bar, the bar names the page as its tab does: by its own title when it has one
+          // (an imported page's file name), never by a first heading that says something else.
+          onTitleOut={(line) => !onBoard.current && showTopTitle(line && (titled ? item.title : line))}
           defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
           onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
           after={<ReadsIn apart reading={!later} data-apart="foot">

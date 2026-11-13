@@ -464,7 +464,8 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
           <HaligtreeEditor
             key={restored?.rev ?? 0}
             {...notePowers({ table: 'nuggets', id: item.id, kind: item.kind, fields: item.fields, text: item.title, titled: true, created: item.createdAt, updated: item.updatedAt, origin: { captureId: item.captureId ?? undefined, from: item.id }, onOpen: (type, id) => onOpen?.(type, id) })}
-            onTitleOut={showTopTitle}
+            // The bar names the question, as its tab does, not the first line written around it.
+            onTitleOut={(line) => showTopTitle(line && item.title)}
             placeholder="Write around it, however it asks to be written…"
             defaultContent={((restored ? restored.body : item.body) as JSONContent | string | null) ?? ''}
             onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}

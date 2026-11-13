@@ -847,7 +847,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               key={`${open.id}-${rev}`}
               typewriter
               {...notePowers({ table: 'captures', id: open.id, kind: meta.kind, fields: meta.fields, text: meta.label, created: meta.capturedAt, updated: meta.editedAt, origin: { captureId: open.id, from: open.id }, cites: { who: meta.attribution, where: meta.medium }, onOpen: (type, id) => onOpen?.(type, id) })}
-              onTitleOut={(title) => !onBoard.current && sayTitle(title)}
+              // The bar names the note as its tab does (its own title, a vault note's, before its first line).
+              onTitleOut={(line) => !onBoard.current && sayTitle(line && (label || line))}
               defaultContent={(open.body as JSONContent | string | null) ?? ''}
               onOpenNote={(link, heading) => follow(link, (type, id) => (type === 'capture' ? pick(id) : onOpen?.(type, id)), heading)}
               after={<ReadsIn apart reading={!later}>

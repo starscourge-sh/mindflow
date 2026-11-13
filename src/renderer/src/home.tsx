@@ -222,7 +222,7 @@ const followNarrow = (change: () => void): (() => void) => {
  */
 function TopTitle({ on }: { on: boolean }): React.JSX.Element {
   const title = useTopTitle()
-  return <span className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${title && on ? 'opacity-100' : 'opacity-0'}`}>{title}</span>
+  return <span data-top-title={title && on ? '' : undefined} className={`min-w-0 flex-1 truncate px-4 text-center text-muted-foreground transition-opacity duration-200 ${title && on ? 'opacity-100' : 'opacity-0'}`}>{title}</span>
 }
 
 const useNarrow = (): boolean => useSyncExternalStore(followNarrow, () => matchMedia(NARROW).matches)
