@@ -589,10 +589,13 @@ const drawn = () => h.evaluate(() => {
   const [line, room] = [lines[0] && box(lines[0]), rooms[0] && box(rooms[0])]
   const dot = lines[0] ? getComputedStyle(lines[0], '::before') : null
   // The row in hand: marked so, or (before 12 Nov, in Writing) the one that holds the room.
-  const held = document.querySelector('[data-sortable-id][data-held], .mf-carried-place') ?? rooms[0]?.closest('[data-sortable-id]')
+  // (Pieces the page lays out itself, not a list's rows: the sidebar's folders and sections, marked carry-held and carry-piece.)
+  const held = document.querySelector('[data-sortable-id][data-held], [data-carry-held], .mf-carried-place') ?? rooms[0]?.closest('[data-sortable-id]')
+  const pieces = held?.hasAttribute('data-carry-held')
+  const ROWS = pieces ? '[data-carry-piece]' : '[data-sortable-id]'
   let within = held?.parentElement
-  while (within && within !== document.body && within.querySelectorAll('[data-sortable-id]').length < 3) within = within.parentElement
-  const list = [...(within?.querySelectorAll('[data-sortable-id]') ?? [])].filter((one) => one !== held && seen(one) && !one.querySelector('[data-sortable-id]')).map(box).sort((a, b) => a.top - b.top)
+  while (within && within !== document.body && within.querySelectorAll(ROWS).length < 3) within = within.parentElement
+  const list = [...(within?.querySelectorAll(ROWS) ?? [])].filter((one) => one !== held && seen(one) && (pieces || !one.querySelector('[data-sortable-id]'))).map(box).sort((a, b) => a.top - b.top)
   let overlap = 0
   for (let i = 1; i < list.length; i++) overlap = Math.max(overlap, list[i - 1].bottom - list[i].top)
   // How much of the line the card leaves in sight, and whether its dot is: the card never covers the line it is about.
@@ -866,7 +869,8 @@ await part('One look: the sidebar', async () => {
     was = await boxes()
     const [a, b] = [await sortRow(pages[0]), await sortRow(pages[2])]
     at = await hold({ x: a.x + 40, y: a.y + a.h / 2 }, { x: a.x + 40, y: b.y + b.h * 0.9 })
-    await oneLook('The sidebar, a page carried down', at, { words: 'Move here', bare: true })
+    // (Since 13 Nov the sidebar's pages make way as a list's rows do: the room with its line, never a bare line.)
+    await oneLook('The sidebar, a page carried down', at, { words: 'Move here' })
     await putBack('The sidebar, a page', was)
     // Over Pinned, which takes no page: said on the card, the pointer says no, no line, and letting go moves nothing.
     const pinned = await h.evaluate(() => { const r = document.querySelector('aside nav [data-side-drop="pinned"]')?.getBoundingClientRect(); return r && r.height > 0 ? r.top + r.height / 2 : null })
@@ -885,14 +889,99 @@ await part('One look: the sidebar', async () => {
   const fa = await h.locator('[data-side-folder="f-a"]').boundingBox(), fc = await h.locator('[data-side-folder="f-c"]').boundingBox()
   was = await boxes()
   at = await hold({ x: fa.x + 50, y: fa.y + fa.height / 2 }, { x: fa.x + 50, y: fc.y + fc.height * 0.9 })
-  await oneLook('The sidebar, a folder carried below another', at, { words: 'Move here', bare: true })
+  await oneLook('The sidebar, a folder carried below another', at, { words: 'Move here' })
   await h.mouse.move(at.x, fc.y + fc.height / 2, { steps: 4 }); await wait(350)
   const into = await drawn()
-  check('The sidebar, a folder over a folder’s middle: the card names it, no line', into.cards === 1 && into.words === 'Put inside Chestnut' && !into.lines, JSON.stringify(into))
-  await shot('look-sidebar-folder-into')
+  // Into a folder, whose own order decides the place: no room opens, the folder lights as every target does, the card names it.
+  check('The sidebar, a folder over a folder’s middle: the card says “Move into” it, that folder lit as every target is, no line, no room', into.cards === 1 && into.words === 'Move into Chestnut' && !into.lines && !into.rooms && into.lit === 1, JSON.stringify(into))
+  if (SHOTS) for (const look of ['light', 'dark']) { await c.look(look); await wait(150); await h.screenshot({ path: `${SHOTS}/look-sidebar-folder-into-${look}.png` }) }
+  if (SHOTS) { await c.look('light'); await wait(150) }
   await putBack('The sidebar, a folder', was)
+  // Let go below another: it stands there at once, said once with Undo; ⌘Z puts it back.
+  const folderOrder = () => h.evaluate(() => [...document.querySelectorAll('[data-side-folders="article"] [data-side-folder]')].map((one) => ({ id: one.dataset.sideFolder, top: one.getBoundingClientRect().top })).sort((x, y) => x.top - y.top).map((one) => one.id).join())
+  const firstFolders = await folderOrder()
+  for (let i = 0; i < 40 && (await notices()).length; i++) await wait(250)
+  at = await hold({ x: fa.x + 50, y: fa.y + fa.height / 2 }, { x: fa.x + 50, y: fc.y + fc.height * 0.9 }); await wait(400)
+  await h.mouse.up(); await wait(1200)
+  const movedFolders = await folderOrder()
+  const folderSaid = await notices()
+  check('The sidebar, a folder let go below another: it stands there, said once with Undo', movedFolders === 'f-b,f-c,f-a' && folderSaid.length === 1 && /Moved Alder/.test(folderSaid[0]), `${firstFolders} -> ${movedFolders} | ${folderSaid.join(' | ')}`)
+  await h.mouse.click(5, 450); await h.keyboard.press('Meta+z'); await wait(1300)
+  check('The sidebar, a folder: ⌘Z puts it back', (await folderOrder()) === firstFolders, await folderOrder())
+  // A section carried by its heading (Library below Pinned): the same card with its words, the same room and line, Esc, Undo.
+  await sideTop(); await wait(300)
+  const sections = () => h.evaluate(() => [...document.querySelectorAll('aside nav [data-side-section]')].filter((one) => one.offsetHeight > 0).map((one) => ({ id: one.dataset.sideSection, top: one.getBoundingClientRect().top, bottom: one.getBoundingClientRect().bottom })).sort((x, y) => x.top - y.top))
+  const before = await sections()
+  // Below Pinned, a gap in sight (the last section can run on past the window's foot).
+  const lib = before.find((one) => one.id === 'library'), last = before.find((one) => one.id === 'pinned') ?? before.at(-1)
+  const handle = await h.locator('aside nav [data-side-section-handle="library"]').first().boundingBox().catch(() => null)
+  if (lib && last && handle && last.id !== 'library') {
+    was = await boxes()
+    const grab = { x: handle.x + 30, y: handle.y + handle.height / 2 }
+    at = await hold(grab, { x: grab.x, y: last.bottom - 4 })
+    await oneLook('The sidebar, a section carried by its heading below Pinned', at, { words: 'Move here' })
+    check('The sidebar, a section carried: no faded copy of it, no second line', !(await h.locator('[data-side-section-line]').count()) && (await h.evaluate(() => [...document.querySelectorAll('aside nav [data-side-section]')].every((one) => +getComputedStyle(one).opacity > 0.95))), '')
+    await putBack('The sidebar, a section', was)
+    for (let i = 0; i < 40 && (await notices()).length; i++) await wait(250)
+    at = await hold(grab, { x: grab.x, y: last.bottom - 4 }); await wait(400)
+    await h.mouse.up(); await wait(1300)
+    const after = (await sections()).map((one) => one.id)
+    const said = await notices()
+    check(`The sidebar, a section let go below ${last.id}: it stands there, said once with Undo`, after.indexOf('library') === after.indexOf(last.id) + 1 && said.length === 1 && /Moved Library/.test(said[0]), `${before.map((one) => one.id).join()} -> ${after.join()} | ${said.join(' | ')}`)
+    await h.mouse.click(5, 450); await h.keyboard.press('Meta+z'); await wait(1300)
+    check('The sidebar, a section: ⌘Z puts it back', (await sections()).map((one) => one.id).join() === before.map((one) => one.id).join(), (await sections()).map((one) => one.id).join())
+  } else check('The sidebar: Library and a section after it to carry it below', false, JSON.stringify(before))
   for (const id of ['f-a', 'f-b', 'f-c']) await v('groups:delete', id)
   for (const id of [ids.Oak, ids.Pine]) await v('pin', 'nuggets', id, false).catch(() => {})
+})
+// The board (13 Nov): a board places a card by the point under the hand (which list, then where among its cards), so what
+// of the one look applies is all of it but the rows' one clock across lists: one card under the pointer saying what letting
+// go does (“Move here” in its list, “Move to “Doing”” in another), the room as tall as the card with the one line through
+// its band where it would land, Esc, the drop said once with Undo and ⌘Z; a list carried sideways leaves the quiet band, never a faded copy.
+await part('One look: the board', async () => {
+  const id = await v('article:new')
+  await v('item:save', id, { title: 'Board to carry on', body: '## Todo\n\n- [ ] Alpha card\n- [ ] Beta card\n- [ ] Gamma card\n\n## Doing\n\n- [ ] Delta card\n' })
+  await v('notes:fields:set', 'nuggets', id, 'kanban-plugin', 'board')
+  await c.go('articles'); await wait(800)
+  await c.send('article', id); await wait(1800)
+  const cardAt = (text) => h.evaluate((t) => { const one = [...document.querySelectorAll('[data-board] [data-board-card]')].find((el) => el.textContent.includes(t)); const r = one?.getBoundingClientRect(); return r && { x: r.x, y: r.y, w: r.width, h: r.height } }, text)
+  const laneCards = () => h.evaluate(() => [...document.querySelectorAll('[data-board] [data-lane]')].map((lane) => `${lane.querySelector('[data-lane-name]')?.textContent}:${[...lane.querySelectorAll('[data-board-card]')].map((one) => one.textContent.trim().split(' ')[0]).join('/')}`).join(' | '))
+  const a = await cardAt('Alpha card'), b = await cardAt('Beta card'), d = await cardAt('Delta card')
+  if (!a || !b || !d) return check('The board: the note opens as a board with its cards', false, await laneCards())
+  const grab = { x: a.x + 40, y: a.y + a.h / 2 }
+  let was = await boxes()
+  let at = await hold(grab, { x: grab.x, y: b.y + b.h * 0.8 })
+  await oneLook('The board, a card carried below another in its list', at, { words: 'Move here' })
+  await putBack('The board, a card in its list', was)
+  was = await boxes()
+  at = await hold(grab, { x: d.x + 40, y: d.y + d.h + 12 })
+  await oneLook('The board, a card carried into another list', at, { words: 'Move to “Doing”' })
+  await putBack('The board, a card into another list', was)
+  // Let go in Doing: it stands there, said once with Undo; Undo puts it back; dropped again, ⌘Z puts it back.
+  const first = await laneCards()
+  for (let i = 0; i < 40 && (await notices()).length; i++) await wait(250)
+  await hold(grab, { x: d.x + 40, y: d.y + d.h + 12 }); await wait(400); await h.mouse.up(); await wait(1300)
+  const moved = await laneCards()
+  const said = await notices()
+  check('The board, a card let go in another list: it stands there, said once with Undo', /Doing:Delta\/Alpha/.test(moved) && said.length === 1 && /Moved “Alpha card” to “Doing”/.test(said[0]), `${first} -> ${moved} | ${said.join(' | ')}`)
+  await h.locator('[role=status] button', { hasText: 'Undo' }).last().click().catch(() => {}); await wait(1300)
+  check('The board: “Undo” puts it back', (await laneCards()) === first, await laneCards())
+  await hold(grab, { x: d.x + 40, y: d.y + d.h + 12 }); await wait(400); await h.mouse.up(); await wait(1300)
+  await h.keyboard.press('Meta+z'); await wait(1300)
+  check('The board: dropped again, ⌘Z puts it back', (await laneCards()) === first, await laneCards())
+  // A list carried by its heading to the front: the same card with its words, its own place the quiet band, never a faded copy.
+  const head = await h.locator('[data-board] [data-lane] h3', { hasText: 'Doing' }).boundingBox()
+  const front = await h.locator('[data-board] [data-lane]').first().boundingBox()
+  if (head && front) {
+    await hold({ x: head.x + 10, y: head.y + head.height / 2 }, { x: front.x + 20, y: head.y + head.height / 2 }); await wait(450)
+    const lane = await h.evaluate(() => ({ cards: [...document.querySelectorAll('[data-carried-card]')].filter((one) => one.getClientRects().length).length, words: document.querySelector('[data-carried-card] [data-drag-label]')?.textContent ?? '', band: document.querySelectorAll('[data-board] [data-lane] [data-own-room]').length, faded: [...document.querySelectorAll('[data-board] [data-lane]')].some((one) => +getComputedStyle(one).opacity < 0.95) }))
+    check('The board, a list carried to the front: one card that says “Move here”, its own place the quiet band, no faded copy', lane.cards === 1 && lane.words === 'Move here' && lane.band === 1 && !lane.faded, JSON.stringify(lane))
+    if (SHOTS) for (const look of ['light', 'dark']) { await c.look(look); await wait(150); await h.screenshot({ path: `${SHOTS}/look-The-board-a-list-carried-${look}.png` }) }
+    if (SHOTS) { await c.look('light'); await wait(150) }
+    await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(500)
+    check('The board, a list: Esc puts it back, nothing carried', !(await h.locator('[data-carried-card]').count()) && (await laneCards()) === first, await laneCards())
+  } else check('The board: its lists have headings to carry', false, '')
+  await h.keyboard.press('Escape'); await wait(300)
 })
 // A drop always says where it went (point 6 of “One look for every drag”): on each list, the notice once with Undo, Undo, and ⌘Z.
 await part('A drop is said: Tasks', async () => {

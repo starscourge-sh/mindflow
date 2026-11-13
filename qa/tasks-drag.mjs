@@ -22,6 +22,44 @@ const h = electron.windows().find((w) => w.url().includes('view=home'))
 await h.reload()
 await h.waitForTimeout(2500)
 await h.keyboard.press('Escape')
+// EDGE_TRACE=1: what the page and main heard through each carry (focus, a cancelled press, the browser's own drag, the
+// split drag's mark, what lay under the pointer at the edge, and every window that came up or took the keys), printed
+// with a right-edge line that fails, so the run that fails names its cause beside one that passes.
+const EDGE_TRACE = !!process.env.EDGE_TRACE
+const edgeTrace = () => {
+  if (window.__edge) return
+  const T = (window.__edge = [])
+  const at = () => Math.round(performance.now())
+  const say = (el) => (el instanceof Element ? `${el.tagName.toLowerCase()}${[...el.attributes].filter((a) => a.name.startsWith('data-')).slice(0, 4).map((a) => `[${a.name}]`).join('')}` : String(el?.constructor?.name ?? el))
+  for (const type of ['blur', 'focus']) window.addEventListener(type, (e) => e.target === window && T.push(`${at()} window ${type} (hasFocus ${document.hasFocus()})`), true)
+  document.addEventListener('visibilitychange', () => T.push(`${at()} visibility ${document.visibilityState}`), true)
+  for (const type of ['pointercancel', 'dragstart', 'pointerdown', 'pointerup', 'lostpointercapture'])
+    window.addEventListener(type, (e) => T.push(`${at()} ${type} b${e.buttons} ${Math.round(e.clientX)},${Math.round(e.clientY)} on ${say(e.target)}${type === 'pointerdown' ? ` row:${!!e.target.closest?.('[data-pane] [data-row][data-id]')} own:${!!e.target.closest?.('[data-drag-open]')} focus:${document.hasFocus()}` : ''}`), true)
+  let moves = 0
+  window.addEventListener('pointermove', (e) => { if (e.buttons & 1) moves++ }, true)
+  new MutationObserver(() => T.push(`${at()} split-drag ${document.documentElement.hasAttribute('data-split-drag')} dragging ${document.documentElement.hasAttribute('data-dragging')} after ${moves} held moves`)).observe(document.documentElement, { attributes: true, attributeFilter: ['data-split-drag', 'data-dragging'] })
+  window.__edgeLook = (x, y) => {
+    const box = document.querySelector('[data-split-area]')?.parentElement?.getBoundingClientRect()
+    const under = document.elementsFromPoint(x, y).slice(0, 6).map(say).join(' < ')
+    return `area ${box ? `${Math.round(box.left)}..${Math.round(box.right)}` : 'none'}, pointer ${x},${y}, ${moves} held moves, hasFocus ${document.hasFocus()}, seen ${document.visibilityState}, inner ${innerWidth}x${innerHeight}, under: ${under}`
+  }
+}
+if (EDGE_TRACE) {
+  await h.evaluate(edgeTrace)
+  await electron.evaluate(({ app, BrowserWindow }) => {
+    const T = (globalThis.__edgeMain = [])
+    const name = (w) => (w?.webContents?.getURL?.() ?? '').split('?')[1]?.slice(0, 24) ?? 'a window'
+    for (const one of ['browser-window-blur', 'browser-window-focus', 'did-become-active', 'did-resign-active']) app.on(one, (_e, w) => T.push(`${Date.now()} ${one} ${w ? name(w) : ''}`))
+    app.on('browser-window-created', (_e, w) => { T.push(`${Date.now()} window made ${name(w)}`); for (const ev of ['show', 'hide', 'focus', 'blur']) w.on(ev, () => T.push(`${Date.now()} ${name(w)} ${ev} at ${JSON.stringify(w.getBounds())}`)) })
+    for (const w of BrowserWindow.getAllWindows()) for (const ev of ['show', 'hide', 'focus', 'blur']) w.on(ev, () => T.push(`${Date.now()} ${name(w)} ${ev} at ${JSON.stringify(w.getBounds())}`))
+  })
+}
+const edgeSaid = async (x, y) => {
+  if (!EDGE_TRACE) return ''
+  const page = await h.evaluate(([x, y]) => [window.__edgeLook?.(x, y), ...(window.__edge ?? []).splice(0).slice(-14)].join('\n    '), [x, y])
+  const main = await electron.evaluate(({ BrowserWindow }) => [...(globalThis.__edgeMain ?? []).splice(0).slice(-10), `windows: ${BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed()).map((w) => `${(w.webContents.getURL().split('?')[1] ?? '').slice(0, 20)} ${w.isVisible() ? 'shown' : 'hidden'}${w.isFocused() ? ' focused' : ''} ${JSON.stringify(w.getBounds())}`).join(' | ')}`])
+  return `\n  EDGE TRACE page:\n    ${page}\n  EDGE TRACE main:\n    ${main.join('\n    ')}`
+}
 const send = (type, id) => electron.evaluate(({ BrowserWindow }, [t, i]) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home'))?.webContents.send('home:open', t, i), [type, id])
 const go = async (view) => (await send('view', view), await h.waitForTimeout(900))
 
@@ -56,6 +94,8 @@ async function carry(title, path, { look, release = true, steps = 12 } = {}) {
   for (const [x, y] of path) await h.mouse.move(x, y, { steps })
   await h.waitForTimeout(260)
   const seen = await state()
+  const [lx, ly] = path.at(-1)
+  if (EDGE_TRACE) Object.defineProperty(seen, 'trace', { value: await edgeSaid(lx, ly), enumerable: false })
   if (look) await h.screenshot({ path: `${SHOT}/${look}.png` })
   if (release) await h.mouse.up()
   await h.waitForTimeout(700)
@@ -81,7 +121,7 @@ const list0 = await row('call the bank')
 for (const dark of [false, true]) {
   await theme(dark)
   seen = await carry('call the bank', [[page0.right - 20, r.y]], { look: `tasks-drag-right-${dark ? 'dark' : 'light'}`, release: false })
-  check(`${dark ? 'dark' : 'light'}: at the right edge the places come up`, seen.zones.length === 1 && seen.zones[0].side === 'right' && seen.zones[0].hot, JSON.stringify(seen))
+  check(`${dark ? 'dark' : 'light'}: at the right edge the places come up`, seen.zones.length === 1 && seen.zones[0].side === 'right' && seen.zones[0].hot, JSON.stringify(seen)) || console.log(seen.trace ?? '')
   check(`${dark ? 'dark' : 'light'}: no place covers the list`, seen.zones.every((z) => !overlaps(z, list0)), JSON.stringify({ zones: seen.zones, list0 }))
   await h.keyboard.press('Escape')
   await h.waitForTimeout(500)
@@ -95,7 +135,7 @@ await theme(false)
 seen = await carry('call the bank', [[page0.right - 20, r.y]])
 await h.waitForTimeout(800)
 let after = await state()
-check('let go on the right: a second pane opens', after.panes === 2 && after.heads.filter(Boolean).at(-1)?.includes('call the bank'), JSON.stringify(after))
+check('let go on the right: a second pane opens', after.panes === 2 && after.heads.filter(Boolean).at(-1)?.includes('call the bank'), JSON.stringify(after)) || console.log(seen.trace ?? '')
 check('…and nothing is left on screen', await clean())
 await h.screenshot({ path: `${SHOT}/tasks-drag-dropped.png` })
 await single()
@@ -138,7 +178,7 @@ seen = await carry('write the report', [[page0.right + 200, r.y]])
 check('let go outside the window: nothing opens, nothing left', (await state()).panes === 1 && (await clean()), JSON.stringify(await state()))
 seen = await carry('write the report', [[page0.right - 14, r.y]], { steps: 2 })
 await h.waitForTimeout(600)
-check('a quick throw to the right still opens it', (await state()).panes === 2 && (await clean()))
+check('a quick throw to the right still opens it', (await state()).panes === 2 && (await clean())) || console.log(seen.trace ?? '')
 await single()
 
 // 7. Upcoming and Later: the same.
@@ -150,7 +190,7 @@ for (const [view, title] of [['upcoming', 'tidy the desk'], ['later', 'learn pia
   check(`${view}: a short carry brings nothing up`, seen.zones.length === 0)
   seen = await carry(title, [[page0.right - 16, one.y]])
   await h.waitForTimeout(600)
-  check(`${view}: dropped on the right, it opens there`, (await state()).heads.some((t) => t.includes(title)), JSON.stringify(await state()))
+  check(`${view}: dropped on the right, it opens there`, (await state()).heads.some((t) => t.includes(title)), JSON.stringify(await state())) || console.log(seen.trace ?? '')
   await single()
 }
 
