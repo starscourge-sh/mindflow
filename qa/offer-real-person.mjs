@@ -31,7 +31,7 @@ const offers = async () => {
   return seen
 }
 try {
-  for (const [line, name] of [['Ada Lovelace saw that the engine could compose music, not only sums.', 'Ada Lovelace'], ['Grace Hopper found a moth in the relay and taped it into the logbook.', 'Grace Hopper']]) {
+  for (const [line, name] of [['Ada Lovelace saw that the engine could compose music, not only sums.', 'Ada Lovelace'], ['Charles Babbage drew the Analytical Engine for years and never saw it built.', 'Charles Babbage']]) {
     const id = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), para(line))
     await send('capture', id)
     await wait(1500)
