@@ -40,6 +40,7 @@ export function lookUpIn(editor: Editor, from: number, to: number, words: string
 }
 import { canSplit, openAside, openNewTab } from "@/lib/split"
 import { openApart } from "@/lib/apart"
+import { keptAs } from "@/lib/capture-links"
 import { chime } from "@/lib/sound"
 import { enqueue } from "@/lib/reading-queue"
 import { quoted } from '../../../../main/clip'
@@ -217,13 +218,15 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     const own = !["task", "person", "character", "tag", "event", "day", "pdf", "web"].includes(type)
     const open = editor.extensionManager.extensions.find((one) => one.name === "noteLink")?.options.onOpenNote as ((id: string, heading?: string) => void) | undefined
     const shown = clicked.text || label
+    // Where it lands, as a click on it lands (capture-links.tsx keptAs): a bare id may be a gem's or a page's own.
+    const landed = (go: (type: string, key: string) => void) => (): void => void (type === "capture" ? keptAs(key).then((to) => go(to.type, to.id)) : go(type, key))
     const lines: Array<Line | false> = [
       !!id && !!open && { label: "Open", data: "open", run: () => open(id, heading || undefined) },
       // The other ways in, together under "Open" and in the order every row's menu keeps them (row-menu.tsx WAYS_TO_OPEN).
-      !!id && canSplit() && { label: "Open in a new tab", data: "tab", run: () => openNewTab(type, key) },
+      !!id && canSplit() && { label: "Open in a new tab", data: "tab", run: landed(openNewTab) },
       // Beside the pane the note is in, not the one in front: that may be the pane last opened beside it.
-      !!id && canSplit() && { label: "Open to the side", data: "aside", run: () => openAside(type, key, editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane")) },
-      !!id && own && { label: "Open in a new window", data: "apart", run: () => openApart(type, key) },
+      !!id && canSplit() && { label: "Open to the side", data: "aside", run: landed((to, at) => openAside(to, at, editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane"))) },
+      !!id && own && { label: "Open in a new window", data: "apart", run: landed(openApart) },
       // A link to one line: that line shown here instead, live (what its preview card once offered).
       !!id && !!editor.state.doc.nodeAt(pos)?.attrs.block && { label: "Show the line here", edits: true, data: "line-here", run: () => showLineHere(editor, pos) },
       // Spotify's two verbs, for the note it leads to.

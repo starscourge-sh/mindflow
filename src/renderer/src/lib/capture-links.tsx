@@ -319,14 +319,16 @@ const row = (kind: string, one: Omit<NoteSuggestion, 'kind' | 'icon' | 'group'>)
 
 setLinkKinds({
   kinds: linkKinds,
-  // Links made before links kept their kind: a bare id is a capture, all of a note's asked about at once.
+  // Links made before links kept their kind: a bare id is a capture's (or a gem's or a page's own), all of a note's asked about at once.
   find: (ids) => window.api.haligtree<Record<string, string>>('notes:kinds', ids.filter((id) => !id.includes(':'))),
   // ⌘-click: outside the main window, a new window of its own, for the notes that can have one. In it, a new tab.
   aside: (link) => {
     if (canSplit()) return false
     const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
     if (['task', 'person', 'character', 'tag', 'event', 'day', 'pdf', 'web'].includes(type)) return false
-    openApart(type, id)
+    // A bare id opens what a click on it opens (keptAs): a gem's own id, the gem.
+    if (type === 'capture') void keptAs(id).then((to) => openApart(to.type, to.id))
+    else openApart(type, id)
     return true
   },
   // The lines of a note a link can land on, and one given its lasting name (block-ids.ts).
@@ -340,7 +342,8 @@ setLinkKinds({
 async function bodyOf(link: string): Promise<unknown> {
   if (/^(pdf|web):/.test(link)) return null
   const [type, id] = link.includes(':') ? [link.slice(0, link.indexOf(':')), link.slice(link.indexOf(':') + 1)] : ['capture', link]
-  return type === 'capture' ? (await window.api.captures.get(id))?.body : (await haligtree.item(id))?.body
+  // A bare id with no capture is a gem's or a page's own (keptAs).
+  return type === 'capture' ? ((await window.api.captures.get(id)) ?? (await haligtree.item(id)))?.body : (await haligtree.item(id))?.body
 }
 
 /**
@@ -426,7 +429,8 @@ export async function findHeadings(link: string): Promise<string[]> {
   // A PDF or a kept article has no headings a link can land on.
   if (/^(pdf|web):/.test(link)) return []
   const [type, id] = link.includes(':') ? link.split(':') : ['capture', link]
-  const body = type === 'capture' ? (await window.api.captures.get(id))?.body : (await haligtree.item(id))?.body
+  // A bare id with no capture is a gem's or a page's own (keptAs).
+  const body = type === 'capture' ? ((await window.api.captures.get(id)) ?? (await haligtree.item(id)))?.body : (await haligtree.item(id))?.body
   return headingsIn(body as JSONContent | string | null)
 }
 
@@ -464,7 +468,14 @@ export const follow = (link: string, open: (type: string, id: string) => void, h
  */
 export const keptAs = async (id: string): Promise<{ type: string; id: string }> => {
   const capture = await window.api.captures.get(id)
-  if (capture?.status !== 'promoted') return { type: 'capture', id }
+  // No capture: a gem's or a page's own id, written with no kind in front (older links, and pages written outside
+  // the app). It opens that gem or page, never an Inbox note that is not there (the Inbox then showed nothing while
+  // the tab named the gem).
+  if (!capture) {
+    const item = await haligtree.item(id).catch(() => null)
+    return item ? { type: item.tier, id } : { type: 'capture', id }
+  }
+  if (capture.status !== 'promoted') return { type: 'capture', id }
   const { became } = await haligtree.lineage(id)
   const made = became.find((one) => ['article', 'nugget', 'goal', 'question'].includes(one.type))
   return made ? { type: made.type, id: made.id } : { type: 'capture', id }

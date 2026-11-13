@@ -398,10 +398,17 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   handle('notes:body', (name: string, id: string) =>
     parse((db.prepare(`select body from ${table(name)} where id = ?`).get(id) as { body: string } | undefined)?.body))
 
-  // The kinds of the captures a note links to, for links made before they kept
-  // theirs: one question for all of a note's links, however many.
-  handle('notes:kinds', (ids: string[]) =>
-    Object.fromEntries((db.prepare('select id, kind from captures where id in (select value from json_each(?))').all(JSON.stringify(Array.isArray(ids) ? ids.map(String) : [])) as { id: string; kind: string }[]).map((row) => [row.id, row.kind])))
+  // The kinds of the notes a note links to, for links made before they kept
+  // theirs: one question for all of a note's links, however many. A bare id is
+  // a capture's, or a gem's or a page's own written with no kind in front: those
+  // answer as a `nugget:` or `article:` link would (an idea, an article), never
+  // as nothing, which drew them grey as links to no note.
+  handle('notes:kinds', (ids: string[]) => {
+    const asked = JSON.stringify(Array.isArray(ids) ? ids.map(String) : [])
+    const rows = db.prepare(`select id, kind from captures where id in (select value from json_each(?))
+      union all select id, case tier when 'nugget' then 'idea' else tier end from nuggets where id in (select value from json_each(?)) and binned_at is null`).all(asked, asked) as { id: string; kind: string }[]
+    return Object.fromEntries(rows.map((row) => [row.id, row.kind]))
+  })
 
   // --- the map of a note's links, one step each way
   type Node = { type: string; id: string; title: string; private: number }
