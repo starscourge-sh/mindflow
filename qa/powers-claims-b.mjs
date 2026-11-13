@@ -407,7 +407,7 @@ try {
     }
     await h.keyboard.press('Escape')
     await wait(600)
-    say('learnmode', /Learn \d+ not studied yet/.test(line) && open && choices >= 2 && choices <= 4 && typedSeen ? 'PASS' : 'FAIL', `line "${line.slice(0, 70)}"; ${choices} choices on keys 1-${choices}; then written out: ${typedSeen}; a bar: ${bar}`)
+    say('learnmode', /Learn (the first )?\d+ not studied yet/.test(line) && open && choices >= 2 && choices <= 4 && typedSeen ? 'PASS' : 'FAIL', `line "${line.slice(0, 70)}"; ${choices} choices on keys 1-${choices}; then written out: ${typedSeen}; a bar: ${bar}`)
   })
 
   // --- typed / star / howitdecides on one card ----------------------------------------------------

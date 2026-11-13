@@ -1057,8 +1057,9 @@ function TopLine({ at, total, fresh: today, exams, onPick, onLearn, onTrim }: { 
           )}
           {fresh > 0 && (
             <Tip label={`${plural(fresh, 'card')} not studied yet: learn them in a guided round before they join the schedule`}>
+              {/* A round takes eight at most: said as the first eight of them, never as if eight were all there are (the end of the day's cards says it so too). */}
               <button type="button" data-learn-new onClick={() => (chime('open'), onLearn())} className={quiet}>
-                Learn {fresh > 8 ? '8' : num(fresh)} not studied yet
+                Learn {fresh > 8 ? 'the first 8' : num(fresh)} not studied yet
               </button>
             </Tip>
           )}
