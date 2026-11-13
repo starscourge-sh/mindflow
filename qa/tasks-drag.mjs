@@ -67,8 +67,14 @@ const rect = (sel) => h.evaluate((sel) => {
   const r = document.querySelector(sel)?.getBoundingClientRect()
   return r && { left: r.left, right: r.right, top: r.top, bottom: r.bottom, x: r.left + r.width / 2, y: r.top + r.height / 2 }
 }, sel)
+// Brought into view first, as a person would see it before pressing it: how long the sandbox's Today list is depends
+// on the time of day (its practices fall due in the evening), and late at night the row sat under the window's bottom
+// edge, so the press landed on the frame and no carry began ("dragging":false on every right-edge line; the trace,
+// 13 Nov 22:22: "pointerdown b1 478,853 on div row:false" in an 860px window).
 const row = (title) => h.evaluate((title) => {
-  const r = [...document.querySelectorAll('[data-pane] [data-task-row] [data-row]')].find((one) => one.textContent.includes(title))?.getBoundingClientRect()
+  const el = [...document.querySelectorAll('[data-pane] [data-task-row] [data-row]')].find((one) => one.textContent.includes(title))
+  el?.scrollIntoView({ block: 'center' })
+  const r = el?.getBoundingClientRect()
   return r && { x: r.left + Math.min(60, r.width / 2), y: r.top + r.height / 2, left: r.left, right: r.right }
 }, title)
 const pickRow = async (title) => { const one = await row(title); await h.mouse.click(one.x, one.y) }
