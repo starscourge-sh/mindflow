@@ -224,6 +224,8 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
   const [rewrites, setRewrites] = useState(0)
   // E pressed: the question focused with all its words picked, after it is drawn unmasked.
   const [editAsked, setEditAsked] = useState(0)
+  // Esc pressed in the question: the edit is let go as the question loses the keys, never kept.
+  const dropEdit = useRef(false)
   useEffect(() => {
     const h = heading.current
     if (!editAsked || !h) return
@@ -772,8 +774,15 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                 ref={heading}
                 contentEditable
                 suppressContentEditableWarning
-                // One line: Enter keeps it rather than starting a second.
+                // One line: Enter keeps it rather than starting a second. Esc leaves it as it was, as Esc does in
+                // every field: nothing typed is kept, and the question is drawn again from the card.
                 onKeyDown={(event) => {
+                  if (event.key === 'Escape') {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    dropEdit.current = true
+                    return event.currentTarget.blur()
+                  }
                   if (event.key !== 'Enter') return
                   event.preventDefault()
                   event.currentTarget.blur()
@@ -781,10 +790,12 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                 onFocus={() => setEditing(true)}
                 onBlur={(event) => {
                   const prompt = event.currentTarget.textContent?.trim()
+                  const dropped = dropEdit.current
+                  dropEdit.current = false
                   // Drawn afresh, so what you typed never sits under React's own text.
                   setEditing(false)
                   setRewrites((n) => n + 1)
-                  if (!prompt || prompt === card.prompt) return
+                  if (dropped || !prompt || prompt === card.prompt) return
                   // Anki's blanks typed with two or more numbers: a card for each, this one keeping c1.
                   if (clozeNumbers(prompt).length > 1) {
                     const was = card.prompt
