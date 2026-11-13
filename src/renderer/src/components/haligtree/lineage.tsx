@@ -18,9 +18,11 @@ const NAME: Record<string, string> = { capture: 'capture', nugget: 'gem', articl
 type Lin = Awaited<ReturnType<typeof haligtree.lineage>>
 
 /**
- * Something read for a note, again when you come back to the window and once
- * things settle after a change elsewhere: links change rarely, and each read
- * scans every body for them.
+ * Something read for a note, again once things settle after a change
+ * elsewhere: links change rarely, and each read scans every body for them. A
+ * window put away is told on its return of what changed meanwhile (captures.ts,
+ * `changed`), so coming back reads nothing of its own: it read every body on
+ * every return to the window, for an answer that could not have changed.
  */
 function useRead<T>(id: string, read: (id: string) => Promise<T>): T | null {
   const [value, setValue] = useState<T | null>(null)
@@ -37,12 +39,10 @@ function useRead<T>(id: string, read: (id: string) => Promise<T>): T | null {
       clearTimeout(timer)
       timer = setTimeout(load, 1500)
     })
-    window.addEventListener('focus', load)
     return () => {
       live = false
       clearTimeout(timer)
       stop()
-      window.removeEventListener('focus', load)
     }
   }, [id])
   return value
