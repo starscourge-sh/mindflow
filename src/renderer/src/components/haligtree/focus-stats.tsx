@@ -11,6 +11,7 @@ import { Chips } from './display'
 import { Island, Rolling, Tags, Tip } from './ui'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
+import { useTaskTime } from './task-time'
 import { taskName } from '@/lib/tasks'
 import type { Task } from '@/lib/haligtree'
 import { N, Section } from './stats-view'
@@ -98,21 +99,26 @@ function Ends({ counts, className }: { counts: Record<Outcome, number>; classNam
  */
 export function TaskFocusNumbers({ taskId, estimate }: { taskId: string; estimate?: number | null }): React.JSX.Element | null {
   const focus = useLive(() => call<TaskFocus>('focus:task', taskId), null as TaskFocus | null, [taskId])
+  // The number its row says in every list, the whole minutes of a session running on it among them (task-time.tsx):
+  // a row and its page never say two times.
+  const spent = useTaskTime().of(taskId)
   if (!focus || !focus.recent.length) return null
+  const minutes = spent?.minutes ?? focus.minutes
+  const sessions = spent?.sessions ?? focus.sessions
   const ran = focus.finished + focus.early + focus.abandoned
   const first = focus.recent.length === 1
   return (
     <Island compact title="Focus so far">
       <div data-task-focus className="space-y-2 px-2 py-2">
         <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-          <span className="text-2xl leading-none font-semibold tracking-tight text-foreground tabular-nums"><Rolling text={!focus.minutes && focus.sessions ? 'Under a minute' : timeSaid(focus.minutes)} /></span>
-          <span className="whitespace-nowrap text-control text-muted-foreground">{focus.sessions ? `in ${plural(focus.sessions, 'session', 'sessions')}` : 'kept so far'}</span>
+          <span className="text-2xl leading-none font-semibold tracking-tight text-foreground tabular-nums"><Rolling text={!minutes && sessions ? 'Under a minute' : timeSaid(minutes)} /></span>
+          <span className="whitespace-nowrap text-control text-muted-foreground">{sessions ? `in ${plural(sessions, 'session', 'sessions')}` : 'kept so far'}</span>
         </p>
         {/* What it was meant to take, beside what the sessions took: said plainly, on its own line. */}
         {!!estimate && (
           <p data-vs-estimate className="text-[0.9375rem] leading-snug font-medium text-foreground">
-            {timeSaid(focus.minutes)} of ~{timeSaid(estimate)} planned
-            {focus.minutes > estimate ? `, ${timeSaid(focus.minutes - estimate)} over` : focus.minutes < estimate ? `, ${timeSaid(estimate - focus.minutes)} to go` : ', right on it'}
+            {timeSaid(minutes)} of ~{timeSaid(estimate)} planned
+            {minutes > estimate ? `, ${timeSaid(minutes - estimate)} over` : minutes < estimate ? `, ${timeSaid(estimate - minutes)} to go` : ', right on it'}
           </p>
         )}
         {first ? (

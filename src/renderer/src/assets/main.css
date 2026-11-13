@@ -2260,6 +2260,9 @@ input[type='number']::-webkit-outer-spin-button {
   animation: mf-listen 1.6s ease-in-out infinite;
 }
 @keyframes mf-listen { 50% { opacity: 0.25; } }
+/* The same dot, on the row of the task a focus session is running on (task-time.tsx). Paused, it holds still and
+   dims, as the pill's own ring and the recorder's dot do. */
+.mf-listening[data-paused] { animation: none; opacity: 0.4; }
 /* The welcome's two inks under the headline: the page's own text colour
    mixed back toward the page, so a line under a headline reads as quieter
    without going faint (at least 4.5:1 in every theme, measured). */

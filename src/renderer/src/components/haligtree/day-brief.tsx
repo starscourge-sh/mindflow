@@ -19,6 +19,7 @@ import { doneOnToday, onToday, taskName, todaySaid } from '@/lib/tasks'
 import { PriorityMark, byPriority, markRoom } from './task-input'
 import { RowMenu } from './row-menu'
 import { taskMenu, useTaskNow, type TaskNow } from './tasks-view'
+import { SessionDot, spentCounts, spentSaid, useTaskTime, type TaskTime } from './task-time'
 import { TomorrowBox } from './tomorrow-lines'
 import { frogFirst, frogOn } from '@/lib/day-plan'
 import { useMacEvents } from '@/lib/mac-calendar'
@@ -72,6 +73,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
 }): React.JSX.Element {
   const now = useMinute()
   const taskNow = useTaskNow()
+  const taskTime = useTaskTime()
   // Today's weather, from the same source each capture's comes from; asked
   // again every half hour, and simply left out when off or offline.
   // Not asked yet (undefined) is not none (null): the line it ends is centred, so it waits for it.
@@ -349,7 +351,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
             </div>
             <ul className="min-w-0 divide-y divide-border/50">
               {shown.map((task) => (
-                <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} room={markRoom(shown)} />
+                <TaskRow key={task.id} task={task} today={today} first={task.id === frog} done={struck(task)} pen={!!ticked[task.id]?.pen} onTick={() => tick(task)} now={taskNow} time={taskTime} room={markRoom(shown)} />
               ))}
               {todos.length - inLine.length > shown.length && (
                 <li>
@@ -383,17 +385,21 @@ export function DayBrief({ day, onOpen, onListed, between }: {
 }
 
 /** A task as a line of the list: a round tick, its title, and when it is for. */
-function TaskRow({ task, today, first, done, pen, onTick, now, room = false }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void; now: TaskNow; room?: boolean }): React.JSX.Element {
+function TaskRow({ task, today, first, done, pen, onTick, now, time, room = false }: { task: Task; today: string; first?: boolean; done: boolean; pen: boolean; onTick: () => void; now: TaskNow; time: TaskTime; room?: boolean }): React.JSX.Element {
   const due = dueDay(task)
   const late = !!due && due < today
   const when = late ? `From ${whenInLine(task.dueAt ?? task.deadline, !task.dueAt || !!task.allDay)}, still open`
     : task.dueAt && !task.allDay ? `Today at ${clock(task.dueAt)}` : 'Today, any time'
   const name = taskName(task.title)
   const text = [done ? 'Done' : first ? `First, as you picked · ${when}` : when, task.blocker && task.blockedByStatus !== 'done' ? `In the way: ${task.blockedByTitle ?? task.blocker}` : task.waitingOn ? `Waiting on ${task.waitingOn}` : ''].filter(Boolean).join(' · ')
+  // The time spent on it, last in its line: “so far” while it is open, its final time once done (task-time.tsx).
+  const spent = time.of(task.id)
   // The menu every task has: a focus session, done, when (tasks-view.tsx).
   return (
     <RowMenu items={() => taskMenu(task, { open: () => (chime('open'), window.api.openInHome('task', task.id)), complete: onTick, now })}>
-    <li className="flex items-start gap-3 py-3">
+    <li className="relative flex items-start gap-3 py-3">
+      {/* A focus session running on it: the dot in the margin, as Today's rows have it. */}
+      <SessionDot id={task.id} time={time} className="absolute right-full mr-1 flex w-3 items-center justify-end top-3 h-6" />
       <Tip label={done ? 'Not done after all' : 'Done'}>
         <button type="button" data-task-tick role="checkbox" aria-checked={done} aria-label={task.title} onClick={onTick}
           className="relative mt-[0.1875rem] grid size-[1.125rem] shrink-0 place-items-center rounded-full before:absolute before:-inset-1.5 before:content-[''] border-[1.5px] transition-[background-color,border-color,scale] duration-150 ease-out outline-none active:scale-90 focus-visible:ring-2 focus-visible:ring-ring/40"
@@ -416,7 +422,7 @@ function TaskRow({ task, today, first, done, pen, onTick, now, room = false }: {
         </span>
         <Tags tags={name.tags} />
         </span>
-        <span data-task-meta className="mt-0.5 block truncate text-sm text-muted-foreground">{text}</span>
+        <span data-task-meta className="mt-0.5 block truncate text-sm text-muted-foreground">{text}{spent && <> · <Tip label={spentCounts(spent.sessions)}><span data-task-spent={spent.minutes} className="tabular-nums">{spentSaid({ estimate: task.estimate, status: done ? 'done' : task.status }, spent.minutes)}</span></Tip></>}</span>
       </button>
     </li>
     </RowMenu>

@@ -207,6 +207,13 @@ export type DaySession = { id: string; taskId: string; title: string; startedAt:
 /** The session running now, as the floating timer shows it. */
 export type Focus = { id: string; taskId: string; goal: string; startedAt: string; plannedMs: number | null; pausedMs: number; pausedAt: string | null; /** Pomodoro rounds, as JSON (lib/timer.ts RoundsAt); null for any other session. */ rounds?: string | null; /** 'break' for a break taken after a session; 'focus' for a bare session, one with no task. */ kind?: string | null; /** Time added with +10 min, already in plannedMs. */ extendedMs?: number; /** A practice (main/practices.ts): which, and its target in minutes. */ practiceId?: string | null; practiceTarget?: number | null }
 
+/**
+ * The time spent on tasks, for a whole list in one read: each task's milliseconds in sessions kept and how many
+ * (what its own page counts under “Focus so far”), and the session running on a task now, whose time a window adds
+ * itself (components/haligtree/task-time.tsx).
+ */
+export type Spent = { spent: Record<string, [ms: number, sessions: number]>; running: Pick<Focus, 'id' | 'taskId' | 'startedAt' | 'plannedMs' | 'pausedMs' | 'pausedAt'> | null }
+
 /** A focus session with no task behind it (Start focus): kept, logged and counted as any session is, unlike a timer. */
 export const bareSession = (focus: Pick<Focus, 'taskId' | 'kind'>): boolean => !focus.taskId && focus.kind === 'focus'
 /** A focus session, on a task or bare: what has a log, asks whether to count an early end, and is kept. A timer, a break or rounds are not. */
@@ -524,6 +531,7 @@ export const haligtree = {
   remind: (table: 'captures' | 'nuggets', id: string, at: string | null) => call('remind', table, id, at),
   similar: (text: string) => call<{ id: string; number: number; title: string; score: number } | null>('similar', text),
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
+  spent: () => call<Spent>('sessions:spent'),
   startSession: (taskId: string, goal?: string, plannedMs?: number | null) => call<string>('session:start', taskId, goal, plannedMs),
   /** A bare session, no task: as long as asked (null for no end), named or not. */
   startFocus: (plannedMs: number | null, goal?: string | null) => call<string>('focus:start', plannedMs, goal ?? null),

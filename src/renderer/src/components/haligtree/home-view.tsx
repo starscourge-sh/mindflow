@@ -26,6 +26,7 @@ import { RowMenu, copyLinkItem, flat as flatMenu, type MenuItem, type RowItem } 
 import { binItem } from '@/lib/to-bin'
 import { tagColour } from './tag-read'
 import { TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
+import { SessionDot, useTaskTime, type TaskTime } from './task-time'
 import { sideMenu, useFullMenu } from './side-menu'
 import { byPriority, markRoom } from './task-input'
 import { Tags, Tip, pin, sayNow } from './ui'
@@ -448,7 +449,7 @@ function List({ title, onAll, children }: { title: ReactNode; onAll?: () => void
 function ListRow({ card, actions, lead, children, aside }: { card: Card; actions: Actions; lead: ReactNode; children: ReactNode; aside?: ReactNode }): React.JSX.Element {
   return (
     <RowMenu items={() => menuFor(card, actions, [card], 0)}>
-      <div className="group/row flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent/50 has-[[data-nav]:focus-visible]:bg-accent/50">
+      <div className="group/row relative flex items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-accent/50 has-[[data-nav]:focus-visible]:bg-accent/50">
         {lead}
         <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
           className="-my-2 flex min-w-0 flex-1 flex-col items-start gap-0.5 py-2 text-left outline-none [&>*]:max-w-full">
@@ -461,12 +462,14 @@ function ListRow({ card, actions, lead, children, aside }: { card: Card; actions
 }
 
 /** A task you can tick from here, the same circle as Today's. */
-function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions; room?: boolean }): React.JSX.Element {
+function TaskRow({ task, actions, room = false, time }: { task: Task; actions: Actions; room?: boolean; /** The session running now, for its dot (task-time.tsx). */ time?: TaskTime }): React.JSX.Element {
   const [done, setDone] = useState(false)
   const at = placed(task)
   const card: Card = { type: 'task', id: task.id, title: task.title, kind: 'todo', private: 0, at: task.createdAt }
   return (
-    <ListRow card={card} actions={actions} lead={
+    <ListRow card={card} actions={actions} lead={<>
+      {/* A focus session running on it: the dot in the margin, as Today's rows have it. */}
+      {time && <SessionDot id={task.id} time={time} className="absolute right-full mr-1 flex w-3 items-center justify-end top-2 h-5" />}
       <Tip label="Mark it done">
         <button type="button" data-task-tick aria-label="Complete" onClick={() => done || (chime('done'), setDone(true), setTimeout(() => void completeTask(task, true), still() ? 0 : 280))}
           className="group/tick relative mt-0.5 flex size-[18px] shrink-0 after:absolute after:-inset-[3px] after:rounded-full items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:bg-accent"
@@ -474,6 +477,7 @@ function TaskRow({ task, actions, room = false }: { task: Task; actions: Actions
           <Check className={`size-3 transition-opacity ${done ? 'text-background opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
         </button>
       </Tip>
+    </>
     // The shared day piece, as every task list has it: its day, “Due by”, and the repeat mark.
     } aside={at || task.recurrence ? <span className="mt-0.5 flex shrink-0 items-center gap-2 text-xs text-muted-foreground"><TaskWhen task={task} /></span> : undefined}>
       <span className="flex min-w-0 items-start gap-2">
@@ -679,6 +683,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
   const tasks = useLive(haligtree.tasks, [] as Task[])
   const settings = useLive(haligtree.settings, null as Settings | null)
   const taskNow = useTaskNow()
+  const taskTime = useTaskTime()
   const captures = useCaptures()
   const hidden = useLive(haligtree.snoozed, [] as string[])
   const showSnoozed = !!useLive(haligtree.settings, null as Settings | null)?.showSnoozed
@@ -942,7 +947,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
             <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
               {nextUp.length > 0 && (
                 <List title="Next up" onAll={() => onView(nextUp.some((task) => (placed(task) ?? Infinity) < startOfDay(1)) ? 'today' : 'upcoming')}>
-                  {nextUp.map((task) => <TaskRow key={task.id} task={task} actions={actions} room={markRoom(nextUp)} />)}
+                  {nextUp.map((task) => <TaskRow key={task.id} task={task} actions={actions} room={markRoom(nextUp)} time={taskTime} />)}
                 </List>
               )}
               {questions.length > 0 && (

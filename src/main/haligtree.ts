@@ -4496,6 +4496,19 @@ export function registerHaligtree(): void {
       union all select s.id, s.started_at, s.ended_at, s.recap, s.goal, s.planned_ms, s.paused_ms, s.paused_at, s.abandoned_at, 1 from sessions s join practices p on p.id = s.practice_id where p.task_id = ? and s.ended_at is not null
       order by startedAt desc`).all(taskId, taskId)
   )
+  // The time spent on every task that has any, in one read for a whole list (never one a row): what a task's own
+  // page counts under “Focus so far” (focus-numbers.ts, taskFocus), so a row and its page say one number. Each
+  // session kept, from its start to its end less its pauses, in whole milliseconds, and how many; one ended early
+  // counts for the time it ran, an abandoned one for nothing. And the session running on a task now, if any: a
+  // window adds its time itself, by the minute, so nothing is read again as it runs.
+  handle('sessions:spent', () => ({
+    spent: Object.fromEntries((db.prepare(`select task_id as id, count(*) as n,
+        sum(max(0, cast(round((julianday(ended_at) - julianday(started_at)) * 86400000) as integer) - coalesce(paused_ms, 0))) as ms
+      from sessions where task_id != '' and ended_at is not null and abandoned_at is null group by task_id`).all() as { id: string; n: number; ms: number }[])
+      .map((row) => [row.id, [row.ms, row.n]])),
+    running: db.prepare(`select id, task_id as taskId, started_at as startedAt, planned_ms as plannedMs, paused_ms as pausedMs, paused_at as pausedAt
+      from sessions where task_id != '' and ended_at is null order by started_at desc limit 1`).get() ?? null
+  }))
   // A focus session: a goal, an optional length, and pauses that do not count.
   column('sessions', 'goal text')
   // Hints taken before a card's answer (Review's "Give me a hint"), kept with its grade.
