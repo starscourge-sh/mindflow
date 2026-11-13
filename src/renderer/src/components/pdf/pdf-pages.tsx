@@ -640,8 +640,11 @@ const places = new WeakMap<Element, { page: number; f: number }>()
  * beside it was put there at the pages' wider size, shrank under it, and opened 114 pages on, and was kept there.
  */
 export function showPage(view: HTMLElement | null | undefined, page: number, margin = 0): void {
-  const sheet = view?.querySelector<HTMLElement>(`.pdf-page[data-page="${page}"]`)
-  if (!view || !sheet) return
+  if (!view) return
+  const sheet = view.querySelector<HTMLElement>(`.pdf-page[data-page="${page}"]`)
+  // Its pages not laid out yet (a book already open elsewhere is read at once, a frame before the pages know their
+  // width): kept, and the pages go there as they are laid out (below). Asked for and forgotten, the book opened at page 1.
+  if (!sheet) return void places.set(view, { page, f: 0 })
   const r = sheet.getBoundingClientRect()
   view.scrollTop += r.top - view.getBoundingClientRect().top - margin
   places.set(view, { page, f: -margin / r.height })

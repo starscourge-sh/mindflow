@@ -157,8 +157,11 @@ const install = () => h.evaluate(() => {
       const at = t.pressed || began
       const now = performance.now() - at
       const s = t.state()
-      // Each page the view showed and when, with the page sheets' width: where an opening went before it settled.
-      if (s && s.page !== was) (out.trail += ` ${Math.round(now)}ms:p${s.page}/w${Math.round(document.querySelector('.pdf-reader .pdf-page')?.getBoundingClientRect().width ?? 0)}`), (was = s.page)
+      // Each page the view showed and when, with the page sheets' width and the scroller's top and height: where an
+      // opening went before it settled.
+      const box = document.querySelector('.pdf-reader-scroll')
+      const mark = s && `p${s.page}/w${Math.round(document.querySelector('.pdf-reader .pdf-page')?.getBoundingClientRect().width ?? 0)}/top${Math.round(box?.scrollTop ?? 0)}/of${Math.round(box?.scrollHeight ?? 0)}`
+      if (mark && mark !== was) (out.trail += ` ${Math.round(now)}ms:${mark}`), (was = mark)
       if (s) {
         out.reader ||= now
         const there = !page || (page > 0 ? s.page === page : s.page !== -page)
@@ -184,7 +187,7 @@ const opened = async (label, how) => {
   await how()
   const out = await h.evaluate(([page]) => window.__f1.until(page, true), [page])
   landed.push([out.page, page])
-  row(label, { reader: out.reader, first: out.first, sharp: out.sharp, rail: out.rail, blankFrames: out.blankFrames, elsewhere: out.elsewhere, dropped: out.dropped, worst: out.worst, longest: out.longest, page: `${out.page} of place ${page}` })
+  row(label, { reader: out.reader, first: out.first, sharp: out.sharp, rail: out.rail, blankFrames: out.blankFrames, elsewhere: out.elsewhere, dropped: out.dropped, worst: out.worst, longest: out.longest, page: `${out.page} of place ${page}`, ...(process.env.TRAIL ? { trail: out.trail.trim().split(' ').slice(0, 14).join(' ') } : {}) })
   await wait(1200)
   return out
 }
