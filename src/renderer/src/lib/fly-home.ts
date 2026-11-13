@@ -245,7 +245,9 @@ export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null
   // The rows after it still close up on the short clock, where things move at all.
   if (!from || byKeys() || still()) return (room?.close(), undefined)
   // The menu it was binned from goes at once, so the row is seen whole and its picture is the row alone.
-  for (const menu of document.querySelectorAll<HTMLElement>('[role="menu"]')) menu.style.visibility = 'hidden'
+  // (Each of a pick's rows waits for that frame too: the menu may lie over any of them.)
+  const menus = document.querySelectorAll<HTMLElement>('[role="menu"]')
+  for (const menu of menus) menu.style.visibility = 'hidden'
   // Only what is on screen of it, so nothing crumples from behind the list's edge.
   const shot = snapshot(from)
   if (!shot || !onTop(from, shot.box)) return (room?.close(), undefined)
@@ -262,11 +264,13 @@ export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null
   // Gone at once once the paper is drawn; faded where it was when the paper is busy with another row.
   const lay = (fade = false): void =>
     void (fade ? cover.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 200, easing: 'ease-out', fill: 'forwards' }).finished.then(() => cover.remove(), () => cover.remove()) : cover.remove())
-  // Its picture: taken as its menu opened, or now; three.js and the fold paths were made ready while the app was idle (`warmBin`).
-  const early = picked && picked.row === from && JSON.stringify(picked.box) === JSON.stringify(box) ? picked.png : null
+  // Its picture: taken now, or once the frame without its menu is on screen (the window gives back what it last
+  // showed: taken sooner, or as the menu opened, the paper wore the menu's words). Three.js and the fold paths were
+  // made ready while the app was idle (`warmBin`).
+  const picture = (): Promise<Uint8Array | null> => window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height })
   // The sound of it: paper crumpling, as long as the hands work at it (the Bin's tear stays quiet).
   crumple(crumpleMs / 1000)
-  const sheet = Promise.all([early ?? window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }), import('@/components/paper-crumple-flight')])
+  const sheet = Promise.all([menus.length ? painted().then(picture) : picture(), import('@/components/paper-crumple-flight')])
     .then(([png, { sheetOver }]) => (png ? sheetOver(box, png, lay, crumpleMs, FLIGHT_MS) : (lay(), hidden.cancel(), null)), () => (lay(), hidden.cancel(), null))
   // `after`: once the paper has landed (or faded), for what should wait for it.
   const land = (after?: () => void): void => {
@@ -280,17 +284,8 @@ export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null
 /** A picture taken out of a note: React Bits' paper crumples where it was, then fades (it is not binned: it stays in Files). */
 export const crumpleAway = (from: HTMLElement | null, crumpleMs = CRUMPLE_MS): Flight | undefined => binFlightFrom(from, () => null, crumpleMs, false)
 
-/**
- * The picture of the row a menu was just opened on, taken as it opened: the
- * menu then never shows in it, and a move to the Bin from the menu has it waiting.
- */
-let picked: { row: HTMLElement; box: Box; png: Promise<Uint8Array | null> } | null = null
-if (typeof document !== 'undefined')
-  document.addEventListener('contextmenu', (event) => {
-    const row = (event.target as Element | null)?.closest?.<HTMLElement>('[data-id]')
-    const box = row && !still() ? seen(row) : null
-    picked = row && box ? { row, box, png: window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }) } : null
-  }, true)
+/** Once what was changed on screen has been drawn: two frames on, as note-picture.ts and reader-card.tsx wait; a hidden window draws none. */
+const painted = (): Promise<void> => new Promise((done) => (document.hidden ? done() : requestAnimationFrame(() => requestAnimationFrame(() => done()))))
 
 /** A move to the Bin, shown: call it once the move is made, or `drop` it when the move did not happen. */
 export type Flight = ((after?: () => void) => void) & { drop: () => void }
