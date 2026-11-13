@@ -2,7 +2,8 @@ import { useLive, haligtree, type Task } from '@/lib/haligtree'
 import { taskName } from '@/lib/tasks'
 import { chime } from '@/lib/sound'
 import { dayjs, dayKey } from '../../../../main/dates'
-import { RepeatMark, TaskWhen, completeTask } from './tasks-view'
+import { RepeatMark, TaskWhen, useTickOff } from './tasks-view'
+import { Check } from '@/components/ui/icons'
 import { Tags } from './ui'
 import { MeetingItems } from './meeting-items'
 import { DOT_IN_MARGIN, SessionDot, TaskSpent, useTaskTime } from './task-time'
@@ -19,6 +20,10 @@ export function WeekTasks({ monday, onOpen }: { monday: string; onOpen?: (type: 
   const tasks = useLive(haligtree.tasks, [] as Task[])
   // The time on the week's tasks and the session running on one (task-time.tsx).
   const time = useTaskTime()
+  // Ticked here as anywhere else a task is ticked (Tasks, Today's panel): the sound, the tick and the line through it at
+  // once, then it is done and goes. It used to go the moment it was pressed, as if it had vanished (the user, 13 Nov:
+  // "how come ticking an item here just disappears it?").
+  const { ticking, tickOff } = useTickOff(260)
   const days = Array.from({ length: 7 }, (_, at) => dayjs(monday).add(at, 'day').format('YYYY-MM-DD'))
   const open = tasks.filter((task) => task.status === 'open' && days.includes(dayFor(task) ?? ''))
   const byDay = days.map((day) => [day, open.filter((task) => dayFor(task) === day)] as const).filter(([, list]) => list.length)
@@ -38,10 +43,13 @@ export function WeekTasks({ monday, onOpen }: { monday: string; onOpen?: (type: 
             {list.map((task) => (
               <li key={task.id} data-week-task={task.id} className="relative flex items-start gap-3 py-2">
                 <SessionDot id={task.id} time={time} className={`${DOT_IN_MARGIN} top-2 h-[1.375rem]`} />
-                <button type="button" aria-label={`Done: ${taskName(task.title).text}`} onClick={() => void completeTask(task)}
-                  className="mt-0.5 size-[1.125rem] shrink-0 rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:border-foreground hover:bg-foreground/10" />
+                <button type="button" data-task-tick aria-label={`Done: ${taskName(task.title).text}`} onClick={() => tickOff(task)}
+                  className="group/tick mt-0.5 flex size-[1.125rem] shrink-0 items-center justify-center rounded-full border-[1.5px] border-muted-foreground/60 transition-colors hover:border-foreground hover:bg-foreground/10"
+                  style={ticking(task.id) ? { background: 'var(--tt-color-text-green)', borderColor: 'var(--tt-color-text-green)' } : undefined}>
+                  <Check className={`size-2.5 transition-opacity ${ticking(task.id) ? 'opacity-100' : 'opacity-0 group-hover/tick:opacity-60'}`} />
+                </button>
                 <button type="button" onClick={() => onOpen?.('task', task.id)} className="min-w-0 flex-1 text-left">
-                  <span className="private-text flex items-center gap-1.5 text-[0.9375rem] text-foreground">{taskName(task.title).text}<Tags tags={taskName(task.title).tags} /></span>
+                  <span className="private-text flex items-center gap-1.5 text-[0.9375rem] text-foreground"><span data-task-title className={ticking(task.id) ? 'mf-strike' : undefined}>{taskName(task.title).text}</span><Tags tags={taskName(task.title).tags} /></span>
                   <span data-task-meta className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground"><TaskWhen task={task} /><RepeatMark task={task} /><TaskSpent task={task} time={time} /></span>
                 </button>
               </li>
