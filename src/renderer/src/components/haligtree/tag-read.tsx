@@ -359,9 +359,14 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
       tint: item.type === 'capture' ? kind?.tint : undefined,
       // A task says the day it is for, as on Today; everything else when it was written.
       age: item.type === 'task' ? (task?.dueAt ? dayMonth(task.dueAt) : undefined) : age(item.at),
-      // A task's time, last in its small line; in a focus session, the dot with its row's marks (a row here has a picture tile, no tick and no margin).
-      sub: item.type === 'task' && taskTime.of(item.id) ? <>{sub}<TaskSpentWords task={{ id: item.id, estimate: task?.estimate ?? null, status: task?.status ?? (item.status === 'done' ? 'done' : 'open') }} time={taskTime} lead={sub ? ' · ' : ''} /></> : sub || undefined,
-      marks: item.type === 'task' && taskTime.running?.taskId === item.id ? <SessionDot id={item.id} time={taskTime} className={DOT_IN_LINE} /> : undefined,
+      // A task's time, last in its small line. In a focus session the dot leads that line, under the start of its name, as
+      // on Today's Matrix card and quick capture's rows with no number column: a row here has a picture tile, no tick and
+      // no margin, and the row's own marks stand at its far end, 700 px from the name on a wide page (13 Nov).
+      sub: item.type === 'task' && (taskTime.of(item.id) || taskTime.running?.taskId === item.id) ? <>
+        {taskTime.running?.taskId === item.id && <SessionDot id={item.id} time={taskTime} className={`${DOT_IN_LINE} mr-1.5`} />}
+        {sub}
+        {taskTime.of(item.id) && <TaskSpentWords task={{ id: item.id, estimate: task?.estimate ?? null, status: task?.status ?? (item.status === 'done' ? 'done' : 'open') }} time={taskTime} lead={sub ? ' · ' : ''} />}
+      </> : sub || undefined,
       private: item.private,
       done: item.later
     }

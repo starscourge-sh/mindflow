@@ -847,7 +847,7 @@ try {
     const before = await rowIn(h, sel, parts)
     const said = await inSession(G)
     const now = await rowIn(h, sel, parts)
-    check('2 a tag’s page: a task there is a row with a picture tile and no tick, so the dot stands with the row’s marks at the end of its name’s line; the name did not move, and the time is last in its small line', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= now.name.x && now.dot.r <= now.row.r && now.still === before?.still && now.spent === `${said} so far`, JSON.stringify({ now, before: before?.still, said }))
+    check('2 a tag’s page: a task there is a row with a picture tile and no tick, so the dot leads its small line, under the start of its name (never at the row’s far end); the name did not move, and the time is last in its small line', !!now?.dot && now.dot.w === 6 && now.seen && now.dot.x >= now.name.x - 2 && now.dot.x <= now.name.x + 12 && now.dot.y >= now.name.b - 2 && now.still === before?.still && now.spent === `${said} so far`, JSON.stringify({ now, before: before?.still, said }))
     await snap('a tag’s page', h, sel)
     if (SHOTS) await shot('tag-page-light')
     // The same tag under “Manage”, where what it holds is a plain list of one-line rows.
