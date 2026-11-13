@@ -830,7 +830,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
             )}
             {/* Made just now by a link to a name found nowhere: why it is empty, said over its words while it is new. */}
             {madeByLink(open.id) && (
-              <p data-chrome data-made-by-link className="note-column mb-1 text-body text-foreground">
+              <p data-chrome data-made-by-link className="note-column mt-3 mb-1 text-body text-foreground">
                 <strong className="font-semibold">A new note:</strong> {madeByLink(open.id)}
               </p>
             )}
