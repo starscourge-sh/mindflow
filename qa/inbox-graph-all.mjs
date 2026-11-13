@@ -56,6 +56,8 @@ const edges = () => h.evaluate(() => {
 })
 // The dots not wholly inside the canvas, from where the canvas says it draws each (none told counts as outside).
 const outside = (g) => g.dots.filter((one) => !g.box || !one.screen || one.screen[0] - one.screen[2] < 0 || one.screen[1] - one.screen[2] < 0 || one.screen[0] + one.screen[2] > g.box.w || one.screen[1] + one.screen[2] > g.box.h)
+// The smallest dot across, in screen pixels (a speck of a pixel or two reads as nothing; the playbook's dots are 7 to 9).
+const smallest = (g) => Math.min(...g.dots.map((one) => (one.screen ? one.screen[2] * 2 : 0)))
 const overlaps = (list) => {
   let pairs = 0
   for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) if (list[a].r + list[b].r - Math.hypot(list[a].x - list[b].x, list[a].y - list[b].y) > 0.5) pairs++
@@ -93,10 +95,11 @@ const film = async (name) => {
 try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
   await v('settings:set', { sounds: false, hintRate: 0, autoArchive: 0, inboxDays: 3650 })
-  // An Inbox of 0: no graph box, the Inbox's own empty page.
+  // An Inbox of 0: no graph box, the Inbox's own empty page (a new book's: its examples, with their "Try it" line).
   await h.reload(); await wait(1500)
   await c.go('inbox')
-  check('an Inbox of 0: no graph, no empty box, the Inbox says it is empty', !(await h.$('[data-inbox-graph]')) && !!(await h.$('[data-empty]')), await h.evaluate(() => document.querySelector('[data-empty]')?.textContent?.slice(0, 80) ?? 'no empty page'))
+  const nothing = await h.evaluate(() => document.querySelector('[data-empty], [data-example-line]')?.textContent?.replace(/\s+/g, ' ').slice(0, 90) ?? null)
+  check('an Inbox of 0: no graph, no empty box, the Inbox says it is empty', !(await h.$('[data-inbox-graph]')) && !!nothing, nothing ?? 'no empty page')
   const ids = await make(INBOX)
   for (const [kind, ago] of Object.entries(AGO)) if (ago) await v('captures:bulk', ids.filter((_, at) => INBOX[at][0] === kind), { capturedAt: new Date(Date.now() - ago * DAY).toISOString() })
   await h.reload(); await wait(1500)
@@ -114,8 +117,8 @@ try {
   check('the user\'s case: 13 capture dots and 1 tag dot', captures.length === 13 && tags.length === 1, `${captures.length} captures, ${tags.length} tags (${tags.map((one) => one.title).join(', ')})`)
   const off = outside(g)
   const clear = await edges()
-  check('all 14 dots drawn, none on another, none off the canvas, 8px clear of its edge', g.dots.length === 14 && !overlaps(g.dots) && !off.length && clear >= 8,
-    `${g.dots.length} dots, ${overlaps(g.dots)} overlapping, off: ${off.map((one) => one.title).join(', ') || 'none'}, ${clear.toFixed(1)}px clear in ${Math.round(g.box?.w)} by ${Math.round(g.box?.h)}`)
+  check('all 14 dots drawn, each 7px or more across, none on another, none off the canvas, 8px clear of its edge', g.dots.length === 14 && smallest(g) >= 7 && !overlaps(g.dots) && !off.length && clear >= 8,
+    `${g.dots.length} dots, the smallest ${smallest(g).toFixed(1)}px, ${overlaps(g.dots)} overlapping, off: ${off.map((one) => one.title).join(', ') || 'none'}, ${clear.toFixed(1)}px clear in ${Math.round(g.box?.w)} by ${Math.round(g.box?.h)}`)
   const joined = new Set(g.lines.flat())
   const alone = captures.filter((one) => !joined.has(one.id))
   check('11 stand on their own with no line, 2 are joined to #work', alone.length === 11 && g.lines.length === 2, `${alone.length} on their own, ${g.lines.length} lines`)
@@ -147,9 +150,13 @@ try {
   await c.go('inbox')
   if (!(await h.$('[data-inbox-graph]'))) await h.click('button:has-text("Graph")')
   // The Tags tab says what it draws and what it does not.
-  await chip('Tags').click(); await wait(1200)
+  await chip('Tags').click(); await wait(600)
+  g = await settled()
   line = await said()
   check('Tags: says what is drawn and what is not', line?.text === '3 tags, from 4 of 13 captures · the other 9 have no tag', JSON.stringify(line?.text))
+  check('Tags: its 3 tag dots each 7px or more across, inside the canvas', g.dots.length === 3 && smallest(g) >= 7 && !outside(g).length, `${g.dots.length} dots, the smallest ${smallest(g).toFixed(1)}px`)
+  if (shots) for (const name of ['light', 'dark']) { await look(name); await wait(400); await (await h.$('[data-inbox-graph]')).screenshot({ path: `${shots}/tags-${name}.png` }) }
+  await look('light')
   await chip('Captures').click(); await wait(600)
   // Every time and kind filter: a dot for every capture in it.
   const filters = [['Note'], ['Term'], ['Link'], ['Term', 'Link'], ['Note', 'Term', 'Link']]
