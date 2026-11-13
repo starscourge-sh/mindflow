@@ -25,13 +25,64 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 900 })
 const { h, v, electron } = c
+// BIN_TRACE=<n> (13 Nov): once, in one run of the Goals part, a goal was found in the Bin with no key of the probe's
+// pressed. With the switch on, every call that bins anything is recorded in main (when, what, which window had the
+// keys), and in the page every key, press, release and click it gets and who asked for a row by its id (the first
+// thing a move to the Bin does): `binsSince()` gives back what went to the Bin, with what the page got just before.
+// It also runs "The Bin, traced": that first carry and Esc, n times over, a fresh pair of goals each time.
+const BIN_TRACE = Number(process.env.BIN_TRACE) || 0
+const pageTrace = () => {
+  if (window.__trace) return
+  const T = (window.__trace = { events: [], stacks: [] })
+  const at = () => Math.round(performance.timeOrigin + performance.now())
+  const push = (list, one) => { list.push(one); if (list.length > 600) list.shift() }
+  const say = (el) => (el instanceof Element ? `${el.tagName.toLowerCase()}${el.dataset?.id ? `[id ${el.dataset.id.slice(0, 8)}]` : ''}${el.getAttribute('aria-label') ? `[${el.getAttribute('aria-label').slice(0, 24)}]` : ''}` : String(el?.constructor?.name))
+  for (const type of ['keydown', 'keyup', 'pointerdown', 'pointerup', 'click', 'contextmenu', 'auxclick', 'drop', 'focus', 'blur'])
+    window.addEventListener(type, (e) => push(T.events, { at: at(), type, key: e.key, code: e.code, trusted: e.isTrusted, button: e.button, x: Math.round(e.clientX ?? -1), y: Math.round(e.clientY ?? -1), on: say(e.target), focus: document.hasFocus(), seen: document.visibilityState, hover: document.querySelector('[data-id]:hover')?.dataset.id?.slice(0, 8) }), true)
+  const all = Document.prototype.querySelectorAll
+  Document.prototype.querySelectorAll = function (sel) {
+    if (typeof sel === 'string' && /^\[data-id="[^"]+"\]$/.test(sel)) push(T.stacks, { at: at(), sel: sel.slice(0, 22), stack: String(new Error().stack).split('\n').slice(2, 16).map((line) => line.trim().replace(/^at /, '').replace(/\(?file:\/\/\/.*\/(assets\/[^)]*)\)?/, '$1')).join(' < ') })
+    return all.apply(this, arguments)
+  }
+}
+if (BIN_TRACE) {
+  await h.addInitScript(pageTrace)
+  await h.evaluate(pageTrace)
+  console.log('TRACE main:', await electron.evaluate(({ ipcMain, BrowserWindow, app }) => {
+    if (globalThis.__binTrace) return 'recording already'
+    const seen = (globalThis.__binTrace = { calls: [], front: [] })
+    // Whether the app under test ever comes to the front, or a window of its takes the keys: only then can a key
+    // pressed on the real keyboard reach it.
+    for (const name of ['did-become-active', 'did-resign-active', 'browser-window-focus', 'browser-window-blur']) app.on(name, () => seen.front.push({ at: Date.now(), name }))
+    seen.start = { keysIn: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.isFocused()).length, shown: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.isVisible()).length, windows: BrowserWindow.getAllWindows().length }
+    const map = ipcMain._invokeHandlers
+    if (!map?.get) return 'no map of handlers to wrap: bins are read off the book instead'
+    for (const channel of ['haligtree:bin:put', 'haligtree:bin:put-many']) {
+      const was = map.get(channel)
+      if (!was) continue
+      map.set(channel, (event, ...args) => {
+        seen.calls.push({ at: Date.now(), channel, args: JSON.stringify(args).slice(0, 120), from: event.sender.getURL().split('?')[1]?.slice(0, 40), keysIn: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.isFocused()).map((w) => w.webContents.getURL().split('?')[1]?.slice(0, 30)), shown: BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.isVisible()).length })
+        return was(event, ...args)
+      })
+    }
+    return 'recording bin:put and bin:put-many'
+  }))
+}
+/** What went to the Bin since last asked (BIN_TRACE), each with the keys, presses and clicks the page got in the three seconds before, and who asked for that row. */
+const binsSince = async () => {
+  if (!BIN_TRACE) return []
+  const calls = await electron.evaluate(() => (globalThis.__binTrace?.calls ?? []).splice(0))
+  if (!calls.length) return []
+  const page = await h.evaluate(() => ({ events: window.__trace?.events ?? [], stacks: window.__trace?.stacks ?? [] }))
+  return calls.map((call) => ({ ...call, events: page.events.filter((one) => one.at > call.at - 3000 && one.at <= call.at + 50).map((one) => `${one.at - call.at}ms ${one.type}${one.key ? ` ${one.key}` : ''}${one.type.startsWith('pointer') || one.type === 'click' ? ` b${one.button} ${one.x},${one.y}` : ''} on ${one.on}${one.focus ? '' : ' (page not in focus)'}${one.hover ? ` hover ${one.hover}` : ''}`), stacks: page.stacks.filter((one) => one.at > call.at - 400 && one.at <= call.at + 50).map((one) => `${one.at - call.at}ms ${one.sel}: ${one.stack}`) }))
+}
 // BOOK=1: a copy of a real book, where nothing is seeded, binned or taken apart: only the part that carries what is there runs.
 const BOOK = !!process.env.BOOK
 if (!BOOK) for (const list of ['article', 'nugget']) for (const group of await v('groups', list)) await v('groups:delete', group.id)
 const wait = (ms) => h.waitForTimeout(ms)
 h.setDefaultTimeout(4000)
 /** A part of the probe: a part that cannot even run on old code is a fail, and the rest still runs. */
-const part = async (name, run) => { if ((process.env.PART && !name.includes(process.env.PART)) || (process.env.SKIP && name.includes(process.env.SKIP))) return; try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
+const part = async (name, run) => { if ((process.env.PART && !name.includes(process.env.PART)) || (process.env.SKIP && name.includes(process.env.SKIP))) return; try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); for (const one of await binsSince().catch(() => [])) console.log(`BINNED in ${name}: ${JSON.stringify(one)}`); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
 const shot = (name) => (SHOTS ? h.screenshot({ path: `${SHOTS}/${name}.png` }) : null)
 const film = async (name, n = 6) => { if (SHOTS) for (let i = 0; i < n; i++) { await h.screenshot({ path: `${SHOTS}/${name}-${i}.png` }); await wait(50) } }
 const both = async (name) => { if (!SHOTS) return; for (const look of ['light', 'dark']) { await c.look(look); await wait(120); await h.screenshot({ path: `${SHOTS}/${name}-${look}.png` }) } await c.look('light'); await wait(120) }
@@ -57,6 +108,7 @@ if (!BOOK) {
   for (const title of TITLES) { const id = await v('article:new'); await v('item:save', id, { title }); ids[title] = id }
   const others = (await v('items', 'article')).map((one) => one.id).filter((id) => !Object.values(ids).includes(id))
   for (const id of others) await v('bin:put', id)
+  if (BIN_TRACE) await electron.evaluate(() => void (globalThis.__binTrace?.calls ?? []).splice(0))
 }
 let box, a, before, t
 const row = (title) => h.locator('button[data-row]:not([data-lifted] *)', { hasText: new RegExp(`^${title}`) }).first()
@@ -1028,6 +1080,51 @@ const hintSaid = () => h.evaluate(() => document.querySelector('[data-drag-hint]
 const day = (n) => { const d = new Date(Date.now() + n * 86_400_000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 const goalTab = async (id) => { await h.locator(`[data-chips="goals"] [data-chip="${id}"]`).click(); await wait(700) }
 const goalNow = async (id) => (await v('items', 'goal')).find((one) => one.id === id)
+if (!BOOK && BIN_TRACE) await part('The Bin, traced: a goal carried among the goals of its day and put back with Esc', async () => {
+  for (const old of await v('items', 'goal')) await v('goal:drop', old.id)
+  const stay = []
+  for (const [title, when] of [['Alder goal', 90], ['Elder goal', 500], ['Fig goal', 520]]) { stay.push(await v('goal:new', title, day(when))); await wait(15) }
+  await h.reload(); await wait(1500); await c.go('goals'); await wait(1200); await goalTab('open')
+  await binsSince()
+  let [hit, ran] = [0, 0]
+  const keys = { sent: 0 }
+  const back = async () => { await h.keyboard.press('Escape'); keys.sent++; await wait(350); await h.mouse.up(); await wait(450) }
+  for (let i = 0; i < BIN_TRACE; i++) {
+    // A fresh pair on one day each time, as the part itself starts: two that share a day over the one alone and the two far off.
+    const a = await v('goal:new', `Beech ${i + 1}`, day(60)); await wait(15)
+    const b = await v('goal:new', `Cypress ${i + 1}`, day(60))
+    let rows = []
+    for (let tries = 0; tries < 20 && rows.filter((id) => id === a || id === b).length < 2; tries++) { await wait(150); rows = await standing(ROWS) }
+    const pair = rows.filter((id) => id === a || id === b)
+    if (pair.length === 2 && rows.length === 5) {
+      ran++
+      // Exactly the part's first steps: the first of the pair carried under the second and put back with Esc, the
+      // button let go after; then one of the far pair carried under the other and put back the same way.
+      await carryTo(pair[0], pair[1]); await wait(450); await back()
+      await carryTo(stay[1], stay[2]); await wait(450); await back()
+      await wait(500)
+    } else console.log(`NOTE  The Bin, traced, run ${i + 1}: the pair was not on the page (${rows.length} rows), not counted`)
+    const open = new Set((await v('items', 'goal')).map((one) => one.id))
+    const bins = await binsSince()
+    const gone = [a, b, ...stay].filter((id) => !open.has(id))
+    if (bins.length || gone.length) {
+      hit++
+      console.log(`BINNED run ${i + 1}: gone from the open goals ${gone.length} (${gone.map((id) => (id === a ? 'the second of the pair' : id === b ? 'the first of the pair' : 'one that stays')).join(', ')}); ${JSON.stringify(bins)}`)
+      await shot(`bin-trace-run-${i + 1}`)
+      for (const id of gone) await v('bin:restore', 'goal', id).catch(() => {})
+    }
+    await v('goal:drop', a); await v('goal:drop', b); await wait(120)
+  }
+  const front = await electron.evaluate(() => ({ start: globalThis.__binTrace?.start, events: (globalThis.__binTrace?.front ?? []).map((one) => one.name) }))
+  const tally = front.events.reduce((all, name) => ({ ...all, [name]: (all[name] ?? 0) + 1 }), {})
+  console.log(`TRACE front: at the start ${JSON.stringify(front.start)}; since then ${JSON.stringify(tally)}; the page says it has the keys: ${await h.evaluate(() => document.hasFocus())}`)
+  const got = await h.evaluate(() => (window.__trace?.events ?? []).filter((one) => one.type === 'keydown').map((one) => one.key))
+  const other = got.filter((key) => key !== 'Escape')
+  console.log(`TRACE keys: the probe pressed Esc ${keys.sent} times; the page's last ${got.length} keydowns hold ${other.length} that are not Esc${other.length ? `: ${[...new Set(other)].join(', ')}` : ''}`)
+  check(`The first carry of the Goals part, put back with Esc, then the next: nothing goes to the Bin in ${ran} runs`, hit === 0 && ran >= Math.min(BIN_TRACE, 3), `${hit} of ${ran} runs sent a goal to the Bin (${BIN_TRACE - ran} not counted)`)
+  for (const id of stay) await v('goal:drop', id)
+  await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+})
 if (!BOOK) await part('One look, kept in order: Goals', async () => {
   // Its own goals: two that share a day, one alone on a later day, two more than a year off; three for someday; two on ice; two ended.
   for (const old of await v('items', 'goal')) await v('goal:drop', old.id)
