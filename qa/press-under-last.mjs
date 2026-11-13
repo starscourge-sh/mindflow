@@ -22,7 +22,7 @@ const { h, send, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 
 /** The page's editor you write in: the largest one on show. */
-const install = () => h.evaluate(() => {
+const install = (page) => page.evaluate(() => {
   const ed = () => [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')].filter((one) => one.editor && one.isConnected && one.getClientRects().length && !one.closest('[inert], [data-page-held]')).sort((a, b) => b.getBoundingClientRect().height - a.getBoundingClientRect().height)[0]
   window.__under = {
     ed,
@@ -48,7 +48,7 @@ const install = () => h.evaluate(() => {
         // Below the words, only bare room counts: a holder with no words of its own, never a heading, a field or a
         // button that the page draws there (Writing's sections under a piece are content, not room).
         const bare = (one) => /^(DIV|SECTION)$/.test(one.nodeName) && ![...one.childNodes].some((child) => child.nodeType === 3 && child.textContent.trim()) && !one.closest('button, a, [role], textarea, input, label')
-        if (inside ? under === e : !e.contains(under) && bare(under) && !!under.closest('.haligtree-editor-content, [data-day-write]')) return { x, y, on: said(under), from: step }
+        if (inside ? under === e : !e.contains(under) && bare(under) && !!under.closest('.haligtree-editor-content, [data-day-write], .sticky-text')) return { x, y, on: said(under), from: step }
       }
       // Said, when there is none: what lay under the pointer on the way down.
       return { none: `the last line ends at ${Math.round(bottom)}px of ${innerHeight}; under it: ${met.join(', ') || 'nothing'}` }
@@ -56,34 +56,34 @@ const install = () => h.evaluate(() => {
   }
 })
 
-async function presses(name) {
-  await install()
+async function presses(name, page = h) {
+  await install(page)
   for (const inside of [true, false]) {
     // Scrolled to its end, where the last line and the room under it are on the screen; then the caret put at the
     // start without moving the page (as a press there would leave it), so the press under the last line has to move it.
-    await h.evaluate(() => { let box = window.__under.ed().parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; box?.scrollTo({ top: box.scrollHeight, behavior: 'instant' }) })
+    await page.evaluate(() => { let box = window.__under.ed().parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; box?.scrollTo({ top: box.scrollHeight, behavior: 'instant' }) })
     await wait(700)
-    await h.evaluate(() => { const { editor } = window.__under.ed(); editor.commands.setTextSelection(1); editor.view.focus() })
+    await page.evaluate(() => { const { editor } = window.__under.ed(); editor.commands.setTextSelection(1); editor.view.focus() })
     await wait(300)
-    const at = await h.evaluate((inside) => window.__under.spot(inside), inside)
+    const at = await page.evaluate((inside) => window.__under.spot(inside), inside)
     const what = `${name}: a press under the last line, ${inside ? "in the page's own box" : 'in the room below it'}`
     if (at.none) { console.log(`(${what}: no bare place there on the screen: ${at.none})`); continue }
-    const top = () => h.evaluate(() => { let box = window.__under.ed().parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; return Math.round(box?.scrollTop ?? 0) })
+    const top = () => page.evaluate(() => { let box = window.__under.ed().parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; return Math.round(box?.scrollTop ?? 0) })
     const before = await top()
-    await h.mouse.click(at.x, at.y)
+    await page.mouse.click(at.x, at.y)
     // FILM=<folder>: the press filmed, a frame as fast as they come for 200 ms.
-    if (process.env.FILM) for (let i = 0, from = Date.now(); Date.now() - from < 200; i++) await h.screenshot({ path: join(process.env.FILM, `${name.replace(/\W+/g, '-')}-${inside ? 'in' : 'below'}-${i}.png`) })
+    if (process.env.FILM) for (let i = 0, from = Date.now(); Date.now() - from < 200; i++) await page.screenshot({ path: join(process.env.FILM, `${name.replace(/\W+/g, '-')}-${inside ? 'in' : 'below'}-${i}.png`) })
     await wait(400)
-    const now = await h.evaluate(() => window.__under.where())
+    const now = await page.evaluate(() => window.__under.where())
     const after = await top()
     check(`${what}: the caret is at the end and the page did not move`, now.keys === 'in the page' && now.atEnd && after === before, `${at.from}px under, on ${at.on}: the keys ${now.keys}, the caret at ${now.head} of ${now.size}; scrolled ${before} then ${after}`)
     // Then typed: the words land at the end, where the press put the caret, and come off again with ⌘Z.
     const word = inside ? ' qzin' : ' qzout'
-    await h.keyboard.type(word)
+    await page.keyboard.type(word)
     await wait(300)
-    const typed = await h.evaluate(() => window.__under.ed().editor.state.doc.lastChild?.textContent ?? '')
+    const typed = await page.evaluate(() => window.__under.ed().editor.state.doc.lastChild?.textContent ?? '')
     check(`${what}: then typed, the words land at the end`, typed.endsWith(word), `the last block ends "${typed.slice(-30)}"`)
-    for (let i = 0; i < 3 && (await h.evaluate((word) => (window.__under.ed().editor.state.doc.lastChild?.textContent ?? '').endsWith(word), word)); i++) await h.keyboard.press('Meta+z')
+    for (let i = 0; i < 3 && (await page.evaluate((word) => (window.__under.ed().editor.state.doc.lastChild?.textContent ?? '').endsWith(word), word)); i++) await page.keyboard.press('Meta+z')
   }
 }
 
@@ -102,6 +102,23 @@ try {
   await go('day')
   await wait(1200)
   await presses("Today's page")
+  // Quick capture: shown, two lines put in it, then the same presses in its own window.
+  await h.evaluate(() => window.api.showPrompt())
+  const box = c.page
+  const writer = () => [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')].find((one) => one.editor && one.getClientRects().length)
+  await box.waitForFunction(`!!(${writer.toString()})()`, null, { timeout: 20000, polling: 200 })
+  await box.evaluate(`(${writer.toString()})().editor.commands.setContent('<p>A thought for the box</p><p>and its last line</p>')`)
+  await wait(500)
+  await presses('Quick capture', box)
+  // A sticky on the desk: E starts writing in it, then the same presses in its own window.
+  const sticky = c.electron.windows().find((one) => one.url().includes('view=sticky'))
+  if (sticky) {
+    await sticky.keyboard.press('e')
+    await sticky.waitForFunction(`!!(${writer.toString()})()`, null, { timeout: 15000, polling: 200 }).catch(() => {})
+    await wait(600)
+    if (await sticky.evaluate(`!!(${writer.toString()})()`)) await presses('A sticky', sticky)
+    else console.log('(a sticky: its writing did not open with E)')
+  } else console.log('(no sticky on the desk)')
   check('no page errors', c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|status of 404|NotSameOrigin/.test(line)).length === 0, c.errors.slice(0, 3).join(' | '))
 } finally {
   await Promise.race([c.close(), new Promise((next) => setTimeout(next, 8000))])
