@@ -4,6 +4,7 @@ import { WelcomeMist } from './welcome-mist'
 import { GATHER_AT, WelcomeTitle } from './welcome-title'
 import { haligtree, unloaded, useLive, type Item } from '@/lib/haligtree'
 import { WelcomeStamp } from './welcome-marks'
+import { Orb } from './orb'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
@@ -265,6 +266,8 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
   const drawIn = (): void => setDesk((now) => (now === 'over' ? 'in' : now))
   // Whether this arrival came out of the desktop: its two controls keep the ground they came in on until they go.
   const [fromDesk, setFromDesk] = useState(false)
+  // Played again from a window not made see-through: this one shows the app's loader until the window made in its place is up (main: remakeHome).
+  const [readying, setReadying] = useState(false)
   // The mist over the desktop has drawn its first frame: the spark in it keeps the mist's time from there.
   const [deskLit, setDeskLit] = useState(false)
   /** The arrival's light is whole (the gradient's bloom, or out of the desktop the spark's burst in the mist): the title may come. */
@@ -342,10 +345,12 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     // Played again from a window not made see-through: one is made in its place for the showing (main: remakeHome),
     // and plays it. This one keeps what is being typed (a field left keeps its words, as on a click away), saves its
     // words and its notes' places the app's own way before a window goes (the editors and lib/note-place.ts hear
-    // 'haligtree:flush'), hands over its tabs and panes, and is put away.
+    // 'haligtree:flush'), hands over its tabs and panes, and answers at once with the app's one loader (Readying) until
+    // the new window is up and this one goes, in the same moment.
     if (how === 'again') {
       if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
       window.dispatchEvent(new Event('haligtree:flush'))
+      setReadying(true)
       return window.api.remake(handOver?.() ?? null)
     }
     const clear = how === 'clear'
@@ -655,6 +660,7 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
 
   useEffect(() => void (at >= 0 && dialog.current?.focus({ preventScroll: true })), [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (readying) return <Readying />
   if (at < 0) return null
   const play = !quiet && !played.has(at) && !(at === WHY && rushed)
   // Only the chapter on screen says how far it has got: one still fading out
@@ -2085,6 +2091,22 @@ const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow)
  * after. Stepped by the page's frames instead (motion's `scale`), the halo was painted afresh every frame as it grew to
  * twelve times its size, and frames dropped from the moment the spark came. `onDone` once it has gone into the light.
  */
+/**
+ * The welcome played again, being made ready in a window made in this one's place (main: remakeHome): the app's one
+ * loader at once, over the whole window, the room the welcome takes. Keys wait with it; this window goes the moment the
+ * new one shows, so the desktop is never left bare between them.
+ */
+function Readying(): React.JSX.Element {
+  const cover = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => cover.current?.focus({ preventScroll: true }), [])
+  return (
+    <div ref={cover} tabIndex={-1} data-welcome-readying="" onKeyDown={(event) => (event.preventDefault(), event.stopPropagation())}
+      className="fixed inset-0 z-[70] grid place-items-center bg-background text-foreground outline-none">
+      <Orb label="Getting the welcome ready…" />
+    </div>
+  )
+}
+
 // Points in the intro (0 to 1, the glow's own `opened`): in, the long glimmer, gathering, the squeeze, the release.
 const SPARK_AT = [0, 0.05, 0.2, 0.34, 0.48, SPARK_HOLD - 0.06, SPARK_HOLD - 0.015, SPARK_HOLD, SPARK_HOLD + 0.12, 0.94, 1]
 const sparkFrames = (opacity: number[], scale: number[]): Keyframe[] => SPARK_AT.map((offset, i) => ({ offset, opacity: opacity[i], transform: `scale(${scale[i]})`, easing: 'ease-in-out' }))

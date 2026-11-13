@@ -328,6 +328,12 @@ const read = <T>(path: string, fallback: T): T => {
     return fallback
   }
 }
+/**
+ * The sandbox opened to play the welcome (lib/onboarding.ts tryWelcome: Settings' “Show it”, ⌘K's “Show the welcome in
+ * the sandbox”): its main window is made see-through from the start, so the welcome arrives out of the desktop from it,
+ * once, never a window of its own first and then one made in its place (index.ts makeHome).
+ */
+export const carriesWelcome = (): boolean => SANDBOX && !!read<{ welcome?: unknown } | null>(join(sandboxRoot(), CARRY), null)?.welcome
 /** The style of bar this run's book draws, for the window's first frame: its own, or the one carried in for a book not yet set out. */
 export const barsHere = (): string => {
   const own = setting('progressBars')
