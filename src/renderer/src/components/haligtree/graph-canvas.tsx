@@ -1189,11 +1189,13 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
     }
     // The first time at once; asked again (the Fit button), a glide back.
     let fittedOnce = false
+    // The view is the fit, not moved by hand since: so a frame that changes size (a smaller window) is fitted again.
+    let asFitted = false
     fit.current = () => {
       if (!width || !height) return
       const to = fitted()
       glide(to, fittedOnce ? HOME_GLIDE : 0)
-      fittedOnce = true
+      fittedOnce = asFitted = true
       if (shown && !drag) ((focus = null), fade(0))
     }
     // Panned or zoomed away from the map and left there, it eases back to fit after a couple of seconds of no input;
@@ -1218,6 +1220,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
       homing = window.setTimeout(() => {
         if (drag || !away()) return
         glide(fitted(), HOME_GLIDE)
+        asFitted = true
         if (shown) ((focus = null), fade(0))
       }, HOME_AFTER)
     }
@@ -1271,7 +1274,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
     if (replay) replay.current = (at) => {
       // Starting, the camera follows the growing map; stopping, it glides back to the whole of it.
       if (at !== null && cut === null) following = true
-      if (at === null && cut !== null) ((following = false), springs.clear(), glide(fitted(), HOME_GLIDE))
+      if (at === null && cut !== null) ((following = false), springs.clear(), glide(fitted(), HOME_GLIDE), (asFitted = true))
       cut = replayAt.current = at
       grow(at === null ? dots.length : Math.ceil(at), at !== null)
       told()
@@ -1300,6 +1303,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
       if (!dot || !width) return false
       const k = Math.max(view.k, fitK * 2.6, 1.1)
       glide({ k, x: -dot.x! * k, y: -dot.y! * k }, 450)
+      asFitted = false
       focus = dot
       shown = dot
       draw()
@@ -1310,12 +1314,16 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
 
     const size = (): void => {
       const rect = frame.getBoundingClientRect()
+      const resized = rect.width !== width || rect.height !== height
       width = rect.width
       height = rect.height
       el.width = Math.round(width * devicePixelRatio)
       el.height = Math.round(height * devicePixelRatio)
       el.style.width = `${width}px`
       el.style.height = `${height}px`
+      // Nobody has moved it since it was fitted: fitted again to the new frame, at once (a window made smaller kept the
+      // old zoom, and the map's edges went past the canvas's).
+      if (resized && asFitted && !following && width && height) glide(fitted(), 0)
       draw()
     }
     size()
@@ -1349,6 +1357,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
     const asked = requestAnimationFrame(() => (focusOn.current = null))
     if (wanted) {
       view.k = Math.max(view.k, 1.4)
+      asFitted = false
       goal = null
       view.x = -wanted.x! * view.k
       view.y = -wanted.y! * view.k
@@ -1406,7 +1415,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
       } else {
         cancelAnimationFrame(gliding)
         goal = null
-        following = false
+        following = asFitted = false
         view.x += dx
         view.y += dy
         const now = performance.now(), ms = Math.max(1, now - flick.at)
@@ -1446,7 +1455,7 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
       // On a note's own map a plain scroll is the page's, so the panel still scrolls past it.
       if (small && !event.ctrlKey && !event.metaKey) return
       event.preventDefault()
-      following = false
+      following = asFitted = false
       // A pinch (or ⌘ with the wheel) zooms at the pointer; two fingers pan.
       if (event.ctrlKey || event.metaKey) {
         const rect = el.getBoundingClientRect()
