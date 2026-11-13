@@ -365,7 +365,11 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
           ? <NameInPlace initial={name} placeholder="Name the deck" label="Deck name" onDone={onNamed} className={`${NAME_FIELD} mr-7`} style={nameFit(name, '1.75rem')} />
           : <h3 className="line-clamp-2 pr-7 font-serif leading-snug text-foreground hyphens-manual [overflow-wrap:normal]" style={nameFit(name, '1.75rem')}>{softBreaks(name)}</h3>}
         <span data-deck-counts className="text-sm text-muted-foreground tabular-nums">
-          {all ? <><Counts due={due} fresh={fresh} />{held > 0 && <>{' · '}<span className="whitespace-nowrap">{num(held)} held</span></>}</> : <span data-deck-empty>Empty: click to make a card</span>}
+          {all ? <CountLine parts={[
+            { key: 'due', said: `${num(due)} due`, className: due ? 'font-semibold text-foreground' : '', mark: { 'data-count-due': due } },
+            { key: 'fresh', said: `${num(fresh)} not studied yet`, mark: { 'data-count-fresh': fresh } },
+            ...(held > 0 ? [{ key: 'held', said: `${num(held)} held` }] : [])
+          ]} /> : <span data-deck-empty>Empty: click to make a card</span>}
         </span>
         {/* No big number: the counts under the name already say it. At the foot, how many in all, and a dot when some are due. */}
         {/* The foot is one line, never wrapped or hyphenated: "3 cards · +1 inside", the second part giving way first. */}
@@ -584,14 +588,23 @@ function Fold({ id, kids, open, name, flip }: { /** The deck's tag or a shared t
   )
 }
 
-/** Due first, in ink and bold when there are some, as Anki users read a deck; then those never studied, never "new", which Anki users read as today's new cards. */
-function Counts({ due, fresh }: { due: number; fresh: number }): React.JSX.Element {
+/**
+ * A deck's counts: due first, in ink and bold when there are some, as Anki users read a deck; then those never
+ * studied, never "new", which Anki users read as today's new cards. On a line that wraps between its parts, each part
+ * after the first with its dot in front of it in room of its own. The line hides what stands left of its edge, so the
+ * dot of a part that starts a line is never seen: a wrapped tile reads "1 due" over "17 not studied yet", never
+ * "1 due ·" with the dot left hanging.
+ */
+function CountLine({ parts }: { parts: { key: string; said: string; className?: string; mark?: Record<string, number> }[] }): React.JSX.Element {
   return (
-    <>
-      {/* Each part whole on its line, the break only between them: never "3 not studied" and "yet" alone under it. */}
-      <span data-count-due={due} className={`whitespace-nowrap ${due ? 'font-semibold text-foreground' : ''}`}>{num(due)} due</span>
-      {' · '}<span data-count-fresh={fresh} className="whitespace-nowrap">{num(fresh)} not studied yet</span>
-    </>
+    <span className="flex flex-wrap gap-x-[1.1em] overflow-hidden">
+      {parts.map((part, at) => (
+        <span key={part.key} {...part.mark} className={`relative whitespace-nowrap ${at ? '-ml-[1.1em] pl-[1.1em]' : ''} ${part.className ?? ''}`}>
+          {at > 0 && <span aria-hidden className="absolute left-0 w-[1.1em] text-center font-normal text-muted-foreground"> · </span>}
+          {part.said}
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -859,7 +872,11 @@ function FirstWays({ example, onMake, onPicture, onStudy }: { example: OwnDeck |
         <span className="grid min-w-0 flex-1 basis-64 gap-0.5">
           <span className="font-serif text-base leading-tight text-foreground">{example ? 'How remembering works' : 'Or learn how it works by doing it'}</span>
           <span className="text-sm leading-snug text-muted-foreground">
-            {example ? <><Counts due={example.due} fresh={example.fresh} />. The example deck: never counted in your streak or stats.</>
+            {/* Its counts on a line of their own, as a deck's tile has them (CountLine), so a dot never hangs at a line's end. */}
+            {example ? <><CountLine parts={[
+              { key: 'due', said: `${num(example.due)} due`, className: example.due ? 'font-semibold text-foreground' : '', mark: { 'data-count-due': example.due } },
+              { key: 'fresh', said: `${num(example.fresh)} not studied yet`, mark: { 'data-count-fresh': example.fresh } }
+            ]} />The example deck: never counted in your streak or stats.</>
               : 'An example deck of 10 cards, about five minutes. It never counts in your streak or stats, and one click takes it away.'}
           </span>
         </span>
