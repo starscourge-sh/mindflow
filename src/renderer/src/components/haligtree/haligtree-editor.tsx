@@ -12,7 +12,7 @@ import { EditorContext, useEditor } from "@tiptap/react"
 import { EditorSurface, holdViews } from "@/components/haligtree/editor-surface"
 import { followPdfLink, isPdfHref, isReadable, openArticle } from "@/components/pdf/pdf-reader"
 import { canSplit } from "@/lib/split"
-import { PLACED, openedElsewhere, useNotePlace } from "@/lib/note-place"
+import { PLACED, sentElsewhere, useNotePlace } from "@/lib/note-place"
 import { afterLayout } from "@/lib/after-layout"
 
 // --- Tiptap Core Extensions ---
@@ -1680,14 +1680,6 @@ function Surface({
       // Let go of when it goes, or every editor ever opened stays in memory.
       if (shape === "document") (readers.add(instance), instance.on("destroy", () => readers.delete(instance)))
       tell(instance)
-      // Opened by a link to one of its headings: go there once laid out (told by the page itself, at the note's
-      // first layout: a frame after it was made, a long note was not always on the page yet), and not back to
-      // the place it was last left at.
-      const heading = shape === "document" ? takePendingHeading(documentId != null ? String(documentId) : null) : null
-      if (heading) {
-        openedElsewhere(instance)
-        afterLayout(instance.view.dom, () => void (!instance.isDestroyed && goToHeading(instance, heading)))
-      }
     },
     onUpdate: ({ editor: instance }) => {
       if (!latest.current) return
@@ -1953,7 +1945,23 @@ function Surface({
 
   // Known by its id while open, so a heading link to this same document lands
   // here rather than waiting for an editor that will never mount.
-  useEffect(() => (documentId != null && editor ? showingDocument(String(documentId), editor) : undefined), [editor, documentId])
+  //
+  // And opened by a link to one of its headings (or lines, or pictures): the place asked for is taken here, as the
+  // note comes to be the one showing its document, and said at once (sentElsewhere: the rule is in
+  // lib/note-place.ts), so the note is never first put back where it was last left; it goes there once laid out
+  // (told by the page itself, at the note's first layout: a frame after it was made, a long note was not always
+  // on the page yet). Taken as the editor told of its own making, the note's first layout had come about 100 ms
+  // before: the note was put back at its kept place, and the jump that followed did not always win it back.
+  useEffect(() => {
+    if (documentId == null || !editor) return
+    const gone = showingDocument(String(documentId), editor)
+    const heading = shape === "document" ? takePendingHeading(String(documentId)) : null
+    if (heading) {
+      sentElsewhere(editor)
+      afterLayout(editor.view.dom, () => void (!editor.isDestroyed && goToHeading(editor, heading)))
+    }
+    return gone
+  }, [editor, documentId, shape])
   // A note opens where you were in it: its scroll and caret, kept as you leave it (note-place.ts).
   useNotePlace(editor, documentId != null ? String(documentId) : null, shape === "document")
   // An editor that goes takes the browser's selection with it. Left behind, the browser keeps it at the place in

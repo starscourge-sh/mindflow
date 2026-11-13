@@ -112,9 +112,26 @@ export const placedHere = (box: Element): boolean => box.hasAttribute(PLACED)
 let returned = false
 export const comingBack = (on: boolean): void => void (returned = on)
 
-/** Notes opened somewhere on purpose (by a link to one of their headings): not put back where they were last left. */
+/**
+ * THE RULE, kept here and nowhere else: a place someone asked for (a link to a heading, to a line or to a picture,
+ * a line of the contents, find's match) always wins over the place the note was last left at, however late it is
+ * asked; the kept place is only for a note opened with nowhere to go.
+ *
+ * Whoever sends a note somewhere says so first (`sentElsewhere`): a note not yet put back is then never put back,
+ * and one being held where it was left is let go of there and then. It is said, never left to be found out from
+ * the scrolls that follow. Found out, it was a race: a note opened by a link to a heading was first put back where
+ * it was last left (at its first layout), the heading was only taken about 100 ms later (when its editor told of
+ * its own making), and the jump to it then had to be told apart from a long note's own settling scrolls, which
+ * are put right, not given way to. Taken for one of those, the jump was undone and the note stayed where it was
+ * last left (qa/long-note-held.mjs: 5 runs of 5 on a busy Mac, and where it did win the kept place showed first).
+ */
 const elsewhere = new WeakSet<Editor>()
-export const openedElsewhere = (editor: Editor): void => void elsewhere.add(editor)
+/** What lets go of each note now being held at its kept place. */
+const lettingGo = new WeakMap<Editor, () => void>()
+export const sentElsewhere = (editor: Editor): void => {
+  elsewhere.add(editor)
+  lettingGo.get(editor)?.()
+}
 
 /**
  * The block at the top of the scroller (its position in the note) and how far above the scroller's top edge it
@@ -230,6 +247,8 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       }
     }
     const stop = (): void => void (holding = false)
+    // Sent somewhere from now on (sentElsewhere, the rule above): the place is let go of there and then.
+    lettingGo.set(editor, stop)
     if (kept) {
       const size = editor.state.doc.content.size
       // The caret where it was, without taking the keys: the next click or key in the note starts there.
@@ -294,6 +313,7 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     window.addEventListener('pagehide', save)
     return () => {
       save()
+      if (lettingGo.get(editor) === stop) lettingGo.delete(editor)
       grows.disconnect()
       beside.disconnect()
       scroller?.removeEventListener('scroll', onScroll)

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useEditorState, type Editor } from "@tiptap/react"
 
 import { cue } from "@/lib/cues"
-import { scrollerOf } from "@/lib/note-place"
+import { scrollerOf, sentElsewhere } from "@/lib/note-place"
 import { Roll } from "@/lib/roll"
 import { ChevronDown, ChevronRight, ChevronUp, X } from "@/components/ui/icons"
 
@@ -114,6 +114,8 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
 
   const step = (back: boolean): void => {
     if (!editor?.storage.findAndReplace?.results.length) return cue("find-miss")
+    // A match gone to is a place asked for: the note's kept place gives way to it (the rule is in lib/note-place.ts).
+    sentElsewhere(editor)
     const box = scrollerOf(editor.view.dom)
     const was = box?.scrollTop
     if (back) editor.commands.goToPreviousResult()

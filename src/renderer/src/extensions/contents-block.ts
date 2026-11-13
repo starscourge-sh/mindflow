@@ -7,6 +7,7 @@ import { ContentsView } from "@/components/toc/contents-view"
 import { isFolded } from "@/extensions/heading-fold"
 import { cue } from "@/lib/cues"
 import { glideWay } from "@/lib/motion"
+import { sentElsewhere } from "@/lib/note-place"
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -29,6 +30,8 @@ const landed = new PluginKey<DecorationSet>("contentsLanded")
  */
 export function jumpTo(editor: Editor, pos: number): void {
   const { view } = editor
+  // A place asked for: the note's kept place gives way to it, whenever this comes (the rule is in lib/note-place.ts).
+  sentElsewhere(editor)
   if (isFolded(view.state, pos)) editor.commands.toggleFold(pos)
   const tr = view.state.tr
   // A picture or a file is picked whole; a line takes the cursor.

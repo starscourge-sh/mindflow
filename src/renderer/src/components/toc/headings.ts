@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { headingRank } from "@/extensions/toggle-heading"
 import { cue } from "@/lib/cues"
 import { jumpTo } from "@/extensions/contents-block"
+import { sentElsewhere } from "@/lib/note-place"
 import { findBlock } from "@/extensions/block-ids"
 
 export interface Heading {
@@ -63,6 +64,8 @@ export function headingsIn(doc: JSONContent | string | null | undefined): string
 
 /** Put the caret on a heading and bring it into view. */
 export function land(editor: Editor, heading: Heading): void {
+  // A place asked for: the note's kept place gives way to it (the rule is in lib/note-place.ts).
+  sentElsewhere(editor)
   // Near, not at: a folded heading's first position is the section itself,
   // not text, and a bare position there would leave the caret nowhere.
   editor.chain().focus().command(({ tr }) => {
