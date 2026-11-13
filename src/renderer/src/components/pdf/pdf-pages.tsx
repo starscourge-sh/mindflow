@@ -868,7 +868,7 @@ export function sheetAt(pages: Element | null | undefined, test: (box: DOMRect) 
 /**
  * One sheet: its size always, its picture and words only while near the view (PageDrawing). Drawn again only when its
  * own props change. A sheet far from the view is a bare box: a 1,011-page book mounted a drawing's worth of state and
- * effects for every page on opening and unmounted them all on leaving, a task of 100 to 200ms each way.
+ * effects for every page on opening, and unmounted them all on leaving.
  */
 const PdfPage = memo(function PdfPage({ doc, page, scale, guess, rank, marks, flash, onWords, dark = false }: { doc: PDFDocumentProxy; page: number; scale: number; guess: { w: number; h: number }; rank?: number; marks: PdfMark[]; flash?: string | null; onWords?: (mark: PdfMark, quote: string) => void; dark?: boolean }): React.JSX.Element {
   const sheet = useRef<HTMLDivElement>(null)
