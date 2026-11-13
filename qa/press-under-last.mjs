@@ -42,7 +42,7 @@ const install = (page) => page.evaluate(() => {
       const bareRoom = (one) => /^(DIV|SECTION)$/.test(one.nodeName) && ![...one.childNodes].some((child) => child.nodeType === 3 && child.textContent.trim()) && !one.closest('button, a, textarea, input, label, [role=button], [role=link], [role=menuitem], [role=tab], [role=checkbox], [role=textbox]')
       const said = (one) => `${one.nodeName.toLowerCase()}${typeof one.className === 'string' && one.className ? '.' + one.className.trim().split(/\s+/).slice(0, 2).join('.') : ''}`
       // The room below is this editor's own: its scroller, or the card or page that holds it.
-      const scroller = e.closest('.haligtree-editor-content')
+      const scroller = e.closest('.haligtree-editor-wrapper')
       const room = (one) => (!!scroller && scroller.contains(one)) || !!one.closest('[data-day-write], .sticky-text')
       for (let step = 3; step < 400; step += 3) {
         const y = Math.round(bottom + step)
@@ -65,10 +65,11 @@ async function presses(name, page = h) {
   await install(page)
   for (const inside of [true, false]) {
     // Scrolled to its end, where the last line and the room under it are on the screen; then the caret put at the
-    // start without moving the page (as a press there would leave it), so the press under the last line has to move it.
+    // start of the last block without moving the page, so the press under the last line has to move it (a sticky
+    // shows its first line only while the caret is in it: left there, the press would move the card by that line).
     await page.evaluate(() => { let box = window.__under.ed().parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; box?.scrollTo({ top: box.scrollHeight, behavior: 'instant' }) })
     await wait(700)
-    await page.evaluate(() => { const { editor } = window.__under.ed(); editor.commands.setTextSelection(1); editor.view.focus() })
+    await page.evaluate(() => { const { editor } = window.__under.ed(); const { doc } = editor.state; editor.commands.setTextSelection(doc.content.size - (doc.lastChild?.nodeSize ?? 2) + 1); editor.view.focus() })
     await wait(300)
     const at = await page.evaluate((inside) => window.__under.spot(inside), inside)
     const what = `${name}: a press under the last line, ${inside ? "in the page's own box" : 'in the room below it'}`
