@@ -924,6 +924,12 @@ export function useListKeys(count: number, { onOpen, onEscape, enabled = true, o
       }
       if ((chord && event.key === 'j') || (!inBox && !chord && (event.key === 'j' || event.key === 'ArrowDown'))) return move(at < 0 ? 0 : upDown ? upDown(at, 1) : at + across)
       if ((chord && event.key === 'k') || (!inBox && !chord && (event.key === 'k' || event.key === 'ArrowUp'))) return move(upDown && at >= 0 ? upDown(at, -1) : at - across)
+      // A list's own line (data-list-line: quick capture's glance line, box-glance.tsx): ↓ and ↑ walk the list from
+      // the line, the caret staying in it, and ↵ opens the row they reached unless the line took it first.
+      if (inBox && !chord && document.activeElement?.closest('[data-list-line]')) {
+        if (by && !event.shiftKey) return move(at < 0 ? 0 : at + by * across)
+        if (event.key === 'Enter' && onOpen && at >= 0 && at < count) (event.preventDefault(), onOpen(at))
+      }
       if (inBox) return
       if (across > 1 && !chord && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) return move(at < 0 ? 0 : at + (event.key === 'ArrowRight' ? 1 : -1))
       const end = listEnd(event)

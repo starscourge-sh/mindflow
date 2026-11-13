@@ -33,7 +33,7 @@ import { LateMenu, lateItems, lateOnes } from './late-tasks'
 import { PlanDid, PlannedTotal, useFocusOn } from './planned-did'
 import { calendarHere } from '@/lib/calendar-scope'
 import { useLayers, useEvents, events as eventsApi, zoneShort } from '@/lib/events'
-import { CalendarLayers, EventBlock, EventChip, HOUR, ZoneHeads, ZoneHours, allDayOn, colorFor, copyEvent, cutEvent, duplicateEvent, eventSpans, gutterOf, holding, hm, macShown, pasteEvent, span as timeSpan, useSecondZone, type Shown } from './calendar-events'
+import { CalendarLayers, EventBlock, EventChip, EventLine, HOUR, ZoneHeads, ZoneHours, allDayOn, colorFor, copyEvent, cutEvent, duplicateEvent, eventSpans, gutterOf, holding, hm, macShown, pasteEvent, span as timeSpan, useSecondZone, type Shown } from './calendar-events'
 import { completeTask } from './tasks-view'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -1000,15 +1000,8 @@ function Upcoming({ tasks, name, onEvent, onTask }: { tasks: Task[]; name: (one:
           {!day.rows.length && <p className="px-2 py-1 text-body text-foreground/85">Nothing more today</p>}
           {day.rows.map((row) => (
             <Tip key={row.key} label={`${row.title} ${row.said}`}>
-            <button type="button" data-cal-upcoming-row={row.key}
-              onClick={(event) => row.one ? onEvent(row.one, event.currentTarget) : row.task && onTask(row.task, event.currentTarget)}
-              className="flex items-start gap-2.5 rounded-md px-2 py-1 text-left outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
-              <span aria-hidden className={`mt-1.5 size-2 shrink-0 ${row.task ? 'rounded-full border-[1.5px]' : 'rounded-[2px]'}`} style={row.task ? { borderColor: row.color } : { background: row.color }} />
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span dir="auto" className="truncate text-body font-semibold text-foreground">{row.title}</span>
-                <span className="truncate text-control text-foreground/80 tabular-nums">{row.said}</span>
-              </span>
-            </button>
+            <EventLine data-cal-upcoming-row={row.key} color={row.color} title={row.title} said={row.said} task={!!row.task}
+              onClick={(event) => row.one ? onEvent(row.one, event.currentTarget) : row.task && onTask(row.task, event.currentTarget)} />
             </Tip>
           ))}
         </div>

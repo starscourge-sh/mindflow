@@ -142,7 +142,8 @@ if (window.api.room.left) {
   // round them stays clear. Each lets it through under a wash of its own colour with a lit hairline (main.css,
   // data-glass). Reduce Transparency, a solid look or the card put away take the glass away: every surface opaque.
   const FROSTED = ':is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off])'
-  followGlass(() => [document.querySelector('.app-container'), ...buttons(), document.querySelector('[data-hint-room] [data-hint-surface]'), ...document.querySelectorAll(FROSTED)], () => root.hasAttribute('data-card-gone'))
+  // The glance tabs standing on the pill are its material too (box-glance.tsx marks each one's shape).
+  followGlass(() => [document.querySelector('.app-container'), ...buttons(), ...document.querySelectorAll('[data-glance-glass]'), document.querySelector('[data-hint-room] [data-hint-surface]'), ...document.querySelectorAll(FROSTED)], () => root.hasAttribute('data-card-gone'))
   // The menus are frosted as in the main window (main.css .mf-frost): the card under them blurred, never sharp words
   // under words; one that lands inside a fading or masked parent stays opaque.
   guardFrost()

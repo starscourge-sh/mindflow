@@ -3478,6 +3478,104 @@ html[data-overhang] body > [data-leftover-row] [data-leftover]:hover {
   background: color-mix(in oklab, var(--foreground) 15%, var(--background));
 }
 
+/* Glance tabs (box-glance.tsx): Write, Notes and Today standing on the pill's top edge, at its left, in the room the
+   window keeps above the card. The chosen one is the app's own tab shape (tab-row.tsx, TabShape) in the pill's
+   material, a pixel over the pill's edge so no hairline runs between them: tab and line are one surface. The others
+   are small round surfaces of the same material, as the round controls are, standing just clear of the pill. The row
+   starts past the pill's round end and stops short of the grabber at its middle. */
+html[data-overhang] [data-glance-tabs] {
+  position: fixed;
+  z-index: 20;
+  /* Its foot on the pill's top edge, not over it: the two fills are see-through on glass, and a pixel of the one over
+     the other drew a dark line between them (in dark looks most). */
+  top: calc(var(--mf-room-top) - 30px);
+  /* Past the pill's round end (28px) by a tab's foot (8px), so the first tab's foot stands on its flat top. */
+  left: calc(var(--mf-room-left, var(--mf-room)) + 36px);
+  height: 30px;
+  --mf-tab: var(--mf-glass-fill);
+  --mf-tab-line: color-mix(in oklab, var(--foreground) 13%, transparent);
+}
+/* While the tabs stand on it, the pill's hairline and shadow are drawn by a shape of their own the size of the pill,
+   just over its fill (box-glance.tsx, data-glance-edge), the same in every other way, with a gap cut where the
+   chosen tab stands on it: there tab and pill are one surface, no hairline or shadow running between them. */
+html[data-overhang] .app-container[data-pill][data-glance] {
+  box-shadow: none;
+  /* Never scrolled, even by a key: at a large text size a tab's line is taller than the pill, and the caret going
+     into it scrolled the whole pill up by 9px under its own edge (qa/box-glance.mjs, looks). */
+  overflow: clip;
+}
+html[data-overhang] [data-glance-edge] {
+  position: fixed;
+  z-index: -1;
+  top: var(--mf-room-top);
+  left: var(--mf-room-left, var(--mf-room));
+  right: var(--mf-room-right, var(--mf-room));
+  height: 56px;
+  border-radius: 28px;
+  pointer-events: none;
+  box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop);
+  clip-path: polygon(-96px -96px, var(--glance-from, 0px) -96px, var(--glance-from, 0px) 1.5px, var(--glance-to, 0px) 1.5px, var(--glance-to, 0px) -96px, calc(100% + 96px) -96px, calc(100% + 96px) calc(100% + 96px), -96px calc(100% + 96px));
+}
+html[data-overhang] [data-glance-tab]:not([aria-selected='true']) {
+  background: var(--mf-glass-fill);
+  box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop-small);
+}
+html[data-overhang] [data-glance-tab]:not([aria-selected='true']):hover {
+  background: color-mix(in oklab, var(--foreground) 8%, var(--mf-glass-fill));
+}
+/* A tab's own line, in the writing's place: the same words at the same size (the rule for the writing, above), and
+   its prompt in the writing's own quiet ink (paragraph-node.scss), on glass too. */
+.app-container[data-one-line] .mf-glance-words {
+  font-family: var(--mf-font, "Fraunces Variable", Georgia, serif);
+  font-size: calc(1.1875rem * var(--mf-text-scale, 1));
+  letter-spacing: -0.01em;
+  /* On the writing's first line to the pixel at every text size: its paragraph's line height (paragraph-node.scss),
+     from the editor's top padding less the 4px the rule above lifts it by (haligtree-editor.scss). Centred in the
+     pill instead, the words stood 4px under the writing's at the smallest text size. */
+  line-height: 1.6;
+  align-self: flex-start;
+  margin-top: calc(1rem - 4px);
+}
+.app-container [data-glance-line] { --placeholder-color: color-mix(in srgb, var(--tt-gray-light-a-400), var(--tt-gray-light-a-500)); }
+.dark .app-container [data-glance-line] { --placeholder-color: color-mix(in srgb, var(--tt-gray-dark-a-500), var(--tt-gray-dark-a-600)); }
+html[data-overhang][data-glass] .app-container [data-glance-line] { --placeholder-color: var(--mf-glass-quiet); }
+.app-container [data-glance-line] input::placeholder { color: var(--placeholder-color); opacity: 1; }
+/* The tags offered as one is typed on Today's line (task-input.tsx) hang under the pill from where the words start, as
+   the # list does from the writing, over the glance: held inside the pill, they were cut off by its edge. */
+html[data-overhang] [data-glance-line] [data-tag-offers] {
+  position: fixed;
+  top: calc(var(--mf-room-top) + 56px + 6px);
+  left: calc(var(--mf-room-left, var(--mf-room)) + 4.75rem);
+  margin-top: 0;
+  /* In the app's own face, as the same list is in the side panel: not the line's writing face. */
+  font-family: var(--font-sans);
+  letter-spacing: normal;
+}
+/* With the glance above the tabs (the screen's foot), the tags offered hang above the tabs too, over the glance. */
+html[data-overhang] [data-glance-line][data-glance-above] [data-tag-offers] {
+  top: auto;
+  bottom: calc(100vh - var(--mf-room-top) + 30px + 6px);
+}
+/* The glance itself hangs under the pill, as wide as it, in the room the window keeps there for the box a new line
+   grows the pill into (main's hint-room.ts): as tall as what it holds, up to that room less its own shadow's, then it
+   scrolls. Nothing of the window changes when a tab is chosen, so the line never moves. */
+html[data-overhang] [data-glance-panel] {
+  position: fixed;
+  z-index: 10;
+  top: calc(var(--mf-room-top) + 56px + 8px);
+  left: var(--mf-room-left, var(--mf-room));
+  right: var(--mf-room-right, var(--mf-room));
+  /* The room kept for the pill's grown box (224px) less its shadow's: never taller when the window keeps more. */
+  max-height: min(calc(var(--mf-room) - 32px), 240px);
+}
+/* Near the screen's foot there is little room under the pill: the glance hangs above its tabs, 8px clear of them,
+   in the room main keeps there instead (box-glance.tsx, useHangsAbove), and grows up out of them. */
+html[data-overhang] [data-glance-panel][data-glance-above] {
+  top: auto;
+  bottom: calc(100vh - var(--mf-room-top) + 30px + 8px);
+  max-height: calc(var(--mf-room-top) - 30px - 8px - 12px);
+}
+
 /* All cards' index cards (card-browser.tsx): card stock, cream on a light theme and a warm lifted paper on a dark one,
    a fine edge all round, the red rule an index card has under its heading, and a small lift under the pointer. */
 :root { --mf-index-paper: color-mix(in oklab, var(--background) 35%, #fffcf3); --mf-index-rule: color-mix(in oklab, #c2410c 38%, transparent); }

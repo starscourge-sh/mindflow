@@ -31,6 +31,7 @@ import { GraphChip, InboxGraph, useGraphShown } from './components/haligtree/inb
 import { HintCard, HintRoom } from './components/hint-card'
 import { createPortal, flushSync } from 'react-dom'
 import { TodayPanel } from './components/haligtree/today-panel'
+import { BoxGlance, type Glance } from './components/haligtree/box-glance'
 import { selectionActions } from './components/haligtree/selection-actions'
 import { ReviewView } from './components/haligtree/review-view'
 import { SessionFooter } from './components/haligtree/session-footer'
@@ -1031,7 +1032,8 @@ export default function App(): React.JSX.Element {
         event.preventDefault()
         return setPanel(!panel)
       }
-      const to = event.ctrlKey && !event.metaKey ? TABS[Number(event.key) - 1] : undefined
+      // ⌃ and a number alone: with ⌥ too it is a glance tab's key (box-glance.tsx), never a side panel's list.
+      const to = event.ctrlKey && !event.metaKey && !event.altKey ? TABS[Number(event.key) - 1] : undefined
       if (!to) return
       event.preventDefault()
       if (to !== tab || !panel) chime('tap')
@@ -1129,6 +1131,28 @@ export default function App(): React.JSX.Element {
   const pill = pillOtherwise && !meaningShown
   // Whether it will be the pill once the panel is put away (setPanel tells the box's height before the glide).
   pillAfterPanel.current = oneLine && !reading && !editing && !lesson && !opened && !wraps && !meaningShown
+  // “Glance tabs” (Settings, on to start with “One line to start”): Write, Notes and Today standing on the pill
+  // (box-glance.tsx). Write is the pill as it is; another tab puts its own line where the writing's is and hangs its
+  // glance under the pill. Only while it is the pill: grown into the box, by anything, it is Write again. Every open
+  // starts on Write.
+  const glanceOn = oneLine && appSettings?.boxGlance !== false
+  const [glanceTab, setGlance] = useState<Glance>('write')
+  const glance: Glance = glanceOn && pill ? glanceTab : 'write'
+  const glanceNow = useRef<Glance>('write')
+  useEffect(() => {
+    const was = glanceNow.current
+    glanceNow.current = glance
+    if (glance !== 'write') return
+    setGlance('write')
+    // Back on Write by its tab, its key or Esc, the caret is in the writing again (not when the pill grew into the box).
+    if (was !== 'write' && pill) editorRef.current?.commands.focus()
+  }, [glance]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => window.api.onShown(() => setGlance('write')), [])
+  // One sound for the change, whichever way it was asked: a tab pressed or its key (a tap), Esc back to Write (a fold).
+  const pickGlance = useCallback((to: Glance, cue: Parameters<typeof chime>[0] = 'tap'): void => {
+    if (glanceNow.current !== to) chime(cue)
+    setGlance(to)
+  }, [])
   // Measured before it is drawn, so a second line grows the box in the frame it appears: on each change in the editor
   // (onReady below), not only when the box draws again. The box draws again only once the editor's words are handed
   // up, half a second after the typing stops (haligtree-editor.tsx SAVE_DEBOUNCE_MS), and a new line sat squeezed
@@ -1165,7 +1189,8 @@ export default function App(): React.JSX.Element {
   }, [pill]) // eslint-disable-line react-hooks/exhaustive-deps
   // Emptied (sent, or cleared): back to the pill for the next one.
   useEffect(() => void (!boxText.trim() && setOpened(false)), [boxText])
-  foldPill.current = () => (oneLine && opened && !wraps && !plan?.tokens.length ? (chime('fold'), setOpened(false), true) : false)
+  // Esc on a glance tab shuts its glance first (back to Write, the pill alone); the next one puts the box away.
+  foldPill.current = () => (glance !== 'write' ? (pickGlance('write', 'fold'), true) : oneLine && opened && !wraps && !plan?.tokens.length ? (chime('fold'), setOpened(false), true) : false)
   // The window as tall as the writing, from short to full (or one line, as the pill): see fit-box.
   const box = useFitBox(column, Boolean(reading) || sheetUp, pill, appSettings !== null)
   // While it waits, the meaning is still "looking" under the word (the orb, if the wait was long enough to show it),
@@ -1816,12 +1841,14 @@ export default function App(): React.JSX.Element {
   boxKind.pick = () => (chime('settled'), latestPick.current('todo'))
   const latestSubmit = useRef(submit)
   latestSubmit.current = submit
-  const latestOver = useRef({ searching, reading })
-  latestOver.current = { searching, reading }
+  const latestOver = useRef({ searching, reading, glance: false })
+  latestOver.current = { searching, reading, glance: glance !== 'write' }
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       // A voice note recording has the keys: Esc and ⌘↵ are its own (voice-note.tsx).
       if (recordingNow()) return
+      // A glance tab's line has the keys (box-glance.tsx): ⌘↵ and ⌘1 to ⌘9 are not the draft's, out of sight behind it.
+      if (latestOver.current.glance) return
       // Search, a dialog or a menu has the keys: the note under it is not
       // touched, and ⌘↵ is not taken as a plain ↵ by what is open either.
       // An editor's own suggestions (a tag, a link) are not one: ⌘↵ sends what is written, as typed.
@@ -1882,11 +1909,22 @@ export default function App(): React.JSX.Element {
         const controls = document.querySelector('.mf-top')?.getBoundingClientRect()
         const end = controls?.width && controls.bottom <= card.top + 1 && controls.left > card.left ? Math.min(card.right, controls.left - 8) : card.right
         const sides = { '--toast-left': `${Math.round(card.left)}px`, '--toast-right': `${Math.round(window.innerWidth - end)}px` }
-        const roomUnder = window.innerHeight - card.bottom
+        // A glance hanging under the pill (box-glance.tsx): the notice goes under it where the window has the room, and
+        // over its foot where it has not, as a notice lies over the foot of any list; never over the rows nearest the
+        // line. A glance hung above its tabs (the screen's foot) has its foot at its top. Above the pill the notice
+        // stays clear of the glance tabs standing there.
+        const glance = document.querySelector('[data-glance-panel]')?.getBoundingClientRect()
+        const under = glance?.height && glance.top >= card.bottom ? glance : null
+        const over = glance?.height && glance.bottom <= card.top ? glance : null
+        const tabs = document.querySelector('[data-glance-tabs]')?.getBoundingClientRect()
+        const foot = under ? under.bottom : card.bottom
+        const roomUnder = window.innerHeight - foot
         // Under the card nothing of its own is in the way: centred on the whole card.
-        const lane = (roomUnder >= 72
-          ? { '--toast-left': `${Math.round(card.left)}px`, '--toast-right': `${Math.round(window.innerWidth - card.right)}px`, '--toast-top': `${Math.round(card.bottom + 8)}px`, '--toast-bottom': '0px' }
-          : { ...sides, '--toast-bottom': `${Math.round(window.innerHeight - card.top + 8)}px` }) as unknown as CSSProperties
+        const whole = { '--toast-left': `${Math.round(card.left)}px`, '--toast-right': `${Math.round(window.innerWidth - card.right)}px` }
+        const lane = (roomUnder >= 72 ? { ...whole, '--toast-top': `${Math.round(foot + 8)}px`, '--toast-bottom': '0px' }
+          : under ? { ...whole, '--toast-bottom': `${Math.round(window.innerHeight - under.bottom + 8)}px` }
+          : over ? { ...whole, '--toast-top': `${Math.round(over.top + 8)}px`, '--toast-bottom': '0px' }
+          : { ...sides, '--toast-bottom': `${Math.round(window.innerHeight - (tabs?.height ? tabs.top : card.top) + 8)}px` }) as unknown as CSSProperties
         setToastLane((was) => (JSON.stringify(was) === JSON.stringify(lane) ? was : lane))
         return
       }
@@ -1909,9 +1947,12 @@ export default function App(): React.JSX.Element {
     const watch = new ResizeObserver(place)
     watch.observe(row)
     for (const child of row.children) watch.observe(child)
+    // The glance under the pill grows and shrinks with its rows: the notice keeps clear of it as it does.
+    const hung = document.querySelector('[data-glance-panel]')
+    if (hung) watch.observe(hung)
     window.addEventListener('resize', place)
     return () => (watch.disconnect(), window.removeEventListener('resize', place))
-  }, [reading, kind, editing, panel, chosen, toastWidth])
+  }, [reading, kind, editing, panel, chosen, toastWidth, glance])
   // The footer is told while a toast is up, so what shares its row steps back.
   const toasts = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -1959,10 +2000,14 @@ export default function App(): React.JSX.Element {
   const [noteMenuAt, setNoteMenuAt] = useState<{ x: number; y: number } | null>(null)
   return (
     <TooltipProvider delayDuration={500}>
-    <div data-one-line={oneLine || undefined} data-pill={pill || undefined} className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
+    <div data-one-line={oneLine || undefined} data-pill={pill || undefined} data-glance={(glanceOn && pill) || undefined} className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
       {/* The pill's two ends: the kind it will be kept as (pressed, the box grows to show the kind picker) and ⌘↵.
           With no header, the room at each end drags the window, as the header does; the line between is for writing. */}
-      {oneLine && !reading && (
+      {/* The glance tabs stand on the pill; a tab other than Write has its own line here, in the writing's place. */}
+      {glanceOn && pill && <BoxGlance on={glance} pick={pickGlance} captures={captures}
+        // A note, an event or the Calendar opens in the main window; a task here, in quick capture, as from the side panel.
+        onOpen={(type, id) => (type === 'task' ? openAny(type, id) : (type === 'capture' && chime('open'), window.api.openInHome(type, id)))} />}
+      {oneLine && !reading && glance === 'write' && (
         <div data-pill-ends aria-hidden={!pill} className={cn('pointer-events-none absolute inset-x-0 top-0 z-10 flex h-14 items-center justify-between', !pill && 'transition-opacity duration-150 ease-out motion-reduce:transition-none')} style={{ opacity: pill ? 1 : 0 }}>
           {/* Back as the pill (by a key: Esc, ⌫, ⌘↵), the ends are simply there; growing, they fade as the row under the writing arrives. */}
           {(() => {
@@ -2208,7 +2253,8 @@ export default function App(): React.JSX.Element {
           minSize={!focus && panelDrawn ? '50%' : '100%'}
           className="h-full w-full"
         >
-          <motion.div ref={column} className="h-full w-full flex flex-col">
+          {/* Behind a glance tab's line the writing waits, kept as it is and out of sight. */}
+          <motion.div ref={column} className="h-full w-full flex flex-col" style={glance !== 'write' ? { visibility: 'hidden' } : undefined}>
             {reading ? (
               <motion.div key={reading.id} initial={byKeys() ? false : { opacity: 0, transform: shift(`translateX(${8 * cameBy.current}px)`) }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ duration: 0.1, ease: EASE }} className="flex min-h-0 flex-1 flex-col">
                 <div data-chrome className="flex items-center gap-2 px-[4.25rem] pt-2 text-control text-muted-foreground">
@@ -2317,7 +2363,7 @@ export default function App(): React.JSX.Element {
             {/* A draft left an hour or more: a small chip, never the top of the box. */}
             {/* While it is the pill (in quick capture's room), the chip is drawn outside the writing's scroller, in the
                 page's own layer, so it is never overflow there for the caret to scroll the words away to (main.css). */}
-            {leftover && !editing && !started && (pill && window.api.room.left ? createPortal(<div data-leftover-row className="flex items-center px-[4.75rem] pt-1.5">
+            {leftover && !editing && !started && glance === 'write' && (pill && window.api.room.left ? createPortal(<div data-leftover-row className="flex items-center px-[4.75rem] pt-1.5">
                 {/* No tip: its own words say what it is and what a click does, and a tip over it was a second surface. */}
                   <button type="button" data-leftover onMouseDown={(event) => event.preventDefault()} onClick={leftoverBack}
                     className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">

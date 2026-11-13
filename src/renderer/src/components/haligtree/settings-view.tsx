@@ -747,6 +747,18 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <span aria-hidden className={cn('flex w-16 flex-col justify-center gap-1 border border-border bg-popover px-2 transition-[height,border-radius] duration-200 ease-out motion-reduce:transition-none', settings.boxOneLine ? 'h-4 rounded-full' : 'h-7 rounded-md')}><span className="h-1 w-full rounded-full bg-foreground/50" />{!settings.boxOneLine && <span className="h-1 w-6 self-end rounded-full bg-foreground/30" />}</span>
             <Switch checked={settings.boxOneLine === true} onCheckedChange={(boxOneLine) => set({ boxOneLine })} />
           </Setting>
+          <Setting title="Glance tabs" note="Small tabs on the one line: Write, Notes and Today, the last two each with a glance under the line." more="On to start. Notes finds a note by name or starts one; Today shows today’s events and tasks, and its line adds a task for today. ⇧⌘] and ⇧⌘[ step through the tabs, ⌃⌥1 to ⌃⌥3 pick one, and Esc goes back to Write." off={settings.boxOneLine !== true && '“One line to start” is off, so there is no line for the tabs to stand on for now.'} keywords="glance tabs at a glance quick look notes today tasks events one line pill launcher peek">
+            {/* The sample: the pill, with its tabs standing on it when on, the chosen one joined to it. */}
+            <span aria-hidden data-glance-sample className="flex h-7 w-16 flex-col justify-end pb-1.5">
+              <span className="flex items-end gap-0.5 pl-2 transition-opacity duration-200 ease-out motion-reduce:transition-none" style={{ opacity: settings.boxOneLine === true && settings.boxGlance !== false ? 1 : 0 }}>
+                <span className="relative z-10 -mb-px h-[7px] w-3.5 rounded-t-[3px] border border-b-0 border-border bg-popover" />
+                <span className="mb-0.5 h-1 w-3 rounded-full bg-foreground/30" />
+                <span className="mb-0.5 h-1 w-3 rounded-full bg-foreground/30" />
+              </span>
+              <span className="flex h-4 items-center rounded-full border border-border bg-popover px-2"><span className="h-1 w-full rounded-full bg-foreground/50" /></span>
+            </span>
+            <Switch disabled={settings.boxOneLine !== true} checked={settings.boxGlance !== false} onCheckedChange={(boxGlance) => set({ boxGlance })} />
+          </Setting>
           <Setting title="Where quick capture appears"note="Where quick capture opens when you call it up." more="⌃⌘C puts it in the middle of the screen whenever it is up." keywords="box window summon open position place top middle centre center last shortcut"
             below={<Choices label="Where quick capture appears" options={boxPlaceChoices} on={(id) => id === (settings.boxPlace ?? 'last')} pick={(boxPlace) => set({ boxPlace: boxPlace as Settings['boxPlace'] })} />} />
           <Setting title="Which screen" note="With two or more screens: the one the pointer is on, or the last one." keywords="box window display monitor screen pointer second"

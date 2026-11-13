@@ -9,7 +9,8 @@ import { exampleTasks } from '@/lib/examples'
 import { Example } from './example'
 import { BUCKETS, bucket, makeListTasks, makeTask, placed, taskName } from '@/lib/tasks'
 import { readLines, tasksOf } from '../../../../main/day-lines'
-import { Count, Empty, Tags, typing, useListKeys, Strip, VirtualList } from './ui'
+import { Count, Empty, Kbd, Tags, typing, useListKeys, Strip, VirtualList } from './ui'
+import { Orb } from './orb'
 import { Chips, Display, arrange, useView } from './display'
 import { TaskPriority, TaskWhen, landed, useTickOff, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { DOT_IN_LINE, SessionDot, TaskSpent, useTaskTime, type TaskTime } from './task-time'
@@ -30,6 +31,8 @@ import { ThreeMark, dayThree } from './day-list'
 
 const endOfToday = (): number => startOfDay(1)
 const startOfToday = (): number => startOfDay()
+/** Placed on a day already gone. */
+const isLate = (task: Task): boolean => (placed(task) ?? Infinity) < startOfToday()
 
 /** The task lists' sorts: by when each was made, either way; your own order is the list's as it stands. */
 const TASK_SORTS: Record<string, (a: Task, b: Task) => number> = {
@@ -66,6 +69,23 @@ const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = 
   // As a note just taken is on top of the Inbox: a task just taken, wherever its date sent it (note 7ce1ac77).
   new: { label: 'New', test: (task) => Date.now() - Date.parse(task.createdAt) < NEW_MS }
 }
+/**
+ * A task from a typed line, for the list in front: said where it went when that is not this list (a later day, a
+ * later list, or a routine). Taken back, `onUndo` has the words again. Quick capture's glance line adds through it
+ * too (box-glance.tsx), so a task typed there is read, placed and said the same.
+ */
+export const addTyped = (text: string, scope: Scope, onUndo: () => void): void =>
+  void makeTask({ text, today: scope === 'today' }, async (made) => {
+    const task = await haligtree.task(made.id)
+    return task && SCOPES[scope].test(task) ? 'Task added' : landed(made, scope)
+  }, { onUndo })
+/** A pasted list is a task a line, its indented lines their steps; one Undo for all. One line is left to the field. */
+export const pasteTasks = (event: React.ClipboardEvent, scope: Scope): void => {
+  const list = tasksOf(readLines(event.clipboardData.getData('text/plain')))
+  if (list.length < 2 && !list[0]?.steps.length) return
+  event.preventDefault()
+  void makeListTasks(list, { today: scope === 'today' })
+}
 /** The lists as chips, and the rest in the "More" menu beside them. */
 const NEAR: Scope[] = ['today', 'upcoming', 'backlog', 'new']
 const LATER: Scope[] = ['routines', 'month', 'year', 'next', 'someday', 'waiting']
@@ -77,10 +97,11 @@ const LATER: Scope[] = ['routines', 'month', 'year', 'next', 'someday', 'waiting
  * e completes, t, m and w move it to today, tomorrow or next week, 1 to 4
  * give it a priority and 0 none, a adds.
  */
-export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; open?: string }): React.JSX.Element {
+export function TodayPanel({ onOpen, open, glance = false }: { onOpen: (id: string) => void; open?: string; /** Under quick capture's one line (box-glance.tsx): today's list alone, the rows as they are here; the pill's own line adds, so no chips and no line of its own. */ glance?: boolean }): React.JSX.Element {
   const real = useLive(haligtree.tasks, [] as Task[])
   // No open tasks yet: each list shows a few made-up ones, dimmed and out of reach.
-  const example = !unloaded(real) && !real.some((task) => task.status === 'open')
+  // Never in the glance, which shows only what is there: its one line says what the tab is for instead.
+  const example = !glance && !unloaded(real) && !real.some((task) => task.status === 'open')
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
   const [draft, setDraft] = useState('')
@@ -91,15 +112,17 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const [scope, setScope] = useState<Scope>('today')
   // Narrowed as in the main window: marked, tag, where it came from.
   // Newest first to start: what was caught last is on top. Your own order is a choice in Display.
-  const [view, setView] = useView('prompt:tasks', { sort: 'newest', group: 'none' })
+  // The glance has no Display of its own, so a narrowing chosen in the side panel never hides today's tasks there.
+  const [view, setView] = useView(glance ? 'glance:today' : 'prompt:tasks', { sort: 'newest', group: 'none' })
   const facets = taskFacets(tasks)
   // Today, Upcoming and Routines keep their own order (the first three, the days); the sort is for the lists with no day.
   // Those keep their order whatever is picked, so Display offers them no order to pick.
   const dayOrdered = ['today', 'upcoming', 'routines', 'new'].includes(scope)
   const [[, narrowed]] = arrange(tasks, view, facets, dayOrdered ? {} : TASK_SORTS)
   const listed = narrowed.filter((task) => task.status === 'open' && SCOPES[scope].test(task))
-  // New is newest first always: the one just taken on top, as in the Inbox.
-  const due = scope === 'new' ? [...listed].sort(TASK_SORTS.newest) : listed
+  // New is newest first always: the one just taken on top, as in the Inbox. The glance puts what is late on top, then
+  // today's, each in the list's own order: at a glance, what is late is what to see first.
+  const due = scope === 'new' ? [...listed].sort(TASK_SORTS.newest) : glance ? [...listed.filter(isLate), ...listed.filter((task) => !isLate(task))] : listed
 
   const add = useRef<HTMLInputElement>(null)
   const [cursor] = useListKeys(example ? 0 : due.length, { onOpen: (index) => onOpen(due[index].id), opened: due.findIndex((task) => task.id === open), onExtend: (from, to) => several.extend(due[from]?.id, due[to].id) })
@@ -121,7 +144,8 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       if (typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       if (event.key === 'a') {
         event.preventDefault()
-        return add.current?.focus()
+        // In the glance the line that adds is the pill's own.
+        return (add.current ?? document.querySelector<HTMLInputElement>('[data-list-line] input'))?.focus()
       }
       const task = example ? undefined : due[cursor]
       if (!task) return
@@ -151,10 +175,12 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
   const count = (id: Scope): number => narrowed.filter((task) => real.includes(task) && task.status === 'open' && SCOPES[id].test(task)).length
 
   // Drawn once the tasks are read: before, the list chips showed "Upcoming", then "Upcoming 9", and moved along.
-  if (unloaded(real) || !settings) return <div className="flex flex-col gap-1 text-sm" />
+  // The glance has room of its own to fill meanwhile: the app's one loader, only once the wait can be seen.
+  if (unloaded(real) || !settings) return <div className="flex flex-col gap-1 text-sm">{glance && <div className="mf-after-a-beat px-2 py-1.5"><Orb label="Reading today’s tasks" /></div>}</div>
   return (
     <div className="flex flex-col gap-1 text-sm">
       {/* Each list with how many it holds, so a task sent to the backlog is seen landing there. */}
+      {!glance && <>
       <Strip className="flex h-8 items-center gap-1 px-1">
       <Chips
         // The three lists used most as chips, the rest under "More": every chip
@@ -188,27 +214,17 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
       </Strip>
       <form
         className="list-box mb-2 flex items-center gap-2 rounded-md border py-1.5 pr-2 focus-within:border-foreground/25"
-        // A pasted list is a task a line, its indented lines their steps; one Undo for all.
-        onPasteCapture={(event) => {
-          const list = tasksOf(readLines(event.clipboardData.getData('text/plain')))
-          if (list.length < 2 && !list[0]?.steps.length) return
-          event.preventDefault()
-          void makeListTasks(list, { today: scope === 'today' })
-        }}
+        onPasteCapture={(event) => pasteTasks(event, scope)}
         onSubmit={(event) => {
           event.preventDefault()
           if (!draft.trim()) return
           const text = draft
           setDraft('')
-          // Said where it went when it is not in this list: a later day, a later list, or a routine.
-          void makeTask({ text, today: scope === 'today' }, async (made) => {
-            const task = await haligtree.task(made.id)
-            return task && SCOPES[scope].test(task) ? 'Task added' : landed(made, scope)
           // Taken back, the words are in the field again, ahead of anything typed since.
-          }, { onUndo: () => {
+          addTyped(text, scope, () => {
             setDraft((now) => (now.trim() ? `${text} ${now}` : text))
             requestAnimationFrame(() => (add.current?.focus(), add.current?.setSelectionRange(text.length, text.length)))
-          } })
+          })
         }}
       >
         <Plus className="list-plus size-4 text-muted-foreground" />
@@ -220,6 +236,7 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
           placeholder="Add a task, with the date in the words"
         />
       </form>
+      </>}
       {several.bar && (
         <div data-picked-bar className="-mt-1 mb-1 flex flex-wrap items-center gap-1 px-1 [&>span]:flex-wrap">
           <span className="mr-1 text-sm font-medium whitespace-nowrap text-foreground tabular-nums">{num(several.chosen.length)} selected</span>
@@ -246,9 +263,12 @@ export function TodayPanel({ onOpen, open }: { onOpen: (id: string) => void; ope
         )
       })()}
       </Example>
-      {!due.length && !unloaded(tasks) && (
+      {!due.length && !unloaded(tasks) && (glance ? (
+        // One line under the pill: what the tab is for, and the one thing to do.
+        <p data-glance-empty className="px-2 py-1.5 text-body text-foreground/85"><span className="font-semibold text-foreground">{EMPTY.today.title}.</span> Type a task on the line above and <Kbd>↵</Kbd> adds it for today.</p>
+      ) : (
         <Rest compact seed="today" off={scope !== 'today'}><Empty compact title={EMPTY[scope].title}>{EMPTY[scope].text}</Empty></Rest>
-      )}
+      ))}
     </div>
   )
 }

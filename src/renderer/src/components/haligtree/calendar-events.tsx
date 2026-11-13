@@ -54,6 +54,23 @@ export const hm = (date: string | Date): string => clock(date instanceof Date ? 
 /** "09:30 – 10:30", the way a block, the popover and Upcoming say a time. */
 export const span = (from: string, to: string): string => `${hm(from)} – ${hm(to)}`
 
+/**
+ * An event (or a timed task) as one row of a list: a mark in its colour, its name, then its time and calendar. The
+ * Calendar's Upcoming draws its rows with it, and so does quick capture's Today glance (box-glance.tsx).
+ */
+export function EventLine({ color, title, said, task = false, ...rest }: { color: string; title: string; said: string; /** A timed task: a ring, where an event has a square. */ task?: boolean } & React.ComponentProps<'button'>): React.JSX.Element {
+  return (
+    <button type="button" {...rest}
+      className="flex items-start gap-2.5 rounded-md px-2 py-1 text-left outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
+      <span aria-hidden className={`mt-1.5 size-2 shrink-0 ${task ? 'rounded-full border-[1.5px]' : 'rounded-[2px]'}`} style={task ? { borderColor: color } : { background: color }} />
+      <span className="flex min-w-0 flex-1 flex-col">
+        <span dir="auto" className="truncate text-body font-semibold text-foreground">{title}</span>
+        <span className="truncate text-control text-foreground/80 tabular-nums">{said}</span>
+      </span>
+    </button>
+  )
+}
+
 /** Your Mac's events as read-only times on the calendar, beside your own. */
 export function macShown(list: { title: string; start: string; end: string; allDay: boolean; calendar: string; color: string | null; layer: string }[]): Shown[] {
   return list.map((one, at) => ({

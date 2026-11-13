@@ -355,6 +355,8 @@ const DEFAULTS = {
   boxHideButtons: false,
   // Quick capture opens as one line (a pill) and grows only once there is more to show. Off to start.
   boxOneLine: false,
+  // Glance tabs on the one line (Write, Notes, Today): on to start whenever “One line to start” is on.
+  boxGlance: true,
   // The Dock's icon: the leaves in bronze or gold.
   appIcon: 'bronze' as 'bronze' | 'gold',
   // A single word's meaning, faint under it in quick capture, from the Mac's

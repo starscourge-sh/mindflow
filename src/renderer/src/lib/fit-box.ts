@@ -174,7 +174,9 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
   const settling = useRef(false)
   const room = useCallback((): boolean => {
     const root = document.documentElement
-    const popped = Boolean(document.querySelector(POPS))
+    // A glance hung above the pill (box-glance.tsx: the box at the screen's foot, where there is no room to give
+    // below): its pop-ups place themselves in the room there is, and never grow the pill into the box.
+    const popped = Boolean(document.querySelector(POPS)) && !document.querySelector('[data-glance-panel][data-glance-above]')
     // The card's height read only with a pop-up open: read on every change to the page (the observer below), it laid
     // the whole box out in the middle of each draw, about 60 ms of opening a task from the list (qa/open-speed-big.mjs).
     let read: number | null = null

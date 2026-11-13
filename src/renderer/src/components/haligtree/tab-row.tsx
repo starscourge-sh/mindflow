@@ -60,6 +60,19 @@ const Foot = ({ side }: { side: 'left' | 'right' }): React.JSX.Element => (
   </svg>
 )
 
+/**
+ * The open tab's drawn shape: round top corners, straight sides and a small foot either side, one surface with what
+ * it stands on (`--mf-tab` its fill, `--mf-tab-line` its hairline). Quick capture's glance tabs wear it too, standing
+ * on the pill (box-glance.tsx), so a tab is one shape wherever the app draws one.
+ */
+export const TabShape = (): React.JSX.Element => (
+  // As wide as the tab's own place, as the other tabs' shapes are: drawn a quarter rem in from each side, its
+  // icon and its ✕ sat half as far from its edge as theirs do from theirs ("tab looks thin on the sides", 12 Nov).
+  <span aria-hidden className="pointer-events-none absolute inset-0 rounded-t-[9px] border border-b-0 border-(--mf-tab-line) bg-(--mf-tab)">
+    <Foot side="left" /><Foot side="right" />
+  </span>
+)
+
 function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup; actions: TabActions; faint: boolean }): React.JSX.Element {
   const on = tab.key === group.active
   const strong = on && group.front
@@ -77,13 +90,7 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
         // name reads whole and a long one keeps enough to know it; past that the row scrolls (10 Nov).
         style={{ minWidth: Math.min(54 + [...tab.label].length * 7, 124) }}
         className={`group/tab relative mx-0.5 flex h-full max-w-52 flex-[1_1_0] items-stretch py-[3px] ${on ? 'z-10' : ''} ${faint ? 'opacity-40' : ''}`}>
-        {on && (
-          // As wide as the tab's own place, as the other tabs' shapes are: drawn a quarter rem in from each side, its
-          // icon and its ✕ sat half as far from its edge as theirs do from theirs ("tab looks thin on the sides", 12 Nov).
-          <span aria-hidden className="pointer-events-none absolute inset-0 rounded-t-[9px] border border-b-0 border-(--mf-tab-line) bg-(--mf-tab)">
-            <Foot side="left" /><Foot side="right" />
-          </span>
-        )}
+        {on && <TabShape />}
         <Tip label={cut ? tab.label : ''}>
           <button type="button" role="tab" aria-selected={on} onClick={() => actions.select(group.pane, tab.key)}
             onPointerEnter={(event) => { const name = event.currentTarget.querySelector('span'); setCut(!!name && name.scrollWidth > name.clientWidth) }}
