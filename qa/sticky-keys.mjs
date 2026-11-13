@@ -1,7 +1,7 @@
 // The stickies' keys from anywhere land at once, while the menu bar's items still glide:
 // ⌃⌥⌘N brings them out with no fade or drop, ⌃⌥⌘T tidies them with no glide, ⌃⌥⌘H
-// tucks them into tabs (and back) with no slide. Pointed at, a named tab draws its card
-// out from the screen's edge: sampled each frame, it starts far out and only comes in.
+// folds every open card into its pill (and opens them again) with no motion. Pointed at, a pill grows its card out
+// of itself beside the stack: sampled each frame, the card starts at the pill and only comes in.
 //
 //   npx electron-vite build --outDir out-h
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=$PWD/out-h/main/index.js HALIGTREE_QA_AWAY=1 node qa/sticky-keys.mjs
@@ -59,7 +59,7 @@ try {
   const per = Object.values(Object.groupBy(steps, (one) => one.id)).map((list) => list.length)
   check('⌃⌥⌘T tidies at once: each sticky moved in one step', per.length >= 3 && per.every((n) => n === 1), JSON.stringify(per))
 
-  // ⌃⌥⌘H: tabs at once, sampled each frame in a tab's page.
+  // ⌃⌥⌘H: pills at once, sampled each frame in a pill's page.
   const sample = (page, pick) => page.evaluate((pick) => new Promise((resolve) => {
     const seen = []
     const at = performance.now()
@@ -77,7 +77,7 @@ try {
     const seen = []
     const at = performance.now()
     const tick = () => {
-      const one = document.querySelector('[data-tuck-tab] [aria-label]')
+      const one = document.querySelector('[data-desk-pill]')
       if (one) seen.push(getComputedStyle(one).transform)
       if (performance.now() - at < 600) requestAnimationFrame(tick)
       else resolve(seen)
@@ -87,36 +87,37 @@ try {
   await press('⌃⌥⌘H')
   const tabFrames = await watchTab
   await watch
-  check('⌃⌥⌘H tucks them away', (await v('settings')).stickiesTucked === 'tabs')
-  check('⌃⌥⌘H: each tab is there at once, no slide', tabFrames.length > 3 && tabFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify([...new Set(tabFrames)].slice(0, 4)))
+  const folded = async () => Promise.all(pages.map((page) => page.evaluate(() => document.querySelector('[data-desk-pill]')?.getAttribute('data-desk-pill') ?? null)))
+  check('⌃⌥⌘H folds every card into its pill', (await folded()).every((one) => one === 'folded' || one === 'more'), JSON.stringify(await folded()))
+  check('⌃⌥⌘H: each pill is there at once, no slide', tabFrames.length > 3 && tabFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify([...new Set(tabFrames)].slice(0, 4)))
 
-  // Pointed at, the card comes out of its tab from far out, and only comes in.
+  // Pointed at, the card grows out of its pill from where the pill stands, and only comes in.
   await h.waitForTimeout(500)
-  const body = sample(pages[0], 'body')
+  const body = sample(pages[0], '#root')
   await pages[0].evaluate(() => window.api.holdBeacon(true))
   const xs = (await body).map((one) => (one.startsWith('matrix') ? Number(one.slice(7, -1).split(',')[4]) : 0))
   const far = Math.max(...xs.map(Math.abs))
   const away = xs.map(Math.abs)
-  check('pointed at, the card is drawn out from the edge: more than 100 points of slide', far > 100, `${far} ${JSON.stringify(xs.slice(0, 12).map(Math.round))}`)
+  check('pointed at, the card starts at its pill: more than 100 points from where it lands', far > 100, `${far} ${JSON.stringify(xs.slice(0, 12).map(Math.round))}`)
   check('the slide only comes in, never back out, and lands at 0', away.slice(away.indexOf(far)).every((x, i, all) => i === 0 || x <= all[i - 1] + 0.5) && Math.abs(xs.at(-1)) < 1, JSON.stringify(xs.map(Math.round)))
   await pages[0].evaluate(() => window.api.holdBeacon(false))
   await h.waitForTimeout(1500)
 
   // ⌃⌥⌘H again: back out at once.
-  const back = sample(pages[0], 'body')
+  const back = sample(pages[0], '#root')
   await press('⌃⌥⌘H')
   const backFrames = await back
-  check('⌃⌥⌘H brings them back, no slide', (await v('settings')).stickiesTucked === 'off' && backFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify([...new Set(backFrames)].slice(0, 4)))
+  check('⌃⌥⌘H opens the cards it folded, no slide', (await folded()).every((one) => one === null) && backFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify([...new Set(backFrames)].slice(0, 4)))
 
-  // Motion off: the pointer's slide out of the tab is gone too.
-  await v('settings:set', { stickiesTucked: 'tabs' })
+  // Motion off: the card's growth out of its pill is gone too.
+  await press('⌃⌥⌘H')
   await h.waitForTimeout(1200)
   await v('settings:set', { motion: false })
   await h.waitForTimeout(300)
-  const still = sample(pages[0], 'body')
+  const still = sample(pages[0], '#root')
   await pages[0].evaluate(() => window.api.holdBeacon(true))
   const stillFrames = await still
-  check('Motion off: out of its tab with no slide', stillFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify([...new Set(stillFrames)].slice(0, 4)))
+  check('Motion off: out of its pill with no motion', stillFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify([...new Set(stillFrames)].slice(0, 4)))
   await pages[0].evaluate(() => window.api.holdBeacon(false))
   check('no page errors', errors.length === 0, errors.slice(0, 3).join(' | '))
 } catch (e) {

@@ -63,7 +63,7 @@ try {
     await goal.hover('[data-goal-card]', { position: { x: 120, y: 20 } }); await wait(500)
     const seen = await goal.evaluate(() => {
       const stamp = [...document.querySelectorAll('span')].find((one) => one.textContent === 'Sandbox' && one.getClientRects().length)
-      const controls = document.querySelector('[aria-label="Hide it for now"]')?.parentElement?.parentElement
+      const controls = document.querySelector('[aria-label="Fold it into its pill"]')?.parentElement?.parentElement
       if (!stamp || !controls) return { stamp: !!stamp, controls: !!controls }
       const a = stamp.getBoundingClientRect(); const b = controls.getBoundingClientRect()
       const hit = a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom

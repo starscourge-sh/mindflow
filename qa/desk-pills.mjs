@@ -64,13 +64,14 @@ try {
   now = await desk(c.electron)
   const stackNow = () => now.all.filter((one) => one.pill && one.visible).sort((a, b) => a.pill.sy - b.pill.sy)
   const right = now.area.x + now.area.width
-  const geometry = (label, stack) => {
+  let top18 = now.area.y + Math.round(now.area.height * 0.18)
+  const geometry = (label, stack, first = top18) => {
     const said = stack.map((one) => `${one.key.split(':')[0]} ${Math.round(one.pill.sx)},${Math.round(one.pill.sy)} ${Math.round(one.pill.w)}x${Math.round(one.pill.h)}`).join(' | ')
     check(`${label}: each pill is 28 tall`, stack.every((one) => Math.round(one.pill.h) === 28), said)
     check(`${label}: each 8 in from the right edge, all of it on the screen`, stack.every((one) => Math.round(one.pill.sx + one.pill.w) === right - 8), said)
     check(`${label}: each 96 to 220 wide`, stack.every((one) => one.pill.w >= 95.5 && one.pill.w <= 220.5), said)
     check(`${label}: 6 apart, none over another`, stack.every((one, n) => !n || Math.round(one.pill.sy - (stack[n - 1].pill.sy + stack[n - 1].pill.h)) === 6), said)
-    check(`${label}: the first 18% down the screen`, Math.abs(stack[0].pill.sy - (now.area.y + Math.round(now.area.height * 0.18))) <= 1, said)
+    check(`${label}: the first where the stack stands (${first === top18 ? '18% down the screen' : 'where it was carried'})`, Math.abs(stack[0].pill.sy - first) <= 1, said)
     return said
   }
   let stack = stackNow()
@@ -99,7 +100,7 @@ try {
   if (left > 0) {
     const name = await todayPage.evaluate(() => document.querySelector('[data-task-tick][aria-checked="false"]')?.getAttribute('aria-label'))
     await c.go('today')
-    await c.h.locator(`[data-task-tick][aria-label="${name}"]`).first().click({ timeout: 5000 }).catch(() => {})
+    await c.h.locator('[data-task-row]', { hasText: name }).first().locator('[data-task-tick]').click({ timeout: 5000 }).catch(() => {})
     const after = left - 1
     const said = async () => (await desk(c.electron)).all.find((one) => one.key === 'today:today')?.pill?.number
     check('a task of Today\'s ticked in the main window: Today\'s pill counts one fewer, as its card does', await until(async () => (await said()) === (after ? `${after} left` : 'All done') && (await todayPage.evaluate(() => document.querySelectorAll('[data-task-tick][aria-checked="false"]').length)) === after, 5000), `${await said()} (${name})`)
@@ -193,6 +194,27 @@ try {
   const long = stack.find((one) => one.key === `capture:${made[2]}`)?.pill
   check('a long title ends at a whole word with "…", the pill 220 wide at most', !!long && /^A very long title( \w+)*…$/.test(long.words) && long.w <= 220.5, JSON.stringify(long))
 
+  // --- The stack carried by a pill, with a real press and drag: down 120 on its edge, every pill with it, in order.
+  {
+    const first = stack[0]
+    const page = pageOf(first.url)
+    const [x, y] = [first.pill.x + first.pill.w / 2, first.pill.y + first.pill.h / 2]
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x - 3, y + 40, { steps: 3 })
+    await page.mouse.move(x - 2, y + 120, { steps: 4 })
+    await page.mouse.up()
+    await wait(700)
+    now = await desk(c.electron)
+    const moved = stackNow()
+    top18 = Math.round(stack[0].pill.sy + 120)
+    check('carried by its first pill, the whole stack moves down 120, in the same order', moved.map((one) => one.key).join() === stack.map((one) => one.key).join() && moved.every((one, n) => Math.abs(one.pill.sy - (stack[n].pill.sy + 120)) <= 1), moved.map((one) => Math.round(one.pill.sy)).join())
+    check('carried, nothing opened or pinned: still five pills', moved.length === 5 && moved.every((one) => one.pill.state === 'folded'), moved.map((one) => one.pill.state).join())
+    geometry('carried', moved)
+    top18 = moved[0] ? Math.round(moved[0].pill.sy) : top18
+    stack = moved
+  }
+
   // --- Looks: light and dark, in Satin, Paper and Brutal: every pill of the stack framed, for reading by eye.
   if (shots) {
     for (const theme of ['paper', 'dark']) for (const style of ['soft', 'paper', 'brutal']) {
@@ -250,6 +272,7 @@ try {
   c = await sandbox()
   await until(async () => ((now = await desk(c.electron)), stackNow().length === 6), 20_000)
   check('after a relaunch every pill is still a pill, in the same order', stackNow().map((one) => one.key).join() === order, stackNow().map((one) => one.key).join())
+  check('and the stack stands where it was carried', Math.abs((stackNow()[0]?.pill.sy ?? 0) - top18) <= 1, `${stackNow()[0]?.pill.sy} vs ${top18}`)
 } finally {
   await c.close().catch(() => {})
 }

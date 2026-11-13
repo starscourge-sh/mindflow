@@ -1756,7 +1756,7 @@ const stickyUp = (key: string): boolean => {
   return !blackout && (!deskAway(away, shownAnyway()) || askedFor.has(key)) && stickyPrefs().shown && !stuckAs(key)?.hidden && (tucked.get(key) ?? 0) <= Date.now() && ruled.get(key) !== 'tuck'
 }
 /** How many stickies are out on the screen: Tidy stickies is offered only when there is one to tidy. */
-const stickiesOut = (): number => [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible()).length
+const stickiesOut = (): number => [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && win.isVisible() && !peeking.has(key)).length
 let toldOut = -1
 let toldSeen = false
 /** Whether any sticky is on the screen this moment, whatever the setting says: what "Show sticky notes" ticks. */
@@ -1994,7 +1994,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     grab: (at) => {
       if (hold || win.isDestroyed()) return
       // A pill picked up carries the whole stack.
-      if (peeking.has(key)) return carryStack.grab(at)
+      if (peeking.has(key)) return carryStack.grab(key, at)
       // Opened out of its pill and picked up: it is pinned first, the card alone in its window, and carried from there.
       if (fromPill.has(key)) pinCard(key, win)
       rise = unlift.get(win)?.() ?? 0
@@ -2833,19 +2833,26 @@ function readStackPlace(): void {
     // Never carried: where it begins.
   }
 }
-/** The stack carried by one of its pills, kept by the pill's grab point: up and down its edge, or to the other edge. */
-let stackHold: { start: Point; top: number } | null = null
+/**
+ * The stack carried by one of its pills, kept by the pill's grab point: up and down its edge, or to the other edge,
+ * on the screen the pill is carried onto. Where the pill would be under the pointer decides, never the pointer alone.
+ */
+let stackHold: { start: Point; top: number; pill: Electron.Rectangle } | null = null
 const carryStack = {
-  grab: (at: Point): void => {
-    const first = [...stackPlaces().at.values()][0]
-    if (first) stackHold = { start: at, top: first.y }
+  grab: (key: string, at: Point): void => {
+    const { at: places } = stackPlaces()
+    const first = [...places.values()][0]
+    const pill = places.get(key)
+    if (first && pill) stackHold = { start: at, top: first.y, pill }
   },
   carry: (now: Point): void => {
     if (!stackHold) return
-    const area = screen.getDisplayNearestPoint(now).workArea
-    stackDisplay = screen.getDisplayNearestPoint(now).id
-    stackSide = now.x < area.x + area.width / 2 ? 'left' : 'right'
-    stackTop = stackHold.top + now.y - stackHold.start.y
+    const { start, top, pill } = stackHold
+    const centre = { x: Math.round(pill.x + pill.width / 2 + now.x - start.x), y: Math.round(pill.y + pill.height / 2 + now.y - start.y) }
+    const display = screen.getDisplayNearestPoint(centre)
+    stackDisplay = display.id
+    stackSide = centre.x < display.workArea.x + display.workArea.width / 2 ? 'left' : 'right'
+    stackTop = top + now.y - start.y
     layStack()
   },
   letGo: (): void => {
@@ -2977,7 +2984,7 @@ function layStack(): void {
     const box = pillWindow(pill)
     const now = win.getBounds()
     if (now.x === box.x && now.y === box.y && now.width === box.width && now.height === box.height) continue
-    reshape(win)
+    madeOver(win)
     placed.set(win, { x: box.x, y: box.y })
     win.setBounds(box)
   }
@@ -3076,7 +3083,7 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
   const want = stickyUp(key) && pillWanted(key) && !beaconHeld.has(key)
   if (want) {
     if (!peeking.has(key)) {
-      reshape(win)
+      madeOver(win)
       // Its whole card's place is kept while it is a pill: a card opened out of its pill keeps the one it had.
       peeking.set(key, openedAt.get(key) ?? win.getBounds())
       openedAt.delete(key)
@@ -3093,7 +3100,7 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
     return
   }
   if (!peeking.has(key)) return
-  reshape(win)
+  madeOver(win)
   const rest = peeking.get(key)!
   peeking.delete(key)
   const pill = win.getBounds()
@@ -3150,7 +3157,7 @@ function shapeCard(key: string, win: BrowserWindow, lay = true): void {
 }
 /** A card made whole again in a window of its own at `at`: no pill, its own limits, its shadow and its clicks as made. */
 function showCard(key: string, win: BrowserWindow, at: Electron.Rectangle): void {
-  reshape(win)
+  madeOver(win)
   stackHidden.delete(key)
   openedAt.delete(key)
   fromPill.delete(key)
@@ -3184,6 +3191,7 @@ function pinCard(key: string, win: BrowserWindow): void {
   }
   keepStuck()
   layStack()
+  tellStickiesOut()
   updateTray()
 }
 /** Its “–”: folded into its pill in the stack, its card's place kept for when it opens again. */
@@ -3196,6 +3204,7 @@ function foldCard(key: string, win: BrowserWindow): void {
   stopPeek(key)
   beaconHeld.delete(key)
   shapeCard(key, win)
+  tellStickiesOut()
   updateTray()
 }
 function stopPeek(key: string): void {
@@ -3325,7 +3334,7 @@ const unlift = new WeakMap<BrowserWindow, () => number>()
  */
 const reshaped = new WeakMap<BrowserWindow, number>()
 /** A window made over by shapeCard and the stack: any lift called off and any glide under way stopped. */
-const reshape = (win: BrowserWindow): void => {
+const madeOver = (win: BrowserWindow): void => {
   unlift.get(win)?.()
   reshaped.set(win, (reshaped.get(win) ?? 0) + 1)
 }
