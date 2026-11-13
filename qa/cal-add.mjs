@@ -1563,6 +1563,11 @@ try {
     console.log(`NOTE  read back before it was made: ${weekly}`)
     const gap = times.length > 1 ? Math.round((new Date(times[1]) - new Date(times[0])) / 36e5) : 0
     check(`"Standup every week 9am" typed on a later day's draft (${later}) starts on that day at 9:00, then every week`, times.length > 1 && at(times[0]) === `${later} 09:00` && gap >= 167 && gap <= 169, `first ${at(times[0])}, then ${at(times[1])}; ${times.length} times shown`)
+    // Read back before it is made: that day, and its repeat with the day's name as it is written (it read "weekly on sunday").
+    const laterDay = new Date(`${later}T12:00`)
+    const dayName = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][laterDay.getDay()]
+    const short = `${laterDay.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][laterDay.getMonth()]}`
+    check(`  and read back before it is made as ${short}, "weekly on ${dayName}" with the day's capital`, weekly.includes(short) && weekly.includes(`weekly on ${dayName}`), weekly)
     await h.keyboard.press('Meta+z')
     await wait(700)
     for (const [words, name, time] of [['Water the plants every week 9am', 'Water the plants', '09:00'], ['Call home every week', 'Call home', null]]) {
