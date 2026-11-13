@@ -1,6 +1,6 @@
 import { DARK_PAGE, useDarkPages, useOneInColour, type PageLayout } from "./paper"
 import { truePictures } from "./pdf-pages"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronRight } from "lucide-react"
 import { Tree, treeOf, type TreeNode } from "@/components/haligtree/branches"
 import { Highlight, useChosen, useFluidHover, Weighted } from "@/components/haligtree/glide"
@@ -207,9 +207,11 @@ function nearView(el: Element, tell: (seen: boolean) => void): () => void {
 
 /**
  * One page small, drawn only once it scrolls into the rail's view: a long
- * book never draws hundreds of pages it is not showing.
+ * book never draws hundreds of pages it is not showing. Drawn again only when
+ * its own props change: a page turned redraws the two thumbnails whose "here"
+ * changed, never all of a 1,011-page book's on every page passed.
  */
-export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; page: number; here: boolean; onGo: () => void }): React.JSX.Element {
+export const PdfThumb = memo(function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; page: number; here: boolean; onGo: (page: number) => void }): React.JSX.Element {
   const box = useRef<HTMLButtonElement>(null)
   const label = usePageLabel()
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -274,14 +276,14 @@ export function PdfThumb({ doc, page, here, onGo }: { doc: PDFDocumentProxy; pag
     shownOnce.current = true
   }, [here])
   return (
-    <button ref={box} type="button" className={`pdf-thumb${here ? " is-here" : ""}`} data-thumb-page={page} aria-label={`Page ${label(page)}`} aria-current={here ? "page" : undefined} onClick={onGo}>
+    <button ref={box} type="button" className={`pdf-thumb${here ? " is-here" : ""}`} data-thumb-page={page} aria-label={`Page ${label(page)}`} aria-current={here ? "page" : undefined} onClick={() => onGo(page)}>
       <span className="pdf-thumb-sheet" style={{ aspectRatio: `1 / ${shape}` }}>
         <canvas ref={canvas} />
       </span>
       <span className="pdf-thumb-number">{label(page)}</span>
     </button>
   )
-}
+})
 
 /** One entry of a PDF's own outline: its title, how deep it sits, and the page it starts on. */
 export type OutlineRow = { title: string; depth: number; page: number }
@@ -336,6 +338,10 @@ const spreadsOf = (count: number): number[][] => [[1], ...Array.from({ length: M
 export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, layout }: { doc: PDFDocumentProxy; page: number; outline: OutlineRow[]; tab: RailTab; onTab: (tab: RailTab) => void; onGo: (page: number) => void; narrow?: boolean; onDrag?: () => void; /** How the pages lie: the thumbnails follow it (it is chosen in the bar's "View" menu, its one home). */ layout?: PageLayout }): React.JSX.Element {
   const hereAt = chapterAt(outline, page)
   const shown = tab === "outline" && !outline.length ? "pages" : tab
+  // One handler for every thumbnail that never changes, so a page turned leaves the others as they were.
+  const goNow = useRef(onGo)
+  goNow.current = onGo
+  const goTo = useCallback((to: number) => goNow.current(to), [])
   // The chapter lit comes into view in the rail, as Preview's does.
   const list = useRef<HTMLElement>(null)
   const shownWas = useRef<RailTab | null>(null)
@@ -350,10 +356,10 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, 
         ? spreadsOf(doc.numPages).map((pair) => (
             <div key={pair.join("-")} className="pdf-thumb-pair" data-thumb-pair={pair.join("-")}>
               {pair[0] === 1 && <span aria-hidden className="pdf-thumb-gap" />}
-              {pair.map((one) => <PdfThumb key={one} doc={doc} page={one} here={one === page} onGo={() => onGo(one)} />)}
+              {pair.map((one) => <PdfThumb key={one} doc={doc} page={one} here={one === page} onGo={goTo} />)}
             </div>
           ))
-        : shown === "pages" && Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={() => onGo(index + 1)} />)}
+        : shown === "pages" && Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={goTo} />)}
       {shown === "outline" && <PdfOutline outline={outline} hereAt={hereAt} list={list} onGo={onGo} />}
     </PdfRail>
   )
