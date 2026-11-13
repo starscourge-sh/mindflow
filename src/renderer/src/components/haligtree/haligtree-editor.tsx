@@ -2295,8 +2295,9 @@ function Surface({
           // pane leaves its scroll alone (panes.tsx), so a note's place has one owner.
           {...(shape === "document" && documentId != null ? { [PLACED]: "" } : {})}
           innerRef={contentRef}
-          // The bare room under the words, in the same scroller: the note's end too (pressUnderLastLine).
-          onMouseDown={(event) => void (event.target === event.currentTarget && editor && !editor.isDestroyed && pressUnderLastLine(editor.view, event.nativeEvent))}
+          // The bare room under the words, in the same scroller, the holder of what comes after them and the page's
+          // one wrapper in it included (a press on their own room, never on anything drawn in them): the note's end too.
+          onMouseDown={(event) => void ((event.target === event.currentTarget || (!!afterBox && (event.target === afterBox || event.target === afterBox.firstElementChild))) && editor && !editor.isDestroyed && pressUnderLastLine(editor.view, event.nativeEvent))}
         />
         {/* After the words, inside the same scroll: added beside ProseMirror's
             own element, never inside it. */}
