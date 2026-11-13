@@ -91,6 +91,8 @@ async function carry(title, path, { look, release = true, steps = 12 } = {}) {
   const from = await row(title)
   await h.mouse.move(from.x, from.y)
   await h.mouse.down()
+  // FORCE_BLUR=1: the window loses the keys once the row is carried (as when another app takes focus mid-carry), and the carry goes on.
+  if (process.env.FORCE_BLUR) (await h.mouse.move(from.x + 14, from.y + 4, { steps: 3 }), await h.evaluate(() => void window.dispatchEvent(new FocusEvent('blur'))), await h.waitForTimeout(60))
   for (const [x, y] of path) await h.mouse.move(x, y, { steps })
   await h.waitForTimeout(260)
   const seen = await state()

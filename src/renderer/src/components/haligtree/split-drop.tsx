@@ -501,7 +501,10 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
     window.addEventListener('pointercancel', reset, true)
     window.addEventListener('keydown', onKey, true)
     window.addEventListener('dragstart', onDragStart, true)
-    window.addEventListener('blur', reset)
+    // The window losing the keys mid-carry (another app, or a window of this one, taking focus) puts the places away
+    // but keeps the press: the button is still held, so the carry goes on and the places come back at the edge. Ending
+    // it there left a task carried to the right edge with no places at all, until it was picked up again.
+    window.addEventListener('blur', hide)
     return () => {
       window.removeEventListener('pointerdown', onDown, true)
       window.removeEventListener('pointermove', onMove, true)
@@ -509,7 +512,7 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
       window.removeEventListener('pointercancel', reset, true)
       window.removeEventListener('keydown', onKey, true)
       window.removeEventListener('dragstart', onDragStart, true)
-      window.removeEventListener('blur', reset)
+      window.removeEventListener('blur', hide)
       delete document.documentElement.dataset.splitDrag
       delete document.documentElement.dataset.splitRoom
       delete document.documentElement.dataset.splitPin
