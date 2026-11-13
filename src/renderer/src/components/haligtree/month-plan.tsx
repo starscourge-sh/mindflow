@@ -26,7 +26,7 @@ import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay }
 import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
 import { RowMenu, type RowItem } from './row-menu'
-import { AddPopover, DraftMark, OpenPopover, addLines, type Add } from './cal-add'
+import { AddPopover, DraftMark, OpenPopover, addLines, useLeaving, type Add } from './cal-add'
 import { monthHere } from '@/lib/calendar-scope'
 import { useHere } from '@/lib/split'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -230,9 +230,19 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
   const taskNow = useRef(nowTask)
   taskNow.current = nowTask
   const openedTask = openedOwn ? tasks.find((task) => task.id === openedOwn.id) ?? null : null
+  // Let go, its popover leaves by its clip, as it came (cal-add.tsx, `useLeaving`): until it has gone it is still
+  // drawn on its draft, or on the task it was open on. `drawn` is for drawing alone.
+  const openOwn = openedOwn && openedTask ? openedOwn : null
+  const leftAdd = useLeaving(own ? add : null, !!openOwn)
+  const leftOpen = useLeaving(add ? null : openOwn, !!add)
+  const drawn = own ? add ?? leftAdd.kept : null
+  const drawnOpen = add ? null : openOwn ?? (drawn ? null : leftOpen.kept)
+  const lastTask = useRef<Task | null>(null)
+  if (openOwn) lastTask.current = openedTask
+  const drawnTask = openOwn ? openedTask : lastTask.current
   const calendars = useCalendars()
   const draftColor = inkOf(calendars.find((one) => one.id === add?.calendar)?.color ?? calendars.find((one) => !one.hidden)?.color ?? calendars[0]?.color)
-  const adding = own ? (add?.day ?? null) : null
+  const adding = own ? (drawn?.day ?? null) : null
   // ⌘K is about the task picked here, as on the Calendar's own page (lib/calendar-scope.ts): “Open” opens it in the
   // popover tied to its line, and a thing done to it leaves it picked.
   const here = useHere()
@@ -253,7 +263,7 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
 
   /** Everything a week of the run is drawn from, for it to be drawn again only when one of them changed. */
   const sign = (monday: Dayjs): unknown[] => {
-    const said: unknown[] = [today, marks, adding, add?.kind, draftColor, marking, counting, wide, !onTask, ...extraSaid]
+    const said: unknown[] = [today, marks, adding, drawn?.kind, draftColor, marking, counting, wide, !onTask, ...extraSaid]
     for (let at = 0; at < 7; at++) {
       const key = dayKey(monday.add(at, 'day'))
       said.push(on.get(key), caught.get(key), opens.get(key))
@@ -278,7 +288,7 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
           return <Cell key={key} wide={wide} day={day} lines={linesOf(on.get(key))} today={today} outside={!!shown && !day.isSame(shown, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
             room={room - laid.lanes} reserve={laid.lanes} adding={adding === key} onDay={onDay} onLine={open} onPickLine={onTask ? undefined : (line) => line.kind !== 'back' && setPickedTask(line.task.id)} lineMenu={(line) => (line.kind === 'back' ? [] : taskMenu(line.task, { open: () => open(line), now: taskNow.current }))} onItem={item}
             // The draft of what is being made here leads the day's things, and the popover is tied to it.
-            extra={own && add && add.day === key ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={add.kind} color={draftColor} /></PopoverAnchor>, ...(dayExtra?.(key) ?? [])] : dayExtra?.(key)}
+            extra={drawn && drawn.day === key ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={drawn.kind} color={draftColor} /></PopoverAnchor>, ...(dayExtra?.(key) ?? [])] : dayExtra?.(key)}
             onAdd={() => (onAddDay ? onAddDay(key) : openAdd({ day: key, minute: null, length: 0, kind: 'task' }))}
             onPick={onPickDay ? () => onPickDay(key) : own ? () => setPickedOwn(key) : undefined}
             menu={dayMenu ? () => dayMenu(key) : own ? () => addLines(openAdd, key, null) : undefined} />
@@ -379,9 +389,9 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
       </DndContext>
       <DotsKey opened={marking} captures={counting} />
       {!onSide && <DaySide ask={mine} onClose={() => setMine(null)} onOpen={onOpen} />}
-      {own && add && <AddPopover key={`${add.day}|${add.words ?? ''}`} add={add} level={frame} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} />}
-      {own && !add && openedOwn && openedTask && <OpenPopover key={`${openedOwn.id}|${openedOwn.words ?? ''}`} opened={{ kind: 'task', ...openedOwn }} task={openedTask} level={frame} onClose={() => setOpenedOwn(null)} onAgain={(words) => (setPickedTask(openedOwn.id), setOpenedOwn({ ...openedOwn, words }))}
-        onPage={() => (chime('open'), setOpenedOwn(null), setMine({ task: openedOwn.id }))} onKey={() => undefined} />}
+      {drawn && <AddPopover key={`${leftAdd.turn}|${drawn.day}|${drawn.words ?? ''}`} add={drawn} level={frame} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} onGone={leftAdd.gone} leaving={!add} />}
+      {own && drawnOpen && drawnTask && <OpenPopover key={`${leftOpen.turn}|${drawnOpen.id}|${drawnOpen.words ?? ''}`} opened={{ kind: 'task', ...drawnOpen }} task={drawnTask} level={frame} onClose={() => setOpenedOwn(null)} onGone={leftOpen.gone} leaving={!openOwn} onAgain={(words) => (setPickedTask(drawnOpen.id), setOpenedOwn({ ...drawnOpen, words }))}
+        onPage={() => (chime('open'), setOpenedOwn(null), setMine({ task: drawnOpen.id }))} onKey={() => undefined} />}
       {/* On the Calendar its line is always kept, so the weeks do not change height from month to month. */}
       {(!inMonth || bare) && <p data-month-empty={!inMonth || undefined} aria-hidden={inMonth > 0 || undefined} className={`px-1 text-body text-foreground/85 ${inMonth ? 'invisible' : ''}`}>Nothing planned in {month.format('MMMM')}. Give a task a day, like “call the dentist friday”, or double-click a day to add one.</p>}
     </section>

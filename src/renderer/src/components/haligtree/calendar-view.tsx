@@ -23,7 +23,7 @@ import { Rolling, Tip, typing } from './ui'
 import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu, type RowItem } from './row-menu'
-import { AddPopover, DraftMark, OpenPopover, addLines as addMenu, type Add, type Opened } from './cal-add'
+import { AddPopover, DraftMark, OpenPopover, addLines as addMenu, useLeaving, type Add, type Opened } from './cal-add'
 import { MonthPlan, MonthShowMenu, Passing } from './month-plan'
 import { crossLevels, crossed, usePinchLevels, type Way } from './cal-pinch'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -613,6 +613,17 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const openedEvent = opened?.kind === 'event' ? shownEvents.find((one) => one.key === opened.key) ?? null : null
   const openedTask = opened?.kind === 'task' ? tasks.find((task) => task.id === opened.id) ?? null : null
   const openNow = opened && (openedEvent || openedTask) ? opened : null
+  // A popover let go leaves by its clip, as it came (cal-add.tsx, `useLeaving`): until it has gone, the new one's draft
+  // and the open one's event or task are still what it is drawn on. `drawn` is for drawing alone; what is asked of the
+  // page (keys, ⌘K, the ring) goes by `add` and `openNow`, which are let go at once.
+  const leftAdd = useLeaving(add, !!openNow)
+  const leftOpen = useLeaving(add ? null : openNow, !!add)
+  const drawn = add ?? leftAdd.kept
+  const drawnOpen = add ? null : openNow ?? (drawn ? null : leftOpen.kept)
+  const lastOpened = useRef<{ event: Shown | null; task: Task | null }>({ event: null, task: null })
+  if (openNow) lastOpened.current = { event: openedEvent, task: openedTask }
+  const drawnEvent = openNow ? openedEvent : lastOpened.current.event
+  const drawnTask = openNow ? openedTask : lastOpened.current.task
   const calendarName = (one: Shown): string => one.readOnly ? one.calendarId.replace(/^mac:/, '') : layers.calendars.find((cal) => cal.id === one.calendarId)?.name ?? 'Calendar'
   const left = side && !roomless && (fits.left || kept)
   // The left panel's switch: on while it is up, off hides it; on again shows it, room or not.
@@ -664,7 +675,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       {/* The day picked wears the small month's mark for the days shown (a quiet band of the accent behind its date), on a month's day and on a week's or a day's head. */}
       {pickedDay && <style>{`[data-cal-level] :is([data-day="${pickedDay}"] [data-day-number], [data-cal-head="${pickedDay}"] > span:last-child) { box-shadow: 0 0 0 3px var(--accent) } [data-cal-level] :is([data-day="${pickedDay}"] [data-day-number]:not([aria-current]), [data-cal-head="${pickedDay}"]:not([data-cal-today]) > span:last-child) { background: var(--accent) }`}</style>}
       {/* While something is being made on a day, the day stays lit (a slot's draft is its own light). */}
-      {add && add.minute === null && <style>{`[data-cal-level] :is([data-day="${add.day}"], [data-cal-allday="${add.day}"]) { background: color-mix(in oklab, var(--foreground) 7%, var(--background)) }`}</style>}
+      {drawn && drawn.minute === null && <style>{`[data-cal-level] :is([data-day="${drawn.day}"], [data-cal-allday="${drawn.day}"]) { background: color-mix(in oklab, var(--foreground) 7%, var(--background)) }`}</style>}
       {/* One row at every width: the title gives way first, then the panel buttons fold into ⋯. */}
       <header className={`@container/head flex min-h-16 shrink-0 items-center py-2 ${tight ? 'gap-1.5 px-3' : 'gap-2 px-5'}`}>
         {!tight && <Tip label={roomless ? 'No room for the left panel beside a month here' : left ? 'Hide the left panel' : 'Show the left panel: the small month, your calendars, unscheduled tasks'}>
@@ -762,12 +773,12 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 <Kept still={!top} of={`${one.mode} ${dayKey(one.anchor)}`}>
                 {one.mode === 'month' ? (
                   <div className="flex min-h-0 flex-1 flex-col p-3">
-                    <MonthPlan bare month={one.anchor} tasks={shownTasks} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars, top && add ? `${add.day}|${add.kind}|${draftColor}` : '']}
+                    <MonthPlan bare month={one.anchor} tasks={shownTasks} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars, top && drawn ? `${drawn.day}|${drawn.kind}|${draftColor}` : '']}
                       // A double-click on a day: an event there, all day, written in the popover beside its draft. A task in the month is picked by a click and opens, in that popover, by a double-click.
                       onSide={setPanel} onTask={openTask} onAddDay={(day) => openAdd({ day, minute: null, length: 0, kind: 'event' })}
                       onPickDay={setPickedDay} dayMenu={(day) => addLines(day, null)}
                       dayExtra={(day) => [
-                        ...(top && add && add.day === day ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={add.kind} color={draftColor} /></PopoverAnchor>] : []),
+                        ...(top && drawn && drawn.day === day ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={drawn.kind} color={draftColor} /></PopoverAnchor>] : []),
                         ...studyChips(study.get(day), MONTH_CHIP),
                         ...(eventsByDay.get(day) ?? []).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={openEvent} onNote={onOpen} />)
                       ]}
@@ -776,7 +787,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                       onDay={(day) => (setAnchor(dayjs(day)), setMode('day'))} onWeek={(monday) => (setAnchor(dayjs(monday)), setMode('week'))} />
                   </div>
                 ) : (
-                  <Grid days={daysOf(one)} wide={paneWide} startTop={top ? undefined : (one as Shadow).top} tasks={shownTasks} marks={marked ? captures : undefined} study={study} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} draft={top ? add : null} events={eventsOn(daysOf(one))}
+                  <Grid days={daysOf(one)} wide={paneWide} startTop={top ? undefined : (one as Shadow).top} tasks={shownTasks} marks={marked ? captures : undefined} study={study} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} draft={top ? drawn : null} events={eventsOn(daysOf(one))}
                     menuAt={(day, timed) => addLines(day, !timed ? null : pointed.current?.day === day && pointed.current.minute !== null ? Math.max(0, Math.min(23 * 60, Math.floor(pointed.current.minute / 30) * 30)) : 9 * 60)} />
                 )}
                 </Kept>
@@ -788,9 +799,9 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             when it is closed. Nothing rests there: Upcoming is in the left panel, and a new one is written beside its draft. */}
         <DaySide inline ask={panel} width={`${editorRem}rem`} grip={editorGrip} onClose={() => setPanel(null)} onOpen={onOpen} />
       </div>
-      {add && <AddPopover key={`${add.day}|${add.minute}|${add.words ?? ''}`} add={add} level={level} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} />}
-      {!add && openNow && <OpenPopover key={`${openNow.kind === 'event' ? openNow.key : openNow.id}|${openNow.words ?? ''}`} opened={openNow} onAgain={(words) => (openNow.kind === 'event' ? openEvent(openNow.key, openNow.at, words) : openTask(openNow.id, openNow.at, words))} event={openedEvent ?? undefined} task={openedTask ?? undefined} level={level} onClose={() => setOpened(null)}
-        onPage={() => toPage(openNow.kind === 'event' ? { event: openNow.key } : { task: openNow.id })} onKey={(key) => setOpened((was) => (was?.kind === 'event' ? { ...was, key } : was))} />}
+      {drawn && <AddPopover key={`${leftAdd.turn}|${drawn.day}|${drawn.minute}|${drawn.words ?? ''}`} add={drawn} level={level} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} onGone={leftAdd.gone} leaving={!add} />}
+      {drawnOpen && <OpenPopover key={`${leftOpen.turn}|${drawnOpen.kind === 'event' ? drawnOpen.key : drawnOpen.id}|${drawnOpen.words ?? ''}`} opened={drawnOpen} onAgain={(words) => (drawnOpen.kind === 'event' ? openEvent(drawnOpen.key, drawnOpen.at, words) : openTask(drawnOpen.id, drawnOpen.at, words))} event={drawnEvent ?? undefined} task={drawnTask ?? undefined} level={level} onClose={() => setOpened(null)} onGone={leftOpen.gone} leaving={!openNow}
+        onPage={() => toPage(drawnOpen.kind === 'event' ? { event: drawnOpen.key } : { task: drawnOpen.id })} onKey={(key) => setOpened((was) => (was?.kind === 'event' ? { ...was, key } : was))} />}
       {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
         <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}
           className={`pointer-events-none fixed z-50 flex max-w-56 items-center gap-2 ${CARD}`}>

@@ -1,9 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { CalendarPlus, SquareCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PopoverAnchor, PopoverArrow, PopoverContent } from '@/components/ui/popover'
 import { chime } from '@/lib/sound'
+import { FLOAT } from '@/lib/float'
 import { byKeys, spring, still } from '@/lib/motion'
 import { taskName } from '@/lib/tasks'
 import type { Task } from '@/lib/haligtree'
@@ -26,6 +27,14 @@ export type Add = { day: string; minute: number | null; length: number; kind: 'e
 const ROOM = { top: 52, right: 12, bottom: 12, left: 12 }
 /** One width, for an event and for a task. */
 const WIDE = 320
+/**
+ * The room kept under the popover as it opens, for what may open inside it: as tall as the tallest of an open thing's
+ * rows (an event's “Repeat”), and for a new one the difference between a task and an event with a line or two more read
+ * back. In rem, so it follows the interface size.
+ */
+const KEPT = { open: 18, fresh: 6 }
+/** How far past the middle of what it is tied to the popover's own bottom edge always reaches, so its point is on its side and never under it. */
+const TIE = 28
 type Side = 'right' | 'left' | 'bottom' | 'top'
 /** Beside the draft where there is room for it, on the right first; with none on either side, under it, or over it: never on top of it. */
 const sideFor = (at: DOMRect): Side => {
@@ -81,15 +90,77 @@ export function DraftMark({ kind, color, shape, time, style, ref }: {
 }
 
 /**
+ * What a popover is open on, for as long as the popover is on the page. Let go (Esc, a press elsewhere, “Open”, ↵, a
+ * save), the popover leaves by its clip, as it came and as every popover here does; until it has gone (`gone`, which
+ * the popover calls as it is taken off the page) it is still drawn on what it was open on, its draft with it. Taken
+ * off at once with its draft, it was the one popover that vanished. Another popover that takes its place (`taken`)
+ * takes it at once; with Motion off or Reduce motion nothing plays and it is gone at once.
+ */
+export function useLeaving<T>(live: T | null, taken = false): { kept: T | null; gone: () => void; turn: number } {
+  const [was, setWas] = useState<T | null>(live)
+  const [kept, setKept] = useState<T | null>(null)
+  // Each opening is a popover of its own (`turn` goes in its key): one opened while the last is still leaving, on the
+  // same day, is put on the page anew, and the one leaving is taken off at once.
+  const [turn, setTurn] = useState(0)
+  if (was !== live) {
+    setWas(live)
+    setKept(live || taken ? null : was)
+    if (live && !was) setTurn(turn + 1)
+  } else if (kept && taken) setKept(null)
+  const gone = useCallback(() => setKept(null), [])
+  return { kept: live ? null : kept, gone, turn }
+}
+
+/**
+ * Decides the popover's box once, as the popover is put on the page (and again only if it changes sides as it opens):
+ * as tall as the card is now plus the room kept for it (`Shell`). It is a child of the card because the card is put on
+ * the page a pass after `Shell` itself is (a portal): an effect of `Shell`'s own found nothing there, and never ran again.
+ */
+function Kept({ side, room }: { side: Side; room: (tall: number) => number }): React.JSX.Element {
+  const mark = useRef<HTMLSpanElement>(null)
+  const now = useRef(room)
+  now.current = room
+  useLayoutEffect(() => {
+    const face = mark.current?.closest<HTMLElement>('[data-cal-add]')
+    const box = face?.parentElement
+    if (!face || !box) return
+    const tall = face.getBoundingClientRect().height
+    box.style.height = `${Math.ceil(tall + now.current(tall))}px`
+  }, [side])
+  return <span ref={mark} hidden />
+}
+
+/** Says when the popover it is in has been taken off the page (after it has left by its clip, or at once when nothing plays). */
+function Gone({ run }: { run?: () => void }): null {
+  const now = useRef(run)
+  now.current = run
+  useEffect(() => () => now.current?.(), [])
+  return null
+}
+
+/**
  * A box that takes its height from what it holds, and moves to a new one on the app's spring (at once with Motion off
  * or Reduce motion, and when a key made the change). The height is held here, in a value of the box's own, from its first measure. Left to Motion's
  * `animate` with `initial={false}`, the first height (known only a render after the box is made) was taken as the place
  * the box already was: noted, never written to it. So the box held no height, grew at once with what it holds, and the
  * first change of every popover (Event to Task, a row opening) had nothing left to move; only the second sprang.
  */
-function Sized({ children }: { children: React.ReactNode }): React.JSX.Element {
+function Sized({ face, children }: {
+  /** Which of its faces it shows (a new one's Event or Task). When that changes to a shorter one, what leaves stays drawn until the height has arrived. */
+  face?: string
+  children: React.ReactNode
+}): React.JSX.Element {
   const inner = useRef<HTMLDivElement>(null)
   const height = useMotionValue<number | string>('auto')
+  // The face it had, as it was drawn, taken as the next one is about to replace it (the page still holds the old one
+  // while this runs). Only when the face changes: a letter typed takes no copy.
+  const shown = useRef(face)
+  const old = useRef<{ node: Node; at: number } | null>(null)
+  if (face !== shown.current) {
+    shown.current = face
+    const node = inner.current?.cloneNode(true)
+    old.current = node ? { node, at: performance.now() } : null
+  }
   // What the rest of the popover adds to the box: its top row and its edges (not a whole number at every interface size).
   const rest = useRef(0)
   // Drawn so that the whole popover is a whole number of pixels tall, at every frame. The spring gives a height with a
@@ -101,6 +172,9 @@ function Sized({ children }: { children: React.ReactNode }): React.JSX.Element {
     const el = inner.current
     if (!el) return
     let going: { stop: () => void } | null = null
+    // What is leaving, drawn under what took its place until the box has closed over it.
+    let leaving: HTMLElement | null = null
+    const gone = (): void => { leaving?.remove(); leaving = null }
     // Read as what it holds is laid out anew (a ResizeObserver runs once layout is done, so the read costs nothing).
     const fit = (): void => {
       const box = el.parentElement
@@ -108,20 +182,50 @@ function Sized({ children }: { children: React.ReactNode }): React.JSX.Element {
       if (box && pop) rest.current = pop.getBoundingClientRect().height - box.getBoundingClientRect().height
       const to = Math.ceil(el.getBoundingClientRect().height)
       const from = height.get()
+      // The face just replaced, if this is the change that replaced it (a copy from an earlier change is never drawn).
+      // Kept in hand until it is drawn: the new face is first laid out as tall as the old one and comes to its own
+      // height a frame later.
+      const was = old.current && performance.now() - old.current.at < 200 ? old.current.node : null
+      if (!was) old.current = null
       going?.stop()
       going = null
       // Its first height, or nothing may travel, or a key did it (words typed in the line change what is read back
-      // under it at every letter; reached by a key, nothing moves): simply that tall.
-      if (typeof from !== 'number' || still() || byKeys()) return height.set(to)
-      if (from !== to) going = animate(height as MotionValue<number>, to, spring.slow)
+      // under it at every letter; reached by a key, nothing moves), or a row's fold inside it is moving and brings the
+      // height with it (calendar-events.tsx, `Fold`): simply that tall, written now, before this frame is drawn (left
+      // to the next frame, the box was one step behind what it holds, a strip of bare surface while a row closed).
+      if (typeof from !== 'number' || still() || byKeys() || el.querySelector('[data-fold-moving]')) {
+        gone()
+        if (box) box.style.height = `${Math.ceil(to + rest.current - 0.001) - rest.current}px`
+        return height.set(to)
+      }
+      if (from === to) return gone()
+      // A shorter face (Event to Task): the old one's lower part stays drawn under the new one, cut by the box's own
+      // lower edge as it closes over it, and is taken off the page when the height has arrived. Nothing bare meanwhile.
+      // (The new face may settle its own height a frame later, what it reads back arriving: what is leaving stays through
+      // that, cut where the new face now ends.)
+      if (to >= from) gone()
+      else if (leaving && !(was instanceof HTMLElement)) leaving.style.clipPath = `inset(${to}px 0 0 0)`
+      else if (was instanceof HTMLElement && box) {
+        old.current = null
+        gone()
+        leaving = document.createElement('div')
+        leaving.setAttribute('aria-hidden', 'true')
+        leaving.setAttribute('data-cal-leaving', '')
+        leaving.inert = true
+        leaving.style.cssText = `position:absolute;left:0;right:0;top:0;pointer-events:none;clip-path:inset(${to}px 0 0 0)`
+        for (const one of [was, ...was.querySelectorAll('[id], [for], [name]')]) (one.removeAttribute('id'), one.removeAttribute('for'), one.removeAttribute('name'))
+        leaving.append(was)
+        box.append(leaving)
+      }
+      going = animate(height as MotionValue<number>, to, { ...spring.slow, onComplete: gone })
     }
     fit()
     const watch = new ResizeObserver(fit)
     watch.observe(el)
-    return () => (watch.disconnect(), going?.stop())
+    return () => (watch.disconnect(), going?.stop(), gone())
   }, [height])
   return (
-    <motion.div data-cal-add-sized style={{ height: whole }} className="mf-more min-h-0 shrink overflow-x-hidden overflow-y-auto [scrollbar-width:none]">
+    <motion.div data-cal-add-sized style={{ height: whole }} className="mf-more relative min-h-0 shrink overflow-x-hidden overflow-y-auto [scrollbar-width:none]">
       <div ref={inner}>{children}</div>
     </motion.div>
   )
@@ -133,22 +237,49 @@ function Sized({ children }: { children: React.ReactNode }): React.JSX.Element {
  * the line and what is under it, as tall as they are; tied by its point to what
  * it is about, beside it and never over it.
  */
-function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, onOutside }: {
+function Shell({ kind, label, side, opened, head, children, tied, onEscape, onKeep, onOutside, onGone, leaving = false }: {
   kind: 'event' | 'task'; label: string; side: Side
   /** The event's key or the task's id, when it is open on one that exists. */
   opened?: string
   head: React.ReactNode
   children: React.ReactNode
+  /** What it is tied to on the page (a draft, a block, a chip, a row), read as it opens. */
+  tied: () => Element | null
   onEscape: () => void
   /** ⌘↵: kept (or made), and closed. */
   onKeep: () => void
   onOutside: () => void
+  /** It has been taken off the page. */
+  onGone?: () => void
+  /**
+   * It has been let go and is on its way out (`useLeaving`): it answers nothing more. Still on the page for a tenth of a
+   * second, it took a press elsewhere as its own, and a press on “New event” or on another day shut the popover that
+   * very press had just opened.
+   */
+  leaving?: boolean
 }): React.JSX.Element {
   const beside = side === 'right' || side === 'left'
   // While it is up, no tip comes up beside or over it from the page (ui.tsx, `stage`): one floating thing at a time.
   useEffect(() => stage(), [])
+  // Its place is decided once, as it opens, for the tallest it can become. What is placed is a box with nothing drawn
+  // (popover.tsx, `bare`), as tall as the popover is now plus the room kept for what may open in it; the popover is the
+  // card at the box's top and grows down into that room. So the box never changes size, nothing places it again, and
+  // the card's top edge and every row above a change stay exactly where they are: the row just pressed never moves from
+  // under the pointer. (Placed again at each change, a popover low in the window grew upward: “Reminder” went up 156px
+  // as its choices opened.) The room kept is only what there is under the thing it is tied to: the card's bottom edge
+  // always reaches past that thing's middle, so its point stays on its side. With no room under it (the last hours of
+  // a day, a window 400 tall, a popover over or under its thing) the box is the card as it opened, and what opens shows
+  // inside the card's own scroller, behind its fade; nothing scrolls by itself.
+  const room = (tall: number): number => {
+    const at = side === 'top' ? null : tied()?.getBoundingClientRect()
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+    // Beside its thing: down to the window's edge from just past the thing's middle. Under it: what is left below the
+    // popover where it opens (its gap and its point are 13px). Over it: none, it would grow down onto its thing.
+    const under = !at ? 0 : window.innerHeight - ROOM.bottom - (beside ? at.top + at.height / 2 + TIE : at.bottom + 13 + tall)
+    return Math.max(0, Math.min((opened ? KEPT.open : KEPT.fresh) * rem, under))
+  }
   return (
-    <PopoverContent data-cal-add={kind} data-cal-open={opened} data-takes-keys role="dialog" aria-label={label}
+    <PopoverContent bare data-cal-hold data-takes-keys role="dialog" aria-label={label}
       // Open on a thing that exists, it is beside the page as its side panel is (ui.tsx, `typing`): a change made in its rows
       // is taken back by ⌘Z while it is still open, and a plain key typed in it stays in it. A new one being written
       // holds every key, as before.
@@ -156,13 +287,13 @@ function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, on
       // A field in it that lets go of the keys (↵ in the place, a tag kept) hands them to the popover itself, never to the
       // page under it: there, the next ↵ started a new event on the day picked.
       onBlurCapture={(event) => void (opened && !event.relatedTarget && event.currentTarget.focus({ preventScroll: true }))} side={side} align={beside ? 'start' : 'center'} alignOffset={beside ? -14 : 0} sideOffset={6} arrowPadding={14} collisionPadding={ROOM}
-      style={{ width: WIDE }} className="max-w-[calc(100vw-1.5rem)] gap-0 overflow-visible rounded-xl p-0 text-control"
+      style={{ width: WIDE }} className="max-w-[calc(100vw-1.5rem)]"
       onOpenAutoFocus={(event) => event.preventDefault()}
       // Esc in a "which times" asked over it answers the ask alone: the popover stays, with its words.
-      onEscapeKeyDown={(event) => (event.preventDefault(), !document.querySelector('[data-scope-ask]') && onEscape())}
+      onEscapeKeyDown={(event) => (event.preventDefault(), !leaving && !document.querySelector('[data-scope-ask]') && onEscape())}
       // ⌘↵ keeps it too, as ↵ does (the key the side panel kept for "keep and close").
       onKeyDown={(event) => {
-        if (event.key !== 'Enter' || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return
+        if (leaving || event.key !== 'Enter' || !event.metaKey || event.shiftKey || event.altKey || event.ctrlKey) return
         event.preventDefault()
         event.stopPropagation()
         onKeep()
@@ -170,14 +301,23 @@ function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, on
       onFocusOutside={(event) => event.preventDefault()}
       onPointerDownOutside={(event) => {
         event.preventDefault()
+        if (leaving) return
         // The draft is part of it, and so are a notice (its Undo is the notice's own act, not a click away), any menu over it and a "which times" asked.
         if ((event.target as Element | null)?.closest?.('[data-cal-draft], [role="status"], [role="menu"], [data-scope-ask], [data-radix-popper-content-wrapper]')) return
         onOutside()
       }}>
-      {/* On the one left edge the line and the reading under it keep. */}
-      <div className="flex shrink-0 items-center px-3 pt-3">{head}</div>
-      <Sized>{children}</Sized>
-      <PopoverArrow />
+      {/* The popover itself: the card, at the box's top. Its point is inside it, so it comes and goes with it (the card's
+          clip cuts it too). The card is not a place of its own for the point to stand on (no `relative`): the point is
+          set against the box that is placed. Set against the card, whose height changes, the placement moved the whole
+          popover 19px when Event turned to Task beside a thing as small as a month's line. */}
+      <div data-cal-add={kind} data-cal-open={opened} className={`${FLOAT} mf-pop-card pointer-events-auto flex max-h-full min-h-0 w-full flex-col rounded-xl text-control`}>
+        {/* On the one left edge the line and the reading under it keep. */}
+        <div className="flex shrink-0 items-center px-3 pt-3">{head}</div>
+        <Sized face={kind}>{children}</Sized>
+        <PopoverArrow />
+        <Kept side={side} room={room} />
+        <Gone run={onGone} />
+      </div>
     </PopoverContent>
   )
 }
@@ -191,7 +331,11 @@ function Shell({ kind, label, side, opened, head, children, onEscape, onKeep, on
  * notice whose Undo brings them back); a click anywhere else makes it when
  * there are words, and takes the draft away when there are none.
  */
-export function AddPopover({ add, level, onChange, onClose, onAgain }: {
+export function AddPopover({ add, level, onChange, onClose, onAgain, onGone, leaving }: {
+  /** It has left and been taken off the page (`useLeaving`). */
+  onGone?: () => void
+  /** It has been let go and is leaving: it answers nothing more. */
+  leaving?: boolean
   add: Add
   /** The level of the Calendar in front, where the draft is drawn. */
   level: React.RefObject<HTMLElement | null>
@@ -240,7 +384,8 @@ export function AddPopover({ add, level, onChange, onClose, onAgain }: {
   return (
     <>
       {bare && <PopoverAnchor virtualRef={{ current: bare }} />}
-      <Shell kind={add.kind} label={add.kind === 'event' ? 'A new event' : 'A new task'} side={side} onEscape={away} onKeep={keep} onOutside={outside}
+      <Shell kind={add.kind} label={add.kind === 'event' ? 'A new event' : 'A new task'} side={side} onEscape={away} onKeep={keep} onOutside={outside} onGone={onGone} leaving={leaving}
+        tied={() => level.current?.querySelector('[data-cal-draft]') ?? level.current?.querySelector(`[data-day="${add.day}"], [data-cal-col="${add.day}"]`) ?? null}
         head={<KindSwitch kind={add.kind} onKind={(kind) => onChange({ kind })} />}>
         {add.kind === 'event'
           ? <NewEvent ask={add} held={held} words={words} picked={[add.calendar ?? null, (calendar) => onChange({ calendar })]} onMade={onClose} onName={say} />
@@ -266,7 +411,11 @@ export type Opened = ({ kind: 'event'; key: string } | { kind: 'task'; id: strin
  * leaves the name as it was, and with a name typed and not kept a notice says
  * so, whose Undo brings the popover back holding the words, as a new one's does.
  */
-export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey, onAgain }: {
+export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey, onAgain, onGone, leaving }: {
+  /** It has left and been taken off the page (`useLeaving`). */
+  onGone?: () => void
+  /** It has been let go and is leaving: it answers nothing more. */
+  leaving?: boolean
   opened: Opened
   /** The event, as the page has it now. */
   event?: Shown
@@ -335,7 +484,7 @@ export function OpenPopover({ opened, event, task, level, onClose, onPage, onKey
   return (
     <>
       <PopoverAnchor virtualRef={{ current: at }} />
-      <Shell kind={kind} opened={id} label={kind === 'event' ? 'The event' : 'The task'} side={side} onEscape={close} onKeep={keep} onOutside={keep}
+      <Shell kind={kind} opened={id} label={kind === 'event' ? 'The event' : 'The task'} side={side} onEscape={close} onKeep={keep} onOutside={keep} tied={() => at} onGone={onGone} leaving={leaving}
         head={
           <div className="flex h-8 min-w-0 flex-1 items-center gap-2 pl-0.5">
             {mark}

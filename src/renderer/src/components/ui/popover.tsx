@@ -27,9 +27,17 @@ function PopoverContent({
   // what it holds, and scrolls only when that is more than the room it has.
   // The top gap is the title bar's: a panel never covers the window's own buttons.
   collisionPadding = { top: 52, right: 8, bottom: 8, left: 8 },
+  bare = false,
   ref,
   ...props
-}: React.ComponentProps<typeof PopoverPrimitive.Content>) {
+}: React.ComponentProps<typeof PopoverPrimitive.Content> & {
+  /**
+   * Only the box that is placed, with nothing drawn: the panel is a card inside it (`mf-pop-card`), which may grow down
+   * into room the box keeps for it without the box, or anything in the card above the change, ever moving (the
+   * Calendar's popover, whose rows open in place). The box takes no clicks; its card does.
+   */
+  bare?: boolean
+}) {
   // A caller's own ref (Display measures its panel) is called as well, kept in
   // hand so this stays one function: the sound and the key mark come once per
   // opening, and are never lost to the caller's ref.
@@ -53,7 +61,9 @@ function PopoverContent({
         // Opened by a key (F for Display, a menu's key), it is simply there: no entrance for what a key asked for (lib/motion.ts).
         // Marked once, as it opens (openCue above). Set again at every draw, a panel typed in and then clicked played its
         // entrance a second time: the mark came with the first key and went with the next click.
-        className={cn(
+        className={bare
+          ? cn("mf-pop-hold pointer-events-none z-50 flex max-h-(--radix-popover-content-available-height) flex-col outline-hidden", className)
+          : cn(
           FLOAT,
           // Its entrance and exit are `mf-pop` (main.css): grown out of the trigger's side by a clip, the surface whole from
           // its first frame, never faded (a frosted surface fading in shows the page sharp through it until the fade ends).

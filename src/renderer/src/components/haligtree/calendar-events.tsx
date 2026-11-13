@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
+import { byKeys, spring, still } from '@/lib/motion'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { Ban, Bell, CalendarDays, Check, ChevronRight, Clock, Copy, CopyPlus, FileText, Globe, Laptop, Link2, MapPin, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
@@ -687,6 +689,48 @@ function CalendarPick({ calendars, on, onPick }: { calendars: ReturnType<typeof 
  * in place under it, the control that changes it (the one its page has). The popover keeps its width; its height
  * follows on the app's spring.
  */
+/**
+ * What a quiet row opens, under its line. It comes down from under the line and goes back up under it on the app's
+ * spring, clipped by its own lower edge: the rows after it ride that edge, and the popover is as tall as what it holds
+ * at every frame. It stays drawn until it has gone (taken off the page at once, it left bare surface for as long as
+ * the popover took to close over it). At once by a key, with Motion off and with Reduce motion.
+ */
+function Fold({ open, children }: { open: boolean; children: React.ReactNode }): React.JSX.Element | null {
+  const box = useRef<HTMLDivElement>(null)
+  const [here, setHere] = useState(open)
+  const height = useMotionValue<number | string>(open ? 'auto' : 0)
+  const whole = useTransform(height, (now) => (typeof now === 'number' ? Math.max(0, Math.round(now)) : now))
+  const was = useRef(open)
+  if (open && !here) setHere(true)
+  useLayoutEffect(() => {
+    if (was.current === open) return
+    const el = box.current
+    if (!el) return
+    was.current = open
+    const full = el.scrollHeight
+    if (still() || byKeys()) {
+      height.set(open ? 'auto' : 0)
+      if (!open) setHere(false)
+      return
+    }
+    const from = height.get()
+    height.set(typeof from === 'number' ? from : open ? 0 : full)
+    // Said to the popover's own box (cal-add.tsx, `Sized`): while this moves, the box is simply as tall as what it holds.
+    el.setAttribute('data-fold-moving', '')
+    const going = animate(height as MotionValue<number>, open ? full : 0, {
+      ...spring.slow,
+      onComplete: () => {
+        el.removeAttribute('data-fold-moving')
+        if (open) height.set('auto')
+        else setHere(false)
+      }
+    })
+    return () => going.stop()
+  }, [open, here, height])
+  if (!here) return null
+  return <motion.div ref={box} data-quiet-body style={{ height: whole }} className="overflow-hidden">{children}</motion.div>
+}
+
 export function QuietRow({ icon: Icon, name, said, open, onOpen, row, children }: {
   icon: typeof Bell; name: string; said: React.ReactNode; open: boolean; onOpen: (open: boolean) => void
   /** Its name for a probe. */
@@ -703,7 +747,7 @@ export function QuietRow({ icon: Icon, name, said, open, onOpen, row, children }
         <span data-quiet-said className="min-w-0 flex-1 truncate text-right font-medium">{said}</span>
         <ChevronRight aria-hidden className={`size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-(--mf-ease) group-hover/head:text-foreground motion-reduce:transition-none ${open ? 'rotate-90' : ''}`} />
       </button>
-      {open && <div data-quiet-body className="pb-1.5">{children}</div>}
+      <Fold open={open}><div className="pb-1.5">{children}</div></Fold>
     </div>
   )
 }
@@ -716,8 +760,10 @@ export function QuietRow({ icon: Icon, name, said, open, onOpen, row, children }
 export function EventRows({ one, onKey }: { one: Shown; onKey: (key: string) => void }): React.JSX.Element {
   const calendars = useCalendars()
   const known = useKnownPeople()
-  const [open, setOpen] = useState<'calendar' | 'remind' | 'repeat' | null>(null)
-  const turn = (row: 'calendar' | 'remind' | 'repeat') => (on: boolean): void => setOpen(on ? row : null)
+  // Each row opens and closes itself alone. One at a time, a row pressed under an open one went up from under the
+  // pointer as that one shut over it: what is pressed never moves (interaction.md, controls stay put).
+  const [open, setOpen] = useState<ReadonlySet<'calendar' | 'remind' | 'repeat'>>(new Set())
+  const turn = (row: 'calendar' | 'remind' | 'repeat') => (on: boolean): void => setOpen((was) => { const next = new Set(was); if (on) next.add(row); else next.delete(row); return next })
   const save = async (patch: Parameters<typeof events.save>[1], said: string, offerOne = true): Promise<void> => {
     const key = await changeOne(one, patch, said, offerOne)
     if (key && key !== one.key) onKey(key)
@@ -725,7 +771,7 @@ export function EventRows({ one, onKey }: { one: Shown; onKey: (key: string) => 
   const on = calendars.find((cal) => cal.id === one.calendarId)
   return (
     <div data-event-rows className="flex flex-col px-1 pb-2">
-      <QuietRow row="calendar" icon={CalendarDays} name="Calendar" open={open === 'calendar'} onOpen={turn('calendar')}
+      <QuietRow row="calendar" icon={CalendarDays} name="Calendar" open={open.has('calendar')} onOpen={turn('calendar')}
         said={<span className="inline-flex items-center gap-1.5"><span aria-hidden className="size-2 shrink-0 rounded-full" style={{ background: inkOf(on?.color) }} />{on?.name ?? 'Calendar'}</span>}>
         <div className="px-1"><CalendarPick calendars={calendars} on={one.calendarId} onPick={(cal) => cal.id !== one.calendarId && void save({ calendarId: cal.id }, `On ${cal.name} now`)} /></div>
       </QuietRow>
@@ -733,10 +779,10 @@ export function EventRows({ one, onKey }: { one: Shown; onKey: (key: string) => 
           and nothing floats over the popover. Its word, like “People” under it, says what goes there. */}
       <PropInput key={`place-${one.place ?? ''}`} icon={MapPin} value={one.place ?? ''} placeholder="Place" lead="At" onSave={(place) => place !== (one.place ?? '') && void save({ place: place || null }, place ? `At ${place}` : 'No place now')} />
       <PeopleField people={one.people} known={known} onSave={(people) => void save({ people }, people.length ? `With ${people.join(', ')}` : 'Nobody named now')} />
-      <QuietRow row="remind" icon={Bell} name="Reminder" said={remindName(one.remind)} open={open === 'remind'} onOpen={turn('remind')}>
+      <QuietRow row="remind" icon={Bell} name="Reminder" said={remindName(one.remind)} open={open.has('remind')} onOpen={turn('remind')}>
         <RemindChoices value={one.remind} allDay={one.allDay} start={one.start} onSave={(remind) => void save({ remind }, remind === null ? 'No reminder now' : `Reminds you ${remindName(remind).toLowerCase()}`)} />
       </QuietRow>
-      <QuietRow row="repeat" icon={RepeatIcon} name="Repeat" said={one.repeatSaid || 'Does not repeat'} open={open === 'repeat'} onOpen={turn('repeat')}>
+      <QuietRow row="repeat" icon={RepeatIcon} name="Repeat" said={one.repeatSaid || 'Does not repeat'} open={open.has('repeat')} onOpen={turn('repeat')}>
         <RepeatChoices one={one} onSave={(repeat) => void save({ repeat }, repeat ? repeatSaid(repeat, one.start) : 'Does not repeat now', false)} />
       </QuietRow>
     </div>

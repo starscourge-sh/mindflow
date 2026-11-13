@@ -154,8 +154,8 @@ try {
   await h.keyboard.press('Escape')
   list = await anims(); rows = await p
   console.log('Popover, Esc:'); list.forEach((s) => console.log(`  ${s}`)); print('popover', rows)
-  // By a key nothing moves: it is simply gone.
-  check('Esc takes the popover away at once', rows.some((r) => r.gone) && lasts(rows) === 0 && (rows.find((r) => r.gone)?.t ?? 999) <= 50, `gone at ${rows.find((r) => r.gone)?.t}ms, out ${lasts(rows)}ms, in took ${inAt}ms`)
+  // Esc lets it go as a press elsewhere does: it leaves by its clip, quicker than it came (13 Nov).
+  check('Esc takes the popover away, quicker than it came', rows.some((r) => r.gone) && lasts(rows) > 0 && lasts(rows) < inAt, `gone at ${rows.find((r) => r.gone)?.t}ms, out ${lasts(rows)}ms, in took ${inAt}ms`)
   await wait(500)
 
   // 4. An event opened by a double-click: the same popover, on it (12 Nov: the card a click opened is gone).

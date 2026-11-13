@@ -23,6 +23,14 @@
 //   rows    the quiet rows under an open thing's line: an event's calendar, place, people, reminder and repeat, a task's
 //           day and time and its tags; each one line that opens in place, the width one, the height following, each
 //           change kept as it is made with Undo and ⌘Z; at 560 by 400 the rows scroll inside the popover.
+//   put     what is pressed stays put: at every frame of a row opening and closing, and of Event to Task and back, the
+//           control pressed keeps its place to the pixel and the popover its top, and no other control lights under the
+//           still pointer. In Week at 14:00 and in its last row, in Day at 23:00, in Month's last week, on Home's month
+//           and at 560 by 400 (PUT=week|late|month|home|narrow runs one stretch).
+//   one     one floating thing: with the new one's popover up, a click on a crowded hour's “+N more”, on a capture's chip
+//           and on a task's tick (each stops its press) leaves one floating thing or none, never two.
+//   leave   the popover leaves the way it came, by its clip, with its draft kept until it has left: by a press elsewhere,
+//           Esc, ↵, “Open”; at once with Motion off and with Reduce motion.
 //   spring  the popover's height on the app's spring: its box read every frame through Event to Task and back, a row
 //           opening and a row closing (six or more in-between heights each, one way), and one height by a key, with
 //           Motion off and with Reduce motion. With FRAMES=dir, every frame the page drew through each, in the look LOOK names.
@@ -37,10 +45,11 @@
 //           lit block, light and dark; and the popover beside two of the app's own (the small month, an event's card).
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/cal-add.mjs
 import os from 'node:os'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
+import { castFrames } from './cast-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
-const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open,rows,spring,unhappy,quiet').split(',')
+const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open,rows,put,one,leave,spring,unhappy,quiet').split(',')
 // Your Mac's calendar, stood in for the unhappy part: one event tomorrow morning on "Family", read only.
 if (parts.includes('unhappy')) {
   const at = new Date(); at.setDate(at.getDate() + 1); at.setHours(7, 0, 0, 0)
@@ -66,7 +75,7 @@ const state = () => h.evaluate(() => {
   const draft = document.querySelector('[data-cal-level] [data-cal-draft], [data-month-own] [data-cal-draft]')
   const field = pop?.querySelector('input')
   return {
-    pop: pop && { ...box(pop), kind: pop.dataset.calAdd, side: pop.dataset.side, keyed: pop.hasAttribute('data-keyed'), arrow: box(pop.querySelector('[data-slot="popover-arrow"]')), sw: box(pop.querySelector('[role="radiogroup"]')),
+    pop: pop && { ...box(pop), kind: pop.dataset.calAdd, side: pop.closest('[data-cal-hold]')?.dataset.side, keyed: !!pop.closest('[data-cal-hold]')?.hasAttribute('data-keyed'), arrow: box(pop.querySelector('[data-slot="popover-arrow"]')), sw: box(pop.querySelector('[role="radiogroup"]')),
       focused: document.activeElement === field, words: field?.value ?? null, said: pop.querySelector('[data-new-event-said], [data-day-side-when]')?.textContent ?? '', opaque: getComputedStyle(pop).backgroundColor },
     draft: draft && { ...box(draft), kind: draft.dataset.calDraft, name: draft.querySelector('[data-cal-draft-name]')?.textContent, day: draft.closest('[data-day]')?.dataset.day ?? draft.closest('[data-cal-col]')?.dataset.calCol ?? draft.style.gridColumn },
     win: { w: innerWidth, h: innerHeight },
@@ -89,6 +98,8 @@ const film = async (name, run, n = 8) => {
   for (let at = 0; at < n; at++) { const t = Date.now(); await h.screenshot({ path: `${dir}/${name}-${String(at * 50).padStart(3, '0')}.png` }); await wait(Math.max(0, 50 - (Date.now() - t))) }
   await going
 }
+/** The frames the page itself drew while `run` plays out, kept as pictures in FRAMES (qa/cast-lib.mjs). */
+const cast = (name, run, ms = 450) => (dir ? castFrames(h, dir, name, run, ms) : run())
 const toMode = async (key) => { await h.keyboard.press('Escape'); await h.mouse.click(700, 30).catch(() => {}); await h.keyboard.press(key); await wait(700) }
 const dbl = async (x, y) => { await h.mouse.move(x, y); await h.mouse.dblclick(x, y); await wait(600) }
 
@@ -773,7 +784,7 @@ try {
       await wait(1600)
       const there = await h.locator('[data-month-own]').count()
       if (!there) { check(`${name} is on the page`, false); continue }
-      await ways(name, 'task', '[data-month-own] [data-plan-task]', 'Opened task', { bar: false })
+      await ways(name, 'task', '[data-month-own] [data-plan-task]', 'Opened task')
     }
     }
   }
@@ -792,7 +803,8 @@ try {
         said: Object.fromEntries([...pop.querySelectorAll('[data-quiet-row]')].map((el) => [el.dataset.quietRow, el.querySelector('[data-quiet-said]')?.textContent ?? ''])),
         place: !!pop.querySelector('[data-event-rows] input[aria-label="Place"], [data-event-rows] input[placeholder="Place"]'), people: !!pop.querySelector('[data-event-rows] [data-event-people]'),
         day: !!pop.querySelector('[data-task-rows] button, [data-task-rows] [data-date-picker]'), tags: !!pop.querySelector('[data-task-rows] [data-task-tags] input'),
-        wide: [...pop.querySelectorAll('*')].filter((el) => el.offsetParent && el.getBoundingClientRect().right > box.right + 0.5).length,
+        wide: [...pop.querySelectorAll('*')].filter((el) => el.offsetParent && !el.closest('[data-slot="popover-arrow"]') && !el.querySelector(':scope > [data-slot="popover-arrow"]') && el.getBoundingClientRect().right > box.right + 0.5).length,
+        past: [...pop.querySelectorAll('*')].filter((el) => el.offsetParent && !el.closest('[data-slot="popover-arrow"]') && !el.querySelector(':scope > [data-slot="popover-arrow"]') && el.getBoundingClientRect().right > box.right + 0.5).slice(0, 3).map((el) => `${el.tagName.toLowerCase()}${[...el.attributes].filter((a) => a.name.startsWith('data-')).map((a) => `[${a.name}]`).join('')} ${Math.round((el.getBoundingClientRect().right - box.right) * 10) / 10}px`),
         scrolls: sized ? sized.scrollHeight > sized.clientHeight + 1 : false, mask: sized ? getComputedStyle(sized).maskImage !== 'none' : false
       }
     })
@@ -830,7 +842,7 @@ try {
       await h.click('[data-cal-add] [data-quiet-row="repeat"] > button')
       await wait(700)
       r = await rows()
-      check('"Repeat" opens its choices and "Reminder" folds: one row open at a time, the width the same', r?.quiet.join() === 'calendar,remind,repeat:open' && Math.abs(r.w - 320) < 1 && r.wide === 0 && fits(r) && await h.locator('[data-cal-add] [data-repeat-choices] [data-repeat]').count() >= 5, JSON.stringify(r?.quiet))
+      check('"Repeat" opens its choices and "Reminder" stays as it is (each row opens and closes itself alone, so a row pressed under an open one does not move), the width the same', r?.quiet.join() === 'calendar,remind:open,repeat:open' && Math.abs(r.w - 320) < 1 && r.wide === 0 && fits(r) && await h.locator('[data-cal-add] [data-repeat-choices] [data-repeat]').count() >= 5, JSON.stringify(r?.quiet))
       await h.click('[data-cal-add] [data-quiet-row="repeat"] > button')
       await wait(500)
       // The place: the field its page has, written in where it is.
@@ -845,7 +857,7 @@ try {
       await h.keyboard.press('Enter')
       await wait(500)
       s = await state()
-      check('  the keys stay in the popover once the field lets go: another ↵ starts no new event on the page', await h.evaluate(() => !!document.activeElement?.closest('[data-cal-add]')) && !s.draft && !!(await openOn())?.id, `draft ${JSON.stringify(s.draft)}; on ${(await openOn())?.id}`)
+      check('  the keys stay in the popover once the field lets go: another ↵ starts no new event on the page', await h.evaluate(() => !!document.activeElement?.closest('[data-cal-hold]')) && !s.draft && !!(await openOn())?.id, `draft ${JSON.stringify(s.draft)}; on ${(await openOn())?.id}`)
       await h.keyboard.press('Meta+z')
       await wait(900)
       check('  and ⌘Z takes the place away again', !(await theEvent())?.place, `${(await theEvent())?.place}`)
@@ -894,13 +906,289 @@ try {
       await wait(800)
       const r = await rows()
       await shot('rows-560')
-      check('560 by 400, "Repeat" open: the popover is inside the window at its one width (the window less its margins), its rows scroll inside it under the fading edge, nothing runs past its edge', fits(r) && r.w <= 320.5 && r.scrolls && r.mask && r.wide === 0, JSON.stringify(r && { w: r.w, h: r.h, box: [Math.round(r.x), Math.round(r.y), Math.round(r.r), Math.round(r.b)], scrolls: r.scrolls, mask: r.mask, wide: r.wide }))
+      check('560 by 400, "Repeat" open: the popover is inside the window at its one width (the window less its margins), its rows scroll inside it under the fading edge, nothing runs past its edge', fits(r) && r.w <= 320.5 && r.scrolls && r.mask && r.wide === 0, JSON.stringify(r && { w: r.w, h: r.h, box: [Math.round(r.x), Math.round(r.y), Math.round(r.r), Math.round(r.b)], scrolls: r.scrolls, mask: r.mask, wide: r.wide, past: r.past, side: await h.evaluate(() => document.querySelector('[data-cal-hold]')?.dataset.side ?? null) }))
       const reached = await h.evaluate(() => { const sized = document.querySelector('[data-cal-add] [data-cal-add-sized]'); sized.scrollTop = sized.scrollHeight; const last = [...sized.querySelectorAll('[data-repeat]')].at(-1); const a = last.getBoundingClientRect(); const b = sized.getBoundingClientRect(); return a.bottom <= b.bottom + 0.5 && a.top >= b.top - 0.5 })
       check('  and its last choice is reached by scrolling inside it', reached)
       await shut()
     } else console.log('NOTE  560 by 400: the event is not drawn by name at this size')
     await c.size(1440, 900)
     await wait(500)
+  }
+
+  if (parts.includes('put')) {
+    await things()
+    /**
+     * A press on `sel` (a row's line, a side of the switch), the pointer left where it pressed, and at every frame for
+     * `ms`: where that control's own place is (its row's box or the switch's: the line itself gives 2% under a press, by
+     * design), where the popover's top is, how tall the popover is, and which of the popover's controls the pointer lights.
+     */
+    const press = async (sel, ms = 650, filmed = null) => {
+      const at = await h.evaluate((sel) => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 110), y: r.top + r.height / 2 } }, sel)
+      if (!at) return null
+      // Once the popover is where it will stay: a page still scrolling its day into view carries the popover with it.
+      await h.waitForFunction(() => new Promise((done) => { const top = () => document.querySelector('[data-cal-add]')?.getBoundingClientRect().top; const first = top(); setTimeout(() => done(first !== undefined && top() === first), 250) }), null, { timeout: 5000 }).catch(() => {})
+      const now = await h.evaluate((sel) => { const r = document.querySelector(sel).getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 110), y: r.top + r.height / 2 } }, sel)
+      await h.mouse.move(now.x, now.y)
+      await wait(300)
+      await h.evaluate(([sel, ms]) => {
+        const pop = document.querySelector('[data-cal-add]')
+        const el = document.querySelector(sel)
+        const place = el.closest('[data-quiet-row], [role="radiogroup"]') ?? el
+        const name = (one) => one.parentElement?.hasAttribute('data-quiet-row') ? `row ${one.parentElement.dataset.quietRow}` : (one.textContent || one.getAttribute('aria-label') || one.getAttribute('placeholder') || one.tagName).trim().slice(0, 18)
+        window.__p = { me: name(el), frames: [] }
+        window.__pDone = false
+        const t0 = performance.now()
+        // How far the lowest thing drawn in the popover stops short of the popover's bottom edge: words, marks and
+        // fields, each cut by every box over it that clips (a row's fold, the popover's own scroller) and by the top
+        // of what is leaving.
+        const short = (box) => {
+          let low = 0
+          for (const one of pop.querySelectorAll('[data-cal-add-sized] *')) {
+            if (!(one instanceof SVGElement || one.tagName === 'INPUT' || [...one.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim()))) continue
+            const r = one.getBoundingClientRect()
+            if (!r.width || !r.height) continue
+            let [top, bottom] = [r.top, r.bottom]
+            for (let up = one.parentElement; up && up !== pop; up = up.parentElement) {
+              if (getComputedStyle(up).overflowY !== 'visible') { const b = up.getBoundingClientRect(); bottom = Math.min(bottom, b.bottom); top = Math.max(top, b.top) }
+              if (up.hasAttribute('data-cal-leaving')) top = Math.max(top, up.getBoundingClientRect().top + parseFloat(/inset\(([\d.]+)px/.exec(up.style.clipPath)?.[1] ?? '0'))
+            }
+            if (bottom > top) low = Math.max(low, bottom)
+          }
+          return Math.round((box.bottom - low) * 10) / 10
+        }
+        const tick = () => {
+          const r = place.getBoundingClientRect()
+          const box = pop.getBoundingClientRect()
+          const all = [...pop.querySelectorAll('button, input, label, [role="radio"], [role="checkbox"]')].filter((one) => one.matches(':hover'))
+          const lit = all.filter((one) => !all.some((other) => other !== one && one.contains(other))).map(name)
+          window.__p.frames.push([Math.round(performance.now() - t0), Math.round(r.left * 10) / 10, Math.round(r.top * 10) / 10, Math.round(box.top * 10) / 10, Math.round(box.height), lit.join('|'), short(box)])
+          if (performance.now() - t0 < ms) after(); else window.__pDone = true
+        }
+        // Read once each frame has been drawn (a task after the frame's own turn): read at the frame's start, the page
+        // is caught between a change and what the app does about it before drawing (the box fitted to a new face, what
+        // is leaving put under it), a state nobody sees.
+        const after = () => requestAnimationFrame(() => setTimeout(tick, 0))
+        after()
+      }, [sel, ms])
+      const act = async () => { await h.mouse.down(); await h.mouse.up() }
+      if (filmed && dir) await cast(filmed, act, 380)
+      else await act()
+      await h.waitForFunction(() => window.__pDone)
+      return h.evaluate(() => window.__p)
+    }
+    /** What a press showed: the control's place and the popover's top the same at every frame, and nothing lit but the control pressed. */
+    const judge = (where, what, p) => {
+      if (!p) return check(`${where}: ${what} is there to press`, false)
+      const span = (i) => { const all = p.frames.map((f) => f[i]); return Math.round((Math.max(...all) - Math.min(...all)) * 10) / 10 }
+      const others = [...new Set(p.frames.flatMap((f) => f[5].split('|')).filter((n) => n && n !== p.me))]
+      const tall = [...new Set(p.frames.map((f) => f[4]))]
+      check(`${where}: ${what}: the control pressed stays under the pointer to the pixel at every frame, and the popover's top with it`, span(1) <= 0.5 && span(2) <= 0.5 && span(3) <= 0.5, `${p.frames.length} frames; its place moved ${span(1)}px across and ${span(2)}px down, the top ${span(3)}px; the popover ${tall[0]} to ${tall.at(-1)}px tall in ${tall.length} heights${span(3) > 0.5 ? `; tops ${p.frames.filter((f, i) => i === 0 || f[3] !== p.frames[i - 1][3]).slice(0, 12).map((f) => `${f[3]}@${f[0]}ms`).join(' ')}` : ''}`)
+      check(`${where}: ${what}: no other control lights under the still pointer`, others.length === 0 && p.frames.some((f) => f[5] === p.me), others.length ? `lit besides “${p.me}”: ${others.join(', ')}` : `only “${p.me}”`)
+      // Nothing bare: at no frame is there more empty surface under the lowest drawn thing than there is once it has settled.
+      // (What it holds has a gap of its own under its last words, before the change and after: only more than the larger of the two is bare.)
+      const rest = Math.max(p.frames[0][6], p.frames.at(-1)[6])
+      const most = Math.max(...p.frames.map((f) => f[6]))
+      check(`${where}: ${what}: nothing bare under the last thing drawn at any frame (more than the 12px of a row's own padding)`, most - rest <= 12, `${Math.round((most - rest) * 10) / 10}px more surface under the last words than at rest, at the most (its last words stop ${p.frames[0][6]}px short of the bottom edge before, ${p.frames.at(-1)[6]}px after)`)
+    }
+    /** Every row of the open popover that opens in place, opened and closed by the pointer. */
+    const toggles = async (where, filmAs = null) => {
+      const rows = await h.evaluate(() => [...document.querySelectorAll('[data-cal-add] [data-quiet-row]')].map((el) => el.dataset.quietRow))
+      if (!rows.length) return check(`${where}: the popover has rows that open in place`, false)
+      for (const row of rows) {
+        const film = filmAs && row === 'remind' ? filmAs : null
+        judge(where, `“${row}” opening`, await press(`[data-cal-add] [data-quiet-row="${row}"] > button`, film ? 1100 : 650, film && `${film}-row-open`))
+        judge(where, `“${row}” closing`, await press(`[data-cal-add] [data-quiet-row="${row}"] > button`, film ? 1100 : 650, film && `${film}-row-close`))
+      }
+      // A row pressed under one that is open: the open one stays as it is, so the row pressed does not go up under the pointer.
+      if (rows.length > 1) {
+        await h.click(`[data-cal-add] [data-quiet-row="${rows[0]}"] > button`)
+        await wait(600)
+        judge(where, `“${rows.at(-1)}” opening under “${rows[0]}” open`, await press(`[data-cal-add] [data-quiet-row="${rows.at(-1)}"] > button`))
+        judge(where, `“${rows.at(-1)}” closing under “${rows[0]}” open`, await press(`[data-cal-add] [data-quiet-row="${rows.at(-1)}"] > button`))
+        await h.click(`[data-cal-add] [data-quiet-row="${rows[0]}"] > button`)
+        await wait(600)
+      }
+    }
+    /** A new one's switch: Event to Task and back. */
+    const turns = async (where, filmAs = null) => {
+      // To the other kind and back, whichever it opened as (a month on Home starts a task, the Calendar an event).
+      const first = (await state()).pop?.kind === 'task' ? 'event' : 'task'
+      for (const to of [first, first === 'task' ? 'event' : 'task']) judge(where, to === 'task' ? 'Event to Task' : 'Task to Event', await press(`[data-cal-add] [data-day-side-kind="${to}"]`, filmAs ? 1100 : 650, filmAs && `${filmAs}-to-${to}`))
+    }
+    /** The popover on an event, in the view `key` is the key of, by a double-click on it. */
+    const onEvent = async (key, label) => {
+      await reach(key, SEL.event, label)
+      if (!(await thing(SEL.event, label))) return false
+      await wait(300)
+      const now = await thing(SEL.event, label, false)
+      await h.mouse.dblclick(now.x + Math.max(16, Math.min(now.w * 0.6, now.w - 8)), now.y + Math.min(now.h / 2, 10))
+      await wait(700)
+      return !!(await state()).pop
+    }
+    const only = (process.env.PUT ?? 'week,late,month,home,narrow').split(',')
+    // An event at 23:00, the day's last hour, on the day the others are on.
+    if (!(await eventsNamed('Late one')).length) {
+      await toMode('m')
+      await dbl(...corner(await cell(thingsDay ?? dayKeyOf(1))))
+      await h.keyboard.type('Late one 11pm', { delay: 8 })
+      await h.keyboard.press('Enter')
+      await wait(900)
+    }
+    if (only.includes('week')) {
+      // The case that moved: an event at 14:00 in a window 900 tall. Then a new one a little above it.
+      if (await onEvent('w', 'Opens here')) { await toggles('Week, an event at 14:00', 'put'); await shut() } else check('Week: the event at 14:00 opens', false)
+      const by = await thing(SEL.event, 'Opens here', false)
+      if (by) { await dbl(by.x + by.w / 2, by.y - 60); if ((await state()).pop) await turns('Week, a new one near 13:00', 'put'); await shut() }
+    }
+    if (only.includes('late')) {
+      if (await onEvent('w', 'Late one')) { await toggles('Week, its last row (23:00)'); await shut() } else check('Week: the event at 23:00 opens', false)
+      const by = await thing(SEL.event, 'Late one', false)
+      if (by) { await dbl(by.x + by.w / 2, by.y - 30); if ((await state()).pop) await turns('Week, a new one in its last hours'); await shut() }
+      if (await onEvent('d', 'Late one')) { await toggles('Day, an event at 23:00'); await shut() } else check('Day: the event at 23:00 opens', false)
+    }
+    if (only.includes('month')) {
+      // Month's last week: a free day in its last row, an event made on it, then a new one beside it.
+      await toMode('m')
+      const low = await h.evaluate(() => { const days = [...document.querySelectorAll('[data-cal-level] [data-day]')].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 40 && r.height > 40 && r.top > 0 && r.bottom <= innerHeight + 1 }); const months = {}; for (const el of days) months[el.dataset.day.slice(0, 7)] = (months[el.dataset.day.slice(0, 7)] ?? 0) + 1; const month = Object.keys(months).sort((a, b) => months[b] - months[a])[0]; const own = days.filter((el) => el.dataset.day.startsWith(month) && !el.querySelector('[data-plan-task], [data-cal-event-chip], [data-plan-more], [data-plan-more-events]')); const lowest = Math.max(...own.map((el) => el.getBoundingClientRect().top)); const last = own.filter((el) => el.getBoundingClientRect().top >= lowest - 2); return (last[Math.min(2, last.length - 1)])?.dataset.day ?? null })
+      if (!low) check('Month: its last week has a free day', false)
+      else {
+        const lowAt = async () => { const box = await cell(low); return [box.x + box.w / 2, box.y + box.h * 0.6] }
+        if (!(await eventsNamed('Low one')).length) {
+          await dbl(...(await lowAt()))
+          if ((await state()).pop) { await h.keyboard.type('Low one 3pm', { delay: 8 }); await h.keyboard.press('Enter'); await wait(900) }
+          else check('Month: a double-click on a day of its last week starts a new one', false, JSON.stringify({ low, at: await lowAt(), under: await h.evaluate(([x, y]) => { const el = document.elementFromPoint(x, y); return el ? `${el.tagName.toLowerCase()}${[...el.attributes].filter((a) => a.name.startsWith('data-')).slice(0, 3).map((a) => `[${a.name}]`).join('')}` : null }, await lowAt()) }))
+        }
+        const chip = await thing(SEL.event, 'Low one', false)
+        if (chip) { await h.mouse.dblclick(chip.x + chip.w / 2, chip.y + chip.h / 2); await wait(700); await toggles('Month, its last week'); await shut() } else check('Month: the event in its last week is drawn', false)
+        await dbl(...(await lowAt()))
+        if ((await state()).pop) await turns('Month, a new one in its last week')
+        await shut()
+      }
+    }
+    if (only.includes('home')) {
+      await v('settings:set', { hintRate: 0, homeCalendar: true })
+      await go('home')
+      await wait(1600)
+      const there = await h.evaluate(() => { const days = [...document.querySelectorAll('[data-month-own] [data-day]')]; const el = days.slice(-7)[2] ?? days.at(-1); if (!el) return false; el.scrollIntoView({ block: 'center', behavior: 'instant' }); return true })
+      if (!there) check('Home\'s month is on the page', false)
+      else {
+        await wait(1200)
+        const at = await h.evaluate(() => { const days = [...document.querySelectorAll('[data-month-own] [data-day]')]; const r = (days.slice(-7)[2] ?? days.at(-1)).getBoundingClientRect(); return { x: r.right - 4, y: r.bottom - 4 } })
+        await dbl(at.x, at.y)
+        if (await h.locator('[data-cal-add] [data-day-side-kind="event"]').count()) await turns('Home\'s month, a new one in its last week', 'home')
+        else check('Home\'s month: a new one\'s popover has the switch', false, JSON.stringify((await state()).pop?.kind ?? null))
+        await shut()
+      }
+      await go('calendar')
+      await wait(700)
+    }
+    if (only.includes('narrow')) {
+      await c.size(560, 400)
+      await wait(700)
+      if (await onEvent('w', 'Opens here')) { await toggles('560 by 400, an event'); await shut() } else console.log('NOTE  560 by 400: the event is not drawn by name at this size')
+      await toMode('m')
+      const some = await cell(thingsDay ?? dayKeyOf(1))
+      if (some) { await dbl(...corner(some)); if ((await state()).pop) await turns('560 by 400, a new one'); await shut() }
+      await c.size(1440, 900)
+      await wait(500)
+    }
+  }
+
+  if (parts.includes('one')) {
+    await things()
+    /** What floats now: popovers, menus and dialogs, as qa/one-floating-thing.mjs counts them. */
+    const up = () => h.evaluate(() => [...new Set(document.querySelectorAll('[data-slot="popover-content"], [role="menu"], [role="dialog"]'))].filter((one) => one.getClientRects().length && one.getAttribute('data-state') !== 'closed').length)
+    // A crowded hour, for its “+N more”: six events at 09:00 on the day the others are on.
+    if (!(await eventsNamed('Crowd 6')).length) {
+      await toMode('m')
+      for (let n = 1; n <= 6; n++) { await dbl(...corner(await cell(thingsDay ?? dayKeyOf(1)))); await h.keyboard.type(`Crowd ${n} 9am`, { delay: 5 }); await h.keyboard.press('Enter'); await wait(800) }
+    }
+    // Each of the three stops its press where it is (a button: it takes the focus, and the popover closes because focus
+    // leaves it). With the new one's popover up, a real click on each leaves one floating thing or none, never two.
+    for (const [name, sel, where] of [['“+N more” of a crowded hour', '[data-cal-crowd-more]', 'things'], ['a capture\'s chip', '[data-cal-capture]', 'today'], ['a task\'s tick', '[data-cal-tick]', 'things']]) {
+      if (where === 'things') await reach('w')
+      else { await toMode('w'); await h.keyboard.press('t'); await wait(700) }
+      const find = () => h.evaluate((sel) => { const all = [...document.querySelectorAll(`[data-cal-level] ${sel}`)].filter((one) => one.getClientRects().length && !one.disabled).map((el) => { const r = el.getBoundingClientRect(); const [x, y] = [r.left + r.width / 2, r.top + r.height / 2]; return { x, y, clear: y > 0 && y < innerHeight && !!document.elementFromPoint(x, y)?.closest(sel) } }); return all.find((one) => one.clear) ?? all[0] ?? null }, sel)
+      if (!(await find())) { console.log(`NOTE  one: ${name} is not on this week of the example book`); continue }
+      await h.evaluate((sel) => [...document.querySelectorAll(`[data-cal-level] ${sel}`)].find((one) => one.getClientRects().length && !one.disabled)?.scrollIntoView({ block: 'center' }), sel)
+      await wait(400)
+      if (sel === '[data-cal-crowd-more]') { const col = await h.evaluate(() => { const cols = [...document.querySelectorAll('[data-cal-level] [data-cal-col]')].filter((el) => el.getClientRects().length); const r = cols.at(-1)?.getBoundingClientRect(); const view = document.querySelector('[data-cal-scroll]')?.getBoundingClientRect(); return r && view ? { x: r.left + r.width / 2, y: view.top + view.height * 0.7 } : null }); if (col) await dbl(col.x, col.y); if (!(await up())) { await h.locator('[data-cal-new-event]').first().click(); await wait(300) } }
+      else await h.locator('[data-cal-new-event]').first().click()
+      await wait(700)
+      const before = await up()
+      const at = await find()
+      if (!at?.clear) { console.log(`NOTE  one: ${name} is under the popover here, so it cannot be pressed`); await h.keyboard.press('Escape'); await wait(400); continue }
+      await h.mouse.click(at.x, at.y)
+      await wait(800)
+      const after = await up()
+      check(`with the new one's popover up, a click on ${name} leaves one floating thing or none, never two`, before === 1 && after <= 1, `${before} up before the click, ${after} after`)
+      for (let n = 0; n < 3 && (await up()); n++) { await h.keyboard.press('Escape'); await wait(350) }
+      if (sel === '[data-cal-tick]') { await h.keyboard.press('Meta+z'); await wait(600) }
+      await go('calendar')
+      await wait(500)
+    }
+  }
+
+  if (parts.includes('leave')) {
+    await things()
+    /** The popover, its box's state, the card's own animation and the draft, at every frame for `ms` while `run` lets it go. */
+    const going = async (run, ms = 450, filmed = null) => {
+      await h.evaluate((ms) => {
+        window.__l = []
+        window.__lDone = false
+        const t0 = performance.now()
+        const tick = () => {
+          const card = document.querySelector('[data-cal-add]')
+          window.__l.push([Math.round(performance.now() - t0), card ? 1 : 0, card?.closest('[data-cal-hold]')?.dataset.state ?? (card ? 'no box' : ''), card?.getAnimations().map((a) => a.animationName).join('+') ?? '', document.querySelector('[data-cal-draft]') ? 1 : 0])
+          if (performance.now() - t0 < ms) requestAnimationFrame(tick); else window.__lDone = true
+        }
+        requestAnimationFrame(tick)
+      }, ms)
+      if (filmed && dir) await cast(filmed, run, 300)
+      else await run()
+      await h.waitForFunction(() => window.__lDone)
+      const t = await h.evaluate(() => window.__l)
+      const closed = t.filter((f) => f[1] && f[2] === 'closed')
+      return { frames: closed.length, out: closed.length ? closed.at(-1)[0] - closed[0][0] : 0, clip: closed.some((f) => f[3].includes('mf-pop-out')), draft: closed.length > 0 && closed.every((f) => f[4] === 1), gone: !t.at(-1)[1], draftGone: !t.at(-1)[4] }
+    }
+    const said = (r) => `${r.frames} frames leaving over ${r.out}ms${r.clip ? ', by its clip' : ', no clip played'}; the draft ${r.draft ? 'there at every one' : 'not kept'}; then ${r.gone ? 'gone' : 'still up'}`
+    const byClip = (r) => r.clip && r.out >= 50 && r.out <= 170 && r.gone
+    const fresh = async () => { await toMode('m'); await dbl(...corner(await cell(dayKeyOf(3)))); return !!(await state()).pop }
+    // A new one: a press elsewhere, Esc, and ↵ with words. Its draft stays until it has left.
+    if (await fresh()) { const r = await going(() => h.mouse.click(700, 30), dir ? 900 : 450, 'leave-press'); check('a press elsewhere: the new one\'s popover leaves by its clip, as it came, its draft kept until it has left', byClip(r) && r.draft && r.draftGone, said(r)) } else check('a new one opens on a day', false)
+    if (await fresh()) { const r = await going(() => h.keyboard.press('Escape'), dir ? 900 : 450, 'leave-esc'); check('Esc: it leaves the same way, its draft kept until it has left', byClip(r) && r.draft && r.draftGone, said(r)) }
+    if (await fresh()) {
+      await h.keyboard.type('Leaves by its clip', { delay: 8 })
+      const r = await going(() => h.keyboard.press('Enter'), 700)
+      check('↵ with words: made, and the popover leaves the same way', byClip(r) && (await eventsNamed('Leaves by its clip')).length === 1, `${said(r)}; ${(await eventsNamed('Leaves by its clip')).length} made`)
+      await h.keyboard.press('Meta+z')
+      await wait(700)
+    }
+    // Let go and opened again at once (a press elsewhere, then “New event” while the first is still leaving): the new one is up.
+    if (await fresh()) {
+      await h.mouse.click(700, 30)
+      await h.locator('[data-cal-new-event]').first().click()
+      await wait(700)
+      check('let go and opened again at once, while the first is still leaving: the new one is up', !!(await state()).pop && !!(await state()).draft, JSON.stringify({ pop: !!(await state()).pop, draft: !!(await state()).draft }))
+      await h.keyboard.press('Escape')
+      await wait(500)
+    }
+    // One that is open: Esc, a press elsewhere, “Open”, and a name kept with ↵.
+    for (const [how, run] of [['Esc', () => h.keyboard.press('Escape')], ['a press elsewhere', () => h.mouse.click(700, 30)], ['“Open”', () => h.click('[data-cal-add] [data-cal-open-page]')]]) {
+      if (!(await openIn('event', 'Opens here'))) { check(`the event opens, to be let go by ${how}`, false); continue }
+      const r = await going(run)
+      check(`an open event let go by ${how}: its popover leaves by its clip`, byClip(r), said(r))
+      await h.keyboard.press('Escape')
+      await wait(500)
+    }
+    // Nothing plays with Motion off or Reduce motion: it is gone at once.
+    for (const [name, on, off] of [['Motion off', () => h.evaluate(() => document.documentElement.setAttribute('data-motion', 'off')), () => h.evaluate(() => document.documentElement.removeAttribute('data-motion'))], ['Reduce motion', () => h.emulateMedia({ reducedMotion: 'reduce' }), () => h.emulateMedia({ reducedMotion: null })]]) {
+      await on()
+      await wait(300)
+      if (await fresh()) { const r = await going(() => h.mouse.click(700, 30)); check(`${name}: a press elsewhere takes the popover and its draft away at once`, r.frames <= 1 && !r.clip && r.gone && r.draftGone, said(r)) }
+      await off()
+      await wait(300)
+    }
   }
 
   if (parts.includes('spring')) {
@@ -944,27 +1232,6 @@ try {
       const off = tops.filter((n) => n < low || n > high)
       astray.push({ frames: t.length, off: off.length, at: [...new Set(off.map((n) => Math.round(n)))], path: `${Math.round(tops[0])} to ${Math.round(tops.at(-1))}px` })
       return { from, to, between: between.length, oneWay, took, held: t[0][3] || 'nothing', frames: t.length, said: `${from} to ${to}px, ${between.length} in-between heights over ${took}ms of ${t.length} frames (${seen.join(' ')}); held at ${t[0][3] || 'nothing'} before, ${t.at(-1)[3] || 'nothing'} after` }
-    }
-    /**
-     * The frames the page itself drew while `run` plays out and for `ms` after, each kept as a picture named by the
-     * milliseconds since `run` began. (A picture asked for takes 120ms or more of a window this size, half the spring:
-     * these are the page's own frames, as it showed them.)
-     */
-    const cast = async (name, run, ms = 450) => {
-      if (!dir) return run()
-      const cdp = await h.context().newCDPSession(h)
-      const got = []
-      cdp.on('Page.screencastFrame', (frame) => { got.push([frame.metadata.timestamp * 1000, frame.data]); cdp.send('Page.screencastFrameAck', { sessionId: frame.sessionId }).catch(() => {}) })
-      await cdp.send('Page.startScreencast', { format: 'jpeg', quality: 90 })
-      await wait(250)
-      const t0 = Date.now()
-      await run()
-      await wait(ms)
-      await cdp.send('Page.stopScreencast').catch(() => {})
-      await cdp.detach().catch(() => {})
-      const kept = got.filter(([at]) => at >= t0 - 30 && at <= t0 + ms + 150)
-      for (const [at, data] of kept) writeFileSync(`${dir}/${name}-${String(Math.max(0, Math.round(at - t0))).padStart(3, '0')}ms.jpg`, Buffer.from(data, 'base64'))
-      console.log(`NOTE  ${name}: ${kept.length} of the page's own frames kept, drawn ${kept.map(([at]) => Math.max(0, Math.round(at - t0))).join(' ')}ms after the press was asked for`)
     }
     // With pictures being kept the page draws fewer frames, so a filmed run only says what it saw; the count is judged on a run without pictures.
     const sprung = (name, t) => { const r = read(t); if (dir) console.log(`NOTE  ${name}, filmed: ${r.said}`); else check(`${name}: the height moves on the spring, six or more in-between heights, one way`, r.from !== r.to && r.between >= 6 && r.oneWay, r.said); return r }
@@ -1179,9 +1446,12 @@ try {
         const pop = document.querySelector('[data-cal-add]')
         const box = pop.getBoundingClientRect()
         const sized = pop.querySelector('[data-cal-add-sized]')
-        const past = [...pop.querySelectorAll('*')].filter((el) => el.offsetParent && el.getBoundingClientRect().right > box.right + 0.5).length
+        // (Its point is outside its box by design, on whichever side its thing is.)
+        const over = [...pop.querySelectorAll('*')].filter((el) => el.offsetParent && !el.closest('[data-slot="popover-arrow"]') && !el.querySelector(':scope > [data-slot="popover-arrow"]') && el.getBoundingClientRect().right > box.right + 0.5)
+        const past = over.length
+        const what = over.slice(0, 3).map((el) => `${el.tagName.toLowerCase()}${[...el.attributes].filter((a) => a.name.startsWith('data-')).map((a) => `[${a.name}]`).join('')} ${Math.round((el.getBoundingClientRect().right - box.right) * 10) / 10}px`)
         const said = pop.querySelector('[data-new-event-said]')
-        return { w: box.width, past, saidCut: said ? said.scrollWidth > said.clientWidth + 1 : null, scrolls: sized.scrollHeight > sized.clientHeight + 1, sideways: sized.scrollWidth > sized.clientWidth + 1, place: (pop.querySelector('[data-event-rows] input[placeholder="Place"]')?.value ?? '').length, people: pop.querySelectorAll('[data-event-people] span.rounded-full').length }
+        return { w: box.width, side: pop.closest('[data-cal-hold]')?.dataset.side ?? null, past, what, saidCut: said ? said.scrollWidth > said.clientWidth + 1 : null, scrolls: sized.scrollHeight > sized.clientHeight + 1, sideways: sized.scrollWidth > sized.clientWidth + 1, place: (pop.querySelector('[data-event-rows] input[placeholder="Place"]')?.value ?? '').length, people: pop.querySelectorAll('[data-event-people] span.rounded-full').length }
       })
       await shot(`unhappy-worst-${w}`)
       check(`${w} by ${hh}, a long name with an unbreakable word, a long place and three people: the popover keeps its width, inside the window, nothing past its edge, the reading wrapped not cut, and no sideways scroll`, Math.abs(worst.w - Math.min(320, w - 24)) < 1 && inside(s) && worst.past === 0 && worst.saidCut === false && !worst.sideways && worst.place > 60 && worst.people === 3, JSON.stringify(worst))
