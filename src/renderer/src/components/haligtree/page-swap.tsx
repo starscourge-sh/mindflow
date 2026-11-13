@@ -74,7 +74,7 @@ export function PageSwap({ id, children }: { id: string; children: ReactNode }):
         // unless it is the page to come's, so nothing counts the other as a page (panes.tsx, lib/hero.ts).
         return (
           <div key={place} ref={keep[place]} className="absolute inset-0 flex min-w-0" style={next || (last && !!old) ? undefined : { display: 'none' }} data-page-held={next ? undefined : ''}>
-            {[last && going && <Held key={going.id}>{going.node}</Held>, next && <Held key={id} onSeen={() => (setSeen(id), setWaits(null))} onWaits={() => setWaits(id)}>{children}</Held>].filter(Boolean)}
+            {[last && going && <Held key={going.id} next={false}>{going.node}</Held>, next && <Held key={id} next onSeen={() => (setSeen(id), setWaits(null))} onWaits={() => setWaits(id)}>{children}</Held>].filter(Boolean)}
           </div>
         )
       })}
@@ -86,13 +86,16 @@ export function PageSwap({ id, children }: { id: string; children: ReactNode }):
 
 /**
  * One page, unseen until every read on it is in; once seen, says so, and says so too if its parts have had their
- * first say and it is still reading.
+ * first say and it is still reading. A page asked for again while it is still being left (or held while the next
+ * one read) is the same page, already read: it says so as it becomes the page to come. Said only when its reads
+ * came in, it never spoke again, so the page it was leaving for stayed on show under it, two pages at once
+ * (Review asked for from another window a moment after a note was opened from it).
  */
-function Held({ onSeen, onWaits, children }: { onSeen?: () => void; onWaits?: () => void; children: ReactNode }): React.JSX.Element {
+function Held({ next, onSeen, onWaits, children }: { /** The page to come, not the one being left. */ next: boolean; onSeen?: () => void; onWaits?: () => void; children: ReactNode }): React.JSX.Element {
   const { provide, style, counted } = useReadsIn()
   const on = style === undefined
-  useLayoutEffect(() => void (on && onSeen?.()), [on]) // eslint-disable-line react-hooks/exhaustive-deps
-  useLayoutEffect(() => void (counted && !on && onWaits?.()), [counted, on]) // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => void (on && next && onSeen?.()), [on, next]) // eslint-disable-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => void (counted && !on && next && onWaits?.()), [counted, on, next]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="flex min-w-0 flex-1" style={style}>
       {provide(children)}
