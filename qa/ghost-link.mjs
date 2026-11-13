@@ -1,0 +1,124 @@
+// A note opened is the note shown (the user, 13 Nov: "i clicked on a note that (was grayed out) does not exist in
+// haligtree but exists in my obsidian vault, it then open this screen yet the tab claims im on the note"). Their link,
+// "QUOTE - Reed - Nothing Truly Painful Yet Nothing Truly Satisfying", held their gem's own id with no "nugget:" in
+// front (as 484 of the 920 links with an id in their book do): it was drawn grey, as a link to nothing, and opened the
+// Inbox ("Show dealt with too" on, in Graph view) on an Inbox note that is not there, while the tab named the gem.
+// With the Inbox in Graph view:
+//  0. such a link is drawn solid and opens its gem, the page showing it under its tab; a step left on the Inbox with
+//     the gem's id never names the gem on its tab;
+//  1. a link to nothing clicked in a page opens its new note, and the Inbox shows that note under its tab, its
+//     "Show dealt with too" left as it was; 2. a capture opened from ⌘K shows too; 3. Back returns to the graph.
+//   QA_DATA=<empty folder> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/ghost-link.mjs
+//   SHOTS=<folder> saves frames of each click, and the pages in light and dark.
+import { mkdirSync } from 'node:fs'
+import { checks } from './harness.mjs'
+import { sandbox } from './sandbox-lib.mjs'
+process.env.QA_ARGS = ''
+const shots = process.env.SHOTS
+if (shots) mkdirSync(shots, { recursive: true })
+
+const { check, done } = checks()
+const c = await sandbox({ width: 1400, height: 900, seeded: false })
+const { h, v, send, look } = c
+const wait = (ms) => h.waitForTimeout(ms)
+const p = (...content) => ({ type: 'paragraph', content })
+const t = (text) => ({ type: 'text', text })
+const ghost = (label) => ({ type: 'noteLink', attrs: { id: '', label } })
+const NOTE = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+// What the page shows: the graph, the open note's words, and the front tab's name.
+const shown = () => h.evaluate((sel) => {
+  const seen = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 40 && r.height > 40 && getComputedStyle(el).visibility !== 'hidden' }
+  const notes = [...document.querySelectorAll(sel)].filter(seen)
+  return {
+    graph: seen(document.querySelector('[data-inbox-graph]')),
+    note: notes.map((one) => one.textContent.replace(/\s+/g, ' ').trim().slice(0, 120)).join(' | '),
+    tab: document.querySelector('[data-tab-on]')?.getAttribute('data-drag-title') ?? null,
+    page: document.querySelector('[data-page]')?.getAttribute('data-page') ?? null,
+    dealt: document.querySelector('[data-sorted-too] [role=switch]')?.getAttribute('aria-checked') ?? null
+  }
+}, NOTE)
+const until = async (test, ms = 6000) => {
+  const end = Date.now() + ms
+  let last = await shown()
+  while (Date.now() < end && !test(last)) { await wait(150); last = await shown() }
+  return last
+}
+const film = async (name, n = 12) => { if (shots) for (let i = 0; i < n; i++) { await h.screenshot({ path: `${shots}/${name}-f${String(i).padStart(2, '0')}.png` }); await wait(50) } }
+const graphOn = async () => {
+  await send('view', 'inbox'); await wait(900)
+  if (!(await h.$('[data-inbox-graph]'))) await h.click('[data-kind-chips] button:has-text("Graph")')
+  await h.waitForSelector('[data-inbox-graph]', { timeout: 8000 })
+}
+const link = (label) => h.locator(`.note-pane a.tiptap-note-link:has-text("${label}")`).first()
+try {
+  await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
+  await v('settings:set', { sounds: false, hintRate: 0, autoArchive: 0, inboxDays: 3650 })
+  for (const words of ['A thought to keep #work', 'Call the bank about the card', 'An idea for the garden #work'])
+    await h.evaluate((text) => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] } }), words)
+  // The user's gem, and the page the links are in: a page in Writing, as their "Vocabulary Reference" is.
+  const QUOTE = '“You can be stuck in a life where nothing is truly painful yet nothing is truly satisfying either.”'
+  const gem = await v('nugget:from', QUOTE, {})
+  const page = await v('article:new')
+  await v('item:save', page, { title: 'Reading list', body: { type: 'doc', content: [
+    { type: 'heading', attrs: { level: 1 }, content: [t('Reading list')] },
+    p(t('A quote: '), { type: 'noteLink', attrs: { id: gem, label: 'QUOTE - Reed - Nothing Truly Painful Yet Nothing Truly Satisfying' } }, t('.')),
+    p(t('And nowhere: '), ghost('Nowhere page'), t('.'))
+  ] } })
+  await h.reload(); await wait(1500)
+  await graphOn()
+
+  // 0. The user's case: a link holding the gem's own id, no kind in front.
+  let s
+  await send('article', page); await wait(1200)
+  const quote = link('QUOTE - Reed')
+  await quote.waitFor({ timeout: 8000 })
+  await wait(600)
+  const solid = !(await quote.evaluate((one) => one.classList.contains('is-unresolved')))
+  check('0. a link holding a gem\'s own id is drawn solid: its note is in the book', solid)
+  await quote.click()
+  await film('gem-click')
+  s = await until((one) => /stuck in a life/.test(one.note))
+  check('0. clicked, the page shows the gem, under its tab', /stuck in a life/.test(s.note) && /stuck in a life/.test(s.tab ?? '') && s.page !== 'inbox', JSON.stringify(s))
+  if (shots) for (const name of ['light', 'dark']) { await look(name); await wait(400); await h.screenshot({ path: `${shots}/gem-${name}.png` }) }
+  await look('light')
+  // The step such a link left in the user's tab: the Inbox, on the gem's id. Its tab names only what the page shows.
+  await send('capture', gem); await wait(1500)
+  s = await shown()
+  check('0. a step to the Inbox on a gem\'s id: the tab never names the gem the page does not show', s.page === 'inbox' && !/stuck in a li/.test(s.tab ?? ''), JSON.stringify(s))
+  await graphOn()
+
+  // 1. A greyed link clicked in a page, the Inbox in Graph view.
+  await send('article', page); await wait(1200)
+  await link('Nowhere page').waitFor({ timeout: 8000 })
+  const greyed = await link('Nowhere page').evaluate((one) => one.classList.contains('is-unresolved'))
+  check('the link is greyed: no note of that name', greyed)
+  await link('Nowhere page').click()
+  await film('ghost-click')
+  s = await until((one) => /Nowhere page/.test(one.note))
+  check('1. clicked in Graph view, the Inbox shows the new note, not the graph', /Nowhere page/.test(s.note) && !/Reading list/.test(s.note), JSON.stringify(s))
+  check('1. and "Show dealt with too" is left off, as it was', s.dealt === 'false', `switch ${s.dealt}`)
+  check('1. its tab names the note the page shows', s.tab === 'Nowhere page' && /Nowhere page/.test(s.note), `tab ${JSON.stringify(s.tab)}, page ${JSON.stringify(s.note.slice(0, 40))}`)
+  if (shots) for (const name of ['light', 'dark']) { await look(name); await wait(400); await h.screenshot({ path: `${shots}/ghost-${name}.png` }) }
+  await look('light')
+
+  // 3. Back: the graph again, no note open.
+  await graphOn()
+  s = await shown()
+  const backTo = s.graph
+  // 2. ⌘K, typed and Enter: a capture opened by its name in Graph view shows.
+  await h.keyboard.press('Meta+k'); await wait(600)
+  await h.keyboard.type('Call the bank', { delay: 15 }); await wait(700)
+  await h.keyboard.press('Enter')
+  s = await until((one) => /Call the bank/.test(one.note))
+  check('2. ⌘K in Graph view: the capture opened shows, under its tab', /Call the bank/.test(s.note) && /Call the bank/.test(s.tab ?? ''), JSON.stringify(s))
+  await h.keyboard.press('Meta+BracketLeft')
+  s = await until((one) => one.graph && !one.note)
+  check('3. Back returns to the graph, no note open', backTo && s.graph && !s.note, JSON.stringify(s))
+  await film('back')
+  check('no errors on the page', !c.errors.length, c.errors.slice(0, 2).join(' | '))
+} catch (error) {
+  if (shots) await h.screenshot({ path: `${shots}/error.png` }).catch(() => {})
+  check('the run finished', false, error.message.split('\n').slice(0, 12).join(' / '))
+}
+await c.close()
+done()
