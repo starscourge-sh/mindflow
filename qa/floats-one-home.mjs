@@ -27,6 +27,8 @@ const whole = (f) => f.evaluate(() => {
 
 try {
   await v('settings:set', { sounds: false, countIn: false, focusShows: 'bubble', notify: 'alerts', quietStart: '00:00', quietEnd: '00:00' })
+  // On Home, where the “Now” card is (from any other page the window's own notice asks instead).
+  await c.go('home')
   await v('practices:check'); await wait(2500)
   const offered = await h.waitForSelector('[data-practice-now]', { timeout: 6000 }).then(() => true, () => false)
   const words = offered ? await h.evaluate(() => document.querySelector('[data-practice-now]').innerText) : ''
