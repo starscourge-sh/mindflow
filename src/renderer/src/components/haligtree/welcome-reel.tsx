@@ -376,11 +376,12 @@ export function PostcardResult({ words, who, where, signed, id = 'reel-item-quot
           className={`!shadow-[0_2px_3px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_22px_44px_-16px_color-mix(in_oklab,var(--mf-shadow-ink)_42%,transparent)] ${themed ? '!bg-[color-mix(in_oklab,var(--foreground)_10%,var(--background))]' : 'dark:bg-[color-mix(in_oklab,white_88%,var(--background))]'}`}>
           <p className="text-meta text-(--mf-wl-quiet)">Saved a year ago today</p>
           <p aria-label={words.replace(/^[“"]|[”"]$/g, '')} className="clear-both mt-1 font-heading text-[1.0625rem] leading-snug text-foreground">
-            {/* Written on as it lands: each word comes up out of a soft blur, as ink taking on the card, one after another. */}
+            {/* Written on as it lands: each word comes up out of a soft blur, as ink taking on the card, one after another.
+                Its rise a transform, not motion's `y`, so the browser plays it off the page's thread (motion 14.0 hands over only whole transforms). */}
             {words.replace(/^[“"]|[”"]$/g, '').split(' ').map((word, i, all) => (
               <Fragment key={i}>
-                <motion.span aria-hidden data-written={word} className="inline-block" initial={write ? { opacity: 0, filter: 'blur(3px)', y: 2 } : false}
-                  animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }} transition={{ duration: 0.42, ease: EASE, delay: 0.35 + i * 0.11 }}>
+                <motion.span aria-hidden data-written={word} className="inline-block" initial={write ? { opacity: 0, filter: 'blur(3px)', transform: 'translateY(2px)' } : false}
+                  animate={{ opacity: 1, filter: 'blur(0px)', transform: 'translateY(0px)' }} transition={{ duration: 0.42, ease: EASE, delay: 0.35 + i * 0.11 }}>
                   {word}
                 </motion.span>
                 {i < all.length - 1 && ' '}
