@@ -711,7 +711,7 @@ try {
       const brief = [...document.querySelectorAll('li')].find((one) => one.querySelector('[data-task-tick]') && one.querySelector('[data-task-title]')?.textContent === 't1 under its length')
       return { log: log?.querySelector('[data-task-spent]')?.textContent ?? null, logLast: !!log && !!log.querySelector('button')?.lastElementChild?.querySelector('[data-task-spent]'), island: document.querySelector(`[data-pick="task:${id}"] [data-task-spent]`)?.textContent ?? null, brief: brief?.querySelector('[data-task-meta]')?.textContent ?? null }
     }, E)
-    check('1 the Journal’s day, what was done: its line in “The day, hour by hour” says “40 min of focus” last, and its row in “Done” (or struck among the day’s tasks) “40 min of 1 h”', done.log === '40 min of focus' && done.logLast && (done.island === '40 min of 1 h' || /^Done · 40 min of 1 h$/.test(done.brief ?? '')), JSON.stringify(done))
+    check('1 the Journal’s day, what was done: its line in “The day, hour by hour” and its row in “Done” (or struck among the day’s tasks) both say “40 min of 1 h”, last, as Tasks says it', done.log === '40 min of 1 h' && done.logLast && (done.island === '40 min of 1 h' || /^Done · 40 min of 1 h$/.test(done.brief ?? '')), JSON.stringify(done))
     await snap('the day, hour by hour and done', h, 'li[data-log-row="done"]')
     // A day still to come: what is planned for it.
     await c.send('day', dayKeyOf(nowMs() + 86_400_000))

@@ -178,9 +178,9 @@ export function TaskSpentWords({ task, time, lead = ' · ' }: { task: Pick<Task,
 
 /**
  * For a row with no small line: the time said in a tip on its name, with what it counts. With no time on the task
- * the tip has no words and stays shut, and the name keeps the same parents either way.
+ * the tip has no words and stays shut, and the name keeps the same parents either way (a made-up row given no time too).
  */
-export function SpentTip({ task, time, children }: { task: Pick<Task, 'id' | 'estimate' | 'status'>; time: TaskTime; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
-  const spent = time.of(task.id)
+export function SpentTip({ task, time, children }: { task: Pick<Task, 'id' | 'estimate' | 'status'>; time?: TaskTime; children: React.ReactElement<{ 'aria-label'?: string; children?: ReactNode }> }): React.JSX.Element {
+  const spent = time?.of(task.id)
   return <Tip label={spent ? `${spentSaid(task, spent.minutes)}. ${spentCounts(spent.sessions)}` : ''}>{cloneElement(children, { 'data-task-spent-tip': spent?.minutes } as object)}</Tip>
 }

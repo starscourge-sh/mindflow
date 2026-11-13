@@ -43,10 +43,12 @@ function dayLog(day: Day, only?: What[]): LogRow[] {
 /** How many of a day's lines show before "Show all N". */
 const FEW = 12
 
-export function DayLog({ day, given, only, onOpen, title = 'The day, hour by hour', empty, className = '' }: {
+export function DayLog({ day, given, only, onOpen, lengths, title = 'The day, hour by hour', empty, className = '' }: {
   day: string
   /** The day already read by the page it is on: not read a second time (each write reads every page's day again, and two at once held up the next page). */
   given?: Day | null
+  /** Each task's length, from the page it is on: a task's time is said against it, as on every other list (“40 min of 1 h”). */
+  lengths?: ReadonlyMap<string, number | null>
   only?: What[]
   onOpen?: (type: string, id: string) => void
   title?: string
@@ -88,7 +90,7 @@ export function DayLog({ day, given, only, onOpen, title = 'The day, hour by hou
                     {!!name.tags.length && <span className="ml-1.5 inline-flex align-middle"><Tags tags={name.tags} go={false} /></span>}
                   </span>
                   {/* The time spent on a task, last in its line. */}
-                  {row.type === 'task' && <span className="flex shrink-0 self-center"><TaskSpent task={{ id: row.id, estimate: null, status: row.what === 'done' || row.status === 'done' ? 'done' : 'open' }} time={time} className="text-xs text-muted-foreground" /></span>}
+                  {row.type === 'task' && <span className="flex shrink-0 self-center"><TaskSpent task={{ id: row.id, estimate: lengths?.get(row.id) ?? null, status: row.what === 'done' || row.status === 'done' ? 'done' : 'open' }} time={time} className="text-xs text-muted-foreground" /></span>}
                 </button>
               </li>
             )

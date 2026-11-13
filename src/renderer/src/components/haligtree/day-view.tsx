@@ -86,6 +86,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
   const taskNow = useTaskNow()
   // The time on the day's tasks and the session running on one, for every list of what the day held (task-time.tsx).
   const taskTime = useTaskTime()
+  // Each task's length, so every list on the page says its time as Tasks does (“40 min of 1 h”): one lookup, not a search a row.
+  const lengths = useMemo(() => new Map(tasks.map((one) => [one.id, one.estimate])), [tasks])
   const data = read?.day === day ? read : null
   const today = dayOf()
   // A day still to come: what is planned for it, not what it held.
@@ -269,7 +271,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
         {day !== today && writing}
         {ahead && <DayAhead day={day} tasks={tasks} onOpen={onOpen} menuFor={(task) => (onOpen ? taskMenu(task, { open: () => onOpen('task', task.id), now: taskNow }) : [])} />}
         {/* The day as a time log: everything caught, dealt with, studied, done or dated, each at its time. */}
-        {!ahead && !example && <DayLog day={day} given={data} onOpen={onOpen} className="mt-6" />}
+        {!ahead && !example && <DayLog day={day} given={data} onOpen={onOpen} lengths={lengths} className="mt-6" />}
         {!ahead && <Example on={example} flush className="mt-6" tryIt="write a line about your day above. What you catch, finish and review today gathers underneath on its own.">
         {/* Only what the day has: four headings over nothing say less than one line. */}
         {held && sections.every(([, , list]) => !list.length) && (
@@ -308,7 +310,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
                   {/* Why a row is struck or where it went, in words: never the stored status. */}
                   {entry.status && entry.status !== 'open' && !(title === 'Done' && entry.status === 'done') && <span className="text-xs text-muted-foreground">{({ done: 'Done', dropped: 'In the Bin', closed: 'Closed' } as Record<string, string>)[entry.status] ?? statusSaid(entry.status)}</span>}
                   {/* The time spent on a task, last in its row, where the row's quiet words go. */}
-                  {entry.type === 'task' && <TaskSpent task={{ id: entry.id, estimate: tasks.find((one) => one.id === entry.id)?.estimate ?? null, status: entry.status === 'open' ? 'open' : 'done' }} time={taskTime} className="text-xs text-muted-foreground" />}
+                  {entry.type === 'task' && <TaskSpent task={{ id: entry.id, estimate: lengths.get(entry.id) ?? null, status: entry.status === 'open' ? 'open' : 'done' }} time={taskTime} className="text-xs text-muted-foreground" />}
                   {glossable && <span aria-hidden className="w-6 shrink-0" />}
                 </button>
                 </RowMenu>

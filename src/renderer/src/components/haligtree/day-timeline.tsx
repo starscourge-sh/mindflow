@@ -89,8 +89,8 @@ export function DayTimeline({ events, tasks, sessions = [], now, done, pen, onTi
                       </span>
                       <Tags tags={name.tags} />
                     </span>
-                    {/* Its length is said in the line already, so the time spent reads “so far”, and “of focus” once it is done. */}
-                    <span data-task-meta className="mt-0.5 block truncate text-sm text-muted-foreground">{ticked ? 'Done' : task.estimate ? `A task, about ${lengthSaid(task.estimate)}` : 'A task'}<TaskSpentWords task={{ id: task.id, estimate: null, status: ticked ? 'done' : task.status }} time={time} /></span>
+                    {/* While it is open its length is said in the line already, so the time spent reads “so far”; done, the line says only that, and the time is said against its length as every list says it. */}
+                    <span data-task-meta className="mt-0.5 block truncate text-sm text-muted-foreground">{ticked ? 'Done' : task.estimate ? `A task, about ${lengthSaid(task.estimate)}` : 'A task'}<TaskSpentWords task={{ id: task.id, estimate: ticked ? task.estimate : null, status: ticked ? 'done' : task.status }} time={time} /></span>
                   </button>
                 </li>
               </RowMenu>
