@@ -1,4 +1,4 @@
-import { Fragment, createContext, useContext, useEffect, useId, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { Fragment, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { dragWords } from '@/lib/drag-words'
 import { createPortal } from 'react-dom'
 import { DndContext, DragOverlay, useDndMonitor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
@@ -6,7 +6,7 @@ import { RowSensor } from '@/lib/own-press'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { EASING, spring, still } from '@/lib/motion'
-import { CarriedCard, CarryRow, DropLine, HELD, Hand, OwnRoom, Shaped, pointerAt, rowAt, swallowRelease, titleOf, useAim, useRest, useTargets, headRow, type Parts, type Places } from './carry'
+import { CarriedCard, CarryRow, HELD, Hand, OwnRoom, RoomAt, Shaped, clearWay, makeWay, pointerAt, restBox, rowAt, swallowRelease, titleOf, useAim, useRest, useTargets, headRow, type Parts, type Places, type Spot } from './carry'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { refuse } from './ui'
@@ -87,15 +87,6 @@ const Order = createContext<string | undefined>(undefined)
 
 /** A row rested on another's middle: what may happen there. `refused` says why it cannot. */
 export type NestCheck = (carried: string, target: string) => true | { refused: string } | false
-
-/** A card on the Board, as it looked when picked up: a card lifted is the same card. */
-export const snapshot = (id: string): Shot | null => {
-  const node = document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(id)}"]`)
-  if (!node) return null
-  const box = node.getBoundingClientRect()
-  return { id, html: node.innerHTML, width: box.width, height: box.height }
-}
-type Shot = { id: string; html: string; width: number; height: number }
 
 /** What a lifted row's card says, read as it is picked up: the row itself may scroll away under the pointer. */
 const carriedOf = (id: string, event: Event): Lift | null => {
@@ -412,36 +403,80 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   const done = (): void => (clearTimeout(settle.current), void (settle.current = setTimeout(() => setSorting(false), 320)))
   const ticks = useRef(slotTicker()).current
   const lifted = useRef<string | null>(null)
+  // Where the room is, while the rows make way for it; let go with a move, until the new order is drawn; the row's own place, closed over.
+  const [room, setRoom] = useState<Spot | null>(null)
+  const landing = useRef(false)
+  const hid = useRef<HTMLElement | null>(null)
   const incoming = blocks.map((one) => `${one.key}:${one.items.map(keyOf).join(',')}`).join('\n')
   useEffect(() => setHeld(null), [incoming])
   const byId = new Map(blocks.flatMap((one) => one.items.map((item): [string, T] => [keyOf(item), item])))
   const shown = held ? held.map((one) => ({ key: one.key, items: one.ids.map((id) => byId.get(id)).filter((item): item is T => !!item) })) : blocks
+  // The new order drawn after a drop: everything at once where it now stands, nothing sliding back first.
+  const order = shown.map((one) => one.key + ':' + one.items.map(keyOf).join(',')).join('\n')
+  useLayoutEffect(() => {
+    if (!landing.current) return
+    landing.current = false
+    clearWay(true)
+    if (hid.current) hid.current.style.visibility = ''
+  }, [order])
+  // Each row in a box of its own that makes way for the room while a row is carried (carry.tsx, makeWay).
   const draw = (one: { key: string; items: T[] }, at: number): ReactNode => {
     const ids = one.items.map(keyOf)
-    return <Fragment key={one.key}>{around(one.key, at, <div data-drop-list={list} data-drop-block={one.key} className="flex flex-col gap-px">{one.items.map((item) => row(item, ids))}</div>, one.items)}</Fragment>
+    return <Fragment key={one.key}>{around(one.key, at, <div data-drop-list={list} data-drop-block={one.key} className="flex flex-col gap-px">{one.items.map((item) => <div key={keyOf(item)} data-carry-way={keyOf(item)}>{row(item, ids)}</div>)}</div>, one.items)}</Fragment>
   }
   if (!onMove) return <>{shown.map(draw)}</>
-  // Where the pointer is: over a part that refuses, or the nearest place between rows.
+  const rowOf = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-drop-list="${CSS.escape(list)}"] [data-carry-way="${CSS.escape(id)}"]`)
+  // Where the pointer is: over a part that refuses, or the nearest place between rows, all read where they rest (their slides left out).
   const where = (y: number): Slot | 'refused' | null => {
-    for (const part of refuse ? document.querySelectorAll(refuse.selector) : []) {
-      const box = part.getBoundingClientRect()
-      if (box.height > 0 && y >= box.top && y <= box.bottom) return 'refused'
+    for (const part of refuse ? document.querySelectorAll<HTMLElement>(refuse.selector) : []) {
+      const box = restBox(part)
+      if (box.height > 0 && y >= box.top && y <= box.top + box.height) return 'refused'
     }
     let best: Slot | null = null
     for (const block of document.querySelectorAll<HTMLElement>(`[data-drop-list="${CSS.escape(list)}"]`)) {
-      const rows = [...block.querySelectorAll<HTMLElement>('[data-sortable-id]')]
+      const rows = [...block.querySelectorAll<HTMLElement>('[data-carry-way]')].map((one) => ({ id: one.dataset.carryWay ?? null, ...restBox(one) }))
       const box = block.getBoundingClientRect()
       // A block emptied by a drag still takes one back, where it sits.
-      const marks = !rows.length ? [{ y: box.top, before: null }] : [...rows.map((one) => ({ y: one.getBoundingClientRect().top, before: one.dataset.sortableId ?? null })), { y: rows[rows.length - 1].getBoundingClientRect().bottom, before: null }]
+      const marks = !rows.length ? [{ y: box.top, before: null }] : [...rows.map((one) => ({ y: one.top, before: one.id })), { y: rows[rows.length - 1].top + rows[rows.length - 1].height, before: null }]
       for (const mark of marks)
         if (!best || Math.abs(mark.y - y) < Math.abs(best.y - y)) best = { block: block.dataset.dropBlock ?? '', before: mark.before, y: mark.y, left: box.left, width: box.width }
     }
     return best
   }
+  /** Every piece round the rows of every block, in the part of the page that holds them all: what makes way for the room. */
+  const pieces = (): HTMLElement[] => {
+    const all = [...document.querySelectorAll<HTMLElement>(`[data-drop-list="${CSS.escape(list)}"]`)]
+    let holder = all[0]?.parentElement ?? null
+    while (holder && !all.every((one) => holder!.contains(one))) holder = holder.parentElement
+    const of = (node: Element): HTMLElement[] => [...node.children].flatMap((child) => {
+      if (!(child instanceof HTMLElement) || !child.offsetHeight || /^(fixed|absolute)$/.test(getComputedStyle(child).position)) return []
+      if (child.hasAttribute('data-carry-way')) return [child]
+      return child.querySelector('[data-carry-way]') ? of(child) : [child]
+    })
+    return holder ? of(holder) : []
+  }
+  /** The rows make way where it would land and the room opens there; over its own place, or refused, everything stays home. */
+  const way = (next: Slot | null): void => {
+    const id = lifted.current
+    const me = id ? rowOf(id) : null
+    if (!me || !id || landing.current) return setRoom(null)
+    const home = !next || stays(id, next)
+    const all = pieces()
+    const laid = all.map((el) => ({ el, top: restBox(el).top })).sort((a, b) => a.top - b.top)
+    const at = (el: HTMLElement | null): number => laid.findIndex((one) => one.el === el)
+    const block = next ? [...document.querySelectorAll<HTMLElement>(`[data-drop-list="${CSS.escape(list)}"][data-drop-block="${CSS.escape(next.block)}"] [data-carry-way]`)] : []
+    const gap = home || !next ? null : next.before !== null ? at(rowOf(next.before)) - 1 : block.length ? at(block[block.length - 1]) : null
+    const spot = makeWay(all, me, gap, me.offsetHeight)
+    // Its own place is the list row's own quiet band (carry.tsx's CarryRow): away from it, that place is closed over.
+    me.style.visibility = spot && !spot.own ? 'hidden' : ''
+    hid.current = me
+    setRoom(spot && !spot.own ? spot : null)
+  }
   const mark = (next: Slot | null, no: boolean): void => {
     now.current = { slot: next, refused: no }
     setSlot(next)
     setRefused(no)
+    way(no ? null : next)
     if (no) document.documentElement.dataset.dragRefused = ''
     else delete document.documentElement.dataset.dragRefused
     // Both lines round its own place are one place: no tick or tap for staying put.
@@ -467,10 +502,14 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   }
   const onDragEnd = ({ active }: DragEndEvent): void => {
     const { slot: drop, refused: no } = now.current
+    const id = String(active.id)
+    // A move: the rows hold where they made way until the new order is drawn (above), so nothing slides back first.
+    landing.current = !no && !!drop && !stays(id, drop) && shown.some((one) => one.key === drop.block)
     mark(null, false)
+    // Not a move: everything goes home now, and the pieces are pieces no more.
+    if (!landing.current) clearWay(false)
     setShot(null)
     done()
-    const id = String(active.id)
     if (no) return chime('nope')
     if (!drop || stays(id, drop)) return chime('stay')
     const next = shown.map((one) => ({ key: one.key, ids: one.items.map(keyOf).filter((other) => other !== id) }))
@@ -483,12 +522,12 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   // Round its own place nothing would change: the card says nothing, as a list's does.
   const moves = !!slot && !!shot && !stays(shot.id, slot)
   return (
-    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (mark(null, false), setShot(null), done())}>
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (mark(null, false), clearWay(false), setShot(null), done())}>
       <SortableContext items={shown.flatMap((one) => one.items.map(keyOf))} strategy={stayPut}>
         <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={shown.map((one) => one.key + ':' + one.items.map(keyOf).join(',')).join('\n')}>{shown.map(draw)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
-      {/* Where it will land, the one hint: the line every list draws, in whichever block that is. */}
-      {slot && moves && createPortal(<DropLine fixed how={`${slot.block}:${slot.before ?? ''}`} style={{ top: Math.round(slot.y), left: slot.left + 12, width: slot.width - 20 }} />, document.body)}
+      {/* Where it will land: the rows make way and the room opens there, the line every list draws through it, in whichever block that is. */}
+      {slot && moves && room && <RoomAt at={room} how={`${slot.block}:${slot.before ?? ''}`} />}
       <Overlay dropAnimation={still() || refused ? null : SETTLE}>
         {shot && <Lifted shot={shot} words={refused && refuse ? refuse.said : moves ? 'Move here' : null} refused={refused} />}
       </Overlay>

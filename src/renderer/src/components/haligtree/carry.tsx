@@ -1,4 +1,5 @@
 import { Fragment, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
+import { createPortal } from 'react-dom'
 import { useDndContext } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { AnimatePresence, animate, cubicBezier, motion, motionValue, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
@@ -186,12 +187,87 @@ function useGlide(y: number, scaleY: number, instant: boolean, kick = 0, over: [
   return { ref: useCallback((node: HTMLElement | null) => void (el.current = node), []), style: { y: my, scaleY: ms } }
 }
 
+/**
+ * Pieces of a page that stay where the page lays them (the sidebar's folders, its sections, its pages in their runs):
+ * carried among, they make way as a list's rows do, on the same one clock, each slide written straight onto the piece.
+ */
+const ways = new Map<HTMLElement, Glider>()
+const glideEl = (el: HTMLElement, y: number, now: boolean): void => {
+  let one = ways.get(el)
+  if (!one) {
+    const my = motionValue(0)
+    my.on('change', (v) => void (el.style.transform = v ? `translateY(${v}px)` : ''))
+    one = { y: my, scale: motionValue(1), from: [0, 1], to: [0, 1], at: [0, 1], over: [0, 0] }
+    ways.set(el, one)
+    gliders.add(one)
+  }
+  if (one.to[0] === y && !now) return
+  one.to = [y, 1]
+  if (now || still()) return void ((one.from = one.at = [y, 1]), one.y.jump(y), (el.style.transform = y ? `translateY(${y}px)` : ''))
+  retarget()
+}
+/** Where a piece is laid out, its slide left out. */
+export const restBox = (el: HTMLElement): { top: number; height: number; left: number; width: number } => {
+  const box = el.getBoundingClientRect()
+  return { top: box.top - new DOMMatrixReadOnly(getComputedStyle(el).transform).m42, height: box.height, left: box.left, width: box.width }
+}
+/** Where the room is, as the page will show it once the pieces have made way. */
+export type Spot = { top: number; height: number; left: number; width: number; own: boolean }
+/**
+ * Everything between where the carried piece was and where it would land slides by its height, the rest stays; the
+ * room is as tall as the carried piece (`tall`, its one row when it holds more). `all`, every piece in its run, the
+ * carried one among them; `gap`: the room opens just after the piece at that place in `all` as laid out (-1: before
+ * the first), null: nowhere, and everything goes home.
+ */
+export function makeWay(all: HTMLElement[], carried: HTMLElement, gap: number | null, tall: number): Spot | null {
+  const laid = all.map((el) => ({ el, ...restBox(el) })).sort((a, b) => a.top - b.top)
+  const from = laid.findIndex((one) => one.el === carried)
+  const own = gap === null || from < 0 || gap === from || gap === from - 1
+  // The carried piece's own place, with the air under it: what the pieces after it close over.
+  const span = from < 0 ? tall : (laid[from + 1] ? laid[from + 1].top : laid[from].top + laid[from].height + 1) - laid[from].top
+  for (const [at, one] of laid.entries()) {
+    if (one.el === carried) continue
+    one.el.dataset.carryPiece = ''
+    glideEl(one.el, own ? 0 : gap > from ? (at > from && at <= gap ? -span : 0) : at > gap && at < from ? span : 0, false)
+  }
+  if (gap === null || from < 0) return null
+  const me = laid[from]
+  if (own) return { top: me.top, height: tall, left: me.left, width: me.width, own: true }
+  // Going down, the room takes the foot of the last piece passed; going up, the head of the first one passed.
+  const top = gap > from ? laid[gap].top + laid[gap].height - tall : laid[gap + 1].top
+  return { top, height: tall, left: me.left, width: me.width, own: false }
+}
+/** Every piece home: let go, at once where the drop leaves them; put back, gliding there. */
+export function clearWay(snap: boolean): void {
+  for (const [el, one] of ways) {
+    delete el.dataset.carryPiece
+    if (snap || still() || !el.isConnected) {
+      one.y.jump(0)
+      el.style.transform = ''
+      gliders.delete(one)
+      ways.delete(el)
+    } else glideEl(el, 0, false)
+  }
+}
+
 /** The room's quiet band, wherever one is drawn. */
 const ROOM = 'pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]'
 /** A carried thing's own place, while nothing else is open for it: the same quiet band, never a faded copy of it. */
 export const OwnRoom = (): React.JSX.Element => <span aria-hidden data-own-room="" className={cn(ROOM, 'inset-y-0')} />
 /** What holds that band where the thing is not a list's row (a tab, a Matrix card): everything in it but the band goes out of sight. */
 export const HELD = 'relative [&>*:not([data-own-room])]:opacity-0'
+/**
+ * The room where a carried thing's own box is the room (a board's card, which the cards round it make way for): the
+ * quiet band, the one line through its middle once it would land somewhere new; over its own place, the band alone.
+ * Its holder hides everything else in it (`HELD`, or the same for its own children).
+ */
+export const RoomIn = ({ moves, how }: { moves: boolean; how: string }): React.JSX.Element =>
+  moves ? (
+    <Fragment key={how}>
+      <span aria-hidden data-drop-room="1" className={cn(ROOM, 'inset-y-0')} style={{ animation: still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both` }} />
+      <DropLine how={how} style={{ left: 12, top: '50%', animation: still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both` }} />
+    </Fragment>
+  ) : <OwnRoom />
 
 /**
  * Where it lands, the one line every list draws: a dot at its start. In a row's
@@ -281,6 +357,24 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
     }
   }, [to, y])
   return { ref: useCallback((node: HTMLElement | null) => void (card.current = node), []), y }
+}
+
+/**
+ * The room among pieces that stay where the page lays them (makeWay): the same quiet band with the one line through its
+ * middle, laid over the page where they open it. Over the carried piece's own place, the band alone. It waits for the
+ * pieces to make way, as a list's room does. The band is a tint with nothing in it, placed from the page's top (which
+ * never scrolls), as a list's band is placed in its row.
+ */
+export function RoomAt({ at, how, indent = 0 }: { at: Spot; how: string; indent?: number }): React.JSX.Element {
+  const wait = still() || at.own ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both`
+  const key = `${Math.round(at.top)}:${at.own}`
+  return createPortal(
+    <Fragment key={key}>
+      <span aria-hidden {...(at.own ? { 'data-own-room': '' } : { 'data-drop-room': '1' })} className={cn(ROOM, 'z-[70] inset-x-auto')} style={{ top: at.top, height: at.height - 2, left: at.left + 4, width: at.width - 8, animation: wait }} />
+      {!at.own && <DropLine fixed how={how} style={{ top: at.top + (at.height - 2) / 2, left: at.left + 12 + indent, width: at.width - 20 - indent, animation: wait }} />}
+    </Fragment>,
+    document.body
+  )
 }
 
 /** A card drawn by the page itself, not in a list's lifted place (the sidebar's folders): it rides clear of the line too. */

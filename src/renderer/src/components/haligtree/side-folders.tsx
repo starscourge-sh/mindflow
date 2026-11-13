@@ -1,5 +1,5 @@
 import { openItems } from '@/lib/split'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NameInPlace } from './name-in-place'
 import { Branches } from './branches'
 import { createPortal } from 'react-dom'
@@ -13,7 +13,8 @@ import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { GroupIcon, IconChoice, binGroup } from './kept-groups'
-import { CarriedCard, Clear, DropLine, swallowClick, swallowRelease } from './carry'
+import { CarriedCard, Clear, RoomAt, clearWay, makeWay, restBox, swallowClick, swallowRelease, type Spot } from './carry'
+import { DROP_LIT } from './sortable'
 import { pastEdge } from '@/lib/drag-edge'
 import { slotTicker } from '@/lib/proximity'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
@@ -94,6 +95,8 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
   const order = useKept(`order:${list}`, () => notes.order(list), [] as string[], [list])
   const ranked = new Set(order)
   const layout = layoutOf([...order, ...all.flatMap((one) => one.members.filter((id) => !ranked.has(id)))], all)
+  // The saved order drawn: everything at once where it now stands.
+  useLayoutEffect(() => void (landing && (clearWay(true), setLanding(null))), [all, order]) // eslint-disable-line react-hooks/exhaustive-deps
   const kids = (parent: string | null): NoteGroup[] => {
     const at = parent ? layout.groups[parent] ?? [] : layout.top
     return all.filter((one) => (one.parent && all.some((other) => other.id === one.parent) ? one.parent : null) === parent).sort((a, b) => at.indexOf(KEY + a.id) - at.indexOf(KEY + b.id))
@@ -101,41 +104,55 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
   // A folder being carried, and where it would land: inside one, or just before or after one.
   const [carried, setCarried] = useState<{ id: string; x: number; y: number } | null>(null)
   const [aim, setAim] = useState<Aim | null>(null)
+  // Where the room is: the other folders make way for it, as a list's rows do (carry.tsx, makeWay).
+  const [room, setRoom] = useState<Spot | null>(null)
+  // Let go with a move: the folders stay where the drop put them until the saved order is drawn, so nothing jumps back.
+  const [landing, setLanding] = useState<string | null>(null)
   const count = (group: NoteGroup): number => group.members.filter((id) => shown.has(id)).length + kids(group.id).reduce((sum, one) => sum + count(one), 0)
   const levelOf = (id: string | null): number => (id ? 1 + levelOf(all.find((one) => one.id === id)?.parent ?? null) : 0)
   const heightOf = (id: string): number => 1 + Math.max(0, ...kids(id).map((one) => heightOf(one.id)))
   const inside = (id: string, of: string): boolean => id === of || kids(of).some((one) => inside(id, one.id))
   // A folder carried onto another: inside it, if that stays three levels deep and is not itself inside the carried one.
-  const nest = (id: string, parent: string | null): void => {
+  // Each says whether anything moved: a drop that moved something holds its place until the saved order is drawn.
+  const nest = (id: string, parent: string | null): boolean => {
     const group = all.find((one) => one.id === id)
-    if (!group || group.parent === parent) return
-    if (parent && inside(parent, id)) return refuse('A folder can’t go inside itself')
-    if (levelOf(parent) + heightOf(id) > DEPTH) return refuse(`Folders go ${DEPTH} levels deep`)
+    if (!group || group.parent === parent) return false
+    if (parent && inside(parent, id)) return (refuse('A folder can’t go inside itself'), false)
+    if (levelOf(parent) + heightOf(id) > DEPTH) return (refuse(`Folders go ${DEPTH} levels deep`), false)
     const was = group.parent
     chime('gather')
     sayNow(groups.nest(id, parent), parent ? `Moved ${group.name} into ${all.find((one) => one.id === parent)?.name}` : `Moved ${group.name} to the top`, () => void groups.nest(id, was))
+    return true
   }
   // Dropped by a folder's edge: just before or after it, beside it in what holds it.
-  const reorder = (id: string, target: string, how: 'before' | 'after'): void => {
+  const reorder = (id: string, target: string, how: 'before' | 'after'): boolean => {
     const group = all.find((one) => one.id === id)
     const by = all.find((one) => one.id === target)
-    if (!group || !by || id === target) return
+    if (!group || !by || id === target) return false
     const parent = by.parent && all.some((one) => one.id === by.parent) ? by.parent : null
-    if (parent && inside(parent, id)) return refuse('A folder can’t go inside itself')
-    if (levelOf(parent) + heightOf(id) > DEPTH) return refuse(`Folders go ${DEPTH} levels deep`)
+    if (parent && inside(parent, id)) return (refuse('A folder can’t go inside itself'), false)
+    if (levelOf(parent) + heightOf(id) > DEPTH) return (refuse(`Folders go ${DEPTH} levels deep`), false)
     const beside = (parent ? layout.groups[parent] ?? [] : layout.top).filter((key) => key !== KEY + id)
     const after = how === 'after' ? KEY + target : beside[beside.indexOf(KEY + target) - 1] ?? null
-    if (beside.indexOf(after ?? '') + 1 === (parent ? layout.groups[parent] ?? [] : layout.top).indexOf(KEY + id) && group.parent === parent) return chime('stay')
+    if (beside.indexOf(after ?? '') + 1 === (parent ? layout.groups[parent] ?? [] : layout.top).indexOf(KEY + id) && group.parent === parent) return (chime('stay'), false)
     const next = moveTo(layout, KEY + id, { group: parent, after })
     const was = layout
     chime('gather')
     sayNow(groups.arrange(list, next), `Moved ${group.name} ${how} ${by.name}`, () => void groups.arrange(list, was))
+    return true
   }
   // Carried as a list's row is: the same hand, the same card, Esc puts it back, and its folder's real edge says in or out.
   const ticks = useRef(slotTicker()).current
   const within = useRef(new Set<string>())
   const aimRef = useRef<Aim | null>(null)
-  const rowBox = (id: string): DOMRect | undefined => document.querySelector(`[data-side-folders="${list}"] [data-side-folder="${CSS.escape(id)}"]`)?.closest('[data-folder-line]')?.getBoundingClientRect()
+  const lineOf = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-side-folders="${list}"] [data-side-folder="${CSS.escape(id)}"]`)?.closest<HTMLElement>('[data-folder-line]') ?? null
+  // Where each folder's row rests, its slide left out: read off where they glide to, the room would chase itself.
+  const rowBox = (id: string): DOMRect | undefined => {
+    const line = lineOf(id)
+    if (!line?.getClientRects().length) return undefined
+    const box = restBox(line)
+    return new DOMRect(box.left, box.top, box.width, box.height)
+  }
   const treeOf = (id: string): string[] => [id, ...kids(id).filter(isFolder).flatMap((one) => treeOf(one.id))]
   const parentIn = (id: string | null | undefined): string | null => (id && all.find((one) => one.id === id)?.parent) || null
   /** Letting go there would put it deeper than folders go: refused, as the drop itself would be. */
@@ -162,12 +179,30 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     const line = (at: string, how: 'before' | 'after'): Aim => {
       const shown = treeOf(at).map(rowBox).filter((one): one is DOMRect => !!one)
       const row = rowBox(at)!
-      return { target: at, how, y: how === 'before' ? row.top - 1 : Math.max(...shown.map((one) => one.bottom)) + 1, left: row.left + 16, right: tree.right - 4 }
+      return { target: at, how, y: how === 'before' ? row.top - 1 : Math.max(...shown.map((one) => one.bottom)) + 1, left: row.left, right: tree.right - 4 }
     }
     const past = pastEdge(boxes, y, within.current)
     if (past) return line(past.id, past.how)
     const at = (y - over.top) / over.height
     return at < 0.3 ? line(over.id, 'before') : at > 0.7 ? line(over.id, 'after') : { target: over.id, how: 'into', y: 0, left: 0, right: 0 }
+  }
+  /** The room for what letting go would do: among the folders, they make way and the room opens; into one, or off them, its own place. */
+  const way = (id: string, next: Aim | null): void => {
+    const me = lineOf(id)
+    if (!me) return setRoom(null)
+    const lines = [...document.querySelectorAll<HTMLElement>(`[data-side-folders="${list}"] [data-folder-line]`)].filter((one) => one.offsetHeight > 0)
+    const tall = me.offsetHeight
+    const here = restBox(me)
+    const own: Spot = { ...here, height: tall, own: true }
+    if (!next || next.how === 'into' || tooDeep(id, next)) return void (makeWay(lines, me, null, tall), setRoom(own))
+    const laid = lines.map((el) => ({ el, top: restBox(el).top })).sort((a, b) => a.top - b.top)
+    const at = (el: HTMLElement | null): number => laid.findIndex((one) => one.el === el)
+    const gap = next.how === 'before' ? at(lineOf(next.target)) - 1 : Math.max(...treeOf(next.target).map(lineOf).map(at))
+    const spot = makeWay(lines, me, gap, tall)
+    // At the level it would land: beside the folder it goes before or after.
+    const level = lineOf(next.target)
+    const by = level ? restBox(level) : here
+    setRoom(spot && { ...spot, left: by.left, width: by.width })
   }
   const carry = (event: React.PointerEvent, id: string): void => {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey) return
@@ -193,6 +228,7 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
         lifted = true
         within.current.clear()
         ticks.start(id)
+        setLanding(null)
         chime('lift')
         document.documentElement.dataset.dragging = ''
         document.getSelection()?.removeAllRanges()
@@ -210,9 +246,12 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
       aimRef.current = null
       setAim(null)
       setCarried(null)
+      setRoom(null)
     }
     const cancel = (): void => {
       finish()
+      // Put back: the folders glide home.
+      clearWay(false)
       if (lifted) chime('stay')
     }
     const up = (): void => {
@@ -220,9 +259,11 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
       finish()
       if (!lifted) return
       swallowClick()
-      if (!now) return chime('stay')
-      if (now.how === 'into') nest(id, now.target)
-      else reorder(id, now.target, now.how)
+      if (!now) return (clearWay(false), chime('stay'))
+      // A move: held where the drop put them until the saved order is drawn (above); anything else goes home now.
+      const moved = now.how === 'into' ? nest(id, now.target) : reorder(id, now.target, now.how)
+      if (moved && now.how !== 'into') setLanding(id)
+      else clearWay(false)
     }
     const key = (e: KeyboardEvent): void => {
       if (e.key !== 'Escape' || !lifted) return
@@ -236,7 +277,9 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     window.addEventListener('pointercancel', cancel, true)
     window.addEventListener('keydown', key, true)
   }
-  const drag: Drag = { carried: carried?.id ?? null, aim, carry }
+  // Read once each change is drawn: folded to its one row in the hand, its subfolders gone from under it.
+  useLayoutEffect(() => void (carried && way(carried.id, aim)), [aim, carried?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const drag: Drag = { carried: carried?.id ?? landing, aim, carry }
   const lifted = carried && all.find((one) => one.id === carried.id)
   // Each level hung off a thin trunk from the row above it, a curved branch to each folder, as Pinned and
   // Tags are; the way down to the folder you are in lit. Each level steps in under its parent's icon.
@@ -284,13 +327,13 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
           {/* It says what letting go would do, as a list's card does: beside a folder, or inside the one that is lit. It rides clear of the line, as a list's card does. */}
           <Clear>
             <CarriedCard attrs={{ 'data-folder-ghost': lifted.id }} icon={<GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />} title={lifted.name} refused={!!aim && tooDeep(lifted.id, aim)}
-              words={!aim ? null : tooDeep(lifted.id, aim) ? `Folders go ${DEPTH} levels deep` : aim.how === 'into' ? `Put inside ${all.find((one) => one.id === aim.target)?.name ?? 'it'}` : 'Move here'} />
+              words={!aim ? null : tooDeep(lifted.id, aim) ? `Folders go ${DEPTH} levels deep` : aim.how === 'into' ? `Move into ${all.find((one) => one.id === aim.target)?.name ?? 'it'}` : 'Move here'} />
           </Clear>
         </div>,
         document.body
       )}
-      {/* Where it lands, the line every list draws (carry.tsx), at the edge it was read against. */}
-      {aim && aim.how !== 'into' && createPortal(<DropLine fixed how={aim.how} style={{ top: aim.y, left: aim.left, width: aim.right - aim.left }} />, document.body)}
+      {/* Where it lands: the room the folders open, with the line every list draws through it (carry.tsx); its own place, the band alone. */}
+      {lifted && room && <RoomAt at={room} how={aim ? `${aim.how}:${aim.target}` : 'own'} />}
     </Unfold>
   )
 }
@@ -301,7 +344,6 @@ const GROUPS_SHOWN = 6
 type Aim = { target: string; how: 'into' | 'before' | 'after'; /** Its line, where one is drawn. */ y: number; left: number; right: number }
 type Drag = { carried: string | null; aim: Aim | null; carry: (event: React.PointerEvent, id: string) => void }
 
-const HOT = 'bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] text-foreground ring-1 ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]'
 
 function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen, onNest, drag }: {
   list: 'article' | 'nugget'
@@ -359,7 +401,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   return (
     <Popover open={picking} onOpenChange={setPicking}>
       <PopoverAnchor asChild>
-        <div className="relative flex items-center data-[carried-folder]:invisible" data-folder-line=""
+        <div className="relative flex items-center data-[carried-folder]:invisible" data-folder-line="" data-carry-held={drag.carried === group.id ? '' : undefined}
           // Carried by its row onto another folder, it goes inside that one; by its top or bottom edge, before or after it.
           data-carried-folder={drag.carried === group.id ? '' : undefined}
           onPointerDown={(event) => !naming && !(event.target as Element).closest('[data-folder-icon]') && drag.carry(event, group.id)}>
@@ -384,7 +426,8 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
                 style={{ paddingLeft: left }}
                 // A long name ("Words worth knowing" at the sidebar's narrowest) goes on to a second line rather than
                 // being cut; the count stays on its first line, on the same baseline as every other row's.
-                className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} ${over ? HOT : ''} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
+                data-drop-hot={over ? '' : undefined}
+                className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} ${DROP_LIT} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
               >
                 {/* Room for the icon, which is its own button over this one. */}
                 <span className="size-4 shrink-0" />

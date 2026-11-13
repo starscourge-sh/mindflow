@@ -2754,6 +2754,8 @@ html[data-dragging] [data-grip] { visibility: hidden; }
 html[data-dragging] :is([data-line-tools], [data-add-below]) { visibility: hidden; }
 /* In the hand a row is its one line, as a group folds in the hand: what hangs under it (a task's steps, its question) is put away until it is let go (carry.tsx marks the row). */
 [data-sortable-id][data-held] .mf-held-folds { display: none; }
+/* So is a folder carried in the sidebar: its subfolders fold under it until it is let go (side-folders.tsx). */
+[data-carried-folder] + [data-no-twig] { display: none; }
 /* The Month plan's lines alone still use this for a carried line's own place (month-plan.tsx); every other carry draws that band with carry.tsx's OwnRoom. It goes when the Month plan does the same. */
 .mf-carried-place { position: relative; }
 .mf-carried-place > * { opacity: 0; }
@@ -3910,10 +3912,6 @@ textarea[data-talking]::selection {
 [data-board]:not(:has([data-board-card]:hover)) [data-board-card][data-board-cursor] > [data-card-more] { opacity: 1; }
 /* Its menu open, a card or list keeps its ⋯ showing, as the button it came from. */
 [data-board-card][data-state='open'] > [data-card-more], [data-lane] header[data-state='open'] [data-lane-more] { opacity: 1; }
-.mf-board-lift { rotate: 1.5deg; scale: 1.02; animation: mf-board-lift 180ms var(--mf-ease) both; }
-@keyframes mf-board-lift { from { rotate: 0deg; scale: 1; } }
-@media (prefers-reduced-motion: reduce) { .mf-board-lift { rotate: none; scale: none; animation: none; } }
-:root[data-motion='off'] .mf-board-lift { rotate: none; scale: none; animation: none; }
 
 /* A soft blur along an edge that fades away from it (the Map's foot): four layers, each blurring more and kept to
    less of the band, so the blur thins out as it rises instead of stopping at a line. The page colour washes in

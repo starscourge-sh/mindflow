@@ -5,7 +5,7 @@ import { createPortal, flushSync } from 'react-dom'
 import { getText, getTextSerializersFromSchema, type Editor, type JSONContent } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import { redo, undo } from '@tiptap/pm/history'
-import { DndContext, MeasuringStrategy, PointerSensor, closestCorners, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
+import { DndContext, MeasuringStrategy, PointerSensor, closestCorners, useDndContext, useDroppable, useSensor, useSensors, type DragOverEvent, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Archive, Plus, CalendarDays } from 'lucide-react'
 import { TagChip } from './tag-icon'
@@ -26,7 +26,8 @@ import { findCaptures } from '@/lib/capture-links'
 import { notes, type NoteTable } from '@/lib/notes'
 import { taskSaid, haligtree } from '@/lib/haligtree'
 import { dayMonth, num } from '../../../../main/dates'
-import { Overlay, SETTLE, snapshot } from './sortable'
+import { Overlay, SETTLE } from './sortable'
+import { CarriedCard, HELD, Hand, RoomIn, titleOf } from './carry'
 import { Count, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
 import { ofTheWriting } from '@/lib/writing-floats'
@@ -755,7 +756,9 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   // While a card is carried, where it would land: card ids per list.
   const [draft, setDraft] = useState<string[][] | null>(null)
-  const [lifted, setLifted] = useState<{ id: string; html: string; width: number; height: number } | null>(null)
+  // The card or list in the hand, carried as every row in the app is (carry.tsx): its name, where it was taken hold of,
+  // and what letting go now would do (null: over its own place, where it stays).
+  const [lifted, setLifted] = useState<{ id: string; title: string; grab: number; top: number } | null>(null)
   const order = draft ?? shape.lanes.map((lane, at) => lane.cards.map((_, index) => cardId(at, index)))
   // A card's place is its name while carried (list and place): once it lands, the card now at its new place
   // answers to the name it was carried by, so the drop settles on it there, not on the card that took its old place.
@@ -772,6 +775,23 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const laneOf = (id: string): number => (id.startsWith('lane:') ? Number(id.split(':')[1]) : order.findIndex((ids) => ids.includes(id)))
   // A tick and the trackpad's firm tap as a carried card or list comes over each new place it would land.
   const ticks = useRef(landTicker()).current
+  /** The card or list taken hold of: its name, and where on it the pointer took it, so the card under the hand keeps that point. */
+  const liftOf = (id: string, event: Event): { id: string; title: string; grab: number; top: number } => {
+    const node = document.querySelector<HTMLElement>(`[data-board] [data-sortable-id="${CSS.escape(id)}"]`)
+    const box = node?.getBoundingClientRect()
+    const [x, y] = event instanceof PointerEvent ? [event.clientX, event.clientY] : [box?.left ?? 0, box?.top ?? 0]
+    const title = real(id).startsWith('lane:') ? node?.querySelector('[data-lane-name]')?.textContent || 'New list' : node ? titleOf(node) : ''
+    return { id: real(id), title, grab: x - (box?.left ?? x), top: y - (box?.top ?? y) }
+  }
+  /** What letting go there would do, for the card in the hand: its own place says nothing; its list, "Move here"; another, its name. */
+  const aimOf = (from: string, to: string | null, lane = to ? laneOf(to) : -1): string | null => {
+    if (!to || lane < 0) return null
+    if (from.startsWith('lane:')) return lane === Number(from.slice(5)) ? null : 'Move here'
+    const home = Number(from.split(':')[1])
+    if (lane !== home) return `Move to “${shape.lanes[lane]?.title || 'New list'}”`
+    // Over its own list's heading or the room under its cards, it stays where it is (the drop below).
+    return to === from || to.startsWith('lane:') ? null : 'Move here'
+  }
   const onDragOver = ({ active, over }: DragOverEvent): void => {
     ticks(placeOf(over ? real(String(over.id)) : undefined))
     const from = real(String(active.id))
@@ -787,6 +807,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     setDraft(next)
   }
   const onDragEnd = ({ active, over }: DragEndEvent): void => {
+    const title = lifted?.title ?? ''
     setLifted(null)
     const from = real(String(active.id))
     const to = over ? real(String(over.id)) : null
@@ -795,9 +816,9 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       const a = Number(from.slice(5))
       const b = to ? laneOf(to) : -1
       if (b < 0 || a === b) return chime('stay')
-      chime('shift')
       edge()
-      edit(editor, (model) => void (model.lanes = arrayMove(model.lanes, a, b)))
+      // Said where it went, with Undo, as every drop is; ⌘Z takes it back too (the note's own history, above).
+      undoable(`Moved “${title || 'New list'}”`, 'shift', (model) => void (model.lanes = arrayMove(model.lanes, a, b)))
       return setAlias({ id: String(active.id), at: laneId(b), doc: editor.state.doc })
     }
     const next = order.map((ids) => [...ids])
@@ -810,10 +831,13 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     const [, l, i] = from.split(':').map(Number)
     const at = next[lane].indexOf(from)
     if (lane < 0 || (lane === l && at === i)) return chime('stay')
-    // Landed: the firm tap with its sound, as the card settles into its place.
-    chime(lane === l ? 'shift' : 'move')
+    // Landed: the firm tap with its sound, as the card settles into its place, said where it went with Undo.
     edge()
-    move([l, i], [lane, at])
+    undoable(lane === l ? `Moved “${title}”` : `Moved “${title}” to “${shape.lanes[lane]?.title || 'New list'}”`, lane === l ? 'shift' : 'move', (model) => {
+      const [card] = model.lanes[l].cards.splice(i, 1)
+      model.lanes[lane].cards.splice(Math.max(0, Math.min(at, model.lanes[lane].cards.length)), 0, card)
+      return [l, lane]
+    })
     setAlias({ id: String(active.id), at: cardId(lane, at), doc: editor.state.doc })
   }
 
@@ -977,8 +1001,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       )}
       <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCorners} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         autoScroll={{ threshold: { x: 0.08, y: 0.12 }, acceleration: 6 }}
-        onDragStart={({ active }) => (chime('lift'), ticks.start(real(String(active.id))), setLifted(snapshot(String(active.id))))}
-        onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setDraft(null), setLifted(null))}>
+        onDragStart={({ active, activatorEvent }) => (chime('lift'), ticks.start(real(String(active.id))), setLifted(liftOf(String(active.id), activatorEvent)))}
+        onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setDraft(null), setLifted(null), chime('stay'))}>
         <SortableContext items={shape.lanes.map((_, at) => sid(laneId(at)))} strategy={horizontalListSortingStrategy}>
           <div ref={strip} data-board-strip="" data-fade-left={ends.left || undefined} data-fade-right={ends.right || undefined}
             style={ends.left || ends.right ? { maskImage: `linear-gradient(to right, ${ends.left ? 'transparent, black 2rem' : 'black'}, ${ends.right ? 'black calc(100% - 2rem), transparent' : 'black'})` } : undefined}
@@ -997,7 +1021,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                   menu={laneItems(at)}>
                   <SortableContext items={cards.map((one) => sid(one.id))} strategy={verticalListSortingStrategy}>
                     {cards.map(({ id: key, card, at: index }) => (
-                      <CardBox key={key} id={sid(key)} place={key} editor={editor} card={card} disabled={query !== null || editing === key}
+                      <CardBox key={key} id={sid(key)} place={key} editor={editor} card={card} disabled={query !== null || editing === key} lane={at}
                         here={!!cursor && quiet && cursor.lane === at && cursor.card === index}
                         onPick={() => setCursor({ lane: at, card: index })}
                         onTick={() => tick(card.pos)}
@@ -1065,12 +1089,11 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
           </div>
         </SortableContext>
         <Overlay dropAnimation={still() ? null : SETTLE}>
-          {/* The card or list as it was, lifted off the board a little. */}
+          {/* The card or list in the hand: the one card every list carries, where it was taken hold of, saying what letting go would do. */}
           {lifted && (
-            <div style={{ width: lifted.width }} dangerouslySetInnerHTML={{ __html: lifted.html }}
-              data-board-lifted=""
-              // Picked up: off the page on the lift shadow, a card turned a little in the hand.
-              className={`mf-board-lift flex cursor-grabbing flex-col text-foreground shadow-(--mf-shadow-lift) ${lifted.id.startsWith('lane:') ? 'rounded-[14px] bg-background p-1' : `${CARD_FILL} overflow-hidden rounded-[6px] text-control ring-1 ring-foreground/10`}`} />
+            <Hand grab={lifted.grab} from={null} at={lifted.top}>
+              <BoardCard lifted={lifted} aimOf={(over) => aimOf(lifted.id, over && real(over))} />
+            </Hand>
           )}
         </Overlay>
       </DndContext>
@@ -1218,14 +1241,16 @@ function LaneBox({ id, title, tint, count, folded, here, renaming, onFold, onRen
   // An empty list still takes a card dropped on it.
   const { setNodeRef: dropRef } = useDroppable({ id: `${id}:drop`, data: { lane: id } })
   const name = title || 'New list'
-  const style = { ...lanePanel(tint), transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition, opacity: isDragging ? 0.35 : undefined }
+  // In the hand, its own place is the quiet band every carried thing leaves (carry.tsx), never a faded copy of the list.
+  const style = { ...(isDragging ? {} : lanePanel(tint)), transform: transform ? `translate3d(${Math.round(transform.x)}px, 0, 0)` : undefined, transition }
   const dot = <span aria-hidden data-lane-dot="" className="size-2 shrink-0 rounded-full" style={{ background: 'var(--lane-tint)' }} />
   if (folded)
     return (
       // As tall as what it says, not the whole board: a folded list is a tab, not a wall.
       <RowMenu list items={menu}>
         <section ref={setNodeRef} data-sortable-id={id} data-lane="" data-folded="" style={style} data-board-cursor={here || undefined}
-          className={`flex max-h-full w-10 shrink-0 flex-col items-center rounded-[14px] py-1.5 ${here ? 'ring-2 ring-ring/60' : ''}`}>
+          className={`flex max-h-full w-10 shrink-0 flex-col items-center rounded-[14px] py-1.5 ${here ? 'ring-2 ring-ring/60' : ''} ${isDragging ? HELD : ''}`}>
+          {isDragging && <RoomIn moves={false} how={id} />}
           <Tip label={`Unfold ${name}  F`}>
             <button type="button" onClick={onFold} className={`${TOOL} size-7 cursor-pointer`}><ChevronRight /></button>
           </Tip>
@@ -1240,7 +1265,8 @@ function LaneBox({ id, title, tint, count, folded, here, renaming, onFold, onRen
     )
   return (
     <section ref={setNodeRef} data-sortable-id={id} data-lane="" style={style}
-      className={`group/lane flex max-h-full w-64 shrink-0 flex-col rounded-[14px] ${here ? 'ring-2 ring-ring/60' : ''}`} data-board-cursor={here || undefined}>
+      className={`group/lane flex max-h-full w-64 shrink-0 flex-col rounded-[14px] ${here ? 'ring-2 ring-ring/60' : ''} ${isDragging ? HELD : ''}`} data-board-cursor={here || undefined}>
+      {isDragging && <RoomIn moves={false} how={id} />}
       {/* The heading is the list's handle: drag it to move the list; its chevron and ⋯ answer a click, a right click opens its menu where it was clicked. */}
       <RowMenu list items={renaming ? [] : menu}>
         <header {...(renaming ? {} : { ...attributes, ...listeners })} tabIndex={-1} aria-label={`Drag ${name}`} role="group"
@@ -1274,6 +1300,16 @@ function LaneBox({ id, title, tint, count, folded, here, renaming, onFold, onRen
   )
 }
 
+/**
+ * The card under the hand on a board: the one card every list carries, saying what letting go would do, read off the
+ * drag itself as the pointer goes (set from the drag's own handler, the words drew the board again inside it, and a
+ * card carried into another list went round that for ever).
+ */
+function BoardCard({ lifted, aimOf }: { lifted: { id: string; title: string }; aimOf: (over: string | null) => string | null }): React.JSX.Element {
+  const { over } = useDndContext()
+  return <CarriedCard attrs={{ 'data-board-lifted': '' }} title={lifted.title} strong={lifted.id.startsWith('lane:')} words={aimOf(over ? String(over.id) : null)} />
+}
+
 /** What a card shows of what it is: the first picture in it, or the cover of a note it links to. */
 function useCover(node: PMNode): string | undefined {
   let picture: string | undefined
@@ -1288,7 +1324,9 @@ function useCover(node: PMNode): string | undefined {
   return picture ?? (linked ? thumb : undefined)
 }
 
-function CardBox({ id, place, editor, card, here, editing, disabled, onPick, onTick, onEdit, onEdited, menu }: {
+function CardBox({ id, place, lane, editor, card, here, editing, disabled, onPick, onTick, onEdit, onEdited, menu }: {
+  /** The list it is drawn in now (a carried card is drawn in the list it would land in). */
+  lane: number
   id: string
   /** Its list and place in it, whatever it is called while carried. */
   place: string
@@ -1309,6 +1347,8 @@ function CardBox({ id, place, editor, card, here, editing, disabled, onPick, onT
   // simply in their places. Played again from a card's old place as the lists are read afresh, a card
   // flashed over its neighbour for a frame after each drop.
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, disabled, animateLayoutChanges: () => false, transition: still() ? null : { duration: 220, easing: EASING } })
+  // Carried: letting go would put it somewhere new once it is in another list, or has moved along its own.
+  const moves = isDragging && (Number(place.split(':')[1]) !== lane || Math.abs(transform?.y ?? 0) > 1)
   const task = card.node.type.name === 'taskItem'
   const checked = !!card.node.attrs.checked
   const cover = useCover(card.node)
@@ -1331,7 +1371,7 @@ function CardBox({ id, place, editor, card, here, editing, disabled, onPick, onT
       onDoubleClick={() => !editing && onEdit()}
       className={`group/card relative flex shrink-0 cursor-pointer touch-none flex-col overflow-hidden rounded-[6px] text-control transition-[box-shadow,scale,background-color] duration-150 ease-(--mf-ease) active:scale-[0.97] ${
         // Carried away: the place it left stays open as a faint slot in the list's colour, the size of the card.
-        isDragging ? 'bg-[color-mix(in_srgb,var(--lane-tint)_12%,transparent)] [&>*]:invisible' : `${CARD_FILL} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent)] ring-1 ring-foreground/[0.07] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--board-card))]`
+        isDragging ? '[&>*:not([data-own-room],[data-drop-room],[data-drop-line])]:invisible' : `${CARD_FILL} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent)] ring-1 ring-foreground/[0.07] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--board-card))]`
       } ${here ? 'ring-2! ring-ring/70!' : ''}`}>
       {cover && !editing && <img src={cover} alt="" draggable={false} data-card-cover="" className="h-20 w-full shrink-0 object-cover" />}
       <div className="flex min-w-0 items-start gap-2 px-2.5 py-2">
@@ -1369,6 +1409,8 @@ function CardBox({ id, place, editor, card, here, editing, disabled, onPick, onT
           <AliveIcon icon={DotsHorizontalIcon} size={14} />
         </button>
       )}
+      {/* In the hand, its place is the room the cards round it make: the band, and the one line once it would land somewhere new. Last, so the card's own parts stay first. */}
+      {isDragging && <RoomIn moves={moves} how={place} />}
     </div>
     </RowMenu>
   )

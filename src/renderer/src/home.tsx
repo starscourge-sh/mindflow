@@ -2,7 +2,7 @@ import { detailsShown, showDetails } from '@/lib/reading'
 import { deskAwayAction, useDeskAway } from '@/lib/desk-away'
 import { heroBack, heroing } from '@/lib/hero'
 import { createPortal } from 'react-dom'
-import { CarriedCard } from '@/components/haligtree/carry'
+import { CarriedCard, Clear, RoomAt } from '@/components/haligtree/carry'
 import { useRemindersInStep } from '@/lib/reminders'
 import { useBackLine } from '@/lib/back-line'
 import { toolTakes } from '@/lib/tool-keys'
@@ -2408,7 +2408,7 @@ export function Home(): React.JSX.Element {
             // Pinned, Recent, Library and Tags in your order (dragged by their headings, or moved from their menus):
             // each drawn as one block, its place set by CSS order, so nothing in it is drawn twice or moved apart.
             const sectionOrder = sideOrder(settings?.sideSections)
-            const sectionAt = (id: string): React.CSSProperties => ({ order: 1 + sectionOrder.indexOf(id), opacity: sectionDrag.carrying === id ? 0.45 : undefined, transition: 'opacity 120ms' })
+            const sectionAt = (id: string): React.CSSProperties => ({ order: 1 + sectionOrder.indexOf(id) })
             const pinned = (<>
               {/* Pinned, Notion's Favourites: only there while something is, or while a note is carried to it. */}
               {pinsDrawn && pins.length === 0 && layouts.length === 0 && !narrow && (
@@ -2553,12 +2553,14 @@ export function Home(): React.JSX.Element {
             </>)
           })()}
         </nav>
-        {/* Where a section carried by its heading would land. */}
-        {sectionDrag.line && <div aria-hidden data-side-section-line className="pointer-events-none fixed z-50 h-0.5 rounded-full bg-primary" style={{ top: sectionDrag.line.top - 1, left: sectionDrag.line.left, width: sectionDrag.line.width }} />}
-        {/* The section carried, as a lifted card under the pointer, named as its heading is. */}
+        {/* Where a section carried by its heading would land: the room the others open, the one line through it (carry.tsx). */}
+        {sectionDrag.carrying && sectionDrag.room && <RoomAt at={sectionDrag.room} how={`section:${sectionDrag.carrying}`} />}
+        {/* The section carried, as a lifted card under the pointer, named as its heading is, saying what letting go would do. */}
         {sectionDrag.carrying && sectionDrag.at && createPortal(
-          <div className="pointer-events-none fixed z-[90] -translate-x-1/2 -translate-y-1/2" style={{ left: sectionDrag.at.x + 40, top: sectionDrag.at.y }}>
-            <CarriedCard attrs={{ 'data-section-card': '' }} strong title={({ pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+          <div aria-hidden className="pointer-events-none fixed z-[90]" style={{ left: sectionDrag.at.x + 18, top: sectionDrag.at.y, translate: '0 -50%' }}>
+            <Clear>
+              <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+            </Clear>
           </div>, document.body)}
 
         </TooltipProvider>

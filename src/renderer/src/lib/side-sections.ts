@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import { haligtree } from './haligtree'
 import { chime } from './sound'
+import { slotTicker } from './proximity'
 import { toast } from '@/components/haligtree/ui'
-import { swallowClick } from '@/components/haligtree/carry'
+import { clearWay, makeWay, restBox, swallowClick, type Spot } from '@/components/haligtree/carry'
 
 /** The sidebar's sections under its places, in their usual order. */
 export const SECTIONS_USUAL = ['library', 'look', 'pinned', 'recent', 'tags'] as const
@@ -37,24 +38,41 @@ export const sectionMoves = (id: string, order: string[]): { label: string; run:
 }
 
 /**
- * A section's heading dragged up or down moves the whole section: past 6px it is carried, a line shows where it
- * would land between the sections, and letting go puts it there (the click that ends it folds nothing). Esc puts it back.
+ * A section's heading dragged up or down moves the whole section, carried as every row in the app is (carry.tsx): past
+ * 6px it folds to its heading in the hand, a card under the pointer says what letting go would do, the other sections
+ * make way on the rows' one clock and the room opens where it would land, the one line through its band. Letting go
+ * puts it there (the click that ends it folds nothing), said with Undo; Esc puts everything back.
  */
-export function useSectionDrag(): { line: { top: number; left: number; width: number } | null; carrying: string | null; at: { x: number; y: number } | null } {
-  const [line, setLine] = useState<{ top: number; left: number; width: number } | null>(null)
+export function useSectionDrag(): { carrying: string | null; at: { x: number; y: number } | null; room: Spot | null; words: string | null } {
   const [carrying, setCarrying] = useState<string | null>(null)
   // Where the pointer is, for the lifted card that follows it.
   const [at, setAt] = useState<{ x: number; y: number } | null>(null)
+  const [room, setRoom] = useState<Spot | null>(null)
   useEffect(() => {
     let down: { id: string; y: number } | null = null
     let to = -1
     let lifted = false
-    const boxes = (): { id: string; r: DOMRect }[] =>
+    let held: HTMLElement | null = null
+    const ticks = slotTicker()
+    const shown = (): HTMLElement[] =>
       [...document.querySelectorAll<HTMLElement>('aside nav [data-side-section]')].filter((one) => one.offsetHeight > 0)
-        .map((one) => ({ id: one.dataset.sideSection!, r: one.getBoundingClientRect() }))
-        .filter((one, n, all) => all.findIndex((other) => other.id === one.id) === n)
-        .sort((a, b) => a.r.top - b.r.top)
-    const end = (): void => void ((down = null), (to = -1), (lifted = false), delete document.documentElement.dataset.dragging, setLine(null), setCarrying(null), setAt(null))
+        .filter((one, n, all) => all.findIndex((other) => other.dataset.sideSection === one.dataset.sideSection) === n)
+    // Its place back as it was: unfolded, in sight.
+    const unhold = (el = held): void => {
+      if (el) for (const key of ['height', 'overflow', 'visibility'] as const) el.style[key] = ''
+      if (el) delete el.dataset.carryHeld
+      if (el === held) held = null
+    }
+    const end = (snap: boolean, hold = false): void => {
+      if (!hold) (clearWay(snap), unhold())
+      down = null
+      to = -1
+      lifted = false
+      delete document.documentElement.dataset.dragging
+      setCarrying(null)
+      setAt(null)
+      setRoom(null)
+    }
     const onDown = (event: PointerEvent): void => {
       if (event.button !== 0) return
       const head = (event.target as Element | null)?.closest?.<HTMLElement>('[data-side-section-handle]')
@@ -62,33 +80,59 @@ export function useSectionDrag(): { line: { top: number; left: number; width: nu
     }
     const onMove = (event: PointerEvent): void => {
       if (!down) return
-      if (!(event.buttons & 1)) return end()
+      if (!(event.buttons & 1)) return end(false)
       if (!lifted && Math.abs(event.clientY - down.y) < 6) return
+      const id = down.id
       // Lifted as every drag in the app is: the hover light stops following, nothing keeps a focus ring, a card follows.
-      if (!lifted) (lifted = true), setCarrying(down.id), (document.documentElement.dataset.dragging = ''), (document.activeElement as HTMLElement | null)?.blur?.(), chime('lift')
+      if (!lifted) {
+        lifted = true
+        held = shown().find((one) => one.dataset.sideSection === id) ?? null
+        // In the hand a section is its heading, as a group folds in the hand: its place keeps the heading's height alone.
+        const head = held?.querySelector<HTMLElement>('[data-side-section-handle]')
+        if (held && head) {
+          held.style.height = `${Math.round(head.getBoundingClientRect().bottom - held.getBoundingClientRect().top)}px`
+          held.style.overflow = 'hidden'
+          held.style.visibility = 'hidden'
+          held.dataset.carryHeld = ''
+        }
+        setCarrying(id)
+        document.documentElement.dataset.dragging = ''
+        ;(document.activeElement as HTMLElement | null)?.blur?.()
+        ticks.start('own')
+        chime('lift')
+      }
       setAt({ x: event.clientX, y: event.clientY })
-      const all = boxes()
-      if (!all.length) return
-      // The gap nearest the pointer: before the first, between two, or after the last.
-      const gaps = [all[0].r.top, ...all.map((one) => one.r.bottom)]
+      const all = shown()
+      if (!all.length || !held) return
+      // The place nearest the pointer, as the sections lie before any made way: before the first, between two, or after the last.
+      const laid = all.map((el) => ({ el, ...restBox(el) })).sort((a, b) => a.top - b.top)
+      const gaps = [laid[0].top, ...laid.map((one) => one.top + one.height)]
       let best = 0
       for (let n = 1; n < gaps.length; n++) if (Math.abs(gaps[n] - event.clientY) < Math.abs(gaps[best] - event.clientY)) best = n
+      const from = laid.findIndex((one) => one.el === held)
+      // A light tick at each new place, none for staying where it was.
+      if (best !== to) ticks(best === from || best === from + 1 ? 'own' : String(best))
       to = best
-      const nav = document.querySelector('aside nav')!.getBoundingClientRect()
-      setLine({ top: gaps[best], left: nav.left + 8, width: nav.width - 16 })
+      setRoom(makeWay(all, held, best - 1, held.offsetHeight))
     }
     const onUp = (): void => {
       if (!down) return
       const id = down.id
-      if (to >= 0) {
-        swallowClick()
-        const order = boxes().map((one) => one.id)
-        const from = order.indexOf(id)
-        void placeSection(id, to > from ? to - 1 : to)
-      }
-      end()
+      if (!lifted) return void (down = null)
+      swallowClick()
+      const order = shown().map((el) => ({ el, top: restBox(el).top })).sort((a, b) => a.top - b.top).map((one) => one.el.dataset.sideSection!)
+      const from = order.indexOf(id)
+      // Read before the carry is ended, which forgets it.
+      const at = to
+      const stays = at < 0 || at === from || at === from + 1
+      // Let go where it stays: home. Let go elsewhere: the sections hold where they made way until the saved order is
+      // drawn, then are at once where it puts them, so nothing slides back first.
+      const was = held
+      end(false, !stays)
+      if (stays) return chime('stay')
+      void placeSection(id, at > from ? at - 1 : at).then(() => (clearWay(true), unhold(was)))
     }
-    const onKey = (event: KeyboardEvent): void => void (event.key === 'Escape' && down && (event.stopPropagation(), swallowClick(), end()))
+    const onKey = (event: KeyboardEvent): void => void (event.key === 'Escape' && down && (event.stopPropagation(), swallowClick(), lifted && chime('stay'), end(false)))
     window.addEventListener('pointerdown', onDown, true)
     window.addEventListener('pointermove', onMove, true)
     window.addEventListener('pointerup', onUp, true)
@@ -100,5 +144,5 @@ export function useSectionDrag(): { line: { top: number; left: number; width: nu
       window.removeEventListener('keydown', onKey, true)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  return { line, carrying, at }
+  return { carrying, at, room, words: room && !room.own ? 'Move here' : null }
 }
