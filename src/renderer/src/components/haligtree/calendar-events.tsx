@@ -755,15 +755,18 @@ export function QuietRow({ icon: Icon, name, said, open, onOpen, row, children }
   row: string
   children: React.ReactNode
 }): React.JSX.Element {
+  // Opened or closed by a key (↵ or Space on the line), its chevron is simply turned, as what it opens is simply there
+  // (`Fold`): by a key the choices came at once while the chevron still turned for 150ms.
+  const [keyed, setKeyed] = useState(false)
   return (
     <div data-quiet-row={row} data-open={open || undefined} className="flex flex-col">
-      <button type="button" aria-expanded={open} onClick={() => (chime(open ? 'fold' : 'open'), onOpen(!open))}
+      <button type="button" aria-expanded={open} onClick={() => (setKeyed(byKeys()), chime(open ? 'fold' : 'open'), onOpen(!open))}
         // A press answers at once: the row gives a little, as every row of a list here does (DESIGN.md, Alive Not Ingratiating).
         className="group/head flex h-8 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-left text-control text-foreground outline-none transition-[background-color,scale] duration-150 ease-(--mf-ease) hover:bg-accent focus-visible:bg-accent active:scale-[0.98] motion-reduce:transition-none">
         <Icon aria-hidden className="size-4 shrink-0" />
         <span className="shrink-0">{name}</span>
         <span data-quiet-said className="min-w-0 flex-1 truncate text-right font-medium">{said}</span>
-        <ChevronRight aria-hidden className={`size-3.5 shrink-0 text-muted-foreground transition-transform duration-150 ease-(--mf-ease) group-hover/head:text-foreground motion-reduce:transition-none ${open ? 'rotate-90' : ''}`} />
+        <ChevronRight aria-hidden className={`size-3.5 shrink-0 text-muted-foreground group-hover/head:text-foreground ${keyed ? '' : 'transition-transform duration-150 ease-(--mf-ease) motion-reduce:transition-none'} ${open ? 'rotate-90' : ''}`} />
       </button>
       <Fold open={open}><div className="pb-1.5">{children}</div></Fold>
     </div>

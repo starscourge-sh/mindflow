@@ -1082,7 +1082,9 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
   const { carry, start, draft, draftColor, onAdd, onPickDay, events, onEvent, onOpen, taskNow } = props
   // The all-day lane folds to one line with its chevron, and stays so.
   const [folded, setFolded] = useState(() => stored('vigil.calendar.allday', 'open', ['open', 'folded'] as const) === 'folded')
-  const fold = (): void => (chime(folded ? 'on' : 'off'), store('vigil.calendar.allday', folded ? 'open' : 'folded'), setFolded(!folded))
+  // Folded or opened by a key, its chevron is simply turned, as the lane is simply folded (nothing moves by a key).
+  const [foldKeyed, setFoldKeyed] = useState(false)
+  const fold = (): void => (setFoldKeyed(byKeys()), chime(folded ? 'on' : 'off'), store('vigil.calendar.allday', folded ? 'open' : 'folded'), setFolded(!folded))
   const zone = useSecondZone()
   const now = useMinute()
   const scroller = useRef<HTMLDivElement>(null)
@@ -1172,7 +1174,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
           <Tip label={folded ? 'Show the whole lane' : 'Fold the lane to one line'}>
             <button type="button" data-cal-allday-fold aria-expanded={!folded} aria-label={folded ? 'Show the whole all-day lane' : 'Fold the all-day lane'} onClick={fold}
               className="flex size-6 items-center justify-center rounded-md text-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
-              <ChevronDown className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${folded ? '-rotate-90' : ''}`} />
+              <ChevronDown className={`size-3.5 ${foldKeyed ? '' : 'transition-transform duration-150 motion-reduce:transition-none'} ${folded ? '-rotate-90' : ''}`} />
             </button>
           </Tip>
         </span>
