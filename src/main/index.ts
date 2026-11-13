@@ -2153,7 +2153,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   for (const event of ['show', 'hide', 'closed'] as const) win.on(event as 'show', tellStickiesOut)
   tellStickiesOut()
   // A new note starts open, pinned where it lands; Today and a goal's card start as pills in the stack.
-  if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: cardOf(place, insetOf(key)), touched: Date.now(), ...((pillWish.get(key) ?? (type === 'today' || fixed)) ? { pill: true } : {}) })
+  if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: cardOf(place, insetOf(key)), touched: Date.now(), ...(!handStuck.delete(key) && (pillWish.get(key) ?? (type === 'today' || fixed)) ? { pill: true } : {}) })
   keepStuck()
   guard(win)
   // Its place in line, so neighbours lean opposite ways.
@@ -3253,6 +3253,8 @@ ipcMain.on('sticky:pill-width', (event, width: unknown) => {
  * is made (the goal is still being saved), or made again (Undo, then Redo), the card is made as asked.
  */
 const pillWish = new Map<string, boolean>()
+/** Stuck by hand from a page a moment ago and not made yet: made open. */
+const handStuck = new Set<string>()
 ipcMain.on('desk:pill', (_event, key: unknown, on: unknown) => {
   pillWish.set(String(key), on === true)
   const win = stickies.get(String(key))
@@ -5831,9 +5833,16 @@ app.whenReady().then(() => {
   ipcMain.on('stickies:untidy', () => untidyStickies())
   ipcMain.on('sticky', (_event, type: unknown, id: unknown, on: unknown) => {
     if (typeof type !== 'string' || typeof id !== 'string') return
+    const key = `${type}:${id}`
     // Stuck by hand in a meeting or quiet hours: this one was asked for, so it shows.
-    if (on) byHand(`${type}:${id}`)
+    if (on) byHand(key)
+    // Stuck by hand from a page, the person asked to see it: it comes open (a Today or goal card that comes out by
+    // itself starts as a pill), and one that is a pill already opens where it stands, pinned.
+    if (on && !stickies.has(key)) handStuck.add(key)
     stick(type, id, Boolean(on))
+    handStuck.delete(key)
+    const made = stickies.get(key)
+    if (on && made && peeking.has(key)) pinCard(key, made)
     // A goal's own card stuck by hand is kept as asked for, so the look at the goals leaves it up (beacons).
     const one = on && type === 'goal' ? stuckAs(`${type}:${id}`) : undefined
     if (one && !one.asked) ((one.asked = true), keepStuck())
