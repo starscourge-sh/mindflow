@@ -3,12 +3,12 @@
 // The picture the app takes for the paper is read where main takes it, and laid beside the row's own picture,
 // taken before the menu opened: they match but for a few pixels; with the menu in it, its words and edge differ.
 //   QA_DATA=<a copy of the seeded sandbox> QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/bin-paper.mjs
-// LIST=tasks (default) | articles | inbox
+// LIST=alltasks (default) | articles | inbox
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
-const LIST = process.env.LIST ?? 'tasks'
+const LIST = process.env.LIST ?? 'alltasks'
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, go, electron, look } = c
@@ -54,7 +54,7 @@ try {
   for (const name of ['light', 'dark']) {
     await look(name); await wait(600)
     const row = (await rows())[1]
-    check(`${LIST}, ${name}: a row to send to the Bin`, !!row, JSON.stringify(row))
+    check(`${LIST}, ${name}: a row to send to the Bin`, !!row, `${(await rows()).length} rows on show`)
     if (!row) continue
     // Its place as the app reads it: the first of its id on show (lib/fly-home.ts rowOf), as far as the window shows it.
     const [x, y, width, height] = await h.evaluate((id) => {
