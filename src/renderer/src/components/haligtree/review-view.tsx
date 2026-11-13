@@ -56,6 +56,19 @@ import { occlusionOf, type Occlusion } from '../../../../main/occlusion'
 import { Orb } from './orb'
 import { VERDICT_SAID, cutWords, hint as askHint, hintedTimes, judge, meaningGrade, useStudyAi, wordsOf, type Judged } from '@/lib/study-ai'
 
+/**
+ * A way somewhere inside a line of words, its key beside it, as Files' "In" links are drawn: the words underlined
+ * quietly, lit and underlined in full under the pointer; the key's cap is never underlined.
+ */
+function LineWay({ onClick, keys, children, ...rest }: { onClick: () => void; keys: string; children: React.ReactNode } & Record<`data-${string}`, string | boolean>): React.JSX.Element {
+  return (
+    <button type="button" {...rest} onClick={onClick} className="group/way inline-flex shrink-0 cursor-pointer items-baseline gap-1.5 rounded-sm text-left">
+      <span className="underline decoration-foreground/25 underline-offset-2 transition-colors group-hover/way:text-foreground group-hover/way:decoration-foreground">{children}</span>
+      <Kbd>{keys}</Kbd>
+    </button>
+  )
+}
+
 /** The four grades, as the plan defines them: how the retrieval felt, not whether it was right. */
 export const GRADES = [
   { grade: 1, label: 'Again', hint: 'Could not recall it', tone: 'var(--tt-color-text-red)' },
@@ -678,8 +691,9 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
         toast(`${num(cards)} cards, about 25 minutes, most at risk first. The rest wait for later today or tomorrow.`)
       }} />}
       {missed && (
+        // The line is the way back to the source, as R is: said with its key, never a sentence that ends on a colon.
         <p className="px-5 pt-3 -mb-1 text-xs text-muted-foreground">
-          <Typed text="Missed that one? Reread where it came from:" step={28} delay={100} />
+          <LineWay data-missed-reread onClick={() => (chime('read'), setSource(missed))} keys="R"><Typed text="Missed that one? Reread where it came from" step={28} delay={100} /></LineWay>
         </p>
       )}
       {/* The next card is there at once: grading fast never waits for the
@@ -712,7 +726,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
         {lineCard && (
           <p data-line-from className="-mb-4 flex items-center gap-1.5 text-sm text-muted-foreground">
             <span className="min-w-0 truncate">From <span {...(lineFrom ? hoverNote(lineFrom.type, lineFrom.id, { kind: lineFrom.kind }) : {})} className="text-foreground">{lineFrom?.title ? <WithPictures text={titleWithFormulas(lineFrom.title, lineCard.prompt, textOf(lineCard.body))} small /> : 'a note'}</span>{timeOn && <>, at <span data-line-time className="text-foreground tabular-nums">{timeOn}</span> in its video</>}, a line written as a card.</span>
-            <span className="shrink-0">Open it at the line</span>
+            <LineWay data-line-open onClick={() => openLine(lineCard.lineOf!, lineCard.prompt)} keys="R">Open it at the line</LineWay>
           </p>
         )}
         {card.exam && (
