@@ -68,9 +68,13 @@ html:root[data-style='paper'] {
 /* ---- Type ------------------------------------------------------------------
    Titles, a page's section headings and a note's headings in the serif,
    upright and a little lighter, as a book sets them; the small heading that
-   only names a group stays in the text font. */
+   only names a group stays in the text font. A title set at a small size
+   (the text sizes below) is one of those: in the serif, cut for display, a
+   label like the Tasks Matrix's "Do now · 0 tasks" came out cramped (the
+   user, 13 Nov: "why does the font get messed up when i go from soft to
+   paper?"). A small heading meant to be a title says so with font-heading. */
 :root[data-style='paper'] :is(h1, h2, h3, h4):is(.text-title, .text-lg, .text-xl, .text-2xl, .text-3xl, .text-4xl),
-:root[data-style='paper'] :is(h1, h2),
+:root[data-style='paper'] :is(h1, h2):not(.text-xs, .text-sm, .text-meta, .text-control, .text-body, .text-heading),
 :root[data-style='paper'] [class*='font-heading'],
 :root[data-style='paper'] .tiptap.ProseMirror :is(h1, h2, h3) {
   font-family: 'Fraunces Variable', Georgia, serif !important;
