@@ -124,9 +124,12 @@ let current: Story = STORIES[0]
 /** The story told now. */
 export const story = (): Story => current
 
+/** The story a test run asked for by its id (the preload's `story`), if it did: the sandbox's characters depend on which is told. */
+const named = (): Story | undefined => (typeof window === 'undefined' ? undefined : STORIES.find((one) => one.id === window.api?.story))
+
 /** A new story for this run of the welcome, from `random` (0 to 1). */
 export function pickStory(random: () => number = Math.random): Story {
-  current = STORIES[Math.min(STORIES.length - 1, Math.floor(random() * STORIES.length))]
+  current = named() ?? STORIES[Math.min(STORIES.length - 1, Math.floor(random() * STORIES.length))]
   return current
 }
 

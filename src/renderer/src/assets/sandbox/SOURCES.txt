@@ -226,6 +226,21 @@ Characters, each from an edition of their own book:
                             From Doriangray.jpg. Licence on page: PD-art, PD-old-auto-expired (died 1943). The artist has been
                             dead more than 70 years, and it was published in 1908, so it is public domain in the US too.
                             The file is small (561 by 844): the face is cut from 207px, the most there is.
+  count-dracula.webp        Cover of Dracula, Westminster: Archibald Constable and Company, 1901 (the sixpenny edition): the
+                            Count climbing down the castle wall. The artist is not named (signed "Nathan").
+                            From Dracula_Archibald_Constable_and_Company_1901.jpg (the cover welcome-books/dracula.webp is
+                            made from). Licence on page: PD-old, author anonymous; public domain in the US (published before 1931).
+                            Shown only when the welcome's story is Dracula's (welcome-stories.ts), as the three below are for theirs.
+  sherlock-holmes.webp      Sidney Paget (1860 to 1908), "Then he stood before the fire", for A Scandal in Bohemia, The Strand
+                            Magazine, July 1891: Holmes.
+                            From A_Scandal_in_Bohemia-01.jpg. Licence on page: PD-old-auto-1923 (died 1908).
+  elizabeth-bennet.webp     Hugh Thomson (1860 to 1920), Pride and Prejudice (London: George Allen, 1894), chapter 36:
+                            Elizabeth weighing Darcy's letter.
+                            From Thomson-PP-Ch36.jpg. Licence on page: PD-US; the artist has been dead more than 100 years.
+  odysseus.webp             Terracotta plaque, Greek, Melian, about 450 BC: Odysseus, seated, home at last (the plaque
+                            odysseus-plaque.webp shows whole). The Metropolitan Museum of Art, Open Access (CC0 1.0;
+                            isPublicDomain true in the Met's API), accession 25.78.26, object 251812. The photograph is the Met's own.
+                            https://www.metmuseum.org/art/collection/search/251812
   No picture, on purpose:   Paul Atreides (Dune) and Gandalf (The Fellowship of the Ring) are in copyright: no film
                             still, cover or fan drawing is bundled. Dorian Gray: the only public-domain drawings found (Thiriat's
                             two plates of 1908) show him as a small painted figure, or dead on the floor, never his face.

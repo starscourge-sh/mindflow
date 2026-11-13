@@ -28,6 +28,10 @@ import homerUrl from '@/assets/sandbox/homer.webp'
 import creatureUrl from '@/assets/sandbox/the-creature.webp'
 import victorUrl from '@/assets/sandbox/victor-frankenstein.webp'
 import lordHenryUrl from '@/assets/sandbox/lord-henry.webp'
+import draculaUrl from '@/assets/sandbox/count-dracula.webp'
+import holmesUrl from '@/assets/sandbox/sherlock-holmes.webp'
+import bennetUrl from '@/assets/sandbox/elizabeth-bennet.webp'
+import odysseusUrl from '@/assets/sandbox/odysseus.webp'
 import idealCityUrl from '@/assets/sandbox/ideal-city.webp'
 import vitruvianUrl from '@/assets/sandbox/vitruvian-man.webp'
 import atlanticusUrl from '@/assets/sandbox/codex-atlanticus.webp'
@@ -1710,6 +1714,20 @@ host: en.wikipedia.org
   await task(EXAMPLES.todo)
   // The welcome's story, the one it told (welcome-stories.ts): the thought caught on a walk, the page it became, and the task and the two gems picked out of it.
   const told = flowWords()
+  // Whoever says the story's line lives in its book, so they are a character of it, never one of the People: the line
+  // about them in your words, and a face where an edition drew one that is public domain. The creature is one already.
+  const speakers: Partial<Record<typeof told.id, [string, string]>> = {
+    sherlock: ['The detective Watson writes about. He looks at the same boot as everyone else, and reads a life in it.', holmesUrl],
+    dracula: ['The Count who meets Jonathan Harker at his own front door, all manners. He is most frightening when he is being polite.', draculaUrl],
+    pride: ['The Bennet sister who judges on sight, finds she was wrong, and says so.', bennetUrl],
+    odyssey: ['Trying to get home from Troy. He wins by his wits: he tells the Cyclops his name is Nobody.', odysseusUrl]
+  }
+  const speaker = speakers[told.id]
+  if (speaker && bookLine.who && bookLine.where) {
+    await call('source:character', bookLine.who, bookLine.where, '')
+    await call('source:bio', 'attribution', bookLine.who, speaker[0], '')
+    if (speaker[1]) await call('people:set', bookLine.who, await picture(speaker[1]))
+  }
   const story = await capture({}, at(-3, '09:13'))
   await write(story, `${told.caught}\n\nThought of on a walk.`)
   await essay(told.note, `${told.words.join(' ')} I should ${told.phrase}.`)
