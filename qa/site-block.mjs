@@ -238,7 +238,7 @@ try {
   const noticeWas = (await boundsOf()).find((one) => one.at === 'pill')
   await v('settings:set', { notify: 'alerts', quietStart: '00:00', quietEnd: '00:00' })
   const due = await v('task:add', 'Return the library book')
-  await v('task:save', due?.id ?? due, { due: new Date(Date.now() - 2 * 60000).toISOString() })
+  await v('task:save', due?.id ?? due, { allDay: 0, due: new Date(Date.now() - 2 * 60000).toISOString() })
   await v('alerts:check')
   await wait(1500)
   const both = await boundsOf()
