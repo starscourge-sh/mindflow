@@ -141,7 +141,8 @@ try {
   // Forced: the picture's own hover layer sits over its middle, and the pointer only needs to be over its line.
   await held.hover({ force: true, position: { x: 12, y: 12 } }); await wait(400)
   const grip = await h.locator('.tiptap-drag-handle-grip').boundingBox()
-  const last = await h.locator(`${ED} p`, { hasText: 'The last line' }).first().boundingBox()
+  // Let go low on the line after it: the last line sits under the page's "Add a thought" bar, which took the drop.
+  const last = await h.locator(`${ED} p`, { hasText: 'Words after it' }).first().boundingBox()
   if (grip && last) {
     const start = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 }
     const to = { x: last.x + 60, y: last.y + last.height * 0.8 }
@@ -152,29 +153,8 @@ try {
   }
   now = await read()
   const order = now?.tops ?? []
-  check('dragging its block: the picture alone moves under the last line', !!grip && order.indexOf('[A]') > order.indexOf('paragraph:The last line') && order.indexOf('paragraph:Words before it') < order.indexOf('paragraph:Words after it') && order.indexOf('paragraph:Words before it') >= 0, `${JSON.stringify(order)} grip ${JSON.stringify(grip)}`)
+  check('dragging its block: the picture alone moves under the line after it', !!grip && order.indexOf('[A]') > order.indexOf('paragraph:Words after it') && order.indexOf('paragraph:Words before it') < order.indexOf('paragraph:Words after it') && order.indexOf('paragraph:Words before it') >= 0, `${JSON.stringify(order)} grip ${JSON.stringify(grip)}`)
   clean('drag')
-
-  // 5b. The same drag on a note whose picture was always a block of its own: what dragging a picture does at all.
-  const plain = await v('article:new')
-  await v('item:save', plain, { title: 'Drag a plain one', body: { type: 'doc', content: [{ type: 'paragraph', content: [words('Words before it')] }, picture(A), { type: 'paragraph', content: [words('Words after it')] }, { type: 'paragraph', content: [words('The last line')] }] } })
-  await send('article', plain); await h.locator(ED).first().waitFor({ timeout: 15000 }); await wait(1500)
-  const own = h.locator(`${ED} img[src="${A}"]`).first()
-  await own.scrollIntoViewIfNeeded(); await wait(200)
-  await own.hover({ force: true, position: { x: 12, y: 12 } }); await wait(400)
-  const grip2 = await h.locator('.tiptap-drag-handle-grip').boundingBox()
-  const last2 = await h.locator(`${ED} p`, { hasText: 'The last line' }).first().boundingBox()
-  if (grip2 && last2) {
-    const start = { x: grip2.x + grip2.width / 2, y: grip2.y + grip2.height / 2 }
-    const to = { x: last2.x + 60, y: last2.y + last2.height * 0.8 }
-    await h.mouse.move(start.x, start.y)
-    await h.mouse.down()
-    for (let i = 1; i <= 14; i++) (await h.mouse.move(start.x + ((to.x - start.x) * i) / 14, start.y + ((to.y - start.y) * i) / 14), await wait(50))
-    await h.mouse.up(); await wait(700)
-  }
-  const plainOrder = (await read())?.tops ?? []
-  console.log(`  (a picture that was always a block, dragged the same way: ${JSON.stringify(plainOrder)})`)
-  clean('plain drag')
 
   // 6. The other way in by hand: the words-and-picture line's picture picked and ⌫ pressed.
   await fresh('Backspace it')
