@@ -37,9 +37,15 @@ export const ROOM_EASE = 'cubic-bezier(0.2, 0.9, 0.3, 1)'
  */
 const LATEST = 2500
 const WATCHED = 15000
+/**
+ * A ball that lifts off starts slowly (its flight eases in and out), and rows on their own short clock were home
+ * before it had visibly left: read in frames, the rows went first. They start this far into the flight instead (a
+ * fifth of it: the ball is then a few pixels on its way and picking up speed), so the two go in one breath.
+ */
+const UNDER_WAY = 0.2
 
-/** A row's room: `close` once its paper lifts off (or with no paper, at once); `drop` when the row stays after all. */
-export type Room = { close: () => void; drop: () => void }
+/** A row's room: `close` once its paper lifts off, told how long that flight is (or with no paper, at once); `drop` when the row stays after all. */
+export type Room = { close: (flight?: number) => void; drop: () => void }
 
 type Kind = 'translate' | 'pad'
 /**
@@ -66,7 +72,7 @@ const offBy = (kind: Kind, el: HTMLElement): number => {
  * again from where it is now, so a second change mid-glide never jumps (the way
  * a CSS transition turns).
  */
-function ride(kind: Kind, el: HTMLElement, jump: number, more: number): Promise<unknown> {
+function ride(kind: Kind, el: HTMLElement, jump: number, more: number, wait = 0): Promise<unknown> {
   const map = rides[kind]
   let one = map.get(el)
   if (!one) map.set(el, (one = { add: kind === 'pad' || getComputedStyle(el).translate !== 'none', hold: 0, from: 0, to: 0, anim: null }))
@@ -76,7 +82,8 @@ function ride(kind: Kind, el: HTMLElement, jump: number, more: number): Promise<
   const settled = Math.abs(from - to) < 0.5
   const was = one.anim
   // Held where it is, or on its way to what is still held on it.
-  const anim = el.animate([frame(kind, settled ? to : from), frame(kind, to)], { duration: settled ? 1 : ROOM_MS, easing: settled ? 'linear' : ROOM_EASE, fill: 'forwards', composite: one.add ? 'add' : 'replace' })
+  // Held where it is through any wait, then on its way.
+  const anim = el.animate([frame(kind, settled ? to : from), frame(kind, to)], { duration: settled ? 1 : ROOM_MS, delay: settled ? 0 : wait, easing: settled ? 'linear' : ROOM_EASE, fill: 'both', composite: one.add ? 'add' : 'replace' })
   ;[one.anim, one.from, one.to] = [anim, settled ? to : from, to]
   was?.cancel()
   // Home, with nothing held on it: it is the list's own again.
@@ -85,7 +92,14 @@ function ride(kind: Kind, el: HTMLElement, jump: number, more: number): Promise<
   return settled ? Promise.resolve() : anim.finished.then(home, () => undefined)
 }
 
-type Stood = { top: number; scroller: HTMLElement | null }
+/** Where a thing after the rows stood, and the row it is or holds, by name: a list that draws its rows afresh is asked for it again by that. */
+type Stood = { top: number; scroller: HTMLElement | null; name?: string }
+/** Not a list's own rows: the sidebar's, a menu's, the paper's copy of a row. */
+const OUTSIDE = '[data-side-row], [role="menu"], [data-crumple]'
+const nameOf = (el: Element): string | undefined => (el as HTMLElement).dataset?.id ?? el.querySelector<HTMLElement>('[data-id]')?.dataset.id
+/** The row drawn now under a name, in the list it was in. */
+const rowNamed = (name: string, within?: HTMLElement | null): HTMLElement | null =>
+  [...document.querySelectorAll<HTMLElement>(`[data-id="${CSS.escape(name)}"]`)].find((one) => !one.closest(OUTSIDE) && (!within?.isConnected || within.contains(one))) ?? null
 type Batch = {
   /** The rows told of, those whose paper has not lifted yet, and how many have left the page. */
   rows: Set<HTMLElement>
@@ -105,6 +119,8 @@ type Batch = {
   scrolled: Map<HTMLElement, { top: number; heard: () => void }>
   holding: boolean
   over: boolean
+  /** How long after the lift-off the rows start: nothing with no ball. */
+  wait: number
   watch: MutationObserver
   latest?: ReturnType<typeof setTimeout>
   giveUp?: ReturnType<typeof setTimeout>
@@ -127,7 +143,7 @@ if (typeof window !== 'undefined') {
 export const stays = (ids: string[]): void => void (lefts = lefts.filter((one) => !ids.includes(one.row.dataset.id ?? '')))
 /** The row after this one in its list, as drawn: the next thing down the page with a name of its own, not inside it. */
 function heirOf(row: HTMLElement): HTMLElement | null {
-  const all = [...document.querySelectorAll<HTMLElement>('[data-id]')].filter((one) => !one.closest('[data-side-row], [role="menu"], [data-crumple]'))
+  const all = [...document.querySelectorAll<HTMLElement>('[data-id]')].filter((one) => !one.closest(OUTSIDE))
   const at = all.indexOf(row)
   if (at < 0) return null
   for (const next of all.slice(at + 1)) if (!row.contains(next) && next.dataset.id !== row.dataset.id) return next
@@ -144,7 +160,8 @@ export function heirAt(x: number, y: number, on?: HTMLElement): HTMLElement | nu
   if (!left) return undefined
   for (let heir = left.heir; heir; ) {
     const also = lefts.find((one) => one.row === heir)
-    if (!also) return heir.isConnected ? heir : null
+    // Still on the page, or drawn afresh under the same name.
+    if (!also) return heir.isConnected ? heir : heir.dataset.id ? rowNamed(heir.dataset.id) : null
     heir = also.heir
   }
   return null
@@ -168,13 +185,13 @@ export function keepRoom(row: HTMLElement | null): Room | undefined {
     note(batch, row)
     lefts = [...lefts.slice(-40), { row, place: row.getBoundingClientRect(), heir: heirOf(row), batch, settled: false }]
   }
-  return { close: () => lifted(batch, row), drop: () => (batch.rows.delete(row), (lefts = lefts.filter((one) => one.row !== row)), lifted(batch, row)) }
+  return { close: (flight = 0) => lifted(batch, row, flight * UNDER_WAY), drop: () => (batch.rows.delete(row), (lefts = lefts.filter((one) => one.row !== row)), lifted(batch, row)) }
 }
 
 function begin(): Batch {
   const batch: Batch = {
     rows: new Set(), waiting: new Set(), gone: 0, after: new Map(), paths: [], tall: new Map(), moved: new Map(), padded: new Map(), fresh: new Map(), scrolled: new Map(),
-    holding: false, over: false, watch: new MutationObserver((changes) => look(batch, changes))
+    holding: false, over: false, wait: 0, watch: new MutationObserver((changes) => look(batch, changes))
   }
   // Heard as the page changes, before that change is painted: the frame a row leaves in is the frame its room is held in.
   batch.watch.observe(document.body, { childList: true, subtree: true })
@@ -195,7 +212,7 @@ function note(batch: Batch, row: HTMLElement): void {
   const path: HTMLElement[] = []
   for (let at: HTMLElement = row; at.parentElement && at !== scroller && at !== document.body; at = at.parentElement) {
     for (let next = at.nextElementSibling; next; next = next.nextElementSibling)
-      if (next instanceof HTMLElement && !batch.after.has(next)) batch.after.set(next, { top: topOf(next, scroller), scroller })
+      if (next instanceof HTMLElement && !batch.after.has(next)) batch.after.set(next, { top: topOf(next, scroller), scroller, name: nameOf(next) })
     const box = at.parentElement
     if (box === scroller || box === document.body) break
     path.push(box)
@@ -205,8 +222,9 @@ function note(batch: Batch, row: HTMLElement): void {
 }
 
 /** A row's paper has lifted off (or it has none, or it stays): with every paper up, the rooms close. */
-function lifted(batch: Batch, row: HTMLElement): void {
+function lifted(batch: Batch, row: HTMLElement, wait = 0): void {
   batch.waiting.delete(row)
+  batch.wait = Math.max(batch.wait, wait)
   if (batch.waiting.size || batch.over) return
   if (batch.holding) return shut(batch)
   if (!batch.rows.size) return end(batch)
@@ -223,7 +241,10 @@ function look(batch: Batch, changes: MutationRecord[]): void {
   if (gone > batch.gone) {
     batch.gone = gone
     hold(batch)
-  } else if (batch.holding && changes.some((one) => one.addedNodes.length && one.target instanceof HTMLElement && [...one.target.children].some((child) => batch.moved.has(child as HTMLElement)))) drawnAnew(batch)
+  // The list drew its rows afresh under the hold (Tasks, as the pick clears, a moment after the rows left; a long
+  // list made anew is empty for one draw, then has its rows): held again, on the new ones, as they come.
+  } else if (batch.holding && changes.some((one) => one.addedNodes.length) && [...batch.after.keys()].some((el) => !el.isConnected && !batch.rows.has(el))) hold(batch)
+  else if (batch.holding && changes.some((one) => one.addedNodes.length && one.target instanceof HTMLElement && [...one.target.children].some((child) => batch.moved.has(child as HTMLElement)))) drawnAnew(batch)
   else return
   if (!batch.waiting.size) return shut(batch)
   // The paper's own word is what closes it; this is only the latest it is waited for.
@@ -238,27 +259,31 @@ function look(batch: Batch, changes: MutationRecord[]): void {
 function hold(batch: Batch): void {
   batch.holding = true
   // What holds the rows keeps its height: the room is padding at its foot, on the innermost box that shortened.
-  const short: [HTMLElement, number, number][] = []
-  for (const [box, tall] of batch.tall) if (box.isConnected) short.push([box, tall - tallOf(box), depthOf(box)])
-  const fresh = new Map<HTMLElement, number>()
-  // Innermost first, so a box is given only what is not already made up inside it (a group's room, inside a list's).
-  for (const [box, by] of short.sort((a, b) => b[2] - a[2])) {
+  // Worked out afresh each time from how tall each stood, so it is right again after a list has drawn itself anew
+  // (for a moment it is empty, and the box round it is held whole; then its rows are back, and only their room is).
+  const boxes = [...batch.tall].filter(([box]) => box.isConnected).map(([box, tall]) => [box, tall, tallOf(box), depthOf(box)] as const).sort((a, b) => b[3] - a[3])
+  const turned = new Map<HTMLElement, number>()
+  for (const [box, tall, now] of boxes) {
+    // Less what was just made up (or given back) inside it: a group's room, inside a list's.
     let inside = 0
-    for (const [other, given] of fresh) if (box.contains(other)) inside += given
-    if (by - inside > 0.5) fresh.set(box, by - inside)
+    for (const [other, by] of turned) if (box.contains(other)) inside += by
+    const want = Math.max(0, tall - now - inside)
+    const had = batch.padded.get(box) ?? 0
+    if (Math.abs(want - had) > 0.5) turned.set(box, want - had)
   }
-  for (const [box, need] of fresh) {
-    ride('pad', box, need, need)
-    batch.padded.set(box, (batch.padded.get(box) ?? 0) + need)
-    // As tall again as it stood: read the same from here on.
-    batch.tall.set(box, batch.tall.get(box)! - need)
+  for (const [box, by] of turned) {
+    ride('pad', box, by, by)
+    batch.padded.set(box, (batch.padded.get(box) ?? 0) + by)
   }
   // A list scrolled to its end was pulled down as it shortened: with its height back, it is put back where it was.
   for (const [scroller, kept] of batch.scrolled) if (scroller.isConnected && scroller.scrollTop < kept.top - 0.5) scroller.scrollTop = kept.top
-  // Then each thing after them, back where it stood.
+  // Then each thing after them, back where it stood: found again first, where the list drew its rows afresh.
+  refind(batch)
   const off: [HTMLElement, number][] = []
   for (const [el, stood] of batch.after) {
     if (!el.isConnected) continue
+    // What scrolled it may have been drawn afresh too: the one that scrolls it now stands in the same place.
+    if (stood.scroller && !stood.scroller.isConnected) stood.scroller = scrollerOf(el)
     const by = stood.top - topOf(el, stood.scroller)
     if (Math.abs(by) > 0.5) off.push([el, by])
   }
@@ -269,6 +294,73 @@ function hold(batch: Batch): void {
     batch.after.get(el)!.top -= by
   }
   drawnAnew(batch)
+}
+
+/**
+ * A list that draws its rows afresh as these leave (Tasks, when the pick clears: its rows change kind) has thrown
+ * away every thing that was noted. Each is found again: a row by its name, in the box that takes the old one's
+ * place; what stood between rows (a heading) by its place beside the same row. What was held on the old one is
+ * asked of the new one from the start, so it is drawn where the old one was.
+ */
+function refind(batch: Batch): void {
+  const gone: [HTMLElement, Stood][] = []
+  for (const [el, stood] of batch.after) {
+    if (el.isConnected) continue
+    // One of the rows that left is not looked for again.
+    if (batch.rows.has(el)) batch.after.delete(el)
+    else gone.push([el, stood])
+  }
+  if (!gone.length) return
+  const twin = new Map<Element, HTMLElement>()
+  for (const [old, stood] of gone) {
+    const row = stood.name ? rowNamed(stood.name, stood.scroller) : null
+    if (row) twin.set(old, unitLike(row, old))
+  }
+  // None drawn yet (a long list made anew draws its rows a moment later): asked again as they come (look).
+  if (!twin.size) return
+  // What has no name: the thing drawn just before the same row now, or just after it, counting the other nameless things between.
+  const beside = (old: HTMLElement, way: 'nextElementSibling' | 'previousElementSibling', back: 'nextElementSibling' | 'previousElementSibling'): Element | null => {
+    let between = 0
+    for (let at = old[way]; at; at = at[way]) {
+      let now: Element | null | undefined = twin.get(at)
+      if (now) {
+        for (let i = 0; i <= between && now; i++) now = now[back]
+        return now ?? null
+      }
+      if (!nameOf(at)) between += 1
+    }
+    return null
+  }
+  for (const [old, stood] of gone) {
+    let now: Element | null = twin.get(old) ?? null
+    if (!now && !stood.name) {
+      now = beside(old, 'nextElementSibling', 'previousElementSibling') ?? beside(old, 'previousElementSibling', 'nextElementSibling')
+      if (now && (nameOf(now) || !(now instanceof HTMLElement))) now = null
+    }
+    const held = batch.moved.get(old) ?? 0
+    batch.after.delete(old)
+    batch.moved.delete(old)
+    lost('translate', old)
+    if (now instanceof HTMLElement && !batch.after.has(now) && !batch.rows.has(now)) batch.after.set(now, { ...stood, top: stood.top + held })
+  }
+}
+
+/** The box that takes an old one's place round a row drawn afresh: the same kind of box (a long list's own, known by its marks), else the outermost one that holds this row alone. */
+function unitLike(row: HTMLElement, old: HTMLElement): HTMLElement {
+  const marks = [...old.attributes].map((one) => one.name).filter((name) => name.startsWith('data-'))
+  if (marks.length) for (let at: HTMLElement | null = row; at && at !== document.body; at = at.parentElement) if (at.tagName === old.tagName && marks.every((name) => at!.hasAttribute(name))) return at
+  return unitOf(row)
+}
+/** The outermost box that holds a row alone (a long list wraps each row in one, with a sliver of room under it; a carried row's own box holds its grip too). */
+function unitOf(row: HTMLElement): HTMLElement {
+  const alone = (box: HTMLElement): boolean => {
+    let rows = 0
+    for (const child of box.children) if (nameOf(child) && ++rows > 1) return false
+    return true
+  }
+  let unit = row
+  while (unit.parentElement && unit.parentElement !== document.body && alone(unit.parentElement)) unit = unit.parentElement
+  return unit
 }
 
 /**
@@ -293,10 +385,10 @@ function drawnAnew(batch: Batch): void {
 function shut(batch: Batch): void {
   if (batch.over) return
   const runs: Promise<unknown>[] = []
-  for (const [el, by] of batch.moved) el.isConnected ? runs.push(ride('translate', el, 0, -by)) : lost('translate', el)
-  for (const [box, by] of batch.padded) box.isConnected ? runs.push(ride('pad', box, 0, -by)) : lost('pad', box)
+  for (const [el, by] of batch.moved) el.isConnected ? runs.push(ride('translate', el, 0, -by, batch.wait)) : lost('translate', el)
+  for (const [box, by] of batch.padded) box.isConnected ? runs.push(ride('pad', box, 0, -by, batch.wait)) : lost('pad', box)
   // What the list drew anew shows as the glide ends.
-  for (const [el, hidden] of batch.fresh) (el.animate({ visibility: ['hidden', 'hidden'] }, { duration: ROOM_MS }), hidden.cancel())
+  for (const [el, hidden] of batch.fresh) (el.animate({ visibility: ['hidden', 'hidden'] }, { duration: ROOM_MS + batch.wait }), hidden.cancel())
   end(batch, Promise.allSettled(runs))
 }
 
@@ -350,16 +442,16 @@ export function expectBack(ids: string[]): void {
 }
 
 /**
- * How much room a row drawn again takes: from its top to the top of what comes next, its air included. Read off
- * the outermost box that holds it alone (a long list wraps each row in one, with a sliver of room under it).
+ * How much room a row drawn again takes: from its top to the top of what comes next, its air included, read off
+ * the outermost box that holds it alone.
  */
 function roomOf(row: HTMLElement): number {
-  let unit = row
-  while (unit.parentElement && unit.parentElement.childElementCount === 1 && unit.parentElement !== document.body) unit = unit.parentElement
-  const box = unit.getBoundingClientRect()
+  const unit = unitOf(row)
   const next = unit.nextElementSibling
-  const to = next instanceof HTMLElement ? next.getBoundingClientRect().top - offBy('translate', next) - box.top : 0
-  return to >= box.height - 0.5 && to < box.height * 2 ? to : box.height
+  const to = next instanceof HTMLElement ? next.getBoundingClientRect().top - offBy('translate', next) - unit.getBoundingClientRect().top : 0
+  // Never more than the row and a little air: a row alone in its list is held by the whole list, which is no measure of it.
+  const own = row.getBoundingClientRect().height
+  return to >= own - 0.5 && to < own * 2 ? to : own
 }
 
 function part(row: HTMLElement, by: number): void {

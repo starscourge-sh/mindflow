@@ -104,13 +104,20 @@ function crossed(frames, skip = new Set()) {
 let names = new Map()
 const said = (row) => `“${names.get(row.id) ?? row.id.slice(0, 8)}” ${Math.round(row.top)}..${Math.round(row.bottom)}`
 
-/** How the rows named moved between two frames' places: the frames they moved in, and how well that fits the list's clock. */
-function moved(frames, ids, from, to) {
-  const start = mapOf(frames[from])
-  const end = mapOf(frames[to])
+/**
+ * How the rows named moved between two frames' places: the frames they moved in, and how well that fits the list's
+ * clock. `ref`: a row that stays put (the one above), to read the others against: a list that also scrolls a little
+ * as a row comes back (to bring it into view) is then not read as rows off their curve.
+ */
+function moved(frames, ids, from, to, ref) {
+  const held = ref && frames.slice(from, to + 1).every((frame) => frame.rows.some((row) => row.id === ref)) ? ref : null
+  const against = (frame) => (held ? frame.rows.find((row) => row.id === held).top : 0)
+  const placed = (frame) => new Map(frame.rows.map((row) => [row.id, { ...row, top: row.top - against(frame) }]))
+  const start = placed(frames[from])
+  const end = placed(frames[to])
   const kept = ids.filter((id) => start.has(id) && end.has(id) && Math.abs(start.get(id).top - end.get(id).top) > 0.5 && frames.slice(from, to + 1).every((frame) => frame.rows.some((row) => row.id === id)))
   if (!kept.length) return { kept, first: -1, last: -1, steps: 0, fit: 1, starts: [] }
-  const topAt = (at, id) => frames[at].rows.find((row) => row.id === id).top
+  const topAt = (at, id) => frames[at].rows.find((row) => row.id === id).top - against(frames[at])
   const firstOf = (id) => { for (let at = from; at <= to; at++) if (Math.abs(topAt(at, id) - start.get(id).top) > 0.5) return at; return -1 }
   const lastOf = (id) => { for (let at = to; at >= from; at--) if (Math.abs(topAt(at, id) - end.get(id).top) > 0.5) return at + 1; return from }
   const starts = [...new Set(kept.map(firstOf))]
@@ -137,6 +144,8 @@ function moved(frames, ids, from, to) {
  * The flight eases in, so that first pixel of travel shows a frame or two after the lift-off itself: LEAD.
  */
 const LEAD = 3
+/** The rows start within this long of the ball's first seen movement: a fifth of its flight (90 ms), and a few frames' grace. */
+const UNDER_WAY = 150
 function paper(frames) {
   const laid = frames.findIndex((frame) => frame.cover || frame.ball)
   if (laid < 0) return { laid, lift: -1 }
@@ -189,7 +198,9 @@ try {
     // (b) The rows below move over more than two frames, on the list's clock, beginning as the ball lifts off.
     const run = moved(frames, below, Math.max(0, laid), rest)
     check(`${LIST} click (b): the rows below move over more than two frames, all in one move`, run.steps > 2 && run.starts.length === 1, `${run.kept.length} rows moved ${run.by}px over ${run.steps} frames (${run.ms} ms), ${run.starts.length} start(s), longest frame ${run.slow} ms`)
-    check(`${LIST} click (b): they begin as the ball lifts off, not before and not after it lands`, lift > 0 && run.first >= lift - LEAD && run.first <= lift + LEAD, `first moved at frame ${run.first} (${Math.round(frames[Math.max(0, run.first)].t)} ms), the ball was first seen moved at frame ${lift} (${lift > 0 ? Math.round(frames[lift].t) : '-'} ms)`)
+    // With the flight, in one breath: the ball starts slowly, and the rows start once it is under way (a fifth of its 450 ms in), long before it lands.
+    const late = lift > 0 && run.first > 0 ? Math.round(frames[run.first].t - frames[lift].t) : NaN
+    check(`${LIST} click (b): they begin as the ball gets under way, not before it lifts and not after it lands`, lift > 0 && run.first >= lift - LEAD && late <= UNDER_WAY, `first moved ${late} ms after the ball was first seen moved (frame ${run.first} at ${Math.round(frames[Math.max(0, run.first)].t)} ms; the ball at frame ${lift}, ${lift > 0 ? Math.round(frames[lift].t) : '-'} ms)`)
     check(`${LIST} click (b): on the list's clock (220 ms, cubic-bezier(0.2, 0.9, 0.3, 1))`, run.fit < 0.12, `furthest from the curve: ${(run.fit * 100).toFixed(1)}% of the way`)
     const after = await rowsNow()
     const riding = await h.evaluate(() => window.__riding())
@@ -203,7 +214,7 @@ try {
     frames = await undoByButton()
     await wait(400)
     const came = frames.findIndex((frame) => frame.rows.some((row) => row.id === one.id))
-    const back = moved(frames, below, Math.max(0, came - 1), frames.length - 1)
+    const back = moved(frames, below, Math.max(0, came - 1), frames.length - 1, list[0].id)
     check(`${LIST} Undo (d): the rows part over more than two frames, all in one move`, came > 0 && back.steps > 2 && back.starts.length === 1, `${back.kept.length} rows moved ${back.by}px over ${back.steps} frames (${back.ms} ms), ${back.starts.length} start(s)`)
     check(`${LIST} Undo (d): on the list's clock`, back.fit < 0.12, `furthest from the curve: ${(back.fit * 100).toFixed(1)}% of the way`)
     const shownEarly = came > 0 ? frames.slice(came, back.last).filter((frame) => frame.rows.some((row) => row.id === one.id && !row.hid)).length : -1
@@ -298,7 +309,7 @@ try {
     const inPlace = []
     for (let at = Math.max(0, laid); at < (lift > 0 ? lift - LEAD : frames.length - 1); at++) for (const row of frames[at].rows) if (!row.hid && !was.has(row.id) && picks.some((one) => over(row, one))) inPlace.push(at)
     check(`${LIST} three at once: nothing moves into their places while the paper is in place`, laid >= 0 && lift > laid && !inPlace.length, `${inPlace.length} frames with a row in a place left, paper laid at ${laid}, lifts at ${lift}`)
-    check(`${LIST} three at once: the gaps close as one move (every row starts in the same frame, as the ball lifts off)`, run.steps > 2 && run.starts.length === 1 && run.first >= lift - LEAD && run.first <= lift + LEAD, `${run.kept.length} rows over ${run.steps} frames, starts at frames ${run.starts.join(',')}, the ball lifted at ${lift}`)
+    check(`${LIST} three at once: the gaps close as one move (every row starts in the same frame, as the ball lifts off)`, run.steps > 2 && run.starts.length === 1 && run.first >= lift - LEAD && frames[run.first].t - frames[lift].t <= UNDER_WAY, `${run.kept.length} rows over ${run.steps} frames, starts at frames ${run.starts.join(',')}, the ball lifted at ${lift}`)
     const cross = crossed(frames, ids)
     check(`${LIST} three at once (c): no row is drawn over another at any frame`, !cross.length, cross.length ? `${cross.length}: ${cross[0]}` : `${frames.length} frames read`)
     const back = await undoByButton(); await wait(500)

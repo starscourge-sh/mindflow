@@ -30,5 +30,5 @@ test('every way a row leaves with a flight keeps its room: the Bin, a task close
   assert.match(fly, /export function binFlightFrom[\s\S]{0,700}keepRoom\(from\)/)
   assert.match(fly, /export function liftFrom[\s\S]{0,400}keepRoom\(from\)/)
   // The ball's lift-off closes it: where it lands is asked as it lifts.
-  assert.match(fly, /one\.go\(\(\) => \(room\?\.close\(\), to\(\)\)/)
+  assert.match(fly, /one\.go\(\(\) => \(room\?\.close\(FLIGHT_MS\), to\(\)\)/)
 })

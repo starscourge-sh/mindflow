@@ -134,8 +134,9 @@ export const lift = (id: string, home: Home): (() => void) | undefined =>
   // A list's row: its room stays open under the card and closes as the square flies (lib/room.ts).
   liftFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`), home, true)
 
-/** How big the square is that a card becomes before it flies. */
+/** How big the square is that a card becomes before it flies, and how long it flies. */
 const SQUARE = 26
+const SQUARE_MS = 180
 
 /** The same, from any element: a whole note sent off to the Inbox. */
 export function liftFrom(from: HTMLElement | null, home: Home, row = false): (() => void) | undefined {
@@ -197,7 +198,7 @@ export function liftFrom(from: HTMLElement | null, home: Home, row = false): (()
         const dy = end.top + end.height / 2 - cy
         const scale = Math.max(0.5, Math.min(1, end.height / SQUARE))
         // The square lifts off: the room it left closes with its flight, in one breath.
-        room?.close()
+        room?.close(SQUARE_MS)
         // A slight arc: it lifts on its way rather than sliding in a straight line.
         return card.animate(
           [
@@ -205,7 +206,7 @@ export function liftFrom(from: HTMLElement | null, home: Home, row = false): (()
             { transform: `translate(${dx * 0.5}px, ${dy * 0.5 - 18}px) scale(1.04)`, opacity: 1, offset: 0.5 },
             { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: 0.4 }
           ],
-          { duration: 180, easing: IN_OUT, fill: 'forwards' }
+          { duration: SQUARE_MS, easing: IN_OUT, fill: 'forwards' }
         ).finished
       })
       .then(() => {
@@ -271,7 +272,7 @@ export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null
   const land = (after?: () => void): void => {
     const done = (): void => (room?.close(), after?.(), hidden.cancel())
     // Where it lands is asked the moment the ball lifts off: the room closes with the flight, not after it.
-    void sheet.then((one) => (one ? one.go(() => (room?.close(), to()), done) : done()))
+    void sheet.then((one) => (one ? one.go(() => (room?.close(FLIGHT_MS), to()), done) : done()))
   }
   return Object.assign(land, { drop: (): void => void (room?.drop(), sheet.then((one) => (one?.drop(), lay(), hidden.cancel()))) })
 }
