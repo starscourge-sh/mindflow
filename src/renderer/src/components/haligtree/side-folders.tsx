@@ -333,7 +333,7 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
         document.body
       )}
       {/* Where it lands: the room the folders open, with the line every list draws through it (carry.tsx); its own place, the band alone. */}
-      {lifted && room && <RoomAt at={room} how={aim ? `${aim.how}:${aim.target}` : 'own'} />}
+      {lifted && room && <RoomAt at={room} how={aim?.how ?? 'own'} />}
     </Unfold>
   )
 }
