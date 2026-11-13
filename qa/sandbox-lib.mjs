@@ -84,6 +84,24 @@ export async function sandbox({ width = 1000, height = 700, seeded = true, at } 
   await h.waitForLoadState('domcontentloaded')
   const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
   if (seeded) await untilSeeded(() => v('sandbox:state').catch(() => null), h)
+  // The sandbox's reminder ("Call Mr Wolf", set by the seed for tomorrow at 9:00) pins itself once it is due, on the
+  // app's one-minute look at reminders (src/main/haligtree.ts). A seeded copy kept for days has it overdue, so a minute
+  // into every run a new row landed at the top of the sidebar's Pinned and pushed every pin and tag under it down one
+  // row: whichever probe was comparing boxes at that second failed a line. Put back to tomorrow at 9:00, as the seed
+  // meant it, through the app's own door, before anything is read. The sandbox only: a real book's reminders are its own.
+  // QA_OLD_REMINDER=1 leaves it overdue, to see the fault.
+  if (seeded && !process.env.QA_OLD_REMINDER && (await v('sandbox:state').catch(() => null))?.on) {
+    const put = await h.evaluate(async () => {
+      const tomorrow = new Date()
+      tomorrow.setDate(tomorrow.getDate() + 1)
+      tomorrow.setHours(9, 0, 0, 0)
+      const now = new Date().toISOString()
+      const due = (await window.api.captures.list()).filter((one) => one.remindAt && one.remindAt <= now)
+      for (const one of due) await window.api.haligtree('remind', 'captures', one.id, tomorrow.toISOString())
+      return due.map((one) => `${one.remindAt}`)
+    }).catch(() => [])
+    if (put.length) console.log(`(the sandbox's reminder was overdue since ${put.join(', ')}: put back to tomorrow at 9:00)`)
+  }
   const size = async (w, hh) => {
     await electron.evaluate(({ BrowserWindow }, [w, hh]) => { const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home')); win?.setBounds({ x: 40, y: 40, width: w, height: hh }); win?.show() }, [w, hh])
     await h.waitForTimeout(500)

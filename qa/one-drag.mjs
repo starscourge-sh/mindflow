@@ -81,6 +81,52 @@ const BOOK = !!process.env.BOOK
 if (!BOOK) for (const list of ['article', 'nugget']) for (const group of await v('groups', list)) await v('groups:delete', group.id)
 const wait = (ms) => h.waitForTimeout(ms)
 h.setDefaultTimeout(4000)
+// QA_TRACE: every call that scrolls a box of the sidebar, with where it came from, each scroll the sidebar hears, Esc,
+// and whether the click a release makes got through to the page: so a row standing "one row lower" names its cause.
+const TRACE = () => {
+  if (window.qaSide) return
+  window.qaSide = []
+  const t = () => Math.round(performance.now())
+  const inSide = (one) => one instanceof Element && !!one.closest('aside')
+  const from = () => new Error().stack.split('\n').slice(3, 8).map((line) => line.trim().replace(/^at /, '').replace(/\(?file:\/\/[^)]*\/assets\//, '(')).join(' < ')
+  for (const how of ['scrollIntoView', 'scrollTo', 'scrollBy', 'scroll']) {
+    const was = Element.prototype[how]
+    Element.prototype[how] = function (...args) {
+      const box = how === 'scrollIntoView' ? this.closest?.('aside') : inSide(this) ? this : null
+      const before = box ? [...document.querySelectorAll('aside, aside *')].filter((one) => one.scrollTop).map((one) => one.scrollTop).join('/') : ''
+      const out = was.apply(this, args)
+      if (box) window.qaSide.push(`${t()}ms ${how}(${JSON.stringify(args[0] ?? '')}) on <${this.tagName.toLowerCase()} ${[...this.attributes].filter((a) => a.name.startsWith('data-')).map((a) => a.name).join(' ')}> scrolled before ${before || 0}, after ${[...document.querySelectorAll('aside, aside *')].filter((one) => one.scrollTop).map((one) => one.scrollTop).join('/') || 0}; from ${from()}`)
+      return out
+    }
+  }
+  const top = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')
+  Object.defineProperty(Element.prototype, 'scrollTop', { ...top, set(value) { if (inSide(this) && this.scrollTop !== value) window.qaSide.push(`${t()}ms scrollTop = ${value} (was ${this.scrollTop}); from ${from()}`); top.set.call(this, value) } })
+  const focus = HTMLElement.prototype.focus
+  HTMLElement.prototype.focus = function (...args) { if (inSide(this)) window.qaSide.push(`${t()}ms focus(${JSON.stringify(args[0] ?? '')}) on a sidebar <${this.tagName.toLowerCase()}>; from ${from()}`); return focus.apply(this, args) }
+  document.addEventListener('scroll', (event) => void (inSide(event.target) && window.qaSide.push(`${t()}ms the sidebar heard a scroll: now ${event.target.scrollTop} of ${event.target.scrollHeight}`)), true)
+  addEventListener('keydown', (event) => void (event.key === 'Escape' && window.qaSide.push(`${t()}ms Esc pressed`)), true)
+  addEventListener('pointerup', () => void window.qaSide.push(`${t()}ms pointer up`), true)
+  addEventListener('click', (event) => void window.qaSide.push(`${t()}ms a click reached the page's top on <${event.target.tagName?.toLowerCase()} ${[...(event.target.attributes ?? [])].filter((a) => a.name.startsWith('data-')).map((a) => a.name).join(' ')}>`), true)
+  addEventListener('click', (event) => void window.qaSide.push(`${t()}ms THE CLICK GOT THROUGH to <${event.target.tagName?.toLowerCase()}> (not swallowed)`))
+}
+if (process.env.QA_TRACE) {
+  await electron.context().addInitScript(`(${TRACE.toString()})()`)
+  await h.evaluate(`(${TRACE.toString()})()`)
+  // Every call that writes, kept in main with its time (reads left out): what pinned, moved or saved, and from which window.
+  await electron.evaluate(({ ipcMain }) => {
+    globalThis.qaWrites = []
+    for (const [name, was] of [...ipcMain._invokeHandlers]) {
+      if (!/pin|save|put|move|order|drop|nest|folder|group|restore|set|make|add|delete|create|open|recent|seen/i.test(name)) continue
+      ipcMain._invokeHandlers.set(name, (event, ...args) => {
+        let said = ''
+        try { said = JSON.stringify(args).slice(0, 160) } catch { said = '' }
+        globalThis.qaWrites.push({ at: Date.now(), name, args: said })
+        if (globalThis.qaWrites.length > 400) globalThis.qaWrites.splice(0, 200)
+        return was(event, ...args)
+      })
+    }
+  })
+}
 /** A part of the probe: a part that cannot even run on old code is a fail, and the rest still runs. */
 const part = async (name, run) => { if ((process.env.PART && !name.includes(process.env.PART)) || (process.env.SKIP && name.includes(process.env.SKIP))) return; try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); for (const one of await binsSince().catch(() => [])) console.log(`BINNED in ${name}: ${JSON.stringify(one)}`); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
 const shot = (name) => (SHOTS ? h.screenshot({ path: `${SHOTS}/${name}.png` }) : null)
@@ -563,12 +609,39 @@ const drawn = () => h.evaluate(() => {
     lit: [...document.querySelectorAll('[data-drop-hot], [data-nest-hot]')].filter(seen).length, pointer: getComputedStyle(document.body).cursor
   }
 })
-/** Every row's box on the page, for Esc putting each back. */
-const boxes = () => h.evaluate(() => {
-  // Where it stands in its own scroller, so a list that scrolled by itself while carrying is not read as rows moved.
-  const scrolled = (one) => { for (let at = one.parentElement; at; at = at.parentElement) if (/auto|scroll/.test(getComputedStyle(at).overflowY) && at.scrollHeight > at.clientHeight) return at.scrollTop; return 0 }
-  return Object.fromEntries([...document.querySelectorAll('[data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return [one.dataset.sortableId, `${Math.round(r.top + scrolled(one))}:${Math.round(r.height)}`] }))
-})
+/**
+ * Every row's box on the page, for Esc putting each back. With it, out of the way of the rows (`side`): the sidebar's
+ * own scroll boxes (how far each is scrolled, how tall what it holds is) and its rows by name, so a line that fails
+ * with the sidebar's rows "one row lower" says whether the box was scrolled or something in it grew, and what.
+ */
+const boxes = async () => {
+  const read = await h.evaluate(() => {
+    // Where it stands in its own scroller, so a list that scrolled by itself while carrying is not read as rows moved.
+    const scrolled = (one) => { for (let at = one.parentElement; at; at = at.parentElement) if (/auto|scroll/.test(getComputedStyle(at).overflowY) && at.scrollHeight > at.clientHeight) return at.scrollTop; return 0 }
+    const rows = Object.fromEntries([...document.querySelectorAll('[data-sortable-id]')].filter((one) => one.getClientRects().length).map((one) => { const r = one.getBoundingClientRect(); return [one.dataset.sortableId, `${Math.round(r.top + scrolled(one))}:${Math.round(r.height)}`] }))
+    const named = (one) => one.closest('[data-sortable-id]')?.dataset.sortableId ?? [...one.attributes].filter((a) => a.name.startsWith('data-side-') && a.name !== 'data-side-row').map((a) => `${a.name.slice(10)}=${a.value}`).join(',') ?? ''
+    const side = {
+      scrollers: [...document.querySelectorAll('aside, aside *')].filter((one) => one.scrollTop || one.hasAttribute('data-scroll-held') || (/auto|scroll/.test(getComputedStyle(one).overflowY) && one.clientHeight > 0))
+        .map((one) => ({ top: Math.round(one.scrollTop), tall: one.scrollHeight, view: one.clientHeight, over: getComputedStyle(one).overflowY, held: one.hasAttribute('data-scroll-held') })),
+      rows: [...document.querySelectorAll('aside [data-side-row]')].filter((one) => one.getClientRects().length).map((one) => `${named(one) || (one.innerText ?? '').trim().slice(0, 18)}@${Math.round(one.getBoundingClientRect().top)}`),
+      said: Object.fromEntries([...document.querySelectorAll('aside [data-side-row]')].filter((one) => one.getClientRects().length).map((one) => [named(one) || (one.innerText ?? '').trim().slice(0, 18), `“${(one.innerText ?? '').trim().split('\n')[0].slice(0, 30)}” in ${one.closest('[data-side-section]')?.getAttribute('data-side-section') ?? one.closest('[data-side-drop]')?.getAttribute('data-side-drop') ?? 'no section'}`])),
+      open: document.querySelector('[data-pane] [data-open]')?.getAttribute('data-id') ?? null,
+      focus: (document.activeElement?.tagName ?? '') + (document.activeElement?.closest?.('aside') ? ' in the sidebar' : '')
+    }
+    return { rows, side }
+  })
+  return Object.defineProperty(read.rows, 'side', { value: read.side, enumerable: false })
+}
+/** What changed in the sidebar between two readings, said in a line. */
+const sideSaid = (was, atEsc, now) => {
+  const tell = (one) => one ? one.scrollers.map((box) => `scrolled ${box.top} of ${box.tall} in ${box.view} (${box.over}${box.held ? ', held' : ''})`).join(' | ') : 'not read'
+  const names = (one) => new Set((one?.rows ?? []).map((row) => row.split('@')[0]))
+  const [before, after] = [names(was), names(now)]
+  const came = [...after].filter((name) => !before.has(name))
+  const went = [...before].filter((name) => !after.has(name))
+  const first = (now?.rows ?? []).find((row) => { const old = (was?.rows ?? []).find((one) => one.split('@')[0] === row.split('@')[0]); return old && old !== row })
+  return `  side before: ${tell(was)}\n  side at Esc: ${tell(atEsc)}\n  side after:  ${tell(now)}\n  side rows: ${was?.rows.length} before, ${now?.rows.length} after; came: ${came.map((name) => `${name} ${now?.said?.[name] ?? ''}`).join(', ') || 'none'}; went: ${went.join(', ') || 'none'}; first row moved: ${first ?? 'none'}; open before ${was?.open}, after ${now?.open}; focus after: ${now?.focus}`
+}
 /** The sidebar back at its top: carrying near its foot scrolls it, as any list does. */
 const sideTop = () => h.evaluate(() => { for (const one of document.querySelectorAll('aside, aside *')) if (one.scrollTop) one.scrollTop = 0 })
 /** The seven points, checked where the pointer is `at`. `want`: the card's words, and `lit` (a target lights), `refused`, `bare` (a line with no band: rows that stay put) or a room with its line. */
@@ -594,11 +667,21 @@ const oneLook = async (name, at, want) => {
 }
 /** A held carry put back with Esc: every box where it was. */
 const putBack = async (name, was) => {
-  await h.keyboard.press('Escape'); await wait(350); await h.mouse.up(); await wait(450)
+  await h.keyboard.press('Escape'); await wait(350)
+  const atEsc = (await boxes()).side
+  await h.mouse.up(); await wait(450)
   const now = await boxes()
   // (Only the rows it was given: a part that reads the page's rows alone gives those.)
   const moved = Object.keys(was).filter((id) => was[id] !== now[id])
-  check(`${name}: Esc puts every box back, nothing carried`, !moved.length && !(await card()), moved.slice(0, 4).map((id) => `${id} ${was[id]} -> ${now[id]}`).join('; '))
+  const ok = check(`${name}: Esc puts every box back, nothing carried`, !moved.length && !(await card()), moved.slice(0, 4).map((id) => `${id} ${was[id]} -> ${now[id]}`).join('; '))
+  // A line that fails says what the sidebar did: scrolled, or grew, and by what; with QA_TRACE, every call that scrolled it or clicked through.
+  if (!ok) {
+    console.log(sideSaid(was.side, atEsc, now.side))
+    if (process.env.QA_TRACE) console.log((await h.evaluate(() => (window.qaSide ?? []).slice(-40))).map((one) => `  scroll trace ${one}`).join('\n'))
+    // What was written in the app's last fifteen seconds, and when: a row that came by itself has a write behind it.
+    if (process.env.QA_TRACE) console.log((await electron.evaluate(() => { const now = Date.now(); return (globalThis.qaWrites ?? []).filter((one) => now - one.at < 15000).map((one) => `${one.at - now} ms: ${one.name} ${one.args}`) })).map((one) => `  side write ${one}`).join('\n'))
+  }
+  if (process.env.QA_TRACE) await h.evaluate(() => void (window.qaSide = []))
 }
 /** From a point to a point with a real pointer, in steps, and held there. */
 const hold = async (from, to) => {
@@ -792,7 +875,7 @@ await part('One look: the sidebar', async () => {
       await oneLook('The sidebar, a page carried over Pinned', at, { words: /can’t go in Pinned/, refused: true })
       await h.mouse.up(); await wait(700)
       const now = await boxes()
-      check('The sidebar, a page let go over Pinned: nothing moved', Object.keys(was).every((id) => was[id] === now[id]), '')
+      if (!check('The sidebar, a page let go over Pinned: nothing moved', Object.keys(was).every((id) => was[id] === now[id]), '')) console.log(sideSaid(was.side, null, now.side))
       await sideTop(); await wait(200)
     }
   } else console.log(`SKIP  One look: ${pages.length} pages in the sidebar`)
