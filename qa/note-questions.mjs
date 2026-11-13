@@ -114,7 +114,7 @@ try {
   check(`${book}, ${level}: in Paper the list's cards are square`, await h.evaluate(async () => {
     document.documentElement.dataset.style = 'paper'
     await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
-    const square = [...document.querySelectorAll('[data-note-questions] .chapter-card')].every((one) => getComputedStyle(one).borderTopLeftRadius === '0px')
+    const all = [...document.querySelectorAll('[data-note-questions] .chapter-card')]; const square = all.length > 0 && all.every((one) => getComputedStyle(one).borderTopLeftRadius === '0px')
     delete document.documentElement.dataset.style
     return square
   }))
