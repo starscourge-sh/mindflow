@@ -127,11 +127,13 @@ try {
     await wait(800)
     check('put away first: the main window is hidden', (await homes()).every((one) => !one.shown), JSON.stringify(await homes()))
   }
-  // The old window's own answer, timed from the ask to its first frame drawn with the app's loader (welcome.tsx Readying).
+  // The old window's own answer, timed from the ask to the start of the frame that draws the app's loader (welcome.tsx
+  // Readying): the first frame after it is on the page. (Read after that frame's paint instead, the time took in the
+  // page's handing over, which waits for that paint and runs before any later timer.)
   await h.evaluate(() => new MutationObserver((_, watch) => {
     if (!document.querySelector('[data-welcome-readying]')) return
     watch.disconnect()
-    requestAnimationFrame(() => setTimeout(() => (window.qaReadying = performance.timeOrigin + performance.now())))
+    requestAnimationFrame(() => (window.qaReadying = performance.timeOrigin + performance.now()))
   }).observe(document.body, { childList: true, subtree: true }))
 
   // “Show the welcome again” from the Haligtree menu, as a person picks it, at once.
