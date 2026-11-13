@@ -25,6 +25,10 @@ try {
   const of = (label) => menu.find((top) => top.label === label)?.items ?? []
   console.log(JSON.stringify(menu))
   check('the app menu is Haligtree\'s, with About and Settings…', of('Haligtree').includes('About Haligtree') && of('Haligtree').includes('Settings…') && of('Haligtree').includes('Quit Haligtree'))
+  // “About Haligtree” puts Haligtree's own icon on before the About panel opens: a run from source is Electron's app,
+  // whose atom the panel would show (13 Nov). Its click is the app's own, never Electron's built-in role.
+  const about = await c.electron.evaluate(({ Menu }) => { const top = Menu.getApplicationMenu()?.items.find((one) => one.label === 'Haligtree'); const item = top?.submenu?.items.find((one) => /^About /.test(one.label)); return item ? { role: item.role ?? null, click: typeof item.click === 'function' } : null })
+  check('“About Haligtree” is the app\'s own item (it puts the icon on first), not the built-in role', !!about && !about.role && about.click, JSON.stringify(about))
   // ⌘W closes what is in front first (a panel, the note beside a list, a pane), the window only when nothing is: so "Close", not "Close Window".
   check('File makes and brings in notes', ['Quick capture', 'New note', 'New page', 'Import', 'Export everything…', 'Close'].every((one) => of('File').includes(one)), of('File').join(' | '))
   check('Edit keeps Select All', of('Edit').includes('Select All'))

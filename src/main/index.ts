@@ -4592,6 +4592,10 @@ function updateDock(): void {
 /** The menu bar, its items the same as the tray's and the Dock's twins (app-menu.ts); built again when the keys change. */
 function appMenu(): void {
   setAppMenu({
+    // macOS's About panel shows the app's icon, and Electron does not pass `iconPath` on to it on a Mac (only on Windows
+    // and Linux): a run from source would show Electron's atom (the user, 13 Nov: "why isnt this using my logo?"). Put
+    // Haligtree's own on just before it opens. A built app's bundle already carries it (build/icon.icns).
+    about: () => (wearIcon(), app.showAboutPanel()),
     name: APP_NAME,
     captureKey: chordFor('⌘.'),
     capture: () => void (prompt?.isFocused() || toggleWindow()),

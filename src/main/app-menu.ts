@@ -19,6 +19,8 @@ type MenuActs = {
   /** Safe mode on or off, and its key: heard only while a Haligtree window is in front, so ⌥⌘S stays “Save All” elsewhere. */
   safeKey?: string
   safeMode: () => void
+  /** The About panel, with Haligtree's own icon put on first (a run from source is Electron's app, whose icon it would show). */
+  about: () => void
 }
 
 /** The places the View menu goes to, in the sidebar's order (places.tsx SECTIONS). */
@@ -45,7 +47,7 @@ export function setAppMenu(acts: MenuActs): void {
       ? [{
           label: acts.name,
           submenu: [
-            { role: 'about' as const, label: `About ${acts.name}` },
+            { label: `About ${acts.name}`, click: () => acts.about() },
             // The welcome's goodbye and What Haligtree can do say both wait here, as in ⌘K.
             { label: "What's new", click: () => acts.inHome('haligtree:whats-new') },
             { label: 'Show the welcome again', click: () => acts.inHome('haligtree:welcome') },
