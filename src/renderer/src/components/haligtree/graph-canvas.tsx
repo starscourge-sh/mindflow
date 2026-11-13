@@ -1076,7 +1076,9 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
       // A weak pull to the middle keeps islands of two or three from drifting off.
       .force('x', forceX<Dot>(0).strength(small ? 0.06 : 0.1))
       .force('y', forceY<Dot>(0).strength(small ? 0.06 : 0.1))
-      .on('tick', () => ((reach = Math.max(40, ...dots.map((dot) => Math.hypot(dot.x!, dot.y!)))), (washes = null), redraw()))
+      // Nobody has moved it since it was fitted: the view keeps it fitted as it settles, so a map that spreads a little
+      // after its first fit (a tall frame zooms in close) never runs past the frame's edge.
+      .on('tick', () => ((reach = Math.max(40, ...dots.map((dot) => Math.hypot(dot.x!, dot.y!)))), (washes = null), asFitted && !following && !drag && !goal && width && Object.assign(view, fitted()), redraw()))
       .on('end', () => {
         for (const dot of dots) placed.current.set(dot.id, { x: dot.x!, y: dot.y! })
       })
@@ -1408,6 +1410,8 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0,
         const [x, y] = toWorld(event.clientX - rect.left, event.clientY - rect.top)
         drag.dot.fx = x
         drag.dot.fy = y
+        // Arranged by hand: the view stays where it is.
+        asFitted = false
         // With motion off, only the dot moves; with it on, its neighbours follow.
         if (still()) ((drag.dot.x = x), (drag.dot.y = y), (washes = null), redraw())
         else sim.alphaTarget(0.25).restart()
