@@ -44,7 +44,7 @@ const drawn = () => page.evaluate(() => {
     pill: !!document.querySelector('.app-container[data-pill]'),
     card: box(card),
     inner: [innerWidth, innerHeight],
-    tabs: [...document.querySelectorAll('[data-glance-tab]')].map((one) => ({ id: one.dataset.glanceTab, on: one.getAttribute('aria-selected') === 'true', ...box(one), hand: getComputedStyle(one).cursor })),
+    tabs: [...document.querySelectorAll('[data-glance-tab]')].map((one) => ({ id: one.dataset.glanceTab, on: one.getAttribute('aria-selected') === 'true', ...box(one), hand: getComputedStyle(one).cursor, foot: (one.querySelector('[data-glance-shape]') ?? one).getBoundingClientRect().bottom })),
     line: input ? { placeholder: input.placeholder, focused: document.activeElement === input, value: input.value, ...box(input), size: getComputedStyle(input).fontSize, font: getComputedStyle(input).fontFamily } : null,
     writing: first ? { placeholder: first.getAttribute('data-placeholder'), hidden: getComputedStyle(words).visibility === 'hidden', focused: !!document.activeElement?.closest('.ProseMirror'), text: words.innerText.trim(), ...box(first), size: getComputedStyle(first).fontSize, font: getComputedStyle(first).fontFamily, lh: parseFloat(getComputedStyle(first).lineHeight) } : null,
     ends: !!document.querySelector('[data-pill-ends] [data-pill-kind]'),
@@ -116,7 +116,7 @@ if (part('tabs')) {
   check('on: the pill opens on Write, with Write, Notes and Today standing on it', now.pill && same(now.tabs.map((one) => one.id), ['write', 'notes', 'today']) && chosen(now) === 'write', JSON.stringify(now.tabs.map((one) => `${one.id}${one.on ? '*' : ''}`)))
   const on = now.tabs.find((one) => one.on)
   const rest = now.tabs.filter((one) => !one.on)
-  check('the chosen tab stands on the pill (its foot on the top edge, not over it), the others just clear of it', !!on && Math.abs(on.y + on.h - now.card.y) <= 0.6 && rest.every((one) => one.y + one.h <= now.card.y - 4), JSON.stringify({ card: now.card.y, on: on && on.y + on.h, rest: rest.map((one) => one.y + one.h) }))
+  check('the chosen tab stands on the pill (its foot on the top edge, not over it), the others just clear of it', !!on && Math.abs(on.foot - now.card.y) <= 0.6 && rest.every((one) => one.y + one.h <= now.card.y - 4), JSON.stringify({ card: now.card.y, on: on && on.foot, rest: rest.map((one) => one.y + one.h) }))
   check('the row starts past the pill\'s round end by a tab\'s foot (36px in) and stops short of the grabber at its middle', now.tabs.every((one) => one.x >= now.card.x + 35.5 && one.x + one.w <= now.card.x + now.card.w / 2 - 32), JSON.stringify(now.tabs.map((one) => [Math.round(one.x - now.card.x), Math.round(one.x + one.w - now.card.x)])))
   check('every tab shows the hand and is at least 24px tall', now.tabs.every((one) => one.hand === 'pointer' && one.h >= 24), JSON.stringify(now.tabs.map((one) => [one.hand, one.h])))
   check('Write is the pill as it was: its kind icon and ⌘↵, its own prompt, no glance under it', now.ends && now.writing?.placeholder === LINES.write && !now.writing.hidden && !now.panel && !now.line, JSON.stringify({ ends: now.ends, said: now.writing?.placeholder, panel: now.panel }))
@@ -482,7 +482,7 @@ if (part('looks')) {
       await pick(id)
       const at = await drawn()
       const on = at.tabs.find((one) => one.on)
-      const ok = at.pill && same(at.card, base.card) && !!on && Math.abs(on.y + on.h - at.card.y) <= 0.6 && at.tabs.every((one) => one.x + one.w <= at.card.x + at.card.w / 2 - 32) &&
+      const ok = at.pill && same(at.card, base.card) && !!on && Math.abs(on.foot - at.card.y) <= 0.6 && at.tabs.every((one) => one.x + one.w <= at.card.x + at.card.w / 2 - 32) &&
         !!at.line && Math.abs(at.line.x - base.writing.x) <= 1 && at.line.size === base.writing.size && Math.abs((at.line.y + at.line.h / 2) - (base.writing.y + base.writing.lh / 2)) <= 1 &&
         !!at.panel && at.panel.y + at.panel.h <= at.inner[1] - 16 && Math.abs(at.panel.w - at.card.w) <= 0.6
       said.push(`${id} ${ok ? 'ok' : JSON.stringify({ card: at.card, base: base.card, on, line: at.line && [at.line.x, at.line.y, at.line.h, at.line.size], writing: [base.writing.x, base.writing.y, base.writing.h, base.writing.size], panel: at.panel })}`)
