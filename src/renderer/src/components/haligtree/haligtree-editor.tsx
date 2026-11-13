@@ -6,6 +6,7 @@ import { createPortal } from "react-dom"
 import { Extension, type Attributes, type Extensions, type JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { NodeSelection, Selection as PMSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
+import type { EditorView } from "@tiptap/pm/view"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContext, useEditor } from "@tiptap/react"
@@ -315,6 +316,24 @@ installBlockCarry()
 /** Editors whose Markdown is already laid in: a view mounted again keeps what was typed since. */
 const laidIn = new WeakSet<object>()
 const readers = new Set<Editor>()
+
+/**
+ * A press under the last line, on the note's own box or on the bare room under it in its scroller, puts the caret at
+ * the note's end, as Notes and Obsidian do. The browser has no line there: it took the nearest place on the last line
+ * (a short note), the first drawn block (a long note, whose blocks far from the screen are not drawn: 72 blocks up
+ * from the end of a 7,017-block note, off the screen), or nothing at all (the scroller: the keys left the note). The
+ * last block is found by its place in the note, never as the box's last child (the offers' slot, with no height).
+ */
+function pressUnderLastLine(view: EditorView, event: MouseEvent): boolean {
+  if (event.button !== 0 || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey || !view.editable) return false
+  const { doc } = view.state
+  const last = doc.lastChild ? view.nodeDOM(doc.content.size - doc.lastChild.nodeSize) : null
+  if (!(last instanceof HTMLElement) || !last.getClientRects().length || event.clientY < last.getBoundingClientRect().bottom) return false
+  event.preventDefault()
+  view.dispatch(view.state.tr.setSelection(PMSelection.atEnd(doc)))
+  view.focus()
+  return true
+}
 
 /**
  * The editor's own element skips a write that changes nothing.
@@ -1047,6 +1066,8 @@ function Surface({
         // in CSS or from outside.
         class: shape === "line" ? "haligtree-editor is-line" : "haligtree-editor",
       },
+      // A press on the note's bare box under its last line: before ProseMirror's own, which would read the browser's place.
+      handleDOMEvents: { mousedown: (view, event) => event.target === view.dom && pressUnderLastLine(view, event) },
       // Return, and the macOS editing keys nobody asked for.
       //
       // Here rather than in a keyboard shortcut because ProseMirror checks
@@ -2274,6 +2295,8 @@ function Surface({
           // pane leaves its scroll alone (panes.tsx), so a note's place has one owner.
           {...(shape === "document" && documentId != null ? { [PLACED]: "" } : {})}
           innerRef={contentRef}
+          // The bare room under the words, in the same scroller: the note's end too (pressUnderLastLine).
+          onMouseDown={(event) => void (event.target === event.currentTarget && editor && !editor.isDestroyed && pressUnderLastLine(editor.view, event.nativeEvent))}
         />
         {/* After the words, inside the same scroll: added beside ProseMirror's
             own element, never inside it. */}

@@ -45,7 +45,8 @@ const install = () => h.evaluate((sel) => {
     const e = ed()
     const s = getSelection()
     const { selection, doc } = e.editor.state
-    return { inMark: !!s.rangeCount && marks().some((one) => one.contains(s.anchorNode) || one.contains(s.focusNode)), inNote: !s.rangeCount || e.contains(s.anchorNode), keys: document.activeElement === e ? 'in the note' : (document.activeElement?.nodeName ?? 'nowhere'), block: selection.$head.index(0), blocks: doc.childCount, head: selection.head, size: doc.content.size }
+    // atEnd: the caret at the note's very end (past the closing of every block the last place sits in).
+    return { inMark: !!s.rangeCount && marks().some((one) => one.contains(s.anchorNode) || one.contains(s.focusNode)), inNote: !s.rangeCount || e.contains(s.anchorNode), keys: document.activeElement === e ? 'in the note' : (document.activeElement?.nodeName ?? 'nowhere'), block: selection.$head.index(0), blocks: doc.childCount, head: selection.head, size: doc.content.size, atEnd: selection.empty && selection.head === doc.content.size - selection.$head.depth }
   }
   window.__ends = {
     ed, box: () => boxOf(ed()), marks, where,
@@ -235,7 +236,8 @@ try {
     const said = `${now.keys}, caret in block ${now.block === now.blocks - 1 ? 'last' : now.block}`
     console.log(`(${name}, ${at.from}px ${share === 1 ? 'under the last block' : 'over the first'}, on ${at.under}: the keys ${said}; the browser's selection in a kept place: ${now.inMark})`)
     if (now.keys === 'in the note') check(`${name}: taken by the note, the caret is in the note`, !now.inMark && now.inNote, JSON.stringify(now))
-    if (inside && share === 1) check(`${name}: the caret is at the note's end`, now.block === now.blocks - 1, `caret in block ${now.block} of ${now.blocks}`)
+    // Under the last line, in the note's box or the bare scroller below it: the keys in the note, the caret at its end.
+    if (share === 1) check(`${name}: the caret is at the note's end`, now.keys === 'in the note' && now.atEnd, `the keys ${now.keys}, caret in block ${now.block} of ${now.blocks}${now.atEnd ? ', at its end' : `, at ${now.head} of ${now.size}`}`)
     return said
   }
   same.pressUnderInNote = await press(1, true, 'a press under the last line, in the note\'s own box')
@@ -303,6 +305,11 @@ try {
     check('a long note starts as far down its scroller as a short one', Math.abs(tall.top.edge - small.top.edge) <= 0.5, `${tall.top.edge}px against ${small.top.edge}px`)
     same.sizes = `long ${tall.top.edge}/${tall.foot} short ${small.top.edge}/${small.foot}`
     same.shortCountShowsAtEnd = small.count?.shows ?? null
+    // The same two presses under a short note's last line.
+    await h.evaluate(() => window.__ends.ed().editor.commands.focus('start'))
+    await wait(500)
+    same.shortPressUnderInNote = await press(1, true, 'a short note: a press under the last line, in its own box')
+    same.shortPressUnderOutside = await press(1, false, 'a short note: a press under it, in its scroller')
   }
   check('no page errors', c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|status of 404|NotSameOrigin/.test(line)).length === 0, c.errors.slice(0, 3).join(' | '))
   console.log(`SAME ${JSON.stringify(same)}`)
