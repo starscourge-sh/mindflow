@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { call, useLive } from './haligtree'
+import { useSyncExternalStore } from 'react'
+import { call } from './haligtree'
 import { SANDBOX, enterSandbox } from './sandbox'
 import type { Setup } from '../../../main/onboarding'
 export type { Setup }
@@ -36,22 +36,42 @@ export const onboarding = {
   finish: (name: string) => call<unknown>('onboarding:finish', name)
 }
 
-// Changes made here are told to every hook in this window at once, rather
-// than waiting for the next write to the database.
-const told = new Set<() => void>()
-const tell = (): void => told.forEach((one) => one())
+/**
+ * The state for this whole window, read once for every page that shows it: on any write to the book, on a change made
+ * here (told at once rather than at the next write), and as the window is come back to (a sticky put up, or a key
+ * taken, is not a write to the book). Kept as said: a page draws again only when the answer is not the same. Read per
+ * page with a count bumped on coming back, Home (and every page showing it) was drawn whole again on each return.
+ */
+let state: Onboarding | null = null
+let said = ''
+let asked = 0
+const pages = new Set<() => void>()
+const tell = (): void => {
+  const mine = ++asked
+  void onboarding.state().then((now) => {
+    const json = JSON.stringify(now)
+    // Only the newest read counts: one asked before a change may answer after it.
+    if (mine !== asked || json === said) return
+    said = json
+    state = now
+    pages.forEach((one) => one())
+  }, () => undefined)
+}
+let wired = false
+const subscribe = (change: () => void): (() => void) => {
+  pages.add(change)
+  if (!wired) {
+    wired = true
+    window.addEventListener('focus', tell)
+    window.api.captures.onChange(tell)
+    tell()
+  }
+  return () => void pages.delete(change)
+}
 
 /** The state, kept fresh as anything changes. Null until it has been read once. */
 export function useOnboarding(): Onboarding | null {
-  const [nonce, setNonce] = useState(0)
-  useEffect(() => {
-    const again = (): void => setNonce((n) => n + 1)
-    told.add(again)
-    // A sticky put up, or a key taken, is not a write to the database: read again on coming back.
-    window.addEventListener('focus', again)
-    return () => void (told.delete(again), window.removeEventListener('focus', again))
-  }, [])
-  return useLive(onboarding.state, null as Onboarding | null, [nonce])
+  return useSyncExternalStore(subscribe, () => state)
 }
 
 /** The welcome, from anywhere: the Haligtree menu, ⌘K, Settings. */
