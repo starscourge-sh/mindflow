@@ -293,14 +293,22 @@ const stamp = (iso: string, short = false): string => {
 const editorOf = (node: HTMLElement | null): Editor | null =>
   (((node?.closest('.ProseMirror') ?? node?.closest('.mf-details')?.parentElement?.querySelector('.ProseMirror')) as (HTMLElement & { editor?: Editor }) | null | undefined)?.editor ?? null)
 
-/**
- * A tag put on from the strip, as the chips are made: written into the words as a #tag after the last one there
- * (or at the end of the title line), so the words and the strip never disagree. Undoable with ⌘Z.
- */
+/** A tag put on from the strip: written into the words (putTag), with its sound. */
 function retag(tag: string, node: HTMLElement | null): boolean {
   const editor = editorOf(node)
+  if (!editor || !putTag(editor, tag)) return false
+  chime('on')
+  return true
+}
+
+/**
+ * A tag put on a note, as the strip's chips are made and the offer under a note takes one: written into the words as
+ * a #tag after the last one there (or at the end of the title line), so the words and the strip never disagree.
+ * One step ⌘Z takes back.
+ */
+export function putTag(editor: Editor, tag: string): boolean {
   const name = tag.trim().replace(/^#+/, '').replace(/\s+/g, '-')
-  if (!editor || !name) return false
+  if (!name) return false
   let at = -1
   editor.state.doc.descendants((child, pos) => {
     if (!child.isText || !child.text) return
@@ -312,7 +320,6 @@ function retag(tag: string, node: HTMLElement | null): boolean {
   }
   const before = editor.state.doc.textBetween(Math.max(0, at - 1), at)
   editor.view.dispatch(editor.state.tr.insertText(`${before && !/\s/.test(before) ? ' ' : ''}#${name}`, at))
-  chime('on')
   return true
 }
 

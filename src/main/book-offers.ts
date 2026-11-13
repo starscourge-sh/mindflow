@@ -5,14 +5,14 @@ import { onlyInTitles } from './title-names'
 import { tagsIn, withoutTags } from './tag-words'
 import { everyday } from './name-match'
 import { LABEL } from './book-words'
-import { RootIndex, alreadyWrote, cluesFor, linksIn, peopleIn, whichFolder, type Lemmas, type RootNote } from './roots'
+import { RootIndex, alreadyWrote, cluesFor, linksIn, peopleIn, tagsNear, whichFolder, type Lemmas, type RootNote } from './roots'
 
 /**
  * What a note is quietly offered, from your own book, on this Mac (roots.ts):
  * another note it names (a link), one it nearly repeats, the folder it reads
- * like, and the people and organisations it names (People, Sources). Also the
- * notes for a question or an event. Each note's roots (and its meaning, for a
- * tie-break) are read by the Mac once and kept until it changes; the book's
+ * like, the tags the notes most like it carry, and the people it names
+ * (People). Also the notes for a question or an event. Each note's roots (and
+ * its meaning, for a tie-break) are read by the Mac once and kept until it changes; the book's
  * index is made again only when something changed, never while typing.
  *
  * A read of the book and nothing else (no Electron in it): it runs on the
@@ -43,6 +43,8 @@ export type NoteOffers = {
   people: { name: string; known: boolean }[]
   /** Characters it names: `work` is the work they are in; `known` already one of your Characters, else one to add. */
   characters: { name: string; work: string; known: boolean }[]
+  /** Tags the notes most like it carry and it does not: `notes` of the `of` nearest carry each. */
+  tags: { tag: string; notes: number; of: number }[]
 }
 export type About = { key: string; title: string; words: string }
 
@@ -88,8 +90,8 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
     for (const [key, one] of kept) out[key] = { stamp: one.stamp, lemmas: one.lemmas }
     void writeFile(keptFile, JSON.stringify(out)).catch(() => undefined)
   }
-  /** The index as last made, and which change of the book it was read at (`as`). */
-  let built: { at: number; index: RootIndex; rows: Row[]; as: number } | null = null
+  /** The index as last made, and which change of the book it was read at (`as`); each note's tags, an alias as the tag it stands for. */
+  let built: { at: number; index: RootIndex; rows: Row[]; as: number; tags: Map<string, string[]>; alias: Map<string, string> } | null = null
   let building: Promise<void> | null = null
   /** The latest change any ask has named: the next index is made as of it, once, for every ask waiting. */
   let wanted = 0
@@ -127,7 +129,7 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
     ).all() as Row[]
   }
 
-  async function index(need: number): Promise<{ index: RootIndex; rows: Row[] }> {
+  async function index(need: number): Promise<NonNullable<typeof built>> {
     // Never answer from a book older than the one the asker sees. An ask that came while an index was being made
     // used to be given that one, begun before the last save: a note written a moment ago was missing from it, so a
     // name it holds was not offered, and nothing asked again until a key was typed. Now the ask waits for the index
@@ -154,8 +156,18 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
     }
     if (fresh.length) saveKept()
     const notes: RootNote[] = all.map((row) => ({ key: row.key, title: row.title ?? '', text: row.text ?? '', lemmas: kept.get(row.key)?.lemmas }))
+    // Each note's tags as its words carry them, an alias counted as the tag it stands for (book-tags.ts). A #bit
+    // note is private, so neither it nor its tags are offered anywhere; private notes are not among the rows at all.
+    const alias = new Map((db.prepare('select tag, alias_of from tag_meta where alias_of is not null').all() as { tag: string; alias_of: string }[]).map((row) => [row.tag, row.alias_of]))
+    const tags = new Map<string, string[]>()
+    named('offers: every note’s tags', () => {
+      for (const row of all) {
+        const own = [...new Set(tagsIn(`${row.title ?? ''} ${row.text ?? ''}`).map((tag) => alias.get(tag) ?? tag))]
+        if (own.length && !own.includes('bit')) tags.set(row.key, own)
+      }
+    })
     // Named, as each long piece of work below is: on main it runs after a wait, where the handler's own time is no longer counted (stalls.ts).
-    built = { at: Date.now(), index: named('offers: the book indexed again', () => new RootIndex(notes)), rows: all, as }
+    built = { at: Date.now(), index: named('offers: the book indexed again', () => new RootIndex(notes)), rows: all, as, tags, alias }
   }
 
   /** The work a note is about, when it is one (tagged #book or #film, or a book's own note): its title, without its tags. */
@@ -179,7 +191,7 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
 
   /** What a note, as it now reads, is offered. `linked`: the notes it already links to. */
   async function forNote(need: number, key: string, text: string, linked: string[], gone: () => boolean = () => false): Promise<NoteOffers | null> {
-    const { index: book, rows: all } = await index(need)
+    const { index: book, rows: all, tags, alias } = await index(need)
     if (gone()) return null
     const [read] = await readAll([text])
     const title = (key: string): string => all.find((row) => row.key === key)?.title || 'Untitled'
@@ -228,7 +240,9 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
       same: same ? { key: same.key, title: title(same.key) } : null,
       folder,
       people: persons,
-      characters
+      characters,
+      // The tags it carries as the book counts them, so an alias it has is the tag it stands for.
+      tags: named('offers: tags of the nearest notes', () => tagsNear(book, text, read.lemmas, key, (one) => tags.get(one) ?? [], new Set(tagsIn(text).map((tag) => alias.get(tag) ?? tag)), meant))
     }
   }
 

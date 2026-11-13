@@ -37,6 +37,26 @@ export const LOOSE_LIFE = [
 /** How a person frames a line they keep: the same few words round every subject, so nothing is told apart by them. */
 export const FRAMES = ['Come back to this before the weekend.', 'Read this on the train this morning.', 'Worth remembering, I think.', 'Saw this quoted somewhere and wrote it down.', 'Not sure I agree with this yet.', 'From last night, half asleep.', 'This keeps coming up.', 'Talked about this with Sam today.', 'I want to understand this properly.', 'Copied out by hand, slowly.', 'A good line to start the essay with.', 'Underlined twice.']
 
+/** The tag a subject's notes carry, as a person tags them. */
+export const TAG_OF: Record<string, string> = { Stoicism: 'philosophy', 'Films and books': 'dune', Baking: 'baking', History: 'renaissance', Biology: 'biology', Running: 'running', Photography: 'photography', Spanish: 'spanish', Economics: 'economics', Astronomy: 'astronomy' }
+/** The everyday notes that are errands (by their place in LOOSE_LIFE): the first four carry #errands. */
+const ERRANDS = [0, 3, 10, 14, 1, 9, 13, 15, 18]
+
+/**
+ * Tags as a person keeps them: a subject's filed notes carry its tag, and #quotes as well where they say the line
+ * was quoted; four errands carry #errands. Its loose notes, its notes written again and the other errands carry
+ * none: `right` is the tags each note should carry, so what it lacks of them is the right answer for it.
+ */
+export function tagsOfBook(notes: BenchNote[]): Map<string, { has: string[]; right: string[] }> {
+  const out = new Map<string, { has: string[]; right: string[] }>()
+  for (const note of notes) {
+    const errand = note.key.startsWith('life-') ? ERRANDS.indexOf(Number(note.key.slice(5))) : -1
+    const right = note.topic ? [TAG_OF[note.topic], ...(note.text.includes(FRAMES[3]) ? ['quotes'] : [])] : errand >= 0 ? ['errands'] : []
+    out.set(note.key, { right, has: note.folder || (errand >= 0 && errand < 4) ? right : [] })
+  }
+  return out
+}
+
 /** A seeded shuffle, so the book is the same every run. */
 function shuffle<T>(list: T[], seed: number): T[] {
   const out = [...list]

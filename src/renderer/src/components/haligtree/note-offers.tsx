@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Copy, FolderInput, Link2, Sparkles, UserRoundPlus, VenetianMask, X } from 'lucide-react'
+import { Copy, FolderInput, Hash, Link2, Sparkles, UserRoundPlus, VenetianMask, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
 import { follow } from '@/lib/capture-links'
@@ -11,6 +11,7 @@ import { chime } from '@/lib/sound'
 import { toast } from './ui'
 import { nameFor } from './ai-offers'
 import { useHas } from '@/lib/needs'
+import { putTag } from './property-strip'
 import type { NoteOffers as Offers } from '../../../../main/offers'
 import { cut, quoted } from '../../../../main/clip'
 
@@ -18,7 +19,8 @@ import { cut, quoted } from '../../../../main/clip'
  * One quiet offer under a note, from your own book (main/offers.ts, by shared
  * root words): the note it nearly repeats ("You already wrote this"), the
  * folder it reads like ("Which folder?"), a note it names ("Links suggest
- * themselves"), or a person it names (People). Read a while after the typing
+ * themselves"), a person it names (People), or a tag the notes most like it
+ * carry ("Tags from your own notes"). Read a while after the typing
  * stops, never during it; one at a time, the likeliest to matter first; each
  * put away for good with its ×. Nothing is changed until it is chosen, and
  * what it changes has an Undo. Settings, What comes back to you, "Offers from
@@ -32,8 +34,9 @@ type Offer =
   | { kind: 'person'; name: string; known: boolean }
   | { kind: 'character'; name: string; work: string; known: boolean }
   | { kind: 'name'; name: string }
+  | { kind: 'tag'; tag: string; notes: number; of: number }
 
-const idOf = (offer: Offer): string => (offer.kind === 'name' ? 'name' : `${offer.kind}:${'key' in offer ? offer.key : 'id' in offer ? offer.id : offer.name}`)
+const idOf = (offer: Offer): string => (offer.kind === 'name' ? 'name' : `${offer.kind}:${'key' in offer ? offer.key : 'id' in offer ? offer.id : 'tag' in offer ? offer.tag : offer.name}`)
 
 /** A note with no name of its own: no words in its first block (a picture, a recording) or a whole paragraph for a first line. */
 const unnamed = (editor: Editor): boolean => {
@@ -167,6 +170,8 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
         // Someone in a work (named only in its title, or in a note about a book or a film): a character of it, never one of People.
         ...found.characters.filter((one) => !linksIn(editor).includes(`character:${one.name}`)).map((one) => ({ kind: 'character' as const, ...one })),
         ...found.people.filter((one) => !linksIn(editor).includes(`person:${one.name}`)).map((one) => ({ kind: 'person' as const, ...one })),
+        // The tags the notes most like it carry, last: the offers above are each about words it holds.
+        ...found.tags.map((one) => ({ kind: 'tag' as const, ...one })),
       ]
       // Apple Intelligence, where the Mac has it: a name for a note that has none (ai-offers.tsx).
       // A note without a name is offered one first: it is how the note is found again.
@@ -254,6 +259,15 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       toast(`Named ${quoted(offer.name, 80)}`, () => editor.commands.undo())
       done()
     } }]
+  } else if (offer.kind === 'tag') {
+    icon = <Hash className="size-4" />
+    lead = `Tag it #${offer.tag}?`
+    rest = offer.notes === offer.of ? `The ${offer.of} notes most like it carry it.` : `${offer.notes} of the ${offer.of} notes most like it carry it.`
+    // Written in as the strip's "+" writes a tag: after the last tag in the words, or at the end of the title line.
+    actions = [{ label: 'Add the tag', data: 'tag', run: () => {
+      if (putTag(editor, offer.tag)) (chime('noted'), toast(`Tagged #${offer.tag}`, () => editor.commands.undo()))
+      done()
+    } }]
   } else if (offer.kind === 'character') {
     icon = <VenetianMask className="size-4" />
     lead = `${offer.name} is a character in ${cut(offer.work, 60)}.`
@@ -289,7 +303,8 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
   return (
     <div data-note-offer={offer.kind} data-mac-needs={offer.kind === 'name' ? 'ai' : 'every'} contentEditable={false} className="mf-note-offer not-prose">
       <span aria-hidden className="mf-note-offer-icon">{icon}</span>
-      <span className="min-w-0 flex-1"><b className="font-medium text-foreground">{lead}</b> {rest}</span>
+      {/* A tag is one word however long ("#programming-humour"): it breaks only where nothing else can, never past the line. */}
+      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]"><b className="font-medium text-foreground">{lead}</b> {rest}</span>
       {actions.map((one) => (
         <button key={one.label} type="button" data-offer-action={one.data} className="mf-note-offer-button" onClick={() => void one.run()}>{one.label}</button>
       ))}

@@ -11,7 +11,8 @@ import { nameFrom, nameOf, ordinary, withoutAddresses, writtenAsName } from './n
  * as to Herbert's words about Dune.
  *
  * Every offer made from it (Links suggest themselves, You already wrote this,
- * Which folder?, A clue for your question, Notes at the right moment) has a
+ * Which folder?, Tags from your own notes, A clue for your question, Notes at
+ * the right moment) has a
  * threshold set on test/roots-bench.test.ts, 200 notes with known right
  * answers, and ships only where at least 4 in 5 of its offers are right.
  */
@@ -204,6 +205,28 @@ export function cluesFor(index: RootIndex, text: string, lemmas: Lemmas | undefi
     return [...asked].filter((root) => theirs.has(root)).length >= enough
   }
   return tieBreak(index.rank(index.vector(text, lemmas), leave).slice(0, n + 4).filter((one) => one.score >= CLUE && shares(one.key)), meaning && ((one) => meaning(one.key))).slice(0, n)
+}
+
+/**
+ * "Tags from your own notes": of the `of` notes most like it, those at least `score` alike are its nearest; a tag
+ * is offered when `carry` of them or more carry it, and that is at least `share` of them. On the bench, 0.15 alike
+ * let in wrong ones (94%); 0.2 to 0.3 were all right, so it sits in the middle.
+ */
+export const TAG_NEAR = { of: 5, score: 0.25, carry: 2, share: 0.5 }
+
+/**
+ * The tags the notes most like these words carry, likeliest first, each with how many of them carry it (`notes`)
+ * and how many were near enough to count (`of`). Never one the words already carry (`has`), and, two notes having
+ * to carry it, never one a single note in the book carries.
+ */
+export function tagsNear(index: RootIndex, text: string, lemmas: Lemmas | undefined, leave: string, tagsOf: (key: string) => readonly string[], has: Set<string>, meaning: ((key: string) => number) | null = null, near = TAG_NEAR): { tag: string; notes: number; of: number }[] {
+  if (new Set(index.folded(text, lemmas)).size < 4) return []
+  const nearest = tieBreak(index.rank(index.vector(text, lemmas), leave).slice(0, near.of), meaning && ((one) => meaning(one.key))).filter((one) => one.score >= near.score)
+  const votes = new Map<string, number>()
+  for (const one of nearest) for (const tag of new Set(tagsOf(one.key))) votes.set(tag, (votes.get(tag) ?? 0) + 1)
+  return [...votes].filter(([tag, n]) => n >= Math.max(2, near.carry) && n / nearest.length >= near.share && !has.has(tag))
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([tag, notes]) => ({ tag, notes, of: nearest.length }))
 }
 
 export function whichFolder(index: RootIndex, key: string, folders: Map<string, string[]>): { folder: string; score: number } | null {

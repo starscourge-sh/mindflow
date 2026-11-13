@@ -5,9 +5,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { RootIndex, alreadyWrote, cluesFor, linksIn, peopleIn, whichFolder, type Lemmas } from '../src/main/roots.ts'
+import { RootIndex, alreadyWrote, cluesFor, linksIn, peopleIn, tagsNear, whichFolder, type Lemmas } from '../src/main/roots.ts'
 import { readFileSync } from 'node:fs'
-import { FRAMES, LOOSE_LIFE, TOPICS, book } from './fixtures/roots-bench.ts'
+import { FRAMES, LOOSE_LIFE, TOPICS, book, tagsOfBook } from './fixtures/roots-bench.ts'
 
 const HELPER = new URL('../resources/understand', import.meta.url).pathname
 
@@ -130,6 +130,24 @@ test('each offer by shared root words is right at least 4 times in 5', { skip: p
   }
   say('Which folder?', right, made, cases, reached)
 
+  // Tags from your own notes: what a note lacks of the tags its subject's notes carry, offered from the notes nearest it.
+  const tags = tagsOfBook(notes)
+  const tagged = notes.map((one) => [one.text, ...tags.get(one.key)!.has.map((tag) => `#${tag}`)].join(' '))
+  const tagIndex = new RootIndex(notes.map((one, i) => ({ key: one.key, title: one.title, text: tagged[i], lemmas: lemmas[i] })))
+  made = 0; right = 0; cases = 0; reached = 0
+  notes.forEach((note, i) => {
+    const { has, right: should } = tags.get(note.key)!
+    const lacks = should.filter((tag) => !has.includes(tag))
+    if (lacks.length) cases++
+    const offers = tagsNear(tagIndex, tagged[i], lemmas[i], note.key, (key) => tags.get(key)!.has, new Set(has), (key) => near(meanings[i], meaningOf.get(key)!))
+    made += offers.length
+    const good = offers.filter((one) => lacks.includes(one.tag)).length
+    right += good
+    if (good) reached++
+    if (process.env.WHY) for (const one of offers) if (!lacks.includes(one.tag)) console.log('TAG wrong', one.tag, `${one.notes} of ${one.of}`, '|', note.text)
+  })
+  say('Tags from your own notes', right, made, cases, reached)
+
   // A clue for your question, and notes before an event: each offered note of the asked subject.
   const asked = TOPICS.flatMap((topic) => [...topic.questions.map((text) => ({ text, topic: topic.folder, kind: 'clue' })), ...topic.events.map((text) => ({ text, topic: topic.folder, kind: 'event' }))])
   // Everyday events: the note about that very thing is the right one ("Lunch with Ana" and the note on lunch with Ana).
@@ -162,6 +180,8 @@ test('each offer by shared root words is right at least 4 times in 5', { skip: p
   if (process.env.WHY) console.log('people wrong', offered.filter((one) => !PEOPLE.has(one)))
   console.log(`\n${rows.join('\n')}\n`)
   for (const [name, precision] of Object.entries(result)) assert.ok(precision >= 0.8, `${name}: ${pc(precision)}`)
+  // Offered as you write a new note, a wrong tag is written into your words: the bar is 9 in 10.
+  assert.ok(result['Tags from your own notes'] >= 0.9, `Tags from your own notes: ${pc(result['Tags from your own notes'])}`)
 })
 
 test('a field named by its people is its note: “the Stoics” names “Stoicism”, “cells” never names “Cell biology” alone', () => {
