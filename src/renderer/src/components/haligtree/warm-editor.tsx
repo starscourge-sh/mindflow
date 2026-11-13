@@ -1,19 +1,18 @@
 import { useEffect, useState } from 'react'
 import { HaligtreeEditor } from '@/components/haligtree'
+import { warmLater } from '@/lib/warm'
 
 /**
  * One editor built, out of sight, while the window is idle just after it
- * opens, and taken down again. The first note you open then draws as fast as
- * every one after it: the editor's code is warmed up and what it works out
- * once per window (which emoji this screen draws) is already known.
+ * opens (or once a first run's welcome has gone: lib/warm.ts), and taken down
+ * again. The first note you open then draws as fast as every one after it:
+ * the editor's code is warmed up and what it works out once per window (which
+ * emoji this screen draws) is already known.
  */
 export function WarmEditor(): React.JSX.Element | null {
   const [phase, setPhase] = useState<'wait' | 'on' | 'done'>('wait')
   useEffect(() => {
-    if (phase === 'wait') {
-      const idle = requestIdleCallback(() => setPhase('on'), { timeout: 4000 })
-      return () => cancelIdleCallback(idle)
-    }
+    if (phase === 'wait') return warmLater(() => setPhase('on'), { timeout: 4000 })
     if (phase === 'on') {
       const gone = setTimeout(() => setPhase('done'), 0)
       return () => clearTimeout(gone)

@@ -308,6 +308,8 @@ type GrainientProps = {
   intro?: boolean
   /** Called once the bloom is whole. */
   onIntroDone?: () => void
+  /** Not seen yet (the welcome's page under its mist): no frames are drawn, and the clocks wait, until it is let go. */
+  paused?: boolean
   lightMode?: boolean
   dpr?: number
   className?: string
@@ -317,7 +319,7 @@ type GrainientProps = {
 export function Grainient({
   colors = DEFAULT_COLORS, type = 'linear', angle = 55, bands = 1, speed = 1, flow = 0.8, scale = 1, softness = 1, silk = 0.35,
   grainAmount = 0.08, grainSize = 1.2, grainAnimated = true, contrast = 1, saturation = 1, variation = 0, interactive = true, stir = 1,
-  clickSwirl = true, intro = true, onIntroDone, lightMode = false, dpr, className = '', style, ref
+  clickSwirl = true, intro = true, onIntroDone, paused = false, lightMode = false, dpr, className = '', style, ref
 }: GrainientProps): React.JSX.Element {
   const doneRef = useRef(onIntroDone)
   doneRef.current = onIntroDone
@@ -331,7 +333,7 @@ export function Grainient({
     colors: palette.length > 1 ? palette : [palette[0], palette[0]], type: TYPES[type] ?? 0, angle, bands: clamp(bands, 1, 8),
     speed: Math.max(0, speed), flow: clamp(flow, 0, 3), scale: clamp(scale, 0.25, 3), softness: clamp(softness, 0, 1), silk: clamp(silk, 0, 1),
     grainAmount: clamp(grainAmount, 0, 0.5), grainSize: clamp(grainSize, 0.5, 4), grainAnimated, contrast: clamp(contrast, 0.2, 2),
-    saturation: clamp(saturation, 0, 2), variation: Math.max(0, variation), interactive, stir: clamp(stir, 0, 2), clickSwirl, intro, lightMode, dpr
+    saturation: clamp(saturation, 0, 2), variation: Math.max(0, variation), interactive, stir: clamp(stir, 0, 2), clickSwirl, intro, paused, lightMode, dpr
   }
   const settingsRef = useRef(settings)
   settingsRef.current = settings
@@ -534,7 +536,8 @@ export function Grainient({
 
     const frame = (now: number): void => {
       raf = 0
-      if (!visible || document.hidden) return
+      // Unseen (the window hidden, the field scrolled away, or held by its page): nothing drawn, and time goes on from here after.
+      if (!visible || document.hidden || settingsRef.current.paused) return void (last = 0)
       const s = settingsRef.current
       const dt = last ? clamp((now - last) / 1000, 0.001, 0.05) : 1 / 60
       last = now
@@ -554,7 +557,7 @@ export function Grainient({
       else last = 0
     }
     function wake(): void {
-      if (!raf && visible && !document.hidden) raf = requestAnimationFrame(frame)
+      if (!raf && visible && !document.hidden && !settingsRef.current.paused) raf = requestAnimationFrame(frame)
     }
     const locate = (event: PointerEvent): void => {
       const rect = container.getBoundingClientRect()

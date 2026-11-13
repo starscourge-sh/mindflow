@@ -1,6 +1,7 @@
 import { bezier, stageBusy, stageSheet, warmShape, warmStage, PAPER } from './paper-crumple'
 import { keepPath, pathKey, type PaperPath } from './paper-path'
 import type { Box, Landing } from '@/lib/fly-home'
+import { warmLater } from '@/lib/warm'
 
 /** The app's curve for what travels on screen (STANDARDS), as in lib/fly-home.ts. */
 const IN_OUT = bezier(0.77, 0, 0.175, 1)
@@ -27,13 +28,14 @@ export function warmPaper(): void {
     const ask = asks.shift()
     if (ask) return void worker.postMessage(ask)
     worker.terminate()
-    // Each step its own idle moment, so none is a long task.
-    requestIdleCallback(() => warmStage())
+    // Each step its own idle moment, and none while the welcome plays (lib/warm.ts): compiling the stage's shaders
+    // holds the page for a tenth of a second.
+    warmLater(() => warmStage())
   }
   worker.onmessage = (event: MessageEvent<{ key: string } & PaperPath>): void => {
     keepPath(event.data.key, { samples: event.data.samples, creased: event.data.creased })
     const aspect = SHAPES[SHAPES.length - asks.length - 1]
-    requestIdleCallback(() => (warmShape(1000, 1000 * aspect), next()))
+    warmLater(() => (warmShape(1000, 1000 * aspect), next()))
   }
   worker.onerror = () => worker.terminate()
   next()

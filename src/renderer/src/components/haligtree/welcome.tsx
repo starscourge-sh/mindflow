@@ -7,7 +7,7 @@ import { WelcomeStamp } from './welcome-marks'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
-import { Fragment, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
@@ -266,6 +266,11 @@ export function Welcome(): React.JSX.Element | null {
   const [fromDesk, setFromDesk] = useState(false)
   // The mist over the desktop has drawn its first frame: the spark in it keeps the mist's time from there.
   const [deskLit, setDeskLit] = useState(false)
+  /** The arrival's light is whole (the gradient's bloom, or out of the desktop the spark's burst in the mist): the title may come. */
+  const bloom = (): void => {
+    setBloomed(true)
+    if (!rushed) titleChime(0.45)
+  }
   /** The window is a window again: the page paints itself, and the window has its shadow and buttons back (main: landClear). */
   const land = (): void => {
     setDesk('off')
@@ -662,9 +667,10 @@ export function Welcome(): React.JSX.Element | null {
       onPointerDown={(event) => void (closing ? closed() : desk === 'over' && event.isTrusted && !(event.target as HTMLElement).closest('button, [data-title-name]') && rush())}
       initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? (quiet ? { duration: 0.4, ease: 'easeOut' } : { delay: 0.45, duration: 0.9, ease: MOVE }) : { duration: 0 }}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
-      {/* The window's own page. Arriving out of the desktop it is not drawn while the mist lies over the desktop, and comes up under the mist as it draws in (welcome-mist.tsx). */}
+      {/* The window's own page. Arriving out of the desktop it is not drawn while the mist lies over the desktop, and comes up under the mist as it draws in (welcome-mist.tsx).
+          Nothing in it runs unseen then: no spark or bloom of its own (the spark is in the mist), and its gradient draws no frames until it is let go. */}
       <div ref={plate} data-plate="" className="absolute inset-0 bg-background">
-        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} onBloomed={() => (setBloomed(true), !rushed && titleChime(0.45))} />
+        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} desk={fromDesk} held={desk === 'over'} onBloomed={bloom} />
       </div>
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). On the
@@ -678,7 +684,7 @@ export function Welcome(): React.JSX.Element | null {
       {/* Out of the desktop: the same mist over the desktop's own picture, drawing in to the window on the title's beat, or at once on Esc or a click. */}
       {desk !== 'off' && <WelcomeMist key={`desk-${arrival}`} desk drawIn={desk === 'in'} hurry={rushed} plate={plate} onGone={land} onStart={() => setDeskLit(true)} />}
       {/* The arrival's spark and its burst (GrainBackdrop draws them on the page, which is not yet there): in the mist, where the title will stand, so the notes that go with them still have their light. */}
-      {desk === 'over' && deskLit && <div className="pointer-events-none absolute inset-0 z-[35]"><IntroSpark key={`desk-spark-${arrival}`} /></div>}
+      {desk === 'over' && deskLit && <div className="pointer-events-none absolute inset-0 z-[35]"><IntroSpark key={`desk-spark-${arrival}`} onDone={bloom} /></div>}
       {/* Before the first words: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
       {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} />}
@@ -1952,9 +1958,13 @@ function BoxKeys(): React.JSX.Element {
  */
 const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
 
-/** `arrival` counts the arrivals played; `arriving` is true while one is on; `onBloomed` once its gradient is whole. */
-export function Backdrop({ family, page, arrival = 0, arriving = false, onBloomed }: { family: Family; page: number; arrival?: number; arriving?: boolean; onBloomed?: () => void }): React.JSX.Element {
-  if (WELCOME_BACKGROUND === 'grainient') return <GrainBackdrop page={page} arrival={arrival} arriving={arriving} onBloomed={onBloomed} />
+/**
+ * `arrival` counts the arrivals played; `arriving` is true while one is on; `onBloomed` once its gradient is whole.
+ * `desk`: this arrival came out of the desktop, its spark in the mist (welcome-mist.tsx), so the page has no spark or
+ * bloom of its own; `held` while the page is not seen yet (the mist still over the desktop): its gradient draws nothing.
+ */
+export function Backdrop({ family, page, arrival = 0, arriving = false, desk = false, held = false, onBloomed }: { family: Family; page: number; arrival?: number; arriving?: boolean; desk?: boolean; held?: boolean; onBloomed?: () => void }): React.JSX.Element {
+  if (WELCOME_BACKGROUND === 'grainient') return <GrainBackdrop page={page} arrival={arrival} arriving={arriving} desk={desk} held={held} onBloomed={onBloomed} />
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0">
       {/* No painting: under the words it had to be veiled for reading, which hid it on most themes and showed it on a few.
@@ -2055,30 +2065,41 @@ const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow)
  * if something were building. A breath before the burst it draws in, a quick squeeze, and then lets go: a flash,
  * the halo rolling out ahead of the gradient, the point staying bright at the heart of it until the light has
  * reached the edges, then gone into it. On the glow's own clock (grainient.tsx), all transform and opacity.
+ *
+ * Played by the browser itself (Web Animations, on the compositor): each part is drawn once and only moved and faded
+ * after. Stepped by the page's frames instead (motion's `scale`), the halo was painted afresh every frame as it grew to
+ * twelve times its size, and frames dropped from the moment the spark came. `onDone` once it has gone into the light.
  */
-function IntroSpark(): React.JSX.Element {
-  // Points in the intro (0 to 1, the glow's own `opened`): in, the long glimmer, gathering, the squeeze, the release.
-  const at = [0, 0.05, 0.2, 0.34, 0.48, SPARK_HOLD - 0.06, SPARK_HOLD - 0.015, SPARK_HOLD, SPARK_HOLD + 0.12, 0.94, 1]
-  const timing = { delay: INTRO_DELAY, duration: INTRO_SECONDS, times: at, ease: 'easeInOut' as const }
+// Points in the intro (0 to 1, the glow's own `opened`): in, the long glimmer, gathering, the squeeze, the release.
+const SPARK_AT = [0, 0.05, 0.2, 0.34, 0.48, SPARK_HOLD - 0.06, SPARK_HOLD - 0.015, SPARK_HOLD, SPARK_HOLD + 0.12, 0.94, 1]
+const sparkFrames = (opacity: number[], scale: number[]): Keyframe[] => SPARK_AT.map((offset, i) => ({ offset, opacity: opacity[i], transform: `scale(${scale[i]})`, easing: 'ease-in-out' }))
+const HALO = sparkFrames([0, 0.45, 0.5, 0.55, 0.62, 0.85, 0.7, 1, 0.75, 0.3, 0], [0.3, 0.8, 0.85, 0.9, 0.98, 1.25, 1, 2.2, 7, 11, 12])
+const CORE = sparkFrames([0, 1, 0.9, 1, 0.92, 1, 1, 1, 1, 0.9, 0], [0.2, 1, 0.94, 1.05, 0.97, 1.12, 0.7, 2.1, 1.6, 1.3, 1])
+function IntroSpark({ onDone }: { onDone?: () => void }): React.JSX.Element {
+  const halo = useRef<HTMLSpanElement>(null)
+  const core = useRef<HTMLSpanElement>(null)
+  const done = useRef(onDone)
+  done.current = onDone
+  useLayoutEffect(() => {
+    const timing: KeyframeAnimationOptions = { delay: INTRO_DELAY * 1000, duration: INTRO_SECONDS * 1000, fill: 'both' }
+    const glow = halo.current?.animate(HALO, timing)
+    const point = core.current?.animate(CORE, timing)
+    void glow?.finished.then(() => done.current?.(), () => undefined)
+    return () => (glow?.cancel(), point?.cancel())
+  }, [])
   return (
     <span aria-hidden data-intro-spark className="pointer-events-none absolute inset-0 z-[1] grid place-items-center mix-blend-screen">
       {/* The halo: wide and soft, gathering through the hold, then rolling out ahead of the light. */}
-      <motion.span className="col-start-1 row-start-1 size-40 rounded-full shrink-0"
-        style={{ background: 'radial-gradient(circle, rgb(255 233 168 / 0.55) 0%, rgb(250 189 47 / 0.22) 35%, rgb(250 189 47 / 0.06) 60%, transparent 72%)' }}
-        initial={{ opacity: 0, scale: 0.3 }}
-        animate={{ opacity: [0, 0.45, 0.5, 0.55, 0.62, 0.85, 0.7, 1, 0.75, 0.3, 0], scale: [0.3, 0.8, 0.85, 0.9, 0.98, 1.25, 1, 2.2, 7, 11, 12] }}
-        transition={timing} />
+      <span ref={halo} className="col-start-1 row-start-1 size-40 shrink-0 rounded-full opacity-0"
+        style={{ background: 'radial-gradient(circle, rgb(255 233 168 / 0.55) 0%, rgb(250 189 47 / 0.22) 35%, rgb(250 189 47 / 0.06) 60%, transparent 72%)' }} />
       {/* The point itself: a hot white-gold core, glimmering slightly, squeezed and then flashing as it lets go. */}
-      <motion.span className="col-start-1 row-start-1 size-[7px] rounded-full bg-[#fffaf0]"
-        style={{ boxShadow: '0 0 6px 2px rgb(255 240 200 / 0.95), 0 0 18px 6px rgb(250 189 47 / 0.55), 0 0 42px 14px rgb(250 189 47 / 0.22)' }}
-        initial={{ opacity: 0, scale: 0.2 }}
-        animate={{ opacity: [0, 1, 0.9, 1, 0.92, 1, 1, 1, 1, 0.9, 0], scale: [0.2, 1, 0.94, 1.05, 0.97, 1.12, 0.7, 2.1, 1.6, 1.3, 1] }}
-        transition={timing} />
+      <span ref={core} className="col-start-1 row-start-1 size-[7px] rounded-full bg-[#fffaf0] opacity-0"
+        style={{ boxShadow: '0 0 6px 2px rgb(255 240 200 / 0.95), 0 0 18px 6px rgb(250 189 47 / 0.55), 0 0 42px 14px rgb(250 189 47 / 0.22)' }} />
     </span>
   )
 }
 
-function GrainBackdrop({ page, arrival, arriving, onBloomed }: { page: number; arrival: number; arriving: boolean; onBloomed?: () => void }): React.JSX.Element {
+function GrainBackdrop({ page, arrival, arriving, desk, held, onBloomed }: { page: number; arrival: number; arriving: boolean; desk: boolean; held: boolean; onBloomed?: () => void }): React.JSX.Element {
   const light = useLightTheme()
   const colours = usePalette()
   const grain = useRef<GrainientHandle>(null)
@@ -2094,9 +2115,10 @@ function GrainBackdrop({ page, arrival, arriving, onBloomed }: { page: number; a
   return (
     <div aria-hidden className="absolute inset-0">
       {/* A new canvas for each arrival, so each one blooms from the page's colour; skipped, it is whole at once. */}
-      {arriving && !still() && <IntroSpark key={`spark-${arrival}`} />}
+      {/* Out of the desktop the spark is in the mist (welcome.tsx), and the gradient is whole when the page comes up under it. */}
+      {arriving && !desk && !still() && <IntroSpark key={`spark-${arrival}`} />}
       {/* Its grain creeps a pixel at a time, as sand slides (grainient.tsx), instead of reshuffling every frame, which read as running. */}
-      <Grainient key={arrival} ref={grain} intro={arriving} onIntroDone={onBloomed} colors={colours} angle={55} speed={1.32} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
+      <Grainient key={arrival} ref={grain} intro={arriving && !desk} paused={held} onIntroDone={onBloomed} colors={colours} angle={55} speed={1.32} flow={0.8} silk={light ? 0.2 : 0.35} saturation={light ? 0.8 : 1} grainAmount={light ? 0.06 : 0.08} />
       {/* The veil toward the words' side: not over the arrival, which fills the whole window as Arc's does, then in as the first words come. */}
       <div className={`pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ${arriving ? 'opacity-0' : 'opacity-100'} bg-[linear-gradient(90deg,color-mix(in_oklab,var(--background)_55%,transparent)_0%,color-mix(in_oklab,var(--background)_30%,transparent)_45%,transparent_80%)]`} />
       {/* On a dark theme the gradient's bright end sits under light words and cards: a film of the page's colour over all of it. */}

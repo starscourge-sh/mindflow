@@ -14,6 +14,7 @@ import { crumple } from '@/lib/sound'
 import { byKeys, still } from './motion'
 import { keepRoom } from './room'
 import { EASING } from '@/lib/motion'
+import { warmLater } from './warm'
 
 /** The app's curves (STANDARDS): out for what arrives or leaves, in-out for what travels on screen. */
 const OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
@@ -290,8 +291,8 @@ const painted = (): Promise<void> => new Promise((done) => (document.hidden ? do
 /** A move to the Bin, shown: call it once the move is made, or `drop` it when the move did not happen. */
 export type Flight = ((after?: () => void) => void) & { drop: () => void }
 
-/** Once the app is idle: three.js loaded and the paper's folds worked out, so the first move to the Bin is as quick as the rest. */
+/** Once the app is idle (never while the welcome plays: lib/warm.ts): three.js loaded and the paper's folds worked out, so the first move to the Bin is as quick as the rest. */
 export function warmBin(): void {
   if (still()) return
-  requestIdleCallback(() => void import('@/components/paper-crumple-flight').then((paper) => paper.warmPaper(), () => undefined), { timeout: 8000 })
+  warmLater(() => void import('@/components/paper-crumple-flight').then((paper) => paper.warmPaper(), () => undefined), { timeout: 8000 })
 }
