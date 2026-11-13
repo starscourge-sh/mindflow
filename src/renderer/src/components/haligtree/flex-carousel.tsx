@@ -1173,7 +1173,9 @@ export default function FlexCarousel({
 
   const current = items[active] ?? items[0]
   const place = counter === 'slash' ? `${num(active + 1).padStart(2, '0')} / ${num(items.length).padStart(2, '0')}` : `${num(active + 1)} of ${num(items.length)}`
-  const said = current?.note ?? place
+  // A note of two lines (a book's page, then the day it is to be done by) is said on the caption's one line with a
+  // dot between: its line break, collapsed as a space, ran the two together ("p. 338 of 1011 Done by 29 Nov").
+  const said = current?.note?.replace(/\n/g, ' · ') ?? place
   // The title it turned from, fading out as the new one fades in over it (a short crossfade); by a key, simply there.
   const was = useRef(active)
   const [from, setFrom] = useState(-1)
@@ -1253,7 +1255,7 @@ export default function FlexCarousel({
         )}
       </div>
       <div className="sr-only" aria-live="polite" aria-atomic="true">
-        {current ? `${current.title || 'New note'}, ${current.note ? `${current.note}, ` : ''}${num(active + 1)} of ${num(items.length)}` : ''}
+        {current ? `${current.title || 'New note'}, ${current.note ? `${current.note.replace(/\n/g, ', ')}, ` : ''}${num(active + 1)} of ${num(items.length)}` : ''}
       </div>
     </div>
   )
