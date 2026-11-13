@@ -11,11 +11,14 @@ import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const LINES = process.env.QA_WALK === 'lines'
-if (LINES) process.env.QA_ARGS = ''
+// QA_WALK=swap: a note opened from Review (R), then Review asked for again from outside the page (home:open, as other
+// windows and the Dock ask), at once and after a beat: Review alone on the page each time, the note's page never drawn with it.
+const SWAP = process.env.QA_WALK === 'swap'
+if (LINES || SWAP) process.env.QA_ARGS = ''
 const { check, done } = checks()
 const SHOTS = process.argv[2]
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-const c = await sandbox({ width: 1300, height: 860, seeded: !LINES })
+const c = await sandbox({ width: 1300, height: 860, seeded: !LINES && !SWAP })
 const { h, go, v, both } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const shot = async (name) => SHOTS && both(join(SHOTS, name))
@@ -79,7 +82,40 @@ const danglingDots = () => h.evaluate(() => {
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  if (!LINES) {
+  if (SWAP) {
+    await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
+    await h.reload(); await wait(2000)
+    const note = await h.evaluate(() => window.api.captures.create({ body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Rivers of the world' }] }] } }))
+    await h.evaluate((id) => window.api.captures.save(id, { body: { type: 'doc', content: [
+      { type: 'paragraph', content: [{ type: 'text', text: 'Rivers of the world' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Which river runs through Cairo? :: The Nile' }] },
+      { type: 'paragraph', content: [{ type: 'text', text: 'Which river runs through Vienna? :: The Danube' }] }
+    ] } }), note)
+    await waitFor(async () => (await v('items', 'card')).filter((one) => one.lineOf === `capture:${note}`).length === 2)
+    // What the page holds: each of the page's two places, shown or not, and the page in it, with the note's words seen or not.
+    const places = () => h.evaluate(() => {
+      const note = [...document.querySelectorAll('.ProseMirror')].filter((one) => /Which river runs through Cairo\? :: The Nile/.test(one.textContent) && one.checkVisibility({ visibilityProperty: true }) && one.getBoundingClientRect().width > 0).length
+      const review = !!document.querySelector('[data-review-sheet] h2')?.checkVisibility({ visibilityProperty: true })
+      const held = [...document.querySelectorAll('[data-page-held], [data-page-held] ~ div, div:has(> [data-page])')].length
+      const each = [...document.querySelectorAll('[data-page]')].filter((one) => one.closest('main, body')).map((one) => { const place = one.parentElement?.parentElement; return `${one.getAttribute('data-page')}:${place ? getComputedStyle(place).display : '?'}:${getComputedStyle(one).visibility}` })
+      return { review, noteShown: note, each, held }
+    })
+    for (const [n, beat] of [[1, 0], [2, 120], [3, 900]]) {
+      await go('review', ':today')
+      await waitFor(async () => /Which river/.test(await asked()))
+      await wait(500)
+      await h.evaluate(() => document.activeElement?.blur())
+      await h.keyboard.press('r')
+      await waitFor(() => h.evaluate(() => [...document.querySelectorAll('.ProseMirror')].some((one) => /Which river runs through Cairo/.test(one.textContent))), 5000)
+      if (beat) await wait(beat)
+      // Asked for from outside the page, as another window or the Dock asks: the window's own home:open.
+      await c.send('view', 'review', ':today')
+      await frames(`frames-swap-${n}`, 12)
+      const settled = await waitFor(async () => { const now = await places(); return now.review && !now.noteShown }, 4000)
+      if (n === 1) await shot('swap-1')
+      check(`R opens the note, then Review asked for from outside ${beat ? `${beat}ms later` : 'at once'}: Review alone on the page, the note's page never drawn with it`, settled, JSON.stringify(await places()))
+    }
+  } else if (!LINES) {
     await go('home')
     const side = h.locator('aside').locator('button, [role="button"], a, [data-row]', { hasText: /^Review/ }).first()
     if (await side.count()) await side.click()
@@ -91,6 +127,9 @@ try {
     check('Decks: the hand over everything a click does something to', miss.length === 0, miss.join(' | '))
     const dots = await danglingDots()
     check(`Decks: no deck's counts leave a dot hanging at the end of a line (${await h.evaluate(() => document.querySelectorAll('[data-deck-counts]').length)} decks)`, dots.length === 0, dots.join(' | '))
+    // Decks opens on the decks, as Anki's does: the first row of decks whole on the first screen.
+    const firstRow = await h.evaluate(() => { const one = document.querySelector('[data-deck-grid] [data-deck], [data-deck-list] [data-deck]')?.getBoundingClientRect(); return one ? { top: Math.round(one.top), bottom: Math.round(one.bottom), height: innerHeight } : null })
+    check(`Decks: the first row of decks is whole on the first screen (${firstRow ? `${firstRow.top} to ${firstRow.bottom} in a window ${firstRow.height} tall` : 'no deck'})`, !!firstRow && firstRow.bottom <= firstRow.height, JSON.stringify(firstRow))
     const page = await h.evaluate(() => document.querySelector('[data-review-page]')?.textContent ?? '')
     check('Decks: no line reads the mind ("just before you would forget")', !/just before you|just as you would forget|before you would forget/.test(page), (page.match(/[^.]*(?:just before you|would forget)[^.]*\./) ?? [''])[0])
     await h.locator('[data-review-tabs] button', { hasText: 'All cards' }).click(); await wait(1200)
@@ -149,6 +188,20 @@ try {
     await waitFor(shown)
     await h.keyboard.press('3')
     check('3: the next card', await waitFor(async () => (await asked()) !== first))
+    // Space and ↵ on the answer side grade Good, as Anki has them; ⌘Z takes each back.
+    for (const key of ['Space', 'Enter']) {
+      await wait(300)
+      await h.evaluate(() => document.activeElement?.blur())
+      const q = await asked()
+      await h.keyboard.press('Space')
+      await waitFor(shown)
+      await wait(200)
+      await h.keyboard.press(key)
+      const moved = await waitFor(async () => (await asked()) !== q, 4000)
+      const undo = await h.evaluate(() => document.querySelector('[data-undo-grade]')?.textContent.trim() ?? '')
+      check(`${key === 'Space' ? 'Space' : '↵'} on the answer grades Good, as in Anki: the next card comes, its Undo naming Good ("${undo}")`, moved && /Got it|Good/.test(undo), undo || 'no grade')
+      if (moved) { await h.keyboard.press('Meta+z'); await waitFor(async () => (await asked()) === q) }
+    }
     // E rewrites the question in place; Esc leaves it as it was, as Esc does in every field.
     await wait(400)
     const before = await asked()
@@ -160,8 +213,13 @@ try {
       document.addEventListener('focusout', (event) => window.__keys.push(`out ${event.target.tagName}${event.relatedTarget ? ` to ${event.relatedTarget.tagName}` : ''}`), true)
       addEventListener('keydown', (event) => window.__keys.push(`key ${event.key} taken ${event.defaultPrevented}`), { once: true })
     })
+    // One trace of where the keys are as E is pressed: which window the Mac has in front, whether this page has the
+    // keys, and the key as the window's first listener (capture) hears it.
+    const trace = { windows: await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().map((one) => `${one.webContents.getURL().split('?')[1]?.slice(0, 24) ?? one.webContents.getURL().slice(-24)}${one.isFocused() ? ' (focused)' : ''}${one.isVisible() ? '' : ' (hidden)'}`)), page: await h.evaluate(() => ({ hasFocus: document.hasFocus(), active: document.activeElement?.tagName })) }
+    await h.evaluate(() => addEventListener('keydown', (event) => window.__keys.push(`capture ${event.key}`), { capture: true, once: true }))
     await h.keyboard.press('e')
     const editing = await waitFor(() => h.evaluate(() => document.activeElement?.tagName === 'H2' && getSelection()?.toString().length > 0), 4000)
+    console.log(`  E trace: ${JSON.stringify({ ...trace, heard: await h.evaluate(() => window.__keys) })}`)
     check('E: the question takes the keys, its words picked', editing, await h.evaluate(() => JSON.stringify({ active: `${document.activeElement?.tagName}${document.activeElement?.getAttribute('data-typed-lines') !== null ? '[typed-lines]' : ''}`, picked: getSelection()?.toString().slice(0, 40), h2: document.querySelector('[data-review-sheet] h2')?.getAttribute('contenteditable'), seen: window.__keys })))
     // Into the question by a press as well ("click it to edit", the card's own words say), all of it picked: the same field.
     if (!editing) {
