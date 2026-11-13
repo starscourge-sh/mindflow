@@ -1,11 +1,13 @@
 // “Show the welcome again” from an ordinary run, its window not made see-through, plays the arrival out of the
-// desktop: the window is put away and a see-through one made in its place (main: remakeHome), the mist comes in over
-// the desktop and draws in to the window, and under the welcome the app is as it was left. Two tabs: a list scrolled
-// down in the first, a long note part-way down on show in the second. Once the welcome is over: the same tabs, the
-// same one on show, the note at the same block, the list at the same scroll, the window back where it stood, one main
-// window. `esc`: Esc a little way into the arrival draws the mist in at once, with the same result.
+// desktop: the window answers at once with the app's loader (under 100 ms from the ask) and stays while a see-through
+// one is made hidden in its place (main: remakeHome); the new one shows and the old one goes in the same moment (under
+// one frame apart), the mist comes in over the desktop and draws in to the window, and under the welcome the app is as
+// it was left. Two tabs: a list scrolled down in the first, a long note part-way down on show in the second, words just
+// typed in it. Once the welcome is over: the same tabs, the same one on show, the note at the same block with the words
+// in it, the list at the same scroll, the window back where it stood, one main window. `esc`: Esc a little way into the
+// arrival draws the mist in at once, with the same result. `away`: the window put away first (⌘W), brought back by the ask.
 // On a copy of the main book (its notes are long enough to scroll):
-//   QA_DATA=<book copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-replay-arrival.mjs [esc]
+//   QA_DATA=<book copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-replay-arrival.mjs [esc|away]
 import { DatabaseSync } from 'node:sqlite'
 import { readFileSync } from 'fs'
 import { loadavg } from 'os'
@@ -17,6 +19,7 @@ import { sandbox } from './sandbox-lib.mjs'
 process.env.HALIGTREE_QA_ARRIVAL = 'again'
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const ESC = process.argv[2] === 'esc'
+const AWAY = process.argv[2] === 'away'
 const root = process.env.QA_DATA
 const shelf = JSON.parse(readFileSync(join(root, 'books.json'), 'utf8'))
 const db = new DatabaseSync(join(root, 'books', shelf.last, 'haligtree.db'), { readOnly: true })
@@ -118,22 +121,47 @@ try {
     if (!hold()) new MutationObserver((_, watch) => hold() && watch.disconnect()).observe(document, { childList: true, subtree: true })
   })
 
+  // `away`: the window put away first (⌘W, the red dot), so the ask has to bring it back to answer.
+  if (AWAY) {
+    await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))?.close())
+    await wait(800)
+    check('put away first: the main window is hidden', (await homes()).every((one) => !one.shown), JSON.stringify(await homes()))
+  }
+  // The old window's own answer, timed from the ask to its first frame drawn with the app's loader (welcome.tsx Readying).
+  await h.evaluate(() => new MutationObserver((_, watch) => {
+    if (!document.querySelector('[data-welcome-readying]')) return
+    watch.disconnect()
+    requestAnimationFrame(() => setTimeout(() => (window.qaReadying = performance.timeOrigin + performance.now())))
+  }).observe(document.body, { childList: true, subtree: true }))
+
   // “Show the welcome again” from the Haligtree menu, as a person picks it, at once.
   const asked = Date.now()
   await electron.evaluate(({ Menu }) => {
     const find = (items) => { for (const one of items) { if (one.label === 'Show the welcome again') return one; const inner = one.submenu && find(one.submenu.items); if (inner) return inner } }
     find(Menu.getApplicationMenu().items)?.click()
   })
-  // The window made in its place.
+  await h.waitForFunction(() => !!window.qaReadying, null, { timeout: 10000, polling: 16 })
+  const orbAt = Math.round((await h.evaluate(() => window.qaReadying)) - asked)
+  const during = await homes()
+  // (Put away first, the window is shown by openHome once AeroSpace, where it is installed, has said where you are: it is
+  // read as shown below, while the new one comes up.)
+  check('the old window answers at once with the app\'s loader, drawn under 100 ms from the ask', orbAt < 100 && await h.evaluate(() => !!document.querySelector('[data-welcome-readying] [role="status"]')?.textContent.includes('Getting the welcome ready')), `${orbAt} ms (${load()}); ${JSON.stringify(during)}`)
+  // The window made in its place, coming up hidden while the old one stays with its loader.
   let h2 = null
-  for (let i = 0; i < 100 && !h2; i++) (await wait(100), (h2 = electron.windows().find((one) => one.url().includes('again=1')) ?? null))
+  for (let i = 0; i < 100 && !h2; i++) (h2 = electron.windows().find((one) => one.url().includes('again=1')) ?? null) || (await wait(50))
   check('a window is made in its place', !!h2, (await homes()).map((one) => one.url).join(' | '))
   if (!h2) throw new Error('no window made again')
+  const meanwhile = await homes()
+  const early = (await electron.evaluate(() => globalThis.haligtreeArrival?.()?.swapped ?? null)) !== null
+  check('while it comes up, the old window stays shown with its loader and the new one is not yet shown', early || (meanwhile.length === 2 && meanwhile.some((one) => !one.url.includes('again=1') && one.shown) && meanwhile.some((one) => one.url.includes('again=1') && !one.shown)), `${early ? 'swapped already' : ''} ${JSON.stringify(meanwhile)}`)
   h2.on('pageerror', (e) => errors.push('PAGEERROR ' + e.message))
   await h2.waitForSelector('[data-welcome-mist="desk"]', { timeout: 20000 })
-  // Shown, and drawn empty: the page captured with nothing behind it, every pixel's alpha read (0 is clear).
-  for (let i = 0; i < 100 && !(await homes())[0]?.shown; i++) await wait(100)
+  // Swapped: the new one shown and the old one gone in the same moment, by main's own clock (remakeHome).
+  for (let i = 0; i < 200 && !(await homes()).some((one) => one.url.includes('again=1') && one.shown); i++) await wait(50)
   const shownAt = Date.now() - asked
+  const swapped = (await electron.evaluate(() => globalThis.haligtreeArrival?.()?.swapped ?? null))
+  check('the old window goes in the same moment the new one shows: under one frame between them', !!swapped && swapped.gone - swapped.shown < 16.7, swapped ? `${(swapped.gone - swapped.shown).toFixed(2)} ms between the new one shown and the old one closed (${load()})` : 'no swap')
+  // Shown, and drawn empty: the page captured with nothing behind it, every pixel's alpha read (0 is clear).
   const png = await h2.screenshot({ type: 'png', omitBackground: true, scale: 'css' })
   // The most opaque pixel, and the box round everything drawn at all, named by what the page has there.
   const drawn = await electron.evaluate(({ nativeImage }, encoded) => {
@@ -155,7 +183,7 @@ try {
   check('the old window has gone: one main window, see-through, shown standing clear and drawn empty', up.length === 1 && up[0].url.includes('again=1') && up[0].shown && drawn.most === 0 && (await electron.evaluate(() => globalThis.haligtreeArrival?.() ?? { made: false, clear: false })).made === true && (await electron.evaluate(() => globalThis.haligtreeArrival?.() ?? { made: false, clear: false })).clear === true, JSON.stringify({ up, drawn, what }))
   await h2.evaluate(() => document.documentElement.removeAttribute('data-arrival-hold'))
   await h2.waitForFunction(() => !!window.haligtreeArrival?.frames?.length, null, { timeout: 20000 })
-  console.log(`the new window shown ${shownAt} ms after the ask, the mist's first frame ${Date.now() - asked} ms (${load()})`)
+  console.log(`the loader drawn ${orbAt} ms after the ask; the new window shown ${shownAt} ms after it, the mist's first frame ${Date.now() - asked} ms (${load()})`)
   if (ESC) {
     await h2.waitForTimeout(2500)
     await h2.keyboard.press('Escape')
