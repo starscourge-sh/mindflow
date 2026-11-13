@@ -2207,13 +2207,6 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
   justify-content: space-between;
   gap: 0.75rem;
 }
-.chapter-cards-title {
-  font-family: var(--font-heading, inherit);
-  font-size: 1rem;
-  font-weight: 600;
-  line-height: 1.35;
-  text-wrap: balance;
-}
 .chapter-cards-close {
   display: grid;
   place-items: center;
@@ -2226,42 +2219,8 @@ html[data-motion="off"] :is(.pdf-zoom-chip, .pdf-reader-body > .pdf-rail) {
   transition: background-color 120ms ease-out, color 120ms ease-out, transform 120ms ease-out;
 }
 .chapter-cards-close:hover { background: color-mix(in oklab, var(--foreground) 6%, transparent); color: var(--foreground); }
-.chapter-cards-note { color: color-mix(in oklab, var(--foreground) 80%, transparent); text-wrap: pretty; }
-.chapter-cards-note strong { color: var(--foreground); font-weight: 600; }
 .chapter-cards-wait { display: flex; min-height: 2.5rem; align-items: center; padding-inline: 0.125rem; }
 .chapter-cards-error { display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; color: var(--tt-color-text-orange); }
-.chapter-cards-list { display: flex; flex-direction: column; gap: 0.5rem; }
-.chapter-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  padding: 0.5rem 0.625rem 0.375rem;
-  border-radius: 0.5rem;
-  background: color-mix(in oklab, var(--foreground) 3.5%, transparent);
-}
-.chapter-card[data-chapter-card="kept"] { background: color-mix(in oklab, var(--tt-color-text-green) 8%, transparent); }
-.chapter-card-question, .chapter-card-answer {
-  field-sizing: content;
-  caret-color: var(--primary);
-  width: 100%;
-  resize: none;
-  border: 0;
-  border-radius: 0.25rem;
-  background: transparent;
-  color: var(--foreground);
-  outline: none;
-}
-.chapter-card-question { font-weight: 600; font-size: 0.9375rem; }
-.chapter-card-answer { color: color-mix(in oklab, var(--foreground) 82%, transparent); }
-.chapter-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-height: 2rem; }
-.chapter-card-actions { display: flex; gap: 0.25rem; }
-.chapter-card-link { color: color-mix(in oklab, var(--foreground) 72%, transparent); font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; text-underline-offset: 2px; transition: color 120ms ease-out, transform 120ms ease-out; }
-.chapter-card-link:active, .chapter-cards-close:active { transform: scale(0.97); }
-.chapter-card-link:hover { color: var(--foreground); text-decoration: underline; }
-.chapter-card-kept { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--tt-color-text-green); }
-.chapter-card-gone { color: var(--mf-muted); font-size: 0.8125rem; }
-.chapter-cards-foot { display: flex; flex: none; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.625rem 1rem 0.75rem; border-top: 1px solid var(--tt-border-color); }
-.chapter-cards-count { color: var(--mf-muted); font-size: 0.75rem; }
 
 /* "Dark pages": a cover's backing is the dark page, as the pages are (paper.ts marks the page). */
 html.dark-pages {

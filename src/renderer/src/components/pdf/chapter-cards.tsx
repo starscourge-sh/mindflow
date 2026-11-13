@@ -1,16 +1,17 @@
 import { useEffect, useRef, useState } from "react"
 import { usePageLabel } from "./pdf-labels"
 import type { PDFDocumentProxy } from "pdfjs-dist"
-import { Check, X } from "lucide-react"
+import { X } from "lucide-react"
 import { chime } from "@/lib/sound"
 import { Orb } from "@/components/haligtree/orb"
 import { Button } from "@/components/ui/button"
+import { DraftFoot, DraftList, type CardDraft } from "@/components/haligtree/card-drafts"
 import { chapterRange, chapterText, cardsFrom, type MadeCard } from "@/lib/study-ai"
 import type { OutlineRow } from "./pdf-rail"
-import { num, plural } from "../../../../main/dates"
+import { plural } from "../../../../main/dates"
 import { quoted } from '../../../../main/clip'
 
-type Card = MadeCard & { state: "open" | "kept" | "dropped" }
+type Card = MadeCard & CardDraft
 
 /**
  * Five cards from the chapter you are in, by Apple Intelligence on this Mac:
@@ -87,9 +88,6 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
     set(n, { state: "kept" })
     await onKeep(one.question.trim(), one.answer.trim(), one.page)
   }
-  const open = cards?.filter((one) => one.state === "open") ?? []
-  const kept = cards?.filter((one) => one.state === "kept").length ?? 0
-
   return (
     // Docked where Details opens, pushing the page aside, so the page a card comes from stays in sight beside it.
     <div className="read-details-frame">
@@ -114,47 +112,11 @@ export function ChapterCards({ doc, title, outline, page, marks, onKeep, onGo, o
         </div>
       )}
       {cards && (
-        <ol className="chapter-cards-list">
-          {cards.map((one, n) => (
-            <li key={n} data-chapter-card={one.state} className="chapter-card">
-              {one.state === "dropped" ? (
-                <p className="chapter-card-gone">Dropped. <button type="button" className="chapter-card-link" onClick={() => (chime("undo"), set(n, { state: "open" }))}>Bring it back</button></p>
-              ) : (
-                <>
-                  <textarea aria-label="Question" rows={1} className="chapter-card-question" value={one.question} readOnly={one.state === "kept"}
-                    onChange={(event) => set(n, { question: event.target.value })}
-                    onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), void keep(n))} />
-                  <textarea aria-label="Answer" rows={1} className="chapter-card-answer" value={one.answer} readOnly={one.state === "kept"}
-                    onChange={(event) => set(n, { answer: event.target.value })}
-                    onKeyDown={(event) => event.key === "Enter" && (event.preventDefault(), void keep(n))} />
-                  <div className="chapter-card-foot">
-                    <button type="button" className="chapter-card-link" data-chapter-card-page={one.page} onClick={() => (chime("tap"), onGo(one.page))}>p. {label(one.page)}</button>
-                    {one.state === "kept" ? (
-                      <span className="chapter-card-kept"><Check className="size-3.5" /> Made, in Review</span>
-                    ) : (
-                      <span className="chapter-card-actions">
-                        <Button variant="ghost" size="sm" data-chapter-card-drop onClick={() => (chime("fold"), set(n, { state: "dropped" }))}>Drop</Button>
-                        <Button variant="outline" size="sm" data-chapter-card-keep disabled={!one.question.trim() || !one.answer.trim()} onClick={() => void keep(n)}>Keep</Button>
-                      </span>
-                    )}
-                  </div>
-                </>
-              )}
-            </li>
-          ))}
-        </ol>
+        <DraftList cards={cards} onSet={set} onKeep={(n) => void keep(n)}
+          link={(one) => ({ label: `p. ${label(one.page)}`, mark: { "data-chapter-card-page": one.page }, run: () => onGo(one.page) })} />
       )}
       </div>
-      {cards && (
-        <div className="chapter-cards-foot">
-          <span className="chapter-cards-count">{kept ? `${plural(kept, "card")} made` : "None made yet"}</span>
-          {open.length > 1 ? (
-            <Button size="sm" data-chapter-cards-all onClick={() => void (async () => { for (let n = 0; n < cards.length; n++) await keep(n) })()}>{`Keep the ${num(open.length)} left`}</Button>
-          ) : (
-            <Button size="sm" variant="outline" onClick={stop}>Done</Button>
-          )}
-        </div>
-      )}
+      {cards && <DraftFoot cards={cards} onKeepAll={() => void (async () => { for (let n = 0; n < cards.length; n++) await keep(n) })()} onDone={stop} />}
     </aside>
     </div>
   )
