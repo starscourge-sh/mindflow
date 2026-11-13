@@ -77,6 +77,21 @@ try {
   check('⌥↓ on it: second again', (await strip()).ids.join() === [far.id, second.id].join(), JSON.stringify(await strip()))
   check('...and the same row still has the keys', await h.evaluate((id) => document.activeElement?.getAttribute('data-strip-goal') === id, second.id))
   check('the order is kept in Settings', (await kept()).ids.join() === [far.id, second.id].join(), JSON.stringify(await kept()))
+  // Twice in a row with nothing between, as a held key does: up and straight back down ends where it began, and
+  // each press shows in the frame after it (worked out from the settings as they come back, the second press moved nothing).
+  const quick = await h.evaluate(async (id) => {
+    const row = document.querySelector(`[data-strip-goal="${id}"]`)
+    const order = () => [...document.querySelectorAll('[data-strip-goal]')].map((one) => one.getAttribute('data-strip-goal')).join()
+    const frame = () => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+    const press = (key) => row.dispatchEvent(new KeyboardEvent('keydown', { key, code: key, altKey: true, bubbles: true, cancelable: true }))
+    const before = order()
+    press('ArrowUp'); await frame(); const up = order()
+    press('ArrowDown'); await frame(); const down = order()
+    return { before, up, down }
+  }, second.id)
+  check('⌥↑ then ⌥↓ at once: up in the frame after the press, and back in the next', quick.up === [second.id, far.id].join() && quick.down === quick.before, JSON.stringify(quick))
+  await wait(700)
+  check('...and that is what is kept', (await kept()).ids.join() === [far.id, second.id].join() && (await strip()).ids.join() === [far.id, second.id].join(), JSON.stringify([await kept(), await strip()]))
 
   // 6. Three at most.
   await v('settings:set', { goalsChosen: [far.id, second.id, near1.id] }); await wait(500)
@@ -118,7 +133,8 @@ try {
   await h.keyboard.press('Meta+k'); await wait(400)
   await h.keyboard.type('Goals on Home', { delay: 10 }); await wait(400)
   await h.keyboard.press('Enter'); await wait(400)
-  const offered = await h.evaluate(() => [...document.querySelectorAll('[cmdk-item], [role="option"]')].map((one) => one.textContent.trim().slice(0, 40)))
+  // ⌘K's second step: its lines are the buttons beside the lit one.
+  const offered = await h.evaluate(() => [...(document.querySelector('[data-choice-at]')?.parentElement?.querySelectorAll(':scope > button') ?? [])].map((one) => one.textContent.trim().slice(0, 40)))
   check('⌘K “Goals on Home…” offers the choices', offered.some((one) => one.startsWith('The nearest 3 goals')) && offered.some((one) => one.startsWith('No goals on Home')), JSON.stringify(offered.slice(0, 8)))
   await h.keyboard.type('nearest 3', { delay: 10 }); await wait(300)
   await h.keyboard.press('Enter'); await wait(700)
@@ -132,7 +148,7 @@ try {
 
   // 11. Today's Journal page shows the same.
   await v('settings:set', { goalsOnHome: 'nearest', goalsNearest: 2 })
-  await go('today'); await wait(1200)
+  await go('day'); await wait(1200)
   check('today\'s Journal page shows the same goals', (await strip()).ids.join() === [near1.id, near2.id].join(), JSON.stringify(await strip()))
   await v('settings:set', { goalsOnHome: 'off' }); await wait(600)
   check('...and none when off', (await strip()).ids.length === 0)

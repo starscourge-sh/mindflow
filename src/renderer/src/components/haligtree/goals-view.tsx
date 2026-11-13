@@ -4,7 +4,7 @@ import { dropLines, keepLines } from '@/lib/clue-lines'
 import { TIP } from '@/lib/float'
 import { ReadsIn, useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { useToday } from '@/lib/use-today'
 import { CalendarDays, CalendarPlus, Flag, Plus, Snowflake, StickyNote, Telescope } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -93,9 +93,39 @@ type HomeGoals = { mode: 'off' | 'nearest' | 'chosen'; nearest: number; ids: str
 export const HOME_GOALS = 3
 let homeGoals: HomeGoals = { mode: 'off', nearest: 2, ids: [] }
 const homeOf = (settings: Settings | null): HomeGoals => ({ mode: settings?.goalsOnHome ?? 'off', nearest: settings?.goalsNearest ?? 2, ids: settings?.goalsChosen ?? [] })
+const sameHome = (a: HomeGoals, b: HomeGoals): boolean => a.mode === b.mode && a.nearest === b.nearest && a.ids.join() === b.ids.join()
+/**
+ * What was just asked for here, shown before the settings come back saying so: a goal moved up is up in the frame of
+ * the press, and the next press is worked out from where it now is. Waiting on the settings, ⌥↓ pressed twice moved
+ * a goal once (the second was worked out from the old order) and a move showed half a second late on a busy Mac.
+ * `over` is what the settings said when the first of these was asked.
+ */
+let asked: { goals: HomeGoals; over: HomeGoals } | null = null
+/** Writes of it on their way to the settings: while any is, what comes back in between is not the last word. */
+let flying = 0
+const homeDrawn = new Set<() => void>()
 /** The settings, read in whatever component draws goals: Home's choice of them follows as it changes. */
-export const useHomeGoals = (settings: Settings | null): HomeGoals => (homeGoals = homeOf(settings))
-const keepHome = (next: Partial<Pick<Settings, 'goalsOnHome' | 'goalsNearest' | 'goalsChosen'>>): Promise<unknown> => haligtree.setSettings(next)
+export const useHomeGoals = (settings: Settings | null): HomeGoals => {
+  const [, again] = useReducer((n: number) => n + 1, 0)
+  useEffect(() => (homeDrawn.add(again), () => void homeDrawn.delete(again)), [])
+  const said = homeOf(settings)
+  // Every write has landed and the settings have moved on from where they stood: they are the word again (what was
+  // asked for, or a change made in another window since).
+  if (asked && !flying && !sameHome(said, asked.over)) asked = null
+  return (homeGoals = asked?.goals ?? said)
+}
+const keepHome = (next: Partial<Pick<Settings, 'goalsOnHome' | 'goalsNearest' | 'goalsChosen'>>): Promise<unknown> => {
+  const goals: HomeGoals = { mode: next.goalsOnHome ?? homeGoals.mode, nearest: next.goalsNearest ?? homeGoals.nearest, ids: next.goalsChosen ?? homeGoals.ids }
+  asked = { goals, over: asked?.over ?? homeGoals }
+  homeGoals = goals
+  flying++
+  for (const draw of homeDrawn) draw()
+  return haligtree.setSettings(next).finally(() => {
+    // The last one back: if the settings never moved (the same as before was asked for), nothing is waited on.
+    if (--flying === 0 && asked && sameHome(asked.goals, asked.over)) asked = null
+    for (const draw of homeDrawn) draw()
+  })
+}
 /** The goals Home shows now, out of the open ones (nearest first): the chosen in their own order, or the nearest few. */
 export const goalsForHome = (open: Item[], home: HomeGoals): Item[] =>
   home.mode === 'off' ? []

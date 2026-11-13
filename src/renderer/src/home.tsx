@@ -1912,8 +1912,8 @@ export function Home(): React.JSX.Element {
                 return [
                   !here('off') && { label: 'No goals on Home', note: 'the strip goes', run: keep({ goalsOnHome: 'off' }, 'No goals on Home now') },
                   ...([1, 2, 3] as const).filter((count) => !here('nearest', count)).map((count) => ({
-                    label: count === 1 ? 'The nearest goal' : `The nearest ${count} goals`, note: 'by their day, soonest first',
-                    run: keep({ goalsOnHome: 'nearest', goalsNearest: count }, count === 1 ? 'Home shows your nearest goal' : `Home shows your nearest ${count} goals`)
+                    label: count === 1 ? 'The nearest goal' : `The nearest ${plural(count, 'goal')}`, note: 'by their day, soonest first',
+                    run: keep({ goalsOnHome: 'nearest', goalsNearest: count }, count === 1 ? 'Home shows your nearest goal' : `Home shows your nearest ${plural(count, 'goal')}`)
                   })),
                   !here('chosen') && { label: 'Only the goals I choose', note: 'in the order you put them', run: keep({ goalsOnHome: 'chosen' }, 'Home shows the goals you choose: right-click a goal and choose “Show on Home”') }
                 ].filter((one): one is { label: string; note: string; run: () => void } => !!one)

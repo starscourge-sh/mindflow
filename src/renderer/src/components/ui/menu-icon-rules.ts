@@ -17,6 +17,10 @@ import {
  */
 const RULES: [RegExp, LucideIcon][] = [
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).
+  // Home's goals (the strip's own menu, and ⌘K's “Goals on Home…”): which goals show there, by their day or by your choice.
+  [/^choose what shows here/i, ListChecks],
+  [/^the nearest (\S+ )?goals?$/i, CalendarClock],
+  [/^only the goals i choose$/i, ListChecks],
   // The Calendar's panels, as lines of its ⋯ when the bar is narrow.
   [/^the small month and calendars$/i, PanelLeft],
   [/^upcoming$/i, PanelRight],
