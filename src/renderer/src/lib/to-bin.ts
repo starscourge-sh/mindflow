@@ -4,7 +4,8 @@ import { chime, tear } from './sound'
 import { haligtree } from './haligtree'
 import { refuse, toast, whyFailed } from '@/components/haligtree/ui'
 import { num, plural } from '../../../main/dates'
-import { binFlight } from './fly-home'
+import { binFlight, leaveRoom } from './fly-home'
+import { expectBack, stays } from './room'
 
 /**
  * One way to the Bin for every kind of thing, from every list: picked rows
@@ -50,6 +51,8 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
   // Each row still on screen (the first four) crumples and flies to the Bin once it is there, wherever it was binned from
   // (a list, a menu, the box's tabs): its picture is taken now, while it is still there. By a key it simply goes.
   const flights = going.slice(0, 4).map((one) => binFlight(one.id))
+  // The rest of what was picked and is on show leaves with them: every gap closes in the one move, as the paper lifts off.
+  for (const one of going.slice(4, 60)) leaveRoom(one.id)
   // Captures, and gems, pages and the rest, each kind in one write with one change told, and back the same way:
   // one call a row made 95 rows take two seconds of every list reloading, going and coming back.
   const captures = going.filter((one) => one.type === 'capture')
@@ -79,6 +82,8 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
   // Undo at any moment, even with writes still landing: it waits for them, then puts back every one that went.
   const undo = (): void => {
     if (last?.undo === undo) last = null
+    // As they are drawn again, the rows part for them on the clock they closed on.
+    expectBack(going.map((one) => one.id))
     void settled
       .then((all) => Promise.all(all.flatMap((one) => (one.status === 'fulfilled' ? one.value : [])).map((back) => back())))
       .then(() => (onUndo?.(), window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: going.map((one) => one.id) }))))
@@ -97,7 +102,8 @@ export async function moveToBin(refs: BinRef[], onUndo?: () => void): Promise<nu
     toast(moved
       ? `${saidOf(moved)}; ${num(stayed)} could not be moved: ${whyFailed(failed[0].why)}.`
       : `Not moved to the Bin: ${whyFailed(failed[0].why)}.`, moved ? undo : undefined, 'error')
-    if (!moved) return 0
+    // None went: each row is itself again under the pointer (lib/room.ts).
+    if (!moved) return (stays(going.map((one) => one.id)), 0)
     count = moved
   }
   for (const land of flights) land?.()

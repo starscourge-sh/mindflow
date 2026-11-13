@@ -7,7 +7,8 @@ import { BookOpen, CalendarDays, CircleArrowUp, CircleCheck, CircleDashed, Circl
 import { Avatar } from '@/components/haligtree/avatar'
 import { ask, askQuestion, refuse, toast } from '@/components/haligtree/ui'
 import { chime, tear } from '@/lib/sound'
-import { binFlight, lift, type Flight, type Home } from '@/lib/fly-home'
+import { binFlight, leaveRoom, lift, type Flight, type Home } from '@/lib/fly-home'
+import { expectBack } from '@/lib/room'
 import { readTags, setLinkKinds, showHeading, type LinkKind, type NoteSuggestion } from '@/extensions/note-link'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { openApart } from '@/lib/apart'
@@ -108,14 +109,23 @@ export async function exit(id: string, status: string, onUndo?: () => void): Pro
   // Kept as a nugget: the question review will test it with is one key away.
   // Kept, and it can be taken back like the other exits: the nugget goes, the capture is open again.
   const fresh = status === 'promoted' && recallOffered((await window.api.captures.get(id))?.capturedAt)
-  if (status === 'promoted') toast(one.done, typeof result === 'string' ? () => void unpromote(id, result).then(() => onUndo?.()) : undefined, 'success', typeof result === 'string' && fresh ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
+  if (status === 'promoted') toast(one.done, typeof result === 'string' ? () => void (expectBack([id]), unpromote(id, result)).then(() => onUndo?.()) : undefined, 'success', typeof result === 'string' && fresh ? { label: 'Add a question', key: 'Q', run: () => void askQuestion(result) } : undefined)
   // Back to exactly the status it had: always open, as exits are taken from there.
-  else toast(one.done, () => void window.api.captures.save(id, { status: ((result as SaveResult | null)?.was ?? 'open') as 'open' }).then(() => onUndo?.()), 'success', status === 'discarded' ? seeTheBin : undefined)
+  else toast(one.done, () => void (expectBack([id]), window.api.captures.save(id, { status: ((result as SaveResult | null)?.was ?? 'open') as 'open' })).then(() => onUndo?.()), 'success', status === 'discarded' ? seeTheBin : undefined)
   return true
 }
 
 /** How many of a selection fly at once: the first few on show, so fifty picked are a handful of squares, never a swarm. */
 const FLIGHTS = 5
+/** Their pictures taken while they are still on screen. The rest on show leave with them, every gap closing in the one move (lib/room.ts). */
+const lifts = (ids: string[], home: Home): (() => void)[] => {
+  const lands: (() => void)[] = []
+  for (const id of ids.slice(0, 40)) {
+    if (lands.length >= FLIGHTS) leaveRoom(id)
+    else lands.push(...[lift(id, home) ?? []].flat())
+  }
+  return lands
+}
 
 /**
  * Captures moved to Writing, into one of its folders (`folder`, its id) or loose: the one way every button, menu,
@@ -124,14 +134,14 @@ const FLIGHTS = 5
  */
 export async function toWriting(ids: string[], folder?: string | null, onUndo?: () => void): Promise<boolean> {
   // Their pictures taken first, while they are still on screen; they fly once the pages are made.
-  const lands = ids.slice(0, 40).flatMap((id) => lift(id, 'question') ?? []).slice(0, FLIGHTS)
+  const lands = lifts(ids, 'question')
   const made = await haligtree.toWriting(ids, folder ?? null)
   if (!made.length) return (refuse(NOT_OPEN), false)
   for (const land of lands) land()
   chime('move')
   const where = made[0].folder ? quoted(made[0].folder, 40) : 'Writing'
   toast(made.length === 1 ? `Moved to ${where}` : `Moved ${num(made.length)} to ${where}`,
-    () => void haligtree.undoWriting(made).then(() => onUndo?.()), 'success',
+    () => void (expectBack(ids), haligtree.undoWriting(made)).then(() => onUndo?.()), 'success',
     made.length === 1 ? { label: 'Open', key: 'O', run: () => window.api.openInHome('article', made[0].id) } : undefined)
   return true
 }
@@ -158,11 +168,11 @@ export async function exitMany(ids: string[], status: string, onUndo?: () => voi
     const moved = ids.flatMap((id, at) => (results[at]?.refused ? [] : [{ id, was: (results[at]?.was ?? 'open') as 'open' }]))
     if (!moved.length) return none()
     chime('resolve')
-    toast(`Resolved ${num(moved.length)}: done with, still there with “${DEALT_TOO}”${stayed(ids.length - moved.length)}`, () => void window.api.captures.saveMany(moved.map((one) => ({ id: one.id, patch: { status: one.was } }))).then(() => onUndo?.()))
+    toast(`Resolved ${num(moved.length)}: done with, still there with “${DEALT_TOO}”${stayed(ids.length - moved.length)}`, () => void (expectBack(ids), window.api.captures.saveMany(moved.map((one) => ({ id: one.id, patch: { status: one.was } })))).then(() => onUndo?.()))
     return true
   }
   if (status === 'question') {
-    const lands = ids.slice(0, 40).flatMap((id) => lift(id, 'question') ?? []).slice(0, FLIGHTS)
+    const lands = lifts(ids, 'question')
     const made: string[] = []
     for (const id of ids) {
       const question = await haligtree.newQuestion('', id)
@@ -171,13 +181,13 @@ export async function exitMany(ids: string[], status: string, onUndo?: () => voi
     if (!made.length) return none()
     for (const land of lands) land()
     chime('hold')
-    toast(`Now ${num(made.length)} questions: they are in Questions, under Writing${stayed(ids.length - made.length)}`, () => void Promise.all(made.map((one) => haligtree.dropQuestion(one))).then(() => onUndo?.()), 'success')
+    toast(`Now ${num(made.length)} questions: they are in Questions, under Writing${stayed(ids.length - made.length)}`, () => void (expectBack(ids), Promise.all(made.map((one) => haligtree.dropQuestion(one)))).then(() => onUndo?.()), 'success')
     return true
   }
   if (status !== 'promoted') return false
   // A gem each. One that must be asked something first (who said a quote, what a word means) is left where it is and
   // counted: a run of questions, one after another, is not what one key on fifty asked for.
-  const lands = ids.slice(0, 40).flatMap((id) => lift(id, 'nugget') ?? []).slice(0, FLIGHTS)
+  const lands = lifts(ids, 'nugget')
   const made: { id: string; gem: string }[] = []
   let asks = 0
   for (const id of ids) {
@@ -193,7 +203,7 @@ export async function exitMany(ids: string[], status: string, onUndo?: () => voi
   if (!made.length) return (refuse(`None saved. ${needs}`), false)
   for (const land of lands) land()
   chime('promote')
-  toast(`Saved ${num(made.length)} as gems${needs ? `. ${needs}` : ''}${stayed(gone)}`, () => void Promise.all(made.map((one) => unpromote(one.id, one.gem))).then(() => onUndo?.()), 'success')
+  toast(`Saved ${num(made.length)} as gems${needs ? `. ${needs}` : ''}${stayed(gone)}`, () => void (expectBack(ids), Promise.all(made.map((one) => unpromote(one.id, one.gem)))).then(() => onUndo?.()), 'success')
   return true
 }
 

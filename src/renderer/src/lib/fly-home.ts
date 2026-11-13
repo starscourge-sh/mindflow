@@ -12,6 +12,7 @@ export type Home = 'nugget' | 'task' | 'capture' | 'question' | 'bin' | 'files'
 
 import { crumple } from '@/lib/sound'
 import { byKeys, still } from './motion'
+import { keepRoom } from './room'
 import { EASING } from '@/lib/motion'
 
 /** The app's curves (STANDARDS): out for what arrives or leaves, in-out for what travels on screen. */
@@ -130,19 +131,22 @@ export function landing(home: Home): Landing | null {
 }
 
 export const lift = (id: string, home: Home): (() => void) | undefined =>
-  liftFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`), home)
+  // A list's row: its room stays open under the card and closes as the square flies (lib/room.ts).
+  liftFrom(document.querySelector<HTMLElement>(`[data-id="${CSS.escape(id)}"]`), home, true)
 
 /** How big the square is that a card becomes before it flies. */
 const SQUARE = 26
 
 /** The same, from any element: a whole note sent off to the Inbox. */
-export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | undefined {
+export function liftFrom(from: HTMLElement | null, home: Home, row = false): (() => void) | undefined {
+  // `row`: it is a row of a list, and the rows after it close up as it goes. By a key, or with nothing to show, at once.
+  const room = row ? keepRoom(from) : undefined
   // By a key, nothing flies: the place it went only nods as it lands.
-  if (from && byKeys() && !still()) return () => landing(home)?.nod()
+  if (from && byKeys() && !still()) return (room?.close(), () => landing(home)?.nod())
   // A picture of it as it is now, inside a plain card: the real one is about
   // to change or go. The card is what flies; the picture only fades.
   const shot = snapshot(from)
-  if (!shot) return undefined
+  if (!shot) return (room?.close(), undefined)
   const { box, picture } = shot
   const card = document.createElement('div')
   Object.assign(card.style, {
@@ -157,7 +161,7 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
     // The nearest place it lives that is on screen now: the prompt's tab, or
     // the main window's sidebar (see `landing`).
     const to = landing(home)
-    if (!to) return
+    if (!to) return void room?.close()
     const { end } = to
     document.body.append(card)
     // Three steps, one after the other, so it always looks the same whatever
@@ -192,6 +196,8 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
         const dx = end.left + end.width / 2 - cx
         const dy = end.top + end.height / 2 - cy
         const scale = Math.max(0.5, Math.min(1, end.height / SQUARE))
+        // The square lifts off: the room it left closes with its flight, in one breath.
+        room?.close()
         // A slight arc: it lifts on its way rather than sliding in a straight line.
         return card.animate(
           [
@@ -206,7 +212,7 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
         card.remove()
         to.nod()
       })
-      .catch(() => card.remove())
+      .catch(() => (room?.close(), card.remove()))
   }
 }
 
@@ -219,23 +225,29 @@ export function liftFrom(from: HTMLElement | null, home: Home): (() => void) | u
  * Like `lift`, call it before the change; it returns a `land` for once the
  * change is made. Three.js loads with the first one, not with the app.
  */
-export const binFlight = (id: string): (() => void) | undefined =>
-  // The one on screen: the same id can also be on a row out of sight (a fold shut, a list behind).
-  binFlightFrom([...document.querySelectorAll<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)].find((one) => seen(one)) ?? null)
+export const binFlight = (id: string): (() => void) | undefined => binFlightFrom(rowOf(id))
+// The one on screen: the same id can also be on a row out of sight (a fold shut, a list behind).
+const rowOf = (id: string): HTMLElement | null => [...document.querySelectorAll<HTMLElement>(`[data-id="${CSS.escape(id)}"]`)].find((one) => seen(one)) ?? null
+/** A row that leaves with no paper of its own (the fifth of a pick and on): its room closes in the same move as the rest (lib/room.ts). */
+export const leaveRoom = (id: string): void => void keepRoom(rowOf(id))?.close()
 
 /** How long the paper crumples before it flies, and the flight: slow enough to see a sheet balled up and tossed. */
 const CRUMPLE_MS = 650
 const FLIGHT_MS = 450
 
 /** `binFlight` for a card found another way: a practice's row, the hint card. */
-export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null = () => landing('bin'), crumpleMs = CRUMPLE_MS): Flight | undefined {
+export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null = () => landing('bin'), crumpleMs = CRUMPLE_MS, row = true): Flight | undefined {
+  // The room it leaves in its list stays open under the paper, and closes as the ball lifts off (lib/room.ts).
+  // `row` off: not a list's row (a picture in a note, a draft), and nothing closes up after it.
+  const room = row ? keepRoom(from) : undefined
   // By a key, it simply goes: binning is done many times a day. Motion off or Reduce motion, nothing travels.
-  if (!from || byKeys() || still()) return undefined
+  // The rows after it still close up on the short clock, where things move at all.
+  if (!from || byKeys() || still()) return (room?.close(), undefined)
   // The menu it was binned from goes at once, so the row is seen whole and its picture is the row alone.
   for (const menu of document.querySelectorAll<HTMLElement>('[role="menu"]')) menu.style.visibility = 'hidden'
   // Only what is on screen of it, so nothing crumples from behind the list's edge.
   const shot = snapshot(from)
-  if (!shot || !onTop(from, shot.box)) return undefined
+  if (!shot || !onTop(from, shot.box)) return (room?.close(), undefined)
   const { box } = shot
   // In this frame: a copy of the row laid where it was, the row itself held out of sight under it, so the
   // place never shows empty; the paper takes the copy's place once drawn.
@@ -255,16 +267,17 @@ export function binFlightFrom(from: HTMLElement | null, to: () => Landing | null
   crumple(crumpleMs / 1000)
   const sheet = Promise.all([early ?? window.api.pictureOfRect({ x: box.left, y: box.top, width: box.width, height: box.height }), import('@/components/paper-crumple-flight')])
     .then(([png, { sheetOver }]) => (png ? sheetOver(box, png, lay, crumpleMs, FLIGHT_MS) : (lay(), hidden.cancel(), null)), () => (lay(), hidden.cancel(), null))
-  // `after`: once the paper has landed (or faded), for what should wait for it: the room it leaves closing up.
+  // `after`: once the paper has landed (or faded), for what should wait for it.
   const land = (after?: () => void): void => {
-    const done = (): void => (after?.(), hidden.cancel())
-    void sheet.then((one) => (one ? one.go(to, done) : done()))
+    const done = (): void => (room?.close(), after?.(), hidden.cancel())
+    // Where it lands is asked the moment the ball lifts off: the room closes with the flight, not after it.
+    void sheet.then((one) => (one ? one.go(() => (room?.close(), to()), done) : done()))
   }
-  return Object.assign(land, { drop: (): void => void sheet.then((one) => (one?.drop(), lay(), hidden.cancel())) })
+  return Object.assign(land, { drop: (): void => void (room?.drop(), sheet.then((one) => (one?.drop(), lay(), hidden.cancel()))) })
 }
 
 /** A picture taken out of a note: React Bits' paper crumples where it was, then fades (it is not binned: it stays in Files). */
-export const crumpleAway = (from: HTMLElement | null, crumpleMs = CRUMPLE_MS): Flight | undefined => binFlightFrom(from, () => null, crumpleMs)
+export const crumpleAway = (from: HTMLElement | null, crumpleMs = CRUMPLE_MS): Flight | undefined => binFlightFrom(from, () => null, crumpleMs, false)
 
 /**
  * The picture of the row a menu was just opened on, taken as it opened: the

@@ -3,21 +3,31 @@ import { chime } from './sound'
 import { ownKeys, refuse, toast, typing } from '@/components/haligtree/ui'
 import { num } from '../../../main/dates'
 import { listInFront } from './list-front'
+import { heirAt } from './room'
 
 // What was last used to reach a row. A pointer resting on one row while the arrow keys walk another must not lose the row in front of the keys.
 let pointing = false
+let [pointerX, pointerY] = [0, 0]
 if (typeof window !== 'undefined') {
-  window.addEventListener('pointermove', (event) => void ((event.movementX || event.movementY) && (pointing = true)), { capture: true, passive: true })
+  window.addEventListener('pointermove', (event) => void ((pointerX = event.clientX), (pointerY = event.clientY), (event.movementX || event.movementY) && (pointing = true)), { capture: true, passive: true })
   window.addEventListener('keydown', (event) => void (/^(ArrowUp|ArrowDown|j|k|g|G|Home|End|PageUp|PageDown)$/.test(event.key) && (pointing = false)), true)
 }
 
-/** The row of this list the pointer is on, by its key in `keys`: never a pinned or recent row in the sidebar that names the same note. */
-function pointedRow(keys: string[]): string | undefined {
+/**
+ * The row of this list the pointer is on, by its key in `keys`: never a pinned or recent row in the sidebar that names the same note.
+ * Where a row has just left (lib/room.ts) the list is closing up, and what is drawn under a pointer at rest is the
+ * open room, or a row mid-glide: the row meant is then the one that takes the place, by the order the list was
+ * drawn in. Null: the pointer is in a place nothing takes, and nothing is meant (never the keyboard's row instead).
+ */
+function pointedRow(keys: string[]): string | null | undefined {
   if (!pointing) return undefined
   const rows = [...document.querySelectorAll<HTMLElement>('[data-id]:hover')].filter((row) => !row.closest('[data-side-row], [role="menu"]'))
+  const heir = heirAt(pointerX, pointerY, rows.at(-1))
+  if (heir === null) return null
+  const row = heir ?? rows.at(-1)
   // A queue's row is keyed by its place in the queue, and names the note it holds as data-id.
-  const id = rows.at(-1)?.dataset.queueRow ?? rows.at(-1)?.dataset.id
-  return id ? keys.find((key) => key === id || key.endsWith(`:${id}`)) : undefined
+  const id = row?.dataset.queueRow ?? row?.dataset.id
+  return (id ? keys.find((key) => key === id || key.endsWith(`:${id}`)) : undefined) ?? (heir ? null : undefined)
 }
 
 /**
@@ -102,7 +112,10 @@ export function useSelectAll(
       if ((document.activeElement as HTMLElement | null)?.closest?.('[data-side-row]')) return
       // The pointer resting on a sidebar row: nothing picked, so nothing here is meant, not even the row with the ring.
       if (!chosen.length && pointing && document.querySelector('[data-side-row]:hover')) return
-      const ids = chosen.length ? chosen : [pointedRow(shown()) ?? current?.()].filter((id): id is string => !!id)
+      const pointed = chosen.length ? undefined : pointedRow(shown())
+      // Pressed again where a row just left, with no row to take its place: the key is taken, and nothing goes.
+      if (pointed === null) return void (event.preventDefault(), event.stopPropagation())
+      const ids = chosen.length ? chosen : [pointed ?? current?.()].filter((id): id is string => !!id)
       if (!ids.length) return
       event.preventDefault()
       event.stopPropagation()

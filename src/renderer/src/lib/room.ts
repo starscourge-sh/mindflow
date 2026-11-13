@@ -1,0 +1,372 @@
+/**
+ * The room a row leaves in its list, kept and closed where it can be seen, the
+ * one way for every list. A row moved to the Bin (or sent to Writing, Gems,
+ * Tasks) is gone from its list at once; drawn at once, the next row jumped into
+ * its place in a single frame, under the paper still crumpling there, and
+ * nothing said the list had closed up.
+ *
+ * So: the room stays open while the paper is on it, and nothing below moves.
+ * As the paper lifts off, everything below glides up together on the clock
+ * rows already move on when a carried row makes room (carry.tsx, SLIDE). By a
+ * key nothing travels, and the rows close up at once on the same short clock.
+ * Undo runs it backwards: the rows part, then the row is in its place. With
+ * Motion off or Reduce motion the row is simply gone and the rows simply there.
+ *
+ * How: nothing is asked of a list. `keepRoom` is told the row while it is
+ * still on screen and notes where everything after it stands. The moment the
+ * row leaves the page, what held it keeps its height (padding at its foot) and
+ * each thing after it is set back where it stood by the CSS `translate`
+ * property, which moves a row without touching its `transform` (a list's own:
+ * carry.tsx slides its rows by theirs). To close, each `translate` runs to
+ * nothing on the compositor, and the padding with it, so a box round the rows,
+ * what comes after it and the end of the scroll all move as one. Web
+ * Animations only: no style or node of the list's is written, so React, the
+ * virtual list and the drag helper never see it.
+ */
+import { still } from './motion'
+import { scrollerOf } from './note-place'
+
+/** The rows' slide in carry.tsx (SLIDE): its length and curve. Kept the same by test/room-clock.test.ts. */
+export const ROOM_MS = 220
+export const ROOM_EASE = 'cubic-bezier(0.2, 0.9, 0.3, 1)'
+/**
+ * How long a room is held with no word from its paper, and how long rows told
+ * of are waited for. Nothing here waits on the paper for ever: a flight that
+ * never lifts (a write that failed with nobody told) must not leave a list
+ * standing open, nor the page watched.
+ */
+const LATEST = 2500
+const WATCHED = 15000
+
+/** A row's room: `close` once its paper lifts off (or with no paper, at once); `drop` when the row stays after all. */
+export type Room = { close: () => void; drop: () => void }
+
+type Kind = 'translate' | 'pad'
+/**
+ * One thing set off its place or padded: how much is held on it, the run it is
+ * on (from, to) and the animation doing it. `add`: laid on top of what it has
+ * of its own (padding always; a `translate` only where the thing already has
+ * one, as a plain one alone can run on the compositor).
+ */
+type Ride = { add: boolean; hold: number; from: number; to: number; anim: Animation | null }
+const rides: Record<Kind, Map<HTMLElement, Ride>> = { translate: new Map(), pad: new Map() }
+
+const frame = (kind: Kind, value: number): Keyframe => (kind === 'translate' ? { translate: `0 ${value}px` } : { paddingBottom: `${Math.max(0, value)}px` })
+/** How far a thing is off its own place (or padded) just now, mid-glide too: worked out from its run, never read off the page. */
+const offBy = (kind: Kind, el: HTMLElement): number => {
+  const one = rides[kind].get(el)
+  if (!one?.anim) return 0
+  return one.from + (one.to - one.from) * (one.anim.effect?.getComputedTiming().progress ?? 1)
+}
+
+/**
+ * Set a thing `jump` further off at once, and hold `more` on it from now on:
+ * `(by, by)` holds it there, `(0, -by)` lets that much go on the clock,
+ * `(-by, 0)` sets it back and lets it glide home. One animation a thing, begun
+ * again from where it is now, so a second change mid-glide never jumps (the way
+ * a CSS transition turns).
+ */
+function ride(kind: Kind, el: HTMLElement, jump: number, more: number): Promise<unknown> {
+  const map = rides[kind]
+  let one = map.get(el)
+  if (!one) map.set(el, (one = { add: kind === 'pad' || getComputedStyle(el).translate !== 'none', hold: 0, from: 0, to: 0, anim: null }))
+  const from = offBy(kind, el) + jump
+  one.hold += more
+  const to = one.hold
+  const settled = Math.abs(from - to) < 0.5
+  const was = one.anim
+  // Held where it is, or on its way to what is still held on it.
+  const anim = el.animate([frame(kind, settled ? to : from), frame(kind, to)], { duration: settled ? 1 : ROOM_MS, easing: settled ? 'linear' : ROOM_EASE, fill: 'forwards', composite: one.add ? 'add' : 'replace' })
+  ;[one.anim, one.from, one.to] = [anim, settled ? to : from, to]
+  was?.cancel()
+  // Home, with nothing held on it: it is the list's own again.
+  const home = (): void => void (map.get(el)?.anim === anim && Math.abs(to) < 0.5 && (anim.cancel(), map.delete(el)))
+  if (settled) home()
+  return settled ? Promise.resolve() : anim.finished.then(home, () => undefined)
+}
+
+type Stood = { top: number; scroller: HTMLElement | null }
+type Batch = {
+  /** The rows told of, those whose paper has not lifted yet, and how many have left the page. */
+  rows: Set<HTMLElement>
+  waiting: Set<HTMLElement>
+  gone: number
+  /** Everything after them, at every level up to what scrolls: where each stood. */
+  after: Map<HTMLElement, Stood>
+  /** What holds each row, innermost first, and how tall each stood. */
+  paths: HTMLElement[][]
+  tall: Map<HTMLElement, number>
+  /** What is held for it now: how far each thing is set back, how much each holder is padded. */
+  moved: Map<HTMLElement, number>
+  padded: Map<HTMLElement, number>
+  /** Rows the list drew anew among them (it fills up again from below): out of sight until the rooms have closed. */
+  fresh: Map<HTMLElement, Animation>
+  /** Where each scroller was last, so a list at its end is not thrown as it shortens. */
+  scrolled: Map<HTMLElement, { top: number; heard: () => void }>
+  holding: boolean
+  over: boolean
+  watch: MutationObserver
+  latest?: ReturnType<typeof setTimeout>
+  giveUp?: ReturnType<typeof setTimeout>
+}
+/** The rooms kept in this one run of code (the four that fly and the rest of what was picked): they close as one move. */
+let gathering: Batch | null = null
+
+/**
+ * A row told of, the place it had, and the row after it as the list was drawn: the one that takes its place.
+ * Kept while its list closes up, and after that until the pointer next moves.
+ */
+type Left = { row: HTMLElement; place: DOMRect; heir: HTMLElement | null; batch: Batch; settled: boolean }
+let lefts: Left[] = []
+if (typeof window !== 'undefined') {
+  // Moved, with the list at rest, the pointer is on what it shows again; scrolled, the places are no longer where they were.
+  window.addEventListener('pointermove', (event) => void ((event.movementX || event.movementY) && lefts.length && (lefts = lefts.filter((one) => !one.settled))), { capture: true, passive: true })
+  window.addEventListener('wheel', () => void (lefts.length && (lefts = [])), { capture: true, passive: true })
+}
+/** These stayed after all (the move did not happen): each is pointed at as itself again. */
+export const stays = (ids: string[]): void => void (lefts = lefts.filter((one) => !ids.includes(one.row.dataset.id ?? '')))
+/** The row after this one in its list, as drawn: the next thing down the page with a name of its own, not inside it. */
+function heirOf(row: HTMLElement): HTMLElement | null {
+  const all = [...document.querySelectorAll<HTMLElement>('[data-id]')].filter((one) => !one.closest('[data-side-row], [role="menu"], [data-crumple]'))
+  const at = all.indexOf(row)
+  if (at < 0) return null
+  for (const next of all.slice(at + 1)) if (!row.contains(next) && next.dataset.id !== row.dataset.id) return next
+  return null
+}
+/**
+ * What a key pressed here means while a list closes up. The pointer in the place a row just left (or still on that
+ * row, its list not yet told): the row that takes the place, and if that one has left too, the one after it. Null
+ * where nothing takes it; undefined where no row has left, and the page's own idea of what is pointed at stands.
+ */
+export function heirAt(x: number, y: number, on?: HTMLElement): HTMLElement | null | undefined {
+  const left = (on && lefts.find((one) => one.row === on || (one.row.contains(on) && one.row.dataset.id === on.dataset.id)))
+    || lefts.find((one) => !one.row.isConnected && x >= one.place.left && x <= one.place.right && y >= one.place.top && y <= one.place.bottom)
+  if (!left) return undefined
+  for (let heir = left.heir; heir; ) {
+    const also = lefts.find((one) => one.row === heir)
+    if (!also) return heir.isConnected ? heir : null
+    heir = also.heir
+  }
+  return null
+}
+
+/** Where a thing stands in what scrolls it, its own slide left out: the same however far the list is scrolled. */
+const topOf = (el: HTMLElement, scroller: HTMLElement | null): number =>
+  el.getBoundingClientRect().top - offBy('translate', el) - (scroller ? scroller.getBoundingClientRect().top - scroller.scrollTop : 0)
+const tallOf = (el: HTMLElement): number => el.getBoundingClientRect().height - offBy('pad', el)
+
+/**
+ * Told of a row about to leave its list, while it is still on screen. Nothing
+ * is held until it has left; then its room stays open until `close`.
+ */
+export function keepRoom(row: HTMLElement | null): Room | undefined {
+  if (!row?.isConnected || still()) return undefined
+  const batch = (gathering ??= begin())
+  if (!batch.rows.has(row)) {
+    batch.rows.add(row)
+    batch.waiting.add(row)
+    note(batch, row)
+    lefts = [...lefts.slice(-40), { row, place: row.getBoundingClientRect(), heir: heirOf(row), batch, settled: false }]
+  }
+  return { close: () => lifted(batch, row), drop: () => (batch.rows.delete(row), (lefts = lefts.filter((one) => one.row !== row)), lifted(batch, row)) }
+}
+
+function begin(): Batch {
+  const batch: Batch = {
+    rows: new Set(), waiting: new Set(), gone: 0, after: new Map(), paths: [], tall: new Map(), moved: new Map(), padded: new Map(), fresh: new Map(), scrolled: new Map(),
+    holding: false, over: false, watch: new MutationObserver((changes) => look(batch, changes))
+  }
+  // Heard as the page changes, before that change is painted: the frame a row leaves in is the frame its room is held in.
+  batch.watch.observe(document.body, { childList: true, subtree: true })
+  queueMicrotask(() => void (gathering === batch && (gathering = null)))
+  // Not a wait for anything: only so the page is never watched for ever for rows that stayed (see WATCHED).
+  batch.giveUp = setTimeout(() => end(batch), WATCHED)
+  return batch
+}
+
+/** Where everything after the row stands, and how tall each thing that holds it is. */
+function note(batch: Batch, row: HTMLElement): void {
+  const scroller = scrollerOf(row)
+  if (scroller && !batch.scrolled.has(scroller)) {
+    const kept = { top: scroller.scrollTop, heard: (): void => void (kept.top = scroller.scrollTop) }
+    scroller.addEventListener('scroll', kept.heard, { passive: true })
+    batch.scrolled.set(scroller, kept)
+  }
+  const path: HTMLElement[] = []
+  for (let at: HTMLElement = row; at.parentElement && at !== scroller && at !== document.body; at = at.parentElement) {
+    for (let next = at.nextElementSibling; next; next = next.nextElementSibling)
+      if (next instanceof HTMLElement && !batch.after.has(next)) batch.after.set(next, { top: topOf(next, scroller), scroller })
+    const box = at.parentElement
+    if (box === scroller || box === document.body) break
+    path.push(box)
+    if (!batch.tall.has(box)) batch.tall.set(box, tallOf(box))
+  }
+  batch.paths.push(path)
+}
+
+/** A row's paper has lifted off (or it has none, or it stays): with every paper up, the rooms close. */
+function lifted(batch: Batch, row: HTMLElement): void {
+  batch.waiting.delete(row)
+  if (batch.waiting.size || batch.over) return
+  if (batch.holding) return shut(batch)
+  if (!batch.rows.size) return end(batch)
+  // Not left yet (the write is still on its way): its room closes the moment it does. Waited for a little, no longer.
+  clearTimeout(batch.giveUp)
+  batch.giveUp = setTimeout(() => end(batch), LATEST)
+}
+
+/** The page changed: a row gone from it has its room held in the same frame, and a row drawn anew under it stands off with the rest. */
+function look(batch: Batch, changes: MutationRecord[]): void {
+  if (batch.over) return
+  let gone = 0
+  for (const row of batch.rows) if (!row.isConnected) gone += 1
+  if (gone > batch.gone) {
+    batch.gone = gone
+    hold(batch)
+  } else if (batch.holding && changes.some((one) => one.addedNodes.length && one.target instanceof HTMLElement && [...one.target.children].some((child) => batch.moved.has(child as HTMLElement)))) drawnAnew(batch)
+  else return
+  if (!batch.waiting.size) return shut(batch)
+  // The paper's own word is what closes it; this is only the latest it is waited for.
+  batch.latest ??= setTimeout(() => shut(batch), LATEST)
+}
+
+/**
+ * Everything drawn where it stood before the rows left. Read whole, then
+ * written whole, twice: once for what holds the rows (so nothing outside it
+ * moves at all), once for what is inside.
+ */
+function hold(batch: Batch): void {
+  batch.holding = true
+  // What holds the rows keeps its height: the room is padding at its foot, on the innermost box that shortened.
+  const short: [HTMLElement, number, number][] = []
+  for (const [box, tall] of batch.tall) if (box.isConnected) short.push([box, tall - tallOf(box), depthOf(box)])
+  const fresh = new Map<HTMLElement, number>()
+  // Innermost first, so a box is given only what is not already made up inside it (a group's room, inside a list's).
+  for (const [box, by] of short.sort((a, b) => b[2] - a[2])) {
+    let inside = 0
+    for (const [other, given] of fresh) if (box.contains(other)) inside += given
+    if (by - inside > 0.5) fresh.set(box, by - inside)
+  }
+  for (const [box, need] of fresh) {
+    ride('pad', box, need, need)
+    batch.padded.set(box, (batch.padded.get(box) ?? 0) + need)
+    // As tall again as it stood: read the same from here on.
+    batch.tall.set(box, batch.tall.get(box)! - need)
+  }
+  // A list scrolled to its end was pulled down as it shortened: with its height back, it is put back where it was.
+  for (const [scroller, kept] of batch.scrolled) if (scroller.isConnected && scroller.scrollTop < kept.top - 0.5) scroller.scrollTop = kept.top
+  // Then each thing after them, back where it stood.
+  const off: [HTMLElement, number][] = []
+  for (const [el, stood] of batch.after) {
+    if (!el.isConnected) continue
+    const by = stood.top - topOf(el, stood.scroller)
+    if (Math.abs(by) > 0.5) off.push([el, by])
+  }
+  for (const [el, by] of off) {
+    ride('translate', el, by, by)
+    batch.moved.set(el, (batch.moved.get(el) ?? 0) + by)
+    // Where it stands now is where it stood: read the same from here on.
+    batch.after.get(el)!.top -= by
+  }
+  drawnAnew(batch)
+}
+
+/**
+ * A row the list drew anew after the ones set back (a list that shows so many fills up again from below, a long one
+ * draws what came into view): it has no place to be held in, and where the list puts it is where a held row is still
+ * drawn. So it waits out of sight, and is in its place once the rooms have closed.
+ */
+function drawnAnew(batch: Batch): void {
+  const boxes = new Set<HTMLElement>()
+  for (const el of batch.moved.keys()) if (el.parentElement) boxes.add(el.parentElement)
+  for (const box of boxes) {
+    let off = false
+    for (const child of box.children) {
+      if (!(child instanceof HTMLElement)) continue
+      if (batch.after.has(child)) off ||= !!batch.moved.get(child)
+      else if (off && !batch.fresh.has(child)) batch.fresh.set(child, child.animate({ visibility: ['hidden', 'hidden'] }, { duration: WATCHED }))
+    }
+  }
+}
+
+/** The rooms close: every thing glides home on the one clock, and the padding goes with it. */
+function shut(batch: Batch): void {
+  if (batch.over) return
+  const runs: Promise<unknown>[] = []
+  for (const [el, by] of batch.moved) el.isConnected ? runs.push(ride('translate', el, 0, -by)) : lost('translate', el)
+  for (const [box, by] of batch.padded) box.isConnected ? runs.push(ride('pad', box, 0, -by)) : lost('pad', box)
+  // What the list drew anew shows as the glide ends.
+  for (const [el, hidden] of batch.fresh) (el.animate({ visibility: ['hidden', 'hidden'] }, { duration: ROOM_MS }), hidden.cancel())
+  end(batch, Promise.allSettled(runs))
+}
+
+/** A thing the list took off the page while it was held: nothing is kept on it. */
+const lost = (kind: Kind, el: HTMLElement): void => void (rides[kind].get(el)?.anim?.cancel(), rides[kind].delete(el))
+const depthOf = (el: HTMLElement): number => {
+  let depth = 0
+  for (let up = el.parentElement; up; up = up.parentElement) depth += 1
+  return depth
+}
+
+function end(batch: Batch, closed?: Promise<unknown>): void {
+  if (batch.over) return
+  batch.over = true
+  // A row that stayed after all is pointed at as itself again; the rest, once the list has closed up (and then until the pointer moves).
+  lefts = lefts.filter((one) => one.batch !== batch || !one.row.isConnected)
+  const settle = (): void => lefts.forEach((one) => one.batch === batch && (one.settled = true))
+  closed ? void closed.then(settle) : settle()
+  batch.watch.disconnect()
+  clearTimeout(batch.latest)
+  clearTimeout(batch.giveUp)
+  for (const [scroller, kept] of batch.scrolled) scroller.removeEventListener('scroll', kept.heard)
+  if (gathering === batch) gathering = null
+}
+
+/**
+ * Undo, the same backwards: told of rows about to come back (by their
+ * `data-id`), before the write. As each is drawn again, everything after it
+ * starts from where it stood and parts on the same clock; the row is in its
+ * place once they have.
+ */
+export function expectBack(ids: string[]): void {
+  if (still() || !ids.length) return
+  const due = new Set(ids)
+  const watch = new MutationObserver((changes) => {
+    const back: HTMLElement[] = []
+    for (const change of changes) for (const node of change.addedNodes) {
+      if (!(node instanceof HTMLElement)) continue
+      for (const row of node.matches('[data-id]') ? [node] : node.querySelectorAll<HTMLElement>('[data-id]'))
+        if (due.has(row.dataset.id ?? '') && row.isConnected) (due.delete(row.dataset.id!), back.push(row))
+    }
+    // Read first, every row, then written: the page is laid out once.
+    const rooms = back.map((row) => [row, roomOf(row)] as const)
+    for (const [row, by] of rooms) part(row, by)
+    if (!due.size) stop()
+  })
+  // Not a wait for anything: the page is not watched for ever for a row that came back somewhere out of sight.
+  const giveUp = setTimeout(() => stop(), LATEST)
+  const stop = (): void => (watch.disconnect(), clearTimeout(giveUp))
+  watch.observe(document.body, { childList: true, subtree: true })
+}
+
+/**
+ * How much room a row drawn again takes: from its top to the top of what comes next, its air included. Read off
+ * the outermost box that holds it alone (a long list wraps each row in one, with a sliver of room under it).
+ */
+function roomOf(row: HTMLElement): number {
+  let unit = row
+  while (unit.parentElement && unit.parentElement.childElementCount === 1 && unit.parentElement !== document.body) unit = unit.parentElement
+  const box = unit.getBoundingClientRect()
+  const next = unit.nextElementSibling
+  const to = next instanceof HTMLElement ? next.getBoundingClientRect().top - offBy('translate', next) - box.top : 0
+  return to >= box.height - 0.5 && to < box.height * 2 ? to : box.height
+}
+
+function part(row: HTMLElement, by: number): void {
+  if (by < 0.5) return
+  const scroller = scrollerOf(row)
+  // Out of sight while the rows part, in its place once they have.
+  row.animate({ visibility: ['hidden', 'hidden'] }, { duration: ROOM_MS })
+  for (let at: HTMLElement = row; at.parentElement && at !== scroller && at !== document.body; at = at.parentElement)
+    for (let next = at.nextElementSibling; next; next = next.nextElementSibling) if (next instanceof HTMLElement) ride('translate', next, -by, 0)
+}

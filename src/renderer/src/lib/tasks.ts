@@ -2,6 +2,7 @@ import { chime, tear } from './sound'
 import { unquoted } from '../../../main/clip'
 import { binned, seeTheBin } from './to-bin'
 import { binFlight } from './fly-home'
+import { expectBack } from './room'
 import { splitTags, taskSaid, haligtree, type Made, type Task } from './haligtree'
 import { flying } from './capture-links'
 import { ask, refuse, toast } from '@/components/haligtree/ui'
@@ -400,7 +401,7 @@ export function closeTask(id: string, then?: () => void): void {
     if (binned([id])) then?.()
     tear()
     // Said where it went: the Bin, one key away, as every move there says it.
-    toast('Closed without doing: it is in the Bin', () => void haligtree.saveTask(id, { status: 'open' }).then(() => window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [id] }))), 'success', seeTheBin)
+    toast('Closed without doing: it is in the Bin', () => void (expectBack([id]), haligtree.saveTask(id, { status: 'open' })).then(() => window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [id] }))), 'success', seeTheBin)
   })
 }
 
