@@ -829,7 +829,7 @@ function FirstWays({ example, onMake, onPicture, onStudy }: { example: OwnDeck |
     <section data-first-ways className="grid gap-3 pt-2">
       <span className="grid gap-1">
         <h2 className="font-serif text-2xl leading-tight text-foreground">Your first cards</h2>
-        <p className="max-w-[62ch] leading-relaxed text-muted-foreground">A card asks one question. Review brings it back just before you would forget it, and waits longer each time you remember.</p>
+        <p className="max-w-[62ch] leading-relaxed text-muted-foreground">A card asks one question. Review brings it back as you start to forget it, and waits longer each time you remember.</p>
       </span>
       <div className="grid grid-cols-1 gap-3 @[40rem]/page:grid-cols-3">
         <Way id="make" title="Make your first card" line="Type a question, then its answer." onClick={onMake}>

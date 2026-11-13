@@ -158,7 +158,7 @@ for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
     check(`${theme}: the plain gem's line wears the gem's colour too`, same(look.washKept) && same(look.inkKept) && look.washKept[0] === look.washGem[0], JSON.stringify([look.washKept, look.inkKept]))
     check(`${theme}: the two colours differ`, look.washTask[0] !== look.washGem[0] && look.inkTask[0] !== look.inkGem[0])
     check(`${theme}: the task is named without its day, and its day read as ${DAY}`, look.task.includes(S.task) && !new RegExp(`on ${DAY}`).test(look.task.split('Now a task')[0]) && new RegExp(`Now a task, due ${DAY}`).test(look.task), look.task)
-    check(`${theme}: the gem keeps the sentence and takes a question for Review`, look.gem.includes(gemOf(S)) && /“Review” asks you before you forget/.test(look.gem) && look.question === S.question, look.gem)
+    check(`${theme}: the gem keeps the sentence and takes a question for Review`, look.gem.includes(gemOf(S)) && /“Review” asks you as you start to forget/.test(look.gem) && look.question === S.question, look.gem)
     check(`${theme}: the plain gem keeps its sentence with no question, and comes back now and then`, look.kept.includes(S.kept) && /Shows up now and then in the app/.test(look.kept) && !look.keptAsks, look.kept)
     check(`${theme}: the Gems card says gem once, in its head, and each row leads with its own mark`, look.icons === 3, String(look.icons))
     check(`${theme}: each gem wears its own mark from the Gems list (Eye for now and then, Brain for Review), the two different`, look.marks[0].startsWith('feed:icon') && look.marks[1].startsWith('review:icon') && look.marks[0].split(':')[2] !== look.marks[1].split(':')[2], look.marks.join(' | '))

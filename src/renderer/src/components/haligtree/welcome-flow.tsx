@@ -68,7 +68,7 @@ const FLOW_SAID = {
   task: `Now a task, due ${STORY_DAY}`,
   /** How each gem comes back, said as the Gems list says it under a gem (items-view.tsx, rowOf), beside the same mark. */
   kept: 'Shows up now and then in the app',
-  gem: '“Review” asks you before you forget'
+  gem: '“Review” asks you as you start to forget'
 }
 
 const FLOW_LAST = 'Nothing is copied out: each one stays linked to its line in the note.'
