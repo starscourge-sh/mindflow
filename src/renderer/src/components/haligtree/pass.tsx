@@ -521,6 +521,9 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
   const [text, setText] = useState('')
   const [pick, setPick] = useState(0)
   const [focused, setFocused] = useState(false)
+  // In a popover's row, why something typed was left out is said under the field in the row's own flow, where the
+  // popover's other lines say theirs: floated, it was cut by the popover's scroller and scrolled with it.
+  const [why, setWhy] = useState<string | null>(null)
   const typed = text.replace(/-+$/, '')
   // Starting with what you typed first, then containing it; most used first within each.
   const offered = typed
@@ -552,6 +555,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
         onBlur={() => setFocused(false)}
         placeholder={tags.length ? 'another tag' : 'add a tag'}
         aria-label="Add a tag"
+        hint={bare ? setWhy : true}
         className={bare ? '' : 'rounded-full px-2 py-0.5 hover:bg-accent/50 focus-within:bg-accent/60'}
         inputClassName="field-sizing-content min-w-20"
         onKeyDown={(event) => {
@@ -577,6 +581,7 @@ export function TagRow({ tags, field, onAdd, onRemove, onDone, autoFocus = false
           }
         }}
       />
+      {bare && why && text && <p role="status" data-tag-hint className="basis-full text-control text-muted-foreground">{why}</p>}
       {focused && offered.length > 0 && (
         <div data-tag-offers className={bare ? 'flex basis-full flex-col' : `absolute top-full left-0 z-30 mt-1 min-w-48 overflow-hidden rounded-lg p-1 text-control ${FLOAT}`}>
           {offered.map((one, index) => (

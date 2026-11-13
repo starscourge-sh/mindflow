@@ -37,8 +37,11 @@ type Props = Omit<InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> &
   /** The frame round the "#" and the words; the field inside has none of its own. */
   className?: string
   inputClassName?: string
-  /** Where the hint goes when something typed was left out: under the field (default) or nowhere. */
-  hint?: boolean
+  /**
+   * Where the hint goes when something typed was left out: under the field (default), nowhere, or, given a function, to
+   * whoever draws the field, to say in its own flow (a popover's row: a tip floated inside a popover that scrolls is cut by it).
+   */
+  hint?: boolean | ((why: string | null) => void)
 }
 
 export const HashField = forwardRef<HTMLInputElement, Props>(function HashField({ value, onChange, className = '', inputClassName = '', hint = true, placeholder = 'tag', ...rest }, ref) {
@@ -51,10 +54,12 @@ export const HashField = forwardRef<HTMLInputElement, Props>(function HashField(
         className={`min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground ${inputClassName}`}
         onChange={(event) => {
           const raw = event.target.value
-          setWhy(tagProblem(raw))
+          const problem = tagProblem(raw)
+          setWhy(problem)
+          if (typeof hint === 'function') hint(problem)
           onChange(asTag(raw))
         }} />
-      {hint && why && (
+      {hint === true && why && (
         <span role="status" data-tag-hint className={`absolute top-[calc(100%+4px)] left-0 z-10 whitespace-nowrap ${TIP}`}>
           {why}
         </span>
