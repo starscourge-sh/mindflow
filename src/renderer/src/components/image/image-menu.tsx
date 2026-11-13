@@ -181,7 +181,16 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
                   const remove = (): void => {
                     dom?.removeAttribute("inert")
                     if (editor.isDestroyed || editor.state.doc.nodeAt(at) !== node) return
-                    editor.chain().focus().command(({ tr }) => (tr.delete(at, at + node!.nodeSize), true)).run()
+                    try {
+                      editor.chain().focus().command(({ tr }) => (tr.delete(at, at + node!.nodeSize), true)).run()
+                    } catch (error) {
+                      // Never in silence: the picture stays where it was, shown again as the paper's hiding ends
+                      // (crumpleAway lifts it once this returns), picked with its toolbar as before, and said.
+                      console.error("The picture could not be removed", error)
+                      editor.chain().focus().setNodeSelection(at).run()
+                      toast("Could not remove the picture", undefined, "error")
+                      return
+                    }
                     // Said true for how it came: an attachment waits under Files' Unlinked, a library file stays in Files.
                     const src = String(node!.attrs.src ?? "")
                     const stored = /^(haligtree|mindflow):\/\/assets\//.test(src)
