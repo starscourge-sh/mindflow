@@ -576,10 +576,17 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
         setSource(missed)
         return
       }
-      if (event.key === ' ' && card) {
+      // Space and ↵ as Anki has them: the question turned over, then, on the answer, Good (Got it with two grades). A
+      // control the keys are on (a grade reached with Tab, a link) keeps its own ↵; a card turned back to its question
+      // turns over again first.
+      if ((event.key === ' ' || event.key === 'Enter') && card) {
+        const onControl = event.key === 'Enter' && !!(event.target as Element | null)?.closest?.('button, a[href], input, textarea, select, [role="button"], [role="menuitem"], [role="option"], [role="tab"], [role="switch"], [role="checkbox"]')
+        if (onControl) return
         event.preventDefault()
-        if (shown && !over) turnTo(true)
+        if (shown && over) return grade(3)
+        if (shown) turnTo(true)
         else reveal()
+        return
       }
       // The grade key is used up here: its digit is never typed into the next card's box, which may take the keys at once.
       if (['1', '2', '3', '4'].includes(event.key)) {
