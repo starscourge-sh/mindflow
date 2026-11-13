@@ -299,13 +299,15 @@ try {
   if (PARTS.includes('many')) {
     await go(LIST); await wait(1500)
     before = known(await rowsNow()); list = plain(before)
-    const picks = [list[0], list[2], list[3]]
+    // Three where the list still has them (the parts before this one leave rows in the Bin: a short list has two to pick, with one below).
+    const picks = list.length >= 4 ? [list[0], list[2], list[3]] : list.slice(0, 2)
+    check(`${LIST} three at once: the list has rows to pick and one below them`, list.length >= 3, `${list.length} rows on screen, ${picks.length} picked`)
     for (const one of picks) { await rowEl(one.id).click({ modifiers: ['Meta'], position: { x: 60, y: 8 } }); await wait(200) }
     const ids = new Set(picks.map((one) => one.id))
     const below = before.filter((row) => row.top >= picks[0].bottom - 2 && !ids.has(row.id)).map((row) => row.id)
     // Whether the list keeps its rows through this, or draws every one afresh (nothing can be held of a row made anew): each marked now, counted after.
     await h.evaluate((list) => list.forEach((id) => { const el = document.querySelector(`[data-id="${CSS.escape(id)}"]`); if (el) el.qaSame = true }), below)
-    const frames = await byMenu(picks[2].id)
+    const frames = await byMenu(picks.at(-1).id)
     await wait(400)
     const same = await h.evaluate((list) => list.filter((id) => document.querySelector(`[data-id="${CSS.escape(id)}"]`)?.qaSame).length, below)
     console.log(`  three at once: ${same} of the ${below.length} rows below are the same elements afterwards${same < below.length ? ' (the list drew the rest afresh)' : ''}`)
