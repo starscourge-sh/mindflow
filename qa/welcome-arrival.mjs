@@ -313,6 +313,9 @@ try {
   check('the mist never thins before the window\'s page is whole under it', drawAt > 0 && wholeAt > drawAt && !falls(trace.slice(0, wholeAt + 1).map((one) => one[1])), `draws in from frame ${drawAt}, whole at ${wholeAt} of ${trace.length}`)
   check('the window\'s page only ever grows, and never past whole', !falls(trace.map((one) => one[2])) && trace.every((one) => one[2] <= 1))
   check('the mist\'s soft edge only ever hardens, out to the window\'s own edge', !falls(trace.map((one) => -one[3])) && trace.at(-1)[3] === 0 && trace[0][3] > 20, `${trace[0][3]}px to ${trace.at(-1)[3]}px`)
+  // A page coming up under a mist still soft at its edges showed the mist's own middle as a darker box inside the window.
+  const boxed = trace.filter((one) => one[2] > 0 && one[3] > 0)
+  check('the window\'s page comes up only once the mist\'s edge is the window\'s own: no box inside the window', boxed.length === 0, `${boxed.length} frames with the page up under a soft edge, first ${JSON.stringify(boxed[0] ?? null)}`)
   // What covers the desktop, read from the pictures: never less from one look to the next (the banks drift, so by a hair's allowance).
   check('what covers the desktop only ever grows, read from the page itself', TIMING || (curve.length > 5 && !curve.some((one, i) => i > 0 && one.mean < curve[i - 1].mean - 4)), curve.map((one) => one.mean).join(' '))
   // Looks begun once the mist was whole and ended before it drew in. At the screen's very edge nothing to be seen: up to

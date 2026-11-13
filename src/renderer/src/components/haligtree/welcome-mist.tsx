@@ -9,6 +9,8 @@ export const IN_MS = 2000
 /** Over the desktop: how stiff the spring is that draws the mist in to the window (a second or so, no bounce: whole and lifted before the title lifts, welcome-title.tsx), and at once (Esc, a click). */
 const DRAW = 7
 const DRAW_AT_ONCE = 24
+/** How far along that spring the mist's soft edge has hardened to the window's own, before the window's page starts to come up under it. */
+const EDGE_BY = 0.5
 
 type Bank = { x: number; y: number; r: number; drift: number; rise: number; phase: number }
 /** What the arrival probe reads: every frame drawn over the desktop, as [ms, the mist's amount, the window's page, the soft edge in px]. */
@@ -34,8 +36,8 @@ const between = (t: number, a: number, b: number): number => {
  * nothing over two seconds, soft at the screen's edges so no sheet is seen,
  * the desktop still showing faintly through, and they stay, the light
  * gathered behind the title. When `drawIn` is set the mist draws in to the
- * window on one spring: the window's own page (`plate`) comes up under it as
- * its soft edge hardens out to the window's own, and only once the page is
+ * window on one spring: its soft edge hardens out to the window's own, then
+ * the window's own page (`plate`) comes up under it, and only once the page is
  * whole does the mist lift off it. What covers the desktop only ever grows.
  * `onStart` once, at its first frame.
  */
@@ -113,6 +115,7 @@ export function WelcomeMist({ onGone, hurry = false, desk = false, drawIn = fals
       // Over the desktop: how much of the mist there is (nothing for a beat, then in over two seconds, and off only once
       // the window's page is whole under it), how much of the window's page, and how soft the mist's edge still is.
       let amount = 1
+      let drawn = 0
       let pageUp = 0
       let come = 1
       if (desk) {
@@ -120,8 +123,12 @@ export function WelcomeMist({ onGone, hurry = false, desk = false, drawIn = fals
         const stiff = asked.current.hurry ? DRAW_AT_ONCE : DRAW
         const u = inAt ? (now - inAt) / 1000 : 0
         // A spring with no bounce, by the clock: it never passes the window's own edge and never comes back from it.
-        pageUp = inAt ? 1 - (1 + stiff * u) * Math.exp(-stiff * u) : 0
-        if (pageUp > 0.995) (pageUp = 1), (wholeAt ||= now)
+        drawn = inAt ? 1 - (1 + stiff * u) * Math.exp(-stiff * u) : 0
+        if (drawn > 0.995) (drawn = 1), (wholeAt ||= now)
+        // On it, first the mist's soft edge hardens out to the window's own, and only then does the window's page come up
+        // under it: a page coming up under a mist still soft at its edges showed the mist's own middle as a darker box
+        // standing inside the window.
+        pageUp = drawn < 1 ? between(drawn, EDGE_BY, 1) : 1
         // What is drawn is whole from the start (its coming in is the canvas's opacity, above) and lifts only once the page is whole.
         amount = 1 - (wholeAt ? between(now - wholeAt, 0, asked.current.hurry ? 240 : 600) : 0)
         come = Number(fade?.effect?.getComputedTiming().progress ?? 1)
@@ -150,10 +157,10 @@ export function WelcomeMist({ onGone, hurry = false, desk = false, drawIn = fals
       // drifting banks, drawn after, reach on past it and give out only near the edges (`soft`), so the mist ends in
       // banks, as mist does. As it draws in, the round bank spreads out to the window's corners and the edge hardens
       // out to the window's own.
-      const soft = desk ? Math.round(Math.min(w, h) * 0.136 * (1 - pageUp)) : 0
+      const soft = desk ? Math.round(Math.min(w, h) * 0.136 * (1 - between(drawn, 0, EDGE_BY))) : 0
       const roundBank = (): void => {
-        const rx = w * 0.56 * (1 + 1.1 * pageUp)
-        const ry = h * 0.6 * (1 + 1.1 * pageUp)
+        const rx = w * 0.56 * (1 + 1.1 * drawn)
+        const ry = h * 0.6 * (1 + 1.1 * drawn)
         context.globalCompositeOperation = 'destination-in'
         context.save()
         context.translate(w / 2, h / 2)
