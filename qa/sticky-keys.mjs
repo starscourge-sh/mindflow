@@ -84,6 +84,7 @@ try {
     }
     tick()
   }))
+  const placesBefore = (await stickies()).map((one) => `${one.id}:${one.x},${one.y},${one.width},${one.height}`).sort().join(' ')
   await press('⌃⌥⌘H')
   const tabFrames = await watchTab
   await watch
@@ -107,6 +108,8 @@ try {
   const back = sample(pages[0], '#root')
   await press('⌃⌥⌘H')
   const backFrames = await back
+  const placesAfter = (await stickies()).map((one) => `${one.id}:${one.x},${one.y},${one.width},${one.height}`).sort().join(' ')
+  check('⌃⌥⌘H again: each card is back exactly where it was', placesAfter === placesBefore, `${placesBefore} | ${placesAfter}`)
   check('⌃⌥⌘H opens the cards it folded, no slide', (await folded()).every((one) => one === null) && backFrames.every((one) => one === 'none' || one === 'matrix(1, 0, 0, 1, 0, 0)'), JSON.stringify([...new Set(backFrames)].slice(0, 4)))
 
   // Motion off: the card's growth out of its pill is gone too.

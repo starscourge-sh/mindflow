@@ -1,19 +1,18 @@
 // Cards and the timer pill hear the pointer leave from their own pages, never by asking the Mac where it is.
-// A tucked goal card pointed at comes out of its tab and stays out while the pointer is on it; the pointer gone, even
-// fast, even before it has come out, it slides back to a tab; back on it midway, it stays out; gone straight onto its
-// own menu, it stays out until the menu is put away. A glass card rises when pointed at, never from its foot, and sets
+// (A card opened out of its pill at the screen's edge is checked in qa/desk-pills.mjs; the tucked tabs are retired.)
+// A glass card rises when pointed at, never from its foot, and sets
 // down when the pointer leaves, even mid-rise, and not while its menu is open. The pill, held open (Stop asked), folds
 // once the pointer has gone from its window, stays open with the pointer on its tip, and not while its menu is open.
 //
 //   npx electron-vite build --outDir out-x
-//   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/pointer-leave.mjs [tuck|lift|pill]
-// One part each run keeps a run to a few minutes on a busy Mac; with none, all three.
+//   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/pointer-leave.mjs [lift|pill]
+// One part each run keeps a run to a few minutes on a busy Mac; with none, both.
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 
 const { check, done } = checks()
-const parts = process.argv[2] ? [process.argv[2]] : ['tuck', 'lift', 'pill']
+const parts = process.argv[2] ? [process.argv[2]] : ['lift', 'pill']
 // Never hangs silently: past eight minutes it says what it got and stops.
 setTimeout(async () => {
   console.log('pointer-leave: out of time')
@@ -41,88 +40,12 @@ const stays = async (test, ms) => {
 
 try {
   await wait(2500)
-  // --- Tucked: a goal card out of its tab and back, paper and glass.
-  if (parts.includes('tuck')) await v('settings:set', { stickiesTucked: 'tabs' })
-  for (const [name, set] of !parts.includes('tuck') ? [] : [['paper', { stickiesFrosted: false, stickiesGlass: false }], ['glass', { stickiesFrosted: true, stickiesGlass: true }]]) {
-    await v('settings:set', set)
-    await wait(3500)
-    const id = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.isVisible() && /view=sticky.*type=goal/.test(w.webContents.getURL()))?.id)
-    const url = await electron.evaluate(({ BrowserWindow }, wid) => BrowserWindow.fromId(wid)?.webContents.getURL(), id)
-    const page = electron.windows().find((p) => p.url() === url)
-    if (!id || !page) { check(`${name}: a goal card is out`, false); continue }
-    const isTab = async () => (await bounds(id)).width < 120
-    const isOpen = async () => (await bounds(id)).width > 200
-    const pointAtTab = async () => {
-      const box = await page.locator('[data-tuck-tab] > div').boundingBox()
-      await page.mouse.move(box.x + box.width / 2, box.y + 20)
-    }
-    const middle = async () => page.evaluate(() => [innerWidth / 2, innerHeight / 2])
-    check(`${name}: tucked to a tab to start`, await until(isTab, 3000))
-
-    // Pointed at: out, and out for as long as the pointer is on it, moving about.
-    await pointAtTab()
-    check(`${name}: pointed at, it comes out of its tab`, await until(isOpen, 1500))
-    await wait(500)
-    const [mx, my] = await middle()
-    let still = true
-    for (let i = 0; i < 12; i++) {
-      await page.mouse.move(mx + (i % 3) * 10, my + (i % 4) * 8)
-      await wait(250)
-      if (!(await isOpen())) still = false
-    }
-    check(`${name}: with the pointer on it for 3 seconds it stays out`, still)
-    // Gone: back to a tab.
-    await page.mouse.move(...OUT)
-    check(`${name}: the pointer gone, it slides back to a tab`, await until(isTab, 2500))
-
-    // A fast pass: on the tab and off again before it has come out.
-    await wait(400)
-    await pointAtTab()
-    await wait(60)
-    await page.mouse.move(...OUT)
-    check(`${name}: a fast pass over the tab never leaves it stuck out`, await until(isTab, 3000))
-
-    // Gone, then back on it while it slides back: it stays out.
-    await wait(400)
-    await pointAtTab()
-    await until(isOpen, 1500)
-    await wait(500)
-    await page.mouse.move(...OUT)
-    await wait(650)
-    await page.mouse.move(...(await middle()))
-    check(`${name}: back on it midway through the slide back, it stays out`, await stays(isOpen, 2500))
-
-    // Straight onto its own menu: out while the menu is open; the menu put away with the pointer gone, a tab again.
-    await page.mouse.move(...(await middle()))
-    await page.mouse.click(...(await middle()), { button: 'right' })
-    check(`${name}: its menu opens`, await until(menuOpen, 2000))
-    await page.mouse.move(...OUT)
-    check(`${name}: the pointer on its menu, it stays out`, await stays(isOpen, 2500))
-    await menuPage()?.keyboard.press('Escape')
-    check(`${name}: the menu put away`, await until(async () => !(await menuOpen()), 1500))
-    check(`${name}: and the pointer not back on it, it folds to a tab`, await until(isTab, 3000))
-
-    // The menu put away with the pointer back on the card: it stays out.
-    await wait(400)
-    await pointAtTab()
-    await until(isOpen, 1500)
-    await wait(500)
-    await page.mouse.click(...(await middle()), { button: 'right' })
-    await until(menuOpen, 2000)
-    await page.mouse.move(...OUT)
-    await wait(300)
-    await menuPage()?.keyboard.press('Escape')
-    await until(async () => !(await menuOpen()), 1500)
-    await page.mouse.move(...(await middle()))
-    check(`${name}: the menu put away with the pointer back on it, it stays out`, await stays(isOpen, 2500))
-    await page.mouse.move(...OUT)
-    check(`${name}: and folds once the pointer goes`, await until(isTab, 2500))
-    await wait(800)
-  }
-
+  // --- Tucked into a tab: retired with the tabs (K2a). What it held of a card opened from the edge (out on a rest, out
+  // while pointed at, back when the pointer goes, even before it came out, out again when caught midway, and out while
+  // its own menu is open) is checked on the pills in qa/desk-pills.mjs.
   // --- Glass, not tucked: pointed at, the window rises; the pointer gone, it sets down.
   if (parts.includes('lift')) {
-    await v('settings:set', { stickiesTucked: 'off', stickiesFrosted: true, stickiesGlass: true })
+    await v('settings:set', { stickiesFrosted: true, stickiesGlass: true })
     await wait(4000)
     const glass = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.isVisible() && /view=sticky.*glass/.test(w.webContents.getURL()))?.id)
     const gurl = glass && await electron.evaluate(({ BrowserWindow }, wid) => BrowserWindow.fromId(wid).webContents.getURL(), glass)

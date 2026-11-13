@@ -1,6 +1,6 @@
-// Hiding a sticky is never only gone: Haligtree's nudge card says "Sticky hidden"
-// with "Bring it back", which puts it on the desktop again. And a page shows
-// one guide at a time: with an example on it, its first-visit line steps aside.
+// A sticky's "–" folds it into its pill at the screen's edge: it stays on the desk, so nothing is hidden and no card
+// says so (hiding one sticky, its "Sticky hidden" card and "Bring it back" were retired with the tabs, K2a). And a
+// page shows one guide at a time: with an example on it, its first-visit line steps aside.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=<dir>] node qa/sticky-hide.mjs
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
@@ -26,20 +26,11 @@ try {
   check('the Today sticky is up', !!sticky)
   await wait(1800)
   // Its controls slide in on hover; a click on the button is what a person makes.
-  await sticky.locator('button[aria-label="Hide this one"]').dispatchEvent('click')
-  await wait(900)
-  check('hiding it puts it away', (await visible('id=today')) === false)
-  const card = await windowOf('view=nudge')
-  await wait(900)
-  const said = await card?.$eval('[data-nudge="sticky"]', (one) => one.textContent).catch(() => '')
-  check('the nudge card says “Sticky hidden”', said?.includes('Sticky hidden') && said.includes('Today'), said)
-  if (process.env.SHOT) await card.screenshot({ path: `${process.env.SHOT}/sticky-hidden.png` })
-  const heard = await card.evaluate(() => [...(window.haligtreeHeard ?? [])])
-  check('the card makes no second sound', !heard.includes('cue:hint'), heard.join(','))
-  await card.click('[data-nudge-unhide]')
-  await wait(1500)
-  check('“Bring it back” puts it on the desktop again', (await visible('id=today')) === true)
-  check('and the card goes', !(await card.$('[data-nudge="sticky"]')))
+  await sticky.locator('button[aria-label="Fold it into its pill"]').dispatchEvent('click')
+  await wait(1200)
+  check('its “–” folds it into its pill: still on the desk', (await visible('id=today')) === true && (await sticky.evaluate(() => document.querySelector('[data-desk-pill]')?.getAttribute('data-desk-pill'))) === 'folded')
+  const nudge = c.electron.windows().find((one) => one.url().includes('view=nudge'))
+  check('and no card says it was hidden', !nudge || !(await nudge.$('[data-nudge="sticky"]')))
 
   // One guide at a time: an example on the page, so no first-visit line saying the same.
   await h.evaluate(() => window.api.haligtree('settings:set', { hintRate: 0 }))

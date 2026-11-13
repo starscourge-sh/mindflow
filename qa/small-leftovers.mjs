@@ -46,19 +46,12 @@ try {
   check('A picture\'s caption beside the pointer is a size down: 0.6875rem (11px at 16px text; it was 0.75rem)', size === '0.6875rem', String(size))
   if (shots) await h.screenshot({ path: `${shots}/caption-follow.png`, clip: { x: box.x - 160, y: box.y - 40, width: box.width + 320, height: box.height + 120 } })
   await h.mouse.move(5, 5)
-  // "Tucked at the edge": its chips set the tuck that ⌃⌥⌘H sets, and show it.
+  // Settings › "Tucked at the edge" was retired with the tabs (K2a): every card folds to a pill on its own, and ⌃⌥⌘H
+  // folds or opens them all (qa/sticky-keys.mjs, qa/desk-pills.mjs). Settings no longer offers it.
   await c.go('settings')
   await h.click('[data-section="What comes back to you"]').catch(() => undefined)
   await wait(900)
-  const chip = (name) => h.locator(`button[aria-label="${name}"][aria-pressed]`).first()
-  await chip('By name').scrollIntoViewIfNeeded()
-  await chip('By name').click()
-  await wait(500)
-  const tucked = (await c.v('settings')).stickiesTucked
-  if (shots) await h.screenshot({ path: `${shots}/tuck-setting.png` })
-  await chip('Out').click()
-  await wait(500)
-  check('Settings › "Tucked at the edge": "By name" tucks every sticky, "Out" brings them out', tucked === 'tabs' && (await c.v('settings')).stickiesTucked === 'off', `${tucked} then ${(await c.v('settings')).stickiesTucked}`)
+  check('Settings no longer offers "Tucked at the edge"', (await h.locator('text=Tucked at the edge').count()) === 0)
   // Today's greeting: whole from the first frame it shows.
   const today = await h.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
   await h.evaluate(() => { window.__greet = []; const end = performance.now() + 5000; const tick = () => { const p = document.querySelector('[data-day-greeting]'); if (p && p.textContent) window.__greet.push(p.querySelector('.mf-typed, [data-line]') ? -1 : p.textContent.length); if (performance.now() < end) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })

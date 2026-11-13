@@ -2,7 +2,7 @@
 //  - a goal entered: the page that says what was done opens the goal's real sticky (a window of its own, draggable,
 //    its days left and its road), and the drawn card is gone from the page, a line pointing at the real one instead
 //  - Undo takes the sticky away with the goal; Redo brings it back
-//  - the next page tucks it into the screen's right edge, as a tab; back on that page it is out again
+//  - the next page folds it into its pill at the screen's right edge; back on that page it is out again
 //  - no goal entered: no goal sticky, and no drawn one
 //
 //   npx electron-vite build --outDir out-p && QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-p/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-goal-sticky.mjs [shots-dir] [light|dark]
@@ -42,9 +42,9 @@ const waitFor = async (electron, h, want, ms = 4000) => {
   for (const end = Date.now() + ms; Date.now() < end; await h.waitForTimeout(150)) if (want((now = await goalWindows(electron)))) return now
   return now
 }
-const out = (list) => list.filter((one) => one.shown && one.width >= 150)
-// A tab: narrow (a named tab is about 70px of its window), its right side at the screen's edge.
-const tab = (list) => list.filter((one) => one.shown && one.width < 150 && one.x + one.width >= one.right - 20)
+// Out: the whole card. A pill: one line in the desk's stack (its window 36 tall), its right side at the screen's edge.
+const out = (list) => list.filter((one) => one.shown && one.height > 100)
+const tab = (list) => list.filter((one) => one.shown && one.height < 40 && one.x + one.width >= one.right - 20)
 
 const c = await sandbox({ width: 1280, height: 800, seeded: false })
 const { h, electron } = c
@@ -70,7 +70,7 @@ try {
   check('it is dragged by its card', /drag/.test(card?.drag ?? ''), card?.drag?.slice(0, 80))
   const page = await h.evaluate(() => ({ drawn: !!document.querySelector('[data-goal-desk]'), line: document.querySelector('[data-goal-sticky]')?.textContent ?? '' }))
   check('the drawn card is gone from the page', !page.drawn)
-  check('a line points at the real one', /top right/.test(page.line) && /desktop/.test(page.line), page.line)
+  check('a line points at the real one', /right of your screen/.test(page.line) && /desktop/.test(page.line), page.line)
   if (SHOTS) {
     await h.waitForTimeout(800)
     await h.screenshot({ path: `${SHOTS}/${THEME}-goal-step.png` })
@@ -85,16 +85,16 @@ try {
   wins = await waitFor(electron, h, (list) => out(list).length === 1)
   check('Redo brings it back', out(wins).length === 1)
 
-  // On the next page it tucks into the right edge.
+  // On the next page it folds into its pill at the right edge.
   await h.click(NEXT)
   wins = await waitFor(electron, h, (list) => tab(list).length === 1 && out(list).length === 0)
-  check('the next page tucks it into the right edge, as a tab', tab(wins).length === 1 && out(wins).length === 0, JSON.stringify(wins.map(({ url, ...rest }) => rest)))
+  check('the next page folds it into its pill at the right edge', tab(wins).length === 1 && out(wins).length === 0, JSON.stringify(wins.map(({ url, ...rest }) => rest)))
   if (SHOTS) {
     await h.waitForTimeout(600)
     const tabbed = electron.windows().find((one) => one.url().includes('type=goal&id='))
     await tabbed?.screenshot({ path: `${SHOTS}/${THEME}-goal-tucked.png` })
   }
-  // Back on the summary it comes out again, then tucks as it is left.
+  // Back on the summary it comes out again, then folds as it is left.
   // The welcome takes one press in 400ms (a double press never skips a page): back comes at a person's pace.
   await h.waitForTimeout(500)
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome-step', { detail: -1 })))
@@ -104,8 +104,8 @@ try {
   await h.waitForTimeout(500)
   await h.click(NEXT)
   wins = await waitFor(electron, h, (list) => tab(list).length === 1)
-  check('and tucks again as the summary is left', tab(wins).length === 1)
-  // The welcome closed: the card it tucked comes back out, and stickies are not left tucked (the Settings say "Out").
+  check('and folds again as the summary is left', tab(wins).length === 1)
+  // The welcome closed: its goal card stays its pill in the stack, as every goal's card starts.
   for (let i = 0; i < 6 && (await h.$('.mf-welcome')); i++) {
     if (await h.$('.mf-welcome [data-choice]')) await h.keyboard.press('1')
     else await h.click('.mf-welcome footer [data-skip]', { timeout: 3000 }).catch(() => undefined)
@@ -113,19 +113,14 @@ try {
   }
   await h.waitForSelector('.mf-welcome', { state: 'detached', timeout: 15000 }).catch(() => undefined)
   check('the welcome closes', !(await h.$('.mf-welcome')))
-  wins = await waitFor(electron, h, (list) => out(list).length === 1, 6000)
-  check('...and its goal card is out in full again, not left tucked', out(wins).length === 1 && tab(wins).length === 0, JSON.stringify(wins.map(({ url, ...rest }) => rest)))
-  check('...the setting says so ("stickiesTucked" off)', (await h.evaluate(() => window.api.haligtree('settings'))).stickiesTucked === 'off')
-  // Settings shows the tuck and changes it: "By name" tucks the card to a tab, "Out" brings it back.
+  wins = await waitFor(electron, h, (list) => tab(list).length === 1, 6000)
+  check('...and its goal card stays its pill in the stack, never left open over the desk', tab(wins).length === 1 && out(wins).length === 0, JSON.stringify(wins.map(({ url, ...rest }) => rest)))
+  // Settings' "Tucked at the edge" was retired with the tabs (K2a).
   await c.go('settings')
-  // Pressed by script: the welcome's tour can still lie over the page here, and would take a real click.
   await h.waitForSelector('[data-section="What comes back to you"]', { state: 'attached', timeout: 8000 }).catch(() => undefined)
   await h.evaluate(() => document.querySelector('[data-section="What comes back to you"]')?.click())
-  const row = h.locator('text=Tucked at the edge').first()
-  await row.waitFor({ state: 'attached', timeout: 8000 }).catch(() => undefined)
-  await row.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => undefined)
-  check('Settings has "Tucked at the edge"', (await row.count()) > 0)
-  // Its chips are driven in qa/small-leftovers.mjs (a sandbox, with no tour over the page).
+  await h.waitForTimeout(900)
+  check('Settings no longer offers "Tucked at the edge"', (await h.locator('text=Tucked at the edge').count()) === 0)
 } catch (error) {
   check('ran', false, error.stack)
 } finally {

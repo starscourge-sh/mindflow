@@ -178,8 +178,9 @@ export function DeskPill(): React.JSX.Element | null {
         }}
         onPointerUp={() => void (press.current = null)}
         onClick={(event) => carried.current ? void (carried.current = false) : (clearTimeout(rest.current), more ? (chime('tap'), window.api.pillMore(event.clientX, event.clientY)) : (chime('pin'), window.api.pinSticky(true)))}
-        initial={still() || instant || peek.opened ? false : { opacity: 0, x: away }}
-        animate={{ opacity: 1, x: peek.nudge && !still() ? (right ? [away, -6, 3, -2, 0] : [away, 6, -3, 2, 0]) : 0 }}
+        // A full transform string, not Motion's x: on this Motion (14.0) only that runs on the compositor.
+        initial={still() || instant || peek.opened ? false : { opacity: 0, transform: `translateX(${away}px)` }}
+        animate={{ opacity: 1, transform: peek.nudge && !still() ? (right ? [away, -6, 3, -2, 0] : [away, 6, -3, 2, 0]).map((x) => `translateX(${x}px)`) : 'translateX(0px)' }}
         transition={peek.nudge ? { duration: 0.7, ease: EASE } : SPRING}
         style={{
           // Open, it stays lit while its card is out beside it.
@@ -204,7 +205,13 @@ export function DeskPill(): React.JSX.Element | null {
 
 /** The pill's small mark: a ring of how much is gone, or a note's paper as a dot. */
 function PillMark({ words }: { words: PillWords }): React.JSX.Element {
-  if (!words.ring) return <span aria-hidden data-pill-dot className="size-2.5 shrink-0 rounded-full border border-foreground/45" style={{ background: words.dot ?? 'var(--mf-pill-dot)' }} />
+  // Drawn, not a bordered box: a look that prints flat (Paper) takes borders away, and a plain paper dot on a paper pill
+  // was then nothing at all. Its ring is the ink's, so it shows on every look.
+  if (!words.ring) return (
+    <svg aria-hidden data-pill-dot viewBox="0 0 10 10" className="size-2.5 shrink-0">
+      <circle cx="5" cy="5" r="4.25" style={{ fill: words.dot ?? 'var(--mf-pill-dot)' }} stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.5} />
+    </svg>
+  )
   const R = 5.5
   const round = 2 * Math.PI * R
   return (

@@ -47,7 +47,6 @@ const carried = async (page, wid, at) => {
 const idOf = (url) => electron.evaluate(({ BrowserWindow }, url) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL() === url)?.id, url)
 
 try {
-  await v('settings:set', { stickiesTucked: 'off' })
   await v('session:start', '', 'Grabber check', 25 * 60000)
   await h.evaluate(() => window.api.showFocus(true))
   await v('meeting:start', null)

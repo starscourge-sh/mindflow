@@ -32,7 +32,6 @@ try {
   if (process.env.THEME) await h.evaluate((theme) => localStorage.setItem('theme', theme), process.env.THEME)
   const note = await h.evaluate(() => window.api.captures.create({ title: 'Buy bread', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Buy bread' }] }] } }))
   await h.evaluate((id) => window.api.stick('capture', id, true), note)
-  if (process.env.TUCK) await v('settings:set', { stickiesTucked: process.env.TUCK })
   await wait(3500)
   const start = (await cards()).length
   const GLASS = { stickiesFrosted: true, stickiesGlass: true }

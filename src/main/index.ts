@@ -2151,7 +2151,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   for (const event of ['show', 'hide', 'closed'] as const) win.on(event as 'show', tellStickiesOut)
   tellStickiesOut()
   // A new note starts open, pinned where it lands; Today and a goal's card start as pills in the stack.
-  if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: cardOf(place, insetOf(key)), touched: Date.now(), ...(type === 'today' || fixed ? { pill: true } : {}) })
+  if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: cardOf(place, insetOf(key)), touched: Date.now(), ...((pillWish.get(key) ?? (type === 'today' || fixed)) ? { pill: true } : {}) })
   keepStuck()
   guard(win)
   // Its place in line, so neighbours lean opposite ways.
@@ -3235,8 +3235,13 @@ ipcMain.on('sticky:pill-width', (event, width: unknown) => {
   pillWidth.set(key, fit)
   layStack()
 })
-/** A card folded or pinned by a page of the main window (the welcome's goal card), by its key. */
+/**
+ * A card folded or pinned by a page of the main window (the welcome's goal card), by its key. Asked before its card
+ * is made (the goal is still being saved), or made again (Undo, then Redo), the card is made as asked.
+ */
+const pillWish = new Map<string, boolean>()
 ipcMain.on('desk:pill', (_event, key: unknown, on: unknown) => {
+  pillWish.set(String(key), on === true)
   const win = stickies.get(String(key))
   if (!win || win.isDestroyed()) return
   if (on === true) foldCard(String(key), win)
