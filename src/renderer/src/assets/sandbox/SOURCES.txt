@@ -200,8 +200,10 @@ People:
                             From Jacques-Louis_David_-_The_Emperor_Napoleon_in_His_Study_at_the_Tuileries_-_Google_Art_Project.jpg
                             Licence on page: PD-Art, PD-old-100-1923.
   leonardo-da-vinci.webp    Leonardo da Vinci (1452 to 1519), head of an old man in red chalk, thought to be a self-portrait,
-                            about 1512. Biblioteca Reale, Turin.
-                            From Leonardo_da_Vinci_-_presumed_self-portrait_-_WGA12798.jpg. Licence on page: PD-art, PD-old-100-expired.
+                            drawn between about 1512 and 1518 (the file pages date it differently). Biblioteca Reale, Turin
+                            (inv. 15571). From Leonardo_self.jpg, the clearer of the copies there: the lines of the larger
+                            one (Leonardo_da_Vinci_-_presumed_self-portrait_-_WGA12798.jpg) are too faint to read small.
+                            Licence on page: PD-Art, PD-old-100-1923.
   homer.webp                Marble bust of Homer, a Roman copy of a lost Greek original of the 2nd century BC, from Baiae.
                             British Museum, London.
                             From Homer_British_Museum.jpg. A photograph of a bust has an author of its own: this one is by the
@@ -225,7 +227,8 @@ Characters, each from an edition of their own book:
                             his pointed beard (the painter stands; Dorian's portrait is on the easel).
                             From Doriangray.jpg. Licence on page: PD-art, PD-old-auto-expired (died 1943). The artist has been
                             dead more than 70 years, and it was published in 1908, so it is public domain in the US too.
-                            The file is small (561 by 844): the face is cut from 207px, the most there is.
+                            He is drawn lying back, so the cut is turned upright (62 degrees) for a face in a circle. The
+                            file is small (561 by 844): the face comes from 180px of it, the most there is.
   count-dracula.webp        Cover of Dracula, Westminster: Archibald Constable and Company, 1901 (the sixpenny edition): the
                             Count climbing down the castle wall. The artist is not named (signed "Nathan").
                             From Dracula_Archibald_Constable_and_Company_1901.jpg (the cover welcome-books/dracula.webp is
