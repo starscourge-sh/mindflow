@@ -35,6 +35,12 @@ const WIDE = 320
 const KEPT = { open: 18, fresh: 6 }
 /** How far past the middle of what it is tied to the popover's own bottom edge always reaches, so its point is on its side and never under it. */
 const TIE = 28
+/**
+ * The tallest thing beside which the point is the placed box's own (`Shell`), in rem: the middle of a thing this tall is
+ * always within the smallest card (a new task's), so the point is on the card's edge. Beside a taller thing (a long
+ * afternoon) the point is the card's, and goes no lower than the card does.
+ */
+const TALL = 17.5
 type Side = 'right' | 'left' | 'bottom' | 'top'
 /** Beside the draft where there is room for it, on the right first; with none on either side, under it, or over it: never on top of it. */
 const sideFor = (at: DOMRect): Side => {
@@ -278,6 +284,12 @@ function Shell({ kind, label, side, opened, head, children, tied, onEscape, onKe
     const under = !at ? 0 : window.innerHeight - ROOM.bottom - (beside ? at.top + at.height / 2 + TIE : at.bottom + 13 + tall)
     return Math.max(0, Math.min((opened ? KEPT.open : KEPT.fresh) * rem, under))
   }
+  // Whose the point is (see the card below), decided as it opens, with its side.
+  const [boxPoint, setBoxPoint] = useState(beside)
+  useLayoutEffect(() => {
+    const at = tied()?.getBoundingClientRect()
+    setBoxPoint(beside && (!at || at.height <= TALL * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)))
+  }, [side]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <PopoverContent bare data-cal-hold data-takes-keys role="dialog" aria-label={label}
       // Open on a thing that exists, it is beside the page as its side panel is (ui.tsx, `typing`): a change made in its rows
@@ -306,18 +318,24 @@ function Shell({ kind, label, side, opened, head, children, tied, onEscape, onKe
         if ((event.target as Element | null)?.closest?.('[data-cal-draft], [role="status"], [role="menu"], [data-scope-ask], [data-radix-popper-content-wrapper]')) return
         onOutside()
       }}>
-      {/* The popover itself: the card, at the box's top. Its point is inside it, so it comes and goes with it (the card's
-          clip cuts it too). The card is not a place of its own for the point to stand on (no `relative`): the point is
-          set against the box that is placed. Set against the card, whose height changes, the placement moved the whole
-          popover 19px when Event turned to Task beside a thing as small as a month's line. */}
+      {/* The popover itself: the card, at the box's top. Beside its thing, the point belongs to the box that is placed,
+          not to the card. Where the point can go is worked out from the height of the box it stands in, and inside the
+          card (frosted, so the card is that box) the sum took the card's height while the popover was placed by the
+          box's: the popover sat 45px above its draft with its point off the draft, and moved 19px when Event turned to
+          Task beside a month's line. Over or under its thing, or beside one taller than `TALL`, the point stays in the
+          card: on its edge whatever its height (over or under, the sum goes by widths, the same for both), or (beside a
+          tall thing, where the sum moves nothing) no lower than the card reaches. Either way the point is on the side the
+          clip shows from its first frame to its last, so it comes and goes with the card. */}
       <div data-cal-add={kind} data-cal-open={opened} className={`${FLOAT} mf-pop-card pointer-events-auto flex max-h-full min-h-0 w-full flex-col rounded-xl text-control`}>
         {/* On the one left edge the line and the reading under it keep. */}
         <div className="flex shrink-0 items-center px-3 pt-3">{head}</div>
         <Sized face={kind}>{children}</Sized>
-        <PopoverArrow />
+        {!boxPoint && <PopoverArrow />}
         <Kept side={side} room={room} />
         <Gone run={onGone} />
       </div>
+      {/* A press on the point is a press on the popover, as it was inside the card (the box itself takes no clicks). */}
+      {boxPoint && <PopoverArrow className="pointer-events-auto" />}
     </PopoverContent>
   )
 }

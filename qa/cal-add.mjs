@@ -75,7 +75,7 @@ const state = () => h.evaluate(() => {
   const draft = document.querySelector('[data-cal-level] [data-cal-draft], [data-month-own] [data-cal-draft]')
   const field = pop?.querySelector('input')
   return {
-    pop: pop && { ...box(pop), kind: pop.dataset.calAdd, side: pop.closest('[data-cal-hold]')?.dataset.side, keyed: !!pop.closest('[data-cal-hold]')?.hasAttribute('data-keyed'), arrow: box(pop.querySelector('[data-slot="popover-arrow"]')), sw: box(pop.querySelector('[role="radiogroup"]')),
+    pop: pop && { ...box(pop), kind: pop.dataset.calAdd, side: pop.closest('[data-cal-hold]')?.dataset.side, keyed: !!pop.closest('[data-cal-hold]')?.hasAttribute('data-keyed'), arrow: box((pop.closest('[data-cal-hold]') ?? pop).querySelector('[data-slot="popover-arrow"]')), sw: box(pop.querySelector('[role="radiogroup"]')),
       focused: document.activeElement === field, words: field?.value ?? null, said: pop.querySelector('[data-new-event-said], [data-day-side-when]')?.textContent ?? '', opaque: getComputedStyle(pop).backgroundColor },
     draft: draft && { ...box(draft), kind: draft.dataset.calDraft, name: draft.querySelector('[data-cal-draft-name]')?.textContent, day: draft.closest('[data-day]')?.dataset.day ?? draft.closest('[data-cal-col]')?.dataset.calCol ?? draft.style.gridColumn },
     win: { w: innerWidth, h: innerHeight },
