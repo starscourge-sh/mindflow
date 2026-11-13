@@ -66,7 +66,9 @@ try {
   const back = await read()
   if (shots) await h.screenshot({ path: `${shots}/turn-back-9-question.png` })
   check('turned back to the question, the card is the question\'s size again, not the answer\'s', back.up === 'front' && Math.abs(back.box.height - asked.box.height) <= 2, JSON.stringify({ asked: asked.box.height, now: back.box.height, answer: answered.box.height }))
-  check('and the grades sit right under it, as they did under the answer', back.underIs === 'grades' && Math.abs((back.under.top - back.box.bottom) - gap) <= 2, JSON.stringify({ gap, now: back.under.top - back.box.bottom, under: back.under }))
+  // Under a long answer the grades stay in sight at the page's foot (review-view.tsx), the answer passing under them; turned
+  // back to its question, the card is short again and they sit in their own place under it, never over the card.
+  check('and the grades sit under it in their own place, never over the card', back.underIs === 'grades' && back.under.top >= back.box.bottom, JSON.stringify({ gapUnderTheAnswer: gap, now: back.under.top - back.box.bottom, under: back.under }))
   check('and the page is not scrolled by the turn', back.scroll === answered.scroll, JSON.stringify({ before: answered.scroll, after: back.scroll }))
   // The way there: the card's height only ever moves from the answer's toward the question's, never up again,
   // and the side drawn never runs past the card's box onto what is under it. Read only where the side faces you
