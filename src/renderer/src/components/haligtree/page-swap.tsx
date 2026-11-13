@@ -38,8 +38,14 @@ export function PageSwap({ id, children }: { id: string; children: ReactNode }):
   useEffect(() => {
     if (!leaving) return
     let after = 0
-    const frame = requestAnimationFrame(() => void (after = window.setTimeout(() => ((left.current = null), redraw((n) => n + 1)), 0)))
-    return () => (cancelAnimationFrame(frame), clearTimeout(after))
+    let latest = 0
+    let frame = 0
+    const done = (): void => (cancelAnimationFrame(frame), clearTimeout(after), clearTimeout(latest), (left.current = null), redraw((n) => n + 1))
+    frame = requestAnimationFrame(() => void (after = window.setTimeout(done, 0)))
+    // At the latest a moment on, when no frame comes: a hidden window, or one on a locked screen, draws none, and the
+    // page left stayed up out of sight with its keys, taking an Esc meant for the page on show (Review's source).
+    latest = window.setTimeout(done, 120)
+    return () => (cancelAnimationFrame(frame), clearTimeout(after), clearTimeout(latest))
   }, [leaving])
   // Which of the two places each page on the page is in: the next page takes the one the page being left is not in.
   const places = useRef<Record<string, 0 | 1>>({})
