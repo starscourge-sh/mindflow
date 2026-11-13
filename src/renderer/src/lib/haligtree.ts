@@ -713,6 +713,8 @@ function onceLetGo(run: () => void): void {
   }
   letGo.add(run)
 }
+/** A list's change heard: drawn now, or once the row in hand is let go, so nothing moves under the hand (`useLive`, `useCaptures`). */
+export const whenLetGo = (run: () => void): void => (carrying() ? onceLetGo(run) : run())
 
 /** Runs once the frame being drawn now is painted, with everything else asked for the same frame (so `readOnce` shares one read); returns a way to call it off. */
 let painted: Set<() => void> | null = null

@@ -7,7 +7,7 @@ import { chime } from '@/lib/sound'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { EXITS, exit, exitMany, statusSaid, toWriting } from '@/lib/capture-links'
-import { splitTags, together, unread, haligtree } from '@/lib/haligtree'
+import { splitTags, together, unread, haligtree, whenLetGo } from '@/lib/haligtree'
 import { backSaid, makeTask, snoozeItems } from '@/lib/tasks'
 import { Tip, ask, pin, toast, quietly } from './haligtree/ui'
 import { copy, copyLinkItem, type RowItem } from './haligtree/row-menu'
@@ -88,8 +88,9 @@ export function useCaptures(archived = false): CaptureMeta[] {
     }
     void window.api.captures.list().then(take)
     // Captures only: a nugget or an article saved leaves this list as it is.
-    // Read again with every other read the same change starts, and shown with them (`together`).
-    return window.api.captures.onChange(() => together(window.api.captures.list(), take), ['capture'])
+    // Read again with every other read the same change starts, and shown with them (`together`); while a row is carried,
+    // once it is let go (a capture saved from quick capture mid-carry grew the list under the hand).
+    return window.api.captures.onChange(() => together(window.api.captures.list(), (all) => whenLetGo(() => take(all))), ['capture'])
   }, [archived])
   return captures
 }
