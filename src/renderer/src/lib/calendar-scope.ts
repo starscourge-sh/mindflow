@@ -57,6 +57,19 @@ export const calendarHere = (front: () => boolean, calendar: CalendarHere): (() 
 }
 const front = (): CalendarHere | null => (here && here.front() ? here.calendar : null)
 
+/**
+ * A month drawn on another page (Home's, the Journal's): the task picked in it and how it opens it there, so ⌘K is
+ * about that task as it is on the Calendar's own page (every way in). Each says it is here while it is on the page,
+ * and how to tell its page is the one in front.
+ */
+type MonthHere = Pick<CalendarHere, 'chosen' | 'open' | 'settle' | 'go'>
+const months = new Set<{ front: () => boolean; month: MonthHere }>()
+export const monthHere = (front: () => boolean, month: MonthHere): (() => void) => {
+  const mine = { front, month }
+  months.add(mine)
+  return () => void months.delete(mine)
+}
+
 /** "Friday 23 October", the day a Go to names. */
 const dayName = (iso: string): string => dayjs(iso).format(dayjs(iso).isSame(dayjs(), 'year') ? 'dddd D MMMM' : 'dddd D MMMM YYYY')
 const name = (task: Task): string => taskName(task.title).text || 'Untitled task'
@@ -73,7 +86,7 @@ export function revealOnCalendar(task: Task | undefined): boolean {
 }
 
 /** One thing done to the picked task, said with an Undo, which ⌘Z also reaches. */
-async function apply(task: Task, said: Command, calendar: CalendarHere | null): Promise<void> {
+async function apply(task: Task, said: Command, calendar: MonthHere | null): Promise<void> {
   if (said.kind === 'open') return calendar ? calendar.open(task.id) : window.api.openInHome('task', task.id)
   calendar?.settle(task.id)
   if (said.kind === 'bin') return void moveToBin([{ type: 'task', id: task.id, status: task.status }])
@@ -130,12 +143,32 @@ function saidAs(task: Task, said: Command): string {
   return `Copy ${it} to ${whenInLine(said.due, said.allDay)}`
 }
 
+/** ⌘K about one task picked on a calendar or a month: words that do things to it, and the same few as lines. */
+function taskScope(task: Task, calendar: MonthHere, goTo: Action): { label: string; actions: Action[] } {
+  const examples: [string, string][] = [['Open', 'open'], ['Move to tomorrow', 'tomorrow'], ['An hour later', '+1h'], ['Make it 45 minutes', 'make it 45 minutes'], ['Copy to next week', 'duplicate to next week'], ['Move to the Bin', 'delete']]
+  return {
+    label: name(task),
+    actions: [
+      {
+        label: 'Tell it what to do…', hint: 'friday 3pm, +1h, 45 min, every last friday, duplicate to next week, delete', typed: true, cue: null, run: () => {},
+        heard: (typed) => {
+          const said = commandFor(typed, task)
+          return said ? { label: saidAs(task, said), hint: 'Enter does it to this task', own: true, cue: null, run: () => void apply(task, said, calendar) } : null
+        }
+      },
+      ...examples.map(([label, words]): Action => ({ label, hint: `Or type it: “${words}”`, own: true, cue: null, run: () => void apply(task, commandFor(words, task)!, calendar) })),
+      goTo
+    ]
+  }
+}
+
 /**
  * What ⌘K offers for the Calendar. Anywhere: a day typed alone goes there
  * ("fri", "3 nov", "christmas"). With the Calendar in front and a task
- * picked, ⌘K is about that task: its scope, and words that do things to it.
- * With none picked, the Calendar's own: a view, a new task at a time, the
- * side panel, its calendars.
+ * picked, ⌘K is about that task: its scope, and words that do things to it;
+ * so it is with a task picked in a month on another page (Home's, the
+ * Journal's). With none picked, the Calendar's own: a view, a new task at a
+ * time, the side panel, its calendars.
  */
 export function calendarPalette(toCalendar: (day: string) => void): { actions: Action[]; scope?: { label: string; actions: Action[] } } {
   const calendar = front()
@@ -146,7 +179,12 @@ export function calendarPalette(toCalendar: (day: string) => void): { actions: A
       return said ? { label: `Go to ${dayName(said.due)}`, hint: 'On the Calendar', own: true, cue: 'page', run: () => (calendar ? calendar.go(dayKey(said.due)) : toCalendar(dayKey(said.due))) } : null
     }
   }
-  if (!calendar) return { actions: [goTo] }
+  if (!calendar) {
+    // No Calendar in front: a month on the page in front, with a task picked in it, makes ⌘K about that task.
+    const month = [...months].find((one) => one.front())?.month
+    const picked = month?.chosen()
+    return month && picked ? { actions: [goTo], scope: taskScope(picked, month, goTo) } : { actions: [goTo] }
+  }
   const event = calendar.chosenEvent?.()
   if (event) {
     // Words for it as for a task: its start is its day and time, its length how long it lasts.
@@ -172,26 +210,7 @@ export function calendarPalette(toCalendar: (day: string) => void): { actions: A
     }
   }
   const task = calendar.chosen()
-  if (task) {
-    const examples: [string, string][] = [['Open', 'open'], ['Move to tomorrow', 'tomorrow'], ['An hour later', '+1h'], ['Make it 45 minutes', 'make it 45 minutes'], ['Copy to next week', 'duplicate to next week'], ['Move to the Bin', 'delete']]
-    return {
-      actions: [goTo],
-      scope: {
-        label: name(task),
-        actions: [
-          {
-            label: 'Tell it what to do…', hint: 'friday 3pm, +1h, 45 min, every last friday, duplicate to next week, delete', typed: true, cue: null, run: () => {},
-            heard: (typed) => {
-              const said = commandFor(typed, task)
-              return said ? { label: saidAs(task, said), hint: 'Enter does it to this task', own: true, cue: null, run: () => void apply(task, said, calendar) } : null
-            }
-          },
-          ...examples.map(([label, words]): Action => ({ label, hint: `Or type it: “${words}”`, own: true, cue: null, run: () => void apply(task, commandFor(words, task)!, calendar) })),
-          goTo
-        ]
-      }
-    }
-  }
+  if (task) return { actions: [goTo], scope: taskScope(task, calendar, goTo) }
   const mode = calendar.mode()
   return {
     actions: [

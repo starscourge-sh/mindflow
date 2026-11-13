@@ -27,6 +27,8 @@ import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
 import { RowMenu, type RowItem } from './row-menu'
 import { AddPopover, DraftMark, OpenPopover, addLines, type Add } from './cal-add'
+import { monthHere } from '@/lib/calendar-scope'
+import { useHere } from '@/lib/split'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { inkOf, useCalendars } from '@/lib/events'
 import { unloaded, useLive, haligtree, type Settings, type Stats, type Task } from '@/lib/haligtree'
@@ -231,6 +233,17 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
   const calendars = useCalendars()
   const draftColor = inkOf(calendars.find((one) => one.id === add?.calendar)?.color ?? calendars.find((one) => !one.hidden)?.color ?? calendars[0]?.color)
   const adding = own ? (add?.day ?? null) : null
+  // ⌘K is about the task picked here, as on the Calendar's own page (lib/calendar-scope.ts): “Open” opens it in the
+  // popover tied to its line, and a thing done to it leaves it picked.
+  const here = useHere()
+  const mineNow = useRef({ tasks, pickedTask })
+  mineNow.current = { tasks, pickedTask }
+  useEffect(() => own ? monthHere(here, {
+    chosen: () => mineNow.current.tasks.find((task) => task.id === mineNow.current.pickedTask && task.status === 'open') ?? null,
+    open: (id) => (setAdd(null), setMine(null), setPickedTask(id), setOpenedOwn({ id, at: frame.current?.querySelector<HTMLElement>(`[data-plan-task="${CSS.escape(id)}"]`) ?? null })),
+    settle: (id) => setPickedTask(id),
+    go: () => undefined
+  }) : undefined, [own]) // eslint-disable-line react-hooks/exhaustive-deps
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
   const item = onOpen ?? ((type: string, id: string): void => window.api.openInHome(type, id))
   const open = (line: Line, at: HTMLElement | null = null): void => line.kind === 'back' ? (chime('open'), window.api.openInHome(line.one.type, line.one.id))
