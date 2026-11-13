@@ -193,7 +193,7 @@ try {
   g = await settled()
   line = await said()
   check('500: the newest 400 drawn, and the line says what happens past it', g.dots.filter((one) => one.type === 'capture').length === 400 && line?.text === '400 captures, the newest of 500 · 100 share #reading', `${g.dots.length} dots, said ${JSON.stringify(line?.text)}`)
-  check('500: none sits on another', !overlaps(g.dots), `${overlaps(g.dots)} pairs`)
+  check('500: all 401 dots drawn (400 captures and #reading), none on another, none off the canvas', g.dots.length === 401 && !overlaps(g.dots) && !outside(g).length, `${g.dots.length} dots, ${overlaps(g.dots)} overlapping, ${outside(g).length} outside`)
   check('no errors on the page', !c.errors.length, c.errors.slice(0, 2).join(' | '))
 } catch (error) {
   if (shots) await h.screenshot({ path: `${shots}/error.png` }).catch(() => {})
