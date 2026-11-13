@@ -360,7 +360,7 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, 
             </div>
           ))
         : shown === "pages" && Array.from({ length: doc.numPages }, (_, index) => <PdfThumb key={index} doc={doc} page={index + 1} here={index + 1 === page} onGo={goTo} />)}
-      {shown === "outline" && <PdfOutline outline={outline} hereAt={hereAt} list={list} onGo={onGo} />}
+      {shown === "outline" && <PdfOutline outline={outline} hereAt={hereAt} list={list} onGo={goTo} />}
     </PdfRail>
   )
 }
@@ -371,7 +371,7 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, 
  * are in lit, a chapter's sections folded under its chevron, and the same
  * rows, light and hover as the sidebar's.
  */
-function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; hereAt: number; list: React.RefObject<HTMLElement | null>; onGo: (page: number) => void }): React.JSX.Element {
+const PdfOutline = memo(function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; hereAt: number; list: React.RefObject<HTMLElement | null>; onGo: (page: number) => void }): React.JSX.Element {
   const tree = useMemo(() => treeOf(outline, (row) => row.depth), [outline])
   const label = usePageLabel()
   // Folded by you; a chapter you read your way into opens again, so the lit way down is never hidden.
@@ -425,4 +425,4 @@ function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; he
       <div className="-ml-3"><Tree nodes={tree} here={hereAt} row={row} open={(node) => !folded.has(node.at)} className="ml-5 flex flex-col gap-px" /></div>
     </nav>
   )
-}
+})
