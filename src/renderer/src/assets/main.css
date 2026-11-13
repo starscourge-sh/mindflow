@@ -3636,6 +3636,14 @@ textarea[data-talking]::selection {
 /* The cards behind a deck's top card: plain sheets, each with its edge, no lit rim. */
 [data-review-finish='paper'] .mf-pile-card { box-shadow: none; border-color: color-mix(in oklab, var(--foreground) 16%, transparent); }
 [data-review-finish='paper'] .mf-pile-edge:last-of-type { box-shadow: 0 2px 6px -2px rgb(0 0 0 / 0.25); }
+/* A card that turns over (Flip, review-view.tsx) is the size of its side that is up: at rest the side turned down is not
+   laid out, so a long answer turned back to its question leaves no empty card (the user, 13 Nov: "spot the problem after
+   closing a card"). While it turns both sides are laid out, each held to the card's height at that point of the turn
+   (--flip-h, one side's own height eased into the other's by the turn) and cut to it, so its edge is drawn where it ends. */
+[data-flip]:not([data-turning]) > * > [data-flip-side][aria-hidden='true'] { display: none; }
+[data-flip][data-sized] > * > [data-flip-side] { height: var(--flip-h); overflow: clip; overflow-clip-margin: 6px; }
+/* The words are cut at the card's own edge; the 6px past the side above is for the card's shadow alone. */
+[data-flip][data-sized] [data-flip-side] [data-finish-face] { overflow: clip; }
 /* The cards themselves (the study card's two sides, the three card forms, the example card) and any sheet Review opens
    (a deck's settings, a question asked from a deck): whichever finish is chosen, never a third material. */
 [data-finish-face] { background: var(--mf-metal-bg); border-color: color-mix(in oklab, var(--foreground) 11%, transparent); border-radius: 6px; box-shadow: var(--mf-metal-shadow); }

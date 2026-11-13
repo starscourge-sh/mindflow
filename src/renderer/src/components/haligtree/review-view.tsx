@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { line, curveMonotoneX } from 'd3-shape'
 import { tagsIn } from '../../../../main/tag-words'
 import { byDefault, useToolKeys } from '@/lib/tool-keys'
@@ -1626,27 +1626,64 @@ export function Flip({ over, onTurn, onLater, front, back }: { over: boolean; on
   const spin = useRef<AnimationPlaybackControls | null>(null)
   const grip = useRef<{ x: number; y: number; base: number; moved: boolean; down: boolean; width: number; trail: { t: number; deg: number }[] } | null>(null)
   const flat = still()
+  // The card is the size of the side that is up: at rest the side turned down is not laid out (main.css, [data-flip]),
+  // so an answer turned back to its question leaves no empty card under it (the user, 13 Nov: "spot the problem after
+  // closing a card"). While it turns both sides are, each cut to the card's height at that point of the turn: the one
+  // side's own height eased into the other's by the turn itself, so a drag held half way holds the height half way.
+  const box = useRef<HTMLDivElement>(null)
+  const sizes = useRef<{ front: number; back: number } | null>(null)
+  const sizeAt = (deg: number): void => {
+    const own = sizes.current
+    if (own) box.current?.style.setProperty('--flip-h', `${own.front + (own.back - own.front) * ((1 - Math.cos((deg * Math.PI) / 180)) / 2)}px`)
+  }
+  useEffect(() => turn.on('change', sizeAt), [turn])
+  // A turn begins: both sides laid out at their own heights, read once, then each held to the card's.
+  const begin = (): void => {
+    const el = box.current
+    if (flat || !el || sizes.current) return
+    el.dataset.turning = ''
+    const [front, back] = [...el.querySelectorAll<HTMLElement>(':scope > * > [data-flip-side]')].map((side) => side.offsetHeight)
+    sizes.current = { front, back }
+    sizeAt(turn.get())
+    el.dataset.sized = ''
+  }
+  // Landed: the side turned down leaves the layout, and the card is its side's own size again.
+  const land = (): void => {
+    const el = box.current
+    sizes.current = null
+    if (!el) return
+    delete el.dataset.turning
+    delete el.dataset.sized
+    el.style.removeProperty('--flip-h')
+  }
   const settle = (to: number, velocity = 0, keyed = false): void => {
     aim.current = to
     spin.current?.stop()
+    begin()
     // Turned by Space, every card of a sitting, it turns over quickly and flat; by the hand it carries its swing.
-    spin.current = animate(turn, to, flat ? { duration: 0 } : keyed ? spring.moderate : { type: 'spring', visualDuration: 0.34, bounce: 0.15, velocity })
+    const going = animate(turn, to, flat ? { duration: 0 } : keyed ? spring.moderate : { type: 'spring', visualDuration: 0.34, bounce: 0.15, velocity })
+    spin.current = going
+    void going.then(() => { if (spin.current === going && !grip.current?.moved) land() })
   }
-  // Turned from outside (Space, the button): on over the way it was going.
-  useEffect(() => {
+  // Turned from outside (Space, the button): on over the way it was going. Before the page is drawn, so the side
+  // that was up is never hidden for a frame before the turn has laid both out.
+  useLayoutEffect(() => {
     if (backOf(aim.current) !== over) settle(aim.current + 180, 0, byKeys())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [over])
   // What a press on the card leaves alone: the question being edited, a link,
   // a button, words being picked out to copy.
   const own = (target: EventTarget): boolean => !!(target as HTMLElement).closest('a, button, input, textarea, [contenteditable="true"]')
-  const face = (shown: boolean): React.HTMLAttributes<HTMLDivElement> => ({
+  const face = (shown: boolean): React.HTMLAttributes<HTMLDivElement> & { 'data-flip-side': string } => ({
     'aria-hidden': !shown,
     inert: !shown,
-    className: `[grid-area:1/1] ${flat ? 'transition-opacity duration-150 starting:opacity-0' : '[backface-visibility:hidden]'} ${flat && !shown ? 'opacity-0' : ''}`
+    'data-flip-side': '',
+    className: `[grid-area:1/1] self-start ${flat ? 'transition-opacity duration-150 starting:opacity-0' : '[backface-visibility:hidden]'} ${flat && !shown ? 'opacity-0' : ''}`
   })
   return (
     <div
+      ref={box}
+      data-flip
       className="grid cursor-pointer grid-cols-[minmax(0,1fr)] [perspective:1400px]"
       onPointerDown={(event) => {
         if (event.button !== 0 || own(event.target)) return
@@ -1691,6 +1728,7 @@ export function Flip({ over, onTurn, onLater, front, back }: { over: boolean; on
           held.moved = true
           // Caught mid-turn, it carries on from where your finger found it.
           spin.current?.stop()
+          begin()
           held.base = turn.get()
           held.x = event.clientX
           event.currentTarget.setPointerCapture(event.pointerId)
