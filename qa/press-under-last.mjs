@@ -47,7 +47,7 @@ const install = (page) => page.evaluate(() => {
         if (!under || blocks.some((one) => one.contains(under))) continue
         // Below the words, only bare room counts: a holder with no words of its own, never a heading, a field or a
         // button that the page draws there (Writing's sections under a piece are content, not room).
-        const bare = (one) => /^(DIV|SECTION)$/.test(one.nodeName) && ![...one.childNodes].some((child) => child.nodeType === 3 && child.textContent.trim()) && !one.closest('button, a, [role], textarea, input, label')
+        const bare = (one) => /^(DIV|SECTION)$/.test(one.nodeName) && ![...one.childNodes].some((child) => child.nodeType === 3 && child.textContent.trim()) && !one.closest('button, a, textarea, input, label, [role=button], [role=link], [role=menuitem], [role=tab], [role=checkbox], [role=textbox]')
         if (inside ? under === e : !e.contains(under) && bare(under) && !!under.closest('.haligtree-editor-content, [data-day-write], .sticky-text')) return { x, y, on: said(under), from: step }
       }
       // Said, when there is none: what lay under the pointer on the way down.
@@ -111,14 +111,15 @@ try {
   await wait(500)
   await presses('Quick capture', box)
   // A sticky on the desk: E starts writing in it, then the same presses in its own window.
-  const sticky = c.electron.windows().find((one) => one.url().includes('view=sticky'))
+  // A note's sticky (Today's and a goal's hold no words to write in).
+  const sticky = c.electron.windows().find((one) => /view=sticky&type=(capture|nugget|article)&/.test(one.url()))
   if (sticky) {
     await sticky.keyboard.press('e')
     await sticky.waitForFunction(`!!(${writer.toString()})()`, null, { timeout: 15000, polling: 200 }).catch(() => {})
     await wait(600)
     if (await sticky.evaluate(`!!(${writer.toString()})()`)) await presses('A sticky', sticky)
     else console.log('(a sticky: its writing did not open with E)')
-  } else console.log('(no sticky on the desk)')
+  } else console.log(`(no note's sticky on the desk: ${c.electron.windows().map((one) => one.url().match(/view=sticky&type=[a-z]+/)?.[0]).filter(Boolean).join(', ') || 'none'})`)
   check('no page errors', c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|status of 404|NotSameOrigin/.test(line)).length === 0, c.errors.slice(0, 3).join(' | '))
 } finally {
   await Promise.race([c.close(), new Promise((next) => setTimeout(next, 8000))])
