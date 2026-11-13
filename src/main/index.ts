@@ -2288,12 +2288,14 @@ const leaveSandbox = (): void => inHome('haligtree:sandbox-leave')
 
 /** Something the main window does, asked for from the menu bar: a book switched to, a new one named. */
 function inHome(event: string, detail: unknown = null): void {
-  openHome()
   const win = makeHome()
   const go = (): void => void win.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent(${JSON.stringify(event)}, { detail: ${JSON.stringify(detail)} }))`).catch(() => undefined)
   // Once the page has drawn itself, not just painted: its listeners are on by then, so nothing said
   // at the start (a restore, an import's end) is lost while the window is still coming up.
+  // Told before the window is brought forward (openHome puts the box away and, where AeroSpace is installed, starts
+  // asking it where you are): the page answers while that goes on, as the welcome played again shows its loader.
   whenHomeDrawn(go)
+  openHome()
 }
 
 /** Told to the main window if it is drawn, without bringing it forward: a file sent from Finder says so where you are not looking. */
