@@ -59,8 +59,9 @@ try {
   const inAt = trace.find((one) => one[3] < trace[0][3])?.[0] ?? Infinity
   const gaps = named.slice(1).map((one, i) => Math.round((one.at - named[i].at) * 1000))
   console.log(`${THEME} ${KIND}: ${named.length} frames filmed; the draw-in from ${Math.round(inAt)} ms; frame gaps in the draw-in: longest ${Math.max(...gaps.filter((_, i) => named[i + 1].t >= inAt))} ms, mean ${(gaps.filter((_, i) => named[i + 1].t >= inAt).reduce((a, b) => a + b, 0) / Math.max(1, gaps.filter((_, i) => named[i + 1].t >= inAt).length)).toFixed(1)} ms`)
-  // The parts worth reading frame by frame: the spark's burst (4.6 to 7.4 s) and the drawing in to the end.
-  const parts = { burst: named.filter((one) => one.t >= 4600 && one.t <= 7400), drawin: named.filter((one) => one.t >= inAt - 200) }
+  // The parts worth reading frame by frame: the spark's burst (4.6 to 7.4 s), the title rising into focus (7.0 to 9.6 s),
+  // and the drawing in to the end.
+  const parts = { burst: named.filter((one) => one.t >= 4600 && one.t <= 7400), title: named.filter((one) => one.t >= 7000 && one.t <= 9600), drawin: named.filter((one) => one.t >= inAt - 200) }
   for (const [name, list] of Object.entries(parts)) {
     list.forEach((one, i) => writeFileSync(join(SHOTS, `${THEME}-${KIND}-${name}-${String(i).padStart(3, '0')}-${one.t}ms.jpg`), Buffer.from(one.data, 'base64')))
     for (let part = 0; part * 36 < list.length; part++) {
