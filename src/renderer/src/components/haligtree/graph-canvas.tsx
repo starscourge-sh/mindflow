@@ -27,8 +27,9 @@ export type CanvasLook = Pick<MapLook, 'names' | 'dotSize' | 'lineSize' | 'arrow
 type View = { x: number; y: number; k: number }
 /** A name at rest on the Map, kept from frame to frame (see `sayings`). `side`: which of its four plain spots, -1 for none. */
 type Saying = { v: number; want: boolean; misses: number; rel: number[]; goal: number[]; box: number[]; leader: boolean; pill: boolean; side: number; words: string }
-/** A dot on the map, with whether its title is kept out of sight. */
-export type GraphNode = MapNode & { private?: boolean }
+/** A dot on the map, with whether its title is kept out of sight. `x`, `y`: where it starts, when whoever draws the map
+ * knows better than the middle (the Inbox's captures on their own start beside others of their kind). */
+export type GraphNode = MapNode & { private?: boolean; x?: number; y?: number }
 export type Graph = Omit<NoteMap, 'nodes'> & { nodes: GraphNode[] }
 
 /** Bigger the more links touch it, but never so big it hides its neighbours. */
@@ -170,7 +171,7 @@ const takeFocus = (): string | null => ((id) => ((asked = null), id))(asked)
  * scroll left to the page around it. `focus` lights a note up and brings it
  * close once drawn.
  */
-export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly, replay, look, paint, calm = false, className, children }: {
+export function GraphCanvas({ map, onOpen, centre, you, about, counts, fit: fitRef, fly, replay, look, paint, calm = false, className, children }: {
   map: Graph
   /** `aside`: ⌥ was held, to open it beside. */
   onOpen: (type: string, id: string, aside?: boolean) => void
@@ -179,6 +180,8 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
   you?: string
   /** A line more for a dot's hover card, by its id ("p. 12"). */
   about?: Record<string, string>
+  /** What a dot's hover card counts, in the map's own words ("2 captures", "on its own"); its links when not given. */
+  counts?: (node: GraphNode) => string
   fit?: React.RefObject<() => void>
   /** Glide to a note and light it, as a find does; false when it is not on the map. */
   fly?: React.RefObject<(id: string) => boolean>
@@ -1276,8 +1279,10 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
     el.dataset.dots = String(dots.length)
     ;(el as HTMLCanvasElement & { mapDots?: () => unknown[] }).mapDots = () => {
       const held = new Set(sim.nodes())
-      // `drawn`: where it is drawn, without its breath; `shown`: how strongly (0 to 1).
-      return dots.map((dot) => ({ id: dot.id, title: dot.title, x: dot.x, y: dot.y, drawn: [dot.x! + (springs.get(dot)?.ox ?? 0), dot.y! + (springs.get(dot)?.oy ?? 0)], shown: got(dot), r: dot.r, colour: shadesOf(tokenOf(dot)).base, held: held.has(dot), rank: rank.get(dot) }))
+      // `drawn`: where it is drawn, without its breath; `shown`: how strongly (0 to 1); `screen`: its middle and
+      // size in the canvas's own pixels, to point at it.
+      return dots.map((dot) => ({ id: dot.id, title: dot.title, type: dot.type, kind: dot.kind, x: dot.x, y: dot.y, drawn: [dot.x! + (springs.get(dot)?.ox ?? 0), dot.y! + (springs.get(dot)?.oy ?? 0)], shown: got(dot), r: dot.r, colour: shadesOf(tokenOf(dot)).base, held: held.has(dot), rank: rank.get(dot),
+        screen: [width / 2 + view.x + dot.x! * view.k, height / 2 + view.y + dot.y! * view.k, dot.r * view.k] }))
     }
     // And every line, by the ids of its two ends, so a probe can count where lines cross.
     ;(el as HTMLCanvasElement & { mapNamed?: () => string[] }).mapNamed = () => namedAtRest.current
@@ -1500,7 +1505,9 @@ export function GraphCanvas({ map, onOpen, centre, you, about, fit: fitRef, fly,
           <span className="flex items-center gap-1.5 text-muted-foreground">
             <span className="size-2 rounded-full shrink-0" style={{ background: hover.dot.id === centre || hover.dot.id === you ? 'var(--tt-brand-color-400)' : paint?.(hover.dot) ?? tintOf(hover.dot) }} />
             {about?.[hover.dot.id] ? `${about[hover.dot.id]} · ` : ''}
-            {hover.dot.id === you ? 'This note' : hover.dot.id === centre ? (hover.dot.type === 'pdf' ? 'This book' : 'This note') : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : hover.dot.kind === 'pdf' ? 'PDF' : hover.dot.kind === 'web' ? 'Web article' : kind?.label ?? (hover.dot.type === 'nugget' ? 'Gem' : hover.dot.type === 'card' ? 'Card' : hover.dot.type === 'article' ? 'Page' : 'Note')}{hover.dot.tag ? ` · #${hover.dot.tag}` : ''} · {plural(hover.dot.links, "link")}
+            {hover.dot.id === you ? 'This note' : hover.dot.id === centre ? (hover.dot.type === 'pdf' ? 'This book' : 'This note') : hover.dot.kind === 'person' ? 'Person' : hover.dot.kind === 'source' ? 'Source' : hover.dot.kind === 'tag' ? 'Tag' : hover.dot.kind === 'pdf' ? 'PDF' : hover.dot.kind === 'web' ? 'Web article' : kind?.label ?? (hover.dot.type === 'nugget' ? 'Gem' : hover.dot.type === 'card' ? 'Card' : hover.dot.type === 'article' ? 'Page' : 'Note')}
+            {/* A tag's own dot is named by its tag already: said once. */}
+            {hover.dot.tag && hover.dot.kind !== 'tag' ? ` · #${hover.dot.tag}` : ''} · {counts ? counts(hover.dot) : plural(hover.dot.links, "link")}
           </span>
         </div>
       )}

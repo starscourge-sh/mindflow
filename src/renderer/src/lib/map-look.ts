@@ -44,8 +44,10 @@ export const lookOf = (saved: Partial<MapLook> | null | undefined): MapLook => (
 
 /** The theme's colours a group can take, as named on the page's tokens. */
 export const MAP_HUES = ['purple', 'green', 'blue', 'orange', 'pink', 'red', 'yellow', 'brown', 'gray'] as const
-/** A hue as a dot wears it: pulled toward the page's quiet ink so a map of hundreds stays calm. */
-export const hueTint = (hue: string): string => `color-mix(in oklab, var(--tt-color-text-${hue}) 62%, var(--muted-foreground))`
+/** A colour as a dot wears it: pulled toward the page's quiet ink so a map of hundreds stays calm. */
+export const quietTint = (colour: string): string => `color-mix(in oklab, ${colour} 62%, var(--muted-foreground))`
+/** A hue, by its name on the page's tokens, as a dot wears it. */
+export const hueTint = (hue: string): string => quietTint(`var(--tt-color-text-${hue})`)
 
 /** The groups the automatic colours make: one a tag, the commonest first. What the panel starts from. */
 export const autoGroups = (nodes: MapNode[]): MapGroup[] => {
