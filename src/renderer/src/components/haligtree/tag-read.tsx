@@ -350,6 +350,10 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
     // Tagged on a block of a longer note: that block, as the line under its name.
     const block = taggedBlocks(item.body, tag)?.lines[0]
     const sub = [block ? quoted(block, 90) : '', differs.kind && display.group !== 'kind' ? kindName(item).replace(/s$/, '') : '', status].filter(Boolean).join(' · ')
+    // A task says the day it is for, as on Today; everything else when it was written. A task in a focus session wears the
+    // session's dot at the head of its small line, with the day after it.
+    const day = item.type === 'task' ? (task?.dueAt ? dayMonth(task.dueAt) : undefined) : age(item.at)
+    const dotHere = item.type === 'task' && taskTime.running?.taskId === item.id
     const entry: NoteEntry = {
       id: item.id,
       type: item.type,
@@ -357,15 +361,16 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
       tags: item.tags.filter((one) => !shared.includes(one)),
       icon: item.type === 'capture' ? kind?.icon ?? Inbox : ICON[item.type as keyof typeof ICON] ?? Gem,
       tint: item.type === 'capture' ? kind?.tint : undefined,
-      // A task says the day it is for, as on Today; everything else when it was written.
-      age: item.type === 'task' ? (task?.dueAt ? dayMonth(task.dueAt) : undefined) : age(item.at),
-      // A task's time, last in its small line. In a focus session the dot leads that line, under the start of its name, as
-      // on Today's Matrix card and quick capture's rows with no number column: a row here has a picture tile, no tick and
-      // no margin, and the row's own marks stand at its far end, 700 px from the name on a wide page (13 Nov).
-      sub: item.type === 'task' && (taskTime.of(item.id) || taskTime.running?.taskId === item.id) ? <>
-        {taskTime.running?.taskId === item.id && <SessionDot id={item.id} time={taskTime} className={`${DOT_IN_LINE} mr-1.5`} />}
+      age: dotHere ? undefined : day,
+      // A task's time, last in its small line. In a focus session the dot leads that line, then the day, under the start of
+      // its name, as on Today's Matrix card and quick capture's rows with no number column: a row here has a picture tile,
+      // no tick and no margin, and the row's own marks stand at its far end, 700 px from the name on a wide page (13 Nov).
+      sub: dotHere || (item.type === 'task' && taskTime.of(item.id)) ? <>
+        {dotHere && <SessionDot id={item.id} time={taskTime} className={`${DOT_IN_LINE} mr-1.5`} />}
+        {dotHere && day}
+        {dotHere && day && sub ? ' · ' : ''}
         {sub}
-        {taskTime.of(item.id) && <TaskSpentWords task={{ id: item.id, estimate: task?.estimate ?? null, status: task?.status ?? (item.status === 'done' ? 'done' : 'open') }} time={taskTime} lead={sub ? ' · ' : ''} />}
+        {taskTime.of(item.id) && <TaskSpentWords task={{ id: item.id, estimate: task?.estimate ?? null, status: task?.status ?? (item.status === 'done' ? 'done' : 'open') }} time={taskTime} lead={sub || (dotHere && day) ? ' · ' : ''} />}
       </> : sub || undefined,
       private: item.private,
       done: item.later
