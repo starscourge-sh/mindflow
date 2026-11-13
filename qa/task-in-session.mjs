@@ -136,7 +136,8 @@ const film = async (name, id, n = 28) => {
   }, row(id))
   const frames = []
   const from = Date.now()
-  for (let i = 0; i < n; i++) {
+  // At least this many frames, and for longer than one breath (1.6 s) whether or not pictures are kept.
+  for (let i = 0; i < n || Date.now() - from < 1750; i++) {
     const at = Date.now() - from
     const seen = await h.evaluate((sel) => [document.querySelector(`${sel} .mf-listening`), document.getElementById('t1-welcome-dot')].map((one) => Number(Number(getComputedStyle(one).opacity).toFixed(2))), row(id))
     frames.push({ at, seen, png: SHOTS ? (await h.screenshot({ clip })).toString('base64') : '' })
@@ -191,6 +192,10 @@ try {
   await ran(A, 5 * MIN + 10_000, 'end', 25 * MIN)                       // 5:10 of 25: ended early, counts
   await ran(A, 7 * MIN, 'abandon', 25 * MIN)                            // abandoned: counts for nothing
   await ran(E, 40 * MIN + 10_000)                                       // 40:10 against 1 h
+  // One whose small line is long enough to wrap in the smallest window: a day, who it waits on, steps, and 12:10 of time.
+  const W = (await v('task:add', 't1 with a long small line', undefined, true)).id
+  await v('task:save', W, { waitingOn: 'Hermione Granger at the library desk on the second floor', subtasks: [{ text: 'ask', done: false }] })
+  await ran(W, 12 * MIN + 10_000)
   await go('today')
   await wait(1200)
   // One of the day's three, its number in the margin, and what stands there.
@@ -453,6 +458,30 @@ try {
   })
 
   if (PART.includes('lists')) await part('the other lists', async () => {
+    // Tasks in its other shapes: Today grouped by tag and sorted by name, “Later” and “Routines”. One row draws them all.
+    await ran(A, 1000, 'run', 25 * MIN)
+    await h.evaluate(() => localStorage.setItem('view:tasks:today', JSON.stringify({ sort: 'name', group: 'tag' })))
+    await go('home')
+    await wait(500)
+    await go('today')
+    await wait(1000)
+    await see(A)
+    const byTag = { headings: await h.evaluate(() => document.querySelectorAll('[data-tag-fold]').length), dot: !!(await box(dot(A))), time: await spent(A) }
+    check('4 Today grouped by tag and sorted by name: the same row, with its dot and its time', byTag.headings > 0 && byTag.dot && /min so far$/.test(byTag.time ?? ''), JSON.stringify(byTag))
+    await h.evaluate(() => localStorage.removeItem('view:tasks:today'))
+    await v('session:cancel', (await running())?.id)
+    const later = (await v('task:add', 't1 put off someday')).id
+    const routine = (await v('task:add', 't1 routine every day')).id
+    for (const [tab, name, id] of [['later', 'Later', later], ['routines', 'Routines', routine]]) {
+      await v('session:start', id, '', 25 * MIN)
+      await go(tab)
+      await wait(900)
+      await see(id)
+      const on = !!(await box(dot(id)))
+      await v('session:cancel', (await running())?.id)
+      await wait(500)
+      check(`4 “${name}”: the row of the task in a session has the dot, and it goes as the session is called off`, on && !(await box(dot(id))) && !!(await box(row(id))))
+    }
     // The Journal's day: whichever task its list shows first, given a kept session of 2:10 and one running for 3:10.
     await go('day')
     await wait(1500)
@@ -558,6 +587,16 @@ try {
     await see(B)
     await shape('560 by 400')
     if (SHOTS) await shot('look-560')
+    // A small line too long for the row there: it wraps, the time last and whole on a later line, the date where a short line has it.
+    await see(W)
+    const wrapped = await h.evaluate(([long, short]) => {
+      const at = (sel) => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom, lines: el.getClientRects().length } }
+      const meta = document.querySelector(`${long} [data-task-meta]`)
+      return { when: at(`${long} [data-task-when]`), time: at(`${long} [data-task-spent]`), row: at(long), other: at(`${short} [data-task-when]`), said: document.querySelector(`${long} [data-task-spent]`)?.textContent ?? null,
+        last: !!meta && meta.lastElementChild === document.querySelector(`${long} [data-task-spent]`), over: document.documentElement.scrollWidth - document.documentElement.clientWidth }
+    }, [row(W), row(E)])
+    check('560 by 400, a small line that wraps: the time is last, whole, on a later line and inside the row; the date stays on the edge every row\'s date starts on', !!wrapped.time && wrapped.said === '12 min so far' && wrapped.last && wrapped.time.lines === 1 && wrapped.time.y >= wrapped.when.b - 2 && wrapped.time.r <= wrapped.row.r && wrapped.time.x >= wrapped.when.x - 0.5 && (!wrapped.other || Math.abs(wrapped.other.x - wrapped.when.x) < 0.5) && wrapped.over <= 0, JSON.stringify(wrapped))
+    if (SHOTS) await shot('look-560-wrapped')
     await c.size(1400, 900)
     await v('session:cancel', (await running())?.id)
   })
