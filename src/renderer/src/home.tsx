@@ -1173,7 +1173,12 @@ export function Home(): React.JSX.Element {
   // The Tags heading is marked on the Tags page, and on a tag's page whose own row is folded away or not among these.
   const captures = useCaptures()
   const sourceList = useLive(sources.list, [] as SourceSummary[])
-  unsorted = (id) => captures.some((one) => one.id === id && keepInbox(one))
+  // One the list has not heard of yet (made a moment ago by a link) is asked of its copy read on the press: in the
+  // Inbox, it opened with "Show dealt with too" switched on.
+  unsorted = (id) => {
+    const one = captures.find((capture) => capture.id === id) ?? peekRead<CaptureMeta>('capture', id)
+    return !!one && keepInbox(one)
+  }
   const dueRead = useLive(haligtree.dueCount, null as number | null, [], ['item'])
   const due = dueRead ?? 0
   const tasks = useLive(haligtree.tasks, [] as Task[])
