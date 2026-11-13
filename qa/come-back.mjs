@@ -29,28 +29,32 @@ const { h, electron, send } = c
 await electron.context().addInitScript(() => {
   // drawn: components that did work; onPage: those of them that draw something on the page (a component that
   // draws nothing, such as the beam while it has nothing to show, changes nothing a person sees).
-  const rec = (window.__renders = { on: false, commits: 0, drawn: 0, onPage: 0, names: {} })
+  const rec = (window.__renders = { on: false, commits: 0, drawn: 0, onPage: 0, names: {}, from: {} })
   // Which components drew in a commit, found as React DevTools finds them: only down the parts of the tree that
   // changed (a part left as it was keeps its children), each one that did work named, with the element it draws.
   const host = (fiber) => { for (let at = fiber; at; at = at.child) if (at.stateNode instanceof Element) return at.stateNode; return null }
   const say = (el) => (el ? `${el.nodeName.toLowerCase()}${el.dataset && Object.keys(el.dataset).length ? `[${Object.keys(el.dataset).slice(0, 2).join(',')}]` : ''}${typeof el.className === 'string' && el.className.trim() ? `.${el.className.trim().split(/\s+/).slice(0, 2).join('.')}` : ''}` : '-')
-  const visit = (first) => {
+  // `from`: where each redraw began, the top-most component that drew with none above it drawing.
+  const visit = (first, above) => {
     for (let fiber = first; fiber; fiber = fiber.sibling) {
+      let drew = above
       if (typeof fiber.type === 'function' && fiber.flags & 1) {
         rec.drawn++
         const el = host(fiber)
         if (el) rec.onPage++
         const name = `${fiber.type.displayName || fiber.type.name || '?'} ${say(el)}`
         rec.names[name] = (rec.names[name] ?? 0) + 1
+        if (!above) rec.from[name] = (rec.from[name] ?? 0) + 1
+        drew = true
       }
-      if (!fiber.alternate || fiber.child !== fiber.alternate.child) visit(fiber.child)
+      if (!fiber.alternate || fiber.child !== fiber.alternate.child) visit(fiber.child, drew)
     }
   }
   window.__REACT_DEVTOOLS_GLOBAL_HOOK__ = {
     renderers: new Map(), supportsFiber: true, isDisabled: false,
     inject(renderer) { this.renderers.set(this.renderers.size + 1, renderer); return this.renderers.size },
     onScheduleFiberRoot() {}, onCommitFiberUnmount() {}, onPostCommitFiberRoot() {}, checkDCE() {}, setStrictMode() {},
-    onCommitFiberRoot(_id, root) { if (!rec.on) return; rec.commits++; visit(root.current.child) }
+    onCommitFiberRoot(_id, root) { if (!rec.on) return; rec.commits++; visit(root.current.child, false) }
   }
 })
 await h.waitForTimeout(1500)
@@ -83,7 +87,7 @@ await h.evaluate(() => {
     seen: (state) => { forced = state; document.dispatchEvent(new Event('visibilitychange')) },
     start: () => {
       rec = { from: performance.now(), frames: [], changes: 0, where: new Map(), on: true }
-      Object.assign(window.__renders, { commits: 0, drawn: 0, onPage: 0, names: {}, on: true })
+      Object.assign(window.__renders, { commits: 0, drawn: 0, onPage: 0, names: {}, from: {}, on: true })
       let last = performance.now()
       const loop = (t) => { if (!rec?.on) return; rec.frames.push(t - last); last = t; requestAnimationFrame(loop) }
       requestAnimationFrame(loop)
@@ -108,7 +112,8 @@ await h.evaluate(() => {
         long: long.filter((one) => one.at >= rec.from).map((one) => `${one.ms} ms: ${one.what}`),
         changes: rec.changes, where: [...rec.where].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([key, n]) => `${n} ${key}`),
         commits: window.__renders.commits, drawn: window.__renders.drawn, onPage: window.__renders.onPage,
-        names: Object.entries(window.__renders.names).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, n]) => `${n} ${name}`)
+        names: Object.entries(window.__renders.names).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, n]) => `${n} ${name}`),
+        from: Object.entries(window.__renders.from).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([name, n]) => `${n} ${name}`)
       }
     }
   }
@@ -156,7 +161,7 @@ async function comeBack(where, name, way, gone = 1500) {
   const held = after.slow.filter((one) => !before.slow.some((old) => old.at === one.at && old.name === one.name))
   const heldMost = Math.max(0, ...held.map((one) => one.ms))
   console.log(`\n${where}, ${name}${gone > 2000 ? ` (${Math.round(gone / 1000)} s away)` : ''}  [${load()}]`)
-  console.log(`  the window: worst frame ${seenThere.worst} ms, ${seenThere.over50} of ${seenThere.frames} frames over 50 ms; ${seenThere.commits} React commits, ${seenThere.drawn} components drawn again (${seenThere.onPage} of them drawing on the page)${seenThere.names.length ? ` (${seenThere.names.join(', ')})` : ''}; ${seenThere.changes} changes on the page${seenThere.where.length ? `: ${seenThere.where.join(', ')}` : ''}`)
+  console.log(`  the window: worst frame ${seenThere.worst} ms, ${seenThere.over50} of ${seenThere.frames} frames over 50 ms; ${seenThere.commits} React commits, ${seenThere.drawn} components drawn again (${seenThere.onPage} of them drawing on the page)${seenThere.names.length ? ` (${seenThere.names.join(', ')}; begun at ${seenThere.from.join(', ')})` : ''}; ${seenThere.changes} changes on the page${seenThere.where.length ? `: ${seenThere.where.join(', ')}` : ''}`)
   if (seenThere.long.length) console.log(`  long frames: ${seenThere.long.join(' | ')}`)
   console.log(`  main: asked ${ran.reduce((sum, row) => sum + row.calls, 0)} times, ${ran.reduce((sum, row) => sum + row.ms, 0)} ms in all, held its thread ${heldMost} ms at most; event loop worst ${after.delay.worst} ms`)
   console.log(`    ${ran.slice(0, 10).map((row) => `${row.name} x${row.calls} ${row.ms} ms`).join(' · ') || 'nothing'}`)
