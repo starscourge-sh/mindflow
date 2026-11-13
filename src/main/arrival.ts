@@ -2,7 +2,8 @@
  * The welcome's arrival out of the desktop (welcome.tsx, welcome-mist.tsx): the main window is see-through, the mist
  * comes in over the desktop's own picture, the title comes out of the mist, and only then does the mist draw in to
  * the window. A window is see-through or not from the moment it is made, so this is asked as the main window is
- * made, and again each time the welcome is about to arrive.
+ * made, and again each time the welcome is about to arrive: shown again from a window not made see-through, the
+ * window is made again in its place for the showing (main: remakeHome), with the old one's tabs and places.
  *
  * In every case below the plain thing is done instead: the window simply there, the welcome arriving inside it.
  */

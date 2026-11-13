@@ -17,7 +17,7 @@ import { shift, spring, still, still as calm } from '@/lib/motion'
 import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
-import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
+import { NO_SETUP, REMADE, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
 import { ImportMap, sourceFrom } from './welcome-import'
 import { FIELD, answered, applySetup, Payoff, YouPage } from './welcome-you'
 import { enterSandbox, SANDBOX, sandboxState, type Carry } from '@/lib/sandbox'
@@ -203,7 +203,8 @@ function useNameEgg(root: React.RefObject<HTMLElement | null>, shown: boolean): 
   }, [root, shown])
 }
 
-export function Welcome(): React.JSX.Element | null {
+/** `handOver`: the window's tabs and panes as they are now, each page's scroll in them, for a window made in its place (home.tsx). */
+export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.Element | null {
   const [at, setAt] = useState(-1)
   // Whether the page reads light (dark words): its gold is chosen by what is on screen, not by the theme's dark class.
   // Read only while the welcome is open: it is mounted in Home always, and reading the words' colour forces a style pass.
@@ -335,6 +336,19 @@ export function Welcome(): React.JSX.Element | null {
   }
 
   const open = (again: boolean): void => {
+    // Out of the desktop when this window was made for it and nothing says otherwise (main: arrivesClear): the page
+    // paints nothing and the mist comes in over the desktop. Otherwise inside the window, as it always has.
+    const how = still() ? 'plain' : window.api.arrive(again)
+    // Played again from a window not made see-through: one is made in its place for the showing (main: remakeHome),
+    // and plays it. This one keeps what is being typed (a field left keeps its words, as on a click away), saves its
+    // words and its notes' places the app's own way before a window goes (the editors and lib/note-place.ts hear
+    // 'haligtree:flush'), hands over its tabs and panes, and is put away.
+    if (how === 'again') {
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+      window.dispatchEvent(new Event('haligtree:flush'))
+      return window.api.remake(handOver?.() ?? null)
+    }
+    const clear = how === 'clear'
     // A story of its own for each run of the welcome (welcome-stories.ts), kept until it opens again, so Back and Next show the same one.
     pickStory()
     void Promise.all([window.api.captures.list(), onboarding.state()]).then(([list, now]) => {
@@ -356,9 +370,6 @@ export function Welcome(): React.JSX.Element | null {
     // Opened again over a page still up: that page's way on (a part still to come) must not carry over to the opening.
     reel.current = { done: true, settle: () => undefined }
     setAt(WHY)
-    // Out of the desktop when this window was made for it and nothing says otherwise (main: arrivesClear): the page
-    // paints nothing and the mist comes in over the desktop. Otherwise inside the window, as it always has.
-    const clear = !still() && window.api.arrive()
     setFromDesk(clear)
     setDeskLit(false)
     if (clear) (document.documentElement.setAttribute('data-see-through', ''), setDesk('over'))
@@ -386,12 +397,16 @@ export function Welcome(): React.JSX.Element | null {
   useEffect(() => void (at < 0 && desk !== 'off' && land()), [at, desk]) // eslint-disable-line react-hooks/exhaustive-deps
   useCarriedWelcome()
   useEffect(() => {
-    // No welcome to open after all, in a window that started see-through for one (main.tsx): the page paints itself.
-    void onboarding.state().then((now) => (now.firstRun ? open(false) : land()))
+    // Made again for the welcome played again (lib/onboarding.ts REMADE): it plays as the page comes up. No welcome to
+    // open after all, in a window that started see-through for one (main.tsx): the page paints itself. Once a page: a
+    // first mount undone at once (React's StrictMode, in a dev build) leaves it to the second, so the chord plays once.
+    let gone = false
+    void onboarding.state().then((now) => gone || (now.firstRun ? open(false) : REMADE ? open(true) : land()))
     const again = (): void => open(true)
     window.addEventListener('haligtree:welcome', again)
     window.addEventListener('haligtree:tour', again)
     return () => {
+      gone = true
       window.removeEventListener('haligtree:welcome', again)
       window.removeEventListener('haligtree:tour', again)
     }

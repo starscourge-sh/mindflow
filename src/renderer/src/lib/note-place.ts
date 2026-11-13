@@ -311,6 +311,8 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       if (heights) keepHeights(id, heights)
     }
     window.addEventListener('pagehide', save)
+    // Asked before the note's window goes or another takes it up (the welcome played again, main: remakeHome): its place goes first, as its words do.
+    window.addEventListener('haligtree:flush', save)
     return () => {
       save()
       if (lettingGo.get(editor) === stop) lettingGo.delete(editor)
@@ -321,6 +323,7 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
       window.removeEventListener('pointerdown', stop, true)
       window.removeEventListener('keydown', stop, true)
       window.removeEventListener('pagehide', save)
+      window.removeEventListener('haligtree:flush', save)
       editor.off('selectionUpdate', onSelect)
     }
     }

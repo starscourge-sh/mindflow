@@ -78,6 +78,12 @@ export function useOnboarding(): Onboarding | null {
 export const playWelcome = (): void => void window.dispatchEvent(new CustomEvent('haligtree:welcome'))
 
 /**
+ * This page is the main window made again in the old one's place for the welcome played again (main: remakeHome): it
+ * plays the welcome as it comes up, out of the desktop, over the tabs and panes the old one handed over. Not on a reload.
+ */
+export const REMADE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('again') && (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type !== 'reload'
+
+/**
  * The welcome, to try without touching your book: played in the sandbox,
  * whose notes are someone else's. From your own book the sandbox opens first
  * and plays it on arrival (welcome.tsx, useCarriedWelcome).

@@ -747,8 +747,9 @@ function setRoom(win: BrowserWindow, room: Room): void {
 function load(win: BrowserWindow, query = ''): void {
   // The sandbox says so in every window's address, the one thing a page knows before it runs.
   if (SANDBOX) query = `${query || '?'}${query ? '&' : ''}sandbox=1`
-  // Just restarted into (or out of) the sandbox: the main window finishes the moment the last run began.
-  if (process.argv.includes('--show-home') && query.includes('view=home')) query += `&arrived=1&bars=${barsHere()}`
+  // Just restarted into (or out of) the sandbox: the main window finishes the moment the last run began. (Not one made
+  // again later in the run for the welcome, remakeHome: that moment is long over.)
+  if (process.argv.includes('--show-home') && query.includes('view=home') && !query.includes('again=1')) query += `&arrived=1&bars=${barsHere()}`
   const page = pageFor(query)
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(`${process.env['ELECTRON_RENDERER_URL'].replace(/\/$/, '')}/${page}${query}`)
@@ -2569,6 +2570,39 @@ function landClear(win: BrowserWindow, forced = false): void {
 ;(globalThis as { haligtreeArrival?: () => { made: boolean; clear: boolean } }).haligtreeArrival = () => ({ made: homeClear, clear: !!clearUntil })
 
 /**
+ * “Show the welcome again” from a window not made see-through (every run but a first one): whether it may be made again
+ * for the showing (remakeHome), so the welcome arrives out of the desktop as a first run's does. Every case in which a
+ * first run's arrives the plain way does so here too, a test run among them unless it asks (HALIGTREE_QA_ARRIVAL).
+ */
+function arrivesRemade(): boolean {
+  if (!home || home.isDestroyed() || homeClear) return false
+  return !plainArrival({ mac: process.platform === 'darwin', welcome: true, test: !!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_ARRIVAL, still: stillness(), safe: gate().blackout, solid: nativeTheme.prefersReducedTransparency, secondDisplay: onSecondDisplay(home.getBounds()), fullScreen: home.isFullScreen() })
+}
+/** The tabs and panes of the window put away, each page's scroll in them, for the page made in its place to take up once (home.tsx). */
+let handedOver: unknown = null
+/**
+ * The main window put away and a see-through one made in its place for the welcome played again (arrivesRemade). Its page
+ * has saved its words and its notes' places and handed over its tabs (welcome.tsx). The old window goes at once, as ⌘W
+ * puts it away, and the desktop is left as it is; the new one is shown once its page has drawn, with nothing drawn on it,
+ * over the work area the welcome takes, and the mist comes in over the desktop. When the welcome is over it goes back to
+ * where the old one stood (whenWelcoming, windowBeforeWelcome).
+ */
+function remakeHome(split: unknown): void {
+  const old = home
+  if (!old || old.isDestroyed()) return
+  handedOver = split
+  // Where it stood, kept now: the window made in its place starts out over the work area already.
+  if (!windowBeforeWelcome()) keepWindowBeforeWelcome({ bounds: old.getNormalBounds(), maximized: old.isMaximized() })
+  const made = makeHome(screen.getDisplayMatching(old.getBounds()).workArea)
+  old.close()
+  whenHomeDrawn(() => {
+    if (made.isDestroyed() || made !== home) return
+    standClear(made)
+    made.show()
+  })
+}
+
+/**
  * Whether a window covers its screen's work area, read from where it is (or
  * is gliding to), never from `isMaximized`: a Mac's maximize is a zoom that a
  * tiling manager or a second screen can stop short while it still says yes.
@@ -2608,16 +2642,19 @@ function putHomeAway(): void {
  * (the red dot, ⌘W) hides it, as Todoist's does: Haligtree keeps running in the
  * Dock and the menu bar, and only quitting closes it for good.
  */
-function makeHome(): BrowserWindow {
-  if (home) return home
+function makeHome(again?: Electron.Rectangle): BrowserWindow {
+  if (home && !again) return home
 
-  // Large to start, filling the screen's usable part, then where you leave it.
-  const place = homePlace()
+  // Large to start, filling the screen's usable part, then where you leave it. Made again for the welcome played again
+  // (`again`, remakeHome): over the work area the welcome takes, see-through, and nothing of it known yet.
+  const place = again ?? homePlace()
+  if (again) homePainted = homeDrawn = homeAsked = false
   // See-through for this run when the welcome is to arrive out of the desktop (arrival.ts): a window is see-through
   // or not from the moment it is made. Otherwise made as it always was, and the welcome arrives inside it.
-  homeClear = !plainArrival({
+  // A test asks for it with HALIGTREE_QA_ARRIVAL=1; `again` asks only for the replay's (qa/welcome-replay-arrival.mjs).
+  homeClear = !!again || !plainArrival({
     mac: process.platform === 'darwin',
-    welcome: firstRun() || !!process.env.HALIGTREE_QA_ARRIVAL,
+    welcome: firstRun() || process.env.HALIGTREE_QA_ARRIVAL === '1',
     test: !!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_ARRIVAL,
     still: stillness(),
     safe: gate().blackout,
@@ -2625,7 +2662,7 @@ function makeHome(): BrowserWindow {
     secondDisplay: onSecondDisplay(place),
     fullScreen: false
   })
-  home = new BrowserWindow({
+  const made = (home = new BrowserWindow({
     ...place,
     show: false,
     title: APP_NAME,
@@ -2636,7 +2673,7 @@ function makeHome(): BrowserWindow {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 20, y: 20 },
     webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false }
-  })
+  }))
   // Small enough to sit in a corner, not so small its pages fold up.
   home.setMinimumSize(560, 400)
   // Swipe back (swipe-back.tsx): the page hears the wheel but never the fingers. The Mac's scroll event says when
@@ -2651,7 +2688,8 @@ function makeHome(): BrowserWindow {
   home.setBounds(place)
   home.on('focus', homeCameForward)
   home.on('close', (event) => {
-    if (quitting) return
+    // No longer the main window (one was made in its place, remakeHome): it goes for good, as on quitting.
+    if (quitting || made !== home) return
     event.preventDefault()
     // Mid-welcome, ⌘W or the red dot would leave it half done, so it stays
     // until it is finished or skipped.
@@ -2659,6 +2697,7 @@ function makeHome(): BrowserWindow {
     putHomeAway()
   })
   home.on('closed', () => {
+    if (made !== home) return
     home = null
     homePainted = false
     homeDrawn = false
@@ -2670,10 +2709,11 @@ function makeHome(): BrowserWindow {
   // The fill icon follows the window, however it was filled or brought back:
   // the green button, a drag, a tiling manager. Not while it glides.
   for (const change of ['maximize', 'unmaximize', 'resized', 'moved', 'enter-full-screen', 'leave-full-screen'] as const)
-    home.on(change as 'resized', () => void (home && pending?.win !== home && (tellFilled(home), keepHomePlace(home))))
+    home.on(change as 'resized', () => void (home === made && pending?.win !== home && (tellFilled(home), keepHomePlace(home))))
   guard(home)
-  // A first run's page is told it starts clear, the one thing it must know before it paints (main.tsx).
-  load(home, homeClear && firstRun() ? '?view=home&clear=1' : '?view=home')
+  // A first run's page is told it starts clear, the one thing it must know before it paints (main.tsx). Made again for
+  // the welcome, it is told to play it, and to take up the tabs handed over (welcome.tsx, home.tsx).
+  load(home, again ? '?view=home&clear=1&again=1' : homeClear && firstRun() ? '?view=home&clear=1' : '?view=home')
   // A freeze in a development run says where it was stuck (src/main/freeze-catch.ts).
   catchFreezes(home, 'main window')
   return home
@@ -4034,6 +4074,9 @@ if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
     const virtual = new WeakMap<BrowserWindow, Electron.Rectangle>()
     const getBounds = proto.getBounds
     proto.getBounds = function (this: BrowserWindow) { return { ...(virtual.get(this) ?? getBounds.call(this)) } }
+    // Where a window stands when not filling its screen, as the app keeps it before the welcome (whenWelcoming, remakeHome):
+    // its own place too, never where it is parked (a test window is never really maximised).
+    proto.getNormalBounds = function (this: BrowserWindow) { return this.getBounds() }
     proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { asked(this, next); virtual.set(this, { ...this.getBounds(), ...next }); setBounds.call(this, next); away(this) }
     // Parked already: only the place it keeps as its own moves.
     proto.setPosition = function (this: BrowserWindow, x: number, y: number) { virtual.set(this, { ...this.getBounds(), x, y }) }
@@ -5500,10 +5543,18 @@ app.whenReady().then(() => {
   ipcMain.on('welcome:gather', (event) => void (home && event.sender === home.webContents && gatherIn(home)))
   // The welcome about to arrive: whether it may come out of the desktop (answered at once, the page waits on it), the
   // window made ready if so. And the mist drawn in: the window is a window again.
-  ipcMain.on('welcome:arrive', (event) => {
-    const clear = !!home && event.sender === home.webContents && arrivesClear()
+  // Played again (`again`) from a window not made see-through, the page is told to hand over for one made in its place.
+  ipcMain.on('welcome:arrive', (event, again: unknown) => {
+    const mine = !!home && event.sender === home.webContents
+    const clear = mine && arrivesClear()
     if (clear) standClear(home!)
-    event.returnValue = clear
+    event.returnValue = clear ? 'clear' : mine && again === true && arrivesRemade() ? 'again' : 'plain'
+  })
+  // Handed over (its words saved, its tabs with it): the window is made again for the welcome. And taken up by the new page, once.
+  ipcMain.on('welcome:remake', (event, split: unknown) => void (home && event.sender === home.webContents && arrivesRemade() && remakeHome(split)))
+  ipcMain.on('welcome:handed-over', (event) => {
+    event.returnValue = home && event.sender === home.webContents ? handedOver : null
+    handedOver = null
   })
   ipcMain.on('welcome:landed', (event) => void (home && event.sender === home.webContents && landClear(home)))
   ipcMain.on('prompt:hide', () => void (prompt?.isVisible() && hideWindow(prompt)))

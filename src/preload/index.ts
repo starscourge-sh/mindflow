@@ -686,8 +686,19 @@ const api = {
   hidePrompt: (): void => ipcRenderer.send('prompt:hide'),
   /** A first run's window, spread over the screen for the title card, gathers in to its own size. */
   gather: (): void => ipcRenderer.send('welcome:gather'),
-  /** The welcome about to arrive: whether it may come out of the desktop, this window see-through and standing clear (main: arrivesClear). Answered at once, asked once a welcome. */
-  arrive: (): boolean => ipcRenderer.sendSync('welcome:arrive') === true,
+  /**
+   * The welcome about to arrive: 'clear' out of the desktop, this window see-through and standing clear (main: arrivesClear);
+   * 'again' when, played `again` from a window not made see-through, one is to be made in its place (remake); 'plain' inside
+   * the window. Answered at once, asked once a welcome.
+   */
+  arrive: (again = false): 'clear' | 'again' | 'plain' => {
+    const how = ipcRenderer.sendSync('welcome:arrive', again)
+    return how === 'clear' || how === 'again' ? how : 'plain'
+  },
+  /** This window put away and a see-through one made in its place for the welcome (main: remakeHome), these tabs and panes handed to it. */
+  remake: (split: unknown): void => ipcRenderer.send('welcome:remake', split),
+  /** In the window made in its place: the tabs and panes handed over, once (null after, and in any other window). */
+  handedOver: (): unknown => ipcRenderer.sendSync('welcome:handed-over'),
   /** The welcome's mist has drawn in to the window (or it arrived the plain way after all): the window has its shadow and buttons again. */
   landed: (): void => ipcRenderer.send('welcome:landed'),
   /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
