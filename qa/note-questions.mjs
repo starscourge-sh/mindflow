@@ -54,6 +54,13 @@ const panel = () => h.evaluate(() => {
 })
 const flat = (words) => words.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
 const cards = async () => (await v('cards:all')).length
+// Details out or put away by its button, from whichever it is now: its state is the book's own, kept between runs.
+const setDetails = async (on) => {
+  const button = '[data-note-head] button[aria-label="Details"]'
+  const now = await h.evaluate((sel) => document.querySelector(sel)?.getAttribute('aria-pressed') === 'true', button)
+  if (now !== on) await h.click(button).catch((error) => console.log('Details button:', String(error).slice(0, 160)))
+  await wait(400)
+}
 
 try {
   await v('settings:set', { hintRate: 0 })
@@ -87,6 +94,39 @@ try {
   check(`${book}, ${level}: the list showed at once, then the drafts (frames)`, frames.length > 0 && frames.some((one) => one !== null), JSON.stringify(frames))
   if (shots) for (const look of ['light', 'dark']) { await c.look(look); await wait(350); await h.screenshot({ path: join(shots, `questions-${level}-${look}.png`) }) }
   await c.look('light')
+  // The hand on everything that clicks, the text cursor in the fields: every control in the list, as computed.
+  const hands = await h.evaluate(() => [...document.querySelectorAll('[data-note-questions] button, [data-note-questions] textarea')].map((one) => ({ what: one.tagName === 'TEXTAREA' ? `field ${one.getAttribute('aria-label')}` : `${one.getAttribute('aria-label') ?? one.textContent?.trim().slice(0, 24)}${one.disabled ? ' (disabled)' : ''}`, cursor: getComputedStyle(one).cursor, field: one.tagName === 'TEXTAREA', disabled: !!one.disabled })))
+  check(`${book}, ${level}: every button in the list shows the hand, every field the text cursor`, hands.length > 0 && hands.every((one) => (one.field ? one.cursor === 'text' || one.cursor === 'auto' : one.disabled || one.cursor === 'pointer')), JSON.stringify(hands))
+  // Paper and Satin: the shape style (Paper squares every corner) and Review's finish (its own surfaces only).
+  if (shots) {
+    for (const [style, finish] of [['paper', 'satin'], ['paper', 'paper'], ['soft', 'paper']]) {
+      await h.evaluate(([style, finish]) => { if (style === 'soft') delete document.documentElement.dataset.style; else document.documentElement.dataset.style = style; document.documentElement.dataset.reviewFinish = finish }, [style, finish])
+      for (const look of ['light', 'dark']) { await c.look(look); await wait(350); await h.screenshot({ path: join(shots, `questions-${level}-style-${style}-finish-${finish}-${look}.png`) }) }
+    }
+    await h.evaluate(() => { delete document.documentElement.dataset.style; document.documentElement.dataset.reviewFinish = 'satin' })
+    await c.look('light')
+  }
+  check(`${book}, ${level}: in Paper the list's cards are square`, await h.evaluate(async () => {
+    document.documentElement.dataset.style = 'paper'
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+    const square = [...document.querySelectorAll('[data-note-questions] .chapter-card')].every((one) => getComputedStyle(one).borderTopLeftRadius === '0px')
+    delete document.documentElement.dataset.style
+    return square
+  }))
+  // Beside the list of notes: the note's text keeps the width it has with Details out (the questions take the Details' room).
+  const textWidth = () => h.evaluate(() => Math.round([...document.querySelectorAll('.tiptap.ProseMirror')][0]?.getBoundingClientRect().width ?? 0))
+  const withQuestions = await textWidth()
+  await h.locator('[data-note-questions] h3').click().catch(() => {})
+  await h.keyboard.press('Escape')
+  await wait(400)
+  const alone = await textWidth()
+  await setDetails(true)
+  await wait(500)
+  const withDetails = await textWidth()
+  await setDetails(false)
+  await wait(400)
+  console.log(`note text width beside the list: alone ${alone}px, with Details ${withDetails}px, with the questions ${withQuestions}px`)
+  check(`${book}, ${level}: with the questions out the note's text is as wide as with Details out (within 2px)`, withQuestions > 0 && Math.abs(withQuestions - withDetails) <= 2, `alone ${alone}, Details ${withDetails}, questions ${withQuestions}`)
   // The narrowest window (560 by 400): asked for there, the list opens in sight (under the note), fits, and nothing scrolls sideways.
   await c.size(560, 400)
   await wait(600)
@@ -99,8 +139,28 @@ try {
   check(`${book}, ${level}: at 560 by 400 the list opens in sight, fits, nothing scrolls sideways`, !!narrow.list && narrow.wide <= narrow.inner && narrow.list.right <= narrow.inner && narrow.list.top < narrow.high - 40 && narrow.list.bottom > 40, JSON.stringify(narrow))
   if (shots) for (const look of ['light', 'dark']) { await c.look(look); await wait(350); await h.screenshot({ path: join(shots, `questions-560-${level}-${look}.png`) }) }
   await c.look('light')
+  // Details there too: under the whole note in a window this narrow, and asked for by its button, it comes into sight.
+  await h.locator('[data-note-questions] h3').click().catch(() => {})
+  await h.keyboard.press('Escape')
+  await wait(300)
+  await setDetails(false)
+  await h.evaluate(() => document.querySelector('.note-pane')?.scrollTo({ top: 0 }))
+  await setDetails(true)
+  await wait(600)
+  const details = await h.evaluate(() => ({ high: innerHeight, aside: document.querySelector('aside.mf-details')?.getBoundingClientRect().toJSON() }))
+  check(`${book}, ${level}: at 560 by 400 Details, asked for by its button, comes into sight under the note`, !!details.aside && details.aside.top < details.high - 40 && details.aside.bottom > 40, JSON.stringify(details))
+  if (shots) for (const look of ['light', 'dark']) { await c.look(look); await wait(350); await h.screenshot({ path: join(shots, `details-560-${level}-${look}.png`) }) }
+  await c.look('light')
+  await setDetails(false)
+  await wait(300)
   await c.size(1300, 900)
   await wait(600)
+  // The list again, for keeping and dropping.
+  await h.click('[data-note-head] button[aria-label="More"]').catch(() => {})
+  await wait(400)
+  if ((await row.count()) === 1) await row.click()
+  else await h.keyboard.press('Escape')
+  await waitFor(async () => /\d/.test((await panel())?.state ?? ''))
 
   // 2. Change the first, keep it: one card, with its question as changed, from this note and line.
   const KEEP_LINES = ['Keep made one study card, with the question as changed', 'the card says where it came from: this note, at its line', '⌘Z takes the kept card back, and its draft is open to keep again', 'Drop makes nothing and offers it back', 'Esc puts the list away']
@@ -160,6 +220,8 @@ try {
       const n = node.textContent.indexOf('mitochondria')
       if (n < 0) continue
       const range = document.createRange()
+      // In sight first: the window may be scrolled from an earlier step.
+      node.parentElement?.scrollIntoView({ block: 'center' })
       range.setStart(node, n + 2)
       range.setEnd(node, n + 3)
       const r = range.getBoundingClientRect()

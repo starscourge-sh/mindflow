@@ -542,14 +542,29 @@ export function Props({ children, className, fold = false }: { children: ReactNo
   // Beside an open note (`fold`), put away until asked for: the note opens as
   // a page to read. The details button over the note brings them out.
   const shown = useDetailsShown()
-  // Study questions from the note, while they are out, take the Details' place, as the reader's chapter cards do.
-  const questions = useQuestionsHere()
+  // Study questions from the note, while they are out, take the Details' place, as the reader's chapter cards do
+  // (the number of the asking, 0 when there are none).
+  const asking = useQuestionsHere()
+  const questions = asking > 0
+  // Asked for (Details pressed, questions made), the column comes into sight. Beside the note it already is; in a
+  // narrow window it stands under the whole note, and the note's own scroller brings it up. Marked as just shown, so
+  // a menu that asked for it gives the focus to it as it closes (lib/quiet-focus.ts), not back to its button above.
+  const box = useRef<HTMLElement>(null)
+  const open = !fold || shown || questions
+  const was = useRef(open)
+  useLayoutEffect(() => {
+    if (open && (!was.current || asking) && box.current) {
+      box.current.scrollIntoView({ block: 'nearest' })
+      box.current.dataset.revealed = ''
+    }
+    was.current = open
+  }, [open, asking])
   if (fold && !shown && !questions) return null
   // One size for every row, whatever window it sits in: the prompt's larger
   // base made some rows grow and others not. A caller's classes are merged
   // over these, so the prompt's drawer can drop the width and the rule.
   // Questions take the Details' own width: wider, they squeezed the note to a letter a line beside a list.
-  const aside = <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className)}>{fold && questions ? <NoteQuestions /> : children}</aside>
+  const aside = <aside ref={box} tabIndex={-1} data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground outline-none @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className)}>{fold && questions ? <NoteQuestions /> : children}</aside>
   return fold ? <FoldIslands.Provider value>{aside}</FoldIslands.Provider> : aside
 }
 /** Where reading a list starts: the note open now, else the keyboard cursor, else the top. */

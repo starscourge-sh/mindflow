@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import type { Editor } from '@tiptap/core'
 import { chime } from '@/lib/sound'
 import { call, haligtree } from '@/lib/haligtree'
@@ -109,10 +109,10 @@ export function makeQuestion(editor: Editor, from: number, to: number): void {
   void ask(pane, note, true, one ? [one] : [])
 }
 
-/** Whether a pane's note has questions out, for Props to show them in the Details' place. */
-export function useQuestionsHere(): boolean {
+/** Whether a pane's note has questions out, for Props to show them in the Details' place: the asking's number, 0 for none. */
+export function useQuestionsHere(): number {
   const pane = usePane() ?? ''
-  return useSyncExternalStore((one) => (told.add(one), () => void told.delete(one)), () => asked.has(pane))
+  return useSyncExternalStore((one) => (told.add(one), () => void told.delete(one)), () => asked.get(pane)?.turn ?? 0)
 }
 
 /** The line a draft came from, found in the note on screen and picked there, so you see it in its place. */
@@ -142,12 +142,6 @@ export function NoteQuestions(): React.JSX.Element | null {
   const pane = usePane() ?? ''
   const here = useSyncExternalStore((one) => (told.add(one), () => void told.delete(one)), () => asked.get(pane) ?? null)
   const close = (): void => (chime('fold'), put(pane, null))
-  // Asked for, it is brought into sight at once: under the note in a narrow window, it would otherwise open out of view.
-  const box = useRef<HTMLDivElement>(null)
-  // In braces: Chromium's scrollIntoView hands back a promise, and an effect must return nothing (or React calls it on the way out).
-  useLayoutEffect(() => {
-    box.current?.scrollIntoView({ block: 'nearest' })
-  }, [here?.turn])
   // Esc puts the list away, as the reader's does, before anything under it hears it; a menu over it and the note's
   // own editor (Vim's Esc, a slash menu) keep theirs.
   useEffect(() => {
@@ -206,7 +200,7 @@ export function NoteQuestions(): React.JSX.Element | null {
   }
   return (
     // Every Mac drafts them; Apple Intelligence only phrases them where the Mac has it, and the list says which.
-    <div ref={box} data-note-questions={drafts ? drafts.length : 'reading'} data-questions-by={by} data-mac-needs="every" className="flex min-h-0 flex-col gap-3">
+    <div data-note-questions={drafts ? drafts.length : 'reading'} data-questions-by={by} data-mac-needs="every" className="flex min-h-0 flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <h3 className="chapter-cards-title text-foreground">{drafts?.length ? (picked ? 'A question from these words' : `${plural(drafts.length, 'question')} from this note`) : picked ? 'A question from these words' : 'Study questions'}</h3>
         {/* Its own fold sound is the close's one sound. */}
