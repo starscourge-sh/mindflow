@@ -46,6 +46,7 @@ import { DatePicker } from './date-picker'
 import { keyFor } from '@/lib/keys'
 import { Check, Link as Link2, ListTodo as ListChecks, Tag as Tags, Type, X } from '@/components/ui/icons'
 import { quoted } from '../../../../main/clip'
+import { makeQuestions } from './note-questions'
 
 // --- a note's first picture, small
 
@@ -700,6 +701,8 @@ export function NoteHeader({ left, place, back, type = 'capture', edited, captur
                 {onPin && <DropdownMenuItem onSelect={onPin}>{pinned ? 'Unpin' : 'Pin to the sidebar'}</DropdownMenuItem>}
                 {copyKey && <DropdownMenuItem onSelect={() => copy(copyKey, 'Copied a link: paste it into any note')}>Copy link</DropdownMenuItem>}
                 <DropdownMenuItem onSelect={open}>Version history</DropdownMenuItem>
+                {/* Drafted from the note's own words, kept or dropped where its Details open (note-questions.tsx); ⌘K has it too. */}
+                {type === 'capture' && <DropdownMenuItem data-make-questions onSelect={() => makeQuestions(inPane ?? '')}>Make study questions</DropdownMenuItem>}
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel data-view-group>View</DropdownMenuLabel>
                 {[

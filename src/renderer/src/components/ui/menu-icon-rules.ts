@@ -272,7 +272,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^stop/i, CircleOff],
   // Learning and thinking.
   [/^learn spelling/i, BookPlus],
-  [/question|clue|^test me|^ask/i, MessageCircleQuestion],
+  // "Make them": the offer line's study questions (note-offers.tsx), drawn as the questions are.
+  [/question|clue|^test me|^ask|^make them$/i, MessageCircleQuestion],
   [/^study|^review|tested/i, GraduationCap],
   [/thought|^comment/i, MessageSquare],
   [/idea|\bgems?\b/i, Lightbulb],

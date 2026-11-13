@@ -66,6 +66,7 @@ import { quoted } from '../../../../main/clip'
 import { ArrowDown, ArrowUp } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { formatBarShown } from '@/components/selection/selection-menu'
+import { NoteQuestions, useQuestionsHere } from './note-questions'
 
 /**
  * True from a press in the words that picks some of them until the pick is let
@@ -541,11 +542,14 @@ export function Props({ children, className, fold = false }: { children: ReactNo
   // Beside an open note (`fold`), put away until asked for: the note opens as
   // a page to read. The details button over the note brings them out.
   const shown = useDetailsShown()
-  if (fold && !shown) return null
+  // Study questions from the note, while they are out, take the Details' place, as the reader's chapter cards do.
+  const questions = useQuestionsHere()
+  if (fold && !shown && !questions) return null
   // One size for every row, whatever window it sits in: the prompt's larger
   // base made some rows grow and others not. A caller's classes are merged
   // over these, so the prompt's drawer can drop the width and the rule.
-  const aside = <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className)}>{children}</aside>
+  // Questions take the width of the reader's chapter list (20rem), so a line's link and the foot stay on one line.
+  const aside = <aside data-chrome className={cn('flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l', fold && 'mf-details', className, fold && questions && '@[40rem]/page:w-80')}>{fold && questions ? <NoteQuestions /> : children}</aside>
   return fold ? <FoldIslands.Provider value>{aside}</FoldIslands.Provider> : aside
 }
 /** Where reading a list starts: the note open now, else the keyboard cursor, else the top. */

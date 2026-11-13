@@ -2,6 +2,7 @@ import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child
 import { app, ipcMain, shell } from 'electron'
 import helper from '../../resources/understand?asset&asarUnpack'
 import { meets, standIn, type Caps } from './needs'
+import { answerInNote, flat, givesAway, type QuestionDraft } from './note-questions'
 
 /**
  * What this Mac can do, and the small helper (native/understand.swift) that
@@ -195,6 +196,7 @@ export function registerStudyAi(on: () => boolean): void {
     ask('hint', { question: String(question ?? ''), answer: String(answer ?? ''), level: Number(level) >= 2 ? 2 : 1 }))
   ipcMain.handle('haligtree:ai:cards', (_event, title: unknown, text: unknown, count: unknown) =>
     ask('cards', { title: String(title ?? ''), text: String(text ?? ''), count: Math.min(10, Math.max(1, Number(count) || 5)) }))
+  ipcMain.handle('haligtree:ai:phrase', (_event, drafts: unknown) => phraseDrafts(Array.isArray(drafts) ? drafts.slice(0, 5) : [], on))
   // A new group's first name, offered in its name field. Never an error: no answer simply leaves the name it has.
   ipcMain.handle('haligtree:ai:group-name', async (_event, titles: unknown): Promise<string | null> => {
     const have = await caps()
@@ -208,4 +210,48 @@ export function registerStudyAi(on: () => boolean): void {
     const answer = await Promise.race([said, new Promise<null>((done) => setTimeout(() => done(null), 5000))])
     return answer && !answer.error && typeof answer.text === 'string' ? answer.text : null
   })
+}
+
+/**
+ * Study questions drafted from a note (note-questions.ts), phrased better by
+ * Apple Intelligence on this Mac: each reworded question kept only if its
+ * answer still stands in the line it came from and the question does not say
+ * it; any other keeps the note's own draft. `none` on a Mac without it (or
+ * with it off in Settings), so nothing there speaks of a model.
+ * HALIGTREE_QA_CAPS=ai stands a model in (one of its answers made up, to show
+ * the check at work) unless HALIGTREE_QA_PHRASE=real asks this Mac's own.
+ */
+async function phraseDrafts(drafts: unknown[], on: () => boolean): Promise<{ drafts: QuestionDraft[]; phrased: number } | { error: string } | { none: true }> {
+  const given = drafts.filter((one): one is QuestionDraft => !!one && typeof one === 'object' && typeof (one as QuestionDraft).question === 'string' && typeof (one as QuestionDraft).answer === 'string' && typeof (one as QuestionDraft).from === 'string')
+  if (!meets(await caps(), 'ai') || !on()) return { none: true }
+  if (!given.length) return { drafts: [], phrased: 0 }
+  const stand = process.env.HALIGTREE_QA_CAPS === 'ai' && process.env.HALIGTREE_QA_PHRASE !== 'real'
+  const prompt = given.map((one, n) => `${n + 1}. Q: ${one.question} || A: ${one.answer} || FROM: ${one.from.slice(0, 400)}`).join('\n')
+  const said: Answer = stand
+    ? { text: given.map((one, n) => `${n + 1}. Q: ${one.question.replace(/\?$/, '')}, in a stand-in's words? || A: ${n === 0 ? 'an answer the note never gave' : one.answer}`).join('\n') }
+    : await Promise.race([
+      understand('write', {
+        instructions: 'You rewrite study flashcards a student drafted from their own note, so each question reads as a natural question they would answer from memory and asks for one thing. For example "What does your note say about “Spaced repetition”?" with the answer "Reviewing just before you forget makes each memory last longer" becomes "Why review just before you forget?". Keep "Fill the gap:" questions as they are, with their blank. Keep the same order and the same count. Each answer must use only words from its FROM line, and may be shorter, never longer. Never add a fact, a name or a number that is not in the FROM line, and never put the answer in the question. Start each question with a capital letter. Answer one line per card, in this form and nothing else: N. Q: the question || A: the answer',
+        prompt
+      }),
+      new Promise<Answer>((done) => setTimeout(() => done({ error: { code: 'busy', message: 'Apple Intelligence took too long' } }), 20_000))
+    ])
+  if (said.error || typeof said.text !== 'string') return { error: said.error?.message ?? 'Apple Intelligence gave no answer' }
+  const lines = new Map<number, { question: string; answer: string }>()
+  for (const line of said.text.split('\n')) {
+    const shape = /^\s*(\d+)[.)]\s*Q:\s*(.+?)\s*\|\|\s*A:\s*(.+?)\s*$/.exec(line)
+    if (shape) lines.set(Number(shape[1]) - 1, { question: shape[2].trim(), answer: shape[3].trim() })
+  }
+  let phrased = 0
+  const out = given.map((one, n) => {
+    const said = lines.get(n)
+    const better = said && { question: said.question.replace(/^\p{Ll}/u, (letter) => letter.toUpperCase()), answer: said.answer }
+    // Kept only if its answer is still the note's own words, from the line it came from, the question does not give it
+    // away, a gap keeps its blank, and it changed more than its capitals and stops: else the note's own draft stands.
+    if (!better || better.question.length > 240 || !answerInNote(better.answer, one.from) || givesAway(better.question, better.answer)) return one
+    if ((one.rule === 'gap') !== better.question.includes('_____') || (flat(better.question) === flat(one.question) && flat(better.answer) === flat(one.answer))) return one
+    phrased++
+    return { ...one, question: better.question, answer: better.answer }
+  })
+  return { drafts: out, phrased }
 }

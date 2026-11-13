@@ -13,6 +13,7 @@ import { captureWays, selectionWays } from '@/components/capture-list'
 import { picked } from '@/lib/tasks'
 import { dayKey, num } from '../../../main/dates'
 import { canSplit, frontPane, usePane } from '@/lib/split'
+import { makeQuestions, questionsFit } from '@/components/haligtree/note-questions'
 import { openApart } from '@/lib/apart'
 import { useMade, warm } from '@/lib/decoded'
 
@@ -190,6 +191,8 @@ export type OpenNote = { table: NoteTable; type: string; id: string; kind: strin
 // One for each pane of a split page ('' outside the panes): ⌘K acts on the front pane's.
 const opened = new Map<string, OpenNote>()
 const currentNote = (): OpenNote | null => opened.get(frontPane() ?? '') ?? (frontPane() ? null : (opened.get('') ?? null))
+/** The note open in a pane ('' outside the panes). */
+export const openNoteIn = (pane: string): OpenNote | null => opened.get(pane) ?? null
 /** Said by whichever view has a note open, for as long as it is open. */
 export function useOpenNote(note: OpenNote | null): void {
   const pane = usePane() ?? ''
@@ -324,6 +327,8 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
       ...(ways.some((way) => way.label === 'Move to the Bin') ? [] : [{ label: 'Move to the Bin', hint: 'This note', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) }]),
       { label: 'Open in a new window', hint: 'This note, in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openApart(note.type, note.id) },
       { label: 'Set a word aim', hint: 'For this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:aim')) },
+      // Drafted from the note's own words, kept or dropped beside it (note-questions.tsx).
+      ...(questionsFit() ? [{ label: 'Make study questions', hint: 'Three to five from this note, to keep or drop', cue: null, run: () => makeQuestions() }] : []),
       ...read,
       { label: 'Version history', hint: 'Of this note', cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:versions', { detail: note.id })) },
       { label: detailsShown(frontPane()) ? "Hide this note's details" : "Show this note's details", cue: null, run: () => showDetails(!detailsShown(frontPane()), frontPane()) },

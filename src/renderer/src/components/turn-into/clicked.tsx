@@ -43,6 +43,7 @@ import { openApart } from "@/lib/apart"
 import { chime } from "@/lib/sound"
 import { enqueue } from "@/lib/reading-queue"
 import { quoted } from '../../../../main/clip'
+import { makeQuestion, questionsFit } from "@/components/haligtree/note-questions"
 
 /**
  * What a right-click landed on, read once at the click: its own lines go at
@@ -390,6 +391,8 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
         chime("noted")
       },
     },
+    // One drafted question from these words, kept or dropped beside the note (note-questions.tsx); the note itself is not changed.
+    questionsFit(editor.view.dom.closest<HTMLElement>("[data-pane]")?.dataset.pane ?? "") && { label: "Make a question", hint: "A draft from these words, to keep or drop", data: "question", run: () => makeQuestion(editor, from, to) },
     editor.isEditable && editor.extensionManager.extensions.some((one) => one.name === "highlight") && { label: "Highlight", data: "highlight", run: () => void editor.chain().focus().setTextSelection({ from, to }).toggleHighlight().run() },
     { label: "Copy", data: "copy-words", run: () => (editor.chain().focus().setTextSelection({ from, to }).run(), document.execCommand("copy")) },
     editor.isEditable && { label: "Cut", data: "cut-words", run: () => (editor.chain().focus().setTextSelection({ from, to }).run(), document.execCommand("cut")) },
