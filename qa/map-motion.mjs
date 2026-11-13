@@ -13,7 +13,7 @@ const { h } = c
 // Where the drawing sits: the left edge and top of everything drawn, in screen pixels. Breathing moves dots a
 // pixel or two; a pan moves the lot by far more.
 const look = () => h.evaluate(() => {
-  const canvas = document.querySelector('canvas'); const { width, height } = canvas
+  const canvas = document.querySelector('[data-page=map] canvas[data-dots]'); const { width, height } = canvas
   const data = canvas.getContext('2d').getImageData(0, 0, width, height).data
   let left = width, top = height
   for (let y = 0; y < height; y += 3) for (let x = 0; x < width; x += 3) if (data[(y * width + x) * 4 + 3] > 200) { if (x < left) left = x; if (y < top) top = y }
@@ -21,7 +21,7 @@ const look = () => h.evaluate(() => {
 })
 const far = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
 const empty = () => h.evaluate(() => {
-  const canvas = document.querySelector('canvas'); const { width, height } = canvas
+  const canvas = document.querySelector('[data-page=map] canvas[data-dots]'); const { width, height } = canvas
   const data = canvas.getContext('2d').getImageData(0, 0, width, height).data
   const rect = canvas.getBoundingClientRect()
   for (let y = 40; y < height - 40; y += 8) for (let x = 40; x < width / 4; x += 8) if (data[(y * width + x) * 4 + 3] === 0) return [rect.left + x / devicePixelRatio, rect.top + y / devicePixelRatio]
@@ -74,7 +74,7 @@ try {
   })
   await h.reload(); await h.waitForTimeout(1500)
   await c.go('map')
-  const dots = () => h.evaluate(() => Number(document.querySelector('canvas')?.dataset.dots))
+  const dots = () => h.evaluate(() => Number(document.querySelector('[data-page=map] canvas[data-dots]')?.dataset.dots))
   for (let n = 0; n < 40 && (await dots()) !== 302; n++) await h.waitForTimeout(250)
   await h.waitForTimeout(3000)
   check('the map holds the 302 notes', (await dots()) === 302, await dots())
@@ -82,14 +82,14 @@ try {
   // ---- Names come and go gracefully: sampled every frame (about 16ms) while the map zooms.
   // `mapNames` gives each name drawn at rest and how strongly; a build without it names a dot fully or not at all.
   await h.evaluate(() => {
-    const canvas = document.querySelector('canvas')
+    const canvas = document.querySelector('[data-page=map] canvas[data-dots]')
     const read = () => canvas.mapNames?.() ?? Object.fromEntries((canvas.mapNamed?.() ?? []).map((id) => [id, 1]))
     const qa = (window.__names = { on: true, frames: [] })
     const step = (t) => { if (!qa.on) return; qa.frames.push({ t, names: read() }); requestAnimationFrame(step) }
     requestAnimationFrame(step)
   })
-  const box = await h.locator('canvas').boundingBox()
-  const zoom = (deltaY) => h.evaluate(([deltaY, x, y]) => document.querySelector('canvas').dispatchEvent(new WheelEvent('wheel', { deltaY, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })), [deltaY, box.x + box.width * 0.5, box.y + box.height * 0.5])
+  const box = await h.locator('[data-page=map] canvas[data-dots]').boundingBox()
+  const zoom = (deltaY) => h.evaluate(([deltaY, x, y]) => document.querySelector('[data-page=map] canvas[data-dots]').dispatchEvent(new WheelEvent('wheel', { deltaY, ctrlKey: true, clientX: x, clientY: y, bubbles: true, cancelable: true })), [deltaY, box.x + box.width * 0.5, box.y + box.height * 0.5])
   const take = () => h.evaluate(() => { const frames = window.__names.frames; window.__names.frames = []; return frames })
   // Every name's strength frame by frame: how many went fully on or off, how many of those passed through between.
   const study = (frames) => {
@@ -137,7 +137,7 @@ try {
   await c.go('map'); await h.waitForTimeout(1500)
   await h.click('[data-map-replay]')
   await h.evaluate(() => {
-    const canvas = document.querySelector('canvas')
+    const canvas = document.querySelector('[data-page=map] canvas[data-dots]')
     const qa = (window.__replay = { on: true, worst: 0, worstAt: '', frames: 0, born: new Map(), last: new Map(), lastT: 0 })
     const step = (t) => {
       if (!qa.on) return
@@ -181,7 +181,7 @@ try {
   await h.emulateMedia({ reducedMotion: 'reduce' })
   await c.go('map'); await h.waitForTimeout(1500)
   await h.evaluate(() => {
-    const canvas = document.querySelector('canvas')
+    const canvas = document.querySelector('[data-page=map] canvas[data-dots]')
     const read = () => canvas.mapNames?.() ?? Object.fromEntries((canvas.mapNamed?.() ?? []).map((id) => [id, 1]))
     const qa = (window.__names = { on: true, frames: [] })
     const step = (t) => { if (!qa.on) return; qa.frames.push({ t, names: read() }); requestAnimationFrame(step) }
@@ -194,7 +194,7 @@ try {
   check('with Reduce motion names still fade', calm.changed > 0 && !calm.snapped.length, `${calm.eased} of ${calm.changed} eased, ${calm.snapped.length} snapped`)
   await h.click('[data-map-replay]')
   const reduced = await h.evaluate(() => new Promise((resolve) => {
-    const canvas = document.querySelector('canvas')
+    const canvas = document.querySelector('[data-page=map] canvas[data-dots]')
     const first = new Map(), alphas = new Set(), end = performance.now() + 2500
     let moved = 0
     const step = () => {

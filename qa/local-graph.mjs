@@ -160,8 +160,8 @@ try {
   await openHub()
   await h.click('text=See on Map')
   await h.waitForTimeout(1500)
-  const onMap = await names('canvas:not([data-local-graph] canvas)')
-  check(await h.evaluate(() => !document.querySelector('[data-local-graph]') && !!document.querySelector('canvas')), 'Show on the Map opens the Map')
+  const onMap = await names('[data-page=map] canvas[data-dots]')
+  check(await h.evaluate(() => !document.querySelector('[data-local-graph]') && !!document.querySelector('[data-page=map] canvas[data-dots]')), 'Show on the Map opens the Map')
   check(onMap.length > 3, `the Map opens lit on the note (${onMap.length} names)`)
   await h.screenshot({ path: `${dir}/map-focused-dark.png` })
 
@@ -172,9 +172,9 @@ try {
     const samples = await h.evaluate(() => new Promise((done) => {
       const out = [], start = performance.now()
       const tick = () => {
-        // The Map's own canvas: a note page kept in the window still holds its Links canvas, already painted.
-        const canvas = document.querySelector('canvas:not([data-local-graph] canvas)')
-        if (!out.length) console.log('first canvas in the page:', document.querySelector('canvas')?.closest('[data-local-graph]') ? 'a note\'s Links map' : 'the Map')
+        // The Map's own canvas: a note page kept in the window still holds its Links canvas, already painted, and the
+        // Bin's paper waits in a three.js canvas of its own (fly-home.ts warmBin), which has no 2D picture to read.
+        const canvas = document.querySelector('[data-page=map] canvas[data-dots]')
         if (canvas && canvas.width) {
           const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data
           let sum = 0
@@ -201,7 +201,7 @@ try {
   for (const at of [0, 120, 260, 420, 800]) {
     await c.go('home')
     await send('view', 'map')
-    await h.waitForSelector('canvas')
+    await h.waitForSelector('[data-page=map] canvas[data-dots]')
     await h.waitForTimeout(at)
     await h.screenshot({ path: `${dir}/fade-${String(at).padStart(3, '0')}ms.png` })
   }
@@ -211,7 +211,7 @@ try {
   const off = await fadeIn('Motion off:')
   check(off.start > 0.9, `Motion off: everything at once (first frame ${Math.round(off.start * 100)}% of the end)`)
   const busy = await h.evaluate(() => new Promise((done) => {
-    const canvas = document.querySelector('canvas'); let draws = 0
+    const canvas = document.querySelector('[data-page=map] canvas[data-dots]'); let draws = 0
     const ctx = canvas.getContext('2d'), clear = ctx.clearRect.bind(ctx); ctx.clearRect = (...a) => (draws++, clear(...a))
     setTimeout(() => done(draws), 800)
   }))

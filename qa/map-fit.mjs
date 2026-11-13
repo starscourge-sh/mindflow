@@ -14,7 +14,7 @@ const { h } = c
 const wait = (ms) => h.waitForTimeout(ms)
 // The middle of everything drawn on the canvas, in screen pixels.
 const middle = () => h.evaluate(() => {
-  const canvas = document.querySelector('canvas'); const { width, height } = canvas
+  const canvas = document.querySelector('[data-page=map] canvas[data-dots]'); const { width, height } = canvas
   const data = canvas.getContext('2d').getImageData(0, 0, width, height).data
   let left = width, top = height, right = 0, bottom = 0, any = 0
   for (let y = 0; y < height; y += 3) for (let x = 0; x < width; x += 3) if (data[(y * width + x) * 4 + 3] > 200) { any++; left = Math.min(left, x); right = Math.max(right, x); top = Math.min(top, y); bottom = Math.max(bottom, y) }
@@ -22,7 +22,7 @@ const middle = () => h.evaluate(() => {
   return any ? [(left + right) / 2 / d, (top + bottom) / 2 / d] : [-9999, -9999]
 })
 const far = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1])
-const box = () => h.evaluate(() => { const r = document.querySelector('canvas').getBoundingClientRect(); return [r.left, r.top, r.width, r.height] })
+const box = () => h.evaluate(() => { const r = document.querySelector('[data-page=map] canvas[data-dots]').getBoundingClientRect(); return [r.left, r.top, r.width, r.height] })
 // A drag of the empty space far to one side, held still before letting go so it does not carry on.
 const panAway = async () => {
   const [left, top, width, height] = await box()

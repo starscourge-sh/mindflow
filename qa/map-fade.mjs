@@ -13,14 +13,14 @@ try {
   await c.send('view', 'map'); await h.waitForTimeout(4000)
   await h.mouse.move(5, 5); await h.waitForTimeout(500)
   const spot = await h.evaluate(() => {
-    const canvas = document.querySelector('canvas'); const { width, height } = canvas
+    const canvas = document.querySelector('[data-page=map] canvas[data-dots]'); const { width, height } = canvas
     const data = canvas.getContext('2d').getImageData(0, 0, width, height).data
     const rect = canvas.getBoundingClientRect()
     for (let y = height / 2 | 0; y < height - 4; y += 4) for (let x = width / 3 | 0; x < width - 4; x += 4) if (data[(y * width + x) * 4 + 3] > 250) return [rect.left + x / devicePixelRatio, rect.top + y / devicePixelRatio]
     return null
   })
   await h.evaluate(() => {
-    const canvas = document.querySelector('canvas')
+    const canvas = document.querySelector('[data-page=map] canvas[data-dots]')
     window.__light = []
     const t0 = performance.now()
     const tick = () => {
