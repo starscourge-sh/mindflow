@@ -153,7 +153,9 @@ try {
       await c.send('capture', note)
       await wait(1500)
       const add = h.locator('[data-property-strip] [data-add-property]').first()
-      if (await add.count()) {
+      // The strip is drawn empty until the note's properties have been read (property-strip.tsx): wait for its button
+      // rather than a fixed time. (On a dev-mode build of 13 Nov it was still not there after 8 s: not known why.)
+      if (await add.waitFor({ timeout: 8000 }).then(() => true, () => false)) {
         await hold('[data-name-options]')
         await add.click()
         seen = await step('[data-name-options]', 'propnames', look)
