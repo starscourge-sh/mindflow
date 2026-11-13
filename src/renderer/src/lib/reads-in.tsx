@@ -55,7 +55,16 @@ export function useReadsIn(reading = false, apart = false, { label = '', pages =
     redraw((n) => n + 1)
   }, [pages])
   const ready = counted && !reading && waiting.current.size === 0
-  useLayoutEffect(() => void (!shown && counted && !reading && waiting.current.size === 0 && setShown(true)))
+  // On show for good only from the frame it is first drawn in (asked of that frame, after every draw before it): counted
+  // so in a draw part way through the turn that brought its rows in, Writing went on show for good before two of its
+  // rows had their say, and they came into a page already on show, their pictures still on their way (traced in the
+  // order the page changed). Until that frame it shows whenever nothing on it is waiting, as before. (Any draw before
+  // it asks the frame again, so the page's own say is current when it answers.)
+  useLayoutEffect(() => {
+    if (shown || !counted || reading || waiting.current.size) return
+    const frame = requestAnimationFrame(() => void (!waiting.current.size && setShown(true)))
+    return () => cancelAnimationFrame(frame)
+  })
   // A page inside another (a pane of Tags, Review in quick capture) is one of its parts: the outer one waits for it too.
   const held = useContext(Holding)
   const parent = apart ? null : held
