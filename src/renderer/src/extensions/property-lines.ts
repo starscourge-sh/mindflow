@@ -5,9 +5,15 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { propertyLine } from "../../../main/property-words"
 
+declare module "@tiptap/core" {
+  interface Storage {
+    propertyLines: { strip: HTMLElement }
+  }
+}
+
 type PropertyLinesOptions = {
-  /** Where the note's property strip is drawn: under its first line. Null draws none. */
-  strip: () => HTMLElement | null
+  /** Whether the note has a property strip, drawn under its first line (into `editor.storage.propertyLines.strip`). */
+  strip: () => boolean
   /** The title is not in the words (an article's own title box): the strip goes before the first line, not after it. */
   top: () => boolean
   /** A `name:: value` line finished with Enter: true once it is kept as a property, and the line goes. */
@@ -47,27 +53,36 @@ function placed(doc: ProseMirrorNode, strip: HTMLElement | null, top: boolean): 
  * line empties, ready for the next; ⌘Z brings it back). `question :: answer`,
  * with its space, stays a review card.
  */
-export const PropertyLines = Extension.create<PropertyLinesOptions>({
+export const PropertyLines = Extension.create<PropertyLinesOptions, { strip: HTMLElement }>({
   name: "propertyLines",
 
   addOptions() {
-    return { strip: () => null, top: () => false, onProperty: null }
+    return { strip: () => false, top: () => false, onProperty: null }
+  },
+
+  // The strip's place is each editor's own, made with it, as the offer's is (offer-slot.ts says why): one element for
+  // every editor a page made was taken by whichever drew last, and in a run from source (React's StrictMode) that
+  // was a second editor put away unseen, so no note showed its properties.
+  addStorage() {
+    return { strip: Object.assign(document.createElement("div"), { className: "mf-property-strip", contentEditable: "false" }) }
   },
 
   addProseMirrorPlugins() {
     const key = new PluginKey<DecorationSet>("propertyLines")
     const options = this.options
+    const { strip: box } = this.storage
+    const strip = (): HTMLElement | null => (options.strip() ? box : null)
     return [
       new Plugin({
         key,
         state: {
-          init: (_, state) => placed(state.doc, options.strip(), options.top()),
+          init: (_, state) => placed(state.doc, strip(), options.top()),
           // Kept while the title's end stays put: a new set for every keystroke redrew the strip each time.
           apply: (tr, set) => {
             if (!tr.docChanged) return set
             const kept = set.map(tr.mapping, tr.doc)
             const at = kept.find()[0]?.from
-            return at !== undefined && tr.doc.firstChild && at === spot(tr.doc, options.top()) ? kept : placed(tr.doc, options.strip(), options.top())
+            return at !== undefined && tr.doc.firstChild && at === spot(tr.doc, options.top()) ? kept : placed(tr.doc, strip(), options.top())
           },
         },
         props: {

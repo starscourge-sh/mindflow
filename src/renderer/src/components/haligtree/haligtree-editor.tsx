@@ -834,10 +834,8 @@ function Surface({
   // before the frame is painted, so what sits under the words comes with them, not a frame after.
   const [contentBox, setContentBox] = useState<HTMLDivElement | null>(null)
   const [afterBox, setAfterBox] = useState<HTMLDivElement | null>(null)
-  // The offer's place, just under the last line, in the column (OfferSlot).
-  const [offerBox] = useState(() => Object.assign(document.createElement("div"), { className: "mf-offer-slot", contentEditable: "false" }))
-  // The property strip's place in the page, made once: the editor's plugin puts it under the first line.
-  const [stripBox] = useState(() => Object.assign(document.createElement("div"), { className: "mf-property-strip", contentEditable: "false" }))
+  // The offer's place (OfferSlot, just under the last line) and the property strip's (PropertyLines, under the first)
+  // are the editor's own, read from it where they are drawn below: never one element shared by every editor made here.
   const hasStrip = useLatest(!!belowTitle)
   const stripTop = useLatest(stripFirst)
   const propertyLineRef = useLatest(onPropertyLine)
@@ -1402,12 +1400,12 @@ function Surface({
       // "question :: answer": a review card, marked at the line's end.
       LineCards,
       // "Author:: Ursula Le Guin": a property, kept on Enter; and the strip of them under the title.
-      PropertyLines.configure({ strip: () => (hasStrip.current ? stripBox : null), top: () => stripTop.current, onProperty: (name, value) => propertyLineRef.current?.(name, value) ?? false }),
+      PropertyLines.configure({ strip: () => hasStrip.current, top: () => stripTop.current, onProperty: (name, value) => propertyLineRef.current?.(name, value) ?? false }),
       // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
       LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null), box: () => new URLSearchParams(location.search).get("view") === null && !documentId }),
       TaskMarks,
       // One quiet offer from your own notes under the last line (note-offers.tsx).
-      ...(offers ? [OfferSlot.configure({ box: () => offerBox })] : []),
+      ...(offers ? [OfferSlot] : []),
       // Dates and times lit as they are written, each saying the day it means; never in a one-line field.
       ...(shape === "line" ? [] : [DateWords.configure({
         writtenOn: () => {
@@ -2268,8 +2266,9 @@ function Surface({
         {/* After the words, inside the same scroll: added beside ProseMirror's
             own element, never inside it. */}
         {after && afterBox && createPortal(after, afterBox)}
-        {offers && createPortal(offers(editor), offerBox)}
-        {belowTitle && createPortal(belowTitle, stripBox)}
+        {/* Into the places of the editor drawn here (a page that gained its offers after its editor was made has none). */}
+        {offers && editor?.storage.offerSlot && createPortal(offers(editor), editor.storage.offerSlot.box)}
+        {belowTitle && editor && createPortal(belowTitle, editor.storage.propertyLines.strip)}
 
         <LinkPreview editor={editor} />
         <LinkEditor editor={editor} />

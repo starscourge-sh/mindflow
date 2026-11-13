@@ -2,18 +2,29 @@ import { Extension } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 
+declare module "@tiptap/core" {
+  interface Storage {
+    offerSlot: { box: HTMLElement }
+  }
+}
+
 /**
  * A place just after a note's last line, inside the page's own column, for one
  * quiet offer (note-offers.tsx) to be drawn into: never part of the words,
  * never saved, its clicks its own.
+ *
+ * The place (`editor.storage.offerSlot.box`) is each editor's own, made with it. It was once one element for every
+ * editor a page made, and whichever drew last took it into its own page: React's StrictMode (a run from source,
+ * `npm run dev`) makes each page's editor twice and puts the second away, so there the offer was drawn into the
+ * put-away editor's page, which is never shown, and no offer was ever seen.
  */
-export const OfferSlot = Extension.create<{ box: () => HTMLElement }>({
+export const OfferSlot = Extension.create<Record<string, never>, { box: HTMLElement }>({
   name: "offerSlot",
-  addOptions() {
-    return { box: () => document.createElement("div") }
+  addStorage() {
+    return { box: Object.assign(document.createElement("div"), { className: "mf-offer-slot", contentEditable: "false" }) }
   },
   addProseMirrorPlugins() {
-    const { box } = this.options
+    const { box } = this.storage
     const key = new PluginKey<DecorationSet>("offerSlot")
     // One widget, kept in the plugin's state and moved only when the words change: nothing redraws on a
     // selection or while a note is read aloud, and the same element stays (its key).
@@ -25,7 +36,7 @@ export const OfferSlot = Extension.create<{ box: () => HTMLElement }>({
       const holder = document.createElement("div")
       holder.className = "mf-offer-holder"
       holder.contentEditable = "false"
-      holder.appendChild(box())
+      holder.appendChild(box)
       return holder
     }
     const place = (doc: Parameters<typeof DecorationSet.create>[0]): DecorationSet =>

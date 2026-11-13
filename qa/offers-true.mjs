@@ -31,7 +31,13 @@ try {
     p(t('Later I read how the Byzantine Empire fell, slowly and then at once.')),
     p(t('The config key is '), t('Kappa Architecture', 'code'), t(' in the old file.'))
   )
+  const opened = Date.now()
   await send('capture', writing); await wait(2500)
+  // The offer's place (under the last line) and the property strip's (under the first) are the open note's own. Each
+  // was once one element every editor of a page shared, taken by the editor drawn last: in a dev-mode build React's
+  // StrictMode makes the editor twice and puts one away, which drew last, so no offer and no strip was ever seen.
+  const places = await h.evaluate(() => { const page = document.querySelector('[data-open] .tiptap, .tiptap.ProseMirror.haligtree-editor:not(.is-line)'); return { offer: !!page?.querySelector('.mf-offer-holder > .mf-offer-slot'), strip: !!page?.querySelector('.mf-property-holder > .mf-property-strip'), emptyHolders: page?.querySelectorAll('.mf-offer-holder:empty, .mf-property-holder:empty').length ?? -1 } })
+  check('the offer\'s place and the property strip are in the open note\'s own page, not a put-away editor\'s', places.offer && places.strip && places.emptyHolders === 0, JSON.stringify(places))
   // What the main process answers for this note's words, asked straight, and how long it took: the card under the
   // note waits on the same answer (the first one reads the whole book's roots, slow on a busy machine).
   const asked = Date.now()
@@ -40,6 +46,7 @@ try {
   console.log(`NOTE  the card now: ${JSON.stringify(await offer())}; a celebration on show: ${await h.evaluate(() => [...document.querySelectorAll('[data-celebration]')].some((one) => one.childElementCount > 0))}; the note is open: ${await h.evaluate(() => !!document.querySelector('[data-open] .tiptap'))}`)
   const first = await untilOffer('link', 45000)
   check('the real name is offered: "Mentions “Byzantine Empire”"', first?.kind === 'link' && /Byzantine Empire/.test(first.text), JSON.stringify(first))
+  console.log(first ? `NOTE  the offer line was seen ${((Date.now() - opened) / 1000).toFixed(1)} s after the note was opened` : 'NOTE  no offer line was seen')
   check('the everyday word in a sentence is not offered', !/Protocol/.test(first?.text ?? ''), JSON.stringify(first))
   check('a name standing only in inline code is not offered', !/Kappa/.test(first?.text ?? ''), JSON.stringify(first))
 
