@@ -32,7 +32,7 @@ export type OffersNeeds = {
   named: <T>(name: string, run: () => T) => T
 }
 
-type Row = { key: string; title: string; text: string; stamp: string; group: string | null; list: string | null }
+type Row = { key: string; title: string; text: string; stamp: string; group: string | null; list: string | null; kind: string | null }
 type Kept = { stamp: string; lemmas: Lemmas; meaning: Float32Array | null }
 
 export type NoteOffers = {
@@ -50,6 +50,8 @@ export type About = { key: string; title: string; words: string }
 
 /** The tags that say a note is about a work: a book, a film, a play or a show. */
 const WORK_TAGS = new Set(['book', 'books', 'novel', 'film', 'films', 'movie', 'movies', 'play', 'show', 'series', 'tv', 'anime', 'comic', 'manga', 'game'])
+/** A note is about a work when it carries a work's tag (#book, #film) or is a work's own note (its kind). */
+const aboutAWork = (tags: string[], kind: string | null | undefined): boolean => tags.some((tag) => WORK_TAGS.has(tag.toLowerCase())) || WORK_TAGS.has((kind ?? '').toLowerCase())
 
 const vectorOf = (one: unknown): Float32Array | null => (typeof one === 'string' ? new Float32Array(Buffer.from(one, 'base64').buffer.slice(0)) : null)
 
@@ -121,10 +123,10 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
   // "already wrote" its own first draft, and "Open it" opened the gem itself.
   function rows(): Row[] {
     return db.prepare(
-      `select id as key, label(title, body, named) as title, words(id, body) as text, coalesce(edited_at, captured_at) as stamp, null as "group", null as list
+      `select id as key, label(title, body, named) as title, words(id, body) as text, coalesce(edited_at, captured_at) as stamp, null as "group", null as list, kind
          from captures where status not in ('discarded', 'promoted') and private = 0
        union all
-       select tier || ':' || id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), words(id, body), coalesce(updated_at, created_at), group_id, tier
+       select tier || ':' || id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)), words(id, body), coalesce(updated_at, created_at), group_id, tier, kind
          from nuggets where tier in ('nugget', 'article', 'question') and private = 0 and binned_at is null and archived_at is null`
     ).all() as Row[]
   }
@@ -175,7 +177,7 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
     const row = (key.includes(':')
       ? db.prepare("select coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, kind, attribution from nuggets where id = ?").get(key.slice(key.indexOf(':') + 1))
       : db.prepare(`select ${LABEL} as title, kind, attribution from captures where id = ?`).get(key)) as { title: string | null; kind: string | null; attribution: string | null } | undefined
-    const about = tagsIn(text).some((tag) => WORK_TAGS.has(tag.toLowerCase())) || WORK_TAGS.has((row?.kind ?? '').toLowerCase())
+    const about = aboutAWork(tagsIn(text), row?.kind)
     const work = withoutTags(row?.title || text.split('\n')[0] || '').replace(/\s+/g, ' ').trim()
     return about && work ? { work, author: row?.attribution ?? '' } : null
   }
@@ -183,10 +185,15 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
   /** The Mac's own word list, for telling a name from a word (name-match.ts). */
   const common = everyday
 
-  /** The titles of works in the book: notes' titles longer than a name, and where quotes and gems are from. */
-  const works = (all: { title?: string | null }[]): string[] => {
+  /**
+   * The titles of works in the book, longer than a name: the titles of notes about a work (tagged #book or #film,
+   * or a work's own note), and where quotes and gems are from. Any other note's title is only its first line: taken
+   * as a work, a one-line note "Ada Lovelace saw that the engine could compose music" made her a character in it.
+   */
+  const works = (all: Row[], tags: Map<string, string[]>): string[] => {
     const from = db.prepare("select distinct medium as title from captures where medium is not null and medium != '' union select distinct medium from nuggets where medium is not null and medium != ''").all() as { title: string }[]
-    return [...all.map((row) => row.title ?? ''), ...from.map((one) => one.title)].filter((title) => title.split(/\s+/).length >= 3)
+    const notes = all.filter((row) => aboutAWork(tags.get(row.key) ?? [], row.kind)).map((row) => row.title ?? '')
+    return [...notes, ...from.map((one) => one.title)].filter((title) => title.split(/\s+/).length >= 3)
   }
 
   /** What a note, as it now reads, is offered. `linked`: the notes it already links to. */
@@ -213,7 +220,7 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
     const cast = new Map((db.prepare("select name, work from source_pages where field = 'attribution' and work != ''").all() as { name: string; work: string }[]).map((one) => [one.name.toLowerCase(), one]))
     const people = new Set((db.prepare("select distinct attribution as name from captures where attribution is not null and attribution != '' union select distinct attribution from nuggets where attribution is not null and attribution != ''").all() as { name: string }[])
       .map((one) => one.name.toLowerCase()).filter((name) => !cast.has(name)))
-    const titles = works(all)
+    const titles = works(all, tags)
     const about = workOfNote(key, text)
     const found = peopleIn((names.names as { text: string; kind: string }[] | undefined) ?? [], common, (name) => people.has(name.toLowerCase()) || cast.has(name.toLowerCase()))
     // Where each name lives: a character already kept; a person you know; a name met only inside the title of a work
