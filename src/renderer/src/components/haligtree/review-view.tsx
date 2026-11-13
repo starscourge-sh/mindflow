@@ -60,11 +60,11 @@ import { VERDICT_SAID, cutWords, hint as askHint, hintedTimes, judge, meaningGra
  * A way somewhere inside a line of words, its key beside it, as Files' "In" links are drawn: the words underlined
  * quietly, lit and underlined in full under the pointer; the key's cap is never underlined.
  */
-function LineWay({ onClick, keys, children, ...rest }: { onClick: () => void; keys: string; children: React.ReactNode } & Record<`data-${string}`, string | boolean>): React.JSX.Element {
+function LineWay({ onClick, keys, children, ...rest }: { onClick: () => void; /** Its key, said only while the key does this. */ keys?: string; children: React.ReactNode } & Record<`data-${string}`, string | boolean>): React.JSX.Element {
   return (
     <button type="button" {...rest} onClick={onClick} className="group/way inline-flex shrink-0 cursor-pointer items-baseline gap-1.5 rounded-sm text-left">
       <span className="underline decoration-foreground/25 underline-offset-2 transition-colors group-hover/way:text-foreground group-hover/way:decoration-foreground">{children}</span>
-      <Kbd>{keys}</Kbd>
+      {keys && <Kbd>{keys}</Kbd>}
     </button>
   )
 }
@@ -696,7 +696,8 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
         // The line is the way back to the source, as R is: said with its key, never a sentence that ends on a colon.
         // There with the next card, whole: typed in, its underline ran under the words still to come as stray dashes.
         <p className="px-5 pt-3 -mb-1 text-xs text-muted-foreground">
-          <LineWay data-missed-reread onClick={() => (chime('read'), setSource(missed))} keys="R">Missed that one? Reread where it came from</LineWay>
+          {/* R opens a card written in a note at its line first (the keys below): over such a card the press alone is said here, so one R is promised once. */}
+          <LineWay data-missed-reread onClick={() => (chime('read'), setSource(missed))} keys={lineCard ? undefined : 'R'}>Missed that one? Reread where it came from</LineWay>
         </p>
       )}
       {/* The next card is there at once: grading fast never waits for the

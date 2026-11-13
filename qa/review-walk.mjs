@@ -222,7 +222,10 @@ try {
     const reread = await waitFor(() => h.evaluate(() => /Missed that one/.test(document.querySelector('[data-review-page], main, body')?.textContent ?? '')))
     const line = await h.evaluate(() => { const one = document.querySelector('[data-missed-reread]'); const p = [...document.querySelectorAll('p')].find((each) => /Missed that one/.test(each.textContent)); return { said: p?.textContent.replace(/\s+/g, ' ').trim() ?? '', tag: one?.tagName ?? '', key: one?.querySelector('kbd')?.textContent.trim() ?? '', cursor: one ? getComputedStyle(one).cursor : '' } })
     check('missed, the line offers the note again, never a sentence ending on a colon', reread && !/:\s*$/.test(line.said), JSON.stringify(line))
-    check('"Reread where it came from" is a way there, its key said (R), with the hand', line.tag === 'BUTTON' && line.key === 'R' && line.cursor === 'pointer', JSON.stringify(line))
+    check('"Reread where it came from" is a way there, with the hand', line.tag === 'BUTTON' && line.cursor === 'pointer', JSON.stringify(line))
+    // R opens the line of a card written in a note first: over such a card, R is promised on that line only, never on two.
+    const rs = await h.evaluate(() => [...document.querySelectorAll('[data-missed-reread] kbd, [data-line-open] kbd')].filter((one) => one.textContent.trim() === 'R').length)
+    check(`one R promised at a time (${rs} lines say R)`, rs <= 1, String(rs))
     await shot('review-missed')
     if (line.tag === 'BUTTON') {
       await h.locator('[data-missed-reread]').click()
