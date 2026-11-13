@@ -3205,6 +3205,14 @@ html[data-book-hue] [data-book-tint] {
 /* The page's card loses its edge too: only the words are left. */
 :root[data-day-open] [data-pane-card][data-day-path] { transition: border-color 800ms var(--mf-ease) 250ms; }
 :root[data-day-writing] [data-pane-card][data-day-path] { border-color: transparent; transition: border-color 900ms ease-in-out; }
+/* And the window round the page goes the page's own colour in the same beat, the dark frame (and its grain) or the
+   see-through window alike, so the words sit on one quiet surface. Left as it was, the bar and the sidebar faded but
+   the frame under them stayed: a page-coloured card with black bars along its top and side (the user, 13 Nov: "look
+   at the black bars"). Back the same way on leaving. A room's scenery is its own. */
+:root[data-day-open]:not([data-in-room]) :is(body, [data-frame='dark']) { transition: background-color 800ms var(--mf-ease) 250ms; }
+:root[data-day-writing]:not([data-in-room]) :is(body, [data-frame='dark']) { background-color: var(--background); transition: background-color 900ms ease-in-out; }
+:root[data-day-open]:not([data-in-room]) [data-frame='dark'][data-frame-grain]::before { transition: opacity 800ms var(--mf-ease) 250ms; }
+:root[data-day-writing]:not([data-in-room]) [data-frame='dark'][data-frame-grain]::before { opacity: 0; transition: opacity 900ms ease-in-out; }
 /* The writer's line (day-writing.tsx): the page's count, kept in view at the
    window's foot as the room's is, a quiet status line and never a divider.
    The page blurs out under it (its BlurEdge), so what scrolls past never runs
