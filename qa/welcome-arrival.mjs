@@ -308,6 +308,8 @@ try {
   console.log(`curve (ms, mist, page, soft edge px, mean alpha): ${curve.filter((_, i) => i % 3 === 0).map((one) => `${Math.round(one.t)}:${one.amount}/${one.plate}/${one.soft}/${one.mean}`).join(' ')}`)
   const drawAt = trace.findIndex((one) => one[2] > 0)
   const wholeAt = trace.findIndex((one) => one[2] >= 1)
+  // The drawing in begins as the mist's soft edge starts to harden (the page comes up under it after).
+  const inAt = trace.findIndex((one) => one[3] < trace[0][3])
   const falls = (list) => list.some((one, i) => i > 0 && one < list[i - 1] - 1e-6)
   check('the mist comes in from nothing over about two seconds', trace.length > 60 && trace[0][1] === 0 && (trace.find((one) => one[0] >= 350 + 2000)?.[1] ?? 0) >= 0.999 && (trace.find((one) => one[0] >= 1300)?.[1] ?? 1) < 0.9, JSON.stringify(trace.filter((_, i) => i % 20 === 0).slice(0, 10)))
   check('the mist never thins before the window\'s page is whole under it', drawAt > 0 && wholeAt > drawAt && !falls(trace.slice(0, wholeAt + 1).map((one) => one[1])), `draws in from frame ${drawAt}, whole at ${wholeAt} of ${trace.length}`)
@@ -325,8 +327,8 @@ try {
   const over = curve.filter((one) => one.t > 3500 && one.plate === 0)
   check('over the desktop it is mist, not a sheet: the picture still shows through it, its middle is ground enough for words, and its edges are clear', TIMING || (over.length >= 1 && over.every((one) => one.centre >= 200 && one.side > 110 && one.side < 246 && one.top <= EDGE && one.left <= EDGE && one.corner <= EDGE)), JSON.stringify(over.slice(0, 3)))
   // Timed from the welcome's opening; the mist's own clock starts after the probe's hold, so a little under eleven seconds here.
-  check('it draws in on the title\'s beat, about eleven seconds in', drawAt > 0 && trace[drawAt][0] > 8000 && trace[drawAt][0] < 11500, `${trace[drawAt]?.[0]}ms`)
-  check('the drawing in is one motion of about a second and a half', wholeAt > drawAt && trace.at(-1)[0] - trace[drawAt][0] > 900 && trace.at(-1)[0] - trace[drawAt][0] < 2200, `${Math.round(trace.at(-1)[0] - trace[drawAt][0])}ms`)
+  check('it draws in on the title\'s beat, about eleven seconds in', inAt > 0 && trace[inAt][0] > 8000 && trace[inAt][0] < 11500, `${trace[inAt]?.[0]}ms`)
+  check('the drawing in is one motion of about a second and a half', wholeAt > drawAt && drawAt >= inAt && trace.at(-1)[0] - trace[inAt][0] > 900 && trace.at(-1)[0] - trace[inAt][0] < 2200, `${Math.round(trace.at(-1)[0] - trace[inAt][0])}ms, the page coming up from ${Math.round(trace[drawAt]?.[0] - trace[inAt]?.[0])}ms in`)
   const end = await alpha()
   const stood = await windowNow()
   check('what is left is the window, whole to its corners, the page painting itself again', after.landed && !after.clear && !after.mist && end.least === 255, JSON.stringify({ after, end }))
