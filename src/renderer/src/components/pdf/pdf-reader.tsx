@@ -738,6 +738,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     said(mark.color === "later" ? "Card mark removed" : "Highlight removed")
   }
 
+  // The page the pane holds for this reader, and whether the opening has gone to its place yet.
+  const told = useRef(start)
+  const placed = useRef(false)
   const go = (to: number): void => {
     if (!doc) return
     const n = Math.min(Math.max(1, Math.round(to)), doc.numPages)
@@ -747,13 +750,15 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     byHandScroll.current = false
     // Kept as the pane's page, so Back from anywhere comes back to it.
     if (n !== start) onPage?.(n)
+    told.current = n
   }
   // Opened at a page (a gem's link back, or Back to it): the sheets land there as they are laid out.
   // Back and Forward bring a page back too; the page you scroll to is kept, so it never jumps.
   useEffect(() => {
-    if (doc && start && start !== page) go(start)
+    if (!doc) return
+    if (start) return void ((start !== page && go(start)), (placed.current = true))
     // Opened with no page of its own: where you last left it.
-    if (doc && !start) void call<{ page: number } | null>("pdf:place", src).then((place) => place && place.page > 1 && go(place.page))
+    void call<{ page: number } | null>("pdf:place", src).then((place) => void ((place && place.page > 1 && go(place.page)), (placed.current = true)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, start])
   // Opened: into Recent, in the sidebar and ⌘K, as a note is when it opens.
@@ -956,15 +961,18 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   }
   // The pane keeps the page you are on (Back from anywhere comes back to it) once the pages come to rest, never on
   // every page passed: each keep draws the whole window's panes again and saves them, and a fling through a long book
-  // did that for every page it went by. A jump keeps its page at once (go).
-  const rested = useRef({ page, start, onPage })
-  rested.current = { page, start, onPage }
+  // did that for every page it went by. A jump keeps its page at once (go). Nothing is kept before the opening has
+  // gone to its place: a scroll ending as the pages were laid out kept page 1, and the book then opened there.
+  const rested = useRef({ page, onPage })
+  rested.current = { page, onPage }
   useEffect(() => {
     const box = scroller.current
     if (!box) return
     const rest = (): void => {
-      const { page: now, start: kept, onPage: keep } = rested.current
-      if (now !== kept) keep?.(now)
+      const { page: now, onPage: keep } = rested.current
+      if (!placed.current || now === told.current) return
+      told.current = now
+      keep?.(now)
     }
     box.addEventListener("scrollend", rest)
     return () => box.removeEventListener("scrollend", rest)
