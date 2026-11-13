@@ -3,6 +3,7 @@ import type { Editor, JSONContent } from "@tiptap/core"
 import { readCardLink } from "@/extensions/card-link"
 import { absorbCaptions } from "@/extensions/caption"
 import { placeFootnotes, pullFootnotes } from "@/extensions/footnotes"
+import { liftBlocks } from "@/lib/lift-blocks"
 
 /**
  * Long Markdown, cut where a new block has to start anyway: at a heading, or
@@ -222,7 +223,9 @@ export function markdownToDocument(editor: Editor, markdown: string): JSONConten
   const { rest, notes } = footed ? pullFootnotes(untab(markdown)) : { rest: untab(markdown), notes: new Map<string, string>() }
   const content = manager ? markdownPieces(rest).flatMap((piece) => manager.parse(piece).content ?? []) : []
   const doc = tidyDocument({ type: "doc", content: content.length ? content : [{ type: "paragraph" }] })
-  return manager && footed ? placeFootnotes(doc, notes, (words) => manager.parse(words).content ?? []) : doc
+  // The reader leaves a picture written on its own line (`![[cat.png]]` under a line of words) inside that line's
+  // paragraph: it becomes a block of its own (lib/lift-blocks.ts), or the first edit beside it throws.
+  return liftBlocks(manager && footed ? placeFootnotes(doc, notes, (words) => manager.parse(words).content ?? []) : doc, editor.schema)
 }
 
 /** Lets the window draw and take a key before going on. */
@@ -264,5 +267,5 @@ export async function markdownToDocumentGently(editor: Editor, markdown: string)
   }
   const doc: JSONContent = { type: "doc", content: content.length ? content : [{ type: "paragraph" }] }
   await breath()
-  return manager && footed ? placeFootnotes(doc, notes, (words) => manager.parse(words).content ?? []) : doc
+  return liftBlocks(manager && footed ? placeFootnotes(doc, notes, (words) => manager.parse(words).content ?? []) : doc, editor.schema)
 }
