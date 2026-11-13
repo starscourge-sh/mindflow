@@ -114,14 +114,19 @@ function TooltipTrigger({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
   const trigger = React.useContext(TriggerRef)
+  // The same function from one draw to the next while what it sets is the same. Made anew in every draw, it was a new
+  // ref each time, so Radix took the trigger off and put it back on every draw (its trigger state to null and back):
+  // two updates in every commit of every tip. On a board carrying a card into another list, whose drag draws its lists
+  // again many times in one go, that went past React's limit and stopped the window (qa/one-drag.mjs, the board).
+  const set = React.useCallback((node: HTMLButtonElement | null) => {
+    if (trigger) trigger.current = node
+    if (typeof ref === "function") ref(node)
+    else if (ref) ref.current = node
+  }, [trigger, ref])
   return (
     <TooltipPrimitive.Trigger
       data-slot="tooltip-trigger"
-      ref={(node) => {
-        if (trigger) trigger.current = node
-        if (typeof ref === "function") ref(node)
-        else if (ref) ref.current = node
-      }}
+      ref={set}
       {...props}
       // A tip opens on focus only when the focus can be seen (the keyboard put it there). Focus a panel hands its
       // first button as it opens would open that button's tip, and the first Esc would close the tip, not the panel.
