@@ -38,6 +38,7 @@ const { check, done } = checks()
 const strict = process.env.QA_STRICT === '1'
 const c = await sandbox({ width: 1440, height: 900 })
 const { h, v, send, close } = c
+if (process.env.DIAG) h.on('console', (m) => m.text().startsWith('[f1]') && console.log(m.text()))
 const wait = (ms) => h.waitForTimeout(ms)
 const rows = {}
 // Each opening's page against the page the book was left on.
@@ -192,6 +193,8 @@ const place = async () => (await v('pdf:place', src))?.page ?? 1
 /** Opens it by `how` (a press the page hears) and measures from the press. */
 const opened = async (label, how) => {
   const page = await place()
+  // DIAG=1 with a build that logs "[f1]" lines: each opening marked among them, in the window's own time.
+  if (process.env.DIAG) await h.evaluate(([label, page]) => console.info(`[f1] ${Math.round(performance.now())} PROBE ${label}, place ${page}`), [label, page])
   await h.evaluate(() => window.__f1.arm())
   await how()
   const out = await h.evaluate(([page]) => window.__f1.until(page, true), [page])

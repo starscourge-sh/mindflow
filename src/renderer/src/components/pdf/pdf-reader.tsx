@@ -738,6 +738,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     said(mark.color === "later" ? "Card mark removed" : "Highlight removed")
   }
 
+  // The page this reader last handed up to the pane, and whether the opening has gone to its place yet.
+  const told = useRef(start)
+  const placed = useRef(false)
   const go = (to: number): void => {
     if (!doc) return
     const n = Math.min(Math.max(1, Math.round(to)), doc.numPages)
@@ -747,13 +750,16 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     byHandScroll.current = false
     // Kept as the pane's page, so Back from anywhere comes back to it.
     if (n !== start) onPage?.(n)
+    told.current = n
   }
-  // Opened at a page (a gem's link back, or Back to it): the sheets land there as they are laid out.
-  // Back and Forward bring a page back too; the page you scroll to is kept, so it never jumps.
+  // Opened at a page (a gem's link back, or Back to it): the sheets land there as they are laid out. Back and Forward
+  // bring a page back too. A page this reader handed up itself is where it already is: going there again would undo
+  // the reading done since the hand-up, so only a page from elsewhere is gone to.
   useEffect(() => {
-    if (doc && start && start !== page) go(start)
+    if (!doc) return
+    if (start) return void ((start !== told.current && go(start)), (placed.current = true))
     // Opened with no page of its own: where you last left it.
-    if (doc && !start) void call<{ page: number } | null>("pdf:place", src).then((place) => place && place.page > 1 && go(place.page))
+    void call<{ page: number } | null>("pdf:place", src).then((place) => void ((place && place.page > 1 && go(place.page)), (placed.current = true)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, start])
   // Opened: into Recent, in the sidebar and ⌘K, as a note is when it opens.
@@ -943,21 +949,38 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
 
   // The page on show: the last sheet whose top has passed a third of the way down, or 120px when that is less: in a
   // narrow pane short pages fit three to a view, and the page at the top, not the one under it, is the one being read.
-  const onScroll = (): void => {
+  const pageInView = (): number | null => {
     const box = scroller.current
-    if (!box) return
+    if (!box) return null
     const line = box.getBoundingClientRect().top + Math.min(box.clientHeight / 3, 120)
     // The first sheet below the line, found by halves (a few reads, not one per page): the page before it is on show.
     const pages = box.querySelector(".pdf-pages")
-    if (!pages?.querySelector(".pdf-page")) return
+    if (!pages?.querySelector(".pdf-page")) return null
     const below = sheetAt(pages, (r) => r.top > line)
-    const at = Math.max(1, below ? Number(below.dataset.page) - 1 : doc?.numPages ?? 1)
-    if (at !== page) {
-      setPage(at)
-      onPage?.(at)
-      // Each page coming into place taps the trackpad (a fling's in-between pages fold into one); its ends and chapters, firmly.
-    }
+    return Math.max(1, below ? Number(below.dataset.page) - 1 : doc?.numPages ?? 1)
   }
+  const onScroll = (): void => {
+    const at = pageInView()
+    if (at !== null && at !== page) setPage(at)
+  }
+  // The pane keeps the page you are on (Back from anywhere comes back to it) once the pages come to rest, never on
+  // every page passed: each keep draws the whole window again and saves it, which made a scroll drop a frame in five.
+  // The page is read from the pages as they rest, never from the reader's last drawing: a jump's scroll ends before
+  // the reader is drawn again, and the page it was drawn at before the jump was kept (⌘K opened at page 1).
+  const resting = useRef({ pageInView, onPage })
+  resting.current = { pageInView, onPage }
+  useEffect(() => {
+    const box = scroller.current
+    if (!box) return
+    const rest = (): void => {
+      const now = resting.current.pageInView()
+      if (!placed.current || now === null || now === told.current) return
+      told.current = now
+      resting.current.onPage?.(now)
+    }
+    box.addEventListener("scrollend", rest)
+    return () => box.removeEventListener("scrollend", rest)
+  }, [])
 
   // The chapter you are in: the outline's latest entry that starts on or
   // before this page, so every page of a chapter lights it, not only its first.
