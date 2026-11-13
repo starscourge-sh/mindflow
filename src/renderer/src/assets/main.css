@@ -2452,12 +2452,10 @@ html[data-see-through],
 html[data-see-through] body { background: transparent; }
 html[data-see-through] #root { visibility: hidden; }
 html[data-see-through] .mf-welcome { visibility: visible; background: transparent; }
-/* A part of the app that makes itself visible again (a note's “Opening the note…” after a beat, mf-after-a-beat; a
-   popover waiting, mf-pop-wait) still paints nothing: the app beside the welcome, and whatever hangs on the page outside
-   it, are not drawn at all until the mist has drawn in. The welcome played again comes up over a whole book (main:
-   remakeHome), a long note perhaps still opening under it. */
-html[data-see-through] [data-frame] > :not(.mf-welcome),
-html[data-see-through] body > :not(#root) { opacity: 0; }
+/* A part of the app that makes itself visible again (a note's “Opening the note…” after a beat, mf-after-a-beat) still
+   paints nothing: the app beside the welcome is not drawn at all until the mist has drawn in. The welcome played again
+   comes up over a whole book (main: remakeHome), a long note perhaps still opening under it. */
+html[data-see-through] [data-frame] > :not(.mf-welcome) { opacity: 0; }
 /* The arrival's two controls come in with the mist, after its beat of nothing (welcome-mist.tsx: CLEAR_MS, IN_MS). */
 @keyframes mf-with-mist { from { opacity: 0; } }
 .mf-with-mist { animation: mf-with-mist 2000ms 350ms ease-in-out backwards; }
