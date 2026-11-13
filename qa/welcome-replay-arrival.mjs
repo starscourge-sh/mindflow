@@ -82,11 +82,8 @@ try {
   await h.waitForTimeout(1500)
   await h.evaluate(() => { const box = [...document.querySelectorAll('.haligtree-editor-content')].find((one) => one.getClientRects().length); box?.scrollTo({ top: box.scrollHeight * 0.3, behavior: 'instant' }) })
   await h.waitForTimeout(1200)
-  const before = await read(h)
-  const bounds = (await homes())[0]?.bounds
-  console.log(`before: ${JSON.stringify({ ...before, listAt, bounds })}`)
-  check('set up: two tabs, the note on show part-way down, the list scrolled', before.tabs.length === 2 && before.tabs[1].on && before.block?.top > 300 && listAt > 300, JSON.stringify({ tabs: before.tabs.length, block: before.block, listAt }))
-  // Words typed a moment before the ask, still waiting to be saved: a line on screen, pressed at its end, typed into.
+  // Words typed a moment before the ask, still waiting to be saved (the editor saves 500 ms after the last key): a line
+  // on screen, pressed in its words, to its end (in Vim's insert mode, if Vim is on in this book), typed into.
   const end = await h.evaluate(() => {
     const box = [...document.querySelectorAll('.haligtree-editor-content')].find((one) => one.getClientRects().length)
     const edge = box.getBoundingClientRect()
@@ -103,9 +100,16 @@ try {
   const TYPED = ` kept${Date.now() % 100000}`
   if (end) {
     await h.mouse.click(end.x, end.y)
+    if (await h.locator('.ProseMirror[data-vim-mode="normal"]').count()) await h.keyboard.press('i')
     await h.keyboard.press('End')
     await h.keyboard.type(TYPED, { delay: 15 })
   }
+  // Where things stand as the ask comes, the words just typed among them.
+  const before = await read(h)
+  const typedIn = await h.evaluate((typed) => [...document.querySelectorAll('.haligtree-editor-content .ProseMirror')].some((one) => one.textContent.includes(typed.trim())), TYPED)
+  const bounds = (await homes())[0]?.bounds
+  console.log(`before: ${JSON.stringify({ ...before, listAt, bounds, typedIn })}`)
+  check('set up: two tabs, the note on show part-way down with words just typed in it, the list scrolled', before.tabs.length === 2 && before.tabs[1].on && before.block?.top > 300 && listAt > 300 && typedIn, JSON.stringify({ tabs: before.tabs.length, block: before.block, listAt, typedIn }))
   // The mist held at its start in the window made in its place, to read it drawn empty (welcome-mist.tsx data-arrival-hold):
   // said as soon as the page has its root element (a script put in this early can run before there is one).
   await electron.context().addInitScript(() => {
