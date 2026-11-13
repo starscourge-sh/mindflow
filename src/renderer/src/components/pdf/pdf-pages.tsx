@@ -628,6 +628,25 @@ const rankAt = (away: number, onward: boolean): number => NEXT_TO + 2 * (away - 
 /** The room between two pages side by side: the gap between pages one under another (pdf.css). */
 const GAP = 12
 
+/**
+ * Where each view's pages were last put or read to: the page at the top of the view, and how far down it. The pages
+ * put it back whenever they change size (a pane gliding open, the rail coming in), so the place you read never drifts.
+ */
+const places = new WeakMap<Element, { page: number; f: number }>()
+
+/**
+ * The pages in `view` scrolled so `page` is at the top, and kept there as they change size. Kept the moment it is
+ * asked, not at the scroll's event a frame later: a book opened at its place (p. 338 of 1,011) as the rail came in
+ * beside it was put there at the pages' wider size, shrank under it, and opened 114 pages on, and was kept there.
+ */
+export function showPage(view: HTMLElement | null | undefined, page: number, margin = 0): void {
+  const sheet = view?.querySelector<HTMLElement>(`.pdf-page[data-page="${page}"]`)
+  if (!view || !sheet) return
+  const r = sheet.getBoundingClientRect()
+  view.scrollTop += r.top - view.getBoundingClientRect().top - margin
+  places.set(view, { page, f: -margin / r.height })
+}
+
 export function PdfPages({
   src,
   zoom = 1,
@@ -753,7 +772,7 @@ export function PdfPages({
     const sized = new ResizeObserver(soon)
     sized.observe(el)
     if (root) sized.observe(root)
-    if (land && land > 1) el.querySelector<HTMLElement>(`.pdf-page[data-page="${land}"]`)?.scrollIntoView({ block: "start" })
+    if (land && land > 1) showPage(root ?? el.parentElement, land)
     look()
     return () => {
       cancelAnimationFrame(frame)
@@ -769,10 +788,9 @@ export function PdfPages({
   // A spread at Fit fits its whole height too, as Preview's Two Pages does: two pages never run off the bottom.
   const scale = ((fit === "height" || spread) && size && tall > 0 ? Math.min(wide, tall / size.h) : wide) * zoom
 
-  // The page at the top of the view, and how far down it: kept as you scroll,
-  // and put back when the pages change size (a pane gliding open, the rail
-  // squeezing), so the place you read never drifts to pages not yet drawn.
-  const place = useRef<{ page: number; f: number } | null>(null)
+  // The page at the top of the view, and how far down it: kept as you scroll (and as a page is shown, showPage),
+  // and put back when the pages change size (a pane gliding open, the rail squeezing), so the place you read never
+  // drifts to pages not yet drawn.
   useEffect(() => {
     const view = scroller?.current ?? box.current?.parentElement
     if (!view) return
@@ -788,7 +806,7 @@ export function PdfPages({
       const sheet = sheetAt(box.current, (r) => r.bottom > top)
       if (sheet) {
         const r = sheet.getBoundingClientRect()
-        place.current = { page: Number(sheet.dataset.page), f: (top - r.top) / r.height }
+        places.set(view, { page: Number(sheet.dataset.page), f: (top - r.top) / r.height })
       }
     }
     view.addEventListener("scroll", note, { passive: true })
@@ -796,7 +814,7 @@ export function PdfPages({
   }, [scroller, laidOut])
   useLayoutEffect(() => {
     const view = scroller?.current ?? box.current?.parentElement
-    const kept = place.current
+    const kept = view && places.get(view)
     const sheet = kept && box.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${kept.page}"]`)
     if (!view || !kept || !sheet) return
     const r = sheet.getBoundingClientRect()

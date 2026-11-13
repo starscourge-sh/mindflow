@@ -24,7 +24,7 @@ import { LookUpCard, type LookedUpIn } from "./look-up"
 import { usePdfCover } from "./pdf-cover"
 import { detailsOutHere, showDetails, useDetailsShown } from "@/lib/reading"
 import { ScanDetail, ScanLine } from "./pdf-scan"
-import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, wordsIn, type PdfMark } from "./pdf-pages"
+import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, showPage, wordsIn, type PdfMark } from "./pdf-pages"
 import { FitActions, listEnd } from "@/components/haligtree/ui"
 import { LAYOUTS, LOOKS, useDarkPages, useOneInColour, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -741,7 +741,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const go = (to: number): void => {
     if (!doc) return
     const n = Math.min(Math.max(1, Math.round(to)), doc.numPages)
-    scroller.current?.querySelector<HTMLElement>(`.pdf-page[data-page="${n}"]`)?.scrollIntoView({ block: "start" })
+    showPage(scroller.current, n)
     setPage(n)
     // A jump is not reading: no taps until a hand scrolls again.
     byHandScroll.current = false

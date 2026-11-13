@@ -13,7 +13,7 @@ import { cue } from "@/lib/cues"
 import { Roll } from "@/lib/roll"
 
 import { host } from "@/lib/host"
-import { PdfPages, pdfTitle } from "@/components/pdf/pdf-pages"
+import { PdfPages, pdfTitle, showPage } from "@/components/pdf/pdf-pages"
 import { learnTitle, openPdf } from "@/components/pdf/pdf-reader"
 import { useDarkPages, usePaperPages } from "@/components/pdf/paper"
 import { usePdfCover } from "@/components/pdf/pdf-cover"
@@ -531,10 +531,8 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
     return () => box.removeEventListener("scroll", read)
   }, [doc])
   const go = (to: number): void => {
-    const box = scroller.current
-    const sheet = box?.querySelector<HTMLElement>(`.pdf-page[data-page="${to}"]`)
-    if (!box || !sheet) return
-    box.scrollTop += sheet.getBoundingClientRect().top - box.getBoundingClientRect().top - 12
+    if (!scroller.current?.querySelector(`.pdf-page[data-page="${to}"]`)) return
+    showPage(scroller.current, to, 12)
     setPage(to)
   }
   // The same choices from the block's right-click menu (turn-into/clicked.tsx), told to this block.
