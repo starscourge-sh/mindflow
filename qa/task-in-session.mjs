@@ -487,8 +487,9 @@ try {
     await go('today')
     await wait(1000)
     await see(A)
-    const byTag = { headings: await h.evaluate(() => document.querySelectorAll('[data-tag-fold]').length), dot: !!(await box(dot(A))), time: await spent(A) }
-    check('4 Today grouped by tag and sorted by name: the same row, with its dot and its time', byTag.headings > 0 && byTag.dot && /min so far$/.test(byTag.time ?? ''), JSON.stringify(byTag))
+    // A heading for each tag, where today's tasks have tags at all (a book whose tasks carry none draws one list).
+    const byTag = { headings: await h.evaluate(() => document.querySelectorAll('[data-tag-fold]').length), tagged: await h.evaluate(() => document.querySelectorAll('[data-pane] [data-task-row] [data-tag]').length), dot: !!(await box(dot(A))), time: await spent(A) }
+    check('4 Today grouped by tag and sorted by name: the same row, with its dot and its time', (byTag.headings > 0 || byTag.tagged === 0) && byTag.dot && /min so far$/.test(byTag.time ?? ''), JSON.stringify(byTag))
     await h.evaluate(() => localStorage.removeItem('view:tasks:today'))
     await v('session:cancel', (await running())?.id)
     const later = (await v('task:add', 't1 put off someday')).id
