@@ -139,16 +139,12 @@ try {
   const holding = await h.evaluate(() => [...document.querySelectorAll('[role="dialog"]:not([data-beside])')].map((one) => `${one.getAttribute('aria-label') ?? ''}|${(one.textContent ?? '').slice(0, 60)}`))
   if (holding.length) console.log('dialogs over the page:', JSON.stringify(holding))
   await h.keyboard.press('Meta+k')
-  // The same palette from the sidebar's “Search… ⌘K”, if the key did not open it.
-  if (!(await waitFor(() => h.evaluate(() => !!document.querySelector('[cmdk-input], [cmdk-root]')), 2000))) {
-    console.log('⌘K did not open the palette; opening it from the sidebar search instead')
-    await h.getByRole('button', { name: /^Search/ }).first().click().catch(() => {})
-  }
   await wait(500)
   await h.keyboard.type('Make study questions', { delay: 15 })
-  // The palette ranks by the words once its search has settled; until then it shows the note's first few actions.
-  const offered = await waitFor(() => h.evaluate(() => [...document.querySelectorAll('[cmdk-item]')].some((one) => /Make study questions/.test(one.textContent ?? '') && one.getAttribute('data-selected') === 'true')), 8000)
-  if (!offered) console.log('palette rows:', JSON.stringify(await h.evaluate(() => [...document.querySelectorAll('[cmdk-item]')].slice(0, 8).map((one) => `${one.getAttribute('data-selected')}:${(one.textContent ?? '').slice(0, 50)}`))))
+  // The palette (search.tsx) ranks by the words once its search has settled; until then it shows the note's first
+  // few actions. Its action rows name themselves in [data-action-label]; the lit one, which Enter runs, is [data-search-at].
+  const offered = await waitFor(() => h.evaluate(() => [...document.querySelectorAll('[data-search-at] [data-action-label]')].some((one) => one.textContent === 'Make study questions')), 8000)
+  if (!offered) console.log('palette rows:', JSON.stringify(await h.evaluate(() => [...document.querySelectorAll('[data-action-label]')].slice(0, 8).map((one) => `${one.closest('[data-search-at]') ? '*' : ''}${one.textContent}`))))
   check(`${book}, ${level}: ⌘K offers “Make study questions” for the open note`, offered)
   await h.keyboard.press(offered ? 'Enter' : 'Escape')
   await waitFor(async () => /\d/.test((await panel())?.state ?? ''))
