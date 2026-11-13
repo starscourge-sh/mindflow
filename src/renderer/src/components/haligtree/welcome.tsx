@@ -684,7 +684,7 @@ export function Welcome(): React.JSX.Element | null {
       {/* Out of the desktop: the same mist over the desktop's own picture, drawing in to the window on the title's beat, or at once on Esc or a click. */}
       {desk !== 'off' && <WelcomeMist key={`desk-${arrival}`} desk drawIn={desk === 'in'} hurry={rushed} plate={plate} onGone={land} onStart={() => setDeskLit(true)} />}
       {/* The arrival's spark and its burst (GrainBackdrop draws them on the page, which is not yet there): in the mist, where the title will stand, so the notes that go with them still have their light. */}
-      {desk === 'over' && deskLit && <div className="pointer-events-none absolute inset-0 z-[35]"><IntroSpark key={`desk-spark-${arrival}`} onDone={bloom} /></div>}
+      {desk === 'over' && deskLit && <div className="pointer-events-none absolute inset-0 z-[35]"><IntroSpark key={`desk-spark-${arrival}`} onDone={bloom} inMist /></div>}
       {/* Before the first words: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
       {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} />}
@@ -2075,7 +2075,9 @@ const SPARK_AT = [0, 0.05, 0.2, 0.34, 0.48, SPARK_HOLD - 0.06, SPARK_HOLD - 0.01
 const sparkFrames = (opacity: number[], scale: number[]): Keyframe[] => SPARK_AT.map((offset, i) => ({ offset, opacity: opacity[i], transform: `scale(${scale[i]})`, easing: 'ease-in-out' }))
 const HALO = sparkFrames([0, 0.45, 0.5, 0.55, 0.62, 0.85, 0.7, 1, 0.75, 0.3, 0], [0.3, 0.8, 0.85, 0.9, 0.98, 1.25, 1, 2.2, 7, 11, 12])
 const CORE = sparkFrames([0, 1, 0.9, 1, 0.92, 1, 1, 1, 1, 0.9, 0], [0.2, 1, 0.94, 1.05, 0.97, 1.12, 0.7, 2.1, 1.6, 1.3, 1])
-function IntroSpark({ onDone }: { onDone?: () => void }): React.JSX.Element {
+/** Over the desktop: whole in the middle, given out before the screen's edges (an oval to the window's own sides). */
+const SPARK_IN_MIST = 'radial-gradient(closest-side, black 45%, transparent)'
+function IntroSpark({ onDone, inMist = false }: { onDone?: () => void; inMist?: boolean }): React.JSX.Element {
   const halo = useRef<HTMLSpanElement>(null)
   const core = useRef<HTMLSpanElement>(null)
   const done = useRef(onDone)
@@ -2088,7 +2090,10 @@ function IntroSpark({ onDone }: { onDone?: () => void }): React.JSX.Element {
     return () => (glow?.cancel(), point?.cancel())
   }, [])
   return (
-    <span aria-hidden data-intro-spark className="pointer-events-none absolute inset-0 z-[1] grid place-items-center mix-blend-screen">
+    // In the mist over the desktop (`inMist`) its light gives out before the screen's edges, as the mist does: rolled out
+    // to the edge at its burst, it read as a sheet's edge over the desktop (6% at the screen's top on a 1080-high screen).
+    <span aria-hidden data-intro-spark className="pointer-events-none absolute inset-0 z-[1] grid place-items-center mix-blend-screen"
+      style={inMist ? { maskImage: SPARK_IN_MIST, WebkitMaskImage: SPARK_IN_MIST } : undefined}>
       {/* The halo: wide and soft, gathering through the hold, then rolling out ahead of the light. */}
       <span ref={halo} className="col-start-1 row-start-1 size-40 shrink-0 rounded-full opacity-0"
         style={{ background: 'radial-gradient(circle, rgb(255 233 168 / 0.55) 0%, rgb(250 189 47 / 0.22) 35%, rgb(250 189 47 / 0.06) 60%, transparent 72%)' }} />

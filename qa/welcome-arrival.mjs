@@ -320,10 +320,10 @@ try {
   check('the window\'s page comes up only once the mist\'s edge is the window\'s own: no box inside the window', boxed.length === 0, `${boxed.length} frames with the page up under a soft edge, first ${JSON.stringify(boxed[0] ?? null)}`)
   // What covers the desktop, read from the pictures: never less from one look to the next (the banks drift, so by a hair's allowance).
   check('what covers the desktop only ever grows, read from the page itself', TIMING || (curve.length > 5 && !curve.some((one, i) => i > 0 && one.mean < curve[i - 1].mean - 4)), curve.map((one) => one.mean).join(' '))
-  // Looks begun once the mist was whole and ended before it drew in. At the screen's very edge nothing to be seen: up to
-  // 3% (8 of 255), since the spark's burst rolls its halo out to the edge for a moment at about 2% (6 of 255, read at
-  // 6 to 8 seconds), far under what shows as an outline.
-  const EDGE = 8
+  // Looks begun once the mist was whole and ended before it drew in. At the screen's very edge nothing to be seen: under
+  // 1% (2 of 255). The spark's light gives out before the edges too (welcome.tsx IntroSpark `inMist`): rolled out to the
+  // edge at its burst, it read 2 to 6% there (7 of 255 on a 1205-high screen, 17 on a 1080-high one).
+  const EDGE = 2
   const over = curve.filter((one) => one.t > 3500 && one.plate === 0)
   check('over the desktop it is mist, not a sheet: the picture still shows through it, its middle is ground enough for words, and its edges are clear', TIMING || (over.length >= 1 && over.every((one) => one.centre >= 200 && one.side > 110 && one.side < 246 && one.top <= EDGE && one.left <= EDGE && one.corner <= EDGE)), JSON.stringify(over.slice(0, 3)))
   // Timed from the welcome's opening; the mist's own clock starts after the probe's hold, so a little under eleven seconds here.
