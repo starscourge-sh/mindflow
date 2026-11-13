@@ -10,6 +10,7 @@
 import os from 'node:os'
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
+import { holdEntrance, stepEntrance } from './pop-hold-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 const c = await sandbox({ width: 1440, height: 900, at: '11:30' })
 const { h, v, go } = c
@@ -21,20 +22,9 @@ const dir = process.env.FRAMES
 if (dir) mkdirSync(dir, { recursive: true })
 const STEPS = [0, 16, 33, 50, 100, 150]
 const dayKeyOf = (by) => { const d = c.now(); d.setDate(d.getDate() + by); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
-/** Stops the entrance of whatever matches `sel` as it starts (asked before the pointer opens it). */
-const hold = (sel, on = h) => on.evaluate((sel) => { window.__heldN = null; const t0 = performance.now(); const tick = () => { const el = document.querySelector(sel); const list = el?.getAnimations() ?? []; if (list.length) { list.forEach((one) => one.pause()); window.__heldN = list.length } else if (el && performance.now() - t0 > 600) window.__heldN = 0; else if (performance.now() - t0 < 4000) requestAnimationFrame(tick); else window.__heldN = -1 }; requestAnimationFrame(tick) }, sel)
+const hold = (sel, on = h) => holdEntrance(on, sel)
 /** The entrance stepped by hand: at each step, how whole the surface is, and a picture. */
-const step = async (sel, name, look, on = h) => {
-  await on.waitForFunction(() => window.__heldN !== null, null, { timeout: 6000 }).catch(() => {})
-  const seen = []
-  for (const t of STEPS) {
-    const at = await on.evaluate(([sel, t]) => { const el = document.querySelector(sel); if (!el) return null; const list = el.getAnimations(); list.forEach((one) => { one.currentTime = t }); const style = getComputedStyle(el); return { n: list.length, opacity: Number(style.opacity), clip: style.clipPath.slice(0, 44), scale: Number(new DOMMatrixReadOnly(style.transform).a.toFixed(3)), fades: list.some((one) => one.effect?.getKeyframes?.().some((key) => 'opacity' in key)) } }, [sel, t])
-    seen.push(at)
-    if (dir) await on.screenshot({ path: `${dir}/${name}-${look}-${String(t).padStart(3, '0')}.png` })
-  }
-  await on.evaluate((sel) => document.querySelector(sel)?.getAnimations().forEach((one) => one.finish()), sel)
-  return seen
-}
+const step = (sel, name, look, on = h) => stepEntrance(on, sel, STEPS, dir ? (t) => `${dir}/${name}-${look}-${String(t).padStart(3, '0')}.png` : null)
 const said = (seen) => seen.map((one) => (one ? `${one.opacity}${one.scale !== 1 ? `×${one.scale}` : ''}` : 'gone')).join(' ')
 
 try {

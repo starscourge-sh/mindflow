@@ -4,6 +4,7 @@
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { castFrames } from './cast-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
@@ -21,6 +22,7 @@ try {
   }
   const bytes = [...(await pdf.save())]
   await v('settings:set', { sounds: false, hintRate: 0 })
+  if (process.env.LOOK) { await c.look(process.env.LOOK); await wait(400) }
   const id = await v('article:new')
   await v('item:save', id, { title: 'Big book', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
   await c.send('article', id); await wait(1400)
@@ -34,7 +36,9 @@ try {
   const name = h.locator('.tiptap-attachment-name[data-pdf-peek]').first()
   await name.waitFor({ timeout: 15000 })
   const box = await name.boundingBox()
-  await h.mouse.move(box.x + 2, box.y + box.height / 2)
+  // With FRAMES=dir (and LOOK=dark for the dark look) the card's entrance is kept at the page's own pace, to be read by eye.
+  if (process.env.FRAMES) await castFrames(h, process.env.FRAMES, `pdf-peek-${process.env.LOOK ?? 'light'}`, () => h.mouse.move(box.x + 2, box.y + box.height / 2), 1200)
+  else await h.mouse.move(box.x + 2, box.y + box.height / 2)
   await h.waitForSelector('[data-pdf-peek-card]', { timeout: 8000 })
   await wait(300)
   // Every picture shown while sweeping and after, with its time.
