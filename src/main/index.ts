@@ -1711,7 +1711,9 @@ function takeDownSticky(win: BrowserWindow | null, title: string): void {
   if (!win || !key) return
   const [type, ...rest] = key.split(':')
   const id = rest.join(':')
-  takenDown = { type, id, bounds: cardFrame(key, win), tint: stuckAs(key)?.tint, asked: stuckAs(key)?.asked, title, until: Date.now() + TAKEN_FOR }
+  // Taken down as a pill (or a card open out of one), it is kept as that pill, with its card's own place.
+  const rest = peeking.get(key) ?? openedAt.get(key)
+  takenDown = { type, id, bounds: rest ? cardOf(rest, insetOf(key)) : cardFrame(key, win), tint: stuckAs(key)?.tint, asked: stuckAs(key)?.asked, pill: stuckAs(key)?.pill, title, until: Date.now() + TAKEN_FOR }
   // A goal's card that its goal's “Goal on screen” put up stays down once taken down: the goal's setting goes to off,
   // so its page says what is true (“The menu bar and Home still show it”). Left as it was, the next look at the
   // goals put the card straight back (beacons: as a goal changes, and every half minute), seen as “Take it down”
@@ -1729,10 +1731,10 @@ function takeDownSticky(win: BrowserWindow | null, title: string): void {
 /** Back where it was, with its colour, coming in as any sticky does. */
 function putStickyBack(): void {
   if (!canPutBack() || !takenDown) return
-  const { type, id, bounds, tint, asked, beacon } = takenDown
+  const { type, id, bounds, tint, asked, beacon, pill } = takenDown
   takenDown = null
   byHand(`${type}:${id}`)
-  stuck.push({ type, id, bounds, tint, ...(asked ? { asked } : {}) })
+  stuck.push({ type, id, bounds, tint, ...(asked ? { asked } : {}), ...(pill ? { pill } : {}) })
   stick(type, id, true, bounds)
   // Its goal's “Goal on screen” as it was, after the card is up again where it was (the look that follows finds it there).
   if (beacon) setGoalBeacon(id, beacon.was)
