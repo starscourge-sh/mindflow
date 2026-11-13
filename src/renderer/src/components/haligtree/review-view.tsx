@@ -694,8 +694,9 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
       }} />}
       {missed && (
         // The line is the way back to the source, as R is: said with its key, never a sentence that ends on a colon.
+        // There with the next card, whole: typed in, its underline ran under the words still to come as stray dashes.
         <p className="px-5 pt-3 -mb-1 text-xs text-muted-foreground">
-          <LineWay data-missed-reread onClick={() => (chime('read'), setSource(missed))} keys="R"><Typed text="Missed that one? Reread where it came from" step={28} delay={100} /></LineWay>
+          <LineWay data-missed-reread onClick={() => (chime('read'), setSource(missed))} keys="R">Missed that one? Reread where it came from</LineWay>
         </p>
       )}
       {/* The next card is there at once: grading fast never waits for the
