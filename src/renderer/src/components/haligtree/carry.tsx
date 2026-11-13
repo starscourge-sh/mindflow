@@ -256,18 +256,6 @@ const ROOM = 'pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in
 export const OwnRoom = (): React.JSX.Element => <span aria-hidden data-own-room="" className={cn(ROOM, 'inset-y-0')} />
 /** What holds that band where the thing is not a list's row (a tab, a Matrix card): everything in it but the band goes out of sight. */
 export const HELD = 'relative [&>*:not([data-own-room])]:opacity-0'
-/**
- * The room where a carried thing's own box is the room (a board's card, which the cards round it make way for): the
- * quiet band, the one line through its middle once it would land somewhere new; over its own place, the band alone.
- * Its holder hides everything else in it (`HELD`, or the same for its own children).
- */
-export const RoomIn = ({ moves, how }: { moves: boolean; how: string }): React.JSX.Element =>
-  moves ? (
-    <Fragment key={how}>
-      <span aria-hidden data-drop-room="1" className={cn(ROOM, 'inset-y-0')} style={{ animation: still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both` }} />
-      <DropLine how={how} style={{ left: 12, top: '50%', animation: still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both` }} />
-    </Fragment>
-  ) : <OwnRoom />
 
 /**
  * Where it lands, the one line every list draws: a dot at its start. In a row's
