@@ -29,6 +29,7 @@ import { loud } from '@/lib/loud'
 import { Check, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { liftCard } from '@/lib/card-pointer'
+import { usePillWords } from './desk-pill'
 
 /** When a task is for: the day it is due, else its deadline's. */
 const dueDay = (task: Task): string | null => (task.dueAt ? dayKey(task.dueAt) : task.deadline ? dayKey(task.deadline) : null)
@@ -130,6 +131,8 @@ export function TodaySticky(): React.JSX.Element {
 
   // From some left to none left, held a moment so an untick straight after takes it back unseen.
   const allDone = todos.length > 0 && finished === todos.length
+  // Its pill in the desk's stack: its tick ring and what is left, as the card's own count says.
+  usePillWords(tasks === undefined ? null : { words: 'Today', number: !todos.length ? 'Nothing due' : allDone ? 'All done' : `${num(todos.length - finished)} left`, ring: { gone: todos.length ? finished / todos.length : 0, ink: 'var(--tt-color-text-green)' } })
   const wasDone = useRef<boolean | undefined>(undefined)
   const [cheer, setCheer] = useState<Moment | null>(null)
   const loaded = tasks !== undefined
@@ -162,9 +165,9 @@ export function TodaySticky(): React.JSX.Element {
               onClick={(event) => (chime('open'), window.api.openSticky('view', 'today', 'Today', event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button></Tip>
-            <Tip label="Hide this sticky. Show your stickies again to bring it back  ⌃⌥⌘N">
-            <button type="button" aria-label="Hide this one"
-              onClick={() => (chime('tuck'), window.api.hideSticky('today', 'today', 'Today'))} className={STICKY_BUTTON}>
+            <Tip label="Fold it into its pill at the screen's edge  ⌃⌥⌘H folds them all">
+            <button type="button" aria-label="Fold it into its pill"
+              onClick={() => (chime('tuck'), window.api.pinSticky(false))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
             </button></Tip>
             <Tip label="Take it off the desktop  ⌘W">

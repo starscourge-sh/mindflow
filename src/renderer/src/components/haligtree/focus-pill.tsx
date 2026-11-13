@@ -30,6 +30,7 @@ import { PracticeBar, WhatStuck, stageWords, usePracticeGuard } from './practice
 import { practices, type Ended } from '@/lib/practices'
 import { START_MIN, fillOf } from '../../../../main/practice-rules'
 import { wornStyle, type Style } from '@/lib/theme'
+import { LIFT, SOLID } from '@/lib/float'
 import { APP_NAME } from '../../../../main/name'
 import { howLong } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
@@ -227,8 +228,8 @@ function InAnotherBook({ focus, now, notch }: { focus: Elsewhere; now: number; n
   )
 }
 
-/** The bubble's one surface, whatever the stage: solid in every theme, so nothing behind shows through. */
-export const SOLID = 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
+/** The bubble's one surface, whatever the stage: solid in every theme, so nothing behind shows through (lib/float.ts, the desk's pills wear it too). */
+export { SOLID }
 export const SHADOW = 'shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent),0_3px_8px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_12%,transparent)]'
 /** The time-up wash laid over the solid. */
 const TIMEUP_WASH = 'linear-gradient(color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent), color-mix(in oklab, var(--tt-brand-color-400) 14%, transparent))'
@@ -297,9 +298,7 @@ const SPRING = { type: 'spring', stiffness: 152, damping: 17.8, mass: 1 } as con
 const DROP = { type: 'spring', stiffness: 420, damping: 30, mass: 1 } as const
 /** How long the new session's card stays open before it settles into the pill. */
 const SHOWN = 1900
-/** The pill's lift off the screen, drawn around whatever shape it is clipped to (a box shadow would be clipped with it). */
-const LIFT = 'drop-shadow(0 1px 1px color-mix(in oklab, var(--mf-shadow-ink) 14%, transparent)) drop-shadow(0 3px 3px color-mix(in oklab, var(--mf-shadow-ink) 8%, transparent))'
-/** The lift under the bubble: none in Paper, which prints everything flat. */
+/** The lift under the bubble (lib/float.ts): none in Paper, which prints everything flat. */
 const lift = (): string | undefined => (wornStyle() === 'paper' ? undefined : LIFT)
 
 type Shape = { w: number; h: number }

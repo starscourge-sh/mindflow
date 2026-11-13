@@ -280,16 +280,16 @@ export function Welcome(): React.JSX.Element | null {
   const [paid, setPaid] = useState(false)
   // The name page's way to keep the name on screen, called by Next and Enter only.
   const nameSave = useRef<(() => void) | null>(null)
-  // The goal's real card (welcome-you.tsx, applySetup puts it on the desktop): out on the page that says what was done,
-  // tucked into the screen's edge, as every sticky tucks, on every other page once it has been seen. Only flipped as you
-  // come to that page or leave it, so a card you bring out or tuck yourself on a later page stays as you left it.
+  // The goal's real card (welcome-you.tsx, applySetup puts it on the desktop): open on the page that says what was done,
+  // folded into its pill at the screen's edge, as every goal's card starts, on every other page once it has been seen.
+  // Only flipped as you come to that page or leave it, so a card you open or fold yourself on a later page stays as you left it.
   const goalCard = setup.made?.goalId && !(setup.undone ?? []).includes('goal') ? setup.made.goalId : null
   const goalPage = at === YOU && paid
   const goalSeen = useRef<string | null>(null)
   useEffect(() => {
     if (!goalCard) return
     if (goalPage) goalSeen.current = goalCard
-    if (goalSeen.current === goalCard) void haligtree.setSettings({ stickiesTucked: goalPage ? 'off' : 'tabs' })
+    if (goalSeen.current === goalCard) window.api.deskPill(`goal:${goalCard}`, !goalPage)
   }, [goalCard, goalPage])
 
   const go = (to: number, backward = false): void => {
@@ -431,9 +431,8 @@ export function Welcome(): React.JSX.Element | null {
     if (closing) return
     if (picked.current) applyTheme(picked.current)
     fillBox(null)
-    // What the welcome tucked comes back out as it ends, every way out: left tucked, the goal card and every sticky
-    // stayed a tab at the edge for good, whatever Settings said.
-    if (goalSeen.current) (goalSeen.current = null), void haligtree.setSettings({ stickiesTucked: 'off' })
+    // The goal's card stays as the welcome left it, a pill in the stack, as every goal's card starts.
+    goalSeen.current = null
     // The first welcome, going on into the book: its ending, the name carried into the sidebar and the chord come home
     // on it. Played again, skipped out of, or into the sandbox or an import: the bed simply goes, slowly.
     const ending = how === 'fresh' && !replay && !state?.welcomed && !quiet && !SANDBOX

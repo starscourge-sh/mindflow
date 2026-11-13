@@ -3331,10 +3331,16 @@ html[data-book-hue] [data-book-tint] {
   cursor: pointer;
 }
 
-/* A sticky slid out of its tucked tab stands straight, so the tab's strip laid over its inner edge meets it as one paper (tuck-tab.tsx). */
-html[data-tuck-open] [style*="--tilt"] { --tilt: 0deg !important; }
-/* Out of its tab the card is only itself, the tab's name fading off its edge (tuck-tab.tsx); still while out. */
-html[data-tuck-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }
+/* A card grown out of its pill (desk-pill.tsx) stands straight and still beside the stack, in the card's own width at the
+   window's far side from the pill: the rest of the window is the pill's column, clear room that lets clicks through. */
+html[data-pill-open] [style*="--tilt"] { --tilt: 0deg !important; }
+/* A note's pill says its paper by a dot: the paper itself, or, coloured, its colour full enough to be told apart. */
+html[data-sticky-window] { --mf-pill-dot: var(--mf-paper, var(--popover)); }
+html[data-sticky-window][data-tint] { --mf-pill-dot: oklch(0.7 0.13 var(--mf-tint-hue)); }
+html[data-pill-open] :is(.mf-card, [data-goal-card]) { scale: 1 !important; }
+html[data-pill-open] #root { position: fixed; top: 0; bottom: 0; width: var(--pill-card); }
+html[data-pill-open='right'] #root { left: 0; }
+html[data-pill-open='left'] #root { right: 0; }
 
 /* The paper a page is written on (Settings › Paper): a note's, the Journal's day page and the writing room, as a notebook's: dots or squares in a
    faint mix of the ink, scrolling with the words. The samples in Settings wear the same paper. */

@@ -72,6 +72,8 @@ heard.on('spelling:changed', () => window.dispatchEvent(new CustomEvent('haligtr
 heard.on('video:refused', (_event, src: string) => window.dispatchEvent(new CustomEvent('haligtree:video-refused', { detail: src })))
 
 type RoomHere = { left: number; top: number; right: number; bottom: number; side?: 'above' | 'below' | 'left' | 'right' | null; menu?: number; pill?: number }
+/** A sticky as its pill in the desk's stack (main's shapeCard): the stack's edge, and, opened, where the pill stands in the window and how wide the card is. */
+export type PillPeek = { side: 'left' | 'right'; nudge: boolean; opened?: { pill: { x: number; y: number; width: number; height: number }; card: number; size: { width: number; height: number } } }
 /** Quick capture's window: the one page that is not another kind's (main's pages.ts), and the only one with room round its card. */
 const boxHere = /\/index\.html$/.test(window.location.pathname)
 /**
@@ -389,10 +391,9 @@ const api = {
     heard.on('look:over', relay)
     return () => heard.off('look:over', relay)
   },
-  /** A sticky's own: put just this one away, or size it from its corner grip. */
-  hideSticky: (type: string, id: string, title?: string): void => ipcRenderer.send('sticky:hide', type, id, title),
   /** A hidden sticky out again, from the nudge card's “Bring it back”. */
   unhideSticky: (key: string): void => ipcRenderer.send('sticky:unhide', key),
+  /** A sticky sized from its corner grip. */
   resizeSticky: (width: number, height: number, done = false): void => ipcRenderer.send('sticky:resize', width, height, done),
   /** A sticky's own X or ⌘W: it peels off, and the window in sight offers "Put it back". */
   takeDownSticky: (title: string): void => ipcRenderer.send('sticky:takedown', title),
@@ -453,16 +454,29 @@ const api = {
   lift: (): void => ipcRenderer.send('sticky:lift'),
   /** The pointer come onto the sticky's window (true) or gone from it (false), from the page's own pointer events. */
   pointerOn: (on: boolean): void => ipcRenderer.send('sticky:pointer', on),
-  /** A goal's card: the pointer on it (it stays) or off it, and its X (that goal tucked away). */
+  /** The pointer resting on a pill (it opens out of it), or on a goal's card (it stays) or off it. */
   holdBeacon: (on: boolean): void => ipcRenderer.send('beacon:hold', on),
-  tuckBeacon: (id: string): void => ipcRenderer.send('beacon:tuck', id),
-  /** A card opened out of its tab, the pointer gone from it: slide it back into its edge (true), or, the pointer back on it midway, out again (false). */
+  /** A click on a pill or on the card it opened: pinned open (true); the card's “–”: folded back into its pill (false). */
+  pinSticky: (on: boolean): void => ipcRenderer.send('sticky:pin', on),
+  /** A card on the desk by its key ("goal:…"), folded into its pill (true) or pinned open (false): the welcome's goal card. */
+  deskPill: (key: string, on: boolean): void => ipcRenderer.send('desk:pill', key, on),
+  /** The stack's last pill, past six: how many cards it stands for (0: only itself). */
+  onPillMore: (listen: (count: number) => void): (() => void) => {
+    const relay = (_event: unknown, count: number): void => listen(count)
+    heard.on('pill:more', relay)
+    return () => void heard.off('pill:more', relay)
+  },
+  /** That pill clicked: the cards it stands for, listed in the app's own menu at the point clicked. */
+  pillMore: (x: number, y: number): void => ipcRenderer.send('sticky:more', x, y),
+  /** A pill's words measured: its width in the desk's stack. */
+  pillWidth: (width: number): void => ipcRenderer.send('sticky:pill-width', width),
+  /** A card opened out of its pill, the pointer gone from it: fold it back into the pill (true), or, the pointer back on it midway, open again (false). */
   onBeaconFold: (listen: (on: boolean) => void): (() => void) => {
     const relay = (_event: unknown, on: boolean): void => listen(on)
     heard.on('beacon:fold', relay)
     return () => heard.off('beacon:fold', relay)
   },
-  /** The slide back into the edge drawn: main makes the window its tab again. */
+  /** The fold back into the pill drawn: main makes the window the pill again. */
   beaconFolded: (): void => ipcRenderer.send('beacon:folded'),
   /** A sticky's frost: the desktop picture blurred, its screen and where the window is; asked once, then told on each change. */
   frost: (): Promise<Frost | null> => ipcRenderer.invoke('frost'),
@@ -473,9 +487,9 @@ const api = {
     heard.on('frost', relay)
     return () => heard.off('frost', relay)
   },
-  /** A sticky told to be a tab at the screen's edge (tucked: every sticky tucked away; flat: only a small pill), or a goal's card told to peek as a slim tab at that edge of the screen (nudge: it came out by itself), or to be its whole card again (null); opened: a card slid out of its named tab, the tab's strip kept on its screen side; instant: asked by a key, so it lands without a slide. */
-  onBeaconPeek: (listen: (peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number; width?: number } | null, instant?: boolean) => void): (() => void) => {
-    const relay = (_event: unknown, peek: { side: 'left' | 'right'; nudge: boolean; tucked?: boolean; flat?: boolean; opened?: boolean; room?: { side: number; top: number; bottom: number }; hang?: number; strip?: number; width?: number } | null, instant?: boolean): void => listen(peek, instant)
+  /** A sticky told to be its pill in the desk's stack on that edge (nudge: it came out by itself), or its whole card again (null); opened: the card grown out of its pill, the pill where it stands in the window and the card's width; instant: asked by a key, so it lands without a motion. */
+  onBeaconPeek: (listen: (peek: PillPeek | null, instant?: boolean) => void): (() => void) => {
+    const relay = (_event: unknown, peek: PillPeek | null, instant?: boolean): void => listen(peek, instant)
     heard.on('beacon:peek', relay)
     // As it starts listening: what it is now, in case it was told before (or before a reload).
     void ipcRenderer.invoke('beacon:peek:now').then((peek) => peek && listen({ ...peek, nudge: false }), () => undefined)

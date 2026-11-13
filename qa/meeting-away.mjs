@@ -284,16 +284,16 @@ try {
   await wait(300)
   await c.size(1280, 800)
 
-  // Tucked to the screen's edge as tabs: the tabs hide too, and are back as the same tabs.
-  await v('settings:set', { stickiesTucked: 'tabs' })
+  // Folded into their pills in the desk's stack (the menu bar's ⌃⌥⌘H line): the pills hide too, and are back as the same pills.
+  check('the menu bar folds every card into its pill', await choose('Fold every card into its pill'))
   await wait(2000)
   const tabs = await desk()
-  check('tucked, every one is a tab at the edge', tabs.length >= 3 && tabs.every((one) => one.visible && one.at.width < 140), tabs.map((one) => `${one.key.slice(0, 10)} ${one.visible} ${one.at.width}`).join(' '))
-  check('a call hides every tab', up(await flip('camera', true)) === 0)
-  check('and they are back as the same tabs, in the same places, when it ends', same(await flip('camera', false), tabs))
-  await v('settings:set', { stickiesTucked: 'off' })
+  check('folded, every one is a pill at the edge', tabs.length >= 3 && tabs.every((one) => one.visible && one.at.width < 240 && one.at.height < 40), tabs.map((one) => `${one.key.slice(0, 10)} ${one.visible} ${one.at.width}x${one.at.height}`).join(' '))
+  check('a call hides every pill', up(await flip('camera', true)) === 0)
+  check('and they are back as the same pills, in the same places, when it ends', same(await flip('camera', false), tabs))
+  check('the menu bar opens the cards it folded', await choose('Open the cards it folded'))
   await wait(2000)
-  check('brought back out, every one is on the desktop again', up(await desk()) === (await desk()).length && (await desk()).every((one) => one.at.width > 140))
+  check('opened again, every one is on the desktop as its card', up(await desk()) === (await desk()).length && (await desk()).every((one) => one.at.width > 140 && one.at.height > 100))
 } catch (error) {
   check('ran to the end', false, error.message.split('\n')[0])
 }

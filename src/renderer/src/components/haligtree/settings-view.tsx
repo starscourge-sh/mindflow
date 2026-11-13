@@ -1011,7 +1011,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Chips className="shrink-0" options={[{ id: 'always', label: 'Always' }, { id: 'sometimes', label: 'Now and then' }, { id: 'off', label: 'Off' }]}
               on={(id) => id === (settings.goalBeacon ?? 'sometimes')} pick={(goalBeacon) => set({ goalBeacon: goalBeacon as Settings['goalBeacon'] })} />
           </Setting>
-          <Setting title="Tuck away" note="Cards set to “Always” step aside by the clock, so they are seen without being always in the way." more="Shown in full before and after the hours you set, and a slim tab at the screen's edge in between: point at the tab and the card opens out of it. A focus session tucks them right away." keywords="tuck away hide peek tab edge work hours focus session goal cards rules clock time of day">
+          <Setting title="Tuck away" note="Cards set to “Always” step aside by the clock, so they are seen without being always in the way." more="Shown as you keep them before and after the hours you set, and folded to their pill at the screen's edge in between: point at the pill and the card opens out of it. A focus session tucks them right away." keywords="tuck away hide peek pill edge work hours focus session goal cards rules clock time of day">
             <TuckSample on={settings.goalTuck === true} />
             <Switch checked={settings.goalTuck === true} onCheckedChange={(goalTuck) => set({ goalTuck })} />
           </Setting>
@@ -1021,7 +1021,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
               <span className="text-muted-foreground">and from</span>
               <TimeField label="Shown from" value={settings.goalShowFrom ?? '17:00'} onChange={(goalShowFrom) => set({ goalShowFrom })} />
             </Setting>
-            <Setting under title="In between" note="A slim tab at the screen's edge with the time gone, or out of sight." keywords="tuck away peek tab hide between work hours">
+            <Setting under title="In between" note="Its pill at the screen's edge with the days left, or out of sight." keywords="tuck away peek pill hide between work hours">
               <Chips className="shrink-0" options={[{ id: 'peek', label: 'Peek' }, { id: 'tuck', label: 'Out of sight' }]}
                 on={(id) => id === (settings.goalBetween ?? 'peek')} pick={(goalBetween) => set({ goalBetween: goalBetween as Settings['goalBetween'] })} />
             </Setting>
@@ -1031,7 +1031,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
                 on={(id) => id === (settings.goalInFocus ?? 'tuck')} pick={(goalInFocus) => set({ goalInFocus: goalInFocus as Settings['goalInFocus'] })} />
             </Setting>
             </>}
-            <Setting under title="Peek out sometimes" note="A card out of sight for two days peeks out as a tab once a day, with a little wiggle." keywords="tuck away nudge reminder peek out now and then wiggle days hidden forget">
+            <Setting under title="Peek out sometimes" note="A card out of sight for two days peeks out as its pill once a day, with a little wiggle." keywords="tuck away nudge reminder peek out now and then wiggle days hidden forget">
               <Switch checked={settings.goalPeekOut !== false} onCheckedChange={(goalPeekOut) => set({ goalPeekOut })} />
             </Setting>
           </>)}
@@ -1148,10 +1148,6 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
           <Setting title="Show sticky notes" note="Every sticky note out, or all put away where they were." more="Goal cards go with them. ⌃⌥⌘N from anywhere.">
             <Switch checked={settings.stickiesShown} onCheckedChange={(stickiesShown) => set({ stickiesShown })} />
-          </Setting>
-          <Setting title="Tucked at the edge" note="Every sticky and goal card as a tab at the screen's edge, by name or flat, or out in full." more="⌃⌥⌘H from anywhere. A goal card set to “Tuck away” also follows its clock." keywords="tuck stickies away tabs edge flat names bring back out hidden tucked">
-            <Chips className="shrink-0" options={[{ id: 'off', label: 'Out' }, { id: 'tabs', label: 'By name' }, { id: 'flat', label: 'Flat' }]}
-              on={(id) => id === (settings.stickiesTucked ?? 'off')} pick={(stickiesTucked) => set({ stickiesTucked: stickiesTucked as Settings['stickiesTucked'] })} />
           </Setting>
           <Setting title="Sticky note material" note="What sticky notes and goal cards look like on the desktop." keywords="sticky notes are made of paper glass sticky notes frosted glass blur wallpaper desktop transparent see-through solid opaque vibrancy"
             below={<Choices label="Sticky note material" options={stickyChoices} on={(id) => id === (settings.stickiesFrosted !== false && settings.stickiesGlass ? 'glass' : 'paper')}

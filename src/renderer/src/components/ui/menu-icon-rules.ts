@@ -287,7 +287,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^take it down$/i, PinOff],
   [/^all stickies$/i, Layers],
   [/^put stickies back/i, Undo2],
-  [/^tuck them flat$/i, Minimize2],
+  [/^fold every card/i, Minimize2],
+  [/^keep open$/i, Pin],
+  [/^open the cards it folded/i, Maximize2],
   [/card/i, StickyNote],
   [/sticky|desktop|^stick all/i, StickyNote],
   // Pages and places.

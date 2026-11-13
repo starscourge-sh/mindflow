@@ -721,25 +721,25 @@ export const stickyChoices = [
 ].map((one) => ({ ...one, show: <Sticky made={one.id as 'paper'} /> }))
 
 /**
- * A goal's card tucked away by the clock, small: on, it waits as a slim tab
- * at the desktop's edge and opens out of it while pointed at, as the real one does.
+ * A goal's card tucked away by the clock, small: on, it waits as its pill at
+ * the desktop's edge and grows out of it while pointed at, as the real one does.
  */
 export function TuckSample({ on }: { on: boolean }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const out = !on || open
   return (
-    <span data-preview="tuck" onPointerEnter={() => (setOpen(true), on && chime('slide'))} onPointerLeave={() => setOpen(false)}
+    <span data-preview="tuck" onPointerEnter={() => setOpen(true)} onPointerLeave={() => setOpen(false)}
       className="relative block h-9 w-20 overflow-hidden rounded-md border" style={{ background: WALL }}>
-      <span data-preview-card={out ? 'card' : 'tab'}
-        className="absolute top-1 right-1.5 flex h-7 w-11 items-start gap-1 rounded-[4px] bg-popover p-1 shadow-[0_3px_6px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)] transition-transform duration-300 ease-(--mf-ease) motion-reduce:transition-none"
-        style={{ transform: out ? 'translateX(0)' : 'translateX(calc(100% - 4px))' }}>
+      <span data-preview-card={out ? 'card' : 'pill'}
+        className="absolute top-1 right-1.5 flex items-start gap-1 overflow-hidden border border-foreground/10 bg-popover p-1 shadow-[0_3px_6px_-2px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)] transition-[width,height,border-radius] duration-300 ease-(--mf-ease) motion-reduce:transition-none"
+        style={out ? { width: 44, height: 28, borderRadius: 4 } : { width: 30, height: 11, borderRadius: 999, paddingBlock: 2 }}>
         <svg viewBox="0 0 10 10" className="size-2.5 shrink-0 -rotate-90" aria-hidden>
           <circle cx="5" cy="5" r="3.6" fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={1.6} />
           <circle cx="5" cy="5" r="3.6" fill="none" stroke="var(--tt-color-text-orange)" strokeWidth={1.6} strokeDasharray="14 23" />
         </svg>
-        <span className="mt-0.5 flex flex-1 flex-col gap-[3px]">
+        <span className={`flex flex-1 flex-col gap-[3px] ${out ? 'mt-0.5' : 'mt-[2px]'}`}>
           <span className="block h-[2px] w-full rounded-full bg-foreground/50" />
-          <span className="block h-[2px] w-2/3 rounded-full bg-foreground/30" />
+          {out && <span className="block h-[2px] w-2/3 rounded-full bg-foreground/30" />}
         </span>
       </span>
     </span>

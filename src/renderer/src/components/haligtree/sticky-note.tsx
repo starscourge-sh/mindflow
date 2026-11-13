@@ -36,6 +36,7 @@ import { ofTheWriting } from '@/lib/writing-floats'
 import { liftCard } from '@/lib/card-pointer'
 import { APP_NAME } from '../../../../main/name'
 import { num } from '../../../../main/dates'
+import { usePillWords } from './desk-pill'
 
 // The editor only once you edit: at rest a sticky is just the light drawing below.
 const HaligtreeEditor = lazy(() => import('@/components/haligtree').then((one) => ({ default: one.HaligtreeEditor })))
@@ -246,7 +247,7 @@ const firstInSight = (box: HTMLElement | null): { text: string; top: number } | 
 const lineOf = (box: HTMLElement, text: string): Element | undefined => linesIn(box).find((one) => one.textContent === text)
 
 /** Paper with nothing showing through: plain paper's, and a tucked tab's, which has no glass behind it even on glass. */
-export const SOLID_PAPER: CSSProperties = { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }
+const SOLID_PAPER: CSSProperties = { backgroundImage: 'linear-gradient(rgb(255 255 255 / 0.05), transparent 40%), linear-gradient(var(--mf-paper-tint), var(--mf-paper-tint)), linear-gradient(var(--mf-paper), var(--mf-paper)), linear-gradient(var(--background), var(--background))', backgroundColor: 'Canvas' }
 /**
  * Real glass: the Mac's blur of the desktop shows through a wash of the theme's paper, Raycast's way, the desktop's
  * colour coming through darkened (--mf-glass-wash, main.css: lighter on a dark page, more on a light one, and the
@@ -506,6 +507,9 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // While editing, the first line stays hidden as long as it only repeats the title and the caret is elsewhere.
   const [hideFirst, setHideFirst] = useState(false)
   const titled = useRef('')
+  // Its pill in the desk's stack: the name its card is headed by (its title, or its first line), its paper as the dot.
+  const firstLine = doc.content?.[0] ? glance(doc.content[0]).trim() : ''
+  usePillWords(note === undefined ? null : { words: itemName(type, note?.title || cut(firstLine, 80) || 'New note').text || 'New note' })
   const typed = useSameWords(type === 'capture' ? 'captures' : 'nuggets', editing ? id : undefined, editing?.body, (at, words, wordsBase, markdown) =>
     type === 'capture' ? window.api.captures.save(at, { words, wordsBase, markdown }) : haligtree.saveItem(at, { words, wordsBase }))
   // A double-click says where: the caret goes there. E starts at the end.
@@ -591,7 +595,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
   // A task's or an Inbox note's #tags as tags after its words, never in its name, as on every list.
   const named = itemName(type, title)
   titleNow.current = named.text || title
-  // Said down its tab when the stickies are tucked away.
+  // Its window's name, as the menus list it.
   document.title = titleNow.current || 'A sticky note'
   // Nothing written yet below its title: where to start.
   const empty = !(doc.content ?? []).some((child, at) => (at || !twice) && (child.type !== 'paragraph' || !!child.content?.length))
@@ -672,9 +676,9 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
               onClick={(event) => (chime('open'), window.api.openSticky(note?.tier ?? type, id, title, event.altKey))} className={STICKY_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button></Tip>
-            <Tip label="Hide this sticky. Show your stickies again to bring it back  ⌃⌥⌘N">
-            <button type="button" aria-label="Hide this one"
-              onClick={() => (chime('tuck'), window.api.hideSticky(type, id, titleNow.current))} className={STICKY_BUTTON}>
+            <Tip label="Fold it into its pill at the screen's edge  ⌃⌥⌘H folds them all">
+            <button type="button" aria-label="Fold it into its pill"
+              onClick={() => (chime('tuck'), window.api.pinSticky(false))} className={STICKY_BUTTON}>
               <Minus className="size-3.5" strokeWidth={2.25} />
             </button></Tip>
             <Tip label="Take it off the desktop  ⌘W">

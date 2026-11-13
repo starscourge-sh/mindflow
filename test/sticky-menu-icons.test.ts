@@ -10,7 +10,7 @@ import { menuIcon } from '../src/renderer/src/components/ui/menu-icon-rules.ts'
 test("every line of a sticky's own menu has a drawing", () => {
   const text = readFileSync('src/main/index.ts', 'utf8')
   const said = [...text.matchAll(/\{\s*label:\s*'([A-Z][^']*)',[^{}]*\brun:/g)].map((m) => m[1])
-  for (const label of ['Cut', 'Copy', 'Paste', 'Take it down', 'Tidy stickies down the right edge', 'Put stickies back where they were', 'Tuck sticky notes away', 'Bring sticky notes back', 'Tuck them flat', 'Show their names'])
+  for (const label of ['Cut', 'Copy', 'Paste', 'Take it down', 'Tidy stickies down the right edge', 'Put stickies back where they were', 'Fold every card into its pill', 'Open the cards it folded', 'Keep open'])
     assert.ok(said.includes(label), `the sticky menu no longer says "${label}": update this test`)
   // Its "Open in Haligtree" is written with the app's name.
   const missing = [...said, 'Open in Haligtree'].filter((label) => menuIcon(label) === Dot)

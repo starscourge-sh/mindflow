@@ -60,7 +60,7 @@ import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
 import { hintRoom, type HintSide } from './hint-room'
-import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, stickyTuck, tuckStickies, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, setGoalBeacon, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, pillYields, sleepChoice, sunPlace } from './haligtree'
+import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, wasTucked, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, setGoalBeacon, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, pillYields, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, cardComesDown, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
@@ -1476,7 +1476,9 @@ const stickyFile = (): string => join(app.getPath('userData'), 'stickies.json')
 // Bounds: the card's own frame, not its window's, so a card made again as glass (no room round it) or paper (room round it) stays put.
 // Asked: a goal's own card stuck by a page's ask (window.api.stick), not put up by the goal's “Goal on screen”: yours,
 // so it stays until you take it down, as any sticky does, whatever the goal's setting says (beacons).
-type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean; tint?: string; asked?: boolean }
+// Pill: folded to its one-line pill in the desk's stack (its “–”, ⌃⌥⌘H, or made as one); none, or false, is open, pinned
+// where it stands. Touched: when it was last folded, pinned or stuck, which orders the notes in the stack.
+type Stuck = { type: string; id: string; bounds?: Electron.Rectangle; hidden?: boolean; tint?: string; asked?: boolean; pill?: boolean; touched?: number }
 let stuck: Stuck[] = []
 const keepStuck = (): void => void writeWhole(stickyFile(), JSON.stringify(stuck)).catch(() => undefined)
 const stuckAs = (key: string): Stuck | undefined => stuck.find((one) => `${one.type}:${one.id}` === key)
@@ -1499,7 +1501,8 @@ const GUIDE_BLUE = 'rgb(10, 132, 255)'
 const insetOf = (key: string): Inset => builtGlass.get(key) ? { left: 0, top: 0, right: 0, bottom: 0 } : { left: 20, top: 20, right: 20, bottom: 20 }
 /** The cards on the screen now that a dragged sticky or quick capture lines up with: every sticky up, and the box when it is out; never `but`. */
 function stickyCards(but?: BrowserWindow): ReturnType<typeof cardOf>[] {
-  const cards = [...stickies].filter(([key, one]) => one !== but && !one.isDestroyed() && one.isVisible() && stickyUp(key)).map(([key, one]) => cardOf(one.getBounds(), insetOf(key)))
+  // A pill in the stack, or a card opened out of one, is no card to line up with.
+  const cards = [...stickies].filter(([key, one]) => one !== but && !one.isDestroyed() && one.isVisible() && stickyUp(key) && !peeking.has(key) && !fromPill.has(key)).map(([key, one]) => cardOf(one.getBounds(), insetOf(key)))
   if (prompt && prompt !== but && !prompt.isDestroyed() && prompt.isVisible()) cards.push(prompt.getBounds())
   return cards
 }
@@ -1640,7 +1643,7 @@ function arriveSticky(win: BrowserWindow): void {
   const go = (): void => {
     // Put away while it waited its turn (Show sticky notes unticked as they came): it stays away.
     const key = keyOfSticky(win)
-    if (win.isDestroyed() || win.isVisible() || (key && !stickyUp(key))) return
+    if (win.isDestroyed() || win.isVisible() || (key && (!stickyUp(key) || stackHidden.has(key)))) return
     const rest = win.getBounds()
     win.setOpacity(0)
     placed.set(win, { x: rest.x, y: rest.y - drop })
@@ -1760,23 +1763,13 @@ let toldSeen = false
 const stickiesSeen = (): boolean => [...stickies.values()].some((win) => !win.isDestroyed() && win.isVisible())
 /** "Show sticky notes" ticked: one is on the screen, or they are meant to be and nothing (safe mode) keeps them in. */
 const stickiesTicked = (): boolean => stickiesSeen() || (stickyPrefs().shown && !gate().blackout)
-/** The menus' way to tuck every sticky to the edge, or bring them back out, and to flatten the tabs to pills. */
-const tuckItems = (): Electron.MenuItemConstructorOptions[] => {
-  const tuck = stickyTuck()
-  if (tuck === 'off') return stickiesOut() > 0 ? [{ label: 'Tuck sticky notes away', accelerator: chordFor('⌃⌥⌘H'), click: () => tuckStickies('tabs') }] : []
-  return [
-    { label: 'Bring sticky notes back', accelerator: chordFor('⌃⌥⌘H'), click: () => tuckStickies('off') },
-    tuck === 'tabs' ? { label: 'Tuck them flat', click: () => tuckStickies('flat') } : { label: 'Show their names', click: () => tuckStickies('tabs') }
-  ]
-}
-/** The same lines for a sticky's own menu (popup-menu.ts), with the keys they answer to. */
-const tuckLines = (): PopupLine[] => {
-  const tuck = stickyTuck()
-  if (tuck === 'off') return stickiesOut() > 0 ? [{ label: 'Tuck sticky notes away', keys: '⌃⌥⌘H', run: () => tuckStickies('tabs') }] : []
-  return [
-    { label: 'Bring sticky notes back', keys: '⌃⌥⌘H', run: () => tuckStickies('off') },
-    tuck === 'tabs' ? { label: 'Tuck them flat', run: () => tuckStickies('flat') } : { label: 'Show their names', run: () => tuckStickies('tabs') }
-  ]
+/** The menus' ⌃⌥⌘H: every open card folded into its pill, or the ones it folded opened again; nothing when there is neither. */
+const foldWay = (): 'fold' | 'open' | null => (openCards().length ? 'fold' : foldedByKey.some((key) => stuckAs(key)?.pill) ? 'open' : null)
+const tuckItems = (): Electron.MenuItemConstructorOptions[] => tuckLines().map(({ label, run }) => ({ label, accelerator: chordFor('⌃⌥⌘H'), click: run }))
+/** The same line for a sticky's own menu (popup-menu.ts), with the keys it answers to. */
+const tuckLines = (): (PopupLine & { label: string; run: () => void })[] => {
+  const way = foldWay()
+  return way === 'fold' ? [{ label: 'Fold every card into its pill', keys: '⌃⌥⌘H', run: foldDesk }] : way === 'open' ? [{ label: 'Open the cards it folded', keys: '⌃⌥⌘H', run: foldDesk }] : []
 }
 /** Each window told when that count changes, and the menu bar rebuilt to match. */
 function tellStickiesOut(): void {
@@ -1803,24 +1796,24 @@ function applyStickies(atOnce = false): void {
   for (const [key, win] of stickies) {
     if (win.isDestroyed()) continue
     const up = stickyUp(key)
-    // Going away, it is out of sight before anything about it changes shape: a tab at the edge is made its whole
+    // Going away, it is out of sight before anything about it changes shape: a pill at the edge is made its whole
     // card again below, and that must never be seen on the way out (a call just started).
     if (!up) win.hide()
-    // Away for a meeting or quiet hours, it keeps the shape it has (a tab stays a tab, its page still drawn as one),
+    // Away for a meeting or quiet hours, it keeps the shape it has (a pill stays a pill, its page still drawn as one),
     // so it is back exactly as it was, with nothing to draw again in front of you.
     if (!up && away) continue
-    // Coming out, each fades in and settles, one after another.
-    // A goal's card in its place by the clock, a slim tab or the whole card, before it comes in: it arrives as what it is.
-    // Tucked away, every one is a tab (or a flat pill) at the screen's edge.
-    shapeCard(key, win)
+    // Its pill in the stack or its whole card, as it is and as the clock says, before it comes in: it arrives as what it is.
+    shapeCard(key, win, false)
+  }
+  // The pills in their one stack, once for them all, before any comes in: one past the stack's end waits in its last pill.
+  layStack()
+  // Coming out, each fades in and settles, one after another.
+  for (const [key, win] of stickies) {
     // One still drawing comes in by itself once it has (see stick): never shown empty.
-    if (!up || !stickyReady.has(win)) continue
+    if (win.isDestroyed() || !stickyUp(key) || !stickyReady.has(win) || stackHidden.has(key)) continue
     if (atOnce) void (win.isVisible() || (win.setOpacity(1), win.showInactive()))
     else arriveSticky(win)
   }
-  // Named tabs overlap down their edge: each lower one sits over the foot of the one above, as file tabs do.
-  if (stickyTuck() === 'tabs')
-    for (const [, win] of [...stickies].filter(([key, win]) => !win.isDestroyed() && peeking.has(key) && win.isVisible()).sort(([, a], [, b]) => a.getBounds().y - b.getBounds().y)) win.moveTop()
   // Frosted or plain paper, as the setting says now.
   retellFrost()
   tellStickiesOut()
@@ -1976,13 +1969,13 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   // is opening, has painted: the desk comes in first, the cards are dealt onto it. Never later than PATIENCE.
   let painted = false
   let filled = false
-  const arrive = (): void => void (painted && filled && (stickyReady.add(win), stickyUp(key)) && afterHome(() => (shapeCard(key, win), arriveSticky(win))))
+  const arrive = (): void => void (painted && filled && (stickyReady.add(win), stickyUp(key)) && afterHome(() => (shapeCard(key, win), stackHidden.has(key) || arriveSticky(win))))
   win.once('ready-to-show', () => ((painted = true), arrive()))
   readyWaits.set(win.webContents.id, () => ((filled = true), arrive()))
   setTimeout(() => ((filled = true), (painted = true), arrive()), PATIENCE)
   // Where you leave it is where it comes back.
   const remember = (): void => {
-    // Peeking, the window is a tab at the edge: the card's own place is kept as it was.
+    // A pill, the window is at the edge: the card's own place is kept as it was.
     if (peeking.has(key) || openedAt.has(key)) return
     const one = stuck.find((each) => `${each.type}:${each.id}` === key)
     if (one && !win.isDestroyed()) one.bounds = cardFrame(key, win)
@@ -2000,6 +1993,10 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   handDrags.set(win, {
     grab: (at) => {
       if (hold || win.isDestroyed()) return
+      // A pill picked up carries the whole stack.
+      if (peeking.has(key)) return carryStack.grab(at)
+      // Opened out of its pill and picked up: it is pinned first, the card alone in its window, and carried from there.
+      if (fromPill.has(key)) pinCard(key, win)
       rise = unlift.get(win)?.() ?? 0
       if (!held.has(win)) (held.add(win), win.webContents.send('sticky:held', true))
       hold = { from: win.getBounds(), start: at }
@@ -2007,6 +2004,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
       if (!colour) void guideColour(win).then((c) => (colour = c))
     },
     carry: (now) => {
+      if (stackHold) return carryStack.carry(now)
       if (!hold || win.isDestroyed()) return
       const { from, start } = hold
       const want = { ...from, x: from.x + now.x - start.x, y: from.y + now.y - start.y }
@@ -2020,6 +2018,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
       showGuides(card, lined.lines, colour || GUIDE_BLUE, stillness())
     },
     letGo: () => {
+      if (stackHold) return carryStack.letGo()
       if (!hold) return
       hold = null
       placed.delete(win)
@@ -2114,6 +2113,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
       : params.selectionText ? [{ label: 'Copy', keys: '⌘C', run: edit('copy') }] : []
     // Its own: open it (its ↗) and take it down (its X, at once from here: choosing the line is the asking).
     const own: PopupLine[] = [
+      // A pill's menu is its card's, and the way to keep the card open.
+      ...(peeking.has(key) || fromPill.has(key) ? [{ label: 'Keep open', run: () => pinCard(key, win) }] : []),
       { label: `Open in ${APP_NAME}`, run: () => page.send('sticky:do', 'open') },
       { label: 'Take it down', keys: '⌘W', run: () => page.send('sticky:do', 'down') }
     ]
@@ -2149,7 +2150,8 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
   stickies.set(key, win)
   for (const event of ['show', 'hide', 'closed'] as const) win.on(event as 'show', tellStickiesOut)
   tellStickiesOut()
-  if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: cardOf(place, insetOf(key)) })
+  // A new note starts open, pinned where it lands; Today and a goal's card start as pills in the stack.
+  if (!stuck.some((one) => `${one.type}:${one.id}` === key)) stuck.push({ type, id, bounds: cardOf(place, insetOf(key)), touched: Date.now(), ...(type === 'today' || fixed ? { pill: true } : {}) })
   keepStuck()
   guard(win)
   // Its place in line, so neighbours lean opposite ways.
@@ -2180,6 +2182,8 @@ async function restoreStickies(): Promise<void> {
     // The goal stack, from before each goal had a card of its own: its place is the first card's.
     stackWas = read.find((one) => one.type === 'goal' && one.id === 'stack')?.bounds
     const saved = read.filter((one) => !(one.type === 'goal' && one.id === 'stack'))
+    // Kept as each was: one left open stays open, pinned; with every sticky tucked at the edge before pills, each is a pill.
+    if (wasTucked()) for (const one of saved) one.pill ??= true
     stuck = saved
     // One that covers more than half of an earlier one is fanned out from it, and kept there.
     const covers = (a: Electron.Rectangle, b: Electron.Rectangle): boolean =>
@@ -2210,7 +2214,7 @@ function safeWindows(on: boolean): void {
     if (on) {
       win.hide()
       if (url.includes('note=')) win.setTitle('Note')
-    } else if ((win !== focusPill || (focusWanted && focusBubbleShown() && !isWelcoming())) && (!url.includes('view=sticky') || [...stickies].some(([key, one]) => one === win && stickyUp(key)))) {
+    } else if ((win !== focusPill || (focusWanted && focusBubbleShown() && !isWelcoming())) && (!url.includes('view=sticky') || [...stickies].some(([key, one]) => one === win && stickyUp(key) && !stackHidden.has(key)))) {
       win.setTitle(win.webContents.getTitle())
       win.showInactive()
     }
@@ -2781,53 +2785,203 @@ function beaconMoment(kind: 'wake' | 'open' | 'active'): void {
 /**
  * Tuck away by the clock (goal-tuck.ts, Settings' "Tuck away"): each goal
  * card that would always be up is shown, peeking or tucked as the hour and a
- * focus session say. Peeking, its window is a slim tab at the nearer edge of
- * the screen, level with where the card rests; pointed at, it opens into the
- * card at its own place, and folds back to the tab once the pointer has left
- * it for half a second. A card out of sight two days peeks out by itself
- * once that day, for ten minutes, with a small wiggle: seen again, never nagged.
+ * focus session say. Peeking, it is a pill in the desk's stack, as a card
+ * folded by hand is; pointed at, it opens out of the pill, and folds back once
+ * the pointer has left it for half a second. A card out of sight two days peeks
+ * out by itself once that day, for ten minutes, with a small wiggle: seen again,
+ * never nagged.
  */
 const ruled = new Map<string, Rest>()
-/** The cards peeking now, each with the place its whole card rests at. */
+/** The cards that are pills now, each with the place its whole card rests at. */
 const peeking = new Map<string, Electron.Rectangle>()
 /** Peeked out by itself, till then. */
 const peekingOut = new Map<string, number>()
-/** A peeking card's tab: its ring and days left, a little taller than wide. */
-const TAB = { width: 46, height: 116 }
 /**
- * Every sticky tucked: the edge of the note itself left showing, its name written down it, or only a
- * small coloured pill. The width is what shows; a named tab's window runs TUCK_HANG further, past the
- * screen's edge, so its square side is out of sight and only its rounded inner corners show, the way a
- * note pushed off the screen looks (TuckTab draws to match).
+ * The desk's one stack: every card folded is a pill, one line at the screen's edge, and all of them stand in one
+ * column on the right, from STACK_TOP down: Today first, then the goals nearest first, then the notes most lately
+ * touched. A pill is PILL_H tall, PILL_GAP from the next and PILL_IN in from the edge, all of it on the screen; its
+ * words decide its width (PILL_MIN to PILL_MAX, as its page measures them). Its window keeps clear room round it for
+ * its lift (the session bubble's), which lets clicks through to the app behind (lib/clear-room.ts).
  */
-const TUCK = { tabs: { width: 40, height: 150 }, flat: { width: 10, height: 44 } }
-const TUCK_HANG = 16
-/** Named tabs overlap as file tabs do, each lower one over the foot of the one above; flat pills sit apart. */
-const TUCK_STEP = { tabs: TUCK.tabs.height - 22, flat: TUCK.flat.height + 3 }
-/** Each lower named tab shows this much more paper than the one above (up to TUCK_STAGGER_MAX steps), so the stack's edge is staggered. */
-const TUCK_STAGGER = 5
-const TUCK_STAGGER_MAX = 4
+const PILL_H = 28
+const PILL_GAP = 6
+const PILL_IN = 8
+const PILL_ROOM = { side: 6, top: 2, bottom: 6 }
+const PILL_MIN = 96
+const PILL_MAX = 220
+/** A pill's width until its page has measured its words. */
+const PILL_GUESS = 140
+const STACK_TOP = 0.18
 /**
- * Clear room round a named tab's paper, inside its own window, for the shadow it casts: most above, where
- * it falls on the foot of the tab over it, some on the screen's side and below. A window draws nothing
- * outside itself, so the shadow needs this room; the paper still shows TUCK.tabs.width and more past the edge.
+ * Where the stack stands: its edge, its first pill's top, and its screen. The right edge 18% down the main screen to
+ * begin with; carried by any of its pills (carryStack), it stays where it was put, kept in desk-stack.json.
  */
-const TUCK_ROOM = { side: 14, top: 16, bottom: 10 }
-/** Opened out of its tab, the card keeps the tab's strip with the name on its screen side, and runs a little past the edge. */
-const TUCK_STRIP = 40
-/** Opened out of its tab, the card stands this far in from the screen's edge: all of it on screen, its tab its own edge. */
-const TUCK_OPEN_GAP = 8
-/** Cards opened out of a named tab: drawn with its strip until they fold back. */
-const openedTab = new Set<string>()
-type Peek = { side: 'left' | 'right'; nudge: boolean; flat: boolean; tucked: boolean; opened?: boolean; room?: typeof TUCK_ROOM; hang?: number; strip?: number; width?: number }
-/** The side and kind of tab each peeking card was made as, so a change of either remakes it. */
-const tabShape = new Map<string, string>()
-/** What each tab was last told it is, asked for again by a sticky's page as it loads (a reload, or told before it listened). */
+let stackSide: 'left' | 'right' = 'right'
+let stackTop: number | null = null
+let stackDisplay: number | null = null
+let stackRead = false
+const stackFile = (): string => join(app.getPath('userData'), 'desk-stack.json')
+function readStackPlace(): void {
+  if (stackRead) return
+  stackRead = true
+  try {
+    const read = JSON.parse(readFileSync(stackFile(), 'utf8')) as { side?: string; top?: number; display?: number }
+    if (read.side === 'left' || read.side === 'right') stackSide = read.side
+    if (typeof read.top === 'number') stackTop = read.top
+    if (typeof read.display === 'number') stackDisplay = read.display
+  } catch {
+    // Never carried: where it begins.
+  }
+}
+/** The stack carried by one of its pills, kept by the pill's grab point: up and down its edge, or to the other edge. */
+let stackHold: { start: Point; top: number } | null = null
+const carryStack = {
+  grab: (at: Point): void => {
+    const first = [...stackPlaces().at.values()][0]
+    if (first) stackHold = { start: at, top: first.y }
+  },
+  carry: (now: Point): void => {
+    if (!stackHold) return
+    const area = screen.getDisplayNearestPoint(now).workArea
+    stackDisplay = screen.getDisplayNearestPoint(now).id
+    stackSide = now.x < area.x + area.width / 2 ? 'left' : 'right'
+    stackTop = stackHold.top + now.y - stackHold.start.y
+    layStack()
+  },
+  letGo: (): void => {
+    if (!stackHold) return
+    stackHold = null
+    // Kept where the stack stands now, its top as laid (held inside the screen).
+    const first = [...stackPlaces().at.values()][0]
+    if (first) stackTop = first.y
+    void writeWhole(stackFile(), JSON.stringify({ side: stackSide, top: stackTop, display: stackDisplay })).catch(() => undefined)
+  }
+}
+/** Each pill's width, as its page last measured its words. */
+const pillWidth = new Map<string, number>()
+/**
+ * Cards opened out of their pill by the pointer, not pinned: each keeps its place in the stack while it is open, and
+ * the window that grew out of the pill holds the card beside the stack and the pill's own column.
+ */
+const fromPill = new Map<string, Electron.Rectangle>()
+type Peek = { side: 'left' | 'right'; nudge: boolean; opened?: { pill: Electron.Rectangle; card: number; size: { width: number; height: number } } }
+/** What each pill was last told it is, asked for again by its page as it loads (a reload, or told before it listened). */
 const peekSaid = new Map<string, Peek>()
 ipcMain.handle('beacon:peek:now', (event) => {
   const key = keyOfSticky(BrowserWindow.fromWebContents(event.sender))
-  return key && (peeking.has(key) || openedTab.has(key)) ? (peekSaid.get(key) ?? null) : null
+  return key ? (peekSaid.get(key) ?? null) : null
 })
+/** Whether a card is a pill now: folded (its “–”, ⌃⌥⌘H, or made as one), or peeking by the clock's “Tuck away”. */
+const pillWanted = (key: string): boolean => stuckAs(key)?.pill === true || ruled.get(key) === 'peek'
+/** The open cards on the desk: what ⌃⌥⌘H folds. */
+const openCards = (): string[] => [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key) && !pillWanted(key)).map(([key]) => key)
+/** What ⌃⌥⌘H last folded, opened again by the next press. */
+let foldedByKey: string[] = []
+/** ⌃⌥⌘H: every open card folded into its pill; pressed again with none open, the ones it folded open again. */
+function foldDesk(): void {
+  const open = openCards()
+  const back = open.length ? [] : foldedByKey
+  for (const key of open) {
+    const one = stuckAs(key)
+    if (one) one.pill = true
+  }
+  for (const key of back) {
+    const one = stuckAs(key)
+    if (one?.pill) delete one.pill
+  }
+  foldedByKey = open
+  keepStuck()
+  for (const key of [...open, ...back]) {
+    stopPeek(key)
+    beaconHeld.delete(key)
+  }
+  applyStickies()
+  updateTray()
+}
+/** Each card on the desk by name, with what it is now (“folded”, a pill at the edge, or “open”); chosen, it changes. */
+function deskLines(): Electron.MenuItemConstructorOptions[] {
+  const cards = [...stickies].filter(([key, win]) => !win.isDestroyed() && stickyUp(key))
+  if (!cards.length) return []
+  const goals = new Map(openGoals().map((goal) => [`goal:${goal.id}`, goal.title] as [string, string]))
+  return [{ type: 'separator' }, ...cards.map(([key, win]): Electron.MenuItemConstructorOptions => {
+    const name = key === 'today:today' ? 'Today' : key.startsWith('goals:') ? 'Goals' : goals.get(key) || win.webContents.getTitle() || 'A sticky note'
+    const folded = peeking.has(key)
+    return { label: `${cut(name, 32)}: ${folded ? 'folded' : 'open'}`, click: () => (folded ? pinCard(key, win) : foldCard(key, win)) }
+  })]
+}
+/** The pills on the desk now in the stack's order, a card opened out of its pill keeping its place. */
+function stackKeys(): string[] {
+  const keys = [...stickies.keys()].filter((key) => (peeking.has(key) || fromPill.has(key)) && stickyUp(key))
+  if (!keys.length) return keys
+  let goals: OpenGoal[] = []
+  try {
+    goals = openGoals()
+  } catch {
+    // The book shut (a quit under way): the goals keep the order they had.
+  }
+  const days = new Map<string, number>(goals.map((goal) => [`goal:${goal.id}`, goal.goalAt ? daysLeft(goal.goalAt) : Infinity]))
+  const rank = (key: string): number => (key.startsWith('today:') ? 0 : key.startsWith('goal:') ? 1 : key.startsWith('goals:') ? 2 : 3)
+  const near = (key: string): number => days.get(key) ?? Infinity
+  return keys.sort((a, b) => rank(a) - rank(b) || (rank(a) === 1 ? near(a) - near(b) : (stuckAs(b)?.touched ?? 0) - (stuckAs(a)?.touched ?? 0)) || a.localeCompare(b))
+}
+/** The most pills the stack shows: past it, the last says how many more and lists them in the app's own menu. */
+const STACK_MAX = 6
+/** Cards folded past the stack's last place: their windows away, listed by the last pill. */
+const stackHidden = new Set<string>()
+/** What each pill was last told about the cards it stands for past the stack's end (0: none, it is itself). */
+const moreSaid = new Map<string, number>()
+/**
+ * The screen the stack stands on, and where each of its pills goes: in its column, never past the menu bar or the
+ * Dock. `more`: past STACK_MAX, the cards the last pill stands for, itself first.
+ */
+function stackPlaces(): { area: Electron.Rectangle; at: Map<string, Electron.Rectangle>; more: string[] } {
+  readStackPlace()
+  const area = (screen.getAllDisplays().find((one) => one.id === stackDisplay) ?? screen.getPrimaryDisplay()).workArea
+  const all = stackKeys()
+  const more = all.length > STACK_MAX ? all.slice(STACK_MAX - 1) : []
+  const keys = all.slice(0, STACK_MAX)
+  const step = PILL_H + PILL_GAP
+  const tall = keys.length * step - PILL_GAP
+  const top = Math.max(area.y + PILL_IN, Math.min(stackTop ?? area.y + Math.round(area.height * STACK_TOP), area.y + area.height - PILL_IN - tall))
+  const at = new Map<string, Electron.Rectangle>()
+  keys.forEach((key, nth) => {
+    const width = pillWidth.get(key) ?? PILL_GUESS
+    const x = stackSide === 'right' ? area.x + area.width - PILL_IN - width : area.x + PILL_IN
+    at.set(key, { x, y: top + nth * step, width, height: PILL_H })
+  })
+  return { area, at, more }
+}
+/** The window round a pill: the pill and its clear room. */
+const pillWindow = (pill: Electron.Rectangle): Electron.Rectangle =>
+  ({ x: pill.x - PILL_ROOM.side, y: pill.y - PILL_ROOM.top, width: pill.width + 2 * PILL_ROOM.side, height: PILL_H + PILL_ROOM.top + PILL_ROOM.bottom })
+/** Every pill set in its place in the stack; a window already there is left alone. Past the sixth, they wait in the last. */
+function layStack(): void {
+  const { at, more } = stackPlaces()
+  const away = new Set(more.slice(1))
+  for (const key of [...stackHidden]) {
+    if (away.has(key)) continue
+    stackHidden.delete(key)
+    const win = stickies.get(key)
+    if (win && !win.isDestroyed() && stickyUp(key) && stickyReady.has(win)) win.showInactive()
+  }
+  for (const key of away) if (!stackHidden.has(key)) (stackHidden.add(key), stickies.get(key)?.hide())
+  for (const [key, win] of stickies) {
+    const count = key === more[0] ? more.length : 0
+    if (win.isDestroyed() || (moreSaid.get(key) ?? 0) === count) continue
+    moreSaid.set(key, count)
+    win.webContents.send('pill:more', count)
+  }
+  for (const [key, pill] of at) {
+    const win = stickies.get(key)
+    if (!win || win.isDestroyed() || !peeking.has(key)) continue
+    const box = pillWindow(pill)
+    const now = win.getBounds()
+    if (now.x === box.x && now.y === box.y && now.width === box.width && now.height === box.height) continue
+    reshape(win)
+    placed.set(win, { x: box.x, y: box.y })
+    win.setBounds(box)
+  }
+}
 /** When each card was last seen whole, and the day it last peeked out by itself: kept across restarts. */
 type Seen = { last: Record<string, number>; nudged: Record<string, string> }
 const seenFile = (): string => join(app.getPath('userData'), 'goal-seen.json')
@@ -2913,102 +3067,76 @@ onMenuShut((owner) => {
   if (!pointerHeard.get(owner)?.size) return
   pointerSaid(owner, !process.env.HALIGTREE_QA_AWAY && inside(screen.getCursorScreenPoint(), owner.getBounds()))
 })
-/** A goal's window as a tab or as its card, as its place by the clock says and the pointer allows. */
-function shapeCard(key: string, win: BrowserWindow): void {
+/**
+ * A card's window as its pill in the stack, or as its whole card, as the card is (folded or pinned), as the clock says
+ * and as the pointer allows. `lay`: the stack laid again now (applyStickies lays it once for every card).
+ */
+function shapeCard(key: string, win: BrowserWindow, lay = true): void {
   if (win.isDestroyed()) return
-  const tuck = stickyTuck()
-  const want = stickyUp(key) && (tuck !== 'off' || ruled.get(key) === 'peek') && !beaconHeld.has(key)
-  if (!want && !peeking.has(key)) return
+  const want = stickyUp(key) && pillWanted(key) && !beaconHeld.has(key)
   if (want) {
-    // Opened out of its tab, its own place is still the one it rests at.
-    const rest = peeking.get(key) ?? openedAt.get(key) ?? win.getBounds()
-    openedAt.delete(key)
-    const area = screen.getDisplayMatching(rest).workArea
-    const left = rest.x + rest.width / 2 < area.x + area.width / 2
-    // All tucked: a named tab each (or a small flat pill), stacked down their edge in the order they rest, never on top of each other.
-    const size = tuck === 'off' ? TAB : TUCK[tuck]
-    const side = [...stickies].filter(([one, other]) => !other.isDestroyed() && stickyUp(one))
-      .map(([one, other]) => [one, one === key ? rest : peeking.get(one) ?? openedAt.get(one) ?? other.getBounds()] as const)
-      .filter(([, at]) => (at.x + at.width / 2 < area.x + area.width / 2) === left && screen.getDisplayMatching(at).id === screen.getDisplayMatching(rest).id)
-      .sort(([a, one], [b, two]) => one.y - two.y || a.localeCompare(b))
-    const nth = side.findIndex(([one]) => one === key)
-    const y = tuck === 'off'
-      ? Math.max(area.y, Math.min(rest.y + insetOf(key).top, area.y + area.height - size.height))
-      : Math.max(area.y, Math.min(area.y + Math.round(area.height * 0.18) + nth * TUCK_STEP[tuck], area.y + area.height - size.height))
-    // A named tab: its paper (wider down the stack) runs TUCK_HANG past the edge, with clear room for its shadow round the rest.
-    const named = tuck === 'tabs'
-    const hang = named ? TUCK_HANG : 0
-    const shows = size.width + (named ? Math.min(nth, TUCK_STAGGER_MAX) * TUCK_STAGGER : 0)
-    const room = named ? TUCK_ROOM : { side: 0, top: 0, bottom: 0 }
-    const width = room.side + shows + hang
-    const tab = { x: left ? area.x - hang : area.x + area.width - shows - room.side, y: y - room.top, width, height: room.top + size.height + room.bottom }
-    const now = win.getBounds()
-    const shape = `${left}:${tuck}`
-    if (peeking.has(key) && tabShape.get(key) === shape && now.x === tab.x && now.y === tab.y && now.width === tab.width) return
-    const fresh = !peeking.has(key) || tabShape.get(key) !== shape
-    peeking.set(key, rest)
-    tabShape.set(key, shape)
-    if (fresh) {
-      const peek: Peek = { side: left ? 'left' : 'right', nudge: nudging.delete(key), flat: tuck === 'flat', tucked: tuck !== 'off', ...(named ? { room, hang } : {}) }
+    if (!peeking.has(key)) {
+      reshape(win)
+      // Its whole card's place is kept while it is a pill: a card opened out of its pill keeps the one it had.
+      peeking.set(key, openedAt.get(key) ?? win.getBounds())
+      openedAt.delete(key)
+      fromPill.delete(key)
+      stopPeek(key)
+      const peek: Peek = { side: stackSide, nudge: nudging.delete(key) }
       peekSaid.set(key, peek)
       win.webContents.send('beacon:peek', peek, byKey)
+      // A pill has its own lift, drawn in its page; the clear room round it lets clicks through.
+      if (builtGlass.get(key)) (win.setHasShadow(false), passThrough(win, true))
+      win.setMinimumSize(1, 1)
     }
-    openedTab.delete(key)
-    // A named tab is solid paper: its page takes the glass away (windows/sticky.tsx) and its clear room casts no shadow.
-    if (builtGlass.get(key)) win.setHasShadow(!named)
-    win.setMinimumSize(1, 1)
-    placed.set(win, { x: tab.x, y: tab.y })
-    win.setBounds(tab)
+    if (lay) layStack()
     return
   }
-  const wasNamed = tabShape.get(key)?.endsWith(':tabs') ?? false
-  tabShape.delete(key)
+  if (!peeking.has(key)) return
+  reshape(win)
   const rest = peeking.get(key)!
   peeking.delete(key)
-  // Pointed at, it opens out of its tab, under the pointer, so it stays open
-  // while you read it; come out by the clock, it goes back to its own place.
-  const tab = win.getBounds()
-  const area = screen.getDisplayMatching(tab).workArea
-  const inset = insetOf(key)
-  const top = Math.max(area.y, Math.min(tab.y + (wasNamed ? TUCK_ROOM.top : 0) - inset.top, area.y + area.height - rest.height))
-  // Pointed at as a named tab, the card slides out of it: the tab's strip with its name on the screen side,
-  // a fold, then the note, the whole card on screen (it ran past the edge, read as cut off).
-  const fromTab = beaconHeld.has(key) && stickyTuck() === 'tabs'
-  // The card keeps its own width: the strip is taken from inside it, never added to it (added, the card came out
-  // 40 points wider than it stands on the desktop, its dot grid stretched to fill).
-  const wide = rest.width
-  const atLeft = tab.x + tab.width / 2 < area.x + area.width / 2
-  const hang = fromTab ? (atLeft ? inset.left : inset.right) - TUCK_OPEN_GAP : 0
-  const to = beaconHeld.has(key) ? { ...rest, width: wide, x: atLeft ? area.x - hang : area.x + area.width - wide + hang, y: top } : rest
-  if (to !== rest) openedAt.set(key, rest)
-  if (builtGlass.get(key)) win.setHasShadow(true)
-  if (fromTab) {
-    const peek: Peek = { side: atLeft ? 'left' : 'right', nudge: false, flat: false, tucked: true, opened: true, hang, strip: TUCK_STRIP, width: to.width }
-    openedTab.add(key)
-    peekSaid.set(key, peek)
-    win.webContents.send('beacon:peek', peek)
-  } else {
-    openedTab.delete(key)
-    peekSaid.delete(key)
-    win.webContents.send('beacon:peek', null, byKey)
+  const pill = win.getBounds()
+  if (!beaconHeld.has(key)) {
+    // Opened by your hand (pinned, ⌃⌥⌘H) or by the clock: its whole card at its own place, at once.
+    showCard(key, win, rest)
+    if (lay) layStack()
+    return
   }
-  placed.set(win, { x: to.x, y: to.y })
-  win.setMinimumSize(214, 124)
-  win.setBounds(to)
-  // Opened by the pointer: back to the tab once it has gone from the card.
+  // Pointed at, the card opens out of its pill beside the stack, level with it, in the card's own size. The window
+  // takes in the pill's column too: the card grows out of the pill (drawn by its page), the pill stays lit in its
+  // place, and the stack does not move.
+  const { area, at } = stackPlaces()
+  const inset = insetOf(key)
+  const right = stackSide === 'right'
+  const widest = Math.max(PILL_MIN, pill.width - 2 * PILL_ROOM.side, ...[...at.values()].map((one) => one.width))
+  const inner = right ? area.x + area.width - PILL_IN - widest - PILL_IN : area.x + PILL_IN + widest + PILL_IN
+  const cardWidth = rest.width - inset.left - inset.right
+  // Its window's top level with the pill's (so the pill stands at the same point of both windows), unless the screen's foot is nearer.
+  const top = Math.max(area.y, Math.min(pill.y, area.y + area.height - rest.height + inset.bottom))
+  const card = { x: (right ? inner - cardWidth : inner) - inset.left, y: top, width: rest.width, height: rest.height }
+  const x = right ? card.x : pill.x
+  const box = { x, y: card.y, width: (right ? pill.x + pill.width : card.x + card.width) - x, height: Math.max(card.height, pill.y + pill.height - card.y) }
+  openedAt.set(key, rest)
+  fromPill.set(key, card)
+  const peek: Peek = { side: stackSide, nudge: false, opened: { pill: { x: pill.x + PILL_ROOM.side - box.x, y: pill.y + PILL_ROOM.top - box.y, width: pill.width - 2 * PILL_ROOM.side, height: PILL_H }, card: card.width, size: { width: box.width, height: box.height } } }
+  peekSaid.set(key, peek)
+  win.webContents.send('beacon:peek', peek, byKey)
+  win.setMaximumSize(4000, 4000)
+  placed.set(win, { x: box.x, y: box.y })
+  win.setBounds(box)
   stopPeek(key)
-  if (!beaconHeld.has(key)) return
-  // Gone from it for half a second, the card is told to slide back into its edge (one motion, drawn by its page),
-  // and made its tab only once that is drawn (beacon:folded). The pointer back on it midway: it slides out again.
-  // Heard from the card's own pointer events as they happen, never by asking where the pointer is.
+  // Gone from it for half a second, the card is told to fold back into its pill (one motion, drawn by its page), and
+  // made the pill again only once that is drawn (beacon:folded). The pointer back on it midway: it opens out again.
+  // Heard from the window's own pointer events as they happen, never by asking where the pointer is.
   const heard = (): void => {
-    if (win.isDestroyed() || peeking.has(key) || !beaconHeld.has(key)) return stopPeek(key)
+    if (win.isDestroyed() || !fromPill.has(key) || !beaconHeld.has(key)) return stopPeek(key)
     clearTimeout(peekWait.get(key))
     peekWait.delete(key)
     if (onCard(win)) return void (folding.delete(key) && win.webContents.send('beacon:fold', false))
     if (folding.has(key)) return
     peekWait.set(key, setTimeout(() => {
-      if (win.isDestroyed() || peeking.has(key) || !beaconHeld.has(key)) return stopPeek(key)
+      if (win.isDestroyed() || !fromPill.has(key) || !beaconHeld.has(key)) return stopPeek(key)
       if (onCard(win)) return
       folding.add(key)
       win.webContents.send('beacon:fold', true)
@@ -3017,8 +3145,58 @@ function shapeCard(key: string, win: BrowserWindow): void {
     }, 500))
   }
   peekWatch.set(key, hearPointer(win, heard))
-  // Left before it came out (a fast pass over the tab): it goes back as it would have.
+  // Left before it came out (a fast pass over the pill): it goes back as it would have.
   heard()
+}
+/** A card made whole again in a window of its own at `at`: no pill, its own limits, its shadow and its clicks as made. */
+function showCard(key: string, win: BrowserWindow, at: Electron.Rectangle): void {
+  reshape(win)
+  stackHidden.delete(key)
+  openedAt.delete(key)
+  fromPill.delete(key)
+  stopPeek(key)
+  peekSaid.delete(key)
+  win.webContents.send('beacon:peek', null, byKey)
+  if (builtGlass.get(key)) (win.setHasShadow(true), passThrough(win, false))
+  win.setMinimumSize(214, 124)
+  win.setMaximumSize(486, 526)
+  placed.set(win, { x: at.x, y: at.y })
+  win.setBounds(at)
+}
+/**
+ * Pinned (a click on its pill or on the card it opened, or carried away from the stack): the card stays open where it
+ * opened, beside the stack, and is yours to carry anywhere, as any sticky is. Its place is kept from now on.
+ */
+function pinCard(key: string, win: BrowserWindow): void {
+  const one = stuckAs(key)
+  if (!one || win.isDestroyed()) return
+  // Clicked as a pill before it opened: it opens beside the stack, at once, and stays.
+  if (peeking.has(key)) (beaconHeld.add(key), shapeCard(key, win, false))
+  const card = fromPill.get(key)
+  delete one.pill
+  one.touched = Date.now()
+  beaconHeld.delete(key)
+  if (card) {
+    showCard(key, win, card)
+    one.bounds = cardFrame(key, win)
+    // Chosen from the last pill's list, it was away: out now.
+    if (!win.isVisible() && stickyUp(key)) win.showInactive()
+  }
+  keepStuck()
+  layStack()
+  updateTray()
+}
+/** Its “–”: folded into its pill in the stack, its card's place kept for when it opens again. */
+function foldCard(key: string, win: BrowserWindow): void {
+  const one = stuckAs(key)
+  if (!one || win.isDestroyed()) return
+  one.pill = true
+  one.touched = Date.now()
+  keepStuck()
+  stopPeek(key)
+  beaconHeld.delete(key)
+  shapeCard(key, win)
+  updateTray()
 }
 function stopPeek(key: string): void {
   peekWatch.get(key)?.()
@@ -3027,7 +3205,7 @@ function stopPeek(key: string): void {
   peekWait.delete(key)
   folding.delete(key)
 }
-/** Cards sliding back into their tab, waiting for their page to say the slide is drawn. */
+/** Cards folding back into their pill, waiting for their page to say the fold is drawn. */
 const folding = new Set<string>()
 ipcMain.on('beacon:folded', (event) => {
   const win = BrowserWindow.fromWebContents(event.sender)
@@ -3039,6 +3217,44 @@ function foldBack(key: string, win: BrowserWindow): void {
   beaconHeld.delete(key)
   shapeCard(key, win)
 }
+/** A pill's words measured by its page: its width in the stack (PILL_MIN to PILL_MAX). */
+ipcMain.on('sticky:pill-width', (event, width: unknown) => {
+  const key = keyOfSticky(BrowserWindow.fromWebContents(event.sender))
+  if (!key || typeof width !== 'number' || !Number.isFinite(width)) return
+  const fit = Math.round(Math.max(PILL_MIN, Math.min(PILL_MAX, width)))
+  if (pillWidth.get(key) === fit) return
+  pillWidth.set(key, fit)
+  layStack()
+})
+/** A card folded or pinned by a page of the main window (the welcome's goal card), by its key. */
+ipcMain.on('desk:pill', (_event, key: unknown, on: unknown) => {
+  const win = stickies.get(String(key))
+  if (!win || win.isDestroyed()) return
+  if (on === true) foldCard(String(key), win)
+  else pinCard(String(key), win)
+})
+/** The stack's last pill, past six: the cards it stands for, in the app's own menu at the pill; one chosen opens and stays. */
+ipcMain.on('sticky:more', (event, x: unknown, y: unknown) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  if (!win || win.isDestroyed()) return
+  const goals = new Map(openGoals().map((goal) => [`goal:${goal.id}`, goal.title] as [string, string]))
+  const lines: PopupLine[] = stackPlaces().more.flatMap((key) => {
+    const card = stickies.get(key)
+    if (!card || card.isDestroyed()) return []
+    const name = key === 'today:today' ? 'Today' : key.startsWith('goals:') ? 'Goals' : goals.get(key) || card.webContents.getTitle() || 'A sticky note'
+    return [{ label: `Open “${cut(name, 40)}”`, run: () => pinCard(key, card) }]
+  })
+  const at = win.getBounds()
+  void popupMenu(win, { x: at.x + (Number(x) || 0), y: at.y + (Number(y) || 0) }, lines, load).then((path) => path && lineAt(lines, path)?.())
+})
+/** A click on a pill or on the card it opened pins it; the card's “–” folds it back into its pill. */
+ipcMain.on('sticky:pin', (event, on: unknown) => {
+  const win = BrowserWindow.fromWebContents(event.sender)
+  const key = keyOfSticky(win)
+  if (!win || !key) return
+  if (on === false) foldCard(key, win)
+  else pinCard(key, win)
+})
 
 /**
  * Where a new sticky goes when it has no place of its own: down the right of
@@ -3103,6 +3319,16 @@ const moving = new WeakSet<BrowserWindow>()
 const held = new WeakSet<BrowserWindow>()
 /** A sticky's lift on hover, called off when your hand picks it up. */
 const unlift = new WeakMap<BrowserWindow, () => number>()
+/**
+ * How many times each sticky's window was made over (a card folded into its pill, opened out of it, laid in the stack):
+ * a glide started before (a lift and its settling) stops there, so it never carries a pill back to where its card stood.
+ */
+const reshaped = new WeakMap<BrowserWindow, number>()
+/** A window made over by shapeCard and the stack: any lift called off and any glide under way stopped. */
+const reshape = (win: BrowserWindow): void => {
+  unlift.get(win)?.()
+  reshaped.set(win, (reshaped.get(win) ?? 0) + 1)
+}
 
 /**
  * Move a sticky's window along a path, a step every display frame on the one
@@ -3111,8 +3337,9 @@ const unlift = new WeakMap<BrowserWindow, () => number>()
  */
 function glide(win: BrowserWindow, ms: number, at: (t: number) => { x: number; y: number }, done?: () => void): void {
   moving.add(win)
+  const shape = reshaped.get(win)
   tween(ms, (t) => {
-    if (win.isDestroyed() || held.has(win) || (placed.has(win) && !ours(win))) return (moving.delete(win), false)
+    if (win.isDestroyed() || held.has(win) || (placed.has(win) && !ours(win)) || reshaped.get(win) !== shape) return (moving.delete(win), false)
     const to = at(t)
     const now = win.getBounds()
     placed.set(win, to)
@@ -4724,6 +4951,8 @@ function updateTray(): void {
           { label: 'Show sticky notes', type: 'checkbox', checked: stickiesTicked(), accelerator: chordFor('⌃⌥⌘N'), click: (item) => void showStickies(item.checked) },
           { label: 'Bring them here', enabled: !safe && !deskHidden && stickies.size > 0, click: () => gatherStickies() },
           ...(safe ? [] : tuckItems()),
+          // What is on the desk, each by name with what it is now: chosen, a pill opens and stays, an open card folds.
+          ...(safe ? [] : deskLines()),
           // Only with a sticky out to tidy; the key does nothing then either.
           ...(!safe && stickiesOut() > 0 ? [{ label: 'Tidy them', accelerator: chordFor('⌃⌥⌘T'), click: () => void tidyStickies() }] : []),
           ...(canUntidy() ? [{ label: 'Put them back', click: untidyStickies }] : []),
@@ -5599,27 +5828,17 @@ app.whenReady().then(() => {
   applyDesk()
   ipcMain.handle('desk:away', () => deskSaid())
   ipcMain.on('desk:anyway', (_event, on: unknown) => showAnyway(on !== false))
-  // Pointed at, a goal's card stays; let go, one out now and then tucks a
-  // minute later. Its X tucks it: till its next moment, or for an always
-  // one, till tomorrow. The other goals' cards stay.
+  // Pointed at, a goal's card stays; let go, one out now and then tucks a minute later. A pill pointed at opens.
   ipcMain.on('beacon:hold', (event, on: unknown) => {
     const key = keyOfSticky(BrowserWindow.fromWebContents(event.sender))
-    if (!key || (!key.startsWith('goal:') && stickyTuck() === 'off')) return
+    if (!key) return
     const win = stickies.get(key)
-    // Pointed at as a tab, it opens; the pointer watched from then on (shapeCard).
+    // Pointed at as a pill, it opens out of it; the pointer watched from then on (shapeCard).
     if (on) return void (beaconHeld.add(key), win && peeking.has(key) && shapeCard(key, win))
-    // Left as a card opened from its tab, the watch folds it back.
+    // Left as a card opened out of its pill, the watch folds it back.
     if (peekWatch.has(key)) return
     beaconHeld.delete(key)
     if (beaconModes.get(key) === 'sometimes') tuckLater(key)
-  })
-  ipcMain.on('beacon:tuck', (_event, id: unknown) => {
-    const key = `goal:${id}`
-    // One stuck by hand has no mode of its goal's: its own “Hide it for now” still works, till tomorrow as for an always one.
-    if (!beaconModes.has(key) && !stuckAs(key)?.asked) return
-    tucked.set(key, beaconModes.get(key) === 'sometimes' ? Infinity : new Date().setHours(24, 0, 0, 0))
-    beaconHeld.delete(key)
-    applyStickies()
   })
   // Shown again, every sticky comes back, those put away on their own too. A quiet
   // sound whichever way it went, from the window in front if it is Haligtree's, else the box: never a sticky being hidden.
@@ -5658,23 +5877,7 @@ app.whenReady().then(() => {
     applyStickies()
     updateTray()
   })
-  // "Hide this one", from its own hover controls.
-  ipcMain.on('sticky:hide', (_event, type: unknown, id: unknown, title: unknown) => {
-    const key = `${type}:${id}`
-    const one = stuckAs(key)
-    if (!one) return
-    one.hidden = true
-    keepStuck()
-    // Said in Haligtree's own nudge card, with “Bring it back”: a hidden sticky is never only gone.
-    showNudge({ kind: 'sticky', id: key, title: typeof title === 'string' && title.trim() ? cut(title.trim(), 80) : 'A sticky note' })
-    // Put away with a short fade rather than a blink; whole again for when it next comes out.
-    const win = stickies.get(key)
-    if (!win || win.isDestroyed()) return
-    const away = (): void => void (!win.isDestroyed() && (win.hide(), win.setOpacity(1)))
-    if (stillness() || !win.isVisible()) return away()
-    tween(160, (t) => (win.isDestroyed() ? false : void win.setOpacity(1 - outCubic(t))), away)
-  })
-  // “Bring it back”, from the nudge card: out again where it was.
+  // “Bring it back”, from the nudge card: a sticky hidden on its own before cards folded into pills, out again where it was.
   ipcMain.on('sticky:unhide', (_event, key: unknown) => {
     const one = stuckAs(String(key))
     if (!one?.hidden) return
@@ -5693,6 +5896,9 @@ app.whenReady().then(() => {
   ipcMain.on('sticky:lift', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win.isDestroyed() || stillness() || lifted.has(win) || held.has(win)) return
+    // A pill, or a card grown out of one, stays where the stack has it.
+    const key = keyOfSticky(win)
+    if (key && (peeking.has(key) || fromPill.has(key))) return
     const rest = win.getBounds()
     lifted.set(win, { x: rest.x, y: rest.y })
     let rising = true
@@ -5700,7 +5906,7 @@ app.whenReady().then(() => {
     // The page asks for the lift only from above the window's foot (lib/card-pointer.ts), so the rise
     // itself never slips the window out from under the pointer.
     const settle = (): void => {
-      if (rising || win.isDestroyed() || onCard(win)) return
+      if (rising || win.isDestroyed() || onCard(win) || !lifted.has(win)) return
       done()
       // Dragged while up: wherever you put it is its place now.
       if (!ours(win)) return
@@ -6566,8 +6772,8 @@ app.whenReady().then(() => {
     // Safe mode's ⌥⌘S is the menu bar's (app-menu.ts), not the whole Mac's: taken here, it was VS Code's and Xcode's “Save All” too.
     take('⌃⌥⌘N', keyed(() => showStickies()))
     take('⌃⌥⌘T', keyed(() => void tidyStickies()))
-    // Every sticky tucked into a tab at the edge, or brought back out.
-    take('⌃⌥⌘H', keyed(() => tuckStickies(stickyTuck() === 'off' ? 'tabs' : 'off')))
+    // Every open card folded into its pill at the edge, or the ones it folded opened again.
+    take('⌃⌥⌘H', keyed(foldDesk))
     // Ten more minutes on the session or break running, from anywhere; the pill rolls its time up and says so.
     take('⌃⌥⌘=', () => void extendRunning(10 * 60_000))
     // A bare focus session from anywhere, no task first: quick capture opens on “Start focus”'s lengths.

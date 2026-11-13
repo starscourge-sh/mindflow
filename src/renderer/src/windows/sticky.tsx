@@ -6,7 +6,7 @@ import { StickyNote } from '../components/haligtree/sticky-note'
 import { GoalSticky, GoalsSticky } from '../components/haligtree/goal-beacon'
 import { TodaySticky } from '../components/haligtree/today-sticky'
 import { Toaster } from '../components/haligtree/ui'
-import { TuckTab } from '../components/haligtree/tuck-tab'
+import { DeskPill } from '../components/haligtree/desk-pill'
 import { params, start } from '../main'
 import { clearRoom } from '../lib/clear-room'
 import { carryOnPress } from '../lib/carry'
@@ -24,8 +24,8 @@ watchCardPointer()
 start(
   <>
     {type === 'goal' ? <GoalSticky id={params.get('id') ?? ''} /> : type === 'goals' ? <GoalsSticky /> : type === 'today' ? <TodaySticky /> : <StickyNote type={type ?? 'capture'} id={params.get('id') ?? ''} />}
-    {/* Every sticky tucked away: this window is a tab at the screen's edge, its name down it (main's shapeCard). */}
-    <TuckTab />
+    {/* Folded: this window is the card's pill in the desk's stack, its card hidden under it (main's shapeCard). */}
+    <DeskPill />
     {/* A sticky says what the menu bar or ⌃⌥⌘T did when no other Haligtree window is out to say it. */}
     <Toaster />
   </>
@@ -43,9 +43,9 @@ window.addEventListener('keydown', (event) => {
   else window.api.openInHome('search', key === 'k' ? 'all' : 'notes')
 })
 
-// Made as glass (the setting): the Mac's blur under the card, or under the flat tab while it is tucked, and nowhere
-// else in the window (lib/glass.ts). A named tab is solid paper and stands on none.
-if (params.has('glass')) followGlass(() => [...document.querySelectorAll('.mf-card, [data-goal-card], [data-goals-sticky], [data-tuck-tab="flat"] > div')])
+// Made as glass (the setting): the Mac's blur under the card, and nowhere else in the window (lib/glass.ts). A pill is
+// solid, as the session bubble is, and stands on none.
+if (params.has('glass')) followGlass(() => [...document.querySelectorAll('.mf-card, [data-goal-card], [data-goals-sticky]')])
 
 // The room round a paper card lets clicks through to the app behind; the card, and anything hanging past it, takes them.
 clearRoom()

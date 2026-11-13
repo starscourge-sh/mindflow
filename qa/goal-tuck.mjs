@@ -1,6 +1,6 @@
 // Tuck away by the clock: a goal card set to "Always" is shown in full before
-// and after the hours set, peeks as a slim tab at the screen's edge in between
-// (pointed at, it opens out of the tab; left, it folds back), or goes out of
+// and after the hours set, peeks as its pill in the desk's stack in between
+// (pointed at, it opens out of the pill; left, it folds back), or goes out of
 // sight; a focus session tucks it; and one out of sight two days peeks out by
 // itself, once that day. Settings shows the rules, each with a preview.
 // Paper and Dark, 900x700 and 1600x1000 for the settings.
@@ -40,34 +40,34 @@ try {
   const keptAtRest = await keptPlace()
   check('to start, the card is up in full', (await card())?.visible && rest.width > 200)
 
-  // Between the hours: a slim tab at the nearer edge, level with the card.
+  // Between the hours: its pill in the desk's stack at the screen's right edge.
   await v('settings:set', { goalTuck: true, goalShowUntil: hhmm(-60), goalShowFrom: hhmm(60), goalBetween: 'peek', goalInFocus: 'tuck' })
   await wait(1200)
   let now = await card()
-  check('between the hours, it peeks: a slim tab at the screen\'s edge', now?.visible && now.b.width === 46 && now.b.height === 116 && now.b.x + now.b.width === now.work.x + now.work.width, JSON.stringify(now?.b))
+  check('between the hours, it peeks: its pill at the screen\'s edge', now?.visible && now.b.height === 36 && now.b.width <= 232 && now.b.x + now.b.width === now.work.x + now.work.width - 2, JSON.stringify(now?.b))
   const p = await page()
-  check('the tab shows the goal\'s ring and days left', await p.evaluate(() => !!document.querySelector('[data-goal-tab="right"] svg') && /days? left|past/.test(document.querySelector('[data-goal-tab]').getAttribute('aria-label'))))
-  if (shots) await p.screenshot({ path: `${shots}/tab.png` })
-  // Pointed at: it opens out of the tab, under the pointer.
+  check('the pill shows the goal\'s ring and days left', await p.evaluate(() => !!document.querySelector('[data-desk-pill] [data-pill-ring]') && /\bdays?\b|Today|past/.test(document.querySelector('[data-pill-number]')?.textContent ?? '')))
+  if (shots) await p.screenshot({ path: `${shots}/pill.png` })
+  // Pointed at: it opens out of the pill, beside the stack.
   await electron.evaluate((_, b) => (globalThis.qaCursor = { x: b.x + 20, y: b.y + 40 }), now.b)
   await p.evaluate(() => window.api.holdBeacon(true))
   await wait(500)
   now = await card()
-  check('pointed at, the card opens out of its tab', now.b.width === rest.width && now.b.height === rest.height && now.b.x + now.b.width === now.work.x + now.work.width, JSON.stringify(now.b))
-  check('opened, it shows the whole card', await p.evaluate(() => !!document.querySelector('[data-goal-card]') && !document.querySelector('[data-goal-tab]')))
+  check('pointed at, the card opens out of its pill, beside the stack', now.b.width > rest.width && now.b.height === rest.height && now.b.x + now.b.width === now.work.x + now.work.width - 2, JSON.stringify(now.b))
+  check('opened, it shows the whole card, its pill lit beside it', await p.evaluate(() => !!document.querySelector('[data-goal-card]') && document.querySelector('[data-desk-pill]')?.getAttribute('data-desk-pill') === 'open'))
   // Still pointed at, it stays open; then the pointer leaves and it folds back.
   await electron.evaluate((_, b) => (globalThis.qaCursor = { x: b.x + 100, y: b.y + 100 }), now.b)
   await wait(1000)
-  check('while pointed at, it stays open', (await card()).b.width === rest.width)
+  check('while pointed at, it stays open', (await card()).b.height === rest.height)
   await electron.evaluate(() => (globalThis.qaCursor = { x: 5, y: 5 }))
   await wait(1200)
-  check('the pointer gone, it folds back to the tab', (await card()).b.width === 46)
+  check('the pointer gone, it folds back into its pill', (await card()).b.height === 36)
   // Its own place is kept as it was, never the tab's: compared with what was kept before it tucked, not with where
   // the window stands. A place kept on one screen (the example book's, 16 from the top of a screen with no menu bar)
   // is brought into view on another (under a 37 px menu bar) without being written over, so the two differ there:
   // on 12 Nov the Mac's screen changed between runs and this line failed with nothing wrong.
   const own = await keptPlace()
-  check('its own place is kept as it was, not the tab\'s', !!own && !!keptAtRest && own.width === rest.width && own.height === rest.height && own.x === keptAtRest.x && own.y === keptAtRest.y, JSON.stringify([own, keptAtRest, rest]))
+  check('its own place is kept as it was, not the pill\'s', !!own && !!keptAtRest && own.width === rest.width && own.height === rest.height && own.x === keptAtRest.x && own.y === keptAtRest.y, JSON.stringify([own, keptAtRest, rest]))
 
   // Out of sight in between, when chosen.
   await v('settings:set', { goalBetween: 'tuck' })
@@ -97,7 +97,7 @@ try {
   await v('settings:set', { goalPeekOut: true, goalShowFrom: hhmm(61) })
   await wait(1200)
   now = await card()
-  check('out of sight two days, it peeks out by itself as a tab', now.visible && now.b.width === 46, JSON.stringify(now))
+  check('out of sight two days, it peeks out by itself as its pill', now.visible && now.b.height === 36, JSON.stringify(now))
   const nudged = await electron.evaluate((_, key) => globalThis.haligtreeGoalSeen().nudged[key], key)
   check('and is marked as done for today, so not again till tomorrow', nudged === new Date().toLocaleDateString('sv'), String(nudged))
   check('one window for the card, all along', now.count === 1, String(now.count))
@@ -128,7 +128,7 @@ try {
     }
   }
   const sample = h.locator('[data-preview="tuck"]')
-  check('the preview waits as a tab', await sample.locator('[data-preview-card="tab"]').count() === 1)
+  check('the preview waits as a pill', await sample.locator('[data-preview-card="pill"]').count() === 1)
   await sample.scrollIntoViewIfNeeded()
   const sb = await sample.boundingBox()
   await h.mouse.move(sb.x - 20, sb.y + sb.height / 2)

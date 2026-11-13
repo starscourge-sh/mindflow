@@ -20,5 +20,13 @@ export const TIP = `${FLOAT} rounded-md px-2.5 py-1.5 text-xs`
 // A card is the same material as a menu (FLOAT's ring, not a border of its own), at a card's corners.
 export const CARD = `${FLOAT} rounded-xl`
 
+/**
+ * The one surface of a pill floating over other apps (the session bubble, the desk's pills): the theme's popover,
+ * drawn over the page's own colour so nothing behind shows through, in every theme. With `backgroundColor: Canvas`.
+ */
+export const SOLID = 'linear-gradient(var(--popover), var(--popover)), linear-gradient(var(--background), var(--background))'
+/** Such a pill's lift off the screen, drawn round whatever shape it is clipped to (a box shadow would be clipped with it). None in Paper, which prints everything flat. */
+export const LIFT = 'drop-shadow(0 1px 1px color-mix(in oklab, var(--mf-shadow-ink) 14%, transparent)) drop-shadow(0 3px 3px color-mix(in oklab, var(--mf-shadow-ink) 8%, transparent))'
+
 /** A menu line's words, cut where they run long: a note's whole title in a line ("Open …") blew the menu out across the window. */
 export const MENU_LINE = 'max-w-80 min-w-0 truncate'

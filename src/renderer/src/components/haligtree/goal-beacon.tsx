@@ -1,4 +1,5 @@
 import { DRAG, STILL } from './sticky-note'
+import { usePillWords } from './desk-pill'
 import { Tape } from './tape'
 import { Grabber } from './grabber'
 import { useEffect, useRef, useState } from 'react'
@@ -17,7 +18,7 @@ import { useAppearance, useLive, haligtree, type ItemFull } from '@/lib/haligtre
 import { useMilestones, type Milestone } from '@/lib/milestones'
 import { DotMatrix } from './dot-matrix'
 import { Answers, Journey, goalInk, markOf, openOnes, useToday, warmth } from './goals-view'
-import { dayKey, dayMonth, num, plural } from '../../../../main/dates'
+import { dayKey, dayMonth, num } from '../../../../main/dates'
 import { YEAR, daysBetween, daysLeft, farOff, leftSaid, percent, wayThrough } from '../../../../main/goal-days'
 import { SandboxStamp } from '@/components/haligtree/sandbox'
 import { SANDBOX } from '@/lib/sandbox'
@@ -95,16 +96,11 @@ export function GoalSticky({ id }: { id: string }): React.JSX.Element {
   useAppearance()
   const today = useToday()
   const shown = useArrival()
-  // Tucked away by the clock to a slim tab at the screen's edge (main's shapeCard); pointed at, it opens.
-  const [peek, setPeek] = useState<{ side: 'left' | 'right'; nudge: boolean } | null>(null)
-  // Every sticky tucked away is drawn by the window's own tab (windows/sticky.tsx), not this one.
-  useEffect(() => window.api.onBeaconPeek((one) => setPeek(one?.tucked ? null : one)), [])
   // Its right-click menu's own lines: open the goal as its ↗ does, and take its card down, named in "Put it back".
   useStickyDo({
     open: () => (chime('open'), window.api.openInHome('goal', id)),
     down: () => (chime('unstick'), void haligtree.item(id).then((goal) => window.api.takeDownSticky(goal?.title || 'A goal')))
   })
-  if (peek) return <PeekingCard id={id} today={today} side={peek.side} nudge={peek.nudge} />
   return (
     <Desk shown={shown} onEnter={() => window.api.holdBeacon(true)} onLeave={() => window.api.holdBeacon(false)}>
       <Card id={id} today={today} />
@@ -137,6 +133,13 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
     chime('goal')
     if (!still()) glow.current?.animate([{ opacity: 0 }, { opacity: 1, offset: 0.3 }, { opacity: 0.85, offset: 0.6 }, { opacity: 0 }], { duration: 2200, easing: 'ease-out' })
   }, [full, id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Its pill in the desk's stack says what the card does: the goal, its ring of time gone and its days, warm in its last week.
+  usePillWords(preview || !goal?.goalAt ? null : {
+    words: goal.title || 'A goal',
+    number: leftSaid(left).replace(/ left$/, ''),
+    ring: { gone: wayThrough(goal.goalFrom ?? dayKey(goal.createdAt), goal.goalAt), ink: goalInk(goal) },
+    ...(left <= 7 ? { warm: warmth(Math.max(left, 0)) } : {})
+  })
   // Past its day, the answer is given here: said back for a moment, with a way back, then the goal is settled.
   const [said, setSaid] = useState<'made it' | 'missed' | 'let go' | null>(null)
   useEffect(() => {
@@ -179,9 +182,9 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
             <button type="button" aria-label="Open it" title="Open it" onClick={() => (chime('open'), window.api.openInHome('goal', id))} className={HOVER_BUTTON}>
               <AliveIcon icon={ExternalLinkIcon} size={14} />
             </button>
-            {/* A − as on a task's sticky, not a ×: it only steps out of sight, the goal is kept as it is. */}
-            <Tip label="Hide it for now. The goal stays as it is, and the card comes back">
-              <button type="button" aria-label="Hide it for now" onClick={() => (chime('tuck'), window.api.tuckBeacon(id))} className={HOVER_BUTTON}>
+            {/* A − as on a task's sticky, not a ×: it only folds into its pill at the screen's edge, the goal kept as it is. */}
+            <Tip label="Fold it into its pill at the screen's edge. The goal stays as it is  ⌃⌥⌘H folds them all">
+              <button type="button" aria-label="Fold it into its pill" onClick={() => (chime('tuck'), window.api.pinSticky(false))} className={HOVER_BUTTON}>
                 <Minus className="size-3.5" strokeWidth={2.25} />
               </button>
             </Tip>
@@ -230,52 +233,6 @@ function Card({ id, today, preview }: { id: string; today: string; /** A goal no
   )
 }
 
-/**
- * A goal's card peeking: its window is a slim tab at the screen's edge, and
- * the tab is the goal's ring of time gone, in its colour, over the days left.
- * Pointed at, the card opens out of it, with paper's slide.
- */
-function PeekingCard({ id, today, side, nudge }: { id: string; today: string; side: 'left' | 'right'; nudge: boolean }): React.JSX.Element {
-  const goal = useLive(() => haligtree.item(id), undefined as Goal | undefined, [id])
-  useEffect(() => {
-    document.documentElement.style.background = 'transparent'
-    document.body.style.background = 'transparent'
-  }, [])
-  const from = goal?.goalAt ? goal.goalFrom ?? dayKey(goal.createdAt) : today
-  return (
-    <div className="h-screen w-screen" onPointerEnter={() => (chime('slide'), window.api.holdBeacon(true))}>
-      <GoalTab side={side} nudge={nudge} gone={goal?.goalAt ? wayThrough(from, goal.goalAt) : 0} left={goal?.goalAt ? daysLeft(goal.goalAt, today) : null} ink={goal ? goalInk(goal) : 'var(--muted-foreground)'} title={goal?.title ?? ''} />
-    </div>
-  )
-}
-
-/** The tab itself: square on the screen's edge, round on the side facing in. Also Settings' preview of it. */
-function GoalTab({ side, nudge = false, gone, left, ink, title, className = '' }: { side: 'left' | 'right'; nudge?: boolean; gone: number; left: number | null; ink: string; title: string; className?: string }): React.JSX.Element {
-  const R = 11
-  const round = 2 * Math.PI * R
-  const away = side === 'right' ? 24 : -24
-  // Out by itself after days tucked: it comes in with a small wiggle, to be seen, then rests.
-  const wiggle = side === 'right' ? [away, -6, 3, -2, 0] : [away, 6, -3, 2, 0]
-  return (
-    <motion.div
-      data-goal-tab={side}
-      aria-label={`${title}: ${left === null ? '' : left < 0 ? 'past its day' : `${plural(left, 'day')} left`}`}
-      initial={still() ? false : { opacity: 0, x: away }}
-      animate={{ opacity: 1, x: nudge && !still() ? wiggle : 0 }}
-      transition={nudge ? { duration: 0.7, ease: EASE } : { duration: 0.24, ease: EASE }}
-      style={{ backgroundImage: PAPER, backgroundColor: 'Canvas', boxShadow: SHADOW }}
-      className={`flex h-full flex-col items-center justify-center gap-1.5 border ${side === 'right' ? 'rounded-l-xl border-r-0' : 'rounded-r-xl border-l-0'} text-foreground ${className}`}
-    >
-      <svg viewBox="0 0 28 28" className="size-7 -rotate-90" aria-hidden>
-        <circle cx="14" cy="14" r={R} fill="none" stroke="currentColor" strokeOpacity={0.15} strokeWidth={3} />
-        <circle cx="14" cy="14" r={R} fill="none" stroke={ink} strokeWidth={3} strokeLinecap="round" strokeDasharray={`${round * Math.min(1, Math.max(0, gone))} ${round}`} />
-      </svg>
-      <span className="font-heading text-base leading-none font-bold tabular-nums">{left === null ? '' : left < 0 ? '!' : num(left)}</span>
-      <span className="text-meta leading-none font-medium text-foreground">{left !== null && left >= 0 ? (left === 1 ? 'day' : 'days') : ''}</span>
-    </motion.div>
-  )
-}
-
 /** "today", "tomorrow", "in 12 days". */
 const inDays = (day: string, today: string): string => {
   const left = daysBetween(today, day)
@@ -320,6 +277,10 @@ export function GoalsSticky(): React.JSX.Element {
   const goals = useLive(async () => Promise.all(openOnes(await haligtree.items('goal')).map((one) => haligtree.item(one.id))).then((all) => all.filter((one): one is Goal => !!one?.goalAt)),
     [] as Goal[], [], undefined, 'goals-sticky')
   const marks = useMilestones(null, null)
+  // Its pill: the goals together, and how many days to the nearest one's day.
+  const nearest = goals.reduce<Goal | null>((best, one) => (!best || one.goalAt! < best.goalAt! ? one : best), null)
+  const soonest = nearest ? daysLeft(nearest.goalAt!, today) : null
+  usePillWords({ words: 'Goals', number: soonest === null ? undefined : leftSaid(soonest).replace(/ left$/, ''), ring: nearest ? { gone: wayThrough(nearest.goalFrom ?? dayKey(nearest.createdAt), nearest.goalAt!), ink: goalInk(nearest) } : undefined, ...(soonest !== null && soonest <= 7 ? { warm: warmth(Math.max(soonest, 0)) } : {}) })
   const [focus, setFocus] = useState<string | null>(null)
   const [asking, setAsking] = useState(false)
   // The goal focused has ended or gone: all of them again.

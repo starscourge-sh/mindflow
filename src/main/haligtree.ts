@@ -542,7 +542,7 @@ const DEFAULTS = {
   // goal can say otherwise; in its last week 'sometimes' stays.
   goalBeacon: 'sometimes' as 'always' | 'sometimes' | 'off',
   // Tuck away by the clock: an always-on goal card shown in full before
-  // goalShowUntil and after goalShowFrom, and in between peeking (a slim tab
+  // goalShowUntil and after goalShowFrom, and in between peeking (its pill
   // at the screen's edge that opens when pointed at) or tucked out of sight.
   // During a focus session it tucks, peeks or stays as goalInFocus says. A
   // card out of sight for two days or more peeks out once a day (goalPeekOut).
@@ -708,8 +708,6 @@ const DEFAULTS = {
   sideTags: null as string[] | null,
   // Sticky notes on the desktop: shown or all put away (⌃⌥⌘N).
   stickiesShown: true,
-  // Every sticky tucked into a tab at the screen's edge ('tabs'), or only a small pill there ('flat'); 'off', out as usual.
-  stickiesTucked: 'off' as 'off' | 'tabs' | 'flat',
   // Which windows show in screen shares, recordings and screenshots: every one
   // to start, so a screenshot taken during the welcome has Haligtree in it. Hidden
   // (blank to a camera, still there for you) in Settings, all at once in ⌘K.
@@ -873,13 +871,13 @@ export const stickyFrost = (): boolean => settings().stickiesFrosted !== false
 /** Frosted by the Mac's own blur rather than the desktop picture. */
 export const stickyGlass = (): boolean => settings().stickiesFrosted !== false && settings().stickiesGlass === true
 export const stickyPrefs = (): { shown: boolean } => ({ shown: settings().stickiesShown })
-/** How the stickies are tucked at the screen's edge: not at all, as named tabs, or as small flat pills. */
-export const stickyTuck = (): 'off' | 'tabs' | 'flat' => (['tabs', 'flat'].includes(settings().stickiesTucked) ? settings().stickiesTucked : 'off')
-/** Every sticky tucked to the edge, or brought back out; kept across a restart. */
-export function tuckStickies(how: 'off' | 'tabs' | 'flat'): void {
-  database().prepare("insert or replace into settings (key, value) values ('stickiesTucked', ?)").run(JSON.stringify(how))
-  stickiesTold()
-  changed()
+/**
+ * Whether every sticky was tucked at the screen's edge before each card had a pill of its own: read once as the
+ * stickies are read back, so a desk left tucked comes back as pills. The user's desk, not a setting.
+ */
+export const wasTucked = (): boolean => {
+  const row = database().prepare("select value from settings where key = 'stickiesTucked'").get() as { value: string } | undefined
+  return !!row && row.value !== '"off"'
 }
 /** Every sticky shown or put away at once; they keep their places. */
 export function showStickies(on = !settings().stickiesShown): boolean {
@@ -1504,7 +1502,7 @@ export function registerHaligtree(): void {
     if (patch.keys) keysTold(patch.keys)
     // Spotlight's switch: notes put in or taken out now (spotlight.ts).
     if ('spotlight' in patch) app.emit('haligtree:spotlight')
-    if ('stickiesShown' in patch || 'stickiesTucked' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
+    if ('stickiesShown' in patch || 'stickiesFrosted' in patch || 'stickiesGlass' in patch) stickiesTold()
     if ('spellcheck' in patch || 'spellLanguages' in patch) spelling()
     if ('openAtLogin' in patch) atLogin()
     if ('goalBeacon' in patch || 'tempusDots' in patch || Object.keys(patch).some((key) => /^goal(Tuck|Show|Between|InFocus|PeekOut)/.test(key))) goalsTold()

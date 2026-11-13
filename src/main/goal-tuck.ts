@@ -1,6 +1,6 @@
 /**
  * How a goal's card sits on the desktop by the clock: shown in full, peeking
- * (a slim tab at the screen's edge with its ring of time gone, that opens
+ * (its pill in the desk's stack with its ring of time gone, that opens
  * when pointed at) or tucked out of sight. Only for a card that would
  * otherwise always be up; "now and then" cards keep their own moments.
  *

@@ -210,7 +210,7 @@ export function Payoff({ setup, onChange, onBack, still }: { setup: Setup; onCha
             {/* The real card, out on the desktop: said on its own line, so it is looked for. */}
             {row.goal && !row.undone && goal && (
               <p data-goal-sticky className="mt-1.5 text-[clamp(1rem,min(1.8vw,2.6vh),1.1875rem)] leading-relaxed text-foreground">
-                <strong className="font-semibold">Look at the top right of your screen.</strong> Its card is on your desktop now, so the goal stays in sight. Drag it anywhere. On the next pages it tucks into the edge.
+                <strong className="font-semibold">Look at the right of your screen.</strong> Its card is on your desktop now, so the goal stays in sight. Drag it anywhere. On the next pages it folds into a pill at the edge, with its days left.
               </p>
             )}
           </div>

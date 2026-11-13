@@ -29,7 +29,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Anywhere', keys: '⌃⌥⌘N', does: 'Show or hide every sticky note on the desktop', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘M', does: 'Record a call or lecture; while one records, note this moment', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘T', does: 'Tidy the sticky notes down the right middle of the screen, when stickies are open', where: 'Anywhere' },
-  { group: 'Anywhere', keys: '⌃⌥⌘H', does: 'Tuck every sticky note into a tab at the screen’s edge, or bring them back out', where: 'Anywhere' },
+  { group: 'Anywhere', keys: '⌃⌥⌘H', does: 'Fold every open card into its pill at the screen’s edge, or open the ones it folded', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘=', does: 'Ten more minutes on the focus session, break or timer running', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘S', does: 'Start focus: a focus session with no task, 25, 45 or 60 minutes or as long as you type', where: 'Anywhere' },
 
