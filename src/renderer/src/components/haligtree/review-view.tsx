@@ -911,8 +911,10 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                 {hintsTaken === 1 ? 'You took a hint, so it comes back sooner.' : 'You took two hints, so it comes back sooner still.'} The times under the grades already count it.
               </p>
             )}
-            {/* The key shows where there is room for it; in a narrow panel the time comes first. */}
-            <div data-grades={grades.length} className={`@container grid gap-2 ${two ? 'grid-cols-2' : 'grid-cols-4'}`}>
+            {/* The key shows where there is room for it; in a narrow panel the time comes first. Under a long answer
+                the grades stay in sight at the foot of the page, as Anki's answer bar does, the answer passing under
+                them on the page's own paint: never scrolled to before a card can be graded by a press. */}
+            <div data-grades={grades.length} className={`@container sticky bottom-0 z-[2] -my-2 grid gap-2 bg-background py-2 ${two ? 'grid-cols-2' : 'grid-cols-4'}`}>
               {grades.map(({ grade: value, label, hint, tone }) => (
                 <Tip key={value} label={`${hint}: back ${backIn(hintedTimes(card.intervals, Date.now(), hintsTaken)[value])}`}>
                 <button
