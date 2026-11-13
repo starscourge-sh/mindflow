@@ -42,7 +42,7 @@ const install = () => h.evaluate(() => {
         if (y >= innerHeight - 2) break
         const under = document.elementFromPoint(x, y)
         if (!under || blocks.some((one) => one.contains(under))) continue
-        if (inside ? under === e : !e.contains(under) && under.contains(e) === false && under.closest('.haligtree-editor-content, [data-day-write]')) return { x, y, on: `${under.nodeName.toLowerCase()}${typeof under.className === 'string' && under.className ? '.' + under.className.trim().split(/\s+/).slice(0, 2).join('.') : ''}`, from: step }
+        if (inside ? under === e : !e.contains(under) && !!under.closest('.haligtree-editor-content, [data-day-write]')) return { x, y, on: `${under.nodeName.toLowerCase()}${typeof under.className === 'string' && under.className ? '.' + under.className.trim().split(/\s+/).slice(0, 2).join('.') : ''}`, from: step }
       }
       return null
     }
