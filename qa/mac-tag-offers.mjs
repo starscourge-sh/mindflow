@@ -39,6 +39,8 @@ const film = async (name, count = 10) => {
   }
 }
 try {
+  // No celebrations: the sandbox marks new captures with one, and the offer line waits for as long as one is on show.
+  await v('settings:set', { sounds: false, celebrate: false })
   // The notes a person keeps on one subject, tagged as they go; and tags the offer must never pass on.
   for (const text of [
     'Feed the sourdough starter twice a day; the starter is ready when it doubles and smells sour. #baking',
