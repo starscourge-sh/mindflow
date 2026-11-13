@@ -2,13 +2,13 @@ import { useMemo, useRef, useState } from 'react'
 
 import { chime } from '@/lib/sound'
 import { splitTags, useLive, haligtree } from '@/lib/haligtree'
-import { MAP_LOOK, quietTint } from '@/lib/map-look'
+import { quietTint } from '@/lib/map-look'
 import type { MapNode } from '@/lib/notes'
 import { Button } from '@/components/ui/button'
 import { Maximize as Fit, Waypoints, X } from 'lucide-react'
 import { kindOf, kindRank } from '@/components/capture-kinds/capture-kind-picker'
 import type { CaptureMeta } from '../capture-list'
-import { GraphCanvas, type CanvasLook, type Graph, type GraphNode } from './graph-canvas'
+import { GraphCanvas, type Graph, type GraphNode } from './graph-canvas'
 import { Chip, Chips } from './display'
 import { Empty, Rolling, Tip, openTag } from './ui'
 import { num, plural } from '../../../../main/dates'
@@ -22,11 +22,12 @@ const MOST = 400
 const SPIRAL = Math.PI * (3 - Math.sqrt(5))
 
 /**
- * The Map's look, with a pull to the middle. The Map's own has none (its notes are held by their links), and here the
- * captures and tags with no line were pushed out to the canvas's edges by all the rest, the picture shrinking to fit
- * them until every dot was a speck of a pixel or two. Held, a dozen captures are dots of 7 to 9 pixels, close together.
+ * How hard a capture or tag with no line is held near the middle. The Map's layout has no pull to the middle (its
+ * notes are held by their links), and here those with no line were pushed out to the canvas's edges by all the rest,
+ * the picture shrinking to fit them until every dot was a speck of a pixel or two. Held this gently, they ring the
+ * tags' clusters, which keep the Map's own layout; a pull on every dot packed the clusters in among them.
  */
-const LOOK: CanvasLook = { ...MAP_LOOK, centre: 0.4 }
+const HOLD = 0.15
 /** What a capture is, for gathering the ones on their own: a meeting (recorded, or a calendar event's note), else its kind. */
 const sortOf = (one: CaptureMeta): string => (one.source === 'Meeting' || one.medium === 'Meeting' ? 'meeting' : one.kind)
 /** A capture on its own wears its kind's colour (a Note grey, a Term green, a Link blue), muted as a tag's is. */
@@ -171,7 +172,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
       </div>
       {graph.nodes.length ? (
         <>
-          <GraphCanvas key={`${mode}-${range}`} map={graph} fit={fit} look={LOOK} paint={looseTint} counts={countOf} className={`flex-1 rounded-lg border bg-accent/20 ${compact ? 'min-h-44' : 'min-h-64'}`} onOpen={pick} />
+          <GraphCanvas key={`${mode}-${range}`} map={graph} fit={fit} hold={HOLD} paint={looseTint} counts={countOf} className={`flex-1 rounded-lg border bg-accent/20 ${compact ? 'min-h-44' : 'min-h-64'}`} onOpen={pick} />
           {picked && (
             <div data-inbox-cluster className="mt-2 shrink-0 rounded-lg border bg-accent/25 p-1">
               <div className="flex items-center gap-2 px-2 py-1">

@@ -171,7 +171,7 @@ const takeFocus = (): string | null => ((id) => ((asked = null), id))(asked)
  * scroll left to the page around it. `focus` lights a note up and brings it
  * close once drawn.
  */
-export function GraphCanvas({ map, onOpen, centre, you, about, counts, fit: fitRef, fly, replay, look, paint, calm = false, className, children }: {
+export function GraphCanvas({ map, onOpen, centre, you, about, counts, hold = 0, fit: fitRef, fly, replay, look, paint, calm = false, className, children }: {
   map: Graph
   /** `aside`: ⌥ was held, to open it beside. */
   onOpen: (type: string, id: string, aside?: boolean) => void
@@ -182,6 +182,9 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, fit: fitR
   about?: Record<string, string>
   /** What a dot's hover card counts, in the map's own words ("2 captures", "on its own"); its links when not given. */
   counts?: (node: GraphNode) => string
+  /** How hard a dot with no line is pulled to the middle, at the least, whatever the Map's "Layout" says: with none,
+   * every other dot pushes it out to the edge and the whole picture shrinks to fit it (the Inbox's captures on their own). */
+  hold?: number
   fit?: React.RefObject<() => void>
   /** Glide to a note and light it, as a find does; false when it is not on the map. */
   fly?: React.RefObject<(id: string) => boolean>
@@ -1086,8 +1089,10 @@ export function GraphCanvas({ map, onOpen, centre, you, about, counts, fit: fitR
       const t = tuned.current
       ;(sim.force('link') as ForceLink<Dot, Line>).distance((line) => t.linkLength + line.source.r + line.target.r).strength(t.linkPull)
       ;(sim.force('charge') as ForceManyBody<Dot>).strength((dot) => (-40 - dot.r * 6) * t.push)
-      ;(sim.force('x') as ForceX<Dot>).strength(t.centre)
-      ;(sim.force('y') as ForceY<Dot>).strength(t.centre)
+      // A dot with no line is held near the middle by `hold` at least: nothing else keeps it there.
+      const pull = (dot: Dot): number => (near.get(dot.id)!.size ? t.centre : Math.max(t.centre, hold))
+      ;(sim.force('x') as ForceX<Dot>).strength(pull)
+      ;(sim.force('y') as ForceY<Dot>).strength(pull)
     }
     forces()
     // A little heat, so the dots move to the new settings (or, with motion off, a few steps taken out of sight).

@@ -122,6 +122,11 @@ try {
   const joined = new Set(g.lines.flat())
   const alone = captures.filter((one) => !joined.has(one.id))
   check('11 stand on their own with no line, 2 are joined to #work', alone.length === 11 && g.lines.length === 2, `${alone.length} on their own, ${g.lines.length} lines`)
+  // The tag's captures gather round it, as before: nearer #work than any capture on its own.
+  const hub = tags[0], far = (a, b) => Math.hypot(a.x - b.x, a.y - b.y)
+  const kept = hub ? captures.filter((one) => joined.has(one.id)).map((one) => far(one, hub)) : []
+  const nearest = hub && alone.length ? Math.min(...alone.map((one) => far(one, hub))) : 0
+  check('#work\'s two captures sit nearer it than any capture on its own', kept.length === 2 && Math.max(...kept) < nearest, `theirs ${kept.map((n) => n.toFixed(0)).join(' and ')} away, the nearest on its own ${nearest.toFixed(0)}`)
   let line = await said()
   check('the line under it says what is drawn', line?.text === '13 captures · 2 share #work', JSON.stringify(line?.text))
   check('at the Inbox\'s own text size, nothing in grey', !!line && line.size === line.body && !line.grey, line ? `${line.size} against the page's ${line.body}${line.grey ? ', with grey' : ''}` : 'no line')
