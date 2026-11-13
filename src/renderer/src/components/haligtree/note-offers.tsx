@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Copy, FolderInput, Hash, Link2, Sparkles, UserRoundPlus, VenetianMask, X } from 'lucide-react'
+import { Copy, FolderInput, Hash, Link2, MessageCircleQuestion, Sparkles, UserRoundPlus, VenetianMask, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
 import { follow } from '@/lib/capture-links'
@@ -14,6 +14,9 @@ import { useHas } from '@/lib/needs'
 import { putTag } from './property-strip'
 import type { NoteOffers as Offers } from '../../../../main/offers'
 import { cut, quoted } from '../../../../main/clip'
+import { draftQuestions } from '../../../../main/note-questions'
+import { plural } from '../../../../main/dates'
+import { makeQuestions } from './note-questions'
 
 /**
  * One quiet offer under a note, from your own book (main/offers.ts, by shared
@@ -35,8 +38,18 @@ type Offer =
   | { kind: 'character'; name: string; work: string; known: boolean }
   | { kind: 'name'; name: string }
   | { kind: 'tag'; tag: string; notes: number; of: number }
+  | { kind: 'questions'; count: number }
 
-const idOf = (offer: Offer): string => (offer.kind === 'name' ? 'name' : `${offer.kind}:${'key' in offer ? offer.key : 'id' in offer ? offer.id : 'tag' in offer ? offer.tag : offer.name}`)
+const idOf = (offer: Offer): string => (offer.kind === 'name' || offer.kind === 'questions' ? offer.kind : `${offer.kind}:${'key' in offer ? offer.key : 'id' in offer ? offer.id : 'tag' in offer ? offer.tag : offer.name}`)
+
+/**
+ * Study questions are offered for a note with enough in it (main/note-questions.ts), read from a copy of the
+ * user's own book: of its 84 notes kept as rich text, none of the 75 under 80 words gave three drafts; two of
+ * the seven of 150 words or more gave five (the long study notes). So: three drafts or more, 150 words or more,
+ * and no card from it yet: offered on 2 of 84 notes there, never on a short one.
+ */
+const QUESTIONS_WORDS = 150
+const QUESTIONS_DRAFTS = 3
 
 /** A note with no name of its own: no words in its first block (a picture, a recording) or a whole paragraph for a first line. */
 const unnamed = (editor: Editor): boolean => {
@@ -173,6 +186,13 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
         // The tags the notes most like it carry, last: the offers above are each about words it holds.
         ...found.tags.map((one) => ({ kind: 'tag' as const, ...one })),
       ]
+      // Study questions, after all of those (so drafted only when none of them would show), once a note (a capture)
+      // holds enough and has made no card yet.
+      if (key && !all.some((one) => !gone.has(`${own}|${idOf(one)}`)) && !gone.has(`${own}|questions`) && text.split(/\s+/).length >= QUESTIONS_WORDS && !/\s::(\s|$)/m.test(text)) {
+        const count = draftQuestions(editor.getJSON()).length
+        const carded = count >= QUESTIONS_DRAFTS && (await call<{ captureId: string | null }[]>('items', 'card').catch(() => [])).some((one) => one.captureId === key)
+        if (count >= QUESTIONS_DRAFTS && !carded && live && turn === asked.current) all.push({ kind: 'questions', count })
+      }
       // Apple Intelligence, where the Mac has it: a name for a note that has none (ai-offers.tsx).
       // A note without a name is offered one first: it is how the note is found again.
       if (canName.current && unnamed(editor) && !gone.has(`${own}|name`)) {
@@ -267,6 +287,18 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     // The keys go back to the note, as after "Link it", so ⌘Z takes the tag back after its notice has gone too.
     actions = [{ label: 'Add the tag', data: 'tag', run: () => {
       if (putTag(editor, offer.tag)) (editor.commands.focus(), chime('noted'), toast(`Tagged #${offer.tag}`, () => editor.commands.undo()))
+      done()
+    } }]
+  } else if (offer.kind === 'questions') {
+    icon = <MessageCircleQuestion className="size-4" />
+    lead = 'Make study questions from this?'
+    rest = `${plural(offer.count, 'question')} drafted from its own words, to keep or drop.`
+    // Offered once: made, it is not offered for this note again, as its × does, with the list's own sound alone.
+    actions = [{ label: 'Make them', data: 'questions', run: () => {
+      makeQuestions(editor.view.dom.closest('[data-pane]')?.getAttribute('data-pane') ?? '')
+      const gone = dismissed()
+      gone.add(`${ownKey.current}|questions`)
+      localStorage.setItem(SEEN, JSON.stringify([...gone]))
       done()
     } }]
   } else if (offer.kind === 'character') {
