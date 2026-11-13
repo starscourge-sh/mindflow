@@ -56,7 +56,7 @@ try {
     const page = pageOf(one?.url)
     if (!page) continue
     await page.hover('[data-goal-card], .mf-card').catch(() => {})
-    await page.click('[aria-label="Fold it into its pill"]', { force: true })
+    await page.locator('[aria-label="Fold it into its pill"]').first().dispatchEvent('click')
   }
   const pills = async () => (await desk(c.electron)).all.filter((one) => one.pill && one.visible)
   check('their “–” folds each into its pill', await until(async () => (await pills()).length === 2, 3000))
@@ -168,7 +168,7 @@ try {
   const pinned = await bounds()
   check('a click pins it: the card stays open with the pointer gone, no pill', !pinned.pill && pinned.bounds.width > 260, JSON.stringify(pinned.bounds))
   await goalPage.hover('[data-goal-card]').catch(() => {})
-  await goalPage.click('[aria-label="Fold it into its pill"]', { force: true })
+  await goalPage.locator('[aria-label="Fold it into its pill"]').first().dispatchEvent('click')
   check('its “–” folds it back into its pill', await until(isPill, 2500))
 
   // --- 5 things: three notes stuck, each folded by its “–”; the newest note first among the notes.
@@ -183,7 +183,7 @@ try {
     const page = card && pageOf(card.url)
     if (!page) continue
     await page.hover('.mf-card').catch(() => {})
-    await page.click('[aria-label="Fold it into its pill"]', { force: true })
+    await page.locator('[aria-label="Fold it into its pill"]').first().dispatchEvent('click')
     await until(async () => !!(await desk(c.electron)).all.find((each) => each.key === `capture:${id}`)?.pill, 3000)
   }
   await wait(800)
@@ -245,7 +245,7 @@ try {
     const card = (await desk(c.electron)).all.find((each) => each.key === `capture:${id}`)
     const page = card && pageOf(card.url)
     await page?.waitForSelector('[aria-label="Fold it into its pill"]', { state: 'attached', timeout: 4000 }).catch(() => {})
-    await page?.click('[aria-label="Fold it into its pill"]', { force: true }).catch(() => {})
+    await page?.locator('[aria-label="Fold it into its pill"]').first().dispatchEvent('click').catch(() => {})
     await until(async () => !!(await desk(c.electron)).all.find((each) => each.key === `capture:${id}`)?.pill, 3000)
     return id
   }

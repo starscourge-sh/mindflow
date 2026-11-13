@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { createPortal } from 'react-dom'
 import { animate, motion } from 'motion/react'
 import { EASE, still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
@@ -118,7 +119,7 @@ export function DeskPill(): React.JSX.Element | null {
       // is drawn, then grown the rest of the way on the spring, at full strength from its first frame.
       const { from: start, to } = ends(now)
       Object.assign(root.style, start)
-      grow(to, () => (root.style.clipPath = ''))
+      grow(to, () => ((root.style.clipPath = ''), (root.style.transform = '')))
     })
     // One motion at a time, from wherever the last one was; only the one still running says it has ended.
     const grow = (to: Keyframe, then: () => void, stiffness: number = SPRING.stiffness): void => {
@@ -131,7 +132,7 @@ export function DeskPill(): React.JSX.Element | null {
     const offFold = window.api.onBeaconFold((on) => {
       if (!was?.opened) return
       const { from: start, to } = ends(was)
-      if (!on) return grow(to, () => (root.style.clipPath = ''))
+      if (!on) return grow(to, () => ((root.style.clipPath = ''), (root.style.transform = '')))
       if (still()) return window.api.beaconFolded()
       if (!root.style.clipPath) root.style.clipPath = String(to.clipPath)
       // Exits are quicker than entrances.
@@ -158,7 +159,8 @@ export function DeskPill(): React.JSX.Element | null {
   const right = peek.side === 'right'
   const at = peek.opened?.pill
   const away = right ? 16 : -16
-  return (
+  // Outside the card's own root: the card grows, moves and is cut while the pill stays where it stands, drawn over nothing.
+  return createPortal(
     <div data-clear className="pointer-events-none fixed inset-0 z-50" style={{ visibility: 'visible' }}>
       <motion.button
         ref={pill}
@@ -195,7 +197,8 @@ export function DeskPill(): React.JSX.Element | null {
           {words.number && <span data-pill-number className="ml-auto shrink-0 font-semibold tabular-nums" style={words.warm ? { color: words.warm } : undefined}>{words.number}</span>}
         </>}
       </motion.button>
-    </div>
+    </div>,
+    document.body
   )
 }
 
