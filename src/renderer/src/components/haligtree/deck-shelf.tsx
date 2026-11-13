@@ -229,9 +229,10 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
         {top}
         <StudyYear compact />
         <StudySets sets={sets} onStudy={onStudy} />
-        <BookCoverage />
         {dueHint}
         <DeckList own={own} shelves={shelves ?? []} onStudy={onStudy} place={study.place} menu={listMenu} fresh={naming && !('tag' in naming) ? naming : null} renaming={renaming} onNamed={named} />
+        {/* Under the decks, never over them: Decks opens on the decks, as Anki's does (1 Nov), what the books hold after. */}
+        <BookCoverage />
         {linking && <Links deck={linking} onDone={() => setLinking(null)} />}
         {gallery && <Gallery deck={gallery} onOpen={onOpen} />}
         {settingsSheet}
@@ -267,7 +268,6 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
       {top}
       <StudyYear compact />
       <StudySets sets={sets} onStudy={onStudy} />
-      <BookCoverage />
       {dueHint}
       {/* Pockets: squarish tiles, 2 to 4 across by width; each studies when clicked, its actions in its ⋯ menu and on right-click. */}
       <div data-deck-grid className={GRID}>
@@ -300,6 +300,8 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
           </section>
         )
       })}
+      {/* Under the decks, never over them: Decks opens on the decks, as Anki's does (1 Nov), what the books hold after. */}
+      <BookCoverage />
       {linking && <Links deck={linking} onDone={() => setLinking(null)} />}
       {gallery && <Gallery deck={gallery} onOpen={onOpen} />}
       {settingsSheet}
