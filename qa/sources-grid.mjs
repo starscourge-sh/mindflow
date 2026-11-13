@@ -74,9 +74,17 @@ try {
   await wait(400)
   await go('sources')
   await wait(1500)
+  // People's rows are People, then Characters, each a list of its own: one with an odd number ends on a row alone, in the
+  // left column, so rows are read by the line they stand on, never two by two across the two lists.
+  const twoByTwo = (list) => {
+    const lefts = [...new Set(list.map((one) => one.left))].sort((a, b) => a - b)
+    const lines = new Map()
+    for (const one of list) lines.set(one.top, [...(lines.get(one.top) ?? []), one])
+    return lefts.length === 2 && [...lines.values()].every((line) => (line.length === 2 ? line[0].left !== line[1].left : line.length === 1 && line[0].left === lefts[0]))
+  }
   for (const group of ['People', 'Sources']) {
     const list = await rows(group)
-    check(`list view, ${group}: two columns, pairs on one top`, new Set(list.map((one) => one.left)).size === 2 && pairs(list).every(([a, b]) => a.top === b.top), JSON.stringify(list.slice(0, 4).map((one) => [one.left, one.top])))
+    check(`list view, ${group}: two columns, pairs on one top`, twoByTwo(list), JSON.stringify(list.slice(0, 4).map((one) => [one.left, one.top])))
   }
   if (shots) await both(`${shots}/list-desktop`)
   check('no page errors', errors.length === 0, errors.join(' | '))
