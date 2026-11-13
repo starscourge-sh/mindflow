@@ -696,6 +696,24 @@ export function together<T>(read: Promise<T>, apply: (value: T) => void): void {
   void read.then((value) => (mine.apply.push(() => apply(value)), settle()), settle)
 }
 
+/** A row, a block or a tab is in hand: the marks every carry sets on the page (sortable.tsx, side-sections.ts, block-carry.ts, split-drop.tsx). */
+const carrying = (): boolean => document.documentElement.hasAttribute('data-dragging') || document.documentElement.hasAttribute('data-split-drag')
+/** Runs once nothing is carried any more (let go, dropped or put back with Esc), with everything else waiting for it. */
+let letGo: Set<() => void> | null = null
+function onceLetGo(run: () => void): void {
+  if (!letGo) {
+    const now = (letGo = new Set())
+    const watch = new MutationObserver(() => {
+      if (carrying()) return
+      watch.disconnect()
+      if (letGo === now) letGo = null
+      now.forEach((one) => one())
+    })
+    watch.observe(document.documentElement, { attributes: true, attributeFilter: ['data-dragging', 'data-split-drag'] })
+  }
+  letGo.add(run)
+}
+
 /** Runs once the frame being drawn now is painted, with everything else asked for the same frame (so `readOnce` shares one read); returns a way to call it off. */
 let painted: Set<() => void> | null = null
 export function afterPaint(run: () => void): () => void {
@@ -761,6 +779,9 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
       const take = ({ next, json: now }: { next: T; json: string }): void => {
         if (key !== null) (said.get(by) ?? said.set(by, new Map()).get(by)!).set(key, { value: next, json: now })
         if (gone || mine !== asked || now === last) return
+        // Nothing moves under the hand: a change met while a row is carried (a reminder come due, pinning itself at
+        // the top of the sidebar; a capture saved in another window) is drawn once the row is let go.
+        if (changed && carrying()) return void onceLetGo(() => take({ next, json: now }))
         last = now
         setShown({ key, value: next, json: now })
       }
