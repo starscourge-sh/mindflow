@@ -465,27 +465,28 @@ try {
   if (parts.includes('pinch')) {
     await toMode('m')
     const row = await weekRow()
-    // A short pinch, short of the change: the week is lit while the fingers are on it, and unlit once they have gone.
+    // Nothing is lit while a pinch opens a block, at any frame: the block grows into the next level from under the fingers (the
+    // user, 13 Nov: the light read as "the flash right before zooming in"). A short pinch, short of the change, first.
     let l = await pinch(row.x, row.y, -3, 3)
     await shot('pinch-month-lit')
-    check('a pinch over a week in Month lights that week, and only it', l.lit.join() === `week ${row.key}` && /0\.07|\/ 7%|0\.0[5-9]/.test(l.wash) && l.mode === 'month', `${l.lit.join()}; wash ${l.wash}`)
+    check('a pinch over a week in Month lights nothing, and the view stays on Month', l.lit.length === 0 && l.mode === 'month', `${l.lit.join()}; wash ${l.wash}`)
     await wait(900)
     l = await lights()
-    check('the pinch come to nothing, the light goes', l.lit.length === 0 && l.mode === 'month', l.lit.join())
-    // The whole pinch: the week opens, arrives lit, and the light goes once it has landed.
-    await h.evaluate(() => { window.__lights = []; const tick = () => { window.__lights.push({ landed: !!document.querySelector('[data-cal-landed]'), mode: document.querySelector('[data-cal-mode]')?.getAttribute('data-cal-mode') }); if (window.__lights.length < 90) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
+    check('the pinch come to nothing, nothing is lit and the view is still Month', l.lit.length === 0 && l.mode === 'month', l.lit.join())
+    // The whole pinch: the week opens, and no frame of it shows a light on a block or on the level arriving.
+    await h.evaluate(() => { window.__lights = []; const tick = () => { window.__lights.push({ landed: !!document.querySelector('[data-cal-landed], [data-cal-lit]'), mode: document.querySelector('[data-cal-mode]')?.getAttribute('data-cal-mode') }); if (window.__lights.length < 90) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })
     await film('pinch-month-week', async () => { await pinch(row.x, row.y, -6, 8); await wait(500) }, 9)
     await wait(900)
     const seen = await h.evaluate(() => window.__lights)
     l = await lights()
-    check('pinched on, the week opens, arrives lit, and the light is gone once it has landed', l.mode === 'week' && seen.some((one) => one.landed) && !l.landed && l.lit.length === 0, `${seen.filter((one) => one.landed).length} frames lit; landed now ${l.landed}; lit ${l.lit.join()}`)
+    check('pinched on, the week opens, and not one frame of it shows a light', l.mode === 'week' && seen.length > 20 && !seen.some((one) => one.landed) && !l.landed && l.lit.length === 0, `${seen.filter((one) => one.landed).length} of ${seen.length} frames lit; landed now ${l.landed}; lit ${l.lit.join()}`)
     // A day in the week.
     const col = await h.evaluate(() => { const el = [...document.querySelectorAll('[data-cal-level] [data-cal-col]')][3]; const r = el.getBoundingClientRect(); const sc = el.closest('[data-cal-scroll]').getBoundingClientRect(); return { key: el.dataset.calCol, x: r.left + r.width / 2, y: sc.top + sc.height / 2 } })
     l = await pinch(col.x, col.y, -3, 3)
     await shot('pinch-week-lit')
-    check('a pinch over a day in Week lights that day: its head, its all-day line and its hours', l.lit.sort().join() === [`allday ${col.key}`, `col ${col.key}`, `head ${col.key}`].join() && l.mode === 'week', l.lit.join())
+    check('a pinch over a day in Week lights nothing: not its head, its all-day line or its hours', l.lit.length === 0 && l.mode === 'week', l.lit.join())
     await wait(900)
-    check('and lets it go when the pinch comes to nothing', (await lights()).lit.length === 0)
+    check('and nothing is lit when the pinch comes to nothing', (await lights()).lit.length === 0)
     await pinch(col.x, col.y, -6, 8)
     await wait(1300)
     l = await lights()

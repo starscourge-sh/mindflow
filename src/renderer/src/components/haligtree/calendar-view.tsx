@@ -222,16 +222,12 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const wanted = useRef<{ to: Level; way: Way; at: { x: number; y: number }; release: () => void } | null>(null)
   const crossing = useRef<{ anims: Animation[]; next: HTMLElement; over: boolean } | null>(null)
   const inFront = (): { at: Level; el: HTMLElement | null } => front.current ?? { at: { mode: live.current.mode, anchor: live.current.anchor }, el: level.current }
-  // What a pinch is opening, lit from the moment the fingers set off: a month's week, or a week's day (its head, its all-day
-  // line and its hours), so it is plain which block grows into the next level. A mark on the block itself (main.css,
-  // [data-cal-lit]), set by hand: nothing of the page is drawn again for it. It goes when the pinch comes to nothing, and
-  // with the level it was on once the next has landed, where the same light fades away ([data-cal-landed]).
-  const lit = useRef<HTMLElement[]>([])
-  const unlight = (): void => { for (const el of lit.current) el.removeAttribute('data-cal-lit'); lit.current = [] }
-  const light = (els: HTMLElement[]): void => { unlight(); lit.current = els; for (const el of els) el.setAttribute('data-cal-lit', '') }
+  // Nothing is lit while a pinch opens a block: the block simply grows into the next level from under the fingers, and the
+  // zoom itself says which it is. It was lit the moment the fingers set off and faded once the next level landed, which
+  // read as a flash before the zoom (the user, 13 Nov: "it was the flash right before zooming in").
   const layerOf = (one: Level): HTMLElement | null => pane.current?.querySelector<HTMLElement>(`:scope > [data-cal-depth="${one.mode}"][data-cal-at="${dayKey(one.anchor)}"]`) ?? null
   const drawAhead = (to: Level | null): void => {
-    if (!to) return (unlight(), startTransition(() => setShadow((was) => (was?.role === 'ahead' ? null : was))))
+    if (!to) return startTransition(() => setShadow((was) => (was?.role === 'ahead' ? null : was)))
     const top = inFront().el?.querySelector<HTMLElement>('[data-cal-scroll]')?.scrollTop
     startTransition(() => setShadow((was) => (was && sameLevel(was, to) ? was : { ...to, role: 'ahead', top })))
   }
@@ -243,7 +239,6 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     crossing.current = null
     front.current = null
     crossed(one.anims)
-    unlight()
     startTransition(() => setShadow((was) => (was?.role === 'leaving' ? null : was)))
   }
   /** The change asked for, made once the level it goes to is drawn: the two cross, and the page is told in its own time. */
@@ -255,18 +250,6 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     wanted.current = null
     const how = crossLevels(now.el, next, ask.way, ask.at)
     ask.release()
-    // The block that was lit is the level now: the level arrives lit, and the light fades once it has landed. With Motion
-    // off there is nothing to play, and nothing stays lit.
-    if (ask.way === 'closer' && how && lit.current.length) {
-      const landed = (event: AnimationEvent): void => {
-        if (event.animationName !== 'mf-cal-landed') return
-        next.removeAttribute('data-cal-landed')
-        next.removeEventListener('animationend', landed)
-      }
-      next.setAttribute('data-cal-landed', '')
-      next.addEventListener('animationend', landed)
-    }
-    if (!how) unlight()
     chime('tap')
     store('vigil.calendar.mode', ask.to.mode)
     box.current?.setAttribute('data-cal-mode', ask.to.mode)
@@ -290,13 +273,11 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     if (at.mode === 'month') {
       const row = el.closest<HTMLElement>('[data-month-week]')
       const week = row?.dataset.monthWeek
-      if (row && week) light([row])
       return week ? { body, to: { mode: 'week', anchor: dayjs(week).startOf('day') } } : null
     }
     if (at.mode !== 'week') return null
     const day = el.closest<HTMLElement>('[data-cal-col], [data-cal-head], [data-cal-allday]')
     const key = day?.dataset.calCol ?? day?.dataset.calHead ?? day?.dataset.calAllday
-    if (key && layer) light([...layer.querySelectorAll<HTMLElement>(`[data-cal-col="${key}"], [data-cal-head="${key}"], [data-cal-allday="${key}"]`)])
     return key ? { body, to: { mode: 'day', anchor: dayjs(key).startOf('day') } } : null
   }, drawAhead, (way, to, at, release) => {
     wanted.current = { to, way, at, release }
