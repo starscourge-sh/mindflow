@@ -20,6 +20,14 @@ import austenUrl from '@/assets/sandbox/jane-austen.webp'
 import aureliusUrl from '@/assets/sandbox/marcus-aurelius.webp'
 import shelleyUrl from '@/assets/sandbox/mary-shelley.webp'
 import shakespeareUrl from '@/assets/sandbox/william-shakespeare.webp'
+import wildeUrl from '@/assets/sandbox/oscar-wilde.webp'
+import vasariUrl from '@/assets/sandbox/giorgio-vasari.webp'
+import napoleonUrl from '@/assets/sandbox/napoleon-bonaparte.webp'
+import leonardoUrl from '@/assets/sandbox/leonardo-da-vinci.webp'
+import homerUrl from '@/assets/sandbox/homer.webp'
+import creatureUrl from '@/assets/sandbox/the-creature.webp'
+import victorUrl from '@/assets/sandbox/victor-frankenstein.webp'
+import lordHenryUrl from '@/assets/sandbox/lord-henry.webp'
 import idealCityUrl from '@/assets/sandbox/ideal-city.webp'
 import vitruvianUrl from '@/assets/sandbox/vitruvian-man.webp'
 import atlanticusUrl from '@/assets/sandbox/codex-atlanticus.webp'
@@ -865,31 +873,45 @@ This week: ${link(mars, 'Get to Mars before the dust storm', 'goal')}, and the L
     yearAges.push({ usedAt: at(-on(n, 6, '10:30')[0], '18:00'), captureId: id })
   }
 
-  // The four writers as pages: a portrait, what they did and when they lived, and a few words of yours about each.
-  const writers: [string, string, string, string, string, string][] = [
-    ['Jane Austen', austenUrl, 'Novelist', '1775', '1817', 'Six novels, written mostly in a shared sitting room, with a creaking door that warned her when someone was coming. Funnier than school made her sound, and sharper. Pride and Prejudice is the one I keep going back to, for Elizabeth changing her mind and saying so. She published without her name: the title pages said only "By a Lady". Read Persuasion next: everyone says it is the grown-up one, written last, about a second chance taken late. Her letters to Cassandra are worth it too, for the gossip.'],
-    ['Marcus Aurelius', aureliusUrl, 'Roman emperor and Stoic', '121', '180', 'Emperor of Rome for nineteen years, mostly at war on the Danube. Meditations was his notebook, written to himself in Greek and never meant to be read. That is why it works: nobody is being lectured but him.'],
-    ['Mary Shelley', shelleyUrl, 'Novelist', '1797', '1851', 'Wrote Frankenstein at eighteen, in the wet summer of 1816 by Lake Geneva, for a ghost story contest. The creature is the one I remember. She outlived almost everyone in that house, and kept writing.'],
-    ['William Shakespeare', shakespeareUrl, 'Playwright and poet', '1564', '1616', 'Thirty-odd plays and the sonnets. Half the phrases I use without thinking are his. Hamlet is the one I keep: a man who thinks about acting for five acts.']
+  // Everyone the notes are from, as pages whole from the start: a portrait (public domain, SOURCES.txt; none where the only
+  // pictures are in copyright), what they did and when they lived, a line about them, and a few words of yours.
+  // The line is kept as written by you (no address), which also marks them as looked up: opening one asks Wikipedia nothing.
+  const people: [string, string, string, string, string, string, string][] = [
+    ['Jane Austen', austenUrl, 'Novelist', '1775', '1817', 'English novelist of money, manners and marriage.', 'Six novels, written mostly in a shared sitting room, with a creaking door that warned her when someone was coming. Funnier than school made her sound, and sharper. Pride and Prejudice is the one I keep going back to, for Elizabeth changing her mind and saying so. She published without her name: the title pages said only "By a Lady". Read Persuasion next: everyone says it is the grown-up one, written last, about a second chance taken late. Her letters to Cassandra are worth it too, for the gossip.'],
+    ['Marcus Aurelius', aureliusUrl, 'Roman emperor and Stoic', '121', '180', 'Roman emperor from 161 to 180, and a Stoic philosopher.', 'Emperor of Rome for nineteen years, mostly at war on the Danube. Meditations was his notebook, written to himself in Greek and never meant to be read. That is why it works: nobody is being lectured but him.'],
+    ['Mary Shelley', shelleyUrl, 'Novelist', '1797', '1851', 'English novelist, best known for Frankenstein.', 'Wrote Frankenstein at eighteen, in the wet summer of 1816 by Lake Geneva, for a ghost story contest. The creature is the one I remember. She outlived almost everyone in that house, and kept writing.'],
+    ['William Shakespeare', shakespeareUrl, 'Playwright and poet', '1564', '1616', 'English playwright, poet and actor.', 'Thirty-odd plays and the sonnets. Half the phrases I use without thinking are his. Hamlet is the one I keep: a man who thinks about acting for five acts.'],
+    ['Oscar Wilde', wildeUrl, 'Playwright and novelist', '1854', '1900', 'Irish poet, playwright and wit, who died in Paris at forty-six.', 'One novel, The Picture of Dorian Gray, and the preface he wrote for it is a list of fights he wanted to pick. Lord Henry gets all the best lines in it, and the book does not trust a single one of them.'],
+    ['Giorgio Vasari', vasariUrl, 'Painter, architect and writer', '1511', '1574', 'Italian painter and architect, best known for his Lives of the painters, sculptors and architects, printed in 1550 and again in 1568.', 'A painter himself, and a friend of Michelangelo, so he takes sides. I read him for the gossip and stay for the eye: he tells you what to look at before you have seen the wall.'],
+    ['Napoleon Bonaparte', napoleonUrl, 'Emperor of the French', '1769', '1821', 'French general who became Emperor of the French.', 'Kept for one line, about leaving an enemy alone while he is making a mistake. He is quoted far more than he is read, and I have not read him either.'],
+    ['Leonardo da Vinci', leonardoUrl, 'Painter, engineer and scientist', '1452', '1519', 'Italian painter, engineer and scientist of the Renaissance, who painted the Mona Lisa and The Last Supper.', 'He kept a commonplace book before it had a name: page after page in mirror writing, on machines, proportions and how to draw. He warned his readers he would repeat himself, because memory cannot keep it all. The best excuse I know for keeping a book like this one.'],
+    // No years: nobody knows them.
+    ['Homer', homerUrl, 'Poet of the Iliad and the Odyssey', '', '', 'The Greek poet the Iliad and the Odyssey are credited to. When he lived, and whether he was one poet, nobody can say for sure.', 'The poems are what is left of him, and they are enough. I am reading the Odyssey a book at a time, in Samuel Butler’s prose.'],
+    // No portrait, on purpose (SOURCES.txt says why): he keeps his initials.
+    ['Frank Herbert', '', 'Science fiction writer', '1920', '1986', 'American science fiction writer, best known for Dune (1965).', 'He said he wrote Paul as a warning about following a leader like that, not as a model. I am half way through Dune and cheering for Paul anyway, which may be the point.']
   ]
-  for (const [who, portrait, what, born, died, words] of writers) {
-    await call('people:set', who, await picture(portrait))
+  for (const [who, portrait, what, born, died, about, words] of people) {
+    if (portrait) await call('people:set', who, await picture(portrait))
     await call('source:set', 'attribution', who, words)
     await call('source:facts', 'attribution', who, { what, born, died })
+    await call('source:bio', 'attribution', who, about, '')
   }
 
-  // Six characters, kept apart from the writers: the work each is in, a line about them in your words, and who played one.
-  const characters: [string, string, string, string][] = [
-    ['The creature', 'Frankenstein', '', 'Made from the dead and left on his own the night he woke. Teaches himself to read from three books, and asks only for company. He never gets a name.'],
-    ['Victor Frankenstein', 'Frankenstein', '', 'The student who made the creature, then ran from it. The book is his confession, told on a ship in the Arctic.'],
-    ['Dorian Gray', 'The Picture of Dorian Gray', '', 'Stays young and lovely while his portrait, locked upstairs, takes every year and every cruelty for him.'],
-    ['Paul Atreides', 'Dune', 'Timothée Chalamet', 'The duke’s son taken to the desert planet, who sees the futures and goes on anyway.'],
-    ['Lord Henry', 'The Picture of Dorian Gray', '', 'Talks Dorian into everything and does none of it himself. Every line is a quotation, which is the trouble with him.'],
-    ['Gandalf', 'The Fellowship of the Ring', '', 'The wizard who sends Frodo off, then turns up when hope is thinnest.']
+  // Six characters, kept apart from the people: the work each is in, a line about them in your words, who played one, and a
+  // face where an edition of their book drew one that is public domain (SOURCES.txt). Paul Atreides and Gandalf are in
+  // copyright, and no such drawing shows Dorian Gray's face: they keep their initials.
+  const characters: [string, string, string, string, string][] = [
+    ['The creature', 'Frankenstein', '', 'Made from the dead and left on his own the night he woke. Teaches himself to read from three books, and asks only for company. He never gets a name.', creatureUrl],
+    ['Victor Frankenstein', 'Frankenstein', '', 'The student who made the creature, then ran from it. The book is his confession, told on a ship in the Arctic.', victorUrl],
+    ['Dorian Gray', 'The Picture of Dorian Gray', '', 'Stays young and lovely while his portrait, locked upstairs, takes every year and every cruelty for him.', ''],
+    ['Paul Atreides', 'Dune', 'Timothée Chalamet', 'The duke’s son taken to the desert planet, who sees the futures and goes on anyway.', ''],
+    ['Lord Henry', 'The Picture of Dorian Gray', '', 'Talks Dorian into everything and does none of it himself. Every line is a quotation, which is the trouble with him.', lordHenryUrl],
+    ['Gandalf', 'The Fellowship of the Ring', '', 'The wizard who sends Frodo off, then turns up when hope is thinnest.', '']
   ]
-  for (const [who, work, played, line] of characters) {
+  for (const [who, work, played, line, face] of characters) {
     await call('source:character', who, work, played)
     await call('source:bio', 'attribution', who, line, '')
+    if (face) await call('people:set', who, await picture(face))
   }
 
   // The lines kept, each with your own words beside it: [days ago, weekday, time, who, where, the line, yours].
@@ -2026,9 +2048,7 @@ view: 0, 6, 0, 4
   }
   await call('tag:set', 'painters-leonardo', { deck: true, color: 'orange' })
 
-  // --- a person page for Wilde, and a line of his kept on it -----------------------------
-  await call('source:set', 'attribution', 'Oscar Wilde', 'Poet, playwright and wit. One novel, The Picture of Dorian Gray, and the preface he wrote for it is a list of fights he wanted to pick. Died in Paris at forty-six.')
-  await call('source:facts', 'attribution', 'Oscar Wilde', { what: 'Playwright and novelist', born: '1854', died: '1900' })
+  // --- a line of Wilde's kept on his page (made above, with the others) -------------------
   const wildePreface = await capture({ kind: 'quote', attribution: 'Oscar Wilde', medium: 'The Picture of Dorian Gray, the preface (1891)' }, at(-16, '22:40'))
   await write(wildePreface, 'There is no such thing as a moral or an immoral book. Books are well written, or badly written. That is all.')
   const wellWritten = await call<string>('promote', wildePreface, 'Then he wrote a novel where a man pays for every sin. The preface is a dare, not a creed.')

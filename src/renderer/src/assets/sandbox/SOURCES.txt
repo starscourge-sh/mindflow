@@ -31,6 +31,8 @@ Portraits for the sandbox's people pages, cropped square to the face, 320px (Wik
                             From CassandraAusten-JaneAusten(c.1810)_hires.jpg
   marcus-aurelius.webp      Bust of Marcus Aurelius, 2nd century. Glyptothek, Munich.
                             From Marcus_Aurelius_Glyptothek_Munich.jpg
+                            A photograph of a bust has an author of its own: this one is by Bibi Saint-Pol, 2007, released
+                            into the public domain by its author (PD-self on the file's page, read 2026-11-13).
   mary-shelley.webp         Richard Rothwell, Mary Shelley, 1840. National Portrait Gallery, London.
                             From RothwellMaryShelley.jpg
   william-shakespeare.webp  Attributed to John Taylor, the Chandos portrait, about 1600 to 1610. National Portrait Gallery, London.
@@ -177,3 +179,53 @@ Book illustrations of their own day, public domain (Wikimedia Commons, tagged pu
                             From Houghton_Typ_805.94.8320_-_Pride_and_Prejudice,_1894,_Hugh_Thomson_-_Protested.jpg (Houghton Library)
   pride-dancing.webp        Hugh Thomson, Pride and Prejudice (1894): "superior dancing".
                             From Houghton_Typ_805.94.8320_-_Pride_and_Prejudice,_1894,_Hugh_Thomson_-_superior_dancing.jpg (Houghton Library)
+
+Added 2026-11-13: a face for everyone in the example book who can honestly have one, so the Sources page is whole
+with no network (sandbox-seed.ts, the people and the characters). Each cut square round the face, 320px, webp, from
+the copy named; the originals were not changed. The licence line is the one read on the file's own page on Wikimedia
+Commons that day (https://commons.wikimedia.org/wiki/File:<the name given>), or in the museum's own record.
+
+People:
+  oscar-wilde.webp          Napoleon Sarony (1821 to 1896), Oscar Wilde, New York, 1882. Albumen silver print.
+                            The Metropolitan Museum of Art, Gilman Collection, accession 2005.100.120, object 283247.
+                            From Oscar_Wilde_Sarony.jpg. Licence on page: PD-old-auto-expired (the photographer died in 1896).
+                            A studio photograph: its photographer has been dead more than 70 years, and it was published in
+                            the United States in 1882 (it is the photograph of Burrow-Giles v. Sarony, 1884), so it is public
+                            domain there too. The Met's own record also gives it as Open Access (isPublicDomain true, CC0).
+  giorgio-vasari.webp       Portrait of Giorgio Vasari, long shown as his self-portrait, between 1571 and 1574 (the file's page
+                            gives it to Jacopo Zucchi). Oil on canvas, Uffizi, Florence.
+                            From Giorgio_Vasari_Selbstporträt.jpg. Licence on page: PD-Art, PD-old-100-1923.
+  napoleon-bonaparte.webp   Jacques-Louis David (1748 to 1825), The Emperor Napoleon in His Study at the Tuileries, 1812.
+                            National Gallery of Art, Washington (Samuel H. Kress Collection).
+                            From Jacques-Louis_David_-_The_Emperor_Napoleon_in_His_Study_at_the_Tuileries_-_Google_Art_Project.jpg
+                            Licence on page: PD-Art, PD-old-100-1923.
+  leonardo-da-vinci.webp    Leonardo da Vinci (1452 to 1519), head of an old man in red chalk, thought to be a self-portrait,
+                            about 1512. Biblioteca Reale, Turin.
+                            From Leonardo_da_Vinci_-_presumed_self-portrait_-_WGA12798.jpg. Licence on page: PD-art, PD-old-100-expired.
+  homer.webp                Marble bust of Homer, a Roman copy of a lost Greek original of the 2nd century BC, from Baiae.
+                            British Museum, London.
+                            From Homer_British_Museum.jpg. A photograph of a bust has an author of its own: this one is by the
+                            English Wikipedia user JW1805, 2005, "Released into the public domain (by the author)" (PD-user-w
+                            on the file's page). The bust itself is ancient.
+  No picture, on purpose:   Frank Herbert (1920 to 1986) keeps his initials. Commons does hold two photographs of him tagged
+                            public domain, neither bundled: Frank_Herbert_headshot.jpg (Santa Rosa, October 1978, by Robert E.
+                            Nylund, released by its author: PD-user-w) and Frank_Herbert_1984.jpg (photographer unknown,
+                            PD-US-1978-89: public domain in the United States only, for want of a copyright notice). He died in
+                            1986: whether a sold app should carry a recent person's face is a question the photograph's
+                            licence does not answer, so it is left to be decided.
+
+Characters, each from an edition of their own book:
+  the-creature.webp, victor-frankenstein.webp
+                            Theodor von Holst (1810 to 1844), frontispiece to Frankenstein, 1831 edition (Colburn and Bentley,
+                            steel engraving): the creature on the floor, and Victor Frankenstein at the door.
+                            From Frontispiece_to_Frankenstein_1831.jpg (the plate frankenstein-1831.webp is made from).
+                            Licence on page: PD-Art, PD-old-100-expired.
+  lord-henry.webp           Paul Thiriat (died 1943), engraved on wood by Eugène Dété, frontispiece to The Picture of Dorian
+                            Gray, 1908: Lord Henry lying on the divan in Basil Hallward's studio, as chapter 1 has him, with
+                            his pointed beard (the painter stands; Dorian's portrait is on the easel).
+                            From Doriangray.jpg. Licence on page: PD-art, PD-old-auto-expired (died 1943). The artist has been
+                            dead more than 70 years, and it was published in 1908, so it is public domain in the US too.
+                            The file is small (561 by 844): the face is cut from 207px, the most there is.
+  No picture, on purpose:   Paul Atreides (Dune) and Gandalf (The Fellowship of the Ring) are in copyright: no film
+                            still, cover or fan drawing is bundled. Dorian Gray: the only public-domain drawings found (Thiriat's
+                            two plates of 1908) show him as a small painted figure, or dead on the floor, never his face.

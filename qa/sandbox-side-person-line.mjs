@@ -6,6 +6,8 @@
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
+// The new person's page looks them up: a stand-in address nothing answers, so the run asks nothing of the internet.
+process.env.HALIGTREE_QA_WIKI ??= 'http://127.0.0.1:9/wiki/'
 
 const { check, done } = checks()
 const { h, errors, close } = await sandbox({ width: 1300, height: 900 })
@@ -21,7 +23,11 @@ try {
   const label = await h.locator('aside nav [data-sortable-id="articles"]').innerText()
   check('the writing row is called Writing', /^Writing/.test(label.trim()), label)
 
-  await person('Frank Herbert')
+  // Someone the book knows nothing about yet: no photo, no dates. (It was Frank Herbert until the example book's own
+  // people began to arrive with their years kept.)
+  await h.evaluate(() => window.api.captures.create({ kind: 'quote', attribution: 'Pat Example', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A line kept from someone new.' }] }] } }))
+  await h.waitForTimeout(600)
+  await person('Pat Example')
   const photo = h.locator('[data-person-photo]')
   await photo.hover()
   await h.waitForTimeout(300)
