@@ -99,9 +99,14 @@ try {
   check(`${book}, ${level}: every button in the list shows the hand, every field the text cursor`, hands.length > 0 && hands.every((one) => (one.field ? one.cursor === 'text' || one.cursor === 'auto' : one.disabled || one.cursor === 'pointer')), JSON.stringify(hands))
   // Paper and Satin: the shape style (Paper squares every corner) and Review's finish (its own surfaces only).
   if (shots) {
+    // The look first: switching it puts the book's own style back, so the style and finish are worn after it.
     for (const [style, finish] of [['paper', 'satin'], ['paper', 'paper'], ['soft', 'paper']]) {
-      await h.evaluate(([style, finish]) => { if (style === 'soft') delete document.documentElement.dataset.style; else document.documentElement.dataset.style = style; document.documentElement.dataset.reviewFinish = finish }, [style, finish])
-      for (const look of ['light', 'dark']) { await c.look(look); await wait(350); await h.screenshot({ path: join(shots, `questions-${level}-style-${style}-finish-${finish}-${look}.png`) }) }
+      for (const look of ['light', 'dark']) {
+        await c.look(look)
+        await h.evaluate(([style, finish]) => { if (style === 'soft') delete document.documentElement.dataset.style; else document.documentElement.dataset.style = style; document.documentElement.dataset.reviewFinish = finish }, [style, finish])
+        await wait(350)
+        await h.screenshot({ path: join(shots, `questions-${level}-style-${style}-finish-${finish}-${look}.png`) })
+      }
     }
     await h.evaluate(() => { delete document.documentElement.dataset.style; document.documentElement.dataset.reviewFinish = 'satin' })
     await c.look('light')
