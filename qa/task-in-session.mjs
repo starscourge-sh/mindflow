@@ -9,7 +9,7 @@
 // task's own page counts it under “Focus so far”; by the minute, from the first whole minute; against the task's
 // length when it has one. Sessions here are made with known lengths: started, the clock moved on, ended.
 //
-//   QA_DATA=<a copy of the seeded sandbox> QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] [PART=dot,time,lists,look] node qa/task-in-session.mjs
+//   QA_DATA=<a copy of the seeded sandbox> QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] [PART=dot,time,timer,lists,look] node qa/task-in-session.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox, shiftClock, CALM_HOUR } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
@@ -17,7 +17,7 @@ process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.SHOTS ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-const PART = (process.env.PART ?? 'dot,time,lists,look').split(',')
+const PART = (process.env.PART ?? 'dot,time,timer,lists,look').split(',')
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900, at: CALM_HOUR })
 const { electron, h, v, go } = c
@@ -455,6 +455,27 @@ try {
     const rowsShown = await h.evaluate(() => document.querySelectorAll('[data-task-row]').length)
     await see(A)
     check('8 one read for the whole list, never one a row', (calls['haligtree:sessions:spent'] ?? 0) >= 1 && (calls['haligtree:sessions:spent'] ?? 0) <= 2 && !calls['haligtree:sessions'] && !calls['haligtree:focus:task'] && rowsShown > 5 && (await spent(A)) === '20 min so far', `${JSON.stringify(calls)} for ${rowsShown} rows`)
+  })
+
+  if (PART.includes('timer')) await part('a timer over the session', async () => {
+    // A kettle timer started while a session runs: the pill then shows the timer, and the session runs on underneath it
+    // (main: "a focus session running carries on underneath"). The row says what is true: still in a session, its minutes still counted.
+    await go('today')
+    await wait(900)
+    await see(A)
+    await ran(A, 1000, 'run', 25 * MIN)
+    await until(A, (Math.floor((await totalMs(A)) / MIN) + 3) * MIN + 10_000)
+    await nudge()
+    const before = { dot: !!(await box(dot(A))), time: await spent(A) }
+    const timer = await v('timer:start', 'tea', 5 * MIN)
+    await wait(800)
+    const top = await running()
+    const under = { dot: !!(await box(dot(A))), time: await spent(A) }
+    await v('session:cancel', timer)
+    await wait(400)
+    await v('session:cancel', (await running())?.id)
+    await wait(400)
+    check('a timer started over the session (the pill then shows the timer): the row keeps its dot and its minutes, the session running on underneath', before.dot && !!before.time && top?.id === timer && !top?.taskId && under.dot && under.time === before.time && !(await box(dot(A))), JSON.stringify({ before, top: top && { goal: top.goal, taskId: top.taskId }, under }))
   })
 
   if (PART.includes('lists')) await part('the other lists', async () => {
