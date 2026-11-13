@@ -62,7 +62,7 @@ import { VERDICT_SAID, cutWords, hint as askHint, hintedTimes, judge, meaningGra
  */
 function LineWay({ onClick, keys, children, ...rest }: { onClick: () => void; /** Its key, said only while the key does this. */ keys?: string; children: React.ReactNode } & Record<`data-${string}`, string | boolean>): React.JSX.Element {
   return (
-    <button type="button" {...rest} onClick={onClick} className="group/way inline-flex shrink-0 cursor-pointer items-baseline gap-1.5 rounded-sm text-left">
+    <button type="button" {...rest} onClick={onClick} className="group/way inline-flex shrink-0 cursor-pointer items-baseline gap-1.5 rounded-sm text-left transition-transform duration-150 active:scale-[0.97] motion-reduce:active:scale-100">
       <span className="underline decoration-foreground/25 underline-offset-2 transition-colors group-hover/way:text-foreground group-hover/way:decoration-foreground">{children}</span>
       {keys && <Kbd>{keys}</Kbd>}
     </button>
