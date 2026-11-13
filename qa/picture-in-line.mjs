@@ -59,6 +59,8 @@ const fresh = async (title) => {
   await wait(1500)
   return id
 }
+/** What the app says from now on, by its notices' own words. */
+const listen = () => h.evaluate(() => { window.__said = []; addEventListener('haligtree:toast', (event) => window.__said.push(event.detail.text)) })
 // SHOTS=<folder>: pictures of the window as the note opens and through the delete, to look at.
 const shot = async (name) => process.env.SHOTS && h.screenshot({ path: `${process.env.SHOTS}/${name}.png` }).catch(() => {})
 const clean = (label) => {
@@ -92,12 +94,13 @@ try {
   await second.scrollIntoViewIfNeeded(); await wait(300)
   await second.click(); await wait(600)
   await shot('delete-0-picked')
+  await listen()
   await h.locator('[aria-label="Delete image"]').first().click()
   for (const [at, after] of [[150, 150], [700, 550], [1500, 800], [3500, 2000]]) (await wait(after), await shot(`delete-${at}ms`))
   let now = await read()
   check('delete: the picture leaves the note', now?.count.B === 0 && now?.count.A === 1, JSON.stringify(now?.count))
   check('delete: its toolbar goes with it', !(await h.locator('[aria-label="Delete image"]').first().isVisible().catch(() => false)))
-  console.log('  the notice:', await h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast]')].map((one) => one.textContent).join(' | ')))
+  console.log('  the notice:', JSON.stringify(await h.evaluate(() => window.__said)))
   clean('delete')
   await wait(1200)
   await h.reload(); await wait(2500)
@@ -166,6 +169,43 @@ try {
   now = await read()
   check('"Turn into" on the line after it: that line is a heading, the picture stays', (now?.tops ?? []).includes('heading2:Words after it') && now?.count.A === 1 && (now?.tops ?? []).includes('paragraph:Words before it'), JSON.stringify(now?.tops))
   clean('turn into')
+
+  // 8. A delete that fails for any reason (made to here: the editor refuses the change once): the picture shows again
+  // where it was, picked with its toolbar as before, and a notice says it could not be removed.
+  await fresh('A delete that fails')
+  await listen()
+  const failing = h.locator(`${ED} img[src="${B}"]`).first()
+  await failing.scrollIntoViewIfNeeded(); await wait(300)
+  await failing.click(); await wait(600)
+  await h.evaluate((sel) => {
+    const view = [...document.querySelectorAll(sel)].find((one) => one.editor && one.isConnected).editor.view
+    const own = view.dispatch.bind(view)
+    let once = true
+    view.dispatch = (tr) => {
+      if (once && tr.docChanged) {
+        once = false
+        throw new Error('a delete made to fail by the probe')
+      }
+      return own(tr)
+    }
+  }, ED)
+  await h.locator('[aria-label="Delete image"]').first().click()
+  await wait(3500)
+  await shot('failed-delete-3500ms')
+  now = await read()
+  const after = await h.evaluate(([sel, b]) => {
+    const img = document.querySelector(`${sel} img[src="${b}"]`)
+    let hidden = !img
+    for (let el = img; el && el !== document.body; el = el.parentElement) if (getComputedStyle(el).visibility === 'hidden' || el.hasAttribute('inert')) hidden = true
+    const { selection } = [...document.querySelectorAll(sel)].find((one) => one.editor && one.isConnected).editor.state
+    return { shown: !hidden, picked: selection.node?.type.name === 'image' && selection.node.attrs.src === b, said: window.__said }
+  }, [ED, B])
+  check('a delete that fails: the picture is still in the note', now?.count.B === 1, JSON.stringify(now?.count))
+  check('a delete that fails: it shows again where it was, picked', after.shown && after.picked, JSON.stringify(after))
+  check('a delete that fails: its toolbar is up as before', await h.locator('[aria-label="Delete image"]').first().isVisible().catch(() => false))
+  check('a delete that fails: a notice says it could not be removed', after.said.includes('Could not remove the picture'), JSON.stringify(after.said))
+  // The made-up failure is logged as an error on purpose.
+  errors.length = 0
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
