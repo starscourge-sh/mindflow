@@ -37,14 +37,18 @@ const install = () => h.evaluate(() => {
       const blocks = [...e.children].filter((one) => one.getClientRects().length && one.getBoundingClientRect().height > 0)
       const bottom = blocks[blocks.length - 1].getBoundingClientRect().bottom
       const x = Math.round(e.getBoundingClientRect().left + e.clientWidth / 2)
+      const met = []
+      const said = (one) => `${one.nodeName.toLowerCase()}${typeof one.className === 'string' && one.className ? '.' + one.className.trim().split(/\s+/).slice(0, 2).join('.') : ''}`
       for (let step = 3; step < 400; step += 3) {
         const y = Math.round(bottom + step)
         if (y >= innerHeight - 2) break
         const under = document.elementFromPoint(x, y)
+        if (under && met.at(-1) !== said(under)) met.push(said(under))
         if (!under || blocks.some((one) => one.contains(under))) continue
-        if (inside ? under === e : !e.contains(under) && !!under.closest('.haligtree-editor-content, [data-day-write]')) return { x, y, on: `${under.nodeName.toLowerCase()}${typeof under.className === 'string' && under.className ? '.' + under.className.trim().split(/\s+/).slice(0, 2).join('.') : ''}`, from: step }
+        if (inside ? under === e : !e.contains(under) && !!under.closest('.haligtree-editor-content, [data-day-write]')) return { x, y, on: said(under), from: step }
       }
-      return null
+      // Said, when there is none: what lay under the pointer on the way down.
+      return { none: `the last line ends at ${Math.round(bottom)}px of ${innerHeight}; under it: ${met.join(', ') || 'nothing'}` }
     }
   }
 })
@@ -52,13 +56,15 @@ const install = () => h.evaluate(() => {
 async function presses(name) {
   await install()
   for (const inside of [true, false]) {
-    await h.evaluate(() => window.__under.ed().editor.commands.focus('start'))
-    // Scrolled to its end, where the last line and the room under it are on the screen.
+    // Scrolled to its end, where the last line and the room under it are on the screen; then the caret put at the
+    // start without moving the page (as a press there would leave it), so the press under the last line has to move it.
     await h.evaluate(() => { let box = window.__under.ed().parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; box?.scrollTo({ top: box.scrollHeight, behavior: 'instant' }) })
-    await wait(500)
+    await wait(700)
+    await h.evaluate(() => { const { editor } = window.__under.ed(); editor.commands.setTextSelection(1); editor.view.focus() })
+    await wait(300)
     const at = await h.evaluate((inside) => window.__under.spot(inside), inside)
     const what = `${name}: a press under the last line, ${inside ? "in the page's own box" : 'in the room below it'}`
-    if (!at) { console.log(`(${what}: no bare place there on the screen)`); continue }
+    if (at.none) { console.log(`(${what}: no bare place there on the screen: ${at.none})`); continue }
     const top = () => h.evaluate(() => { let box = window.__under.ed().parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; return Math.round(box?.scrollTop ?? 0) })
     const before = await top()
     await h.mouse.click(at.x, at.y)
