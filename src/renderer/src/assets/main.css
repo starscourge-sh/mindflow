@@ -458,6 +458,8 @@ html[data-overhang][data-glass='dark'] {
 }
 html[data-overhang][data-glass] :is(.app-container, [data-hint-room] [data-hint-surface]) {
   --muted-foreground: var(--mf-glass-quiet);
+  --mf-muted: var(--muted-foreground);
+  --mf-muted-strong: color-mix(in srgb, var(--muted-foreground), var(--foreground));
 }
 html[data-overhang][data-glass] .app-container .tiptap.ProseMirror {
   --placeholder-color: var(--mf-glass-quiet);
@@ -3029,6 +3031,14 @@ html[data-book-hue] [data-book-tint] {
 /* Paper's quiet words were brown-grey at about 4:1 on the page, under the
    4.5:1 small text needs. Still the softest ink, now one that reads. */
 :root.paper { --muted-foreground: color-mix(in srgb, var(--foreground) 80%, var(--background)); }
+/* The quiet words of notes and the reader (`--mf-muted`: a link card's site, the PDF rail's tabs, the slash menu's
+   groups, a look-up's notes) are Faded Ink itself, so they read like every other quiet word and reach 4.5:1 wherever it
+   does. They were the ink at half strength, about 2.5:1 on Paper. "Strong" sits half way on to the ink, so quiet,
+   strong and ink keep their order on every surface. Glass and frost change Faded Ink, and set these again there. */
+:root {
+  --mf-muted: var(--muted-foreground);
+  --mf-muted-strong: color-mix(in srgb, var(--muted-foreground), var(--foreground));
+}
 
 /* A row's lead with no picture, on a dark page: a quiet square in the page's
    own muted colour, its kind's icon in muted ink, rather than the light paper
@@ -3925,6 +3935,8 @@ textarea[data-talking]::selection {
     -webkit-backdrop-filter: blur(24px) saturate(1.6);
     backdrop-filter: blur(24px) saturate(1.6);
     --muted-foreground: var(--mf-frost-quiet);
+    --mf-muted: var(--muted-foreground);
+    --mf-muted-strong: color-mix(in srgb, var(--muted-foreground), var(--foreground));
     /* Tailwind's shadow stack (FLOAT's ring and panel shadow) has a slot for an inset one: the lit top edge goes there. */
     --tw-inset-shadow: inset 0 1px 0 color-mix(in oklab, white 9%, transparent);
   }

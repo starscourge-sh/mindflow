@@ -429,22 +429,19 @@
   background-color: var(--mf-caret-vim);
 }
 
-// Everything below is light/dark through these three, so each rule is written
-// once. The vendored variables already establish the :root / .dark convention.
+// Everything below is light/dark through these, so each rule is written once.
+// The vendored variables already establish the :root / .dark convention. The
+// quiet ink, --mf-muted and --mf-muted-strong, is Faded Ink (main.css).
 :root {
   // The theme's own accent, which is what every hand-written value here used
   // to be anyway - gruvbox's orange, kanagawa's blue - written once instead of
   // once per theme, where the two could drift.
   --mf-caret-vim: var(--tt-brand-color-400);
   --mf-surface: var(--tt-gray-light-a-100);
-  --mf-muted: var(--tt-gray-light-a-500);
-  --mf-muted-strong: var(--tt-gray-light-a-600);
 }
 
 .dark {
   --mf-surface: var(--tt-gray-dark-a-100);
-  --mf-muted: var(--tt-gray-dark-a-500);
-  --mf-muted-strong: var(--tt-gray-dark-a-600);
 }
 
 // The suggestion plugin positions this wrapper but sets no z-index, so the
