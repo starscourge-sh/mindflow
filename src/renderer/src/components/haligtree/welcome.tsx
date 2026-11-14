@@ -408,9 +408,13 @@ export function Welcome(): React.JSX.Element | null {
   // and the welcome is gone once the name has landed.
   useEffect(() => {
     if (!closing || !grown) return
-    if (finaleName.current) setFinale(finaleName.current)
+    // The app laid out at the window's own size first (it is not drawn while covered), then the name carried to where
+    // its sidebar now really is, a frame later.
+    document.documentElement.removeAttribute('data-welcoming')
+    const frame = requestAnimationFrame(() => void (finaleName.current && setFinale(finaleName.current)))
     clearTimeout(closeTimer.current)
-    closeTimer.current = setTimeout(closed, quiet ? 450 : 1600)
+    closeTimer.current = setTimeout(closed, quiet ? 450 : 1500)
+    return () => cancelAnimationFrame(frame)
   }, [closing, grown]) // eslint-disable-line react-hooks/exhaustive-deps
   useCarriedWelcome()
   useEffect(() => {

@@ -1,7 +1,8 @@
 // The first welcome's ending, filmed every frame (about 16ms) from the press of "Open my book":
 //  - the book's name comes up in the middle and is carried down into the sidebar's foot, landing over the sidebar's own
 //    book name (left edge within 14px, middles within 10px), which takes the light (mf-name-landed)
-//  - it lasts 1 to 1.6 seconds, then it and the welcome are gone; the music resolves on it (cue:bed-home)
+//  - the welcome's window grows to the app's own size first (within a second), then the ending lasts 1 to 1.6
+//    seconds and it and the welcome are gone; the music resolves on it (cue:bed-home)
 //  - never in the way: the carried name takes no clicks, and a click at the sidebar's name reaches the sidebar
 //  - played again from the menu, the ending never plays (the old page turn only)
 //  - Reduce Motion: no carried name, the welcome cross-fades (seen part-way on some frame, never cut)
@@ -34,7 +35,8 @@ const toLast = async (h) => {
   await h.waitForTimeout(1200)
   await h.waitForSelector('footer button:has-text("Open my book")', { timeout: 5000 })
 }
-// Each frame for 2s from the press: the carried name's box and opacity, the welcome's opacity.
+// Each frame for 3.4s from the press: the carried name's box and opacity, the welcome's opacity, and whether the app
+// under it is still covered (the welcome's window grows to its own size first, main: growAfterWelcome).
 const film = (h) => h.evaluate(() => new Promise((done) => {
   const frames = []
   const t0 = performance.now()
@@ -47,9 +49,10 @@ const film = (h) => h.evaluate(() => new Promise((done) => {
       t: Math.round(performance.now() - t0),
       name: name ? { o: Math.round(Number(getComputedStyle(name).opacity) * 100) / 100, l: Math.round(box.left), cy: Math.round(box.top + box.height / 2), w: Math.round(box.width) } : null,
       dialog: dialog ? Math.round(Number(getComputedStyle(dialog).opacity) * 100) / 100 : null,
-      lit: !!document.querySelector('[data-sidebar-book-name].mf-name-landed')
+      lit: !!document.querySelector('[data-sidebar-book-name].mf-name-landed'),
+      covered: document.documentElement.hasAttribute('data-welcoming')
     })
-    if (performance.now() - t0 < 2000) requestAnimationFrame(tick)
+    if (performance.now() - t0 < 3400) requestAnimationFrame(tick)
     else done(frames)
   }
   requestAnimationFrame(tick)
@@ -89,8 +92,11 @@ for (const theme of ['light', 'dark']) {
     const last = seen[seen.length - 1]
     check(`${theme}: it lands over the sidebar's own book name`, spot && last && Math.abs(last.name.l - spot.l) <= 14 && Math.abs(last.name.cy - spot.cy) <= 10, `${JSON.stringify(last?.name)} vs ${JSON.stringify(spot)}`)
     check(`${theme}: the sidebar's name says it and takes the light as it lands`, spot?.text === OWN && frames.some((f) => f.lit), spot?.text)
+    // From the window at its own size (the app no longer covered): the name's ending, then the welcome gone.
+    const grown = frames.find((f) => f.t > 50 && !f.covered)
     const end = frames.find((f) => f.t > 200 && !f.name && f.dialog === null)
-    check(`${theme}: the ending lasts 1 to 1.6 seconds, then it and the welcome are gone`, end && end.t >= 1000 && end.t <= 1700, String(end?.t))
+    check(`${theme}: the window grows first, within a second of the press`, !!grown && grown.t <= 1000, String(grown?.t))
+    check(`${theme}: then the ending lasts 1 to 1.6 seconds, and it and the welcome are gone`, !!end && !!grown && end.t - grown.t >= 1000 && end.t - grown.t <= 1700, `${end?.t} - ${grown?.t}`)
     console.log(`  ${theme} frames: ${frames.length}, every 4th: ${JSON.stringify(frames.filter((_, i) => i % 4 === 0).map((f) => [f.t, f.name?.o, f.name?.l, f.name?.cy, f.dialog]))}`)
     check(`${theme}: the music resolves on it`, (await h.evaluate(() => window.haligtreeHeard ?? [])).includes('cue:bed-home'))
     const free = await h.evaluate(() => {

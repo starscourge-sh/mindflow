@@ -35,7 +35,7 @@ try {
   await c.theme(THEME)
   await h.waitForSelector('[data-intro]', { timeout: 8000 })
   const first = await asked()
-  check('a first run\'s window starts over the whole screen', first.seen.some((one) => one.width === first.screen.width && one.height === first.screen.height), JSON.stringify(first.seen.slice(0, 4)))
+  check('a first run\'s welcome plays in a window in the middle of the screen, never over all of it', !first.seen.some((one) => one.width === first.screen.width && one.height === first.screen.height), JSON.stringify(first.seen.slice(0, 4)))
   check('the sound button is there from the first frame', await h.locator('[data-intro-sound]').isVisible())
   check('Skip intro, with its key, is there from the first frame', /Skip intro/.test(await h.locator('[data-skip-intro]').innerText()) && (await h.locator('[data-skip-intro] kbd').count()) === 1)
   // The title card, before any of the first words: its words only once the gradient has bloomed.

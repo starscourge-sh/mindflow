@@ -1,5 +1,5 @@
-// While the welcome runs, the main window fills the screen's work area (maximised, not full screen); when it ends it
-// goes back to the size it had, even after a quit halfway through.
+// While the welcome runs, the main window is in the middle of the screen at the welcome's size (never filling it, never
+// full screen), even after a quit halfway through; when it ends it grows to the app's own size: the place kept for it.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-e/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-window-size.mjs
 import { mkdtempSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
@@ -24,35 +24,34 @@ const win = (app) => app.evaluate(({ BrowserWindow, screen }) => {
   const one = BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('view=home'))
   const area = screen.getDisplayMatching(one.getBounds()).workArea
   const b = one.getBounds()
-  return { fills: b.width === area.width && b.height === area.height, full: one.isFullScreen(), normal: b }
+  const middle = Math.abs(b.x + b.width / 2 - (area.x + area.width / 2)) <= 2 && Math.abs(b.y + b.height / 2 - (area.y + area.height / 2)) <= 2
+  return { fills: b.width === area.width && b.height === area.height, middle, full: one.isFullScreen(), normal: b }
 })
 
-// First run: the welcome opens by itself, the window filling the screen.
+// First run: the welcome opens by itself, in a window in the middle of the screen.
 let run = await open()
 let h = await home(run.electron)
 await h.waitForSelector('.mf-welcome', { timeout: 15000 })
 await wait(800)
 let now = await win(run.electron)
-check('the welcome fills the work area, not full screen', now.fills && !now.full, JSON.stringify(now))
+check('the welcome plays in the middle of the screen, never filling it nor full screen', now.middle && !now.fills && !now.full, JSON.stringify(now))
 // Quit halfway.
 await run.electron.close().catch(() => undefined)
 
-// Opened again: the welcome comes back, still filling the screen; skipped, the window is its old size.
+// Opened again: the welcome comes back, in the middle again; skipped, the window grows to the place kept for it.
 run = await open()
 h = await home(run.electron)
 await h.waitForSelector('.mf-welcome', { timeout: 15000 })
 await wait(800)
 now = await win(run.electron)
-check('after a quit halfway, the welcome fills the work area again', now.fills && !now.full, JSON.stringify(now))
+check('after a quit halfway, the welcome plays in the middle again', now.middle && !now.fills && !now.full, JSON.stringify(now))
 // Skip goes to the last page; "Start without the tour" ends it.
 await h.click('button:has-text("Skip the welcome")')
 await wait(1500)
 await h.click('button:has-text("Start without the tour")')
 await h.waitForSelector('.mf-welcome', { state: 'detached', timeout: 15000 }).catch(() => undefined)
-await wait(1200)
+await wait(1500)
 now = await win(run.electron)
-// Back to a window of its own size, not the screen's. (Its exact size is the one it had as the welcome began, which a
-// tiling manager such as AeroSpace may already have set; the size written above is only where it starts.)
-check('the welcome over, the window is back to its own size', !now.fills && now.normal.width < 1900, JSON.stringify({ now, before }))
+check('the welcome over, the window grows to the app\'s own place', ['x', 'y', 'width', 'height'].every((k) => Math.abs(now.normal[k] - before[k]) <= 1), JSON.stringify({ now, before }))
 await run.electron.close().catch(() => undefined)
 done()

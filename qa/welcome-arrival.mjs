@@ -67,7 +67,11 @@ try {
   }
   // Played again, from that window, in the look asked.
   await c.theme(THEME)
-  if (WAY === 'still') await h.evaluate(() => window.api.haligtree('settings:set', { motion: false }).catch(() => window.haligtree?.setSettings?.({ motion: false })))
+  if (WAY === 'still') {
+    await h.evaluate(() => window.api.haligtree('settings:set', { motion: false }))
+    // Told to the page as any change of Settings is: the welcome asks it as it opens.
+    await h.waitForFunction(() => document.documentElement.dataset.motion === 'off', null, { timeout: 5000 })
+  }
   const before = await homeOf()
   const { display, area } = await electron.evaluate(({ screen, BrowserWindow }) => {
     const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))

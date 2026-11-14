@@ -2521,6 +2521,13 @@ let arrival: { t0: number; place: ScenePlace; rect: Electron.Rectangle; name: st
 let welcomePlaced = false
 /** Floated for the welcome under AeroSpace (or made so from the start, a first run's): tiled again as it grows. */
 let floated = false
+/**
+ * Each placing and each grow takes a turn: a grow outrun by a newer placing (the page made again mid-welcome, a
+ * development run's reload, and the welcome back at once) leaves the window to it, and a placing during a grow puts
+ * the window back in the middle with where it stood kept again.
+ */
+let welcomeTurn = 0
+let growing: { was: ReturnType<typeof windowBeforeWelcome>; glide: ReturnType<typeof setInterval> | null } | null = null
 /** What the arrival probes read: the scene's place and clock, and each step as it came (ms of this run). */
 const sceneSteps: { what: string; at: number }[] = []
 const step = (what: string): void => void sceneSteps.push({ what, at: Math.round(performance.now()) })
@@ -2608,6 +2615,14 @@ function startScene(): void {
 async function placeForWelcome(rect?: Electron.Rectangle, plain = false): Promise<void> {
   const win = home
   if (!win || win.isDestroyed() || win.isFullScreen()) return
+  const turn = ++welcomeTurn
+  if (growing) {
+    // Growing back from a welcome just left: stopped where it is, and placed again, where it stood kept as before.
+    if (growing.glide) clearInterval(growing.glide)
+    if (growing.was) keepWindowBeforeWelcome(growing.was)
+    growing = null
+    welcomePlaced = false
+  }
   if (!welcomePlaced) {
     welcomePlaced = true
     if (!windowBeforeWelcome()) keepWindowBeforeWelcome({ bounds: win.getNormalBounds(), maximized: win.isMaximized() })
@@ -2615,7 +2630,7 @@ async function placeForWelcome(rect?: Electron.Rectangle, plain = false): Promis
     if (AEROSPACE && !floated) {
       floated = true
       await aerospace('layout', 'floating', '--window-id', windowNumber(win))
-      if (win.isDestroyed()) return
+      if (win.isDestroyed() || turn !== welcomeTurn) return
     }
     win.setFullScreenable(false)
     win.setBounds(rect ?? welcomePlace(screen.getDisplayMatching(win.getBounds())))
@@ -2648,33 +2663,51 @@ function endScene(): void {
 }
 
 /**
- * The welcome over: its window grows from the middle of the screen to the app's own size, on the Mac's own glide (where
- * it stood before the welcome, or a first run's whole usable screen), is given back to AeroSpace's tiling, and the page
- * is told, to bring the app up in it (welcome.tsx).
+ * The welcome over: its window grows from the middle of the screen to the app's own size (where it stood before the
+ * welcome; a first run's, where it was last left or the whole usable screen) in one settling glide, is given back to AeroSpace's tiling, and the
+ * page is told, to bring the app up in it (welcome.tsx). The glide is the window's own, stepped here every frame on a
+ * quick start and a long settle: the page under it is the welcome's plain ground (the app is not laid out while it
+ * grows), so each step costs the page next to nothing.
  */
+const GROW_MS = 640
 async function growAfterWelcome(): Promise<void> {
   endScene()
   const win = home
   if (!win || win.isDestroyed()) return
   // Never put in the middle (full screen, or the plain way on another platform): nothing to grow, the app comes up at once.
-  if (!welcomePlaced) return void win.webContents.send('welcome:scene', { what: 'grown' })
+  if (!welcomePlaced || growing) return void (welcomePlaced || win.webContents.send('welcome:scene', { what: 'grown' }))
+  const turn = ++welcomeTurn
   const was = windowBeforeWelcome()
   keepWindowBeforeWelcome(null)
   const from = win.getBounds()
-  const to = was && !was.maximized ? was.bounds : { ...screen.getDisplayMatching(from).workArea }
+  // Where it stood before the welcome; a first run's, the app's own place (where it was last left, if it ever was, else the whole usable screen).
+  const to = was && !was.maximized ? was.bounds : homePlace()
   step('grow')
-  win.setBounds(to, process.platform === 'darwin')
-  // The Mac's glide takes about a fifth of a second for each 150 points of the larger change.
-  const glide = Math.min(1000, Math.max(250, Math.round((Math.max(Math.abs(to.width - from.width), Math.abs(to.height - from.height)) / 150) * 200)))
-  await new Promise((done) => setTimeout(done, glide + 60))
+  growing = { was, glide: null }
+  const begun = performance.now()
+  await new Promise<void>((done) => {
+    const glide = setInterval(() => {
+      if (win.isDestroyed() || turn !== welcomeTurn) return void (clearInterval(glide), done())
+      const k = Math.min(1, (performance.now() - begun) / GROW_MS)
+      const e = 1 - (1 - k) ** 4
+      const mix = (a: number, b: number): number => Math.round(a + (b - a) * e)
+      win.setBounds({ x: mix(from.x, to.x), y: mix(from.y, to.y), width: mix(from.width, to.width), height: mix(from.height, to.height) })
+      if (k < 1) return
+      clearInterval(glide)
+      done()
+    }, 1000 / 60)
+    if (growing) growing.glide = glide
+  })
+  // A placing took the window over meanwhile (the welcome back at once): it keeps it.
+  if (win.isDestroyed() || turn !== welcomeTurn) return
+  growing = null
   welcomePlaced = false
-  if (win.isDestroyed()) return
   win.setFullScreenable(true)
   if (floated) {
     floated = false
     await aerospace('layout', 'tiling', '--window-id', windowNumber(win))
   }
-  if (win.isDestroyed()) return
+  if (win.isDestroyed() || turn !== welcomeTurn) return
   if (was?.maximized) win.maximize()
   step('grown')
   keepHomePlace(win)
