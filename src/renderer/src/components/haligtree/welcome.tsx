@@ -342,9 +342,13 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     const toward = (scale: number): number => Math.max(0, Math.min(1, (1 - scale) / (1 - small)))
     const round = (scale: number): string => `inset(0px round ${((CORNER * toward(scale)) / scale).toFixed(2)}px)`
     const timing: KeyframeAnimationOptions = { duration: instant ? 0 : SHAPE_MS, easing: SPRING, fill: 'forwards' }
+    // The corners are a clip, drawn by the page's own thread while the size is the browser's: rounded by 60% of the way
+    // in, and unrounded only over the last 60% of the way out, so a late page frame never shows a square corner on the
+    // window (one did, in a probe's picture at the shrink's end).
+    const corners: KeyframeAnimationOptions = instant ? timing : { duration: SHAPE_MS * 0.6, delay: to === 'whole' ? SHAPE_MS * 0.4 : 0, easing: SPRING, fill: 'both' }
     shaped.current = [
       el.animate([{ transform: `scale(${from})` }, { transform: `scale(${target})` }], timing),
-      body.animate([{ clipPath: round(from) }, { clipPath: round(target) }], timing),
+      body.animate([{ clipPath: round(from) }, { clipPath: round(target) }], corners),
       shadow.animate([{ opacity: toward(from) }, { opacity: toward(target) }], timing)
     ]
     shaped.current[0].onfinish = () => {
@@ -828,7 +832,7 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
       {fog && (
         <div key={`scene-${arrival}`} ref={scene} data-arrival-scene="" className="pointer-events-none absolute inset-0 z-30">
           {/* The window's shadow, coming as the scene becomes the window: in the scene's own (scaled) pixels, so on screen it is a window's. */}
-          <div ref={sceneShadow} aria-hidden data-arrival-shadow="" className="absolute inset-0" style={{ opacity: 0, borderRadius: `${CORNER / windowScale()}px`, boxShadow: `0 0 0 ${1 / windowScale()}px color-mix(in oklab, var(--foreground) 14%, transparent), 0 ${24 / windowScale()}px ${70 / windowScale()}px ${-8 / windowScale()}px rgb(0 0 0 / 0.55)` }} />
+          <div ref={sceneShadow} aria-hidden data-arrival-shadow="" className="absolute inset-0" style={{ opacity: 0, borderRadius: `${CORNER / windowScale()}px`, boxShadow: `0 0 0 ${1 / windowScale()}px color-mix(in oklab, var(--foreground) 14%, transparent), 0 ${24 / windowScale()}px ${70 / windowScale()}px ${-8 / windowScale()}px color-mix(in oklab, var(--mf-shadow-ink) 55%, transparent)` }} />
           <div ref={sceneBody} data-arrival-body="" className="absolute inset-0 overflow-clip">
             <WelcomeMist key={`desk-${arrival}`} desk lift={fogLift} onGone={fogGone} onStart={begin} onWhole={() => window.api.blur(false)} onDrawable={() => REMADE && window.api.homeDrawn()} />
             {/* Haligtree's grain over the fog, as on the welcome's paper (grain.tsx), coming in as the fog does. */}
