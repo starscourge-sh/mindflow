@@ -1065,11 +1065,12 @@ function ViewPick({ mode, onPick, short = false }: { mode: Mode; onPick: (mode: 
   const pill = useId()
   const views: [Mode, string, string][] = [['day', 'Day', 'D'], ['week', 'Week', 'W'], ['month', 'Month', 'M']]
   return (
+    // The views not picked read on the track in every style (Brutal's is its accent, where Faded Ink was 4.4:1): the strong quiet ink.
     <div role="radiogroup" aria-label="The view" data-cal-views className="flex h-8 shrink-0 items-center rounded-lg bg-accent/70 p-0.5">
       {views.map(([id, label, key]) => (
         <Tip key={id} label={`${label} (${key})`}>
           <button type="button" role="radio" aria-checked={mode === id} data-cal-view={id} onClick={() => onPick(id)}
-            aria-label={label} className={`relative h-7 rounded-md ${short ? 'w-8' : 'px-3'} text-control outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+            aria-label={label} className={`relative h-7 rounded-md ${short ? 'w-8' : 'px-3'} text-control outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === id ? 'text-foreground' : 'text-(--mf-muted-strong) hover:text-foreground'}`}>
             {mode === id && <motion.span layoutId={pill} aria-hidden className="absolute inset-0 rounded-md bg-background shadow-sm" transition={byKeys() ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 40 }} />}
             {/* Bolder when picked in the room its bold word already takes, so the three never shift. */}
             <Weighted on={mode === id} className="relative">{short ? key : label}</Weighted>

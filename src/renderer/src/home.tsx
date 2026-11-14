@@ -2120,12 +2120,13 @@ export function Home(): React.JSX.Element {
         {/* In the Mac's full screen there are no traffic lights here, so the room closes up. */}
         <div data-drag-strip="" className={`${narrow ? 'h-2' : 'h-10'} shrink-0 [:root[data-fullscreen]_&]:h-2`} style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
         <div className="flex shrink-0 items-center gap-1 px-2 pb-2">
+          {/* "Search…" sits on the pill's fill, Brutal's accent included (Faded Ink was 4.4:1 there): the strong quiet ink. */}
           <button
             type="button"
             data-tour="search"
             aria-label="Search"
             onClick={() => setSearching('all')}
-            className={`flex w-full items-center gap-2 rounded-lg bg-accent/60 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground ${narrow ? 'justify-center px-0' : 'px-2.5'}`}
+            className={`flex w-full items-center gap-2 rounded-lg bg-accent/60 py-1.5 text-(--mf-muted-strong) transition-colors hover:bg-accent hover:text-foreground ${narrow ? 'justify-center px-0' : 'px-2.5'}`}
           >
             <AliveIcon icon={MagnifierIcon} size={16} />
             {!narrow && <span className="flex-1 text-left">Search…</span>}
