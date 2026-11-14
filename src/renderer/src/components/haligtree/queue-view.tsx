@@ -381,7 +381,7 @@ export function QueueView(): React.JSX.Element {
                     void Promise.all(was.map((row) => readingQueue.restore({ id: row.id, item_type: row.type, item_id: row.itemId, position: 0, added_at: row.addedAt, done_at: row.doneAt }))))))
                 }} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-control font-medium text-foreground/80 transition-colors hover:bg-accent/50 hover:text-foreground">
                   <Trash2 aria-hidden className="size-3.5" /> {read.length === 1 ? 'Clear Read' : `Clear all ${num(read.length)} from Read`}
-                  <span className="font-normal text-foreground/70">the notes stay where they are</span>
+                  <span className="font-normal text-muted-foreground">the notes stay where they are</span>
                 </button>
               </IslandBox>
               </div>
@@ -444,7 +444,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
         })}
       </ol>
       {queue.length > 3 && (
-        <button type="button" onClick={() => (chime('open'), onView('queue'))} className="flex min-h-6 items-center gap-1.5 self-start rounded-md px-1.5 text-meta text-foreground/75 transition-colors duration-80 hover:bg-accent/60 hover:text-foreground">
+        <button type="button" onClick={() => (chime('open'), onView('queue'))} className="flex min-h-6 items-center gap-1.5 self-start rounded-md px-1.5 text-meta text-muted-foreground transition-colors duration-80 hover:bg-accent/60 hover:text-foreground">
           <ListEnd className="size-3" /> and {num(queue.length - 3)} more
         </button>
       )}

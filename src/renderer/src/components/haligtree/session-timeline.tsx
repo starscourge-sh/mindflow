@@ -140,7 +140,7 @@ export function DaySessions({ day, onOpen, menuFor }: { day: string; onOpen?: (t
               <span dir="auto" className="private-text truncate font-medium">{taskName(one.title || 'Focus').text}</span>
               <Tags tags={taskName(one.title || '').tags} />
             </span>
-            {one.bare && one.title === 'Focus' && <span className="shrink-0 text-xs font-medium text-foreground/70">Name it</span>}
+            {one.bare && one.title === 'Focus' && <span className="shrink-0 text-xs font-medium text-muted-foreground">Name it</span>}
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{clock(one.startedAt)} to {clock(one.endedAt)} · {one.abandonedAt ? 'abandoned' : spent(one)}</span>
           </button>
           )}

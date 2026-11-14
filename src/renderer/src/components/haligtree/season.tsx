@@ -91,19 +91,19 @@ export function SeasonPart(): React.JSX.Element | null {
   if (ended) return (
     <section data-close-season={ended} className="flex items-center gap-2 rounded-lg border px-3 py-2 text-body text-foreground">
       <span className="font-semibold">{ended === 'done' ? 'Season closed.' : 'Season skipped.'}</span>
-      <span className="text-foreground/75">Back in {nextSeason()}.</span>
+      <span className="text-muted-foreground">Back in {nextSeason()}.</span>
     </section>
   )
   return (
     <section data-close-season="open" className="flex flex-col gap-4 rounded-lg border px-4 py-3.5">
       <div className="flex items-baseline gap-2">
         <h3 className="font-heading text-base font-semibold text-foreground">Close the season too</h3>
-        <span className="text-control text-foreground/70">Once a quarter: {season.said} is over.</span>
+        <span className="text-control text-muted-foreground">Once a quarter: {season.said} is over.</span>
       </div>
 
       <div data-season-playbook>
         <h4 className={heading}>Still true?</h4>
-        <p className="mt-0.5 text-control text-foreground/75">Your playbook, “How I work”. Change anything that is not true any more, right here.</p>
+        <p className="mt-0.5 text-control text-muted-foreground">Your playbook, “How I work”. Change anything that is not true any more, right here.</p>
         {playbook === undefined ? null : playbook ? (
           <div className="mt-2 max-h-44 overflow-y-auto rounded-md border [--mf-padding:0.5rem_0.75rem]">
             <HaligtreeEditor documentId={`season-${playbook.id}`} defaultContent={playbook.body ?? ''} toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false}
@@ -128,7 +128,7 @@ export function SeasonPart(): React.JSX.Element | null {
         <h4 className={heading}>What mattered most to you from {season.said}?</h4>
         <input value={mattered} onChange={(event) => setMattered(event.target.value)} placeholder="In a line" aria-label="What mattered most this season"
           className="mt-1.5 w-full rounded-md border bg-transparent px-2.5 py-1.5 text-body text-foreground outline-none placeholder:text-muted-foreground focus:border-foreground/25" />
-        <p className="mt-1 text-control text-foreground/70">Kept in your playbook, one line a season.</p>
+        <p className="mt-1 text-control text-muted-foreground">Kept in your playbook, one line a season.</p>
       </div>
 
       <div data-season-goals>
@@ -150,7 +150,7 @@ export function SeasonPart(): React.JSX.Element | null {
               )
             })}
           </ul>
-        ) : !unloaded(allGoals) && <p className="mt-1 text-body text-foreground/75">No goals set. A season is a good length for one: Goals has a “New goal” button.</p>}
+        ) : !unloaded(allGoals) && <p className="mt-1 text-body text-muted-foreground">No goals set. A season is a good length for one: Goals has a “New goal” button.</p>}
       </div>
 
       <div className="flex items-center gap-2">

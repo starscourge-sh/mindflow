@@ -764,14 +764,14 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                     const box = event.currentTarget.getBoundingClientRect()
                     event.currentTarget.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: box.left, clientY: box.bottom }))
                   }}
-                  className="absolute top-2 right-9 grid size-6 place-items-center rounded-md text-muted-foreground/60 transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
+                  className="absolute top-2 right-9 grid size-6 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground">
                   <AliveIcon icon={DotsHorizontalIcon} size={16} />
                 </button>
               </Tip>
               {/* S stars it, for a round of its own. */}
               <Tip label={card.starredAt ? 'Starred: S takes it off' : 'Star it: S'}>
                 <button type="button" aria-label={card.starredAt ? 'Unstar' : 'Star'} aria-pressed={!!card.starredAt} data-star onClick={star}
-                  className={`absolute top-2 right-2 rounded-md p-1 transition-colors hover:bg-foreground/[0.06] ${card.starredAt ? 'text-[var(--tt-color-text-yellow)]' : 'text-muted-foreground/60'}`}>
+                  className={`absolute top-2 right-2 rounded-md p-1 transition-colors hover:bg-foreground/[0.06] ${card.starredAt ? 'text-[var(--tt-color-text-yellow)]' : 'text-muted-foreground'}`}>
                   <Star className="size-4" fill={card.starredAt ? 'currentColor' : 'none'} />
                 </button>
               </Tip>

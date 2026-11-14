@@ -308,7 +308,7 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
               {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs hyphens-auto [overflow-wrap:break-word] leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
               {/* The date at the foot: down here Read never covers it. The row's heading names the tag, so the card does not again. */}
               {card.sub && (
-                <span className="mt-auto flex min-w-0 items-center gap-2 pt-1 text-xs text-muted-foreground/80">
+                <span className="mt-auto flex min-w-0 items-center gap-2 pt-1 text-xs text-muted-foreground">
                   <span className="truncate">{card.sub}</span>
                 </span>
               )}
@@ -335,7 +335,7 @@ function Heading({ title, onAll, extra }: { title: ReactNode; onAll?: () => void
       <h2 className="min-w-0 flex-1 truncate font-heading text-heading font-semibold tracking-[-0.01em] text-foreground">{title}</h2>
       {onAll && (
         <button type="button" onClick={() => (chime('tap'), onAll())}
-          className="-mr-2 inline-flex h-6 shrink-0 items-center rounded-md px-2 text-meta font-medium text-foreground/70 transition-colors duration-80 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+          className="-mr-2 inline-flex h-6 shrink-0 items-center rounded-md px-2 text-meta font-medium text-muted-foreground transition-colors duration-80 hover:bg-accent/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
           Show all
         </button>
       )}
@@ -612,7 +612,7 @@ function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: ()
                 <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
                 {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
                 <Signed who={card.who} where={card.where} year={card.year} className="private-text -mt-0.5 text-xs text-muted-foreground" />
-                <span className="mt-auto flex items-center gap-1.5 text-xs text-muted-foreground/80">
+                <span className="mt-auto flex items-center gap-1.5 text-xs text-muted-foreground">
                   <KindMark card={card} grain={false} className="size-4 rounded-[4px] [&_svg]:size-2.5" />{card.sub}
                 </span>
               </button>

@@ -1535,7 +1535,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
         )
       })}
       {open.length > shown.length && (
-        <button type="button" data-goal-more-count onClick={() => (chime('tap'), onOpen?.('view', 'goals'))} className="inline-flex min-h-6 items-center self-start rounded-md px-2 text-meta text-foreground/75 transition-colors duration-80 hover:bg-accent/60 hover:text-foreground">
+        <button type="button" data-goal-more-count onClick={() => (chime('tap'), onOpen?.('view', 'goals'))} className="inline-flex min-h-6 items-center self-start rounded-md px-2 text-meta text-muted-foreground transition-colors duration-80 hover:bg-accent/60 hover:text-foreground">
           {open.length - shown.length} more {open.length - shown.length === 1 ? 'goal' : 'goals'}, in Goals →
         </button>
       )}

@@ -313,7 +313,7 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
         {card.made !== 'deck' && <input data-card-edit-source aria-label="Source" value={source} onChange={(event) => setSource(event.target.value)} onKeyDown={keys}
           placeholder="Source: a book or video" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground" />}
         <Tip label="#tags are written in the answer. Enter keeps, ⇧Enter a new line, Esc drops">
-          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground/70"><span aria-hidden className="size-1.5 rounded-full shrink-0" style={{ background: tint }} />↩ keep</span>
+          <span className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground"><span aria-hidden className="size-1.5 rounded-full shrink-0" style={{ background: tint }} />↩ keep</span>
         </Tip>
       </div>
     </div>
@@ -633,7 +633,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
   )
   const more = (list: BrowsedCard[]): React.JSX.Element | null => list.length <= limit ? null : (
     <button type="button" data-card-more onClick={() => (chime('open'), setLimit(limit + 200))} className="mt-3 w-full rounded-md py-2 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">
-      Show {num(Math.min(200, list.length - limit))} more <span className="font-normal text-foreground/60">of {num(list.length - limit)}</span>
+      Show {num(Math.min(200, list.length - limit))} more <span className="font-normal text-muted-foreground">of {num(list.length - limit)}</span>
     </button>
   )
   // The grid of cards is drawn where you are looking (and a screen either side), however many thousand it holds.

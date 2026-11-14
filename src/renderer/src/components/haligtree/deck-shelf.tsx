@@ -485,7 +485,7 @@ function StudySets({ sets, onStudy }: { sets: { name: string; tag: string }[]; o
   if (!sets.length) return null
   return (
     <div data-study-sets className="flex flex-wrap items-center gap-2 text-control">
-      <span className="text-foreground/70">Study sets, every card in each, due or not</span>
+      <span className="text-muted-foreground">Study sets, every card in each, due or not</span>
       {sets.map((set) => (
         <RowMenu key={set.name} items={[{ label: 'Study', run: () => (chime('riffle'), onStudy(set.tag)) }, 'separator', { label: 'Remove the set', hint: 'The deck and its cards stay', danger: true, run: () => void call('sets:remove', set.name).then(() => (chime('fold'), toast(`${quoted(set.name, 80)} is no longer a study set`, () => void call('sets:save', set.name, set.tag).then(() => chime('undo'))))) }]}>
           <button type="button" data-study-set={set.name} onClick={() => (chime('riffle'), onStudy(set.tag))}
@@ -622,7 +622,7 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
   if (shapes) return <GroupCover name={name} tint={groupTint(name)} label={null} className={`${size} shrink-0 rounded-[5px] shadow-sm ${faded ? 'opacity-60' : ''}`} />
   return (
     <div aria-hidden data-deck-face={name} className={`grid ${size} shrink-0 content-center justify-items-center gap-0.5 rounded-[6px] mf-metal ${faded ? 'opacity-60' : ''}`}>
-      <span className={`font-serif text-3xl leading-none tabular-nums ${due ? 'text-primary' : fresh ? 'text-foreground' : 'text-foreground/35'}`}>{num(due || fresh)}</span>
+      <span className={`font-serif text-3xl leading-none tabular-nums ${due ? 'text-primary' : fresh ? 'text-foreground' : 'text-muted-foreground'}`}>{num(due || fresh)}</span>
       <span className="px-1 text-center text-xs leading-tight text-balance text-muted-foreground">{fresh && !due ? 'not studied yet' : 'due'}</span>
     </div>
   )
@@ -651,8 +651,8 @@ function DeckList({ own, shelves, onStudy, place = {}, menu, fresh = null, renam
           : study ? <button type="button" data-deck-row-study={key} onClick={(event) => (chime('riffle'), heroOpen(heroAround(event, '[data-deck-row]'), study))} className="line-clamp-2 min-w-0 cursor-pointer rounded-[4px] px-1 text-left text-foreground outline-none hyphens-auto [overflow-wrap:break-word]">{name}</button>
           : <span className="line-clamp-2 min-w-0 px-1 text-muted-foreground hyphens-auto [overflow-wrap:break-word]">{name}</span>}
       </span>
-      <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/60'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-primary" />}{due < 0 ? '–' : num(due)}</span>
-      <span className={`text-right tabular-nums ${fresh > 0 ? 'text-foreground' : 'text-muted-foreground/60'}`}>{fresh < 0 ? '–' : num(fresh)}</span>
+      <span className={`flex items-center justify-end gap-1.5 tabular-nums ${due > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground'}`}>{due > 0 && <span aria-hidden className="size-1.5 rounded-full shrink-0 bg-primary" />}{due < 0 ? '–' : num(due)}</span>
+      <span className={`text-right tabular-nums ${fresh > 0 ? 'text-foreground' : 'text-muted-foreground'}`}>{fresh < 0 ? '–' : num(fresh)}</span>
       <span className="text-right text-muted-foreground tabular-nums">{num(all)}</span>
       {/* Its menu, or the same room kept empty (a shared deck's topic has none), so the numbers line up. */}
       <span className="flex justify-end">{target && <MenuDots />}</span>

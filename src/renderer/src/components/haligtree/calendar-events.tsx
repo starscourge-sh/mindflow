@@ -470,7 +470,7 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
             style={{ borderColor: on ? color : 'color-mix(in oklab, var(--foreground) 35%, transparent)', background: on ? color : 'transparent' }}>
             <Check className={`size-3 text-background transition-[opacity,scale] duration-150 motion-reduce:transition-none ${on ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`} strokeWidth={3.5} />
           </span>
-          <span className={`min-w-0 flex-1 truncate transition-colors duration-150 ${on ? 'text-foreground' : 'text-foreground/55'}`}>{name}</span>
+          <span className={`min-w-0 flex-1 truncate transition-colors duration-150 ${on ? 'text-foreground' : 'text-muted-foreground'}`}>{name}</span>
         </button>
       </li>
     )
@@ -865,7 +865,7 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
             <p className="flex items-center gap-2 tabular-nums">
               <Clock aria-hidden className="size-4 shrink-0 text-foreground/70" />
               <span className="font-medium">{hm(one.start)}</span><span aria-hidden className="text-foreground/60">→</span><span className="font-medium">{hm(one.end)}</span>
-              <span className="text-foreground/75">{lengthSaid(end.diff(start, 'minute'))}</span>
+              <span className="text-muted-foreground">{lengthSaid(end.diff(start, 'minute'))}</span>
             </p>
           )}
           {!one.allDay && <p className="pl-6 text-foreground/85">{start.format('ddd, MMM D')}{end.isSame(start, 'day') ? '' : ` – ${end.format('ddd, MMM D')}`}</p>}
@@ -1236,7 +1236,7 @@ export function SecondZoneSetting({ value, set }: { value: string | null; set: (
               {found.map((one) => (
                 <button key={one.id} type="button" data-zone={one.id} onClick={() => (chime('tap'), set(one.id), setOpen(false))}
                   className="flex items-center gap-2 rounded-md px-2 py-1 text-left text-control text-foreground hover:bg-accent aria-pressed:bg-accent" aria-pressed={one.id === value}>
-                  <span className="min-w-0 flex-1 truncate">{one.city} <span className="text-foreground/75">{one.id.split('/')[0]}</span></span>
+                  <span className="min-w-0 flex-1 truncate">{one.city} <span className="text-muted-foreground">{one.id.split('/')[0]}</span></span>
                   <span className="shrink-0 tabular-nums text-foreground/80">{clock(inZone(one.id, now).toISOString())} {zoneShort(one.id, now)}</span>
                 </button>
               ))}

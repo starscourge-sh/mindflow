@@ -835,7 +835,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
           </div>
           {/* One short line for what to do now, and the way to start again with another picture. */}
           <div className="flex min-h-6 items-center gap-2">
-            <p data-picture-hint className="h-6 min-w-0 flex-1 truncate text-sm leading-6 text-foreground/75 @max-[40rem]/page:text-xs">
+            <p data-picture-hint className="h-6 min-w-0 flex-1 truncate text-sm leading-6 text-muted-foreground @max-[40rem]/page:text-xs">
               {labels === 'finding' ? <Orb label="Looking for labels on the picture, on this Mac…" />
                 : labels && !Array.isArray(labels) ? labels.error : hint}
             </p>
@@ -855,7 +855,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
                 <Tip label="The card before  ←"><span><Button variant="ghost" size="sm" aria-label="The card before" data-preview-back disabled={cards.length < 2} className="size-7 cursor-pointer p-0 max-sm:size-8" onClick={() => (chime('slide'), setSeeing((shown - 1 + cards.length) % cards.length))}><ChevronLeft className="size-4" /></Button></span></Tip>
                 <Tip label="The next card  →"><span><Button variant="ghost" size="sm" aria-label="The next card" data-preview-next disabled={cards.length < 2} className="size-7 cursor-pointer p-0 max-sm:size-8" onClick={() => (chime('slide'), setSeeing((shown + 1) % cards.length))}><ChevronRight className="size-4" /></Button></span></Tip>
               </div>
-              <p data-preview-says className="truncate text-sm text-foreground/75">
+              <p data-preview-says className="truncate text-sm text-muted-foreground">
                 {asked === undefined ? 'Each cover you draw shows here as the card it makes.'
                   : <>{question.trim() || 'What is hidden?'} <span className="text-foreground/50">·</span> {answer ? <>Answer: <b className="font-semibold text-foreground">{answer}</b></> : 'Answer: shown on the picture, under the cover'}</>}
               </p>

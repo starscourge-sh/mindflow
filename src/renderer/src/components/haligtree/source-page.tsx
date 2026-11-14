@@ -506,7 +506,7 @@ function Thoughts({ field, name, page }: { field: SourceField; name: string; pag
   const asked = `What you make of ${field === 'attribution' ? 'them' : 'it'}, in your own words`
   if (!page.thoughts.trim() && !writing) return (
     <button type="button" data-thoughts-add onClick={() => (chime('tap'), setWriting(true))}
-      className="block w-full rounded-md px-2 py-1.5 text-left text-body leading-relaxed text-foreground/55 transition-colors hover:bg-accent/50 hover:text-foreground">
+      className="block w-full rounded-md px-2 py-1.5 text-left text-body leading-relaxed text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground">
       {asked}
     </button>
   )

@@ -19,7 +19,7 @@ const notice = (words: string): void => {
   cards.forEach((tell) => tell())
 }
 
-const WORD = 'flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2 text-control font-medium text-foreground/75 transition-colors hover:bg-foreground/[0.05] hover:text-foreground'
+const WORD = 'flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2 text-control font-medium text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground'
 
 /**
  * A practice offered, on Home's “Now” card: where it is asked while this window is in front, and where it waits once

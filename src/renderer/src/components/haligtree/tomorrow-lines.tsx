@@ -302,7 +302,7 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
           <div className="relative min-w-0 flex-1">
             {/* The example, typed in as the app's hints are, where the words will go. */}
             {!draft && (
-              <span aria-hidden data-tomorrow-example className="pointer-events-none absolute inset-0 truncate text-[0.9375rem] leading-snug text-muted-foreground/80">
+              <span aria-hidden data-tomorrow-example className="pointer-events-none absolute inset-0 truncate text-[0.9375rem] leading-snug text-muted-foreground">
                 <Typed key={example} text={lines.length ? 'Another one' : `${EXAMPLES[example]}`} step={30} delay={600} />
               </span>
             )}

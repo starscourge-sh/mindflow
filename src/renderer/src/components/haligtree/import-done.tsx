@@ -195,7 +195,7 @@ export function ImportDoneCard(): React.JSX.Element {
                         {missing.shown.map((one) => (
                           <li key={one.link} className="mt-2 first:mt-2.5">
                             <button type="button" {...hoverNote(one.link.includes(':') ? one.link.slice(0, one.link.indexOf(':')) : 'capture', one.link.includes(':') ? one.link.slice(one.link.indexOf(':') + 1) : one.link)} className="text-sm font-medium text-foreground underline decoration-muted-foreground/50 underline-offset-2 hover:decoration-foreground" onClick={() => (chime('tap'), close(), openLink(one.link))}>{one.title || 'New note'}</button>
-                            <span className="block truncate text-sm text-foreground/75" title={one.names.join(', ')}>{one.names.join(', ')}</span>
+                            <span className="block truncate text-sm text-muted-foreground" title={one.names.join(', ')}>{one.names.join(', ')}</span>
                           </li>
                         ))}
                         <li className="-mx-2 mt-1"><ShowMore total={done.missing?.length ?? 0} shown={missing.shown.length} few={20} onMore={missing.onMore} onFewer={missing.onFewer} /></li>

@@ -139,7 +139,7 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
         {/* The aim's words change it; the x beside them lets it go, as a tag chip's does. */}
         <span className="pointer-events-auto absolute top-3.5 right-0 flex items-center gap-0.5">
           <button type="button" onClick={() => void setOrChange()}
-            className="cursor-pointer rounded-md px-1 text-control whitespace-nowrap tabular-nums text-foreground/75 transition-colors hover:bg-accent hover:text-foreground"
+            className="cursor-pointer rounded-md px-1 text-control whitespace-nowrap tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             aria-label="Change the word aim">
             {said ? (
               <span key="said" className={`font-semibold text-foreground ${still() ? '' : 'animate-in fade-in-0 slide-in-from-bottom-1 duration-300'}`}>{num(aim.words)}. That's the piece.</span>
@@ -152,7 +152,7 @@ export function WordAim({ editor, id }: { editor: Editor | null; id: string }): 
             )}
           </button>
           <button type="button" data-aim-clear aria-label="Clear the word aim" title="Clear the word aim" onClick={clear}
-            className="grid size-6 cursor-pointer place-items-center rounded-md text-foreground/50 transition-colors hover:bg-accent hover:text-foreground">
+            className="grid size-6 cursor-pointer place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <X className="size-3.5" />
           </button>
         </span>

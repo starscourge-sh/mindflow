@@ -431,7 +431,7 @@ export function AnotherPicture(): React.JSX.Element | null {
   return (
     <Tip label="Another picture">
       <button type="button" data-another-picture onClick={another}
-        className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
+        className="inline-flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
         <Shuffle className="size-3.5" />
       </button>
     </Tip>

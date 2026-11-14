@@ -216,7 +216,7 @@ export function KeysEditor({ search = '' }: { search?: string }): React.JSX.Elem
                   {tone && <span className="block text-meta" style={{ color: TONE[tone] }}>Same keys as {others.map((other) => `${other.does} (${other.where})`).join(', ')}</span>}
                 </span>
                 {/* Where it works, only when the heading above has not said it already. */}
-                {whereSaid(one) && <span className="hidden text-meta text-muted-foreground/80 @min-[30rem]:inline">{whereSaid(one)}</span>}
+                {whereSaid(one) && <span className="hidden text-meta text-muted-foreground @min-[30rem]:inline">{whereSaid(one)}</span>}
                 {fixed(one.keys) ? (
                   <Tip label="Fixed: this key does its job by being the key">
                     <span className="flex items-center"><Keys keys={one.keys} /><span className="flex w-10 justify-end pr-1"><Lock className="size-3 text-muted-foreground" /></span></span>

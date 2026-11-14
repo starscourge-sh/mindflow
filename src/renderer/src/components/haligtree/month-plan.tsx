@@ -295,7 +295,7 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
       <div key={dayKey(monday)} data-month-week={dayKey(monday)} style={place} className={`${COLS} min-h-0 ${edge ? 'pt-px' : ''} ${place ? 'absolute inset-x-0' : 'relative'}`}>
         <Tip label={`Open the week's page for week ${weekNumber(monday)}`}>
           <button type="button" data-week-number={dayKey(monday)} onClick={() => (chime('open'), onWeek?.(dayKey(monday)))} aria-label={`Open week ${weekNumber(monday)}`}
-            className="flex justify-center bg-background pt-1.5 text-control text-foreground/70 tabular-nums transition-colors hover:bg-accent hover:text-foreground">
+            className="flex justify-center bg-background pt-1.5 text-control text-muted-foreground tabular-nums transition-colors hover:bg-accent hover:text-foreground">
             {weekNumber(monday)}
           </button>
         </Tip>
@@ -389,7 +389,7 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
         <div data-cal-names={bare || undefined} className={COLS} aria-hidden>
           <div className="bg-background px-1 py-1 text-center text-control font-medium text-muted-foreground">Wk</div>
           {days.slice(0, 7).map((day) => (
-            <div key={day.format('d')} data-month-weekday={day.day() === 0 || day.day() === 6 ? 'weekend' : 'weekday'} className={`bg-background px-2 py-1 text-control font-medium ${day.day() === 0 || day.day() === 6 ? 'text-foreground/60' : 'text-foreground/85'}`}>{day.format('ddd')}</div>
+            <div key={day.format('d')} data-month-weekday={day.day() === 0 || day.day() === 6 ? 'weekend' : 'weekday'} className={`bg-background px-2 py-1 text-control font-medium ${day.day() === 0 || day.day() === 6 ? 'text-muted-foreground' : 'text-(--mf-muted-strong)'}`}>{day.format('ddd')}</div>
           ))}
         </div>
         {bare
@@ -797,7 +797,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${plural(caught, 'capture')}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}
-          data-day-number className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1 text-control tabular-nums transition-colors hover:bg-accent ${key === today ? 'bg-[var(--tt-color-text-red)] font-semibold text-white hover:bg-[var(--tt-color-text-red)]' : outside ? 'text-foreground/40' : day.date() === 1 ? 'font-semibold text-foreground' : 'text-foreground'}`}>
+          data-day-number className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1 text-control tabular-nums transition-colors hover:bg-accent ${key === today ? 'bg-[var(--tt-color-text-red)] font-semibold text-white hover:bg-[var(--tt-color-text-red)]' : outside ? 'text-muted-foreground' : day.date() === 1 ? 'font-semibold text-foreground' : 'text-foreground'}`}>
           {day.date() === 1 ? day.format('D MMM') : day.date()}
         </button>
         {/* The dots say what the day held: a click opens the day's page, where it is. */}

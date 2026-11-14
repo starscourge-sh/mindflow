@@ -186,8 +186,8 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
     case 'paragraph': return node.content?.length ? <div data-line className="my-1">{node.content.map(inline)}</div> : null
     case 'heading': return <div className="mt-2.5 mb-1 font-medium text-foreground first:mt-0">{(node.content ?? []).map(inline)}</div>
     // Spacing inline: under a checklist line these sit inside the editor's class, whose list margins would otherwise win.
-    case 'bulletList': return <ul style={LIST} className="list-disc marker:text-muted-foreground/60">{kids}</ul>
-    case 'orderedList': return <ol style={LIST} start={Number(node.attrs?.start) || 1} className="list-decimal marker:text-muted-foreground/60">{kids}</ol>
+    case 'bulletList': return <ul style={LIST} className="list-disc marker:text-muted-foreground">{kids}</ul>
+    case 'orderedList': return <ol style={LIST} start={Number(node.attrs?.start) || 1} className="list-decimal marker:text-muted-foreground">{kids}</ol>
     // A plain item again, under a checklist line: the checklist's own rules make every item below it a flex row with no marker.
     case 'listItem': return <li style={{ display: 'list-item', listStyleType: 'inherit' }} className="[&>[data-line]]:my-0">{kids}</li>
     case 'blockquote': return <blockquote className="my-1 border-l-2 pl-2">{kids}</blockquote>
@@ -757,7 +757,7 @@ export function StickyNote({ type, id }: { type: string; id: string }): React.JS
           ) : <>
             {drawn}
             {/* Nothing written yet: where to start, in the card's own dimmed words. */}
-            {empty && !gone && <p className="my-1 text-muted-foreground/80">Double-click to write here.</p>}
+            {empty && !gone && <p className="my-1 text-muted-foreground">Double-click to write here.</p>}
             {/* A quote signed under its words, in a pen's hand. */}
             {note?.who && <p className="mt-1.5"><Signed who={note.who} where={note.where} year={note.year} /></p>}
           </>}

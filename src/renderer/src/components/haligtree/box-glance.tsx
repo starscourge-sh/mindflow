@@ -344,12 +344,12 @@ function TodayGlance({ words, acts, onOpen, onAdded, onBack }: {
     <div data-glance-today className="flex flex-col">
       {events.length > 0 && (
         <section data-glance-events className="mb-1 flex flex-col">
-          <h3 className="px-2 py-0.5 text-control font-medium text-foreground/75">Events</h3>
+          <h3 className="px-2 py-0.5 text-control font-medium text-muted-foreground">Events</h3>
           {events.map(({ one, said }) => (
             <EventLine key={one.key} data-glance-event={one.key} tabIndex={-1} color={one.color} title={one.title || 'New event'} said={said}
               onClick={() => (chime('open'), one.readOnly ? onOpen('view', 'calendar') : onOpen('event', one.key))} />
           ))}
-          <h3 className="mt-1 px-2 py-0.5 text-control font-medium text-foreground/75">Tasks</h3>
+          <h3 className="mt-1 px-2 py-0.5 text-control font-medium text-muted-foreground">Tasks</h3>
         </section>
       )}
       <TodayPanel glance onOpen={(id) => onOpen('task', id)} />

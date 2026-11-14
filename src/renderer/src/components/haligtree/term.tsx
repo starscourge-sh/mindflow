@@ -72,7 +72,7 @@ export function TermInfo({ text }: { text: string }): React.JSX.Element | null {
           data-term-info={found.id}
           aria-label={`What ${quoted(found.forms[0], 80)} means`}
           onClick={(event) => (event.stopPropagation(), openWord(found.id, event.currentTarget))}
-          className="grid size-5 shrink-0 cursor-help place-items-center rounded-full text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+          className="grid size-5 shrink-0 cursor-help place-items-center rounded-full text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           <Info aria-hidden className="size-3.5" strokeWidth={1.75} />
         </button>

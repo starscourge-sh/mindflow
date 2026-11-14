@@ -436,7 +436,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                       <span data-found-line data-found-picture={capture.picture ? '' : undefined} className="flex h-5 min-w-0 items-center gap-2 pl-6 text-sm leading-5 text-muted-foreground">
                         {/* Words read in a picture: the picture itself, small, beside them. */}
                         {capture.picture && <img src={capture.picture} alt="" className="size-5 shrink-0 rounded-[4px] border border-border/60 object-cover" />}
-                        <span className="min-w-0 truncate">{capture.picture && <span className="text-foreground/70">In a picture: </span>}<Marked text={capture.line} query={words.join(' ')} /></span>
+                        <span className="min-w-0 truncate">{capture.picture && <span className="text-muted-foreground">In a picture: </span>}<Marked text={capture.line} query={words.join(' ')} /></span>
                       </span>
                     )}
                   </button>

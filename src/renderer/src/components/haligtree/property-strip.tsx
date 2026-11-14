@@ -249,7 +249,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                     <PopoverTrigger asChild>
                       <button type="button" data-property={prop.key} data-empty={prop.value === undefined || prop.value === '' ? '' : undefined}
                         className={`inline-flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} min-w-0 items-center rounded-md ${size.pad} text-left transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-none data-[state=open]:bg-accent`}>
-                        {prop.value === undefined || prop.value === '' ? <span className="text-muted-foreground/60">Empty</span>
+                        {prop.value === undefined || prop.value === '' ? <span className="text-muted-foreground">Empty</span>
                           : <span className={`private-text text-foreground ${panel ? 'line-clamp-2 hyphens-auto [overflow-wrap:break-word]' : 'truncate'}`}>{prop.type === 'link' ? <LinkName link={String(prop.value)} /> : said(prop)}</span>}
                       </button>
                     </PopoverTrigger>
@@ -544,7 +544,7 @@ function NewProp({ className, size, names, waiting, onField, onName, onCancel }:
           </div>
         )}
       </span>
-      <span className={`flex ${size.h} items-center ${size.pad} text-muted-foreground/60`}>Empty</span>
+      <span className={`flex ${size.h} items-center ${size.pad} text-muted-foreground`}>Empty</span>
     </div>
   )
 }

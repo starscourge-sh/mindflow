@@ -57,7 +57,7 @@ function RecallChart({ scores }: { scores: Score[] }): React.JSX.Element | null 
           <div key={name} data-recall-line={name} className="grid grid-cols-[8rem_minmax(0,1fr)_5.5rem] items-center gap-3">
             <span className="truncate text-control text-foreground">{name === 'Every sitting' ? name : `#${name}`}</span>
             <Spark points={last} />
-            <span className="text-right text-control text-foreground tabular-nums">{mean.toFixed(1)} <span className="text-foreground/75">avg, {num(list.length)}</span></span>
+            <span className="text-right text-control text-foreground tabular-nums">{mean.toFixed(1)} <span className="text-muted-foreground">avg, {num(list.length)}</span></span>
           </div>
         )
       })}

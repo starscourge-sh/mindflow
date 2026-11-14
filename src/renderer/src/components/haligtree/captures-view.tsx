@@ -1268,7 +1268,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
 const LOOKED_UP = 'captures:Looked up'
 
 /** A quiet lead-in naming what a detail is, before the detail itself. */
-const Lead = ({ children }: { children: React.ReactNode }): React.JSX.Element => <span className="mr-1.5 text-muted-foreground/80">{children}</span>
+const Lead = ({ children }: { children: React.ReactNode }): React.JSX.Element => <span className="mr-1.5 text-muted-foreground">{children}</span>
 
 /**
  * A tag or a date put on many captures at once, with an undo that puts each

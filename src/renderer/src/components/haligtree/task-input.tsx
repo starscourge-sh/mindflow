@@ -255,7 +255,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
                 onMouseDown={(event) => (event.preventDefault(), take(one.tag))} onPointerEnter={() => setPick(index)}
                 className={`flex items-center justify-between gap-3 rounded-md px-2 py-1 text-left transition-colors ${index === at ? 'bg-accent' : ''}`}>
                 <span className="truncate" style={{ color: tagTint(one.tag) }}>#{one.tag}</span>
-                <span className="shrink-0 tabular-nums text-foreground/75">{one.count}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">{one.count}</span>
               </button>
             ))}
           </div>

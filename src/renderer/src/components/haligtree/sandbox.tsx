@@ -104,7 +104,7 @@ export function SandboxPill(): React.JSX.Element | null {
             <HoldButton ref={sure} variant={null} hint="Every example back to how it began" done="Starting over…" disabled={busy} onHold={() => go(startSandboxOver)} className={`${PART} font-semibold`}>
               Hold to start over
             </HoldButton>
-              <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3 text-foreground/70 hover:text-foreground`}>
+              <button type="button" onClick={() => (chime('fold'), setAsking(false))} className={`${PART} pr-3 text-muted-foreground hover:text-foreground`}>
                 Cancel
               </button>
           </motion.span>

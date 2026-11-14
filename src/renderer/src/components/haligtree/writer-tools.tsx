@@ -184,9 +184,9 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
   // One quiet bar, as Dia or Apple would draw it: the one thing asked for most ("How it reads") said in words, and the
   // rest (Focus, Word aim, Proofread, marking mistakes, a sound) behind one "Tools" control. It was a wall of nine
   // outlined pills across the foot, every tool as loud as the next.
-  const quiet = 'cursor-pointer rounded-md px-2 py-1 text-foreground/70 transition-colors hover:bg-foreground/[0.05] hover:text-foreground data-on:text-foreground data-[state=open]:bg-foreground/[0.05] data-[state=open]:text-foreground'
+  const quiet = 'cursor-pointer rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground data-on:text-foreground data-[state=open]:bg-foreground/[0.05] data-[state=open]:text-foreground'
   const row = 'flex w-full cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left text-control text-foreground transition-colors hover:bg-accent'
-  const seg = 'flex-1 cursor-pointer rounded-md px-2 py-1 whitespace-nowrap text-control text-foreground/70 transition-colors hover:text-foreground data-on:bg-background data-on:text-foreground data-on:shadow-xs'
+  const seg = 'flex-1 cursor-pointer rounded-md px-2 py-1 whitespace-nowrap text-control text-muted-foreground transition-colors hover:text-foreground data-on:bg-background data-on:text-foreground data-on:shadow-xs'
   // A tool that opens something of its own (Word aim's question, Proofread) closes the panel first.
   const [open, setOpen] = useState(false)
   const lit = focus !== 'off' || checking

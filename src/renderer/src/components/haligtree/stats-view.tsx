@@ -324,7 +324,7 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
               )
             })}
           </div>
-          <div className="flex justify-between text-control text-foreground/75">
+          <div className="flex justify-between text-control text-muted-foreground">
             <span>midnight</span><span>6 am</span><span>noon</span><span>6 pm</span><span>11 pm</span>
           </div>
           <p>Every capture you have made, by the hour it was caught. Most come around <span className="whitespace-nowrap"><N>{`${busiest.hour}:00`}</N>.</span></p>

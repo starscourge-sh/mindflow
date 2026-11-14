@@ -55,7 +55,7 @@ export function BookChip({ book, style }: { book: Book; style?: React.CSSPropert
       className={`${CHIP} hover:brightness-95 dark:hover:brightness-125`} style={{ ...TINT, ...style }}>
       <BookOpen aria-hidden className="size-3.5 shrink-0" style={{ color: STUDY_INK }} />
       <span className="min-w-0 truncate">{name}</span>
-      {book.page && <span className="shrink-0 text-foreground/70 tabular-nums">p. {num(book.page)}</span>}
+      {book.page && <span className="shrink-0 text-muted-foreground tabular-nums">p. {num(book.page)}</span>}
     </button>
   )
 }

@@ -68,11 +68,11 @@ export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => vo
         }}
         className={`${CARD_FIELD} min-h-[7.5rem] text-body leading-relaxed`} />
       <div className="flex flex-wrap items-center gap-2 text-control">
-        <span className="text-foreground/70">Split at</span>
+        <span className="text-muted-foreground">Split at</span>
         <Chips options={SEPARATORS} on={(id) => id === separator} pick={(id) => setChosen(id as Separator)} />
-        {!chosen && text.trim() && <span className="text-foreground/70">found on its own</span>}
-        {headings && <span data-paste-headings className="text-foreground/70">The first line names the columns, so it is not a card</span>}
-        {threes > 0 && <span data-paste-threes className="text-foreground/70">{num(threes)} {threes === 1 ? 'line splits' : 'lines split'} in three or more: split at the first, the rest kept on the back</span>}
+        {!chosen && text.trim() && <span className="text-muted-foreground">found on its own</span>}
+        {headings && <span data-paste-headings className="text-muted-foreground">The first line names the columns, so it is not a card</span>}
+        {threes > 0 && <span data-paste-threes className="text-muted-foreground">{num(threes)} {threes === 1 ? 'line splits' : 'lines split'} in three or more: split at the first, the rest kept on the back</span>}
       </div>
       {cards.length > 0 && (
         // The cards it will make, as small cards: front over the dashed rule, back under it, as on the form itself.
@@ -81,7 +81,7 @@ export function PasteCards({ onClose, deck: aimed, onShow }: { onClose: () => vo
             <div key={at} className="flex aspect-[5/3] min-h-0 flex-col gap-1 overflow-hidden rounded-[4px] border border-foreground/12 bg-background/40 px-3 pt-2 pb-1.5 text-control">
               <span className="line-clamp-2 font-semibold leading-snug">{card.term}</span>
               <div aria-hidden className="border-t border-dashed border-foreground/15" />
-              <span className="line-clamp-2 text-foreground/75">{card.meaning.replace(/\n+/g, ' · ')}</span>
+              <span className="line-clamp-2 text-muted-foreground">{card.meaning.replace(/\n+/g, ' · ')}</span>
             </div>
           ))}
         </div>

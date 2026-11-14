@@ -245,7 +245,7 @@ function Trace({ type, id, title, hidden }: { type: string; id: string; title: s
         <p className="text-[15px] leading-snug font-semibold text-foreground">
           {title ? <><span data-private={hidden ? '' : undefined} className="private-text">{quoted(title, 80)}</span> is open in its own window</> : 'This note is open in its own window'}
         </p>
-        <p className="text-sm leading-relaxed text-foreground/75">Write there, or bring it back here with the caret where you left it.</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">Write there, or bring it back here with the caret where you left it.</p>
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Tip label="Bring its window to the front">

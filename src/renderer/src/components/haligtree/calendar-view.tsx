@@ -798,7 +798,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
           {!tight && lateMenu}
           </div>
           {/* The week's number and days; then, quietly, how the planning went. */}
-          <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-foreground/75 tabular-nums [&_[data-late-all]]:h-6 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-foreground/75">
+          <p data-cal-subtitle className="flex min-w-0 items-center gap-1 overflow-hidden text-control whitespace-nowrap text-muted-foreground tabular-nums [&_[data-late-all]]:h-6 [&_[data-late-all]]:px-1.5 [&_[data-late-all]]:text-control [&_[data-plan-total]]:px-0 [&_[data-plan-total]]:text-control [&_[data-plan-total]]:text-muted-foreground">
             {/* Narrow, the late pill waits on this line, so the title is never cut for it. */}
             {tight && lateMenu}
             <span data-unfaded className="min-w-0 truncate"><span className="@[48rem]/head:hidden">{passing((month) => weeksSaid(month, true), said(true))}</span><span className="hidden @[48rem]/head:inline">{passing((month) => weeksSaid(month, false), subtitle)}</span></span>
@@ -1040,7 +1040,7 @@ function MiniMonth({ anchor, days, onPick }: { anchor: Dayjs; days: Dayjs[]; onP
         <Tip label="The month after"><Button variant="ghost" size="icon-sm" aria-label="The month after" onClick={() => (chime('tap'), setMonth(month.add(1, 'month')))}><ChevronRight /></Button></Tip>
       </div>
       <div className="grid grid-cols-7 gap-y-0.5 text-center">
-        {cells.slice(0, 7).map((day) => <span key={day.day()} className="pb-1 text-meta font-medium text-foreground/60">{day.format('dd').charAt(0)}</span>)}
+        {cells.slice(0, 7).map((day) => <span key={day.day()} className="pb-1 text-meta font-medium text-muted-foreground">{day.format('dd').charAt(0)}</span>)}
         {cells.map((day, at) => {
           const key = dayKey(day)
           const band = shown.has(key)
@@ -1049,7 +1049,7 @@ function MiniMonth({ anchor, days, onPick }: { anchor: Dayjs; days: Dayjs[]; onP
           return (
             <button key={key} type="button" data-cal-mini-day={key} aria-label={day.format('dddd D MMMM')} aria-current={key === now ? 'date' : undefined} onClick={() => onPick(day)}
               className={`group/mini flex h-8 items-center justify-center text-control tabular-nums outline-none ${band ? `bg-accent ${edge} ${end}` : ''}`}>
-              <span className={`flex size-7 items-center justify-center rounded-md transition-colors duration-150 group-focus-visible/mini:ring-2 group-focus-visible/mini:ring-ring motion-reduce:transition-none ${key === now ? 'bg-[var(--tt-color-text-red)] font-semibold text-white' : day.month() !== month.month() ? 'text-foreground/40 group-hover/mini:bg-foreground/8' : `text-foreground group-hover/mini:bg-foreground/8 ${band ? 'font-medium' : ''}`}`}>
+              <span className={`flex size-7 items-center justify-center rounded-md transition-colors duration-150 group-focus-visible/mini:ring-2 group-focus-visible/mini:ring-ring motion-reduce:transition-none ${key === now ? 'bg-[var(--tt-color-text-red)] font-semibold text-white' : day.month() !== month.month() ? 'text-muted-foreground group-hover/mini:bg-foreground/8' : `text-foreground group-hover/mini:bg-foreground/8 ${band ? 'font-medium' : ''}`}`}>
                 {day.date()}
               </span>
             </button>
@@ -1069,7 +1069,7 @@ function ViewPick({ mode, onPick, short = false }: { mode: Mode; onPick: (mode: 
       {views.map(([id, label, key]) => (
         <Tip key={id} label={`${label} (${key})`}>
           <button type="button" role="radio" aria-checked={mode === id} data-cal-view={id} onClick={() => onPick(id)}
-            aria-label={label} className={`relative h-7 rounded-md ${short ? 'w-8' : 'px-3'} text-control outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === id ? 'text-foreground' : 'text-foreground/75 hover:text-foreground'}`}>
+            aria-label={label} className={`relative h-7 rounded-md ${short ? 'w-8' : 'px-3'} text-control outline-none focus-visible:ring-2 focus-visible:ring-ring ${mode === id ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
             {mode === id && <motion.span layoutId={pill} aria-hidden className="absolute inset-0 rounded-md bg-background shadow-sm" transition={byKeys() ? { duration: 0 } : { type: 'spring', stiffness: 520, damping: 40 }} />}
             {/* Bolder when picked in the room its bold word already takes, so the three never shift. */}
             <Weighted on={mode === id} className="relative">{short ? key : label}</Weighted>
@@ -1140,7 +1140,7 @@ function Upcoming({ tasks, name, onEvent, onTask }: { tasks: Task[]; name: (one:
       <div className="flex flex-col gap-2 py-1">
       {daysAhead.map((day) => (
         <div key={day.key} data-cal-upcoming-day={day.key} className="flex flex-col">
-          <h3 className="px-2 py-0.5 text-control font-medium text-foreground/75">{day.label}</h3>
+          <h3 className="px-2 py-0.5 text-control font-medium text-muted-foreground">{day.label}</h3>
           {!day.rows.length && <p className="px-2 py-1 text-body text-foreground/85">Nothing more today</p>}
           {day.rows.map((row) => (
             <Tip key={row.key} label={`${row.title} ${row.said}`}>
@@ -1298,7 +1298,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
     <div ref={grid} data-cal-grid className="flex min-h-0 flex-1 flex-col">
       {/* The day names and the untimed line stay put while the hours scroll, and while a pinch grows them (cal-pinch.ts). */}
       <div data-cal-names className="grid shrink-0 border-b" style={{ gridTemplateColumns: cols }}>
-        {zone ? <ZoneHeads zone={zone} day={keys[0]} /> : <span data-cal-zone-here className="self-center pr-2 text-right text-meta font-medium text-foreground/70">{zoneShort(Intl.DateTimeFormat().resolvedOptions().timeZone, dayjs(keys[0]).hour(12).toDate())}</span>}
+        {zone ? <ZoneHeads zone={zone} day={keys[0]} /> : <span data-cal-zone-here className="self-center pr-2 text-right text-meta font-medium text-muted-foreground">{zoneShort(Intl.DateTimeFormat().resolvedOptions().timeZone, dayjs(keys[0]).hour(12).toDate())}</span>}
         {days.map((day) => {
           const key = dayKey(day)
           return (
@@ -1306,7 +1306,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
             <button type="button" data-cal-head={key} data-cal-today={key === todayKey || undefined} data-cal-late={late.some((task) => dayKey(task.dueAt!) === key) || undefined} onClick={() => (chime('open'), onHead(day))} aria-label={`Open ${day.format('dddd D MMMM')}`}
               className={`@container/head-day flex h-11 min-w-0 items-center gap-1.5 overflow-hidden border-l border-border/60 px-1 text-body @[4.5rem]/head-day:px-2.5 transition-colors duration-150 hover:bg-accent/60 motion-reduce:transition-none ${days.length === 1 ? 'justify-center' : ''} ${weekend(day) ? MUTED_DAY : ''}`}>
               {/* A narrow column keeps the date whole and says the day in two letters; narrower still, the date alone. */}
-              <span className="hidden shrink-0 text-foreground/75 @[4.25rem]/head-day:inline"><span className="@[5.5rem]/head-day:hidden">{day.format('dd')}</span><span className="hidden @[5.5rem]/head-day:inline">{day.format('ddd')}</span></span>
+              <span className="hidden shrink-0 text-muted-foreground @[4.25rem]/head-day:inline"><span className="@[5.5rem]/head-day:hidden">{day.format('dd')}</span><span className="hidden @[5.5rem]/head-day:inline">{day.format('ddd')}</span></span>
               <span className={`flex h-6 min-w-6 shrink-0 items-center justify-center rounded-md px-1 tabular-nums ${key === todayKey ? 'bg-[var(--tt-color-text-red)] font-semibold text-white' : 'font-semibold text-foreground'}`}>{day.date()}</span>
             </button>
             </RowMenu>
@@ -1314,7 +1314,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
         })}
         {/* The all-day lane: whole-day events across the days they cover, then each day's untimed tasks. */}
         <span className="flex flex-col items-end gap-0.5 border-t border-border/60 pt-1.5 pr-2">
-          <span className="text-meta font-medium whitespace-nowrap text-foreground/70">All-day</span>
+          <span className="text-meta font-medium whitespace-nowrap text-muted-foreground">All-day</span>
           <Tip label={folded ? 'Show the whole lane' : 'Fold the lane to one line'}>
             <button type="button" data-cal-allday-fold aria-expanded={!folded} aria-label={folded ? 'Show the whole all-day lane' : 'Fold the all-day lane'} onClick={fold}
               className="flex size-6 items-center justify-center rounded-md text-foreground/70 outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
@@ -1391,7 +1391,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
           <div className="relative">
             {zone && <ZoneHours zone={zone} day={keys[0]} />}
             {hours.slice(1).filter((hour) => !showsToday || Math.abs(hour * 60 - nowMinute) > 12).map((hour) => (
-              <span key={hour} className="absolute right-2 -translate-y-1/2 text-meta text-foreground/70 tabular-nums" style={{ top: hour * HOUR }}>
+              <span key={hour} className="absolute right-2 -translate-y-1/2 text-meta text-muted-foreground tabular-nums" style={{ top: hour * HOUR }}>
                 {hm(dayjs().hour(hour).minute(0).toDate())}
               </span>
             ))}
@@ -1558,7 +1558,7 @@ function SessionGhost({ focus, tasks, now, next }: { focus: ReturnType<typeof us
       {/* One line while it is short; what it runs into once there is room for it, and always in its label. */}
       <span className="flex min-w-0 items-baseline gap-1 whitespace-nowrap">
         <span dir="auto" className="min-w-0 truncate font-medium text-foreground/80">{name}</span>
-        <span className="shrink-0 tabular-nums text-foreground/75">until <Rolling text={hm(end)} eager /></span>
+        <span className="shrink-0 tabular-nums text-muted-foreground">until <Rolling text={hm(end)} eager /></span>
       </span>
       {into && tall && <span data-cal-ghost-into className="mt-auto mb-0.5 truncate font-medium" style={{ color: `color-mix(in oklab, ${warm} 75%, var(--foreground))` }}>Runs into {into.name}</span>}
     </div>
@@ -1596,7 +1596,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
           if (event.key === 'Enter') (event.preventDefault(), onPick(task.id, event.currentTarget))
           if (event.key === 'Backspace' || event.key === 'Delete') (event.preventDefault(), void moveToBin([{ type: 'task', id: task.id, status: task.status }]))
         }}
-        className={`group/block @container absolute z-[1] flex cursor-grab touch-none overflow-hidden rounded-[6px] text-left text-control leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring ${finished ? 'text-foreground/70' : 'text-foreground'} transition-[translate,box-shadow] duration-150 ease-out motion-reduce:transition-none ${lifted || busy ? 'z-30 translate-x-1.5 -translate-y-1 cursor-grabbing shadow-(--mf-shadow-lift)' : 'hover:shadow-sm'}`}
+        className={`group/block @container absolute z-[1] flex cursor-grab touch-none overflow-hidden rounded-[6px] text-left text-control leading-snug outline-none focus-visible:ring-2 focus-visible:ring-ring ${finished ? 'text-muted-foreground' : 'text-foreground'} transition-[translate,box-shadow] duration-150 ease-out motion-reduce:transition-none ${lifted || busy ? 'z-30 translate-x-1.5 -translate-y-1 cursor-grabbing shadow-(--mf-shadow-lift)' : 'hover:shadow-sm'}`}
         style={{
           top: (at / 60) * HOUR + 1, height: Math.max(20, (length / 60) * HOUR - 2), ...laneBox(lane),
           background: 'var(--background)', border: `1.5px ${finished ? 'dashed' : 'solid'} color-mix(in oklab, ${color} ${finished ? 45 : 75}%, transparent)`

@@ -299,7 +299,7 @@ function DateField({ field, value, settled, onSave }: { field: Field; value: str
     <DatePicker value={iso} onChange={onSave} suggest={field.suggest} className="w-full rounded-none">
       <CalendarDays className="size-4 shrink-0" />
       <span className="w-16 shrink-0 truncate text-meta">{field.label}</span>
-      <span className={`min-w-0 flex-1 truncate ${iso ? 'text-foreground' : 'text-foreground/70'}`}>
+      <span className={`min-w-0 flex-1 truncate ${iso ? 'text-foreground' : 'text-muted-foreground'}`}>
         {iso ? when(iso) : value ? String(value) : field.ghost ? <GhostText>{field.ghost}</GhostText> : field.placeholder}
       </span>
       {due && <span className="shrink-0 rounded-full px-1.5 text-xs" style={{ color: 'var(--tt-color-text-orange)', background: 'color-mix(in oklab, var(--tt-color-text-orange) 12%, transparent)' }}>Due</span>}
@@ -342,7 +342,7 @@ export function LinkField({ label, placeholder, ghost, does, value, onSave, onOp
         </button>
       ) : (
         <Does does={does}>
-          <button type="button" data-ghost-field={ghost ? '' : undefined} aria-label={placeholder} onClick={() => (chime('open'), setPicking(true))} className="min-w-0 flex-1 truncate text-left text-control text-foreground/70 hover:text-foreground">{ghost ? <GhostText>{ghost}</GhostText> : placeholder}</button>
+          <button type="button" data-ghost-field={ghost ? '' : undefined} aria-label={placeholder} onClick={() => (chime('open'), setPicking(true))} className="min-w-0 flex-1 truncate text-left text-control text-muted-foreground hover:text-foreground">{ghost ? <GhostText>{ghost}</GhostText> : placeholder}</button>
         </Does>
       )}
       {value && (
@@ -772,7 +772,7 @@ export function WritingSpent({ id, took = 0, fallback = null }: { id: string; /*
   if (!spent || spent.seconds < 60) return <>{fallback}</>
   return (
     <Prop icon={PenLine}>
-      <span data-writing-spent className="min-w-0"><span className="mr-1.5 text-muted-foreground/80">Writing</span>About {howLong(seconds / 60)}, {plural(spent.words, 'word', 'words')}{spent.days > 1 ? ` over ${num(spent.days)} days` : ''}</span>
+      <span data-writing-spent className="min-w-0"><span className="mr-1.5 text-muted-foreground">Writing</span>About {howLong(seconds / 60)}, {plural(spent.words, 'word', 'words')}{spent.days > 1 ? ` over ${num(spent.days)} days` : ''}</span>
     </Prop>
   )
 }

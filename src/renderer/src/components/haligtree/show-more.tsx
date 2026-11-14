@@ -35,7 +35,7 @@ export function ShowMore({ total, shown, few, onMore, onFewer, className = '' }:
     <button type="button" data-show-more aria-expanded={whole} onClick={whole ? onFewer : onMore}
       className={`flex h-8 items-center gap-1.5 rounded-md px-2 text-left text-control font-medium text-foreground/85 transition-colors hover:bg-accent/60 hover:text-foreground ${className}`}>
       {whole ? 'Show fewer' : `Show ${num(next)} more`}
-      {!whole && left > next && <span className="font-normal text-foreground/70">of {num(left)}</span>}
+      {!whole && left > next && <span className="font-normal text-muted-foreground">of {num(left)}</span>}
     </button>
   )
 }

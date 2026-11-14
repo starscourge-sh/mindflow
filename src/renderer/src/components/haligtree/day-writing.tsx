@@ -258,7 +258,7 @@ export function PageCap({ editor }: { editor: Editor | null }): React.JSX.Elemen
   return (
     <div data-page-more className="relative z-[2] -mt-9 flex justify-center">
       <button type="button" onClick={() => reveal.current()} className="flex h-7 items-center gap-1.5 rounded-full border border-foreground/10 bg-background px-3 text-control text-muted-foreground shadow-xs transition-colors hover:text-foreground">
-        Show the whole page<span className="tabular-nums text-muted-foreground/80">· {more} more {more === 1 ? 'line' : 'lines'}</span><ChevronDown aria-hidden className="size-3.5" />
+        Show the whole page<span className="tabular-nums text-muted-foreground">· {more} more {more === 1 ? 'line' : 'lines'}</span><ChevronDown aria-hidden className="size-3.5" />
       </button>
     </div>
   )

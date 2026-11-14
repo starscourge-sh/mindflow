@@ -305,7 +305,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
           <span className="ml-1.5 shrink-0 text-muted-foreground">{mac ? 'Dictionary' : 'Free Dictionary'}</span>
         </div>
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={onKeep}
-          className={`min-w-0 cursor-pointer text-left text-body leading-snug text-pretty transition-colors duration-200 ${kept ? 'text-foreground' : 'text-foreground/65 hover:text-foreground/85'}`}>
+          className={`min-w-0 cursor-pointer text-left text-body leading-snug text-pretty transition-colors duration-200 ${kept ? 'text-foreground' : 'text-muted-foreground hover:text-(--mf-muted-strong)'}`}>
           {found.definition}
         </button>
         {found.example && <p className="text-control leading-snug text-muted-foreground italic">{quoted(found.example, 80)}</p>}

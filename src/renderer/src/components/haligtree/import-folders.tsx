@@ -176,7 +176,7 @@ export function ImportFolders(): React.JSX.Element | null {
               <div className="rounded-lg border border-[color-mix(in_oklch,var(--tt-color-text-orange),transparent_70%)] bg-[color-mix(in_oklch,var(--tt-color-text-orange),transparent_92%)] px-3 py-2.5">
                 <p className="text-body font-semibold text-foreground">{REFUSED[step.why].head}</p>
                 <p className="mt-0.5 text-body text-foreground/90">{REFUSED[step.why].line}</p>
-                {step.detail && <p className="mt-1 truncate text-sm text-foreground/75" title={step.detail}>{step.detail}</p>}
+                {step.detail && <p className="mt-1 truncate text-sm text-muted-foreground" title={step.detail}>{step.detail}</p>}
               </div>
               <div className="flex flex-wrap justify-end gap-2">
                 <Button variant="ghost" size="lg" onClick={close}>Close</Button>
@@ -214,7 +214,7 @@ export function ImportFolders(): React.JSX.Element | null {
                         <motion.span initial={false} animate={{ scale: on ? 1 : 0.4, opacity: on ? 1 : 0 }} transition={flat ? { duration: 0 } : { duration: 0.14, ease: EASE }}><Check className="size-3.5" strokeWidth={3} /></motion.span>
                       </span>
                       <FolderClosed className="size-4 shrink-0 text-muted-foreground" />
-                      <span className="min-w-0 flex-1 truncate text-base text-foreground" title={one.name}>{one.name}{ask.from === 'Obsidian' && !one.id && <span className="text-foreground/70"> (notes at the top)</span>}</span>
+                      <span className="min-w-0 flex-1 truncate text-base text-foreground" title={one.name}>{one.name}{ask.from === 'Obsidian' && !one.id && <span className="text-muted-foreground"> (notes at the top)</span>}</span>
                       <span className="shrink-0 text-control text-foreground tabular-nums">{num(one.count)} {one.count === 1 ? 'note' : 'notes'}</span>
                     </button>
                   )

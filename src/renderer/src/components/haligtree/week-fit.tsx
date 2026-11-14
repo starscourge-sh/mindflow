@@ -211,7 +211,7 @@ export function WorkdaySample({ hours }: { hours: number }): React.JSX.Element {
   return (
     <span data-workday-sample className="flex w-44 flex-col gap-1">
       <span className="flex items-baseline justify-between gap-2 text-xs tabular-nums">
-        <span className="text-foreground/75">3h meetings · 4h tasks</span>
+        <span className="text-muted-foreground">3h meetings · 4h tasks</span>
         <span className={load.over ? 'font-semibold' : 'text-muted-foreground'} style={{ color: load.over ? ORANGE : undefined }}><Rolling by="word" text={restSaid(load)} /></span>
       </span>
       <LoadBar load={load} scale={Math.max(load.room, 7 * 60, 12 * 60)} />

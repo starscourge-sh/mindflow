@@ -59,7 +59,7 @@ function Desk({ practice, running, runningId, onOpen }: { practice: PracticeRow;
           <button type="button" data-desk-problem onClick={() => onOpen(loaded.problem!.noteType, loaded.problem!.noteId)} className={row}>
             <span className="shrink-0 font-semibold">Next problem</span>
             <span className="min-w-0 flex-1 truncate">{loaded.problem.text}</span>
-            <span className="shrink-0 text-control text-foreground/70 tabular-nums">{loaded.problem.index + 1} of {loaded.problem.total}</span>
+            <span className="shrink-0 text-control text-muted-foreground tabular-nums">{loaded.problem.index + 1} of {loaded.problem.total}</span>
           </button>
         )}
         {loaded?.source && (

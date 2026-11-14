@@ -149,7 +149,7 @@ export function Proofread({ editor, ask = false }: { editor: Editor | null; /** 
         <span className="min-w-0">
           <span className="text-muted-foreground line-through decoration-foreground/30">{one.text.trim() || '·'}</span>
           {one.replacement !== null && <> <span aria-hidden className="text-muted-foreground">→</span> <span data-proof-fix className="font-medium">{one.replacement || 'remove it'}</span></>}
-          <span data-proof-reason className="ml-2 text-foreground/70">{one.reason}</span>
+          <span data-proof-reason className="ml-2 text-muted-foreground">{one.reason}</span>
         </span>
         <span className="flex items-center gap-1.5 text-meta text-muted-foreground">
           <span className="mr-1.5 tabular-nums">{num(run!.at + 1)} of {num(run!.list.length)}</span>

@@ -47,7 +47,7 @@ export function NowSlot({ children, inset = false }: { children: ReactNode; /** 
         <div className={inset ? 'page-column relative w-full px-3 pt-1.5 @[44rem]/page:px-6' : 'relative w-full pt-1.5'}>
           <button type="button" data-now-more aria-expanded={open}
             onClick={() => (chime(open ? 'fold' : 'slide'), setOpen(!open))}
-            className={`${inset ? '' : '-ml-2 '}flex items-center gap-1 rounded-md px-2 py-1 text-control font-medium text-foreground/75 transition-colors hover:bg-foreground/[0.05] hover:text-foreground`}>
+            className={`${inset ? '' : '-ml-2 '}flex items-center gap-1 rounded-md px-2 py-1 text-control font-medium text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground`}>
             {open ? 'Show fewer' : <><Rolling text={more} /> more for today</>}
             <ChevronDown aria-hidden className={`size-3.5 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
           </button>

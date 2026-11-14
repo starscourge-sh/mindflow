@@ -1816,7 +1816,7 @@ const PictureWordsDemo: Demo = ({ live }) => {
       <div className="rounded-lg border bg-background px-2.5 py-2">
         <p className="flex items-center gap-1.5 text-control text-foreground"><Kbd>⌘K</Kbd> {at === 0 ? '' : typed}<Caret on={live && at === 1} /></p>
         <p className={`mt-1.5 flex items-center gap-1.5 text-meta text-muted-foreground transition-opacity duration-300 ${at === 2 ? '' : 'opacity-0'}`}>
-          <span className="text-foreground/70">In a picture:</span> Lecture 4: the <mark className="rounded-[3px] bg-[var(--tt-color-highlight-yellow)] px-0.5 text-foreground">Stoics</mark>
+          <span className="text-muted-foreground">In a picture:</span> Lecture 4: the <mark className="rounded-[3px] bg-[var(--tt-color-highlight-yellow)] px-0.5 text-foreground">Stoics</mark>
         </p>
       </div>
     </Col>

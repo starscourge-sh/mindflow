@@ -94,7 +94,7 @@ export function DatePicker({ value, onChange, time = false, allDay = false, plac
           {children ?? (
             <>
               <CalendarDays className="size-4 shrink-0" />
-              <span className="truncate">{lead && <span className="mr-1.5 text-muted-foreground/80">{lead}</span>}{shown}</span>
+              <span className="truncate">{lead && <span className="mr-1.5 text-muted-foreground">{lead}</span>}{shown}</span>
             </>
           )}
         </button>

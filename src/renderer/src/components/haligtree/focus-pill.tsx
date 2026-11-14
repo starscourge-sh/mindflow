@@ -1073,7 +1073,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
         <div data-practice-five role="group" aria-label="Keep going?" className="mb-2 flex flex-col gap-1.5 rounded-[12px] bg-[color-mix(in_oklab,var(--foreground)_7%,transparent)] py-2 pr-1.5 pl-3">
           <span className="text-[13px] leading-[18px] font-semibold text-foreground">{START_MIN} minutes done. Keep going{practiceTarget > START_MIN ? ` to ${practiceTarget}` : ''}?</span>
           {/* What leaving it does, on its own line: never squeezed into a column beside the buttons. */}
-          <span data-practice-five-said className="text-[12px] leading-4 text-foreground/75">Leave it and the timer keeps running.</span>
+          <span data-practice-five-said className="text-[12px] leading-4 text-muted-foreground">Leave it and the timer keeps running.</span>
           <span className="flex items-center justify-end gap-1">
             <button type="button" data-practice-five-stop onClick={() => end()} className={WORD_BUTTON}><Kbd className="mr-1">S</Kbd>Stop here</button>
             <button type="button" data-practice-five-yes onClick={guard.carryOn} className={PRIMARY}><Kbd className="mr-1 border-current/30 bg-transparent text-current">↵</Kbd>Keep going</button>
@@ -1097,7 +1097,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
           <div className="flex items-start gap-2">
             <span className="min-w-0 flex-1">
               <span data-stop-question className="block text-[13px] leading-5 font-semibold text-foreground">End early?</span>
-              <span className="block text-[12px] leading-4 text-foreground/75">{done < 60_000 ? 'Under a minute' : lengthSaid(done)} so far.</span>
+              <span className="block text-[12px] leading-4 text-muted-foreground">{done < 60_000 ? 'Under a minute' : lengthSaid(done)} so far.</span>
             </span>
             <Tip label="Keep going  Esc"><button type="button" data-stop-back aria-label="Back: keep it running" onClick={() => (chime('fold'), setStopping(false))} className={`${ICON_BUTTON} -mt-1 -mr-1`}>
               <X className="size-3.5" />

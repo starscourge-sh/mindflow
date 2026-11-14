@@ -67,7 +67,7 @@ export function KeepOrDrop({ scale, period, page }: { scale: 'week' | 'month'; p
             <div key={row.id} data-keep-row={row.id} className="flex items-center gap-3 px-4 py-2">
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-body text-foreground">{row.name}</span>
-                <span className="block text-control text-foreground/75">{row.how}</span>
+                <span className="block text-control text-muted-foreground">{row.how}</span>
               </span>
               <button type="button" aria-pressed={kept.has(row.id)} onClick={() => keep(row)}
                 className={`h-7 rounded-md px-2.5 text-control font-medium transition-colors ${kept.has(row.id) ? 'bg-foreground text-background' : 'text-foreground hover:bg-accent'}`}>

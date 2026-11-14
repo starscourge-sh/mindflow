@@ -61,7 +61,7 @@ function Framed({ tryIt, children, className, compact = false, flush = false, fr
     <div ref={frame} data-example-frame className={cn('flex min-w-0 flex-col', className)}>
       {/* One look on every page, over a picture or not: a solid line, opaque, so the scenery never shows through its words. */}
       <div role="note" data-example-line className={cn('relative flex shrink-0 items-baseline gap-2 rounded-lg border border-foreground/15 bg-background text-control text-muted-foreground', compact ? 'mx-1 mt-2 mb-1 px-2.5 py-1.5' : flush ? 'mb-1 py-2 pr-3 pl-3' : 'list-box mt-3 mb-1 py-2 pr-3')}>
-        <span className="shrink-0 rounded-full bg-foreground/[0.06] px-2 py-px text-meta font-medium text-foreground/75">Example</span>
+        <span className="shrink-0 rounded-full bg-foreground/[0.06] px-2 py-px text-meta font-medium text-muted-foreground">Example</span>
         {/* Dia's way: what to do, in bold, carries it; what then happens is plain. */}
         <span className={cn('mf-prose min-w-0', compact ? 'text-body' : 'text-[0.9375rem]')}>
           Try it: <Said text={tryIt} />

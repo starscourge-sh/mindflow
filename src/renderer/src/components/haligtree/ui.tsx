@@ -656,7 +656,7 @@ export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type
   const field = (
     <label data-ghost-field={ghost && !value ? '' : undefined} className="flex w-full cursor-text items-center gap-2 rounded-md px-2 py-1.5 hover:bg-accent focus-within:bg-accent">
       <Icon className="size-4 shrink-0" />
-      {lead && value && <span data-lead className="shrink-0 text-control text-muted-foreground/80">{lead}</span>}
+      {lead && value && <span data-lead className="shrink-0 text-control text-muted-foreground">{lead}</span>}
       <input
         type={type}
         min={type === 'number' ? 0 : undefined}
@@ -2131,10 +2131,10 @@ export function AskWho({ id, initial = '', onDone }: { id: string; initial?: str
         }}
       />
       {/* Pressed without taking the focus from the field, so its blur does not close the line first. */}
-      <button type="button" data-ask-who-unattributed className="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-meta text-foreground/70 transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
+      <button type="button" data-ask-who-unattributed className="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
         onPointerDown={(event) => event.preventDefault()} onClick={() => keep(UNATTRIBUTED)}>{UNATTRIBUTED}</button>
       {/* Never a quote at all: a note again, with Undo, and the line closes. */}
-      <button type="button" data-ask-who-not-quote className="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-meta text-foreground/70 transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
+      <button type="button" data-ask-who-not-quote className="shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-meta text-muted-foreground transition-colors hover:bg-foreground/[0.05] hover:text-foreground"
         onPointerDown={(event) => event.preventDefault()} onClick={() => void call<{ kind: string; fields: string | null } | null>('notes:kind', 'captures', id, 'note').then((was) => { onDone(); if (was) (chime('retag'), toast('Not a quote: kept as a note of yours', () => void call('notes:kind:undo', 'captures', id, was))) })}>Not a quote</button>
     </div>
   )

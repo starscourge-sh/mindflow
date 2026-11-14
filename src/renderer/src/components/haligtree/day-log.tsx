@@ -85,7 +85,7 @@ export function DayLog({ day, given, only, onOpen, lengths, title = 'The day, ho
                   <span className={`${TIME_COLUMN} shrink-0 text-right text-control text-muted-foreground tabular-nums`}>{timed ? clock(row.at!) : 'All day'}</span>
                   <Icon className="size-3.5 shrink-0 translate-y-0.5" style={kind && row.what === 'captured' ? { color: kind.tint } : { color: 'var(--muted-foreground)' }} />
                   <span className="min-w-0 flex-1 text-body text-foreground">
-                    <span className="mr-1.5 text-control font-medium text-foreground/75">{SAID[row.what].verb}</span>
+                    <span className="mr-1.5 text-control font-medium text-muted-foreground">{SAID[row.what].verb}</span>
                     <span className="private-text hyphens-auto [overflow-wrap:break-word]">{name.text || 'New note'}</span>
                     {!!name.tags.length && <span className="ml-1.5 inline-flex align-middle"><Tags tags={name.tags} go={false} /></span>}
                   </span>

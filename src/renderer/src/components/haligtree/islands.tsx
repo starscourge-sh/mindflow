@@ -151,7 +151,7 @@ function IslandMore({ island, shown }: { island: IslandState; shown: number }): 
     <button type="button" data-island-more onClick={island.whole ? island.onFewer : island.onWhole}
       className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-control font-medium text-foreground/80 transition-colors hover:bg-accent/50 hover:text-foreground">
       {island.whole ? 'Show fewer' : `Show ${num(next)} more`}
-      {!island.whole && more > next && <span className="font-normal text-foreground/70">of {num(more)}</span>}
+      {!island.whole && more > next && <span className="font-normal text-muted-foreground">of {num(more)}</span>}
     </button>
   )
 }

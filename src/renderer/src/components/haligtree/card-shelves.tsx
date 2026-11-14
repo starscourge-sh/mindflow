@@ -115,7 +115,7 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
   const face = (side: 'front' | 'back', children: React.ReactNode): React.JSX.Element => (
     <div data-card-face={side} className={`mf-poster relative flex aspect-[4/5] w-full min-w-0 flex-col overflow-hidden rounded-lg ${size === 'lg' ? 'p-6' : 'p-4'} ${picked ? 'ring-2 ring-[var(--tt-brand-color-400)]' : ''}`} style={{ '--tint': tint } as React.CSSProperties}>
       {children}
-      <div className={`${side === 'front' ? 'mt-3' : 'mt-auto pt-2'} flex items-end justify-between gap-2 text-[11px] leading-tight text-foreground/70`}>
+      <div className={`${side === 'front' ? 'mt-3' : 'mt-auto pt-2'} flex items-end justify-between gap-2 text-[11px] leading-tight text-muted-foreground`}>
         <span className="min-w-0 truncate">{where || (card.tags[0] ? deckTitle(card.tags[0]) : '')}</span>
         <span className="flex shrink-0 items-center gap-1">
           {dueShort(card) !== 'new' && <span>{dueShort(card)}</span>}
@@ -176,7 +176,7 @@ export function FlipThrough({ cards, render, at, onAt }: { cards: BrowsedCard[];
           </div>
         )
       })}
-      <div className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-control text-foreground/70 tabular-nums">{num(at + 1)} of {num(cards.length)} · ← → to move, Space turns it over</div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-2 text-center text-control text-muted-foreground tabular-nums">{num(at + 1)} of {num(cards.length)} · ← → to move, Space turns it over</div>
     </div>
   )
 }

@@ -79,7 +79,7 @@ export function CardFormFoot({ deck, onDeck, tags, onTags, both, onBoth, status,
 }): React.JSX.Element {
   return (
     <div data-card-form-foot className="grid gap-2 border-t border-dashed border-foreground/15 pt-2.5">
-      {status && <p data-card-form-status className="text-control text-foreground/70">{status}</p>}
+      {status && <p data-card-form-status className="text-control text-muted-foreground">{status}</p>}
       <div className="flex flex-wrap items-center gap-2">
         <DeckPick value={deck} onChange={onDeck} />
         <input data-card-form-tags value={tags} onChange={(event) => onTags(event.target.value)} placeholder="More tags" aria-label="More tags"
@@ -87,7 +87,7 @@ export function CardFormFoot({ deck, onDeck, tags, onTags, both, onBoth, status,
         {onBoth && (
           <Tip label="A second card asks the answer first: for when you meet the answer first, like a word you hear">
             <label data-new-both-row className="flex h-8 cursor-pointer items-center gap-1.5 px-1 text-control">
-              <Switch size="sm" data-new-both checked={!!both} onCheckedChange={onBoth} className="cursor-pointer" /><span className="text-foreground/70">Both ways</span>
+              <Switch size="sm" data-new-both checked={!!both} onCheckedChange={onBoth} className="cursor-pointer" /><span className="text-muted-foreground">Both ways</span>
             </label>
           </Tip>
         )}

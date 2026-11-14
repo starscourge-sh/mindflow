@@ -233,7 +233,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                           narrow session panel its box's heading says “Blocking” instead, so the name has the room. */}
                       <span className={`flex min-w-0 ${compact ? 'flex-1 flex-col' : 'items-baseline gap-1.5'}`}>
                         <span data-site-group-name className="truncate font-medium whitespace-nowrap">{compact ? '' : 'Blocking: '}{COLLECTIONS[name].name}</span>
-                        <span data-site-group-count className={`truncate whitespace-nowrap text-foreground/70 tabular-nums ${compact ? 'text-[12px] leading-4' : ''}`}>{compact ? (left ? `${sites.length - left} of ${num(sites.length)} blocked` : `All ${num(sites.length)} blocked`) : `(${left ? `${sites.length - left} of ${sites.length}` : sites.length})`}</span>
+                        <span data-site-group-count className={`truncate whitespace-nowrap text-muted-foreground tabular-nums ${compact ? 'text-[12px] leading-4' : ''}`}>{compact ? (left ? `${sites.length - left} of ${num(sites.length)} blocked` : `All ${num(sites.length)} blocked`) : `(${left ? `${sites.length - left} of ${sites.length}` : sites.length})`}</span>
                       </span>
                       <span data-site-chevron className="grid size-6 shrink-0 place-items-center"><ChevronDown className={`size-3.5 text-muted-foreground transition-transform ${opened === entry ? 'rotate-180' : ''}`} /></span>
                     </button>
@@ -282,7 +282,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                 <button key={name} type="button" data-site-starter={`@${name}`} onClick={() => add({ id: `@${name}`, label: `Block ${one.name}`, entry: `@${name}`, collection: name })}
                   className={`flex h-7 min-w-0 items-center gap-1.5 rounded-md border border-dashed bg-transparent px-2 text-control whitespace-nowrap text-foreground transition-colors hover:border-solid hover:bg-accent ${compact ? 'w-full' : ''}`}>
                   {!compact && <span className="flex shrink-0 gap-0.5">{one.sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>}
-                  <span className="min-w-0 truncate">Block <span className="font-medium">{one.name}</span> <span className="text-foreground/70 tabular-nums">({num(one.sites.length)}{compact ? '' : ' sites'})</span></span>
+                  <span className="min-w-0 truncate">Block <span className="font-medium">{one.name}</span> <span className="text-muted-foreground tabular-nums">({num(one.sites.length)}{compact ? '' : ' sites'})</span></span>
                   <span aria-hidden className="ml-auto shrink-0 pl-1 font-medium text-foreground/70">+</span>
                 </button>
               ))}

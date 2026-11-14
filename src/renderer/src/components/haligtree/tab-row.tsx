@@ -95,7 +95,7 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
           <button type="button" role="tab" aria-selected={on} onClick={() => actions.select(group.pane, tab.key)}
             onPointerEnter={(event) => { const name = event.currentTarget.querySelector('span'); setCut(!!name && name.scrollWidth > name.clientWidth) }}
             className={`relative flex min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-full pl-2 text-control transition-[color,background-color,scale] duration-[120ms] outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97] ${
-              on ? (strong ? 'font-medium text-foreground' : 'text-foreground/70') : 'bg-foreground/[0.035] text-muted-foreground shadow-[inset_0_0_0_1px_var(--mf-tab-edge)] hover:bg-foreground/[0.07] hover:text-foreground'}`}>
+              on ? (strong ? 'font-medium text-foreground' : 'text-muted-foreground') : 'bg-foreground/[0.035] text-muted-foreground shadow-[inset_0_0_0_1px_var(--mf-tab-edge)] hover:bg-foreground/[0.07] hover:text-foreground'}`}>
             <Icon className="size-3.5 shrink-0" style={{ color: tab.tint }} />
             {/* Its end fades out before the ✕, with clear air; nothing moves when the ✕ shows (split.css). */}
             <span data-tab-name dir={rtl ? 'rtl' : 'ltr'} data-private={tab.private ? '' : undefined} className="private-text min-w-0 flex-1 overflow-hidden text-left whitespace-nowrap">

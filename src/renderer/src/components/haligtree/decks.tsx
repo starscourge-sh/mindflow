@@ -137,7 +137,7 @@ export function DeckPick({ value, onChange }: { value: string; onChange: (tag: s
       <DropdownMenuTrigger asChild>
         <button type="button" data-deck-pick={tag || 'none'}
           className="flex h-8 max-w-56 cursor-pointer items-center gap-1.5 rounded-md border border-foreground/10 px-2.5 text-control outline-none hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring max-sm:h-9">
-          <span className="text-foreground/70">Deck</span>
+          <span className="text-muted-foreground">Deck</span>
           <span className={`truncate ${tag ? 'text-foreground' : 'text-muted-foreground'}`}>{tag ? deckTitle(tag, decks.map((one) => one.tag)) : 'No deck'}</span>
           <ChevronDown className="size-3.5 shrink-0 text-muted-foreground" />
         </button>

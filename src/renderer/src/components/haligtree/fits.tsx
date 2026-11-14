@@ -238,7 +238,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
               {fit.length ? (
                 <p data-fits-said className="px-2 pb-2 text-body text-foreground">
                   <strong className="font-semibold"><Rolling text={fit.length === 1 ? 'One task fits' : `${num(fit.length)} tasks fit`} by="word" /></strong>
-                  <span className="text-foreground/75">, most urgent and important first. Pick one to start a focus session.</span>
+                  <span className="text-muted-foreground">, most urgent and important first. Pick one to start a focus session.</span>
                 </p>
               ) : (
                 <div data-fits-empty className="px-2 pb-2">
@@ -262,7 +262,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
                 <>
                   <div className="mt-3 flex items-baseline gap-2 px-2 pb-1">
                     <h3 className="text-control font-semibold text-foreground">No length yet</h3>
-                    <span className="text-control text-foreground/70">Press 1 to 5, or click a length, and it moves up if it fits.</span>
+                    <span className="text-control text-muted-foreground">Press 1 to 5, or click a length, and it moves up if it fits.</span>
                   </div>
                   <ul data-fits-unsized className="flex flex-col">
                     {unsized.map((task, index) => row(task, fit.length + index))}
