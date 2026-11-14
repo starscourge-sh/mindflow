@@ -2866,17 +2866,36 @@ body:has(.mf-look) [data-radix-popper-content-wrapper] {
 }
 
 .mf-look-foot {
+  // Centred across the whole window. Placed by its left edge at the middle, it could only be as wide as the window's
+  // right half, so a long file name pushed "Open in its app" onto two lines (the user, 14 Nov). The words beside the
+  // buttons give way first; a button's words never break.
   position: absolute;
   bottom: 1rem;
-  left: 50%;
-  translate: -50% 0;
-  max-width: calc(100% - 2rem);
+  inset-inline: 1rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+
+  > * {
+    min-width: 0;
+    max-width: 100%;
+    pointer-events: auto;
+  }
+
+  .tiptap-toolbar-group {
+    flex-shrink: 0;
+  }
+
+  .tiptap-button {
+    white-space: nowrap;
+  }
 }
 
 .mf-look-caption {
   // The whole caption, up to two lines: it is the picture's own words, not a label to cut.
   display: -webkit-box;
   overflow: hidden;
+  min-width: 0;
   max-width: min(40rem, 70vw);
   padding: 0 0.5rem;
   font-size: 0.8125rem;
