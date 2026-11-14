@@ -8,8 +8,10 @@ import { STORIES, gemOf } from '../src/renderer/src/lib/welcome-stories.ts'
 process.env.QA_ARGS ??= '--sandbox'
 const c = await sandbox({ width: 1000, height: 700 })
 const { h } = c
+// Quick capture's typed examples (lib/welcome-box.ts, EXAMPLES). Its quote is Marcus Aurelius since c782014eb, which
+// replaced the copyrighted Tolkien line in the examples and the sandbox alike.
 const asks = ['petrichor',
-  'Frodo never wanted the ring', 'All we have to decide is what to do with the time', 'anagnorisis', 'Rosetta Stone', 'Ask Hermione for the potions notes',
+  'Frodo never wanted the ring', 'While thou livest, while it is in thy power, be good', 'anagnorisis', 'Rosetta Stone', 'Ask Hermione for the potions notes',
 ]
 let failed = 0
 try {
