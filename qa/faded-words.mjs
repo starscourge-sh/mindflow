@@ -3,7 +3,7 @@
 // 60% or 80%, and the rest): every word drawn in a faded ink (the ink at any alpha under 1, Faded Ink at any alpha, its
 // strong step), placeholders included, on the ground it really sits on, reaches 4.5:1, or 3:1 when large (24px, or
 // 18.66px and bold). Each page in Paper, Light, Dark, Everforest and Tokyo Night, in the Soft, Paper and Brutal styles,
-// and in Brutal again with up to five rows pointed at, one by one, by the pointer (a list's, the sidebar's, a menu's):
+// and in Brutal again with up to six rows pointed at, one by one, by the pointer (two of the sidebar's, four of the page's):
 // their words measured on the accent's wash under them, a glide list's light included. A row dimmed to show its state
 // (a closed question, a paused card) is measured as it is drawn, at that strength.
 // Left out, as not words: icons and drawings (no words of their own), a lone dot or arrow between words, disabled
@@ -141,20 +141,23 @@ try {
       if (shots && style === 'soft' && (theme === 'paper' || theme === 'dark')) await h.screenshot({ path: join(shots, `faded-${id}-${theme}.png`) })
     }
     check(`${id}: the page shows faded words to measure`, most > 0, `${most} at most`)
-    // Rows pointed at in Brutal, whose wash is the accent 22% into the card (brutal.css): up to five rows with quiet words
-    // (a list's, the sidebar's, a menu's), each hovered with the pointer and its words measured on the wash under them.
+    // Rows pointed at in Brutal, whose wash is the accent 22% into the card (brutal.css): up to two of the sidebar's rows and
+    // four of the page's with quiet words, each hovered with the pointer and its words measured on the wash under them.
     for (const theme of THEMES) {
       await wear(theme, 'brutal')
       const rows = await h.evaluate(() => {
         for (const old of document.querySelectorAll('[data-qa-row]')) old.removeAttribute('data-qa-row')
         const out = []
+        const room = { side: 2, page: 4 }
         for (const el of document.querySelectorAll('[data-row], [data-side-row], [role="option"], [role="menuitem"], [class*="hover:bg-accent"]')) {
-          if (out.length >= 5) break
+          const where = el.closest('aside[data-chrome]') ? 'side' : 'page'
+          if (!room[where]) continue
           const box = el.getBoundingClientRect()
           if (box.height < 16 || box.height > 160 || box.top < 40 || box.bottom > innerHeight - 4 || box.left < 0 || box.right > innerWidth) continue
           if (el.closest(':disabled, [inert], [data-example], [data-qa-row]') || el.querySelector('[data-qa-row]') || !el.checkVisibility({ opacityProperty: true })) continue
           if (!el.matches('[class*="text-muted-foreground"], [class*="mf-muted"]') && !el.querySelector('[class*="text-muted-foreground"], [class*="mf-muted"]')) continue
           el.setAttribute('data-qa-row', String(out.length))
+          room[where]--
           out.push({ n: out.length, x: box.left + Math.min(box.width / 2, 120), y: box.top + box.height / 2 })
         }
         return out
