@@ -298,6 +298,20 @@ export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefin
 }
 
 /**
+ * Words that say a name is a thing and not a person, whatever the Mac tags it: a site or a wiki ("Elden Ring Lore
+ * Wiki"), a company or a body ("Bell Labs"), a product ("Asahi Linux", "Arc Raiders Quick Menu") or a method named
+ * after someone ("Dan Harmon Circle"). No one's own name holds one.
+ */
+const THINGS = new Set(('wiki wikis wikipedia fandom blog forum website ' +
+  'inc ltd llc plc gmbh corp corporation company labs studios publishing publishers media magazine journal quarterly podcast channel university college institute foundation society association museum library ' +
+  'app apps api apis sdk plugin plugins menu software linux ' +
+  'circle cycle method technique principle theorem effect paradox formula').split(' '))
+/** A word of a name as one is written: with a capital ("Wilde", "van Rossum"'s "Rossum"), or initials ("J.R.R."). */
+const nameWord = (word: string): boolean => /^\p{Lu}/u.test(word)
+/** An acronym (API, IRA) beside words in lower case marks a product or a body; a king's numeral ("Henry VIII") does not. */
+const acronym = (word: string): boolean => /^\p{Lu}{3,}$/u.test(word) && !/^[IVXLCDM]+$/.test(word)
+
+/**
  * The people a note names, as Apple's Natural Language tags them, kept to
  * those that are surely people: a name that is also an everyday word ("Tempo",
  * "Brown", "Bake" at a sentence's start) is not, a leading everyday word goes
@@ -306,15 +320,21 @@ export function linksIn(index: RootIndex, text: string, lemmas: Lemmas | undefin
  * "David" the statue) was a person only 4 times in 5 on the bench, so a single
  * name is offered only when it is already one of your People (as a link to
  * their page). Organisations were right 1 time in 5 (ATP, ISO, Saturn), so
- * none are offered.
+ * none are offered, nor a name the Mac tags a person whose words say it is a
+ * site, a company, a product or a method (THINGS, or an acronym: "Roth IRA").
+ * The Mac's words may run past the name: a dash or a colon ends it
+ * ("Epictetus - What You Read"), and words without a capital at either end are
+ * not part of it ("Devon Crawford aesthetic", "reed.dread Bayle").
  */
 export function peopleIn(names: { text: string; kind: string }[], common: (word: string) => boolean, known: (name: string) => boolean = () => false): string[] {
   const places = new Set(names.filter((one) => one.kind === 'place').map((one) => one.text))
   const out = new Set<string>()
   for (const one of names) {
     if (one.kind !== 'person' || places.has(one.text)) continue
-    const words = one.text.split(/\s+/)
-    while (words.length && common(words[0].toLowerCase())) words.shift()
+    const words = one.text.split(/\s+[-\u2013\u2014]\s+|:\s/)[0].split(/\s+/).filter(Boolean)
+    while (words.length && !nameWord(words.at(-1)!)) words.pop()
+    if (words.some((word) => THINGS.has(word.toLowerCase())) || (words.some((word) => /\p{Ll}/u.test(word)) && words.some(acronym))) continue
+    while (words.length && (!nameWord(words[0]) || common(words[0].toLowerCase()))) words.shift()
     if (!words.length || (words.length === 1 && (words[0].length < 3 || common(words[0].toLowerCase()) || !known(words[0])))) continue
     out.add(words.join(' '))
   }

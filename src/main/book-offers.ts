@@ -1,7 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { readFileSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
-import { onlyInTitles } from './title-names'
+import { sortNamed } from './title-names'
 import { tagsIn, withoutTags } from './tag-words'
 import { everyday } from './name-match'
 import { LABEL } from './book-words'
@@ -223,24 +223,7 @@ export function bookOffers(db: DatabaseSync, { keptFile, understand, named }: Of
     const titles = works(all, tags)
     const about = workOfNote(key, text)
     const found = peopleIn((names.names as { text: string; kind: string }[] | undefined) ?? [], common, (name) => people.has(name.toLowerCase()) || cast.has(name.toLowerCase()))
-    // Where each name lives: a character already kept; a person you know; a name met only inside the title of a work
-    // ("The Picture of Dorian Gray"), a character in it; anyone a note about a work names, besides its author, a character
-    // of that work; anyone else, a person.
-    const characters: NoteOffers['characters'] = []
-    const persons: NoteOffers['people'] = []
-    for (const name of found) {
-      const lower = name.toLowerCase()
-      const kept = cast.get(lower)
-      if (kept) characters.push({ name: kept.name, work: kept.work, known: true })
-      else if (people.has(lower)) persons.push({ name, known: true })
-      else if (onlyInTitles(text, name, titles)) {
-        // The work by its name alone: a note's title carries its tags ("The Picture of Dorian Gray #book").
-        const held = titles.find((title) => title.toLowerCase().includes(lower) && text.toLowerCase().includes(title.toLowerCase()))
-        characters.push({ name, work: held ? withoutTags(held).replace(/\s+/g, ' ').trim() : about?.work ?? name, known: false })
-      }
-      else if (about && lower !== about.author.toLowerCase() && !about.work.toLowerCase().includes(lower)) characters.push({ name, work: about.work, known: false })
-      else if (!about || lower !== about.author.toLowerCase()) persons.push({ name, known: false })
-    }
+    const { people: persons, characters } = sortNamed(text, found, { cast, people, titles, about })
     return {
       // A few more than are shown: the page drops any whose words stand only in code or a link (note-offers.tsx).
       links: named('offers: names found in the note', () => linksIn(book, text, read.lemmas, key, new Set(linked), everyday)).slice(0, 8),
