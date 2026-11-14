@@ -13,13 +13,20 @@
 //    the footer at 900 by 700 and 1600 by 1000
 //  Light, then dark with a tag given. A screenshot of each beat. Then Motion off: both whole at once.
 //
-//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-flow.mjs [shots-dir]
+//   npx electron-vite build --outDir out-x && QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_PART=<parts>] node qa/welcome-flow.mjs [shots-dir]
+// Whole, it runs past a test job's five minutes: QA_PART runs some of its parts (comma-separated: thread-light,
+// thread-dark, catch, still, name, stories), each well inside one; all of them when unset.
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { STORIES, gemOf } from '../src/renderer/src/lib/welcome-stories.ts'
 const esc = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 const SHOTS = process.argv[2] ?? ''
+const PARTS = ['thread-light', 'thread-dark', 'catch', 'still', 'name', 'stories']
+const asked = (process.env.QA_PART ?? '').split(',').map((one) => one.trim()).filter(Boolean)
+if (asked.some((one) => !PARTS.includes(one))) (console.log(`FAIL QA_PART names a part this probe does not have  (${asked.join()}; parts: ${PARTS.join()})`), process.exit(1))
+/** Whether this run plays the part named: every part when none is asked for. */
+const part = (name) => !asked.length || asked.includes(name)
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 let failed = 0
 const check = (name, ok, more = '') => {
@@ -34,7 +41,7 @@ const PICKED = ['task', 'kept', 'gem']
 // The story's day, as the welcome names it: two days from today.
 const DAY = new Date(Date.now() + 2 * 86400000).toLocaleDateString('en-GB', { weekday: 'long' })
 
-for (const [theme, tag] of [['light', null], ['dark', 'film-essays']]) {
+for (const [theme, tag] of [['light', null], ['dark', 'film-essays']].filter(([theme]) => part(`thread-${theme}`))) {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
   const { h } = c
   try {
@@ -292,7 +299,7 @@ const chipsWhole = (h) => h.evaluate(() => [...document.querySelectorAll('.mf-we
   const centred = !!c && !!t && Math.abs((t.top + t.bottom) / 2 - (c.top + c.bottom) / 2) <= 2
   return { kind: slot.dataset.slot, ok: inside(c, s) && inside(t, c) && centred, off: c && t ? Math.round((t.top + t.bottom) / 2 - (c.top + c.bottom) / 2) : null }
 }))
-for (const [w, hh, theme] of [[900, 700, 'light'], [1600, 1000, 'dark'], [900, 700, 'dark'], [1600, 1000, 'light']]) {
+for (const [w, hh, theme] of [[900, 700, 'light'], [1600, 1000, 'dark'], [900, 700, 'dark'], [1600, 1000, 'light']].filter(() => part('catch'))) {
   const c = await sandbox({ width: w, height: hh, seeded: false })
   const { h } = c
   try {
@@ -334,7 +341,7 @@ for (const [w, hh, theme] of [[900, 700, 'light'], [1600, 1000, 'dark'], [900, 7
 }
 
 // Motion off: Write and Remember whole at once, the closing line with them.
-{
+if (part('still')) {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
   const { h } = c
   try {
@@ -367,7 +374,7 @@ for (const [w, hh, theme] of [[900, 700, 'light'], [1600, 1000, 'dark'], [900, 7
 }
 // Name it: the book's name typed on its reader card, light then dark. Typed and kept with Enter; then, played again,
 // started from that name, cleared and left empty, the drawn name kept. Saved as the book's name: books:list, the sidebar.
-for (const theme of ['light', 'dark']) {
+for (const theme of ['light', 'dark'].filter(() => part('name'))) {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
   const { h } = c
   try {
@@ -431,7 +438,7 @@ for (const theme of ['light', 'dark']) {
   }
 }
 // Each run of the welcome picks its story afresh: opened 40 times, all five come up.
-{
+if (part('stories')) {
   const c = await sandbox({ width: 1280, height: 800, seeded: false })
   const { h } = c
   try {
