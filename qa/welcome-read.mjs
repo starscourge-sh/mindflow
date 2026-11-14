@@ -64,13 +64,17 @@ try {
     const words = section?.querySelector('[data-words]') ?? section?.querySelector('[data-reel]')
     if (!section) return { words: '', stage: '' }
     const parts = []
+    // What each part is, for the line that says what moved (never compared).
+    const about = []
     for (const el of [...section.querySelectorAll('*')].slice(0, 600)) {
       if (words?.contains(el) || el.closest('.mf-ghost-caret, .mf-caret, svg, [data-float]')) continue
       const r = el.getBoundingClientRect()
       if (!r.width) continue
       parts.push(`${el.tagName.toLowerCase()}.${String(el.className).split(' ')[0]}@${Math.round(r.x / 4)},${Math.round(r.y / 4)},${Math.round(r.width / 4)},${Math.round(Number(getComputedStyle(el).opacity) * 5)}`)
+      const named = (one) => one ? [...one.attributes].filter((a) => a.name.startsWith('data-')).map((a) => `${a.name}=${a.value.slice(0, 12)}`).join(' ') : ''
+      about.push(`${named(el)} in ${named(el.closest('[data-flow], [data-reel], [data-moment], [data-slot], [data-box]')) || el.parentElement?.className?.toString().slice(0, 40)} "${(el.textContent ?? '').trim().slice(0, 30)}"`)
     }
-    return { words: (words?.innerText ?? '').replace(/\s+/g, ' ').trim(), stage: parts.join(';') + `;text ${section.innerText.length - (words?.innerText.length ?? 0)}` }
+    return { words: (words?.innerText ?? '').replace(/\s+/g, ' ').trim(), stage: parts.join(';') + `;text ${section.innerText.length - (words?.innerText.length ?? 0)}`, about }
   })
   // Demo parts on the stage: no panel sits over another, and no panel stands empty (a frame with nothing in it reads as unfinished).
   const layout = () => h.evaluate(() => {
@@ -131,7 +135,9 @@ try {
   })
   // Words in the accent colour that nothing explains: only the words that shine (.mf-sheen), the app's own lit tokens
   // drawn as it draws them (a date read, an @ being typed: [data-accent-ok]; a kind's wash on its card: [data-wash]), a marker that says
-  // what it marks ([data-accent-ok]) and the buttons may wear it. And thesis lines as they come, for their order.
+  // what it marks ([data-accent-ok]) and the buttons may wear it. And a reader's note in the margin ([data-margin-note]),
+  // written in the pen's ink with an arrow drawn to the line it is about (784381173, cc9f895bc: a marker that says what
+  // it marks, as the commonplace book is annotated). And thesis lines as they come, for their order.
   const marks = () => h.evaluate(() => {
     const root = document.querySelector('.mf-welcome main')
     if (!root) return { accent: [], thesis: [] }
@@ -144,7 +150,7 @@ try {
     const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
     for (let node = walk.nextNode(); node; node = walk.nextNode()) {
       const el = node.parentElement
-      if (!node.textContent.trim() || !el || el.closest('.mf-sheen, [data-accent-ok], [data-wash], button, [aria-hidden="true"], [data-overlay]')) continue
+      if (!node.textContent.trim() || !el || el.closest('.mf-sheen, [data-accent-ok], [data-margin-note], [data-wash], button, [aria-hidden="true"], [data-overlay]')) continue
       const r = el.getBoundingClientRect()
       if (!r.width) continue
       if (getComputedStyle(el).color === primary) accent.add(el.innerText.trim().slice(0, 60))
@@ -183,7 +189,7 @@ try {
     const caught = fake ? await layout() : { empty: [], over: [] }
     await h.evaluate(() => (document.getElementById('qa-fake-panel')?.remove(), document.getElementById('qa-fake-twin')?.remove()))
     const works = caught.empty.length > 0 && caught.over.length > 0
-    console.log(`${works ? 'ok' : 'BROKEN'}: the empty-frame and overlap checks catch a made-up empty panel over another`)
+    console.log(`${works ? 'ok' : 'FAIL'}: the empty-frame and overlap checks catch a made-up empty panel over another`)
     if (!works) failed++
   }
   const steps = ['Why', 'You', 'Catch', 'Write', 'Remember', 'Make it yours']
@@ -229,7 +235,11 @@ try {
         let same = 0
         while (same < was.length && was[same] === is[same]) same++
         const fresh = is.slice(same).join(' ')
-        said = { words: now.words, at: said ? t : t - 700, read: Math.max(1200, (fresh.trim().split(/\s+/).length * 60000) / 400), stage: null }
+        // Write's demo starts once its title and the line's first sentence are read, the rest of the line read on while it
+        // plays (98bbc1250: its box no longer stands empty while the whole line is read; welcome.tsx, glance): only those
+        // hold its stage still.
+        const held = steps[at] === 'Write' ? (fresh.match(/^(?:[^.]*\.){2}/)?.[0] ?? fresh) : fresh
+        said = { words: now.words, at: said ? t : t - 700, read: Math.max(1200, (held.trim().split(/\s+/).length * 60000) / 400), stage: null }
       }
       else if (said && t > said.at + 500 && t < said.at + said.read - 600) {
         // Let the page settle in for half a second, then the stage must hold still until the words are skimmed
@@ -241,7 +251,7 @@ try {
           // What moved, for whoever fixes it.
           const [a, b] = [said.stage.split(';'), now.stage.split(';')]
           const i = a.findIndex((one, k) => one !== b[k])
-          console.log(`   moved at ${t - said.at}ms: ${a[i]} -> ${b[i]}`)
+          console.log(`FAIL the stage holds still while its headline is read  (${steps[at]}, at ${t - said.at}ms, “${said.words.slice(0, 60)}”: ${a[i]} -> ${b[i]}, ${now.about?.[i] ?? ''})`)
         }
       }
       const parts = await layout()
@@ -312,8 +322,8 @@ try {
     console.log(`   ${steps[at]}: ready at ${((readyAt ?? end) / 1000).toFixed(1)}s, longest still hold ${(longest / 1000).toFixed(1)}s${holds.length ? ` (${holds.map((one) => `${(one.ms / 1000).toFixed(1)}s at ${(one.at / 1000).toFixed(1)}s`).join(', ')})` : ''}`)
     console.log(`-- ${steps[at]}: played ${Math.round(end / 100) / 10}s${busy.length ? `; the stage moved while these were being read: ${busy.map((one) => `“${one.slice(0, 50)}”`).join(', ')}` : ''}`)
     moved += busy.length
-    for (const one of empty) console.log(`   EMPTY frame: ${one}`)
-    for (const one of over) console.log(`   OVERLAP: ${one}`)
+    for (const one of empty) console.log(`FAIL no empty demo frame  (${one})`)
+    for (const one of over) console.log(`FAIL no demo part over another  (${one})`)
     empties += empty.size
     overs += over.size
     // On: Next, or past Your turn without trying it.
@@ -329,7 +339,7 @@ try {
   // Haligtree does it all in one book: no line of the welcome says it sits between, links or syncs other apps.
   const CONNECTOR = /between them|thread between|\bconnects?\b|\bbridges?\b|in sync with|syncs? with|integrat/i
   const linking = [...new Set(rows.filter((one) => CONNECTOR.test(one.text)).map((one) => `${one.step}: ${one.text.slice(0, 80)}`))]
-  for (const one of linking) console.log(`   CONNECTOR WORDING: ${one}`)
+  for (const one of linking) console.log(`FAIL no line makes Haligtree sound like a link between other apps  (${one})`)
   console.log(`${linking.length} lines that make Haligtree sound like a link between other apps`)
   failed += linking.length
   const shorts = rows.filter((one) => one.short)
@@ -340,6 +350,7 @@ try {
   // What fails: a line of the welcome's own words (its titles, step lines, comparisons; 19px and up)
   // leaving before it can be read. Smaller words inside the moving pictures are listed, not failed.
   const lost = shorts.filter((one) => one.size >= 19)
+  for (const one of lost) console.log(`FAIL a line of the welcome's own words stays up until it can be read  (${one.step}: up ${(one.upMs / 1000).toFixed(1)}s, ${one.words} words need ${(one.needMs / 1000).toFixed(1)}s: ${one.text.slice(0, 80)})`)
   console.log(`${lost.length} of the welcome's own lines (19px and up) gone before they could be read`)
   console.log(`${moved} times the stage moved while its headline was still being read`)
   console.log(`${empties} empty demo frames, ${overs} demo parts over one another`)
@@ -347,14 +358,17 @@ try {
   const want = ['line', 'gap-0', 'gap-1', 'gap-2', 'question', 'answer']
   const thesisOk = steps[0] === 'Why' && want.every((one, i) => thesisOrder[i] === one)
   console.log(`${thesisOk ? 'ok' : 'FAIL'}: the thesis screen is the first chapter and shows its lines in order (${thesisOrder.join(' > ')})`)
-  for (const one of accents) console.log(`   ACCENT, unexplained: ${one}`)
+  for (const one of accents) console.log(`FAIL no word in the accent colour that nothing explains  (${one})`)
   console.log(`${accents.size} words in the accent colour that nothing explains`)
-  for (const one of salutes) console.log(`   GREETING-LIKE: ${one}`)
+  for (const one of salutes) console.log(`FAIL no line opens on a bare time of day  (${one})`)
   console.log(`${salutes.size} lines that open on a bare time of day`)
   failed += (thesisOk ? 0 : 1) + accents.size + salutes.size
   console.log(`${unready.length} steps not ready at their end${unready.length ? ` (${unready.join(', ')})` : ''}; ${early.length} ready while still playing${early.length ? ` (${early.join(', ')})` : ''}`)
+  for (const one of unready) console.log(`FAIL each step is ready for Next at its end  (${one})`)
+  for (const one of early) console.log(`FAIL no step is ready for Next while it still plays  (${one})`)
+  for (const one of blankCaps) console.log(`FAIL every key in the welcome's words reads  (${one})`)
   console.log(`${sheenCaps} keys seen in the welcome's words, ${blankCaps.length} blank or hard to read${blankCaps.length ? ` (${blankCaps.join(', ')})` : ''}`)
-  if (!sheenCaps) (failed++, console.log('BROKEN: no key was seen in the words, so the key check checked nothing'))
+  if (!sheenCaps) (failed++, console.log('FAIL: no key was seen in the words, so the key check checked nothing'))
   console.log(`played hands-off: ${Math.round(total / 1000)}s in all, before Ready`)
   console.log(`ready hands-off: ${Math.round(holdRows.reduce((sum, one) => sum + one.readyMs, 0) / 1000)}s in all (each step until Next is ready); still holds over 1.5s: ${holdRows.reduce((sum, one) => sum + one.holds.length, 0)}`)
   if (OUT) writeFileSync(OUT.replace(/\.json$/, '') + '-holds.json', JSON.stringify(holdRows, null, 1))
