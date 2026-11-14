@@ -2813,6 +2813,17 @@ html[data-drag-refused], html[data-drag-refused] * { cursor: not-allowed !import
 .mf-note-offer-button:disabled { cursor: not-allowed; opacity: 0.5; }
 .mf-note-offer-close { flex: none; cursor: pointer; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 0.5rem; color: var(--muted-foreground); }
 .mf-note-offer-close:hover { background: color-mix(in oklab, var(--foreground) 7%, transparent); color: var(--foreground); }
+/* The offer's own width decides (its place, extensions/offer-slot.ts, wherever the note is): narrow, beside a list or
+   in a small window, the words keep the first line with the icon and ×, and the button goes under them at the end,
+   as an offer of several's does. Beside the button they stood in a column a word wide, broken inside words. */
+.mf-offer-slot { container: offer / inline-size; }
+@container offer (max-width: 30rem) {
+  .mf-note-offer { flex-wrap: wrap; row-gap: 0.375rem; }
+  /* All the line but the icon, ×, and the gaps beside them (1 + 2 + 0.75 x 2rem, a hair to spare). */
+  .mf-note-offer > .mf-note-offer-words { flex-basis: calc(100% - 4.75rem); }
+  .mf-note-offer > .mf-note-offer-button { order: 1; margin-bottom: 0.375rem; }
+  .mf-note-offer > .mf-note-offer-button:first-of-type { margin-left: auto; }
+}
 :is(.mf-note-offer-button, .mf-note-offer-close, .pdf-scan-button, .pdf-scan-close):focus-visible { outline: 2px solid var(--ring, var(--tt-brand-color-500)); outline-offset: 2px; }
 
 /* A date or time in a note (extensions/date-words.ts): the box's date colour, without its ring, for prose. Resting on it says the day. */

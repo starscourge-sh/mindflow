@@ -491,7 +491,7 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       onBlur={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setNear((was) => ({ ...was, keys: false }))}>
       <span aria-hidden className="mf-note-offer-icon">{icon}</span>
       {/* A tag is one word however long ("#programming-humour"): it breaks only where nothing else can, never past the line. */}
-      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]"><b className="font-medium text-foreground">{lead}</b> {rest}</span>
+      <span className="mf-note-offer-words min-w-0 flex-1 [overflow-wrap:anywhere]"><b className="font-medium text-foreground">{lead}</b> {rest}</span>
       {!ticks.length && buttons}
       <button type="button" aria-label="Not for this note" title="Not for this note" data-offer-away className="mf-note-offer-close" onClick={away}><X className="size-3.5" /></button>
       {/* Starting where the words start (past the icon and its gap), clear of the line's foot. */}
