@@ -73,35 +73,79 @@ const same = (name, was, now) => {
 }
 const textOf = (block) => (block.text ?? '') + (block.content ?? []).map(textOf).join('')
 /**
- * The stored note against the one before: each block in `typed` (its place,
- * and the letter put in it) holds its old words and that one letter, and
- * every other block is the same, key for key.
+ * The note as a person reads it: the words of every block that has any, in order, and every picture in order, known
+ * by its own words (a picture's alt, a missing one's file). A save mends how pictures sit, by design (13 Nov,
+ * fbb026b4e and d1bbde252): a picture alone on a line becomes a picture block, a picture kept in the vault is copied
+ * into the book under a new address, one line of two pictures becomes two blocks. So blocks may split and picture
+ * addresses change; no word and no picture may go, and both sides are read the same way.
+ */
+const readOf = (body) => {
+  const blocks = JSON.parse(body).content ?? []
+  const words = []
+  const pictures = []
+  const walk = (node) => {
+    if (node.type === 'image') pictures.push(`picture "${node.attrs?.alt ?? ''}"`)
+    else if (node.type === 'imagePlaceholder') pictures.push(`missing picture ${node.attrs?.missing ?? node.attrs?.embed ?? ''}`)
+    for (const one of node.content ?? []) walk(one)
+  }
+  for (const block of blocks) {
+    const text = textOf(block)
+    if (text.trim()) words.push(text)
+    walk(block)
+  }
+  return { words, pictures, blocks: blocks.length }
+}
+/** One letter put into `old` to make `text`: that letter, else null. */
+const plusOne = (old, text) => {
+  if (text.length !== old.length + 1) return null
+  let at = 0
+  while (at < old.length && old[at] === text[at]) at++
+  return text.slice(at + 1) === old.slice(at) ? text[at] : null
+}
+/**
+ * The stored note against the one before, as read: the letters typed (`typed`: block, letter) each in their block, and
+ * every other word and every picture as it was. Blocks are matched by their words, not their place, so a picture line
+ * the save split in two moves nothing.
  */
 function against(was, now, typed) {
-  const [a, b] = [JSON.parse(was).content, JSON.parse(now).content]
+  const [a, b] = [readOf(was), readOf(now)]
+  const letters = [...typed.values()]
   const kept = []
-  const lost = []
   const others = []
-  for (let i = 0; i < Math.min(a.length, b.length); i++) {
-    const [x, y] = [JSON.stringify(a[i]), JSON.stringify(b[i])]
-    const letter = typed.get(i)
-    if (letter) {
-      const [old, text] = [textOf(a[i]), textOf(b[i])]
-      let at = 0
-      while (at < old.length && old[at] === text[at]) at++
-      const plusOne = text.length === old.length + 1 && text[at] === letter && text.slice(at + 1) === old.slice(at)
-      const frame = (block) => JSON.stringify({ type: block.type, attrs: block.attrs })
-      if (plusOne && frame(a[i]) === frame(b[i])) kept.push(letter)
-      else if (x === y) lost.push(letter)
-      else others.push(`block ${i + 1} (${a[i].type}, where "${letter}" went): ${parting(x, y)}`)
-    } else if (x !== y) others.push(`block ${i + 1} (${a[i].type}): ${parting(x, y)}`)
+  for (let i = 0, j = 0; i < a.words.length || j < b.words.length; ) {
+    const [x, y] = [a.words[i], b.words[j]]
+    if (x !== undefined && x === y) { i++; j++; continue }
+    const added = x !== undefined && y !== undefined ? plusOne(x, y) : null
+    if (added && letters.includes(added) && !kept.includes(added)) { kept.push(added); i++; j++; continue }
+    // A letter typed on an empty line (the note's own empty last line): a block of that one letter.
+    if (y !== undefined && y.length === 1 && letters.includes(y) && !kept.includes(y)) { kept.push(y); j++; continue }
+    others.push(x === undefined ? `words added: "${y.slice(0, 80)}"` : y === undefined ? `words lost: "${x.slice(0, 80)}"` : `the ${i + 1}th block with words: ${parting(x, y)}`)
+    // Past the first difference the two are out of step: one is enough to say.
+    break
   }
-  // A new empty last line after words typed on the old last line is the editor's own (a note always ends on an empty line).
-  const more = b.slice(a.length)
-  const emptyLine = more.length === 1 && more[0].type === 'paragraph' && !textOf(more[0])
-  if (b.length < a.length) others.push(`${a.length - b.length} blocks fewer`)
-  else if (more.length && !emptyLine) others.push(`${more.length} blocks more: ${JSON.stringify(more).slice(0, 160)}`)
-  return { kept, lost, others, blocks: b.length, was: a.length, emptyLine }
+  const at = a.pictures.findIndex((one, k) => one !== b.pictures[k])
+  if (a.pictures.length !== b.pictures.length || at >= 0) others.push(`pictures: ${a.pictures.length} before, ${b.pictures.length} now${at >= 0 ? `; the ${at + 1}th was ${a.pictures[at]}, now ${b.pictures[at] ?? 'none'}` : ''}`)
+  const lost = letters.filter((one) => !kept.includes(one))
+  return { kept, lost, others, blocks: b.blocks, was: a.blocks, emptyLine: false }
+}
+/**
+ * LOSE=letter or LOSE=picture: the stored note read as a build that lost its first typed letter (the one at the very
+ * top) or its first picture would have stored it, to show the checks fail on that.
+ */
+const LOSE = process.env.LOSE ?? ''
+const asLost = (body) => {
+  if (!LOSE) return body
+  const doc = JSON.parse(body)
+  if (LOSE === 'picture') {
+    const drop = (node) => { const at = (node.content ?? []).findIndex((one) => one.type === 'image'); if (at >= 0) return void node.content.splice(at, 1), true; return (node.content ?? []).some(drop) }
+    drop(doc)
+  } else {
+    // The top letter went in at the start of the note's first words.
+    const first = (node) => (node.type === 'text' && node.text ? node : (node.content ?? []).map(first).find(Boolean))
+    const text = first(doc)
+    if (text?.text.startsWith('q')) text.text = text.text.slice(1)
+  }
+  return JSON.stringify(doc)
 }
 
 /** The note's editor in a window: the one with the most blocks. */
@@ -256,14 +300,16 @@ async function typeThree() {
 }
 
 /** Waits until every letter typed is in the stored note, or for `ms`. Returns how long it took, or null. */
-async function untilStored(base, typed, ms = 30000) {
+async function untilStored(base, typed, ms = 30000, since = Date.now()) {
   const started = Date.now()
   let last = base
   while (Date.now() - started < ms) {
     const now = stored().body
     if (now !== last) {
+      // Every write of the note as it comes: when, and what it held of the letters.
+      console.log(`  (the stored note written ${Date.now() - since} ms after the last key: ${now.length} characters, letters in it: ${against(base, asLost(now), typed).kept.join(' ') || 'none'})`)
       last = now
-      const got = against(base, now, typed)
+      const got = against(base, asLost(now), typed)
       if (got.kept.length === typed.size) return Date.now() - started
     }
     await wait(300)
@@ -385,12 +431,12 @@ try {
       // Looked for on the page only here: with no wait, nothing comes between the last key and the close.
       const inEditor = await within(8000, page(c.h, (ed, places) => places.map(([index, key]) => ed.editor.state.doc.maybeChild(index)?.textContent.includes(key) ?? false), [...typed]))
       check('the three letters are in the note on the page', typed.size === 3 && !!inEditor && inEditor.every(Boolean), `blocks ${[...typed.keys()].map((one) => one + 1).join(', ')}: ${JSON.stringify(inEditor)}`)
-      took = await untilStored(base.body, typed)
+      took = await untilStored(base.body, typed, 30000, at)
       check('the three letters are stored without anything being asked', took !== null, took === null ? 'not within 30 s of the last key' : `${Date.now() - at} ms after the last key (${load()})`)
     }
     const closing = await quit()
     const kept = stored()
-    const got = against(base.body, kept.body, typed)
+    const got = against(base.body, asLost(kept.body), typed)
     console.log(`(closed ${part === 'type' ? 'once stored' : 'straight after the last key'}, closing took ${closing} ms; stored: kept ${got.kept.join(' ') || 'none'}, lost ${got.lost.join(' ') || 'none'}; other columns changed: ${columns(base, kept).join(', ') || 'none'})`)
     check(part === 'type' ? 'closed at once, the stored note holds all three letters' : 'closed straight after the last key with no wait, the stored note holds all three letters', got.kept.length === 3 && !got.lost.length, `kept ${got.kept.join(' ') || 'none'}, lost ${got.lost.join(' ') || 'none'}`)
     check('and nothing else in the note changed', !got.others.length, got.others.length ? `${got.others.length} other blocks differ: ${got.others.slice(0, 3).join(' || ')}` : `${got.blocks} blocks, ${got.was} before${got.emptyLine ? ' (one new empty last line, the editor\'s own)' : ''}`)
@@ -404,7 +450,10 @@ try {
     check('opened again, the editor holds the whole stored note, block for block', again?.whole === true, JSON.stringify(again))
     await c.send('view', 'today')
     await wait(3000)
-    check('opened again and left, nothing more was written', stored().body === kept.body, stored().body === kept.body ? 'byte for byte what was stored at the close' : parting(kept.body, stored().body))
+    // Left again, the note may only be mended (a picture copied in, a picture line split), never changed as read.
+    const later = stored().body
+    const mended = later !== kept.body && JSON.stringify(readOf(later)) === JSON.stringify(readOf(kept.body))
+    check('opened again and left, nothing more was written but mending', later === kept.body || mended, later === kept.body ? 'byte for byte what was stored at the close' : mended ? `mended only: the same words and pictures (${readOf(later).blocks} blocks, ${readOf(kept.body).blocks} at the close)` : parting(kept.body, later))
     check(`no page errors (${part})`, !errorsOf(c).length, errorsOf(c).slice(0, 3).join(' | '))
   }
 } finally {
