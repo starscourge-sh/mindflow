@@ -1,14 +1,15 @@
 :root {
   --tt-dropdown-menu-bg-color: var(--white);
-  --tt-dropdown-menu-text-color: var(--tt-gray-light-a-600);
+  --tt-dropdown-menu-text-color: var(--mf-muted-strong);
   --tt-dropdown-menu-label-color: var(--tt-gray-light-a-800);
 }
 
 :root.dark,
 .dark {
-  // The popover fill every floating sheet wears (lib/float.ts), not a second grey.
+  // The popover fill every floating sheet wears (lib/float.ts), not a second grey; words in the stronger quiet ink
+  // (main.css), 4.5:1 or more, where the 64% ink was 3.4:1 on Paper.
   --tt-dropdown-menu-bg-color: var(--popover, var(--tt-gray-dark-50));
-  --tt-dropdown-menu-text-color: var(--tt-gray-dark-a-600);
+  --tt-dropdown-menu-text-color: var(--mf-muted-strong);
   --tt-dropdown-menu-label-color: var(--tt-gray-dark-a-800);
 }
 
