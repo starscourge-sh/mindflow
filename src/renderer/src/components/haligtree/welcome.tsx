@@ -840,8 +840,9 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
         </div>
       )}
       {/* The page's own ground over the fog where the first page's words stand (Dia's solid panel), the fog moving on beyond them:
-          in as the words come, out with the fog as the first page is left, and a fresh one, unseen, for each arrival. */}
-      {fog && <div key={`ground-${arrival}`} aria-hidden data-words-ground="" className={`pointer-events-none absolute inset-0 z-[31] transition-opacity duration-700 ${desk === 'off' && !veiled && !fogLift ? 'opacity-100' : 'opacity-0'}`}
+          in as the window becomes a window, a breath before the words (its first paint never in the frame the first page is
+          made in), out with the fog as the first page is left, and a fresh one, unseen, for each arrival. */}
+      {fog && <div key={`ground-${arrival}`} aria-hidden data-words-ground="" className={`pointer-events-none absolute inset-0 z-[31] transition-opacity duration-700 ${desk === 'off' && !fogLift ? 'opacity-100' : 'opacity-0'}`}
         style={{ background: 'linear-gradient(90deg, var(--background) 0%, color-mix(in oklab, var(--background) 90%, transparent) 42%, transparent 80%)' }} />}
       {/* Before the first words: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
