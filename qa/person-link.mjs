@@ -68,11 +68,23 @@ try {
   await send('article', reading.id); await wait(2500)
 
   // --- 1. the offer, accepted ---------------------------------------------------------
-  const OFFER = '[data-note-offer="person"]'
+  // The note names several people, so one offer lists them all, each a tick (note-offers.tsx, 14 Nov): every tick but
+  // Julius II's taken off, “Add 1” adds him alone, with the notice one person gets.
+  const OFFER = '[data-note-offer="person"], [data-note-offer="people"]'
   const offered = await h.locator(OFFER, { hasText: 'Julius II' }).first().waitFor({ timeout: 15000 }).then(() => true, () => false)
-  check('the note offers "Julius II is named here"', offered)
+  check('the note offers Julius II, on his own or among the people it names', offered)
   if (SHOT) await h.screenshot({ path: `${SHOT}/offer.png` })
-  await h.locator(OFFER, { hasText: 'Julius II' }).locator('[data-offer-action="person"]').click(); await wait(900)
+  const line = h.locator(OFFER, { hasText: 'Julius II' }).first()
+  if ((await line.getAttribute('data-note-offer')) === 'people') {
+    if (await line.locator('[data-offer-more]').count()) { await line.locator('[data-offer-more]').click(); await wait(300) }
+    for (let n = 0; n < 40; n++) {
+      const other = line.locator('[data-offer-ticks] button[aria-pressed="true"]').filter({ hasNotText: 'Julius II' }).first()
+      if (!(await other.count())) break
+      await other.click(); await wait(120)
+    }
+    check('every tick but Julius II’s taken off, the button says “Add 1”', /^Add 1/.test(((await line.locator('[data-offer-action="people"]').textContent()) ?? '').trim()), (await line.locator('[data-offer-action="people"]').textContent()) ?? '')
+    await line.locator('[data-offer-action="people"]').click(); await wait(900)
+  } else { await line.locator('[data-offer-action="person"]').click(); await wait(900) }
   const toastText = await h.evaluate(() => document.querySelector('[data-toast-made="person:Julius II"]')?.closest('div')?.textContent ?? '')
   check('the toast says "Julius II added to People" with "Open" and "Undo"', /Julius II added to People/.test(toastText) && /Open/.test(toastText) && /Undo/.test(toastText), toastText)
   if (SHOT) await h.screenshot({ path: `${SHOT}/toast.png` })
