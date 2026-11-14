@@ -34,7 +34,7 @@ import { tidyPastedHtml } from "@/lib/paste-tidy"
 import { FindAndReplace } from "@tiptap/extension-find-and-replace"
 
 // TableKit bundles Table, TableRow, TableHeader and TableCell.
-import { TableKit } from "@tiptap/extension-table"
+import { Table, TableKit } from "@tiptap/extension-table"
 import { Youtube } from "@tiptap/extension-youtube"
 import { YoutubeView } from "@/components/haligtree/youtube-view"
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details"
@@ -135,6 +135,21 @@ const LINE_MARKS: MarkName[] = ["bold", "italic", "strike", "code"]
 
 /** How long typing has to stop before the document is handed to the caller. */
 const SAVE_DEBOUNCE_MS = 500
+
+/**
+ * A table, drawn from the first moment by the view its column-resizing plugin gives it. TipTap leaves a resizable
+ * table to that plugin, whose view arrives only with the plugins, after the note is first drawn: ProseMirror read a
+ * new kind of view arriving as every block's look changing, and drew the whole note again, every note on every open
+ * whether it held a table or not (the largest, 7,018 blocks, made twice as it opened, 0.2 to 0.6 s each). The same
+ * view, given first, changes nothing when the plugins arrive. Not resizable (read-only): TipTap's own.
+ */
+const TableDrawnFirst = Table.extend({
+  addNodeView() {
+    const { View, cellMinWidth, resizable } = this.options
+    if (!resizable || !this.editor.isEditable || !View) return this.parent?.() ?? null
+    return ({ node, view }) => new View(node, cellMinWidth, view)
+  },
+})
 
 /** Where an open "/" search sits on the page, or null with none open (the "/" menu's plugin wears the default key). */
 const slashOpen = (state: EditorState): { from: number; to: number } | null => {
@@ -1469,7 +1484,8 @@ function Surface({
       // Columns never narrower than a few words: a table with many of them
       // grows past the page and scrolls sideways, rather than crushing each.
       // A column is never narrower than about 18 letters: ten columns squeezed long words onto five lines; past the page, the table scrolls.
-      TableKit.configure({ table: { resizable: true, cellMinWidth: 160 } }),
+      TableDrawnFirst.configure({ resizable: true, cellMinWidth: 160 }),
+      TableKit.configure({ table: false }),
       OutdentLists,
       ...(shape === "line" ? [] : [TabStays]),
       PlainCopy,
