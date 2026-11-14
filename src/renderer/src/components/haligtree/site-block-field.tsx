@@ -305,13 +305,13 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
               <div className={`rounded-lg border bg-popover p-1 ${compact ? 'mx-1.5 mb-1.5' : 'mt-1'}`}>
               {!host && typed && <p data-site-why className="px-2 py-1.5 text-control font-medium text-foreground">{quoted(typed, 80)} is not a website. Try one like youtube.com.</p>}
               {offers.map((offer, index) => (
-                <button key={offer.id} type="button" role="option" aria-selected={index === lit && (!!typed || steered)} data-site-offer={offer.entry}
+                <button key={offer.id} type="button" role="option" aria-selected={index === lit && (!!typed || steered)} data-site-offer={offer.entry} data-set-aside={offer.note ? '' : undefined}
                   onMouseDown={(event) => event.preventDefault()}
                   // Only a pointer that moves lights a line: a menu opening under a resting one keeps the first lit.
                   // The line it moves onto is the one lit line (never a second, fainter one under the pointer).
                   onPointerMove={(event) => (event.movementX || event.movementY) && (index !== lit || !steered) && (setLit(index), setSteered(true))}
                   onClick={() => add(offer)}
-                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control ${index === lit && (typed || steered) ? 'bg-accent text-foreground' : 'text-foreground'} ${offer.note ? 'opacity-60' : ''}`}>
+                  className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-control ${index === lit && (typed || steered) ? 'bg-accent text-foreground' : 'text-foreground'}`}>
                   {offer.collection ? (
                     <span className="flex gap-0.5">{COLLECTIONS[offer.collection].sites.slice(0, 3).map((site) => <span key={site}><SiteIcon site={site} size={14} /></span>)}</span>
                   ) : offer.typed ? <LinkIcon className="size-3.5 text-muted-foreground" /> : <SiteIcon site={offer.site!} size={14} />}
@@ -341,7 +341,7 @@ export function SiteBlockField({ settings, compact = false }: { settings: Settin
                       <button type="button" data-site-member={site} data-allowed={out || undefined} aria-pressed={!out} onClick={() => flip(site)}
                         className="flex h-8 w-full min-w-0 items-center gap-2 rounded-md px-1.5 text-left text-control text-foreground transition-colors hover:bg-accent">
                         <span className={`shrink-0 ${out ? 'opacity-40 grayscale' : ''}`}><SiteIcon site={site} size={14} /></span>
-                        <span className={`min-w-0 flex-1 truncate ${out ? 'opacity-60' : ''}`}>{site}</span>
+                        <span className={`min-w-0 flex-1 truncate ${out ? 'text-muted-foreground' : ''}`}>{site}</span>
                         {out && <span className="shrink-0 font-medium">allowed</span>}
                       </button>
                     </Tip>
