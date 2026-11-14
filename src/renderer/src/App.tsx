@@ -2370,7 +2370,7 @@ export default function App(): React.JSX.Element {
                     className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
                     {/* What it is, then what a click does, in words: "Still to keep" left a newcomer guessing at both. */}
                     <span className="shrink-0">Unsaved from earlier:</span>
-                    <span className="truncate text-foreground/80">{leftoverName(leftover)}</span>
+                    <span className="truncate text-(--mf-muted-strong)">{leftoverName(leftover)}</span>
                     <span aria-hidden className="text-muted-foreground/60">·</span>
                     <span className="shrink-0 font-medium text-foreground">Bring it back</span>
                   </button>
@@ -2385,7 +2385,7 @@ export default function App(): React.JSX.Element {
                     className="inline-flex max-w-full cursor-pointer items-center gap-1.5 rounded-full bg-accent/60 px-2.5 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-[0.97]">
                     {/* What it is, then what a click does, in words: "Still to keep" left a newcomer guessing at both. */}
                     <span className="shrink-0">Unsaved from earlier:</span>
-                    <span className="truncate text-foreground/80">{leftoverName(leftover)}</span>
+                    <span className="truncate text-(--mf-muted-strong)">{leftoverName(leftover)}</span>
                     <span aria-hidden className="text-muted-foreground/60">·</span>
                     <span className="shrink-0 font-medium text-foreground">Bring it back</span>
                   </button>
@@ -3340,7 +3340,7 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
                   ] : [...usual, 'separator', { label: chosen.includes(capture.id) ? 'Unselect' : 'Select', about: 'list', keys: 'X', run: () => choose(capture.id) }, !allPicked && { label: 'Select all', about: 'list', keys: '⌘A', run: selectAll }]} />}
                 {/* The older open ones, never out of reach: one line under the list, to the Inbox page that lists them. */}
                 {older > 0 && !unloaded(captures) && !(graphed && listed > 0) && (
-                  <p data-inbox-older="box" className="px-2 py-2 text-body text-foreground/80">
+                  <p data-inbox-older="box" className="px-2 py-2 text-body text-(--mf-muted-strong)">
                     {older === 1 ? '1 older capture waits' : `${num(older)} older captures wait`} in the Inbox{' · '}
                     <button type="button" className="font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => (chime('tap'), window.api.openInHome('view', 'inbox'))}>Open it</button>
                   </p>

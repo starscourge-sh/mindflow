@@ -41,7 +41,7 @@ export function GoalPreview({ on = true, goal, counts, parts, heading, children,
         </div>
         <p className="text-body text-foreground/85">{counts}</p>
       </section>
-      <p className="mb-2 text-body font-medium text-foreground/80">{heading}</p>
+      <p className="mb-2 text-body font-medium text-(--mf-muted-strong)">{heading}</p>
       <div data-goal-sample inert aria-hidden className="pointer-events-none flex min-w-0 flex-col opacity-55 saturate-[0.85] select-none [mask-image:linear-gradient(to_bottom,black_calc(100%-6rem),transparent)]">
         {children}
       </div>

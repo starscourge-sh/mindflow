@@ -509,7 +509,7 @@ function TagHead({ tag, color, meta, actions }: { tag: string; color: string | n
         </h1>
       </div>
       {/* Over a picture's wash the grey is ink, so the line reads at 4.5:1 on any picture. */}
-      <p data-tag-meta className="flex flex-wrap items-center gap-y-0.5 text-body text-muted-foreground group-data-washed/wash:text-foreground/80">{meta}</p>
+      <p data-tag-meta className="flex flex-wrap items-center gap-y-0.5 text-body text-muted-foreground group-data-washed/wash:text-(--mf-muted-strong)">{meta}</p>
       {actions && <div className="mt-2 flex flex-wrap items-center gap-2">{actions}</div>}
     </header>
   )

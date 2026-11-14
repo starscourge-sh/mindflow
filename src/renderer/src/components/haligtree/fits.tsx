@@ -243,7 +243,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
               ) : (
                 <div data-fits-empty className="px-2 pb-2">
                   <p className="text-base font-semibold text-foreground">Nothing fits in {hoursSaid(minutes)}.</p>
-                  <p className="mt-0.5 text-body text-foreground/80">
+                  <p className="mt-0.5 text-body text-(--mf-muted-strong)">
                     {unsized.length ? <>{unsized.length === 1 ? 'One task has' : `${num(unsized.length)} tasks have`} no length yet: give {unsized.length === 1 ? 'it' : 'them'} one below.</> : null}
                     {unsized.length && shortest ? ' ' : null}
                     {shortest ? <>The shortest takes {hoursSaid(shortest)}.{' '}

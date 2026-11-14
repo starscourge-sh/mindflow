@@ -83,7 +83,7 @@ export function KindBack({ one, onDone, flush, again, onUndone }: {
   const then = (work: Promise<void>): void => void work.then(() => onDone?.())
   const line = (label: string, text: string): React.JSX.Element => (
     <p className="text-xs leading-relaxed text-muted-foreground">
-      <span className="font-medium text-foreground/80">{label}</span>{' '}
+      <span className="font-medium text-(--mf-muted-strong)">{label}</span>{' '}
       <span className="private-text text-foreground">{text}</span>
     </p>
   )

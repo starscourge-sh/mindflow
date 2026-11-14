@@ -40,7 +40,7 @@ export function CardForm({ head, line, keys, children, foot, ...rest }: {
   }, [])
   return (
     <section ref={box} data-finish-face data-card-form onKeyDown={keys} tabIndex={-1} className="flex flex-col gap-3 rounded-[6px] border px-5 pt-4 pb-3 outline-none" {...rest}>
-      <p data-card-form-head className="text-control text-pretty text-foreground/80"><b className="font-semibold text-foreground">{head}.</b> {line}</p>
+      <p data-card-form-head className="text-control text-pretty text-(--mf-muted-strong)"><b className="font-semibold text-foreground">{head}.</b> {line}</p>
       {children}
       {foot}
     </section>

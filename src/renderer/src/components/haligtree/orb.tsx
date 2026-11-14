@@ -34,7 +34,7 @@ export function StopButton({ stop, data }: { stop: () => void; /** Its own mark 
     <button type="button" {...data} data-job-stop onMouseDown={(event) => event.preventDefault()} onClick={stop}
       onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.stopPropagation(), stop())}
       // 32px to press, a phone's finger too, with no change to where the word sits.
-      className="-mx-1 -my-[9px] cursor-pointer rounded-sm px-1 py-[9px] font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
+      className="-mx-1 -my-[9px] cursor-pointer rounded-sm px-1 py-[9px] font-medium text-(--mf-muted-strong) underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
       Stop
     </button>
   )

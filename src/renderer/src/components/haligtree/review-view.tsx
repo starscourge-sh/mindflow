@@ -851,7 +851,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                   pictureOnAnswer(file)
                 }}>
                 {/* What it answers, small at the top: the question is on the other side now. */}
-                <p className="px-5 pt-3 text-xs text-muted-foreground">{sides && <span data-side-back className="font-medium text-foreground/80">{sides[1]}, for </span>}<WithPictures text={asked} small /></p>
+                <p className="px-5 pt-3 text-xs text-muted-foreground">{sides && <span data-side-back className="font-medium text-(--mf-muted-strong)">{sides[1]}, for </span>}<WithPictures text={asked} small /></p>
                 <HaligtreeEditor
                   key={pictured}
                   defaultContent={(card.body as JSONContent | string | null) ?? ''}
@@ -907,7 +907,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
                 answer's own "Title, p. N" opens the book there, so no "Show in its note", which it has none of. */}
             {card.passage && !pdfOf(card) && (
               <figure data-card-passage className="-mt-2 flex flex-col gap-1.5 rounded-lg border px-3 py-2">
-                <figcaption className="text-control font-medium text-foreground/80">The passage it came from</figcaption>
+                <figcaption className="text-control font-medium text-(--mf-muted-strong)">The passage it came from</figcaption>
                 <blockquote className="line-clamp-4 text-body whitespace-pre-line text-foreground">{card.passage}</blockquote>
                 <Button variant="ghost" size="sm" data-card-passage-open className="-ml-2 self-start" onClick={() => void haligtree.source(card.id).then((found) => {
                   if (!found) return refuse('The note it came from is not there any more')
@@ -1113,8 +1113,8 @@ function Through({ at, total, minutes, fresh }: { at: number; total: number; /**
       )}
       <Rolling text={`${num(at + 1)} of ${num(total)}`} by="word" />
       {/* What today brings that you have not met: its new cards, out of the daily limit (Settings and each deck's own). */}
-      {fresh !== undefined && <span data-new-today={fresh} className="text-foreground/80">{fresh ? `${num(fresh)} new today` : 'no new cards today'}</span>}
-      {minutes !== undefined && <span data-minutes-left className="text-foreground/80">about {num(minutes)} {minutes === 1 ? 'minute' : 'minutes'} left</span>}
+      {fresh !== undefined && <span data-new-today={fresh} className="text-(--mf-muted-strong)">{fresh ? `${num(fresh)} new today` : 'no new cards today'}</span>}
+      {minutes !== undefined && <span data-minutes-left className="text-(--mf-muted-strong)">about {num(minutes)} {minutes === 1 ? 'minute' : 'minutes'} left</span>}
     </div>
   )
 }
@@ -1420,7 +1420,7 @@ function Behind({ card }: { card: Due }): React.JSX.Element {
   if (behind)
     return (
       <div data-card-context className="-mt-2 flex flex-col gap-0.5 text-sm leading-relaxed">
-        <span className="text-control font-medium text-foreground/80">Behind the answer</span>
+        <span className="text-control font-medium text-(--mf-muted-strong)">Behind the answer</span>
         {oneLine ? (
           <Tip label="Click to change it">
             <button type="button" data-why-saved className="self-start rounded text-left text-muted-foreground hover:bg-accent" onClick={() => { chime('tap'); setAgain(behind); setBehind('') }}>{behind}</button>

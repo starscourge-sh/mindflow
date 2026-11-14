@@ -55,7 +55,7 @@ export function SectionTabs({ sections, section, pick, searching = false, label,
               data-section={one.title}
               aria-current={on ? 'page' : undefined}
               onClick={() => pick(one.title)}
-              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors duration-80 @[44rem]/page:justify-start @[44rem]/page:px-2 ${on ? 'text-foreground' : 'text-foreground/80'}`}
+              className={`group flex items-center justify-center gap-2.5 rounded-md p-1.5 text-left text-body transition-colors duration-80 @[44rem]/page:justify-start @[44rem]/page:px-2 ${on ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}
             >
               <one.icon
                 className={`size-4 shrink-0 transition-colors duration-80 ${on ? 'text-[var(--tint)]' : 'text-[color-mix(in_oklab,var(--tint)_55%,var(--muted-foreground))] group-hover:text-[var(--tint)] group-data-[fluid-hover-active]:text-[var(--tint)]'}`}

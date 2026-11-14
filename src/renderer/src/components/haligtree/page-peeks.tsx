@@ -260,7 +260,7 @@ const PEEKS: Record<string, PagePeek> = {
     art: () => (<>
       <MTitle>Feed</MTitle>
       {[['You', '2d', ideas()[0].title], ['Seneca', '1w', 'We suffer more in imagination than in reality.']].map(([who, when, line]) => (
-        <MCard key={who} className="mb-1.5"><div className="mb-0.5 flex justify-between text-[9px] text-muted-foreground"><span className="font-medium text-foreground/80">{who}</span><span>{when}</span></div><div className="line-clamp-2 leading-snug">{line}</div></MCard>
+        <MCard key={who} className="mb-1.5"><div className="mb-0.5 flex justify-between text-[9px] text-muted-foreground"><span className="font-medium text-(--mf-muted-strong)">{who}</span><span>{when}</span></div><div className="line-clamp-2 leading-snug">{line}</div></MCard>
       ))}
     </>)
   },

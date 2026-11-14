@@ -1185,7 +1185,7 @@ function RoadCard({ item, from, target, today: now, picked, onPick }: { item: It
         </span>
       </div>
       {/* How to read it, in one line: what a dot is, and which have gone. */}
-      <p data-road-rule className="mt-1.5 text-meta text-foreground/80">Each square is a {each}, the solid ones gone</p>
+      <p data-road-rule className="mt-1.5 text-meta text-(--mf-muted-strong)">Each square is a {each}, the solid ones gone</p>
       <div className="mt-3" onMouseLeave={() => setHover(null)}>
         {width > 0 && Array.from({ length: bands }, (_, band) => {
           const here = placed.filter((one) => one.band === band)
@@ -1391,7 +1391,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
       <h3 className="mb-2 flex items-baseline gap-1.5 text-meta text-muted-foreground">
         <span data-someday-steps={someday(item) || undefined}>{someday(item) ? 'Steps so far' : 'Progress log'}</span> {all.length > 0 && <Rolling text={all.length} className="tabular-nums" />}
         {picked && (
-          <button type="button" onClick={() => (chime('tap'), onClear())} className="ml-auto flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-foreground/80 hover:bg-accent">
+          <button type="button" onClick={() => (chime('tap'), onClear())} className="ml-auto flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs text-(--mf-muted-strong) hover:bg-accent">
             {picked.day === picked.last ? dayMonth(`${picked.day}T12:00`) : `Week of ${dayMonth(`${picked.day}T12:00`)}`} <X className="size-3" />
           </button>
         )}
@@ -1525,7 +1525,7 @@ export function GoalStrip({ onOpen, className = '' }: { onOpen?: (type: string, 
               ) : (
                 <>
                   <span {...loud(leftLoud(left), 'shrink-0 font-semibold tabular-nums')}>{left === 0 ? 'Today' : leftSaid(left)}</span>
-                  <span className="hidden shrink-0 text-foreground/80 @[36rem]/page:inline">· {goal.lastLog ? `last log ${ago(goal.lastLog)}` : 'no logs yet'}</span>
+                  <span className="hidden shrink-0 text-(--mf-muted-strong) @[36rem]/page:inline">· {goal.lastLog ? `last log ${ago(goal.lastLog)}` : 'no logs yet'}</span>
                 </>
               )}
             </span>
@@ -1568,7 +1568,7 @@ export function GoalChips({ onPick, className = '', only }: { onPick: (goal: Ite
             transition={{ duration: 0.18, delay: index * 0.025, ease: EASE }}>
             <Tip label={`${goal.title} · ${leftSaid(daysLeft(goal.goalAt!)).toLowerCase()}`}>
               <button type="button" onClick={() => onPick(goal)} data-private={goal.private ? '' : undefined}
-                className="private-text max-w-48 truncate rounded-full border px-2 py-0.5 text-foreground/80 transition-colors hover:border-foreground/30 hover:bg-accent hover:text-foreground">
+                className="private-text max-w-48 truncate rounded-full border px-2 py-0.5 text-(--mf-muted-strong) transition-colors hover:border-foreground/30 hover:bg-accent hover:text-foreground">
                 {short(goal.title)}
               </button>
             </Tip>

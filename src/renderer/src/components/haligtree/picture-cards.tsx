@@ -658,7 +658,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
           }}
           className="grid gap-3 rounded-[4px] border border-dashed border-foreground/20 px-4 py-4">
           {/* The first thing to do, first: a real button, then the other ways in, said beside it. */}
-          <span className="flex flex-wrap items-center gap-3 text-control text-foreground/80">
+          <span className="flex flex-wrap items-center gap-3 text-control text-(--mf-muted-strong)">
             <input ref={file} type="file" accept="image/*" data-picture-file className="sr-only" tabIndex={-1} onChange={(event) => fromFile(event.target.files?.[0] ?? null)} />
             <Button size="sm" className="h-8 cursor-pointer gap-1.5 px-3" data-picture-choose onClick={() => (chime('open'), file.current?.click())}><ImagePlus className="size-4" />Choose a picture…</Button>
             <span>or drop one on this box, or paste one with <Kbd>⌘V</Kbd></span>
@@ -672,7 +672,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
                   <button key={one.src} type="button" data-picture-source onClick={() => choose(one.src, one.id ? { id: one.id } : null, one.title)}
                     className="grid cursor-pointer content-start gap-1 rounded-[4px] border border-foreground/10 p-1.5 text-left transition-colors hover:bg-accent/60">
                     <img src={small(one.src)} alt="" loading="lazy" decoding="async" className="aspect-square w-full rounded-[3px] bg-accent/40 object-cover" />
-                    <span className="truncate text-xs text-foreground/80">{one.title}</span>
+                    <span className="truncate text-xs text-(--mf-muted-strong)">{one.title}</span>
                   </button>
                 ))}
               </span>
@@ -712,7 +712,7 @@ export function PictureCards({ deck: aimed, onClose, onShow }: { deck?: string |
             <span className="flex-1" />
             <span data-picture-zoom-row className="flex h-8 items-center rounded-lg border border-foreground/10 bg-accent/40 p-0.5 max-sm:h-9">
               <Tip label="Zoom out  ⌘−"><button type="button" aria-label="Zoom out" data-picture-zoom-out disabled={zoom <= 1} onClick={() => step(-1)} className="grid h-7 w-7 cursor-pointer place-items-center rounded-md text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default disabled:opacity-40 max-sm:h-8"><Minus className="size-3.5" /></button></Tip>
-              <Tip label="Fit the picture  ⌘0"><button type="button" data-picture-zoom onClick={() => zoomTo(1)} className="h-7 w-12 cursor-pointer rounded-md text-control text-foreground/80 tabular-nums transition-colors hover:text-foreground max-sm:h-8">{Math.round(zoom * 100)}%</button></Tip>
+              <Tip label="Fit the picture  ⌘0"><button type="button" data-picture-zoom onClick={() => zoomTo(1)} className="h-7 w-12 cursor-pointer rounded-md text-control text-(--mf-muted-strong) tabular-nums transition-colors hover:text-foreground max-sm:h-8">{Math.round(zoom * 100)}%</button></Tip>
               <Tip label="Zoom in  ⌘+"><button type="button" aria-label="Zoom in" data-picture-zoom-in disabled={zoom >= 4} onClick={() => step(1)} className="grid h-7 w-7 cursor-pointer place-items-center rounded-md text-muted-foreground transition-colors hover:text-foreground disabled:cursor-default disabled:opacity-40 max-sm:h-8"><Plus className="size-3.5" /></button></Tip>
             </span>
           </div>

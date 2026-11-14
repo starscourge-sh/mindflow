@@ -2238,7 +2238,7 @@ export function Home(): React.JSX.Element {
                 aria-label={section.label}
                 aria-current={here ? 'page' : undefined}
                 onClick={() => open('view', section.id)}
-                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder || inScale ? 'text-foreground' : 'text-foreground/80'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
+                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder || inScale ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
                 {/* While anything is being dragged, a fold row keeps its icon and count: the row moving under a still
                     pointer flipped it to its chevron and back. */}
@@ -2284,7 +2284,7 @@ export function Home(): React.JSX.Element {
                       // Its own press, not the Journal row's carry (lib/own-press.ts): the press itself travels on.
                       data-own-press=""
                       onClick={() => setView({ id: one.id })}
-                      className={`group flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${view.id === one.id ? 'text-foreground' : 'text-foreground/80'}`}>
+                      className={`group flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${view.id === one.id ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>
                       <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:size-3.5"><PlaceIcon place={one} full={view.id === one.id} /></span>
                       <Weighted on={view.id === one.id} className="flex-1 text-left">{one.label}</Weighted>
                     </button>
@@ -2362,7 +2362,7 @@ export function Home(): React.JSX.Element {
               onClick={() => setView({ id: 'tags', focus: tag })}
               // Read ahead while the pointer rests on it, so the click shows it at once.
               onPointerEnter={() => prefetchTag(tag)}
-              className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${light === `tag:${tag}` ? '' : 'text-foreground/80'}`}
+              className={`flex w-full items-center gap-2.5 rounded-md px-2 py-1 ${light === `tag:${tag}` ? '' : 'text-(--mf-muted-strong)'}`}
             >
               <TagColourPick tag={tag} color={color} />
               <Weighted on={light === `tag:${tag}`} className="flex-1 text-left">{tag}</Weighted>
@@ -2447,7 +2447,7 @@ export function Home(): React.JSX.Element {
                       <span className="flex min-w-0">
                         <Tip label={narrow ? `What ${APP_NAME} can do` : ''}>
                           <button type="button" data-side-row data-powers-pin aria-current={light === 'place:powers' ? 'page' : undefined} onClick={() => (chime('page'), setView({ id: 'powers' }))}
-                            className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${light === 'place:powers' ? 'text-foreground' : 'text-foreground/80'} ${narrow ? 'justify-center px-0' : 'px-2'}`}>
+                            className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${light === 'place:powers' ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? 'justify-center px-0' : 'px-2'}`}>
                             <Compass className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-green)' }} />
                             {!narrow && <Weighted on={light === 'place:powers'} className="min-w-0 flex-1 truncate text-left">What {APP_NAME} can do</Weighted>}
                           </button>
@@ -2484,7 +2484,7 @@ export function Home(): React.JSX.Element {
                         onClick={() => open(pin.type, pin.id)}
                         // ⌫ unpins, as the menu's line does.
                         onKeyDown={(event) => onRemoveKey(event, menu(), 'Unpin')}
-                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-foreground/80'} ${narrow ? 'justify-center px-0' : 'px-2'}`}
+                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
                         <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
                         {!narrow && <Weighted on={light === `pin:${pin.id}`} className="private-text min-w-0 flex-1 truncate text-left">{taskName(pin.title).text || 'New note'}</Weighted>}
@@ -2514,7 +2514,7 @@ export function Home(): React.JSX.Element {
                       return (
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
                           onClick={() => open(one.type, one.id)}
-                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-foreground/80">
+                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-(--mf-muted-strong)">
                           <OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" />
                           <span className="private-text min-w-0 flex-1 truncate text-left">{one.title || 'New note'}</span>
                         </button>
@@ -2602,7 +2602,7 @@ export function Home(): React.JSX.Element {
           <DropdownMenu modal={false} open={footMenu} onOpenChange={(open) => (open && setFootCut(false), setFootMenu(open))}>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label={`${APP_NAME} menu`} onContextMenu={(event) => openBookMenu(event, openBook)}
-                className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-foreground/80 transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
+                className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-(--mf-muted-strong) transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
                 <AliveIcon icon={GearIcon} size={16} />
                 {!narrow && <span data-sidebar-book-name className="flex-1 truncate text-left">{SANDBOX ? 'Sandbox' : <BookName />}</span>}
                 {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}

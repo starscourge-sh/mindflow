@@ -23,7 +23,7 @@ export function MeetingItems({ since, onOpen, className }: { since: string; onOp
               className="flex w-full cursor-pointer flex-col items-start rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/50 -mx-2">
               <span className="text-[0.9375rem] text-foreground">{item.text}</span>
               <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1 font-medium text-foreground/80"><UserRound className="size-3" />{item.owner}</span>
+                <span className="inline-flex items-center gap-1 font-medium text-(--mf-muted-strong)"><UserRound className="size-3" />{item.owner}</span>
                 {item.date && <span>{new Date(`${item.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>}
                 <span className="min-w-0 truncate">{item.meeting}</span>
               </span>

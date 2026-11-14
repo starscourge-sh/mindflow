@@ -94,7 +94,7 @@ export function InboxLines({ held = 0 }: { held?: number }): React.JSX.Element |
   return (
     <div data-inbox-lines className="mx-5 mt-2 flex flex-col">
       {lines.map((line) => (
-        <p key={line.id} data-inbox-line={line.id} className="group/line flex min-h-8 items-center gap-2 text-body text-foreground/80">
+        <p key={line.id} data-inbox-line={line.id} className="group/line flex min-h-8 items-center gap-2 text-body text-(--mf-muted-strong)">
           <span className="min-w-0">
             {line.text}{' '}
             <button type="button" className={link} onClick={line.run}>{line.act}</button>

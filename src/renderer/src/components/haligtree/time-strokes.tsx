@@ -133,7 +133,7 @@ export function StrokeAxis({ ticks, width, lit, from = -Infinity, to = Infinity,
 
 /** What a stroke is, in one line over the strokes: "Each stroke is a day, the solid ones gone". */
 export function StrokeRule({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element {
-  return <p data-stroke-rule className={`text-meta text-foreground/80 ${className}`}>{children}</p>
+  return <p data-stroke-rule className={`text-meta text-(--mf-muted-strong) ${className}`}>{children}</p>
 }
 
 /**

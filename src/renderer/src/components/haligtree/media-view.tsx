@@ -88,7 +88,7 @@ function AddBox({ onShow, onClose }: { onShow: (src: string) => void; onClose: (
       onDragOver={(event) => event.dataTransfer.types.includes('Files') && event.preventDefault()}
       onDrop={(event) => { if (!event.dataTransfer.files.length) return; event.preventDefault(); event.stopPropagation(); void addDropped([...event.dataTransfer.files], done) }}
       className="mt-4 mb-2 grid gap-1.5 rounded-[6px] border border-dashed border-foreground/20 px-4 py-4">
-      <span className="flex flex-wrap items-center gap-3 text-control text-foreground/80">
+      <span className="flex flex-wrap items-center gap-3 text-control text-(--mf-muted-strong)">
         <Button size="sm" className="h-8 cursor-pointer gap-1.5 px-3" data-media-choose onClick={() => void addFromPicker(done)}><Plus className="size-4" />Choose files…</Button>
         <span>or drop them on this box, or paste with <Kbd>⌘V</Kbd></span>
       </span>
@@ -336,7 +336,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
       )}
       {/* Attachments no note holds any more, with how many: a filter beside the kinds, shown once there is one. */}
       {(unlinkedCount > 0 || unlinkedOnly) && (
-        <span data-media-unlinked="" className="contents"><Chip on={unlinkedOnly} onClick={() => (chime(unlinkedOnly ? 'off' : 'on'), setUnlinkedOnly(!unlinkedOnly))} mark={<Unlink className="size-3.5" />}>Unlinked <span className="tabular-nums text-foreground/80">{num(unlinkedCount)}</span></Chip></span>
+        <span data-media-unlinked="" className="contents"><Chip on={unlinkedOnly} onClick={() => (chime(unlinkedOnly ? 'off' : 'on'), setUnlinkedOnly(!unlinkedOnly))} mark={<Unlink className="size-3.5" />}>Unlinked <span className="tabular-nums text-(--mf-muted-strong)">{num(unlinkedCount)}</span></Chip></span>
       )}
       {/* What acts on the view sits at the end of the row, on its own: only on Unlinked, and only with something to move. */}
       {unlinkedOnly && unlinkedCount > 0 && (

@@ -77,7 +77,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
         <span key={item.key} data-will={item.tokens[0]?.kind ?? 'task'} className="inline-flex min-w-0 items-center gap-1 animate-in fade-in-0 duration-200">
           {index > 0 && <span aria-hidden className="mr-0.5 text-muted-foreground/50">·</span>}
           <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: `var(--tt-color-text-${item.color})` }} />
-          <span className="min-w-0 truncate text-foreground/80">{item.effect}</span>
+          <span className="min-w-0 truncate text-(--mf-muted-strong)">{item.effect}</span>
           {/* No key beside "Keep as a question": it is what Return does already, and a ⇥ there read as a key you
               had to press. The key is shown only where Tab changes something ("or a question"). */}
           {item.tokens.find((one) => one.guess) && (
@@ -103,7 +103,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
         <span data-will="or-question" className="inline-flex shrink-0 items-center gap-1 animate-in fade-in-0 duration-200">
           <span aria-hidden className="text-muted-foreground/50">·</span>
           <Tip label="A question of its own in Writing instead: it collects dated clues until you know the answer">
-            <button type="button" data-will-question className="flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground"
+            <button type="button" data-will-question className="flex items-center gap-1 rounded-md px-1 py-0.5 font-medium text-(--mf-muted-strong) transition-colors hover:bg-accent hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={orQuestion}>
               or a question <Kbd>⇥</Kbd>
             </button>
@@ -114,7 +114,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
         <span data-will="sort" className="inline-flex min-w-0 flex-wrap items-center gap-1.5 animate-in fade-in-0 duration-200">
           {items.length > 0 && <span aria-hidden className="text-muted-foreground/50">·</span>}
           <span className="min-w-0">Links or sayings among the lines:</span>
-          <button type="button" data-will-sort className="rounded-sm px-1 text-foreground/80 underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground"
+          <button type="button" data-will-sort className="rounded-sm px-1 text-(--mf-muted-strong) underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground"
             onMouseDown={(event) => event.preventDefault()} onClick={onSort}>
             Sort this out now
           </button>
@@ -125,12 +125,12 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
           {items.length > 0 && <span aria-hidden className="text-muted-foreground/50">·</span>}
           <span className="min-w-0">{miss.effect}: it will be a capture.</span>
           {plan.miss && (
-            <button type="button" data-will-new className="rounded-sm px-1 text-foreground/80 underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground"
+            <button type="button" data-will-new className="rounded-sm px-1 text-(--mf-muted-strong) underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={() => onNewQuestion(plan.miss!.name)}>
               Start an open question from this
             </button>
           )}
-          <button type="button" data-will-plain className="rounded-sm px-1 text-foreground/80 underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground"
+          <button type="button" data-will-plain className="rounded-sm px-1 text-(--mf-muted-strong) underline decoration-foreground/25 underline-offset-2 transition-colors hover:bg-accent/60 hover:text-foreground"
             onMouseDown={(event) => event.preventDefault()} onClick={() => onKeep([miss])}>
             Keep as plain text
           </button>

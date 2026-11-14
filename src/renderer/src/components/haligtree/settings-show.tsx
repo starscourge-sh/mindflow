@@ -192,7 +192,7 @@ export function ThemeFileGuide(): React.JSX.Element {
         <pre data-theme-sample={kind} className="overflow-x-auto px-3 py-2.5 font-mono text-[12px] leading-[1.6] text-foreground">{text.trimEnd().split('\n').map((line, index) => <Line key={index} text={line} />)}</pre>
       </div>
       <p className="mt-2 text-[0.8125rem] text-foreground"><b className="font-semibold">Needed:</b> bg (the page), ink (the words) and accent (links, buttons, the cursor).</p>
-      <p className="mt-0.5 text-[0.8125rem] text-foreground/80"><b className="font-semibold text-foreground">Optional:</b> name, and any of red, orange, yellow, green, blue, purple, pink, brown and gray for coloured text. Yellow colours headings, green colours quotes.</p>
+      <p className="mt-0.5 text-[0.8125rem] text-(--mf-muted-strong)"><b className="font-semibold text-foreground">Optional:</b> name, and any of red, orange, yellow, green, blue, purple, pink, brown and gray for coloured text. Yellow colours headings, green colours quotes.</p>
     </div>
   )
 }

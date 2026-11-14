@@ -111,7 +111,7 @@ export function EarlierPages({ scale, current, onPick }: { scale: 'week' | 'mont
                         <li key={issue.key} data-archive-row={issue.key}>
                           <button type="button" onClick={() => (chime('season'), onPick(issue.start))}
                             className="flex w-full items-baseline gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent/50">
-                            <span className="w-32 shrink-0 text-control text-foreground/80 tabular-nums">{scale === 'week' ? weekSpan(issue.start) : dayjs(issue.start).format('MMMM')}</span>
+                            <span className="w-32 shrink-0 text-control text-(--mf-muted-strong) tabular-nums">{scale === 'week' ? weekSpan(issue.start) : dayjs(issue.start).format('MMMM')}</span>
                             <span className={`min-w-0 flex-1 truncate text-body ${headline ? 'text-foreground' : 'text-muted-foreground'}`}>{headline || 'No page'}</span>
                             <span className="shrink-0 text-control text-muted-foreground tabular-nums">{issue.captures ? `${num(issue.captures)} caught` : 'Nothing caught'}</span>
                           </button>

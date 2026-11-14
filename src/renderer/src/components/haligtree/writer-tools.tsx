@@ -193,7 +193,7 @@ export function WriterTools({ editor, proof = false, live = proof }: { editor: E
   return (
     <span data-writer-tools className="flex items-center gap-1">
       {report && (
-        <span data-prose-report aria-busy={(proof && grammar === null) || undefined} className="mf-report-in absolute inset-x-0 bottom-full mx-auto mb-2 max-w-[40rem] px-6 text-center text-body text-foreground/80 text-pretty">
+        <span data-prose-report aria-busy={(proof && grammar === null) || undefined} className="mf-report-in absolute inset-x-0 bottom-full mx-auto mb-2 max-w-[40rem] px-6 text-center text-body text-(--mf-muted-strong) text-pretty">
           {report}
           {proof && grammar !== '' && <span data-grammar-line className={`block min-h-[1lh] transition-opacity duration-300 ${grammar === null ? 'text-muted-foreground' : 'mf-report-in'}`}>{grammar ?? 'Reading it through for grammar…'}</span>}
         </span>

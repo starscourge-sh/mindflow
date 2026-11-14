@@ -197,7 +197,7 @@ function DueAhead({ cards }: { cards: BrowsedCard[] }): React.JSX.Element | null
   return (
     <Tip label={said}>
       <span role="img" data-due-ahead={total} aria-label={said} className="flex items-center gap-1.5 text-xs font-normal text-muted-foreground">
-        <svg width={60} height={14} viewBox="0 0 60 14" aria-hidden className="text-foreground/80">
+        <svg width={60} height={14} viewBox="0 0 60 14" aria-hidden className="text-(--mf-muted-strong)">
           {days.map((n, at) => <rect key={at} x={at * 2} y={14 - Math.max(n ? 2 : 1, (n / most) * 14)} width={1.4} height={Math.max(n ? 2 : 1, (n / most) * 14)} fill="currentColor" opacity={n ? (at === peak ? 1 : 0.75) : 0.3} />)}
         </svg>
         <span className="tabular-nums">{num(total)} in 30 days</span>
@@ -632,7 +632,7 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     </div>
   )
   const more = (list: BrowsedCard[]): React.JSX.Element | null => list.length <= limit ? null : (
-    <button type="button" data-card-more onClick={() => (chime('open'), setLimit(limit + 200))} className="mt-3 w-full rounded-md py-2 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">
+    <button type="button" data-card-more onClick={() => (chime('open'), setLimit(limit + 200))} className="mt-3 w-full rounded-md py-2 text-control font-medium text-(--mf-muted-strong) hover:bg-accent/50 hover:text-foreground">
       Show {num(Math.min(200, list.length - limit))} more <span className="font-normal text-muted-foreground">of {num(list.length - limit)}</span>
     </button>
   )

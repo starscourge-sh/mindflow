@@ -1267,7 +1267,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
                 {/* A small button, sized to its words: never a field-wide bar, which reads as something to type in. */}
                 <Tip label={item.tier === 'card' ? 'In Gems, the Feed and Home too, and still in Review' : 'In Review only: out of Gems, the Feed and Home'}>
                   <button type="button" data-gem-or-card-switch onClick={() => moveTier(item.id, item.tier === 'card' ? 'nugget' : 'card')}
-                    className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2 text-control font-medium text-foreground/80 transition-colors duration-80 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.97]">
+                    className="inline-flex h-7 shrink-0 cursor-pointer items-center rounded-md px-2 text-control font-medium text-(--mf-muted-strong) transition-colors duration-80 hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.97]">
                     {item.tier === 'card' ? 'Keep as a gem' : 'Study only'}
                   </button>
                 </Tip>

@@ -151,7 +151,7 @@ function Note({ id, turn }: { id: string; turn: (id: string) => void }): React.J
       <p className="font-heading text-[1.375rem] leading-tight font-semibold tracking-[-0.01em] text-foreground">{found.forms[0]}</p>
       <p className="mf-aside mt-1 text-muted-foreground">{found.origin}</p>
       {/* Dia's way: the bold lead-in says it; the rest is there for whoever wants it. */}
-      <p className="mf-prose mt-3 text-[0.9375rem] text-foreground/80"><Lead text={found.here} /></p>
+      <p className="mf-prose mt-3 text-[0.9375rem] text-(--mf-muted-strong)"><Lead text={found.here} /></p>
       <p className="mf-aside mt-1.5 text-[0.84375rem] text-muted-foreground">{found.try}</p>
       <p className="mf-prose mt-3 text-body text-muted-foreground">{found.history}</p>
       <p className="mt-3 border-t pt-2.5 text-meta text-muted-foreground">

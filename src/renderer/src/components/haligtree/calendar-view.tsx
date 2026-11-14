@@ -1129,7 +1129,7 @@ function Upcoming({ tasks, name, onEvent, onTask }: { tasks: Task[]; name: (one:
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="text-control font-medium" style={{ color: 'var(--tt-color-text-red)' }}>{until <= 0 ? `On now, ${lengthSaid(Math.max(1, dayjs(next.end).diff(now, 'minute')))} left` : `In ${lengthSaid(until)}`}</span>
             <span dir="auto" className="truncate text-body font-semibold text-foreground">{next.title || 'New event'}</span>
-            <span className="truncate text-control text-foreground/80 tabular-nums">{dayjs(next.start).isSame(now, 'day') ? '' : `${dayjs(next.start).format('ddd D')} · `}{timeSpan(next.start, next.end)}</span>
+            <span className="truncate text-control text-(--mf-muted-strong) tabular-nums">{dayjs(next.start).isSame(now, 'day') ? '' : `${dayjs(next.start).format('ddd D')} · `}{timeSpan(next.start, next.end)}</span>
           </span>
         </button>
       )}
@@ -1558,7 +1558,7 @@ function SessionGhost({ focus, tasks, now, next }: { focus: ReturnType<typeof us
       }}>
       {/* One line while it is short; what it runs into once there is room for it, and always in its label. */}
       <span className="flex min-w-0 items-baseline gap-1 whitespace-nowrap">
-        <span dir="auto" className="min-w-0 truncate font-medium text-foreground/80">{name}</span>
+        <span dir="auto" className="min-w-0 truncate font-medium text-(--mf-muted-strong)">{name}</span>
         <span className="shrink-0 tabular-nums text-muted-foreground">until <Rolling text={hm(end)} eager /></span>
       </span>
       {into && tall && <span data-cal-ghost-into className="mt-auto mb-0.5 truncate font-medium" style={{ color: `color-mix(in oklab, ${warm} 75%, var(--foreground))` }}>Runs into {into.name}</span>}
@@ -1618,7 +1618,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
             {repeats && <RepeatIcon role="img" aria-label="Repeats" className="size-3 shrink-0 opacity-75" />}
           </span>
           {/* An hour's block has room for two lines under its name: its planned and done say more than the time it sits at. */}
-          {!(plan && !short && length < 75) && <span className={`shrink-0 truncate text-meta tabular-nums text-foreground/80 ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? time(at) : <><span className={`@[104px]:hidden ${length >= 60 ? 'block leading-tight' : ''}`}>{length >= 60 ? <>{time(at)} –<br />{time(at + length, 'end')}</> : time(at)}</span><span className="hidden @[104px]:inline">{lifted ? <>{time(at)} – {time(at + length, 'end')}</> : timeSpan(atMinute(day, at), atMinute(day, at + length))}</span></>}</span>}
+          {!(plan && !short && length < 75) && <span className={`shrink-0 truncate text-meta tabular-nums text-(--mf-muted-strong) ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? time(at) : <><span className={`@[104px]:hidden ${length >= 60 ? 'block leading-tight' : ''}`}>{length >= 60 ? <>{time(at)} –<br />{time(at + length, 'end')}</> : time(at)}</span><span className="hidden @[104px]:inline">{lifted ? <>{time(at)} – {time(at + length, 'end')}</> : timeSpan(atMinute(day, at), atMinute(day, at + length))}</span></>}</span>}
           {plan}
         </span>
         {/* Its pointer set on itself: the page's hand over everything inside a button is outside Tailwind's layers, and beat a class. */}

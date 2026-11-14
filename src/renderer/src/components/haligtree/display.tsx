@@ -594,7 +594,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
                 {one.id === view.sort && <Check className="size-3.5 text-[var(--tt-brand-color-400)]" />}
               </button>
             ))}
-            {sortNote && <p data-sort-note className="px-1.5 pt-1 pb-0.5 text-control leading-snug text-foreground/80">{sortNote}</p>}
+            {sortNote && <p data-sort-note className="px-1.5 pt-1 pb-0.5 text-control leading-snug text-(--mf-muted-strong)">{sortNote}</p>}
           </div>
         )}
         {groups.length > 1 && (

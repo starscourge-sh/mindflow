@@ -100,7 +100,7 @@ export function YourMonth({ onClose }: { onClose: () => void }): React.JSX.Eleme
           <motion.div key={card.id} data-month-card={card.id} className="flex cursor-default flex-col items-center gap-6 text-center" onClick={(event) => event.stopPropagation()}
             initial={still ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={still ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -8, transition: { duration: 0.12 } }} transition={{ duration: 0.3, ease: EASE }}>
             {card.picture}
-            <p data-month-line className="max-w-lg text-body text-foreground/80 text-pretty">{card.line}</p>
+            <p data-month-line className="max-w-lg text-body text-(--mf-muted-strong) text-pretty">{card.line}</p>
             {card.id === 'end' && (
               <div className="flex gap-2">
                 <Button variant="secondary" data-month-share onClick={share}>Share</Button>

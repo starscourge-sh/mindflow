@@ -526,7 +526,7 @@ function Feature({ card, line, actions }: { card: Card; line: string; actions: A
             </Tilt>
           )}
           <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <span className="text-xs font-medium text-foreground/80">{line}</span>
+            <span className="text-xs font-medium text-(--mf-muted-strong)">{line}</span>
             <h2 className="private-text line-clamp-2 font-heading text-[1.25rem] leading-[1.15] font-semibold tracking-[-0.02em] text-balance text-foreground @[44rem]/page:text-[1.5rem]">{nameOf(card)}</h2>
             {!real && wordsOf(card.excerpt) && <p className="private-text line-clamp-2 max-w-[60ch] text-control text-muted-foreground">{wordsOf(card.excerpt)}</p>}
             <Signed who={card.who} where={card.where} year={card.year} className="private-text text-control text-muted-foreground" />
@@ -666,7 +666,7 @@ function BookOpened({ opened }: { opened: Opened }): React.JSX.Element {
   return (
     <div data-book-opened="" className="page-column relative w-full px-5 pt-6 @[44rem]/page:px-8">
       <p className="font-heading text-title font-light tracking-[-0.01em] text-foreground">Your book, opened {opened.on}.</p>
-      {opened.first && <p className="mt-1 text-reading text-foreground/80">The first thing in it: <span className="font-heading italic">{quoted(opened.first)}</span></p>}
+      {opened.first && <p className="mt-1 text-reading text-(--mf-muted-strong)">The first thing in it: <span className="font-heading italic">{quoted(opened.first)}</span></p>}
     </div>
   )
 }
@@ -901,7 +901,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {/* On Home: the month, once turned on in Settings, and what waits in the Inbox. */}
       <div data-home-plan className="page-column relative flex w-full flex-col gap-6 px-5 pt-4 @[44rem]/page:px-8">
         {/* The first week of a month: last month, card by card, Wrapped's way. */}
-        {dayjs().date() <= 7 && <p data-home-your-month className="text-body text-foreground/80"><button type="button" className="cursor-pointer font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => (chime('slide'), onView('stats', 'yourmonth'))}>Your {dayjs().subtract(1, 'month').format('MMMM')} is ready</button>, card by card.</p>}
+        {dayjs().date() <= 7 && <p data-home-your-month className="text-body text-(--mf-muted-strong)"><button type="button" className="cursor-pointer font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60" onClick={() => (chime('slide'), onView('stats', 'yourmonth'))}>Your {dayjs().subtract(1, 'month').format('MMMM')} is ready</button>, card by card.</p>}
         {settings?.homeTimeGone === true && <TimeGone heading={<Heading title="Time gone" />} />}
         {settings?.homeCalendar === true && <MonthPlan tasks={tasks} onDay={(day) => onView('day', day)} onOpen={onOpen} onWeek={(monday) => onView('weekpage', monday)} onMonth={(month) => onView('monthpage', month)} />}
         <div className="grid gap-x-8 gap-y-6 @[44rem]/page:grid-cols-[minmax(0,1fr)_auto]">

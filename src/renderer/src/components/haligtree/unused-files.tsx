@@ -154,7 +154,7 @@ export function UnusedFiles(): React.JSX.Element | null {
                       </span>
                     </span>
                     <span className="flex min-w-0 flex-col px-0.5 text-meta leading-tight">
-                      <span className="truncate text-foreground/80">{named(one)}</span>
+                      <span className="truncate text-(--mf-muted-strong)">{named(one)}</span>
                       <span className="text-muted-foreground tabular-nums">{keep ? 'Keeping' : bytes(one.size)}</span>
                     </span>
                   </button>

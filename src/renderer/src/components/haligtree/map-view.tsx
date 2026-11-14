@@ -151,7 +151,7 @@ function LinkMap({ onOpen, modes }: { onOpen: (type: string, id: string) => void
   const legend = (): React.JSX.Element => {
     const group = (label: string, items: React.ReactNode[]): React.JSX.Element => (
       <div data-map-key-group={label} className="flex flex-col gap-1.5">
-        <span className="font-medium text-foreground/80">{label}</span>
+        <span className="font-medium text-(--mf-muted-strong)">{label}</span>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">{items}</div>
       </div>
     )

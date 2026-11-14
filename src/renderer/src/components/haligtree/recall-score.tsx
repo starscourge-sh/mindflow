@@ -49,7 +49,7 @@ function RecallChart({ scores }: { scores: Score[] }): React.JSX.Element | null 
   const lines: [string, Score[]][] = [['Every sitting', scores], ...[...tags].sort((a, b) => b[1].length - a[1].length).slice(0, 6)]
   return (
     <div data-recall-chart className="mt-2 flex w-full flex-col gap-1.5">
-      <p className="text-control font-medium text-foreground/80">Your recall over time, by topic</p>
+      <p className="text-control font-medium text-(--mf-muted-strong)">Your recall over time, by topic</p>
       {lines.map(([name, list]) => {
         const last = list.slice(-12)
         const mean = list.reduce((sum, one) => sum + one.score, 0) / list.length

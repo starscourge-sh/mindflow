@@ -25,7 +25,7 @@ export const dotRing = (ink: string): string => `0 0 0 1.5px var(--background), 
 
 /** What a dot is, in one line over the dots: "Each dot is a week, the solid ones gone". */
 export function DotRule({ children, className = '' }: { children: ReactNode; className?: string }): React.JSX.Element {
-  return <p data-dot-rule className={`text-meta text-foreground/80 ${className}`}>{children}</p>
+  return <p data-dot-rule className={`text-meta text-(--mf-muted-strong) ${className}`}>{children}</p>
 }
 
 /** The words at the two ends of a row of dots, and between them, when given, where you are. */

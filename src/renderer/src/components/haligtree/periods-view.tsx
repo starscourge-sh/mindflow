@@ -168,7 +168,7 @@ const saveField = (period: string, key: string, text: string): void =>
 function Masthead({ parts, headline, named }: { parts: React.ReactNode[]; headline: string; named: boolean }): React.JSX.Element {
   return (
     <header>
-      <h1 className={`mt-5 ${SERIF} text-[clamp(1.625rem,3.6vw,2.25rem)] leading-[1.15] font-medium tracking-[-0.015em] text-balance ${named ? 'text-foreground' : 'text-foreground/80'}`}>
+      <h1 className={`mt-5 ${SERIF} text-[clamp(1.625rem,3.6vw,2.25rem)] leading-[1.15] font-medium tracking-[-0.015em] text-balance ${named ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>
         {/* A title, so simply there: the line under it is the one that speaks (lib/motion.ts). */}
         {headline}
       </h1>
@@ -190,13 +190,13 @@ function CarriedOver({ lines }: { lines: ([string, string] | [string, string, { 
       {shown.map(([label, text, home]) => home ? (
         // Still the month's own words, written here or there: the same field, kept where it lives.
         <label key={label} data-carried={label} className="flex cursor-text flex-col gap-0.5 px-4 py-2.5 focus-within:bg-accent/40">
-          <span className="text-control font-medium text-foreground/80">{label}</span>
+          <span className="text-control font-medium text-(--mf-muted-strong)">{label}</span>
           <textarea key={text} defaultValue={text} aria-label={label} onBlur={(event) => event.target.value !== text && saveField(home.period, home.field, event.target.value)}
             className="resize-none bg-transparent text-body text-foreground outline-none [field-sizing:content]" />
         </label>
       ) : (
         <p key={label} data-carried={label} className="flex flex-col gap-0.5 px-4 py-2.5">
-          <span className="text-control font-medium text-foreground/80">{label}</span>
+          <span className="text-control font-medium text-(--mf-muted-strong)">{label}</span>
           <span className="text-body whitespace-pre-line text-foreground">{text}</span>
         </p>
       ))}

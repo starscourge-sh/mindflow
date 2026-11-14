@@ -229,7 +229,7 @@ function Listening({ src, length }: { src: string; length: number | null }): Rea
       <Orb state="listening" label={`Listening… ${mmss(shown)}${length ? ` of ${mmss(length)}` : ""}`} />
       <button type="button" data-transcribe-stop onMouseDown={(event) => event.preventDefault()} onClick={() => stopTranscribing(src)}
         onKeyDown={(event) => event.key === "Escape" && (event.preventDefault(), stopTranscribing(src))}
-        className="cursor-pointer rounded-sm font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
+        className="cursor-pointer rounded-sm font-medium text-(--mf-muted-strong) underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
         Stop
       </button>
     </span>
@@ -263,7 +263,7 @@ function AudioBlock(props: NodeViewProps): React.JSX.Element {
       <span>No transcript</span>
       <span aria-hidden>·</span>
       <button type="button" data-transcribe title="Its words under it, by Apple’s speech recognition" onMouseDown={(event) => event.preventDefault()} onClick={() => void transcribe(props.editor, src)}
-        className="cursor-pointer rounded-sm font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
+        className="cursor-pointer rounded-sm font-medium text-(--mf-muted-strong) underline-offset-2 transition-colors hover:text-foreground hover:underline active:scale-[0.97]">
         Transcribe
       </button>
     </>

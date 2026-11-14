@@ -661,7 +661,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                     // Nothing found: the half says so, and what Enter does with the words.
                     ? <div key={action.label} className="flex flex-col gap-2 p-4">
                       <p className="text-base font-medium text-pretty text-foreground">Nothing called that yet.</p>
-                      <p className="text-body text-pretty text-foreground/80"><strong className="font-semibold text-foreground">Enter keeps it</strong> {action.keep === 'box' ? 'in quick capture, ready to finish there.' : `${KEPT_AS[action.keep]}, and opens it to write more.`}</p>
+                      <p className="text-body text-pretty text-(--mf-muted-strong)"><strong className="font-semibold text-foreground">Enter keeps it</strong> {action.keep === 'box' ? 'in quick capture, ready to finish there.' : `${KEPT_AS[action.keep]}, and opens it to write more.`}</p>
                     </div>
                   : action
                     // A lit action: only that action, what it does, and (in the bar under it) its key. Nothing else

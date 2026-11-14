@@ -822,7 +822,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
       </div>}
       {total > 0 && !wide && (
         <button type="button" data-month-dots={total} aria-label={`Open ${day.format('dddd D MMMM')}: ${plural(total, 'thing')}`} onClick={() => (chime('open'), onDay(key))}
-          className="flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-meta text-foreground/80 tabular-nums hover:bg-accent">
+          className="flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-meta text-(--mf-muted-strong) tabular-nums hover:bg-accent">
           <span aria-hidden className="flex gap-0.5">{Array.from({ length: Math.min(3, total) }, (_, at) => <span key={at} className={`size-1.5 rounded-full ${gone && lines.length ? 'bg-[var(--tt-color-text-orange)]' : 'bg-foreground/55'}`} />)}</span>
           {num(total)}
         </button>

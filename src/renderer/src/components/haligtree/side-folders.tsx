@@ -427,7 +427,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
                 // A long name ("Words worth knowing" at the sidebar's narrowest) goes on to a second line rather than
                 // being cut; the count stays on its first line, on the same baseline as every other row's.
                 data-drop-hot={over ? '' : undefined}
-                className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-foreground/80'} ${DROP_LIT} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
+                className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${DROP_LIT} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)] data-[folder-no]:cursor-not-allowed data-[folder-no]:opacity-50`}
               >
                 {/* Room for the icon, which is its own button over this one. */}
                 <span className="size-4 shrink-0" />
@@ -482,7 +482,7 @@ function SmartRow({ group, shown, counted, here, onOpen }: { group: SmartGroup; 
     ]}>
       <Tip label={`${ruleSaid(group)}. A group gathers; it moves nothing`}>
         <button type="button" data-side-row data-side-group={group.id} aria-current={here ? 'page' : undefined} onClick={() => (chime('page'), onOpen())}
-          className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-foreground/80'}`}>
+          className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>
           <span className="flex size-4 shrink-0 items-center justify-center"><GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} /></span>
           <Weighted on={here} className="flex-1 text-left italic">{group.name}</Weighted>
           {counted && n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
@@ -518,7 +518,7 @@ export function RailFolders({ list, onOpen }: { list: 'article' | 'nugget'; onOp
       <div className="flex w-full">
         <Tip label={`${name}'s folders`} side="right">
           <button type="button" data-side-row data-rail-folders={list} aria-label={`${name}'s folders and groups`} onClick={openFromGrip}
-            className="flex w-full cursor-pointer items-center justify-center rounded-md py-1.5 text-foreground/80">
+            className="flex w-full cursor-pointer items-center justify-center rounded-md py-1.5 text-(--mf-muted-strong)">
             <Icon className="size-4" />
           </button>
         </Tip>

@@ -283,9 +283,9 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
                   waiting={waiting} onField={bring} onName={(name) => void named(name)} onCancel={() => setOpen(null)} />
               )}
               {/* Kept by the app, not typed: shown, never changed here. Under the title the page head says it already ("Started 3d ago"), so only the details panel lists them. */}
-              {created && panel && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-foreground/80`}>{stamp(created, panel)}</span></div>}
+              {created && panel && <div className={row} data-property="created">{nameCell(Clock, 'created')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-(--mf-muted-strong)`}>{stamp(created, panel)}</span></div>}
               {/* Never changed since: updated is when it was made. */}
-              {(updated ?? created) && panel && <div className={row} data-property="updated">{nameCell(Clock, 'updated')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-foreground/80`}>{stamp((updated ?? created) as string, panel)}</span></div>}
+              {(updated ?? created) && panel && <div className={row} data-property="updated">{nameCell(Clock, 'updated')}<span className={`flex ${panel ? 'min-h-8 py-1.5' : 'h-7'} items-center ${size.pad} text-(--mf-muted-strong)`}>{stamp((updated ?? created) as string, panel)}</span></div>}
               {addButton}
             </div>
           )}

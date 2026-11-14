@@ -43,7 +43,7 @@ export function PutAwayLine({ onSee }: { onSee: () => void }): React.JSX.Element
   return (
     <motion.div role="status" data-put-away
       initial={{ opacity: 0, transform: shift('translateY(-4px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} transition={spring.moderate}
-      className="mx-5 mt-2 flex items-start gap-3 rounded-xl border bg-background py-2 pr-1.5 pl-3.5 text-body text-foreground/80">
+      className="mx-5 mt-2 flex items-start gap-3 rounded-xl border bg-background py-2 pr-1.5 pl-3.5 text-body text-(--mf-muted-strong)">
       <p className="min-w-0 flex-1 py-1">
         <strong className="font-semibold text-foreground">{run.still === 1 ? '1 old capture was put away today,' : `${num(run.still)} old captures were put away today,`}</strong>{' '}
         untouched for {run.days === 1 ? 'a day' : `${run.days} days`}. {run.still === 1 ? 'It waits' : 'They wait'} in Archived.{' '}

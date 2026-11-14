@@ -81,7 +81,7 @@ export function PinnedQuestions({ onPick, className = '', only, nod }: { onPick:
             <Nod on={!!nod?.(shownName(question.title))}>
             <Tip label={`Add this to ${quoted(short(shownName(question.title), 60), 80)} as a clue, a piece of the answer. It has ${question.clues === 1 ? '1 clue' : `${num(question.clues)} clues`} so far`}>
               <button type="button" onClick={() => onPick(question)}
-                className="max-w-48 truncate rounded-full border px-2 py-0.5 text-foreground/80 transition-colors hover:border-foreground/30 hover:bg-accent hover:text-foreground">
+                className="max-w-48 truncate rounded-full border px-2 py-0.5 text-(--mf-muted-strong) transition-colors hover:border-foreground/30 hover:bg-accent hover:text-foreground">
                 {short(shownName(question.title), 40)}
               </button>
             </Tip>

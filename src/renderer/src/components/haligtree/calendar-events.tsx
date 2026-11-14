@@ -66,7 +66,7 @@ export function EventLine({ color, title, said, task = false, ...rest }: { color
       <span aria-hidden className={`mt-1.5 size-2 shrink-0 ${task ? 'rounded-full border-[1.5px]' : 'rounded-[2px]'}`} style={task ? { borderColor: color } : { background: color }} />
       <span className="flex min-w-0 flex-1 flex-col">
         <span dir="auto" className="truncate text-body font-semibold text-foreground">{title}</span>
-        <span className="truncate text-control text-foreground/80 tabular-nums">{said}</span>
+        <span className="truncate text-control text-(--mf-muted-strong) tabular-nums">{said}</span>
       </span>
     </button>
   )
@@ -131,7 +131,7 @@ function ScopeAsk({ verb, offerOne, onPick }: { verb: string; offerOne: boolean;
           <button key={scope} ref={at === 0 ? first : undefined} type="button" data-scope={scope} onClick={() => (chime('tap'), onPick(scope))}
             className="flex items-center gap-3 rounded-lg px-2 py-2 text-left outline-none hover:bg-accent focus-visible:bg-accent">
             <Kbd>{at + 1}</Kbd>
-            <span className="flex min-w-0 flex-col"><span className="text-body font-medium text-foreground">{label}</span><span className="text-control text-foreground/80">{note}</span></span>
+            <span className="flex min-w-0 flex-col"><span className="text-body font-medium text-foreground">{label}</span><span className="text-control text-(--mf-muted-strong)">{note}</span></span>
           </button>
         ))}
         <Button variant="ghost" size="sm" className="mt-1 self-end" onClick={() => (chime('away'), onPick(null))}>Cancel <Kbd>Esc</Kbd></Button>
@@ -498,7 +498,7 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
         {row('study', 'Study', STUDY_INK)}
         <li>
           <button type="button" data-cal-layer-add onClick={() => void add()}
-            className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-body text-foreground/80 outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
+            className="flex h-8 w-full items-center gap-2.5 rounded-md px-2 text-left text-body text-(--mf-muted-strong) outline-none transition-[background-color,scale] duration-150 hover:bg-accent/60 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.97] motion-reduce:transition-none">
             <Plus aria-hidden className="size-4 shrink-0" />New calendar
           </button>
         </li>
@@ -869,7 +869,7 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
             </p>
           )}
           {!one.allDay && <p className="pl-6 text-foreground/85">{start.format('ddd, MMM D')}{end.isSame(start, 'day') ? '' : ` – ${end.format('ddd, MMM D')}`}</p>}
-          {!one.allDay && <p className="flex items-center gap-2 text-body text-foreground/80"><Globe aria-hidden className="size-4 shrink-0 text-foreground/70" />{zoneShort(Intl.DateTimeFormat().resolvedOptions().timeZone, start.toDate())} {cityOf(Intl.DateTimeFormat().resolvedOptions().timeZone)}</p>}
+          {!one.allDay && <p className="flex items-center gap-2 text-body text-(--mf-muted-strong)"><Globe aria-hidden className="size-4 shrink-0 text-foreground/70" />{zoneShort(Intl.DateTimeFormat().resolvedOptions().timeZone, start.toDate())} {cityOf(Intl.DateTimeFormat().resolvedOptions().timeZone)}</p>}
           {one.repeatSaid && <p className="flex items-center gap-2 text-body text-foreground/85"><RepeatIcon aria-hidden className="size-4 shrink-0 text-foreground/70" />{one.repeatSaid}</p>}
         </div>
         {one.video && (
@@ -1196,7 +1196,7 @@ export function ZoneHeads({ zone, day }: { zone: string; day: string }): React.J
   return (
     <span data-cal-zone-heads className="flex items-end justify-between self-end px-1.5 pb-1 text-control font-medium">
       <Tip label={`${cityOf(zone)}: ${zoneGap(zone, at)}`}><span data-cal-zone-name className="text-muted-foreground">{zoneShort(zone, at)}</span></Tip>
-      <span className="text-foreground/80">{zoneShort(here, at)}</span>
+      <span className="text-(--mf-muted-strong)">{zoneShort(here, at)}</span>
     </span>
   )
 }
@@ -1226,7 +1226,7 @@ export function SecondZoneSetting({ value, set }: { value: string | null; set: (
       {value && (
         <Popover open={open} onOpenChange={(next) => (next && chime('open'), setOpen(next), setFind(''))}>
           <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" data-zone-pick>{city(value)} <span className="font-normal text-foreground/80">{zoneShort(value, now)}</span></Button>
+            <Button variant="outline" size="sm" data-zone-pick>{city(value)} <span className="font-normal text-(--mf-muted-strong)">{zoneShort(value, now)}</span></Button>
           </PopoverTrigger>
           <PopoverContent align="end" className="w-72 gap-1 p-1.5" data-zone-list>
             <input autoFocus value={find} onChange={(event) => setFind(event.target.value)} placeholder="Find a city or zone" aria-label="Find a city or zone"
@@ -1237,7 +1237,7 @@ export function SecondZoneSetting({ value, set }: { value: string | null; set: (
                 <button key={one.id} type="button" data-zone={one.id} onClick={() => (chime('tap'), set(one.id), setOpen(false))}
                   className="flex items-center gap-2 rounded-md px-2 py-1 text-left text-control text-foreground hover:bg-accent aria-pressed:bg-accent" aria-pressed={one.id === value}>
                   <span className="min-w-0 flex-1 truncate">{one.city} <span className="text-muted-foreground">{one.id.split('/')[0]}</span></span>
-                  <span className="shrink-0 tabular-nums text-foreground/80">{clock(inZone(one.id, now).toISOString())} {zoneShort(one.id, now)}</span>
+                  <span className="shrink-0 tabular-nums text-(--mf-muted-strong)">{clock(inZone(one.id, now).toISOString())} {zoneShort(one.id, now)}</span>
                 </button>
               ))}
               {!found.length && <p className="px-2 py-1 text-control text-foreground/85">No zone by that name.</p>}

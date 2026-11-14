@@ -221,7 +221,7 @@ export function ImportFolders(): React.JSX.Element | null {
                 })}
               </div>
               <div className="flex items-center gap-3 border-t border-foreground/[0.07] px-5 pt-3 pb-4">
-                <span className="hidden flex-1 items-center gap-1.5 text-control text-foreground/80 sm:flex"><Kbd>Space</Kbd> choose <Kbd>↵</Kbd> bring in</span>
+                <span className="hidden flex-1 items-center gap-1.5 text-control text-(--mf-muted-strong) sm:flex"><Kbd>Space</Kbd> choose <Kbd>↵</Kbd> bring in</span>
                 <span className="flex-1 sm:hidden" />
                 <Button variant="ghost" size="lg" onClick={close}>Cancel</Button>
                 <Button size="lg" data-folders-bring={total} disabled={!total} onClick={bring}>

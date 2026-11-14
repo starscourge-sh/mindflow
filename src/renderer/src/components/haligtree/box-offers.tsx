@@ -108,10 +108,10 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, 
           {best.kind === 'ask' ? (
             <>
               <Orbit className="size-3.5 shrink-0" />
-              <span className="min-w-0 truncate text-foreground/80">{quoted(short(best.one.title, 48), 80)}</span>
+              <span className="min-w-0 truncate text-(--mf-muted-strong)">{quoted(short(best.one.title, 48), 80)}</span>
               <span aria-hidden className="shrink-0">·</span>
               <Tip label="A question of its own in Writing: it collects dated clues until you know the answer">
-                <button type="button" onClick={take} className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
+                <button type="button" onClick={take} className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-(--mf-muted-strong) transition-colors hover:bg-accent hover:text-foreground">
                   Keep as a question <Kbd>⇥</Kbd>
                 </button>
               </Tip>
@@ -120,11 +120,11 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, 
           {best.kind === 'question' ? <Orbit className="size-3.5 shrink-0" /> : (() => { const Mark = KIND_ICON[kindOf(best.one)]; return <Mark data-goal-mark={kindOf(best.one)} className="size-3.5 shrink-0" /> })()}
           <span className="min-w-0 truncate">
             {best.kind === 'question' ? 'Helps answer' : 'Log to'}{' '}
-            <span {...hoverNote(best.kind, best.one.id)} data-private={best.kind === 'goal' && best.one.private ? '' : undefined} className={`text-foreground/80 ${best.kind === 'goal' ? 'private-text' : ''}`}>{quoted(short(best.one.title), 80)}</span>
+            <span {...hoverNote(best.kind, best.one.id)} data-private={best.kind === 'goal' && best.one.private ? '' : undefined} className={`text-(--mf-muted-strong) ${best.kind === 'goal' ? 'private-text' : ''}`}>{quoted(short(best.one.title), 80)}</span>
           </span>
           <span aria-hidden className="shrink-0">·</span>
           <Tip label={best.kind === 'question' ? `Add this to ${quoted(short(best.one.title, 60), 80)} as a clue, a piece of the answer` : `Log this against ${quoted(short(best.one.title, 60), 80)}`}>
-            <button type="button" onClick={take} className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
+            <button type="button" onClick={take} className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-(--mf-muted-strong) transition-colors hover:bg-accent hover:text-foreground">
               Add <Kbd>⇥</Kbd>
             </button>
           </Tip>

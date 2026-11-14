@@ -46,7 +46,7 @@ export function AnotherWay({ card, onClose }: { card: Due; onClose: () => void }
     // A second card under the one asked, in its look: the new question written
     // where a question sits (the serif, no box), its answer under a fold.
     <section data-another-way className="-mt-2 flex flex-col gap-3 rounded-lg border bg-accent/30 px-5 pt-4 pb-3">
-      <p className="text-sm text-foreground/80">
+      <p className="text-sm text-(--mf-muted-strong)">
         <b className="font-semibold text-foreground">Ask another way.</b>{' '}
         {kept.length ? `The new card keeps ${kept.join(', ').replace(/, ([^,]*)$/, ' and $1')}: write only the question and its answer.` : 'A new question on the same thing: one topic from many angles is how it sticks.'}
       </p>

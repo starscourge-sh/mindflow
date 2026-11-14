@@ -74,7 +74,7 @@ export function CoverChoice({ settings, set }: { settings: Settings; set: (patch
             className={`flex flex-col gap-2 rounded-lg border p-2.5 text-left transition-colors duration-80 ${style === option.id ? 'border-foreground/25' : 'border-transparent'}`}>
             <Samples covers={[...option.covers]} />
             <span className="flex flex-col">
-              <span className={`text-control font-medium ${style === option.id ? 'text-foreground' : 'text-foreground/80'}`}>{option.label}{option.id === 'paper' && <span className="ml-1.5 font-normal text-muted-foreground">(the usual)</span>}</span>
+              <span className={`text-control font-medium ${style === option.id ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>{option.label}{option.id === 'paper' && <span className="ml-1.5 font-normal text-muted-foreground">(the usual)</span>}</span>
               <span className="text-meta text-muted-foreground">{option.line}</span>
             </span>
           </button>

@@ -326,7 +326,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
           </Tip>
           <Tip label={keyed('Back to 100%', ['⇧0'])}>
             <button type="button" aria-label="Back to 100%" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('tap'), zoomTo(() => 1))}
-              className="relative flex h-[22px] min-w-12 items-center after:absolute after:-inset-y-1 after:inset-x-0 justify-center rounded-full px-1.5 text-meta tabular-nums text-foreground/80 transition-colors hover:bg-accent/60 hover:text-foreground">
+              className="relative flex h-[22px] min-w-12 items-center after:absolute after:-inset-y-1 after:inset-x-0 justify-center rounded-full px-1.5 text-meta tabular-nums text-(--mf-muted-strong) transition-colors hover:bg-accent/60 hover:text-foreground">
               <Rolling text={`${seen.zoom}%`} />
             </button>
           </Tip>

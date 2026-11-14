@@ -909,7 +909,7 @@ function OlderLine({ days, older, shown = false, onFlip }: { days: number; older
   const since = dayjs().subtract(days, 'day').format('D MMMM')
   const link = 'font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60'
   return (
-    <p data-inbox-older={shown ? 'shown' : 'line'} className={`mx-5 flex min-h-8 items-center text-body text-foreground/80 ${shown ? 'mt-2' : 'mt-1 mb-6'}`}>
+    <p data-inbox-older={shown ? 'shown' : 'line'} className={`mx-5 flex min-h-8 items-center text-body text-(--mf-muted-strong) ${shown ? 'mt-2' : 'mt-1 mb-6'}`}>
       <span className="min-w-0">
         {shown
           ? <><strong className="font-semibold text-foreground">{older === 1 ? '1 older capture' : `${num(older)} older captures`}</strong>, from before {since}.{' '}</>

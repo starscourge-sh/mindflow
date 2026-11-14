@@ -422,7 +422,7 @@ function ActionItems({ items, nameOf, onSeek, editable, by, noteId, onChange }: 
                   <div data-meeting-item-text onDoubleClick={() => editable && setEditing(item.id)} className={cn('text-body text-pretty', done && 'text-muted-foreground line-through decoration-muted-foreground/50')}>{item.text}</div>
                 )}
                 <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 text-meta text-muted-foreground">
-                  <span data-meeting-owner className="inline-flex items-center gap-1 font-medium text-foreground/80"><UserRound className="size-3" />{owner(item)}</span>
+                  <span data-meeting-owner className="inline-flex items-center gap-1 font-medium text-(--mf-muted-strong)"><UserRound className="size-3" />{owner(item)}</span>
                   {item.date && <span data-meeting-due className="inline-flex items-center gap-1"><CalendarDays className="size-3" />{new Date(`${item.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>}
                   <button type="button" data-meeting-item-at onClick={() => onSeek(item.at)} className="cursor-pointer tabular-nums hover:text-foreground" title="Play from here">{clock(item.at)}</button>
                   {task && <span data-meeting-item-task className="inline-flex items-center gap-1"><ListTodo className="size-3" />In Tasks</span>}

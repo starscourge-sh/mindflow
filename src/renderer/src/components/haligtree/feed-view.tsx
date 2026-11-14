@@ -677,7 +677,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
               onKeyDown={(event) => event.key === 'Enter' && (event.preventDefault(), onOpen())}
               className="cursor-pointer rounded-lg border bg-accent/25 px-4 py-3 transition-colors hover:border-foreground/20 hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring">
               <blockquote className="font-serif text-reading whitespace-pre-line hyphens-auto [overflow-wrap:break-word] text-foreground line-clamp-[10]"><Linked text={words} links={post.links} onOpen={onOpenOther} /></blockquote>
-              {post.who && <figcaption data-feed-author className="mt-2 text-control font-medium text-foreground/80"><span {...hoverNote('person', post.who)}>{post.who}</span></figcaption>}
+              {post.who && <figcaption data-feed-author className="mt-2 text-control font-medium text-(--mf-muted-strong)"><span {...hoverNote('person', post.who)}>{post.who}</span></figcaption>}
               {/* The page or PDF it came from, at its page: one click opens it there. */}
               {post.from && (
                 <button type="button" data-feed-from={post.from.href} data-feed-from-page={post.from.page ?? undefined} onClick={() => (chime('open'), followPdfLink(post.from!.href))}
@@ -800,7 +800,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
             </p>
           )}
           {explain && (
-            <p data-feed-explain className="text-control text-foreground/80">
+            <p data-feed-explain className="text-control text-(--mf-muted-strong)">
               “Add a thought” keeps a dated line under it, “Say it again” puts it in your own words for tomorrow, and “Read later” keeps it in your Queue.
             </p>
           )}
@@ -970,7 +970,7 @@ function QuizPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; 
               </div>
               <p data-feed-quiz-said className="min-h-5 text-control text-muted-foreground">
                 {graded ? `Graded ${quoted(gradeName(graded.grade), 80)}, as Review would: back ${backIn(graded.due)}.` : 'How did it feel? It counts as a review.'}
-                {' '}{graded && <><button type="button" data-undo-grade onClick={undo} className="rounded-sm text-control text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">Undo {quoted(gradeName(graded.grade), 80)}</button>{' '}</>}
+                {' '}{graded && <><button type="button" data-undo-grade onClick={undo} className="rounded-sm text-control text-(--mf-muted-strong) underline-offset-2 hover:text-foreground hover:underline">Undo {quoted(gradeName(graded.grade), 80)}</button>{' '}</>}
                 <OpenLink onOpen={onOpen}>Open the card</OpenLink>
               </p>
             </>
@@ -989,7 +989,7 @@ function QuizPost({ post, onOpen, mark }: { post: FeedPost; onOpen: () => void; 
 /** "Open the decision": a quiet link at the end of a poll's or a quiz card's line, not a lone button on a row of its own. */
 function OpenLink({ onOpen, children }: { onOpen: () => void; children: React.ReactNode }): React.JSX.Element {
   return (
-    <button type="button" data-feed-open onClick={onOpen} className="inline-flex items-baseline gap-1 rounded-sm text-control text-foreground/80 underline-offset-2 hover:text-foreground hover:underline">
+    <button type="button" data-feed-open onClick={onOpen} className="inline-flex items-baseline gap-1 rounded-sm text-control text-(--mf-muted-strong) underline-offset-2 hover:text-foreground hover:underline">
       {children}<ArrowUpRight className="size-3.5 self-center" />
     </button>
   )

@@ -205,7 +205,7 @@ function Row({ page, big = false, onRead }: { page: ReadingPage; big?: boolean; 
         {page.from && (
           <span data-reading-from className="flex min-w-0 items-center gap-1.5 text-control text-muted-foreground">
             {page.from.kind === 'group' ? <GroupIcon icon={page.from.icon} color={page.from.color} className="size-3.5" /> : <TagIcon tag={page.from.name} className="size-3.5" />}
-            <span className="truncate font-medium text-foreground/80">{page.from.kind === 'tag' ? `#${page.from.name}` : page.from.name}</span>
+            <span className="truncate font-medium text-(--mf-muted-strong)">{page.from.kind === 'tag' ? `#${page.from.name}` : page.from.name}</span>
           </span>
         )}
         <span data-reading-title className={cn('font-semibold tracking-[-0.01em] text-balance text-foreground group-hover:underline group-hover:decoration-foreground/30 group-hover:underline-offset-4', big ? 'font-heading text-title' : 'text-reading')}>{page.title}</span>

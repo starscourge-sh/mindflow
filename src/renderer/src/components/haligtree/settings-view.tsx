@@ -196,8 +196,8 @@ export function Setting({ title, aka, children, note, more, below, beside, keywo
             )}
           </div>
           {/* Dia's way: the lead-in in bold says it, the rest is there for whoever wants it. */}
-          <p className="mf-prose mt-1 max-w-md text-[0.8125rem] text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground/80"><Lead text={note} show={(words) => <Marked text={words} query={shown} />} /></p>
-          {off && <p data-setting-off className="mt-1 text-[0.8125rem] font-medium text-foreground/80">{off}</p>}
+          <p className="mf-prose mt-1 max-w-md text-[0.8125rem] text-muted-foreground [&_strong]:font-medium [&_strong]:text-(--mf-muted-strong)"><Lead text={note} show={(words) => <Marked text={words} query={shown} />} /></p>
+          {off && <p data-setting-off className="mt-1 text-[0.8125rem] font-medium text-(--mf-muted-strong)">{off}</p>}
         </div>
         {beside && <div className="mx-auto shrink-0">{beside}</div>}
         {children && <div className="ml-auto flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2 text-control"><SettingName.Provider value={title}>{children}</SettingName.Provider></div>}
@@ -1554,7 +1554,7 @@ function BackupPlace(): React.JSX.Element {
       {!status?.failing && (
         <p className="text-sm text-foreground">{status?.at ? <><b className="font-semibold">Last backup {backedUpAgo(status.at)}.</b> </> : status ? <b className="font-semibold">No backup yet. The first one is on its way. </b> : null}</p>
       )}
-      <p className="text-xs text-muted-foreground">Backups go to <span className="font-mono break-all text-foreground/80">{where.includes('CloudDocs') ? 'iCloud Drive › haligtree' : where || '…'}</span></p>
+      <p className="text-xs text-muted-foreground">Backups go to <span className="font-mono break-all text-(--mf-muted-strong)">{where.includes('CloudDocs') ? 'iCloud Drive › haligtree' : where || '…'}</span></p>
       {!SANDBOX && (
         <div className="flex flex-wrap gap-1.5 pt-0.5">
           <Button variant="outline" size="sm" data-backup-now onClick={() => void working(haligtree.backupNow()).then((next) => { setStatus(next); if (next.failing) refuse(`That backup did not work: ${next.failing}`); else chime('done') })}>Back up now</Button>
@@ -2379,7 +2379,7 @@ function InboxShowsSetting({ days, set }: { days: number; set: (days: number) =>
   const said = (n: number): string => (n === 1 ? '1 capture' : `${num(n)} captures`)
   return (
     <Setting title="Inbox shows" note="Captures from this far back; older ones wait behind one line at the end of the Inbox." more="Pinned ones always show. Search, tags, ⌘K and the Map still find every note, and quick capture's Inbox shows the same days." keywords="inbox recent days window older calm hide old captures arc everything"
-      below={unloaded(all) ? null : <p data-inbox-shows-preview className="text-body text-foreground/80">
+      below={unloaded(all) ? null : <p data-inbox-shows-preview className="text-body text-(--mf-muted-strong)">
         {days ? <>The Inbox lists <strong className="font-semibold text-foreground">{said(listed)}</strong> now{behind ? <>, and <strong className="font-semibold text-foreground">{num(behind)}</strong> older wait behind its line.</> : ', and none are older.'}</> : <>The Inbox lists all <strong className="font-semibold text-foreground">{said(open.length)}</strong> still waiting.</>}
       </p>}>
       <Chips className="shrink-0" options={[{ id: '7', label: '7 days' }, { id: '14', label: '14 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Everything' }]}
@@ -2398,7 +2398,7 @@ function PutAwaySetting({ days }: { days: number }): React.JSX.Element {
   const since = dayjs().subtract(days, 'day').format('dddd D MMMM')
   return (
     <Setting title="Put away captures I haven't sorted after" note="Untouched captures go to Archived, **never pinned ones or any with a reminder, a date or a thought**." more="Nor a task's source. At the start of a day, as Arc tidies old tabs. The Inbox says how many went, with Undo, and Archived keeps them all; nothing is deleted. Archived ones no longer come back as hints or memories." keywords="archive auto old captures inbox tidy put away stale untouched sorted"
-      below={<p data-put-away-preview className="text-body text-foreground/80">
+      below={<p data-put-away-preview className="text-body text-(--mf-muted-strong)">
         {days ? <>Captures untouched since <strong className="font-semibold text-foreground">{since}</strong> go next, at the start of a day.</> : <>Nothing goes on its own. “Put away everything before” does it by hand.</>}
       </p>}>
       <Chips className="shrink-0" options={[{ id: '1', label: '1 day' }, { id: '7', label: '7 days' }, { id: '30', label: '30 days' }, { id: '0', label: 'Never' }]}

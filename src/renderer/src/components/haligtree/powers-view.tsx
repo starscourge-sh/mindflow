@@ -142,7 +142,7 @@ export function PowersView({ onView }: { onView: (id: string, focus?: string) =>
               )}
               {/* Unpinned from the sidebar's Pinned: one way to put it back, where it is missed. */}
               {pinned === false && (
-                <button type="button" data-powers-repin className="mt-3 flex items-center gap-1.5 text-control font-medium text-foreground/80 underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
+                <button type="button" data-powers-repin className="mt-3 flex items-center gap-1.5 text-control font-medium text-(--mf-muted-strong) underline decoration-foreground/30 underline-offset-2 hover:decoration-foreground"
                   onClick={() => (chime('tap'), void haligtree.setSettings({ powersPinned: true }))}>
                   Pin this page to the sidebar
                 </button>

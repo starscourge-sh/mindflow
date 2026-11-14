@@ -269,7 +269,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
       <><div ref={room} aria-hidden />
       <div ref={box} style={hold} data-define="fix" className={`${LINE} mf-define-arrive flex items-center gap-1.5 pt-1.5 text-control text-muted-foreground`}>
         <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => onFix(definition.fix!)}
-          className="inline-flex cursor-pointer items-center rounded-full border border-foreground/10 px-2.5 py-0.5 text-foreground/80 transition-colors hover:border-foreground/20 hover:bg-accent">
+          className="inline-flex cursor-pointer items-center rounded-full border border-foreground/10 px-2.5 py-0.5 text-(--mf-muted-strong) transition-colors hover:border-foreground/20 hover:bg-accent">
           Did you mean&nbsp;<span className="font-medium text-foreground">{definition.fix}</span>?
         </button>
       </div></>
@@ -318,7 +318,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
             <p data-define-wiki className="mf-define-arrive flex min-w-0 items-end gap-2 text-muted-foreground">
               <span className="line-clamp-2 min-w-0 text-pretty">{firstSentences(article.extract, 1)}</span>
               <a href={article.url} title="Text from Wikipedia, CC BY-SA" onMouseDown={(event) => event.preventDefault()} onClick={(event) => (event.preventDefault(), window.open(article.url))}
-                className="shrink-0 cursor-pointer whitespace-nowrap text-foreground/80 underline decoration-foreground/25 underline-offset-2 hover:text-foreground">Wikipedia</a>
+                className="shrink-0 cursor-pointer whitespace-nowrap text-(--mf-muted-strong) underline decoration-foreground/25 underline-offset-2 hover:text-foreground">Wikipedia</a>
             </p>
           )}
         </div>
@@ -331,7 +331,7 @@ export function DefineGhost({ definition, onKeep, onHide, onFix, picked = false,
           </span>
           {/* Off from the meaning itself, not only from its menu or Settings: undoable, and says where it comes back. */}
           <button type="button" data-define-stop onMouseDown={(event) => event.preventDefault()} onClick={() => (stopLookingUp(mode), backToWriting())}
-            className="-my-0.5 cursor-pointer rounded-full px-2 py-0.5 text-foreground/80 transition-colors hover:bg-accent hover:text-foreground">
+            className="-my-0.5 cursor-pointer rounded-full px-2 py-0.5 text-(--mf-muted-strong) transition-colors hover:bg-accent hover:text-foreground">
             Stop showing these
           </button>
         </div>

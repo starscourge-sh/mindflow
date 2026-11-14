@@ -366,7 +366,7 @@ export function SessionBlocked({ sessionId }: { sessionId: string }): React.JSX.
   const sites = useLive(() => call<{ site: string; count: number }[]>('site-block:session', sessionId), [] as { site: string; count: number }[], [sessionId])
   if (!sites.length) return null
   return (
-    <p data-session-blocked className="mt-1 flex items-center gap-1.5 text-control text-foreground/80">
+    <p data-session-blocked className="mt-1 flex items-center gap-1.5 text-control text-(--mf-muted-strong)">
       <span className="flex gap-0.5">{sites.slice(0, 3).map((one) => <span key={one.site}><SiteIcon site={one.site} size={14} /></span>)}</span>
       {blockedSaid(sites)}
     </p>

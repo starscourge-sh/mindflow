@@ -379,7 +379,7 @@ export function QueueView(): React.JSX.Element {
                   const was = read
                   void readingQueue.forget().then(() => (chime('away'), toast(`Cleared ${num(was.length)} from Read`, () =>
                     void Promise.all(was.map((row) => readingQueue.restore({ id: row.id, item_type: row.type, item_id: row.itemId, position: 0, added_at: row.addedAt, done_at: row.doneAt }))))))
-                }} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-control font-medium text-foreground/80 transition-colors hover:bg-accent/50 hover:text-foreground">
+                }} className="mt-0.5 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-control font-medium text-(--mf-muted-strong) transition-colors hover:bg-accent/50 hover:text-foreground">
                   <Trash2 aria-hidden className="size-3.5" /> {read.length === 1 ? 'Clear Read' : `Clear all ${num(read.length)} from Read`}
                   <span className="font-normal text-muted-foreground">the notes stay where they are</span>
                 </button>

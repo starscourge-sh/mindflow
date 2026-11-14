@@ -178,7 +178,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
               <div className="flex items-center gap-2 px-2 py-1">
                 <span className="min-w-0 truncate text-control font-semibold text-foreground">{picked.title}</span>
                 <span className="shrink-0 text-control text-muted-foreground tabular-nums"><Rolling text={listed.length} /></span>
-                {picked.tag && <button type="button" onClick={() => openTag(picked.tag!)} className="ml-auto shrink-0 rounded-md px-1.5 text-control font-medium text-foreground/80 hover:bg-accent hover:text-foreground">Open the tag</button>}
+                {picked.tag && <button type="button" onClick={() => openTag(picked.tag!)} className="ml-auto shrink-0 rounded-md px-1.5 text-control font-medium text-(--mf-muted-strong) hover:bg-accent hover:text-foreground">Open the tag</button>}
                 <Tip label="Close the list">
                   <button type="button" aria-label="Close the list" onClick={() => (chime('fold'), setPicked(null))} className={`${picked.tag ? '' : 'ml-auto'} flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground`}><X className="size-3.5" /></button>
                 </Tip>
@@ -195,7 +195,7 @@ export function InboxGraph({ captures, onOpen, compact = false }: { captures: Ca
               </ul>
             </div>
           )}
-          <p data-inbox-graph-said className="px-1 pt-1.5 text-body text-foreground/80">{said}</p>
+          <p data-inbox-graph-said className="px-1 pt-1.5 text-body text-(--mf-muted-strong)">{said}</p>
         </>
       ) : graph.drawn ? (
         <Empty compact={compact} title="No tags here yet">

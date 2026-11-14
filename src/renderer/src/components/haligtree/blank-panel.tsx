@@ -73,7 +73,7 @@ export function BlankPanel({ id, prompt, text, body, notes, onPrompt }: { id: st
                 aria-label={`Hint for blank ${n + 1}`} />
             </label>
             {said.map((note) => (
-              <p key={note} data-blank-note className="flex gap-2 text-sm leading-relaxed text-foreground/80">
+              <p key={note} data-blank-note className="flex gap-2 text-sm leading-relaxed text-(--mf-muted-strong)">
                 <span aria-hidden className="mt-[0.55em] size-1 shrink-0 rounded-full bg-[var(--tt-color-text-orange)]" />
                 <span>{note.slice(`${quoted(answer, 80)}`.length).replace(/^[:,]?\s*/, '').replace(/^\p{Ll}/u, (first) => first.toUpperCase())}</span>
               </p>

@@ -160,7 +160,7 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
           {/* Behind the answer, once it is answered: the picture, the bigger story, why it is so. */}
           {said && behindOf(step.card) && (
             <div data-card-context className="flex flex-col gap-0.5 text-sm leading-relaxed">
-              <span className="text-control font-medium text-foreground/80">Behind the answer</span>
+              <span className="text-control font-medium text-(--mf-muted-strong)">Behind the answer</span>
               <div className="text-muted-foreground"><WithPictures text={behindOf(step.card)} /></div>
             </div>
           )}

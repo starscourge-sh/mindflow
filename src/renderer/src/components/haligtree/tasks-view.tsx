@@ -1357,7 +1357,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                     <button type="button" data-on-hold aria-expanded={heldShown} onClick={() => (chime(heldShown ? 'off' : 'tap'), heldShown || unfold(held), setHeldOpen(!heldShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
                       <ChevronRight className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${heldShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
-                      <span className="ml-auto font-normal text-foreground/80">From a fresh start · open one to bring it back</span>
+                      <span className="ml-auto font-normal text-(--mf-muted-strong)">From a fresh start · open one to bring it back</span>
                     </button>
                   </h2>
                 ) : row.key.startsWith('fold:') ? (

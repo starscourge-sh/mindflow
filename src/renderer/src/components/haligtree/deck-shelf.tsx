@@ -279,11 +279,11 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
       {folded.length > 0 && (
         <span className="flex flex-wrap items-center gap-1">
           <button type="button" data-deck-fold aria-expanded={allTags} onClick={() => (chime(allTags ? 'fold' : 'open'), setAllTags(!allTags))}
-            className="cursor-pointer rounded-md px-2 py-1 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">
+            className="cursor-pointer rounded-md px-2 py-1 text-control font-medium text-(--mf-muted-strong) hover:bg-accent/50 hover:text-foreground">
             {allTags ? 'Hide the other decks' : `Show ${num(folded.length)} more ${folded.length === 1 ? 'deck' : 'decks'}`}
           </button>
           <button type="button" data-deck-fold-list onClick={() => (chime('tap'), setLook('list'))}
-            className="cursor-pointer rounded-md px-2 py-1 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">See every deck in the List</button>
+            className="cursor-pointer rounded-md px-2 py-1 text-control font-medium text-(--mf-muted-strong) hover:bg-accent/50 hover:text-foreground">See every deck in the List</button>
         </span>
       )}
       {/* The sub-decks of each deck opened from its "+N sub-decks", under the grid: the same tree as the List, trunk lines and chevrons. */}
@@ -516,7 +516,7 @@ function BookCoverage(): React.JSX.Element | null {
           <Coverage cards={cards} />
         </div>
       ))}
-      {books.length > 3 && <button type="button" data-book-coverage-all onClick={() => (chime(every ? 'fold' : 'open'), setEvery(!every))} className="cursor-pointer justify-self-start rounded-md px-2 py-1 text-control font-medium text-foreground/80 hover:bg-accent/50 hover:text-foreground">{every ? 'Show three' : `Show all ${num(books.length)} books`}</button>}
+      {books.length > 3 && <button type="button" data-book-coverage-all onClick={() => (chime(every ? 'fold' : 'open'), setEvery(!every))} className="cursor-pointer justify-self-start rounded-md px-2 py-1 text-control font-medium text-(--mf-muted-strong) hover:bg-accent/50 hover:text-foreground">{every ? 'Show three' : `Show all ${num(books.length)} books`}</button>}
     </section>
   )
 }
@@ -850,7 +850,7 @@ function FirstWays({ example, onMake, onPicture, onStudy }: { example: OwnDeck |
         <Way id="make" title="Make your first card" line="Type a question, then its answer." onClick={onMake}>
           <span className="font-serif text-base leading-snug font-semibold text-foreground">What is the capital of Peru?</span>
           <span className="border-t border-dashed border-foreground/15" />
-          <span className="text-sm text-foreground/80">Lima</span>
+          <span className="text-sm text-(--mf-muted-strong)">Lima</span>
         </Way>
         <Way id="import" title="Import from Anki" line="A deck someone shared with you, or a spreadsheet of words and meanings." onClick={() => (chime('open'), void window.api.importFrom('files'))}>
           <span className="flex items-baseline justify-between gap-3 text-sm"><span className="truncate text-foreground">Biology.apkg</span><span className="shrink-0 text-muted-foreground">Anki deck</span></span>

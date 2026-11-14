@@ -786,7 +786,7 @@ function FaceGrid({ people, title = 'People' }: { people: SourceSummary[]; title
               <Avatar name={one.name} size={128} className="transition-transform duration-200 ease-(--mf-ease) motion-safe:group-hover:scale-[1.03]" />
               <span {...hoverNote('person', one.name)} className="w-full truncate text-body font-semibold text-foreground">{one.name}</span>
               {/* A character says the work they are in; a person, how much is from them. */}
-              <span className="-mt-1.5 w-full truncate text-control text-foreground/80">{one.work ? `in ${one.work}` : tally(one)}</span>
+              <span className="-mt-1.5 w-full truncate text-control text-(--mf-muted-strong)">{one.work ? `in ${one.work}` : tally(one)}</span>
             </button>
           </PersonMenu>
         ))}
@@ -931,7 +931,7 @@ export function SourcesView({ onOpen }: { onOpen: (type: string, id: string) => 
         )}
         {unknown && (
           <button type="button" data-source-unknown-line onClick={() => (chime('page'), openSource('attribution', UNATTRIBUTED))}
-            className="mx-5 mt-4 flex cursor-pointer items-center gap-2 rounded-md px-0 text-control text-foreground/80 hover:text-foreground">
+            className="mx-5 mt-4 flex cursor-pointer items-center gap-2 rounded-md px-0 text-control text-(--mf-muted-strong) hover:text-foreground">
             <Quote className="size-3.5 shrink-0" style={{ color: VOICE_TINT.theirs }} />
             <span>Source unknown</span><Count n={unknown.count} className="text-control text-muted-foreground" />
           </button>
