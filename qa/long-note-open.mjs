@@ -9,7 +9,7 @@
 // window free again (the end of the last frozen stretch), and the longest frozen stretch. Then one fling down
 // and one up (real wheel events with momentum): each frame's time, and how many sample points down the screen
 // showed no drawn block. FIRST_MS (150) is the bar for first words; SHOTS=<folder> keeps a frame every 16 to 50 ms
-// through the second open; OPENS=n opens it n times.
+// through the second open; OPENS=n opens it n times; THEME=dark opens it in the dark look.
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, mkdirSync, readFileSync } from 'fs'
 import { loadavg } from 'os'
@@ -201,6 +201,8 @@ const say = (f) => `${f.n} frames, longest ${f.worst} ms (${f.over} over 17.5 ms
 try {
   await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await h.evaluate(() => window.api.haligtree('settings:set', { sounds: false, hintRate: 0 }))
+  // THEME=dark: the same in the dark look (its frames read by eye in both).
+  if (process.env.THEME) await c.look(process.env.THEME)
   await h.waitForTimeout(2500)
   const opens = []
   for (let i = 0; i < OPENS; i++) {
