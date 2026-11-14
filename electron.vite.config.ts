@@ -20,6 +20,16 @@ if (existsSync(FONTS_FROM) && !existsSync(FONTS_TO)) {
   })
 }
 
+// pdf.js decodes a scan's pages (fax-style and JBIG2 black-and-white, JPEG 2000 colour) with small decoders it ships as
+// WebAssembly, and draws the standard fonts and character maps a PDF leaves out from files of its own; it fetches all
+// of them from where it is told (pdf-pages.tsx `loadPdf`). Told nowhere, a scanned book drew every page blank: "Unable
+// to decode image … JBig2 failed to initialize" (the user, 14 Nov, "Beyond Good and Evil"). Copied beside index.html
+// as the fonts above are, so they are there under the dev server and in the packaged app, never fetched from the web.
+// Copied afresh at every start, so a newer pdf.js never meets an older decoder.
+const PDFJS_FROM = resolve('node_modules/pdfjs-dist')
+const PDFJS_TO = resolve('src/renderer/public/pdfjs')
+for (const part of ['wasm', 'standard_fonts', 'cmaps', 'iccs']) cpSync(resolve(PDFJS_FROM, part), resolve(PDFJS_TO, part), { recursive: true })
+
 /**
  * Libraries that some editor extension imports but Haligtree either never reaches
  * or needs only now and then, swapped for a stand-in when that extension asks

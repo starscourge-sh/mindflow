@@ -122,13 +122,21 @@ export function holdPdf(src: string): () => void {
 const sizes = new Map<string, number>()
 export const pdfBytes = (src: string): number | undefined => sizes.get(src)
 
+/**
+ * Where pdf.js finds its own files, beside index.html (electron.vite.config.ts copies them): the decoders a scanned
+ * page's pictures need, the standard fonts and character maps a PDF leaves out, and colour profiles. Whole addresses,
+ * since the worker that fetches them sits in another folder. Without them a scan's pages drew blank.
+ */
+const at = (part: string): string => new URL(`pdfjs/${part}/`, document.baseURI).href
+const PDFJS_FILES = { wasmUrl: at('wasm'), standardFontDataUrl: at('standard_fonts'), cMapUrl: at('cmaps'), cMapPacked: true, iccUrl: at('iccs') }
+
 /** The document at a `haligtree://` address. Fetched here, so pdf.js never needs the scheme. */
 export function loadPdf(src: string): Promise<PDFDocumentProxy> {
   let doc = open.get(src)
   if (!doc) {
     doc = fetch(src)
       .then((response) => response.arrayBuffer())
-      .then((data) => (sizes.set(src, data.byteLength), getDocument({ data: new Uint8Array(data) }).promise))
+      .then((data) => (sizes.set(src, data.byteLength), getDocument({ data: new Uint8Array(data), ...PDFJS_FILES }).promise))
     doc.catch(() => open.delete(src))
     open.set(src, doc)
   }
