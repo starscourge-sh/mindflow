@@ -74,6 +74,14 @@ export const Attachment = Node.create({
         parseHTML: (element) => element.getAttribute("data-align"),
         renderHTML: ({ align }) => (align ? { "data-align": align } : {}),
       },
+      // A video's picture's shape (its width over its height), kept once its
+      // player has read it, so its room is that shape from the first frame
+      // after, an upright film's too.
+      shape: {
+        default: null,
+        parseHTML: (element) => Number(element.getAttribute("data-shape")) || null,
+        renderHTML: ({ shape }) => (shape ? { "data-shape": String(shape) } : {}),
+      },
       // A video's width, as a picture's: "60%", or none for the whole column.
       width: {
         default: null,

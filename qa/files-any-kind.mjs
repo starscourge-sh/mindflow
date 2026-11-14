@@ -145,7 +145,7 @@ try {
     await wait(1000)
     const look = await h.evaluate(() => {
       const video = document.querySelector('[data-file-look=video] video')
-      return { open: !!video, playing: !!video && !video.paused, stock: !!video?.hasAttribute('controls'), own: !!document.querySelector('[data-file-look=video] .tiptap-media-controls .tiptap-media-play'), open2: !!document.querySelector('[data-file-look-open]'), finder: !!document.querySelector('[data-file-look-finder]') }
+      return { open: !!video, playing: !!video && !video.paused, stock: !!video?.hasAttribute('controls'), own: !!document.querySelector('[data-file-look=video] [data-video-player] [data-sound-player] .tiptap-media-play'), open2: !!document.querySelector('[data-file-look-open]'), finder: !!document.querySelector('[data-file-look-finder]') }
     })
     check('a video opens in the viewer and plays', look.open && look.playing, JSON.stringify(look))
     check('with the app\'s own controls, never the stock ones', look.own && !look.stock, JSON.stringify(look))

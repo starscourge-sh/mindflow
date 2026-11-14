@@ -9,20 +9,20 @@ import { X } from "@/components/ui/icons"
 import { Orb } from "@/components/haligtree/orb"
 import { refuse } from "@/components/haligtree/ui"
 import { faceOf, kindWord } from "@/components/haligtree/files-shelves"
-import { useMedia } from "@/components/attachment/attachment-view"
-import { markOpened } from "@/lib/media-opened"
+import { VideoPlayer } from "@/components/haligtree/sound-player"
+import { markOpened, placeOf } from "@/lib/media-opened"
 import { notes } from "@/lib/notes"
 import { call } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
 import { EASING, still } from "@/lib/motion"
 import type { Media } from "../../../../main/media"
 
-type Shown = Pick<Media, "src" | "kind" | "name" | "gone">
+type Shown = Pick<Media, "src" | "kind" | "name" | "gone"> & Partial<Pick<Media, "seconds" | "played" | "playedAt">>
 
 /**
  * Quick Look for a video or a document in Files, as the picture viewer is for a picture (image-look.tsx): the page
- * goes dark, the file comes up in the middle, and Esc or a click outside puts it away. A video plays there with the
- * app's own controls (the same as a note's, attachment-view.tsx); a document shows its first page as the Mac's Quick
+ * goes dark, the file comes up in the middle, and Esc or a click outside puts it away. A video plays there in the
+ * app's one player (the same as a note's, sound-player.tsx); a document shows its first page as the Mac's Quick
  * Look draws it, large, or, where the Mac draws none, its icon. Either has "Open in its app" and "Show in Finder".
  */
 export async function openFileLook(one: Shown, from?: Element | null): Promise<void> {
@@ -64,17 +64,23 @@ function FileLook({ one, from, start, onClose }: { one: Shown; from: DOMRect | n
     backdrop.current?.animate([{ opacity: 1 }, { opacity: 0 }], out)
     void frame.current.animate([{ opacity: 1, transform: "scale(1)" }, { opacity: 0, transform: "scale(0.96)" }], out).finished.then(onClose, onClose)
   }
-  // Esc puts it away before anything under it hears the key; Space plays and pauses a video, as Quick Look's.
-  const toggleRef = useRef<() => void>(() => undefined)
+  // Esc puts it away before anything under it hears the key. A video's own keys (Space, ← and →, Home and End) are its player's.
   useEffect(() => {
     const key = (event: KeyboardEvent): void => {
       if (event.key === "Escape") (event.preventDefault(), event.stopPropagation(), close())
-      else if (event.key === " " && one.kind === "video" && !(event.target instanceof HTMLButtonElement)) (event.preventDefault(), event.stopPropagation(), toggleRef.current())
     }
     window.addEventListener("keydown", key, true)
     return () => window.removeEventListener("keydown", key, true)
   }) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => void chime("look"), [])
+  // The keys are the viewer's while it is up (a video's Space plays it, never the tile under it that opened it); put
+  // away, they go back to what had them.
+  const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const had = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    box.current?.focus({ preventScroll: true })
+    return () => had?.focus({ preventScroll: true })
+  }, [])
   // It grows out of its tile, as a picture lifts out of its square.
   useLayoutEffect(() => {
     if (still() || !frame.current) return
@@ -86,12 +92,12 @@ function FileLook({ one, from, start, onClose }: { one: Shown; from: DOMRect | n
   const openOwn = (): void => void window.api.openFile(one.src).then((done) => (done ? (chime("open"), close()) : refuse("No app on this Mac opens it")))
   const show = (): void => void window.api.showFile(one.src).then((done) => chime(done ? "open" : "nope"))
   return (
-    <div className="mf-look" role="dialog" aria-label={`Preview of ${one.name || kindWord(one)}`} aria-modal="true" data-file-look={one.kind}>
+    <div ref={box} tabIndex={-1} className="mf-look outline-none" role="dialog" aria-label={`Preview of ${one.name || kindWord(one)}`} aria-modal="true" data-file-look={one.kind}>
       <div ref={backdrop} className="mf-look-backdrop" onClick={close} />
       <div data-drag-strip="" aria-hidden className="absolute inset-x-0 top-0 h-10 [-webkit-app-region:drag]" />
       <div className="pointer-events-none absolute inset-x-12 top-12 bottom-24 flex items-center justify-center">
         <div ref={frame} className="pointer-events-auto flex max-h-full max-w-full items-center justify-center">
-          {one.kind === "video" ? <Player one={one} toggleRef={toggleRef} /> : <Page one={one} start={start} />}
+          {one.kind === "video" ? <Player one={one} onOpenOwn={openOwn} /> : <Page one={one} start={start} />}
         </div>
       </div>
       <div className="mf-look-foot">
@@ -116,12 +122,12 @@ function FileLook({ one, from, start, onClose }: { one: Shown; from: DOMRect | n
   )
 }
 
-/** A video, playing as soon as it shows, under the same controls a video in a note wears. */
-function Player({ one, toggleRef }: { one: Shown; toggleRef: React.RefObject<() => void> }): React.JSX.Element {
-  const { ref, frame, controls, toggle, playing, state } = useMedia(true, null, () => undefined)
-  toggleRef.current = toggle
-  // As wide as the window lets it be at its own shape: the frame measures its width for its controls (a size
-  // container), so it cannot take it from the video, and is given it once the video says its shape.
+/**
+ * A video, playing as soon as it shows (from where it was left), in the one player a video in a note wears
+ * (sound-player.tsx, VideoPlayer), its keys heard anywhere in the viewer.
+ */
+function Player({ one, onOpenOwn }: { one: Shown; onOpenOwn: () => void }): React.JSX.Element {
+  // As wide as the window lets it be at its own shape, once the video says its shape.
   const [shape, setShape] = useState(16 / 9)
   const [room, setRoom] = useState(() => ({ w: innerWidth, h: innerHeight }))
   useEffect(() => {
@@ -132,25 +138,12 @@ function Player({ one, toggleRef }: { one: Shown; toggleRef: React.RefObject<() 
   // Never blown up past twice its own size: a small clip stays sharp, as Quick Look keeps it.
   const [own, setOwn] = useState(1280)
   const width = Math.max(240, Math.min(room.w - 96, own, (room.h - 144) * shape))
-  useEffect(() => {
-    const video = ref.current as HTMLVideoElement | null
-    if (!video) return
-    const read = (): void => void (video.videoWidth && video.videoHeight && (setShape(video.videoWidth / video.videoHeight), setOwn(Math.max(480, Math.min(1280, video.videoWidth * 2)))))
-    read()
-    video.addEventListener("loadedmetadata", read)
-    // Played once it can be: the frame is there first, then it moves.
-    const start = (): void => void (video.paused && !video.ended && toggle())
-    if (video.readyState >= 2) start()
-    else video.addEventListener("loadeddata", start, { once: true })
-    return () => (video.removeEventListener("loadeddata", start), video.removeEventListener("loadedmetadata", read))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const face = faceOf(one.src)
+  const place = placeOf(one)
   return (
-    <span className={`tiptap-attachment is-video block${playing ? " is-playing" : ""}`} data-state={state} style={{ margin: 0, width }}>
-      <span ref={frame} className="tiptap-video-frame">
-        <video ref={ref as React.RefObject<HTMLVideoElement>} className="tiptap-attachment-video" src={one.src} preload="auto" onClick={toggle} playsInline
-          style={{ aspectRatio: shape, objectFit: "contain" }} />
-        {controls}
-      </span>
+    <span className="block" style={{ width }}>
+      <VideoPlayer src={one.src} poster={face && !face.icon ? face.image : null} length={place?.seconds} from={place?.played} autoPlay windowKeys onOpenOwn={onOpenOwn}
+        onShape={(w, h) => (setShape(w / h), setOwn(Math.max(480, Math.min(1280, w * 2))))} pictureStyle={{ aspectRatio: shape }} />
     </span>
   )
 }

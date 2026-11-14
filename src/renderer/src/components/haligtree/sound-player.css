@@ -125,3 +125,63 @@
 .mf-sound-status [data-no-words] > :not(:first-child) { flex: none; }
 /* Narrow (a phone, a stack of them), "Transcribe" alone says it: no "No transcript ·" cut to "N…" before it. */
 @container (max-width: 30rem) { .mf-sound-status [data-no-words] > :not(button) { display: none; } }
+
+/* A film (VideoPlayer): its picture, and over the picture's foot the same bar on one line, its ink white on a soft
+   shade that rises out of the foot as a picture square's name does in Files (files.css, .files-square-blur). */
+.mf-video { position: relative; display: block; border-radius: 8px; outline: none; }
+.mf-video-picture {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  /* Before its poster or first frame is drawn: the page's own card tone, never a black box. */
+  background: color-mix(in oklab, var(--foreground) 9%, var(--background));
+  container-type: inline-size;
+}
+.mf-video[data-state='playing'] .mf-video-picture { background: black; }
+.mf-video .tiptap-attachment-video { display: block; width: 100%; height: 100%; object-fit: contain; cursor: pointer; }
+.mf-video-foot { position: absolute; inset: auto 0 0; padding: 28px 12px 8px; }
+.mf-video-blur { height: 100%; background: linear-gradient(to top, rgb(0 0 0 / 0.46), rgb(0 0 0 / 0.18) 60%, transparent); }
+.mf-video-bar {
+  position: relative;
+  --foreground: white;
+  --background: black;
+  --muted-foreground: rgb(255 255 255 / 0.86);
+  --mf-sound-faint: rgb(255 255 255 / 0.4);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 0.4);
+}
+/* Play, its place, the time, the speed, then the film's own two (sound-player.css's one line, two columns longer). */
+.mf-video .mf-video-bar { grid-template-columns: 32px minmax(0, 1fr) auto auto auto auto; }
+.mf-video-bar .mf-sound-head::before { box-shadow: 0 0 0 2px rgb(0 0 0 / 0.35); }
+.mf-sound-tool { display: grid; place-items: center; width: 28px; height: 28px; margin-inline: -4px; border-radius: 8px; color: var(--muted-foreground); cursor: pointer; transition: color 120ms var(--mf-ease), background-color 120ms var(--mf-ease), scale 120ms var(--mf-ease); }
+.mf-sound-tool svg { width: 16px; height: 16px; }
+@media (hover: hover) and (pointer: fine) { .mf-sound-tool:hover { color: var(--foreground); background: color-mix(in oklab, var(--foreground) 16%, transparent); } }
+.mf-sound-tool:active { scale: 0.97; }
+.mf-sound-tool:focus-visible { outline: 2px solid color-mix(in oklab, var(--primary) 70%, transparent); outline-offset: 2px; }
+/* A small film keeps play, its place, the time and the speed; its own window and full screen wait for a wider one. */
+@container (max-width: 17rem) { .mf-video-window { display: none; } }
+@container (max-width: 15rem) { .mf-video-bar .mf-sound-speed { display: none; } }
+
+/* Playing, the bar and its shade step away two seconds after the pointer last moved (sound-player.tsx, wake), the
+   shade by a clip and the bar by a fade; a move brings both back at once. Paused, done, held, or one of its controls
+   reached by Tab (data-keys), it stays. */
+@keyframes mf-video-rest-a { 0%, 76% { opacity: 1; } to { opacity: 0; } }
+@keyframes mf-video-rest-b { 0%, 76% { opacity: 1; } to { opacity: 0; } }
+@keyframes mf-video-frost-a { 0%, 76% { clip-path: inset(0); } to { clip-path: inset(100% 0 0 0); } }
+@keyframes mf-video-frost-b { 0%, 76% { clip-path: inset(0); } to { clip-path: inset(100% 0 0 0); } }
+.mf-video[data-state='playing']:not([data-scrubbing], [data-keys])[data-wake='a'] .mf-video-bar { animation: mf-video-rest-a 2.6s var(--mf-ease) forwards; }
+.mf-video[data-state='playing']:not([data-scrubbing], [data-keys])[data-wake='b'] .mf-video-bar { animation: mf-video-rest-b 2.6s var(--mf-ease) forwards; }
+.mf-video[data-state='playing']:not([data-scrubbing], [data-keys])[data-wake='a'] .mf-video-blur { animation: mf-video-frost-a 2.6s var(--mf-ease) forwards; }
+.mf-video[data-state='playing']:not([data-scrubbing], [data-keys])[data-wake='b'] .mf-video-blur { animation: mf-video-frost-b 2.6s var(--mf-ease) forwards; }
+/* With the app's motion off it goes at once when the two seconds are up, with no fade. */
+:root[data-motion='off'] .mf-video .mf-video-bar, :root[data-motion='off'] .mf-video .mf-video-blur { animation-timing-function: step-end !important; }
+
+/* A film the app cannot read says so in words over its frame. */
+.mf-video-broken { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px; text-align: center; color: var(--foreground); }
+.mf-video-broken > :nth-child(2) { color: var(--muted-foreground); }
+.mf-video[data-state='broken'] .tiptap-attachment-video { visibility: hidden; }
+.mf-video-own { margin-top: 6px; height: 28px; padding: 0 10px; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: scale 120ms var(--mf-ease); }
+.mf-video-own:active { scale: 0.97; }
+
+/* Full screen is the whole player, its bar with it, the picture whole in the middle. */
+.mf-video:fullscreen { display: flex; align-items: center; justify-content: center; padding: 0; border-radius: 0; background: black; }
+.mf-video:fullscreen .mf-video-picture { width: 100%; height: 100%; border-radius: 0; aspect-ratio: auto !important; background: black; }

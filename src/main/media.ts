@@ -62,10 +62,13 @@ export type Media = {
   how: 'library' | 'attachment'
   /** When the last note let it go; only for one no note holds. */
   letGoAt?: string
-  /** A recording's length in seconds, once its waveform has been worked out (kept beside it as `.peaks`). */
+  /** A recording's length in seconds, once its waveform has been worked out (kept beside it as `.peaks`); a video's once a player has read it. */
   seconds?: number
   /** When it was last opened as itself (looked at, read, played), from any window. */
   openedAt?: string
+  /** A video: where it was left, in seconds, and when (Files' "Carry on watching"). */
+  played?: number
+  playedAt?: string
 }
 
 /**
@@ -255,6 +258,8 @@ const sizeOfStored = (src: string): number => {
 const icons = new Map<string, string>()
 /** When each file was last opened as itself. */
 const OPENED = 'create table if not exists media_opened (src text primary key, at text not null)'
+/** Each video's length once read, and where it was left and when ('' until it is first played). */
+const PLACES = "create table if not exists media_place (src text primary key, seconds real not null, at real not null default 0, played_at text not null default '')"
 
 /** Each note's media, worked out again only when its body changes: a big book is read once, then only what moved. */
 const read = new Map<string, { body: string; found: Found[] }>()
@@ -329,6 +334,17 @@ export function registerMedia(): void {
     const db = database()
     db.exec(OPENED)
     db.prepare('insert into media_opened (src, at) values (?, ?) on conflict(src) do update set at = excluded.at').run(src, new Date().toISOString())
+    return true
+  })
+  // A video's length as a player or a tile read it, and, once played, where it stopped (`at`; none when only its length is told).
+  ipcMain.handle('haligtree:media:place', (_event, src: unknown, seconds: unknown, at: unknown) => {
+    const length = Number(seconds)
+    if (typeof src !== 'string' || !STORED.test(src) || !(length > 0) || !Number.isFinite(length)) return false
+    const db = database()
+    db.exec(PLACES)
+    if (at === undefined || at === null) db.prepare('insert into media_place (src, seconds) values (?, ?) on conflict(src) do update set seconds = excluded.seconds').run(src, length)
+    else db.prepare('insert into media_place (src, seconds, at, played_at) values (?, ?, ?, ?) on conflict(src) do update set seconds = excluded.seconds, at = excluded.at, played_at = excluded.played_at')
+      .run(src, length, Math.min(length, Math.max(0, Number(at) || 0)), new Date().toISOString())
     return true
   })
   ipcMain.handle('haligtree:media:pick', async (event) => {
@@ -515,11 +531,18 @@ function allMedia(): Media[] {
   const all = [...tiles.values()]
   db.exec(OPENED)
   const opened = new Map((db.prepare('select src, at from media_opened').all() as { src: string; at: string }[]).map((one) => [one.src, one.at]))
+  db.exec(PLACES)
+  const places = new Map((db.prepare('select src, seconds, at, played_at from media_place').all() as { src: string; seconds: number; at: number; played_at: string }[]).map((one) => [one.src, one]))
   const index = new Map<string, string>()
   for (const one of all) {
     one.gone = !existsSync(join(store, one.src.slice(one.src.lastIndexOf('/') + 1)))
     const at = opened.get(one.src)
     if (at) one.openedAt = at
+    const place = one.kind === 'video' ? places.get(one.src) : undefined
+    if (place) {
+      one.seconds = place.seconds
+      if (place.played_at) (one.played = place.at, (one.playedAt = place.played_at))
+    }
     // A picture in a note has no size of its own: its file's, read once (the store names files by their bytes, so it holds).
     if (!one.size && !one.gone) one.size = sizeOfStored(one.src)
     if (one.kind === 'audio' && !one.gone) {

@@ -196,7 +196,7 @@ try {
     const rules = []
     for (const sheet of document.styleSheets) { try { for (const rule of sheet.cssRules) rules.push(rule.cssText) } catch {} }
     const all = rules.join('\n')
-    return { link: /focus-within[^{]*\.tiptap-bookmark-copy/.test(all), drawing: /focus-within[^{]*\.tiptap-excalidraw-tools/.test(all), video: /focus-within[^{]*\.tiptap-media-controls/.test(all) }
+    return { link: /focus-within[^{]*\.tiptap-bookmark-copy/.test(all), drawing: /focus-within[^{]*\.tiptap-excalidraw-tools/.test(all), video: /:not\([^)]*\[data-keys\][^)]*\)[^{]*\.mf-video-bar/.test(all) }
   })
   check('A link card’s Copy, a drawing’s tools and a video’s controls show on keyboard focus too', focusRules.link && focusRules.drawing && focusRules.video, JSON.stringify(focusRules))
 } finally {

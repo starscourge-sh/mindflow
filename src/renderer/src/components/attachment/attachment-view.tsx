@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { NodeViewWrapper, useEditorState, type NodeViewProps } from "@tiptap/react"
 import { NodeSelection } from "@tiptap/pm/state"
-import { AlignCenter, AlignLeft, AlignRight, ListTree, PanelLeft, Pause, PictureInPicture2, Play, RotateCcw } from "lucide-react"
+import { AlignCenter, AlignLeft, AlignRight, ListTree, PanelLeft } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import DownloadIcon from "@/components/ui/download-icon"
@@ -9,8 +9,6 @@ import ExternalLinkIcon from "@/components/ui/external-link-icon"
 
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { Button } from "@/components/tiptap-ui-primitive/button"
-import { cue } from "@/lib/cues"
-import { Roll } from "@/lib/roll"
 
 import { host } from "@/lib/host"
 import { PdfPages, pdfTitle, showPage } from "@/components/pdf/pdf-pages"
@@ -26,8 +24,8 @@ import { hasWords, heardOf, isTranscribing, onTranscribing, stopTranscribing, tr
 import { bubblesOf } from "@/lib/bubbles"
 import { playAt } from "@/extensions/line-cards"
 import { Orb } from "@/components/haligtree/orb"
-import { SoundPlayer, soundTitle } from "@/components/haligtree/sound-player"
-import { FileText as File, FileText, Fit as Maximize, Volume2, VolumeX } from "@/components/ui/icons"
+import { SoundPlayer, VideoPlayer, soundTitle } from "@/components/haligtree/sound-player"
+import { FileText as File, FileText } from "@/components/ui/icons"
 import { plural } from '../../../../main/dates'
 import { sizeOf } from "@/components/pdf/book-head"
 import { kindWord, useFileFace } from "@/components/haligtree/files-shelves"
@@ -57,212 +55,6 @@ const clock = (seconds: number): string => {
   const whole = Math.floor(seconds)
   const [h, m, s] = [Math.floor(whole / 3600), Math.floor((whole % 3600) / 60), whole % 60]
   return `${h ? `${h}:${String(m).padStart(2, "0")}` : m}:${String(s).padStart(2, "0")}`
-}
-
-/** The speeds the chip steps through, and back to the first. */
-const RATES = [1, 1.5, 2]
-
-/**
- * The editor's own controls over a video or a recording: play, the place in
- * it, the time, speed and sound, and for a video its own window and full
- * screen. Drawn here rather than the browser's, so they wear the same type,
- * colours and corners as everything else on the page.
- *
- * Play, pause and a seek answer at once; the flourish is kept for the first
- * play (the frame lights up) and the end (the controls settle back with a
- * replay in place of play).
- */
-export function useMedia(video: boolean, known: number | null, learn: (seconds: number) => void): {
-  ref: React.RefObject<HTMLMediaElement | null>
-  frame: React.RefObject<HTMLSpanElement | null>
-  controls: React.JSX.Element
-  toggle: () => void
-  playing: boolean
-  state: string
-} {
-  const ref = useRef<HTMLMediaElement | null>(null)
-  const frame = useRef<HTMLSpanElement | null>(null)
-  const [playing, setPlaying] = useState(false)
-  const [ended, setEnded] = useState(false)
-  const [at, setAt] = useState(0)
-  const [length, setLength] = useState(0)
-  const [muted, setMuted] = useState(false)
-  const [rate, setRate] = useState(1)
-  // A moment's class on the block: "first" as it first plays, "ended" as it stops at the end.
-  const [moment, setMoment] = useState<"first" | "ended" | null>(null)
-  const started = useRef(false)
-  // Where the pointer is over the scrubber, and the time there.
-  const [hover, setHover] = useState<{ x: number; time: number } | null>(null)
-  const [settling, setSettling] = useState(false)
-  // Asking the file for its true length (see below): its place meanwhile is not a place to show.
-  const measuring = useRef(false)
-  const learnRef = useRef(learn)
-  learnRef.current = learn
-  const knownRef = useRef(known)
-  knownRef.current = known
-  useEffect(() => {
-    const media = ref.current
-    if (!media) return
-    const sync = (): void => {
-      if (measuring.current) return
-      setPlaying(!media.paused)
-      setEnded(media.ended)
-      // At the end the bar is full, even if the kept length is a little over the sound's.
-      setAt(media.ended ? Infinity : media.currentTime)
-      setLength(media.duration)
-      setMuted(media.muted)
-      setRate(media.playbackRate)
-    }
-    // A recorder writes no length into its file, so the player reads it as
-    // endless and learns it only as it plays, the bar racing ahead at first.
-    // Its true length is found once, before play: a seek past the end makes
-    // the player read to the end, and the length it finds is kept on the
-    // block, so it is known from the first frame every time after.
-    const measure = (): void => {
-      if (knownRef.current || Number.isFinite(media.duration) || measuring.current) return
-      measuring.current = true
-      media.currentTime = 1e101
-    }
-    const measured = (): void => {
-      if (!measuring.current || !Number.isFinite(media.duration)) return
-      measuring.current = false
-      const seconds = Math.round(media.duration * 100) / 100
-      media.currentTime = 0
-      if (seconds > 0) learnRef.current(seconds)
-      sync()
-    }
-    media.addEventListener("loadedmetadata", measure)
-    media.addEventListener("durationchange", measured)
-    if (media.readyState >= 1) measure()
-    const end = (): void => {
-      cue("media-end")
-      setMoment("ended")
-    }
-    const events = ["play", "pause", "timeupdate", "loadedmetadata", "volumechange", "ended", "ratechange"]
-    events.forEach((name) => media.addEventListener(name, sync))
-    media.addEventListener("ended", end)
-    sync()
-    return () => {
-      events.forEach((name) => media.removeEventListener(name, sync))
-      media.removeEventListener("ended", end)
-      media.removeEventListener("loadedmetadata", measure)
-      media.removeEventListener("durationchange", measured)
-    }
-  }, [])
-  // A moment lasts as long as its animation, then the block is plain again.
-  useEffect(() => {
-    if (!moment) return
-    const done = setTimeout(() => setMoment(null), moment === "first" ? 1400 : 700)
-    return () => clearTimeout(done)
-  }, [moment])
-  const toggle = (): void => {
-    const media = ref.current
-    if (!media) return
-    if (measuring.current) {
-      measuring.current = false
-      media.currentTime = 0
-    }
-    if (media.paused) {
-      if (media.ended) {
-        cue("media-replay")
-        media.currentTime = 0
-      } else if (!started.current && media.currentTime === 0) {
-        cue("media-start")
-        setMoment("first")
-      } else cue("play")
-      started.current = true
-      void media.play()
-    } else {
-      cue("pause")
-      media.pause()
-    }
-  }
-  const speed = (): void => {
-    const media = ref.current
-    if (!media) return
-    const next = (RATES.indexOf(media.playbackRate) + 1) % RATES.length
-    cue("media-speed", next)
-    media.playbackRate = RATES[next]
-  }
-  const popOut = (which: "pip" | "full"): void => {
-    const media = ref.current as HTMLVideoElement | null
-    if (!media) return
-    const out = which === "pip" ? document.pictureInPictureElement === media : document.fullscreenElement === frame.current
-    cue(out ? "media-window-close" : "media-window")
-    if (which === "pip") void (out ? document.exitPictureInPicture() : media.requestPictureInPicture()).catch(() => {})
-    else void (out ? document.exitFullscreen() : (frame.current?.requestFullscreen() ?? Promise.resolve())).catch(() => {})
-  }
-  // The length kept on the block wins: the file's own may still be growing.
-  const end = known || (Number.isFinite(length) ? length : 0)
-  const state = ended ? "ended" : playing ? "playing" : "paused"
-  const controls = (
-    <span className="tiptap-media-controls" contentEditable={false} onMouseDown={(event) => event.stopPropagation()}>
-      <button type="button" className="tiptap-media-play" data-state={state} aria-label={ended ? "Play again" : playing ? "Pause" : "Play"} title={ended ? "Play again" : playing ? "Pause" : "Play"} onClick={toggle}>
-        {/* All three drawn, one shown: the swap is a quick morph, never a wait. */}
-        <Play data-icon="paused" />
-        <Pause data-icon="playing" />
-        <RotateCcw data-icon="ended" />
-      </button>
-      <span className="tiptap-media-scrub">
-        <input
-          type="range"
-          aria-label="Place in it"
-          className={settling ? "is-settling" : undefined}
-          min={0}
-          max={end}
-          step="any"
-          value={Math.min(at, end)}
-          style={{ "--done": `${end ? Math.min(at / end, 1) * 100 : 0}%` } as React.CSSProperties}
-          onChange={(event) => {
-            if (ref.current) ref.current.currentTime = Number(event.target.value)
-          }}
-          onPointerMove={(event) => {
-            const box = event.currentTarget.getBoundingClientRect()
-            const x = Math.min(Math.max(event.clientX - box.left, 0), box.width)
-            setHover({ x, time: box.width ? (x / box.width) * end : 0 })
-          }}
-          onPointerLeave={() => setHover(null)}
-          onPointerUp={() => {
-            setSettling(true)
-            setTimeout(() => setSettling(false), 450)
-          }}
-        />
-        {hover && end > 0 && (
-          <span className="tiptap-media-bubble" style={{ left: hover.x }}>{clock(hover.time)}</span>
-        )}
-      </span>
-      <span className="tiptap-media-time">
-        <Roll text={clock(end ? Math.min(at, end) : at)} /><span className="tiptap-media-total"> / {clock(end)}</span>
-      </span>
-      <button type="button" className="tiptap-media-speed" aria-label={`Speed ${rate} times`} title="Speed" onClick={speed}>
-        <Roll text={`${rate}×`} />
-      </button>
-      <button
-        type="button"
-        className="tiptap-media-volume"
-        aria-label={muted ? "Sound on" : "Sound off"}
-        title={muted ? "Sound on" : "Sound off"}
-        onClick={() => {
-          if (!ref.current) return
-          ref.current.muted = !ref.current.muted
-          cue(ref.current.muted ? "pause" : "play")
-        }}
-      >
-        {muted ? <VolumeX /> : <Volume2 />}
-      </button>
-      {video && (
-        <>
-          <button type="button" className="tiptap-media-window" aria-label="Picture in picture" title="Picture in picture" onClick={() => popOut("pip")}>
-            <PictureInPicture2 />
-          </button>
-          <button type="button" className="tiptap-media-window" aria-label="Full screen" title="Full screen" onClick={() => popOut("full")}>
-            <Maximize />
-          </button>
-        </>
-      )}
-    </span>
-  )
-  return { ref, frame, controls, toggle, playing, state: [state, moment && `is-${moment}`].filter(Boolean).join(" ") }
 }
 
 /**
@@ -377,34 +169,45 @@ function useToolbarShown(props: NodeViewProps): boolean {
 }
 
 /**
- * The length a recording or video shows before it plays: the one kept on the
- * block, and once found for one without (a video's by useMedia, a recording's
- * as its waveform is read), kept there, outside Undo, as a fact about the file
- * rather than an edit.
+ * The length a recording or video shows before it plays (or a video's shape):
+ * the one kept on the block, and once found for one without (a video's by its
+ * player, a recording's as its waveform is read), kept there, outside Undo, as
+ * a fact about the file rather than an edit.
  */
-function useLength(props: NodeViewProps): [number | null, (seconds: number) => void] {
-  const known = Number(props.node.attrs.duration) || null
-  const learn = (seconds: number): void => {
+function useKept(props: NodeViewProps, attr: "duration" | "shape"): [number | null, (value: number) => void] {
+  const known = Number(props.node.attrs[attr]) || null
+  const learn = (value: number): void => {
     const at = props.getPos()
     const { editor } = props
-    if (at == null || !editor.isEditable || editor.state.doc.nodeAt(at)?.type.name !== "attachment") return
-    editor.view.dispatch(editor.state.tr.setNodeAttribute(at, "duration", seconds).setMeta("addToHistory", false))
+    if (at == null || !editor.isEditable || editor.state.doc.nodeAt(at)?.type.name !== "attachment" || editor.state.doc.nodeAt(at)?.attrs[attr] === value) return
+    editor.view.dispatch(editor.state.tr.setNodeAttribute(at, attr, value).setMeta("addToHistory", false))
   }
   return [known, learn]
 }
+const useLength = (props: NodeViewProps): [number | null, (seconds: number) => void] => useKept(props, "duration")
 
-/** A video: the player is the block, sized and placed like a picture. */
+/**
+ * A video: the player is the block, sized and placed like a picture, and it is the sound player's own (sound-player.tsx,
+ * VideoPlayer): its poster frame from Quick Look until it plays, the same bar over its foot. Never taller than most of
+ * the window: a portrait film is narrowed to stay whole.
+ */
 function VideoBlock(props: NodeViewProps): React.JSX.Element {
-  const { src, width, align } = props.node.attrs
+  const { src, name, width, align } = props.node.attrs
   const selected = isNodeSelected(props)
   const shown = useToolbarShown(props)
-  const { ref, frame, controls, toggle, playing, state } = useMedia(true, ...useLength(props))
+  const [length, learn] = useLength(props)
+  const [playing, setPlaying] = useState(false)
+  // Its shape as kept on the block (a film never seen here yet: as most are, 16:9, until its player reads it).
+  const [kept, keep] = useKept(props, "shape")
+  const [read, setRead] = useState<number | null>(null)
+  const ratio = read ?? kept
+  const one = useMemo(() => ({ src, name: String(name ?? ""), kind: "video", gone: false }) as Media, [src, name])
+  const face = useFileFace(/^(haligtree|mindflow):\/\/assets\//.test(src) ? one : null, true)
   return (
-    <NodeViewWrapper className={`tiptap-attachment is-video${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-state={state} data-align={align ?? undefined} style={{ width: width ?? undefined }}>
-      <span ref={frame} className="tiptap-video-frame">
-        <video ref={ref as React.RefObject<HTMLVideoElement>} className="tiptap-attachment-video" src={src} preload="metadata" onClick={toggle} playsInline />
-        {controls}
-      </span>
+    <NodeViewWrapper className={`tiptap-attachment is-video${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-align={align ?? undefined}
+      style={{ width: width ?? undefined, maxWidth: ratio ? `min(100%, ${(70 * ratio).toFixed(2)}vh)` : undefined }}>
+      <VideoPlayer className="tiptap-video-frame" src={src} poster={face && !face.icon ? face.image : null} length={length} onLength={learn} onPlaying={setPlaying}
+        onShape={(w, h) => ((shape) => (setRead(shape), keep(shape)))(Math.round((w / h) * 1000) / 1000)} onOpenOwn={() => void host().openFile?.(src)} pictureStyle={{ aspectRatio: ratio ?? 16 / 9 }} />
       {shown && <MediaToolbar props={props} />}
     </NodeViewWrapper>
   )
