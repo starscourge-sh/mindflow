@@ -2507,7 +2507,9 @@ export function Home(): React.JSX.Element {
                 // stays where it is if not: a row pressed never jumps out from under the pointer.
                 const open1 = inRecent && noteNow ? { id: noteNow.id, type: noteNow.type, title: noteNow.name.title, kind: known.get(noteNow.id)?.capture?.kind ?? known.get(noteNow.id)?.item?.kind ?? null, private: noteNow.name.private ? 1 : 0 } : null
                 const fresh = recents.filter((one) => !pins.some((pin) => pin.id === one.id))
-                const held = recentShown.current
+                // Held in their places, each by its newest name: a web page read for the first time is named by its
+                // site until its article is kept, then by its title ("Roman Empire", not "en.wikipedia.org").
+                const held = recentShown.current.map((one) => recents.find((each) => each.id === one.id) ?? one)
                 const rows = (view.focus && held.some((one) => one.id === view.focus) ? held : [...(open1 && !pins.some((pin) => pin.id === open1.id) ? [open1] : []), ...fresh.filter((one) => one.id !== open1?.id)].slice(0, 4))
                 recentShown.current = rows
                 if (!recentDrawn || quiet || narrow || !rows.length) return null

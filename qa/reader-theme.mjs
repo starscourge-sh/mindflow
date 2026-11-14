@@ -103,6 +103,10 @@ try {
   check('right-click: the link\'s menu offers “Open in the reader”', (await menuRow.count()) > 0)
   if (await menuRow.count()) await menuRow.first().click()
   check('right-click: “Open in the reader” opens the essay in the reader', await reading())
+  // Its first reading names it everywhere it is listed: the sidebar's Recent too, by the article's title, not its address.
+  await h.waitForFunction((href) => document.querySelector(`[data-side-recent-row="${href}"]`)?.textContent === 'The Long Essay', ESSAY, { timeout: 5000 }).catch(() => {})
+  const recentName = await h.evaluate((href) => document.querySelector(`[data-side-recent-row="${href}"]`)?.textContent ?? null, ESSAY)
+  check("the sidebar's Recent names the article by its title once it is read", recentName === 'The Long Essay', String(recentName))
 
   // The selection bar on words picked in it.
   await showNote()
