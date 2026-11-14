@@ -89,7 +89,7 @@ const measure = (h, scope = null) => h.evaluate((scope) => {
     for (let up = el; up && !at; up = up.parentElement) at = [...up.attributes].find((one) => one.name.startsWith('data-') && !['data-state', 'data-qa-row', 'data-fluid-hover-active'].includes(one.name))?.name ?? ''
     words.push({ kind: fade <= 0.6 ? 'dimmed' : kind, cls, at, text: text.slice(0, 40), size, weight, ratio: Math.round(ratio(drawn, ground) * 100) / 100, bar: large ? 3 : 4.5, ground: hex(ground), ink: hex(drawn) })
   }
-  for (const el of (scope ? document.querySelector(scope) : document.body)?.querySelectorAll('*') ?? []) {
+  for (const el of (scope ? [...document.querySelectorAll(scope)] : [document.body]).flatMap((root) => [...root.querySelectorAll('*')])) {
     // A placeholder showing in an empty field, or the element's own words: not a lone dot, arrow or other mark between words.
     const hint = (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.placeholder && !el.value
     const text = hint ? el.placeholder : [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim()
@@ -149,13 +149,16 @@ try {
         for (const old of document.querySelectorAll('[data-qa-row]')) old.removeAttribute('data-qa-row')
         const out = []
         const room = { side: 2, page: 4 }
-        for (const el of document.querySelectorAll('[data-row], [data-side-row], [role="option"], [role="menuitem"], [class*="hover:bg-accent"]')) {
+        // A list's rows first, then any other control that takes the wash; each holding quiet words, not only a quiet icon.
+        const QUIET = '[class*="text-muted-foreground"], [class*="mf-muted"]'
+        const quiet = (el) => [el, ...el.querySelectorAll(QUIET)].some((one) => one.matches(QUIET) && !one.closest('svg') && /[\p{L}\p{N}]/u.test(one.textContent))
+        for (const el of [...document.querySelectorAll('[data-row], [data-side-row], [role="option"], [role="menuitem"]'), ...document.querySelectorAll('[class*="hover:bg-accent"]')]) {
           const where = el.closest('aside[data-chrome]') ? 'side' : 'page'
           if (!room[where]) continue
           const box = el.getBoundingClientRect()
-          if (box.height < 16 || box.height > 160 || box.top < 40 || box.bottom > innerHeight - 4 || box.left < 0 || box.right > innerWidth) continue
+          if (box.height < 16 || box.height > 320 || box.top < 40 || box.bottom > innerHeight - 4 || box.left < 0 || box.right > innerWidth) continue
           if (el.closest(':disabled, [inert], [data-example], [data-qa-row]') || el.querySelector('[data-qa-row]') || !el.checkVisibility({ opacityProperty: true })) continue
-          if (!el.matches('[class*="text-muted-foreground"], [class*="mf-muted"]') && !el.querySelector('[class*="text-muted-foreground"], [class*="mf-muted"]')) continue
+          if (!quiet(el)) continue
           el.setAttribute('data-qa-row', String(out.length))
           room[where]--
           out.push({ n: out.length, x: box.left + Math.min(box.width / 2, 120), y: box.top + box.height / 2 })
@@ -172,6 +175,30 @@ try {
       await h.mouse.move(1290, 890)
       const low = words.filter((one) => one.ratio < one.bar).sort((a, b) => a.ratio - b.ratio)
       if (rows.length) check(`${id}, ${theme}/brutal, ${rows.length} rows pointed at: every faded word on the wash reads (${words.length} words, lowest ${words.length ? Math.min(...words.map((one) => one.ratio)).toFixed(2) : '-'}:1)`, !low.length, low.slice(0, 4).map((one) => `${one.cls} in ${one.at || '-'} “${one.text}” ${one.ratio}:1 on ${one.ground}`).join(' | ') || `${words.length} words`)
+    }
+    // Rows picked as a person picks them (a click into the list on its first row, then ⌘A, as qa/gestures.mjs does), their
+    // words measured on the picked tint in Brutal in each theme. Last on the page: the click opens what it lands on.
+    const first = await h.evaluate(() => {
+      const row = [...document.querySelectorAll('[data-row]')].find((one) => { const box = one.getBoundingClientRect(); return !one.closest('aside[data-chrome]') && box.height > 12 && box.top > 40 && box.bottom < innerHeight - 4 })
+      const box = row?.getBoundingClientRect()
+      return box ? { x: box.left + 30, y: box.top + 10 } : null
+    })
+    if (first) {
+      await h.mouse.click(first.x, first.y)
+      await wait(500)
+      // The note a click opened may take the keys: a person clicks the list again.
+      await h.evaluate(() => document.activeElement?.closest('[contenteditable]') && document.activeElement.blur())
+      await h.keyboard.press('Meta+a')
+      await wait(450)
+      for (const theme of THEMES) {
+        await wear(theme, 'brutal')
+        const picked = await h.evaluate(() => document.querySelectorAll('[data-picked]').length)
+        const words = await measure(h, '[data-picked]')
+        for (const one of words) table.push({ page: id, theme, style: 'brutal', picked: true, ...one })
+        const low = words.filter((one) => one.ratio < one.bar).sort((a, b) => a.ratio - b.ratio)
+        if (picked) check(`${id}, ${theme}/brutal, ${picked} rows picked with ⌘A: every faded word on their tint reads (${words.length} words, lowest ${words.length ? Math.min(...words.map((one) => one.ratio)).toFixed(2) : '-'}:1)`, !low.length, low.slice(0, 4).map((one) => `${one.cls} in ${one.at || '-'} “${one.text}” ${one.ratio}:1 on ${one.ground}`).join(' | ') || `${words.length} words`)
+      }
+      await h.keyboard.press('Escape')
     }
   }
   if (process.env.QA_TABLE) writeFileSync(process.env.QA_TABLE, table.map((one) => JSON.stringify(one)).join('\n') + '\n')
