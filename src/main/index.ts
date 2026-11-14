@@ -6538,12 +6538,12 @@ app.whenReady().then(() => {
     // The beam turns in every window while the PDF is laid out and written.
     return busy(async () => {
       const printer = new BrowserWindow({ show: false, webPreferences: { offscreen: true } })
+      // The page from a file of its own, never a `data:` address: the largest notes' pages (1.7 million characters
+      // of HTML) are past Chromium's 2 MB limit for an address, and their export failed (ERR_INVALID_URL).
+      const page = join(app.getPath('temp'), `haligtree-print-${randomUUID()}.html`)
       try {
-        await printer.loadURL(
-          `data:text/html;charset=utf-8,${encodeURIComponent(
-            `<!doctype html><html lang="en"><meta charset="utf-8"><title>${escaped(title)}</title><style>${sheet}</style><body>${html}</body></html>`
-          )}`
-        )
+        await writeFile(page, `<!doctype html><html lang="en"><meta charset="utf-8"><title>${escaped(title)}</title><style>${sheet}</style><body>${html}</body></html>`)
+        await printer.loadFile(page)
         // Every picture drawn before the page is printed: one still loading printed as a blank box.
         await printer.webContents.executeJavaScript('Promise.all([...document.images].map((one) => one.complete ? 0 : new Promise((done) => (one.onload = one.onerror = done)))).then(() => document.fonts.ready).then(() => 0)')
         const pdf = await printer.webContents.printToPDF({
@@ -6557,6 +6557,7 @@ app.whenReady().then(() => {
         return true
       } finally {
         printer.destroy()
+        await rm(page, { force: true })
       }
     })
   })
