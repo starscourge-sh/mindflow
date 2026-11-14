@@ -128,10 +128,11 @@ html:root[data-style='brutal']:not([data-light]) {
    themes. There the quiet ink, and the icons drawn in it, step up to its
    strong step, 4.5:1 or more in every theme (test/theme-contrast.test.ts),
    set again the way frost and glass set it (main.css). Words already strong
-   stay strong, and at rest nothing changes. */
+   stay strong. At rest only a wash of 70% or more steps them up: under that
+   (the sidebar's 20%, a glide list's 60% light) Faded Ink reads 4.5:1 or more. */
 :root[data-style='brutal'] :is(
   :is(button, a, [role='button'], [role='menuitem'], [role='menuitemcheckbox'], [role='menuitemradio'], [role='option'], [role='tab'], [role='treeitem'], [class*='hover:bg-accent']):hover,
-  [class~='bg-accent'], [class*=' bg-accent/'], [class^='bg-accent/'],
+  [class~='bg-accent'], [class*=' bg-accent/7'], [class^='bg-accent/7'], [class*=' bg-accent/8'], [class^='bg-accent/8'], [class*=' bg-accent/9'], [class^='bg-accent/9'],
   [class*='focus:bg-accent']:focus, [class*='focus-visible:bg-accent']:focus-visible, [class*='focus-within:bg-accent']:focus-within,
   [class*='data-[state=open]:bg-accent'][data-state='open'], [class*='aria-selected:bg-accent'][aria-selected='true'],
   [class*='aria-pressed:bg-accent'][aria-pressed='true'], [class*='aria-checked:bg-accent'][aria-checked='true'],
