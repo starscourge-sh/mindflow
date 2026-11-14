@@ -1,7 +1,8 @@
 /**
- * The welcome's arrival out of the desktop (welcome.tsx, welcome-mist.tsx): the main window is see-through, the mist
- * comes in over the desktop's own picture, the title comes out of the mist, and only then does the mist draw in to
- * the window. A window is see-through or not from the moment it is made, so this is asked as the main window is
+ * The welcome's arrival out of the desktop (welcome.tsx, welcome-mist.tsx): the main window is see-through, the Mac's
+ * own blur and then a fog come in over the desktop until nothing of it reads, the title comes out of the fog, and then
+ * the whole scene becomes a window about half the screen in its middle, which grows to fill the screen for the first
+ * page. A window is see-through or not from the moment it is made, so this is asked as the main window is
  * made, and again each time the welcome is about to arrive: shown again from a window not made see-through, the
  * window is made again in its place for the showing (main: remakeHome), with the old one's tabs and places.
  *

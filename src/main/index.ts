@@ -2612,16 +2612,31 @@ function landClear(win: BrowserWindow, forced = false): void {
   clearUntil = null
   // Only a window made see-through was ever without them (and one that arrived the plain way after all was made without its shadow).
   if (win.isDestroyed() || !homeClear) return
+  // The Mac's blur under the fog never outlives the arrival: a window is a window, opaque, with nothing of the desktop in it.
+  blurUnder(win, false)
   if (forced) void win.webContents.executeJavaScript("document.documentElement.removeAttribute('data-see-through')").catch(() => undefined)
   win.setHasShadow(true)
   // Worked out afresh from the window as it now is, whole to its corners: a see-through window's shadow follows what is drawn in it.
   win.invalidateShadow()
   win.setWindowButtonVisibility(true)
 }
+/**
+ * The Mac's own blur of the desktop behind a window standing clear (the arrival, welcome-mist.tsx), faded in as the fog
+ * starts to come in and out again once the fog is whole over it, before the window is shaped out of the scene, so the
+ * desktop is sharp again round the window. The quick capture box wears the same material (window:surface).
+ */
+let blurred = false
+const blurs: { on: boolean; at: number }[] = []
+function blurUnder(win: BrowserWindow, on: boolean): void {
+  if (win.isDestroyed() || process.platform !== 'darwin' || blurred === on || (on && !clearUntil)) return
+  blurred = on
+  blurs.push({ on, at: Math.round(performance.now()) })
+  win.setVibrancy(on ? 'under-window' : null, { animationDuration: on ? 1000 : 450 })
+}
 /** When the window made in the old one's place for the welcome was shown, and the old one closed, in ms of this run (remakeHome). */
 let swapped: { shown: number; gone: number } | null = null
-/** What the arrival probe reads: whether the window was made see-through, whether it stands clear now, and the last swap of windows. */
-;(globalThis as { haligtreeArrival?: () => { made: boolean; clear: boolean; swapped: typeof swapped } }).haligtreeArrival = () => ({ made: homeClear, clear: !!clearUntil, swapped })
+/** What the arrival probe reads: whether the window was made see-through, whether it stands clear now, the last swap of windows, and the blur under the fog, in and out. */
+;(globalThis as { haligtreeArrival?: () => { made: boolean; clear: boolean; swapped: typeof swapped; blurs: typeof blurs } }).haligtreeArrival = () => ({ made: homeClear, clear: !!clearUntil, swapped, blurs })
 
 /**
  * “Show the welcome again” from a window not made see-through (every run but a first one): whether it may be made again
@@ -5653,6 +5668,8 @@ app.whenReady().then(() => {
     handedOver = null
   })
   ipcMain.on('welcome:landed', (event) => void (home && event.sender === home.webContents && landClear(home)))
+  // The fog over the desktop: the Mac's own blur under it, in as it comes in, out once it is whole (blurUnder).
+  ipcMain.on('welcome:blur', (event, on: unknown) => void (home && event.sender === home.webContents && blurUnder(home, on === true)))
   ipcMain.on('prompt:hide', () => void (prompt?.isVisible() && hideWindow(prompt)))
   // The first-run step and Settings import the way the menu bar does.
   // From the vault picker too: one of the vaults it showed, or null for the folder dialog.

@@ -25,6 +25,6 @@ test('an ordinary launch never has a see-through window, whatever else holds', (
   for (const key of ['still', 'safe', 'solid', 'secondDisplay', 'fullScreen'] as const) assert.notEqual(plainArrival({ ...may, welcome: false, [key]: true }), null)
 })
 test('a see-through window is made solid well after the arrival ends, and well before a person would wait', () => {
-  // The title's beat is at 11 seconds and the mist draws in within two more (welcome-title.tsx GATHER_AT).
-  assert.ok(CLEAR_LIMIT > 13000 && CLEAR_LIMIT <= 30000, String(CLEAR_LIMIT))
+  // The window grown to fill the screen, a window again, by about fifteen seconds (welcome.tsx GROW_AT and SHAPE_MS).
+  assert.ok(CLEAR_LIMIT > 15000 && CLEAR_LIMIT <= 30000, String(CLEAR_LIMIT))
 })

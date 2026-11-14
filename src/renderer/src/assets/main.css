@@ -2458,11 +2458,14 @@ html[data-see-through] .mf-welcome { visibility: visible; background: transparen
    paints nothing: the app beside the welcome is not drawn at all until the mist has drawn in. The welcome played again
    comes up over a whole book (main: remakeHome), a long note perhaps still opening under it. */
 html[data-see-through] [data-frame] > :not(.mf-welcome) { opacity: 0; }
-/* The arrival's two controls come in with the mist, after its beat of nothing (welcome-mist.tsx: CLEAR_MS, IN_MS). */
+/* The arrival's two controls come in with the fog's last part, each on its own ground, whole as the fog is whole
+   (welcome-mist.tsx: CLEAR_MS + IN_MS = 2350ms): they never stand as bare words over the desktop's own picture. */
 @keyframes mf-with-mist { from { opacity: 0; } }
-.mf-with-mist { animation: mf-with-mist 2000ms 350ms ease-in-out backwards; }
+.mf-with-mist { animation: mf-with-mist 700ms 1650ms ease-out backwards; }
+/* What lies in the fog over the desktop (its grain) comes in as the fog itself does: nothing drawn for its first beat. */
+.mf-fog-in { animation: mf-with-mist 2000ms 350ms ease-in-out backwards; }
 /* Held by the arrival probe while it reads the page before the mist's first step (welcome-mist.tsx). */
-html[data-arrival-hold] .mf-with-mist { animation-play-state: paused; }
+html[data-arrival-hold] :is(.mf-with-mist, .mf-fog-in) { animation-play-state: paused; }
 :root[data-welcoming]::view-transition-old(mf-theme-dial) { display: none; }
 :root[data-welcoming]::view-transition-new(mf-theme-dial), :root[data-welcoming]::view-transition-group(mf-theme-dial) { animation: none; }
 /* The words that carry the point, in the welcome: the accent with a lighter

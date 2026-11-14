@@ -24,12 +24,15 @@ const SOFT: Keyframe[] = [{ opacity: 0 }, { opacity: 0.55, offset: 0.3 }, { opac
 /** Lifting away, a little up as it fades: an exit, plainer than the rise. */
 const LIFT: Keyframe[] = [{ opacity: 1, transform: 'translateY(0px)' }, { opacity: 0, transform: 'translateY(-18px)' }]
 
-/** `frames` played on the element by the browser once `on`, as `timing` says, holding where they end. */
-function usePlayed<T extends HTMLElement>(frames: Keyframe[], on: boolean, timing: { delay: number; duration: number; easing: string }): React.RefObject<T | null> {
+/** `frames` played on the element by the browser once `on`, as `timing` says, holding where they end; `onDone` once they have. */
+function usePlayed<T extends HTMLElement>(frames: Keyframe[], on: boolean, timing: { delay: number; duration: number; easing: string }, onDone?: () => void): React.RefObject<T | null> {
   const el = useRef<T>(null)
+  const done = useRef(onDone)
+  done.current = onDone
   useLayoutEffect(() => {
     if (!on) return
     const run = el.current?.animate(frames, { ...timing, fill: 'both' })
+    if (run) run.onfinish = () => done.current?.()
     return () => run?.cancel()
   }, [on]) // eslint-disable-line react-hooks/exhaustive-deps
   return el
@@ -39,11 +42,11 @@ function usePlayed<T extends HTMLElement>(frames: Keyframe[], on: boolean, timin
  * One line of the card rising into focus once `ready`, `delay` seconds after: `soft` is the same line, drawn blurred under
  * it; `children` draws the line itself, on the ref it is given, in the grid's one cell (`IN_CELL`), unseen to start (`UNSEEN`).
  */
-function Rise({ ready, delay, soft, children }: { ready: boolean; delay: number; soft: ReactNode; children: (line: (el: HTMLElement | null) => void) => ReactNode }): React.JSX.Element {
+function Rise({ ready, delay, soft, onDone, children }: { ready: boolean; delay: number; soft: ReactNode; onDone?: () => void; children: (line: (el: HTMLElement | null) => void) => ReactNode }): React.JSX.Element {
   const timing = { delay: delay * 1000, duration: 1400, easing: curve(EASE) }
   const box = usePlayed<HTMLDivElement>(UP, ready, timing)
   const under = usePlayed<HTMLDivElement>(SOFT, ready, timing)
-  const line = usePlayed<HTMLElement>(SHARP, ready, timing)
+  const line = usePlayed<HTMLElement>(SHARP, ready, timing, onDone)
   // Held where the rise starts until it is played: nothing shows before.
   return (
     <div ref={box} data-title-rise="" className="grid justify-items-center" style={{ transform: 'translateY(14px)' }}>
@@ -64,9 +67,10 @@ const YEAR = 'pl-[0.24em] text-[clamp(0.75rem,1.5vmin,0.9375rem)] tracking-[0.24
  * gradient blooms first, and only once it is whole (`ready`) do the words
  * come, the wordmark and then the line under it (the year, or your name),
  * with a soft glow of the page's colour behind their letters so they read on any theme. It
- * lifts away before the first words; `hurry` takes it at once.
+ * lifts away before the first words; `hurry` takes it at once. `onWritten` once the line under the name is whole
+ * (written in its hand, or risen): the arrival out of the desktop then shapes its scene into the window (welcome.tsx).
  */
-export function WelcomeTitle({ name, hurry = false, ready = true }: { name: string; hurry?: boolean; ready?: boolean }): React.JSX.Element {
+export function WelcomeTitle({ name, hurry = false, ready = true, onWritten }: { name: string; hurry?: boolean; ready?: boolean; onWritten?: () => void }): React.JSX.Element {
   // What it is and whose, as a title page says it: "A commonplace book kept by Reed"; with no name to be read, "A commonplace book".
   const said = useAnimationControls()
   const under = name ? `A commonplace book kept by ${name}` : 'A commonplace book'
@@ -89,9 +93,9 @@ export function WelcomeTitle({ name, hurry = false, ready = true }: { name: stri
         // Its clip runs past the box on every side once written: a hand's loops (the y of "by", the d's tail) go past it.
         <motion.p key="kept" data-title-kept="" className="mt-2 -rotate-3 text-[clamp(1.6rem,3.6vmin,2.4rem)] leading-none text-(--mf-wl-body) [font-family:'Haligtree_Signature',cursive]"
           initial={{ clipPath: 'inset(-50% 100% -50% -15%)', opacity: 0 }} animate={ready ? { clipPath: 'inset(-50% -15% -50% -15%)', opacity: 1 } : undefined}
-          transition={{ delay: 1.8, duration: 1.8, ease: [0.45, 0.05, 0.35, 1] }}>{under}</motion.p>
+          transition={{ delay: 1.8, duration: 1.8, ease: [0.45, 0.05, 0.35, 1] }} onAnimationComplete={() => ready && onWritten?.()}>{under}</motion.p>
       ) : (
-        <Rise key="year" ready={ready} delay={1.6} soft={<div className={YEAR}>{under}</div>}>
+        <Rise key="year" ready={ready} delay={1.6} onDone={onWritten} soft={<div className={YEAR}>{under}</div>}>
           {(line) => <p ref={line} style={UNSEEN} className={`${IN_CELL} ${YEAR}`}>{under}</p>}
         </Rise>
       )}

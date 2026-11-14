@@ -197,13 +197,16 @@ try {
     const pressed = Date.now()
     await h2.waitForFunction(() => window.haligtreeArrival?.landed, null, { timeout: 8000, polling: 50 }).catch(() => undefined)
     const took = Date.now() - pressed
-    check('Esc mid-way: the mist draws in to the window at once (within 1.5 s)', took < 1500, `${took} ms (${load()})`)
+    check('Esc mid-way: straight to the end, the window whole at once (within 1.5 s)', took < 1500, `${took} ms (${load()})`)
   } else await h2.waitForFunction(() => window.haligtreeArrival?.landed, null, { timeout: 45000, polling: 250 })
   const frames = await h2.evaluate(() => window.haligtreeArrival.frames)
-  check('out of the desktop: nothing of the page drawn at first, the page whole at the end', frames[0][2] === 0 && frames.at(-1)[2] === 1, `${frames.length} frames; first ${JSON.stringify(frames[0])}, last ${JSON.stringify(frames.at(-1))}`)
+  // Each frame [ms, the fog's amount, and the box of the window drawn round it] (welcome-mist.tsx).
+  const inner = await h2.evaluate(() => [innerWidth, innerHeight])
+  const whole = (box) => box.length === 4 && Math.abs(box[0]) <= 1 && Math.abs(box[1]) <= 1 && Math.abs(box[2] - inner[0]) <= 1 && Math.abs(box[3] - inner[1]) <= 1
+  check('out of the desktop: nothing drawn at first, the window whole at the end', frames[0][1] === 0 && whole(frames.at(-1).slice(2)), `${frames.length} frames; first ${JSON.stringify(frames[0])}, last ${JSON.stringify(frames.at(-1))}`)
   let rose = true
-  for (let i = 1; i < frames.length; i++) if (frames[i][2] === 0 && frames[i][1] < frames[i - 1][1] - 0.001) rose = false
-  check('the mist only grows until it draws in', rose)
+  for (let i = 1; i < frames.length; i++) if (frames[i][1] < frames[i - 1][1] - 0.001) rose = false
+  check('the fog only ever grows while it arrives', rose)
   await h2.waitForTimeout(400)
   check('landed: the window is a window again (its shadow and buttons back)', (await electron.evaluate(() => globalThis.haligtreeArrival?.() ?? { made: false, clear: false })).clear === false)
   // One arrival, one chord: the welcome opened once in the new page (in a dev build too, where StrictMode mounts twice).

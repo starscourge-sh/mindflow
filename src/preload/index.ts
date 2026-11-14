@@ -701,6 +701,8 @@ const api = {
   handedOver: (): unknown => ipcRenderer.sendSync('welcome:handed-over'),
   /** The welcome's mist has drawn in to the window (or it arrived the plain way after all): the window has its shadow and buttons again. */
   landed: (): void => ipcRenderer.send('welcome:landed'),
+  /** The arrival's fog over the desktop: the Mac's own blur under it, faded in as it comes in, and out once it is whole. */
+  blur: (on: boolean): void => ipcRenderer.send('welcome:blur', on),
   /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
   importFrom: (what: 'vault' | 'files' | 'apple-notes', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
   /** Anki decks (.apkg) dropped on a note: imported as cards, not attached. */

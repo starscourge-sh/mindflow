@@ -1,7 +1,8 @@
 // Films the welcome's arrival out of the desktop with every frame the page draws (the browser's own screencast, not
 // one picture at a time), over a picture stood behind the page for the desktop, busy or plain, in light or dark: the
-// spark's burst in the mist and the mist drawing in to the window, each frame named by the mist's own clock, laid six
-// to a row on contact sheets for reading by eye. A film, not a check: qa/welcome-arrival.mjs holds the checks.
+// fog coming in, the spark's burst and the title in it, the scene becoming the window and growing again, each frame
+// named by the fog's own clock and taken every 50 ms where it moves, laid six to a row on contact sheets for reading
+// by eye. A film, not a check: qa/welcome-arrival.mjs holds the checks.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-arrival-film.mjs <folder> [light|dark] [busy|plain]
 import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -42,13 +43,15 @@ try {
   await h.evaluate(() => document.documentElement.removeAttribute('data-arrival-hold'))
   const pairs = []
   const began = Date.now()
+  let ended = 0
   while (Date.now() - began < 25000) {
-    const now = await h.evaluate(() => ({ t: window.haligtreeArrival?.frames.at(-1)?.[0] ?? -1, landed: !!window.haligtreeArrival?.landed }))
+    // To the first page, its window grown to fill the screen and a window again (no longer see-through), and a second more.
+    const now = await h.evaluate(() => ({ t: window.haligtreeArrival?.frames.at(-1)?.[0] ?? -1, over: !document.documentElement.hasAttribute('data-see-through') && !!document.querySelector('[data-thesis]') }))
     pairs.push({ wall: Date.now() / 1000, t: now.t })
-    if (now.landed) break
+    if (now.over && !ended) ended = Date.now()
+    if (ended && Date.now() - ended > 1200) break
     await h.waitForTimeout(200)
   }
-  await h.waitForTimeout(500)
   await cdp.send('Page.stopScreencast')
   const trace = await h.evaluate(() => window.haligtreeArrival?.frames ?? [])
   // Each screencast frame named by the mist's clock: the nearest reading of it, moved on by the wall clock since.
@@ -56,12 +59,21 @@ try {
     const near = pairs.reduce((best, p) => (Math.abs(p.wall - one.at) < Math.abs(best.wall - one.at) ? p : best), pairs[0])
     return { ...one, t: Math.round(near.t + (one.at - near.wall) * 1000) }
   })
-  const inAt = trace.find((one) => one[3] < trace[0][3])?.[0] ?? Infinity
+  // Where the scene starts to become the window, by its own record of its box (welcome-mist.tsx trace).
+  const inAt = trace.find((one) => one[2] > 0.5)?.[0] ?? Infinity
   const gaps = named.slice(1).map((one, i) => Math.round((one.at - named[i].at) * 1000))
-  console.log(`${THEME} ${KIND}: ${named.length} frames filmed; the draw-in from ${Math.round(inAt)} ms; frame gaps in the draw-in: longest ${Math.max(...gaps.filter((_, i) => named[i + 1].t >= inAt))} ms, mean ${(gaps.filter((_, i) => named[i + 1].t >= inAt).reduce((a, b) => a + b, 0) / Math.max(1, gaps.filter((_, i) => named[i + 1].t >= inAt).length)).toFixed(1)} ms`)
-  // The parts worth reading frame by frame: the spark's burst (4.6 to 7.4 s), the title rising into focus (7.0 to 9.6 s),
-  // and the drawing in to the end.
-  const parts = { burst: named.filter((one) => one.t >= 4600 && one.t <= 7400), title: named.filter((one) => one.t >= 7000 && one.t <= 9600), drawin: named.filter((one) => one.t >= inAt - 200) }
+  console.log(`${THEME} ${KIND}: ${named.length} frames filmed; the scene becomes the window from ${Math.round(inAt)} ms; frame gaps from there: longest ${Math.max(...gaps.filter((_, i) => named[i + 1].t >= inAt))} ms, mean ${(gaps.filter((_, i) => named[i + 1].t >= inAt).reduce((a, b) => a + b, 0) / Math.max(1, gaps.filter((_, i) => named[i + 1].t >= inAt).length)).toFixed(1)} ms`)
+  // One frame for every `step` ms between `from` and `to`, the nearest filmed: every 50 ms where the scene moves.
+  const every = (from, to, step) => {
+    const out = []
+    for (let t = from; t <= to; t += step) {
+      const one = named.reduce((best, x) => (Math.abs(x.t - t) < Math.abs(best.t - t) ? x : best), named[0])
+      if (one && Math.abs(one.t - t) <= step && out.at(-1) !== one) out.push(one)
+    }
+    return out
+  }
+  const last = named.at(-1)?.t ?? 0
+  const parts = { comein: every(0, 3000, 100), fog: every(3000, inAt, 250), shape: every(inAt - 100, last, 50), whole: every(0, last, 500) }
   for (const [name, list] of Object.entries(parts)) {
     list.forEach((one, i) => writeFileSync(join(SHOTS, `${THEME}-${KIND}-${name}-${String(i).padStart(3, '0')}-${one.t}ms.jpg`), Buffer.from(one.data, 'base64')))
     for (let part = 0; part * 36 < list.length; part++) {

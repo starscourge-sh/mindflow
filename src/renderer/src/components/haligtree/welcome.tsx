@@ -45,6 +45,29 @@ import {
 import { APP_NAME } from '../../../../main/name'
 
 /**
+ * The arrival out of the desktop, after Dia's: the fog and the title in it are one scene over the whole screen, and once
+ * the title is written the scene becomes the window, shrinking into a window about half the screen in the middle of it,
+ * the fog still moving inside, its edges hardening into a window's rounded corners and shadow, the desktop sharp again
+ * round it. As the title lifts it grows from its middle to fill the screen for the first page. All of it moves on the
+ * browser's own thread (transform, clip and opacity), the window itself never resized on the way, so a tiling window
+ * manager has nothing to undo and a busy page drops no frame.
+ */
+/** How long the scene takes to become the window, and to grow again, in ms. */
+const SHAPE_MS = 1400
+/** When the window grows to fill the screen, on the arrival's clock: as the title lifts, whole before the first words. */
+const GROW_AT = ARRIVE_MS - 1700
+/** The window's corners, in px on screen, as a dialog's (DESIGN.md: 14px). */
+const CORNER = 14
+/** The app's spring with no bounce (the same by-the-clock spring the mist drew in on), as an easing the browser plays on its own thread: slow to start, settling softly, never past its end. */
+const SPRING = `linear(${Array.from({ length: 41 }, (_, i) => {
+  const stiff = 5.3
+  const at = (u: number): number => 1 - (1 + stiff * u) * Math.exp(-stiff * u)
+  return (at((i / 40) * (SHAPE_MS / 1000)) / at(SHAPE_MS / 1000)).toFixed(4)
+}).join(', ')})`
+/** How small the scene becomes as the window: about half the screen, never so small that the title card is cramped. */
+const windowScale = (): number => Math.min(0.8, Math.max(0.5, 720 / Math.max(1, innerWidth)))
+
+/**
  * The welcome, the first time Haligtree opens (and again from the Haligtree menu, ⌘K
  * or Settings): a short film that follows one thought, a question about old
  * movies had on a walk, from being caught to coming back. Each chapter opens
@@ -262,18 +285,28 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
   // The Sounds setting, for the arrival's own sound button.
   const [loud, setLoud] = useState(true)
   const gatherTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  // The arrival out of the desktop, in a window made see-through for it (main: arrival.ts): 'over' while the mist lies
-  // over the desktop and no window has been seen, 'in' while the mist draws in to the window, then off for good.
-  const [desk, setDesk] = useState<'off' | 'over' | 'in'>('off')
-  // The window's own page under the mist: not drawn while the mist is over the desktop (welcome-mist.tsx brings it up).
+  // The arrival out of the desktop, in a window made see-through for it (main: arrival.ts): 'over' while the scene stands
+  // over the desktop (the fog over the whole screen, then shaped into the window), then off for good once it has grown
+  // to fill the window and the window is a window again.
+  const [desk, setDesk] = useState<'off' | 'over'>('off')
+  // The window's own page: under the fog out of the desktop, unseen until the fog lifts off it.
   const plate = useRef<HTMLDivElement>(null)
-  const drawIn = (): void => setDesk((now) => (now === 'over' ? 'in' : now))
   // Whether this arrival came out of the desktop: its two controls keep the ground they came in on until they go.
   const [fromDesk, setFromDesk] = useState(false)
   // Played again from a window not made see-through: this one shows the app's loader until the window made in its place is up (main: remakeHome).
   const [readying, setReadying] = useState(false)
   // The mist over the desktop has drawn its first frame: the spark in it keeps the mist's time from there.
   const [deskLit, setDeskLit] = useState(false)
+  // Out of the desktop the fog is the scene, then the window's ground through the first page; lifted off the page's own
+  // ground when the first page is left (or the welcome ends).
+  const [fog, setFog] = useState(false)
+  const [fogLift, setFogLift] = useState(false)
+  // The scene, the fog and title in it, and its shadow: shaped into the window and grown again (shapeTo).
+  const scene = useRef<HTMLDivElement>(null)
+  const sceneBody = useRef<HTMLDivElement>(null)
+  const sceneShadow = useRef<HTMLDivElement>(null)
+  const shaped = useRef<Animation[]>([])
+  const growTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   /** The arrival's light is whole (the gradient's bloom, or out of the desktop the spark's burst in the mist): the title may come. */
   const bloom = (): void => {
     setBloomed(true)
@@ -287,14 +320,57 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     if (!document.documentElement.hasAttribute('data-see-through')) return
     document.documentElement.removeAttribute('data-see-through')
     window.api.landed()
+    // For the arrival probes, beside the fog's own record (welcome-mist.tsx): the arrival is over, whether or not its fog is still the ground.
+    const trace = (window as { haligtreeArrival?: { landed: boolean } }).haligtreeArrival
+    if (trace) trace.landed = true
+  }
+  /**
+   * The scene shaped into the window (`window`: about half the screen, in the middle of it) or grown to fill it (`whole`),
+   * on the app's spring, from wherever it is now; `instant` for a key or a click, which go straight to the end.
+   */
+  const shapeTo = (to: 'window' | 'whole', instant = false, then?: () => void): void => {
+    const el = scene.current
+    const body = sceneBody.current
+    const shadow = sceneShadow.current
+    if (!el || !body || !shadow) return void then?.()
+    const small = windowScale()
+    const transform = getComputedStyle(el).transform
+    const from = transform && transform !== 'none' ? new DOMMatrixReadOnly(transform).a : 1
+    for (const one of shaped.current) one.cancel()
+    const target = to === 'window' ? small : 1
+    // How far toward the window it is (0 the whole screen, 1 the window): its corners round and its shadow comes as it goes.
+    const toward = (scale: number): number => Math.max(0, Math.min(1, (1 - scale) / (1 - small)))
+    const round = (scale: number): string => `inset(0px round ${((CORNER * toward(scale)) / scale).toFixed(2)}px)`
+    const timing: KeyframeAnimationOptions = { duration: instant ? 0 : SHAPE_MS, easing: SPRING, fill: 'forwards' }
+    shaped.current = [
+      el.animate([{ transform: `scale(${from})` }, { transform: `scale(${target})` }], timing),
+      body.animate([{ clipPath: round(from) }, { clipPath: round(target) }], timing),
+      shadow.animate([{ opacity: toward(from) }, { opacity: toward(target) }], timing)
+    ]
+    shaped.current[0].onfinish = () => {
+      // Whole again, it is simply the window's page: nothing held on it.
+      if (to === 'whole') for (const one of shaped.current) one.cancel()
+      then?.()
+    }
+  }
+  /** The handwriting done: the scene becomes the window. */
+  const shapeIn = (): void => void (desk === 'over' && !rushed && shapeTo('window'))
+  /** As the title lifts: the window grows to fill the screen, and is a window again once it has. */
+  const grow = (): void => shapeTo('whole', false, land)
+  /** The fog lifted off the page's own ground, or looked away from: gone, and the window a window whatever was under way. */
+  const fogGone = (): void => {
+    setFog(false)
+    setFogLift(false)
+    if (document.documentElement.hasAttribute('data-see-through')) land()
   }
   const rush = (): void => {
     clearTimeout(veilTimer.current)
     // A first run's window, still over the whole screen, gathers in at once.
     clearTimeout(gatherTimer.current)
+    clearTimeout(growTimer.current)
     window.api.gather()
-    // Over the desktop: the mist draws in to the window at once.
-    drawIn()
+    // Over the desktop: straight to the end, the scene the whole window at once, the fog its ground under the first page.
+    if (desk === 'over') (shapeTo('whole', true), land())
     setVeiled(false)
     setRushed(true)
   }
@@ -398,6 +474,9 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     setAt(WHY)
     setFromDesk(clear)
     setDeskLit(false)
+    for (const one of shaped.current) one.cancel()
+    setFog(clear)
+    setFogLift(false)
     if (clear) (document.documentElement.setAttribute('data-see-through', ''), setDesk('over'))
     else land()
     if (still()) chime('read')
@@ -413,14 +492,19 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
       veilTimer.current = setTimeout(() => setVeiled(false), ARRIVE_MS)
       // The title card whole and held a breath: a first run's window gathers in from the whole screen.
       clearTimeout(gatherTimer.current)
-      // Over the desktop it is the mist that gathers, in to the window, on the same beat.
-      gatherTimer.current = setTimeout(() => (window.api.gather(), drawIn()), GATHER_AT)
+      gatherTimer.current = setTimeout(() => window.api.gather(), GATHER_AT)
+      // Over the desktop, the window shaped from the scene (once the title is written) grows to fill the screen as the title lifts.
+      clearTimeout(growTimer.current)
+      if (clear) growTimer.current = setTimeout(grow, GROW_AT)
       void haligtree.settings().then((now) => setLoud(now.sounds !== false))
     }
   }
 
   // The welcome gone while its window was still see-through (it cannot be, but a see-through window must never be left): the page paints itself.
   useEffect(() => void (at < 0 && desk !== 'off' && land()), [at, desk]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The first page left, or the welcome gone: the fog lifts off the page's own ground, which comes up under it.
+  useEffect(() => void (fog && at !== WHY && setFogLift(true)), [at, fog])
+  useEffect(() => () => void (clearTimeout(growTimer.current), shaped.current.forEach((one) => one.cancel())), [])
   useCarriedWelcome()
   useEffect(() => {
     // Made again for the welcome played again (lib/onboarding.ts REMADE): it plays as the page comes up. No welcome to
@@ -692,6 +776,8 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
   const begin = (): void => {
     setDeskLit(true)
     welcomeBegun()
+    // The Mac's own blur of the desktop, faded in under the fog as it starts to come in: softened first, then covered.
+    window.api.blur(true)
   }
 
   if (readying) return <Readying />
@@ -724,8 +810,9 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
       {/* The window's own page. Arriving out of the desktop it is not drawn while the mist lies over the desktop, and comes up under the mist as it draws in (welcome-mist.tsx).
           Nothing in it runs unseen then: no spark or bloom of its own (the spark is in the mist), and its gradient draws no frames until it is let go. */}
-      <div ref={plate} data-plate="" className="absolute inset-0 bg-background">
-        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} desk={fromDesk} held={desk === 'over'} onBloomed={bloom} />
+      {/* Under the fog (out of the desktop) it waits unseen and still, and comes up as the fog lifts off it: hidden at once, never faded out over the desktop. */}
+      <div ref={plate} data-plate="" className={`absolute inset-0 bg-background ${fog && !fogLift ? 'opacity-0' : 'opacity-100 transition-opacity duration-700'}`}>
+        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} desk={fromDesk} held={desk === 'over' || (fog && !fogLift)} onBloomed={bloom} />
       </div>
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). On the
@@ -736,18 +823,33 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
         lure={closing ? null : at === LAST ? '.mf-welcome [data-recommended]' : at === DIAL ? '.mf-welcome [role="slider"][aria-label="Theme"]' : null} />}
       {/* The paper's arrival is a mist; the gradient's is its own bloom (GrainBackdrop). */}
       {mist && WELCOME_BACKGROUND === 'paper' && desk === 'off' && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
-      {/* Out of the desktop: the same mist over the desktop's own picture, drawing in to the window on the title's beat, or at once on Esc or a click. */}
-      {desk !== 'off' && <WelcomeMist key={`desk-${arrival}`} desk drawIn={desk === 'in'} hurry={rushed} plate={plate} onGone={land} onStart={begin} onDrawable={() => REMADE && window.api.homeDrawn()} />}
-      {/* The arrival's spark and its burst (GrainBackdrop draws them on the page, which is not yet there): in the mist, where the title will stand, so the notes that go with them still have their light. */}
-      {desk === 'over' && deskLit && <div className="pointer-events-none absolute inset-0 z-[35]"><IntroSpark key={`desk-spark-${arrival}`} onDone={bloom} inMist /></div>}
+      {/* Out of the desktop: one scene, the fog over the desktop with the spark and the title in it, shaped into the window once
+          the title is written and grown to fill it as the first page comes (shapeTo); the fog is the window's ground after. */}
+      {fog && (
+        <div ref={scene} data-arrival-scene="" className="pointer-events-none absolute inset-0 z-30">
+          {/* The window's shadow, coming as the scene becomes the window: in the scene's own (scaled) pixels, so on screen it is a window's. */}
+          <div ref={sceneShadow} aria-hidden data-arrival-shadow="" className="absolute inset-0" style={{ opacity: 0, borderRadius: `${CORNER / windowScale()}px`, boxShadow: `0 0 0 ${1 / windowScale()}px color-mix(in oklab, var(--foreground) 14%, transparent), 0 ${24 / windowScale()}px ${70 / windowScale()}px ${-8 / windowScale()}px rgb(0 0 0 / 0.55)` }} />
+          <div ref={sceneBody} data-arrival-body="" className="absolute inset-0 overflow-clip">
+            <WelcomeMist key={`desk-${arrival}`} desk lift={fogLift} onGone={fogGone} onStart={begin} onWhole={() => window.api.blur(false)} onDrawable={() => REMADE && window.api.homeDrawn()} />
+            {/* Haligtree's grain over the fog, as on the welcome's paper (grain.tsx), coming in as the fog does. */}
+            <div aria-hidden className="mf-fog-in absolute inset-0 opacity-[0.06] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
+            {/* The arrival's spark and its burst (GrainBackdrop draws them on the page, which is not yet there): in the fog, where the title will stand, so the notes that go with them still have their light. */}
+            {desk === 'over' && deskLit && <div className="pointer-events-none absolute inset-0 z-[35]"><IntroSpark key={`desk-spark-${arrival}`} onDone={bloom} inMist /></div>}
+            {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} onWritten={shapeIn} />}
+          </div>
+        </div>
+      )}
+      {/* The page's own ground over the fog where the first page's words stand (Dia's solid panel), the fog moving on beyond them. */}
+      {fog && <div aria-hidden data-words-ground="" className={`pointer-events-none absolute inset-0 z-[31] ${desk === 'off' && !veiled && !fogLift ? 'opacity-100 transition-opacity duration-700' : 'opacity-0'}`}
+        style={{ background: 'linear-gradient(90deg, var(--background) 0%, color-mix(in oklab, var(--background) 90%, transparent) 42%, transparent 80%)' }} />}
       {/* Before the first words: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
-      {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} />}
+      {!fog && mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} />}
       {/* Not a handle while the window is unseen over the desktop: a press there ends the arrival, as anywhere. */}
       <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: desk === 'over' ? 'no-drag' : 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}
-      <div className="relative mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
+      <div className="relative z-[32] mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
         {/* The book's ruled margin, in red ink: drawn down the page as the first words come, and kept on every page after, so each chapter reads as the same book.
             Soft ink soaked into the paper, fading out at its top and foot as a notebook's rule does, never a loose line. */}
         <motion.div aria-hidden data-margin="" className="pointer-events-none absolute -top-11 bottom-0 left-[calc(clamp(1.5rem,5vw,4rem)*0.45)] w-px origin-top"
