@@ -3065,11 +3065,12 @@ html[data-book-hue] [data-book-tint] {
   --mf-muted: var(--mf-muted-strong);
 }
 /* A row set aside (a question answered or let go, a closed goal, a paused card, a held task, a capture dealt with)
-   stays plainly set aside and readable: what was in the ink takes the strong quiet step and quiet words stay Faded
-   Ink, so every word reads at 4.5:1 or more, and its pictures, icons and marks drop to half. Its own words say which
-   ("Answered 3 days ago", "Paused: not coming back until you choose"). It was the whole row at half strength: 2.1:1. */
+   stays plainly set aside and readable: every word in it, its name too, wears Faded Ink (4.5:1 or more on every ground,
+   and stepped up where a hover or a pick steps quiet words up), and its pictures, icons and marks drop to half. Its own
+   words say which ("Answered 3 days ago", "Paused: not coming back until you choose"). It was the whole row at half
+   strength: 2.1:1. */
 [data-set-aside] {
-  --foreground: var(--mf-muted-strong);
+  --foreground: var(--muted-foreground);
   color: var(--foreground);
 }
 [data-set-aside] :is(svg, img, canvas, [data-lead-paper], [data-word-band]) {

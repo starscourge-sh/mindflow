@@ -322,7 +322,7 @@ export const questionEntry = (item: Item, inView = false, menu?: MenuItem[], bac
   // Its answer on a line of its own once it has one; an open question has none by being open, so that is said once,
   // under Questions' tabs, never "No answer yet" on every row.
   answer: item.answer || item.closedHow === 'let go' ? (
-    <span data-question-answer={item.answer ? 'yes' : 'none'} className={`line-clamp-2 text-sm text-pretty ${item.answer ? 'text-foreground/90' : 'text-muted-foreground italic'}`}>
+    <span data-question-answer={item.answer ? 'yes' : 'none'} className={`line-clamp-2 text-sm text-pretty ${item.answer ? 'text-foreground' : 'text-muted-foreground italic'}`}>
       {item.answer || 'Stopped asking, with no answer'}
     </span>
   ) : undefined,

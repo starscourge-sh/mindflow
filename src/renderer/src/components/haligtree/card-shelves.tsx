@@ -146,7 +146,7 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
         back={face('back', <>
           {card.occlusion ? <div className="mb-3 grid max-h-[55%] place-items-center overflow-hidden rounded"><CoveredPicture occlusion={card.occlusion} shown all={card.occlusion.hide === 'all'} fit="max-h-full" /></div>
             : card.picture && <img src={small(card.picture, 640)} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="-mx-4 -mt-4 mb-3 max-h-[55%] w-[calc(100%+2rem)] max-w-none object-cover" />}
-          <p className={`text-foreground/90 ${size === 'lg' ? 'text-lg leading-relaxed line-clamp-[10]' : 'text-sm leading-relaxed line-clamp-[8]'}`}>{answer || 'No answer yet'}</p>
+          <p className={`text-foreground ${size === 'lg' ? 'text-lg leading-relaxed line-clamp-[10]' : 'text-sm leading-relaxed line-clamp-[8]'}`}>{answer || 'No answer yet'}</p>
         </>)} />
     </div>
   )
