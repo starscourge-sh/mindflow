@@ -60,7 +60,11 @@ try {
   const [goal] = (await c.v('items', 'goal')).filter((one) => one.title === 'Walk the coast path')
   let wins = await waitFor(electron, h, (list) => out(list).length === 1)
   check('the summary opens the goal\'s real sticky, a window of its own', out(wins).length === 1 && !!goal && out(wins)[0].url.includes(`id=${goal.id}`), JSON.stringify(wins.map(({ url, ...rest }) => rest)))
-  const sticky = electron.windows().find((one) => goal && one.url().includes(`type=goal&id=${goal.id}`))
+  // Its page as Playwright has it: main can show the window a moment before the test is handed its page, so wait for
+  // that page rather than read the list once (it was missing under load, and every line after it read nothing).
+  const mine = (one) => !!goal && one.url().includes(`type=goal&id=${goal.id}`)
+  let sticky = electron.windows().find(mine)
+  for (const end = Date.now() + 6000; !sticky && Date.now() < end; await h.waitForTimeout(150)) sticky = electron.windows().find(mine)
   await sticky?.waitForSelector('[data-goal-card]', { timeout: 6000 }).catch(() => undefined)
   const card = await sticky?.evaluate(() => {
     const el = document.querySelector('[data-goal-card]')
