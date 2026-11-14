@@ -64,10 +64,40 @@ try {
   await sticky?.waitForSelector('[data-goal-card]', { timeout: 6000 }).catch(() => undefined)
   const card = await sticky?.evaluate(() => {
     const el = document.querySelector('[data-goal-card]')
-    return el ? { text: el.innerText.replace(/\s+/g, ' '), drag: getComputedStyle(el).getPropertyValue('-webkit-app-region') || el.style.webkitAppRegion || el.getAttribute('style') } : null
+    return el ? { text: el.innerText.replace(/\s+/g, ' ') } : null
   }).catch(() => null)
   check('it shows the goal and its days left', /Walk the coast path/.test(card?.text ?? '') && /days left/.test(card?.text ?? ''), card?.text?.slice(0, 100))
-  check('it is dragged by its card', /drag/.test(card?.drag ?? ''), card?.drag?.slice(0, 80))
+  // Haligtree carries a sticky, not the Mac, since 8e91c8317 (lib/carry.ts: a press where the page says `--mf-drag: 1`,
+  // as the card does; no system drag region). Held by a real pointer on the card's own words, not its grabber or a
+  // button, and moved away from the screen's edge, the window follows as far as the pointer went, as qa/grabber-cards.mjs
+  // carries every card: to the point, or drawn onto a guide within SNAP of it (main/snap-lines.ts), as a sticky is.
+  const grip = await sticky?.evaluate(() => {
+    const box = document.querySelector('[data-goal-card]')?.getBoundingClientRect()
+    if (!box) return null
+    for (let y = box.top + 14; y < box.bottom - 8; y += 6) {
+      for (let x = box.left + 14; x < box.right - 14; x += 10) {
+        const at = document.elementFromPoint(x, y)
+        if (at && box && !at.closest('button, a, input, textarea, select, [contenteditable="true"], [role="menuitem"], [data-grabber]') && getComputedStyle(at).getPropertyValue('--mf-drag').trim() === '1') return { x, y }
+      }
+    }
+    return null
+  }).catch(() => null)
+  const wid = sticky ? await electron.evaluate(({ BrowserWindow }, url) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL() === url)?.id, sticky.url()) : null
+  let moved = null
+  if (grip && wid) {
+    await sticky.mouse.move(grip.x, grip.y)
+    const before = await electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).getBounds(), wid)
+    await sticky.mouse.down()
+    await sticky.waitForTimeout(80)
+    await sticky.mouse.move(grip.x - 40, grip.y + 30)
+    await sticky.waitForTimeout(200)
+    const after = await electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.fromId(id).getBounds(), wid)
+    await sticky.mouse.up()
+    await sticky.waitForTimeout(150)
+    moved = { dx: after.x - before.x, dy: after.y - before.y }
+  }
+  const SNAP = 8
+  check('it is dragged by its card', !!moved && Math.abs(moved.dx + 40) <= SNAP && Math.abs(moved.dy - 30) <= SNAP, JSON.stringify({ grip, moved }))
   const page = await h.evaluate(() => ({ drawn: !!document.querySelector('[data-goal-desk]'), line: document.querySelector('[data-goal-sticky]')?.textContent ?? '' }))
   check('the drawn card is gone from the page', !page.drawn)
   check('a line points at the real one', /right of your screen/.test(page.line) && /desktop/.test(page.line), page.line)
