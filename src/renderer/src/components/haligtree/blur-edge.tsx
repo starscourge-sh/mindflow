@@ -28,11 +28,12 @@ export function useDockRoom(bar: RefObject<HTMLElement | null>, on = true): void
     const el = bar.current
     const room = el?.parentElement
     if (!on || !el || !room) return
-    const set = (): void => room.style.setProperty('--mf-dock-h', `${el.offsetHeight}px`)
-    set()
+    // Its height as the browser lays it out, told by the observer (once as it starts watching, before the first
+    // frame is drawn, and at each change). Read at once instead, as the page was still being made, it had the browser
+    // lay the whole page out there and then: 176 ms as the largest note opened, its every block not yet put away.
+    const watch = new ResizeObserver(([one]) => room.style.setProperty('--mf-dock-h', `${Math.round(one.borderBoxSize[0]?.blockSize ?? one.contentRect.height)}px`))
     room.setAttribute('data-docked', '')
-    const watch = new ResizeObserver(set)
-    watch.observe(el)
+    watch.observe(el, { box: 'border-box' })
     return () => {
       watch.disconnect()
       room.style.removeProperty('--mf-dock-h')
