@@ -9,7 +9,7 @@ import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcom
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
-import { flushSync } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
@@ -2129,13 +2129,17 @@ const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow)
  * The welcome played again, being made ready in a window made in this one's place (main: remakeHome): the app's one
  * loader at once, over the whole window, the room the welcome takes. Keys wait with it (given to it once it is on
  * screen, Welcome's open); this window goes the moment the new one shows, so the desktop is never left bare between them.
+ * Laid at the page's very end, after the app: put where Welcome stands, before the app among the frame's children, its
+ * coming made the browser work out the style of everything after it again, the whole app (51 ms under a long note, in
+ * the browser's own trace), before the loader's first frame; at the end it takes 4 ms.
  */
 function Readying(): React.JSX.Element {
-  return (
+  return createPortal(
     <div tabIndex={-1} data-welcome-readying="" onKeyDown={(event) => (event.preventDefault(), event.stopPropagation())}
       className="fixed inset-0 z-[70] grid place-items-center bg-background text-foreground outline-none">
       <Orb label="Getting the welcome ready…" />
-    </div>
+    </div>,
+    document.body
   )
 }
 
