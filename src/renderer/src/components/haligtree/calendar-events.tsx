@@ -25,6 +25,7 @@ import { RowMenu, copyLink, copyLinkItem, type RowItem } from './row-menu'
 import { Island, Kbd, Prop, PropInput, Props, Tip, refuse, toast } from './ui'
 import { quoted } from '../../../../main/clip'
 import { IslandBox, useFold } from './islands'
+import type { Place } from './cal-add'
 
 /** As the grid draws hours: one hour's height, and the steps a time snaps to. */
 export const HOUR = 56
@@ -347,8 +348,8 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onNote, calenda
           style={{ top: (at / 60) * HOUR + 1, height: Math.max(20, (length / 60) * HOUR - 2), left: `calc(${lane.lane * width}% + ${lane.lane ? 1 : 3}px)`, width: `calc(${width}% - ${(lane.of === 1 ? 7 : lane.lane ? 3 : 4) + (lane.room ?? 0)}px)`, ...fill }}>
           <BlockWords one={one} day={day} at={at} length={length} short={short} />
           {!one.readOnly && (
-            <span data-cal-event-resize aria-hidden onPointerDown={(event) => start(event, 'resize')}
-              className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize after:absolute after:bottom-0.5 after:left-1/2 after:h-0.5 after:w-6 after:-translate-x-1/2 after:rounded-full after:bg-foreground/50 after:opacity-0 after:transition-opacity group-hover/event:after:opacity-100 motion-reduce:after:transition-none" />
+            <span data-cal-event-resize aria-hidden onPointerDown={(event) => start(event, 'resize')} style={{ cursor: 'ns-resize' }}
+              className="absolute inset-x-0 bottom-0 h-2 after:absolute after:bottom-0.5 after:left-1/2 after:h-0.5 after:w-6 after:-translate-x-1/2 after:rounded-full after:bg-foreground/50 after:opacity-0 after:transition-opacity group-hover/event:after:opacity-100 motion-reduce:after:transition-none" />
           )}
         </div>
       </RowMenu>
@@ -382,73 +383,48 @@ function BlockWords({ one, day, at, length, short }: { one: Shown; day: string; 
   )
 }
 
-/** A whole-day event, or one on the month: a filled chip in its calendar's colour, its time first. */
-export function EventChip({ one, day, onOpen, onNote, month = false, calendars, span: across }: {
+/**
+ * A whole-day event, or one on the month: a filled chip in its calendar's colour, its time first. Taken by its middle it
+ * is carried to other days, and a whole-day one taken by an end (`ends`, the ends this piece of its bar holds) is made
+ * longer or shorter: both are the Calendar's own carry (calendar-view.tsx, `onCarry`), with one card and the days lit.
+ */
+export function EventChip({ one, day, onOpen, onNote, month = false, calendars, span: across, onCarry, ends }: {
   one: Shown; day: string; onOpen: (key: string, at: HTMLElement | null) => void; onNote?: (type: string, id: string) => void; month?: boolean
   calendars?: { id: string; name: string; color: string }[]
   /** Where it lies across the all-day lane: the columns it covers. */
   span?: React.CSSProperties
+  /** A press on it, or on one of its ends, that may become a carry. */
+  onCarry?: (event: React.PointerEvent, one: Shown, edge: 'start' | 'end' | 'move', day: string) => void
+  ends?: { start: boolean; end: boolean }
 }): React.JSX.Element {
-  const [carried, setCarried] = useState<{ x: number; y: number } | null>(null)
   const self = useRef<HTMLButtonElement>(null)
   const open = (): void => onOpen(one.key, self.current)
-  const start = (event: React.PointerEvent): void => {
-    if (event.button !== 0) return
-    event.stopPropagation()
-    if (one.readOnly) return
-    const [x0, y0] = [event.clientX, event.clientY]
-    let moving = false
-    const under = (x: number, y: number): string | null => {
-      const el = document.elementsFromPoint(x, y).find((hit) => !(hit as HTMLElement).closest('[data-cal-ghost]'))?.closest<HTMLElement>('[data-cal-allday], [data-month-plan] [data-day]')
-      return el?.dataset.calAllday ?? el?.dataset.day ?? null
-    }
-    const move = (e: PointerEvent): void => {
-      if (!moving && Math.hypot(e.clientX - x0, e.clientY - y0) < 4) return
-      if (!moving) chime('lift')
-      moving = true
-      setCarried({ x: e.clientX, y: e.clientY })
-    }
-    const done = (): void => (window.removeEventListener('pointermove', move), window.removeEventListener('pointerup', up), window.removeEventListener('pointercancel', cancel), window.removeEventListener('keydown', esc, true))
-    // The system took the pointer (a gesture, a sheet): put down where it was, as Esc does.
-    const cancel = (): void => void (done(), setCarried(null), (moving = false))
-    const up = (e: PointerEvent): void => {
-      done()
-      setCarried(null)
-      if (!moving) return
-      const to = under(e.clientX, e.clientY)
-      const days = to ? dayjs(to).diff(dayjs(day).startOf('day'), 'day') : 0
-      if (!days) return chime('stay')
-      const begins = dayjs(one.start).add(days, 'day')
-      void changeOne(one, { start: begins.toISOString(), end: dayjs(one.end).add(days, 'day').toISOString() }, `Moved to ${begins.format('ddd D MMM')}`)
-    }
-    const esc = (e: KeyboardEvent): void => void (e.key === 'Escape' && moving && (e.preventDefault(), e.stopPropagation(), done(), setCarried(null), (moving = false), chime('stay')))
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-    window.addEventListener('pointercancel', cancel)
-    window.addEventListener('keydown', esc, true)
-  }
   const time = one.allDay ? '' : hm(dayKey(one.start) === day ? one.start : dayjs(day).startOf('day').toISOString())
+  // An end to take: a narrow strip at the chip's edge, its own pointer saying it stretches (set on the strip itself: the
+  // page's hand over everything inside a button is outside Tailwind's layers, and beat a class).
+  const end = (edge: 'start' | 'end'): React.JSX.Element => (
+    <span aria-hidden data-cal-bar-end={edge} onPointerDown={(event) => onCarry?.(event, one, edge, day)}
+      className={`absolute inset-y-0 w-2 ${edge === 'start' ? 'left-0' : 'right-0'}`} style={{ cursor: 'ew-resize' }} />
+  )
   return (
-    <>
-      <RowMenu items={() => eventMenu(one, { open, onOpen: onNote, calendars })}>
-        <Tip label={`${time ? `${time} ` : ''}${one.title || 'New event'}`}>
-        <button ref={self} type="button" data-cal-event-chip={one.key} data-cal-calendar={one.calendarId}
-          onPointerDown={start}
-          onClick={(event) => event.detail === 0 && open()}
-          onDoubleClick={(event) => (event.stopPropagation(), open())}
-          onKeyDown={(event) => (event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly && (event.preventDefault(), void dropOne(one))}
-          className={`flex ${month ? 'mt-0.5 h-[calc(1.25rem-2px)]' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1.5 pl-2.5 text-left text-control ${carried ? 'opacity-40' : ''}`}
-          {...{ style: { ...tint(one.color, one.cancelled), ...across } }}>
-          {time && <span className="shrink-0 tabular-nums opacity-80">{time}</span>}
-          <span dir="auto" className="truncate font-semibold">{one.title || 'New event'}</span>
-          {one.noted > 0 && <FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" />}
-        </button>
-        </Tip>
-      </RowMenu>
-      {carried && createPortal(
-        <div data-cal-ghost style={{ left: 0, top: 0, transform: `translate3d(${carried.x + 8}px, ${carried.y + 8}px, 0)`, ...tint(one.color) }}
-          dir="auto" className="pointer-events-none fixed z-50 max-w-56 truncate rounded-[6px] px-2 py-1 text-control font-semibold shadow-(--mf-shadow-lift)">{one.title}</div>, document.body)}
-    </>
+    <RowMenu items={() => eventMenu(one, { open, onOpen: onNote, calendars })}>
+      <Tip label={`${time ? `${time} ` : ''}${one.title || 'New event'}`}>
+      <button ref={self} type="button" data-cal-event-chip={one.key} data-cal-calendar={one.calendarId}
+        // A press on one of its ends is that end's own (it stretches); the chip's is for the whole of it.
+        onPointerDown={(event) => !(event.target as Element).closest('[data-cal-bar-end]') && onCarry?.(event, one, 'move', day)}
+        onClick={(event) => event.detail === 0 && open()}
+        onDoubleClick={(event) => (event.stopPropagation(), open())}
+        onKeyDown={(event) => (event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly && (event.preventDefault(), void dropOne(one))}
+        className={`relative flex ${month ? 'mt-0.5 h-[calc(1.25rem-2px)]' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1.5 pl-2.5 text-left text-control`}
+        {...{ style: { ...tint(one.color, one.cancelled), ...across } }}>
+        {time && <span className="shrink-0 tabular-nums opacity-80">{time}</span>}
+        <span dir="auto" className="truncate font-semibold">{one.title || 'New event'}</span>
+        {one.noted > 0 && <FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" />}
+        {one.allDay && !one.readOnly && ends?.start && end('start')}
+        {one.allDay && !one.readOnly && ends?.end && end('end')}
+      </button>
+      </Tip>
+    </RowMenu>
   )
 }
 
@@ -601,10 +577,13 @@ const smallStart = (said: string): string => said.charAt(0).toLowerCase() + said
  * drawn fills in what they leave out. What it understood is shown under it as
  * you type, before it is made.
  */
-export function NewEvent({ ask, held, onMade, words, picked, onName, one }: {
+export function NewEvent({ ask, held, onMade, words, picked, onName, onPlace, one }: {
   /** The event the line is open on: its name to write over, read as a new one's words are; ↵ keeps the change, said with Undo. */
   one?: Shown
-  ask: { day: string; minute: number | null; length: number }
+  /** The slot it was put in: a day (to `until`, days dragged across in Month), or a time on it for a length. */
+  ask: { day: string; minute: number | null; length: number; until?: string }
+  /** Told where it will be as its words are read: its draft on the grid is drawn there. */
+  onPlace?: (to: Place) => void
   held?: React.MutableRefObject<(() => Promise<void>) | null>
   onMade: (key: string) => void
   /** The words, when what holds this form keeps them (the popover, so they stay as Event turns to Task). */
@@ -623,7 +602,7 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, one }: {
   const ownCalendar = useState<string | null>(null)
   const [calendar, setCalendar] = picked ?? ownCalendar
   const slotStart = ask.minute === null ? dayjs(ask.day).startOf('day') : dayjs(ask.day).startOf('day').add(ask.minute, 'minute')
-  const slotEnd = ask.minute === null ? slotStart.add(1, 'day') : slotStart.add(Math.max(SNAP, ask.length || 60), 'minute')
+  const slotEnd = ask.minute === null ? (ask.until && ask.until > ask.day ? dayjs(ask.until).startOf('day') : slotStart).add(1, 'day') : slotStart.add(Math.max(SNAP, ask.length || 60), 'minute')
   const read = useMemo(() => readEvent(text, new Date(), known), [text, known])
   useEffect(() => onName?.(read.title), [read.title]) // eslint-disable-line react-hooks/exhaustive-deps
   // Open on an event: what its line would set, read the way its name is read on its page.
@@ -639,6 +618,11 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, one }: {
   const start = one ? (set!.patch.start ?? one.start) : readStart ?? slotStart.toISOString()
   const end = readStart ? (readEnd ?? dayjs(readStart).add(1, allDay ? 'day' : 'hour').toISOString()) : slotEnd.toISOString()
   const fixedEnd = one ? (set!.patch.end ?? one.end) : allDay ? dayjs(start).startOf('day').add(Math.max(1, dayjs(end).diff(dayjs(start).startOf('day'), 'day')), 'day').toISOString() : end
+  // Where the words put a new one, for its draft to be drawn there: "fri 1pm" moves it to Friday at 13:00.
+  const lastDay = dayKey(dayjs(fixedEnd).subtract(1, 'minute'))
+  const drawnAt: Place = allDay ? { day: dayKey(start), minute: null, length: 0, ...(lastDay > dayKey(start) && { until: lastDay }) }
+    : { day: dayKey(start), minute: dayjs(start).hour() * 60 + dayjs(start).minute(), length: Math.max(SNAP, dayjs(fixedEnd).diff(dayjs(start), 'minute')) }
+  useLayoutEffect(() => void (!one && onPlace?.(drawnAt)), [drawnAt.day, drawnAt.minute, drawnAt.length, drawnAt.until]) // eslint-disable-line react-hooks/exhaustive-deps
   const on = one?.calendarId ?? calendar ?? calendars.find((cal) => !cal.hidden)?.id ?? calendars[0]?.id ?? 'personal'
   const place = one ? (set!.patch.place ?? one.place) : read.place
   const people = one ? (set!.patch.people ?? one.people) : read.people

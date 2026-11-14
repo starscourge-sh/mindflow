@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
+import { animate, createGeneratorEasing, generateLinearEasing, motion, spring as springCurve, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { CalendarPlus, SquareCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PopoverAnchor, PopoverArrow, PopoverContent } from '@/components/ui/popover'
@@ -16,12 +16,35 @@ import { TaskRows } from './tasks-view'
 import { refuse, stage, toast } from './ui'
 import type { RowItem } from './row-menu'
 
+/** Where something is on the Calendar: a day, or a time on it for a length; `until`, the last day of an event over several days. */
+export type Place = { day: string; minute: number | null; length: number; until?: string }
 /**
  * What is being made on the Calendar, where it will be: a day, or a time on
- * it for a length, as an event or a task. `words` are the ones it opens
- * holding (an Undo brings them back); `calendar` the one picked for an event.
+ * it for a length (or days, dragged across in Month), as an event or a task.
+ * `words` are the ones it opens holding (an Undo brings them back);
+ * `calendar` the one picked for an event; `at`, where its words put it when
+ * they say a when of their own ("fri 1pm"): its draft is drawn there.
  */
-export type Add = { day: string; minute: number | null; length: number; kind: 'event' | 'task'; words?: string; calendar?: string | null }
+export type Add = Place & { kind: 'event' | 'task'; words?: string; calendar?: string | null; at?: Place }
+/** Where its draft is drawn: where its words put it, or where it was put. A task is one day's. */
+export const placeOf = (add: Add): Add => {
+  const at = add.at ? { ...add, day: add.at.day, minute: add.at.minute, length: add.at.length, until: add.at.until } : add
+  return at.until && (add.kind === 'task' || at.until <= at.day) ? { ...at, until: undefined } : at
+}
+const samePlace = (a: Place, b: Place): boolean => a.day === b.day && a.minute === b.minute && a.length === b.length && (a.until ?? '') === (b.until ?? '')
+/** The days a draft covers in Month, first to last. */
+export const daysOf = (at: Place): string[] => {
+  const out = [at.day]
+  for (let day = dayjs(at.day).add(1, 'day'); at.until && dayKey(day) <= at.until; day = day.add(1, 'day')) out.push(dayKey(day))
+  return out
+}
+/** A place said as one line, what a draft drawn there is told (`DraftMark`'s `at`). */
+export const placeKey = (at: Place): string => `${at.day}|${at.minute ?? ''}|${at.until ?? ''}`
+// Where the draft was drawn just before its words moved it, and the place it was moved to: the draft drawn there
+// travels from that spot, once. Kept for that place alone, so no other draft ever sets off from it.
+let travel: { to: string; rect: DOMRect } | null = null
+/** The page turned to show where the words put the draft: it is simply there, nothing travels. */
+export const stayPut = (): void => void (travel = null)
 
 /** Kept clear of the window's edges, and of the traffic lights (DESIGN.md, The Room to Breathe Rule). */
 const ROOM = { top: 52, right: 12, bottom: 12, left: 12 }
@@ -66,6 +89,11 @@ const say = (next: string): void => { if (next !== said) (said = next), heard.fo
 const useSaid = (): string => useSyncExternalStore((run) => (heard.add(run), () => void heard.delete(run)), () => said)
 
 const TASK_INK = 'var(--tt-brand-color-400)'
+/** The app's slow spring (lib/motion.ts `spring.slow`) as the browser's own easing, for a move the browser plays itself. */
+const SLOW: KeyframeAnimationOptions = (() => {
+  const { ease, duration } = createGeneratorEasing({ duration: spring.slow.duration * 1000, bounce: spring.slow.bounce }, 100, springCurve)
+  return { duration: duration * 1000, easing: generateLinearEasing(ease, duration * 1000) }
+})()
 
 /**
  * The thing being made, drawn where it will be before it is: an event a soft
@@ -74,18 +102,50 @@ const TASK_INK = 'var(--tt-brand-color-400)'
  * words as they are typed. A line in a month's day, a chip in the all-day
  * lane, a block at its hours. The popover is tied to it.
  */
-export function DraftMark({ kind, color, shape, time, style, ref }: {
+export function DraftMark({ kind, color, shape, time, style, ref, at, bar }: {
   kind: 'event' | 'task'; color: string; shape: 'line' | 'chip' | 'block'
   /** A block's hours, under its name. */
   time?: string
   style?: React.CSSProperties
   ref?: React.Ref<HTMLDivElement>
+  /** Where it is drawn, said as one line: when its words move it there, it travels from where it was. */
+  at?: string
+  /** One piece of a bar across days in Month: which of its ends this piece holds (the popover is tied to one of them). */
+  bar?: { start: boolean; end: boolean }
 }): React.JSX.Element {
   const words = useSaid()
+  const own = useRef<HTMLDivElement | null>(null)
+  // Moved by its words ("fri 1pm"), it travels from where it was to where it is now drawn on the app's spring, its
+  // popover following it there (Shell, `updatePositionStrategy`). With Motion off or Reduce motion it is simply there.
+  // Brought into sight first, at once, so it lands where it can be seen (an evening below the hours shown).
+  // The spot it left is let go of once it has arrived, not as it sets off: run twice (the development build's StrictMode
+  // runs each effect, puts it away, then runs it again), the second run sets off again from the same spot rather than
+  // finding nothing and leaving the draft where the first run's stop held it, at the spot it left.
+  useLayoutEffect(() => {
+    const el = own.current
+    const mine = travel && travel.to === at ? travel : null
+    if (!el || !mine || bar || still()) return
+    el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' })
+    const to = el.getBoundingClientRect()
+    const [x, y] = [mine.rect.left - to.left, mine.rect.top - to.top]
+    if (Math.abs(x) < 1 && Math.abs(y) < 1) return void (travel = null)
+    // Played by the browser, on the app's slow spring (`SLOW`): its place at each frame is set before anything that frame
+    // reads it, so its popover, placed again from where it is at every frame, rides with it. Moved by the motion
+    // library's own frame loop, the draft was a frame ahead of its popover at the fastest part of the way, under it.
+    const going = el.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: 'translate(0px, 0px)' }], SLOW)
+    going.onfinish = () => void (travel === mine && (travel = null))
+    return () => going.cancel()
+  }, [at]) // eslint-disable-line react-hooks/exhaustive-deps
   const look: React.CSSProperties = kind === 'event' ? tint(color) : { background: 'var(--background)', border: `1.5px solid color-mix(in oklab, ${TASK_INK} 75%, transparent)`, color: 'var(--foreground)' }
   const box = shape === 'block' ? 'absolute inset-x-1 z-20 flex-col rounded-[6px] px-1.5 pt-[3px]' : shape === 'chip' ? 'h-6 items-center gap-1 rounded-[5px] px-1.5' : 'mt-0.5 h-[calc(1.25rem-2px)] shrink-0 items-center gap-1 rounded-[5px] px-1.5'
+  const tie = (node: HTMLDivElement | null): void => {
+    own.current = node
+    if (typeof ref === 'function') ref(node)
+    else if (ref) (ref as React.RefObject<HTMLDivElement | null>).current = node
+  }
   return (
-    <div ref={ref} data-cal-draft={kind} className={`flex min-w-0 overflow-hidden text-left text-control leading-snug ${box}`} style={{ ...look, outline: '2px solid var(--ring)', outlineOffset: shape === 'block' ? 1 : -2, ...style }}>
+    <div ref={tie} data-cal-draft={kind} data-cal-draft-at={at} data-cal-draft-start={bar?.start || undefined} data-cal-draft-end={bar?.end || undefined} data-cal-draft-bar={bar ? '' : undefined}
+      className={`flex min-w-0 overflow-hidden text-left text-control leading-snug ${box}`} style={{ ...look, outline: '2px solid var(--ring)', outlineOffset: shape === 'block' ? 1 : -2, ...style }}>
       <span className="flex min-w-0 items-center gap-1">
         {kind === 'task' && <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: TASK_INK }} />}
         <span dir="auto" data-cal-draft-name className="truncate font-semibold">{words || (kind === 'event' ? 'New event' : 'New task')}</span>
@@ -292,6 +352,9 @@ function Shell({ kind, label, side, opened, head, children, tied, onEscape, onKe
   }, [side]) // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <PopoverContent bare data-cal-hold data-takes-keys role="dialog" aria-label={label}
+      // A new one's draft moves as its words are read ("fri 1pm"): where the draft is is read at every frame, and the
+      // popover placed again whenever it has moved, so it rides beside its draft all the way there, never over it.
+      updatePositionStrategy={opened ? 'optimized' : 'always'}
       // Open on a thing that exists, it is beside the page as its side panel is (ui.tsx, `typing`): a change made in its rows
       // is taken back by ⌘Z while it is still open, and a plain key typed in it stays in it. A new one being written
       // holds every key, as before.
@@ -366,18 +429,75 @@ export function AddPopover({ add, level, onChange, onClose, onAgain, onGone, lea
   const [text] = words
   useEffect(() => () => say(''), [])
   const held = useRef<(() => Promise<void>) | null>(null)
-  // Where it goes, read once as it opens, from the draft it is tied to; a day with no room to draw its draft (a narrow
-  // month's dots) ties it to the day itself.
+  const drawn = placeOf(add)
+  // The words read a when of their own ("fri 1pm"): the draft moves there, travelling from where it is drawn now; read
+  // back to none, it goes back where it was put.
+  const now = useRef(add)
+  now.current = add
+  const onPlace = (to: Place): void => {
+    const was = now.current
+    if (samePlace(placeOf(was), to)) return
+    const at = samePlace(was, to) ? undefined : to
+    const rect = level.current?.querySelector('[data-cal-draft]:not([data-cal-draft-bar])')?.getBoundingClientRect()
+    travel = rect ? { to: placeKey(placeOf({ ...was, at })), rect } : null
+    onChange({ at })
+  }
+  useEffect(() => () => void (travel = null), [])
+  // Where it goes, read as it opens and again as its words move its draft, from the draft it is tied to; a day with no
+  // room to draw its draft (a narrow month's dots) ties it to the day itself. A bar across days (dragged across in
+  // Month) ties it to the bar's end with room beside it, else its start with room before it, else its end, above or under.
   const [side, setSide] = useState<Side>('right')
   const [bare, setBare] = useState<HTMLElement | null>(null)
+  const rest = (el: HTMLElement): DOMRect => {
+    // Where it rests: a draft setting off on its way here is drawn where it was for a frame (DraftMark).
+    const box = el.getBoundingClientRect()
+    const moved = new DOMMatrixReadOnly(getComputedStyle(el).transform)
+    return new DOMRect(box.left - moved.m41, box.top - moved.m42, box.width, box.height)
+  }
+  // What it is tied to, read afresh at every frame (Shell, `updatePositionStrategy`): the bar's piece chosen below, else
+  // the draft wherever it is drawn now (moved by its words to another day, it is a new element there), else its day.
+  // One anchor for the popover's whole life: tied to an element, it stayed tied to the draft its words had just taken
+  // off the page until the page told it of the new one, a frame or more later (qa/cal-add.mjs read 3 frames of 109 with
+  // the draft under its popover).
+  const tiedNow = useRef<() => Element | null>(() => null)
+  tiedNow.current = () => bare ?? level.current?.querySelector('[data-cal-draft]') ?? level.current?.querySelector(`[data-day="${drawn.day}"], [data-cal-col="${drawn.day}"]`) ?? null
+  const [anchor] = useState(() => {
+    let last = new DOMRect()
+    return { current: { getBoundingClientRect: (): DOMRect => { const el = tiedNow.current(); if (el?.isConnected) last = el.getBoundingClientRect(); return last } } }
+  })
   useLayoutEffect(() => {
-    const draft = level.current?.querySelector<HTMLElement>('[data-cal-draft]')
-    const at = draft ?? level.current?.querySelector<HTMLElement>(`[data-day="${add.day}"], [data-cal-col="${add.day}"]`) ?? null
-    setBare(draft ? null : at)
+    const end = level.current?.querySelector<HTMLElement>('[data-cal-draft-end]')
+    if (end) {
+      // Beside its end, else before its start, else under its last piece, else over its first: the first of those where
+      // the card, pushed up or down to fit the window as it will be, covers no piece of the bar. Beside a bar over three
+      // weeks low in the window, the card was pushed up over the whole week above it.
+      const start = level.current?.querySelector<HTMLElement>('[data-cal-draft-start]') ?? end
+      const [last, first] = [rest(end), rest(start)]
+      const pieces = [...(level.current?.querySelectorAll<HTMLElement>('[data-cal-draft-bar]') ?? [])].map(rest)
+      // The card's height: as it opens, the popover's card is put on the page a pass after this (it is a portal), so its
+      // usual height stands in, a little over a new event's.
+      const tall = document.querySelector('[data-cal-hold] [data-cal-add]')?.getBoundingClientRect().height || 16 * (parseFloat(getComputedStyle(document.documentElement).fontSize) || 16)
+      const fit = (top: number): number => Math.max(ROOM.top, Math.min(top, window.innerHeight - ROOM.bottom - tall))
+      const clear = (left: number, top: number): boolean => left >= ROOM.left && left + WIDE <= window.innerWidth - ROOM.right && top >= ROOM.top && top + tall <= window.innerHeight - ROOM.bottom
+        && pieces.every((one) => left >= one.right || left + WIDE <= one.left || top >= one.bottom || top + tall <= one.top)
+      const middle = (one: DOMRect): number => Math.max(ROOM.left, Math.min(one.left + one.width / 2 - WIDE / 2, window.innerWidth - ROOM.right - WIDE))
+      const ways: [HTMLElement, Side, boolean][] = [
+        [end, 'right', clear(last.right + 13, fit(last.top - 14))],
+        [start, 'left', clear(first.left - 13 - WIDE, fit(first.top - 14))],
+        [end, 'bottom', clear(middle(last), last.bottom + 13)],
+        [start, 'top', clear(middle(first), first.top - 13 - tall)]
+      ]
+      const [tie, way] = ways.find(([, , ok]) => ok) ?? [end, sideFor(last)]
+      setBare(tie)
+      tie.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+      return setSide(way)
+    }
+    const at = level.current?.querySelector<HTMLElement>('[data-cal-draft]') ?? level.current?.querySelector<HTMLElement>(`[data-day="${drawn.day}"], [data-cal-col="${drawn.day}"]`) ?? null
+    setBare(null)
     if (!at) return
     at.scrollIntoView({ block: 'nearest', inline: 'nearest' })
-    setSide(sideFor(at.getBoundingClientRect()))
-  }, [add.day, add.minute, level])
+    setSide(sideFor(rest(at)))
+  }, [drawn.day, drawn.minute, drawn.until, level])
   const away = (): void => {
     const typed = text.trim()
     chime('away')
@@ -401,13 +521,13 @@ export function AddPopover({ add, level, onChange, onClose, onAgain, onGone, lea
   }
   return (
     <>
-      {bare && <PopoverAnchor virtualRef={{ current: bare }} />}
+      <PopoverAnchor virtualRef={anchor} />
       <Shell kind={add.kind} label={add.kind === 'event' ? 'A new event' : 'A new task'} side={side} onEscape={away} onKeep={keep} onOutside={outside} onGone={onGone} leaving={leaving}
-        tied={() => level.current?.querySelector('[data-cal-draft]') ?? level.current?.querySelector(`[data-day="${add.day}"], [data-cal-col="${add.day}"]`) ?? null}
+        tied={() => tiedNow.current()}
         head={<KindSwitch kind={add.kind} onKind={(kind) => onChange({ kind })} />}>
         {add.kind === 'event'
-          ? <NewEvent ask={add} held={held} words={words} picked={[add.calendar ?? null, (calendar) => onChange({ calendar })]} onMade={onClose} onName={say} />
-          : <NewTask ask={add} held={held} words={words} first="" onMade={onClose} onBack={(_id, typed) => onAgain({ ...add, words: typed })} onName={say} />}
+          ? <NewEvent ask={add} held={held} words={words} picked={[add.calendar ?? null, (calendar) => onChange({ calendar })]} onMade={onClose} onName={say} onPlace={onPlace} />
+          : <NewTask ask={add} held={held} words={words} first="" onMade={onClose} onBack={(_id, typed) => onAgain({ ...add, words: typed })} onName={say} onPlace={onPlace} />}
       </Shell>
     </>
   )

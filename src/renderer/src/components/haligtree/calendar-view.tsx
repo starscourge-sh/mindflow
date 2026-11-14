@@ -1,10 +1,10 @@
 import { memo, startTransition, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { CARD, swallowRelease } from './carry'
+import { CarriedCard, pointerAt, swallowRelease } from './carry'
 import { useReading, useReadsIn } from '@/lib/reads-in'
 import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
 import { CalendarClock, CalendarX2, Check, ChevronDown, PanelLeft, Plus, Repeat as RepeatIcon } from 'lucide-react'
-import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, ChevronRight } from '@/components/ui/icons'
 import { chime } from '@/lib/sound'
@@ -19,11 +19,11 @@ import { CALM, land as landOn, type Landing } from '@/lib/snap'
 import { call, unloaded, useLive, haligtree, whenInLine, type Task } from '@/lib/haligtree'
 import { lengthSaid } from '../../../../main/day-load'
 import { dayjs, dayKey, num, plural, type Dayjs } from '../../../../main/dates'
-import { Rolling, Tip, typing } from './ui'
+import { Rolling, Tip, stage, typing } from './ui'
 import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu, type RowItem } from './row-menu'
-import { AddPopover, DraftMark, OpenPopover, addLines as addMenu, useLeaving, type Add, type Opened } from './cal-add'
+import { AddPopover, DraftMark, OpenPopover, addLines as addMenu, daysOf, placeKey, placeOf, stayPut, useLeaving, type Add, type Opened } from './cal-add'
 import { MonthPlan, MonthShowMenu, Passing } from './month-plan'
 import { crossLevels, crossed, usePinchLevels, type Way } from './cal-pinch'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -33,7 +33,7 @@ import { LateMenu, lateItems, lateOnes } from './late-tasks'
 import { PlanDid, PlannedTotal, useFocusOn } from './planned-did'
 import { calendarHere } from '@/lib/calendar-scope'
 import { useLayers, useEvents, events as eventsApi, zoneShort } from '@/lib/events'
-import { CalendarLayers, EventBlock, EventChip, EventLine, HOUR, ZoneHeads, ZoneHours, allDayOn, colorFor, copyEvent, cutEvent, duplicateEvent, eventSpans, gutterOf, holding, hm, macShown, pasteEvent, span as timeSpan, useSecondZone, type Shown } from './calendar-events'
+import { CalendarLayers, EventBlock, EventChip, EventLine, HOUR, ZoneHeads, ZoneHours, allDayOn, changeOne, colorFor, copyEvent, cutEvent, duplicateEvent, eventSpans, gutterOf, holding, hm, macShown, pasteEvent, span as timeSpan, useSecondZone, type Shown } from './calendar-events'
 import { completeTask } from './tasks-view'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
@@ -120,11 +120,27 @@ const spotAt = (x: number, y: number): Spot | null => {
   return { day: el.dataset.calAllday ?? el.dataset.day!, minute: null }
 }
 
-/** Something under the pointer: a task moved or made longer, a slot being drawn, a task carried from Unscheduled. */
+/**
+ * Something under the pointer: a task moved or made longer, a slot being drawn, a task carried from Unscheduled, days
+ * being drawn across in Month (`days`, for an event over them), or a whole-day event's bar taken by an end to change
+ * its days or by its middle to move it (`span`; `grab`, the day it was taken on; `to`, the day under the pointer).
+ */
 type Carry =
   | { kind: 'move'; task: Task; grab: number; length: number; x: number; y: number; to: Spot | null }
   | { kind: 'resize'; task: Task; day: string; start: number; length: number }
   | { kind: 'new'; day: string; from: number; to: number }
+  | { kind: 'days'; from: string; to: string }
+  | { kind: 'span'; one: Shown; edge: 'start' | 'end' | 'move'; grab: string; to: string | null }
+/** An event's first and last day, the last as its bar ends (an all-day event ends at the next midnight). */
+const firstLast = (one: Pick<Shown, 'start' | 'end'>): [string, string] => [dayKey(one.start), dayKey(dayjs(one.end).subtract(1, 'minute'))]
+/** Its days as an end taken to `to` would leave them: never past its other end. */
+const stretched = (one: Shown, edge: 'start' | 'end', to: string): [string, string] => {
+  const [first, last] = firstLast(one)
+  return edge === 'start' ? [to < last ? to : last, last] : [first, to > first ? to : first]
+}
+const dayStart = (day: string): string => dayjs(day).startOf('day').toISOString()
+/** Whether two days are in the same week of the month (a bar's piece holds its last day). */
+const sameWeek = (a: string, b: string): boolean => dayjs(a).startOf('week').isSame(dayjs(b).startOf('week'), 'day')
 
 /**
  * The Calendar, the way Notion Calendar and Google Calendar have it: a day,
@@ -190,6 +206,8 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // An event or a task open in the popover a new one is written in (cal-add.tsx), tied to it where it is: a
   // double-click on it, ↵, its menu's “Open”, ⌘K, a row of Upcoming. A click on the grid only picks.
   const [opened, setOpened] = useState<Opened | null>(null)
+  // What the pointer carries, followed on the window so it keeps up off the grid too.
+  const [carry, setCarry] = useState<Carry | null>(null)
   const openAdd = (to: Add): void => (setOpened(null), setPanel(null), setPickedDay(to.day), setAdd(to))
   const openTask = (id: string, at: HTMLElement | null = null, words?: string): void => (setAdd(null), setPanel(null), setChosenEvent(null), setChosen(id), setOpened({ kind: 'task', id, at, words }))
   const openEvent = (key: string, at: HTMLElement | null = null, words?: string): void => (setAdd(null), setPanel(null), setChosen(null), setChosenEvent(key), setOpened({ kind: 'event', key, at, words }))
@@ -209,7 +227,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   }, [])
   const few = mode === 'week' && paneWide < FEW_UNDER
   /** The days a level shows: one, a week's seven, or three from the day shown when the pane is too narrow for seven. */
-  const daysOf = (one: Level): Dayjs[] => one.mode === 'day' ? [one.anchor] : one.mode === 'week' && paneWide < FEW_UNDER ? Array.from({ length: FEW }, (_, at) => one.anchor.add(at, 'day')) : Array.from({ length: 7 }, (_, at) => one.anchor.startOf('week').add(at, 'day'))
+  const levelDays = (one: Level): Dayjs[] => one.mode === 'day' ? [one.anchor] : one.mode === 'week' && paneWide < FEW_UNDER ? Array.from({ length: FEW }, (_, at) => one.anchor.add(at, 'day')) : Array.from({ length: 7 }, (_, at) => one.anchor.startOf('week').add(at, 'day'))
   // Pinch out over a week in Month to open it, over a day in Week to open that; pinch in to go back up (cal-pinch.ts).
   // As soon as a pinch sets off, the level it is heading for is drawn in the pane, unseen (`shadow`), in the page's
   // spare time; at the change the two levels, both there, cross by transform and opacity alone, so the change draws
@@ -374,7 +392,14 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const monthUp = levels.some((one) => one.mode === 'month')
   const layers = useLayers(span[0].toDate(), span[1].toDate())
   const own = useEvents(span[0].toISOString(), span[1].toISOString())
-  const shownEvents: Shown[] = [...own.filter((one) => layers.shown(one.calendarId)).map((one) => ({ ...one, color: colorFor(one, layers.colorOf(one.calendarId)) })), ...macShown(layers.macEvents)]
+  const allEvents: Shown[] = [...own.filter((one) => layers.shown(one.calendarId)).map((one) => ({ ...one, color: colorFor(one, layers.colorOf(one.calendarId)) })), ...macShown(layers.macEvents)]
+  // A bar taken by an end is drawn over the days letting go would give it, in Month and in the all-day lane alike; one
+  // let go of is drawn where it was put (`placed`) until the event saved there comes back, so it never flashes back first.
+  const [placed, setPlaced] = useState<{ key: string; start: string; end: string } | null>(null)
+  const stretch = carry?.kind === 'span' && carry.edge !== 'move' && carry.to ? { key: carry.one.key, days: stretched(carry.one, carry.edge, carry.to) } : null
+  const putAt = stretch ? { key: stretch.key, start: dayStart(stretch.days[0]), end: dayjs(stretch.days[1]).add(1, 'day').startOf('day').toISOString() } : placed
+  const shownEvents = putAt ? allEvents.map((one) => (one.key !== putAt.key ? one : { ...one, ...(stretch && { allDay: true }), start: putAt.start, end: putAt.end })) : allEvents
+  useEffect(() => void (placed && !allEvents.some((one) => one.key === placed.key && (one.start !== placed.start || one.end !== placed.end)) && setPlaced(null)))
   const shownTasks = layers.tasks ? tasks : []
   // Month's events by day, sorted once a draw rather than sought again for each day: a fling draws a new week every few frames.
   // A single day's all-day event sits on its day; those over several days are the month's bars.
@@ -489,17 +514,20 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // "October 2026 ⌄": the small month, to go to any date (. too).
   const [jump, setJump] = useState(false)
 
-  // What the pointer carries, followed on the window so it keeps up off the grid too.
-  const [carry, setCarry] = useState<Carry | null>(null)
   // The task just set down, and where: it settles in there once it is drawn at its new time.
   const [landed, setLanded] = useState<{ id: string; due: string } | null>(null)
   const settle = (id: string, due: string): void => {
     setLanded({ id, due })
     window.setTimeout(() => setLanded((was) => (was?.id === id && was.due === due ? null : was)), 1500)
   }
-  const start = (event: React.PointerEvent, begin: (x: number, y: number) => Carry | null, click?: () => void): void => {
+  /**
+   * A press that may become a carry. `pass`: the press goes on to the page, as a press on a day or a thing in the month
+   * and the lane must (an open popover hears it there as a click elsewhere: its words are kept, or it goes); a block in
+   * the hours keeps its press from its column, which would start drawing a slot.
+   */
+  const start = (event: React.PointerEvent, begin: (x: number, y: number) => Carry | null, click?: () => void, pass = false): void => {
     if (event.button !== 0) return
-    event.stopPropagation()
+    if (!pass) event.stopPropagation()
     const [x0, y0] = [event.clientX, event.clientY]
     let now: Carry | null = null
     const moveTo = (e: PointerEvent): void => {
@@ -507,12 +535,19 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       if (!now) {
         now = begin(x0, y0)
         if (!now) return
-        chime('lift')
+        // Days drawn across say nothing until a second day is taken in (its tick): a click that wandered stays a click.
+        if (now.kind !== 'days') chime('lift')
+        // Something carried (not a slot or days being drawn, nor an end stretched): the hand grabs everywhere and hover
+        // lights stand down, as for every carry in the app (main.css, `data-dragging`).
+        if (now.kind === 'move' || (now.kind === 'span' && now.edge === 'move')) document.documentElement.dataset.dragging = ''
+        else if (now.kind === 'span') document.documentElement.dataset.stretching = ''
       }
       now = follow(now, e.clientX, e.clientY)
       setCarry(now)
     }
     const done = (): void => {
+      delete document.documentElement.dataset.dragging
+      delete document.documentElement.dataset.stretching
       window.removeEventListener('pointermove', moveTo)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', drop)
@@ -539,8 +574,17 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     window.addEventListener('pointercancel', drop)
     window.addEventListener('keydown', esc, true)
   }
+  // A quiet tick for each day a press drawn across days takes in, or a bar carried comes over.
+  const dayTicks = useRef(slotTicker()).current
   const follow = (now: Carry, x: number, y: number): Carry => {
     const spot = spotAt(x, y)
+    if (now.kind === 'days' || now.kind === 'span') {
+      // A day of the month, or of the all-day lane; off them (the hours, the panel) a bar has nowhere to go.
+      const day = spot && spot.minute === null ? spot.day : null
+      if (now.kind === 'days') return day && day !== now.to ? (dayTicks(day), { ...now, to: day }) : now
+      if (day !== now.to && day) dayTicks(day)
+      return day === now.to ? now : { ...now, to: day }
+    }
     if (now.kind === 'move') return { ...now, x, y, to: spot && spot.minute !== null ? { ...spot, minute: snap(spot.minute - now.grab) } : spot }
     if (now.kind === 'resize') {
       const col = document.querySelector<HTMLElement>(`[data-cal-col="${now.day}"]`)
@@ -566,10 +610,56 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     }
     if (now.kind === 'resize')
       return placeTask(now.task, { due: atMinute(now.day, now.start), allDay: 0, estimate: now.length }, `Takes ${lengthSaid(now.length)} now`)
+    // Days drawn across in Month: one event over them, its popover at the bar's end (cal-add.tsx), whose opening is the one sound.
+    if (now.kind === 'days') {
+      // Never past its first day, it was a click: the day is picked by the click itself.
+      if (now.from === now.to) return
+      const [a, b] = now.from < now.to ? [now.from, now.to] : [now.to, now.from]
+      return openAdd({ day: a, minute: null, length: 0, kind: 'event', until: b })
+    }
+    if (now.kind === 'span') {
+      const { one, edge, grab, to } = now
+      if (!to) return chime('stay')
+      const [first, last] = firstLast(one)
+      // Drawn where it was put at once, kept so until the saved event comes back (or let go of if the change was not made).
+      const put = (start: string, end: string, said: string, patch: { allDay?: boolean } = {}): void => {
+        setPlaced({ key: one.key, start, end })
+        void changeOne(one, { start, end, ...patch }, said).then((key) => void (key !== one.key && setPlaced(null)))
+      }
+      if (edge === 'move') {
+        const by = dayjs(to).diff(dayjs(grab), 'day')
+        if (!by) return chime('stay')
+        const begins = dayjs(one.start).add(by, 'day')
+        return put(begins.toISOString(), dayjs(one.end).add(by, 'day').toISOString(), `Moved to ${begins.format('ddd D MMM')}`)
+      }
+      const [from, until] = stretched(one, edge, to)
+      if (from === first && until === last) return chime('stay')
+      return put(dayStart(from), dayjs(until).add(1, 'day').startOf('day').toISOString(), edge === 'end' ? `Lasts until ${dayjs(until).format('ddd D MMM')} now` : `Starts ${dayjs(from).format('ddd D MMM')} now`, { allDay: true })
+    }
     // A slot dragged across: an event that long, its popover beside it (whose opening is the one sound).
     const [a, b] = [Math.min(now.from, now.to), Math.max(now.from, now.to)]
     openAdd({ day: now.day, minute: a, length: Math.max(SNAP, b - a), kind: 'event' })
   }
+
+  // While something is carried or drawn here, no tip comes up from what passes under the pointer: the card (or the bar)
+  // is the one floating thing (ui.tsx, `stage`).
+  const carrying = !!carry
+  useEffect(() => (carrying ? stage() : undefined), [carrying])
+  // A press dragged across Month's days: one event over them, its bar drawn as the pointer goes (cal-add.tsx's draft).
+  const drawDays = (event: React.PointerEvent, day: string): void => start(event, () => (dayTicks.start(day), { kind: 'days', from: day, to: day }), undefined, true)
+  // An event's chip taken by its middle, carried to other days; a whole-day one's end, its days made more or fewer.
+  const carryEvent = (event: React.PointerEvent, one: Shown, edge: 'start' | 'end' | 'move', day: string): void => {
+    if (one.readOnly) return
+    start(event, (x, y) => {
+      const grab = spotAt(x, y)?.day ?? day
+      dayTicks.start(grab)
+      return { kind: 'span', one, edge, grab, to: grab }
+    }, undefined, true)
+  }
+  // A bar carried by its middle: how many days it moves (none known off the days), for its card's words and the days lit.
+  const shift = carry?.kind === 'span' && carry.edge === 'move' ? { one: carry.one, by: carry.to ? dayjs(carry.to).diff(dayjs(carry.grab), 'day') : null } : null
+  const litDays = shift?.by ? daysOf({ day: dayKey(dayjs(firstLast(shift.one)[0]).add(shift.by, 'day')), minute: null, length: 0, until: dayKey(dayjs(firstLast(shift.one)[1]).add(shift.by, 'day')) })
+    : carry?.kind === 'move' && carry.to?.minute === null ? [carry.to.day] : []
 
   // One hover light that glides down the Unscheduled list, as on Today.
   const looseBox = useRef<HTMLUListElement>(null)
@@ -585,7 +675,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   })
   // The draft wears the colour of the calendar it will be on: the one picked in its popover, or the first one shown.
   const draftColor = layers.colorOf(add?.calendar ?? layers.calendars.find((one) => !one.hidden)?.id ?? layers.calendars[0]?.id ?? 'personal')
-  const blockProps = { carry, start, onPick: openTask, taskNow, draft: add, draftColor, onAdd: openAdd, onPickDay: setPickedDay, events: shownEvents, onEvent: openEvent, onOpen, landed }
+  const blockProps = { carry, start, onPick: openTask, taskNow, draft: add, draftColor, onAdd: openAdd, onPickDay: setPickedDay, events: shownEvents, onEvent: openEvent, onCarryEvent: carryEvent, onOpen, landed }
   /** The events that touch the days a week or a day shows, picked once a draw from the whole span's. */
   const eventsOn = (shown: Dayjs[]): Shown[] => {
     const [from, to] = [shown[0].startOf('day').valueOf(), shown[shown.length - 1].add(1, 'day').startOf('day').valueOf()]
@@ -600,6 +690,17 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const leftAdd = useLeaving(add, !!openNow)
   const leftOpen = useLeaving(add ? null : openNow, !!add)
   const drawn = add ?? leftAdd.kept
+  // Where the draft is drawn: where its words put it ("fri 1pm"), or where it was put.
+  const draftAt = drawn && placeOf(drawn)
+  // Its words moved it to a day not shown (another month, another week): the page turns to it, and back to where it was
+  // put when the words no longer say a day. Turned, there is nothing for the draft to travel from.
+  const changeAdd = (patch: Partial<Add>): void => {
+    const now = add && 'at' in patch ? placeOf({ ...add, ...patch }) : null
+    if (now && !(mode === 'month' ? dayjs(now.day).isSame(anchor, 'month') : days.some((one) => dayKey(one) === now.day))) (stayPut(), setAnchor(dayjs(now.day).startOf('day')))
+    setAdd((was) => was && { ...was, ...patch })
+  }
+  // Days being drawn across, or a new event over several days: drawn as a bar over them is (Month).
+  const draftBar = carry?.kind === 'days' ? (carry.from === carry.to ? null : carry.from < carry.to ? [carry.from, carry.to] : [carry.to, carry.from]) : draftAt?.until ? [draftAt.day, draftAt.until] : null
   const drawnOpen = add ? null : openNow ?? (drawn ? null : leftOpen.kept)
   const lastOpened = useRef<{ event: Shown | null; task: Task | null }>({ event: null, task: null })
   if (openNow) lastOpened.current = { event: openedEvent, task: openedTask }
@@ -656,7 +757,10 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       {/* The day picked wears the small month's mark for the days shown (a quiet band of the accent behind its date), on a month's day and on a week's or a day's head. */}
       {pickedDay && <style>{`[data-cal-level] :is([data-day="${pickedDay}"] [data-day-number], [data-cal-head="${pickedDay}"] > span:last-child) { box-shadow: 0 0 0 3px var(--accent) } [data-cal-level] :is([data-day="${pickedDay}"] [data-day-number]:not([aria-current]), [data-cal-head="${pickedDay}"]:not([data-cal-today]) > span:last-child) { background: var(--accent) }`}</style>}
       {/* While something is being made on a day, the day stays lit (a slot's draft is its own light). */}
-      {drawn && drawn.minute === null && <style>{`[data-cal-level] :is([data-day="${drawn.day}"], [data-cal-allday="${drawn.day}"]) { background: color-mix(in oklab, var(--foreground) 7%, var(--background)) }`}</style>}
+      {draftAt && draftAt.minute === null && <style>{`[data-cal-level] :is(${daysOf(draftAt).map((day) => `[data-day="${day}"], [data-cal-allday="${day}"]`).join(', ')}) { background: color-mix(in oklab, var(--foreground) 7%, var(--background)) }`}</style>}
+      {/* A bar carried by its middle waits faded in its place. The days letting go would give it (or a task carried onto a day) light, as a day lights for a task carried onto it in the month (month-plan.tsx). */}
+      {shift && <style>{`[data-cal-event-chip="${CSS.escape(shift.one.key)}"] { opacity: 0.4 }`}</style>}
+      {litDays.length > 0 && <style>{`[data-cal-level] :is(${litDays.map((day) => `[data-day="${day}"], [data-cal-allday="${day}"]`).join(', ')}) { background: var(--accent); box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 25%, transparent) }`}</style>}
       {/* One row at every width: the title gives way first, then the panel buttons fold into ⋯. */}
       <header className={`@container/head flex min-h-16 shrink-0 items-center py-2 ${tight ? 'gap-1.5 px-3' : 'gap-2 px-5'}`}>
         {!tight && <Tip label={roomless ? 'No room for the left panel beside a month here' : left ? 'Hide the left panel' : 'Show the left panel: the small month, your calendars, unscheduled tasks'}>
@@ -754,21 +858,29 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 <Kept still={!top} of={`${one.mode} ${dayKey(one.anchor)}`}>
                 {one.mode === 'month' ? (
                   <div className="flex min-h-0 flex-1 flex-col p-3">
-                    <MonthPlan bare month={one.anchor} tasks={shownTasks} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars, top && drawn ? `${drawn.day}|${drawn.kind}|${draftColor}` : '']}
+                    <MonthPlan bare month={one.anchor} tasks={shownTasks} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars, top && draftAt ? `${draftAt.day}|${draftAt.until ?? ''}|${draftAt.kind}|${draftColor}` : '']}
                       // A double-click on a day: an event there, all day, written in the popover beside its draft. A task in the month is picked by a click and opens, in that popover, by a double-click.
                       onSide={setPanel} onTask={openTask} onAddDay={(day) => openAdd({ day, minute: null, length: 0, kind: 'event' })}
                       onPickDay={setPickedDay} dayMenu={(day) => addLines(day, null)}
                       dayExtra={(day) => [
-                        ...(top && drawn && drawn.day === day ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={drawn.kind} color={draftColor} /></PopoverAnchor>] : []),
+                        ...(top && draftAt && !draftAt.until && draftAt.day === day ? [<DraftMark key="draft" shape="line" kind={draftAt.kind} color={draftColor} at={placeKey(draftAt)} />] : []),
                         ...studyChips(study.get(day), MONTH_CHIP),
-                        ...(eventsByDay.get(day) ?? []).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={openEvent} onNote={onOpen} />)
+                        ...(eventsByDay.get(day) ?? []).map((one) => <EventChip key={one.key} one={one} day={day} month calendars={layers.calendars} onOpen={openEvent} onNote={onOpen} onCarry={carryEvent} ends={{ start: true, end: true }} />)
                       ]}
-                      bars={shownEvents.filter(manyDays).map((one) => ({ key: one.key, from: dayKey(one.start), to: dayKey(dayjs(one.end).subtract(1, 'minute')), render: (day: string) => <EventChip one={one} day={day} month calendars={layers.calendars} onOpen={openEvent} onNote={onOpen} /> }))}
+                      // Events over several days, one bar across them; each piece knows the ends it holds. Then the draft's.
+                      bars={[
+                        ...shownEvents.filter(manyDays).map((one) => {
+                          const [from, to] = firstLast(one)
+                          return { key: one.key, from, to, render: (day: string) => <EventChip one={one} day={day} month calendars={layers.calendars} onOpen={openEvent} onNote={onOpen} onCarry={carryEvent} ends={{ start: day === from, end: sameWeek(day, to) }} /> }
+                        }),
+                        ...(top && draftBar ? [{ key: 'draft', from: draftBar[0], to: draftBar[1], render: (day: string) => <DraftMark shape="line" kind="event" color={draftColor} bar={{ start: day === draftBar[0], end: sameWeek(day, draftBar[1]) }} /> }] : [])
+                      ]}
+                      onDrawDays={drawDays}
                       onShown={(month) => void (top && setAnchor(month.isSame(dayjs(), 'month') ? dayjs().startOf('day') : month))}
                       onDay={(day) => (setAnchor(dayjs(day)), setMode('day'))} onWeek={(monday) => (setAnchor(dayjs(monday)), setMode('week'))} />
                   </div>
                 ) : (
-                  <Grid days={daysOf(one)} wide={paneWide} startTop={top ? undefined : (one as Shadow).top} tasks={shownTasks} marks={marked ? captures : undefined} study={study} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} draft={top ? drawn : null} events={eventsOn(daysOf(one))}
+                  <Grid days={levelDays(one)} wide={paneWide} startTop={top ? undefined : (one as Shadow).top} tasks={shownTasks} marks={marked ? captures : undefined} study={study} onHead={(day) => (setAnchor(day), setMode('day'))} onPoint={(at) => void (pointed.current = at)} calendars={layers.calendars} {...blockProps} draft={top ? draftAt : null} events={eventsOn(levelDays(one))}
                     menuAt={(day, timed) => addLines(day, !timed ? null : pointed.current?.day === day && pointed.current.minute !== null ? Math.max(0, Math.min(23 * 60, Math.floor(pointed.current.minute / 30) * 30)) : 9 * 60)} />
                 )}
                 </Kept>
@@ -780,18 +892,35 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
             when it is closed. Nothing rests there: Upcoming is in the left panel, and a new one is written beside its draft. */}
         <DaySide inline ask={panel} width={`${editorRem}rem`} grip={editorGrip} onClose={() => setPanel(null)} onOpen={onOpen} />
       </div>
-      {drawn && <AddPopover key={`${leftAdd.turn}|${drawn.day}|${drawn.minute}|${drawn.words ?? ''}`} add={drawn} level={level} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} onGone={leftAdd.gone} leaving={!add} />}
+      {drawn && <AddPopover key={`${leftAdd.turn}|${drawn.day}|${drawn.minute}|${drawn.until ?? ''}|${drawn.words ?? ''}`} add={drawn} level={level} onChange={changeAdd} onClose={() => setAdd(null)} onAgain={openAdd} onGone={leftAdd.gone} leaving={!add} />}
       {drawnOpen && <OpenPopover key={`${leftOpen.turn}|${drawnOpen.kind === 'event' ? drawnOpen.key : drawnOpen.id}|${drawnOpen.words ?? ''}`} opened={drawnOpen} onAgain={(words) => (drawnOpen.kind === 'event' ? openEvent(drawnOpen.key, drawnOpen.at, words) : openTask(drawnOpen.id, drawnOpen.at, words))} event={drawnEvent ?? undefined} task={drawnTask ?? undefined} level={level} onClose={() => setOpened(null)} onGone={leftOpen.gone} leaving={!openNow}
         onPage={() => toPage(drawnOpen.kind === 'event' ? { event: drawnOpen.key } : { task: drawnOpen.id })} onKey={(key) => setOpened((was) => (was?.kind === 'event' ? { ...was, key } : was))} />}
-      {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && createPortal(
-        <div data-cal-carried style={{ left: carry.x + 8, top: carry.y + 8 }}
-          className={`pointer-events-none fixed z-50 flex max-w-56 items-center gap-2 ${CARD}`}>
-          <span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: ACCENT }} />
-          <span dir="auto" className="truncate">{taskName(carry.task.title).text}</span>
-        </div>, document.body)}
+      {/* The bar in hand: the one card every carry rides in (carry.tsx), saying what letting go does there. */}
+      {shift && <AtPointer><CarriedCard attrs={{ 'data-cal-bar-card': '' }} title={shift.one.title || 'New event'} words={shift.by ? `Move to ${dayjs(shift.one.start).add(shift.by, 'day').format('ddd D MMM')}` : null}
+        icon={<span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: shift.one.color }} />} /></AtPointer>}
+      {/* A task carried from Unscheduled, off the hours (over them, its block at the slot is where it goes): the same card, saying the day. */}
+      {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && <AtPointer><CarriedCard attrs={{ 'data-cal-carried': '' }} title={taskName(carry.task.title).text}
+        words={carry.to ? `Move to ${dayjs(carry.to.day).format('ddd D MMM')}` : null} icon={<span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: ACCENT }} />} /></AtPointer>}
     </section>
     </Popover>
   ) as React.JSX.Element
+}
+
+/**
+ * Where a carried card rides: just past the pointer, following it on its own, so the page is not drawn again for a move
+ * that changes nothing else.
+ */
+function AtPointer({ children }: { children: React.ReactNode }): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const place = (x: number, y: number): void => void (box.current && (box.current.style.transform = `translate3d(${x + 10}px, ${y + 10}px, 0)`))
+    const at = pointerAt()
+    place(at.x, at.y)
+    const follow = (event: PointerEvent): void => place(event.clientX, event.clientY)
+    window.addEventListener('pointermove', follow, true)
+    return () => window.removeEventListener('pointermove', follow, true)
+  }, [])
+  return createPortal(<div ref={box} data-cal-bar-carried className="pointer-events-none fixed top-0 left-0 z-50">{children}</div>, document.body)
 }
 
 /**
@@ -874,6 +1003,8 @@ type BlockProps = {
   /** The events shown, and the way one opens: its popover, tied to the thing it was opened from. */
   events: Shown[]
   onEvent: (key: string, at?: HTMLElement | null) => void
+  /** An event's chip pressed (or a whole-day one's end): it may be carried to other days, or made longer or shorter. */
+  onCarryEvent: (event: React.PointerEvent, one: Shown, edge: 'start' | 'end' | 'move', day: string) => void
   onOpen?: (type: string, id: string) => void
   /** The task just set down, to settle in once it is drawn at its new time. */
   landed: { id: string; due: string } | null
@@ -1079,7 +1210,7 @@ const ALLDAY_ROWS = 5
 
 /** The day or the week by the hour: an untimed line on top, then the hours with the tasks at theirs. */
 function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, calendars, menuAt, ...props }: { /** A day's own right-click lines, on its empty part: `timed` at the hour pointed at, otherwise for the whole day. */ menuAt: (day: string, timed: boolean) => RowItem[]; days: Dayjs[]; /** The pane's width, for the blocks a day fits side by side to be right from the first draw. */ wide: number; /** The hours it opens on, when it comes in beside another level showing them. */ startTop?: number; tasks: Task[]; /** Captures, drawn as marks at the minute each was caught. */ marks?: CaptureMeta[]; /** The study plan, a day's chips in the all-day lane. */ study: Map<string, StudyDay>; onHead: (day: Dayjs) => void; onPoint: (at: Spot | null) => void; calendars: { id: string; name: string; color: string }[] } & BlockProps): React.JSX.Element {
-  const { carry, start, draft, draftColor, onAdd, onPickDay, events, onEvent, onOpen, taskNow } = props
+  const { carry, start, draft, draftColor, onAdd, onPickDay, events, onEvent, onCarryEvent, onOpen, taskNow } = props
   // The all-day lane folds to one line with its chevron, and stays so.
   const [folded, setFolded] = useState(() => stored('vigil.calendar.allday', 'open', ['open', 'folded'] as const) === 'folded')
   // Folded or opened by a key, its chevron is simply turned, as the lane is simply folded (nothing moves by a key).
@@ -1200,7 +1331,8 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
               const from = Math.max(0, keys.indexOf(dayKey(one.start)) < 0 ? 0 : keys.indexOf(dayKey(one.start)))
               const lastKey = dayKey(dayjs(one.end).subtract(1, 'minute'))
               const to = keys.indexOf(lastKey) < 0 ? keys.length - 1 : keys.indexOf(lastKey)
-              return <EventChip key={one.key} one={one} day={keys[from]} calendars={calendars} span={{ gridColumn: `${from + 1} / ${to + 2}`, pointerEvents: 'auto' }} onOpen={onEvent} onNote={onOpen} />
+              return <EventChip key={one.key} one={one} day={keys[from]} calendars={calendars} span={{ gridColumn: `${from + 1} / ${to + 2}`, pointerEvents: 'auto' }} onOpen={onEvent} onNote={onOpen}
+                onCarry={onCarryEvent} ends={{ start: dayKey(one.start) >= keys[0], end: lastKey <= keys[keys.length - 1] }} />
             })}
             {/* The study plan: each day's reviews and the book you finish then, in the lane before its tasks. */}
             {keys.flatMap((key, at) => studyChips(study.get(key), { gridColumn: at + 1 }, key))}
@@ -1219,7 +1351,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
               const more = all.length - shown.length
               return [
               ...shown.map((item) => 'one' in item
-                ? <EventChip key={item.one.key} one={item.one} day={key} calendars={calendars} span={{ gridColumn: at + 1, pointerEvents: 'auto' }} onOpen={onEvent} onNote={onOpen} />
+                ? <EventChip key={item.one.key} one={item.one} day={key} calendars={calendars} span={{ gridColumn: at + 1, pointerEvents: 'auto' }} onOpen={onEvent} onNote={onOpen} onCarry={onCarryEvent} ends={{ start: true, end: true }} />
                 : <div key={`${item.due ? 'due' : 'on'}:${item.task.id}`} className="pointer-events-auto grid min-w-0" style={{ gridColumn: at + 1 }}><Untimed task={item.task} due={item.due} {...props} /></div>
               ),
               ...(more ? [
@@ -1231,7 +1363,9 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
                   +{num(more)} more
                 </button>
               ] : []),
-              ...(draft && draft.minute === null && draft.day === key ? [<PopoverAnchor asChild key={`new:${key}`}><DraftMark shape="chip" kind={draft.kind} color={draftColor} style={{ gridColumn: at + 1 }} /></PopoverAnchor>] : [])
+              // The draft of a whole day, or of days (dragged across in Month, or "mon to wed" typed): across them, as a bar over several days is.
+              ...(draft && draft.minute === null && (draft.day === key || (at === 0 && draft.day < key && (draft.until ?? '') >= key)) ? [<DraftMark key={`new:${key}`} shape="chip" kind={draft.kind} color={draftColor} at={placeKey(draft)}
+                style={{ gridColumn: draft.until ? `${at + 1} / ${(keys.indexOf(draft.until) < 0 ? keys.length - 1 : keys.indexOf(draft.until)) + 2}` : at + 1 }} />] : [])
             ]})}
           </div>
         </div>
@@ -1255,7 +1389,7 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
           {showsToday && days.length > 1 && <div aria-hidden className="pointer-events-none absolute right-0 z-[3] h-px opacity-50" style={{ left: gutterOf(zone), top: (nowMinute / 60) * HOUR, background: RED }} />}
           {days.map((day) => {
             const key = dayKey(day)
-            const mine = tasks.filter((task) => onGrid(task) && dayKey(task.dueAt!) === key && !(carry && carry.kind !== 'new' && carry.task.id === task.id))
+            const mine = tasks.filter((task) => onGrid(task) && dayKey(task.dueAt!) === key && !(carry && 'task' in carry && carry.task.id === task.id))
             // Captures, when shown, take a lane of their own like a short block, so a name never sits on another's edge.
             const caught = (marks ?? []).filter((one) => one.status !== 'discarded' && dayKey(one.capturedAt) === key)
             const spans: { id: string; task?: Task; one?: Shown; capture?: CaptureMeta; start: number; end: number }[] = [
@@ -1306,11 +1440,10 @@ function Grid({ days, wide, startTop, tasks, marks, study, onHead, onPoint, cale
                 {/* Where the task carried would land: an outline at the slot, the block lifted a little off it. */}
                 {moving && carry?.kind === 'move' && <div data-cal-ghost aria-hidden className="pointer-events-none absolute z-[25] rounded-[6px] outline-2 outline-dashed" style={{ top: (moving.start / 60) * HOUR + 1, height: Math.max(20, (moving.length / 60) * HOUR - 2), ...laneBox(placed.get(moving.task.id)!), outlineColor: ACCENT }} />}
                 {drawing && <div data-cal-drawing className="pointer-events-none absolute inset-x-1 rounded-[6px] border-2 border-[var(--tt-brand-color-400)] bg-[color-mix(in_oklab,var(--tt-brand-color-400)_18%,transparent)]" style={{ top: (drawing.start / 60) * HOUR, height: (drawing.length / 60) * HOUR }} />}
+                {/* The popover is tied to it wherever it is drawn (cal-add.tsx, AddPopover's one anchor). */}
                 {draft && draft.minute !== null && draft.day === key && (
-                  <PopoverAnchor asChild>
-                    <DraftMark shape="block" kind={draft.kind} color={draftColor} time={draft.length >= 45 ? timeSpan(atMinute(key, draft.minute), atMinute(key, draft.minute + draft.length)) : undefined}
-                      style={{ top: (draft.minute / 60) * HOUR + 1, height: Math.max(22, (draft.length / 60) * HOUR - 2) }} />
-                  </PopoverAnchor>
+                  <DraftMark shape="block" kind={draft.kind} color={draftColor} at={placeKey(draft)} time={draft.length >= 45 ? timeSpan(atMinute(key, draft.minute), atMinute(key, draft.minute + draft.length)) : undefined}
+                    style={{ top: (draft.minute / 60) * HOUR + 1, height: Math.max(22, (draft.length / 60) * HOUR - 2) }} />
                 )}
                 {key === todayKey && <SessionGhost focus={taskNow.focus} tasks={tasks} now={now} next={spans.filter((one) => one.id !== taskNow.focus?.taskId).map((one) => ({ start: one.start, name: one.task ? taskName(one.task.title).text : one.one?.title ?? '' }))} />}
                 {key === todayKey && (
@@ -1428,7 +1561,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
   const color = PRIORITY[task.priority ?? 0] || ACCENT
   const finished = task.status === 'done'
   const repeats = !!task.recurrence
-  const busy = !!carry && carry.kind !== 'new' && carry.task.id === task.id
+  const busy = !!carry && 'task' in carry && carry.task.id === task.id
   // Its length beside the focus it took, once there is some or its day has come.
   const done = Math.round(did ?? 0)
   // Carried or stretched, its times roll as they change, earlier rolling down (no sound; still under reduced motion).
@@ -1474,9 +1607,10 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
           {!(plan && !short && length < 75) && <span className={`shrink-0 truncate text-meta tabular-nums text-foreground/80 ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? time(at) : <><span className={`@[104px]:hidden ${length >= 60 ? 'block leading-tight' : ''}`}>{length >= 60 ? <>{time(at)} –<br />{time(at + length, 'end')}</> : time(at)}</span><span className="hidden @[104px]:inline">{lifted ? <>{time(at)} – {time(at + length, 'end')}</> : timeSpan(atMinute(day, at), atMinute(day, at + length))}</span></>}</span>}
           {plan}
         </span>
-        <span data-cal-resize aria-hidden
+        {/* Its pointer set on itself: the page's hand over everything inside a button is outside Tailwind's layers, and beat a class. */}
+        <span data-cal-resize aria-hidden style={{ cursor: 'ns-resize' }}
           onPointerDown={(event) => start(event, () => ({ kind: 'resize', task, day, start: at, length }))}
-          className="absolute inset-x-0 bottom-0 h-2 cursor-ns-resize after:absolute after:bottom-0.5 after:left-1/2 after:h-0.5 after:w-6 after:-translate-x-1/2 after:rounded-full after:bg-foreground/40 after:opacity-0 after:transition-opacity group-hover/block:after:opacity-100 motion-reduce:after:transition-none" />
+          className="absolute inset-x-0 bottom-0 h-2 after:absolute after:bottom-0.5 after:left-1/2 after:h-0.5 after:w-6 after:-translate-x-1/2 after:rounded-full after:bg-foreground/40 after:opacity-0 after:transition-opacity group-hover/block:after:opacity-100 motion-reduce:after:transition-none" />
       </div>
     </RowMenu>
   )

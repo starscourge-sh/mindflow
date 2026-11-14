@@ -10,9 +10,9 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { AliveIcon } from '@/components/ui/alive-icon'
 import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { Timer as CalendarClock, Bookmark as Telescope } from '@/components/ui/icons'
-import { Tip } from '@/components/haligtree/ui'
+import { Tip, stage } from '@/components/haligtree/ui'
 import { slotTicker } from '@/lib/proximity'
-import { CARD } from './carry'
+import { CarriedCard } from './carry'
 import { Overlay, SETTLE } from './sortable'
 import { MarkChip } from './milestones'
 import { chime, quietFor } from '@/lib/sound'
@@ -26,7 +26,7 @@ import { byDay, moveToDay, caughtLevel, useCaptureMarks, type Back, type OnDay }
 import { DayDots, DotsKey, openedLevel } from './day-dots'
 import { DaySide, type SideAsk } from './day-side'
 import { RowMenu, type RowItem } from './row-menu'
-import { AddPopover, DraftMark, OpenPopover, addLines, useLeaving, type Add } from './cal-add'
+import { AddPopover, DraftMark, OpenPopover, addLines, placeKey, placeOf, stayPut, useLeaving, type Add } from './cal-add'
 import { monthHere } from '@/lib/calendar-scope'
 import { useHere } from '@/lib/split'
 import { taskMenu, useTaskNow } from './tasks-view'
@@ -111,7 +111,9 @@ export function MonthShowMenu({ children }: { /** More lines under the switches:
  * the month named above changing as a month's first week reaches the top.
  * Sideways swipes are never the month's: they are Back and Forward.
  */
-export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [], onPickDay, dayMenu }: {
+export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [], onPickDay, dayMenu, onDrawDays }: {
+  /** A press on a day's empty part, which dragged across days draws one event over them (the Calendar's). */
+  onDrawDays?: (event: React.PointerEvent, day: string) => void
   /** A task opened from a day (a double-click on its line, ↵): the page's own popover, tied to `at`. Left out, the month opens it in its own. */
   onTask?: (id: string, at: HTMLElement | null) => void
   tasks: Task[]
@@ -210,6 +212,12 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
   // A tick and a trackpad tap for each new day a carried task comes over; the day it was lifted from is no arrival.
   const ticks = useRef(slotTicker()).current
   const fromDay = useRef(true)
+  // The day a carried line was lifted from, and the day it is over now: its card says where letting go puts it.
+  const liftedFrom = useRef<string | null>(null)
+  const [overDay, setOverDay] = useState<string | null>(null)
+  // While a line is carried no tip comes up from what passes under it: the card is the one floating thing (ui.tsx, `stage`).
+  const carrying = !!carried
+  useEffect(() => (carrying ? stage() : undefined), [carrying])
 
   // What the side panel holds (a task opened from a day), and what is being carried.
   const [mine, setMine] = useState<SideAsk | null>(null)
@@ -236,13 +244,21 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
   const leftAdd = useLeaving(own ? add : null, !!openOwn)
   const leftOpen = useLeaving(add ? null : openOwn, !!add)
   const drawn = own ? add ?? leftAdd.kept : null
+  // Where its draft is drawn: where its words put it ("fri"), or where it was put (cal-add.tsx).
+  const draftAt = drawn && placeOf(drawn)
+  // Its words name a day outside the six weeks shown: the month turns to it (and back), and the draft is simply there.
+  const changeAdd = (patch: Partial<Add>): void => {
+    const now = add && 'at' in patch ? placeOf({ ...add, ...patch }) : null
+    if (now && (now.day < dayKey(days[0]) || now.day > dayKey(days[days.length - 1]))) (stayPut(), move(dayjs(now.day), true))
+    setAdd((was) => was && { ...was, ...patch })
+  }
   const drawnOpen = add ? null : openOwn ?? (drawn ? null : leftOpen.kept)
   const lastTask = useRef<Task | null>(null)
   if (openOwn) lastTask.current = openedTask
   const drawnTask = openOwn ? openedTask : lastTask.current
   const calendars = useCalendars()
   const draftColor = inkOf(calendars.find((one) => one.id === add?.calendar)?.color ?? calendars.find((one) => !one.hidden)?.color ?? calendars[0]?.color)
-  const adding = own ? (drawn?.day ?? null) : null
+  const adding = own ? (draftAt?.day ?? null) : null
   // ⌘K is about the task picked here, as on the Calendar's own page (lib/calendar-scope.ts): “Open” opens it in the
   // popover tied to its line, and a thing done to it leaves it picked.
   const here = useHere()
@@ -288,8 +304,9 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
           return <Cell key={key} wide={wide} day={day} lines={linesOf(on.get(key))} today={today} outside={!!shown && !day.isSame(shown, 'month')} count={marking ? (opens.get(key) ?? 0) : 0} caught={caught.get(key)} flags={marksOn(marks, key)}
             room={room - laid.lanes} reserve={laid.lanes} adding={adding === key} onDay={onDay} onLine={open} onPickLine={onTask ? undefined : (line) => line.kind !== 'back' && setPickedTask(line.task.id)} lineMenu={(line) => (line.kind === 'back' ? [] : taskMenu(line.task, { open: () => open(line), now: taskNow.current }))} onItem={item}
             // The draft of what is being made here leads the day's things, and the popover is tied to it.
-            extra={drawn && drawn.day === key ? [<PopoverAnchor asChild key="draft"><DraftMark shape="line" kind={drawn.kind} color={draftColor} /></PopoverAnchor>, ...(dayExtra?.(key) ?? [])] : dayExtra?.(key)}
+            extra={draftAt && draftAt.day === key ? [<DraftMark key="draft" shape="line" kind={draftAt.kind} color={draftColor} at={placeKey(draftAt)} />, ...(dayExtra?.(key) ?? [])] : dayExtra?.(key)}
             onAdd={() => (onAddDay ? onAddDay(key) : openAdd({ day: key, minute: null, length: 0, kind: 'task' }))}
+            onPress={onDrawDays && ((event) => onDrawDays(event, key))}
             onPick={onPickDay ? () => onPickDay(key) : own ? () => setPickedOwn(key) : undefined}
             menu={dayMenu ? () => dayMenu(key) : own ? () => addLines(openAdd, key, null) : undefined} />
         })}
@@ -355,8 +372,8 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
       {/* The days are measured while a task is carried. On the run never before: every week coming into sight measured all
           84 days again (a getBoundingClientRect each, with a restyle), most of a fling's long frames. */}
       <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={pointerWithin} autoScroll={false} measuring={{ droppable: { strategy: bare ? MeasuringStrategy.WhileDragging : MeasuringStrategy.Always, frequency: 120 } }}
-        onDragStart={({ active }) => { chime('lift'); fromDay.current = true; holding.current = active.data.current as { line?: Line; mark?: Milestone }; setCarried(holding.current.mark ? { kind: 'mark', one: holding.current.mark } : holding.current.line!) }}
-        onDragOver={({ over }) => (fromDay.current ? ticks.start(over?.id) : ticks(over?.id), (fromDay.current = false))}
+        onDragStart={({ active, activatorEvent }) => { chime('lift'); fromDay.current = true; liftedFrom.current = (activatorEvent.target as Element | null)?.closest<HTMLElement>('[data-day]')?.dataset.day ?? null; setOverDay(null); holding.current = active.data.current as { line?: Line; mark?: Milestone }; setCarried(holding.current.mark ? { kind: 'mark', one: holding.current.mark } : holding.current.line!) }}
+        onDragOver={({ over }) => (fromDay.current ? ticks.start(over?.id) : ticks(over?.id), (fromDay.current = false), setOverDay(over ? String(over.id) : null))}
         onDragCancel={() => setCarried(null)}
         onDragEnd={({ over }) => {
           setCarried(null)
@@ -383,13 +400,15 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
             </div>
           : <div ref={body} data-month-scroll className="relative min-h-0 overflow-hidden" style={{ height: 'max(40.5rem, calc(100vh - 22rem))' }}>{sixWeeks()}</div>}
       </div>
+      {/* The one card every carry rides in (carry.tsx), saying the day letting go puts it on; over its own day, nothing. */}
       <Overlay dropAnimation={SETTLE}>
-        {carried && carried.kind !== 'back' && <span data-carried-card="" className={`block ${CARD}`}>{carried.kind === 'mark' ? `${carried.one.icon ? `${carried.one.icon} ` : ''}${carried.one.title}` : taskName(carried.task.title).text}</span>}
+        {carried && carried.kind !== 'back' && <CarriedCard title={carried.kind === 'mark' ? `${carried.one.icon ? `${carried.one.icon} ` : ''}${carried.one.title}` : taskName(carried.task.title).text}
+          words={overDay && overDay !== liftedFrom.current ? `Move to ${dayjs(overDay).format('ddd D MMM')}` : null} />}
       </Overlay>
       </DndContext>
       <DotsKey opened={marking} captures={counting} />
       {!onSide && <DaySide ask={mine} onClose={() => setMine(null)} onOpen={onOpen} />}
-      {drawn && <AddPopover key={`${leftAdd.turn}|${drawn.day}|${drawn.words ?? ''}`} add={drawn} level={frame} onChange={(patch) => setAdd((was) => was && { ...was, ...patch })} onClose={() => setAdd(null)} onAgain={openAdd} onGone={leftAdd.gone} leaving={!add} />}
+      {drawn && <AddPopover key={`${leftAdd.turn}|${drawn.day}|${drawn.words ?? ''}`} add={drawn} level={frame} onChange={changeAdd} onClose={() => setAdd(null)} onAgain={openAdd} onGone={leftAdd.gone} leaving={!add} />}
       {own && drawnOpen && drawnTask && <OpenPopover key={`${leftOpen.turn}|${drawnOpen.id}|${drawnOpen.words ?? ''}`} opened={{ kind: 'task', ...drawnOpen }} task={drawnTask} level={frame} onClose={() => setOpenedOwn(null)} onGone={leftOpen.gone} leaving={!openOwn} onAgain={(words) => (setPickedTask(drawnOpen.id), setOpenedOwn({ ...drawnOpen, words }))}
         onPage={() => (chime('open'), setOpenedOwn(null), setMine({ task: drawnOpen.id }))} onKey={() => undefined} />}
       {/* On the Calendar its line is always kept, so the weeks do not change height from month to month. */}
@@ -718,7 +737,9 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
   )
 }
 
-function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, onAdd, onPick, menu, onDay, onLine, onPickLine, lineMenu, onItem, room, reserve = 0, extra = [] }: {
+function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, onAdd, onPress, onPick, menu, onDay, onLine, onPickLine, lineMenu, onItem, room, reserve = 0, extra = [] }: {
+  /** A press on the day's empty part, which may become a drag across days. */
+  onPress?: (event: React.PointerEvent) => void
   /** Room for each thing by name; narrow (a small window), a dot for each and the count. */
   wide: boolean
   day: Dayjs
@@ -769,9 +790,10 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
   const rest = weekend && !outside ? 'bg-[color-mix(in_oklab,var(--background)_98%,var(--foreground))] hover:bg-[color-mix(in_oklab,var(--background)_95.5%,var(--foreground))]' : 'bg-background hover:bg-[color-mix(in_oklab,var(--background)_97.5%,var(--foreground))]'
   const cell = (
     <div ref={setNodeRef} data-day={key} data-outside={outside || undefined} data-shown={shown} data-planned={lines.length || undefined} data-opened={count ? openedLevel(count) : undefined} data-captured={caught === undefined ? undefined : caught && caughtLevel(caught)} data-late={late || undefined} data-weekend={weekend || undefined}
+      onPointerDown={onPress && ((event) => empty(event) && onPress(event))}
       onClick={(event) => empty(event) && (onPick ? onPick() : (chime('tap'), onAdd()))}
       onDoubleClick={onPick ? (event) => empty(event) && onAdd() : undefined}
-      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${isOver ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : adding ? 'bg-[color-mix(in_oklab,var(--foreground)_7%,var(--background))]' : rest} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
+      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${onPress ? 'select-none' : ''} ${isOver ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : adding ? 'bg-[color-mix(in_oklab,var(--foreground)_7%,var(--background))]' : rest} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${plural(caught, 'capture')}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}

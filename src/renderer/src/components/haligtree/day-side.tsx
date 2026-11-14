@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { heroBack, heroing } from '@/lib/hero'
 import { EASE, byKeys, still } from '@/lib/motion'
 import { createPortal } from 'react-dom'
@@ -10,7 +10,7 @@ import { atOn, makeTask, renameTask, repeatAlone, taskName, timeAlone } from '@/
 import { readTask } from '../../../../main/task-words'
 import { sameTask } from '@/lib/calendar'
 import { haligtree, whenInLine, type Task, type TaskFull } from '@/lib/haligtree'
-import { clock, dayjs, plural } from '../../../../main/dates'
+import { clock, dayjs, dayKey, plural } from '../../../../main/dates'
 import { TaskInput } from './task-input'
 import { TaskDetail } from './tasks-view'
 import { Kbd, Tip, refuse, toast, untoast } from './ui'
@@ -183,7 +183,7 @@ export function KindSwitch({ kind, onKind }: { kind: 'event' | 'task'; onKind: (
  * say the rest (a day, a time, #tags, !! for priority) as everywhere else,
  * and the day or slot clicked fills in what they leave out.
  */
-export function NewTask({ ask, first, held, onMade, onBack, words, onName, task }: {
+export function NewTask({ ask, first, held, onMade, onBack, words, onName, onPlace, task }: {
   /** The task the line is open on: its name to write over, read as a new one's words are; ↵ keeps the change, said with Undo. */
   task?: Task
   ask: Slot
@@ -197,16 +197,27 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, task 
   words?: [string, (text: string) => void]
   /** Told the name read out of the words as it changes: the draft on the grid says it. */
   onName?: (name: string) => void
+  /** Told where it will be as its words are read: its draft on the grid is drawn there. */
+  onPlace?: (to: Slot) => void
 }): React.JSX.Element {
   const own = useState(first)
   const [text, setText] = words ?? own
-  const name = useMemo(() => taskName(readTask(text).title).text.trim(), [text])
+  const read = useMemo(() => readTask(text), [text])
+  const name = taskName(read.title).text.trim()
   useEffect(() => onName?.(name), [name]) // eslint-disable-line react-hooks/exhaustive-deps
   const field = useRef<HTMLInputElement>(null)
   useEffect(() => (requestAnimationFrame(() => (field.current?.focus(), field.current?.setSelectionRange(field.current.value.length, field.current.value.length))), () => void (held.current = null)), []) // eslint-disable-line react-hooks/exhaustive-deps
   const { day, minute } = ask
   const length = minute === null ? 0 : ask.length
   const at = minute === null ? dayjs(day).hour(9).minute(0).startOf('minute') : dayjs(day).startOf('day').add(minute, 'minute')
+  // Where it will be kept, read from the words the way `save` keeps it: a day of their own ("call mum friday", with its
+  // time when they say one), a time alone on this day, otherwise the slot. Said under the line, and its draft drawn there.
+  const alone = !!read.due && timeAlone(text)
+  const ownDay = !!read.due && !alone && !repeatAlone(text)
+  const shownAt = alone ? dayjs(atOn(read.due!, day)) : ownDay ? dayjs(read.due!) : at
+  const shownMinute = alone || (ownDay && !read.allDay) ? shownAt.hour() * 60 + shownAt.minute() : ownDay ? null : minute
+  const shownLength = shownMinute === null ? 0 : (read.estimate ?? (length || 30))
+  useLayoutEffect(() => void (!task && onPlace?.({ day: dayKey(shownAt), minute: shownMinute, length: shownLength })), [dayKey(shownAt), shownMinute, shownLength]) // eslint-disable-line react-hooks/exhaustive-deps
   const busy = useRef(false)
   // Open on a task: its name without its #tags, as its page shows it; they are kept as the name changes.
   const named = task ? taskName(task.title) : null
@@ -266,7 +277,7 @@ export function NewTask({ ask, first, held, onMade, onBack, words, onName, task 
         {task && !task.dueAt
           ? <p data-day-side-when className="text-body text-foreground">No day yet.</p>
           : <p data-day-side-when className="text-body text-foreground [overflow-wrap:anywhere]">
-              For <strong className="font-semibold">{at.format('dddd D MMMM')}</strong>{minute !== null && <> at <strong className="font-semibold">{clock(at)}</strong></>}{length ? <>, for <strong className="font-semibold">{lasting(length)}</strong></> : null}.
+              For <strong className="font-semibold">{shownAt.format('dddd D MMMM')}</strong>{shownMinute !== null && <> at <strong className="font-semibold">{clock(shownAt)}</strong></>}{shownLength ? <>, for <strong className="font-semibold">{lasting(shownLength)}</strong></> : null}.
             </p>}
         {/* One quiet line, never a paragraph, saying by example what the words can hold; it gives way in a short window, so nothing in the popover is cut. */}
         <p data-day-side-hint className="truncate text-control text-muted-foreground [@media(max-height:520px)]:hidden">{task ? 'Type fri 1pm or !! to change it.' : 'Reads fri 1pm, #home, and !! for priority.'}</p>
