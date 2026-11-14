@@ -44,15 +44,22 @@
 //   last    the last three of ask 18: "every week 9am" (and as a task, "every week" with no time) typed on a later day's
 //           draft starts on that day, never from today; ↵ on a row turns its chevron at once, as its choices are there at
 //           once (a click still turns it); the tag field's hint sits under the field in the row's own flow, whole.
+//   follow  the draft follows the words: "tue 1pm" typed moves it there on the spring, its popover beside it at every
+//           frame; a day in another month turns the grid, no day brings it back; Motion off, at once; a task's line says
+//           its day; in Week a time moves it down its day and another week's day turns the week.
+//   span    a press dragged across Month's days: the bar drawn day by day into the next week's row (a tick each), Esc
+//           puts it back, drawn backwards and let go the popover is at the bar's end reading the days; ↵ makes it; the
+//           event's bar in Month and Week's all-day lane; its end and start dragged, its middle carried in the one card
+//           ("Move to …", the days lit), Esc, Undo and ⌘Z. With FRAMES=dir, the bar drawn across a week's end, filmed.
 //   frames  with FRAMES=dir: a picture every 50ms through the popover growing, Event to Task, adding, and a pinch with its
 //           lit block, light and dark; and the popover beside two of the app's own (the small month, an event's card).
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/cal-add.mjs
 import os from 'node:os'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { castFrames } from './cast-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
-const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open,rows,put,one,leave,spring,unhappy,quiet,last').split(',')
+const parts = (process.env.PART ?? 'month,week,narrow,pinch,home,open,rows,put,one,leave,spring,unhappy,quiet,last,follow,span').split(',')
 // Your Mac's calendar, stood in for the unhappy part: one event tomorrow morning on "Family", read only.
 if (parts.includes('unhappy')) {
   const at = new Date(); at.setDate(at.getDate() + 1); at.setHours(7, 0, 0, 0)
@@ -1648,6 +1655,278 @@ try {
       await wait(300)
       await shut()
     } else check('the task is on the week to open', false)
+  }
+
+  // Every frame the page draws for `ms`: where the draft is (or its pieces), where its popover is, and the day it is on,
+  // read as the frame will be painted: in a ResizeObserver's answer, which comes after layout, once every frame callback
+  // (the popover's own placing among them, in whatever order they run) is done. Read in a frame callback of its own, a
+  // popover placed a few callbacks later in the same frame was read a frame behind its draft.
+  const track = (ms) => h.evaluate((ms) => {
+    window.__f = []
+    window.__fDone = false
+    const t0 = performance.now()
+    const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom } }
+    const read = () => {
+      const d = document.querySelector('[data-cal-level] [data-cal-draft]')
+      window.__f.push({ t: Math.round(performance.now() - t0), d: box(d), p: box(document.querySelector('[data-cal-add]')), day: d?.closest('[data-day]')?.dataset.day ?? d?.closest('[data-cal-col]')?.dataset.calCol ?? null, title: document.querySelector('[data-cal-title]')?.textContent ?? '' })
+    }
+    const beat = document.createElement('div')
+    beat.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none'
+    document.body.append(beat)
+    const after = new ResizeObserver(read)
+    after.observe(beat)
+    let on = false
+    const tick = () => {
+      if (performance.now() - t0 < ms) return void ((beat.style.width = (on = !on) ? '2px' : '1px'), requestAnimationFrame(tick))
+      after.disconnect()
+      beat.remove()
+      window.__fDone = true
+    }
+    requestAnimationFrame(tick)
+  }, ms)
+  const tracked = async () => { await h.waitForFunction(() => window.__fDone, null, { timeout: 15000 }); return h.evaluate(() => window.__f) }
+  const clearOf = (f) => !f.d || !f.p || f.p.x >= f.d.r - 0.5 || f.p.r <= f.d.x + 0.5 || f.p.y >= f.d.b - 0.5 || f.p.b <= f.d.y + 0.5
+  const dayName = (key, how = 'short') => new Date(`${key}T12:00:00`).toLocaleDateString('en-GB', { weekday: how })
+  const keyOf = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const said = (key) => new Date(`${key}T12:00:00`).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }).replace(',', '')
+
+  // follow: the draft follows the words (ask 18, 14 Nov). Typed into a new one's line, a day ("tue 1pm") moves the draft to
+  // it on the spring, over several frames, its popover beside it at every frame, never over it; a day in another month
+  // turns the grid to it, and words that say no day bring it back where it was put; with Motion off it is simply there.
+  // In Month for an event and a task (whose line then says the day it reads), and in Week (a time, then another week).
+  if (parts.includes('follow')) {
+    await toMode('m')
+    const home = dayKeyOf(1)
+    const there = dayKeyOf(3)
+    const word = dayName(there).toLowerCase()
+    await dbl(...corner(await cell(home)))
+    await h.keyboard.type('Lunch with Sam ', { delay: 8 })
+    await wait(200)
+    await track(1100)
+    await cast('follow-month', () => h.keyboard.type(`${word} 1pm`, { delay: 30 }), 600)
+    let frames = await tracked()
+    await wait(200)
+    let s = await state()
+    const went = frames.filter((f) => f.day === there && f.d)
+    const across = new Set(went.map((f) => `${Math.round(f.d.x)},${Math.round(f.d.y)}`))
+    if (stills) writeFileSync(`${stills}/follow-month-track.json`, JSON.stringify(frames))
+    const over = frames.filter((f) => !clearOf(f)).slice(0, 3).map((f) => `${f.t}ms draft ${[f.d.x, f.d.y, f.d.r, f.d.b].map(Math.round)} popover ${[f.p.x, f.p.y, f.p.r, f.p.b].map(Math.round)}`)
+    check(`follow, Month: "${word} 1pm" typed moves the draft from ${home} to ${there}, and the line reads that day at 13:00`, s.draft?.day === there && new RegExp(dayName(there)).test(s.pop?.said ?? '') && /13:00|1:00/.test(s.pop?.said ?? ''), `${s.draft?.day}; ${s.pop?.said}`)
+    check('follow, Month: it travels there over several frames, on the spring', across.size >= 4, `${across.size} places in ${went.length} frames`)
+    check('follow, Month: at every frame of the move its popover is beside it, never over it, and it ends tied to it', went.length > 0 && frames.every(clearOf) && apart(s) && inside(s), `${frames.filter((f) => !clearOf(f)).length} of ${frames.length} frames overlap${over.length ? `: ${over.join('; ')}` : ''}; side ${s.pop?.side}`)
+    await shot('follow-month-moved')
+    // A day in another month: the grid turns to it; no day said: back where it was put, the grid with it.
+    const far = c.now()
+    far.setDate(1)
+    far.setMonth(far.getMonth() + 2)
+    far.setDate(10)
+    const farKey = keyOf(far)
+    const month = far.toLocaleDateString('en-GB', { month: 'long' })
+    await h.keyboard.press('Meta+a')
+    await h.keyboard.type(`Lunch 10 ${far.toLocaleDateString('en-GB', { month: 'short' }).toLowerCase()} 1pm`, { delay: 8 })
+    await wait(900)
+    s = await state()
+    const title = await h.evaluate(() => document.querySelector('[data-cal-title]')?.textContent ?? '')
+    const turned = s.draft?.day === farKey && title.includes(month)
+    check(`follow, Month: a day in another month (${farKey}) turns the grid to ${month}, the draft on it, its popover beside it`, turned && apart(s) && inside(s), `${s.draft?.day}; title ${title}`)
+    await h.keyboard.press('Meta+a')
+    await h.keyboard.type('Lunch', { delay: 8 })
+    await wait(900)
+    s = await state()
+    const back = await h.evaluate(() => document.querySelector('[data-cal-title]')?.textContent ?? '')
+    check('follow, Month: words that say no day then bring the draft back where it was put, the grid with it', turned && s.draft?.day === home && !back.includes(month) && apart(s), `${s.draft?.day}; title ${back}`)
+    // Motion off: simply there.
+    await h.evaluate(() => document.documentElement.setAttribute('data-motion', 'off'))
+    await track(700)
+    await h.keyboard.type(` ${word}`, { delay: 8 })
+    frames = await tracked()
+    await h.evaluate(() => document.documentElement.removeAttribute('data-motion'))
+    const still = new Set(frames.filter((f) => f.day === there && f.d).map((f) => `${Math.round(f.d.x)},${Math.round(f.d.y)}`))
+    check('follow, Month: with Motion off it is simply there, in one place from its first frame', (await state()).draft?.day === there && still.size === 1, `${still.size} places`)
+    await h.keyboard.press('Escape')
+    await wait(400)
+    // A task: its line says the day its words read, and its draft is there.
+    await dbl(...corner(await cell(home)))
+    await h.click('[data-cal-add] [data-day-side-kind="task"]')
+    await wait(400)
+    await h.keyboard.type(`Call mum ${word}`, { delay: 8 })
+    await wait(700)
+    s = await state()
+    const long = `${dayName(there, 'long')} ${Number(there.slice(8))}`
+    const shown = s.draft?.kind === 'task' && s.draft.day === there && (s.pop?.said ?? '').includes(long)
+    check(`follow, Month: a task's "Call mum ${word}" moves its draft to ${there}, and its line says "${long}"`, shown, `${s.draft?.day}; ${s.pop?.said}`)
+    await h.keyboard.press('Enter')
+    await wait(800)
+    const mum = await tasksNamed('Call mum')
+    check('follow, Month: ↵ makes the task on the day its draft showed', shown && mum.length === 1 && mum[0].dueAt && keyOf(new Date(mum[0].dueAt)) === there, mum[0]?.dueAt)
+    await h.keyboard.press('Meta+z')
+    await wait(600)
+    // Week: a time alone moves it down its day; another week's day turns the week to it.
+    await toMode('w')
+    const today = dayKeyOf(0)
+    const col = await h.evaluate((key) => { const el = document.querySelector(`[data-cal-level] [data-cal-col="${key}"]`); const scroller = el?.closest('[data-cal-scroll]'); if (!el || !scroller) return null; scroller.scrollTop = (el.getBoundingClientRect().height / 24) * 9; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, top: r.top } }, today)
+    if (col) {
+      const hour = await h.evaluate(() => { const el = document.querySelector('[data-cal-level] [data-cal-col]'); const scroller = el.closest('[data-cal-scroll]'); return { top: el.getBoundingClientRect().top, hour: el.getBoundingClientRect().height / 24, view: scroller.getBoundingClientRect() } })
+      await dbl(col.x, hour.top + 10.25 * hour.hour)
+      await h.keyboard.type('Standup ', { delay: 8 })
+      await wait(200)
+      const was = await state()
+      await track(1000)
+      await cast('follow-week', () => h.keyboard.type('4pm', { delay: 30 }), 600)
+      frames = await tracked()
+      await wait(200)
+      s = await state()
+      const down = new Set(frames.filter((f) => f.d).map((f) => Math.round(f.d.y)))
+      check('follow, Week: "4pm" typed moves the block down its day to 16:00, over several frames, its popover beside it at every frame', s.draft?.day === today && was.draft && s.draft.y !== was.draft.y && down.size >= 4 && frames.every(clearOf) && apart(s), `${was.draft?.y} to ${s.draft?.y}; ${down.size} places; ${frames.filter((f) => !clearOf(f)).length} overlap`)
+      await h.keyboard.type(` ${word}`, { delay: 8 })
+      await wait(900)
+      s = await state()
+      const shown = await h.evaluate((key) => !!document.querySelector(`[data-cal-level] [data-cal-col="${key}"]`), there)
+      check(`follow, Week: "${word}" turns the week to show ${there}, the block there, its popover beside it`, shown && s.draft?.day === there && apart(s) && inside(s), `${s.draft?.day}; shown ${shown}`)
+      await shot('follow-week-moved')
+      await h.keyboard.press('Escape')
+      await wait(400)
+    } else check('follow, Week: today\'s column is shown', false)
+  }
+
+  // span: a press dragged across days in Month makes one event of several days (ask 18, 14 Nov). The bar is drawn as the
+  // pointer moves, into the next week's row and backwards too, a quiet tick per day; Esc puts everything back; letting go
+  // opens the popover at the bar's end (its start when there is no room) reading the days. The event is then drawn the
+  // same way in Month and across its days in Week's all-day lane; an end dragged changes its days and its middle carried
+  // moves it (the card saying where, the days lit), each with Undo and ⌘Z.
+  if (parts.includes('span')) {
+    await toMode('m')
+    const a = dayKeyOf(1)
+    const b = dayKeyOf(10)
+    const pieces = (sel) => h.evaluate((sel) => [...document.querySelectorAll(`[data-cal-level] ${sel}`)].map((el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom, h: r.height } }), sel)
+    const ticks = () => h.evaluate(() => (window.haligtreeHeard ?? []).filter((one) => one === 'click:tick').length)
+    const press = async (key) => { const [x, y] = corner(await cell(key)); await h.mouse.move(x, y); await h.mouse.down() }
+    const toDay = async (key, steps = 14) => { const [x, y] = corner(await cell(key)); await h.mouse.move(x, y, { steps }) }
+    // Day by day, as a hand drawing across them goes (about ten days a second: ticks closer than 70ms are one, lib/sound.ts
+    // `often`): every day between taken in once.
+    const walk = async (from, to) => {
+      const step = from <= to ? 1 : -1
+      for (let at = new Date(`${from}T12:00:00`); step > 0 ? keyOf(at) <= to : keyOf(at) >= to; at = new Date(at.getTime() + step * 864e5)) (await toDay(keyOf(at), 1), await wait(90))
+    }
+    // Drawn and let go of with Esc.
+    await h.evaluate(() => { if (window.haligtreeHeard) window.haligtreeHeard.length = 0 })
+    await press(a)
+    await walk(a, b)
+    await wait(150)
+    const drawn = await pieces('[data-cal-draft-bar]')
+    const heardTicks = await ticks()
+    check(`span: a press dragged from ${a} to ${b} draws one bar, carried into the next week's row`, drawn.length >= 2 && new Set(drawn.map((p) => Math.round(p.y))).size >= 2, `${drawn.length} pieces`)
+    check('span: a quiet tick as each day is taken in, nine days, nine ticks', heardTicks === 9, `${heardTicks} ticks`)
+    await h.keyboard.press('Escape')
+    await wait(150)
+    await h.mouse.up()
+    await wait(400)
+    let s = await state()
+    check('span: Esc mid-drag takes the bar away, and letting go then makes nothing', drawn.length >= 2 && (await pieces('[data-cal-draft-bar]')).length === 0 && !s.pop, `${(await pieces('[data-cal-draft-bar]')).length} pieces; popover ${!!s.pop}`)
+    // Drawn backwards and let go of: the popover at the bar's end, reading the days.
+    await press(b)
+    await cast('span-draw', () => walk(b, a), 300)
+    await h.mouse.up()
+    await wait(700)
+    s = await state()
+    const bar = await pieces('[data-cal-draft-bar]')
+    // The point's middle within 16px of the piece it is tied to, on whichever side of it the popover is.
+    const tie = await h.evaluate(() => { const end = document.querySelector('[data-cal-level] [data-cal-draft-end]'); const start = document.querySelector('[data-cal-level] [data-cal-draft-start]'); const arrow = document.querySelector('[data-cal-hold] [data-slot="popover-arrow"]'); if (!arrow) return null; const r = arrow.getBoundingClientRect(); const [cx, cy] = [r.left + r.width / 2, r.top + r.height / 2]; const on = (el) => { const b = el?.getBoundingClientRect(); return !!b && cx > b.left - 16 && cx < b.right + 16 && cy > b.top - 16 && cy < b.bottom + 16 }; return { end: on(end), start: on(start), side: arrow.closest('[data-cal-hold]')?.dataset.side } })
+    const words = `${said(a)} – ${said(b)}, all day`
+    check(`span: drawn backwards too, and let go of, the popover opens at the bar's end (or its start), reading "${words}"`, bar.length >= 2 && !!s.pop && !!tie && (tie.end || tie.start) && (s.pop.said ?? '').includes(words), `${bar.length} pieces; tied ${JSON.stringify(tie)}; ${s.pop?.said}`)
+    check('span: the popover is clear of every piece of the bar, inside the window', !!s.pop && bar.length >= 2 && bar.every((p) => s.pop.x >= p.r - 0.5 || s.pop.r <= p.x + 0.5 || s.pop.y >= p.b - 0.5 || s.pop.b <= p.y + 0.5) && inside(s), `popover ${JSON.stringify(s.pop && [s.pop.x, s.pop.y, s.pop.r, s.pop.b].map(Math.round))}; pieces ${JSON.stringify(bar.map((p) => [p.x, p.y, p.r, p.b].map(Math.round)))}`)
+    await shot('span-open')
+    await h.keyboard.type('Trip', { delay: 8 })
+    await h.keyboard.press('Enter')
+    await wait(900)
+    let trip = (await eventsNamed('Trip'))[0]
+    s = await state()
+    const lastDay = (one) => keyOf(new Date(new Date(one.end).getTime() - 60000))
+    check(`span: ↵ makes one event from ${a} to ${b}, all day, said with Undo`, !!trip && trip.allDay && keyOf(new Date(trip.start)) === a && lastDay(trip) === b && /Added for/.test(s.toast) && /Undo/.test(s.toast), trip ? `${trip.start} to ${trip.end}; ${s.toast.slice(0, 60)}` : 'none made')
+    if (trip) {
+      const key = trip.key
+      const own = await pieces(`[data-cal-event-chip="${key}"]`)
+      check('span: it is drawn the same way in Month: a bar across its weeks, as tall as the draft was', own.length >= 2 && own.every((p) => Math.abs(p.h - bar[0].h) <= 1), `${own.length} pieces, ${own.map((p) => p.h).join()} beside ${bar[0].h}`)
+      // Its end, dragged two days on, and back with ⌘Z.
+      const c2 = dayKeyOf(12)
+      const end = (await pieces(`[data-cal-event-chip="${key}"] [data-cal-bar-end="end"]`))[0]
+      const cursor = await h.evaluate((key) => { const el = document.querySelector(`[data-cal-level] [data-cal-event-chip="${key}"] [data-cal-bar-end="end"]`); return el ? getComputedStyle(el).cursor : null }, key)
+      if (end) {
+        await h.mouse.move(end.x + 3, (end.y + end.b) / 2)
+        await h.mouse.down()
+        await toDay(c2)
+        await wait(150)
+        const growing = await pieces(`[data-cal-event-chip="${key}"]`)
+        await h.mouse.up()
+        await wait(900)
+        trip = (await eventsNamed('Trip'))[0]
+        s = await state()
+        check(`span: its end dragged to ${c2} makes it end there (the bar drawn there as it goes, the pointer saying so), said with Undo`, cursor === 'ew-resize' && growing.length >= 2 && lastDay(trip) === c2 && keyOf(new Date(trip.start)) === a && /Lasts until/.test(s.toast) && /Undo/.test(s.toast), `${cursor}; ${trip.start} to ${trip.end}; ${s.toast.slice(0, 50)}`)
+        await h.keyboard.press('Meta+z')
+        await wait(800)
+        trip = (await eventsNamed('Trip'))[0]
+        check('span: ⌘Z puts its end back', lastDay(trip) === b, trip.end)
+      } else check('span: the bar has an end to take', false)
+      // Its start, dragged a day back.
+      const start = (await pieces(`[data-cal-event-chip="${key}"] [data-cal-bar-end="start"]`))[0]
+      if (start) {
+        await h.mouse.move(start.x + 3, (start.y + start.b) / 2)
+        await h.mouse.down()
+        await toDay(dayKeyOf(0))
+        await h.mouse.up()
+        await wait(900)
+        trip = (await eventsNamed('Trip'))[0]
+        s = await state()
+        check(`span: its start dragged back to ${dayKeyOf(0)} makes it start there, said with Undo`, keyOf(new Date(trip.start)) === dayKeyOf(0) && lastDay(trip) === b && /Starts/.test(s.toast), `${trip.start}; ${s.toast.slice(0, 50)}`)
+        await h.keyboard.press('Meta+z')
+        await wait(800)
+      } else check('span: the bar has a start to take', false)
+      // Its middle, carried: the card says where, the days light; Esc puts it back; then let go, moved, with ⌘Z.
+      const first = (await pieces(`[data-cal-event-chip="${key}"]`))[0]
+      const grab = { x: first.x + Math.min(60, (first.r - first.x) / 2), y: (first.y + first.b) / 2 }
+      const grabbed = await h.evaluate(({ x, y }) => document.elementsFromPoint(x, y).map((el) => el.closest('[data-month-plan] [data-day]')).find(Boolean)?.dataset.day, grab)
+      const goal = keyOf(new Date(new Date(`${grabbed}T12:00:00`).getTime() + 2 * 864e5))
+      const moved = keyOf(new Date(new Date(`${a}T12:00:00`).getTime() + 2 * 864e5))
+      // A day it would cover that the pointer is not over, read before and during the carry.
+      const after = keyOf(new Date(new Date(`${b}T12:00:00`).getTime() + 2 * 864e5))
+      const litKey = goal === after ? moved : after
+      await h.mouse.move(5, 5)
+      await wait(200)
+      const restBg = (await cell(litKey)).bg
+      await h.mouse.move(grab.x, grab.y)
+      await h.mouse.down()
+      await toDay(goal)
+      await wait(200)
+      const card = await h.evaluate(() => document.querySelector('[data-cal-bar-card]')?.textContent ?? null)
+      const lit = (await cell(litKey)).bg
+      await shot('span-carry')
+      await h.keyboard.press('Escape')
+      await wait(150)
+      await h.mouse.up()
+      await wait(500)
+      trip = (await eventsNamed('Trip'))[0]
+      check(`span: its middle carried two days on rides in the one card, saying "Move to ${said(moved)}", the days it would cover lit`, (card ?? '').includes(`Move to ${said(moved)}`) && lit !== restBg, `card ${card}; lit ${lit} beside ${restBg}`)
+      check('span: Esc mid-carry puts it back where it was', !!card && keyOf(new Date(trip.start)) === a && !(await h.evaluate(() => !!document.querySelector('[data-cal-bar-card]'))), trip.start)
+      await h.mouse.move(grab.x, grab.y)
+      await h.mouse.down()
+      await toDay(goal)
+      await h.mouse.up()
+      await wait(900)
+      trip = (await eventsNamed('Trip'))[0]
+      s = await state()
+      check(`span: let go, it moves to ${moved}, its days kept, said with Undo`, !!card && keyOf(new Date(trip.start)) === moved && /Moved to/.test(s.toast) && /Undo/.test(s.toast), `${trip.start}; ${s.toast.slice(0, 50)}`)
+      await h.keyboard.press('Meta+z')
+      await wait(800)
+      trip = (await eventsNamed('Trip'))[0]
+      check('span: ⌘Z puts it back', !!card && keyOf(new Date(trip.start)) === a, trip.start)
+      // Week: in the all-day lane across its days.
+      await toMode('w')
+      for (let n = 0; n < 2 && !(await h.evaluate((key) => !!document.querySelector(`[data-cal-level] [data-cal-allday-lane] [data-cal-event-chip="${key}"]`), key)); n++) { await h.keyboard.press('ArrowRight'); await wait(500) }
+      const lane = await h.evaluate((key) => { const el = document.querySelector(`[data-cal-level] [data-cal-allday-lane] [data-cal-event-chip="${key}"]`); const col = document.querySelector('[data-cal-level] [data-cal-allday]'); return el && col ? { w: el.getBoundingClientRect().width, day: col.getBoundingClientRect().width } : null }, key)
+      check('span: in Week it sits in the all-day lane across its days', !!card && !!lane && lane.w > lane.day * 1.5, JSON.stringify(lane))
+      await shot('span-week')
+      await toMode('m')
+    } else for (const name of ['drawn the same way in Month', 'its end dragged', '⌘Z puts its end back', 'its start dragged', 'its middle carried in the one card', 'Esc mid-carry', 'let go, it moves', '⌘Z puts it back', 'in Week across its days']) check(`span: ${name}`, false, 'no event was made from days drawn across')
   }
 
   if (parts.includes('frames') && dir) {
