@@ -13,6 +13,7 @@ import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
+import { STORIES } from '../src/renderer/src/lib/welcome-stories.ts'
 // A fresh install is never the sandbox (it has no first run): run as one whatever QA_ARGS says.
 if (/--sandbox/.test(process.env.QA_ARGS ?? '')) delete process.env.QA_ARGS
 // A fresh install, always: --sandbox seeds goals and marks the welcome as not the first, which these checks are not about.
@@ -33,6 +34,8 @@ const open = async (h) => {
 }
 const NEXT = 'footer button:has-text("Next"), footer button:has-text("Show me")'
 const chapter = (h) => h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
+/** The story this showing of the welcome tells (it names it on its root), as lib/welcome-stories.ts has it. */
+const toldStory = async (h) => { const id = await h.evaluate(() => document.querySelector('.mf-welcome')?.dataset.story ?? ''); return STORIES.find((one) => one.id === id) ?? null }
 const until = async (h, name, tries = 40) => {
   for (let i = 0; i < tries && !(await chapter(h)).includes(name); i++) {
     const skip = await h.$('footer button:has-text("Skip trying it")')
@@ -269,7 +272,9 @@ try {
   if (await until(h, 'Write')) {
     await h.waitForTimeout(1500)
     const meta = await h.textContent('[data-flow="note"]').catch(() => '')
-    check('the Write example never wears your tag (it is about old movies, not your subject)', /old movies/.test(meta ?? '') && !/#chemistry/.test(meta ?? ''), (meta ?? '').slice(0, 80))
+    // The page is the story the welcome told (one of five since b661818e9, lib/welcome-stories.ts), never your subject.
+    const told = await toldStory(h)
+    check('the Write example never wears your tag (it is the story\'s own page, not your subject)', !!told && (meta ?? '').includes(told.note) && !/#chemistry/.test(meta ?? ''), `${told?.id}: ${(meta ?? '').slice(0, 80)}`)
   }
   if (await until(h, 'Remember')) {
     // As it plays, until the postcard is up: no words stretched.
@@ -279,7 +284,8 @@ try {
     await h.waitForTimeout(200)
     await shot('remember-postcard')
     const caption = await h.evaluate(() => document.querySelector('.mf-welcome main')?.innerText ?? '')
-    check('the welcome says old things come back in Journal, like a postcard', /comes back in .?Journal.?/i.test(caption), caption.slice(0, 400))
+    // Said on Home since c00ec69c2 (Journal never shows it) and "shows up" since 78f418ca2 (welcome-day.tsx, back()).
+    check('the welcome says old things come back on Home, like a postcard', /shows up on .?Home.?, and as a hint, like a postcard/i.test(caption), caption.slice(caption.search(/The line you saved/), caption.search(/The line you saved/) + 120))
     const cards = await h.evaluate(() => document.querySelectorAll('.mf-welcome [data-float]').length)
     check('the postcard is shown once in the welcome', cards === 1, `${cards}`)
 
@@ -337,7 +343,8 @@ try {
     if (await until(d.h, 'Write')) {
       await d.h.waitForTimeout(1500)
       const meta = await d.h.textContent('[data-flow="note"]').catch(() => '')
-      check('nothing answered: the Write example is its own note, with no tag', /old movies/.test(meta ?? '') && !/#/.test(meta ?? ''))
+      const told = await toldStory(d.h)
+      check('nothing answered: the Write example is its own note, with no tag', !!told && (meta ?? '').includes(told.note) && !/#/.test(meta ?? ''), `${told?.id}: ${(meta ?? '').slice(0, 80)}`)
     }
   } finally {
     await d.close()
