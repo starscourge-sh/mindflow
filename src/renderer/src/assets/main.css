@@ -1820,8 +1820,11 @@ body {
    last row sat in the shadow). Every list with these fades keeps this much room at each edge when it scrolls a row in. */
 .mf-more { scroll-padding-block: 1.5rem 2.5rem; }
 .mf-fade-end { scroll-padding-bottom: 2rem; }
-/* All of it in view (lib/fade-fits.ts marks it): no fade at either edge, whatever the scroll last left behind. */
-:is(.mf-more, .mf-fade-end, .page-dock-side, .page-dock-scroll, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content, .mf-faded .haligtree-editor-content)[data-all-shown] { animation: none; }
+/* All of it in view (lib/fade-fits.ts marks it): no fade at either edge, whatever the scroll last left behind. The
+   fades' own lengths are held at nothing (an important value outranks what an animation gives), never the scroller's
+   whole animation: that also stopped any other it wore, so the sidebar's list, all in view in a new book, never rose
+   in after "Open my book" as its search row did. */
+:is(.mf-more, .mf-fade-end, .page-dock-side, .page-dock-scroll, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content, .mf-faded .haligtree-editor-content)[data-all-shown] { --mf-less: 0px !important; --mf-more: 0px !important; --mf-fade-end: 0px !important; }
 @keyframes mf-more { from { --mf-more: 2.5rem; } to { --mf-more: 0px; } }
 /* Not motion, so the Motion setting leaves it on. */
 [data-motion='off'] :is(.mf-more, .mf-faded .haligtree-editor-content, .page-dock-side, .page-dock-scroll, .mf-fade-end, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content) { animation-duration: auto !important; }
