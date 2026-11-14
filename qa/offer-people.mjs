@@ -18,7 +18,14 @@ const SHOT = process.env.SHOT
 const PAGE = 'b022896d-02b4-415f-a88f-8b5f653b4c2b'
 const OFFER = '[data-note-offer]'
 const offer = () => h.evaluate((s) => { const el = document.querySelector(s); return el ? { kind: el.getAttribute('data-note-offer'), text: el.textContent } : null }, OFFER)
-const at = (selector) => h.evaluate((s) => { const r = document.querySelector(s)?.getClientRects()[0]; return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null }, selector)
+// Where something in the offer is, the offer brought into view first: it sits under the note's last line, far down a long note.
+const at = async (selector) => {
+  await h.evaluate((s) => { const line = document.querySelector(s); const r = line?.getBoundingClientRect(); if (line && (r.top < 80 || r.bottom > innerHeight - 80)) line.scrollIntoView({ block: 'center', behavior: 'instant' }) }, OFFER)
+  await wait(250)
+  return h.evaluate((s) => { const r = document.querySelector(s)?.getClientRects()[0]; return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null }, selector)
+}
+// Who is in People: everyone with words of theirs kept, and every page kept by hand.
+const inPeople = async () => new Set((await v('sources')).filter((one) => one.field === 'attribution').map((one) => one.name.trim().toLowerCase()))
 const box = (selector) => h.evaluate((s) => [...document.querySelectorAll(s)].map((el) => { const r = el.getBoundingClientRect(); return `${Math.round(r.left)},${Math.round(r.top)},${Math.round(r.width)},${Math.round(r.height)}` }).join(' '), selector)
 const editorOf = 'document.querySelector(".tiptap.ProseMirror.haligtree-editor:not(.is-line)").editor'
 const personLinks = () => h.evaluate((find) => { const out = []; eval(find).state.doc.descendants((node) => void (node.type.name === 'noteLink' && String(node.attrs.id).startsWith('person:') && out.push(String(node.attrs.id).slice(7)))); return out }, editorOf)
@@ -81,9 +88,9 @@ try {
     check('resting on it lights the names in the note', names.filter((name) => lit.includes(name.toLowerCase())).length >= Math.min(2, names.length), JSON.stringify(lit))
     // A tick off: the count follows, and nothing moves.
     const still = `${OFFER} [data-offer-ticks] button[aria-pressed], ${OFFER} [data-offer-action], ${OFFER} [data-offer-away]`
-    const was = await box(still)
     const second = await at(`${OFFER} [data-offer-ticks] button[aria-pressed]:nth-of-type(2)`)
     await h.mouse.move(second.x, second.y, { steps: 4 }); await wait(120)
+    const was = await box(still)
     await h.mouse.down(); await h.mouse.up()
     await film('people-untick', 6)
     const after = await ticks()
@@ -111,15 +118,16 @@ try {
     await c.size(1300, 900); await wait(700)
 
     // "Add the N": all of them People, each name a link, one notice.
-    const known = await Promise.all(names.map((name) => v('source', 'attribution', name).then((page) => !!page)))
+    const before = await inPeople()
     const linksBefore = await personLinks()
     const add = await at(`${OFFER} [data-offer-action="people"]`)
     await h.mouse.move(add.x, add.y, { steps: 4 }); await wait(120)
     await h.mouse.down(); await h.mouse.up()
     await film('people-add', 6)
     await wait(1200)
-    const pages = await Promise.all(names.map((name) => v('source', 'attribution', name).then((page) => !!page)))
-    check(`“Add the ${names.length}” gives every one of them a page in People`, pages.every(Boolean), JSON.stringify(names.filter((_, i) => !pages[i])))
+    const now = await inPeople()
+    console.log(`NOTE  in People before: ${names.filter((name) => before.has(name.toLowerCase())).length} of ${names.length}; after: ${names.filter((name) => now.has(name.toLowerCase())).length}`)
+    check(`“Add the ${names.length}” puts every one of them in People`, names.every((name) => now.has(name.toLowerCase())), JSON.stringify(names.filter((name) => !now.has(name.toLowerCase()))))
     const linksAfter = await personLinks()
     const linked = names.filter((name) => linksAfter.includes(name) && !linksBefore.includes(name))
     console.log(`NOTE  linked in the note: ${linked.length} of ${names.length} (${names.filter((name) => !linked.includes(name)).join(', ') || 'all'} not)`)
@@ -128,11 +136,11 @@ try {
     check('one notice says who was added, with Undo', notices.length === 1 && /added to People/.test(notices[0]) && /Undo/.test(notices[0]), JSON.stringify(notices))
     if (SHOT) await c.both(`${SHOT}/people-added`)
     // Its one Undo takes it all back: the links, and the pages it made.
-    await h.locator('button', { hasText: /^Undo/ }).last().click(); await wait(1500)
+    await h.locator('button', { hasText: /^Undo/ }).last().click({ timeout: 8000 }); await wait(1500)
     const back = await personLinks()
-    const left = await Promise.all(names.map((name) => v('source', 'attribution', name).then((page) => !!page)))
+    const left = await inPeople()
     check('its one Undo takes every link back', back.length === linksBefore.length, `${linksBefore.length} -> ${linksAfter.length} -> ${back.length}`)
-    check('and the pages it made go again (a page there before stays)', left.every((one, i) => one === known[i]), JSON.stringify(names.filter((_, i) => left[i] !== known[i])))
+    check('and the pages it made go again (anyone in People before stays)', names.every((name) => left.has(name.toLowerCase()) === before.has(name.toLowerCase())), JSON.stringify(names.filter((name) => left.has(name.toLowerCase()) !== before.has(name.toLowerCase()))))
   }
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.slice(0, 3).join(' | '))
 } catch (error) {

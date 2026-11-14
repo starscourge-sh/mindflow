@@ -345,8 +345,9 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
    */
   const addNamed = async (list: (Person | Cast)[], cast = false): Promise<void> => {
     const type = cast ? 'character' : 'person'
-    const had = await Promise.all(list.map((one) => one.known || (!cast && sources.page('attribution', one.name).then(Boolean, () => false))))
-    const made = list.filter((_, at) => !had[at])
+    // Someone in People already (a page kept by hand, with no words of theirs yet) keeps their page, Undo or not.
+    const there = cast ? new Set<string>() : new Set((await sources.list().catch(() => [])).filter((one) => one.field === 'attribution').map((one) => one.name.trim().toLowerCase()))
+    const made = list.filter((one) => !one.known && !there.has(one.name.trim().toLowerCase()))
     await Promise.all(made.map((one) => (cast ? sources.character(one.name, (one as Cast).work) : sources.set('attribution', one.name))))
     // Each name, where it first stands plain, a link to their page: one step, so one ⌘Z. A character named only in the
     // note's title stays plain words, the title as written.
@@ -473,28 +474,17 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
   // The first few ticks, and "and N more" for the rest: one more is shown rather than hidden behind a press.
   const shown = whole || ticks.length <= FEW + 1 ? ticks : ticks.slice(0, FEW)
   return (
+    // An offer of several takes a second line for its ticks, the whole width under its words and its button, so the
+    // ticks wrap there and never run under the button in a narrow pane.
     <div data-note-offer={offer.kind} data-mac-needs={offer.kind === 'name' ? 'ai' : 'every'} contentEditable={false} className="mf-note-offer not-prose"
+      style={ticks.length ? { flexWrap: 'wrap', rowGap: '0.375rem' } : undefined}
       onPointerEnter={() => setNear((was) => ({ ...was, over: true }))} onPointerLeave={() => setNear((was) => ({ ...was, over: false }))}
       // Only keys bring the light with focus: a press leaves the focus on what was pressed, and the light would stay after the pointer left.
       onFocus={(event) => (event.target as Element).matches(':focus-visible') && setNear((was) => ({ ...was, keys: true }))}
       onBlur={(event) => !event.currentTarget.contains(event.relatedTarget as Node | null) && setNear((was) => ({ ...was, keys: false }))}>
       <span aria-hidden className="mf-note-offer-icon">{icon}</span>
       {/* A tag is one word however long ("#programming-humour"): it breaks only where nothing else can, never past the line. */}
-      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-        <b className="font-medium text-foreground">{lead}</b> {rest}
-        {ticks.length > 0 && (
-          <span data-offer-ticks className="mt-1.5 flex flex-wrap items-center gap-1">
-            {shown.map((one) => (
-              <Chip key={one.id} on={!off.has(one.id)} onClick={() => tick(one.id)}
-                mark={offer.kind === 'people' ? <UserRound className="size-3" /> : offer.kind === 'characters' ? <VenetianMask className="size-3" /> : <TagIcon tag={one.id.slice(4)} className="size-3" />}>{one.label}</Chip>
-            ))}
-            {shown.length < ticks.length && (
-              <button type="button" data-offer-more onClick={() => (chime('open'), setWhole(true))}
-                className="flex h-6 cursor-pointer items-center rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground">and {num(ticks.length - shown.length)} more</button>
-            )}
-          </span>
-        )}
-      </span>
+      <span className="min-w-0 flex-1 [overflow-wrap:anywhere]"><b className="font-medium text-foreground">{lead}</b> {rest}</span>
       {actions.map((one) => (
         <button key={one.data} type="button" data-offer-action={one.data} disabled={one.off} className="mf-note-offer-button" onClick={() => void one.run()}>
           {/* Its widest wordings stacked unseen under it, so its count changing never moves it or the ticks beside it. */}
@@ -502,6 +492,19 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
         </button>
       ))}
       <button type="button" aria-label="Not for this note" title="Not for this note" data-offer-away className="mf-note-offer-close" onClick={away}><X className="size-3.5" /></button>
+      {/* Starting where the words start (past the icon and its gap), clear of the line's foot. */}
+      {ticks.length > 0 && (
+        <div data-offer-ticks className="flex basis-full flex-wrap items-center gap-1 pb-1.5 pl-7">
+          {shown.map((one) => (
+            <Chip key={one.id} on={!off.has(one.id)} onClick={() => tick(one.id)}
+              mark={offer.kind === 'people' ? <UserRound className="size-3" /> : offer.kind === 'characters' ? <VenetianMask className="size-3" /> : <TagIcon tag={one.id.slice(4)} className="size-3" />}>{one.label}</Chip>
+          ))}
+          {shown.length < ticks.length && (
+            <button type="button" data-offer-more onClick={() => (chime('open'), setWhole(true))}
+              className="flex h-6 cursor-pointer items-center rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground">and {num(ticks.length - shown.length)} more</button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
