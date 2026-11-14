@@ -6,6 +6,8 @@
  * moves while it shows. (A line a gap beside another card was dropped: it was
  * drawn in empty space beside the card, a new one each few points as cards
  * stacked down the right edge passed, and read as guides following the card.)
+ * Every line it can settle on is drawn from the drag's first move to its end
+ * (guideLines), quiet; the one it is on is lit (lineUp's lines).
  * Within SNAP of a line it is drawn onto it; once there it stays until the
  * hand takes it LEAVE away, so it never stutters on and off the line. Nothing
  * here knows about windows, so it is tested on its own (test/snap-lines.test.ts).
@@ -51,17 +53,35 @@ function pulls(axis: 'x' | 'y', card: Box, others: Box[], area: Box): Pull[] {
     const hi = lo + size(one)
     list.push({ to: lo, line: lo }, { to: hi - own, line: hi })
   }
+  // Only places where the whole card is on the screen: one past its edge is no place to settle (it is drawn back on).
+  return list.filter((one) => one.to >= start && one.to + own <= end)
+}
+
+/**
+ * The places on one axis a card of this size can settle, the same whatever point of the screen it is at. Lines a few
+ * points apart (tilted stickies stacked down the right edge, a card's edge near the margin) would hand the guide from
+ * one to the next as the card goes by, a line that seems to follow the card. So where places to land fall within
+ * reach of one another only the first is kept: the screen's own lines, then the cards in order.
+ */
+function places(axis: 'x' | 'y', card: Box, others: Box[], area: Box, reach: Reach): Pull[] {
+  const list: Pull[] = []
+  for (const one of pulls(axis, card, others, area))
+    if (!list.some((kept) => kept.to !== one.to && Math.abs(kept.to - one.to) <= reach.snap + reach.leave)) list.push(one)
   return list
+}
+
+/**
+ * Every line a card of this size can settle on here: what a drag draws, quiet, from its first move to its end. It
+ * hangs on nothing but the card's size, the other cards and the screen, so it holds still for the whole drag; the
+ * card is drawn onto these lines and no others (lineUp).
+ */
+export function guideLines(card: Box, others: Box[], area: Box, reach: Reach = { snap: SNAP, leave: LEAVE }): Line[] {
+  return (['x', 'y'] as const).flatMap((axis) => [...new Set(places(axis, card, others, area, reach).map((one) => one.line))].map((at) => ({ axis, at })))
 }
 
 function axisLine(axis: 'x' | 'y', card: Box, others: Box[], area: Box, was: number | undefined, reach: Reach): { at: number; held?: number; lines: Line[] } {
   const now = axis === 'x' ? card.x : card.y
-  // Lines a few points apart (tilted stickies stacked down the right edge, a card's edge near the margin) would hand
-  // the guide from one to the next as the card goes by, a line that seems to follow the card. So where places to land
-  // fall within reach of one another only the first is kept: the screen's own lines, then the cards in order.
-  const list: Pull[] = []
-  for (const one of pulls(axis, card, others, area))
-    if (!list.some((kept) => kept.to !== one.to && Math.abs(kept.to - one.to) <= reach.snap + reach.leave)) list.push(one)
+  const list = places(axis, card, others, area, reach)
   // Still near the line it was held to: it stays there.
   let to: number | undefined = was !== undefined && Math.abs(now - was) <= reach.leave && list.some((one) => one.to === was) ? was : undefined
   if (to === undefined) {
@@ -73,7 +93,7 @@ function axisLine(axis: 'x' | 'y', card: Box, others: Box[], area: Box, was: num
   return { at: to, held: to, lines }
 }
 
-/** Where `card` goes when the hand has it there, and the guides to draw. `was` is the last step's `held`. */
+/** Where `card` goes when the hand has it there, and the lines it is on (lit among guideLines). `was` is the last step's `held`. */
 export function lineUp(card: Box, others: Box[], area: Box, was: Held = {}, reach: Reach = { snap: SNAP, leave: LEAVE }): Lined {
   const x = axisLine('x', card, others, area, was.x, reach)
   const y = axisLine('y', card, others, area, was.y, reach)

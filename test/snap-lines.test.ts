@@ -1,7 +1,7 @@
 // Run with: node --test test/snap-lines.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cameOnto, lineUp, CARRIED, EDGE, LEAVE, SNAP } from '../src/main/snap-lines.ts'
+import { cameOnto, guideLines, lineUp, CARRIED, EDGE, LEAVE, SNAP } from '../src/main/snap-lines.ts'
 
 const area = { x: 0, y: 25, width: 1440, height: 875 }
 const card = (x: number, y: number) => ({ x, y, width: 260, height: 180 })
@@ -88,4 +88,44 @@ test('one tick coming onto a line, none while held there, one for a new line', (
   assert.equal(cameOnto({ x: 10 }, { x: 10 }), false)
   assert.equal(cameOnto({ x: 10 }, {}), false)
   assert.equal(cameOnto({ x: 10 }, { x: 10, y: 5 }), true)
+})
+
+test('every line a card can settle on, drawn from the first move: the middles and the margins, on both axes', () => {
+  const lines = guideLines(card(400, 300), [], area)
+  assert.deepEqual(lines, [
+    { axis: 'x', at: 720 }, { axis: 'x', at: EDGE }, { axis: 'x', at: 1440 - EDGE },
+    { axis: 'y', at: Math.round(25 + 875 / 2) }, { axis: 'y', at: 25 + EDGE }, { axis: 'y', at: 25 + 875 - EDGE }
+  ])
+})
+
+test('another card adds its edges; a place that would put the card off the screen draws nothing', () => {
+  const other = { x: 300, y: 600, width: 200, height: 120 }
+  const lines = guideLines(card(400, 300), [other], area)
+  for (const at of [300, 500]) assert.ok(lines.some((l) => l.axis === 'x' && l.at === at), `x ${at}`)
+  // Its top lines up (600); its bottom would need the card's top at 540, and the card is 180 tall: 720, on the screen.
+  for (const at of [600, 720]) assert.ok(lines.some((l) => l.axis === 'y' && l.at === at), `y ${at}`)
+  // A card hard by the screen's left: lining up with its right edge would put this card past the screen's left.
+  const edge = guideLines(card(400, 300), [{ x: 0, y: 600, width: 100, height: 120 }], area)
+  assert.ok(!edge.some((l) => l.axis === 'x' && l.at === 100), JSON.stringify(edge))
+})
+
+test('carried across the screen past other cards, the lines drawn never change, and the one lit is always one of them', () => {
+  const others = [{ x: 1164, y: 40, width: 260, height: 300 }, { x: 1170, y: 360, width: 248, height: 320 }, { x: 300, y: 600, width: 200, height: 120 }]
+  for (const reach of [undefined, CARRIED]) {
+    const first = JSON.stringify(guideLines(card(0, 0), others, area, reach))
+    let held = {}
+    for (let x = 0; x <= 1180; x += 3) {
+      const at = card(x, 200 + (x % 400))
+      assert.equal(JSON.stringify(guideLines(at, others, area, reach)), first, `the lines changed at ${x}`)
+      const lined = lineUp(at, others, area, held, reach)
+      held = lined.held
+      for (const lit of lined.lines) assert.ok(first.includes(JSON.stringify(lit)), `lit ${JSON.stringify(lit)} is not drawn`)
+    }
+  }
+})
+
+test('two places a few points apart are drawn once: the card is never taken from one to the next', () => {
+  // Another card's left edge 3 points in from the margin: one place, the margin's.
+  const lines = guideLines(card(400, 300), [{ x: EDGE + 3, y: 600, width: 200, height: 120 }], area)
+  assert.ok(!lines.some((l) => l.axis === 'x' && l.at === EDGE + 3), JSON.stringify(lines))
 })

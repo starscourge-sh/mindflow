@@ -86,15 +86,18 @@ try {
   const count = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((one) => !one.isDestroyed() && one.webContents.getURL().includes('view=sticky') && one.webContents.getURL().includes('type=today')).length)
   check('each sticky has exactly one window, a stray copy closed', count === 1, `${count} windows for Today`)
 
-  // Dragged by hand toward the right edge: one tap as it comes into line, none while it stays, one more after leaving and coming back.
+  // Dragged by hand toward the right edge: one tap as it comes into line with the margin 16 in from it, none while it
+  // stays, one more after leaving and coming back. Every tap comes with the line it came onto lit on that same step, and
+  // none without one: on its way the card's left edge also passes the goal card's left edge (the goal stands above it at
+  // the right), a line of its own with its own tap (14 Nov: that tap, read as an extra one, was this line's).
   const now = await today()
   const taps0 = await electron.evaluate(() => globalThis.haligtreeTaps())
-  const tapsAfter = await electron.evaluate(async ({ BrowserWindow }, [id, work]) => {
+  const steps = await electron.evaluate(async ({ BrowserWindow }, [id, work]) => {
     const w = BrowserWindow.fromId(id)
     const b = w.getBounds()
     const lineX = work.x + work.width - 8 - (b.width - 20)
     const path = [lineX - 200, lineX - 120, lineX - 40, lineX - 6, lineX - 3, lineX, lineX - 80, lineX - 160, lineX - 4]
-    const counts = []
+    const out = []
     globalThis.qaButton = true
     w.setPosition(path[0], work.y + 640)
     w.emit('will-move', { preventDefault() {} }, w.getBounds())
@@ -103,13 +106,19 @@ try {
       globalThis.qaCursor = { x: x + 60, y: work.y + 670 }
       w.emit('moved')
       await new Promise((r) => setTimeout(r, 90))
-      counts.push(globalThis.haligtreeTaps())
+      const guides = globalThis.haligtreeGuides
+      out.push({ taps: globalThis.haligtreeTaps(), lit: JSON.parse(JSON.stringify(guides.lit ?? guides.lines)) })
     }
     globalThis.qaButton = false
-    return counts
+    return out
   }, [now.id, now.work])
-  const added = tapsAfter.map((n) => n - taps0)
-  check('dragged into line with the edge: one tap, none while it stays in line, one more coming back', added[2] === 0 && added[3] === 1 && added[5] === 1 && added[7] === 1 && added[8] === 2, JSON.stringify(added))
+  const margin = now.work.x + now.work.width - 16
+  const onMargin = steps.map((s) => s.lit.some((l) => l.axis === 'x' && l.at === margin))
+  const added = steps.map((s, n) => s.taps - (n ? steps[n - 1].taps : taps0))
+  const newlyLit = steps.map((s, n) => s.lit.filter((l) => !(n ? steps[n - 1].lit : []).some((k) => k.axis === l.axis && k.at === l.at)))
+  const said = JSON.stringify(steps.map((s, n) => `${added[n]} ${s.lit.map((l) => l.axis + l.at).join('+') || '-'}`))
+  check('dragged into line with the edge: one tap coming onto it, none while it stays in line, one more coming back', onMargin[3] && added[3] === 1 && onMargin[4] && added[4] === 0 && !onMargin[5] && !onMargin[7] && onMargin[8] && added[8] === 1, said)
+  check('every tap on the way comes with the line it came onto, lit on that same step, and none without one', steps.every((_, n) => added[n] === (newlyLit[n].length ? 1 : 0)), said)
   check('no errors on the page', !c.errors.length, c.errors.join(' | '))
 } finally {
   await c.close()
