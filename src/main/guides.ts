@@ -97,7 +97,8 @@ function sheetFor(display: Display): BrowserWindow {
     waiting.delete(win)
     if (call) void win.webContents.executeJavaScript(call).catch(() => undefined)
   })
-  void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(PAGE)}`)
+  // Its address names its view, as every Haligtree window's does (index.ts, load): one with none is quick capture's.
+  void win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(PAGE)}#view=guides`)
   win.on('closed', () => sheets.delete(display.id))
   sheets.set(display.id, win)
   return win
