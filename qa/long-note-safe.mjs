@@ -452,8 +452,11 @@ try {
     await wait(3000)
     // Left again, the note may only be mended (a picture copied in, a picture line split), never changed as read.
     const later = stored().body
-    const mended = later !== kept.body && JSON.stringify(readOf(later)) === JSON.stringify(readOf(kept.body))
-    check('opened again and left, nothing more was written but mending', later === kept.body || mended, later === kept.body ? 'byte for byte what was stored at the close' : mended ? `mended only: the same words and pictures (${readOf(later).blocks} blocks, ${readOf(kept.body).blocks} at the close)` : parting(kept.body, later))
+    const [was, now] = [readOf(kept.body), readOf(later)]
+    const asRead = (one) => JSON.stringify({ words: one.words, pictures: one.pictures })
+    const mended = later !== kept.body && asRead(was) === asRead(now)
+    const first = (list, other) => list.findIndex((one, k) => one !== other[k])
+    check('opened again and left, nothing more was written but mending', later === kept.body || mended, later === kept.body ? 'byte for byte what was stored at the close' : mended ? `mended only: the same words and pictures (${now.blocks} blocks, ${was.blocks} at the close)` : first(was.words, now.words) >= 0 || was.words.length !== now.words.length ? `words: ${parting(was.words.join('\n'), now.words.join('\n'))}` : `pictures: ${was.pictures.length} then ${now.pictures.length}; the ${first(was.pictures, now.pictures) + 1}th was ${was.pictures[first(was.pictures, now.pictures)]}, now ${now.pictures[first(was.pictures, now.pictures)]}`)
     check(`no page errors (${part})`, !errorsOf(c).length, errorsOf(c).slice(0, 3).join(' | '))
   }
 } finally {
