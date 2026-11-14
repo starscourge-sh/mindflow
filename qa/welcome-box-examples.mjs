@@ -1,5 +1,5 @@
 // The welcome's Catch, "Your turn": quick capture opened over it types its examples into its empty line. Read frame by
-// frame (about every 90ms for 27s): the kind chip follows the typed example (a link says Link, one word says Word), no block
+// frame (about every 90ms for 27s): the kind chip follows the typed example (a link says Link, one word says Term), no block
 // handle shows on the typed line, and the box never covers the step's title or the words under it.
 // Run at 1400x900 and 1100x700; screenshots of both windows go to QA_SHOTS (default: the system temp folder).
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-e/main/index.js HALIGTREE_QA_AWAY=1 HALIGTREE_QA_VIRTUAL=1 node qa/welcome-box-examples.mjs
@@ -69,7 +69,8 @@ try {
     const note = typed.filter((f) => f.ph.startsWith('Frodo never wanted the ring.'))
     check(`${width}: examples type in`, typed.length > 20, `${typed.length} frames`)
     check(`${width}: a typed link shows Link`, link.length && link.every((f) => /Link/.test(f.chip)), [...new Set(link.map((f) => f.chip))].join(','))
-    check(`${width}: a typed word shows Word`, word.length && word.every((f) => /Word/.test(f.chip)), [...new Set(word.map((f) => f.chip))].join(','))
+    // The kind once called Word is a Term since 265fcfffa ("Byzantine Empire is not one word"; capture-kind-picker.tsx).
+    check(`${width}: a typed word shows Term`, word.length && word.every((f) => /Term/.test(f.chip)), [...new Set(word.map((f) => f.chip))].join(','))
     check(`${width}: a typed note shows Note`, note.length && note.every((f) => /Note/.test(f.chip)), [...new Set(note.map((f) => f.chip))].join(','))
     check(`${width}: no block handle on a typed example`, typed.every((f) => f.handles === 0), String(Math.max(...typed.map((f) => f.handles))))
     const z = placed.zoom, o = placed.home
