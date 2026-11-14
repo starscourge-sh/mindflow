@@ -414,15 +414,22 @@ try {
 
   // ---- Each look's inks, read from a drag in it: the dashes' two inks stand out on a white desktop, on a black one, and
   // on the worst there is (the grey where the two stand out least: the square root of their contrast with each other).
+  let before = null
   for (const name of ['light', 'dark']) {
     await c.look(name)
     await wait(500)
     s = await read()
     await boxDrag({ x: s.box.x + 3, y: s.box.y })
     await boxPointer({ x: s.box.x + 6 + 50, y: s.box.y - 5 })
-    await wait(150)
-    const inks = (await sheetLook())?.inks
+    // The page's own inks reach the sheet with the card held still, right after the theme changed too.
+    let inks = null
+    for (const end = Date.now() + 3000; Date.now() < end; await wait(100)) {
+      inks = (await sheetLook())?.inks
+      if (inks && (!before || String(inks.ink) !== String(before.ink))) break
+    }
     if (!inks) { check(`${name} look: the guides' inks`, false); continue }
+    if (before) check(`${name} look: its own inks reach the lines with the card held still, not the light look's`,String(inks.ink) !== String(before.ink) && String(inks.halo) !== String(before.halo), JSON.stringify({ before, now: inks }))
+    before = inks
     const white = [255, 255, 255], black = [0, 0, 0]
     const onWhite = Math.max(contrast(inks.ink, white), contrast(inks.halo, white))
     const onBlack = Math.max(contrast(inks.ink, black), contrast(inks.halo, black))

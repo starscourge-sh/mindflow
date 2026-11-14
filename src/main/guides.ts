@@ -19,6 +19,8 @@ const waiting = new WeakMap<BrowserWindow, string>()
 /** What is drawn now, for a probe to read (qa/snap-guides.mjs): every line, and the lit ones among them. */
 const drawn: { display: number | null; lines: Line[]; lit: Line[]; inks: Inks | null; shown: boolean } = { display: null, lines: [], lit: [], inks: null, shown: false }
 ;(globalThis as { haligtreeGuides?: typeof drawn }).haligtreeGuides = drawn
+/** The drag that drew what is up, over which card and how, so its inks can be put right without a move (reinkGuides). */
+let drawnBy: { by: object; on: Electron.Rectangle; still: boolean } | null = null
 
 /** The inks a drag's guides are drawn in, taken from the dragged window's theme (guideInks). */
 export type Inks = { lit: string; ink: string; halo: string }
@@ -106,16 +108,17 @@ const sameBounds = (a: Electron.Rectangle, b: Electron.Rectangle): boolean => a.
 /**
  * Every line a drag can settle on (screen points), drawn quiet over the screen `on` is in, with `lit` (the lines the
  * card is on) solid; at once, with no fade, when `still` (Reduce motion, Motion off). The other screens' guides are
- * put away. No lines: the guides go.
+ * put away. No lines: the guides go. `by`: the drag drawing them (reinkGuides).
  */
-export function showGuides(on: Electron.Rectangle, lines: Line[], lit: Line[], inks: Inks, still: boolean): void {
+export function showGuides(on: Electron.Rectangle, lines: Line[], lit: Line[], inks: Inks, still: boolean, by: object | null = null): void {
   if (!lines.length) return hideGuides()
+  drawnBy = by ? { by, on, still } : null
   const display = screen.getDisplayMatching(on)
   for (const [id, other] of sheets) if (id !== display.id && !other.isDestroyed() && other.isVisible()) other.hide()
   const win = sheetFor(display)
   const { x, y } = display.bounds
   const local = (list: Line[]): Line[] => list.map((line) => ({ axis: line.axis, at: line.at - (line.axis === 'x' ? x : y) }))
-  // The inks too: a page that says its theme's after the first step has them drawn on the next.
+  // The inks too: a page that says its theme's after the first step has them drawn at once (reinkGuides).
   const same = drawn.shown && drawn.display === display.id && JSON.stringify([drawn.lines, drawn.lit, drawn.inks]) === JSON.stringify([lines, lit, inks])
   drawn.display = display.id
   drawn.lines = lines
@@ -138,8 +141,17 @@ export function readyGuides(): void {
   for (const display of screen.getAllDisplays()) sheetFor(display)
 }
 
+/**
+ * The dragged window's page has said its inks after `by` drew in older ones (its theme changed since its last drag):
+ * the same lines drawn again in them, at once, the card still or not. Nothing once that drag's guides are gone.
+ */
+export function reinkGuides(by: object, inks: Inks): void {
+  if (drawn.shown && drawnBy?.by === by) showGuides(drawnBy.on, drawn.lines, drawn.lit, inks, drawnBy.still, by)
+}
+
 /** The drag is over: every guide goes at once. */
 export function hideGuides(): void {
+  drawnBy = null
   if (drawn.shown) for (const win of sheets.values()) if (!win.isDestroyed() && win.isVisible()) {
     waiting.delete(win)
     if (loaded.has(win)) void win.webContents.executeJavaScript('draw([], [], {}, true)').catch(() => undefined)

@@ -103,7 +103,7 @@ import { registerCite } from './cite'
 import { registerFeed } from './feed'
 import { growFrom } from './grow'
 import { grab, whenLetGo } from './hand'
-import { guideInks, hideGuides, PLAIN_INKS, readyGuides, showGuides, type Inks } from './guides'
+import { guideInks, hideGuides, PLAIN_INKS, readyGuides, reinkGuides, showGuides, type Inks } from './guides'
 import { CARRIED, LEAVE, SNAP, cameOnto, guideLines, lineUp, type Held, type Line, type Lined, type Reach } from './snap-lines'
 import { throwSpot } from './throw-spot'
 import { CORNERS, REST_MS, beside, clearPlace, cornerPlace, overlaps, topPlaces, type Corner } from './step-aside'
@@ -1515,10 +1515,18 @@ type Box = Electron.Rectangle
 function dragGuides(win: BrowserWindow, cards: () => Box[], reach: Reach = { snap: SNAP, leave: LEAVE }): { from: (card: Box) => void; to: (card: Box) => Lined; rest: (card: Box, area: Box) => Lined } {
   let fixed: { display: number; area: Box; cards: Box[]; lines: Line[] } | null = null
   let held: Held = {}
+  // This drag, as the guides know it: an answer that comes after the drag is over draws nothing.
+  const me = {}
   // A screen attached since: its sheet made now.
   readyGuides()
-  // The page's own inks asked for now; until it answers, those it said before (or the last any page said).
-  void guideInks(win).then((inks) => void (inks && (inksOf.set(win, inks), (lastInks = inks))))
+  // The page's own inks asked for now; until it answers, those it said before (or the last any page said). An answer
+  // that differs (the theme changed since) is drawn at once, whether or not the card moves again.
+  void guideInks(win).then((inks) => {
+    if (!inks) return
+    inksOf.set(win, inks)
+    lastInks = inks
+    reinkGuides(me, inks)
+  })
   const on = (card: Box): NonNullable<typeof fixed> => {
     const display = screen.getDisplayMatching(card)
     if (fixed?.display !== display.id) {
@@ -1540,7 +1548,7 @@ function dragGuides(win: BrowserWindow, cards: () => Box[], reach: Reach = { sna
       const lined = lineUp(card, here.cards, here.area, held, reach)
       if (cameOnto(held, lined.held)) tap('level')
       held = lined.held
-      showGuides(card, here.lines, lined.lines, inksOf.get(win) ?? lastInks, stillness())
+      showGuides(card, here.lines, lined.lines, inksOf.get(win) ?? lastInks, stillness(), me)
       return lined
     },
     // Let go (moved into view first): where it settles, on the line it was held to.
