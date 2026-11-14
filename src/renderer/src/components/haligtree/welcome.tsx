@@ -205,6 +205,9 @@ function useNameEgg(root: React.RefObject<HTMLElement | null>, shown: boolean): 
   }, [root, shown])
 }
 
+/** A page made again for the welcome (REMADE) has opened it: any later showing in it asks main as any other does. */
+let remadeOpened = false
+
 /** `handOver`: the window's tabs and panes as they are now, each page's scroll in them, for a window made in its place (home.tsx). */
 export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.Element | null {
   const [at, setAt] = useState(-1)
@@ -343,8 +346,12 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
 
   const open = (again: boolean): void => {
     // Out of the desktop when this window was made for it and nothing says otherwise (main: arrivesClear): the page
-    // paints nothing and the mist comes in over the desktop. Otherwise inside the window, as it always has.
-    const how = still() ? 'plain' : window.api.arrive(again)
+    // paints nothing and the mist comes in over the desktop. Otherwise inside the window, as it always has. A page made
+    // again for it (REMADE) knows already, its first time: main said so a moment ago, and asked again it answered only
+    // once it had seen to this page's other first asks (90 ms and more, the welcome waiting on it).
+    const first = REMADE && !remadeOpened
+    remadeOpened = true
+    const how = still() ? 'plain' : first ? 'clear' : window.api.arrive(again)
     // Played again from a window not made see-through: one is made in its place for the showing (main: remakeHome),
     // and plays it. This one keeps what is being typed (a field left keeps its words, as on a click away), saves its
     // words and its notes' places the app's own way before a window goes (the editors and lib/note-place.ts hear
