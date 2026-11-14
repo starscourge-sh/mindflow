@@ -445,6 +445,7 @@ The one look for any hover that has content: a 320px Parchment card (14px corner
 - **Don't** play a sound on hover that sounds like a press, or two sounds for one action.
 - **Don't** leave a clickable thing with the arrow cursor.
 - **Don't** set a fixed hex in a component, put key information in small grey text, or use any type size outside the six roles.
+- **Don't** fade words with an alpha on the ink or on Faded Ink (`text-foreground/70`, `text-muted-foreground/60`, a placeholder at /70): on Paper they fall to 2.3:1 to 4.4:1. Quiet words, hints and placeholders wear Faded Ink (`text-muted-foreground`), a step louder its strong step (`text-(--mf-muted-strong)`), so they reach 4.5:1 on every ground in every look (qa/faded-words.mjs). An alpha is for icons beside words, rules and a lone dot between words.
 - **Don't** let a menu, popover or tooltip touch a window or container edge, or a label wrap or truncate on a button.
 - **Don't** use the handwriting face for a UI label, or set `font-variation-settings` on a label.
 - **Don't** show tags or groups at 100+ as a wrap of chips.
