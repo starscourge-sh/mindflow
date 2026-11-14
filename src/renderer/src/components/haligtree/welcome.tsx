@@ -1280,7 +1280,9 @@ function catchBeats(): Beat<CatchState>[] {
     const run = typed<CatchState>(whole, t + 200, (sofar) => ({ box: { ...EMPTY_BOX, item, typing: true, ...at(sofar) } }), random, 0.85, cap)
     beats.push({ at: t, to: { box: { ...EMPTY_BOX, item, typing: true } } }, ...run.beats)
     const then = { ...EMPTY_BOX, item, ...at(whole), ...sorted }
-    const read = run.end + 450
+    // The first is looked at a breath longer: the keys' line (KEYS_SAID, fifteen words) goes with it, and was gone a few
+    // tenths of a second before a reader had read it to its end (qa/welcome-read.mjs).
+    const read = run.end + (item === CAUGHT[0] ? 850 : 450)
     let sent = read + 150
     if (sorted) {
       beats.push({ at: read, to: { box: then, said: [...CAUGHT.slice(0, CAUGHT.indexOf(item) + 1)] }, cue: sortCue })
