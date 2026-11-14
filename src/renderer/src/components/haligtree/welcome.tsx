@@ -19,7 +19,7 @@ import { shift, spring, still, still as calm } from '@/lib/motion'
 import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
-import { NO_SETUP, REMADE, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
+import { NO_SETUP, REMADE, onboarding, welcomeBegun, type Onboarding, type Setup } from '@/lib/onboarding'
 import { ImportMap, sourceFrom } from './welcome-import'
 import { FIELD, answered, applySetup, Payoff, YouPage } from './welcome-you'
 import { enterSandbox, SANDBOX, sandboxState, type Carry } from '@/lib/sandbox'
@@ -279,6 +279,8 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
   /** The window is a window again: the page paints itself, and the window has its shadow and buttons back (main: landClear). */
   const land = (): void => {
     setDesk('off')
+    // Whatever way the welcome came (or did not), the app's own pages under it are made now (lib/onboarding.ts).
+    welcomeBegun()
     if (!document.documentElement.hasAttribute('data-see-through')) return
     document.documentElement.removeAttribute('data-see-through')
     window.api.landed()
@@ -349,11 +351,17 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     // 'haligtree:flush'), hands over its tabs and panes, and answers at once with the app's one loader (Readying) until
     // the new window is up and this one goes, in the same moment.
     if (how === 'again') {
-      if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-      // The loader first, drawn before anything else is done: a long note's words take a moment to hand over, and main
-      // making the new window holds this window's next frame. The rest once it is on screen (after the next paint).
+      // The loader first, drawn before anything else is done, the keys left where they are until it is on screen:
+      // moving them restyles the page under it (a long note's every line, 60 ms and more), which then came before the
+      // loader's first frame. A long note's words take a moment to hand over too, and main making the new window holds
+      // this window's next frame.
       flushSync(() => setReadying(true))
+      // On screen (after the next paint): the keys go to the loader, so a field being typed in is left and keeps its
+      // words, as on a click away; then the saves, the hand-over, and the new window.
       requestAnimationFrame(() => setTimeout(() => {
+        const cover = document.querySelector<HTMLElement>('[data-welcome-readying]')
+        if (cover) cover.focus({ preventScroll: true })
+        else if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
         window.dispatchEvent(new Event('haligtree:flush'))
         window.api.remake(handOver?.() ?? null)
       }))
@@ -412,7 +420,10 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     // open after all, in a window that started see-through for one (main.tsx): the page paints itself. Once a page: a
     // first mount undone at once (React's StrictMode, in a dev build) leaves it to the second, so the chord plays once.
     let gone = false
-    void onboarding.state().then((now) => gone || (now.firstRun ? open(false) : REMADE ? open(true) : land()))
+    // Made again for it, the page is there for the welcome: opened at once, never after an answer from main, and ahead
+    // of the app's own pages under it (home.tsx makes them once its mist has begun).
+    if (REMADE) queueMicrotask(() => gone || open(true))
+    else void onboarding.state().then((now) => gone || (now.firstRun ? open(false) : land()))
     const again = (): void => open(true)
     window.addEventListener('haligtree:welcome', again)
     window.addEventListener('haligtree:tour', again)
@@ -665,6 +676,16 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
   })
 
   useEffect(() => void (at >= 0 && dialog.current?.focus({ preventScroll: true })), [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Made again for it (REMADE): the window is shown, and the old one with its loader goes, once the welcome is up here
+  // (out of the desktop, as its mist's first frame comes), not at the app's first drawing: shown then, it stood over
+  // the desktop showing nothing for a second and more while the app's pages were made, before the mist's own beat of
+  // nothing had even begun (main: remakeHome waits for this, windows/home.tsx Drawn).
+  useLayoutEffect(() => void (REMADE && at >= 0 && desk === 'off' && window.api.homeDrawn()), [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
+  /** Out of the desktop, its mist's first frame: its time starts, and the app's pages under it are made (home.tsx). */
+  const begin = (): void => {
+    setDeskLit(true)
+    welcomeBegun()
+  }
 
   if (readying) return <Readying />
   if (at < 0) return null
@@ -709,7 +730,7 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
       {/* The paper's arrival is a mist; the gradient's is its own bloom (GrainBackdrop). */}
       {mist && WELCOME_BACKGROUND === 'paper' && desk === 'off' && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
       {/* Out of the desktop: the same mist over the desktop's own picture, drawing in to the window on the title's beat, or at once on Esc or a click. */}
-      {desk !== 'off' && <WelcomeMist key={`desk-${arrival}`} desk drawIn={desk === 'in'} hurry={rushed} plate={plate} onGone={land} onStart={() => setDeskLit(true)} />}
+      {desk !== 'off' && <WelcomeMist key={`desk-${arrival}`} desk drawIn={desk === 'in'} hurry={rushed} plate={plate} onGone={land} onStart={begin} onDrawable={() => REMADE && window.api.homeDrawn()} />}
       {/* The arrival's spark and its burst (GrainBackdrop draws them on the page, which is not yet there): in the mist, where the title will stand, so the notes that go with them still have their light. */}
       {desk === 'over' && deskLit && <div className="pointer-events-none absolute inset-0 z-[35]"><IntroSpark key={`desk-spark-${arrival}`} onDone={bloom} inMist /></div>}
       {/* Before the first words: the book's title page. */}
@@ -2099,14 +2120,12 @@ const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow)
  */
 /**
  * The welcome played again, being made ready in a window made in this one's place (main: remakeHome): the app's one
- * loader at once, over the whole window, the room the welcome takes. Keys wait with it; this window goes the moment the
- * new one shows, so the desktop is never left bare between them.
+ * loader at once, over the whole window, the room the welcome takes. Keys wait with it (given to it once it is on
+ * screen, Welcome's open); this window goes the moment the new one shows, so the desktop is never left bare between them.
  */
 function Readying(): React.JSX.Element {
-  const cover = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => cover.current?.focus({ preventScroll: true }), [])
   return (
-    <div ref={cover} tabIndex={-1} data-welcome-readying="" onKeyDown={(event) => (event.preventDefault(), event.stopPropagation())}
+    <div tabIndex={-1} data-welcome-readying="" onKeyDown={(event) => (event.preventDefault(), event.stopPropagation())}
       className="fixed inset-0 z-[70] grid place-items-center bg-background text-foreground outline-none">
       <Orb label="Getting the welcome ready…" />
     </div>

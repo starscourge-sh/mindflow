@@ -39,14 +39,16 @@ const between = (t: number, a: number, b: number): number => {
  * window on one spring: its soft edge hardens out to the window's own, then
  * the window's own page (`plate`) comes up under it, and only once the page is
  * whole does the mist lift off it. What covers the desktop only ever grows.
- * `onStart` once, at its first frame.
+ * `onStart` once, at its first frame. `onDrawable` once, as its first frame comes, even while a probe holds it.
  */
-export function WelcomeMist({ onGone, hurry = false, desk = false, drawIn = false, plate, onStart }: { onGone: () => void; hurry?: boolean; desk?: boolean; drawIn?: boolean; plate?: React.RefObject<HTMLElement | null>; onStart?: () => void }): React.JSX.Element {
+export function WelcomeMist({ onGone, hurry = false, desk = false, drawIn = false, plate, onStart, onDrawable }: { onGone: () => void; hurry?: boolean; desk?: boolean; drawIn?: boolean; plate?: React.RefObject<HTMLElement | null>; onStart?: () => void; onDrawable?: () => void }): React.JSX.Element {
   const box = useRef<HTMLCanvasElement>(null)
   const gone = useRef(onGone)
   gone.current = onGone
   const begun = useRef(onStart)
   begun.current = onStart
+  const drawable = useRef(onDrawable)
+  drawable.current = onDrawable
   const asked = useRef({ drawIn, hurry })
   asked.current = { drawIn, hurry }
   // Over the desktop the window's page is not drawn until the mist draws in: set before the first paint, given back after.
@@ -79,6 +81,7 @@ export function WelcomeMist({ onGone, hurry = false, desk = false, drawIn = fals
     let held: { cx: number; cy: number; rx: number; ry: number } | null = null
     // Over the desktop the clock starts with the first frame drawn, never before the window can be seen.
     let start = desk ? 0 : performance.now()
+    let framed = false
     const arrive = ARRIVE_MS / MIST_MS
     let frame = 0
     // Over the desktop: when the drawing in began, and when the window's page was whole and the mist began to lift off it.
@@ -91,6 +94,8 @@ export function WelcomeMist({ onGone, hurry = false, desk = false, drawIn = fals
     let page = [240, 236, 226]
     const trace: Trace | null = desk ? ((window as unknown as { haligtreeArrival: Trace }).haligtreeArrival = { frames: [], landed: false }) : null
     const tick = (now: number): void => {
+      // Its first frame due: the page can draw it, so a window made for it may be shown now (welcome.tsx), held or not.
+      if (!framed) (framed = true), drawable.current?.()
       // Held by the arrival probe (qa/welcome-arrival.mjs), to read the page before the mist's first step: the clock has not started.
       if (desk && document.documentElement.hasAttribute('data-arrival-hold')) return void (frame = requestAnimationFrame(tick))
       // Its first frame, with the window there to be seen: said once, for what keeps the mist's time (the spark in it, welcome.tsx).

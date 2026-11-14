@@ -136,11 +136,14 @@ try {
     requestAnimationFrame(() => (window.qaReadying = performance.timeOrigin + performance.now()))
   }).observe(document.body, { childList: true, subtree: true }))
 
-  // “Show the welcome again” from the Haligtree menu, as a person picks it, at once.
-  const asked = Date.now()
-  await electron.evaluate(({ Menu }) => {
+  // “Show the welcome again” from the Haligtree menu, as a person picks it, at once: the ask is the click, timed in main
+  // (on the Mac's clock, as the page's times are), not when this script sent for it.
+  const asked = await electron.evaluate(({ Menu }) => {
     const find = (items) => { for (const one of items) { if (one.label === 'Show the welcome again') return one; const inner = one.submenu && find(one.submenu.items); if (inner) return inner } }
-    find(Menu.getApplicationMenu().items)?.click()
+    const item = find(Menu.getApplicationMenu().items)
+    const at = performance.timeOrigin + performance.now()
+    item?.click()
+    return at
   })
   await h.waitForFunction(() => !!window.qaReadying, null, { timeout: 10000, polling: 16 })
   const orbAt = Math.round((await h.evaluate(() => window.qaReadying)) - asked)
@@ -160,9 +163,11 @@ try {
   await h2.waitForSelector('[data-welcome-mist="desk"]', { timeout: 20000 })
   // Swapped: the new one shown and the old one gone in the same moment, by main's own clock (remakeHome).
   for (let i = 0; i < 200 && !(await homes()).some((one) => one.url.includes('again=1') && one.shown); i++) await wait(50)
-  const shownAt = Date.now() - asked
   const swapped = (await electron.evaluate(() => globalThis.haligtreeArrival?.()?.swapped ?? null))
   check('the old window goes in the same moment the new one shows: under one frame between them', !!swapped && swapped.gone - swapped.shown < 16.7, swapped ? `${(swapped.gone - swapped.shown).toFixed(2)} ms between the new one shown and the old one closed (${load()})` : 'no swap')
+  // When it showed, by main's clock, from the click.
+  const shownAt = swapped ? Math.round((await electron.evaluate(() => performance.timeOrigin)) + swapped.shown - asked) : Infinity
+  check('the window made in its place shows within 2 s of the ask, its welcome up in it', shownAt < 2000, `${shownAt} ms (${load()})`)
   // Shown, and drawn empty: the page captured with nothing behind it, every pixel's alpha read (0 is clear).
   const png = await h2.screenshot({ type: 'png', omitBackground: true, scale: 'css' })
   // The most opaque pixel, and the box round everything drawn at all, named by what the page has there.

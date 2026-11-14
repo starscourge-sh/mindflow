@@ -102,7 +102,7 @@ import { nameNewDeck, useMadeDecks } from './components/haligtree/decks'
 import { BookMark, BookName, askNewBook, bookMenu, colourChoices } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
 import { PageHint, pageSaid } from '@/components/haligtree/page-hint'
-import { REMADE, onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
+import { REMADE, onboarding, playWelcome, tryWelcome, useWelcomeBegun } from '@/lib/onboarding'
 import { DayView } from '@/components/haligtree/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/haligtree/periods-view'
 import { HistoryPanel, RecentPanel } from '@/components/haligtree/recent-panel'
@@ -550,6 +550,8 @@ export function Home(): React.JSX.Element {
   const [split, setSplit] = useState<SplitState>(loadSplit)
   const splitRef = useRef(split)
   splitRef.current = split
+  // Made again for the welcome, the panes' pages wait for it to begin (lib/onboarding.ts); in any other window, never.
+  const begun = useWelcomeBegun()
   const frontRef = useRef(split.front)
   frontRef.current = split.front
   const front = frontOf(split)
@@ -2773,14 +2775,15 @@ export function Home(): React.JSX.Element {
             key: pane.key,
             width: pane.width,
             active: tab.key,
-            at: `${tab.key}:${tab.trail.at}`,
+            // Its page made only once a welcome made again over it has begun (lib/onboarding.ts): then put back where it was.
+            at: begun ? `${tab.key}:${tab.trail.at}` : '',
             scroll: tabStep(tab).scroll,
             tabs: pane.tabs.map((one) => {
               const name = paneName(tabStep(one))
               const note = noteIn(tabStep(one))
               return { key: one.key, label: name.title, private: name.private, icon: name.icon, tint: name.tint, open: note && note.type !== 'task' ? `${note.type}:${note.id}` : undefined }
             }),
-            node: pageFor(pane.key, tab.key, tabStep(tab))
+            node: begun ? pageFor(pane.key, tab.key, tabStep(tab)) : null
           }
         })}
       />

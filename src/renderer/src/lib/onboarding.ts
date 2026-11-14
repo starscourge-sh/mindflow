@@ -84,6 +84,21 @@ export const playWelcome = (): void => void window.dispatchEvent(new CustomEvent
 export const REMADE = typeof location !== 'undefined' && new URLSearchParams(location.search).has('again') && (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type !== 'reload'
 
 /**
+ * In a page made again for the welcome (REMADE): whether its welcome has begun (its mist's first frame over the
+ * desktop, or the welcome up in the window). Until then the app's own pages under it are not made (home.tsx): a long
+ * note's editor took a second to make, and the welcome waited behind it with the desktop bare. Begun from the start
+ * in every other page.
+ */
+let begun = !REMADE
+const begins = new Set<() => void>()
+export const welcomeBegun = (): void => {
+  if (begun) return
+  begun = true
+  begins.forEach((one) => one())
+}
+export const useWelcomeBegun = (): boolean => useSyncExternalStore((change) => (begins.add(change), () => void begins.delete(change)), () => begun)
+
+/**
  * The welcome, to try without touching your book: played in the sandbox,
  * whose notes are someone else's. From your own book the sandbox opens first
  * and plays it on arrival (welcome.tsx, useCarriedWelcome).
