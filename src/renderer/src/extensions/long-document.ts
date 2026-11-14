@@ -239,7 +239,7 @@ const WIDTHS = 4
  * it scrolls and the caret as it moves, and the words on screen stay put when
  * it shifts. The document itself never changes.
  */
-function nearScreen(view: EditorView, name: string): { view: EditorView; release: () => void; edges: () => [number, number] | null; ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
+function nearScreen(view: EditorView, name: string): { view: EditorView; release: () => void; chose: () => void; edges: () => [number, number] | null; ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
   // Which blocks are drawn, and the space kept for the rest. A block off the
   // page carries a mark, and one rule that never changes hides the marked:
   // moving the drawn blocks then touches only the blocks that change sides.
@@ -591,7 +591,37 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
     const [one, two] = [desc(first), desc(end)]
     return one && two ? [one.posAtStart, two.posAtEnd] : null
   }
+  // A press the note has not read yet. The browser puts its caret where a press lands at once, and the note reads it
+  // a moment later (as `selectionchange`). As a long note opens that moment can be long, the page busy drawing it,
+  // and anything that changed the note meanwhile (a link card's picture kept, a fold, the drawn blocks moving)
+  // told the browser the note's selection from before the press again, over it: the press was lost, and the letters
+  // typed next went to the note's first line (qa/long-note-press-early.mjs). Until the note has chosen a selection
+  // since the press (read the press, or made one of its own: a picture picked, a key), its old one is not told over
+  // the press, and the press is read straight after.
+  const inner = view as unknown as { domObserver: { currentSelection: { eq: (sel: unknown) => boolean; clear: () => void }; flush: () => void }; domSelectionRange: () => unknown }
+  const observer = inner.domObserver
+  let pressed = false
+  const press = (event: MouseEvent): void => void (event.button === 0 && (pressed = true))
+  // The press read now, as the note reads the browser's selection when it is told it changed.
+  const readPress = (): void => {
+    if (view.isDestroyed || !pressed) return
+    pressed = false
+    observer.currentSelection.clear()
+    observer.flush()
+  }
+  const unread = (): boolean => {
+    if (!pressed) return false
+    const selection = view.dom.ownerDocument.getSelection()
+    if (view.hasFocus() && selection?.rangeCount && view.dom.contains(selection.anchorNode) && !observer.currentSelection.eq(inner.domSelectionRange())) {
+      queueMicrotask(readPress)
+      return true
+    }
+    pressed = false
+    return false
+  }
+  view.dom.addEventListener("mousedown", press, true)
   const unclamp = keepSelectionDrawn(view, (anchor, head) => {
+    if (unread()) return null
     const edges = view.dom.hasAttribute("data-long") ? drawnEdges() : null
     if (!edges) return [anchor, head]
     // No part of it drawn (a caret left behind as the screen went elsewhere): the browser is told a place that
@@ -727,6 +757,8 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
     if (!band || document.activeElement !== view.dom) return
     // Any words on their way in (dictation, a held accent), or one of those keys.
     if (event instanceof KeyboardEvent && (event.metaKey || event.ctrlKey || (event.key.length !== 1 && !LANDS.has(event.key)))) return
+    // Where the caret is: a press not read yet is read first.
+    if (unread()) readPress()
     const { from, to, $head } = view.state.selection
     const edges = drawnEdges()
     if (!edges || (to >= edges[0] && from <= edges[1])) return
@@ -776,6 +808,8 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
   return {
     view,
     release,
+    // The note chose a selection of its own (it read the press, or made one): the press is no longer waiting.
+    chose: () => void (pressed = false),
     edges: drawnEdges,
     // A jump out of the band (gg, G, a search, the outline) draws its
     // destination before the caret is put there: placed in a block that is not
@@ -857,6 +891,7 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
       for (const end of ends) end.remove()
       view.dom.removeEventListener("keydown", keyed, true)
       view.dom.removeEventListener("beforeinput", keyed, true)
+      view.dom.removeEventListener("mousedown", press, true)
       style.remove()
       spaces.remove()
       document.removeEventListener("scroll", scrolled, { capture: true })
@@ -889,7 +924,14 @@ export const LongDocument = Extension.create({
     return [
       new Plugin<number>({
         key: shown,
-        state: { init: () => 0, apply: (tr, count) => (tr.scrolledIntoView ? count + 1 : count) },
+        state: {
+          init: () => 0,
+          apply: (tr, count) => {
+            // A selection chosen by the note (a press read, a picture picked, a key): no press is left unread.
+            if (tr.selectionSet) near?.chose()
+            return tr.scrolledIntoView ? count + 1 : count
+          },
+        },
         props: {
           // Read with each new state before its selection reaches the page: the
           // one moment to draw where the caret is going.
