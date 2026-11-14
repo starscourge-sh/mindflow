@@ -5,9 +5,8 @@ import { afterPaint } from "@/lib/haligtree"
 import { createPortal } from "react-dom"
 import { type Attributes, type Extensions, type JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
-import { NodeSelection, Selection as PMSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
+import { NodeSelection, Selection as PMSelection, type EditorState } from "@tiptap/pm/state"
 import { pressUnderLastLine } from "@/lib/press-under"
-import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContext, useEditor } from "@tiptap/react"
 import { EditorSurface, holdViews } from "@/components/haligtree/editor-surface"
@@ -96,6 +95,7 @@ import { liftBlocks } from "@/lib/lift-blocks"
 import { FootnoteKit } from "@/extensions/footnotes"
 import { Citation } from "@/extensions/citation"
 import { LongDocument } from "@/extensions/long-document"
+import { codeColours } from "@/extensions/code-colours"
 import { Typewriter } from "@/extensions/typewriter"
 import { useStoredFlag } from "@/lib/use-stored-flag"
 
@@ -1538,21 +1538,11 @@ function Surface({
             },
           }
         },
-        // Named here or the extended copy adds its highlighter on top of the
-        // parent's: every code block was coloured twice on every key.
-        // The highlighter also walked the whole note twice on every change,
-        // even a caret move: words typed outside code only move its colours.
+        // The extension's own highlighter coloured every code block in the
+        // note at once (and all again on a key in code): code's colours are
+        // worked out only for the blocks drawn, once each (extensions/code-colours.ts).
         addProseMirrorPlugins() {
-          const plugins = this.parent?.() ?? []
-          const inCode = (state: EditorState): boolean => state.selection.$head.parent.type.name === this.name
-          for (const plugin of plugins) {
-            const field = plugin.spec.state
-            if (!field || !(plugin as unknown as { key: string }).key.startsWith("lowlight")) continue
-            const { apply, init } = field
-            field.apply = (tr: Transaction, set, old, state) =>
-              tr.getMeta(GRAMMARS) ? init.call(plugin, {} as never, state) : !tr.docChanged ? set : !inCode(old) && !inCode(state) && onlyWordsChanged(tr) && !tr.steps.some((_, i) => tr.docs[i].resolve((tr.steps[i] as unknown as { from: number }).from).parent.type.name === this.name) ? set.map(tr.mapping, tr.doc) : apply.call(plugin, tr, set, old, state)
-          }
-          return plugins
+          return [...(this.parent?.() ?? []).filter((plugin) => !(plugin as unknown as { key: string }).key.startsWith("lowlight")), codeColours(this.name, GRAMMARS)]
         },
       }).configure({
         lowlight,

@@ -26,6 +26,12 @@ function loadGrammars(): Promise<void> {
   }))
 }
 
+/** Whether the grammars are in. */
+export const grammarsIn = (): boolean => real !== null
+
+/** The grammars fetched, if they are not in or on their way: a code block is about to be drawn. */
+export const wantGrammars = (): void => void (real || loadGrammars())
+
 /** Called once the grammars are in, unless they already were. Returns a way to stop waiting. */
 export function whenGrammars(done: () => void): () => void {
   if (real) return () => undefined

@@ -5,7 +5,14 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 /** Past this many positions (about 60,000 words) a document counts as long. */
 const LONG = 200_000
-const long = (state: EditorState): boolean => state.doc.content.size > LONG
+export const long = (state: EditorState): boolean => state.doc.content.size > LONG
+
+/**
+ * Told on a long note's own element each time the blocks drawn change (`detail`: the first and last drawn, by
+ * place among its elements, or null when every block is drawn): what is worked out only for the blocks drawn
+ * (code's colours, extensions/code-colours.ts) is worked out for those that came.
+ */
+export const DRAWN = "mf:drawn"
 
 /**
  * Drawing a change visits every block in the note and asks each set of marks
@@ -386,6 +393,7 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     // band cut to the old few was no band at all.
     to = coming === undefined ? Math.min(all.length - 1, to) : Math.max(from, Math.min(coming - 1, to))
     band = [from, to]
+    view.dom.dispatchEvent(new CustomEvent(DRAWN, { detail: [from, to] }))
     let above = 0
     let below = 0
     for (let i = 0; i < from; i++) above += tall(all[i])
@@ -491,6 +499,7 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     band = null
     slip = 0
     mark()
+    view.dom.dispatchEvent(new CustomEvent(DRAWN, { detail: null }))
     for (const end of ends) end.style.height = "0px"
   }
   /** Shift the band, keeping the block at the top of the screen where it is, or where the sizes say it should be. */
