@@ -52,7 +52,8 @@ try {
   // A first run (an empty book): its welcome plays by itself, in a window made in the middle of the screen for it.
   {
     const area0 = await electron.evaluate(({ screen }) => screen.getPrimaryDisplay().workArea)
-    const t0 = await (async () => { for (let i = 0; i < 120; i++) { const one = await electron.evaluate(() => globalThis.haligtreeArrival?.().t0 ?? 0); if (one) return one; await h.waitForTimeout(80) } return 0 })()
+    // Up to 25 s: a launch on a busy machine (load 50) took more than ten to draw the scene's first frame.
+    const t0 = await (async () => { for (let i = 0; i < 300; i++) { const one = await electron.evaluate(() => globalThis.haligtreeArrival?.().t0 ?? 0); if (one) return one; await h.waitForTimeout(80) } return 0 })()
     check('a first run: its scene starts by itself', t0 > 0)
     await h.waitForTimeout(Math.max(0, t0 + 4600 - Date.now()))
     check('a first run: its window is in the middle at the welcome\'s size once the fog is whole', (await steps()).includes('placed'), (await steps()).join(' > '))
