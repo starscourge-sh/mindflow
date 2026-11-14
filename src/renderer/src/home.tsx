@@ -491,7 +491,11 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
         // Questions are pages in Pages: sent to one, Writing opens with its "Questions" chip on.
         <ItemsView tier={view.id === 'nuggets' ? 'nugget' : 'article'} only={view.id === 'questions' ? 'questions' : undefined} focus={view.focus}
           ask={view.id === 'questions' && (view.folder === 'answered' || view.folder === 'words') ? view.folder : 'open'} onAsk={view.id === 'questions' ? (one: Asked) => does.setView({ id: 'questions', folder: one }, key) : undefined}
-          folder={view.id !== 'questions' ? view.folder : undefined} onFolder={(id) => does.setView({ id: view.id, folder: id ?? undefined })} onOpen={go} />
+          // Gone into to show the note open there (`reveal`), the folder is the place you are already at, not a step: the
+          // note stays open and Back is as it was. Asked for (a press on a folder), it is a step of its own.
+          folder={view.id !== 'questions' ? view.folder : undefined} onFolder={(id, reveal) => reveal
+            ? does.setTrail(key, (trail) => ({ ...trail, views: trail.views.map((one, at) => (at === trail.at ? { ...one, folder: id ?? undefined } : one)) }))
+            : does.setView({ id: view.id, folder: id ?? undefined })} onOpen={go} />
       ) : view.id === 'goals' ? (
         <GoalsView focus={view.focus} onOpen={go} />
       ) : view.id === 'queue' ? (

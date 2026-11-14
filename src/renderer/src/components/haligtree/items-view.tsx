@@ -274,7 +274,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   focus?: string
   /** The folder opened from the sidebar: the list narrowed to what it holds, a chip back out through `onFolder`. */
   folder?: string
-  onFolder?: (id: string | null) => void
+  /** `reveal`: gone into to show the note open there, not asked for: the place you are at, never a step of its own. */
+  onFolder?: (id: string | null, reveal?: boolean) => void
   onOpen?: (type: string, id: string) => void
   only?: 'questions'
   /** In Questions: which ones, open or answered (Looked up is the lookups' own list, home.tsx). */
@@ -373,8 +374,18 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
   // However it was opened, the open one's row shows: its group opened, or its folder card gone into, quietly.
   const showing = spread ? peek : coming ?? open?.id
+  // A note in a folder shows only inside it (folders isolate): opened from anywhere (a link in another note, search,
+  // Recent), the list goes into its folder, where the sidebar already shows it. Left at the top, the list had no row
+  // for it while the sidebar named it under its folder (the user, 14 Nov: "notice the sidebar loses its way").
+  const intoItsFolder = (id: string): boolean => {
+    const home = onFolder && !questionsOnly && !gatherer ? folding.home(id) : null
+    if (!home || home.id === sideFolder) return false
+    onFolder?.(home.id, true)
+    return true
+  }
   useReveal(showing, items.some((one) => one.id === showing), () => {
     if (!showing) return false
+    if (intoItsFolder(showing)) return true
     if (folding.rows) return folding.reveal(showing)
     if (!tiled || questionsOnly) return false
     const card = folding.tiles(flat).find((one) => 'group' in one && one.items.some((item) => item.id === showing))
@@ -486,6 +497,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     setListOut(false)
     if (query) setQuery('')
     if (hidden) toast('Filters cleared to show it in the list', () => setView(was))
+    if (intoItsFolder(id)) return
     if (folding.rows) folding.reveal(id)
     else if (folder && !folder.members.includes(id)) setInGroup(null)
   })
