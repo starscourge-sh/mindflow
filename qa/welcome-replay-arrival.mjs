@@ -16,7 +16,7 @@ import { sandbox } from './sandbox-lib.mjs'
 // The arrival is allowed in this test run, for the replay only: the window is first made as on any ordinary launch.
 process.env.HALIGTREE_QA_ARRIVAL = 'again'
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
-const ESC = process.argv[2] === 'esc'
+const ESC = process.argv[2] === 'esc' || process.env.QA_WAY === 'esc'
 const root = process.env.QA_DATA
 const shelf = JSON.parse(readFileSync(join(root, 'books.json'), 'utf8'))
 const db = new DatabaseSync(join(root, 'books', shelf.last, 'haligtree.db'), { readOnly: true })
