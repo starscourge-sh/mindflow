@@ -2100,6 +2100,9 @@ input[type='number']::-webkit-outer-spin-button {
    Its edge is a quiet ring all round (--cal-edge), never a bar on one side. */
 :root { --cal-fill: 22%; --cal-ink: 64%; --cal-edge: 38%; }
 :root:not(.light, .paper, [data-light]) { --cal-fill: 26%; --cal-ink: 40%; --cal-edge: 22%; }
+/* Paper's ink is the softest, so its words take more of it: at 64% the grey of a note captured read 4.4:1 on its
+   fill and the yellow 4.3:1; at 56% every hue reads 4.5:1 or more (test/theme-contrast.test.ts). */
+:root.paper { --cal-ink: 56%; }
 :root:root[data-postcard-border='white'] { --mf-postcard: #fff; }
 :root:root[data-postcard-border='cream'] { --mf-postcard: #f3ead6; }
 :root:root[data-postcard-border='black'] { --mf-postcard: #18181a; }

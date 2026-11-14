@@ -116,6 +116,22 @@ test('the strong quiet ink reaches 4.5:1 on Brutal\'s accent wash in every theme
   assert.deepEqual(failing.map((one) => `${one.name} ${one.ratio.toFixed(2)}:1`), [])
 })
 
+// A capture or an event on the Calendar is a soft fill of its colour with words of its colour mixed into the ink
+// (calendar-events.tsx tint(), --cal-fill and --cal-ink): every hue's words reach 4.5:1 on its own fill.
+test('the calendar\'s pill words reach 4.5:1 on their fill in every theme and hue', () => {
+  const share = (rule: RegExp, name: string): number => Number(css.match(rule)?.[1] ?? NaN) / 100
+  const light = new Set(['light', 'paper'])
+  const failing = inks().flatMap((one) => {
+    const lit = light.has(one.name)
+    const own = css.match(new RegExp(`^:root\\.${one.name} \\{ --cal-ink: (\\d+)%; \\}`, 'm'))
+    const ink = own ? Number(own[1]) / 100 : lit ? share(/^:root \{ --cal-fill: \d+%; --cal-ink: (\d+)%/m, one.name) : share(/^:root:not\(\.light, \.paper, \[data-light\]\) \{ --cal-fill: \d+%; --cal-ink: (\d+)%/m, one.name)
+    const fill = lit ? share(/^:root \{ --cal-fill: (\d+)%/m, one.name) : share(/^:root:not\(\.light, \.paper, \[data-light\]\) \{ --cal-fill: (\d+)%/m, one.name)
+    assert.ok(ink > 0 && fill > 0, `${one.name} reads its recipe`)
+    return HUES.map((hue) => ({ name: `${one.name} ${hue}`, ratio: contrast(oklab(one.hues[hue], one.ink, ink), oklab(one.hues[hue], one.page, fill)) })).filter((one) => one.ratio < 4.5)
+  })
+  assert.deepEqual(failing.map((one) => `${one.name} ${one.ratio.toFixed(2)}:1`), [])
+})
+
 test('every theme colour used for words reaches 4.5:1 on its own page', () => {
   const failing = themes().flatMap((one) => HUES.map((hue) => ({ name: one.name, hue, ratio: contrast(colour(one.hues[hue]), one.bg) })).filter((one) => one.ratio < 4.5))
   assert.deepEqual(failing.map((one) => `${one.name} ${one.hue} ${one.ratio.toFixed(2)}:1`), [])
