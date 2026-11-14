@@ -115,6 +115,9 @@ function scan(doc: ProseMirrorNode, patterns: TokenPattern[], from = 0, to = doc
 
   const first = patterns.some((token) => token.firstBlockOnly) ? firstLineOf(doc)?.pos : undefined
   doc.nodesBetween(from, to, (node, pos) => {
+    // Code is not words (as firstLineOf has it): a shell comment's "#git" or "#you" in a code block was drawn as a tag
+    // (the user, 14 Nov, "Git Deep Dive").
+    if (node.type.spec.code) return false
     if (!node.isTextblock) return true
 
     const text = node.textBetween(0, node.content.size, undefined, "￼")

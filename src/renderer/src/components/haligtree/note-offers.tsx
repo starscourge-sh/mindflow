@@ -169,7 +169,11 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     const asker = `${id} ${++views}`
     const ask = async (): Promise<void> => {
       const turn = ++asked.current
-      const own = key ?? `${(await haligtree.item(id).catch(() => null))?.tier ?? 'nugget'}:${id}`
+      const item = key ? null : await haligtree.item(id).catch(() => null)
+      const own = key ?? `${item?.tier ?? 'nugget'}:${id}`
+      // A gem's or a page's own title names it, whatever its first line holds: "Git Deep Dive", whose first line is 164
+      // characters of an episode's format notes, was offered the name "Fast History Story" (the user, 14 Nov).
+      const titled = !!item?.title?.trim() && item.title.trim() !== 'Untitled'
       const text = editor.getText({ blockSeparator: '\n' })
       if (text.trim().length < 12) return setOffer(null)
       const found = await call<Offers | null>('offers:note', own, text, linksIn(editor), asker).catch(() => null)
@@ -195,7 +199,7 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       }
       // Apple Intelligence, where the Mac has it: a name for a note that has none (ai-offers.tsx).
       // A note without a name is offered one first: it is how the note is found again.
-      if (canName.current && unnamed(editor) && !gone.has(`${own}|name`)) {
+      if (canName.current && !titled && unnamed(editor) && !gone.has(`${own}|name`)) {
         named.current ??= await nameFor(text)
         if (named.current && live && turn === asked.current) all.unshift({ kind: 'name', name: named.current })
       }
