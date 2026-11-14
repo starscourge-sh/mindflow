@@ -315,10 +315,11 @@ export function DayGrid({ days, onOpenDay, label, calendar = false }: { days: st
                 onClick={() => (chime('tap'), onOpenDay ? onOpenDay(day) : void markDay(day, here[0]))}
                 className={`@container relative flex min-h-12 min-w-0 flex-col items-start gap-0.5 rounded-md px-1.5 py-1 text-left transition-colors hover:bg-accent/60 ${now && !(calendar && reviews) ? 'bg-accent' : 'bg-foreground/[0.04]'}`}
                 style={style}>
+                {/* A day's quiet words sit on its fill (a marked day's colour, today's wash): the strong quiet ink reads at 4.5:1 on each, where Faded Ink fell to 3.8:1. */}
                 <span className="flex w-full items-baseline gap-1">
-                  <span className={`text-xs tabular-nums ${now ? 'font-semibold text-[var(--tt-brand-color-400)]' : gone ? 'text-muted-foreground' : 'text-foreground'}`}>{noon(day).date()}</span>
-                  {!calendar && !!kept.get(day) && <span className="ml-auto shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{num(kept.get(day)!)}<span className="hidden @min-[4.75rem]:inline"> kept</span></span>}
-                  {due > 0 && <span data-due-count className="ml-auto shrink-0 text-[0.6875rem] text-muted-foreground tabular-nums">{num(due)}<span className="hidden @min-[4.75rem]:inline"> due</span></span>}
+                  <span className={`text-xs tabular-nums ${now ? 'font-semibold text-[var(--tt-brand-color-400)]' : gone ? 'text-(--mf-muted-strong)' : 'text-foreground'}`}>{noon(day).date()}</span>
+                  {!calendar && !!kept.get(day) && <span className="ml-auto shrink-0 text-[0.6875rem] text-(--mf-muted-strong) tabular-nums">{num(kept.get(day)!)}<span className="hidden @min-[4.75rem]:inline"> kept</span></span>}
+                  {due > 0 && <span data-due-count className="ml-auto shrink-0 text-[0.6875rem] text-(--mf-muted-strong) tabular-nums">{num(due)}<span className="hidden @min-[4.75rem]:inline"> due</span></span>}
                 </span>
                 {calendar ? (
                   <>
