@@ -55,6 +55,22 @@ const COLOUR = "mf:colour"
 export function codeColours(name: string, grammars: string): Plugin<Colours> {
   // The blocks drawn now in a long note, as long-document.ts last said: none until it has drawn some.
   let drawn: [number, number] | null = null
+  // For each version of a note, its blocks that hold code (a code block, or a list or a quote with one inside): where
+  // each is among the note's blocks, and where it starts. Found once a version, so a move of the drawn blocks (many
+  // in a fling) looks up the few it reaches by halves, where it looked at every one of 7,017 blocks each time.
+  const holders = new WeakMap<ProseMirrorNode, { index: number[]; at: number[] }>()
+  const holdersOf = (doc: ProseMirrorNode): { index: number[]; at: number[] } => {
+    const had = holders.get(doc)
+    if (had) return had
+    const found = { index: [] as number[], at: [] as number[] }
+    doc.forEach((node, offset, i) => {
+      let holds = node.type.name === name
+      if (!holds && !node.isTextblock) node.descendants((inner) => !holds && (inner.type.name === name ? ((holds = true), false) : !inner.isTextblock))
+      if (holds) (found.index.push(i), found.at.push(offset))
+    })
+    holders.set(doc, found)
+    return found
+  }
   /** Each code block drawn now (in a note that is not long, every one), and where. */
   const eachDrawn = (state: EditorState, visit: (node: ProseMirrorNode, pos: number) => void): void => {
     const look = (node: ProseMirrorNode, pos: number): boolean => (node.type.name === name ? (visit(node, pos), false) : !node.isTextblock)
@@ -62,9 +78,18 @@ export function codeColours(name: string, grammars: string): Plugin<Colours> {
     if (!drawn) return
     // Counted among the note's elements, which can hold a mark or two besides its blocks: a few more either side.
     const [first, last] = [drawn[0] - 4, drawn[1] + 4]
-    state.doc.forEach((node, offset, index) => {
-      if (index >= first && index <= last && look(node, offset)) node.descendants((inner, pos) => look(inner, offset + 1 + pos))
-    })
+    const { index, at } = holdersOf(state.doc)
+    let low = 0
+    let high = index.length
+    while (low < high) {
+      const middle = (low + high) >> 1
+      if (index[middle] < first) low = middle + 1
+      else high = middle
+    }
+    for (let k = low; k < index.length && index[k] <= last; k++) {
+      const node = state.doc.child(index[k])
+      if (look(node, at[k])) node.descendants((inner, pos) => look(inner, at[k] + 1 + pos))
+    }
   }
   /** The drawn code blocks not coloured yet, coloured. */
   const colour = (set: DecorationSet, state: EditorState, painted: WeakSet<ProseMirrorNode>): DecorationSet => {
