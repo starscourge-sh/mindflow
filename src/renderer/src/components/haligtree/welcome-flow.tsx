@@ -5,6 +5,7 @@ import { EASE, spring } from '@/lib/motion'
 import { STORY_DAY } from '@/lib/welcome-box'
 import { gemOf, story, taskPhrase, type Story } from '@/lib/welcome-stories'
 import { when } from '@/lib/clock'
+import { useFitPicture } from '@/lib/fit-text'
 import { readTask } from '../../../../main/task-words'
 import { FileText as Article, Brain, Eye, ListTodo as Check } from '@/components/ui/icons'
 import sherlockPrint from '@/assets/welcome-books/sherlock.webp'
@@ -217,6 +218,10 @@ function GemRow({ on, words }: { on: 'kept' | 'gem'; words: string }): React.JSX
 
 export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): React.JSX.Element {
   const root = useRef<HTMLDivElement>(null)
+  // The cards and their lines take the room left over the closing line: a little smaller on a short window, so the
+  // closing line stays whole over the footer. Each line is measured in the picture's own space, so it follows the zoom.
+  const room = useRef<HTMLElement>(null)
+  useFitPicture(root, room)
   const [size, setSize] = useState({ w: 0, h: 0 })
   const [spots, setSpots] = useState<Record<string, { x0: number; x1: number; y: number }>>({})
   const [sels, setSels] = useState<Record<string, Sel>>({})
@@ -282,7 +287,7 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
   let above = -Infinity
   for (const one of PICKS.filter((pick) => sels[pick]).sort((a, b) => sels[a].y1 - sels[b].y1)) above = leave[one] = Math.max(sels[one].y1, above + APART)
   return (
-    <figure data-story={words.id} aria-label="The thought caught on a walk becomes a page; a phrase in it becomes a task, one sentence a gem that comes back now and then, and another a gem with a question for Review" className="flex min-h-0 w-full flex-1 flex-col justify-center">
+    <figure ref={room} data-story={words.id} aria-label="The thought caught on a walk becomes a page; a phrase in it becomes a task, one sentence a gem that comes back now and then, and another a gem with a question for Review" className="flex min-h-0 w-full flex-1 flex-col justify-center-safe">
       <div ref={root} className="relative flex shrink-0 flex-col">
         {/* Over the cards. A picked phrase's line starts at the page's right edge, level with the phrase's last line of words (marked in place by its
             highlight and icon), and curves across to its card: it never runs through or under the paragraph. The cards stand in the order their phrases

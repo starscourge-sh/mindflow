@@ -1,4 +1,4 @@
-// The welcome's Write page, for each of the five stories, at 1440 by 900 and 1100 by 720, light and dark: the lines from
+// The welcome's Write page, for each of the five stories, at 1440 by 900 down to 1100 by 688, light and dark: the lines from
 // the page to the cards. Each picked phrase (the plain gem, the gem with a question, the task) is marked in place, and its
 // line leaves from the page card's right edge, level with that phrase's last line of words, then curves to its card: no
 // line runs through or under the paragraph, and the lines never cross (a phrase higher in the page goes to a higher card).
@@ -11,6 +11,8 @@ import { STORIES } from '../src/renderer/src/lib/welcome-stories.ts'
 
 const SHOTS = process.argv[2] ?? ''
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
+/** A big screen's, the user's (1190 by 744), W2's and the welcome's smallest window (main's welcomePlace never goes under 1100 by 688). */
+const SIZES = [[1440, 900], [1190, 744], [1100, 720], [1100, 688]]
 let failed = 0
 const check = (name, ok, more = '') => {
   if (!ok) failed++
@@ -29,12 +31,14 @@ const measure = (h) => h.evaluate(() => {
     const mark = document.querySelector(`[data-flow="note"] [data-mark="${one}"]`)
     const block = document.querySelector(`[data-flow="${one}"]`)
     const card = block.getBoundingClientRect()
-    // A gem's line lands on its own words' first line.
+    // A gem's line lands on its own words' first line. Its line height is the page's own; drawn smaller where the picture is zoomed to fit a short window.
     const lands = block.querySelector('[data-lands]')
-    const landY = lands ? lands.getBoundingClientRect().top + parseFloat(getComputedStyle(lands).lineHeight) / 2 : (card.top + card.bottom) / 2
-    const svg = path.ownerSVGElement.getBoundingClientRect()
+    const drawn = lands ? lands.getBoundingClientRect().width / lands.offsetWidth || 1 : 1
+    const landY = lands ? lands.getBoundingClientRect().top + (parseFloat(getComputedStyle(lands).lineHeight) * drawn) / 2 : (card.top + card.bottom) / 2
+    // The line's points, from its own drawing's space to the window's, through whatever zoom the picture wears.
+    const toPage = path.getScreenCTM()
     const length = path.getTotalLength()
-    const points = Array.from({ length: 41 }, (_, i) => path.getPointAtLength((length * i) / 40)).map((p) => [svg.left + p.x, svg.top + p.y])
+    const points = Array.from({ length: 41 }, (_, i) => path.getPointAtLength((length * i) / 40)).map((p) => new DOMPoint(p.x, p.y).matrixTransform(toPage)).map((p) => [p.x, p.y])
     const rects = [...mark.getClientRects()]
     const last = rects[rects.length - 1]
     return {
@@ -73,7 +77,7 @@ for (const theme of ['light', 'dark']) {
       if (done.has(id)) continue
       done.add(id)
       for (let i = 0; i < 10 && !(await chapter(h)).includes('Write'); i++) (await next(h), await h.waitForTimeout(450))
-      for (const [w, hh] of [[1440, 900], [1100, 720]]) {
+      for (const [w, hh] of SIZES) {
         await c.size(w, hh)
         await h.waitForTimeout(500)
         const m = await measure(h)
