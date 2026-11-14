@@ -16,7 +16,7 @@ const para = (n) => `<p>Paragraph ${n} of the long essay walks slowly through th
 // Wrapped as sites wrap them (Wikipedia's sections, an article): the reader sets the blocks straight in its column.
 const pages = {
   '/essay': `<html><head><title>The Long Essay | Probe Times</title><meta property="og:site_name" content="Probe Times"><meta property="article:published_time" content="2026-09-14T08:00:00Z"></head><body>
-    <article><h1>The Long Essay</h1><p class="byline">By Ada Probe</p><section><p>The first section opens here.</p>${para(1)}${para(2)}</section>
+    <article><h1>The Long Essay</h1><p class="byline">By Ada Probe</p><section><p>The first section opens here, and <a href="https://93.184.216.34/other">a link in the essay</a> leads on.</p>${para(1)}${para(2)}</section>
     <section><h2>A second part</h2>${para(3)}${para(4)}<blockquote><p>A line quoted from somewhere else, kept apart.</p></blockquote>${para(5)}</section></article></body></html>`
 }
 
@@ -202,12 +202,14 @@ try {
         notePage: window.__painted(noteP)?.join(), readerPage: window.__painted(readerP)?.join(), notePane: window.__paneGives(noteP)?.join(), readerPane: window.__paneGives(readerP)?.join(),
         noteInk: getComputedStyle(noteP).color, readerInk: getComputedStyle(readerP).color,
         byline: meta?.textContent, bylineContrast: meta ? window.__contrast(meta) : 0, bylineSize: meta ? parseFloat(getComputedStyle(meta).fontSize) : 0,
-        noteLink: getComputedStyle(document.querySelector(`[data-open="${n}"] .tiptap a[href]`)).color
+        noteLink: getComputedStyle(document.querySelector(`[data-open="${n}"] .tiptap a[href]`)).color,
+        readerLink: getComputedStyle(document.querySelector('.web-reader-body a[href]')).color
       }
     }, note)
     const name = `${theme}${style === 'soft' ? '' : ` (${style} style)`}`
     check(`${name}: the reader's page is the theme's page, as the note's is`, !!look.readerPage && look.readerPage === look.readerPane && look.notePage === look.notePane, JSON.stringify(look))
     check(`${name}: the article's words are the note's ink`, look.readerInk === look.noteInk, JSON.stringify(look))
+    check(`${name}: a link in the article is the note's link colour`, look.readerLink === look.noteLink, `${look.readerLink} / ${look.noteLink}`)
     check(`${name}: the byline reads at 4.5:1 or more, 14px or larger`, look.bylineContrast >= 4.5 && look.bylineSize >= 14, `${look.bylineContrast}:1 at ${look.bylineSize}px, "${look.byline}"`)
     if (shots) await h.screenshot({ path: `${shots}/reader-${theme}-${style}.png` })
   }
