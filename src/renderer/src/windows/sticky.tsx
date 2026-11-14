@@ -43,10 +43,14 @@ window.addEventListener('keydown', (event) => {
   else window.api.openInHome('search', key === 'k' ? 'all' : 'notes')
 })
 
-// Made as glass (the setting): the Mac's blur under the card, and nowhere else in the window (lib/glass.ts). A pill is
-// solid, as the session bubble is, and stands on none. A card grown out of its pill is solid too until it is pinned:
-// it grows by a clip, and the Mac's blur follows the card's whole box, so it would show beyond the clip.
-if (params.has('glass')) followGlass(() => [...document.querySelectorAll('.mf-card, [data-goal-card], [data-goals-sticky]')], () => document.documentElement.hasAttribute('data-pill-open'))
+// Made as glass (the setting): the Mac's blur under the card, and nowhere else in the window (lib/glass.ts). Folded,
+// the blur is under its pill alone, frosted as quick capture is (main.css, [data-desk-pill]). A card grown out of its
+// pill stays solid until it is pinned, the pill keeping its frost beside it: the card grows by a clip, and the Mac's
+// blur follows a shape's whole box, so it would show beyond the clip.
+if (params.has('glass')) followGlass(() => {
+  const pill = document.querySelector('[data-desk-pill]')
+  return pill ? [pill] : [...document.querySelectorAll('.mf-card, [data-goal-card], [data-goals-sticky]')]
+})
 
 // The room round a paper card lets clicks through to the app behind; the card, and anything hanging past it, takes them.
 clearRoom()

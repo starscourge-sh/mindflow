@@ -10,8 +10,8 @@
 //   nothing; caught as it folds it opens again;
 // - a click on the pill, a press on the open card, or "Keep open" in its right-click menu pins it; the menu holds the
 //   card's own lines and keeps the card out while it is open; its "–" folds it again;
-// - a glass card stays solid while it is open out of its pill (the Mac's blur would show past the growing card), and
-//   wears its glass once pinned;
+// - a glass card stays solid while it is open out of its pill (the Mac's blur would show past the growing card), its
+//   pill keeping its own frost, and wears its glass once pinned;
 // - the stack carried down by a pill, and from the left edge to the right one, stays where it was put after a relaunch;
 // - the stickies left last time keep their state; a relaunch keeps every pill;
 // - the pill beside the session bubble and a notice: the same type, edge and fill (numbers, and frames with QA_SHOTS).
@@ -395,7 +395,8 @@ try {
         await wait(50)
       }
       const openNow = (await desk(c.electron)).all.find((each) => each.id === glassGoal.id)
-      check('a glass card open out of its pill: no glass under it while it grows or stands open (solid)', openNow.bounds.width > 260 && seen.every((s) => s === 'null' || s === '[]'), [...new Set(seen)].join(' / '))
+      // The pill keeps its own frost beside it (qa/desk-pill-glass.mjs): a shape a pill's size, never the card's.
+      check('a glass card open out of its pill: no glass under it while it grows or stands open (solid)', openNow.bounds.width > 260 && seen.every((s) => (JSON.parse(s) ?? []).every((shape) => shape[2] <= 230 && shape[3] <= 30)), [...new Set(seen)].join(' / '))
       await page.mouse.click(openNow.pill.x + openNow.pill.w / 2, openNow.pill.y + openNow.pill.h / 2)
       await page.mouse.move(-40, -40)
       check('pinned, it wears its glass again', await until(async () => ((await shapes()) ?? []).length > 0, 3000), JSON.stringify(await shapes()))

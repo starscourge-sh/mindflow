@@ -33,8 +33,10 @@ const WIDEST = 220
 const REST = 150
 /** The card's one motion out of its pill and back (the tabs' own spring before pills). */
 const SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.8 } as const
+/** A glass card's window (the setting): its pill is frosted on the Mac's blur, as the card is. */
+const GLASS = new URLSearchParams(location.search).has('glass')
 /** Glass fills its window; paper keeps room round the card for its lean and shadow (main's insetOf). */
-const INSET = new URLSearchParams(location.search).has('glass') ? 0 : 20
+const INSET = GLASS ? 0 : 20
 
 /** The words a pill shows: the first `count` of them, "…" after the last when some are left out. */
 const firstWords = (words: string, count: number): string => {
@@ -162,6 +164,9 @@ export function DeskPill(): React.JSX.Element | null {
   const right = peek.side === 'right'
   const at = peek.opened?.pill
   const away = right ? 16 : -16
+  // On glass (windows/sticky.tsx tells main its shape) it comes in at full strength, sliding out from the edge: the
+  // Mac's blur under it cannot fade, so a pill fading in over it would show the blur alone first.
+  const frosted = GLASS && !matchMedia('(prefers-reduced-transparency: reduce)').matches && !('solid' in document.documentElement.dataset)
   // Outside the card's own root: the card grows, moves and is cut while the pill stays where it stands, drawn over nothing.
   return createPortal(
     <div data-clear className="pointer-events-none fixed inset-0 z-50" style={{ visibility: 'visible' }}>
@@ -182,14 +187,13 @@ export function DeskPill(): React.JSX.Element | null {
         onPointerUp={() => void (press.current = null)}
         onClick={(event) => carried.current ? void (carried.current = false) : (clearTimeout(rest.current), more ? (chime('tap'), window.api.pillMore(event.clientX, event.clientY)) : (chime('pin'), window.api.pinSticky(true)))}
         // A full transform string, not Motion's x: on this Motion (14.0) only that runs on the compositor.
-        initial={still() || instant || peek.opened ? false : { opacity: 0, transform: `translateX(${away}px)` }}
+        initial={still() || instant || peek.opened ? false : { opacity: frosted ? 1 : 0, transform: `translateX(${away}px)` }}
         animate={{ opacity: 1, transform: peek.nudge && !still() ? (right ? [away, -6, 3, -2, 0] : [away, 6, -3, 2, 0]).map((x) => `translateX(${x}px)`) : 'translateX(0px)' }}
         transition={peek.nudge ? { duration: 0.7, ease: EASE } : SPRING}
         style={{
-          // Open, it stays lit while its card is out beside it.
-          backgroundImage: peek.opened ? `linear-gradient(var(--accent), var(--accent)), ${SOLID}` : SOLID,
-          backgroundColor: 'Canvas',
-          filter: wornStyle() === 'paper' ? undefined : LIFT,
+          // Its ground and lift (main.css [data-desk-pill]): the session bubble's solid, or frosted on the Mac's blur.
+          ['--pill-solid' as string]: SOLID,
+          ['--pill-lift' as string]: wornStyle() === 'paper' ? 'none' : LIFT,
           // At the same point of its window folded or open: the card's window starts level with the pill's, on its side.
           ...(right ? { right: 6 } : { left: 6 }), top: at ? at.y : 2
         }}
