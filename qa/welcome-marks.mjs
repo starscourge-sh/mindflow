@@ -39,7 +39,12 @@ const covers = (selector) => h.evaluate((selector) => {
 try {
   await c.theme(THEME)
   if (!(await h.$('.mf-welcome'))) await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
-  await h.waitForSelector('[data-thesis="gap-2"][data-slant="on"]', { timeout: 30000 })
+  // The third line set in italics comes about 33 s into the page now: the arrival takes 15 s before the first words
+  // (7cec10480, qa/welcome-arrival.mjs) and the margin note has its own beat after the cause (cc9f895bc). A wait of 30 s,
+  // set when the arrival was shorter (25 Oct), ran out before it.
+  const waited = Date.now()
+  await h.waitForSelector('[data-thesis="gap-2"][data-slant="on"]', { timeout: 45000 })
+  console.log(`(the third line in italics ${Date.now() - waited} ms into the wait, ${await h.evaluate(() => Math.round(performance.now()))} ms into the page)`)
   await h.waitForTimeout(900)
 
   // The true italic.
