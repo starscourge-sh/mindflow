@@ -211,3 +211,39 @@
 @media (prefers-reduced-motion: reduce) {
   .pdf-book:hover .files-recent-face { transform: none; }
 }
+
+/* Videos (files-shelves.tsx, VideoFront and VideoTile). A film's frame is kept whole (a portrait one too) on a dark
+   mat of the page's own ink, never cropped. */
+.files-video-face { position: absolute; inset: 0; display: block; background: color-mix(in oklab, black 80%, var(--background)); }
+.files-video-face :is(img, video) { object-fit: contain !important; }
+/* In front, a film made lying down fills the wide frame; one made upright stays whole on its mat. */
+.files-video-front .files-video-face img:not([data-upright]) { object-fit: cover !important; }
+/* In front: the frame large and wide, its name and a quiet line over a soft shade at its foot (the picture square's
+   foot, always up), a round play as the sound player's, and how far it got along the very foot. */
+.files-video-front { position: relative; aspect-ratio: 2.2 / 1; max-height: 46vh; width: 100%; overflow: hidden; border-radius: 14px; box-shadow: 0 0 0 1px var(--tt-border-color); }
+.files-video-front-face { position: absolute; inset: 0; display: block; width: 100%; cursor: pointer; outline: none; }
+.files-video-front-face:focus-visible { outline: 2px solid color-mix(in oklab, var(--primary) 70%, transparent); outline-offset: -2px; }
+.files-video-front-foot { pointer-events: none; position: absolute; inset: auto 0 0; display: flex; align-items: flex-end; gap: 14px; padding: 48px 20px 18px; color: white; text-shadow: 0 1px 2px rgb(0 0 0 / 0.4); }
+.files-video-front-foot > :not(.files-video-front-blur, .files-video-progress) { position: relative; }
+.files-video-front-foot button { pointer-events: auto; }
+.files-video-front-blur { height: 100%; background: linear-gradient(to top, rgb(0 0 0 / 0.5), rgb(0 0 0 / 0.2) 55%, transparent); }
+.files-video-front-play { display: grid; flex: none; place-items: center; width: 40px; height: 40px; margin-bottom: 2px; border-radius: 999px; background: white; color: black; text-shadow: none; transition: scale 120ms var(--mf-ease); }
+.files-video-front-face:active ~ .files-video-front-foot .files-video-front-play { scale: 0.97; }
+.files-video-front .files-video-progress { left: 20px; right: 20px; bottom: 8px; }
+/* How far it was watched: a thin white line over a faint track, along a picture's foot, clear of its corners. */
+.files-video-progress { position: absolute; left: 8px; right: 8px; bottom: 6px; height: 3px; border-radius: 999px; background: rgb(255 255 255 / 0.35); overflow: hidden; }
+.files-video-progress > span { display: block; height: 100%; border-radius: inherit; background: white; }
+/* "Carry on watching": one line of wide tiles, as many as fit across the grid under it, never a sideways scroll. */
+.files-video-row { display: grid; column-gap: 16px; }
+.files-video-card { display: flex; flex-direction: column; }
+.files-video-pic { position: relative; display: block; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 10px; box-shadow: 0 0 0 1px var(--tt-border-color); transition: box-shadow 160ms var(--mf-ease); }
+@media (hover: hover) and (pointer: fine) { .files-video-card:hover .files-video-pic { box-shadow: 0 0 0 1px color-mix(in oklab, var(--foreground) 30%, transparent); } }
+.files-video-card:active .files-video-pic { scale: 0.97; transition: scale 120ms var(--mf-ease); }
+.files-video-pic.is-here, .files-video-card:focus-visible .files-video-pic { box-shadow: 0 0 0 2px var(--ring); }
+.files-video-pic.is-picked { box-shadow: 0 0 0 2px var(--tt-brand-color-400); }
+.files-video-pic.is-picked::after { content: ''; position: absolute; inset: 0; background: color-mix(in srgb, var(--tt-brand-color-400) 22%, transparent); }
+/* Its length at the corner, as a GIF's kind sits on its square. */
+.files-video-length { position: absolute; right: 8px; top: 8px; padding: 0 6px; border-radius: 4px; background: var(--background); color: var(--foreground); font-size: 0.75rem; line-height: 1.125rem; font-weight: 500; }
+@media (prefers-reduced-motion: reduce) {
+  .files-video-card:active .files-video-pic, .files-video-front-face:active ~ .files-video-front-foot .files-video-front-play { scale: none; }
+}

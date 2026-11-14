@@ -1,4 +1,4 @@
-import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import './files.css'
 import { smallPicture, useSmallPicture } from '@/lib/notes'
 import { useMade } from '@/lib/decoded'
@@ -9,7 +9,8 @@ import { realMove } from '@/lib/real-move'
 import { scrollerOf } from '@/lib/note-place'
 import { VirtualList } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
-import { SoundPlayer, soundTitle } from './sound-player'
+import { SoundPlayer, clock, soundTitle } from './sound-player'
+import { keepLength, placeOf, type Place } from '@/lib/media-opened'
 import { BookOpen, Play } from 'lucide-react'
 import { call } from '@/lib/haligtree'
 import { dayMonth, daysFromToday, num, plural } from '../../../../main/dates'
@@ -84,7 +85,7 @@ export function FileFace({ one, face, tiny = false }: { one: Media; face: { imag
           bars. A page (taller than wide) shows its top across the face, where its title is, large enough to read; a
           square face (the icon Quick Look draws for a ZIP) shows whole. */}
       <img src={face.image} alt="" draggable={false} decoding="async"
-        onLoad={(event) => { const img = event.currentTarget; if (one.kind === 'document' && img.naturalHeight > img.naturalWidth * 1.15) img.dataset.page = '' }}
+        onLoad={(event) => { const img = event.currentTarget; if (one.kind === 'document' && img.naturalHeight > img.naturalWidth * 1.15) img.dataset.page = ''; if (one.kind === 'video' && img.naturalHeight > img.naturalWidth) img.dataset.upright = '' }}
         className={`size-full ${one.kind === 'video' ? 'object-cover' : 'bg-[var(--pdf-paper,#fff)] object-contain data-[page]:object-cover data-[page]:object-top'}`} />
       {one.kind === 'video' && !tiny && (
         <span aria-hidden className="absolute inset-0 m-auto flex size-9 shrink-0 items-center justify-center rounded-full bg-black/55 text-white"><Play className="size-4 translate-x-px fill-current" /></span>
@@ -481,6 +482,160 @@ const BookTile = memo(function BookTile({ one, here, picked, ways }: { one: Medi
         <span dir="auto" data-media-name className={`pdf-book-title ${one.private ? 'private-text' : ''}`}>{cover?.title || nameOf(one)}</span>
         <span data-media-where className="pdf-book-meta">{whereOf(one)}</span>
       </button>
+    </RowMenu>
+  )
+})
+
+/** A video tile at its narrowest, wide as a film is (16:9), and the room between two. */
+export const VIDEO_TILE = 232
+export const VIDEO_GAP = 16
+
+/** Videos whose length is being read from the file, one at a time: a page of them never opens fifty files at once. */
+let lengthTurn: Promise<void> = Promise.resolve()
+const lengthAsked = new Set<string>()
+function readLength(src: string): void {
+  if (lengthAsked.has(src)) return
+  lengthAsked.add(src)
+  lengthTurn = lengthTurn.then(() => new Promise<void>((done) => {
+    // Only what its length needs is read (its header), never its frames, and it is let go at once.
+    const film = document.createElement('video')
+    film.preload = 'metadata'
+    film.muted = true
+    const read = (): void => {
+      if (Number.isFinite(film.duration) && film.duration > 0) keepLength(src, Math.round(film.duration * 100) / 100)
+      film.removeAttribute('src')
+      film.load()
+      done()
+    }
+    film.addEventListener('loadedmetadata', read, { once: true })
+    film.addEventListener('error', read, { once: true })
+    film.src = src
+  }))
+}
+const heardPlace = (on: () => void): (() => void) => (window.addEventListener('haligtree:media-opened', on), () => window.removeEventListener('haligtree:media-opened', on))
+
+/** A video's length and how far it was watched, as the list or this window last heard; its length read once if not known. */
+export function usePlace(one: Media): Place | null {
+  const said = useSyncExternalStore(heardPlace, () => ((place) => (place ? `${place.seconds}|${place.played ?? ''}|${place.playedAt ?? ''}` : ''))(placeOf(one)))
+  useEffect(() => void (!said && !one.gone && readLength(one.src)), [said, one.src, one.gone])
+  return useMemo(() => {
+    if (!said) return null
+    const [seconds, played, playedAt] = said.split('|')
+    return { seconds: Number(seconds), played: played ? Number(played) : undefined, playedAt: playedAt || undefined }
+  }, [said])
+}
+
+/** Begun and not yet watched to its end (the last two seconds count as the end). */
+export const halfWatched = (place: Place | null): boolean => !!place?.played && place.played > 1 && place.played < place.seconds - 2
+/** "8 min left", "16 s left", "1 h 5 min left", "2 h left". */
+const leftOf = (place: Place): string => {
+  const left = Math.max(0, place.seconds - (place.played ?? 0))
+  if (left < 60) return `${Math.ceil(left)} s left`
+  const minutes = Math.round(left / 60)
+  return minutes < 60 ? `${minutes} min left` : `${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ''} left`
+}
+
+/** How far it was watched: a thin line along the picture's foot, white over a faint track. Nothing for one not begun. */
+function Watched({ place }: { place: Place | null }): React.JSX.Element | null {
+  if (!halfWatched(place)) return null
+  return (
+    <span aria-hidden data-video-progress={(place!.played! / place!.seconds).toFixed(3)} className="files-video-progress">
+      <span style={{ width: `${(place!.played! / place!.seconds) * 100}%` }} />
+    </span>
+  )
+}
+
+/** A video's frame on its tile: Quick Look's, or its own first frame; a portrait one whole, never cropped. */
+function VideoFace({ one, large = false }: { one: Media; large?: boolean }): React.JSX.Element {
+  const face = useFileFace(one, large)
+  return <span className="files-video-face"><FileFace one={one} face={face} tiny /></span>
+}
+
+/**
+ * The Videos tab, in Files' own look: in front, the video last watched (or else the newest), its frame large, its
+ * name, its length, its note and how far it got; under it "Carry on watching", the others begun and not finished,
+ * newest watched first; then, under "Every video", media-view.tsx lays every video out as wide tiles (VideoTile).
+ */
+export function VideoFront({ files, across, onPlay, onUse, menuFor }: { files: Media[]; /** As many tiles as the grid under it has across. */ across: number; onPlay: (one: Media, event: React.MouseEvent) => void; onUse: (use: MediaUse, src: string) => void; /** Each video's one right-click menu, the grid's own. */ menuFor: (one: Media) => RowItem[] }): React.JSX.Element | null {
+  // This window's own news too: a video just stopped is in front before the list is read again.
+  useSyncExternalStore(heardPlace, () => files.map((one) => placeOf(one)?.playedAt ?? '').join('|'))
+  const byWatched = files.filter((one) => !one.gone && placeOf(one)?.playedAt).sort((a, b) => (placeOf(b)!.playedAt ?? '').localeCompare(placeOf(a)!.playedAt ?? ''))
+  // Else the newest (the list comes newest first).
+  const front = byWatched[0] ?? files.find((one) => !one.gone)
+  if (!front) return null
+  const rest = byWatched.filter((one) => one !== front && halfWatched(placeOf(one))).slice(0, across)
+  return (
+    <>
+      <div className="flex flex-col gap-7 pb-7">
+        <RowMenu items={() => menuFor(front)}><Front one={front} onWatch={onPlay} onUse={onUse} /></RowMenu>
+        {rest.length > 0 && (
+          <section data-video-carry className="flex flex-col gap-2">
+            <h3 className="text-body font-medium text-foreground">Carry on watching</h3>
+            <div className="files-video-row" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))` }}>
+              {rest.map((one) => <RowMenu key={one.src} items={() => menuFor(one)}><VideoCard one={one} onClick={onPlay} carry /></RowMenu>)}
+            </div>
+          </section>
+        )}
+      </div>
+      <h3 className="pb-2 text-body font-medium text-foreground">Every video</h3>
+    </>
+  )
+}
+
+/** The video in front: its frame large, its name and a quiet line over a soft shade at its foot, a round play beside them. */
+function Front({ one, onWatch, onUse, ...menu }: { one: Media; onWatch: (one: Media, event: React.MouseEvent) => void; onUse: (use: MediaUse, src: string) => void } & React.ComponentProps<'section'>): React.JSX.Element {
+  const place = usePlace(one)
+  const begun = halfWatched(place)
+  const note = one.uses[0]
+  return (
+    // `menu`: what its right-click menu (RowMenu) hands it.
+    <section {...menu} data-video-front data-src={one.src} className="files-video-front">
+      <button type="button" aria-label={`${begun ? 'Carry on with' : 'Play'} ${nameOf(one)}`} onClick={(event) => onWatch(one, event)} className="files-video-front-face">
+        <VideoFace one={one} large />
+      </button>
+      <span className="files-video-front-foot">
+        <span aria-hidden className="mf-blur-edge files-video-front-blur"><span /><span /><span /><span /></span>
+        <span aria-hidden className="files-video-front-play"><Play className="size-4 translate-x-px fill-current" /></span>
+        <span className="flex min-w-0 flex-col gap-0.5">
+          <span dir="auto" data-media-name className={`truncate font-heading text-title font-medium ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>
+          <span className="flex min-w-0 items-baseline gap-1.5 text-control text-white/85">
+            {note ? (
+              <button type="button" data-media-use className="min-w-0 cursor-pointer truncate underline decoration-white/35 underline-offset-2 hover:decoration-white" onClick={() => onUse(note, one.src)}>{note.title || 'New note'}</button>
+            ) : <span className="truncate">{whereOf(one)}</span>}
+            {place && <span className="shrink-0 tabular-nums">· {clock(place.seconds)}</span>}
+            {begun && <span data-video-left className="shrink-0 tabular-nums">· {leftOf(place!)}</span>}
+          </span>
+        </span>
+        <Watched place={place} />
+      </span>
+    </section>
+  )
+}
+
+/** A video as a wide tile: its frame with soft corners and how far it was watched along its foot, its name under, a quiet line. */
+function VideoCard({ one, onClick, carry = false, here = false, picked = false, ...menu }: { one: Media; onClick: (one: Media, event: React.MouseEvent) => void; carry?: boolean; here?: boolean; picked?: boolean } & Omit<React.ComponentProps<'button'>, 'onClick'>): React.JSX.Element {
+  const place = usePlace(one)
+  return (
+    <button {...menu} type="button" data-media={carry ? undefined : 'video'} data-video-card={carry ? 'carry' : 'grid'} data-src={one.src} data-id={carry ? undefined : one.src} data-cursor={here || undefined} data-picked={picked || undefined}
+      onClick={(event) => onClick(one, event)} className="files-video-card group/vc min-w-0 cursor-pointer text-left outline-none">
+      <span className={`files-video-pic ${picked ? 'is-picked' : here ? 'is-here' : ''}`}>
+        <VideoFace one={one} />
+        {place && <span className="files-video-length tabular-nums">{clock(place.seconds)}</span>}
+        <Watched place={place} />
+      </span>
+      <span dir="auto" data-media-name className={`truncate pt-2 text-body font-medium text-foreground ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>
+      <span data-media-where className={`truncate text-xs text-muted-foreground ${one.uses[0]?.private ? 'private-text' : ''}`}>
+        {carry && halfWatched(place) ? `${leftOf(place!)} · ${one.uses[0]?.title || whereOf(one)}` : whereOf(one)}
+      </span>
+    </button>
+  )
+}
+
+/** One of Videos' grid tiles, drawn again only when what it shows changes, its menu made as it opens (Square). */
+export const VideoTile = memo(function VideoTile({ one, here, picked, ways }: { one: Media; here: boolean; picked: boolean; ways: TileWays }): React.JSX.Element {
+  return (
+    <RowMenu items={() => ways.current.menuFor(one)}>
+      <VideoCard one={one} here={here} picked={picked} onClick={(item, event) => ways.current.onClick(item, event)} />
     </RowMenu>
   )
 })

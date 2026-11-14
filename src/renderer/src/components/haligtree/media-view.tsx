@@ -27,7 +27,7 @@ import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
 import { heroOpen } from '@/lib/hero'
-import { AudioDays, BOOK, BOOK_GAP, FileFace, kindWord, letGoWhen, useFileFace, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RECENT_CARD, RECENT_GAP, RecentGrid, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, useTileWays, type Shelf, type TileWays } from './files-shelves'
+import { AudioDays, BOOK, BOOK_GAP, FileFace, kindWord, letGoWhen, useFileFace, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RECENT_CARD, RECENT_GAP, RecentGrid, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, useTileWays, VIDEO_GAP, VIDEO_TILE, VideoFront, VideoTile, type Shelf, type TileWays } from './files-shelves'
 import { Chip, Display, arrange, useView, type Density, type Facet } from './display'
 import { FILE_SORTS, FilesTable, fileOrder, playFile, stopFile, type FileFacts } from './files-table'
 import { openedHere } from '@/lib/media-opened'
@@ -197,7 +197,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     return () => watch.disconnect()
   }, [all.length > 0, kind])
   const booksAcross = Math.max(1, Math.floor((width + BOOK_GAP) / (BOOK + BOOK_GAP)))
-  const across = table ? 1 : kind === 'picture' || mixed ? Math.max(3, Math.floor((width + PICTURE_GAP) / (PICTURE + PICTURE_GAP))) : kind === 'audio' ? 1 : Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
+  const across = table ? 1 : kind === 'picture' || mixed ? Math.max(3, Math.floor((width + PICTURE_GAP) / (PICTURE + PICTURE_GAP))) : kind === 'audio' ? 1 : kind === 'video' ? Math.max(1, Math.floor((width + VIDEO_GAP) / (VIDEO_TILE + VIDEO_GAP))) : Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
   const lines = useMemo(() => {
     const out: { key: string; tiles: Media[] }[] = []
     for (let at = 0; at < shown.length; at += across) out.push({ key: keyOf(shown[at]), tiles: shown.slice(at, at + across) })
@@ -303,6 +303,12 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   // A PDF's scrubbed page is read as the click lands: growing out of its tile ends the scrub.
   // A cover turned to a page opens the book there, whatever note holds it: the page on show is what was asked for.
   const openFrom = (one: Media, event: React.MouseEvent): void => ((page) => (page !== undefined ? heroOpen(event, () => openFile(one, false, page)) : one.kind === 'pdf' || one.uses.length ? heroOpen(event, () => open(one)) : open(one)))(scrubbedPage(one.src) ?? undefined)
+
+  // A video in front or under "Carry on watching" plays at once, from where it was left, in the viewer.
+  const playVideo = (one: Media, event: React.MouseEvent): void => {
+    if (one.gone) return refuse(`${one.name || 'That video'} is gone from the book's files. Add it again to bring it back`)
+    void openFileLook(one, event.currentTarget)
+  }
 
   // Files carried over the page: the whole page takes them.
   const [carrying, setCarrying] = useState(false)
@@ -412,6 +418,18 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
             <PictureMonths files={shown} across={across} cursor={cursor} chosen={chosen} keyOf={keyOf} menuFor={menuFor} onClick={clickTile} />
           ) : kind === 'audio' ? (
             <AudioDays files={shown} cursor={cursor} chosen={chosen} keyOf={keyOf} menuFor={menuFor} onClick={clickTile} onUse={(use, src) => openUse(use, src, onOpen)} />
+          ) : kind === 'video' ? (
+            // In front the one last watched (or the newest), then "Carry on watching", then every video as wide tiles.
+            <>
+              {!query.trim() && <VideoFront files={shown} across={across} onPlay={playVideo} onUse={(use, src) => openUse(use, src, onOpen)} menuFor={menuFor} />}
+              <VirtualList items={lines} keyOf={(line) => line.key} holds={(line, key) => line.tiles.some((one) => keyOf(one) === key)} cursor={cursor >= 0 ? Math.floor(cursor / across) : undefined} estimate={Math.round(VIDEO_TILE * 9 / 16) + 72} rowClass="">
+                {(line, row) => (
+                  <div data-video-line className="grid" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, columnGap: VIDEO_GAP, paddingBottom: 24 }}>
+                    {line.tiles.map((one, at) => <VideoTile key={keyOf(one)} one={one} here={row * across + at === cursor} picked={chosen.includes(keyOf(one))} ways={tileWays} />)}
+                  </div>
+                )}
+              </VirtualList>
+            </>
           ) : (
             <VirtualList items={lines} keyOf={(line) => line.key} holds={(line, key) => line.tiles.some((one) => keyOf(one) === key)} cursor={cursor >= 0 ? Math.floor(cursor / across) : undefined} estimate={TILE * 0.75 + 52 + GAP} rowClass="">
               {(line, row) => (
