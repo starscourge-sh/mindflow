@@ -64,6 +64,8 @@ try {
       if (globalThis.__webNet.blocked) throw new TypeError('fetch failed: offline')
       const path = new URL(url).pathname
       if (pages[path]) return new Response(pages[path], { headers: { 'content-type': 'text/html; charset=utf-8' } })
+      // A site's guard against robots, as Cloudflare answers a fetch it will not let through.
+      if (path === '/guarded') return new Response('<!DOCTYPE html><html><head><title>Just a moment...</title></head><body><script src="/cdn-cgi/challenge-platform/h/b/orchestrate/chl_page/v1"></script></body></html>', { status: 403, headers: { 'content-type': 'text/html; charset=UTF-8' } })
       if (path === '/pic.png') return new Response(Buffer.from(pic, 'base64'), { headers: { 'content-type': 'image/png' } })
       return new Response('', { status: 404 })
     }
@@ -288,7 +290,8 @@ try {
   await h.screenshot({ path: `${shots}/web-side-by-side.png` })
 
   // Pages the reader cannot read say why, never a blank pane.
-  for (const [path, words] of [['/login', /sign in/], ['/paid', /paywall/], ['/app', /scripts/]]) {
+  // A guard against robots is said as one (never as a sign-in it is not).
+  for (const [path, words] of [['/login', /sign in/], ['/paid', /paywall/], ['/app', /scripts/], ['/guarded', /checks that a person is visiting/]]) {
     await open(`${SITE}${path}`)
     await h.waitForSelector('.web-reader-failed', { timeout: 10000 }).catch(() => {})
     const said = await h.evaluate(() => document.querySelector('.web-reader-failed')?.textContent ?? '')

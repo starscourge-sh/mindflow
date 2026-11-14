@@ -19,6 +19,8 @@ const DROP = 'script, style, iframe, object, embed, form, input, button, select,
  */
 const WHY = {
   signIn: 'This page asks you to sign in before it shows its words, so the reader cannot keep it.',
+  // A site's guard against robots (Cloudflare's "Just a moment…") answers the app's ask with a check only a browser can pass.
+  check: 'This site checks that a person is visiting before it shows its words, and the reader cannot pass that check. Open it in your browser.',
   paid: 'This page keeps its words behind a paywall, so the reader cannot keep it.',
   script: 'This page builds its words with scripts as it opens, so there is no article here for the reader to keep.',
   gone: 'This page could not be reached. Check the link, or try again once you are online.',
@@ -41,7 +43,10 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     } catch {
       return stop.aborted ? { stopped: true } : { error: WHY.gone }
     }
-    if (response.status === 401 || response.status === 403) return { error: WHY.signIn }
+    if (response.status === 401 || response.status === 403) {
+      const said = await response.text().catch(() => '')
+      return { error: /challenge-platform|cf-chl|cf_chl|<title>Just a moment/i.test(said) ? WHY.check : WHY.signIn }
+    }
     if (response.status === 402) return { error: WHY.paid }
     if (!response.ok) return { error: WHY.gone }
     if (!/text\/html|application\/xhtml/i.test(response.headers.get('content-type') ?? '')) return { error: WHY.notPage }
