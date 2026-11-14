@@ -277,8 +277,8 @@ export function NotePreview(): React.JSX.Element | null {
             picture: found.picture !== undefined ? found.picture : binned ? null : pictureIn(found.body),
             lead: found.lead,
             cast: found.cast,
-            // A tag, in a note's words or anywhere else, opens as a link does.
-            foot: type === 'tag' ? `${clicks(false)}.` : undefined,
+            // A name that opens its own way (an offer's, beside the note) says so; a tag, anywhere, opens as a link does.
+            foot: link.getAttribute('data-note-foot') ?? (type === 'tag' ? `${clicks(false)}.` : undefined),
             tally: found.tally,
             latest: found.latest
           })

@@ -306,8 +306,9 @@ function retag(tag: string, node: HTMLElement | null): boolean {
  * a #tag after the last one there (or at the end of the title line), so the words and the strip never disagree.
  * One step ⌘Z takes back.
  */
-export function putTag(editor: Editor, tag: string): boolean {
-  const name = tag.trim().replace(/^#+/, '').replace(/\s+/g, '-')
+export function putTag(editor: Editor, tag: string | string[]): boolean {
+  // Several at once (an offer's ticked tags) go in together, one edit that one ⌘Z takes back.
+  const name = [tag].flat().map((one) => one.trim().replace(/^#+/, '').replace(/\s+/g, '-')).filter(Boolean).join(' #')
   if (!name) return false
   let at = -1
   editor.state.doc.descendants((child, pos) => {

@@ -8,6 +8,9 @@ const LINK = /\[\[@([^|\]]+)\|([^\]]+)\]\]/g
 /** A card's words with no link marks left: each link as its label, a mark cut off at the end gone. */
 export const unlinked = (text: string): string => text.replace(LINK, '$2').replace(/\[\[@[^\]]*$/, '')
 
+/** How a note named in a line of words outside the editor is drawn: a link, underlined, its line darker on hover. */
+export const NOTE_NAME = 'cursor-pointer font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current'
+
 /**
  * A card's words with the notes they link to shown as links: a click opens
  * the note, ⌥-click beside, and a rest shows its card (note-preview.tsx).
@@ -25,7 +28,7 @@ export function LinkedWords({ text }: { text: string }): React.JSX.Element {
       <span key={match.index} role="link" data-card-link={to} {...hoverNote(type, id)}
         onClick={(event) => (event.stopPropagation(), event.preventDefault(), chime('page'), event.altKey ? openAside(type, id) : window.api.openInHome(type, id, heading))}
         onDoubleClick={(event) => event.stopPropagation()}
-        className="cursor-pointer font-medium underline decoration-current/40 underline-offset-2 hover:decoration-current">{label}</span>
+        className={NOTE_NAME}>{label}</span>
     )
     from = match.index + whole.length
   }

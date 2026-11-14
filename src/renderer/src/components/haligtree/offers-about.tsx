@@ -3,8 +3,8 @@ import { WhyLine } from './ai-offers'
 import { BookOpen, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
-import { follow } from '@/lib/capture-links'
 import { chime } from '@/lib/sound'
+import { OfferNote } from './note-offers'
 import { clock } from '@/lib/clock'
 import { toast } from './ui'
 import type { MacEvent } from '@/lib/mac-calendar'
@@ -14,6 +14,8 @@ import type { MacEvent } from '@/lib/mac-calendar'
  * (main/offers.ts): on a question, "A clue for your question"; on Today, the
  * notes for the next event ("Notes at the right moment"). Offered, never added:
  * a clue is kept only with "Keep as a clue", and each line goes for good with ×.
+ * Each note named is a link, as under a note (note-offers.tsx, OfferNote): its
+ * card on rest, a click opens it beside, ⌘-click in a new tab.
  */
 
 type About = { key: string; title: string; words: string }
@@ -53,7 +55,7 @@ export function QuestionClues({ id, title, onOpen }: { id: string; title: string
         {list.map((one) => (
           <li key={one.key} data-offer-clue={one.key} className="flex items-center gap-2">
             <span className="flex min-w-0 flex-1 flex-col">
-              <button type="button" className="cursor-pointer truncate rounded-sm text-left text-body text-foreground hover:underline" onClick={() => (chime('open'), follow(one.key, onOpen))}>{one.title}</button>
+              <OfferNote link={one.key} onOpen={onOpen} className="cursor-pointer truncate rounded-sm text-left text-body text-foreground hover:underline">{one.title}</OfferNote>
               <WhyLine question={title} note={`${one.title}. ${one.words}`} />
             </span>
             <button type="button" data-offer-keep className="mf-note-offer-button" onClick={() => void haligtree.addClue(id, `${one.title}: ${one.words}`).then((clue) => (chime('clue'), putAway(`${id}|${one.key}`), setShown(gone()), toast('Kept as a clue', clue ? () => void haligtree.dropClue(clue) : undefined)))}>Keep as a clue</button>
@@ -77,7 +79,7 @@ export function EventNotes({ events, now, onOpen }: { events: MacEvent[]; now: D
       <span className="min-w-0 flex-1 truncate">
         <b className="font-medium text-foreground">{next.title} at {clock(next.start)}:</b> your notes on{' '}
         {found.slice(0, 2).map((one, at) => (
-          <span key={one.key}>{at > 0 && ' and '}<button type="button" className="cursor-pointer rounded-sm font-medium text-foreground hover:underline" onClick={() => (chime('open'), follow(one.key, onOpen))}>{one.title}</button></span>
+          <span key={one.key}>{at > 0 && ' and '}<OfferNote link={one.key} onOpen={onOpen} className="cursor-pointer rounded-sm font-medium text-foreground hover:underline">{one.title}</OfferNote></span>
         ))}
       </span>
       <button type="button" aria-label="Not for this event" title="Not for this event" className="mf-note-offer-close" onClick={() => (chime('fold'), putAway(`event|${next.title}|${next.start}`), setHidden(gone()))}><X className="size-3.5" /></button>

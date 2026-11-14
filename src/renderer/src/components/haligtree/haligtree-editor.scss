@@ -1063,9 +1063,10 @@
 }
 
 // Search hits. The extension ships yellow/orange via an injected <style>, which
-// `injectCSS: false` turns off.
+// `injectCSS: false` turns off. The words an offer under the note is about wear the same light while the offer
+// is pointed at (offer-slot.ts, mf-offer-lit): one look for "these words, here".
 .tiptap.ProseMirror.haligtree-editor {
-  .find-and-replace-result {
+  .find-and-replace-result, .mf-offer-lit {
     border-radius: 0.1875rem;
     background-color: color-mix(in srgb, var(--tt-cursor-color) 30%, transparent);
   }

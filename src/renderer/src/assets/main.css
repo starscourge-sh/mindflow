@@ -2812,8 +2812,10 @@ html[data-drag-refused], html[data-drag-refused] * { cursor: not-allowed !import
 :root[data-motion="off"] .mf-note-offer { animation: none; }
 .mf-note-offer-icon { flex: none; display: grid; color: var(--muted-foreground); }
 .mf-note-offer-button { flex: none; cursor: pointer; border-radius: 0.5rem; padding: 0.375rem 0.75rem; font-weight: 500; color: var(--foreground); background: color-mix(in oklab, var(--foreground) 7%, transparent); transition: background-color 150ms ease, transform 100ms ease; }
-.mf-note-offer-button:hover { background: color-mix(in oklab, var(--foreground) 11%, transparent); }
-.mf-note-offer-button:active, .mf-note-offer-close:active { transform: scale(0.97); }
+.mf-note-offer-button:hover:not(:disabled) { background: color-mix(in oklab, var(--foreground) 11%, transparent); }
+.mf-note-offer-button:active:not(:disabled), .mf-note-offer-close:active { transform: scale(0.97); }
+/* An offer of several with none ticked: its button says so ("None ticked"), at half strength, and does nothing. */
+.mf-note-offer-button:disabled { cursor: not-allowed; opacity: 0.5; }
 .mf-note-offer-close { flex: none; cursor: pointer; display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 0.5rem; color: var(--muted-foreground); }
 .mf-note-offer-close:hover { background: color-mix(in oklab, var(--foreground) 7%, transparent); color: var(--foreground); }
 :is(.mf-note-offer-button, .mf-note-offer-close, .pdf-scan-button, .pdf-scan-close):focus-visible { outline: 2px solid var(--ring, var(--tt-brand-color-500)); outline-offset: 2px; }
