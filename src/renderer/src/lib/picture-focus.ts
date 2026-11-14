@@ -60,9 +60,11 @@ const place = (img: HTMLImageElement): void => void (loaded.push(img), focusSoon
 if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.api) {
   // An image's load does not bubble; heard on the way down instead.
   document.addEventListener('load', (event) => event.target instanceof HTMLImageElement && place(event.target), true)
-  // A picture already in memory is drawn before its load is told, so it is placed the moment it joins the page, before
-  // that frame is drawn, when its point is known: a page come back to (Sources) no longer shows each face from its
-  // middle for a frame first.
+  // A picture already in memory is drawn before its load is told, so it is placed as it joins the page, before that
+  // frame is drawn, when its point is known: a page come back to (Sources) no longer shows each face from its middle
+  // for a frame first. Placed in that frame's own start, where its look is worked out anyway: placed at once, a page
+  // still being made (the largest note, its every block not yet put away) had its whole look worked out there and
+  // then for one picture's fit, 294 ms as it opened.
   new MutationObserver((changes) => {
     let any = false
     for (const change of changes) for (const node of change.addedNodes) {
@@ -70,7 +72,7 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.a
       for (const img of node instanceof HTMLImageElement ? [node] : node.querySelectorAll('img'))
         if (img.complete && img.naturalWidth && read.has(img.src)) (loaded.push(img), (any = true))
     }
-    if (any) settleFocus()
+    if (any) focusSoon()
   }).observe(document.documentElement, { childList: true, subtree: true })
   // Those already drawn before this was listening.
   const now = (): void => document.querySelectorAll('img').forEach((img) => img.complete && place(img))
