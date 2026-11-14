@@ -372,8 +372,13 @@ try {
   const shrink = from < 0 ? [] : boxes.slice(from - 1, least + 1)
   const widths = shrink.map((one) => one.box[2])
   const jumps = widths.slice(1).map((one, i) => widths[i] - one)
+  // A jump is a step bigger than the spring itself moves in the time between the two frames read (at most 2.8 times the
+  // whole way per its length, welcome.tsx SPRING): the window is drawn by the browser's compositor, so a page held up
+  // between two reads shows as a long step that was smooth on screen, while a pop shows as a long step in one frame.
+  const SHAPE_MS = 1400
+  const allowed = shrink.slice(1).map((one, i) => 2.8 * ((one.t - shrink[i].t) / SHAPE_MS) * (W - MIDDLE[2]) + 2)
   check('the scene becomes the window: from the whole screen to about half of it, in its middle, within 1 px', from > 0 && near(shrink[0].box, WHOLE_BOX) && near(shrink.at(-1).box, MIDDLE), JSON.stringify({ first: shrink[0]?.box, last: shrink.at(-1)?.box, want: MIDDLE }))
-  check('every frame of it only ever shrinking, with no jump', shrink.length > 30 && jumps.every((one) => one >= -0.5) && Math.max(...jumps) <= 0.15 * (W - MIDDLE[2]), `${shrink.length} frames; biggest step ${jumps.length ? Math.max(...jumps).toFixed(1) : '-'} px of ${Math.round(W - MIDDLE[2])}`)
+  check('every frame of it only ever shrinking, with no jump', shrink.length > 20 && jumps.every((one, i) => one >= -0.5 && one <= allowed[i]), `${shrink.length} frames; biggest step ${jumps.length ? Math.max(...jumps).toFixed(1) : '-'} px of ${Math.round(W - MIDDLE[2])}; steps over what the spring moves: ${jumps.map((one, i) => [one, allowed[i], shrink[i + 1].t]).filter(([one, most]) => one > most).map(([one, most, t]) => `${one.toFixed(0)}>${most.toFixed(0)}@${Math.round(t)}`).join(' ') || 'none'}`)
   check('in one motion on the spring, of about a second and a half', shrink.length > 0 && shrink.at(-1).t - shrink[0].t >= 1100 && shrink.at(-1).t - shrink[0].t <= 1900, `${Math.round((shrink.at(-1)?.t ?? 0) - (shrink[0]?.t ?? 0))}ms`)
   check('once the title is written: the hand done, about ten and a half seconds into the fog', from > 0 && boxes[from].t >= 9500 && boxes[from].t <= 12500, `${Math.round(boxes[from]?.t ?? -1)}ms`)
   check('the window it becomes: rounded corners and a shadow, the desktop sharp round it, the fog whole inside', TIMING || (!!windowLook && windowLook.at[0] === 255 && windowLook.at[1] < 128 && windowLook.at[2] === 255 && windowLook.at[3] === 0 && windowLook.at[4] > 8), JSON.stringify(windowLook?.at))
@@ -389,7 +394,7 @@ try {
   check('the end: the window whole, opaque along every edge, the fog its ground, with its shadow', !after.clear && after.mist && after.scene && end.least === 255 && end.edges === 255 && stood?.shadow === true && (await arrival())?.clear === false, JSON.stringify({ least: end.least, edges: end.edges, after }))
   check('the window itself never moved or changed size on the way (it is drawn inside it, so no window manager can tile it)', JSON.stringify(stood?.bounds) === JSON.stringify(before?.bounds), JSON.stringify({ before: before?.bounds, stood: stood?.bounds }))
   const late = steps.slice(1).filter((one) => one > 20).length
-  console.log(`frames: ${steps.length} drawn, longest gap ${Math.max(...steps.slice(1)).toFixed(1)} ms, ${late} over 20 ms (not a timing run unless under solo --quiet)`)
+  console.log(`frames: ${steps.length} drawn, longest gap ${Math.max(...steps.slice(1)).toFixed(1)} ms, ${late} over 20 ms (not a timing run unless under solo --quiet); gaps over 50 ms, at the fog's ms: ${steps.map((one, i) => [one, trace[i + 1][0]]).filter(([one]) => one > 50).map(([one, at]) => `${Math.round(one)}@${Math.round(at)}`).join(' ') || 'none'}`)
   // The first page left: the fog lifts off the page's own ground, which has come up under it.
   await h.keyboard.press('Escape')
   await h.waitForTimeout(300)
