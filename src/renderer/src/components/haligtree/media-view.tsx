@@ -357,7 +357,7 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const nothing = query.trim() ? <>Nothing here has {quoted(query.trim(), 80)} in its name, its note, the words around it or the words in it.</>
     : table && found.length ? <>Nothing here matches the filters in Display.</>
     : unlinkedOnly ? <>Nothing unlinked{kind === 'all' ? '' : ` among the ${shelf?.many ?? 'files'}`}. A picture or file pasted into a note shows here once no note holds it, until you move it to the Bin.</>
-    : <>No {shelf?.many ?? 'files'} here yet.</>
+    : <>No {shelf?.many ?? 'files'} here yet. Press “Add”, or drop {shelf?.one === 'image' ? 'an' : 'a'} {shelf?.one ?? 'file'} anywhere on this page.</>
   return (
     // The page as a whole takes a drop: `contents`, so nothing about how it is laid out changes.
     // Carrying files, said on the page for files.css to soften it: not found with :has(), a whole-page restyle each change.
