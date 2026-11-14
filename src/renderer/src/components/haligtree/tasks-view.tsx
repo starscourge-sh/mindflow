@@ -1315,9 +1315,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           )
         })()}
 
-        {/* What is late, said once and quietly on every tab but Today, where it is dealt with. */}
+        {/* What is late, said once on every tab but Today, where it is dealt with: in the ink, as a key fact is. */}
         {lateHere.length > 0 && !example && (
-          <p data-late-line className="list-words mt-3 text-[0.9375rem] text-foreground/75">
+          <p data-late-line className="list-words mt-3 text-[0.9375rem] text-foreground">
             <button type="button" onClick={() => (chime('page'), onOpen?.('view', 'today'))} className="cursor-pointer rounded-sm underline decoration-foreground/30 underline-offset-[3px] outline-none hover:decoration-foreground/60 focus-visible:ring-2 focus-visible:ring-ring">
               {num(lateHere.length)} late, on Today
             </button>
