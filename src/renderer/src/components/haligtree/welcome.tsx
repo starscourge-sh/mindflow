@@ -826,7 +826,7 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
       {/* Out of the desktop: one scene, the fog over the desktop with the spark and the title in it, shaped into the window once
           the title is written and grown to fill it as the first page comes (shapeTo); the fog is the window's ground after. */}
       {fog && (
-        <div ref={scene} data-arrival-scene="" className="pointer-events-none absolute inset-0 z-30">
+        <div key={`scene-${arrival}`} ref={scene} data-arrival-scene="" className="pointer-events-none absolute inset-0 z-30">
           {/* The window's shadow, coming as the scene becomes the window: in the scene's own (scaled) pixels, so on screen it is a window's. */}
           <div ref={sceneShadow} aria-hidden data-arrival-shadow="" className="absolute inset-0" style={{ opacity: 0, borderRadius: `${CORNER / windowScale()}px`, boxShadow: `0 0 0 ${1 / windowScale()}px color-mix(in oklab, var(--foreground) 14%, transparent), 0 ${24 / windowScale()}px ${70 / windowScale()}px ${-8 / windowScale()}px rgb(0 0 0 / 0.55)` }} />
           <div ref={sceneBody} data-arrival-body="" className="absolute inset-0 overflow-clip">
@@ -881,9 +881,9 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
             the way past the intro. The footer comes up in their place once the first words have. */}
         {mist && at === WHY && (
           // With no mist to say the arrival is over, it is over once these have faded out.
-          // Out of the desktop they come in with the mist, never before it (nothing is drawn at first), each on its own opaque
-          // ground: the mist is thin at the screen's foot, and words on the desktop's own picture cannot be counted on to read.
-          <div data-intro="" onTransitionEnd={(event) => void (event.target === event.currentTarget && !veiled && WELCOME_BACKGROUND !== 'paper' && setMist(false))} className={`pointer-events-auto absolute inset-x-0 bottom-0 z-50 flex h-[clamp(4rem,9vmin,5.5rem)] items-center px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-700 ${veiled ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+          // Out of the desktop they come in with the fog's last part, never before it (nothing is drawn at first), each on its
+          // own opaque ground, and afresh each arrival: never bare words over the desktop's own picture, which cannot be counted on to read.
+          <div key={`intro-${arrival}`} data-intro="" onTransitionEnd={(event) => void (event.target === event.currentTarget && !veiled && WELCOME_BACKGROUND !== 'paper' && setMist(false))} className={`pointer-events-auto absolute inset-x-0 bottom-0 z-50 flex h-[clamp(4rem,9vmin,5.5rem)] items-center px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-700 ${veiled ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
             <button type="button" data-intro-sound="" aria-pressed={loud} aria-label={loud ? 'Sounds on' : 'Sounds off'} onClick={() => {
               const next = !loud
               setLoud(next)

@@ -303,7 +303,7 @@ Rhythm is a 4px grid and tight: heading margins about 0.9em above and 0.3em belo
 
 ## Elevation & Depth
 
-Depth comes from tone first: a surface is a few percent more ink than the page under it. Shadows are reserved for things that lift off the page, and there is one shadow per role, all cast in a shadow ink rather than grey. Every floating sheet (menu, popover, tooltip, ⌘K, toast, dialog) is opaque and shares one material: the Parchment fill, a 1px ring of ink at 10%, and the panel shadow. The main window has no glass and no blur; only small windows that float over other apps (quick capture, glass stickies) may use native vibrancy.
+Depth comes from tone first: a surface is a few percent more ink than the page under it. Shadows are reserved for things that lift off the page, and there is one shadow per role, all cast in a shadow ink rather than grey. Every floating sheet (menu, popover, tooltip, ⌘K, toast, dialog) is opaque and shares one material: the Parchment fill, a 1px ring of ink at 10%, and the panel shadow. The main window has no glass and no blur; only small windows that float over other apps (quick capture, glass stickies) may use native vibrancy, and the welcome arriving out of the desktop, whose window softens the desktop with the Mac's own blur for its first two seconds, under a fog that covers it whole (src/main/arrival.ts).
 
 ### Shadow Vocabulary
 - **Panel** (`box-shadow: 0 1px 2px color-mix(in oklab, var(--mf-shadow-ink) 16%, transparent), 0 12px 32px -6px color-mix(in oklab, var(--mf-shadow-ink) 32%, transparent)`; on dark themes `0 1px 2px` at 40% and `0 14px 36px -6px` at 62% in black): every floating sheet. A crisp edge where it nearly touches and a soft spread further out, the way paper lifts.
