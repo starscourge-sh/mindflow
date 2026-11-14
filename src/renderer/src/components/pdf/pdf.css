@@ -35,9 +35,10 @@
   background: #1c1a17;
 }
 
+/* The one thing the reader has to say when a book cannot be read: the ink, never the quiet one. */
 .pdf-pages.is-failed {
   padding: 1rem;
-  color: var(--mf-muted);
+  color: var(--foreground);
   font-size: 0.9375rem;
 }
 
