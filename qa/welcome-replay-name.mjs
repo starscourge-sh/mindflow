@@ -6,6 +6,9 @@ import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
+// Played again from your own book it opens in the sandbox, so this runs in it whatever QA_ARGS says, as welcome-refs
+// does: run as a plain first launch (no --sandbox), the field could only start empty.
+process.env.QA_ARGS ??= '--sandbox'
 const { check, done } = checks()
 const SHOTS = process.argv[2]
 const NAME = 'Garden of Loose Ends'
