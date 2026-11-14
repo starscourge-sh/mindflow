@@ -673,13 +673,15 @@
   }
 }
 
+/* The article's title as a note's own title is set (items-view.tsx, data-page-title): the heading face, a title's
+   size and weight, growing with the article's own size. */
 .web-reader-heading {
   margin: 0;
   font-family: var(--font-heading, inherit);
-  font-size: 2.25em;
+  font-size: 1.5em;
   font-weight: 600;
-  line-height: 1.15;
-  letter-spacing: -0.022em;
+  line-height: 1.25;
+  letter-spacing: -0.018em;
   text-wrap: balance;
 }
 

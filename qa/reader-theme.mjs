@@ -179,13 +179,16 @@ try {
       noteGap: noteSecond && Math.round((parseFloat(getComputedStyle(noteSecond).marginTop) / parseFloat(getComputedStyle(noteSecond).fontSize)) * 100) / 100,
       // A quote's, a list's or a table's own paragraphs stay inside it, as in a note.
       straight: ps.filter((one) => one.parentElement === body).length, all: ps.filter((one) => !one.closest('blockquote, li, td, th, figure')).length,
-      quote: body?.querySelector('blockquote') ? getComputedStyle(body.querySelector('blockquote')).fontStyle : null
+      quote: body?.querySelector('blockquote') ? getComputedStyle(body.querySelector('blockquote')).fontStyle : null,
+      // The article's title against the note's own (items-view.tsx, data-page-title): face, size, weight.
+      title: [document.querySelector('.web-reader-heading'), document.querySelector(`[data-open="${n}"] [data-page-title]`)].map((one) => one && [getComputedStyle(one).fontFamily, getComputedStyle(one).fontSize, getComputedStyle(one).fontWeight].join(' / '))
     }
   }, note)
   check("the article's words in the note's type and size", rhythm.note && rhythm.reader && rhythm.reader.family === rhythm.note.family && rhythm.reader.size === rhythm.note.size, JSON.stringify(rhythm))
   check("the note's line height and room between paragraphs", rhythm.reader?.line === rhythm.note?.line && rhythm.gap === rhythm.noteGap, JSON.stringify(rhythm))
   check('every paragraph set straight in the column, out of the site\'s sections', rhythm.all > 0 && rhythm.straight === rhythm.all, JSON.stringify(rhythm))
   check('a quote set off as a note sets one', rhythm.quote === 'italic', JSON.stringify(rhythm))
+  check("the article's title set as a note's title is", !!rhythm.title[0] && rhythm.title[0] === rhythm.title[1], JSON.stringify(rhythm.title))
 
   for (const [theme, style] of [['paper', 'soft'], ['light', 'soft'], ['dark', 'soft'], ['dark', 'paper'], ['paper', 'brutal']]) {
     await h.evaluate(([t, s]) => { localStorage.setItem('theme', t); localStorage.setItem('style', s); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, [theme, style])
