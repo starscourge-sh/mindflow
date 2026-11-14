@@ -68,19 +68,32 @@ try {
   let seen = null
   const passed = []
   const shownCast = []
+  let offerFit = null
   for (let n = 0; n < 6; n++) {
     for (let t = 0; t < 40000 && !(seen = await offer()); t += 250) await wait(250)
     if (!seen || seen.kind === 'people' || seen.kind === 'person') break
     passed.push(seen.kind)
     if (seen.kind === 'character') {
       shownCast.push(seen.text.replace(/\s+/g, ' '))
+      // An offer of one in this narrow pane (the note beside the page's list): its words keep the width, its button
+      // goes under them, × stays on their line, all inside. Beside the button the words stood a word wide.
+      const fit = await h.evaluate((s) => {
+        const at = (q) => document.querySelector(`${s} ${q}`)?.getBoundingClientRect()
+        const line = document.querySelector(s)?.getBoundingClientRect(), words = at('.mf-note-offer-words') ?? at('span.min-w-0'), add = at('[data-offer-action]'), x = at('[data-offer-away]')
+        return line && words && add && x ? { line: Math.round(line.width), words: Math.round(words.width), under: add.top >= words.bottom - 1, xBeside: x.bottom <= add.top + 1, inside: add.right <= line.right && add.bottom <= line.bottom && x.right <= line.right } : null
+      }, OFFER)
+      offerFit ??= fit
       if (SHOT) (await h.evaluate((s) => document.querySelector(s)?.scrollIntoView({ block: 'center' }), OFFER), await wait(300), await c.both(`${SHOT}/character-offer`))
     }
     await h.click(`${OFFER} [data-offer-away]`).catch(() => {})
     await wait(1200)
+    // The next offer comes at the note's next reading (note-offers.tsx: read once the words rest, one at a time): with
+    // nothing typed, when the note is opened again, as a person coming back to it sees it.
+    if (!(await offer())) (await c.go('home'), await send('article', PAGE), await h.waitForSelector('.tiptap.ProseMirror', { timeout: 30000 }), await wait(1500))
     seen = null
   }
   console.log(`NOTE  offers put away before it: ${passed.join(', ') || 'none'}; then: ${JSON.stringify(seen)}`)
+  check('in this narrow pane its words keep at least half the offer’s width, its button under them, × on their line, all inside', !!offerFit && offerFit.words >= offerFit.line / 2 && offerFit.under && offerFit.xBeside && offerFit.inside, JSON.stringify(offerFit))
   check('the page says “Dorian Gray is a character in The Picture of Dorian Gray.”, with “Add as a character”', shownCast.some((text) => text.includes('Dorian Gray is a character in The Picture of Dorian Gray.') && text.includes('Add as a character')), JSON.stringify(shownCast))
   check(`one offer for them all: “${names.length} people are named here.”`, seen?.kind === 'people' && seen.text.includes(`${names.length} people are named here.`), JSON.stringify(seen))
   check('only one offer line shows', (await h.evaluate((s) => document.querySelectorAll(s).length, OFFER)) === 1)
