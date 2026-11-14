@@ -84,3 +84,14 @@ test('the ways to open a thing each have a drawing of their own, and hiding unti
   assert.equal(menuIcon('Hide until…'), menuIcon('Hidden until Fri 13 Nov'))
   assert.notEqual(menuIcon('Hide until…'), Dot)
 })
+
+// The block menu draws its lines with <MenuGlyph label="…" />: "Block" (the menu for the whole line a link sits on)
+// had no rule and showed the quiet dot (the user, 14 Nov: "what is that 'block' icon").
+test('every <MenuGlyph label="…" /> has a drawing', () => {
+  const missing = new Set<string>()
+  for (const file of files('src/renderer/src')) {
+    const text = readFileSync(file, 'utf8')
+    for (const m of text.matchAll(/<MenuGlyph\s+label=["']([^"']+)["']/g)) if (menuIcon(m[1]) === Dot) missing.add(`${m[1]}  (${file})`)
+  }
+  assert.deepEqual([...missing], [], `give these menu lines a rule in menu-icon-rules.ts:\n${[...missing].join('\n')}`)
+})

@@ -1,7 +1,7 @@
 import {
   AlarmClock, AppWindow, BellOff, Archive, ArchiveRestore, BookPlus, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
-  CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
+  CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, GripVertical, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderCheck, FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, Merge, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Languages, Scissors, Pause, Play, Scale, ScanText, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
@@ -216,6 +216,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^translate/i, Languages],
   [/^copy .*links?$|^copy link|all links/i, Link],
   [/^duplicate/i, CopyPlus],
+  // The menu for the whole line a link or a word sits on: drawn as the grip that opens the same menu beside a line.
+  [/^block$/i, GripVertical],
   [/^copy/i, Copy],
   // Names and looks.
   [/^rename|^give it a title|^edit|^add a page$|^change the question|^say who/i, Pencil],
