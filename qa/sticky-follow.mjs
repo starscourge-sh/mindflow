@@ -14,6 +14,9 @@ process.env.QA_ARGS ??= '--sandbox'
 
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 process.env.HALIGTREE_QA_FOLLOW ??= '1'
+// A stand-in's name for the app's AeroSpace calls, which this probe writes down instead of running (a test run never
+// calls the real one).
+process.env.HALIGTREE_AEROSPACE ??= '/qa/stand-in/aerospace'
 const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const c = await sandbox()

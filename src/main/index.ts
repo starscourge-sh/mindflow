@@ -2362,8 +2362,9 @@ function openHome(): void {
 // first seen on. The main window is made once and kept, so opening it would
 // take you back to that workspace instead of coming to the one you are on.
 // Where AeroSpace is installed, it is asked to move the window here first.
-// A test run may name a stand-in for it (qa/box-aerospace.mjs), so no probe ever asks the real one to move anything.
-const AEROSPACE = (process.env.HALIGTREE_QA_AWAY && process.env.HALIGTREE_AEROSPACE) || ['/opt/homebrew/bin/aerospace', '/usr/local/bin/aerospace'].find((path) => existsSync(path))
+// A test run never asks the real one anything (it could move the person's windows or change their workspace): only a
+// stand-in it names (qa/box-aerospace.mjs, qa/sticky-follow.mjs), or none.
+const AEROSPACE = process.env.HALIGTREE_QA_AWAY ? process.env.HALIGTREE_AEROSPACE || undefined : ['/opt/homebrew/bin/aerospace', '/usr/local/bin/aerospace'].find((path) => existsSync(path))
 const aerospace = (...args: string[]): Promise<string> =>
   new Promise((done) => execFile(AEROSPACE!, args, { timeout: 1500 }, (error, out) => done(error ? '' : out.trim())))
 
