@@ -129,12 +129,22 @@ export function DraftMark({ kind, color, shape, time, style, ref, at, bar }: {
     const to = el.getBoundingClientRect()
     const [x, y] = [mine.rect.left - to.left, mine.rect.top - to.top]
     if (Math.abs(x) < 1 && Math.abs(y) < 1) return void (travel = null)
-    // Played by the browser, on the app's slow spring (`SLOW`): its place at each frame is set before anything that frame
-    // reads it, so its popover, placed again from where it is at every frame, rides with it. Moved by the motion
-    // library's own frame loop, the draft was a frame ahead of its popover at the fastest part of the way, under it.
-    const going = el.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: 'translate(0px, 0px)' }], SLOW)
-    going.onfinish = () => void (travel === mine && (travel = null))
-    return () => going.cancel()
+    // It flies over the page: a copy of it, laid over where it is going, sets off from where it was, and the draft itself
+    // waits unseen in its new place until the copy lands there. Moved inside its day, it was cut off by the day's edges
+    // (a month's day holds what is in it): it vanished from the day it left and showed only coming in over its new day's
+    // edge. Played by the browser on the app's slow spring (`SLOW`), so its place at each frame is set before anything
+    // that frame reads it: its popover, placed again from the copy at every frame (AddPopover), rides with it.
+    const flying = el.cloneNode(true) as HTMLElement
+    for (const name of ['data-cal-draft', 'data-cal-draft-at']) flying.removeAttribute(name)
+    flying.setAttribute('data-cal-draft-flying', '')
+    flying.setAttribute('aria-hidden', 'true')
+    Object.assign(flying.style, { position: 'fixed', left: `${to.left}px`, top: `${to.top}px`, width: `${to.width}px`, height: `${to.height}px`, margin: '0', zIndex: '40', pointerEvents: 'none' })
+    document.body.append(flying)
+    el.style.visibility = 'hidden'
+    const land = (): void => void (flying.remove(), el.style.removeProperty('visibility'))
+    const going = flying.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: 'translate(0px, 0px)' }], SLOW)
+    going.onfinish = () => (land(), void (travel === mine && (travel = null)))
+    return () => (going.cancel(), land())
   }, [at]) // eslint-disable-line react-hooks/exhaustive-deps
   const look: React.CSSProperties = kind === 'event' ? tint(color) : { background: 'var(--background)', border: `1.5px solid color-mix(in oklab, ${TASK_INK} 75%, transparent)`, color: 'var(--foreground)' }
   const box = shape === 'block' ? 'absolute inset-x-1 z-20 flex-col rounded-[6px] px-1.5 pt-[3px]' : shape === 'chip' ? 'h-6 items-center gap-1 rounded-[5px] px-1.5' : 'mt-0.5 h-[calc(1.25rem-2px)] shrink-0 items-center gap-1 rounded-[5px] px-1.5'
@@ -438,7 +448,8 @@ export function AddPopover({ add, level, onChange, onClose, onAgain, onGone, lea
     const was = now.current
     if (samePlace(placeOf(was), to)) return
     const at = samePlace(was, to) ? undefined : to
-    const rect = level.current?.querySelector('[data-cal-draft]:not([data-cal-draft-bar])')?.getBoundingClientRect()
+    // From where it is seen now: still flying from its last move, the copy in the air.
+    const rect = (document.querySelector('[data-cal-draft-flying]') ?? level.current?.querySelector('[data-cal-draft]:not([data-cal-draft-bar])'))?.getBoundingClientRect()
     travel = rect ? { to: placeKey(placeOf({ ...was, at })), rect } : null
     onChange({ at })
   }
@@ -454,13 +465,14 @@ export function AddPopover({ add, level, onChange, onClose, onAgain, onGone, lea
     const moved = new DOMMatrixReadOnly(getComputedStyle(el).transform)
     return new DOMRect(box.left - moved.m41, box.top - moved.m42, box.width, box.height)
   }
-  // What it is tied to, read afresh at every frame (Shell, `updatePositionStrategy`): the bar's piece chosen below, else
-  // the draft wherever it is drawn now (moved by its words to another day, it is a new element there), else its day.
+  // What it is tied to, read afresh at every frame (Shell, `updatePositionStrategy`): the draft's copy while it flies to
+  // where its words put it (DraftMark), else the bar's piece chosen below, else the draft wherever it is drawn now (moved
+  // to another day, it is a new element there), else its day.
   // One anchor for the popover's whole life: tied to an element, it stayed tied to the draft its words had just taken
   // off the page until the page told it of the new one, a frame or more later (qa/cal-add.mjs read 3 frames of 109 with
   // the draft under its popover).
   const tiedNow = useRef<() => Element | null>(() => null)
-  tiedNow.current = () => bare ?? level.current?.querySelector('[data-cal-draft]') ?? level.current?.querySelector(`[data-day="${drawn.day}"], [data-cal-col="${drawn.day}"]`) ?? null
+  tiedNow.current = () => document.querySelector('[data-cal-draft-flying]') ?? bare ?? level.current?.querySelector('[data-cal-draft]') ?? level.current?.querySelector(`[data-day="${drawn.day}"], [data-cal-col="${drawn.day}"]`) ?? null
   const [anchor] = useState(() => {
     let last = new DOMRect()
     return { current: { getBoundingClientRect: (): DOMRect => { const el = tiedNow.current(); if (el?.isConnected) last = el.getBoundingClientRect(); return last } } }
