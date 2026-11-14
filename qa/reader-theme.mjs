@@ -77,6 +77,8 @@ try {
     await h.waitForFunction(() => [...document.querySelectorAll('.web-reader-heading')].some((one) => one.textContent === 'The Long Essay'), null, { timeout: 8000 }).catch(() => {})
     return h.evaluate(() => [...document.querySelectorAll('.web-reader-heading')].some((one) => one.textContent === 'The Long Essay'))
   }
+  /** A frame every 50ms for `ms`, around a box, kept as <name>-00.png and on (QA_SHOTS only): to read a change by eye. */
+  const film = async (name, ms, clip) => { if (!shots) return; for (let t = 0; t <= ms; t += 50) await h.screenshot({ path: `${shots}/${name}-${String(t / 50).padStart(2, '0')}.png`, clip }) }
   const linkAt = async () => {
     const r = await h.locator(LINK).first().boundingBox()
     return { x: r.x + r.width / 2, y: r.y + r.height / 2, left: r.x, top: r.y, height: r.height }
@@ -86,7 +88,9 @@ try {
   await showNote()
   // Its hover: one box, saying where it goes and that ⌥-click reads it in the reader; no second tip beside it.
   let at = await linkAt()
-  await h.mouse.move(at.x, at.y, { steps: 4 }); await wait(1400)
+  await h.mouse.move(at.x, at.y, { steps: 4 })
+  await film('film-hover', 700, { x: Math.max(0, at.left - 80), y: Math.max(0, at.top - 70), width: 640, height: 200 })
+  await wait(700)
   const hover = await h.evaluate(() => ({
     box: document.querySelector('.tiptap-link-preview')?.textContent ?? null,
     tips: [...document.querySelectorAll('body *')].filter((one) => !one.closest('.tiptap-link-preview') && one.children.length === 0 && /^Click to open/.test(one.textContent?.trim() ?? '')).length
@@ -123,7 +127,9 @@ try {
   at = await linkAt()
   await h.mouse.click(at.left - 6, at.top + at.height / 2); await wait(300)
   for (let i = 0; i < 4; i++) await h.keyboard.press('ArrowRight')
-  await h.keyboard.press('Meta+k'); await wait(600)
+  await h.keyboard.press('Meta+k')
+  await film('film-editor', 300, { x: Math.max(0, at.left - 80), y: Math.max(0, at.top - 40), width: 640, height: 200 })
+  await wait(300)
   const editorOpen = await h.evaluate(() => !!document.querySelector('[data-link-editor]'))
   const editorRead = h.locator('[data-link-editor] [data-link-read]')
   check('⌘K on the link: the link editor offers “Open in the reader”', editorOpen && (await editorRead.count()) > 0, `editor ${editorOpen}`)
