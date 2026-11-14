@@ -3054,6 +3054,13 @@ html[data-book-hue] [data-book-tint] {
   --mf-muted: var(--muted-foreground);
   --mf-muted-strong: color-mix(in srgb, var(--muted-foreground), var(--foreground));
 }
+/* A picked row's tint (the accent at 18%, 24% while its menu is open, over a card as often as the page): its quiet words
+   and the icons drawn in them step up to the strong step, as on Brutal's wash (brutal.css). Faded Ink read 4.1:1 to
+   4.4:1 there on Paper and Light. */
+[data-picked] {
+  --muted-foreground: var(--mf-muted-strong);
+  --mf-muted: var(--mf-muted-strong);
+}
 
 /* A row's lead with no picture, on a dark page: a quiet square in the page's
    own muted colour, its kind's icon in muted ink, rather than the light paper

@@ -79,6 +79,43 @@ test('the quiet ink reaches 4.5:1 on the page, a card and a picked row in every 
   assert.deepEqual(failing.map((one) => `${one.name} on its ${one.on} ${one.ratio.toFixed(2)}:1`), [])
 })
 
+// color-mix(in oklab, a t, b): the mix the browser makes, through OKLab and back to sRGB.
+const lin = (c: number): number => { const x = c / 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4 }
+const toLab = (rgb: RGB): RGB => {
+  const [r, g, b] = rgb.map(lin)
+  const [l, m, s] = [0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b, 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b, 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b].map(Math.cbrt)
+  return [0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s, 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s, 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s]
+}
+const fromLab = ([L, a, b]: RGB): RGB => {
+  const [l, m, s] = [L + 0.3963377774 * a + 0.2158037573 * b, L - 0.1055613458 * a - 0.0638541728 * b, L - 0.0894841775 * a - 1.291485548 * b].map((v) => v ** 3)
+  return [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s]
+    .map((c) => 255 * Math.max(0, Math.min(1, c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055))) as RGB
+}
+const srgb = (a: RGB, b: RGB, t: number): RGB => a.map((v, i) => v * t + b[i] * (1 - t)) as RGB
+const oklab = (a: RGB, b: RGB, t: number): RGB => fromLab(srgb(toLab(a), toLab(b), t))
+const css = readFileSync(join(import.meta.dirname, '../src/renderer/src/assets/main.css'), 'utf8')
+/** Each table theme's page, ink, accent, hues and its quiet and strong quiet inks, as main.css makes them. */
+function inks(): { name: string; page: RGB; ink: RGB; accent: RGB; hues: Record<string, RGB>; quiet: RGB; strong: RGB; card: RGB }[] {
+  const own = Object.fromEntries([...css.matchAll(/^:root\.([a-z-]+) \{ --muted-foreground: color-mix\(in srgb, var\(--foreground\) (\d+)%, var\(--background\)\); \}/gm)].map(([, name, share]) => [name, Number(share) / 100]))
+  const table = file.slice(file.indexOf('$mf-themes: ('), file.indexOf(');', file.indexOf('$mf-themes: (')))
+  return [...table.matchAll(/"([a-z-]+)": \(([^)]*)\)/g)].map(([, name, body]) => {
+    const get = (key: string): RGB => hex(body.match(new RegExp(`"${key}": (#[0-9a-fA-F]{6})`))![1])
+    const [page, ink] = [get('bg'), get('ink')]
+    const quiet = srgb(ink, page, own[name] ?? 0.74)
+    return { name, page, ink, accent: get('accent'), hues: Object.fromEntries(HUES.map((hue) => [hue, get(hue)])), quiet, strong: srgb(quiet, ink, 0.5), card: srgb(ink, page, 0.09) }
+  })
+}
+
+// Brutal keeps its bold wash under a row pointed at, open or chosen (the accent 22% into the card, brutal.css), where
+// Faded Ink reads 3.6:1 to 4.3:1; there quiet words step up to the strong quiet ink, which must reach 4.5:1 on it.
+test('the strong quiet ink reaches 4.5:1 on Brutal\'s accent wash in every theme', () => {
+  assert.match(readFileSync(join(import.meta.dirname, '../src/renderer/src/assets/brutal.css'), 'utf8'), /--accent: color-mix\(in oklab, var\(--primary\) 22%, var\(--card\)\);/, 'the wash is the accent at 22%')
+  const all = inks().map((one) => ({ ...one, wash: oklab(one.accent, one.card, 0.22) }))
+  all.push({ name: 'dark', strong: srgb([192, 192, 195], [245, 245, 245], 0.5), wash: oklab(hex('#c23600'), [32, 32, 34], 0.22) } as (typeof all)[number])
+  const failing = all.map((one) => ({ name: one.name, ratio: contrast(one.strong, one.wash) })).filter((one) => one.ratio < 4.5)
+  assert.deepEqual(failing.map((one) => `${one.name} ${one.ratio.toFixed(2)}:1`), [])
+})
+
 test('every theme colour used for words reaches 4.5:1 on its own page', () => {
   const failing = themes().flatMap((one) => HUES.map((hue) => ({ name: one.name, hue, ratio: contrast(colour(one.hues[hue]), one.bg) })).filter((one) => one.ratio < 4.5))
   assert.deepEqual(failing.map((one) => `${one.name} ${one.hue} ${one.ratio.toFixed(2)}:1`), [])
