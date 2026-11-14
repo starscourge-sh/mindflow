@@ -4140,7 +4140,18 @@ if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
     kept.qaBounds = { ...kept.qaBounds, ...next }
     ;(kept.qaBoundsSeen ??= []).push(kept.qaBounds)
   }
-  proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { asked(this, next); setBounds.call(this, next); away(this) }
+  // Its size taken, never its place, not even for a moment. Set where it was asked and parked after, a window was
+  // seen on the screen by a tiling window manager (AeroSpace), which took it into the person's own workspace and
+  // kept it in a tile for two minutes, their windows made room for it (14 Nov, a welcome probe asking for the whole
+  // screen).
+  const resize = (win: BrowserWindow, next: Partial<Electron.Rectangle>): void => {
+    if (next.width === undefined && next.height === undefined) return
+    // Where it is parked (the window's own place, never the one a check keeps for it), at the size it was asked for.
+    const [x, y] = proto.getPosition.call(win)
+    const [width, height] = proto.getSize.call(win)
+    setBounds.call(win, { x, y, width: next.width ?? width, height: next.height ?? height })
+  }
+  proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { asked(this, next); resize(this, next); away(this) }
   proto.setPosition = function (this: BrowserWindow) { away(this) }
   proto.center = function (this: BrowserWindow) { away(this) }
   // Faded in or out, a window stays unseen: what was asked for is kept for the checks to read.
@@ -4155,7 +4166,7 @@ if (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_AWAY) {
     // Where a window stands when not filling its screen, as the app keeps it before the welcome (whenWelcoming, remakeHome):
     // its own place too, never where it is parked (a test window is never really maximised).
     proto.getNormalBounds = function (this: BrowserWindow) { return this.getBounds() }
-    proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { asked(this, next); virtual.set(this, { ...this.getBounds(), ...next }); setBounds.call(this, next); away(this) }
+    proto.setBounds = function (this: BrowserWindow, next: Partial<Electron.Rectangle>) { asked(this, next); virtual.set(this, { ...this.getBounds(), ...next }); resize(this, next); away(this) }
     // Parked already: only the place it keeps as its own moves.
     proto.setPosition = function (this: BrowserWindow, x: number, y: number) { virtual.set(this, { ...this.getBounds(), x, y }) }
     app.on('browser-window-created', (_, win) => virtual.set(win, getBounds.call(win)))
