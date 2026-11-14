@@ -1666,9 +1666,14 @@ try {
     window.__fDone = false
     const t0 = performance.now()
     const box = (el) => { if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom } }
+    // The draft as it is seen: its copy while it flies to its new day (over the page), else the draft in its day.
     const read = () => {
       const d = document.querySelector('[data-cal-level] [data-cal-draft]')
-      window.__f.push({ t: Math.round(performance.now() - t0), d: box(d), p: box(document.querySelector('[data-cal-add]')), day: d?.closest('[data-day]')?.dataset.day ?? d?.closest('[data-cal-col]')?.dataset.calCol ?? null, title: document.querySelector('[data-cal-title]')?.textContent ?? '' })
+      const seen = document.querySelector('[data-cal-draft-flying]') ?? d
+      const cell = d?.closest('[data-day], [data-cal-col]')?.getBoundingClientRect()
+      const at = seen?.getBoundingClientRect()
+      const whole = !!cell && !!at && at.left >= cell.left - 1 && at.right <= cell.right + 1 && at.top >= cell.top - 1 && at.bottom <= cell.bottom + 1
+      window.__f.push({ t: Math.round(performance.now() - t0), d: box(seen), flying: seen !== d, whole, p: box(document.querySelector('[data-cal-add]')), day: d?.closest('[data-day]')?.dataset.day ?? d?.closest('[data-cal-col]')?.dataset.calCol ?? null, title: document.querySelector('[data-cal-title]')?.textContent ?? '' })
     }
     const beat = document.createElement('div')
     beat.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none'
@@ -1713,6 +1718,8 @@ try {
     const over = frames.filter((f) => !clearOf(f)).slice(0, 3).map((f) => `${f.t}ms draft ${[f.d.x, f.d.y, f.d.r, f.d.b].map(Math.round)} popover ${[f.p.x, f.p.y, f.p.r, f.p.b].map(Math.round)}`)
     check(`follow, Month: "${word} 1pm" typed moves the draft from ${home} to ${there}, and the line reads that day at 13:00`, s.draft?.day === there && new RegExp(dayName(there)).test(s.pop?.said ?? '') && /13:00|1:00/.test(s.pop?.said ?? ''), `${s.draft?.day}; ${s.pop?.said}`)
     check('follow, Month: it travels there over several frames, on the spring', across.size >= 4, `${across.size} places in ${went.length} frames`)
+    const cut = went.filter((f) => !f.flying && !f.whole)
+    check('follow, Month: it is seen the whole way, flying over the page or whole in its day, never cut off by a day\'s edge', went.length > 0 && went.some((f) => f.flying) && !cut.length, `${went.filter((f) => f.flying).length} frames flying, ${cut.length} cut off`)
     check('follow, Month: at every frame of the move its popover is beside it, never over it, and it ends tied to it', went.length > 0 && frames.every(clearOf) && apart(s) && inside(s), `${frames.filter((f) => !clearOf(f)).length} of ${frames.length} frames overlap${over.length ? `: ${over.join('; ')}` : ''}; side ${s.pop?.side}`)
     await shot('follow-month-moved')
     // A day in another month: the grid turns to it; no day said: back where it was put, the grid with it.
