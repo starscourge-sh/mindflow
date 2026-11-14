@@ -38,9 +38,11 @@ async function bring(refs: string[]): Promise<Map<string, Brought | null>> {
 const px = (width: string | undefined | null): string | null => (width ? (/^\d+$/.test(width) ? `${width}px` : width) : null)
 
 /** The picture, or the file's card (a PDF, a video), a stored file becomes. */
-const shown = (schema: Schema, one: Brought, width: string | null): ProseMirrorNode | null =>
+// `keep`: the attributes of a picture already in the note, found again in the vault: its words (alt, title, caption)
+// stay with it, and only its address moves into the book (made afresh, "Amazon ECR" under a picture went blank).
+const shown = (schema: Schema, one: Brought, width: string | null, keep?: Record<string, unknown>): ProseMirrorNode | null =>
   one.image
-    ? schema.nodes.image.create({ src: one.src, width })
+    ? schema.nodes.image.create({ ...keep, src: one.src, width })
     : (schema.nodes.attachment?.create({ src: one.src, name: one.name, size: one.size, width }) ?? null)
 
 const waiting = (schema: Schema, embed: EmbedAt): ProseMirrorNode =>
@@ -208,7 +210,7 @@ async function mend(view: EditorView, held?: Set<string>): Promise<void> {
   for (const { pos, node, embeds, parent, index } of lines(view.state.doc).reverse()) {
     const nodes = embeds.map((embed) => {
       const one = answers.get(embed.ref)
-      return one ? shown(schema, one, node.type.name === "image" ? (node.attrs.width ?? null) : px(embed.width)) : null
+      return one ? (node.type.name === "image" ? shown(schema, one, node.attrs.width ?? null, node.attrs) : shown(schema, one, px(embed.width))) : null
     })
     if (!nodes.length || nodes.some((one) => !one)) continue
     const content = fits(parent, index, nodes as ProseMirrorNode[], schema)
