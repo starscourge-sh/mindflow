@@ -94,10 +94,13 @@ for (const [theme, width, height] of [['light', 1280, 800], ['dark', 1280, 800]]
     await h.click('footer [data-next]')
     await h.waitForSelector('[data-payoff]', { timeout: 6000 })
     await h.waitForTimeout(1500)
-    const how = await h.evaluate(() => ({ text: document.querySelector('[data-made="goal"]')?.innerText.replace(/\s+/g, ' ') ?? '', token: document.querySelector('[data-made="goal"] [data-log-line] .tiptap-token')?.textContent ?? '', grid: [...document.querySelectorAll('[data-payoff] svg[role="img"]')].some((svg) => !svg.closest('[data-goal-desk]')), card: !!document.querySelector('[data-goal-desk] [data-goal-preview]') }))
+    const how = await h.evaluate(() => ({ text: document.querySelector('[data-made="goal"]')?.innerText.replace(/\s+/g, ' ') ?? '', token: document.querySelector('[data-made="goal"] [data-log-line] .tiptap-token')?.textContent ?? '', grid: [...document.querySelectorAll('[data-payoff] svg[role="img"]')].length > 0, line: document.querySelector('[data-goal-sticky]')?.textContent ?? '' }))
     check(`${theme}: the goal row shows the line to write as a token`, how.token === '+the godfather:', how.token)
     check(`${theme}: the goal row says it goes in the goal's progress log, on the Goals page`, /progress log/.test(how.text) && /Goals page/.test(how.text) && !/log a step/.test(how.text), how.text)
-    check(`${theme}: no unlabelled dot grid on the summary; the goal's own card is there, said for what it is`, !how.grid && how.card)
+    // The goal's own card is its real card on the desktop since 6b4163bef (in place of one drawn on the page), with a
+    // line saying where to look: qa/welcome-goal-sticky.mjs follows the card itself.
+    const goalCards = await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.isVisible() && /view=sticky/.test(w.webContents.getURL()) && /type=goal&/.test(w.webContents.getURL())).length)
+    check(`${theme}: no unlabelled dot grid on the summary; the goal's own card is there, said for what it is`, !how.grid && goalCards === 1 && /right of your screen/.test(how.line) && /desktop/.test(how.line), `${goalCards} goal cards up; ${how.line.slice(0, 80)}`)
     const over = await h.evaluate(() => {
       const card = document.querySelector('[data-goal-desk]')?.getBoundingClientRect()
       if (!card) return []
@@ -207,7 +210,11 @@ for (const [theme, width, height] of [['light', 1280, 800], ['dark', 1280, 800]]
     check(`${theme}: Back with the import map open closes it, still on Ready`, map && !(await h.$('[role="tablist"][aria-label="Bring notes from"]')) && (await chapter(h)).includes('Ready'))
     await backButton(h)
     await h.waitForTimeout(800)
-    check(`${theme}: Back from Ready goes to Make it yours`, (await chapter(h)).includes('Make it yours'), await chapter(h))
+    // "Name it" stands between Make it yours and Ready since 950b1383f: Back from Ready goes there, and once more to Make it yours.
+    check(`${theme}: Back from Ready goes to Name it`, (await chapter(h)).includes('Name it'), await chapter(h))
+    await backButton(h)
+    await h.waitForTimeout(800)
+    check(`${theme}: and Back from Name it goes to Make it yours`, (await chapter(h)).includes('Make it yours'), await chapter(h))
     // --- A skip, then Back: the page skipped from ---
     await backButton(h)
     await h.waitForTimeout(800)
@@ -241,7 +248,8 @@ for (const [theme, width, height] of [['light', 1280, 800], ['dark', 1280, 800]]
     await h.click('footer button:has-text("Skip the welcome")')
     await h.waitForTimeout(900)
     const marks = await h.evaluate(() => [...document.querySelectorAll('.mf-welcome footer span[aria-hidden] > span.rounded-full')].map((el) => Number(getComputedStyle(el).opacity).toFixed(2)))
-    check('after a skip from Why, the marks of pages never seen stay faint, Ready lit', marks.length === 7 && Number(marks[0]) > 0.3 && marks.slice(1, 6).every((one) => Number(one) < 0.2) && Number(marks[6]) > 0.7, marks.join(' '))
+    // Eight pages since "Name it" came in (950b1383f): Why seen, the six between never seen, Ready lit.
+    check('after a skip from Why, the marks of pages never seen stay faint, Ready lit', marks.length === 8 && Number(marks[0]) > 0.3 && marks.slice(1, 7).every((one) => Number(one) < 0.2) && Number(marks[7]) > 0.7, marks.join(' '))
     const gapNarrowReady = await beside(h)
     check('narrow: Ready: no footer words beside the arrow', gapNarrowReady.gap >= 48, JSON.stringify(gapNarrowReady))
     if (SHOTS) await h.screenshot({ path: `${SHOTS}/dark-narrow-ready-footer.png` })
