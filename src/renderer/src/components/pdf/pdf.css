@@ -1102,13 +1102,14 @@
   align-content: center;
 }
 
+/* The author a step louder than what the book is, both in the quiet inks: on Paper the 72% mix was 4.3:1. */
 .book-head-author {
-  color: color-mix(in oklab, var(--foreground) 80%, var(--background));
+  color: var(--mf-muted-strong);
 }
 
 .book-head-what {
   margin-top: 0.125rem;
-  color: color-mix(in oklab, var(--foreground) 72%, var(--background));
+  color: var(--mf-muted);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
 }
