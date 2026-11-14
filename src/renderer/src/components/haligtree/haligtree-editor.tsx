@@ -1054,6 +1054,10 @@ function Surface({
     autofocus,
     editorProps: {
       attributes: {
+        // TipTap gives the note this role as it is made, then hands these attributes over again, without it, as the
+        // note reaches the page (setOptions): ProseMirror read the note's own element changing and went through every
+        // block to see what else had (200 ms as the largest note opened), and screen readers lost the note's role.
+        role: "textbox",
         autocomplete: "off",
         autocorrect: "true",
         autocapitalize: "none",
