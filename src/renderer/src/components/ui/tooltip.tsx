@@ -23,8 +23,8 @@ function TooltipProvider({
 // while it is open, and a tip already showing goes when one opens.
 const OPENED = '[data-state="open"]:is([role="menu"],[role="dialog"],[role="alertdialog"],[role="listbox"],[data-slot="popover-content"],[data-slot="sheet-content"])'
 const covered = (trigger: Element | null): boolean => [...document.querySelectorAll(OPENED)].some((one) => !trigger || !one.contains(trigger))
-/** What shows a card on hover (note-preview.tsx, pdf-peek.tsx): no tip over it as well. */
-export const CARDED = '[data-note-hover][data-note], a.tiptap-note-link[data-note], [data-pdf-peek]'
+/** What shows a card on hover (note-preview.tsx, pdf-peek.tsx, a note's link: haligtree-editor.tsx LinkPreview): no tip over it as well. */
+export const CARDED = '[data-note-hover][data-note], a.tiptap-note-link[data-note], [data-pdf-peek], .ProseMirror:not(.web-reader-body) a[href]'
 /**
  * A floating surface: a menu, a list, a popover, a hover card, a row's
  * preview. One hover shows one thing: inside one, no tip opens. A menu row's

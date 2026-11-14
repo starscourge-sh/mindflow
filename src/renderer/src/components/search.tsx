@@ -25,6 +25,7 @@ import { MenuGlyph, menuIcon } from '@/components/ui/menu-icon'
 import { IslandBox, useFold, useIslands } from './haligtree/islands'
 import { CalendarDays, Command, Plus } from 'lucide-react'
 import { Orb } from './haligtree/orb'
+import { isReadable, isWebPdf, openArticle } from './pdf/pdf-reader'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './haligtree/display'
@@ -184,7 +185,11 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const settled = searched ?? ''
   const settledWords = settled.toLowerCase().split(/\s+/).filter((word) => word && !word.startsWith('kind:'))
   const named = (one: Action): number => rank({ title: one.label, group: '', hint: one.hint, keywords: one.words?.split(' ') }, settledWords.join(' ')) ?? 8
+  // A web address typed or pasted: the reader first, as every link's own menu offers it (pdf-reader.tsx, isReadable).
+  // Its sound is the reader's own page turn, as it opens.
+  const address = !scoped && isReadable(typed) ? typed : null
   const acting = [
+    ...(address ? [{ label: 'Open in the reader', hint: `${URL.parse(address)?.hostname.replace(/^www\./, '') || 'The page'}, ${isWebPdf(address) ? 'its PDF read here' : 'read here as an article'}, kept with your notes`, cue: null, run: () => openArticle(address) }] : []),
     ...(asked ? [{ label: `What ${APP_NAME} means by ${asked.forms[0]}`, hint: asked.line, cue: null, run: () => openWord(asked.id) }] : []),
     ...heard,
     ...[...actions, { label: `${APP_NAME}’s words`, hint: 'What its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]

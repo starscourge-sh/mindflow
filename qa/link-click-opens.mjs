@@ -80,6 +80,15 @@ try {
   const TIME = '.ProseMirror .mf-time-link:not(.mf-page-link)'
   const PAGE = '.ProseMirror .mf-page-link'
   const TAG = '.ProseMirror .tiptap-token[data-token="tag"]'
+  /** What a web link's hover box says a click does (haligtree-editor.tsx, LinkPreview), read with a real pointer. */
+  const howSaid = async (win) => {
+    const r = await win.locator(WEB).first().evaluate((el) => { const one = el.getClientRects()[0]; return [one.left + 8, one.top + one.height / 2] })
+    await win.mouse.move(4, 4); await win.waitForTimeout(200)
+    await win.mouse.move(r[0], r[1], { steps: 3 }); await win.waitForTimeout(500)
+    const said = await win.evaluate(() => document.querySelector('.tiptap-link-preview-how')?.textContent ?? null)
+    await win.mouse.move(4, 4); await win.waitForTimeout(200)
+    return said
+  }
   const left = (s) => !s.text.includes(LEAD)
   const beside = (s) => s.text.includes(LEAD) && s.panes > 1
 
@@ -168,8 +177,8 @@ try {
   await h.locator(WEB).first().click({ button: 'right' }); await wait(600)
   check('note: right-click on a link offers “Edit link”', await h.locator('[role="menuitem"]', { hasText: /^Edit link/ }).count() > 0)
   await h.keyboard.press('Escape'); await wait(300)
-  // The tip on a rest says what a click does.
-  check('note: a web link says “Click to open, ⌥-click to the side”', (await h.locator(WEB).first().getAttribute('data-title-tip')) === 'Click to open, ⌥-click to the side')
+  // Its hover box says what a click does, the reader on ⌥-click (one box: no tip beside it).
+  check('note: a web link\'s hover says “Click to open in your browser, ⌥-click to open in the reader”', (await howSaid(h)) === 'Click to open in your browser, ⌥-click to open in the reader', await howSaid(h))
   // The tip on a rest, and a note link's card, in light and dark.
   if (SHOT) {
     for (const [name, selector] of [['tip-web', WEB], ['tip-note', NOTE], ['tip-tag', TAG]]) {
@@ -216,7 +225,7 @@ try {
   await closeApart()
   await reshow(); await fillBox()
   await editing(box, 'quick capture', opened)
-  check('quick capture: a web link says “Click to open”', (await box.locator(WEB).first().getAttribute('data-title-tip')) === 'Click to open')
+  check('quick capture: a web link\'s hover says the same', (await howSaid(box)) === 'Click to open in your browser, ⌥-click to open in the reader', await howSaid(box))
   await c.qa.reset()
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

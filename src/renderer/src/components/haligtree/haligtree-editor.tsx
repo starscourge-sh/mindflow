@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react"
 import { afterPaint } from "@/lib/haligtree"
 import { createPortal } from "react-dom"
-import { Extension, type Attributes, type Extensions, type JSONContent } from "@tiptap/core"
+import { type Attributes, type Extensions, type JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
 import { NodeSelection, Selection as PMSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
 import { pressUnderLastLine } from "@/lib/press-under"
@@ -11,8 +11,7 @@ import { onlyWordsChanged } from "@/lib/tiptap-utils"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContext, useEditor } from "@tiptap/react"
 import { EditorSurface, holdViews } from "@/components/haligtree/editor-surface"
-import { followPdfLink, isPdfHref, isReadable, openArticle } from "@/components/pdf/pdf-reader"
-import { canSplit } from "@/lib/split"
+import { followPdfLink, isReadable, openArticle } from "@/components/pdf/pdf-reader"
 import { PLACED, sentElsewhere, useNotePlace } from "@/lib/note-place"
 import { afterLayout } from "@/lib/after-layout"
 
@@ -1284,9 +1283,10 @@ function Surface({
           ?.getAttribute("href")
         if (!href || !view.dom.contains(event.target as Node)) return false
 
-        // A PDF's link opens the reader (beside, on ⌥-click); a web page on ⌥-click opens in the reader beside.
+        // A PDF's link opens the reader (beside, on ⌥-click); a web page on ⌥-click opens in the reader:
+        // beside this one where the window splits, else in the main window (openArticle), as its hover says.
         if (followPdfLink(href)) return true
-        if (event.altKey && !event.metaKey && canSplit() && isReadable(href)) return openArticle(href), true
+        if (event.altKey && !event.metaKey && isReadable(href)) return openArticle(href), true
         // setWindowOpenHandler in main sends the rest to the real browser.
         window.open(href, "_blank", "noopener")
         return true
@@ -1359,23 +1359,6 @@ function Surface({
         },
       }),
       ...(shape === "line" ? [Document.extend({ content: "paragraph" })] : []),
-      // What a click on a link does, said on a rest (components/ui/title-tips.tsx); a link given a title says that instead.
-      // A PDF's link says nothing: its page preview on hover already shows what it is, and the side is in its menu.
-      Extension.create({
-        name: "linkTip",
-        addGlobalAttributes: () => [
-          {
-            types: ["link"],
-            attributes: {
-              tip: {
-                default: null,
-                parseHTML: () => null,
-                renderHTML: (attrs) => (isPdfHref(attrs.href) ? {} : { "data-title-tip": canSplit() ? "Click to open, ⌥-click to the side" : "Click to open" }),
-              },
-            },
-          },
-        ],
-      }),
       HorizontalRule,
       // Not on a line. There is nothing to align a one line title against, and
       // registering it hands Mod-Shift-r and its siblings a title to push to
@@ -2372,18 +2355,32 @@ function Surface({
   )
 }
 /**
- * Where a link points, while the pointer is on it.
+ * What a click on a link does, as its hover box says it under the address: a
+ * web page the reader can read is offered there too, on ⌥-click (handleClick).
+ */
+const howToOpen = (href: string): string =>
+  isReadable(href)
+    ? "Click to open in your browser, ⌥-click to open in the reader"
+    : /^https?:\/\//i.test(href)
+      ? "Click to open in your browser"
+      : /^(?:haligtree|mindflow):\/\/article\?/i.test(href)
+        ? "Click to open in the reader"
+        : "Click to open"
+
+/**
+ * Where a link points, while the pointer is on it, and what a click does.
  *
  * The browser's own tooltip says the same thing, but it waits a second, cuts a
  * long URL off at the window edge and looks like nothing else here. This is
  * what Linear shows: the address without its scheme, wrapped rather than
- * truncated, in a box the rest of the app would recognise.
+ * truncated, in a box the rest of the app would recognise. It is the link's one
+ * hover (tooltip.tsx, CARDED): a title the link was given shows here, above it.
  *
  * Portalled to the body because the editor scrolls: inside it the box would be
  * clipped by the same overflow that makes the document scrollable.
  */
 function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element | null {
-  const [link, setLink] = useState<{ href: string; top?: number; bottom?: number; left: number } | null>(null)
+  const [link, setLink] = useState<{ href: string; how: string; title: string; top?: number; bottom?: number; left: number } | null>(null)
 
   // The editor's words once on the page: tiptap's view.dom throws before (lib/editor-dom.ts).
   const page = useEditorDom(editor ?? null)
@@ -2400,10 +2397,14 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
       if (!(anchor instanceof HTMLAnchorElement) || menuShowing() || (event as PointerEvent).buttons) return hide()
 
       const box = anchor.getBoundingClientRect()
+      const href = anchor.getAttribute("href") ?? ""
       setLink({
         // The scheme is the one part nobody is checking, and it costs a line
         // of a wrapped URL.
-        href: (anchor.getAttribute("href") ?? "").replace(/^https?:\/\//, ""),
+        href: href.replace(/^https?:\/\//, ""),
+        how: howToOpen(href),
+        // A title of its own, taken off the link by the app's tips (title-tips.tsx) so the system's never shows.
+        title: (anchor.getAttribute("title") ?? anchor.getAttribute("data-title-tip") ?? "").trim(),
         // Above the link when it sits near the window's foot, so it is never cut off there.
         ...(box.bottom + 80 > window.innerHeight ? { bottom: window.innerHeight - box.top + 4 } : { top: box.bottom + 4 }),
         left: Math.max(8, Math.min(box.left, window.innerWidth - 8 - 448)),
@@ -2431,7 +2432,9 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
 
   return createPortal(
     <span className="tiptap-link-preview" style={{ top: link.top, bottom: link.bottom, left: link.left }}>
-      {link.href}
+      {link.title && <span className="tiptap-link-preview-title">{link.title}</span>}
+      <span className="tiptap-link-preview-address">{link.href}</span>
+      <span className="tiptap-link-preview-how">{link.how}</span>
     </span>,
     document.body
   )

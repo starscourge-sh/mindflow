@@ -3903,7 +3903,7 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   border-radius: 0.5rem;
   background-color: var(--tt-card-bg-color);
   box-shadow: var(--mf-panel-shadow, 0 8px 24px rgba(0, 0, 0, 0.28));
-  color: var(--mf-muted);
+  color: var(--foreground);
   font-size: 0.8125rem;
   line-height: 1.35;
   // A URL has no spaces to break at, so it has to be allowed to break anywhere
@@ -3915,6 +3915,20 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   // move away from. Matches the code block's toolbar, which fades on the same
   // curve over the same 120ms.
   animation: mf-fade-in 120ms var(--mf-ease);
+}
+
+// The link's own title, its address, then what a click does, each on its line:
+// the address in the ink, the rest in the app's quiet ink (4.5:1 on the card).
+.tiptap-link-preview > span {
+  display: block;
+}
+.tiptap-link-preview-title {
+  font-weight: 600;
+}
+.tiptap-link-preview-how {
+  margin-top: 0.125rem;
+  color: var(--muted-foreground);
+  overflow-wrap: normal;
 }
 
 @keyframes mf-fade-in {

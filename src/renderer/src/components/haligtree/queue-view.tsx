@@ -16,6 +16,7 @@ import { Highlight, useFluidHover } from './glide'
 import { ReadThrough } from './read-through'
 import { RowMenu, copy, type MenuItem } from './row-menu'
 import { openApart } from '@/lib/apart'
+import { isReadable, openArticle } from '@/components/pdf/pdf-reader'
 import { SortableList, SortableRow } from './sortable'
 import { Page, Rolling, Tags, Tip, toast, typing, useListKeys } from './ui'
 import { IslandBox, useFold } from './islands'
@@ -93,6 +94,8 @@ function QueueLine({ row, at, rows, pick }: { row: QueueRow; at: number; rows: Q
   const swipe = useSwipeOff(() => void dequeue(row))
   const menu: MenuItem[] = pick.menu ?? [
     { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(rows, at) },
+    // A page the reader can read: there too, as every link's own menu offers it.
+    !!row.bare && isReadable(row.url) && { label: 'Open in the reader', run: () => openArticle(row.url!) },
     at > 0 && { label: 'Read next', hint: 'To the top of Up next', run: () => void enqueue([row.itemId], true) },
     // The drag's moves, for the keyboard and for anyone who never finds the grip.
     at > 0 && { label: 'Move up', run: () => moveSaid(rows.map((one) => one.id), row.id, rows[at - 1].id, false) },
@@ -421,6 +424,7 @@ export function QueuePanel({ onView, className = '' }: { onView: (id: string) =>
               {/* Right-click: what the Queue page's own row offers most. */}
               <RowMenu items={[
                 { label: row.bare ? 'Open the page' : 'Read from here', keys: '↵', run: () => play(queue, at) },
+                !!row.bare && isReadable(row.url) && { label: 'Open in the reader', run: () => openArticle(row.url!) },
                 at > 0 && { label: 'Read next', hint: 'To the top of Up next', run: () => void enqueue([row.itemId], true) },
                 { label: 'Open', run: () => window.api.openInHome(row.type, row.itemId) },
                 'separator',

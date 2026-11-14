@@ -4,7 +4,8 @@ import { posToDOMRect } from "@tiptap/core"
 import { useEditorState, type Editor } from "@tiptap/react"
 
 import { Button } from "@/components/tiptap-ui-primitive/button"
-import { Link as Link2, Pencil, Unlink } from "@/components/ui/icons"
+import { BookOpen, Link as Link2, Pencil, Unlink } from "@/components/ui/icons"
+import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { hrefFor, linkAround, looksLikeAddress, refusedLinks } from "@/extensions/link-tidy"
 import { chime } from "@/lib/sound"
 import { useEditorDom } from '@/lib/editor-dom'
@@ -23,8 +24,9 @@ export function removeLink(editor: Editor): void {
 }
 
 /**
- * On a web link, the selection bar's two ways out: "Edit link" (⌘K) and
- * "Remove link". A word linked by mistake is never stuck that way.
+ * On a web link, the selection bar's ways in and out: "Open in the reader" for
+ * a page the reader can read, "Edit link" (⌘K) and "Remove link". A word linked
+ * by mistake is never stuck that way.
  */
 export function LinkButtons({ editor }: { editor: Editor }): React.JSX.Element | null {
   // A string, so this settles instead of drawing again on every key.
@@ -37,6 +39,11 @@ export function LinkButtons({ editor }: { editor: Editor }): React.JSX.Element |
   )
   return (
     <>
+      {isWebPage(href) && (
+        <Button type="button" variant="ghost" aria-label="Open in the reader" data-read-link tooltip="Open in the reader" onMouseDown={(event) => event.preventDefault()} onClick={() => openArticle(href)}>
+          <BookOpen className="tiptap-button-icon" />
+        </Button>
+      )}
       <Button type="button" variant="ghost" aria-label="Edit link" data-edit-link tooltip="Edit link" shortcutKeys="mod+k" onMouseDown={(event) => event.preventDefault()} onClick={() => askToEdit(editor)}>
         <Pencil className="tiptap-button-icon" />
       </Button>
@@ -106,12 +113,15 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
     editor.chain().focus().setTextSelection(open).extendMarkRange("link").setLink({ href: hrefFor(words) }).setTextSelection(open.to).run()
     setOpen(null)
   }
+  // The link as it is, in the reader: the box left as it was, as Cancel leaves it.
+  const read = isWebPage(open.href) ? (): void => (setOpen(null), openArticle(open.href)) : null
   return createPortal(
     <div
       data-link-editor
       role="dialog"
       aria-label="Edit link"
-      className="mf-frost fixed z-[70] flex w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-2 rounded-lg border bg-popover p-2 shadow-(--mf-panel-shadow)"
+      // As wide as its row of buttons needs, never narrower than the address wants.
+      className="mf-frost fixed z-[70] flex w-max min-w-[22rem] max-w-[calc(100vw-1rem)] flex-col gap-2 rounded-lg border bg-popover p-2 shadow-(--mf-panel-shadow)"
       style={{ left: open.left, top: open.top }}
     >
       <input
@@ -127,9 +137,16 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
         }}
       />
       {wrong && <p className="px-0.5 text-control text-foreground">That is not a web address. Try one like haligtree.app.</p>}
-      {/* A Mac sheet's row: the way to undo the link at the start, then Cancel and
-          the one filled button, Save, at the end. Each has a resting fill, so none reads as plain words. */}
+      {/* A Mac sheet's row: the link's other ways at the start (the reader, for a page it can read; taking
+          the link off), then Cancel and the one filled button, Save, at the end. Each has a resting fill, so
+          none reads as plain words. */}
       <div className="flex items-center gap-1.5">
+        {read && (
+          <button type="button" data-link-read className={`${QUIET} gap-1.5 text-foreground`} onClick={read}>
+            <BookOpen className="size-3.5 text-muted-foreground" aria-hidden />
+            Open in the reader
+          </button>
+        )}
         <button type="button" data-link-remove className={`${QUIET} text-foreground`} onClick={() => (removeLink(editor), setOpen(null))}>
           Remove link
         </button>
