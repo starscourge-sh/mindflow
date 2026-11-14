@@ -111,9 +111,11 @@ try {
     const small = await h.evaluate((s) => {
       const line = document.querySelector(s)?.getBoundingClientRect(), add = document.querySelector(`${s} [data-offer-action]`)?.getBoundingClientRect(), x = document.querySelector(`${s} [data-offer-away]`)?.getBoundingClientRect()
       const chips = [...document.querySelectorAll(`${s} [data-offer-ticks] button`)].map((el) => el.getBoundingClientRect())
-      return line && add && x ? { inside: x.right <= innerWidth - 8 && line.left >= 0, chipsInside: chips.every((one) => one.right <= line.right + 0.5 && one.height <= 26), addTall: Math.round(add.height), sideways: document.scrollingElement.scrollWidth > innerWidth } : null
+      // Sizes from the page's own rem (a tick is 1.5rem tall, the button about 2rem): never a fixed px.
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      return line && add && x ? { rem, inside: x.right <= innerWidth - 8 && line.left >= 0, chipsInside: chips.every((one) => one.left >= line.left && one.right <= line.right + 0.5 && one.height <= 1.5 * rem + 1), addOneLine: add.height <= 2.25 * rem, addTall: Math.round(add.height), sideways: document.scrollingElement.scrollWidth > innerWidth } : null
     }, OFFER)
-    check('at 560 x 400 the offer fits: ticks wrapped inside it, its button one line, × inside, no sideways scroll', !!small && small.inside && small.chipsInside && small.addTall <= 34 && !small.sideways, JSON.stringify(small))
+    check('at 560 x 400 the offer fits: ticks wrapped inside it, its button one line, × inside, no sideways scroll', !!small && small.inside && small.chipsInside && small.addOneLine && !small.sideways, JSON.stringify(small))
     if (SHOT) await c.both(`${SHOT}/people-small`)
     await c.size(1300, 900); await wait(700)
 

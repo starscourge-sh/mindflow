@@ -473,9 +473,16 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
   }
   // The first few ticks, and "and N more" for the rest: one more is shown rather than hidden behind a press.
   const shown = whole || ticks.length <= FEW + 1 ? ticks : ticks.slice(0, FEW)
+  const buttons = actions.map((one) => (
+    <button key={one.data} type="button" data-offer-action={one.data} disabled={one.off} className="mf-note-offer-button" onClick={() => void one.run()}>
+      {/* Its widest wordings stacked unseen under it, so its count changing never moves it or the ticks beside it. */}
+      {one.widest ? <span className="grid justify-items-center tabular-nums">{[one.label, ...one.widest].map((text, at) => <span key={at} aria-hidden={at > 0 || undefined} className={`col-start-1 row-start-1 ${at ? 'invisible' : ''}`}>{text}</span>)}</span> : one.label}
+    </button>
+  ))
   return (
-    // An offer of several takes a second line for its ticks, the whole width under its words and its button, so the
-    // ticks wrap there and never run under the button in a narrow pane.
+    // An offer of several says what it found on a line of its own, the whole width of the offer, and under it the
+    // ticks to choose from with its button after them (a question on its own line, the choices under it): beside the
+    // button, in a narrow pane, its words stood in a column a word or two wide.
     <div data-note-offer={offer.kind} data-mac-needs={offer.kind === 'name' ? 'ai' : 'every'} contentEditable={false} className="mf-note-offer not-prose"
       style={ticks.length ? { flexWrap: 'wrap', rowGap: '0.375rem' } : undefined}
       onPointerEnter={() => setNear((was) => ({ ...was, over: true }))} onPointerLeave={() => setNear((was) => ({ ...was, over: false }))}
@@ -485,12 +492,7 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       <span aria-hidden className="mf-note-offer-icon">{icon}</span>
       {/* A tag is one word however long ("#programming-humour"): it breaks only where nothing else can, never past the line. */}
       <span className="min-w-0 flex-1 [overflow-wrap:anywhere]"><b className="font-medium text-foreground">{lead}</b> {rest}</span>
-      {actions.map((one) => (
-        <button key={one.data} type="button" data-offer-action={one.data} disabled={one.off} className="mf-note-offer-button" onClick={() => void one.run()}>
-          {/* Its widest wordings stacked unseen under it, so its count changing never moves it or the ticks beside it. */}
-          {one.widest ? <span className="grid justify-items-center tabular-nums">{[one.label, ...one.widest].map((text, at) => <span key={at} aria-hidden={at > 0 || undefined} className={`col-start-1 row-start-1 ${at ? 'invisible' : ''}`}>{text}</span>)}</span> : one.label}
-        </button>
-      ))}
+      {!ticks.length && buttons}
       <button type="button" aria-label="Not for this note" title="Not for this note" data-offer-away className="mf-note-offer-close" onClick={away}><X className="size-3.5" /></button>
       {/* Starting where the words start (past the icon and its gap), clear of the line's foot. */}
       {ticks.length > 0 && (
@@ -503,6 +505,7 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
             <button type="button" data-offer-more onClick={() => (chime('open'), setWhole(true))}
               className="flex h-6 cursor-pointer items-center rounded-md px-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground">and {num(ticks.length - shown.length)} more</button>
           )}
+          <span className="ml-auto flex pl-3">{buttons}</span>
         </div>
       )}
     </div>
