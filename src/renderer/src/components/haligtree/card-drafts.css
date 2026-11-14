@@ -24,7 +24,7 @@
 .chapter-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-height: 2rem; }
 .chapter-card-actions { display: flex; flex: none; gap: 0.25rem; }
 /* Where it came from: one line, cut with "…" rather than wrapped under itself (a note's line can be long; a page is "p. 12"). */
-.chapter-card-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: color-mix(in oklab, var(--foreground) 72%, transparent); font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; text-underline-offset: 2px; transition: color 120ms ease-out, transform 120ms ease-out; }
+.chapter-card-link { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--mf-muted); font-size: 0.8125rem; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; text-underline-offset: 2px; transition: color 120ms ease-out, transform 120ms ease-out; }
 .chapter-card-link:active, .chapter-cards-close:active { transform: scale(0.97); }
 .chapter-card-link:hover { color: var(--foreground); text-decoration: underline; }
 .chapter-card-kept { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.75rem; color: var(--tt-color-text-green); }

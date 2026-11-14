@@ -404,8 +404,9 @@ const PdfOutline = memo(function PdfOutline({ outline, hereAt, list, onGo }: { o
         // The whole title as a tip only when the row cuts it short (a squeezed rail): never words already on show.
         onPointerEnter={(event) => { const row = event.currentTarget; row.title = [row, ...row.querySelectorAll("*")].some((one) => one.scrollWidth > one.clientWidth + 1 || one.scrollHeight > one.clientHeight + 2) ? item.title : "" }}
         onClick={() => onGo(item.page)}
-        // A step under the tabs over it (13px, 500): the outline in meta size, the page you are in only in ink and weight.
-        className={`flex min-w-0 items-start gap-2.5 rounded-md px-2 py-1.5 text-left text-xs leading-4 ${here ? "text-foreground" : "text-foreground/75"}`}>
+        // A step under the tabs over it (13px, 500): the outline in meta size, the page you are in only in ink and weight,
+        // the others in the stronger quiet ink and their page numbers in the quiet one, each 4.5:1 or more.
+        className={`flex min-w-0 items-start gap-2.5 rounded-md px-2 py-1.5 text-left text-xs leading-4 ${here ? "text-foreground" : "text-(--mf-muted-strong)"}`}>
         <Weighted on={here} className="min-w-0 *:line-clamp-2 *:whitespace-normal *:break-words">{item.title}</Weighted>
         {kids.length > 0 && (
           <span data-outline-fold role="button" aria-label={open ? "Fold" : "Unfold"} aria-expanded={open}
@@ -414,7 +415,7 @@ const PdfOutline = memo(function PdfOutline({ outline, hereAt, list, onGo }: { o
             <ChevronRight aria-hidden className={`size-3 transition-[rotate] duration-80 ${open ? "rotate-90" : ""}`} />
           </span>
         )}
-        <span className="ml-auto shrink-0 pl-1 text-[0.6875rem] leading-4 tabular-nums text-muted-foreground/80">{label(item.page)}</span>
+        <span className="ml-auto shrink-0 pl-1 text-[0.6875rem] leading-4 tabular-nums text-muted-foreground">{label(item.page)}</span>
       </button>
     )
   }
