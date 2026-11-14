@@ -150,7 +150,8 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
         <button type="button" data-link-remove className={`${QUIET} text-foreground`} onClick={() => (removeLink(editor), setOpen(null))}>
           Remove link
         </button>
-        <span className="flex-1" />
+        {/* The two groups kept apart, however tightly the box is drawn round them. */}
+        <span className="min-w-6 flex-1" />
         <button type="button" className={`${QUIET} text-muted-foreground hover:text-foreground`} onClick={close}>
           Cancel <kbd className="ml-1 text-meta">esc</kbd>
         </button>

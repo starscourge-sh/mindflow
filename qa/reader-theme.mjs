@@ -110,6 +110,7 @@ try {
   await h.mouse.dblclick(at.x, at.y); await wait(900)
   const barRead = h.locator('[data-read-link]')
   check('selection bar: words picked in the link offer “Open in the reader”', (await barRead.count()) > 0, await h.evaluate(() => [...document.querySelectorAll('[aria-label]')].filter((one) => one.closest('[role="toolbar"], .tiptap-toolbar')).map((one) => one.getAttribute('aria-label')).join(', ')))
+  if (shots) await h.screenshot({ path: `${shots}/selection-bar.png` })
   if (await barRead.count()) await barRead.first().click()
   check('selection bar: it opens the essay in the reader', await reading())
 
@@ -143,6 +144,7 @@ try {
   // The lit row (Enter's) and the actions offered, by their own labels (search.tsx, actionRow).
   const palette = await h.evaluate(() => ({ lit: document.querySelector('[data-search-at] [data-action-label]')?.textContent ?? document.querySelector('[data-search-at]')?.textContent?.trim().slice(0, 60) ?? null, actions: [...document.querySelectorAll('[data-action-label]')].map((one) => one.textContent).slice(0, 5) }))
   check('⌘K with the address: the lit first row is “Open in the reader”', palette.lit === 'Open in the reader', JSON.stringify(palette))
+  if (shots) await h.screenshot({ path: `${shots}/palette.png` })
   await h.keyboard.press('Enter')
   check('⌘K with the address: Enter opens the essay in the reader', await reading())
 
