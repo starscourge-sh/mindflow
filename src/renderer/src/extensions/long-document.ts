@@ -239,17 +239,17 @@ const WIDTHS = 4
  * it scrolls and the caret as it moves, and the words on screen stay put when
  * it shifts. The document itself never changes.
  */
-function nearScreen(view: EditorView, name: string): { view: EditorView; release: () => void; chose: () => void; edges: () => [number, number] | null; ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
+function nearScreen(view: EditorView): { view: EditorView; release: () => void; chose: () => void; edges: () => [number, number] | null; ahead: (state: EditorState) => void; update: (previous: EditorState) => void; destroy: () => void } {
   // Which blocks are drawn, and the space kept for the rest. A block off the
-  // page carries a mark, and one rule that never changes hides the marked:
-  // moving the drawn blocks then touches only the blocks that change sides.
-  // (The rule used to name the drawn ones by their place, `:nth-child`, and
-  // was written again at each move: every rewriting had the browser work out
-  // the look of the whole window again, about 70 ms on a 7,000-block note
+  // page carries a mark, and one rule in main.css that never changes hides the
+  // marked: moving the drawn blocks then touches only the blocks that change
+  // sides. (The rule used to name the drawn ones by their place, `:nth-child`,
+  // and was written again at each move: every rewriting had the browser work
+  // out the look of the whole window again, about 70 ms on a 7,000-block note
   // whatever moved, several times a second in a fast scroll.) The space kept
-  // is in a sheet of its own, which touches only the note's own edges.
-  const style = document.createElement("style")
-  const spaces = document.createElement("style")
+  // is the height of the two places for a caret at the note's ends (`ends`,
+  // below), set on each: a sheet of its own, written again at each move, still
+  // cost about 25 ms of styles a time, where showing a block costs 1.
   let band: [number, number] | null = null
   let spaced: [number, number] = [0, 0]
   // What the space kept above is out by, on purpose (`hold`): put right when the scrolling comes to rest.
@@ -261,7 +261,6 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
   // Drawn ahead of the blocks it is for: the space kept for them is worked out again once they are there.
   let early = false
   let last: EditorState | null = null
-  const at = `.tiptap.ProseMirror.haligtree-editor[data-long="${name}"]`
   const blocks = (): HTMLCollection => view.dom.children
   // How tall each block stands, from its top to the top of the next: as it was when last drawn, or, never drawn,
   // guessed from its own words and the column's width. (Never-drawn blocks were all taken to be as tall as the
@@ -397,9 +396,11 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
     if (from === 0 && slip) rest()
     else space()
   }
+  // Only the two places' own heights change: no style but theirs is worked out again.
   const space = (): void => {
-    const room = `${at}::before { content: ""; display: block; height: ${Math.max(0, spaced[0] + slip)}px; }` + `${at}::after { content: ""; display: block; height: ${spaced[1]}px; }`
-    if (spaces.textContent !== room) spaces.textContent = room
+    fence()
+    const room = [`${Math.max(0, spaced[0] + slip)}px`, `${spaced[1]}px`]
+    ends.forEach((end, i) => void (end.style.height !== room[i] && (end.style.height = room[i])))
   }
   /**
    * The words on screen kept where they are when the blocks just drawn above them stand taller or shorter than
@@ -490,7 +491,7 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
     band = null
     slip = 0
     mark()
-    spaces.textContent = ""
+    for (const end of ends) end.style.height = "0px"
   }
   /** Shift the band, keeping the block at the top of the screen where it is, or where the sizes say it should be. */
   const shift = (from: number, to: number, anchor: Element | null, at?: number): void => {
@@ -697,14 +698,15 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
   // or where an editor that held it has just been taken away), the browser looks from there, forward and back
   // through the page, letter by letter, for the nearest place one can be, each time it lays out. With a long
   // note in its way that was every block of the note that is not drawn: 5 to 12 seconds a time, half a minute
-  // and more for one press. The walk now ends at the note's edge. Each is a line break in a box of no height:
-  // nothing to see, nothing to press, outside the note's own words.
+  // and more for one press. The walk now ends at the note's edge. Each is a line break in a box as tall as the
+  // blocks not drawn on its side (`space`): nothing to see, nothing to press, outside the note's own words, and
+  // never what the browser holds still as the page changes above it (the note itself is not either).
   const ends = [0, 1].map(() => {
     const end = document.createElement("span")
     end.setAttribute("data-long-end", "")
     end.setAttribute("aria-hidden", "true")
     end.contentEditable = "false"
-    end.style.cssText = "display:block;height:0;overflow:hidden;pointer-events:none"
+    end.style.cssText = "display:block;flex:none;height:0;overflow:hidden;overflow-anchor:none;pointer-events:none"
     end.append(document.createElement("br"))
     return end
   })
@@ -776,8 +778,6 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
     event.preventDefault()
     view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
   }
-  // And the browser never scrolls a long note by itself to hold a block still (`rest`).
-  style.textContent = `${at} > [${OFF}] { display: none !important; } ${at} { overflow-anchor: none; }`
   drawnOf.set(view.dom, {
     screen: () => {
       const seen = band && view.dom.isConnected ? onScreen() : null
@@ -793,7 +793,6 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
   })
   view.dom.addEventListener("keydown", keyed, true)
   view.dom.addEventListener("beforeinput", keyed, true)
-  document.head.append(style, spaces)
   document.addEventListener("scroll", scrolled, { capture: true, passive: true })
   document.addEventListener("scrollend", rested, { capture: true, passive: true })
   window.addEventListener("resize", respace)
@@ -892,8 +891,6 @@ function nearScreen(view: EditorView, name: string): { view: EditorView; release
       view.dom.removeEventListener("keydown", keyed, true)
       view.dom.removeEventListener("beforeinput", keyed, true)
       view.dom.removeEventListener("mousedown", press, true)
-      style.remove()
-      spaces.remove()
       document.removeEventListener("scroll", scrolled, { capture: true })
       document.removeEventListener("scrollend", rested, { capture: true })
       window.removeEventListener("resize", respace)
@@ -979,7 +976,7 @@ export const LongDocument = Extension.create({
           // from it (a menu, a preview: it happens within a note's first second), and made again with it, the
           // drawn blocks went back to the caret, the screen stood on empty space until they came back to it by
           // guess, and every height learnt, or kept from the last time the note was open, was thrown away.
-          const mine = near?.view === view ? near : (near?.destroy(), (near = nearScreen(view, name)))
+          const mine = near?.view === view ? near : (near?.destroy(), (near = nearScreen(view)))
           const { update } = mine
           const aside = (): void => {
             const parent = view.dom.parentNode

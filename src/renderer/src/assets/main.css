@@ -1312,6 +1312,13 @@ html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(
   margin-inline: auto;
 }
 
+/* A long note draws only the blocks near the screen (extensions/long-document.ts): each other block wears
+   `data-off`, and the space they would take is kept beside the note, not in it. The browser never scrolls the note
+   by itself to hold a block still; the note does (`rest`). Here and fixed, so no sheet is added, changed or taken
+   away as a note opens, scrolls or closes: each such change had the browser work out the whole window's styles. */
+.tiptap.ProseMirror.haligtree-editor[data-long] > [data-off] { display: none !important; }
+.tiptap.ProseMirror.haligtree-editor[data-long] { overflow-anchor: none; }
+
 /* A note reads like a page of a wiki: the words in a column of about seventy
    characters (36em of the note's own size, so it grows with ⌘+), centred,
    the margins either side left empty. The pane's gutters (4.75rem a side)
