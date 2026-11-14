@@ -3095,9 +3095,10 @@ html[data-book-hue] [data-book-tint] {
    beside the page, they sit at the top of the details and the block under
    the title steps aside, so the words start right under it. Too narrow for
    the details to sit beside it (they stack under the page instead), the
-   block stays under the title and the details leave theirs out. */
+   block stays under the title and the details leave theirs out. The page
+   is marked by the strip in its details (property-strip.tsx). */
 @container page (width >= 40rem) {
-  :has(> .mf-details [data-property-strip]) > :not(.mf-details) [data-property-strip]:not(.note-embed-body *) {
+  [data-props-beside] > :not(.mf-details) [data-property-strip]:not(.note-embed-body *) {
     display: none;
   }
 }

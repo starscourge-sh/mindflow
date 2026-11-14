@@ -124,6 +124,22 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
     setOpen(key)
   }
 
+  // Drawn in the details beside the page, the block under the title steps aside (main.css, `data-props-beside`). The
+  // page is marked from here, where it is known, before the frame is drawn. Asked of the browser instead (a `:has()`
+  // with nothing before it), each strip coming or going had it restyle every box above the strip and 424 more in the
+  // note: 53 to 80 ms in a long note. The details' `fold` changing makes the strip anew, so this is read again then.
+  useLayoutEffect(() => {
+    const page = panel ? strip.current?.closest('.mf-details')?.parentElement : null
+    if (!page) return
+    beside.set(page, (beside.get(page) ?? 0) + 1)
+    page.setAttribute('data-props-beside', '')
+    return () => {
+      const left = (beside.get(page) ?? 1) - 1
+      beside.set(page, left)
+      if (!left) page.removeAttribute('data-props-beside')
+    }
+  }, [panel])
+
   // ⌥⌘P adds one, in the page the keys are in (or the only one open).
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
@@ -278,6 +294,9 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
     </div>
   )
 }
+
+/** How many strips each page has in its details now: the page is marked while there is one. */
+const beside = new WeakMap<Element, number>()
 
 /** Each kind of value's icon, beside its name, as Obsidian draws them. */
 const ICONS: Partial<Record<Prop['type'], LucideIcon>> = { text: Text, long: AlignLeft, number: Hash, date: Calendar, bool: SquareCheck, choice: List, link: Link2, rating: Star }
