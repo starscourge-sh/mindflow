@@ -128,8 +128,8 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
     </div>
   )
   return (
-    <div ref={lean.ref} {...lean.handlers} data-pick={`nugget:${card.id}`} tabIndex={0} role="button" aria-selected={picked} aria-label={card.prompt} data-turned={over || undefined}
-      className={`mf-lean min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring ${card.paused ? 'opacity-60' : ''}`}
+    <div ref={lean.ref} {...lean.handlers} data-pick={`nugget:${card.id}`} tabIndex={0} role="button" aria-selected={picked} aria-label={card.prompt} data-turned={over || undefined} data-set-aside={card.paused ? '' : undefined}
+      className="mf-lean min-w-0 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onPointerUpCapture={(event) => (event.metaKey || event.shiftKey) && (event.stopPropagation(), onPick(event))}>
       <Flip over={over} onTurn={(to) => (chime('tap'), onTurn(to))}
         front={face('front', <>

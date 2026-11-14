@@ -1397,7 +1397,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         data-split-edge={sortable || undefined}
                         data-open={task.id === (coming ?? open?.id) || undefined}
                         data-cursor={index === cursor || undefined}
-                        className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) || fresh(task.id) >= 0 ? 'mf-arrive' : ''} ${task.heldAt ? 'opacity-55' : ''}`}
+                        data-set-aside={task.heldAt ? '' : undefined}
+                        className={`group group/item relative flex items-start gap-3 rounded-md list-ink py-2 transition-colors ${several.chosen.includes(task.id) ? PICKED_ROW : task.id === (coming ?? open?.id) ? 'bg-accent' : index === cursor ? 'bg-accent/40' : ''} ${arrived(task.id) || fresh(task.id) >= 0 ? 'mf-arrive' : ''}`}
                         style={fresh(task.id) > 0 ? { animationDelay: `${Math.min(fresh(task.id), 8) * 30}ms` } : undefined}
                       >
                         {/* One of the day's three: its number in the margin before the circle. */}

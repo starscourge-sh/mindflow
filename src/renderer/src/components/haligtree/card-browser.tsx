@@ -605,8 +605,8 @@ export function CardBrowser({ onOpen, aim, only, newest, onAll, onShow, onAimDon
     const when = dueSaid(card) === 'new' ? '' : dueSaid(card)
     const fixing = fixes(card)
     return (
-      <div {...common} data-picked={on || undefined} data-table-row
-        className={`${TABLE_ROW} border-b border-border/60 ${fixing ? 'flex-wrap' : ''} ${on ? PICKED_ROW : ''} ${card.paused ? 'opacity-60' : ''}`}>
+      <div {...common} data-picked={on || undefined} data-set-aside={card.paused ? '' : undefined} data-table-row
+        className={`${TABLE_ROW} border-b border-border/60 ${fixing ? 'flex-wrap' : ''} ${on ? PICKED_ROW : ''}`}>
         <span data-table-lead data-card-stage className={`${TABLE_LEAD} flex items-center gap-1.5`}><span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: tintOf(card) }} />{STAGES.find((one) => one.id === stageOf(card))!.word}</span>
         {question(card, `${TABLE_NAME} ${COLUMNS.name}`)}
         {mark(card)}

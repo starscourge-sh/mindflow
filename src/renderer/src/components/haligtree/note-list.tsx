@@ -510,6 +510,7 @@ export function NoteList({
         data-private={entry.private ? '' : undefined}
         data-open={open ? '' : undefined}
         data-picked={picked ? '' : undefined}
+        data-set-aside={entry.dim ? '' : undefined}
         data-voice={entry.voice}
         // As in Finder: ⌘-click picks one more (or one less), ⇧-click a run;
         // ⌥⌘-click opens a window of its own. A list you cannot pick from
@@ -528,8 +529,8 @@ export function NoteList({
         onDoubleClick={onOpen ? () => onOpen(entry.id) : undefined}
         className={
           grid
-            ? tileClass(at, open, picked, entry.dim)
-            : rowClass(at, open, picked, entry.dim, density === 'compact')
+            ? tileClass(at, open, picked)
+            : rowClass(at, open, picked, density === 'compact')
         }
       >
         {density === 'compact' ? (
@@ -598,16 +599,15 @@ const rowClass = (
   at: boolean,
   open: boolean,
   picked: boolean,
-  dim = false,
   compact = false
 ): string =>
-  `${ROW_SHAPE} transition-colors ${compact ? 'min-h-6 py-1' : ROW_PAD} ${dim ? 'opacity-50' : ''} ${picked ? PICKED : open ? 'bg-accent' : at ? 'bg-accent/50' : ''} ${PRESS}`
+  `${ROW_SHAPE} transition-colors ${compact ? 'min-h-6 py-1' : ROW_PAD} ${picked ? PICKED : open ? 'bg-accent' : at ? 'bg-accent/50' : ''} ${PRESS}`
 // Pressed, a row takes the open row's highlight at once, in the browser's own next frame: marked by React with the
 // note it opens, the mark waited for the note's page to be built (60 to 160ms), and then faded in on top.
 const PRESS = 'active:bg-accent'
 // The ring is drawn over the tile, not under it, so a picture never hides it.
-export const tileClass = (at: boolean, open: boolean, picked: boolean, dim = false): string =>
-  `group/row relative flex h-full w-full flex-col overflow-hidden rounded-lg text-left after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-inset after:transition-[box-shadow] ${dim ? 'opacity-50' : ''} ${picked ? `${PICKED} after:ring-2 after:ring-[var(--tt-brand-color-400)]` : at ? 'after:ring-2 after:ring-ring' : open ? 'after:ring-2 after:ring-foreground/40' : 'after:ring-1 after:ring-border hover:after:ring-foreground/25 active:after:ring-2 active:after:ring-foreground/40'}`
+export const tileClass = (at: boolean, open: boolean, picked: boolean): string =>
+  `group/row relative flex h-full w-full flex-col overflow-hidden rounded-lg text-left after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-inset after:transition-[box-shadow] ${picked ? `${PICKED} after:ring-2 after:ring-[var(--tt-brand-color-400)]` : at ? 'after:ring-2 after:ring-ring' : open ? 'after:ring-2 after:ring-foreground/40' : 'after:ring-1 after:ring-border hover:after:ring-foreground/25 active:after:ring-2 active:after:ring-foreground/40'}`
 
 /**
  * Split, a row whose note is open in a pane says which: a small L, M or R
@@ -953,10 +953,11 @@ export function NoteRail({
                 data-cursor={index === cursor || undefined}
                 data-private={entry.private ? '' : undefined}
                 data-open={entry.id === selected ? '' : undefined}
+                data-set-aside={entry.dim ? '' : undefined}
                 onClick={(event) =>
                   event.metaKey ? (canSplit() ? openNewTab(entry.type, entry.id) : openApart(entry.type, entry.id)) : onPick(entry.id)
                 }
-                className={`flex w-full items-center justify-center rounded-lg p-1 ring-inset transition-[box-shadow,background-color] hover:bg-accent/60 ${PRESS} ${entry.dim ? 'opacity-50' : ''} ${index === cursor ? 'ring-2 ring-ring' : entry.id === selected ? 'bg-accent' : ''}`}
+                className={`flex w-full items-center justify-center rounded-lg p-1 ring-inset transition-[box-shadow,background-color] hover:bg-accent/60 ${PRESS} ${index === cursor ? 'ring-2 ring-ring' : entry.id === selected ? 'bg-accent' : ''}`}
               >
                 {/* Never a private note's name: names show in a screen share. */}
                 <Tip label={entry.private ? 'Private' : entry.title || entry.line || 'New note'}>

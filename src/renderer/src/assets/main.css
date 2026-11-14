@@ -3061,6 +3061,17 @@ html[data-book-hue] [data-book-tint] {
   --muted-foreground: var(--mf-muted-strong);
   --mf-muted: var(--mf-muted-strong);
 }
+/* A row set aside (a question answered or let go, a closed goal, a paused card, a held task, a capture dealt with)
+   stays plainly set aside and readable: what was in the ink takes the strong quiet step and quiet words stay Faded
+   Ink, so every word reads at 4.5:1 or more, and its pictures, icons and marks drop to half. Its own words say which
+   ("Answered 3 days ago", "Paused: not coming back until you choose"). It was the whole row at half strength: 2.1:1. */
+[data-set-aside] {
+  --foreground: var(--mf-muted-strong);
+  color: var(--foreground);
+}
+[data-set-aside] :is(svg, img, canvas, [data-lead-paper], [data-word-band]) {
+  opacity: 0.5;
+}
 
 /* A row's lead with no picture, on a dark page: a quiet square in the page's
    own muted colour, its kind's icon in muted ink, rather than the light paper
