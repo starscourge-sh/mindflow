@@ -15,7 +15,7 @@ colors:
   dusty-rose: "#94506e"
   cream-paper: "#f3ead7"
   brown-ink: "#4a4034"
-  faded-ink: "#6c6255"
+  faded-ink: "#655b4e"
   paper-shade: "#ece3d0"
   parchment: "#e4dbc8"
   worn-parchment: "#d8cfbd"
@@ -240,7 +240,7 @@ A warm, low-contrast palette of old paper and brown ink, every surface mixed fro
 ### Neutral
 - **Cream Paper** (cream-paper): the page. On Paper and Light the window is painted solid in it.
 - **Brown Ink** (brown-ink): body text and the source of every surface, hover and border.
-- **Faded Ink** (faded-ink): quiet words (metadata, idle chips, placeholders); ink at 80% over the page, raised on Paper so small text still reaches 4.5:1.
+- **Faded Ink** (faded-ink): quiet words (metadata, idle chips, placeholders, and the quiet parts of notes and the PDF reader, whose `--mf-muted` is Faded Ink); ink at 74% over the page, raised to 84% on Paper, so small text reaches 4.5:1 on the page and on a card or menu in every theme (test/theme-contrast.test.ts). `--mf-muted-strong` sits half way from it to the ink.
 - **Paper Shade** (paper-shade): surface step 50 (ink at 4%), the card behind a panel.
 - **Parchment** (parchment): surface step 100 (ink at 9%), the card and popover fill: every menu, tooltip, hover card and dialog.
 - **Worn Parchment** (worn-parchment): surface step 200 (ink at 16%), the hover and selected wash for rows, ghost buttons and menu items; the sidebar wears it at 20% and settings islands at 25%.

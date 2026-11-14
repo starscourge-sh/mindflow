@@ -3029,8 +3029,9 @@ html[data-book-hue] [data-book-tint] {
 .mf-loud:is([data-important='today'], [data-important='deadline'], [data-important='warn']) { color: color-mix(in oklab, var(--tt-color-text-orange) 70%, var(--foreground)); }
 .mf-loud[data-important='soon'] { color: color-mix(in oklab, var(--tt-brand-color-400) 70%, var(--foreground)); }
 /* Paper's quiet words were brown-grey at about 4:1 on the page, under the
-   4.5:1 small text needs. Still the softest ink, now one that reads. */
-:root.paper { --muted-foreground: color-mix(in srgb, var(--foreground) 80%, var(--background)); }
+   4.5:1 small text needs, and at 80% still 4.3:1 on a card or a menu. Still
+   the softest ink, now one that reads on both (test/theme-contrast.test.ts). */
+:root.paper { --muted-foreground: color-mix(in srgb, var(--foreground) 84%, var(--background)); }
 /* The quiet words of notes and the reader (`--mf-muted`: a link card's site, the PDF rail's tabs, the slash menu's
    groups, a look-up's notes) are Faded Ink itself, so they read like every other quiet word and reach 4.5:1 wherever it
    does. They were the ink at half strength, about 2.5:1 on Paper. "Strong" sits half way on to the ink, so quiet,

@@ -58,6 +58,25 @@ test('the theme table is read whole', () => {
   for (const one of all) for (const hue of HUES) assert.ok(one.hues[hue], `${one.name} has ${hue}`)
 })
 
+// The quiet ink: Faded Ink (--muted-foreground, the 700 step: ink 74% into the page, more on Paper) is every quiet
+// word's colour, notes and the PDF reader included (--mf-muted is it). Read at 12 and 13px on the page and on a card or
+// a menu (ink 9% into the page), it reaches 4.5:1 on both in every theme.
+test('the quiet ink reaches 4.5:1 on the page and on a card in every theme', () => {
+  const css = readFileSync(join(import.meta.dirname, '../src/renderer/src/assets/main.css'), 'utf8')
+  assert.match(css, /--mf-muted: var\(--muted-foreground\);/, '--mf-muted is Faded Ink')
+  const paper = Number(css.match(/:root\.paper \{ --muted-foreground: color-mix\(in srgb, var\(--foreground\) (\d+)%, var\(--background\)\); \}/)![1]) / 100
+  const mix = (a: RGB, b: RGB, t: number): RGB => a.map((v, i) => v * t + b[i] * (1 - t)) as RGB
+  const table = file.slice(file.indexOf('$mf-themes: ('), file.indexOf(');', file.indexOf('$mf-themes: (')))
+  const all = [...table.matchAll(/"([a-z-]+)": \(([^)]*)\)/g)].map(([, name, body]) => {
+    const [bg, ink] = ['bg', 'ink'].map((key) => hex(body.match(new RegExp(`"${key}": (#[0-9a-fA-F]{6})`))![1]))
+    return { name, quiet: mix(ink, bg, name === 'paper' ? paper : 0.74), page: bg, card: mix(ink, bg, 0.09) }
+  })
+  all.push({ name: 'dark', quiet: [192, 192, 195], page: [14, 14, 17], card: [32, 32, 34] })
+  assert.ok(all.length >= 14, `${all.length} themes`)
+  const failing = all.flatMap((one) => (['page', 'card'] as const).map((on) => ({ ...one, on, ratio: contrast(one.quiet, one[on]) })).filter((one) => one.ratio < 4.5))
+  assert.deepEqual(failing.map((one) => `${one.name} on its ${one.on} ${one.ratio.toFixed(2)}:1`), [])
+})
+
 test('every theme colour used for words reaches 4.5:1 on its own page', () => {
   const failing = themes().flatMap((one) => HUES.map((hue) => ({ name: one.name, hue, ratio: contrast(colour(one.hues[hue]), one.bg) })).filter((one) => one.ratio < 4.5))
   assert.deepEqual(failing.map((one) => `${one.name} ${one.hue} ${one.ratio.toFixed(2)}:1`), [])
