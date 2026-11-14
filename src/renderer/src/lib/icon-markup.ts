@@ -13,6 +13,22 @@ const escape = (value: string | number): string => String(value).replace(/&/g, "
  * load a whole second React to draw a few icons. Null for anything that is
  * not drawn from such a list.
  */
+/**
+ * Elements made from `markup`, a fresh copy each call: the markup is read once and copied after. A note's widgets
+ * (a heading's fold arrow, an empty picture's row) are made for every one of its blocks as it opens, and each read
+ * its markup afresh: the largest note's 934 arrows and 286 empty pictures took a quarter of a second of its opening.
+ */
+const read = new Map<string, HTMLTemplateElement>()
+export function copyOf(markup: string): DocumentFragment {
+  let template = read.get(markup)
+  if (!template) {
+    template = document.createElement("template")
+    template.innerHTML = markup
+    read.set(markup, template)
+  }
+  return document.importNode(template.content, true)
+}
+
 export function iconMarkup(icon: LucideIcon): string | null {
   const drawn = (icon as unknown as { render?: (props: object, ref: null) => { props?: { iconNode?: Shape; className?: string } } }).render?.({}, null)
   const shape = drawn?.props?.iconNode

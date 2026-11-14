@@ -10,6 +10,7 @@ import { labelFor } from "@/components/pdf/pdf-labels"
 import { isAudio } from "@/lib/transcribe"
 import { glideWay } from "@/lib/motion"
 import { linesTyped } from "@/lib/text-edit"
+import { copyOf } from "@/lib/icon-markup"
 
 /** A video file kept in the note, which its times play too. */
 const isVideoFile = (node: ProseMirrorNode): boolean => node.type.name === "attachment" && /\.(mp4|mov|m4v|webm)$/i.test(String(node.attrs.name || node.attrs.src || ""))
@@ -22,7 +23,7 @@ const mark = (): HTMLElement => {
   span.contentEditable = "false"
   span.setAttribute("aria-label", "A review card")
   span.title = "A review card: Review asks the words before ::"
-  span.innerHTML = '<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="4.5" y="2.5" width="9" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.55"/><rect x="2.5" y="4" width="9" height="10" rx="2" fill="var(--background, #fff)" stroke="currentColor" stroke-width="1.4"/><path d="M5 8h4M5 10.5h2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'
+  span.append(copyOf('<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="4.5" y="2.5" width="9" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.55"/><rect x="2.5" y="4" width="9" height="10" rx="2" fill="var(--background, #fff)" stroke="currentColor" stroke-width="1.4"/><path d="M5 8h4M5 10.5h2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'))
   return span
 }
 

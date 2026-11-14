@@ -5,7 +5,7 @@ import { Plugin, PluginKey, TextSelection, type Selection, type Transaction } fr
 import { ReplaceStep } from "@tiptap/pm/transform"
 import { CornerUpLeft } from "lucide-react"
 
-import { iconMarkup } from "@/lib/icon-markup"
+import { copyOf, iconMarkup } from "@/lib/icon-markup"
 
 /**
  * Footnotes as Obsidian has them: `words[^1]` in the text, `[^1]: the note`
@@ -322,7 +322,7 @@ export const Footnote = Node.create({
       back.className = "mf-footnote-back"
       back.setAttribute("aria-label", "Back to the mark")
       back.title = "Back to the mark (Esc)"
-      back.innerHTML = iconMarkup(CornerUpLeft) ?? ""
+      back.append(copyOf(iconMarkup(CornerUpLeft) ?? ""))
       back.addEventListener("mousedown", (event) => event.preventDefault())
       back.addEventListener("click", (event) => {
         event.preventDefault()

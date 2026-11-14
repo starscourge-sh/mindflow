@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { headingRank } from "@/extensions/toggle-heading"
 import { cue } from "@/lib/cues"
+import { copyOf } from "@/lib/icon-markup"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 
 declare module "@tiptap/core" {
@@ -142,7 +143,7 @@ function toggle(view: EditorView, at: () => number, level: number, folded: boole
   button.contentEditable = "false"
   button.setAttribute("role", "button")
   button.setAttribute("aria-label", folded ? "Unfold this section" : "Fold this section")
-  button.innerHTML = `<span class="mf-fold-level">H${level}</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`
+  button.append(copyOf(`<span class="mf-fold-level">H${level}</span><svg viewBox="0 0 16 16" aria-hidden="true"><path d="m6 4 4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`))
   button.addEventListener("mousedown", (event) => {
     // Down, not click: the caret must not move to the heading on the way.
     event.preventDefault()

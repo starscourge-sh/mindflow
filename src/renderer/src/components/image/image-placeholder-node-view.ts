@@ -5,6 +5,7 @@ import type { NodeView } from "@tiptap/pm/view"
 import { ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react"
 
 import { ImagePlaceholderView } from "@/components/image/image-placeholder-view"
+import { copyOf } from "@/lib/icon-markup"
 import { lazyRoot } from "@/lib/lazy-root"
 import { stopLikeTiptap } from "@/lib/plain-node-view"
 
@@ -44,8 +45,7 @@ export function imagePlaceholderNodeView(props: NodeViewRendererProps): NodeView
   row.type = "button"
   row.className = "tiptap-image-placeholder-row"
   const label = document.createElement("span")
-  row.innerHTML = ICON
-  row.append(label)
+  row.append(copyOf(ICON), label)
   wrapper.append(row)
   dom.append(wrapper)
   const say = (): void => {
