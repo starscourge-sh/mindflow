@@ -51,11 +51,17 @@ const measure = (h) => h.evaluate(() => {
     // Faded: the ink at any alpha under 1, or Faded Ink or its strong step at any alpha. The ink itself and the hues are not.
     const faded = (near(own, ink) && own.a < 0.995) || near(own, quiet) || near(own, strong)
     if (!faded) return
-    // A word still arriving (a hint typing in, word by word) is measured once it has landed, on another look.
-    for (let up = el; up; up = up.parentElement) if (up.getAnimations().some((one) => one.playState === 'running' && one.effect?.getComputedTiming().iterations !== Infinity)) return
+    // A word still arriving (a hint typing in, word by word: its opacity or colour still easing) is measured once it has
+    // landed, on another look. Only a fade or a change of colour counts: a slide or a drift elsewhere changes no ink.
+    const fading = (one) => one.playState === 'running' && one.effect?.getComputedTiming().iterations !== Infinity &&
+      (one.transitionProperty ? /opacity|color|filter|all/.test(one.transitionProperty) : (one.effect?.getKeyframes?.() ?? []).some((key) => 'opacity' in key || 'color' in key || 'filter' in key))
+    for (let up = el; up; up = up.parentElement) if (up.getAnimations().some(fading)) return
     let fade = 1
     for (let up = el; up; up = up.parentElement) fade *= Number(getComputedStyle(up).opacity)
+    // Faded out to nothing (a grip that shows on hover), or a whole row or card dimmed to half to show its state (a closed
+    // question, a suspended card): not a faded ink. qa/faded-words.mjs's report lists them apart (QA_TABLE, kind "dimmed").
     if (fade < 0.05) return
+    if (fade <= 0.55) { words.push({ kind: 'dimmed', cls: 'opacity', at: '', text: text.slice(0, 40), size, weight, ratio: 0, bar: 0, ground: '', ink: '' }); return }
     const chain = []
     for (let up = el; up; up = up.parentElement) chain.push(read(getComputedStyle(up).backgroundColor))
     let ground = page
@@ -111,9 +117,10 @@ try {
     let most = 0
     for (const theme of THEMES) for (const style of STYLES) {
       await wear(theme, style)
-      const words = await measure(h)
+      const all = await measure(h)
+      const words = all.filter((one) => one.kind !== 'dimmed')
       most = Math.max(most, words.length)
-      for (const one of words) table.push({ page: id, theme, style, ...one })
+      for (const one of all) table.push({ page: id, theme, style, ...one })
       const low = words.filter((one) => one.ratio < one.bar).sort((a, b) => a.ratio - b.ratio)
       check(`${id}, ${theme}/${style}: every faded word reads (${words.length} words, lowest ${words.length ? Math.min(...words.map((one) => one.ratio)).toFixed(2) : '-'}:1)`, !low.length, low.slice(0, 4).map((one) => `${one.cls} in ${one.at || '-'} “${one.text}” ${one.ratio}:1 on ${one.ground}`).join(' | ') || `${words.length} words`)
       if (shots && style === 'soft' && (theme === 'paper' || theme === 'dark')) await h.screenshot({ path: join(shots, `faded-${id}-${theme}.png`) })
