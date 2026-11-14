@@ -4879,7 +4879,7 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
   caret-color: var(--tt-brand-color-500);
   outline: none;
 
-  &::placeholder { color: color-mix(in srgb, currentColor 45%, transparent); }
+  &::placeholder { color: var(--mf-muted); }
   &:focus {
     border-color: color-mix(in srgb, currentColor 25%, transparent);
   }

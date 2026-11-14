@@ -296,6 +296,9 @@
 }
 
 @layer base {
+  /* A field's hint with no colour of its own is Faded Ink, as the app's own fields' are (placeholder:text-muted-foreground):
+     Tailwind's base drew it at half its words' colour, 2.4:1 on Paper (Settings' "Search…"). */
+  ::placeholder { color: var(--muted-foreground); }
   /* A key is one mark: "⇧⌘R" never breaks over two lines, whatever the words around it do. */
   kbd { white-space: nowrap; overflow-wrap: normal; flex-shrink: 0; }
   * {

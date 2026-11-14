@@ -1,11 +1,12 @@
+/* A hint in the editor's own fields (a link's "Paste a link…") is Faded Ink, as every other field's: it was a vendor grey. */
 :root {
-  --tt-input-placeholder: var(--tt-gray-light-a-400);
+  --tt-input-placeholder: var(--mf-muted);
   --tt-input-border: var(--tt-gray-light-a-200);
   --tt-input-border-focus: var(--tt-gray-light-a-300);
 }
 
 .dark {
-  --tt-input-placeholder: var(--tt-gray-dark-a-400);
+  --tt-input-placeholder: var(--mf-muted);
   --tt-input-border: var(--tt-gray-dark-a-200);
   --tt-input-border-focus: var(--tt-gray-dark-a-300);
 }
