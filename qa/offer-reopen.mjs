@@ -41,9 +41,13 @@ try {
     // the book left the window, beside its list, and asked once straight); the others from Home.
     const start = (await log()).length
     await h.evaluate(() => localStorage.removeItem('note-offers:dismissed'))
-    if (n > 1) await c.go('home')
+    if (n > 1) {
+      await h.evaluate(() => document.querySelector('.note-pane')?.setAttribute('data-left-for-home', ''))
+      await c.go('home')
+      await h.waitForFunction(() => !document.querySelector('[data-left-for-home]'), null, { timeout: 60000 })
+    }
     await send('article', PAGE)
-    await h.waitForSelector('.tiptap.ProseMirror', { timeout: 30000 })
+    await h.waitForSelector('.note-pane .tiptap.ProseMirror', { timeout: 30000 })
     if (n === 1) {
       await wait(1500)
       await h.evaluate(async (page) => {
@@ -64,11 +68,17 @@ try {
       const old = document.querySelector('[data-o3="old"]')
       return { panes: views.join(' | '), active: kept?.active ?? null, oldInPage: !!old, oldSeen: !!old?.checkVisibility?.() }
     })
+    // Left for real: Home takes the page only once it has what it shows, and until then the note stays shown and read
+    // (sent back 900 ms after "Home", the note had never gone: no "left", no new ask, the old editor still seen).
+    await h.evaluate(() => document.querySelector('.note-pane')?.setAttribute('data-left-for-home', ''))
     await c.go('home')
+    await h.waitForFunction(() => !document.querySelector('[data-left-for-home]'), null, { timeout: 60000 })
     console.log(`NOTE    after Home: ${JSON.stringify(await where())}`)
+    if (process.env.SHOT) await h.screenshot({ path: `${process.env.SHOT}/reopen-${n}-after-home.png` })
     await send('article', PAGE)
     await h.waitForSelector('.tiptap.ProseMirror', { timeout: 30000 })
     console.log(`NOTE    after the note again: ${JSON.stringify(await where())}`)
+    if (process.env.SHOT) await h.screenshot({ path: `${process.env.SHOT}/reopen-${n}-note-again.png` })
     const remade = await h.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')?.dataset.o3 !== 'old')
     let next = null
     for (let t = 0; t < 40000 && !(next = await offer()); t += 250) await wait(250)

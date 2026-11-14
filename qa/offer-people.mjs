@@ -88,8 +88,17 @@ try {
     await h.click(`${OFFER} [data-offer-away]`).catch(() => {})
     await wait(1200)
     // The next offer comes at the note's next reading (note-offers.tsx: read once the words rest, one at a time): with
-    // nothing typed, when the note is opened again, as a person coming back to it sees it.
-    if (!(await offer())) (await c.go('home'), await send('article', PAGE), await h.waitForSelector('.tiptap.ProseMirror', { timeout: 30000 }), await wait(1500))
+    // nothing typed, when the note is opened again, as a person coming back to it sees it. Left for Home first, for
+    // real: Home takes the page only once it has what it shows, and the note stays shown (and still read) until then.
+    // Sent back 900 ms after "Home", the note had never gone, so nothing was read again (qa/offer-reopen.mjs).
+    if (!(await offer())) {
+      await h.evaluate(() => document.querySelector('.note-pane')?.setAttribute('data-left-for-home', ''))
+      await c.go('home')
+      await h.waitForFunction(() => !document.querySelector('[data-left-for-home]'), null, { timeout: 60000 })
+      await send('article', PAGE)
+      await h.waitForSelector('.note-pane .tiptap.ProseMirror', { timeout: 30000 })
+      await wait(1500)
+    }
     seen = null
   }
   console.log(`NOTE  offers put away before it: ${passed.join(', ') || 'none'}; then: ${JSON.stringify(seen)}`)
