@@ -305,7 +305,7 @@ function Pick({ options, chosen, many, onPick }: { options: Choice[]; chosen: st
 /** Defined once, out here: made inside Display, every change rebuilt them and closed the open menu. */
 // Each section an island, the way Settings groups its rows.
 const Section = ({ title, count, children }: { title: string; count: number; children: ReactNode }): React.JSX.Element => (
-  <Island compact name={title} title={<span className="flex items-center gap-1.5">{title}{count > 0 && <Count n={count} className="rounded bg-accent px-1 font-normal text-muted-foreground" />}</span>}>
+  <Island compact name={title} title={<span className="flex items-center gap-1.5">{title}{count > 0 && <Count n={count} className="rounded bg-accent px-1 font-normal text-(--mf-muted-strong)" />}</span>}>
     {children}
   </Island>
 )
@@ -673,7 +673,7 @@ export function Display<T>({ view, onChange, facets, sorts: given, groups: offer
       <PopoverTrigger asChild>
         <button ref={button} type="button" data-display className={`flex h-7 items-center gap-1.5 rounded-md px-2 text-control whitespace-nowrap transition-colors duration-150 [grid-area:1/1] hover:bg-accent hover:text-foreground motion-reduce:transition-none ${open ? 'bg-accent text-foreground' : ''} ${active ? 'text-foreground' : ''}`}>
           {!compact && (room || sorts.length > 1) && <span className="flex items-center gap-1"><span className="text-muted-foreground">Sort:</span><Rolling by="word" text={sortName} /></span>}
-          {filtered > 0 && <Count n={filtered} className="rounded bg-accent px-1 text-xs text-muted-foreground" />}
+          {filtered > 0 && <Count n={filtered} className="rounded bg-accent px-1 text-xs text-(--mf-muted-strong)" />}
           {Shown ? <Shown className="size-3.5" /> : <AliveIcon icon={SlidersHorizontalIcon} size={14} />}
         </button>
         </PopoverTrigger>

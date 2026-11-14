@@ -99,7 +99,7 @@ export function MadeChip({ on, hidden, onChange }: { on: boolean; hidden: number
             {on && <Check className="size-2.5" />}
           </span>
           {MADE_SAID}
-          {!on && hidden > 0 && <Count n={hidden} className="rounded bg-accent px-1" />}
+          {!on && hidden > 0 && <Count n={hidden} className="rounded bg-accent px-1 text-(--mf-muted-strong)" />}
         </button>
       </Tip>
     </span>
@@ -124,7 +124,7 @@ export function SnoozedChip(): React.JSX.Element | null {
             {on && <Check className="size-2.5" />}
           </span>
           {SNOOZED_SAID}
-          {!on && hidden > 0 && <Count n={hidden} className="rounded bg-accent px-1" />}
+          {!on && hidden > 0 && <Count n={hidden} className="rounded bg-accent px-1 text-(--mf-muted-strong)" />}
         </button>
       </Tip>
     </span>
