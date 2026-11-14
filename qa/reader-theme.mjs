@@ -32,6 +32,8 @@ try {
       const url = String(input instanceof URL ? input.href : (input?.url ?? input))
       if (!url.startsWith(site + '/')) return globalThis.__realFetch(input, init)
       const page = pages[new URL(url).pathname]
+      // The first reading takes a real page's while (2.5s), so what lists it is drawn before its article is kept.
+      if (page && !globalThis.__readOnce) (globalThis.__readOnce = true, await new Promise((done) => setTimeout(done, 2500)))
       return page ? new Response(page, { headers: { 'content-type': 'text/html; charset=utf-8' } }) : new Response('', { status: 404 })
     }
   }, [SITE, pages])
