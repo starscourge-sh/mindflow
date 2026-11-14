@@ -132,8 +132,10 @@ export function DraftMark({ kind, color, shape, time, style, ref, at, bar }: {
     // It flies over the page: a copy of it, laid over where it is going, sets off from where it was, and the draft itself
     // waits unseen in its new place until the copy lands there. Moved inside its day, it was cut off by the day's edges
     // (a month's day holds what is in it): it vanished from the day it left and showed only coming in over its new day's
-    // edge. Played by the browser on the app's slow spring (`SLOW`), so its place at each frame is set before anything
-    // that frame reads it: its popover, placed again from the copy at every frame (AddPopover), rides with it.
+    // edge. Played by the browser on the app's slow spring (`SLOW`), by its left and top: the page sets them at each
+    // frame before anything that frame reads them, and its popover, placed again from the copy at every frame
+    // (AddPopover), is drawn in the same frame. As a transform, the compositor played it on a clock of its own and,
+    // with the page a frame behind under load, the copy ran in under its popover's edge.
     const flying = el.cloneNode(true) as HTMLElement
     for (const name of ['data-cal-draft', 'data-cal-draft-at']) flying.removeAttribute(name)
     flying.setAttribute('data-cal-draft-flying', '')
@@ -142,7 +144,7 @@ export function DraftMark({ kind, color, shape, time, style, ref, at, bar }: {
     document.body.append(flying)
     el.style.visibility = 'hidden'
     const land = (): void => void (flying.remove(), el.style.removeProperty('visibility'))
-    const going = flying.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: 'translate(0px, 0px)' }], SLOW)
+    const going = flying.animate([{ left: `${mine.rect.left}px`, top: `${mine.rect.top}px` }, { left: `${to.left}px`, top: `${to.top}px` }], SLOW)
     going.onfinish = () => (land(), void (travel === mine && (travel = null)))
     return () => (going.cancel(), land())
   }, [at]) // eslint-disable-line react-hooks/exhaustive-deps
