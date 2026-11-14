@@ -654,7 +654,7 @@ export function NewEvent({ ask, held, onMade, words, picked, onName, onPlace, on
       <div className="flex w-full flex-col gap-2.5">
         <div className="flex min-h-10 items-center gap-2 rounded-lg border pr-1 pl-3 text-body focus-within:border-foreground/25">
           <input ref={field} data-new-event-words value={text} readOnly={one?.readOnly} onChange={(event) => setText(event.target.value)} aria-label={one ? 'The event’s name' : `A new event for ${dayjs(ask.day).format('dddd D MMMM')}`}
-            placeholder="Lunch with Sam fri 1pm" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
+            placeholder="Lunch with Sam fri 1pm" className="min-w-0 flex-1 bg-transparent text-body text-foreground outline-none placeholder:text-muted-foreground" />
           {/* A new one's ↵ is the popover's one filled button; on one that exists it is a quiet key (keeping a name is not
               the main thing there), and one of your Mac's, read only, has nothing to keep. */}
           {!one?.readOnly && <Button type="submit" size="sm" variant={one ? 'ghost' : undefined} data-new-event-add aria-label={one ? 'Keep' : 'Add'}><span className="hidden @[40rem]/page:inline">{one ? 'Keep' : 'Add'}</span> <Kbd>↵</Kbd></Button>}
@@ -879,7 +879,7 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
         )}
         <textarea key={`notes:${one.notes}`} data-event-notes aria-label="Notes about the event" defaultValue={one.notes} rows={4} placeholder="Add notes: the agenda, what to bring, what to ask"
           onBlur={(event) => event.target.value !== one.notes && void save({ notes: event.target.value }, 'Notes kept')}
-          className="page-narrow mx-auto block w-full resize-none bg-transparent px-4 @[40rem]/page:px-12 text-body leading-relaxed text-foreground outline-none placeholder:text-foreground/70 [field-sizing:content]" />
+          className="page-narrow mx-auto block w-full resize-none bg-transparent px-4 @[40rem]/page:px-12 text-body leading-relaxed text-foreground outline-none placeholder:text-muted-foreground [field-sizing:content]" />
         {/* Meeting notes: a note of its own for this time, linked both ways. */}
         <div className="page-narrow mx-auto mt-4 flex w-full flex-col gap-1 px-4 @[40rem]/page:px-12">
           <div className="flex items-center gap-2">
@@ -975,7 +975,7 @@ function PeopleField({ people, known, onSave }: { people: string[]; known: strin
             if (event.key === 'Enter' || event.key === ',') (event.preventDefault(), add(offered[0] && !known.includes(text.trim()) && offered[0].toLowerCase().startsWith(text.trim().toLowerCase()) ? offered[0] : text))
             if (event.key === 'Backspace' && !text && people.length) onSave(people.slice(0, -1))
           }}
-          className="h-6 min-w-20 flex-1 bg-transparent text-control text-foreground outline-none placeholder:text-foreground/70" />
+          className="h-6 min-w-20 flex-1 bg-transparent text-control text-foreground outline-none placeholder:text-muted-foreground" />
       </div>
       {offered.length > 0 && (
         <div className="flex flex-col pl-6">
@@ -1231,7 +1231,7 @@ export function SecondZoneSetting({ value, set }: { value: string | null; set: (
           <PopoverContent align="end" className="w-72 gap-1 p-1.5" data-zone-list>
             <input autoFocus value={find} onChange={(event) => setFind(event.target.value)} placeholder="Find a city or zone" aria-label="Find a city or zone"
               onKeyDown={(event) => event.key === 'Enter' && found[0] && (event.preventDefault(), chime('tap'), set(found[0].id), setOpen(false))}
-              className="h-8 rounded-md border bg-transparent px-2 text-body text-foreground outline-none placeholder:text-foreground/70 focus-visible:ring-2 focus-visible:ring-ring/30" />
+              className="h-8 rounded-md border bg-transparent px-2 text-body text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/30" />
             <div className="flex max-h-64 flex-col overflow-y-auto">
               {found.map((one) => (
                 <button key={one.id} type="button" data-zone={one.id} onClick={() => (chime('tap'), set(one.id), setOpen(false))}

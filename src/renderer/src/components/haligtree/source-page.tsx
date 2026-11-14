@@ -168,7 +168,7 @@ function PageNumber({ table, id, fields }: { table: NoteTable; id: string; field
           if (event.key === 'Enter') event.currentTarget.blur()
           if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), event.currentTarget.value = page, event.currentTarget.blur())
         }} onBlur={(event) => save(event.target.value)}
-        className="min-w-[2ch] rounded-md bg-transparent px-1 py-0.5 text-body text-foreground tabular-nums outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent focus:bg-accent" />
+        className="min-w-[2ch] rounded-md bg-transparent px-1 py-0.5 text-body text-foreground tabular-nums outline-none [field-sizing:content] placeholder:text-muted-foreground hover:bg-accent focus:bg-accent" />
     </p>
   )
 }
@@ -265,7 +265,7 @@ function Fact({ value, placeholder, label, onSave }: { value: string; placeholde
         if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), event.currentTarget.value = value, event.currentTarget.blur())
       }}
       onBlur={(event) => event.target.value.trim() !== value && onSave(event.target.value.trim())}
-      className="min-w-[2ch] rounded-md bg-transparent px-1 py-0.5 text-body text-foreground outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent focus:bg-accent" />
+      className="min-w-[2ch] rounded-md bg-transparent px-1 py-0.5 text-body text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground hover:bg-accent focus:bg-accent" />
   )
 }
 
@@ -455,7 +455,7 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
           if (event.key === 'Enter' && !event.shiftKey) (event.preventDefault(), event.currentTarget.blur())
           if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), setText(page.bio), setWriting(false), event.currentTarget.blur())
         }}
-        className="-mx-2 block w-[calc(100%+1rem)] resize-none rounded-md bg-transparent px-2 py-1 text-heading leading-relaxed text-pretty outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent/50 focus:bg-accent/50" />
+        className="-mx-2 block w-[calc(100%+1rem)] resize-none rounded-md bg-transparent px-2 py-1 text-heading leading-relaxed text-pretty outline-none [field-sizing:content] placeholder:text-muted-foreground hover:bg-accent/50 focus:bg-accent/50" />
       {page.bioUrl && text === page.bio && (
         <a data-bio-credit href={page.bioUrl} target="_blank" rel="noopener noreferrer" title="Text from Wikipedia, CC BY-SA"
           className="-mx-1 inline-flex items-center gap-0.5 rounded-sm px-1 py-1 text-meta text-muted-foreground hover:text-foreground hover:underline hover:underline-offset-2">
@@ -515,7 +515,7 @@ function Thoughts({ field, name, page }: { field: SourceField; name: string; pag
       onChange={(event) => setText(event.target.value)}
       onBlur={() => (setWriting(false), text !== page.thoughts && void sources.set(field, name, text).then(() => chime('noted')))}
       onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.stopPropagation(), setText(page.thoughts), event.currentTarget.blur())}
-      className="block w-full resize-none rounded-md bg-transparent px-2 py-1.5 text-body leading-relaxed outline-none [field-sizing:content] placeholder:text-foreground/55 hover:bg-accent/50 focus:bg-accent/50" />
+      className="block w-full resize-none rounded-md bg-transparent px-2 py-1.5 text-body leading-relaxed outline-none [field-sizing:content] placeholder:text-muted-foreground hover:bg-accent/50 focus:bg-accent/50" />
   )
 }
 

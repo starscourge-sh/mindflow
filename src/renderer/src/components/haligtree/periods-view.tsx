@@ -142,11 +142,11 @@ function Field({ label, hint, value, placeholder, long = false, onSave }: {
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
       {long ? (
         <textarea defaultValue={value} placeholder={placeholder} aria-label={label} onBlur={(event) => keep(event.target.value)}
-          className="mf-ruled mt-1 min-h-[3lh] resize-none bg-transparent text-body text-foreground outline-none [field-sizing:content] placeholder:text-foreground/70" />
+          className="mf-ruled mt-1 min-h-[3lh] resize-none bg-transparent text-body text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground" />
       ) : (
         <input defaultValue={value} placeholder={placeholder} aria-label={label} onBlur={(event) => keep(event.target.value)}
           onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-          className="mf-ruled mt-0.5 bg-transparent text-body text-foreground outline-none placeholder:text-foreground/70" />
+          className="mf-ruled mt-0.5 bg-transparent text-body text-foreground outline-none placeholder:text-muted-foreground" />
       )}
     </label>
   )

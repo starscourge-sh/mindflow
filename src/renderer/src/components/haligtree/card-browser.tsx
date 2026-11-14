@@ -311,7 +311,7 @@ function EditCard({ card, tint, onDone }: { card: BrowsedCard; tint: string; /**
       </div>
       <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
         {card.made !== 'deck' && <input data-card-edit-source aria-label="Source" value={source} onChange={(event) => setSource(event.target.value)} onKeyDown={keys}
-          placeholder="Source: a book or video" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground/70" />}
+          placeholder="Source: a book or video" className="min-w-0 flex-1 bg-transparent outline-none placeholder:text-muted-foreground" />}
         <Tip label="#tags are written in the answer. Enter keeps, ⇧Enter a new line, Esc drops">
           <span className="ml-auto flex shrink-0 items-center gap-1.5 text-muted-foreground/70"><span aria-hidden className="size-1.5 rounded-full shrink-0" style={{ background: tint }} />↩ keep</span>
         </Tip>

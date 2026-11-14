@@ -424,7 +424,7 @@ function AddTag({ node }: { node: () => HTMLElement | null }): React.JSX.Element
         else if (event.key === 'Escape') (event.preventDefault(), event.stopPropagation(), setText(''), setOpen(false))
       }}
       onBlur={() => (put(), setOpen(false))}
-      className="h-6 w-24 rounded-full bg-foreground/[0.06] px-2.5 text-foreground outline-none placeholder:text-muted-foreground/60" />
+      className="h-6 w-24 rounded-full bg-foreground/[0.06] px-2.5 text-foreground outline-none placeholder:text-muted-foreground" />
   )
 }
 
@@ -510,7 +510,7 @@ function NewProp({ className, size, names, waiting, onField, onName, onCancel }:
               onCancel()
             }
           }}
-          className="h-7 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60" />
+          className="h-7 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground" />
         {count > 0 && (
           // In by `mf-pop` (main.css), as a popover is: grown down from the field by a clip, never faded (it is frosted).
           <div role="listbox" data-name-options data-state="open" data-side="bottom" className={`${FLOAT} mf-pop absolute top-full left-0 z-50 mt-1 flex max-h-80 ${fields.length ? 'w-72' : 'w-56'} flex-col overflow-y-auto rounded-lg p-1`}>
@@ -564,7 +564,7 @@ function PropEditor({ prop, tags, onSave, onRename, onType, onSuper }: {
     const raw = text.current?.value ?? ''
     onSave(raw.trim() ? readValue(raw, prop.type === 'long' || prop.type === 'rating' ? 'text' : prop.type).value : null)
   }
-  const field = 'h-8 w-full rounded-md bg-foreground/[0.05] px-2.5 text-control text-foreground outline-none placeholder:text-foreground/60'
+  const field = 'h-8 w-full rounded-md bg-foreground/[0.05] px-2.5 text-control text-foreground outline-none placeholder:text-muted-foreground'
   const control = (() => {
     if (prop.type === 'bool') return <Chips options={[{ id: 'yes', label: 'Yes' }, { id: 'no', label: 'No' }]} on={(one) => (one === 'yes' ? prop.value === true : prop.value === false)} pick={(one) => onSave(prop.value === (one === 'yes') ? null : one === 'yes')} />
     if (prop.type === 'choice')

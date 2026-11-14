@@ -142,7 +142,7 @@ export function DatePicker({ value, onChange, time = false, allDay = false, plac
               }}
               placeholder="Try: in 3 months, next friday…"
               aria-label="When, in words"
-              className="w-full bg-transparent px-2.5 py-1.5 text-control outline-none placeholder:text-foreground/70"
+              className="w-full bg-transparent px-2.5 py-1.5 text-control outline-none placeholder:text-muted-foreground"
             />
             {/* Worked out only once it is open: read from the words on every draw of a closed picker, they held up the page it is on. */}
             <Later>{() => (words.trim() ? (typed ? [[words.trim(), typed] as const] : []) : suggest.flatMap((one) => { const day = said(one); return day ? [[one, day] as const] : [] })).map(([label, day]) => (

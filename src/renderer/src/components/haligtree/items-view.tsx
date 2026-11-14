@@ -1188,7 +1188,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           <textarea
             data-page-title
             rows={1}
-            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/40"
+            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-muted-foreground"
             defaultValue={titled ? item.title : ''}
             onKeyDown={(event) => (event.key === 'Enter' || event.key === 'Escape') && (event.preventDefault(), event.currentTarget.blur())}
             autoFocus={titling}
@@ -1424,7 +1424,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             {/* Asked the way its kind asks it (Who said it, Who made it), with the names used before offered. */}
             <Remembered key={`w${item.id}`} field="attribution" value={source} data-gem-source autoFocus={editingWho}
               placeholder={asksFor(item.kind as CaptureType, item.title).who ?? 'Who, or where from'}
-              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
+              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
               onChange={setSource}
               onKeyDown={leaveOnKeys(() => setSource(item.attribution ?? ''))}
               onBlur={() => {
@@ -1442,7 +1442,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             open={(aside) => (pdf ? (chime('page'), openPdf(pdf.src, pdf.name, pdf.page, pdf.mark, aside)) : (chime('page'), openSource('medium', item.medium ?? '')))}>
             <Remembered key={`m${item.id}`} field="medium" value={where} data-gem-where autoFocus={editingWhere}
               placeholder={asksFor(item.kind as CaptureType, item.title).where ?? 'Where from'}
-              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
+              className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
               onChange={setWhere}
               onKeyDown={leaveOnKeys(() => setWhere(item.medium ?? ''))}
               onBlur={() => { setEditingWhere(false); if (escaped.current) return void (escaped.current = false); const next = where.trim() || null; if (next !== (item.medium ?? null)) void haligtree.saveItem(item.id, { medium: next }).then(() => chime('noted')) }} />
@@ -1610,7 +1610,7 @@ export function RemindMe({ table, id, at }: { table: 'captures' | 'nuggets'; id:
           onChange={(event) => setWords(event.target.value)}
           onKeyDown={(event) => event.key === 'Enter' && typed && set(typed)}
           placeholder="Try: 4 pm, 2 days, in 5 weeks…"
-          className="w-full border-b bg-transparent px-2 py-2 outline-none placeholder:text-foreground/70"
+          className="w-full border-b bg-transparent px-2 py-2 outline-none placeholder:text-muted-foreground"
         />
         {(typed ? [[words, typed] as [string, Date]] : presets).map(([label, date]) => (
           <button key={label} type="button" onClick={() => set(date)} className="flex w-full items-center justify-between rounded-md px-2 py-1.5 hover:bg-accent">

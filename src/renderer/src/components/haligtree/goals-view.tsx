@@ -777,7 +777,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
           title={
             <textarea
               rows={1}
-              className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
+              className="block w-full resize-none overflow-hidden bg-transparent pb-[0.12em] text-balance outline-none [field-sizing:content] placeholder:text-muted-foreground"
               style={iced ? { color: ICE } : undefined}
               defaultValue={item.title === 'Untitled' ? '' : item.title}
               placeholder="What are you working toward?"
@@ -808,7 +808,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
               const why = event.target.value.trim()
               if (why !== (item.why ?? '')) void haligtree.saveItem(item.id, { why: why || null }).then(() => chime('noted'))
             }}
-            className="mf-ruled private-text block w-full resize-none bg-transparent text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-foreground/70 placeholder:not-italic"
+            className="mf-ruled private-text block w-full resize-none bg-transparent text-body leading-relaxed text-foreground/85 italic outline-none [field-sizing:content] placeholder:text-muted-foreground placeholder:not-italic"
           />
           {!dateless && !item.closedAt && left < 0 && (
             <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-accent/25 px-4 py-3">
@@ -1382,7 +1382,7 @@ function Logs({ item, picked, onClear }: { item: ItemFull; picked: Dot | null; o
               if (event.key === 'Escape') event.currentTarget.blur()
             }}
             placeholder={someday(item) ? 'A step: what you did toward it, what you found out' : 'A log: what you did, where it stands, what you think'}
-            className="min-w-0 flex-1 resize-none bg-transparent text-control outline-none [field-sizing:content] placeholder:text-foreground/70"
+            className="min-w-0 flex-1 resize-none bg-transparent text-control outline-none [field-sizing:content] placeholder:text-muted-foreground"
           />
           {words.trim() && <span className="mt-0.5 flex shrink-0 items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd></span>}
         </div>

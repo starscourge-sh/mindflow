@@ -2096,7 +2096,7 @@ function BlockedBy({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
                 // Words that are none of your tasks: kept as a plain note, as before.
                 if (words !== (task.blocker ?? '')) void haligtree.saveTask(task.id, { blocker: words || null, blockedBy: null })
               }}
-              className={cn('min-w-0 flex-1 bg-transparent text-control text-foreground outline-none placeholder:text-foreground/70', !typed && GHOST)}
+              className={cn('min-w-0 flex-1 bg-transparent text-control text-foreground outline-none placeholder:text-muted-foreground', !typed && GHOST)}
             />
           </label>
         </PopoverAnchor>
@@ -2225,7 +2225,7 @@ function Checklist({ task, onOpen }: { task: TaskFull; onOpen?: (type: string, i
           quietly(() => save(items))
         }}
         placeholder="Add a subtask"
-        className="mt-1 w-full bg-transparent py-1 outline-none placeholder:text-foreground/70"
+        className="mt-1 w-full bg-transparent py-1 outline-none placeholder:text-muted-foreground"
       />
     </section>
   )

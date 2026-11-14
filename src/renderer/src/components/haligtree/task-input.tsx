@@ -245,7 +245,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
             onKeyDown?.(event)
           }}
           placeholder={placeholder}
-          className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-foreground/70 placeholder-shown:text-ellipsis"
+          className="relative w-full bg-transparent text-transparent caret-foreground outline-none placeholder:text-muted-foreground placeholder-shown:text-ellipsis"
         />
         {offered.length > 0 && (
           <div data-tag-offers role="listbox" aria-label="Tags in use"

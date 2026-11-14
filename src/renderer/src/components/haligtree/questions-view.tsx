@@ -415,7 +415,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
           <textarea
             rows={1}
             data-page-title
-            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-foreground/70"
+            className="block w-full resize-none overflow-hidden bg-transparent font-heading text-title font-semibold tracking-[-0.018em] text-balance outline-none [field-sizing:content] placeholder:text-muted-foreground"
             // Its name without its #tags, which show in Properties; renamed, they stay on what is stored.
             defaultValue={item.title === 'Untitled' ? '' : shownName(item.title)}
             autoFocus={!item.title || item.title === 'Untitled'}

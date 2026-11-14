@@ -83,7 +83,7 @@ export function CardFormFoot({ deck, onDeck, tags, onTags, both, onBoth, status,
       <div className="flex flex-wrap items-center gap-2">
         <DeckPick value={deck} onChange={onDeck} />
         <input data-card-form-tags value={tags} onChange={(event) => onTags(event.target.value)} placeholder="More tags" aria-label="More tags"
-          className={`${INPUT_FRAME} h-8 w-32 text-control text-foreground placeholder:text-foreground/70 max-sm:h-9`} />
+          className={`${INPUT_FRAME} h-8 w-32 text-control text-foreground placeholder:text-muted-foreground max-sm:h-9`} />
         {onBoth && (
           <Tip label="A second card asks the answer first: for when you meet the answer first, like a word you hear">
             <label data-new-both-row className="flex h-8 cursor-pointer items-center gap-1.5 px-1 text-control">

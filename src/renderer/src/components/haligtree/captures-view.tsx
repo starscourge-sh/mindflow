@@ -1078,7 +1078,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
           label={capture.attribution?.trim() ?? ''} tip="Open their page in Sources"
           open={() => (chime('page'), openSource('attribution', capture.attribution ?? ''))}>
           <Remembered key={`a${capture.id}`} field="attribution" value={who} data-note-source autoFocus={editWho} placeholder={ASKS[capture.kind as CaptureType]?.who ?? 'Who'}
-            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
+            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
             onKeyDown={leaveOnKeys(() => saveWho(before.current))}
             onChange={saveWho} onBlur={() => {
             setEditWho(false)
@@ -1091,7 +1091,7 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
           peek={pdfOfNote ?? undefined}
           open={(aside) => (chime('page'), pdfOfNote ? openPdf(pdfOfNote.src, pdfOfNote.name, pdfOfNote.page, pdfOfNote.mark, aside) : openSource('medium', capture.medium ?? ''))}>
           <Remembered key={`m${capture.id}`} field="medium" value={where} data-note-where autoFocus={editWhere} placeholder={ASKS[capture.kind as CaptureType]?.where ?? 'Where'}
-            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-foreground/70"
+            className="min-w-0 flex-1 bg-transparent text-control outline-none placeholder:text-muted-foreground"
             onKeyDown={leaveOnKeys(() => saveWhere(before.current))}
             onChange={saveWhere} onBlur={() => setEditWhere(false)} />
         </SourceRow>

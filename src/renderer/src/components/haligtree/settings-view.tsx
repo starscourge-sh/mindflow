@@ -2466,7 +2466,7 @@ function YourProfile({ bio, setBio }: { bio: string; setBio: (bio: string) => vo
         </span>
         <textarea data-your-bio value={text} maxLength={160} rows={2} placeholder="A line about you, if you like: what you read, what you keep"
           onChange={(event) => setText(event.target.value)} onBlur={() => text !== bio && setBio(text.trim())}
-          className="block w-full resize-none rounded-md bg-accent/50 px-3 py-2 text-body outline-none [field-sizing:content] placeholder:text-foreground/60 focus:bg-accent" />
+          className="block w-full resize-none rounded-md bg-accent/50 px-3 py-2 text-body outline-none [field-sizing:content] placeholder:text-muted-foreground focus:bg-accent" />
       </label>
     </div>
   )

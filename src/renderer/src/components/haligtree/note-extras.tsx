@@ -418,7 +418,7 @@ export function Aliases({ table, id }: { table: NoteTable; id: string }): React.
             if (list.some((one) => one.toLowerCase() === name.toLowerCase())) return refuse(`Already called ${quoted(name, 80)}`)
             set([...list, name], `Also called ${quoted(name, 80)}: search finds it by that now`, 'alias')
           }}
-          className={cn('min-w-0 flex-1 bg-transparent text-control text-ellipsis text-foreground outline-none placeholder:text-foreground/70', !list.length && GHOST)}
+          className={cn('min-w-0 flex-1 bg-transparent text-control text-ellipsis text-foreground outline-none placeholder:text-muted-foreground', !list.length && GHOST)}
         />
       </label>
       </Does>

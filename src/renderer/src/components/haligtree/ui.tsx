@@ -666,7 +666,7 @@ export function PropInput({ icon: Icon, value, placeholder, onSave, suffix, type
         aria-label={ghost ? placeholder : undefined}
         onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
         onBlur={(event) => onSave(event.target.value.trim())}
-        className={cn('min-w-0 flex-1 bg-transparent text-control text-foreground tabular-nums outline-none placeholder:text-foreground/70 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none', ghost && GHOST)}
+        className={cn('min-w-0 flex-1 bg-transparent text-control text-foreground tabular-nums outline-none placeholder:text-muted-foreground [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none', ghost && GHOST)}
       />
       {suffix && <span className="shrink-0 text-meta">{suffix}</span>}
     </label>
@@ -1188,7 +1188,7 @@ function opener(): DOMRect | null {
 }
 
 /** The app's own field (ui/input.tsx's frame, as hash-field.tsx's INPUT_FRAME), the one Tasks and Settings type in, its words at ⌘K's size (14px): a line you write, not small grey type. */
-const ASK_FIELD = `min-w-0 rounded-md border border-input bg-input/20 px-2 py-0.5 transition-colors focus-within:border-foreground/25 dark:bg-input/30 h-7 w-full text-body text-foreground placeholder:text-foreground/70 [&_input]:placeholder:text-foreground/70`
+const ASK_FIELD = `min-w-0 rounded-md border border-input bg-input/20 px-2 py-0.5 transition-colors focus-within:border-foreground/25 dark:bg-input/30 h-7 w-full text-body text-foreground placeholder:text-muted-foreground [&_input]:placeholder:text-muted-foreground`
 
 /**
  * The question said at the app's own size: its question as a short bold line, what led to it as a quiet line under.
@@ -2061,7 +2061,7 @@ export function Remembered({ field, value, onChange, placeholder, className: giv
           onBlur?.(event)
         }}
         placeholder={placeholder}
-        className={cn('rounded-md bg-transparent text-muted-foreground outline-none placeholder:text-foreground/70/60 hover:bg-accent/50 focus:bg-accent/50 focus:text-foreground', className, ahead && 'min-w-0')}
+        className={cn('rounded-md bg-transparent text-muted-foreground outline-none placeholder:text-muted-foreground hover:bg-accent/50 focus:bg-accent/50 focus:text-foreground', className, ahead && 'min-w-0')}
       />
       {/* The rest of the name, faint, after the typed part: it sits under the
           input's own text and gives the field its width. */}
