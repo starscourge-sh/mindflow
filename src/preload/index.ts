@@ -695,7 +695,7 @@ const api = {
     const how = ipcRenderer.sendSync('welcome:arrive', again)
     return how === 'clear' || how === 'again' ? how : 'plain'
   },
-  /** This window put away and a see-through one made in its place for the welcome (main: remakeHome), these tabs and panes handed to it. */
+  /** This window's tabs and panes, handed to the see-through one being made in its place for the welcome (main: remakeHome, made as 'again' was answered). */
   remake: (split: unknown): void => ipcRenderer.send('welcome:remake', split),
   /** In the window made in its place: the tabs and panes handed over, once (null after, and in any other window). */
   handedOver: (): unknown => ipcRenderer.sendSync('welcome:handed-over'),

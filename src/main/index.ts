@@ -2584,20 +2584,35 @@ function arrivesRemade(): boolean {
   if (!home || home.isDestroyed() || homeClear) return false
   return !plainArrival({ mac: process.platform === 'darwin', welcome: true, test: !!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_ARRIVAL, still: stillness(), safe: gate().blackout, solid: nativeTheme.prefersReducedTransparency, secondDisplay: onSecondDisplay(home.getBounds()), fullScreen: home.isFullScreen() })
 }
-/** The tabs and panes of the window put away, each page's scroll in them, for the page made in its place to take up once (home.tsx). */
-let handedOver: unknown = null
 /**
- * A see-through window made in the main window's place for the welcome played again (arrivesRemade). Its page has saved
- * its words and its notes' places, handed over its tabs, and shows the app's one loader (welcome.tsx Readying) while the
- * new one is made hidden and its page comes up, over the work area the welcome takes. Once that page has drawn, the new
- * window is shown, drawn empty, and the old one closes in the same moment: never a frame with neither, never a bare
- * desktop between them; the mist then comes in over the desktop. When the welcome is over the window goes back to where
- * the old one stood (whenWelcoming, windowBeforeWelcome).
+ * The tabs and panes of the window put away, each page's scroll in them, for the page made in its place to take up once
+ * (home.tsx): undefined while they are still to come from the old page, and the new page's ask for them, held till then.
  */
-function remakeHome(split: unknown): void {
+let handedOver: unknown = null
+let handAsked: Electron.IpcMainEvent | null = null
+/** The window being put away while it hands over. */
+let handingFrom: BrowserWindow | null = null
+const handOver = (split: unknown): void => {
+  if (handedOver !== undefined) return
+  handedOver = split
+  handingFrom = null
+  if (handAsked) (handAsked.returnValue = split), (handAsked = null), (handedOver = null)
+}
+/**
+ * A see-through window made in the main window's place for the welcome played again (arrivesRemade), at once as the
+ * old page is told so: made hidden while the old page shows the app's one loader (welcome.tsx Readying), saves its words
+ * and its notes' places and hands over its tabs (handOver), its page coming up over the work area the welcome takes and
+ * taking the tabs up as they come. Once its welcome's mist is about to draw (welcome.tsx), the new window is shown and
+ * the old one closes in the same moment: never a frame with neither; the mist then comes in over the desktop. When the
+ * welcome is over the window goes back to where the old one stood (whenWelcoming, windowBeforeWelcome).
+ */
+function remakeHome(): void {
   const old = home
   if (!old || old.isDestroyed()) return
-  handedOver = split
+  handedOver = undefined
+  handingFrom = old
+  // Gone without handing over (its page broke): the page made in its place is not kept waiting for its tabs.
+  old.once('closed', () => handOver(null))
   // Where it stood, kept now: the window made in its place starts out over the work area already.
   if (!windowBeforeWelcome()) keepWindowBeforeWelcome({ bounds: old.getNormalBounds(), maximized: old.isMaximized() })
   const made = makeHome(screen.getDisplayMatching(old.getBounds()).workArea)
@@ -5563,13 +5578,19 @@ app.whenReady().then(() => {
     const mine = !!home && event.sender === home.webContents
     const clear = mine && arrivesClear()
     if (clear) standClear(home!)
-    event.returnValue = clear ? 'clear' : mine && again === true && arrivesRemade() ? 'again' : 'plain'
+    const how = clear ? 'clear' : mine && again === true && arrivesRemade() ? 'again' : 'plain'
+    event.returnValue = how
+    // Played again: the window to take its place is made at once, the page answered first, while it draws its loader
+    // and hands over (welcome.tsx). Made only once the page had handed over, it came a tenth of a second later.
+    if (how === 'again') setImmediate(remakeHome)
   })
-  // Handed over (its words saved, its tabs with it): the window is made again for the welcome. And taken up by the new page, once.
-  // (Not asked again whether it may: the page was told so a moment ago, and shows its loader until the new window is up.)
-  ipcMain.on('welcome:remake', (event, split: unknown) => void (home && event.sender === home.webContents && remakeHome(split)))
+  // Handed over by the window being put away (its words saved, its tabs with it), for the page made in its place.
+  ipcMain.on('welcome:remake', (event, split: unknown) => void (handingFrom && event.sender === handingFrom.webContents && handOver(split)))
+  // Taken up by the new page, once: at once if they have come, else as they come.
   ipcMain.on('welcome:handed-over', (event) => {
-    event.returnValue = home && event.sender === home.webContents ? handedOver : null
+    if (!home || event.sender !== home.webContents) return void (event.returnValue = null)
+    if (handedOver === undefined) return void (handAsked = event)
+    event.returnValue = handedOver
     handedOver = null
   })
   ipcMain.on('welcome:landed', (event) => void (home && event.sender === home.webContents && landClear(home)))
