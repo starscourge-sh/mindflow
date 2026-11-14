@@ -4,7 +4,8 @@
 //   one offer, "N people are named here.", every person the main process finds as a tick, all ticked, the first three
 //   shown and "and N more" for the rest; resting on it lights their names in the note; "Add the N" follows the ticks
 //   and keeps its place; it adds every ticked one to People and links each name, in one notice whose one Undo takes
-//   it all back.
+//   it all back. Only people are offered as people: never "Elden Ring Lore Wiki" (a website) or "Dorian Gray" (inside
+//   the title "The Picture of Dorian Gray", its author beside it: a character of it instead); the 16 real people all are.
 //   QA_ARGS= QA_DATA=<copy of book-master> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOT=dir] node qa/offer-people.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -50,24 +51,37 @@ try {
     editor.state.doc.descendants((node) => void (node.type.name === 'noteLink' && linked.push(String(node.attrs.id ?? ''))))
     const found = await window.api.haligtree('offers:note', `article:${page}`, editor.getText({ blockSeparator: '\n' }), linked, 'probe')
     const gone = new Set(JSON.parse(localStorage.getItem('note-offers:dismissed') ?? '[]'))
-    return (found?.people ?? []).filter((one) => !linked.includes(`person:${one.name}`) && !gone.has(`article:${page}|person:${one.name}`))
+    return { people: (found?.people ?? []).filter((one) => !linked.includes(`person:${one.name}`) && !gone.has(`article:${page}|person:${one.name}`)), cast: found?.characters ?? [] }
   }, [editorOf, PAGE])
-  const names = asked.map((one) => one.name)
+  const names = asked.people.map((one) => one.name)
   console.log(`NOTE  the main process finds ${names.length} people to offer: ${names.join(', ')}`)
   check('the page names two or more people to offer', names.length >= 2, names.join(', '))
+  // Only people offered as people (the user, 13 Nov, of these offers: "i want to know for sure"). premium-pass offered
+  // "Elden Ring Lore Wiki" (a website) and "Dorian Gray" (inside the title "The Picture of Dorian Gray", by Oscar Wilde) as people.
+  const REAL = ['George Orwell', 'Aldous Huxley', 'Oscar Wilde', 'Jean-Paul Sartre', 'John Milton', 'Dave Eggers', 'Marcus Aurelius', 'Aristotle', 'Bertrand Russell', 'Friedrich Nietzsche', 'Isaiah Berlin', 'Stephen Hawking', 'Richard Dawkins', 'Catherine Collin', 'Nigel Benson', 'Thomas Sowell']
+  check('a website is not offered as a person: “Elden Ring Lore Wiki”', !names.includes('Elden Ring Lore Wiki'), names.join(', '))
+  check('nor a name inside a book’s title: “Dorian Gray” (in “The Picture of Dorian Gray”, by Oscar Wilde)', !names.includes('Dorian Gray'), names.join(', '))
+  check(`every real person on the page is still offered (${REAL.length}), and only they`, REAL.every((name) => names.includes(name)) && names.length === REAL.length, `missing: ${REAL.filter((name) => !names.includes(name)).join(', ') || 'none'}; more: ${names.filter((name) => !REAL.includes(name)).join(', ') || 'none'}`)
+  check('Dorian Gray is offered as a character in The Picture of Dorian Gray', asked.cast.some((one) => one.name === 'Dorian Gray' && one.work === 'The Picture of Dorian Gray'), JSON.stringify(asked.cast))
 
   // The offers before it (a link, a folder), each put away with ×, until the people's.
   let seen = null
   const passed = []
+  const shownCast = []
   for (let n = 0; n < 6; n++) {
     for (let t = 0; t < 40000 && !(seen = await offer()); t += 250) await wait(250)
     if (!seen || seen.kind === 'people' || seen.kind === 'person') break
     passed.push(seen.kind)
+    if (seen.kind === 'character') {
+      shownCast.push(seen.text.replace(/\s+/g, ' '))
+      if (SHOT) (await h.evaluate((s) => document.querySelector(s)?.scrollIntoView({ block: 'center' }), OFFER), await wait(300), await c.both(`${SHOT}/character-offer`))
+    }
     await h.click(`${OFFER} [data-offer-away]`).catch(() => {})
     await wait(1200)
     seen = null
   }
   console.log(`NOTE  offers put away before it: ${passed.join(', ') || 'none'}; then: ${JSON.stringify(seen)}`)
+  check('the page says “Dorian Gray is a character in The Picture of Dorian Gray.”, with “Add as a character”', shownCast.some((text) => text.includes('Dorian Gray is a character in The Picture of Dorian Gray.') && text.includes('Add as a character')), JSON.stringify(shownCast))
   check(`one offer for them all: “${names.length} people are named here.”`, seen?.kind === 'people' && seen.text.includes(`${names.length} people are named here.`), JSON.stringify(seen))
   check('only one offer line shows', (await h.evaluate((s) => document.querySelectorAll(s).length, OFFER)) === 1)
   if (seen?.kind === 'people') {
