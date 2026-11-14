@@ -99,7 +99,10 @@ for (const [theme, width, height] of [['light', 1280, 800], ['dark', 1280, 800]]
     check(`${theme}: the goal row says it goes in the goal's progress log, on the Goals page`, /progress log/.test(how.text) && /Goals page/.test(how.text) && !/log a step/.test(how.text), how.text)
     // The goal's own card is its real card on the desktop since 6b4163bef (in place of one drawn on the page), with a
     // line saying where to look: qa/welcome-goal-sticky.mjs follows the card itself.
-    const goalCards = await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.isVisible() && /view=sticky/.test(w.webContents.getURL()) && /type=goal&/.test(w.webContents.getURL())).length)
+    // The card's window comes a moment after the summary (it waited past 1.5s under load): waited for, up to 6s.
+    const cardsUp = () => c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.isVisible() && /view=sticky/.test(w.webContents.getURL()) && /type=goal&/.test(w.webContents.getURL())).length)
+    let goalCards = await cardsUp()
+    for (const end = Date.now() + 6000; goalCards !== 1 && Date.now() < end; await h.waitForTimeout(150)) goalCards = await cardsUp()
     check(`${theme}: no unlabelled dot grid on the summary; the goal's own card is there, said for what it is`, !how.grid && goalCards === 1 && /right of your screen/.test(how.line) && /desktop/.test(how.line), `${goalCards} goal cards up; ${how.line.slice(0, 80)}`)
     const over = await h.evaluate(() => {
       const card = document.querySelector('[data-goal-desk]')?.getBoundingClientRect()
