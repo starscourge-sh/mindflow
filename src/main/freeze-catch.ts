@@ -1,7 +1,27 @@
-import { app, type BrowserWindow } from 'electron'
+import { app, powerMonitor, type BrowserWindow } from 'electron'
 import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { stallReport } from './stalls'
+
+/**
+ * Nobody can see the window: the screen is locked or the Mac is asleep. macOS then slows a window's page right down,
+ * and an ask that takes seven seconds to come back is that, not a freeze (the user's dev terminal, 14 Nov 01:04 to
+ * 01:56: fifteen "main window stopped answering" while the screen was locked, each "no script was running", each
+ * "answered again 7.0s after it stopped"). Coming back, the first answer is waited for, however long it takes.
+ */
+let unseen = false
+let waking = false
+let heard = false
+const hearTheMac = (): void => {
+  if (heard) return
+  heard = true
+  const away = (): void => void ((unseen = true), (waking = false))
+  const back = (): void => void ((unseen = false), (waking = true))
+  powerMonitor.on('lock-screen', away)
+  powerMonitor.on('suspend', away)
+  powerMonitor.on('unlock-screen', back)
+  powerMonitor.on('resume', back)
+}
 
 /**
  * In a development run only: when a window's page stops answering for three
@@ -27,18 +47,22 @@ export function catchFreezes(win: BrowserWindow, name: string): void {
   let loaded = false
   wc.on('did-finish-load', () => ((loaded = true), listen()))
   win.on('closed', () => clearInterval(tick))
+  hearTheMac()
   let caught = false
   let asking = false
   const tick = setInterval(async () => {
     if (win.isDestroyed() || wc.isDestroyed()) return clearInterval(tick)
-    if (asking || caught || !loaded) return
+    if (asking || caught || !loaded || unseen) return
     asking = true
+    const wake = waking
     // Asked of the page's frame itself: the window's executeJavaScript waits for the page to stop loading, so while
     // anything on it was still coming in (a dev server's module, a picture) every ask timed out as a "freeze" with
     // no stack (nothing was running), and each left a did-stop-loading listener behind (MaxListenersExceededWarning).
     const answered = await Promise.race([wc.mainFrame.executeJavaScript('1').then(() => true, () => true), new Promise<boolean>((done) => setTimeout(() => done(false), 3000))])
     asking = false
-    if (answered || win.isDestroyed() || wc.isDestroyed()) return
+    // Just back from a locked screen or sleep: waited for until it answers, never called a freeze.
+    if (wake) return void (answered && (waking = false))
+    if (answered || unseen || win.isDestroyed() || wc.isDestroyed()) return
     caught = true
     // What main itself had in hand, read at once: a window often stops answering because main's thread is held (stalls.ts).
     const busy = stallReport()
