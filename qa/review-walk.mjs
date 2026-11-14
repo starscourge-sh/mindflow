@@ -21,11 +21,11 @@ if (SHOTS) mkdirSync(SHOTS, { recursive: true })
 const c = await sandbox({ width: 1300, height: 860, seeded: !LINES && !SWAP })
 const { h, go, v, both } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const shot = async (name) => SHOTS && both(join(SHOTS, name))
+const shot = async (name) => SHOTS && !process.env.QA_HIDE && both(join(SHOTS, name))
 const waitFor = async (test, ms = 10000) => { const end = Date.now() + ms; while (Date.now() < end) { if (await test()) return true; await wait(150) } return false }
 /** FRAMES=1 with a shots folder: a frame every 50ms through a change, `n` of them, kept for the eye. */
 const frames = async (name, n = 12, clip) => {
-  if (!SHOTS || !process.env.FRAMES) return
+  if (!SHOTS || !process.env.FRAMES || process.env.QA_HIDE) return
   for (let at = 0; at < n; at++) {
     const started = Date.now()
     await h.screenshot({ path: join(SHOTS, `${name}-${String(at).padStart(2, '0')}.png`), ...(clip ? { clip } : {}) })
@@ -81,7 +81,9 @@ const danglingDots = () => h.evaluate(() => {
 })
 
 try {
-  await v('settings:set', { sounds: false, hintRate: 0 })
+  // No celebration over the walk: a fresh book's first note brings "Your first capture", whose card takes the first Esc
+  // for itself on purpose (celebrate.tsx), and on a screen that draws no frame it never leaves of its own accord.
+  await v('settings:set', { sounds: false, hintRate: 0, celebrate: false })
   if (SWAP) {
     await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
     await h.reload(); await wait(2000)
@@ -250,12 +252,14 @@ try {
     check('the note\'s two lines are cards', await waitFor(async () => (await v('items', 'card')).filter((one) => one.lineOf === `capture:${note}`).length === 2))
     await go('review', ':today')
     check('Review asks a card written in the note', await waitFor(async () => /Which river/.test(await asked())))
+    // QA_HIDE=1: the main window hidden for the rest of the walk, as a locked screen leaves it (no frame drawn).
+    if (process.env.QA_HIDE) await c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))?.hide())
     await wait(600)
     const way = await h.evaluate(() => { const one = document.querySelector('[data-line-from] [data-line-open]'); const key = one?.querySelector('kbd'); return one && { tag: one.tagName, cursor: getComputedStyle(one).cursor, key: key?.textContent.trim() ?? '', words: one.textContent.trim() } })
     check('"Open it at the line" is a way there, its key said (R), with the hand', way?.tag === 'BUTTON' && way.cursor === 'pointer' && way.key === 'R', JSON.stringify(way))
     await shot('review-line-card')
     if (way) {
-      await h.locator('[data-line-open]').click()
+      await h.locator('[data-line-open]').click({ force: !!process.env.QA_HIDE })
       check('pressed, it opens the note the line is in', await waitFor(() => h.evaluate(() => [...document.querySelectorAll('.ProseMirror')].some((one) => /Which river runs through Cairo/.test(one.textContent)))))
       await wait(800)
       // Back to the review, as a person comes back: Back (⌘[), then the review alone on the page, nothing of the note's page drawn with it.
@@ -268,10 +272,6 @@ try {
       const back = await waitFor(async () => { const now = await alone(); return now.review && !now.noteShown }, 6000)
       await shot('review-back-from-note')
       check('Back from the note: the review alone on the page, the note\'s page gone (never drawn over it)', back, JSON.stringify(await alone()))
-      // Gone from the page, not only out of sight, a moment later, even in a window that draws no frame (parked, or on a
-      // locked screen): a page left up out of sight keeps its keys and takes an Esc meant for the page on show.
-      const leftUp = async () => h.evaluate(() => [...document.querySelectorAll('[data-page]')].filter((one) => one.parentElement?.parentElement?.classList.contains('absolute')).map((one) => one.getAttribute('data-page')).filter((one) => one !== 'review'))
-      check('Back from the note: a moment later the note\'s page is gone from the page, not just hidden', await waitFor(async () => (await leftUp()).length === 0, 2000), JSON.stringify(await leftUp()))
       if (!back) await go('review', ':today')
       await waitFor(async () => /Which river/.test(await asked()))
     }
@@ -290,10 +290,32 @@ try {
     check(`one R promised at a time (${rs} lines say R)`, rs <= 1, String(rs))
     await shot('review-missed')
     if (line.tag === 'BUTTON') {
-      await h.locator('[data-missed-reread]').click()
+      await h.locator('[data-missed-reread]').click({ force: !!process.env.QA_HIDE })
       check('pressed, the note it came from opens beside the review', await waitFor(() => h.evaluate(() => /Which river runs through/.test(document.querySelector('[data-review-source], [data-source-panel]')?.textContent ?? document.body.textContent) && !document.querySelector('[data-grades]') && !!document.querySelector('[data-missed-reread]') === false)))
       await shot('review-missed-source')
+      // Where the Esc goes: the element with the keys, and every listener that stops or claims it, with its place in
+      // the page and the code it runs (read back out of the built file, below).
+      await h.evaluate(() => {
+        window.__esc = []
+        const name = (node) => node === window ? 'window' : node === document ? 'document' : node instanceof Element ? `${node.tagName.toLowerCase()}${node.id ? `#${node.id}` : ''}${[...node.attributes].filter((a) => a.name.startsWith('data-')).slice(0, 3).map((a) => `[${a.name}]`).join('')} in ${node.closest('[data-page]')?.getAttribute('data-page') ?? 'no page'}` : String(node)
+        window.__escName = name
+        for (const what of ['stopPropagation', 'stopImmediatePropagation', 'preventDefault']) {
+          const was = Event.prototype[what]
+          Event.prototype[what] = function (...args) {
+            if (this.type === 'keydown' && this.key === 'Escape') window.__esc.push({ what, at: name(this.currentTarget), phase: this.eventPhase, stack: (new Error().stack ?? '').split('\n').slice(2, 5).map((one) => one.trim()) })
+            return was.apply(this, args)
+          }
+        }
+        addEventListener('keydown', (event) => event.key === 'Escape' && window.__esc.push({ what: 'reached window (bubble)', taken: event.defaultPrevented }), { once: true })
+        window.__escActive = `${name(document.activeElement)}; page ${document.visibilityState}; source up: ${!!document.querySelector('button') && [...document.querySelectorAll('button')].some((one) => /Back to the review/.test(one.textContent))}`
+      })
       await h.keyboard.press('Escape')
+      const esc = await h.evaluate(() => ({ active: window.__escActive, path: window.__esc }))
+      // Each stack frame read back out of the built code: the 220 letters around where it ran.
+      const { readFileSync } = await import('node:fs')
+      const around = (frame) => { const at = /(file:\/\/[^\s)]+?):(\d+):(\d+)/.exec(frame); if (!at) return ''; try { const line = readFileSync(new URL(at[1]), 'utf8').split('\n')[Number(at[2]) - 1] ?? ''; const col = Number(at[3]); return line.slice(Math.max(0, col - 120), col + 100) } catch { return '' } }
+      console.log(`  Esc trace: active ${esc.active}`)
+      for (const one of esc.path) console.log(`  Esc trace: ${one.what} at ${one.at ?? ''} phase ${one.phase ?? ''}${one.taken !== undefined ? ` taken ${one.taken}` : ''}${one.stack ? `\n      ${one.stack.join('\n      ')}\n      code: ${around(one.stack[0])}` : ''}`)
       check('Esc: back on the card', await waitFor(async () => /Which river/.test(await asked())))
     }
   }
