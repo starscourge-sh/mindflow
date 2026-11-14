@@ -114,7 +114,8 @@ try {
   check('its picture is kept with the notes', /^haligtree:\/\/assets\/[a-f0-9]{64}\.png$/.test(shown.img), shown.img)
   check('a picture that could not be kept stays a link to it on the site', shown.imgs === 1 && shown.missing?.[1] === `${SITE}/missing.png` && shown.missing?.[0] === 'Picture: The old gate', JSON.stringify([shown.imgs, shown.missing]))
   check("in the note's reading type", noteType && shown.family === noteType.family, `${shown.family} vs ${noteType?.family}`)
-  check('the top bar has find, size and paper pages', ['Find', 'Smaller', 'Larger'].every((one) => shown.tools.includes(one)) && shown.tools.some((one) => one === 'Paper pages' || one === 'White pages'), JSON.stringify(shown.tools))
+  // The page is the theme's (qa/reader-theme.mjs): no paper of its own, as a note has none.
+  check('the top bar has find and size, and no paper pages of its own', ['Find', 'Smaller', 'Larger'].every((one) => shown.tools.includes(one)) && !shown.tools.some((one) => one === 'Paper pages' || one === 'White pages'), JSON.stringify(shown.tools))
   await h.screenshot({ path: `${shots}/web-reader.png` })
 
   // ⌘+ grows the words; ⌘0 puts them back.

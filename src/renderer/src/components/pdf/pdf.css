@@ -649,10 +649,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A web page in the reader: the note's own reading column and type. */
+/* A web page in the reader: the theme's own page and ink, the note's own reading column and type. */
 .web-reader-scroll {
   padding: 0;
   background-color: var(--background);
+  color: var(--foreground);
 }
 
 .web-reader-column {
@@ -660,6 +661,16 @@
   max-width: calc(var(--mf-col-note, 40rem) + 9.5rem);
   margin: 0 auto;
   padding: 3rem 4.75rem 4rem;
+}
+
+/* A narrow pane narrows the gutters, as a note's does (main.css, @container note), so the words keep the room. */
+.web-reader-scroll {
+  container: web-reader / inline-size;
+}
+@container web-reader (max-width: 34rem) {
+  .web-reader-column {
+    padding-inline: 1.5rem;
+  }
 }
 
 .web-reader-heading {
@@ -672,10 +683,13 @@
   text-wrap: balance;
 }
 
+/* Who wrote it, the site, the date: the app's quiet ink (4.5:1 or more on every theme's page), at the size of a list's words, growing with the article's. */
 .web-reader-meta {
   margin: 0.75rem 0 2.25rem;
-  color: var(--mf-muted);
-  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  font-size: 0.875em;
+  line-height: 1.45;
+  text-wrap: pretty;
 }
 
 .web-reader-body.tiptap.ProseMirror.haligtree-editor {
@@ -690,25 +704,51 @@
   margin-top: 0 !important;
 }
 
+/* Pictures as a note sets them: inside the column, centred, a soft corner, never taller than the pane shows at once. */
 .web-reader-body img {
   display: block;
   max-width: 100%;
+  max-height: max(10rem, min(80vh, 100vh - 18rem));
+  width: auto;
   height: auto;
-  margin: 1.5rem auto;
-  border-radius: 0.375rem;
+  margin: 1.75em auto;
+  border-radius: 0.5rem;
+}
+
+/* On a dark page a drawing made for a white one (black lines on nothing) would
+   vanish: under its clear parts lies the theme's own light ink, as the page it
+   came from had. A photograph covers it whole. */
+:root:not([data-light]) .web-reader-body img {
+  background-color: color-mix(in oklab, var(--foreground) 94%, var(--background));
+}
+
+/* A picture with its caption: the picture as above, the caption in quiet ink under it. */
+.web-reader-body figure {
+  margin: 1.75em 0;
+}
+
+.web-reader-body figure img {
+  margin-block: 0;
+}
+
+.web-reader-body figcaption {
+  margin-top: 0.6em;
+  color: var(--muted-foreground);
+  font-size: 0.875em;
+  line-height: 1.5;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+/* A table wider than the column scrolls sideways inside it, as a note's does. */
+.web-reader-body table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .web-reader-body a {
   cursor: pointer;
-}
-
-.web-reader.is-paper .web-reader-scroll {
-  background-color: #f4ecdb;
-  color: #2b2418;
-}
-
-.web-reader.is-paper .web-reader-body img {
-  mix-blend-mode: multiply;
 }
 
 .web-reader-reading,
@@ -2227,25 +2267,9 @@ html.dark-pages {
   --pdf-paper: #1c1a17;
 }
 
-/* "Read it again" and "Stop" on the reader's own page. On the cream paper the
-   theme's greys (light ones in dark mode) all but vanished: here they take the
-   page's own ink. "Read it again" is a real button, with a hairline round it,
-   not a word floating under the message. */
+/* "Read it again" on the reader's own page: a real button, with a hairline
+   round it, not a word floating under the message. */
 .web-reader-failed [data-read-again].tiptap-button {
   margin-top: 0.5rem;
   box-shadow: inset 0 0 0 1px var(--tt-border-color);
-}
-.web-reader.is-paper .web-reader-scroll .tiptap-button[data-read-again] {
-  --tt-button-default-text-color: #2b2418;
-  --tt-button-hover-text-color: #1a140b;
-  --tt-button-active-text-color: #1a140b;
-  --tt-button-hover-bg-color: rgb(43 36 24 / 0.08);
-  --tt-button-active-bg-color: rgb(43 36 24 / 0.12);
-  box-shadow: inset 0 0 0 1px rgb(43 36 24 / 0.28);
-}
-.web-reader.is-paper .web-reader-scroll [data-job-stop] {
-  color: #2b2418;
-}
-.web-reader.is-paper .web-reader-scroll [data-job-stop]:hover {
-  color: #1a140b;
 }

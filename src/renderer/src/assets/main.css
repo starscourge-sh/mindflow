@@ -1367,8 +1367,8 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
    with more air above than below, a section heading ruled off the way an
    encyclopedia's are, pictures held inside the column and never taller than
    the window, quotes and lists with space to breathe. Only where a note is
-   read (an open note, Read): the box and the day's page keep their own. */
-:is(.note-pane, .mf-read) .tiptap.ProseMirror.haligtree-editor:not(.is-line) {
+   read (an open note, Read, a web page in the reader): the box and the day's page keep their own. */
+:is(.note-pane, .mf-read, .web-reader) .tiptap.ProseMirror.haligtree-editor:not(.is-line) {
   > p {
     line-height: 1.7;
   }

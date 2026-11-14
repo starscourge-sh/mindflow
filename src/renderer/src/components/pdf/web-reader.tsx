@@ -7,7 +7,6 @@ import {
   Highlighter,
   Minus,
   Plus,
-  ScrollText,
   Search,
   X
 } from 'lucide-react'
@@ -20,7 +19,6 @@ import { cue } from '@/lib/cues'
 import { articleLink, isReadable, openArticle, takeArticleFlash } from './pdf-reader'
 import { LookUpCard, type LookedUpIn } from './look-up'
 import { MARK_COLORS, MarkMenu, PickedMenu, WhyAfter, blankOf, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type Picked, type ReadActions } from './read-bar'
-import { usePaperPages } from './paper'
 import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
   ContextMenu,
@@ -32,7 +30,7 @@ import { call } from '@/lib/haligtree'
 import { touch } from '@/lib/open-today'
 import { keepWebPlace, webPlaces } from '@/lib/note-place'
 import { said } from '@/lib/host'
-import { StopButton } from '@/components/haligtree/orb'
+import { Orb } from '@/components/haligtree/orb'
 import { stopJob } from '@/components/haligtree/ui'
 import './pdf.css'
 import { plural, num } from '../../../../main/dates'
@@ -65,7 +63,10 @@ export const articleName = (href: string): string =>
 
 /**
  * A web page full size, in a pane of its own, as the PDF reader shows a PDF:
- * its title, the site, the note's own reading type, a size, paper and find.
+ * its title, the site, a size and find, set on the theme's own page in a
+ * note's reading type, column and rhythm, so it reads as a page of the book.
+ * A PDF's pages are printed sheets, so they keep "Paper pages"; an article
+ * has no sheet of its own, so the theme decides its colours as it does a note's.
  * A page the reader cannot read says why, with the page's own link.
  */
 export function WebReader({ href }: { href: string }): React.JSX.Element {
@@ -74,7 +75,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const [article, setArticle] = useState<Article | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
   const [size, setSize] = useState(1)
-  const [paper, setPaper] = usePaperPages()
   const pane = usePane()
   // This reader's own highlight names: the browser keeps one list per name for
   // the whole window, so two articles side by side would otherwise draw over each other's.
@@ -453,7 +453,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   // One object for the article's HTML, kept while the article is: React 19 sets
   // innerHTML again whenever this prop is a new object, which rebuilds every
   // word and empties the highlights and the picked words.
-  const words = useMemo(() => ({ __html: article?.html ?? '' }), [article])
+  const words = useMemo(() => ({ __html: unwrapped(article?.html ?? '') }), [article])
   const title = article?.title ?? articleName(href)
   const when = article?.published ? new Date(article.published) : null
   const meta = [
@@ -467,7 +467,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     .join(' · ')
 
   return (
-    <div className={`pdf-reader web-reader${paper ? ' is-paper' : ''}`}>
+    <div className="pdf-reader web-reader">
       <style>{MARK_COLORS.map((one) => (one.id === "later" ? `::highlight(${markName(names, one.id)}) { text-decoration: underline dashed var(--tt-brand-color-500, #c08a2e) 2px; text-underline-offset: 3px }` : tint(markName(names, one.id), 28, one.css))).join('') + tint(`${names}-found`, 22, '#8b5cf6') + tint(`${names}-found-now`, 45, '#8b5cf6') + tint(`${names}-flash`, 55)}</style>
       <div className="pdf-reader-bar">
         <span className="pdf-reader-title" title={title}>
@@ -527,17 +527,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           </Button>
           <Button data-style="ghost" aria-label="Larger" title="Larger  ⌘+" onClick={() => step(1)}>
             <Plus className="tiptap-button-icon" />
-          </Button>
-          <Button
-            data-style="ghost"
-            aria-label={paper ? 'White pages' : 'Paper pages'}
-            title={paper ? 'White pages' : 'Paper pages: easier on the eyes, pictures kept true'}
-            data-active-state={paper ? 'on' : 'off'}
-            onClick={() => {
-              setPaper(!paper)
-            }}
-          >
-            <ScrollText className="tiptap-button-icon" />
           </Button>
         </span>
       </div>
@@ -645,8 +634,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                   </Button>
                 </div>
               ) : !article ? (
-                <p className="web-reader-reading" role="status">
-                  Reading the page… <StopButton stop={() => stopJob(`article:${href}`)} />
+                <p className="web-reader-reading">
+                  <Orb label="Reading the page…" stop={() => stopJob(`article:${href}`)} />
                 </p>
               ) : (
                 <>
@@ -713,6 +702,40 @@ const tint = (name: string, percent: number, color = 'var(--tt-brand-color-500, 
 
 /** The highlight list a colour's marks are drawn by: the book's own is the plain `-mark`. */
 const markName = (names: string, color: string | null): string => `${names}-mark${color ? `-${color}` : ''}`
+
+/** What a site groups an article's blocks in: Wikipedia's sections, an article, a plain div. */
+const WRAPPER = /^(SECTION|ARTICLE|MAIN|DIV|HEADER|FOOTER)$/
+/** Blocks: what may stand on a line of its own in the column (a picture is drawn as one there, pdf.css). */
+const BLOCK = /^(P|H[1-6]|UL|OL|DL|TABLE|FIGURE|BLOCKQUOTE|PRE|HR|IMG|SECTION|ARTICLE|MAIN|DIV|HEADER|FOOTER|ASIDE|DETAILS|ADDRESS)$/
+
+/**
+ * An article's blocks set straight in the column, as a note's are, so a note's
+ * reading rhythm (main.css) reaches every paragraph and heading: a wrapper
+ * comes away when it holds only blocks, never a word of its own or a link
+ * left loose (two such lines would run together). Only elements go, so the
+ * words, and every highlight's place in them, stay exactly as they were.
+ */
+function unwrapped(html: string): string {
+  if (!html) return html
+  const page = document.createElement('template')
+  page.innerHTML = html
+  // Nothing a reader sees: a space, a note left in the page's code, an empty marker (Wikipedia leaves many).
+  const unseen = (node: Node): boolean =>
+    node.nodeType === Node.COMMENT_NODE ||
+    (!node.textContent?.trim() && !(node.nodeType === Node.ELEMENT_NODE && (node as Element).matches('img, table, hr, :has(img, table, hr)')))
+  const plain = (one: Element): boolean =>
+    WRAPPER.test(one.tagName) &&
+    [...one.childNodes].every((node) => (node.nodeType === Node.ELEMENT_NODE && BLOCK.test((node as Element).tagName)) || unseen(node))
+  const lay = (holder: Element | DocumentFragment): void => {
+    for (const one of [...holder.children]) {
+      if (!plain(one)) continue
+      lay(one)
+      one.replaceWith(...one.childNodes)
+    }
+  }
+  lay(page.content)
+  return page.innerHTML
+}
 
 /** Every run of words under a node, in reading order. */
 export const textNodes = (root: Node): Text[] => {
