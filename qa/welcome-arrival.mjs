@@ -75,8 +75,8 @@ try {
     return { display: d.bounds, area: d.workArea }
   })
   // The welcome's window, as main places it (welcomePlace).
-  const width = Math.min(area.width - 48, Math.max(960, Math.min(1280, Math.round(area.width * 0.62))))
-  const height = Math.min(area.height - 48, Math.max(600, Math.round(width * 0.625)))
+  const width = Math.min(area.width - 64, Math.max(1100, Math.min(1280, Math.round(area.width * 0.62))))
+  const height = Math.min(area.height - 64, Math.max(688, Math.round(width * 0.625)))
   const middle = { x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2), width, height }
 
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))

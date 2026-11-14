@@ -1,6 +1,5 @@
 import { inSidebar } from './places'
 import { WelcomeLeaves } from './welcome-leaves'
-import { WelcomeMist } from './welcome-mist'
 import { WelcomeTitle } from './welcome-title'
 import { SCENE, WelcomeScene, type ScenePlace } from './welcome-scene'
 import { haligtree, unloaded, useLive, type Item } from '@/lib/haligtree'
@@ -725,8 +724,6 @@ export function Welcome(): React.JSX.Element | null {
       {/* Not with the ember gradient: it is the movement there. */}
       {WELCOME_BACKGROUND === 'paper' && <WelcomeLeaves on={at === WHY && play} open={play} motes={at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing}
         lure={closing ? null : at === LAST ? '.mf-welcome [data-recommended]' : at === DIAL ? '.mf-welcome [role="slider"][aria-label="Theme"]' : null} />}
-      {/* The paper's arrival is a mist; the gradient's is its own bloom (GrainBackdrop). */}
-      {mist && WELCOME_BACKGROUND === 'paper' && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
       {/* Before the first words: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
       {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} />}
@@ -765,7 +762,7 @@ export function Welcome(): React.JSX.Element | null {
             the way past the intro. The footer comes up in their place once the first words have. */}
         {mist && at === WHY && (
           // With no mist to say the arrival is over, it is over once these have faded out.
-          <div key={`intro-${arrival}`} data-intro="" onTransitionEnd={(event) => void (event.target === event.currentTarget && !veiled && WELCOME_BACKGROUND !== 'paper' && setMist(false))} className={`pointer-events-auto absolute inset-x-0 bottom-0 z-50 flex h-[clamp(4rem,9vmin,5.5rem)] items-center px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-700 ${veiled ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
+          <div key={`intro-${arrival}`} data-intro="" onTransitionEnd={(event) => void (event.target === event.currentTarget && !veiled && setMist(false))} className={`pointer-events-auto absolute inset-x-0 bottom-0 z-50 flex h-[clamp(4rem,9vmin,5.5rem)] items-center px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-700 ${veiled ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
             <button type="button" data-intro-sound="" aria-pressed={loud} aria-label={loud ? 'Sounds on' : 'Sounds off'} onClick={() => {
               const next = !loud
               setLoud(next)
@@ -1999,7 +1996,7 @@ const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
 
 /**
  * `arrival` counts the arrivals played; `arriving` is true while one is on; `onBloomed` once its gradient is whole.
- * `desk`: this arrival came out of the desktop, its spark in the mist (welcome-mist.tsx), so the page has no spark or
+ * `desk`: this arrival came as a scene over the desktop (welcome-scene.tsx), so the page has no spark or
  * bloom of its own; `held` while the page is not seen yet (the mist still over the desktop): its gradient draws nothing.
  */
 export function Backdrop({ family, page, arrival = 0, arriving = false, desk = false, held = false, onBloomed }: { family: Family; page: number; arrival?: number; arriving?: boolean; desk?: boolean; held?: boolean; onBloomed?: () => void }): React.JSX.Element {

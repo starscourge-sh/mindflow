@@ -1,5 +1,5 @@
-// The welcome's intro on a first run, after Dia's: the window spread over the
-// whole screen gathering in to a window of its own; as Arc's, the gradient
+// The welcome's intro on a first run, played the plain way (a test run: no scene over the screen), in the welcome's
+// own window in the middle of the screen; as Arc's, the gradient
 // blooming from the page's colour first and then the title card's words, no
 // mark, before the first words, and gone after; "Sound on" and "Skip intro" there
 // from the first frame, Skip intro landing on the settled first screen; and
@@ -12,8 +12,6 @@ import { checks, welcomeHasLeaves } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 delete process.env.QA_ARGS
-// The window spread and gathered in for real (other probes keep the size they ask for).
-process.env.HALIGTREE_QA_GATHER = '1'
 const SHOTS = process.argv[2] ?? ''
 const THEME = process.argv[3] ?? 'light'
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
@@ -75,7 +73,7 @@ try {
   check('no words while it blooms', !earlyWords)
   check('then Haligtree, then the line under it', nameAt > bloomAt && lineAt > nameAt, `bloom ${bloomAt}ms, name ${nameAt}ms, line ${lineAt}ms`)
   const middle = await asked()
-  check('the window gathers in to a window of its own', !!middle.bounds && middle.bounds.width < middle.screen.width, JSON.stringify(middle.bounds))
+  check('the welcome plays in a window of its own in the middle of the screen, not over all of it', !!middle.bounds && middle.bounds.width < middle.screen.width && Math.abs(middle.bounds.x + middle.bounds.width / 2 - (middle.screen.x + middle.screen.width / 2)) <= 2, JSON.stringify(middle.bounds))
   await h.waitForSelector('[data-thesis="line"]', { timeout: 6000 })
   const waited = Date.now()
   const wordsAt = (await sinceMist()) - (Date.now() - waited)
@@ -94,14 +92,14 @@ try {
   check('the intro\'s controls stand where the footer will', Math.abs(footerAt - introAt) < 1, `${introAt} ${footerAt}`)
   await h.click('[data-skip-intro]')
   await h.waitForTimeout(900)
-  check('Skip intro: the mist and the title card go', (await h.locator('[data-welcome-mist]').count()) === 0 && (await h.locator('[data-title-card]').count()) === 0)
+  check('Skip intro: the title card goes', (await h.locator('[data-title-card]').count()) === 0)
   check('and the first screen is there', (await h.locator('[data-thesis="line"]').count()) === 1)
   if (SHOTS) (await h.waitForTimeout(2500), await shot('06-first-screen'))
   await h.keyboard.press('Escape')
   await h.waitForTimeout(500)
   check('and settles whole', await h.evaluate(() => [...document.querySelectorAll('[data-thesis]')].length >= 6))
   const last = await asked()
-  check('the window ends at its own size, not the screen\'s', !!last.bounds && last.bounds.width < last.screen.width && last.bounds.height < last.screen.height, JSON.stringify(last.bounds))
+  check('the window keeps the welcome\'s size while it plays, not the screen\'s', !!last.bounds && last.bounds.width < last.screen.width && last.bounds.height < last.screen.height, JSON.stringify(last.bounds))
 
   // The sound button: the app's Sounds setting, off and on again.
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))

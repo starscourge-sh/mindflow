@@ -2526,11 +2526,15 @@ const sceneSteps: { what: string; at: number }[] = []
 const step = (what: string): void => void sceneSteps.push({ what, at: Math.round(performance.now()) })
 ;(globalThis as { haligtreeArrival?: () => unknown }).haligtreeArrival = () => ({ scene: !!scene && !scene.isDestroyed(), t0: arrival?.t0 ?? 0, place: arrival?.place ?? null, placed: welcomePlaced, floated, steps: sceneSteps })
 
-/** The welcome's window on a screen: in the middle of its usable part, about Dia's size, never too small for its pages. */
+/**
+ * The welcome's window on a screen: in the middle of its usable part, about Dia's share of it, never smaller than its
+ * pages need (1100 by 688: the Write and Remember pages' cards and curves fit there, not at 960 by 600), the desktop
+ * showing round it on any screen.
+ */
 function welcomePlace(display: Electron.Display): Electron.Rectangle {
   const area = display.workArea
-  const width = Math.min(area.width - 48, Math.max(960, Math.min(1280, Math.round(area.width * 0.62))))
-  const height = Math.min(area.height - 48, Math.max(600, Math.round(width * 0.625)))
+  const width = Math.min(area.width - 64, Math.max(1100, Math.min(1280, Math.round(area.width * 0.62))))
+  const height = Math.min(area.height - 64, Math.max(688, Math.round(width * 0.625)))
   return { x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2), width, height }
 }
 

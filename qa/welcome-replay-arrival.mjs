@@ -1,11 +1,9 @@
-// “Show the welcome again” from an ordinary run, its window not made see-through, plays the arrival out of the
-// desktop: the window answers at once with the app's loader (under 100 ms from the ask) and stays while a see-through
-// one is made hidden in its place (main: remakeHome); the new one shows and the old one goes in the same moment (under
-// one frame apart), the mist comes in over the desktop and draws in to the window, and under the welcome the app is as
-// it was left. Two tabs: a list scrolled down in the first, a long note part-way down on show in the second, words just
-// typed in it. Once the welcome is over: the same tabs, the same one on show, the note at the same block with the words
-// in it, the list at the same scroll, the window back where it stood, one main window. `esc`: Esc a little way into the
-// arrival draws the mist in at once, with the same result. `away`: the window put away first (⌘W), brought back by the ask.
+// “Show the welcome again” from an ordinary run plays the arrival as a scene over the whole screen (main: makeScene),
+// in the same window, nothing made again in its place, and under the welcome the app is as it was left. Two tabs: a
+// list scrolled down in the first, a long note part-way down on show in the second, words just typed in it. Once the
+// welcome is over (its window grown back from the middle of the screen): the same tabs, the same one on show, the note
+// at the same block with the words in it, the list at the same scroll, the window back where it stood, one main window.
+// `esc`: Esc a little way into the arrival goes straight to the first page, with the same result.
 // On a copy of the main book (its notes are long enough to scroll):
 //   QA_DATA=<book copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-replay-arrival.mjs [esc|away]
 import { DatabaseSync } from 'node:sqlite'
@@ -19,7 +17,6 @@ import { sandbox } from './sandbox-lib.mjs'
 process.env.HALIGTREE_QA_ARRIVAL = 'again'
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 const ESC = process.argv[2] === 'esc'
-const AWAY = process.argv[2] === 'away'
 const root = process.env.QA_DATA
 const shelf = JSON.parse(readFileSync(join(root, 'books.json'), 'utf8'))
 const db = new DatabaseSync(join(root, 'books', shelf.last, 'haligtree.db'), { readOnly: true })
@@ -66,12 +63,10 @@ const homes = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAl
 
 try {
   console.log(`build ${process.env.QA_ENTRY.split('/').slice(-3, -2)}; note ${note?.id}; ${ESC ? 'Esc mid-way' : 'played through'} (${load()})`)
-  // The mist over the desktop plays only for a window looked at: a parked test window never has the keys (welcome-mist.tsx).
   await electron.context().addInitScript(() => { document.hasFocus = () => true })
   const h = c.h
   await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await h.evaluate(() => window.api.haligtree('settings:set', { hintRate: 0 }))
-  check('an ordinary run: the main window is not made see-through', (await electron.evaluate(() => globalThis.haligtreeArrival?.() ?? { made: false, clear: false })).made === false)
   // The first tab: the Inbox, scrolled down.
   await c.go('inbox')
   await h.waitForTimeout(1200)
@@ -113,103 +108,25 @@ try {
   const bounds = (await homes())[0]?.bounds
   console.log(`before: ${JSON.stringify({ ...before, listAt, bounds, typedIn })}`)
   check('set up: two tabs, the note on show part-way down with words just typed in it, the list scrolled', before.tabs.length === 2 && before.tabs[1].on && before.block?.top > 300 && listAt > 300 && typedIn, JSON.stringify({ tabs: before.tabs.length, block: before.block, listAt, typedIn }))
-  // The mist held at its start in the window made in its place, to read it drawn empty (welcome-mist.tsx data-arrival-hold):
-  // said as soon as the page has its root element (a script put in this early can run before there is one).
-  await electron.context().addInitScript(() => {
-    if (!location.search.includes('again=1')) return
-    const hold = () => !!document.documentElement && (document.documentElement.setAttribute('data-arrival-hold', ''), true)
-    if (!hold()) new MutationObserver((_, watch) => hold() && watch.disconnect()).observe(document, { childList: true, subtree: true })
-  })
-
-  // `away`: the window put away first (⌘W, the red dot), so the ask has to bring it back to answer.
-  if (AWAY) {
-    await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))?.close())
-    await wait(800)
-    check('put away first: the main window is hidden', (await homes()).every((one) => !one.shown), JSON.stringify(await homes()))
-  }
-  // The old window's own answer, timed from the ask to the start of the frame that draws the app's loader (welcome.tsx
-  // Readying): the first frame after it is on the page. (Read after that frame's paint instead, the time took in the
-  // page's handing over, which waits for that paint and runs before any later timer.)
-  await h.evaluate(() => new MutationObserver((_, watch) => {
-    if (!document.querySelector('[data-welcome-readying]')) return
-    watch.disconnect()
-    requestAnimationFrame(() => (window.qaReadying = performance.timeOrigin + performance.now()))
-  }).observe(document.body, { childList: true, subtree: true }))
-
-  // “Show the welcome again” from the Haligtree menu, as a person picks it, at once: the ask is the click, timed in main
-  // (on the Mac's clock, as the page's times are), not when this script sent for it.
-  const asked = await electron.evaluate(({ Menu }) => {
+  // "Show the welcome again" from the Haligtree menu, as a person picks it.
+  await electron.evaluate(({ Menu }) => {
     const find = (items) => { for (const one of items) { if (one.label === 'Show the welcome again') return one; const inner = one.submenu && find(one.submenu.items); if (inner) return inner } }
-    const item = find(Menu.getApplicationMenu().items)
-    const at = performance.timeOrigin + performance.now()
-    item?.click()
-    return at
+    find(Menu.getApplicationMenu().items)?.click()
   })
-  await h.waitForFunction(() => !!window.qaReadying, null, { timeout: 10000, polling: 16 })
-  const orbAt = Math.round((await h.evaluate(() => window.qaReadying)) - asked)
-  const during = await homes()
-  // (Put away first, the window is shown by openHome once AeroSpace, where it is installed, has said where you are: it is
-  // read as shown below, while the new one comes up.)
-  check('the old window answers at once with the app\'s loader, drawn under 100 ms from the ask', orbAt < 100 && await h.evaluate(() => !!document.querySelector('[data-welcome-readying] [role="status"]')?.textContent.includes('Getting the welcome ready')), `${orbAt} ms (${load()}); ${JSON.stringify(during)}`)
-  // The window made in its place, coming up hidden while the old one stays with its loader.
-  let h2 = null
-  for (let i = 0; i < 100 && !h2; i++) (h2 = electron.windows().find((one) => one.url().includes('again=1')) ?? null) || (await wait(50))
-  check('a window is made in its place', !!h2, (await homes()).map((one) => one.url).join(' | '))
-  if (!h2) throw new Error('no window made again')
-  const meanwhile = await homes()
-  const early = (await electron.evaluate(() => globalThis.haligtreeArrival?.()?.swapped ?? null)) !== null
-  check('while it comes up, the old window stays shown with its loader and the new one is not yet shown', early || (meanwhile.length === 2 && meanwhile.some((one) => !one.url.includes('again=1') && one.shown) && meanwhile.some((one) => one.url.includes('again=1') && !one.shown)), `${early ? 'swapped already' : ''} ${JSON.stringify(meanwhile)}`)
-  h2.on('pageerror', (e) => errors.push('PAGEERROR ' + e.message))
-  await h2.waitForSelector('[data-welcome-mist="desk"]', { timeout: 20000 })
-  // Swapped: the new one shown and the old one gone in the same moment, by main's own clock (remakeHome).
-  for (let i = 0; i < 200 && !(await homes()).some((one) => one.url.includes('again=1') && one.shown); i++) await wait(50)
-  const swapped = (await electron.evaluate(() => globalThis.haligtreeArrival?.()?.swapped ?? null))
-  check('the old window goes in the same moment the new one shows: under one frame between them', !!swapped && swapped.gone - swapped.shown < 16.7, swapped ? `${(swapped.gone - swapped.shown).toFixed(2)} ms between the new one shown and the old one closed (${load()})` : 'no swap')
-  // When it showed, by main's clock, from the click.
-  const shownAt = swapped ? Math.round((await electron.evaluate(() => performance.timeOrigin)) + swapped.shown - asked) : Infinity
-  check('the window made in its place shows within 2 s of the ask, its welcome up in it', shownAt < 2000, `${shownAt} ms (${load()})`)
-  // Shown, and drawn empty: the page captured with nothing behind it, every pixel's alpha read (0 is clear).
-  const png = await h2.screenshot({ type: 'png', omitBackground: true, scale: 'css' })
-  // The most opaque pixel, and the box round everything drawn at all, named by what the page has there.
-  const drawn = await electron.evaluate(({ nativeImage }, encoded) => {
-    const image = nativeImage.createFromBuffer(Buffer.from(encoded, 'base64'))
-    const { width } = image.getSize()
-    const data = image.toBitmap()
-    let most = 0
-    const box = [Infinity, Infinity, -1, -1]
-    for (let i = 3; i < data.length; i += 4) {
-      if (!data[i]) continue
-      most = Math.max(most, data[i])
-      const x = ((i - 3) / 4) % width, y = Math.floor((i - 3) / 4 / width)
-      box[0] = Math.min(box[0], x); box[1] = Math.min(box[1], y); box[2] = Math.max(box[2], x); box[3] = Math.max(box[3], y)
-    }
-    return { most, box: most ? box : null }
-  }, png.toString('base64'))
-  const what = drawn.box ? await h2.evaluate(([l, t, r, b]) => document.elementsFromPoint((l + r) / 2, (t + b) / 2).slice(0, 4).map((el) => `${el.tagName.toLowerCase()}${el.className && typeof el.className === 'string' ? '.' + el.className.split(' ').slice(0, 3).join('.') : ''}`), drawn.box) : []
-  const up = await homes()
-  check('the old window has gone: one main window, see-through, shown standing clear and drawn empty', up.length === 1 && up[0].url.includes('again=1') && up[0].shown && drawn.most === 0 && (await electron.evaluate(() => globalThis.haligtreeArrival?.() ?? { made: false, clear: false })).made === true && (await electron.evaluate(() => globalThis.haligtreeArrival?.() ?? { made: false, clear: false })).clear === true, JSON.stringify({ up, drawn, what }))
-  await h2.evaluate(() => document.documentElement.removeAttribute('data-arrival-hold'))
-  await h2.waitForFunction(() => !!window.haligtreeArrival?.frames?.length, null, { timeout: 20000 })
-  console.log(`the loader drawn ${orbAt} ms after the ask; the new window shown ${shownAt} ms after it, the mist's first frame ${Date.now() - asked} ms (${load()})`)
+  let scene = null
+  for (let i = 0; i < 60 && !scene; i++) (scene = electron.windows().find((one) => one.url().includes('view=scene')) ?? null) || (await wait(50))
+  check('a scene window comes over the screen for it', !!scene)
+  const h2 = h
+  check('no window is made in its place: one main window throughout, the same page', (await homes()).length === 1 && !(await homes())[0].url.includes('again'), JSON.stringify(await homes()))
   if (ESC) {
-    await h2.waitForTimeout(2500)
-    await h2.keyboard.press('Escape')
+    await wait(2500)
+    await scene?.keyboard.press('Escape')
     const pressed = Date.now()
-    await h2.waitForFunction(() => window.haligtreeArrival?.landed, null, { timeout: 8000, polling: 50 }).catch(() => undefined)
+    await h2.waitForSelector('[data-thesis]', { timeout: 4000 }).catch(() => undefined)
     const took = Date.now() - pressed
-    check('Esc mid-way: straight to the end, the window whole at once (within 1.5 s)', took < 1500, `${took} ms (${load()})`)
-  } else await h2.waitForFunction(() => window.haligtreeArrival?.landed, null, { timeout: 45000, polling: 250 })
-  const frames = await h2.evaluate(() => window.haligtreeArrival.frames)
-  // Each frame [ms, the fog's amount, and the box of the window drawn round it] (welcome-mist.tsx).
-  const inner = await h2.evaluate(() => [innerWidth, innerHeight])
-  const whole = (box) => box.length === 4 && Math.abs(box[0]) <= 1 && Math.abs(box[1]) <= 1 && Math.abs(box[2] - inner[0]) <= 1 && Math.abs(box[3] - inner[1]) <= 1
-  check('out of the desktop: nothing drawn at first, the window whole at the end', frames[0][1] === 0 && whole(frames.at(-1).slice(2)), `${frames.length} frames; first ${JSON.stringify(frames[0])}, last ${JSON.stringify(frames.at(-1))}`)
-  let rose = true
-  for (let i = 1; i < frames.length; i++) if (frames[i][1] < frames[i - 1][1] - 0.001) rose = false
-  check('the fog only ever grows while it arrives', rose)
-  await h2.waitForTimeout(400)
-  check('landed: the window is a window again (its shadow and buttons back)', (await electron.evaluate(() => globalThis.haligtreeArrival?.() ?? { made: false, clear: false })).clear === false)
-  // One arrival, one chord: the welcome opened once in the new page (in a dev build too, where StrictMode mounts twice).
+    check('Esc mid-way: straight to the first page in the welcome\'s window (within 1.5 s)', took < 1500, `${took} ms (${load()})`)
+  } else await h2.waitForSelector('[data-thesis]', { timeout: 30000 })
+  // One arrival, one chord: the welcome opened once (in a dev build too, where StrictMode mounts twice).
   const chords = await h2.evaluate(() => (window.haligtreeHeard ?? []).filter((one) => one === 'cue:ambience').length)
   check('the arrival\'s chord plays once', chords === 1, `${chords} times`)
   // The welcome over: skipped to its end, then started without the tour.
@@ -219,7 +136,7 @@ try {
   await h2.waitForTimeout(900)
   await h2.click('footer [data-skip]')
   await h2.waitForSelector('.mf-welcome', { state: 'detached', timeout: 15000 })
-  await h2.waitForTimeout(1500)
+  await h2.waitForTimeout(2500)
   const after = await read(h2)
   const now = (await homes())[0]
   console.log(`after: ${JSON.stringify({ ...after, bounds: now?.bounds })}`)
