@@ -48,7 +48,9 @@
   **************************************************/
 
   /* Light mode */
-  --tt-button-default-text-color: var(--tt-gray-light-a-600);
+  /* Haligtree: a label at rest is the stronger quiet ink (main.css), 4.5:1 or more in every theme; the 64% ink was
+     3.4:1 on Paper. Here and in the ghost style below. */
+  --tt-button-default-text-color: var(--mf-muted-strong);
   --tt-button-hover-text-color: var(--tt-gray-light-a-900);
   --tt-button-active-text-color: var(--tt-gray-light-a-900);
   --tt-button-active-text-color-emphasized: var(--tt-gray-light-a-900);
@@ -57,7 +59,7 @@
 
   /* Dark mode */
   .dark & {
-    --tt-button-default-text-color: var(--tt-gray-dark-a-600);
+    --tt-button-default-text-color: var(--mf-muted-strong);
     --tt-button-hover-text-color: var(--tt-gray-dark-a-900);
     --tt-button-active-text-color: var(--tt-gray-dark-a-900);
     --tt-button-active-text-color-emphasized: var(--tt-gray-dark-a-900);
@@ -231,7 +233,7 @@
     **************************************************/
 
     /* Light mode */
-    --tt-button-default-text-color: var(--tt-gray-light-a-600);
+    --tt-button-default-text-color: var(--mf-muted-strong);
     --tt-button-hover-text-color: var(--tt-gray-light-a-900);
     --tt-button-active-text-color: var(--tt-gray-light-a-900);
     --tt-button-active-text-color-emphasized: var(--tt-gray-light-a-900);
@@ -240,7 +242,7 @@
 
     /* Dark mode */
     .dark & {
-      --tt-button-default-text-color: var(--tt-gray-dark-a-600);
+      --tt-button-default-text-color: var(--mf-muted-strong);
       --tt-button-hover-text-color: var(--tt-gray-dark-a-900);
       --tt-button-active-text-color: var(--tt-gray-dark-a-900);
       --tt-button-active-text-color-emphasized: var(--tt-gray-dark-a-900);
