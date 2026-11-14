@@ -13,6 +13,7 @@ import { EASING, byKeys, glideWay, still } from '@/lib/motion'
 import { taskName } from '@/lib/tasks'
 import { moveToBin } from '@/lib/to-bin'
 import { useHere } from '@/lib/split'
+import { useStepped } from '@/lib/nav'
 import { clock, useMinute } from '@/lib/clock'
 import { placeTask } from '@/lib/calendar'
 import { CALM, land as landOn, type Landing } from '@/lib/snap'
@@ -164,6 +165,18 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   const captures = useCaptures(true)
   const [anchor, setAnchor] = useState(() => (focus && dayjs(focus).isValid() ? dayjs(focus) : dayjs()).startOf('day'))
   const setMode = (to: Mode): void => (to !== mode && chime('tap'), setOpened(null), setAdd(null), store('vigil.calendar.mode', to), setModeRaw(to))
+  // Back and Forward walk the calendar as you moved through it (the user, 14 Nov: "it only makes sense to also be
+  // updating history here"): Day, Week or Month, and each move to other days (the arrows, Today, a day or a week
+  // picked, a pinch), is a step, as a calendar's address is in a browser. The days are written only when they are not
+  // today's, so the tab opened again another day opens on that day, not on the week you last left it on.
+  const from = mode === 'day' ? anchor : anchor.startOf(mode)
+  useStepped(from.isSame(mode === 'day' ? dayjs().startOf('day') : dayjs().startOf(mode), 'day') ? mode : `${mode}:${dayKey(from)}`, (held: string) => {
+    const [to, day] = held.split(':')
+    if (to !== 'day' && to !== 'week' && to !== 'month') return
+    const at = day ? dayjs(day) : dayjs()
+    if (!at.isValid()) return
+    setOpened(null), setAdd(null), store('vigil.calendar.mode', to), setModeRaw(to), setAnchor(at.startOf('day'))
+  })
   const setSide = (on: boolean): void => (chime(on ? 'on' : 'off'), store('vigil.calendar.side', on ? 'on' : 'off'), setSideRaw(on))
   // A narrow page has no room for the small month beside a month: the month gets the width.
   const box = useRef<HTMLElement>(null)
