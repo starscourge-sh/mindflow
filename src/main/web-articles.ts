@@ -6,6 +6,7 @@ import { database } from './captures'
 import { fetchOutside } from './outside'
 import { begin, end } from './jobs'
 import { WEB_ARTICLES as TABLE } from './find-files'
+import { articleNames } from './article-names'
 
 /** An article kept from the web: its words and pictures, read offline in the reader. */
 export type Article = { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }
@@ -55,7 +56,6 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     const base = new URL(response.url || href)
     const { document } = parseHTML(page)
     const meta = (name: string): string => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute('content')?.trim() ?? ''
-    const site = meta('og:site_name') || base.hostname.replace(/^www\./, '')
     const paywalled = /"isAccessibleForFree"\s*:\s*(false|"False")/i.test(page)
     const found = new Readability(document as unknown as Document, { charThreshold: 300 }).parse()
     const words = found?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
@@ -101,14 +101,15 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     const html = inner.innerHTML
     // Stopped while its pictures came: nothing of the article is kept.
     if (stop.aborted) return { stopped: true }
+    // Its title without the site's name it trails, and the site's own name (article-names.ts).
+    const names = articleNames({ title: meta('og:title') || found.title || base.hostname, siteName: meta('og:site_name'), publisher: found.siteName ?? '', hostname: base.hostname })
     const id = (db.prepare('select id from web_articles where href = ?').get(href) as { id: string } | undefined)?.id ?? randomUUID()
     db.prepare('insert or replace into web_articles (id, href, title, byline, site, published, html, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(
       id,
       href,
-      // The page's title without the site's name it often trails ("The Essay | Probe Times").
-      (meta('og:title') || found.title || base.hostname).replace(new RegExp(`\\s*[|\\-–—:·]\\s*${(found.siteName || site).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'i'), '').trim(),
+      names.title,
       (found.byline ?? '').trim(),
-      (found.siteName || site).trim(),
+      names.site,
       (found.publishedTime || meta('article:published_time') || '').trim(),
       html,
       new Date().toISOString()
