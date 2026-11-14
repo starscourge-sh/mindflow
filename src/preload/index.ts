@@ -684,25 +684,39 @@ const api = {
   /** The box grows toward the main window and fades, and the main window opens on this one thing (or Home). */
   promote: (type: string | null, id: string | null): void => ipcRenderer.send('box:promote', type, id),
   hidePrompt: (): void => ipcRenderer.send('prompt:hide'),
-  /** A first run's window, spread over the screen for the title card, gathers in to its own size. */
-  gather: (): void => ipcRenderer.send('welcome:gather'),
   /**
-   * The welcome about to arrive: 'clear' out of the desktop, this window see-through and standing clear (main: arrivesClear);
-   * 'again' when, played `again` from a window not made see-through, one is to be made in its place (remake); 'plain' inside
-   * the window. Answered at once, asked once a welcome.
+   * The welcome about to arrive (answered at once): 'scene' when it comes as a fog over the whole screen that draws in
+   * to this window, put in the middle of the screen for it (main: makeScene, placeForWelcome), with the screen and the
+   * window in the screen's points; 'plain' when it plays in this window, put in the middle of the screen at once.
    */
-  arrive: (again = false): 'clear' | 'again' | 'plain' => {
-    const how = ipcRenderer.sendSync('welcome:arrive', again)
-    return how === 'clear' || how === 'again' ? how : 'plain'
+  welcomeArrive: (again: boolean, still: boolean): { how: 'scene' | 'plain'; place: { screen: { width: number; height: number }; window: { x: number; y: number; width: number; height: number } } | null } => {
+    const answer = ipcRenderer.sendSync('welcome:arrive', again, still) as { how?: unknown; place?: unknown } | null
+    return answer?.how === 'scene' && answer.place ? { how: 'scene', place: answer.place as never } : { how: 'plain', place: null }
   },
-  /** This window's tabs and panes, handed to the see-through one being made in its place for the welcome (main: remakeHome, made as 'again' was answered). */
-  remake: (split: unknown): void => ipcRenderer.send('welcome:remake', split),
-  /** In the window made in its place: the tabs and panes handed over, once (null after, and in any other window). */
-  handedOver: (): unknown => ipcRenderer.sendSync('welcome:handed-over'),
-  /** The welcome's mist has drawn in to the window (or it arrived the plain way after all): the window has its shadow and buttons again. */
-  landed: (): void => ipcRenderer.send('welcome:landed'),
-  /** The arrival's fog over the desktop: the Mac's own blur under it, faded in as it comes in, and out once it is whole. */
-  blur: (on: boolean): void => ipcRenderer.send('welcome:blur', on),
+  /**
+   * The arrival's moments, from main: its clock started (`t0`, Date.now() of its start), this window put in its place
+   * under the fog, the intro skipped or its sound switched from the scene's own corner buttons, and, the welcome over,
+   * this window grown to the app's own size.
+   */
+  onWelcomeScene: (listen: (event: { what: 'start'; t0: number } | { what: 'covered' } | { what: 'skip' } | { what: 'sound'; on: boolean } | { what: 'grown' }) => void): (() => void) => {
+    const relay = (_event: unknown, what: unknown): void => listen(what as never)
+    heard.on('welcome:scene', relay)
+    return () => heard.off('welcome:scene', relay)
+  },
+  /** In the scene window: told when and where the scene plays, and whose book it signs. */
+  onScene: (listen: (start: { t0: number; place: { screen: { width: number; height: number }; window: { x: number; y: number; width: number; height: number } }; name: string; sounds: boolean }) => void): (() => void) => {
+    const relay = (_event: unknown, start: unknown): void => listen(start as never)
+    heard.on('scene:start', relay)
+    return () => heard.off('scene:start', relay)
+  },
+  /** The scene window has drawn its first, empty frame: it may be shown and its clock started. */
+  sceneReady: (): void => ipcRenderer.send('scene:ready'),
+  /** Esc, Enter, a click or “Skip intro” over the scene: straight to the end of the arrival. */
+  sceneSkip: (): void => ipcRenderer.send('scene:skip'),
+  /** The scene's sound button: the welcome's sound on or off, here and in Settings. */
+  sceneSound: (on: boolean): void => ipcRenderer.send('scene:sound', on),
+  /** The scene has drawn in to the window: the welcome's window takes over from here. */
+  sceneDone: (): void => ipcRenderer.send('scene:done'),
   /** The menu bar's importers, from a window: an Obsidian vault, or files (Readwise, Kindle and the rest). */
   importFrom: (what: 'vault' | 'files' | 'apple-notes', from?: string | null): Promise<void> => ipcRenderer.invoke('import:run', what, from),
   /** Anki decks (.apkg) dropped on a note: imported as cards, not attached. */

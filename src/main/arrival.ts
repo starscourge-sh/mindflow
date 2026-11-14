@@ -1,12 +1,9 @@
 /**
- * The welcome's arrival out of the desktop (welcome.tsx, welcome-mist.tsx): the main window is see-through, the Mac's
- * own blur and then a fog come in over the desktop until nothing of it reads, the title comes out of the fog, and then
- * the whole scene becomes a window about half the screen in its middle, which grows to fill the screen for the first
- * page. A window is see-through or not from the moment it is made, so this is asked as the main window is
- * made, and again each time the welcome is about to arrive: shown again from a window not made see-through, the
- * window is made again in its place for the showing (main: remakeHome), with the old one's tabs and places.
+ * The welcome's arrival (welcome-scene.tsx, main: makeScene): a fog over the whole screen, drawn by a window of its own,
+ * that draws in to the welcome's window in the middle of the screen, where the whole welcome then plays.
  *
- * In every case below the plain thing is done instead: the window simply there, the welcome arriving inside it.
+ * In every case below the plain thing is done instead: the welcome's window put in the middle at once, the welcome
+ * arriving inside it.
  */
 export type ArrivalCase = {
   /** A Mac: the only place a window with its buttons set into the page can be see-through and keep its shape. */
@@ -40,5 +37,10 @@ export function plainArrival(now: ArrivalCase): 'not a Mac' | 'no welcome' | 'a 
   return null
 }
 
-/** How long a see-through window may stand before it is made solid whatever the page says, in ms: past the arrival's whole length. */
-export const CLEAR_LIMIT = 20000
+/** The scene's moments main keeps to, in ms from its start, as welcome-scene.tsx SCENE says (test/arrival.test.ts holds them together). */
+/** The fog is whole: the welcome's window is put in its place under it. */
+export const SCENE_COVERED = 3500
+/** The scene has drawn in to the welcome's window, which takes over. */
+export const SCENE_HANDOVER = 12800
+/** The first words: the scene window's corner buttons go with it. */
+export const SCENE_WORDS = 17500

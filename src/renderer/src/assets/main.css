@@ -1739,6 +1739,9 @@ body {
   opacity: 0.45;
 }
 :root[data-noblur][data-dim='veil'][data-blurred='on'] body::after { opacity: 0; }
+/* The welcome's scene playing on in its window (welcome-scene.tsx) while the scene window over it has the focus: never
+   veiled, so the frame the two windows draw at the handover is the same frame. */
+:root[data-scene-on][data-dim='veil'] body::after { opacity: 0; }
 /* The window that draws stickies' menus is clear around its menu and never dims (windows/menu.tsx). */
 :root[data-menu-window] body { opacity: 1 !important; }
 :root[data-menu-window] body::after { content: none !important; }
@@ -2447,25 +2450,6 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
    while the welcome is up, so a theme change (the dial) restyles only the
    welcome, a third of the work, and its frames stay smooth. */
 :root[data-welcoming] .mf-welcome ~ * { content-visibility: hidden; }
-/* The welcome arriving out of the desktop (welcome.tsx, in a window made see-through for it: main arrival.ts). Until
-   its mist has drawn in to the window the page paints nothing of its own, so the desktop shows through exactly as it
-   was: no page colour, none of the app under the welcome, only what the welcome draws (its mist, its title). */
-html[data-see-through],
-html[data-see-through] body { background: transparent; }
-html[data-see-through] #root { visibility: hidden; }
-html[data-see-through] .mf-welcome { visibility: visible; background: transparent; }
-/* A part of the app that makes itself visible again (a note's “Opening the note…” after a beat, mf-after-a-beat) still
-   paints nothing: the app beside the welcome is not drawn at all until the mist has drawn in. The welcome played again
-   comes up over a whole book (main: remakeHome), a long note perhaps still opening under it. */
-html[data-see-through] [data-frame] > :not(.mf-welcome) { opacity: 0; }
-/* The arrival's two controls come in with the fog's last part, each on its own ground, whole as the fog is whole
-   (welcome-mist.tsx: CLEAR_MS + IN_MS = 2350ms): they never stand as bare words over the desktop's own picture. */
-@keyframes mf-with-mist { from { opacity: 0; } }
-.mf-with-mist { animation: mf-with-mist 700ms 1650ms ease-out backwards; }
-/* What lies in the fog over the desktop (its grain) comes in as the fog itself does: nothing drawn for its first beat. */
-.mf-fog-in { animation: mf-with-mist 2000ms 350ms ease-in-out backwards; }
-/* Held by the arrival probe while it reads the page before the mist's first step (welcome-mist.tsx). */
-html[data-arrival-hold] :is(.mf-with-mist, .mf-fog-in) { animation-play-state: paused; }
 :root[data-welcoming]::view-transition-old(mf-theme-dial) { display: none; }
 :root[data-welcoming]::view-transition-new(mf-theme-dial), :root[data-welcoming]::view-transition-group(mf-theme-dial) { animation: none; }
 /* The words that carry the point, in the welcome: the accent with a lighter

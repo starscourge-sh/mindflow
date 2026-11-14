@@ -90,7 +90,7 @@ const APP_NAME = /APP_NAME = '([^']+)'/.exec(readFileSync(resolve('src/main/name
 const named = (): Plugin => ({ name: 'haligtree-named', transformIndexHtml: { order: 'pre', handler: (html) => html.replaceAll('%APP_NAME%', APP_NAME) } })
 
 // In the order the one page used to import them.
-const PAGES = ['index', 'drawing', 'home', 'note', 'nudge', 'meeting', 'pill', 'sticky', 'look', 'menu']
+const PAGES = ['index', 'drawing', 'home', 'note', 'nudge', 'meeting', 'pill', 'sticky', 'look', 'menu', 'scene']
 
 export default defineConfig({
   // chrono-node left to the stand-in, which requires it itself when first asked (src/main/lazy/chrono.ts).

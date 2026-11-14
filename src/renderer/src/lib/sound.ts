@@ -1070,17 +1070,18 @@ const BED = 0.14
  * (bedShift, bedResolve) until it ends (quietBed). Nothing while sounds are
  * off or the volume is down.
  */
-export function ambience(): void {
+export function ambience(arriveMs = ARRIVE_MS, delay = 0): void {
   quietBed(0.4)
   const context = audio()
   if (!context) return
-  const now = context.currentTime
+  // Played on a scene's clock (welcome-scene.tsx), it starts `delay` seconds from now and its words land at `arriveMs`.
+  const now = context.currentTime + Math.max(0, delay)
   const out = context.createGain()
   out.gain.value = volume
   out.connect(context.destination)
   out.connect(room(context))
   const swell = context.createGain()
-  const at = ARRIVE_MS / 1000
+  const at = arriveMs / 1000
   // From silence, built as the glow is (grainient.tsx's own clock and curve): nothing while the page holds dark,
   // then rising with the light, steady from its first moment and only quickening, whole as the glow fills the window.
   swell.gain.setValueAtTime(0, now)

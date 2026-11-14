@@ -102,7 +102,7 @@ import { nameNewDeck, useMadeDecks } from './components/haligtree/decks'
 import { BookMark, BookName, askNewBook, bookMenu, colourChoices } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
 import { PageHint, pageSaid } from '@/components/haligtree/page-hint'
-import { REMADE, onboarding, playWelcome, tryWelcome, useWelcomeBegun } from '@/lib/onboarding'
+import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
 import { DayView } from '@/components/haligtree/day-view'
 import { MonthPage, SCALE_VIEW, WeekPage, YearPage, mondayOf, type Scale } from '@/components/haligtree/periods-view'
 import { HistoryPanel, RecentPanel } from '@/components/haligtree/recent-panel'
@@ -310,10 +310,6 @@ const sameOpen = (a: View, b: View): boolean => {
 }
 function loadSplit(): SplitState {
   const today = (view: View): View => (DATED.includes(view.id) ? { ...view, focus: undefined } : view)
-  // Made again for the welcome (lib/onboarding.ts REMADE): the old window's tabs and panes, as they were, each page's
-  // scroll in them. The page on show is one returned to, so a note on it is exactly where it was left (lib/note-place.ts).
-  const handed = REMADE ? readSplit(window.api.handedOver(), (view) => view) : null
-  if (handed) return (comingBack(true), handed)
   try {
     // Kept splits, an idea gone: their one value is let go. A value from before tabs reads as one tab a pane.
     localStorage.removeItem('split-kept')
@@ -550,8 +546,6 @@ export function Home(): React.JSX.Element {
   const [split, setSplit] = useState<SplitState>(loadSplit)
   const splitRef = useRef(split)
   splitRef.current = split
-  // Made again for the welcome, the panes' pages wait for it to begin (lib/onboarding.ts); in any other window, never.
-  const begun = useWelcomeBegun()
   const frontRef = useRef(split.front)
   frontRef.current = split.front
   const front = frontOf(split)
@@ -1870,8 +1864,7 @@ export function Home(): React.JSX.Element {
       <UnusedFiles />
       <Passes onOpen={(type, id) => open(type, id)} />
       <QueueReader />
-      {/* Played again, it may hand this window's tabs to one made in its place: each pane's open tab holding its scroll, as on going off show. */}
-      <Welcome handOver={() => splitRef.current.panes.reduce((now, pane) => withScroll(now, pane.key, scrolled(pane.key)), splitRef.current)} />
+      <Welcome />
       <Tour />
       <CloseDaySheet />
       <FitsSheet />
@@ -2777,15 +2770,14 @@ export function Home(): React.JSX.Element {
             key: pane.key,
             width: pane.width,
             active: tab.key,
-            // Its page made only once a welcome made again over it has begun (lib/onboarding.ts): then put back where it was.
-            at: begun ? `${tab.key}:${tab.trail.at}` : '',
+            at: `${tab.key}:${tab.trail.at}`,
             scroll: tabStep(tab).scroll,
             tabs: pane.tabs.map((one) => {
               const name = paneName(tabStep(one))
               const note = noteIn(tabStep(one))
               return { key: one.key, label: name.title, private: name.private, icon: name.icon, tint: name.tint, open: note && note.type !== 'task' ? `${note.type}:${note.id}` : undefined }
             }),
-            node: begun ? pageFor(pane.key, tab.key, tabStep(tab)) : null
+            node: pageFor(pane.key, tab.key, tabStep(tab))
           }
         })}
       />

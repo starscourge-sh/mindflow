@@ -1,8 +1,10 @@
-// The welcome's arrival out of the desktop (src/main/arrival.ts): when the main window may be made see-through for
-// it, and each case in which the plain thing is done instead (the window simply there, the welcome inside it).
+// The welcome's arrival (src/main/arrival.ts): when it may come as a scene over the whole screen, each case in which
+// the plain thing is done instead (the welcome's window put in the middle at once, the welcome inside it), and the
+// scene's moments main keeps to, the same as the scene's own (welcome-scene.tsx SCENE).
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { CLEAR_LIMIT, plainArrival, type ArrivalCase } from '../src/main/arrival.ts'
+import { readFileSync } from 'node:fs'
+import { SCENE_COVERED, SCENE_HANDOVER, SCENE_WORDS, plainArrival, type ArrivalCase } from '../src/main/arrival.ts'
 
 const may: ArrivalCase = { mac: true, welcome: true, test: false, still: false, safe: false, solid: false, secondDisplay: false, fullScreen: false }
 
@@ -24,7 +26,12 @@ test('an ordinary launch never has a see-through window, whatever else holds', (
   assert.equal(plainArrival({ ...may, mac: false }), 'not a Mac')
   for (const key of ['still', 'safe', 'solid', 'secondDisplay', 'fullScreen'] as const) assert.notEqual(plainArrival({ ...may, welcome: false, [key]: true }), null)
 })
-test('a see-through window is made solid well after the arrival ends, and well before a person would wait', () => {
-  // The window grown to fill the screen, a window again, by about fifteen seconds (welcome.tsx GROW_AT and SHAPE_MS).
-  assert.ok(CLEAR_LIMIT > 15000 && CLEAR_LIMIT <= 30000, String(CLEAR_LIMIT))
+test("main keeps to the scene's own moments: the fog whole, the handover, the first words", () => {
+  const scene = readFileSync(new URL('../src/renderer/src/components/haligtree/welcome-scene.tsx', import.meta.url), 'utf8')
+  const at = (name: string): number => Number(scene.match(new RegExp(`\\b${name}: (\\d+)`))?.[1])
+  assert.equal(SCENE_COVERED, at('covered'))
+  assert.equal(SCENE_HANDOVER, at('handover'))
+  assert.equal(SCENE_WORDS, at('words'))
+  // In that order, the fog whole well before the scene draws in, the words after it.
+  assert.ok(SCENE_COVERED < at('shrinkFrom') && at('shrinkTo') <= SCENE_HANDOVER && SCENE_HANDOVER < SCENE_WORDS)
 })

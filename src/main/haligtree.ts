@@ -921,6 +921,8 @@ export const celebrationPrefs = (): { on: boolean; folder: string; picks: Picks;
 
 /** The Motion setting, for the window's own arrival. */
 export const motionOn = (): boolean => settings().motion
+/** The app's small sounds, and the welcome's music, are on. */
+export const soundsOn = (): boolean => settings().sounds !== false
 export const appIcon = (): 'bronze' | 'gold' => settings().appIcon
 export const blurOn = (): boolean => settings().blur !== false
 /** Whether the box puts itself away when it loses the focus. */

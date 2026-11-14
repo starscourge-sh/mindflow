@@ -1,15 +1,14 @@
 import { inSidebar } from './places'
 import { WelcomeLeaves } from './welcome-leaves'
 import { WelcomeMist } from './welcome-mist'
-import { GATHER_AT, WelcomeTitle } from './welcome-title'
+import { WelcomeTitle } from './welcome-title'
+import { SCENE, WelcomeScene, type ScenePlace } from './welcome-scene'
 import { haligtree, unloaded, useLive, type Item } from '@/lib/haligtree'
 import { WelcomeStamp } from './welcome-marks'
-import { Orb } from './orb'
 import { Condense, DRAG_MS, REACH_MS, WelcomePointer, type Move } from './welcome-pointer'
 import { TAGLINE } from '../../../../main/tagline'
 import { fittedTitle, quoted } from '../../../../main/clip'
 import { Fragment, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
-import { createPortal, flushSync } from 'react-dom'
 import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/react'
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
@@ -19,7 +18,7 @@ import { shift, spring, still, still as calm } from '@/lib/motion'
 import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
 import { comboOf, fixed, keyFor, listen, saveKeys, useKeyChanges } from '@/lib/keys'
-import { NO_SETUP, REMADE, onboarding, welcomeBegun, type Onboarding, type Setup } from '@/lib/onboarding'
+import { NO_SETUP, onboarding, type Onboarding, type Setup } from '@/lib/onboarding'
 import { ImportMap, sourceFrom } from './welcome-import'
 import { FIELD, answered, applySetup, Payoff, YouPage } from './welcome-you'
 import { enterSandbox, SANDBOX, sandboxState, type Carry } from '@/lib/sandbox'
@@ -43,29 +42,6 @@ import {
   cue, seeded, starterOf, typed, useScript, type Beat, type Box, type Kind, type Part
 } from './welcome-reel'
 import { APP_NAME } from '../../../../main/name'
-
-/**
- * The arrival out of the desktop, after Dia's: the fog and the title in it are one scene over the whole screen, and once
- * the title is written the scene becomes the window, shrinking into a window about half the screen in the middle of it,
- * the fog still moving inside, its edges hardening into a window's rounded corners and shadow, the desktop sharp again
- * round it. As the title lifts it grows from its middle to fill the screen for the first page. All of it moves on the
- * browser's own thread (transform, clip and opacity), the window itself never resized on the way, so a tiling window
- * manager has nothing to undo and a busy page drops no frame.
- */
-/** How long the scene takes to become the window, and to grow again, in ms. */
-const SHAPE_MS = 1400
-/** When the window grows to fill the screen, on the arrival's clock: as the title lifts, whole before the first words. */
-const GROW_AT = ARRIVE_MS - 1700
-/** The window's corners, in px on screen, as a dialog's (DESIGN.md: 14px). */
-const CORNER = 14
-/** The app's spring with no bounce (the same by-the-clock spring the mist drew in on), as an easing the browser plays on its own thread: slow to start, settling softly, never past its end. */
-const SPRING = `linear(${Array.from({ length: 41 }, (_, i) => {
-  const stiff = 5.3
-  const at = (u: number): number => 1 - (1 + stiff * u) * Math.exp(-stiff * u)
-  return (at((i / 40) * (SHAPE_MS / 1000)) / at(SHAPE_MS / 1000)).toFixed(4)
-}).join(', ')})`
-/** How small the scene becomes as the window: about half the screen, never so small that the title card is cramped. */
-const windowScale = (): number => Math.min(0.8, Math.max(0.5, 720 / Math.max(1, innerWidth)))
 
 /**
  * The welcome, the first time Haligtree opens (and again from the Haligtree menu, ⌘K
@@ -228,11 +204,7 @@ function useNameEgg(root: React.RefObject<HTMLElement | null>, shown: boolean): 
   }, [root, shown])
 }
 
-/** A page made again for the welcome (REMADE) has opened it: any later showing in it asks main as any other does. */
-let remadeOpened = false
-
-/** `handOver`: the window's tabs and panes as they are now, each page's scroll in them, for a window made in its place (home.tsx). */
-export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.Element | null {
+export function Welcome(): React.JSX.Element | null {
   const [at, setAt] = useState(-1)
   // Whether the page reads light (dark words): its gold is chosen by what is on screen, not by the theme's dark class.
   // Read only while the welcome is open: it is mounted in Home always, and reading the words' colour forces a style pass.
@@ -284,100 +256,32 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
   const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
   // The Sounds setting, for the arrival's own sound button.
   const [loud, setLoud] = useState(true)
-  const gatherTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
-  // The arrival out of the desktop, in a window made see-through for it (main: arrival.ts): 'over' while the scene stands
-  // over the desktop (the fog over the whole screen, then shaped into the window), then off for good once it has grown
-  // to fill the window and the window is a window again.
-  const [desk, setDesk] = useState<'off' | 'over'>('off')
-  // The window's own page: under the fog out of the desktop, unseen until the fog lifts off it.
+  // The arrival as a scene over the whole screen (welcome-scene.tsx, main: makeScene): where it plays, its clock once
+  // started, and whether this window is in its place under the fog yet. Until then nothing of the welcome shows here:
+  // played again, the app stays as it was while the fog comes over it.
+  const [scened, setScened] = useState<{ place: ScenePlace; t0: number; covered: boolean } | null>(null)
+  // The page has come in over the scene in this window: the scene is let go.
+  const [swept, setSwept] = useState(false)
   const plate = useRef<HTMLDivElement>(null)
-  // Whether this arrival came out of the desktop: its two controls keep the ground they came in on until they go.
-  const [fromDesk, setFromDesk] = useState(false)
-  // Played again from a window not made see-through: this one shows the app's loader until the window made in its place is up (main: remakeHome).
-  const [readying, setReadying] = useState(false)
-  // The mist over the desktop has drawn its first frame: the spark in it keeps the mist's time from there.
-  const [deskLit, setDeskLit] = useState(false)
-  // Out of the desktop the fog is the scene, then the window's ground through the first page; lifted off the page's own
-  // ground when the first page is left (or the welcome ends).
-  const [fog, setFog] = useState(false)
-  const [fogLift, setFogLift] = useState(false)
-  // The scene, the fog and title in it, and its shadow: shaped into the window and grown again (shapeTo).
-  const scene = useRef<HTMLDivElement>(null)
-  const sceneBody = useRef<HTMLDivElement>(null)
-  const sceneShadow = useRef<HTMLDivElement>(null)
-  const shaped = useRef<Animation[]>([])
-  const growTimer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const sweep = useRef<Animation | null>(null)
+  // The welcome over: this window grows to the app's own size (main: growAfterWelcome) before the app comes up in it.
+  const [grown, setGrown] = useState(false)
+  const finaleName = useRef<string | null>(null)
   /** The arrival's light is whole (the gradient's bloom, or out of the desktop the spark's burst in the mist): the title may come. */
   const bloom = (): void => {
     setBloomed(true)
     if (!rushed) titleChime(0.45)
   }
-  /** The window is a window again: the page paints itself, and the window has its shadow and buttons back (main: landClear). */
-  const land = (): void => {
-    setDesk('off')
-    // Whatever way the welcome came (or did not), the app's own pages under it are made now (lib/onboarding.ts).
-    welcomeBegun()
-    if (!document.documentElement.hasAttribute('data-see-through')) return
-    document.documentElement.removeAttribute('data-see-through')
-    window.api.landed()
-    // For the arrival probes, beside the fog's own record (welcome-mist.tsx): the arrival is over, whether or not its fog is still the ground.
-    const trace = (window as { haligtreeArrival?: { landed: boolean } }).haligtreeArrival
-    if (trace) trace.landed = true
-  }
-  /**
-   * The scene shaped into the window (`window`: about half the screen, in the middle of it) or grown to fill it (`whole`),
-   * on the app's spring, from wherever it is now; `instant` for a key or a click, which go straight to the end.
-   */
-  const shapeTo = (to: 'window' | 'whole', instant = false, then?: () => void): void => {
-    const el = scene.current
-    const body = sceneBody.current
-    const shadow = sceneShadow.current
-    if (!el || !body || !shadow) return void then?.()
-    const small = windowScale()
-    const transform = getComputedStyle(el).transform
-    const from = transform && transform !== 'none' ? new DOMMatrixReadOnly(transform).a : 1
-    for (const one of shaped.current) one.cancel()
-    const target = to === 'window' ? small : 1
-    // How far toward the window it is (0 the whole screen, 1 the window): its corners round and its shadow comes as it goes.
-    const toward = (scale: number): number => Math.max(0, Math.min(1, (1 - scale) / (1 - small)))
-    const round = (scale: number): string => `inset(0px round ${((CORNER * toward(scale)) / scale).toFixed(2)}px)`
-    const timing: KeyframeAnimationOptions = { duration: instant ? 0 : SHAPE_MS, easing: SPRING, fill: 'forwards' }
-    // The corners are a clip, drawn by the page's own thread while the size is the browser's: rounded by 60% of the way
-    // in, and unrounded only over the last 60% of the way out, so a late page frame never shows a square corner on the
-    // window (one did, in a probe's picture at the shrink's end).
-    const corners: KeyframeAnimationOptions = instant ? timing : { duration: SHAPE_MS * 0.6, delay: to === 'whole' ? SHAPE_MS * 0.4 : 0, easing: SPRING, fill: 'both' }
-    shaped.current = [
-      el.animate([{ transform: `scale(${from})` }, { transform: `scale(${target})` }], timing),
-      body.animate([{ clipPath: round(from) }, { clipPath: round(target) }], corners),
-      shadow.animate([{ opacity: toward(from) }, { opacity: toward(target) }], timing)
-    ]
-    shaped.current[0].onfinish = () => {
-      // Whole again, it is simply the window's page: nothing held on it.
-      if (to === 'whole') for (const one of shaped.current) one.cancel()
-      then?.()
-    }
-  }
-  /** The handwriting done: the scene becomes the window. */
-  const shapeIn = (): void => void (desk === 'over' && !rushed && shapeTo('window'))
-  /** As the title lifts: the window grows to fill the screen, and is a window again once it has. */
-  const grow = (): void => shapeTo('whole', false, land)
-  /** The fog lifted off the page's own ground, or looked away from: gone, and the window a window whatever was under way. */
-  const fogGone = (): void => {
-    setFog(false)
-    setFogLift(false)
-    if (document.documentElement.hasAttribute('data-see-through')) land()
-  }
   const rush = (): void => {
     clearTimeout(veilTimer.current)
-    // A first run's window, still over the whole screen, gathers in at once.
-    clearTimeout(gatherTimer.current)
-    clearTimeout(growTimer.current)
-    window.api.gather()
-    // Over the desktop: straight to the end, the scene the whole window at once, the fog its ground under the first page.
-    if (desk === 'over') (shapeTo('whole', true), land())
+    // Arriving as a scene: straight to its end, the page in place over it and the words at once.
+    sweep.current?.cancel()
+    setSwept(true)
     setVeiled(false)
     setRushed(true)
   }
+  const rushNow = useRef(rush)
+  rushNow.current = rush
   // When the box last went away: an Esc a moment after is the same Esc, pressed twice out of habit.
   const awayAt = useRef(0)
   // A second press of Next within 400ms is one press, not two.
@@ -425,36 +329,11 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
   }
 
   const open = (again: boolean): void => {
-    // Out of the desktop when this window was made for it and nothing says otherwise (main: arrivesClear): the page
-    // paints nothing and the mist comes in over the desktop. Otherwise inside the window, as it always has. A page made
-    // again for it (REMADE) knows already, its first time: main said so a moment ago, and asked again it answered only
-    // once it had seen to this page's other first asks (90 ms and more, the welcome waiting on it).
-    const first = REMADE && !remadeOpened
-    remadeOpened = true
-    const how = still() ? 'plain' : first ? 'clear' : window.api.arrive(again)
-    // Played again from a window not made see-through: one is made in its place for the showing (main: remakeHome),
-    // and plays it. This one keeps what is being typed (a field left keeps its words, as on a click away), saves its
-    // words and its notes' places the app's own way before a window goes (the editors and lib/note-place.ts hear
-    // 'haligtree:flush'), hands over its tabs and panes, and answers at once with the app's one loader (Readying) until
-    // the new window is up and this one goes, in the same moment.
-    if (how === 'again') {
-      // The loader first, drawn before anything else is done, the keys left where they are until it is on screen:
-      // moving them restyles the page under it (a long note's every line, 60 ms and more), which then came before the
-      // loader's first frame. A long note's words take a moment to hand over too, and main making the new window holds
-      // this window's next frame.
-      flushSync(() => setReadying(true))
-      // On screen (after the next paint): the keys go to the loader, so a field being typed in is left and keeps its
-      // words, as on a click away; then the saves, the hand-over, and the new window.
-      requestAnimationFrame(() => setTimeout(() => {
-        const cover = document.querySelector<HTMLElement>('[data-welcome-readying]')
-        if (cover) cover.focus({ preventScroll: true })
-        else if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
-        window.dispatchEvent(new Event('haligtree:flush'))
-        window.api.remake(handOver?.() ?? null)
-      }))
-      return
-    }
-    const clear = how === 'clear'
+    // As a scene over the whole screen where it can be (main: welcome:arrive), its window put in the middle of the
+    // screen under the fog; else plainly, in this window put in the middle at once.
+    // Asked whatever the motion: main puts the welcome's window in the middle either way; with Motion off it never makes a scene.
+    const answer = window.api.welcomeArrive(again, still())
+    const clear = answer.how === 'scene' && !!answer.place
     // A story of its own for each run of the welcome (welcome-stories.ts), kept until it opens again, so Back and Next show the same one.
     pickStory()
     void Promise.all([window.api.captures.list(), onboarding.state()]).then(([list, now]) => {
@@ -476,49 +355,69 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     // Opened again over a page still up: that page's way on (a part still to come) must not carry over to the opening.
     reel.current = { done: true, settle: () => undefined }
     setAt(WHY)
-    setFromDesk(clear)
-    setDeskLit(false)
-    for (const one of shaped.current) one.cancel()
-    setFog(clear)
-    setFogLift(false)
-    if (clear) (document.documentElement.setAttribute('data-see-through', ''), setDesk('over'))
-    else land()
+    setScened(clear && answer.place ? { place: answer.place, t0: 0, covered: false } : null)
+    setSwept(!clear)
+    setGrown(false)
+    sweep.current?.cancel()
     if (still()) chime('read')
     else {
-      setMist(true)
+      // The in-window arrival (its mist, spark and title card) only when there is no scene: the scene has its own.
+      setMist(!clear)
       setVeiled(true)
       setRushed(false)
       setArrival((n) => n + 1)
       setBloomed(WELCOME_BACKGROUND !== 'grainient')
-      ambience()
-      // Nothing but the mist and the chord until the arrival's beat: then the first words.
       clearTimeout(veilTimer.current)
-      veilTimer.current = setTimeout(() => setVeiled(false), ARRIVE_MS)
-      // The title card whole and held a breath: a first run's window gathers in from the whole screen.
-      clearTimeout(gatherTimer.current)
-      gatherTimer.current = setTimeout(() => window.api.gather(), GATHER_AT)
-      // Over the desktop, the window shaped from the scene (once the title is written) grows to fill the screen as the title lifts.
-      clearTimeout(growTimer.current)
-      if (clear) growTimer.current = setTimeout(grow, GROW_AT)
+      // Nothing but the mist and the chord until the arrival's beat: then the first words. A scene's music and words
+      // wait for its clock instead (welcome:scene 'start').
+      if (!clear) (ambience(), (veilTimer.current = setTimeout(() => setVeiled(false), ARRIVE_MS)))
       void haligtree.settings().then((now) => setLoud(now.sounds !== false))
     }
   }
 
-  // The welcome gone while its window was still see-through (it cannot be, but a see-through window must never be left): the page paints itself.
-  useEffect(() => void (at < 0 && desk !== 'off' && land()), [at, desk]) // eslint-disable-line react-hooks/exhaustive-deps
-  // The first page left, or the welcome gone: the fog lifts off the page's own ground, which comes up under it.
-  useEffect(() => void (fog && at !== WHY && setFogLift(true)), [at, fog])
-  useEffect(() => () => void (clearTimeout(growTimer.current), shaped.current.forEach((one) => one.cancel())), [])
+  // The scene's moments, from main: its clock started, this window in its place under the fog, the intro skipped or its
+  // sound switched from the scene's corner buttons, and at the end this window grown to the app's own size.
+  useEffect(() => window.api.onWelcomeScene((event) => {
+    if (event.what === 'start') {
+      setScened((now) => now && { ...now, t0: event.t0 })
+      // The music on the scene's clock (lib/sound.ts): the chord out of nothing, the bell with the name, the words on the beat.
+      const lead = Math.max(0, (event.t0 - Date.now()) / 1000)
+      ambience(SCENE.words, lead)
+      titleChime(lead + SCENE.nameFrom / 1000)
+      clearTimeout(veilTimer.current)
+      veilTimer.current = setTimeout(() => setVeiled(false), Math.max(0, event.t0 + SCENE.words - Date.now()))
+    } else if (event.what === 'covered') setScened((now) => now && { ...now, covered: true })
+    else if (event.what === 'skip') rushNow.current()
+    else if (event.what === 'sound') {
+      setLoud(event.on)
+      soundOn(event.on)
+      if (event.on) ambience(SCENE.words)
+      void haligtree.setSettings({ sounds: event.on })
+    } else if (event.what === 'grown') setGrown(true)
+  }), [])
+  // In its place under the fog, its clock known: the page comes in over the scene from the left on the scene's beat,
+  // and the scene is let go once it has.
+  useEffect(() => {
+    if (!scened?.covered || !scened.t0 || swept || !plate.current) return
+    const delay = Math.max(0, scened.t0 + SCENE.sweepFrom - Date.now())
+    const run = plate.current.animate([{ transform: 'translateX(-112%)' }, { transform: 'translateX(0)' }], { duration: SCENE.sweepTo - SCENE.sweepFrom, delay, easing: 'cubic-bezier(0.22, 0.9, 0.24, 1)', fill: 'both' })
+    sweep.current = run
+    run.onfinish = () => setSwept(true)
+    return () => run.cancel()
+  }, [scened?.covered, scened?.t0, swept]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Grown to the app's own size: the ground goes (the dialog's fade), the first welcome's name is carried to the sidebar,
+  // and the welcome is gone once the name has landed.
+  useEffect(() => {
+    if (!closing || !grown) return
+    if (finaleName.current) setFinale(finaleName.current)
+    clearTimeout(closeTimer.current)
+    closeTimer.current = setTimeout(closed, quiet ? 450 : 1600)
+  }, [closing, grown]) // eslint-disable-line react-hooks/exhaustive-deps
   useCarriedWelcome()
   useEffect(() => {
-    // Made again for the welcome played again (lib/onboarding.ts REMADE): it plays as the page comes up. No welcome to
-    // open after all, in a window that started see-through for one (main.tsx): the page paints itself. Once a page: a
-    // first mount undone at once (React's StrictMode, in a dev build) leaves it to the second, so the chord plays once.
+    // Once a page: a first mount undone at once (React's StrictMode, in a dev build) leaves it to the second, so the chord plays once.
     let gone = false
-    // Made again for it, the page is there for the welcome: opened at once, never after an answer from main, and ahead
-    // of the app's own pages under it (home.tsx makes them once its mist has begun).
-    if (REMADE) queueMicrotask(() => gone || open(true))
-    else void onboarding.state().then((now) => gone || (now.firstRun ? open(false) : land()))
+    void onboarding.state().then((now) => void (!gone && now.firstRun && open(false)))
     const again = (): void => open(true)
     window.addEventListener('haligtree:welcome', again)
     window.addEventListener('haligtree:tour', again)
@@ -532,12 +431,17 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
 
   // The whole time it runs, the box is in lesson mode and the app keeps quiet under it.
   // Turning over into the book: the app under it is drawn again, to show through the paper as it goes.
-  const up = at >= 0 && !closing
+  // Up once it shows (as a scene, once its window is in its place under the fog), down as it is left.
+  const up = at >= 0 && !closing && (!scened || scened.covered)
+  // The app under it is not drawn while it is up, nor while its window grows at the end (each step of the grow would
+  // lay the app out again): only once the window is at its own size.
+  const covering = at >= 0 && (up || (closing && !grown))
   useEffect(() => {
     void onboarding.set({ welcoming: up })
-    document.documentElement.toggleAttribute('data-welcoming', up)
     if (up) tellBox(examples(), true)
   }, [up]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => void document.documentElement.toggleAttribute('data-welcoming', covering), [covering])
+  useEffect(() => void document.documentElement.toggleAttribute('data-scene-on', !!scened && !swept), [scened, swept])
 
   // The welcome's sound bed follows the pages: each turn a soft shift in the key, Name it a lift, the last page the chord come home, gone when it ends.
   useEffect(() => {
@@ -593,7 +497,7 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at < 0])
 
-  const closed = (): void => (clearTimeout(closeTimer.current), setClosing(false), setFinale(null), setAt(-1))
+  const closed = (): void => (clearTimeout(closeTimer.current), setClosing(false), setGrown(false), setFinale(null), setAt(-1))
   const leave = (how: 'fresh' | 'sandbox' | 'notes' | 'closed'): void => {
     if (closing) return
     if (picked.current) applyTheme(picked.current)
@@ -613,10 +517,12 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
     // never shows in between. It goes only if the sandbox cannot open.
     if (how === 'sandbox') setOpening(true)
     else {
-      // Reduce Motion: a calm cross-fade to Home, never a cut.
+      // The page's words go and its ground stays while the window grows to the app's own size (main:
+      // growAfterWelcome); then the ground goes too and the app is there, as large as it will be. Reduce Motion: a calm
+      // cross-fade to Home, never a cut. Not told the window has grown (main gone quiet): it comes up all the same.
       setClosing(true)
-      if (ending) setFinale(book && book.name !== DEFAULT_BOOK ? book.name : APP_NAME)
-      closeTimer.current = setTimeout(closed, quiet ? 450 : 1500)
+      finaleName.current = ending ? (book && book.name !== DEFAULT_BOOK ? book.name : APP_NAME) : null
+      closeTimer.current = setTimeout(closed, quiet ? 450 : 3200)
     }
     if (how !== 'sandbox') {
       // Said once on Home: the day the book was opened, and the first thing written in it here.
@@ -771,20 +677,6 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
   })
 
   useEffect(() => void (at >= 0 && dialog.current?.focus({ preventScroll: true })), [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Made again for it (REMADE): the window is shown, and the old one with its loader goes, once the welcome is up here
-  // (out of the desktop, as its mist's first frame comes), not at the app's first drawing: shown then, it stood over
-  // the desktop showing nothing for a second and more while the app's pages were made, before the mist's own beat of
-  // nothing had even begun (main: remakeHome waits for this, windows/home.tsx Drawn).
-  useLayoutEffect(() => void (REMADE && at >= 0 && desk === 'off' && window.api.homeDrawn()), [at >= 0]) // eslint-disable-line react-hooks/exhaustive-deps
-  /** Out of the desktop, its mist's first frame: its time starts, and the app's pages under it are made (home.tsx). */
-  const begin = (): void => {
-    setDeskLit(true)
-    welcomeBegun()
-    // The Mac's own blur of the desktop, faded in under the fog as it starts to come in: softened first, then covered.
-    window.api.blur(true)
-  }
-
-  if (readying) return <Readying />
   if (at < 0) return null
   const play = !quiet && !played.has(at) && !(at === WHY && rushed)
   // Only the chapter on screen says how far it has got: one still fading out
@@ -807,16 +699,24 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
   return (
     <MotionConfig reducedMotion={quiet ? 'always' : 'never'}>
     <motion.div ref={dialog} tabIndex={-1} role="dialog" aria-modal aria-label={`Welcome to ${APP_NAME}`} inert={opening} onKeyDown={(event) => event.stopPropagation()}
-      data-closing={closing ? '' : undefined} data-story={story().id} data-dial={at === DIAL ? '' : undefined} data-page={lightPage ? 'light' : 'dark'} data-desk={desk === 'off' ? undefined : desk}
-      // Over the desktop a click anywhere ends the arrival at once (its own two buttons and the name keep their clicks): nothing that looks like the desktop holds a click for long.
-      onPointerDown={(event) => void (closing ? closed() : desk === 'over' && event.isTrusted && !(event.target as HTMLElement).closest('button, [data-title-name]') && rush())}
-      initial={false} animate={{ opacity: closing ? 0 : 1 }} transition={closing ? (quiet ? { duration: 0.4, ease: 'easeOut' } : { delay: 0.45, duration: 0.9, ease: MOVE }) : { duration: 0 }}
+      data-closing={closing ? '' : undefined} data-story={story().id} data-dial={at === DIAL ? '' : undefined} data-page={lightPage ? 'light' : 'dark'} data-scene={scened ? (swept ? 'swept' : 'on') : undefined}
+      // A click in the window while the scene holds in it: the arrival's end at once, as Esc and Enter.
+      onPointerDown={(event) => void (closing ? closed() : scened && !swept && event.isTrusted && !(event.target as HTMLElement).closest('button') && rush())}
+      // Leaving: the words go first (the page's parts below); the ground stays while the window grows (main:
+      // growAfterWelcome), then goes too, the app there under it at its own size.
+      initial={false} animate={{ opacity: closing && (grown || quiet) ? 0 : 1 }} transition={closing ? (quiet ? { duration: 0.4, ease: 'easeOut' } : { duration: 0.55, ease: MOVE }) : { duration: 0 }}
+      // Played again: nothing of the welcome shows until the window is in its place under the scene's fog.
+      style={scened && !scened.covered ? { visibility: 'hidden' } : undefined}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
-      {/* The window's own page. Arriving out of the desktop it is not drawn while the mist lies over the desktop, and comes up under the mist as it draws in (welcome-mist.tsx).
-          Nothing in it runs unseen then: no spark or bloom of its own (the spark is in the mist), and its gradient draws no frames until it is let go. */}
-      {/* Under the fog (out of the desktop) it waits unseen and still, and comes up as the fog lifts off it: hidden at once, never faded out over the desktop. */}
-      <div ref={plate} data-plate="" className={`absolute inset-0 bg-background ${fog && !fogLift ? 'opacity-0' : 'opacity-100 transition-opacity duration-700'}`}>
-        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} desk={fromDesk} held={desk === 'over' || (fog && !fogLift)} onBloomed={bloom} />
+      {/* The scene, as the window it has become (welcome-scene.tsx): the same frame the scene window drew last, moving on
+          under the page, which comes in over it from the left (the sweep) as the first words come. */}
+      {scened && scened.t0 > 0 && scened.covered && !swept && (
+        <WelcomeScene t0={scened.t0} place={scened.place} mode="window" name={state?.name ?? ''} />
+      )}
+      {/* The window's own page: after a scene, it comes in over it from the left, its leading edge soft, as Dia's panel does. */}
+      <div ref={plate} data-plate="" className={`absolute inset-0 bg-background ${scened && !swept ? "after:pointer-events-none after:absolute after:inset-y-0 after:left-full after:w-[14%] after:bg-[linear-gradient(90deg,var(--background),transparent)] after:content-['']" : ''}`}
+        style={scened && !swept ? { transform: 'translateX(-112%)' } : undefined}>
+        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} desk={!!scened} held={!!scened && !swept} onBloomed={bloom} />
       </div>
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). On the
@@ -826,33 +726,11 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
       {WELCOME_BACKGROUND === 'paper' && <WelcomeLeaves on={at === WHY && play} open={play} motes={at !== DIAL} middle={at === BACK ? 0 : 0.3} gather={at === LAST && !closing}
         lure={closing ? null : at === LAST ? '.mf-welcome [data-recommended]' : at === DIAL ? '.mf-welcome [role="slider"][aria-label="Theme"]' : null} />}
       {/* The paper's arrival is a mist; the gradient's is its own bloom (GrainBackdrop). */}
-      {mist && WELCOME_BACKGROUND === 'paper' && desk === 'off' && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
-      {/* Out of the desktop: one scene, the fog over the desktop with the spark and the title in it, shaped into the window once
-          the title is written and grown to fill it as the first page comes (shapeTo); the fog is the window's ground after. */}
-      {fog && (
-        <div key={`scene-${arrival}`} ref={scene} data-arrival-scene="" className="pointer-events-none absolute inset-0 z-30">
-          {/* The window's shadow, coming as the scene becomes the window: in the scene's own (scaled) pixels, so on screen it is a window's. */}
-          <div ref={sceneShadow} aria-hidden data-arrival-shadow="" className="absolute inset-0" style={{ opacity: 0, borderRadius: `${CORNER / windowScale()}px`, boxShadow: `0 0 0 ${1 / windowScale()}px color-mix(in oklab, var(--foreground) 14%, transparent), 0 ${24 / windowScale()}px ${70 / windowScale()}px ${-8 / windowScale()}px color-mix(in oklab, var(--mf-shadow-ink) 55%, transparent)` }} />
-          <div ref={sceneBody} data-arrival-body="" className="absolute inset-0 overflow-clip">
-            <WelcomeMist key={`desk-${arrival}`} desk lift={fogLift} onGone={fogGone} onStart={begin} onWhole={() => window.api.blur(false)} onDrawable={() => REMADE && window.api.homeDrawn()} />
-            {/* Haligtree's grain over the fog, as on the welcome's paper (grain.tsx), coming in as the fog does. */}
-            <div aria-hidden className="mf-fog-in absolute inset-0 opacity-[0.06] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
-            {/* The arrival's spark and its burst (GrainBackdrop draws them on the page, which is not yet there): in the fog, where the title will stand, so the notes that go with them still have their light. */}
-            {desk === 'over' && deskLit && <div className="pointer-events-none absolute inset-0 z-[35]"><IntroSpark key={`desk-spark-${arrival}`} onDone={bloom} inMist /></div>}
-            {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} onWritten={shapeIn} />}
-          </div>
-        </div>
-      )}
-      {/* The page's own ground over the fog where the first page's words stand (Dia's solid panel), the fog moving on beyond them:
-          in as the window becomes a window, a breath before the words (its first paint never in the frame the first page is
-          made in), out with the fog as the first page is left, and a fresh one, unseen, for each arrival. */}
-      {fog && <div key={`ground-${arrival}`} aria-hidden data-words-ground="" className={`pointer-events-none absolute inset-0 z-[31] transition-opacity duration-700 ${desk === 'off' && !fogLift ? 'opacity-100' : 'opacity-0'}`}
-        style={{ background: 'linear-gradient(90deg, var(--background) 0%, color-mix(in oklab, var(--background) 90%, transparent) 42%, transparent 80%)' }} />}
+      {mist && WELCOME_BACKGROUND === 'paper' && <WelcomeMist hurry={rushed} onGone={() => setMist(false)} />}
       {/* Before the first words: the book's title page. */}
       {/* The book is yours whether it is the first welcome or one played again: its title page always names you. */}
-      {!fog && mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} />}
-      {/* Not a handle while the window is unseen over the desktop: a press there ends the arrival, as anywhere. */}
-      <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: desk === 'over' ? 'no-drag' : 'drag' } as CSSProperties} />
+      {mist && veiled && at === WHY && <WelcomeTitle name={state?.name ?? ''} hurry={rushed} ready={bloomed} />}
+      <div data-drag-strip="" className="relative h-11 shrink-0" style={{ WebkitAppRegion: 'drag' } as CSSProperties} />
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}
       <div className="relative z-[32] mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
@@ -860,7 +738,7 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
             Soft ink soaked into the paper, fading out at its top and foot as a notebook's rule does, never a loose line. */}
         <motion.div aria-hidden data-margin="" className="pointer-events-none absolute -top-11 bottom-0 left-[calc(clamp(1.5rem,5vw,4rem)*0.45)] w-px origin-top"
           style={{ background: 'linear-gradient(to bottom, transparent, color-mix(in oklab, var(--tt-color-text-red) 20%, transparent) 14%, color-mix(in oklab, var(--tt-color-text-red) 20%, transparent) 80%, transparent)' }}
-          initial={false} animate={{ transform: veiled ? 'scaleY(0)' : 'scaleY(1)' }} transition={{ duration: quiet || desk === 'over' ? 0 : 1.6, ease: ENTER }} />
+          initial={false} animate={{ transform: veiled ? 'scaleY(0)' : 'scaleY(1)' }} transition={{ duration: quiet ? 0 : 1.6, ease: ENTER }} />
         <main className="relative min-h-0 flex-1">
           <AnimatePresence initial={false} custom={turning}>
             <motion.section key={at} custom={turning} variants={PAGE}
@@ -887,8 +765,6 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
             the way past the intro. The footer comes up in their place once the first words have. */}
         {mist && at === WHY && (
           // With no mist to say the arrival is over, it is over once these have faded out.
-          // Out of the desktop they come in with the fog's last part, never before it (nothing is drawn at first), each on its
-          // own opaque ground, and afresh each arrival: never bare words over the desktop's own picture, which cannot be counted on to read.
           <div key={`intro-${arrival}`} data-intro="" onTransitionEnd={(event) => void (event.target === event.currentTarget && !veiled && WELCOME_BACKGROUND !== 'paper' && setMist(false))} className={`pointer-events-auto absolute inset-x-0 bottom-0 z-50 flex h-[clamp(4rem,9vmin,5.5rem)] items-center px-[clamp(1.5rem,5vw,4rem)] transition-opacity duration-700 ${veiled ? 'opacity-100' : 'pointer-events-none opacity-0'}`}>
             <button type="button" data-intro-sound="" aria-pressed={loud} aria-label={loud ? 'Sounds on' : 'Sounds off'} onClick={() => {
               const next = !loud
@@ -896,16 +772,16 @@ export function Welcome({ handOver }: { handOver?: () => unknown }): React.JSX.E
               soundOn(next)
               if (next) ambience()
               void haligtree.setSettings({ sounds: next })
-            }} className={fromDesk ? DESK_BUTTON : QUIET_BUTTON}>
+            }} className={QUIET_BUTTON}>
               {loud ? <Volume2 className="size-4" strokeWidth={1.8} /> : <VolumeX className="size-4" strokeWidth={1.8} />}
               <span>{loud ? 'Sound on' : 'Sound off'}</span>
             </button>
-            <button type="button" data-skip-intro="" onClick={rush} className={`${fromDesk ? DESK_BUTTON : QUIET_BUTTON} ml-auto whitespace-nowrap`}>
+            <button type="button" data-skip-intro="" onClick={rush} className={`${QUIET_BUTTON} ml-auto whitespace-nowrap`}>
               Skip intro <Kbd className="h-6 min-w-6"><CornerDownLeft className="size-3" strokeWidth={2.4} /></Kbd>
             </button>
           </div>
         )}
-        <footer className={`relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)] transition-opacity ${closing ? 'duration-300' : desk === 'over' ? 'duration-0' : 'duration-1000'} ${veiled || closing ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
+        <footer className={`relative flex h-[clamp(4rem,9vmin,5.5rem)] shrink-0 items-center gap-3 px-[clamp(1.5rem,5vw,4rem)] transition-opacity ${closing ? 'duration-300' : 'duration-1000'} ${veiled || closing ? 'pointer-events-none opacity-0' : 'opacity-100'}`}>
           <div className="mr-auto flex min-w-0 items-center gap-[clamp(0.5rem,2vw,1.5rem)]">
             <Progress at={at} seen={played} onBack={back} />
             {/* The ways past a page sit with Back and the marks, far from the arrow, so the arrow only ever points from nothing to Next.
@@ -2233,24 +2109,6 @@ const usePalette = (): string[] => useSyncExternalStore(watchTheme, paletteNow)
  * after. Stepped by the page's frames instead (motion's `scale`), the halo was painted afresh every frame as it grew to
  * twelve times its size, and frames dropped from the moment the spark came. `onDone` once it has gone into the light.
  */
-/**
- * The welcome played again, being made ready in a window made in this one's place (main: remakeHome): the app's one
- * loader at once, over the whole window, the room the welcome takes. Keys wait with it (given to it once it is on
- * screen, Welcome's open); this window goes the moment the new one shows, so the desktop is never left bare between them.
- * Laid at the page's very end, after the app: put where Welcome stands, before the app among the frame's children, its
- * coming made the browser work out the style of everything after it again, the whole app (51 ms under a long note, in
- * the browser's own trace), before the loader's first frame; at the end it takes 4 ms.
- */
-function Readying(): React.JSX.Element {
-  return createPortal(
-    <div tabIndex={-1} data-welcome-readying="" onKeyDown={(event) => (event.preventDefault(), event.stopPropagation())}
-      className="fixed inset-0 z-[70] grid place-items-center bg-background text-foreground outline-none">
-      <Orb label="Getting the welcome ready…" />
-    </div>,
-    document.body
-  )
-}
-
 // Points in the intro (0 to 1, the glow's own `opened`): in, the long glimmer, gathering, the squeeze, the release.
 const SPARK_AT = [0, 0.05, 0.2, 0.34, 0.48, SPARK_HOLD - 0.06, SPARK_HOLD - 0.015, SPARK_HOLD, SPARK_HOLD + 0.12, 0.94, 1]
 const sparkFrames = (opacity: number[], scale: number[]): Keyframe[] => SPARK_AT.map((offset, i) => ({ offset, opacity: opacity[i], transform: `scale(${scale[i]})`, easing: 'ease-in-out' }))
@@ -2346,8 +2204,6 @@ export const QUIET = 'text-[clamp(0.9375rem,min(2.2vw,3.2vh),1.5rem)] leading-sn
 const LINE_KEY = 'h-[1.3em] min-w-[1.3em] rounded-[0.3em] px-[0.3em] text-[0.62em]'
 /** A way past a page, beside the one accent button: quiet until pointed at. */
 const QUIET_BUTTON = 'flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) transition-colors hover:bg-foreground/[0.06] hover:text-foreground active:scale-[0.97]'
-/** The same button standing over the desktop's own picture (the arrival out of the desktop): on the app's opaque floating ground (lib/float.ts), which stays opaque under the pointer, and coming in with the mist (main.css, mf-with-mist). */
-const DESK_BUTTON = 'mf-with-mist flex h-[clamp(2rem,4.2vmin,2.5rem)] items-center gap-2 rounded-[0.6rem] bg-popover px-3 text-[clamp(0.8125rem,1.8vmin,1rem)] text-(--mf-wl-quiet) shadow-(--mf-panel-shadow) ring-1 ring-foreground/10 transition-colors hover:text-foreground active:scale-[0.97]'
 
 /** Keys written in a sentence, as small caps. */
 function InlineKeys({ keys }: { keys: string }): React.JSX.Element {

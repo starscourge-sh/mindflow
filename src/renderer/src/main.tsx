@@ -1,7 +1,4 @@
 import './assets/main.css'
-// A first run's window, made see-through for the welcome to arrive out of the desktop (main: makeHome): the page
-// paints nothing from its very first frame, until the welcome's mist has drawn in (welcome.tsx). Not on a reload.
-if (new URLSearchParams(location.search).has('clear') && (performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined)?.type !== 'reload') document.documentElement.setAttribute('data-see-through', '')
 // Faded edges off once a list is all in view (lib/fade-fits.ts).
 import './lib/fade-fits'
 // Every picture cut to a shape centred on its face or subject (Vision).

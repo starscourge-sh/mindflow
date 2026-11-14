@@ -75,6 +75,8 @@ export const whereTray = (find: () => Electron.Rectangle | null): void => void (
 /** The first word of the computer's own name for you, read once: the Mac account's full name, or on Linux
  *  the account's real-name field. Windows and a login name (such as "jdoe") give nothing: a login is not a name. */
 let firstName: string | undefined
+/** The name the welcome signs the book with (its scene, main: welcome:arrive): none in safe mode. */
+export const welcomeName = (): string => (read<boolean>('safeMode', false) ? '' : nameOf())
 function nameOf(): string {
   if (firstName !== undefined) return firstName
   try {
