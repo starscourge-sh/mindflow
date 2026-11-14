@@ -3028,10 +3028,13 @@ html[data-book-hue] [data-book-tint] {
 .mf-loud[data-important='late'] { color: color-mix(in oklab, var(--tt-color-text-red) 78%, var(--foreground)); }
 .mf-loud:is([data-important='today'], [data-important='deadline'], [data-important='warn']) { color: color-mix(in oklab, var(--tt-color-text-orange) 70%, var(--foreground)); }
 .mf-loud[data-important='soon'] { color: color-mix(in oklab, var(--tt-brand-color-400) 70%, var(--foreground)); }
-/* Paper's quiet words were brown-grey at about 4:1 on the page, under the
-   4.5:1 small text needs, and at 80% still 4.3:1 on a card or a menu. Still
-   the softest ink, now one that reads on both (test/theme-contrast.test.ts). */
-:root.paper { --muted-foreground: color-mix(in srgb, var(--foreground) 84%, var(--background)); }
+/* Quiet words (Faded Ink) reach 4.5:1 on the page, on a card or menu, and on the wash of a hovered or picked row or a
+   keycap (ink 16% into the page) in every theme (test/theme-contrast.test.ts). The ladder's 74% does that in most;
+   these four need more. Paper's were brown-grey at about 4:1 on the page, and at 80% still 4.3:1 on a card. */
+:root.paper { --muted-foreground: color-mix(in srgb, var(--foreground) 86%, var(--background)); }
+:root.everforest { --muted-foreground: color-mix(in srgb, var(--foreground) 81%, var(--background)); }
+:root.tokyonight { --muted-foreground: color-mix(in srgb, var(--foreground) 78%, var(--background)); }
+:root.obsidian-nord { --muted-foreground: color-mix(in srgb, var(--foreground) 78%, var(--background)); }
 /* The quiet words of notes and the reader (`--mf-muted`: a link card's site, the PDF rail's tabs, the slash menu's
    groups, a look-up's notes) are Faded Ink itself, so they read like every other quiet word and reach 4.5:1 wherever it
    does. They were the ink at half strength, about 2.5:1 on Paper. "Strong" sits half way on to the ink, so quiet,
