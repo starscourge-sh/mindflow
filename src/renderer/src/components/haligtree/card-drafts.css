@@ -20,7 +20,7 @@
   outline: none;
 }
 .chapter-card-question { font-weight: 600; font-size: 0.9375rem; }
-.chapter-card-answer { color: color-mix(in oklab, var(--foreground) 82%, transparent); }
+.chapter-card-answer { color: var(--mf-muted-strong); }
 .chapter-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; min-height: 2rem; }
 .chapter-card-actions { display: flex; flex: none; gap: 0.25rem; }
 /* Where it came from: one line, cut with "…" rather than wrapped under itself (a note's line can be long; a page is "p. 12"). */
@@ -38,5 +38,5 @@
   line-height: 1.35;
   text-wrap: balance;
 }
-.chapter-cards-note { color: color-mix(in oklab, var(--foreground) 80%, transparent); text-wrap: pretty; }
+.chapter-cards-note { color: var(--mf-muted-strong); text-wrap: pretty; }
 .chapter-cards-note strong { color: var(--foreground); font-weight: 600; }

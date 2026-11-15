@@ -1419,7 +1419,7 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
   > blockquote {
     margin-block: 1.4em;
     padding-left: 1.1em;
-    color: color-mix(in oklab, var(--foreground) 82%, transparent);
+    color: var(--mf-muted-strong);
     font-style: italic;
   }
   /* A plain typographic rule: square ends, no tint behind it. */

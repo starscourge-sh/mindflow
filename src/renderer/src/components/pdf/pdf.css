@@ -1600,7 +1600,7 @@
   align-items: center;
   gap: 0.375rem;
   padding-inline: 0.5rem 0.25rem;
-  color: color-mix(in oklab, var(--foreground) 80%, transparent);
+  color: var(--mf-muted-strong);
   font-size: 0.875rem;
   white-space: nowrap;
 }
