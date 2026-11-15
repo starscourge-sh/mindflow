@@ -161,8 +161,10 @@ try {
   await c.h.waitForTimeout(800)
   await c.v('groups:nest', rent, null)
   await c.h.waitForTimeout(800)
-  // In the list, an empty folder is a row of its own, counted "0 pages" (kept-groups.tsx).
-  check('in the list, an empty one is a folder row of its own that says it is empty', ((await c.h.locator(`[role="main"] [data-group-row="${money}"] [data-count]`).textContent()) ?? '').trim() === '0 pages')
+  // In the list, an empty folder is a row of its own, counted "0 pages" (kept-groups.tsx): the number is the app's own
+  // count (data-count holds the number alone since 43f0d133e), its word beside it.
+  const said = await c.h.locator(`[role="main"] [data-group-row="${money}"] [data-count]`).evaluate((one) => ({ n: one.getAttribute('data-count'), word: one.parentElement.textContent.replace(one.textContent, '').trim() }))
+  check('in the list, an empty one is a folder row of its own that says it is empty', said.n === '0' && said.word === 'pages', JSON.stringify(said))
   await c.v('groups:nest', rent, money)
   await c.h.waitForTimeout(500)
 
@@ -229,6 +231,10 @@ try {
   // A Writing note onto a Gems folder: unlit, and said why.
   const quotes = await c.v('groups:make', 'nugget', 'Quotes')
   await c.h.waitForTimeout(800)
+  // Gems and its folders stand in the sidebar's Library, folded to start (70f7229cb): opened by its heading, as a person would.
+  const library = c.h.locator('[data-side-section-handle="library"]')
+  if ((await library.getAttribute('aria-expanded')) !== 'true') await library.click()
+  await c.h.waitForTimeout(500)
   const wrong = await carryTo(listRow('Loose one'), folder(quotes))
   check('a folder of the other list stays unlit', !wrong)
   check('and says why', (await c.h.getByText('Gems folders hold gems: make it a gem first').count()) > 0)
