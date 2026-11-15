@@ -454,7 +454,6 @@ html[data-overhang][data-glass='light'] {
 html[data-overhang][data-glass] {
   --mf-glass-fill: color-mix(in oklab, var(--background) 78%, transparent);
   --mf-glass-quiet: color-mix(in oklab, var(--muted-foreground) 62%, var(--foreground));
-  --mf-frost-fill: 82%;
 }
 html[data-overhang][data-glass='dark'] {
   --mf-glass-fill: color-mix(in oklab, var(--background) 74%, transparent);
@@ -3992,9 +3991,10 @@ textarea[data-talking]::selection {
    (haligtree-editor.scss) are the same material. Backdrop blur only sees what is inside its nearest
    parent that fades, masks, clips or filters, so these surfaces are portalled to the body or kept out of such
    parents (qa/frost.mjs checks every one); any that lands inside one anyway is marked data-frost-off and left opaque (lib/frost-guard.ts).
-   Quick capture on glass (data-glass) is frosted the same, over the Mac's own blur cut to each one's shape
-   (windows/box.tsx). Stickies and a note's window sit on see-through windows: there the fill stays whole. So does it under
-   Reduce Transparency, an imported light theme or a sticky's solid look (data-solid), and in Brutal. */
+   Quick capture, stickies and a note's window sit on see-through windows, where the card's words showed sharp
+   through a frosted menu's fill (quick capture's Block menu over a table, 15 Nov): text over text is never shown, so
+   there the fill stays whole. So does it under Reduce Transparency, an imported light theme or
+   a sticky's solid look (data-solid), and in Brutal. */
 :root {
   --mf-frost-fill: 88%;
   /* Quiet words on frost come half way to the main ink, Apple's vibrancy rule: what shows through the fill takes
@@ -4002,7 +4002,7 @@ textarea[data-talking]::selection {
   --mf-frost-quiet: color-mix(in oklab, var(--muted-foreground) 42%, var(--popover-foreground));
 }
 @media (prefers-reduced-transparency: no-preference) {
-  :root:is([data-dim='veil'], [data-overhang][data-glass]):not([data-solid]):not([data-style='brutal']) :is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off]) {
+  :root[data-dim='veil']:not([data-solid]):not([data-style='brutal']) :is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off]) {
     background-color: color-mix(in oklab, var(--popover) var(--mf-frost-fill), transparent);
     -webkit-backdrop-filter: blur(24px) saturate(1.6);
     backdrop-filter: blur(24px) saturate(1.6);

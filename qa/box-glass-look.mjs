@@ -114,10 +114,10 @@ try {
     check(`${theme} pill: the round controls' icons 4.5:1`, button >= 4.5, button.toFixed(2))
     await compose(`${theme}-pill`, pill?.shapes ?? [], dark)
 
-    // A "/" list hangs below the pill: on the same glass.
+    // A "/" list hangs below the pill, opaque: the card's words showed sharp through a frosted one (main.css, Frost).
     await page.click(EDITOR); await page.keyboard.type('/'); await wait(900)
     const listed = await glass()
-    // The list's own surface: the one frosted panel inside the popup the "/" opened.
+    // The list's own surface: the one panel inside the popup the "/" opened.
     const list = await page.evaluate(() => {
       const el = [...document.querySelectorAll('.tiptap-suggestion-popup :is(.mf-frost, .tiptap-slash-menu, .tiptap-emoji-list)')].find((one) => one.getBoundingClientRect().height > 20)
       if (!el) return { none: document.querySelector('.tiptap-suggestion-popup')?.innerHTML.slice(0, 300) ?? 'no popup' }
@@ -127,7 +127,8 @@ try {
       return { box: [r.left, r.top, r.width, r.height].map((n) => Math.round(n)), fill: s.backgroundColor, blur: s.backdropFilter, off: el.hasAttribute('data-frost-off'), cls: el.className.slice(0, 60), chain, frosted }
     })
     const under = !!list?.box && !!listed && listed.shapes.some((g) => g.slice(0, 4).every((n, i) => Math.abs(n - list.box[i]) <= 2))
-    check(`${theme}: the "/" list hangs on its own glass, frosted`, under && /blur/.test(list.blur), JSON.stringify({ list, shapes: listed?.shapes }))
+    const seeThrough = /\/\s*0?\.\d|rgba\([^)]*,\s*0?\.\d+\)/.test(list?.fill ?? '')
+    check(`${theme}: the "/" list is opaque, no blur and no glass under it`, !!list?.box && !seeThrough && list.blur === 'none' && !under, JSON.stringify({ list, shapes: listed?.shapes }))
     await compose(`${theme}-pill-list`, listed?.shapes ?? [], dark)
     await page.keyboard.press('Escape'); await wait(300)
     await page.keyboard.press('Backspace'); await wait(500)
