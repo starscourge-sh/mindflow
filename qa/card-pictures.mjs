@@ -1,7 +1,8 @@
 // A link card's picture and icon are kept with the notes, not left on the site:
 // a new card from quick capture holds haligtree:// addresses whose files are in
 // the data folder, with the site's addresses beside them; an old card holding
-// the site's addresses keeps copies after an import pass; and with the network
+// the site's addresses, opened, keeps copies written beside the notes and is
+// itself left as it was; and with the network
 // gone the card still shows its picture. Only pictures under the size cap, with
 // a picture's content type, from outside this machine's network, are kept.
 // The site is faked in the main process's fetch at an address on the internet
@@ -85,19 +86,33 @@ try {
   const kept = files()
   check('both files are in the data folder', [card?.image, card?.icon].every((src) => src && kept.includes(src.split('/').pop())))
 
-  // 2. An old card holding the site's addresses keeps copies once an import pass runs.
+  // 2. An old card holding the site's addresses: opened, its picture and icon are kept with the book the first time it
+  // shows, and where each copy is, is written beside the notes (lib/card-pictures.ts, keptOf and remember); the note
+  // itself is never rewritten by opening it (819b98062).
   const old = await h.evaluate((site) => window.api.captures.create({ kind: 'note', title: 'Old card', body: { type: 'doc', content: [{ type: 'bookmark', attrs: { href: `${site}/old`, title: 'Old card', description: '', image: `${site}/old.png`, icon: `${site}/oldicon.png`, site: 'old.example', id: 'old-card', loading: false } }, { type: 'paragraph' }] } }), SITE)
-  await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().forEach((win) => win.webContents.send('imports:ready')))
-  let was = null
+  // Drawn the first time, the card shows the site's own picture, and keeps its copy once that has come: the page asks
+  // the made-up site too, so it is answered here as main's fetch is, and a test run asks the internet for nothing.
+  await electron.evaluate(({ session, net }, [site, pictures]) => session.defaultSession.protocol.handle('https', (request) => {
+    if (!request.url.startsWith(site + '/')) return net.fetch(request, { bypassCustomProtocolHandlers: true })
+    const body = pictures[new URL(request.url).pathname]
+    return body ? new Response(Buffer.from(body, 'base64'), { headers: { 'content-type': 'image/png' } }) : new Response('', { status: 404 })
+  }), [SITE, pictures])
+  await send('capture', old)
+  // What the window wrote beside the notes, for this book: the site's address to the copy's.
+  const recorded = () => h.evaluate(() => { try { return JSON.parse(localStorage.getItem(`card-pictures ${window.api.book?.() ?? ''}`) ?? '{}') } catch { return {} } })
+  let kept2 = {}
   for (let i = 0; i < 40; i++) {
-    was = await h.evaluate(async (id) => (await window.api.captures.get(id))?.body?.content?.[0]?.attrs, old)
-    if (/^haligtree:/.test(was?.image ?? '')) break
+    kept2 = await recorded()
+    if (/^haligtree:/.test(kept2[`${SITE}/old.png`] ?? '') && /^haligtree:/.test(kept2[`${SITE}/oldicon.png`] ?? '')) break
     await h.waitForTimeout(250)
   }
-  check('an old card\'s picture is kept as haligtree://', /^haligtree:\/\/assets\//.test(was?.image ?? ''), was?.image)
-  check('an old card\'s icon is kept as haligtree://', /^haligtree:\/\/assets\//.test(was?.icon ?? ''), was?.icon)
-  check('the old card keeps the site\'s addresses beside them', was?.imageSource === `${SITE}/old.png` && was?.iconSource === `${SITE}/oldicon.png`, `${was?.imageSource} ${was?.iconSource}`)
-  check('the old card\'s files are in the data folder', [was?.image, was?.icon].every((src) => src && files().includes(src.split('/').pop())))
+  const was = await h.evaluate(async (id) => (await window.api.captures.get(id))?.body?.content?.[0]?.attrs, old)
+  check('an old card\'s picture is kept: its copy, a haligtree:// address, written beside the notes', /^haligtree:\/\/assets\/[a-f0-9]{64}\.png$/.test(kept2[`${SITE}/old.png`] ?? ''), kept2[`${SITE}/old.png`])
+  check('an old card\'s icon is kept the same way', /^haligtree:\/\/assets\/[a-f0-9]{64}\.png$/.test(kept2[`${SITE}/oldicon.png`] ?? ''), kept2[`${SITE}/oldicon.png`])
+  check('the old card itself is not rewritten: the site\'s addresses as it had them', was?.image === `${SITE}/old.png` && was?.icon === `${SITE}/oldicon.png`, `${was?.image} ${was?.icon}`)
+  check('the old card\'s kept files are in the data folder', [kept2[`${SITE}/old.png`], kept2[`${SITE}/oldicon.png`]].every((src) => src && files().includes(src.split('/').pop())))
+  // Left, so the next opening draws it anew, from its kept copy.
+  await c.go('home')
 
   // 3. The guards: too big, not a picture, inside the network, offline.
   const guarded = await h.evaluate((site) => Promise.all([
