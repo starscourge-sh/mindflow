@@ -8,8 +8,9 @@ import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
-// WIDTH and HEIGHT try other window sizes (the user's was about 1830 by 1050).
-const c = await sandbox({ width: Number(process.env.WIDTH ?? 1600), height: Number(process.env.HEIGHT ?? 900) })
+// 1400 wide by default: the page then fills under 60% of the window and under 80% of its pane, as in the user's
+// screenshot (a wider list beside it), which is when it was taken for a list. WIDTH and HEIGHT try other sizes.
+const c = await sandbox({ width: Number(process.env.WIDTH ?? 1400), height: Number(process.env.HEIGHT ?? 900) })
 const { h, v, send } = c
 const card = async () => {
   await h.waitForSelector('[data-note-preview]', { timeout: 4000 }).catch(() => null)
