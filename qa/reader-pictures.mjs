@@ -84,6 +84,9 @@ try {
   // The user's setup: pictures in notes as postcards, on a black border, in the dark.
   await v('settings:set', { sounds: false, hintRate: 0, motion: false, postcards: true, postcardBorder: 'black' })
   await look('dark')
+  // From Home, so each page opens in a reader of its own: a book that last stood in the reader opens there, and its
+  // page was asked for before this stand-in site was in place.
+  await go('home')
   await h.evaluate(() => {
     const ink = document.createElement('canvas').getContext('2d', { willReadFrequently: true })
     window.__rgb = (fill) => { ink.fillStyle = '#000'; ink.fillRect(0, 0, 1, 1); ink.fillStyle = fill; ink.fillRect(0, 0, 1, 1); return [...ink.getImageData(0, 0, 1, 1).data].slice(0, 3) }
