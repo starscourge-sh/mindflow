@@ -68,20 +68,25 @@ const shims = (): Plugin => ({
 })
 
 /**
- * Two libraries main needs only now and then, loaded the first time they are
- * asked for (src/main/lazy says how) instead of as Haligtree opens. Only main's
- * own imports of them are swapped; the stand-ins import the real ones.
+ * Libraries main needs only now and then, loaded the first time they are
+ * asked for (src/main/lazy says how) instead of as Haligtree opens: each one
+ * required as main starts held it up before any window could be made. Only
+ * main's own imports of them are swapped; the stand-ins import the real ones.
  */
-const LAZY: { importer: string; asks: string; use: string }[] = [
-  { importer: '/src/main/task-words.ts', asks: 'chrono-node', use: 'chrono.ts' },
-  { importer: '/src/main/import.ts', asks: '@tiptap/extension-emoji', use: 'emoji.ts' }
-]
+const LAZY: Record<string, string> = {
+  'chrono-node': 'chrono.ts',
+  '@tiptap/extension-emoji': 'emoji.ts',
+  linkedom: 'linkedom.ts',
+  zod: 'zod.ts',
+  entities: 'entities.ts',
+  'image-size': 'image-size.ts',
+  'image-size/fromFile': 'image-size.ts'
+}
 const lazy = (): Plugin => ({
   name: 'haligtree-lazy',
   enforce: 'pre',
   resolveId(source, importer) {
-    const one = importer && LAZY.find((it) => it.asks === source && importer.endsWith(it.importer))
-    return one ? resolve('src/main/lazy', one.use) : null
+    return Object.hasOwn(LAZY, source) && importer?.includes('/src/main/') && !importer.includes('/src/main/lazy/') ? resolve('src/main/lazy', LAZY[source]) : null
   }
 })
 
@@ -93,8 +98,9 @@ const named = (): Plugin => ({ name: 'haligtree-named', transformIndexHtml: { or
 const PAGES = ['index', 'drawing', 'home', 'note', 'nudge', 'meeting', 'pill', 'sticky', 'look', 'menu', 'scene']
 
 export default defineConfig({
-  // chrono-node left to the stand-in, which requires it itself when first asked (src/main/lazy/chrono.ts).
-  main: { plugins: [lazy()], build: { externalizeDeps: { exclude: ['chrono-node'] } } },
+  // The lazy libraries are left to their stand-ins, each requiring its library itself when first asked
+  // (src/main/lazy): a dependency named external is never shown to the plugin, and stayed required as main starts.
+  main: { plugins: [lazy()], build: { externalizeDeps: { exclude: Object.keys(LAZY) } } },
   preload: {},
   renderer: {
     // Run from a git worktree whose node_modules is a link to the main checkout's, the fonts and other files a page

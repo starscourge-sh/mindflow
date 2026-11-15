@@ -58,6 +58,7 @@ import { alreadyImported, captureText, changed, rescueDrawing, database, shutDat
 import { isPrivateFile, looksPrivate } from './import'
 import { warmChrono } from './lazy/chrono'
 import { warmEmoji } from './lazy/emoji'
+import { warmZod } from './lazy/zod'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
@@ -7153,9 +7154,9 @@ app.whenReady().then(() => {
     createTray()
     iconReady = true
     wearIcon()
-    // Dates and emoji (src/main/lazy), read a moment later while nothing waits, so their first use is instant; the
-    // Mac's spellchecker woken with them (spell-check.ts).
-    setTimeout(() => (warmChrono(), void warmEmoji(), wakeSpelling()), 1000)
+    // Dates, emoji and the check of a save (src/main/lazy), read a moment later while nothing waits, so their first
+    // use is instant; the Mac's spellchecker woken with them (spell-check.ts).
+    setTimeout(() => (warmChrono(), void warmEmoji(), warmZod(), wakeSpelling()), 1000)
   }
   if (!startedAtLogin || firstRun() || process.argv.includes('--show-home')) {
     openHome()

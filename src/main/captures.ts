@@ -173,7 +173,7 @@ export function shutDatabase(): void {
  * decision and an experiment a Check back, a goal made from Goals.
  */
 const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'checkback'] as const
-const Patch = z.object({
+const makePatch = () => z.object({
   // A title past 500 letters is cut at a word: the words are all in the body.
   title: z.string().transform((title) => fittedTitle(title) ?? title).optional(),
   kind: z.enum(KINDS).optional(),
@@ -195,6 +195,9 @@ const Patch = z.object({
   /** Tags the box was told to keep as plain text: "#bit" that does not make it private, "#book" that is not a book. */
   plainTags: z.array(z.string()).optional()
 })
+let madePatch: ReturnType<typeof makePatch> | undefined
+/** Made the first time a save is checked, not as Haligtree opens (src/main/lazy/zod.ts). */
+const Patch = (): ReturnType<typeof makePatch> => (madePatch ??= makePatch())
 
 /**
  * The words stored now, when they are no longer the `base` a save was made
@@ -535,7 +538,7 @@ export function registerCaptures(): void {
   })
 
   ipcMain.handle('captures:create', (event, raw: unknown) => {
-    const patch = Patch.parse(raw)
+    const patch = Patch().parse(raw)
     if (patch.body !== undefined) patch.body = foldMeeting(patch.body)
     // `Author:: Le Guin` on a line of its own: kept as a property, out of the words.
     const taken = patch.body !== undefined && patch.markdown === undefined ? takeBodyProperties(patch.body) : { body: patch.body, found: [] }
@@ -648,7 +651,7 @@ export function registerCaptures(): void {
    * copy) comes after this has answered. A 4 MB note's save held the app 120 to 150 ms before (12 Nov).
    */
   function saveOne(sender: Electron.WebContents, id: unknown, raw: unknown, tell: boolean, now = false): SaveResult {
-    const patch = Patch.parse(raw)
+    const patch = Patch().parse(raw)
     const key = String(id)
     // A meeting in the shape it had before 6 Nov (an old version put back, a copy): kept the new way, every word in it.
     if (patch.body !== undefined) patch.body = foldMeeting(patch.body)
