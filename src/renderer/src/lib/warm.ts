@@ -8,9 +8,19 @@
 export function warmLater(work: () => void, options?: IdleRequestOptions): () => void {
   let idle = 0
   let watch: MutationObserver | undefined
-  const ask = (): void => void (idle = requestIdleCallback(go, options))
-  function go(): void {
+  // Its time is counted from the first ask (and again from the welcome's going), never from each ask after a moment
+  // too short: asked again on every sliver of a long scroll, it would never reach its time.
+  let from = performance.now()
+  const ask = (): void => {
+    const timeout = options?.timeout === undefined ? undefined : Math.max(1, options.timeout - (performance.now() - from))
+    idle = requestIdleCallback(go, timeout === undefined ? undefined : { timeout })
+  }
+  function go(deadline: IdleDeadline): void {
     idle = 0
+    // Only in a stretch with nothing being drawn (40ms or more of it; the browser gives 50 at most), or once its time
+    // is up: between the frames of a scroll there are slivers of 1 to 4ms, and the paper's shaders compiled in one of
+    // them held the page 85ms, a hitch in the first fling of a session (15 Nov 2026, from Chromium traces of it).
+    if (!deadline.didTimeout && deadline.timeRemaining() < 40) return ask()
     const welcome = document.querySelector('.mf-welcome')
     if (!welcome?.parentNode) return work()
     // Asked again once it has gone: the welcome taken off the page.
@@ -18,6 +28,7 @@ export function warmLater(work: () => void, options?: IdleRequestOptions): () =>
       if (welcome.isConnected) return
       watch?.disconnect()
       watch = undefined
+      from = performance.now()
       ask()
     })
     watch.observe(welcome.parentNode, { childList: true })
