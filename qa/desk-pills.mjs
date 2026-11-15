@@ -17,11 +17,16 @@
 // - the pill beside the session bubble and a notice: the same type, edge and fill (numbers, and frames with QA_SHOTS).
 //
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [QA_SHOTS=<dir>] node qa/desk-pills.mjs
-import { writeFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
+// The stickies left by a build before pills: the seeded book's stickies.json with any "pill" (and the "touched" that came
+// with pills) a later build wrote taken out. The example book of 15 Nov 17:1x was seeded by a build with pills and left its
+// goal card folded, so the first step read the seed's own choice, not a file written before pills.
+const left = process.env.QA_DATA && join(process.env.QA_DATA, 'sandbox', 'stickies.json')
+if (left && existsSync(left)) writeFileSync(left, JSON.stringify(JSON.parse(readFileSync(left, 'utf8')).map(({ pill, touched, ...one }) => one)))
 
 const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
