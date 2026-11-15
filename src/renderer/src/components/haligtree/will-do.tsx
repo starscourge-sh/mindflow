@@ -4,6 +4,7 @@ import { X } from 'lucide-react'
 import type { BoxPlan, BoxToken } from '@/lib/box-tokens'
 import { Kbd, Tip } from './ui'
 import { loud } from '@/lib/loud'
+import { quoted } from '../../../../main/clip'
 
 type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; notTask?: true; card?: true; info?: true }
 
@@ -13,7 +14,9 @@ type Item = { key: string; effect: string; color: string; tokens: BoxToken[]; no
  * words as plain text, as a click on them does. A "+name" that matches
  * nothing offers to start that question, or to leave the words be.
  */
-export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, onUncard, orQuestion, asks = false }: {
+export function WillDo({ plan, joins, list, onSort, onKeep, onNotTask, onNewQuestion, onUncard, orQuestion, asks = false }: {
+  /** The open task of the same name it will join instead of being made twice, as the main window's notice says after. */
+  joins?: string | null
   /** One line that asks something: it will be kept as a question; its × keeps it a note. */
   asks?: boolean
   /** It will be a task and a line asks something: "or a question" makes it one instead. */
@@ -32,6 +35,8 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
 }): React.JSX.Element | null {
   if (!plan) return null
   const items: Item[] = []
+  // Said for a task by its wording or by its tag alike.
+  const joined = joins ? `Join your task ${quoted(joins, 48)}, already on your list` : null
   // A list's lines each read for their own day: said once for them all.
   const dates = list ? plan.tokens.filter((one) => one.kind === 'date' && one.day) : []
   for (const token of plan.tokens) {
@@ -51,9 +56,10 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
     if (token.kind === 'signature') continue
     // A list makes every line a task already, each with its own tags.
     if ((list || onSort) && token.kind === 'task-tag') continue
-    const same = items.find((item) => item.effect === token.effect)
+    const effect = joined && token.kind === 'task-tag' ? joined : token.effect
+    const same = items.find((item) => item.effect === effect)
     if (same) same.tokens.push(token)
-    else items.push({ key: token.id, effect: token.effect, color: token.color, tokens: [token] })
+    else items.push({ key: token.id, effect, color: token.color, tokens: [token] })
   }
   // A task by its wording, with no tag making it one: it still goes to the tasks.
   // A list: a task a line, said with the count; its × keeps it all one note.
@@ -61,7 +67,7 @@ export function WillDo({ plan, list, onSort, onKeep, onNotTask, onNewQuestion, o
   // A page of mixed lines: kept as a note, then sorted line by line, never one task of it all.
   else if (onSort) items.unshift({ key: 'task', effect: 'Keep the page, then pick what each line becomes', color: 'orange', tokens: [], notTask: true })
   else if (plan.task && plan.kind === 'todo' && !plan.tokens.some((one) => one.kind === 'task-tag'))
-    items.unshift({ key: 'task', effect: 'Add to your tasks', color: 'green', tokens: [], notTask: true })
+    items.unshift({ key: 'task', effect: joined ?? 'Add to your tasks', color: 'green', tokens: [], notTask: true })
   else if (asks) items.unshift({ key: 'question', effect: 'Keep as a question in Writing', color: 'purple', tokens: [], notTask: true })
   // A link that already made its card: kept as that link, or × for the plain address.
   if (plan.card && plan.url) items.push({ key: 'card', effect: `Save as a link from ${plan.url.hostname.replace(/^www\./, '')}`, color: 'blue', tokens: [], card: true })

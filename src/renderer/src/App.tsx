@@ -765,6 +765,13 @@ export default function App(): React.JSX.Element {
   // a line named like a task you have joins it, and the notice says so.
   const listed = !editing && kind === 'todo' ? boxList(editorRef.current) : null
   boxKind.todo = !editing && kind === 'todo'
+  // A task named as one already on your list joins it (main's addTask): the "This will" line says so before the
+  // send, as the main window's notice says it after.
+  const [twin, setTwin] = useState<string | null>(null)
+  useEffect(() => {
+    if (editing || !(kind === 'todo' || plan?.task) || listed || !first) return setTwin(null)
+    void haligtree.taskTwin(body, plan?.taskPlain).then(setTwin)
+  }, [first, editing, kind, plan?.task, !!listed, plan?.taskPlain.length])
 
   // "+name" on the first line: a clue for a question you are holding, or a
   // log for a goal, not a capture. The open questions and goals, to find
@@ -1806,7 +1813,7 @@ export default function App(): React.JSX.Element {
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
           // Undone, the capture goes too and the box comes back as it was sent.
-          await makeTask({ capture: id, plain: plan?.taskPlain, whole: true }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), onUndo: () => (void haligtree.unlift('capture', id), bringBack(sent)) })
+          await makeTask({ capture: id, plain: plan?.taskPlain, whole: true }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), box: more ? 'here' : 'away', onUndo: () => (void haligtree.unlift('capture', id), bringBack(sent)) })
         } else if (!document.documentElement.hasAttribute('data-welcome-ph')) {
           // A plain note takes back the same way as every other send: the
           // capture goes, and the box comes back as it was sent.
@@ -2428,6 +2435,7 @@ export default function App(): React.JSX.Element {
             {!editing && !/^(start|focus|timer)$/i.test(boxText.trim()) && (
               <WillDo
                 plan={plan}
+                joins={twin}
                 orQuestion={plan?.kind === 'todo' && askedLine(textOf(body)) ? () => keepAsQuestion(askedLine(textOf(body))!) : undefined}
                 asks={!!loneQuestion(plan, boxText)}
                 list={listed && !listed.mixed ? tasksSaid(listed.list) : null}
@@ -2495,7 +2503,7 @@ export default function App(): React.JSX.Element {
                   </Button>
                 </Tip>
               )}
-              {like && !plus && !lesson && !listed && (
+              {like && !plus && !lesson && !listed && !twin && (
                 <Tip label={`Open it: ${like.title}`}>
                 <button
                   type="button"

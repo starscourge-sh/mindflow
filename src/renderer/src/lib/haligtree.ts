@@ -530,6 +530,8 @@ export const haligtree = {
   undoRenameTag: () => call<boolean>('tag:rename:undo'),
   remind: (table: 'captures' | 'nuggets', id: string, at: string | null) => call('remind', table, id, at),
   similar: (text: string) => call<{ id: string; number: number; title: string; score: number } | null>('similar', text),
+  /** The open task a note sent as a task would join instead of being made twice (by its name), or null. */
+  taskTwin: (doc: unknown, plain?: { from: number; text: string }[]) => call<string | null>('taskTwin', doc, plain),
   sessions: (taskId: string) => call<Session[]>('sessions', taskId),
   spent: () => call<Spent>('sessions:spent'),
   startSession: (taskId: string, goal?: string, plannedMs?: number | null) => call<string>('session:start', taskId, goal, plannedMs),

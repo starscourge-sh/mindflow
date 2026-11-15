@@ -1,4 +1,4 @@
-import { chime, tear } from './sound'
+import { chime, tear, type Cue } from './sound'
 import { unquoted } from '../../../main/clip'
 import { binned, seeTheBin } from './to-bin'
 import { binFlight } from './fly-home'
@@ -32,7 +32,10 @@ type TaskSource =
 export async function makeTask(
   from: TaskSource,
   said: string | ((made: Made) => string | Promise<string>) = 'Now a task',
-  { onUndo, quiet = false }: { onUndo?: () => void; /** Made without a word: something else on screen already shows it. */ quiet?: boolean } = {}
+  { onUndo, quiet = false, box }: { onUndo?: () => void; /** Made without a word: something else on screen already shows it. */ quiet?: boolean
+    /** Sent from quick capture, whose send sound answered it: one sound, not two. 'away': the box went as it sent, so the
+     * main window says it as well, with its own Undo, as a list made from the box is. */
+    box?: 'here' | 'away' } = {}
 ): Promise<Made | null> {
   const [got, links] =
     'capture' in from ? [await flying(from.capture, 'task', () => haligtree.toTask(from.capture, from.plain, from.whole)), [from.capture]]
@@ -61,12 +64,15 @@ export async function makeTask(
   // A list: a task a line, one notice and one Undo for every one.
   const all = [made, ...(made.also ?? [])]
   const joined = all.filter((one) => one.existed).length
-  chime(made.also?.length ? 'promote' : made.existed ? 'nope' : 'noted')
+  if (!box) chime(madeCue(all))
   const words = made.said ? `Made ${made.said}${joinedSaid(joined)}` : taskSaid(made, typeof said === 'function' ? await said(made) : said)
   toast(words, () => void Promise.all(all.map((one) => haligtree.unmakeTask(one.id, one.existed, links, reopen))).then(() => onUndo?.()), 'success',
     made.also?.length ? undefined : { label: 'Open', key: 'O', run: () => window.api.openInHome('task', made.id) }, made.also?.length ? undefined : { type: 'task', id: made.id })
+  if (box === 'away') window.api.sayInHome({ text: words, undo: all.map((one) => ({ id: one.id, existed: one.existed, links, reopen })), open: made.also?.length ? null : made.id } satisfies Said)
   return made
 }
+/** The one sound for tasks made, from every place: many ring; one knocks, or says no when it joined one already there. */
+const madeCue = (all: { existed: boolean }[]): Cue => (all.length > 1 ? 'promote' : all[0]?.existed ? 'nope' : 'noted')
 /** ". 2 were already on your list, so they joined those tasks", or nothing. */
 const joinedSaid = (joined: number): string =>
   joined ? `. ${plural(joined, 'was already on your list, so it joined that task', 'were already on your list, so they joined those tasks')}` : ''
@@ -96,7 +102,7 @@ export async function makeListTasks(list: ListTask[], { today = false, onUndo, a
   const joined = made.filter((one) => one.existed).length
   const fresh = new Set(made.filter((one) => !one.existed).map((one) => one.id))
   const undated = (await haligtree.tasks()).filter((task) => fresh.has(task.id) && task.status === 'open' && !task.waitingOn && !task.recurrence && placed(task) === null && !bucket(task)).length
-  chime(made.length === 1 ? 'noted' : 'promote')
+  chime(madeCue(made))
   const said: Said = { text: `Made ${tasksSaid(list)}${joinedSaid(joined)}${undatedSaid(undated, fresh.size)}`, undo: made.map((one) => ({ id: one.id, existed: one.existed })), open: undated ? 'upcoming' : made.length === 1 ? made[0].id : null }
   // Said in the box too, where its Undo also puts the list back in the box.
   if (away) window.api.sayInHome(said)
@@ -109,10 +115,10 @@ const undatedSaid = (undated: number, of: number): string =>
     : `. ${num(undated)} with no date ${undated === 1 ? 'is' : 'are'} in Upcoming, under “No date”`
 
 /** A list's notice, sent as data so another window can say it: its words, what Undo takes back, and what “Show them” or “Open” opens. */
-export type Said = { text: string; undo: { id: string; existed: boolean }[]; open: 'upcoming' | string | null }
+export type Said = { text: string; undo: { id: string; existed: boolean; /** The notes it came from: unlinked, and back in the Inbox. */ links?: string[]; reopen?: string[] }[]; open: 'upcoming' | string | null }
 function say(said: Said, onUndo?: () => void): void {
   toast(said.text,
-    () => void Promise.all(said.undo.map((one) => haligtree.unmakeTask(one.id, one.existed, [], []))).then(() => onUndo?.()),
+    () => void Promise.all(said.undo.map((one) => haligtree.unmakeTask(one.id, one.existed, one.links ?? [], one.reopen ?? []))).then(() => onUndo?.()),
     'success',
     said.open === 'upcoming' ? { label: 'Show them', key: 'S', run: () => window.api.openInHome('view', 'upcoming', 'No date') }
       : said.open ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', said.open!) } : undefined)
@@ -183,8 +189,7 @@ export async function makeTasks(notes: TaskNote[]): Promise<number> {
   const lead = made.length === 1 && made[0].made.said ? `Made ${made[0].made.said}${joinedSaid(joined)}`
     : all.length === 1 ? taskSaid(made[0].made, 'Now a task')
     : `${num(all.length)} tasks made${steps ? `, ${plural(steps, 'step')}` : ''}${joined ? ` (${num(joined)} joined ${joined === 1 ? 'one' : 'ones'} with the same name)` : ''}`
-  // Bigger runs sound bigger: two knocks for one, the ringing "kept" for many.
-  chime(all.length === 1 ? 'noted' : 'promote')
+  chime(madeCue(all.map(({ one }) => one)))
   const tail = [skipped, unsorted && unsorted[0].toUpperCase() + unsorted.slice(1)].filter(Boolean).join('. ')
   toast(tail ? `${lead}. ${tail}` : lead,
     () => void Promise.all(all.map(({ one, note, reopen }) => haligtree.unmakeTask(one.id, one.existed, [note], reopen))),

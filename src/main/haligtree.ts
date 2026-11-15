@@ -1088,11 +1088,10 @@ const carryBody = (task: Made, captureId: string): void => {
 export type Made = { id: string; number: number; existed: boolean }
 
 /**
- * A task from a line of text. The same task twice is one task: an open one
- * with the same name is returned instead, and what this one came from is
- * linked to it, so nothing is lost and nothing is doubled.
+ * A task written as these words: its parts read, its name, and the open task of that name it joins instead of being
+ * made twice. Quick capture asks it before a send (`taskTwin`), so its "This will" line says what this will do.
  */
-function addTask(text: string, origin: string | null = null, today = false, plain: { from: number; to: number }[] = []): Made {
+function taskOf(text: string, plain: { from: number; to: number }[] = []) {
   const db = database()
   const task = readTask(text, new Date(), plain)
   // A #word at the front that is no tag in use and runs on into the sentence is its first word.
@@ -1105,11 +1104,29 @@ function addTask(text: string, origin: string | null = null, today = false, plai
   const said = leadingTag(task.title || text, inUse)
   const fitted = fittedTitle(said)
   const title = fitted ?? said
-  const notes = fitted ? JSON.stringify({ type: 'doc', content: text.trim().split('\n').map((line) => (line.trim() ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' })) }) : null
   // The same name with no date or repeat of its own is the same task; one
   // that brings a date or a repeat is meant as a new one.
   const twin = task.due || task.recurrence || task.deadline || task.plan || task.snooze ? undefined
-    : (db.prepare("select id, number from tasks where status = 'open' and lower(trim(title)) = lower(trim(?))").get(title) as { id: string; number: number } | undefined)
+    : (db.prepare("select id, number, title from tasks where status = 'open' and lower(trim(title)) = lower(trim(?))").get(title) as { id: string; number: number; title: string } | undefined)
+  return { task, fitted, title, twin }
+}
+/** Words the box kept as plain text in a capture's name, found where they stand in it now, or wherever they moved to. */
+const keptIn = (title: string, plain?: { from: number; text: string }[]): { from: number; to: number }[] =>
+  (Array.isArray(plain) ? plain : []).flatMap((one) => {
+    if (typeof one?.text !== 'string' || !one.text) return []
+    const from = title.slice(one.from, one.from + one.text.length) === one.text ? one.from : title.indexOf(one.text)
+    return from < 0 ? [] : [{ from, to: from + one.text.length }]
+  })
+
+/**
+ * A task from a line of text. The same task twice is one task: an open one
+ * with the same name is returned instead, and what this one came from is
+ * linked to it, so nothing is lost and nothing is doubled.
+ */
+function addTask(text: string, origin: string | null = null, today = false, plain: { from: number; to: number }[] = []): Made {
+  const db = database()
+  const { task, fitted, title, twin } = taskOf(text, plain)
+  const notes = fitted ? JSON.stringify({ type: 'doc', content: text.trim().split('\n').map((line) => (line.trim() ? { type: 'paragraph', content: [{ type: 'text', text: line }] } : { type: 'paragraph' })) }) : null
   if (twin) {
     if (origin) db.prepare('insert or ignore into task_links (task_id, item_id) values (?, ?)').run(twin.id, origin)
     // A reminder word said again ("!alert") is still heard.
@@ -1119,7 +1136,7 @@ function addTask(text: string, origin: string | null = null, today = false, plai
     if (task.estimate) db.prepare('update tasks set estimate = ? where id = ?').run(task.estimate, twin.id)
     if (task.spans.some((span) => span.kind === 'priority'))
       db.prepare('update tasks set priority = ?, important = ? where id = ?').run(task.priority, [1, 2].includes(task.priority) ? 1 : 0, twin.id)
-    return { ...twin, existed: true }
+    return { id: twin.id, number: twin.number, existed: true }
   }
   const id = randomUUID()
   // Typed into Today with no date, it is for today, as in Todoist: all day,
@@ -1875,16 +1892,17 @@ export function registerHaligtree(): void {
       db.prepare("update captures set status = 'resolved' where id = ?").run(id)
       return write({ ...made[0], resolved: [id], also: made.slice(1).map(({ id, existed }) => ({ id, existed })), said: tasksSaid(shaped.list), steps: shaped.list.reduce((sum, line) => sum + line.steps.length, 0) })
     }
-    const kept = (Array.isArray(plain) ? plain : []).flatMap((one) => {
-      if (typeof one?.text !== 'string' || !one.text) return []
-      const from = capture.title.slice(one.from, one.from + one.text.length) === one.text ? one.from : capture.title.indexOf(one.text)
-      return from < 0 ? [] : [{ from, to: from + one.text.length }]
-    })
-    const task = addTask(capture.title, id, false, kept)
+    const task = addTask(capture.title, id, false, keptIn(capture.title, plain))
     land(task, capture.title)
     carryBody(task, id)
     db.prepare("update captures set status = 'resolved' where id = ?").run(id)
     return write({ ...task, resolved: [id] })
+  })
+  // Before quick capture sends a task, for its "This will" line: the open task it would join (toTask's own addTask),
+  // the note named as it will be (label(), its first line), or null.
+  handle('taskTwin', (doc: unknown, plain?: { from: number; text: string }[]) => {
+    const { title } = db.prepare("select label('', ?, 0) as title").get(JSON.stringify(doc ?? null)) as { title: string }
+    return (title && taskOf(title, keptIn(title, plain)).twin?.title) || null
   })
 
   // Not hidden until a later day, nor back from it today (Home has that one): a letter to future
@@ -4480,7 +4498,9 @@ export function registerHaligtree(): void {
     return new Set(Array.from({ length: Math.max(0, clean.length - 2) }, (_, index) => clean.slice(index, index + 3)))
   }
   handle('similar', (text: string) => {
-    if (text.trim().length < 12) return null
+    // Too short to share letters by chance: only the same words again count ("test 3" kept twice).
+    if (text.trim().length < 12)
+      return db.prepare(`select id, number, ${LABEL} as title, 1 as score from captures where status != 'discarded' and lower(trim(${LABEL})) = lower(trim(?)) limit 1`).get(text) ?? null
     const mine = grams(text)
     let best: { id: string; number: number; title: string; score: number } | null = null
     for (const row of db.prepare(`select id, number, ${LABEL} as title from captures where status != 'discarded'`).all() as { id: string; number: number; title: string }[]) {

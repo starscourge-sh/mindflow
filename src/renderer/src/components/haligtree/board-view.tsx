@@ -907,7 +907,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     const made = await haligtree.addTask(text, id).then(async (one) => (one.existed || (await haligtree.saveTask(one.id, { due })), one))
       .catch((error: unknown) => (refuse(`The task couldn't be added: ${whyFailed(error)}.`, 'error'), null))
     if (!made) return
-    chime('noted')
+    chime(made.existed ? 'nope' : 'noted')
     toast(taskSaid(made, `Task added for ${dayMonth(due)}`), made.existed ? undefined : () => void haligtree.unmakeTask(made.id, false, [], []).then(() => chime('undo')), 'success', undefined, { type: 'task', id: made.id })
   }
 

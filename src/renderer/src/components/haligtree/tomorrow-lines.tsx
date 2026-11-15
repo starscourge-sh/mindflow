@@ -140,8 +140,9 @@ export function TomorrowLines({ night, alsoAbove = false, label = 'A line for to
     if (!words) return null
     const one = await makeFor(words, day, link && { ...link, plain: link.plain.map(({ from, to }) => ({ from: from - text.indexOf(words), to: to - text.indexOf(words) })) })
     writeNight(night, [...readNight(night), { id: one.id, made: one.made }])
+    // On tonight's list either way: the same sound, and words when it was on your list already.
+    chime('bead')
     if (one.existed) toast('Already on your list, so it is on tonight’s too, not added twice', undefined, 'info')
-    else chime('bead')
     return one
   }
   // Words typed and not yet made a line are kept however the box goes: a page left, a sheet closed.
