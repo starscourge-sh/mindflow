@@ -113,9 +113,14 @@ try {
   await wait(300)
   check('filled by hand, the chip reads "(Lovelace 1843)"', (await chipTexts()).includes('(Lovelace 1843)'), JSON.stringify(await chipTexts()))
 
-  // 5. Offline: said as offline, the writing untouched.
+  // 5. The lookup did not answer (503) with the Mac online: said as that, never "offline" (the user's rule 1, 15 Nov 2026:
+  // "dont have catchall errors when you can be more specific"); then the same with the Mac offline (main's net says so).
   await cite('10.1000/offline'); await h.waitForSelector('.mf-citation[data-citation-missing]', { timeout: 6000 }); await wait(200)
-  check('no network says "you seem to be offline"', /you seem to be offline/.test(await toastText()), await toastText())
+  check('a lookup that did not answer says so, not "offline"', /did not answer just now/.test(await toastText()) && !/offline/.test(await toastText()), await toastText())
+  await c.electron.evaluate(({ net }) => { globalThis.__wasOnline = net.isOnline; net.isOnline = () => false })
+  await cite('10.1000/offline'); await wait(900)
+  check('with the Mac offline, it says the Mac is offline', /this Mac is offline/.test(await toastText()), await toastText())
+  await c.electron.evaluate(({ net }) => { net.isOnline = globalThis.__wasOnline })
 
   // 6. A DOI pasted alone on a line: "Make it a citation?".
   await ed((editor) => editor.chain().focus('end').run()); await h.keyboard.press('Enter'); await wait(150)
