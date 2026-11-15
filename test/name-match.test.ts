@@ -104,9 +104,12 @@ test('reading a 900,000 character note stays quick', () => {
   const line = 'The old world: there was one thing called Amazon SageMaker, notebooks, training, deployment, the protocol and more. '
   const lines = Array.from({ length: 8000 }, () => line)
   const many = new NameBook([...names, ...Array.from({ length: 1600 }, (_, i) => nameFrom(`m${i}`, `Topic ${i} of the book`)!)], everyday)
-  const started = performance.now()
+  // The CPU time this test itself used, not the wall clock: on a machine busy with other work the clock counted the
+  // waits for a core too, and the line failed at 1.5 to 4.5 s while the reading itself had not changed (16 Nov 2026).
+  const started = process.cpuUsage()
   many.find(lines)
-  const took = performance.now() - started
+  const used = process.cpuUsage(started)
+  const took = (used.user + used.system) / 1000
   assert.ok(lines.join('').length > 900_000)
   assert.ok(took < 1500, `took ${Math.round(took)}ms`)
 })
