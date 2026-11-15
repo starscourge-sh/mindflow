@@ -1137,7 +1137,7 @@ export const whyFailed = (error: unknown, button = false): string => {
 // silence (the user, 15 Nov 2026: "why is this hanging?").
 window.addEventListener('mf-read-failed', (event) => {
   const { error, again } = (event as CustomEvent<{ error: unknown; again: () => void }>).detail
-  toast(`This page could not be read: ${whyFailed(error, true)}`, undefined, 'warning', { label: 'Try again', key: 'T', run: again })
+  toast(`Part of this window could not be read: ${whyFailed(error, true)}`, undefined, 'warning', { label: 'Try again', key: 'T', run: again })
 })
 
 /** How a question is asked: the field it needs, a guess, its ways out, the word on its button, and what opened it. */
@@ -1344,7 +1344,8 @@ let lastEdit = 0
 // What a toast must never cover: an open dialog, sheet or menu, and the
 // footer (and its Keys panel) of a view that fills the window, like Read through,
 // and the composer pinned under a page, where you are typing.
-const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="sheet-content"],[data-slot="popover-content"],[data-composer]'
+// The page's hint line at its foot is stepped round too: a notice sat over its words, text over text (16 Nov 2026).
+const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="sheet-content"],[data-slot="popover-content"],[data-composer],[data-hint-line]'
 
 /**
  * Where the toast goes, clear of open panels: its usual place at the bottom
