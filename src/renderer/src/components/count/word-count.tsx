@@ -101,34 +101,41 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   useEffect(() => {
     if (!dom || !counts) return
     let frame = 0
-    const check = (): void => {
-      cancelAnimationFrame(frame)
-      frame = requestAnimationFrame(() => {
-        const top = pill.current?.getBoundingClientRect().top
-        let end = dom.getBoundingClientRect().bottom - parseFloat(getComputedStyle(dom).paddingBottom || "0")
-        // Whatever the page puts after the words (its mentions) counts as words too.
-        for (let next = dom.nextElementSibling; next; next = next.nextElementSibling) if (next.childElementCount) end = Math.max(end, next.getBoundingClientRect().bottom)
-        // And nothing else drawn there either (Related cards under a note):
-        // whatever sits under its two ends and middle must be bare page.
-        const at = pill.current?.getBoundingClientRect()
-        const bare = !!at && [at.left + 2, at.left + at.width / 2, at.right - 2].every((x) => {
-          const under = document.elementsFromPoint(x, at.top + at.height / 2).find((el) => el !== pill.current)
-          return !under?.closest('p, h1, h2, h3, h4, li, img, figure, button, a, input, textarea, [role="button"], [data-row]')
-        })
-        setClear(top !== undefined && end <= top - 4 && bare)
-      })
+    const look = (): void => {
+      frame = 0
+      const at = pill.current?.getBoundingClientRect()
+      if (!at) return setClear(false)
+      // The cheap test first, from where the words end: still below the pill (all through a long note), words are
+      // under it and nothing more is asked. Whatever the page puts after the words (its mentions) counts as words too.
+      let end = dom.getBoundingClientRect().bottom - parseFloat(getComputedStyle(dom).paddingBottom || "0")
+      for (let next = dom.nextElementSibling; next; next = next.nextElementSibling) if (next.childElementCount) end = Math.max(end, next.getBoundingClientRect().bottom)
+      if (end > at.top - 4) return setClear(false)
+      // Past the last line, nothing else drawn there either (Related cards under a note): whatever sits under its
+      // two ends and middle must be bare page. Only here is the page asked what is under a point.
+      setClear([at.left + 2, at.left + at.width / 2, at.right - 2].every((x) => {
+        const under = document.elementsFromPoint(x, at.top + at.height / 2).find((el) => el !== pill.current)
+        return !under?.closest('p, h1, h2, h3, h4, li, img, figure, button, a, input, textarea, [role="button"], [data-row]')
+      }))
+    }
+    // Once a frame at most, however many things asked in it.
+    const check = (): void => void (frame ||= requestAnimationFrame(look))
+    // Only a scroller that moves what is under the pill: one holding the note (any of them on the way up), or one
+    // inside the note's own scroller (a row of cards after the words). The sidebar or a list beside it scrolling
+    // asks nothing.
+    const scrolled = (event: Event): void => {
+      const target = event.target
+      if (target instanceof Node && (target.contains(dom) || !!dom.parentElement?.contains(target))) check()
     }
     check()
     // The mentions arrive after the words, and fold open and shut.
     const grows = new ResizeObserver(check)
     for (let next = dom.nextElementSibling; next; next = next.nextElementSibling) grows.observe(next)
-    // Any scroller on the way up may be the one that moves the words under it.
-    document.addEventListener("scroll", check, { capture: true, passive: true })
+    document.addEventListener("scroll", scrolled, { capture: true, passive: true })
     window.addEventListener("resize", check)
     return () => {
       cancelAnimationFrame(frame)
       grows.disconnect()
-      document.removeEventListener("scroll", check, { capture: true })
+      document.removeEventListener("scroll", scrolled, { capture: true })
       window.removeEventListener("resize", check)
     }
   }, [dom, counts])
@@ -176,13 +183,18 @@ function PickedCount({ dom, words, characters }: { dom: HTMLElement; words: numb
       const box = (scroller && scroller !== document.body ? scroller : dom).getBoundingClientRect()
       const page = dom.getBoundingClientRect()
       const bottom = Math.min(box.bottom, window.innerHeight)
-      setAt({ x: page.left + page.width / 2, y: bottom - 12 })
+      const x = page.left + page.width / 2
+      const y = bottom - 12
+      // Its own scroller scrolling leaves the foot where it was: then nothing is drawn again, frame after frame.
+      setAt((now) => (now?.x === x && now.y === y ? now : { x, y }))
     }
+    // Only a scroll that can move the foot: one of the scrollers holding the note. A list beside it asks nothing.
+    const scrolled = (event: Event): void => void (event.target instanceof Node && event.target.contains(dom) && place())
     place()
-    document.addEventListener("scroll", place, { capture: true, passive: true })
+    document.addEventListener("scroll", scrolled, { capture: true, passive: true })
     window.addEventListener("resize", place)
     return () => {
-      document.removeEventListener("scroll", place, { capture: true })
+      document.removeEventListener("scroll", scrolled, { capture: true })
       window.removeEventListener("resize", place)
     }
   }, [dom])
