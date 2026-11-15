@@ -537,6 +537,14 @@ function Chosen({ spot, snap, travel = spring.fast, className }: { spot: Spot | 
     rested((n) => n + 1)
   }
   const resizing = !!spot && restedOn.current === spot
+  // A choice more than a row and a half away is there at once: a long slide past every row between reads as lag.
+  // Worked out once per new spot, so a second render of the same one (StrictMode, a parent's) keeps the answer.
+  const jump = useRef<{ from: Spot | null; to: Spot | null; far: boolean }>({ from: null, to: null, far: false })
+  if (spot !== jump.current.to) {
+    const was = jump.current.to
+    jump.current = { from: was, to: spot, far: !!spot && !!was && (Math.abs(spot.top - was.top) > spot.height * 1.5 || Math.abs(spot.left - was.left) > spot.width * 1.5) }
+  }
+  const far = jump.current.far
   return (
     <AnimatePresence>
       {spot && (
@@ -548,7 +556,7 @@ function Chosen({ spot, snap, travel = spring.fast, className }: { spot: Spot | 
           initial={{ opacity: 0, ...at(spot) }}
           animate={{ opacity: 1, ...at(spot) }}
           exit={{ opacity: 0, transition: spring.fast.exit }}
-          transition={{ ...(now || resizing ? { duration: 0 } : travel), opacity: { duration: spring.fast.duration } }}
+          transition={{ ...(now || resizing || far ? { duration: 0 } : travel), opacity: { duration: spring.fast.duration } }}
           onAnimationComplete={rest}
         />
       )}
