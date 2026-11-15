@@ -210,7 +210,12 @@ try {
   if (shots) {
     await size(560, 400)
     const longest = [...listed].sort((a, b) => b.length - a.length)[0]
-    const whole = (selector) => h.evaluate((selector) => { const one = document.querySelector(selector); return one ? { text: one.innerText.trim(), whole: one.scrollWidth <= one.clientWidth + 1 && one.getBoundingClientRect().width > 0 } : null }, selector)
+    // Whole: neither it nor anything in it is cut short (a word cut with "…" is wider than the box that shows it).
+    const whole = (selector) => h.evaluate((selector) => {
+      const one = document.querySelector(selector)
+      const cut = (el) => el.clientWidth > 0 && el.scrollWidth > el.clientWidth + 1
+      return one ? { text: one.innerText.trim(), whole: one.getBoundingClientRect().width > 0 && !cut(one) && ![...one.querySelectorAll('*')].some(cut) } : null
+    }, selector)
     let back = null
     for (const name of [longest, 'Hamlet, Act 1, Scene 3']) {
       await h.evaluate((name) => window.dispatchEvent(new CustomEvent('haligtree:source', { detail: `medium:${name}` })), name)
