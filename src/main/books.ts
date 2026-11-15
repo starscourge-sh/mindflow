@@ -4,7 +4,9 @@ import { randomBytes, randomUUID } from 'crypto'
 import { existsSync, readFileSync, statSync } from 'fs'
 import { copyFile, cp, mkdir, readdir, readFile, rename, rm, writeFile } from 'fs/promises'
 import { DatabaseSync } from 'node:sqlite'
+import { Worker } from 'node:worker_threads'
 import { join } from 'path'
+import copyThread from './copy-worker?modulePath'
 
 import { atomically, changed, database } from './captures'
 import { dayKey } from './dates'
@@ -213,8 +215,33 @@ export async function nextImport(): Promise<{ what: 'vault' | 'files'; root?: st
 // --- backups of every book ------------------------------------------------------------------
 
 /**
+ * A whole copy of a book's file at `to` (`vacuum into`), written on a thread of its own (copy-worker.ts): made on
+ * main, the first start of each day held every window while the books were copied, the longest hold of that start
+ * on the user's book (qa/start-time.mjs, 16 Nov). Fails with SQLite's own words, as a copy made on main did.
+ */
+export function copyBook(from: string, to: string): Promise<void> {
+  // Written beside its name and renamed in once whole: Haligtree quit while a copy is under way leaves no half copy
+  // standing for the day (`clearCutCopies` takes it away at the next start).
+  const part = `${to}.${process.pid}.part`
+  return new Promise<void>((done, failed) => {
+    const thread = new Worker(copyThread, { workerData: { from, to: part }, name: 'haligtree-copy' })
+    thread.once('message', (fault: { message: string; code?: unknown } | null) => (fault ? failed(Object.assign(new Error(fault.message), { code: fault.code })) : done()))
+    thread.once('error', failed)
+    thread.once('exit', (code) => failed(new Error(`the copy stopped (its thread ended with code ${code})`)))
+  }).then(() => rename(part, to), (error) => rm(part, { force: true }).then(() => Promise.reject(error)))
+}
+
+/** Copies a quit cut short in a backup folder (never this run's): gone, so they never fill it. */
+export async function clearCutCopies(dir: string): Promise<void> {
+  for (const name of await readdir(dir)) {
+    const pid = /\.db\.(\d+)\.part$/.exec(name)?.[1]
+    if (pid && Number(pid) !== process.pid) await rm(join(dir, name), { force: true })
+  }
+}
+
+/**
  * Today's copy of each book not open in this run, by `vacuum into` from a
- * read-only connection, and only when the book has changed since its last
+ * read-only connection (`copyBook`), and only when the book has changed since its last
  * copy: a book left alone for a month is not opened at all.
  */
 export async function backUpOthers(dirFor: (id: string | null) => string): Promise<void> {
@@ -227,6 +254,7 @@ export async function backUpOthers(dirFor: (id: string | null) => string): Promi
     const today = join(dir, `haligtree-${dayKey()}.db`)
     if (existsSync(today)) continue
     await mkdir(dir, { recursive: true })
+    await clearCutCopies(dir)
     const copies = (await readdir(dir)).filter((name) => /^haligtree-\d{4}-\d{2}-\d{2}\.db$/.test(name)).sort()
     const latest = copies.at(-1)
     // Saves not yet folded into the file wait in its log, so the newer of the
@@ -236,15 +264,7 @@ export async function backUpOthers(dirFor: (id: string | null) => string): Promi
     const lastSave = Math.max(statSync(file).mtimeMs, existsSync(wal) && statSync(wal).size > 0 ? statSync(wal).mtimeMs : 0)
     const changedSince = !latest || lastSave > statSync(join(dir, latest)).mtimeMs
     if (!changedSince) continue
-    let other: DatabaseSync | null = null
-    try {
-      other = new DatabaseSync(file, { readOnly: true })
-      other.prepare('vacuum into ?').run(today)
-    } catch (error) {
-      console.error(`Backup of ${book.name} failed:`, error)
-    } finally {
-      other?.close()
-    }
+    await copyBook(file, today).catch((error) => console.error(`Backup of ${book.name} failed:`, error))
   }
 }
 

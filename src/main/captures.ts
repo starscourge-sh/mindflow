@@ -426,7 +426,7 @@ export function registerCaptures(): void {
   // A copy on every start, and a check each hour so a window left open for
   // days still gets one a day.
   // A failure is remembered there, and said once two in a row have failed.
-  const backUpNow = (): void => void busy(() => backUpWatched(db))
+  const backUpNow = (): void => void busy(() => backUpWatched())
   backUpNow()
   setInterval(backUpNow, 60 * 60 * 1000)
 

@@ -2,13 +2,12 @@ import { BrowserWindow, app } from 'electron'
 import { copyNew } from './copy-new'
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'fs'
 import { mkdir, readdir, rename, rm, stat, writeFile } from 'fs/promises'
-import type { DatabaseSync } from 'node:sqlite'
 import { homedir } from 'os'
 import { join } from 'path'
 
 import { database, setting } from './captures'
 import { dayKey } from './dates'
-import { backUpOthers } from './books'
+import { backUpOthers, clearCutCopies, copyBook } from './books'
 import { BOOK, SANDBOX, apart, readShelf, realRoot, writeShelf, type Shelf } from './sandbox'
 import { NOTE_KEY } from './name'
 
@@ -73,9 +72,9 @@ const tellMain = (reason: string | null): void => {
 }
 
 /** A backup run, remembered: the second failure in a row warns, and the first success after that says so. */
-export async function backUpWatched(db: DatabaseSync): Promise<void> {
+export async function backUpWatched(): Promise<void> {
   try {
-    await backUp(db)
+    await backUp()
     if (last.failures >= 2) tellMain(null)
     last = { at: Date.now(), failures: 0, reason: '' }
   } catch (error) {
@@ -97,15 +96,16 @@ export async function backupStatus(): Promise<{ at: number | null; failing: stri
 }
 
 /** Today's copy of the database, if there is none yet, and any new assets. */
-async function backUp(db: DatabaseSync): Promise<void> {
+async function backUp(): Promise<void> {
   const dir = join(backupDir(), 'database')
   await mkdir(dir, { recursive: true })
+  await clearCutCopies(dir)
 
   // `vacuum into` writes a clean, complete copy even while the app is using
-  // the file, which copying the file itself does not promise. Local date, so a
-  // day is the day you lived: 2026-10-02.
+  // the file, which copying the file itself does not promise; on a thread of
+  // its own (books.ts `copyBook`). Local date, so a day is the day you lived: 2026-10-02.
   const today = join(dir, `haligtree-${dayKey()}.db`)
-  if (!existsSync(today)) db.prepare('vacuum into ?').run(today)
+  if (!existsSync(today)) await copyBook(join(app.getPath('userData'), 'haligtree.db'), today)
 
   // Only copies this made, oldest first, past the newest 30.
   const copies = (await readdir(dir)).filter((name) => /^haligtree-\d{4}-\d{2}-\d{2}\.db$/.test(name))

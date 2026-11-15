@@ -1555,7 +1555,7 @@ export function registerHaligtree(): void {
   handle('backups:status', () => backupStatus())
   // A copy made now, from Settings, rather than waiting for tonight's.
   handle('backups:now', async () => {
-    if (!SANDBOX) await busy(() => backUpWatched(db))
+    if (!SANDBOX) await busy(() => backUpWatched())
     return backupStatus()
   })
   // The backups' folder in Finder: only that folder, never a path the window names.
@@ -1569,7 +1569,7 @@ export function registerHaligtree(): void {
       if (!filePaths[0]) return null
       chooseFolder(filePaths[0])
     }
-    await busy(() => backUpWatched(db))
+    await busy(() => backUpWatched())
     return backupStatus()
   })
 

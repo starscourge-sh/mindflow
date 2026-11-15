@@ -137,7 +137,7 @@ import { registerSite } from './site'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, barsHere, assetElsewhere, carriesWelcome, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
 import { MOVED, shortPath, untoldMove, type Moved } from './old-data'
-import { books, here, nameOf, nextImport, registerBooks } from './books'
+import { books, copyBook, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
 import { busy } from './busy'
 import { decodeHTML } from 'entities'
@@ -4865,7 +4865,8 @@ async function restore(): Promise<void> {
   if (!chosen) return
   if (!(await askRestore(basename(chosen)))) return
   const live = join(app.getPath('userData'), 'haligtree.db')
-  database().prepare('vacuum into ?').run(join(backupDir(), 'database', `before-restore-${Date.now()}.db`))
+  // On the copy thread, as the day's backup is: the window stays answering while the book is copied.
+  await copyBook(live, join(backupDir(), 'database', `before-restore-${Date.now()}.db`))
   // Said once the app is back: which copy it is now on.
   const made = (await stat(chosen).catch(() => null))?.mtime ?? new Date()
   await writeFile(join(app.getPath('userData'), RESTORED), JSON.stringify({ made: made.toISOString(), name: basename(chosen) })).catch(() => undefined)
