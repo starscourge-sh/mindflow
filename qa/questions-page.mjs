@@ -27,6 +27,10 @@ try {
 
   await go('articles')
   await h.waitForTimeout(800)
+  // Questions stands in the sidebar's Library, folded to start (70f7229cb): opened by its heading, as a person would.
+  const library = h.locator('[data-side-section-handle="library"]')
+  if ((await library.getAttribute('aria-expanded')) !== 'true') await library.click()
+  await h.waitForTimeout(500)
   const writing = await h.evaluate(() => ({
     chips: [...document.querySelectorAll('[data-list-tabs] button')].map((one) => one.textContent.trim()),
     questionRows: document.querySelectorAll('[role="main"] [data-row][data-type="question"]').length,
