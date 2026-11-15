@@ -96,7 +96,8 @@ try {
   // A link to another article, followed in the reader from deep in the page (Legacy, reached above);
   // Back comes to where you were, Forward goes again.
   const DEEP = 'the empire in the east'
-  const linkAt = await h.evaluate((words) => { const r = [...document.querySelectorAll('.web-reader-body a')].find((one) => one.textContent === words).getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }, DEEP)
+  // On the link's own first line: a link that wraps has the middle of its whole box on other words.
+  const linkAt = await h.evaluate((words) => { const r = [...document.querySelectorAll('.web-reader-body a')].find((one) => one.textContent === words).getClientRects()[0]; return { x: r.left + Math.min(12, r.width / 2), y: r.top + r.height / 2 } }, DEEP)
   const top = await h.evaluate(() => document.querySelector('.web-reader-scroll').scrollTop)
   const under = await h.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.textContent?.slice(0, 40) ?? null, linkAt)
   await h.mouse.click(linkAt.x, linkAt.y)
