@@ -276,6 +276,7 @@ try {
   }
   const now = await page(h, (ed) => ed.editor.getJSON())
   console.log(`(the note before: ${JSON.stringify(kinds(original))}; after the paste: ${JSON.stringify(kinds(now))})`)
+  await h.screenshot({ path: join(shots, 'after-paste.png') })
   check('after the paste the note is long again and words are on the screen', after.long && after.onScreen > 0, JSON.stringify({ long: after.long, onScreen: after.onScreen }))
   check('the caret is on the screen', after.caretShown)
   const wanted = typed ? typed.before.text.slice(0, typed.before.offset) + 'z' + typed.before.text.slice(typed.before.offset) : null
