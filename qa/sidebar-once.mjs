@@ -47,7 +47,8 @@ try {
     const editor = document.querySelector(sel)?.editor
     let at = -1
     editor?.state.doc.descendants((node, pos) => { if (at < 0 && node.isText && node.text.includes('marble')) at = pos + node.text.indexOf('marble') + 3 })
-    if (at > 0) editor.commands.setTextSelection(at)
+    // The caret put there and the words given the keys again (an Escape on the way may have taken them).
+    if (at > 0) editor.commands.focus(at)
     return at
   }, WORDS)
   const bold = () => h.evaluate((sel) => /<strong>marble<\/strong>/.test(document.querySelector(sel)?.innerHTML ?? ''), WORDS)
@@ -61,10 +62,16 @@ try {
   await wait(400)
   await h.click(WORDS)
   await h.keyboard.press('Escape'); await wait(200)
-  await inWord()
+  // Turning Vim on redraws the words: the caret is put back and the keys given to them until they hold them (up to 2 s).
+  for (let i = 0; i < 20; i++) {
+    await inWord()
+    await wait(100)
+    if (await h.evaluate((sel) => !!document.activeElement?.closest(sel), WORDS)) break
+  }
   const mode = await h.evaluate((sel) => document.querySelector(sel)?.getAttribute('data-vim-mode'), WORDS)
+  const keys = await h.evaluate((sel) => !!document.activeElement?.closest(sel), WORDS)
   await h.keyboard.press('Meta+b'); await wait(500)
-  check(`Vim on (${mode} mode): ⌘B takes the bold back off the word`, mode === 'normal' && !(await bold()), String(mode))
+  check(`Vim on (${mode} mode, the words have the keys: ${keys}): ⌘B takes the bold back off the word`, mode === 'normal' && keys && !(await bold()), String(mode))
   check(`Vim on: and the sidebar stays (${width0} to ${await side()})`, (await side()) === width0)
   await h.evaluate(() => { localStorage.setItem('vim', 'off'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'off' })) })
   // Out of the words again: ⌘B is the sidebar's.
