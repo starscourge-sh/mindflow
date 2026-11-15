@@ -372,7 +372,7 @@ export function GoalsSticky(): React.JSX.Element {
                   <button key={goal.id} type="button" data-goals-lane={goal.id} data-color={goal.goalColor ?? ''} title={`Open ${quoted(goal.title, 80)}`}
                     onPointerEnter={() => setFocus(goal.id)} onPointerLeave={() => setFocus((was) => (was === goal.id ? null : was))} onFocus={() => setFocus(goal.id)} onBlur={() => setFocus(null)}
                     onClick={() => (chime('open'), window.api.openInHome('goal', goal.id))}
-                    className="-mx-1 block rounded-md px-1 pt-0.5 text-left transition-[opacity,background-color] duration-200 hover:bg-foreground/[0.04]" style={{ opacity: dim(goal) }}>
+                    data-set-aside={dim(goal) < 1 ? '' : undefined} className="-mx-1 block rounded-md px-1 pt-0.5 text-left transition-[color,background-color] duration-200 hover:bg-foreground/[0.04]">
                   <span className="flex min-w-0 items-baseline gap-2 text-meta">
                     <span data-goals-name className="private-text min-w-0 flex-1 truncate font-medium text-foreground">{goal.title}</span>
                     <span className="shrink-0 text-muted-foreground tabular-nums">{inDays(goal.goalAt!, today)}</span>

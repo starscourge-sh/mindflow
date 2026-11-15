@@ -475,8 +475,6 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
             ]
             const sight = { from: pan - 90, to: pan + clip + 10 }
             const dayTicks = daily > 0 ? said.slice(band.from, band.to).flatMap((day, i) => (i * step >= sight.from && i * step <= sight.to ? [{ x: i * step, text: day.name }] : [])) : []
-            // A marked day's name reads at rest (in dark too), only a little quieter than the one pointed at.
-            const rest = 0.82 + 0.18 * weeks
             return (
               <div key={band.from} data-year-band={b} data-zoom-band={b} className="relative" style={{ width: clip }}>
                 <div data-year-clip data-zoom-clip className="overflow-hidden pb-0.5 [contain:layout_paint]" style={{ width: clip }}>
@@ -486,7 +484,7 @@ export function YearMarks({ year, onOpenDay }: { year: string; onOpenDay?: (day:
                         {names.filter((one) => one.row !== null).map(({ one, row, left, d }) => (
                           // Quiet until its stroke is pointed at, or the year is spread wide enough to read them: the year reads first.
                           <span key={one.id} data-mark-label data-mark-day={dayAt(d)} data-mark-lit={near?.id === one.id || undefined} className="absolute text-[11px] leading-4 font-medium whitespace-nowrap transition-opacity duration-150"
-                            style={{ left, top: (lines - 1 - (row ?? 0)) * NAME_LINE, color: inkOf(one), opacity: near?.id === one.id ? 1 : rest }}>{markName(one)}</span>
+                            style={{ left, top: (lines - 1 - (row ?? 0)) * NAME_LINE, color: inkOf(one) }}>{markName(one)}</span>
                         ))}
                       </div>
                     )}

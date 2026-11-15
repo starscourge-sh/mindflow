@@ -26,8 +26,8 @@ const BROWSERS = /^(com\.google\.Chrome|com\.apple\.Safari|org\.mozilla\.firefox
 export const isBrowser = (bundle: string | null): boolean => !!bundle && BROWSERS.test(bundle)
 const fromName = (live: Live): string => (live.from.bundle ? live.from.name || 'One app' : 'All of this Mac')
 const PILL = { width: 232, height: 44 }
-/** The newest line, and how faded each before it is: the reference's bright last line over fading ones. */
-const FADE = [1, 0.55, 0.32, 0.18]
+/** The newest line in the ink, as the reference's bright last line; the ones before it quieter, in Faded Ink (they were see-through, 18% to 55%). */
+const FADE = [1, 0, 0, 0]
 
 /** "You", or the others' "Speaker 1, 2…" (named on the meeting's page once it is kept). */
 export const speakerName = (who: string, names?: Record<string, string>): string =>
@@ -215,7 +215,7 @@ function Recording({ live, level, onTuck, onChoose }: { live: Live; level: { you
 
 function LiveLine({ line, fade, named, marked }: { line: Line; fade: number; named: boolean; marked: boolean }): React.JSX.Element {
   return (
-    <p data-meeting-live-line={line.id} data-final={line.final || undefined} className="text-body text-pretty transition-opacity duration-300" style={{ opacity: fade }}>
+    <p data-meeting-live-line={line.id} data-final={line.final || undefined} className={`text-body text-pretty transition-colors duration-300 ${fade < 1 ? 'text-muted-foreground' : ''}`}>
       {named && <span className="mr-1.5 font-semibold">{speakerName(line.speaker)}</span>}
       {marked && <Bookmark role="img" aria-label="Moment noted" className="mr-1 inline size-3 -translate-y-px text-[var(--tt-brand-color-500)]" />}
       {line.text}

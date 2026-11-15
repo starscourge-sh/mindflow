@@ -298,7 +298,7 @@ export function Funnel({ rows, say, onHover }: { rows: { name: string; n: number
   return (
     <div data-mono-funnel className="space-y-1.5" onPointerLeave={() => (setOn(null), onHover(null))}>
       {rows.map((one, at) => (
-        <div key={one.name} data-say={say(one)} onPointerEnter={() => (setOn(one.name), onHover(say(one)))} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs transition-opacity duration-200" style={{ opacity: on === null || on === one.name ? 1 : 0.4 }}>
+        <div key={one.name} data-say={say(one)} onPointerEnter={() => (setOn(one.name), onHover(say(one)))} data-set-aside={on === null || on === one.name ? undefined : ''} className="grid grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 text-xs transition-colors duration-200">
           <span className="truncate text-muted-foreground">{one.name}</span>
           <span className="h-2">
             <motion.span className="block h-full origin-left rounded-full" style={{ width: `${Math.max(4, (one.n / most) * 100)}%`, background: INK }}
