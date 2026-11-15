@@ -1397,8 +1397,10 @@ function Surface({
         // The footnotes are always last (extensions/footnotes.ts): no empty line
         // is added under them, which they would move above themselves for ever.
         trailingNode: { notAfter: ["paragraph", "footnotes"] },
-        // Only h1-h4 are styled; an h5 would render as a paragraph.
-        heading: { levels: [1, 2, 3, 4] },
+        // Only h1-h4 are styled; an h5 would render as a paragraph. Each paragraph and heading is drawn with a class
+        // (a note is kept as JSON, without it), so a rule about the line before one names it by class (main.css, the reading rhythm).
+        paragraph: { HTMLAttributes: { class: "mf-p" } },
+        heading: { levels: [1, 2, 3, 4], HTMLAttributes: { class: "mf-h" } },
         // Words carried (they land between two letters, where no block can make way) and files brought in from another
         // app are the editor's own drag: its line marks the place, as wide as every carry's line (carry.tsx DropLine).
         dropcursor: { width: 2 },

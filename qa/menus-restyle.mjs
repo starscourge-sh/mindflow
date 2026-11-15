@@ -7,7 +7,9 @@
 //
 // Over the largest note (7,000 blocks) every one of them restyled the whole window, about 15,000 elements and 140 to
 // 360 ms each time: a sibling rule ending in a bare "*" (.mf-segs, .mf-margin-card, the overhang pill), Brutal's
-// rule on the class attribute, and the page-wide :has() rules (main.css, haligtree-editor.scss say which). WHY=1
+// rule on the class attribute, and the page-wide :has() rules (main.css, haligtree-editor.scss say which); then the
+// note's own spacing, whose line before named no class ("p + p", "h2 + p", "li + li"), restyled its 3,472 paragraphs
+// and 935 headings, about 5,000 elements and 75 to 100 ms (test/has-narrow.test.ts holds both kinds out). WHY=1
 // prints what Chromium said made the biggest pass of each kind (invalidation tracking), to find the next one.
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
@@ -71,11 +73,15 @@ try {
     const ended = new Promise((resolve) => cdp.once('Tracing.tracingComplete', resolve))
     const why = !!process.env.WHY
     await cdp.send('Tracing.start', { transferMode: 'ReportEvents', traceConfig: { includedCategories: ['devtools.timeline', 'disabled-by-default-devtools.timeline', ...(why ? ['disabled-by-default-devtools.timeline.invalidationTracking'] : [])], excludedCategories: ['*'] } })
-    await act()
-    await h.waitForTimeout(450)
-    await cdp.send('Tracing.end')
-    await ended
-    cdp.off('Tracing.dataCollected', take)
+    // Ended whatever happens, or a kind that stops leaves the next one unable to trace.
+    try {
+      await act()
+      await h.waitForTimeout(450)
+    } finally {
+      await cdp.send('Tracing.end')
+      await ended
+      cdp.off('Tracing.dataCollected', take)
+    }
     const big = events.filter((e) => e.name === 'UpdateLayoutTree' && e.ph === 'X').sort((a, b) => b.dur - a.dur)[0]
     const pass = { ms: big ? big.dur / 1000 : 0, elements: big?.args?.elementCount ?? 0 }
     if (why) {
@@ -101,19 +107,37 @@ try {
     // The block's menu stays in the page once closed (data-state="closed"): open is what counts.
     ['a block\'s menu', async () => (await h.mouse.click(spots.line.x, spots.line.y, { button: 'right' }), await shown('[role="menu"][data-state="open"]')), async () => (await h.keyboard.press('Escape'), await gone('[role="menu"][data-state="open"]'))],
     ...(spots.tag ? [['a hover card', async () => (await h.mouse.move(spots.tag.x - 30, spots.tag.y), await h.mouse.move(spots.tag.x, spots.tag.y, { steps: 4 }), await shown('[data-note-preview]')), async () => (await h.mouse.move(spots.away.x, spots.away.y, { steps: 4 }), await gone('[data-note-preview]'))]] : []),
+    // TYPED=1: a new line typed and taken out again, shown, not held to the bar (the editor's own work is in that pass
+    // too). A line put in among the note's blocks still has Chromium restyle every paragraph, and the position rules
+    // (:nth-child) mark every block: minutes a run, so not by default.
+    ...(process.env.TYPED ? [['a new line typed', async () => (await h.keyboard.press('Meta+ArrowRight'), await h.keyboard.press('Enter')), async () => await h.keyboard.press('Backspace'), 'shown']] : []),
   ]
   if (!spots.tag) console.log('(no tag in the sidebar on screen: no hover card to point at)')
-  for (const [name, open, close] of kinds) {
+  for (const [name, open, close, shownOnly] of kinds) {
     const opens = [], closes = []
-    for (let i = 0; i < TIMES; i++) {
-      opens.push(await traced(open))
-      closes.push(await traced(close))
+    if (shownOnly) (await h.mouse.click(spots.line.x, spots.line.y), await h.waitForTimeout(500))
+    let step = 'opening'
+    try {
+      for (let i = 0; i < TIMES; i++) {
+        step = `opening it the ${i + 1}. time`
+        opens.push(await traced(open))
+        step = `closing it the ${i + 1}. time`
+        closes.push(await traced(close))
+      }
+    } catch (error) {
+      // A menu that will not go (it once stayed open after Esc): said, with what was open and focused, and the run goes on.
+      const left = await h.evaluate(() => ({ open: [...document.querySelectorAll('[data-state="open"]')].map((one) => `${one.tagName.toLowerCase()}[role=${one.getAttribute('role')}]`).slice(0, 4), focus: `${document.activeElement?.tagName.toLowerCase()}.${String(document.activeElement?.className).split(' ')[0]}` }))
+      check(`${name}: opened and closed ${TIMES} times`, false, `stopped ${step}: ${String(error.message).split('\n')[0]}; open: ${left.open.join(', ') || 'nothing'}; focus on ${left.focus}  (${load()})`)
+      await h.keyboard.press('Escape')
+      await h.keyboard.press('Escape')
+      await h.mouse.click(spots.line.x, spots.line.y)
+      continue
     }
     const say = (list) => list.map((one) => `${one.ms.toFixed(1)}/${one.elements}`).join(' ')
     console.log(`${name} opened (ms/elements): ${say(opens)}\n${name} closed (ms/elements): ${say(closes)}  (${load()})`)
     const worst = [...opens, ...closes].sort((a, b) => b.ms - a.ms)[0]
     if (worst.why?.length) console.log(`  the biggest pass of ${name}:\n    ${worst.why.join('\n    ')}`)
-    check(`${name}, opened and closed ${TIMES} times over the largest note: every style pass under ${BAR} ms`, [...opens, ...closes].every((one) => one.ms < BAR), `worst ${worst.ms.toFixed(1)} ms, ${worst.elements} elements restyled  (${load()})`)
+    if (!shownOnly) check(`${name}, opened and closed ${TIMES} times over the largest note: every style pass under ${BAR} ms`, [...opens, ...closes].every((one) => one.ms < BAR), `worst ${worst.ms.toFixed(1)} ms, ${worst.elements} elements restyled  (${load()})`)
   }
   check('a hover card was pointed at', !!spots.tag)
   const faults = c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|ERR_BLOCKED_BY_RESPONSE|status of 40\d/.test(line))

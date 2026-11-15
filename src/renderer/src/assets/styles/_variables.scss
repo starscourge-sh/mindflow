@@ -407,7 +407,8 @@ $mf-themes: (
     box-shadow: 0 0 0 2px var(--mf-swatch-ring, var(--background));
   }
 
-  i + i {
+  /* Each dot after the first, never "i + i" (main.css, the reading rhythm, says why). */
+  i:not(:first-child) {
     margin-left: -0.25rem;
   }
 }

@@ -1430,7 +1430,8 @@
 
 // The row Enter would take, while the filter box still holds the focus. An
 // arrow key moves focus onto a real row, and Radix's own highlight takes over.
-.tiptap-block-menu input:focus + .tiptap-block-menu-list [data-first] {
+// The box is named by an attribute, never a bare tag (main.css, the reading rhythm, says why).
+.tiptap-block-menu input[type='text']:focus + .tiptap-block-menu-list [data-first] {
   background-color: var(--accent);
 }
 

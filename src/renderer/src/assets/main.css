@@ -1094,7 +1094,7 @@ html[data-overhang] .mf-dots {
     transition: opacity 80ms var(--mf-ease);
   }
   .mf-segs > :is(:hover, [data-state='open'], :has([data-state='open']))::before,
-  .mf-segs > :is(:hover, [data-state='open'], :has([data-state='open'])) + :where(.mf-seg)::before {
+  .mf-segs > .mf-seg:is(:hover, [data-state='open'], :has([data-state='open'])) + :where(.mf-seg)::before {
     opacity: 0;
   }
 }
@@ -1429,10 +1429,14 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
   > p {
     line-height: 1.7;
   }
-  > p + p {
+  /* The line before is named by its class (mf-p, mf-h: every paragraph and heading the editor draws), never by its
+     tag: Chromium keeps a sibling rule whose left part names no class, id or attribute in one list it asks of every
+     element beside anything put in or taken out, so opening ⌘K, a menu or a hover card over the largest note
+     restyled all its paragraphs and headings (about 4,400, 90 ms). */
+  > .mf-p + p {
     margin-top: 0.7em;
   }
-  > :is(h1, h2, h3, h4) + p {
+  > .mf-h + p {
     margin-top: 0.35em;
   }
   > h1 {
@@ -1454,7 +1458,7 @@ html:is([data-width='page'], [data-width='wide']) .note-pane .note-column {
   > :is(ul, ol) {
     margin-block: 0.7em;
   }
-  li + li {
+  li:not(:first-child) {
     margin-top: 0.25em;
   }
   li > p {

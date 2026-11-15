@@ -77,11 +77,13 @@
   // The first line hidden while it only repeats the title, as the drawing does.
   &[data-hide-first] .ProseMirror > :first-child {
     display: none !important;
+  }
 
-    // A heading next is then the first line, with no room above it, as drawn.
-    + :is(h1, h2, h3, h4, h5, h6) {
-      margin-top: 0 !important;
-    }
+  // A heading next is then the first line, with no room above it, as drawn. Asked as the second line, never as
+  // ":first-child +": a sibling rule naming no class on its left is asked of every editor's headings whenever
+  // anything is put in or taken out beside them (main.css, the reading rhythm, says why).
+  &[data-hide-first] .ProseMirror > :is(h1, h2, h3, h4, h5, h6):nth-child(2) {
+    margin-top: 0 !important;
   }
 
   // Pictures fit the card: its width, never taller than a glance, opening in Quick Look.

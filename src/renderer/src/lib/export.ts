@@ -32,6 +32,8 @@ export const EXPORTS: Array<{ format: ExportFormat; label: string; extension: st
 export function withPictures(editor: Editor): string {
   const page = document.createElement("template")
   page.innerHTML = editor.getHTML()
+  // The class every paragraph and heading is drawn with (haligtree-editor.tsx) is the page's, not the note's.
+  page.content.querySelectorAll(".mf-p, .mf-h").forEach((one) => (one.classList.remove("mf-p", "mf-h"), one.classList.length || one.removeAttribute("class")))
   const dark = !isLight(currentTheme())
   const turn = dark ? ' style="filter:invert(1) hue-rotate(180deg)"' : ""
   const shown = (selector: string): Element[] => [...editor.view.dom.querySelectorAll(selector)]
