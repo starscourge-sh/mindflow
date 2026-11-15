@@ -35,6 +35,7 @@ import { followLink } from '@/components/pdf/pdf-reader'
 import { ofTheWriting } from '@/lib/writing-floats'
 import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
 import { EASING, still } from '@/lib/motion'
+import { markRoom } from '@/extensions/block-room'
 
 /**
  * A note seen as a board: each heading a list, side by side, each item under
@@ -1141,6 +1142,8 @@ function useDrawn(editor: Editor, positions: number[], pick?: (node: HTMLElement
       parts.push(...(pick ? [...pick(copy).childNodes] : [copy]))
     }
     into.replaceChildren(...parts)
+    // The room over each copied paragraph, from its place here rather than in the note (extensions/block-room.ts).
+    markRoom(into)
   }, shows ?? [editor.state.doc, positions.join(' ')]) // eslint-disable-line react-hooks/exhaustive-deps
   return box
 }

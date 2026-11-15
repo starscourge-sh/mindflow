@@ -39,6 +39,7 @@ import { keepWebPlace, webPlaces } from '@/lib/note-place'
 import { said } from '@/lib/host'
 import { Orb } from '@/components/haligtree/orb'
 import { listEnd, stopJob } from '@/components/haligtree/ui'
+import { markRoom } from '@/extensions/block-room'
 import './pdf.css'
 import { plural, num } from '../../../../main/dates'
 
@@ -923,12 +924,8 @@ function unwrapped(html: string, href = ''): string {
     if (lead?.nodeType === Node.TEXT_NODE && /^\s*\p{L}/u.test(lead.textContent ?? '') && !lead.parentElement?.closest('a')) (opening as Element).setAttribute('data-drop', '')
   }
   // The room over a paragraph after a paragraph or a heading (main.css, the reading rhythm), marked as a note's editor
-  // marks its own (extensions/block-room.ts): a page's paragraphs carry no "mf-p", so since the rhythm named it they sat
-  // with no room between them.
-  for (const one of page.content.children) {
-    const before = one.previousElementSibling?.tagName ?? ''
-    if (one.tagName === 'P' && /^(?:P|H[1-4])$/.test(before)) one.classList.add(before === 'P' ? 'mf-after-p' : 'mf-after-h')
-  }
+  // marks its own: a page's paragraphs carry no "mf-p", so since the rhythm named it they sat with no room between them.
+  markRoom(page.content)
   return page.innerHTML
 }
 

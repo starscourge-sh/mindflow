@@ -19,6 +19,18 @@ export function under(doc: ProseMirrorNode, set: DecorationSet | undefined): Dec
   return marks.length && set ? set.add(doc, marks) : (set ?? DecorationSet.empty)
 }
 
+/**
+ * The same marks on blocks drawn outside an editor (a web page in the reader, a board's copies of a note's lines),
+ * read from the elements as they stand in `holder`: a copy keeps the marks of its place in the note, not of its new one.
+ */
+export function markRoom(holder: ParentNode): void {
+  for (const one of holder.children) {
+    const before = one.previousElementSibling?.tagName ?? ""
+    one.classList.remove("mf-after-p", "mf-after-h", "mf-under-widget")
+    if (one.tagName === "P" && /^(?:P|H[1-4])$/.test(before)) one.classList.add(before === "P" ? "mf-after-p" : "mf-after-h")
+  }
+}
+
 /** The marks of the note's top-level blocks from the one holding `start` to the one after the one holding `end`, and where they run. */
 function marks(doc: ProseMirrorNode, start: number, end: number): { from: number; to: number; found: Decoration[] } {
   const $start = doc.resolve(start)
