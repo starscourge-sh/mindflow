@@ -44,7 +44,10 @@ export const SelectedNodes = Extension.create({
             if (last && last.doc === state.doc && last.from === from && last.to === to) return last.set
 
             const marked: Decoration[] = []
+            // Blocks only: a picture is never inside a line of words, so a line's own words are not walked (⌘A of a
+            // long note walked every word of it).
             state.doc.nodesBetween(from, to, (node, pos) => {
+              if (node.isTextblock) return false
               if (node.isAtom && node.isBlock) {
                 marked.push(
                   Decoration.node(

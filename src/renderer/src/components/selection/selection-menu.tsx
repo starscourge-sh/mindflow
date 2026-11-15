@@ -189,12 +189,12 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
   const shouldShow = useMemo<BubbleMenuProps['shouldShow']>(() => (props) => {
     // Its timers can outlive the editor (a note closed or redrawn while the bar was waiting to show).
     if (props.editor.isDestroyed) return false
-    if (!showFor(props, readingNow.current, codeNow.current)) return false
-    if (!roomFor(props.editor, held, bar.current?.offsetHeight || BAR_TALL)) return false
     const { editor: instance, state } = props
-    if (!wholeNote(state)) return true
+    // A whole-note pick waits before anything of the note or the page is read for it: ⌘A then ⌫ in a long note
+    // read every word of it and laid the page out, for a bar that never showed.
     const since = performance.now() - held.lastKey.at
-    if (since >= SETTLE) return true
+    const waiting = wholeNote(state) && since < SETTLE
+    if (!waiting) return showFor(props, readingNow.current, codeNow.current) && roomFor(props.editor, held, bar.current?.offsetHeight || BAR_TALL)
     clearTimeout(held.later.timer)
     held.later.timer = window.setTimeout(() => {
       if (instance.isDestroyed || !showFor({ ...props, state: instance.state }, readingNow.current, codeNow.current) || !roomFor(instance, held, bar.current?.offsetHeight || BAR_TALL)) return
@@ -226,7 +226,7 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
     wasTight.current = tight
     editor.view.dispatch(editor.state.tr.setMeta('selectionMenu', 'updatePosition'))
   }, [editor, tight])
-  return { bar, tight, options, reference, appendTo, shouldShow }
+  return { bar, tight, options, reference, appendTo, shouldShow, up: () => held.up }
 }
 
 /** How long a whole-note pick must last, with no key since, before the bar offers itself. */
@@ -237,10 +237,31 @@ const SETTLE = 180
 // code (`code`), or nothing. ⌘A's pick of the whole note is words too.
 // Locked for reading (`reading`), words can still be picked to keep.
 const showFor = ({ editor: instance, state }: Parameters<NonNullable<BubbleMenuProps['shouldShow']>>[0], reading = false, code = false): boolean =>
-  (state.selection instanceof TextSelection || (state.selection instanceof AllSelection && state.doc.textContent.trim().length > 0)) &&
+  (state.selection instanceof TextSelection || (state.selection instanceof AllSelection && hasWords(state))) &&
   !state.selection.empty &&
   (instance.isEditable || reading) &&
-  (code || !instance.isActive('codeBlock'))
+  (code || !allCode(instance))
+
+/** Whether the note has a word in it: looked for until the first. */
+function hasWords(state: EditorState): boolean {
+  let found = false
+  state.doc.descendants((node) => (found ? false : void (found = node.isText && !!node.text?.trim())))
+  return found
+}
+
+/**
+ * Whether all that is picked is code, as `isActive('codeBlock')` says, without walking each block of a long note
+ * for a pick that starts outside code (⌘A of a note that is not all code).
+ */
+function allCode(instance: Editor): boolean {
+  const { selection, doc } = instance.state
+  if (selection instanceof AllSelection) {
+    let all = doc.childCount > 0
+    doc.forEach((block) => void (all &&= block.type.name === 'codeBlock'))
+    return all
+  }
+  return selection.$from.parent.type.name === 'codeBlock' && instance.isActive('codeBlock')
+}
 
 /**
  * The toolbar again, at the selection.
@@ -268,12 +289,14 @@ export function SelectionMenu({
   /** Shown on a note locked for reading too: only keeping actions come in. */
   reading?: boolean
 }) {
-  const { bar, tight, options, reference, appendTo, shouldShow } = useFloat(editor, reading, !!inCode)
+  const { bar, tight, options, reference, appendTo, shouldShow, up } = useFloat(editor, reading, !!inCode)
   // Its controls are drawn only while words are selected. Mounted all along
   // they redrew on every key, and each redraw while typing made React measure
   // the caret through the whole note.
-  const selecting = useEditorState({ editor, selector: ({ editor: instance }) => !!instance && !instance.state.selection.empty })
-  const coding = useEditorState({ editor, selector: ({ editor: instance }) => !!instance && instance.isActive('codeBlock') })
+  // A whole-note pick's only once the bar is up: drawn at once, each control asked whether its mark covered all of a
+  // long note (⌘A then ⌫ walked the whole note some twenty times over, for a bar that never showed).
+  const selecting = useEditorState({ editor, selector: ({ editor: instance }) => !!instance && !instance.state.selection.empty && (!wholeNote(instance.state) || up()) })
+  const coding = useEditorState({ editor, selector: ({ editor: instance }) => !!instance && !instance.state.selection.empty && allCode(instance) })
   if (!editor) return null
 
   return (
