@@ -71,6 +71,17 @@ try {
     const bar = document.querySelector('.pdf-find-bar').getBoundingClientRect(), col = document.querySelector('.pdf-reader-scroll').getBoundingClientRect()
     return bar.right <= col.right && bar.left >= col.left
   }), '')
+  // Back on the pages, n and N step through the matches, and "/" opens find again, as in the web reader.
+  const findAt = () => h.evaluate(() => document.querySelector('.pdf-find-bar .tiptap-find-bar-count')?.getAttribute('aria-label') ?? '')
+  const was = await findAt()
+  await h.evaluate(() => document.activeElement?.blur())
+  await h.keyboard.press('n'); await wait(300)
+  const stepped = await findAt()
+  await h.keyboard.press('Shift+N'); await wait(300)
+  check('n steps to the next match from the pages, N back', /^1 of/.test(was) && /^2 of/.test(stepped) && /^1 of/.test(await findAt()), `${was} → ${stepped} → ${await findAt()}`)
+  await h.click('.pdf-find-bar button[aria-label="Close find"]'); await wait(300)
+  await h.keyboard.press('/'); await wait(300)
+  check('"/" opens find, ready to type in', await h.evaluate(() => !!document.querySelector('.pdf-find-bar') && document.activeElement?.closest('.pdf-find-bar') !== null && document.activeElement?.tagName === 'INPUT'))
   await h.keyboard.press('Escape')
 } finally {
   await c.close()

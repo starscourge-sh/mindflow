@@ -16,6 +16,7 @@ import { touch } from "@/lib/open-today"
 import { host, said } from "@/lib/host"
 import { canSplit, isSplit, keysHere, usePane } from "@/lib/split"
 import { chime } from "@/lib/sound"
+import { writing } from "@/lib/keys"
 import { cue } from "@/lib/cues"
 import { MarkMenu, PickedMenu, WhyAfter, blankOf, cited, lastColor, readKey, rememberColor, type MarkColor, type Picked, type ReadActions } from "./read-bar"
 import { NARROW, PdfSide, chapterAt, railWidth, usePdfOutline, type RailTab } from "./pdf-rail"
@@ -345,9 +346,14 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   }, [finding])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || event.altKey || event.shiftKey || event.code !== "KeyF" || !keysHere(pane)) return
+      if (!keysHere(pane)) return
+      // "/" finds too, and n and N step through what it found, as the web reader's do (web-reader.tsx).
+      const plain = !event.metaKey && !event.ctrlKey && !event.altKey && !writing()
+      const stepping = plain && finding && (event.key === "n" || event.key === "N")
+      if (!stepping && !(plain && event.key === "/") && !(event.metaKey && !event.altKey && !event.shiftKey && event.code === "KeyF")) return
       event.preventDefault()
       event.stopPropagation()
+      if (stepping) return stepFind(event.key === "N")
       setFinding(true)
       requestAnimationFrame(() => findField.current?.select())
     }

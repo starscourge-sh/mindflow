@@ -131,7 +131,7 @@ let listening: ((event: KeyboardEvent) => void) | null = null
 export const listen = (to: typeof listening): void => void (listening = to)
 
 /** Writing words, where a plain letter is a letter: fields, and the editor outside vim's normal mode. */
-const writing = (): boolean => {
+export const writing = (): boolean => {
   const active = document.activeElement as HTMLElement | null
   if (!active) return false
   if (active.closest?.('[data-vim-mode]')?.getAttribute('data-vim-mode') === 'normal') return false

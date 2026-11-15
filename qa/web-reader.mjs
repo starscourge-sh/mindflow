@@ -135,6 +135,19 @@ try {
   const count = await h.evaluate(() => document.querySelector('.web-reader .tiptap-find-bar-count')?.getAttribute('aria-label'))
   check('⌘F finds every "garden" in it', /^1 of [4-9]/.test(count ?? ''), count)
   await h.keyboard.press('Escape'); await wait(200)
+  // "/" finds as ⌘F does, and back in the article n and N step through what it found, as Vim's keys do in a note (the
+  // user, 15 Nov 2026: "why doesnt '/' work for looking up on reader mode e.g '/faust'").
+  const findAt = () => h.evaluate(() => document.querySelector('.web-reader .tiptap-find-bar-count')?.getAttribute('aria-label') ?? '')
+  await h.click('.web-reader-body p'); await h.keyboard.press('/'); await wait(300)
+  check('"/" opens find, ready to type in', await h.evaluate(() => !!document.activeElement?.closest('.web-reader') && document.activeElement?.tagName === 'INPUT'))
+  await h.keyboard.type('garden'); await wait(300)
+  const slashAt = await findAt()
+  await h.click('.web-reader-body p'); await wait(150)
+  await h.keyboard.press('n'); await wait(200)
+  const nAt = await findAt()
+  await h.keyboard.press('Shift+N'); await wait(200)
+  check('n steps to the next match from the article, N back', /^1 of [4-9]/.test(slashAt) && /^2 of/.test(nAt) && /^1 of/.test(await findAt()), `${slashAt} → ${nAt} → ${await findAt()}`)
+  await h.click('.web-reader button[aria-label="Close find"]'); await wait(200)
 
   await h.evaluate(() => (window.__firstWords = document.querySelector('.web-reader-body p')?.firstChild))
   // Picked words offer Keep; Keep makes a gem with the quote, "Article title, Site", and a link back.

@@ -20,6 +20,7 @@ import { Roll } from '@/lib/roll'
 import { host } from '@/lib/host'
 import { keysHere, usePane } from '@/lib/split'
 import { chime } from '@/lib/sound'
+import { writing } from '@/lib/keys'
 import { cue } from '@/lib/cues'
 import { articleLink, isReadable, openArticle, takeArticleFlash } from './pdf-reader'
 import { LookUpCard, type LookedUpIn } from './look-up'
@@ -462,13 +463,19 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
       sizeBy((event as CustomEvent<number>).detail)
     }
     const onKey = (event: KeyboardEvent): void => {
-      if (!event.metaKey || event.altKey || !keysHere(pane)) return
-      if (event.code === 'KeyF' && !event.shiftKey) {
+      if (!keysHere(pane)) return
+      // "/" finds too, and n and N step through what it found, as in a note with Vim's keys (vim-mode.ts): a reader
+      // takes no typing, so its plain keys are free.
+      const plain = !event.metaKey && !event.ctrlKey && !event.altKey && !writing()
+      const stepping = plain && finding && (event.key === 'n' || event.key === 'N')
+      if (stepping || (plain && event.key === '/') || (event.metaKey && !event.altKey && !event.shiftKey && event.code === 'KeyF')) {
         event.preventDefault()
         event.stopPropagation()
+        if (stepping) return stepFind(event.key === 'N')
         setFinding(true)
         return void requestAnimationFrame(() => findField.current?.select())
       }
+      if (!event.metaKey || event.altKey) return
       const way =
         event.code === 'Equal' || event.code === 'NumpadAdd'
           ? 1
