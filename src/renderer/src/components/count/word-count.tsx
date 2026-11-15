@@ -173,8 +173,21 @@ function PickedCount({ dom, words, characters }: { dom: HTMLElement; words: numb
   const [onWords, setOnWords] = useState(false)
   useLayoutEffect(() => {
     const box = chip.current?.getBoundingClientRect()
-    const picked = window.getSelection()?.rangeCount ? [...window.getSelection()!.getRangeAt(0).getClientRects()] : []
-    setOnWords(!!box && picked.some((one) => one.width > 0 && one.left < box.right && one.right > box.left && one.top < box.bottom && one.bottom > box.top))
+    const selection = window.getSelection()
+    if (!box || !selection?.rangeCount) return setOnWords(false)
+    // Only the picked lines level with the chip are measured: the pick cut to the places just above and below it.
+    // Measured whole, a long note's ⌘A laid out and measured every one of its picked lines.
+    const band = selection.getRangeAt(0).cloneRange()
+    const edge = dom.getBoundingClientRect().left + 1
+    const above = document.caretPositionFromPoint(edge, box.top - 1)
+    const below = document.caretPositionFromPoint(edge, box.bottom + 1)
+    const start = above ? band.comparePoint(above.offsetNode, above.offset) : -1
+    const end = below ? band.comparePoint(below.offsetNode, below.offset) : 1
+    // The pick ends above the chip, or starts below it: no picked word can be under it.
+    if (start > 0 || end < 0) return setOnWords(false)
+    if (above && start === 0) band.setStart(above.offsetNode, above.offset)
+    if (below && end === 0) band.setEnd(below.offsetNode, below.offset)
+    setOnWords([...band.getClientRects()].some((one) => one.width > 0 && one.left < box.right && one.right > box.left && one.top < box.bottom && one.bottom > box.top))
   })
   useEffect(() => {
     const place = (): void => {
