@@ -746,11 +746,16 @@
 
 /* Two lines tall, its top on the first line's capitals and its foot on the second line's baseline, a plain letter in the
    words' own serif with the lines close beside it; only where web-reader.tsx marks the opening as a letter of its own.
-   It stays a letter: Find, highlights and picked words run across it. */
+   It stays a letter: Find, highlights and picked words run across it. A floated first letter, not `initial-letter`,
+   which this Chromium tints (Find, a highlight, picked words) in the letter's small first box, a patch over its top.
+   Sized from Fraunces's own measures (cap height 0.70, ascent 0.978, descent 0.255 of an em) and the words' 1.7 line:
+   capitals 0.70 x 3.43em = 2.4em tall, one line and a cap height, and its box ends 0.1em above the third line. */
 .web-reader-body > p[data-drop]::first-letter {
-  initial-letter: 2;
-  margin-inline-end: 0.1em;
+  float: left;
+  margin: 0.013em 0.08em 0 0;
   color: var(--web-accent);
+  font-size: 3.43em;
+  line-height: 0.95;
 }
 
 /* Who wrote it, the site, the date: the app's quiet ink (4.5:1 or more on every theme's page), at the size of a list's words, growing with the article's. */
