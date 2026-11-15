@@ -17,11 +17,13 @@ const card = async () => {
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   const id = await v('article:new')
-  await v('item:save', id, { title: 'A page with a tag', tags: ['physics'] })
+  // A #tag in a page's title is the page's tag (as qa/folders.mjs makes one); its chip is under Properties, opened if folded.
+  await v('item:save', id, { title: 'A page with a tag #physics' })
   await h.waitForTimeout(600)
   await send('article', id)
   await h.waitForTimeout(1500)
-  const tag = h.locator('[data-tag-open="physics"]').first()
+  const tag = h.locator('[data-property="tags"] [data-tag-open="physics"]').first()
+  if (!(await tag.isVisible().catch(() => false))) { await h.locator('button:has-text("Properties")').first().click().catch(() => {}); await h.waitForTimeout(500) }
   check('the page shows its tag in Properties', (await tag.count()) === 1)
   const at = await tag.boundingBox()
   const pane = await h.evaluate(() => { const r = document.querySelector('.note-pane')?.getBoundingClientRect(); return r ? { left: r.left } : null })
