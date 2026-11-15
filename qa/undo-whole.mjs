@@ -232,11 +232,22 @@ try {
     }
     // The same two lists brought back side by side without the clipboard: words picked across them and ⌫.
     await both(NOTE, 'words deleted across the blocks', async () => { await pick(['typed as text', 6], ['A quote', 2]); await h.keyboard.press('Backspace') })
-    /** The block under `text` pressed into and hovered, as a person does, until its grip stands beside it. */
+    /** Until the words `text` stand still for three frames: the note scrolls to a caret after a press, and the pointer then lies over another block. */
+    const still = (text) => h.waitForFunction(([ED, text]) => {
+      const view = document.querySelector(ED).editor.view
+      let at = null
+      view.state.doc.descendants((node, pos) => { if (at == null && node.isText && node.text.includes(text)) at = pos + node.text.indexOf(text); return at == null })
+      const seen = (window.__u2.still = [...(window.__u2.still ?? []), Math.round(view.coordsAtPos(at).top)].slice(-3))
+      return seen.length === 3 && seen.every((one) => one === seen[0])
+    }, [ED, text], { polling: 'raf', timeout: 5000 })
+    /** The block under `text` pressed into and hovered, as a person does, until its grip stands beside it, the note at rest. */
     const gripOf = async (text) => {
-      const at = await spot(text)
+      const first = await spot(text)
       // The press leaves only a caret: Undo gave back the lines picked before, and a pick keeps the grip on its own lines.
-      await h.mouse.click(at.x, at.y); await frame()
+      await h.mouse.click(first.x, first.y)
+      await h.evaluate(() => void (window.__u2.still = []))
+      await still(text)
+      const at = await spot(text, 0, false)
       await h.mouse.move(at.x + 30, at.y)
       await h.waitForFunction((y) => { const g = document.querySelector('[data-open] .tiptap-drag-handle-grip')?.getBoundingClientRect(); return !!g?.height && Math.abs((g.top + g.bottom) / 2 - y) < 24 }, at.y, { timeout: 5000 })
       return h.locator('[data-open] .tiptap-drag-handle-grip').boundingBox()
@@ -244,8 +255,9 @@ try {
     /** Until the note is no longer what it was before this step. */
     const changed = () => h.waitForFunction(() => window.__u2.snap() !== window.__u2.before, null, { timeout: 5000 }).catch(() => {})
     await both(NOTE, 'a block deleted from its menu', async () => {
-      await gripOf('A callout about')
-      await h.locator('[data-open] .tiptap-drag-handle-grip').click()
+      // Pressed where it stands: a locator's own click scrolls first, and the grip follows the pointer to the next block.
+      const grip = await gripOf('A callout about')
+      await h.mouse.click(grip.x + grip.width / 2, grip.y + grip.height / 2)
       if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/undo-whole-block-menu.png` })
       await h.locator('.tiptap-block-menu[data-state="open"] button', { hasText: /^Delete$/ }).click()
     })
