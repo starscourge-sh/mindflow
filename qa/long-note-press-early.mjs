@@ -44,6 +44,8 @@ const { h, send } = c
 try {
   await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await h.evaluate(() => window.api.haligtree('settings:set', { sounds: false, hintRate: 0 }))
+  // LINES=off: the run with line numbers off, to tell what they change.
+  if (process.env.LINES === 'off') await h.evaluate(() => window.api.haligtree('settings:set', { lineNumbers: false }))
   await h.waitForTimeout(2500)
   await send('view', 'inbox')
   await h.waitForTimeout(1500)
@@ -81,6 +83,20 @@ try {
   }, [SEL, words], { timeout: 45000, polling: 4 })
   const first = await handle.jsonValue()
   console.log(`first screen: ${first.blocks} blocks on the page, the rest ${first.coming ? 'still coming' : 'already there'}; pressing the end of "${first.text.slice(-40)}"  (${load()})`)
+  // DIAG=1: every change of the caret from here on, with what made it (best read on a dev-mode build).
+  if (process.env.DIAG) await h.evaluate((sel) => {
+    const ed = [...document.querySelectorAll(sel)].find((one) => one.editor)?.editor
+    if (!ed || window.__diagOn) return
+    window.__diagOn = true
+    window.__diag = []
+    const t0 = performance.now()
+    const view = ed.view
+    const dispatch = view.dispatch.bind(view)
+    view.dispatch = (tr) => {
+      if (tr.selectionSet) window.__diag.push({ ms: Math.round(performance.now() - t0), at: tr.selection.from, steps: tr.steps.length, meta: Object.keys(tr.meta ?? {}).join(','), by: (new Error().stack ?? '').split('\n').slice(2, 7).map((one) => one.trim().replace(/^at /, '').replace(/\(.*[/\\]/, '(')).join(' < ') })
+      return dispatch(tr)
+    }
+  }, SEL)
   await h.mouse.click(first.x, first.y)
   // Vim's normal mode (if the book has Vim on) is left first, as a person would: at the line's end, to type after it.
   const vim = await h.evaluate((sel) => { const ed = [...document.querySelectorAll(sel)].find((one) => one.editor); const { $head } = ed.editor.state.selection; return { mode: ed.getAttribute('data-vim-mode'), atEnd: $head.parentOffset === $head.parent.content.size } }, SEL)
@@ -97,6 +113,7 @@ try {
     return { blocks: doc.childCount, from: selection.from, to: selection.to, size: doc.content.size, all: selection.from <= 1 && selection.to >= doc.content.size - 1, line: doc.child(index)?.textContent ?? '' }
   }, [SEL, first.index])
   console.log(`then: ⌘A pressed ${pressedWhile ? 'while the rest was still coming' : 'after the note was whole'}; the note has ${after.blocks} blocks, the selection ${after.from} to ${after.to} of ${after.size}`)
+  if (process.env.DIAG) console.log(`(caret changes after the press:\n${(await h.evaluate(() => window.__diag ?? [])).map((one) => `  ${one.ms} ms → ${one.at} (${one.steps} steps; ${one.meta}) by ${one.by}`).join('\n')})`)
   check('a press at the end of a line of the first screen put the caret there, and the letters typed went in there in order', after.line === first.text + TYPED, `"${after.line.slice(-44)}"`)
   check('⌘A pressed as the note came in picks all of it once it is there', after.all && after.blocks >= stored.content.length, `${after.from} to ${after.to} of ${after.size}; ${after.blocks} blocks`)
   // What is stored: the whole note, the two letters added to that line, nothing else changed.
