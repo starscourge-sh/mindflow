@@ -4651,6 +4651,24 @@ html[data-dragging] .tiptap-drag-handle {
   visibility: hidden !important;
 }
 
+// A list's item another is rested on while carried (lib/block-carry.tsx): letting go puts that one in under it. Its own
+// line lights as a sidebar folder does when a folder is carried onto it (sortable.tsx DROP_LIT): the accent's fill and
+// a ring, a few pixels of air round the words without moving them.
+.ProseMirror[data-carrying] li > p:first-child,
+.ProseMirror[data-carrying] li[data-type="taskItem"] > div > p:first-child {
+  transition: background-color 150ms var(--mf-ease), box-shadow 150ms var(--mf-ease);
+}
+
+.ProseMirror li[data-drop-hot] > p:first-child,
+.ProseMirror li[data-drop-hot][data-type="taskItem"] > div > p:first-child {
+  margin-inline: -6px;
+  padding-inline: 6px;
+  border-radius: 6px;
+  background-color: var(--accent);
+  color: var(--foreground);
+  box-shadow: 0 0 0 1px var(--ring);
+}
+
 // The lines' numbers stand down too while a block is carried: the blocks glide aside and the numbers would stand by
 // the wrong lines until it lands, when they are counted again.
 html[data-block-carry] .mf-lines {

@@ -731,22 +731,30 @@ const STILL = 4
  * Rested on a row's middle: `rested` says when the pointer has been held still there DWELL. Held still, not merely
  * over it: a row carried slowly past was a long time over each row's middle, so a group began to form under it and
  * was gone again as it moved on. Once rested it stays so until the pointer leaves that middle. A pointer held still
- * sends no moves, so `again` reads the aim afresh then.
+ * sends no moves, so `again` reads the aim afresh then: the rest is the input, measured in time.
  */
-export function useRest(again: () => void): { rested: (key: string) => boolean; undwell: () => void } {
-  const dwell = useRef<{ key: string; since: number; x: number; y: number; done: boolean; timer: ReturnType<typeof setTimeout> } | null>(null)
+export function rester(again: () => void): { rested: (key: string) => boolean; undwell: () => void } {
+  let dwell: { key: string; since: number; x: number; y: number; done: boolean; timer: ReturnType<typeof setTimeout> } | null = null
   const undwell = (): void => {
-    if (dwell.current) clearTimeout(dwell.current.timer)
-    dwell.current = null
+    if (dwell) clearTimeout(dwell.timer)
+    dwell = null
   }
   const rested = (key: string): boolean => {
-    const now = dwell.current
+    const now = dwell
     if (now?.key === key && (now.done || Math.hypot(pointerX - now.x, pointerY - now.y) <= STILL)) return (now.done ||= performance.now() - now.since >= DWELL)
     undwell()
-    dwell.current = { key, since: performance.now(), x: pointerX, y: pointerY, done: false, timer: setTimeout(again, DWELL) }
+    dwell = { key, since: performance.now(), x: pointerX, y: pointerY, done: false, timer: setTimeout(again, DWELL) }
     return false
   }
   return { rested, undwell }
+}
+/** The same rest for a list drawn by React: `again` is always its latest. */
+export function useRest(again: () => void): { rested: (key: string) => boolean; undwell: () => void } {
+  const read = useRef(again)
+  read.current = again
+  const rest = useRef<ReturnType<typeof rester> | null>(null)
+  rest.current ??= rester(() => read.current())
+  return rest.current
 }
 
 /**

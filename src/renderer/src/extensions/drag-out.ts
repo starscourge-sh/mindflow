@@ -2,22 +2,19 @@ import { Extension } from "@tiptap/core"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { host } from "@/lib/host"
+import { carryAway } from "@/lib/block-carry"
 
 const STORED = /^haligtree:\/\/assets\//
 
 type Api = { dragOut?: (src: string, name: string, face?: string) => void }
 const api = (): Api | undefined => (window as { api?: Api }).api
 
-/** The note a card is being carried out of: drops back into it are refused. */
-let carried: EditorView | null = null
-
-/** The block at a node's own DOM, when it is the kind and file looked for. */
+/** The block at a node's own DOM, when it is the kind looked for. */
 function blockAt(view: EditorView, dom: Element, type: string): number | null {
   const at = view.posAtDOM(dom, 0)
   for (const pos of [at, at - 1]) {
     if (pos < 0) continue
-    const node = view.state.doc.nodeAt(pos)
-    if (node?.type.name === type && STORED.test(node.attrs.src ?? "")) return pos
+    if (view.state.doc.nodeAt(pos)?.type.name === type) return pos
   }
   return null
 }
@@ -106,9 +103,9 @@ function faceOf(card: Element, name: string): string | undefined {
 /**
  * A picture or file card dragged by its body goes out of the note to the app
  * it lands in (Finder, a chat, a browser, a bug tracker) as the real file,
- * under its own name, carrying a picture of itself. It is never also a move:
- * while it is carried this note refuses it (no drop line, nothing added).
- * The block's grip at the left is the way to move it within the note.
+ * under its own name, carrying a picture of itself. Over its own note it is
+ * a move as its grip's carry is, the blocks making way where it would land
+ * (lib/block-carry.tsx `carryAway`); let go there, it moves, and nothing is added.
  */
 export const DragOut = Extension.create({
   name: "dragOut",
@@ -117,55 +114,26 @@ export const DragOut = Extension.create({
     return [
       new Plugin({
         key: new PluginKey("dragOut"),
-        // Caught on the window on the way down, before the note's own drop
-        // line and file drop hear it.
-        view: (view) => {
-          const refuse = (event: DragEvent): void => {
-            if (carried !== view || !(event.target instanceof Node) || !view.dom.contains(event.target)) return
-            event.stopPropagation()
-            if (event.type === "drop") event.preventDefault()
-            else if (event.dataTransfer) event.dataTransfer.dropEffect = "none"
-          }
-          // A press, or the pointer moving with no button down: the drag is over.
-          const forget = (): void => void (carried === view && (carried = null))
-          const moved = (event: PointerEvent): void => void (event.buttons === 0 && forget())
-          const kinds = ["dragenter", "dragover", "drop"] as const
-          kinds.forEach((kind) => window.addEventListener(kind, refuse, true))
-          window.addEventListener("pointerdown", forget, true)
-          window.addEventListener("pointermove", moved, true)
-          return {
-            destroy: () => {
-              forget()
-              kinds.forEach((kind) => window.removeEventListener(kind, refuse, true))
-              window.removeEventListener("pointerdown", forget, true)
-              window.removeEventListener("pointermove", moved, true)
-            },
-          }
-        },
         props: {
           handleDOMEvents: {
             dragstart: (view, event) => {
-              // The page's own host, or Haligtree's bridge where an editor (the box, a sticky) was given none.
-              const out = host().dragOut ?? api()?.dragOut
               const target = event.target instanceof Element ? event.target : null
-              if (!out || !target || target.closest(".tiptap-drag-handle")) return false
+              if (!target || target.closest(".tiptap-drag-handle")) return false
               // A picture: its own <img>, named by its caption or alt words.
               const img = target instanceof HTMLImageElement ? target : null
               // A card: the drag starts on the node view's own wrapper, just outside it.
               const card = target.closest(".tiptap-attachment") ?? target.querySelector(":scope > .tiptap-attachment")
-              let pos: number | null = null
-              let name = ""
-              if (img && STORED.test(img.getAttribute("src") ?? "")) {
-                pos = blockAt(view, img, "image")
-                name = img.getAttribute("alt") || img.getAttribute("title") || ""
-              } else if (card) {
-                pos = blockAt(view, card, "attachment")
-                if (pos != null) name = view.state.doc.nodeAt(pos)?.attrs.name ?? ""
-              }
+              const pos = img ? blockAt(view, img, "image") : card ? blockAt(view, card, "attachment") : null
               if (pos == null) return false
+              carryAway(view, pos)
+              // Kept in the app: the system's drag, with the real file. Anything else (a picture on the web) goes by the browser's own.
+              // The page's own host, or Haligtree's bridge where an editor (the box, a sticky) was given none.
+              const out = host().dragOut ?? api()?.dragOut
+              const src: string = view.state.doc.nodeAt(pos)!.attrs.src ?? ""
+              if (!out || !STORED.test(src)) return false
+              const name = img ? img.getAttribute("alt") || img.getAttribute("title") || "" : view.state.doc.nodeAt(pos)!.attrs.name ?? ""
               event.preventDefault()
-              carried = view
-              out(view.state.doc.nodeAt(pos)!.attrs.src, name, card && !img ? faceOf(card, name) : undefined)
+              out(src, name, card && !img ? faceOf(card, name) : undefined)
               return true
             },
           },

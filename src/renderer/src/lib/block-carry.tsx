@@ -3,7 +3,7 @@ import type { EditorView } from '@tiptap/pm/view'
 import { NodeSelection } from '@tiptap/pm/state'
 import { Fragment, type Node as Block } from '@tiptap/pm/model'
 import { Bookmark, Code, Columns2, Heading, Image, List, ListOrdered, ListTodo, Minus, Quote, Table, Type } from 'lucide-react'
-import { CardAt, CarriedCard, DropLine, RoomAt, clearWay, makeWay, restBox, roomWait, sideOf, swallowClick, swallowRelease, type Spot } from '@/components/haligtree/carry'
+import { CardAt, CarriedCard, DropLine, RoomAt, clearWay, makeWay, rester, restBox, roomWait, sideOf, swallowClick, swallowRelease, type Spot } from '@/components/haligtree/carry'
 import { LISTS, MOST, columnOf, dropBeside, moveBlocks, takeOut, type Beside } from '@/extensions/columns'
 import { chime } from './sound'
 import { slotTicker } from './proximity'
@@ -39,6 +39,9 @@ type Piece = { el: HTMLElement; pos: number; end: number; node: Block }
 type Aim =
   | { kind: 'line'; gap: number; at: number; by: Piece; key: string; holds: string }
   | { kind: 'beside'; beside: Beside; box: { top: number; left: number; height: number; width: number }; lean: HTMLElement; words: string; refused: boolean; key: string; holds: string }
+  | { kind: 'into'; into: Piece; words: string; key: string; holds: string }
+/** A list's own items: one carried and rested on another's middle goes in under it. */
+const ITEMS = new Set(['listItem', 'taskItem'])
 type Held = {
   view: EditorView
   from: number
@@ -47,8 +50,11 @@ type Held = {
   sources: HTMLElement[]
   /** The blocks it makes way among, in the note's order, as laid out at the lift. */
   pieces: Piece[]
-  /** Where each of them rests (the carried one among them, the rest in hand left out), from the note's top, read once at the lift. */
-  laid: { piece: Piece; top: number; height: number; left: number; width: number }[]
+  /**
+   * Where each of them rests (the carried one among them, the rest in hand left out), from the note's top, read once at
+   * the lift; a list's item carried among others, each item's own first line too (`head`), the middle it rests on to go in.
+   */
+  laid: { piece: Piece; top: number; height: number; left: number; width: number; head?: { top: number; height: number } }[]
   me: HTMLElement
   tall: number
   x: number
@@ -63,6 +69,10 @@ type Held = {
   ring: string
   title: string
   icon: React.ReactNode
+  /** Resting on an item's middle, as a list's row rests on another to become its step (carry.tsx `rester`). */
+  rest: ReturnType<typeof rester>
+  /** Carried by the browser's own drag (a picture or file taken by itself): the system draws what is in hand. */
+  away: boolean
 }
 
 let held: Held | null = null
@@ -140,8 +150,8 @@ function iconOf(node: Block): React.ReactNode {
   return <Kind className="size-3.5 shrink-0 text-muted-foreground" />
 }
 
-/** Lifts the block the grip is on (or the picked blocks round it, the handle's own rule), its place held. */
-function lift(view: EditorView, pos: number, x: number, y: number, copy: boolean): Held | null {
+/** Lifts the block the grip is on (or the picked blocks round it, the handle's own rule), its place held. `away`: by the browser's own drag. */
+function lift(view: EditorView, pos: number, x: number, y: number, copy: boolean, away = false): Held | null {
   const { state } = view
   const node = state.doc.nodeAt(pos)
   if (!node || !view.editable) return null
@@ -171,21 +181,28 @@ function lift(view: EditorView, pos: number, x: number, y: number, copy: boolean
   const [first, last] = [sources[0].getBoundingClientRect(), sources[sources.length - 1].getBoundingClientRect()]
   // What the editor's own drop and the beside code read: the block in hand (lib/columns.ts draggedOf).
   ;(view as unknown as { dragging: unknown }).dragging = { slice: state.doc.slice(from, to), move: !copy, node: nodes.length === 1 ? NodeSelection.create(state.doc, from) : undefined }
+  // A copy (⌥ held at the lift) leaves the block where it is, in sight: only the room where the copy lands opens.
   quietly(view, () => {
-    for (const one of sources) (one.dataset.carried = ''), (one.dataset.carryHeld = '')
+    if (!copy) for (const one of sources) (one.dataset.carried = ''), (one.dataset.carryHeld = '')
     view.dom.dataset.carrying = ''
   })
   const ticks = slotTicker()
   const ring = holderOf(view, from)
   ticks.start(`own:${from}`)
   const page = view.dom.getBoundingClientRect().top
+  // A list's items in hand (never a copy): each other item's own first line is where it rests to go in under that one.
+  const items = !copy && nodes.every((one) => ITEMS.has(one.type.name))
   const laid = pieces.filter((piece) => piece.el === me || !sources.includes(piece.el)).map((piece) => {
     const box = piece.el.getBoundingClientRect()
-    return { piece, top: box.top - page, height: box.height, left: box.left, width: box.width }
+    const line = items && piece.el !== me && ITEMS.has(piece.node.type.name) ? view.nodeDOM(piece.pos + 1) : null
+    const head = line instanceof HTMLElement ? line.getBoundingClientRect() : null
+    return { piece, top: box.top - page, height: box.height, left: box.left, width: box.width, head: head ? { top: head.top - page, height: head.height } : undefined }
   }).sort((a, b) => a.top - b.top)
   const $in = state.doc.resolve(from)
   const column = $in.parent.type.name === 'column' ? { start: $in.start(), end: $in.end() } : null
-  return { view, from, to, nodes, sources, pieces, laid, me, tall: last.bottom - first.top, x, y, copy, column, aim: null, room: null, kept: null, ticks, ring, title: nameOf(node), icon: iconOf(node) }
+  // Held still on an item's middle: the aim is read again, as no move comes.
+  const rest = rester(() => void (held && point(held)))
+  return { view, from, to, nodes, sources, pieces, laid, me, tall: last.bottom - first.top, x, y, copy, column, aim: null, room: null, kept: null, ticks, ring, title: nameOf(node), icon: iconOf(node), rest, away }
 }
 
 /** What holds a place in the note: a crossing of it is the firm tick. */
@@ -212,12 +229,62 @@ function aimOf(one: Held): Aim | null {
   if (!over) return null
   const beside = off === 0 && over.piece.el !== one.me ? besideOf(one, over.piece, over.box) : null
   if (beside) return beside
+  // Rested on another item's own line, its middle: in under it. Until then, it only moves beside it.
+  const head = one.laid[laid.indexOf(over)].head
+  const middle = head ? (y - top - head.top) / Math.max(1, head.height) : -1
+  const into = middle > 0.28 && middle < 0.72 ? intoOf(one, over.piece) : null
+  if (!into) one.rest.undwell()
+  else if (one.rest.rested(into.key)) return into
   const key = String(over.piece.pos)
   const how = sideOf(one.kept, key, (y - over.box.top) / Math.max(1, over.box.height))
   one.kept = { key, how }
   const index = laid.indexOf(over)
   const at = how === 'before' ? over.piece.pos : over.piece.end
   return { kind: 'line', gap: how === 'before' ? index - 1 : index, at, by: over.piece, key: `line:${at}`, holds: holderOf(view, at) }
+}
+
+/**
+ * A list's items rested on another item: in under it, after its own items, as Tab puts an item under the one above.
+ * The words are the lists' own: a task's step as in Tasks, any other item as a sidebar folder is moved into.
+ */
+function intoOf(one: Held, piece: Piece): Extract<Aim, { kind: 'into' }> | null {
+  const list = one.view.state.doc.resolve(one.from).parent
+  const item = piece.node
+  if (!ITEMS.has(item.type.name) || !LISTS.has(list.type.name)) return null
+  // Its last list takes them where it is of their kind; else a list of their kind goes at its end, where it may hold one.
+  if (item.lastChild?.type !== list.type && !item.contentMatchAt(item.childCount).matchType(list.type)) return null
+  // Short enough to leave the card room for what it carries: the words never wrap or push its title out.
+  const whole = nameOf(item)
+  const name = whole.length > 20 ? `${cut(whole, 19).trimEnd()}…` : whole
+  const step = item.type.name === 'taskItem' && one.nodes[0].type.name === 'taskItem'
+  return { kind: 'into', into: piece, words: step ? `Make it a step of “${name}”` : `Move into “${name}”`, key: `into:${piece.pos}`, holds: `into:${piece.pos}` }
+}
+
+/** Lets go on an item: the carried items go in under it, one step for ⌘Z. A list they emptied goes with them. */
+function nestInto(one: Held, piece: Piece): boolean {
+  const { view, from, to, nodes } = one
+  const { state } = view
+  const list = state.doc.resolve(from).parent
+  const item = state.doc.nodeAt(piece.pos)
+  if (!item) return false
+  const join = item.lastChild?.type === list.type
+  const at = piece.pos + item.nodeSize - (join ? 2 : 1)
+  const tr = state.tr.deleteRange(from, to)
+  tr.insert(tr.mapping.map(at), join ? Fragment.from(nodes) : list.type.create(null, nodes))
+  view.dispatch(tr.setMeta('hideDragHandle', true))
+  return true
+}
+
+/** The item letting go would put the carried ones under: lit as a sidebar folder is (haligtree-editor.scss). */
+let lit: HTMLElement | null = null
+function light(view: EditorView, el: HTMLElement | null): void {
+  if (lit === el) return
+  const was = lit
+  lit = el
+  quietly(view, () => {
+    if (was) delete was.dataset.dropHot
+    if (el) el.dataset.dropHot = ''
+  })
 }
 
 /** Near the outer quarter of a block it can stand beside: where that row's new column would be. */
@@ -301,18 +368,21 @@ function point(one: Held, again = false): void {
       // Out of its column to anywhere, the same: its row stands as it was, its other columns holding it open.
       const me = one.laid.findIndex((each) => each.piece.el === one.me)
       const away = !!one.column && (next.at < one.column.start || next.at > one.column.end)
-      const leaves = away || (next.at !== one.from && next.at !== one.to && (next.gap === me || next.gap === me - 1))
+      // A copy leaves no place to close over: its block stays.
+      const leaves = one.copy || away || (next.at !== one.from && next.at !== one.to && (next.gap === me || next.gap === me - 1))
       const spot = leaves ? makeWay(all.filter((el) => el !== one.me), one.me, next.gap >= me ? next.gap - 1 : next.gap, one.tall, quiet) : makeWay(all, one.me, next.gap, one.tall, quiet)
       // At the level it would land: beside the block it goes before or after.
       const by = restBox(next.by.el)
       one.room = spot && { ...spot, left: by.left, width: by.width }
       lean(null, 0)
     } else {
+      // Beside a block, into an item, or nowhere: nothing opens, all at home, its own place the band.
       makeWay(all, one.me, null, one.tall, quiet)
       const home = restBox(one.me)
-      one.room = { ...home, height: one.tall, own: true }
+      one.room = one.copy ? null : { ...home, height: one.tall, own: true }
       lean(next?.kind === 'beside' && !next.refused ? next.lean : null, next?.kind === 'beside' ? (next.beside.side === 'left' ? 8 : -8) : 0)
     }
+    light(one.view, next?.kind === 'into' ? next.into.el : null)
     if (next?.kind === 'beside' && next.refused) document.documentElement.dataset.dragRefused = ''
     else delete document.documentElement.dataset.dragRefused
     const holds = next ? next.holds : one.ring
@@ -323,8 +393,8 @@ function point(one: Held, again = false): void {
   draw()
 }
 
-/** Lets go: where the card said (a move, or a row of columns), or back home (Esc, nowhere, a refusal). */
-function end(drop: boolean): void {
+/** Lets go: where the card said (a move, or a row of columns), or back home (Esc, nowhere, a refusal). `heard`: its sound. */
+function end(drop: boolean, heard = true): void {
   const one = held
   held = null
   down = null
@@ -335,8 +405,11 @@ function end(drop: boolean): void {
   delete document.documentElement.dataset.dragRefused
   delete document.documentElement.dataset.blockCarry
   let moved = false
+  one.rest.undwell()
+  light(view, null)
   if (drop && aim && !view.isDestroyed) {
     if (aim.kind === 'beside' && !aim.refused) moved = dropBeside(view, true, aim.beside)
+    else if (aim.kind === 'into') moved = nestInto(one, aim.into)
     else if (aim.kind === 'line' && !one.room?.own) {
       const tr = view.state.tr
       const content = Fragment.from(nodes)
@@ -358,7 +431,7 @@ function end(drop: boolean): void {
     delete view.dom.dataset.carrying
   })
   draw()
-  chime(moved ? 'gather' : 'stay')
+  if (heard) chime(moved ? 'gather' : 'stay')
   if (moved) view.focus()
 }
 
@@ -377,13 +450,16 @@ function draw(): void {
   if (!one) return root.render(null)
   const { aim, room } = one
   const many = one.nodes.length > 1 ? one.nodes.length : 0
-  const words = !aim ? null : aim.kind === 'beside' ? aim.words : room?.own ? null : many ? `Move ${many} here` : 'Move here'
+  const words = !aim ? null : aim.kind !== 'line' ? aim.words : room?.own ? null : `${one.copy ? 'Copy' : 'Move'}${many ? ` ${many}` : ''} here`
   const side = aim?.kind === 'beside' ? aim : null
   root.render(
     <>
-      <CardAt x={one.x} y={one.y}>
-        <CarriedCard attrs={{ 'data-block-card': '' }} icon={one.icon} title={one.title} words={words} refused={!!side?.refused} />
-      </CardAt>
+      {/* Carried by the browser's own drag, the system draws what is in hand (the picture, or the file's card): one thing in the hand. */}
+      {!one.away && (
+        <CardAt x={one.x} y={one.y}>
+          <CarriedCard attrs={{ 'data-block-card': '' }} icon={one.icon} title={one.title} words={words} refused={!!side?.refused} />
+        </CardAt>
+      )}
       {room && <RoomAt at={room} how={aim?.kind === 'line' ? `block:${aim.at}` : 'own'} />}
       {/* Beside a block: the line stands up at the seam its new column will open at, the height of the block. */}
       {side && !side.refused && (
@@ -395,6 +471,14 @@ function draw(): void {
 
 /* The pointer and the keys -------------------------------------------------------------------------------------------- */
 
+/** In hand: the page knows it is carrying, the column's grip goes, and (`heard`) the lift is heard. */
+function begin(heard: boolean): void {
+  document.documentElement.dataset.dragging = ''
+  document.documentElement.dataset.blockCarry = ''
+  hideColumnGrip()
+  if (heard) chime('lift')
+}
+
 function move(event: PointerEvent): void {
   if (!down) return
   if (!(event.buttons & 1)) return end(false)
@@ -402,14 +486,64 @@ function move(event: PointerEvent): void {
     if (Math.hypot(event.clientX - down.x, event.clientY - down.y) < LIFT) return
     held = lift(down.view, down.pos, event.clientX, event.clientY, event.altKey)
     if (!held) return void ((down = null), stopListening())
-    document.documentElement.dataset.dragging = ''
-    document.documentElement.dataset.blockCarry = ''
-    hideColumnGrip()
-    chime('lift')
+    begin(true)
   }
   held.x = event.clientX
   held.y = event.clientY
   point(held)
+}
+
+/* A picture or file carried by itself: the browser's own drag, or the system's (extensions/drag-out.ts) ---------------- */
+
+/**
+ * Taken by its body, a picture or file goes by the browser's own drag (the system's, for one kept in the app, carrying
+ * the real file): it can leave for other apps. Over its own note the blocks make way for it as for the grip's carry, the
+ * room with its line, a tick a place, its own place the band, and let go there it moves, one step for ⌘Z. Out of the
+ * window everything is at home again, the block back in sight; brought back in, the room opens again.
+ */
+let away: { view: EditorView; pos: number; heard: boolean; landed: boolean } | null = null
+const AWAY = ['dragover', 'drop', 'dragleave', 'dragend', 'pointerdown', 'pointermove'] as const
+const IN_NOTE = ['dragenter', 'dragover', 'drop'] as const
+export function carryAway(view: EditorView, pos: number): void {
+  forget()
+  away = { view, pos, heard: false, landed: false }
+  for (const kind of AWAY) window.addEventListener(kind, heardAway, true)
+  for (const kind of IN_NOTE) view.dom.addEventListener(kind, inNote, true)
+}
+/** The drag is over: ended, or the pointer is pressed or moves with no button held (the system's drag says no more). */
+function forget(): void {
+  const was = away
+  if (!was) return
+  away = null
+  for (const kind of AWAY) window.removeEventListener(kind, heardAway, true)
+  for (const kind of IN_NOTE) was.view.dom.removeEventListener(kind, inNote, true)
+  if (held?.away) end(false, false)
+}
+/** Inside its own note the carry answers alone: the editor's drop line and drop never hear it (its edge scroll, round the note, does). */
+const inNote = (event: Event): void => event.stopImmediatePropagation()
+function heardAway(event: Event): void {
+  const now = away
+  if (!now) return
+  if (event instanceof PointerEvent) return void ((event.type === 'pointerdown' || !event.buttons) && forget())
+  const drag = event as DragEvent
+  if (drag.type === 'dragend') return forget()
+  // Out of the window: all home, the block in sight again, nothing heard (it may be landing in another app).
+  if (drag.type === 'dragleave') return void (!drag.relatedTarget && held?.away && end(false, false))
+  if (!held && drag.type === 'dragover' && !now.landed && !now.view.isDestroyed) {
+    held = lift(now.view, now.pos, drag.clientX, drag.clientY, false, true)
+    if (held) begin(!now.heard)
+    now.heard = true
+  }
+  if (!held?.away) return
+  held.x = drag.clientX
+  held.y = drag.clientY
+  if (drag.type === 'dragover') point(held)
+  // Off its note, or beside a full row: not the note's to take, as for the grip; let go there, it is all home.
+  const aim = held.aim
+  const takes = !!aim && !(aim.kind === 'beside' && aim.refused)
+  if (takes) drag.preventDefault()
+  if (takes && drag.dataTransfer) drag.dataTransfer.dropEffect = 'move'
+  if (drag.type === 'drop') (now.landed = true), end(takes, takes)
 }
 const up = (event: PointerEvent): void => {
   if (!held) return void ((down = null), stopListening())

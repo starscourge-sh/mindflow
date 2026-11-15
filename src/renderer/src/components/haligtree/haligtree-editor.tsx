@@ -851,22 +851,28 @@ function Surface({
     const stop = (): void => {
       at = null
     }
+    // A drag that leaves the window (to another app, or a file carried in from Finder and out again) ends nothing here.
+    const left = (event: DragEvent): void => void (!event.relatedTarget && stop())
 
     // A block carried by its grip (lib/block-carry.tsx) is the pointer's own move, not the browser's drag.
     const carried = (event: PointerEvent): void => void (document.documentElement.hasAttribute('data-block-carry') ? follow(event) : stop())
 
-    box.addEventListener('dragover', follow)
+    // Heard on the way down: a picture carried by itself is answered by its note alone (lib/block-carry.tsx carryAway),
+    // which keeps its drag from the editor's own handlers below.
+    box.addEventListener('dragover', follow, true)
     box.addEventListener('pointermove', carried)
-    document.addEventListener('dragend', stop)
-    document.addEventListener('drop', stop)
+    document.addEventListener('dragend', stop, true)
+    document.addEventListener('drop', stop, true)
+    document.addEventListener('dragleave', left, true)
     document.addEventListener('pointerup', stop)
 
     return () => {
       cancelAnimationFrame(frame)
-      box.removeEventListener('dragover', follow)
+      box.removeEventListener('dragover', follow, true)
       box.removeEventListener('pointermove', carried)
-      document.removeEventListener('dragend', stop)
-      document.removeEventListener('drop', stop)
+      document.removeEventListener('dragend', stop, true)
+      document.removeEventListener('drop', stop, true)
+      document.removeEventListener('dragleave', left, true)
       document.removeEventListener('pointerup', stop)
     }
   }, [])
