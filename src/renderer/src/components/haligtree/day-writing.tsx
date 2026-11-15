@@ -361,25 +361,25 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
     return () => watch.disconnect()
   }, [])
   // Only while the page is in use: the caret in it, or writing mode on. Read or passed by, the line keeps out of the way.
-  const [inUse, setInUse] = useState(() => !!editor?.isFocused || document.documentElement.hasAttribute('data-day-writing'))
+  const [inUse, setInUse] = useState(() => document.documentElement.hasAttribute('data-day-writing'))
   const [writingNow, setWritingNow] = useState(() => document.documentElement.hasAttribute('data-day-writing'))
   useEffect(() => {
     if (!editor || editor.isDestroyed) return
     const root = document.documentElement
     // Once writing mode has begun the controls stay while the page is in use, so the pointer coming to them (which brings the
     // page back) does not take them away; they go when the words are left.
+    // The line, and the blur under it, only once writing mode has faded the page: on the caret alone it floated over
+    // the day's tasks and cards still in sight, a dark band cut through them (the user, 15 Nov: "what the fuck is
+    // happening here?"). The sound goes when the words are left, so there is nothing playing to stop outside it.
     const check = (): void => {
       const writing = root.hasAttribute('data-day-writing')
-      const using = editor.isFocused || writing
-      setInUse(using)
-      setWritingNow((was) => writing || (was && using))
+      setInUse(writing)
+      setWritingNow(writing)
     }
     const watch = new MutationObserver(check)
     watch.observe(root, { attributes: true, attributeFilter: ['data-day-writing'] })
-    editor.on('focus', check)
-    editor.on('blur', check)
     check()
-    return () => void (watch.disconnect(), editor.off('focus', check), editor.off('blur', check))
+    return () => watch.disconnect()
   }, [editor])
   // Lined up with the words' column and sitting on the page's foot, wherever the page puts them: a hint under the page lifts its foot.
   const dom = useEditorDom(editor)
