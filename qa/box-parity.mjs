@@ -46,7 +46,10 @@ async function sent(words, more = false) {
   await page.waitForTimeout(600)
   return { said, box: await cues(page), home: await cues(h) }
 }
-const one = (got, cue) => got.box.length + got.home.length === 1 && [...got.box, ...got.home][0] === cue
+// A milestone the send reached ("7 days in a row", celebrate.tsx) is a moment of its own, with its card and its cheer:
+// logged, not counted as the send's.
+const own = (got) => [...got.box, ...got.home].filter((cue) => cue !== 'cheer')
+const one = (got, cue) => own(got).length === 1 && own(got)[0] === cue
 
 try {
   await v('settings:set', { sounds: true, hintRate: 0 })
