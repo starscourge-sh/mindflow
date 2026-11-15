@@ -7,6 +7,8 @@
 // pick in it applies.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-tb/main/index.js HALIGTREE_QA_AWAY=1 node qa/selection-toolbar.mjs
 import { sandbox } from './sandbox-lib.mjs'
+// ⌘A in a note grows the selection a step at a time (qa/grow-selection.mjs): pressed until the whole note is picked.
+const pickAll = async (page) => { for (let i = 0; i < 16; i++) { await page.keyboard.press('Meta+a'); if (await page.evaluate(() => { const ed = document.activeElement?.closest('.tiptap')?.editor; return !ed || ed.state.selection.toJSON().type === 'all' })) return } }
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -31,7 +33,7 @@ const html = (p) => p.evaluate(() => document.querySelector('[data-qa-ed]')?.inn
 async function pickFirst(p) {
   const ed = p.locator('[data-qa-ed]')
   await ed.click()
-  await p.keyboard.press('Meta+a'); await p.keyboard.press('Backspace')
+  await pickAll(p); await p.keyboard.press('Backspace')
   await p.keyboard.type('Special demo', { delay: 4 })
   await p.keyboard.press('Enter')
   await p.keyboard.type('A second made-up line', { delay: 4 })
@@ -133,7 +135,7 @@ try {
   check('quick capture: bold from the bar goes on', /<strong>Special demo<\/strong>/.test(await html(page)))
   check('quick capture: the window did not move', before && after && before.x === after.x && before.y === after.y, `${before?.x},${before?.y} → ${after?.x},${after?.y}`)
   await menus(page, 'quick capture')
-  await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
+  await pickAll(page); await page.keyboard.press('Backspace')
   await page.keyboard.press('Escape')
 
   // A note in the main window.

@@ -16,6 +16,8 @@ import { loadavg } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+// ⌘A in a note grows the selection a step at a time (qa/grow-selection.mjs): pressed until the whole note is picked.
+const pickAll = async (page) => { for (let i = 0; i < 16; i++) { await page.keyboard.press('Meta+a'); if (await page.evaluate(() => { const ed = document.activeElement?.closest('.tiptap')?.editor; return !ed || ed.state.selection.toJSON().type === 'all' })) return } }
 
 const { check, done } = checks()
 const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
@@ -120,7 +122,7 @@ try {
   await h.evaluate(() => { window.__ends.to(0.4); window.__ends.ed().editor.commands.focus(null, { scrollIntoView: false }) })
   await wait(900)
   const copy = () => h.evaluate(() => { const e = window.__ends.ed(); const data = new DataTransfer(); e.dispatchEvent(new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true })); const { selection, doc } = e.editor.state; return { text: data.getData('text/plain'), html: data.getData('text/html').length, span: selection.to - selection.from, whole: doc.content.size } })
-  await h.keyboard.press('Meta+a')
+  await pickAll(h)
   await wait(800)
   const keyed = await copy()
   check('⌘A picks the whole note, and a copy takes its words', keyed.span >= keyed.whole - 2 && keyed.text.length > 500000, `${keyed.span} of ${keyed.whole} picked; ${keyed.text.length} characters copied, ${keyed.html} of HTML`)

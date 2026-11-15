@@ -9,6 +9,8 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-styles/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/styles.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+// ⌘A in a note grows the selection a step at a time (qa/grow-selection.mjs): pressed until the whole note is picked.
+const pickAll = async (page) => { for (let i = 0; i < 16; i++) { await page.keyboard.press('Meta+a'); if (await page.evaluate(() => { const ed = document.activeElement?.closest('.tiptap')?.editor; return !ed || ed.state.selection.toJSON().type === 'all' })) return } }
 process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.SHOTS
@@ -139,7 +141,7 @@ try {
       await c.page.keyboard.type('Ring the plumber about the boiler #home', { delay: 5 }).catch(() => {})
       await c.page.waitForTimeout(500)
       await c.page.screenshot({ path: `${SHOTS}/${tag}-capture.png` })
-      await c.page.keyboard.press('Meta+a').catch(() => {}); await c.page.keyboard.press('Backspace').catch(() => {})
+      await pickAll(c.page).catch(() => {}); await c.page.keyboard.press('Backspace').catch(() => {})
       await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].hide())
     }
   }

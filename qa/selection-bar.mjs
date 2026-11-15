@@ -10,6 +10,8 @@
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { paste as pasteEvent } from './pasteboard.mjs'
+// ⌘A in a note grows the selection a step at a time (qa/grow-selection.mjs): pressed until the whole note is picked.
+const pickAll = async (page) => { for (let i = 0; i < 16; i++) { await page.keyboard.press('Meta+a'); if (await page.evaluate(() => { const ed = document.activeElement?.closest('.tiptap')?.editor; return !ed || ed.state.selection.toJSON().type === 'all' })) return } }
 process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.SHOTS
@@ -91,7 +93,7 @@ async function surface(p, name, { fill = true } = {}) {
   // Short: one word picked by a double-click shows the bar, whole.
   if (fill) {
     await ed.click()
-    await p.keyboard.press('Meta+a'); await p.keyboard.press('Backspace')
+    await pickAll(p); await p.keyboard.press('Backspace')
     await p.keyboard.type('A short made-up line to pick a word from', { delay: 4 })
   }
   await p.waitForTimeout(400)
@@ -102,7 +104,7 @@ async function surface(p, name, { fill = true } = {}) {
 
   // Long, scrolling.
   await ed.click()
-  await p.keyboard.press('Meta+a'); await p.keyboard.press('Backspace')
+  await pickAll(p); await p.keyboard.press('Backspace')
   await pasteEvent(p, LONG)
   await p.waitForTimeout(900)
   await mark(p)
@@ -111,7 +113,7 @@ async function surface(p, name, { fill = true } = {}) {
 
   // ⌘A then ⌫ at once: never a flash of the bar.
   await watch(p)
-  await p.keyboard.press('Meta+a'); await p.waitForTimeout(40); await p.keyboard.press('Backspace')
+  await pickAll(p); await p.waitForTimeout(40); await p.keyboard.press('Backspace')
   await p.waitForTimeout(800)
   check(`${name}: ⌘A then ⌫ never flashes the bar`, !(await seen(p)))
   await p.keyboard.press('Meta+z')
@@ -119,7 +121,7 @@ async function surface(p, name, { fill = true } = {}) {
   await mark(p)
 
   // ⌘A, held a moment: the bar, whole.
-  await p.keyboard.press('Meta+a')
+  await pickAll(p)
   await p.waitForTimeout(900)
   const all = await bar(p)
   check(`${name}: ⌘A shows the bar once it has lasted a moment, whole`, all.whole, say(all))
@@ -156,7 +158,7 @@ async function surface(p, name, { fill = true } = {}) {
   const gone = await bar(p)
   check(`${name}: scrolled out of sight, the bar goes with the words`, !gone.shown, say(gone))
   await scrollBy(p, -4000)
-  await p.keyboard.press('Meta+a'); await p.keyboard.press('Backspace')
+  await pickAll(p); await p.keyboard.press('Backspace')
   await p.waitForTimeout(300)
 }
 

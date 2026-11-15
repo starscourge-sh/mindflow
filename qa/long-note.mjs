@@ -26,6 +26,7 @@ const profiled = async (name, run) => {
   return r
 }
 // From the key going down to the first frame drawn after it was handled.
+const isAll = () => h.evaluate(() => document.activeElement?.closest('.tiptap')?.editor?.state.selection.toJSON().type === 'all')
 const keyTimed = async (key) => {
   await h.evaluate(() => {
     window.__k = null
@@ -55,7 +56,10 @@ try {
   const nums = typed.filter((x) => typeof x === 'number').sort((a, b) => a - b)
   log('typing', { median: nums[Math.floor(nums.length / 2)], worst1in20: nums[Math.floor(nums.length * 0.95)], worst: nums.at(-1) })
   // Select all.
-  const all = await profiled('selectAll', () => keyTimed('Meta+a'))
+  // ⌘A grows the selection a step at a time (qa/grow-selection.mjs): each step timed, the last one picks the whole note.
+  const steps = []
+  const all = await profiled('selectAll', async () => { for (let i = 0; i < 16; i++) { steps.push(await keyTimed('Meta+a')); if (await isAll()) break } return steps.at(-1) })
+  log('selectAll.steps.ms', steps)
   log('selectAll.ms', all)
   const sel = await ed()
   log('selectAll.selection', sel)
@@ -89,7 +93,7 @@ try {
   const focused = await h.evaluate(() => !!document.activeElement?.closest('.ProseMirror'))
   if (!focused) fails.push('the editor lost the caret after Undo')
   // Type over a full selection.
-  await keyTimed('Meta+a')
+  for (let i = 0; i < 16 && !(await isAll()); i++) await keyTimed('Meta+a')
   const over = await profiled('typeOver', () => keyTimed('x'))
   const one = await ed()
   log('typeOver', { ms: over, one })

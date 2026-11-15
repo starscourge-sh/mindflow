@@ -8,6 +8,8 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-reword/main/index.js HALIGTREE_QA_AWAY=1 SHOT=<dir> node qa/reword.mjs
 import { mkdirSync, writeFileSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+// ⌘A in a note grows the selection a step at a time (qa/grow-selection.mjs): pressed until the whole note is picked.
+const pickAll = async (page) => { for (let i = 0; i < 16; i++) { await page.keyboard.press('Meta+a'); if (await page.evaluate(() => { const ed = document.activeElement?.closest('.tiptap')?.editor; return !ed || ed.state.selection.toJSON().type === 'all' })) return } }
 process.env.QA_ARGS ??= '--sandbox'
 
 const SHOT = process.env.SHOT ?? `${process.env.QA_DATA}/shots`
@@ -42,7 +44,7 @@ const card = (p) => p.evaluate(() => {
 const waiting = (p) => p.evaluate(() => [...document.querySelectorAll('[data-reword-draft]')].map((one) => one.textContent.trim()))
 const captureWith = async (words) => (await h.evaluate(() => window.api.captures.list())).find((one) => (one.label ?? '').trim() === words)
 const linkedBack = async (id, to) => ((await v('lineage', id))?.from ?? []).some((one) => one.id === to)
-const replaceWords = async (p, words) => { await p.keyboard.press('Meta+a'); await p.keyboard.type(words, { delay: 10 }) }
+const replaceWords = async (p, words) => { await pickAll(p); await p.keyboard.type(words, { delay: 10 }) }
 
 // --- the main window -----------------------------------------------------------------
 await c.theme('light')

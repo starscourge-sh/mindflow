@@ -5,6 +5,8 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/selection-count.mjs
 // QA_SHOTS=dir saves light and dark frames.
 import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
+// ⌘A in a note grows the selection a step at a time (qa/grow-selection.mjs): pressed until the whole note is picked.
+const pickAll = async (page) => { for (let i = 0; i < 16; i++) { await page.keyboard.press('Meta+a'); if (await page.evaluate(() => { const ed = document.activeElement?.closest('.tiptap')?.editor; return !ed || ed.state.selection.toJSON().type === 'all' })) return } }
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
@@ -54,7 +56,7 @@ check('the note let go: the count goes with it', !(await read()))
 
 // ⌘A: everything.
 await h.click(pm)
-await h.keyboard.press('Meta+a')
+await pickAll(h)
 await h.waitForTimeout(300)
 const all = await read()
 check('⌘A: the whole note\'s words, "selected"', /^[\d,]+ words · [\d,]+ characters selected$/.test(all?.text ?? ''), JSON.stringify(all))
