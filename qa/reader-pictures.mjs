@@ -142,7 +142,8 @@ try {
     }
   }
   // A page kept by the earlier reader (its HTML without this reader's first line, as the user's notability.com was
-  // kept on 15 Nov) is read again when next opened, and kept as this reader keeps it.
+  // kept on 15 Nov) is read again when next opened, and kept as this reader keeps it. Asked once; twice in a
+  // development build, where React opens the reader twice and the second reading stops the first (main/jobs.ts).
   const book = `${process.env.QA_DATA}/sandbox/haligtree.db`
   if (site.notability && existsSync(book)) {
     const sql = (query) => execFileSync('sqlite3', ['-cmd', '.timeout 5000', book, query]).toString().trim()
@@ -156,7 +157,7 @@ try {
     await wait(500)
     const again = (await electron.evaluate(() => globalThis.__pagesAsked ?? 0)) - asked
     const now = sql(`select substr(html, 1, 17) from web_articles where ${where}`)
-    check('a page kept by the earlier reader is read again when next opened, and kept as this reader keeps it', earlier !== '<!-- reader 2 -->' && again === 1 && now === '<!-- reader 2 -->', JSON.stringify({ earlier, again, now }))
+    check('a page kept by the earlier reader is read again when next opened, and kept as this reader keeps it', earlier !== '<!-- reader 2 -->' && again >= 1 && now === '<!-- reader 2 -->', JSON.stringify({ earlier, again, now }))
   }
   check('no page errors', c.errors.filter((one) => !/favicon|net::|Failed to load resource/i.test(one)).length === 0, c.errors.slice(0, 3).join(' | '))
   // Home again, so a book opened after this run (r3's kept-page check) does not open in the reader and ask the network
