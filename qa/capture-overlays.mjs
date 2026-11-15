@@ -112,8 +112,8 @@ const film = async (act, ms = 900) => {
   await wait(Math.max(0, 1450 - (Date.now() - t0)))
   return { frames: await page.evaluate(() => window.__film), line: await page.evaluate(() => window.__line), pictures }
 }
-/** Each control's largest step from one frame to the next, against the whole way it goes (`trip`), and its step in the frame the shape changed (a jump shows
- * there: the row drawn at its new place before it glides); where the row ends against the card. */
+/** Each control's largest step from one frame to the next, against the whole way it goes (`trip`), and its step in the frame the shape changed (the whole
+ * way, the row going with the card); where the row ends against the card. */
 // A frame the page was too busy to draw (the fold's render) makes the next step longer: up to 55% of the way, never
 // all of it at once.
 const read = ({ frames }) => {
@@ -152,7 +152,9 @@ async function growAndFold(look) {
   check(`${look} grow: the box is growing within 67ms of the new line (${tallerAt - grown.line}ms)`, tallerAt !== undefined && tallerAt - grown.line <= 67, JSON.stringify({ line: grown.line, tallerAt }))
   check(`${look} grow: the box grew (not the pill any more)`, !g.pill, JSON.stringify(g))
   check(`${look} grow: the round controls sit in a row above the box, level with its right edge`, !!g.row && !!g.card && g.row[3] <= g.card[1] - 4 && Math.abs(g.row[2] - g.card[2]) <= 2, JSON.stringify(g))
-  check(`${look} grow: they glide there from beside the pill, nothing drawn at the new place first (${g.start}px in that frame, at most ${g.step}px a frame of ${g.trip}px)`, g.start <= 12 && g.trip > 0 && g.step <= g.trip * 0.55 && g.count >= 30, JSON.stringify(g))
+  // A key's change, in one frame: the controls at their new place in the frame the card becomes the box, never trailing
+  // it on a clock of their own (only ⌘\ moves them on a curve, with the card, lib/box-morph.ts).
+  check(`${look} grow: they go there with the card, in the frame it becomes the box (${g.start}px in that frame, of ${g.trip}px)`, g.trip > 0 && Math.abs(g.start - g.trip) <= 2, JSON.stringify(g))
   // The footer (the kind, Create) comes with the box, whole, in the frame it grows: never an empty card first.
   const footerLate = (frames) => frames.filter((f) => !f[4] && f[6] < 0.95).map((f) => `${f[0]}ms ${f[6]}`)
   const late = footerLate(grown.frames)
@@ -161,7 +163,7 @@ async function growAndFold(look) {
   const f = read(folded)
   check(`${look} fold: back to the pill`, f.pill, JSON.stringify(f))
   check(`${look} fold: the round controls are beside the pill again, at its height`, !!f.row && !!f.card && f.row[0] >= f.card[2] + 4 && Math.abs(f.row[1] - f.card[1]) <= 2, JSON.stringify(f))
-  check(`${look} fold: they glide back (${f.start}px in the frame it folds, at most ${f.step}px a frame of ${f.trip}px)`, f.start <= 12 && f.trip > 0 && f.step <= f.trip * 0.55, JSON.stringify(f))
+  check(`${look} fold: they go back with the card, in the frame it folds (${f.start}px in that frame, of ${f.trip}px)`, f.trip > 0 && Math.abs(f.start - f.trip) <= 2, JSON.stringify(f))
   if (shots) {
     grown.pictures.forEach((png, i) => writeFileSync(join(shots, `grow-${look}-${String(i).padStart(2, '0')}.png`), png))
     folded.pictures.forEach((png, i) => writeFileSync(join(shots, `fold-${look}-${String(i).padStart(2, '0')}.png`), png))

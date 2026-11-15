@@ -12,8 +12,6 @@ import { start } from '../main'
 import { clearRoom } from '../lib/clear-room'
 import { carryOnPress } from '../lib/carry'
 import { followGlass } from '../lib/glass'
-import { whileChanging } from '../lib/while-changing'
-import { still } from '../lib/motion'
 import { applyRoom, roundControls } from '../lib/box-morph'
 
 start(<App />)
@@ -171,44 +169,9 @@ if (window.api.room.left) {
     if (controls?.width && controls.right > window.innerWidth - 4) root.dataset.controlsAbove = ''
   }
   new MutationObserver(() => requestAnimationFrame(fitControls)).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-one-line', 'data-pill'] })
-  // Beside the pill, and in a row above the box once it grows (main.css): each round control glides from one place to
-  // the other, in the same frame the pill grows or folds, never jumping. Where each was is kept from the last frame
-  // drawn; the new place is read before the next paint (a MutationObserver runs before it), and each starts from its
-  // old place and size. `translate` and `scale`, not `transform`: the overhang holds `transform: none !important`.
-  // ⌘\'s move carries them itself, on its own curve with the card's shape (lib/box-morph.ts, data-morph).
-  let was: DOMRect[] = []
-  let shapeWas = ''
-  const shapeNow = (): string => (document.querySelector('.app-container[data-pill]') ? 'pill' : 'box')
-  // Kept only while the page changes (lib/while-changing.ts), not every frame at rest. Its own watch below is made
-  // after this one, so on the change to data-pill it reads `was` before the next frame keeps the new places.
-  whileChanging(() => {
-    const now = buttons()
-    if (now.length && !shapeWas) shapeWas = shapeNow()
-    if (shapeNow() !== shapeWas || now.some((one) => one.getAnimations().length)) return true
-    const places = now.map((one) => one.getBoundingClientRect())
-    const moved = places.length !== was.length || places.some((r, i) => r.x !== was[i].x || r.y !== was[i].y || r.width !== was[i].width || r.height !== was[i].height)
-    was = places
-    return moved
-  }, () => buttons().some((one) => one.getAnimations().length > 0))
-  new MutationObserver(() => {
-    const shape = shapeNow()
-    if (!shapeWas || shape === shapeWas) return
-    shapeWas = shape
-    const now = buttons()
-    const from = was
-    was = now.map((one) => one.getBoundingClientRect())
-    // Motion off in Settings, or Reduce motion on: they are simply in their new places.
-    if (from.length !== now.length || still() || root.hasAttribute('data-morph')) return
-    now.forEach((one, i) => {
-      for (const old of one.getAnimations()) old.cancel()
-      const to = one.getBoundingClientRect()
-      if (!to.height) return
-      one.animate([
-        { translate: `${from[i].left - to.left}px ${from[i].top - to.top}px`, scale: `${from[i].width / to.width} ${from[i].height / to.height}`, transformOrigin: '0 0' },
-        { translate: '0 0', scale: '1 1', transformOrigin: '0 0' }
-      ], { duration: 260, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' })
-    })
-  }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-pill'] })
+  // Beside the pill, and in a row above the box once it grows (main.css). The pill becomes the box by a key (a second
+  // line, Esc, ⌘↵) in one frame, card and round controls together; only ⌘\ moves them on a curve, all on its one
+  // clock (lib/box-morph.ts). A glide of the controls alone, after the card had already changed, was a second clock.
   window.addEventListener('resize', () => requestAnimationFrame(fitControls))
   window.api.onRoomHint(({ top, left, right, bottom, side }) => {
     const root = document.documentElement
