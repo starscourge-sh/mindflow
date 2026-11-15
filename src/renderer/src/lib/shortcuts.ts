@@ -135,7 +135,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Editing', keys: '⌃⌘W', does: 'Selected words: Writing help by Apple Intelligence on this Mac (Fix it, Shorter, Make it a card…); ↑ ↓ and ↵, or 1 to 8, pick one', where: 'In a note' },
   { group: 'Editing', keys: '⌘↵', does: 'Selected words: a capture just as they are (in quick capture, the whole note selected still sends it)', where: 'In a note' },
   { group: 'Editing', keys: '⇧⌘D', does: 'Details of the open capture', where: 'Quick capture' },
-  { group: 'Editing', keys: '⌘A', does: 'Select more with each press: the line, its block, its list, its section, then the whole note (Edit > Select All takes it all at once)', where: 'In a note' },
+  { group: 'Editing', keys: '⌘A', does: 'Select more with each press: the line, its block, its list, its section, then the whole note (“Select All” in the Edit menu takes it all at once)', where: 'In a note' },
   { group: 'Editing', keys: '⌘F', does: 'Find in the note', where: 'In a note' },
   { group: 'Editing', keys: '⌃F', does: 'Find in the note, the same as ⌘F (with Vim keys, in normal mode ⌃F pages down instead)', where: 'In a note' },
   { group: 'Editing', keys: '⌥⌘F', does: 'Find and replace in the note', where: 'In a note' },
