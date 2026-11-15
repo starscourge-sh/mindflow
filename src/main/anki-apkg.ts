@@ -12,7 +12,7 @@ import { scheduler } from './haligtree'
 import { assetsDir, lookAhead } from './pictures'
 import { cut } from './clip'
 import { existsSync, readFileSync } from 'fs'
-import { nativeImage } from 'electron'
+import { imageSize } from 'image-size'
 import { fromAddOn, fromAnki, inShares, type Cover, type Hide, type Occlusion } from './occlusion'
 import { kindFieldsOf, kindTags, tagWord, whoFieldOf } from './deck-fields'
 
@@ -141,6 +141,22 @@ const linked = (html: string): string =>
   })
 
 /**
+ * A picture's size from its own first bytes, read once a picture, as pictures.ts reads every picture's (turned on its
+ * side by its camera: drawn the way it is turned). Never opened whole on main's thread: a deck's picture was decoded
+ * once for every card hiding part of it.
+ */
+const sizes = new Map<string, { width: number; height: number }>()
+function sizeOf(file: string): { width: number; height: number } {
+  let size = sizes.get(file)
+  if (!size) {
+    const read = existsSync(file) ? (() => { try { return imageSize(readFileSync(file)) } catch { return null } })() : null
+    const turned = (read?.orientation ?? 1) >= 5
+    sizes.set(file, (size = { width: (turned ? read?.height : read?.width) ?? 0, height: (turned ? read?.width : read?.height) ?? 0 }))
+  }
+  return size
+}
+
+/**
  * A picture-hiding note's card as a card from a picture: its picture, its
  * covers and which of them this card asks. Anki's own (23.10 and later) keeps
  * the covers in its Occlusion field, a cloze number each; the common add-on
@@ -159,7 +175,7 @@ function pictureCard(names: string[], raw: string[], ord: number, media: Map<str
     read = fromAnki(own)
     ask = ord + 1
     const file = join(assetsDir(), src.split('/').pop() ?? '')
-    const size = existsSync(file) ? nativeImage.createFromPath(file).getSize() : { width: 0, height: 0 }
+    const size = sizeOf(file)
     read = { ...read, covers: inShares(read.covers, size.width, size.height) }
   } else {
     const mask = pictureOf(field(/question mask/i))
