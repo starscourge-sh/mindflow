@@ -28,6 +28,7 @@ import { Flag } from 'lucide-react'
 import { weekGoalLines } from '../../../../main/goal-days'
 import { PlannedVsDid } from './planned-did'
 import { WeekTasks } from './week-tasks'
+import { WeekCaught } from './home-view'
 
 /**
  * Pages for wider stretches of time, each asking for less the wider it gets,
@@ -312,6 +313,7 @@ export function WeekPage({ start, onOpen, onScale, onRecent, recentOpen, onDay }
             </div>
         </div>}
         <WeekTasks monday={monday} onOpen={onOpen} />
+        {current && <WeekCaught onOpen={onOpen} />}
         <div className="mt-8"><DayGrid label="The week's days" days={Array.from({ length: 7 }, (_, at) => addDays(monday, at))} onOpenDay={onDay} /></div>
         {page && (
           <div key={key} className="mt-6">

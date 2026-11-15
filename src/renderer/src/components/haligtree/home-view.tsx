@@ -345,7 +345,7 @@ function Heading({ title, onAll, extra }: { title: ReactNode; onAll?: () => void
 }
 
 /** A row that scrolls sideways, with › and ‹ on hover and its edges faded where there is more. */
-function Row({ title, onAll, menu, children }: { title: ReactNode; onAll?: () => void; /** The row's own choices, last in the group on the right. */ menu?: MenuItem[]; children: ReactNode }): React.JSX.Element {
+function Row({ title, over, lead, onAll, menu, children }: { title: ReactNode; /** A small line over the title. */ over?: string; /** Held still at the left while the cards slide beside it. */ lead?: ReactNode; onAll?: () => void; /** The row's own choices, last in the group on the right. */ menu?: MenuItem[]; children: ReactNode }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   // Where the row is, for the dot track under it: what share is in view, and from where.
@@ -383,6 +383,7 @@ function Row({ title, onAll, menu, children }: { title: ReactNode; onAll?: () =>
     <section className="group/shelf flex flex-col gap-1 [--card:9rem] @[44rem]/page:[--card:10.5rem]">
       {/* ‹ and › beside Show all, never over a card's words. */}
       <div className="px-5 @[44rem]/page:px-8">
+        {over && <p className="text-xs text-muted-foreground">{over}</p>}
         <Heading title={title} onAll={onAll} extra={(edges.left || edges.right || menu) && (
           <span className="flex shrink-0 items-center gap-1 self-center">
             {(edges.left || edges.right) && (['left', 'right'] as const).map((side) => (
@@ -397,11 +398,14 @@ function Row({ title, onAll, menu, children }: { title: ReactNode; onAll?: () =>
           </span>
         )} />
       </div>
-      <div className="relative">
+      <div className={lead ? 'flex flex-col gap-3 pt-1 @[44rem]/page:flex-row @[44rem]/page:gap-1' : ''}>
+      {lead && <div className="flex shrink-0 px-5 @[44rem]/page:w-[40%] @[44rem]/page:pr-0 @[44rem]/page:pl-8">{lead}</div>}
+      <div className="relative min-w-0 flex-1">
         <div ref={scroller} onScroll={measure} className="flex snap-x scroll-px-3.5 items-stretch gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain px-3.5 py-1 [scrollbar-width:none] @[44rem]/page:scroll-px-6.5 @[44rem]/page:px-6.5 [&::-webkit-scrollbar]:hidden"
           style={{ maskImage: mask, WebkitMaskImage: mask }}>
           {children}
         </div>
+      </div>
       </div>
       {(edges.left || edges.right) && <DotTrack from={span.from} to={span.to} onPick={(at) => {
         const box = scroller.current
@@ -597,36 +601,94 @@ function ExampleHome(): React.JSX.Element {
   )
 }
 
-function Quotes({ title, onAll, cards, actions }: { title: ReactNode; onAll?: () => void; cards: Card[]; actions: Actions }): React.JSX.Element {
+/** A card's own picture, or its paper drawing where it has none. */
+function Cover({ card, className = '' }: { card: Card; className?: string }): React.JSX.Element {
+  const src = usePicture(card)
+  const [broken, setBroken] = useState(false)
   return (
-    <section className="flex flex-col gap-2 px-5 @[44rem]/page:px-8">
-      <Heading title={title} onAll={onAll} />
-      <div className="grid grid-cols-1 gap-2 @[24rem]/page:grid-cols-2 @[60rem]/page:grid-cols-3">
-        {cards.map((card, at) => (
-          <RowMenu key={card.id} items={() => menuFor(card, actions, cards, at)}>
-            <div className="group/card relative" data-private={card.private ? '' : undefined}>
-              {/* A card that is settled in place carries its answer under it, in the same paper. */}
-              <Lean by={4} className="h-full" inner={`flex flex-col ${card.foot ? 'rounded-xl bg-foreground/[0.04]' : ''}`}>
-              <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
-                className={`flex w-full flex-1 flex-col gap-2 rounded-xl p-4 text-left outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring/50 ${card.foot ? 'pb-2 hover:bg-foreground/[0.03]' : 'bg-foreground/[0.04] hover:bg-foreground/[0.07]'}`}>
-                <span className="private-text pr-7 font-heading text-[1.0625rem] leading-snug hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
-                {wordsOf(card.excerpt) && <span className="private-text line-clamp-3 text-xs leading-relaxed text-muted-foreground">{wordsOf(card.excerpt)}</span>}
-                <Signed who={card.who} where={card.where} year={card.year} className="private-text -mt-0.5 text-xs text-muted-foreground" />
-                <span className="mt-auto flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <KindMark card={card} grain={false} className="size-4 rounded-[4px] [&_svg]:size-2.5" />{card.sub}
-                </span>
-              </button>
-              {card.foot && <div className="px-4 pb-3">{card.foot}</div>}
-              <span className="pointer-events-none absolute top-2 right-2">
-                <RoundRead onRead={() => actions.read(cards, at)}
-                  className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
+    <span className={`relative overflow-hidden ${className}`}>
+      {src && !broken ? <Picture src={src} onBroken={() => setBroken(true)} /> : <KindMark card={card} className="size-full [&_svg]:size-6" />}
+    </span>
+  )
+}
+
+/**
+ * What is coming back, laid out as a music app's "New release from" row:
+ * the one most due held still on the left, the rest as numbered square
+ * tiles that slide sideways beside it. Narrow, the feature sits on top.
+ */
+function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; onAll?: () => void; onReview?: () => void; cards: Card[]; actions: Actions }): React.JSX.Element {
+  const [lead, ...rest] = cards
+  const feature = (
+    <RowMenu items={() => menuFor(lead, actions, cards, 0)}>
+      <div data-coming-feature className="group/card relative flex w-full" data-private={lead.private ? '' : undefined}>
+        <Lean by={3} className="h-full" inner="relative flex h-full flex-col gap-3 rounded-xl bg-foreground/[0.05] p-3 transition-colors duration-150 hover:bg-foreground/[0.07]">
+          {/* The whole card opens it; the round buttons sit over it. */}
+          <button type="button" aria-label={nameOf(lead)} data-nav data-private={lead.private ? '' : undefined} data-picked={actions.picked?.(lead) || undefined} data-drag-open={`${lead.type}:${lead.id}`} onClick={(event) => actions.open(lead, event)}
+            className="absolute inset-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50" />
+          <div className="pointer-events-none relative flex min-h-0 flex-1 items-stretch gap-4">
+            <Cover card={lead} className="aspect-square w-[38%] max-w-[10rem] shrink-0 self-start rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
+            <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1">
+              <span className="truncate text-xs text-muted-foreground">{lead.sub ?? 'Coming back'} · {kindLabel(lead)}</span>
+              <span className="private-text line-clamp-3 text-title leading-tight font-semibold tracking-[-0.01em] hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(lead)}</span>
+              {/* Review now first, then Read, then the menu. */}
+              <span className="pointer-events-auto mt-auto flex items-center gap-2 pt-3">
+                {onReview && (
+                  <Tip label="Review now" offset={6}>
+                    <button type="button" onClick={() => (chime('tap'), onReview())}
+                      className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)] transition-[scale] duration-150 motion-safe:hover:scale-[1.04] active:scale-[0.95]">
+                      <Orbit className="size-4" />
+                    </button>
+                  </Tip>
+                )}
+                {readable(lead) && <RoundRead onRead={() => actions.read(cards, 0)} className="!size-9 !bg-foreground/[0.08] !text-foreground !shadow-none hover:!bg-foreground/[0.12]" />}
+                <Tip label="More" offset={6}><span className="flex"><MenuButton small items={() => flatMenu(menuFor(lead, actions, cards, 0))} /></span></Tip>
               </span>
-              </Lean>
             </div>
-          </RowMenu>
-        ))}
+          </div>
+          {lead.foot && <div className="relative">{lead.foot}</div>}
+        </Lean>
       </div>
-    </section>
+    </RowMenu>
+  )
+  return (
+    <Row title={title} over="Due back today" onAll={onAll} lead={feature}>
+      {rest.map((card, at) => <ComingTile key={`${card.type}:${card.id}`} card={card} list={cards} at={at + 1} actions={actions} />)}
+    </Row>
+  )
+}
+
+/** A square tile, numbered like a mix: its kind in a coloured band at the foot, the number beside it, the name under it. */
+function ComingTile({ card, list, at, actions }: { card: Card; list: Card[]; at: number; actions: Actions }): React.JSX.Element {
+  const band = { background: `color-mix(in oklab, ${tintOf(card)} 28%, var(--background))` }
+  return (
+    <RowMenu items={() => menuFor(card, actions, list, at)}>
+      <div className="group/card relative flex w-(--card) shrink-0 snap-start">
+        <Lean className="flex w-full" inner="flex">
+          <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
+            className="flex w-full flex-col gap-2 rounded-xl p-1.5 text-left outline-none transition-[background-color,scale] duration-200 ease-(--mf-ease) hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985]">
+            <span className="relative block aspect-square w-full">
+              <Cover card={card} className="absolute inset-0 rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
+              <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-1 p-1.5">
+                <span className="min-w-0 truncate rounded-[4px] px-1.5 py-0.5 text-xs font-medium text-foreground" style={band}>{kindLabel(card)}</span>
+                <span className="shrink-0 rounded-[4px] px-1.5 text-lg leading-snug font-semibold tabular-nums text-foreground" style={band}>{String(at).padStart(2, '0')}</span>
+              </span>
+            </span>
+            <span className="flex min-w-0 flex-col gap-0.5 px-1 pb-1">
+              <span className="private-text line-clamp-2 text-control leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
+              {card.sub && <span className="truncate text-xs text-muted-foreground">{card.sub}</span>}
+            </span>
+          </button>
+          {card.foot && <div className="px-1.5 pb-1.5">{card.foot}</div>}
+          {readable(card) && (
+            <span className="pointer-events-none absolute top-3 right-3">
+              <RoundRead onRead={() => actions.read(list, at)}
+                className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
+            </span>
+          )}
+        </Lean>
+      </div>
+    </RowMenu>
   )
 }
 
@@ -667,6 +729,45 @@ function BookOpened({ opened }: { opened: Opened }): React.JSX.Element {
     <div data-book-opened="" className="page-column relative w-full px-5 pt-6 @[44rem]/page:px-8">
       <p className="font-heading text-title font-light tracking-[-0.01em] text-foreground">Your book, opened {opened.on}.</p>
       {opened.first && <p className="mt-1 text-reading text-(--mf-muted-strong)">The first thing in it: <span className="font-heading italic">{quoted(opened.first)}</span></p>}
+    </div>
+  )
+}
+
+/**
+ * "Caught this week" on the Week's page: the notes Home's "From this week"
+ * row shows, as the same cards, so its Show all lands on what it promised.
+ * Only this week's page has them: Home reads the current week alone.
+ */
+/** Set by Home's Show all: the Week's page opens at its notes. */
+const TO_CAUGHT = 'haligtree:to-caught'
+export function WeekCaught({ onOpen }: { onOpen?: (type: string, id: string) => void }): React.JSX.Element | null {
+  const data = useLive(home, NONE, [], ['capture', 'item'])
+  const captures = useCaptures()
+  const fullMenu = useFullMenu()
+  const [reading, setReading] = useState<{ items: Readable[]; start: number } | null>(null)
+  const opening = (card: Card): void => (chime('open'), onOpen?.(card.type, card.id))
+  const actions: Actions = {
+    open: (card, event) => (turns(card.type) ? heroOpen(event, () => onOpen?.(card.type, card.id)) : opening(card)),
+    note: (card) => {
+      const capture = card.type === 'capture' ? captures.find((one) => one.id === card.id) : null
+      return fullMenu(card.type, card.id, () => opening(card)) ?? sideMenu(card.type, card.id, nameOf(card), { onOpen: () => opening(card), kind: capture?.kind, status: capture?.status })
+    },
+    read: (list, at) => {
+      const items = list.filter(readable)
+      setReading({ items: items.map((one) => ({ type: one.type, id: one.id })), start: Math.max(0, items.indexOf(list[at])) })
+    }
+  }
+  const week = data.week.map((card) => ({ ...card, sub: card.sub ?? whenInLine(card.at) }))
+  if (!week.length) return null
+  return (
+    <div data-week-caught className="-mx-5 mt-8 scroll-mt-6" ref={(box) => {
+      // Opened from Home's Show all: brought into view once, as it first shows.
+      if (box && sessionStorage.getItem(TO_CAUGHT)) (sessionStorage.removeItem(TO_CAUGHT), box.scrollIntoView({ block: 'start', behavior: glideWay() }))
+    }}>
+      <Row title="Caught this week">
+        {week.map((card, at) => <RowCard key={`${card.type}:${card.id}`} card={card} list={week} at={at} actions={actions} />)}
+      </Row>
+      {reading && <ReadThrough items={reading.items} start={reading.start} onClose={() => setReading(null)} />}
     </div>
   )
 }
@@ -974,7 +1075,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
             </Row>
           )}
 
-          {back.length > 0 && <Quotes title="Coming back" onAll={() => onView('review')} cards={back} actions={actions} />}
+          {back.length > 0 && <Quotes title="Coming back" onAll={() => onView('review')} onReview={() => onView('review')} cards={back} actions={actions} />}
 
           {(tidy.length > 0 || again.length > 0) && (
             <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
@@ -1012,7 +1113,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
           ))}
 
           {week.length > 0 && (
-            <Row title="From this week" onAll={() => onView('weekpage')}>
+            <Row title="From this week" onAll={() => (sessionStorage.setItem(TO_CAUGHT, '1'), onView('weekpage'))}>
               {week.map((card, at) => <RowCard key={`${card.type}:${card.id}`} card={card} list={week} at={at} actions={actions} />)}
             </Row>
           )}
