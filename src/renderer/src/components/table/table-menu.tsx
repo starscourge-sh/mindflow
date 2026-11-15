@@ -1,5 +1,5 @@
 import { BubbleMenu, type BubbleMenuProps } from '@tiptap/react/menus'
-import { CellSelection } from '@tiptap/pm/tables'
+import { CellSelection, TableMap } from '@tiptap/pm/tables'
 import { useEffect, useReducer } from 'react'
 import type { Editor } from '@tiptap/react'
 
@@ -150,13 +150,23 @@ function entries(editor: Editor): Entry[] {
   return [['Merge or split cells', () => chain().mergeOrSplit().run(), 'gather']]
 }
 
+/**
+ * Every cell of a table of several rows and columns picked (⌘A's step after a
+ * row, or a drag across them all): no one row or column is meant, and the
+ * column's menu it showed ("Delete column", "Sort column A to Z") said otherwise.
+ */
+const wholeTable = (cells: CellSelection): boolean => {
+  const map = TableMap.get(cells.$anchorCell.node(-1))
+  return map.width > 1 && map.height > 1 && cells.isRowSelection() && cells.isColSelection()
+}
+
 // Only once a grip has been used, or cells dragged across. A cursor resting
 // in a cell is someone typing, not someone asking for a menu. Not while the
 // table is being dragged: the drag starts from a cell selection and leaves it
 // in place, so the menu floated over the drag. One function for good: a new
 // one each render made the menu reconfigure on every keystroke.
 const showForCells: BubbleMenuProps['shouldShow'] = ({ editor: view, state }) =>
-  state.selection instanceof CellSelection && !view.view.dragging
+  state.selection instanceof CellSelection && !view.view.dragging && !wholeTable(state.selection)
 
 export function TableMenu({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   // The bubble re-renders when it is shown or hidden, not when the selection
