@@ -3130,7 +3130,8 @@ const CapturePrompt = ({
         shape="document"
         extensions={bigPaste}
         backToTop={!pill}
-        placeholder="Write a thought, a quote, a link… or type / for more"
+        // A small window's column (368px) wrapped the box's words onto a second line, cut off under each new row.
+        placeholder={SMALL ? 'Write, or type / for more' : 'Write a thought, a quote, a link… or type / for more'}
         defaultContent={initial}
         tokens={tokens}
         onTokenClick={(token) => token.name === 'tag' && onTag(token.value)}
