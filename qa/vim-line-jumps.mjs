@@ -197,10 +197,14 @@ try {
   const relativeOn = () => h.$eval(`${row('Relative')} button[role="switch"]`, (one) => one.getAttribute('aria-checked'))
   const says = () => h.$eval(row('Relative'), (one) => one.textContent)
   check('unset, it is on with Vim keys on and says it follows “Vim keys” until changed', (await relativeOn()) === 'true' && /Until you change it, it follows “Vim keys”/.test(await says()), await says())
-  const sample = () => h.$eval(`${row('Relative')} [data-preview="relative-lines"]`, (one) => [...one.querySelectorAll(':scope > span')].map((r) => [...r.querySelectorAll(':scope > span')].slice(0, 2).map((n) => `${n.textContent}@${getComputedStyle(n).opacity}`).join('/')).join(' '))
-  check('its sample shows both looks, relative in ink', (await sample()) === '12@0.3/1@1 13@0.3/13@1 14@0.3/1@1', await sample())
+  // Each number as drawn: ink for the look chosen, faded ink for the other, told apart by their colours.
+  const sample = () => h.$eval(`${row('Relative')} [data-preview="relative-lines"]`, (one) => {
+    const ink = getComputedStyle(one.querySelector('[data-chosen]')).color
+    return [...one.querySelectorAll(':scope > span')].map((r) => [...r.querySelectorAll(':scope > span')].slice(0, 2).map((n) => `${n.textContent}@${getComputedStyle(n).color === ink ? 'ink' : 'faded'}`).join('/')).join(' ')
+  })
+  check('its sample shows both looks, relative in ink', (await sample()) === '12@faded/1@ink 13@faded/13@ink 14@faded/1@ink', await sample())
   await film('relative-off', () => h.click(`${row('Relative')} button[role="switch"]`)); await wait(600)
-  check('pressed off: saved off, the plain numbers in ink, no longer said to follow Vim keys', (await v('settings')).relativeLineNumbers === false && (await sample()) === '12@1/1@0.3 13@1/13@0.3 14@1/1@0.3' && !/follows/.test(await says()), await sample())
+  check('pressed off: saved off, the plain numbers in ink, no longer said to follow Vim keys', (await v('settings')).relativeLineNumbers === false && (await sample()) === '12@ink/1@faded 13@ink/13@faded 14@ink/1@faded' && !/follows/.test(await says()), await sample())
   if (shots) await h.screenshot({ path: join(shots, 'v2-settings-lines.png') })
   const dark = async (name) => {
     await h.evaluate(() => { localStorage.setItem('theme', 'dark'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }); await wait(600)

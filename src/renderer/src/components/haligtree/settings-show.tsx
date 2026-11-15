@@ -598,7 +598,8 @@ export const FoldSample = ({ on }: { on: boolean }): React.JSX.Element => (
 
 /**
  * Three lines of a note and their numbers in the margin: on, the numbers (relative: counted out from the middle line,
- * which keeps its own); off, the lines alone. `both`: the two looks side by side, the one chosen in ink (“Relative”).
+ * which keeps its own); off, the lines alone. `both`: the two looks side by side, the one chosen in ink and the other
+ * in faded ink (“Relative”).
  */
 export const LineNumbersSample = ({ on, relative, both = false }: { on: boolean; relative: boolean; both?: boolean }): React.JSX.Element => (
   <span data-preview={both ? 'relative-lines' : 'line-numbers'} data-on={on || undefined} data-relative={relative || undefined} className="flex h-9 w-40 flex-col justify-center gap-px rounded-md border bg-background px-2">
@@ -606,7 +607,7 @@ export const LineNumbersSample = ({ on, relative, both = false }: { on: boolean;
       <span key={number} className="flex items-center gap-1.5">
         {/* The type ramp's smallest size, 11px, the three rows a pixel apart so the sample keeps its 36px. */}
         {(both ? [false, true] : [relative]).map((counted) => (
-          <span key={String(counted)} className={`w-4 text-right text-[11px] leading-none tabular-nums transition-opacity duration-200 ${i === 1 ? 'text-(--mf-muted-strong)' : 'text-muted-foreground'} ${!on ? 'opacity-0' : both && counted !== relative ? 'opacity-30' : ''}`}>{counted ? away : number}</span>
+          <span key={String(counted)} data-chosen={(both && counted === relative) || undefined} className={`w-4 text-right text-[11px] leading-none tabular-nums transition-opacity duration-200 ${both ? (counted === relative ? 'text-foreground' : 'text-muted-foreground') : i === 1 ? 'text-(--mf-muted-strong)' : 'text-muted-foreground'} ${on ? '' : 'opacity-0'}`}>{counted ? away : number}</span>
         ))}
         <span className="block h-[2px] rounded-full bg-foreground/40" style={{ width }} />
       </span>
