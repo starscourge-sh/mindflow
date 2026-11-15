@@ -56,6 +56,8 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
       feed: (_gone: Gone, asked: FeedAsk) => feed.feed(asked),
       /** How near the Feed is to full. */
       'feed:goal': (_gone: Gone, takes: Takes) => feed.goal(takes),
+      /** The Feed's side column: who and what has gone quiet, and this week's tags. */
+      'feed:side': (_gone: Gone, takes: Takes) => feed.side(takes),
       /** The same idea, caught again and again (book-repeats.ts). */
       repeats: (_gone: Gone, ids: string[]) => repeats(ids),
       /** A note's mentions, both ways (book-mentions.ts). */
