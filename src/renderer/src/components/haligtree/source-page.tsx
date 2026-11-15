@@ -485,7 +485,7 @@ const quoteEntry = (field: SourceField, page: SourcePage, item: SourceItem): Ent
   const ref = item.location ? (isPage(item.location) ? `p. ${item.location}` : item.location) : ''
   const place = [from, ref].filter(Boolean).join(', ')
   // A where that names its year already ("Frankenstein, chapter 4 (1831)") is not given it twice.
-  const named = !!year && ((place.match(/\d+/g) ?? []).includes(year) || place.includes(`(${year})`))
+  const named = !!year && (!!place.match(/\d+/g)?.includes(year) || place.includes(`(${year})`))
   const under = place && year && !named ? `${place} (${year})` : place || year || ''
   return {
     id: item.id,
