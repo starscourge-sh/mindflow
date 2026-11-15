@@ -14,7 +14,10 @@ const wait = (ms) => h.waitForTimeout(ms)
 const heading = (name) => h.locator('aside nav button[aria-expanded]', { hasText: name }).first()
 const row = (label) => h.locator(`aside nav button[data-side-row][aria-label="${label}"]`).first()
 
-for (const [group, place] of [['Saved', 'Gems'], ['Saved', 'Questions'], ['Tasks', 'Today']]) {
+// The sidebar's groups now: Questions and Gems under Library (70f7229cb, 8 Nov), folded to start and held open while one
+// of its pages is on show; "Saved" and the Tasks heading went with the one-shape sidebar (3ea604c23, 23 Oct), Tasks
+// being a row of its own whose first tab is Today. The heading is pressed on the place's own page, as before.
+for (const [group, place] of [['Library', 'Gems'], ['Library', 'Questions']]) {
   if ((await heading(group).getAttribute('aria-expanded')) !== 'true') { await heading(group).click(); await wait(700) }
   await row(place).click()
   await wait(700)

@@ -58,7 +58,14 @@ const click = async (selector, text) => {
   if (!done) throw new Error(`nothing to click: ${selector} ${text ?? ''}`)
   await wait()
 }
-const side = (label) => click(`aside nav button[aria-label="${label}"]`)
+// A row inside a folded group is reached as a person reaches it, its heading pressed open first: Questions and Gems
+// are under Library, folded to start (70f7229cb, 8 Nov).
+const side = async (label) => {
+  const there = await h.evaluate((one) => !!document.querySelector(`aside nav button[aria-label="${one}"]`), label)
+  if (!there) await h.evaluate(() => document.querySelectorAll('aside nav [data-side-heading] button[aria-expanded="false"]').forEach((one) => one.click()))
+  if (!there) await wait(500)
+  await click(`aside nav button[aria-label="${label}"]`)
+}
 const nth = async (selector, n) => {
   const done = await h.evaluate(([s, i]) => {
     const found = document.querySelectorAll(s)[i]
@@ -147,10 +154,11 @@ try {
   await run('Gems: one open, another row', async () => { await side('Gems'); await row(0) }, () => row(1))
   await run('Questions: Answered, then a section', async () => { await side('Questions'); await click('[class*="@container/page"] button', 'Answered') }, () => side('Home'))
   await run('Questions: one open, then a section', async () => { await side('Questions'); await row(0) }, () => side('Home'))
-  await run('Goals: one open, then a section', async () => { await go('goals'); await row(0) }, () => side('Today'))
+  // The sidebar's Today row is Tasks since 23 Oct (3ea604c23, b05a17e95): Today is its first tab.
+  await run('Goals: one open, then a section', async () => { await go('goals'); await row(0) }, () => side('Tasks'))
 
   // --- Tasks ---------------------------------------------------------------------------------
-  await run('Today: a task open, then G Y', async () => { await side('Today'); await nth('[class*="@container/page"] button[data-row]', 0) }, () => keys('g', 'y'))
+  await run('Today: a task open, then G Y', async () => { await side('Tasks'); await nth('[class*="@container/page"] button[data-row]', 0) }, () => keys('g', 'y'))
   await run('Upcoming: a task open, another', async () => { await go('upcoming'); await nth('[class*="@container/page"] button[data-row]', 0) }, () => nth('[class*="@container/page"] button[data-row]', 1))
   await run('Week: a task open, then a section', async () => { await go('week'); await click('[data-day] button[data-cursor], [data-day] button') }, () => side('Inbox'))
   await run('Matrix: a task open, then a section', async () => { await go('matrix'); await click('[data-quadrant] button') }, () => side('Inbox'))
