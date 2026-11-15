@@ -2,7 +2,7 @@ import { Extension, type Editor } from "@tiptap/core"
 import type { Mark, Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state"
 import { AddMarkStep } from "@tiptap/pm/transform"
-import { restoring } from "@/lib/undo-exact"
+import { attributesOnly, restoring } from "@/lib/undo-exact"
 import { changedSpan } from "@/lib/text-edit"
 
 /**
@@ -166,7 +166,7 @@ export const LinkTidy = Extension.create({
       new Plugin({
         appendTransaction: (transactions, old, state) => {
           const type = state.schema.marks.link
-          if (!type || !transactions.some((tr) => tr.docChanged) || transactions.some((tr) => tr.getMeta("preventAutolink")) || restoring(transactions)) return null
+          if (!type || !transactions.some((tr) => tr.docChanged) || transactions.some((tr) => tr.getMeta("preventAutolink")) || restoring(transactions) || attributesOnly(transactions)) return null
           const changed = changedSpan(old.doc, state.doc)
           if (!changed) return null
           // Only a link that read as its own address a moment ago: words linked by hand keep theirs. None in what
