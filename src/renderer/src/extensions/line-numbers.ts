@@ -278,12 +278,13 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     // The fold arrow's room, the column, 4px, the grip where the note has one, and 2px from the edge.
     const grip = holder.querySelector(".tiptap-drag-handle") ? 4 + 1.5 * rem : 0
     const need = 1.75 * rem + layer.getBoundingClientRect().width + grip + 2
-    const base = (parseFloat(getComputedStyle(view.dom).paddingLeft) || 0) - extra
+    // The stylesheet's own room, read with the room given here taken off: it is another at another width of pane
+    // (a narrow note's is smaller), and the room given at the last width is no part of it.
+    if (extra) view.dom.style.paddingLeft = ""
+    const base = parseFloat(getComputedStyle(view.dom).paddingLeft) || 0
     const have = view.dom.getBoundingClientRect().left + base - holder.getBoundingClientRect().left
-    const more = Math.max(0, Math.ceil(need - have))
-    if (more === extra) return
-    extra = more
-    view.dom.style.paddingLeft = more ? `${base + more}px` : ""
+    extra = Math.max(0, Math.ceil(need - have))
+    view.dom.style.paddingLeft = extra ? `${base + extra}px` : ""
   }
 
   // Whether the column stands, as last told (`LINES`): told again only when it comes, goes or changes width.

@@ -152,10 +152,13 @@ try {
   if (shots) await h.screenshot({ path: join(shots, 'lines-narrow.png') })
   await size(1400, 900); await wait(1200)
   // The pointer comes to rest on the first paragraph, its handle showing; it does not move again while the numbers
-  // go off and come back.
+  // go off and come back. It comes in across the heading: the drag handle shows again only for a block other than
+  // the one it last stood beside (the plugin's own way, before any of this), and the paragraph was that one.
   await h.mouse.move(5, 5); await wait(300)
   const home = await h.evaluate(() => { const r = document.querySelector('[data-open] .tiptap > p').getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2, words: r.left } })
-  await h.mouse.move(home.x, home.y, { steps: 4 }); await wait(500)
+  const heading = await h.evaluate(() => { const r = document.querySelector('[data-open] .tiptap > h2').getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2 } })
+  await h.mouse.move(heading.x, heading.y, { steps: 4 }); await wait(300)
+  await h.mouse.move(home.x, home.y, { steps: 3 }); await wait(500)
   const grip = () => h.evaluate(() => {
     const one = document.querySelector('[data-open] .tiptap-drag-handle')
     const r = one.getBoundingClientRect()
@@ -171,7 +174,7 @@ try {
   const after = await where()
   check('switched off, no numbers and the words do not move', got.words.length === 0 && before.every((n, i) => Math.abs(n - after[i]) < 0.5), `${got.words.length} numbers; ${before} -> ${after}`)
   const off = await grip()
-  check('switched off with the pointer still: the handle is back where it always stood at once, + and grip', off.shown && !off.tight && Math.abs(off.right - (home.words - 24)) <= 2 && off.width > 40, JSON.stringify({ ...off, words: Math.round(home.words) }))
+  check('switched off with the pointer still: the handle is back where it always stood at once, + and grip', off.shown && !off.tight && Math.abs(off.right - (after[0] - 24)) <= 2 && off.width > 40, JSON.stringify({ ...off, words: Math.round(after[0]) }))
   // On again: the numbers back, and the handle left of them at once, the pointer still not moved.
   await v('settings:set', { lineNumbers: true }); await wait(600)
   got = await read()
