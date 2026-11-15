@@ -151,7 +151,6 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   let sized = false
   let frame = 0
   let total = 0
-  let idle = 0
 
   const shown = (): boolean => on && view.editable
 
@@ -299,9 +298,8 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     if (!frame) frame = requestAnimationFrame(place)
   }
 
-  // How many digits the note's last number has, for the column's width: counted when the page has nothing else to do.
+  // How many digits the note's last number has, for the column's width.
   const count = (): void => {
-    idle = 0
     const lines = linesBefore(doc.childCount)
     if (lines === total) return
     total = lines
@@ -330,8 +328,12 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
       told(false)
       return
     }
+    // The column's width counted now, before the frame the numbers are drawn in. Counted later, when the page had
+    // nothing else to do, the column grew from two digits to the note's own after the first screen, the note's left
+    // room grew with it, and every word moved under a press made then (qa/long-note-press-early.mjs, 15 Nov 2026).
+    // Each block's lines are kept (`counts`, `before`), so after a change this walks only from the change on.
+    count()
     schedule()
-    if (!idle) idle = requestIdleCallback(count, { timeout: 1000 })
   }
 
   // Told in the middle of the note's own update, before its page is drawn: only noted, and read when it is.
@@ -376,7 +378,6 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     },
     destroy: () => {
       cancelAnimationFrame(frame)
-      cancelIdleCallback(idle)
       resized.disconnect()
       document.fonts.removeEventListener("loadingdone", fonts)
       view.dom.removeEventListener(DRAWN, drawn)
