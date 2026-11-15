@@ -253,7 +253,15 @@ try {
       const top = (map, n) => [...map].filter(([k]) => !/^\((idle|program|root)\)/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, us]) => `  ${(us / 1000).toFixed(1).padStart(7)}ms  ${k}`).join('\n')
       console.log(`--- self\n${top(self, 14)}\n--- inclusive\n${top(total, 30)}`)
     }
+    // TRACE=<file>: a Chromium trace of every process (main thread, compositor, raster, GPU) through the fling down
+    // whose frames are counted, kept in that file, to tell what a late frame was made of.
+    const TRACE = process.env.TRACE
+    if (TRACE) await electron.evaluate(({ contentTracing }) => contentTracing.startRecording({
+      included_categories: ['toplevel', 'devtools.timeline', 'disabled-by-default-devtools.timeline', 'disabled-by-default-devtools.timeline.frame', 'benchmark', 'cc', 'viz', 'gpu', 'v8', 'disabled-by-default-v8.gc', 'blink', 'input', 'latencyInfo'],
+      trace_buffer_size_in_kb: 400000,
+    }))
     const down = await frames(() => fling(at.x, at.y, 12000, 1))
+    if (TRACE) console.log(`trace of the fling down: ${await electron.evaluate(({ contentTracing }, file) => contentTracing.stopRecording(file), TRACE)}`)
     console.log(`fling down at 12000 px/s: ${say(down)}  (${load()})`)
     const up = await frames(() => fling(at.x, at.y, 12000, -1))
     console.log(`fling up   at 12000 px/s: ${say(up)}  (${load()})`)
