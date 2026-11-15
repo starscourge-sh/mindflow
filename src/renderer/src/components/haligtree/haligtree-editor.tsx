@@ -239,9 +239,10 @@ const clearOfLines = {
     const floating = elements.floating
     const wrapper = floating.closest(".haligtree-editor-wrapper")
     const lines = wrapper?.querySelector<HTMLElement>(".mf-lines")
-    if (!wrapper || !lines?.childElementCount) return (floating.removeAttribute("data-tight"), {})
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
     const [full, slim, room] = [3 * rem, 1.5 * rem, 4]
+    // No numbers: its own place, at its full width even when it was slim a moment ago (measured slim, it sat 1.5rem off).
+    if (!wrapper || !lines?.childElementCount) return floating.hasAttribute("data-tight") ? (floating.removeAttribute("data-tight"), { x: rects.reference.x - full - 24 }) : {}
     // From the handle's own coordinates to the window's, and back.
     const shift = (elements.reference as Element).getBoundingClientRect().left - rects.reference.x
     const column = lines.getBoundingClientRect()

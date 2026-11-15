@@ -158,9 +158,28 @@ try {
   got = await read()
   const after = await where()
   check('switched off, no numbers and the words do not move', got.words.length === 0 && before.every((n, i) => Math.abs(n - after[i]) < 0.5), `${got.words.length} numbers; ${before} -> ${after}`)
+  // And the handle is back where it always stood, + and grip, its right edge 24px left of the words.
+  await h.mouse.move(5, 5); await wait(300)
+  const home = await h.evaluate(() => { const r = document.querySelector('[data-open] .tiptap > p').getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2, words: r.left } })
+  await h.mouse.move(home.x, home.y, { steps: 4 }); await wait(500)
+  const grip = await h.evaluate(() => { const one = document.querySelector('[data-open] .tiptap-drag-handle'); const r = one.getBoundingClientRect(); return { right: Math.round(r.right), width: Math.round(r.width), tight: one.hasAttribute('data-tight') } })
+  check('with numbers off the handle stands where it always did, + and grip', !grip.tight && Math.abs(grip.right - (home.words - 24)) <= 2 && grip.width > 40, JSON.stringify({ ...grip, words: Math.round(home.words) }))
   await v('settings:set', { lineNumbers: true }); await wait(600)
   got = await read()
   check('switched on again, the numbers are back', got.words.length === EXPECTED, String(got.words.length))
+  // ⌘K: “Turn line numbers off”, its notice, and the notice's Undo putting them back.
+  await h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.commands.focus('end'))
+  await h.keyboard.press('Meta+k'); await wait(500)
+  await h.keyboard.type('line numbers', { delay: 20 }); await wait(500)
+  const offered = await h.evaluate(() => [...document.querySelectorAll('[cmdk-item]')].map((one) => one.textContent).find((words) => /Turn line numbers/.test(words)) ?? null)
+  // Pressed with the pointer: a setting of the same name may stand first in the list.
+  if (offered) await h.click('[cmdk-item]:has-text("Turn line numbers off")')
+  await wait(700)
+  const said = await h.evaluate(() => document.body.innerText.includes('Line numbers off'))
+  check('⌘K offers “Turn line numbers off”, and pressing it turns them off with a notice', /Turn line numbers off/.test(offered ?? '') && (await v('settings')).lineNumbers === false && said, `${offered}; notice ${said}`)
+  const undo = await h.evaluate(() => { const button = [...document.querySelectorAll('button')].find((one) => one.textContent.trim() === 'Undo' && one.getBoundingClientRect().height > 0); button?.click(); return !!button })
+  await wait(600)
+  check('the notice\'s Undo turns them back on', undo && (await v('settings')).lineNumbers === true)
   // Settings, Writing: the switch, on to start, and its sample showing what it does as it is pressed.
   await h.evaluate(() => localStorage.setItem('settings:section', 'Writing'))
   await c.send('view', 'home'); await wait(500); await c.send('view', 'settings'); await wait(1200)
@@ -178,18 +197,6 @@ try {
   await h.evaluate(() => { localStorage.setItem('vim', 'off'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'off' })) }); await wait(400)
   check('pressed on again with Vim keys off: plain numbers 12 13 14', (await v('settings')).lineNumbers === true && (await sample()) === '12@1 13@1 14@1', await sample())
   if (shots) await h.$(row).then((one) => one.screenshot({ path: join(shots, 'lines-setting-on.png') }))
-  // ⌘K: “Turn line numbers off”, its notice, and the notice's Undo putting them back.
-  await h.keyboard.press('Meta+k'); await wait(500)
-  await h.keyboard.type('line numbers', { delay: 20 }); await wait(500)
-  const offered = await h.evaluate(() => [...document.querySelectorAll('[cmdk-item]')].map((one) => one.textContent).find((words) => /Turn line numbers/.test(words)) ?? null)
-  // Pressed with the pointer: a setting of the same name may stand first in the list.
-  if (offered) await h.click('[cmdk-item]:has-text("Turn line numbers off")')
-  await wait(700)
-  const said = await h.evaluate(() => document.body.innerText.includes('Line numbers off'))
-  check('⌘K offers “Turn line numbers off”, and pressing it turns them off with a notice', /Turn line numbers off/.test(offered ?? '') && (await v('settings')).lineNumbers === false && said, `${offered}; notice ${said}`)
-  const undo = await h.evaluate(() => { const button = [...document.querySelectorAll('button')].find((one) => one.textContent.trim() === 'Undo' && one.getBoundingClientRect().height > 0); button?.click(); return !!button })
-  await wait(600)
-  check('the notice\'s Undo turns them back on', undo && (await v('settings')).lineNumbers === true)
   check('no page errors', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
