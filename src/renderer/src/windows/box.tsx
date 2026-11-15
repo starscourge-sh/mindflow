@@ -216,7 +216,8 @@ if (window.api.room.left) {
   window.addEventListener('resize', () => requestAnimationFrame(fitControls))
   window.api.onRoomHint(({ top, left, right, bottom, side }) => {
     const root = document.documentElement
-    delete root.dataset.controlsAbove
+    // A new place tries the controls beside the pill again; a new height alone (main's keptRoom) leaves them be.
+    if (`${left}px ${right}px` !== `${root.style.getPropertyValue('--mf-room-left')} ${root.style.getPropertyValue('--mf-room-right')}`) delete root.dataset.controlsAbove
     applyRoom({ top, left, right, bottom })
     if (side) root.dataset.hintSide = side
     else delete root.dataset.hintSide

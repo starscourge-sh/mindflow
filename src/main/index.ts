@@ -721,6 +721,7 @@ function roomForHint(win: BrowserWindow, place: Electron.Rectangle): Promise<voi
   const { workArea } = screen.getDisplayMatching(place)
   const hinted = hintRoom(place, workArea, BOX_ROOM, boxOneLine() && !isWelcoming())
   const { side } = hinted
+  hintNeeds = hinted.room
   // Under any card, the box with its panel too, a hint below keeps its room.
   hintFoot = side === 'below' ? Math.min(BOX_ROOM.bottom + HINT_ROOM, hinted.room.bottom) : BOX_ROOM.bottom
   const room = roomForPanel(win, place, hinted.room)
@@ -745,16 +746,19 @@ let hintSide: HintSide | undefined
 let hintBelow = BOX_ROOM.bottom
 /** The room a hint below the card needs under it, whichever card it is (set as the box opens, roomForHint). */
 let hintFoot = BOX_ROOM.bottom
+/** The room round the card its hint and its round controls need, as the box last opened (roomForHint). */
+let hintNeeds: Room = BOX_ROOM
 /** The box's left edge at a new width as its panel opens or shuts: about its middle with Settings' "centred", else where it is. */
 const panelX = (card: Electron.Rectangle, width: number): number => (boxPlacement().centred ? Math.round(card.x - (width - card.width) / 2) : card.x)
 /**
  * The room round a card with the panel shut (the one-line pill, the box alone) also holds the box with its panel where
- * ⌘\ would put it, so the box grows in the window it already has: a window seen while it changes size shows its old
- * picture at its new size for a frame or two, the card cut flat and bare frost beside it (the user, 15 Nov).
+ * ⌘\ would put it, at the expander's height (⌃⇧F), so the box grows in the window it already has (keptRoom, within):
+ * a window seen while it changes size shows its old picture at its new size for a frame or two, the card cut flat and
+ * bare frost beside it (the user, 15 Nov).
  */
 function roomForPanel(win: BrowserWindow, place: Electron.Rectangle, room: Room): Room {
   if (panelShown() || isWelcoming() || win !== prompt) return room
-  const box = onScreen({ x: panelX(place, WITH_PANEL), y: anchor?.became === place.y ? anchor.y : place.y, width: WITH_PANEL, height: SIZES.compact.height })
+  const box = onScreen({ x: panelX(place, WITH_PANEL), y: anchor?.became === place.y ? anchor.y : place.y, width: WITH_PANEL, height: SIZES.expanded.height })
   return {
     left: Math.max(room.left, place.x - box.x + BOX_ROOM.left),
     top: Math.max(room.top, place.y - box.y + BOX_ROOM.top),
@@ -785,6 +789,28 @@ function within(win: BrowserWindow, to?: Electron.Rectangle): Room & { width: nu
   if (!sameBox(frame, { x: left, y: top, width: right - left, height: bottom - top })) win.setBounds(next)
   roomInEnv()
   return { ...room, width: right - left, height: bottom - top }
+}
+/**
+ * The box's card at a new size inside the frame its window already has (roomForPanel keeps the box with its panel at
+ * the expander's height there): the room round the card takes the change and the frame stays exactly as it is, so the
+ * page alone draws the card at its new height in one frame (a line written, ⌃⇧F: keys, so at once), never main
+ * gliding the frame while the page lays itself out after it. The room is then the one the next open makes, so the box
+ * opens at once in the frame it had (a two-line draft after a relaunch grew the frame by 224px and the next open shrank
+ * it again, qa/pill-polish.mjs). False where the card and its hint's room do not fit (a box opened with its panel
+ * already out, or pushed up by the screen's foot): main glides the frame as before.
+ */
+function keptRoom(win: BrowserWindow, next: Electron.Rectangle): boolean {
+  // A glide under way goes on from where it is.
+  if (win !== prompt || !rooms.has(win) || isWelcoming() || win.isFullScreen() || pending?.win === win) return false
+  const frame = BrowserWindow.prototype.getBounds.call(win)
+  const room = { left: next.x - frame.x, top: next.y - frame.y, right: frame.x + frame.width - next.x - next.width, bottom: frame.y + frame.height - next.y - next.height }
+  if (room.left < hintNeeds.left || room.top < hintNeeds.top || room.right < hintNeeds.right || room.bottom < hintFoot) return false
+  rooms.set(win, room)
+  relimit.get(win)?.()
+  roomInEnv()
+  hintBelow = room.bottom
+  win.webContents.send('window:room-hint', { ...room, side: hintSide ?? null })
+  return true
 }
 /** More (or less) room round a window's card, the card staying exactly where it is. */
 function setRoom(win: BrowserWindow, room: Room): void {
@@ -2881,6 +2907,7 @@ function refit(win: BrowserWindow, snap = false): Promise<void> {
   const next = anchored(win, bounds.x, win === prompt && !win.isFullScreen() ? boxWidth() : bounds.width, boxHeight())
   // Already there, or on its way: a glide under way is never restarted.
   if (sameBox(next, bounds) && !(snap && pending)) return Promise.resolve()
+  if (keptRoom(win, next)) return Promise.resolve()
   return reshape(win, next, snap)
 }
 /** Where the box's left edge was before the side panel opened, and where opening put it: the same test, sideways. */
