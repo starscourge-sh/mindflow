@@ -53,6 +53,11 @@ try {
   }))
   const home = async () => {
     for (let i = 0; i < 3 && (await shows()).panes > 1; i++) { await h.keyboard.press('Control+w'); await wait(400) }
+    // A split closed says so at the window's foot, with Undo (d6ae302ec), over the note's last lines: the next press
+    // landed on it, and on a web link pressed its Undo, which put the split back. It is let go first, as a person
+    // waits for it, with the pointer off it (a notice under the pointer keeps its time).
+    await h.mouse.move(4, 4)
+    await h.waitForFunction(() => !document.querySelector('[data-toast-lane] [role=status]'), null, { timeout: 9000 }).catch(() => {})
     await c.send('capture', id); await wait(1500)
   }
   // Events the page is told, for what opens inside it.
@@ -62,13 +67,18 @@ try {
   })
   const told = () => h.evaluate(() => window.__told.splice(0).map(([name, what]) => `${name} ${what}`).join(', '))
   let hit = ''
+  let pressed = 0
   const press = async (win, selector, modifiers = []) => {
     const target = win.locator(selector).first()
-    await target.scrollIntoViewIfNeeded()
+    // Into the middle of its page, as a person scrolls a link into sight before a click: a note's "Add a thought…"
+    // bar floats over its page's foot (72c5ea8fa), and a link under it counted as in view, so the press hit the bar.
+    await target.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }))
     // Aimed at its first line: a link that wraps has a box whose middle is between its lines.
     const box = await target.evaluate((el) => { const r = el.getClientRects()[0]; return { x: r.left, y: r.top, width: r.width, height: r.height } })
     await win.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 3 }); await win.waitForTimeout(200)
     hit = await win.evaluate(([x, y]) => { const one = document.elementFromPoint(x, y); return one ? `${one.tagName.toLowerCase()}.${String(one.className).split(' ')[0]} "${(one.textContent ?? '').slice(0, 30)}"` : 'nothing' }, [box.x + box.width / 2, box.y + box.height / 2])
+    // SHOT=<dir>: the window as the press lands, to read by eye.
+    if (SHOT) await win.screenshot({ path: `${SHOT}/press-${String(++pressed).padStart(2, '0')}-${selector.replace(/\W+/g, '-').slice(-24)}${modifiers.map((key) => `-${key}`).join('')}.png`, timeout: 5000 }).catch(() => {})
     for (const key of modifiers) await win.keyboard.down(key)
     await win.mouse.down(); await win.mouse.up()
     for (const key of modifiers) await win.keyboard.up(key)
@@ -107,17 +117,17 @@ try {
   // In the main window ⌘-click is a new tab, as its hover card says (note-preview.tsx); quick capture's, below, is a window of its own.
   const tabs = () => h.evaluate(() => (JSON.parse(localStorage.getItem('split') ?? 'null')?.panes ?? []).reduce((n, one) => n + one.tabs.length, 0))
   await home(); const windows = await apart(); const tabsWere = await tabs(); await press(h, NOTE, ['Meta'])
-  check('note link, ⌘-click: it opens in a new tab, no window of its own', (await apart()) === windows && (await tabs()) === tabsWere + 1, `${tabsWere} -> ${await tabs()}`)
+  check('note link, ⌘-click: it opens in a new tab, no window of its own', (await apart()) === windows && (await tabs()) === tabsWere + 1, `${tabsWere} -> ${await tabs()}, pressed ${hit}`)
   await closeApart()
 
   // A web link.
   await home(); let was = await opened(); await press(h, WEB)
-  check('web link, click: the browser opens it', (await opened()) === was + 1 && (await shows()).text.includes(LEAD))
+  check('web link, click: the browser opens it', (await opened()) === was + 1 && (await shows()).text.includes(LEAD), `pressed ${hit}`)
   was = await opened(); await told(); await press(h, WEB, ['Alt'])
   s = await shows()
   check('web link, ⌥-click: the reader opens it to the side', (await opened()) === was && /haligtree:web/.test(await told()) && beside(s), JSON.stringify(s))
   await home(); was = await opened(); await press(h, WEB, ['Meta'])
-  check('web link, ⌘-click: the browser opens it (its own window)', (await opened()) === was + 1)
+  check('web link, ⌘-click: the browser opens it (its own window)', (await opened()) === was + 1, `pressed ${hit}`)
 
   // A PDF link, a time, a page, a tag: plain and ⌥ (none has a window of its own).
   // A tag's page lists the note, words and all: it is told by the page it is on.
@@ -129,12 +139,12 @@ try {
     check(`${kind}, click: it opens`, gone(s, kind) && (!event || heard.includes(event)), `${heard} ${JSON.stringify(s.pages)} pressed ${hit}`)
     await home(); await press(h, selector, ['Alt'])
     s = await shows()
-    check(`${kind}, ⌥-click: it opens to the side`, beside(s), JSON.stringify(s.pages))
+    check(`${kind}, ⌥-click: it opens to the side`, beside(s), `${JSON.stringify(s.pages)} pressed ${hit}`)
     await home(); await press(h, selector, ['Meta'])
-    check(`${kind}, ⌘-click: it opens`, gone(await shows(), kind))
+    check(`${kind}, ⌘-click: it opens`, gone(await shows(), kind), `pressed ${hit}`)
   }
   await home(); await told(); await press(h, TIME)
-  check('time [0:42], click: the video plays from 42 seconds', (await told()).includes('haligtree:video-at 42'))
+  check('time [0:42], click: the video plays from 42 seconds', (await told()).includes('haligtree:video-at 42'), `pressed ${hit}`)
 
   // Editing stays easy.
   const caret = (win) => win.evaluate((sel) => { const editor = document.querySelector(sel).editor; const { from, to } = editor.state.selection; return { from, to, text: editor.state.doc.textBetween(from, to, ''), link: editor.isActive('link') } }, EDITOR)
