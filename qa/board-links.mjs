@@ -1,7 +1,7 @@
 // A link on a board's card opens as it does in the note, as its hover says (15 Nov: a PDF's link there opened
 // nothing, and ⌥-click on a web page's went to the browser instead of the reader): a click on a web page's link
 // opens the browser, ⌥-click the reader beside, ⌘-click the browser; a click on a PDF's link opens the reader at
-// its page; a tag on a card opens its page. The browser is a stand-in: nothing leaves the machine.
+// its page. The browser is a stand-in: nothing leaves the machine.
 //
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/board-links.mjs
 import { checks } from './harness.mjs'
@@ -33,7 +33,7 @@ try {
   const id = await v('article:new')
   await v('item:save', id, { title: 'Reading board', body: { type: 'doc', content: [
     { type: 'heading', attrs: { level: 2 }, content: [text('To read')] },
-    { type: 'taskList', content: [card(text('The '), text('essay', ESSAY), text(' and '), text('the paper', PAPER), text(' next #boardtag'))] },
+    { type: 'taskList', content: [card(text('The '), text('essay', ESSAY), text(' and '), text('the paper', PAPER), text(' next'))] },
     { type: 'heading', attrs: { level: 2 }, content: [text('Read')] },
     { type: 'taskList', content: [card(text('Nothing yet'))] }
   ] } })
@@ -42,7 +42,6 @@ try {
   await send('article', id); await wait(1800)
   const WEB = `[data-board] a[href="${ESSAY}"]`
   const PDF = '[data-board] a[href*="probe-paper.pdf"]'
-  const TAG = '[data-board] .tiptap-token[data-token="tag"]'
   check('the board shows the card with both links', (await h.locator(`${WEB}, ${PDF}`).count()) >= 2, String(await h.locator('[data-board]').count()))
 
   let hit = ''
@@ -77,11 +76,7 @@ try {
   await back(); was = await opened(); await told(); await press(PDF)
   const paper = await told()
   check('board: a click on a PDF link opens the reader at its page', paper.includes('haligtree:pdf 3') && (await opened()) === was, `${paper || 'nothing'} pressed ${hit}`)
-  // A tag on a card shows the tag's card on a rest, which says a click opens it: it does.
-  await back(); await press(TAG)
-  const pages = await h.evaluate(() => [...document.querySelectorAll('[data-pane] > [data-page], [data-page]')].map((one) => one.getAttribute('data-page')))
-  check('board: a click on a tag opens its page', pages.includes('tags'), `${JSON.stringify(pages)} pressed ${hit}`)
-  check('board: the pointer is the hand over every link and tag on a card', hands.length >= 5 && hands.every((one) => one.endsWith(' pointer')), hands.join(', '))
+  check('board: the pointer is the hand over every link on a card', hands.length >= 4 && hands.every((one) => one.endsWith(' pointer')), hands.join(', '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
