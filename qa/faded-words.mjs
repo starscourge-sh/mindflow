@@ -68,6 +68,9 @@ const measure = (h, scope = null) => h.evaluate((scope) => {
     // Faded out to nothing (a grip that shows on hover): not drawn. A whole row or card dimmed to show its state (a closed
     // question, a paused card) is drawn, and its words are measured as drawn, at that strength.
     if (fade < 0.05) return
+    // Words painted by their own fill through the letters (the reader card's gold foil: a clear ink and a background
+    // clipped to the text) are not an ink to read against a ground, nor is a clear ink with nothing painted through it.
+    if (own.a < 0.05) return
     // The ground: every fill from the page down to the word, and under a row of a glide list the light drawn behind its
     // rows (glide.tsx: the pointer's light, and the mark of the one chosen), where it lies under the word.
     const box = el.getBoundingClientRect()
