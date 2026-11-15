@@ -988,25 +988,6 @@ function Surface({
   // A ref rather than state: `onNodeChange` fires on every pointer move across a
   // block, and re-rendering the editor that often makes the handle flicker.
   const blockTarget = useRef<BlockTarget | null>(null)
-  // The numbers' column came, went or grew (extensions/line-numbers.ts): the handle is placed again beside the
-  // block it is on at once, as the drag handle places itself (its own computePosition, with the same config), so
-  // it stands left of the numbers the moment they come and back in its own place the moment they go, with no
-  // pointer having to reach another block first.
-  useEffect(() => {
-    if (!editor || !handles) return
-    const dom = editor.view.dom
-    const again = (): void => {
-      const target = blockTarget.current
-      const handle = gripOf.get(editor) ?? dom.parentElement?.querySelector<HTMLElement>(".tiptap-drag-handle")
-      const block = target && !editor.isDestroyed ? editor.view.nodeDOM(target.pos) : null
-      if (!handle?.isConnected || !(block instanceof HTMLElement)) return
-      void computePosition({ getBoundingClientRect: () => block.getBoundingClientRect() }, handle, HANDLE_POSITION).then(({ x, y, strategy }) => {
-        if (!editor.isDestroyed) Object.assign(handle.style, { position: strategy, left: `${x}px`, top: `${y}px` })
-      })
-    }
-    dom.addEventListener(LINES, again)
-    return () => dom.removeEventListener(LINES, again)
-  }, [editor, handles])
   const [menuOpen, setMenuOpen] = useState(false)
   // A right-click's spot, so its menu opens under the pointer; the grip's opens at the grip.
   /** The room a block's right-click menu needs to open under or over the block: about seven rows since its actions
@@ -1804,6 +1785,26 @@ function Surface({
   useEffect(() => {
     editor?.setEditable(!readOnly)
   }, [editor, readOnly])
+
+  // The numbers' column came, went or grew (extensions/line-numbers.ts): the handle is placed again beside the
+  // block it is on at once, as the drag handle places itself (its own computePosition, with the same config), so
+  // it stands left of the numbers the moment they come and back in its own place the moment they go, with no
+  // pointer having to reach another block first.
+  useEffect(() => {
+    if (!editor || !handles) return
+    const dom = editor.view.dom
+    const again = (): void => {
+      const target = blockTarget.current
+      const handle = gripOf.get(editor) ?? dom.parentElement?.querySelector<HTMLElement>(".tiptap-drag-handle")
+      const block = target && !editor.isDestroyed ? editor.view.nodeDOM(target.pos) : null
+      if (!handle?.isConnected || !(block instanceof HTMLElement)) return
+      void computePosition({ getBoundingClientRect: () => block.getBoundingClientRect() }, handle, HANDLE_POSITION).then(({ x, y, strategy }) => {
+        if (!editor.isDestroyed) Object.assign(handle.style, { position: strategy, left: `${x}px`, top: `${y}px` })
+      })
+    }
+    dom.addEventListener(LINES, again)
+    return () => dom.removeEventListener(LINES, again)
+  }, [editor, handles])
 
   // A nested block's handle sits over its parent's padding, so reaching for it
   // crossed the parent and the handle jumped there: the inner one could be seen
