@@ -859,11 +859,13 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
         // counted from the document the page shows, not the last long one seen (a note emptied, then pasted back
         // whole, was last seen long before it was emptied).
         const showing = (view as unknown as { docView: { node: ProseMirrorNode } }).docView.node
-        draw(index - NEAR, index + NEAR, blocks().length ? blocks().length + state.doc.childCount - showing.childCount : Infinity)
-        // The blocks the change brings come with no mark: until they are marked (`update`, before anything is shown),
-        // none of the note's blocks is laid out. Made visible, a whole note pasted back was laid out in full, and
-        // again each time the browser was told where the selection is, before the drawn blocks were known.
-        view.dom.setAttribute(ARRIVING, "")
+        const adds = state.doc.childCount - showing.childCount
+        draw(index - NEAR, index + NEAR, blocks().length ? blocks().length + adds : Infinity)
+        // The blocks a change brings come with no mark: when it brings more than a drawn band holds (a whole note
+        // pasted back, an Undo bringing one back), none of the note's blocks is laid out until they are marked
+        // (`update`, before anything is shown). Made visible, the largest note pasted back was laid out in full,
+        // and again each time the browser was told where the selection is, before the drawn blocks were known.
+        if (adds > 2 * AROUND) view.dom.setAttribute(ARRIVING, "")
         leap = show ? "shown" : "set"
         early = true
       }
