@@ -328,7 +328,7 @@ import { NoteEmbed } from "@/extensions/note-embed"
 import { embedRenderer, noteLinkRenderer, tagRenderer, wikiRenderer } from "@/components/note-link/note-link-menu"
 import { ImageMenu } from "@/components/image/image-menu"
 import { ImageLook } from "@/components/image/image-look"
-import { holdPlace } from "@/lib/pictures"
+import { holdPlace, webWhy } from "@/lib/pictures"
 import { codeBlockNodeView } from "@/components/code/code-block-node-view"
 import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems, slashMedia } from "@/components/slash/slash-items"
@@ -2059,13 +2059,22 @@ function Surface({
       }
       const end = decodeURIComponent(img.src.split(/[?#]/)[0].split("/").pop() ?? "")
       const name = img.alt || (/^[a-f0-9]{64}\./.test(end) || !end ? "A picture" : end)
-      const label = `${clip(name, 48)} isn’t here`
-      const width = Math.min(520, Math.max(220, label.length * 7 + 56))
-      const text = label.replace(/[<&>"]/g, (one) => `&#${one.charCodeAt(0)};`)
       img.dataset.missing = "1"
-      img.alt = label
-      // Grey at part strength reads calmly on a light page and a dark one.
-      img.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="64"><rect x=".5" y=".5" width="${width - 1}" height="63" rx="10" fill="#888" fill-opacity=".06" stroke="#888" stroke-opacity=".35" stroke-dasharray="4 4"/><g fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(18 23)"><rect width="18" height="18" rx="3"/><circle cx="6" cy="6" r="1.5"/><path d="m18 12-4-4-9 9"/></g><text x="48" y="33" dominant-baseline="middle" font-family="-apple-system, system-ui" font-size="13" fill="#888">${text}</text></svg>`)}`
+      const say = (label: string): void => {
+        const width = Math.min(520, Math.max(220, label.length * 7 + 56))
+        const text = label.replace(/[<&>"]/g, (one) => `&#${one.charCodeAt(0)};`)
+        img.alt = label
+        img.style.visibility = ""
+        // Grey at part strength reads calmly on a light page and a dark one.
+        img.src = `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="64"><rect x=".5" y=".5" width="${width - 1}" height="63" rx="10" fill="#888" fill-opacity=".06" stroke="#888" stroke-opacity=".35" stroke-dasharray="4 4"/><g fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(18 23)"><rect width="18" height="18" rx="3"/><circle cx="6" cy="6" r="1.5"/><path d="m18 12-4-4-9 9"/></g><text x="48" y="33" dominant-baseline="middle" font-family="-apple-system, system-ui" font-size="13" fill="#888">${text}</text></svg>`)}`
+      }
+      // A picture from another site says why it is not here, as its site or the connection answered (src/main/
+      // web-pictures.ts keeps the answer): "isn't here" was said of pictures that are, behind their site's sign-in.
+      // Hidden, not broken, for the moment it takes to ask.
+      const web = /^https?:\/\//.test(img.src) ? img.src : null
+      if (!web) return say(`${clip(name, 48)} isn’t here`)
+      img.style.visibility = "hidden"
+      void window.api.haligtree<string | null>("pictures:why", web).catch(() => null).then((why) => say(`${clip(name, 32)}: ${webWhy(web, why)}`))
     }
     const onError = (event: Event): void => void (event.target instanceof HTMLImageElement && missing(event.target))
     dom.addEventListener("error", onError, true)

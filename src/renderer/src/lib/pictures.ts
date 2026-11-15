@@ -170,6 +170,23 @@ const noStandIn = (img: HTMLImageElement): void => {
   for (const one of ["background-image", "background-size", "background-repeat", "background-origin", "background-clip"]) img.style.removeProperty(one)
 }
 
+/**
+ * Why a picture from another site could not be had, in a few words, from what its site or the connection was found
+ * to answer (`why`, src/main/web-pictures.ts: a status, a page sent in its place, or the connection's error).
+ */
+export function webWhy(src: string, why: string | null): string {
+  const host = new URL(src).host.replace(/^www\./, "")
+  const status = Number(/^status (\d+)$/.exec(why ?? "")?.[1] ?? 0)
+  if (status === 401 || status === 403) return `${host} shows it only to those signed in there`
+  if (status === 404 || status === 410) return `${host} no longer has it`
+  if (status) return `${host} answered error ${status}`
+  if (/^type /.test(why ?? "")) return `${host} sent a page, not a picture`
+  if (/INTERNET_DISCONNECTED|NETWORK_CHANGED|NETWORK_IO_SUSPENDED/.test(why ?? "")) return `no connection to ${host}`
+  if (/NAME_NOT_RESOLVED/.test(why ?? "")) return `${host} could not be found`
+  if (/TIMED_OUT/.test(why ?? "")) return `${host} did not answer`
+  return `${host} did not send it`
+}
+
 /** The view box that leaves out a picture's baked-in bands, for object-view-box, or nothing when it has none. */
 export function withoutBands(src: string | null | undefined): string | undefined {
   const look = lookOf(src)

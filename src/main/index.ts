@@ -117,6 +117,7 @@ import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { bringAppleNotes, notesReader, type NotesFolder } from './apple-notes'
 import { fileIntoGroups, filedSaid, registerNoteImports } from './note-imports'
 import { assetsDir, known, lookAhead, registerPictures, smallCopy } from './pictures'
+import { letWebPictures } from './web-pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
 import { cameraAccess, displayOf, noteScreenAtStart, privacySettings, screenAccess, shootArea, shootScreen, tuckedWindow, unseen } from './shots'
@@ -5391,6 +5392,7 @@ app.whenReady().then(() => {
   // "Error 153"), and Haligtree's pages are files. Say where it is shown from.
   session.defaultSession.webRequest.onBeforeSendHeaders({ urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/embed/*'] }, (details, done) =>
     done({ requestHeaders: { ...details.requestHeaders, Referer: 'https://haligtree.app/' } }))
+  letWebPictures(session.defaultSession)
   // YouTube turning the player away (its "unusual traffic" page, or anywhere off YouTube): the block is told, so it
   // says so with a way to watch it on YouTube, rather than showing an empty frame.
   session.defaultSession.webRequest.onBeforeRedirect({ urls: ['https://www.youtube-nocookie.com/embed/*', 'https://www.youtube.com/embed/*'] }, (details) => {
