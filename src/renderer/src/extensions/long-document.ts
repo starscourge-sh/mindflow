@@ -214,6 +214,8 @@ const LANDS = new Set(["Enter", "Backspace", "Delete", "ArrowUp", "ArrowDown", "
 
 /** The mark on a block that is off the page. */
 const OFF = "data-off"
+/** The mark on a long note while a change's blocks arrive, before they are marked: none of them is laid out. */
+const ARRIVING = "data-arriving"
 
 /**
  * Blocks either side of the screen kept drawn, and how close the screen or the caret may come to the edge of them.
@@ -396,7 +398,11 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     view.dom.dispatchEvent(new CustomEvent(DRAWN, { detail: [from, to] }))
     let above = 0
     let below = 0
-    for (let i = 0; i < from; i++) above += tall(all[i])
+    // Drawn ahead of a change, the page still holds the blocks from before it: a note emptied (⌘A and ⌫) and the
+    // whole of it pasted back has one block on the page, and the band is thousands of blocks in. Only the blocks on
+    // the page are counted; the space is worked out again once the change's blocks are there (`early`). Counting
+    // the ones not there yet threw, before ProseMirror drew the paste: the page showed one block of the note.
+    for (let i = 0; i < Math.min(from, all.length); i++) above += tall(all[i])
     for (let i = to + 1; i < all.length; i++) below += tall(all[i])
     spaced = [above, below]
     mark()
@@ -498,6 +504,7 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
   const clear = (): void => {
     band = null
     slip = 0
+    view.dom.removeAttribute(ARRIVING)
     mark()
     view.dom.dispatchEvent(new CustomEvent(DRAWN, { detail: null }))
     for (const end of ends) end.style.height = "0px"
@@ -848,8 +855,15 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
       // is not told to the browser (`keepSelectionDrawn`), and a key pressed there brings the note to it (`keyed`).
       if ((show || (went && !band)) && !across && (!band || index < band[0] || index > band[1])) {
         if (band) (measure(), letGo(index - NEAR, index + NEAR))
-        // As many elements as now (the note's blocks, and what is drawn among them), with the blocks this change adds.
-        draw(index - NEAR, index + NEAR, before && blocks().length ? blocks().length + state.doc.childCount - before.doc.childCount : Infinity)
+        // As many elements as now (the note's blocks, and what is drawn among them), with the blocks this change adds:
+        // counted from the document the page shows, not the last long one seen (a note emptied, then pasted back
+        // whole, was last seen long before it was emptied).
+        const showing = (view as unknown as { docView: { node: ProseMirrorNode } }).docView.node
+        draw(index - NEAR, index + NEAR, blocks().length ? blocks().length + state.doc.childCount - showing.childCount : Infinity)
+        // The blocks the change brings come with no mark: until they are marked (`update`, before anything is shown),
+        // none of the note's blocks is laid out. Made visible, a whole note pasted back was laid out in full, and
+        // again each time the browser was told where the selection is, before the drawn blocks were known.
+        view.dom.setAttribute(ARRIVING, "")
         leap = show ? "shown" : "set"
         early = true
       }
@@ -879,6 +893,7 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
       if (!band || early) {
         early = false
         draw(index - NEAR, index + NEAR)
+        view.dom.removeAttribute(ARRIVING)
         // The browser told the selection where the drawn blocks now are (a change that only asks for the caret to
         // be shown hands it nothing), and the screen goes with a caret that asked to be shown, in the same breath.
         if (leapt) resync()

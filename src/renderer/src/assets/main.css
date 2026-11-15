@@ -1317,6 +1317,8 @@ html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(
    by itself to hold a block still; the note does (`rest`). Here and fixed, so no sheet is added, changed or taken
    away as a note opens, scrolls or closes: each such change had the browser work out the whole window's styles. */
 .tiptap.ProseMirror.haligtree-editor[data-long] > [data-off] { display: none !important; }
+/* While a change's blocks arrive (a whole note pasted back), before they are marked: none is laid out. */
+.tiptap.ProseMirror.haligtree-editor[data-long][data-arriving] > * { display: none !important; }
 .tiptap.ProseMirror.haligtree-editor[data-long] { overflow-anchor: none; }
 
 /* A note reads like a page of a wiki: the words in a column of about seventy
