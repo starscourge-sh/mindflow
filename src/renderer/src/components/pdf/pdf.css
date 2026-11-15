@@ -707,22 +707,37 @@
   margin-top: 0 !important;
 }
 
-/* Pictures as a note sets them: inside the column, centred, a soft corner, never taller than the pane shows at once. */
+/* Pictures as a note sets them: inside the column, centred, a soft corner, never taller than the pane shows at once.
+   A page's pictures are the page's own, not a note's: Settings' "Postcards" frame and "Pictures in notes" size
+   (main.css, haligtree-editor.scss) are for a note's pictures, so they never reach these. */
 .web-reader-body img {
   display: block;
-  max-width: 100%;
+  max-width: 100% !important;
   max-height: max(10rem, min(80vh, 100vh - 18rem));
   width: auto;
   height: auto;
   margin: 1.75em auto;
-  border-radius: 0.5rem;
+  padding: 0 !important;
+  border-radius: 0.5rem !important;
+  background: none !important;
+  box-shadow: none !important;
 }
 
 /* On a dark page a drawing made for a white one (black lines on nothing) would
    vanish: under its clear parts lies the theme's own light ink, as the page it
    came from had. A photograph covers it whole. */
 :root:not([data-light]) .web-reader-body img {
-  background-color: color-mix(in oklab, var(--foreground) 94%, var(--background));
+  background-color: color-mix(in oklab, var(--foreground) 94%, var(--background)) !important;
+}
+
+/* An icon inside a line of words (a flag, a symbol): in the line, at the words' size (article-clean.ts keeps no other). */
+.web-reader-body img[data-inline] {
+  display: inline-block;
+  width: auto;
+  height: 1.15em;
+  margin: 0 0.1em;
+  vertical-align: -0.2em;
+  border-radius: 0.125rem !important;
 }
 
 /* A picture with its caption: the picture as above, the caption in quiet ink under it. */
