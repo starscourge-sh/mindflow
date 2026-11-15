@@ -1727,10 +1727,13 @@ export default function App(): React.JSX.Element {
       if (!more) putAway()
       return
     }
+    // Going: hidden before anything else is done, so none of it holds the box on screen (the first send of a run, its
+    // sound started and its words read into Markdown first, stayed 397 ms; the four after it 120). The save and all
+    // that follows finish while it is hidden; the words are read below, and the box is cleared once it is hidden.
+    if (!more) putAway()
     chime('send')
-    if (!more) document.documentElement.setAttribute('data-box-away', '')
-    // The top edge lights green: kept, without a word; and one sweep round the box.
-    beam('success')
+    // The top edge lights green: kept, without a word; and one sweep round the box, where it is still seen.
+    if (more) beam('success')
     // A meaning taken with Tab goes with it as the Word's own fields.
     const meaning = sorted === 'word' && definition?.kept ? definition.found : undefined
     const written = editorRef.current ? toMarkdown(editorRef.current) : undefined
@@ -1758,11 +1761,9 @@ export default function App(): React.JSX.Element {
       setSending(true)
       // Quit before the box has gone, and it is kept once, not kept and back as a draft.
       localStorage.removeItem('capture-draft')
-      // The box goes now, before anything else is drawn: the save and all that follows it finish while it is hidden. It
-      // used to wait for them (0.3 to 1 s in a built app, about 3 s in the user's dev app, 15 Nov 2026: "it says on
-      // screen for another 3 seconds"), and a leave timer of 180 ms still slipped to 0.4 to 1.1 s behind the box's own
-      // redraw. The words were read above, so the box is cleared once it is hidden.
-      window.api.hideWindow()
+      // Hidden above, before the save: it used to wait for the save and all that follows it (0.3 to 1 s in a built app,
+      // about 3 s in the user's dev app, 15 Nov 2026: "it says on screen for another 3 seconds"), and a leave timer of
+      // 180 ms still slipped to 0.4 to 1.1 s behind the box's own redraw. Cleared once it is hidden.
       leaving.current = setTimeout(() => {
         setSending(false)
         fresh()
