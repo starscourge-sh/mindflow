@@ -119,7 +119,8 @@ const spot = (text, offset = 0, scroll = true) => h.evaluate(([ED, text, offset,
   view.state.doc.descendants((node, pos) => { if (at == null && node.isText && node.text.includes(text)) at = pos + node.text.indexOf(text) + offset; return at == null })
   if (at == null) return null
   const { node } = view.domAtPos(at)
-  if (scroll) (node.nodeType === 1 ? node : node.parentElement).scrollIntoView({ block: 'center' })
+  // At once: the note scrolls smoothly, and a place read while it still moved was pressed somewhere else.
+  if (scroll) (node.nodeType === 1 ? node : node.parentElement).scrollIntoView({ block: 'center', behavior: 'instant' })
   const box = view.coordsAtPos(at)
   return { x: box.left + 1, y: (box.top + box.bottom) / 2, at }
 }, [ED, text, offset, scroll])
@@ -204,9 +205,24 @@ try {
       await h.evaluate((ED) => document.querySelector(ED).editor.state.doc.textContent.length, ED)
     }, { paced: true })
   }
+  /** Words with an address dropped in, as a drag from another app brings them: a drag carries its own data, never the clipboard. */
+  const dropIn = async () => {
+    const at = await spot('The last line')
+    await h.evaluate(([ED, x, y]) => {
+      const data = new DataTransfer()
+      data.setData('text/plain', 'dropped https://example.org/dropped words ')
+      document.querySelector(ED).dispatchEvent(new DragEvent('drop', { dataTransfer: data, clientX: x, clientY: y, bubbles: true, cancelable: true }))
+    }, [ED, at.x, at.y])
+  }
+  // The address is linked by the drop's own rule: ⌘Z takes back the whole drop, not that link alone.
+  if (ONLY === 'drop') {
+    await openNote('Every kind', everyKind(), 18)
+    await both('the every-kind note', 'words with an address dropped in', dropIn)
+  }
   if (ONLY.includes('every')) {
     const NOTE = 'the every-kind note'
     await openNote('Every kind', everyKind(), 18)
+    await both(NOTE, 'words with an address dropped in', dropIn)
     const kinds = await h.evaluate((ED) => { const seen = new Set(); document.querySelector(ED).editor.state.doc.descendants((n) => void seen.add(n.type.name)); return [...seen] }, ED)
     const want = ['heading', 'emoji', 'noteLink', 'bulletList', 'orderedList', 'taskList', 'codeBlock', 'table', 'callout', 'image', 'columns', 'bookmark', 'blockquote', 'horizontalRule']
     check(`${NOTE} holds every kind it was given`, want.every((k) => kinds.includes(k)), `missing: ${want.filter((k) => !kinds.includes(k)).join(', ') || 'none'}`)
