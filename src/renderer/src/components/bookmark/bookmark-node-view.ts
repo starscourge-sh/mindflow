@@ -14,6 +14,7 @@ import { lazyRoot } from "@/lib/lazy-root"
 import { stopLikeTiptap } from "@/lib/plain-node-view"
 import { readThenWrite, writeTogether } from "@/lib/frame-writes"
 import { BookmarkButtons } from "@/components/bookmark/bookmark-view"
+import { followLink } from "@/components/pdf/pdf-reader"
 
 /**
  * The link preview card.
@@ -44,9 +45,11 @@ export function bookmarkNodeView(props: NodeViewRendererProps): NodeView {
   card.setAttribute("data-node-view-wrapper", "")
   card.style.whiteSpace = "normal"
   dom.append(card)
-  card.addEventListener("click", () => {
+  // A click opens it as a link in the words opens (pdf-reader.tsx followLink): the browser, and on ⌥-click the
+  // reader, as the shortcuts list says of "a link, row or card" (⌥-click went to the browser too).
+  card.addEventListener("click", (event) => {
     const { href, loading } = node.attrs as BookmarkAttributes
-    if (!loading) window.open(href, "_blank", "noopener")
+    if (!loading) followLink(href, event)
   })
 
   // The buttons keep one place, after the card's words, across redraws.
