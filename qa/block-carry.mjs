@@ -44,7 +44,7 @@ const state = () => page.evaluate(() => {
   // A list's item lit, as a sidebar folder is when a folder is carried onto it: its own line filled, a ring.
   const lit = [...document.querySelectorAll('.ProseMirror li [data-drop-hot]')]
   const fill = lit[0] ? getComputedStyle(lit[0]).backgroundColor : ''
-  return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width, right: card.right, bottom: card.bottom }, title: cards[0]?.textContent ?? '', words, carried, lines: lines.length, line: lines.length > 0, lineY: at ? at.top + at.height / 2 : null, upright: lines.some((one) => one.dataset.dropLine.startsWith('beside')), rooms, own, clear, moved, grip: grip ? getComputedStyle(grip).visibility : 'none', cursor: getComputedStyle(document.body).cursor, refused: document.documentElement.hasAttribute('data-drag-refused'), lit: lit.length, litFilled: !!fill && fill !== 'rgba(0, 0, 0, 0)', dropCursor: !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline') }
+  return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width, right: card.right, bottom: card.bottom }, title: cards[0]?.textContent ?? '', words, carried, lines: lines.length, line: lines.length > 0, lineY: at ? at.top + at.height / 2 : null, lineSeen: lines[0] ? Number(getComputedStyle(lines[0]).opacity) : 0, upright: lines.some((one) => one.dataset.dropLine.startsWith('beside')), rooms, own, clear, moved, grip: grip ? getComputedStyle(grip).visibility : 'none', cursor: getComputedStyle(document.body).cursor, refused: document.documentElement.hasAttribute('data-drag-refused'), lit: lit.length, litFilled: !!fill && fill !== 'rgba(0, 0, 0, 0)', dropCursor: !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline') }
 })
 /** The note's lists as a short tree: [item [child], item] / other blocks by their words. */
 const tree = () => page.$eval(EDITOR, (root) => {
@@ -551,6 +551,9 @@ if (PART === 'more') {
     const last = during.at(-1)
     check('held at the note\'s foot, the note scrolls under the pointer', last.top - box.top > 60, `${box.top} → ${last.top}`)
     check('and the room and its line stay under the pointer as it scrolls, never left behind', during.slice(5).every((one) => one.lines === 1 && one.rooms === 1 && one.lineY !== null && Math.abs(one.lineY - foot.y) < 60), JSON.stringify(during.slice(5).map((one) => [one.lines, one.rooms, one.lineY && Math.round(one.lineY)])))
+    // Seen, not only there: drawn afresh at each step of the scroll, the line waited again each time and never showed.
+    const seen = during.slice(5).filter((one) => one.lineSeen > 0.9).length
+    check('and the line can be seen through the scroll, most of the time (it waits only when it moves to a new place)', seen >= during.slice(5).length / 2, `${seen} of ${during.slice(5).length} frames show it`)
     const lineY = last.lineY
     await page.mouse.up()
     await page.waitForTimeout(300)
