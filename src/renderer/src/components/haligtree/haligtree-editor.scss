@@ -375,8 +375,9 @@
 // Line numbers (extensions/line-numbers.ts), as Obsidian draws them: a quiet column left of the words, each number
 // on the baseline of its block's first line, its right edge where the fold arrow's room begins (1.75rem from the
 // words), so the arrow is never over a number; the handle steps left of the column (`clearOfLines`). A layer of
-// their own laid at the note's own top: the note itself never changes, and the words never move.
-.tiptap.ProseMirror.haligtree-editor {
+// their own laid at the note's own top: the note itself never changes. Where the column and the grip beside it
+// need more room than the pane leaves, the note's left room grows by what is missing (line-numbers.ts, `roomy`).
+.tiptap.ProseMirror.haligtree-editor[data-lines] {
   anchor-name: --mf-note;
 }
 
@@ -422,14 +423,6 @@
 
   > button:not(.tiptap-drag-handle-grip) {
     display: none;
-  }
-}
-
-// A narrow note keeps 3.25rem left of its words, room for the grip or the numbers but not both: with numbers on it
-// takes 1.25rem more, the numbers' own room.
-@container note (max-width: 34rem) {
-  .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor[data-lines] {
-    --mf-padding: 1rem 1.5rem 1rem 4.5rem;
   }
 }
 

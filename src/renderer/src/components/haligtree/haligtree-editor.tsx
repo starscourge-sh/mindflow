@@ -38,7 +38,7 @@ import { Youtube } from "@tiptap/extension-youtube"
 import { YoutubeView } from "@/components/haligtree/youtube-view"
 import { Details, DetailsContent, DetailsSummary } from "@tiptap/extension-details"
 import { DragHandle } from "@tiptap/extension-drag-handle-react"
-import { offset } from "@floating-ui/react"
+import { computePosition, offset } from "@floating-ui/react"
 import { CodeBlockLowlight } from "@tiptap/extension-code-block-lowlight"
 import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
 import { lowlight, whenGrammars } from "@/lib/lowlight"
@@ -96,7 +96,7 @@ import { liftBlocks } from "@/lib/lift-blocks"
 import { FootnoteKit } from "@/extensions/footnotes"
 import { Citation } from "@/extensions/citation"
 import { LongDocument } from "@/extensions/long-document"
-import { LineNumbers } from "@/extensions/line-numbers"
+import { LINES, LineNumbers } from "@/extensions/line-numbers"
 import { codeColours } from "@/extensions/code-colours"
 import { Typewriter } from "@/extensions/typewriter"
 import { useStoredFlag } from "@/lib/use-stored-flag"
@@ -988,6 +988,25 @@ function Surface({
   // A ref rather than state: `onNodeChange` fires on every pointer move across a
   // block, and re-rendering the editor that often makes the handle flicker.
   const blockTarget = useRef<BlockTarget | null>(null)
+  // The numbers' column came, went or grew (extensions/line-numbers.ts): the handle is placed again beside the
+  // block it is on at once, as the drag handle places itself (its own computePosition, with the same config), so
+  // it stands left of the numbers the moment they come and back in its own place the moment they go, with no
+  // pointer having to reach another block first.
+  useEffect(() => {
+    if (!editor || !handles) return
+    const dom = editor.view.dom
+    const again = (): void => {
+      const target = blockTarget.current
+      const handle = gripOf.get(editor) ?? dom.parentElement?.querySelector<HTMLElement>(".tiptap-drag-handle")
+      const block = target && !editor.isDestroyed ? editor.view.nodeDOM(target.pos) : null
+      if (!handle?.isConnected || !(block instanceof HTMLElement)) return
+      void computePosition({ getBoundingClientRect: () => block.getBoundingClientRect() }, handle, HANDLE_POSITION).then(({ x, y, strategy }) => {
+        if (!editor.isDestroyed) Object.assign(handle.style, { position: strategy, left: `${x}px`, top: `${y}px` })
+      })
+    }
+    dom.addEventListener(LINES, again)
+    return () => dom.removeEventListener(LINES, again)
+  }, [editor, handles])
   const [menuOpen, setMenuOpen] = useState(false)
   // A right-click's spot, so its menu opens under the pointer; the grip's opens at the grip.
   /** The room a block's right-click menu needs to open under or over the block: about seven rows since its actions

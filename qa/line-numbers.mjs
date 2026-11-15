@@ -151,26 +151,33 @@ try {
   check('at 560 by 400 the numbers stand whole in the pane and the handle clear of them', inside.shown > 0 && inside.inside && side.shown && side.apart, JSON.stringify({ ...inside, handle: side.at }))
   if (shots) await h.screenshot({ path: join(shots, 'lines-narrow.png') })
   await size(1400, 900); await wait(1200)
-  // Off: no numbers, the words where they were.
+  // The pointer comes to rest on the first paragraph, its handle showing; it does not move again while the numbers
+  // go off and come back.
+  await h.mouse.move(5, 5); await wait(300)
+  const home = await h.evaluate(() => { const r = document.querySelector('[data-open] .tiptap > p').getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2, words: r.left } })
+  await h.mouse.move(home.x, home.y, { steps: 4 }); await wait(500)
+  const grip = () => h.evaluate(() => {
+    const one = document.querySelector('[data-open] .tiptap-drag-handle')
+    const r = one.getBoundingClientRect()
+    const column = document.querySelector('[data-open] .mf-lines')?.getBoundingClientRect()
+    return { right: Math.round(r.right), width: Math.round(r.width), tight: one.hasAttribute('data-tight'), shown: one.classList.contains('is-shown'), column: column && column.width ? Math.round(column.left) : null }
+  })
+  // Off: no numbers, the words where they were, and the handle back where it always stood, + and grip, its right
+  // edge 24px left of the words, at once.
   const where = () => h.evaluate(() => { const r = document.querySelector('[data-open] .tiptap > p').getBoundingClientRect(); return [r.left, r.top, r.width] })
   const before = await where()
   await v('settings:set', { lineNumbers: false }); await wait(600)
   got = await read()
   const after = await where()
   check('switched off, no numbers and the words do not move', got.words.length === 0 && before.every((n, i) => Math.abs(n - after[i]) < 0.5), `${got.words.length} numbers; ${before} -> ${after}`)
-  // And the handle is back where it always stood, + and grip, its right edge 24px left of the words.
-  await h.mouse.move(5, 5); await wait(300)
-  const home = await h.evaluate(() => { const r = document.querySelector('[data-open] .tiptap > p').getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2, words: r.left } })
-  await h.mouse.move(home.x, home.y, { steps: 4 }); await wait(500)
-  // Over the heading first, then back to the paragraph, as a pointer crosses blocks.
-  const heading = await h.evaluate(() => { const r = document.querySelector('[data-open] .tiptap > h2').getBoundingClientRect(); return { x: r.left + 20, y: r.top + r.height / 2 } })
-  await h.mouse.move(heading.x, heading.y, { steps: 3 }); await wait(300)
-  await h.mouse.move(home.x, home.y, { steps: 3 }); await wait(500)
-  const grip = await h.evaluate(() => { const one = document.querySelector('[data-open] .tiptap-drag-handle'); const r = one.getBoundingClientRect(); return { right: Math.round(r.right), width: Math.round(r.width), tight: one.hasAttribute('data-tight'), shown: one.classList.contains('is-shown') } })
-  check('with numbers off the handle stands where it always did, + and grip', grip.shown && !grip.tight && Math.abs(grip.right - (home.words - 24)) <= 2 && grip.width > 40, JSON.stringify({ ...grip, words: Math.round(home.words) }))
+  const off = await grip()
+  check('switched off with the pointer still: the handle is back where it always stood at once, + and grip', off.shown && !off.tight && Math.abs(off.right - (home.words - 24)) <= 2 && off.width > 40, JSON.stringify({ ...off, words: Math.round(home.words) }))
+  // On again: the numbers back, and the handle left of them at once, the pointer still not moved.
   await v('settings:set', { lineNumbers: true }); await wait(600)
   got = await read()
   check('switched on again, the numbers are back', got.words.length === EXPECTED, String(got.words.length))
+  const back = await grip()
+  check('switched on with the pointer still: the handle stands left of the numbers at once', back.shown && back.column !== null && back.right <= back.column - 3, JSON.stringify(back))
   // ⌘K: “Turn line numbers off”, its notice, and the notice's Undo putting them back.
   await h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.commands.focus('end'))
   await h.keyboard.press('Meta+k'); await wait(500)
@@ -215,6 +222,28 @@ try {
   await h.evaluate(() => { localStorage.setItem('vim', 'off'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'off' })) }); await wait(400)
   check('pressed on again with Vim keys off: plain numbers 12 13 14', (await v('settings')).lineNumbers === true && (await sample()) === '12@1 13@1 14@1', await sample())
   if (shots) await h.$(row).then((one) => one.screenshot({ path: join(shots, 'lines-setting-on.png') }))
+  // The worst case (break-ui): a note of 12,345 lines, five digits, in the pane beside Writing's list.
+  const big = await v('article:new')
+  await v('item:save', big, { title: 'Long list', body: { type: 'doc', content: Array.from({ length: 12345 }, (_, i) => p(`Line ${i + 1} of a long list of things to read`)) } })
+  await c.send('article', big); await wait(3000)
+  await h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.commands.focus('end')); await wait(500)
+  await h.keyboard.press('Meta+ArrowDown'); await wait(2000)
+  const tail = await h.evaluate(() => {
+    const ps = [...document.querySelectorAll('[data-open] .tiptap > p')].filter((one) => !one.hasAttribute('data-off') && one.getBoundingClientRect().height > 0)
+    const r = ps.at(-1)?.getBoundingClientRect()
+    return r ? { x: r.left + 20, y: r.top + r.height / 2 } : null
+  })
+  if (tail) { await h.mouse.move(tail.x - 200, tail.y, { steps: 2 }); await h.mouse.move(tail.x, tail.y, { steps: 3 }); await wait(600) }
+  const five = await h.evaluate(() => {
+    const marks = [...document.querySelectorAll('[data-open] .mf-lines .mf-line')]
+    const column = document.querySelector('[data-open] .mf-lines').getBoundingClientRect()
+    const pane = document.querySelector('[data-open] .haligtree-editor-wrapper').getBoundingClientRect()
+    const handle = document.querySelector('[data-open] .tiptap-drag-handle')
+    const g = handle.getBoundingClientRect()
+    return { last: marks.at(-1)?.textContent ?? null, column: [Math.round(column.left), Math.round(column.right)], pane: Math.round(pane.left), grip: [Math.round(g.left), Math.round(g.right)], shown: handle.classList.contains('is-shown') }
+  })
+  check('a note of 12,345 lines: its last number 12345, the column whole in the pane, the grip whole and clear of it', five.last === '12345' && five.column[0] >= five.pane && five.shown && five.grip[0] >= five.pane && five.grip[1] <= five.column[0] - 3, JSON.stringify(five))
+  if (shots) await h.screenshot({ path: join(shots, 'lines-12345.png') })
   check('no page errors', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

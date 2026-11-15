@@ -23,14 +23,19 @@ import { vimPluginKey } from "./vim-mode"
 
 const key = new PluginKey("lineNumbers")
 
+/**
+ * Told on a note's own element when its column of numbers comes, goes or changes width, once it stands where it
+ * will: whatever is placed beside the numbers (the block handle, haligtree-editor.tsx) is placed again then.
+ */
+export const LINES = "mf:lines"
+
 /** Whether notes show their line numbers, for every editor on the page at once (Settings, “Line numbers”). */
 let on = true
 const views = new Set<EditorView>()
 export function setLineNumbers(shown: boolean): void {
   if (on === shown) return
   on = shown
-  // The block handle forgets its place too, so the next hover sets it beside the numbers, or back where it stood.
-  for (const view of views) view.dispatch(view.state.tr.setMeta(key, true).setMeta("hideDragHandle", true))
+  for (const view of views) view.dispatch(view.state.tr.setMeta(key, true))
 }
 
 const LISTS = new Set(["bulletList", "orderedList", "taskList"])
@@ -204,14 +209,16 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     if (!rows.length) {
       layer.replaceChildren()
       marks = []
+      told(false)
       return
     }
     // Last in the note's scroller, after what a long note keeps at its ends, and laid at the note's own top.
     if (!layer.isConnected) view.dom.parentElement?.append(layer)
     // The note's own size of words and left room, read again only when the note changed size (or a font arrived).
     if (!sized) {
-      const look = getComputedStyle(view.dom)
       sized = true
+      roomy()
+      const look = getComputedStyle(view.dom)
       if (look.fontSize !== em) (kinds.clear(), (em = look.fontSize))
       if (layer.style.getPropertyValue("--mf-lines-pad") !== look.paddingLeft) layer.style.setProperty("--mf-lines-pad", look.paddingLeft)
     }
@@ -256,6 +263,35 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
       if (mark.style.fontFamily !== line.font) mark.style.fontFamily = line.font
     })
     label()
+    told(true)
+  }
+
+  // Room for the column and the slim grip beside it inside what holds the note. Beside a list a note's pane leaves
+  // 81px left of its words: enough for two digits, and a note of a hundred lines or more had its grip cut off at
+  // the pane's edge. The note's left room grows by what is missing then, the gutter's own room, and by nothing where
+  // there is enough; it goes back when the numbers go.
+  let extra = 0
+  const roomy = (): void => {
+    const holder = view.dom.closest(".haligtree-editor-wrapper")
+    if (!holder || !layer.isConnected) return
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+    // The fold arrow's room, the column, 4px, the grip where the note has one, and 2px from the edge.
+    const grip = holder.querySelector(".tiptap-drag-handle") ? 4 + 1.5 * rem : 0
+    const need = 1.75 * rem + layer.getBoundingClientRect().width + grip + 2
+    const base = (parseFloat(getComputedStyle(view.dom).paddingLeft) || 0) - extra
+    const have = view.dom.getBoundingClientRect().left + base - holder.getBoundingClientRect().left
+    const more = Math.max(0, Math.ceil(need - have))
+    if (more === extra) return
+    extra = more
+    view.dom.style.paddingLeft = more ? `${base + more}px` : ""
+  }
+
+  // Whether the column stands, as last told (`LINES`): told again only when it comes, goes or changes width.
+  let standing = false
+  const told = (now: boolean, wider = false): void => {
+    if (now === standing && !wider) return
+    standing = now
+    view.dom.dispatchEvent(new CustomEvent(LINES))
   }
 
   const schedule = (): void => {
@@ -268,7 +304,13 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     const lines = linesBefore(doc.childCount)
     if (lines === total) return
     total = lines
-    layer.style.setProperty("--mf-line-digits", String(Math.max(2, String(lines).length)))
+    const digits = String(Math.max(2, String(lines).length))
+    if (layer.style.getPropertyValue("--mf-line-digits") === digits) return
+    layer.style.setProperty("--mf-line-digits", digits)
+    // One more digit: the column grew to the left, its room is looked at again, and what stands beside it moves.
+    sized = false
+    if (rows.length) schedule()
+    if (standing) told(true, true)
   }
 
   const redraw = (): void => {
@@ -282,6 +324,9 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
       for (const row of watched) resized.unobserve(row)
       watched.clear()
       fresh.clear()
+      // The room given for the numbers goes with them.
+      if (extra) ((extra = 0), (view.dom.style.paddingLeft = ""), (sized = false))
+      told(false)
       return
     }
     schedule()
