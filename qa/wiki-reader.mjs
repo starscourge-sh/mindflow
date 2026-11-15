@@ -87,9 +87,10 @@ try {
   const atLegacy = await h.evaluate(() => {
     const box = document.querySelector('.web-reader-scroll').getBoundingClientRect()
     const legacy = [...document.querySelectorAll('.web-reader-body h2')].find((one) => one.textContent === 'Legacy').getBoundingClientRect()
-    return { gap: Math.round(legacy.top - box.top), lit: document.querySelector('.web-reader .pdf-rail [aria-current]')?.getAttribute('data-outline-title') }
+    return { gap: Math.round(legacy.top - box.top), lit: document.querySelector('.web-reader .pdf-rail [aria-current]')?.getAttribute('data-outline-title'), chapter: document.querySelector('.web-reader [data-pdf-chapter]')?.textContent ?? null }
   })
   check('a section in the contents takes you to it, and is lit', atLegacy.gap >= 0 && atLegacy.gap < 60 && atLegacy.lit === 'Legacy', JSON.stringify(atLegacy))
+  check('the section you are in stands beside the title, as a PDF\'s chapter does', atLegacy.chapter === 'Legacy', JSON.stringify(atLegacy))
 
   // A link to another article, followed in the reader from deep in the page (Legacy, reached above);
   // Back comes to where you were, Forward goes again.
@@ -159,7 +160,6 @@ try {
   await wait(400)
   const onceRead = await tools()
   check('nothing in the reader\'s bar moves as the page comes', whileReading.length > 4 && whileReading.join() === onceRead.join(), JSON.stringify({ whileReading, onceRead }))
-  check('the section you are in stands beside the title, as a PDF\'s chapter does', (await h.evaluate(() => { [...document.querySelectorAll('.web-reader-body h2')].find((one) => one.textContent === 'Legacy').scrollIntoView({ block: 'start' }); return new Promise((done) => setTimeout(() => done(document.querySelector('.web-reader [data-pdf-chapter]')?.textContent ?? null), 300)) })) === 'Legacy', '')
 
   // Offline: one plain line, never an empty list; the kept article still opens.
   site.offline(true)
