@@ -665,8 +665,9 @@ const DEFAULTS = {
   foldHeadings: true,
   // A note's lines numbered in its left margin, as Obsidian does.
   lineNumbers: true,
-  // Those numbers counted out from the caret's line, as Vim's relativenumber: the caret's line keeps its own.
-  relativeLineNumbers: false,
+  // Those numbers counted out from the caret's line, as Vim's relativenumber: the caret's line keeps its own. Unset
+  // (null), it follows Vim keys, on with them and off without, so no margin changed the day it came; set, it stays.
+  relativeLineNumbers: null as boolean | null,
   // What the main window's sidebar lists (the same as places.tsx, SHAPE), the same in every book to start;
   // one switched off is not in it at all, still a G or ⌘K away.
   sidebarShown: SIDEBAR_SHAPE as string[],

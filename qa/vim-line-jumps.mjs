@@ -59,14 +59,15 @@ const normal = async (target = h, scope = '[data-open] .tiptap') => {
 const keys = async (list, target = h) => { for (const key of list) await target.keyboard.press(key); await target.waitForTimeout(300) }
 
 try {
-  await v('settings:set', { sounds: false, hintRate: 0, lineNumbers: true, relativeLineNumbers: true })
+  // “Relative” unset, as in every book the day it comes: it follows Vim keys, on here.
+  await v('settings:set', { sounds: false, hintRate: 0, lineNumbers: true, relativeLineNumbers: null })
   await flag(h, 'vim', true); await flag(h, 'vimLines', true)
   const id = await v('article:new')
   await v('item:save', id, { title: 'Jumps', body })
   await c.send('article', id); await wait(1500)
   await caretIn('Paragraph one'); await wait(300); await normal(); await wait(200)
   let got = await margin()
-  check(`${LINES} numbered lines, the caret's line 1 its own number, the rest counted out from it`, got.words.length === LINES && got.here === 0 && got.words.join(' ') === '1 1 2 3 4 5 6 7 8 9 10 11 12 13', got.words.join(' '))
+  check(`“Relative” unset with Vim keys on: ${LINES} numbered lines, the caret's line 1 its own number, the rest counted out from it`, got.words.length === LINES && got.here === 0 && got.words.join(' ') === '1 1 2 3 4 5 6 7 8 9 10 11 12 13', got.words.join(' '))
   if (shots) await h.screenshot({ path: join(shots, 'v2-start-paper.png') })
   // Filmed, a frame every 50 ms for 400 ms, when asked (QA_SHOTS): the press and where it lands.
   const film = async (name, act) => {
@@ -115,6 +116,24 @@ try {
   check('d2j from rye takes exactly three numbered lines (rye, spelt, cheese)', got.words.length === LINES - 3 && !/rye|spelt|cheese/.test(words) && /bread/.test(words) && /first said/.test(words), `${got.words.length} lines; ${words.slice(0, 160)}`)
   await keys(['u']); got = await margin(); words = await text()
   check('u puts the three back', got.words.length === LINES && /rye.*spelt.*cheese/.test(words), `${got.words.length} lines`)
+  // >2j from two (2) reaches bread (4): apples cannot go in (first of its list), bread goes in under it, its own
+  // sub-bullets with it; walked by rows, two rows down from two's first row stay in two and nothing moved.
+  await caretIn('Paragraph two'); await wait(200); await normal()
+  await keys(['Shift+>', '2', 'j'])
+  const nested = () => h.evaluate(() => {
+    const list = document.querySelector('[data-open] .tiptap').editor.state.doc.child(2)
+    return list.firstChild.childCount > 1 && list.firstChild.child(1).firstChild?.textContent.startsWith('bread')
+  })
+  check('>2j from two reaches the line marked 2 (bread): it goes in under apples', await nested())
+  await keys(['u'])
+  // y2k from then said (9) takes then said and the two above it, cheese and first said.
+  await caretIn('then said'); await wait(200); await normal()
+  await keys(['y', '2', 'k'])
+  const yanked = await h.evaluate(() => {
+    const ed = document.querySelector('[data-open] .tiptap').editor
+    return ed.state.plugins.find((one) => one.key.startsWith('vimMode'))?.getState(ed.state)?.register?.text ?? ''
+  })
+  check('y2k from then said takes cheese, first said and then said', /^cheese\s+first said\s+then said$/.test(yanked.trim()), JSON.stringify(yanked))
   // V3jd: from first said (8), V3j reaches the picture (11) and d takes the four.
   await caretIn('first said'); await wait(200); await normal()
   await keys(['Shift+V', '3', 'j']); got = await margin()
@@ -145,6 +164,13 @@ try {
   await v('settings:set', { relativeLineNumbers: true }); await wait(400)
   got = await margin()
   check('“Relative” on: the caret\'s line keeps 4, the rest count out from it', got.words.slice(0, 6).join(' ') === '3 2 1 4 1 2', got.words.join(' '))
+  // Unset again: Vim keys off, plain numbers, as everyone without Vim had; on again, counted out.
+  await v('settings:set', { relativeLineNumbers: null }); await flag(h, 'vim', false); await wait(400)
+  got = await margin()
+  check('“Relative” unset with Vim keys off: plain numbers', got.words.slice(0, 6).join(' ') === '1 2 3 4 5 6', got.words.join(' '))
+  await flag(h, 'vim', true); await wait(400)
+  got = await margin()
+  check('“Relative” unset with Vim keys on again: counted out', got.words.slice(0, 6).join(' ') === '3 2 1 4 1 2', got.words.join(' '))
   for (const [theme, name] of [['dark', 'dark'], ['paper', 'paper']]) {
     if (!shots) break
     await h.evaluate((theme) => { localStorage.setItem('theme', theme); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme)
@@ -161,10 +187,13 @@ try {
   const into = async (title) => { await h.$eval(row(title), (el) => el.scrollIntoView({ block: 'center', behavior: 'instant' })); await wait(300) }
   await into('Line numbers')
   check('“Relative” shows under “Line numbers” while they are on', await shown('Relative'))
+  const relativeOn = () => h.$eval(`${row('Relative')} button[role="switch"]`, (one) => one.getAttribute('aria-checked'))
+  const says = () => h.$eval(row('Relative'), (one) => one.textContent)
+  check('unset, it is on with Vim keys on and says it follows “Vim keys” until changed', (await relativeOn()) === 'true' && /Until you change it, it follows “Vim keys”/.test(await says()), await says())
   const sample = () => h.$eval(`${row('Relative')} [data-preview="relative-lines"]`, (one) => [...one.querySelectorAll(':scope > span')].map((r) => [...r.querySelectorAll(':scope > span')].slice(0, 2).map((n) => `${n.textContent}@${getComputedStyle(n).opacity}`).join('/')).join(' '))
   check('its sample shows both looks, relative in ink', (await sample()) === '12@0.3/1@1 13@0.3/13@1 14@0.3/1@1', await sample())
   await film('relative-off', () => h.click(`${row('Relative')} button[role="switch"]`)); await wait(600)
-  check('pressed off: saved off, the plain numbers in ink', (await v('settings')).relativeLineNumbers === false && (await sample()) === '12@1/1@0.3 13@1/13@0.3 14@1/1@0.3', await sample())
+  check('pressed off: saved off, the plain numbers in ink, no longer said to follow Vim keys', (await v('settings')).relativeLineNumbers === false && (await sample()) === '12@1/1@0.3 13@1/13@0.3 14@1/1@0.3' && !/follows/.test(await says()), await sample())
   if (shots) await h.screenshot({ path: join(shots, 'v2-settings-lines.png') })
   const dark = async (name) => {
     await h.evaluate(() => { localStorage.setItem('theme', 'dark'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }); await wait(600)
@@ -187,6 +216,7 @@ try {
   if (shots) await dark('v2-settings-vim-dark.png')
   await h.click(`${row('Vim keys')} button[role="switch"]`); await wait(500)
   check('with Vim keys off, “Jump by line numbers” is not shown', !(await shown('Jump by line numbers')))
+  check('“Relative”, set on above, stays on with Vim keys off: once set it no longer follows them', (await relativeOn()) === 'true' && (await v('settings')).relativeLineNumbers === true, await relativeOn())
   await h.click(`${row('Vim keys')} button[role="switch"]`); await wait(500)
   check('Vim keys on again: it shows, still on', (await shown('Jump by line numbers')) && (await jumpOn()) === true)
 

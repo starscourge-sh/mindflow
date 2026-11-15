@@ -872,13 +872,13 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.foldHeadings !== false} onCheckedChange={(foldHeadings) => set({ foldHeadings })} />
           </Setting>
           <Setting title="Line numbers" note="Each line of a note numbered in its left margin, as Obsidian does: a paragraph is one however it wraps." more="A list counts each item, a column layout counts once. “Relative” comes with them." keywords="line numbers gutter margin obsidian count paragraphs relative">
-            <LineNumbersSample on={settings.lineNumbers !== false} relative={settings.relativeLineNumbers === true} />
+            <LineNumbersSample on={settings.lineNumbers !== false} relative={settings.relativeLineNumbers ?? vim} />
             <Switch checked={settings.lineNumbers !== false} onCheckedChange={(lineNumbers) => set({ lineNumbers })} />
           </Setting>
           {settings.lineNumbers !== false && (
-            <Setting under title="Relative" note="The line you are on keeps its number; the others show how far away they are, as Vim's relative numbers do." keywords="relative line numbers relativenumber distance vim count away">
-              <LineNumbersSample on both relative={settings.relativeLineNumbers === true} />
-              <Switch aria-label="Relative" checked={settings.relativeLineNumbers === true} onCheckedChange={(relativeLineNumbers) => set({ relativeLineNumbers })} />
+            <Setting under title="Relative" note={`The line you are on keeps its number; the others show how far away they are, as Vim's relative numbers do.${typeof settings.relativeLineNumbers !== 'boolean' ? ' Until you change it, it follows “Vim keys”: on with them, off without.' : ''}`} keywords="relative line numbers relativenumber distance vim count away">
+              <LineNumbersSample on both relative={settings.relativeLineNumbers ?? vim} />
+              <Switch aria-label="Relative" checked={settings.relativeLineNumbers ?? vim} onCheckedChange={(relativeLineNumbers) => set({ relativeLineNumbers })} />
             </Setting>
           )}
           <Setting title="Title at the top" note="A note's first line shows faintly at the top once it scrolls away." keywords="title in the top bar">

@@ -9,6 +9,7 @@ import { setCalc } from '@/extensions/calc'
 import { setTypePause } from '@/extensions/type-pause'
 import { setFoldHeadings } from '@/extensions/heading-fold'
 import { setLineNumbers } from '@/extensions/line-numbers'
+import { useVim } from '@/lib/vim'
 import { setDatesLit } from '@/extensions/date-words'
 import { setTagSource } from '@/extensions/note-link'
 import { chime, step, type Cue } from './sound'
@@ -81,6 +82,7 @@ export async function systemFonts(): Promise<string[]> {
  * math as you type, the font and the text size, and ⌘+ ⌘− ⌘0 to change it.
  */
 export function useEditorSetup(settings: Settings | null): void {
+  const vim = useVim()
   useEffect(() => setCues((cue, n) => (CUES[cue] === 'step' ? step(n ?? 0) : chime(CUES[cue] as Cue))), [])
   // The `#` menu offers the tags already in use here. Reading them scans every
   // note, so they are kept between openings and read again only once
@@ -106,7 +108,8 @@ export function useEditorSetup(settings: Settings | null): void {
     setCalc(settings.calc)
     setTypePause(settings.typePause !== false)
     setFoldHeadings(settings.foldHeadings !== false)
-    setLineNumbers(settings.lineNumbers !== false, settings.relativeLineNumbers === true)
+    // “Relative” follows Vim keys until it is set (main, DEFAULTS).
+    setLineNumbers(settings.lineNumbers !== false, settings.relativeLineNumbers ?? vim)
     setDatesLit(settings.datesLit !== false)
     const root = document.documentElement.style
     root.setProperty('--mf-font', familyOf(settings.noteFont))
@@ -118,7 +121,7 @@ export function useEditorSetup(settings: Settings | null): void {
     if (!settings.headingFont || settings.headingFont === 'same') root.removeProperty('--mf-heading-font')
     else root.setProperty('--mf-heading-font', familyOf(settings.headingFont))
     root.setProperty('--mf-text-scale', String(settings.textSize))
-  }, [settings?.calc, settings?.typePause, settings?.foldHeadings, settings?.lineNumbers, settings?.relativeLineNumbers, settings?.datesLit, settings?.noteFont, settings?.fontNotesOnly, settings?.headingFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [settings?.calc, settings?.typePause, settings?.foldHeadings, settings?.lineNumbers, settings?.relativeLineNumbers, vim, settings?.datesLit, settings?.noteFont, settings?.fontNotesOnly, settings?.headingFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⌘+ and ⌘− grow and shrink the whole app, in every window, and ⌘0 puts it
   // back; ⌥⌘+ and ⌥⌘− do the same for the words in notes alone. Taken before
