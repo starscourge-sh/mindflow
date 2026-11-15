@@ -41,6 +41,12 @@ if (!document.querySelector(`link[href="${drawingStyles}"]`)) {
     link.onload = done
     link.onerror = done
   })
+  // Its one sibling rule whose line before names no class (".exc-stats__row div+div") put every element beside
+  // anything put in or taken out into Chromium's restyle for the rest of the session: once a drawing had opened, each
+  // new line in a long note restyled its 1,315 drawings, pictures and tables. The same divs asked by place instead.
+  const sheet = link.sheet
+  const at = [...(sheet?.cssRules ?? [])].findIndex((rule) => rule instanceof CSSStyleRule && rule.selectorText === '.exc-stats__row div + div')
+  if (sheet && at >= 0) (sheet.deleteRule(at), sheet.insertRule('.exc-stats__row div:not(:first-child) { text-align: right; }', at))
 }
 
 type Drawing = ComponentType<AnimatedIconProps & RefAttributes<AnimatedIconHandle>>
