@@ -70,8 +70,16 @@ test('docs.ankiweb.net: of a picture with a dark version, the light one a page s
 
 test("two neighbouring pictures in folders of their own are two pictures, not two versions of one", async () => {
   const html = await cleanArticle('<p>Two videos, side by side, and words enough around them to read as a paragraph of an article.</p><div><img src="https://i.ytimg.com/vi/aaa111/hqdefault.jpg" alt="One video"><img src="https://i.ytimg.com/vi/bbb222/hqdefault.jpg" alt="Another video"></div><div><img src="/_next/image?url=%2Fmedia%2Fone.png&w=1080" alt="One"><img src="/_next/image?url=%2Fmedia%2Ftwo.png&w=1080" alt="Two"></div><div><img src="/static/hero-wide.webp" width="2000"><img src="/static/hero-narrow.webp" width="900"></div>', new URL('https://example.com/'), 'Example', async (src) => ({ kept: `haligtree://assets/${encodeURIComponent(src)}`, size: { width: 1200, height: 800, type: 'jpg' } }))
-  const srcs = [...parseHTML(`<body>${html}</body>`).document.querySelectorAll('img')].map((one) => decodeURIComponent(one.getAttribute('src') ?? ''))
+  const srcs = [...parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.querySelectorAll('img')].map((one) => decodeURIComponent(one.getAttribute('src') ?? ''))
   assert.deepEqual(srcs.map((src) => src.replace(/^haligtree:\/\/assets\//, '')), ['https://i.ytimg.com/vi/aaa111/hqdefault.jpg', 'https://i.ytimg.com/vi/bbb222/hqdefault.jpg', 'https://example.com/_next/image?url=%2Fmedia%2Fone.png&w=1080', 'https://example.com/_next/image?url=%2Fmedia%2Ftwo.png&w=1080', 'https://example.com/static/hero-wide.webp'])
+})
+
+test('a store badge or a button drawn as a picture goes; a figure that links to its full size stays', async () => {
+  const sizes: Record<string, [number, number]> = { 'https://example.com/badge.png': [120, 40], 'https://example.com/photo.jpg': [1600, 1000] }
+  const html = await cleanArticle('<p>An app worth trying, with enough words around it to read as a paragraph of an article.</p><p><a href="https://apps.apple.com/app/x"><img src="/badge.png" alt="Download on the App Store"></a></p><figure><a href="/photo.jpg"><img src="/photo.jpg" alt="The garden"></a><figcaption>The garden in May</figcaption></figure>', new URL('https://example.com/'), 'Example', async (src) => ({ kept: `haligtree://assets/${encodeURIComponent(src)}`, size: { width: sizes[src][0], height: sizes[src][1], type: 'png' } }))
+  const { body } = parseHTML(`<!doctype html><html><body>${html}</body></html>`).document
+  assert.deepEqual([...body.querySelectorAll('img')].map((one) => one.getAttribute('alt')), ['The garden'])
+  assert.ok(!/App Store/.test(body.innerHTML) && /The garden in May/.test(body.textContent ?? ''), body.innerHTML)
 })
 
 test('web.dev: a srcset gives the sharpest the column needs; a figure keeps its caption', async () => {

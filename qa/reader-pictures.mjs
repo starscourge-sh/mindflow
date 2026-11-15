@@ -64,7 +64,7 @@ const stem = (url) => { const at = URL.parse(url); const served = at?.searchPara
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
-const { h, v, electron, look } = c
+const { h, v, electron, look, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS ?? ''
 try {
@@ -133,6 +133,9 @@ try {
     }
   }
   check('no page errors', c.errors.filter((one) => !/favicon|net::|Failed to load resource/i.test(one)).length === 0, c.errors.slice(0, 3).join(' | '))
+  // Home again, so a book opened after this run (r3's kept-page check) does not open in the reader and ask the network
+  // for its page before this probe's stand-in site is in place.
+  await go('home')
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error).slice(0, 400))
 } finally {

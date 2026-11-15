@@ -161,8 +161,12 @@ export async function cleanArticle(content: string, base: URL, site: string, kee
     // Its size as the site means it shown, never more than its file holds (an icon's large file declared at 24px).
     const scale = Math.min(1, (Number(one.getAttribute('width')) || Infinity) / size.width)
     const [w, h] = [size.width * scale, size.height * scale]
-    if (Math.min(w, h) < THIN && Math.max(w, h) >= ICON && !alt) return void one.remove()
-    if (Math.max(w, h) < ICON) {
+    const icon = Math.max(w, h) < ICON
+    const strip = !icon && Math.min(w, h) < THIN
+    // A small picture that is a link's whole content is a site's button or badge ("Download on the App Store").
+    if ((icon || strip) && link) return void one.remove()
+    if (strip && !alt) return void one.remove()
+    if (icon) {
       // An icon in a sentence stays, at the words' size; on its own it goes.
       if (!line || !wordsOf(line)) return void one.remove()
       one.setAttribute('data-inline', '')
