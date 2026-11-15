@@ -113,7 +113,7 @@ import { registerDefine } from './define'
 import { isVault, registerObsidian, vaultChoices } from './obsidian'
 import { bringAppleNotes, notesReader, type NotesFolder } from './apple-notes'
 import { fileIntoGroups, filedSaid, registerNoteImports } from './note-imports'
-import { assetsDir, lookAhead, registerPictures, smallCopy } from './pictures'
+import { assetsDir, known, lookAhead, registerPictures, smallCopy } from './pictures'
 import { registerSessionLog, sleptThrough } from './session-log'
 import { registerSiteBlock } from './site-block'
 import { cameraAccess, displayOf, noteScreenAtStart, privacySettings, screenAccess, shootArea, shootScreen, tuckedWindow, unseen } from './shots'
@@ -6689,9 +6689,12 @@ app.whenReady().then(() => {
     const PNG = 'data:image/png;base64,'
     // Drawn at twice its size, for sharp edges on a Retina screen.
     const drawn = typeof card === 'string' && card.startsWith(PNG) ? nativeImage.createFromBuffer(Buffer.from(card.slice(PNG.length), 'base64'), { scaleFactor: 2 }) : nativeImage.createEmpty()
-    // A picture's own small copy, drawn by the Mac outside this thread: opened here whole, a 10,446 by 13,522 painting
-    // held every window for seconds as the drag began.
-    let face = IMAGE_EXT.has(extension) ? await nativeImage.createThumbnailFromPath(from, { width: 192, height: 192 }).catch(() => drawn) : drawn
+    // A picture's own small copy, drawn by the Mac outside this thread (opened here whole, a 10,446 by 13,522 painting
+    // held every window for seconds as the drag began), in the picture's own shape: asked for in a square, the Mac pads
+    // it out to one. Its shape is the one kept for it (pictures.ts), or taken as square when none is kept yet.
+    const [w, h] = known(stored) ?? [1, 1]
+    const box = w >= h ? { width: 192, height: Math.max(1, Math.round((192 * h) / w)) } : { width: Math.max(1, Math.round((192 * w) / h)), height: 192 }
+    let face = IMAGE_EXT.has(extension) ? await nativeImage.createThumbnailFromPath(from, box).catch(() => drawn) : drawn
     if (!face.isEmpty() && face !== drawn) face = face.resize({ width: Math.min(96, face.getSize().width) })
     if (face.isEmpty()) face = nativeImage.createFromPath(icon).resize({ width: 64 })
     if (face.isEmpty()) face = nativeImage.createFromBitmap(Buffer.alloc(32 * 32 * 4, 128), { width: 32, height: 32 })
