@@ -161,13 +161,16 @@ try {
     await c.send('capture', big.id)
     // The note's own editor, marked: the one holding thousands of blocks.
     await h.waitForFunction(() => [...document.querySelectorAll('.tiptap.ProseMirror')].some((one) => (one.editor?.state.doc.childCount ?? 0) > 1000), null, { timeout: 90000 })
-    await h.evaluate(() => [...document.querySelectorAll('.tiptap.ProseMirror')].sort((a, b) => (b.editor?.state.doc.childCount ?? 0) - (a.editor?.state.doc.childCount ?? 0))[0].setAttribute('data-e4-big', ''))
+    // Marked again before each use: a note restored as the app opens is drawn again when it is asked for.
+    const mark = () => h.evaluate(() => { const all = [...document.querySelectorAll('.tiptap.ProseMirror')]; all.forEach((one) => one.removeAttribute('data-e4-big')); all.sort((a, b) => (b.editor?.state.doc.childCount ?? 0) - (a.editor?.state.doc.childCount ?? 0))[0].setAttribute('data-e4-big', '') })
     ED = '[data-e4-big]'
     await wait(3000)
+    await mark()
     const blocks = await h.evaluate((sel) => document.querySelector(sel)?.editor.state.doc.childCount, ED)
     // A caret in a line of words on the screen, in the middle of the note.
     await h.evaluate((sel) => { let box = document.querySelector(sel).parentElement; while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight)) box = box.parentElement; box?.scrollTo({ top: box.scrollHeight / 2, behavior: 'instant' }) }, ED)
     await wait(800)
+    await mark()
     const spot = await h.evaluate((sel) => {
       const ed = document.querySelector(sel)
       const line = [...ed.querySelectorAll('li > p, p')].find((one) => { const r = one.getBoundingClientRect(); return one.textContent.trim().length > 8 && r.top > 120 && r.bottom < innerHeight - 120 && !one.closest('[contenteditable="false"]') })
@@ -181,6 +184,7 @@ try {
     const cdp = process.env.PROF ? await c.electron.context().newCDPSession(h) : null
     if (cdp) (await cdp.send('Profiler.enable'), await cdp.send('Profiler.setSamplingInterval', { interval: 200 }))
     const timed = async (key) => {
+      await mark()
       const [code, meta, shift] = [key.split('+').at(-1), key.includes('Meta'), key.includes('Shift')]
       const measure = h.evaluate(([code, meta, shift]) => new Promise((resolve) => {
         const onKey = (event) => {
