@@ -78,9 +78,22 @@ export function PageContents({ page, scroller, label }: { page: HTMLElement | nu
       const all = targets.current
       const top = scroller.getBoundingClientRect().top + 72
       const atEnd = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 2 && scroller.scrollTop > 0
-      let at = all.findLastIndex((one) => one.getBoundingClientRect().top <= top)
+      // The last one that starts above a line, found by halves (they stand in the page's order, each below the one
+      // before): a few reads on each frame of a scroll, where each of the page's sections and settings was read.
+      const lastAbove = (above: (y: number) => boolean): number => {
+        let low = 0
+        let high = all.length
+        while (low < high) {
+          const middle = (low + high) >> 1
+          if (above(all[middle].getBoundingClientRect().top)) low = middle + 1
+          else high = middle
+        }
+        return low - 1
+      }
+      let at = lastAbove((y) => y <= top)
       // At the very end, the last setting that is in view at all.
-      if (atEnd) at = Math.max(at, all.findLastIndex((one) => one.getBoundingClientRect().top < scroller.getBoundingClientRect().bottom - 24))
+      const bottom = scroller.getBoundingClientRect().bottom - 24
+      if (atEnd) at = Math.max(at, lastAbove((y) => y < bottom))
       setActive(Math.max(0, at))
     }
     const scan = (): void => {
