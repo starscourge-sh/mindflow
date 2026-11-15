@@ -156,6 +156,22 @@ try {
   const searched = site.asked.slice(before).filter((one) => one.includes('/search/page'))
   check('…and ↵ asks Wikipedia for the words after it', searched.length === 1 && new URL(searched[0], 'http://x').searchParams.get('q') === 'byzantine', JSON.stringify(site.asked.slice(before)))
   await h.keyboard.press('Escape'); await wait(300)
+
+  // The smallest window, 560 x 400: ⌘K's answers fit inside it, and the reader keeps its column (no contents squeezed in).
+  await c.size(560, 400)
+  await h.keyboard.press('Meta+k'); await wait(500)
+  await h.keyboard.type('w roman', { delay: 20 }); await wait(600)
+  await h.keyboard.press('Enter')
+  await until(() => h.evaluate(() => document.querySelectorAll('[data-look-kind="hit"]').length > 0))
+  const small = await h.evaluate(() => { const rows = [...document.querySelectorAll('[role="dialog"] [data-look-kind="hit"]')].map((one) => one.getBoundingClientRect()); return { width: innerWidth, right: Math.round(Math.max(...rows.map((r) => r.right))), left: Math.round(Math.min(...rows.map((r) => r.left))), wide: document.documentElement.scrollWidth > innerWidth } })
+  check('in the smallest window ⌘K\'s answers fit inside it, nothing sideways', small.left >= 8 && small.right <= small.width - 8 && !small.wide, JSON.stringify(small))
+  await c.both(`${shots}/w4-small-cmdk`)
+  await h.keyboard.press('Enter')
+  await until(async () => (await shows()).reader === 'Roman Empire', 15000)
+  await wait(400)
+  const smallReader = await h.evaluate(() => ({ rail: !!document.querySelector('.web-reader .pdf-rail'), wide: document.documentElement.scrollWidth > innerWidth, column: Math.round(document.querySelector('.web-reader-column')?.getBoundingClientRect().width ?? 0) }))
+  check('…and the reader there keeps its column for the words, its contents a button away', !smallReader.rail && !smallReader.wide && smallReader.column > 250 && (await h.evaluate(() => !!document.querySelector('.web-reader button[aria-label="Contents"]'))), JSON.stringify(smallReader))
+  await c.both(`${shots}/w4-small-reader`)
   check('no page errors', c.errors.length === 0, c.errors.join(' | ').slice(0, 300))
 } finally {
   await c.close()
