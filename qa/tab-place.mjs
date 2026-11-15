@@ -3,7 +3,7 @@
 // it one way and comes back, and reads the list's scroll and the row at its top edge before and after.
 //   tab     the Inbox scrolled the moment its list is drawn (still filling), another tab with the longest note, back
 //   open    the Inbox with a note open beside its list, the list scrolled, another tab, back: the same note, the same place
-//   day     as `tab`, launched at 23:59 and back to the first tab after midnight (the app's clock moved, main and window)
+//   day     as `tab` on the Inbox's older captures (gone through), launched at 23:59, back after midnight (the app's clock moved)
 //   back    the Inbox scrolled, a row opened, ⌘[, ⌘], ⌘[
 //   resize  the Inbox scrolled, the window made narrow and wide again
 //   pages   `tab` on Home, Gems, Questions, Tasks (All tasks), the Calendar, a Writing folder and Files
@@ -30,9 +30,8 @@ db.close()
 const { check, done } = checks()
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 const wide = CASE === 'open'
-// The day case runs at 23:59 (the app's clock moved, main and window, as qa/sandbox-lib.mjs's `at` does) in a window
-// 560 tall: the Inbox lists a rolling last few days, and that late its list of them fits a taller window whole.
-const c = await sandbox({ width: wide ? 1440 : 1100, height: CASE === 'day' ? 560 : 760, seeded: false, at: CASE === 'day' ? '23:59' : undefined })
+// The day case runs at 23:59 (the app's clock moved, main and window, as qa/sandbox-lib.mjs's `at` does).
+const c = await sandbox({ width: wide ? 1440 : 1100, height: 760, seeded: false, at: CASE === 'day' ? '23:59' : undefined })
 const { h, errors, close } = c
 const wait = (ms) => h.waitForTimeout(ms)
 
@@ -120,6 +119,12 @@ try {
   await h.evaluate(() => window.api.haligtree('settings:set', { hintRate: 0 }))
   if (CASE === 'tab' || CASE === 'day') {
     await c.send('view', 'inbox')
+    if (CASE === 'day') {
+      // That late the last few days' list fits the window whole: the older captures, gone through, are the long list.
+      await h.waitForFunction(() => [...document.querySelectorAll('[data-pane-card] button')].some((one) => one.textContent.trim() === 'Go through them'), null, { timeout: 30000 })
+      await h.evaluate(() => [...document.querySelectorAll('[data-pane-card] button')].find((one) => one.textContent.trim() === 'Go through them').click())
+      await wait(800)
+    }
     const { tallAtWheel, left } = await scrollNow(900)
     await frame('left')
     console.log(`left: ${show(left)}; the list was ${tallAtWheel} px tall at the wheel (${tallAtWheel === left?.tall ? 'drawn whole' : 'still filling'})`)
