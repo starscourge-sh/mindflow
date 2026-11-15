@@ -17,13 +17,19 @@ const fixture = join(process.env.QA_DATA, 'meeting-fixture')
 mkdirSync(fixture, { recursive: true })
 const made = makeMeeting(fixture)
 process.env.HALIGTREE_QA_MEETING = [made.you, made.others, made.script].join('|')
-const AI = process.env.HALIGTREE_QA_CAPS === 'ai'
 const FRAMES = process.env.FRAMES
 if (FRAMES) mkdirSync(FRAMES, { recursive: true })
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 860, at: CALM_HOUR })
 const { electron, h, v } = c
+// With Apple Intelligence or without, as the app itself reads this Mac (HALIGTREE_QA_CAPS stands a level in): on a Mac
+// with it on (the test Mac, 15 Nov) a test run's recording gets the stand-in's take (main passes --ai-stand-in), so a
+// run with no level said, read here as "without", failed its line. "Without" shows only on a Mac without it: the meeting
+// program asks macOS itself (native/meeting.swift take), and a level said to main alone gave a page with no take at all.
+const caps = await v('caps')
+const AI = caps?.major >= 26 && caps?.ai === 'available'
+console.log(`(${AI ? 'with' : 'without'} Apple Intelligence, as the app reads this Mac: ${JSON.stringify(caps && { major: caps.major, ai: caps.ai })})`)
 const wait = (ms) => h.waitForTimeout(ms)
 const card = async () => {
   for (let i = 0; i < 60; i += 1) {
