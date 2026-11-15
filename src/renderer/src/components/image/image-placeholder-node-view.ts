@@ -6,16 +6,51 @@ import { ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react"
 
 import { ImagePlaceholderView } from "@/components/image/image-placeholder-view"
 import { copyOf } from "@/lib/icon-markup"
-import { lazyRoot } from "@/lib/lazy-root"
+import { WAKE, lazyRoot } from "@/lib/lazy-root"
 import { stopLikeTiptap } from "@/lib/plain-node-view"
 
 /** The row's picture, the one ImagePlusIcon draws. */
 const ICON =
   '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M20 2C20 1.44772 19.5523 1 19 1C18.4477 1 18 1.44772 18 2V4H16C15.4477 4 15 4.44772 15 5C15 5.55228 15.4477 6 16 6H18V8C18 8.55228 18.4477 9 19 9C19.5523 9 20 8.55228 20 8V6H22C22.5523 6 23 5.55228 23 5C23 4.44772 22.5523 4 22 4H20V2ZM5 4C4.73478 4 4.48043 4.10536 4.29289 4.29289C4.10536 4.48043 4 4.73478 4 5V19C4 19.2652 4.10536 19.5196 4.29289 19.7071C4.48043 19.8946 4.73478 20 5 20H5.58579L14.379 11.2068C14.9416 10.6444 15.7045 10.3284 16.5 10.3284C17.2955 10.3284 18.0584 10.6444 18.621 11.2068L20 12.5858V12C20 11.4477 20.4477 11 21 11C21.5523 11 22 11.4477 22 12V14.998C22 14.9994 22 15.0007 22 15.002V19C22 19.7957 21.6839 20.5587 21.1213 21.1213C20.5587 21.6839 19.7957 22 19 22H6.00219C6.00073 22 5.99927 22 5.99781 22H5C4.20435 22 3.44129 21.6839 2.87868 21.1213C2.31607 20.5587 2 19.7957 2 19V5C2 4.20435 2.31607 3.44129 2.87868 2.87868C3.44129 2.31607 4.20435 2 5 2H12C12.5523 2 13 2.44772 13 3C13 3.55228 12.5523 4 12 4H5ZM8.41422 20H19C19.2652 20 19.5196 19.8946 19.7071 19.7071C19.8946 19.5196 20 19.2652 20 19V15.4142L17.207 12.6212C17.0195 12.4338 16.7651 12.3284 16.5 12.3284C16.2349 12.3284 15.9806 12.4337 15.7931 12.6211L8.41422 20ZM6.87868 6.87868C7.44129 6.31607 8.20435 6 9 6C9.79565 6 10.5587 6.31607 11.1213 6.87868C11.6839 7.44129 12 8.20435 12 9C12 9.79565 11.6839 10.5587 11.1213 11.1213C10.5587 11.6839 9.79565 12 9 12C8.20435 12 7.44129 11.6839 6.87868 11.1213C6.31607 10.5587 6 9.79565 6 9C6 8.20435 6.31607 7.44129 6.87868 6.87868ZM9 8C8.73478 8 8.48043 8.10536 8.29289 8.29289C8.10536 8.48043 8 8.73478 8 9C8 9.26522 8.10536 9.51957 8.29289 9.70711C8.48043 9.89464 8.73478 10 9 10C9.26522 10 9.51957 9.89464 9.70711 9.70711C9.89464 9.51957 10 9.26522 10 9C10 8.73478 9.89464 8.48043 9.70711 8.29289C9.51957 8.10536 9.26522 8 9 8Z" fill="currentColor"></path></svg>'
 
-/** Its panel is open (just put in), or its picture is still being looked for (the orb): React's from the start. */
-const live = (node: PMNode): boolean => !!node.attrs.open || (!!node.attrs.embed && !node.attrs.missing)
+/** Its panel is open (just put in): React's from the start. */
+const live = (node: PMNode): boolean => !!node.attrs.open
+/** A picture from Obsidian still being looked for: the orb, and nothing to click yet (image-placeholder-view.tsx). */
+const waiting = (node: PMNode): boolean => !!node.attrs.embed && !node.attrs.missing
+const BRINGING = "Bringing the picture in…"
 const words = (node: PMNode): string => (node.attrs.missing ? `Picture not found in your Obsidian vaults: ${node.attrs.missing}` : "Add an image")
+
+/**
+ * Waiting pictures that come on the screen, woken: React draws the orb for those only. A whole note pasted from
+ * Obsidian brings hundreds at once (286 for "Exam Cliff Notes"), each a React view drawn one after another before
+ * the paste could show, then an orb each, drawing every frame on a loop of its own, off the screen too.
+ */
+let seen: IntersectionObserver | null = null
+const onScreen = (): IntersectionObserver =>
+  (seen ??= new IntersectionObserver((entries) => {
+    for (const one of entries) if (one.isIntersecting) (seen?.unobserve(one.target), one.target.dispatchEvent(new Event(WAKE)))
+  }))
+
+/** The orb's own elements, its words shimmering and its picture not drawn yet, in the room it takes (orb.tsx). */
+function orbRow(): HTMLElement {
+  const row = document.createElement("div")
+  row.className = "tiptap-image-placeholder-row"
+  row.contentEditable = "false"
+  const pill = document.createElement("span")
+  pill.setAttribute("role", "status")
+  pill.className = "mf-orb-pill"
+  const orb = document.createElement("canvas")
+  orb.className = "shrink-0"
+  orb.setAttribute("aria-hidden", "true")
+  orb.style.cssText = "width:20px;height:20px;display:block"
+  const said = document.createElement("span")
+  said.className = "mf-shimmer"
+  said.dataset.text = BRINGING
+  said.textContent = BRINGING
+  pill.append(orb, said)
+  row.append(pill)
+  return row
+}
 
 const react = ReactNodeViewRenderer(ImagePlaceholderView)
 
@@ -41,14 +76,25 @@ export function imagePlaceholderNodeView(props: NodeViewRendererProps): NodeView
   wrapper.className = "tiptap-image-placeholder"
   wrapper.setAttribute("data-node-view-wrapper", "")
   wrapper.style.whiteSpace = "normal"
+  let held = waiting(node)
   const row = document.createElement("button")
   row.type = "button"
   row.className = "tiptap-image-placeholder-row"
   const label = document.createElement("span")
   row.append(copyOf(ICON), label)
-  wrapper.append(row)
+  if (held) wrapper.setAttribute("data-embed-waiting", "")
+  wrapper.append(held ? orbRow() : row)
   dom.append(wrapper)
   const say = (): void => {
+    // Found not to be there (or looked for again): the row it is now, in place.
+    if (waiting(node) !== held) {
+      held = !held
+      wrapper.toggleAttribute("data-embed-waiting", held)
+      wrapper.replaceChildren(held ? orbRow() : row)
+      if (held) onScreen().observe(dom)
+      else seen?.unobserve(dom)
+    }
+    if (held) return
     label.textContent = words(node)
     if (node.attrs.missing) row.title = "Choose the picture"
     else row.removeAttribute("title")
@@ -61,6 +107,7 @@ export function imagePlaceholderNodeView(props: NodeViewRendererProps): NodeView
     woken = true
     return createElement(ImagePlaceholderView, { editor, node, getPos } as unknown as NodeViewProps)
   }, true)
+  if (held) onScreen().observe(dom)
 
   return {
     dom,
@@ -75,6 +122,6 @@ export function imagePlaceholderNodeView(props: NodeViewRendererProps): NodeView
     },
     stopEvent: (event) => stopLikeTiptap(event, dom, null, node),
     ignoreMutation: (mutation) => mutation.type !== "selection",
-    destroy: drawn.destroy,
+    destroy: () => (seen?.unobserve(dom), drawn.destroy()),
   }
 }
