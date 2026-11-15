@@ -138,7 +138,7 @@ await check('word: looked up in the background, no beam while it is; shown as a 
   // What turns it, if anything does: each wait told to the beam here (with who told it) and main's own work.
   await page.evaluate(() => {
     window.__beamWhy = []
-    window.addEventListener('haligtree:beam-wait', (event) => window.__beamWhy.push(`here ${event.detail} at ${Math.round(performance.now())}: ${new Error().stack.split('\n').slice(3, 7).map((line) => line.trim().slice(0, 90)).join(' < ')}`))
+    window.addEventListener('haligtree:beam-wait', (event) => window.__beamWhy.push(`here ${event.detail} at ${Math.round(performance.now())}: ${new Error().stack.split('\n').slice(3, 7).map((line) => line.trim().replace(/\(?\S*\/(assets|src)\//, '(')).join(' < ')}`))
     window.api.onBusy?.((count) => window.__beamWhy.push(`main ${count} at ${Math.round(performance.now())}`))
   })
   await page.keyboard.type('Serendipity', { delay: 15 })
