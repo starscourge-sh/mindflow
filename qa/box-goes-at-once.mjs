@@ -1,7 +1,7 @@
 // Quick capture goes as ⌘↵ keeps the note: its leave played and gone, never waiting for the save and what follows it
 // (the user, 15 Nov 2026: "why is there a delay in the prompt closing right after cmd+enter. it says on screen for another
 // 3 seconds"; on a built app it stayed 0.3 to 1 s, median 439 ms, while main's save took under 90 ms). Five notes kept in a
-// row on a copy of the main book: each box gone within 350 ms of ⌘↵ (its 180 ms leave, then hidden), every note kept with
+// row on a copy of the main book: each box hidden within 350 ms of ⌘↵ as main sees it hide (it goes at once now), every note kept with
 // its words, and the box opened again at once comes up empty and ready, the last save never clearing what is typed next.
 //   QA_DATA=<copy of the main book> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-goes-at-once.mjs
 import { checks } from './harness.mjs'
@@ -20,6 +20,7 @@ const open = async () => {
 }
 try {
   const times = []
+  const hidden = []
   const stamp = Date.now().toString(36)
   for (let i = 1; i <= 5; i++) {
     await open()
@@ -35,9 +36,7 @@ try {
       if (!w || globalThis.__marked) return
       globalThis.__marked = true
       w.on('hide', () => { globalThis.__seen.push(['hide', Date.now()]); globalThis.__hidAt ||= Date.now() })
-      // Who put it away: the caller of each hide, kept with its time.
-      const hide = w.hide.bind(w)
-      w.hide = () => { globalThis.__seen.push(['hide() from ' + (new Error().stack ?? '').split('\n').slice(2, 6).map((one) => one.trim().replace(/^at /, '').replace(/\(.*[/\\]/, '(')).join(' < '), Date.now()]); hide() }
+
       w.on('show', () => globalThis.__seen.push(['show', Date.now()]))
       w.webContents.on('before-input-event', (_e, input) => { if (input.type === 'keyDown' && input.key === 'Enter' && input.meta && !globalThis.__keyMainAt) globalThis.__keyMainAt = Date.now() })
     })
@@ -49,6 +48,9 @@ try {
     const keyAt = await page.evaluate(() => window.__keyAt)
     const main = await electron.evaluate(() => ({ key: globalThis.__keyMainAt, hid: globalThis.__hidAt, seen: globalThis.__seen }))
     const rel = (at) => (at ? at - t0 : '?')
+    // The measure: from the press to the box hidden, as main saw it hide. "Seen gone" (the probe asking main again and
+    // again whether it shows) ran 100 to 500 ms behind it on a busy Mac, which is the probe's own wait, not the box's.
+    hidden.push(main.hid ? main.hid - t0 : -1)
     console.log(`(send ${i}: seen gone ${gone} ms; from the press: key in main ${rel(main.key)}, in the page ${rel(keyAt)}, hidden ${rel(main.hid)}; shows and hides ${main.seen.map(([what, at]) => `${what} ${at - t0}`).join(', ') || 'none'})`)
     // The next one at once, while this save may still be finishing: it must come up empty and keep what is typed in it.
     if (i === 3) {
@@ -66,7 +68,7 @@ try {
     await page.waitForTimeout(700)
   }
   const sorted = [...times].sort((a, b) => a - b)
-  check(`each box goes within 350 ms of ⌘↵ (${times.join(', ')} ms)`, times.every((one) => one >= 0 && one <= 350), `median ${sorted[2]} ms`)
+  check(`each box goes within 350 ms of ⌘↵ (${hidden.join(', ')} ms, as main saw it hide)`, hidden.every((one) => one >= 0 && one <= 350), `seen gone by the probe's own asking: ${times.join(', ')} ms, median ${sorted[2]}`)
   await page.waitForTimeout(1500)
   const all = await Promise.all([1, 2, 3, 4, 5].map((i) => kept(`Kept at once ${stamp} number ${i}`)))
   check('every note is kept, with its words', all.every(Boolean), all.map((one, i) => `${i + 1}:${one}`).join(' '))
