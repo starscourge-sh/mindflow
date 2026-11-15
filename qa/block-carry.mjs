@@ -246,7 +246,7 @@ if (PART === 'beside') {
     await page.waitForTimeout(250)
     seen = await beside(`${theme}-item-beside`, block('second point'), block('Plans for the essay'), 0.9)
     const made = await page.$eval(EDITOR, (root) => root.editor.getJSON().content.map((one) => one.type === 'columns' ? `[${one.content.map((c) => c.content.map((b) => b.type).join('+')).join('|')}]` : one.type).join(' / '))
-    check(`${theme}: a list's item carried beside a paragraph is a list in its new column`, seen.upright && made === '[paragraph|bulletList] / bulletList' && (await outline()) === '[Plans for the essay | second point] / first point', `${made} ${await outline()}`)
+    check(`${theme}: a list's item carried beside a paragraph is a list in its new column`, seen.upright && made === '[paragraph|bulletList] / bulletList' && (await outline()) === '[Plans for the essay | second point] / first point', `${made} ${await outline()} ${JSON.stringify(seen)}`)
   }
 }
 

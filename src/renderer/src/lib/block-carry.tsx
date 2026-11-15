@@ -29,11 +29,11 @@ export const gripOn = (view: EditorView, pos: number): void => void gripped.set(
 const LIFT = 5
 /**
  * Where a block carried near another's side goes beside it: its right quarter (and past it), and at its left a band
- * as wide as a grip's reach into the words (a carry from the grip drifts right into the words on its way down, and
+ * 20px into its words (a carry from the grip drifts 30px and more into the words on its way down, and
  * that must stay a carry down).
  */
 const SIDE = 0.25
-const NEAR_LEFT = 40
+const NEAR_LEFT = 20
 
 type Piece = { el: HTMLElement; pos: number; end: number; node: Block }
 type Aim =
