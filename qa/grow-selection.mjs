@@ -261,9 +261,9 @@ try {
         await h.keyboard.press('Meta+a'); await wait(100)
         await h.keyboard.press('Meta+a'); await wait(300)
         const garden = await picked()
-        // The heading in the note in front (a page can hold the same note twice: one more editor drawn behind it).
+        // Folded, the heading offers two ways to unfold it: its chevron and the dots after its words.
         const folded = await third.first().locator('[role="button"][aria-label="Unfold this section"]').count()
-        check('vim off: ⌘A picking the section round a folded heading leaves it folded', garden.words === GARDEN && folded === 1, `${garden.words.slice(0, 30)}…, folded ${folded}, headings named Third ${await third.count()}`)
+        check('vim off: ⌘A picking the section round a folded heading leaves it folded', garden.words === GARDEN && folded > 0, `${garden.words.slice(0, 30)}…, ways to unfold it ${folded}`)
         // Esc lets the caret go to the far end, inside the fold, which opens it as any caret landing there does.
         await h.keyboard.press('Escape'); await wait(300)
         if (await third.first().locator('[role="button"][aria-label="Unfold this section"]').count()) { await caretIn('Third'); await h.keyboard.press('Meta+Alt+BracketLeft'); await wait(300) }
