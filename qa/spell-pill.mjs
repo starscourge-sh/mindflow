@@ -92,6 +92,31 @@ try {
   await h.click('[data-spell-hint]'); await h.waitForTimeout(300)
   check('in a list item: a click on the pill takes the word', await h.evaluate(() => /I receive/.test(document.querySelector('[data-open] .tiptap').innerText)))
 
+  // As the page scrolls (real wheel turns): the pill goes with its word, leaves the screen with it, and comes back
+  // with it. A scroll only moves the pill: the word under the caret is not looked up again on every frame.
+  await h.evaluate(() => {
+    const ed = document.querySelector('[data-open] .tiptap').editor
+    const lines = Array.from({ length: 80 }, (_, i) => `<p>Line ${i + 1} of a page long enough to scroll a good way.</p>`)
+    lines.splice(14, 0, '<p>I recieve</p>')
+    ed.chain().focus().setContent(lines.join('')).run()
+    let at = 0
+    ed.state.doc.descendants((node, pos) => void (node.isText && node.text === 'I recieve' && (at = pos + node.text.length)))
+    ed.chain().focus().setTextSelection(at).scrollIntoView().run()
+  })
+  for (let i = 0; i < 20 && !(await pill(h, '[data-open] .tiptap', 'recieve')); i++) await h.waitForTimeout(200)
+  const still = await pill(h, '[data-open] .tiptap', 'recieve')
+  const middle = await h.evaluate(() => { let box = document.querySelector('[data-open] .tiptap').parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; const r = box.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  await h.mouse.move(middle.x, middle.y)
+  await h.mouse.wheel(0, 60); await h.waitForTimeout(400)
+  const along = await pill(h, '[data-open] .tiptap', 'recieve')
+  check('as the page scrolls the pill goes with its word, right under it', !!still && !!along && Math.abs(along.dx) <= 3 && along.dy >= 0 && along.dy <= 8, `${JSON.stringify(still)} then ${JSON.stringify(along)}`)
+  await h.mouse.wheel(0, 2500); await h.waitForTimeout(500)
+  const off = await pill(h, '[data-open] .tiptap', 'recieve')
+  check('scrolled off the screen with its word, the pill goes', !off, JSON.stringify(off))
+  await h.mouse.wheel(0, -2500); await h.waitForTimeout(500)
+  const back = await pill(h, '[data-open] .tiptap', 'recieve')
+  check('scrolled back, the pill comes back under its word', !!back && Math.abs(back.dx) <= 3 && back.dy >= 0 && back.dy <= 8, JSON.stringify(back))
+
   // With spellcheck off for Writing: no pill.
   await v('settings:set', { spellWriting: false }); await h.waitForTimeout(500)
   await h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap').editor; ed.chain().focus().setContent('<p>I recieve</p>').focus('end').run() })
