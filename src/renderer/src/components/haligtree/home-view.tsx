@@ -347,7 +347,7 @@ function Heading({ title, onAll, extra }: { title: ReactNode; onAll?: () => void
 }
 
 /** A row that scrolls sideways, with › and ‹ on hover and its edges faded where there is more. */
-function Row({ title, over, lead, onAll, menu, children }: { title: ReactNode; /** A small line over the title. */ over?: string; /** Held still at the left while the cards slide beside it. */ lead?: ReactNode; onAll?: () => void; /** The row's own choices, last in the group on the right. */ menu?: MenuItem[]; children: ReactNode }): React.JSX.Element {
+function Row({ title, over, lead, onAll, menu, children }: { title: ReactNode; /** A small line over the title. */ over?: string; /** Held still at the left while the cards slide beside it, under its own heading. */ lead?: { over: string; title: ReactNode; node: ReactNode }; onAll?: () => void; /** The row's own choices, last in the group on the right. */ menu?: MenuItem[]; children: ReactNode }): React.JSX.Element {
   const scroller = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
   // Where the row is, for the dot track under it: what share is in view, and from where.
@@ -384,7 +384,16 @@ function Row({ title, over, lead, onAll, menu, children }: { title: ReactNode; /
   return (
     <section className="group/shelf flex flex-col gap-1 [--card:9rem] @[44rem]/page:[--card:10.5rem]">
       {/* ‹ and › beside Show all, never over a card's words. */}
-      <div className="px-5 @[44rem]/page:px-8">
+      <div className={lead ? 'flex flex-col gap-3 @[44rem]/page:flex-row @[44rem]/page:gap-6 @[44rem]/page:pl-8' : ''}>
+      {lead && (
+        <div className="flex min-w-0 shrink-0 flex-col gap-1 px-5 @[44rem]/page:w-[40%] @[44rem]/page:px-0">
+          <p className="text-xs text-muted-foreground">{lead.over}</p>
+          <Heading title={lead.title} />
+          {lead.node}
+        </div>
+      )}
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+      <div className={lead ? 'px-5 @[44rem]/page:pr-8 @[44rem]/page:pl-0' : 'px-5 @[44rem]/page:px-8'}>
         {over && <p className="text-xs text-muted-foreground">{over}</p>}
         <Heading title={title} onAll={onAll} extra={(edges.left || edges.right || menu) && (
           <span className="flex shrink-0 items-center gap-1 self-center">
@@ -400,13 +409,12 @@ function Row({ title, over, lead, onAll, menu, children }: { title: ReactNode; /
           </span>
         )} />
       </div>
-      <div className={lead ? 'flex flex-col gap-3 pt-1 @[44rem]/page:flex-row @[44rem]/page:gap-1' : ''}>
-      {lead && <div className="flex min-w-0 shrink-0 items-start px-5 @[44rem]/page:w-[45%] @[44rem]/page:pr-0 @[44rem]/page:pl-8">{lead}</div>}
-      <div className="relative min-w-0 flex-1">
+      <div className={lead ? 'relative min-w-0 flex-1 @[44rem]/page:-ml-6.5' : 'relative min-w-0 flex-1'}>
         <div ref={scroller} onScroll={measure} className="flex snap-x scroll-px-3.5 items-stretch gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain px-3.5 py-1 [scrollbar-width:none] @[44rem]/page:scroll-px-6.5 @[44rem]/page:px-6.5 [&::-webkit-scrollbar]:hidden"
           style={{ maskImage: mask, WebkitMaskImage: mask }}>
           {children}
         </div>
+      </div>
       </div>
       </div>
       {(edges.left || edges.right) && <DotTrack from={span.from} to={span.to} onPick={(at) => {
@@ -606,16 +614,24 @@ function ExampleHome(): React.JSX.Element {
 /** A drawing's colour: its first tag's, else a tag colour picked from its id. */
 const coverTint = (card: Card): string => tagColour(splitTags(card.title).tags[0] ?? card.id, null)
 
-/** A card's own picture, or its paper drawing where it has none. */
+/** The word a card is about: a definition's term, before its colon. */
+const termOf = (card: Card): string => nameOf(card).split(/:\s/)[0].slice(0, 60)
+/** What follows the term: the rest of a definition, else its first words. */
+const restOf = (card: Card): string => (nameOf(card).includes(': ') ? nameOf(card).slice(nameOf(card).indexOf(': ') + 2) : wordsOf(card.excerpt)) || nameOf(card)
+
+/** A card's own picture, or its own word on its colour where it has none. */
 function Cover({ card, className = '' }: { card: Card; className?: string }): React.JSX.Element {
   const src = usePicture(card)
   const [broken, setBroken] = useState(false)
   const real = !!src && !broken
   return (
-    <span className={`relative overflow-hidden ${className}`}>
-      {real ? <Picture src={src} onBroken={() => setBroken(true)} /> : <KindMark card={card} className="size-full [&_svg]:size-6" />}
-      {/* A drawing takes its own colour, so a row of them is never one grey. */}
-      {!real && <span aria-hidden className="absolute inset-0 mix-blend-multiply dark:mix-blend-soft-light" style={{ background: `color-mix(in oklab, ${coverTint(card)} 45%, transparent)` }} />}
+    <span className={`${className.includes('absolute') ? '' : 'relative'} overflow-hidden ${className}`}>
+      {real ? <Picture src={src} onBroken={() => setBroken(true)} /> : (
+        // No picture: its own word, large on its own colour, the way a radio cover is a name on colour.
+        <span aria-hidden className="absolute inset-0 flex items-end p-3" style={{ background: `color-mix(in oklab, ${coverTint(card)} 70%, black)` }}>
+          <span className="private-text line-clamp-3 font-heading text-[1.125rem] leading-[1.08] font-bold tracking-[-0.015em] hyphens-auto [overflow-wrap:break-word] text-white">{termOf(card)}</span>
+        </span>
+      )}
     </span>
   )
 }
@@ -629,16 +645,16 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
   const [lead, ...rest] = cards
   const feature = (
     <RowMenu items={() => menuFor(lead, actions, cards, 0)}>
-      <div data-coming-feature className="group/card relative flex w-full min-w-0" data-private={lead.private ? '' : undefined}>
-        <Lean by={3} className="w-full min-w-0" inner="relative flex flex-col gap-3 overflow-hidden rounded-xl bg-foreground/[0.05] transition-colors duration-150 hover:bg-foreground/[0.07]">
+      <div data-coming-feature className="group/card relative mt-2 flex w-full min-w-0" data-private={lead.private ? '' : undefined}>
+        <Lean by={3} className="w-full min-w-0" inner="relative flex flex-col gap-3 overflow-hidden rounded-lg p-1.5 transition-colors duration-150 hover:bg-foreground/[0.05]">
           {/* The whole card opens it; the round buttons sit over it. */}
           <button type="button" aria-label={nameOf(lead)} data-nav data-private={lead.private ? '' : undefined} data-picked={actions.picked?.(lead) || undefined} data-drag-open={`${lead.type}:${lead.id}`} onClick={(event) => actions.open(lead, event)}
             className="absolute inset-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50" />
-          <div className="pointer-events-none relative flex h-[11rem] items-stretch gap-4 @[44rem]/page:h-[9.5rem] @[60rem]/page:h-[11rem]">
-            <Cover card={lead} className="aspect-square h-full shrink-0" />
+          <div className="pointer-events-none relative flex h-[calc(var(--card)-0.75rem)] items-stretch gap-4">
+            <Cover card={lead} className="aspect-square h-full shrink-0 rounded-md" />
             <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 py-3 pr-4">
-              <span className="truncate text-xs text-muted-foreground">{lead.sub ?? 'Coming back'} · {kindLabel(lead)}</span>
-              <span className="private-text line-clamp-3 text-title leading-tight font-semibold tracking-[-0.01em] hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(lead)}</span>
+              <span className="truncate text-xs text-muted-foreground">{kindLabel(lead)} · {lead.sub ?? 'Coming back'}</span>
+              <span className="private-text line-clamp-2 text-heading leading-tight font-bold tracking-[-0.01em] hyphens-auto [overflow-wrap:break-word] text-foreground">{termOf(lead)}</span>
               {/* Review now first, then Read, then the menu. */}
               <span className="pointer-events-auto flex items-center gap-2 pt-2 [&_button]:shrink-0">
                 {onReview && (
@@ -660,31 +676,25 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
     </RowMenu>
   )
   return (
-    <Row title={title} over="Due back today" onAll={onAll} lead={feature}>
+    <Row title="Also due" over="Waiting for you" onAll={onAll} lead={{ over: 'Due back today', title, node: feature }}>
       {rest.map((card, at) => <ComingTile key={`${card.type}:${card.id}`} card={card} list={cards} at={at + 1} actions={actions} />)}
     </Row>
   )
 }
 
-/** A square tile, numbered like a mix: its kind in a coloured band at the foot, the number beside it, the name under it. */
+/** A square tile: its cover (picture, or its word on its colour), and what it says in grey under it. */
 function ComingTile({ card, list, at, actions }: { card: Card; list: Card[]; at: number; actions: Actions }): React.JSX.Element {
-  const band = { background: `color-mix(in oklab, ${tintOf(card)} 28%, var(--background))` }
   return (
     <RowMenu items={() => menuFor(card, actions, list, at)}>
       <div className="group/card relative flex w-(--card) shrink-0 snap-start">
         <Lean className="flex w-full" inner="flex">
           <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
-            className="flex w-full flex-col gap-2 rounded-xl p-1.5 text-left outline-none transition-[background-color,scale] duration-200 ease-(--mf-ease) hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985]">
+            className="flex w-full flex-col gap-2 rounded-lg p-1.5 text-left outline-none transition-[background-color,scale] duration-200 ease-(--mf-ease) hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985]">
             <span className="relative block aspect-square w-full">
-              <Cover card={card} className="absolute inset-0 rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
-              <span className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-1 p-1.5">
-                <span className="min-w-0 truncate rounded-[4px] px-1.5 py-0.5 text-xs font-medium text-foreground" style={band}>{kindLabel(card)}</span>
-                <span className="shrink-0 rounded-[4px] px-1.5 text-lg leading-snug font-semibold tabular-nums text-foreground" style={band}>{String(at).padStart(2, '0')}</span>
-              </span>
+              <Cover card={card} className="absolute inset-0 rounded-md shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
             </span>
             <span className="flex min-w-0 flex-col gap-0.5 px-1 pb-1">
-              <span className="private-text line-clamp-2 text-control leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
-              {card.sub && <span className="truncate text-xs text-muted-foreground">{card.sub}</span>}
+              <span className="private-text line-clamp-2 text-control leading-snug text-muted-foreground hyphens-auto [overflow-wrap:break-word]">{restOf(card)}</span>
             </span>
           </button>
           {card.foot && <div className="px-1.5 pb-1.5">{card.foot}</div>}

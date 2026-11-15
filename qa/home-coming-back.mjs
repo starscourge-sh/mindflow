@@ -78,8 +78,8 @@ try {
     await h.waitForTimeout(1200)
     await toRow()
     await h.waitForTimeout(400)
-    const lines = await feature.locator('.text-title').evaluate((one) => Math.round(one.getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)))
-    check('a 200 character title is held to 3 lines', (await feature.locator('.text-title').textContent()).length >= 150 && lines <= 3, `${lines} lines`)
+    const lines = await feature.locator('.text-heading').evaluate((one) => Math.round(one.getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)))
+    check('a 200 character title is held to 3 lines', (await feature.locator('.text-heading').textContent()).length >= 150 && lines <= 3, `${lines} lines`)
     if (SHOTS) await c.both(`${SHOTS}/long-title`)
   }
   // From this week's Show all: the Week's page, at "Caught this week".
