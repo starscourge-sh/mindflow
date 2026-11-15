@@ -27,6 +27,23 @@ try {
   const trips = await v('groups:make', 'article', 'Trips', null)
   await h.waitForTimeout(800)
   const writing = h.locator('[data-side-row][aria-label="Writing"]')
+  let before, got
+
+  // 0. Writing's own "New page" button, with the folder open: the page goes in the folder. First, while no page is
+  // open: at this width an open page covers its list, and the button with it.
+  const folderRow = h.locator(`[data-side-folder="${trips}"]`)
+  await folderRow.click()
+  await h.waitForTimeout(1200)
+  const newButton = h.locator('[data-new-writing="article"] >> visible=true')
+  if (!(await newButton.count())) { await h.keyboard.press('Escape'); await h.waitForTimeout(800) }
+  const shown = await newButton.count()
+  check('inside a folder, Writing\'s own "New page" is in sight', shown > 0, `${shown} in sight`)
+  if (shown) {
+    before = await pages()
+    await newButton.first().click()
+    got = await made(before)
+    check('Writing\'s own "New page", inside a folder, makes the page in it', got.count === 1 && got.opened && got.folder === trips, JSON.stringify(got))
+  }
 
   // 1. The "+" beside Writing: a new page, opened, at the top level.
   await writing.hover()
@@ -35,13 +52,12 @@ try {
   const more = h.locator('[data-side-more="article"]')
   check('pointed at, Writing shows a "+" and a "···"', (await plus.isVisible()) && (await more.isVisible()))
   check('both show the hand', (await plus.evaluate((el) => getComputedStyle(el).cursor)) === 'pointer' && (await more.evaluate((el) => getComputedStyle(el).cursor)) === 'pointer')
-  let before = await pages()
+  before = await pages()
   await plus.click()
-  let got = await made(before)
+  got = await made(before)
   check('the "+" makes one page and opens it, in no folder', got.count === 1 && got.opened && got.folder === null, JSON.stringify(got))
 
   // 2. A folder's "+": the page is made inside it.
-  const folderRow = h.locator(`[data-side-folder="${trips}"]`)
   await folderRow.hover()
   await h.waitForTimeout(300)
   before = await pages()
@@ -74,21 +90,6 @@ try {
   await menuLine('New page inside').click()
   got = await made(before)
   check('a folder\'s "New page inside" makes the page in it, opened', got.count === 1 && got.opened && got.folder === trips, JSON.stringify(got))
-
-  // 6. Writing's own "New page" button, with the folder open: the page goes in the folder. The page made last is
-  // still open over the list at this width, so Esc first, back to the folder's list, as a person would.
-  await folderRow.click()
-  await h.waitForTimeout(1200)
-  const newButton = h.locator('[data-new-writing="article"] >> visible=true')
-  if (!(await newButton.count())) { await h.keyboard.press('Escape'); await h.waitForTimeout(800) }
-  const shown = await newButton.count()
-  check('inside a folder, Writing\'s own "New page" is in sight', shown > 0, `${shown} in sight`)
-  if (shown) {
-    before = await pages()
-    await newButton.first().click()
-    got = await made(before)
-    check('Writing\'s own "New page", inside a folder, makes the page in it', got.count === 1 && got.opened && got.folder === trips, JSON.stringify(got))
-  }
 
   // 7. Gems' "+" still makes a folder, named at once.
   const gems = h.locator('[data-side-row][aria-label="Gems"]')
