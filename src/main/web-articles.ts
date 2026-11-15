@@ -83,17 +83,18 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
       creditCommons(wiki, base)
       content = wiki.body.innerHTML
     }
-    // The cleaned article (article-clean.ts): only what reads, every link whole, every picture kept here and measured.
+    // Its title without the site's name it trails, the first of its names that is not only "Home", and the site's own name (article-names.ts).
+    const names = articleNames({ titles: [meta('og:title'), found.title ?? '', heading], siteName: meta('og:site_name'), publisher: found.siteName ?? '', hostname: base.hostname })
+    // The cleaned article (article-clean.ts): only what reads, every link whole, every picture kept here and measured,
+    // and no heading that only repeats its title.
     const site = meta('og:site_name') || base.hostname.replace(/^www\./, '').split('.')[0]
     const html = CLEANING + (await cleanArticle(content, base, site, async (src) => {
       const kept = await keep(src)
       const size = kept.startsWith('haligtree:') ? await imageSizeFromFile(join(assetsDir(), kept.replace(/^haligtree:\/\/assets\//, ''))).catch(() => null) : null
       return { kept, size }
-    }))
+    }, names.title))
     // Stopped while its pictures came: nothing of the article is kept.
     if (stop.aborted) return { stopped: true }
-    // Its title without the site's name it trails, the first of its names that is not only "Home", and the site's own name (article-names.ts).
-    const names = articleNames({ titles: [meta('og:title'), found.title ?? '', heading], siteName: meta('og:site_name'), publisher: found.siteName ?? '', hostname: base.hostname })
     const id = (db.prepare('select id from web_articles where href = ?').get(href) as { id: string } | undefined)?.id ?? randomUUID()
     db.prepare('insert or replace into web_articles (id, href, title, byline, site, published, html, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(
       id,

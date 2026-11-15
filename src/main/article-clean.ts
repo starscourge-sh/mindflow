@@ -90,10 +90,16 @@ const wordsOf = (one: Element): string => (one.textContent ?? '').replace(/[\sâ†
 /** A picture that is decoration, not the article's: a logo, an icon, a badge, a scribble, a spacer. */
 const DECOR = /(^|[-_./])(logo|icon|arrow|badge|seal|spacer|pixel|divider|separator|ornament|flourish|squiggle|scribble|swoosh|sprite|decor)/i
 
-/** The article's HTML, cleaned; `site` is the site's name, `keep` keeps a picture here and says its size. */
-export async function cleanArticle(content: string, base: URL, site: string, keep: (src: string) => Promise<Kept>): Promise<string> {
+/** The article's HTML, cleaned; `site` is the site's name, `keep` keeps a picture here and says its size, `title` is the name it is kept under. */
+export async function cleanArticle(content: string, base: URL, site: string, keep: (src: string) => Promise<Kept>, title = ''): Promise<string> {
   const { document: clean } = parseHTML(`<!doctype html><html><body>${content}</body></html>`)
   for (const one of clean.querySelectorAll(DROP)) one.remove()
+  // A first heading that only repeats the name the article is kept under (the page's own heading, when its titles said
+  // only "Home"): the reader sets the title over the words, so it never shows twice. Readability takes off only a
+  // heading that repeats the title it found itself.
+  const words = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
+  const first = clean.querySelector('h1, h2, h3')
+  if (words(title) && first && words(first.textContent ?? '') === words(title)) first.remove()
   // Of each picture's versions, the one a desktop reader sees, read from its sources and classes before they are stripped:
   // a <picture>'s first source a wide window takes, a srcset's sharpest for the column, and nothing a wide window hides.
   for (const one of clean.querySelectorAll('picture')) {

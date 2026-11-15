@@ -100,3 +100,15 @@ test("a picture's credit keeps its mark through the cleaning, and only it", asyn
   assert.equal(credit?.querySelector('a')?.getAttribute('href'), 'https://commons.wikimedia.org/wiki/File:Colosseo_2020.jpg')
   assert.equal(credit?.hasAttribute('data-x'), false)
 })
+
+test("a first heading that only repeats the article's name comes off, so the title never shows twice; any other stays", async () => {
+  const page = '<h2>The Arctic Letters</h2><p>I am already far north of London, and as I walk in the streets of Petersburgh, I feel a cold northern breeze.</p><h2>The voyage</h2><p>Inspirited by this wind of promise, my daydreams become more fervent and vivid.</p>'
+  const keep = async (src: string): Promise<{ kept: string; size: null }> => ({ kept: src, size: null })
+  const headings = async (title?: string): Promise<string[]> => [...parseHTML(`<!doctype html><html><body>${await cleanArticle(page, new URL('https://probe.example/'), 'Probe Times', keep, title)}</body></html>`).document.querySelectorAll('h2')].map((one) => one.textContent ?? '')
+  // Named by that heading (its titles said only "Home"): it comes off, the words under it stay.
+  assert.deepEqual(await headings('The Arctic Letters'), ['The voyage'])
+  assert.deepEqual(await headings('the arctic letters!'), ['The voyage'])
+  // Named otherwise, or with no name given: every heading stays.
+  assert.deepEqual(await headings('Letters from the North'), ['The Arctic Letters', 'The voyage'])
+  assert.deepEqual(await headings(), ['The Arctic Letters', 'The voyage'])
+})
