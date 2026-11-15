@@ -86,12 +86,21 @@ try {
     globalThis.__dragged = null
     for (const one of webContents.getAllWebContents()) one.startDrag = (item) => void (globalThis.__dragged = { file: item.file, empty: item.icon.isEmpty(), ...item.icon.getSize() })
   })
-  await stalls()
+  const beforeDrag = await stalls()
+  // PROF=1: where main's own time went while the drag began (its CPU profile, stalls.ts), the busiest first.
+  if (process.env.PROF) await electron.evaluate(() => globalThis.mainProfile(true))
   await h.evaluate((src) => window.api.dragOut(src, 'Harbour at dusk'), photo)
   let dragged = null
   for (let t = 0; t < 40 && !dragged; t++) (await h.waitForTimeout(150), (dragged = await electron.evaluate(() => globalThis.__dragged)))
   const afterDrag = await stalls()
-  check(`a ${process.env.BIG ? 'big' : '24-megapixel'} photograph dragged out never holds main (its loop under ${LATE_MS} ms late)`, dragged && afterDrag.delay.worst < LATE_MS, `${afterDrag.delay.worst} ms late at worst  [${load()}]`)
+  if (process.env.PROF) {
+    const { profile } = await electron.evaluate(() => globalThis.mainProfile(false))
+    const self = new Map()
+    const byId = new Map(profile.nodes.map((node) => [node.id, node]))
+    profile.samples.forEach((id, i) => { const f = byId.get(id).callFrame; const key = `${f.functionName || '(anon)'} ${f.url.split('/').pop()}:${f.lineNumber + 1}`; self.set(key, (self.get(key) ?? 0) + (profile.timeDeltas[i] ?? 0) / 1000) })
+    console.log(`  (main's own time while the drag began: ${[...self].filter(([k]) => !/^\((idle|program|root)\)/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, ms]) => `${k} ${Math.round(ms)} ms`).join(', ')})`)
+  }
+  check(`a ${process.env.BIG ? 'big' : '24-megapixel'} photograph dragged out never holds main (its loop under ${LATE_MS} ms late)`, dragged && afterDrag.delay.worst < LATE_MS, `${afterDrag.delay.worst} ms late at worst; main was asked: ${between(beforeDrag, afterDrag)}  [${load()}]`)
   check('and the drag carries the file under its name, with a small picture of it', dragged && !dragged.empty && dragged.width > 0 && dragged.width <= 96 && /Harbour at dusk\.(jpg|png)$/.test(dragged.file), JSON.stringify(dragged))
 
   // 4. The Feed's side column.
