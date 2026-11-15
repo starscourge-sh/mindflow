@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { JSONContent } from "@tiptap/core"
 
 import { BLOCK_COLORS, type BlockColor } from "@/extensions/block-color"
+import { linesTouched } from "@/lib/text-edit"
 import { TAG } from "../../../main/tag-words"
 
 /** A thing worth picking out of what someone typed: a priority, a date, a tag. */
@@ -296,24 +297,12 @@ export const Tokens = Extension.create<{
             const doc = tr.doc
             const first = titled ? firstLineOf(doc)?.pos : undefined
             if (colors() !== was.colors || (titled && first !== (was.first === undefined ? undefined : tr.mapping.map(was.first)))) return whole(doc)
-            let set = was.set.map(tr.mapping, doc)
-            const blocks = new Map<number, number>()
-            tr.mapping.maps.forEach((map, index) => {
-              const after = tr.mapping.slice(index + 1)
-              map.forEach((_from, _to, from, to) => {
-                const start = Math.max(0, after.map(from, -1) - 1)
-                const end = Math.min(doc.content.size, after.map(to, 1) + 1)
-                doc.nodesBetween(start, end, (node, pos) => {
-                  if (!node.isTextblock) return true
-                  blocks.set(pos, pos + node.nodeSize)
-                  return false
-                })
-              })
-            })
-            for (const [from, to] of blocks) {
-              set = set.remove(set.find(from, to)).add(doc, paint(scan(doc, patterns, from, to)))
-            }
-            return { set, colors: was.colors, first }
+            // The lines the edit touched (lib/text-edit.ts `linesTouched`), their marks put in at once.
+            const set = was.set.map(tr.mapping, doc)
+            const drop: Decoration[] = []
+            const add: Decoration[] = []
+            for (const [from, to] of linesTouched(tr)) (drop.push(...set.find(from, to)), add.push(...paint(scan(doc, patterns, from, to))))
+            return { set: drop.length || add.length ? set.remove(drop).add(doc, add) : set, colors: was.colors, first }
           },
         },
         props: {

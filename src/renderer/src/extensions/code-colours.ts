@@ -3,6 +3,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { DRAWN, long } from "@/extensions/long-document"
 import { grammarsIn, lowlight, wantGrammars } from "@/lib/lowlight"
+import { changedBlocks, changedSpan } from "@/lib/text-edit"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 
 /** A run of a code block's words in one colour, counted from its first letter. */
@@ -59,22 +60,52 @@ export function codeColours(name: string, grammars: string): Plugin<Colours> {
   // each is among the note's blocks, and where it starts. Found once a version, so a move of the drawn blocks (many
   // in a fling) looks up the few it reaches by halves, where it looked at every one of 7,017 blocks each time.
   const holders = new WeakMap<ProseMirrorNode, { index: number[]; at: number[] }>()
+  /** The note's blocks from `start` to before `end` that hold code, put in `found`. */
+  const holdersIn = (doc: ProseMirrorNode, start: number, end: number, offset: number, found: { index: number[]; at: number[] }): void => {
+    for (let i = start; i < end; offset += doc.child(i++).nodeSize) {
+      const node = doc.child(i)
+      let holds = node.type.name === name
+      if (!holds && !node.isTextblock) node.descendants((inner) => !holds && (inner.type.name === name ? ((holds = true), false) : !inner.isTextblock))
+      if (holds) (found.index.push(i), found.at.push(offset))
+    }
+  }
   const holdersOf = (doc: ProseMirrorNode): { index: number[]; at: number[] } => {
     const had = holders.get(doc)
     if (had) return had
     const found = { index: [] as number[], at: [] as number[] }
-    doc.forEach((node, offset, i) => {
-      let holds = node.type.name === name
-      if (!holds && !node.isTextblock) node.descendants((inner) => !holds && (inner.type.name === name ? ((holds = true), false) : !inner.isTextblock))
-      if (holds) (found.index.push(i), found.at.push(offset))
-    })
+    holdersIn(doc, 0, doc.childCount, 0, found)
     holders.set(doc, found)
     return found
   }
-  /** Each code block drawn now (in a note that is not long, every one), and where. */
-  const eachDrawn = (state: EditorState, visit: (node: ProseMirrorNode, pos: number) => void): void => {
+  /**
+   * A changed note's blocks that hold code, from the note's before the change when they were found: those before the
+   * change kept, those it touched found again, those after it moved. Found afresh for each version, a long paste coming
+   * in a stretch at a time looked at every block of the note once a stretch.
+   */
+  const holdersAfter = (before: ProseMirrorNode, after: ProseMirrorNode): void => {
+    const was = holders.get(before)
+    if (!was || holders.has(after)) return
+    const span = changedSpan(before, after)
+    if (!span) return void holders.set(after, was)
+    const $from = after.resolve(span.from)
+    const start = $from.index(0)
+    const $old = before.resolve(span.oldTo)
+    const $new = after.resolve(span.newTo)
+    const oldEnd = $old.index(0) + ($old.depth ? 1 : 0)
+    const newEnd = $new.index(0) + ($new.depth ? 1 : 0)
+    const found = { index: [] as number[], at: [] as number[] }
+    let k = 0
+    for (; k < was.index.length && was.index[k] < start; k++) (found.index.push(was.index[k]), found.at.push(was.at[k]))
+    holdersIn(after, start, newEnd, $from.depth ? $from.before(1) : span.from, found)
+    const moved = newEnd - oldEnd
+    const shift = span.newTo - span.oldTo
+    for (; k < was.index.length; k++) if (was.index[k] >= oldEnd) (found.index.push(was.index[k] + moved), found.at.push(was.at[k] + shift))
+    holders.set(after, found)
+  }
+  /** Each code block drawn now (in a note that is not long, every one), and where; only those between `from` and `to` when given. */
+  const eachDrawn = (state: EditorState, visit: (node: ProseMirrorNode, pos: number) => void, from = 0, to = state.doc.content.size): void => {
     const look = (node: ProseMirrorNode, pos: number): boolean => (node.type.name === name ? (visit(node, pos), false) : !node.isTextblock)
-    if (!long(state)) return state.doc.descendants(look)
+    if (!long(state)) return state.doc.nodesBetween(from, to, look)
     if (!drawn) return
     // Counted among the note's elements, which can hold a mark or two besides its blocks: a few more either side.
     const [first, last] = [drawn[0] - 4, drawn[1] + 4]
@@ -88,11 +119,12 @@ export function codeColours(name: string, grammars: string): Plugin<Colours> {
     }
     for (let k = low; k < index.length && index[k] <= last; k++) {
       const node = state.doc.child(index[k])
+      if (at[k] + node.nodeSize < from || at[k] > to) continue
       if (look(node, at[k])) node.descendants((inner, pos) => look(inner, at[k] + 1 + pos))
     }
   }
-  /** The drawn code blocks not coloured yet, coloured. */
-  const colour = (set: DecorationSet, state: EditorState, painted: WeakSet<ProseMirrorNode>): DecorationSet => {
+  /** The drawn code blocks not coloured yet, coloured (only those between `from` and `to` when given). */
+  const colour = (set: DecorationSet, state: EditorState, painted: WeakSet<ProseMirrorNode>, from?: number, to?: number): DecorationSet => {
     const add: Decoration[] = []
     const drop: Decoration[] = []
     eachDrawn(state, (node, pos) => {
@@ -100,7 +132,7 @@ export function codeColours(name: string, grammars: string): Plugin<Colours> {
       drop.push(...set.find(pos + 1, pos + node.nodeSize - 1))
       for (const run of runsOf(node)) add.push(Decoration.inline(pos + 1 + run.from, pos + 1 + run.to, { class: run.class }))
       if (grammarsIn()) painted.add(node)
-    })
+    }, from, to)
     return drop.length || add.length ? set.remove(drop).add(state.doc, add) : set
   }
   const afresh = (state: EditorState): Colours => {
@@ -116,19 +148,20 @@ export function codeColours(name: string, grammars: string): Plugin<Colours> {
         if (tr.getMeta(grammars)) return afresh(state)
         if (!tr.docChanged) return tr.getMeta(COLOUR) ? { ...value, set: colour(value.set, state, value.painted) } : value
         let set = value.set.map(tr.mapping, tr.doc)
+        holdersAfter(tr.before, state.doc)
         // Words typed outside code only move its colours.
         if (!inCode(old) && !inCode(state) && onlyWordsChanged(tr) && !tr.steps.some((step, i) => tr.docs[i].resolve((step as unknown as { from: number }).from).parent.type.name === name)) return { ...value, set }
         // A code block changed is a new one: its old colours go wherever it is, and it is coloured afresh when drawn.
-        const end = state.doc.content.size
-        tr.mapping.maps.forEach((map, i) => map.forEach((_from, _to, start, stop) => {
-          const after = tr.mapping.slice(i + 1)
-          state.doc.nodesBetween(Math.max(0, after.map(start, -1)), Math.min(end, after.map(stop, 1)), (node, pos) => {
-            if (node.type.name !== name) return !node.isTextblock
-            set = set.remove(set.find(pos + 1, pos + node.nodeSize - 1))
-            return false
-          })
-        }))
-        return { painted: value.painted, set: colour(set, state, value.painted) }
+        // Only the blocks the change touched are looked at (lib/text-edit.ts `changedBlocks`), however many steps
+        // made it: looked for over the whole note, a long paste coming in a stretch at a time did it once a stretch.
+        const span = changedBlocks(tr.before, state.doc)
+        if (!span) return { ...value, set }
+        state.doc.nodesBetween(span.from, span.to, (node, pos) => {
+          if (node.type.name !== name) return !node.isTextblock
+          if (!value.painted.has(node)) set = set.remove(set.find(pos + 1, pos + node.nodeSize - 1))
+          return false
+        })
+        return { painted: value.painted, set: colour(set, state, value.painted, span.from, span.to) }
       },
     },
     props: {

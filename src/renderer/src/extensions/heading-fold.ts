@@ -6,6 +6,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { headingRank } from "@/extensions/toggle-heading"
 import { cue } from "@/lib/cues"
 import { copyOf } from "@/lib/icon-markup"
+import { changedBlocks } from "@/lib/text-edit"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 
 declare module "@tiptap/core" {
@@ -96,8 +97,10 @@ function sectionsOf(doc: ProseMirrorNode): Section[] {
 const foldable = (sections: Section[]): number[] => sections.filter((one) => one.end > one.body).map((one) => one.pos)
 
 /** What the gutter and the folded heading show. */
-function draw(doc: ProseMirrorNode, sections: Section[], folded: number[]): DecorationSet {
-  if (!on) return DecorationSet.empty
+const draw = (doc: ProseMirrorNode, sections: Section[], folded: number[]): DecorationSet => (on ? DecorationSet.create(doc, marks(doc, sections, folded)) : DecorationSet.empty)
+
+/** The marks of these sections: each one's arrow, and what a folded one hides. */
+function marks(doc: ProseMirrorNode, sections: Section[], folded: number[]): Decoration[] {
   const shut = new Set(folded)
   const decorations: Decoration[] = []
   for (const section of sections) {
@@ -126,7 +129,7 @@ function draw(doc: ProseMirrorNode, sections: Section[], folded: number[]): Deco
       return false
     })
   }
-  return DecorationSet.create(doc, decorations)
+  return decorations
 }
 
 /** Fold or unfold the heading at `pos`, as a click would. */
@@ -293,6 +296,17 @@ export const HeadingFold = Extension.create<{ id: string | null }>({
             }
             if (meta?.set) folded = meta.set
             if (meta?.toggle !== undefined) folded = folded.includes(meta.toggle) ? folded.filter((one) => one !== meta.toggle) : [...folded, meta.toggle]
+            // Blocks added or taken away with nothing folded: only the arrows of the headings in the blocks the change
+            // touched are drawn again, and of the one just above them (whether it has anything under it can change);
+            // every other heading's arrow moves with the note. Drawn again for every heading on each such change, a
+            // long paste coming in a stretch at a time drew all of a long note's headings once a stretch.
+            const span = !meta && on && !folded.length && !fold.folded.length ? changedBlocks(tr.before, state.doc) : null
+            if (span) {
+              const set = fold.decorations.map(tr.mapping, tr.doc)
+              const near = sections.filter((one) => one.body >= span.from && one.pos < span.to)
+              const from = Math.min(span.from, ...near.map((one) => one.pos))
+              return { folded, sections, decorations: set.remove(set.find(from, span.to)).add(state.doc, marks(state.doc, near, folded)) }
+            }
             return { folded, sections, decorations: draw(state.doc, sections, folded) }
           },
         },

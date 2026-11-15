@@ -4,6 +4,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
+import { changedBlocks } from "@/lib/text-edit"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 
 /** The band for one line, when the whole of it wears one highlight. */
@@ -43,14 +44,19 @@ function band(node: ProseMirrorNode, pos: number): Decoration | null {
  * the block gets a class the stylesheet can paint.
  */
 function bands(doc: ProseMirrorNode): DecorationSet {
+  return DecorationSet.create(doc, bandsIn(doc, 0, doc.content.size))
+}
+
+/** The bands of the lines between `from` and `to`. */
+function bandsIn(doc: ProseMirrorNode, from: number, to: number): Decoration[] {
   const decorations: Decoration[] = []
-  doc.descendants((node, pos) => {
+  doc.nodesBetween(from, to, (node, pos) => {
     if (!node.isTextblock) return true
     const one = band(node, pos)
     if (one) decorations.push(one)
     return false
   })
-  return DecorationSet.create(doc, decorations)
+  return decorations
 }
 
 export const FullLineHighlight = Extension.create({
@@ -64,10 +70,17 @@ export const FullLineHighlight = Extension.create({
         state: {
           init: (_, state) => bands(state.doc),
           // Words typed in a line: only that line is looked at again. Walking
-          // the whole note on every key was slow in a long one.
+          // the whole note on every key was slow in a long one. Blocks added
+          // or taken away: only the blocks the change touched (a long paste
+          // coming in a stretch at a time walked the whole note each stretch).
           apply: (tr, set) => {
             if (!tr.docChanged) return set
-            if (!onlyWordsChanged(tr)) return bands(tr.doc)
+            if (!onlyWordsChanged(tr)) {
+              const span = changedBlocks(tr.before, tr.doc)
+              const moved = set.map(tr.mapping, tr.doc)
+              // Only the bands inside those blocks: a band ends where its line does, so the lines either side touch them.
+              return span ? moved.remove(moved.find(span.from, span.to).filter((one) => one.from >= span.from && one.to <= span.to)).add(tr.doc, bandsIn(tr.doc, span.from, span.to)) : moved
+            }
             let next = set.map(tr.mapping, tr.doc)
             tr.mapping.maps.forEach((map, index) => {
               const after = tr.mapping.slice(index + 1)

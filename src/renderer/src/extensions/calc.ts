@@ -1,5 +1,5 @@
 import { Extension } from "@tiptap/core"
-import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state"
+import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { MathJsInstance } from "mathjs"
@@ -12,8 +12,8 @@ import { changedSpan } from "@/lib/text-edit"
  *
  * A line ending in `=` gets its answer drawn after it, faint, and Tab or → writes it
  * in. A line like `lunch = 25` names a number for the lines below it, so
- * `lunch * 2 =` answers 50. Names belong to the note: each one is worked out
- * from the top every time, so there is nothing to keep in step.
+ * `lunch * 2 =` answers 50. Names belong to the note: worked out from the top,
+ * and a change works them out again from its own first block down.
  *
  * Units are mathjs's own (`5 km in mi`), and money is a unit too, at rates
  * fetched once a day from a free, keyless service (`$40 * 3 in EUR`).
@@ -22,7 +22,7 @@ import { changedSpan } from "@/lib/text-edit"
  * first time a line has an `=` in it.
  */
 
-const key = new PluginKey<DecorationSet>("calc")
+const key = new PluginKey<Sums>("calc")
 
 /** A worked answer, kept on the decoration so Tab knows what to write. */
 type Answer = { answer: string }
@@ -246,10 +246,19 @@ function hasEquals(block: ProseMirrorNode): boolean {
   return known
 }
 
-function answers(doc: ProseMirrorNode): DecorationSet {
-  if (!on) return DecorationSet.empty
+/**
+ * The answers drawn after lines ending in `=`, and the names the note has given by the end of each of its blocks with
+ * an `=` (`names`, by the block's place among the note's blocks): a change works out again only from its first block
+ * on, from the names given before it.
+ */
+type Sums = { set: DecorationSet; names: { index: number; scope: Map<string, unknown> }[] }
+
+/** Every answer from the note's block `start` on (all of them when it is 0), the answers before it kept from `was`. */
+function answers(doc: ProseMirrorNode, was: Sums | null = null, start = 0): Sums {
+  if (!on) return { set: DecorationSet.empty, names: [] }
   const found: Decoration[] = []
-  const scope = new Map<string, unknown>()
+  const names = was ? was.names.filter((one) => one.index < start) : []
+  const scope = new Map(names.at(-1)?.scope)
   const each = (node: ProseMirrorNode, pos: number): boolean => {
     if (!node.isTextblock) return true
     // Code is code: an `=` there is an assignment in some other language.
@@ -285,21 +294,35 @@ function answers(doc: ProseMirrorNode): DecorationSet {
     }
     return false
   }
-  doc.forEach((block, offset) => {
-    if (hasEquals(block) && each(block, offset)) block.descendants((node, pos) => each(node, offset + 1 + pos))
-  })
-  return DecorationSet.create(doc, found)
+  let from = 0
+  for (let i = 0; i < start; i++) from += doc.child(i).nodeSize
+  for (let i = start, offset = from; i < doc.childCount; offset += doc.child(i++).nodeSize) {
+    const block = doc.child(i)
+    if (!hasEquals(block)) continue
+    if (each(block, offset)) block.descendants((node, pos) => each(node, offset + 1 + pos))
+    names.push({ index: i, scope: new Map(scope) })
+  }
+  if (!was || !start) return { set: DecorationSet.create(doc, found), names }
+  return { set: was.set.remove(was.set.find(from, doc.content.size)).add(doc, found), names }
 }
 
-/** Whether the stretch a change touched (lib/text-edit.ts `changedSpan`) holds a line with an `=`, before it or after it. */
-function sumsTouched(before: ProseMirrorNode, after: ProseMirrorNode): boolean {
-  const span = changedSpan(before, after)
-  if (!span) return false
+/**
+ * A change worked out again only from its first block, when it touched a line with an `=` (lib/text-edit.ts
+ * `changedSpan`), before it or after it: no other change can alter an answer, and theirs only move.
+ */
+function sumsAfter(tr: Transaction, was: Sums): Sums {
+  const span = changedSpan(tr.before, tr.doc)
+  const set = was.set.map(tr.mapping, tr.doc)
+  if (!span) return { set, names: was.names }
   let found = false
   const look = (doc: ProseMirrorNode, from: number, to: number): void => doc.nodesBetween(from, to, (block) => ((found ||= hasEquals(block)), false))
-  look(before, span.from, span.oldTo)
-  if (!found) look(after, span.from, span.newTo)
-  return found
+  look(tr.before, span.from, span.oldTo)
+  if (!found) look(tr.doc, span.from, span.newTo)
+  const start = tr.doc.resolve(span.from).index(0)
+  if (found) return answers(tr.doc, { set, names: was.names }, start)
+  // Blocks with no `=` came or went: the names given after them are given as many blocks on, or back.
+  const moved = tr.doc.childCount - tr.before.childCount
+  return { set, names: moved ? was.names.map((one) => (one.index < start ? one : { ...one, index: one.index + moved })) : was.names }
 }
 
 /** Tab or →, with the caret at the end of a line that has an answer: write it in. */
@@ -308,7 +331,7 @@ function accept(view: EditorView, state: EditorState): boolean {
   if (!selection.empty || !view.editable) return false
   const { $head } = selection
   if ($head.parentOffset !== $head.parent.content.size) return false
-  const [ghost] = key.getState(state)?.find($head.pos, $head.pos) ?? []
+  const [ghost] = key.getState(state)?.set.find($head.pos, $head.pos) ?? []
   const answer = (ghost?.spec as Answer | undefined)?.answer
   if (!answer) return false
   const gap = $head.parent.textContent.endsWith(" ") ? "" : " "
@@ -324,21 +347,21 @@ export const Calc = Extension.create({
 
   addProseMirrorPlugins() {
     return [
-      new Plugin<DecorationSet>({
+      new Plugin<Sums>({
         key,
         state: {
           init: (_, state) => answers(state.doc),
-          // Worked out again only when a line with an `=` in it was touched, before the change or after it: no other
-          // change can alter an answer, and theirs only move. Worked out again on every change, a long note pasted
-          // in a stretch at a time did it once a stretch over the whole note (678 ms on the largest), and every key.
-          apply: (tr, old) => (tr.getMeta(key) || (tr.docChanged && sumsTouched(tr.before, tr.doc)) ? answers(tr.doc) : tr.docChanged ? old.map(tr.mapping, tr.doc) : old),
+          // Worked out again only from the first block a change touched, when it touched a line with an `=`. Worked
+          // out again whole on each, a long note pasted in a stretch at a time did it once a stretch over all the note
+          // had so far (678 ms on the largest), and every key in a line with an `=` did it over the whole note.
+          apply: (tr, old) => (tr.getMeta(key) ? answers(tr.doc) : tr.docChanged ? sumsAfter(tr, old) : old),
         },
         view: (view) => {
           views.add(view)
           return { destroy: () => views.delete(view) }
         },
         props: {
-          decorations: (state) => key.getState(state),
+          decorations: (state) => key.getState(state)?.set,
           handleKeyDown: (view, event) => {
             if ((event.key !== "Tab" && event.key !== "ArrowRight") || event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return false
             if (!accept(view, view.state)) return false

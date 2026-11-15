@@ -4,6 +4,7 @@ import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 
 import { clock } from "@/lib/clock"
+import { linesTouched } from "@/lib/text-edit"
 import { dateWords } from "../../../main/date-words"
 
 /**
@@ -65,24 +66,15 @@ export const DateWords = Extension.create<{ writtenOn: () => Date | null; box: (
           apply: (tr: Transaction, was: DecorationSet): DecorationSet => {
             if (tr.getMeta(key) === "redraw") return whole(tr.doc)
             if (!tr.docChanged || !lit()) return was
-            // Only the blocks the edit touched are read again: a long note costs nothing a key.
-            let set = was.map(tr.mapping, tr.doc)
-            const blocks = new Map<number, number>()
-            tr.mapping.maps.forEach((map, index) => {
-              const after = tr.mapping.slice(index + 1)
-              map.forEach((_from, _to, from, to) => {
-                const start = Math.max(0, after.map(from, -1) - 1)
-                const end = Math.min(tr.doc.content.size, after.map(to, 1) + 1)
-                tr.doc.nodesBetween(start, end, (node, pos) => {
-                  if (!node.isTextblock) return true
-                  blocks.set(pos, pos + node.nodeSize)
-                  return false
-                })
-              })
-            })
+            // Only the lines the edit touched are read again, and their marks put in at once: a long note costs nothing
+            // a key, and a long paste coming in a stretch at a time no more than its stretch (taken out and put in a line
+            // at a time, each line's marks were set among the whole note's).
+            const set = was.map(tr.mapping, tr.doc)
             const at = writtenOn() ?? new Date()
-            for (const [from, to] of blocks) set = set.remove(set.find(from, to)).add(tr.doc, paint(tr.doc, at, from, to))
-            return set
+            const drop: Decoration[] = []
+            const add: Decoration[] = []
+            for (const [from, to] of linesTouched(tr)) (drop.push(...set.find(from, to)), add.push(...paint(tr.doc, at, from, to)))
+            return drop.length || add.length ? set.remove(drop).add(tr.doc, add) : set
           },
         },
         view: (view) => {

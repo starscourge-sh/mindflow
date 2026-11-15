@@ -6,6 +6,7 @@ import { createElement } from "react"
 import { createRoot, type Root } from "react-dom/client"
 
 import { haligtree, type Task } from "@/lib/haligtree"
+import { changedBlocks } from "@/lib/text-edit"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { PriorityMark } from "@/components/haligtree/task-input"
 
@@ -43,9 +44,13 @@ const mark = (level: number) => (): HTMLElement => {
 }
 
 function marksOf(doc: PMNode, levels: Map<string, number>): DecorationSet {
-  if (!levels.size) return DecorationSet.empty
+  return levels.size ? DecorationSet.create(doc, marksIn(doc, levels, 0, doc.content.size)) : DecorationSet.empty
+}
+
+/** The marks of the tasks between `from` and `to`. */
+function marksIn(doc: PMNode, levels: Map<string, number>, from: number, to: number): Decoration[] {
   const found: Decoration[] = []
-  doc.descendants((node, pos) => {
+  doc.nodesBetween(from, to, (node, pos) => {
     const id = taskOf(node)
     const level = id ? levels.get(id) : 0
     if (!id || !level) return
@@ -60,7 +65,7 @@ function marksOf(doc: PMNode, levels: Map<string, number>): DecorationSet {
     // A link: just after it, before whatever is typed next.
     else if (node.type.name === "noteLink") found.push(Decoration.widget(pos + node.nodeSize, mark(level), { ...spec, side: -1 }))
   })
-  return DecorationSet.create(doc, found)
+  return found
 }
 
 export const TaskMarks = Extension.create({
@@ -97,8 +102,12 @@ export const TaskMarks = Extension.create({
         apply: (tr, was) => {
           const levels = tr.getMeta(KEY) as Map<string, number> | undefined
           if (levels) return { levels, marks: marksOf(tr.doc, levels) }
-          // A line or link added or taken away: drawn again from what is known.
-          return tr.docChanged ? { levels: was.levels, marks: marksOf(tr.doc, was.levels) } : was
+          if (!tr.docChanged || !was.levels.size) return was
+          // A line or link added or taken away: the blocks the change touched marked again from what is known, the
+          // rest moved. Marked again whole on each change, a long paste coming in a stretch at a time did it once a stretch.
+          const span = changedBlocks(tr.before, tr.doc)
+          const marks = was.marks.map(tr.mapping, tr.doc)
+          return { levels: was.levels, marks: span ? marks.remove(marks.find(span.from, span.to)).add(tr.doc, marksIn(tr.doc, was.levels, span.from, span.to)) : marks }
         },
       },
       props: { decorations: (state) => KEY.getState(state)?.marks },
