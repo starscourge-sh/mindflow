@@ -523,8 +523,11 @@ html[data-overhang][data-morph] :is([data-grabber], [data-hint-room]) {
   opacity: 0 !important;
   transition: none !important;
 }
+/* A transition outranks even !important: the pill's ends, with their own 150 ms fade, chased the move's value and
+   still showed at 41% with the box 95% grown. */
 [data-morph-o] {
   opacity: var(--mf-morph-o) !important;
+  transition: none !important;
 }
 html[data-overhang][data-glass] .app-container {
   transition: background-color 180ms var(--mf-ease);

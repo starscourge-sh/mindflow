@@ -144,7 +144,8 @@ try {
     const windowMoves = log.frames.slice(frames0)
     // The frost as main had it at each page frame.
     const frostAt = (t) => [...glass].reverse().find(([at]) => at <= t)?.[1] ?? glassBefore?.[1] ?? []
-    const start = frames.find((f, i) => i > 0 && (JSON.stringify(f.card) !== JSON.stringify(frames[0].card) || f.pill !== frames[0].pill || f.clipped))?.t ?? before
+    // From the first frame the shape is seen to move: the frames before it show the old shape as it was.
+    const start = frames.find((f, i) => i > 0 && JSON.stringify(f.card) !== JSON.stringify(frames[0].card))?.t ?? before
     const during = frames.filter((f) => f.t >= start && f.t <= start + 300)
     const ghosts = frames.filter((f) => f.t >= before).filter((f) => frostAt(f.t).some((s) => ![f.card, ...f.controls].some((r) => inside(s, r))))
     const cut = frames.filter((f) => f.t >= before).filter((f) => !inside(f.card, [0, 0, f.vw, f.vh], 0.5) || (f.group && !f.clipped && !inside(f.group, [0, 0, f.vw, f.vh], 0.5)))
