@@ -85,6 +85,9 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
         const { selection } = editor.state
         // A name being looked up after `[[`, `@`, `#` or `/` is not a word to spell: the list there finishes it.
         if (typing || !editor.isFocused || !selection.empty || !document.hasFocus() || inTrigger(editor.state)) return setHint(null)
+        // An empty line has no word to spell: nothing is measured for it (a long paste's caret waits in one while
+        // the rest comes, and the page was laid out to place a pill there once a stretch).
+        if (!selection.$head.parent.content.size) return setHint(null)
         const at = editor.view.coordsAtPos(selection.head)
         // Scrolled out of what shows of the note (its scroller, or the window): nothing to point at until it comes back.
         const view = dom.parentElement?.getBoundingClientRect()
