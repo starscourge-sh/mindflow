@@ -253,7 +253,9 @@ const clearOfLines = {
     return { x: column.left - room - (tight ? slim : full) - shift }
   },
 }
-const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 }), clearOfLines] }
+// The plugin's own defaults (left-start, absolute) spelled out, so the handle placed again beside the numbers
+// (LINES, below) is placed exactly as the plugin places it.
+const HANDLE_POSITION = { placement: "left-start" as const, strategy: "absolute" as const, middleware: [offset({ mainAxis: 24, crossAxis: 2 }), clearOfLines] }
 
 /**
  * Anything floating over the editor that moves on its own keys.
@@ -1794,10 +1796,18 @@ function Surface({
     if (!editor || !handles) return
     const dom = editor.view.dom
     const again = (): void => {
-      const target = blockTarget.current
       const handle = gripOf.get(editor) ?? dom.parentElement?.querySelector<HTMLElement>(".tiptap-drag-handle")
-      const block = target && !editor.isDestroyed ? editor.view.nodeDOM(target.pos) : null
-      if (!handle?.isConnected || !(block instanceof HTMLElement)) return
+      if (!handle?.isConnected || editor.isDestroyed) return
+      // The block it stands beside: the plugin's own record when it has one, else the block under the handle's
+      // middle just inside the words' edge (the plugin lets its record go at any key, while the handle stays on show).
+      let pos = blockTarget.current?.pos ?? -1
+      if (pos < 0) {
+        const at = handle.getBoundingClientRect()
+        const edge = dom.getBoundingClientRect().left + (parseFloat(getComputedStyle(dom).paddingLeft) || 0)
+        pos = editor.view.posAtCoords({ left: edge + 4, top: at.top + at.height / 2 })?.inside ?? -1
+      }
+      const block = pos >= 0 ? editor.view.nodeDOM(pos) : null
+      if (!(block instanceof HTMLElement)) return
       void computePosition({ getBoundingClientRect: () => block.getBoundingClientRect() }, handle, HANDLE_POSITION).then(({ x, y, strategy }) => {
         if (!editor.isDestroyed) Object.assign(handle.style, { position: strategy, left: `${x}px`, top: `${y}px` })
       })
