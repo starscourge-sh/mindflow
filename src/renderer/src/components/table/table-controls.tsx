@@ -8,6 +8,8 @@ import { grow, moveColumn, moveRow } from '@/lib/table'
 import { useEditorDom } from '@/lib/editor-dom'
 import { still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
+import { slotTicker } from '@/lib/proximity'
+import { DropLine } from '@/components/haligtree/carry'
 
 /** Where each row and column sits, relative to the editor's own box. */
 interface Geometry {
@@ -417,6 +419,8 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   // The same, read and written at once by the handlers: two moves inside one
   // frame both saw the state from before either, and lifted twice.
   const held = useRef<Drag | null>(null)
+  // A tick at each new place it would land, as every carry in the app has (carry.tsx).
+  const ticks = useRef(slotTicker()).current
   const hold = (next: Drag | null): void => {
     held.current = next
     setDrag(next)
@@ -510,8 +514,9 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
         const at = along(axis, event)
         // Past 6px it is a drag, not a click: the row or column lifts.
         const lift = was.lifted || Math.abs(at - was.start) > 6
-        if (lift && !was.lifted) chime('lift')
+        if (lift && !was.lifted) (chime('lift'), ticks.start(was.from))
         const to = indexAt(axis, event)
+        if (lift && to >= 0) ticks(to)
         hold({ ...was, at, lifted: lift, to: to >= 0 ? to : was.to })
       }}
       onPointerUp={() => {
@@ -617,7 +622,8 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
     <div className="tiptap-table-controls" data-carrying={drag?.lifted || undefined} data-leaving={(leaving && !drag && !settle) || undefined}>
       {/* The place it was taken from, faded while it is in the air. */}
       {drag?.lifted && <div className="tiptap-table-vacated" style={span(drag.axis, drag.base, drag.size)} />}
-      {moving && mark && <div className={`tiptap-table-landing is-${moving.axis}`} style={mark} />}
+      {/* Where it lands: the line every carry draws (carry.tsx), its dot at its start, upright between columns. */}
+      {moving && mark && <DropLine how={`table-${moving.axis}:${moving.to}`} upright={moving.axis === 'column'} style={mark} />}
       {flight && (
         <Carried
           copy={lifted.current}

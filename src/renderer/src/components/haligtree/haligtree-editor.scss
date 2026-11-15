@@ -1160,21 +1160,6 @@
   // Where the dragged row or column would come to rest. Drawn on the leading
   // edge of the target rather than over it: a filled band hides the very cells
   // you are judging the move by.
-  .tiptap-table-landing {
-    position: absolute;
-    background-color: var(--tt-brand-color-400);
-    border-radius: 999px;
-    pointer-events: none;
-
-    &.is-column {
-      width: 2px;
-    }
-
-    &.is-row {
-      height: 2px;
-    }
-  }
-
   // The row or column in hand: a copy lifted off the page under the pointer,
   // solid and casting the lift shadow, as every carried thing in the app does.
   .tiptap-table-carried {
