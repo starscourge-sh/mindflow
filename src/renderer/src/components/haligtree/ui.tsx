@@ -1347,6 +1347,8 @@ const STEP_ASIDE = 'transform 220ms var(--mf-ease)'
 
 function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>): React.CSSProperties | undefined {
   const [spot, setSpot] = useState<React.CSSProperties>()
+  // When the notice came back out from under a menu (-1 while it is under one, 0 once it is fully back).
+  const held = useRef(0)
   useEffect(() => {
     if (!on) return setSpot(undefined)
     const check = (): void => {
@@ -1403,9 +1405,17 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
         // (its centred toast goes half as far), or the toast lifted to just above the card.
         : Math.min(...meets.map((at) => at.left)) - left >= 360 ? { ...clear, transform: `translateX(${(Math.min(...meets.map((at) => at.left)) - 12 - right) / 2}px)`, transition: STEP_ASIDE }
         : { ...clear, transform: `translateY(${Math.min(...meets.map((at) => at.top)) - 8 - low}px)`, transition: STEP_ASIDE }
-      // Under an open menu where it stands: it fades there and comes back there, never moved.
+      // Under an open menu where it stands: it fades there and comes back there, never moved. Hidden once faded: the
+      // notices sit over menus (z 60 to their 50), and a faded one still took the clicks meant for the menu's lines.
+      // Back out as quickly as it went, for a beat after the menu goes: the day's page fades the lane slowly, a beat
+      // late (main.css, data-day-aside), which is for writing, not for a menu closing.
       const under = menus.some((at) => at.top < low && at.bottom > low - tall && at.right > middle - half && at.left < middle + half)
-      const next: React.CSSProperties | undefined = under ? { ...placed, opacity: 0, pointerEvents: 'none', transition: [placed?.transition, 'opacity 120ms var(--mf-ease)'].filter(Boolean).join(', ') } : placed
+      const now = performance.now()
+      held.current = under ? -1 : held.current === -1 ? now : held.current && now - held.current < 300 ? held.current : 0
+      const quick = [placed?.transition, 'opacity 120ms var(--mf-ease)'].filter(Boolean).join(', ')
+      const next: React.CSSProperties | undefined = under ? { ...placed, opacity: 0, visibility: 'hidden', transition: `${quick}, visibility 0s linear 120ms` }
+        : held.current ? { ...placed, transition: quick }
+        : placed
       setSpot((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
     }
     // Read only once a frame is painted, so it reads the page as already laid out: read in the
