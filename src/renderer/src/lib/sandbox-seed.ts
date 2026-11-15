@@ -374,6 +374,10 @@ What you keep, rather than what you read, is what returns: ${link(petrichor, 'Pe
   const cuneiform = await task('Learn to read cuneiform someday')
   // Important and not yet urgent: the matrix's Plan box.
   const oxygenator = await task('Draft the oxygenator repair plan next week !!')
+  // Lengths planned on tasks that already have a date, so the month's Wrapped has planned against did to show.
+  await call('task:save', tablets, { estimate: 60 })
+  await call('task:save', wall, { estimate: 150 })
+  await call('task:save', losAlamos, { estimate: 180 })
   // One already done this morning, struck through on Today's page.
   await call('task:done', await task('Water the potatoes today 8am'))
   const kick = await task('Plan the kick tomorrow')

@@ -91,9 +91,10 @@ async function wrapOf({ period, from, to }: Span): Promise<Wrapped> {
 }
 
 /** At most this many cards: the first and the last always, the rest by what there is to say. */
-const MOST = 9
+const MOST = 11
 
-type Ask = { id: string; world?: World | 'surprise' }
+/** `worst`: worst-case numbers laid over the real ones, taken only under test (break-ui). */
+type Ask = { id: string; world?: World | 'surprise'; worst?: Partial<Facts> }
 
 /** The story, over the window, when asked for (openWrap). */
 export function WrapSheet(): React.JSX.Element | null {
@@ -109,7 +110,7 @@ export function WrapSheet(): React.JSX.Element | null {
     window.addEventListener('haligtree:wrap', listen)
     return () => window.removeEventListener('haligtree:wrap', listen)
   }, [])
-  return <AnimatePresence>{ask && <Story key={`${ask.id}:${ask.n}`} id={ask.id} seed={ask.seed} forced={ask.world === 'surprise' ? undefined : ask.world} onClose={() => (chime('fold'), setAsk(null))} />}</AnimatePresence>
+  return <AnimatePresence>{ask && <Story key={`${ask.id}:${ask.n}`} id={ask.id} seed={ask.seed} forced={ask.world === 'surprise' ? undefined : ask.world} worst={window.api.quiet ? ask.worst : undefined} onClose={() => (chime('fold'), setAsk(null))} />}</AnimatePresence>
 }
 
 type Facts = {
@@ -128,7 +129,7 @@ const kindOf = (f: { captures: number; minutes: number; gems: number; planned: n
 const FAN = ['your words', 'your days', 'your hours']
 const ENTRANCES = ['up', 'left', 'scale'] as const
 
-function Story({ id, seed, forced, onClose }: { id: string; seed: number; forced?: World; onClose: () => void }): React.JSX.Element {
+function Story({ id, seed, forced, worst, onClose }: { id: string; seed: number; forced?: World; worst?: Partial<Facts>; onClose: () => void }): React.JSX.Element {
   const span = spanOf(id)
   const [data, setData] = useState<Wrapped | null>(null)
   useEffect(() => void wrapOf(span).then(setData), [id]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -141,6 +142,7 @@ function Story({ id, seed, forced, onClose }: { id: string; seed: number; forced
   }, [seed, forced])
   const [at, setAt] = useState(0)
   const [byKey, setByKey] = useState(false)
+  const [dir, setDir] = useState(1)
 
   const facts = useMemo<Facts | null>(() => {
     if (!data || !pictures) return null
@@ -155,7 +157,8 @@ function Story({ id, seed, forced, onClose }: { id: string; seed: number; forced
       planned: plan.planned, did: plan.did, planRows: plan.rows.map((row) => ({ name: taskName(row.task.title).text, planned: row.planned, did: row.did })),
       pictures: flow, notes, notesLabel: recap.sources.length ? 'Top sources' : 'Gems kept', gems: gems.length, run,
       busiest: recap.busiestDay ? { label: dayName(noon(recap.busiestDay.name), 'never'), n: recap.busiestDay.n } : null,
-      well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned })
+      well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }),
+      ...worst
     }
   }, [data, pictures]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -184,6 +187,7 @@ function Story({ id, seed, forced, onClose }: { id: string; seed: number; forced
     if (next === at) return
     chime(next === last ? cue.last : cue.turn)
     setByKey(key)
+    setDir(next > at ? 1 : -1)
     setAt(next)
   }
   useEffect(() => {
@@ -238,10 +242,11 @@ function Story({ id, seed, forced, onClose }: { id: string; seed: number; forced
           const box = event.currentTarget.getBoundingClientRect()
           go(event.clientX - box.left > box.width / 3 ? at + 1 : at - 1)
         }}>
-          <AnimatePresence mode="popLayout" initial={false}>
+          <AnimatePresence mode="popLayout" initial={false} custom={dir}>
             {facts && kind && (
               <motion.div key={at} className="absolute inset-0"
-                initial={byKey || still() ? false : { opacity: 0 }} animate={{ opacity: 1, transition: { duration: 0.2 } }} exit={{ opacity: 0, transition: { duration: byKey ? 0 : 0.12 } }}>
+                initial={byKey || still() ? false : { opacity: 0, transform: shift(`translateX(${24 * dir}px)`) }} animate={{ opacity: 1, transform: shift('translateX(0px)'), transition: { duration: 0.24, ease: EASE } }}
+                custom={dir} variants={{ gone: (to: number) => ({ opacity: 0, transform: shift(`translateX(${-12 * to}px)`), transition: { duration: byKey ? 0 : 0.12, ease: EASE } }) }} exit="gone">
                 <Card kind={kind} f={facts} look={look} variant={variant} seed={seed + at} />
               </motion.div>
             )}
@@ -267,7 +272,7 @@ function Story({ id, seed, forced, onClose }: { id: string; seed: number; forced
             )}
           </AnimatePresence>
         </div>
-        <span className="pointer-events-none absolute bottom-5 left-5 z-20 text-[11px] font-bold tracking-[0.08em] uppercase opacity-60">{APP_NAME}</span>
+        {at !== last && <span className="pointer-events-none absolute bottom-5 left-5 z-20 text-[11px] font-bold tracking-[0.08em] uppercase opacity-60">{APP_NAME}</span>}
       </motion.div>
     </motion.div>
   )
@@ -300,7 +305,8 @@ const hours = (minutes: number): string => (minutes >= 120 ? `${num(Math.round(m
 
 const BIG = 'text-[clamp(28px,6cqi,50px)] leading-[1.02] font-black tracking-tight break-words'
 const HUGE = 'text-[clamp(52px,14cqi,120px)] leading-[0.9] font-black tracking-tighter'
-const LABEL = 'text-[12px] font-bold tracking-[0.08em] uppercase opacity-70'
+/** A line under a heading or number, saying what it counts: never a label above one. */
+const CAPTION = 'mt-3 text-[15px] font-semibold opacity-80'
 
 /** Two halves on a wide card, one above the other on a narrow one; a seeded variant flips them. */
 function Split({ a, b, flip }: { a: ReactNode; b: ReactNode; flip: boolean }): React.JSX.Element {
@@ -315,9 +321,9 @@ function Split({ a, b, flip }: { a: ReactNode; b: ReactNode; flip: boolean }): R
 /** A few lines ranked, the way the report card lists them. */
 function Ranked({ rows, accent }: { rows: { name: string; n: number }[]; accent: string }): React.JSX.Element {
   return (
-    <ol className="grid h-full content-center gap-2">
+    <ol className="grid h-full min-w-0 grid-cols-1 content-center gap-2">
       {rows.map((row, i) => (
-        <In key={row.name} at={0.3 + i * 0.06} from="left">
+        <In key={row.name} at={0.3 + i * 0.06} from="left" className="min-w-0">
           <li className="flex items-baseline gap-3 text-[clamp(16px,2.6cqi,22px)] font-bold">
             <span className="w-5 tabular-nums" style={{ color: accent }}>{i + 1}</span>
             <span className="min-w-0 flex-1 truncate" dir="auto">#{row.name}</span>
@@ -340,16 +346,17 @@ function Card({ kind, f, look, variant, seed }: { kind: Kind; f: Facts; look: Lo
 
   const art = ((): ReactNode => {
     if (world === 'night') return <><Silk base={p.bg} a={p.glow[0]} b={p.glow[1]} lines={variant === 2} /><div className="absolute inset-0" style={{ background: `linear-gradient(to top, ${p.bg}, transparent 75%)` }} /></>
-    if (world === 'kinetic') return <motion.div className="absolute inset-0" style={{ background: variant === 2 ? p.alt : p.bg }} initial={still() ? false : { clipPath: 'inset(0 0 100% 0)' }} animate={{ clipPath: 'inset(0 0 0% 0)' }} transition={{ duration: 0.35, ease: EASE }} />
-    if (world === 'sticker') return <>
-      <Burst color={p.accent} kind={variant ? 'flower' : 'sun'} className={`absolute size-[40cqi] opacity-90 ${flip ? '-bottom-[12cqi] -left-[10cqi]' : '-top-[12cqi] -right-[10cqi]'}`} />
+    if (world === 'kinetic') return <motion.div className="absolute inset-0" style={{ background: p.bg }} initial={still() ? false : { clipPath: 'inset(0 0 100% 0)' }} animate={{ clipPath: 'inset(0 0 0% 0)' }} transition={{ duration: 0.35, ease: EASE }} />
+    if (world === 'sticker' && kind !== 'report') return <>
+      <Burst color={p.accent} kind={variant ? 'flower' : 'sun'} className={`absolute hidden size-[40cqi] opacity-90 @2xl:block ${flip ? '-bottom-[12cqi] -left-[10cqi]' : '-top-[12cqi] -right-[10cqi]'}`} />
       <Burst color={p.alt} kind={variant ? 'sun' : 'flower'} points={9} className={`absolute size-[16cqi] ${flip ? 'top-[10%] right-[5%]' : 'bottom-[10%] left-[4%]'}`} />
     </>
-    return <Scribble seed={seed} color={p.accent} className={`pointer-events-none absolute w-[60%] opacity-70 ${flip ? 'bottom-[4%] left-[-6%]' : 'top-[6%] right-[-8%]'}`} />
+    return null
   })()
 
   const side = (): ReactElement => {
-    if (world === 'files') return <In at={0.1} from="scale" className="absolute inset-0 overflow-hidden rounded-[6px]"><OpArt kind={look.op} ink={p.alt} bg={p.soft} className="size-full" /></In>
+    // The scribble draws over the art half only, so it never crosses words.
+    if (world === 'files') return <In at={0.1} from="scale" className="absolute inset-0 overflow-hidden rounded-[6px]"><OpArt kind={look.op} ink={p.alt} bg={p.soft} className="size-full" /><Scribble seed={seed} color={p.accent} width={3} className="pointer-events-none absolute top-[10%] left-0 w-full" delay={0.35} /></In>
     if (world === 'sticker') return <In at={0.15} from="scale" className="grid h-full place-items-center"><Burst color={p.soft} kind="flower" className="max-h-full w-[80%]" /></In>
     if (world === 'kinetic') return <div className="relative h-full overflow-hidden"><Tiled word={f.tags[0]?.name ?? f.name} color={p.soft} rows={8} /></div>
     return <div />
@@ -360,34 +367,33 @@ function Card({ kind, f, look, variant, seed }: { kind: Kind; f: Facts; look: Lo
       case 'intro':
         if (world === 'kinetic') return <div className="relative grid h-full content-center gap-4 overflow-hidden px-8 @2xl:px-14"><Tiled word={f.name} color={p.soft} /><div className="relative"><Echo text={f.name} color={p.ink} size={64} /></div><In at={0.6}><p className="relative text-[18px] font-bold">{fill(look.intro, f.name)}</p></In></div>
         return split(<>
-          <In from={e}><p className={LABEL}>{f.period === 'month' ? 'Your month' : f.range}</p></In>
-          <In at={0.12} from={e}><h2 className={`${BIG} mt-2`} style={{ color: world === 'files' ? p.ink : p.accent }}>{f.title}</h2></In>
+                    <In at={0.12} from={e}><h2 className={`${BIG} mt-2`} style={{ color: world === 'files' ? p.ink : p.accent }}>{f.title}</h2></In>
           <In at={0.5} from={e}><p className="mt-4 text-[17px] leading-snug font-medium opacity-90"><Typed story text={fill(look.intro, f.name)} /></p></In>
         </>, world === 'night' ? <div className="grid h-full place-items-center text-center text-[clamp(36px,8cqi,72px)] leading-none font-black tracking-tight" style={{ color: p.accent }}><TextLoop words={[f.name, ...FAN]} /></div> : side())
       case 'tags':
-        if (!top.length) return split(<><In><p className={LABEL}>Things caught</p></In><In at={0.15}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div></In></>, side())
-        if (world === 'sticker') return split(<><In><p className={LABEL}>{plural(f.captures, 'thing')} caught</p></In><In at={0.12}><h2 className={BIG}>What you captured most</h2></In><In at={0.4}><p className="mt-3 text-[14px] opacity-80">Drag the top card away to see the next.</p></In></>,
+        if (!top.length) return split(<><In at={0.15}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.captures} /></div></In><In at={0.45}><p className={CAPTION}>things caught</p></In></>, side())
+        if (world === 'sticker') return split(<><In at={0.12}><h2 className={BIG}>What you captured most</h2></In><In at={0.45}><p className={CAPTION}>{plural(f.captures, 'thing')} caught</p></In><In at={0.4}><p className="mt-3 text-[14px] opacity-80">Drag the top card away to see the next.</p></In></>,
           <In at={0.25} from="scale" className="grid h-full place-items-center"><Stack cards={top.map((t, i) => ({ title: `#${t.name}`, note: `${plural(t.n, 'capture')}, number ${i + 1}` }))} colors={[p.accent, p.alt, p.soft]} ink={p.bg} /></In>)
-        if (world === 'kinetic') return <div className="relative grid h-full content-center gap-2 overflow-hidden px-8 @2xl:px-14"><In><p className={LABEL}>Your top tag</p></In><Echo text={`#${top[0].name}`} color={p.ink} size={top[0].name.length > 12 ? 30 : 58} /><CurvedLoop words={names} color={p.accent} bend={variant * 30} /></div>
-        if (world === 'night') return split(<><In><p className={LABEL}>What you captured most</p></In><div className={`${BIG} mt-3`} style={{ color: p.accent }}><TextLoop words={names} /></div><In at={0.3}><p className="mt-3 text-[15px] opacity-80">{plural(f.captures, 'thing')} caught in all.</p></In></>, <Ranked rows={top} accent={p.accent} />)
-        return split(<><In><p className={LABEL}>{plural(f.captures, 'thing')} caught</p></In><In at={0.12}><h2 className={BIG}>What you captured most</h2></In></>, <Ranked rows={top} accent={p.accent} />)
+        if (world === 'kinetic') return <div className="relative grid h-full content-center gap-2 overflow-hidden px-8 @2xl:px-14"><Echo text={`#${top[0].name}`} color={p.ink} size={top[0].name.length > 12 ? 30 : 58} /><CurvedLoop words={names} color={p.accent} bend={variant * 30} /></div>
+        if (world === 'night') return split(<><div className={BIG} style={{ color: p.accent }}><TextLoop words={names} /></div><In at={0.3}><p className="mt-3 text-[15px] opacity-80">{plural(f.captures, 'thing')} caught in all.</p></In></>, <Ranked rows={top} accent={p.accent} />)
+        return split(<><In at={0.12}><h2 className={BIG}>What you captured most</h2></In><In at={0.45}><p className={CAPTION}>{plural(f.captures, 'thing')} caught</p></In></>, <Ranked rows={top} accent={p.accent} />)
       case 'focus':
-        if (world === 'sticker') return split(<><In><p className={LABEL}>Minutes focused</p></In><In at={0.12}><h2 className={BIG}>{hours(f.minutes)}, over {plural(f.sessions, 'session')}.</h2></In></>, <div className="grid h-full content-center"><Bands n={f.minutes} colors={[p.accent, p.alt, p.soft, p.ink, p.accent]} ink={p.bg} /></div>)
-        if (world === 'kinetic') return <div className="relative grid h-full content-center overflow-hidden px-8 @2xl:px-14"><Tiled word="focus" color={p.soft} /><div className="relative"><In><p className={LABEL}>Minutes focused</p></In><Echo text={num(f.minutes)} color={p.ink} size={84} /><In at={0.5}><p className="text-[17px] font-bold">That is {hours(f.minutes)}, over {plural(f.sessions, 'session')}.</p></In></div></div>
-        return split(<><In><p className={LABEL}>Minutes focused</p></In><In at={0.12}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.minutes} /></div></In><In at={0.6}><p className="mt-3 text-[17px] font-medium">{hours(f.minutes)}, over {plural(f.sessions, 'session')}.</p></In></>, side())
+        if (world === 'sticker') return split(<><In at={0.12}><h2 className={BIG}>{hours(f.minutes)}, over {plural(f.sessions, 'session')}.</h2></In><In at={0.45}><p className={CAPTION}>minutes focused, five times over</p></In></>, <div className="grid h-full content-center"><Bands n={f.minutes} colors={[p.accent, p.alt, p.soft, p.ink, p.accent]} ink={p.bg} /></div>)
+        if (world === 'kinetic') return <div className="relative grid h-full content-center overflow-hidden px-8 @2xl:px-14"><Tiled word="focus" color={p.soft} /><div className="relative"><Echo text={num(f.minutes)} color={p.ink} size={84} /><In at={0.5}><p className="text-[17px] font-bold">That is {hours(f.minutes)}, over {plural(f.sessions, 'session')}.</p></In></div></div>
+        return split(<><In at={0.12}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.minutes} /></div></In><In at={0.45}><p className={CAPTION}>minutes focused: {hours(f.minutes)}, over {plural(f.sessions, 'session')}.</p></In></>, side())
       case 'plan': {
         const rows = [...f.planRows].sort((a, b) => Math.abs(b.did - b.planned) - Math.abs(a.did - a.planned)).slice(0, 4)
         const most = Math.max(1, ...rows.flatMap((row) => [row.planned, row.did]))
-        return split(<><In><p className={LABEL}>Planned against did</p></In><In at={0.12}><h2 className={BIG}>You planned {shortSaid(f.planned)}{f.did ? ` and did ${shortSaid(f.did)}` : ''}.</h2></In></>,
-          <div className="grid h-full content-center gap-4">{rows.map((row, i) => (
-            <In key={row.name + i} at={0.3 + i * 0.07} from="left"><p className="truncate text-[15px] font-semibold" dir="auto">{row.name}</p>
+        return split(<><In at={0.12}><h2 className={BIG}>You planned {shortSaid(f.planned)}{f.did ? ` and did ${shortSaid(f.did)}` : ''}.</h2></In><In at={0.45}><p className={CAPTION}>Planned against did</p></In></>,
+          <div className="grid h-full grid-cols-1 content-center gap-4">{rows.map((row, i) => (
+            <In key={row.name + i} at={0.3 + i * 0.07} from="left" className="min-w-0"><p className="truncate text-[15px] font-semibold" dir="auto">{row.name}</p>
               <div className="mt-1 h-2 rounded-full" style={{ background: p.soft, width: `${(row.planned / most) * 100}%` }} />
               <motion.div className="mt-1 h-2 origin-left rounded-full" style={{ background: p.accent, width: `${(row.did / most) * 100}%` }} initial={still() ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.45 + i * 0.07, duration: 0.4, ease: EASE }} /></In>
           ))}<p className="text-[12px] font-semibold opacity-70">Upper bar planned, lower bar did.</p></div>)
       }
       case 'pictures':
-        if (world === 'night') return <div className="relative grid h-full grid-rows-[auto_1fr] px-8 pt-14 @2xl:px-12"><In><p className={LABEL}>What you saw</p><h2 className={BIG} style={{ color: p.accent }}>{plural(f.pictures.length, 'picture')}, kept.</h2></In><CurvedGallery pictures={f.pictures} /></div>
-        return split(<><In><p className={LABEL}>What you saw</p></In><In at={0.12}><h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2></In></>,
+        if (world === 'night') return <div className="relative grid h-full grid-rows-[auto_1fr] px-8 pt-14 @2xl:px-12"><In><h2 className={BIG} style={{ color: p.accent }}>{plural(f.pictures.length, 'picture')}, kept.</h2></In><CurvedGallery pictures={f.pictures} /></div>
+        return split(<><In at={0.12}><h2 className={BIG}>{f.gems ? `${plural(f.gems, 'gem')} kept, and what you saw` : 'What you saw'}</h2></In></>,
           <div className="relative grid h-full place-items-center">{f.pictures.slice(0, 3).map((one, i) => (
             <motion.img key={one.src + i} src={one.src} alt={one.title} className="absolute aspect-[4/5] h-[78%] max-h-[300px] rounded-[4px] object-cover"
               style={{ boxShadow: `0 0 0 6px ${p.bg}, 0 0 0 8px ${p.ink}`, zIndex: 3 - i }}
@@ -395,15 +401,15 @@ function Card({ kind, f, look, variant, seed }: { kind: Kind; f: Facts; look: Lo
               transition={{ type: 'spring', stiffness: 200, damping: 20, delay: still() ? 0 : 0.2 + i * 0.1 }} />
           ))}</div>)
       case 'notes':
-        if (world === 'files') return split(<In><h2 className={BIG}>{look.folder}</h2><p className={`${LABEL} mt-3`}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
-        return split(<><In><p className={LABEL}>{f.notesLabel}</p></In><In at={0.12}><h2 className={BIG}>{look.folder}</h2></In></>, <ol className="grid h-full content-center gap-2">{f.notes.slice(0, 5).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
+        if (world === 'files') return split(<In><h2 className={BIG}>{look.folder}</h2><p className={CAPTION}>{f.notesLabel}</p></In>, <div className="grid h-full content-center"><Folder titles={f.notes.map((note) => quoted(note, 60))} color={p.accent} paper={STAGE.paper} ink={STAGE.paperInk} /></div>)
+        return split(<><In at={0.12}><h2 className={BIG}>{look.folder}</h2></In><In at={0.45}><p className={CAPTION}>{f.notesLabel}</p></In></>, <ol className="grid h-full min-w-0 grid-cols-1 content-center gap-2">{f.notes.slice(0, 5).map((note, i) => <In key={note + i} at={0.3 + i * 0.06} from="left" className="min-w-0"><li className="flex gap-3 text-[17px] font-semibold"><span className="w-5 tabular-nums" style={{ color: p.accent }}>{i + 1}</span><span className="min-w-0 truncate" dir="auto">{note}</span></li></In>)}</ol>)
       case 'well':
-        return split(<><In><p className={LABEL}>What went well</p></In><In at={0.12}><h2 className={BIG}>In your words</h2></In></>, <ul className="grid h-full content-center gap-3">{f.well.slice(0, 4).map((line, i) => <In key={line} at={0.3 + i * 0.1}><li className="text-[17px] leading-snug font-medium" dir="auto">{quoted(line, 90)}</li></In>)}</ul>)
+        return split(<><In at={0.12}><h2 className={BIG}>In your words</h2></In><In at={0.45}><p className={CAPTION}>What went well</p></In></>, <ul className="grid h-full content-center gap-3">{f.well.slice(0, 4).map((line, i) => <In key={line} at={0.3 + i * 0.1}><li className="text-[17px] leading-snug font-medium" dir="auto">{quoted(line, 90)}</li></In>)}</ul>)
       case 'run':
-        return split(<><In><p className={LABEL}>Your longest run</p></In><In at={0.12}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.run} /></div></In><In at={0.5}><p className="mt-2 text-[17px] font-medium">days in a row with something caught or focused on. Not a streak to keep: just how it went.</p></In></>,
-          <div className="grid h-full max-w-[280px] grid-cols-7 content-center gap-1.5">{Array.from({ length: Math.min(f.run, 35) }, (_, i) => <motion.span key={i} className="aspect-square rounded-[3px]" style={{ background: p.accent }} initial={still() ? false : { scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3 + i * 0.015, type: 'spring', stiffness: 400, damping: 20 }} />)}</div>)
+        return split(<><In at={0.12}><div className={HUGE} style={{ color: p.accent }}><Roll n={f.run} /></div></In><In at={0.5}><p className="mt-2 text-[17px] font-medium">days in a row with something caught or focused on. Not a streak to keep: just how it went.</p></In></>,
+          <div className="grid h-full max-w-[280px] grid-cols-7 content-center gap-1.5">{Array.from({ length: Math.min(f.run, 35) }, (_, i) => <motion.span key={i} className="aspect-square rounded-[3px]" style={{ background: p.accent }} initial={still() ? false : { opacity: 0, scale: 0.6 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 + i * 0.015, type: 'spring', stiffness: 400, damping: 20 }} />)}</div>)
       case 'busiest':
-        return split(<><In><p className={LABEL}>Your busiest day</p></In><In at={0.12}><h2 className={BIG} style={{ color: p.accent }}>{f.busiest?.label}</h2></In><In at={0.4}><p className="mt-2 text-[17px] font-medium">{plural(f.busiest?.n ?? 0, 'capture')} in one day.</p></In></>, side())
+        return split(<><In at={0.12}><h2 className={BIG} style={{ color: p.accent }}>Your busiest day was {f.busiest?.label}</h2></In><In at={0.4}><p className="mt-2 text-[17px] font-medium">{plural(f.busiest?.n ?? 0, 'capture')} in one day.</p></In></>, side())
       case 'outro':
         if (world === 'kinetic') return <div className="relative h-full"><div className="relative z-10 px-8 pt-16 @2xl:px-14"><Echo text={f.name} color={p.ink} size={52} /><In at={0.5}><p className="mt-3 text-[18px] font-bold">{fill(look.outro, f.name)}</p></In></div><FallingWords words={f.tags.length ? f.tags.slice(0, 18).map((t) => `#${t.name}`) : [f.name, 'notes', 'days']} colors={[p.accent, p.alt, p.soft, p.ink]} ink={p.bg} seed={seed} /></div>
         return split(<><In><h2 className={BIG} style={{ color: p.accent }}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, world === 'night' ? <div /> : side())
@@ -427,8 +433,8 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
       <ol className="mt-1 space-y-0.5 text-[14px] font-bold">{rows.length ? rows.slice(0, 5).map((row, i) => <li key={row + i} className="truncate" dir="auto">{i + 1} {row}</li>) : <li className="opacity-60">None yet</li>}</ol></div>
   )
   return (
-    <div className="relative grid h-full grid-rows-[1fr_auto] gap-5 px-6 pt-12 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:px-10" data-wrap-report>
-      <In from="scale" className="relative min-h-[140px] overflow-hidden rounded-[6px]">
+    <div className="relative grid h-full grid-rows-[minmax(0,1fr)_auto] gap-3 px-6 pt-11 pb-14 @2xl:grid-cols-[1.05fr_1fr] @2xl:grid-rows-1 @2xl:gap-5 @2xl:px-10" data-wrap-report>
+      <In from="scale" className="relative min-h-[64px] overflow-hidden rounded-[6px]">
         <div className="absolute inset-0">{frame}</div>
         <div className="absolute inset-[8%] left-[22%] overflow-hidden rounded-[4px]" style={{ background: p.soft }}>
           {picture ? <img src={picture.src} alt={picture.title} className="size-full object-cover" /> : <div className="grid size-full place-items-center p-4 text-center text-[20px] font-black break-words">{f.tags[0] ? `#${f.tags[0].name}` : f.name}</div>}
@@ -437,8 +443,8 @@ function Report({ f, look }: { f: Facts; look: Look }): React.JSX.Element {
           <span className="text-[clamp(26px,6.5cqi,54px)] font-black whitespace-nowrap" style={{ color: p.accent, writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>{f.period === 'month' ? f.name.split(' ')[0] : 'Week'}</span>
         </div>
       </In>
-      <div className="grid min-w-0 content-center gap-5">
-        <In at={0.2} className="grid grid-cols-2 gap-4">{list('Top tags', f.tags.map((t) => `#${t.name}`))}{list(f.notesLabel, f.notes)}</In>
+      <div className="grid min-w-0 content-center gap-3 @2xl:gap-5">
+        <In at={0.2} className="grid grid-cols-2 gap-x-4">{list('Top tags', f.tags.map((t) => `#${t.name}`))}{list(f.notesLabel, f.notes)}</In>
         <In at={0.35} className="grid grid-cols-2 gap-4">
           <div><p className="text-[11px] font-semibold opacity-70">Minutes focused</p><p className="text-[clamp(26px,5cqi,40px)] leading-none font-black"><Roll n={f.minutes} delay={0.5} /></p></div>
           <div className="min-w-0"><p className="text-[11px] font-semibold opacity-70">Top kind</p><p className="text-[clamp(20px,3.6cqi,30px)] leading-[0.95] font-black" style={{ color: p.accent }}>{f.kind}</p></div>

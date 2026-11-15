@@ -83,7 +83,7 @@ export function Folder({ titles, color, paper, ink }: { titles: string[]; color:
   const shown = titles.slice(0, 3)
   const fan = shown.length === 1 ? [0] : shown.length === 2 ? [-1, 1] : [-1, 0, 1]
   return (
-    <div className="relative mx-auto mt-24 aspect-[4/3] w-[min(78%,300px)]" data-wrap-folder>
+    <div className="relative mx-auto mt-[18%] aspect-[4/3] max-h-[70%] w-[min(78%,300px)]" data-wrap-folder>
       <div className="absolute inset-x-0 bottom-0 h-[78%] rounded-[6px]" style={{ background: color, filter: 'brightness(0.82)' }}>
         <div className="absolute -top-[10%] left-0 h-[12%] w-[38%] rounded-t-[6px]" style={{ background: color, filter: 'brightness(0.82)' }} />
       </div>
@@ -114,7 +114,7 @@ export function Stack({ cards, colors, ink }: { cards: { title: string; note: st
         return (
           <motion.div key={index} drag={depth === 0} dragSnapToOrigin dragElastic={0.6}
             onDragEnd={(_, info: PanInfo) => (Math.abs(info.offset.x) > 80 || Math.abs(info.velocity.x) > 500) && send()}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => (event.stopPropagation(), depth === 0 && send())} whileDrag={{ rotate: 6, scale: 1.03 }}
             className={`absolute inset-0 flex flex-col justify-between rounded-[8px] p-4 shadow-lg ${depth === 0 ? 'cursor-grab active:cursor-grabbing' : ''}`}
             style={{ background: colors[index % colors.length], color: ink, zIndex: 10 - depth }}
             animate={{ scale: 1 - depth * 0.05, y: depth * -12, rotate: depth === 0 ? 0 : (index % 2 ? 4 : -4) * depth }}
@@ -175,7 +175,7 @@ export function Bands({ n, colors, ink }: { n: number; colors: string[]; ink: st
 /** A word tiled across the card as a pattern. */
 export function Tiled({ word, color, rows = 9 }: { word: string; color: string; rows?: number }): React.JSX.Element {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-45" aria-hidden>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-25" aria-hidden>
       {Array.from({ length: rows }, (_, i) => (
         <motion.div key={i} className="text-[44px] leading-[0.9] font-black whitespace-nowrap uppercase" style={{ color, marginLeft: i % 2 ? -40 : 0 }}
           initial={still() ? false : { x: i % 2 ? 40 : -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.03, duration: 0.3, ease: EASE }}>
@@ -211,7 +211,7 @@ export function CurvedLoop({ words, color, bend = 60 }: { words: string[]; color
     return () => run.stop()
   }, [offset])
   const start = useTransform(offset, (at) => `${at}%`)
-  const text = Array.from({ length: 6 }, () => words.map((w) => `${w} ✦ `).join('')).join('')
+  const text = Array.from({ length: 6 }, () => words.map((w) => `${w}  ·  `).join('')).join('')
   return (
     <svg viewBox="0 0 400 160" className="w-[130%] -ml-[15%] overflow-visible" aria-hidden>
       <path id={id} d={`M -20 ${90 - bend / 2} Q 200 ${90 + bend} 420 ${90 - bend / 2}`} fill="none" />
