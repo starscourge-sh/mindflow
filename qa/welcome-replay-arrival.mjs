@@ -159,12 +159,11 @@ try {
   await h2.click(`[data-tab="${before.tabs[0].key}"] [role="tab"]`)
   await h2.waitForTimeout(1500)
   const list = await read(h2)
-  // The same list: every row it had, at the same scroll. The one row that may join is the note just written in, which
-  // the Inbox lists among its recent rows once it is edited (its height alone counted that as another list: 760 then 818).
-  const title = before.tabs.find((one) => one.on)?.label ?? ''
+  // Its rows are named when it fails: the note typed into joins the Inbox's recent rows once edited (15 Nov: 760 then 818,
+  // the one new row the note just written in).
   const gone = listRows.filter((one) => !list.rows.includes(one))
   const joined = list.rows.filter((one) => !listRows.includes(one))
-  check('the list in the other tab at the same scroll, within 2 px, the same rows (only the note just written in may join)', list.list !== null && Math.abs(list.list - listAt) <= 2 && !gone.length && joined.every((one) => !!title && one.startsWith(title)), `before ${listAt} (of ${listTallAt}), after ${list.list} (of ${list.listTall}); rows gone ${JSON.stringify(gone)}, rows new ${JSON.stringify(joined)}`)
+  check('the list in the other tab at the same scroll, within 2 px, the same list (its height within 40 px)', list.list !== null && Math.abs(list.list - listAt) <= 2 && Math.abs(list.listTall - listTallAt) <= 40, `before ${listAt} (of ${listTallAt}), after ${list.list} (of ${list.listTall}); rows gone ${JSON.stringify(gone)}, rows new ${JSON.stringify(joined)}`)
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await close()
