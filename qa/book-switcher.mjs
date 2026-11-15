@@ -18,6 +18,7 @@ import { mkdirSync, mkdtempSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { _electron as electron } from 'playwright'
+import { launchable } from './harness.mjs'
 
 const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-book-switcher-'))
 if (root.includes('Application Support')) throw new Error('never the real data folder')
@@ -42,6 +43,7 @@ const ODD = ['J', '読書ノート 📚 日々の記録', 'ملاحظات الق
 
 /** The app on this data, its main window found and sized (as qa/spaces.mjs opens it: a second start shows no box to wait for). */
 async function open(args = '') {
+  launchable(process.env.QA_ENTRY ?? '.')
   const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.', ...args.split(' ').filter(Boolean)], env: { ...process.env, HALIGTREE_QA_AWAY: '1', HALIGTREE_USER_DATA: root } })
   const child = app.process()
   process.on('exit', () => { try { child.kill('SIGKILL') } catch {} })

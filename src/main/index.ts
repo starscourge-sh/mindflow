@@ -1,3 +1,4 @@
+import './main-errors'
 import { stopTimers } from './timers'
 import './stalls'
 import { ANCHOR } from './tagline'

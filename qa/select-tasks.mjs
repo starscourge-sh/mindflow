@@ -15,6 +15,7 @@ import { mkdirSync, mkdtempSync, rmSync } from 'fs'
 import { tmpdir } from 'os'
 import { join, resolve } from 'path'
 import { _electron } from 'playwright'
+import { launchable } from './harness.mjs'
 
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
@@ -25,6 +26,7 @@ const folders = []
 async function launch(sandbox) {
   const data = mkdtempSync(join(tmpdir(), 'haligtree-seltasks-'))
   folders.push(data)
+  launchable(process.env.QA_ENTRY ?? '.')
   const app = await _electron.launch({ args: [resolve(process.env.QA_ENTRY ?? '.'), ...(sandbox ? ['--sandbox'] : [])], env: { ...process.env, HALIGTREE_QA_AWAY: '1', HALIGTREE_USER_DATA: data } })
   let box, home
   for (let i = 0; i < 80 && !(box && home); i++) {

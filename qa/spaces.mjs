@@ -12,6 +12,7 @@ import { mkdirSync, mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { _electron as electron } from 'playwright'
+import { launchable } from './harness.mjs'
 
 const root = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-spaces-'))
 if (root.includes('Application Support')) throw new Error('never the real data folder')
@@ -29,6 +30,7 @@ const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{
  * longer shows (it opens the main window, as any app does).
  */
 async function open(args) {
+  launchable(process.env.QA_ENTRY ?? '.')
   const app = await electron.launch({ args: [process.env.QA_ENTRY ?? '.', ...args.split(' ').filter(Boolean)], env: { ...process.env, HALIGTREE_QA_AWAY: '1', HALIGTREE_USER_DATA: root } })
   const child = app.process()
   process.on('exit', () => { try { child.kill('SIGKILL') } catch {} })

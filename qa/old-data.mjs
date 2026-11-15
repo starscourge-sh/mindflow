@@ -15,7 +15,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from 'os'
 import { join, relative } from 'path'
 import { _electron } from 'playwright'
-import { checks, open } from './harness.mjs'
+import { checks, open, launchable } from './harness.mjs'
 
 const { check, done } = checks()
 const oldEntry = process.env.QA_OLD_ENTRY
@@ -35,6 +35,7 @@ const name = `${createHash('sha256').update(picture).digest('hex')}.png`
 mkdirSync(join(OLD, 'assets'), { recursive: true })
 writeFileSync(join(OLD, 'assets', name), picture)
 {
+  launchable(oldEntry)
   const app = await _electron.launch({ args: [oldEntry], env: { ...process.env, MINDFLOW_USER_DATA: OLD, MINDFLOW_QA_AWAY: '1', HALIGTREE_USER_DATA: undefined } })
   const child = app.process()
   process.on('exit', () => { try { child.kill('SIGKILL') } catch {} })

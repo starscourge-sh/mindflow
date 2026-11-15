@@ -13,6 +13,7 @@ import { mkdirSync, mkdtempSync, readFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
 import { _electron } from 'playwright'
+import { launchable } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 process.env.HALIGTREE_QA_NOTCH ??= '1'
@@ -28,6 +29,7 @@ const NEWEST = (() => { const m = readFileSync(new URL('../src/renderer/src/lib/
 // A fresh install opens on the welcome: its first look is taken here, then
 // the welcome is marked done and the app opened again for everything else.
 if (!SANDBOXED) {
+  launchable(process.env.QA_ENTRY ?? '.')
   const app = await _electron.launch({ args: [process.env.QA_ENTRY ?? '.'], env: { HALIGTREE_QA_AWAY: '1', ...process.env, HALIGTREE_USER_DATA: process.env.QA_DATA } })
   let home
   for (let i = 0; i < 100 && !home; i++) (home = app.windows().find((one) => one.url().includes('view=home'))) || (await new Promise((done) => setTimeout(done, 200)))

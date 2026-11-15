@@ -11,7 +11,8 @@
 import { existsSync, mkdtempSync, readFileSync } from 'fs'
 import { execFile } from 'child_process'
 import { homedir, tmpdir } from 'os'
-import { join } from 'path'
+import { join, resolve } from 'path'
+import { createRequire } from 'module'
 import { isRealFolder } from '../src/main/real-folder.ts'
 import { _electron as electron } from 'playwright'
 import { paste as pasteEvent } from './pasteboard.mjs'
@@ -32,6 +33,28 @@ const LINES = `${EDITOR} li > p, ${EDITOR} li > div > p, ${EDITOR} > p, ${EDITOR
  */
 export const welcomeHasLeaves = () =>
   /WELCOME_BACKGROUND:[^=]*=\s*'paper'/.test(readFileSync(new URL('../src/renderer/src/components/haligtree/welcome.tsx', import.meta.url), 'utf8'))
+
+/**
+ * A build can run only where it finds its libraries: one copied or built outside a worktree (15 Nov 2026, a helper's
+ * scratch out-base) dies on its first `require`, before the app's own handlers exist, and Electron then shows its raw
+ * error box on the screen of whoever is at the Mac. Every dependency the app declares must resolve from the build.
+ */
+export function launchable(entry) {
+  const missing = Object.keys(JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).dependencies ?? {}).filter((name) => {
+    try {
+      createRequire(resolve(entry)).resolve(`${name}/package.json`)
+      return false
+    } catch {
+      try {
+        createRequire(resolve(entry)).resolve(name)
+        return false
+      } catch {
+        return true
+      }
+    }
+  })
+  if (missing.length) throw new Error(`The build at ${entry} cannot find ${missing.slice(0, 3).join(', ')}: it sits outside a worktree, and would crash with an error box on the real screen. Build it inside a worktree.`)
+}
 
 export function checks() {
   const results = []
@@ -66,6 +89,7 @@ export async function open() {
   // its own Electron and the code inside it, to check what only a packaged app does (where its files are loaded from).
   const packaged = process.env.QA_APP
   if (packaged ? !existsSync(packaged) : !existsSync(entry)) throw new Error(`No build at ${packaged ?? entry}: build first (npx electron-vite build --outDir out-x)`)
+  if (!packaged) launchable(entry)
   const app = await electron.launch({ ...(packaged ? { executablePath: packaged, args: extra } : { args: [entry, ...extra] }), env: { HALIGTREE_QA_AWAY: '1', ...process.env, HALIGTREE_USER_DATA: data } })
   // Never left running: the app keeps its windows when asked to close (a
   // window put away, not quit), so a plain kill can leave it stuck exiting.
