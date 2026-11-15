@@ -130,6 +130,12 @@ const until = async (test, ms = 4000) => { for (let i = 0; i < ms / 100; i++) { 
 
 // --- a Word's meaning --------------------------------------------------------------
 await check('word: looked up in the background, no beam while it is; shown as a ghost', async () => {
+  // Main's first backup of the day turns the beam in every window while it is made (captures.ts, busy.ts): on a copy of
+  // the example book seeded on another day that is the first seconds of the run, and its turn was read as the word's.
+  // The word is typed once the beam is at rest, so a turn seen after is the word's own.
+  const rest = Date.now()
+  expect(await until(async () => !(await beamNow()), 30000), 'the beam never came to rest before the word')
+  if (Date.now() - rest > 400) console.log(`(the beam turned for main's own work for ${Math.round((Date.now() - rest) / 1000)}s before the word)`)
   await page.keyboard.type('Serendipity', { delay: 15 })
   expect(!(await beamSeen('working', 1500)), 'the beam turned for a word')
   expect(await until(async () => (await define()) === 'ghost'), `no ghost: ${await define()}`)
@@ -316,22 +322,26 @@ const portrait = async (tone) => Buffer.from(await page.evaluate((tone) => {
   return c.toDataURL('image/png').split(',')[1]
 }, tone), 'base64')
 const picture = join(process.env.QA_DATA, 'portrait.png')
+// Someone the example book does not know: its own people each arrive with a portrait (d2f89ae98), Marcus Aurelius among
+// them, so his chip never showed initials there.
 await check('faces: initials at first, a picture picked by right click, kept once per person', async () => {
   writeFileSync(picture, await portrait('#c9ad86'))
-  await type('“You have power over your mind, not outside events.” - Marcus Aurelius')
+  await type('“Those who contemplate the beauty of the earth find reserves of strength.” - Rachel Carson')
   expect(await until(() => page.locator('[data-who-avatar] .mf-avatar[data-avatar="initials"]').count()), 'no initials in the who chip')
-  expect((await page.locator('[data-who-avatar]').textContent()) === 'MA', 'not MA')
+  // Its letters as the chip draws them: one under 20px, the first name's (c010e53b7), both at a larger size.
+  const face = await page.locator('[data-who-avatar] .mf-avatar').evaluate((one) => ({ small: one.hasAttribute('data-small'), text: one.textContent }))
+  expect(face.text === (face.small ? 'R' : 'RC'), `not ${face.small ? 'R' : 'RC'}: ${JSON.stringify(face)}`)
   await page.click('[data-who-avatar]', { button: 'right' })
   const chooser = page.waitForEvent('filechooser')
   await page.getByRole('menuitem', { name: 'Add a picture…' }).click()
   await (await chooser).setFiles(picture)
   expect(await until(() => page.locator('[data-who-avatar] .mf-avatar[data-avatar="picture"] img').count()), 'no picture in the chip')
   const people = await v('people')
-  expect(/^haligtree:\/\/assets\/[a-f0-9]{64}\.webp$/.test(people['marcus aurelius']?.avatar ?? ''), `people: ${JSON.stringify(people)}`)
+  expect(/^haligtree:\/\/assets\/[a-f0-9]{64}\.webp$/.test(people['rachel carson']?.avatar ?? ''), `people: ${JSON.stringify(people)}`)
 })
 await check('faces: a picture pasted into the who field replaces it; another spelling is the same person', async () => {
-  const was = (await v('people'))['marcus aurelius']?.avatar
-  await type('“Waste no more time arguing what a good man should be.” - marcus  aurelius')
+  const was = (await v('people'))['rachel carson']?.avatar
+  await type('“In nature nothing exists alone.” - rachel  carson')
   expect(await until(() => page.locator('[data-who-avatar] .mf-avatar[data-avatar="picture"]').count()), 'the same person had no picture')
   const bytes = (await portrait('#a98b66')).toString('base64')
   await page.evaluate((b64) => {
@@ -341,20 +351,20 @@ await check('faces: a picture pasted into the who field replaces it; another spe
     data.items.add(file)
     input.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
   }, bytes)
-  expect(await until(async () => (await v('people'))['marcus aurelius']?.avatar !== was), 'paste did not change it')
+  expect(await until(async () => (await v('people'))['rachel carson']?.avatar !== was), 'paste did not change it')
   await send()
 })
 await check('faces: in the @ picker’s People group', async () => {
-  await type('@Marc')
+  await type('@Rach')
   expect(await until(() => page.locator('.tiptap-suggestion-popup .mf-avatar img').count()), 'no face in the @ menu')
 })
 await check('faces: removed from the right-click menu, initials again', async () => {
-  await type('“The impediment to action advances action.” - Marcus Aurelius')
+  await type('“Man is a part of nature, and his war against nature is a war against himself.” - Rachel Carson')
   expect(await until(() => page.locator('[data-who-avatar] .mf-avatar[data-avatar="picture"]').count()), `no picture: ${await page.evaluate(() => document.querySelector('[data-who-avatar]')?.outerHTML ?? 'no chip')} ${JSON.stringify(await v('people'))}`)
   await page.click('[data-who-avatar]', { button: 'right' })
   await page.getByRole('menuitem', { name: 'Remove the picture' }).click()
   expect(await until(() => page.locator('[data-who-avatar] .mf-avatar[data-avatar="initials"]').count()), 'not initials again')
-  expect(!(await v('people'))['marcus aurelius'], 'still kept')
+  expect(!(await v('people'))['rachel carson'], 'still kept')
 })
 
 console.log(results.join('\n'))
