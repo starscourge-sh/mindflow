@@ -939,11 +939,13 @@ export function Home(): React.JSX.Element {
     return () => window.removeEventListener('haligtree:pdf', onPdf)
   })
   // A web page in the reader (a link card, a link's popover, ⌘K, a gem's link back): as a PDF is.
+  // Asked for to the side (or a new tab) in words, as the click would; a link followed in the reader steps in its own pane.
   useEffect(() => {
     const onWeb = (event: Event): void => {
+      const { href, how: asked, from } = (event as CustomEvent<{ href: string; how?: 'aside' | 'tab'; from?: string | null }>).detail
       const how = takeClick()
       chime('page')
-      placed({ id: 'web', focus: (event as CustomEvent<{ href: string }>).detail.href }, how)
+      placed({ id: 'web', focus: href }, asked ?? how, from && splitRef.current.panes.some((one) => one.key === from) ? from : undefined)
     }
     window.addEventListener('haligtree:web', onWeb)
     return () => window.removeEventListener('haligtree:web', onWeb)

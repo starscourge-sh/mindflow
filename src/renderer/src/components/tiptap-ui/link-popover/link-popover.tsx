@@ -10,6 +10,7 @@ import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 import { CornerDownLeftIcon } from "@/components/tiptap-icons/corner-down-left-icon"
 import { ArrowUpRight as ExternalLinkIcon, BookOpen, Link as LinkIcon, Unlink } from "@/components/ui/icons"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
+import { canSplit } from "@/lib/split"
 
 // --- Tiptap UI ---
 import type { UseLinkPopoverConfig } from "@/components/tiptap-ui/link-popover"
@@ -177,7 +178,7 @@ const LinkMain: React.FC<LinkMainProps> = ({
                 <Button
                   type="button"
                   onClick={() => openArticle(url)}
-                  title="Open in the reader"
+                  title={canSplit() ? "Open in the reader. ⌥-click opens it to the side" : "Open in the reader"}
                   aria-label="Open in the reader"
                   variant="ghost"
                 >

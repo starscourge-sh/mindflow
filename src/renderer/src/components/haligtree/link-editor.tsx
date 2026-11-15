@@ -6,6 +6,7 @@ import { useEditorState, type Editor } from "@tiptap/react"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { BookOpen, Link as Link2, Pencil, Unlink } from "@/components/ui/icons"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
+import { canSplit } from "@/lib/split"
 import { hrefFor, linkAround, looksLikeAddress, refusedLinks } from "@/extensions/link-tidy"
 import { chime } from "@/lib/sound"
 import { useEditorDom } from '@/lib/editor-dom'
@@ -40,7 +41,7 @@ export function LinkButtons({ editor }: { editor: Editor }): React.JSX.Element |
   return (
     <>
       {isWebPage(href) && (
-        <Button type="button" variant="ghost" aria-label="Open in the reader" data-read-link tooltip="Open in the reader" onMouseDown={(event) => event.preventDefault()} onClick={() => openArticle(href)}>
+        <Button type="button" variant="ghost" aria-label="Open in the reader" data-read-link tooltip={canSplit() ? "Open in the reader. ⌥-click opens it to the side" : "Open in the reader"} onMouseDown={(event) => event.preventDefault()} onClick={() => openArticle(href)}>
           <BookOpen className="tiptap-button-icon" />
         </Button>
       )}
@@ -142,7 +143,7 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
           none reads as plain words. */}
       <div className="flex items-center gap-1.5">
         {read && (
-          <button type="button" data-link-read className={`${QUIET} gap-1.5 text-foreground`} onClick={read}>
+          <button type="button" data-link-read className={`${QUIET} gap-1.5 text-foreground`} onClick={read} title={canSplit() ? "⌥-click opens it to the side" : undefined}>
             <BookOpen className="size-3.5 text-muted-foreground" aria-hidden />
             Open in the reader
           </button>

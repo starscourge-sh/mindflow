@@ -30,6 +30,7 @@ import { haligtree } from "@/lib/haligtree"
 import { scrollerOf } from "@/lib/note-place"
 import { lineUnderMenu } from "@/extensions/meeting"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
+import { canSplit } from "@/lib/split"
 import { ClickedRows, type Clicked } from "./clicked"
 import { binLetGo, isKept, keepInFiles, letGoSaid } from "@/lib/media-files"
 
@@ -648,6 +649,16 @@ export function BlockMenu({
             <button type="button" onClick={() => openArticle(href)}>
               <MenuGlyph label="Open in the reader" />
               <span className="tiptap-slash-menu-title">Open in the reader</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+
+        {/* Beside the note the card is in, as ⌥-click on the card's book does. */}
+        {href && isWebPage(href) && canSplit() && matches("Open in the reader to the side") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={() => openArticle(href, undefined, "aside", editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane"))}>
+              <MenuGlyph label="Open in the reader to the side" />
+              <span className="tiptap-slash-menu-title">Open in the reader to the side</span>
             </button>
           </DropdownMenuItem>
         ) : null}

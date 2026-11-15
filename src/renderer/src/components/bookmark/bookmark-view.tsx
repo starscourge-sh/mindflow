@@ -4,6 +4,7 @@ import { said } from "@/lib/host"
 import { chime } from "@/lib/sound"
 import { BookOpen, Check, Copy } from "@/components/ui/icons"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
+import { canSplit } from "@/lib/split"
 
 /** "Open in the reader" and "Copy URL", tucked into the card's corner, shown on hover. */
 export function BookmarkButtons({ href, loading }: { href: string; loading: boolean }): React.JSX.Element {
@@ -17,10 +18,10 @@ export function BookmarkButtons({ href, loading }: { href: string; loading: bool
           type="button"
           className="tiptap-bookmark-copy is-read"
           aria-label="Open in the reader"
-          title="Open in the reader"
+          title={canSplit() ? "Open in the reader. ⌥-click opens it to the side" : "Open in the reader"}
           onClick={(event) => {
             event.stopPropagation()
-            openArticle(href)
+            openArticle(href, undefined, undefined, event.currentTarget.closest("[data-pane]")?.getAttribute("data-pane"))
           }}
         >
           <BookOpen />

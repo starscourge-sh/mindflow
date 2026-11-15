@@ -271,6 +271,8 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     const lines: Array<Line | false> = [
       { label: "Open in the browser", data: "browser", run: () => void window.open(href) },
       isWebPage(href) && { label: "Open in the reader", data: "read", run: () => openArticle(href) },
+      // Beside the note it was asked from, as "Open to the side" opens a note's link (⌥-click does the same).
+      isWebPage(href) && canSplit() && { label: "Open in the reader to the side", data: "read-aside", run: () => openArticle(href, undefined, "aside", editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane")) },
       { label: "Copy address", data: "copy-address", run: () => copyText(href, "Address copied") },
       {
         label: "Keep the link",

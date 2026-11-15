@@ -177,8 +177,8 @@ try {
   await h.locator(WEB).first().click({ button: 'right' }); await wait(600)
   check('note: right-click on a link offers “Edit link”', await h.locator('[role="menuitem"]', { hasText: /^Edit link/ }).count() > 0)
   await h.keyboard.press('Escape'); await wait(300)
-  // Its hover box says what a click does, the reader on ⌥-click (one box: no tip beside it).
-  check('note: a web link\'s hover says “Click to open in your browser, ⌥-click to open in the reader”', (await howSaid(h)) === 'Click to open in your browser, ⌥-click to open in the reader', await howSaid(h))
+  // Its hover box says what a click does, the reader to the side on ⌥-click (one box: no tip beside it).
+  check('note: a web link\'s hover says “Click to open in your browser, ⌥-click to open in the reader to the side”', (await howSaid(h)) === 'Click to open in your browser, ⌥-click to open in the reader to the side', await howSaid(h))
   // The tip on a rest, and a note link's card, in light and dark.
   if (SHOT) {
     for (const [name, selector] of [['tip-web', WEB], ['tip-note', NOTE], ['tip-tag', TAG]]) {
@@ -225,7 +225,8 @@ try {
   await closeApart()
   await reshow(); await fillBox()
   await editing(box, 'quick capture', opened)
-  check('quick capture: a web link\'s hover says the same', (await howSaid(box)) === 'Click to open in your browser, ⌥-click to open in the reader', await howSaid(box))
+  // Quick capture has no side: the reader opens in the main window.
+  check('quick capture: a web link\'s hover says ⌥-click opens it in the reader', (await howSaid(box)) === 'Click to open in your browser, ⌥-click to open in the reader', await howSaid(box))
   await c.qa.reset()
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])

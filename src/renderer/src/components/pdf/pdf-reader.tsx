@@ -86,14 +86,19 @@ export function followPdfLink(href: string): boolean {
   return true
 }
 
-/** A web page in the reader: a step in the pane in front, or beside it on ⌥-click. A PDF link opens the PDF reader instead. */
-export const openArticle = (href: string, mark?: string): void => {
-  if (isWebPdf(href)) return void openWebPdf(href)
+/**
+ * A web page in the reader: a step in the pane in front (or in `from`, the
+ * pane it was asked from, as a link followed in the reader is), or as `how`
+ * asks: to the side ("Open in the reader to the side", ⌥-click, ⌥↵) or in a
+ * new tab. A PDF link opens the PDF reader instead.
+ */
+export const openArticle = (href: string, mark?: string, how?: "aside" | "tab", from?: string | null): void => {
+  if (isWebPdf(href)) return void openWebPdf(href, how === "aside")
   // A video has no article to read: the reader could only say the page could
   // not be reached. Played where it lives instead, as clicking its card does.
   if (!isReadable(href)) return void window.open(href, "_blank", "noopener")
   articleFlash = mark ?? null
-  if (canSplit()) window.dispatchEvent(new CustomEvent("haligtree:web", { detail: { href } }))
+  if (canSplit()) window.dispatchEvent(new CustomEvent("haligtree:web", { detail: { href, how, from } }))
   else window.api.openInHome("web", href)
 }
 /**
@@ -122,10 +127,10 @@ export const isWebPdf = (href: string | null | undefined): boolean => !!href && 
  * A PDF on the web in the reader: fetched once into the book's own files (as
  * a card's picture is kept), then opened in the main window like any PDF.
  */
-export async function openWebPdf(href: string): Promise<void> {
+export async function openWebPdf(href: string, aside = false): Promise<void> {
   const kept = await host().fetchPdf?.(href)
   if (!kept) return void (chime("nope"), said("That PDF could not be fetched", false))
-  if (canSplit()) openPdf(kept.src, kept.name)
+  if (canSplit()) openPdf(kept.src, kept.name, undefined, undefined, aside)
   else window.api.openInHome("pdf", pdfFocus(kept.src, kept.name))
 }
 
