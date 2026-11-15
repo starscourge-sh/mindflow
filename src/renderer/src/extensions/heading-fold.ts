@@ -1,11 +1,12 @@
 import { Extension } from "@tiptap/core"
-import { AllSelection, Plugin, PluginKey, Selection, type EditorState } from "@tiptap/pm/state"
+import { Plugin, PluginKey, Selection, type EditorState } from "@tiptap/pm/state"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { headingRank } from "@/extensions/toggle-heading"
 import { cue } from "@/lib/cues"
 import { copyOf } from "@/lib/icon-markup"
+import { grownByKey } from "@/lib/grow-selection"
 import { changedBlocks } from "@/lib/text-edit"
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
 
@@ -338,10 +339,11 @@ export const HeadingFold = Extension.create<{ id: string | null }>({
             return true
           },
         },
-        // Whatever put the caret where it can't be seen opens what hides it.
+        // Whatever put the caret where it can't be seen opens what hides it. Not a pick ⌘A made (a section, the
+        // whole note): its folded parts go with it, folded.
         appendTransaction: (trs, _old, state) => {
           const fold = key.getState(state)
-          if (!on || !fold?.folded.length || state.selection instanceof AllSelection) return null
+          if (!on || !fold?.folded.length || grownByKey(state.selection)) return null
           if (!trs.some((tr) => tr.selectionSet || tr.docChanged)) return null
           const opened = hiding(fold, state.selection.head).map((one) => one.pos)
           if (!opened.length) return null
