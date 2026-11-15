@@ -6,9 +6,11 @@
 //   cp -cR <scratchpad>/sandbox-seed.noindex/c-tip <copy>
 //   QA_DATA=<copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/small-window.mjs
 //   SMALL_PART=restart runs only the restart (on the same QA_DATA, after a full run).
+import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
-import { paste } from './pasteboard.mjs'
+import { paste, putOnBoard } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 process.env.HALIGTREE_QA_STEPASIDE = '1'
@@ -36,9 +38,20 @@ const typeIn = async (page, text) => {
 
 try {
   if (process.env.SMALL_PART === 'restart') {
-    // The full run left three open as it quit: the box's words, a note from the Inbox, and the one typed into.
-    const back = await until(() => smalls().length >= 3 && smalls(), 20000)
-    check('after a restart, the three small windows open when the app quit are back', back && back.length === 3, back ? back.map((one) => one.url().replace(/^.*small=/, '')).join(', ') : `${smalls().length}`)
+    // What the full run left open as it quit (the box's words, a note from the Inbox, the one typed into), as the app
+    // wrote it down: every one of them back.
+    const find = (dir, depth = 0) => {
+      for (const name of readdirSync(dir)) {
+        const path = join(dir, name)
+        if (name === 'small-windows.json') return path
+        if (depth < 3 && statSync(path).isDirectory() && !name.startsWith('.')) { const got = find(path, depth + 1); if (got) return got }
+      }
+      return null
+    }
+    const kept = find(process.env.QA_DATA)
+    const want = kept ? JSON.parse(readFileSync(kept, 'utf8')).length : 0
+    const back = await until(() => want > 0 && smalls().length >= want && smalls(), 20000)
+    check(`after a restart, the ${want} small windows open when the app quit are back`, want >= 2 && back && back.length === want, back ? back.map((one) => one.url().replace(/^.*small=/, '')).join(', ') : `${smalls().length} of ${want}`)
     const texts = []
     for (const one of back ?? smalls()) {
       await one.waitForSelector(EDITOR, { timeout: 15000 }).catch(() => {})
@@ -177,6 +190,18 @@ try {
     await wait(900)
     const stayed = await win(fresh.url())
     check('with “Steps aside” off it stays put', stayed.x === still.x && stayed.y === still.y, JSON.stringify({ still, stayed }))
+    // 8b. Distilling a report: “Collect what I copy” from its menu, a line copied in another app lands in this note,
+    // and Esc stops it with the window still open (qa/collect-copies.mjs's way: the stand-in pasteboard, the app hidden).
+    await fresh.mouse.move(200, 40)
+    await fresh.getByRole('button', { name: 'Options' }).first().click({ force: true }); await wait(400)
+    await fresh.getByRole('menuitem', { name: /^Collect what I copy/ }).click({ force: true }); await wait(800)
+    check('“Collect what I copy” in its menu shows the Collecting pill', await fresh.locator('[data-collecting]').isVisible().catch(() => false))
+    await electron.evaluate(({ app }) => app.hide()); await wait(400)
+    await putOnBoard(electron, 'A line worth keeping from the report'); await wait(1800)
+    check('a line copied in another app lands in the small window\'s note', /A line worth keeping from the report/.test(await words(freshId)))
+    await electron.evaluate(({ app }) => app.show()); await wait(800)
+    await fresh.keyboard.press('Escape'); await wait(600)
+    check('Esc stops collecting, and the window stays open', !(await fresh.locator('[data-collecting]').count()) && smalls().includes(fresh))
     // 9. Opened empty and closed empty: nothing left behind.
     await electron.evaluate(() => globalThis.haligtreeChords.get('⌥⌘.')())
     const empty = await until(() => smalls().find((one) => ![first, second, fresh].includes(one)))
