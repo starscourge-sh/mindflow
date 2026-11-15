@@ -19,7 +19,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const ED = '[data-open] .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+let ED = '[data-open] .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 
 // What is picked: its kind ('text', 'cell', 'node', 'blocks', 'all') and its words, '|' between blocks, '/' between cells, '#' for a rule.
@@ -144,10 +144,15 @@ try {
     const big = db.prepare("select id, length(body) as size from captures where status = 'open' and kind = 'note' and body is not null order by size desc limit 1").get()
     db.close()
     await v('settings:set', { sounds: false, hintRate: 0 })
-    await c.send('capture', big.id); await wait(6000)
+    await c.send('capture', big.id)
+    // The note's own editor, marked: the one holding thousands of blocks.
+    await h.waitForFunction(() => [...document.querySelectorAll('.tiptap.ProseMirror')].some((one) => (one.editor?.state.doc.childCount ?? 0) > 1000), null, { timeout: 90000 })
+    await h.evaluate(() => [...document.querySelectorAll('.tiptap.ProseMirror')].sort((a, b) => (b.editor?.state.doc.childCount ?? 0) - (a.editor?.state.doc.childCount ?? 0))[0].setAttribute('data-e4-big', ''))
+    ED = '[data-e4-big]'
+    await wait(3000)
     const blocks = await h.evaluate((sel) => document.querySelector(sel)?.editor.state.doc.childCount, ED)
     // A caret in a line of words on the screen, in the middle of the note.
-    await h.evaluate((sel) => { const ed = document.querySelector(sel).editor; const box = ed.view.dom.closest('[data-scroll], .overflow-y-auto') ?? ed.view.dom.parentElement; box.scrollTo({ top: box.scrollHeight / 2, behavior: 'instant' }) }, ED)
+    await h.evaluate((sel) => { let box = document.querySelector(sel).parentElement; while (box && !(/(auto|scroll)/.test(getComputedStyle(box).overflowY) && box.scrollHeight > box.clientHeight)) box = box.parentElement; box?.scrollTo({ top: box.scrollHeight / 2, behavior: 'instant' }) }, ED)
     await wait(800)
     const spot = await h.evaluate((sel) => {
       const ed = document.querySelector(sel)
@@ -169,13 +174,16 @@ try {
         }
         window.addEventListener('keydown', onKey, true)
       }))
+      // And any frozen stretch in the moments after (the bar placed over the new pick a quarter second later).
+      await h.evaluate(() => { window.__long = []; window.__seen?.disconnect(); window.__seen = new PerformanceObserver((list) => list.getEntries().forEach((e) => window.__long.push(e.duration))); window.__seen.observe({ type: 'longtask' }) })
       await wait(50)
       await h.keyboard.press('Meta+a')
       const took = await measure
-      await wait(150)
+      await wait(600)
+      const frozen = await h.evaluate(() => Math.round(Math.max(0, ...window.__long)))
       const after = await picked()
-      times.push({ step, kind: after.kind, words: after.words.length, ms: Math.round(took * 10) / 10 })
-      console.log(`step ${step}: ${after.kind} of ${after.words.length} characters (${after.from}-${after.to}) in ${took.toFixed(1)} ms  [${load()}]`)
+      times.push({ step, kind: after.kind, words: after.words.length, ms: Math.round(took * 10) / 10, frozen })
+      console.log(`step ${step}: ${after.kind} of ${after.words.length} characters (${after.from}-${after.to}) in ${took.toFixed(1)} ms, longest frozen stretch in the 600 ms after: ${frozen} ms  [${load()}]`)
       if (after.kind === 'all' || before.kind === 'all') break
     }
     const steps = times.filter((one) => one.kind !== 'all')
