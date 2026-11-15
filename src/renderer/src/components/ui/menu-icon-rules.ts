@@ -104,6 +104,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^look up$/i, Search],
   [/^highlight$/i, Highlighter],
   [/^reopen what you closed/i, RotateCcw],
+  // A read that failed, asked again (ui.tsx's notice, a tag's page).
+  [/^try again$/i, RotateCcw],
   [/^decks$/i, Layers],
   [/^liked$/i, Heart],
   [/^make everything smaller/i, Minimize2],
