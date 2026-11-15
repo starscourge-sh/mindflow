@@ -5,7 +5,7 @@
 // sections beside it, its Commons picture kept and credited (a fair-use one gone),
 // a link to another article followed in place with Back and Forward, a link out
 // of Wikipedia sent to the browser, a highlight kept as a gem citing the article,
-// its section and the day read. Offline, ⌘K says Wikipedia cannot be reached in one
+// its section and the day read. The site down, ⌘K says Wikipedia did not answer in one
 // line, and a kept article still opens. Wikipedia is a stand-in (qa/wiki-stand-in.mjs).
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/wiki-reader.mjs
 import { checks } from './harness.mjs'
@@ -168,7 +168,8 @@ try {
   await h.click('[data-look="wikipedia"][data-look-kind="line"]')
   await until(() => h.evaluate(() => !!document.querySelector('[data-look="wikipedia"][data-look-kind="said"]')))
   const offline = await h.evaluate(() => ({ said: [...document.querySelectorAll('[data-look="wikipedia"]')].map((one) => one.textContent), asking: !!document.querySelector('[data-look-asking]') }))
-  check('offline, ⌘K says Wikipedia cannot be reached, in one plain line', offline.said.length === 1 && offline.said[0] === 'Wikipedia cannot be reached: this Mac seems to be offline' && !offline.asking, JSON.stringify(offline))
+  // The site down with the Mac online: it did not answer ("offline" is said only when the Mac itself is: net.isOnline()).
+  check('the site down, ⌘K says Wikipedia did not answer, in one plain line', offline.said.length === 1 && offline.said[0] === 'Wikipedia did not answer just now' && !offline.asking, JSON.stringify(offline))
   await c.both(`${shots}/w4-cmdk-offline`)
   await h.keyboard.press('Escape'); await wait(300)
   const before = site.asked.length

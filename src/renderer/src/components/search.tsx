@@ -224,11 +224,12 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // place, or one plain line says it could not be reached; words typed since bring the line back.
   const lookWords = pre?.words ?? typed
   const lookSites = pre ? [pre.site] : menus && !scoped && !address && lookWords.length > 1 && !typed.startsWith('kind:') ? FREE_SITES : []
-  const [outside, setOutside] = useState<{ site: FreeSite['id']; words: string; hits: FreeHit[] | null; offline?: boolean } | null>(null)
+  const [outside, setOutside] = useState<{ site: FreeSite['id']; words: string; hits: FreeHit[] | null; offline?: boolean; failed?: boolean } | null>(null)
   const lookRows: Look[] = lookSites.flatMap((site): Look[] => {
     const got = outside?.site === site.id && outside.words === lookWords ? outside : null
     if (!got) return [{ site }]
     if (got.offline) return [{ site, said: `${site.word} cannot be reached: this Mac seems to be offline` }]
+    if (got.failed) return [{ site, said: `${site.word} did not answer just now` }]
     if (!got.hits) return [{ site, asking: true }]
     if (!got.hits.length) return [{ site, said: `${site.word} has nothing by that name` }]
     return got.hits.map((hit) => ({ site, hit }))
@@ -242,8 +243,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
     chime('tap')
     landOn.current = site.id
     setOutside({ site: site.id, words, hits: null })
-    void call<{ hits?: FreeHit[]; offline?: true }>('free:search', site.id, words).then((got) =>
-      setOutside((now) => (now?.site === site.id && now.words === words ? { site: site.id, words, hits: got.hits ?? null, offline: !!got.offline } : now)))
+    void call<{ hits?: FreeHit[]; offline?: true; failed?: true }>('free:search', site.id, words).then((got) =>
+      setOutside((now) => (now?.site === site.id && now.words === words ? { site: site.id, words, hits: got.hits ?? null, offline: !!got.offline, failed: !!got.failed } : now)))
   }
   // Several results picked (⇧-click, or ⌘A once the words are all selected), to make tasks of or queue together.
   // The box keeps ⌘A for its words: the first press selects them, the next picks every result.
@@ -311,7 +312,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const action = at < doing.length ? doing[at] : undefined
   const look = at >= doing.length + rowsShown.length ? lookShown[at - doing.length - rowsShown.length] : undefined
   useEffect(() => {
-    if (!outside || (!outside.hits && !outside.offline) || landOn.current !== outside.site) return
+    if (!outside || (!outside.hits && !outside.offline && !outside.failed) || landOn.current !== outside.site) return
     landOn.current = null
     const first = lookShown.findIndex((one) => one.site.id === outside.site)
     if (first >= 0) setAt(doing.length + rowsShown.length + first)

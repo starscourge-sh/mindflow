@@ -84,6 +84,10 @@ export async function standIn() {
     const url = new URL(request.url, 'http://stand-in')
     const [, host] = url.pathname.split('/')
     const send = (status, type, body) => (response.writeHead(status, { 'content-type': type }), response.end(body))
+    // As Wikimedia does: a request naming no app (Node's bare "node", or nothing) is turned away with a 429, which the
+    // app once said as "this Mac seems to be offline" (15 Nov 2026).
+    const agent = request.headers['user-agent'] ?? ''
+    if (!agent || agent === 'node' || /^undici/i.test(agent)) return send(429, 'text/plain', 'Too many requests')
     if (url.pathname.endsWith('/w/rest.php/v1/search/page') && search[host]) return send(200, 'application/json', JSON.stringify(search[host]))
     if (url.pathname === '/www.gutenberg.org/ebooks/search.opds/') return send(200, 'application/atom+xml', GUTENBERG)
     if (url.pathname === '/plato.stanford.edu/search/searcher.py') return send(200, 'text/html; charset=utf-8', SEP)

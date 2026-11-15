@@ -51,10 +51,20 @@ export async function isOutside(url: URL): Promise<boolean> {
 }
 
 /**
+ * Who the app says it is when it asks a site, set once at start (index.ts: the browser line it uses for pages). Sent
+ * as Node's bare "node", every Wikipedia and Wiktionary search was answered 429 and said as "offline" (15 Nov 2026).
+ */
+let agent = ''
+export const setOutsideAgent = (name: string): void => void (agent = name)
+
+/**
  * `fetch`, for addresses a page handed us: each hop of a redirect is checked
  * the same way, so a public page cannot bounce the request back inside.
  */
 export async function fetchOutside(url: string | URL, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers)
+  if (agent && !headers.has('user-agent')) headers.set('user-agent', agent)
+  init = { ...init, headers }
   let at = new URL(url)
   for (let hop = 0; hop < 6; hop++) {
     if (!(await isOutside(at))) throw new Error(`Refused ${at.host}: not on the internet`)

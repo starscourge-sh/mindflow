@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { app, ipcMain, net } from 'electron'
 import { parseHTML } from 'linkedom'
 import { fetchOutside } from './outside'
 
@@ -13,7 +13,9 @@ export type Site = (typeof SITES)[number]
 /** One answer: its name, one line about it, the page the reader opens, and its picture where it is free (Commons). */
 export type Hit = { title: string; line: string; href: string; picture: string | null }
 
-const AGENT = { 'Api-User-Agent': 'Haligtree (a commonplace book)' }
+// The app named as Wikimedia's rules for its APIs ask (a bare "node" was answered 429 every time), and the same for
+// Gutenberg's and the Stanford Encyclopedia's.
+const AGENT = { 'User-Agent': `Haligtree/${app.getVersion()} (a commonplace book)`, 'Api-User-Agent': 'Haligtree (a commonplace book)' }
 const ask = (url: string, wait = 8000): Promise<Response> =>
   fetchOutside(url, { headers: AGENT, signal: AbortSignal.timeout(wait) }).then((response) => {
     if (!response.ok) throw new Error(`${response.status}`)
@@ -144,7 +146,8 @@ export function registerFreeSites(): void {
     try {
       return { hits: await SEARCH[site as Site](asked) }
     } catch {
-      return { offline: true }
+      // Offline only when the Mac is: a site that turned the asking away, or was slow, did not answer.
+      return net.isOnline() ? { failed: true } : { offline: true }
     }
   })
 }

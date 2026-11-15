@@ -64,7 +64,7 @@ import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, bea
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, cardComesDown, peeksOut, restNow, type Rest } from './goal-tuck'
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
-import { fetchOutside, isOutside } from './outside'
+import { fetchOutside, setOutsideAgent, isOutside } from './outside'
 import { registerNotes } from './notes'
 import { registerGroups } from './groups'
 import { registerSections } from './sections'
@@ -4084,6 +4084,7 @@ function createWindow(): void {
 app.userAgentFallback = app.userAgentFallback
   .replace(/ Electron\/[\d.]+/, '')
   .replace(new RegExp(` ${app.getName()}\\/[\\d.]+`, 'i'), '')
+setOutsideAgent(app.userAgentFallback)
 
 // An ordinary app, the way Todoist is one: a Dock icon, a place in ⌘Tab, the
 // main window opened when you open Haligtree and put away (not closed) by the red
