@@ -9,6 +9,9 @@
 // QA_SHOTS=dir saves light and dark frames.
 import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
+// The box keeps its places as a window on the screen would (main's QA parking): parked without them, every height
+// it took was a move back onto the screen, and the window's frame changed as no real one does (qa/box-one-move.mjs).
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 
 const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 const { page, v, electron } = c
