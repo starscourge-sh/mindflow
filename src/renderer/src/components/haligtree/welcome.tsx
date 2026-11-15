@@ -1071,7 +1071,7 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
     initial: false, animate: { opacity: on ? 1 : 0, y: on ? 0 : 6, filter: on ? 'blur(0px)' : 'blur(6px)' }, transition: { duration: quick ? 0 : 0.6, ease: ENTER }
   })
   return (
-    <div ref={root} className="relative flex min-h-0 flex-1 flex-col justify-center pb-2">
+    <div ref={root} className="relative flex min-h-0 flex-1 flex-col justify-center-safe pb-2">
       <div data-reel={show.done ? 'done' : 'playing'} data-words className="flex max-w-[58rem] flex-col gap-[clamp(0.75rem,2.6vh,1.75rem)]">
         {/* No header above it: the title card before it said the name; this page opens on the problem. */}
         {/* The headline resolves out of the mist a word to a note, each word in its place from the start. */}
@@ -1161,7 +1161,7 @@ function YouChapter({ setup, onChange, still, report, paid, onPaid: setPaid }: {
       <Words key={paid ? 'paid' : 'ask'} title={paid ? `${APP_NAME} is shaped for you now.` : `Tell ${APP_NAME} a little about you.`} docked still={still} done>
         {paid ? 'Here is what that means for you.' : 'So it starts out shaped for you. Skip any question.'}
       </Words>
-      <div className="mf-more relative flex min-h-0 flex-1 flex-col justify-[safe_center] overflow-y-auto pb-2">
+      <div className="mf-more relative flex min-h-0 flex-1 flex-col justify-center-safe overflow-y-auto pb-2">
         {paid
           ? <Payoff setup={setup} onChange={onChange} onBack={() => (chime('page'), setPaid(false))} still={still} />
           : <YouPage setup={setup} onChange={onChange} still={still} />}
@@ -1446,7 +1446,7 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
           </>
         )}
       </Words>
-      <div className="relative flex min-h-0 flex-1 flex-wrap content-center items-center gap-x-[clamp(1.5rem,4vw,3.5rem)] gap-y-[clamp(0.75rem,2.5vh,1.5rem)] pb-2">
+      <div className="relative flex min-h-0 flex-1 flex-wrap content-center-safe items-center gap-x-[clamp(1.5rem,4vw,3.5rem)] gap-y-[clamp(0.75rem,2.5vh,1.5rem)] pb-2">
         <div ref={frame} data-frame="box" className="relative w-[min(40rem,100%)] shrink-0 @min-[880px]:w-[min(40rem,56%)]">
           {s.keys && (
             <>
@@ -1693,7 +1693,7 @@ function DialChapter({ play, report, onPick, mine }: { play: boolean; report: (n
       <Words title="Make it yours." still={!play} done={show.done}>
         {DIAL_LINE}
       </Words>
-      <div className="relative flex min-h-0 flex-1 items-center justify-center pb-2">
+      <div className="relative flex min-h-0 flex-1 items-center-safe justify-center pb-2">
         {/* Pages to judge a theme on, behind the dial, wearing each theme as it passes: your own first note
             when you wrote one, and a Review question. Nothing shown earlier in the welcome comes back here. */}
         <>
