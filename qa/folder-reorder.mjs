@@ -50,11 +50,13 @@ try {
 
   // Ideas by Money's top edge: before it.
   await carry(ideas, money, 0.1, async () => {
+    // The one carried card (carry.tsx CarriedCard): the folder's name, and beside it what letting go does (79eb82bca).
     const seen = await c.h.evaluate(() => ({
-      ghost: document.querySelector('[data-folder-ghost]')?.textContent ?? null,
+      ghost: document.querySelector('[data-folder-ghost] > .private-text')?.textContent ?? null,
+      says: document.querySelector('[data-folder-ghost] [data-drag-label]')?.textContent ?? null,
       line: document.querySelector('[data-drop-line]')?.getAttribute('data-drop-line') ?? null
     }))
-    check('carried, the folder is the app\'s own lifted row, named', seen.ghost === 'Ideas', JSON.stringify(seen))
+    check('carried, the folder is the app\'s own lifted row, named, saying where it lands', seen.ghost === 'Ideas' && seen.says === 'Move here', JSON.stringify(seen))
     check('by a folder\'s top edge, a line says it lands before it', seen.line === 'before', JSON.stringify(seen))
   })
   check('let go there, it moves before Money', (await order()).join() === [ideas, money, rent].join(), (await order()).join())
