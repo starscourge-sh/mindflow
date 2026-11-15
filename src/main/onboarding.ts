@@ -1,6 +1,6 @@
 import { app, ipcMain } from 'electron'
 import { readFileSync } from 'fs'
-import { execFileSync } from 'child_process'
+import { execFile } from 'child_process'
 import { userInfo } from 'os'
 import { join } from 'path'
 import { database } from './captures'
@@ -73,22 +73,23 @@ let trayBounds: () => Electron.Rectangle | null = () => null
 export const whereTray = (find: () => Electron.Rectangle | null): void => void (trayBounds = find)
 
 /** The first word of the computer's own name for you, read once: the Mac account's full name, or on Linux
- *  the account's real-name field. Windows and a login name (such as "jdoe") give nothing: a login is not a name. */
-let firstName: string | undefined
+ *  the account's real-name field. Windows and a login name (such as "jdoe") give nothing: a login is not a name.
+ *  Asked of another program, waited for off main's thread: run in step, its first ask held every window 418 ms
+ *  (the user's freeze logs, 15 Nov 2026: haligtree:onboarding:state, 417.7 ms). Asked as the app starts, so it is
+ *  known before the welcome's first look at the state, which waits for it. */
+let firstName: Promise<string> | undefined
+let nameRead = ''
+const nameOf = (): Promise<string> =>
+  (firstName ??= new Promise<string>((done) => {
+    const [command, args] = process.platform === 'darwin' ? ['id', ['-F']] : process.platform === 'linux' ? ['getent', ['passwd', userInfo().username]] : ['', []]
+    if (!command) return done('')
+    execFile(command, args as string[], { timeout: 800 }, (error, out) => {
+      const full = error ? '' : process.platform === 'linux' ? (String(out).split(':')[4] ?? '').split(',')[0].trim() : String(out).trim()
+      done(/^[\p{L}][\p{L}'-]{0,23}$/u.test(full.split(/\s+/)[0] ?? '') ? full.split(/\s+/)[0] : '')
+    })
+  }).then((name) => (nameRead = name)))
 /** The name the welcome signs the book with (its scene, main: welcome:arrive): none in safe mode. */
-export const welcomeName = (): string => (read<boolean>('safeMode', false) ? '' : nameOf())
-function nameOf(): string {
-  if (firstName !== undefined) return firstName
-  try {
-    const full = process.platform === 'darwin' ? execFileSync('id', ['-F'], { timeout: 800 }).toString().trim()
-      : process.platform === 'linux' ? (execFileSync('getent', ['passwd', userInfo().username], { timeout: 800 }).toString().split(':')[4] ?? '').split(',')[0].trim()
-        : ''
-    firstName = /^[\p{L}][\p{L}'-]{0,23}$/u.test(full.split(/\s+/)[0] ?? '') ? full.split(/\s+/)[0] : ''
-  } catch {
-    firstName = ''
-  }
-  return firstName
-}
+export const welcomeName = (): string => (read<boolean>('safeMode', false) ? '' : nameRead)
 
 /** What a sticky on the desktop is, from the file the stickies are kept in. */
 function stuckNotes(): boolean {
@@ -121,7 +122,7 @@ function steps(marks: Marks): Record<string, boolean> {
   }
 }
 
-function state(): unknown {
+async function state(): Promise<unknown> {
   const welcomed = read<string | null>('welcomed', null)
   const progress = read<Progress>('onboarding', { marks: {}, hidden: false, doneAt: null })
   const keys = read<Record<string, string | null>>('keys', {})
@@ -142,7 +143,7 @@ function state(): unknown {
     box,
     // The box's key, if another app has it.
     boxTaken: taken.has('⌘.'),
-    name: read<boolean>('safeMode', false) ? '' : nameOf(),
+    name: read<boolean>('safeMode', false) ? '' : await nameOf(),
     setup: { ...NO_SETUP, ...read<Partial<Setup>>('setup', {}) },
     tray: tray && { x: tray.x + tray.width / 2, y: tray.y + tray.height }
   }
@@ -170,6 +171,7 @@ export const whenWelcoming = (watch: (on: boolean) => void): void => void welcom
 hushWhile(isWelcoming)
 
 export function registerOnboarding(): void {
+  void nameOf()
   ipcMain.handle('haligtree:onboarding:state', () => state())
   ipcMain.handle('haligtree:onboarding:set', (_event, patch: Record<string, unknown>) => {
     for (const [key, value] of Object.entries(patch ?? {})) {
