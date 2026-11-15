@@ -124,6 +124,7 @@ const RULES: [RegExp, LucideIcon][] = [
   // A small window's two switches: it grows with the words; it steps aside for the pointer.
   [/^auto-size/i, ArrowUpDown],
   [/^steps aside/i, ArrowUpRight],
+  [/^keep on top/i, Layers],
   // A picture's quick look (Space), and its caption: the words under it.
   [/^look$/i, Eye],
   // A favourite tag: a star, struck through to take it out.

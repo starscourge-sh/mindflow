@@ -14,7 +14,7 @@ import { centredOn, glide, onScreen, stillNow } from './glide'
  * Quick capture's main code (index.ts) asks `isSmall` where a window may be one of these; the rest is here.
  */
 
-type Kept = { link: string; bounds: Electron.Rectangle; auto: boolean; aside: boolean }
+type Kept = { link: string; bounds: Electron.Rectangle; auto: boolean; aside: boolean; top: boolean }
 type Windows = {
   load: (win: BrowserWindow, query: string) => void
   guard: (win: BrowserWindow) => void
@@ -139,10 +139,10 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
       autoHideMenuBar: true,
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }
     })
-    const state: Kept = kept ?? { link: link ?? '', bounds: size, auto: true, aside: true }
+    const state: Kept = kept ?? { link: link ?? '', bounds: size, auto: true, aside: true, top: true }
     smalls.set(win, state)
-    // Over every app, as quick capture floats, on whichever desktop you are on.
-    win.setAlwaysOnTop(true, 'floating')
+    // Over every app, as quick capture floats ("Keep on top" in its menu), on whichever desktop you are on.
+    win.setAlwaysOnTop(state.top, 'floating')
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
     // Resized by hand: it stops growing with the words, and the page offers "Auto-size" to give it back.
     win.on('will-resize', () => {
@@ -212,16 +212,17 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
   ipcMain.handle('haligtree:small:state', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const kept = win && smalls.get(win)
-    return kept ? { auto: kept.auto, aside: kept.aside } : null
+    return kept ? { auto: kept.auto, aside: kept.aside, top: kept.top } : null
   })
-  ipcMain.handle('haligtree:small:set', (event, patch: { auto?: unknown; aside?: unknown }) => {
+  ipcMain.handle('haligtree:small:set', (event, patch: { auto?: unknown; aside?: unknown; top?: unknown }) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const kept = win && smalls.get(win)
     if (!kept) return null
     if (typeof patch?.aside === 'boolean') kept.aside = patch.aside
     if (typeof patch?.auto === 'boolean') kept.auto = patch.auto
+    if (typeof patch?.top === 'boolean') win.setAlwaysOnTop((kept.top = patch.top), 'floating')
     save()
-    return { auto: kept.auto, aside: kept.aside }
+    return { auto: kept.auto, aside: kept.aside, top: kept.top }
   })
 
   /** The small windows open when the app last quit, where they were. */
@@ -237,7 +238,7 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
       if (!one || typeof one.link !== 'string' || !one.link || !one.bounds) continue
       const id = one.link.startsWith('capture:') ? one.link.slice('capture:'.length) : ''
       if (id && !database().prepare("select 1 from captures where id = ? and status != 'discarded'").get(id)) continue
-      open(one.link, null, { link: one.link, bounds: one.bounds, auto: one.auto !== false, aside: one.aside !== false })
+      open(one.link, null, { link: one.link, bounds: one.bounds, auto: one.auto !== false, aside: one.aside !== false, top: one.top !== false })
     }
   }
   return { open: (link, from) => open(link, from), restore }

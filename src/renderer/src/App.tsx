@@ -394,8 +394,9 @@ const Header = ({ panel, drawn, onPanel, onNew, onBrowse, menu, nav, title, asid
       {/* Over the panel, the icons end where the panel's own edge does; the
           move there takes the window's glide, its length and its curve, on a
           transform (the strip's padding stays put). */}
+      {/* A small window's controls sit in its corners, where a window's are (Raycast Notes keeps its lights there). */}
       <div className="mf-top-row relative flex w-full items-center gap-1"
-        style={{ padding: '0rem 4.75rem' } as CSSProperties}>
+        style={{ padding: SMALL ? '0rem 0.875rem' : '0rem 4.75rem' } as CSSProperties}>
         <WindowDots />
         <span ref={back} style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}>{nav}</span>
         {/* The note's name, faint, once its first line has scrolled away, so
@@ -1317,10 +1318,10 @@ export default function App(): React.JSX.Element {
     if (SMALL && (editing || reading)) void window.api.haligtree('small:holds', editing ? `capture:${editing.id}` : `${reading!.type}:${reading!.id}`)
   }, [editing?.id, reading?.type, reading?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   // Its own switches (main keeps them with its place): growing with the words, and stepping aside.
-  const [small, setSmall] = useState<{ auto: boolean; aside: boolean } | null>(null)
+  const [small, setSmall] = useState<{ auto: boolean; aside: boolean; top: boolean } | null>(null)
   useEffect(() => {
     if (!SMALL) return
-    void window.api.haligtree<{ auto: boolean; aside: boolean } | null>('small:state').then(setSmall)
+    void window.api.haligtree<{ auto: boolean; aside: boolean; top: boolean } | null>('small:state').then(setSmall)
     // Resized by hand: main has stopped it growing.
     const said = (event: Event): void => {
       const { what, value } = (event as CustomEvent<{ what: string; value: boolean }>).detail
@@ -1329,8 +1330,8 @@ export default function App(): React.JSX.Element {
     window.addEventListener('haligtree:small', said)
     return () => window.removeEventListener('haligtree:small', said)
   }, [])
-  const setSmallSwitch = (patch: { auto?: boolean; aside?: boolean }): void => {
-    void window.api.haligtree<{ auto: boolean; aside: boolean } | null>('small:set', patch).then((now) => {
+  const setSmallSwitch = (patch: { auto?: boolean; aside?: boolean; top?: boolean }): void => {
+    void window.api.haligtree<{ auto: boolean; aside: boolean; top: boolean } | null>('small:set', patch).then((now) => {
       setSmall(now)
       // Growing again: to the words' height now, not at the next key.
       if (patch.auto) box.refit()
@@ -2391,7 +2392,8 @@ export default function App(): React.JSX.Element {
               // clicked past close by, as quick capture does kept open (main's stepAside).
               ...(SMALL && small ? [
                 { label: 'Auto-size', hint: 'Grows as you write', on: small.auto, set: (auto: boolean) => setSmallSwitch({ auto }) },
-                { label: 'Steps aside', hint: 'When you click past it, close by', on: small.aside, set: (aside: boolean) => setSmallSwitch({ aside }) }
+                { label: 'Steps aside', hint: 'When you click past it, close by', on: small.aside, set: (aside: boolean) => setSmallSwitch({ aside }) },
+                { label: 'Keep on top', hint: 'Over other apps, as quick capture is', on: small.top, set: (top: boolean) => setSmallSwitch({ top }) }
               ] : SMALL ? [] : [
                 // Settings' "Auto-close quick capture", here too: off, the box stays open and steps aside (main's stepAside).
                 { label: 'Close when you click away', hint: 'Off: it stays open and steps aside', on: appSettings?.boxAutoHide !== false, set: (boxAutoHide: boolean) => void haligtree.setSettings({ boxAutoHide }) }
