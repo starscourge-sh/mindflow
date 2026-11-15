@@ -12,7 +12,7 @@
 // `esc`: Esc over the scene goes straight to the first page in the window. `still`: with Motion off there is no scene,
 // the window is put in the middle at once and grows back at the end all the same.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-arrival.mjs [dark|light] [esc|still]
-import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 
@@ -112,13 +112,57 @@ try {
       check('its full-screen button off while the welcome plays', placed?.full === false)
       check('floated under AeroSpace first', calls().some((one) => one === `layout floating --window-id ${placed?.id}`), calls().join(' | '))
       check('the scene plays on in it, under the scene window', await h.evaluate(() => getComputedStyle(document.querySelector('.mf-welcome')).visibility === 'visible' && !!document.querySelector('[data-welcome-scene="window"]')))
+      // The fog drawn by the GPU, never its plain stand-in ground (15 Nov: in the user's dev app, StrictMode's second
+      // mount found the canvas's context lost, and both windows showed a flat beige, then a flat grey).
+      const drawn = () => {
+        const stage = document.querySelector('[data-scene-stage]')
+        const canvas = stage?.querySelector('canvas')
+        return { ground: stage?.style.background ?? 'none', canvas: canvas ? `${canvas.width}x${canvas.height}` : 'none' }
+      }
+      const sceneSaid = await c.electron.windows().find((one) => one.url().includes('view=scene'))?.evaluate(drawn)
+      const homeSaid = await h.evaluate(drawn)
+      check('the fog is drawn by the GPU in the scene window, not its plain ground', sceneSaid?.ground === '' && sceneSaid.canvas !== 'none' && !sceneSaid.canvas.startsWith('2x'), JSON.stringify(sceneSaid))
+      check('and in the welcome\'s window', homeSaid.ground === '' && homeSaid.canvas !== 'none', JSON.stringify(homeSaid))
       await at(13800)
       check('drawn in on the beat: handed over to the window', (await arrival())?.steps?.some((one) => one.what === 'handover'))
+      // On this screen's shape, whatever it is (16:9 left a bare band at the window's top and foot, 15 Nov).
+      const covered = await h.evaluate(() => {
+        const stage = document.querySelector('[data-welcome-scene="window"] [data-scene-stage]')?.getBoundingClientRect()
+        const room = document.querySelector('.mf-welcome')?.getBoundingClientRect()
+        return stage && room ? { ok: stage.left <= room.left + 0.5 && stage.top <= room.top + 0.5 && stage.right >= room.right - 0.5 && stage.bottom >= room.bottom - 0.5, stage: [stage.left, stage.top, stage.right, stage.bottom].map(Math.round), room: [room.left, room.top, room.right, room.bottom].map(Math.round), screen: [screen.width, screen.height] } : null
+      })
+      check('the scene covers the window to its edges on this screen\'s shape', covered?.ok === true, JSON.stringify(covered))
       check('the scene window then lets every click through', (await sceneOf())?.through === true, JSON.stringify(await sceneOf()))
       await at(18400)
       check('the scene window is gone by the first words', !(await sceneOf()))
       check('the first words come in the window', await h.evaluate(() => !!document.querySelector('[data-thesis]')))
-      check('the page has come in over the scene, the scene let go', await h.evaluate(() => !document.querySelector('[data-welcome-scene]')))
+      // As Dia's: the page a panel over the fog, solid under the words and thinning out to the right, the fog moving on
+      // beside it (never the old gold gradient over the whole window, "mud on the right", nor the red margin line).
+      const beside = await h.evaluate(() => ({
+        fog: !!document.querySelector('[data-welcome-scene="window"] [data-scene-stage]'),
+        panel: getComputedStyle(document.querySelector('[data-plate]')).backgroundImage,
+        margin: !!document.querySelector('[data-margin]')
+      }))
+      check('the page has come in over the scene as a panel, the fog moving on beside it', beside.fog && /linear-gradient/.test(beside.panel) && /transparent|rgba\(0, 0, 0, 0\)|0\)\s*100%/.test(beside.panel), JSON.stringify(beside).slice(0, 220))
+      check('no red margin line down the page', !beside.margin)
+      // QA_SHOTS: a picture of each page as it stands over the fog, for reading by eye beside Dia's (its panel and its sky).
+      if (process.env.QA_SHOTS) {
+        mkdirSync(process.env.QA_SHOTS, { recursive: true })
+        for (let page = 1; page <= 10; page++) {
+          for (let i = 0; i < 4; i++) {
+            const ready = await h.evaluate(() => { const next = [...document.querySelectorAll('.mf-welcome footer button')].at(-1); return !!next && !next.closest('[inert]') && !next.hasAttribute('disabled') })
+            if (ready) break
+            await h.keyboard.press('Escape'); await h.waitForTimeout(700)
+          }
+          await h.waitForTimeout(600)
+          const label = await h.evaluate(() => document.querySelector('.mf-welcome footer .sr-only')?.textContent ?? '')
+          await h.screenshot({ path: join(process.env.QA_SHOTS, `${THEME}-${String(page).padStart(2, '0')}-${label.replace(/[^a-z]+/gi, '-').slice(0, 30)}.png`) })
+          const last = await h.evaluate(() => !!document.querySelector('.mf-welcome [data-recommended]') || /open my book/i.test([...document.querySelectorAll('.mf-welcome footer button')].at(-1)?.textContent ?? ''))
+          if (last) break
+          await h.evaluate(() => [...document.querySelectorAll('.mf-welcome footer button')].at(-1)?.click())
+          await h.waitForTimeout(1200)
+        }
+      }
       check('the window keeps the welcome\'s size', same(await homeOf(), middle), box(await homeOf(), middle))
     }
   }

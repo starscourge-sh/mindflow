@@ -118,7 +118,8 @@ export type Fog = { draw: (frame: FogFrame) => void; lose: () => void }
 /** A fog drawn into `canvas`, or null where the GPU is not to be had (the scene then shows its plain ground). */
 export function fogIn(canvas: HTMLCanvasElement, scale = 0.5): Fog | null {
   const gl = canvas.getContext('webgl2', { premultipliedAlpha: true, alpha: true, antialias: false, powerPreference: 'high-performance' })
-  if (!gl) return null
+  // A canvas asked again gives back the context it already has: a lost one (the GPU reset) draws nothing, so the plain ground stands in.
+  if (!gl || gl.isContextLost()) return null
   const shader = (type: number, source: string): WebGLShader | null => {
     const one = gl.createShader(type)
     if (!one) return null

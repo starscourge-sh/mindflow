@@ -35,3 +35,16 @@ test("main keeps to the scene's own moments: the fog whole, the handover, the fi
   // In that order, the fog whole well before the scene draws in, the words after it.
   assert.ok(SCENE_COVERED < at('shrinkFrom') && at('shrinkTo') <= SCENE_HANDOVER && SCENE_HANDOVER < SCENE_WORDS)
 })
+
+// The scene covers the welcome's window on every shape of screen (15 Nov 2026: on the user's 1920 by 1080 screen the
+// window, 1190 by 744, was left a bare band 37 px tall at its top and foot, the stage scaled by width only).
+import { sceneCover } from '../src/renderer/src/components/haligtree/scene-cover.ts'
+test('the scene covers the window on a 16:9 screen, a 16:10 one and a taller one', () => {
+  for (const [w, h, win] of [[1920, 1080, { x: 365, y: 168, width: 1190, height: 744 }], [1920, 1200, { x: 365, y: 228, width: 1190, height: 744 }], [1920, 1243, { x: 365, y: 249, width: 1190, height: 744 }], [1470, 956, { x: 185, y: 134, width: 1100, height: 688 }]] as const) {
+    const { scale, cutX, cutY } = sceneCover({ screen: { width: w, height: h }, window: win })
+    // What the window shows of the stage, scaled, is exactly the window: never less on either side.
+    assert.ok(Math.abs((w - 2 * cutX) * scale - win.width) < 0.5, `${w}x${h}: width ${(w - 2 * cutX) * scale}`)
+    assert.ok(Math.abs((h - 2 * cutY) * scale - win.height) < 0.5, `${w}x${h}: height ${(h - 2 * cutY) * scale}`)
+    assert.ok(w * scale >= win.width - 0.5 && h * scale >= win.height - 0.5, `${w}x${h}: the stage covers it`)
+  }
+})

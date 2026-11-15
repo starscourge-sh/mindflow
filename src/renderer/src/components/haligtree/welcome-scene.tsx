@@ -2,6 +2,9 @@ import { useLayoutEffect, useRef } from 'react'
 import markGold from '@/assets/mark-gold-leaves.png'
 import { fogIn } from './welcome-fog'
 import { NOISE } from './grain'
+import { sceneCover, type ScenePlace } from './scene-cover'
+
+export type { ScenePlace }
 
 /**
  * The welcome's arrival, after Dia's onboarding (the user's reference film, 14 Nov): the desktop softens and a fog rolls
@@ -15,9 +18,6 @@ import { NOISE } from './grain'
  * scene has become the window (`desk`), and the welcome's window from then on (`window`), each from the same clock,
  * the same stage at the screen's size and the same fog, so the frame where one gives way to the other is the same frame.
  */
-
-/** Where the scene stands, in the screen's points: the whole screen, and the window it becomes (from the screen's top left). */
-export type ScenePlace = { screen: { width: number; height: number }; window: { x: number; y: number; width: number; height: number } }
 
 /** The arrival's moments, in ms from its start, at the welcome music's 72 beats a minute (lib/sound.ts ambience). */
 export const SCENE = {
@@ -60,12 +60,19 @@ export const SCENE = {
   titleOutTo: 16200,
   sweepFrom: 16000,
   sweepTo: 17000,
+  /** As the page comes, the storm clears to the pale haze it rolled in as, and moves on beside the page (Dia's right side). */
+  calmFrom: 16000,
+  calmTo: 18200,
   /** The first words, on the beat (21 beats at 72 a minute). */
   words: 17500
 } as const
 
 /** The window's corners on screen, as the Mac draws a window's. */
 export const CORNER = 12
+
+/** Where the GPU is not to be had: the fog's two looks as still grounds, never a flat sheet. */
+const PALE = 'radial-gradient(130% 95% at 32% 18%, #f1ece4 0%, #ddd8d0 45%, #bdb8b0 100%)'
+const STORM = 'linear-gradient(to bottom, #2b2927 0%, #3f3c38 52%, #a59d90 79%, #5a5550 86%, #2f2c29 100%)'
 
 const clamp = (x: number): number => Math.max(0, Math.min(1, x))
 const span = (t: number, from: number, to: number): number => clamp((t * 1000 - from) / (to - from))
@@ -101,21 +108,23 @@ export function WelcomeScene({ t0, place, mode, name, onHandover }: { t0: number
   handed.current = onHandover
   const { width: W, height: H } = place.screen
   const box = place.window
-  const s1 = box.width / W
+  const { scale: s1, cutX, cutY } = sceneCover(place)
 
   useLayoutEffect(() => {
-    const fog = canvas.current ? fogIn(canvas.current) : null
-    // No GPU to be had: the stage's own ground, pale and then storm, stands in.
-    if (!fog && stage.current) stage.current.style.background = '#d8d4cd'
+    // Kept for the cleanup: React may drop the ref before it runs.
+    const surface = canvas.current
+    const fog = surface ? fogIn(surface) : null
+    // No GPU to be had: the stage's own ground stands in, shaped as the fog is (lit from above, darker to the corners).
+    if (!fog && stage.current) stage.current.style.background = PALE
     let frame = 0
     let said = false
     // A film made off screen (qa/welcome-scene-film.mjs) draws chosen moments itself: the clock it sets, never a handover.
     const qa = window as { qaSceneNow?: number; qaScenePaint?: () => void }
     const paint = (): void => {
       const t = ((qa.qaSceneNow ?? Date.now()) - t0) / 1000
-      const storm = ease(span(t, SCENE.stormFrom, SCENE.stormTo))
+      const storm = ease(span(t, SCENE.stormFrom, SCENE.stormTo)) * (1 - ease(span(t, SCENE.calmFrom, SCENE.calmTo)))
       if (fog) fog.draw({ time: t, cover: ease(span(t, SCENE.coverFrom, SCENE.coverTo)), light: ease(span(t, SCENE.lightFrom, SCENE.lightTo)), storm, trunk: trunkAt(t) })
-      else if (stage.current) stage.current.style.background = storm > 0.5 ? '#3d3a36' : '#d8d4cd'
+      else if (stage.current) stage.current.style.background = storm > 0.5 ? STORM : PALE
       // The words: the hand writes alone in the pale fog, then steps down under the name as the mark rises with it.
       const handIn = span(t, SCENE.handFrom, SCENE.handTo)
       const rise = out(span(t, SCENE.markFrom, SCENE.markTo))
@@ -147,13 +156,15 @@ export function WelcomeScene({ t0, place, mode, name, onHandover }: { t0: number
         const k = settle(span(t, SCENE.shrinkFrom, SCENE.shrinkTo))
         const lead = ease(span(t, SCENE.leadFrom, SCENE.leadTo)) * 0.09 * H
         const scale = 1 + (s1 - 1) * k
-        const inset = (H - box.height / s1) / 2
-        const top = lead + (inset - lead) * k
-        const foot = inset * k
+        // The top edge has come down by `lead` before the draw-in; from there it goes on down to the window's own top
+        // (never back up), while the other edges come in to the window's from where they stood.
+        const top = lead + (cutY - lead) * k
+        const foot = cutY * k
+        const side = cutX * k
         const dx = box.x + box.width / 2 - W / 2
         const dy = box.y + box.height / 2 - H / 2
         stage.current.style.transform = `translate(${(dx * k).toFixed(2)}px, ${(dy * k).toFixed(2)}px) scale(${scale.toFixed(5)})`
-        stage.current.style.clipPath = `inset(${top.toFixed(2)}px 0px ${foot.toFixed(2)}px 0px round ${((CORNER * k) / scale).toFixed(2)}px)`
+        stage.current.style.clipPath = `inset(${top.toFixed(2)}px ${side.toFixed(2)}px ${foot.toFixed(2)}px ${side.toFixed(2)}px round ${((CORNER * k) / scale).toFixed(2)}px)`
         if (!said && qa.qaSceneNow === undefined && t * 1000 >= SCENE.handover) {
           said = true
           handed.current?.()
@@ -166,18 +177,21 @@ export function WelcomeScene({ t0, place, mode, name, onHandover }: { t0: number
     }
     tick()
     qa.qaScenePaint = paint
-    // In the window: covering it at whatever size it is.
+    // In the window: covering it at whatever size it is, as the scene window's last frame did at the window's own size.
     const room = mode === 'window' ? stage.current?.parentElement : null
     const cover = room && new ResizeObserver(() => {
       if (!stage.current) return
-      const scale = Math.max(room.clientWidth / W, room.clientHeight / (box.height / s1))
+      const scale = Math.max(room.clientWidth / W, room.clientHeight / H)
       stage.current.style.transform = `scale(${scale.toFixed(5)})`
     })
     if (room && cover) cover.observe(room)
     return () => {
       cancelAnimationFrame(frame)
       cover?.disconnect()
-      fog?.lose()
+      // React's development build (StrictMode, the user's `npm run dev`) undoes a first mount at once and mounts again on
+      // the same canvas: losing its GPU context here left the second mount none, and the fog fell back to its plain ground
+      // (15 Nov, the user's frames). It is let go only once the canvas has really left the page.
+      setTimeout(() => void (surface?.isConnected || fog?.lose()), 0)
     }
   }, [t0, mode, W, H, box.x, box.y, box.width, box.height, s1])
 

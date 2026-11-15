@@ -712,14 +712,19 @@ export function Welcome(): React.JSX.Element | null {
       style={scened && !scened.covered ? { visibility: 'hidden' } : undefined}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
       {/* The scene, as the window it has become (welcome-scene.tsx): the same frame the scene window drew last, moving on
-          under the page, which comes in over it from the left (the sweep) as the first words come. */}
-      {scened && scened.t0 > 0 && scened.covered && !swept && (
+          under the page, which comes in over it from the left (the sweep) as the first words come, and stays beside it
+          for the whole welcome, cleared to the pale haze, as Dia's onboarding keeps its sky beside its panel. */}
+      {scened && scened.t0 > 0 && scened.covered && (
         <WelcomeScene t0={scened.t0} place={scened.place} mode="window" name={state?.name ?? ''} />
       )}
-      {/* The window's own page: after a scene, it comes in over it from the left, its leading edge soft, as Dia's panel does. */}
-      <div ref={plate} data-plate="" className={`absolute inset-0 bg-background ${scened && !swept ? "after:pointer-events-none after:absolute after:inset-y-0 after:left-full after:w-[14%] after:bg-[linear-gradient(90deg,var(--background),transparent)] after:content-['']" : ''}`}
-        style={scened && !swept ? { transform: 'translateX(-112%)' } : undefined}>
-        <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} desk={!!scened} held={!!scened && !swept} onBloomed={bloom} />
+      {/* The window's own page. After a scene it is a panel coming in from the left over the fog: solid under the words,
+          thinning out to the right so the fog moves on beside them (Dia's black panel and its sky), never the old gold
+          gradient over the whole window (the user: "mud on the right"). */}
+      <div ref={plate} data-plate="" className={`absolute inset-0 ${scened ? '' : 'bg-background'}`}
+        style={scened ? { background: SCENE_PANEL, ...(swept ? {} : { transform: 'translateX(-112%)' }) } : undefined}>
+        {scened
+          ? <div aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.035] mix-blend-overlay" style={{ backgroundImage: NOISE, backgroundSize: '160px' }} />
+          : <Backdrop family={at === WRITE ? 'ruled' : at === DIAL ? 'dots' : 'none'} page={at} arrival={arrival} arriving={mist && veiled && at === WHY} desk={false} held={false} onBloomed={bloom} />}
       </div>
       {/* The first screen's autumn leaves, blowing behind the words; Next blows them away, and a
           few small ones drift on through the rest (not over the dial, which has its own light). On the
@@ -735,11 +740,6 @@ export function Welcome(): React.JSX.Element | null {
       {at === LAST && <TrayArrow tray={state?.tray ?? null} />}
       {/* The chapter's thumb index on the fore-edge, moving down a place each chapter. */}
       <div className="relative z-[32] mx-auto flex min-h-0 w-full max-w-[84rem] flex-1 flex-col">
-        {/* The book's ruled margin, in red ink: drawn down the page as the first words come, and kept on every page after, so each chapter reads as the same book.
-            Soft ink soaked into the paper, fading out at its top and foot as a notebook's rule does, never a loose line. */}
-        <motion.div aria-hidden data-margin="" className="pointer-events-none absolute -top-11 bottom-0 left-[calc(clamp(1.5rem,5vw,4rem)*0.45)] w-px origin-top"
-          style={{ background: 'linear-gradient(to bottom, transparent, color-mix(in oklab, var(--tt-color-text-red) 20%, transparent) 14%, color-mix(in oklab, var(--tt-color-text-red) 20%, transparent) 80%, transparent)' }}
-          initial={false} animate={{ transform: veiled ? 'scaleY(0)' : 'scaleY(1)' }} transition={{ duration: quiet ? 0 : 1.6, ease: ENTER }} />
         <main className="relative min-h-0 flex-1">
           <AnimatePresence initial={false} custom={turning}>
             <motion.section key={at} custom={turning} variants={PAGE}
@@ -2006,6 +2006,9 @@ function BoxKeys(): React.JSX.Element {
  * here to go back.
  */
 const WELCOME_BACKGROUND: 'grainient' | 'paper' = 'grainient'
+
+/** After a scene: the page as a panel over the fog, solid under the words and thinning out to the right (Dia's panel). */
+const SCENE_PANEL = 'linear-gradient(90deg, var(--background) 0%, var(--background) 50%, color-mix(in oklab, var(--background) 80%, transparent) 61%, color-mix(in oklab, var(--background) 42%, transparent) 76%, color-mix(in oklab, var(--background) 12%, transparent) 91%, transparent 100%)'
 
 /**
  * `arrival` counts the arrivals played; `arriving` is true while one is on; `onBloomed` once its gradient is whole.
