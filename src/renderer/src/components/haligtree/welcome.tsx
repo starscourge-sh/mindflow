@@ -2338,10 +2338,13 @@ function Start({ state, onState, name, kept, mine, skipped, importing, still, on
     { key: 3, title: from && from !== 'Other files' ? `Bring my notes from ${from}` : 'Bring my notes', line: 'From Apple Notes, Obsidian, Notion, Anki or files. See what each thing becomes before you choose.', icon: FolderInput }
   ]
   return (
-    <div className="my-auto mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1rem,4vh,2.5rem)] overflow-y-auto">
+    // The page with the most on it: its headline and gaps a smaller share of the height than the other pages', so its two
+    // choices stand whole above the footer at every size the welcome takes (they were cut, 15 Nov 2026; a taller window
+    // alone did not do it, the words growing with it).
+    <div className="my-auto mr-auto flex w-full max-w-[58rem] flex-col gap-[clamp(1rem,3vh,2rem)] overflow-y-auto">
       <div className="flex flex-col gap-[clamp(0.5rem,1.8vh,1rem)]">
         <p data-tagline className={`${BODY} font-semibold text-foreground`}>{TAGLINE}</p>
-        <h1 className={`${HEADLINE_XL} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
+        <h1 className={`${HEADLINE_XL.replace('text-[clamp(2.25rem,min(5.6vw,8.4vh),5.25rem)]', 'text-[clamp(2.25rem,min(5.6vw,6.4vh),4.5rem)]')} max-w-[14ch]`}><Rise text={name ? `Your commonplace book is ready, ${name}.` : 'Your commonplace book is ready.'} still={still} /></h1>
         {!state?.boxTaken && <p data-start-kept className={`${BODY} max-w-[30ch]`}>{kept ? <>{keptSaid(kept, mine)} <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> adds the next, from any app.</> : <>Press <InlineKeys keys={keyFor('⌘.') || '⌘.'} /> from any app to save your first note.</>}</p>}
         {picking && <div data-start-key-picker className={`${BODY} max-w-[48ch]`}><KeyPicker taken={!!state?.boxTaken} onState={onState} /></div>}
         {setup.made?.goalId && setup.made.goalTitle && setup.made.goalBy && goalOpen && (
