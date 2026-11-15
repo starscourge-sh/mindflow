@@ -42,6 +42,16 @@ const bar = () => h.evaluate((sel) => {
   for (let el = dom.parentElement; el && el !== document.documentElement; el = el.parentElement) if (/(auto|scroll)/.test(getComputedStyle(el).overflowY)) sight = Math.max(sight, el.getBoundingClientRect().top)
   return { shown: true, clear: r.bottom <= top + 1 || r.top >= bottom - 1 || top < sight + r.height }
 }, ED)
+// Whether the pick leaves room above or below it in sight for the bar: with none (it fills the sight), the bar stays away, by design.
+const room = () => h.evaluate((sel) => {
+  const dom = document.querySelector(sel)
+  const ed = dom.editor
+  const { from, to } = ed.state.selection
+  const top = ed.view.coordsAtPos(from).top, bottom = ed.view.coordsAtPos(to).bottom
+  let sight = { top: 0, bottom: innerHeight }
+  for (let el = dom.parentElement; el && el !== document.documentElement; el = el.parentElement) if (/(auto|scroll)/.test(getComputedStyle(el).overflowY)) { const b = el.getBoundingClientRect(); sight = { top: Math.max(sight.top, b.top), bottom: Math.min(sight.bottom, b.bottom) } }
+  return top - sight.top >= 60 || sight.bottom - bottom >= 60
+}, ED)
 // The caret into the words `word`, by a real click on them, brought to the middle of the screen first.
 const caretIn = async (word) => {
   const place = ([sel, word, scroll]) => {
@@ -108,15 +118,18 @@ async function run(word, said, steps, label, shots) {
   if (label.includes('insert')) { await h.keyboard.press('i'); await wait(150) }
   const seen = []
   for (const [i, [kind, words]] of steps.entries()) {
+    const prior = shots && kind === 'text' && i > 0 ? await bar() : null
     await h.keyboard.press('Meta+a')
+    const gone = prior ? await bar() : null
     // Filmed every 50 ms after the press (Paper): the bar over the words waits, then comes once, whole.
     if (shots && SHOTS && i === 1) for (let f = 0; f < 6; f++) { await h.screenshot({ path: join(SHOTS, `e4-${word.replace(/\W+/g, '-')}-step${i + 1}-film${f * 50}ms.png`) }); await wait(50) }
-    // The bar never sits on what the step took in: gone at the press, back above the new pick once the keys rest.
-    if (shots && kind === 'text' && i > 0) {
-      const gone = await bar()
+    // The bar never sits on what the step took in: gone at the press, back above the new pick once the keys rest
+    // (or, where the pick fills the sight, kept away, as for any pick that leaves it no room).
+    if (gone) {
       await wait(450)
       const back = await bar()
-      check(`${label}: from ${said}, ⌘A ${i + 1}: the bar leaves at the press and comes back clear of the words`, !gone.shown && back.shown && back.clear, `${JSON.stringify(gone)} then ${JSON.stringify(back)}`)
+      const roomy = await room()
+      check(`${label}: from ${said}, ⌘A ${i + 1}: the bar leaves at the press and comes back clear of the words`, !gone.shown && (back.shown ? back.clear : !roomy), `before ${JSON.stringify(prior)}, at the press ${JSON.stringify(gone)}, then ${JSON.stringify(back)}, room ${roomy}`)
     }
     await wait(120)
     const now = await picked()
@@ -224,7 +237,7 @@ try {
         // The section round a folded heading, picked: the folded part goes with it, still folded (its end is in there).
         const third = h.locator(`${ED} h2`, { hasText: 'Third' })
         await caretIn('Third')
-        await third.locator('button[aria-label="Fold this section"]').click(); await wait(300)
+        await h.keyboard.press('Meta+Alt+BracketLeft'); await wait(300)
         await caretIn('first words')
         await h.keyboard.press('Meta+a'); await wait(100)
         await h.keyboard.press('Meta+a'); await wait(300)
@@ -233,7 +246,7 @@ try {
         check('vim off: ⌘A picking the section round a folded heading leaves it folded', garden.words === GARDEN && folded === 1, `${garden.words.slice(0, 30)}…, folded ${folded}`)
         // Esc lets the caret go to the far end, inside the fold, which opens it as any caret landing there does.
         await h.keyboard.press('Escape'); await wait(300)
-        if (await third.locator('button[aria-label="Unfold this section"]').count()) { await third.locator('button[aria-label="Unfold this section"]').click(); await wait(300) }
+        if (await third.locator('button[aria-label="Unfold this section"]').count()) { await caretIn('Third'); await h.keyboard.press('Meta+Alt+BracketLeft'); await wait(300) }
       }
       // A run ends as any selection ends, and the next starts again from the caret's block.
       await caretIn('berry')
