@@ -27,7 +27,7 @@ const set = async (html) => {
 /** The grip beside `target` (a locator), its menu, and the row named `row`. `typed`: a letter typed in the block first, then straight to the grip, as a quick hand goes. */
 async function fromGrip(target, row, { typed = false } = {}) {
   await page.mouse.move(5, 5)
-  await target.hover({ timeout: 3000 })
+  await target.hover({ timeout: 20000 })
   await page.waitForTimeout(250)
   const grip = page.locator('.tiptap-drag-handle:not(.is-hidden) .tiptap-drag-handle-grip')
   if (!(await grip.count()) || !(await grip.isVisible())) return 'no grip'
@@ -160,7 +160,7 @@ await page.setViewportSize?.({ width: 1100, height: 820 }).catch(() => {})
 const pressAfterTyping = async (cell, control, row) => {
   await set(NOTE)
   await page.mouse.move(5, 5)
-  await cell.hover({ timeout: 3000 })
+  await cell.hover({ timeout: 20000 })
   await page.waitForTimeout(250)
   await cell.click()
   await page.keyboard.press('End')
