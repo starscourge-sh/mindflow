@@ -41,7 +41,9 @@ try {
   await copy({ text: 'The moon pulls the sea twice a day.', url: 'https://example.com/tides' }); await wait(1600)
   let found = await quotes()
   check('a copy lands in the note in its own quote', found.length === 1 && textOf(found[0]).includes('The moon pulls the sea twice a day.'), textOf(found))
-  check('with where it came from: the app and the page as a link', textOf(found[0] ?? {}).includes('https://example.com/tides') && /From [^"]+ · /.test(textOf(found[0] ?? {})), textOf(found[0] ?? {}))
+  // Said by its line alone (the whole quote ran past what a failed line shows).
+  const from = (found[0]?.content ?? []).slice(1).map((one) => (one.content ?? []).map((part) => `${part.text}${part.marks?.length ? ` <${part.marks.map((mark) => mark.attrs?.href ?? mark.type).join(',')}>` : ''}`).join('')).join(' / ')
+  check('with where it came from: the app and the page as a link', textOf(found[0] ?? {}).includes('https://example.com/tides') && /From [^"]+ · /.test(textOf(found[0] ?? {})), from)
   await copy({ text: 'hunter2-password', secret: true }); await wait(1600)
   check('a concealed copy (a password manager) never lands', !textOf(await doc()).includes('hunter2'), String((await quotes()).length))
   await copy({ text: 'Spring tides come at the full moon.' }); await wait(1600)

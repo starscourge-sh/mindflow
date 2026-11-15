@@ -90,8 +90,10 @@ const frontApp = (): Promise<string | null> =>
     execFile('/usr/bin/lsappinfo', ['front'], { timeout: 800 }, (error, front) => {
       const asn = /ASN:[\w-]+:/.exec(front)?.[0]
       if (error || !asn) return done(null)
+      // Said as `"LSDisplayName"="Safari"`, or (macOS 27) as the record's own first line, `"Safari" ASN:0x0-0x…: (in front)`:
+      // read only the first way, every copy's line left out where it came from.
       execFile('/usr/bin/lsappinfo', ['info', '-only', 'name', asn], { timeout: 800 }, (failed, out) => {
-        done(failed ? null : (/"(?:LSDisplayName|name)"="([^"]+)"/i.exec(out)?.[1] ?? null))
+        done(failed ? null : (/"(?:LSDisplayName|name)"="([^"]+)"/i.exec(out)?.[1] ?? /^\s*"([^"]+)"\s+ASN:/m.exec(out)?.[1] ?? null))
       })
     })
   })
