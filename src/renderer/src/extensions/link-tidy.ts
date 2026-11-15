@@ -1,6 +1,6 @@
 import { Extension, type Editor } from "@tiptap/core"
 import type { Mark, Node as ProseMirrorNode } from "@tiptap/pm/model"
-import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state"
+import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state"
 import { AddMarkStep } from "@tiptap/pm/transform"
 import { attributesOnly, restoring } from "@/lib/undo-exact"
 import { changedSpan } from "@/lib/text-edit"
@@ -127,7 +127,9 @@ export const LinkTidy = Extension.create({
           init: () => null,
           apply: (tr, value) => {
             if (tr.getMeta(justLinked) === "taken") return null
-            const linked = tr.getMeta("appendedTransaction")
+            // Linked as you typed: not by a paste or a drop, which one ⌘Z takes back whole, links and all.
+            const by = tr.getMeta("appendedTransaction") as Transaction | undefined
+            const linked = by && !by.getMeta("uiEvent") && !by.getMeta("applyPasteRules")
               ? tr.steps.find((step): step is AddMarkStep => step instanceof AddMarkStep && step.mark.type.name === "link")
               : undefined
             if (linked) return { from: linked.from, to: linked.to }
