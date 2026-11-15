@@ -2876,12 +2876,14 @@ html[data-drag-refused], html[data-drag-refused] * { cursor: not-allowed !import
 }
 
 /* A keycap on a filled accent button (Next, Done, Save, Create and the rest):
-   part of the button, never a pale box pasted on it. A slightly darker tint
-   of the button, a faint outline in the button's own ink, its key at 75%. */
+   part of the button, never a pale box pasted on it. A faint outline in the
+   button's own ink, and its key in that ink whole, as readable as the label
+   beside it; quieter by its size. Its key at 75% over a darker cap read 4.0:1
+   on Tokyo Night's accent and 4.4:1 on Everforest's. */
 :is([data-slot='button']:not([data-variant]), [data-slot='button'][data-variant='default'], .bg-primary) :is([data-slot='kbd'], kbd) {
-  background: color-mix(in oklab, black 14%, transparent) !important;
+  background: transparent !important;
   border-color: color-mix(in oklab, var(--primary-foreground) 26%, transparent) !important;
-  color: color-mix(in oklab, var(--primary-foreground) 75%, transparent) !important;
+  color: var(--primary-foreground) !important;
   box-shadow: none !important;
 }
 

@@ -1,13 +1,11 @@
 import { cn } from "@/lib/cn"
 
-// A key on a filled button (Close the day, Make card, Next in the tour) wears the button's own ink on a cap of it:
-// Faded Ink on the accent read 4.0:1.
 function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
   return (
     <kbd
       data-slot="kbd"
       className={cn(
-        "pointer-events-none inline-flex h-5 w-fit min-w-5 shrink-0 items-center whitespace-nowrap [overflow-wrap:normal] justify-center gap-1 rounded-xs bg-muted px-1 font-sans text-[0.625rem] font-medium text-muted-foreground select-none in-data-[slot=tooltip-content]:bg-foreground/10 in-data-[slot=tooltip-content]:text-popover-foreground [[data-slot=button][data-variant=default]_&]:bg-primary-foreground/15 [[data-slot=button][data-variant=default]_&]:text-primary-foreground [&_svg:not([class*='size-'])]:size-3",
+        "pointer-events-none inline-flex h-5 w-fit min-w-5 shrink-0 items-center whitespace-nowrap [overflow-wrap:normal] justify-center gap-1 rounded-xs bg-muted px-1 font-sans text-[0.625rem] font-medium text-muted-foreground select-none in-data-[slot=tooltip-content]:bg-foreground/10 in-data-[slot=tooltip-content]:text-popover-foreground [&_svg:not([class*='size-'])]:size-3",
         className
       )}
       {...props}
