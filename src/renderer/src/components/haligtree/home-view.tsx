@@ -388,7 +388,7 @@ function Row({ title, over, lead, onAll, menu, children }: { title: ReactNode; /
       {/* ‹ and › beside Show all, never over a card's words. */}
       <div className={lead ? 'flex flex-col gap-3 @[44rem]/page:flex-row @[44rem]/page:gap-6 @[44rem]/page:pl-8' : ''}>
       {lead && (
-        <div className="flex min-w-0 shrink-0 flex-col gap-1 px-5 @[44rem]/page:w-[46%] @[44rem]/page:px-0">
+        <div className="flex min-w-0 shrink-0 flex-col gap-1 px-5 @[44rem]/page:w-[50%] @[44rem]/page:px-0">
           <p className="text-xs text-muted-foreground">{lead.over}</p>
           <Heading title={lead.title} />
           {/* As tall as a whole tile beside it, picture and words: the row's own height, never the picture's alone. */}
@@ -662,12 +662,12 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
   const feature = (
     <RowMenu items={() => menuFor(lead, actions, cards, 0)}>
       <div data-coming-feature className="group/card relative flex h-full w-full min-w-0" data-private={lead.private ? '' : undefined}>
-        <Lean by={3} className="h-full w-full min-w-0" inner="relative flex h-full flex-col gap-3 overflow-hidden rounded-lg p-1.5 transition-colors duration-150 hover:bg-foreground/[0.05]">
+        <Lean by={3} className="h-full w-full min-w-0" inner="relative flex h-full flex-col gap-3 overflow-hidden rounded-lg p-5 transition-colors duration-150 hover:bg-foreground/[0.05]">
           {/* The whole card opens it; the round buttons sit over it. */}
           <button type="button" aria-label={nameOf(lead)} data-nav data-private={lead.private ? '' : undefined} data-picked={actions.picked?.(lead) || undefined} data-drag-open={`${lead.type}:${lead.id}`} onClick={(event) => actions.open(lead, event)}
             className="absolute inset-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50" />
           <div className="pointer-events-none relative flex min-h-[calc(var(--card)-0.75rem)] flex-1 items-stretch gap-4">
-            <Cover card={lead} className="aspect-square h-full max-w-[55%] shrink-0 rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
+            <Cover card={lead} className="aspect-square h-full shrink-0 rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
             <div className="flex min-w-[10rem] flex-1 flex-col justify-center gap-1 py-3 pr-4">
               <span className="truncate text-xs text-muted-foreground">{kindLabel(lead)} · {lead.sub ?? 'Coming back'}</span>
               <span className="private-text line-clamp-2 text-heading leading-tight font-semibold tracking-[-0.01em] hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(lead)}</span>
