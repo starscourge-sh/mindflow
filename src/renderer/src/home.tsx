@@ -13,7 +13,7 @@ import { useAbandonAction } from '@/lib/abandon'
 import { warmBin } from '@/lib/fly-home'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react'
 import { wearFinish } from './components/haligtree/review-toolbar'
-import { BookOpen, ChevronsDownUp, ChevronsUpDown, Compass, FileText, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
+import { BookOpen, ChevronsDownUp, ChevronsUpDown, Compass, FileText, FolderPlus, PanelsTopLeft, Plus, Settings as SettingsLine } from 'lucide-react'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
@@ -2281,7 +2281,8 @@ export function Home(): React.JSX.Element {
                   <Tip label={list === 'article' ? 'Add a page' : 'New folder'}>
                     <button type="button" data-folder-new={list} aria-label={list === 'article' ? 'Add a page to Writing' : `New folder in ${section.label}`} onClick={() => (list === 'article' ? addPage() : newFolder(list))}
                       className="flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-                      <Plus className="size-3.5" />
+                      {/* One sign per act: a page's "+" beside Writing, a folder's own sign where the button makes a folder. */}
+                      {list === 'article' ? <Plus className="size-3.5" /> : <FolderPlus className="size-3.5" />}
                     </button>
                   </Tip>
                 </span>
