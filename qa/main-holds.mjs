@@ -1,5 +1,5 @@
 // Main's one thread answers every window, so nothing a page asks may hold it (the user, 15 Nov 2026: "note that the
-// app freezes randomly, i want this to never happen"). Four asks that held it, and a HEIC that came in as no picture,
+// app freezes randomly, i want this to never happen"). Five asks that held it, and a HEIC that came in as no picture,
 // each made here as a page makes it, with how late main's event loop ran while it was answered (stalls.ts) and what
 // came back:
 //   1. the welcome's state, which ran `id -F` in step: 418 ms in the user's own freeze logs (a slow `id` stands in
@@ -8,7 +8,8 @@
 //      at all (kept as an unreadable file, no picture);
 //   3. a big photograph dragged out of a note to another app, opened whole on main for the picture under the pointer
 //      (the system drag itself is stubbed: it needs the real pointer);
-//   4. the Feed's side column, which read every note of the book (263 ms on the user's book).
+//   4. "Copy image" on the same photograph, read whole and written out again as a PNG on main's thread;
+//   5. the Feed's side column, which read every note of the book (263 ms on the user's book).
 // Run on a COPY of a book (part 4 needs a real one) or of the seeded sandbox:
 //   QA_DATA=<copy> QA_ARGS= QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/main-holds.mjs
 import { execFileSync } from 'child_process'
@@ -103,7 +104,25 @@ try {
   check(`a ${process.env.BIG ? 'big' : '24-megapixel'} photograph dragged out never holds main (its loop under ${LATE_MS} ms late)`, dragged && afterDrag.delay.worst < LATE_MS, `${afterDrag.delay.worst} ms late at worst; main was asked: ${between(beforeDrag, afterDrag)}  [${load()}]`)
   check('and the drag carries the file under its name, with a small picture of it', dragged && !dragged.empty && dragged.width > 0 && dragged.width <= 96 && /Harbour at dusk\.(jpg|png)$/.test(dragged.file), JSON.stringify(dragged))
 
-  // 4. The Feed's side column.
+  // 4. "Copy image" on the same photograph, as a picture's menu asks it. The clipboard is the app's stand-in under a
+  // test run (src/main/pasteboard.ts), so the Mac's own is never touched; its PNG's size is read from its header.
+  await h.waitForTimeout(2500)
+  await electron.evaluate(() => globalThis.qaPasteboard.clear())
+  const beforeCopy = await stalls()
+  const copied = await h.evaluate((src) => window.api.copyImage(src), photo)
+  const afterCopy = await stalls()
+  const onBoard = await electron.evaluate(async () => {
+    for (const item of await globalThis.qaPasteboard.read()) {
+      if (!item.types.includes('image/png')) continue
+      const head = new DataView(await (await item.getType('image/png')).arrayBuffer())
+      return `${head.getUint32(16)} x ${head.getUint32(20)}`
+    }
+    return null
+  })
+  check(`"Copy image" on a ${process.env.BIG ? 'big' : '24-megapixel'} photograph never holds main (its loop under ${LATE_MS} ms late)`, copied && afterCopy.delay.worst < LATE_MS, `${afterCopy.delay.worst} ms late at worst; main was asked: ${between(beforeCopy, afterCopy)}  [${load()}]`)
+  check('and the clipboard holds it as a PNG of its own size', process.env.BIG ? !!onBoard : onBoard === '6000 x 4000', `copied ${copied}; on the clipboard: ${onBoard ?? 'no PNG'}`)
+
+  // 5. The Feed's side column.
   await stalls()
   const side = await v('feed:side')
   const afterSide = await stalls()

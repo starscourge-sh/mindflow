@@ -125,7 +125,7 @@ import { allPlaces, sunToday } from './sun'
 import { registerJournal } from './journal'
 import { registerPdfHighlights } from './pdf-highlights'
 import { kindByEnd, pdfsToFind } from './find-files'
-import { addMedia } from './media'
+import { addMedia, turnedCopy } from './media'
 import { addSaid } from './media-words'
 import { registerWebArticles } from './web-articles'
 import { articleNames } from './article-names'
@@ -6823,23 +6823,23 @@ app.whenReady().then(() => {
 
     // As a PNG, the picture type every app pastes (WhatsApp, Messages, Slack,
     // Preview); a GIF or WebP written as itself went on the clipboard under a
-    // type most apps never ask for, so nothing pasted. A GIF gives its first
-    // frame; anything the system can't draw goes as its own type.
+    // type most apps never ask for, so nothing pasted. A PNG goes as its own
+    // bytes; any other picture is turned into one at its own size by the Mac's
+    // `sips` in a process of its own (media.ts), a GIF as its first frame. Read
+    // whole and written out again on this thread, a 24-megapixel photograph held
+    // every window (qa/main-holds.mjs). What sips can't read (an SVG) the system's
+    // thumbnailer may draw; anything else goes as its own type.
     const path = join(assetsDir(), name)
+    const turned = extension === 'png' ? null : await turnedCopy(path, null, name)
     try {
-      let image = nativeImage.createFromPath(path)
-      // The system's own reader takes what nativeImage can't (a GIF, a HEIC):
-      // the picture at full size, its first frame for a GIF.
-      if (image.isEmpty()) image = await nativeImage.createThumbnailFromPath(path, { width: 4096, height: 4096 }).catch(() => image)
-      if (!image.isEmpty()) {
-        await pasteboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })])
-        return true
-      }
-      const bytes = await readFile(path)
-      await pasteboard.write([new ClipboardItem({ [mime]: new Blob([bytes], { type: mime }) })])
+      const drawn = extension === 'png' || turned ? null : await nativeImage.createThumbnailFromPath(path, { width: 4096, height: 4096 }).catch(() => null)
+      const png = extension === 'png' ? await readFile(path) : turned ? await readFile(turned) : drawn && !drawn.isEmpty() ? drawn.toPNG() : null
+      await pasteboard.write([new ClipboardItem(png ? { 'image/png': new Blob([new Uint8Array(png)], { type: 'image/png' }) } : { [mime]: new Blob([await readFile(path)], { type: mime }) })])
       return true
     } catch {
       return false
+    } finally {
+      if (turned) await rm(turned, { force: true })
     }
   })
 

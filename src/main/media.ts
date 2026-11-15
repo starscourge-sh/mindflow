@@ -593,11 +593,12 @@ async function headOf(path: string): Promise<Uint8Array> {
 }
 
 /**
- * A HEIC or TIFF as a PNG, made by the Mac's own `sips` in a process of its own (the way scenery.ts turns a WebP), never
- * on main's thread: the PNG's path, to be removed once stored, or null when the Mac cannot read it. (nativeImage, asked
- * before, read neither, so each was kept as an unreadable file with no picture: qa/main-holds.mjs.)
+ * A picture as a PNG, made by the Mac's own `sips` in a process of its own (the way scenery.ts turns a WebP), never
+ * on main's thread: the PNG's path, to be removed once used, or null when the Mac cannot read it. A HEIC or TIFF added
+ * here (nativeImage, asked before, read neither, so each was kept as an unreadable file with no picture), and a picture
+ * copied with "Copy image" (index.ts): qa/main-holds.mjs.
  */
-async function turnedCopy(path: string, bytes: Uint8Array | null, name: string): Promise<string | null> {
+export async function turnedCopy(path: string, bytes: Uint8Array | null, name: string): Promise<string | null> {
   if (process.platform !== 'darwin') return null
   const out = join(app.getPath('temp'), `haligtree-turned-${randomUUID()}`)
   const given = path || `${out}${extname(name)}`
