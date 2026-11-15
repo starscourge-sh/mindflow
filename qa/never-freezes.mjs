@@ -28,6 +28,12 @@
 // SHORT=1 is the same in about a minute, for working on a fix: the three
 // largest notes, one save of the largest, three searches and three pages.
 // The whole session is five minutes: run it alone, for the final proof.
+//
+// VIEWS='review sources feed' walks those pages instead; BOX=1 adds quick
+// capture (opened, typed into, closed), its own long frames counted too;
+// QA_ARGS=--sandbox walks a copy of a sandbox (QA_DATA holds its `sandbox`
+// folder). Every stretch of BLOCK_MS or more is listed at the end with what
+// held it, whoever's it is (EVERY=1 lists them all, not the worst 40).
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
 import { loadavg } from 'os'
@@ -60,29 +66,32 @@ const NOTES = Number(process.env.NOTES ?? 30)
 const root = process.env.QA_DATA
 if (!root) throw new Error('QA_DATA must be a copy of a book')
 const shelf = existsSync(join(root, 'books.json')) ? JSON.parse(readFileSync(join(root, 'books.json'), 'utf8')) : null
-const file = shelf?.last && shelf.last !== 'default' ? join(root, 'books', shelf.last, 'haligtree.db') : join(root, 'haligtree.db')
+const SANDBOX = (process.env.QA_ARGS ?? '').includes('--sandbox')
+const file = SANDBOX ? join(root, 'sandbox', 'haligtree.db') : shelf?.last && shelf.last !== 'default' ? join(root, 'books', shelf.last, 'haligtree.db') : join(root, 'haligtree.db')
 const db = new DatabaseSync(file, { readOnly: true })
 const all = [
   ...db.prepare("select id, 'capture' as type, length(body) as size from captures where status = 'open' and kind = 'note' and body is not null").all(),
   ...db.prepare("select id, 'article' as type, length(body) as size from nuggets where tier = 'article' and binned_at is null and body is not null").all()
 ].sort((a, b) => b.size - a.size)
 const pdf = db.prepare('select r.src, coalesce(t.title, \'\') as title from pdf_reading r left join pdf_titles t on t.src = r.src order by r.read_at desc limit 1').get()
+// A note that is drawn as a board (its kanban field): opened as one of the pages, with BOX.
+const board = db.prepare("select id, 'article' as type from nuggets where fields like '%kanban-plugin%board%' and binned_at is null union all select id, 'capture' as type from captures where fields like '%kanban-plugin%board%' and status = 'open' limit 1").get()
 db.close()
 const ordinary = all.filter((one) => one.size > 1500 && one.size < 60000)
 // The three largest spread through the session, the largest last so the typing is in it.
 const few = ordinary.filter((_, at) => at % Math.max(1, Math.floor(ordinary.length / NOTES)) === 0).slice(0, Math.max(0, NOTES - 3))
 const notes = (SHORT ? [all[2], all[1], all[0]] : [...few.slice(0, 9), all[2], ...few.slice(9, 18), all[1], ...few.slice(18), all[0]]).filter(Boolean)
 const QUERIES = SHORT ? ['a', 'docker', 'linux shell'] : ['a', 'e', 's', 'docker', 'exam', 'vim', 'the', 'python', 'note', 'linux shell']
-const VIEWS = SHORT ? ['home', 'inbox', 'calendar'] : ['home', 'inbox', 'calendar', 'media', 'review', 'stats', 'map']
+const VIEWS = process.env.VIEWS ? process.env.VIEWS.split(/\s+/).filter(Boolean) : SHORT ? ['home', 'inbox', 'calendar'] : ['home', 'inbox', 'calendar', 'media', 'review', 'stats', 'map']
 /** What the typing leaves at the top of the largest note. */
 const TYPED = SHORT ? 'never freezes ' : 'never freezes twice '
 console.log(`${notes.length} notes to open; the three largest hold ${all.slice(0, 3).map((one) => one.size.toLocaleString()).join(', ')} characters as kept  [${load()}]`)
 
 const c = await sandbox({ width: 1300, height: 900, seeded: false })
-const { h, send, electron } = c
+const { h, send, electron, page: box } = c
 
 // The window's own record of when it could not paint: each long frame, with the script that took most of it.
-await h.evaluate(() => {
+const watchFrames = (win) => win.evaluate(() => {
   window.__blocks = []
   window.__steps = [{ at: 0, name: 'starting', owner: 'start' }]
   new PerformanceObserver((list) => {
@@ -95,6 +104,8 @@ await h.evaluate(() => {
     }
   }).observe({ type: 'long-animation-frame' })
 })
+await watchFrames(h)
+if (process.env.BOX) await watchFrames(box)
 
 const steps = []
 let seenSlow = 0
@@ -213,6 +224,24 @@ for (const view of VIEWS) {
   await step(`the ${view} page`, 'press', async () => { await send('view', view); await quiet() })
   await rest(view)
 }
+if (board && process.env.BOX) {
+  await step('a board', 'press', async () => { await send(board.type, board.id); await h.waitForSelector('[data-board], .board-view, [data-kanban]', { timeout: 10000 }).catch(() => console.log('  (no board drawn)')); await quiet() })
+  await rest('the board')
+}
+// Quick capture: the box opened from the main window, a line typed into it, and closed with Esc, as a person would.
+if (process.env.BOX) {
+  for (let turn = 1; turn <= 2; turn++) {
+    await step(`quick capture ${turn}`, 'press', async () => {
+      await h.evaluate(() => window.api.showPrompt())
+      await box.waitForSelector(ED, { state: 'visible', timeout: 10000 }).catch(() => console.log('  (the box did not open)'))
+      await box.click(ED).catch(() => undefined)
+      await box.keyboard.type('a thought to keep for later', { delay: 40 })
+      await box.waitForTimeout(800)
+      await box.keyboard.press('Escape')
+    })
+    await rest(`quick capture ${turn}`)
+  }
+}
 if (pdf && !SHORT) {
   await step('a PDF', 'press', async () => { await send('pdf', `${pdf.src}|${pdf.title}`); await h.waitForSelector('canvas', { timeout: 20000 }).catch(() => console.log('  (the PDF drew no page)')); await quiet() })
   await rest('the PDF')
@@ -227,6 +256,8 @@ const profile = profiling ? await electron.evaluate(() => globalThis.mainProfile
 // The reading thread (src/main/reader.ts): what was asked of it, and whether it answered it all itself.
 const reader = await electron.evaluate(() => globalThis.readerStats?.() ?? null)
 const blocks = await h.evaluate(() => window.__blocks.map((one) => ({ ...one, step: window.__steps.findLast((step) => step.at <= one.at) })))
+// The box's own: its clock is its own, so each is told by the main window's step it fell in only roughly; named as the box's.
+const boxBlocks = process.env.BOX ? await box.evaluate(() => window.__blocks.map((one) => ({ ...one, what: `(quick capture's window) ${one.what}` }))).catch(() => []) : []
 await c.close()
 
 // --- main: every stall by name, and the loop's delay step by step.
@@ -306,6 +337,9 @@ if (profile?.profile) {
 
 // --- the window: every block, by whose it is.
 const long = blocks.filter((one) => one.ms >= BLOCK_MS)
+// Every stretch, whoever's it is, the worst first, with the step it fell in and what held it.
+console.log(`\nWindow: every stretch of ${BLOCK_MS} ms or more, the worst first (${long.length} in the main window, ${boxBlocks.filter((one) => one.ms >= BLOCK_MS).length} in quick capture's)`)
+for (const one of [...long, ...boxBlocks.filter((b) => b.ms >= BLOCK_MS)].sort((a, b) => b.ms - a.ms).slice(0, process.env.EVERY ? Infinity : 40)) console.log(`  ${String(Math.round(one.ms)).padStart(7)} ms  in “${one.step?.name ?? 'quick capture'}”  ${one.what}`)
 const mine = long.filter((one) => !(one.step.owner in NOT_MINE) && one.step.owner !== 'start')
 console.log(`\nWindow: ${long.length} stretches of ${BLOCK_MS} ms or more without a frame`)
 for (const [owner, why] of Object.entries(NOT_MINE)) {
