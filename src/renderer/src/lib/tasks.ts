@@ -103,24 +103,24 @@ export async function makeListTasks(list: ListTask[], { today = false, onUndo, a
   const fresh = new Set(made.filter((one) => !one.existed).map((one) => one.id))
   const undated = (await haligtree.tasks()).filter((task) => fresh.has(task.id) && task.status === 'open' && !task.waitingOn && !task.recurrence && placed(task) === null && !bucket(task)).length
   chime(madeCue(made))
-  const said: Said = { text: `Made ${tasksSaid(list)}${joinedSaid(joined)}${undatedSaid(undated, fresh.size)}`, undo: made.map((one) => ({ id: one.id, existed: one.existed })), open: undated ? 'upcoming' : made.length === 1 ? made[0].id : null }
+  const said: Said = { text: `Made ${tasksSaid(list)}${joinedSaid(joined)}${undatedSaid(undated, fresh.size)}`, undo: made.map((one) => ({ id: one.id, existed: one.existed })), open: undated ? 'later' : made.length === 1 ? made[0].id : null }
   // Said in the box too, where its Undo also puts the list back in the box.
   if (away) window.api.sayInHome(said)
   say(said, onUndo)
   return made
 }
-/** ". 13 with no date are in Upcoming, under “No date”", or nothing. */
+/** ". 13 with no date are in Later", or nothing: Upcoming holds only tasks with a day to come since 8 Nov (37cf1e769). */
 const undatedSaid = (undated: number, of: number): string =>
-  !undated ? '' : undated === of ? (of === 1 ? '. It has no date, so it is in Upcoming, under “No date”' : '. None has a date, so all are in Upcoming, under “No date”')
-    : `. ${num(undated)} with no date ${undated === 1 ? 'is' : 'are'} in Upcoming, under “No date”`
+  !undated ? '' : undated === of ? (of === 1 ? '. It has no date, so it is in Later' : '. None has a date, so all are in Later')
+    : `. ${num(undated)} with no date ${undated === 1 ? 'is' : 'are'} in Later`
 
 /** A list's notice, sent as data so another window can say it: its words, what Undo takes back, and what “Show them” or “Open” opens. */
-export type Said = { text: string; undo: { id: string; existed: boolean; /** The notes it came from: unlinked, and back in the Inbox. */ links?: string[]; reopen?: string[] }[]; open: 'upcoming' | string | null }
+export type Said = { text: string; undo: { id: string; existed: boolean; /** The notes it came from: unlinked, and back in the Inbox. */ links?: string[]; reopen?: string[] }[]; open: 'later' | string | null }
 function say(said: Said, onUndo?: () => void): void {
   toast(said.text,
     () => void Promise.all(said.undo.map((one) => haligtree.unmakeTask(one.id, one.existed, one.links ?? [], one.reopen ?? []))).then(() => onUndo?.()),
     'success',
-    said.open === 'upcoming' ? { label: 'Show them', key: 'S', run: () => window.api.openInHome('view', 'upcoming', 'No date') }
+    said.open === 'later' ? { label: 'Show them', key: 'S', run: () => window.api.openInHome('view', 'later') }
       : said.open ? { label: 'Open', key: 'O', run: () => window.api.openInHome('task', said.open!) } : undefined)
 }
 // Said here when quick capture made them as it went.
