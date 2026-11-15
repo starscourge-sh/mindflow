@@ -1,8 +1,9 @@
-import { Extension, combineTransactionSteps, getChangedRanges, type Editor } from "@tiptap/core"
+import { Extension, type Editor } from "@tiptap/core"
 import type { Mark, Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state"
 import { AddMarkStep } from "@tiptap/pm/transform"
 import { restoring } from "@/lib/undo-exact"
+import { changedSpan } from "@/lib/text-edit"
 
 /**
  * Web links that behave: only words that really are an address become one as
@@ -166,20 +167,21 @@ export const LinkTidy = Extension.create({
         appendTransaction: (transactions, old, state) => {
           const type = state.schema.marks.link
           if (!type || !transactions.some((tr) => tr.docChanged) || transactions.some((tr) => tr.getMeta("preventAutolink")) || restoring(transactions)) return null
-          const changes = getChangedRanges(combineTransactionSteps(old.doc, [...transactions]))
+          const changed = changedSpan(old.doc, state.doc)
+          if (!changed) return null
+          // Only a link that read as its own address a moment ago: words linked by hand keep theirs. None in what
+          // changed (a paste into an empty note), nothing to look at.
+          const before = blocksIn(old.doc, changed.from - 1, changed.oldTo + 1)
+            .flatMap(({ node, start }) => spans(node, start, type))
+            .filter((one) => bare(one.text) === bare(String(one.mark.attrs.href ?? "")))
+          if (!before.length) return null
           const tr = state.tr
-          for (const { oldRange, newRange } of changes) {
-            const before = blocksIn(old.doc, oldRange.from - 1, oldRange.to + 1).flatMap(({ node, start }) => spans(node, start, type))
-            for (const { node, start } of blocksIn(state.doc, newRange.from - 1, newRange.to + 1)) {
-              for (const span of spans(node, start, type)) {
-                const href = String(span.mark.attrs.href ?? "")
-                if (bare(span.text) === bare(href)) continue
-                // Only a link that read as its own address a moment ago: words linked by hand keep theirs.
-                const was = before.find((one) => one.mark.attrs.href === href && bare(one.text) === bare(href))
-                if (!was) continue
-                if (looksLikeAddress(span.text)) tr.addMark(span.from, span.to, type.create({ ...span.mark.attrs, href: hrefFor(span.text) }))
-                else tr.removeMark(span.from, span.to, type)
-              }
+          for (const { node, start } of blocksIn(state.doc, changed.from - 1, changed.newTo + 1)) {
+            for (const span of spans(node, start, type)) {
+              const href = String(span.mark.attrs.href ?? "")
+              if (bare(span.text) === bare(href) || !before.some((one) => one.mark.attrs.href === href)) continue
+              if (looksLikeAddress(span.text)) tr.addMark(span.from, span.to, type.create({ ...span.mark.attrs, href: hrefFor(span.text) }))
+              else tr.removeMark(span.from, span.to, type)
             }
           }
           return tr.docChanged ? tr.setMeta("preventAutolink", true) : null

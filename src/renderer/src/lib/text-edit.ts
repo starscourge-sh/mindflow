@@ -1,5 +1,22 @@
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { Transaction } from "@tiptap/pm/state"
 import { ReplaceStep } from "@tiptap/pm/transform"
+
+/**
+ * What a change touched, as one stretch: where the two documents first differ, and where they last do in each.
+ * Comparing them skips every block both share, so it costs what changed, however many steps made it. TipTap's
+ * getChangedRanges carries each step's change through every step after it and back (a whole long note pasted
+ * back: 898 steps, a quarter of a second for each pass that asked).
+ */
+export function changedSpan(before: ProseMirrorNode, after: ProseMirrorNode): { from: number; oldTo: number; newTo: number } | null {
+  const from = before.content.findDiffStart(after.content)
+  if (from === null) return null
+  let { a: oldTo, b: newTo } = before.content.findDiffEnd(after.content)!
+  // Words added beside the same words (a letter typed twice over): the two ends come out before the start.
+  if (oldTo < from && before.content.size < after.content.size) ((newTo = from + newTo - oldTo), (oldTo = from))
+  else if (newTo < from) ((oldTo = from + oldTo - newTo), (newTo = from))
+  return { from, oldTo, newTo }
+}
 
 /**
  * The lines a change wrote words into, when it did nothing else: a key typed,

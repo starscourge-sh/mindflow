@@ -4,6 +4,7 @@ import { canJoin } from "@tiptap/pm/transform"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
+import { changedSpan } from "@/lib/text-edit"
 
 const LISTS = ["bulletList", "orderedList", "taskList"]
 
@@ -27,16 +28,22 @@ export const JoinLists = Extension.create({
   addProseMirrorPlugins() {
     return [
       new Plugin({
-        appendTransaction: (transactions, _oldState, state) => {
+        appendTransaction: (transactions, oldState, state) => {
           if (!transactions.some((transaction) => transaction.docChanged)) return null
           // Words typed in a line cannot put two lists side by side: no need
           // to walk the whole note for it on every key.
           if (transactions.every((transaction) => !transaction.docChanged || onlyWordsChanged(transaction))) return null
+          // Lists come side by side only where the note changed: at its edges or inside what came in. The rest of
+          // the note is not walked (every block of a long note was, on every ↵).
+          const changed = changedSpan(oldState.doc, state.doc)
+          if (!changed) return null
+          const { from, newTo: to } = changed
 
           const points: number[] = []
           const scan = (node: ProseMirrorNode, start: number): void => {
             node.forEach((child, offset, index) => {
               const at = start + offset
+              if (at > to || at + child.nodeSize < from) return
               if (
                 index > 0 &&
                 LISTS.includes(child.type.name) &&

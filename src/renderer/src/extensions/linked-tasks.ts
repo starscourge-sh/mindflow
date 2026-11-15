@@ -1,7 +1,7 @@
 import { Extension } from "@tiptap/core"
-import { Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
+import { Plugin, PluginKey } from "@tiptap/pm/state"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
-import { Mapping } from "@tiptap/pm/transform"
+import { changedSpan } from "@/lib/text-edit"
 import { haligtree, type Task } from "@/lib/haligtree"
 import { boxKind, boxList, linkedItems, makeLineTasks } from "@/lib/line-tasks"
 import { toast } from "@/components/haligtree/ui"
@@ -19,33 +19,20 @@ import { num } from '../../../main/dates'
 const KEY = new PluginKey("linkedTasks")
 
 /**
- * Did these changes write over a linked to-do? Only the stretches each change
- * wrote are looked at, so a key typed in a long note costs a few blocks, not
- * the whole note: ticks, splits and pastes all write the line they touch.
+ * Did a change write over a linked to-do? Only the stretch it changed is looked at (a block whose attributes alone
+ * changed, a tick, counts as changed), so a key typed in a long note costs a few blocks, not the whole note. Found
+ * by comparing the note before and after: each step's stretch carried through every step after it cost the square
+ * of the steps (a whole long note pasted back brought 898).
  */
-function touchesLinked(transactions: readonly Transaction[], doc: ProseMirrorNode): boolean {
+function touchesLinked(before: ProseMirrorNode, doc: ProseMirrorNode): boolean {
+  const changed = changedSpan(before, doc)
+  if (!changed) return false
   let found = false
   const size = doc.content.size
-  const look = (from: number, to: number): void => {
-    if (found) return
-    doc.nodesBetween(Math.max(0, Math.min(from, size)), Math.max(0, Math.min(to, size)), (node) => {
-      if (found) return false
-      if (node.type.name === "taskItem" && node.attrs.taskId) found = true
-      return !found
-    })
-  }
-  // Every step of the batch in order; each step's written stretch is carried
-  // through the steps after it to where it lies in the final note.
-  // A step that changes a block's attributes alone (an AttrStep) writes no
-  // stretch: its block is looked at instead.
-  const steps = transactions.flatMap((tr) => tr.steps)
-  const all = new Mapping(transactions.flatMap((tr) => tr.mapping.maps))
-  all.maps.forEach((map, i) => {
-    if (found) return
-    const rest = all.slice(i + 1)
-    map.forEach((_a, _b, start, end) => look(rest.map(start, -1), rest.map(end, 1)))
-    const at = (steps[i] as { pos?: unknown } | undefined)?.pos
-    if (typeof at === "number") look(rest.map(at, 1), rest.map(at, 1) + 1)
+  doc.nodesBetween(Math.max(0, Math.min(changed.from, size)), Math.max(0, Math.min(changed.newTo, size)), (node) => {
+    if (found) return false
+    if (node.type.name === "taskItem" && node.attrs.taskId) found = true
+    return !found
   })
   return found
 }
@@ -130,7 +117,7 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
     // Ticked by hand in the note: the task follows. Never for the sync's own change.
     if (!transaction.docChanged || transaction.getMeta(KEY) || !this.editor.isEditable) return
     if (transaction.getMeta("addToHistory") === false) return
-    if (!touchesLinked([transaction], transaction.doc)) return
+    if (!touchesLinked(transaction.before, transaction.doc)) return
     const before = linkedItems(transaction.before)
     if (!before.size) return
     for (const [id, item] of linkedItems(transaction.doc)) {
@@ -147,9 +134,9 @@ export const LinkedTasks = Extension.create<{ origin: () => string | null; box: 
       key: KEY,
       // A line split off a linked one (Enter at its end) or a copy pasted in
       // takes the attributes with it: only the first keeps the link.
-      appendTransaction: (transactions, _old, state) => {
+      appendTransaction: (transactions, old, state) => {
         if (!transactions.some((one) => one.docChanged)) return null
-        if (!touchesLinked(transactions, state.doc)) return null
+        if (!touchesLinked(old.doc, state.doc)) return null
         const seen = new Set<string>()
         let tr: ReturnType<typeof state.tr.setNodeMarkup> | null = null
         state.doc.descendants((node, pos) => {

@@ -74,11 +74,21 @@ export const BlockIds = Extension.create({
             if (id) places.set(id, [...(places.get(id) ?? []), pos])
             return !id && !node.isTextblock
           })
+          const twice = new Set([...places].filter(([, all]) => all.length > 1).map(([id]) => id))
+          if (!twice.size) return null
+          // Where each name given twice was before the change: one walk of the old note for all of them (one walk each
+          // was the note's length times the names, for a long note pasted in again whole).
+          const wasAt = new Map<string, number>()
+          old.doc.descendants((node, pos) => {
+            const id = node.attrs?.blockId
+            if (id && twice.has(id) && !wasAt.has(id)) wasAt.set(id, pos)
+            return !id && !node.isTextblock
+          })
           const tr = state.tr
           for (const [id, all] of places) {
             if (all.length < 2) continue
             // The one that was there before keeps the name; with none, the first.
-            const was = findBlock(old.doc, id)?.pos
+            const was = wasAt.get(id)
             const now = was === undefined ? all[0] : transactions.reduce((at, one) => one.mapping.map(at), was)
             const keep = all.includes(now) ? now : all[0]
             for (const pos of all) if (pos !== keep) tr.setNodeMarkup(pos, undefined, { ...state.doc.nodeAt(pos)!.attrs, blockId: null })
