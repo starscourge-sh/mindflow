@@ -127,7 +127,7 @@ function nameOf(node: Block): string {
   const words = node.textBetween(0, node.content.size, '\n', ' ').split('\n').map((line) => line.trim()).find(Boolean)
   const attrs = node.attrs as Record<string, unknown>
   const named = [attrs.title, attrs.alt, attrs.caption, attrs.label, attrs.name, attrs.href].find((one): one is string => typeof one === 'string' && !!one.trim())
-  return cut(words ?? named ?? KINDS[node.type.name]?.[0] ?? 'Block', 80) || 'Block'
+  return cut(words ?? named ?? KINDS[node.type.name]?.[0] ?? '', 80) || (node.isTextblock ? 'Empty line' : 'Block')
 }
 /** Its picture where it has one (a picture, a link's card), else the mark of its kind. */
 function iconOf(node: Block): React.ReactNode {
