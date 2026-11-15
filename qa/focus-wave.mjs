@@ -168,8 +168,9 @@ try {
 
   // --- 25: ⌃⌥⌘S's ask, from anywhere: quick capture's ⌘K opens on the lengths.
   await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => !new URL(one.webContents.getURL()).searchParams.get('view'))?.webContents.send('focus:ask'))
-  await box.waitForTimeout(900)
-  const asked = await box.$$eval('[role=dialog] button', (all) => all.map((one) => one.textContent.trim()).filter((t) => /^\d+ (min|h)/.test(t))).catch(() => [])
+  // Until its lengths are drawn (5 s at most): a fixed 900 ms read nothing on a busy machine (load 30 and over).
+  await box.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].some((one) => /^25 min/.test(one.textContent.trim())), null, { timeout: 5000 }).catch(() => {})
+  const asked =await box.$$eval('[role=dialog] button', (all) => all.map((one) => one.textContent.trim()).filter((t) => /^\d+ (min|h)/.test(t))).catch(() => [])
   check('25: the key anywhere opens on the lengths to pick', asked.includes('25 min') && asked.includes('1 h'), asked.join(' | '))
   await box.keyboard.press('Escape')
   await box.keyboard.press('Escape')
