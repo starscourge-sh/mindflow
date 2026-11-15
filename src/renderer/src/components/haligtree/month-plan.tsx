@@ -811,7 +811,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
       {reserve > 0 && <span aria-hidden className="shrink-0" style={{ height: reserve * LINE() }} />}
       {/* Wide enough, each thing by name; narrow (a small window), a dot for each and the count, never words cut to a letter. */}
       {wide && <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        {flags.map((one) => <MarkLine key={one.id} one={one} outside={outside} onItem={onItem} onDay={onDay} />)}
+        {flags.map((one) => <MarkLine key={one.id} one={one} onItem={onItem} onDay={onDay} />)}
         {events}
         {lines.slice(0, shown).map((line) => <LineChip key={lineKey(line)} line={line} late={gone} onOpen={onLine} onPick={onPickLine} menu={lineMenu} />)}
       </div>}
@@ -833,7 +833,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
 }
 
 /** A marked day's line in a day: clicked to open what it belongs to, right-clicked for its menu, dragged to another day. */
-function MarkLine({ one, outside, onItem, onDay }: { one: Milestone; outside: boolean; onItem: (type: string, id: string) => void; onDay: (day: string) => void }): React.JSX.Element {
+function MarkLine({ one, onItem, onDay }: { one: Milestone; onItem: (type: string, id: string) => void; onDay: (day: string) => void }): React.JSX.Element {
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: `mark:${one.id}`, data: { mark: one } })
   return <MarkChip ref={setNodeRef} one={one} open={onItem} onOpenDay={(day) => (chime('open'), onDay(day))} {...attributes} {...listeners}
     className={`touch-none ${isDragging ? 'mf-carried-place' : ''}`} />
