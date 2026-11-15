@@ -5,6 +5,7 @@
 // of a site's versions of one picture), no picture that does not show, no link without words, no line after line of a
 // single sign, and every picture on the light ink, never the postcard's dark plate or shadow. Each site's pictures are
 // stand-ins of the real ones' sizes (<name>.pictures.json): drawings (SVG) black lines on nothing, the rest solid.
+// A table narrower than the column is framed round its cells.
 // Every host is moved to an address on the internet, so fetchOutside's guard runs and nothing asks a name server.
 //   QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/reader-pictures.mjs
 // QA_SHOTS=<folder> keeps the reader at its top, middle and end for each page, light and dark.
@@ -105,7 +106,9 @@ try {
       })
       const links = [...(body?.querySelectorAll('a') ?? [])].map((one) => (one.textContent ?? '').trim())
       const lines = [...(body?.querySelectorAll('p, div, li') ?? [])].filter((one) => !one.querySelector('p, div, li')).map((one) => (one.textContent ?? '').trim())
-      return { title: document.querySelector('.web-reader-heading')?.textContent ?? document.querySelector('.web-reader-failed')?.textContent, words: (body?.textContent ?? '').replace(/\s+/g, ' ').trim().length, pictures, links, lines }
+      // Each table's frame against its widest row: a narrow table framed round its cells, not the whole column.
+      const tables = [...(body?.querySelectorAll('table') ?? [])].map((one) => [Math.round(one.getBoundingClientRect().width), Math.round(Math.max(0, ...[...one.querySelectorAll('tr')].map((row) => row.getBoundingClientRect().width)))])
+      return { title: document.querySelector('.web-reader-heading')?.textContent ?? document.querySelector('.web-reader-failed')?.textContent, words: (body?.textContent ?? '').replace(/\s+/g, ' ').trim().length, pictures, links, lines, tables }
     })
     const original = (src) => named[/assets\/([a-f0-9]{64})\./.exec(src ?? '')?.[1]] ?? src
     const block = seen.pictures.filter((one) => !one.inline)
@@ -118,6 +121,7 @@ try {
     check(`${name}: no link without words`, seen.links.every((one) => one.replace(/[↗→\s]/g, '')), JSON.stringify(seen.links.filter((one) => !one.replace(/[↗→\s]/g, ''))))
     check(`${name}: no line after line of a single sign (a keyboard drawn from letters)`, !seen.lines.some((_, i) => seen.lines.slice(i, i + 3).length === 3 && seen.lines.slice(i, i + 3).every((one) => one.length > 0 && one.length <= 3)), JSON.stringify(seen.lines.filter((one) => one.length <= 3).slice(0, 12)))
     check(`${name}: in the dark every picture lies on the light ink, with no postcard plate, padding or shadow`, seen.pictures.every((one) => lum(one.under) > 0.6 && one.shadow === 'none' && one.padding === '0px'), JSON.stringify(seen.pictures.filter((one) => !(lum(one.under) > 0.6 && one.shadow === 'none' && one.padding === '0px')).slice(0, 3).map((one) => [original(one.src), one.under, one.shadow, one.padding])))
+    if (seen.tables.length) check(`${name}: a table's frame goes round its cells, never on across the empty column`, seen.tables.every(([frame, row]) => frame <= row + 4), JSON.stringify(seen.tables))
     console.log(`  ${name}: ${seen.pictures.length} pictures (${block.length} blocks), ${seen.links.length} links: ${seen.pictures.map((one) => `${original(one.src)?.split('/').pop()?.slice(0, 40)} ${one.box.join('x')}`).join(', ')}`)
     if (shots) {
       for (const mode of ['dark', 'light']) {

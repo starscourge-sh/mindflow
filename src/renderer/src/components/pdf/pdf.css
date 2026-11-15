@@ -758,9 +758,13 @@
   text-wrap: pretty;
 }
 
-/* A table wider than the column scrolls sideways inside it, as a note's does. */
-.web-reader-body table {
+/* A table wider than the column scrolls sideways inside it, as a note's does; a narrower one is as wide as its
+   cells, its frame round them and not the column (a block's own width, or a note's table's full-column
+   min-width in haligtree-editor.scss, would run its frame on past them). */
+.web-reader-body.tiptap.ProseMirror.haligtree-editor table {
   display: block;
+  width: fit-content;
+  min-width: 0;
   max-width: 100%;
   overflow-x: auto;
 }
