@@ -143,11 +143,20 @@ function holdPasted(state: EditorState, from: number, to: number): Transaction |
   return tr
 }
 
-/** Fill every waiting picture from what was found: the picture, or a quiet "not found" to click. */
-async function settle(view: EditorView): Promise<void> {
+/** A picture a vault did not have when it was last looked for: looked for again each time its note opens. */
+const isMissing = (node: ProseMirrorNode): boolean =>
+  node.type.name === "imagePlaceholder" && !!node.attrs.embed && !!node.attrs.missing
+
+/**
+ * Fill every waiting picture from what was found: the picture, or a quiet "not found" to click. `again`, as a note
+ * opens: the ones marked not found are looked for again, and stay as they are if they are still not there (15 Nov 2026:
+ * a picture not found as its note came in, there in the vault since, was never looked for again).
+ */
+async function settle(view: EditorView, again = false): Promise<void> {
   const refs: string[] = []
+  const asked = (node: ProseMirrorNode): boolean => isWaiting(node) || (again && isMissing(node))
   view.state.doc.descendants((node) => {
-    if (isWaiting(node)) refs.push(String(node.attrs.embed))
+    if (asked(node)) refs.push(String(node.attrs.embed))
     return !node.isTextblock
   })
   if (!refs.length) return
@@ -157,7 +166,7 @@ async function settle(view: EditorView): Promise<void> {
   const tr = view.state.tr
   const spots: { pos: number; node: ProseMirrorNode }[] = []
   view.state.doc.descendants((node, pos) => {
-    if (isWaiting(node) && answers.has(String(node.attrs.embed))) spots.push({ pos, node })
+    if (asked(node) && answers.has(String(node.attrs.embed))) spots.push({ pos, node })
     return !node.isTextblock
   })
   for (const { pos, node } of spots.reverse()) {
@@ -165,7 +174,7 @@ async function settle(view: EditorView): Promise<void> {
     const one = answers.get(ref)
     const into = one && shown(schema, one, node.attrs.width ?? null)
     if (into) tr.replaceWith(pos, pos + node.nodeSize, into)
-    else tr.setNodeMarkup(pos, undefined, { ...node.attrs, missing: nameOf(ref) })
+    else if (!node.attrs.missing) tr.setNodeMarkup(pos, undefined, { ...node.attrs, missing: nameOf(ref) })
   }
   // Not its own undo step: ⌘Z takes back the paste, not the picture arriving in it.
   if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false))
@@ -277,7 +286,7 @@ export const ObsidianEmbeds = Extension.create({
         view: (view) => {
           let seen = key.getState(view.state)
           // Once the note is laid out (a Markdown one is read in just after): pictures left waiting, and old paths.
-          const opened = setTimeout(() => void settle(view).then(() => mend(view, readInLine.get(editor))), 300)
+          const opened = setTimeout(() => void settle(view, true).then(() => mend(view, readInLine.get(editor))), 300)
           return {
             update: (next) => {
               const now = key.getState(next.state)
