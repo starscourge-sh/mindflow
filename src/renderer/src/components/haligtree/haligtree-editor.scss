@@ -4004,6 +4004,24 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   opacity: 0;
 }
 
+// "Cards in a row" (extensions/columns.ts `look: "cards"`): each column a quiet card of its own, the page a few tones
+// deeper, squarish as cards are here, with room round its blocks.
+.mf-columns[data-look="cards"] > .mf-columns-row {
+  gap: 0.75rem;
+
+  > .mf-column {
+    padding: 0.625rem 0.875rem;
+    border-radius: 8px;
+    background: color-mix(in oklab, var(--foreground) 4%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--foreground) 8%, transparent);
+  }
+
+  // The gap's line, in the middle of the narrower gap.
+  > .mf-column + .mf-column::before {
+    left: calc(-0.375rem - 1px);
+  }
+}
+
 // Placed and sized by a transform from the corner (extensions/columns.ts):
 // a 100px line moved and stretched to its block, so a glide between targets
 // runs on the compositor. Its entrance grows on `scale`, apart from that.
@@ -4600,59 +4618,52 @@ $run-next: '.react-renderer:has(> .tiptap-attachment.is-audio) + .react-renderer
   }
 }
 
-// A block carried by its grip (lib/block-carry.ts): the card that follows the
-// pointer, and the place it left, dimmed the way a carried sidebar row's gap is.
-// The grip's own selection tint is not drawn while carrying: one mark, the dim.
-.mf-block-carried {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 60;
-  pointer-events: none;
-  // The float material every carried card has (carry.tsx CARD).
-  max-width: 20rem;
-  max-height: 14rem;
-  overflow: hidden;
-  padding: 8px 12px;
-  border-radius: 10px;
-  // The popover colour over the page's own, so it is solid even where glass makes menus see-through:
-  // carried over words, the words showed through it.
-  background: linear-gradient(var(--popover), var(--popover)), var(--background);
-  color: var(--popover-foreground, var(--foreground));
-  box-shadow: var(--mf-shadow-lift), 0 0 0 1px color-mix(in oklab, var(--foreground) 10%, transparent);
-  transform-origin: top left;
-  cursor: grabbing;
-
-  // A long block fades out at the card's foot rather than being cut by it.
-  &.is-long {
-    mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
-  }
-
-  > .ProseMirror {
-    outline: none;
-    padding: 0 !important;
-    margin: 0 !important;
-    min-height: 0 !important;
-  }
-}
-
-.mf-block-carried-line {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 61;
-  border-radius: 1px;
-  pointer-events: none;
-}
-
-// The block in hand, left in its place: its words in Faded Ink (4.5:1, still
-// readable), its pictures faded, so it reads as "this is moving".
+// A block carried by its grip (lib/block-carry.tsx): its card, its room and the line are carry.tsx's, as every
+// carry's are. Its own place is the room's quiet band, so the block itself is out of sight, keeping its place for
+// the blocks after it to close over. The grip and its + stand down meanwhile, as a list's grips do.
 .ProseMirror [data-carried] {
-  color: var(--mf-muted);
-  transition: color 120ms var(--mf-ease);
+  visibility: hidden;
+}
 
-  :is(img, video, canvas, svg) {
-    opacity: 0.4;
+html[data-dragging] .tiptap-drag-handle {
+  visibility: hidden !important;
+}
+
+// The lines' numbers stand down too while a block is carried: the blocks glide aside and the numbers would stand by
+// the wrong lines until it lands, when they are counted again.
+html[data-block-carry] .mf-lines {
+  visibility: hidden;
+}
+
+// A column's own grip (lib/block-carry.tsx): six dots lying down, over the middle of the column's top, while the
+// pointer is in that column. Carried by it, the whole column goes, all its blocks, as one.
+.mf-column-grip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 12px;
+  border-radius: 4px;
+  color: var(--muted-foreground);
+  cursor: grab;
+  animation: mf-fade-in 120ms var(--mf-ease);
+
+  &[hidden] {
+    display: none;
+  }
+
+  &:hover {
+    color: var(--foreground);
+    background: color-mix(in oklab, var(--foreground) 7%, transparent);
+  }
+
+  svg {
+    width: 14px;
+    height: 14px;
   }
 }
 

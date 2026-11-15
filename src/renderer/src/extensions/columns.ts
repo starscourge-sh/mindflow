@@ -1,5 +1,5 @@
 import { Node, type JSONContent } from "@tiptap/core"
-import type { Fragment } from "@tiptap/pm/model"
+import type { Fragment, Node as Block } from "@tiptap/pm/model"
 import { NodeSelection, Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { click } from "@/lib/sound"
@@ -39,6 +39,8 @@ export const Column = Node.create({
 
 /** The marks Markdown is written with: comments, so anywhere else it reads as sections one after another. */
 const OPEN = "<!-- columns -->"
+/** A row whose columns wear the card look (`look: "cards"`). */
+const OPEN_CARDS = "<!-- columns cards -->"
 const SPLIT = "<!-- column -->"
 const CLOSE = "<!-- /columns -->"
 
@@ -54,30 +56,41 @@ export const Columns = Node.create({
   isolating: true,
   draggable: true,
 
+  addAttributes() {
+    return {
+      // "cards": each column a quiet card of its own (the slash menu's "Cards in a row", or the row's own menu).
+      look: {
+        default: null,
+        parseHTML: (element) => (element.getAttribute("data-look") === "cards" ? "cards" : null),
+        renderHTML: (attributes) => (attributes.look === "cards" ? { "data-look": "cards" } : {}),
+      },
+    }
+  },
+
   parseHTML() {
     return [{ tag: "div[data-columns]", contentElement: ".mf-columns-row" }]
   },
 
-  renderHTML() {
-    return ["div", { "data-columns": "", class: "mf-columns" }, ["div", { class: "mf-columns-row" }, 0]]
+  renderHTML({ HTMLAttributes }) {
+    return ["div", { ...HTMLAttributes, "data-columns": "", class: "mf-columns" }, ["div", { class: "mf-columns-row" }, 0]]
   },
 
   markdownTokenizer: {
     name: "columns",
     level: "block",
-    start: (src: string) => src.indexOf(OPEN),
+    start: (src: string) => src.indexOf("<!-- columns"),
     tokenize: (src, _tokens, lexer) => {
-      const match = /^ {0,3}<!-- columns -->[ \t]*\n([\s\S]*?)\n[ \t]*<!-- \/columns -->[ \t]*(?:\n|$)/.exec(src)
+      const match = /^ {0,3}<!-- columns( cards)? -->[ \t]*\n([\s\S]*?)\n[ \t]*<!-- \/columns -->[ \t]*(?:\n|$)/.exec(src)
       if (!match) return undefined
-      const columns = match[1].split(/^[ \t]*<!-- column -->[ \t]*$/m).map((part) => ({ tokens: lexer.blockTokens(part.trim()) }))
-      return { type: "columns", raw: match[0], columns }
+      const columns = match[2].split(/^[ \t]*<!-- column -->[ \t]*$/m).map((part) => ({ tokens: lexer.blockTokens(part.trim()) }))
+      return { type: "columns", raw: match[0], columns, cards: !!match[1] }
     },
   },
 
   parseMarkdown: (token, helpers) =>
     helpers.createNode(
       "columns",
-      {},
+      token.cards ? { look: "cards" } : {},
       (token.columns as Array<{ tokens: never[] }>).map((column) => {
         const content = helpers.parseChildren(column.tokens)
         return helpers.createNode("column", {}, content.length ? content : [{ type: "paragraph" }])
@@ -90,26 +103,27 @@ export const Columns = Node.create({
 
   renderMarkdown(node, { renderChildren }) {
     const columns = (node.content ?? []).map((column: JSONContent) => renderChildren(column, "\n\n"))
-    return [OPEN, columns.join(`\n\n${SPLIT}\n\n`), CLOSE].join("\n\n")
+    return [node.attrs?.look === "cards" ? OPEN_CARDS : OPEN, columns.join(`\n\n${SPLIT}\n\n`), CLOSE].join("\n\n")
   },
 })
 
-/** A row of `count` empty columns, for `/columns`. */
-export const emptyColumns = (count: number): JSONContent => ({
+/** A row of `count` empty columns, for `/columns`; `cards`, each a card of its own ("Cards in a row"). */
+export const emptyColumns = (count: number, cards = false): JSONContent => ({
   type: "columns",
+  ...(cards ? { attrs: { look: "cards" } } : {}),
   content: Array.from({ length: count }, () => ({ type: "column", content: [{ type: "paragraph" }] })),
 })
 
 /* Dropping a block beside another ----------------------------------------- */
 
 /** Most columns a row holds; past that each is too narrow to write in. */
-const MOST = 4
+export const MOST = 4
 /** How near a block's side the pointer must be. Left is narrow: a drag down the gutter passes close to it. */
 const NEAR_LEFT = 24
 const NEAR_RIGHT = 56
 
 /** Where a dragged block would land beside another: a new row, or a new column in a row. */
-type Beside = { kind: "wrap" | "column"; pos: number; side: "left" | "right" }
+export type Beside = { kind: "wrap" | "column"; pos: number; side: "left" | "right" }
 
 const besideKey = new PluginKey<Beside | null>("columnDrop")
 
@@ -173,7 +187,7 @@ function besideAt(view: EditorView, event: DragEvent): Beside | null {
 }
 
 /** Lists, which an item leaving alone would leave holding one empty item. */
-const LISTS = new Set(["bulletList", "orderedList", "taskList"])
+export const LISTS = new Set(["bulletList", "orderedList", "taskList"])
 
 /**
  * Take a block out, and whatever it leaves empty: the list it was the only
@@ -204,7 +218,7 @@ function removeBlock(tr: Transaction, from: number, to: number): void {
  * copy goes in first, then the original comes out, so where it lands is never
  * inside what was taken away.
  */
-export function moveOutOfColumn(tr: Transaction, dragged: NodeSelection, target: number, content: Fragment): boolean {
+function moveOutOfColumn(tr: Transaction, dragged: NodeSelection, target: number, content: Fragment): boolean {
   const parent = dragged.$from.parent
   if (parent.type.name !== "column" && !(LISTS.has(parent.type.name) && parent.childCount === 1)) return false
   // Into itself would take away what was just put in.
@@ -215,16 +229,49 @@ export function moveOutOfColumn(tr: Transaction, dragged: NodeSelection, target:
 }
 
 /**
- * The drop itself, when it is beside a block: one step, so one undo puts it
- * all back. Returns false for an ordinary drop.
+ * Take a carried block out of where it was, after its copy went in (`tr` has mapped it): a column carried by its own
+ * grip takes its row with it when that leaves a row of one, as a block taken out of its column does.
  */
-export function dropBeside(view: EditorView, moved: boolean): boolean {
-  const beside = besideKey.getState(view.state)
+export function takeOut(tr: Transaction, dragged: NodeSelection): void {
+  const column = dragged.node.type.name === "column" ? 1 : 0
+  removeBlock(tr, tr.mapping.map(dragged.from + column, 1), tr.mapping.map(dragged.to - column, -1))
+}
+
+/**
+ * Move dragged blocks (`range`; `dragged`, the one block when it is one) to
+ * `target`, as one step: out of a column or a list it leaves empty, those go
+ * too. False when the target is inside what moves: nothing to do.
+ */
+export function moveBlocks(tr: Transaction, range: { from: number; to: number }, dragged: NodeSelection | null, target: number, content: Fragment): boolean {
+  if (dragged && moveOutOfColumn(tr, dragged, target, content)) return true
+  if (target > range.from && target < range.to) return false
+  tr.delete(range.from, range.to)
+  tr.insert(tr.mapping.map(target), content)
+  return true
+}
+
+/** What a column is given for a carried block: a list's item comes in a list of its own kind, which a column can hold; a column carried by its own grip goes as itself. */
+export const columnOf = (dragged: NodeSelection): Block | null => {
+  const { schema } = dragged.$from.doc.type
+  const item = dragged.node
+  if (item.type.name === "column") return item
+  const list = dragged.$from.parent
+  const body = LISTS.has(list.type.name) ? list.type.create(list.attrs, item) : item
+  return schema.nodes.column.contentMatch.matchType(body.type) && body.type.name !== "columns" ? schema.nodes.column.create(null, body) : null
+}
+
+/**
+ * The drop itself, when it is beside a block: one step, so one undo puts it
+ * all back. Returns false for an ordinary drop. `beside`: where, when the carry
+ * worked it out itself (lib/block-carry.tsx).
+ */
+export function dropBeside(view: EditorView, moved: boolean, beside: Beside | null = besideKey.getState(view.state) ?? null): boolean {
   const dragged = draggedOf(view)
   if (!beside || !moved || !dragged) return false
   const { schema } = view.state
   const tr = view.state.tr
-  const fresh = schema.nodes.column.create(null, dragged.node)
+  const fresh = columnOf(dragged)
+  if (!fresh) return false
   if (beside.kind === "wrap") {
     const target = tr.doc.nodeAt(beside.pos)
     if (!target) return false
@@ -236,7 +283,7 @@ export function dropBeside(view: EditorView, moved: boolean): boolean {
     if (!target) return false
     tr.insert(beside.side === "left" ? beside.pos : beside.pos + target.nodeSize, fresh)
   }
-  removeBlock(tr, tr.mapping.map(dragged.from, 1), tr.mapping.map(dragged.to, -1))
+  takeOut(tr, dragged)
   // The handle forgets the block it was on, as after any move.
   view.dispatch(tr.setMeta(besideKey, null).setMeta("hideDragHandle", true).scrollIntoView())
   return true

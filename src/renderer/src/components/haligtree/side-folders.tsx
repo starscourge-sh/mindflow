@@ -2,7 +2,6 @@ import { openItems } from '@/lib/split'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { NameInPlace } from './name-in-place'
 import { Branches } from './branches'
-import { createPortal } from 'react-dom'
 
 import { haligtree } from '@/lib/haligtree'
 import { DEPTH, KEY, layoutOf, moveTo } from '@/lib/group-layout'
@@ -13,7 +12,7 @@ import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { GroupIcon, IconChoice, binGroup } from './kept-groups'
-import { CarriedCard, Clear, RoomAt, clearWay, makeWay, restBox, swallowClick, swallowRelease, type Spot } from './carry'
+import { CardAt, CarriedCard, RoomAt, clearWay, makeWay, restBox, swallowClick, swallowRelease, type Spot } from './carry'
 import { DROP_LIT } from './sortable'
 import { pastEdge } from '@/lib/drag-edge'
 import { slotTicker } from '@/lib/proximity'
@@ -322,15 +321,12 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     <Unfold open={open}>
       <div data-side-folders={list}>{top}</div>
       {/* The folder carried, as a row is carried in the list: lifted under the pointer, in the app's own look. */}
-      {lifted && createPortal(
-        <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ left: carried.x + 18, top: carried.y, translate: '0 -50%' }}>
-          {/* It says what letting go would do, as a list's card does: beside a folder, or inside the one that is lit. It rides clear of the line, as a list's card does. */}
-          <Clear>
-            <CarriedCard attrs={{ 'data-folder-ghost': lifted.id }} icon={<GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />} title={lifted.name} refused={!!aim && tooDeep(lifted.id, aim)}
-              words={!aim ? null : tooDeep(lifted.id, aim) ? `Folders go ${DEPTH} levels deep` : aim.how === 'into' ? `Move into ${all.find((one) => one.id === aim.target)?.name ?? 'it'}` : 'Move here'} />
-          </Clear>
-        </div>,
-        document.body
+      {/* It says what letting go would do, as a list's card does: beside a folder, or inside the one that is lit. It rides clear of the line, as a list's card does. */}
+      {lifted && (
+        <CardAt x={carried.x} y={carried.y}>
+          <CarriedCard attrs={{ 'data-folder-ghost': lifted.id }} icon={<GroupIcon icon={lifted.icon} color={lifted.color} className="size-3.5" />} title={lifted.name} refused={!!aim && tooDeep(lifted.id, aim)}
+            words={!aim ? null : tooDeep(lifted.id, aim) ? `Folders go ${DEPTH} levels deep` : aim.how === 'into' ? `Move into ${all.find((one) => one.id === aim.target)?.name ?? 'it'}` : 'Move here'} />
+        </CardAt>
       )}
       {/* Where it lands: the room the folders open, with the line every list draws through it (carry.tsx); its own place, the band alone. */}
       {lifted && room && <RoomAt at={room} how={aim?.how ?? 'own'} />}

@@ -1,8 +1,7 @@
 import { detailsShown, showDetails } from '@/lib/reading'
 import { deskAwayAction, useDeskAway } from '@/lib/desk-away'
 import { heroBack, heroing } from '@/lib/hero'
-import { createPortal } from 'react-dom'
-import { CarriedCard, Clear, RoomAt } from '@/components/haligtree/carry'
+import { CardAt, CarriedCard, RoomAt } from '@/components/haligtree/carry'
 import { useRemindersInStep } from '@/lib/reminders'
 import { useBackLine } from '@/lib/back-line'
 import { toolTakes } from '@/lib/tool-keys'
@@ -2579,12 +2578,11 @@ export function Home(): React.JSX.Element {
         {/* Where a section carried by its heading would land: the room the others open, the one line through it (carry.tsx). */}
         {sectionDrag.carrying && sectionDrag.room && <RoomAt at={sectionDrag.room} how={`section:${sectionDrag.carrying}`} />}
         {/* The section carried, as a lifted card under the pointer, named as its heading is, saying what letting go would do. */}
-        {sectionDrag.carrying && sectionDrag.at && createPortal(
-          <div aria-hidden className="pointer-events-none fixed z-[90]" style={{ left: sectionDrag.at.x + 18, top: sectionDrag.at.y, translate: '0 -50%' }}>
-            <Clear>
-              <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
-            </Clear>
-          </div>, document.body)}
+        {sectionDrag.carrying && sectionDrag.at && (
+          <CardAt x={sectionDrag.at.x} y={sectionDrag.at.y}>
+            <CarriedCard attrs={{ 'data-section-card': '' }} strong words={sectionDrag.words} title={({ pinned: 'Pinned', recent: 'Recent', library: 'Library', look: 'Look back', tags: 'Tags' } as Record<string, string>)[sectionDrag.carrying] ?? ''} />
+          </CardAt>
+        )}
 
         </TooltipProvider>
 

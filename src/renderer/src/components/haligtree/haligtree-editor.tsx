@@ -82,7 +82,7 @@ import { BlockGestures } from "@/extensions/block-gestures"
 import { Bookmark } from "@/extensions/bookmark"
 import { Callout } from "@/extensions/callout"
 import { Caption, captioned } from "@/extensions/caption"
-import { Column, Columns, draggedOf, dropBeside, moveOutOfColumn } from "@/extensions/columns"
+import { Column, Columns, draggedOf, dropBeside, moveBlocks } from "@/extensions/columns"
 import { Attachment } from "@/extensions/attachment"
 import { Meeting, MeetingLine } from "@/extensions/meeting"
 import { ExcalidrawDiagram } from "@/extensions/excalidraw"
@@ -226,7 +226,7 @@ const HANDLE_NESTING = {
 }
 
 /** Text that says it is Markdown: a heading, a list, a quote, a fence, a table, a rule, maths, a link, bold. */
-const MARKDOWN_SIGNS = /^(#{1,6} |\s*[-*+] |\s*\d+[.)] |> ?|```|~~~|\|.*\|\s*$|(---|\*\*\*|___)\s*$|\$\$|:::\w|<!-- columns -->)|\[\[|\*\*\S|\]\(|!\[|\[\^[^\]\s]+\]|\^\[/m
+const MARKDOWN_SIGNS = /^(#{1,6} |\s*[-*+] |\s*\d+[.)] |> ?|```|~~~|\|.*\|\s*$|(---|\*\*\*|___)\s*$|\$\$|:::\w|<!-- columns(?: cards)? -->)|\[\[|\*\*\S|\]\(|!\[|\[\^[^\]\s]+\]|\^\[/m
 
 /**
  * The handle never stands over a line's number (extensions/line-numbers.ts): where its place would cross them, it
@@ -349,10 +349,10 @@ import "@/components/haligtree/haligtree-editor.scss"
 import { GripVertical } from '@/components/ui/icons'
 import { BackToTop } from '@/components/haligtree/ui'
 import { domOf, useEditorDom } from '@/lib/editor-dom'
-import { installBlockCarry } from '@/lib/block-carry'
+import { gripOn, installBlockCarry } from '@/lib/block-carry'
 import { markdownOf } from '@/lib/export'
 
-// A block dragged by its grip lifts into a card that follows the pointer (lib/block-carry.ts).
+// A block carried by its grip, in the one look every carry has (lib/block-carry.tsx, components/haligtree/carry.tsx).
 installBlockCarry()
 
 /** The page's document editors, any of which can read Markdown for `readMarkdown`. */
@@ -842,7 +842,7 @@ function Surface({
       else if (below < EDGE) by(rate * (1 - Math.max(0, below) / EDGE))
     }
 
-    const follow = (event: DragEvent): void => {
+    const follow = (event: DragEvent | PointerEvent): void => {
       at = event.clientY
       if (frame) return
       last = performance.now()
@@ -852,15 +852,22 @@ function Surface({
       at = null
     }
 
+    // A block carried by its grip (lib/block-carry.tsx) is the pointer's own move, not the browser's drag.
+    const carried = (event: PointerEvent): void => void (document.documentElement.hasAttribute('data-block-carry') ? follow(event) : stop())
+
     box.addEventListener('dragover', follow)
+    box.addEventListener('pointermove', carried)
     document.addEventListener('dragend', stop)
     document.addEventListener('drop', stop)
+    document.addEventListener('pointerup', stop)
 
     return () => {
       cancelAnimationFrame(frame)
       box.removeEventListener('dragover', follow)
+      box.removeEventListener('pointermove', carried)
       document.removeEventListener('dragend', stop)
       document.removeEventListener('drop', stop)
+      document.removeEventListener('pointerup', stop)
     }
   }, [])
   // Stable, so the content box is set once, not on every render.
@@ -933,6 +940,8 @@ function Surface({
       blockTarget.current = node
         ? { pos, name: node.type.name, level: headingRank(node) ?? undefined }
         : null
+      // What a carry from the grip lifts.
+      gripOn(editor.view, node ? pos : -1)
 
       // A backstop for the rule above, for the case where the table is not
       // among the candidates and the cheapest one is still inside it.
@@ -1224,17 +1233,10 @@ function Surface({
         }
         const tr = view.state.tr
 
-        // Take it out first when it is a move, and map the target through that
-        // removal - the block being dropped may sit before the place it lands.
-        // Out of a column, the column it empties goes too.
-        if (!(dragged && moveOutOfColumn(tr, dragged, target, content))) {
-          if (range) {
-            // Into itself: nowhere to go, and nothing to lose.
-            if (target > range.from && target < range.to) return true
-            tr.delete(range.from, range.to)
-          }
-          tr.insert(tr.mapping.map(target), content)
-        }
+        // Taken out and put in as one step (columns.ts moveBlocks, which the grip's own carry uses too): out of a
+        // column or a list it leaves empty, those go as well. Into itself: nowhere to go, and nothing to lose.
+        if (!range) tr.insert(target, content)
+        else if (!moveBlocks(tr, range, dragged, target, content)) return true
 
         // The handle forgets the block it was on: left alone it keeps a
         // position from before the move, and the next drag starts from there.

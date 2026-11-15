@@ -1,0 +1,478 @@
+import { createRoot, type Root } from 'react-dom/client'
+import type { EditorView } from '@tiptap/pm/view'
+import { NodeSelection } from '@tiptap/pm/state'
+import { Fragment, type Node as Block } from '@tiptap/pm/model'
+import { Bookmark, Code, Columns2, Heading, Image, List, ListOrdered, ListTodo, Minus, Quote, Table, Type } from 'lucide-react'
+import { CardAt, CarriedCard, DropLine, RoomAt, clearWay, makeWay, restBox, roomWait, sideOf, swallowClick, swallowRelease, type Spot } from '@/components/haligtree/carry'
+import { LISTS, MOST, columnOf, dropBeside, moveBlocks, takeOut, type Beside } from '@/extensions/columns'
+import { chime } from './sound'
+import { slotTicker } from './proximity'
+import { still } from './motion'
+import { cut } from '../../../main/clip'
+
+/**
+ * A note's block carried by its grip, as the sidebar carries a folder (side-folders.tsx), in the one look every carry
+ * has (components/haligtree/carry.tsx): past 5px the block lifts into the carried card, with its words (or its picture)
+ * and what letting go would do; its own place is the quiet band; the blocks between glide aside on the one clock to
+ * open room where it will land, the band with the one line through it; each new place a tick. Near another block's
+ * outer quarter a line stands up beside that block, which leans aside: letting go makes a row of columns. Esc, or
+ * letting go anywhere it cannot land, puts it back. The move is one step ⌘Z takes back.
+ *
+ * Carried by the pointer itself, not the browser's drag: during that, the pointer cannot be the grabbing hand.
+ */
+
+/** The block the grip stands beside now, as the drag handle says (its `onNodeChange`): what a carry from it lifts. */
+const gripped = new WeakMap<EditorView, number>()
+export const gripOn = (view: EditorView, pos: number): void => void gripped.set(view, pos)
+
+/** How far the pointer goes with the button held before the block lifts: the sidebar's own. */
+const LIFT = 5
+/**
+ * Where a block carried near another's side goes beside it: its right quarter (and past it), and at its left a band
+ * as wide as a grip's reach into the words (a carry from the grip drifts right into the words on its way down, and
+ * that must stay a carry down).
+ */
+const SIDE = 0.25
+const NEAR_LEFT = 40
+
+type Piece = { el: HTMLElement; pos: number; end: number; node: Block }
+type Aim =
+  | { kind: 'line'; gap: number; at: number; by: Piece; key: string; holds: string }
+  | { kind: 'beside'; beside: Beside; box: { top: number; left: number; height: number; width: number }; lean: HTMLElement; words: string; refused: boolean; key: string; holds: string }
+type Held = {
+  view: EditorView
+  from: number
+  to: number
+  nodes: Block[]
+  sources: HTMLElement[]
+  /** The blocks it makes way among, in the note's order, as laid out at the lift. */
+  pieces: Piece[]
+  me: HTMLElement
+  tall: number
+  x: number
+  y: number
+  copy: boolean
+  aim: Aim | null
+  room: Spot | null
+  kept: { key: string; how: 'before' | 'after' } | null
+  ticks: ReturnType<typeof slotTicker>
+  ring: string
+  title: string
+  icon: React.ReactNode
+}
+
+let held: Held | null = null
+let down: { view: EditorView; pos: number; x: number; y: number } | null = null
+
+/** The editor a grip belongs to: it sits beside the page it carries in. */
+function viewOf(handle: HTMLElement): EditorView | null {
+  for (let at = handle.parentElement; at; at = at.parentElement) {
+    const root = at.querySelector<HTMLElement & { editor?: { view: EditorView } }>('.ProseMirror')
+    if (root) return root.editor?.view ?? null
+  }
+  return null
+}
+
+/**
+ * Written on the note's own blocks out of the editor's sight: seen, it reads a change as an edit and draws the block
+ * again without it. The writes of one frame go together.
+ */
+const queued: (() => void)[] = []
+function quietly(view: EditorView, change: () => void): void {
+  queued.push(change)
+  if (queued.length > 1) return
+  queueMicrotask(() => {
+    const all = queued.splice(0)
+    const observer = view.isDestroyed ? null : (view as unknown as { domObserver?: { stop(): void; start(): void } }).domObserver
+    observer?.stop()
+    for (const one of all) one()
+    observer?.start()
+  })
+}
+
+/**
+ * The blocks a carried one makes way among, in the note's order: each block of the note, a list's items standing for
+ * the list, the carried block's own neighbours wherever it sits (inside a list item, a callout, a column: only its
+ * own column, as the others stand beside it).
+ */
+function runOf(view: EditorView, from: number, to: number): Piece[] {
+  const pieces: Piece[] = []
+  const walk = (parent: Block, start: number, top: boolean): void =>
+    parent.forEach((node, offset) => {
+      const pos = start + offset
+      const end = pos + node.nodeSize
+      const inHand = pos >= from && end <= to
+      const holds = !inHand && pos < from && to < end
+      // A column carried by its own grip: its row stands as one piece, beside whose columns it can go.
+      const ownRow = holds && node.type.name === 'columns' && view.state.doc.nodeAt(from)?.type.name === 'column'
+      if (!inHand && !ownRow && node.type.name === 'columns') {
+        if (holds) node.forEach((column, at) => void (pos + 1 + at < from && to < pos + 1 + at + column.nodeSize && walk(column, pos + 2 + at, false)))
+        if (holds) return
+      } else if (!inHand && !ownRow && (holds || (top && LISTS.has(node.type.name)))) return void walk(node, pos + 1, false)
+      const el = view.nodeDOM(pos)
+      if (el instanceof HTMLElement && el.getClientRects().length) pieces.push({ el, pos, end, node })
+    })
+  walk(view.state.doc, 0, true)
+  return pieces
+}
+
+const KINDS: Record<string, [string, React.ComponentType<{ className?: string }>]> = {
+  paragraph: ['', Type], heading: ['', Heading], listItem: ['', List], bulletList: ['', List], orderedList: ['', ListOrdered], taskItem: ['', ListTodo], taskList: ['', ListTodo],
+  blockquote: ['Quote', Quote], codeBlock: ['Code', Code], table: ['Table', Table], horizontalRule: ['Divider', Minus], columns: ['Columns', Columns2], bookmark: ['Link', Bookmark], image: ['Picture', Image]
+}
+/** What the card says it carries: the block's first words, or what it is called (a link's title, a picture's words). */
+function nameOf(node: Block): string {
+  const words = node.textBetween(0, node.content.size, '\n', ' ').split('\n').map((line) => line.trim()).find(Boolean)
+  const attrs = node.attrs as Record<string, unknown>
+  const named = [attrs.title, attrs.alt, attrs.caption, attrs.label, attrs.name, attrs.href].find((one): one is string => typeof one === 'string' && !!one.trim())
+  return cut(words ?? named ?? KINDS[node.type.name]?.[0] ?? 'Block', 80) || 'Block'
+}
+/** Its picture where it has one (a picture, a link's card), else the mark of its kind. */
+function iconOf(node: Block): React.ReactNode {
+  const attrs = node.attrs as Record<string, unknown>
+  const src = [attrs.src, attrs.image, attrs.icon].find((one): one is string => typeof one === 'string' && /^(https?|haligtree|data|file):/.test(one))
+  if (src) return <img src={src} alt="" draggable={false} className="size-5 shrink-0 rounded-[4px] object-cover" />
+  const Kind = KINDS[node.type.name]?.[1] ?? Type
+  return <Kind className="size-3.5 shrink-0 text-muted-foreground" />
+}
+
+/** Lifts the block the grip is on (or the picked blocks round it, the handle's own rule), its place held. */
+function lift(view: EditorView, pos: number, x: number, y: number, copy: boolean): Held | null {
+  const { state } = view
+  const node = state.doc.nodeAt(pos)
+  if (!node || !view.editable) return null
+  let [from, to] = [pos, pos + node.nodeSize]
+  const $pos = state.doc.resolve(pos)
+  const { selection } = state
+  if (!selection.empty && !(selection instanceof NodeSelection)) {
+    const [$a, $b] = [state.doc.resolve(selection.from), state.doc.resolve(selection.to)]
+    const depth = $pos.depth
+    if ($a.depth > depth && $b.depth > depth && $a.node(depth) === $pos.parent && $b.node(depth) === $pos.parent) {
+      const [first, last] = [$a.before(depth + 1), $b.after(depth + 1)]
+      if (first <= from && to <= last) [from, to] = [first, last]
+    }
+  }
+  const nodes: Block[] = []
+  const sources: HTMLElement[] = []
+  state.doc.nodesBetween(from, to, (one, at) => {
+    if (at < from || at + one.nodeSize > to) return true
+    nodes.push(one)
+    const dom = view.nodeDOM(at)
+    if (dom instanceof HTMLElement) sources.push(dom)
+    return false
+  })
+  if (!sources.length) return null
+  const pieces = runOf(view, from, to)
+  const me = pieces.find((one) => one.pos === from)?.el ?? sources[0]
+  const [first, last] = [sources[0].getBoundingClientRect(), sources[sources.length - 1].getBoundingClientRect()]
+  // What the editor's own drop and the beside code read: the block in hand (lib/columns.ts draggedOf).
+  ;(view as unknown as { dragging: unknown }).dragging = { slice: state.doc.slice(from, to), move: !copy, node: nodes.length === 1 ? NodeSelection.create(state.doc, from) : undefined }
+  quietly(view, () => {
+    for (const one of sources) (one.dataset.carried = ''), (one.dataset.carryHeld = '')
+    view.dom.dataset.carrying = ''
+  })
+  const ticks = slotTicker()
+  const ring = holderOf(view, from)
+  ticks.start(`own:${from}`)
+  return { view, from, to, nodes, sources, pieces, me, tall: last.bottom - first.top, x, y, copy, aim: null, room: null, kept: null, ticks, ring, title: nameOf(node), icon: iconOf(node) }
+}
+
+/** What holds a place in the note: a crossing of it is the firm tick. */
+const holderOf = (view: EditorView, at: number): string => {
+  const $at = view.state.doc.resolve(Math.min(at, view.state.doc.content.size))
+  return $at.depth ? `${$at.before()}` : 'note'
+}
+
+/** What letting go here would do, read off the blocks as they lay at the lift: so the room never chases itself. */
+function aimOf(one: Held): Aim | null {
+  const { view, x, y } = one
+  const page = view.dom.getBoundingClientRect()
+  // Off the note: nowhere, and letting go puts it back.
+  if (x < page.left - 96 || x > page.right + 96 || y < page.top - 48 || y > page.bottom + 96) return null
+  const laid = one.pieces.filter((piece) => piece.el === one.me || !one.sources.includes(piece.el)).map((piece) => ({ piece, box: restBox(piece.el) })).sort((a, b) => a.box.top - b.box.top)
+  let over = laid[0]
+  let off = Infinity
+  for (const each of laid) {
+    const far = y < each.box.top ? each.box.top - y : y > each.box.top + each.box.height ? y - each.box.top - each.box.height : 0
+    if (far < off) (off = far), (over = each)
+  }
+  if (!over) return null
+  const beside = off === 0 && over.piece.el !== one.me ? besideOf(one, over.piece, over.box) : null
+  if (beside) return beside
+  const key = String(over.piece.pos)
+  const how = sideOf(one.kept, key, (y - over.box.top) / Math.max(1, over.box.height))
+  one.kept = { key, how }
+  const index = laid.indexOf(over)
+  const at = how === 'before' ? over.piece.pos : over.piece.end
+  return { kind: 'line', gap: how === 'before' ? index - 1 : index, at, by: over.piece, key: `line:${at}`, holds: holderOf(view, at) }
+}
+
+/** Near the outer quarter of a block it can stand beside: where that row's new column would be. */
+function besideOf(one: Held, piece: Piece, box: { top: number; left: number; height: number; width: number }): Aim | null {
+  const { view, x } = one
+  const dragged = one.nodes.length === 1 && !one.copy ? NodeSelection.create(view.state.doc, one.from) : null
+  if (!dragged || !columnOf(dragged)) return null
+  const { doc } = view.state
+  const $at = doc.resolve(piece.pos)
+  // What it stands beside: a row's column (the one under the pointer, for a row itself), else the note's block holding it.
+  let row: Block | null = null
+  let rowPos = -1
+  let pos = $at.depth ? $at.before(1) : piece.pos
+  let dom = view.nodeDOM(pos)
+  // A row's columns as laid out at rest: the row's own slide left out.
+  let slid = 0
+  if (piece.node.type.name === 'columns' || $at.node(1)?.type.name === 'columns') {
+    rowPos = piece.node.type.name === 'columns' ? piece.pos : $at.before(1)
+    row = doc.nodeAt(rowPos)
+    if (!row) return null
+    const rowEl = view.nodeDOM(rowPos)
+    slid = rowEl instanceof HTMLElement ? new DOMMatrixReadOnly(getComputedStyle(rowEl).transform).m42 : 0
+    // The column under the pointer, by its whole box: a narrow page stacks a row's columns one under another.
+    let found = -1
+    row.forEach((_column, offset) => {
+      const el = view.nodeDOM(rowPos + 1 + offset)
+      const area = el instanceof HTMLElement ? el.getBoundingClientRect() : null
+      if (area && found < 0 && x >= area.left - 12 && x <= area.right + 12 && one.y >= area.top - slid - 8 && one.y <= area.bottom - slid + 8) found = rowPos + 1 + offset
+    })
+    if (found < 0) return null
+    pos = found
+    dom = view.nodeDOM(found)
+  }
+  const target = doc.nodeAt(pos)
+  if (!target || !(dom instanceof HTMLElement)) return null
+  // An empty line is a place to drop into, not beside.
+  if (target.isTextblock && !target.content.size) return null
+  // Beside what it is part of is where it already is.
+  if (one.from >= pos && one.to <= pos + target.nodeSize && !row) return null
+  // As laid out at rest: a row's column by the row's slide left out, any other block by its own.
+  const drawn = dom.getBoundingClientRect()
+  const area = row ? { top: drawn.top - slid, left: drawn.left, width: drawn.width, height: drawn.height } : pos === piece.pos ? box : restBox(dom)
+  const side = x < area.left + Math.min(area.width * SIDE, NEAR_LEFT) ? 'left' : x > area.left + area.width * (1 - SIDE) ? 'right' : null
+  if (!side || x < area.left) return null
+  // Taken out of this row as it goes (its column's only block, or a column of it carried by its grip): one fewer there.
+  const column = dragged.node.type.name === 'column'
+  const leaving = !!row && (column ? dragged.$from.before() === rowPos : dragged.$from.parent.type.name === 'column' && dragged.$from.parent.childCount === 1 && dragged.$from.before(dragged.$from.depth - 1) === rowPos)
+  if (row && leaving && (column ? pos === one.from : dragged.$from.before() === pos)) return null
+  const count = row ? row.childCount - (leaving ? 1 : 0) : 1
+  const refused = count >= MOST
+  const beside: Beside = { kind: row ? 'column' : 'wrap', pos, side }
+  const words = refused ? `A row holds ${MOST} side by side at most` : row ? `Add a column, ${count + 1} side by side` : 'Side by side'
+  return { kind: 'beside', beside, box: { top: area.top, left: area.left, height: area.height, width: area.width }, lean: dom, words, refused, key: `beside:${pos}:${side}`, holds: `beside:${pos}` }
+}
+
+/** The block a carried one would stand beside leans away from its line, a little; `now`, it is simply back. */
+let leaning: { el: HTMLElement; move: Animation } | null = null
+function lean(el: HTMLElement | null, by: number, now = false): void {
+  if (leaning?.el === el) return
+  const was = leaning
+  leaning = null
+  if (was && now) was.move.cancel()
+  else if (was) {
+    was.move.reverse()
+    was.move.onfinish = () => was.move.cancel()
+  }
+  if (!el || still()) return
+  leaning = { el, move: el.animate([{ translate: '0 0' }, { translate: `${by}px 0` }], { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)', fill: 'forwards' }) }
+}
+/** Reads the aim afresh, makes way for it, ticks a new place and draws the card. */
+function point(one: Held): void {
+  const next = aimOf(one)
+  if (next?.key !== one.aim?.key) {
+    one.aim = next
+    const quiet = (change: () => void): void => quietly(one.view, change)
+    const all = one.pieces.filter((piece) => piece.el === one.me || !one.sources.includes(piece.el)).map((piece) => piece.el)
+    if (next?.kind === 'line') {
+      const spot = makeWay(all, one.me, next.gap, one.tall, quiet)
+      // At the level it would land: beside the block it goes before or after.
+      const by = restBox(next.by.el)
+      one.room = spot && { ...spot, left: by.left, width: by.width }
+      lean(null, 0)
+    } else {
+      makeWay(all, one.me, null, one.tall, quiet)
+      const home = restBox(one.me)
+      one.room = { ...home, height: one.tall, own: true }
+      lean(next?.kind === 'beside' && !next.refused ? next.lean : null, next?.kind === 'beside' ? (next.beside.side === 'left' ? 8 : -8) : 0)
+    }
+    if (next?.kind === 'beside' && next.refused) document.documentElement.dataset.dragRefused = ''
+    else delete document.documentElement.dataset.dragRefused
+    const holds = next ? next.holds : one.ring
+    const own = !next || (next.kind === 'line' && !!one.room?.own)
+    one.ticks(own ? `own:${one.from}` : next!.key, holds !== one.ring)
+    one.ring = holds
+  }
+  draw()
+}
+
+/** Lets go: where the card said (a move, or a row of columns), or back home (Esc, nowhere, a refusal). */
+function end(drop: boolean): void {
+  const one = held
+  held = null
+  down = null
+  stopListening()
+  if (!one) return
+  const { view, aim, sources, from, to, nodes } = one
+  delete document.documentElement.dataset.dragging
+  delete document.documentElement.dataset.dragRefused
+  delete document.documentElement.dataset.blockCarry
+  let moved = false
+  if (drop && aim && !view.isDestroyed) {
+    if (aim.kind === 'beside' && !aim.refused) moved = dropBeside(view, true, aim.beside)
+    else if (aim.kind === 'line' && !one.room?.own) {
+      const tr = view.state.tr
+      const content = Fragment.from(nodes)
+      const dragged = nodes.length === 1 ? NodeSelection.create(view.state.doc, from) : null
+      if (one.copy) moved = !!tr.insert(aim.at, content)
+      // A column out of its row stands alone: its blocks go in at the line, and its row folds as it leaves.
+      else if (dragged && nodes[0].type.name === 'column') moved = !!(tr.insert(aim.at, nodes[0].content), takeOut(tr, dragged), true)
+      else moved = moveBlocks(tr, { from, to }, dragged, aim.at, content)
+      // The handle forgets the block it was on: left alone it keeps a position from before the move.
+      if (moved) view.dispatch(tr.setMeta('hideDragHandle', true))
+    }
+  }
+  ;(view as unknown as { dragging: unknown }).dragging = null
+  // Let go with a move: at once as the drop left it, nothing gliding there a second time. Put back: they glide home.
+  clearWay(moved)
+  lean(null, 0, moved)
+  quietly(view, () => {
+    for (const el of sources) delete el.dataset.carried, delete el.dataset.carryHeld
+    delete view.dom.dataset.carrying
+  })
+  draw()
+  chime(moved ? 'gather' : 'stay')
+  if (moved) view.focus()
+}
+
+/* The card and the room, drawn by carry.tsx's own pieces ------------------------------------------------------------ */
+
+let root: Root | null = null
+function draw(): void {
+  const one = held
+  if (!root) {
+    if (!one) return
+    const host = Object.assign(document.createElement('div'), { className: 'contents' })
+    host.dataset.blockCarryLayer = ''
+    document.body.append(host)
+    root = createRoot(host)
+  }
+  if (!one) return root.render(null)
+  const { aim, room } = one
+  const many = one.nodes.length > 1 ? one.nodes.length : 0
+  const words = !aim ? null : aim.kind === 'beside' ? aim.words : room?.own ? null : many ? `Move ${many} here` : 'Move here'
+  const side = aim?.kind === 'beside' ? aim : null
+  root.render(
+    <>
+      <CardAt x={one.x} y={one.y}>
+        <CarriedCard attrs={{ 'data-block-card': '' }} icon={one.icon} title={one.title} words={words} refused={!!side?.refused} />
+      </CardAt>
+      {room && <RoomAt at={room} how={aim?.kind === 'line' ? `block:${aim.at}` : 'own'} />}
+      {/* Beside a block: the line stands up at the seam its new column will open at, the height of the block. */}
+      {side && !side.refused && (
+        <DropLine fixed upright how={`beside:${side.beside.side}`} style={{ top: side.box.top, height: side.box.height, left: side.beside.side === 'left' ? side.box.left - 10 : side.box.left + side.box.width + 8, animation: roomWait() }} />
+      )}
+    </>
+  )
+}
+
+/* The pointer and the keys -------------------------------------------------------------------------------------------- */
+
+function move(event: PointerEvent): void {
+  if (!down) return
+  if (!(event.buttons & 1)) return end(false)
+  if (!held) {
+    if (Math.hypot(event.clientX - down.x, event.clientY - down.y) < LIFT) return
+    held = lift(down.view, down.pos, event.clientX, event.clientY, event.altKey)
+    if (!held) return void ((down = null), stopListening())
+    document.documentElement.dataset.dragging = ''
+    document.documentElement.dataset.blockCarry = ''
+    hideColumnGrip()
+    chime('lift')
+  }
+  held.x = event.clientX
+  held.y = event.clientY
+  point(held)
+}
+const up = (event: PointerEvent): void => {
+  if (!held) return void ((down = null), stopListening())
+  event.preventDefault()
+  swallowClick()
+  end(true)
+}
+const cancel = (): void => end(false)
+const key = (event: KeyboardEvent): void => {
+  if (event.key !== 'Escape' || !held) return
+  event.preventDefault()
+  event.stopPropagation()
+  swallowRelease()
+  end(false)
+}
+/** The page scrolled under a still pointer (the note's own scroll at its edge): the aim is read again. */
+const scrolled = (): void => void (held && point(held))
+function stopListening(): void {
+  window.removeEventListener('pointermove', move, true)
+  window.removeEventListener('pointerup', up, true)
+  window.removeEventListener('pointercancel', cancel, true)
+  window.removeEventListener('keydown', key, true)
+  window.removeEventListener('scroll', scrolled, true)
+  window.removeEventListener('blur', cancel)
+}
+
+function press(event: PointerEvent): void {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey) return
+  const target = event.target as HTMLElement | null
+  const handle = target?.closest?.<HTMLElement>('.tiptap-drag-handle')
+  const column = target?.closest?.('.mf-column-grip') ? gripColumn : null
+  if (!handle && !column) return
+  const view = column ? column.view : viewOf(handle!)
+  const pos = column ? column.pos : view ? gripped.get(view) : undefined
+  if (!view || pos === undefined || pos < 0) return
+  // No text picked and no focus moved by the press: a press alone still clicks (the grip's menu, the +).
+  event.preventDefault()
+  end(false)
+  down = { view, pos, x: event.clientX, y: event.clientY }
+  window.addEventListener('pointermove', move, true)
+  window.addEventListener('pointerup', up, true)
+  window.addEventListener('pointercancel', cancel, true)
+  window.addEventListener('keydown', key, true)
+  window.addEventListener('scroll', scrolled, true)
+  window.addEventListener('blur', cancel)
+}
+
+/* A column's own grip ---------------------------------------------------------------------------------------------- */
+
+/** One grip, over the top of the column the pointer is in, as the block grip stands by the block it is beside. */
+let columnGrip: HTMLElement | null = null
+let gripColumn: { view: EditorView; pos: number } | null = null
+function overColumn(event: PointerEvent): void {
+  if (held || down || event.buttons) return
+  const target = event.target as HTMLElement | null
+  if (target?.closest?.('.mf-column-grip')) return
+  const column = target?.closest?.<HTMLElement>('.mf-column')
+  const root = column?.closest<HTMLElement & { editor?: { view: EditorView } }>('.ProseMirror')
+  const view = root?.editor?.view
+  const pos = view && column ? view.posAtDOM(column, 0) - 1 : -1
+  if (!view || !column || !view.editable || view.state.doc.nodeAt(pos)?.type.name !== 'column') return hideColumnGrip()
+  gripColumn = { view, pos }
+  const box = column.getBoundingClientRect()
+  columnGrip ??= Object.assign(document.createElement('div'), { className: 'mf-column-grip', ariaLabel: 'Carry the column' })
+  if (!columnGrip.firstChild) columnGrip.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="9" r="1"/><circle cx="12" cy="9" r="1"/><circle cx="19" cy="9" r="1"/><circle cx="5" cy="15" r="1"/><circle cx="12" cy="15" r="1"/><circle cx="19" cy="15" r="1"/></svg>'
+  columnGrip.style.translate = `${Math.round(box.left + box.width / 2 - 10)}px ${Math.round(box.top - 11)}px`
+  if (!columnGrip.isConnected) document.body.append(columnGrip)
+  columnGrip.hidden = false
+}
+function hideColumnGrip(): void {
+  gripColumn = null
+  if (columnGrip) columnGrip.hidden = true
+}
+
+let installed = false
+/** Once for the whole page: every editor's grip carries the same way. */
+export function installBlockCarry(): void {
+  if (installed) return
+  installed = true
+  window.addEventListener('pointerdown', press, true)
+  // A column's grip shows over the column the pointer is in, and goes as the page scrolls under it.
+  window.addEventListener('pointermove', overColumn, { capture: true, passive: true })
+  window.addEventListener('scroll', hideColumnGrip, { capture: true, passive: true })
+  // The browser's own drag of the grip never starts: the carry above is the one.
+  window.addEventListener('dragstart', (event) => void ((event.target as HTMLElement | null)?.closest?.('.tiptap-drag-handle') && (event.preventDefault(), event.stopPropagation())), true)
+}

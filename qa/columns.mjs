@@ -1,7 +1,7 @@
 /**
  * Columns made by dragging a block to the side of another, the way Notion
- * does: the upright line, the row it makes, a column added beside a row (four
- * at most), the gap dragged to resize (kept, drawn into halves and thirds),
+ * does: the upright line (carry.tsx's own), the row it makes, a column added beside a row (four
+ * at most, a fifth refused in words), the gap dragged to resize (kept, drawn into halves and thirds),
  * the last block dragged out folding the row back into lines, blocks inside
  * still written in, one ⌘Z per act, stacked when narrow, Markdown in reading
  * order, a row saved before this still opening, and a drag let go off the page
@@ -51,19 +51,22 @@ async function carry(text, to, { away = false, name = 'carry' } = {}) {
   const steps = 10
   let upright = false
   twins.length = 0
+  refusals.length = 0
   const from = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 }
   for (let i = 1; i <= steps; i++) {
     await page.mouse.move(from.x + ((to.x - from.x) * i) / steps, from.y + ((to.y - from.y) * i) / steps)
     await page.waitForTimeout(50)
     const seen = await page.evaluate(() => {
-      const line = document.querySelector('.mf-column-drop')
-      const twin = document.querySelector('.mf-block-carried-line')
-      const t = twin && getComputedStyle(twin).display !== 'none' ? twin.getBoundingClientRect() : null
+      // The one line every carry draws (carry.tsx DropLine), standing up beside the block; the card never over it.
+      const line = document.querySelector('[data-drop-line^="beside"]')
+      const card = document.querySelector('[data-block-card]')?.getBoundingClientRect()
       const l = line?.getBoundingClientRect()
-      return { line: !!line, twin: !!t && !!l && Math.abs(t.left - l.left) < 3 && Math.abs(t.top - l.top) < 3, l: l && [l.left, l.top, l.width, l.height], t: t && [t.left, t.top, t.width, t.height], bg: twin && getComputedStyle(twin).backgroundColor }
+      const covered = !!l && !!card && card.left < l.right && card.right > l.left && card.top < l.bottom && card.bottom > l.top
+      return { line: !!line, twin: !covered, l: l && [l.left, l.top, l.width, l.height], refused: document.documentElement.hasAttribute('data-drag-refused'), words: document.querySelector('[data-block-card] [data-drag-label]')?.textContent ?? null }
     })
     upright ||= seen.line
     if (seen.line) twins.push(seen)
+    refusals.push(seen)
     if (i === steps) await shot(name)
   }
   if (away) {
@@ -76,6 +79,7 @@ async function carry(text, to, { away = false, name = 'carry' } = {}) {
 }
 
 const twins = []
+const refusals = []
 const undo = async () => (await page.keyboard.press('Meta+z'), await page.waitForTimeout(200))
 
 // 1. Beside a block: a row of two.
@@ -83,7 +87,7 @@ await seed('<p>Lecture one: the causes of the war.</p><p>Reading for Thursday.</
 let a = await box('Lecture one')
 let upright = await carry('Questions to ask', { x: a.x + a.width - 20, y: a.y + a.height / 2 }, { name: 'beside-right' })
 check('a vertical line shows at the right edge of a block', upright)
-check('and it is drawn over the carried card', twins.length && twins.every((one) => one.twin), JSON.stringify(twins.slice(0, 2)))
+check('and the carried card never covers it', twins.length && twins.every((one) => one.twin), JSON.stringify(twins.slice(0, 2)))
 check('dropped there, the two sit side by side', (await outline()) === '[Lecture one: the causes of the war. | Questions to ask.] / Reading for Thursday.', await outline())
 await shot('row-of-two')
 
@@ -105,7 +109,7 @@ await carry('Four more', { x: three.x + three.width - 12, y: three.y + three.hei
 check('a fourth column can be added', (await outline()) === '[One | Two | Three | Four more] / Five more', await outline())
 let four = await box('Four more')
 upright = await carry('Five more', { x: four.x + four.width - 8, y: four.y + four.height / 2 }, { name: 'fifth-refused' })
-check('a fifth is not offered: no line, and it lands as an ordinary drop', !upright && (await outline()).startsWith('[One | Two | Three | Four more'), await outline())
+check('a fifth is refused: no line, the card says why, and letting go moves nothing', !upright && refusals.some((one) => one.refused && /holds 4/.test(one.words ?? '')) && (await outline()) === '[One | Two | Three | Four more] / Five more', `${JSON.stringify(refusals.at(-1))} ${await outline()}`)
 
 // 5. The gap between columns resizes, drawn into halves, and is kept.
 await seed('<div data-columns><div class="mf-columns-row"><div data-column><p>Left column words</p></div><div data-column><p>Right column words</p></div></div></div><p>After</p>')
@@ -178,7 +182,7 @@ await seed('<p>Alpha</p><p>Beta</p>')
 const alpha = await box('Alpha')
 const before = await outline()
 await carry('Beta', { x: alpha.x + alpha.width - 20, y: alpha.y + alpha.height / 2 }, { away: true })
-check('a column drag let go off the page changes nothing, and leaves no line', (await outline()) === before && !(await page.evaluate(() => document.querySelector('.mf-column-drop'))), await outline())
+check('a column drag let go off the page changes nothing, and leaves no line', (await outline()) === before && !(await page.evaluate(() => document.querySelector('[data-drop-line]'))), await outline())
 
 // 9. Narrow: stacked.
 await seed('<div data-columns><div class="mf-columns-row"><div data-column><p>Left</p></div><div data-column><p>Right</p></div></div></div>')

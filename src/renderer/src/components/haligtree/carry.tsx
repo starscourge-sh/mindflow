@@ -191,19 +191,26 @@ function useGlide(y: number, scaleY: number, instant: boolean, kick = 0, over: [
  * Pieces of a page that stay where the page lays them (the sidebar's folders, its sections, its pages in their runs):
  * carried among, they make way as a list's rows do, on the same one clock, each slide written straight onto the piece.
  */
-const ways = new Map<HTMLElement, Glider>()
-const glideEl = (el: HTMLElement, y: number, now: boolean): void => {
+const ways = new Map<HTMLElement, Glider & { quiet: Quiet }>()
+/**
+ * How a piece is written to: at once, or, for a page that redraws what it sees change (a note's blocks: ProseMirror
+ * reads a style written on one of its blocks as an edit and draws the block again without it), out of its sight.
+ */
+export type Quiet = (change: () => void) => void
+const aloud: Quiet = (change) => change()
+const moved = (y: number): string => (y ? `translateY(${y}px)` : '')
+const glideEl = (el: HTMLElement, y: number, now: boolean, quiet: Quiet): void => {
   let one = ways.get(el)
   if (!one) {
     const my = motionValue(0)
-    my.on('change', (v) => void (el.style.transform = v ? `translateY(${v}px)` : ''))
-    one = { y: my, scale: motionValue(1), from: [0, 1], to: [0, 1], at: [0, 1], over: [0, 0] }
+    my.on('change', (v) => one!.quiet(() => void (el.style.transform = moved(v))))
+    one = { y: my, scale: motionValue(1), from: [0, 1], to: [0, 1], at: [0, 1], over: [0, 0], quiet }
     ways.set(el, one)
     gliders.add(one)
   }
   if (one.to[0] === y && !now) return
   one.to = [y, 1]
-  if (now || still()) return void ((one.from = one.at = [y, 1]), one.y.jump(y), (el.style.transform = y ? `translateY(${y}px)` : ''))
+  if (now || still()) return void ((one.from = one.at = [y, 1]), one.y.jump(y), one.quiet(() => void (el.style.transform = moved(y))))
   retarget()
 }
 /** Where a piece is laid out, its slide left out. */
@@ -219,18 +226,26 @@ export type Spot = { top: number; height: number; left: number; width: number; o
  * carried one among them; `gap`: the room opens just after the piece at that place in `all` as laid out (-1: before
  * the first), null: nowhere, and everything goes home.
  */
-export function makeWay(all: HTMLElement[], carried: HTMLElement, gap: number | null, tall: number): Spot | null {
+export function makeWay(all: HTMLElement[], carried: HTMLElement, gap: number | null, tall: number, quiet: Quiet = aloud): Spot | null {
   const laid = all.map((el) => ({ el, ...restBox(el) })).sort((a, b) => a.top - b.top)
   const from = laid.findIndex((one) => one.el === carried)
-  const own = gap === null || from < 0 || gap === from || gap === from - 1
+  if (from < 0) {
+    // Carried in from outside the run (a note's column out of its row): it leaves no place among them to close over,
+    // so only the room where it lands opens, the pieces after it making way by its height.
+    for (const [at, one] of laid.entries()) (quiet(() => void (one.el.dataset.carryPiece = '')), glideEl(one.el, gap !== null && at > gap ? tall : 0, false, quiet))
+    const by = gap === null ? undefined : laid[gap + 1] ?? laid[gap]
+    if (gap === null || !by) return null
+    return { top: laid[gap + 1] ? by.top : by.top + by.height, height: tall, left: by.left, width: by.width, own: false }
+  }
+  const own = gap === null || gap === from || gap === from - 1
   // The carried piece's own place, with the air under it: what the pieces after it close over.
-  const span = from < 0 ? tall : (laid[from + 1] ? laid[from + 1].top : laid[from].top + laid[from].height + 1) - laid[from].top
+  const span = (laid[from + 1] ? laid[from + 1].top : laid[from].top + laid[from].height + 1) - laid[from].top
   for (const [at, one] of laid.entries()) {
     if (one.el === carried) continue
-    one.el.dataset.carryPiece = ''
-    glideEl(one.el, own ? 0 : gap > from ? (at > from && at <= gap ? -span : 0) : at > gap && at < from ? span : 0, false)
+    quiet(() => void (one.el.dataset.carryPiece = ''))
+    glideEl(one.el, own ? 0 : gap > from ? (at > from && at <= gap ? -span : 0) : at > gap && at < from ? span : 0, false, quiet)
   }
-  if (gap === null || from < 0) return null
+  if (gap === null) return null
   const me = laid[from]
   if (own) return { top: me.top, height: tall, left: me.left, width: me.width, own: true }
   // Going down, the room takes the foot of the last piece passed; going up, the head of the first one passed.
@@ -240,16 +255,18 @@ export function makeWay(all: HTMLElement[], carried: HTMLElement, gap: number | 
 /** Every piece home: let go, at once where the drop leaves them; put back, gliding there. */
 export function clearWay(snap: boolean): void {
   for (const [el, one] of ways) {
-    delete el.dataset.carryPiece
+    one.quiet(() => void delete el.dataset.carryPiece)
     if (snap || still() || !el.isConnected) {
       one.y.jump(0)
-      el.style.transform = ''
+      one.quiet(() => void (el.style.transform = ''))
       gliders.delete(one)
       ways.delete(el)
-    } else glideEl(el, 0, false)
+    } else glideEl(el, 0, false, one.quiet)
   }
 }
 
+/** A room's band and line wait until the pieces have made way, so the line is never drawn across one still moving. */
+export const roomWait = (): string | undefined => (still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both`)
 /** The room's quiet band, wherever one is drawn. */
 const ROOM = 'pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]'
 /** A carried thing's own place, while nothing else is open for it: the same quiet band, never a faded copy of it. */
@@ -274,7 +291,7 @@ export const RoomIn = ({ moves, how }: { moves: boolean; how: string }): React.J
  * room it runs through the band's middle; `fixed`, it is laid over the page at a
  * place read off it, for rows that stay where they are (the sidebar's trees).
  */
-export function DropLine({ how, style, fixed = false }: { how: string; style: CSSProperties; fixed?: boolean }): React.JSX.Element {
+export function DropLine({ how, style, fixed = false, upright = false }: { how: string; style: CSSProperties; fixed?: boolean; /** Standing beside what it lands by (a note's block going beside another), its dot at its top. */ upright?: boolean }): React.JSX.Element {
   const line = useRef<HTMLSpanElement>(null)
   // Said to the card each time it is drawn at a place, and when it goes: the card rides clear of it (useClear).
   useLayoutEffect(() => {
@@ -285,7 +302,7 @@ export function DropLine({ how, style, fixed = false }: { how: string; style: CS
       for (const tell of lineHeard) tell()
     }
   })
-  return <span ref={line} aria-hidden data-drop-line={how} style={style} className={cn('pointer-events-none h-0.5 -translate-y-1/2 rounded-full shrink-0 bg-(--tt-brand-color-400) before:absolute before:-top-[3px] before:-left-2 before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background', fixed ? 'fixed z-[70]' : 'absolute right-2')} />
+  return <span ref={line} aria-hidden data-drop-line={how} style={style} className={cn('pointer-events-none rounded-full shrink-0 bg-(--tt-brand-color-400) before:absolute before:size-2 before:rounded-full before:border-2 before:border-(--tt-brand-color-400) before:bg-background', upright ? 'w-0.5 -translate-x-1/2 before:-top-2 before:-left-[3px]' : 'h-0.5 -translate-y-1/2 before:-top-[3px] before:-left-2', fixed ? 'fixed z-[70]' : 'absolute right-2')} />
 }
 /** The line drawn just now, if any, and who hears of it moving. */
 let lineNow: HTMLElement | null = null
@@ -314,7 +331,9 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
       // As it is drawn: a card turned a little in the hand (the Matrix's) reaches past the box that holds it.
       const turned = card.current?.firstElementChild?.getBoundingClientRect()
       const box = own && { top: Math.min(own.top, turned?.top ?? own.top), bottom: Math.max(own.bottom, turned?.bottom ?? own.bottom) }
-      const line = lineNow?.isConnected ? lineNow.getBoundingClientRect() : null
+      // A line standing upright beside a block (a note's block going beside another) is beside the card, never under it.
+      const drawn = lineNow?.isConnected ? lineNow.getBoundingClientRect() : null
+      const line = drawn && drawn.width > drawn.height ? drawn : null
       // A small place the card is carried onto (a tab): it rides just under it, so the place's own name stays in sight.
       // Lit, the place is under the pointer, so the card is on it or about to be (sideways it follows a touch late).
       const place = !line?.width && litNow?.isConnected && litNow.dataset.rowDrop !== undefined ? litNow.getBoundingClientRect() : null
@@ -366,7 +385,7 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
  * never scrolls), as a list's band is placed in its row.
  */
 export function RoomAt({ at, how, indent = 0 }: { at: Spot; how: string; indent?: number }): React.JSX.Element {
-  const wait = still() || at.own ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both`
+  const wait = at.own ? undefined : roomWait()
   const key = `${Math.round(at.top)}:${at.own}`
   return createPortal(
     <Fragment key={key}>
@@ -382,6 +401,15 @@ export function Clear({ children }: { children: ReactNode }): React.JSX.Element 
   const clear = useClear()
   return <motion.div ref={clear.ref} style={{ y: clear.y }}>{children}</motion.div>
 }
+
+/** That card where the pointer is (`x`, `y`): just past it, level with it, over everything, and clear of the line. */
+export const CardAt = ({ x, y, children }: { x: number; y: number; children: ReactNode }): React.JSX.Element =>
+  createPortal(
+    <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ left: x + 18, top: y, translate: '0 -50%' }}>
+      <Clear>{children}</Clear>
+    </div>,
+    document.body
+  )
 
 type RowProps = { id: string; children: ReactNode; inner?: CSSProperties; indent?: number; /** A list that draws its own handle says so. */ grip?: boolean }
 
