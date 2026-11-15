@@ -401,7 +401,7 @@ function Gallery({ deck, onOpen }: { deck: string; onOpen: (type: string, id: st
       {(pictures ?? []).map((one) => (
         <li key={one.id}>
           <button type="button" className="group grid w-full cursor-pointer gap-1 text-left" onClick={() => (chime('tap'), onOpen('nugget', one.id))}>
-            <img src={small(one.src)} alt="" loading="lazy" decoding="async" className="aspect-square w-full rounded-md object-cover transition-opacity group-hover:opacity-90" />
+            <img src={small(one.src, 640)} alt="" loading="lazy" decoding="async" className="aspect-square w-full rounded-md object-cover transition-opacity group-hover:opacity-90" />
             {one.who && <span className="truncate text-meta text-muted-foreground">{one.who}</span>}
           </button>
         </li>
