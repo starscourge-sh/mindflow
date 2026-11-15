@@ -200,6 +200,8 @@ const RULES: [RegExp, LucideIcon][] = [
   // Groups.
   // A new folder and a new page side by side in one menu (Writing's, a folder's) each wear their own sign.
   [/^new folder/i, FolderPlus],
+  // A group gathers by a tag and is no folder (it never opens): its own sign, never the folder's beside "New folder".
+  [/^new group by a tag/i, Hash],
   [/^new page/i, FilePlus],
   [/^new group|^group with|new note in group/i, FolderPlus],
   [/remove from group|^out of its group/i, FolderMinus],
