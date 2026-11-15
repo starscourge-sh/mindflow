@@ -621,22 +621,21 @@ const coverTint = (card: Card): string => tagColour(splitTags(card.title).tags[0
  * without one wears, with its word set large over the shaded foot, the way a
  * radio cover is a name over its picture.
  */
-function WordCover({ seed, tint, word }: { seed: string; tint: string; word: string }): React.JSX.Element | null {
+function WordCover({ seed, tint, words, icon }: { seed: string; tint: string; words: string; icon?: ReactNode }): React.JSX.Element | null {
   const cover = useNoteCover(seed)
   if (!cover) return null
   return (
-    <span aria-hidden className="absolute inset-0 flex items-end p-3">
-      <GrainFill cover={cover} tint={tint} shade="foot" />
-      {/* In ink on paper, as every card's words on a drawing are; white only on a picture or gradient. */}
-      <span className={`private-text relative line-clamp-3 font-heading text-[1.125rem] leading-[1.08] font-bold tracking-[-0.015em] hyphens-auto [overflow-wrap:break-word] ${cover.paper ? '' : 'text-white'}`} style={cover.paper ? onPaper(tint) : undefined}>{word}</span>
+    <span aria-hidden className="absolute inset-0">
+      <GrainFill cover={cover} tint={tint} shade={words ? 'foot' : 'none'} />
+      {/* As every row's card: its kind, and its first words where a picture would be. */}
+      <span className={`absolute inset-0 flex flex-col justify-between p-3 ${cover.paper ? '' : 'text-white'}`}>
+        {icon ?? <span />}
+        {words && <span className={`private-text line-clamp-4 text-xs leading-snug hyphens-auto [overflow-wrap:break-word] ${cover.paper ? '' : 'text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]'}`} style={cover.paper ? { color: PAPER_INK } : undefined}>{words}</span>}
+      </span>
     </span>
   )
 }
 
-/** The word a card is about: a definition's term, before its colon. */
-const termOf = (card: Card): string => nameOf(card).split(/:\s/)[0].slice(0, 60)
-/** What follows the term: the rest of a definition, else its first words. */
-const restOf = (card: Card): string => (nameOf(card).includes(': ') ? nameOf(card).slice(nameOf(card).indexOf(': ') + 2) : wordsOf(card.excerpt)) || nameOf(card)
 
 /** A card's own picture, or its own word on its colour where it has none. */
 function Cover({ card, className = '' }: { card: Card; className?: string }): React.JSX.Element {
@@ -646,7 +645,7 @@ function Cover({ card, className = '' }: { card: Card; className?: string }): Re
   return (
     <span className={`${className.includes('absolute') ? '' : 'relative'} overflow-hidden ${className}`}>
       {real ? <Picture src={src} onBroken={() => setBroken(true)} /> : (
-        <WordCover seed={card.id} tint={coverTint(card)} word={termOf(card)} />
+        <WordCover seed={card.id} tint={coverTint(card)} words={wordsOf(card.excerpt)} icon={<KindIcon card={card} paper className="size-4 text-white/80 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" />} />
       )}
     </span>
   )
@@ -667,10 +666,10 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
           <button type="button" aria-label={nameOf(lead)} data-nav data-private={lead.private ? '' : undefined} data-picked={actions.picked?.(lead) || undefined} data-drag-open={`${lead.type}:${lead.id}`} onClick={(event) => actions.open(lead, event)}
             className="absolute inset-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50" />
           <div className="pointer-events-none relative flex h-[calc(var(--card)-0.75rem)] items-stretch gap-4">
-            <Cover card={lead} className="aspect-square h-full shrink-0 rounded-md" />
+            <Cover card={lead} className="aspect-square h-full shrink-0 rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
             <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 py-3 pr-4">
               <span className="truncate text-xs text-muted-foreground">{kindLabel(lead)} · {lead.sub ?? 'Coming back'}</span>
-              <span className="private-text line-clamp-2 text-heading leading-tight font-bold tracking-[-0.01em] hyphens-auto [overflow-wrap:break-word] text-foreground">{termOf(lead)}</span>
+              <span className="private-text line-clamp-2 text-heading leading-tight font-semibold tracking-[-0.01em] hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(lead)}</span>
               {/* Review now first, then Read, then the menu. */}
               <span className="pointer-events-auto flex items-center gap-2 pt-2 [&_button]:shrink-0">
                 {onReview && (
@@ -707,10 +706,11 @@ function ComingTile({ card, list, at, actions }: { card: Card; list: Card[]; at:
           <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
             className="flex w-full flex-col gap-2 rounded-lg p-1.5 text-left outline-none transition-[background-color,scale] duration-200 ease-(--mf-ease) hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985]">
             <span className="relative block aspect-square w-full">
-              <Cover card={card} className="absolute inset-0 rounded-md shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
+              <Cover card={card} className="absolute inset-0 rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
             </span>
             <span className="flex min-w-0 flex-col gap-0.5 px-1 pb-1">
-              <span className="private-text line-clamp-2 text-control leading-snug text-muted-foreground hyphens-auto [overflow-wrap:break-word]">{restOf(card)}</span>
+              <span className="private-text line-clamp-2 text-control leading-snug font-medium hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(card)}</span>
+              {card.sub && <span className="truncate pt-1 text-xs text-muted-foreground">{card.sub}</span>}
             </span>
           </button>
           {card.foot && <div className="px-1.5 pb-1.5">{card.foot}</div>}
@@ -1194,7 +1194,7 @@ function SourcesRow({ onAll }: { onAll: () => void }): React.JSX.Element | null 
               {person
                 ? <span className="block aspect-square w-full overflow-hidden rounded-full"><Avatar name={one.name} size={160} className="!size-full" /></span>
                 : (
-                  <span className="relative block aspect-square w-full overflow-hidden rounded-md"><WordCover seed={`source:${one.name}`} tint={tagColour(one.name, null)} word={one.name} /></span>
+                  <span className="relative block aspect-square w-full overflow-hidden rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]"><WordCover seed={`source:${one.name}`} tint={tagColour(one.name, null)} words="" /></span>
                 )}
               <span className="flex min-w-0 flex-col gap-0.5 px-1 pb-1">
                 <span className="truncate text-control font-medium text-foreground">{one.name}</span>
