@@ -6,7 +6,7 @@ import { taskMenu, type TaskNow } from './tasks-view'
 import { copyLinkItem, type RowItem } from './row-menu'
 import { ask, pin, quietly } from './ui'
 import { openItems } from '@/lib/split'
-import { openApart } from '@/lib/apart'
+import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { exit } from '@/lib/capture-links'
 import { makeTask } from '@/lib/tasks'
 import { binItem } from '@/lib/to-bin'
@@ -54,6 +54,7 @@ export function sideMenu(type: string, id: string, title: string, { onOpen, pinn
     { label: 'Open', run: () => onOpen(type, id) },
     ...openItems(type, id),
     { label: 'Open in a new window', run: () => openApart(type, id) },
+    ...(smallHolds(type) ? [{ label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', run: () => openSmall(type, id) }] : []),
     'separator',
     waiting && kind === 'todo' && { label: 'Mark it done', run: () => void exit(id, 'resolved') },
     waiting && kind !== 'todo' && { label: 'Make it a task', run: () => void makeTask({ capture: id }) },

@@ -63,7 +63,7 @@ export const tidy = <T,>(items: (T | 'separator')[]): (T | 'separator')[] =>
  */
 const OPEN_IN = 'Open in…'
 /** The other ways to open a thing, most used first: the order they take inside "Open in…". */
-const WAYS_TO_OPEN = ['open in a new tab', 'open to the side', 'open in a new window', 'read']
+const WAYS_TO_OPEN = ['open in a new tab', 'open to the side', 'open in a new window', 'open in a small window', 'read']
 const NESTS: [string, RegExp][] = [
   // Every way to open it other than plain "Open", in one place (11 Nov: "Open", "Open in…", "Read" and "Open in a
   // new tab" stood in four places down one menu).

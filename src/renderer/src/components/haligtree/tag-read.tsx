@@ -10,7 +10,7 @@ import { AlignJustify, ChevronDown } from 'lucide-react'
 
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useLive, haligtree, type Pin as Pinned, type TagRead, type Task } from '@/lib/haligtree'
-import { openApart } from '@/lib/apart'
+import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { statusSaid } from '@/lib/capture-links'
 import { rowBody } from '@/lib/row-body'
 import { taggedBlocks } from '@/lib/tagged-blocks'
@@ -339,6 +339,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   const noteMenu = (item: TagRead, index: number): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => open(item) },
     { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.type, item.id) },
+    ...(smallHolds(item.type) ? [{ label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', run: () => openSmall(item.type, item.id) }] : []),
     ...openItems(item.type, item.id),
     ...queueItems(item.id),
     { label: 'Read from here', run: () => read(shown, index) },

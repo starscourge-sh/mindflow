@@ -91,7 +91,7 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
             // What finds a note opens it in the main window, beside everything else.
             actions={searching === 'notes' ? [] : [
               { label: `Open in ${APP_NAME}`, hint: 'This note in the main window', keys: '⌘O', cue: null, run: () => void openInHaligtree() },
-              { label: 'New capture', hint: 'A blank capture, in its own small window: write, then it goes to the Inbox', run: () => window.api.showPrompt() },
+              { label: 'New capture', hint: 'A blank capture in quick capture: write, then it goes to the Inbox', run: () => window.api.showPrompt() },
               ...SECTIONS.map((section) => ({ label: `Go to ${section.label}`, hint: pageSaid(section.id), run: () => window.api.openInHome('view', section.id) })),
               { label: 'Fold every heading', hint: 'In the note in front: only its headings show', cue: null, run: () => void (foldEverything(true) || chime('nope')) },
               { label: 'Unfold every heading', hint: 'In the note in front: everything under its headings shows again', cue: null, run: () => void (foldEverything(false) || chime('nope')) },
@@ -203,7 +203,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           })}
           edited={meta.editedAt} captured={meta.capturedAt} pinned={!!meta.pinnedAt} onPin={() => pin('captures', id, !meta.pinnedAt)}
           copyKey={noteLinkText(meta.id, meta.label)} board={board} details={!boardShown}
-          menu={[...(boardShown ? [{ label: propsOut ? 'Hide properties' : 'Show properties', run: () => setPropsOut(!propsOut) }, 'separator' as const] : []), ...captureDots(meta).filter((item) => !item || item === 'separator' || item.label !== 'Open in a new window')]}
+          menu={[...(boardShown ? [{ label: propsOut ? 'Hide properties' : 'Show properties', run: () => setPropsOut(!propsOut) }, 'separator' as const] : []), ...captureDots(meta).filter((item) => !item || item === 'separator' || !['Open in a new window', 'Open in a small window'].includes(item.label))]}
           tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} />
         {past ? (
           <HaligtreeEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />

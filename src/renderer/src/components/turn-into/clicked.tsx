@@ -39,7 +39,7 @@ export function lookUpIn(editor: Editor, from: number, to: number, words: string
   lookUp({ range,  words: words.replace(/\s+/g, " ").trim(), x: (start.left + end.right) / 2, y: end.bottom, from: { where: "", link: "", sentence: sentence && sentence !== words ? sentence : undefined, origin } })
 }
 import { canSplit, openAside, openNewTab } from "@/lib/split"
-import { openApart } from "@/lib/apart"
+import { openApart, openSmall, smallHolds } from "@/lib/apart"
 import { keptAs } from "@/lib/capture-links"
 import { chime } from "@/lib/sound"
 import { enqueue } from "@/lib/reading-queue"
@@ -227,6 +227,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       // Beside the pane the note is in, not the one in front: that may be the pane last opened beside it.
       !!id && canSplit() && { label: "Open to the side", data: "aside", run: landed((to, at) => openAside(to, at, editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane"))) },
       !!id && own && { label: "Open in a new window", data: "apart", run: landed(openApart) },
+      !!id && own && smallHolds(type) && { label: "Open in a small window", hint: "Keeps writing there while quick capture stays free", data: "small", run: landed(openSmall) },
       // A link to one line: that line shown here instead, live (what its preview card once offered).
       !!id && !!editor.state.doc.nodeAt(pos)?.attrs.block && { label: "Show the line here", edits: true, data: "line-here", run: () => showLineHere(editor, pos) },
       // Spotify's two verbs, for the note it leads to.

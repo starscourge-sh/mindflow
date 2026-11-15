@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { labelFor } from "./pdf-labels"
 import { ChevronRight } from "lucide-react"
 import { chime } from "@/lib/sound"
-import { openApart } from "@/lib/apart"
+import { openApart, openSmall, smallHolds } from "@/lib/apart"
 import { openItems } from "@/lib/split"
 import { scrollerOf } from "@/lib/note-place"
 import { RowMenu, copyLinkItem, type RowItem } from "@/components/haligtree/row-menu"
@@ -148,6 +148,7 @@ export function InYourNotes({ cited, empty, parts = [], here, src = "" }: { cite
       { label: "Open", run: () => open(one, false) },
       ...openItems(one.type, one.id),
       { label: "Open in a new window", run: () => openApart(one.type, one.id) },
+      ...(smallHolds(one.type) ? [{ label: "Open in a small window", hint: "Keeps writing there while quick capture stays free", run: () => openSmall(one.type, one.id) }] : []),
       "separator",
       copyLinkItem(one.type === "capture" ? one.id : `${one.type}:${one.id}`, one.title),
     ]

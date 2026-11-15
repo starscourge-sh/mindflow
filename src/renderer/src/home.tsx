@@ -1901,7 +1901,7 @@ export function Home(): React.JSX.Element {
             ...(palette?.actions ?? []),
             // Back after a while, the sidebar shows only capture and Today: the way to the rest, from here too (the sidebar's own button is not there when it is narrow or hidden).
             ...(quiet ? [{ label: 'Show everything', hint: 'Every page in the sidebar again', first: true, cue: null, run: () => void call('return:show-all').then(() => chime('unshelve')) }] : []),
-            { label: 'New capture', hint: 'A blank capture, in its own small window: write, then it goes to the Inbox', keys: 'C', first: true, run: () => window.api.showPrompt() },
+            { label: 'New capture', hint: 'A blank capture in quick capture: write, then it goes to the Inbox', keys: 'C', first: true, run: () => window.api.showPrompt() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', first: true, words: 'dictate dictation transcribe speech to text voice memo talk speak microphone', cue: null, run: () => void recordAsCapture((id) => open('capture', id)) },
             { label: 'Record a call or lecture', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             { label: 'Recordings', hint: 'Every call and lecture you recorded', words: 'meetings recordings calls lectures transcripts', cue: null, run: () => setView({ id: 'tags', focus: 'recording' }) },

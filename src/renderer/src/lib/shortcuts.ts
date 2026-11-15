@@ -25,6 +25,7 @@ export const SHORTCUTS: Shortcut[] = [
   // From anywhere on the Mac, Haligtree in front or not.
   { group: 'Anywhere', keys: '⌘.', does: 'Open or hide quick capture', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⇧⌘.', does: 'Pick an area of the screen: quick capture opens with the picture, ready to write under it', where: 'Anywhere' },
+  { group: 'Anywhere', keys: '⌥⌘.', does: 'A new note in a small window of its own, so quick capture stays free', where: 'Anywhere' },
   { group: 'Getting around', keys: '⌥⌘S', does: 'Safe mode on or off, for sharing your screen: nothing comes up on its own (no hints, old captures or pinned notes)', where: 'Both windows' },
   { group: 'Anywhere', keys: '⌃⌥⌘N', does: 'Show or hide every sticky note on the desktop', where: 'Anywhere' },
   { group: 'Anywhere', keys: '⌃⌥⌘M', does: 'Record a call or lecture; while one records, note this moment', where: 'Anywhere' },
@@ -112,7 +113,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: 'I', does: 'From the list back to the note', where: 'Quick capture' },
   { group: 'Getting around', keys: 'Esc', does: 'Hide quick capture (with Vim on: press it twice)', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌘O', does: 'Open the main window', where: 'Quick capture' },
-  { group: 'Getting around', keys: '⌘O', does: 'The open note to a small window of its own, or back from it, the caret where it was', where: 'Main window' },
+  { group: 'Getting around', keys: '⌘O', does: 'The open note to a window of its own, or back from it, the caret where it was', where: 'Main window' },
   { group: 'Getting around', keys: '⌘O', does: 'With no note open in front: search for a page or note to open in the pane in front', where: 'Main window' },
   { group: 'Getting around', keys: '⌘O', does: `Open in ${APP_NAME}: this note back in the main window, the caret where it was`, where: 'Note window' },
 

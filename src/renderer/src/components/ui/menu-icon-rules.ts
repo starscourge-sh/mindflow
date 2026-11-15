@@ -1,5 +1,5 @@
 import {
-  AlarmClock, AppWindow, BellOff, Archive, ArchiveRestore, BookPlus, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
+  AlarmClock, AppWindow, PictureInPicture2, ArrowUpRight, BellOff, Archive, ArchiveRestore, BookPlus, ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, Ban, Bell, Braces, BookCopy, BookOpen, Bookmark, Brain, Calendar,
   CalendarClock, CalendarDays, CalendarPlus, CalendarX, Camera, CameraOff, ChartBar, CheckCheck, ChevronsDownUp, ChevronsUpDown, CircleCheck, CircleOff,
   CircleX, Clipboard, Clock, Folder, Columns2, Copy, CopyPlus, Dice5, DoorOpen, Dot, Download, GripVertical, Eraser, ExternalLink, Eye, EyeOff, FilePlus, FileText, Files, Flag,
   FolderCheck, FolderInput, FolderMinus, FolderPlus, Footprints, Gift, GraduationCap, Hash, History, Hourglass, House, Image, Inbox, Keyboard, LayoutGrid,
@@ -121,6 +121,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^take (the line|it) (out|off)/i, X],
   [/^mark mistakes/i, SpellCheck],
   [/^fit height/i, ArrowUpDown],
+  // A small window's two switches: it grows with the words; it steps aside for the pointer.
+  [/^auto-size/i, ArrowUpDown],
+  [/^steps aside/i, ArrowUpRight],
   // A picture's quick look (Space), and its caption: the words under it.
   [/^look$/i, Eye],
   // A favourite tag: a star, struck through to take it out.
@@ -194,6 +197,8 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^forward$/i, ArrowRight],
   [/^join .*call/i, Video],
   [/^see the original/i, ExternalLink],
+  // A note in a small window of its own, apart from quick capture: the small window over the big one.
+  [/small window/i, PictureInPicture2],
   [/new window|own window|in a window/i, AppWindow],
   // A page opened in the app's own reader is a book opened; the arrow out stays for leaving the app ("Open in the default app").
   [/^open at page|^open in the reader|^continue at p\./i, BookOpen],

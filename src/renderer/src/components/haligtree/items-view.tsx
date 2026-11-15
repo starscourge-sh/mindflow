@@ -78,7 +78,7 @@ import { RecentIsland } from './recent-island'
 import { askProofread } from '@/lib/grammar'
 import { ListSearch, NoteList, NoteRail, PaneButtons, Peek, matches, type Entry } from './note-list'
 import { archive, changeKind, publishSite, saveAttachments, useOpenNote, useOwnOrder } from '@/lib/notes'
-import { openApart } from '@/lib/apart'
+import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { copyToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
@@ -980,6 +980,7 @@ const itemMenu = (item: Item): (MenuItem | { label: string; items: RowItem[] })[
   { label: item.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('nugget', item.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.tier, item.id) },
+  ...(smallHolds(item.tier) ? [{ label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', run: () => openSmall(item.tier, item.id) }] : []),
   // A Word kept as a gem is one word and its meaning, as in the Inbox: nothing to read through or queue up.
   item.kind !== 'word' && { label: 'Read', hint: 'Read it through, its links open in place', run: () => openRead(`${item.tier}:${item.id}`) },
   ...openItems(item.tier, item.id),

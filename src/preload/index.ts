@@ -52,6 +52,8 @@ heard.on('notes:opened-apart', (_event, id: string) => window.dispatchEvent(new 
 // A note moving between the main window and its own (lib/apart.ts): its window
 // closed, a caret carried in, or asked to go back home.
 heard.on('notes:apart', (_event, what: string, link: string) => window.dispatchEvent(new CustomEvent('haligtree:apart', { detail: { what, link } })))
+// A small window told something by main (main/small-window.ts): resized by hand, it stopped growing with the words.
+heard.on('small:said', (_event, what: string, value: unknown) => window.dispatchEvent(new CustomEvent('haligtree:small', { detail: { what, value } })))
 // The menu bar's Reset the sandbox: asked in the pill, where Start over is held.
 heard.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('haligtree:sandbox-reset')))
 // The View menu's app size items, pressed or clicked: offered first to what is in
@@ -82,8 +84,9 @@ heard.on('video:refused', (_event, src: string) => window.dispatchEvent(new Cust
 type RoomHere = { left: number; top: number; right: number; bottom: number; side?: 'above' | 'below' | 'left' | 'right' | null; menu?: number; pill?: number }
 /** A sticky as its pill in the desk's stack (main's shapeCard): the stack's edge, and, opened, where the pill stands in the window and how wide the card is. */
 export type PillPeek = { side: 'left' | 'right'; nudge: boolean; opened?: { pill: { x: number; y: number; width: number; height: number }; card: number; size: { width: number; height: number } } }
-/** Quick capture's window: the one page that is not another kind's (main's pages.ts), and the only one with room round its card. */
-const boxHere = /\/index\.html$/.test(window.location.pathname)
+/** Quick capture's window: the one page that is not another kind's (main's pages.ts), and the only one with room round its card.
+ * A small window (main/small-window.ts) is the same page in a window that is all card: never the box's room. */
+const boxHere = /\/index\.html$/.test(window.location.pathname) && !new URLSearchParams(window.location.search).has('small')
 /**
  * The room round this window's card, known at once. The box reads it from its own environment, where main wrote it
  * before the page loaded (main's `roomInEnv`): no call that waits on main, which held the box still while main was

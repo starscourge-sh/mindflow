@@ -12,7 +12,7 @@ import { chime } from '@/lib/sound'
 import { issues, type Repeat } from '@/lib/issues'
 import { smallPicture, thumbsRead, useThumb } from '@/lib/notes'
 import { useDecoded } from '@/lib/decoded'
-import { openApart } from '@/lib/apart'
+import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { backSaid, placed, taskName } from '@/lib/tasks'
 import { dayKey, dayjs, num, plural, startOfDay } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
@@ -202,6 +202,7 @@ const menuFor = (card: Card, { open, read, menu, task, note }: Actions, list: Ca
   const own: MenuItem[] = [
     { label: 'Open', run: () => open(card) },
     card.type !== 'task' && { label: 'Open in a new window', run: () => openApart(card.type, card.id) },
+    card.type !== 'task' && smallHolds(card.type) && { label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', run: () => openSmall(card.type, card.id) },
     ...openItems(card.type, card.id),
     ...(card.type === 'task' ? [] : queueItems(card.id)),
     readable(card) && { label: 'Read it, full screen', run: () => read(list, at) },

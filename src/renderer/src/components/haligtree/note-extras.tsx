@@ -646,7 +646,7 @@ export function NoteHeader({ left, place, back, type = 'capture', edited, captur
     'Writing room': 'The page alone, full screen, to write',
     'Leave the writing room': 'Back to the page as it was',
     'Open to the side': 'Beside what is open now',
-    'Open in a new window': 'A small window of its own'
+    'Open in a new window': 'A window of its own'
   }
   const viewed = all.flatMap((item) => (item !== 'separator' && !('items' in item) && item.label in VIEW_SAYS ? [item as { label: string; run: () => void; keys?: string }] : []))
   const items = all.filter((item) => item === 'separator' || 'items' in item || !(item.label in VIEW_SAYS))

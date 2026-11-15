@@ -423,8 +423,10 @@
    own blur of the desktop cut to the card's shape (windows/box.tsx, lib/glass.ts), under a wash of the page colour,
    a fine bright hairline all round that is brightest along the top edge where the light catches it, a large soft
    radius and a wide soft shadow. Without the glass (Reduce Transparency, a solid look) the wash is the whole page
-   colour, the hairline and shadow the same. */
-html[data-overhang] {
+   colour, the hairline and shadow the same. A small window (main/small-window.ts) is the same card filling a window
+   of its own: the same corners, wash and hairline, with the Mac's own shadow round the window. */
+html[data-overhang],
+html[data-small] {
   --mf-box-radius: 24px;
   --mf-glass-fill: var(--background);
   --mf-glass-rim: inset 0 0 0 1px rgb(255 255 255 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.85);
@@ -435,6 +437,7 @@ html[data-overhang] {
 /* Dark: the hairline a faint white, its top edge brighter; outside it a near-black line, so the edge holds on a pale
    desktop; the shadow fuller. By the page's own colour where the glass says it (data-glass), else by the theme. */
 html[data-overhang]:where(.dark:not(.light, .paper, [data-light])),
+html[data-small]:where(.dark:not(.light, .paper, [data-light])),
 html[data-overhang][data-glass='dark'] {
   --mf-glass-rim: inset 0 0 0 1px rgb(255 255 255 / 0.13), inset 0 1px 0 rgb(255 255 255 / 0.26);
   --mf-glass-edge: 0 0 0 0.5px rgb(0 0 0 / 0.6);
@@ -4136,3 +4139,12 @@ textarea[data-talking]::selection {
 
 /* The sandbox's loader covers the window; the writing line under it never shows over it (sandbox.tsx). */
 :root[data-seeding] [data-writer-line] { display: none; }
+
+/* A small window (main/small-window.ts): quick capture's page holding one note in a window of its own. The window is
+   see-through and the card fills it, in quick capture's own material and corners (above), opaque, with the Mac's
+   shadow round the window rather than one of its own, which the window's edge would cut. */
+html[data-small] .app-container {
+  border-radius: var(--mf-box-radius);
+  background-color: var(--mf-glass-fill);
+  box-shadow: var(--mf-glass-rim), var(--mf-glass-edge);
+}

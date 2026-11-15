@@ -8,7 +8,7 @@ import { tagHue } from '@/extensions/tokens'
 
 import { chime } from '@/lib/sound'
 import { useThumb } from '@/lib/notes'
-import { openApart } from '@/lib/apart'
+import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { canSplit, openItems } from '@/lib/split'
 import { RowMenu, copyLinkItem, openFromGrip, type RowItem } from './row-menu'
 import { unloaded, unread, haligtree } from '@/lib/haligtree'
@@ -120,6 +120,7 @@ export function Mentions({ id, onOpen, compact = false, editor }: {
       { label: 'Open', run: () => onOpen?.(one.type, one.id) },
       ...openItems(one.type, one.id),
       { label: 'Open in a new window', run: () => openApart(one.type, one.id) },
+      ...(smallHolds(one.type) ? [{ label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', run: () => openSmall(one.type, one.id) }] : []),
       'separator',
       (!!link || !!here) && { label: here ? 'Link it' : 'Link this mention', run: linkIt },
       copyLinkItem(one.type === 'capture' ? one.id : `${one.type}:${one.id}`, one.title)
@@ -300,6 +301,7 @@ function RelatedCard({ card, onOpen }: { card: Related[number]; onOpen?: (type: 
     { label: 'Open', run: () => onOpen?.(card.type, card.id) },
     ...openItems(card.type, card.id),
     { label: 'Open in a new window', run: () => openApart(card.type, card.id) },
+    ...(smallHolds(card.type) ? [{ label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', run: () => openSmall(card.type, card.id) }] : []),
     'separator',
     { label: 'Add to queue', run: () => void enqueue([card.id]) },
     { label: 'Read next', run: () => void enqueue([card.id], true) },

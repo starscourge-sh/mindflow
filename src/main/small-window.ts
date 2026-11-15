@@ -1,0 +1,244 @@
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
+import { readFileSync, writeFileSync } from 'fs'
+import { join } from 'path'
+import { changed, database } from './captures'
+import { centredOn, glide, onScreen, stillNow } from './glide'
+
+/**
+ * A note in a small window of its own, apart from quick capture, as Raycast Notes is apart from Raycast's launcher:
+ * quick capture's own page (index.html, App.tsx) in a window that holds one note, saved as it is written, so quick
+ * capture stays free for everything else. It floats over other apps, grows with what is written up to the screen's
+ * height less a margin and then scrolls; resized by hand it stops growing until "Auto-size" gives it back. Kept open
+ * and clicked past close by, it steps aside as quick capture does. Several may be open, one note each; they come back
+ * where they were, with their size and switches, after a restart. Closed holding nothing, the note goes with it.
+ * Quick capture's main code (index.ts) asks `isSmall` where a window may be one of these; the rest is here.
+ */
+
+type Kept = { link: string; bounds: Electron.Rectangle; auto: boolean; aside: boolean }
+type Windows = {
+  load: (win: BrowserWindow, query: string) => void
+  guard: (win: BrowserWindow) => void
+  /** Quick capture's step aside (index.ts), for any window kept open: `may` says whether it is on. */
+  stepAside: (win: BrowserWindow, may: () => boolean) => void
+}
+
+/** Raycast Notes' size, a little wider: quick capture's own gutters (4.75rem a side) leave a column of words this wide less 152px. */
+const WIDTH = 520
+/** Empty: the title, a line to write on, and the row under it. */
+const SHORT = 200
+/** Grown no nearer the screen's foot than this. */
+const MARGIN = 40
+/** How far it rises into place as it arrives, as a note's own window does (notes.ts). */
+const RISE = 14
+
+const smalls = new Map<BrowserWindow, Kept>()
+let quitting = false
+
+/** One of these, not quick capture or any other window. */
+export const isSmall = (win: BrowserWindow | null | undefined): boolean => !!win && smalls.has(win)
+const holding = (link: string): BrowserWindow | undefined => [...smalls].find(([win, one]) => one.link === link && !win.isDestroyed())?.[0]
+/** A note opened in a window of its own is put down everywhere else, as a note's own window has it (notes.ts). */
+const takeAway = (win: BrowserWindow, link: string): void => {
+  const id = link.slice(link.indexOf(':') + 1)
+  for (const other of BrowserWindow.getAllWindows()) if (other !== win && !other.isDestroyed()) other.webContents.send('notes:opened-apart', id)
+}
+/** "Show its window", from the place the note left in the main window: true when a small window holds it. */
+export function showSmall(link: string): boolean {
+  const win = holding(link)
+  if (!win) return false
+  win.showInactive()
+  win.focus()
+  return true
+}
+/** "Bring it back": the small window holding it closes, its last words saved as its page goes, and the note is there again. */
+export function closeSmall(link: string): boolean {
+  const win = holding(link)
+  if (!win) return false
+  win.close()
+  return true
+}
+
+const file = (): string => join(app.getPath('userData'), 'small-windows.json')
+/** What is open, as it is now: read back at the next start. */
+const save = (): void => {
+  for (const [win, kept] of smalls) if (!win.isDestroyed()) kept.bounds = win.getBounds()
+  try {
+    writeFileSync(file(), JSON.stringify([...smalls.values()]))
+  } catch (error) {
+    console.error('small-windows.json', error)
+  }
+}
+
+/** A capture holding nothing: no words, no picture, no block but empty lines. */
+function emptyCapture(id: string): boolean {
+  try {
+    const row = database().prepare('select body from captures where id = ?').get(id) as { body: string | null } | undefined
+    if (!row) return false
+    const body = JSON.parse(row.body ?? 'null') as { content?: { type?: string; content?: { text?: string }[] }[] } | null
+    return (body?.content ?? []).every((block) => block.type === 'paragraph' && (block.content ?? []).every((one) => !one.text?.trim()))
+  } catch (error) {
+    // Kept rather than lost: a note that cannot be read is never taken for an empty one.
+    console.error('small window: could not read its note', error)
+    return false
+  }
+}
+/** The empty note a small window was given, gone with it: nothing left behind. */
+function dropIfEmpty(link: string): void {
+  const id = link.startsWith('capture:') ? link.slice('capture:'.length) : ''
+  if (!id || !emptyCapture(id)) return
+  database().prepare('delete from captures where id = ?').run(id)
+  changed()
+}
+
+/**
+ * The window grown or shrunk to what its page needs (the page's fit, as quick capture asks for its own, index.ts
+ * window:fit), at once, never a glide per line: down from where its top is, and once its foot meets the screen's, up,
+ * to the screen's height less a margin above and below; past that the words scroll. Not while resized by hand.
+ * False for any other window.
+ */
+export function fitSmall(win: BrowserWindow, height: number): boolean {
+  const kept = smalls.get(win)
+  if (!kept) return false
+  if (!kept.auto || win.isDestroyed()) return true
+  const now = win.getBounds()
+  const { workArea } = screen.getDisplayMatching(now)
+  const top = workArea.y + MARGIN
+  const foot = workArea.y + workArea.height - MARGIN
+  const next = Math.round(Math.max(SHORT, Math.min(height, foot - top)))
+  const y = Math.max(top, Math.min(now.y, foot - next))
+  if (Math.abs(next - now.height) >= 1 || y !== now.y) win.setBounds({ ...now, y, height: next }, false)
+  return true
+}
+
+export function registerSmallWindows({ load, guard, stepAside }: Windows): { open: (link: string | null, from?: Electron.Rectangle | null) => void; restore: () => void } {
+  app.on('before-quit', () => {
+    quitting = true
+    save()
+  })
+
+  /** A small window on `link` ('capture:id', or null for a new note), grown from `from` (a row, the box) when given. */
+  const open = (link: string | null, from?: Electron.Rectangle | null, kept?: Kept): void => {
+    const same = link && holding(link)
+    if (same) return void (same.showInactive(), same.focus())
+    const point = screen.getCursorScreenPoint()
+    const seed = from ?? { x: point.x - 60, y: point.y - 40, width: 120, height: 80 }
+    const size = kept ? onScreen(kept.bounds) : onScreen(centredOn(seed, WIDTH, SHORT))
+    const win = new BrowserWindow({
+      ...size,
+      minWidth: 320,
+      minHeight: 140,
+      show: false,
+      frame: false,
+      // The Mac's own rounded corners and shadow, round a page that fills the window: no clear room round a card.
+      roundedCorners: true,
+      hasShadow: true,
+      fullscreenable: false,
+      backgroundColor: '#00000000',
+      transparent: true,
+      title: 'Note',
+      autoHideMenuBar: true,
+      webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }
+    })
+    const state: Kept = kept ?? { link: link ?? '', bounds: size, auto: true, aside: true }
+    smalls.set(win, state)
+    // Over every app, as quick capture floats, on whichever desktop you are on.
+    win.setAlwaysOnTop(true, 'floating')
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+    // Resized by hand: it stops growing with the words, and the page offers "Auto-size" to give it back.
+    win.on('will-resize', () => {
+      if (!state.auto) return
+      state.auto = false
+      win.webContents.send('small:said', 'auto', false)
+      save()
+    })
+    win.on('moved', save)
+    win.on('resized', save)
+    // Kept open and clicked past close by: to the free corner furthest from the pointer, as quick capture does.
+    win.on('blur', () => stepAside(win, () => state.aside))
+    // Closed holding nothing, nothing is left behind: the empty note it was given goes too. Read once the page has
+    // gone, after it handed over its last words (pagehide).
+    win.on('closed', () => {
+      smalls.delete(win)
+      // Back in its place wherever it had left, as when a note's own window closes.
+      for (const other of BrowserWindow.getAllWindows()) if (!other.isDestroyed()) other.webContents.send('notes:apart', 'closed', state.link)
+      dropIfEmpty(state.link)
+      // Kept for the next start while quitting; closed by you, it is gone from the list.
+      if (!quitting) save()
+    })
+    // Shown where it came from (centred on the row, the card or the box it left), rising a little into place as it
+    // fades in: position and opacity only, as a note's own window arrives (notes.ts), never resized on the way.
+    win.once('ready-to-show', () => {
+      if (kept || stillNow()) return win.show()
+      win.setOpacity(0)
+      win.setBounds({ ...size, y: size.y + RISE }, false)
+      win.show()
+      void glide(win, { x: size.x, y: size.y }, { ms: 240, opacity: 1 })
+    })
+    // ⌘W closes it, as the red light does: the note stays where it lives.
+    win.webContents.on('before-input-event', (event, input) => {
+      if (input.type === 'keyDown' && input.meta && !input.shift && !input.alt && !input.control && input.key.toLowerCase() === 'w') {
+        event.preventDefault()
+        win.close()
+      }
+    })
+    guard(win)
+    if (state.link) takeAway(win, state.link)
+    load(win, `?small=${encodeURIComponent(state.link || 'new')}`)
+    if (!quitting) save()
+  }
+
+  // From quick capture, a row's menu, ⌘K, the menus: `from` is the row or the box on the screen, when there is one.
+  ipcMain.handle('haligtree:small:open', (event, link: unknown, from?: { x: number; y: number; width: number; height: number } | null) => {
+    const sender = BrowserWindow.fromWebContents(event.sender)
+    const page = sender && !sender.isDestroyed() ? sender.getContentBounds() : null
+    const seed = page && from && from.width > 0 && from.height > 0 ? { x: Math.round(page.x + from.x), y: Math.round(page.y + from.y), width: Math.round(from.width), height: Math.round(from.height) } : null
+    open(typeof link === 'string' && link ? link : null, seed)
+  })
+  /** The note a small window holds now (its own new one made, or another opened in it by "+" or browse). */
+  ipcMain.handle('haligtree:small:holds', (event, link: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const kept = win && smalls.get(win)
+    if (!kept || typeof link !== 'string') return
+    const was = kept.link
+    kept.link = link
+    if (was !== link) takeAway(win, link)
+    // The one it held before is back in its place wherever it had left.
+    if (was && was !== link) for (const other of BrowserWindow.getAllWindows()) if (other !== win && !other.isDestroyed()) other.webContents.send('notes:apart', 'closed', was)
+    // The note it held before, left empty, goes as it would on closing.
+    if (was !== link) dropIfEmpty(was)
+    save()
+  })
+  /** Its switches, for its menu. */
+  ipcMain.handle('haligtree:small:state', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const kept = win && smalls.get(win)
+    return kept ? { auto: kept.auto, aside: kept.aside } : null
+  })
+  ipcMain.handle('haligtree:small:set', (event, patch: { auto?: unknown; aside?: unknown }) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const kept = win && smalls.get(win)
+    if (!kept) return null
+    if (typeof patch?.aside === 'boolean') kept.aside = patch.aside
+    if (typeof patch?.auto === 'boolean') kept.auto = patch.auto
+    save()
+    return { auto: kept.auto, aside: kept.aside }
+  })
+
+  /** The small windows open when the app last quit, where they were. */
+  const restore = (): void => {
+    let list: Kept[] = []
+    try {
+      list = JSON.parse(readFileSync(file(), 'utf8'))
+    } catch {
+      return
+    }
+    for (const one of Array.isArray(list) ? list : []) {
+      // One never told its note (closed before its page made it) has nothing to come back to.
+      if (!one || typeof one.link !== 'string' || !one.link || !one.bounds) continue
+      const id = one.link.startsWith('capture:') ? one.link.slice('capture:'.length) : ''
+      if (id && !database().prepare("select 1 from captures where id = ? and status != 'discarded'").get(id)) continue
+      open(one.link, null, { link: one.link, bounds: one.bounds, auto: one.auto !== false, aside: one.aside !== false })
+    }
+  }
+  return { open: (link, from) => open(link, from), restore }
+}

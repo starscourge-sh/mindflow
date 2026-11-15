@@ -15,7 +15,7 @@ import { stickOnDesktop } from './haligtree/sticky-note'
 import { NoteList, type Entry } from './haligtree/note-list'
 import type { Density } from './haligtree/display'
 import { archive, changeKind, publishSite, saveAttachments } from '@/lib/notes'
-import { openApart } from '@/lib/apart'
+import { openApart, openSmall } from '@/lib/apart'
 import { openItems } from '@/lib/split'
 import { binItem, moveToBin } from '@/lib/to-bin'
 import { FileText } from 'lucide-react'
@@ -252,6 +252,7 @@ export const captureMenu = (capture: CaptureMeta, onPick?: (id: string) => void)
   { label: capture.private ? 'Make it not private' : 'Make it private', run: () => void haligtree.setPrivate('captures', capture.id, !capture.private) },
   { label: 'Stick on the desktop', run: () => stickOnDesktop('capture', capture.id) },
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('capture', capture.id) },
+  { label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', run: () => openSmall('capture', capture.id) },
   // A Word is one word and its meaning: nothing to read through or queue up.
   // Its hint one line, as every menu line's: at "the notes it links to open in place" it ran to two in the submenu.
   capture.kind !== 'word' && { label: 'Read', hint: 'Read it through, its links open in place', run: () => openRead(capture.id) },

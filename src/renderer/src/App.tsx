@@ -145,12 +145,36 @@ import { BIG_PASTE, BigPaste } from './extensions/big-paste'
 import { breath, markdownToDocumentGently } from './lib/markdown-doc'
 import { APP_NAME } from '../../main/name'
 import { domOf } from '@/lib/editor-dom'
+import { ArrowUpDown, Layers2 } from 'lucide-react'
+import { isCollecting, startCollect, stopCollect } from '@/extensions/collect'
+
+/**
+ * A small window (main/small-window.ts): this same page in a window of its own that holds one note, saved as it is
+ * written, so quick capture stays free for everything else. Its address names the note ('capture:id', or another
+ * kind's 'type:id'), or 'new'. It has no draft of its own: quick capture's draft and leftover are never read or
+ * written from one.
+ */
+const SMALL = new URLSearchParams(location.search).get('small')
+// Its card's look from the first frame (main.css, data-small): the window is see-through until the card is drawn.
+if (SMALL) document.documentElement.dataset.small = ''
+/** Put away: quick capture hides; a small window closes, its note kept where it lives. */
+const putWindowAway = (): void => (SMALL ? window.close() : window.api.hideWindow())
+/** An empty note, for a new small window or its "+". */
+const EMPTY: JSONContent = { type: 'doc', content: [{ type: 'paragraph' }] }
+/** A new empty note made once for this window, whatever StrictMode or a reload asks again. */
+let smallMade: Promise<string | null> | null = null
+const smallNote = (): Promise<string | null> => (smallMade ??= SMALL !== 'new' ? Promise.resolve(SMALL) : window.api.captures.create({ kind: 'note', body: EMPTY }).then((id) => {
+  // Named in the address from now on, so a reload opens the same note rather than another new one.
+  history.replaceState(null, '', `${location.pathname}?${new URLSearchParams({ ...Object.fromEntries(new URLSearchParams(location.search)), small: `capture:${id}` })}`)
+  return `capture:${id}`
+}, () => null))
 
 /**
  * A new note half written, kept as you type so it survives quitting and
  * reading old captures. Only if it holds anything.
  */
 const readDraft = (): JSONContent | undefined => {
+  if (SMALL) return undefined
   try {
     const saved = JSON.parse(localStorage.getItem('capture-draft') ?? 'null')
     return hasContent(saved) ? saved : undefined
@@ -164,6 +188,7 @@ const readDraft = (): JSONContent | undefined => {
  * few large pictures) is not kept as a draft, rather than breaking the box.
  */
 const putDraft = (doc: unknown): void => {
+  if (SMALL) return
   try {
     const text = JSON.stringify(doc)
     if (localStorage.getItem('capture-draft') === text) return
@@ -189,6 +214,7 @@ const LEFTOVER_KEEPS = 24 * 60 * 60_000
 const LEFTOVER_SHOWN = 3
 const forgetLeftover = (): void => ['capture-leftover', 'capture-leftover-at', 'capture-leftover-shown'].forEach((key) => localStorage.removeItem(key))
 const readLeftover = (): JSONContent | null => {
+  if (SMALL) return null
   try {
     const saved = JSON.parse(localStorage.getItem('capture-leftover') ?? 'null') as JSONContent | null
     const at = Number(localStorage.getItem('capture-leftover-at')) || 0
@@ -268,7 +294,7 @@ const WindowDots = (): React.JSX.Element => (
       type="button"
       tabIndex={-1}
       aria-label="Close"
-      onClick={() => window.api.hideWindow()}
+      onClick={putWindowAway}
     >
       <X />
     </button>
@@ -288,13 +314,15 @@ const PANEL_WIDTH = 440
  */
 const HEADER_SHAPE = 'h-[28px] rounded-full border border-foreground/15 bg-[color-mix(in_oklab,var(--background)_max(60%,var(--mf-window-tint,20%)),transparent)]'
 
-const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
+const Header = ({ panel, drawn, onPanel, onNew, onBrowse, menu, nav, title, aside }: {
   panel: boolean
   /** The panel is on screen, or still gliding away. */
   drawn: boolean
   /** None in "One line to start", which has no side panel: no button that would do nothing. */
   onPanel?: () => void
   onNew: () => void
+  /** A small window's: another note in this window, picked by name. */
+  onBrowse?: () => void
   /** The actions menu, handed the window's size and the way to change it. */
   menu: (expanded: boolean, toggleExpanded: () => void) => React.ReactNode
   nav?: React.ReactNode
@@ -318,7 +346,8 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
   // to work with the caret anywhere - or nowhere.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (event.key.toLowerCase() !== 'f') return
+      // Quick capture's own expander: a small window sizes itself (Auto-size) or by its edges.
+      if (SMALL || event.key.toLowerCase() !== 'f') return
       if (!event.ctrlKey || !event.shiftKey || event.metaKey || event.altKey) return
       event.preventDefault()
       toggle()
@@ -407,12 +436,20 @@ const Header = ({ panel, drawn, onPanel, onNew, menu, nav, title, aside }: {
           className={`mf-pill absolute right-0 flex items-center overflow-hidden mf-segs ${HEADER_SHAPE} opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100`}
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
-          <Tip label="New capture  ⌘N">
-            <button type="button" tabIndex={-1} aria-label="New capture" className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+          <Tip label={SMALL ? 'New note in this window  ⌘N' : 'New capture  ⌘N'}>
+            <button type="button" tabIndex={-1} aria-label={SMALL ? 'New note' : 'New capture'} className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onNew}>
               <AliveIcon icon={PenIcon} size={14} />
             </button>
           </Tip>
+          {onBrowse && (
+            <Tip label="Another note in this window  ⌘P">
+              <button type="button" tabIndex={-1} aria-label="Browse notes" data-small-browse className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                onMouseDown={(event) => event.preventDefault()} onClick={onBrowse}>
+                <Layers2 className="size-3.5" strokeWidth={1.75} />
+              </button>
+            </Tip>
+          )}
           <span className="flex">{menu(expanded, toggle)}</span>
 {onPanel && (
           <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review, Saved and Recent  ⌘\\`}>
@@ -922,7 +959,8 @@ export default function App(): React.JSX.Element {
   // for the full box ("One line to start" off) is kept as it was.
   const oneLineOn = appSettings?.boxOneLine === true
   const [pillPanel, setPillPanel] = useState(false)
-  const panel = (oneLineOn ? pillPanel : chosenPanel) && !welcoming
+  // A small window has no side panel: one note, and the browse button for another.
+  const panel = !SMALL && (oneLineOn ? pillPanel : chosenPanel) && !welcoming
   const [tab, setTab] = useState<Tab>('inbox')
   // The panel is drawn from the first frame the box grows, at its own width, and stays drawn while the box shrinks
   // back, fading as it goes (lib/box-morph.ts): never squeezed, never an empty strip.
@@ -941,6 +979,8 @@ export default function App(): React.JSX.Element {
    * sound. Every way in comes here: ⌘\, the panel button, the pinned chip, ⌃J, ⌃1 to ⌃5, ⇧⌘Y and Settings.
    */
   const setPanel = (open: boolean, quiet = false): void => {
+    // A small window holds one note and has no side panel: its keys get the app's "no" sound, and nothing moves.
+    if (SMALL) return void (open && chime('nope'))
     if (!quiet) chime(open ? 'slide' : 'fold')
     // The panel's move sets the height too; the writing's own waits for it to land.
     box.held.current = true
@@ -1116,6 +1156,8 @@ export default function App(): React.JSX.Element {
     if (where?.includes(':')) return openAny(where.split(':')[0], where.split(':')[1], true)
     setReading(null)
     if (where) openCapture(where, true)
+    // A small window's first note has nothing before it to go back to.
+    else if (SMALL) return
     else fresh(true, true)
   }
   const column = useRef<HTMLDivElement>(null)
@@ -1123,7 +1165,7 @@ export default function App(): React.JSX.Element {
   // grows once there is more to show: a second line, what sending it will
   // do, or the kind picker asked for from the pill's icon. Never while the
   // welcome runs, which teaches the whole box.
-  const oneLine = oneLineOn && !welcoming
+  const oneLine = oneLineOn && !welcoming && !SMALL
   const [opened, setOpened] = useState(false)
   // The Inbox's Display, opened by F with no list in sight: the pill grows into the box for its sheet to lie over.
   const [sheetUp, setSheetUp] = useState(false)
@@ -1254,6 +1296,44 @@ export default function App(): React.JSX.Element {
       setAttribution(found.attribution ?? '')
       setMedium(found.medium ?? '')
       setSecret(!!found.private)
+    })
+  }
+  // A small window opens on its note (a new one is made first, and goes again if the window closes with it empty:
+  // main/small-window.ts), as the box opens a capture or a page from its list: the same editor, saved as you write.
+  useEffect(() => {
+    if (!SMALL) return
+    void smallNote().then((link) => {
+      if (!link) return refuse('This note could not be opened. Close the window and try again', 'error')
+      const at = link.indexOf(':')
+      const [type, id] = [link.slice(0, at), link.slice(at + 1)]
+      // Its first note is where its history starts: nothing before it.
+      setTrail({ stack: [type === 'capture' ? id : link], at: 0 })
+      if (type === 'capture') openCapture(id, true)
+      else openAny(type, id, true)
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  // Main keeps which note each small window holds, for after a restart and for an empty one to go.
+  useEffect(() => {
+    if (SMALL && (editing || reading)) void window.api.haligtree('small:holds', editing ? `capture:${editing.id}` : `${reading!.type}:${reading!.id}`)
+  }, [editing?.id, reading?.type, reading?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Its own switches (main keeps them with its place): growing with the words, and stepping aside.
+  const [small, setSmall] = useState<{ auto: boolean; aside: boolean } | null>(null)
+  useEffect(() => {
+    if (!SMALL) return
+    void window.api.haligtree<{ auto: boolean; aside: boolean } | null>('small:state').then(setSmall)
+    // Resized by hand: main has stopped it growing.
+    const said = (event: Event): void => {
+      const { what, value } = (event as CustomEvent<{ what: string; value: boolean }>).detail
+      if (what === 'auto') setSmall((now) => now && { ...now, auto: value })
+    }
+    window.addEventListener('haligtree:small', said)
+    return () => window.removeEventListener('haligtree:small', said)
+  }, [])
+  const setSmallSwitch = (patch: { auto?: boolean; aside?: boolean }): void => {
+    void window.api.haligtree<{ auto: boolean; aside: boolean } | null>('small:set', patch).then((now) => {
+      setSmall(now)
+      // Growing again: to the words' height now, not at the next key.
+      if (patch.auto) box.refit()
     })
   }
   // A fresh box. Sent, or a new note asked for, and the draft goes; put down
@@ -1432,6 +1512,9 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('keydown', onKey, true)
   }, [editing, createMore, setCreateMore])
   const fresh = (keepDraft = false, travelling = false): void => {
+    // A small window's note put down (Close note, sent to the Bin, opened in a window of its own): the window goes
+    // with it, the note kept where it lives.
+    if (SMALL) return void window.close()
     setLocked(false)
     if (!travelling) cameBy.current = 0
     if (!travelling) setTrail({ stack: [null], at: 0 })
@@ -1519,6 +1602,8 @@ export default function App(): React.JSX.Element {
   // away (the user, 15 Nov 2026: "keep the draft instead of clearing it", after it crumpled their "test 3"). With a
   // capture open in the box, its own words are saved already: the draft set aside meanwhile comes back.
   const startOver = (): void => {
+    // In a small window: a new note in this window, the one it held kept where it lives (or gone, if left empty).
+    if (SMALL) return void window.api.captures.create({ kind: 'note', body: EMPTY }).then((id) => openCapture(id), (error) => refuse(`No new note: ${whyFailed(error)}`, 'error'))
     if (!latestEditing.current && hasContent(editorRef.current?.getJSON() ?? null)) return submit(true)
     fresh(!!latestEditing.current)
   }
@@ -1531,19 +1616,29 @@ export default function App(): React.JSX.Element {
   // caret; the box then grows toward the main window and fades (main's
   // `box:promote`), and the main window opens on it. With nothing written,
   // ⌘O simply opens the main window, as before.
-  const promote = async (): Promise<void> => {
-    if (reading) return window.api.promote(reading.type, reading.id)
+  // ⌥⌘O, "Open in a small window": the same move into a small window of its own (main/small-window.ts), grown out of
+  // the box's own place and size, and quick capture is put away blank, free for the next thing. With nothing written,
+  // a new note in one.
+  const promote = async (to: 'main' | 'small' = 'main'): Promise<void> => {
+    const card = document.querySelector('.app-container')?.getBoundingClientRect()
+    const send = (type: string | null, id: string | null): void => {
+      if (to === 'main') return window.api.promote(type, id)
+      chime('window')
+      void window.api.haligtree('small:open', type && id ? `${type}:${id}` : null, card ? { x: card.x, y: card.y, width: card.width, height: card.height } : null)
+      putWindowAway()
+    }
+    if (reading) return send(reading.type, reading.id)
     const editor = editorRef.current
     const at = editor?.state.selection.from ?? 0
     if (editing) {
       // Saved now, not at the next pause, so the main window opens on every word.
       if (editor) words.save(editor.getJSON(), editor)
-      notePromoted(editing.id, at)
-      window.api.promote('capture', editing.id)
+      if (to === 'main') notePromoted(editing.id, at)
+      send('capture', editing.id)
       return fresh(true)
     }
     const doc = editor?.getJSON() ?? body
-    if (!hasContent(doc ?? null) || sending) return window.api.promote(null, null)
+    if (!hasContent(doc ?? null) || sending) return send(null, null)
     setSending(true)
     try {
       const id = await window.api.captures.create({ kind: chosen && kind !== 'todo' ? kind : 'note', elapsedMs: Date.now() - openedAt.current, body: doc,
@@ -1553,8 +1648,8 @@ export default function App(): React.JSX.Element {
       // A new capture kept: the draft from earlier is not offered again.
       forgetLeftover()
       setLeftover(null)
-      notePromoted(id, at)
-      window.api.promote('capture', id)
+      if (to === 'main') notePromoted(id, at)
+      send('capture', id)
       // Cleared once it has gone, so the glide shows the words, not a blank box.
       setTimeout(() => (setSending(false), fresh()), 260)
     } catch (error) {
@@ -1565,6 +1660,18 @@ export default function App(): React.JSX.Element {
   const latestPromote = useRef(promote)
   latestPromote.current = promote
   useEffect(() => window.api.onPromoteAsked(() => void latestPromote.current()), [])
+  // ⌥⌘O: into a small window. Read by its key's place: ⌥ turns "o" into "ø".
+  useEffect(() => {
+    if (SMALL) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.code !== 'KeyO' || !event.metaKey || !event.altKey || event.ctrlKey || event.shiftKey || event.repeat) return
+      event.preventDefault()
+      event.stopPropagation()
+      void latestPromote.current('small')
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [])
   // Words sent from ⌘K in the main window ("in quick capture"): written at
   // the end of the note here, the caret after them, ready to finish.
   useEffect(() => window.api.onSeed((text) => {
@@ -1622,7 +1729,7 @@ export default function App(): React.JSX.Element {
   // Save. Never fails, and no field can block it: an empty box is the only
   // thing it refuses, because there is nothing there to keep.
   // The box going after a save: marked first, so the notice the save sends does not flash up as it leaves.
-  const putAway = (): void => (document.documentElement.setAttribute('data-box-away', ''), window.api.hideWindow())
+  const putAway = (): void => (document.documentElement.setAttribute('data-box-away', ''), putWindowAway())
   const submit = (once = false): void => {
     // In the welcome, one is kept and the box goes, whatever Create more says.
     const more = (once || createMore) && !lesson
@@ -2085,17 +2192,19 @@ export default function App(): React.JSX.Element {
           }}
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={searching === 'notes' ? [] : [
-            { label: 'New capture', hint: 'Keeps what is written, then a blank box', keys: '⌘N', first: true, run: () => startOver() },
+            SMALL
+              ? { label: 'New note', hint: 'In this window: the one here stays where it lives', keys: '⌘N', first: true, run: () => startOver() }
+              : { label: 'New capture', hint: 'Keeps what is written, then a blank box', keys: '⌘N', first: true, run: () => startOver() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', first: true, cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
             { label: 'Record a call or lecture', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
             { label: 'New question', hint: 'Something you want to find out, kept in Questions until it is answered', first: true, cue: null, run: () => void startQuestion(openAny) },
-            // Not offered in "One line to start", which has no side panel to show.
-            { label: panel ? 'Hide the side panel' : 'Show the side panel', hint: panel ? 'The box alone, without the lists beside it' : 'The Inbox, Tasks and Review beside the box', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) },
-            ...TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, hint: 'In the side panel beside the box', keys: `⌃${index + 1}`, run: () => {
+            // Not offered in "One line to start", which has no side panel to show, nor in a small window, which has none.
+            ...(SMALL ? [] : [{ label: panel ? 'Hide the side panel' : 'Show the side panel', hint: panel ? 'The box alone, without the lists beside it' : 'The Inbox, Tasks and Review beside the box', keys: '⌘\\', cue: null, run: () => (setPanel(!panel), quietly(() => setPanel(panel))) }]),
+            ...(SMALL ? [] : TABS.map((one, index) => ({ label: `Go to ${({ inbox: 'Inbox', today: 'Tasks', review: 'Review', kept: 'Saved', recent: 'Recent' } as Record<string, string>)[one] ?? one}`, hint: 'In the side panel beside the box', keys: `⌃${index + 1}`, run: () => {
               setTab(one)
               if (!panel) setPanel(true)
-            } })),
+            } }))),
             ...(picked.ids.length > 1 ? [{ label: 'Make one task', hint: `From the ${num(picked.ids.length)} selected captures`, first: true, cue: null, run: () => window.dispatchEvent(new CustomEvent('haligtree:one-task')) }] : []),
             { label: 'Stick Today on the desktop', hint: 'Today’s tasks on a sticky note, over every window', cue: null, run: () => stickOnDesktop('today', 'today') },
             { label: 'Stick all goals', hint: 'On the desktop, each goal in its own colour, with a legend', words: 'desktop sticky stickies one', cue: null, run: () => stickOnDesktop('goals', 'all') },
@@ -2145,6 +2254,10 @@ export default function App(): React.JSX.Element {
             ...(stickiesOut > 0 && !appSettings?.safeMode ? [{ label: 'Tidy stickies', hint: 'Line the sticky notes up in a neat column', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }] : []),
             { label: reveal ? 'Blur private titles again' : 'Show private titles', hint: reveal ? 'Private titles blurred until you point at them' : 'For now', cue: reveal ? 'off' : 'on', run: () => (setReveal(!reveal), quietly(() => setReveal(reveal))) },
             { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', hint: editing || reading || hasContent(body) ? 'This note in the main window, kept first' : 'Every page of your book', keys: '⌘O', first: true, run: () => void promote() },
+            ...(SMALL ? [] : [{ label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', keys: '⌥⌘O', first: true, cue: null, run: () => void promote('small') }]),
+            isCollecting()
+              ? { label: 'Stop collecting what I copy', hint: 'What you copy stays on the clipboard only', keys: '⎋', cue: null, run: stopCollect }
+              : { label: 'Collect what I copy', hint: 'Everything you copy on this Mac lands in this note', cue: null, run: () => void (startCollect() || refuse('Open a note to collect into')) },
             { label: "Open the week's page", hint: 'This week on one page: what you wrote, did and kept', cue: 'season', run: () => window.api.openInHome('view', 'weekpage') },
             { label: "Open the month's page", hint: 'This month on one page: what you wrote, did and kept', cue: 'season', run: () => window.api.openInHome('view', 'monthpage') },
             { label: "Open the year's page", hint: 'Your seasons of life, month by month', cue: 'season', run: () => window.api.openInHome('view', 'yearpage') },
@@ -2182,7 +2295,16 @@ export default function App(): React.JSX.Element {
       </AnimatePresence>
       <FocusNote />
       <FocusScenery />
-      <Header panel={panel} drawn={panelDrawn} onPanel={() => setPanel(!panelWanted.current)} nav={trail.stack.length > 1 && (
+      {/* Resized by hand, a small window stops growing with the words: this gives it back (and the menu's “Auto-size”). */}
+      {SMALL && small && !small.auto && (
+        <button type="button" data-small-auto tabIndex={-1} onMouseDown={(event) => event.preventDefault()}
+          onClick={() => (chime('on'), setSmallSwitch({ auto: true }))}
+          style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+          className="absolute bottom-3 left-1/2 z-20 inline-flex -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full border border-foreground/15 bg-background px-2.5 py-0.5 text-xs text-muted-foreground shadow-(--mf-panel-shadow) transition-[color,background-color,scale] hover:bg-accent hover:text-foreground active:scale-[0.97]">
+          <ArrowUpDown className="size-3" strokeWidth={1.75} />Auto-size
+        </button>
+      )}
+      <Header panel={panel} drawn={panelDrawn} onPanel={SMALL ? undefined : () => setPanel(!panelWanted.current)} onBrowse={SMALL ? () => (chime('tap'), setSearching('notes')) : undefined} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
         <span className="mf-segs ml-3 self-center rounded-full shrink-0 border border-foreground/15 [&_svg]:size-3">
           {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon]) => (
@@ -2199,13 +2321,13 @@ export default function App(): React.JSX.Element {
       )} onNew={() => {
         chime('tap')
         startOver()
-      }} title={appSettings?.topTitle === false ? null : topTitle}
+      }} title={SMALL ? (editing ? first || 'Untitled' : topTitle) : appSettings?.topTitle === false ? null : topTitle}
       // Safe mode says so beside the pill, or the quiet looks like nothing happening.
       aside={appSettings?.safeMode ? <Tip label="Safe mode: no hints or pinned notes come up  ⌥⌘S"><span className={`flex items-center ${HEADER_SHAPE} px-2.5 text-key leading-none text-[color-mix(in_srgb,var(--tt-brand-color-400)_55%,var(--foreground))]`}>Safe</span></Tip>
         // Pinned notes live in the side panel's Inbox; with the panel shut, a
         // chip up here says they are there, and opens it on them. Kept with
         // the panel open too, so it never pops out as the panel slides in.
-        : pinned.length > 0 && !lesson && !unloaded(pinned) ? (
+        : pinned.length > 0 && !lesson && !SMALL && !unloaded(pinned) ? (
           // Its name says what pressing it does, for the bar's word when Tab chooses it. From the pill too: the pill grows
           // into the box with the panel open on them.
           <Tip label={panel ? 'Show the Inbox in the side panel  ⌃1' : `Your ${plural(Math.min(BOX_PINS, pinned.length), 'pinned note')}, in the side panel  ⌘\\`}>
@@ -2236,23 +2358,37 @@ export default function App(): React.JSX.Element {
           sections={[
             noteSection,
             // Every switch in plain sight, none folded into a submenu: a submenu hides them and runs off the small box's edge.
-            { label: 'Quick capture', items: [
+            { label: SMALL ? 'Small window' : 'Quick capture', items: [
               'sounds',
               'theme',
               { label: 'Hide buttons', hint: 'They show when you point at them', on: hideButtons, keys: '⌥⌘,', set: (on: boolean) => setHideButtons(on) },
               { label: 'Vim keys', on: vim, set: setVim },
               { label: 'Word count', hint: 'Under the note', on: counting, set: setCounting },
-              // Settings' "Auto-close quick capture", here too: off, the box stays open and steps aside (main's stepAside).
-              { label: 'Close when you click away', hint: 'Off: it stays open and steps aside', on: appSettings?.boxAutoHide !== false, set: (boxAutoHide: boolean) => void haligtree.setSettings({ boxAutoHide }) },
+              // A small window's own two: it grows with the words (off once resized by hand), and it steps aside when
+              // clicked past close by, as quick capture does kept open (main's stepAside).
+              ...(SMALL && small ? [
+                { label: 'Auto-size', hint: 'Grows as you write', on: small.auto, set: (auto: boolean) => setSmallSwitch({ auto }) },
+                { label: 'Steps aside', hint: 'When you click past it, close by', on: small.aside, set: (aside: boolean) => setSmallSwitch({ aside }) }
+              ] : SMALL ? [] : [
+                // Settings' "Auto-close quick capture", here too: off, the box stays open and steps aside (main's stepAside).
+                { label: 'Close when you click away', hint: 'Off: it stays open and steps aside', on: appSettings?.boxAutoHide !== false, set: (boxAutoHide: boolean) => void haligtree.setSettings({ boxAutoHide }) }
+              ]),
               { label: 'Show in screen recordings', on: recordable, set: setRecordable },
-              { label: 'Show private titles', hint: 'Until quick capture closes', on: reveal, set: setReveal },
+              { label: 'Show private titles', hint: SMALL ? 'Until this window closes' : 'Until quick capture closes', on: reveal, set: setReveal },
               // For the technical: the note open, as JSON.
               ...(noteSection.items.length ? [{ label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource }] : [])
             ] },
             { label: 'Window', items: [
-              { label: 'New capture', keys: '⌘N', run: () => startOver() },
+              { label: SMALL ? 'New note' : 'New capture', keys: '⌘N', run: () => startOver() },
               { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
-              { label: expanded ? 'Shrink the window' : 'Expand the window', keys: '⌃⇧F', run: toggleExpanded },
+              ...(SMALL ? [] : [
+                { label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', keys: '⌥⌘O', run: () => void promote('small') },
+                { label: expanded ? 'Shrink the window' : 'Expand the window', keys: '⌃⇧F', run: toggleExpanded }
+              ]),
+              // Reading a report and keeping what matters: every line copied on this Mac lands in this note, Esc stops.
+              isCollecting()
+                ? { label: 'Stop collecting what I copy', hint: 'What you copy stays on the clipboard only', keys: '⎋', run: stopCollect }
+                : { label: 'Collect what I copy', hint: 'Everything you copy on this Mac lands in this note', run: () => void (startCollect() || refuse('Open a note to collect into')) },
               { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
             ] }
           ]}
@@ -2611,7 +2747,7 @@ export default function App(): React.JSX.Element {
               {/* Under the recorder bar while it records, whose red Stop sits where this is and answers ⌘↵ too. */}
               <span data-while-recording={listening ? 'dim' : undefined} inert={listening} className="relative inline-flex shrink-0">
               {/* The button shows its own words and ⌘↵: the tip says only what it does not. */}
-              <Tip label={createMore && !editing ? 'Then empties quick capture for the next one' : (editing ? 'Back to your draft: changes already save as you make them' : 'Then empties it for the next one:  ⌥⌘↵')}>
+              <Tip label={createMore && !editing ? 'Then empties quick capture for the next one' : (editing ? (SMALL ? 'Closes this window: changes already save as you make them' : 'Back to your draft: changes already save as you make them') : 'Then empties it for the next one:  ⌥⌘↵')}>
               <Button variant="secondary" data-create onClick={(event) => submit(event.altKey)} className="shrink-0 text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
                 <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plan?.clue && !editing ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key text-(--mf-muted-strong)">⌘↵</kbd>
@@ -2730,7 +2866,7 @@ function useEscapeToHide(fold: { current: () => boolean }): void {
       if ((event.defaultPrevented && !free) || layered) return void (layered = false)
       free = false
       if (fold.current()) return
-      window.api.hideWindow()
+      putWindowAway()
     }
     window.addEventListener('keydown', before, true)
     window.addEventListener('keydown', onKey)

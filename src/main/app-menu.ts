@@ -10,6 +10,9 @@ type MenuActs = {
   captureKey?: string
   capture: () => void
   newNote: () => void
+  /** A new note in a small window of its own (small-window.ts), and its key from anywhere. */
+  smallNote: () => void
+  smallKey?: string
   /** Something the main window does, told by name (`inHome`). */
   inHome: (event: string, detail?: unknown) => void
   /** A place in the main window, by its id (`sendHome('view', …)`). */
@@ -69,6 +72,7 @@ export function setAppMenu(acts: MenuActs): void {
       submenu: [
         { label: 'Quick capture', ...shown(acts.captureKey), click: acts.capture },
         { label: 'New note', click: acts.newNote },
+        { label: 'New note in a small window', ...shown(acts.smallKey), click: acts.smallNote },
         { label: 'New page', click: () => acts.inHome('haligtree:new-page') },
         { type: 'separator' },
         {

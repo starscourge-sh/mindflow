@@ -14,7 +14,7 @@ import { picked } from '@/lib/tasks'
 import { dayKey, num } from '../../../main/dates'
 import { canSplit, frontPane, usePane } from '@/lib/split'
 import { makeQuestions, questionsFit } from '@/components/haligtree/note-questions'
-import { openApart } from '@/lib/apart'
+import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { useMade, warm } from '@/lib/decoded'
 
 /**
@@ -326,6 +326,7 @@ export function noteActions({ day = true }: { day?: boolean } = {}): Action[] {
       // A capture's Bin is among its ways out, above.
       ...(ways.some((way) => way.label === 'Move to the Bin') ? [] : [{ label: 'Move to the Bin', hint: 'This note', cue: null, run: () => void moveToBin([{ type: note.type, id: note.id }]) }]),
       { label: 'Open in a new window', hint: 'This note, in its own window', ...(canSplit() ? { keys: '⌘O' } : {}), cue: null, run: () => openApart(note.type, note.id) },
+      ...(smallHolds(note.type) ? [{ label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', cue: null, run: () => openSmall(note.type, note.id) }] : []),
       { label: 'Set a word aim', hint: 'For this note: 800 words, or 800 by Friday', cue: null, run: () => void window.dispatchEvent(new CustomEvent('haligtree:aim')) },
       // Drafted from the note's own words, kept or dropped beside it (note-questions.tsx).
       ...(questionsFit() ? [{ label: 'Make study questions', hint: 'Three to five from this note, to keep or drop', cue: null, run: () => makeQuestions() }] : []),

@@ -31,6 +31,8 @@ const POPS = [
   '[data-celebration]:not(:empty)'
 ].join(', ')
 
+/** A small window of its own holding one note, on the box's page (App.tsx). */
+const SMALL = new URLSearchParams(location.search).has('small')
 /** The room main keeps round the box's card (its overhang); 0 in a window that is all card. */
 const ROOM = window.api.room.bottom
 /** The room under the card its own menus may use (a hint below the card may hold more, given up while one is open). */
@@ -142,6 +144,9 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     if (pillNow.current && (!popped || (ROOM && !grewForPop.current))) return PILL
     // With room round the card, a pop-up hangs past the card's foot rather than growing the card.
     const height = fullNow.current || (popped && (!ROOM || grewForPop.current)) ? FULL : (needed(column.current) ?? FULL)
+    // A small window (main/small-window.ts) grows with the words past the box's full height, as far as the screen
+    // allows (main keeps it under that ceiling and over its own short height); a pop-up gives it the box's full height.
+    if (SMALL) return Math.max(popped || fullNow.current ? FULL : 0, needed(column.current) ?? 0)
     return Math.min(FULL, Math.max(SHORT, height))
   }, [column])
 

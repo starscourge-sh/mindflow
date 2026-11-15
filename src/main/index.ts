@@ -67,6 +67,7 @@ import { PEEK_OUT_MS, cardComesDown, peeksOut, restNow, type Rest } from './goal
 import { cursorInBackground, cursorShown, tap, tapKinds, taps } from './haptic'
 import { fetchOutside, setOutsideAgent, isOutside } from './outside'
 import { registerNotes } from './notes'
+import { fitSmall, isSmall, registerSmallWindows } from './small-window'
 import { registerGroups } from './groups'
 import { registerSections } from './sections'
 import { registerPeriods } from './periods'
@@ -964,7 +965,8 @@ function guard(win: BrowserWindow): void {
     // Arc"): the page saves it and asks for the glide (`box:promote`).
     if (input.key === 'o' && !input.shift && home?.webContents !== page) {
       event.preventDefault()
-      if (page === prompt?.webContents && prompt.isVisible()) return page.send('box:promote-asked')
+      // A small window (small-window.ts) is the box's page: it carries its note to the main window the same way.
+      if ((page === prompt?.webContents && prompt.isVisible()) || isSmall(win)) return page.send('box:promote-asked')
       return openHome()
     }
     if (input.key.toLowerCase() !== 'q') return
@@ -994,6 +996,8 @@ function heldInWelcome(input: Electron.Input, box: boolean): boolean {
 
 /** The capture prompt. Every other window is something else. */
 let prompt: BrowserWindow | null = null
+/** Notes in small windows of their own (small-window.ts), once the book is open. */
+let smallWindows: ReturnType<typeof registerSmallWindows> | null = null
 /** Words for the box to write in, sent before its page was listening. */
 let seed: string | null = null
 /** The box's promote glide under way (`box:promote`). */
@@ -3933,6 +3937,37 @@ function glideTo(win: BrowserWindow, to: { x: number; y: number }, land: () => v
   }, () => (!win.isDestroyed() && win.setPosition(to.x, to.y), land()))
 }
 
+/**
+ * Kept open, and you click or switch to something under it or close by: the window glides, whole, to the corner of its
+ * screen furthest from the pointer, so what you went to use is free (10 Nov). Quick capture with "Close when you click
+ * away" off, and a small window with its "Steps aside" on (small-window.ts): `may` says whether it is on. The Mac tells a
+ * window where the pointer is, not where another app's clicks or keys land, so this is the moment it can act on.
+ */
+const asides = new WeakMap<BrowserWindow, () => void>()
+function stepAside(win: BrowserWindow, may: () => boolean): void {
+  setImmediate(() => {
+    // Not while it is already on its way (the box thrown, a small window stepping aside).
+    if (win.isDestroyed() || !win.isVisible() || win.isFocused() || !may() || dialogs || (win === prompt ? throwing : asides.has(win))) return
+    if (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_STEPASIDE) return
+    const focused = BrowserWindow.getFocusedWindow()
+    if (focused && focused.getParentWindow() === win) return
+    const at = screen.getCursorScreenPoint()
+    const b = win.getBounds()
+    const near = 48
+    if (at.x < b.x - near || at.x > b.x + b.width + near || at.y < b.y - near || at.y > b.y + b.height + near) return
+    const area = screen.getDisplayMatching(b).workArea
+    const ways = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy]) => {
+      const to = throwSpot(b, area, dx, dy)
+      return { dx, dy, far: Math.hypot(to.x + b.width / 2 - at.x, to.y + b.height / 2 - at.y) }
+    })
+    const best = ways.reduce((a, w) => (w.far > a.far ? w : a))
+    // The box keeps where it was thrown for its next opening (throwBox); any other window simply goes there.
+    if (win === prompt) return throwBox(win, best.dx, best.dy)
+    const stop = glideTo(win, throwSpot(b, area, best.dx, best.dy), () => asides.delete(win))
+    if (stop) asides.set(win, stop)
+  })
+}
+
 function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: number } {
   // Its size now, which the content may have changed while it was away; its
   // top where it was left, not where the screen's bottom last pushed it.
@@ -4076,24 +4111,7 @@ function createWindow(): void {
   // Kept open (auto-hide off) and you click or switch to something under it or close by: it glides, whole, to the
   // corner of its screen furthest from the pointer, so what you went to use is free (10 Nov). The Mac tells a window
   // where the pointer is, not where another app's clicks or keys land, so this is the moment it can act on.
-  const stepAside = (): void => void setImmediate(() => {
-    if (box.isDestroyed() || !box.isVisible() || box.isFocused() || boxAutoHide() || dialogs || throwing) return
-    if (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_STEPASIDE) return
-    const focused = BrowserWindow.getFocusedWindow()
-    if (focused && focused.getParentWindow() === box) return
-    const at = screen.getCursorScreenPoint()
-    const b = box.getBounds()
-    const near = 48
-    if (at.x < b.x - near || at.x > b.x + b.width + near || at.y < b.y - near || at.y > b.y + b.height + near) return
-    const area = screen.getDisplayMatching(b).workArea
-    const ways = [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy]) => {
-      const to = throwSpot(b, area, dx, dy)
-      return { dx, dy, far: Math.hypot(to.x + b.width / 2 - at.x, to.y + b.height / 2 - at.y) }
-    })
-    const best = ways.reduce((a, w) => (w.far > a.far ? w : a))
-    throwBox(box, best.dx, best.dy)
-  })
-  mainWindow.on('blur', stepAside)
+  mainWindow.on('blur', () => stepAside(box, () => !boxAutoHide()))
   mainWindow.once('closed', () => {
     app.off('did-resign-active', toOtherApp)
     app.off('browser-window-focus', toOtherWindow)
@@ -5171,6 +5189,8 @@ function updateDock(): void {
       { label: 'Quick capture', click: () => void (prompt?.isFocused() || toggleWindow()) },
       // A fresh box, as ⌘N in it makes one: whatever was in it can be brought back.
       { label: 'New note', click: newNote },
+      // Apart from quick capture, which stays free: as the File menu and ⌥⌘. have it.
+      { label: 'New note in a small window', click: () => smallWindows?.open(null) },
       { label: 'Today', click: () => sendHome('view', 'today', undefined, 'window') },
       ...awayItems(),
       { label: 'Show sticky notes', type: 'checkbox', checked: stickiesTicked(), click: (item) => void showStickies(item.checked) }
@@ -5189,6 +5209,8 @@ function appMenu(): void {
     captureKey: chordFor('⌘.'),
     capture: () => void (prompt?.isFocused() || toggleWindow()),
     newNote,
+    smallNote: () => smallWindows?.open(null),
+    smallKey: chordFor('⌥⌘.'),
     inHome,
     view: (id) => sendHome('view', id, undefined, 'window'),
     importVault: () => void importVault(),
@@ -5266,6 +5288,8 @@ function updateTray(): void {
         { label: 'Stop and keep the recording', enabled: meetingState().state !== 'saving', click: () => void stopMeeting() }
       ] : [{ label: 'Record a call or lecture', accelerator: chordFor('⌃⌥⌘M'), click: () => void startMeeting() }]),
       { label: `Open ${APP_NAME}`, accelerator: chordFor('⌘.'), click: () => toggleWindow() },
+      // A note apart from quick capture, as the File menu, the Dock and ⌥⌘. have it.
+      { label: 'New note in a small window', accelerator: chordFor('⌥⌘.'), click: () => smallWindows?.open(null) },
       { label: 'Close the day…', click: () => inHome('haligtree:close-day') },
       // How far through the day, week, month and year: a look away, not in the way.
       {
@@ -5415,6 +5439,8 @@ app.whenReady().then(() => {
   registerHome()
   registerSpelling()
   registerNotes({ load, guard, home: (type, id) => sendHome(type, id, undefined, 'window'), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
+  smallWindows = registerSmallWindows({ load, guard, stepAside })
+  smallWindows.restore()
   registerGroups()
   registerSections()
   registerNoteImports()
@@ -5674,10 +5700,11 @@ app.whenReady().then(() => {
   // box moves a quarter of the way toward the main window and fades as it
   // goes, then the main window opens on the same note. At once with Motion
   // off or Reduce motion on.
-  ipcMain.on('box:promote', (_event, type: unknown, id: unknown) => {
+  ipcMain.on('box:promote', (event, type: unknown, id: unknown) => {
     const go = (): void => (typeof type === 'string' && typeof id === 'string' ? sendHome(type, id, undefined, 'capture') : openHome())
     const win = prompt
-    if (!win || win.isDestroyed() || !win.isVisible()) return go()
+    // From a small window: the note opens in the main window, and the small window closes itself (App.tsx).
+    if (!win || win.isDestroyed() || !win.isVisible() || isSmall(BrowserWindow.fromWebContents(event.sender))) return go()
     // With Motion off or Reduce motion on: no glide, but the box still goes.
     if (stillness()) return void (go(), win.isVisible() && hideWindow(win))
     if (pending?.win === win) (arriving?.(), settle())
@@ -6496,6 +6523,8 @@ app.whenReady().then(() => {
   })
   ipcMain.on('window:fit', (event, height: unknown, snap: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
+    // A small window grows with its words by the same ask (small-window.ts).
+    if (win && typeof height === 'number' && Number.isFinite(height) && fitSmall(win, height)) return
     if (!win || win !== prompt || typeof height !== 'number' || !Number.isFinite(height)) return
     fit = height
     void refit(win, snap === true)
@@ -7171,6 +7200,8 @@ app.whenReady().then(() => {
       noteChord(made, now, ok)
     }
     take('⌘.', toggleWindow)
+    // A new note in a small window of its own, quick capture left free.
+    take('⌥⌘.', () => smallWindows?.open(null))
     take('⇧⌘.', () => void areaIntoBox())
     // Safe mode's ⌥⌘S is the menu bar's (app-menu.ts), not the whole Mac's: taken here, it was VS Code's and Xcode's “Save All” too.
     take('⌃⌥⌘N', keyed(() => showStickies()))

@@ -128,6 +128,22 @@ export function openApart(type: string, id: string): void {
     .finished.then(gone, gone)
 }
 
+/** The kinds a small window can hold: quick capture's page writes a capture, and reads and changes these (its Reader). */
+const SMALL_KINDS = ['capture', 'nugget', 'article', 'question', 'goal', 'task']
+export const smallHolds = (type: string): boolean => SMALL_KINDS.includes(type)
+
+/**
+ * "Open in a small window", beside "Open in a new window" everywhere: the note in a small window of its own, apart
+ * from quick capture (main/small-window.ts), grown out of the row or card it was opened from. Null: a new note.
+ */
+export function openSmall(type: string | null, id: string | null): void {
+  const row = pressed && Date.now() - pressed.at < 2000 && pressed.el.isConnected ? pressed.el : null
+  const from = (id ? holderOf(id) ?? row : row)?.getBoundingClientRect()
+  window.dispatchEvent(new Event('haligtree:flush'))
+  chime('window')
+  void window.api.haligtree('small:open', type && id ? `${type}:${id}` : null, from ? { x: from.x, y: from.y, width: from.width, height: from.height } : null)
+}
+
 /** ⌘O in a note's own window: back into the main window, the same page, caret and all. */
 export async function openInHaligtree(): Promise<void> {
   window.dispatchEvent(new Event('haligtree:flush'))

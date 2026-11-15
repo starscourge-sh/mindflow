@@ -15,7 +15,7 @@ import { chime } from '@/lib/sound'
 import { useLive, haligtree, when, shownName, splitTags, withTagsOf, type Item, type ItemFull, type Settings } from '@/lib/haligtree'
 import { flying, follow, noteLinkText } from '@/lib/capture-links'
 import { archive, saveAttachments, useOpenNote } from '@/lib/notes'
-import { openApart } from '@/lib/apart'
+import { openApart, openSmall } from '@/lib/apart'
 import { openItems } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -349,6 +349,7 @@ const QUICK_TIP = 'Shows this question in quick capture, so you can add a clue t
 /** What a question offers besides opening it: its row menu and its note's dots share it. */
 export const questionMenu = (item: Item, shown: boolean): MenuItem[] => [
   { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart('question', item.id) },
+  { label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', run: () => openSmall('question', item.id) },
   ...openItems('question', item.id),
   ...queueItems(item.id),
   'separator',

@@ -60,7 +60,7 @@ import { pasteAvatar, pickAvatar, setAvatar } from '@/lib/people'
 import { near } from '../../../../main/near'
 import { asideItem, canSplit, openAside, useHere, usePane } from '@/lib/split'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
-import { openApart } from '@/lib/apart'
+import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { hoverNote } from './note-preview'
 import { quoted } from '../../../../main/clip'
 import { ArrowDown, ArrowUp } from '@/components/ui/icons'
@@ -1051,6 +1051,7 @@ const madeMenu = (made: Made, done: () => void): RowItem[] => {
     aside && { ...aside, run: () => (done(), aside.run()) },
     // A person, a tag or a task is a page in the main window, with no window of its own.
     !page && !['task', 'person', 'character', 'tag', 'event', 'day', 'pdf', 'web'].includes(made.type) && { label: 'Open in a new window', run: () => (done(), openApart(made.type, made.id)) },
+    !page && smallHolds(made.type) && made.type !== 'task' && { label: 'Open in a small window', run: () => (done(), openSmall(made.type, made.id)) },
     link && link !== 'separator' && { ...link, run: () => (done(), link.run()) }
   ]
 }

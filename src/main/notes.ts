@@ -21,6 +21,7 @@ import { mdWords } from './md-words'
 import { NOTE_KEY } from './name'
 import { fileLink } from './pdf-highlights'
 import { linkedAmong, mentionsIn } from './links-in'
+import { closeSmall, showSmall } from './small-window'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -583,6 +584,8 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   }
   ipcMain.handle('haligtree:notes:window', (event, type: string, id: string, from?: Box | null, carry?: Carry | null) => {
     const link = `${type}:${id}`
+    // Held by a small window (small-window.ts): that window, brought forward.
+    if (showSmall(link)) return
     const was = open.get(link)
     if (was && !was.isDestroyed()) return void (gate().blackout || was.focus())
     if (carry) carried.set(link, carry)
@@ -681,6 +684,7 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   })
   /** "Bring it back", from the place a note left: its window carries it home, caret and all. */
   handle('notes:bring-back', (link: string) => {
+    if (closeSmall(link)) return true
     const win = open.get(link)
     if (!win || win.isDestroyed()) return false
     win.webContents.send('notes:apart', 'promote', link)
