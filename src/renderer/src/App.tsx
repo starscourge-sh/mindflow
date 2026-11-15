@@ -1758,6 +1758,14 @@ export default function App(): React.JSX.Element {
       setSending(true)
       // Quit before the box has gone, and it is kept once, not kept and back as a draft.
       localStorage.removeItem('capture-draft')
+      // The box goes now, once its leave has played (data-box-away): the save and all that follows it finish while it is
+      // hidden. It used to wait for them: 0.3 to 1 s in a built app, about 3 s in the user's dev app (15 Nov 2026: "it
+      // says on screen for another 3 seconds"). The words were read above, so the box is cleared as it goes.
+      leaving.current = setTimeout(() => {
+        setSending(false)
+        fresh()
+        window.api.hideWindow()
+      }, 180)
     }
     void window.api.captures
       .create({ title: plan?.card && !plan.card.loading ? plan.card.title : '', kind: page ? 'note' : sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
@@ -1798,27 +1806,18 @@ export default function App(): React.JSX.Element {
           toast(page ? 'Page kept in your Inbox. Pick what each line becomes' : later ? `A letter to future you: back ${dayjs(later.day).format('ddd D MMM YYYY')}` : 'Kept in the Inbox', () => (void haligtree.unlift('capture', id), bringBack(sent)), 'success', undefined, { type: 'capture', id })
         }
         if (page) openSort(page, id)
-        if (more) return
-        // Let the box finish leaving before it is replaced.
-        leaving.current = setTimeout(() => {
-          setSending(false)
-          fresh()
-          window.api.hideWindow()
-        }, 180)
       }, (error: unknown) => {
-        // Not kept: the words must not go with it. Without ⌥ they are still in
-        // the box; with it the box was already cleared, so they come back into
-        // it, or, if the next note is under way, on a key from the toast.
+        // Not kept: the words must not go with it. The box was cleared as it sent (and went, without ⌥), so they come
+        // back into it, or, if the next note is under way, on a key from the toast; a box that went comes back to say so.
         keepLifted(pieces)
         document.documentElement.removeAttribute('data-box-away')
-        if (!more) putDraft(doc)
         setSending(false)
         const why = `Not saved: ${whyFailed(error)}.`
         const restore = (): void => {
           putDraft(doc)
           fresh(true)
         }
-        if (!more) return refuse(`${why} Your note is still here.`, 'error')
+        if (!more) window.api.showPrompt()
         if (!latestEditing.current && !hasContent(editorRef.current?.getJSON() ?? null)) {
           restore()
           return refuse(`${why} Your note is back in quick capture.`, 'error')
