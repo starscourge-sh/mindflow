@@ -28,15 +28,20 @@ const picked = () => h.evaluate((sel) => {
   const s = ed.state.selection
   return { kind: s.toJSON().type, empty: s.empty, words: s.ranges.map((r) => ed.state.doc.textBetween(r.$from.pos, r.$to.pos, '|', '#')).join('/'), from: s.from, to: s.to, mode: ed.view.dom.getAttribute('data-vim-mode') }
 }, ED)
-// The caret into the words `word`, by a real click on them.
+// The caret into the words `word`, by a real click on them, brought to the middle of the screen first.
 const caretIn = async (word) => {
-  const at = await h.evaluate(([sel, word]) => {
+  const place = ([sel, word, scroll]) => {
     const ed = document.querySelector(sel).editor
     let pos = -1
     ed.state.doc.descendants((node, p) => { if (pos < 0 && node.isText && node.text.includes(word)) pos = p + node.text.indexOf(word) + 1 })
+    const { node } = ed.view.domAtPos(pos)
+    if (scroll) (node.nodeType === 3 ? node.parentElement : node).scrollIntoView({ block: 'center', behavior: 'instant' })
     const box = ed.view.coordsAtPos(pos)
     return { x: box.left + 1, y: (box.top + box.bottom) / 2 }
-  }, [ED, word])
+  }
+  await h.evaluate(place, [ED, word, true])
+  await wait(200)
+  const at = await h.evaluate(place, [ED, word, false])
   await h.mouse.click(at.x, at.y)
   await wait(250)
 }
@@ -89,10 +94,15 @@ async function run(word, said, steps, label, shots) {
   if (label.includes('insert')) { await h.keyboard.press('i'); await wait(150) }
   const seen = []
   for (const [i, [kind, words]] of steps.entries()) {
-    await h.keyboard.press('Meta+a'); await wait(120)
+    await h.keyboard.press('Meta+a')
+    // Filmed every 50 ms after the press (Paper): the bar over the words waits, then comes once, whole.
+    if (shots && SHOTS && i === 1) for (let f = 0; f < 6; f++) { await h.screenshot({ path: join(SHOTS, `e4-${word.replace(/\W+/g, '-')}-step${i + 1}-film${f * 50}ms.png`) }); await wait(50) }
+    await wait(120)
     const now = await picked()
     seen.push(now)
-    const ok = now.kind === kind && (words === undefined || now.words === words) && (!label.includes('visual') || kind !== 'text' || now.mode === 'visual')
+    // A table's picked cells come in the order the table hands them over: compared as a set.
+    const same = kind === 'cell' ? now.words.split('/').sort().join('/') === words.split('/').sort().join('/') : now.words === words
+    const ok = now.kind === kind && (words === undefined || same) && (!label.includes('visual') || kind !== 'text' || now.mode === 'visual')
     check(`${label}: from ${said} ("${word}"), ⌘A ${i + 1} picks ${kind === 'all' ? 'the whole note' : `${kind} "${words.length > 40 ? words.slice(0, 18) + '…' + words.slice(-14) : words}"`}`, ok, ok ? `${now.from}-${now.to}` : JSON.stringify(now).slice(0, 220))
     if (shots && SHOTS) for (const name of ['light', 'dark']) { await c.look(name); await wait(150); await h.screenshot({ path: join(SHOTS, `e4-${word.replace(/\W+/g, '-')}-step${i + 1}-${name}.png`) }) }
     if (shots && SHOTS) await c.look('light')
@@ -157,10 +167,44 @@ try {
       const id = await v('article:new')
       await v('item:save', id, { title: 'Grow', body })
       await c.send('article', id); await wait(1500)
-      for (const [word, said, steps] of RUNS) await run(word, said, steps, `vim ${vim}${vim === 'on' ? ' (normal)' : ''}`, vim === 'off' && word === 'berry')
+      for (const [word, said, steps] of RUNS) await run(word, said, steps, `vim ${vim}${vim === 'on' ? ' (normal)' : ''}`, vim === 'off' && ['berry', 'b1', 'x = 1', 'after'].includes(word))
       if (vim === 'on') {
         await run('berry', 'a list item with its own children', RUNS[0][2], 'vim on (insert)')
         await run('berry', 'a list item with its own children', RUNS[0][2], 'vim on (visual)')
+        // The journey's end in visual mode: d takes what ⌘A picked, and u brings it back.
+        await caretIn('berry')
+        await h.keyboard.press('v'); await wait(150)
+        await h.keyboard.press('Meta+a'); await wait(100)
+        await h.keyboard.press('Meta+a'); await wait(150)
+        await h.keyboard.press('d'); await wait(300)
+        const left = await h.evaluate((sel) => document.querySelector(sel).editor.state.doc.textContent, ED)
+        await h.keyboard.press('u'); await wait(300)
+        const back = await h.evaluate((sel) => document.querySelector(sel).editor.state.doc.textContent, ED)
+        check('vim on (visual): d after ⌘A ⌘A takes the item with its children, and u brings them back', !left.includes('berry') && !left.includes('blue') && !left.includes('black') && left.includes('apple') && left.includes('cherry') && back.includes('berryblueblack'), `${left.slice(30, 70)} / ${back.slice(30, 70)}`)
+      } else {
+        // The table's own bar says what it does to what is picked: a row's actions on the row, none on the whole table.
+        const tableBar = () => h.evaluate(() => { const el = [...document.querySelectorAll('.tiptap-table-menu')].find((one) => one.isConnected && getComputedStyle(one).visibility !== 'hidden' && one.getBoundingClientRect().height > 0); return el ? el.textContent : '' })
+        await caretIn('b1')
+        for (let i = 0; i < 3; i++) { await h.keyboard.press('Meta+a'); await wait(100) }
+        await wait(400)
+        const rowBar = await tableBar()
+        await h.keyboard.press('Meta+a'); await wait(500)
+        const tableWhole = await tableBar()
+        check("vim off: the table's row picked by ⌘A offers the row's actions; the whole table picked offers no row's or column's", /Insert row above/.test(rowBar) && tableWhole === '', `row: "${rowBar.slice(0, 40)}", table: "${tableWhole.slice(0, 40)}"`)
+        await h.keyboard.press('Escape'); await wait(150)
+        // The section round a folded heading, picked: the folded part goes with it, still folded (its end is in there).
+        const third = h.locator(`${ED} h2`, { hasText: 'Third' })
+        await caretIn('Third')
+        await third.locator('button[aria-label="Fold this section"]').click(); await wait(300)
+        await caretIn('first words')
+        await h.keyboard.press('Meta+a'); await wait(100)
+        await h.keyboard.press('Meta+a'); await wait(300)
+        const garden = await picked()
+        const folded = await third.locator('button[aria-label="Unfold this section"]').count()
+        check('vim off: ⌘A picking the section round a folded heading leaves it folded', garden.words === GARDEN && folded === 1, `${garden.words.slice(0, 30)}…, folded ${folded}`)
+        // Esc lets the caret go to the far end, inside the fold, which opens it as any caret landing there does.
+        await h.keyboard.press('Escape'); await wait(300)
+        if (await third.locator('button[aria-label="Unfold this section"]').count()) { await third.locator('button[aria-label="Unfold this section"]').click(); await wait(300) }
       }
       // A run ends as any selection ends, and the next starts again from the caret's block.
       await caretIn('berry')
