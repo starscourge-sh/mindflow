@@ -433,6 +433,14 @@ export function TableControls({ editor }: { editor: Editor | null }): React.JSX.
   // Where the copy is gliding to once let go; cleared when it has arrived.
   const [settle, setSettle] = useState<{ axis: 'row' | 'column'; base: number; size: number; to: number } | null>(null)
 
+  // Lifted, the page is carrying, as with every carry (carry.tsx): the block's grip and hover lights stand down.
+  const inHand = !!drag?.lifted
+  useEffect(() => {
+    if (!inHand) return
+    document.documentElement.dataset.dragging = ''
+    return () => void delete document.documentElement.dataset.dragging
+  }, [inHand])
+
   // Esc puts it back where it was, as every drag in the app does. Caught
   // before the editor and the window: Esc there would close the note too.
   useEffect(() => {
