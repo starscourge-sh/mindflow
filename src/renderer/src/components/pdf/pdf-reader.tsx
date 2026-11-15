@@ -87,6 +87,18 @@ export function followPdfLink(href: string): boolean {
 }
 
 /**
+ * A link in a note followed on a click, as its hover says, wherever the note's words are drawn (its page, quick
+ * capture, a board's cards): a PDF's in the reader at its page (beside, on ⌥-click), a web page in the browser, or
+ * in the reader to the side of `from` (the pane it was clicked in) on ⌥-click. ⌘-click on a web page is the
+ * browser's too (setWindowOpenHandler in main).
+ */
+export function followLink(href: string, event: { altKey: boolean; metaKey: boolean }, from?: string | null): void {
+  if (followPdfLink(href)) return
+  if (event.altKey && !event.metaKey && isReadable(href)) return openArticle(href, undefined, "aside", from)
+  window.open(href, "_blank", "noopener")
+}
+
+/**
  * A web page in the reader: a step in the pane in front (or in `from`, the
  * pane it was asked from, as a link followed in the reader is), or as `how`
  * asks: to the side ("Open in the reader to the side", ⌥-click, ⌥↵) or in a

@@ -30,6 +30,7 @@ import { Overlay, SETTLE } from './sortable'
 import { CarriedCard, HELD, Hand, RoomIn, titleOf } from './carry'
 import { Count, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
+import { followLink } from '@/components/pdf/pdf-reader'
 import { ofTheWriting } from '@/lib/writing-floats'
 import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
 import { EASING, still } from '@/lib/motion'
@@ -1157,11 +1158,14 @@ function useCardClicks(editor: Editor, pos: number): (event: React.MouseEvent) =
       if (to) open?.(to, note.getAttribute('data-heading') || undefined)
       return true
     }
+    // A link opens as it does in the note (pdf-reader.tsx followLink): a PDF's in the reader at its page, which
+    // opened nothing here, and a web page on ⌥-click in the reader, which went to the browser.
     const link = target.closest('a[href]') as HTMLAnchorElement | null
     if (link) {
       event.preventDefault()
       event.stopPropagation()
-      if (/^https?:/.test(link.href)) window.open(link.href)
+      const href = link.getAttribute('href')
+      if (href) followLink(href, event)
       return true
     }
     if (!(target instanceof HTMLInputElement && target.type === 'checkbox')) return false

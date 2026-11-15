@@ -10,7 +10,7 @@ import { pressUnderLastLine } from "@/lib/press-under"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContext, useEditor } from "@tiptap/react"
 import { EditorSurface, holdViews } from "@/components/haligtree/editor-surface"
-import { followPdfLink, isReadable, openArticle } from "@/components/pdf/pdf-reader"
+import { followLink, followPdfLink, isReadable, openArticle } from "@/components/pdf/pdf-reader"
 import { canSplit } from "@/lib/split"
 import { PLACED, sentElsewhere, useNotePlace } from "@/lib/note-place"
 import { afterLayout } from "@/lib/after-layout"
@@ -1321,10 +1321,9 @@ function Surface({
 
         // A PDF's link opens the reader (beside, on ⌥-click); a web page on ⌥-click opens in the reader:
         // beside this one where the window splits, else in the main window (openArticle), as its hover says.
-        if (followPdfLink(href)) return true
-        if (event.altKey && !event.metaKey && isReadable(href)) return openArticle(href, undefined, "aside", view.dom.closest("[data-pane]")?.getAttribute("data-pane")), true
-        // setWindowOpenHandler in main sends the rest to the real browser.
-        window.open(href, "_blank", "noopener")
+        // setWindowOpenHandler in main sends the rest to the real browser. One way for every place a note's words show,
+        // ⌥-click to the side of the pane it was clicked in.
+        followLink(href, event, view.dom.closest("[data-pane]")?.getAttribute("data-pane"))
         return true
       },
       // A list pasted into an empty bullet takes that bullet's place.
