@@ -31,7 +31,12 @@ const state = () => page.evaluate(() => {
   const rooms = document.querySelectorAll('[data-drop-room]').length
   const own = document.querySelectorAll('[data-own-room]').length
   // The card rides clear of the line it is about: never over it, either way.
-  const clear = !at || !card || card.bottom <= at.top || card.top >= at.bottom || card.right <= at.left || card.left >= at.right
+  // The card rides clear of the line it is about, measured as qa/one-drag.mjs measures the sidebar's: its dot and at
+  // least two thirds of it in sight (an upright line: never under the card).
+  const level = !!at && !!card && Math.min(card.bottom, at.bottom + 3) - Math.max(card.top, at.top - 3) > 0
+  const hidden = level ? Math.max(0, Math.min(card.right, at.right) - Math.max(card.left, at.left)) : 0
+  const dot = !at || !level || !(card.left < at.left && card.right > at.left - 8)
+  const clear = !at || !card || (at.height > at.width ? card.right <= at.left || card.left >= at.right || !level : dot && hidden / Math.max(1, at.width) <= 1 / 3)
   const moved = [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line) > *')].filter((one) => /translateY\(-?[1-9]/.test(one.style.transform)).length
   const grip = document.querySelector('.tiptap-drag-handle')
   const words = cards[0]?.querySelector('[data-drag-label]')?.textContent ?? null
@@ -67,6 +72,10 @@ async function carry(name, from, to, { end = 'drop' } = {}) {
     await page.waitForTimeout(50)
     await film(point)
   }
+  // Held still where it will land, once the card has ridden clear of its line (useClear's spring).
+  await page.waitForTimeout(400)
+  const still = await state()
+  seen.push({ ...still, point: seen.at(-1)?.point, still: true })
   if (end === 'escape') await page.keyboard.press('Escape')
   await page.mouse.up()
   for (let i = 0; i < 6; i++) (await page.waitForTimeout(50), await film(null))
@@ -91,7 +100,7 @@ for (const theme of PART === 'carry' ? ['light', 'dark'] : []) {
   check(`${theme}: the place it left is the quiet band, the block out of sight (no faded copy)`, live.every((one) => one.carried.length === 1 && one.carried[0] === 'hidden' && one.rooms + one.own === 1), live.map((one) => `${one.carried.join('/')}:${one.rooms}+${one.own}`).join(','))
   check(`${theme}: the blocks between glide aside to open room, one line through it`, live.slice(-3).every((one) => one.lines === 1 && one.rooms === 1 && one.moved >= 2), live.slice(-3).map((one) => `${one.lines}/${one.rooms}/${one.moved}`).join(','))
   check(`${theme}: the card says what letting go does`, live.slice(-3).every((one) => one.words === 'Move here'), live.slice(-3).map((one) => one.words).join(','))
-  check(`${theme}: the card never covers its line`, live.every((one) => one.clear), live.map((one) => one.clear).join(','))
+  check(`${theme}: held still where it lands, the card leaves the line's dot and two thirds of it in sight (as the sidebar's)`, seen.filter((one) => one.still).every((one) => one.clear && one.line), JSON.stringify(seen.filter((one) => one.still).map((one) => [one.clear, one.line])))
   check(`${theme}: the grip stands down, the pointer is the grabbing hand`, live.every((one) => one.grip === 'hidden' && one.cursor === 'grabbing'), live.map((one) => `${one.grip}/${one.cursor}`).join(','))
   const after = await texts()
   check(`${theme}: the heading moved below the third line`, after.at(-1).endsWith('What mattered most') && after.length === before.length, after.join(' | '))
