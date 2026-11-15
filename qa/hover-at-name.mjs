@@ -8,7 +8,8 @@ import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
-const c = await sandbox({ width: 1600, height: 900 })
+// WIDTH and HEIGHT try other window sizes (the user's was about 1830 by 1050).
+const c = await sandbox({ width: Number(process.env.WIDTH ?? 1600), height: Number(process.env.HEIGHT ?? 900) })
 const { h, v, send } = c
 const card = async () => {
   await h.waitForSelector('[data-note-preview]', { timeout: 4000 }).catch(() => null)
@@ -29,6 +30,14 @@ try {
   const pane = await h.evaluate(() => { const r = document.querySelector('.note-pane')?.getBoundingClientRect(); return r ? { left: r.left } : null })
   const list = await h.evaluate(() => { const r = document.querySelector('[role="main"] [data-note-hover]:not(.note-pane [data-note-hover])')?.getBoundingClientRect(); return r ? { right: r.right } : null })
   check('the list and the page are side by side at this width', !!pane && !!list && list.right <= pane.left + 2, JSON.stringify({ pane, list }))
+  // What the card's place is worked out from: the chip's scrolling page, its width, and the pane's (note-preview.tsx sideList).
+  console.log('geometry', JSON.stringify(await h.evaluate(() => {
+    const chip = document.querySelector('[data-property="tags"] [data-tag-open="physics"]')
+    let at = chip?.parentElement
+    while (at && at !== document.body) { const o = getComputedStyle(at).overflowY; if ((o === 'auto' || o === 'scroll') && at.scrollHeight > at.clientHeight) break; at = at.parentElement }
+    const pane = at?.closest?.('[data-pane]')
+    return { window: innerWidth, scroller: at?.getBoundingClientRect().width, scrollerClass: String(at?.className ?? '').slice(0, 40), pane: pane?.getBoundingClientRect().width }
+  })))
   await tag.hover()
   const shown = await card()
   check('the tag\'s card comes up', !!shown)
