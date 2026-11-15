@@ -139,9 +139,14 @@ try {
       // Where the carried thing settles: the lifted place that holds the card under the hand (13 Nov: the one card every
       // list carries rides at the point it was taken by, inside that place, as a list's does).
       const box = lifted ? (lifted.closest('.mf-drag-picture') ?? lifted).getBoundingClientRect() : undefined
-      // Two cards of one list drawn over each other (each card's top above the last one's foot).
-      const overlap = [...document.querySelectorAll('[data-board] [data-lane]')].some((lane) => [...lane.querySelectorAll('[data-board-card]')].map((one) => one.getBoundingClientRect()).some((r, at, all) => at > 0 && r.top < all[at - 1].bottom - 2))
-      window.__boardFrames.push({ overlap, t: performance.now(), lifted: !!lifted, x: box?.left ?? null, y: box?.top ?? null, rotate: lifted ? getComputedStyle(lifted).rotate : null, scale: lifted ? getComputedStyle(lifted).scale : null, shadow: lifted ? getComputedStyle(lifted).boxShadow !== 'none' : null, gap: !!gap })
+      // Two cards of one list drawn over each other: each card's top above the foot of the one drawn above it, read in the
+      // order they stand on screen. In the order of the page they can differ while a carry's room is open (the sortable
+      // moves the cards by transform), and the frame drawn just as the pointer is let go read as two cards crossing.
+      const crossing = [...document.querySelectorAll('[data-board] [data-lane]')].flatMap((lane) => [...lane.querySelectorAll('[data-board-card]')].map((one) => ({ one, r: one.getBoundingClientRect() })).sort((x, y) => x.r.top - y.r.top).flatMap(({ one, r }, at, all) => at > 0 && r.top < all[at - 1].r.bottom - 2 ? [`${lane.querySelector('h3')?.textContent}: "${one.textContent.slice(0, 24)}" top ${Math.round(r.top)} over "${all[at - 1].one.textContent.slice(0, 24)}" foot ${Math.round(all[at - 1].r.bottom)}${one.firstElementChild && getComputedStyle(one.firstElementChild).visibility === 'hidden' ? ' (its gap)' : ''}`] : []))
+      const overlap = crossing.length > 0
+      // Doing's cards as drawn this frame: words, top and foot, the sortable's own move, and whether only its slot shows.
+      const cards = doing ? [...doing.querySelectorAll('[data-board-card]')].map((one) => { const r = one.getBoundingClientRect(); return `${one.textContent.slice(0, 12)} ${Math.round(r.top)}-${Math.round(r.bottom)}${one.style.transform ? ` ${one.style.transform.replace(/translate3d\(|, 0\)|px/g, '')}` : ''}${one.firstElementChild && getComputedStyle(one.firstElementChild).visibility === 'hidden' ? ' slot' : ''}` }) : []
+      window.__boardFrames.push({ overlap, crossing, cards, t: performance.now(), lifted: !!lifted, x: box?.left ?? null, y: box?.top ?? null, rotate: lifted ? getComputedStyle(lifted).rotate : null, scale: lifted ? getComputedStyle(lifted).scale : null, shadow: lifted ? getComputedStyle(lifted).boxShadow !== 'none' : null, gap: !!gap })
       if (window.__boardFrames.length < 3000) requestAnimationFrame(read)
     }
     requestAnimationFrame(read)
@@ -187,8 +192,9 @@ try {
   const home = await h.evaluate(() => { const one = [...document.querySelectorAll('[data-board] [data-lane]')].find((l) => l.querySelector('h3')?.textContent === 'Doing'); const card = [...one.querySelectorAll('[data-board-card]')].find((c) => c.textContent.includes('A short one')); const box = card?.getBoundingClientRect(); return box && { x: Math.round(box.left), y: Math.round(box.top) } })
   const end = settle.at(-1)
   check('the drop settles on the card in its new place', !!home && !!end && Math.abs(end.x - home.x) < 14 && Math.abs(end.y - home.y) < 14, `ends ${end && Math.round(end.x)},${end && Math.round(end.y)}; card at ${JSON.stringify(home)}`)
-  const crossed = await h.evaluate((up) => window.__boardFrames.filter((one) => one.t >= up && one.overlap).length, upAt)
-  check('after the drop no card is drawn over another in any frame', crossed === 0, `${crossed} frames`)
+  const crossed = await h.evaluate((up) => window.__boardFrames.filter((one) => one.t >= up && one.overlap).map((one) => `${Math.round(one.t - up)} ms after: ${one.crossing.join('; ')}`), upAt)
+  check('after the drop no card is drawn over another in any frame', crossed.length === 0, `${crossed.length} frames: ${crossed.slice(0, 3).join(' | ')}`)
+  if (crossed.length) console.log('Doing, frame by frame round the drop:\n' + (await h.evaluate((up) => window.__boardFrames.filter((one) => one.t >= up - 40 && one.t <= up + 120).map((one) => `  ${Math.round(one.t - up)} ms: ${one.cards.join(' | ')}`).join('\n'), upAt)))
   const hidden = await h.evaluate(() => [...document.querySelectorAll('[data-board] [data-board-card]')].filter((one) => one.firstElementChild && getComputedStyle(one.firstElementChild).visibility === 'hidden').length)
   check('no card is left hidden after the drop', hidden === 0, String(hidden))
   const after = await lanes()
