@@ -62,9 +62,10 @@ function ensureDuotone(): void {
  * in a soft round tint instead.
  */
 export function Avatar({ name, size = 16, className = '', look, letters }: { name: string; size?: number; className?: string; /** Settings' sample: this look whatever the setting says. */ look?: 'shapes' | 'initials'; /** Its letters, where names shown together would otherwise share them (distinctInitials). */ letters?: string }): React.JSX.Element | null {
-  // Drawn 96px across at most: the small copy (main makes it once), never the original, decoded whole for a face.
+  // A small copy (main makes it once), never the original decoded whole for a face: one 640px long for a face drawn
+  // big (a person's own page, the Sources grid at 128px), so it stays sharp on a Retina screen.
   const kept = useAvatar(name)
-  const avatar = kept && smallCopy(kept)
+  const avatar = kept && smallCopy(kept, size > 48 ? 640 : 256)
   if (avatar) ensureDuotone()
   // Its page waits for the pictures' read and this one's decode, a moment at most: never initials, then the picture.
   useDecoded(avatar, !peopleRead())
