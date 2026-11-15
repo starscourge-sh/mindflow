@@ -173,13 +173,13 @@ try {
   await h.keyboard.type('line numbers', { delay: 20 }); await wait(500)
   // ⌘K's actions are rows with their words in data-action-label; pressed with the pointer, as a setting of the
   // same name may stand first in the list.
-  const row = await h.evaluate(() => {
+  const action = await h.evaluate(() => {
     const label = [...document.querySelectorAll('[data-action-label]')].find((one) => /Turn line numbers/.test(one.textContent))
     const r = label?.getBoundingClientRect()
     return label ? { words: label.textContent, x: r.left + r.width / 2, y: r.top + r.height / 2 } : null
   })
-  const offered = row?.words ?? null
-  if (row) await h.mouse.click(row.x, row.y)
+  const offered = action?.words ?? null
+  if (action) await h.mouse.click(action.x, action.y)
   else await h.keyboard.press('Escape')
   await wait(700)
   const said = await h.evaluate(() => document.body.innerText.includes('Line numbers off'))
