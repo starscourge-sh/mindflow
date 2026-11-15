@@ -261,11 +261,12 @@ try {
         await h.keyboard.press('Meta+a'); await wait(100)
         await h.keyboard.press('Meta+a'); await wait(300)
         const garden = await picked()
-        const folded = await third.locator('[role="button"][aria-label="Unfold this section"]').count()
-        check('vim off: ⌘A picking the section round a folded heading leaves it folded', garden.words === GARDEN && folded === 1, `${garden.words.slice(0, 30)}…, folded ${folded}`)
+        // The heading in the note in front (a page can hold the same note twice: one more editor drawn behind it).
+        const folded = await third.first().locator('[role="button"][aria-label="Unfold this section"]').count()
+        check('vim off: ⌘A picking the section round a folded heading leaves it folded', garden.words === GARDEN && folded === 1, `${garden.words.slice(0, 30)}…, folded ${folded}, headings named Third ${await third.count()}`)
         // Esc lets the caret go to the far end, inside the fold, which opens it as any caret landing there does.
         await h.keyboard.press('Escape'); await wait(300)
-        if (await third.locator('[role="button"][aria-label="Unfold this section"]').count()) { await caretIn('Third'); await h.keyboard.press('Meta+Alt+BracketLeft'); await wait(300) }
+        if (await third.first().locator('[role="button"][aria-label="Unfold this section"]').count()) { await caretIn('Third'); await h.keyboard.press('Meta+Alt+BracketLeft'); await wait(300) }
       }
       // A run ends as any selection ends, and the next starts again from the caret's block.
       await caretIn('berry')
