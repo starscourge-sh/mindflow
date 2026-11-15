@@ -331,7 +331,7 @@ import { slashRenderer } from "@/components/slash/slash-menu"
 import { slashItems, slashMedia } from "@/components/slash/slash-items"
 import { EmojiSuggestion } from "@/components/emoji/emoji-suggestion"
 import { SuggestionPluginKey } from "@tiptap/suggestion"
-import { PickedStartsUndoStep, notOnUndo } from "@/lib/undo-exact"
+import { UndoExact, notOnUndo } from "@/lib/undo-exact"
 
 // Undo brings back a link as it was: the words it puts back are not linked anew (lib/undo-exact.ts).
 const Kit = StarterKit.extend({
@@ -1644,7 +1644,7 @@ function Surface({
       LongDocument,
       // A page's note: never a line, nor a box that asks for none (quick capture, a sticky).
       ...((lineNumbers ?? (shape === "document" && handles)) ? [LineNumbers] : []),
-      PickedStartsUndoStep,
+      UndoExact,
       SelectedNodes,
       BlockControls,
       ...(shape === "line" ? [] : [BlockGestures]),
