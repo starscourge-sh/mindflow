@@ -137,8 +137,10 @@
       }
 
       &[data-checked="true"] {
+        // A ticked line is struck and quiet in Faded Ink, readable (it was the line at half strength, near 2:1).
         > div > p {
-          opacity: 0.5;
+          --foreground: var(--mf-muted);
+          color: var(--mf-muted);
           text-decoration: line-through;
         }
 

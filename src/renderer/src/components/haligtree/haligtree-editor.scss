@@ -608,10 +608,9 @@
   }
 }
 
-// A worked answer after a line ending in `=`: faint until Tab writes it in.
+// A worked answer after a line ending in `=`: in Faded Ink, as a hint is, until Tab writes it in the ink.
 .mf-calc-ghost {
   color: var(--mf-muted);
-  opacity: 0.7;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
   user-select: none;
@@ -4409,9 +4408,9 @@ html[data-motion="off"] .tiptap.ProseMirror :is(.mf-kept, .mf-kept-icon button) 
   }
 }
 
-/* A voice note's words under it (lib/transcribe.ts): quieter than the note's own, each line led by its time. */
+/* A voice note's words under it (lib/transcribe.ts): quieter than the note's own, in Faded Ink, each line led by its time. */
 .tiptap.ProseMirror.haligtree-editor .mf-transcript-line {
-  opacity: 0.72;
+  color: var(--mf-muted);
   font-size: 0.94em;
 }
 .tiptap.ProseMirror.haligtree-editor .mf-transcript-line .mf-time-link {
