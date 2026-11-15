@@ -337,15 +337,6 @@ export function LivingCaret({ editor }: { editor: Editor | null }): React.JSX.El
   return calm ? null : <span ref={caret} aria-hidden data-living-caret data-shown={shown || undefined} className="mf-living-caret" />
 }
 
-/** Where the window's frame round the page ends, inside its own padding: the lowest a page or a hint under it can reach. */
-function frameFoot(page: Element): number {
-  for (let at = page.parentElement; at; at = at.parentElement) {
-    const box = at.getBoundingClientRect()
-    if (box.bottom >= window.innerHeight - 0.5) return box.bottom - parseFloat(getComputedStyle(at).paddingBottom)
-  }
-  return window.innerHeight
-}
-
 /**
  * The day's count, kept in view: one line at the window's foot under the
  * words' own column, set as the writing room's foot is. Words so far and
@@ -402,7 +393,8 @@ export function WriterLine({ editor, day, spent, today }: { editor: Editor | nul
       // Lifted by what sits under the page (a hint), never by the window's own frame round it: with nothing under the
       // page it sits on the window's foot, exactly where the writing room's foot sits.
       const bottom = page?.getBoundingClientRect().bottom ?? window.innerHeight
-      const foot = page && frameFoot(page) - bottom > 1 ? Math.max(0, window.innerHeight - bottom) : 0
+      // Always the page's own foot: set to the window's, its band ran past the page's rounded edge onto the frame (16 Nov).
+      const foot = Math.max(0, window.innerHeight - bottom)
       // Notices keep clear of the line, in plain pixels: the toast lane reads this as a number.
       lane?.style.setProperty('--mf-writer-toast', `${foot + 60}px`)
       setColumn((was) => (was && Math.abs(was.left - box.left) < 1 && Math.abs(was.width - box.width) < 1 && Math.abs(was.foot - foot) < 1 ? was : { left: box.left, width: box.width, foot }))

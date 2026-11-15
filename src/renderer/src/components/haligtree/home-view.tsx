@@ -15,7 +15,7 @@ import { smallPicture, thumbsRead, useThumb } from '@/lib/notes'
 import { useDecoded } from '@/lib/decoded'
 import { openApart } from '@/lib/apart'
 import { backSaid, placed, taskName } from '@/lib/tasks'
-import { dayKey, dayjs, num, startOfDay } from '../../../../main/dates'
+import { dayKey, dayjs, num, plural, startOfDay } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
 import { splitTags, unloaded, unread, useLive, haligtree, whenInLine, type Pin as Pinned, type Settings, type Task } from '@/lib/haligtree'
 import { useKept } from '@/lib/nav'
@@ -25,6 +25,8 @@ import { ReadThrough, type Readable } from './read-through'
 import { RowMenu, copyLinkItem, flat as flatMenu, type MenuItem, type RowItem } from './row-menu'
 import { binItem } from '@/lib/to-bin'
 import { tagColour } from './tag-read'
+import { Avatar } from './avatar'
+import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { TaskPriority, TaskWhen, completeTask, taskMenu, useTaskNow } from './tasks-view'
 import { SessionDot, SpentTip, useTaskTime, type TaskTime } from './task-time'
 import { sideMenu, useFullMenu } from './side-menu'
@@ -614,6 +616,23 @@ function ExampleHome(): React.JSX.Element {
 /** A drawing's colour: its first tag's, else a tag colour picked from its id. */
 const coverTint = (card: Card): string => tagColour(splitTags(card.title).tags[0] ?? card.id, null)
 
+/**
+ * No picture: Haligtree's own paper drawing in its colour, as every other card
+ * without one wears, with its word set large over the shaded foot, the way a
+ * radio cover is a name over its picture.
+ */
+function WordCover({ seed, tint, word }: { seed: string; tint: string; word: string }): React.JSX.Element | null {
+  const cover = useNoteCover(seed)
+  if (!cover) return null
+  return (
+    <span aria-hidden className="absolute inset-0 flex items-end p-3">
+      <GrainFill cover={cover} tint={tint} shade="foot" />
+      {/* In ink on paper, as every card's words on a drawing are; white only on a picture or gradient. */}
+      <span className={`private-text relative line-clamp-3 font-heading text-[1.125rem] leading-[1.08] font-bold tracking-[-0.015em] hyphens-auto [overflow-wrap:break-word] ${cover.paper ? '' : 'text-white'}`} style={cover.paper ? onPaper(tint) : undefined}>{word}</span>
+    </span>
+  )
+}
+
 /** The word a card is about: a definition's term, before its colon. */
 const termOf = (card: Card): string => nameOf(card).split(/:\s/)[0].slice(0, 60)
 /** What follows the term: the rest of a definition, else its first words. */
@@ -627,10 +646,7 @@ function Cover({ card, className = '' }: { card: Card; className?: string }): Re
   return (
     <span className={`${className.includes('absolute') ? '' : 'relative'} overflow-hidden ${className}`}>
       {real ? <Picture src={src} onBroken={() => setBroken(true)} /> : (
-        // No picture: its own word, large on its own colour, the way a radio cover is a name on colour.
-        <span aria-hidden className="absolute inset-0 flex items-end p-3" style={{ background: `color-mix(in oklab, ${coverTint(card)} 70%, black)` }}>
-          <span className="private-text line-clamp-3 font-heading text-[1.125rem] leading-[1.08] font-bold tracking-[-0.015em] hyphens-auto [overflow-wrap:break-word] text-white">{termOf(card)}</span>
-        </span>
+        <WordCover seed={card.id} tint={coverTint(card)} word={termOf(card)} />
       )}
     </span>
   )
@@ -1096,6 +1112,8 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
 
           {back.length > 0 && <Quotes title="Coming back" onAll={() => onView('review')} onReview={() => onView('review')} cards={back} actions={actions} />}
 
+          <SourcesRow onAll={() => onView('sources')} />
+
           {(tidy.length > 0 || again.length > 0) && (
             <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 gap-y-8 px-3 @[44rem]/page:grid-cols-2 @[44rem]/page:px-6">
               {tidy.length > 0 && (
@@ -1148,4 +1166,44 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
       {reading && <ReadThrough items={reading.items} start={reading.start} onClose={() => setReading(null)} />}
     </div>
   ) as React.JSX.Element
+}
+
+/** How much of your notes a person or work holds, as the Sources page says it. */
+const tallyOf = (one: SourceSummary): string => {
+  const rest = one.count - one.quotes
+  return [one.quotes ? plural(one.quotes, 'quote') : '', rest ? plural(rest, one.quotes ? 'other note' : 'note') : ''].filter(Boolean).join(' · ')
+}
+
+/**
+ * The people and works your notes come from, the ones you took from last
+ * first: a person as a round face, a work as a square cover with its name on
+ * its own colour, the way a music app mixes artists and albums in one row.
+ */
+function SourcesRow({ onAll }: { onAll: () => void }): React.JSX.Element | null {
+  const list = useLive(sources.list, [] as SourceSummary[])
+  const shown = list.filter((one) => one.count > 0 && !one.work).sort((a, b) => b.last.localeCompare(a.last)).slice(0, 12)
+  if (shown.length < 2) return null
+  return (
+    <Row title="Your sources" over="Who and what you took from lately" onAll={onAll}>
+      {shown.map((one) => {
+        const person = one.field === 'attribution'
+        return (
+          <div key={`${one.field}:${one.name}`} className="flex w-(--card) shrink-0 snap-start">
+            <button type="button" data-home-source={one.name} onClick={(event) => (chime('page'), heroOpen(event, () => openSource(one.field, one.name)))}
+              className="flex w-full flex-col gap-2 rounded-lg p-1.5 text-left outline-none transition-[background-color,scale] duration-200 ease-(--mf-ease) hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985]">
+              {person
+                ? <span className="block aspect-square w-full overflow-hidden rounded-full"><Avatar name={one.name} size={160} className="!size-full" /></span>
+                : (
+                  <span className="relative block aspect-square w-full overflow-hidden rounded-md"><WordCover seed={`source:${one.name}`} tint={tagColour(one.name, null)} word={one.name} /></span>
+                )}
+              <span className="flex min-w-0 flex-col gap-0.5 px-1 pb-1">
+                <span className="truncate text-control font-medium text-foreground">{one.name}</span>
+                <span className="truncate text-xs text-muted-foreground">{person ? 'Person' : 'Source'} · {tallyOf(one)}</span>
+              </span>
+            </button>
+          </div>
+        )
+      })}
+    </Row>
+  )
 }

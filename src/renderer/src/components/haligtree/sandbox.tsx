@@ -218,6 +218,11 @@ function Going(): React.JSX.Element | null {
 
 export function SandboxHost(): React.JSX.Element | null {
   const [seeding, setSeeding] = useState(false)
+  // Said on the root while the loader covers the window: the writing line, fixed over everything, hides under it (main.css).
+  useEffect(() => {
+    document.documentElement.toggleAttribute('data-seeding', seeding)
+    return () => document.documentElement.removeAttribute('data-seeding')
+  }, [seeding])
   const [stale, setStale] = useState<number | null>(null)
 
   useEffect(() => {

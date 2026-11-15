@@ -4098,3 +4098,6 @@ textarea[data-talking]::selection {
   max-width: none;
   padding-inline: 1rem !important;
 }
+
+/* The sandbox's loader covers the window; the writing line under it never shows over it (sandbox.tsx). */
+:root[data-seeding] [data-writer-line] { display: none; }
