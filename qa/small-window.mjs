@@ -136,7 +136,9 @@ try {
       // On a line of its own: "/" opens its menu at a word's start, never in the middle of one.
       await at.keyboard.press('Enter')
       row.slashSound = await cued(() => at.keyboard.type('/', { delay: 25 }))
-      row.slash = await at.locator('.tiptap-suggestion-popup').first().isVisible().catch(() => false)
+      // Quick capture holds a pop-up out of sight until its window has room under the card (lib/fit-box.ts): given
+      // the time that takes on a loaded Mac, three seconds at most, as a person sees it arrive.
+      row.slash = !!(await until(() => at.locator('.tiptap-suggestion-popup').first().isVisible().catch(() => false), 3000))
       await at.keyboard.press('Backspace'); await at.keyboard.press('Backspace'); await at.waitForTimeout(300)
       parity.push(row)
     }
