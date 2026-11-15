@@ -15,6 +15,7 @@ import type { ReactNode } from "react"
 import { goToHeading, headingsOf } from "@/components/toc/headings"
 import { linesIn, nameBlock, BLOCK_TYPES } from "@/extensions/block-ids"
 import { typedOnly } from "@/lib/typed-suggestion"
+import { changedSpan } from "@/lib/text-edit"
 import { iconMarkup } from "@/lib/icon-markup"
 import { nameWithoutTags } from "../../../main/tag-words"
 
@@ -1012,12 +1013,10 @@ export const NoteLink = Node.create<NoteLinkOptions>({
           // Only what changed is looked through: walking a long note on every key was slow.
           return {
             update: (view, previous) => {
-              const before = previous.doc.content
-              const now = view.state.doc.content
-              const start = before.findDiffStart(now)
-              if (start == null) return
-              const end = before.findDiffEnd(now)?.b ?? now.size
-              resolve(view, start, Math.min(now.size, Math.max(start + 1, end)))
+              // Compared once for every plugin that asks of this change (lib/text-edit.ts `changedSpan`).
+              const span = changedSpan(previous.doc, view.state.doc)
+              if (!span) return
+              resolve(view, span.from, Math.min(view.state.doc.content.size, Math.max(span.from + 1, span.newTo)))
               lookUp()
             },
           }
