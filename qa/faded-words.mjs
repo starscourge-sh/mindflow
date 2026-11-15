@@ -96,7 +96,8 @@ const measure = (h, scope = null) => h.evaluate((scope) => {
   for (const el of (scope ? [...document.querySelectorAll(scope)] : [document.body]).flatMap((root) => [root, ...root.querySelectorAll('*')])) {
     // Not words to read: drawings, pdf.js's clear words over a page, a disabled control, and a page's example (made-up
     // rows under "Example", drawn faded and inert as a picture of what the page will hold: example.tsx).
-    if (el.closest('svg, canvas, .textLayer, :disabled, [aria-disabled="true"], [inert], [data-example]')) continue
+    // A setting's sample (Settings' previews, `data-preview`), dimmed while its setting is off, is a picture too.
+    if (el.closest('svg, canvas, .textLayer, :disabled, [aria-disabled="true"], [inert], [data-example], span[data-preview], [data-dim-preview]')) continue
     const box = el.getBoundingClientRect()
     // Drawn, wherever it is scrolled to: a row further down the page is still on it.
     if (!box.width || !box.height) continue
