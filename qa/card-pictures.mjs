@@ -111,8 +111,10 @@ try {
   check('an old card\'s icon is kept the same way', /^haligtree:\/\/assets\/[a-f0-9]{64}\.png$/.test(kept2[`${SITE}/oldicon.png`] ?? ''), kept2[`${SITE}/oldicon.png`])
   check('the old card itself is not rewritten: the site\'s addresses as it had them', was?.image === `${SITE}/old.png` && was?.icon === `${SITE}/oldicon.png`, `${was?.image} ${was?.icon}`)
   check('the old card\'s kept files are in the data folder', [kept2[`${SITE}/old.png`], kept2[`${SITE}/oldicon.png`]].every((src) => src && files().includes(src.split('/').pop())))
-  // Left, so the next opening draws it anew, from its kept copy.
-  await c.go('home')
+  // The window's page made again, so the next opening draws the card anew, from its kept copy: a development build
+  // kept the card drawn with the site's picture through a trip to Home and back.
+  await h.reload()
+  await h.waitForTimeout(1500)
 
   // 3. The guards: too big, not a picture, inside the network, offline.
   const guarded = await h.evaluate((site) => Promise.all([
