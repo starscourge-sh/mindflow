@@ -16,7 +16,7 @@
 // QA_PROFILE=<file> with HALIGTREE_QA_PROFILE_START=1: main's CPU profile from its first module to quick capture drawn,
 // of each start, written as <file>-<cold|again>-<n>.cpuprofile (a profiled start is slower: not for the table).
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { checks, launch } from './harness.mjs'
 import { cast } from './cast-lib.mjs'
 
@@ -144,6 +144,9 @@ for (let n = 1; n <= RUNS; n++) {
     for (const one of backups) rmSync(one, { recursive: true, force: true })
     const { cold, again } = runs.get(name)
     cold.push(await start('cold', n))
+    // The day's copy of the book, made as it started (backup.ts): there, whole, with no part of one left beside it.
+    const copies = backups.map((one) => `${one}/database`).filter((dir) => existsSync(dir)).flatMap((dir) => readdirSync(dir))
+    cold.at(-1).copied = copies.includes(`haligtree-${new Date().toLocaleDateString('sv')}.db`) && !copies.some((name) => name.endsWith('.part'))
     again.push(await start('again', n))
     console.log(`(${name}, start ${n}: cold shown ${Math.round(cold.at(-1).shown)}ms, again ${Math.round(again.at(-1).shown)}ms; load ${load()})`)
   }
@@ -159,6 +162,7 @@ for (const [name, { cold, again }] of runs) {
     check(`${name}, ${label}: quick capture made and drawn for ⌘. every time`, kind.every((r) => Number.isFinite(r.boxDrawn)), kind.map((r) => Math.round(r.boxDrawn)).join(' '))
     check(`${name}, ${label}: no loader on the first screen when it was shown`, kind.every((r) => !r.orb))
   }
+  check(`${name}: each first start of a day made the day's copy of the book, whole`, cold.every((r) => r.copied), cold.map((r) => r.copied).join(' '))
 }
 console.log(`(load at the end: ${load()})`)
 done()
