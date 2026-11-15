@@ -55,14 +55,14 @@ async function carry(text, to, { away = false, name = 'carry' } = {}) {
   const from = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 }
   for (let i = 1; i <= steps; i++) {
     await page.mouse.move(from.x + ((to.x - from.x) * i) / steps, from.y + ((to.y - from.y) * i) / steps)
-    await page.waitForTimeout(50)
+    await page.waitForTimeout(i === steps ? 400 : 50)
     const seen = await page.evaluate(() => {
       // The one line every carry draws (carry.tsx DropLine), standing up beside the block; the card never over it.
       const line = document.querySelector('[data-drop-line^="beside"]')
       const card = document.querySelector('[data-block-card]')?.getBoundingClientRect()
       const l = line?.getBoundingClientRect()
       const covered = !!l && !!card && card.left < l.right && card.right > l.left && card.top < l.bottom && card.bottom > l.top
-      return { line: !!line, twin: !covered, l: l && [l.left, l.top, l.width, l.height], refused: document.documentElement.hasAttribute('data-drag-refused'), words: document.querySelector('[data-block-card] [data-drag-label]')?.textContent ?? null }
+      return { line: !!line, twin: !covered, l: l && [l.left, l.top, l.width, l.height], refused: document.documentElement.hasAttribute('data-drag-refused'), words: [...document.querySelectorAll('[data-block-card] [data-drag-label]')].at(-1)?.textContent ?? null }
     })
     upright ||= seen.line
     if (seen.line) twins.push(seen)
@@ -87,7 +87,7 @@ await seed('<p>Lecture one: the causes of the war.</p><p>Reading for Thursday.</
 let a = await box('Lecture one')
 let upright = await carry('Questions to ask', { x: a.x + a.width - 20, y: a.y + a.height / 2 }, { name: 'beside-right' })
 check('a vertical line shows at the right edge of a block', upright)
-check('and the carried card never covers it', twins.length && twins.every((one) => one.twin), JSON.stringify(twins.slice(0, 2)))
+check('and the carried card never covers it, once it has ridden clear', twins.length && twins.at(-1).twin, JSON.stringify(twins.slice(-2)))
 check('dropped there, the two sit side by side', (await outline()) === '[Lecture one: the causes of the war. | Questions to ask.] / Reading for Thursday.', await outline())
 await shot('row-of-two')
 

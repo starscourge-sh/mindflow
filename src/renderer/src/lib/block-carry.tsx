@@ -291,7 +291,12 @@ function point(one: Held, again = false): void {
     const quiet = (change: () => void): void => quietly(one.view, change)
     const all = one.pieces.filter((piece) => piece.el === one.me || !one.sources.includes(piece.el)).map((piece) => piece.el)
     if (next?.kind === 'line') {
-      const spot = makeWay(all, one.me, next.gap, one.tall, quiet)
+      // Its own place is where it lands in the note, not its neighbour in the run: a column's last block (or a list's
+      // last item) carried to just past its row (or list) moves out, though nothing comes between them in the run. It
+      // closes nothing there (its row keeps its other column), so only the room where it lands opens.
+      const me = one.laid.findIndex((each) => each.piece.el === one.me)
+      const leaves = next.at !== one.from && next.at !== one.to && (next.gap === me || next.gap === me - 1)
+      const spot = leaves ? makeWay(all.filter((el) => el !== one.me), one.me, me - 1, one.tall, quiet) : makeWay(all, one.me, next.gap, one.tall, quiet)
       // At the level it would land: beside the block it goes before or after.
       const by = restBox(next.by.el)
       one.room = spot && { ...spot, left: by.left, width: by.width }

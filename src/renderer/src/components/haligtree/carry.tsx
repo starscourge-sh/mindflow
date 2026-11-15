@@ -331,14 +331,22 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
       // As it is drawn: a card turned a little in the hand (the Matrix's) reaches past the box that holds it.
       const turned = card.current?.firstElementChild?.getBoundingClientRect()
       const box = own && { top: Math.min(own.top, turned?.top ?? own.top), bottom: Math.max(own.bottom, turned?.bottom ?? own.bottom) }
-      // A line standing upright beside a block (a note's block going beside another) is beside the card, never under it.
+      // A line standing upright beside a block (a note's block going beside another): the card rides under its foot
+      // where it would cover it, as it rides clear of a flat line.
       const drawn = lineNow?.isConnected ? lineNow.getBoundingClientRect() : null
       const line = drawn && drawn.width > drawn.height ? drawn : null
+      const upright = drawn && !line ? drawn : null
       // A small place the card is carried onto (a tab): it rides just under it, so the place's own name stays in sight.
       // Lit, the place is under the pointer, so the card is on it or about to be (sideways it follows a touch late).
       const place = !line?.width && litNow?.isConnected && litNow.dataset.rowDrop !== undefined ? litNow.getBoundingClientRect() : null
       let next = 0
-      if (box && box.bottom > box.top && line?.width) {
+      const flat = card.current?.getBoundingClientRect()
+      if (box && upright && flat && flat.left < upright.right + CLEAR && flat.right > upright.left - CLEAR) {
+        side = null
+        const home = card.current?.parentElement?.getBoundingClientRect()
+        const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : (box.top + box.bottom) / 2 - y.get()
+        next = Math.max(0, upright.bottom + CLEAR + (box.bottom - box.top) / 2 - middle)
+      } else if (box && box.bottom > box.top && line?.width) {
         const at = line.top + line.height / 2
         // The side the pointer is on, kept through a few pixels round the line so the card never flutters across it.
         side = side === 'under' ? (pointerY < at - 4 ? 'over' : 'under') : side === 'over' ? (pointerY > at + 4 ? 'under' : 'over') : pointerY >= at ? 'under' : 'over'

@@ -39,7 +39,8 @@ const state = () => page.evaluate(() => {
   const clear = !at || !card || (at.height > at.width ? card.right <= at.left || card.left >= at.right || !level : dot && hidden / Math.max(1, at.width) <= 1 / 3)
   const moved = [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line) > *')].filter((one) => /translateY\(-?[1-9]/.test(one.style.transform)).length
   const grip = document.querySelector('.tiptap-drag-handle')
-  const words = cards[0]?.querySelector('[data-drag-label]')?.textContent ?? null
+  // The words arriving, not those leaving (they cross-fade in place).
+  const words = [...(cards[0]?.querySelectorAll('[data-drag-label]') ?? [])].at(-1)?.textContent ?? null
   return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width }, title: cards[0]?.textContent ?? '', words, carried, lines: lines.length, line: lines.length > 0, upright: lines.some((one) => one.dataset.dropLine.startsWith('beside')), rooms, own, clear, moved, grip: grip ? getComputedStyle(grip).visibility : 'none', cursor: getComputedStyle(document.body).cursor, refused: document.documentElement.hasAttribute('data-drag-refused') }
 })
 
@@ -184,7 +185,10 @@ async function beside(name, from, to, at, { y = 0.5 } = {}) {
     seen.push(await state())
     if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-${String(i).padStart(2, '0')}.png`) })
   }
-  const last = seen.at(-1)
+  // Held still before letting go: the card's words have arrived and it has ridden clear of its line.
+  await page.waitForTimeout(350)
+  const last = await state()
+  if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-held.png`) })
   await page.mouse.up()
   await page.waitForTimeout(250)
   if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-after.png`) })
