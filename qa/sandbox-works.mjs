@@ -210,9 +210,13 @@ try {
   if (shots) {
     await size(560, 400)
     const longest = [...listed].sort((a, b) => b.length - a.length)[0]
+    const whole = (selector) => h.evaluate((selector) => { const one = document.querySelector(selector); return one ? { text: one.innerText.trim(), whole: one.scrollWidth <= one.clientWidth + 1 && one.getBoundingClientRect().width > 0 } : null }, selector)
+    let back = null
     for (const name of [longest, 'Hamlet, Act 1, Scene 3']) {
       await h.evaluate((name) => window.dispatchEvent(new CustomEvent('haligtree:source', { detail: `medium:${name}` })), name)
       await wait(900)
+      // The way back over the page is never cut short ("So…") by a long name beside it.
+      if (name === longest) back = await whole('[data-source-back]')
       const file = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '').slice(0, 40)
       for (const name of ['light', 'dark']) { await look(name); await wait(250); await h.screenshot({ path: `${shots}/small-${file}-${name}.png` }) }
       await look('light')
@@ -225,10 +229,8 @@ try {
       return root && root.scrollWidth > root.clientWidth + 1 ? `the window: ${root.scrollWidth} > ${root.clientWidth}` : ''
     })
     check('at 560 by 400 a work\'s page has no sideways scroll', !sideways, sideways || 'none')
-    // The way back over the page is never cut short ("So…"), here and in a folder's path (items-view.tsx, the same parts).
-    const whole = (selector) => h.evaluate((selector) => { const one = document.querySelector(selector); return one ? { text: one.innerText.trim(), whole: one.scrollWidth <= one.clientWidth + 1 && one.getBoundingClientRect().width > 0 } : null }, selector)
-    const back = await whole('[data-source-back]')
-    check('at 560 by 400 the path over a long work\'s page still says “Sources” whole', back?.text === 'Sources' && back.whole, JSON.stringify(back))
+    check(`at 560 by 400 the path over the longest work's page (${longest.length} letters) still says “Sources” whole`, back?.text === 'Sources' && back.whole, JSON.stringify(back))
+    // And in a folder's path (items-view.tsx, the same parts): "Writing" over a folder three deep.
     await size(1440, 900)
     await c.send('view', 'articles')
     await wait(900)
