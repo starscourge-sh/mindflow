@@ -46,14 +46,15 @@ function useSelectionCounts(editor: Editor | null): { words: number; characters:
   useEffect(() => {
     if (!editor) return
     const count = (): void => {
-      const { from, to, empty } = editor.state.selection
+      const { from, to, ranges, empty } = editor.state.selection
       // Only while the note has the keys: a selection left behind as you go elsewhere says nothing.
       if (empty || !editor.isFocused) return setCounts(null)
       const { doc } = editor.state
       if (from <= 1 && to >= doc.content.size - 1) return setCounts("whole")
-      // Counted as the note's own count counts them (lib/note-size.ts).
-      const words = wordsIn(doc.textBetween(from, to, " ", (node) => ` ${shown(node)} `))
-      const characters = doc.textBetween(from, to, undefined, shown).length
+      // Counted as the note's own count counts them (lib/note-size.ts), over every range picked: a table's picked
+      // cells are one range each, and the first alone counted a row of them as one cell.
+      const words = ranges.reduce((sum, { $from, $to }) => sum + wordsIn(doc.textBetween($from.pos, $to.pos, " ", (node) => ` ${shown(node)} `)), 0)
+      const characters = ranges.reduce((sum, { $from, $to }) => sum + doc.textBetween($from.pos, $to.pos, undefined, shown).length, 0)
       setCounts((now) => (!words ? null : now !== "whole" && now?.words === words && now.characters === characters ? now : { words, characters }))
     }
     const transaction = ({ transaction }: { transaction: { docChanged: boolean; selectionSet: boolean } }): void => {
