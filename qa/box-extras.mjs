@@ -130,14 +130,19 @@ const until = async (test, ms = 4000) => { for (let i = 0; i < ms / 100; i++) { 
 
 // --- a Word's meaning --------------------------------------------------------------
 await check('word: looked up in the background, no beam while it is; shown as a ghost', async () => {
-  // Main's first backup of the day turns the beam in every window while it is made (captures.ts, busy.ts): on a copy of
-  // the example book seeded on another day that is the first seconds of the run, and its turn was read as the word's.
-  // The word is typed once the beam is at rest, so a turn seen after is the word's own.
+  // Main's own work turns the beam in every window (busy.ts), the backup made as the app starts among it (captures.ts):
+  // the word is typed once the beam is at rest, so a turn seen after is not left over from the launch.
   const rest = Date.now()
   expect(await until(async () => !(await beamNow()), 30000), 'the beam never came to rest before the word')
   if (Date.now() - rest > 400) console.log(`(the beam turned for main's own work for ${Math.round((Date.now() - rest) / 1000)}s before the word)`)
+  // What turns it, if anything does: each wait told to the beam here (with who told it) and main's own work.
+  await page.evaluate(() => {
+    window.__beamWhy = []
+    window.addEventListener('haligtree:beam-wait', (event) => window.__beamWhy.push(`here ${event.detail} at ${Math.round(performance.now())}: ${new Error().stack.split('\n').slice(3, 7).map((line) => line.trim().slice(0, 90)).join(' < ')}`))
+    window.api.onBusy?.((count) => window.__beamWhy.push(`main ${count} at ${Math.round(performance.now())}`))
+  })
   await page.keyboard.type('Serendipity', { delay: 15 })
-  expect(!(await beamSeen('working', 1500)), 'the beam turned for a word')
+  expect(!(await beamSeen('working', 1500)), `the beam turned for a word: ${(await page.evaluate(() => window.__beamWhy)).join(' | ') || 'no wait told to it'}`)
   expect(await until(async () => (await define()) === 'ghost'), `no ghost: ${await define()}`)
   const said = await page.evaluate(() => document.querySelector('[data-define]')?.textContent ?? '')
   expect(said.includes('noun') && said.includes('/ˌsɛɹ.ənˈdɪp.ɪ.ti/') && said.includes('fortunate'), `the ghost says: ${said}`)
