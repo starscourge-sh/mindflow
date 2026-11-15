@@ -163,8 +163,22 @@ try {
   if (onLink) await link.click()
   const gandalfBook = await watching
   check(`Gandalf's page: "in ${GANDALF_BOOK}" opens its page, whole in the first frame`, onLink === GANDALF_BOOK && gandalfBook?.line === 'words' && gandalfBook.by.startsWith('J. R. R. Tolkien') && gandalfBook.steady, `${onLink} ; ${JSON.stringify(gandalfBook)}`)
+  // And from ⌘K: a work is found by who wrote it, and a click on it opens its page whole.
+  await c.send('view', 'home')
+  await wait(900)
+  await h.keyboard.press('Meta+k')
+  await wait(500)
+  await h.keyboard.type('Shakespeare')
+  await wait(900)
+  const found = h.locator(`div[aria-label="Search"] button[data-drag-open=${JSON.stringify('work:Hamlet, Act 1, Scene 3')}]`)
+  const listedThere = await found.count() > 0
+  const fromSearch = listedThere ? firstFrame('Hamlet, Act 1, Scene 3', 'press') : null
+  if (listedThere) await found.first().click()
+  const searched = await fromSearch
+  check('⌘K “Shakespeare” lists Hamlet, Act 1, Scene 3 as his work, and a click opens its page whole', listedThere && searched?.line === 'words' && searched.by.startsWith('William Shakespeare') && searched.steady, `${listedThere} ; ${JSON.stringify(searched)}`)
+  if (!listedThere) await h.keyboard.press('Escape')
   await wait(1500)
-  check(`opening all ${pages + 4} works' pages asked Wikipedia nothing`, asks.length === before && before === 0, `${asks.length} asks: ${asks.join(' | ').slice(0, 400)}`)
+  check(`opening all ${pages + 5} works' pages asked Wikipedia nothing`, asks.length === before && before === 0, `${asks.length} asks: ${asks.join(' | ').slice(0, 400)}`)
 
   // The Sources page's works, as a person sees them: the list of them, light and dark, at both sizes.
   if (shots) {
