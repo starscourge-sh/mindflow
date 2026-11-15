@@ -75,14 +75,20 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
     // often the pill is placed again meanwhile (a squiggle drawn, a selection update).
     let asked = ''
     let gone = false
+    // The caret's line was off the screen when last placed: a scroll may bring it back, and the pill with it.
+    let away = false
     const place = (): void => {
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
+        away = false
         if (editor.isDestroyed) return
         const { selection } = editor.state
         // A name being looked up after `[[`, `@`, `#` or `/` is not a word to spell: the list there finishes it.
         if (typing || !editor.isFocused || !selection.empty || !document.hasFocus() || inTrigger(editor.state)) return setHint(null)
         const at = editor.view.coordsAtPos(selection.head)
+        // Scrolled out of what shows of the note (its scroller, or the window): nothing to point at until it comes back.
+        const view = dom.parentElement?.getBoundingClientRect()
+        if (at.bottom <= Math.max(view?.height ? view.top : 0, 0) || at.top >= Math.min(view?.height ? view.bottom : innerHeight, innerHeight)) return void ((away = true), setHint(null))
         // Placed on the window itself, over everything: inside the editor's box it was cut off on the last line.
         const from = { left: 0, top: 0 }
         // Just under the caret's line, never over the word.
@@ -155,8 +161,11 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
     editor.on("blur", place)
     dom.addEventListener("keydown", onKey, true)
     window.addEventListener("resize", place)
-    // The words scroll under it: it goes with them.
-    window.addEventListener("scroll", place, true)
+    // The words scroll under it: it goes with them. Only a scroll that moves these words, and only when it can change
+    // what shows (a pill to carry along, or the caret's line off the screen): the word under the caret is the same
+    // word however far the note scrolls, so it is not asked about again on every frame of a scroll.
+    const scrolled = (event: Event): void => void (event.target instanceof Node && event.target.contains(dom) && (shown.current || away) && place())
+    window.addEventListener("scroll", scrolled, true)
     window.addEventListener("blur", place)
     window.addEventListener("focus", place)
     // A word learnt or unlearnt, here or in another window: what was said of the word under the caret is asked afresh.
@@ -175,7 +184,7 @@ export function SpellPill({ editor }: { editor: Editor | null }): React.JSX.Elem
       editor.off("blur", place)
       dom.removeEventListener("keydown", onKey, true)
       window.removeEventListener("resize", place)
-      window.removeEventListener("scroll", place, true)
+      window.removeEventListener("scroll", scrolled, true)
       window.removeEventListener("blur", place)
       window.removeEventListener("focus", place)
     }
