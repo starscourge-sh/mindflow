@@ -5,7 +5,7 @@
 //   own place is not changed; parked like that, it is moved to the workspace
 //   in view (AeroSpace's calls are played by the probe here, never the Mac's);
 // - each sticky has exactly one window, a stray copy is closed;
-// - dragged by hand into line with the screen's edge, the trackpad taps once,
+// - dragged by hand into line with another card's edge, the trackpad taps once,
 //   and again only after leaving the line and coming back (haptic.ts).
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/sticky-follow.mjs
 import { sandbox } from './sandbox-lib.mjs'
@@ -86,17 +86,22 @@ try {
   const count = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((one) => !one.isDestroyed() && one.webContents.getURL().includes('view=sticky') && one.webContents.getURL().includes('type=today')).length)
   check('each sticky has exactly one window, a stray copy closed', count === 1, `${count} windows for Today`)
 
-  // Dragged by hand toward the right edge: one tap as it comes into line with the margin 16 in from it, none while it
-  // stays, one more after leaving and coming back. Every tap comes with the line it came onto lit on that same step, and
-  // none without one: on its way the card's left edge also passes the goal card's left edge (the goal stands above it at
-  // the right), a line of its own with its own tap (14 Nov: that tap, read as an extra one, was this line's).
+  // Dragged by hand toward the goal card's right edge (the goal stands above it at the right): one tap as its own right
+  // edge comes into line with it, none while it stays, one more after leaving and coming back. Every tap comes with the
+  // line it came onto on that same step, and none without one: on its way the card's left edge may pass the goal card's
+  // left edge, a line of its own with its own tap (14 Nov: that tap, read as an extra one, was this line's).
   const now = await today()
   const taps0 = await electron.evaluate(() => globalThis.haligtreeTaps())
-  const steps = await electron.evaluate(async ({ BrowserWindow }, [id, work]) => {
+  const { steps, margin } = await electron.evaluate(async ({ BrowserWindow }, [id, work]) => {
     const w = BrowserWindow.fromId(id)
     const b = w.getBounds()
-    const lineX = work.x + work.width - 8 - (b.width - 20)
-    const path = [lineX - 200, lineX - 120, lineX - 40, lineX - 6, lineX - 3, lineX, lineX - 80, lineX - 160, lineX - 4]
+    const goal = BrowserWindow.getAllWindows().find((one) => !one.isDestroyed() && one.isVisible() && one.webContents.getURL().includes('type=goal&'))
+    const g = goal?.getBounds()
+    const inset = (win) => (win.webContents.getURL().includes('glass=1') ? 0 : 20)
+    // The goal card's right edge, and where Today's window is with its card's right edge on it.
+    const right = g ? g.x + g.width - inset(goal) : work.x + work.width - 16
+    const lineX = right - (b.width - inset(w))
+    const path = [lineX - 192, lineX - 112, lineX - 32, lineX + 2, lineX + 5, lineX + 8, lineX - 72, lineX - 152, lineX + 4]
     const out = []
     globalThis.qaButton = true
     w.setPosition(path[0], work.y + 640)
@@ -107,18 +112,18 @@ try {
       w.emit('moved')
       await new Promise((r) => setTimeout(r, 90))
       const guides = globalThis.haligtreeGuides
-      out.push({ taps: globalThis.haligtreeTaps(), lit: JSON.parse(JSON.stringify(guides.lit ?? guides.lines)) })
+      out.push({ taps: globalThis.haligtreeTaps(), lit: JSON.parse(JSON.stringify(guides.on ?? guides.lit)) })
     }
     globalThis.qaButton = false
-    return out
+    return { steps: out, margin: g ? right : null }
   }, [now.id, now.work])
-  const margin = now.work.x + now.work.width - 16
+  check('the sandbox has a goal card up beside Today', margin !== null)
   const onMargin = steps.map((s) => s.lit.some((l) => l.axis === 'x' && l.at === margin))
   const added = steps.map((s, n) => s.taps - (n ? steps[n - 1].taps : taps0))
   const newlyLit = steps.map((s, n) => s.lit.filter((l) => !(n ? steps[n - 1].lit : []).some((k) => k.axis === l.axis && k.at === l.at)))
   const said = JSON.stringify(steps.map((s, n) => `${added[n]} ${s.lit.map((l) => l.axis + l.at).join('+') || '-'}`))
-  check('dragged into line with the edge: one tap coming onto it, none while it stays in line, one more coming back', onMargin[3] && added[3] === 1 && onMargin[4] && added[4] === 0 && !onMargin[5] && !onMargin[7] && onMargin[8] && added[8] === 1, said)
-  check('every tap on the way comes with the line it came onto, lit on that same step, and none without one', steps.every((_, n) => added[n] === (newlyLit[n].length ? 1 : 0)), said)
+  check('dragged into line with the goal card\'s right edge: one tap coming onto it, none while it stays in line, one more coming back', onMargin[3] && added[3] === 1 && onMargin[4] && added[4] === 0 && !onMargin[5] && !onMargin[7] && onMargin[8] && added[8] === 1, said)
+  check('every tap on the way comes with the line it came onto, on that same step, and none without one', steps.every((_, n) => added[n] === (newlyLit[n].length ? 1 : 0)), said)
   check('no errors on the page', !c.errors.length, c.errors.join(' | '))
 } finally {
   await c.close()

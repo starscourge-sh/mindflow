@@ -2530,7 +2530,7 @@ export default function App(): React.JSX.Element {
             </>
             )}
             {/* How quick capture moves, one way for every shape: a small grabber just above the card (a sheet's), shown
-                with the pointer in. Held, the box follows; double-clicked, it goes back to the top middle. */}
+                with the pointer in. Held, the box follows; double-clicked, it goes back to its home (main's boxHome). */}
             {!!window.api.room.left && (
               <div data-grabber aria-label="Move quick capture" title=""
                 onPointerDown={(event) => { if (event.button !== 0 || event.detail > 1) return; carryWindow(event.nativeEvent, event.currentTarget) }}

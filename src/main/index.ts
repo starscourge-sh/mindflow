@@ -104,7 +104,7 @@ import { registerCite } from './cite'
 import { registerFeed } from './feed'
 import { growFrom } from './grow'
 import { grab, whenLetGo } from './hand'
-import { guideInks, hideGuides, PLAIN_INKS, readyGuides, reinkGuides, showGuides, type Inks } from './guides'
+import { hideGuides, readyGuides, showGuides } from './guides'
 import { CARRIED, LEAVE, SNAP, cameOnto, guideLines, lineUp, type Held, type Line, type Lined, type Reach } from './snap-lines'
 import { throwSpot } from './throw-spot'
 import { CORNERS, REST_MS, beside, clearPlace, cornerPlace, overlaps, topPlaces, type Corner } from './step-aside'
@@ -1490,36 +1490,24 @@ function keyInAddress(win: BrowserWindow): string | null {
 }
 /** The sticky a window is, by its key ("capture:…", "today:today"). */
 const keyOfSticky = (win: BrowserWindow | null): string | undefined => (win ? [...stickies].find(([, one]) => one === win)?.[0] : undefined)
-/** Each window's guide inks as its page last said them (guides.ts guideInks), and the last any page said. */
-const inksOf = new WeakMap<BrowserWindow, Inks>()
-let lastInks: Inks = PLAIN_INKS
 type Box = Electron.Rectangle
 /**
  * One drag's guides (snap-lines.ts, guides.ts), the same for every window carried with them: a sticky or a goal's card
- * carried by the hand or by the Mac, and quick capture's box. The cards it lines up with (the others on the screen it
- * is on) and every line it can settle on are taken at its first step and kept until it is let go, so from the first
- * move to the last no line moves, comes or goes (a card gliding in the meantime included); only the one it is on
- * lights, with a tap. Carried onto another screen, they are taken again for that screen.
+ * carried by the hand or by the Mac, and quick capture's box. The places it lines up along (`places`, for the screen
+ * the card is on: the box's home, or a sticky's neighbours) and every line it can settle on are taken at its first
+ * step and kept until it is let go, so from the first move to the last no line moves, comes, goes or changes (a card
+ * gliding in the meantime included); coming onto one, the trackpad taps. Carried onto another screen, they are taken
+ * again for that screen.
  */
-function dragGuides(win: BrowserWindow, cards: () => Box[], reach: Reach = { snap: SNAP, leave: LEAVE }): { from: (card: Box) => void; to: (card: Box) => Lined; rest: (card: Box, area: Box) => Lined } {
+function dragGuides(places: (card: Box) => Box[], reach: Reach = { snap: SNAP, leave: LEAVE }): { from: (card: Box) => void; to: (card: Box) => Lined; rest: (card: Box, area: Box) => Lined } {
   let fixed: { display: number; area: Box; cards: Box[]; lines: Line[] } | null = null
   let held: Held = {}
-  // This drag, as the guides know it: an answer that comes after the drag is over draws nothing.
-  const me = {}
   // A screen attached since: its sheet made now.
   readyGuides()
-  // The page's own inks asked for now; until it answers, those it said before (or the last any page said). An answer
-  // that differs (the theme changed since) is drawn at once, whether or not the card moves again.
-  void guideInks(win).then((inks) => {
-    if (!inks) return
-    inksOf.set(win, inks)
-    lastInks = inks
-    reinkGuides(me, inks)
-  })
   const on = (card: Box): NonNullable<typeof fixed> => {
     const display = screen.getDisplayMatching(card)
     if (fixed?.display !== display.id) {
-      const near = cards().filter((one) => screen.getDisplayMatching(one).id === display.id)
+      const near = places(card).filter((one) => screen.getDisplayMatching(one).id === display.id)
       fixed = { display: display.id, area: display.workArea, cards: near, lines: guideLines(card, near, display.workArea, reach) }
     }
     return fixed
@@ -1531,17 +1519,17 @@ function dragGuides(win: BrowserWindow, cards: () => Box[], reach: Reach = { sna
       held = lineUp(card, here.cards, here.area, {}, reach).held
     },
     // Carried: where it goes (drawn onto a line within reach, if the hand carries it), a tap coming onto a line, and
-    // every line drawn, the one it is on lit, on the same step.
+    // every line drawn, on the same step.
     to: (card) => {
       const here = on(card)
       const lined = lineUp(card, here.cards, here.area, held, reach)
       if (cameOnto(held, lined.held)) tap('level')
       held = lined.held
-      showGuides(card, here.lines, lined.lines, inksOf.get(win) ?? lastInks, stillness(), me)
+      showGuides(card, here.lines, lined.lines)
       return lined
     },
     // Let go (moved into view first): where it settles, on the line it was held to.
-    rest: (card, area) => lineUp(card, fixed?.cards ?? cards(), area, held, reach)
+    rest: (card, area) => lineUp(card, fixed?.cards ?? places(card), area, held, reach)
   }
 }
 /** How far in from its window the card is drawn: glass fills it; paper keeps room round it for its lean and shadow (sticky-note.tsx, goal-beacon.tsx). */
@@ -2051,7 +2039,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
       rise = unlift.get(win)?.() ?? 0
       if (!held.has(win)) (held.add(win), win.webContents.send('sticky:held', true))
       hold = { from: win.getBounds(), start: at }
-      drag = dragGuides(win, others)
+      drag = dragGuides(others)
       drag.from(cardOf({ ...hold.from, y: hold.from.y + rise }, insetOf(key)))
     },
     carry: (now) => {
@@ -2084,7 +2072,7 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     // it is set down too. Elsewhere 'moved' comes once, at the end (hand.ts).
     // Picked up already on a line, it is held there without a tick.
     if (process.platform === 'darwin') {
-      drag = dragGuides(win, others, CARRIED)
+      drag = dragGuides(others, CARRIED)
       drag.from(cardOf(win.getBounds(), insetOf(key)))
       whenLetGo(win, letGo, lining)
     }
@@ -2104,12 +2092,12 @@ function stick(type: string, id: string, on: boolean, bounds?: Electron.Rectangl
     else if (process.platform === 'darwin') parkedBy(win)
     else letGo()
   })
-  // Carried into line with the screen's edge or another sticky, the trackpad
-  // taps once (haptic.ts), as the Mac's own guides do; out of line and back, once again.
-  // From its first move, dashed guides show every line it can settle on (snap-lines.ts, guides.ts): the screen's
-  // middles, another sticky's or quick capture's edges, a margin in from the screen's edges; the one it is on goes
-  // solid. The Mac moves the window under your hand, so it follows the pointer exactly and is drawn onto the line as
-  // it is let go.
+  // Carried into line with another card's edge, the trackpad taps once
+  // (haptic.ts), as the Mac's own guides do; out of line and back, once again.
+  // From its first move, Raycast's grey dashed guides show every line it can settle on (snap-lines.ts, guides.ts),
+  // fixed until it is let go: a sticky has no home of its own, so they run along the other cards up on its screen
+  // (another sticky, a goal's card, quick capture), down each one's left and right edges and across its top. The Mac
+  // moves the window under your hand, so it follows the pointer exactly and is drawn onto the line as it is let go.
   let drag: ReturnType<typeof dragGuides> | null = null
   const others = (): ReturnType<typeof cardOf>[] => stickyCards(win)
   const lining = (now: Electron.Rectangle): void => void drag?.to(cardOf(now, insetOf(key)))
@@ -3758,6 +3746,22 @@ function topMiddle(area: Electron.Rectangle, width: number, height: number): Ele
   return { width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + Math.max(0, area.height - height) / 4) }
 }
 
+/** The box at the top middle or the middle of a screen, placed by its full height, so its top is the same however tall it opens. */
+function opensAt(place: 'top' | 'centre', area: Electron.Rectangle, width: number, height: number): Electron.Rectangle {
+  const full = SIZES.compact.height
+  const { x, y } = place === 'top' ? topMiddle(area, width, full) : { x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - full) / 2) }
+  return { x, y, width, height }
+}
+
+/**
+ * Quick capture's home, as Raycast's window has its own (the place it opens by default, which its guides mark and a
+ * drag back near snaps to): where Settings opens it, the middle of its screen if that is “the middle”, else the top
+ * middle, where it first opens. On the screen `box` is on, at its size: what its guides mark while it is carried and
+ * where it settles carried near, and where a double-click on its grabber sends it.
+ */
+const boxHome = (box: Electron.Rectangle): Electron.Rectangle =>
+  onScreen(opensAt(boxPlacement().place === 'centre' ? 'centre' : 'top', screen.getDisplayMatching(box).workArea, box.width, box.height))
+
 /** The work area of the screen the pointer is on. */
 const pointerArea = (): Electron.Rectangle => screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea
 
@@ -3863,8 +3867,6 @@ function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: numbe
   const { place, screen: which } = boxPlacement()
   const was = screen.getDisplayMatching(left).workArea
   const area = which === 'pointer' ? pointerArea() : was
-  // Placed by its full size, so its top is the same however tall it opens.
-  const full = SIZES.compact.height
   const put = (at: Electron.Rectangle): { place: Electron.Rectangle; top: number } => ({ place: onScreen({ ...at, width, height }), top: at.y })
   // While the welcome runs, over the welcome's own picture of the box, under the step's words: never on top of them.
   const welcomeSpot = welcomeBoxSpot()
@@ -3874,15 +3876,14 @@ function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: numbe
     const zoom = home.webContents.getZoomFactor()
     return put({ width, height, x: Math.round(content.x + (welcomeSpot.x + welcomeSpot.width / 2) * zoom - width / 2), y: Math.round(content.y + welcomeSpot.y * zoom) })
   }
-  if (place === 'top') return put(topMiddle(area, width, full))
-  if (place === 'centre') return put({ width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - full) / 2) })
+  if (place !== 'last') return put(opensAt(place, area, width, height))
   if (sameBox(area, was)) return put(left)
   // Thrown to a place on this screen before: back there.
   const spot = thrownSpots().get(screen.getDisplayMatching(area).id)
   if (spot) return put({ width, height, x: spot.x, y: spot.y })
   const along = (at: number, from: number, span: number, size: number, to: number, room: number): number =>
     Math.round(to + ((at - from) / Math.max(1, span - size)) * Math.max(0, room - size))
-  return put({ width, height, x: along(left.x, was.x, was.width, width, area.x, area.width), y: along(left.y, was.y, was.height, full, area.y, area.height) })
+  return put({ width, height, x: along(left.x, was.x, was.width, width, area.x, area.width), y: along(left.y, was.y, was.height, SIZES.compact.height, area.y, area.height) })
 }
 
 function createWindow(): void {
@@ -5760,9 +5761,9 @@ app.whenReady().then(() => {
   // Motion off), where it then stays as if dragged there.
   // Quick capture's grabber (App.tsx, data-grabber): held, the box follows the pointer from where it was picked up,
   // a move like any other (it stops a size glide, and where it is let go is where it opens next); let go, it stays.
-  // From its first move, dashed guides show every line it can settle on (snap-lines.ts, guides.ts); carried near the
-  // screen's middle, a sticky's edge or a margin in from the screen's edge, it is drawn onto that line with one haptic
-  // tick and the line goes solid; taken on past it, it follows again and the line goes quiet.
+  // From its first move, Raycast's three grey dashed guides mark its home (boxHome), down its left and right edges and
+  // across its top, and stay there until it is let go; carried near its home, it is drawn onto it with one haptic
+  // tick; taken on past it, it follows again.
   // The page says where the pointer is on the screen (window:carry, once a frame while held): main never asks the
   // screen on a timer, so the box moves on the page's own frames, only when the pointer does.
   let boxHold: { win: BrowserWindow; from: Electron.Rectangle; start: Point; drag: ReturnType<typeof dragGuides> } | null = null
@@ -5771,7 +5772,7 @@ app.whenReady().then(() => {
       const win = prompt
       if (!win || win.isDestroyed()) return
       const from = win.getBounds()
-      boxHold = { win, from, start, drag: dragGuides(win, () => stickyCards(win)) }
+      boxHold = { win, from, start, drag: dragGuides((card) => [boxHome(card)]) }
       boxHold.drag.from(from)
     },
     carry: (now) => {
@@ -5796,13 +5797,11 @@ app.whenReady().then(() => {
     if (at) carrierOf(event)?.carry(at)
   })
   ipcMain.on('window:let-go', (event) => carrierOf(event)?.letGo())
-  // Double-clicked: back to where it first opens, the top middle of its screen.
+  // Double-clicked: back to its home, where its guides show it (boxHome).
   ipcMain.on('window:home', (event) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== prompt || win.isFullScreen()) return
-    const bounds = boundsOf(win)
-    const area = screen.getDisplayMatching(bounds).workArea
-    const home = topMiddle(area, bounds.width, SIZES.compact.height)
+    const home = boxHome(boundsOf(win))
     anchor = null
     win.setPosition(home.x, home.y)
   })
@@ -5810,9 +5809,8 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win !== prompt || win.isFullScreen()) return
     const bounds = boundsOf(win)
-    const area = screen.getDisplayMatching(bounds).workArea
-    const y = Math.round(area.y + (area.height - SIZES.compact.height) / 2)
-    const next = onScreen({ ...bounds, x: Math.round(area.x + (area.width - bounds.width) / 2), y })
+    const { x, y } = opensAt('centre', screen.getDisplayMatching(bounds).workArea, bounds.width, bounds.height)
+    const next = onScreen({ ...bounds, x, y })
     anchor = { y, became: next.y }
     panelFrom = null
     lastBounds = next
