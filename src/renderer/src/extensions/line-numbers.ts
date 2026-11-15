@@ -29,7 +29,8 @@ const views = new Set<EditorView>()
 export function setLineNumbers(shown: boolean): void {
   if (on === shown) return
   on = shown
-  for (const view of views) view.dispatch(view.state.tr.setMeta(key, true))
+  // The block handle forgets its place too, so the next hover sets it beside the numbers, or back where it stood.
+  for (const view of views) view.dispatch(view.state.tr.setMeta(key, true).setMeta("hideDragHandle", true))
 }
 
 const LISTS = new Set(["bulletList", "orderedList", "taskList"])
@@ -142,6 +143,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   // Each kind of first line's size, read once per size of the note's words.
   const kinds = new Map<string, Line>()
   let em = ""
+  let sized = false
   let frame = 0
   let total = 0
   let idle = 0
@@ -206,9 +208,13 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     }
     // Last in the note's scroller, after what a long note keeps at its ends, and laid at the note's own top.
     if (!layer.isConnected) view.dom.parentElement?.append(layer)
-    const look = getComputedStyle(view.dom)
-    if (look.fontSize !== em) (kinds.clear(), (em = look.fontSize))
-    if (layer.style.getPropertyValue("--mf-lines-pad") !== look.paddingLeft) layer.style.setProperty("--mf-lines-pad", look.paddingLeft)
+    // The note's own size of words and left room, read again only when the note changed size (or a font arrived).
+    if (!sized) {
+      const look = getComputedStyle(view.dom)
+      sized = true
+      if (look.fontSize !== em) (kinds.clear(), (em = look.fontSize))
+      if (layer.style.getPropertyValue("--mf-lines-pad") !== look.paddingLeft) layer.style.setProperty("--mf-lines-pad", look.paddingLeft)
+    }
     const top = view.dom.getBoundingClientRect().top
     while (marks.length < rows.length) {
       const mark = document.createElement("div")
@@ -221,8 +227,8 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     // Each numbered block watched for its size: one that grows a line moves those under it, and one made again by
     // its own view (a task, as the style or Vim changes) is told by the old one going to nothing.
     const now = new Set(rows)
-    for (const row of watched) if (!now.has(row)) (resized.unobserve(row), watched.delete(row))
-    for (const row of rows) if (!watched.has(row)) (resized.observe(row), watched.add(row))
+    for (const row of watched) if (!now.has(row)) (resized.unobserve(row), watched.delete(row), fresh.delete(row))
+    for (const row of rows) if (!watched.has(row)) (resized.observe(row), watched.add(row), fresh.add(row))
     // Every place read first, then every number set: a number set between two readings had the browser lay the
     // page out again for the next one, once per row (some 300 times in the largest note, as it opened and as its
     // drawn blocks moved under a scroll).
@@ -275,6 +281,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
       layer.remove()
       for (const row of watched) resized.unobserve(row)
       watched.clear()
+      fresh.clear()
       return
     }
     schedule()
@@ -287,10 +294,21 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     bands.set(view.dom, band)
     if (shown()) schedule()
   }
-  const resized = new ResizeObserver(() => rows.length && schedule())
+  // A block just watched reports its size once at once: it was placed in the same breath, so that report is let
+  // pass (it placed every number a second time, each time a long note's drawn blocks moved). The note's own
+  // element changing size has its size of words and room read again.
+  const fresh = new Set<Element>()
+  const resized = new ResizeObserver((entries) => {
+    let moved = false
+    for (const entry of entries) {
+      if (entry.target === view.dom) ((sized = false), (moved = true))
+      else if (!fresh.delete(entry.target)) moved = true
+    }
+    if (moved && rows.length) schedule()
+  })
   const watched = new Set<HTMLElement>()
   resized.observe(view.dom)
-  const fonts = (): void => void (kinds.clear(), (em = ""), rows.length && schedule())
+  const fonts = (): void => void (kinds.clear(), (em = ""), (sized = false), rows.length && schedule())
   document.fonts.addEventListener("loadingdone", fonts)
   view.dom.addEventListener(DRAWN, drawn)
   views.add(view)

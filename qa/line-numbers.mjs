@@ -184,7 +184,14 @@ try {
   await wait(700)
   const said = await h.evaluate(() => document.body.innerText.includes('Line numbers off'))
   check('⌘K offers “Turn line numbers off”, and pressing it turns them off with a notice', /Turn line numbers off/.test(offered ?? '') && (await v('settings')).lineNumbers === false && said, `${offered}; notice ${said}`)
-  const undo = await h.evaluate(() => { const button = [...document.querySelectorAll('button')].find((one) => one.textContent.trim() === 'Undo' && one.getBoundingClientRect().height > 0); button?.click(); return !!button })
+  // The notice's own Undo (the notice is a live status line; its button may carry its key beside the word), by the pointer.
+  const button = await h.evaluate(() => {
+    const one = [...document.querySelectorAll('[role=status][aria-live] button')].find((b) => /^Undo/.test(b.textContent.trim()) && b.getBoundingClientRect().height > 0)
+    const r = one?.getBoundingClientRect()
+    return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null
+  })
+  if (button) await h.mouse.click(button.x, button.y)
+  const undo = !!button
   await wait(600)
   check('the notice\'s Undo turns them back on', undo && (await v('settings')).lineNumbers === true)
   // Settings, Writing: the switch, on to start, and its sample showing what it does as it is pressed.
