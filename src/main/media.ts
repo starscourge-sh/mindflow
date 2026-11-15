@@ -593,9 +593,9 @@ async function headOf(path: string): Promise<Uint8Array> {
 }
 
 /**
- * A HEIC or TIFF as a PNG, made by the Mac's own `sips` in a process of its own (the way scenery.ts turns a WebP): the
- * PNG's path, to be removed once stored, or null when the Mac cannot read it. Decoded and encoded on main's thread
- * instead, a 24-megapixel photo held every window for seconds.
+ * A HEIC or TIFF as a PNG, made by the Mac's own `sips` in a process of its own (the way scenery.ts turns a WebP), never
+ * on main's thread: the PNG's path, to be removed once stored, or null when the Mac cannot read it. (nativeImage, asked
+ * before, read neither, so each was kept as an unreadable file with no picture: qa/main-holds.mjs.)
  */
 async function turnedCopy(path: string, bytes: Uint8Array | null, name: string): Promise<string | null> {
   if (process.platform !== 'darwin') return null
@@ -651,6 +651,7 @@ export async function addMedia(items: MediaItem[]): Promise<AddResult> {
       const looked = sniff(bytes ? bytes.subarray(0, 1024) : await headOf(from), turned ? 'turned.png' : name)
       const hash = bytes ? createHash('sha256').update(bytes).digest('hex') : await hashFile(from)
       const file = `${hash}.${looked.end}`
+      const src = `haligtree://assets/${file}`
       const destination = join(store, file)
       // Beside it and renamed in, so a half-written file is never read. Already whole in the store: left alone.
       if (!existsSync(destination)) {
@@ -662,7 +663,6 @@ export async function addMedia(items: MediaItem[]): Promise<AddResult> {
         await rename(temporary, destination)
       }
       if (looked.kind === 'picture' || looked.kind === 'gif') lookAhead(file)
-      const src = `haligtree://assets/${file}`
       const size = bytes ? bytes.byteLength : size0!.size
       const taken: Taken = { src, name, size, kind: looked.kind }
       const was = binned.get(hash)
