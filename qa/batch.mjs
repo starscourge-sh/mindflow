@@ -45,7 +45,7 @@ import { dirname, join, relative } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { format } from 'node:util'
-import { launch, watch } from './harness.mjs'
+import { boxOf, launch, watch } from './harness.mjs'
 
 const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const QA = fileURLToPath(new URL('.', import.meta.url))
@@ -253,7 +253,7 @@ async function launchShared() {
   nextData = null
   process.env.QA_DATA = data
   // Started outside any probe, so the app's events carry no probe of their own.
-  const { app: electron, page } = await als.exit(() => launch())
+  const { app: electron, page } = await als.exit(async () => boxOf(await launch()))
   const child = electron.process()
   page.removeAllListeners('console')
   page.removeAllListeners('pageerror')

@@ -165,4 +165,13 @@ if (!app.isPackaged || process.env.HALIGTREE_QA_AWAY) {
       return said
     }
   })
+  // HALIGTREE_QA_PROFILE_START: profiled from here, as main's code starts; `mainProfile(false)` hands it over (qa/start-time.mjs).
+  if (process.env.HALIGTREE_QA_PROFILE_START) {
+    const { Session } = require('node:inspector') as typeof import('node:inspector')
+    session = new Session()
+    session.connect()
+    session.post('Profiler.enable')
+    session.post('Profiler.setSamplingInterval', { interval: 250 })
+    session.post('Profiler.start')
+  }
 }

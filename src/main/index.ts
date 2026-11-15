@@ -1,3 +1,4 @@
+import { reached, startTimes } from './start-times'
 import './main-errors'
 import { stopTimers } from './timers'
 import './stalls'
@@ -145,6 +146,8 @@ import { clip, cut, quoted } from './clip'
 import { APP_NAME } from './name'
 import { registerSpelling, wakeSpelling } from './spell-check'
 
+// Every module above has run: main's code is read (start-times.ts).
+reached('code')
 
 /* The standard electron app file structure:
  * One folder, named after your app
@@ -2366,9 +2369,6 @@ function whenHomeDrawn(then: () => void): void {
   drawnWaits.push(go)
   setTimeout(go, PATIENCE)
 }
-/** When the main window was made, drawn and shown, from the start of this run (ms): what the sandbox's opening probe reads. */
-const homeTimes: { made?: number; painted?: number; drawn?: number; shown?: number } = {}
-;(globalThis as { haligtreeHomeTimes?: typeof homeTimes }).haligtreeHomeTimes = homeTimes
 /** How many trackpad taps were asked for (haptic.ts): what the stickies' probe reads. */
 ;(globalThis as { haligtreeTaps?: () => number }).haligtreeTaps = () => taps
 /** Whether the window server shows Haligtree's cursor while it is not the active app: what the hand probe reads. */
@@ -2430,7 +2430,7 @@ function openHome(): void {
       // A first run's window waits for its welcome (welcome:arrive): shown at once in the middle of the screen when the
       // welcome plays plainly, or under the scene's fog once that is whole (placeForWelcome). If its page never asks
       // (it broke), it is shown all the same a moment later.
-      if (firstRun() && !homeTimes.shown) setTimeout(() => void (!win.isDestroyed() && !win.isVisible() && !scene && win.show()), 4000)
+      if (firstRun() && !startTimes.shown) setTimeout(() => void (!win.isDestroyed() && !win.isVisible() && !scene && win.show()), 4000)
       else win.show()
       // Started by a run that is waiting to go: it can now, with this window up in its place.
       arrived()
@@ -2863,9 +2863,9 @@ function makeHome(): BrowserWindow {
     homeDrawn = false
     homeAsked = false
   })
-  homeTimes.made ??= Math.round(performance.now())
-  home.once('ready-to-show', () => ((homePainted = true), (homeTimes.painted ??= Math.round(performance.now()))))
-  home.once('show', () => void ((homeTimes.shown ??= Math.round(performance.now())), qaTrace('home', home!, { drawn: homeDrawn, url: home!.webContents.getURL() })))
+  reached('made')
+  home.once('ready-to-show', () => ((homePainted = true), reached('painted')))
+  home.once('show', () => void (reached('shown'), qaTrace('home', home!, { drawn: homeDrawn, url: home!.webContents.getURL() })))
   // The fill icon follows the window, however it was filled or brought back:
   // the green button, a drag, a tiling manager. Not while it glides.
   for (const change of ['maximize', 'unmaximize', 'resized', 'moved', 'enter-full-screen', 'leave-full-screen'] as const)
@@ -3998,6 +3998,7 @@ function summonedAt(win: BrowserWindow): { place: Electron.Rectangle; top: numbe
 }
 
 function createWindow(): void {
+  reached('box')
   // Create the browser window.
   promptPainted = false
   const mainWindow = (prompt = new BrowserWindow({
@@ -5374,6 +5375,7 @@ ipcMain.on('book:here', (event) => void (event.returnValue = here()))
 // The welcome's first sound plays as it arrives, before anything has been clicked (renderer's lib/sound.ts, ambience).
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required')
 app.whenReady().then(() => {
+  reached('ready')
   // The hand and the I-beam in quick capture, which has the keys while Haligtree is not the active app (haptic.ts).
   cursorInBackground()
   // Every time Haligtree writes, here and in each window, on the Mac's own clock (12 or 24 hours).
@@ -5404,6 +5406,7 @@ app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((wc, permission, allow) =>
     allow(permission !== 'media' || /^(file|http:\/\/localhost)/.test(wc.getURL())))
   registerCaptures()
+  reached('book')
   registerImportConversion()
   // Notes imported before front-matter tags stopped coming in twice: tidied as it starts, a no-op once done.
   try {
@@ -6102,7 +6105,7 @@ app.whenReady().then(() => {
   ipcMain.on('home:drawn', (event) => {
     if (!home || event.sender !== home.webContents || homeDrawn) return
     homeDrawn = true
-    homeTimes.drawn ??= Math.round(performance.now())
+    reached('drawn')
     for (const go of drawnWaits.splice(0)) go()
   })
   ipcMain.handle('aerospace:here', () => !!AEROSPACE)
@@ -6530,6 +6533,7 @@ app.whenReady().then(() => {
     void refit(win, snap === true)
     if (!promptPainted) {
       promptPainted = true
+      reached('boxDrawn')
       const waiting = promptWaiting
       promptWaiting = null
       waiting?.()

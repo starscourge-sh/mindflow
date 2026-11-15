@@ -11,6 +11,8 @@ import { start } from '../main'
  */
 function Drawn({ children }: { children: ReactNode }): ReactNode {
   useEffect(() => {
+    // The page's own steps, beside main's (qa/start-time.mjs): its code read, then its first render.
+    performance.mark('haligtree:render')
     let sent = false
     const send = (): void => void (sent || ((sent = true), window.api.homeDrawn()))
     // A hidden window may get no frames: a moment's wait stands in for one.
@@ -20,4 +22,5 @@ function Drawn({ children }: { children: ReactNode }): ReactNode {
   return children
 }
 
+performance.mark('haligtree:code')
 start(<Drawn><Home /></Drawn>)

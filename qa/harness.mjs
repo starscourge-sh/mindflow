@@ -72,19 +72,40 @@ export function checks() {
 }
 
 /**
+ * Every app this run started: killed outright however the run ends (done, failed, interrupted), told once. Under
+ * qa/batch.mjs (several probes in one launch) the batch keeps its own watch over the run's signals; the run's end
+ * still kills every app it started.
+ */
+const started = new Set()
+const endAll = () => { for (const child of started) try { child.kill('SIGKILL') } catch {} }
+let told = false
+const killedAtEnd = (child) => {
+  started.add(child)
+  child.once('exit', () => started.delete(child))
+  if (told) return
+  told = true
+  process.on('exit', endAll)
+  if (globalThis.qaBatch) return
+  // SIGALRM is what 'perl -e "alarm 280; exec"' sends when a run takes too long; SIGHUP a closed terminal.
+  for (const signal of ['SIGINT', 'SIGTERM', 'SIGALRM', 'SIGHUP']) process.on(signal, () => { endAll(); process.exit(1) })
+  process.on('uncaughtException', (error) => { console.error(error); endAll(); process.exit(1) })
+  process.on('unhandledRejection', (error) => { console.error(error); endAll(); process.exit(1) })
+}
+
+/**
  * The app, started for this probe, and the helpers below. Under qa/batch.mjs (several probes in one launch) the
  * batch hands over its running app instead, put back as it started between two probes.
  */
 export async function open() {
-  return helpers(globalThis.qaBatch ? await globalThis.qaBatch.open() : await launch())
+  return helpers(globalThis.qaBatch ? await globalThis.qaBatch.open() : await boxOf(await launch()))
 }
 
 /**
- * Start the built app on its data folder and find the box: { app, page }. Anything that fails on the way kills the
- * app it started, so no window is left behind. A probe run alone is killed with its app however it ends; a batch
- * (qa/batch.mjs) keeps its own watch.
+ * The built app started on a data folder of its own (QA_DATA, or a fresh one), its windows parked and floated.
+ * `timing`: started by Electron itself, as a person's launch is: Playwright's own loader holds the app's `ready` back
+ * until Playwright has attached, and turns off Chromium's throttling of hidden pages (qa/start-time.mjs).
  */
-export async function launch() {
+export async function launch({ timing = false } = {}) {
   // A fresh folder for the app's data, so a run never touches your real captures.
   // QA_DATA points a run at a copy of real data, to see it with a real corpus.
   const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-qa-'))
@@ -103,11 +124,12 @@ export async function launch() {
   const packaged = process.env.QA_APP
   if (packaged ? !existsSync(packaged) : !existsSync(entry)) throw new Error(`No build at ${packaged ?? entry}: build first (npx electron-vite build --outDir out-x)`)
   if (!packaged) launchable(entry)
-  const app = await electron.launch({ ...(packaged ? { executablePath: packaged, args: extra } : { args: [entry, ...extra] }), env: { HALIGTREE_QA_AWAY: '1', ...process.env, HALIGTREE_USER_DATA: data } })
+  const how = packaged ? { executablePath: packaged, args: extra } : timing ? { executablePath: createRequire(import.meta.url)('electron'), args: [entry, ...extra] } : { args: [entry, ...extra] }
+  const app = await electron.launch({ ...how, env: { HALIGTREE_QA_AWAY: '1', ...process.env, HALIGTREE_USER_DATA: data } })
   // Never left running: the app keeps its windows when asked to close (a
   // window put away, not quit), so a plain kill can leave it stuck exiting.
-  // However the run ends (done, failed, interrupted), it is killed outright.
   const child = app.process()
+  killedAtEnd(child)
   // A tiling window manager (AeroSpace) would tile the test windows into the
   // workspace in use: float each of this run's windows as it appears, so the
   // app can park it past the screen's edge.
@@ -131,15 +153,16 @@ export async function launch() {
       })
     }, 250)
     float.unref()
+    child.once('exit', () => clearInterval(float))
   }
-  const end = () => { try { child.kill('SIGKILL') } catch {} }
-  process.on('exit', end)
-  if (!globalThis.qaBatch) {
-    // SIGALRM is what 'perl -e "alarm 280; exec"' sends when a run takes too long; SIGHUP a closed terminal.
-    for (const signal of ['SIGINT', 'SIGTERM', 'SIGALRM', 'SIGHUP']) process.on(signal, () => { end(); process.exit(1) })
-    process.on('uncaughtException', (error) => { console.error(error); end(); process.exit(1) })
-    process.on('unhandledRejection', (error) => { console.error(error); end(); process.exit(1) })
-  }
+  return app
+}
+
+/**
+ * An app just started, and its box (the window with no view of its own): { app, page, logs }. Anything that fails on
+ * the way kills the app, so no window is left behind.
+ */
+export async function boxOf(app) {
   try {
     // The box: the window with no view of its own. On a second run over the
     // same data the main window, left open last time, can come up first.
@@ -154,7 +177,7 @@ export async function launch() {
     await page.waitForSelector(EDITOR, { timeout: 30000 })
     return { app, page, logs }
   } catch (error) {
-    end()
+    try { app.process().kill('SIGKILL') } catch {}
     throw error
   }
 }
