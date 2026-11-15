@@ -47,6 +47,8 @@ type Held = {
   sources: HTMLElement[]
   /** The blocks it makes way among, in the note's order, as laid out at the lift. */
   pieces: Piece[]
+  /** Where each of them rests (the carried one among them, the rest in hand left out), from the note's top, read once at the lift. */
+  laid: { piece: Piece; top: number; height: number; left: number; width: number }[]
   me: HTMLElement
   tall: number
   x: number
@@ -174,7 +176,12 @@ function lift(view: EditorView, pos: number, x: number, y: number, copy: boolean
   const ticks = slotTicker()
   const ring = holderOf(view, from)
   ticks.start(`own:${from}`)
-  return { view, from, to, nodes, sources, pieces, me, tall: last.bottom - first.top, x, y, copy, aim: null, room: null, kept: null, ticks, ring, title: nameOf(node), icon: iconOf(node) }
+  const page = view.dom.getBoundingClientRect().top
+  const laid = pieces.filter((piece) => piece.el === me || !sources.includes(piece.el)).map((piece) => {
+    const box = piece.el.getBoundingClientRect()
+    return { piece, top: box.top - page, height: box.height, left: box.left, width: box.width }
+  }).sort((a, b) => a.top - b.top)
+  return { view, from, to, nodes, sources, pieces, laid, me, tall: last.bottom - first.top, x, y, copy, aim: null, room: null, kept: null, ticks, ring, title: nameOf(node), icon: iconOf(node) }
 }
 
 /** What holds a place in the note: a crossing of it is the firm tick. */
@@ -189,7 +196,9 @@ function aimOf(one: Held): Aim | null {
   const page = view.dom.getBoundingClientRect()
   // Off the note: nowhere, and letting go puts it back.
   if (x < page.left - 96 || x > page.right + 96 || y < page.top - 48 || y > page.bottom + 96) return null
-  const laid = one.pieces.filter((piece) => piece.el === one.me || !one.sources.includes(piece.el)).map((piece) => ({ piece, box: restBox(piece.el) })).sort((a, b) => a.box.top - b.box.top)
+  // Where each rests now: as at the lift, moved by as much as the note has scrolled since.
+  const top = page.top
+  const laid = one.laid.map((each) => ({ piece: each.piece, box: { top: top + each.top, height: each.height, left: each.left, width: each.width } }))
   let over = laid[0]
   let off = Infinity
   for (const each of laid) {
