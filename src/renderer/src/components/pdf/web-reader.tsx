@@ -71,7 +71,8 @@ export const articleName = (href: string): string =>
 /**
  * A web page full size, in a pane of its own, as the PDF reader shows a PDF:
  * its title, the site, a size and find, set on the theme's own page in a
- * note's reading type, column and rhythm, so it reads as a page of the book.
+ * note's reading type and rhythm, but as a page of its own: a narrower column
+ * between two margin lines, so it never reads as one of your notes.
  * A PDF's pages are printed sheets, so they keep "Paper pages"; an article
  * has no sheet of its own, so the theme decides its colours as it does a note's.
  * A page the reader cannot read says why, with the page's own link.
@@ -502,14 +503,16 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const words = useMemo(() => ({ __html: unwrapped(article?.html ?? '', href) }), [article, href])
   const title = article?.title ?? articleName(href)
   const when = article?.published ? new Date(article.published) : null
+  // Each date, and the licence, held on one line: the page's narrower column broke "kept 15 / November 2026" in two.
+  const whole = (words: string): string => words.replace(/ /g, ' ')
   const meta = [
     article?.byline,
     article?.site,
-    when && !Number.isNaN(when.getTime()) ? dayOf(article!.published) : '',
+    when && !Number.isNaN(when.getTime()) ? whole(dayOf(article!.published)) : '',
     // A wiki's words are free to quote with their source, which a gem's citation names.
-    /\.(wikipedia|wiktionary)\.org$/.test(URL.parse(href)?.hostname ?? '') ? 'CC BY-SA 4.0' : '',
+    /\.(wikipedia|wiktionary)\.org$/.test(URL.parse(href)?.hostname ?? '') ? whole('CC BY-SA 4.0') : '',
     // Every page read is kept with your notes (main/web-articles.ts): it opens again offline, as it read that day.
-    article?.savedAt ? `kept ${dayOf(article.savedAt)}` : ''
+    article?.savedAt ? whole(`kept ${dayOf(article.savedAt)}`) : ''
   ]
     .filter(Boolean)
     .join(' · ')
@@ -750,10 +753,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               if (!on && !picked && !(link && body.current?.contains(link))) event.preventDefault()
             }}
           >
-            <article
-              className="web-reader-column"
-              style={{ fontSize: `calc(1rem * var(--mf-text-scale, 1) * ${size})` }}
-            >
+            {/* The page: the pane's width sets its margins and the article's own size its words (pdf.css); its two
+                lines come with the article, so nothing on it moves when the contents arrive beside it. */}
+            <div className="web-reader-page" style={{ fontSize: `calc(1rem * var(--mf-text-scale, 1) * ${size})` }}>
+            <article className="web-reader-column" data-read={article && !failed ? '' : undefined}>
               {failed ? (
                 <div className="web-reader-failed" role="status">
                   <p className="web-reader-failed-lead">{failed}</p>
@@ -783,6 +786,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 </>
               )}
             </article>
+            </div>
             {carding && (
               <WhyAfter
                 at={carding}

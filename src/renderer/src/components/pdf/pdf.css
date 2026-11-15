@@ -650,27 +650,60 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* A web page in the reader: the theme's own page and ink, the note's own reading column and type. */
+/* A web page in the reader: the theme's own page and ink, a note's type and rhythm, but a page of its own and not a
+   note (the user, 15 Nov 2026: "narrower page + margin lines on both sides of the page for the reader mode"). */
 .web-reader-scroll {
   padding: 0;
   background-color: var(--background);
   color: var(--foreground);
 }
 
-.web-reader-column {
-  /* The note's own column: its width and gutters, so an article reads as a note does. */
-  max-width: calc(var(--mf-col-note, 40rem) + 9.5rem);
-  margin: 0 auto;
-  padding: 3rem 4.75rem 4rem;
+/* The page: the pane's width to set its margins by (100cqi), the article's own size to set its words by (em), and the
+   scroll area's whole height at least, so the lines run from the bar to the foot however short the article. */
+.web-reader-page {
+  container: web-page / inline-size;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
-/* A narrow pane narrows the gutters, as a note's does (main.css, @container note), so the words keep the room. */
-.web-reader-scroll {
-  container: web-reader / inline-size;
+/* How far a wide picture may stand out past the words: worked out once, on the column, in pixels. */
+@property --web-margin {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 0px;
 }
-@container web-reader (max-width: 34rem) {
-  .web-reader-column {
+
+/* A book's measure, about 60 characters a line where a note's runs to about 75: 28.5em of the article's own size, so
+   Smaller and Larger keep a line's length. Each side of the words, 30% of the room the pane has beyond them (up to
+   20em) is margin, then the page's edge, a hairline in the theme's own ink at 10% down the reader's whole height,
+   and the rest of the room outside it. */
+.web-reader-column {
+  --web-measure: 28.5em;
+  --web-margin: min(20em, (100cqi - var(--web-measure)) * 0.3);
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: calc(var(--web-measure) + 2 * var(--web-margin) + 2px);
+  margin: 0 auto;
+  padding: 3rem var(--web-margin) 4rem;
+  border-inline: 1px solid transparent;
+}
+
+/* The lines come with the article (not round the wait or a page that could not be read). */
+.web-reader-column[data-read] {
+  border-inline-color: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+/* A pane with no room for the margins (under 35.5em of the article's size, where a margin would be under 2.1em and
+   the room outside a line under 1.4em: 603px at the usual size, 966px at 160%): the lines go before the words are
+   squeezed, and the words keep the pane with 1.5rem either side. */
+@container web-page (width < 35.5em) {
+  .web-reader-column,
+  .web-reader-column[data-read] {
+    --web-margin: 0px;
+    max-width: calc(var(--web-measure) + 3rem + 2px);
     padding-inline: 1.5rem;
+    border-inline-color: transparent;
   }
 }
 
@@ -700,6 +733,9 @@
   font-size: 1em;
   /* A page's HTML, not the editor's: its line breaks between tags are not lines. */
   white-space: normal;
+  /* A word or an address too long for a line breaks where it must, never running on past the page's edge; only one
+     that cannot fit, so a table's cells keep their words whole and the table scrolls sideways instead. */
+  overflow-wrap: break-word;
 }
 
 /* The words start right under the byline, as a note's start under its title. */
@@ -707,7 +743,7 @@
   margin-top: 0 !important;
 }
 
-/* Pictures as a note sets them: inside the column, centred, a soft corner, never taller than the pane shows at once.
+/* Pictures as a note sets them: centred, a soft corner, never taller than the pane shows at once.
    A page's pictures are the page's own, not a note's: Settings' "Postcards" frame and "Pictures in notes" size
    (main.css, haligtree-editor.scss) are for a note's pictures, so they never reach these. */
 .web-reader-body img {
@@ -721,6 +757,17 @@
   border-radius: 0.5rem !important;
   background: none !important;
   box-shadow: none !important;
+}
+
+/* A picture wider than the words stands out past them, half way into the margins either side and centred on the
+   words (moved by half its own width, whatever that is), always 2.5em clear of a line: with narrow margins (or none,
+   in a narrow pane) it keeps to the words. One in a table, a list or a line of words keeps to its own place. */
+.web-reader-body img:not([data-inline], :is(td, th, li) img) {
+  position: relative;
+  left: 50%;
+  max-width: calc(100% + 2 * max(0px, min(var(--web-margin) / 2, var(--web-margin) - 2.5em))) !important;
+  margin-inline: 0;
+  translate: -50%;
 }
 
 /* On a dark page a drawing made for a white one (black lines on nothing) would
@@ -766,6 +813,12 @@
   width: fit-content;
   min-width: 0;
   max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Code keeps its lines whole and scrolls sideways inside the column, as a note's code block does (its node view's
+   rule in haligtree-editor.scss is not here to do it): a long line never runs on past the words, or the page's edge. */
+.web-reader-body pre {
   overflow-x: auto;
 }
 

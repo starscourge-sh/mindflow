@@ -77,7 +77,8 @@ try {
   check('↵ reads the article in the reader', read.readers === 1, JSON.stringify(read))
   check('its Commons picture is kept with your notes and credited to its page there', read.kept.length === 1 && /^haligtree:\/\/assets\//.test(read.kept[0]) && read.credit.length === 1 && read.credit[0][0] === 'Picture: Wikimedia Commons' && read.credit[0][1] === 'https://commons.wikimedia.org/wiki/File:Colosseum.jpg', JSON.stringify([read.kept, read.credit]))
   check('a picture held under fair use is not kept, nor its caption', !read.poster, '')
-  check('the byline says Wikipedia, its licence and that it is kept', /Wikipedia/.test(read.meta) && /CC BY-SA 4\.0/.test(read.meta) && /kept /.test(read.meta), read.meta)
+  // Each part of the byline is held on one line by its own no-break spaces (\s finds those too).
+  check('the byline says Wikipedia, its licence and that it is kept', /Wikipedia/.test(read.meta) && /CC\sBY-SA\s4\.0/.test(read.meta) && /kept\s/.test(read.meta), read.meta)
   check('a footnote mark is words, not a link that goes nowhere', !read.footnote, '')
   check('its sections stand beside it as contents, every heading kept and no “[edit]” left', read.contents.join('|') === 'History|Pax Romana|Legacy|References' && !read.edits, JSON.stringify([read.contents, read.edits]))
   const arrows = await h.evaluate(() => Object.fromEntries([...document.querySelectorAll('.web-reader-body a')].filter((one) => ['Byzantine Empire', 'a page elsewhere'].includes(one.textContent)).map((one) => [one.textContent, getComputedStyle(one, '::after').content])))
