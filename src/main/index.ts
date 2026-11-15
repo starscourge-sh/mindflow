@@ -127,6 +127,7 @@ import { kindByEnd, pdfsToFind } from './find-files'
 import { addMedia } from './media'
 import { addSaid } from './media-words'
 import { registerWebArticles } from './web-articles'
+import { articleNames } from './article-names'
 import { registerFreeSites } from './free-sites'
 import { registerWordLog } from './word-log'
 import { registerSite } from './site'
@@ -6920,12 +6921,16 @@ app.whenReady().then(() => {
       const resolve = (value: string): string =>
         value ? (URL.parse(value, base)?.href ?? '') : ''
 
+      // Named as the reader names the page (article-names.ts): a front page calling itself only "Home" by its next name,
+      // its og:title, its <title> or its first heading, without the site's name, which the card shows on its own line.
+      const titles = [
+        meta('og:title'),
+        decode(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? ''),
+        decode((html.match(/<h1[^>]*>([^]*?)<\/h1>/i)?.[1] ?? '').replace(/<[^>]+>/g, ''))
+      ]
       const scraped = {
         href: target.href,
-        title:
-          meta('og:title') ||
-          decode(html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1] ?? '') ||
-          target.href,
+        title: titles.some((one) => one.trim()) ? articleNames({ titles, siteName: meta('og:site_name'), publisher: '', hostname: base.hostname }).title : target.href,
         description: meta('og:description'),
         image: resolve(meta('og:image')),
         icon:
