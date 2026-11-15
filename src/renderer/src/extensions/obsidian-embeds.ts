@@ -1,8 +1,8 @@
 import { Extension } from "@tiptap/core"
-import { Fragment } from "@tiptap/pm/model"
+import { Fragment, Slice } from "@tiptap/pm/model"
 import { Plugin, PluginKey } from "@tiptap/pm/state"
 import type { Node as ProseMirrorNode, Schema } from "@tiptap/pm/model"
-import type { EditorState, Transaction } from "@tiptap/pm/state"
+import type { Transaction } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { host } from "@/lib/host"
 import { cleanRef, embedsIn, nameOf, onlyEmbeds, type EmbedAt } from "../../../main/embeds"
@@ -99,48 +99,34 @@ function fits(parent: ProseMirrorNode, index: number, nodes: ProseMirrorNode[], 
   return parent.canReplace(index, index + 1, led) ? led : null
 }
 
-/** What changed in these transactions, as a range of the newest document. */
-function touched(trs: readonly Transaction[]): { from: number; to: number } | null {
-  let from = Infinity
-  let to = -Infinity
-  for (const tr of trs) {
-    if (!tr.docChanged) continue
-    if (from <= to) {
-      from = tr.mapping.map(from, -1)
-      to = tr.mapping.map(to, 1)
-    }
-    tr.steps.forEach((step, at) => {
-      const after = tr.mapping.slice(at + 1)
-      step.getMap().forEach((_oldFrom, _oldTo, newFrom, newTo) => {
-        from = Math.min(from, after.map(newFrom, -1))
-        to = Math.max(to, after.map(newTo, 1))
-      })
-    })
-  }
-  return from <= to ? { from, to } : null
-}
-
-/** Pasted embeds as waiting pictures, in one transaction: a paragraph's, and a picture's whose address is a path. */
-function holdPasted(state: EditorState, from: number, to: number): Transaction | null {
-  const { schema, doc } = state
-  const changes: { pos: number; size: number; content: Fragment }[] = []
-  doc.nodesBetween(Math.max(0, from), Math.min(doc.content.size, to), (node, pos, parent, index) => {
-    if (node.type.spec.code) return false
+/**
+ * Pasted embeds as waiting pictures, in what is pasted, before it lands: a paragraph's, and a picture's whose
+ * address is a path. `parent` holds `content` (null for what is pasted itself, which lands wherever it fits). Done
+ * after the paste had landed, it was a change to the note for every picture (296 for the largest note pasted back
+ * whole), and every pass that looks at what a change touched went over each of them one by one for each.
+ */
+function holdIn(content: Fragment, parent: ProseMirrorNode | null, schema: Schema): Fragment {
+  let changed = false
+  const out: ProseMirrorNode[] = []
+  content.forEach((node, _offset, index) => {
+    if (node.type.spec.code || node.isText) return void out.push(node)
     if (node.type.name === "image") {
       const ref = cleanRef(String(node.attrs.src ?? ""))
-      if (ref) changes.push({ pos, size: node.nodeSize, content: Fragment.from(schema.nodes.imagePlaceholder.create({ embed: ref, width: node.attrs.width ?? null })) })
-      return false
+      const held = ref ? schema.nodes.imagePlaceholder.create({ embed: ref, width: node.attrs.width ?? null }) : null
+      if (held && (!parent || parent.canReplace(index, index + 1, Fragment.from(held)))) return void ((changed = true), out.push(held))
+      return void out.push(node)
     }
-    if (node.type.name !== "paragraph") return true
-    const blocks = parent && cut(node, schema)
-    const content = blocks && fits(parent, index, blocks, schema)
-    if (content) changes.push({ pos, size: node.nodeSize, content })
-    return false
+    if (node.type.name === "paragraph") {
+      const blocks = cut(node, schema)
+      const into = blocks && (parent ? fits(parent, index, blocks, schema) : Fragment.fromArray(blocks))
+      if (into) return void ((changed = true), into.forEach((one) => void out.push(one)))
+      return void out.push(node)
+    }
+    const inner = node.isLeaf ? node.content : holdIn(node.content, node, schema)
+    if (inner !== node.content) changed = true
+    out.push(inner === node.content ? node : node.copy(inner))
   })
-  if (!changes.length) return null
-  const tr = state.tr
-  for (const change of changes.reverse()) tr.replaceWith(change.pos, change.pos + change.size, change.content)
-  return tr
+  return changed ? Fragment.fromArray(out) : content
 }
 
 /** A picture a vault did not have when it was last looked for: looked for again each time its note opens. */
@@ -174,7 +160,9 @@ async function settle(view: EditorView, again = false): Promise<void> {
     const one = answers.get(ref)
     const into = one && shown(schema, one, node.attrs.width ?? null)
     if (into) tr.replaceWith(pos, pos + node.nodeSize, into)
-    else if (!node.attrs.missing) tr.setNodeMarkup(pos, undefined, { ...node.attrs, missing: nameOf(ref) })
+    // Its mark alone (a picture asked again and still not there keeps the mark it has): no place in the note moves,
+    // so a pass that looks at what changed has nothing to go over.
+    else if (!node.attrs.missing) tr.setNodeAttribute(pos, "missing", nameOf(ref))
   }
   // Not its own undo step: ⌘Z takes back the paste, not the picture arriving in it.
   if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false))
@@ -277,11 +265,18 @@ export const ObsidianEmbeds = Extension.create({
               return false
             },
           },
-        },
-        appendTransaction: (trs, _old, state) => {
-          if (!pasting) return null
-          const range = touched(trs)
-          return range ? holdPasted(state, range.from, range.to) : null
+          transformPasted: (slice) => {
+            if (!pasting) return slice
+            const content = holdIn(slice.content, null, schema)
+            if (content === slice.content) return slice
+            // A line cut to a waiting picture at either edge: open only as deep as there are blocks to open.
+            const open = (depth: number, first: boolean): number => {
+              let reached = 0
+              for (let node = first ? content.firstChild : content.lastChild; node && reached < depth && !node.isLeaf; node = first ? node.firstChild : node.lastChild) reached++
+              return reached
+            }
+            return new Slice(content, open(slice.openStart, true), open(slice.openEnd, false))
+          },
         },
         view: (view) => {
           let seen = key.getState(view.state)
