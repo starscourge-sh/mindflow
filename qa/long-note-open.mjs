@@ -143,13 +143,17 @@ const fling = (x, y, speed, way) => electron.evaluate(async ({ BrowserWindow }, 
   }
 }, [x, y, speed, way, sign])
 
-/** Each frame while `run` goes and for a second after: its time, the work in it, and what the screen showed. */
-async function frames(run) {
-  await h.evaluate((sel) => {
+/**
+ * Each frame while `run` goes and for a second after: its time, the work in it, and what the screen showed. `bare`:
+ * the frame times alone, nothing asked of the page (the six points below ask it about 19 times a frame, 6 to 8 ms of
+ * each frame of the largest note: the app's own frames are then read without the probe's weight on them).
+ */
+async function frames(run, bare = false) {
+  await h.evaluate(([sel, bare]) => {
     const ed = [...document.querySelectorAll(sel)].filter((one) => one.editor).sort((a, b) => b.editor.state.doc.childCount - a.editor.state.doc.childCount)[0]
     let box = ed.parentElement
     while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
-    const out = { gaps: [], works: [], empty: 0, standins: 0, points: 0, from: box.scrollTop, to: 0 }
+    const out = { gaps: [], works: [], empty: 0, standins: 0, points: 0, from: box.scrollTop, to: 0, bare, box }
     window.__fl = out
     window.__flOn = true
     let last = 0
@@ -161,6 +165,7 @@ async function frames(run) {
       if (last) out.gaps.push(now - last)
       last = now
       open = performance.now()
+      if (bare) return void (channel.port2.postMessage(0), requestAnimationFrame(tick))
       const view = box.getBoundingClientRect()
       const x = ed.getBoundingClientRect().left + Math.min(240, ed.clientWidth / 2)
       // Six points down the screen: is a drawn block of the note under each? A block the browser has left out as far
@@ -186,12 +191,13 @@ async function frames(run) {
       requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
-  }, SEL)
+  }, [SEL, bare])
   await run()
   await h.waitForTimeout(1000)
   return h.evaluate(() => {
     window.__flOn = false
-    const { gaps, works, empty, standins, points, from, to } = window.__fl
+    const { gaps, works, empty, standins, points, from, bare, box } = window.__fl
+    const to = bare ? box.scrollTop : window.__fl.to
     const g = gaps.slice(2)
     return { n: g.length, worst: Math.round(Math.max(0, ...g) * 10) / 10, over: g.filter((ms) => ms > 17.5).length, work: Math.round(Math.max(0, ...works) * 10) / 10, empty, standins, points, went: Math.round(to - from) }
   })
@@ -265,6 +271,11 @@ try {
     console.log(`fling down at 12000 px/s: ${say(down)}  (${load()})`)
     const up = await frames(() => fling(at.x, at.y, 12000, -1))
     console.log(`fling up   at 12000 px/s: ${say(up)}  (${load()})`)
+    // LIGHT=1: one more fling down, its frame times alone, nothing asked of the page (frames' `bare`).
+    if (process.env.LIGHT) {
+      const light = await frames(() => fling(at.x, at.y, 12000, 1), true)
+      console.log(`fling down, frame times alone: ${light.n} frames, longest ${light.worst} ms (${light.over} over 17.5 ms), most work in one ${light.work} ms; went ${light.went}px  (${load()})`)
+    }
     check('a fling really moves the note', down.went > 200 && up.went < -200, `${down.went}px, ${up.went}px`)
     check('no frame of the fling comes more than 17.5 ms after the last', down.over + up.over === 0, `${down.over} down, ${up.over} up; longest ${Math.max(down.worst, up.worst)} ms`)
     check('every frame of the fling shows the note: a drawn block under every point', down.empty + up.empty === 0, `${down.empty} down, ${up.empty} up`)
