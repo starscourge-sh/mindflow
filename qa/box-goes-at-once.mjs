@@ -26,11 +26,17 @@ try {
     await page.click(EDITOR)
     await page.keyboard.type(`Kept at once ${stamp} number ${i}`)
     await page.waitForTimeout(500)
+    // Where the time goes: the key reaching the page, the page's own work until the box is hidden in main.
+    await page.evaluate(() => { window.__keyAt = 0; addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.metaKey && !window.__keyAt) window.__keyAt = Date.now() }, { capture: true, once: true }) })
+    await electron.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((one) => !/view=/.test(one.webContents.getURL())); globalThis.__hidAt = 0; w?.once('hide', () => (globalThis.__hidAt = Date.now())) })
     const t0 = Date.now()
     await page.keyboard.press('Meta+Enter')
     let gone = -1
     for (let k = 0; k < 500; k++) { if (!(await shown())) { gone = Date.now() - t0; break } await page.waitForTimeout(10) }
     times.push(gone)
+    const keyAt = await page.evaluate(() => window.__keyAt)
+    const hidAt = await electron.evaluate(() => globalThis.__hidAt)
+    console.log(`(send ${i}: seen gone ${gone} ms; the key reached the page after ${keyAt ? keyAt - t0 : '?'} ms, the box hidden ${hidAt && keyAt ? hidAt - keyAt : '?'} ms after the key)`)
     // The next one at once, while this save may still be finishing: it must come up empty and keep what is typed in it.
     if (i === 3) {
       await open()
