@@ -116,7 +116,7 @@ try {
   // 5. The lookup did not answer (503) with the Mac online: said as that, never "offline" (the user's rule 1, 15 Nov 2026:
   // "dont have catchall errors when you can be more specific"); then the same with the Mac offline (main's net says so).
   await cite('10.1000/offline'); await h.waitForSelector('.mf-citation[data-citation-missing]', { timeout: 6000 }); await wait(200)
-  check('a lookup that did not answer says so, not "offline"', /did not answer just now/.test(await toastText()) && !/offline/.test(await toastText()), await toastText())
+  check('a lookup that did not answer says so, not "offline"', /did not answer just now/.test(await toastText()) && !/is offline|seem to be offline/.test(await toastText()), await toastText())
   await c.electron.evaluate(({ net }) => { globalThis.__wasOnline = net.isOnline; net.isOnline = () => false })
   await cite('10.1000/offline'); await wait(900)
   check('with the Mac offline, it says the Mac is offline', /this Mac is offline/.test(await toastText()), await toastText())
