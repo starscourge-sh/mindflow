@@ -21,7 +21,7 @@ import { host } from '@/lib/host'
 import { keysHere, usePane } from '@/lib/split'
 import { chime } from '@/lib/sound'
 import { cue } from '@/lib/cues'
-import { articleLink, followLink, isReadable, openArticle, takeArticleFlash } from './pdf-reader'
+import { articleLink, isReadable, openArticle, takeArticleFlash } from './pdf-reader'
 import { LookUpCard, type LookedUpIn } from './look-up'
 import { MARK_COLORS, MarkMenu, PickedMenu, WhyAfter, blankOf, cited, lastColor, markCss, readKey, rememberColor, type MarkColor, type Picked, type ReadActions } from './read-bar'
 import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
@@ -772,14 +772,6 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                     ref={body}
                     className="tiptap ProseMirror haligtree-editor web-reader-body"
                     dangerouslySetInnerHTML={words}
-                    // A link in the article opens as a link in a note does (pdf-reader.tsx followLink): the browser,
-                    // or the reader on ⌥-click. Left to the page, a click went nowhere: main keeps the window in the app.
-                    onClick={(event) => {
-                      const link = (event.target as Element).closest?.('a[href]')
-                      if (!link || event.button !== 0 || event.shiftKey || (event.ctrlKey && !event.metaKey)) return
-                      event.preventDefault()
-                      followLink(link.getAttribute('href') ?? '', event)
-                    }}
                   />
                 </>
               )}
