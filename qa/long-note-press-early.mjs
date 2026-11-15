@@ -73,6 +73,9 @@ try {
     const lines = [...ed.querySelectorAll(':scope > p')].filter((p) => p.textContent.trim().length > 30 && !p.querySelector('img, code'))
     const line = lines.find((p) => { const r = p.getBoundingClientRect(); return r.top > 120 && r.bottom < innerHeight - 160 })
     if (!line) return null
+    // On the screen: measured a frame after it was first there, once it has been painted, as a person sees it (read
+    // between the page making the note and the browser painting it, it was a layout no one ever saw).
+    if (!window.__lineSeen) return void (window.__lineSeen = true) ?? null
     const range = document.createRange()
     range.selectNodeContents(line)
     const rects = [...range.getClientRects()].filter((one) => one.width > 0)
@@ -80,7 +83,7 @@ try {
     const growth = ed.editor.storage.noteGrowth
     const index = ed.editor.state.doc.resolve(ed.editor.view.posAtDOM(line, 0)).index(0)
     return { x: last.right - 1, y: last.top + last.height / 2, text: ed.editor.state.doc.child(index).textContent, coming: !!growth?.coming, blocks: ed.editor.state.doc.childCount, index }
-  }, [SEL, words], { timeout: 45000, polling: 4 })
+  }, [SEL, words], { timeout: 45000, polling: 'raf' })
   const first = await handle.jsonValue()
   console.log(`first screen: ${first.blocks} blocks on the page, the rest ${first.coming ? 'still coming' : 'already there'}; pressing the end of "${first.text.slice(-40)}"  (${load()})`)
   // DIAG=1: every change of the caret from here on, with what made it (best read on a dev-mode build).

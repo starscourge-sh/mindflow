@@ -356,13 +356,16 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   const resized = new ResizeObserver((entries) => {
     let moved = false
     for (const entry of entries) {
-      if (entry.target === view.dom) ((sized = false), (moved = true))
+      // The note's own element sized (first laid out on the page, or the window or pane changed): its room is given
+      // here, after the browser laid it out and before it paints, so no frame ever shows its words without it.
+      if (entry.target === view.dom) ((sized = false), (moved = true), rows.length && size())
       else if (!fresh.delete(entry.target)) moved = true
     }
     if (moved && rows.length) schedule()
   })
   const watched = new Set<HTMLElement>()
-  resized.observe(view.dom)
+  // Its outer box only: the room given inside it changes its inner size, which would be told again at once.
+  resized.observe(view.dom, { box: "border-box" })
   const fonts = (): void => void (kinds.clear(), (em = ""), (sized = false), rows.length && schedule())
   document.fonts.addEventListener("loadingdone", fonts)
   view.dom.addEventListener(DRAWN, drawn)
