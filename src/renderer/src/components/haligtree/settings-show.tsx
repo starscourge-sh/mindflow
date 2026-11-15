@@ -598,10 +598,11 @@ export const FoldSample = ({ on }: { on: boolean }): React.JSX.Element => (
 
 /** Three lines of a note and their numbers in the margin: on, the numbers (with Vim keys, counted out from the middle line, which keeps its own); off, the lines alone. */
 export const LineNumbersSample = ({ on, relative }: { on: boolean; relative: boolean }): React.JSX.Element => (
-  <span data-preview="line-numbers" data-on={on || undefined} className="flex h-9 w-40 flex-col justify-center gap-[3px] rounded-md border bg-background px-2">
+  <span data-preview="line-numbers" data-on={on || undefined} className="flex h-9 w-40 flex-col justify-center gap-px rounded-md border bg-background px-2">
     {([[12, 1, 64], [13, 13, 88], [14, 1, 48]] as const).map(([number, away, width], i) => (
       <span key={number} className="flex items-center gap-1.5">
-        <span className={`w-3.5 text-right text-[9px] leading-[8px] tabular-nums transition-opacity duration-200 ${i === 1 ? 'text-(--mf-muted-strong)' : 'text-muted-foreground'} ${on ? '' : 'opacity-0'}`}>{relative ? away : number}</span>
+        {/* The type ramp's smallest size, 11px, the three rows a pixel apart so the sample keeps its 36px. */}
+        <span className={`w-4 text-right text-[11px] leading-none tabular-nums transition-opacity duration-200 ${i === 1 ? 'text-(--mf-muted-strong)' : 'text-muted-foreground'} ${on ? '' : 'opacity-0'}`}>{relative ? away : number}</span>
         <span className="block h-[2px] rounded-full bg-foreground/40" style={{ width }} />
       </span>
     ))}
