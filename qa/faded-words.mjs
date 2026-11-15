@@ -235,6 +235,11 @@ async function places() {
     await h.keyboard.press('Meta+k')
     await wait(600)
     await state('the link box (Save ↵ on the accent)', '[data-link-editor]')
+    // The accent's own ink where Save is drawn, in each theme: what its label and its key both wear.
+    for (const theme of THEMES) {
+      await wear(theme, 'soft')
+      console.log(`(Save in ${theme}:`, JSON.stringify(await h.evaluate(() => { const save = document.querySelector('[data-link-keep]'); const root = getComputedStyle(document.documentElement); const own = save && getComputedStyle(save); return { primary: root.getPropertyValue('--primary').trim(), onPrimary: root.getPropertyValue('--primary-foreground').trim(), fill: own?.backgroundColor, ink: own?.color } })), ')')
+    }
     await h.keyboard.press('Escape')
     await wait(300)
   } else check('the link box: the note opened', false)
@@ -245,7 +250,17 @@ async function places() {
   if (await bar.isVisible().catch(() => false)) {
     const point = async () => { await bar.hover().catch(() => {}); await wait(500) }
     await point()
-    await state('the selection bar\'s tooltip (its second line)', '[data-slot="tooltip-content"]', h, point)
+    // Why a tip would not open there (ui/tooltip.tsx): something opened over it, or the bar inside a floating surface.
+    console.log('(the bar\'s tip:', JSON.stringify(await h.evaluate(() => ({
+      tip: !!document.querySelector('[data-slot="tooltip-content"]'),
+      opened: [...document.querySelectorAll('[data-state="open"]:is([role="menu"],[role="dialog"],[role="alertdialog"],[role="listbox"],[data-slot="popover-content"],[data-slot="sheet-content"])')].map((one) => one.getAttribute('role') ?? one.dataset.slot),
+      floating: !!document.querySelector('[data-turn-into-page]')?.closest('[role="menu"], [role="listbox"], .tiptap-slash-menu, [data-slot="popover-content"], [data-radix-popper-content-wrapper], [data-note-preview], [data-menu-peek], [data-slash-peek]'),
+      under: document.elementFromPoint(...(() => { const b = document.querySelector('[data-turn-into-page]').getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2] })())?.closest('button')?.getAttribute('aria-label')
+    }))), ')')
+    // In a window parked off screen this tip has not opened to the pointer (nothing over it, the pointer on the button):
+    // said, not failed; the same tip component is measured on quick capture's hint card below.
+    if (await shown('[data-slot="tooltip-content"]')) await state('the selection bar\'s tooltip (its second line)', '[data-slot="tooltip-content"]', h, point)
+    else console.log('(the selection bar\'s tip did not open to the pointer in this parked window: not measured)')
   } else check('the selection bar\'s tooltip: the bar shows', false)
   await h.mouse.move(1290, 890)
   // Mentions and Related under the note it names: "Lamplight study" is named by the other note and shares its tag.
