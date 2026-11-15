@@ -53,7 +53,7 @@ try {
   })
   const start = await order()
 
-  for (const [kind, sel] of [['voice note', '.tiptap-attachment.is-audio'], ['PDF', '.tiptap-attachment.is-pdf'], ['file', '.tiptap-attachment:not(.is-audio):not(.is-pdf)'], ['picture', '[data-open] .tiptap img']]) {
+  for (const [kind, sel] of [['voice note', '.tiptap-attachment.is-audio'], ['PDF', '.tiptap-attachment.is-pdf'], ['file', '.tiptap-attachment:not(.is-audio):not(.is-pdf)'], ['picture', '[data-open] .tiptap img[alt="Map"]']]) {
     // --- The body: carried out, and over its own note the carry's room, never the editor's drop line ---------------
     const ok = await h.evaluate((sel) => {
       const card = document.querySelector(sel)

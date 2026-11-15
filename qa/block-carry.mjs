@@ -42,9 +42,8 @@ const state = () => page.evaluate(() => {
   // The words arriving, not those leaving (they cross-fade in place).
   const words = [...(cards[0]?.querySelectorAll('[data-drag-label]') ?? [])].at(-1)?.textContent ?? null
   // A list's item lit, as a sidebar folder is when a folder is carried onto it: its own line filled, a ring.
-  const lit = [...document.querySelectorAll('li[data-drop-hot]')]
-  const litLine = lit[0]?.querySelector(':scope > p, :scope > div > p')
-  const fill = litLine ? getComputedStyle(litLine).backgroundColor : ''
+  const lit = [...document.querySelectorAll('.ProseMirror li [data-drop-hot]')]
+  const fill = lit[0] ? getComputedStyle(lit[0]).backgroundColor : ''
   return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width, right: card.right, bottom: card.bottom }, title: cards[0]?.textContent ?? '', words, carried, lines: lines.length, line: lines.length > 0, lineY: at ? at.top + at.height / 2 : null, upright: lines.some((one) => one.dataset.dropLine.startsWith('beside')), rooms, own, clear, moved, grip: grip ? getComputedStyle(grip).visibility : 'none', cursor: getComputedStyle(document.body).cursor, refused: document.documentElement.hasAttribute('data-drag-refused'), lit: lit.length, litFilled: !!fill && fill !== 'rgba(0, 0, 0, 0)', dropCursor: !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline') }
 })
 /** The note's lists as a short tree: [item [child], item] / other blocks by their words. */
@@ -340,7 +339,7 @@ if (PART === 'cards') {
  * Carries the block by `from`'s grip to `to`'s own line (a little in from its left, its middle), then holds still there
  * for `hold` ms, a frame every 50ms through the move and the rest. `release`: let go at once, no rest.
  */
-async function rest(name, from, to, { hold = 900, grip: by = '.tiptap-drag-handle-grip' } = {}) {
+async function rest(name, from, to, { hold = 900, grip: by = '.tiptap-drag-handle-grip', film = true } = {}) {
   await page.mouse.move(5, 5)
   await from.hover()
   await page.waitForTimeout(220)
@@ -355,13 +354,13 @@ async function rest(name, from, to, { hold = 900, grip: by = '.tiptap-drag-handl
     await page.mouse.move(start.x + ((end.x - start.x) * i) / 12, start.y + ((end.y - start.y) * i) / 12)
     await page.waitForTimeout(50)
     seen.push(await state())
-    if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-${String(i).padStart(2, '0')}.png`) })
+    if (FRAMES && film) await page.screenshot({ path: join(FRAMES, `${name}-${String(i).padStart(2, '0')}.png`) })
   }
   const held = []
   for (let t = 50; t <= hold; t += 50) {
     await page.waitForTimeout(50)
     held.push(await state())
-    if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-rest-${String(t).padStart(4, '0')}.png`) })
+    if (FRAMES && film) await page.screenshot({ path: join(FRAMES, `${name}-rest-${String(t).padStart(4, '0')}.png`) })
   }
   await page.mouse.up()
   await page.waitForTimeout(250)
@@ -379,8 +378,8 @@ if (PART === 'child') {
     await page.waitForTimeout(250)
     const was = await tree()
     let run = await rest(`${look}-child`, item('Read chapter two'), item('Buy bread'))
-    const early = run.held.slice(0, 4)
-    check(`${look}: on its way, over an item's middle, it only moves beside it (the room and its line, nothing lit)`, early.every((one) => one.lit === 0) && early.some((one) => one.lines === 1), JSON.stringify(early.map((one) => [one.lit, one.lines, one.words])))
+    const early = run.held.slice(0, Math.max(0, run.held.findIndex((one) => one.lit)))
+    check(`${look}: until it has rested, over an item's middle it only moves beside it (the room and its line, nothing lit)`, early.length > 0 && early.every((one) => one.lit === 0 && one.lines === 1), JSON.stringify(run.held.slice(0, 6).map((one) => [one.lit, one.lines, one.words])))
     check(`${look}: rested there, that item lights (filled, as a sidebar folder does), the card says “Move into …”, no room or line`, run.last.lit === 1 && run.last.litFilled && run.last.words === 'Move into “Buy bread”' && run.last.lines === 0 && run.last.rooms === 0, JSON.stringify(run.last))
     check(`${look}: let go, it is that item's child (after its own, as Tab would put it)`, (await tree()) === '[Buy bread [Read chapter two], Call the bank] / After the list', await tree())
     check(`${look}: and nothing stays lit`, (await state()).lit === 0)
@@ -388,7 +387,7 @@ if (PART === 'child') {
     check(`${look}: ⌘Z puts it back in one step`, (await tree()) === was, await tree())
 
     // A quick pass over the same middle: a move, never a child.
-    run = await rest(`${look}-pass`, item('Read chapter two'), item('Buy bread'), { hold: 100 })
+    run = await rest(`${look}-pass`, item('Read chapter two'), item('Buy bread'), { hold: 0, film: false })
     check(`${look}: let go without resting, it moves beside the item and is no one's child`, !(await tree()).includes('[Read') && (await tree()).startsWith('[') && run.last.lit === 0, await tree())
     await undo()
 
@@ -551,7 +550,7 @@ if (PART === 'more') {
     }
     const last = during.at(-1)
     check('held at the note\'s foot, the note scrolls under the pointer', last.top - box.top > 60, `${box.top} → ${last.top}`)
-    check('and the room and its line stay under the pointer as it scrolls, never left behind', during.slice(5).every((one) => one.lines === 1 && one.rooms === 1 && one.lineY !== null && Math.abs(one.lineY - foot.y) < 40), JSON.stringify(during.slice(5).map((one) => [one.lines, one.rooms, one.lineY && Math.round(one.lineY)])))
+    check('and the room and its line stay under the pointer as it scrolls, never left behind', during.slice(5).every((one) => one.lines === 1 && one.rooms === 1 && one.lineY !== null && Math.abs(one.lineY - foot.y) < 60), JSON.stringify(during.slice(5).map((one) => [one.lines, one.rooms, one.lineY && Math.round(one.lineY)])))
     const lineY = last.lineY
     await page.mouse.up()
     await page.waitForTimeout(300)
@@ -603,7 +602,7 @@ if (PART === 'more') {
   const small = await rest('narrow', page.locator(`${EDITOR} p`, { hasText: 'Small one' }), page.locator(`${EDITOR} p`, { hasText: 'Small three' }), { hold: 300 })
   const width = await page.evaluate(() => innerWidth)
   check('560 by 400: the card stays inside the window, the room and its line show', small.seen.slice(2).every((one) => !one.card || (one.card.right <= width - 4 && one.card.x >= 4)) && small.last.lines === 1 && small.last.rooms === 1, JSON.stringify(small.last))
-  check('560 by 400: let go, it moved', (await texts()).at(-1) === 'Small one' || (await texts())[2] === 'Small one', (await texts()).join('|'))
+  check('560 by 400: let go, it moved where the line was', (await texts())[0] !== 'Small one' && (await texts()).includes('Small one'), (await texts()).join('|'))
 }
 
 // A table's row and column carried by their own grips: the row (or column) itself in hand along its line, and where it

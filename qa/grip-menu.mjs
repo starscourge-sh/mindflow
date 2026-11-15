@@ -16,6 +16,10 @@ await page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new
 
 const json = () => page.$eval(EDITOR, (root) => JSON.stringify(root.editor.getJSON()))
 const set = async (html) => {
+  // Whatever the last case left open (a menu, the slash menu) put away first.
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  await page.mouse.move(5, 5)
   await app.reset()
   await page.$eval(EDITOR, (root, value) => root.editor.commands.setContent(value), html)
   await page.waitForTimeout(250)
@@ -32,7 +36,7 @@ async function fromGrip(target, row, { typed = false } = {}) {
     await target.click()
     await page.keyboard.press('End')
     await page.keyboard.type('s')
-    await arrive(at)
+    await arrive('.tiptap-drag-handle:not(.is-hidden) .tiptap-drag-handle-grip')
     await page.mouse.down()
     await page.mouse.up()
   } else {
@@ -57,11 +61,22 @@ const rows = []
  * the way. The move carries its distance, as a real one does (the gutter, put away while typing, comes back on a move).
  */
 async function arrive(box) {
-  const [x, y] = [box.x + box.width / 2, box.y + box.height / 2]
-  await page.mouse.move(x, y)
-  await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y, movementX: 6, movementY: 2 })), [x, y])
+  // The move's distance, heard by the window alone (the gutter comes back on a move), never by the note.
+  await page.evaluate(() => window.dispatchEvent(new MouseEvent('mousemove', { movementX: 6, movementY: 2 })))
   await page.waitForTimeout(60)
+  // Where the control is now: the box may have grown as the word was typed.
+  const now = (await page.locator(box).first().boundingBox()) ?? { x: 0, y: 0, width: 0, height: 0 }
+  const [x, y] = [now.x + now.width / 2, now.y + now.height / 2]
+  await page.mouse.move(x, y)
+  await page.waitForTimeout(60)
+  seenAt.splice(0, seenAt.length, await page.evaluate(([x, y]) => {
+    const under = document.elementFromPoint(x, y)
+    const handle = document.querySelector('.tiptap-drag-handle')
+    return `${under?.getAttribute('aria-label') ?? under?.className ?? 'nothing'} / ${handle?.className} ${handle ? getComputedStyle(handle).opacity : ''}`
+  }, [x, y]))
 }
+/** What lay under the pointer as it arrived, and the gutter's own state. */
+const seenAt = []
 const undo = async () => (await page.keyboard.press('Meta+z'), await page.waitForTimeout(200))
 /** How many times the note holds `mark` (a word of the block, or a kind of node). */
 const count = (mark) => page.$eval(EDITOR, (root, mark) => {
@@ -83,12 +98,13 @@ const tables = () => page.$eval(EDITOR, (root) => {
 // As the user had it: quick capture at its own size, a word typed in the table, then straight to its grip.
 await set(NOTE)
 const lamp = page.locator(`${EDITOR} td`, { hasText: 'the old lamp' }).first()
-let said = await fromGrip(lamp, 'Delete', { typed: true })
+const safe = (run) => run.catch((error) => `stopped: ${String(error.message).split('\n')[0]}`)
+let said = await safe(fromGrip(lamp, 'Delete', { typed: true }))
 let left = await tables()
-check('the user’s path: a word typed in the table in the list’s item, then its grip: the menu is the table’s (its own rows, not a bare “Block”)', rows.includes('Delete') && rows.some((one) => /row|column/i.test(one)), rows.join(', '))
+check('the user’s path: a word typed in the table in the list’s item, then its grip: the menu is the table’s (its own rows, not a bare “Block”)', rows.includes('Delete') && rows.some((one) => /row|column/i.test(one)), `${rows.join(', ')} | under the pointer: ${seenAt.join('')}`)
 check('the user’s path: and “Delete” takes that table', said === 'ok' && left.length === 1 && left[0].first === 'room', `${said} ${JSON.stringify(left)}`)
 await set(NOTE)
-said = await fromGrip(page.locator(`${EDITOR} td`, { hasText: 'kitchen' }).first(), 'Delete', { typed: true })
+said = await safe(fromGrip(page.locator(`${EDITOR} td`, { hasText: 'kitchen' }).first(), 'Delete', { typed: true }))
 left = await tables()
 check('the user’s path: the same for the top-level table', said === 'ok' && left.length === 1 && left[0].first === 'removed', `${said} ${JSON.stringify(left)} ${rows.join(', ')}`)
 // The grip's + after typing, the same record: a line below the table.
@@ -99,7 +115,7 @@ const plus = await page.locator('[aria-label="Insert a block below"]').boundingB
 await lamp.click()
 await page.keyboard.press('End')
 await page.keyboard.type('s')
-await arrive(plus)
+await arrive('.tiptap-drag-handle:not(.is-hidden) [aria-label="Insert a block below"]')
 await page.mouse.down()
 await page.mouse.up()
 await page.waitForTimeout(250)
@@ -114,12 +130,12 @@ await page.keyboard.press('Escape')
 await page.setViewportSize?.({ width: 1100, height: 820 }).catch(() => {})
 await set(NOTE)
 const before = await json()
-said = await fromGrip(page.locator(`${EDITOR} th`, { hasText: 'removed' }).first(), 'Delete')
+said = await safe(fromGrip(page.locator(`${EDITOR} th`, { hasText: 'removed' }).first(), 'Delete'))
 left = await tables()
 check('the user’s note: “Delete” from the grip beside the table in the list’s item takes that table, and only it', said === 'ok' && left.length === 1 && left[0].first === 'room' && (await count('Boxes for the books')) === 1, `${said} ${JSON.stringify(left)}`)
 await undo()
 check('the user’s note: ⌘Z puts that table back exactly', (await json()) === before, (await json()).slice(0, 300))
-said = await fromGrip(page.locator(`${EDITOR} th`, { hasText: 'room' }).first(), 'Delete')
+said = await safe(fromGrip(page.locator(`${EDITOR} th`, { hasText: 'room' }).first(), 'Delete'))
 left = await tables()
 check('the user’s note: “Delete” from the grip beside the top-level table takes that table, and only it', said === 'ok' && left.length === 1 && left[0].first === 'removed', `${said} ${JSON.stringify(left)}`)
 await undo()
