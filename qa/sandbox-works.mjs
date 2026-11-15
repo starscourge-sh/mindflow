@@ -225,6 +225,22 @@ try {
       return root && root.scrollWidth > root.clientWidth + 1 ? `the window: ${root.scrollWidth} > ${root.clientWidth}` : ''
     })
     check('at 560 by 400 a work\'s page has no sideways scroll', !sideways, sideways || 'none')
+    // The way back over the page is never cut short ("So…"), here and in a folder's path (items-view.tsx, the same parts).
+    const whole = (selector) => h.evaluate((selector) => { const one = document.querySelector(selector); return one ? { text: one.innerText.trim(), whole: one.scrollWidth <= one.clientWidth + 1 && one.getBoundingClientRect().width > 0 } : null }, selector)
+    const back = await whole('[data-source-back]')
+    check('at 560 by 400 the path over a long work\'s page still says “Sources” whole', back?.text === 'Sources' && back.whole, JSON.stringify(back))
+    await size(1440, 900)
+    await c.send('view', 'articles')
+    await wait(900)
+    await h.locator('aside').getByText('Leonardo', { exact: true }).first().click()
+    await wait(900)
+    await size(560, 400)
+    await wait(500)
+    const root = await whole('[data-path-bar] [data-folder-back]')
+    const path = await h.evaluate(() => document.querySelector('[data-path-bar]')?.innerText.replace(/\s+/g, ' ').trim() ?? '')
+    for (const name of ['light', 'dark']) { await look(name); await wait(250); await h.screenshot({ path: `${shots}/small-folder-path-${name}.png` }) }
+    await look('light')
+    check('at 560 by 400 a deep folder\'s path still says “Writing” whole', root?.text === 'Writing' && root.whole, `${JSON.stringify(root)} ; ${path}`)
     await size(1440, 900)
   }
 

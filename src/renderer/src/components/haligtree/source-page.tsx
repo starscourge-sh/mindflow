@@ -661,7 +661,7 @@ export function SourcePageView({ focus, onOpen, onSources }: { focus?: string; o
         {onSources && (
           <nav data-source-path aria-label="Sources path" className="flex min-w-0 items-center gap-0.5 px-5 pt-4 text-body">
             <Tip label="Sources  G J">
-              <button type="button" data-source-back onClick={() => (chime('tuck'), onSources())} className="flex min-w-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><span className="truncate">Sources</span></button>
+              <button type="button" data-source-back onClick={() => (chime('tuck'), onSources())} className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"><span>Sources</span></button>
             </Tip>
             <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground/60" />
             <span aria-current="page" className="flex min-w-0 items-center gap-1.5 px-1.5 py-0.5 font-medium text-foreground"><span className="truncate">{name}</span></span>

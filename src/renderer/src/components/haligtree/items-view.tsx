@@ -883,7 +883,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
                       // A note carried onto a part goes up to it (split-drop.tsx), lit while it is over it, as a sidebar folder is.
                       data-folder-drop={here ? undefined : one?.id ?? TOP} data-folder-list={tier}
                       onClick={() => (chime('tuck'), onFolder?.(one?.id ?? null))}
-                      className={`flex min-w-0 items-center gap-1.5 rounded-md px-1.5 py-0.5 ${here ? 'font-medium text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
+                      // The way back to everything is never cut short ("Wr…"): the places under it give way first.
+                      className={`flex ${at === 0 ? 'shrink-0' : 'min-w-0'} items-center gap-1.5 rounded-md px-1.5 py-0.5 ${here ? 'font-medium text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
                       {one && <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />}
                       <span className="truncate">{one ? one.name : tier === 'nugget' ? 'Gems' : 'Writing'}</span>
                     </button>
