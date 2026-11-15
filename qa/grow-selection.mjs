@@ -9,6 +9,7 @@ import { existsSync, mkdirSync, readFileSync } from 'fs'
 import { loadavg } from 'os'
 import { join } from 'path'
 import { checks } from './harness.mjs'
+import { topCosts } from './long-note-doc.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const BOOK = !!process.env.BOOK
@@ -175,32 +176,46 @@ try {
     }, ED)
     await h.mouse.click(spot.x, spot.y); await wait(400)
     if ((await picked()).mode === 'normal') { await h.keyboard.press('i'); await wait(150) }
-    const times = []
-    for (let step = 1; step <= 12; step++) {
-      const before = await picked()
-      const measure = h.evaluate(() => new Promise((resolve) => {
+    // One key, timed from its press to the end of the frame that draws it, with the longest frozen stretch in the
+    // 600 ms after (the bar placed over the new pick a quarter second later). PROF=1 prints where the time went.
+    const cdp = process.env.PROF ? await c.electron.context().newCDPSession(h) : null
+    if (cdp) (await cdp.send('Profiler.enable'), await cdp.send('Profiler.setSamplingInterval', { interval: 200 }))
+    const timed = async (key) => {
+      const [code, meta, shift] = [key.split('+').at(-1), key.includes('Meta'), key.includes('Shift')]
+      const measure = h.evaluate(([code, meta, shift]) => new Promise((resolve) => {
         const onKey = (event) => {
-          if (event.key !== 'a' || !event.metaKey) return
+          if (event.code !== code || event.metaKey !== meta || event.shiftKey !== shift) return
           window.removeEventListener('keydown', onKey, true)
           const t0 = performance.now()
           requestAnimationFrame(() => { const m = new MessageChannel(); m.port1.onmessage = () => resolve(performance.now() - t0); m.port2.postMessage(0) })
         }
         window.addEventListener('keydown', onKey, true)
-      }))
-      // And any frozen stretch in the moments after (the bar placed over the new pick a quarter second later).
+      }), [code === 'a' ? 'KeyA' : code, meta, shift])
       await h.evaluate(() => { window.__long = []; window.__seen?.disconnect(); window.__seen = new PerformanceObserver((list) => list.getEntries().forEach((e) => window.__long.push(e.duration))); window.__seen.observe({ type: 'longtask' }) })
+      if (cdp) await cdp.send('Profiler.start')
       await wait(50)
-      await h.keyboard.press('Meta+a')
+      await h.keyboard.press(key)
       const took = await measure
       await wait(600)
+      const costs = cdp ? topCosts((await cdp.send('Profiler.stop')).profile, 8) : null
       const frozen = await h.evaluate(() => Math.round(Math.max(0, ...window.__long)))
+      return { ms: Math.round(took * 10) / 10, frozen, costs }
+    }
+    // A selection made by hand first, for what any selection costs in this note: one letter with ⇧→, let go with ←.
+    const hand = await timed('Shift+ArrowRight')
+    console.log(`by hand (⇧→, one letter): ${hand.ms} ms, longest frozen stretch after: ${hand.frozen} ms  [${load()}]${hand.costs ? `\n  ${hand.costs.join(' | ')}` : ''}`)
+    await h.keyboard.press('ArrowLeft'); await wait(400)
+    const times = []
+    for (let step = 1; step <= 12; step++) {
+      const before = await picked()
+      const one = await timed('Meta+a')
       const after = await picked()
-      times.push({ step, kind: after.kind, words: after.words.length, ms: Math.round(took * 10) / 10, frozen })
-      console.log(`step ${step}: ${after.kind} of ${after.words.length} characters (${after.from}-${after.to}) in ${took.toFixed(1)} ms, longest frozen stretch in the 600 ms after: ${frozen} ms  [${load()}]`)
+      times.push({ step, kind: after.kind, words: after.words.length, ...one })
+      console.log(`step ${step}: ${after.kind} of ${after.words.length} characters (${after.from}-${after.to}) in ${one.ms} ms, longest frozen stretch in the 600 ms after: ${one.frozen} ms  [${load()}]${one.costs ? `\n  ${one.costs.join(' | ')}` : ''}`)
       if (after.kind === 'all' || before.kind === 'all') break
     }
     const steps = times.filter((one) => one.kind !== 'all')
-    check(`on the largest note (${blocks} blocks), each step before the whole note answers within a frame (16 ms)`, steps.length > 0 && steps.every((one) => one.ms < 16), times.map((one) => `${one.kind} ${one.ms} ms`).join(', '))
+    check(`on the largest note (${blocks} blocks), each step before the whole note answers within a frame (16 ms)`, steps.length > 0 && steps.every((one) => one.ms < 16), `${times.map((one) => `${one.kind} ${one.ms} ms`).join(', ')}; ⇧→ by hand ${hand.ms} ms`)
     check('the last step picks the whole note', times.at(-1)?.kind === 'all')
   } else {
     await v('settings:set', { sounds: false, hintRate: 0 })
