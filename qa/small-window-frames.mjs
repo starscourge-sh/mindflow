@@ -67,6 +67,8 @@ try {
     }, win.url().slice(win.url().indexOf('?')))
     await wait(500)
     await shot(win, `${theme}-resized-autosize`)
+    await win.mouse.move(260, 120); await wait(400)
+    await shot(win, `${theme}-resized-autosize-pointed`)
     await win.locator('[data-small-auto]').click().catch(() => {})
     await wait(600)
     await shot(win, `${theme}-autosize-back`)

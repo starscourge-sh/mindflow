@@ -2306,15 +2306,6 @@ export default function App(): React.JSX.Element {
       </AnimatePresence>
       <FocusNote />
       <FocusScenery />
-      {/* Resized by hand, a small window stops growing with the words: this gives it back (and the menu's “Auto-size”). */}
-      {SMALL && small && !small.auto && (
-        <button type="button" data-small-auto tabIndex={-1} onMouseDown={(event) => event.preventDefault()}
-          onClick={() => (chime('on'), setSmallSwitch({ auto: true }))}
-          style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
-          className="absolute bottom-3 left-1/2 z-20 inline-flex -translate-x-1/2 cursor-pointer items-center gap-1 rounded-full border border-foreground/15 bg-background px-2.5 py-0.5 text-xs text-muted-foreground shadow-(--mf-panel-shadow) transition-[color,background-color,scale] hover:bg-accent hover:text-foreground active:scale-[0.97]">
-          <ArrowUpDown className="size-3" strokeWidth={1.75} />Auto-size
-        </button>
-      )}
       <Header panel={panel} drawn={panelDrawn} onPanel={SMALL ? undefined : () => setPanel(!panelWanted.current)} onBrowse={SMALL ? () => (chime('tap'), setSearching('notes')) : undefined} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
         <span className="mf-segs ml-3 self-center rounded-full shrink-0 border border-foreground/15 [&_svg]:size-3">
@@ -2739,6 +2730,15 @@ export default function App(): React.JSX.Element {
                   <RoundPair label="Record or dictate" icon={<MicIcon className="size-[15px]" />} button={{ 'data-record-button': true }} choices={VOICE_CHOICES}
                     onPick={(id) => editorRef.current && void (id === 'record' ? recordInto(editorRef.current, recordSlot.current) : talkInto('tap', editorRef.current))} />
                 </span>
+              )}
+              {/* Resized by hand, a small window stops growing with the words: this, in its own row, gives it back (and
+                  the menu's “Auto-size”). Floated over the row, it covered the row's own buttons. */}
+              {SMALL && small && !small.auto && (
+                <button type="button" data-small-auto tabIndex={-1} onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => (chime('on'), setSmallSwitch({ auto: true }))}
+                  className="ml-1 inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-accent/60 px-2.5 text-xs text-muted-foreground transition-[color,background-color,scale] hover:bg-accent hover:text-foreground active:scale-[0.97]">
+                  <ArrowUpDown className="size-3" strokeWidth={1.75} />Auto-size
+                </button>
               )}
               <span className="flex-1" />
               {/* In the sandbox, said here too: a practice box, not your own. */}
