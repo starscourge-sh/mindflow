@@ -1227,6 +1227,8 @@ ${link(aurelius, 'Very little is needed for a happy life', 'nugget')}, he says e
 > [!note] Still open
 > ${link(frodo, 'Did Frodo fail at Mount Doom?', 'question')} He did not choose the time either, and at the very end he could not choose at all.
 `)
+  // The scene it is about is in The Fellowship of the Ring: its where, so Gandalf's "in The Fellowship of the Ring" opens a page with it.
+  await call('item:save', timeGiven, { medium: characters.find(([who]) => who === 'Gandalf')![1] })
 
   const rosetta = await essay('The Rosetta Stone and the key in plain sight', `
 ${noteLink('Rosetta Stone')} was the note. This is the longer version, because the story is better than the stone.
@@ -2204,6 +2206,54 @@ My notes for it: ${link(creatureReads, "The creature's three books", 'article')}
     fields: { theme: 'Say it in a sentence', summary: 'Physics deck begun; Dorian Gray finished.', projects: 'Physics cards, twelve books', people: 'Oscar Wilde' }
   })
   await call('sandbox:age', laterAges)
+
+  // Every work the notes are from, as a page whole from the start, as the people are: what kind it is, its year and who
+  // wrote it (each checked in two places; a year that cannot be given as one, Hamlet's or the Odyssey's, is left out), and
+  // a line about it in your words, kept with no address, which marks it as looked up: opening one asks Wikipedia nothing.
+  // [where, kind, year, author, the line]. The five welcome stories' books are here too; the one told is the one listed.
+  const works: [string, string, string, string, string][] = [
+    ['The Odyssey, Book 1, tr. Samuel Butler (1900)', 'Epic poem', '1900', 'Homer', 'Book 1: the gods agree that Odysseus may go home at last, and Athena, dressed as a stranger, tells his son Telemachus to go looking for news of him.'],
+    ['Meditations, tr. George Long (1862)', 'Book', '1862', 'Marcus Aurelius', 'The emperor’s notes to himself, in George Long’s English of 1862: twelve short books, thees and thous included.'],
+    ['Meditations, Book 2, tr. George Long (1862)', 'Book', '1862', 'Marcus Aurelius', 'Book 2 starts with the morning: expect the busy-body and the ungrateful today, and do not be angry with them.'],
+    ['Meditations, Book 4, tr. George Long (1862)', 'Book', '1862', 'Marcus Aurelius', 'Book 4: on time running out, and on retreating into your own mind instead of to the country or the sea.'],
+    ['The Picture of Dorian Gray, chapter 2 (1890)', 'Novel', '1890', 'Oscar Wilde', 'Chapter 2: Lord Henry meets Dorian in Basil’s studio and talks to him about youth, until Dorian wishes the portrait could grow old instead of him.'],
+    ['The Picture of Dorian Gray, the preface (1891)', 'Preface', '1891', 'Oscar Wilde', 'A page of short sayings about art, printed in a magazine first, then at the front of the 1891 book. It ends: all art is quite useless.'],
+    ["Grandad's shelf", 'Bookshelf', '', '', 'Where Meditations came from: Grandad’s own copy, his pencil still in the margins.'],
+    ["The book club's pick", 'Book club', '', '', 'How Pride and Prejudice came round: the club voted for it, and I was the only one who had not read it.'],
+    ['A podcast about the summer of 1816', 'Podcast', '', '', 'An episode on the wet summer by Lake Geneva when Mary Shelley started Frankenstein, for a ghost story contest. I ordered the book before it ended.'],
+    ['The play in the park', 'Play', '', '', 'Hamlet on the grass one summer evening, a dog barking through the ghost. That is where the play got me.'],
+    ['Pride and Prejudice, chapter 1', 'Novel', '1813', 'Jane Austen', 'Chapter 1: Netherfield Park is let at last, to a single man of large fortune, and Mrs Bennet has five daughters.'],
+    ['Pride and Prejudice, chapter 5', 'Novel', '1813', 'Jane Austen', 'Chapter 5: the morning after the ball at Meryton the Lucases call, and the talk is all of Mr Darcy’s pride.'],
+    ['Pride and Prejudice, chapter 11', 'Novel', '1813', 'Jane Austen', 'Chapter 11: an evening at Netherfield. Miss Bingley pretends to read, then walks about the room to be looked at.'],
+    ['Pride and Prejudice, chapter 34', 'Novel', '1813', 'Jane Austen', 'Chapter 34: at Hunsford, Darcy proposes, insulting her family in the same breath, and Elizabeth turns him down.'],
+    ['Frankenstein, chapter 4 (1831)', 'Novel', '1831', 'Mary Shelley', 'Chapter 4: two years of study at Ingolstadt, then the night Victor finds out how to give life to dead matter.'],
+    ['Frankenstein, chapter 10 (1831)', 'Novel', '1831', 'Mary Shelley', 'Chapter 10: on the glacier above Chamonix, the creature finds Victor and makes him listen.'],
+    ['Frankenstein, chapter 20 (1831)', 'Novel', '1831', 'Mary Shelley', 'Chapter 20: in the Orkneys Victor tears apart the second creature he was making, and the first promises to be with him on his wedding night.'],
+    ['Hamlet, Act 1, Scene 3', 'Play', '', 'William Shakespeare', 'Act 1, Scene 3: Laertes leaves for France. Polonius loads him with advice, then forbids Ophelia to see Hamlet.'],
+    ['Hamlet, Act 1, Scene 5', 'Play', '', 'William Shakespeare', 'Act 1, Scene 5: the Ghost tells Hamlet he was murdered by his own brother, and Hamlet swears his friends to silence.'],
+    ['Hamlet, Act 2, Scene 2', 'Play', '', 'William Shakespeare', 'Act 2, Scene 2: Rosencrantz and Guildenstern arrive, Polonius explains Hamlet’s madness to the king, and the players come.'],
+    ['Hamlet, Act 4, Scene 7', 'Play', '', 'William Shakespeare', 'Act 4, Scene 7: Claudius and Laertes plan the duel with a poisoned blade, and Gertrude brings news that Ophelia has drowned.'],
+    ['Hamlet, Act 5, Scene 2', 'Play', '', 'William Shakespeare', 'Act 5, Scene 2: the duel. A poisoned cup, a poisoned blade, and nearly everyone dies.'],
+    // De Vere's translation came out in ten volumes from 1912 to 1915, so no one year is sure for each life.
+    [vasari('Masaccio'), 'Biography', '', 'Giorgio Vasari', 'Vasari’s life of Masaccio, who painted the Trinity in Santa Maria Novella and died in his twenties.'],
+    [vasari('Filippo Brunelleschi'), 'Biography', '', 'Giorgio Vasari', 'Vasari’s life of Brunelleschi, who built the dome of Florence’s cathedral and worked out how perspective is drawn.'],
+    [vasari('Michelagnolo Buonarroti'), 'Biography', '', 'Giorgio Vasari', 'Vasari’s life of Michelangelo. He knew him, and writes him as the summit every other life was climbing to.'],
+    [richter(19), 'Notebooks', '1883', 'Leonardo da Vinci', 'Richter’s 1883 edition of Leonardo’s notes, sorted by subject. This part is on perspective, the guide and the gateway of drawing.'],
+    // The welcome stories' books (welcome-stories.ts), and Gandalf's, which the essay on him is from.
+    ['A Scandal in Bohemia', 'Short story', '1891', 'Arthur Conan Doyle', 'The first Sherlock Holmes story in the Strand Magazine: a king, a photograph, and Irene Adler, the woman who beats him.'],
+    ['Frankenstein', 'Novel', '1818', 'Mary Shelley', 'Mary Shelley’s novel, first printed without her name: Victor makes a man and runs from him.'],
+    ['Dracula', 'Novel', '1897', 'Bram Stoker', 'Told in letters and diaries: a young lawyer goes to Transylvania to sell a house in England to a Count, who then sails for it.'],
+    ['Pride and Prejudice', 'Novel', '1813', 'Jane Austen', 'Elizabeth Bennet, Mr Darcy, and two first impressions, each put right.'],
+    ['The Odyssey', 'Epic poem', '', 'Homer', 'Odysseus’s ten years getting home from Troy, in twenty-four books, while Penelope keeps the suitors waiting.'],
+    ['The Fellowship of the Ring', 'Novel', '1954', 'J. R. R. Tolkien', 'The first of the three volumes of The Lord of the Rings: Frodo leaves the Shire with the Ring, and Gandalf falls in Moria.']
+  ]
+  // Only the works the book holds: a page made for one it does not would show on Sources with no notes.
+  const listed = new Set((await call<{ field: string; name: string }[]>('sources')).filter((one) => one.field === 'medium').map((one) => one.name))
+  for (const [where, what, year, author, line] of works) {
+    if (!listed.has(where)) continue
+    await call('work:save', { title: where, authors: author, year, what, publisher: '', doi: '', isbn: '', url: '' })
+    await call('source:bio', 'medium', where, line, '')
+  }
 
   // On a developer's own Mac, a few of their books and paintings as well; never in a packaged app.
   await call('sandbox:local-library')
