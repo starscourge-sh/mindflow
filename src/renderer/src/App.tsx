@@ -974,14 +974,10 @@ export default function App(): React.JSX.Element {
     if (panelTold.current === null || panelTold.current === panel) return
     setPanel(panel, true)
   }, [chosenPanel]) // eslint-disable-line react-hooks/exhaustive-deps
-  // What the panel shows read ahead, once the box has drawn and again each time it comes up: ⌘\ draws it whole from
-  // the first frame it grows (warmPanel). Quick capture only, never a note's own window.
-  useEffect(() => {
-    if (!window.api.room.left) return
-    const warm = (): void => void afterPaint(warmPanel)
-    warm()
-    return window.api.onShown(warm)
-  }, [])
+  // What the panel shows read ahead once the box has first drawn: ⌘\ draws it whole from the first frame it grows
+  // (warmPanel), and each later time from what it last said, read afresh once drawn, as any view opened again. Not at
+  // every open: the open count reads every task, and the box opens many times a day. Quick capture only.
+  useEffect(() => void (window.api.room.left && afterPaint(warmPanel)), [])
   // From the writing to the list and back without the mouse: ⌃J (or ⌃K, from outside the words) leaves
   // the note for the panel's list (opening the panel if it is shut), and I
   // comes back, as vim's insert does. A menu open in the note keeps ⌃J and ⌃K.
