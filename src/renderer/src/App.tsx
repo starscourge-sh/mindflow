@@ -151,23 +151,14 @@ import { isCollecting, startCollect, stopCollect } from '@/extensions/collect'
 /**
  * A small window (main/small-window.ts): this same page in a window of its own that holds one note, saved as it is
  * written, so quick capture stays free for everything else. Its address names the note ('capture:id', or another
- * kind's 'type:id'), or 'new'. It has no draft of its own: quick capture's draft and leftover are never read or
- * written from one.
+ * kind's 'type:id'; a new one is an empty capture main made for it). It has no draft of its own: quick capture's draft
+ * and leftover are never read or written from one.
  */
 const SMALL = new URLSearchParams(location.search).get('small')
 // Its card's look from the first frame (main.css, data-small): the window is see-through until the card is drawn.
 if (SMALL) document.documentElement.dataset.small = ''
 /** Put away: quick capture hides; a small window closes, its note kept where it lives. */
 const putWindowAway = (): void => (SMALL ? window.close() : window.api.hideWindow())
-/** An empty note, for a new small window or its "+". */
-const EMPTY: JSONContent = { type: 'doc', content: [{ type: 'paragraph' }] }
-/** A new empty note made once for this window, whatever StrictMode or a reload asks again. */
-let smallMade: Promise<string | null> | null = null
-const smallNote = (): Promise<string | null> => (smallMade ??= SMALL !== 'new' ? Promise.resolve(SMALL) : window.api.captures.create({ kind: 'note', body: EMPTY }).then((id) => {
-  // Named in the address from now on, so a reload opens the same note rather than another new one.
-  history.replaceState(null, '', `${location.pathname}?${new URLSearchParams({ ...Object.fromEntries(new URLSearchParams(location.search)), small: `capture:${id}` })}`)
-  return `capture:${id}`
-}, () => null))
 
 /**
  * A new note half written, kept as you type so it survives quitting and
@@ -1299,19 +1290,16 @@ export default function App(): React.JSX.Element {
       setSecret(!!found.private)
     })
   }
-  // A small window opens on its note (a new one is made first, and goes again if the window closes with it empty:
-  // main/small-window.ts), as the box opens a capture or a page from its list: the same editor, saved as you write.
+  // A small window opens on its note (a new one's is an empty capture main made, gone again if the window closes with
+  // it empty: main/small-window.ts), as the box opens a capture or a page from its list: the same editor, saved as you write.
   useEffect(() => {
-    if (!SMALL) return
-    void smallNote().then((link) => {
-      if (!link) return refuse('This note could not be opened. Close the window and try again', 'error')
-      const at = link.indexOf(':')
-      const [type, id] = [link.slice(0, at), link.slice(at + 1)]
-      // Its first note is where its history starts: nothing before it.
-      setTrail({ stack: [type === 'capture' ? id : link], at: 0 })
-      if (type === 'capture') openCapture(id, true)
-      else openAny(type, id, true)
-    })
+    const at = SMALL?.indexOf(':') ?? -1
+    if (!SMALL || at < 0) return
+    const [type, id] = [SMALL.slice(0, at), SMALL.slice(at + 1)]
+    // Its first note is where its history starts: nothing before it.
+    setTrail({ stack: [type === 'capture' ? id : SMALL], at: 0 })
+    if (type === 'capture') openCapture(id, true)
+    else openAny(type, id, true)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Main keeps which note each small window holds, for after a restart and for an empty one to go.
   useEffect(() => {
@@ -1604,7 +1592,7 @@ export default function App(): React.JSX.Element {
   // capture open in the box, its own words are saved already: the draft set aside meanwhile comes back.
   const startOver = (): void => {
     // In a small window: a new note in this window, the one it held kept where it lives (or gone, if left empty).
-    if (SMALL) return void window.api.captures.create({ kind: 'note', body: EMPTY }).then((id) => openCapture(id), (error) => refuse(`No new note: ${whyFailed(error)}`, 'error'))
+    if (SMALL) return void window.api.haligtree<string>('small:new').then((id) => openCapture(id), (error) => refuse(`No new note: ${whyFailed(error)}`, 'error'))
     if (!latestEditing.current && hasContent(editorRef.current?.getJSON() ?? null)) return submit(true)
     fresh(!!latestEditing.current)
   }

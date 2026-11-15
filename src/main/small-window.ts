@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { changed, database } from './captures'
+import { changed, database, emptyNote } from './captures'
 import { centredOn, glide, onScreen, stillNow } from './glide'
 
 /**
@@ -117,8 +117,10 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
   })
 
   /** A small window on `link` ('capture:id', or null for a new note), grown from `from` (a row, the box) when given. */
-  const open = (link: string | null, from?: Electron.Rectangle | null, kept?: Kept): void => {
-    const same = link && holding(link)
+  const open = (asked: string | null, from?: Electron.Rectangle | null, kept?: Kept): void => {
+    // A new one holds a new empty note from its first moment, named in its address like any other.
+    const link = asked ?? `capture:${emptyNote()}`
+    const same = holding(link)
     if (same) return void (same.showInactive(), same.focus())
     const point = screen.getCursorScreenPoint()
     const seed = from ?? { x: point.x - 60, y: point.y - 40, width: 120, height: 80 }
@@ -139,7 +141,7 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
       autoHideMenuBar: true,
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }
     })
-    const state: Kept = kept ?? { link: link ?? '', bounds: size, auto: true, aside: true, top: true }
+    const state: Kept = kept ?? { link, bounds: size, auto: true, aside: true, top: true }
     smalls.set(win, state)
     // Over every app, as quick capture floats ("Keep on top" in its menu), on whichever desktop you are on.
     win.setAlwaysOnTop(state.top, 'floating')
@@ -182,8 +184,8 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
       }
     })
     guard(win)
-    if (state.link) takeAway(win, state.link)
-    load(win, `?small=${encodeURIComponent(state.link || 'new')}`)
+    takeAway(win, state.link)
+    load(win, `?small=${encodeURIComponent(state.link)}`)
     if (!quitting) save()
   }
 
@@ -194,7 +196,9 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
     const seed = page && from && from.width > 0 && from.height > 0 ? { x: Math.round(page.x + from.x), y: Math.round(page.y + from.y), width: Math.round(from.width), height: Math.round(from.height) } : null
     open(typeof link === 'string' && link ? link : null, seed)
   })
-  /** The note a small window holds now (its own new one made, or another opened in it by "+" or browse). */
+  /** A new empty note for a small window's "+" and ⌘N, put in it there. */
+  ipcMain.handle('haligtree:small:new', () => emptyNote())
+  /** The note a small window holds now (another opened in it by "+" or browse). */
   ipcMain.handle('haligtree:small:holds', (event, link: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const kept = win && smalls.get(win)

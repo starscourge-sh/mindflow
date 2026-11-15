@@ -858,6 +858,17 @@ export function rescueDrawing(scene: unknown): void {
   changed()
 }
 
+/**
+ * A new empty note for a small window (small-window.ts): in the Inbox while the window holds it, and gone with the
+ * window if that closes with it still empty. Made here rather than through captures:create, so a page with nothing on
+ * it never counts as a capture kept (a new small window showed "100 captures kept" over an empty page).
+ */
+export function emptyNote(): string {
+  const { id } = insert({ title: '', kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph' }] } as never }, new Date().toISOString())
+  changed()
+  return id
+}
+
 /** A meeting just recorded (meeting.ts), kept as a note named for it, in the Inbox and on its day in the Journal. */
 export function keepMeeting(title: string, body: unknown): string {
   const { id, number } = insert({ title, kind: 'note', body: body as never, source: 'Meeting' }, new Date().toISOString())
