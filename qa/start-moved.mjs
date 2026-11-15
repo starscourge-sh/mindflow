@@ -70,6 +70,8 @@ try {
   check('the start made the day\'s copy of each book, whole', made.length >= 1 && made.every((one) => one.notes > 0) && !copies(base).parts.length, JSON.stringify(made.map((one) => [one.path.replace(DATA, ''), one.notes])))
   for (const { path } of made) rmSync(path)
   await go('settings')
+  // Settings' own section for them, as qa/save-backup-import.mjs opens it.
+  await h.locator('[data-section="Import and backups"]').first().click()
   await h.locator('[data-backup-now]').first().scrollIntoViewIfNeeded()
   await h.locator('[data-backup-now]').first().click()
   for (let i = 0; i < 120 && (copies(base).days.length < made.length || copies(base).parts.length); i++) await wait(500)
