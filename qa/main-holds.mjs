@@ -1,10 +1,13 @@
 // Main's one thread answers every window, so nothing a page asks may hold it (the user, 15 Nov 2026: "note that the
-// app freezes randomly, i want this to never happen"). Four asks that held it, each made here as a page makes it, with
-// how late main's event loop ran while it was answered (stalls.ts) and what came back, so the answer is the same:
+// app freezes randomly, i want this to never happen"). Four asks that held it, and a HEIC that came in as no picture,
+// each made here as a page makes it, with how late main's event loop ran while it was answered (stalls.ts) and what
+// came back:
 //   1. the welcome's state, which ran `id -F` in step: 418 ms in the user's own freeze logs (a slow `id` stands in
 //      here, first on PATH, 0.4 s);
-//   2. a HEIC added to Files, decoded and turned into a PNG on main's thread;
-//   3. a big picture dragged out of a note to another app (the system drag itself is stubbed: it needs the real pointer);
+//   2. a HEIC and a TIFF added to Files: the TIFF decoded and turned into a PNG on main's thread, the HEIC not read
+//      at all (kept as an unreadable file, no picture);
+//   3. a big photograph dragged out of a note to another app, opened whole on main for the picture under the pointer
+//      (the system drag itself is stubbed: it needs the real pointer);
 //   4. the Feed's side column, which read every note of the book (263 ms on the user's book).
 // Run on a COPY of a book (part 4 needs a real one) or of the seeded sandbox:
 //   QA_DATA=<copy> QA_ARGS= QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/main-holds.mjs
@@ -23,11 +26,13 @@ const dir = mkdtempSync(join(tmpdir(), 'main-holds-'))
 writeFileSync(join(dir, 'id'), '#!/bin/sh\nsleep 0.4\necho "Ada Lovelace"\n')
 chmodSync(join(dir, 'id'), 0o755)
 process.env.PATH = `${dir}:${process.env.PATH}`
-// A 24-megapixel HEIC, made by the Mac from the fixture.
-const big = join(dir, 'big.jpg')
+// A 24-megapixel photograph, and the same as a HEIC and a TIFF, made by the Mac from the fixture.
+const big = join(dir, 'Harbour at dusk.jpg')
 const heic = join(dir, 'Harbour at dusk.heic')
+const tiff = join(dir, 'Harbour at dawn.tiff')
 execFileSync('sips', ['-z', '4000', '6000', join(import.meta.dirname, 'fixtures', 'long-note-pic.jpg'), '--out', big], { stdio: 'ignore' })
 execFileSync('sips', ['-s', 'format', 'heic', big, '--out', heic], { stdio: 'ignore' })
+execFileSync('sips', ['-s', 'format', 'tiff', big, '--out', tiff], { stdio: 'ignore' })
 
 const c = await sandbox({ width: 1100, height: 760, seeded: false })
 const { h, v, electron } = c
@@ -42,30 +47,37 @@ try {
   check(`the welcome's state never holds main while the Mac reads your name (held under ${LATE_MS} ms)`, named && named.worst < LATE_MS, `worst ${named?.worst} ms over ${named?.calls} asks  [${load()}]`)
   check('and still signs with your first name', asked?.name === 'Ada', `name ${JSON.stringify(asked?.name)}`)
 
-  // 2. A HEIC into Files.
-  await stalls()
-  const added = await v('media:add', [{ path: heic }])
-  const afterAdd = await stalls()
-  const src = added?.added?.[0]?.src ?? ''
-  const kept = join(await electron.evaluate(({ app }) => app.getPath('userData')), 'assets', src.split('/').pop() ?? '')
-  const size = existsSync(kept) ? execFileSync('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', kept]).toString().match(/\d+(?=\n)/g)?.join(' x ') : null
-  check(`a 24-megapixel HEIC added to Files never holds main (its loop under ${LATE_MS} ms late)`, afterAdd.delay.worst < LATE_MS, `${afterAdd.delay.worst} ms late at worst  [${load()}]`)
-  check('and it is kept as a PNG of its own size, under its own name', /\.png$/.test(src) && size === '6000 x 4000' && added.added[0].name === 'Harbour at dusk.heic', `${src.slice(-20)} ${size} “${added?.added?.[0]?.name}”; refused ${JSON.stringify(added?.refused)}`)
+  // 2. A HEIC and a TIFF into Files, one at a time, once the windows have had their say about the last.
+  const store = join(await electron.evaluate(({ app }) => app.getPath('userData')), 'assets')
+  const sizeOf = (file) => (existsSync(file) ? execFileSync('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', file]).toString().match(/\d+(?=\n)/g)?.join(' x ') : null)
+  const add = async (path) => {
+    await h.waitForTimeout(2500)
+    await stalls()
+    const added = await v('media:add', [{ path }])
+    const late = (await stalls()).delay.worst
+    const one = added?.added?.[0]
+    return { late, one, size: one ? sizeOf(join(store, one.src.split('/').pop())) : null, refused: added?.refused }
+  }
+  for (const [kind, path, name] of [['HEIC', heic, 'Harbour at dusk.heic'], ['TIFF', tiff, 'Harbour at dawn.tiff']]) {
+    const got = await add(path)
+    check(`a 24-megapixel ${kind} added to Files never holds main (its loop under ${LATE_MS} ms late)`, got.late < LATE_MS, `${got.late} ms late at worst  [${load()}]`)
+    check(`and the ${kind} is kept as a PNG of its own size, a picture every window can draw, under its own name`, /\.png$/.test(got.one?.src ?? '') && got.size === '6000 x 4000' && got.one.name === name, `${(got.one?.src ?? '').slice(-20)} ${got.size} “${got.one?.name}”; refused ${JSON.stringify(got.refused)}`)
+  }
 
-  // 3. That picture dragged out of a note to another app, once the windows have had their say about it (Files and
-  // the lists read again as a file comes in): only the drag is measured.
+  // 3. A 24-megapixel photograph in the store, dragged out of a note to another app: only the drag is measured.
+  const photo = (await add(big)).one?.src ?? ''
   await h.waitForTimeout(2500)
   await electron.evaluate(({ webContents }) => {
     globalThis.__dragged = null
     for (const one of webContents.getAllWebContents()) one.startDrag = (item) => void (globalThis.__dragged = { file: item.file, empty: item.icon.isEmpty(), ...item.icon.getSize() })
   })
   await stalls()
-  await h.evaluate((src) => window.api.dragOut(src, 'Harbour at dusk'), src)
+  await h.evaluate((src) => window.api.dragOut(src, 'Harbour at dusk'), photo)
   let dragged = null
   for (let t = 0; t < 40 && !dragged; t++) (await h.waitForTimeout(150), (dragged = await electron.evaluate(() => globalThis.__dragged)))
   const afterDrag = await stalls()
-  check(`a 24-megapixel picture dragged out never holds main (its loop under ${LATE_MS} ms late)`, dragged && afterDrag.delay.worst < LATE_MS, `${afterDrag.delay.worst} ms late at worst  [${load()}]`)
-  check('and the drag carries the file under its name, with a small picture of it', dragged && !dragged.empty && dragged.width > 0 && dragged.width <= 96 && /Harbour at dusk\.png$/.test(dragged.file), JSON.stringify(dragged))
+  check(`a 24-megapixel photograph dragged out never holds main (its loop under ${LATE_MS} ms late)`, dragged && afterDrag.delay.worst < LATE_MS, `${afterDrag.delay.worst} ms late at worst  [${load()}]`)
+  check('and the drag carries the file under its name, with a small picture of it', dragged && !dragged.empty && dragged.width > 0 && dragged.width <= 96 && /Harbour at dusk\.jpg$/.test(dragged.file), JSON.stringify(dragged))
 
   // 4. The Feed's side column.
   await stalls()
