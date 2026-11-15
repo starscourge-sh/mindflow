@@ -391,9 +391,13 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
               </Landed>
               <Landed id="gem" on={shot.shown >= 5} quiet={quiet} className="border-t border-foreground/10 px-3.5 pt-1.5 pb-2">
                 <GemRow on="gem" words={words.gem} />
-                <p data-question className="mt-1.5 flex min-h-7 items-center rounded-md border border-foreground/10 px-2 text-[0.875rem] leading-snug text-foreground">
-                  {shot.question || <span className="text-muted-foreground">The question it answers, for review</span>}
-                  {typing && !quiet && <span className="mf-ghost-caret" data-typing="" />}
+                {/* The whole question kept in place unseen, so the box never grows as it is typed (a second line pushed the cards down mid-way). */}
+                <p data-question className="mt-1.5 grid min-h-7 items-center rounded-md border border-foreground/10 px-2 text-[0.875rem] leading-snug text-foreground">
+                  <span aria-hidden className="invisible [grid-area:1/1]">{words.question}</span>
+                  <span className="[grid-area:1/1]">
+                    {shot.question || <span className="text-muted-foreground">The question it answers, for review</span>}
+                    {typing && !quiet && <span className="mf-ghost-caret" data-typing="" />}
+                  </span>
                 </p>
                 <p data-comes="review" className={`${SUB} mt-1 pl-5`}>{FLOW_SAID.gem}</p>
               </Landed>
