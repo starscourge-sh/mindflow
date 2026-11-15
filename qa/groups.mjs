@@ -364,8 +364,9 @@ if (c) try {
   await c.h.waitForTimeout(300)
   check('← folds the group', (await head(c, 'Memory').getAttribute('aria-expanded')) === 'false')
   {
-    const hd = head(c, 'Memory'), said = (await hd.locator('[data-count]').textContent()) ?? ''
-    const [row, count] = await Promise.all([hd.boundingBox(), hd.locator('[data-count]').boundingBox()])
+    // The number is the app's own count (data-count holds the number alone since 43f0d133e), its word beside it.
+    const hd = head(c, 'Memory'), said = await hd.locator('[data-count]').evaluate((one) => `${one.getAttribute('data-count')} ${one.parentElement.textContent.replace(one.textContent, '').trim()}`)
+    const [row, count] = await Promise.all([hd.boundingBox(), hd.locator('[data-count]').locator('..').boundingBox()])
     check('and its count shows on the right, in a folder\'s words', /^3 (pages|notes|gems)$/.test(said) && row.x + row.width - (count.x + count.width) < 48, `${said}, ${Math.round(row.x + row.width - (count.x + count.width))}px from the right`)
   }
   await c.h.keyboard.press('ArrowRight')
