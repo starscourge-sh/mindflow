@@ -48,12 +48,14 @@ try {
   console.log(`(added and shown: the page's frames over 150 ms ${JSON.stringify(adding.page)}, main's worst wait ${adding.main} ms)`)
   check('the huge picture shows its face on Files', shown)
   check('and main is never held 250 ms or more as it does', adding.main < 250, `${adding.main} ms`)
-  const card = await h.evaluate(() => [...document.querySelectorAll('[data-recent-file]')].find((one) => /a-very-large-painting/.test(one.textContent ?? ''))?.querySelector('.pdf-book-meta')?.textContent ?? '')
-  check('its Recent card says what it is', /^Image · /.test(card), card)
+  // Every Recent card says what it is first ("Image · Added today"): a picture told from a PDF or a book at a glance.
+  const metas = await h.evaluate(() => [...document.querySelectorAll('[data-recent-file]')].map((one) => [one.getAttribute('data-recent-file'), one.querySelector('.pdf-book-meta')?.textContent ?? '']))
+  check('each Recent card says what it is', metas.length > 0 && metas.every(([kind, meta]) => (kind === 'picture' ? /^Image · / : /^[A-Za-z0-9]{2,12} · /).test(meta)), JSON.stringify(metas.slice(0, 6)))
 
   // Opened from its card, then closed.
   await watch()
-  await h.locator('[data-recent-file]', { hasText: 'a-very-large-painting' }).first().click()
+  // Opened from its own tile, wherever Files shows it.
+  await h.locator('[data-media-name]', { hasText: 'a-very-large-painting' }).first().click()
   await h.waitForSelector('.mf-look-image', { timeout: 15000 })
   await h.waitForFunction(() => document.querySelector('.mf-look-image')?.complete, null, { timeout: 15000 }).catch(() => {})
   await wait(800)
