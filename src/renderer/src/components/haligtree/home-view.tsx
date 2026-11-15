@@ -644,7 +644,7 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
                 {onReview && (
                   <Tip label="Review now" offset={6}>
                     <button type="button" onClick={() => (chime('tap'), onReview())}
-                      className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)] transition-[scale] duration-150 motion-safe:hover:scale-[1.04] active:scale-[0.95]">
+                      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)] transition-[scale] duration-150 motion-safe:hover:scale-[1.04] active:scale-[0.95]">
                       <Repeat2 className="size-4" />
                     </button>
                   </Tip>
@@ -752,13 +752,14 @@ export function WeekCaught({ onOpen }: { onOpen?: (type: string, id: string) => 
   const data = useLive(home, NONE, [], ['capture', 'item'])
   const captures = useCaptures()
   const fullMenu = useFullMenu()
+  const pins = useLive(haligtree.pins, [] as Pinned[])
   const [reading, setReading] = useState<{ items: Readable[]; start: number } | null>(null)
   const opening = (card: Card): void => (chime('open'), onOpen?.(card.type, card.id))
   const actions: Actions = {
     open: (card, event) => (turns(card.type) ? heroOpen(event, () => onOpen?.(card.type, card.id)) : opening(card)),
     note: (card) => {
       const capture = card.type === 'capture' ? captures.find((one) => one.id === card.id) : null
-      return fullMenu(card.type, card.id, () => opening(card)) ?? sideMenu(card.type, card.id, nameOf(card), { onOpen: () => opening(card), kind: capture?.kind, status: capture?.status })
+      return fullMenu(card.type, card.id, () => opening(card)) ?? sideMenu(card.type, card.id, nameOf(card), { onOpen: () => opening(card), pinned: pins.some((pin) => pin.id === card.id), kind: capture?.kind, status: capture?.status })
     },
     read: (list, at) => {
       const items = list.filter(readable)
