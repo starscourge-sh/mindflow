@@ -88,3 +88,15 @@ test('web.dev: a srcset gives the sharpest the column needs; a figure keeps its 
   assert.ok(asked.includes('https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_1440.png'), asked.join(' '))
   assert.ok(body.querySelector('figure img') && body.querySelector('figure figcaption'), 'figures with captions')
 })
+
+// A Wikipedia picture's credit, marked before the cleaning (main/free-sites.ts creditCommons), comes through it with its
+// mark: the cleaning takes every other data- mark off, and on 15 Nov the credit went with them (the reader showed none).
+test("a picture's credit keeps its mark through the cleaning, and only it", async () => {
+  const page = '<div><p>The Colosseum is an elliptical amphitheatre in the centre of the city of Rome, Italy, just east of the Roman Forum.</p>' +
+    '<figure><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/d/de/Colosseo_2020.jpg/250px-Colosseo_2020.jpg" width="250" height="188">' +
+    '<figcaption>The Colosseum <span data-credit="" data-x="1"><a href="https://commons.wikimedia.org/wiki/File:Colosseo_2020.jpg">Picture: Wikimedia Commons</a></span></figcaption></figure></div>'
+  const html = await cleanArticle(page, new URL('https://en.wikipedia.org/wiki/Colosseum'), 'Wikipedia', async (src) => ({ kept: src, size: { width: 250, height: 188, type: 'jpg' } }))
+  const credit = parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.querySelector('[data-credit]')
+  assert.equal(credit?.querySelector('a')?.getAttribute('href'), 'https://commons.wikimedia.org/wiki/File:Colosseo_2020.jpg')
+  assert.equal(credit?.hasAttribute('data-x'), false)
+})

@@ -118,7 +118,8 @@ export async function cleanArticle(content: string, base: URL, site: string, kee
   const buttons = new Set([...clean.querySelectorAll('a')].filter((one) => one.hasAttribute('data-cta') || one.getAttribute('role') === 'button' || /(^|[\s_-])(btn|button|cta)($|[\s_-])/i.test(one.getAttribute('class') ?? '')))
   for (const one of clean.querySelectorAll('*')) {
     for (const { name } of [...one.attributes]) {
-      if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-|^loading$|^role$|^aria-/i.test(name)) one.removeAttribute(name)
+      // A picture's credit (free-sites.ts creditCommons, marked before the cleaning) is the one mark kept.
+      if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-(?!credit$)|^loading$|^role$|^aria-/i.test(name)) one.removeAttribute(name)
     }
   }
   for (const one of clean.querySelectorAll('a[href]')) {
