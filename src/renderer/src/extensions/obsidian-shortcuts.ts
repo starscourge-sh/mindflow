@@ -1,11 +1,13 @@
 import { Extension, InputRule } from "@tiptap/core"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { findWrapping } from "@tiptap/pm/transform"
-import { Plugin, type EditorState, type Transaction } from "@tiptap/pm/state"
+import { AllSelection, Plugin, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
 
 // --- Lib ---
+import { grow, markGrown } from "@/lib/grow-selection"
 import { retypeList, toggleChecks } from "@/lib/retype-list"
 import { wordRangeAt } from "@/lib/word-range"
+import { vimPluginKey } from "@/extensions/vim-mode"
 
 /**
  * Obsidian-style keyboard shortcuts.
@@ -338,6 +340,43 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
         this.options.onToggleSource?.()
         return true
       },
+      // Each press picks the next range round the caret, as Obsidian's does: the line's words, its block, its
+      // list, its section, then the whole note (lib/grow-selection.ts). With Vim on too, in every mode; Vim's
+      // own ⌃A is its own. Taken here, the key never reaches the menu bar's Select All, which picks it all.
+      "Mod-a": ({ editor }) => {
+        const { state, view } = editor
+        const next = grow(state)
+        if (!next) return true
+        const tr = state.tr.setSelection(markGrown(next))
+        // Vim's visual mode keeps its own ends for y, d and c: told the new ones, they take what ⌘A picked. A pick
+        // that is not words (cells, a code block, the note) is left in normal mode, as ⌘A always left it there.
+        const vim = vimPluginKey.getState(state)
+        if (vim?.enabled && (vim.mode === "visual" || vim.mode === "visualLine"))
+          tr.setMeta(vimPluginKey, next instanceof TextSelection ? { mode: "visual", visualAnchor: next.from, visualHead: next.to - 1 } : { mode: "normal", visualAnchor: null, visualHead: null })
+        view.dispatch(tr)
+        return true
+      },
     }
+  },
+
+  /**
+   * Edit > Select All clicked in the menu bar picks the note whole at once: whoever reaches for the menu wants it
+   * all, and the key is the one that steps. Taken from the browser's own select-all (src/preload), which picked
+   * from the first words to the last and left out a picture at either end.
+   */
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        view: (view) => {
+          const pickAll = (event: Event): void => {
+            if (event.defaultPrevented || !view.hasFocus()) return
+            event.preventDefault()
+            view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
+          }
+          window.addEventListener("haligtree:select-all", pickAll)
+          return { destroy: () => window.removeEventListener("haligtree:select-all", pickAll) }
+        },
+      }),
+    ]
   },
 })

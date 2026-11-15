@@ -4,6 +4,7 @@ import { AllSelection, TextSelection, type EditorState } from '@tiptap/pm/state'
 import { posToDOMRect } from '@tiptap/core'
 import { EditorContext, useEditorState, type Editor } from '@tiptap/react'
 import { domOf, useEditorDom } from '@/lib/editor-dom'
+import { grownByKey } from '@/lib/grow-selection'
 
 import { Toolbar } from '@/components/tiptap-ui-primitive/toolbar'
 
@@ -184,16 +185,17 @@ function useFloat(editor: Editor | null, reading = false, code = false) {
       clearTimeout(held.later.timer)
     }
   }, [page, held])
-  // A selection is offered the bar once it has lasted a moment with no key
-  // since; ⌘A then ⌫ is gone before then, so the bar never flashes up.
+  // A selection ⌘A picked (a step of it, or the whole note) is offered the bar
+  // once it has lasted a moment with no key since; ⌘A then ⌫ is gone before
+  // then, and so is the step before the next ⌘A, so the bar never flashes up.
   const shouldShow = useMemo<BubbleMenuProps['shouldShow']>(() => (props) => {
     // Its timers can outlive the editor (a note closed or redrawn while the bar was waiting to show).
     if (props.editor.isDestroyed) return false
     const { editor: instance, state } = props
-    // A whole-note pick waits before anything of the note or the page is read for it: ⌘A then ⌫ in a long note
-    // read every word of it and laid the page out, for a bar that never showed.
+    // A whole-note pick, or a step ⌘A grew, waits before anything of the note or the page is read for it: ⌘A then
+    // ⌫ in a long note read every word of it and laid the page out, for a bar that never showed.
     const since = performance.now() - held.lastKey.at
-    const waiting = wholeNote(state) && since < SETTLE
+    const waiting = (wholeNote(state) || grownByKey(state.selection)) && since < SETTLE
     if (!waiting) return showFor(props, readingNow.current, codeNow.current) && roomFor(props.editor, held, bar.current?.offsetHeight || BAR_TALL)
     clearTimeout(held.later.timer)
     held.later.timer = window.setTimeout(() => {
