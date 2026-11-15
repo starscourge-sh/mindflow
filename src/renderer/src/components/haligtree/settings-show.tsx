@@ -596,16 +596,38 @@ export const FoldSample = ({ on }: { on: boolean }): React.JSX.Element => (
   </span>
 )
 
-/** Three lines of a note and their numbers in the margin: on, the numbers (with Vim keys, counted out from the middle line, which keeps its own); off, the lines alone. */
-export const LineNumbersSample = ({ on, relative }: { on: boolean; relative: boolean }): React.JSX.Element => (
-  <span data-preview="line-numbers" data-on={on || undefined} className="flex h-9 w-40 flex-col justify-center gap-px rounded-md border bg-background px-2">
+/**
+ * Three lines of a note and their numbers in the margin: on, the numbers (relative: counted out from the middle line,
+ * which keeps its own); off, the lines alone. `both`: the two looks side by side, the one chosen in ink (“Relative”).
+ */
+export const LineNumbersSample = ({ on, relative, both = false }: { on: boolean; relative: boolean; both?: boolean }): React.JSX.Element => (
+  <span data-preview={both ? 'relative-lines' : 'line-numbers'} data-on={on || undefined} data-relative={relative || undefined} className="flex h-9 w-40 flex-col justify-center gap-px rounded-md border bg-background px-2">
     {([[12, 1, 64], [13, 13, 88], [14, 1, 48]] as const).map(([number, away, width], i) => (
       <span key={number} className="flex items-center gap-1.5">
         {/* The type ramp's smallest size, 11px, the three rows a pixel apart so the sample keeps its 36px. */}
-        <span className={`w-4 text-right text-[11px] leading-none tabular-nums transition-opacity duration-200 ${i === 1 ? 'text-(--mf-muted-strong)' : 'text-muted-foreground'} ${on ? '' : 'opacity-0'}`}>{relative ? away : number}</span>
+        {(both ? [false, true] : [relative]).map((counted) => (
+          <span key={String(counted)} className={`w-4 text-right text-[11px] leading-none tabular-nums transition-opacity duration-200 ${i === 1 ? 'text-(--mf-muted-strong)' : 'text-muted-foreground'} ${!on ? 'opacity-0' : both && counted !== relative ? 'opacity-30' : ''}`}>{counted ? away : number}</span>
+        ))}
         <span className="block h-[2px] rounded-full bg-foreground/40" style={{ width }} />
       </span>
     ))}
+  </span>
+)
+
+/** Where `2j` lands from the line above these three: on, the line the margin marks 2, past a paragraph's wrapped second row; off, that row. */
+export const LineJumpSample = ({ on }: { on: boolean }): React.JSX.Element => (
+  <span data-preview="line-jumps" data-on={on || undefined} className="flex h-9 w-40 items-center gap-2 rounded-md border bg-background px-2">
+    <span className="font-mono text-[11px] leading-none text-(--mf-muted-strong)">2j</span>
+    <span className="flex flex-col justify-center gap-px">
+      {([['1', 88], ['', 40], ['2', 64]] as const).map(([number, width], i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          <span className="w-4 text-right text-[11px] leading-none tabular-nums text-muted-foreground">{number}</span>
+          <span className="relative block h-[2px] rounded-full bg-foreground/40" style={{ width }}>
+            {i === (on ? 2 : 1) && <span className="absolute -top-1 left-0 h-2.5 w-1.5 rounded-[1px] bg-(--tt-cursor-color)" />}
+          </span>
+        </span>
+      ))}
+    </span>
   </span>
 )
 

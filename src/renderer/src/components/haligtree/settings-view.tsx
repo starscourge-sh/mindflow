@@ -69,7 +69,7 @@ import { TomorrowPreview } from './tomorrow-lines'
 import { BOX_TABS, SECTIONS as PLACES, ShowList, shownPages, startPageOf } from './places'
 import { SpellLanguages } from './spell-languages'
 import { isMac } from '@/lib/tiptap-utils'
-import { currentVim, onVimChange, setVim } from '@/lib/vim'
+import { currentVim, onVimChange, setVim, VIM_LINES } from '@/lib/vim'
 import { useStoredFlag } from '@/lib/use-stored-flag'
 import { cn } from '@/lib/cn'
 import { RECORDING_KINDS } from '@/lib/recordings'
@@ -84,7 +84,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { StepAsideSample, BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, LineNumbersSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
+import { StepAsideSample, BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, LineJumpSample, LineNumbersSample,TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
 import { useDeskAway } from '@/lib/desk-away'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
@@ -557,6 +557,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
   const iconHover = useFluidHover(iconRow, { items: ':scope > button', axis: 'x' })
   const iconChosen = useChosen(iconRow, ':scope > button[aria-checked="true"]', settings?.appIcon ?? 'bronze')
   const [typewriter, setTypewriter] = useStoredFlag('typewriter')
+  const [vimLines, setVimLines] = useStoredFlag(VIM_LINES)
   // Asked for the reader card or a book, or for what Home shows of your goals: its section, with no search hiding
   // it, and for the goals the row brought into view.
   useEffect(() => {
@@ -870,10 +871,16 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <FoldSample on={settings.foldHeadings !== false} />
             <Switch checked={settings.foldHeadings !== false} onCheckedChange={(foldHeadings) => set({ foldHeadings })} />
           </Setting>
-          <Setting title="Line numbers" note="Each line of a note numbered in its left margin, as Obsidian does: a paragraph is one however it wraps." more={vim ? "With “Vim keys” on they count out from the line you are on, as Vim's relative numbers do; that line keeps its own number." : 'A list counts each item, a column layout counts once.'} keywords="line numbers gutter margin obsidian count paragraphs relative">
-            <LineNumbersSample on={settings.lineNumbers !== false} relative={vim} />
+          <Setting title="Line numbers" note="Each line of a note numbered in its left margin, as Obsidian does: a paragraph is one however it wraps." more="A list counts each item, a column layout counts once. “Relative” comes with them." keywords="line numbers gutter margin obsidian count paragraphs relative">
+            <LineNumbersSample on={settings.lineNumbers !== false} relative={settings.relativeLineNumbers === true} />
             <Switch checked={settings.lineNumbers !== false} onCheckedChange={(lineNumbers) => set({ lineNumbers })} />
           </Setting>
+          {settings.lineNumbers !== false && (
+            <Setting under title="Relative" note="The line you are on keeps its number; the others show how far away they are, as Vim's relative numbers do." keywords="relative line numbers relativenumber distance vim count away">
+              <LineNumbersSample on both relative={settings.relativeLineNumbers === true} />
+              <Switch aria-label="Relative" checked={settings.relativeLineNumbers === true} onCheckedChange={(relativeLineNumbers) => set({ relativeLineNumbers })} />
+            </Setting>
+          )}
           <Setting title="Title at the top" note="A note's first line shows faintly at the top once it scrolls away." keywords="title in the top bar">
             <TitleTopSample on={!!settings.topTitle} />
             <Switch checked={settings.topTitle} onCheckedChange={(topTitle) => set({ topTitle })} />
@@ -898,6 +905,12 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Vim keys" note="Move and edit with Vim's keys as you write." more="Not in reading mode, while you tidy or decide, or in a board's cards." keywords="vim keys keyboard bindings modal normal insert">
             <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>
+          {vim && (
+            <Setting under title="Jump by line numbers" note="A count before j or k moves by the lines the margin numbers: 4j lands on the line marked 4, however the paragraphs wrap." more="7G and 7gg go to line 7, and d3j or V3j take those lines. A j or k on its own still moves one row on the screen. Pairs well with “Relative” line numbers." keywords="vim count jump line numbers relative 4j 12k gg G motion">
+              <LineJumpSample on={vimLines} />
+              <Switch aria-label="Jump by line numbers" checked={vimLines} onCheckedChange={setVimLines} />
+            </Setting>
+          )}
           <Setting title="Typewriter scrolling" note="The line you type on stays near the middle, and the page moves instead." more="Clicking, selecting and scrolling leave it alone; not in quick capture, and also in ⌘K." keywords="typewriter scroll scrolling center centre caret cursor line focus writing">
             <TypewriterSample on={!!typewriter} />
             <Switch checked={typewriter} onCheckedChange={setTypewriter} />

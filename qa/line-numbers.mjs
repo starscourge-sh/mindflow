@@ -1,6 +1,6 @@
 // Line numbers in a note's margin, as Obsidian counts them: one per paragraph (wrapped or empty), heading, list item
 // (nested too), quote paragraph, code block, divider and whole column layout; each on its block's first baseline; the
-// caret's line brighter; with Vim keys, counted out from the caret's line; none when switched off, the words still.
+// caret's line brighter; with “Relative” on, counted out from the caret's line; none when switched off, the words still.
 //   QA_ARGS=--sandbox QA_DATA=<copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/line-numbers.mjs
 import { join } from 'node:path'
 import { checks } from './harness.mjs'
@@ -108,11 +108,12 @@ try {
     await h.screenshot({ path: join(shots, `lines-${theme}-${style}.png`) })
   }
   if (shots) await h.evaluate(() => { localStorage.setItem('theme', 'paper'); localStorage.setItem('style', 'soft'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) })
-  // Vim: counted out from the caret's line, which keeps its own number; five lines down moves the zero.
+  // “Relative”, with Vim keys: counted out from the caret's line, which keeps its own number; five lines down moves the zero.
   await h.evaluate(() => { localStorage.setItem('vim', 'on'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'on' })) })
+  await v('settings:set', { relativeLineNumbers: true })
   await wait(400); await caretIn('bread'); await wait(300)
   got = await read()
-  check('with Vim keys, relative numbers round the caret\'s line, which shows 6', got.words.slice(0, 8).join(' ') === '5 4 3 2 1 6 1 2', got.words.join(' '))
+  check('with “Relative” on, the numbers count out from the caret\'s line, which shows 6', got.words.slice(0, 8).join(' ') === '5 4 3 2 1 6 1 2', got.words.join(' '))
   // Into Normal mode if the note is not in it yet (Esc in Normal mode would take the keys to the list beside it).
   const mode = await h.evaluate(() => document.querySelector('[data-open] .tiptap').getAttribute('data-vim-mode'))
   if (mode !== 'normal') await h.keyboard.press('Escape')
@@ -216,14 +217,14 @@ try {
   const sample = () => h.$eval(`${row} [data-preview="line-numbers"]`, (one) => [...one.querySelectorAll(':scope > span > span:first-child')].map((n) => `${n.textContent}@${getComputedStyle(n).opacity}`).join(' '))
   const on = () => h.$eval(`${row} button[role="switch"]`, (one) => one.getAttribute('aria-checked'))
   check('Settings, Writing: “Line numbers” is on to start', (await on()) === 'true')
-  check('with Vim keys on, its sample counts out from the middle line, which keeps its own', (await sample()) === '1@1 13@1 1@1', await sample())
+  check('with “Relative” on, its sample counts out from the middle line, which keeps its own', (await sample()) === '1@1 13@1 1@1', await sample())
   if (shots) await h.$(row).then((one) => one.screenshot({ path: join(shots, 'lines-setting-vim.png') }))
   await h.click(`${row} button[role="switch"]`); await wait(600)
   check('pressed off: saved off, its sample\'s numbers gone', (await v('settings')).lineNumbers === false && /^1@0 13@0 1@0$/.test(await sample()), await sample())
   if (shots) await h.$(row).then((one) => one.screenshot({ path: join(shots, 'lines-setting-off.png') }))
   await h.click(`${row} button[role="switch"]`); await wait(600)
-  await h.evaluate(() => { localStorage.setItem('vim', 'off'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'off' })) }); await wait(400)
-  check('pressed on again with Vim keys off: plain numbers 12 13 14', (await v('settings')).lineNumbers === true && (await sample()) === '12@1 13@1 14@1', await sample())
+  await v('settings:set', { relativeLineNumbers: false }); await wait(400)
+  check('pressed on again with “Relative” off: plain numbers 12 13 14', (await v('settings')).lineNumbers === true && (await sample()) === '12@1 13@1 14@1', await sample())
   if (shots) await h.$(row).then((one) => one.screenshot({ path: join(shots, 'lines-setting-on.png') }))
   // The worst case (break-ui): a note of 12,345 lines, five digits, in the pane beside Writing's list.
   const big = await v('article:new')

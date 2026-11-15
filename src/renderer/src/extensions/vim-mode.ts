@@ -11,13 +11,19 @@ import { undo, redo } from "@tiptap/pm/history"
 
 // --- Lib ---
 import { wordRangeAt } from "@/lib/word-range"
+import { currentVimLines } from "@/lib/vim"
+import { caretLine, lineOf, lineSpan } from "./line-numbers"
 
 /**
  * A deliberately small vim mode. It is off unless you pass `enabled: true`.
  *
  *   modes         i I a A o O v V gv Esc
  *   motions       h j k l w e b ge W E B gE 0 ^ $ { } % gg G f F t T ; ,
- *                 with counts (5j)
+ *                 with counts (5j); with “Jump by line numbers” on, a
+ *                 count before j or k moves by the lines the margin
+ *                 numbers (4j lands on the line marked 4, however the
+ *                 paragraphs wrap) and 7G or 7gg goes to line 7, for an
+ *                 operator (d3j) and in visual mode too
  *   scrolling     Ctrl-f Ctrl-b (page), Ctrl-d Ctrl-u (half page),
  *                 Ctrl-e Ctrl-y (a line), zz (cursor to the middle)
  *   jumps         Ctrl-o Ctrl-i
@@ -35,7 +41,8 @@ import { wordRangeAt } from "@/lib/word-range"
  *
  * ProseMirror is a tree, not a buffer, so "line" means the block under the
  * cursor - a paragraph, heading, or list item. `j`/`k` still move by visual
- * row, because they walk screen coordinates rather than positions.
+ * row, because they walk screen coordinates rather than positions; only a
+ * count with “Jump by line numbers” on moves them by numbered lines.
  */
 
 type VimModeName = "normal" | "insert" | "visual" | "visualLine"
@@ -665,6 +672,23 @@ function moveVertical(view: EditorView, dir: 1 | -1, count: number): void {
   if (to !== from) select(view, to, dir)
 }
 
+/**
+ * A count before `j` or `k` with “Jump by line numbers” on: to the line the
+ * margin marks that far away, however the paragraphs between wrap, as far
+ * along it as the caret was along its own (Vim's column) and never past its
+ * last character. A picture or a divider is picked whole. Past either end
+ * of the note it stops on the first or last line.
+ */
+function moveByLines(view: EditorView, delta: number): void {
+  const { state } = view
+  const { selection } = state
+  const column = selection instanceof TextSelection ? selection.head - textLineAt(selection.$head).start : 0
+  const from = lineSpan(state.doc, caretLine(state) + delta).from
+  const $in = TextSelection.near(state.doc.resolve(from), 1).$head
+  const leaf = state.doc.nodeAt(from)?.isLeaf
+  select(view, !leaf && $in.parent.isTextblock ? Math.min($in.pos + column, Math.max($in.pos, textLineAt($in).end - 1)) : from)
+}
+
 /** The first cursor position inside every textblock, in document order. */
 function textblockStarts(doc: ProseMirrorNode): number[] {
   const starts: number[] = []
@@ -676,24 +700,32 @@ function textblockStarts(doc: ProseMirrorNode): number[] {
   return starts
 }
 
-/** gg and G. `index` is 1-based; Infinity means the last block. */
-function gotoBlock(view: EditorView, index: number): void {
-  const starts = textblockStarts(view.state.doc)
-  if (!starts.length) return
-
+/**
+ * gg and G. `index` is 1-based; Infinity means the last block. `lines`: to
+ * the line the margin numbers so (a count with “Jump by line numbers” on),
+ * the last one for a number past the end.
+ */
+function gotoBlock(view: EditorView, index: number, lines = false): void {
   const last = index === Infinity
-  const i = last
-    ? starts.length - 1
-    : Math.min(starts.length, Math.max(1, index)) - 1
-  select(view, starts[i])
+  let first = index <= 1
+  if (lines) select(view, lineSpan(view.state.doc, index).from)
+  else {
+    const starts = textblockStarts(view.state.doc)
+    if (!starts.length) return
+    const i = last
+      ? starts.length - 1
+      : Math.min(starts.length, Math.max(1, index)) - 1
+    select(view, starts[i])
+    first = i === 0
+  }
 
   // scrollIntoView only scrolls the minimum, so the first block still sits
   // under the padding. gg and G mean the very top and the very bottom.
-  if (i !== 0 && !last) return
+  if (!first && !last) return
   const scroller = scrollParent(view.dom as HTMLElement)
   // At once: eased over a long note it drew every block on the way, and the
   // blocks drawn as it went moved the end out from under it.
-  const top = i === 0 ? 0 : (scroller?.scrollHeight ?? document.body.scrollHeight)
+  const top = first ? 0 : (scroller?.scrollHeight ?? document.body.scrollHeight)
   ;(scroller ?? window).scrollTo({ top, behavior: "instant" })
 }
 
@@ -1155,10 +1187,9 @@ function runMotion(
       moveHorizontal(view, count)
       return true
     case "j":
-      moveVertical(view, 1, count)
-      return true
     case "k":
-      moveVertical(view, -1, count)
+      if (hadCount && currentVimLines()) moveByLines(view, key === "j" ? count : -count)
+      else moveVertical(view, key === "j" ? 1 : -1, count)
       return true
     case "0":
       moveHorizontal(view, -Infinity)
@@ -1167,7 +1198,7 @@ function runMotion(
       moveHorizontal(view, Infinity)
       return true
     case "G":
-      gotoBlock(view, hadCount ? count : Infinity)
+      gotoBlock(view, hadCount ? count : Infinity, hadCount && currentVimLines())
       return true
     case "}":
       moveByBlock(view, 1, count)
@@ -1190,7 +1221,7 @@ function runMotion(
       wordMotion(view, "ge", count, key === "gE")
       return true
     case "gg":
-      gotoBlock(view, hadCount ? count : 1)
+      gotoBlock(view, hadCount ? count : 1, hadCount && currentVimLines())
       return true
     case "%": {
       // The bracket under the cursor, or the next one along the line, to the
@@ -1270,16 +1301,17 @@ function applyToRange(
 
   // Removing every child of a list or quote would leave an empty container,
   // which the schema forbids and ProseMirror silently refuses. Take the
-  // container with it instead.
+  // container with it instead: also when the lines run on past its end, as
+  // d2j from a bullet's last two sub-bullets into the bullet after it does.
   while (linewise && operator !== "y") {
     const $from = state.doc.resolve(from)
     if ($from.depth < 1) break
     // A table cell is isolating: walking out of one takes the cell itself,
     // leaving the row a column short.
     if ($from.node().type.spec.isolating) break
-    if ($from.start() !== from || $from.end() !== to) break
+    if ($from.start() !== from || $from.end() > to) break
     from = $from.before()
-    to = $from.after()
+    to = Math.max(to, $from.after())
   }
 
   if (operator === "gU" || operator === "gu") {
@@ -1742,14 +1774,25 @@ function visualRange(
   let to = inclusiveEnd(state, Math.max(anchor, head))
 
   if (linewise) {
-    const first = lineSpanAt(state, from)
-    const last = lineSpanAt(state, to)
+    const [first, last] = lineSpans(state, from, to)
     if (!first || !last) return null
     from = first.from
     to = last.to
   }
 
   return { from, to }
+}
+
+/**
+ * The first and last lines a linewise command reaches from one place to
+ * another: the blocks the two sit in or, with “Jump by line numbers” on and
+ * the two on different lines of the margin, those lines whole, as they are
+ * numbered (a table, a code block, a picture each one line).
+ */
+function lineSpans(state: EditorState, a: number, b: number, numbered = currentVimLines()): [LineSpan | null, LineSpan | null] {
+  const { doc } = state
+  const [one, two] = numbered ? [lineOf(doc, a), lineOf(doc, b)] : [0, 0]
+  return one !== two ? [lineSpan(doc, one), lineSpan(doc, two)] : [lineSpanAt(state, a), lineSpanAt(state, b)]
 }
 
 /** A line span with any sub-list trimmed off: what an operator will take. */
@@ -1784,8 +1827,7 @@ function showVisual(
     // Trimmed, because that is what `d` and `y` will take. Highlighting a
     // bullet's sub-bullets and then leaving them behind is the same surprise
     // the other way round.
-    const first = lineSpanAt(view.state, anchor)
-    const last = lineSpanAt(view.state, head)
+    const [first, last] = lineSpans(view.state, anchor, head)
     if (!first || !last) return
     const anchorLine = lineOnly(view.state, first)
     const headLine = lineOnly(view.state, last)
@@ -2183,7 +2225,9 @@ export const VimMode = Extension.create<VimModeOptions>({
 
             /** A motion in visual mode moved the head - redraw the range. */
             const afterMotion = (): true => {
-              const head = view.state.selection.head
+              // By whole lines, a picture or a divider picked whole is its own line, not the gap after it.
+              const { selection } = view.state
+              const head = linewise && selection instanceof NodeSelection ? selection.from : selection.head
               if (inVisual && anchor !== null) {
                 showVisual(view, anchor, head, linewise)
               }
@@ -2599,7 +2643,8 @@ export const VimMode = Extension.create<VimModeOptions>({
               // Visual-line grows by whole lines. Walking visual rows would
               // get stuck inside a list item that wraps. In code each line is
               // a line of its own, so j and k step through them, not past the block.
-              if (linewise && (key === "j" || key === "k") && !view.state.selection.$head.parent.type.spec.code) {
+              // A count with “Jump by line numbers” on goes by numbered lines (runMotion).
+              if (linewise && (key === "j" || key === "k") && !view.state.selection.$head.parent.type.spec.code && !(hadCount && currentVimLines())) {
                 stepBlock(view, key === "j" ? 1 : -1, count)
                 return afterMotion()
               }
@@ -2678,6 +2723,7 @@ export const VimMode = Extension.create<VimModeOptions>({
                 // An operator with a motion: `dw`, `c$`, `y}`. Run the motion to
                 // find where it lands, then work on everything in between.
                 const start = view.state.selection.head
+                const startAt = view.state.selection instanceof NodeSelection ? view.state.selection.from : start
                 // `cw` behaves like `ce`: vim's own exception, so that changing
                 // a word does not swallow the space after it.
                 const measure = operator === "c" && motion === "w" ? "e" : motion
@@ -2717,8 +2763,9 @@ export const VimMode = Extension.create<VimModeOptions>({
                 }
 
                 if (LINEWISE_MOTIONS.includes(motion)) {
-                  const first = lineSpanAt(view.state, from)
-                  const last = lineSpanAt(view.state, to)
+                  // A picture or a divider picked whole is its own line, not the gap after it.
+                  const landedAt = view.state.selection instanceof NodeSelection ? view.state.selection.from : landed
+                  const [first, last] = lineSpans(view.state, Math.min(startAt, landedAt), Math.max(startAt, landedAt), hadCount && currentVimLines())
                   if (first && last) {
                     applyToRange(view, operator, first.from, last.to, true)
                     if (operator !== "c") collapseSelection(view, first.from)

@@ -1,17 +1,18 @@
 import { Extension } from "@tiptap/core"
-import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state"
+import { NodeSelection, Plugin, PluginKey, type EditorState } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
+import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { DRAWN } from "./long-document"
-import { vimPluginKey } from "./vim-mode"
 
 /**
  * Line numbers in a note's left margin, as Obsidian draws them: one number per line a person reads as one.
  *
  * A paragraph is one however it wraps, and so is a heading, a picture, a table, a code block, a divider, a callout
  * and a whole column layout; each item of a list is one, nested ones too, and each paragraph of a quote. Empty
- * paragraphs count, as empty lines do in Obsidian. With Vim keys on they count out from the caret's line, Vim's
+ * paragraphs count, as empty lines do in Obsidian. With “Relative” on they count out from the caret's line, Vim's
  * number and relativenumber together: the caret's own line shows its real number, the rest how far away they are.
+ * With Vim's “Jump by line numbers” on, its counts (`4j`, `7G`) go by these same lines (`caretLine`, `lineSpan`), so a
+ * jump lands where the margin says, shown or not.
  *
  * The numbers are drawn in a layer of their own beside the note, never in it: nothing is added to the note's page,
  * so ProseMirror sees no change and the words never move. Each number stands on the baseline of its block's first
@@ -29,12 +30,14 @@ const key = new PluginKey("lineNumbers")
  */
 export const LINES = "mf:lines"
 
-/** Whether notes show their line numbers, for every editor on the page at once (Settings, “Line numbers”). */
+/** Whether notes show their line numbers, and counted out from the caret's line, for every editor on the page at once (Settings, “Line numbers” and “Relative”). */
 let on = true
+let counted = false
 const views = new Set<EditorView>()
-export function setLineNumbers(shown: boolean): void {
-  if (on === shown) return
+export function setLineNumbers(shown: boolean, relative: boolean): void {
+  if (on === shown && counted === relative) return
   on = shown
+  counted = relative
   for (const view of views) view.dispatch(view.state.tr.setMeta(key, true))
 }
 
@@ -69,9 +72,8 @@ function itemLines(item: ProseMirrorNode): number {
   return lines
 }
 
-/** Which of a block's lines (from 0) holds the caret, `depth` being the block's depth in the note. */
-function lineWithin(node: ProseMirrorNode, state: EditorState, depth: number): number {
-  const { $head } = state.selection
+/** Which of a block's lines (from 0) holds a place, `depth` being the block's depth in the note. */
+function lineWithin(node: ProseMirrorNode, $head: ResolvedPos, depth: number): number {
   if ($head.depth < depth) return 0
   const name = node.type.name
   const at = $head.index(depth)
@@ -85,15 +87,80 @@ function lineWithin(node: ProseMirrorNode, state: EditorState, depth: number): n
     let lines = 1
     for (let i = 0; i < inner && i < item.childCount; i++) if (LISTS.has(item.child(i).type.name)) lines += linesIn(item.child(i))
     const child = item.maybeChild(inner)
-    return child && LISTS.has(child.type.name) && $head.depth > depth + 1 ? before + lines + lineWithin(child, state, depth + 2) : before
+    return child && LISTS.has(child.type.name) && $head.depth > depth + 1 ? before + lines + lineWithin(child, $head, depth + 2) : before
   }
   if (name === QUOTE) {
     let before = 0
     for (let i = 0; i < at && i < node.childCount; i++) before += linesIn(node.child(i))
     const child = node.maybeChild(at)
-    return child && $head.depth > depth ? before + lineWithin(child, state, depth + 1) : before
+    return child && $head.depth > depth ? before + lineWithin(child, $head, depth + 1) : before
   }
   return 0
+}
+
+/**
+ * The line (from 1) a place in the note is on, as the margin numbers it. `before` says how many lines come before a
+ * top-level block: the margin keeps them, a Vim count adds them up.
+ */
+export function lineOf(doc: ProseMirrorNode, pos: number, before = (index: number): number => {
+  let lines = 0
+  for (let i = 0; i < index; i++) lines += linesIn(doc.child(i))
+  return lines
+}): number {
+  if (!doc.childCount) return 0
+  const $at = doc.resolve(pos)
+  const index = Math.min($at.index(0), doc.childCount - 1)
+  return before(index) + 1 + lineWithin(doc.child(index), $at, 1)
+}
+
+/** The caret's line: a picture or a divider picked whole is its own, not the one after it. */
+export const caretLine = (state: EditorState, before?: (index: number) => number): number =>
+  lineOf(state.doc, state.selection instanceof NodeSelection ? state.selection.from : state.selection.head, before)
+
+/**
+ * Where line `n` (from 1) stands, from before to after what holds it: a block, a list's item (the items nested in
+ * it with it) or a quote's paragraph. Past the note's end, its last line; before its start, its first.
+ */
+export function lineSpan(doc: ProseMirrorNode, n: number): { from: number; to: number } {
+  let left = Math.max(1, n) - 1
+  let pos = 0
+  for (let i = 0; i < doc.childCount; i++) {
+    const block = doc.child(i)
+    const lines = linesIn(block)
+    if (left < lines || i === doc.childCount - 1) return spanWithin(block, pos, Math.min(left, lines - 1))
+    left -= lines
+    pos += block.nodeSize
+  }
+  return { from: 0, to: doc.content.size }
+}
+
+/** Line `left` (from 0) of a block standing at `pos`, in the order `rowsOf` numbers its rows. */
+function spanWithin(node: ProseMirrorNode, pos: number, left: number): { from: number; to: number } {
+  const list = LISTS.has(node.type.name)
+  if (!list && node.type.name !== QUOTE) return { from: pos, to: pos + node.nodeSize }
+  let at = pos + 1
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i)
+    // An item is its own line and then the lines of the lists inside it; a quote's child, its own lines.
+    const lines = list ? itemLines(child) : linesIn(child)
+    if (left < lines) {
+      if (!list) return spanWithin(child, at, left)
+      if (left === 0) return { from: at, to: at + child.nodeSize }
+      left -= 1
+      let inner = at + 1
+      for (let j = 0; j < child.childCount; j++) {
+        const sub = child.child(j)
+        if (LISTS.has(sub.type.name)) {
+          if (left < linesIn(sub)) return spanWithin(sub, inner, left)
+          left -= linesIn(sub)
+        }
+        inner += sub.nodeSize
+      }
+    }
+    left -= lines
+    at += child.nodeSize
+  }
+  return { from: pos, to: pos + node.nodeSize }
 }
 
 /** ProseMirror's own record of what a piece of the page stands for. */
@@ -154,13 +221,6 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
 
   const shown = (): boolean => on && view.editable
 
-  const caretLine = (state: EditorState): number => {
-    const index = state.selection.$head.index(0)
-    const block = state.doc.maybeChild(index)
-    if (!block) return 0
-    return linesBefore(index) + 1 + lineWithin(block, state, 1)
-  }
-
   /** Which blocks are numbered and with what, from the note and what is drawn of it: nothing is measured here. */
   const collect = (): void => {
     rows = []
@@ -185,11 +245,10 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     }
   }
 
-  /** The words of each number: the caret's line its own, the others theirs or, with Vim, how far they are from it. */
+  /** The words of each number: the caret's line its own, the others theirs or, with “Relative”, how far they are from it. */
   const label = (): void => {
-    const state = view.state
-    caret = caretLine(state)
-    relative = !!vimPluginKey.getState(state)?.enabled
+    caret = caretLine(view.state, linesBefore)
+    relative = counted
     for (let i = 0; i < marks.length; i++) {
       const n = numbers[i]
       const words = String(relative && n !== caret ? Math.abs(n - caret) : n)
@@ -383,8 +442,8 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
       // Switched on or off (Settings), or the note locked or unlocked; or a block made again by its own view (a
       // task, as Vim's line comes or goes): numbered and set again. A glance at each row, nothing laid out.
       if (!!rows.length !== shown() || (!rows.length && shown()) || rows.some((row) => !row.isConnected)) return redraw()
-      // Only the caret moved, or Vim was switched: the words of the numbers, nothing measured.
-      if ((!view.state.selection.eq(previous.selection) || !!vimPluginKey.getState(view.state)?.enabled !== relative) && !frame && marks.length) label()
+      // Only the caret moved, or “Relative” was switched: the words of the numbers, nothing measured.
+      if ((!view.state.selection.eq(previous.selection) || counted !== relative) && !frame && marks.length) label()
     },
     destroy: () => {
       cancelAnimationFrame(frame)

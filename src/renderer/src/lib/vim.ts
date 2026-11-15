@@ -35,6 +35,14 @@ export async function settleVim(): Promise<void> {
   setVim(captures.some((one) => !one.source && new Date(one.capturedAt) < today))
 }
 
+/**
+ * “Jump by line numbers”, under “Vim keys”: a count before `j` or `k` (`4j`) moves by the lines the margin numbers,
+ * and `7G` goes to line 7. Off to start. Stored beside the Vim switch and read as each count is used, so quick
+ * capture and every window follow it at once.
+ */
+export const VIM_LINES = "vimLines"
+export const currentVimLines = (): boolean => localStorage.getItem(VIM_LINES) === "on"
+
 /** Turn it on or off everywhere, and remember it. */
 export function setVim(on: boolean): void {
   localStorage.setItem("vim", on ? "on" : "off")
