@@ -223,8 +223,11 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     const now = new Set(rows)
     for (const row of watched) if (!now.has(row)) (resized.unobserve(row), watched.delete(row))
     for (const row of rows) if (!watched.has(row)) (resized.observe(row), watched.add(row))
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i]
+    // Every place read first, then every number set: a number set between two readings had the browser lay the
+    // page out again for the next one, once per row (some 300 times in the largest note, as it opened and as its
+    // drawn blocks moved under a scroll).
+    const places: { y: string; line: Line }[] = []
+    for (const row of rows) {
       // Its first line: the block itself, or the first words inside one counted whole (a callout, a table).
       const first = row.matches("p, h1, h2, h3, h4, h5, h6, li") ? row : (row.querySelector<HTMLElement>("p, h1, h2, h3, h4, h5, h6, pre") ?? row)
       // By what holds it and what it is: a quote's or a callout's words may be set apart from the page's.
@@ -236,14 +239,16 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
         line = { size: style.fontSize, height: style.lineHeight, font: style.fontFamily }
         kinds.set(kind, line)
       }
-      const mark = marks[i]
       const pad = first.tagName === "PRE" ? parseFloat(getComputedStyle(first).paddingTop) || 0 : 0
-      const y = `${Math.round((first.getBoundingClientRect().top - top + pad) * 100) / 100}px`
+      places.push({ y: `${Math.round((first.getBoundingClientRect().top - top + pad) * 100) / 100}px`, line })
+    }
+    places.forEach(({ y, line }, i) => {
+      const mark = marks[i]
       if (mark.style.top !== y) mark.style.top = y
       if (mark.style.fontSize !== line.size) mark.style.fontSize = line.size
       if (mark.style.lineHeight !== line.height) mark.style.lineHeight = line.height
       if (mark.style.fontFamily !== line.font) mark.style.fontFamily = line.font
-    }
+    })
     label()
   }
 
