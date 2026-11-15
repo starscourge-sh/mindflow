@@ -535,8 +535,10 @@ function heardAway(event: Event): void {
     now.heard = true
   }
   if (!held?.away) return
-  held.x = drag.clientX
-  held.y = drag.clientY
+  // Over its own note's words: anywhere else on the page (a field beside it that takes drops of its own) is not its to take.
+  const over = drag.target instanceof Node && now.view.dom.contains(drag.target)
+  held.x = over ? drag.clientX : -1e4
+  held.y = over ? drag.clientY : -1e4
   if (drag.type === 'dragover') point(held)
   // Off its note, or beside a full row: not the note's to take, as for the grip; let go there, it is all home.
   const aim = held.aim
