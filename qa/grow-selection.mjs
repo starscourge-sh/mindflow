@@ -28,6 +28,20 @@ const picked = () => h.evaluate((sel) => {
   const s = ed.state.selection
   return { kind: s.toJSON().type, empty: s.empty, words: s.ranges.map((r) => ed.state.doc.textBetween(r.$from.pos, r.$to.pos, '|', '#')).join('/'), from: s.from, to: s.to, mode: ed.view.dom.getAttribute('data-vim-mode') }
 }, ED)
+// The selection bar, if it shows: and whether it is clear of the words picked (none of them under it).
+const bar = () => h.evaluate((sel) => {
+  const one = [...document.querySelectorAll('.tiptap-toolbar[data-variant="floating"]')].find((el) => el.parentElement?.isConnected && getComputedStyle(el.parentElement).visibility === 'visible' && el.getBoundingClientRect().width > 0)
+  if (!one) return { shown: false }
+  const r = one.getBoundingClientRect()
+  const dom = document.querySelector(sel)
+  const ed = dom.editor
+  const { from, to } = ed.state.selection
+  const top = ed.view.coordsAtPos(from).top, bottom = ed.view.coordsAtPos(to).bottom
+  // The top of what is in sight: a pick that starts above it has the bar at the top of the sight, by design.
+  let sight = 0
+  for (let el = dom.parentElement; el && el !== document.documentElement; el = el.parentElement) if (/(auto|scroll)/.test(getComputedStyle(el).overflowY)) sight = Math.max(sight, el.getBoundingClientRect().top)
+  return { shown: true, clear: r.bottom <= top + 1 || r.top >= bottom - 1 || top < sight + r.height }
+}, ED)
 // The caret into the words `word`, by a real click on them, brought to the middle of the screen first.
 const caretIn = async (word) => {
   const place = ([sel, word, scroll]) => {
@@ -97,6 +111,13 @@ async function run(word, said, steps, label, shots) {
     await h.keyboard.press('Meta+a')
     // Filmed every 50 ms after the press (Paper): the bar over the words waits, then comes once, whole.
     if (shots && SHOTS && i === 1) for (let f = 0; f < 6; f++) { await h.screenshot({ path: join(SHOTS, `e4-${word.replace(/\W+/g, '-')}-step${i + 1}-film${f * 50}ms.png`) }); await wait(50) }
+    // The bar never sits on what the step took in: gone at the press, back above the new pick once the keys rest.
+    if (shots && kind === 'text' && i > 0) {
+      const gone = await bar()
+      await wait(450)
+      const back = await bar()
+      check(`${label}: from ${said}, ⌘A ${i + 1}: the bar leaves at the press and comes back clear of the words`, !gone.shown && back.shown && back.clear, `${JSON.stringify(gone)} then ${JSON.stringify(back)}`)
+    }
     await wait(120)
     const now = await picked()
     seen.push(now)
