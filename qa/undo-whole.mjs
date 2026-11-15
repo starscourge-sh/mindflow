@@ -268,7 +268,7 @@ try {
     await whole(NOTE, 'deleted straight after typing')
   }
 } catch (e) {
-  check('ran to the end', false, e.message.split('\n')[0])
+  check('ran to the end', false, e.message.split('\n').slice(0, 4).join(' | '))
 } finally {
   await c.close()
 }
