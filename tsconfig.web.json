@@ -7,6 +7,7 @@
     "src/preload/*.d.ts",
     "src/preload/index.ts",
     "src/preload/hear.ts",
+    "src/preload/stand-in-clipboard.ts",
     "src/main/**/*.ts"
   ],
   "compilerOptions": {
