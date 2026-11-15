@@ -48,17 +48,24 @@ const read = (page) => page.evaluate(() => {
       }
     }
   }
-  const front = document.querySelector('[data-pane-front]') ?? document
-  const lists = [...front.querySelectorAll('*')].filter((one) => !one.closest('.haligtree-editor-content') && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.scrollHeight > one.clientHeight + 40)
+  // The page's own list, inside the front pane's page card: never the sidebar, which with one pane (no front pane to
+  // look in) was the tallest box in the window while the Inbox was still being read, so it was the one scrolled.
+  const card = document.querySelector('[data-pane-front] [data-pane-card]') ?? document.querySelector('[data-pane-card]')
+  const lists = [...(card?.querySelectorAll('*') ?? [])].filter((one) => !one.closest('.haligtree-editor-content, [data-page-held]') && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.scrollHeight > one.clientHeight + 40)
   const list = lists.sort((a, b) => b.scrollHeight - a.scrollHeight)[0]
   return { tabs, block, list: list ? Math.round(list.scrollTop) : null, listTall: list?.scrollHeight ?? 0 }
 })
-const scrollList = (page, by) => page.evaluate((by) => {
-  const front = document.querySelector('[data-pane-front]') ?? document
-  const list = [...front.querySelectorAll('*')].filter((one) => !one.closest('.haligtree-editor-content') && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.scrollHeight > one.clientHeight + 40).sort((a, b) => b.scrollHeight - a.scrollHeight)[0]
-  list?.scrollTo({ top: by, behavior: 'instant' })
-  return list ? list.scrollTop : null
-}, by)
+const scrollList = async (page, by) => {
+  // Once the Inbox's list is drawn and long enough: the page being left stays on show while it reads (page-swap.tsx).
+  // The Inbox lists its last few days, so it may hold less than the 900 asked for: as far down as it goes, then.
+  await page.waitForFunction(() => [...((document.querySelector('[data-pane-front] [data-pane-card]') ?? document.querySelector('[data-pane-card]'))?.querySelectorAll('[data-page="inbox"] *') ?? [])].some((one) => !one.closest('[data-page-held]') && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.scrollHeight - one.clientHeight > 100), null, { timeout: 30000 }).catch(() => {})
+  return page.evaluate((by) => {
+    const card = document.querySelector('[data-pane-front] [data-pane-card]') ?? document.querySelector('[data-pane-card]')
+    const list = [...(card?.querySelectorAll('*') ?? [])].filter((one) => !one.closest('.haligtree-editor-content, [data-page-held]') && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.scrollHeight > one.clientHeight + 40).sort((a, b) => b.scrollHeight - a.scrollHeight)[0]
+    list?.scrollTo({ top: by, behavior: 'instant' })
+    return list ? list.scrollTop : null
+  }, by)
+}
 const homes = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((one) => !one.isDestroyed() && one.webContents.getURL().includes('view=home')).map((one) => ({ url: one.webContents.getURL().replace(/^.*\?/, ''), bounds: one.getBounds(), shown: one.isVisible() })))
 
 try {
@@ -107,7 +114,7 @@ try {
   const typedIn = await h.evaluate((typed) => [...document.querySelectorAll('.haligtree-editor-content .ProseMirror')].some((one) => one.textContent.includes(typed.trim())), TYPED)
   const bounds = (await homes())[0]?.bounds
   console.log(`before: ${JSON.stringify({ ...before, listAt, bounds, typedIn })}`)
-  check('set up: two tabs, the note on show part-way down with words just typed in it, the list scrolled', before.tabs.length === 2 && before.tabs[1].on && before.block?.top > 300 && listAt > 300 && typedIn, JSON.stringify({ tabs: before.tabs.length, block: before.block, listAt, typedIn }))
+  check('set up: two tabs, the note on show part-way down with words just typed in it, the list scrolled', before.tabs.length === 2 && before.tabs[1].on && before.block?.top > 300 && listAt > 100 && typedIn, JSON.stringify({ tabs: before.tabs.length, block: before.block, listAt, typedIn }))
   // "Show the welcome again" from the Haligtree menu, as a person picks it.
   await electron.evaluate(({ Menu }) => {
     const find = (items) => { for (const one of items) { if (one.label === 'Show the welcome again') return one; const inner = one.submenu && find(one.submenu.items); if (inner) return inner } }
