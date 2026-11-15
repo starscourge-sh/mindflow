@@ -211,16 +211,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
       told(false)
       return
     }
-    // Last in the note's scroller, after what a long note keeps at its ends, and laid at the note's own top.
-    if (!layer.isConnected) view.dom.parentElement?.append(layer)
-    // The note's own size of words and left room, read again only when the note changed size (or a font arrived).
-    if (!sized) {
-      sized = true
-      roomy()
-      const look = getComputedStyle(view.dom)
-      if (look.fontSize !== em) (kinds.clear(), (em = look.fontSize))
-      if (layer.style.getPropertyValue("--mf-lines-pad") !== look.paddingLeft) layer.style.setProperty("--mf-lines-pad", look.paddingLeft)
-    }
+    size()
     const top = view.dom.getBoundingClientRect().top
     while (marks.length < rows.length) {
       const mark = document.createElement("div")
@@ -263,6 +254,21 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     })
     label()
     told(true)
+  }
+
+  // The layer in place (last in the note's scroller, after what a long note keeps at its ends, laid at the note's own
+  // top) and the note's own size of words and left room, read again only when the note changed size or a font
+  // arrived. Done where the numbers are first asked for, in the same breath as the words they stand beside, never a
+  // frame after: the room given then narrowed the words, every line under it moved down, and a press made on the
+  // first screen landed lines above where it was aimed (qa/long-note-press-early.mjs, 15 Nov 2026).
+  const size = (): void => {
+    if (!layer.isConnected) view.dom.parentElement?.append(layer)
+    if (sized || !layer.isConnected) return
+    sized = true
+    roomy()
+    const look = getComputedStyle(view.dom)
+    if (look.fontSize !== em) (kinds.clear(), (em = look.fontSize))
+    if (layer.style.getPropertyValue("--mf-lines-pad") !== look.paddingLeft) layer.style.setProperty("--mf-lines-pad", look.paddingLeft)
   }
 
   // Room for the column and the slim grip beside it inside what holds the note. Beside a list a note's pane leaves
@@ -333,6 +339,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     // room grew with it, and every word moved under a press made then (qa/long-note-press-early.mjs, 15 Nov 2026).
     // Each block's lines are kept (`counts`, `before`), so after a change this walks only from the change on.
     count()
+    size()
     schedule()
   }
 
