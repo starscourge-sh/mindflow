@@ -86,6 +86,8 @@ try {
   // 5. ⌘C and ⌘X where nothing takes the copy: words picked on a page, and in a field.
   await h.evaluate(() => {
     const words = Object.assign(document.body.appendChild(document.createElement('p')), { id: 'qa-words', tabIndex: -1, textContent: 'Words on the page itself.' })
+    // Selectable, as a note's or a reader's words are: the app's own frame is not (user-select: none).
+    words.style.userSelect = 'text'
     words.focus()
     const range = document.createRange()
     range.selectNodeContents(words)
