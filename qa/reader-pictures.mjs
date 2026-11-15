@@ -9,7 +9,8 @@
 // Every host is moved to an address on the internet, so fetchOutside's guard runs and nothing asks a name server.
 //   QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/reader-pictures.mjs
 // QA_SHOTS=<folder> keeps the reader at its top, middle and end for each page, light and dark.
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { deflateSync, crc32 } from 'node:zlib'
 import { checks } from './harness.mjs'
@@ -76,6 +77,7 @@ try {
     globalThis.fetch = async (input, init) => {
       const url = String(input instanceof URL ? input.href : (input?.url ?? input))
       if (!/^https:\/\/93\.184\.216\.\d+\//.test(url)) return globalThis.__realFetch(input, init)
+      if (pages[url]) globalThis.__pagesAsked = (globalThis.__pagesAsked ?? 0) + 1
       if (pages[url]) return new Response(pages[url], { headers: { 'content-type': 'text/html; charset=utf-8' } })
       const picture = pictures[url]
       return picture ? new Response(Buffer.from(picture.bytes, 'base64'), { headers: { 'content-type': picture.type } }) : new Response('', { status: 404 })
@@ -138,6 +140,23 @@ try {
       }
       await look('dark')
     }
+  }
+  // A page kept by the earlier reader (its HTML without this reader's first line, as the user's notability.com was
+  // kept on 15 Nov) is read again when next opened, and kept as this reader keeps it.
+  const book = `${process.env.QA_DATA}/sandbox/haligtree.db`
+  if (site.notability && existsSync(book)) {
+    const sql = (query) => execFileSync('sqlite3', ['-cmd', '.timeout 5000', book, query]).toString().trim()
+    const where = `href = '${site.notability.href}'`
+    sql(`update web_articles set html = substr(html, 18) where ${where} and html like '<!-- reader 2 -->%'`)
+    const earlier = sql(`select substr(html, 1, 17) from web_articles where ${where}`)
+    await go('home')
+    const asked = await electron.evaluate(() => globalThis.__pagesAsked ?? 0)
+    await h.evaluate((href) => window.dispatchEvent(new CustomEvent('haligtree:web', { detail: { href } })), site.notability.href)
+    await h.waitForFunction(() => !!document.querySelector('.web-reader-heading, .web-reader-failed'), null, { polling: 100, timeout: 30000 }).catch(() => {})
+    await wait(500)
+    const again = (await electron.evaluate(() => globalThis.__pagesAsked ?? 0)) - asked
+    const now = sql(`select substr(html, 1, 17) from web_articles where ${where}`)
+    check('a page kept by the earlier reader is read again when next opened, and kept as this reader keeps it', earlier !== '<!-- reader 2 -->' && again === 1 && now === '<!-- reader 2 -->', JSON.stringify({ earlier, again, now }))
   }
   check('no page errors', c.errors.filter((one) => !/favicon|net::|Failed to load resource/i.test(one)).length === 0, c.errors.slice(0, 3).join(' | '))
   // Home again, so a book opened after this run (r3's kept-page check) does not open in the reader and ask the network
