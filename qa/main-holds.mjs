@@ -2,7 +2,7 @@
 // app freezes randomly, i want this to never happen"). Four asks that held it, each made here as a page makes it, with
 // how late main's event loop ran while it was answered (stalls.ts) and what came back, so the answer is the same:
 //   1. the welcome's state, which ran `id -F` in step: 418 ms in the user's own freeze logs (a slow `id` stands in
-//      here, first on PATH);
+//      here, first on PATH, 0.4 s);
 //   2. a HEIC added to Files, decoded and turned into a PNG on main's thread;
 //   3. a big picture dragged out of a note to another app (the system drag itself is stubbed: it needs the real pointer);
 //   4. the Feed's side column, which read every note of the book (263 ms on the user's book).
@@ -19,8 +19,8 @@ const { check, done } = checks()
 const LATE_MS = Number(process.env.LATE_MS ?? 150)
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 const dir = mkdtempSync(join(tmpdir(), 'main-holds-'))
-// A slow `id`, as on a busy Mac: the account's name comes after 0.6 s.
-writeFileSync(join(dir, 'id'), '#!/bin/sh\nsleep 0.6\necho "Ada Lovelace"\n')
+// A slow `id`, as on a busy Mac: the account's name comes after 0.4 s (well inside the 2 s the app gives it).
+writeFileSync(join(dir, 'id'), '#!/bin/sh\nsleep 0.4\necho "Ada Lovelace"\n')
 chmodSync(join(dir, 'id'), 0o755)
 process.env.PATH = `${dir}:${process.env.PATH}`
 // A 24-megapixel HEIC, made by the Mac from the fixture.
@@ -47,13 +47,14 @@ try {
   const added = await v('media:add', [{ path: heic }])
   const afterAdd = await stalls()
   const src = added?.added?.[0]?.src ?? ''
-  const store = await electron.evaluate(({ app }) => require('path').join(app.getPath('userData'), 'assets'))
-  const kept = join(store, src.split('/').pop() ?? '')
+  const kept = join(await electron.evaluate(({ app }) => app.getPath('userData')), 'assets', src.split('/').pop() ?? '')
   const size = existsSync(kept) ? execFileSync('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', kept]).toString().match(/\d+(?=\n)/g)?.join(' x ') : null
   check(`a 24-megapixel HEIC added to Files never holds main (its loop under ${LATE_MS} ms late)`, afterAdd.delay.worst < LATE_MS, `${afterAdd.delay.worst} ms late at worst  [${load()}]`)
   check('and it is kept as a PNG of its own size, under its own name', /\.png$/.test(src) && size === '6000 x 4000' && added.added[0].name === 'Harbour at dusk.heic', `${src.slice(-20)} ${size} “${added?.added?.[0]?.name}”; refused ${JSON.stringify(added?.refused)}`)
 
-  // 3. That picture dragged out of a note to another app.
+  // 3. That picture dragged out of a note to another app, once the windows have had their say about it (Files and
+  // the lists read again as a file comes in): only the drag is measured.
+  await h.waitForTimeout(2500)
   await electron.evaluate(({ webContents }) => {
     globalThis.__dragged = null
     for (const one of webContents.getAllWebContents()) one.startDrag = (item) => void (globalThis.__dragged = { file: item.file, empty: item.icon.isEmpty(), ...item.icon.getSize() })
