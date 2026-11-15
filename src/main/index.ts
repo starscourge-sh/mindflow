@@ -2528,7 +2528,8 @@ let floated = false
  * the window back in the middle with where it stood kept again.
  */
 let welcomeTurn = 0
-let growing: { was: ReturnType<typeof windowBeforeWelcome>; glide: ReturnType<typeof setInterval> | null } | null = null
+/** A grow under way: where the window stood before the welcome, and the wait on its resize, ended by a placing too. */
+let growing: { was: ReturnType<typeof windowBeforeWelcome>; settle?: () => void } | null = null
 /** What the arrival probes read: the scene's place and clock, and each step as it came (ms of this run). */
 const sceneSteps: { what: string; at: number }[] = []
 const step = (what: string): void => void sceneSteps.push({ what, at: Math.round(performance.now()) })
@@ -2536,13 +2537,14 @@ const step = (what: string): void => void sceneSteps.push({ what, at: Math.round
 
 /**
  * The welcome's window on a screen: in the middle of its usable part, about Dia's share of it, never smaller than its
- * pages need (1100 by 688: the Write and Remember pages' cards and curves fit there, not at 960 by 600), the desktop
- * showing round it on any screen.
+ * pages need (1100 by 748: the Write and Remember pages' cards and curves fit there, not at 960 by 600; the last page's
+ * two choices were cut at 0.625 of the width, the user, 15 Nov 2026: "we can afford to make the welcome a little bit
+ * taller"), the desktop showing round it on any screen.
  */
 function welcomePlace(display: Electron.Display): Electron.Rectangle {
   const area = display.workArea
   const width = Math.min(area.width - 64, Math.max(1100, Math.min(1280, Math.round(area.width * 0.62))))
-  const height = Math.min(area.height - 64, Math.max(688, Math.round(width * 0.625)))
+  const height = Math.min(area.height - 64, Math.max(748, Math.round(width * 0.68)))
   return { x: area.x + Math.round((area.width - width) / 2), y: area.y + Math.round((area.height - height) / 2), width, height }
 }
 
@@ -2619,7 +2621,7 @@ async function placeForWelcome(rect?: Electron.Rectangle, plain = false): Promis
   const turn = ++welcomeTurn
   if (growing) {
     // Growing back from a welcome just left: stopped where it is, and placed again, where it stood kept as before.
-    if (growing.glide) clearInterval(growing.glide)
+    growing.settle?.()
     if (growing.was) keepWindowBeforeWelcome(growing.was)
     growing = null
     welcomePlaced = false
@@ -2664,13 +2666,15 @@ function endScene(): void {
 }
 
 /**
- * The welcome over: its window grows from the middle of the screen to the app's own size (where it stood before the
- * welcome; a first run's, where it was last left or the whole usable screen) in one settling glide, is given back to AeroSpace's tiling, and the
- * page is told, to bring the app up in it (welcome.tsx). The glide is the window's own, stepped here every frame on a
- * quick start and a long settle: the page under it is the welcome's plain ground (the app is not laid out while it
- * grows), so each step costs the page next to nothing.
+ * The welcome over: its window takes the app's own size (where it stood before the welcome; a first run's, where it
+ * was last left or the whole usable screen) in one move, is given back to AeroSpace's tiling, and the page is told, to
+ * bring the app up in it (welcome.tsx). The page under it is the welcome's plain ground while it grows (the app is not
+ * laid out yet), so the move shows nothing being drawn again. Never stepped from here: a resize every frame from a
+ * timer stuttered and redrew the window's edges and shadow each time, and under AeroSpace ended in a second jump into
+ * its tile (the user, 15 Nov 2026: "expansion from welcome to main app looks wack and laggy, i shouldnt be able to see
+ * it glitchily expand"). Under AeroSpace the tiling places it, at once; otherwise the Mac's own animated resize, over
+ * when the window says so ('resized').
  */
-const GROW_MS = 640
 async function growAfterWelcome(): Promise<void> {
   endScene()
   const win = home
@@ -2681,34 +2685,32 @@ async function growAfterWelcome(): Promise<void> {
   const was = windowBeforeWelcome()
   keepWindowBeforeWelcome(null)
   const from = win.getBounds()
-  // Where it stood before the welcome; a first run's, the app's own place (where it was last left, if it ever was, else the whole usable screen).
-  const to = was && !was.maximized ? was.bounds : homePlace()
   step('grow')
-  growing = { was, glide: null }
-  const begun = performance.now()
-  await new Promise<void>((done) => {
-    const glide = setInterval(() => {
-      if (win.isDestroyed() || turn !== welcomeTurn) return void (clearInterval(glide), done())
-      const k = Math.min(1, (performance.now() - begun) / GROW_MS)
-      const e = 1 - (1 - k) ** 4
-      const mix = (a: number, b: number): number => Math.round(a + (b - a) * e)
-      win.setBounds({ x: mix(from.x, to.x), y: mix(from.y, to.y), width: mix(from.width, to.width), height: mix(from.height, to.height) })
-      if (k < 1) return
-      clearInterval(glide)
-      done()
-    }, 1000 / 60)
-    if (growing) growing.glide = glide
-  })
-  // A placing took the window over meanwhile (the welcome back at once): it keeps it.
-  if (win.isDestroyed() || turn !== welcomeTurn) return
-  growing = null
-  welcomePlaced = false
+  growing = { was }
   win.setFullScreenable(true)
   if (floated) {
     floated = false
     await aerospace('layout', 'tiling', '--window-id', windowNumber(win))
   }
+  // Where it stood before the welcome; a first run's, the app's own place. Not where tiling has put it already.
+  const to = was && !was.maximized ? was.bounds : homePlace()
+  if (!win.isDestroyed() && turn === welcomeTurn && sameBox(win.getBounds(), from) && !sameBox(from, to)) {
+    const animate = process.platform === 'darwin' && (from.width !== to.width || from.height !== to.height)
+    // Over once it stands there, or once the Mac says its resize has ended (short of it, kept on its screen).
+    await new Promise<void>((done) => {
+      const end = (): void => void (win.removeListener('resize', there), win.removeListener('resized', end), done())
+      const there = (): void => void (sameBox(win.getBounds(), to) && end())
+      if (growing) growing.settle = end
+      win.on('resize', there)
+      win.on('resized', end)
+      win.setBounds(to, animate)
+      there()
+    })
+  }
+  // A placing took the window over meanwhile (the welcome back at once): it keeps it.
   if (win.isDestroyed() || turn !== welcomeTurn) return
+  growing = null
+  welcomePlaced = false
   if (was?.maximized) win.maximize()
   step('grown')
   keepHomePlace(win)
