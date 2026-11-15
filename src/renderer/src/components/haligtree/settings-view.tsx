@@ -2051,7 +2051,7 @@ function GiphySearch({ label, kind, pin, words: random, onPin, onRandom, onClose
   const search = (text: string): void => {
     const ask = ++asked.current
     setBusy(true)
-    void haligtree.giphySearch(text).then((found) => ask === asked.current && setList(found), () => ask === asked.current && setList({ gifs: [], why: 'offline' }))
+    void haligtree.giphySearch(text).then((found) => ask === asked.current && setList(found), () => ask === asked.current && setList({ gifs: [], why: 'failed' }))
       .finally(() => ask === asked.current && setBusy(false))
   }
   // The moment's own words, looked for as it opens; then as you type, after a short pause.
@@ -2059,7 +2059,8 @@ function GiphySearch({ label, kind, pin, words: random, onPin, onRandom, onClose
   const typed = useRef<ReturnType<typeof setTimeout>>(undefined)
   useEffect(() => () => clearTimeout(typed.current), [])
   const why = list?.why === 'key' ? 'Giphy needs a key: add yours under “Giphy key” below.'
-    : list?.why === 'offline' ? 'Giphy could not be reached. Try again when you are online.'
+    : list?.why === 'offline' ? 'Giphy could not be reached: this Mac is offline. Try again when you are online.'
+    : list?.why === 'failed' ? 'Giphy did not answer just now. Try again in a moment.'
       : list?.why === 'none' ? `Nothing found for ${quoted(words.trim(), 80)}. Try other words.` : ''
   const get = (id: string): Promise<{ pin: GiphyPin; media: GiphyMedia } | null> => {
     setPicking(id)
@@ -2161,9 +2162,9 @@ function GiphyFavourites({ stars, live, onSave }: { stars: string[]; live: boole
   const [busy, setBusy] = useState(false)
   const load = (): void => {
     setBusy(true)
-    void haligtree.giphyList().then(setList, () => setList({ gifs: [], why: 'offline' })).finally(() => setBusy(false))
+    void haligtree.giphyList().then(setList, () => setList({ gifs: [], why: 'failed' })).finally(() => setBusy(false))
   }
-  const why = list?.why === 'key' ? 'Add a key first.' : list?.why === 'offline' ? 'Giphy could not be reached; try again later.' : ''
+  const why = list?.why === 'key' ? 'Add a key first.' : list?.why === 'offline' ? 'Giphy could not be reached: this Mac is offline.' : list?.why === 'failed' ? 'Giphy did not answer just now; try again in a moment.' : ''
   return (
     <Setting
       under

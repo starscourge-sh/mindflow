@@ -137,10 +137,11 @@ function Suggested({ item }: { item: ItemFull }): React.JSX.Element | null {
   useEffect(() => {
     if (!wanted || !one) return
     let live = true
-    void call<Answer>('define', about).then((said) => live && setMeaning({ word: about, said }), () => live && setMeaning({ word: about, said: { offline: true } }))
+    void call<Answer>('define', about).then((said) => live && setMeaning({ word: about, said }), () => live && setMeaning({ word: about, said: { failed: true } }))
     return () => void (live = false)
   }, [wanted, one, about, tries])
   const definedOffline = !!meaning && meaning.said !== 'asking' && !!meaning.said && 'offline' in meaning.said
+  const definedFailed = !!meaning && meaning.said !== 'asking' && !!meaning.said && 'failed' in meaning.said
   useEffect(() => {
     if (!definedOffline) return
     const back = (): void => setTries((n) => n + 1)
@@ -152,6 +153,7 @@ function Suggested({ item }: { item: ItemFull }): React.JSX.Element | null {
   const page = wiki.page && (one || pageFor(wiki.page, about)) ? wiki.page : null
   if (!found && !page) {
     if (wiki.state === 'offline' || definedOffline) return <p data-suggest="offline" className="mt-4 text-body text-muted-foreground">Offline: suggestions will come when you’re back.</p>
+    if (wiki.state === 'failed' || definedFailed) return <p data-suggest="failed" className="mt-4 text-body text-muted-foreground">No suggestions just now: Wikipedia or the dictionary did not answer.</p>
     return null
   }
   const text = [found && `${about}: ${found.definition}`, page && firstSentences(page.extract)].filter(Boolean).join('\n\n')

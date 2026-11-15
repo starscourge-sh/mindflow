@@ -5,7 +5,7 @@ import { readFile, writeFile } from 'fs/promises'
 import { statSync } from 'fs'
 import { join } from 'path'
 import { assetsDir } from './pictures'
-import { fetchOutside } from './outside'
+import { fetchOutside, unreached } from './outside'
 import type { DatabaseSync } from 'node:sqlite'
 import { LABEL, database } from './captures'
 import { PDF_TITLES as TITLES, fileLink, pdfsToFind } from './find-files'
@@ -236,13 +236,13 @@ export function unjoinGem(db: DatabaseSync, gem: string, was: string, now: strin
 }
 
 /** Wikipedia's summary of the article the words name, asked now: found, missing, or offline. */
-async function wikiOnline(term: string): Promise<{ missing: true } | { offline: true } | { title: string; description: string; extract: string; picture: string | null; pictures: number; url: string; from: string | null }> {
+async function wikiOnline(term: string): Promise<{ missing: true } | { offline: true } | { failed: true } | { title: string; description: string; extract: string; picture: string | null; pictures: number; url: string; from: string | null }> {
   const base = (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_WIKI) || 'https://en.wikipedia.org/api/rest_v1/page/summary/'
   try {
     const url = `${base}${encodeURIComponent(term.replace(/ /g, '_'))}?redirect=true`
     const response = base.startsWith('http://127.0.0.1') ? await fetch(url, { signal: AbortSignal.timeout(5000) }) : await fetchOutside(url, { signal: AbortSignal.timeout(5000), headers: { 'Api-User-Agent': 'Haligtree (a commonplace book)' } })
     if (response.status === 404) return { missing: true }
-    if (!response.ok) return { offline: true }
+    if (!response.ok) return unreached()
     const page = (await response.json()) as { type?: string; title?: string; description?: string; extract?: string; thumbnail?: { source?: string }; content_urls?: { desktop?: { page?: string } } }
     if (!page.extract || page.type === 'disambiguation') return { missing: true }
     // The article's lead picture, only when it lives on Wikimedia Commons (freely licensed); an English-only file can be fair use.
@@ -252,6 +252,6 @@ async function wikiOnline(term: string): Promise<{ missing: true } | { offline: 
     const landed = response.url && new URL(response.url).pathname !== new URL(url).pathname
     return { title: page.title ?? term, description: page.description ?? '', extract: page.extract, picture, pictures: 2, url: page.content_urls?.desktop?.page ?? `https://en.wikipedia.org/wiki/${encodeURIComponent(term.replace(/ /g, '_'))}`, from: landed ? term : null }
   } catch {
-    return { offline: true }
+    return unreached()
   }
 }

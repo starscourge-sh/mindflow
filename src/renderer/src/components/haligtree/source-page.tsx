@@ -411,7 +411,7 @@ function Bio({ field, name, page }: { field: SourceField; name: string; page: So
   // The moment the lookup ends, late or not, the line shows what came: its words, or "Add a line about them" when
   // nothing did. A closed room left in place read as a failed page, its orb still turning (Oscar Wilde, 1 Nov).
   useReading(!page)
-  const asking = !!page && !page.bioAt && wiki.state !== 'offline'
+  const asking = !!page && !page.bioAt && wiki.state !== 'offline' && wiki.state !== 'failed'
   // Asked on this visit: the words fade in when they come, the room kept for them.
   const [fresh] = useState(() => !page?.bioAt)
   const [late, setLate] = useState(false)

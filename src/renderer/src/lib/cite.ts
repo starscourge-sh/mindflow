@@ -43,7 +43,8 @@ export function splitPage(typed: string): { text: string; page: string } {
 
 /** Why a lookup found nothing, in plain words. */
 const whyNot = (error: string, id: string): string =>
-  error === 'offline' ? `Could not look up ${id}: you seem to be offline. Fill its details in by hand, or try again later` : `Nothing was found for ${id}. Check it, or fill its details in by hand`
+  error === 'offline' ? `Could not look up ${id}: this Mac is offline. Fill its details in by hand, or try again later`
+    : error === 'failed' ? `Could not look up ${id}: the lookup did not answer just now. Fill its details in by hand, or try again later` : `Nothing was found for ${id}. Check it, or fill its details in by hand`
 
 /** The work's details asked one at a time; only the title is needed. */
 export async function fillByHand(guess: Partial<Work> = {}): Promise<Work | null> {

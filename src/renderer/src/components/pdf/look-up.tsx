@@ -21,7 +21,7 @@ const dayOf = (at: string): string => {
   return day.toLocaleDateString("en-GB", { day: "numeric", month: "short", ...(day.getFullYear() === new Date().getFullYear() ? {} : { year: "numeric" }) })
 }
 
-type Wiki = { title: string; description: string; extract: string; url: string; picture?: string | null } | { missing: true } | { offline: true } | null
+type Wiki = { title: string; description: string; extract: string; url: string; picture?: string | null } | { missing: true } | { offline: true } | { failed: true } | null
 
 /** Where the words were looked up: said on the Lookup kept, with a link back to the very place. */
 export type LookedUpIn = { where: string; link: string; sentence?: string; /** From a PDF: the book alone, and the page, kept apart so the book is one source. */ source?: string; page?: number; /** The note it was looked up in, when it was: the Lookup points back to it. */ origin?: string | null }
@@ -45,8 +45,8 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
   useLooked(range)
   useEffect(() => {
     let live = true
-    if (one) void call<Answer>("define", words).then((answer) => live && setMeaning(answer), () => live && setMeaning({ offline: true }))
-    void call<Wiki>("wiki", words).then((answer) => live && setWiki(answer), () => live && setWiki({ offline: true }))
+    if (one) void call<Answer>("define", words).then((answer) => live && setMeaning(answer), () => live && setMeaning({ failed: true }))
+    void call<Wiki>("wiki", words).then((answer) => live && setWiki(answer), () => live && setWiki({ failed: true }))
     return () => void (live = false)
   }, [words, one])
   useEffect(() => {
@@ -164,7 +164,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
           </div>
         ) : (
           <p className="look-up-quiet" data-look="dictionary">
-            {meaning && "offline" in meaning ? "The dictionary could not be reached just now." : meaning && "miss" in meaning && meaning.fix ? `Not in the dictionary. Did you mean ${quoted(meaning.fix, 80)}?` : "Not in the dictionary."}
+            {meaning && "offline" in meaning ? "This Mac is offline, so the dictionary could not be asked." : meaning && "failed" in meaning ? "The dictionary did not answer just now." : meaning && "miss" in meaning && meaning.fix ? `Not in the dictionary. Did you mean ${quoted(meaning.fix, 80)}?` : "Not in the dictionary."}
           </p>
         ))}
       <hr className="look-up-rule" />
@@ -181,7 +181,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
           <p className="look-up-extract">{page.extract}</p>
         </div>
       ) : (
-        <p className="look-up-quiet" data-look="wikipedia">{wiki && "offline" in wiki ? "Wikipedia could not be reached just now." : "No Wikipedia article by that name."}</p>
+        <p className="look-up-quiet" data-look="wikipedia">{wiki && "offline" in wiki ? "This Mac is offline, so Wikipedia could not be asked." : wiki && "failed" in wiki ? "Wikipedia did not answer just now." : "No Wikipedia article by that name."}</p>
       )}
       <div className="look-up-foot">
         {kept?.asking ? (

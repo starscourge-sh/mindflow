@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 
 import { LABEL, changed, database } from './captures'
 import { personKey } from './names'
-import { fetchOutside } from './outside'
+import { fetchOutside, unreached } from './outside'
 import { doiIn, isbnIn } from './cite-ids'
 
 /**
@@ -14,7 +14,9 @@ import { doiIn, isbnIn } from './cite-ids'
  */
 
 export type Work = { title: string; authors: string; year: string; publisher: string; doi: string; isbn: string; url: string; what: string }
-export type LookupResult = { work: Work } | { error: 'offline' | 'missing' | 'not-an-id' }
+export type LookupResult = { work: Work } | { error: 'offline' | 'failed' | 'missing' | 'not-an-id' }
+/** A lookup that did not answer: offline only when this Mac is. */
+const lost = (): LookupResult => ({ error: 'failed' in unreached() ? 'failed' : 'offline' })
 export type Citer = { type: string; id: string; title: string; kind: string }
 
 const AGENT = 'Haligtree (a commonplace book app)'
@@ -40,7 +42,7 @@ async function byDoi(doi: string): Promise<LookupResult> {
   try {
     const response = await get(`${at}/works/${encodeURIComponent(doi)}`)
     if (response.status === 404) return { error: 'missing' }
-    if (!response.ok) return { error: 'offline' }
+    if (!response.ok) return lost()
     const { message: one } = (await response.json()) as { message: { title?: string[]; author?: { given?: string; family?: string; name?: string }[]; issued?: { 'date-parts'?: number[][] }; publisher?: string; 'container-title'?: string[]; type?: string } }
     const title = one.title?.[0]?.trim()
     if (!title) return { error: 'missing' }
@@ -48,7 +50,7 @@ async function byDoi(doi: string): Promise<LookupResult> {
     const journal = one['container-title']?.[0]?.trim()
     return { work: { ...EMPTY, title, authors, year: String(one.issued?.['date-parts']?.[0]?.[0] ?? ''), publisher: journal || one.publisher || '', doi, url: `https://doi.org/${doi}`, what: one.type === 'journal-article' ? 'Article' : one.type?.startsWith('book') ? 'Book' : '' } }
   } catch {
-    return { error: 'offline' }
+    return lost()
   }
 }
 
@@ -57,12 +59,12 @@ async function byIsbn(isbn: string): Promise<LookupResult> {
   if (!at) return { error: 'offline' }
   try {
     const response = await get(`${at}/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`)
-    if (!response.ok) return { error: 'offline' }
+    if (!response.ok) return lost()
     const found = ((await response.json()) as Record<string, { title?: string; authors?: { name?: string }[]; publishers?: { name?: string }[]; publish_date?: string; url?: string }>)[`ISBN:${isbn}`]
     if (!found?.title) return { error: 'missing' }
     return { work: { ...EMPTY, title: found.title, authors: (found.authors ?? []).map((who) => who.name ?? '').filter(Boolean).join('; '), year: /\d{4}/.exec(found.publish_date ?? '')?.[0] ?? '', publisher: found.publishers?.[0]?.name ?? '', isbn, url: found.url ?? '', what: 'Book' } }
   } catch {
-    return { error: 'offline' }
+    return lost()
   }
 }
 

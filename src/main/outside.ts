@@ -1,3 +1,4 @@
+import { net } from 'electron'
 import { lookup } from 'dns/promises'
 import { BlockList, isIP } from 'net'
 
@@ -61,6 +62,9 @@ export const setOutsideAgent = (name: string): void => void (agent = name)
  * `fetch`, for addresses a page handed us: each hop of a redirect is checked
  * the same way, so a public page cannot bounce the request back inside.
  */
+/** A site that did not answer, said truly: offline only when this Mac is (net.isOnline()); otherwise it did not answer. */
+export const unreached = (): { offline: true } | { failed: true } => (net.isOnline() ? { failed: true } : { offline: true })
+
 export async function fetchOutside(url: string | URL, init: RequestInit = {}): Promise<Response> {
   const headers = new Headers(init.headers)
   if (agent && !headers.has('user-agent')) headers.set('user-agent', agent)

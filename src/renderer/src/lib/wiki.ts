@@ -3,7 +3,7 @@ import { call } from './haligtree'
 
 /** Wikipedia's summary of an article, as main asks for it and keeps it (pdf-highlights.ts, `wiki_answers`). */
 export type WikiPage = { title: string; description: string; extract: string; url: string; picture?: string | null; /** The words asked, when Wikipedia redirected them to this page. */ from?: string | null }
-export type WikiAnswer = WikiPage | { missing: true } | { offline: true } | null
+export type WikiAnswer = WikiPage | { missing: true } | { offline: true } | { failed: true } | null
 
 /** Its first two sentences: a line or two about them, never the whole lead. */
 export const firstSentences = (text: string, count = 2): string => {
@@ -16,13 +16,13 @@ export const firstSentences = (text: string, count = 2): string => {
  * when the machine comes back online after an offline answer: never a spinner
  * left turning, never an error. `null` term asks nothing.
  */
-export function useWiki(term: string | null): { state: 'asking' | 'found' | 'missing' | 'offline' | 'idle'; page: WikiPage | null } {
+export function useWiki(term: string | null): { state: 'asking' | 'found' | 'missing' | 'offline' | 'failed' | 'idle'; page: WikiPage | null } {
   const [answer, setAnswer] = useState<{ term: string; said: WikiAnswer } | null>(null)
   const [tries, setTries] = useState(0)
   useEffect(() => {
     if (!term) return
     let live = true
-    void call<WikiAnswer>('wiki', term).then((said) => live && setAnswer({ term, said }), () => live && setAnswer({ term, said: { offline: true } }))
+    void call<WikiAnswer>('wiki', term).then((said) => live && setAnswer({ term, said }), () => live && setAnswer({ term, said: { failed: true } }))
     return () => void (live = false)
   }, [term, tries])
   const said = answer?.term === term ? answer.said : undefined
@@ -36,7 +36,7 @@ export function useWiki(term: string | null): { state: 'asking' | 'found' | 'mis
   if (!term) return { state: 'idle', page: null }
   if (said === undefined) return { state: 'asking', page: null }
   if (said && 'extract' in said) return { state: 'found', page: said }
-  return { state: offline ? 'offline' : 'missing', page: null }
+  return { state: offline ? 'offline' : said && 'failed' in said ? 'failed' : 'missing', page: null }
 }
 
 /** A title and a name are the same thing: "Dune (novel)" is "Dune", capitals and accents aside. */

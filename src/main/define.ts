@@ -1,4 +1,5 @@
 import { ipcMain, net, shell } from 'electron'
+import { unreached } from './outside'
 import { readFile } from 'fs/promises'
 
 import { database } from './captures'
@@ -30,7 +31,7 @@ export type Defined = { word: string; phonetic: string; audio: string; part: str
 // How the Mac's entries are read (mac-dictionary.ts). A meaning kept from an older reading is asked again:
 // before 2, "run" was kept as its forms, "(runs) (, running) (past participle; run).", not its meaning.
 const MAC_READ = 2
-export type Answer = { found: Defined } | { miss: true; fix: string | null } | { offline: true } | null
+export type Answer = { found: Defined } | { miss: true; fix: string | null } | { offline: true } | { failed: true } | null
 
 type Entry = { word?: string; phonetic?: string; phonetics?: { text?: string; audio?: string }[]; meanings?: { partOfSpeech?: string; definitions?: { definition?: string; example?: string }[] }[] }
 
@@ -121,14 +122,14 @@ export function registerDefine(): void {
     try {
       const response = await net.fetch(`${BASE}${encodeURIComponent(word)}`, { signal: AbortSignal.timeout(4000) })
       // Not on the web, and the Mac's Dictionary never answered: not known yet, rather than not a word.
-      if (response.status === 404) return unanswered ? { offline: true } : { miss: true, fix: null }
-      if (!response.ok) return { offline: true }
+      if (response.status === 404) return unanswered ? unreached() : { miss: true, fix: null }
+      if (!response.ok) return unreached()
       const found = read((await response.json()) as Entry[])
       if (!found) return { miss: true, fix: null }
       keep(word, { found })
       return { found }
     } catch {
-      return { offline: true }
+      return unreached()
     }
   }
 

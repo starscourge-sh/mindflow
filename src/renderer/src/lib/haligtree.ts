@@ -305,11 +305,11 @@ export const haligtree = {
   /** A GIF from Giphy for a card now, or null to play what it would anyway. */
   celebrationGiphy: () => call<GiphyMedia | null>('celebrations:giphy'),
   /** The day's Giphy results with their still pictures, to star; why there are none, if none. */
-  giphyList: () => call<{ gifs: { id: string; title: string; still: string }[]; why?: 'off' | 'key' | 'offline' }>('celebrations:giphy:list'),
+  giphyList: () => call<{ gifs: { id: string; title: string; still: string }[]; why?: 'off' | 'key' | 'offline' | 'failed' }>('celebrations:giphy:list'),
   /** One of them, downloaded, to see in a card. */
   giphyOne: (id: string) => call<GiphyMedia | null>('celebrations:giphy:one', id),
   /** Giphy searched with words of your own, for a moment's row in Settings. */
-  giphySearch: (words: string) => call<{ gifs: { id: string; title: string; still: string }[]; why?: 'key' | 'offline' | 'none' }>('celebrations:giphy:search', words),
+  giphySearch: (words: string) => call<{ gifs: { id: string; title: string; still: string }[]; why?: 'key' | 'offline' | 'failed' | 'none' }>('celebrations:giphy:search', words),
   /** One of those, downloaded: what to save as the pin, and what to see in a card. */
   giphyPick: (id: string) => call<{ pin: GiphyPin; media: GiphyMedia } | null>('celebrations:giphy:pick', id),
   /** The GIF pinned for this kind of moment, ready to play (offline too), or null. */

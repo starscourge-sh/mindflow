@@ -232,7 +232,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const lookRows: Look[] = lookSites.flatMap((site): Look[] => {
     const got = outside?.site === site.id && outside.words === lookWords ? outside : null
     if (!got) return [{ site }]
-    if (got.offline) return [{ site, said: `${site.word} cannot be reached: this Mac seems to be offline` }]
+    if (got.offline) return [{ site, said: `${site.word} cannot be reached: this Mac is offline` }]
     if (got.failed) return [{ site, said: `${site.word} did not answer just now` }]
     if (!got.hits) return [{ site, asking: true }]
     if (!got.hits.length) return [{ site, said: `${site.word} has nothing by that name` }]

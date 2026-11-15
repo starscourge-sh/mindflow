@@ -1,6 +1,6 @@
-import { app, ipcMain, net } from 'electron'
+import { app, ipcMain } from 'electron'
 import { parseHTML } from 'linkedom'
-import { fetchOutside } from './outside'
+import { fetchOutside, unreached } from './outside'
 
 /**
  * The free sites ⌘K searches and the reader reads: Wikipedia, Wiktionary,
@@ -147,7 +147,7 @@ export function registerFreeSites(): void {
       return { hits: await SEARCH[site as Site](asked) }
     } catch {
       // Offline only when the Mac is: a site that turned the asking away, or was slow, did not answer.
-      return net.isOnline() ? { failed: true } : { offline: true }
+      return unreached()
     }
   })
 }

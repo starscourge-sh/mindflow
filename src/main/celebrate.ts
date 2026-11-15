@@ -1,4 +1,5 @@
 import { dialog, ipcMain, webContents, type WebContents } from 'electron'
+import { unreached } from './outside'
 import { createHash } from 'crypto'
 import { readdir, realpath, stat } from 'fs/promises'
 import { basename, extname, isAbsolute, join } from 'path'
@@ -451,11 +452,11 @@ export function registerCelebrations(): void {
   ipcMain.handle('haligtree:celebrations:picks', () => picks())
   // A GIF from Giphy for a card now (null: play what it would anyway), the day's results to star, and one to see.
   ipcMain.handle('haligtree:celebrations:giphy', () => giphyNow().catch(() => null))
-  ipcMain.handle('haligtree:celebrations:giphy:list', () => giphyList().catch(() => ({ gifs: [], why: 'offline' as const })))
+  ipcMain.handle('haligtree:celebrations:giphy:list', () => giphyList().catch(() => ({ gifs: [], why: 'failed' in unreached() ? 'failed' as const : 'offline' as const })))
   ipcMain.handle('haligtree:celebrations:giphy:one', (_event, id: unknown) => giphyOne(id).catch(() => null))
   warmGiphy()
   // One GIF pinned for a moment: searched for, picked, and played (from the cache, offline too).
-  ipcMain.handle('haligtree:celebrations:giphy:search', (_event, words: unknown) => giphySearch(words).catch(() => ({ gifs: [], why: 'offline' as const })))
+  ipcMain.handle('haligtree:celebrations:giphy:search', (_event, words: unknown) => giphySearch(words).catch(() => ({ gifs: [], why: 'failed' in unreached() ? 'failed' as const : 'offline' as const })))
   ipcMain.handle('haligtree:celebrations:giphy:pick', (_event, id: unknown) => giphyPick(id).catch(() => null))
   ipcMain.handle('haligtree:celebrations:giphy:pinned', (_event, kind: unknown) => giphyPinned(kind).catch(() => null))
   keepPins()
