@@ -141,6 +141,9 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
       autoHideMenuBar: true,
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }
     })
+    // Its place said again once made, as a sticky's is: a QA run's parked window keeps it as its own (HALIGTREE_QA_VIRTUAL),
+    // and the place such a window is first given is the middle of the screen, not the one asked for.
+    if (process.env.HALIGTREE_QA_VIRTUAL) win.setBounds(size)
     const state: Kept = kept ?? { link, bounds: size, auto: true, aside: true, top: true }
     smalls.set(win, state)
     // Over every app, as quick capture floats ("Keep on top" in its menu), on whichever desktop you are on.
