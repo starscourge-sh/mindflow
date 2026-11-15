@@ -53,7 +53,7 @@ const read = (page) => page.evaluate(() => {
   const card = document.querySelector('[data-pane-front] [data-pane-card]') ?? document.querySelector('[data-pane-card]')
   const lists = [...(card?.querySelectorAll('*') ?? [])].filter((one) => !one.closest('.haligtree-editor-content, [data-page-held]') && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.scrollHeight > one.clientHeight + 40)
   const list = lists.sort((a, b) => b.scrollHeight - a.scrollHeight)[0]
-  return { tabs, block, list: list ? Math.round(list.scrollTop) : null, listTall: list?.scrollHeight ?? 0 }
+  return { tabs, block, list: list ? Math.round(list.scrollTop) : null, listTall: list?.scrollHeight ?? 0, rows: list ? [...list.querySelectorAll('[data-pick], [data-row]')].filter((one) => !one.parentElement.closest('[data-pick], [data-row]')).map((one) => one.textContent.trim().slice(0, 28)) : [] }
 })
 const scrollList = async (page, by) => {
   // Once the Inbox's list is drawn and long enough: the page being left stays on show while it reads (page-swap.tsx).
@@ -63,7 +63,7 @@ const scrollList = async (page, by) => {
     const card = document.querySelector('[data-pane-front] [data-pane-card]') ?? document.querySelector('[data-pane-card]')
     const list = [...(card?.querySelectorAll('*') ?? [])].filter((one) => !one.closest('.haligtree-editor-content, [data-page-held]') && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.scrollHeight > one.clientHeight + 40).sort((a, b) => b.scrollHeight - a.scrollHeight)[0]
     list?.scrollTo({ top: by, behavior: 'instant' })
-    return list ? [list.scrollTop, list.scrollHeight] : [null, 0]
+    return list ? [list.scrollTop, list.scrollHeight, [...list.querySelectorAll('[data-pick], [data-row]')].filter((one) => !one.parentElement.closest('[data-pick], [data-row]')).map((one) => one.textContent.trim().slice(0, 28))] : [null, 0, []]
   }, by)
 }
 const homes = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((one) => !one.isDestroyed() && one.webContents.getURL().includes('view=home')).map((one) => ({ url: one.webContents.getURL().replace(/^.*\?/, ''), bounds: one.getBounds(), shown: one.isVisible() })))
@@ -79,11 +79,13 @@ try {
   await h.waitForTimeout(1200)
   // Where it was scrolled, and how tall the list was: the same scroll in another list (the Inbox's older captures, put
   // in its place by a note opened in the other tab) is not the same place.
-  const [listAt, listTallAt] = await scrollList(h, 900)
+  const [listAt, listTallAt, listRows] = await scrollList(h, 900)
   await h.waitForTimeout(500)
   // The second tab: the long note, part-way down.
   await h.click('[data-tab-add]')
-  await h.waitForTimeout(700)
+  // The new tab on show before the note is sent to it: sent while the page was still busy with the click, the note
+  // opened in a tab of its own beside the new one, three tabs where the set-up asks for two.
+  await h.waitForFunction(() => { const tabs = document.querySelectorAll('[data-tab]'); return tabs.length === 2 && tabs[1].hasAttribute('data-tab-on') }, null, { timeout: 15000 }).catch(() => {})
   await c.send('capture', note.id)
   await h.waitForFunction(() => !!document.querySelector('.haligtree-editor-content'), null, { timeout: 30000 })
   await h.waitForTimeout(1500)
@@ -157,7 +159,12 @@ try {
   await h2.click(`[data-tab="${before.tabs[0].key}"] [role="tab"]`)
   await h2.waitForTimeout(1500)
   const list = await read(h2)
-  check('the list in the other tab at the same scroll, within 2 px, the same list (its height within 40 px)', list.list !== null && Math.abs(list.list - listAt) <= 2 && Math.abs(list.listTall - listTallAt) <= 40, `before ${listAt} (of ${listTallAt}), after ${list.list} (of ${list.listTall})`)
+  // The same list: every row it had, at the same scroll. The one row that may join is the note just written in, which
+  // the Inbox lists among its recent rows once it is edited (its height alone counted that as another list: 760 then 818).
+  const title = before.tabs.find((one) => one.on)?.label ?? ''
+  const gone = listRows.filter((one) => !list.rows.includes(one))
+  const joined = list.rows.filter((one) => !listRows.includes(one))
+  check('the list in the other tab at the same scroll, within 2 px, the same rows (only the note just written in may join)', list.list !== null && Math.abs(list.list - listAt) <= 2 && !gone.length && joined.every((one) => !!title && one.startsWith(title)), `before ${listAt} (of ${listTallAt}), after ${list.list} (of ${list.listTall}); rows gone ${JSON.stringify(gone)}, rows new ${JSON.stringify(joined)}`)
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await close()
