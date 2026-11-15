@@ -224,15 +224,16 @@ export type Spot = { top: number; height: number; left: number; width: number; o
  * Everything between where the carried piece was and where it would land slides by its height, the rest stays; the
  * room is as tall as the carried piece (`tall`, its one row when it holds more). `all`, every piece in its run, the
  * carried one among them; `gap`: the room opens just after the piece at that place in `all` as laid out (-1: before
- * the first), null: nowhere, and everything goes home.
+ * the first), null: nowhere, and everything goes home. `now`: they are there at once (a page scrolling under a still
+ * pointer moves everything already, and a glide there would hide the room's line again at every new place).
  */
-export function makeWay(all: HTMLElement[], carried: HTMLElement, gap: number | null, tall: number, quiet: Quiet = aloud): Spot | null {
+export function makeWay(all: HTMLElement[], carried: HTMLElement, gap: number | null, tall: number, quiet: Quiet = aloud, now = false): Spot | null {
   const laid = all.map((el) => ({ el, ...restBox(el) })).sort((a, b) => a.top - b.top)
   const from = laid.findIndex((one) => one.el === carried)
   if (from < 0) {
     // Carried in from outside the run (a note's column out of its row): it leaves no place among them to close over,
     // so only the room where it lands opens, the pieces after it making way by its height.
-    for (const [at, one] of laid.entries()) (quiet(() => void (one.el.dataset.carryPiece = '')), glideEl(one.el, gap !== null && at > gap ? tall : 0, false, quiet))
+    for (const [at, one] of laid.entries()) (quiet(() => void (one.el.dataset.carryPiece = '')), glideEl(one.el, gap !== null && at > gap ? tall : 0, now, quiet))
     const by = gap === null ? undefined : laid[gap + 1] ?? laid[gap]
     if (gap === null || !by) return null
     return { top: laid[gap + 1] ? by.top : by.top + by.height, height: tall, left: by.left, width: by.width, own: false }
@@ -243,7 +244,7 @@ export function makeWay(all: HTMLElement[], carried: HTMLElement, gap: number | 
   for (const [at, one] of laid.entries()) {
     if (one.el === carried) continue
     quiet(() => void (one.el.dataset.carryPiece = ''))
-    glideEl(one.el, own ? 0 : gap > from ? (at > from && at <= gap ? -span : 0) : at > gap && at < from ? span : 0, false, quiet)
+    glideEl(one.el, own ? 0 : gap > from ? (at > from && at <= gap ? -span : 0) : at > gap && at < from ? span : 0, now, quiet)
   }
   if (gap === null) return null
   const me = laid[from]
@@ -392,8 +393,8 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
  * pieces to make way, as a list's room does. The band is a tint with nothing in it, placed from the page's top (which
  * never scrolls), as a list's band is placed in its row.
  */
-export function RoomAt({ at, how, indent = 0, place }: { at: Spot; how: string; indent?: number; /** Which place among the pieces it is, where that is known: a page scrolling under it moves the band with it, never drawing it afresh (each new drawing waits again, and a note scrolling under a still pointer hid it for good). */ place?: string }): React.JSX.Element {
-  const wait = at.own ? undefined : roomWait()
+export function RoomAt({ at, how, indent = 0, place, now = false }: { at: Spot; how: string; indent?: number; /** Which place among the pieces it is, where that is known: a page scrolling under it moves the band with it, never drawing it afresh (each new drawing waits again, and a note scrolling under a still pointer hid it for good). */ place?: string; /** The pieces were moved at once (makeWay's `now`): nothing is still moving, so nothing to wait for. */ now?: boolean }): React.JSX.Element {
+  const wait = at.own || now ? undefined : roomWait()
   const key = place ? `${place}:${at.own}` : `${Math.round(at.top)}:${at.own}`
   return createPortal(
     <Fragment key={key}>

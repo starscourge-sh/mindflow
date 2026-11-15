@@ -64,6 +64,13 @@ type Held = {
   column: { start: number; end: number } | null
   aim: Aim | null
   room: Spot | null
+  /**
+   * The room's own name while it is drawn (RoomAt's `place`): a new one at each place the pointer brings it to, so it
+   * waits there for the blocks to make way; kept while the note's scroll brings it on (`scrolled`), the blocks are there
+   * at once and the band with its line stays in sight, moved.
+   */
+  place: string
+  scrolled: boolean
   kept: { key: string; how: 'before' | 'after' } | null
   ticks: ReturnType<typeof slotTicker>
   ring: string
@@ -202,7 +209,7 @@ function lift(view: EditorView, pos: number, x: number, y: number, copy: boolean
   const column = $in.parent.type.name === 'column' ? { start: $in.start(), end: $in.end() } : null
   // Held still on an item's middle: the aim is read again, as no move comes.
   const rest = rester(() => void (held && point(held)))
-  return { view, from, to, nodes, sources, pieces, laid, me, tall: last.bottom - first.top, x, y, copy, column, aim: null, room: null, kept: null, ticks, ring, title: nameOf(node), icon: iconOf(node), rest, away }
+  return { view, from, to, nodes, sources, pieces, laid, me, tall: last.bottom - first.top, x, y, copy, column, aim: null, room: null, place: 'own', scrolled: false, kept: null, ticks, ring, title: nameOf(node), icon: iconOf(node), rest, away }
 }
 
 /** What holds a place in the note: a crossing of it is the firm tick. */
@@ -358,6 +365,10 @@ function lean(el: HTMLElement | null, by: number, now = false): void {
 function point(one: Held, again = false): void {
   const next = aimOf(one)
   if (again || next?.key !== one.aim?.key) {
+    // A new place the scroll brought under a still pointer: the scroll is the motion, so the blocks are there at once
+    // and the room keeps its name (the band and its line in sight, moved); a new place the pointer brought, a new room.
+    if (next?.key !== one.aim?.key) (one.scrolled = again), (one.place = again ? one.place : next?.key ?? 'own')
+    const now = one.scrolled
     one.aim = next
     const quiet = (change: () => void): void => quietly(one.view, change)
     const all = one.pieces.filter((piece) => piece.el === one.me || !one.sources.includes(piece.el)).map((piece) => piece.el)
@@ -370,14 +381,14 @@ function point(one: Held, again = false): void {
       const away = !!one.column && (next.at < one.column.start || next.at > one.column.end)
       // A copy leaves no place to close over: its block stays.
       const leaves = one.copy || away || (next.at !== one.from && next.at !== one.to && (next.gap === me || next.gap === me - 1))
-      const spot = leaves ? makeWay(all.filter((el) => el !== one.me), one.me, next.gap >= me ? next.gap - 1 : next.gap, one.tall, quiet) : makeWay(all, one.me, next.gap, one.tall, quiet)
+      const spot = leaves ? makeWay(all.filter((el) => el !== one.me), one.me, next.gap >= me ? next.gap - 1 : next.gap, one.tall, quiet, now) : makeWay(all, one.me, next.gap, one.tall, quiet, now)
       // At the level it would land: beside the block it goes before or after.
       const by = restBox(next.by.el)
       one.room = spot && { ...spot, left: by.left, width: by.width }
       lean(null, 0)
     } else {
       // Beside a block, into an item, or nowhere: nothing opens, all at home, its own place the band.
-      makeWay(all, one.me, null, one.tall, quiet)
+      makeWay(all, one.me, null, one.tall, quiet, now)
       const home = restBox(one.me)
       one.room = one.copy ? null : { ...home, height: one.tall, own: true }
       lean(next?.kind === 'beside' && !next.refused ? next.lean : null, next?.kind === 'beside' ? (next.beside.side === 'left' ? 8 : -8) : 0)
@@ -462,7 +473,7 @@ function draw(): void {
           <CarriedCard attrs={{ 'data-block-card': '' }} icon={one.icon} title={one.title} words={words} refused={!!side?.refused} />
         </CardAt>
       )}
-      {room && <RoomAt at={room} how={aim?.kind === 'line' ? `block:${aim.at}` : 'own'} place={aim?.kind === 'line' ? aim.key : 'own'} />}
+      {room && <RoomAt at={room} how={aim?.kind === 'line' ? `block:${aim.at}` : 'own'} place={aim?.kind === 'line' ? one.place : 'own'} now={one.scrolled} />}
       {/* Beside a block: the line stands up at the seam its new column will open at, the height of the block. */}
       {side && !side.refused && (
         <DropLine fixed upright how={`beside:${side.beside.side}`} style={{ top: side.box.top, height: side.box.height, left: side.beside.side === 'left' ? side.box.left - 10 : side.box.left + side.box.width + 8, animation: roomWait() }} />
