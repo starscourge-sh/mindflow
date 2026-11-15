@@ -16,6 +16,17 @@ process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 process.env.HALIGTREE_QA_STEPASIDE = '1'
 
 const { check, done } = checks()
+// What the app wrote down as the last run quit, read before this one starts (it writes the file again as it opens them).
+const find = (dir, depth = 0) => {
+  for (const name of readdirSync(dir)) {
+    const path = join(dir, name)
+    if (name === 'small-windows.json') return path
+    if (depth < 3 && statSync(path).isDirectory() && !name.startsWith('.')) { const got = find(path, depth + 1); if (got) return got }
+  }
+  return null
+}
+const keptFile = process.env.SMALL_PART === 'restart' && process.env.QA_DATA ? find(process.env.QA_DATA) : null
+const keptBefore = keptFile ? JSON.parse(readFileSync(keptFile, 'utf8')) : []
 const c = await sandbox({ width: 1100, height: 760 })
 const { page: boxPage, h, v, electron } = c
 const wait = (ms) => boxPage.waitForTimeout(ms)
@@ -40,16 +51,7 @@ try {
   if (process.env.SMALL_PART === 'restart') {
     // What the full run left open as it quit (the box's words, a note from the Inbox, the one typed into), as the app
     // wrote it down: every one of them back.
-    const find = (dir, depth = 0) => {
-      for (const name of readdirSync(dir)) {
-        const path = join(dir, name)
-        if (name === 'small-windows.json') return path
-        if (depth < 3 && statSync(path).isDirectory() && !name.startsWith('.')) { const got = find(path, depth + 1); if (got) return got }
-      }
-      return null
-    }
-    const kept = find(process.env.QA_DATA)
-    const want = kept ? JSON.parse(readFileSync(kept, 'utf8')).length : 0
+    const want = keptBefore.length
     const back = await until(() => want > 0 && smalls().length >= want && smalls(), 20000)
     check(`after a restart, the ${want} small windows open when the app quit are back`, want >= 2 && back && back.length === want, back ? back.map((one) => one.url().replace(/^.*small=/, '')).join(', ') : `${smalls().length} of ${want}`)
     const texts = []
@@ -62,7 +64,10 @@ try {
     check('each with the note it held, words and all', !!typed && texts.some((t) => /Box words for a small window/.test(t.text)), texts.map((t) => t.text.slice(0, 30)).join(' | '))
     if (typed) {
       const b = await win(typed.one.url())
-      check('where it was, at the size it had', b && b.width === 520 && b.y > 0, JSON.stringify(b))
+      const link = decodeURIComponent(typed.one.url().replace(/^.*[?&]small=([^&]*).*$/, '$1'))
+      const saved = keptBefore.find((one) => one.link === link)?.bounds
+      // Its left edge and width as written down; its top only moves if its height needs it to (grown to its ceiling).
+      check('where it was, at the size it had', b && saved && b.x === saved.x && b.width === saved.width && b.height === saved.height, JSON.stringify({ now: b, saved }))
     }
   } else {
     await v('settings:set', { hintRate: 0, rotCount: 0, sounds: false, motion: true, boxAutoHide: true })
@@ -117,9 +122,11 @@ try {
       row.undo = !(await text()).includes('zz') && (await text()).includes('listed item')
       row.pasteSound = await cued(() => paste(at, 'Pasted line from a report', EDITOR))
       row.paste = (await text()).includes('Pasted line from a report')
+      // On a line of its own: "/" opens its menu at a word's start, never in the middle of one.
+      await at.keyboard.press('Enter')
       row.slashSound = await cued(() => at.keyboard.type('/', { delay: 25 }))
-      row.slash = await at.locator('.tiptap-suggestion-popup, [role="listbox"]').first().isVisible().catch(() => false)
-      await at.keyboard.press('Backspace'); await at.waitForTimeout(300)
+      row.slash = await at.locator('.tiptap-suggestion-popup').first().isVisible().catch(() => false)
+      await at.keyboard.press('Backspace'); await at.keyboard.press('Backspace'); await at.waitForTimeout(300)
       parity.push(row)
     }
     const [inBox, inSmall] = parity
