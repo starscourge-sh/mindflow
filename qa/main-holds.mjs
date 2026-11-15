@@ -38,6 +38,10 @@ const c = await sandbox({ width: 1100, height: 760, seeded: false })
 const { h, v, electron } = c
 /** Main's stall table read now; reading it starts its loop's delay afresh. */
 const stalls = () => electron.evaluate(() => globalThis.mainStalls())
+/** What main was asked between two readings of its table, the busiest first: each name's time on its thread then. */
+const between = (before, after) => after.rows.map((row) => ({ row, was: before.rows.find((one) => one.name === row.name) }))
+  .map(({ row, was }) => ({ name: row.name, calls: row.calls - (was?.calls ?? 0), ms: row.ms - (was?.ms ?? 0) })).filter((one) => one.calls > 0).sort((a, b) => b.ms - a.ms).slice(0, 4)
+  .map((one) => `${one.name} ×${one.calls} ${one.ms} ms`).join(', ')
 const rowOf = (table, name) => table.rows.find((one) => one.name === name)
 try {
   // 1. The welcome's state, as each page asks it as it loads.
@@ -52,11 +56,11 @@ try {
   const sizeOf = (file) => (existsSync(file) ? execFileSync('sips', ['-g', 'pixelWidth', '-g', 'pixelHeight', file]).toString().match(/\d+(?=\n)/g)?.join(' x ') : null)
   const add = async (path) => {
     await h.waitForTimeout(2500)
-    await stalls()
+    const before = await stalls()
     const added = await v('media:add', [{ path }])
-    const late = (await stalls()).delay.worst
+    const after = await stalls()
     const one = added?.added?.[0]
-    return { late, one, size: one ? sizeOf(join(store, one.src.split('/').pop())) : null, refused: added?.refused }
+    return { late: after.delay.worst, asked: between(before, after), one, size: one ? sizeOf(join(store, one.src.split('/').pop())) : null, refused: added?.refused }
   }
   // The HEIC by its bytes too, as a drag from Photos brings it (no path): turned the same way, it is met as the picture
   // already kept, under the name it came with.
@@ -64,13 +68,13 @@ try {
   for (const [kind, path, name] of [['HEIC', heic, 'Harbour at dusk.heic'], ['TIFF', tiff, 'Harbour at dawn.tiff'], ['HEIC by its bytes', null, 'Harbour at night.heic']]) {
     const got = path ? await add(path) : await (async () => {
       await h.waitForTimeout(2500)
-      await stalls()
+      const before = await stalls()
       const added = await h.evaluate(([b, n]) => window.api.haligtree('media:add', [{ name: n, bytes: new Uint8Array(b) }]), [bytes, name])
-      const late = (await stalls()).delay.worst
+      const after = await stalls()
       const one = added?.added?.[0] ?? added?.met?.[0]
-      return { late, one, size: one ? sizeOf(join(store, one.src.split('/').pop())) : null, refused: added?.refused }
+      return { late: after.delay.worst, asked: between(before, after), one, size: one ? sizeOf(join(store, one.src.split('/').pop())) : null, refused: added?.refused }
     })()
-    check(`a 24-megapixel ${kind} added to Files never holds main (its loop under ${LATE_MS} ms late)`, got.late < LATE_MS, `${got.late} ms late at worst  [${load()}]`)
+    check(`a 24-megapixel ${kind} added to Files never holds main (its loop under ${LATE_MS} ms late)`, got.late < LATE_MS, `${got.late} ms late at worst; main was asked: ${got.asked ?? '-'}  [${load()}]`)
     check(`and the ${kind} is kept as a PNG of its own size, a picture every window can draw, under its own name`, /\.png$/.test(got.one?.src ?? '') && got.size === '6000 x 4000' && got.one.name === name, `${(got.one?.src ?? '').slice(-20)} ${got.size} “${got.one?.name}”; refused ${JSON.stringify(got.refused)}`)
   }
 
