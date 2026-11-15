@@ -941,6 +941,9 @@ export default function App(): React.JSX.Element {
    * sound. Every way in comes here: ⌘\, the panel button, the pinned chip, ⌃J, ⌃1 to ⌃5, ⇧⌘Y and Settings.
    */
   const setPanel = (open: boolean, quiet = false): void => {
+    // Already shown, or already away (the pinned chip with the panel out): nothing moves, nothing sounds. It ran the
+    // whole move to the same shape, the frost off and on again under it, with a slide for nothing.
+    if (open === panelTold.current) return
     if (!quiet) chime(open ? 'slide' : 'fold')
     // Put away: the height the box will want without it, told first, so main puts it back at that size.
     if (!open) box.aim(pillAfterPanel.current)
@@ -2216,6 +2219,8 @@ export default function App(): React.JSX.Element {
             <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
+                // The panel out already: a change of list, said as ⌃1 says it.
+                if (panel && tab !== 'inbox') chime('tap')
                 setTab('inbox')
                 setPanel(true)
               }}
