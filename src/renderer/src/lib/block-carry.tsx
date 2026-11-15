@@ -283,10 +283,10 @@ function lean(el: HTMLElement | null, by: number, now = false): void {
   if (!el || still()) return
   leaning = { el, move: el.animate([{ translate: '0 0' }, { translate: `${by}px 0` }], { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1)', fill: 'forwards' }) }
 }
-/** Reads the aim afresh, makes way for it, ticks a new place and draws the card. */
-function point(one: Held): void {
+/** Reads the aim afresh, makes way for it, ticks a new place and draws the card; `again`, the note scrolled under it: the room and its line are placed again too. */
+function point(one: Held, again = false): void {
   const next = aimOf(one)
-  if (next?.key !== one.aim?.key) {
+  if (again || next?.key !== one.aim?.key) {
     one.aim = next
     const quiet = (change: () => void): void => quietly(one.view, change)
     const all = one.pieces.filter((piece) => piece.el === one.me || !one.sources.includes(piece.el)).map((piece) => piece.el)
@@ -415,7 +415,7 @@ const key = (event: KeyboardEvent): void => {
   end(false)
 }
 /** The page scrolled under a still pointer (the note's own scroll at its edge): the aim is read again. */
-const scrolled = (): void => void (held && point(held))
+const scrolled = (): void => void (held && point(held, true))
 function stopListening(): void {
   window.removeEventListener('pointermove', move, true)
   window.removeEventListener('pointerup', up, true)
