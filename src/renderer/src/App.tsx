@@ -446,31 +446,31 @@ const Header = ({ panel, drawn, onPanel, onNew, onBrowse, onAutoSize, menu, nav,
               “Auto-size”). In its bottom row it pushed “Close note” past the edge; floated, it covered the row. */}
           {onAutoSize && (
             <Tip label="Auto-size: grow with the words again">
-              <button type="button" tabIndex={-1} aria-label="Auto-size" data-small-auto className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent/60"
+              <button type="button" tabIndex={-1} aria-label="Auto-size" data-small-auto className="mf-seg relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent/60"
                 onMouseDown={(event) => event.preventDefault()} onClick={onAutoSize}>
                 <ArrowUpDown className="size-3.5" strokeWidth={1.75} />
               </button>
             </Tip>
           )}
           <Tip label={SMALL ? 'New note in this window  ⌘N' : 'New capture  ⌘N'}>
-            <button type="button" tabIndex={-1} aria-label={SMALL ? 'New note' : 'New capture'} className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+            <button type="button" tabIndex={-1} aria-label={SMALL ? 'New note' : 'New capture'} className="mf-seg relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onNew}>
               <AliveIcon icon={PenIcon} size={14} />
             </button>
           </Tip>
           {onBrowse && (
             <Tip label="Another note in this window  ⌘P">
-              <button type="button" tabIndex={-1} aria-label="Browse notes" data-small-browse className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+              <button type="button" tabIndex={-1} aria-label="Browse notes" data-small-browse className="mf-seg relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
                 onMouseDown={(event) => event.preventDefault()} onClick={onBrowse}>
                 <Layers2 className="size-3.5" strokeWidth={1.75} />
               </button>
             </Tip>
           )}
-          <span className="flex">{menu(expanded, toggle)}</span>
+          <span className="mf-seg flex">{menu(expanded, toggle)}</span>
 {onPanel && (
           <Tip label={`${panel ? 'Hide' : 'Show'} Inbox, Tasks, Review, Saved and Recent  ⌘\\`}>
             <button type="button" tabIndex={-1} data-lesson="hide" aria-label={panel ? 'Hide the side panel' : 'Show the side panel'} aria-pressed={panel}
-              className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
+              className="mf-seg relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-pressed:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onPanel}>
               <AliveIcon icon={LayoutSidebarRightIcon} size={14} />
             </button>
@@ -2368,7 +2368,7 @@ export default function App(): React.JSX.Element {
               <button type="button" tabIndex={-1} aria-label={label} disabled={!trail.stack[trail.at + by] && trail.stack[trail.at + by] !== null}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => travel(trail.at + by)}
-                className="flex size-[18px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:opacity-35">
+                className="mf-seg flex size-[18px] items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:opacity-35">
                 <Icon className="size-3.5" />
               </button>
             </Tip>

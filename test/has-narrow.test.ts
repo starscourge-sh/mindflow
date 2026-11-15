@@ -70,14 +70,53 @@ test('the rule is right on known cases', () => {
   assert.equal(broad(':root[data-zen-hide] [data-zen-row]:not(:hover) > :not([data-zen-keep]):not(:has([data-state=open]))'), false)
 })
 
-test('no :has() is followed by a part that names nothing narrow', () => {
+/**
+ * Whether a sibling rule (+ or ~) ends in a part that names no tag, class, id or attribute, or asks the class
+ * attribute itself. Chromium cannot aim a sibling rule at one element when something is put in or taken out beside
+ * it, so it asks it of everything under the parent: "* + *" restyled all of it, "[class~='x']" every element with a
+ * class. ⌘K, a menu or a hover card over the largest note restyled the whole window that way (15 Nov, 15,000
+ * elements, 140 to 360 ms). Escaped characters and anything in brackets are set aside first.
+ */
+export const siblingBroad = (selector: string): boolean => {
+  let depth = 0
+  let flat = ''
+  for (let i = 0; i < selector.length; i++) {
+    const ch = selector[i]
+    if (ch === '\\') { flat += '__'; i++; continue }
+    if (ch === ')' || ch === ']') depth--
+    flat += depth ? '_' : ch
+    if (ch === '(' || ch === '[') depth++
+  }
+  if (!/[+~]/.test(flat)) return false
+  if (/\[\s*class\s*([~*^$|]?=|\])/.test(selector)) return true
+  const from =Math.max(...['>', '+', '~', ' '].map((one) => flat.trimEnd().lastIndexOf(one))) + 1
+  const last = selector.slice(from).replace(/:not\((?:[^()]|\([^()]*\))*\)/g, '').replace(/::?[\w-]+(?!\()/g, '')
+  // A tag, a class, an id, an attribute, or SCSS's "&" (the selector it sits in).
+  return !/[.#[&]|(^|[(,\s])[a-z]/i.test(last)
+}
+
+test('the sibling rule is right on known cases', () => {
+  assert.equal(siblingBroad('.mf-segs > * + *::before'), true)
+  assert.equal(siblingBroad(".mf-segs > :is(:hover, [data-state='open']) + *::before"), true)
+  assert.equal(siblingBroad(":root[data-style='brutal'] :is([class~='border-b']) + :is([class~='border-t'])"), true)
+  assert.equal(siblingBroad(".mf-segs > :is(:hover, [data-state='open']) + :where(.mf-seg)::before"), false)
+  assert.equal(siblingBroad('.mf-segs > :where(:not(:first-child))::before'), false)
+  assert.equal(siblingBroad('.sticky-text[data-hide-first] .ProseMirror > :first-child + :is(h1, h2)'), false)
+  assert.equal(siblingBroad('.tile-pic + .\\[\\.tile-pic\\+\\&\\]\\:block'), false)
+  assert.equal(siblingBroad(':nth-child(2n+1) p'), false)
+})
+
+/** The welcome covers the app whole while it shows (main.css): nothing under it is drawn or restyled meanwhile. */
+const SIBLING_KEPT = new Set([':root[data-welcoming] .mf-welcome ~ *'])
+
+test('no :has() is followed by a part that names nothing narrow, nor a sibling rule', () => {
   const found: string[] = []
   for (const file of files('src/renderer/src', /\.s?css$/)) {
     const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
     for (const prelude of text.match(/[^{};]+(?=\{)/g) ?? []) {
       if (/^\s*@/.test(prelude)) continue
-      for (const selector of list(prelude)) if (broad(selector)) found.push(`${file}: ${selector}`)
+      for (const selector of list(prelude)) if (broad(selector) || (siblingBroad(selector) && !SIBLING_KEPT.has(selector))) found.push(`${file}: ${selector}`)
     }
   }
-  assert.deepEqual(found, [], `give the last part a class or attribute, or move the :has() onto it: ${found.join('\n')}`)
+  assert.deepEqual(found, [], `give the last part a class or attribute, or move the :has() onto it; never "* + *" or [class~=]: ${found.join('\n')}`)
 })

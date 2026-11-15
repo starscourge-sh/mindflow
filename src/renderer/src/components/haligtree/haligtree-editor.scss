@@ -2100,7 +2100,8 @@ html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcurs
 }
 
 // A menu open anywhere (/, @, #, the block menu, a right-click) has the page: the count never peeks out beside it.
-body:has(:is(.tiptap-slash-menu, .tiptap-block-menu, [role="menu"])) .tiptap-word-count {
+// html[data-menu-up]: lib/menu-showing.ts markFloats, never a :has() on the body (it says why).
+html[data-menu-up] .tiptap-word-count {
   visibility: hidden;
 }
 
@@ -2741,11 +2742,14 @@ html[data-motion="off"] .tiptap.ProseMirror.haligtree-editor .mf-caption {
 // the title lines up with the items above and below rather than sitting in.
 .tiptap.ProseMirror.haligtree-editor li:has(> [data-type="details"]) {
   list-style: none;
+}
 
-  > [data-type="details"] {
-    // The button's own width, plus the gap, pulled back into the gutter.
-    margin-left: -1.5rem;
-  }
+// The button's own width, plus the gap, pulled back into the gutter. Asked of
+// the toggle itself, never through the item's :has(): a part after a :has()
+// is looked for again each time any :has() anywhere may change (a menu, ⌘K),
+// and [data-type] is on thousands of a long note's blocks.
+.tiptap.ProseMirror.haligtree-editor li > [data-type="details"] {
+  margin-left: -1.5rem;
 }
 
 .tiptap.ProseMirror.haligtree-editor [data-type=details] {
@@ -2887,7 +2891,8 @@ $nested-ul: "ul:not([data-type='taskList'])";
 }
 
 // A menu opened on the picture (its words' Copy and Look Up) shows over the viewer, not behind it.
-body:has(.mf-look) [data-radix-popper-content-wrapper] {
+// html[data-look]: lib/menu-showing.ts markFloats.
+html[data-look] [data-radix-popper-content-wrapper] {
   z-index: 70 !important;
 }
 

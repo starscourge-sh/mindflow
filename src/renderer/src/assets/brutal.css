@@ -336,11 +336,15 @@ html:root[data-style='brutal']:not([data-light]) {
 
 /* One line per edge: a top rule straight under a bottom rule, or a first
    child's top rule against its outlined parent's, is the same edge drawn
-   twice, so the second goes. */
-:root[data-style='brutal'] :is([class~='border-b'], [class~='border-y'], [class~='border']) + :is([class~='border-t'], [class~='border-y']) {
+   twice, so the second goes. Asked by class (".border-t"), never as the
+   attribute ("[class~='border-t']"): a rule on the attribute is asked again
+   at every class change anywhere, and next to anything put in or taken out
+   it had Chromium restyle every element with a class under the parent (with
+   ⌘K over the largest note, about 12,000 of them). */
+:root[data-style='brutal'] :is(.border-b, .border-y, .border) + :is(.border-t, .border-y) {
   border-top-width: 0;
 }
-:root[data-style='brutal'] :is([class~='border'], [class~='border-t'], [class~='border-y']) > :is([class~='border-t'], [class~='border-y']):first-child {
+:root[data-style='brutal'] :is(.border, .border-t, .border-y) > :is(.border-t, .border-y):first-child {
   border-top-width: 0;
 }
 

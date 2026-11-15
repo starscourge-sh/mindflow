@@ -54,6 +54,7 @@ import { stillTransforms } from './lib/motion'
 import { TooltipProvider } from './components/ui/tooltip'
 import { putDetailsAway } from './lib/reading'
 import { guardFrost } from './lib/frost-guard'
+import { markFloats } from './lib/menu-showing'
 import { installTextUndo } from './lib/text-undo'
 import { APP_NAME } from '../../main/name'
 import { toasters, whyFailed } from './components/haligtree/ui'
@@ -102,6 +103,10 @@ const opened = new URLSearchParams(window.location.search)
 if (opened.get('view') === 'home' || opened.has('drawing')) document.documentElement.dataset.dim = 'veil'
 // Those same solid windows are where menus and pop-ups are frosted: each one kept opaque where frost cannot draw.
 if (document.documentElement.dataset.dim === 'veil') guardFrost()
+// What floats over the page, and a card holding the keys, marked on it for the styles that give way (main.css).
+markFloats()
+document.addEventListener('focusout', () => document.documentElement.removeAttribute('data-card-focus'))
+document.addEventListener('focusin', ({ target }) => void document.documentElement.toggleAttribute('data-card-focus', target instanceof Element && target.matches('[data-card]')))
 // ⌘Z and ⇧⌘Z in every plain text box, a whole run of typing at a time (lib/text-undo.ts).
 installTextUndo()
 // A window never scrolls as a whole: each page scrolls inside itself. Something

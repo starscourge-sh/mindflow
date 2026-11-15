@@ -261,7 +261,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
 
         <span className={`${PILL} mf-segs relative`} style={NO_DRAG} role="toolbar" aria-label="Tools">
           {TOOLS.map((group, n) => (
-            <span key={n} className={`flex items-center ${n ? 'pl-[3px]' : ''}`}>
+            <span key={n} className={`mf-seg flex items-center ${n ? 'pl-[3px]' : ''}`}>
               {group.map(({ type, label, keys, icon }) => {
                 const on = seen.tool === type
                 return (
@@ -309,7 +309,7 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
           ].map(({ label, keys, off, run, flip }) => (
             <Tip key={label} label={keyed(label, keys)}>
               <button type="button" aria-label={label} disabled={off} tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={run}
-                className="relative flex size-[22px] items-center justify-center rounded-full after:absolute after:-inset-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
+                className="mf-seg relative flex size-[22px] items-center justify-center rounded-full after:absolute after:-inset-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground disabled:pointer-events-none disabled:opacity-40">
                 <AliveIcon icon={ArrowBackUpIcon} size={15} className={flip ? '-scale-x-100' : ''} />
               </button>
             </Tip>
@@ -320,19 +320,19 @@ export default function ExcalidrawCanvas({ scene, onChange, start, end, header =
         <span className={`${PILL} mf-segs @max-[42rem]:hidden`} style={NO_DRAG}>
           <Tip label={keyed('Zoom out', ['⌘−'])}>
             <button type="button" aria-label="Zoom out" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('zoomout'), zoomTo((now) => now - 0.1))}
-              className="relative flex size-[22px] items-center justify-center rounded-full after:absolute after:-inset-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
+              className="mf-seg relative flex size-[22px] items-center justify-center rounded-full after:absolute after:-inset-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
               <Minus className="size-3.5" />
             </button>
           </Tip>
           <Tip label={keyed('Back to 100%', ['⇧0'])}>
             <button type="button" aria-label="Back to 100%" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('tap'), zoomTo(() => 1))}
-              className="relative flex h-[22px] min-w-12 items-center after:absolute after:-inset-y-1 after:inset-x-0 justify-center rounded-full px-1.5 text-meta tabular-nums text-(--mf-muted-strong) transition-colors hover:bg-accent/60 hover:text-foreground">
+              className="mf-seg relative flex h-[22px] min-w-12 items-center after:absolute after:-inset-y-1 after:inset-x-0 justify-center rounded-full px-1.5 text-meta tabular-nums text-(--mf-muted-strong) transition-colors hover:bg-accent/60 hover:text-foreground">
               <Rolling text={`${seen.zoom}%`} />
             </button>
           </Tip>
           <Tip label={keyed('Zoom in', ['⌘+'])}>
             <button type="button" aria-label="Zoom in" tabIndex={-1} onMouseDown={(event) => event.preventDefault()} onClick={() => (chime('zoomin'), zoomTo((now) => now + 0.1))}
-              className="relative flex size-[22px] items-center justify-center rounded-full after:absolute after:-inset-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
+              className="mf-seg relative flex size-[22px] items-center justify-center rounded-full after:absolute after:-inset-1 text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground">
               <Plus className="size-3.5" />
             </button>
           </Tip>

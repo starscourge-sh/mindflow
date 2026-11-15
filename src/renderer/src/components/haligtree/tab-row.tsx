@@ -168,8 +168,8 @@ function StepButton({ by, label, keys, icon, pane, actions }: { by: -1 | 1; labe
   const letGo = (): void => window.clearTimeout(hold.current)
   return (
     <RowMenu items={() => actions.history(pane, by)}>
-      {/* The menu's trigger, around the tip: a tip passes nothing on to its button. */}
-      <span className="flex">
+      {/* The menu's trigger, around the tip: a tip passes nothing on to its button. A segment of its pill (mf-seg, main.css .mf-segs). */}
+      <span className="mf-seg flex">
       <Tip label={<span className="flex items-center gap-1.5">{label} <Pressed keys={keys} /></span>}>
         <button type="button" aria-label={label} data-tab-step={by < 0 ? 'back' : 'forward'} disabled={!actions.canStep(pane, by)}
           onPointerDown={(event) => {

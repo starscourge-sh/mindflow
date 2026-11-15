@@ -570,10 +570,11 @@ html[data-overhang] .mf-pill {
   overflow: visible;
   opacity: 1 !important;
 }
-html[data-overhang] .mf-pill > * + * {
+/* Each segment after the first (never "* + *": .mf-segs says why). */
+html[data-overhang] .mf-pill > :where(:not(:first-child)) {
   margin-left: 0;
 }
-html[data-overhang] .mf-pill > * + *::before {
+html[data-overhang] .mf-pill > :where(:not(:first-child))::before {
   display: none;
 }
 /* Quick capture's hint (hint-card.tsx, HintRoom): out of the card, in the room main keeps for it. Above the card's
@@ -1073,10 +1074,15 @@ html[data-overhang] .mf-dots {
     position: relative;
     flex: none;
   }
-  .mf-segs > * + * {
+  /* Each segment after the first, never "* + *": a sibling rule ending in a bare "*" (or in a lit one's neighbour
+     with no class) has Chromium restyle everything under the parent whenever anything is put in or taken out
+     beside it, and the neighbour's whole inside on every hover. Opening ⌘K over the largest note restyled the
+     whole window that way (about 15,000 elements, 140 to 360 ms each open and close). The neighbour of a lit
+     segment is named by its own class (mf-seg), on every segment. */
+  .mf-segs > :where(:not(:first-child)) {
     margin-left: 1px;
   }
-  .mf-segs > * + *::before {
+  .mf-segs > :where(:not(:first-child))::before {
     content: '';
     position: absolute;
     top: 25%;
@@ -1088,7 +1094,7 @@ html[data-overhang] .mf-dots {
     transition: opacity 80ms var(--mf-ease);
   }
   .mf-segs > :is(:hover, [data-state='open'], :has([data-state='open']))::before,
-  .mf-segs > :is(:hover, [data-state='open'], :has([data-state='open'])) + *::before {
+  .mf-segs > :is(:hover, [data-state='open'], :has([data-state='open'])) + :where(.mf-seg)::before {
     opacity: 0;
   }
 }
@@ -1878,8 +1884,10 @@ body {
 /* Not motion, so the Motion setting leaves it on. */
 [data-motion='off'] :is(.mf-more, .mf-faded .haligtree-editor-content, .page-dock-side, .page-dock-scroll, .mf-fade-end, [data-reading-pane] .note-pane, [data-reading-pane] .note-pane .haligtree-editor-content) { animation-duration: auto !important; }
 
-/* One highlight at a time: a card reached by keyboard, not also a list row. */
-body:has([data-card]:focus) [data-cursor] {
+/* One highlight at a time: a card reached by keyboard, not also a list row.
+   html[data-card-focus] is kept by main.tsx, never a :has() on the body
+   (lib/menu-showing.ts markFloats says why). */
+html[data-card-focus] [data-cursor] {
   background-color: transparent !important;
 }
 
@@ -2400,7 +2408,8 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
   font-size: var(--text-control); line-height: var(--text-control--line-height);
   color: var(--muted-foreground);
 }
-.mf-margin-card > * + *::before { content: '·'; margin-inline-end: 0.5em; color: var(--muted-foreground); }
+/* A dot before each line after the first (never "* + *": .mf-segs says why). */
+.mf-margin-card > :where(:not(:first-child))::before { content: '·'; margin-inline-end: 0.5em; color: var(--muted-foreground); }
 .mf-margin-card button { text-align: inherit; }
 @container note (min-width: 62rem) {
   html[data-width='page'] .mf-margin-card {
@@ -2411,7 +2420,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
     border-inline-end: 1px solid var(--border);
     text-align: right; overflow-wrap: anywhere;
   }
-  html[data-width='page'] .mf-margin-card > * + *::before { content: none; }
+  html[data-width='page'] .mf-margin-card > :where(:not(:first-child))::before { content: none; }
 }
 @container note (min-width: 78rem) {
   html[data-width='wide'] .mf-margin-card {
@@ -2422,7 +2431,7 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
     border-inline-end: 1px solid var(--border);
     text-align: right; overflow-wrap: anywhere;
   }
-  html[data-width='wide'] .mf-margin-card > * + *::before { content: none; }
+  html[data-width='wide'] .mf-margin-card > :where(:not(:first-child))::before { content: none; }
 }
 
 /* A thought at the foot of a note's page (gloss-line.tsx, PageThoughts): the
