@@ -93,7 +93,12 @@ export async function standIn() {
     if (url.pathname === '/plato.stanford.edu/search/searcher.py') return send(200, 'text/html; charset=utf-8', SEP)
     if (url.pathname === '/en.wikipedia.org/wiki/Carthage') return void setTimeout(() => send(200, 'text/html; charset=utf-8', pages[url.pathname]), 1500)
     if (pages[url.pathname]) return send(200, 'text/html; charset=utf-8', pages[url.pathname])
-    if (/^\/(upload|thumb)\.wikimedia\.org\//.test(url.pathname)) return send(200, 'image/png', png(150, 110, 60))
+    // At the size its address says, as Wikimedia's own are ("250px-Colosseum.jpg" is 250 wide), or a photo's size: the
+    // reader's cleaner measures each picture's file, and drops one the size of an icon.
+    if (/^\/(upload|thumb)\.wikimedia\.org\//.test(url.pathname)) {
+      const wide = Number(/\/(\d+)px-[^/]+$/.exec(url.pathname)?.[1] ?? 640)
+      return send(200, 'image/png', png(150, 110, 60, wide, Math.round(wide * 0.75)))
+    }
     send(404, 'text/plain', 'not here')
   })
   await new Promise((done) => server.listen(0, '127.0.0.1', done))
