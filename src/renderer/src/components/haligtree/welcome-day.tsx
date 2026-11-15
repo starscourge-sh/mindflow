@@ -3,6 +3,7 @@ import { scaleLinear, scalePow } from 'd3-scale'
 import { cubicBezier, motion } from 'motion/react'
 import { Gem, ListTodo, Quote } from 'lucide-react'
 import { EASE } from '@/lib/motion'
+import { useFitPicture } from '@/lib/fit-text'
 import { STORY_DAY } from '@/lib/welcome-box'
 import { Brain, Eye } from '@/components/ui/icons'
 import { clock, dayjs } from '../../../../main/dates'
@@ -126,9 +127,14 @@ const TINT = { task: HUE.task.ink, gem: HUE.gem.ink, quote: 'var(--tt-color-text
  */
 export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean; said: (text: string) => ReactNode }): React.JSX.Element {
   const fade = quiet ? { duration: 0 } : { duration: 0.35, ease: EASE }
+  // The three moments take the room the curve leaves them: a little smaller where the window is short or the story's
+  // words run long, so the curve keeps its least height whole over the footer.
+  const room = useRef<HTMLDivElement>(null)
+  const moments = useRef<HTMLDivElement>(null)
+  useFitPicture(moments, room)
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col gap-y-[clamp(0.75rem,calc(4vh-0.75rem),2.25rem)] pt-[clamp(0rem,calc(4vh-1.75rem),1rem)]">
-      <div data-moments className="grid w-full shrink-0 grid-cols-3 items-start gap-x-[clamp(1rem,3vw,2.5rem)]">
+    <div ref={room} className="flex min-h-0 w-full flex-1 flex-col gap-y-[clamp(0.75rem,calc(4vh-0.75rem),2.25rem)] pt-[clamp(0rem,calc(4vh-1.75rem),1rem)]">
+      <div ref={moments} data-moments className="grid w-full shrink-0 grid-cols-3 items-start gap-x-[clamp(1rem,3vw,2.5rem)]">
         {back().map((one, i) => {
           const Icon = ICON[one.kind]
           const on = shot.shown > i
