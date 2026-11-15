@@ -470,9 +470,10 @@ export function registerCaptures(): void {
   ipcMain.handle('captures:find', (event, query: unknown, only: unknown, asker: unknown) => ask('find', [bookStamp(), query, only], typeof asker === 'string' ? `find:${event.sender.id}:${asker}` : undefined))
   ipcMain.handle('captures:named', (_event, query: unknown, exact: unknown) => ask('named', [bookStamp(), query, exact]))
 
-  // What search previews: the start of one note, the first 30 blocks, which
-  // fill the pane; a 2 MB note whole took longer to draw than to read.
-  ipcMain.handle('captures:peek', (_event, type: unknown, id: unknown) => {
+  // What search previews: 30 blocks of one note, which fill the pane (a 2 MB note whole took longer to draw than to
+  // read): its start, or, with words searched for that first stand further in, the part they stand in, so a match is
+  // shown in the preview and not only said in the list (`words`, lower case).
+  ipcMain.handle('captures:peek', (_event, type: unknown, id: unknown, words: unknown) => {
     const row = db.prepare(type === 'day' ? 'select body from day_pages where day = ?' : `select body from ${type === 'capture' ? 'captures' : 'nuggets'} where id = ?`).get(String(id)) as { body: string | null } | undefined
     let body: unknown
     try {
@@ -480,9 +481,17 @@ export function registerCaptures(): void {
     } catch {
       body = row?.body ?? null
     }
-    if (typeof body === 'string') return body.slice(0, 6000)
+    const looked = Array.isArray(words) ? words.filter((one): one is string => typeof one === 'string' && !!one) : []
+    if (typeof body === 'string') {
+      const at = looked.length ? Math.min(...looked.map((one) => body.toLowerCase().indexOf(one)).filter((one) => one >= 0)) : 0
+      const from = Number.isFinite(at) && at > 4000 ? body.lastIndexOf('\n', at - 500) + 1 : 0
+      return body.slice(from, from + 6000)
+    }
     const doc = body as { content?: unknown[] } | null
-    const shown = Array.isArray(doc?.content) && doc.content.length > 30 ? { ...doc, content: doc.content.slice(0, 30) } : body
+    const wordsOf = (node: unknown): string => { const one = node as { text?: string; content?: unknown[] } | null; return (one?.text ?? '') + (one?.content ?? []).map(wordsOf).join('') }
+    const hit = looked.length && Array.isArray(doc?.content) ? doc.content.findIndex((block) => looked.some((one) => wordsOf(block).toLowerCase().includes(one))) : -1
+    const from = hit >= 30 ? hit - 5 : 0
+    const shown = Array.isArray(doc?.content) && doc.content.length > 30 ? { ...doc, content: doc.content.slice(from, from + 30) } : body
     if (type !== 'day') return shown
     // A day is found by its two answers as well as its page: both previewed, each under its question.
     const answers = db.prepare("select question, answer from journal where day = ? and coalesce(answer, '') != ''").all(String(id)) as { question: Question; answer: string }[]

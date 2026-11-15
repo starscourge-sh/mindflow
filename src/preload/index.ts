@@ -804,7 +804,8 @@ const api = {
     /** What `@` offers for the text typed after it. */
     search: (query: string): Promise<CaptureMeta[]> => ipcRenderer.invoke('captures:search', query),
     /** The start of one note, for search's preview. */
-    peek: (type: string, id: string): Promise<unknown> => ipcRenderer.invoke('captures:peek', type, id),
+    /** `words`: searched for; the preview shows the part of a long note they first stand in. */
+    peek: (type: string, id: string, words?: string[]): Promise<unknown> => ipcRenderer.invoke('captures:peek', type, id, words),
     create: (patch: CapturePatch): Promise<string> => ipcRenderer.invoke('captures:create', patch),
     save: (id: string, patch: CapturePatch): Promise<SaveResult> =>
       ipcRenderer.invoke('captures:save', id, patch),

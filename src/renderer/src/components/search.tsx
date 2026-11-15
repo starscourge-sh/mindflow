@@ -986,9 +986,9 @@ function NotePreview({ capture, words }: { capture: Capture; /** The words searc
   const [shown, setShown] = useState<{ id: string; body: unknown; capture: Capture } | null>(null)
   useEffect(() => {
     let old = false
-    void window.api.captures.peek(type, id).then((body) => !old && setShown({ id, body, capture }))
+    void window.api.captures.peek(type, id, words).then((body) => !old && setShown({ id, body, capture }))
     return () => void (old = true)
-  }, [type, id])
+  }, [type, id, words.join(' ')]) // eslint-disable-line react-hooks/exhaustive-deps
   if (!shown) return null
   const name = taskName(shown.capture.label ?? '').text.trim()
   const opens = firstWords(shown.body)
