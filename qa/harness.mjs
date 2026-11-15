@@ -217,7 +217,11 @@ function helpers({ app, page, logs }) {
       if (await page.locator(`${EDITOR}[data-vim-mode="normal"]`).count()) {
         await page.keyboard.press('i')
       }
-      await page.keyboard.press('ControlOrMeta+a')
+      // ⌘A grows the selection a step at a time in a note (qa/grow-selection.mjs): pressed until the whole note is picked.
+      for (let i = 0; i < 16; i++) {
+        await page.keyboard.press('ControlOrMeta+a')
+        if (await page.evaluate((selector) => (document.querySelector(selector)?.editor?.state.selection.toJSON().type ?? 'all') === 'all', EDITOR)) break
+      }
       await page.keyboard.press('Backspace')
 
       // Wait until it is genuinely empty. Without this a case starts typing

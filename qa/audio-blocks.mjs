@@ -168,7 +168,9 @@ try {
   await caretTo('Before'); await wait(300)
   let marks = await blocks()
   check('caret moved out: no outline, no toolbar', marks.every((one) => !one.picked) && (await bars()).length === 0, JSON.stringify(marks))
-  await h.keyboard.press('Meta+KeyA'); await wait(300)
+  // ⌘A grows the selection a step at a time (qa/grow-selection.mjs): pressed until the whole note is picked.
+  for (let i = 0; i < 16 && (await h.evaluate((sel) => document.querySelector(sel)?.editor?.state.selection.toJSON().type, EDITOR)) !== 'all'; i++) await h.keyboard.press('Meta+KeyA')
+  await wait(300)
   marks = await blocks()
   check('select all: both outlined, but no toolbar', marks.every((one) => one.picked) && (await bars()).length === 0, JSON.stringify(marks))
   await caretTo('Before'); await wait(300)
