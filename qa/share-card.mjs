@@ -48,19 +48,9 @@ try {
   const story = await inked()
   check('story is 1080 by 1920 and drawn', story.width === 1080 && story.height === 1920 && story.colours > 3, JSON.stringify(story))
   await h.screenshot({ path: `${shots}/share-card-story.png` })
-  // What the clipboard held before the run, kept to put back after.
-  await electron.evaluate(async ({ clipboard }) => {
-    const kept = []
-    for (const item of await clipboard.read()) {
-      const one = {}
-      for (const type of item.types) one[type] = await item.getType(type).catch(() => null)
-      kept.push(Object.fromEntries(Object.entries(one).filter(([, blob]) => blob instanceof Blob)))
-    }
-    globalThis.__keptClipboard = kept.filter((one) => Object.keys(one).length)
-  })
   await h.click('[data-card-copy]'); await wait(800)
-  const pasted = await electron.evaluate(async ({ clipboard, nativeImage }) => {
-    for (const item of await clipboard.read()) {
+  const pasted = await electron.evaluate(async ({ nativeImage }) => {
+    for (const item of await globalThis.qaPasteboard.read()) {
       if (!item.types.includes('image/png')) continue
       return nativeImage.createFromBuffer(Buffer.from(await (await item.getType('image/png')).arrayBuffer())).getSize()
     }
@@ -103,13 +93,6 @@ try {
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {
-  // What was on the clipboard before, put back.
-  await electron.evaluate(async ({ clipboard, ClipboardItem }) => {
-    const kept = globalThis.__keptClipboard
-    if (!kept) return
-    if (kept.length) await clipboard.write(kept.map((one) => new ClipboardItem(one)))
-    else clipboard.clear()
-  }).catch(() => undefined)
   await c.close?.()
   done()
 }

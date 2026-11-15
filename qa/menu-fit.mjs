@@ -99,8 +99,8 @@ const visit = async (where, locator) => {
 try {
   await wait(2000)
   await h.evaluate(() => { window.__said = []; window.addEventListener('haligtree:toast', (event) => window.__said?.push({ text: event.detail.text, tone: event.detail.tone })) })
-  // The Mac's clipboard is left alone: a copy is taken as done.
-  await h.evaluate(() => { window.api.copyPicture = async () => true; navigator.clipboard.writeText = async () => {} })
+  // A picture copied is taken as done, without drawing it: what is checked here is that each line fits and answers.
+  await h.evaluate(() => { window.api.copyPicture = async () => true })
   // Every page's rows with a menu, the first few of each kind, and its bar's own ⋯ menus.
   for (const page of ['inbox', 'articles', 'nuggets', 'questions', 'goals', 'today', 'upcoming', 'later', 'routines', 'tags', 'sources', 'queue', 'feed', 'media', 'map', 'matrix', 'discarded', 'archived', 'day', 'week', 'calendar', 'monthpage', 'yearpage', 'lookups', 'review', 'all', 'home']) {
     await c.go(page); await wait(700)

@@ -12,6 +12,7 @@
 import { mkdtempSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
+import { paste as pasteEvent } from './pasteboard.mjs'
 
 process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-blocks-'))
 process.env.QA_ARGS ??= '--sandbox'
@@ -83,7 +84,7 @@ try {
     e.state.doc.descendants((n, pos) => { if (at < 0 && n.isText && n.text.includes(text)) at = pos + n.text.indexOf(text) })
     e.chain().focus().setTextSelection({ from: at, to: at + text.length }).run()
   }, text)
-  const paste = async (text) => { await electron.evaluate(({ clipboard }, text) => clipboard.writeText(text), text); await h.keyboard.press('Meta+v'); await wait(300) }
+  const paste = async (text) => { await pasteEvent(h, text); await wait(300) }
   await pick('words')
   await paste('https://example.com/page')
   const linked = await h.$eval(ED, (root) => { let out = null; root.editor.state.doc.descendants((n) => { if (n.isText && n.marks.some((m) => m.type.name === 'link')) out = { text: n.text, href: n.marks.find((m) => m.type.name === 'link').attrs.href } }); return out })

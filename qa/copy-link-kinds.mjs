@@ -7,6 +7,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/copy-link-kinds.mjs [shots]
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+import { copiedText, paste, putOnBoard } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const shots = process.argv[2]
@@ -15,8 +16,8 @@ const c = await sandbox({ width: 1200, height: 800 })
 const { h, v, send, electron } = c
 const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
 const doc = (...lines) => ({ type: 'doc', content: lines.map(para) })
-const clip = () => electron.evaluate(({ clipboard }) => clipboard.readText())
-const setClip = (text) => electron.evaluate(({ clipboard }, t) => clipboard.writeText(t), text)
+const clip = () => copiedText(electron)
+const setClip = (text) => putOnBoard(electron, text)
 const link = (key, name) => `[[@${key}|${name}]]`
 const wait = (ms) => h.waitForTimeout(ms)
 try {
@@ -94,8 +95,7 @@ try {
     await editor.click()
     await h.keyboard.press('Meta+ArrowDown')
     await h.keyboard.press('Enter')
-    await setClip(one.text ?? link(one.key, one.name))
-    await h.keyboard.press('Meta+v')
+    await paste(h, one.text ?? link(one.key, one.name))
     await wait(600)
     const a = h.locator(`.tiptap.ProseMirror a[data-note="${one.key}"]`).last()
     const there = await a.count() > 0

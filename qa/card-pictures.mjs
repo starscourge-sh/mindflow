@@ -12,6 +12,7 @@ import { join } from 'node:path'
 import { deflateSync, crc32 } from 'node:zlib'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { paste } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 // A small solid PNG of one colour, so each fake picture has its own bytes.
@@ -63,8 +64,7 @@ try {
   // 1. A new card, by pasting the link into quick capture.
   await page.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(700)
   await page.locator('.haligtree-editor[contenteditable=true]').first().click()
-  await electron.evaluate(({ clipboard }, url) => clipboard.writeText(url), `${SITE}/page`)
-  await page.keyboard.press('Meta+v'); await page.waitForTimeout(600)
+  await paste(page, `${SITE}/page`); await page.waitForTimeout(600)
   await page.keyboard.press('Alt+Meta+Enter'); await page.waitForTimeout(800)
   let card = null
   for (let i = 0; i < 40 && !card; i++) {

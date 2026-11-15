@@ -5,6 +5,7 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/image-text.mjs
 // QA_SHOTS=dir saves the menu, light and dark.
 import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
+import { copiedText, putOnBoard } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
@@ -32,7 +33,7 @@ const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] }
 const made = await h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), { type: 'doc', content: [para('A picture of words'), { type: 'image', attrs: { src } }, para('And one of none'), { type: 'image', attrs: { src: bare } }] })
 await send('capture', made)
 await wait(1800)
-await electron.evaluate(({ clipboard }) => clipboard.writeText('before'))
+await putOnBoard(electron, 'before')
 
 const menuFor = async (one) => {
   await h.locator(`.ProseMirror img[src="${one}"]`).first().click({ button: 'right' })
@@ -53,18 +54,18 @@ if (process.env.QA_SHOTS) await both(`${process.env.QA_SHOTS}/image-text-menu`)
 if (process.env.QA_SHOTS) (await h.keyboard.press('Escape'), await wait(300), await menuFor(src))
 await h.getByRole('menuitem', { name: /Copy text from image/ }).click()
 let copied = ''
-for (let i = 0; i < 40 && !/move to a new page/i.test(copied); i++) (await wait(250), (copied = await electron.evaluate(({ clipboard }) => clipboard.readText())))
+for (let i = 0; i < 40 && !/move to a new page/i.test(copied); i++) (await wait(250), (copied = await copiedText(electron)))
 check('the words in the picture are on the clipboard', /move to a new page/i.test(copied) && /sync with/i.test(copied), JSON.stringify(copied.slice(0, 120)))
 const notice = await h.evaluate(() => document.body.innerText.match(/Copied (\d+ lines from|the words in) the picture/)?.[0] ?? '')
 check('a notice says how much was copied', !!notice, notice)
 
 await h.keyboard.press('Escape')
-await electron.evaluate(({ clipboard }) => clipboard.writeText('kept'))
+await putOnBoard(electron, 'kept')
 await menuFor(bare)
 await h.getByRole('menuitem', { name: /Copy text from image/ }).click()
 await wait(2500)
 const none = await h.evaluate(() => document.body.innerText.match(/No words in this picture|Could not read the picture/)?.[0] ?? '')
-const kept = await electron.evaluate(({ clipboard }) => clipboard.readText())
+const kept = await copiedText(electron)
 check('a picture with no words says so, and leaves the clipboard alone', none === 'No words in this picture' && kept === 'kept', `${none} ${kept}`)
 
 console.log(`${results.filter(Boolean).length} of ${results.length} passed`)

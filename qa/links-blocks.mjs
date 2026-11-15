@@ -13,6 +13,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { copiedText, pasteCopied } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.QA_SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/shots/editor-links'
@@ -191,12 +192,12 @@ try {
   await h.locator(`${ED} > p`, { hasText: 'The first idea' }).hover(); await wait(300)
   await h.locator('.tiptap-drag-handle-grip').first().click(); await wait(500)
   await h.locator('[data-copy-line-embed]').click(); await wait(600)
-  const clip = await electron.evaluate(({ clipboard }) => clipboard.readText())
+  const clip = await copiedText(electron)
   check('28. "Copy embed of this line" copies the line as an embed', /^!\[\[@.+#\^[a-z0-9]+\|Block source note\]\]$/.test(clip), clip)
   const shower = await make({ kind: 'note', body: doc(p('Block shower note'), p('Above the line.'), p('')) })
   await open(shower)
   await end()
-  await h.keyboard.press('Meta+v'); await wait(1800)
+  await pasteCopied(electron, h); await wait(1800)
   const shownLine = await h.locator('[data-embedded-line] .ProseMirror').first().textContent().catch(() => '')
   check('28. pasted, the line shows here', /first idea in it/.test(shownLine), shownLine)
   check('28. the note holds a reference, not a copy', JSON.stringify((await json()).content).includes('"block":') && !JSON.stringify(await json()).includes('The first idea'))

@@ -9,6 +9,7 @@ import { readFileSync } from 'fs'
 import { join } from 'path'
 import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+import { copiedText } from './pasteboard.mjs'
 
 const { check, done } = checks()
 const page = [...readFileSync(join(import.meta.dirname, 'fixtures/notebook-page.png'))]
@@ -19,7 +20,6 @@ async function run(level) {
   const c = await sandbox({ width: 1100, height: 800, at: CALM_HOUR })
   const { h, electron, send, both } = c
   const wait = (ms) => h.waitForTimeout(ms)
-  const kept = await electron.evaluate(({ clipboard }) => clipboard.readText())
   try {
     const src = await h.evaluate((bytes) => window.api.saveImage('image/png', new Uint8Array(bytes)), page)
     const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
@@ -85,7 +85,7 @@ async function run(level) {
       rows = await menu()
       await h.getByRole('menuitem', { name: /^Copy text from image/ }).click()
       let copied = ''
-      for (let i = 0; i < 40 && !/Marcus Aurelius/.test(copied); i++) (await wait(250), (copied = await electron.evaluate(({ clipboard }) => clipboard.readText())))
+      for (let i = 0; i < 40 && !/Marcus Aurelius/.test(copied); i++) (await wait(250), (copied = await copiedText(electron)))
       check('“Copy text from image” copies the handwriting, line by line, in order', /^Lecture 4: the Stoics\nMarcus Aurelius kept a notebook\nonly our judgements are up to us\nread Meditations/.test(copied), JSON.stringify(copied.slice(0, 90)))
 
       rows = await menu()
@@ -126,7 +126,6 @@ async function run(level) {
     }
     check(`${level}: no page errors`, !c.errors.length, c.errors.slice(0, 3).join(' | '))
   } finally {
-    await electron.evaluate(({ clipboard }, text) => clipboard.writeText(text), kept).catch(() => {})
     await c.close()
   }
 }

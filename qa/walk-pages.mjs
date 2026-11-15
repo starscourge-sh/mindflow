@@ -18,6 +18,7 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> MODE=empty node qa/walk-pages.mjs
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
+import { clearBoard, copiedText } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const MODE = process.env.MODE ?? 'basic'
@@ -141,9 +142,9 @@ async function keys(name, id, { root = page(id), open = () => go(id), bin = fals
   const list = await rowsOf(root)
   for (const one of [list[0], list[2]]) { await rowAt(root, one).click({ position: { x: 30, y: 8 }, modifiers: ['Meta'] }); await h.waitForTimeout(300) }
   const two = await pickedOf(root)
-  await electron.evaluate(({ clipboard }) => clipboard.writeText(''))
+  await clearBoard(electron)
   await h.keyboard.press('Meta+c'); await h.waitForTimeout(400)
-  const copied = await electron.evaluate(({ clipboard }) => clipboard.readText())
+  const copied = await copiedText(electron)
   row.push(`⌘-click:${two.length} ⌘C:${copied.split('\n').filter(Boolean).length} lines`)
   check(`${name}: ⌘-click picks two and ⌘C copies two lines`, two.length === 2 && copied.split('\n').filter(Boolean).length === 2, `${two.length} picked, “${copied.slice(0, 60)}”`)
   // Delete, as Finder: to the Bin with Undo (in the Bin it asks first).

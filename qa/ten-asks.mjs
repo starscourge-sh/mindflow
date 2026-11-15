@@ -14,6 +14,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-ten/main/index.js HALIGTREE_QA_AWAY=1 node qa/ten-asks.mjs
 import { createServer } from 'http'
 import { sandbox } from './sandbox-lib.mjs'
+import { paste } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const server = createServer((req, res) => {
@@ -73,8 +74,7 @@ try {
   const sendLink = async (url) => {
     await page.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(700)
     await page.$eval(BOX, (el) => el.editor.chain().clearContent(true).focus().run())
-    await electron.evaluate(({ clipboard }, u) => clipboard.writeText(u), url)
-    await page.keyboard.press('Meta+v'); await page.waitForTimeout(1500)
+    await paste(page, url); await page.waitForTimeout(1500)
     await page.keyboard.press('Meta+Enter'); await page.waitForTimeout(2500)
   }
   await sendLink('https://example.org/page')

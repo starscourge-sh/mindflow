@@ -8,6 +8,7 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/table-feel.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { pasteCopied } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
@@ -308,7 +309,7 @@ try {
   check('dragging across cells picks a range', picked === 4, String(picked))
   await h.keyboard.press('Meta+c'); await wait(150)
   await clickCell(3, 1)
-  await h.keyboard.press('Meta+v'); await wait(300)
+  await pasteCopied(c.electron, h); await wait(300)
   const pasted = await grid()
   check('the range pastes into the cells from where the caret is', pasted?.[3]?.[1] === 'Essays' && pasted?.[3]?.[2] === 'Montaigne' && pasted?.length >= 5, JSON.stringify(pasted))
 

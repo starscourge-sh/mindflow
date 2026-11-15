@@ -4,6 +4,7 @@
 // taken instead, and only when there is no picture anywhere is a short notice said.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-paste/main/index.js HALIGTREE_QA_AWAY=1 node qa/paste-unreadable.mjs
 import { open, checks } from './harness.mjs'
+import { clearBoard, putOnBoard } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
@@ -11,9 +12,6 @@ const { check, done } = checks()
 const qa = await open()
 const { page, electron } = qa
 const wait = (ms) => page.waitForTimeout(ms)
-
-// The person's own clipboard text, put back at the end.
-const before = await electron.evaluate(({ clipboard }) => clipboard.readText().catch(() => ''))
 
 try {
   if (!(await page.evaluate(() => window.api.haligtree('onboarding:state').then((s) => !!s?.welcomed))))
@@ -36,10 +34,8 @@ try {
     return [...new Uint8Array(await (await canvas.convertToBlob({ type: 'image/png' })).arrayBuffer())]
   })
 
-  const setClipboardPicture = (on) => electron.evaluate(async ({ clipboard, ClipboardItem }, [on, bytes]) => {
-    if (on) await clipboard.write([new ClipboardItem({ 'image/png': new Blob([Uint8Array.from(bytes)], { type: 'image/png' }) })])
-    else await clipboard.writeText('')
-  }, [on, png])
+  // The picture Notes leaves on the clipboard, on the app's stand-in (qa/pasteboard.mjs), where main reads it.
+  const setClipboardPicture = (on) => (on ? putOnBoard(electron, { 'image/png': { bytes: png } }) : clearBoard(electron))
 
   /** A fresh box, then a paste of the given words and files. */
   const paste = async ({ words, html, file }) => {
@@ -93,7 +89,6 @@ try {
   check('readable file: the picture lands', got.pictures.length === 1 && got.pictures[0]?.startsWith('haligtree://'), got.pictures)
   check('readable file: no notice', got.said.length === 0, got.said)
 } finally {
-  await electron.evaluate(({ clipboard }, text) => clipboard.writeText(text), before).catch(() => {})
   try { await qa.close?.() } catch {}
   try { electron.process().kill('SIGKILL') } catch {}
 }

@@ -11,6 +11,7 @@ import { createServer } from 'node:http'
 import { mkdirSync } from 'node:fs'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { copiedText } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const asked = []
@@ -97,9 +98,8 @@ try {
   await shot('three')
 
   // 3. Copy: the lines as plain text, one each.
-  await h.evaluate(() => { window.__copied = null; navigator.clipboard.writeText = async (text) => void (window.__copied = text) })
   await h.click('[data-works-cited-copy]'); await wait(300)
-  const copied = await h.evaluate(() => window.__copied)
+  const copied = await copiedText(c.electron)
   check('"Copy" puts the three lines on the clipboard', copied?.split('\n').length === 3 && copied.includes('Austen, Jane. 2003. Pride and Prejudice. Penguin Classics. ISBN 9780141439518'), JSON.stringify(copied))
   check('and says so', /Copied 3 works cited/.test(await toastText()), await toastText())
 

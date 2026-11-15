@@ -5,6 +5,7 @@
 // with the side panel open and shut.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-toast-lane.mjs
 import { sandbox } from './sandbox-lib.mjs'
+import { paste } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -39,8 +40,7 @@ try {
     await page.keyboard.type('notes from the talk ', { delay: 5 })
     await page.keyboard.press('Enter')
     await page.waitForTimeout(300)
-    await electron.evaluate(({ clipboard }) => clipboard.writeText('- water the plants\n- read chapter 4\n- essay two:\n  - outline\n  - draft'))
-    await page.keyboard.press('Meta+v')
+    await paste(page, '- water the plants\n- read chapter 4\n- essay two:\n  - outline\n  - draft')
     await page.waitForTimeout(900)
     const hint = await read()
     check(`${where}: the list's notice is on one line`, hint && hint.height <= 40, JSON.stringify(hint))

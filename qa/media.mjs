@@ -5,6 +5,7 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-p/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/media.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { pasteCopied } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 const { check, done } = checks()
 const shot = (h, name) => process.env.SHOTS && h.screenshot({ path: `${process.env.SHOTS}/${name}.png` })
@@ -177,7 +178,7 @@ try {
   await h.locator(`[data-media][data-src="${gif}"]`).click(); await wait(1800)
   // It lands with the GIF picked: a step down is the line under it.
   await h.keyboard.press('ArrowDown'); await h.keyboard.press('End'); await wait(200)
-  await h.keyboard.press('Meta+v'); await wait(1200)
+  await pasteCopied(c.electron, h); await wait(1200)
   await wait(1500)
   const pasted = await h.evaluate(async (id) => JSON.stringify((await window.api.captures.get(id))?.body ?? ''), cats)
   check('"Copy link" pasted into another note shows the same picture', pasted.includes(png), pasted.slice(0, 160))

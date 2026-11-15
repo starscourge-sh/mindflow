@@ -3,6 +3,7 @@
 // is kept, and taking the link out empties the guess again.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-link-site.mjs
 import { sandbox } from './sandbox-lib.mjs'
+import { paste } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 700 })
@@ -15,8 +16,7 @@ const site = () => page.evaluate(() => [...document.querySelectorAll('input')].f
 try {
   await page.evaluate(() => window.api.showPrompt()); await page.waitForTimeout(700)
   await page.locator('.haligtree-editor[contenteditable=true]').first().click()
-  await electron.evaluate(({ clipboard }) => clipboard.writeText('https://en.wikipedia.org/wiki/Deal_with_the_Devil'))
-  await page.keyboard.press('Meta+v')
+  await paste(page, 'https://en.wikipedia.org/wiki/Deal_with_the_Devil')
   await page.waitForFunction(() => document.querySelector('input[placeholder="Site"]')?.value, null, { timeout: 8000 }).catch(() => {})
   check('a pasted Wikipedia link fills Site with "Wikipedia" before Create', (await site()) === 'Wikipedia', String(await site()))
   await page.locator('input[placeholder="Site"]').fill('My reading list')
@@ -26,8 +26,7 @@ try {
   await page.locator('input[placeholder^="Site"], input[placeholder^="Where"]').first().fill('')
   await page.locator('.haligtree-editor[contenteditable=true]').first().click()
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await page.waitForTimeout(300)
-  await electron.evaluate(({ clipboard }) => clipboard.writeText('https://github.com/tolkien/notes'))
-  await page.keyboard.press('Meta+v')
+  await paste(page, 'https://github.com/tolkien/notes')
   await page.waitForFunction(() => document.querySelector('input[placeholder="Site"]')?.value, null, { timeout: 8000 }).catch(() => {})
   check('github.com reads as "GitHub"', (await site()) === 'GitHub', String(await site()))
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await page.waitForTimeout(1200)

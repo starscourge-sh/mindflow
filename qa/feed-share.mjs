@@ -11,6 +11,7 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { copiedTypes, putOnBoard } from './pasteboard.mjs'
 
 const SHOTS = process.env.SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/briefs/shots/feed7'
 mkdirSync(SHOTS, { recursive: true })
@@ -100,7 +101,7 @@ if (process.env.QA_ARGS) {
     await paint(h, 'light')
 
     // Share to X: X's compose address with the quote and its author, and a picture on the clipboard.
-    await electron.evaluate(({ clipboard }) => clipboard.writeText('nothing'))
+    await putOnBoard(electron, 'nothing')
     const words = await quote.locator('blockquote').textContent()
     const who = await quote.locator('[data-feed-author]').textContent().catch(() => '')
     await quote.locator('[data-feed-actions] [data-menu="post"]').click()
@@ -112,7 +113,7 @@ if (process.env.QA_ARGS) {
     const text = url.startsWith('https://x.com/intent/post?text=') ? decodeURIComponent(url.slice('https://x.com/intent/post?text='.length)) : ''
     check('Share to X opens X\'s compose address', !!text, url.slice(0, 80))
     check('with the quote and its author, 280 at most', text.length <= 280 && text.includes(words.trim().split(/\s+/).slice(0, 4).join(' ')) && (!who || text.includes(who.trim())), text)
-    check('and a picture on the clipboard', await electron.evaluate(({ clipboard }) => clipboard.has('image/png')))
+    check('and a picture on the clipboard', (await copiedTypes(electron)).includes('image/png'))
     check('the toast says where the picture is', await h.locator('text=the picture is copied, paste it in').first().isVisible().catch(() => false))
 
     // Home's card: the day's count.

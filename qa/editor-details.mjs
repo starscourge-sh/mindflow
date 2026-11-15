@@ -11,6 +11,7 @@
 // Frames and light/dark pictures under QA_SHOTS.
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { clearBoard, copiedText } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
@@ -139,12 +140,12 @@ try {
   check('8a. its copy shows the hand too', ytButtons.every((one) => one.cursor === 'pointer' && one.hits), JSON.stringify(ytButtons))
 
   // 9. Copy: the copy sound, once, and the link on the clipboard.
-  await electron.evaluate(({ clipboard }) => clipboard.writeText(''))
+  await clearBoard(electron)
   await unCue()
   await h.evaluate(([sel]) => [...document.querySelectorAll(`${sel} .tiptap-bookmark`)[1].querySelectorAll('button')].find((one) => one.getAttribute('aria-label') === 'Copy URL').click(), [sel])
   await wait(400)
   const heard = await cued()
-  const clip = await electron.evaluate(({ clipboard }) => clipboard.readText())
+  const clip = await copiedText(electron)
   check('9. copy puts the link on the clipboard', clip === YT, clip)
   check('9. and plays the copy sound once, nothing else', heard.filter((one) => one === 'copy').length === 1 && heard.length === 1, JSON.stringify(heard))
 

@@ -5,12 +5,14 @@
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/mac-services.mjs
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+import { copiedText, putOnBoard } from './pasteboard.mjs'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 800 })
 const { h, electron } = c
 try {
-  const kept = await electron.evaluate(({ clipboard }) => clipboard.readText())
+  const kept = 'Words copied before the Services menu was used'
+  await putOnBoard(electron, kept)
   const ready = await electron.evaluate(() => typeof globalThis.servicesSend === 'function')
   check('the app answers the Services menu', ready)
   await electron.evaluate(() => globalThis.servicesSend('The obstacle is the way.\n\nWhat stands in the way becomes the way.', 'https://example.org/meditations'))
@@ -22,7 +24,7 @@ try {
   check('the words land in the Inbox as a quote', found?.kind === 'quote' && found.status === 'open', JSON.stringify(found)?.slice(0, 160))
   const body = found ? await h.evaluate((id) => window.api.captures.get?.(id).then((one) => JSON.stringify(one?.body ?? one)) ?? '', found.id) : ''
   check('both paragraphs are kept, and the page as a link', /What stands in the way/.test(body) && /https:\/\/example.org\/meditations/.test(body), body.slice(0, 200))
-  const clip = await electron.evaluate(({ clipboard }) => clipboard.readText())
+  const clip = await copiedText(electron)
   check('nothing was copied: the clipboard is as it was', clip === kept)
   const count = () => h.evaluate(async () => (await window.api.captures.list()).length)
   const before = await count()

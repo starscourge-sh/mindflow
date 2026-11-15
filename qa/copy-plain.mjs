@@ -3,6 +3,7 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/copy-plain.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { copiedText } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 800 })
@@ -15,7 +16,7 @@ try {
     ed.commands.focus(); ed.commands.selectAll()
   })
   await page.keyboard.press('Meta+c'); await page.waitForTimeout(300)
-  const text = await electron.evaluate(({ clipboard }) => clipboard.readText())
+  const text = await copiedText(electron)
   console.log(JSON.stringify(text))
   check('bullets keep their "- " and the nested line its indent', /^- milk\n\s{2,}- oat\n- bread/m.test(text), text)
   check('numbers keep their "1." "2."', /1\. first\n2\. second/.test(text), text)

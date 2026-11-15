@@ -1,12 +1,13 @@
 // "Copy as image": a code block picked in a note goes on the clipboard as a picture of itself, in the theme's own
 // colours, at twice its size, with nothing of the editing on it; a note's "Save as image…" writes a PNG. Light and dark.
-// The system clipboard is shared with whatever else is running: what was on it is put back at the end.
+// The picture is read off the app's stand-in clipboard (qa/pasteboard.mjs): the Mac's clipboard is never touched.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/copy-image.mjs
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { clearBoard } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
@@ -23,20 +24,9 @@ const body = { type: 'doc', content: [
   p('After the table.')
 ] }
 
-// What the clipboard held before the run, as the system gave it, to put back after.
-await electron.evaluate(async ({ clipboard }) => {
-  const kept = []
-  for (const item of await clipboard.read()) {
-    const one = {}
-    for (const type of item.types) one[type] = await item.getType(type).catch(() => null)
-    kept.push(Object.fromEntries(Object.entries(one).filter(([, blob]) => blob instanceof Blob)))
-  }
-  globalThis.__keptClipboard = kept.filter((one) => Object.keys(one).length)
-})
-
 /** The clipboard's PNG, its size, and the colour at a point (r, g, b, a), read in main. */
-const clipboardPicture = () => electron.evaluate(async ({ clipboard, nativeImage }) => {
-  for (const item of await clipboard.read()) {
+const clipboardPicture = () => electron.evaluate(async ({ nativeImage }) => {
+  for (const item of await globalThis.qaPasteboard.read()) {
     if (!item.types.includes('image/png')) continue
     const bytes = Buffer.from(await (await item.getType('image/png')).arrayBuffer())
     const image = nativeImage.createFromBuffer(bytes)
@@ -77,7 +67,7 @@ try {
       return { width: pre.getBoundingClientRect().width, column: page.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight), bg }
     })
     check(`${theme}: the selection bar offers "Copy as image"`, (await h.locator('[data-selection-bar] button[aria-label="Copy as image"]').count()) === 1)
-    await electron.evaluate(({ clipboard }) => clipboard.clear())
+    await clearBoard(electron)
     await h.click('[data-selection-bar] button[aria-label="Copy as image"]')
     let picture = null
     for (let i = 0; i < 30 && !picture; i++) (picture = await clipboardPicture()), picture || (await wait(100))
@@ -116,12 +106,6 @@ try {
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
-  // What was on the clipboard before, put back.
-  await electron.evaluate(async ({ clipboard, ClipboardItem }) => {
-    const kept = globalThis.__keptClipboard ?? []
-    if (kept.length) await clipboard.write(kept.map((one) => new ClipboardItem(one)))
-    else clipboard.clear()
-  }).catch((error) => console.log('  could not put the clipboard back:', error.message))
   await c.close?.()
 }
 done()

@@ -6,6 +6,7 @@
 import { readFileSync } from 'fs'
 import { checks } from './harness.mjs'
 import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
+import { paste as pasteEvent } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const LINKS = readFileSync(new URL('./fixtures/many-links.txt', import.meta.url), 'utf8').split('\n').map((one) => one.trim()).filter(Boolean)
@@ -26,8 +27,7 @@ const count = () => page.evaluate((s) => {
 async function paste(text) {
   await page.evaluate(() => window.api.showPrompt()); await wait(1200)
   await page.click(EDITOR); await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace'); await wait(300)
-  await electron.evaluate(({ clipboard }, words) => clipboard.writeText(words), text)
-  await page.keyboard.press('Meta+v')
+  await pasteEvent(page, text)
   const t0 = Date.now()
   let now = await count()
   while (Date.now() - t0 < 180_000) {

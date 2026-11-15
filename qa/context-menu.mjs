@@ -9,6 +9,7 @@ import { mkdirSync } from 'fs'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { copiedText } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.QA_SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/context-menu-shots'
@@ -30,7 +31,7 @@ const makePdf = async () => {
 const json = () => h.$eval(ED, (el) => el.editor.getJSON())
 const text = async () => JSON.stringify(await json())
 const opened = () => electron.evaluate(() => globalThis.opened ?? [])
-const clipboard = () => electron.evaluate(({ clipboard }) => clipboard.readText())
+const clipboard = () => copiedText(electron)
 /** The menu's group headings, top to bottom, and its first clicked group. */
 const groups = () => h.evaluate((menu) => [...document.querySelectorAll(`${menu} .tiptap-slash-menu-group`)].map((one) => one.textContent), MENU)
 const rows = () => h.evaluate((menu) => [...document.querySelectorAll(`${menu} [data-clicked]`)].map((one) => one.dataset.clicked), MENU)

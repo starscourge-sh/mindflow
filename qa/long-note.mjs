@@ -5,6 +5,7 @@
 import { writeFileSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { bigDoc, openTimed, topCosts } from './long-note-doc.mjs'
+import { clearBoard, copiedText } from './pasteboard.mjs'
 
 const PROFILE = process.env.QA_PROFILE
 const c = await sandbox({ width: 1440, height: 900 })
@@ -64,9 +65,9 @@ try {
   const after = await ask(() => new Promise((r) => requestAnimationFrame(() => r('ok'))), undefined, 5000)
   if (after !== 'ok') fails.push('the page stopped drawing after select-all')
   // Copy.
-  await c.electron.evaluate(({ clipboard }) => clipboard.writeText(''))
+  await clearBoard(c.electron)
   const copied = await profiled('copy', () => keyTimed('Meta+c'))
-  const clip = await c.electron.evaluate(({ clipboard }) => clipboard.readText().length)
+  const clip = (await copiedText(c.electron)).length
   log('copy', { ms: copied, chars: clip })
   if (clip < 100000) fails.push(`copy put only ${clip} characters on the clipboard`)
   // Blocks by kind and the words: TipTap's emoji extension turns emoji typed as text into emoji nodes as Undo brings them back, so text pieces are not counted.

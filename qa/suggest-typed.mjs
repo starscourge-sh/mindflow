@@ -3,6 +3,7 @@
 // written, not after pasting them, and never inside code.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/suggest-typed.mjs
 import { sandbox } from './sandbox-lib.mjs'
+import { paste } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1000, height: 700 })
@@ -38,8 +39,7 @@ try {
   await page.waitForTimeout(400)
   check('typing "/" opens the menu', await menu())
   await clear()
-  await electron.evaluate(({ clipboard }) => clipboard.writeText('call the /endpoint and #work'))
-  await page.keyboard.press('Meta+v')
+  await paste(page, 'call the /endpoint and #work')
   await page.waitForTimeout(500)
   check('pasting words ending in "#work" opens nothing', !(await menu()))
   await page.keyboard.press('Escape')

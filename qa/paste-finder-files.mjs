@@ -5,31 +5,30 @@
 //
 // Every paste used to ask main for the names of files copied in Finder with a call that waits for the answer
 // (`clipboard:file-names`): while main was busy, a paste of plain words held the window. The paste itself already
-// says which of its files lie on disk, so nothing is asked. Here real files are put on the clipboard the way Finder
-// puts them (their place on disk, through Electron's own clipboard in the app under test) and pasted with ⌘V:
+// says which of its files lie on disk, so nothing is asked. Here real files are pasted the way Finder's ⌘C then ⌘V
+// hands them to the page: each file with its place on disk, in a paste event (qa/pasteboard.mjs; the Mac's clipboard
+// is the person's and is never used):
 //   - a picture comes in as a picture, a text file as a card, two files as two;
-//   - with the file's name on the clipboard beside it (as Finder writes it), the file comes in once and the name
-//     is not pasted as words (the icon's picture is asked for too, but Electron's clipboard does not keep it);
+//   - with the file's icon and name beside it (as Finder writes them), the file comes in once: the name is not
+//     pasted as words, nor the icon as a picture;
 //   - plain words pasted land as words;
 //   - main was never asked `clipboard:file-names` or `clipboard:files` (they are gone);
 // and the other call a page made as it loaded, `window:room`, is not made either: quick capture reads its room from
 // its own environment, the same room main holds, also after its page is loaded again and after a hint moved it.
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { pathToFileURL } from 'node:url'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { paste } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 800 })
 const { h, v, electron, page: box } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const FORMAT = (name) => `electron application/osclipboard;format="${name}"`
-/** A 1 by 1 PNG: a picture on disk, and a file's icon on the clipboard. */
+/** A 1 by 1 PNG: a picture on disk, and a file's icon beside it in a paste. */
 const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
 
-let was = ''
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   const dir = join(process.env.QA_DATA, 'copied-in-finder')
@@ -38,7 +37,6 @@ try {
   const picture = file('holiday.png', PNG)
   const words = file('reading-list.txt', 'Middlemarch\nThe Waves\n')
   const second = file('minutes.txt', 'Agreed: meet on Friday.\n')
-  was = await electron.evaluate(({ clipboard }) => clipboard.readText())
 
   /** A fresh note with the caret in it, and what is in it after a paste. */
   const note = async (title) => {
@@ -59,43 +57,37 @@ try {
       words: [...ed.querySelectorAll('p')].map((one) => one.textContent).join(' ').trim()
     }
   }, sel)
-  /** Put on the clipboard through Electron, in the app under test, then pasted with ⌘V and given time to be kept. */
-  const paste = async (sel, write, arg, settle = 1500) => {
-    await electron.evaluate(write, arg)
+  /** Pasted where the caret is, as ⌘V hands it over, and given time to be kept. */
+  const pasteIn = async (sel, what, settle = 1500) => {
     await h.click(`${sel} p`)
-    await h.keyboard.press('Meta+v')
+    await paste(h, what)
     await wait(settle)
     return inNote(sel)
   }
-  const oneFile = async ({ clipboard, ClipboardItem }, [format, url]) => clipboard.write([new ClipboardItem({ [format]: new Blob([url]) })])
 
   // A picture copied in Finder: a picture in the note.
   let sel = await note('A copied picture')
-  let got = await paste(sel, oneFile, [FORMAT('public.file-url'), pathToFileURL(picture).href])
+  let got = await pasteIn(sel, { paths: [picture] })
   check('a picture file copied in Finder pastes as a picture, not its name', got.pictures === 1 && !got.cards.length && !/holiday/.test(got.words), JSON.stringify(got))
 
   // A text file: a card with its name.
   sel = await note('A copied file')
-  got = await paste(sel, oneFile, [FORMAT('public.file-url'), pathToFileURL(words).href])
+  got = await pasteIn(sel, { paths: [words] })
   check('a text file copied in Finder pastes as its card', got.cards.join() === 'reading-list.txt' && !got.pictures, JSON.stringify(got))
 
   // As Finder writes it: where the file lies, with the file's icon and its name beside it.
   sel = await note('A copied file with its icon')
-  got = await paste(sel, async ({ clipboard, ClipboardItem }, [format, url, png, name]) => clipboard.write([new ClipboardItem({ [format]: new Blob([url]), 'image/png': new Blob([Uint8Array.from(png)], { type: 'image/png' }), 'text/plain': new Blob([name], { type: 'text/plain' }) })]), [FORMAT('public.file-url'), pathToFileURL(words).href, [...PNG], 'reading-list.txt'])
-  const seen = await electron.evaluate(async ({ clipboard }) => (await clipboard.read()).flatMap((item) => item.types).filter((type) => /^(text\/|image\/)/.test(type)))
-  // Electron's clipboard keeps the name beside the file but not the icon's picture (it held text/plain and
-  // text/uri-list here), so the icon is asked for and what was really held is printed: the name is what this proves.
-  check('with its name on the clipboard beside it (and its icon, where the clipboard keeps one), the file comes in once: no name as words, no icon picture', got.cards.join() === 'reading-list.txt' && got.pictures === 0 && !/reading-list/.test(got.words) && seen.includes('text/plain'), `${JSON.stringify(got)}; the clipboard held ${JSON.stringify(seen)}`)
+  got = await pasteIn(sel, { paths: [words], files: [{ name: 'image.png', type: 'image/png', bytes: [...PNG] }], 'text/plain': 'reading-list.txt' })
+  check('with its icon and its name beside it, the file comes in once: no name as words, no icon picture', got.cards.join() === 'reading-list.txt' && got.pictures === 0 && !/reading-list/.test(got.words), JSON.stringify(got))
 
   // Two files copied together.
   sel = await note('Two copied files')
-  const plist = `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><array><string>${words}</string><string>${second}</string></array></plist>`
-  got = await paste(sel, oneFile, [FORMAT('NSFilenamesPboardType'), plist], 2000)
+  got = await pasteIn(sel, { paths: [words, second] }, 2000)
   check('two files copied together paste as two cards, in their order', got.cards.join() === 'reading-list.txt,minutes.txt', JSON.stringify(got))
 
   // Plain words.
   sel = await note('Copied words')
-  got = await paste(sel, ({ clipboard }, text) => clipboard.writeText(text), 'Only a few words, copied.', 700)
+  got = await pasteIn(sel, 'Only a few words, copied.', 700)
   check('plain words pasted land as words', got.words === 'Only a few words, copied.' && !got.cards.length && !got.pictures, JSON.stringify(got))
 
   // What main was asked meanwhile: every handler is counted by name as it is called (main's stalls.ts).
@@ -142,7 +134,6 @@ try {
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error))
 } finally {
-  await electron.evaluate(({ clipboard }, text) => clipboard.writeText(text), was).catch(() => {})
   await c.close()
   done()
 }

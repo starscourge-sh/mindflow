@@ -9,6 +9,7 @@
 import { mkdirSync } from 'node:fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+import { copiedText } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const shots = process.env.SHOTS
@@ -17,8 +18,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 800 })
 const { h, v, electron } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const clipboard = () => electron.evaluate(({ clipboard }) => clipboard.readText())
-const before = await clipboard()
+const clipboard = () => copiedText(electron)
 
 /** The note's picture whose file is `name`, opened in the viewer with a double-click. */
 const openPicture = async (name) => {
@@ -172,7 +172,6 @@ try {
   await wait(600)
   check('no errors on the page', c.errors.length === 0, c.errors.join(' | '))
 } finally {
-  await electron.evaluate(({ clipboard }, text) => clipboard.writeText(text), before).catch(() => {})
   await c.close()
 }
 done()

@@ -5,6 +5,7 @@ import zlib from 'node:zlib'
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { copiedText, paste } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 /** An 8 by 8 orange PNG, built by hand: the picture dark pages must leave as it is. */
@@ -432,7 +433,7 @@ try {
   // Keys: H highlights in the colour last used; ⇧⌘C copies the words with the book and page.
   await pickHeading(7, 9); await wait(400)
   await h.keyboard.press('Meta+Shift+c'); await wait(400)
-  const copied = await c.electron.evaluate(({ clipboard }) => clipboard.readText())
+  const copied = await copiedText(c.electron)
   check('⇧⌘C copies the words with the book and page', copied === '“of” (The Probe Book, p. 3)', copied)
   await pickHeading(7, 9); await wait(400)
   await h.keyboard.press('h'); await wait(700)
@@ -690,16 +691,11 @@ try {
   await v('item:save', pasted, { title: 'Pasted PDF', body: { type: 'doc', content: [{ type: 'paragraph' }] } })
   await c.send('article', pasted); await wait(1400)
   const PASTED = `[data-open="${pasted}"] .tiptap`
-  const clipWas = await c.electron.evaluate(({ clipboard }) => clipboard.readText())
-  const { pathToFileURL } = await import('node:url')
-  await c.electron.evaluate(async ({ clipboard, ClipboardItem }, url) => {
-    await clipboard.write([new ClipboardItem({ 'electron application/osclipboard;format="public.file-url"': new Blob([url]) })])
-  }, pathToFileURL(finderFile).href)
-  await h.click(`${PASTED} p`); await h.keyboard.press('Meta+v')
+  // As Finder's ⌘C then ⌘V hands it to the page: the file, with its place on disk (qa/pasteboard.mjs).
+  await h.click(`${PASTED} p`); await paste(h, { paths: [finderFile] })
   await h.waitForSelector(`${PASTED} .tiptap-attachment.is-pdf .pdf-page[data-page="1"] .textLayer span`, { timeout: 15000 }).catch(() => {})
   const fromFinder = await h.evaluate((sel) => ({ name: document.querySelector(`${sel} .tiptap-attachment.is-pdf .tiptap-attachment-name`)?.textContent, words: document.querySelector(`${sel} .is-pdf .pdf-page[data-page="1"] .textLayer`)?.textContent ?? '', pictures: document.querySelectorAll(`${sel} img`).length }), PASTED)
   check('a PDF copied in Finder pastes as its PDF block', fromFinder.name === 'finder-book.pdf' && /Page 1 of the probe book/.test(fromFinder.words) && !fromFinder.pictures, JSON.stringify(fromFinder))
-  await c.electron.evaluate(({ clipboard }, text) => clipboard.writeText(text), clipWas)
   // A PDF on the clipboard as a file (as Chromium hands some apps' copies over): the same.
   await h.evaluate(([sel, bytes]) => {
     const ed = document.querySelector(sel).editor

@@ -7,6 +7,7 @@
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-p/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/reader-card.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { clearBoard } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
@@ -22,10 +23,10 @@ const shot = async (name) => {
 // The card as "Copy as image" makes it, read off the clipboard: its size, a corner, the cream by it, and how grainy a
 // patch of its picture is (the mean step in green from one pixel to the next: a smooth gradient steps by under 1).
 const copied = async () => {
-  await electron.evaluate(({ clipboard }) => clipboard.clear())
+  await clearBoard(electron)
   await h.locator('[data-reader-copy]').click(); await wait(1500)
-  return electron.evaluate(async ({ clipboard, nativeImage }) => {
-    for (const item of await clipboard.read()) {
+  return electron.evaluate(async ({ nativeImage }) => {
+    for (const item of await globalThis.qaPasteboard.read()) {
       if (!item.types.includes('image/png')) continue
       const image = nativeImage.createFromBuffer(Buffer.from(await (await item.getType('image/png')).arrayBuffer()))
       const size = image.getSize()
@@ -72,17 +73,6 @@ const card = () => h.evaluate(() => {
     // Apart either across or down: the tag sits under the stamps and "Commonplace Book" now, on the book's narrower cover.
     gap: (() => { const [a, b] = [at.querySelector('[data-reader-book]').getBoundingClientRect(), at.querySelector('[data-reader-since]').getBoundingClientRect()]; return Math.round(Math.max(a.left - b.right, b.left - a.right, a.top - b.bottom, b.top - a.bottom)) })()
   }
-})
-
-// What the clipboard held before the run, to put back after.
-await electron.evaluate(async ({ clipboard }) => {
-  const kept = []
-  for (const item of await clipboard.read()) {
-    const one = {}
-    for (const type of item.types) one[type] = await item.getType(type).catch(() => null)
-    kept.push(Object.fromEntries(Object.entries(one).filter(([, blob]) => blob instanceof Blob)))
-  }
-  globalThis.__keptClipboard = kept.filter((one) => Object.keys(one).length)
 })
 
 try {
@@ -271,11 +261,6 @@ try {
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
-  await electron.evaluate(async ({ clipboard, ClipboardItem }) => {
-    const kept = globalThis.__keptClipboard ?? []
-    if (kept.length) await clipboard.write(kept.map((one) => new ClipboardItem(one)))
-    else clipboard.clear()
-  }).catch((error) => console.log('  could not put the clipboard back:', error.message))
   await c.close?.()
 }
 done()

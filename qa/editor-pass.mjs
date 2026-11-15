@@ -6,6 +6,7 @@
 // QA_SHOTS=<folder> writes light and dark pictures of each.
 import { sandbox } from './sandbox-lib.mjs'
 import { p, t, code, card, table, link, pic } from './long-note-doc.mjs'
+import { clearBoard, copiedText } from './pasteboard.mjs'
 
 const SHOTS = process.env.QA_SHOTS
 const c = await sandbox({ width: 1280, height: 860 })
@@ -59,10 +60,10 @@ try {
     const next = await h.evaluate(() => document.activeElement?.getAttribute('aria-label'))
     check(next === 'Copy URL', 'Tab moves from "Open in the reader" to "Copy URL"', next)
   }
-  await c.electron.evaluate(({ clipboard }) => clipboard.writeText(''))
+  await clearBoard(c.electron)
   await h.keyboard.press('Enter')
   await h.waitForTimeout(300)
-  const copied = await c.electron.evaluate(({ clipboard }) => clipboard.readText())
+  const copied = await copiedText(c.electron)
   check(copied.startsWith('https://'), 'Enter on "Copy URL" copies the address', copied.slice(0, 60))
   await h.keyboard.press('Escape')
   await h.waitForTimeout(200)

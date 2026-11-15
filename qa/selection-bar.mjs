@@ -9,6 +9,7 @@
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 SHOTS=<dir> node qa/selection-bar.mjs
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
+import { paste as pasteEvent } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.SHOTS
@@ -81,7 +82,6 @@ const watch = (p) => p.evaluate(() => {
   tick()
 })
 const seen = (p) => p.evaluate(() => ((window.__barWatch = false), window.__barSeen))
-const paste = async (text) => { await electron.evaluate(({ clipboard }, t) => clipboard.writeText(t), text); }
 
 async function surface(p, name, { fill = true } = {}) {
   if (process.env.ONLY && !name.includes(process.env.ONLY)) return
@@ -103,8 +103,7 @@ async function surface(p, name, { fill = true } = {}) {
   // Long, scrolling.
   await ed.click()
   await p.keyboard.press('Meta+a'); await p.keyboard.press('Backspace')
-  await paste(LONG)
-  await p.keyboard.press('Meta+v')
+  await pasteEvent(p, LONG)
   await p.waitForTimeout(900)
   await mark(p)
   const scrolls = await scroller(p)

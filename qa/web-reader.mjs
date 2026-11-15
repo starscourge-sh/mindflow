@@ -9,6 +9,7 @@
 import { deflateSync, crc32 } from 'node:zlib'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
+import { copiedText } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const png = (r, g, b, w = 64, h = 36) => {
@@ -208,7 +209,7 @@ try {
   await h.screenshot({ path: `${shots}/web-read-bar.png` })
   await h.keyboard.press('Escape'); await wait(300)
   await h.keyboard.press('Meta+Shift+c'); await wait(400)
-  const webCopied = await electron.evaluate(({ clipboard }) => clipboard.readText())
+  const webCopied = await copiedText(electron)
   check('⇧⌘C copies the words with the author and article', webCopied === '“sits here” (Ada Probe, The Garden Essay, Probe Times)', webCopied)
   await pickSits(); await wait(400)
   // 4 highlights in the fourth colour, blue.

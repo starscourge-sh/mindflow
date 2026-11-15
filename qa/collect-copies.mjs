@@ -11,8 +11,9 @@ const { h, v, electron } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS ?? '/tmp'
 const p = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
-// Written from the main process, the way another app would: words, a page it came from, or a password manager's mark.
-const copy = (what) => electron.evaluate(async ({ clipboard, ClipboardItem, nativeImage }, what) => {
+// Copied as another app would, onto the app's stand-in clipboard (qa/pasteboard.mjs), never the Mac's: words, a page it
+// came from, or a password manager's mark.
+const copy = (what) => electron.evaluate(async ({ ClipboardItem, nativeImage }, what) => {
   const raw = (f) => `electron application/osclipboard;format="${f}"`
   const blob = (text, type = 'text/plain') => new Blob([text], { type })
   const parts = {}
@@ -20,15 +21,13 @@ const copy = (what) => electron.evaluate(async ({ clipboard, ClipboardItem, nati
   if (what.url) parts[raw('org.chromium.source-url')] = blob(what.url)
   if (what.secret) parts[raw('org.nspasteboard.ConcealedType')] = blob('')
   if (what.picture) parts['image/png'] = new Blob([nativeImage.createFromBitmap(Buffer.alloc(16 * 16 * 4, 180), { width: 16, height: 16 }).toPNG()], { type: 'image/png' })
-  await clipboard.write([new ClipboardItem(parts)])
+  await globalThis.qaPasteboard.write([new ClipboardItem(parts)])
 }, what)
 const doc = () => h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.getJSON())
 const quotes = async () => (await doc()).content.filter((one) => one.type === 'blockquote')
 const textOf = (node) => JSON.stringify(node)
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  // The person's own clipboard, put back at the end.
-  await electron.evaluate(async ({ clipboard }) => { globalThis.qaClipboard = await clipboard.read().catch(() => []) })
   const id = await v('article:new')
   await v('item:save', id, { title: 'Research', body: { type: 'doc', content: [p('Reading about tides.')] } })
   await c.send('article', id); await wait(1500)
@@ -65,7 +64,6 @@ try {
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
-  await electron.evaluate(async ({ clipboard }) => { if (globalThis.qaClipboard?.length) await clipboard.write(globalThis.qaClipboard) }).catch(() => {})
   await c.close?.()
 }
 done()

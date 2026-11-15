@@ -8,6 +8,7 @@
 // "Sort this out" instead, never both.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-list.mjs
 import { sandbox } from './sandbox-lib.mjs'
+import { paste } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -89,8 +90,7 @@ try {
   // A list pasted into a Note is offered nothing: no "A list of", no "Make 3 tasks".
   await fresh()
   await page.keyboard.press('Meta+1')
-  await electron.evaluate(({ clipboard }) => clipboard.writeText('- water the plants\n- read chapter 4\n- essay two:\n  - outline\n  - draft'))
-  await page.keyboard.press('Meta+v')
+  await paste(page, '- water the plants\n- read chapter 4\n- essay two:\n  - outline\n  - draft')
   await page.waitForTimeout(900)
   check('a pasted list in a Note is offered nothing', !(await page.getByRole('button', { name: /Make \d+ tasks/ }).count()), await page.evaluate(() => document.body.innerText.slice(0, 200)))
   await page.keyboard.press('Meta+a'); await page.keyboard.press('Backspace')
