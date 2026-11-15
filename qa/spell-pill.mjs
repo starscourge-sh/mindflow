@@ -105,17 +105,37 @@ try {
   })
   for (let i = 0; i < 20 && !(await pill(h, '[data-open] .tiptap', 'recieve')); i++) await h.waitForTimeout(200)
   const still = await pill(h, '[data-open] .tiptap', 'recieve')
-  const middle = await h.evaluate(() => { let box = document.querySelector('[data-open] .tiptap').parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; const r = box.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
-  await h.mouse.move(middle.x, middle.y)
-  await h.mouse.wheel(0, 60); await h.waitForTimeout(400)
+  const middle = await h.evaluate(() => { let box = document.querySelector('[data-open] .tiptap').parentElement; while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement; window.__spellBox = box; const r = box.getBoundingClientRect(); return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } })
+  // Wheel turns as the trackpad sends them, from the main process (a parked window hears these), and how far the page went.
+  const turn = async (dy) => {
+    const from = await h.evaluate(() => window.__spellBox.scrollTop)
+    await c.electron.evaluate(({ BrowserWindow }, [x, y, dy]) => {
+      const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))
+      win.webContents.sendInputEvent({ type: 'mouseWheel', x, y, deltaX: 0, deltaY: dy, hasPreciseScrollingDeltas: true, canScroll: true })
+    }, [middle.x, middle.y, dy])
+    // Until the page stands still (the app's smooth scroll glides on after a turn), two seconds at most.
+    let was = NaN
+    for (let i = 0, now; i < 20; i++) {
+      await h.waitForTimeout(100)
+      now = await h.evaluate(() => window.__spellBox.scrollTop)
+      if (i > 2 && now === was) break
+      was = now
+    }
+    await h.waitForTimeout(200)
+    return Math.round((await h.evaluate(() => window.__spellBox.scrollTop)) - from)
+  }
+  // Which way a turn scrolls down (the Mac's natural scrolling turns it round).
+  let down = -1
+  let went = await turn(down * 60)
+  if (went <= 0) (down = 1, (went = await turn(down * 60)))
   const along = await pill(h, '[data-open] .tiptap', 'recieve')
-  check('as the page scrolls the pill goes with its word, right under it', !!still && !!along && Math.abs(along.dx) <= 3 && along.dy >= 0 && along.dy <= 8, `${JSON.stringify(still)} then ${JSON.stringify(along)}`)
-  await h.mouse.wheel(0, 2500); await h.waitForTimeout(500)
+  check('as the page scrolls the pill goes with its word, right under it', went > 20 && !!still && !!along && Math.abs(along.dx) <= 3 && along.dy >= 0 && along.dy <= 8, `went ${went}px; ${JSON.stringify(still)} then ${JSON.stringify(along)}`)
+  const far = await turn(down * 2500)
   const off = await pill(h, '[data-open] .tiptap', 'recieve')
-  check('scrolled off the screen with its word, the pill goes', !off, JSON.stringify(off))
-  await h.mouse.wheel(0, -2500); await h.waitForTimeout(500)
+  check('scrolled off the screen with its word, the pill goes', far > 600 && !off, `went ${far}px; ${JSON.stringify(off)}`)
+  const backBy = await turn(-down * 2500)
   const back = await pill(h, '[data-open] .tiptap', 'recieve')
-  check('scrolled back, the pill comes back under its word', !!back && Math.abs(back.dx) <= 3 && back.dy >= 0 && back.dy <= 8, JSON.stringify(back))
+  check('scrolled back, the pill comes back under its word', backBy < -600 && !!back && Math.abs(back.dx) <= 3 && back.dy >= 0 && back.dy <= 8, `went ${backBy}px; ${JSON.stringify(back)}`)
 
   // With spellcheck off for Writing: no pill.
   await v('settings:set', { spellWriting: false }); await h.waitForTimeout(500)
