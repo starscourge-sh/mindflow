@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState, type CSSPrope
 import { cardUp, cardsUp } from './lib/link-card'
 import { AnimatePresence, motion } from 'motion/react'
 import { EASE, byKeys, shift, spring } from './lib/motion'
+import { applyRoom, morphBox } from './lib/box-morph'
 import CameraIcon from '@/components/ui/camera-icon'
 import CameraOffIcon from '@/components/ui/camera-off-icon'
 import type { Editor, JSONContent } from '@tiptap/core'
@@ -923,46 +924,52 @@ export default function App(): React.JSX.Element {
   const [pillPanel, setPillPanel] = useState(false)
   const panel = (oneLineOn ? pillPanel : chosenPanel) && !welcoming
   const [tab, setTab] = useState<Tab>('inbox')
-  // The panel stays drawn while the window glides shut, so closing slides
-  // it out of view instead of leaving an empty strip, and is drawn before
-  // the window starts to widen, so opening uncovers it from the right.
+  // The panel is drawn from the first frame the box grows, at its own width, and stays drawn while the box shrinks
+  // back, fading as it goes (lib/box-morph.ts): never squeezed, never an empty strip.
   const [panelKept, setPanelDrawn] = useState(panel)
   const panelDrawn = panelKept && !welcoming
   const panelWanted = useRef(panel)
   const pillAfterPanel = useRef(false)
   /** What main was last told about the panel: a change made elsewhere (Settings) is told too. */
   const panelTold = useRef<boolean | null>(null)
-  panelWanted.current = panel
-  const setPanel = (open: boolean): void => {
-    chime(open ? 'slide' : 'fold')
-    // Put away: the height the box will want without it, told first, so the box narrows and shortens in one glide.
+  // Followed from the state, except while a move it asked for has not yet landed (the state changes as it starts).
+  const panelMoving = useRef(false)
+  if (!panelMoving.current) panelWanted.current = panel
+  /**
+   * The panel shown or put away as one move (lib/box-morph.ts): the box laid out as it starts to grow, kept laid out
+   * until it has shrunk back to the pill (or the box alone), main told in between. `quiet`: turned in Settings, no
+   * sound. Every way in comes here: ⌘\, the panel button, the pinned chip, ⌃J, ⌃1 to ⌃5, ⇧⌘Y and Settings.
+   */
+  const setPanel = (open: boolean, quiet = false): void => {
+    if (!quiet) chime(open ? 'slide' : 'fold')
+    // Put away: the height the box will want without it, told first, so main puts it back at that size.
     if (!open) box.aim(pillAfterPanel.current)
-    if (oneLineOn) setPillPanel(open)
-    else setPanelOpen(open)
     panelWanted.current = open
     panelTold.current = open
-    if (open) setPanelDrawn(true)
-    // The panel's glide sets the height too; the writing's own waits for it to land.
+    // The panel's move sets the height too; the writing's own waits for it to land.
     box.held.current = true
-    void window.api.setPanel(open).then(() => {
-      box.held.current = false
+    panelMoving.current = true
+    void morphBox(open, pillAfterPanel.current, window.api.setPanel, () => {
+      if (oneLineOn) setPillPanel(open)
+      else setPanelOpen(open)
+      if (open) setPanelDrawn(true)
+    }, () => {
       if (!panelWanted.current) setPanelDrawn(false)
+    }).then((landed) => {
+      if (!landed) return
+      panelMoving.current = false
+      box.held.current = false
       box.refit()
     })
   }
   // Said to main only once the settings are read: before, "One line to start" reads as off, the full box's panel
   // was asked for, and the box widened and narrowed again as it opened.
   const settingsRead = appSettings !== null
-  useEffect(() => void (settingsRead && ((panelTold.current = panel), window.api.setPanel(panel))), [oneLineOn, settingsRead]) // eslint-disable-line react-hooks/exhaustive-deps
-  // Turned on or off in Settings: drawn (or not) and the window sized to match, without a sound.
+  useEffect(() => void (settingsRead && ((panelTold.current = panel), window.api.setPanel(panel).then((room) => room && applyRoom(room)))), [oneLineOn, settingsRead]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Turned on or off in Settings: drawn (or not) and the box sized to match, without a sound.
   useEffect(() => {
     if (panelTold.current === null || panelTold.current === panel) return
-    panelTold.current = panel
-    if (panel) setPanelDrawn(true)
-    void window.api.setPanel(panel).then(() => {
-      if (!panelWanted.current) setPanelDrawn(false)
-      box.refit()
-    })
+    setPanel(panel, true)
   }, [chosenPanel]) // eslint-disable-line react-hooks/exhaustive-deps
   // From the writing to the list and back without the mouse: ⌃J (or ⌃K, from outside the words) leaves
   // the note for the panel's list (opening the panel if it is shut), and I
@@ -1035,7 +1042,8 @@ export default function App(): React.JSX.Element {
       }
       if (event.metaKey && !event.ctrlKey && event.key === '\\') {
         event.preventDefault()
-        return setPanel(!panel)
+        // The panel as last asked for: a second press before the first has landed turns the move round.
+        return setPanel(!panelWanted.current)
       }
       // ⌃ and a number alone: with ⌥ too it is a glance tab's key (box-glance.tsx), never a side panel's list.
       const to = event.ctrlKey && !event.metaKey && !event.altKey ? TABS[Number(event.key) - 1] : undefined
@@ -1129,7 +1137,8 @@ export default function App(): React.JSX.Element {
   // caught up, its foot cut off meanwhile.
   const meaningFound = definition?.state === 'found' || definition?.state === 'fix'
   // Listening, it is the box: the recorder bar lives in its footer's row.
-  const pillOtherwise = oneLine && !reading && !editing && !lesson && !opened && !wraps && !panel && !sheetUp && !listening
+  // Still the box while the panel is drawn: put away, it stays laid out as the box until it has shrunk back (box-morph).
+  const pillOtherwise = oneLine && !reading && !editing && !lesson && !opened && !wraps && !panel && !panelDrawn && !sheetUp && !listening
   const [roomFor, setRoomFor] = useState<string | null>(null)
   const meaningShown = meaningFound && (!pillOtherwise || roomFor === definition?.word)
   const meaningWaits = meaningFound && !meaningShown ? definition?.word ?? null : null
@@ -2169,7 +2178,7 @@ export default function App(): React.JSX.Element {
       </AnimatePresence>
       <FocusNote />
       <FocusScenery />
-      <Header panel={panel} drawn={panelDrawn} onPanel={() => setPanel(!panel)} nav={trail.stack.length > 1 && (
+      <Header panel={panel} drawn={panelDrawn} onPanel={() => setPanel(!panelWanted.current)} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
         <span className="mf-segs ml-3 self-center rounded-full shrink-0 border border-foreground/15 [&_svg]:size-3">
           {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon]) => (

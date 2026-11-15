@@ -60,7 +60,7 @@ import { warmEmoji } from './lazy/emoji'
 import { backupBase, backupDir } from './backup'
 import { pageFor } from './pages'
 import { lineAt, menuOpenFor, onMenuShut, popupMenu, registerPopupMenu, type PopupLine } from './popup-menu'
-import { hintRoom, type HintSide } from './hint-room'
+import { HINT_ROOM, hintRoom, type HintSide } from './hint-room'
 import { aiStudyOn, activeSession, extendRunning, whenNudge, atLogin, badge, beaconDefault, tuckRules, tempusDots, blurOn, boxAutoHide, boxOneLine, boxPlacement, gate, motionOn, soundsOn, stickyGlass, openGoals, registerHome, registerHaligtree, showStickies, stickyPrefs, wasTucked, toggleSafeMode, whenKeys, whenRecordings, whenIcon, appIcon, recordingPrefs, type Recordings, type OpenGoal, whenSafeMode, whenStepAway, meetingSeen, quietSeen, whenGoals, setGoalBeacon, whenStickies, focusBubbleShown, focusToolsOn, whenFocusShows, pillInNotch, pillYields, sleepChoice, sunPlace } from './haligtree'
 import { daysLeft, percent, tempus, wayThrough } from './goal-days'
 import { PEEK_OUT_MS, cardComesDown, peeksOut, restNow, type Rest } from './goal-tuck'
@@ -719,7 +719,11 @@ function roomForHint(win: BrowserWindow, place: Electron.Rectangle): Promise<voi
   const was = rooms.get(win)
   if (!was) return null
   const { workArea } = screen.getDisplayMatching(place)
-  const { side, room } = hintRoom(place, workArea, BOX_ROOM, boxOneLine() && !isWelcoming())
+  const hinted = hintRoom(place, workArea, BOX_ROOM, boxOneLine() && !isWelcoming())
+  const { side } = hinted
+  // Under any card, the box with its panel too, a hint below keeps its room.
+  hintFoot = side === 'below' ? Math.min(BOX_ROOM.bottom + HINT_ROOM, hinted.room.bottom) : BOX_ROOM.bottom
+  const room = roomForPanel(win, place, hinted.room)
   if (hintSide === side && room.top === was.top && room.left === was.left && room.right === was.right && room.bottom === was.bottom) return null
   hintSide = side
   hintBelow = room.bottom
@@ -739,6 +743,49 @@ let hintSide: HintSide | undefined
 /** The room under the card as the last open left it: more than BOX_ROOM's when a hint sits there. A menu that hangs
  * into it adds only what it needs beyond that, and closing gives it back to the hint (window:room-below). */
 let hintBelow = BOX_ROOM.bottom
+/** The room a hint below the card needs under it, whichever card it is (set as the box opens, roomForHint). */
+let hintFoot = BOX_ROOM.bottom
+/** The box's left edge at a new width as its panel opens or shuts: about its middle with Settings' "centred", else where it is. */
+const panelX = (card: Electron.Rectangle, width: number): number => (boxPlacement().centred ? Math.round(card.x - (width - card.width) / 2) : card.x)
+/**
+ * The room round a card with the panel shut (the one-line pill, the box alone) also holds the box with its panel where
+ * ⌘\ would put it, so the box grows in the window it already has: a window seen while it changes size shows its old
+ * picture at its new size for a frame or two, the card cut flat and bare frost beside it (the user, 15 Nov).
+ */
+function roomForPanel(win: BrowserWindow, place: Electron.Rectangle, room: Room): Room {
+  if (panelShown() || isWelcoming() || win !== prompt) return room
+  const box = onScreen({ x: panelX(place, WITH_PANEL), y: anchor?.became === place.y ? anchor.y : place.y, width: WITH_PANEL, height: SIZES.compact.height })
+  return {
+    left: Math.max(room.left, place.x - box.x + BOX_ROOM.left),
+    top: Math.max(room.top, place.y - box.y + BOX_ROOM.top),
+    right: Math.max(room.right, box.x + box.width - place.x - place.width + BOX_ROOM.right),
+    bottom: Math.max(room.bottom, box.y + box.height - place.y - place.height + hintFoot)
+  }
+}
+/**
+ * The box's card put at `next` inside the window as it is: the room round the card takes the rest, so nothing on
+ * screen moves (the page draws the change, lib/box-morph.ts). The window grows only where it lacks the card and its
+ * room (the box carried near a screen's edge since it opened). Gives back the room and the window's size, which the
+ * page lays itself out from.
+ */
+function within(win: BrowserWindow, to?: Electron.Rectangle): Room & { width: number; height: number } {
+  arriving?.()
+  settle()
+  // Where it is, read once any glide under way has landed.
+  const next = to ?? win.getBounds()
+  // The window's own frame, not its card's (overhang).
+  const frame = BrowserWindow.prototype.getBounds.call(win)
+  const left = Math.min(frame.x, next.x - BOX_ROOM.left)
+  const top = Math.min(frame.y, next.y - BOX_ROOM.top)
+  const right = Math.max(frame.x + frame.width, next.x + next.width + BOX_ROOM.right)
+  const bottom = Math.max(frame.y + frame.height, next.y + next.height + hintFoot)
+  const room = { left: next.x - left, top: next.y - top, right: right - next.x - next.width, bottom: bottom - next.y - next.height }
+  rooms.set(win, room)
+  relimit.get(win)?.()
+  if (!sameBox(frame, { x: left, y: top, width: right - left, height: bottom - top })) win.setBounds(next)
+  roomInEnv()
+  return { ...room, width: right - left, height: bottom - top }
+}
 /** More (or less) room round a window's card, the card staying exactly where it is. */
 function setRoom(win: BrowserWindow, room: Room): void {
   const was = rooms.get(win)
@@ -5818,29 +5865,27 @@ app.whenReady().then(() => {
     void reshape(win, next)
   })
 
-  // The side panel, asked for. Centred (the default in Settings), the window
-  // grows about its middle, so the box stays centred where it was; otherwise
-  // it grows to the right and the writing stays exactly where the eye is.
-  // Either way the screen's edge pushes it back on, and closing puts it back
-  // exactly where it was before, unless it was moved in between.
-  // Resolves once the glide lands: the page keeps the panel drawn until then,
-  // so closing slides it away rather than leaving an empty strip.
+  // The side panel, asked for. Centred (the default in Settings), the box grows
+  // about its middle, so it stays centred where it was; otherwise it grows to
+  // the right and the writing stays exactly where the eye is. Either way the
+  // screen's edge pushes it back on, and closing puts it back exactly where it
+  // was before, unless it was moved in between.
+  // Its new place is inside the window it already has (`within`): main moves
+  // nothing on screen, and the page draws the change of shape itself, on one
+  // curve (lib/box-morph.ts), from the room it is given back.
   ipcMain.handle('window:panel', async (event, open: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win) return false
+    if (!win || !rooms.has(win)) return null
     panelOpen = Boolean(open)
     const bounds = boundsOf(win)
     const width = boxWidth()
     // Wide already: only the height may be owed (the box opened short).
-    if (width === bounds.width) return (await refit(win), Boolean(open))
+    if (width === bounds.width) return (await refit(win), within(win))
     const back = !open && panelFrom && panelFrom.became === bounds.x ? panelFrom.x : undefined
-    const x = back ?? (boxPlacement().centred ? Math.round(bounds.x - (width - bounds.width) / 2) : bounds.x)
-    // Wider and to its full height (or back to what the writing needs) in
-    // the one glide, both at once, so it reads as one move.
+    const x = back ?? panelX(bounds, width)
     const next = anchored(win, x, width, boxHeight())
     panelFrom = open ? { x: bounds.x, became: next.x } : null
-    await reshape(win, next)
-    return Boolean(open)
+    return within(win, next)
   })
 
   // Seen by screen recorders and shares, or kept out of them (the default).

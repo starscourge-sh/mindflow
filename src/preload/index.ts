@@ -207,8 +207,16 @@ const api = {
   /** Swap the window between the capture size and the roomier one. */
   setExpanded: (expanded: boolean): Promise<boolean> =>
     ipcRenderer.invoke('window:expand', expanded),
-  /** Widen the window for the side panel, or narrow it back to the box. */
-  setPanel: (open: boolean): Promise<boolean> => ipcRenderer.invoke('window:panel', open),
+  /**
+   * The side panel shown or shut: main puts the card at its new place inside the window it already has and gives back
+   * the room round it and the window's size, for the page to draw the change (lib/box-morph.ts). Null for no card.
+   */
+  setPanel: async (open: boolean): Promise<(RoomHere & { width: number; height: number }) | null> => {
+    const room = await ipcRenderer.invoke('window:panel', open)
+    // Kept as main's room-hint is, for the page loaded again in this process.
+    if (boxHere && room) process.env.HALIGTREE_BOX_ROOM = JSON.stringify({ ...roomHere(), left: room.left, top: room.top, right: room.right, bottom: room.bottom })
+    return room
+  },
   /** The box to the middle of its screen (⌃⌘C). */
   centreBox: (): void => ipcRenderer.send('window:centre'),
   /** The box's height as its writing needs it: it grows down to it, up to its full size. */

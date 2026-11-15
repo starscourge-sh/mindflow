@@ -15,6 +15,7 @@ import { followGlass } from '../lib/glass'
 import { guardFrost } from '../lib/frost-guard'
 import { whileChanging } from '../lib/while-changing'
 import { still } from '../lib/motion'
+import { applyRoom, roundControls } from '../lib/box-morph'
 
 start(<App />)
 // Quick capture is a card inside a larger see-through window (main's overhang): the page draws the card inside
@@ -23,14 +24,11 @@ start(<App />)
 if (window.api.room.left) {
   document.documentElement.dataset.overhang = ''
   // The room below the card (main.css pads the page's foot with it); the sides have their own, below.
-  document.documentElement.style.setProperty('--mf-room', `${window.api.room.bottom}px`)
-  document.documentElement.style.setProperty('--mf-room-top', `${window.api.room.top}px`)
+  applyRoom(window.api.room)
   clearRoom()
   // Moved by its empty parts (the strip along its top, the pill's ends, the gaps in the row under the words) as by
   // its grabber: carried by Haligtree, never a native drag region, which would hide the pointer from the page there.
   carryOnPress()
-  document.documentElement.style.setProperty('--mf-room-left', `${window.api.room.left}px`)
-  document.documentElement.style.setProperty('--mf-room-right', `${window.api.room.right}px`)
   // The side its hint goes on, as main made the window (an open somewhere else tells it again, onRoomHint below).
   if (window.api.room.side) document.documentElement.dataset.hintSide = window.api.room.side
   // The room round the card for a hint (above it, or beside it on the side with room), set by main while the box is
@@ -43,7 +41,7 @@ if (window.api.room.left) {
   // Tab and ⇧Tab (⌃Tab and ⌃⇧Tab) move between them, the chosen one filled and, in the pill, named in the bar;
   // Enter runs it; Esc, or a word typed, lets them go (main.css, data-controls-out).
   const root = document.documentElement
-  const buttons = (): HTMLElement[] => [...document.querySelectorAll<HTMLElement>('.mf-top [data-aside] > *, .mf-top .mf-pill button')].filter((one) => one.offsetWidth > 0)
+  const buttons = roundControls
   const asPill = (): boolean => !!document.querySelector('.app-container[data-pill]')
   let picked = -1
   const name = document.createElement('span')
@@ -143,7 +141,8 @@ if (window.api.room.left) {
   // data-glass). Reduce Transparency, a solid look or the card put away take the glass away: every surface opaque.
   const FROSTED = ':is(.mf-frost, .tiptap-slash-menu, .tiptap-block-menu, .tiptap-emoji-list, .tiptap-table-menu, .tiptap-image-panel, .tiptap-icon-picker):not([data-frost-off])'
   // The glance tabs standing on the pill are its material too (box-glance.tsx marks each one's shape).
-  followGlass(() => [document.querySelector('.app-container'), ...buttons(), ...document.querySelectorAll('[data-glance-glass]'), document.querySelector('[data-hint-room] [data-hint-surface]'), ...document.querySelectorAll(FROSTED)], () => root.hasAttribute('data-card-gone'))
+  // None while ⌘\ moves the card's shape (lib/box-morph.ts): drawn a frame or two behind the page, it showed beside it.
+  followGlass(() => [document.querySelector('.app-container'), ...buttons(), ...document.querySelectorAll('[data-glance-glass]'), document.querySelector('[data-hint-room] [data-hint-surface]'), ...document.querySelectorAll(FROSTED)], () => root.hasAttribute('data-card-gone') || root.hasAttribute('data-frost-off'))
   // The menus are frosted as in the main window (main.css .mf-frost): the card under them blurred, never sharp words
   // under words; one that lands inside a fading or masked parent stays opaque.
   guardFrost()
@@ -180,6 +179,7 @@ if (window.api.room.left) {
   // the other, in the same frame the pill grows or folds, never jumping. Where each was is kept from the last frame
   // drawn; the new place is read before the next paint (a MutationObserver runs before it), and each starts from its
   // old place and size. `translate` and `scale`, not `transform`: the overhang holds `transform: none !important`.
+  // ⌘\'s move carries them itself, on its own curve with the card's shape (lib/box-morph.ts, data-morph).
   let was: DOMRect[] = []
   let shapeWas = ''
   const shapeNow = (): string => (document.querySelector('.app-container[data-pill]') ? 'pill' : 'box')
@@ -202,7 +202,7 @@ if (window.api.room.left) {
     const from = was
     was = now.map((one) => one.getBoundingClientRect())
     // Motion off in Settings, or Reduce motion on: they are simply in their new places.
-    if (from.length !== now.length || still()) return
+    if (from.length !== now.length || still() || root.hasAttribute('data-morph')) return
     now.forEach((one, i) => {
       for (const old of one.getAnimations()) old.cancel()
       const to = one.getBoundingClientRect()
@@ -217,10 +217,7 @@ if (window.api.room.left) {
   window.api.onRoomHint(({ top, left, right, bottom, side }) => {
     const root = document.documentElement
     delete root.dataset.controlsAbove
-    root.style.setProperty('--mf-room-top', `${top}px`)
-    root.style.setProperty('--mf-room', `${bottom}px`)
-    root.style.setProperty('--mf-room-left', `${left}px`)
-    root.style.setProperty('--mf-room-right', `${right}px`)
+    applyRoom({ top, left, right, bottom })
     if (side) root.dataset.hintSide = side
     else delete root.dataset.hintSide
     // What places itself by the card's place in the window (the toast lane in the footer, the hint) measures again:

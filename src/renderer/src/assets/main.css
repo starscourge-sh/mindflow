@@ -498,6 +498,38 @@ html[data-overhang] .app-container {
 html[data-overhang] .app-container[data-pill] {
   border-radius: 28px;
 }
+/* ⌘\'s one move (lib/box-morph.ts). The frost is off for it, so every surface is opaque, as with Reduce
+   Transparency; the card's own fill, hairline and shadow are drawn by a stand-in that takes the card's shape each
+   frame; the round controls are carried without their own easing; the grabber is away; and each part's fade is laid
+   over its own opacity. Landed, the card clears to its glass as the frost comes back under it. */
+html[data-overhang][data-morph],
+html[data-overhang][data-morph][data-glass] {
+  --mf-glass-fill: var(--background);
+}
+html[data-overhang][data-morph-shape] .app-container {
+  background: none;
+  box-shadow: none;
+}
+html[data-overhang] .mf-morph-shape {
+  position: fixed;
+  pointer-events: none;
+  background-color: var(--mf-glass-fill);
+  box-shadow: var(--mf-glass-rim), var(--mf-glass-edge), var(--mf-glass-drop);
+}
+html[data-overhang][data-morph] :is(.app-container, .mf-pill button, [data-aside] > *) {
+  transition: none;
+}
+/* Placed against the window (fixed), they would ride the writing's carry to the wrong place: away for the move. */
+html[data-overhang][data-morph] :is([data-grabber], [data-hint-room]) {
+  opacity: 0 !important;
+  transition: none !important;
+}
+[data-morph-o] {
+  opacity: var(--mf-morph-o) !important;
+}
+html[data-overhang][data-glass] .app-container {
+  transition: background-color 180ms var(--mf-ease);
+}
 /* The box's controls, Spotlight's way (macOS 26): out of the card, above its
    top right edge in the room round it, each its own round surface in the
    card's material and hairline, all one height with even gaps. Icons only;
