@@ -38,7 +38,7 @@ import { app, shell, BrowserWindow, ClipboardItem, dialog, globalShortcut, ipcMa
 
 import { createHash, randomUUID } from 'crypto'
 import { execFile } from 'child_process'
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
+import { constants, copyFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { catchFreezes } from './freeze-catch'
 import { appendFile, copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { writeWhole, writeWholeSync } from './write-whole'
@@ -6666,7 +6666,7 @@ app.whenReady().then(() => {
   // store names files by their hash, so a copy under the name it was dropped
   // with (or "Picture") goes instead, in a folder of Haligtree's own.
   const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'heic', 'svg'])
-  ipcMain.on('drag-out', (event, src: unknown, name: unknown, card: unknown) => {
+  ipcMain.on('drag-out', async (event, src: unknown, name: unknown, card: unknown) => {
     const stored = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
     if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(stored)) return
     const from = join(assetsDir(), stored)
@@ -6678,7 +6678,8 @@ app.whenReady().then(() => {
     const to = join(dir, file)
     try {
       mkdirSync(dir, { recursive: true })
-      if (!existsSync(to)) copyFileSync(from, to)
+      // A clone where the disk can make one (APFS): no bytes copied, however large the file.
+      if (!existsSync(to)) copyFileSync(from, to, constants.COPYFILE_FICLONE)
     } catch {
       return
     }
@@ -6688,7 +6689,9 @@ app.whenReady().then(() => {
     const PNG = 'data:image/png;base64,'
     // Drawn at twice its size, for sharp edges on a Retina screen.
     const drawn = typeof card === 'string' && card.startsWith(PNG) ? nativeImage.createFromBuffer(Buffer.from(card.slice(PNG.length), 'base64'), { scaleFactor: 2 }) : nativeImage.createEmpty()
-    let face = IMAGE_EXT.has(extension) ? nativeImage.createFromPath(to) : drawn
+    // A picture's own small copy, drawn by the Mac outside this thread: opened here whole, a 10,446 by 13,522 painting
+    // held every window for seconds as the drag began.
+    let face = IMAGE_EXT.has(extension) ? await nativeImage.createThumbnailFromPath(from, { width: 192, height: 192 }).catch(() => drawn) : drawn
     if (!face.isEmpty() && face !== drawn) face = face.resize({ width: Math.min(96, face.getSize().width) })
     if (face.isEmpty()) face = nativeImage.createFromPath(icon).resize({ width: 64 })
     if (face.isEmpty()) face = nativeImage.createFromBitmap(Buffer.alloc(32 * 32 * 4, 128), { width: 32, height: 32 })
