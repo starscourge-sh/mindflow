@@ -1454,6 +1454,19 @@ function Surface({
         parseHTML() {
           return [...(this.parent?.() ?? []), { tag: "li", priority: 52, getAttrs: (element) => (element.parentElement && isToDoList(element.parentElement) && toDoState(element) !== null ? null : false) }]
         },
+        // Its own box (the tick and the words read to screen readers, and the task's own element) is the view's, as
+        // TipTap's own node views keep theirs (NodeView.ignoreMutation): the editor reads back only the task's words.
+        // Read back, a change there drew the whole task again, and a block carried lost what the carry marks on it: a
+        // task carried stayed in sight, and the task it rested on never lit (15 Nov).
+        addNodeView() {
+          const made = this.parent?.()
+          if (!made) return null
+          return (props) => {
+            const drawn = made(props)
+            const words = drawn.contentDOM
+            return { ...drawn, ignoreMutation: (mutation) => mutation.type !== "selection" && !!words && (mutation.target === words ? mutation.type === "attributes" : !words.contains(mutation.target)) }
+          }
+        },
       }),
       ...(has("highlight") ? [Highlight.configure({ multicolor: true }), FullLineHighlight] : []),
       // "question :: answer": a review card, marked at the line's end.
