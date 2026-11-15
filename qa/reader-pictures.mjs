@@ -58,9 +58,9 @@ for (const [name, href] of Object.entries(PAGES)) {
   site[name] = { href: moved(href), page: moved(readFileSync(new URL(`./fixtures/reader/${name}.html`, import.meta.url), 'utf8')), pictures }
 }
 
-/** A picture's name without what tells a site's versions of it apart, as article-clean.ts reads it. */
-const stem = (url) => (URL.parse(url)?.pathname.split('/').pop() ?? '').replace(/\.[a-z0-9]+$/i, '').toLowerCase().split(/[-_.@\s]+/)
-  .filter((word) => word && !/^(wide|narrow|desktop|mobile|tablet|phone|small|medium|large|sm|md|lg|xl|xs|xxl|portrait|landscape|retina|full|half|\d+(w|px|x|x\d+)?)$/.test(word)).join('-')
+/** A picture's place and name without what tells a site's versions of it apart, as article-clean.ts reads it. */
+const stem = (url) => { const at = URL.parse(url); const served = at?.searchParams.get('url'); return ((served ? URL.parse(served, 'https://x')?.pathname : at?.pathname) ?? '').replace(/\.[a-z0-9]+$/i, '').toLowerCase().split(/[/\-_.@\s]+/)
+  .filter((word) => word && !/^(wide|narrow|desktop|mobile|tablet|phone|small|medium|large|sm|md|lg|xl|xs|xxl|portrait|landscape|retina|full|half|\d+(w|px|x|x\d+)?)$/.test(word)).join('-') }
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })

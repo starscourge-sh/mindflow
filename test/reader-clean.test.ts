@@ -39,8 +39,8 @@ for (const name of Object.keys(PAGES) as (keyof typeof PAGES)[]) {
     for (const one of pictures) {
       const size = sizes(name)[site(one.getAttribute('src') ?? '')]
       assert.ok(size, `a picture the page cannot show: ${one.getAttribute('src')}`)
-      const width = Number(one.getAttribute('width')) || size[0]
-      const height = Number(one.getAttribute('height')) || (size[1] * width) / size[0]
+      // As the reader draws it: its file's own size (the column narrows a wide one).
+      const [width, height] = size
       // A block: 100px or more one way, and 48px or more the other unless its words say what it is (a formula).
       if (!one.hasAttribute('data-inline')) assert.ok(Math.max(width, height) >= 100 && (Math.min(width, height) >= 48 || one.getAttribute('alt')), `a picture block ${width}x${height}: ${site(one.getAttribute('src') ?? '')}`)
       else assert.ok((one.closest('p, li, td, th, dd, dt, figcaption, blockquote, h1, h2, h3, h4, h5, h6')?.textContent ?? '').trim(), 'an inline icon outside a line of words')
@@ -68,7 +68,15 @@ test('docs.ankiweb.net: of a picture with a dark version, the light one a page s
   assert.equal(body.querySelectorAll('img').length, 4)
 })
 
+test("two neighbouring pictures in folders of their own are two pictures, not two versions of one", async () => {
+  const html = await cleanArticle('<p>Two videos, side by side, and words enough around them to read as a paragraph of an article.</p><div><img src="https://i.ytimg.com/vi/aaa111/hqdefault.jpg" alt="One video"><img src="https://i.ytimg.com/vi/bbb222/hqdefault.jpg" alt="Another video"></div><div><img src="/_next/image?url=%2Fmedia%2Fone.png&w=1080" alt="One"><img src="/_next/image?url=%2Fmedia%2Ftwo.png&w=1080" alt="Two"></div><div><img src="/static/hero-wide.webp" width="2000"><img src="/static/hero-narrow.webp" width="900"></div>', new URL('https://example.com/'), 'Example', async (src) => ({ kept: `haligtree://assets/${encodeURIComponent(src)}`, size: { width: 1200, height: 800, type: 'jpg' } }))
+  const srcs = [...parseHTML(`<body>${html}</body>`).document.querySelectorAll('img')].map((one) => decodeURIComponent(one.getAttribute('src') ?? ''))
+  assert.deepEqual(srcs.map((src) => src.replace(/^haligtree:\/\/assets\//, '')), ['https://i.ytimg.com/vi/aaa111/hqdefault.jpg', 'https://i.ytimg.com/vi/bbb222/hqdefault.jpg', 'https://example.com/_next/image?url=%2Fmedia%2Fone.png&w=1080', 'https://example.com/_next/image?url=%2Fmedia%2Ftwo.png&w=1080', 'https://example.com/static/hero-wide.webp'])
+})
+
 test('web.dev: a srcset gives the sharpest the column needs; a figure keeps its caption', async () => {
-  const { body } = await read('webdev')
+  const { body, asked } = await read('webdev')
+  // Its srcset has no space after each comma ("..._36.png 36w,..._48.png 48w"): read as a browser reads it, 1440w is the sharpest the column needs.
+  assert.ok(asked.includes('https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_1440.png'), asked.join(' '))
   assert.ok(body.querySelector('figure img') && body.querySelector('figure figcaption'), 'figures with captions')
 })

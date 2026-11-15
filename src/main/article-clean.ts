@@ -35,14 +35,27 @@ const wide = (media: string | null): boolean =>
     return true
   })
 
-/** Of a srcset, the picture sharp enough for the column at twice the pixels, or its largest. */
+/**
+ * Of a srcset, the picture sharp enough for the column at twice the pixels, or its largest. Read as a browser reads
+ * one: an address runs to the next space (it may hold commas, as an image service's do), its size to the next comma.
+ */
 const sharpest = (srcset: string): string | null => {
-  const each = srcset
-    .split(/,\s+/)
-    .map((one) => one.trim().split(/\s+/))
-    .filter(([url]) => url)
-    .map(([url, said = '1x']) => ({ url, size: parseFloat(said) * (/x$/.test(said) ? SHARP / 2 : 1) }))
-    .sort((a, b) => a.size - b.size)
+  const each: { url: string; size: number }[] = []
+  for (let at = 0; at < srcset.length; ) {
+    while (at < srcset.length && /[\s,]/.test(srcset[at])) at++
+    const gap = srcset.slice(at).search(/\s/)
+    let url = srcset.slice(at, gap < 0 ? undefined : at + gap)
+    at = gap < 0 ? srcset.length : at + gap
+    let said = '1x'
+    if (/,$/.test(url)) url = url.replace(/,+$/, '')
+    else {
+      const comma = srcset.indexOf(',', at)
+      said = srcset.slice(at, comma < 0 ? undefined : comma).trim() || '1x'
+      at = comma < 0 ? srcset.length : comma + 1
+    }
+    if (url) each.push({ url, size: parseFloat(said) * (/x$/.test(said) ? SHARP / 2 : 1) || SHARP / 2 })
+  }
+  each.sort((a, b) => a.size - b.size)
   return (each.find((one) => one.size >= SHARP) ?? each.at(-1))?.url ?? null
 }
 
@@ -55,14 +68,21 @@ const hiddenWide = (classes: string): boolean => {
   return has(/^(hidden|d-none)$/) && !has(/^(sm|md|lg|xl):(block|inline|inline-block|flex|inline-flex|grid|table)$|^d-(sm|md|lg|xl)-(block|inline|inline-block|flex|inline-flex|grid|table)$/)
 }
 
-/** A picture's name without the words that tell its sizes apart ("-wide", "-mobile", "@2x", "800w"), to find one picture's versions. */
-const stem = (src: string): string =>
-  (URL.parse(src, 'https://x')?.pathname.split('/').pop() ?? '')
+/**
+ * A picture's place and name without the words that tell its sizes apart ("-wide", "/mobile/", "@2x", "800w",
+ * "1024x683"), to find one picture's versions: its folder counts (two videos' "hqdefault.jpg" are two pictures), and
+ * for an image service (Next.js's /_next/image?url=...) the picture it serves.
+ */
+const stem = (src: string): string => {
+  const at = URL.parse(src, 'https://x')
+  const served = at?.searchParams.get('url')
+  return ((served ? URL.parse(served, 'https://x')?.pathname : at?.pathname) ?? '')
     .replace(/\.[a-z0-9]+$/i, '')
     .toLowerCase()
-    .split(/[-_.@\s]+/)
+    .split(/[/\-_.@\s]+/)
     .filter((word) => word && !/^(wide|narrow|desktop|mobile|tablet|phone|small|medium|large|sm|md|lg|xl|xs|xxl|portrait|landscape|retina|full|half|\d+(w|px|x|x\d+)?)$/.test(word))
     .join('-')
+}
 
 /** Words of a link or a line, without the arrows and marks sites draw as glyphs. */
 const wordsOf = (one: Element): string => (one.textContent ?? '').replace(/[\s↗→←↑↓›»«‹➔➜⟶•·|]+/g, '')
@@ -138,9 +158,9 @@ export async function cleanArticle(content: string, base: URL, site: string, kee
     if (/\b(logo|icon|avatar|background|backdrop)\b/i.test(alt) || (alt && alt.toLowerCase() === site.toLowerCase()) || (!alt && (DECOR.test(name) || size.type === 'svg') && !one.closest('figure'))) return void one.remove()
     // A picture inside a link with words of its own is the link's icon: the words carry the link.
     if (link && wordsOf(link)) return void one.remove()
-    const declared = Number(one.getAttribute('width')) || 0
-    const scale = declared ? declared / size.width : 1
-    const [w, h] = [size.width * scale, (Number(one.getAttribute('height')) || size.height * scale)]
+    // Its size as the site means it shown, never more than its file holds (an icon's large file declared at 24px).
+    const scale = Math.min(1, (Number(one.getAttribute('width')) || Infinity) / size.width)
+    const [w, h] = [size.width * scale, size.height * scale]
     if (Math.min(w, h) < THIN && Math.max(w, h) >= ICON && !alt) return void one.remove()
     if (Math.max(w, h) < ICON) {
       // An icon in a sentence stays, at the words' size; on its own it goes.
@@ -164,9 +184,10 @@ export async function cleanArticle(content: string, base: URL, site: string, kee
     const lines = [...one.children]
     if (lines.length >= 6 && lines.filter(sign).length >= lines.length * 0.8) one.remove()
   }
-  // A heading with nothing after it (a site's closing "Download it free", its buttons gone) introduces nothing: it goes.
+  // A title with nothing after it (a site's closing "Download it free", its buttons gone) introduces nothing: it goes.
+  // A heading of more words is a statement of its own (a guarantee, a claim) and stays.
   const last = (): Element | undefined => [...clean.querySelectorAll('p, li, dd, dt, blockquote, pre, table, img, figcaption, h1, h2, h3, h4, h5, h6')].filter((one) => one.matches('img, table') || wordsOf(one)).at(-1)
-  for (let end = last(); end?.matches('h1, h2, h3, h4, h5, h6'); end = last()) end.remove()
+  for (let end = last(); end?.matches('h1, h2, h3, h4, h5, h6') && (end.textContent ?? '').trim().split(/\s+/).length <= 8; end = last()) end.remove()
   // What is left with nothing in it: a wrapper whose button or icon went.
   for (const one of [...clean.querySelectorAll('p, div, span, section, figure, picture, header, footer, aside, li, a')].reverse()) if (!wordsOf(one) && !one.querySelector('img, table, hr, pre')) one.remove()
   // Readability's own wrappers (a page div, the site's article) unwrapped, so the words sit straight in the reader's column.
