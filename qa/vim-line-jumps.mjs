@@ -38,13 +38,13 @@ const margin = () => h.evaluate(() => {
   const marks = [...document.querySelectorAll('[data-open] .mf-lines .mf-line')]
   return { words: marks.map((m) => m.textContent), here: marks.findIndex((m) => m.hasAttribute('data-here')) }
 })
-// The caret's place in the open note: its block's words, and how far into them.
+// The caret's place in the open note: its block's words, how far into them, and the top of its row on the screen.
 const caret = (target = h, scope = '[data-open] .tiptap') => target.evaluate((scope) => {
   const ed = document.querySelector(scope).editor
   const { selection } = ed.state
   const node = selection.node
   if (node) return { text: `[${node.type.name}]`, at: selection.from }
-  return { text: selection.$head.parent.textContent.slice(0, 20), at: selection.head }
+  return { text: selection.$head.parent.textContent.slice(0, 20), at: selection.head, row: Math.round(ed.view.coordsAtPos(selection.head).top) }
 }, scope)
 const caretIn = (text, target = h, scope = '[data-open] .tiptap') => target.evaluate(([text, scope]) => {
   const ed = document.querySelector(scope).editor
@@ -125,18 +125,16 @@ try {
   await keys(['u']); got = await margin()
   check('u puts the four back', got.words.length === LINES, `${got.words.length} lines`)
 
-  // Off: 4j walks four rows on the screen, as jjjj does, not to the line marked 4.
+  // Off: 4j walks four rows on the screen, landing on the row jjjj lands on (its column may differ by a letter, as
+  // it did before), not on the line marked 4.
   await flag(h, 'vimLines', false)
   await caretIn('Paragraph one'); await wait(200); await normal()
-  before = await margin()
-  aim = before.words.findIndex((w, i) => i > before.here && w === '4')
   await keys(['4', 'j'])
   const counted = await caret()
   await caretIn('Paragraph one'); await wait(200)
   await keys(['j', 'j', 'j', 'j'])
   const walked = await caret()
-  got = await margin()
-  check('switched off, 4j walks four rows on the screen as jjjj does, not to the line marked 4', counted.at === walked.at && !counted.text.startsWith('rye'), `${counted.at} ${counted.text} vs ${walked.at}`)
+  check('switched off, 4j walks four rows on the screen to the row jjjj reaches, not to the line marked 4 (rye)', counted.row === walked.row && counted.text === walked.text && !counted.text.startsWith('rye'), `${counted.text} row ${counted.row} vs ${walked.text} row ${walked.row}`)
 
   // “Relative” off: plain numbers, Vim keys on or not; on: counted out from the caret's line.
   await v('settings:set', { relativeLineNumbers: false }); await wait(400)
@@ -168,6 +166,12 @@ try {
   await film('relative-off', () => h.click(`${row('Relative')} button[role="switch"]`)); await wait(600)
   check('pressed off: saved off, the plain numbers in ink', (await v('settings')).relativeLineNumbers === false && (await sample()) === '12@1/1@0.3 13@1/13@0.3 14@1/1@0.3', await sample())
   if (shots) await h.screenshot({ path: join(shots, 'v2-settings-lines.png') })
+  const dark = async (name) => {
+    await h.evaluate(() => { localStorage.setItem('theme', 'dark'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }); await wait(600)
+    await h.screenshot({ path: join(shots, name) })
+    await h.evaluate(() => { localStorage.setItem('theme', 'paper'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }); await wait(600)
+  }
+  if (shots) await dark('v2-settings-lines-dark.png')
   await h.click(`${row('Relative')} button[role="switch"]`); await wait(600)
   check('pressed on again: saved on', (await v('settings')).relativeLineNumbers === true)
   await v('settings:set', { lineNumbers: false }); await wait(500)
@@ -180,6 +184,7 @@ try {
   await film('jump-on', () => h.click(`${row('Jump by line numbers')} button[role="switch"]`)); await wait(500)
   check('pressed on: stored on, its sample showing 2j on the line marked 2', (await h.evaluate(() => localStorage.getItem('vimLines'))) === 'on' && (await jumpOn()) === true)
   if (shots) await h.screenshot({ path: join(shots, 'v2-settings-vim.png') })
+  if (shots) await dark('v2-settings-vim-dark.png')
   await h.click(`${row('Vim keys')} button[role="switch"]`); await wait(500)
   check('with Vim keys off, “Jump by line numbers” is not shown', !(await shown('Jump by line numbers')))
   await h.click(`${row('Vim keys')} button[role="switch"]`); await wait(500)
