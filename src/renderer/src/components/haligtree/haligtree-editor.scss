@@ -4644,8 +4644,7 @@ html[data-dragging] .tiptap-drag-handle {
   transition: background-color 150ms var(--mf-ease), box-shadow 150ms var(--mf-ease);
 }
 
-.ProseMirror li[data-drop-hot] > p:first-child,
-.ProseMirror li[data-drop-hot][data-type="taskItem"] > div > p:first-child {
+.ProseMirror li p[data-drop-hot] {
   margin-inline: -6px;
   padding-inline: 6px;
   border-radius: 6px;

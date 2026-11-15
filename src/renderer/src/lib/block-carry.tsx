@@ -382,7 +382,9 @@ function point(one: Held, again = false): void {
       one.room = one.copy ? null : { ...home, height: one.tall, own: true }
       lean(next?.kind === 'beside' && !next.refused ? next.lean : null, next?.kind === 'beside' ? (next.beside.side === 'left' ? 8 : -8) : 0)
     }
-    light(one.view, next?.kind === 'into' ? next.into.el : null)
+    // Its own line lit (a task's line sits inside the task's own view, which keeps nothing written on itself).
+    const line = next?.kind === 'into' ? one.view.nodeDOM(next.into.pos + 1) : null
+    light(one.view, line instanceof HTMLElement ? line : null)
     if (next?.kind === 'beside' && next.refused) document.documentElement.dataset.dragRefused = ''
     else delete document.documentElement.dataset.dragRefused
     const holds = next ? next.holds : one.ring
