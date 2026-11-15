@@ -14,7 +14,11 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(SHOTS, { recursive: true })
-process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-choices-'))
+// Always a fresh data folder of its own and never the example book, whatever a run of many passes in: the old screen
+// recording switch is moved only outside the sandbox (lib/recordings.ts, "The sandbox wears what it was given"), so on
+// a sandbox copy the two lines that move it had nothing to read and saw every window hidden.
+process.env.QA_DATA = mkdtempSync(join(tmpdir(), 'haligtree-choices-'))
+process.env.QA_ARGS = (process.env.QA_ARGS ?? '').replace('--sandbox', '').trim()
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 
