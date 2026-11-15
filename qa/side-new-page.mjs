@@ -81,10 +81,14 @@ try {
   await h.waitForTimeout(1200)
   const newButton = h.locator('[data-new-writing="article"] >> visible=true')
   if (!(await newButton.count())) { await h.keyboard.press('Escape'); await h.waitForTimeout(800) }
-  before = await pages()
-  await newButton.first().click()
-  got = await made(before)
-  check('Writing\'s own "New page", inside a folder, makes the page in it', got.count === 1 && got.opened && got.folder === trips, JSON.stringify(got))
+  const shown = await newButton.count()
+  check('inside a folder, Writing\'s own "New page" is in sight', shown > 0, `${shown} in sight`)
+  if (shown) {
+    before = await pages()
+    await newButton.first().click()
+    got = await made(before)
+    check('Writing\'s own "New page", inside a folder, makes the page in it', got.count === 1 && got.opened && got.folder === trips, JSON.stringify(got))
+  }
 
   // 7. Gems' "+" still makes a folder, named at once.
   const gems = h.locator('[data-side-row][aria-label="Gems"]')
