@@ -54,10 +54,13 @@ try {
   check('a notice shows at the bottom', !!before.notice && before.opacity === 1 && !before.hidden, JSON.stringify(before))
   // A row whose menu, opened just above the notice, comes down over its place (the menu keeps inside the window, so
   // it rises from a click near the foot): the row nearest the notice's middle, low on the page.
+  // Pressed just above the notice and a little left of it, on a row: never on the notice itself (it takes clicks), and
+  // the menu, kept inside the window, comes down over the notice's place from there.
   const spot = await h.evaluate((n) => {
-    const rows = [...document.querySelectorAll('[data-row], [data-capture-row], [role="option"]')].map((one) => one.getBoundingClientRect()).filter((r) => r.height && r.bottom <= innerHeight)
-    const low = rows.filter((r) => r.left < n.left + n.width / 2 && r.right > n.left + n.width / 2).sort((a, b) => b.bottom - a.bottom)[0] ?? rows.sort((a, b) => b.bottom - a.bottom)[0]
-    return low ? { x: Math.min(Math.max(low.left + 20, n.left + n.width / 2 - 60), low.right - 20), y: Math.round(low.top + low.height / 2) } : null
+    const x = n.left - 20
+    const rows = [...document.querySelectorAll('[data-row]')].map((one) => one.getBoundingClientRect()).filter((r) => r.height && r.left + 10 <= x && r.right - 10 >= x && r.bottom <= n.top - 2)
+    const low = rows.sort((a, b) => b.bottom - a.bottom)[0]
+    return low ? { x, y: Math.round(low.top + low.height / 2) } : null
   }, before.notice)
   check('a row to open a menu on, low on the page', !!spot, JSON.stringify(spot))
   if (spot) {
@@ -66,6 +69,7 @@ try {
     const opening = await film('open', 12)
     const shown = opening.filter((f) => f.menu)
     check('a real right-click menu opened', shown.length > 0, `${shown.length} of ${opening.length} frames`)
+    if (!shown.length) throw new Error('no menu opened: nothing below was proved')
     const stayed = opening.every((f) => !f.notice || (Math.abs(f.notice.top - before.notice.top) <= 1 && Math.abs(f.notice.left - before.notice.left) <= 1))
     check('the notice never moves while the menu opens (every frame)', stayed, opening.map((f) => f.notice?.top ?? '-').join(' '))
     const over = shown.filter(covers)
