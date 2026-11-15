@@ -67,12 +67,26 @@ try {
   await caretIn('Paragraph one'); await wait(300); await normal(); await wait(200)
   let got = await margin()
   check(`${LINES} numbered lines, the caret's line 1 its own number, the rest counted out from it`, got.words.length === LINES && got.here === 0 && got.words.join(' ') === '1 1 2 3 4 5 6 7 8 9 10 11 12 13', got.words.join(' '))
-  if (shots) await h.screenshot({ path: join(shots, 'v2-relative-paper.png') })
+  if (shots) await h.screenshot({ path: join(shots, 'v2-start-paper.png') })
+  // Filmed, a frame every 50 ms for 400 ms, when asked (QA_SHOTS): the press and where it lands.
+  const film = async (name, act) => {
+    if (!shots) return act()
+    const started = Date.now()
+    const acting = act()
+    for (let i = 0; Date.now() - started < 400; i++) {
+      const at = Date.now()
+      await h.screenshot({ path: join(shots, `v2-film-${name}-${String(i).padStart(2, '0')}-${String(at - started).padStart(3, '0')}ms.png`) }).catch(() => {})
+      const left = 50 - (Date.now() - at)
+      if (left > 0) await wait(left)
+    }
+    await acting
+  }
 
   // 4j: the line the margin marks 4 below, past two paragraphs that wrap.
   let before = await margin()
   let aim = before.words.findIndex((w, i) => i > before.here && w === '4')
-  await keys(['4', 'j']); got = await margin()
+  await h.keyboard.press('4')
+  await film('4j', () => keys(['j'])); got = await margin()
   check('4j lands on the line the margin marked 4 (rye, line 5)', aim === 4 && got.here === aim && (await caret()).text.startsWith('rye'), `${got.here} vs ${aim}, ${(await caret()).text}`)
   // 3k: the one marked 3 above.
   before = got
@@ -146,26 +160,25 @@ try {
   await c.send('view', 'home'); await wait(500); await c.send('view', 'settings'); await wait(1200)
   const row = (title) => `[data-setting-title="${title}"]`
   const shown = (title) => h.$(row(title)).then(Boolean)
+  const into = async (title) => { await h.$eval(row(title), (el) => el.scrollIntoView({ block: 'center', behavior: 'instant' })); await wait(300) }
+  await into('Line numbers')
   check('“Relative” shows under “Line numbers” while they are on', await shown('Relative'))
   const sample = () => h.$eval(`${row('Relative')} [data-preview="relative-lines"]`, (one) => [...one.querySelectorAll(':scope > span')].map((r) => [...r.querySelectorAll(':scope > span')].slice(0, 2).map((n) => `${n.textContent}@${getComputedStyle(n).opacity}`).join('/')).join(' '))
   check('its sample shows both looks, relative in ink', (await sample()) === '12@0.3/1@1 13@0.3/13@1 14@0.3/1@1', await sample())
-  await h.click(`${row('Relative')} button[role="switch"]`); await wait(600)
+  await film('relative-off', () => h.click(`${row('Relative')} button[role="switch"]`)); await wait(600)
   check('pressed off: saved off, the plain numbers in ink', (await v('settings')).relativeLineNumbers === false && (await sample()) === '12@1/1@0.3 13@1/13@0.3 14@1/1@0.3', await sample())
-  if (shots) await h.$(row('Line numbers')).then((one) => one.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' })))
-  if (shots) await wait(300)
   if (shots) await h.screenshot({ path: join(shots, 'v2-settings-lines.png') })
   await h.click(`${row('Relative')} button[role="switch"]`); await wait(600)
   check('pressed on again: saved on', (await v('settings')).relativeLineNumbers === true)
   await v('settings:set', { lineNumbers: false }); await wait(500)
   check('with line numbers off, “Relative” is not shown', !(await shown('Relative')))
   await v('settings:set', { lineNumbers: true }); await wait(500)
+  await into('Vim keys')
   check('“Jump by line numbers” shows under “Vim keys” while they are on', await shown('Jump by line numbers'))
   const jumpOn = () => h.$eval(`${row('Jump by line numbers')} [data-preview="line-jumps"]`, (one) => one.hasAttribute('data-on'))
   check('it is off (set off above), its sample showing 2j on the wrapped row', (await jumpOn()) === false)
-  await h.click(`${row('Jump by line numbers')} button[role="switch"]`); await wait(500)
+  await film('jump-on', () => h.click(`${row('Jump by line numbers')} button[role="switch"]`)); await wait(500)
   check('pressed on: stored on, its sample showing 2j on the line marked 2', (await h.evaluate(() => localStorage.getItem('vimLines'))) === 'on' && (await jumpOn()) === true)
-  if (shots) await h.$(row('Vim keys')).then((one) => one.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' })))
-  if (shots) await wait(300)
   if (shots) await h.screenshot({ path: join(shots, 'v2-settings-vim.png') })
   await h.click(`${row('Vim keys')} button[role="switch"]`); await wait(500)
   check('with Vim keys off, “Jump by line numbers” is not shown', !(await shown('Jump by line numbers')))

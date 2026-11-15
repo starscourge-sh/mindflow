@@ -902,11 +902,11 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           ))}
           <Setting title="Word meanings" note="Write one word in quick capture and pause to see its meaning under it." more="From your Mac's own Dictionary, so it works offline. Nothing moves and nothing is saved unless you press Tab. Esc hides it for that word. “Only for Word” waits until you pick the Word kind." keywords="define definition dictionary meaning look up lookup word vocabulary pronunciation quick capture box"
             below={<Choices label="Word meanings" options={meaningChoices} on={(id) => id === (settings.wordMeanings ?? 'one-word')} pick={(wordMeanings) => set({ wordMeanings: wordMeanings as Settings['wordMeanings'] })} />} />
-          <Setting title="Vim keys" note="Move and edit with Vim's keys as you write." more="Not in reading mode, while you tidy or decide, or in a board's cards." keywords="vim keys keyboard bindings modal normal insert">
+          <Setting title="Vim keys" note="Move and edit with Vim's keys as you write." more="Not in reading mode, while you tidy or decide, or in a board's cards. With them on, “Jump by line numbers” shows under them." keywords="vim keys keyboard bindings modal normal insert count jump line numbers 4j">
             <Switch checked={vim} onCheckedChange={setVim} />
           </Setting>
           {vim && (
-            <Setting under title="Jump by line numbers" note="A count before j or k moves by the lines the margin numbers: 4j lands on the line marked 4, however the paragraphs wrap." more="7G and 7gg go to line 7, and d3j or V3j take those lines. A j or k on its own still moves one row on the screen. Pairs well with “Relative” line numbers." keywords="vim count jump line numbers relative 4j 12k gg G motion">
+            <Setting under title="Jump by line numbers" note="A count before j or k moves by numbered lines: 4j lands on the line marked 4, however the paragraphs wrap." more="7G and 7gg go to line 7, and d3j or V3j take those lines, with the numbers shown or hidden. A j or k on its own still moves one row on the screen. Pairs well with “Relative” line numbers." keywords="vim count jump line numbers relative 4j 12k gg G motion">
               <LineJumpSample on={vimLines} />
               <Switch aria-label="Jump by line numbers" checked={vimLines} onCheckedChange={setVimLines} />
             </Setting>
