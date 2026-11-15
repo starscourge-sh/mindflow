@@ -1397,6 +1397,9 @@ function Surface({
         trailingNode: { notAfter: ["paragraph", "footnotes"] },
         // Only h1-h4 are styled; an h5 would render as a paragraph.
         heading: { levels: [1, 2, 3, 4] },
+        // Words carried (they land between two letters, where no block can make way) and files brought in from another
+        // app are the editor's own drag: its line marks the place, as wide as every carry's line (carry.tsx DropLine).
+        dropcursor: { width: 2 },
         // Replaced by the highlighting version below.
         codeBlock: false,
         link: has("link") && {

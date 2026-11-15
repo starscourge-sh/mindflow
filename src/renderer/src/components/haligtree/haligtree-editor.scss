@@ -1941,6 +1941,24 @@ html[data-link-pictures="whole"] .tiptap.ProseMirror.haligtree-editor .tiptap-bo
   }
 }
 
+// Words carried land between two letters: the line stands up there, as carry.tsx's upright line does, its dot at its top.
+.prosemirror-dropcursor-inline {
+  overflow: visible;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -8px;
+    left: -3px;
+    width: 8px;
+    height: 8px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 2px solid var(--tt-brand-color-400);
+    background: var(--background);
+  }
+}
+
 html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline) {
   animation: none;
 }
