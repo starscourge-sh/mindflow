@@ -602,12 +602,13 @@ const dayFull = (at: string): string => new Date(at).toLocaleDateString('en-GB',
 export function SourcePageView({ focus, onOpen, onSources }: { focus?: string; onOpen: (type: string, id: string) => void; /** To the Sources page, from the path over this one. */ onSources?: () => void }): React.JSX.Element {
   const which = readFocus(focus)
   const page = useLive(() => (which ? sources.page(which.field, which.name) : Promise.resolve(null)), null, [focus])
-  const near = useLive(() => (which?.field === 'attribution' ? sources.near(page?.name ?? which.name) : Promise.resolve([])), [] as Near, [focus, page?.name, page?.items.length])
-  // A work's notes that cite it, and its details as its citations keep them.
-  const citers = useLive(() => (which?.field === 'medium' ? cite.citers(page?.name ?? which.name) : Promise.resolve([] as Citer[])), [] as Citer[], [focus, page?.name])
-  // Read before the page shows (its `waiting`): who wrote it and its publisher came in a beat after the page, a line dropped in under its name.
+  // A work's details as its citations keep them, read before the page shows (its `waiting`): who wrote it came in a beat after the page, a line dropped in under its name.
+  // Asked before the notes that cite it (a look through every note's words), so the page never waits for those.
   const workRead = useLive(() => (which?.field === 'medium' ? cite.works().then((all) => ({ one: all.find((one) => personKey(one.title) === personKey(page?.name ?? which.name)) ?? null })) : Promise.resolve({ one: null })), { one: null } as { one: Work | null }, [focus, page?.name])
   const work = workRead.one
+  const near = useLive(() => (which?.field === 'attribution' ? sources.near(page?.name ?? which.name) : Promise.resolve([])), [] as Near, [focus, page?.name, page?.items.length])
+  // A work's notes that cite it.
+  const citers = useLive(() => (which?.field === 'medium' ? cite.citers(page?.name ?? which.name) : Promise.resolve([] as Citer[])), [] as Citer[], [focus, page?.name])
   const voices = useMemo(() => {
     const by: Record<Voice, SourceItem[]> = { theirs: [], understood: [], mine: [] }
     for (const item of page?.items ?? []) by[item.voice].push(item)
