@@ -72,9 +72,15 @@ import { NoteQuestions, useQuestionsHere } from './note-questions'
  * True from a press in the words that picks some of them until the pick is let
  * go: the pointer that just picked words, coming to rest on a control (quick
  * capture's kind button sits at the end of its one line), opens no tip over them.
+ * Asked only when a tip would open, of the selection's own ends: read on every
+ * change of the selection, the browser laid the page out for it each time (a
+ * long paste moved the caret once a stretch, and the whole note was laid out).
  */
-let pickingWords = false
 let pressInWords = false
+const pickingWords = (): boolean => {
+  const selection = document.getSelection()
+  return pressInWords && !!selection?.rangeCount && !selection.getRangeAt(0).collapsed
+}
 /**
  * How many popovers that are tied to a thing on the page and hold the stage are up (the Calendar's, on a draft or
  * on an event or a task): while one is, no tip comes up beside or over it from anything outside it, the thing's
@@ -86,12 +92,7 @@ export const stage = (): (() => void) => (staged++, () => void staged--)
 if (typeof document !== 'undefined') {
   document.addEventListener('pointerdown', (event) => {
     pressInWords = event.target instanceof Element && !!event.target.closest('[contenteditable=true]')
-    if (!pressInWords) pickingWords = false
   }, true)
-  document.addEventListener('selectionchange', () => {
-    const picked = !!document.getSelection() && !document.getSelection()!.isCollapsed
-    pickingWords = pressInWords && picked
-  })
 }
 
 /** How long after an Undo's sound the undone thing stays quiet as it puts itself back: one action, one sound. */
@@ -2237,7 +2238,7 @@ function Tipped({ label, offset, side, handed: { ref: outer, ...handed } = {}, c
   const onOpenChange = (next: boolean): void => {
     // No tip while a format bar is up, while a drag is picking words, or from outside a popover that holds the stage
     // (its own controls keep theirs): one floating thing at a time.
-    if (next && (!label || formatBarShown() || pickingWords || (staged > 0 && !trigger.current?.closest('[data-takes-keys]')))) return
+    if (next && (!label || formatBarShown() || pickingWords() || (staged > 0 && !trigger.current?.closest('[data-takes-keys]')))) return
     place.onShow?.(next)
     if (!next || typeof label !== 'string') return (setShown(next ? label : shown), setOpen(next))
     const seen = (trigger.current?.innerText ?? '').replace(/\s+/g, ' ').trim().toLowerCase()

@@ -30,6 +30,9 @@ if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.a
   let timer = 0
   document.addEventListener('selectionchange', () => {
     window.clearTimeout(timer)
+    // A caret is no pick: its words are not read (reading them had the page laid out at each move of the caret).
+    const selection = getSelection()
+    if (!selection?.rangeCount || selection.getRangeAt(0).collapsed) return
     timer = window.setTimeout(() => warm(getSelection()?.toString() ?? ''), 120)
   })
 }
