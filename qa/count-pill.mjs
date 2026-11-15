@@ -25,7 +25,7 @@ const long = db.prepare(`select id, body from captures where ${open} order by le
 // Short ones that still have a count (40 words and more): the pill shows anywhere in them, and Related cards or a
 // button may come after their words. Pictured ones: a picture to put under the pill.
 const shorts = db.prepare(`select id, body from captures where ${open} and length(body) between 1500 and 6000 and body not like '%"type":"image"%' order by length(body) limit 12`).all().filter((one) => JSON.parse(one.body).content?.length)
-const pictured = db.prepare(`select id, body from captures where ${open} and body like '%"type":"image"%"src":"haligtree://assets/%' and length(body) < 400000 order by length(body) limit 8`).all().filter((one) => JSON.parse(one.body).content?.length)
+const pictured = db.prepare(`select id, body from captures where ${open} and body like '%"type":"image"%"src":"haligtree://assets/%' and length(body) < 400000 order by length(body) desc limit 8`).all().filter((one) => JSON.parse(one.body).content?.length)
 db.close()
 const blocks = (one) => JSON.parse(one.body).content?.length ?? 0
 const load = () => `load ${loadavg()[0].toFixed(1)}`
@@ -63,14 +63,18 @@ await h.evaluate((sel) => {
         button: () => [...box.querySelectorAll('button:not([data-row]), [role="button"]')].filter((one) => !e.contains(one)),
         related: () => [...box.querySelectorAll('[data-row]')].filter((one) => !e.contains(one)),
       }[kind]()
-      const one = pick.find((el) => { const r = el.getBoundingClientRect(); return r.height > 4 && xs.some((x) => r.left <= x && r.right >= x) })
-      if (!one) return null
-      for (let i = 0; i < 3; i++) {
+      // Each in turn until one can be brought under it (one near the top of a short page never can).
+      let tried = null
+      for (const one of pick.filter((el) => { const r = el.getBoundingClientRect(); return r.height > 4 && xs.some((x) => r.left <= x && r.right >= x) })) {
+        for (let i = 0; i < 3; i++) {
+          const r = one.getBoundingClientRect()
+          box.scrollTop += r.top + Math.min(r.height / 2, 12) - (p.top + p.height / 2)
+        }
         const r = one.getBoundingClientRect()
-        box.scrollTop += r.top + Math.min(r.height / 2, 12) - (p.top + p.height / 2)
+        tried = { what: `${one.tagName.toLowerCase()}${one.getAttribute('aria-label') ? ` "${one.getAttribute('aria-label')}"` : ''}`, inNote: e.contains(one), under: r.top <= p.bottom && r.bottom >= p.top }
+        if (tried.under) break
       }
-      const r = one.getBoundingClientRect()
-      return { what: `${one.tagName.toLowerCase()}${one.getAttribute('aria-label') ? ` "${one.getAttribute('aria-label')}"` : ''}`, inNote: e.contains(one), under: r.top <= p.bottom && r.bottom >= p.top }
+      return tried
     },
   }
 }, ED)
@@ -89,7 +93,7 @@ const shot = async (name) => {
     await h.screenshot({ path: join(SHOTS, `${name}-${theme}.png`), clip: await h.evaluate(() => window.__pill.clip()) })
   }
 }
-const fling = async (way) => electron.evaluate(async ({ BrowserWindow }, [way, { x, y }]) => {
+const fling = async (way, at) => electron.evaluate(async ({ BrowserWindow }, [way, { x, y }]) => {
   const win = BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('view=home'))
   const started = performance.now()
   let last = started
@@ -103,7 +107,7 @@ const fling = async (way) => electron.evaluate(async ({ BrowserWindow }, [way, {
     last = now
     if (by >= 0.5) win.webContents.sendInputEvent({ type: 'mouseWheel', x, y, deltaX: 0, deltaY: way * by, hasPreciseScrollingDeltas: true, canScroll: true })
   }
-}, [way, await h.evaluate(() => window.__pill.middle())])
+}, [way, at ?? await h.evaluate(() => window.__pill.middle())])
 /** Hit tests per frame through a fling down (whichever way the wheel's sign scrolls down). */
 const counted = async () => {
   const before = await h.evaluate(() => (window.__pill.hits.n = 0, window.__pill.box().scrollTop))
@@ -203,6 +207,36 @@ try {
   const end = await h.evaluate(() => window.__pill.state())
   await shot('long-note-end')
   console.log(`the longest note at its end: ${JSON.stringify(end)}`)
+
+  // A list beside a short note whose count shows, flung: a list's scroll moves nothing under the note's pill.
+  if (short?.state.shows) {
+    await openNote(short.one)
+    await h.evaluate(() => window.__pill.to(1))
+    await wait(400)
+    const list = await h.evaluate(() => {
+      const e = window.__pill.ed()
+      const row = [...document.querySelectorAll('[data-row]')].find((one) => !e.parentElement.contains(one) && one.getBoundingClientRect().height > 0)
+      let box = row?.parentElement
+      while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+      if (!box || box.contains(e) || box.scrollHeight - box.clientHeight < 200) return null
+      window.__list = box
+      const r = box.getBoundingClientRect()
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2), rows: box.querySelectorAll('[data-row]').length, shows: window.__pill.state()?.shows }
+    })
+    if (list) {
+      let out = null
+      for (const way of [-1, 1]) {
+        const from = await h.evaluate(() => (window.__pill.hits.n = 0, window.__frames = 0, window.__on = true, requestAnimationFrame(function tick() { if (window.__on) (window.__frames++, requestAnimationFrame(tick)) }), window.__list.scrollTop))
+        await fling(way, list)
+        await wait(400)
+        out = await h.evaluate((from) => (window.__on = false, { hits: window.__pill.hits.n, frames: window.__frames, went: Math.round(window.__list.scrollTop - from) }), from)
+        if (Math.abs(out.went) > 100) break
+      }
+      const each = Math.round((out.hits / Math.max(1, out.frames)) * 100) / 100
+      console.log(`a list beside the short note (${list.rows} rows drawn, the note's count ${list.shows ? 'showing' : 'not showing'}), flung: ${out.hits} hit tests in ${out.frames} frames (${each} a frame), went ${out.went}px  (${load()})`)
+      check('a fling of a list beside a note asks what is under a point on no frame', Math.abs(out.went) > 100 && each <= 0.05, `${each} a frame over ${out.frames} frames, went ${out.went}px`)
+    } else console.log('a list beside the short note: none on show to fling')
+  }
   const faults = c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|ERR_BLOCKED_BY_RESPONSE|status of 40\d/.test(line))
   check('no page errors', !faults.length, faults.slice(0, 3).join(' | '))
 } finally {
