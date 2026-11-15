@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { small } from '@/lib/small-picture'
 import { dragWords } from '@/lib/drag-words'
 import { NameInPlace } from './name-in-place'
 import { DndContext, MeasuringStrategy, PointerSensor, closestCenter, pointerWithin, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragMoveEvent, type DragStartEvent } from '@dnd-kit/core'
@@ -680,7 +681,7 @@ export function GroupIcon({ icon, color, className = 'size-4' }: { icon: string 
   const kind = icon?.startsWith('kind:') ? CAPTURE_TYPES.find((one) => one.id === icon.slice(5)) : undefined
   const tint = tintOf(color)
   if (kind) return <kind.icon className={className} style={{ color: tint ?? kind.tint }} />
-  if (isPicture(icon)) return <img data-folder-picture src={icon} alt="" draggable={false} className={cn(className, 'shrink-0 rounded-[3px] object-contain')} />
+  if (isPicture(icon)) return <img data-folder-picture src={small(icon)} alt="" draggable={false} className={cn(className, 'shrink-0 rounded-[3px] object-contain')} />
   if (icon) return <span className="text-[0.95rem] leading-none">{icon}</span>
   return <Layers className={cn(className, !tint && 'text-muted-foreground')} style={{ color: tint }} />
 }

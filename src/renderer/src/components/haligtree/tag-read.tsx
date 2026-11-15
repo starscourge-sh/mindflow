@@ -1,4 +1,5 @@
 import { Orb } from './orb'
+import { small } from '@/lib/small-picture'
 import { sideTagLine } from '@/lib/side-tags'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { still } from '@/lib/motion'
@@ -586,7 +587,7 @@ function TagBand({ wash, children }: { wash: string | null; children: React.Reac
       className="group/wash sticky z-20 bg-background transition-shadow duration-200 ease-out data-stuck:shadow-[0_1px_0_var(--border),0_8px_16px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_40%,transparent)]">
       {shown && (
         <div aria-hidden data-backdrop className="pointer-events-none absolute inset-0 overflow-hidden [mask-image:linear-gradient(180deg,transparent_0%,black_18%,black_55%,transparent_100%)]">
-          <img src={shown} alt="" draggable={false} onError={() => setBroken(shown)} className="size-full scale-110 object-cover opacity-90 blur-md" />
+          <img src={small(shown, 640)} alt="" draggable={false} onError={() => setBroken(shown)} className="size-full scale-110 object-cover opacity-90 blur-md" />
           {/* The page's colour over it, so plain and grey words still read on any picture, light theme or dark. */}
           <div className="absolute inset-0 bg-[color-mix(in_oklab,var(--background)_78%,transparent)]" />
         </div>

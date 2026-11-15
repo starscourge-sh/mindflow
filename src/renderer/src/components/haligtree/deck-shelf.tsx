@@ -11,6 +11,7 @@ import { SCRUB, ScrubField } from '../pdf/scrub-field'
 import { Tree, treeOf } from './branches'
 import { GroupCover } from './group-cover'
 import { groupTint } from './card-shelves'
+import { small } from '@/lib/small-picture'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpDown, BookmarkPlus, ChevronRight, Eye, EyeOff, FolderPlus, GraduationCap, Hourglass, Image, Layers, LayoutGrid, Link, List as ListIcon, ListPlus, Pencil, Plus, Share, SlidersHorizontal, Trash2, type LucideIcon } from 'lucide-react'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -359,7 +360,7 @@ function DeckTile({ id, own = false, drag, name, title, due, fresh, all, held, c
         <span className="absolute top-1.5 right-1.5"><MenuDots /></span>
         {(cover || shapes) && (
           <span data-deck-face={own ? `#${id}` : id} className="flex">
-            {cover ? <img src={cover} alt="" className="size-10 shrink-0 rounded-[4px] object-cover" />
+            {cover ? <img src={small(cover)} alt="" decoding="async" className="size-10 shrink-0 rounded-[4px] object-cover" />
               : <GroupCover name={own ? `#${id}` : id} tint={groupTint(own ? `#${id}` : id)} label={null} className="size-10 shrink-0 rounded-[4px]" />}
           </span>
         )}
@@ -400,7 +401,7 @@ function Gallery({ deck, onOpen }: { deck: string; onOpen: (type: string, id: st
       {(pictures ?? []).map((one) => (
         <li key={one.id}>
           <button type="button" className="group grid w-full cursor-pointer gap-1 text-left" onClick={() => (chime('tap'), onOpen('nugget', one.id))}>
-            <img src={one.src} alt="" loading="lazy" className="aspect-square w-full rounded-md object-cover transition-opacity group-hover:opacity-90" />
+            <img src={small(one.src)} alt="" loading="lazy" decoding="async" className="aspect-square w-full rounded-md object-cover transition-opacity group-hover:opacity-90" />
             {one.who && <span className="truncate text-meta text-muted-foreground">{one.who}</span>}
           </button>
         </li>

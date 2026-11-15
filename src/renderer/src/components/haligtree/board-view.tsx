@@ -1,4 +1,5 @@
 import { TOOL } from './note-extras'
+import { small } from '@/lib/small-picture'
 import { dragWords } from '@/lib/drag-words'
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal, flushSync } from 'react-dom'
@@ -1397,7 +1398,7 @@ function CardBox({ id, place, lane, editor, card, here, editing, disabled, onPic
         // Carried away: the place it left stays open as a faint slot in the list's colour, the size of the card.
         isDragging ? '[&>*:not([data-own-room],[data-drop-room],[data-drop-line])]:invisible' : `${CARD_FILL} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent)] ring-1 ring-foreground/[0.07] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--board-card))]`
       } ${here ? 'ring-2! ring-ring/70!' : ''}`}>
-      {cover && !editing && <img src={cover} alt="" draggable={false} data-card-cover="" className="h-20 w-full shrink-0 object-cover" />}
+      {cover && !editing && <img src={small(cover, 640)} alt="" draggable={false} decoding="async" data-card-cover="" className="h-20 w-full shrink-0 object-cover" />}
       <div className="flex min-w-0 items-start gap-2 px-2.5 py-2">
         {task && (
           <button type="button" role="checkbox" aria-checked={checked} aria-label={checked ? 'Not done' : 'Done'} onClick={(event) => (event.stopPropagation(), onTick())}

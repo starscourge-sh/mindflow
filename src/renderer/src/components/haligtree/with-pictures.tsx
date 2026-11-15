@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
+import { small as smallCopy } from '@/lib/small-picture'
 import katex from '@/lib/shims/katex'
 import { typedAsGaps } from '@/lib/blanks'
 import 'katex/dist/katex.min.css'
@@ -67,7 +68,7 @@ export function WithPictures({ text, small = false }: { text: string; small?: bo
   return (
     <>
       {parts.map((part, at) =>
-        at % 2 ? <img key={at} src={part} alt="" className={`${small ? 'my-1 max-h-12' : 'my-2 max-h-64'} block max-w-full rounded-md`} /> : part.trim() && <span key={at} className="whitespace-pre-line"><WithSounds text={part.trim()} small={small} /></span>
+        at % 2 ? <img key={at} src={small ? smallCopy(part) : part} alt="" className={`${small ? 'my-1 max-h-12' : 'my-2 max-h-64'} block max-w-full rounded-md`} /> : part.trim() && <span key={at} className="whitespace-pre-line"><WithSounds text={part.trim()} small={small} /></span>
       )}
     </>
   )

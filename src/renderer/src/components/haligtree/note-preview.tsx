@@ -1,4 +1,5 @@
 import { keptAs } from '@/lib/capture-links'
+import { small } from '@/lib/small-picture'
 import { mdWords } from '../../../../main/md-words'
 import { typedAsGaps } from '@/lib/blanks'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
@@ -354,7 +355,7 @@ export function NotePreview(): React.JSX.Element | null {
   const look = linkKind(shown.kind)
   // A face round, any other picture with soft corners: small, beside the title, as a contact card shows one.
   const picture = shown.picture ? (
-    <img data-preview-image src={shown.picture} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')}
+    <img data-preview-image src={small(shown.picture)} alt="" draggable={false} onError={(event) => (event.currentTarget.style.display = 'none')}
       className={`size-10 shrink-0 border object-cover ${shown.type === 'person' ? 'rounded-full' : 'rounded-md'}`} style={{ objectPosition: 'center 22%' }} />
   ) : null
   return (

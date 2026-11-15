@@ -1,4 +1,5 @@
 import { askRename, openSource, sources } from '@/lib/sources'
+import { small as smallCopy } from '@/lib/small-picture'
 import { chime } from '@/lib/sound'
 import { useState, type CSSProperties, type ReactElement } from 'react'
 
@@ -61,7 +62,9 @@ function ensureDuotone(): void {
  * in a soft round tint instead.
  */
 export function Avatar({ name, size = 16, className = '', look, letters }: { name: string; size?: number; className?: string; /** Settings' sample: this look whatever the setting says. */ look?: 'shapes' | 'initials'; /** Its letters, where names shown together would otherwise share them (distinctInitials). */ letters?: string }): React.JSX.Element | null {
-  const avatar = useAvatar(name)
+  // Drawn 96px across at most: the small copy (main makes it once), never the original, decoded whole for a face.
+  const kept = useAvatar(name)
+  const avatar = kept && smallCopy(kept)
   if (avatar) ensureDuotone()
   // Its page waits for the pictures' read and this one's decode, a moment at most: never initials, then the picture.
   useDecoded(avatar, !peopleRead())
