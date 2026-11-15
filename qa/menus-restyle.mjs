@@ -143,12 +143,13 @@ try {
   // and every heading (".ProseMirror-widget + h1"): 7,537 elements, 100 to 131 ms (test/has-narrow.test.ts holds them out).
   if (process.env.TYPED) {
     const typed = { 'Enter, a new line': [], 'a letter': [], 'a line pasted': [], '⌘Z': [] }
-    const line = await h.evaluate((sel) => {
+    // A paragraph with a paragraph after it, on screen, or else the line the menus used.
+    const line = (await h.evaluate((sel) => {
       const ed = [...document.querySelectorAll(sel)].sort((a, b) => b.childElementCount - a.childElementCount)[0]
-      const one = [...ed.children].find((p) => p.tagName === 'P' && p.nextElementSibling?.tagName === 'P' && p.previousElementSibling?.tagName === 'P' && p.getBoundingClientRect().top > 160 && p.getBoundingClientRect().bottom < innerHeight - 160 && p.textContent.trim().length > 30)
-      const r = one.getBoundingClientRect()
-      return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) }
-    }, EDITOR)
+      const one = [...ed.children].find((p) => p.tagName === 'P' && p.nextElementSibling?.tagName === 'P' && p.getBoundingClientRect().top > 120 && p.getBoundingClientRect().bottom < innerHeight - 120 && p.textContent.trim().length > 10)
+      const r = one?.getBoundingClientRect()
+      return r ? { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) } : null
+    }, EDITOR)) ?? spots.line
     await h.mouse.click(line.x, line.y)
     await h.waitForTimeout(500)
     let step = 'Enter'
