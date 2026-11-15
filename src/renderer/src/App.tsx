@@ -1758,14 +1758,15 @@ export default function App(): React.JSX.Element {
       setSending(true)
       // Quit before the box has gone, and it is kept once, not kept and back as a draft.
       localStorage.removeItem('capture-draft')
-      // The box goes now, once its leave has played (data-box-away): the save and all that follows it finish while it is
-      // hidden. It used to wait for them: 0.3 to 1 s in a built app, about 3 s in the user's dev app (15 Nov 2026: "it
-      // says on screen for another 3 seconds"). The words were read above, so the box is cleared as it goes.
+      // The box goes now, before anything else is drawn: the save and all that follows it finish while it is hidden. It
+      // used to wait for them (0.3 to 1 s in a built app, about 3 s in the user's dev app, 15 Nov 2026: "it says on
+      // screen for another 3 seconds"), and a leave timer of 180 ms still slipped to 0.4 to 1.1 s behind the box's own
+      // redraw. The words were read above, so the box is cleared once it is hidden.
+      window.api.hideWindow()
       leaving.current = setTimeout(() => {
         setSending(false)
         fresh()
-        window.api.hideWindow()
-      }, 180)
+      }, 0)
     }
     void window.api.captures
       .create({ title: plan?.card && !plan.card.loading ? plan.card.title : '', kind: page ? 'note' : sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
