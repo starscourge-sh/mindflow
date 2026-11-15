@@ -202,7 +202,7 @@ function Fits({ start, onClose }: { start: number; onClose: () => void }): React
                   <Tip key={one} label={`Give it ~${hoursSaid(one)}`}>
                     <button type="button" aria-label={`Give it ~${hoursSaid(one)}`} onClick={(event) => (event.stopPropagation(), giveLength(task, one))}
                       className={`flex h-5 min-w-6 items-center justify-center gap-1 rounded-md px-1 text-xs tabular-nums hover:bg-background hover:text-foreground ${here ? 'text-foreground' : 'text-muted-foreground'}`}>
-                      {here && <kbd className="font-sans text-[0.625rem] opacity-55">{at_ + 1}</kbd>}{one}
+                      {here && <kbd className="font-sans text-[0.625rem] text-muted-foreground">{at_ + 1}</kbd>}{one}
                     </button>
                   </Tip>
                 ))}

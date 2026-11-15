@@ -1264,7 +1264,7 @@ function Pill({ focus, settings, now, notch, onEnded, onAbandoned, onAway }: { f
             {/* The keycap is the send button too: a click does what Enter does. */}
             {/* Something to keep: filled in the accent, plainly a button. Nothing yet: quiet, and only then. */}
             <Tip label="Add to the log"><button type="button" data-island-send data-ready={words.trim() || attached ? '' : undefined} aria-label="Keep it in the log" onClick={(event) => (event.preventDefault(), void add(), field.current?.focus())}
-              className={`flex h-6 shrink-0 items-center justify-center rounded-full transition-[background-color,opacity,filter] ${words.trim() || attached ? 'bg-[var(--tt-brand-color-400)] px-2 mf-on-accent hover:brightness-110' : 'px-0.5 opacity-40 hover:bg-accent'}`}>
+              className={`flex h-6 shrink-0 items-center justify-center rounded-full transition-[background-color,opacity,filter] ${words.trim() || attached ? 'bg-[var(--tt-brand-color-400)] px-2 mf-on-accent hover:brightness-110' : 'px-0.5 hover:bg-accent'}`}>
               {words.trim() || attached ? <span aria-hidden className="text-[12px] leading-none font-semibold">↵</span> : <Kbd>↵</Kbd>}
             </button></Tip>
           </label>

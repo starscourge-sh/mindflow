@@ -390,7 +390,7 @@ function Pages({ onView }: { onView: (id: string) => void }): React.JSX.Element 
               <span className="block text-control font-medium text-foreground">{section.label}</span>
               <span className="block text-meta leading-relaxed text-muted-foreground">{PAGE_LINES[section.id]}</span>
             </span>
-            {section.key && <span className="mt-0.5 flex gap-0.5 opacity-70"><Pressed keys={`G ${section.key.toUpperCase()}`} /></span>}
+            {section.key && <span className="mt-0.5 flex gap-0.5"><Pressed keys={`G ${section.key.toUpperCase()}`} /></span>}
           </button>
         ))}
       </div>

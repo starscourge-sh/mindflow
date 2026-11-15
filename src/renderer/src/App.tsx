@@ -2594,7 +2594,7 @@ export default function App(): React.JSX.Element {
               <Tip label={createMore && !editing ? 'Then empties quick capture for the next one' : (editing ? 'Back to your draft: changes already save as you make them' : 'Then empties it for the next one:  ⌥⌘↵')}>
               <Button variant="secondary" data-create onClick={(event) => submit(event.altKey)} className="shrink-0 text-control">
                 {/* Open on a saved note: closing it, since changes already save. */}
-                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plan?.clue && !editing ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
+                <Rolling text={editing ? 'Close note' : saved ? 'Saved' : plan?.clue && !editing ? (plusGoal ? 'Add log' : 'Add clue') : 'Create'} /> <kbd className="font-sans text-key text-(--mf-muted-strong)">⌘↵</kbd>
               </Button>
               </Tip>
               </span>

@@ -196,7 +196,7 @@ function CardSheet({ quote, onClose }: { quote: CardQuote; onClose: () => void }
           ))}
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" onClick={onClose} className="text-control">Cancel <kbd className="ml-1 font-sans text-key opacity-70">Esc</kbd></Button>
+          <Button variant="ghost" onClick={onClose} className="text-control">Cancel <kbd className="ml-1 font-sans text-key text-muted-foreground">Esc</kbd></Button>
           <span className="flex-1" />
           <Button variant="secondary" data-card-save onClick={() => void save()} className="text-control">Save as PNG…</Button>
           <Button data-card-copy onClick={() => void copy()} className="text-control">Copy</Button>

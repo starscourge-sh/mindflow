@@ -207,12 +207,12 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
           {box.text && !box.fold && (
             <div ref={words} key={box.item ?? 'line'} data-caught className="origin-top-left leading-[1.6]">
               {lines.map((line, i) => (
-                <p key={i} className={i ? 'text-foreground/80' : ''}>
+                <p key={i} className={i ? 'text-(--mf-muted-strong)' : ''}>
                   {line}
                   {/* What Haligtree will lift out, lit where it sits in the line until it goes. */}
                   {i === 0 && box.lit && <>{' '}<motion.span layoutId={box.typing ? undefined : 'reel-date'} {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.lit}</motion.span></>}
                   {i === 0 && box.tail && (
-                    <span className="text-foreground/80">{' - '}<motion.span layoutId={box.typing ? undefined : 'reel-who'} {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.who}</motion.span>{box.tail.where && <>{', '}<motion.span layoutId={box.typing ? undefined : 'reel-where'} {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.where}</motion.span></>}</span>
+                    <span className="text-(--mf-muted-strong)">{' - '}<motion.span layoutId={box.typing ? undefined : 'reel-who'} {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.who}</motion.span>{box.tail.where && <>{', '}<motion.span layoutId={box.typing ? undefined : 'reel-where'} {...lift} className="inline-block rounded-[0.2em] bg-primary/12 px-[0.1em] text-primary">{box.tail.where}</motion.span></>}</span>
                   )}
                   {/* The caret, after the last letter typed. */}
                   {box.typing && i === lines.length - 1 && <span className="mf-ghost-caret" data-typing="" />}
@@ -244,7 +244,7 @@ export function Stage({ box }: { box: Box }): React.JSX.Element {
         <span className="flex-1" />
         <motion.span data-ghost="create" className="inline-flex rounded-md" animate={{ scale: box.press ? 0.97 : 1 }} transition={box.press ? { duration: 0.06 } : spring.fast}>
           <Button variant="secondary" tabIndex={-1} className={`text-control transition-shadow duration-150 ${box.press ? 'shadow-[0_0_0_3px_color-mix(in_oklab,var(--primary)_35%,transparent)]' : ''}`}>
-            Create <kbd className="font-sans text-key opacity-70">⌘↵</kbd>
+            Create <kbd className="font-sans text-key text-(--mf-muted-strong)">⌘↵</kbd>
           </Button>
         </motion.span>
       </div>

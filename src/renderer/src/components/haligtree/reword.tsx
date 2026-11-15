@@ -430,7 +430,7 @@ function Card({ draft, by }: { draft: Draft; by: boolean }): React.JSX.Element {
           Cancel <Kbd className="ml-1">Esc</Kbd>
         </Button>
         <Button size="sm" onClick={() => void save(draft, ref.current)}>
-          Save <Kbd className="ml-1 border-primary-foreground/30 bg-transparent text-primary-foreground/80">⌘↵</Kbd>
+          Save <Kbd className="ml-1 border-primary-foreground/30 bg-transparent text-primary-foreground">⌘↵</Kbd>
         </Button>
       </div>
     </motion.div>

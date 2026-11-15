@@ -283,7 +283,7 @@ export function HintCard({ onOpen }: { onOpen: (type: string, id: string) => voi
                     </TooltipTrigger>
                     <TooltipContent>
                       {tip}
-                      {keys && keyFor(keys) && <kbd className="ml-2 font-sans text-key opacity-70">{keyFor(keys)}</kbd>}
+                      {keys && keyFor(keys) && <kbd className="ml-2 font-sans text-key text-muted-foreground">{keyFor(keys)}</kbd>}
                     </TooltipContent>
                   </Tooltip>
                 )

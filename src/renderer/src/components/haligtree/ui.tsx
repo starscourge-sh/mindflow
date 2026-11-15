@@ -1723,7 +1723,7 @@ export function Toaster(): React.JSX.Element | null {
           }}
         >
           {/* The words underlined, not the key beside them. */}
-          <span className="underline decoration-muted-foreground/50 underline-offset-2 group-hover/act:decoration-foreground">{shown.action.label}</span> <kbd className="ml-0.5 font-sans text-key opacity-70">{shown.action.key}</kbd>
+          <span className="underline decoration-muted-foreground/50 underline-offset-2 group-hover/act:decoration-foreground">{shown.action.label}</span> <kbd className="ml-0.5 font-sans text-key text-muted-foreground">{shown.action.key}</kbd>
         </button>
       )}
       {shown.undo && (
@@ -1738,7 +1738,7 @@ export function Toaster(): React.JSX.Element | null {
             keepHeld()
           }}
         >
-          Undo <kbd className="ml-0.5 font-sans text-key opacity-70">⌘Z</kbd>
+          Undo <kbd className="ml-0.5 font-sans text-key text-muted-foreground">⌘Z</kbd>
         </button>
       )}
     </motion.div>}

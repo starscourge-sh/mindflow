@@ -329,8 +329,8 @@ function Pass({ onClose }: { onClose: () => void }): React.JSX.Element {
                     <span className="flex shrink-0 items-center gap-1">
                       {CHOICES.map((one) => (
                         <button key={one.id} type="button" aria-pressed={chosen[task.id] === one.id} onClick={() => void choose(task, one.id)}
-                          className={`flex h-6 items-center gap-1 rounded-md px-2 text-control transition-colors ${chosen[task.id] === one.id ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
-                          {one.label}<kbd className={`font-sans text-[0.6875rem] ${at === cursor ? 'opacity-80' : 'opacity-45'}`}>{one.key}</kbd>
+                          className={`flex h-6 items-center gap-1 rounded-md px-2 text-control transition-colors ${chosen[task.id] === one.id ? 'bg-foreground text-background' : `${at === cursor ? 'text-foreground' : 'text-muted-foreground'} hover:bg-accent hover:text-foreground`}`}>
+                          {one.label}<kbd className={`font-sans text-[0.6875rem] ${chosen[task.id] === one.id ? '' : at === cursor ? 'text-(--mf-muted-strong)' : 'text-muted-foreground'}`}>{one.key}</kbd>
                         </button>
                       ))}
                     </span>

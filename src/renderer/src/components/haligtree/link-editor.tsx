@@ -156,7 +156,7 @@ export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Ele
           Cancel <kbd className="ml-1 text-meta">esc</kbd>
         </button>
         <button type="button" data-link-keep className="inline-flex min-h-7 items-center rounded-md bg-primary px-2.5 text-control font-medium text-primary-foreground transition-[background-color,scale] hover:bg-primary/90 active:scale-[0.97]" onClick={keep}>
-          Save <kbd className="ml-1 text-meta opacity-80">↵</kbd>
+          Save <kbd className="ml-1 text-meta">↵</kbd>
         </button>
       </div>
     </div>,
