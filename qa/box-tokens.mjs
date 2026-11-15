@@ -333,30 +333,26 @@ await check('hover: the hint says what it does and how to keep it plain', async 
 })
 
 // --- ⌘K, then ⌃J ---------------------------------------------------------------
-// The window is parked off screen, so the palette's field is given the keys as a click would.
-const openPalette = async () => {
-  if (process.env.DEBUG) console.log('before ⌘K', await page.evaluate(() => [document.documentElement.hasAttribute('data-welcome-ph'), document.documentElement.hasAttribute('data-welcoming'), document.activeElement?.className?.toString().slice(0, 30)]))
-  await page.keyboard.press('Meta+k')
-  await page.waitForSelector('[role="dialog"][aria-label="Search"] input', { state: 'attached' })
-  // Until it holds the keys: the box may still be growing to fit it.
-  await page.waitForFunction(() => {
-    const field = document.querySelector('[role="dialog"][aria-label="Search"] input')
-    field?.focus()
-    return !!field && document.activeElement === field
-  }, null, { timeout: 5000 })
-  await wait(200)
-}
+// ⌘K in the box opens the main window's command box, the same box as everywhere, and going to the main window puts
+// the box away (e5ad3bb60; main's openHome): its keys are then the main window's. Called up again, the box has the
+// caret in its note and ⌃J still takes it to the list.
+const home = () => qa.electron.windows().find((one) => one.url().includes('view=home'))
+const PALETTE = '[role="dialog"][aria-label="Search"]'
 const panelOpen = () => page.locator('button[aria-label="Hide the side panel"]').count()
 const inNote = () => page.evaluate(() => !!document.activeElement?.closest?.('.ProseMirror'))
-await check('⌘K, Escape, then ⌃J leaves the note for the list', async () => {
+const back = async () => (await page.evaluate(() => window.api.showPrompt()), await wait(700))
+await check('⌘K opens the main window’s command box; Escape there, the box called up again, ⌃J leaves the note for the list', async () => {
   await type('a thought')
   // The box opens with its side panel out: put it away, so ⌃J has it to bring.
   if (await panelOpen()) (await page.keyboard.press('Meta+\\'), await wait(500))
   expect(!(await panelOpen()), 'the panel was open before')
-  await openPalette()
-  await page.keyboard.press('Escape')
-  await wait(500)
-  expect(await inNote(), 'the caret did not come back to the note')
+  await page.keyboard.press('Meta+k')
+  const h = home()
+  expect(!!h && await h.waitForSelector(PALETTE, { timeout: 5000 }).then(() => true, () => false), 'no command box in the main window')
+  expect(!(await page.locator('[role="dialog"][aria-label="Search"]').count()), 'a command box in the capture window too')
+  await h.keyboard.press('Escape')
+  await back()
+  expect(await inNote(), 'the caret is not in the note')
   await page.keyboard.press('Control+j')
   await wait(700)
   expect(await panelOpen(), '⌃J did not open the list')
@@ -364,15 +360,18 @@ await check('⌘K, Escape, then ⌃J leaves the note for the list', async () => 
   await page.keyboard.press('Meta+\\')
   await wait(500)
 })
-await check('⌘K, pick an action, then ⌃J', async () => {
+await check('⌘K, an action picked in the main window’s command box, then ⌃J back in the box', async () => {
   await type('another thought')
-  await openPalette()
-  await page.keyboard.type('New capture', { delay: 10 })
+  await page.keyboard.press('Meta+k')
+  const h = home()
+  expect(!!h && await h.waitForSelector(PALETTE, { timeout: 5000 }).then(() => true, () => false), 'no command box in the main window')
+  await h.keyboard.type('New capture', { delay: 10 })
   await wait(300)
-  await page.keyboard.press('Enter')
+  await h.keyboard.press('Enter')
   await wait(700)
-  expect(!(await page.locator('[role="dialog"][aria-label="Search"]').count()), 'the palette stayed open')
-  expect(await inNote(), 'the caret did not come back to the note')
+  expect(!(await h.locator(PALETTE).count()), 'the command box stayed open')
+  await back()
+  expect(await inNote(), 'the caret is not in the note')
   await page.keyboard.press('Control+j')
   await wait(700)
   expect(await panelOpen(), '⌃J did not open the list')
