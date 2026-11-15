@@ -82,7 +82,7 @@ try {
   await all.waitForSelector('[data-goals-lane]', { timeout: 8000 }).catch(() => {})
   await wait(800)
   const read = () => all.evaluate(() => ({
-    lanes: [...document.querySelectorAll('[data-goals-lane]')].map((one) => ({ id: one.getAttribute('data-goals-lane'), color: one.getAttribute('data-color'), opacity: Number(getComputedStyle(one).opacity), ink: getComputedStyle(one.querySelector('[data-goals-road]')).backgroundColor, name: one.querySelector('[data-goals-name]')?.textContent ?? '' })),
+    lanes: [...document.querySelectorAll('[data-goals-lane]')].map((one) => ({ id: one.getAttribute('data-goals-lane'), color: one.getAttribute('data-color'), opacity: Number(getComputedStyle(one).opacity), aside: one.hasAttribute('data-set-aside'), road: Number(getComputedStyle(one.querySelector('[data-goals-road]')).opacity), ink: getComputedStyle(one.querySelector('[data-goals-road]')).backgroundColor, name: one.querySelector('[data-goals-name]')?.textContent ?? '' })),
     today: [...document.querySelectorAll('[data-goals-today]')].map((one) => ({ lane: one.closest('[data-goals-lane]')?.getAttribute('data-goals-lane'), top: one.getBoundingClientRect().top, name: one.closest('[data-goals-lane]')?.querySelector('[data-goals-name]').getBoundingClientRect().bottom })),
     items: [...document.querySelectorAll('[data-goals-item]')].map((one) => ({ goal: one.getAttribute('data-goals-item'), mark: one.getAttribute('data-goals-item-mark'), ink: getComputedStyle(one.querySelector('span')).borderTopColor })),
     marks: [...document.querySelectorAll('[data-goals-mark]')].map((one) => one.getAttribute('data-goals-mark')),
@@ -112,7 +112,7 @@ try {
   const dune = goals.find((g) => g.title.startsWith('Finish Dune'))
   await all.locator(`[data-goals-lane="${dune.id}"]`).hover(); await wait(600)
   seen = await read()
-  check('resting on a lane brings that goal forward and dims the rest', seen.focus === dune.id && seen.lanes.every((l) => (l.id === dune.id ? l.opacity === 1 : l.opacity < 0.3)), JSON.stringify(seen.lanes.map((l) => [l.id.slice(0, 4), l.opacity])))
+  check('resting on a lane brings that goal forward and sets the rest aside: their words in Faded Ink, their roads dimmed, nothing see-through', seen.focus === dune.id && seen.lanes.every((l) => l.opacity === 1 && (l.id === dune.id ? !l.aside && l.road === 1 : l.aside && l.road < 0.3)), JSON.stringify(seen.lanes.map((l) => [l.id.slice(0, 4), l.opacity, l.aside, l.road])))
   check('focused, what comes next is that goal’s alone', seen.items.length >= 1 && seen.items.every((i) => i.goal === dune.id), JSON.stringify(seen.items))
   for (const theme of ['light', 'dark']) {
     await all.evaluate((t) => { localStorage.setItem('theme', t); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, theme)
@@ -121,7 +121,7 @@ try {
   }
   await all.mouse.move(2, 2); await wait(600)
   seen = await read()
-  check('off the lane, every goal is back', !seen.focus && seen.lanes.every((l) => l.opacity === 1))
+  check('off the lane, every goal is back', !seen.focus && seen.lanes.every((l) => l.opacity === 1 && !l.aside && l.road === 1))
 
   // --- a goal's colour, changed on the goal
   const mars = goals.find((g) => g.title.startsWith('Get to Mars'))

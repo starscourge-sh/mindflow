@@ -381,7 +381,7 @@ export function GoalsSticky(): React.JSX.Element {
                     <span aria-hidden data-goals-today className="absolute top-0 bottom-0 w-px bg-foreground/40" style={{ left: `${x(today)}%` }} />
                     {/* The whole road faint, the part gone solid; a road past the year fades off the edge. */}
                     <span className="absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px]" style={{ left: `${x(from)}%`, width: `${Math.max(1, x(goal.goalAt!) - x(from))}%`, background: `color-mix(in oklab, ${ink} 28%, transparent)`, ...(goal.goalAt! > end ? { maskImage: 'linear-gradient(90deg, black 70%, transparent)' } : {}) }} />
-                    <span data-goals-road className="absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px]" style={{ left: `${x(from)}%`, width: `${Math.max(0, Math.min(x(today), x(goal.goalAt!)) - x(from))}%`, background: ink }} />
+                    <span data-goals-road className="absolute top-1/2 h-1 -translate-y-1/2 rounded-[2px]" style={{ left: `${x(from)}%`, width: `${Math.max(0, Math.min(x(today), x(goal.goalAt!)) - x(from))}%`, background: ink, opacity: dim(goal) }} />
                     {/* Its logs, small dots above the road. */}
                     {[...new Set(goal.glosses.map((one) => dayKey(one.createdAt)))].map((day) => (
                       <span key={day} data-goals-log className="absolute top-0 size-1 -translate-x-1/2 rounded-full shrink-0" style={{ left: `${x(day)}%`, background: ink }} />

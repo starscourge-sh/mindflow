@@ -105,7 +105,7 @@ try {
   await pill.fill('[aria-label="Add a thought to this session\'s log"]', 'Outline first, then slides')
   await pill.waitForTimeout(300)
   const ready = await send()
-  check('16: empty, the send button is quiet', !empty.ready && Number(empty.opacity) < 0.6, JSON.stringify(empty))
+  check('16: empty, the send button is quiet: a plain key, unfilled, never see-through', !empty.ready && empty.bg === 'rgba(0, 0, 0, 0)' && Number(empty.opacity) === 1, JSON.stringify(empty))
   check('16: with words, it is filled and at full strength', ready.ready && ready.bg !== 'rgba(0, 0, 0, 0)' && Number(ready.opacity) === 1, JSON.stringify(ready))
   await (await pill.$('[data-island]'))?.screenshot({ path: `${SHOT}/16-send-ready.png` })
   await pill.click('[data-island-send]')

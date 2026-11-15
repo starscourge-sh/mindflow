@@ -63,9 +63,9 @@ try {
   // 2. Live: lines come in, the newest bright, the earlier faded; the others told apart by voice.
   await m.waitForSelector('[data-meeting-card="live"]', { timeout: 8000 })
   await film(m, 'live', 5200)
-  const live = await m.evaluate(() => [...document.querySelectorAll('[data-meeting-live-line]')].map((p) => ({ text: p.textContent, opacity: Number(getComputedStyle(p).opacity) })))
+  const live = await m.evaluate(() => [...document.querySelectorAll('[data-meeting-live-line]')].map((p) => ({ text: p.textContent, opacity: Number(getComputedStyle(p).opacity), color: getComputedStyle(p).color })))
   check('live lines appear as they are said', live.length >= 2, JSON.stringify(live))
-  check('the newest line is bright and the ones before it fade', live.at(-1)?.opacity === 1 && live.slice(0, -1).every((one, at, all) => one.opacity < 1 && (at === 0 || one.opacity >= all[at - 1].opacity)), JSON.stringify(live.map((one) => one.opacity)))
+  check('the newest line is in the ink and the ones before it in Faded Ink, none see-through', live.every((one) => one.opacity === 1) && live.slice(0, -1).every((one) => one.color !== live.at(-1)?.color), JSON.stringify(live.map((one) => [one.opacity, one.color])))
   const time = await m.evaluate(() => document.querySelector('[data-meeting-time]')?.textContent)
   check('the time runs', /^0:0[3-9]$/.test(time ?? ''), time)
 
