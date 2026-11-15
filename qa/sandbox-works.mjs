@@ -39,8 +39,21 @@ const { h, v, size, look, errors } = c
 const shots = process.env.QA_SHOTS
 if (shots) mkdirSync(shots, { recursive: true })
 const wait = (ms) => h.waitForTimeout(ms)
-// A work's own row on Sources, by the id it is listed under.
+// A work's own row on Sources, by the id it is listed under. The list draws only the rows in view, so its page is
+// scrolled down until the row is drawn (`reveal`), as a person scrolls to find it.
 const rowOf = (name) => h.locator(`[data-row][data-id=${JSON.stringify(`medium:${name}`)}]`).first()
+const reveal = (name) => h.evaluate(async (id) => {
+  const sel = `[data-row][data-id="${CSS.escape(id)}"]`
+  let box = document.querySelector('[data-row]')?.parentElement
+  while (box && !(box.scrollHeight > box.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement
+  if (!box) return !!document.querySelector(sel)
+  box.scrollTop = 0
+  for (let n = 0; n < 200 && !document.querySelector(sel) && box.scrollTop < box.scrollHeight - box.clientHeight - 1; n++) {
+    box.scrollTop += Math.max(100, box.clientHeight / 2)
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))
+  }
+  return !!document.querySelector(sel)
+}, `medium:${name}`)
 // One work's page from just before it is asked for: the first frame it can be seen, its line (words, the wait for
 // Wikipedia, or the ask for one), its kind and year as typed in its line, and who wrote it; whether any of it changes
 // in the half second after. `open` is how it is asked for: the app's own event, or a press on something.
@@ -53,7 +66,10 @@ const firstFrame = (name, how = 'event') => h.evaluate(([name, how]) => new Prom
     if (!page || !head || !page.checkVisibility({ opacityProperty: true, visibilityProperty: true }) || head.textContent.trim() !== name) return null
     const line = page.querySelector('[data-bio-room], [data-bio], [data-bio-add]')
     const fact = (label) => page.querySelector(`[data-fact="${label}"]`)?.value ?? ''
-    return { line: line ? (line.hasAttribute('data-bio-room') ? 'looking up' : line.hasAttribute('data-bio') ? 'words' : 'add') : 'none', kind: fact('Kind'), year: fact('Year'),
+    // Its name cut short while the row still had room for all of it.
+    const room = head.parentElement.parentElement.getBoundingClientRect().right - head.getBoundingClientRect().left - 24
+    const cut = head.scrollWidth > head.clientWidth + 1 && head.scrollWidth <= room
+    return { cut, line: line ? (line.hasAttribute('data-bio-room') ? 'looking up' : line.hasAttribute('data-bio') ? 'words' : 'add') : 'none', kind: fact('Kind'), year: fact('Year'),
       by: page.querySelector('[data-work-line]')?.textContent.trim() ?? '', words: page.querySelector('[data-bio-text]')?.value?.slice(0, 60) ?? '' }
   }
   let first = null
@@ -109,16 +125,17 @@ try {
     const page = await firstFrame(name)
     pages++
     const by = authorOf(name)
-    if (!(page?.line === 'words' && page.kind && page.steady && (!by || page.by.startsWith(by.split(';')[0].trim())))) wrong.push(`${name} ${JSON.stringify(page)}`)
+    if (!(page?.line === 'words' && page.kind && page.steady && !page.cut && (!by || page.by.startsWith(by.split(';')[0].trim())))) wrong.push(`${name} ${JSON.stringify(page)}`)
     await wait(150)
   }
-  check(`each of the ${pages} works' pages: its line, kind and author in the first frame, and they stay`, !wrong.length, wrong.join(' | ').slice(0, 700) || 'all whole')
+  check(`each of the ${pages} works' pages: its line, kind and author in the first frame, they stay, and its name is not cut while it fits`, !wrong.length, wrong.join(' | ').slice(0, 700) || 'all whole')
 
   // Three by a press on their row on Sources, as a person opens them; one by Gandalf's "in The Fellowship of the Ring".
   const pressed = []
   for (const name of [STORY[story], 'Hamlet, Act 1, Scene 3', 'Meditations, Book 2, tr. George Long (1862)']) {
     await c.send('view', 'sources')
     await wait(900)
+    await reveal(name)
     const row = rowOf(name)
     const found = await row.count()
     if (!found) { pressed.push(`${name}: no row`); continue }
@@ -153,7 +170,9 @@ try {
     await wait(900)
     for (const [w, hh] of [[1440, 900], [560, 400]]) {
       await size(w, hh)
-      const head = rowOf(listed.find((one) => one.startsWith('A podcast')) ?? listed[0])
+      const first = listed.find((one) => one.startsWith('A podcast')) ?? listed[0]
+      await reveal(first)
+      const head = rowOf(first)
       if (await head.count()) await head.scrollIntoViewIfNeeded()
       for (const name of ['light', 'dark']) { await look(name); await wait(300); await h.screenshot({ path: `${shots}/sources-works-${w}x${hh}-${name}.png` }) }
       await look('light')
@@ -162,6 +181,7 @@ try {
     // Frames every 50ms through one opening: the press, then the page coming in.
     await c.send('view', 'sources')
     await wait(900)
+    await reveal('Pride and Prejudice, chapter 34')
     const row = rowOf('Pride and Prejudice, chapter 34')
     if (await row.count()) {
       await row.scrollIntoViewIfNeeded()

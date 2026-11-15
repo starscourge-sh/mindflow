@@ -669,7 +669,8 @@ export function SourcePageView({ focus, onOpen, onSources }: { focus?: string; o
         {field === 'attribution' ? <PersonHead page={page} name={name} close={!!onSources} /> : (
         <div className={`flex items-center gap-3 px-5 ${onSources ? 'pt-4' : 'pt-8'}`}>
           <Icon className="size-8 text-muted-foreground" />
-          <div className="min-w-0">
+          {/* The rest of the row, as a person's head has it: sized to its words, a short title was cut ("Pride and Prejudice, chapter…") with room to spare. */}
+          <div className="min-w-0 flex-1">
             <p className="text-control text-muted-foreground">{FIELD_SAID[field].one}</p>
             <SourceName field={field} name={name} />
             <SourceLine page={page} name={name} />
