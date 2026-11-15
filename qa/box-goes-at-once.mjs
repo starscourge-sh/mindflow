@@ -35,6 +35,9 @@ try {
       if (!w || globalThis.__marked) return
       globalThis.__marked = true
       w.on('hide', () => { globalThis.__seen.push(['hide', Date.now()]); globalThis.__hidAt ||= Date.now() })
+      // Who put it away: the caller of each hide, kept with its time.
+      const hide = w.hide.bind(w)
+      w.hide = () => { globalThis.__seen.push(['hide() from ' + (new Error().stack ?? '').split('\n').slice(2, 6).map((one) => one.trim().replace(/^at /, '').replace(/\(.*[/\\]/, '(')).join(' < '), Date.now()]); hide() }
       w.on('show', () => globalThis.__seen.push(['show', Date.now()]))
       w.webContents.on('before-input-event', (_e, input) => { if (input.type === 'keyDown' && input.key === 'Enter' && input.meta && !globalThis.__keyMainAt) globalThis.__keyMainAt = Date.now() })
     })
