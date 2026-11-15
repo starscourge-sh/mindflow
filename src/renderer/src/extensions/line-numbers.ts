@@ -412,13 +412,20 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   // pass (it placed every number a second time, each time a long note's drawn blocks moved). The note's own
   // element changing size has its size of words and room read again.
   const fresh = new Set<Element>()
+  let width = -1
   const resized = new ResizeObserver((entries) => {
     let moved = false
     for (const entry of entries) {
-      // The note's own element sized (first laid out on the page, or the window or pane changed): its room is given
-      // here, after the browser laid it out and before it paints, so no frame ever shows its words without it.
-      if (entry.target === view.dom) ((sized = false), (moved = true), rows.length && size())
-      else if (!fresh.delete(entry.target)) moved = true
+      // The note's own element widened or narrowed (first laid out on the page, or the window or pane changed): its
+      // room is given here, after the browser laid it out and before it paints, so no frame ever shows its words
+      // without it. Only grown taller or shorter (words coming in), its room stays as it is: read again then (its
+      // room taken off and the note laid out again without it), a long paste coming in a stretch at a time had the
+      // whole note laid out twice over for each stretch.
+      if (entry.target === view.dom) {
+        const wide = entry.borderBoxSize[0]?.inlineSize ?? entry.contentRect.width
+        moved = true
+        if (wide !== width) ((width = wide), (sized = false), rows.length && size())
+      } else if (!fresh.delete(entry.target)) moved = true
     }
     if (moved && rows.length) schedule()
   })
