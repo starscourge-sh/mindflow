@@ -81,7 +81,7 @@ import TrashIcon from './components/ui/trash-icon'
 import { WillDo, TokenHint } from './components/haligtree/will-do'
 import { boxTokensPlugin, boxGuess, withoutWord, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
-import { crumpleAway, liftFrom, warmBin } from './lib/fly-home'
+import { liftFrom } from './lib/fly-home'
 import { lengthSaid } from './lib/timer'
 import { stickOnDesktop } from './components/haligtree/sticky-note'
 import { NotePreview } from './components/haligtree/note-preview'
@@ -443,8 +443,6 @@ export default function App(): React.JSX.Element {
   // A pill grown by hand folds back first (see oneLine below).
   const foldPill = useRef<() => boolean>(() => false)
   useEscapeToHide(foldPill)
-  // The paper made ready while the box is idle, so a draft cleared crumples at once (`crumpleAway`).
-  useEffect(warmBin, [])
   // While the welcome runs, the empty line offers examples, a starter picked
   // there arrives written in with its fields filled, and the box is in lesson
   // mode: what is not being taught is calm, what draws on your history is hidden.
@@ -1503,21 +1501,13 @@ export default function App(): React.JSX.Element {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-  // A new note asked for (⌘N, the pill's +, the ⌘K list) over words not yet
-  // sent: they go, but a toast can bring them back.
+  // A new note asked for (⌘N, the pill's pen, the ⌘K list) over words not yet sent: they are kept, as ⌥⌘↵ keeps
+  // them (what the "This will" line says, with Undo), and the box is blank for the next one; New never throws words
+  // away (the user, 15 Nov 2026: "keep the draft instead of clearing it", after it crumpled their "test 3"). With a
+  // capture open in the box, its own words are saved already: the draft set aside meanwhile comes back.
   const startOver = (): void => {
-    const draft = latestEditing.current ? readDraft() : editorRef.current?.getJSON()
-    const links = [...lifted]
-    // Thrown away: the sheet crumples like paper where it was and fades (the Bin's paper, not sent to the Bin), before it goes blank.
-    const land = hasContent(draft ?? null) ? crumpleAway(document.querySelector<HTMLElement>('.tiptap.ProseMirror.haligtree-editor')) : undefined
-    fresh()
-    land?.()
-    if (!hasContent(draft ?? null)) return
-    toast('Draft cleared', () => {
-      putDraft(draft)
-      keepLifted(links)
-      fresh(true)
-    })
+    if (!latestEditing.current && hasContent(editorRef.current?.getJSON() ?? null)) return submit(true)
+    fresh(!!latestEditing.current)
   }
   // The current startOver(), for the listener above, which is set up once.
   const latestFresh = useRef(startOver)
@@ -2082,7 +2072,7 @@ export default function App(): React.JSX.Element {
           }}
           // Everything the box can do, by name and key, as Raycast's ⌘K lists it.
           actions={searching === 'notes' ? [] : [
-            { label: 'New capture', hint: 'A blank box; an unsent draft is cleared, with Undo', keys: '⌘N', first: true, run: () => startOver() },
+            { label: 'New capture', hint: 'Keeps what is written, then a blank box', keys: '⌘N', first: true, run: () => startOver() },
             { label: 'Record a voice note', hint: 'Kept as a new capture', first: true, cue: null, run: () => void recordAsCapture((id) => openAny('capture', id)) },
             { label: 'Record a call or lecture', hint: 'Your microphone and this Mac’s sound, who said what', keys: '⌃⌥⌘M', words: MEETING_WORDS, cue: null, run: () => void recordMeeting() },
             ...(recordingsWithoutWords() ? [{ label: 'Transcribe the voice notes', hint: 'Their words under each, on this Mac', cue: null, run: transcribePage }] : []),
