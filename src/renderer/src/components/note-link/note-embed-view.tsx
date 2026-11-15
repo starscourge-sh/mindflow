@@ -100,6 +100,8 @@ export function EmbeddedNote({ link, label, onUnembed, powers = false, reading =
               defaultContent={(note.body as JSONContent | string | null) ?? ""}
               toolbar={false}
               handles={powers}
+              // One line of the note it sits in, numbered there: no column of its own inside it.
+              lineNumbers={false}
               outline={false}
               search={false}
               autofocus={false}

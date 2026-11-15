@@ -1630,6 +1630,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
         </div>
         <HaligtreeEditor
           toolbar={{ fixed: false }}
+          // A task's details, not a note: no line numbers.
+          lineNumbers={false}
           placeholder="Add a description: the details, links and steps that do not fit in the name"
           documentId={`task-${task.id}`}
           defaultContent={(task.notes as JSONContent | null) ?? ''}
