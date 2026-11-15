@@ -870,7 +870,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <FoldSample on={settings.foldHeadings !== false} />
             <Switch checked={settings.foldHeadings !== false} onCheckedChange={(foldHeadings) => set({ foldHeadings })} />
           </Setting>
-          <Setting title="Line numbers" note="Each line of a note numbered in its left margin, as Obsidian does: a paragraph is one however it wraps." more={vim ? "With Vim keys on they count out from the line you are on, as Vim's relative numbers do; that line keeps its own number." : 'A list counts each item, a column layout counts once.'} keywords="line numbers gutter margin obsidian count paragraphs relative">
+          <Setting title="Line numbers" note="Each line of a note numbered in its left margin, as Obsidian does: a paragraph is one however it wraps." more={vim ? "With “Vim keys” on they count out from the line you are on, as Vim's relative numbers do; that line keeps its own number." : 'A list counts each item, a column layout counts once.'} keywords="line numbers gutter margin obsidian count paragraphs relative">
             <LineNumbersSample on={settings.lineNumbers !== false} relative={vim} />
             <Switch checked={settings.lineNumbers !== false} onCheckedChange={(lineNumbers) => set({ lineNumbers })} />
           </Setting>

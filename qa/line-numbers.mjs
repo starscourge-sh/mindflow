@@ -120,6 +120,19 @@ try {
   await wait(300); got = await read()
   check('five lines down (j five times), the caret\'s line is 11 and the rest count from it', got.words[10] === '11' && got.here === 10 && got.words[5] === '5', got.words.join(' '))
   if (shots) await h.screenshot({ path: join(shots, 'lines-vim.png') })
+  // The smallest window (560 by 400): the numbers whole inside the note's pane, the handle clear of them.
+  const size = (w, hh) => c.electron.evaluate(({ BrowserWindow }, [w, hh]) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('home.html')).setSize(w, hh), [w, hh])
+  await size(560, 400); await wait(1200)
+  await h.evaluate(() => document.querySelector('[data-open] .tiptap > p')?.scrollIntoView({ block: 'center', behavior: 'instant' })); await wait(400)
+  const inside = await h.evaluate(() => {
+    const column = document.querySelector('[data-open] .mf-lines')?.getBoundingClientRect()
+    const pane = document.querySelector('[data-open] .haligtree-editor-content')?.getBoundingClientRect()
+    return { shown: document.querySelectorAll('[data-open] .mf-lines .mf-line').length, inside: !!column && !!pane && column.left >= pane.left && column.right <= pane.right, column: column && [Math.round(column.left), Math.round(column.right)], pane: pane && [Math.round(pane.left), Math.round(pane.right)] }
+  })
+  side = await clear('[data-open] .tiptap > p', '[data-open] .tiptap-drag-handle')
+  check('at 560 by 400 the numbers stand whole in the pane and the handle clear of them', inside.shown > 0 && inside.inside && side.shown && side.apart, JSON.stringify({ ...inside, handle: side.at }))
+  if (shots) await h.screenshot({ path: join(shots, 'lines-narrow.png') })
+  await size(1400, 900); await wait(1200)
   // Off: no numbers, the words where they were.
   const where = () => h.evaluate(() => { const r = document.querySelector('[data-open] .tiptap > p').getBoundingClientRect(); return [r.left, r.top, r.width] })
   const before = await where()
