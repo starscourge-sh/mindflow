@@ -1,6 +1,6 @@
-// One press is one toggle: ⌘B for the main window's sidebar (from the page,
-// from today's Journal words) and ⌘\ for the capture window's side
-// panel each change once and stay changed. Sampled over a second after each press.
+// One press is one toggle: ⌘B for the main window's sidebar (from the page) and ⌘\ for the capture window's side
+// panel each change once and stay changed, sampled over a second after each press. In a note's words ⌘B is Bold
+// instead, Vim on or off (today's Journal words), and the sidebar stays.
 //
 //   npx electron-vite build --outDir out-m
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-m/main/index.js HALIGTREE_QA_AWAY=1 node qa/sidebar-once.mjs
@@ -34,12 +34,43 @@ try {
   await h.mouse.click(700, 400)
   once('main window, closing', await press(h, side))
   once('main window, opening', await press(h, side))
-  // In today's words.
+  // In today's words: ⌘B is Bold there, never the sidebar, Vim on or off (the user, 15 Nov 2026: "that should be for
+  // toggling bold (whether im inside of vim or not)").
   await send('day', new Date().toLocaleDateString('en-CA'))
   await wait(900)
-  await h.click('[data-page] [data-day-write] .ProseMirror')
-  once('writing in the Journal, closing', await press(h, side))
-  once('writing in the Journal, opening', await press(h, side))
+  const WORDS = '[data-page] [data-day-write] .ProseMirror'
+  await h.click(WORDS)
+  await h.keyboard.press('Meta+ArrowDown')
+  await h.keyboard.type(' marble')
+  // The caret inside "marble", nothing picked.
+  const inWord = () => h.evaluate((sel) => {
+    const editor = document.querySelector(sel)?.editor
+    let at = -1
+    editor?.state.doc.descendants((node, pos) => { if (at < 0 && node.isText && node.text.includes('marble')) at = pos + node.text.indexOf('marble') + 3 })
+    if (at > 0) editor.commands.setTextSelection(at)
+    return at
+  }, WORDS)
+  const bold = () => h.evaluate((sel) => /<strong>marble<\/strong>/.test(document.querySelector(sel)?.innerHTML ?? ''), WORDS)
+  await inWord()
+  const width0 = await side()
+  await h.keyboard.press('Meta+b'); await wait(500)
+  check('writing in the Journal: ⌘B makes the word under the caret bold', await bold())
+  check(`writing in the Journal: and the sidebar stays (${width0} to ${await side()})`, (await side()) === width0)
+  // Vim on, in its normal mode: the same.
+  await h.evaluate(() => { localStorage.setItem('vim', 'on'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'on' })) })
+  await wait(400)
+  await h.click(WORDS)
+  await h.keyboard.press('Escape'); await wait(200)
+  await inWord()
+  const mode = await h.evaluate((sel) => document.querySelector(sel)?.getAttribute('data-vim-mode'), WORDS)
+  await h.keyboard.press('Meta+b'); await wait(500)
+  check(`Vim on (${mode} mode): ⌘B takes the bold back off the word`, mode === 'normal' && !(await bold()), String(mode))
+  check(`Vim on: and the sidebar stays (${width0} to ${await side()})`, (await side()) === width0)
+  await h.evaluate(() => { localStorage.setItem('vim', 'off'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'off' })) })
+  // Out of the words again: ⌘B is the sidebar's.
+  await h.evaluate(() => document.activeElement?.blur?.())
+  once('the page, out of the words, closing', await press(h, side))
+  once('the page, out of the words, opening', await press(h, side))
   // The capture window's side panel.
   await h.evaluate(() => window.api.showPrompt())
   await wait(900)

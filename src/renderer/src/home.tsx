@@ -256,11 +256,8 @@ function landing(view: View): View {
 }
 /** Pages that hold one note open beside their list, its id as the step's focus. */
 /** Words selected in the note being written in: ⌘B is Bold for them, and the sidebar's anywhere else (a selection left in a note you have clicked away from counts for nothing). */
-const selectedInNote = (): boolean => {
-  const editor = document.activeElement?.closest('.ProseMirror')
-  const picked = getSelection()
-  return !!editor && !!picked && !picked.isCollapsed && !!picked.anchorNode && editor.contains(picked.anchorNode)
-}
+/** The caret in a note's editor, in any mode (Vim's normal mode too): there ⌘B is Bold, as in Obsidian. */
+const caretInNote = (): boolean => !!document.activeElement?.closest('.ProseMirror[contenteditable="true"]')
 /** Settings as a place: the gear its button at the sidebar's foot draws, for a pane on it. */
 const SETTINGS_PLACE: Place = { id: 'settings', label: 'Settings', icon: SettingsLine, alive: GearIcon, emoji: '⚙️', tint: 'gray' }
 const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice', 'pdf', 'web'].includes(id)
@@ -1461,11 +1458,11 @@ export function Home(): React.JSX.Element {
       // ⌥⌘[ is the editor's fold, not Back.
       if (event.metaKey && !event.altKey && event.key === '[') return step(-1)
       if (event.metaKey && !event.altKey && event.key === ']') return step(1)
-      // ⌘B the sidebar, as in Obsidian, while you write too: only words
-      // selected in a note keep it as Bold. ⇧⌘B puts every side away at once
-      // (or brings them back), the page on its own. Taken before the editor,
-      // and the menu's ⌘B (app-menu.ts) never fires for a key the page took.
-      if (event.metaKey && !event.altKey && !event.ctrlKey && event.code === 'KeyB' && (event.shiftKey || !selectedInNote())) {
+      // ⌘B the sidebar, but never in a note: with the caret in one, picked words or not, Vim on or off, ⌘B is Bold, as in
+      // Obsidian (the user, 15 Nov 2026: "that should be for toggling bold (whether im inside of vim or not)"). ⇧⌘B puts
+      // every side away at once (or brings them back), the page on its own, from anywhere. Taken before the editor, and
+      // the menu's ⌘B (app-menu.ts) never fires for a key the page took.
+      if (event.metaKey && !event.altKey && !event.ctrlKey && event.code === 'KeyB' && (event.shiftKey || !caretInNote())) {
         event.preventDefault()
         event.stopPropagation()
         const open = event.shiftKey ? sidebar || detailsShown() : sidebar
