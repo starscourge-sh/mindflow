@@ -232,18 +232,21 @@ try {
     }
     // The same two lists brought back side by side without the clipboard: words picked across them and ⌫.
     await both(NOTE, 'words deleted across the blocks', async () => { await pick(['typed as text', 6], ['A quote', 2]); await h.keyboard.press('Backspace') })
-    /** The block under `text` hovered, until its grip stands beside it. */
+    /** The block under `text` pressed into and hovered, as a person does, until its grip stands beside it. */
     const gripOf = async (text) => {
       const at = await spot(text)
+      // The press leaves only a caret: Undo gave back the lines picked before, and a pick keeps the grip on its own lines.
+      await h.mouse.click(at.x, at.y); await frame()
       await h.mouse.move(at.x + 30, at.y)
-      await h.waitForFunction((y) => { const g = document.querySelector('.tiptap-drag-handle-grip')?.getBoundingClientRect(); return !!g?.height && Math.abs((g.top + g.bottom) / 2 - y) < 24 }, at.y, { timeout: 5000 })
-      return h.locator('.tiptap-drag-handle-grip').boundingBox()
+      await h.waitForFunction((y) => { const g = document.querySelector('[data-open] .tiptap-drag-handle-grip')?.getBoundingClientRect(); return !!g?.height && Math.abs((g.top + g.bottom) / 2 - y) < 24 }, at.y, { timeout: 5000 })
+      return h.locator('[data-open] .tiptap-drag-handle-grip').boundingBox()
     }
     /** Until the note is no longer what it was before this step. */
     const changed = () => h.waitForFunction(() => window.__u2.snap() !== window.__u2.before, null, { timeout: 5000 }).catch(() => {})
     await both(NOTE, 'a block deleted from its menu', async () => {
       await gripOf('A callout about')
-      await h.locator('.tiptap-drag-handle-grip').click()
+      await h.locator('[data-open] .tiptap-drag-handle-grip').click()
+      if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/undo-whole-block-menu.png` })
       await h.locator('.tiptap-block-menu[data-state="open"] button', { hasText: /^Delete$/ }).click()
     })
     await both(NOTE, 'a block carried to another place', async () => {
@@ -269,6 +272,9 @@ try {
   }
 } catch (e) {
   check('ran to the end', false, e.message.split('\n').slice(0, 4).join(' | '))
+  // The whole reason, and the window as it stood (QA_SHOTS), to see what stopped it.
+  console.log(e.message.split('\n').slice(0, 30).join('\n'))
+  if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/undo-whole-stopped.png` }).catch(() => {})
 } finally {
   await c.close()
 }
