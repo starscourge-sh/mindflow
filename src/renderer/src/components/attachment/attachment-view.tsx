@@ -463,7 +463,7 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
       >
         <CardFace src={src} name={name} />
         <span className="tiptap-attachment-body">
-          <span className="tiptap-attachment-name">{name || "Attachment"}</span>
+          <span className="tiptap-attachment-name" title={name || undefined}>{name || "Attachment"}</span>
           <span className="tiptap-attachment-size">{[kindWord({ kind: "document", name: String(name ?? ""), src }), readableSize(size)].filter(Boolean).join(" · ")}</span>
         </span>
 

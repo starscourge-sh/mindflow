@@ -378,7 +378,8 @@ function Player({ src, name, length, onLength, onPlaying, status, className, inl
       {/* As wide as its longest time, so the waveform beside it never moves as the numbers change. */}
       <span data-sound-time className="tiptap-media-time mf-sound-time" style={{ minWidth: `${Math.max(flat ? 5 : 0, clock(end).length)}ch` }}>{clock(shown)}</span>
       {flat ? speedButton : <div className="mf-sound-under">
-        {name && <span className="tiptap-attachment-name mf-sound-name">{name}</span>}
+        {/* Cut short in a narrow note, the whole name shows in the app's own tip (ui/title-tips.tsx; none while it shows in full). */}
+        {name && <span className="tiptap-attachment-name mf-sound-name" title={name}>{name}</span>}
         {name && status && <span className="mf-sound-dot" aria-hidden>·</span>}
         {status && <span data-sound-control className="mf-sound-status">{status}</span>}
         {/* At the line's end, under the time. */}
