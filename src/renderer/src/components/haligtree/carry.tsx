@@ -417,9 +417,13 @@ export function Clear({ children }: { children: ReactNode }): React.JSX.Element 
  */
 export function CardAt({ x, y, children }: { x: number; y: number; children: ReactNode }): React.JSX.Element {
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-  const flip = x + 18 + Math.min(20 * rem, window.innerWidth - 9 * rem) + 8 > window.innerWidth
+  const wide = Math.min(20 * rem, window.innerWidth - 9 * rem)
+  // Room on neither side of the pointer (the smallest window): as far right as it fits whole, never past either edge.
+  const place = x + 18 + wide + 8 <= window.innerWidth ? { left: x + 18, translate: '0 -50%' }
+    : x - 18 - wide >= 8 ? { left: x - 18, translate: '-100% -50%' }
+      : { left: Math.max(8, window.innerWidth - wide - 8), translate: '0 -50%' }
   return createPortal(
-    <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ left: flip ? x - 18 : x + 18, top: y, translate: flip ? '-100% -50%' : '0 -50%' }}>
+    <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ ...place, top: y }}>
       <Clear>{children}</Clear>
     </div>,
     document.body
