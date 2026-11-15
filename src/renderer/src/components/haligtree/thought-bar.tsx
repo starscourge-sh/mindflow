@@ -174,9 +174,9 @@ export function ThoughtBar({ id, clue = false, className }: {
               aria-label={clue ? 'Clues so far' : 'Thoughts so far'}
               aria-expanded={open}
               onClick={(event) => (event.stopPropagation(), toggle())}
-              className={cn('mb-0.5 flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-meta text-muted-foreground hover:bg-accent hover:text-foreground', open && 'bg-accent text-foreground', !past.length && 'opacity-50')}
+              className={cn('mb-0.5 flex h-7 shrink-0 items-center gap-1 rounded-full px-2 text-meta text-muted-foreground hover:bg-accent hover:text-foreground', open && 'bg-accent text-foreground')}
             >
-              <History className="size-3.5" />
+              <History className={cn('size-3.5', !past.length && 'opacity-50')} />
               {past.length > 0 && <Rolling text={glosses.length} className="tabular-nums" />}
             </button>
           </Tip>

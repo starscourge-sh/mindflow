@@ -144,7 +144,7 @@ export function UnusedFiles(): React.JSX.Element | null {
                     }}
                     className="group flex min-w-0 flex-col gap-1.5 rounded-lg p-1 text-left transition-colors hover:bg-accent/60"
                   >
-                    <span className={`relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-accent/30 transition-opacity ${keep ? 'opacity-40' : ''}`}>
+                    <span data-set-aside={keep ? '' : undefined} className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md border bg-accent/30">
                       {one.image && one.size < DRAWN && !broken.has(one.name)
                         ? <img src={`haligtree://assets/${one.name}`} alt="" loading="lazy" decoding="async" className="size-full object-cover"
                             onError={() => setBroken((was) => new Set(was).add(one.name))} />

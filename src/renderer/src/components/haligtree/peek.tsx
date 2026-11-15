@@ -171,7 +171,7 @@ export function MRow({ icon: Icon, tint = 'gray', check, children, meta, faded, 
   icon?: LucideIcon; tint?: string; check?: boolean | 'done'; children: ReactNode; meta?: ReactNode; faded?: boolean; struck?: boolean
 }): React.JSX.Element {
   return (
-    <div className={`flex items-center gap-1.5 border-b border-foreground/[0.06] py-[3px] last:border-b-0 ${faded ? 'opacity-55' : ''}`}>
+    <div data-set-aside={faded ? '' : undefined} className="flex items-center gap-1.5 border-b border-foreground/[0.06] py-[3px] last:border-b-0">
       {check !== undefined && <MCheck done={check === 'done'} tint={tint} />}
       {Icon && <Icon className="size-3 shrink-0" style={tinted(tint)} strokeWidth={2.2} />}
       <span className={`min-w-0 flex-1 truncate ${struck ? 'line-through decoration-foreground/40' : ''}`}>{children}</span>

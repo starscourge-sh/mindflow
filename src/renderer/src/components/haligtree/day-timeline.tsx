@@ -133,7 +133,7 @@ function EventRow({ event, past }: { event: MacEvent; past: boolean }): React.JS
   const color = event.color ?? 'var(--tt-color-text-blue)'
   return (
     <Tip label={`${event.title}. From your Mac's calendar${event.calendar ? `, ${event.calendar}` : ''}: change it there`}>
-      <li data-line-event data-mac-event className={`flex items-start gap-3 py-1.5 transition-opacity ${past ? 'opacity-60' : ''}`}>
+      <li data-line-event data-mac-event data-set-aside={past ? '' : undefined} className="flex items-start gap-3 py-1.5">
         <span className={`${TIME_COLUMN} shrink-0 pt-px text-right text-sm text-muted-foreground tabular-nums`}>{event.allDay ? 'All day' : clock(event.start)}</span>
         <span aria-hidden className="mt-[0.1875rem] flex size-[1.125rem] shrink-0 justify-center">
           <span className="h-full w-[4px] rounded-full" style={{ background: color }} />

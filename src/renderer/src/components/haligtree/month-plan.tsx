@@ -424,7 +424,7 @@ const EPOCH = dayjs('1900-01-01').startOf('week')
 const WEEKS = 15_650
 const weekAt = (index: number): Dayjs => EPOCH.add(index * 7, 'day')
 const indexOf = (day: Dayjs): number => Math.round(day.startOf('week').hour(12).diff(EPOCH.hour(12), 'hour') / (7 * 24))
-const RUN_RULES = '[data-month-run] [data-outside] [data-day-number]:not([aria-current]) { color: color-mix(in oklab, var(--foreground) 40%, transparent); font-weight: 400 } [data-month-run] [data-outside] :is([data-plan-more], [data-plan-task], [data-mark-flag]) { opacity: 0.6 }'
+const RUN_RULES = '[data-month-run] [data-outside] [data-day-number]:not([aria-current]) { color: var(--muted-foreground); font-weight: 400 } [data-month-run] [data-outside] :is([data-plan-more], [data-plan-task]) { --foreground: var(--muted-foreground); color: var(--foreground) } [data-month-run] [data-outside] :is([data-plan-more], [data-plan-task], [data-mark-flag]) :is(svg, img) { opacity: 0.5 }'
 /** How long the wheel stays quiet before a gesture counts as over: longer than the gap between a fast wheel's notches. */
 const IDLE = 140
 /** A trackpad's glide follows the fingers' last step within two frames: the wheel quiet this long after a lift, there is none. */
@@ -793,7 +793,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
       onPointerDown={onPress && ((event) => empty(event) && onPress(event))}
       onClick={(event) => empty(event) && (onPick ? onPick() : (chime('tap'), onAdd()))}
       onDoubleClick={onPick ? (event) => empty(event) && onAdd() : undefined}
-      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${onPress ? 'select-none' : ''} ${isOver ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : adding ? 'bg-[color-mix(in_oklab,var(--foreground)_7%,var(--background))]' : rest} ${outside ? '[&_[data-plan-more]]:opacity-60 [&_[data-plan-task]]:opacity-60' : ''}`}>
+      className={`group/day relative flex min-h-0 min-w-0 cursor-pointer flex-col overflow-hidden p-1.5 transition-colors ${onPress ? 'select-none' : ''} ${isOver ? 'bg-accent ring-1 ring-foreground/25 ring-inset' : adding ? 'bg-[color-mix(in_oklab,var(--foreground)_7%,var(--background))]' : rest} ${outside ? '[&_:is([data-plan-more],[data-plan-task])]:[--foreground:var(--muted-foreground)] [&_:is([data-plan-more],[data-plan-task])]:text-foreground [&_:is([data-plan-more],[data-plan-task],[data-mark-flag])_:is(svg,img)]:opacity-50' : ''}`}>
       <div className="flex items-center gap-1.5">
         <button type="button" onClick={() => (chime('open'), onDay(key))} aria-label={`Open ${day.format('dddd D MMMM')}${count ? `. Opened ${APP_NAME}${count > 1 ? ` ${num(count)} times` : ''}` : ''}${caught ? `. ${plural(caught, 'capture')}` : caught === 0 ? '. Nothing captured' : ''}`}
           aria-current={key === today ? 'date' : undefined}
@@ -836,7 +836,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
 function MarkLine({ one, outside, onItem, onDay }: { one: Milestone; outside: boolean; onItem: (type: string, id: string) => void; onDay: (day: string) => void }): React.JSX.Element {
   const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: `mark:${one.id}`, data: { mark: one } })
   return <MarkChip ref={setNodeRef} one={one} open={onItem} onOpenDay={(day) => (chime('open'), onDay(day))} {...attributes} {...listeners}
-    className={`touch-none ${isDragging ? 'mf-carried-place' : outside ? 'opacity-60' : ''}`} />
+    className={`touch-none ${isDragging ? 'mf-carried-place' : ''}`} />
 }
 
 /** Something across several days, drawn as one bar per week it touches; `render` gets the first day shown of it in that week. */

@@ -153,11 +153,12 @@ export function TaskLog({ taskId }: { taskId: string }): React.JSX.Element {
           <motion.div
             layout="position"
             initial={{ opacity: 0, transform: shift('translateY(-4px)') }}
-            // An abandoned session sits faint: there, but not counted.
-            animate={{ opacity: one.session?.abandonedAt ? 0.55 : 1, transform: shift('translateY(0px)') }}
+            // An abandoned session is set aside: there, readable, but not counted (its words in Faded Ink, main.css).
+            animate={{ opacity: 1, transform: shift('translateY(0px)') }}
             exit={{ opacity: 0, transition: { duration: 0.12 } }}
             transition={{ duration: 0.18, ease: EASE }}
             data-abandoned={one.session?.abandonedAt ? '' : undefined}
+            data-set-aside={one.session?.abandonedAt ? '' : undefined}
             className="px-2 py-1.5"
           >
             {one.text ? (

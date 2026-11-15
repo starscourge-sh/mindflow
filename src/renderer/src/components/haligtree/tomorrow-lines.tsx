@@ -392,9 +392,9 @@ export function TomorrowPreview({ at, on }: { at: string; on: boolean }): React.
     : showing ? 'Showing now, until 4 in the morning.'
     : `Shows from ${at}, in ${inWords}, until 4 in the morning.`
   return (
-    <div data-tomorrow-preview className={`mt-2 max-w-md transition-opacity ${on ? '' : 'opacity-50'}`}>
+    <div data-tomorrow-preview className="mt-2 max-w-md">
       <p className="mb-1.5 text-[0.8125rem] font-medium text-foreground">{said}</p>
-      <div aria-hidden className="pointer-events-none rounded-xl border bg-background px-3.5 py-2.5 select-none">
+      <div aria-hidden className={`pointer-events-none rounded-xl border bg-background px-3.5 py-2.5 transition-opacity select-none ${on ? '' : 'opacity-50'}`}>
         <p className="flex items-baseline gap-2"><span className="text-[0.9375rem] font-semibold text-foreground">{smallHours(now.getHours()) ? 'For the morning' : 'For tomorrow'}</span><span className="text-xs font-medium text-muted-foreground">{dayjs(now).add(smallHours(now.getHours()) ? 0 : 1, 'day').format('dddd')}</span></p>
         {['Email Sam the draft', 'Book the dentist'].map((line, n) => (
           <p key={line} className="mt-1 flex items-center gap-2 text-control text-foreground">

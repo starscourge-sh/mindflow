@@ -638,7 +638,7 @@ export function Post({ post, onOpen, onOpenOther, onThread, alone = false, joine
   return (
     // Carried to the window's side, it opens beside the Feed (split-drop.tsx).
     <li ref={self} data-feed-at={mark?.at} onPointerDown={mark?.onPoint} data-drag-open={preview ? undefined : `${post.type}:${post.id}`} data-drag-title={title} data-look-group data-feed-post={post.type} data-feed-id={post.id} data-feed-archive={post.archive || undefined} data-feed-kind={post.kind} data-feed-react={chosen ?? undefined}
-      className={cn('relative isolate flex flex-col gap-1 py-4 transition-opacity duration-300 first:pt-0', !alone && 'border-b last:border-b-0', alone && joined && 'pb-3', chosen === 'less' && 'opacity-45 hover:opacity-80 has-[:focus-visible]:opacity-100')}>
+      className={cn('relative isolate flex flex-col gap-1 py-4 first:pt-0', !alone && 'border-b last:border-b-0', alone && joined && 'pb-3')} data-set-aside={chosen === 'less' ? '' : undefined}>
       <CursorRing on={!!mark?.cursor} />
       {context && <p data-feed-context className="flex items-center gap-1.5 pl-12 text-control text-muted-foreground">{post.restack && <Repeat2 className="size-3.5" />}{context}
         {post.unlinked && !preview && <button type="button" data-feed-unlinked onClick={onOpen} className="rounded-sm font-medium text-primary underline-offset-2 hover:underline">Open it</button>}</p>}

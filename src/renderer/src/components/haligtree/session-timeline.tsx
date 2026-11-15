@@ -129,7 +129,7 @@ export function DaySessions({ day, onOpen, menuFor }: { day: string; onOpen?: (t
     }>
       {sessions.map((one) => (
         <RowMenu key={one.id} items={one.bare ? [{ label: 'Name this session', run: () => setNaming(one.id) }] : menuFor?.(one.taskId) ?? []}>
-        <div data-day-session={one.id} data-bare={one.bare ? '' : undefined} data-abandoned={one.abandonedAt ? '' : undefined} className={cn('px-4 py-2', one.abandonedAt && 'opacity-55')}>
+        <div data-day-session={one.id} data-bare={one.bare ? '' : undefined} data-abandoned={one.abandonedAt ? '' : undefined} data-set-aside={one.abandonedAt ? '' : undefined} className="px-4 py-2">
           {/* A session with no task: its line is where it is named, a click away. */}
           {one.bare && naming === one.id ? (
             <BareName session={one} onDone={() => setNaming(null)} />

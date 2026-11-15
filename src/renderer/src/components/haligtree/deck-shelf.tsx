@@ -621,7 +621,7 @@ export function DeckFace({ name, due, fresh, shapes, faded = false, small = fals
   const size = small ? 'size-14 [&_.text-3xl]:text-lg [&_.text-xs]:text-[10px]' : 'size-24'
   if (shapes) return <GroupCover name={name} tint={groupTint(name)} label={null} className={`${size} shrink-0 rounded-[5px] shadow-sm ${faded ? 'opacity-60' : ''}`} />
   return (
-    <div aria-hidden data-deck-face={name} className={`grid ${size} shrink-0 content-center justify-items-center gap-0.5 rounded-[6px] mf-metal ${faded ? 'opacity-60' : ''}`}>
+    <div aria-hidden data-deck-face={name} data-set-aside={faded ? '' : undefined} className={`grid ${size} shrink-0 content-center justify-items-center gap-0.5 rounded-[6px] mf-metal`}>
       <span className={`font-serif text-3xl leading-none tabular-nums ${due ? 'text-primary' : fresh ? 'text-foreground' : 'text-muted-foreground'}`}>{num(due || fresh)}</span>
       <span className="px-1 text-center text-xs leading-tight text-balance text-muted-foreground">{fresh && !due ? 'not studied yet' : 'due'}</span>
     </div>

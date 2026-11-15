@@ -116,7 +116,7 @@ export function PinnedSplit({ names, narrow, onOpen, onUnpin }: { names: PaneNam
               <span key={index} className="relative flex min-w-0 flex-1 items-center">
                 {index > 0 && <span aria-hidden className="mx-0.5 h-3.5 w-px shrink-0 bg-foreground/15" />}
                 <button type="button" data-side-row data-pair-pane={index} data-private={one.private ? '' : undefined} onClick={() => onOpen(index)}
-                  className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1 pr-1 pl-1.5 text-left text-control text-foreground/85 transition-opacity duration-[120ms] group-data-[x-hover]/pair:opacity-45 hover:text-foreground">
+                  className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md py-1 pr-1 pl-1.5 text-left text-control text-foreground/85 transition-colors duration-[120ms] group-data-[x-hover]/pair:text-muted-foreground hover:text-foreground">
                   {index === 0 ? <Pin className="size-3.5 shrink-0 text-muted-foreground" /> : <one.icon className="size-3.5 shrink-0" style={{ color: one.tint }} />}
                   <span data-pair-title className={`private-text min-w-0 flex-1 truncate ${index === names.length - 1 ? 'group-hover/pair:[mask-image:linear-gradient(to_left,transparent_16px,#000_30px)]' : ''}`}>{one.title}</span>
                 </button>

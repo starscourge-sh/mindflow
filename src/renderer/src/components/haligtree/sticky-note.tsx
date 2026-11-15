@@ -207,7 +207,7 @@ function Body({ node, path, tick }: { node: Node; path: number[]; tick: (at: num
             <input type="checkbox" checked={done} onChange={(event) => tick(path, event.target.checked)} aria-label={words(node.content?.[0] ?? {}) || 'Checklist item'} />
           </label>
           {/* Done stays in place, struck through and dimmed: the strike draws in rather than snapping. */}
-          <div className={`[&>[data-line]]:my-0 [&>[data-line]]:line-through [&>[data-line]]:transition-[opacity,text-decoration-color] [&>[data-line]]:duration-300 ${done ? '[&>[data-line]]:decoration-current [&>[data-line]]:opacity-50' : '[&>[data-line]]:decoration-transparent'}`}>{kids}</div>
+          <div className={`[&>[data-line]]:my-0 [&>[data-line]]:line-through [&>[data-line]]:transition-[color,text-decoration-color] [&>[data-line]]:duration-300 ${done ? '[&>[data-line]]:decoration-current [&>[data-line]]:text-muted-foreground' : '[&>[data-line]]:decoration-transparent'}`}>{kids}</div>
         </li>
         </Tip>
       )

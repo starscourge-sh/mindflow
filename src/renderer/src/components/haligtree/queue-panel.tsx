@@ -118,7 +118,7 @@ function Line({ row, now, read, grab, onClick, ...menu }: { row: QueueRow; now?:
   )
   if (!onClick) return <div data-queue-line={row.id} className={cn(ROW_SHAPE, ROW_PAD, 'bg-accent/60')}>{body}</div>
   return (
-    <div {...menu} data-queue-line={row.id} className={cn(ROW_SHAPE, 'group/ql relative flex items-center transition-colors duration-80 hover:bg-accent/50', grab && 'cursor-grab', read && 'opacity-70')}>
+    <div {...menu} data-queue-line={row.id} className={cn(ROW_SHAPE, 'group/ql relative flex items-center transition-colors duration-80 hover:bg-accent/50', grab && 'cursor-grab')} data-set-aside={read ? '' : undefined}>
       <button type="button" onClick={onClick} className={cn('flex min-w-0 flex-1 items-center gap-2.5 text-left', ROW_PAD)}>{body}</button>
       {/* Its menu from a button too: the same as the right-click, opened where the dots are. */}
       <Tip label="More">
