@@ -35,7 +35,7 @@ const fieldsOf = (db: DatabaseSync, type: string, id: string): Record<string, un
 
 type Found = { type: string; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }
 type Searchable = Found & { text: string; raw?: string; there?: string[] }
-export type FoundRow = Found & { line?: string; picture?: string; match?: 'name' | 'words' | 'picture' }
+export type FoundRow = Found & { line?: string; picture?: string; match?: 'name' | 'words' | 'picture' | 'near' }
 /** What a link written by name, or `@`, is offered: notes by name, gems and pages by name, and the PDFs and kept articles of that name. */
 export type Named = { captures: Record<string, unknown>[]; items: Record<string, unknown>[]; files: FoundRow[] }
 
@@ -201,7 +201,7 @@ export function bookFinder(db: DatabaseSync, pictures: Pictures): {
     const plain = words.filter((word) => !word.startsWith('kind:'))
     if (found.length >= 5 || !plain.some((word) => word.length >= 4)) return found
     const seen = new Set(found.map((one) => `${one.type}:${one.id}`))
-    const forgiven = rows.slice(0, 3000).filter((one) => !seen.has(`${one.type}:${one.id}`) && forgives(plain, one.text, (one.there ??= wordsOf(one.text)))).slice(0, 60 - found.length).map(shown)
+    const forgiven = rows.slice(0, 3000).filter((one) => !seen.has(`${one.type}:${one.id}`) && forgives(plain, one.text, (one.there ??= wordsOf(one.text)))).slice(0, 60 - found.length).map((one) => ({ ...shown(one), match: 'near' as const }))
     return once([...found, ...forgiven])
   }
 

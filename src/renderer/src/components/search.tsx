@@ -12,7 +12,7 @@ import { byKeys, sheetMotion } from '@/lib/motion'
 import { chime, click, step, type Cue } from '@/lib/sound'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { Swatch } from './theme/theme-picker'
-import type { JSONContent } from '@tiptap/core'
+import type { Editor, JSONContent } from '@tiptap/core'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { whereFrom } from './capture-list'
@@ -29,7 +29,7 @@ import { isReadable, isWebPdf, openArticle } from './pdf/pdf-reader'
 import { FREE_SITES, prefixed, type FreeHit, type FreeSite } from '@/lib/free-sites'
 import { canSplit } from '@/lib/split'
 import { said as tell } from '@/lib/host'
-import { BookOpenText, SearchX, WifiOff } from 'lucide-react'
+import { BookOpenText, SearchX, SpellCheck, WifiOff } from 'lucide-react'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './haligtree/display'
@@ -92,10 +92,12 @@ const followRoomy = (change: () => void): (() => void) => {
 const RECENT_COUNT = 5
 
 /** The islands searched results fall into, in the Inbox's order (writing first): its kinds by their names, a gem among the writing, then the rest. */
-const ISLAND_ORDER = ['Notes', 'Gems', ...CAPTURE_TYPES.slice(1).map((type) => type.many), 'Events', 'Journal', 'PDFs', 'Web pages', 'Files']
-/** Which island a result goes in: a capture by its kind (a to-do among the tasks), anything else by what it is. */
+const ISLAND_ORDER = ['Notes', 'Gems', ...CAPTURE_TYPES.slice(1).map((type) => type.many), 'Events', 'Journal', 'PDFs', 'Web pages', 'Files', 'Close spellings']
+/** Which island a result goes in: a capture by its kind (a to-do among the tasks), anything else by what it is; one
+ * found only by a close spelling of the words in an island of its own, last, never among the matches. */
 const islandOf = (one: Capture): string =>
-  one.type === 'capture' ? (CAPTURE_TYPES.find((type) => type.id === one.kind) ?? CAPTURE_TYPES[0]).many
+  one.match === 'near' ? 'Close spellings'
+    : one.type === 'capture' ? (CAPTURE_TYPES.find((type) => type.id === one.kind) ?? CAPTURE_TYPES[0]).many
     : ({ task: 'Tasks', nugget: 'Gems', article: 'Gems', question: 'Gems', goal: 'Gems', event: 'Events', day: 'Journal', pdf: 'PDFs', web: 'Web pages', media: 'Files' } as Record<string, string>)[one.type] ?? 'Notes'
 const byKind = (list: Capture[]): [string, Capture[]][] => {
   const by = new Map<string, Capture[]>()
@@ -115,7 +117,8 @@ const ISLAND_ICON: Record<string, React.JSX.Element> = {
   Journal: <Sun aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-orange)' }} />,
   PDFs: <FileText aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-red)' }} />,
   'Web pages': <BookOpen aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-blue)' }} />,
-  Files: <ImageIcon aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-purple)' }} />
+  Files: <ImageIcon aria-hidden className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-purple)' }} />,
+  'Close spellings': <SpellCheck aria-hidden className="size-4 shrink-0 text-muted-foreground" />
 }
 
 /**
@@ -714,6 +717,13 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                   : 'Nothing matches. Try fewer words: every word has to appear somewhere.'} />
               </p>
             )}
+            {/* Found only by close spellings: said first, so none of them reads as a match (the user, 15 Nov 2026, of
+                "faustian": "why is it lying about occurence?"). */}
+            {!pre && query.trim() && searched === query && results.length > 0 && results.every((one) => one.match === 'near') && !acting.length && (
+              <p data-search-none className="px-2 py-3 text-sm text-muted-foreground">
+                <Typed text={`Nothing has ${quoted(query.trim(), 40)} as you typed it. Below, words spelled close to it.`} />
+              </p>
+            )}
             {/* What was found, an island a kind; before typing, what was opened and kept last. */}
             {(() => {
               let from = 0
@@ -750,7 +760,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                     </div>
                   )
                   : current
-                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} />
+                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} words={current.match === 'near' ? [] : words} />
                   : look
                   ? <LookPeek key={`${look.site.id}:${look.hit?.href ?? ''}`} one={look} words={lookWords} offline={!!outside?.offline} />
                   : action?.keep
@@ -951,8 +961,25 @@ function PreviewHead({ capture, named }: { capture: Capture; named: boolean }): 
   )
 }
 
-function NotePreview({ capture }: { capture: Capture }): React.JSX.Element | null {
+function NotePreview({ capture, words }: { capture: Capture; /** The words searched for: lit where they stand, the first brought into view (none for a close spelling). */ words: string[] }): React.JSX.Element | null {
   const { type, id } = capture
+  // Lit as a note's own find lights them, the first in view: where it matches is shown, never only said (the user, 15 Nov
+  // 2026: "why is it lying about occurence?").
+  const editor = useRef<Editor | null>(null)
+  const lit = (one: Editor): void => {
+    if (one.isDestroyed) return
+    one.chain().setUseRegex(true).setSearchTerm(words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')).run()
+    if (!words.length) return
+    one.commands.goToNextResult()
+    // Brought into view as the note's own find brings it (search-bar.tsx `centre`): at once, or once a long note has drawn it.
+    const centre = (): boolean => {
+      const match = one.view.dom.querySelector('.find-and-replace-result-current')
+      match?.scrollIntoView({ block: 'center', behavior: 'instant' })
+      return !!match
+    }
+    if (!centre()) requestAnimationFrame(centre)
+  }
+  useEffect(() => void (editor.current && lit(editor.current)), [words.join(' ')]) // eslint-disable-line react-hooks/exhaustive-deps
   // The last one stays until the next arrives: no blank flash between rows.
   const [shown, setShown] = useState<{ id: string; body: unknown; capture: Capture } | null>(null)
   useEffect(() => {
@@ -966,7 +993,7 @@ function NotePreview({ capture }: { capture: Capture }): React.JSX.Element | nul
   return (
     <div key={shown.id}>
       <PreviewHead capture={shown.capture} named={!!name && !(opens && (opens.startsWith(name) || name.startsWith(opens)))} />
-      <HaligtreeEditor defaultContent={(shown.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
+      <HaligtreeEditor defaultContent={(shown.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} autofocus={false} onReady={(one) => ((editor.current = one), lit(one))} />
     </div>
   )
 }
