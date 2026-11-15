@@ -185,9 +185,11 @@ try {
   check('Queue: right-click on the picked rows counts them and says the queue, not the Bin', qLines.some((one) => one.startsWith(`Take ${queued} out of the queue`)) && !qLines.some((one) => /Bin/.test(one)), qLines.join(' / '))
   await h.keyboard.press('Escape'); await h.waitForTimeout(250)
   check('Queue: closing the menu keeps the selection', (await readAt(h, Q)).picked === queued)
-  await c.electron.evaluate(({ clipboard }) => clipboard.writeText(''))
+  // What ⌘C copies is caught in the page, never through the Mac's clipboard: it is the user's (this line emptied it on
+  // every run, 15 Nov 2026). The page's own writeText is stood in for while ⌘C is pressed, then given back.
+  await h.evaluate(() => { window.__copied = ''; Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async (text) => void (window.__copied = String(text)) }) })
   await h.keyboard.press('Meta+c'); await h.waitForTimeout(400)
-  const copied = await c.electron.evaluate(({ clipboard }) => clipboard.readText())
+  const copied = await h.evaluate(() => (delete navigator.clipboard.writeText, window.__copied))
   check('Queue: ⌘C copies their names, one to a line', copied.split('\n').length === queued, JSON.stringify(copied.slice(0, 80)))
   await h.keyboard.press('Backspace')
   await h.waitForTimeout(900)
