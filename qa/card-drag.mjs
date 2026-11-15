@@ -63,19 +63,29 @@ try {
       const data = new DataTransfer()
       // The drag starts on the node view's own draggable wrapper, as a real press-and-move does.
       const begun = (card.closest('[draggable=true]') ?? card).dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: data, ...at }))
-      // Over the note, below the block, as the system drag would pass.
-      const target = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'Middle line.')
+      // Over the note, at the foot of its last line (a new place for every block here), as the system drag would pass.
+      const target = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'Last line.')
       const below = target.getBoundingClientRect()
-      const over = { bubbles: true, cancelable: true, dataTransfer: data, clientX: below.left + 20, clientY: below.top + 4 }
+      const over = { bubbles: true, cancelable: true, dataTransfer: data, clientX: below.left + 20, clientY: below.bottom - 4 }
       target.dispatchEvent(new DragEvent('dragenter', over))
       const allowed = !target.dispatchEvent(new DragEvent('dragover', over))
       const line = !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline')
-      // Let go outside the note, as a drop in Finder would be.
-      target.dispatchEvent(new DragEvent('dragleave', { ...over, relatedTarget: document.body }))
-      document.body.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: data }))
+      window.carriedOut = { data, over }
       return { begun: !begun, allowed, line }
     }, sel)
-    await wait(200)
+    await wait(350)
+    // Over its own note, the room the grip's carry opens (carry.tsx): its band with the one line, the block's own place out of sight.
+    const room = await h.evaluate(() => ({ rooms: document.querySelectorAll('[data-drop-room]').length, lines: document.querySelectorAll('[data-drop-line]').length, hidden: [...document.querySelectorAll('[data-carried]')].filter((one) => getComputedStyle(one).visibility === 'hidden').length }))
+    check(`${kind}: over its own note the room opens with its one line, its own place out of sight`, room.rooms === 1 && room.lines === 1 && room.hidden === 1, JSON.stringify(room))
+    // Let go outside the note, as a drop in Finder would be.
+    await h.evaluate(() => {
+      const { data, over } = window.carriedOut
+      const target = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'Last line.')
+      target.dispatchEvent(new DragEvent('dragleave', { ...over, relatedTarget: document.body }))
+      document.body.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer: data }))
+    })
+    await wait(300)
+    check(`${kind}: carried away, everything is home: no band, no line, nothing out of sight`, (await h.evaluate(() => document.querySelectorAll('[data-drop-room], [data-drop-line], [data-own-room]').length + [...document.querySelectorAll('[data-carried]')].length)) === 0, '')
     const sent = await outs()
     check(`${kind}: dragging its body carries the file out`, sent.length === 1 && sent[0].src?.startsWith('haligtree://assets/'), JSON.stringify(sent.map((one) => ({ ...one, face: one.face?.slice(0, 30) }))))
     if (kind === 'picture') check(`${kind}: carries the picture itself (no drawn card)`, sent[0] && !sent[0].face, '')
@@ -101,6 +111,27 @@ try {
   await h.mouse.move(5, 5); await h.mouse.down(); await h.mouse.up()
   await c.look('light')
   check('nothing moved or added by the carried drags', JSON.stringify(await order()) === JSON.stringify(start), JSON.stringify(await order()))
+
+  // --- Let go over its own note: the picture moves where the line was, once; ⌘Z puts it back ------------------------
+  await h.evaluate(() => {
+    const picture = document.querySelector('[data-open] .tiptap img[alt="Map"]')
+    const data = new DataTransfer()
+    const from = picture.getBoundingClientRect()
+    picture.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: data, clientX: from.left + 20, clientY: from.top + from.height / 2 }))
+    const first = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'First line.')
+    const box = first.getBoundingClientRect()
+    window.landing = { bubbles: true, cancelable: true, dataTransfer: data, clientX: box.left + 20, clientY: box.top + box.height * 0.85 }
+    first.dispatchEvent(new DragEvent('dragover', window.landing))
+  })
+  await wait(350)
+  await h.evaluate(() => [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'First line.').dispatchEvent(new DragEvent('drop', window.landing)))
+  await wait(400)
+  const dropped = await order()
+  check('the picture let go over its own note moves where the line was, once, and nothing is added', dropped[1] === 'Map' && dropped.filter((one) => one === 'Map').length === 1 && dropped.length === start.length, JSON.stringify(dropped))
+  await h.keyboard.press('Meta+z'); await wait(300)
+  check('⌘Z puts the picture back in one step', JSON.stringify(await order()) === JSON.stringify(start), JSON.stringify(await order()))
+  await outs()
+  await h.mouse.move(5, 5); await h.mouse.down(); await h.mouse.up(); await wait(150)
 
   // --- The tip under the voice note's name never shows during a drag ---------------------
   const name = h.locator('.tiptap-attachment.is-audio .tiptap-attachment-name').first()
