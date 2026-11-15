@@ -53,12 +53,13 @@ function linesIn(node: ProseMirrorNode): number {
   return lines
 }
 /** A list's item: its own line, and the items of the lists inside it. */
+const itemCounts = new WeakMap<ProseMirrorNode, number>()
 function itemLines(item: ProseMirrorNode): number {
-  let lines = counts.get(item)
+  let lines = itemCounts.get(item)
   if (lines !== undefined) return lines
   lines = 1
   item.forEach((child) => void (LISTS.has(child.type.name) && (lines! += linesIn(child))))
-  counts.set(item, lines)
+  itemCounts.set(item, lines)
   return lines
 }
 
@@ -189,6 +190,8 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   /** Each number set on its block's first line: what is drawn is read once, after the browser has laid it out. */
   const place = (): void => {
     frame = 0
+    // Read again as it is now: a block drawn by a view of its own (a task) can be made again with no change to the note.
+    collect()
     if (!rows.length) {
       layer.replaceChildren()
       marks = []
@@ -198,7 +201,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     if (!layer.isConnected) view.dom.parentElement?.append(layer)
     const look = getComputedStyle(view.dom)
     if (look.fontSize !== em) (kinds.clear(), (em = look.fontSize))
-    layer.style.setProperty("--mf-lines-pad", look.paddingLeft)
+    if (layer.style.getPropertyValue("--mf-lines-pad") !== look.paddingLeft) layer.style.setProperty("--mf-lines-pad", look.paddingLeft)
     const top = view.dom.getBoundingClientRect().top
     while (marks.length < rows.length) {
       const mark = document.createElement("div")
@@ -208,6 +211,11 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
       marks.push(mark)
     }
     while (marks.length > rows.length) marks.pop()!.remove()
+    // Each numbered block watched for its size: one that grows a line moves those under it, and one made again by
+    // its own view (a task, as the style or Vim changes) is told by the old one going to nothing.
+    const now = new Set(rows)
+    for (const row of watched) if (!now.has(row)) (resized.unobserve(row), watched.delete(row))
+    for (const row of rows) if (!watched.has(row)) (resized.observe(row), watched.add(row))
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       // Its first line: the block itself, or the first words inside one counted whole (a callout, a table).
@@ -253,17 +261,21 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
       layer.replaceChildren()
       marks = []
       layer.remove()
+      for (const row of watched) resized.unobserve(row)
+      watched.clear()
       return
     }
     schedule()
     if (!idle) idle = requestIdleCallback(count, { timeout: 1000 })
   }
 
+  // Told in the middle of the note's own update, before its page is drawn: only noted, and read when it is.
   const drawn = (event: Event): void => {
     band = (event as CustomEvent<[number, number] | null>).detail
-    redraw()
+    if (shown()) schedule()
   }
   const resized = new ResizeObserver(() => rows.length && schedule())
+  const watched = new Set<HTMLElement>()
   resized.observe(view.dom)
   const fonts = (): void => void (kinds.clear(), (em = ""), rows.length && schedule())
   document.fonts.addEventListener("loadingdone", fonts)
@@ -279,8 +291,9 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
         if (changed !== null) before.length = Math.min(before.length, doc.resolve(Math.min(changed, doc.content.size)).index(0) + 1)
         return redraw()
       }
-      // Switched on or off (Settings), or the note locked or unlocked.
-      if (!!rows.length !== shown() || (!rows.length && shown())) return redraw()
+      // Switched on or off (Settings), or the note locked or unlocked; or a block made again by its own view (a
+      // task, as Vim's line comes or goes): numbered and set again. A glance at each row, nothing laid out.
+      if (!!rows.length !== shown() || (!rows.length && shown()) || rows.some((row) => !row.isConnected)) return redraw()
       // Only the caret moved, or Vim was switched: the words of the numbers, nothing measured.
       if ((!view.state.selection.eq(previous.selection) || !!vimPluginKey.getState(view.state)?.enabled !== relative) && !frame && marks.length) label()
     },
