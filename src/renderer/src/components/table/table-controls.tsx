@@ -131,7 +131,9 @@ interface Drag {
 function carry(table: HTMLTableElement, axis: 'row' | 'column', index: number): HTMLElement {
   const copy = document.createElement('table')
   const look = getComputedStyle(table)
-  copy.style.font = look.font
+  // In the words' own face and size: the note sets its reading face on its lines, not on the table, so the copy in
+  // the hand came in the system's face, smaller than the row it was taken from.
+  copy.style.font = getComputedStyle(table.querySelector('td p') ?? table.querySelector('th p') ?? table).font
   copy.style.color = look.color
   const body = document.createElement('tbody')
   if (axis === 'row') {
