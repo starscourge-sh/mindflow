@@ -347,7 +347,10 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
         const { state, view } = editor
         const next = grow(state)
         if (!next) return true
-        const tr = state.tr.setSelection(markGrown(next))
+        // The bars over what was picked (components/selection/selection-menu.tsx, components/table/table-menu.tsx) go
+        // at once: left a moment where they were, they sat on the line the step had just taken in. Each comes back
+        // over the new pick once the keys rest.
+        const tr = state.tr.setSelection(markGrown(next)).setMeta("selectionMenu", "hide").setMeta("tableMenu", "hide")
         // Vim's visual mode keeps its own ends for y, d and c: told the new ones, they take what ⌘A picked. A pick
         // that is not words (cells, a code block, the note) is left in normal mode, as ⌘A always left it there.
         const vim = vimPluginKey.getState(state)
