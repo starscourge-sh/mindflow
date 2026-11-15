@@ -64,8 +64,9 @@ try {
     check(`and the ${kind} is kept as a PNG of its own size, a picture every window can draw, under its own name`, /\.png$/.test(got.one?.src ?? '') && got.size === '6000 x 4000' && got.one.name === name, `${(got.one?.src ?? '').slice(-20)} ${got.size} “${got.one?.name}”; refused ${JSON.stringify(got.refused)}`)
   }
 
-  // 3. A 24-megapixel photograph in the store, dragged out of a note to another app: only the drag is measured.
-  const photo = (await add(big)).one?.src ?? ''
+  // 3. A 24-megapixel photograph in the store (or BIG=<a picture of your own>, such as the 10,446 by 13,522 painting of
+  // the user's sandbox), dragged out of a note to another app: only the drag is measured.
+  const photo = (await add(process.env.BIG ?? big)).one?.src ?? ''
   await h.waitForTimeout(2500)
   await electron.evaluate(({ webContents }) => {
     globalThis.__dragged = null
@@ -76,8 +77,8 @@ try {
   let dragged = null
   for (let t = 0; t < 40 && !dragged; t++) (await h.waitForTimeout(150), (dragged = await electron.evaluate(() => globalThis.__dragged)))
   const afterDrag = await stalls()
-  check(`a 24-megapixel photograph dragged out never holds main (its loop under ${LATE_MS} ms late)`, dragged && afterDrag.delay.worst < LATE_MS, `${afterDrag.delay.worst} ms late at worst  [${load()}]`)
-  check('and the drag carries the file under its name, with a small picture of it', dragged && !dragged.empty && dragged.width > 0 && dragged.width <= 96 && /Harbour at dusk\.jpg$/.test(dragged.file), JSON.stringify(dragged))
+  check(`a ${process.env.BIG ? 'big' : '24-megapixel'} photograph dragged out never holds main (its loop under ${LATE_MS} ms late)`, dragged && afterDrag.delay.worst < LATE_MS, `${afterDrag.delay.worst} ms late at worst  [${load()}]`)
+  check('and the drag carries the file under its name, with a small picture of it', dragged && !dragged.empty && dragged.width > 0 && dragged.width <= 96 && /Harbour at dusk\.(jpg|png)$/.test(dragged.file), JSON.stringify(dragged))
 
   // 4. The Feed's side column.
   await stalls()
