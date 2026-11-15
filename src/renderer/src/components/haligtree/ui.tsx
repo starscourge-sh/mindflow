@@ -1662,6 +1662,10 @@ export function Toaster(): React.JSX.Element | null {
   const trouble = useSaveTrouble()
   const left = useRecordingsLeft()
   const spot = useClearSpot(!!shown || !!wait || !!trouble || !!left.one, lane)
+  // Hidden under an open menu, the notice's clock stops, as it does with the window away: its words and its Undo are
+  // still there to read when the menu goes (its 3.2 s ran out unseen under a menu otherwise).
+  const covered = spot?.visibility === 'hidden'
+  useEffect(() => (covered ? hold('covered') : release('covered')), [covered, hold, release])
   // Asker always in the same place, so a toast coming or going never
   // remounts it and loses a question being answered.
   return (
