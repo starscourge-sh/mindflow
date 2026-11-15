@@ -761,7 +761,8 @@ function roomForPanel(win: BrowserWindow, place: Electron.Rectangle, room: Room)
   const box = onScreen({ x: panelX(place, WITH_PANEL), y: anchor?.became === place.y ? anchor.y : place.y, width: WITH_PANEL, height: SIZES.expanded.height })
   return {
     left: Math.max(room.left, place.x - box.x + BOX_ROOM.left),
-    top: Math.max(room.top, place.y - box.y + BOX_ROOM.top),
+    // Above a box the screen's foot pushes up (the expander's, on a laptop), a hint above keeps its room too.
+    top: room.top + Math.max(0, place.y - box.y),
     right: Math.max(room.right, box.x + box.width - place.x - place.width + BOX_ROOM.right),
     bottom: Math.max(room.bottom, box.y + box.height - place.y - place.height + hintFoot)
   }

@@ -945,12 +945,12 @@ export default function App(): React.JSX.Element {
     // whole move to the same shape, the frost off and on again under it, with a slide for nothing.
     if (open === panelTold.current) return
     if (!quiet) chime(open ? 'slide' : 'fold')
+    // The panel's move sets the height too; the writing's own waits for it to land.
+    box.held.current = true
     // Put away: the height the box will want without it, told first, so main puts it back at that size.
     if (!open) box.aim(pillAfterPanel.current)
     panelWanted.current = open
     panelTold.current = open
-    // The panel's move sets the height too; the writing's own waits for it to land.
-    box.held.current = true
     panelMoving.current = true
     void morphBox(open, pillAfterPanel.current, window.api.setPanel, () => {
       if (oneLineOn) setPillPanel(open)
