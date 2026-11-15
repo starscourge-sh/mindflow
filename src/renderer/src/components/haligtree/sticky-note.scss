@@ -81,8 +81,10 @@
 
   // A heading next is then the first line, with no room above it, as drawn. Asked as the second line, never as
   // ":first-child +": a sibling rule naming no class on its left is asked of every editor's headings whenever
-  // anything is put in or taken out beside them (main.css, the reading rhythm, says why).
-  &[data-hide-first] .ProseMirror > :is(h1, h2, h3, h4, h5, h6):nth-child(2) {
+  // anything is put in or taken out beside them (main.css, the reading rhythm, says why). The place is asked last,
+  // after the :where() has found the sticky: asked of every note's headings, it had every block of a note
+  // restyled whenever a line came or went (test/has-narrow.test.ts).
+  &[data-hide-first] .ProseMirror > :is(h1, h2, h3, h4, h5, h6):where(.sticky-text[data-hide-first] *):nth-child(2) {
     margin-top: 0 !important;
   }
 

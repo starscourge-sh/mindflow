@@ -12,10 +12,9 @@
   > h2:first-child,
   > h3:first-child,
   > h4:first-child,
-  > .ProseMirror-widget + h1,
-  > .ProseMirror-widget + h2,
-  > .ProseMirror-widget + h3,
-  > .ProseMirror-widget + h4 {
+  // Right under the property strip or a caption: marked by them (extensions/block-room.ts, under), never asked as
+  // ".ProseMirror-widget + h1", which had every heading in the note restyled whenever a line came or went beside one.
+  > :is(h1, h2, h3, h4).mf-under-widget {
     margin-top: 0;
   }
 

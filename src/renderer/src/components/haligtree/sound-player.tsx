@@ -413,7 +413,7 @@ function Player({ src, name, length, onLength, onPlaying, status, className, inl
         {broken && (
           <div data-video-broken className="mf-video-broken">
             <span className="text-heading font-semibold">This video will not play here</span>
-            <span className="text-control">Its kind of film is one the app cannot read.{onOpenOwn ? '' : ' Its own app on the Mac can.'}</span>
+            <span className="text-control text-muted-foreground">Its kind of film is one the app cannot read.{onOpenOwn ? '' : ' Its own app on the Mac can.'}</span>
             {onOpenOwn && (
               <button type="button" data-sound-control className="mf-video-own" onMouseDown={(event) => event.stopPropagation()} onClick={(event) => (event.stopPropagation(), onOpenOwn())}>Open in its app</button>
             )}

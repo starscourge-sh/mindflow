@@ -4,6 +4,7 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 
 import { propertyLine } from "../../../main/property-words"
+import { under } from "./block-room"
 
 declare module "@tiptap/core" {
   interface Storage {
@@ -86,7 +87,7 @@ export const PropertyLines = Extension.create<PropertyLinesOptions, { strip: HTM
           },
         },
         props: {
-          decorations: (state) => key.getState(state),
+          decorations: (state) => under(state.doc, key.getState(state)),
           handleKeyDown: (view, event) => {
             if (event.key !== "Enter" || event.shiftKey || event.metaKey || event.altKey || event.isComposing || !options.onProperty) return false
             const { $from, empty } = view.state.selection

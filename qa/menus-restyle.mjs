@@ -10,13 +10,16 @@
 // rule on the class attribute, and the page-wide :has() rules (main.css, haligtree-editor.scss say which); then the
 // note's own spacing, whose line before named no class ("p + p", "h2 + p", "li + li"), restyled its 3,472 paragraphs
 // and 935 headings, about 5,000 elements and 75 to 100 ms (test/has-narrow.test.ts holds both kinds out). WHY=1
-// prints what Chromium said made the biggest pass of each kind (invalidation tracking), to find the next one.
+// prints what Chromium said made the biggest pass of each kind (invalidation tracking), to find the next one. TYPED=1
+// writes in the note too (Enter, a letter, a pasted line, ⌘Z), ONLY_TYPED=1 does only that, and SHOTS=<folder> keeps
+// the note light and dark and where its blocks sit, to set beside another build's.
 import { DatabaseSync } from 'node:sqlite'
-import { existsSync, readFileSync } from 'fs'
+import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { loadavg } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+import { paste } from './pasteboard.mjs'
 
 const { check, done } = checks()
 const TIMES = Number(process.env.TIMES ?? 10)
@@ -107,15 +110,10 @@ try {
     // The block's menu stays in the page once closed (data-state="closed"): open is what counts.
     ['a block\'s menu', async () => (await h.mouse.click(spots.line.x, spots.line.y, { button: 'right' }), await shown('[role="menu"][data-state="open"]')), async () => (await h.keyboard.press('Escape'), await gone('[role="menu"][data-state="open"]'))],
     ...(spots.tag ? [['a hover card', async () => (await h.mouse.move(spots.tag.x - 30, spots.tag.y), await h.mouse.move(spots.tag.x, spots.tag.y, { steps: 4 }), await shown('[data-note-preview]')), async () => (await h.mouse.move(spots.away.x, spots.away.y, { steps: 4 }), await gone('[data-note-preview]'))]] : []),
-    // TYPED=1: a new line typed and taken out again, shown, not held to the bar (the editor's own work is in that pass
-    // too). A line put in among the note's blocks still has Chromium restyle every paragraph, and the position rules
-    // (:nth-child) mark every block: minutes a run, so not by default.
-    ...(process.env.TYPED ? [['a new line typed', async () => (await h.keyboard.press('Meta+ArrowRight'), await h.keyboard.press('Enter')), async () => await h.keyboard.press('Backspace'), 'shown']] : []),
-  ]
+  ].filter(() => !process.env.ONLY_TYPED)
   if (!spots.tag) console.log('(no tag in the sidebar on screen: no hover card to point at)')
-  for (const [name, open, close, shownOnly] of kinds) {
+  for (const [name, open, close] of kinds) {
     const opens = [], closes = []
-    if (shownOnly) (await h.mouse.click(spots.line.x, spots.line.y), await h.waitForTimeout(500))
     let step = 'opening'
     try {
       for (let i = 0; i < TIMES; i++) {
@@ -137,7 +135,61 @@ try {
     console.log(`${name} opened (ms/elements): ${say(opens)}\n${name} closed (ms/elements): ${say(closes)}  (${load()})`)
     const worst = [...opens, ...closes].sort((a, b) => b.ms - a.ms)[0]
     if (worst.why?.length) console.log(`  the biggest pass of ${name}:\n    ${worst.why.join('\n    ')}`)
-    if (!shownOnly) check(`${name}, opened and closed ${TIMES} times over the largest note: every style pass under ${BAR} ms`, [...opens, ...closes].every((one) => one.ms < BAR), `worst ${worst.ms.toFixed(1)} ms, ${worst.elements} elements restyled  (${load()})`)
+    check(`${name}, opened and closed ${TIMES} times over the largest note: every style pass under ${BAR} ms`, [...opens, ...closes].every((one) => one.ms < BAR), `worst ${worst.ms.toFixed(1)} ms, ${worst.elements} elements restyled  (${load()})`)
+  }
+  // TYPED=1: writing in the largest note restyles only what changed: a new line (Enter), a letter, a line pasted and
+  // ⌘Z (three each time: the paste, the letter, the line), at the end of a paragraph among paragraphs. Each put in
+  // among the note's 7,021 blocks had Chromium restyle every block (the place rules), every paragraph (".mf-p + p")
+  // and every heading (".ProseMirror-widget + h1"): 7,537 elements, 100 to 131 ms (test/has-narrow.test.ts holds them out).
+  if (process.env.TYPED) {
+    const typed = { 'Enter, a new line': [], 'a letter': [], 'a line pasted': [], '⌘Z': [] }
+    const line = await h.evaluate((sel) => {
+      const ed = [...document.querySelectorAll(sel)].sort((a, b) => b.childElementCount - a.childElementCount)[0]
+      const one = [...ed.children].find((p) => p.tagName === 'P' && p.nextElementSibling?.tagName === 'P' && p.previousElementSibling?.tagName === 'P' && p.getBoundingClientRect().top > 160 && p.getBoundingClientRect().bottom < innerHeight - 160 && p.textContent.trim().length > 30)
+      const r = one.getBoundingClientRect()
+      return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) }
+    }, EDITOR)
+    await h.mouse.click(line.x, line.y)
+    await h.waitForTimeout(500)
+    let step = 'Enter'
+    try {
+      for (let i = 0; i < TIMES; i++) {
+        await h.keyboard.press('Meta+ArrowRight')
+        typed['Enter, a new line'].push(await traced(() => h.keyboard.press('Enter')))
+        step = 'a letter'
+        typed['a letter'].push(await traced(() => h.keyboard.type('x')))
+        step = 'a pasted line'
+        typed['a line pasted'].push(await traced(() => paste(h, ' A line of words pasted in.')))
+        step = '⌘Z'
+        for (let back = 0; back < 3; back++) typed['⌘Z'].push(await traced(() => h.keyboard.press('Meta+z')))
+      }
+    } catch (error) {
+      check('typing in the largest note', false, `stopped at ${step}: ${String(error.message).split('\n')[0]}  (${load()})`)
+    }
+    for (const [name, list] of Object.entries(typed)) {
+      if (!list.length) continue
+      const worst = [...list].sort((a, b) => b.ms - a.ms)[0]
+      console.log(`${name} (ms/elements): ${list.map((one) => `${one.ms.toFixed(1)}/${one.elements}`).join(' ')}  (${load()})`)
+      if (worst.why?.length) console.log(`  the biggest pass of ${name}:\n    ${worst.why.join('\n    ')}`)
+      check(`${name} in the largest note, ${list.length} times: every style pass under ${BAR} ms`, list.every((one) => one.ms < BAR), `worst ${worst.ms.toFixed(1)} ms, ${worst.elements} elements restyled  (${load()})`)
+    }
+  }
+  // SHOTS=<folder>: the note as it stands, light and dark, and where each of its blocks and list items sits, to set
+  // beside another build's (nothing may move).
+  if (process.env.SHOTS) {
+    await h.evaluate(() => document.activeElement?.blur())
+    for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {
+      await c.theme(theme)
+      await h.waitForTimeout(800)
+      await h.screenshot({ path: join(process.env.SHOTS, `long-note-${said}.png`) })
+    }
+    const tops = await h.evaluate((sel) => {
+      const ed = [...document.querySelectorAll(sel)].sort((a, b) => b.childElementCount - a.childElementCount)[0]
+      const at = ed.getBoundingClientRect().top
+      return [...ed.querySelectorAll(':scope > *, li')].map((one) => `${one.tagName} ${Math.round((one.getBoundingClientRect().top - at) * 100) / 100}`)
+    }, EDITOR)
+    writeFileSync(join(process.env.SHOTS, 'long-note-tops.txt'), tops.join('\n'))
+    console.log(`frames and ${tops.length} places in ${process.env.SHOTS}`)
   }
   check('a hover card was pointed at', !!spots.tag)
   const faults = c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|ERR_BLOCKED_BY_RESPONSE|status of 40\d/.test(line))

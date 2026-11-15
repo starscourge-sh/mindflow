@@ -177,7 +177,6 @@
 
 /* A film the app cannot read says so in words over its frame. */
 .mf-video-broken { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px; text-align: center; color: var(--foreground); }
-.mf-video-broken > :nth-child(2) { color: var(--muted-foreground); }
 .mf-video[data-state='broken'] .tiptap-attachment-video { visibility: hidden; }
 .mf-video-own { margin-top: 6px; height: 28px; padding: 0 10px; border-radius: 8px; background: var(--primary); color: var(--primary-foreground); font-size: 0.8125rem; font-weight: 500; cursor: pointer; transition: scale 120ms var(--mf-ease); }
 .mf-video-own:active { scale: 0.97; }

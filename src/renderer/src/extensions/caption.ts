@@ -3,6 +3,7 @@ import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } fro
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
+import { under } from "./block-room"
 
 /** What can carry a caption: a picture, a YouTube video, a stored video or recording. */
 const MEDIA = new Set(["image", "youtube", "attachment", "graph"])
@@ -204,7 +205,7 @@ export const Caption = Extension.create({
             return { editing, set: decorate(state, editing) }
           },
         },
-        props: { decorations: (state) => key.getState(state)?.set },
+        props: { decorations: (state) => under(state.doc, key.getState(state)?.set) },
       }),
     ]
   },

@@ -199,7 +199,7 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
     </Tip>
   )
   // In the details every row shares one name column, as wide as the longest name allows, so the values line up; in a narrow pane each value goes under its name, so long ones (dates) never run into the row below.
-  const row = panel ? 'col-span-2 grid grid-cols-subgrid items-start' : 'grid grid-cols-1 items-start gap-x-2 @max-[24rem]/props:[&>:nth-child(2)]:ml-[1.375rem] @min-[24rem]/props:grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)]'
+  const row = panel ? 'col-span-2 grid grid-cols-subgrid items-start' : 'grid grid-cols-1 items-start gap-x-2 @max-[24rem]/props:[&>:last-child]:ml-[1.375rem] @min-[24rem]/props:grid-cols-[minmax(7rem,9.5rem)_minmax(0,1fr)]'
   const nameCell = (Icon: LucideIcon, label: string, prop?: Prop): React.JSX.Element => (
     <span className={`flex ${size.h} min-w-0 items-center gap-2 ${size.pad} text-muted-foreground`}>
       {prop && !prop.tag ? (

@@ -70,6 +70,7 @@ import { CurrentItem } from "@/extensions/current-item"
 import { FullLineHighlight } from "@/extensions/full-line-highlight"
 import { LineCards } from "@/extensions/line-cards"
 import { PropertyLines } from "@/extensions/property-lines"
+import { BlockRoom } from "@/extensions/block-room"
 import { LinkedTasks } from "@/extensions/linked-tasks"
 import { DateWords } from "@/extensions/date-words"
 import { OfferSlot } from "@/extensions/offer-slot"
@@ -1477,6 +1478,8 @@ function Surface({
       LineCards,
       // "Author:: Ursula Le Guin": a property, kept on Enter; and the strip of them under the title.
       PropertyLines.configure({ strip: () => hasStrip.current, top: () => stripTop.current, onProperty: (name, value) => propertyLineRef.current?.(name, value) ?? false }),
+      // The room over a paragraph, set by the block before it, as a class on it (extensions/block-room.ts says why).
+      BlockRoom,
       // A to-do that is a task too, kept ticked as one; a pasted list offered as tasks.
       LinkedTasks.configure({ origin: () => (/^(?:capture|item)-(.+)$/.exec(String(documentId ?? ""))?.[1] ?? null), box: () => new URLSearchParams(location.search).get("view") === null && !documentId }),
       TaskMarks,

@@ -152,6 +152,87 @@ test('the left part of a sibling rule is right on known cases', () => {
   assert.equal(siblingUnnamed('.tile-pic + .\\[\\.tile-pic\\+\\&\\]\\:block'), false)
 })
 
+/** What a note's blocks are drawn as and carry, and the widgets among them: a rule asked of these is asked of every block. */
+const BLOCK_TAGS = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'ul', 'ol', 'li', 'blockquote', 'pre', 'hr', 'table', 'img', 'figure', 'details'])
+const BLOCK_NAME = /^(?:\.(?:mf-p|mf-h|ProseMirror-widget|react-renderer|node-[\w-]+)(?![\w-])|\[\s*(?:data-type|class|style|contenteditable|draggable|data-node-view-wrapper)(?![\w-]))/
+
+/** The top-level parts of a selector (its compounds), each as written. */
+const compounds = (selector: string): string[] => {
+  const flat = blank(selector)
+  const out: string[] = []
+  let start = 0
+  for (const found of flat.matchAll(/\s*[\s>+~]\s*/g)) (out.push(selector.slice(start, found.index)), (start = found.index + found[0].length))
+  return [...out, selector.slice(start)].filter(Boolean)
+}
+
+/** Whether a compound, as far as it is read before `end`, names something no block of a note is or carries. */
+const notBlock = (compound: string, end = compound.length): boolean => {
+  const before = compound.slice(0, end).replace(/:not\((?:[^()]|\([^()]*\))*\)/g, '')
+  const tag = before.match(/^[a-z][\w-]*/i)?.[0].toLowerCase()
+  if (tag && !BLOCK_TAGS.has(tag)) return true
+  // A :where() or :is() that finds its place first (".sticky-text[data-hide-first] *"): read before what follows it.
+  if ([...before.matchAll(/:(?:where|is)\(([^()]*)\)/g)].some((found) => /[\s>~+]/.test(found[1].trim().replace(/\s*,\s*/g, ',')))) return true
+  return [...blank(before).matchAll(/[.#[]/g)].some((found) => !BLOCK_NAME.test(before.slice(found.index)))
+}
+
+/**
+ * Whether a selector asks a place (:nth-child(), :nth-of-type(), ...) of what may be a block of a note: the part asking
+ * it names, before the place, nothing a block is not ("p:nth-child(2)", a bare ":nth-child(2)", ":is(h1, h2):nth-child(2)",
+ * "[data-type='x']:nth-of-type(even)"). Chromium reads a part from its start, and once it has asked a place of a child it
+ * restyles every child of that parent whenever one comes or goes: each new line in the largest note restyled its 7,021
+ * blocks (15 Nov). Inside :has() or :not() a place is asked only of what those are asked of.
+ */
+export const placeBroad = (selector: string): boolean =>
+  compounds(selector).some((compound) => {
+    const at = blank(compound).search(/:(?:nth-|first-of-type|last-of-type|only-of-type)/)
+    return at >= 0 && !notBlock(compound, at)
+  })
+
+test('the place rule is right on known cases', () => {
+  assert.equal(placeBroad('.mf-stagger > :nth-child(2)'), true)
+  assert.equal(placeBroad('.x > :nth-child(2)'), true)
+  assert.equal(placeBroad('.sticky-text[data-hide-first] .ProseMirror > :is(h1, h2, h3):nth-child(2)'), true)
+  assert.equal(placeBroad(".x [data-type='horizontalRule']:not([data-variant='ribbon']):nth-of-type(even) hr"), true)
+  assert.equal(placeBroad('.x hr:nth-of-type(even)'), true)
+  assert.equal(placeBroad('.sticky-text[data-hide-first] .ProseMirror > :is(h1, h2):where(.sticky-text[data-hide-first] *):nth-child(2)'), false)
+  assert.equal(placeBroad(".x [data-type='horizontalRule']:not([data-variant='ribbon']):where([contenteditable='false'] *):nth-of-type(even) hr"), false)
+  assert.equal(placeBroad('.mf-rise:nth-of-type(2)'), false)
+  assert.equal(placeBroad('.mf-blur-edge > span:nth-child(1)'), false)
+  assert.equal(placeBroad('.mf-columns-row:has(> :nth-child(3))'), false)
+  assert.equal(placeBroad('.cal:nth-child(2)[data-selected=true] button'), false)
+  assert.equal(placeBroad('.x > :not(:first-child)'), false)
+})
+
+/**
+ * Whether a sibling rule (+ or ~) sits among a note's blocks: its line before names what a block carries (".mf-p + p",
+ * ".ProseMirror-widget + h1"), or, inside the editor, its last part is a block. Chromium asks a sibling rule of
+ * everything under the parent of what came or went, so each new line typed (Enter, a paste, ⌘Z) restyled every
+ * paragraph, or every heading, of the note (15 Nov: 3,472 and 744 in the largest). Mark the block from the editor
+ * (extensions/block-room.ts) instead: ":has(+ p)" on the line before is no way out, Chromium then walks back through
+ * every block before the one put in.
+ */
+export const siblingBlocks = (selector: string): boolean => {
+  const parts = compounds(selector)
+  const flat = blank(selector)
+  if (!/[+~]/.test(flat)) return false
+  const joins = [...flat.matchAll(/\s*([\s>+~])\s*/g)].map((found) => found[1].trim() || ' ')
+  const editor = /\.(?:ProseMirror|tiptap)\b/.test(selector)
+  return joins.some((join, i) => (join === '+' || join === '~') && (!notBlockName(parts[i]) || (editor && !notBlock(parts.at(-1)!))))
+}
+/** Whether a compound names no class or attribute a note's blocks carry. */
+const notBlockName = (compound: string): boolean =>
+  ![...blank(compound.replace(/:not\((?:[^()]|\([^()]*\))*\)/g, '')).matchAll(/[.#[]/g)].some((found) => BLOCK_NAME.test(compound.replace(/:not\((?:[^()]|\([^()]*\))*\)/g, '').slice(found.index)))
+
+test('the block sibling rule is right on known cases', () => {
+  assert.equal(siblingBlocks('.x > .mf-p + p'), true)
+  assert.equal(siblingBlocks('.x > .mf-h + p'), true)
+  assert.equal(siblingBlocks('.tiptap.ProseMirror > .ProseMirror-widget + h1'), true)
+  assert.equal(siblingBlocks('.tiptap.ProseMirror > .mf-property-holder + h2'), true)
+  assert.equal(siblingBlocks('.x > .mf-p:has(+ p)'), false)
+  assert.equal(siblingBlocks('.tiptap.ProseMirror .tiptap-task-priority ~ br.ProseMirror-trailingBreak'), false)
+  assert.equal(siblingBlocks(".mf-segs > .mf-seg:is(:hover, [data-state='open']) + :where(.mf-seg)::before"), false)
+})
+
 /** Every selector of a stylesheet written out whole: SCSS's nesting ("&", a part opening with "+") resolved. */
 const selectors = (text: string): string[] => {
   const out: string[] = []
@@ -186,6 +267,23 @@ test('no sibling rule leaves its left part unnamed, written out whole as SCSS ne
     for (const selector of selectors(text)) if (siblingUnnamed(selector)) found.push(`${file}: ${selector}`)
   }
   assert.deepEqual(found, [], `name the line before by a class, an id or an attribute, or ask its place (:not(:first-child), :nth-child(2)): ${found.join('\n')}`)
+})
+
+test('no place is asked of a note\'s blocks, and no sibling rule sits among them', () => {
+  const found: string[] = []
+  for (const file of files('src/renderer/src', /\.s?css$/)) {
+    const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+    // An :is() list of places is each its own selector here.
+    for (const selector of selectors(text).flatMap((one) => [one, ...[...one.matchAll(/:is\(((?:[^()]|\([^()]*\))*)\)/g)].flatMap((found) => list(found[1]))]))
+      if (placeBroad(selector) || siblingBlocks(selector)) found.push(`${file}: ${selector}`)
+  }
+  // Tailwind's own selectors in class names ("[&>:nth-child(2)]:ml-2"): "&" is the element, "_" a space.
+  for (const file of files('src/renderer/src', /\.tsx?$/))
+    for (const variant of readFileSync(file, 'utf8').matchAll(/\[(&[^\]\s'"`]*(?:\[[^\]]*\][^\]\s'"`]*)*)\]:/g)) {
+      const selector = variant[1].replace(/&/g, '.x').replace(/_/g, ' ')
+      if (placeBroad(selector) || siblingBlocks(selector)) found.push(`${file}: [${variant[1]}]`)
+    }
+  assert.deepEqual(found, [], `ask a place only of what names a class or an attribute no block carries, and keep a block's room on itself: ${found.join('\n')}`)
 })
 
 /** The welcome covers the app whole while it shows (main.css): nothing under it is drawn or restyled meanwhile. */
