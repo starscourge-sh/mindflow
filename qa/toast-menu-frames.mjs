@@ -47,7 +47,8 @@ try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   await go('inbox')
   await wait(800)
-  const say = () => h.evaluate((text) => window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, tone: 'success' } })), WORDS)
+  // With an Undo, as most notices that matter have: it stays 6 s, longer than the frames take to film.
+  const say = () => h.evaluate((text) => window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, tone: 'success', undo: () => undefined } })), WORDS)
   // Two presses on the rows beside the notice, a little left of it (never on the notice: it takes clicks): one just
   // above it, whose menu opens upward, clear of it; one just below it, whose menu, kept inside the window, rises over
   // its place (the user's case: a right-click near the foot of the page).
@@ -72,7 +73,7 @@ try {
     if (!spot) continue
     await h.mouse.move(spot.x, spot.y)
     await h.mouse.click(spot.x, spot.y, { button: 'right' })
-    const opening = await film(`${way}-open`, 12)
+    const opening = await film(`${way}-open`, 10)
     const shown = opening.filter((f) => f.menu)
     check(`${way}: a real right-click menu opened`, shown.length > 0, `${shown.length} of ${opening.length} frames`)
     if (!shown.length) continue
@@ -85,8 +86,9 @@ try {
       check(`${way}: and a click there reaches the menu`, settled.click === 'the menu', settled.click)
     } else check(`${way}: not covered, the notice stays readable where it is`, shown.every((f) => f.notice && !f.hidden && f.opacity > 0.95), JSON.stringify(shown.at(-1)))
     await h.keyboard.press('Escape')
-    const closing = await film(`${way}-close`, 10)
+    const closing = await film(`${way}-close`, 8)
     const last = closing.at(-1)
+    // Covered, its clock stopped (ui.tsx `covered`): it is still there to read once the menu goes.
     check(`${way}: the menu shut, the notice is back in the same place, readable`, !last.menu && !!last.notice && !last.hidden && last.opacity > 0.95 && Math.abs(last.notice.top - before.notice.top) <= 1, JSON.stringify(last))
     await wait(400)
   }
