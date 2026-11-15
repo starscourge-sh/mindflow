@@ -305,7 +305,7 @@ const PANEL_WIDTH = 440
  */
 const HEADER_SHAPE = 'h-[28px] rounded-full border border-foreground/15 bg-[color-mix(in_oklab,var(--background)_max(60%,var(--mf-window-tint,20%)),transparent)]'
 
-const Header = ({ panel, drawn, onPanel, onNew, onBrowse, menu, nav, title, aside }: {
+const Header = ({ panel, drawn, onPanel, onNew, onBrowse, onAutoSize, menu, nav, title, aside }: {
   panel: boolean
   /** The panel is on screen, or still gliding away. */
   drawn: boolean
@@ -314,6 +314,8 @@ const Header = ({ panel, drawn, onPanel, onNew, onBrowse, menu, nav, title, asid
   onNew: () => void
   /** A small window's: another note in this window, picked by name. */
   onBrowse?: () => void
+  /** A small window resized by hand: growing with the words again. */
+  onAutoSize?: () => void
   /** The actions menu, handed the window's size and the way to change it. */
   menu: (expanded: boolean, toggleExpanded: () => void) => React.ReactNode
   nav?: React.ReactNode
@@ -428,6 +430,16 @@ const Header = ({ panel, drawn, onPanel, onNew, onBrowse, menu, nav, title, asid
           className={`mf-pill absolute right-0 flex items-center overflow-hidden mf-segs ${HEADER_SHAPE} opacity-0 transition-opacity duration-150 [.pointer-in_&]:opacity-100 [.pointer-in_.mf-top:has([data-aside])_&]:delay-150 has-[[data-state=open]]:opacity-100`}
           style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
         >
+          {/* Resized by hand, a small window stops growing with the words: this gives it back (and the menu's
+              “Auto-size”). In its bottom row it pushed “Close note” past the edge; floated, it covered the row. */}
+          {onAutoSize && (
+            <Tip label="Auto-size: grow with the words again">
+              <button type="button" tabIndex={-1} aria-label="Auto-size" data-small-auto className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-foreground transition-colors hover:bg-accent/60"
+                onMouseDown={(event) => event.preventDefault()} onClick={onAutoSize}>
+                <ArrowUpDown className="size-3.5" strokeWidth={1.75} />
+              </button>
+            </Tip>
+          )}
           <Tip label={SMALL ? 'New note in this window  ⌘N' : 'New capture  ⌘N'}>
             <button type="button" tabIndex={-1} aria-label={SMALL ? 'New note' : 'New capture'} className="relative flex size-[22px] after:absolute after:-inset-0.5 after:rounded-full items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()} onClick={onNew}>
@@ -2306,7 +2318,7 @@ export default function App(): React.JSX.Element {
       </AnimatePresence>
       <FocusNote />
       <FocusScenery />
-      <Header panel={panel} drawn={panelDrawn} onPanel={SMALL ? undefined : () => setPanel(!panelWanted.current)} onBrowse={SMALL ? () => (chime('tap'), setSearching('notes')) : undefined} nav={trail.stack.length > 1 && (
+      <Header panel={panel} drawn={panelDrawn} onPanel={SMALL ? undefined : () => setPanel(!panelWanted.current)} onBrowse={SMALL ? () => (chime('tap'), setSearching('notes')) : undefined} onAutoSize={SMALL && small && !small.auto ? () => (chime('on'), setSmallSwitch({ auto: true })) : undefined} nav={trail.stack.length > 1 && (
         // Back and forward, joined in one pill as Safari and Raycast do it.
         <span className="mf-segs ml-3 self-center rounded-full shrink-0 border border-foreground/15 [&_svg]:size-3">
           {([['Back  ⌘[', -1, ChevronLeft], ['Forward  ⌘]', 1, ChevronRight]] as const).map(([label, by, Icon]) => (
@@ -2730,15 +2742,6 @@ export default function App(): React.JSX.Element {
                   <RoundPair label="Record or dictate" icon={<MicIcon className="size-[15px]" />} button={{ 'data-record-button': true }} choices={VOICE_CHOICES}
                     onPick={(id) => editorRef.current && void (id === 'record' ? recordInto(editorRef.current, recordSlot.current) : talkInto('tap', editorRef.current))} />
                 </span>
-              )}
-              {/* Resized by hand, a small window stops growing with the words: this, in its own row, gives it back (and
-                  the menu's “Auto-size”). Floated over the row, it covered the row's own buttons. */}
-              {SMALL && small && !small.auto && (
-                <button type="button" data-small-auto tabIndex={-1} onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => (chime('on'), setSmallSwitch({ auto: true }))}
-                  className="ml-1 inline-flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-accent/60 px-2.5 text-xs text-muted-foreground transition-[color,background-color,scale] hover:bg-accent hover:text-foreground active:scale-[0.97]">
-                  <ArrowUpDown className="size-3" strokeWidth={1.75} />Auto-size
-                </button>
               )}
               <span className="flex-1" />
               {/* In the sandbox, said here too: a practice box, not your own. */}
