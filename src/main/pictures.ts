@@ -1,6 +1,8 @@
 import { app, ipcMain, nativeImage } from 'electron'
 import { imageSizeFromFile } from 'image-size/fromFile'
-import { join } from 'path'
+import { existsSync } from 'fs'
+import { mkdir, writeFile } from 'fs/promises'
+import { dirname, join } from 'path'
 import { rgbaToThumbHash } from 'thumbhash'
 
 import { database } from './captures'
@@ -28,6 +30,23 @@ type PictureLook = [number, number, string, number, number]
 const PICTURE = /^[a-f0-9]{64}\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/
 /** The folder every picture and file a note holds is kept in. */
 export const assetsDir = (): string => join(app.getPath('userData'), 'assets')
+
+/**
+ * A stored picture's small copy, at most `size` on its long side (`tall`: its height, for rows and tiles that crop):
+ * drawn by macOS's own thumbnailer, outside this thread, and kept beside the store, so each is made once, ever. The
+ * original is never opened here: this thread answers every window, and a 10,446 by 13,522 painting held the app for
+ * seconds on every run (the user, 15 Nov 2026: "this page struggles to display content e.g images quickly despite it
+ * being a local app"). Its path, or null when the Mac draws none (an SVG).
+ */
+export async function smallCopy(name: string, size: number, tall = false): Promise<string | null> {
+  const small = join(assetsDir(), '..', 'thumbs', `${name.replace(/\.[a-z0-9]+$/, '')}-${tall ? 'h' : ''}${size}.${/\.png$/i.test(name) ? 'png' : 'jpg'}`)
+  if (existsSync(small)) return small
+  const made = await nativeImage.createThumbnailFromPath(join(assetsDir(), name), tall ? { width: size * 3, height: size } : { width: size, height: size }).catch(() => null)
+  if (!made || made.isEmpty()) return null
+  await mkdir(dirname(small), { recursive: true })
+  await writeFile(small, small.endsWith('.png') ? made.toPNG() : made.toJPEG(85))
+  return small
+}
 
 let made = false
 const db = (): ReturnType<typeof database> => {

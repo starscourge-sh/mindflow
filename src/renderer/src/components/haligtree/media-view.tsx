@@ -173,8 +173,8 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   }, [all, query, inside, kind, decks, unlinkedOnly, table])
   // Table's filters, from Display: what kind (where there is more than one), and whether a note holds it.
   const facets = useMemo<Facet<Media>[]>(() => [
-    ...(kind === 'all' ? [{ key: 'kind', label: 'Kind', options: [{ id: 'pdf', label: 'Books' }, { id: 'picture', label: 'Pictures' }, { id: 'gif', label: 'GIFs' }, { id: 'audio', label: 'Recordings' }, { id: 'video', label: 'Videos' }, { id: 'document', label: 'Documents' }].filter((option) => all.some((one) => one.kind === option.id)), test: (one: Media, id: string) => one.kind === id }]
-      : kind === 'picture' ? [{ key: 'kind', label: 'Kind', options: [{ id: 'picture', label: 'Pictures' }, { id: 'gif', label: 'GIFs' }], test: (one: Media, id: string) => one.kind === id }] : []),
+    ...(kind === 'all' ? [{ key: 'kind', label: 'Kind', options: [{ id: 'pdf', label: 'Books' }, { id: 'picture', label: 'Images' }, { id: 'gif', label: 'GIFs' }, { id: 'audio', label: 'Recordings' }, { id: 'video', label: 'Videos' }, { id: 'document', label: 'Documents' }].filter((option) => all.some((one) => one.kind === option.id)), test: (one: Media, id: string) => one.kind === id }]
+      : kind === 'picture' ? [{ key: 'kind', label: 'Kind', options: [{ id: 'picture', label: 'Images' }, { id: 'gif', label: 'GIFs' }], test: (one: Media, id: string) => one.kind === id }] : []),
     { key: 'where', label: 'In a note', options: [{ id: 'used', label: 'In a note' }, { id: 'free', label: 'In no note' }], test: (one, id) => (one.uses.length > 0) === (id === 'used') }
   ], [kind, all])
   // In Table, in the order Display or a column asks for; else as each view draws its own.

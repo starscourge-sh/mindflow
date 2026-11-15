@@ -8,7 +8,7 @@ import { LABEL, atomically, bookStamp, changed, database } from './captures'
 import { ask } from './reader'
 import { versionRule } from './version-rule'
 import { celebrateAfter, watches } from './celebrate'
-import { assetsDir, known } from './pictures'
+import { assetsDir, known, smallCopy } from './pictures'
 import { gate, plain, tellGoals } from './haligtree'
 import { syncLineCards } from './line-cards'
 import { centredOn, glide, stillNow } from './glide'
@@ -193,8 +193,6 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       small.set(key, made)
       return made
     }
-    // A huge original is never opened for a list: it shows its kind instead.
-    if (((await stat(join(assetsDir(), name)).catch(() => null))?.size ?? 0) > 30 * 1024 * 1024) return (small.set(key, ''), '')
     // A PDF's first page, as Quick Look draws it: no reader needed.
     if (/\.pdf$/.test(name)) {
       const frame = await nativeImage.createThumbnailFromPath(join(assetsDir(), name), { width: tall * 2, height: tall * 2 }).catch(() => null)
@@ -203,7 +201,9 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
       return made
     }
     if (!/\.(png|jpe?g|gif|webp|avif|bmp|heic|svg)$/.test(name)) return ''
-    const image = nativeImage.createFromPath(join(assetsDir(), name))
+    // Its small copy, made once, ever, by the Mac (pictures.ts smallCopy): the original is never opened on this thread.
+    const copy = await smallCopy(name, tall, true)
+    const image = copy ? nativeImage.createFromPath(copy) : nativeImage.createEmpty()
     // A picture the system cannot shrink (an SVG, often a WebP) is shown as it
     // is; a small one as a data URL, so a canvas may still read its colour.
     const kind = name.match(/\.(\w+)$/)?.[1]

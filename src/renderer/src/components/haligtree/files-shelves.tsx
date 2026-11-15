@@ -31,9 +31,10 @@ export const SHELVES: { id: Shelf; label: string; one: string; many: string }[] 
   { id: 'document', label: 'Documents', one: 'document', many: 'documents' }
 ]
 
-/** What a file is, in a word: a document by its own ending ("DOCX", "ZIP"), as Finder's Kind column starts. */
+/** What a file is, in a word: a document by its own ending ("DOCX", "ZIP"), as Finder's Kind column starts; a picture is an
+ * "Image", as Files' own tab and filter call them. */
 export const kindWord = (one: Pick<Media, 'kind' | 'name' | 'src'>): string => {
-  if (one.kind !== 'document') return ({ picture: 'Picture', gif: 'GIF', pdf: 'PDF', audio: 'Recording', video: 'Video' } as const)[one.kind]
+  if (one.kind !== 'document') return ({ picture: 'Image', gif: 'GIF', pdf: 'PDF', audio: 'Recording', video: 'Video' } as const)[one.kind]
   const end = /\.([a-z0-9]{1,8})$/i.exec(one.name)?.[1] ?? /\.([a-z0-9]+)$/.exec(one.src)?.[1]
   return end && end !== 'bin' ? end.toUpperCase() : 'File'
 }
@@ -193,7 +194,7 @@ export const RECENT_GAP = 16
 export function RecentGrid({ files, across, when, onOpen, menuFor, onShowAll, more }: {
   files: Media[]
   across: number
-  /** What its quiet line says of when: "Opened today", "Added 9 Nov" (its face says what kind it is). */
+  /** What its quiet line says of when: "Opened today", "Added 9 Nov", after its kind ("Image · Opened today"). */
   when: (one: Media) => string
   onOpen: (one: Media, event: React.MouseEvent) => void
   menuFor: (one: Media) => RowItem[]
@@ -218,7 +219,8 @@ export function RecentGrid({ files, across, when, onOpen, menuFor, onShowAll, mo
                 <Cover one={one} className="size-full" />
               </span>
               <span dir="auto" data-media-name className={`pdf-book-title ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>
-              <span className="pdf-book-meta">{when(one)}</span>
+              {/* Its kind first, quietly, so a picture is told from a PDF or a book whatever its face shows (the user, 15 Nov 2026). */}
+              <span className="pdf-book-meta">{kindWord(one)} · {when(one)}</span>
             </button>
           </RowMenu>
         ))}

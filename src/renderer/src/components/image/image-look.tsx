@@ -2,6 +2,7 @@ import { markOpened } from '@/lib/media-opened'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { blurFor, lookOf } from "@/lib/pictures"
+import { small } from "@/lib/small-picture"
 import { createRoot } from "react-dom/client"
 import { NodeSelection } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
@@ -428,6 +429,22 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
   const fit = fitOf(picture)
   const src = picture.src
   const stored = src.startsWith("haligtree://assets/")
+  // A big stored picture is drawn at the screen's size, its copy made once by the Mac (`?w=`, index.ts): drawing and
+  // moving its original (up to 141 megapixels here) held the window for seconds as it opened and as it closed (the user,
+  // 15 Nov 2026: "preview the images is glitchy and takes a while, it actually freeses"). Zoomed in, the original comes in
+  // once it has been read, and stays.
+  const screenLong = Math.max(screen.width, screen.height) * devicePixelRatio
+  const shrunk = stored && Math.max(picture.width, picture.height) > screenLong
+  const [sharp, setSharp] = useState(false)
+  useEffect(() => {
+    if (!shrunk || sharp || view.zoom <= 1) return
+    let gone = false
+    const full = new Image()
+    full.src = src
+    void full.decode().then(() => !gone && setSharp(true), () => undefined)
+    return () => void (gone = true)
+  }, [shrunk, sharp, view.zoom > 1, src]) // eslint-disable-line react-hooks/exhaustive-deps
+  const drawn = shrunk && !sharp ? small(src, screenLong) : src
   const caption = picture.caption
   const most = Math.max(4, 2 / fit.scale)
   // Its words where they lie (Live Text), read once by the Mac; none shown until there are some.
@@ -701,7 +718,7 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
         <RowMenu items={() => menuOf()}>
         <motion.div className="mf-look-lean" style={{ rotateX: leanX, rotateY: leanY }} onPointerMove={lean} onPointerLeave={unlean}>
         <img
-          src={src}
+          src={drawn}
           alt={caption}
           draggable={false}
           className="mf-look-image"
