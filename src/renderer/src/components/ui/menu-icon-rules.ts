@@ -24,6 +24,9 @@ const RULES: [RegExp, LucideIcon][] = [
   // The Calendar's panels, as lines of its ⋯ when the bar is narrow.
   [/^the small month and calendars$/i, PanelLeft],
   [/^upcoming$/i, PanelRight],
+  // A row of columns in a note (block-menu.tsx): each column a card, or plain columns again.
+  [/^show as cards$/i, LayoutGrid],
+  [/^show as plain columns$/i, Columns2],
   // A table's row and column menus (table-menu.tsx): where the new one goes.
   [/^insert row above$/i, ArrowUpToLine],
   [/^insert row below$/i, ArrowDownToLine],

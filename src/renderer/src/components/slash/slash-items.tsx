@@ -1,4 +1,4 @@
-import { ChartSpline, Columns2, Columns3, Workflow as DiagramIcon, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Superscript as FootnoteIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users, BookMarked as CiteIcon } from 'lucide-react'
+import { ChartSpline, Columns2, Columns3, GalleryHorizontal, Workflow as DiagramIcon, FileStack as EmbedIcon, Link2 as LinkIcon, TableOfContents as ContentsIcon, Minus as DividerIcon, Sigma as SigmaIcon, Superscript as FootnoteIcon, Table as TableIcon, Paperclip, Speech, SquarePlay as VideoIcon, Users, BookMarked as CiteIcon } from 'lucide-react'
 
 import type { Editor } from '@tiptap/core'
 import { isInTable } from '@tiptap/pm/tables'
@@ -285,12 +285,13 @@ export const slashItems: SlashItem[] = [
   },
   // Side by side, each column any blocks. Not inside another row: Markdown
   // could not tell where the inner one ends.
-  ...([2, 3] as const).map((count) => ({
-    title: `${count === 2 ? 'Two' : 'Three'} columns`,
+  // "Cards in a row": three, each column a quiet card of its own (Obsidian's cards in a row).
+  ...([2, 3, 'cards'] as const).map((count) => ({
+    title: count === 'cards' ? 'Cards in a row' : `${count === 2 ? 'Two' : 'Three'} columns`,
     group: 'Basic blocks',
-    hint: 'side by side',
-    keywords: ['columns', 'layout', 'side by side'],
-    icon: count === 2 ? <Columns2 /> : <Columns3 />,
+    hint: count === 'cards' ? 'side by side, each a card' : 'side by side',
+    keywords: ['columns', 'layout', 'side by side', ...(count === 'cards' ? ['cards', 'panels', 'board'] : [])],
+    icon: count === 2 ? <Columns2 /> : count === 3 ? <Columns3 /> : <GalleryHorizontal />,
     // Not in another row, nor in a table's cell.
     when: (editor: Editor) => !editor.isActive('column') && !isInTable(editor.state),
     run: (editor: Editor) => {
@@ -298,7 +299,7 @@ export const slashItems: SlashItem[] = [
       // On an empty line the row takes its place; otherwise it goes under it.
       const range = $from.parent.content.size ? $from.after() : { from: $from.before(), to: $from.after() }
       const at = typeof range === 'number' ? range : range.from
-      editor.chain().focus().insertContentAt(range, emptyColumns(count)).setTextSelection(at + 3).run()
+      editor.chain().focus().insertContentAt(range, count === 'cards' ? emptyColumns(3, true) : emptyColumns(count)).setTextSelection(at + 3).run()
     }
   })),
   {

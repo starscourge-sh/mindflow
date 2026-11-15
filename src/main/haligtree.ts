@@ -208,7 +208,7 @@ export function markdown(value: unknown, nameOf: (id: string) => string | undefi
       case 'youtube': return captioned(`![](${node.attrs?.src ?? ''})`, node)
       case 'attachment': return captioned(`[${node.attrs?.name || 'Attachment'}](${node.attrs?.src ?? ''})`, node)
       // Markdown has no columns: each one's blocks in turn, between marks Haligtree reads back.
-      case 'columns': return ['<!-- columns -->', kids.map((column) => block(column)).join('\n\n<!-- column -->\n\n'), '<!-- /columns -->'].join('\n\n')
+      case 'columns': return [node.attrs?.look === 'cards' ? '<!-- columns cards -->' : '<!-- columns -->', kids.map((column) => block(column)).join('\n\n<!-- column -->\n\n'), '<!-- /columns -->'].join('\n\n')
       // A link card as Obsidian's cardlink block, which is what it came in as.
       case 'bookmark': return ['```cardlink', ...Object.entries({ url: node.attrs?.href, title: node.attrs?.title, description: node.attrs?.description, host: node.attrs?.site, favicon: node.attrs?.icon, image: node.attrs?.image })
         .filter(([, value]) => value).map(([key, value]) => `${key}: ${JSON.stringify(value)}`), '```'].join('\n')

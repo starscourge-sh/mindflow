@@ -43,7 +43,7 @@ function markdownPieces(markdown: string, size = 16000, whole = true): string[] 
     if (line.includes("<!--") && !line.includes("-->")) comment = true
     else if (comment && line.includes("-->")) comment = false
     // Columns too: their marks only mean something read together.
-    if (/^:::\w/.test(line) || line.trim() === "<!-- columns -->") folded += 1
+    if (/^:::\w/.test(line) || /^<!-- columns( cards)? -->$/.test(line.trim())) folded += 1
     else if ((line.trim() === ":::" || line.trim() === "<!-- /columns -->") && folded) folded -= 1
     const next = lines[at + 1]
     if (next === undefined || maths || comment || folded || length < size) continue

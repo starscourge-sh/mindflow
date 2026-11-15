@@ -635,6 +635,19 @@ export function BlockMenu({
             ))
           : null}
 
+        {/* A row of columns: each column a card of its own, or plain again ("Cards in a row" in the slash menu). */}
+        {thing?.type.name === "columns" && matches(thing.attrs.look === "cards" ? "Show as plain columns" : "Show as cards") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" onClick={() => at(() => {
+              const found = resolve()
+              if (found) editor.view.dispatch(editor.state.tr.setNodeMarkup(found.pos, undefined, { ...found.node.attrs, look: found.node.attrs.look === "cards" ? null : "cards" }))
+            })}>
+              <MenuGlyph label={thing.attrs.look === "cards" ? "Show as plain columns" : "Show as cards"} />
+              <span className="tiptap-slash-menu-title">{thing.attrs.look === "cards" ? "Show as plain columns" : "Show as cards"}</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+
         {href && matches("Open in the browser") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => window.open(href)}>
