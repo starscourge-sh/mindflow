@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { chime } from '@/lib/sound'
 import { cn } from '@/lib/cn'
 import { TIME_GRID, clock } from '@/lib/clock'
-import { useLive, haligtree, type DaySession, type LogEntry } from '@/lib/haligtree'
+import { haligtree, type DaySession, type LogEntry } from '@/lib/haligtree'
 import { rewordText } from './reword'
 import { Island, Rolling, Tags, Tip } from './ui'
 import { RowMenu, type RowItem } from './row-menu'
@@ -115,8 +115,7 @@ const spent = (one: DaySession): string => {
  * with its timeline. Nothing worked on, nothing shown. One abandoned is
  * there too, faint and marked abandoned, and left out of the count.
  */
-export function DaySessions({ day, onOpen, menuFor }: { day: string; onOpen?: (type: string, id: string) => void; /** Its task's menu, as every other row on the page has. */ menuFor?: (taskId: string) => RowItem[] }): React.JSX.Element | null {
-  const sessions = useLive(() => haligtree.daySessions(day), [] as DaySession[], [day])
+export function DaySessions({ sessions, onOpen, menuFor }: { /** The day's sessions, as the day's page reads them (day-view.tsx). */ sessions: DaySession[]; onOpen?: (type: string, id: string) => void; /** Its task's menu, as every other row on the page has. */ menuFor?: (taskId: string) => RowItem[] }): React.JSX.Element | null {
   const [naming, setNaming] = useState<string | null>(null)
   if (!sessions.length) return null
   // An abandoned one is shown, faint and said so, but not counted.
