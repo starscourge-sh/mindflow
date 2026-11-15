@@ -402,14 +402,21 @@ export function Clear({ children }: { children: ReactNode }): React.JSX.Element 
   return <motion.div ref={clear.ref} style={{ y: clear.y }}>{children}</motion.div>
 }
 
-/** That card where the pointer is (`x`, `y`): just past it, level with it, over everything, and clear of the line. */
-export const CardAt = ({ x, y, children }: { x: number; y: number; children: ReactNode }): React.JSX.Element =>
-  createPortal(
-    <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ left: x + 18, top: y, translate: '0 -50%' }}>
+/**
+ * That card where the pointer is (`x`, `y`): just past it, level with it, over everything, and clear of the line. Never
+ * past the window's right edge: carried to the far side of the page (a note's block going beside another), it rides on
+ * the pointer's other side, as wide as it would be (CarriedCard's widest).
+ */
+export function CardAt({ x, y, children }: { x: number; y: number; children: ReactNode }): React.JSX.Element {
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  const flip = x + 18 + Math.min(20 * rem, window.innerWidth - 9 * rem) + 8 > window.innerWidth
+  return createPortal(
+    <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ left: flip ? x - 18 : x + 18, top: y, translate: flip ? '-100% -50%' : '0 -50%' }}>
       <Clear>{children}</Clear>
     </div>,
     document.body
   )
+}
 
 type RowProps = { id: string; children: ReactNode; inner?: CSSProperties; indent?: number; /** A list that draws its own handle says so. */ grip?: boolean }
 
