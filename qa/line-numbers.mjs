@@ -171,9 +171,16 @@ try {
   await h.evaluate(() => document.querySelector('[data-open] .tiptap').editor.commands.focus('end'))
   await h.keyboard.press('Meta+k'); await wait(500)
   await h.keyboard.type('line numbers', { delay: 20 }); await wait(500)
-  const offered = await h.evaluate(() => [...document.querySelectorAll('[cmdk-item]')].map((one) => one.textContent).find((words) => /Turn line numbers/.test(words)) ?? null)
-  // Pressed with the pointer: a setting of the same name may stand first in the list.
-  if (offered) await h.click('[cmdk-item]:has-text("Turn line numbers off")')
+  // ⌘K's actions are rows with their words in data-action-label; pressed with the pointer, as a setting of the
+  // same name may stand first in the list.
+  const row = await h.evaluate(() => {
+    const label = [...document.querySelectorAll('[data-action-label]')].find((one) => /Turn line numbers/.test(one.textContent))
+    const r = label?.getBoundingClientRect()
+    return label ? { words: label.textContent, x: r.left + r.width / 2, y: r.top + r.height / 2 } : null
+  })
+  const offered = row?.words ?? null
+  if (row) await h.mouse.click(row.x, row.y)
+  else await h.keyboard.press('Escape')
   await wait(700)
   const said = await h.evaluate(() => document.body.innerText.includes('Line numbers off'))
   check('⌘K offers “Turn line numbers off”, and pressing it turns them off with a notice', /Turn line numbers off/.test(offered ?? '') && (await v('settings')).lineNumbers === false && said, `${offered}; notice ${said}`)

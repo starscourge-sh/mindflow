@@ -38,6 +38,8 @@ const stop = () => h.evaluate(() => { window.__rec = false; return window.__fram
 const sum = (frames) => `${frames.length} frames, ${frames.filter((ms) => ms > 17.5).length} over 17.5 ms, longest ${Math.round(Math.max(0, ...frames) * 10) / 10} ms`
 try {
   await h.evaluate((vim) => { localStorage.setItem('vim', vim ? 'on' : 'off'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: vim ? 'on' : 'off' })) }, VIM)
+  // NUMBERS=off: the same build with “Line numbers” off, to tell what the numbers cost from what the machine is doing.
+  await c.v('settings:set', { lineNumbers: process.env.NUMBERS !== 'off' })
   await send('capture', note.id)
   await h.waitForFunction(() => !!document.querySelector('[data-open] .tiptap[data-long]'), null, { timeout: 60000 })
   await wait(4000)
