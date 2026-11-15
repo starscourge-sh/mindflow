@@ -88,9 +88,9 @@ export function followPdfLink(href: string): boolean {
 
 /**
  * A link in a note followed on a click, as its hover says, wherever the note's words are drawn (its page, quick
- * capture, a board's cards): a PDF's in the reader at its page (beside, on ⌥-click), a web page in the browser, or
- * in the reader to the side of `from` (the pane it was clicked in) on ⌥-click. ⌘-click on a web page is the
- * browser's too (setWindowOpenHandler in main).
+ * capture, a board's cards, a link card): a PDF's in the reader at its page (beside, on ⌥-click), a web page in the
+ * browser, or in the reader to the side of `from` (the pane it was clicked in) on ⌥-click. ⌘-click on a web page is
+ * the browser's too (setWindowOpenHandler in main).
  */
 export function followLink(href: string, event: { altKey: boolean; metaKey: boolean }, from?: string | null): void {
   if (followPdfLink(href)) return
