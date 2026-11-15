@@ -5,7 +5,7 @@
 // a refused permission). Checks: the selfie is taken, kept in the session's
 // log and shown in the task's log; the screenshot goes into the note with its
 // caption; both refused states say so and open Privacy settings; the action
-// is in the gear menu and ⌘K. Run twice inside: allowed, then refused.
+// is in the gear menu, an empty box's too. Run twice inside: allowed, then refused.
 //   QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/attach-camera.mjs
 // QA_SHOTS=dir saves light and dark pictures.
 import { mkdirSync } from 'fs'
@@ -180,14 +180,15 @@ const freshBox = async (page) => {
     await page.waitForTimeout(1500)
     const count = await page.evaluate(() => (JSON.stringify(document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')?.editor?.getJSON() ?? {}).match(/"type":"image"/g) ?? []).length)
     check('choosing it adds another', count === 2, `${count} pictures`)
-    // In ⌘K.
-    await page.keyboard.press('Meta+k')
-    await page.waitForTimeout(500)
-    await page.keyboard.type('screenshot', { delay: 20 })
-    await page.waitForTimeout(700)
-    const found = await page.evaluate(() => document.body.innerText.includes('Attach a screenshot'))
-    check('⌘K finds “Attach a screenshot”', found)
-    if (shots) await page.screenshot({ path: `${shots}/box-cmdk-dark.png` })
+    // ⌘K in quick capture opens the main window's own since e5ad3bb60, so what quick capture did only through its ⌘K
+    // lives in the gear menu: an empty box offers “Attach a screenshot” there too (⌘N keeps these words, the box blank).
+    await page.keyboard.press('Meta+n')
+    await page.waitForTimeout(900)
+    await page.getByRole('button', { name: 'Options', exact: true }).click()
+    await page.waitForTimeout(400)
+    const empty = await page.evaluate(() => [...document.querySelectorAll('[role=menu] [role^=menuitem]')].map((one) => one.innerText.split('\n')[0].trim()))
+    check('an empty box\'s gear menu has “Attach a screenshot” too, where ⌘K had it', empty.includes('Attach a screenshot'), JSON.stringify(empty))
+    if (shots) await page.screenshot({ path: `${shots}/box-gear-empty-dark.png` })
     await page.keyboard.press('Escape')
   } finally {
     check('no page errors', c.errors.length === 0, c.errors.join(' / '))

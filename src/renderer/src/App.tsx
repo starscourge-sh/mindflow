@@ -2102,22 +2102,44 @@ export default function App(): React.JSX.Element {
   // What can be done to the note open in the box, written once: the gear
   // menu's first part, and what a right click on the note brings up. Nothing
   // to act on in an empty box or while reading something else, so no part then.
-  const noteSection: Section = { label: 'This note', items: reading || !(editing || started) ? [] : [
-    { label: 'Lock', hint: 'Read only until you unlock it', on: locked, set: setLocked },
-    { label: 'Private', hint: 'Blurred in lists, never shown as a hint', on: secret, set: (on: boolean) => {
-      setSecret(on)
-      if (editing) void haligtree.setPrivate('captures', editing.id, on, true)
-    } },
-    { label: 'Outline', hint: 'Its headings, beside the note', on: outline, set: setOutline },
-    ...(editing ? [{ label: 'Details', hint: 'Kind, date and where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
-    ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : []),
+  // Since ⌘K in quick capture opens the main window's (e5ad3bb60), what quick capture did to its own note only through
+  // its own ⌘K lives here: copying it as Markdown, sticking it on the desktop, folding its headings; and a screenshot,
+  // which an empty box may take too. A small window has the same menu.
+  const hasNote = !reading && (!!editing || started)
+  const noteSection: Section = { label: 'This note', items: reading ? [] : [
+    ...(hasNote ? [
+      { label: 'Lock', hint: 'Read only until you unlock it', on: locked, set: setLocked },
+      { label: 'Private', hint: 'Blurred in lists, never shown as a hint', on: secret, set: (on: boolean) => {
+        setSecret(on)
+        if (editing) void haligtree.setPrivate('captures', editing.id, on, true)
+      } },
+      { label: 'Outline', hint: 'Its headings, beside the note', on: outline, set: setOutline },
+      ...(editing ? [{ label: 'Details', hint: 'Kind, date and where it came from', on: details, keys: '⇧⌘D', set: setDetails }] : []),
+      ...(offersHidden > 0 ? [{ label: 'Add to a question or goal…', run: () => setOffersAll(true) }] : [])
+    ] : []),
     { label: 'Attach a screenshot', hint: `The screen behind this, without ${APP_NAME}`, keys: '⇧⌘2', run: () => setTimeout(() => void attachScreenshot(), 200) },
-    // Who and where, out of sight until there is something to say: brought out here.
-    ...(!askSource && !medium && !attribution && !lesson ? [{ label: asks.who || !asks.where ? 'Add who and where it’s from' : 'Add where it’s from', hint: 'The person, book or site it came from', run: () => {
-      setAskSource(true)
-      // After the menu has closed and handed focus back.
-      setTimeout(() => document.querySelector<HTMLInputElement>('[data-box-where]')?.focus(), 250)
-    } }] : [])
+    // Reading a report and keeping what matters: every line copied on this Mac lands in this note, Esc stops.
+    isCollecting()
+      ? { label: 'Stop collecting what I copy', hint: 'What you copy stays on the clipboard only', keys: '⎋', run: stopCollect }
+      : { label: 'Collect what I copy', hint: 'Everything you copy on this Mac lands in this note', run: () => void (startCollect() || refuse('Open a note to collect into')) },
+    ...(hasNote ? [
+      // Who and where, out of sight until there is something to say: brought out here.
+      ...(!askSource && !medium && !attribution && !lesson ? [{ label: asks.who || !asks.where ? 'Add who and where it’s from' : 'Add where it’s from', hint: 'The person, book or site it came from', run: () => {
+        setAskSource(true)
+        // After the menu has closed and handed focus back.
+        setTimeout(() => document.querySelector<HTMLInputElement>('[data-box-where]')?.focus(), 250)
+      } }] : []),
+      { label: 'Copy as Markdown', hint: 'Ready to paste anywhere', keys: '⇧⌘C', run: copyMarkdown },
+      ...(editing ? [{ label: 'Stick on the desktop', hint: 'Over every window, until you take it off', run: () => stickOnDesktop('capture', editing.id) }] : []),
+      { label: 'Fold every heading', hint: 'Only its headings show', run: () => void (foldEverything(true) || chime('nope')) },
+      { label: 'Unfold every heading', hint: 'Everything under them shows again', run: () => void (foldEverything(false) || chime('nope')) }
+    ] : [])
+  ] }
+  // What quick capture starts, beside its ⌘N: a voice note kept as a capture of its own, a question.
+  const newSection: Section = { label: 'New', items: [
+    SMALL ? { label: 'New note', hint: 'In this window: the one here stays where it lives', keys: '⌘N', run: () => startOver() } : { label: 'New capture', keys: '⌘N', run: () => startOver() },
+    { label: 'Record a voice note', hint: 'Kept as a new capture', run: () => void recordAsCapture((id) => openAny('capture', id)) },
+    { label: 'New question', hint: 'Kept in Questions until it is answered', run: () => void startQuestion(openAny) }
   ] }
   // A right click on the note away from any line (a line or a selection keeps its own menu).
   const [noteMenuAt, setNoteMenuAt] = useState<{ x: number; y: number } | null>(null)
@@ -2354,9 +2376,10 @@ export default function App(): React.JSX.Element {
           side="bottom"
           align="end"
           className="relative size-[22px] flex-none after:absolute after:-inset-0.5 after:rounded-full rounded-full hover:bg-accent/60"
-          // One menu for every tweak, in three parts: the note, quick capture, the window.
+          // One menu for every tweak, in four parts: the note, what it starts, quick capture's switches, the window.
           sections={[
             noteSection,
+            newSection,
             // Every switch in plain sight, none folded into a submenu: a submenu hides them and runs off the small box's edge.
             { label: SMALL ? 'Small window' : 'Quick capture', items: [
               'sounds',
@@ -2376,19 +2399,15 @@ export default function App(): React.JSX.Element {
               { label: 'Show in screen recordings', on: recordable, set: setRecordable },
               { label: 'Show private titles', hint: SMALL ? 'Until this window closes' : 'Until quick capture closes', on: reveal, set: setReveal },
               // For the technical: the note open, as JSON.
-              ...(noteSection.items.length ? [{ label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource }] : [])
+              ...(hasNote ? [{ label: 'Raw data', hint: 'The note as JSON, for the technical', on: source, keys: '⌘E', set: setSource }] : [])
             ] },
             { label: 'Window', items: [
-              { label: SMALL ? 'New note' : 'New capture', keys: '⌘N', run: () => startOver() },
               { label: editing || reading || hasContent(body) ? 'Open in main window' : 'Open the main window', keys: '⌘O', run: () => void promote() },
               ...(SMALL ? [] : [
                 { label: 'Open in a small window', hint: 'Keeps writing there while quick capture stays free', keys: '⌥⌘O', run: () => void promote('small') },
                 { label: expanded ? 'Shrink the window' : 'Expand the window', keys: '⌃⇧F', run: toggleExpanded }
               ]),
-              // Reading a report and keeping what matters: every line copied on this Mac lands in this note, Esc stops.
-              isCollecting()
-                ? { label: 'Stop collecting what I copy', hint: 'What you copy stays on the clipboard only', keys: '⎋', run: stopCollect }
-                : { label: 'Collect what I copy', hint: 'Everything you copy on this Mac lands in this note', run: () => void (startCollect() || refuse('Open a note to collect into')) },
+              { label: 'Keyboard shortcuts', hint: 'Every key, by what it does', keys: '?', run: () => window.dispatchEvent(new CustomEvent('haligtree:shortcuts')) },
               { label: 'Settings', keys: '⌘,', run: () => window.api.openInHome('view', 'settings') }
             ] }
           ]}
