@@ -19,7 +19,9 @@ try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   const id = await v('article:new')
   // A #tag in a page's title is the page's tag (as qa/folders.mjs makes one); its chip is under Properties, opened if folded.
-  await v('item:save', id, { title: 'A page with a tag #physics' })
+  // Long enough that its page scrolls, as the user's issue tracker does: the page's own scroller is what was misread.
+  const lines = Array.from({ length: 80 }, (_, n) => ({ type: 'paragraph', content: [{ type: 'text', text: `Line ${n + 1} of a long page, so that it scrolls.` }] }))
+  await v('item:save', id, { title: 'A page with a tag #physics', body: { type: 'doc', content: lines } })
   await h.waitForTimeout(600)
   await send('article', id)
   await h.waitForTimeout(1500)
