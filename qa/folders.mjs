@@ -166,15 +166,17 @@ try {
   await c.v('groups:nest', rent, money)
   await c.h.waitForTimeout(500)
 
-  // New folder from the + on Writing's row, named at once; named as a tag is, it offers that tag's notes once.
+  // New folder from Writing's right-click menu (its "+" adds a page since 15 Nov), named at once; named as a tag is,
+  // it offers that tag's notes once.
   const tagged = await c.v('article:new')
   await c.v('item:save', tagged, { title: 'Savings plan #taxes' })
   await c.h.waitForTimeout(600)
-  await writingRow.hover()
-  await c.h.locator('[data-folder-new="article"]').click()
+  await writingRow.click({ button: 'right' })
+  await c.h.waitForTimeout(500)
+  await c.h.locator('[role=menu] [role=menuitem]', { hasText: 'New folder' }).first().click()
   await c.h.waitForTimeout(700)
   const field = c.h.locator('aside [data-folder-name]')
-  check('the + makes a folder with its name open for typing', (await field.count()) === 1)
+  check('"New folder" in Writing\'s menu makes a folder with its name open for typing', (await field.count()) === 1)
   await field.fill('Taxes')
   await field.press('Enter')
   await c.h.waitForTimeout(1200)

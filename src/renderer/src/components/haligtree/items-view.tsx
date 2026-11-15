@@ -823,7 +823,13 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               {/* One button, as wide for either word, so nothing beside it moves when the chip changes. */}
               {writing && (
                 <Button variant="ghost" size="default" data-new-writing={questionsOnly ? 'question' : 'article'}
-                  onClick={() => (questionsOnly ? void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id))) : void haligtree.newArticle().then((id) => (chime('promote'), pick(id))))}>
+                  onClick={() => (questionsOnly ? void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id))) : void haligtree.newArticle().then(async (id) => {
+                    // Made in the folder you are in (the sidebar's, or a folder tile opened), as the sidebar's "+" makes it.
+                    const here = folder?.id ?? opened?.id
+                    if (here) await noteGroupsApi.place([{ id, group: here }])
+                    chime('promote')
+                    pick(id)
+                  }))}>
                   <Plus className="size-3.5" />
                   <span className="grid [&>*]:col-start-1 [&>*]:row-start-1">
                     <span className={questionsOnly ? 'invisible' : undefined}>New page</span>

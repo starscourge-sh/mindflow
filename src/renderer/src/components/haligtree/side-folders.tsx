@@ -17,7 +17,7 @@ import { DROP_LIT } from './sortable'
 import { pastEdge } from '@/lib/drag-edge'
 import { slotTicker } from '@/lib/proximity'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
-import { FolderPen, FolderHeart } from 'lucide-react'
+import { FolderPen, FolderHeart, Plus } from 'lucide-react'
 import { Count, Tip, quietly, refuse, sayNow, toast } from './ui'
 import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, tagsSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
 
@@ -59,7 +59,7 @@ export async function offerTag(list: 'article' | 'nugget' | null, id: string, na
  * dropped by another's top or bottom edge, it moves to just before or after
  * it, in the list's own order, as in Finder's sidebar.
  */
-export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen, onUnfold }: {
+export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen, onUnfold, onNewPage }: {
   list: 'article' | 'nugget'
   /** Each folder's count shown, as the sidebar's own counts are (Customize sidebar). */
   counted: boolean
@@ -73,6 +73,8 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
   noteRow?: React.ReactNode
   onOpen: (id: string) => void
   onUnfold: () => void
+  /** Writing's folders: a page made inside one, by its + or its menu (Notion's "Add a page inside"). */
+  onNewPage?: (folder: string) => void
 }): React.JSX.Element | null {
   const all = useGroups(list)
   const smart = useSmartGroups(list)
@@ -299,7 +301,7 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
         {these.flatMap((group) => {
           const inner = rows(group.id, depth + 1)
           return [
-            <Folder key={group.id} list={list} group={group} depth={depth} n={counted ? count(group) : null} here={here === group.id && !noteRow} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onOpen={onOpen} onNest={nest} drag={drag} />,
+            <Folder key={group.id} list={list} group={group} depth={depth} n={counted ? count(group) : null} here={here === group.id && !noteRow} naming={naming === group.id} onNamed={() => setNaming(null)} onRename={() => setNaming(group.id)} onNewPage={onNewPage} onOpen={onOpen} onNest={nest} drag={drag} />,
             inner && <div key={`${group.id}:in`} data-no-twig="">{inner}</div>
           ]
         })}
@@ -341,7 +343,7 @@ type Aim = { target: string; how: 'into' | 'before' | 'after'; /** Its line, whe
 type Drag = { carried: string | null; aim: Aim | null; carry: (event: React.PointerEvent, id: string) => void }
 
 
-function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen, onNest, drag }: {
+function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen, onNest, onNewPage, drag }: {
   list: 'article' | 'nugget'
   group: NoteGroup
   depth: number
@@ -353,6 +355,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   onRename: () => void
   onOpen: (id: string) => void
   onNest: (id: string, parent: string | null) => void
+  onNewPage?: (folder: string) => void
   drag: Drag
 }): React.JSX.Element {
   const [picking, setPicking] = useState(false)
@@ -379,6 +382,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
     ...openItems('folder', `${list}:${group.id}`),
     { label: 'Rename…', run: onRename },
     { label: 'Change icon…', run: () => setPicking(true) },
+    onNewPage && { label: 'New page inside', run: () => onNewPage(group.id) },
     depth < DEPTH - 1 && { label: 'New folder inside', run: () => newFolder(list, group.id) },
     group.parent ? { label: 'Move to the top', run: () => onNest(group.id, null) } : null,
     'separator',
@@ -397,7 +401,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
   return (
     <Popover open={picking} onOpenChange={setPicking}>
       <PopoverAnchor asChild>
-        <div className="relative flex items-center data-[carried-folder]:invisible" data-folder-line="" data-carry-held={drag.carried === group.id ? '' : undefined}
+        <div className="group/folder relative flex items-center data-[carried-folder]:invisible" data-folder-line="" data-carry-held={drag.carried === group.id ? '' : undefined}
           // Carried by its row onto another folder, it goes inside that one; by its top or bottom edge, before or after it.
           data-carried-folder={drag.carried === group.id ? '' : undefined}
           onPointerDown={(event) => !naming && !(event.target as Element).closest('[data-folder-icon]') && drag.carry(event, group.id)}>
@@ -428,7 +432,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
                 {/* Room for the icon, which is its own button over this one. */}
                 <span className="size-4 shrink-0" />
                 <Weighted on={here} className={`flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere] ${n === 0 && !here ? 'text-muted-foreground' : ''}`}>{group.name}</Weighted>
-                {n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
+                {n !== null && <Count n={n} className={`text-xs text-muted-foreground ${onNewPage ? 'transition-opacity duration-80 group-hover/folder:opacity-0' : ''}`} />}
               </button>
             </RowMenu>
           )}
@@ -442,6 +446,15 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
               ? <span data-folder-empty="" className="flex size-5 items-center justify-center rounded-[4px] border border-dashed border-foreground/35"><span className="opacity-45 grayscale-[0.6]"><GroupIcon icon={group.icon} color={group.color} className="size-3" /></span></span>
               : <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />}
           </button>
+          {/* A page inside it: a quiet + in the count's place, until pointed at (Notion's "Add a page inside"). */}
+          {onNewPage && !naming && (
+            <Tip label="Add a page inside">
+              <button type="button" data-folder-new-page={group.id} aria-label={`Add a page inside ${group.name}`} onClick={() => onNewPage(group.id)}
+                className="absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/folder:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0">
+                <Plus className="size-3.5" />
+              </button>
+            </Tip>
+          )}
         </div>
       </PopoverAnchor>
       <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>

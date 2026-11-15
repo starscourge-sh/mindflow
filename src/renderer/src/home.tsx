@@ -119,7 +119,8 @@ import { pageTravel } from '@/lib/page-travel'
 import { Branches } from '@/components/haligtree/branches'
 import { Term, WordNotes } from '@/components/haligtree/term'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
-import { copyLinkItem, RowMenu } from '@/components/haligtree/row-menu'
+import { copyLinkItem, openFromGrip, RowMenu } from '@/components/haligtree/row-menu'
+import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { onRemoveKey, pinFromSide, sideMenu, useFullMenu } from '@/components/haligtree/side-menu'
 import { touch as touchOpen } from '@/lib/open-today'
 import { useStoredFlag } from '@/lib/use-stored-flag'
@@ -1532,6 +1533,13 @@ export function Home(): React.JSX.Element {
     if (reading) return void reading.then(go)
     go()
   }
+  // A new page, opened with its title ready to write, as Writing's own "New page" makes it; inside a folder when the +
+  // was a folder's (Notion's "Add a page inside", the user, 15 Nov 2026: "what if i want to add a new page?").
+  const addPage = (folder: string | null = null): void => void haligtree.newArticle().then(async (id) => {
+    if (folder) await groups.place([{ id, group: folder }])
+    chime('promote')
+    open('article', id)
+  })
   // A page sent with one of its groups named ("Show them" after a list with no dates):
   // once the page is drawn, that group's heading scrolled to the top.
   const landOnGroup = (heading: string): void => {
@@ -2176,7 +2184,8 @@ export function Home(): React.JSX.Element {
               return [
                 view.id !== section.id && { label: 'Open', run: () => setView({ id: section.id }) },
                 ...openItems('view', section.id),
-                // Writing and Gems hold folders: a new one, named at once (side-folders.tsx).
+                // Writing makes pages, first; Writing and Gems hold folders: a new one, named at once (side-folders.tsx).
+                section.id === 'articles' && { label: 'New page', run: () => addPage() },
                 (section.id === 'articles' || section.id === 'nuggets') && { label: 'New folder', run: () => setTimeout(() => newFolder(section.id === 'articles' ? 'article' : 'nugget'), 120) },
                 // And groups that gather by a rule, a tag, moving nothing (lib/smart-groups.tsx).
                 (section.id === 'articles' || section.id === 'nuggets') && { label: 'New group by a tag…', hint: 'Gathers, moves nothing', run: () => void newSmartGroup(section.id === 'articles' ? 'article' : 'nugget', (id) => setView({ id: section.id, folder: GROUP_KEY + id })) },
@@ -2259,14 +2268,23 @@ export function Home(): React.JSX.Element {
                 ) : null}
               </button>
               </SidePeek>
-              {/* New folder: a quiet + in the count's place, until pointed at (Notion's way). */}
-              {list && !narrow && settings?.sidebarFolders?.[list] !== false && (
-                <Tip label="New folder">
-                  <button type="button" data-folder-new={list} aria-label={`New folder in ${section.label}`} onClick={() => newFolder(list)}
-                    className="absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0">
-                    <Plus className="size-3.5" />
-                  </button>
-                </Tip>
+              {/* In the count's place, until pointed at (Notion's way): its menu ("···", the right click's own), and a +: a page
+                  in Writing, a folder in Gems (gems come from notes, never blank). */}
+              {list && !narrow && (list === 'article' || settings?.sidebarFolders?.[list] !== false) && (
+                <span className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0">
+                  <Tip label="More">
+                    <button type="button" data-side-more={list} aria-label={`${section.label} menu`} onClick={openFromGrip}
+                      className="flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                      <AliveIcon icon={DotsHorizontalIcon} size={14} />
+                    </button>
+                  </Tip>
+                  <Tip label={list === 'article' ? 'Add a page' : 'New folder'}>
+                    <button type="button" data-folder-new={list} aria-label={list === 'article' ? 'Add a page to Writing' : `New folder in ${section.label}`} onClick={() => (list === 'article' ? addPage() : newFolder(list))}
+                      className="flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                      <Plus className="size-3.5" />
+                    </button>
+                  </Tip>
+                </span>
               )}
               {/* Writing's and Gems' fold: quiet, over the icon, until pointed at (Notion's way). */}
               {folds && (
@@ -2304,7 +2322,7 @@ export function Home(): React.JSX.Element {
                 // press is not stopped: every open popover hears it, so a folder's icon picker shuts when another is pressed.
                 <div data-own-press="">
                   <SideFolders list={list} counted={countsOn} open={unfolded} here={inFolder} noteRow={light.startsWith('note:') && noteList === list ? noteRow : undefined} shown={shownIn(list, folders)}
-                    onOpen={(id) => setView({ id: section.id, folder: id })} onUnfold={() => setUnfolded(true)} />
+                    onOpen={(id) => setView({ id: section.id, folder: id })} onUnfold={() => setUnfolded(true)} onNewPage={list === 'article' ? addPage : undefined} />
                 </div>
               )}
               </SortableRow>
