@@ -125,46 +125,17 @@ try {
   const gb = await grip.boundingBox().catch(() => null)
   const last = await h.locator('[data-open] .tiptap p').last().boundingBox()
   if (gb && last) {
-    // A real pointer: down on the grip, move in steps, up below the last line. What the page heard is kept.
-    await h.evaluate(() => {
-      window.heardDrag = { down: 0, start: 0, over: 0, drop: 0 }
-      addEventListener('pointerdown', (e) => void (e.target.closest?.('.tiptap-drag-handle-grip') && window.heardDrag.down++), true)
-      for (const [kind, key] of [['dragstart', 'start'], ['dragover', 'over'], ['drop', 'drop']]) addEventListener(kind, () => void window.heardDrag[key]++, true)
-    })
+    // A real pointer, as a person carries it (lib/block-carry.tsx: the grip's carry is the pointer's own, never the
+    // browser's drag): down on the grip, move in steps, up below the last line.
     await h.mouse.move(gb.x + gb.width / 2, gb.y + gb.height / 2); await wait(150)
     await h.mouse.down()
     await h.mouse.move(gb.x + gb.width / 2 + 4, gb.y + 10, { steps: 3 })
     await h.mouse.move(last.x + 30, last.y + last.height - 2, { steps: 12 })
-    await wait(200)
-    const lineReal = await h.evaluate(() => !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline'))
-    await h.mouse.up(); await wait(400)
-    const heard = await h.evaluate(() => window.heardDrag)
-    const movedReal = await order()
-    console.log('real pointer on the grip: page heard', JSON.stringify(heard), 'drop line', lineReal, 'order', JSON.stringify(movedReal))
-    // The same drag as the events the editor reads: dragstart on the grip, dragover and drop below the last line.
-    const at = await h.evaluate(() => {
-      const grip = document.querySelector('.tiptap-drag-handle-grip')
-      const handle = grip.closest('.tiptap-drag-handle') ?? grip
-      const data = new DataTransfer()
-      const g = grip.getBoundingClientRect()
-      handle.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: data, clientX: g.left + 4, clientY: g.top + 4 }))
-      const target = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'Middle line.')
-      target.scrollIntoView({ block: 'center' })
-      const r = target.getBoundingClientRect()
-      const over = { bubbles: true, cancelable: true, dataTransfer: data, clientX: r.left + 30, clientY: r.bottom - 2 }
-      target.dispatchEvent(new DragEvent('dragenter', over))
-      const allowed = !target.dispatchEvent(new DragEvent('dragover', over))
-      const line = !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline')
-      return { allowed, line, over }
-    })
-    check('grip: the note takes it and shows the drop line', at.allowed && at.line, JSON.stringify(at))
+    await wait(250)
+    const seen = await h.evaluate(() => ({ card: document.querySelector('[data-block-card]')?.textContent ?? null, lines: document.querySelectorAll('[data-drop-line]').length, rooms: document.querySelectorAll('[data-drop-room]').length }))
+    check('grip: carried, the card names the voice note and the room with its one line shows where it lands', /Voice note/.test(seen.card ?? '') && seen.lines === 1 && seen.rooms === 1, JSON.stringify(seen))
     await c.both(`${shots}/card-drag-grip`)
-    await h.evaluate((over) => {
-      const target = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'Middle line.')
-      target.dispatchEvent(new DragEvent('drop', { ...over, dataTransfer: new DataTransfer() }))
-      document.querySelector('.tiptap-drag-handle')?.dispatchEvent(new DragEvent('dragend', { bubbles: true }))
-    }, { ...at.over, dataTransfer: undefined })
-    await wait(400)
+    await h.mouse.up(); await wait(400)
     const moved = await order()
     check('grip: the voice note moved within the note, once', moved.indexOf('Voice note 31 Oct 23.32.m4a') > start.indexOf('Voice note 31 Oct 23.32.m4a') && moved.filter((one) => one.startsWith('Voice note')).length === 1, JSON.stringify(moved))
     check('grip: nothing carried out', (await outs()).length === 0, '')

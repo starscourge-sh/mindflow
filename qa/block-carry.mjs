@@ -123,6 +123,32 @@ for (const theme of PART === 'carry' ? ['light', 'dark'] : []) {
   check(`${theme}: the move happened and ⌘Z puts it back in one step`, moved[0] === 'The second line.' && JSON.stringify(await texts()) === JSON.stringify(base), `${moved.join(' | ')} → ${(await texts()).join(' | ')}`)
 }
 
+// Reduce motion: the blocks are at once where they make way to (no step between), the room and its line at once too.
+if (PART === 'carry') {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  await seed()
+  const third = await page.locator(`${EDITOR} > *`).nth(3).boundingBox()
+  await page.locator(`${EDITOR} > *`).nth(0).hover()
+  await page.waitForTimeout(200)
+  const grip = await page.locator('.tiptap-drag-handle-grip').boundingBox()
+  await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)
+  await page.mouse.down()
+  const steps = []
+  for (let i = 1; i <= 10; i++) {
+    await page.mouse.move(grip.x + 8 + (third.x - grip.x) * i / 10, grip.y + (third.y + third.height * 0.8 - grip.y) * i / 10)
+    // Read in the frame after the move: a glide would show a step between.
+    steps.push(await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done({
+      ys: [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line) > *')].map((one) => Math.round(new DOMMatrixReadOnly(getComputedStyle(one).transform).m42 * 10) / 10).filter(Boolean),
+      line: [...document.querySelectorAll('[data-drop-line]')].map((one) => getComputedStyle(one).animationName).join()
+    })))))
+  }
+  await page.mouse.up()
+  await page.waitForTimeout(200)
+  const sizes = new Set(steps.flatMap((one) => one.ys.map((y) => Math.abs(y))))
+  check('Reduce motion: the blocks are at once where they make way to (one size of step, no glide between), the line at once', sizes.size <= 1 && steps.some((one) => one.ys.length) && steps.every((one) => !/mf-room/.test(one.line)), JSON.stringify(steps.map((one) => one.ys)))
+  await page.emulateMedia({ reducedMotion: 'no-preference' })
+}
+
 /** The note as a short outline: rows as [a | b], other blocks by their words (a link's card by its title). */
 const outline = () => page.$eval(EDITOR, (root) => {
   const walk = (node) => node.type === 'columns'

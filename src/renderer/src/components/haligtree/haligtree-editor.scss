@@ -1935,6 +1935,27 @@ html[data-link-pictures="whole"] .tiptap.ProseMirror.haligtree-editor .tiptap-bo
   animation: mf-dropcursor-in 150ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+// A drag the browser still carries (a picture or a file taken by itself, which can also leave for other apps; words
+// carried) lands on this line: drawn as the one line every carry draws (carry.tsx DropLine), 2px of the accent, a dot
+// at its start.
+.prosemirror-dropcursor-block {
+  height: 2px !important;
+  overflow: visible;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -3px;
+    left: -8px;
+    width: 8px;
+    height: 8px;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 2px solid var(--tt-brand-color-400);
+    background: var(--background);
+  }
+}
+
 html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline) {
   animation: none;
 }
@@ -4034,7 +4055,8 @@ body > div[dir][style*="-10000px"] > .tableWrapper {
   height: 100px;
   border-radius: 1px;
   pointer-events: none;
-  background: currentColor;
+  // The accent, as every carry's line (carry.tsx DropLine).
+  background: var(--tt-brand-color-400);
   transform-origin: center top;
   animation: mf-column-drop-in 160ms var(--mf-ease);
   transition: transform 110ms cubic-bezier(0.16, 1, 0.3, 1);
