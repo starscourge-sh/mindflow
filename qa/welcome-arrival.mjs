@@ -149,9 +149,11 @@ try {
       if (process.env.QA_SHOTS) {
         mkdirSync(process.env.QA_SHOTS, { recursive: true })
         for (let page = 1; page <= 10; page++) {
+          // Catch's "Your turn" waits for a capture of your own: its "Skip trying it" goes on (the loop stood there before).
+          const trying = () => h.evaluate(() => !![...document.querySelectorAll('.mf-welcome footer button')].find((one) => /skip trying it/i.test(one.textContent ?? '')))
           for (let i = 0; i < 4; i++) {
             const ready = await h.evaluate(() => { const next = [...document.querySelectorAll('.mf-welcome footer button')].at(-1); return !!next && !next.closest('[inert]') && !next.hasAttribute('disabled') })
-            if (ready) break
+            if (ready || (await trying())) break
             await h.keyboard.press('Escape'); await h.waitForTimeout(700)
           }
           await h.waitForTimeout(600)
@@ -159,7 +161,7 @@ try {
           await h.screenshot({ path: join(process.env.QA_SHOTS, `${THEME}-${String(page).padStart(2, '0')}-${label.replace(/[^a-z]+/gi, '-').slice(0, 30)}.png`) })
           const last = await h.evaluate(() => !!document.querySelector('.mf-welcome [data-recommended]') || /open my book/i.test([...document.querySelectorAll('.mf-welcome footer button')].at(-1)?.textContent ?? ''))
           if (last) break
-          await h.evaluate(() => [...document.querySelectorAll('.mf-welcome footer button')].at(-1)?.click())
+          await h.evaluate(() => { const all = [...document.querySelectorAll('.mf-welcome footer button')]; (all.find((one) => /skip trying it/i.test(one.textContent ?? '')) ?? all.at(-1))?.click() })
           await h.waitForTimeout(1200)
         }
       }
