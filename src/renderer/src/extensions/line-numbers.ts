@@ -113,6 +113,13 @@ function rowsOf(desc: Desc, out: HTMLElement[]): void {
 /** Where a row's first line is set, and in what size: from the block that holds it. */
 type Line = { size: string; height: string; font: string }
 
+/**
+ * The drawn blocks of each long note, by its element. ProseMirror makes every plugin's view again when a plugin is
+ * added to an open note or taken from it (it happens in a note's first second): the band it drew does not move
+ * then, so it says nothing, and a gutter made again starts from what the last one was told.
+ */
+const bands = new WeakMap<Element, [number, number] | null>()
+
 function gutter(view: EditorView): { update: (view: EditorView, previous: EditorState) => void; destroy: () => void } {
   const layer = document.createElement("div")
   layer.className = "mf-lines"
@@ -125,7 +132,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     return before[index]
   }
   // The drawn blocks of a long note, as places among the note's elements; null: every block is drawn.
-  let band: [number, number] | null = null
+  let band: [number, number] | null = bands.get(view.dom) ?? null
   // The numbered elements drawn, and each one's number.
   let rows: HTMLElement[] = []
   let numbers: number[] = []
@@ -272,6 +279,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   // Told in the middle of the note's own update, before its page is drawn: only noted, and read when it is.
   const drawn = (event: Event): void => {
     band = (event as CustomEvent<[number, number] | null>).detail
+    bands.set(view.dom, band)
     if (shown()) schedule()
   }
   const resized = new ResizeObserver(() => rows.length && schedule())
