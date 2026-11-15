@@ -1,6 +1,6 @@
 import { MenuGlyph } from "@/components/ui/menu-icon"
 import { useEffect, useRef, useState } from "react"
-import { Selection } from "@tiptap/pm/state"
+import { Selection, type Transaction } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
 
 // --- UI Primitives ---
@@ -135,8 +135,22 @@ export function BlockMenu({
     }
     setBlock(targetRef.current)
     const id = setTimeout(() => input.current?.focus(), 0)
-    return () => clearTimeout(id)
-  }, [open, targetRef])
+    // A change to the note while the menu is open (a save, a word typed elsewhere) moves the block with it: the menu
+    // still acts on the block it was opened for, and on nothing once that block is gone.
+    const follow = ({ transaction }: { transaction: Transaction }): void => {
+      if (!transaction.docChanged) return
+      setBlock((was) => {
+        if (!was) return was
+        const { pos, deleted } = transaction.mapping.mapResult(was.pos, 1)
+        return deleted ? null : { ...was, pos }
+      })
+    }
+    editor.on("transaction", follow)
+    return () => {
+      clearTimeout(id)
+      editor.off("transaction", follow)
+    }
+  }, [open, targetRef, editor])
 
   /**
    * Mark the row Enter would take, so it looks picked the way a cmdk row does.

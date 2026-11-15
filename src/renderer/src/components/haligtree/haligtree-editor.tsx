@@ -5,7 +5,7 @@ import { afterPaint } from "@/lib/haligtree"
 import { createPortal } from "react-dom"
 import { type Attributes, type Extensions, type JSONContent } from "@tiptap/core"
 import { Fragment, Slice } from "@tiptap/pm/model"
-import { NodeSelection, Selection as PMSelection, type EditorState } from "@tiptap/pm/state"
+import { NodeSelection, Selection as PMSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
 import { pressUnderLastLine } from "@/lib/press-under"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { EditorContext, useEditor } from "@tiptap/react"
@@ -943,11 +943,16 @@ function Surface({
   }, [sourceOpen])
   const rememberBlock = useCallback(
     ({ node, editor, pos }: { node: ProseMirrorNode | null; editor: Editor; pos: number }): void => {
-      blockTarget.current = node
-        ? { pos, name: node.type.name, level: headingRank(node) ?? undefined }
-        : null
+      // The plugin lets its record go at any key (and as the pointer leaves the note) while the grip stays on show
+      // beside the block: the record is kept, following that block through each change (`followBlock`), so the
+      // grip's menu, its + and its carry act on the block it stands by. Let go, “Delete” on a table just typed in
+      // did nothing (15 Nov).
+      if (node) {
+        blockTarget.current = { pos, name: node.type.name, level: headingRank(node) ?? undefined }
+        blockDoc.current = editor.state.doc
+      }
       // What a carry from the grip lifts.
-      gripOn(editor.view, node ? pos : -1)
+      gripOn(editor.view, blockTarget.current?.pos ?? -1)
 
       // A backstop for the rule above, for the case where the table is not
       // among the candidates and the cheapest one is still inside it.
@@ -1005,6 +1010,8 @@ function Surface({
   // A ref rather than state: `onNodeChange` fires on every pointer move across a
   // block, and re-rendering the editor that often makes the handle flicker.
   const blockTarget = useRef<BlockTarget | null>(null)
+  /** The note as it was when that record was taken: each change after it moves the record with its block. */
+  const blockDoc = useRef<ProseMirrorNode | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   // A right-click's spot, so its menu opens under the pointer; the grip's opens at the grip.
   /** The room a block's right-click menu needs to open under or over the block: about seven rows since its actions
@@ -1794,6 +1801,22 @@ function Surface({
   useEffect(() => {
     editor?.setEditable(!readOnly)
   }, [editor, readOnly])
+
+  // The grip's kept record (rememberBlock) follows its block through every change, and goes when the block goes.
+  useEffect(() => {
+    if (!editor) return
+    const followBlock = ({ transaction }: { transaction: Transaction }): void => {
+      const kept = blockTarget.current
+      if (!kept || !transaction.docChanged || blockDoc.current !== transaction.before) return
+      const { pos, deleted } = transaction.mapping.mapResult(kept.pos, 1)
+      const node = deleted ? null : transaction.doc.nodeAt(pos)
+      blockTarget.current = node?.type.name === kept.name ? { ...kept, pos } : null
+      blockDoc.current = transaction.doc
+      gripOn(editor.view, blockTarget.current?.pos ?? -1)
+    }
+    editor.on("transaction", followBlock)
+    return () => void editor.off("transaction", followBlock)
+  }, [editor])
 
   // The numbers' column came, went or grew (extensions/line-numbers.ts): the handle is placed again beside the
   // block it is on at once, as the drag handle places itself (its own computePosition, with the same config), so
