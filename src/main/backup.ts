@@ -71,17 +71,26 @@ const tellMain = (reason: string | null): void => {
   for (const win of BrowserWindow.getAllWindows()) if (!win.isDestroyed() && win.webContents.getURL().includes('view=home')) win.webContents.send('backup:trouble', reason)
 }
 
-/** A backup run, remembered: the second failure in a row warns, and the first success after that says so. */
-export async function backUpWatched(): Promise<void> {
-  try {
-    await backUp()
-    if (last.failures >= 2) tellMain(null)
-    last = { at: Date.now(), failures: 0, reason: '' }
-  } catch (error) {
-    last = { ...last, failures: last.failures + 1, reason: why(error) }
-    console.error('Backup failed:', error)
-    if (last.failures === 2) tellMain(last.reason)
-  }
+/**
+ * A backup run, remembered: the second failure in a row warns, and the first success after that says so. One at a
+ * time, each after the one before: the copies run on a thread (books.ts `copyBook`), so "Back up now" pressed while
+ * the start's run is copying would otherwise copy the same book into the same place beside it.
+ */
+let running: Promise<void> = Promise.resolve()
+export function backUpWatched(): Promise<void> {
+  const run = running.then(async () => {
+    try {
+      await backUp()
+      if (last.failures >= 2) tellMain(null)
+      last = { at: Date.now(), failures: 0, reason: '' }
+    } catch (error) {
+      last = { ...last, failures: last.failures + 1, reason: why(error) }
+      console.error('Backup failed:', error)
+      if (last.failures === 2) tellMain(last.reason)
+    }
+  })
+  running = run
+  return run
 }
 
 /** When the last copy was made (this run's last success, or the newest copy in the folder), and whether it is failing now. */
