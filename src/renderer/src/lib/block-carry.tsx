@@ -54,6 +54,8 @@ type Held = {
   x: number
   y: number
   copy: boolean
+  /** The column it sits in, if any (its content's start and end): carried out of it, its row keeps its other columns. */
+  column: { start: number; end: number } | null
   aim: Aim | null
   room: Spot | null
   kept: { key: string; how: 'before' | 'after' } | null
@@ -181,7 +183,9 @@ function lift(view: EditorView, pos: number, x: number, y: number, copy: boolean
     const box = piece.el.getBoundingClientRect()
     return { piece, top: box.top - page, height: box.height, left: box.left, width: box.width }
   }).sort((a, b) => a.top - b.top)
-  return { view, from, to, nodes, sources, pieces, laid, me, tall: last.bottom - first.top, x, y, copy, aim: null, room: null, kept: null, ticks, ring, title: nameOf(node), icon: iconOf(node) }
+  const $in = state.doc.resolve(from)
+  const column = $in.parent.type.name === 'column' ? { start: $in.start(), end: $in.end() } : null
+  return { view, from, to, nodes, sources, pieces, laid, me, tall: last.bottom - first.top, x, y, copy, column, aim: null, room: null, kept: null, ticks, ring, title: nameOf(node), icon: iconOf(node) }
 }
 
 /** What holds a place in the note: a crossing of it is the firm tick. */
@@ -294,9 +298,11 @@ function point(one: Held, again = false): void {
       // Its own place is where it lands in the note, not its neighbour in the run: a column's last block (or a list's
       // last item) carried to just past its row (or list) moves out, though nothing comes between them in the run. It
       // closes nothing there (its row keeps its other column), so only the room where it lands opens.
+      // Out of its column to anywhere, the same: its row stands as it was, its other columns holding it open.
       const me = one.laid.findIndex((each) => each.piece.el === one.me)
-      const leaves = next.at !== one.from && next.at !== one.to && (next.gap === me || next.gap === me - 1)
-      const spot = leaves ? makeWay(all.filter((el) => el !== one.me), one.me, me - 1, one.tall, quiet) : makeWay(all, one.me, next.gap, one.tall, quiet)
+      const away = !!one.column && (next.at < one.column.start || next.at > one.column.end)
+      const leaves = away || (next.at !== one.from && next.at !== one.to && (next.gap === me || next.gap === me - 1))
+      const spot = leaves ? makeWay(all.filter((el) => el !== one.me), one.me, next.gap >= me ? next.gap - 1 : next.gap, one.tall, quiet) : makeWay(all, one.me, next.gap, one.tall, quiet)
       // At the level it would land: beside the block it goes before or after.
       const by = restBox(next.by.el)
       one.room = spot && { ...spot, left: by.left, width: by.width }
