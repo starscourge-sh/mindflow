@@ -754,6 +754,34 @@
   cursor: pointer;
 }
 
+/* A link the reader follows in place (another article of the same free site) does not leave the app: no arrow out
+   (haligtree-editor.scss draws it on every web link). */
+.web-reader-body.tiptap.ProseMirror.haligtree-editor a[data-reads-here]::after {
+  content: none;
+}
+
+/* A Wikipedia picture's credit (main/free-sites.ts): its own line under it, or under its caption, in quiet ink,
+   leading to its page on Wikimedia Commons, which names who made it and its licence. */
+.web-reader-body [data-credit] {
+  display: block;
+  margin-top: 0.35em;
+  color: var(--muted-foreground);
+  font-size: 0.875em;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.web-reader-body [data-credit] a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* A section reached from the contents stands clear of the top edge. */
+.web-reader-body :is(h2, h3, h4) {
+  scroll-margin-top: 1.5rem;
+}
+
 .web-reader-reading,
 .web-reader-failed {
   padding-top: 2rem;

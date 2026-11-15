@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { ArrowUpRight, Gem } from "lucide-react"
+import { BookOpen, Gem } from "lucide-react"
+import { openArticle } from "./pdf-reader"
 import { call } from "@/lib/haligtree"
 import { notes } from "@/lib/notes"
 import { chime } from "@/lib/sound"
@@ -214,9 +215,11 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
             {kept ? (lookup && lookup.id === kept.id ? "Place added" : "Kept in Lookups") : lookup ? "Add this place" : known ? "Keep again" : !found && !page ? "Keep to answer later" : "Keep"}
           </button>
         )}
+        {/* The whole article, read here in the reader as ⌘K's Wikipedia answers are (⌥-click: to the side). */}
         {page && (
-          <a className="look-up-link" href={page.url} target="_blank" rel="noopener noreferrer" title="Text from Wikipedia, CC BY-SA">
-            Wikipedia <ArrowUpRight className="size-3" />
+          <a className="look-up-link" href={page.url} title={`Read the whole article in the reader: text from Wikipedia, CC BY-SA${canSplit() ? ". ⌥-click opens it to the side" : ""}`}
+            onClick={(event) => (event.preventDefault(), openArticle(page.url))}>
+            Wikipedia <BookOpen className="size-3" />
           </a>
         )}
       </div>

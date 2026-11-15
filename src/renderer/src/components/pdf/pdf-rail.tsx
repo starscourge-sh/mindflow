@@ -369,9 +369,10 @@ export function PdfSide({ doc, page, outline, tab, onTab, onGo, narrow, onDrag, 
  * The PDF's outline as the sidebar draws a nest: each level hung off a thin
  * trunk with a curved branch to each entry, the way down to the chapter you
  * are in lit, a chapter's sections folded under its chevron, and the same
- * rows, light and hover as the sidebar's.
+ * rows, light and hover as the sidebar's. An article's sections in the web
+ * reader are drawn by it too, with no page numbers (PageLabel gives none).
  */
-const PdfOutline = memo(function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; hereAt: number; list: React.RefObject<HTMLElement | null>; onGo: (page: number) => void }): React.JSX.Element {
+export const PdfOutline = memo(function PdfOutline({ outline, hereAt, list, onGo }: { outline: OutlineRow[]; hereAt: number; list: React.RefObject<HTMLElement | null>; onGo: (page: number) => void }): React.JSX.Element {
   const tree = useMemo(() => treeOf(outline, (row) => row.depth), [outline])
   const label = usePageLabel()
   // Folded by you; a chapter you read your way into opens again, so the lit way down is never hidden.

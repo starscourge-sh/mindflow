@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useToolKeys } from '@/lib/tool-keys'
 import {
   ChevronDown,
@@ -6,10 +6,15 @@ import {
   ExternalLink,
   Highlighter,
   Minus,
+  PanelLeft,
   Plus,
   Search,
   X
 } from 'lucide-react'
+import { PdfOutline, PdfRail, type OutlineRow } from './pdf-rail'
+import { PageLabel } from './pdf-labels'
+import { freeSiteOf } from '@/lib/free-sites'
+import { canSplit } from '@/lib/split'
 import { Button } from '@/components/tiptap-ui-primitive/button'
 import { Roll } from '@/lib/roll'
 import { host } from '@/lib/host'
@@ -23,6 +28,7 @@ import { offsetsIn, rangeOf, type PdfMark } from './pdf-pages'
 import {
   ContextMenu,
   ContextMenuContent,
+  ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger
 } from '@/components/ui/context-menu'
@@ -76,6 +82,20 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const [failed, setFailed] = useState<string | null>(null)
   const [size, setSize] = useState(1)
   const pane = usePane()
+  // The article's headings, in reading order: its contents beside it, and the section a gem's citation names.
+  const heads = useRef<HTMLElement[]>([])
+  // The reader's own width: wide enough, the contents stand beside the article; a narrow pane beside a note keeps the column.
+  const root = useRef<HTMLDivElement>(null)
+  const [roomy, setRoomy] = useState(false)
+  // Read before the first paint, so the contents never come in a frame after the article and push its column aside.
+  useLayoutEffect(() => {
+    const box = root.current
+    if (!box) return
+    setRoomy(box.getBoundingClientRect().width >= 880)
+    const watch = new ResizeObserver(([one]) => setRoomy(one.contentRect.width >= 880))
+    watch.observe(box)
+    return () => watch.disconnect()
+  }, [])
   // This reader's own highlight names: the browser keeps one list per name for
   // the whole window, so two articles side by side would otherwise draw over each other's.
   const names = `web${useId().replace(/[^a-zA-Z0-9]/g, '')}`
@@ -127,7 +147,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   // Opened on a highlight (a gem's link back): that wins over where you were.
   const takenFlash = useRef(flash)
   const [hit, setHit] = useState<PdfMark | null>(null)
+  // A link right-clicked in the article: its own rows in the menu.
+  const [linkHit, setLinkHit] = useState<string | null>(null)
   const drawn = useRef<{ mark: PdfMark; range: Range }[]>([])
+  const [moved, setMoved] = useState<Set<string>>(() => new Set())
   useEffect(() => {
     void call<PdfMark[]>('pdf:highlights', href).then(setMarks)
   }, [href])
@@ -138,6 +161,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
       const range = rangeOf(root, mark)
       return range ? [{ mark, range }] : []
     })
+    // A highlight whose words are no longer in the article (it was read again, rewritten): kept, and said to have moved.
+    setMoved(new Set(marks.filter((mark) => !drawn.current.some((one) => one.mark === mark)).map((mark) => mark.id)))
     // One list per colour: the book's own, then each of the others.
     for (const one of MARK_COLORS)
       CSS.highlights.set(markName(names, one.id), new Highlight(...drawn.current.filter(({ mark }) => (mark.color ?? null) === one.id).map(({ range }) => range)))
@@ -194,11 +219,23 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   /** "Article title, Site": where an article's words came from, as a gem and a citation name it. */
   const whereFrom = (): string => [article?.title, article?.site].filter(Boolean).join(', ')
   const byline = (): string => article?.byline?.replace(/^by\s+/i, '') ?? ''
-  /** A gem of a mark's words: the quote, "Article title, Site", and a link back that opens here with them lit. */
-  const gemOf = (one: { id: string; quote: string }): Promise<string> =>
+  /** The section a place in the article is in: the last heading at or before it. */
+  const sectionAt = (node: Node | null | undefined): string => {
+    let found = ''
+    for (const one of heads.current) {
+      if (!node || !(one.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) break
+      found = one.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+    }
+    return found
+  }
+  /** Where a mark's words came from, as its gem cites them: the article and its section, the site, and the day its copy was read. */
+  const citeOf = (section: string): string =>
+    [[article?.title, section].filter(Boolean).join(': '), article?.site, article?.savedAt ? `read ${dayOf(article.savedAt)}` : ''].filter(Boolean).join(', ')
+  /** A gem of a mark's words: the quote, "Article title: Section, Site, read 15 November 2026", and a link back that opens here with them lit. */
+  const gemOf = (one: { id: string; quote: string }, section = ''): Promise<string> =>
     call<string>(
       'nugget:from',
-      `${one.quote}\n\n[${whereFrom().replace(/[[\]]/g, '\\$&')}](${articleLink(href, one.id)})`,
+      `${one.quote}\n\n[${citeOf(section).replace(/[[\]]/g, '\\$&')}](${articleLink(href, one.id)})`,
       // The article is the gem's source; its byline, when it has one, who said it.
       { attribution: byline() || null, medium: whereFrom(), kind: 'quote' }
     )
@@ -208,7 +245,9 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const mark = async (color: MarkColor, gem: boolean): Promise<void> => {
     if (!picked || !article) return
     const id = crypto.randomUUID()
-    const gemId = gem ? await gemOf({ id, quote: picked.quote }) : null
+    const chosen = getSelection()
+    const section = sectionAt(chosen?.rangeCount ? chosen.getRangeAt(0).startContainer : null)
+    const gemId = gem ? await gemOf({ id, quote: picked.quote }, section) : null
     const made: PdfMark = {
       id,
       page: 0,
@@ -306,7 +345,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, ...to } : each)))
   }
   const keepMark = async (one: PdfMark): Promise<void> => {
-    const gemId = await gemOf({ id: one.id, quote: one.quote.replace(/\s+/g, ' ').trim() })
+    const gemId = await gemOf({ id: one.id, quote: one.quote.replace(/\s+/g, ' ').trim() }, sectionAt(drawn.current.find((each) => each.mark.id === one.id)?.range.startContainer))
     await change(one, { gemId })
     // "Why keep this?" over the highlight itself.
     const band = drawn.current.find((each) => each.mark.id === one.id)?.range.getBoundingClientRect()
@@ -453,27 +492,97 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   // One object for the article's HTML, kept while the article is: React 19 sets
   // innerHTML again whenever this prop is a new object, which rebuilds every
   // word and empties the highlights and the picked words.
-  const words = useMemo(() => ({ __html: unwrapped(article?.html ?? '') }), [article])
+  const words = useMemo(() => ({ __html: unwrapped(article?.html ?? '', href) }), [article, href])
   const title = article?.title ?? articleName(href)
   const when = article?.published ? new Date(article.published) : null
   const meta = [
     article?.byline,
     article?.site,
-    when && !Number.isNaN(when.getTime())
-      ? when.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
-      : ''
+    when && !Number.isNaN(when.getTime()) ? dayOf(article!.published) : '',
+    // A wiki's words are free to quote with their source, which a gem's citation names.
+    /\.(wikipedia|wiktionary)\.org$/.test(URL.parse(href)?.hostname ?? '') ? 'CC BY-SA 4.0' : '',
+    // Every page read is kept with your notes (main/web-articles.ts): it opens again offline, as it read that day.
+    article?.savedAt ? `kept ${dayOf(article.savedAt)}` : ''
   ]
     .filter(Boolean)
     .join(' · ')
 
+  // The article's sections, from its headings: its contents beside it (as a PDF's outline), the one you are in lit.
+  const [outline, setOutline] = useState<OutlineRow[]>([])
+  // Before paint, as the width above: the article and its contents arrive in the same frame.
+  useLayoutEffect(() => {
+    const found = [...(body.current?.querySelectorAll<HTMLElement>('h2, h3, h4') ?? [])].filter((one) => one.textContent?.trim())
+    heads.current = found
+    setOutline(found.map((one, at) => ({ title: one.textContent!.replace(/\s+/g, ' ').trim(), depth: Number(one.tagName[1]) - 2, page: at + 1 })))
+  }, [words])
+  const [sectionHere, setSectionHere] = useState(-1)
+  useEffect(() => {
+    const box = scroller.current
+    if (!box || !outline.length) return
+    let frame = 0
+    // The last heading at or above the top of what shows, found by halves: a few reads a frame, however long the article.
+    const read = (): void => {
+      frame = 0
+      const line = box.getBoundingClientRect().top + 96
+      let low = 0
+      let high = heads.current.length - 1
+      let at = -1
+      while (low <= high) {
+        const mid = (low + high) >> 1
+        if (heads.current[mid].getBoundingClientRect().top <= line) (at = mid), (low = mid + 1)
+        else high = mid - 1
+      }
+      setSectionHere(at)
+    }
+    const onScroll = (): void => void (frame ||= requestAnimationFrame(read))
+    read()
+    box.addEventListener('scroll', onScroll, { passive: true })
+    return () => (box.removeEventListener('scroll', onScroll), cancelAnimationFrame(frame))
+  }, [outline])
+  // Shown beside a long article where there is room; the bar's button shows or hides it here.
+  const [rail, setRail] = useState<boolean | null>(null)
+  const railShown = outline.length > 1 && (rail ?? (roomy && outline.length > 2))
+  const railList = useRef<HTMLElement>(null)
+  const goToSection = (page: number): void => {
+    heads.current[page - 1]?.scrollIntoView({ block: 'start' })
+    chime('tap')
+  }
+
+  // A link in the article. One to another page of the same free site (Wikipedia to Wikipedia) is followed here: a step
+  // in this pane that Back undoes and Forward takes again. Any other opens in your browser, as a link in a note does.
+  // ⌥-click opens either in the reader to the side, ⌘-click a page of the site in a new tab; right-click offers each.
+  const follow = (event: React.MouseEvent): void => {
+    const link = (event.target as Element).closest?.('a[href]') as HTMLAnchorElement | null
+    if (!link || !body.current?.contains(link) || event.button !== 0 || event.shiftKey) return
+    event.preventDefault()
+    // A drag across a link picks its words: it is not followed.
+    if (getSelection()?.isCollapsed === false) return
+    const to = link.href
+    const site = freeSiteOf(href)
+    if (event.altKey && isReadable(to)) return openArticle(to, undefined, 'aside', pane)
+    if (site && freeSiteOf(to) === site) return openArticle(to, undefined, event.metaKey ? 'tab' : undefined, pane)
+    window.open(to, '_blank', 'noopener')
+  }
+
   return (
-    <div className="pdf-reader web-reader">
+    <div ref={root} className="pdf-reader web-reader">
       <style>{MARK_COLORS.map((one) => (one.id === "later" ? `::highlight(${markName(names, one.id)}) { text-decoration: underline dashed var(--tt-brand-color-500, #c08a2e) 2px; text-underline-offset: 3px }` : tint(markName(names, one.id), 28, one.css))).join('') + tint(`${names}-found`, 22, '#8b5cf6') + tint(`${names}-found-now`, 45, '#8b5cf6') + tint(`${names}-flash`, 55)}</style>
       <div className="pdf-reader-bar">
         <span className="pdf-reader-title" title={title}>
           {title}
         </span>
         <span className="pdf-reader-tools">
+          {outline.length > 1 && (
+            <Button
+              data-style="ghost"
+              aria-label="Contents"
+              title="Contents"
+              data-active-state={railShown ? 'on' : 'off'}
+              onClick={() => (chime(railShown ? 'fold' : 'slide'), setRail(!railShown))}
+            >
+              <PanelLeft className="tiptap-button-icon" />
+            </Button>
+          )}
           {marks.length > 0 && (
             <Button
               data-style="ghost"
@@ -539,10 +648,12 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 key={one.id}
                 type="button"
                 className={`pdf-outline-row${one.id === flash ? ' is-here' : ''}`}
-                onClick={() => setFlash(one.id)}
+                data-moved={moved.has(one.id) || undefined}
+                onClick={() => (moved.has(one.id) ? said('Its place moved: the article was rewritten, and these words are not in it now. They stay kept here, and in their gem.') : setFlash(one.id))}
               >
                 <span aria-hidden className="pdf-swatch" style={{ background: markCss(one.color) }} />
                 <span className="pdf-outline-title">{one.quote.replace(/\s+/g, ' ').trim()}</span>
+                {moved.has(one.id) && <span className="pdf-outline-page">place moved</span>}
               </button>
             ))}
           <button type="button" className="pdf-outline-row pdf-gather" onClick={() => void gather()}>
@@ -550,6 +661,16 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           </button>
         </nav>
       )}
+      {/* The article and, beside it, its contents: the PDF reader's rail and outline, its sections for chapters. */}
+      <div className="pdf-reader-body">
+      {railShown && (
+        <PageLabel.Provider value={NO_PAGE}>
+          <PdfRail tab="outline" tabs={[{ id: 'outline', label: 'Contents' }]} onTab={() => undefined}>
+            <PdfOutline outline={outline} hereAt={sectionHere} list={railList} onGo={goToSection} />
+          </PdfRail>
+        </PageLabel.Provider>
+      )}
+      <div className="pdf-reader-main">
       {finding && (
         <div className="tiptap-find-bar pdf-find-bar">
           <div className="tiptap-find-bar-row">
@@ -601,7 +722,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
             ref={scroller}
             className="pdf-reader-scroll web-reader-scroll"
             onPointerDown={() => flash && setFlash(null)}
-            // Only a highlight has a menu: anywhere else the right click is the page's own.
+            onClick={follow}
+            // A highlight, picked words and a link have a menu: anywhere else the right click is the page's own.
             onContextMenu={(event) => {
               const on = drawn.current.find(({ range }) =>
                 [...range.getClientRects()].some(
@@ -613,7 +735,9 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 )
               )
               setHit(on?.mark ?? null)
-              if (!on && !picked) event.preventDefault()
+              const link = (event.target as Element).closest?.('a[href]') as HTMLAnchorElement | null
+              setLinkHit(link && body.current?.contains(link) ? link.href : null)
+              if (!on && !picked && !(link && body.current?.contains(link))) event.preventDefault()
             }}
           >
             <article
@@ -685,8 +809,19 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           {/* Words picked over a highlight: its own rows first, then what can be done with the words picked. */}
           {hit && picked && <ContextMenuSeparator />}
           {picked && <PickedMenu actions={actions} about={() => pickedAbout(picked.quote)} />}
+          {/* A link: here, to the side, or the browser, as a link in a note offers them (turn-into/clicked.tsx). */}
+          {linkHit && !hit && !picked && (
+            <>
+              {isReadable(linkHit) && <ContextMenuItem onSelect={() => openArticle(linkHit, undefined, undefined, pane)}>Open in the reader</ContextMenuItem>}
+              {isReadable(linkHit) && canSplit() && <ContextMenuItem onSelect={() => openArticle(linkHit, undefined, 'aside', pane)}>Open in the reader to the side</ContextMenuItem>}
+              <ContextMenuItem onSelect={() => window.open(linkHit, '_blank', 'noopener')}>Open in the browser</ContextMenuItem>
+              <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(linkHit).then(() => (chime('copy'), said('Address copied')), () => said('Could not copy the address', false))}>Copy address</ContextMenuItem>
+            </>
+          )}
         </ContextMenuContent>
       </ContextMenu>
+      </div>
+      </div>
     </div>
   )
 }
@@ -699,6 +834,12 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
 const tint = (name: string, percent: number, color = 'var(--tt-brand-color-500, #c08a2e)'): string =>
   `::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${Math.round(percent * 1.6)}%, transparent) }` +
   `:root:is(.light, .paper, [data-light]) ::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${percent}%, transparent) }`
+
+/** A day as the reader says it: 15 November 2026. */
+const dayOf = (iso: string): string => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
+
+/** The contents' rows carry no page numbers: an article's sections are places in one page. */
+const NO_PAGE = (): string => ''
 
 /** The highlight list a colour's marks are drawn by: the book's own is the plain `-mark`. */
 const markName = (names: string, color: string | null): string => `${names}-mark${color ? `-${color}` : ''}`
@@ -715,10 +856,17 @@ const BLOCK = /^(P|H[1-6]|UL|OL|DL|TABLE|FIGURE|BLOCKQUOTE|PRE|HR|IMG|SECTION|AR
  * left loose (two such lines would run together). Only elements go, so the
  * words, and every highlight's place in them, stay exactly as they were.
  */
-function unwrapped(html: string): string {
+function unwrapped(html: string, href = ''): string {
   if (!html) return html
   const page = document.createElement('template')
   page.innerHTML = html
+  // A link to a place in this same page (Wikipedia's footnote marks): the page set in the column keeps no such
+  // places, so its words stay as words, never a link that goes nowhere. The words, and so every highlight's place, are unchanged.
+  const self = href.split('#')[0]
+  for (const one of page.content.querySelectorAll('a[href*="#"]')) if (one.getAttribute('href')?.split('#')[0] === self) one.replaceWith(...one.childNodes)
+  // A link to another page of the same free site (Wikipedia to Wikipedia) opens here, in the reader: it wears no arrow out (pdf.css).
+  const site = freeSiteOf(href)
+  if (site) for (const one of page.content.querySelectorAll('a[href]')) if (freeSiteOf(one.getAttribute('href')) === site) one.setAttribute('data-reads-here', '')
   // Nothing a reader sees: a space, a note left in the page's code, an empty marker (Wikipedia leaves many).
   const unseen = (node: Node): boolean =>
     node.nodeType === Node.COMMENT_NODE ||

@@ -7,6 +7,7 @@ import { fetchOutside } from './outside'
 import { begin, end } from './jobs'
 import { WEB_ARTICLES as TABLE } from './find-files'
 import { articleNames } from './article-names'
+import { creditCommons, isWiki, wikiChrome } from './free-sites'
 
 /** An article kept from the web: its words and pictures, read offline in the reader. */
 export type Article = { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }
@@ -55,6 +56,8 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     if (stop.aborted) return { stopped: true }
     const base = new URL(response.url || href)
     const { document } = parseHTML(page)
+    // A wiki's own marks out of the way first, so every section keeps its heading (free-sites.ts).
+    if (isWiki(base)) wikiChrome(document)
     const meta = (name: string): string => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute('content')?.trim() ?? ''
     const paywalled = /"isAccessibleForFree"\s*:\s*(false|"False")/i.test(page)
     const found = new Readability(document as unknown as Document, { charThreshold: 300 }).parse()
@@ -73,6 +76,8 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
         if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-|^loading$/i.test(name)) one.removeAttribute(name)
       }
     }
+    // Wikipedia's and Wiktionary's pictures: Commons' alone, each credited (free-sites.ts).
+    if (isWiki(base)) creditCommons(clean, base)
     for (const one of clean.querySelectorAll('a[href]')) {
       const to = URL.parse(one.getAttribute('href') ?? '', base)
       if (to && /^https?:$/.test(to.protocol)) one.setAttribute('href', to.href)
