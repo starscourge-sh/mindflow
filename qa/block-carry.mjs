@@ -41,8 +41,25 @@ const state = () => page.evaluate(() => {
   const grip = document.querySelector('.tiptap-drag-handle')
   // The words arriving, not those leaving (they cross-fade in place).
   const words = [...(cards[0]?.querySelectorAll('[data-drag-label]') ?? [])].at(-1)?.textContent ?? null
-  return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width }, title: cards[0]?.textContent ?? '', words, carried, lines: lines.length, line: lines.length > 0, upright: lines.some((one) => one.dataset.dropLine.startsWith('beside')), rooms, own, clear, moved, grip: grip ? getComputedStyle(grip).visibility : 'none', cursor: getComputedStyle(document.body).cursor, refused: document.documentElement.hasAttribute('data-drag-refused') }
+  // A list's item lit, as a sidebar folder is when a folder is carried onto it: its own line filled, a ring.
+  const lit = [...document.querySelectorAll('li[data-drop-hot]')]
+  const litLine = lit[0]?.querySelector(':scope > p, :scope > div > p')
+  const fill = litLine ? getComputedStyle(litLine).backgroundColor : ''
+  return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width, right: card.right, bottom: card.bottom }, title: cards[0]?.textContent ?? '', words, carried, lines: lines.length, line: lines.length > 0, lineY: at ? at.top + at.height / 2 : null, upright: lines.some((one) => one.dataset.dropLine.startsWith('beside')), rooms, own, clear, moved, grip: grip ? getComputedStyle(grip).visibility : 'none', cursor: getComputedStyle(document.body).cursor, refused: document.documentElement.hasAttribute('data-drag-refused'), lit: lit.length, litFilled: !!fill && fill !== 'rgba(0, 0, 0, 0)', dropCursor: !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline') }
 })
+/** The note's lists as a short tree: [item [child], item] / other blocks by their words. */
+const tree = () => page.$eval(EDITOR, (root) => {
+  const walk = (node) => ['bulletList', 'orderedList', 'taskList'].includes(node.type) ? `[${node.content.map(walk).join(', ')}]`
+    : ['listItem', 'taskItem'].includes(node.type) ? node.content.map(walk).join(' ')
+      : node.type === 'paragraph' || node.type === 'heading' ? (node.content ?? []).map((one) => one.text ?? '').join('')
+        : node.type === 'image' ? 'picture' : node.type === 'attachment' ? node.attrs.name : node.type
+  return root.editor.getJSON().content.map(walk).filter(Boolean).join(' / ')
+})
+const theme = async (name) => {
+  await page.evaluate((t) => localStorage.setItem('theme', t), name)
+  await page.reload()
+  await page.waitForSelector(EDITOR)
+}
 
 async function seed() {
   await app.reset()
@@ -316,6 +333,318 @@ if (PART === 'cards') {
     check(`${theme}: let go, it stands alone and its row closes up`, (await outline()) === '[Beta | Alpha one + Alpha two] / Under the row / Gamma', await outline())
     await undo()
     check(`${theme}: ⌘Z puts the column back in one step`, (await outline()) === '[Beta | Gamma | Alpha one + Alpha two] / Under the row', await outline())
+  }
+}
+
+/**
+ * Carries the block by `from`'s grip to `to`'s own line (a little in from its left, its middle), then holds still there
+ * for `hold` ms, a frame every 50ms through the move and the rest. `release`: let go at once, no rest.
+ */
+async function rest(name, from, to, { hold = 900, grip: by = '.tiptap-drag-handle-grip' } = {}) {
+  await page.mouse.move(5, 5)
+  await from.hover()
+  await page.waitForTimeout(220)
+  const grip = await page.locator(by).first().boundingBox()
+  const box = await to.boundingBox()
+  const start = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 }
+  const end = { x: box.x + Math.min(box.width * 0.4, 120), y: box.y + box.height / 2 }
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  const seen = []
+  for (let i = 1; i <= 12; i++) {
+    await page.mouse.move(start.x + ((end.x - start.x) * i) / 12, start.y + ((end.y - start.y) * i) / 12)
+    await page.waitForTimeout(50)
+    seen.push(await state())
+    if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-${String(i).padStart(2, '0')}.png`) })
+  }
+  const held = []
+  for (let t = 50; t <= hold; t += 50) {
+    await page.waitForTimeout(50)
+    held.push(await state())
+    if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-rest-${String(t).padStart(4, '0')}.png`) })
+  }
+  await page.mouse.up()
+  await page.waitForTimeout(250)
+  if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-after.png`) })
+  return { seen, held, last: held.at(-1) ?? seen.at(-1) }
+}
+const item = (text) => page.locator(`${EDITOR} li p`, { hasText: text }).first()
+
+// A list's item rested on another becomes its child; a task's, its step. A quick pass only reorders.
+if (PART === 'child') {
+  for (const look of ['light', 'dark']) {
+    await theme(look)
+    await app.reset()
+    await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<ul><li><p>Buy bread</p></li><li><p>Call the bank</p></li><li><p>Read chapter two</p></li></ul><p>After the list</p>'))
+    await page.waitForTimeout(250)
+    const was = await tree()
+    let run = await rest(`${look}-child`, item('Read chapter two'), item('Buy bread'))
+    const early = run.held.slice(0, 4)
+    check(`${look}: on its way, over an item's middle, it only moves beside it (the room and its line, nothing lit)`, early.every((one) => one.lit === 0) && early.some((one) => one.lines === 1), JSON.stringify(early.map((one) => [one.lit, one.lines, one.words])))
+    check(`${look}: rested there, that item lights (filled, as a sidebar folder does), the card says “Move into …”, no room or line`, run.last.lit === 1 && run.last.litFilled && run.last.words === 'Move into “Buy bread”' && run.last.lines === 0 && run.last.rooms === 0, JSON.stringify(run.last))
+    check(`${look}: let go, it is that item's child (after its own, as Tab would put it)`, (await tree()) === '[Buy bread [Read chapter two], Call the bank] / After the list', await tree())
+    check(`${look}: and nothing stays lit`, (await state()).lit === 0)
+    await undo()
+    check(`${look}: ⌘Z puts it back in one step`, (await tree()) === was, await tree())
+
+    // A quick pass over the same middle: a move, never a child.
+    run = await rest(`${look}-pass`, item('Read chapter two'), item('Buy bread'), { hold: 100 })
+    check(`${look}: let go without resting, it moves beside the item and is no one's child`, !(await tree()).includes('[Read') && (await tree()).startsWith('[') && run.last.lit === 0, await tree())
+    await undo()
+
+    // An item that already has children: it goes after them.
+    await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<ul><li><p>Chapter one</p><ul><li><p>the storm</p></li></ul></li><li><p>the letter</p></li></ul>'))
+    await page.waitForTimeout(250)
+    run = await rest(`${look}-after-children`, item('the letter'), item('Chapter one'))
+    check(`${look}: into an item with children of its own, it goes last among them`, (await tree()) === '[Chapter one [the storm, the letter]]', `${await tree()} ${run.last.words}`)
+
+    // A task's step.
+    await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<ul data-type="taskList"><li data-type="taskItem" data-checked="false"><p>Write the essay</p></li><li data-type="taskItem" data-checked="false"><p>Find three sources</p></li></ul><p>After the tasks</p>'))
+    await page.waitForTimeout(250)
+    const tasks = await tree()
+    run = await rest(`${look}-step`, item('Find three sources'), item('Write the essay'))
+    check(`${look}: a task rested on another: that task lights and the card says “Make it a step of …”`, run.last.lit === 1 && run.last.words === 'Make it a step of “Write the essay”', JSON.stringify(run.last))
+    check(`${look}: let go, it is that task's step`, (await tree()) === '[Write the essay [Find three sources]] / After the tasks', await tree())
+    await undo()
+    check(`${look}: ⌘Z takes the step back out in one step`, (await tree()) === tasks, await tree())
+  }
+}
+
+// A picture or a file carried by itself (the browser's own drag, the system's for one kept in the app). The system's
+// drag cannot run off screen: main's `drag-out` is a recorder here, and the drag over the note is the events the page
+// would hear, at the same places, a frame every 50ms.
+if (PART === 'away') {
+  await app.electron.evaluate(({ ipcMain }) => {
+    ipcMain.removeAllListeners('drag-out')
+    globalThis.outs = []
+    ipcMain.on('drag-out', (_event, src, name) => globalThis.outs.push({ src, name }))
+  })
+  const outs = () => app.electron.evaluate(() => globalThis.outs.splice(0))
+  const save = (bytes, name) => page.evaluate(([b, n]) => window.api.saveFile(n, new Uint8Array(b)), [bytes, name])
+  const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+  const map = await save([...Buffer.from(PNG, 'base64')], 'Map.png')
+  const list = await save([...Buffer.from('hello')], 'Reading list.txt')
+  const start = (sel) => page.evaluate((sel) => {
+    const el = document.querySelector(sel)
+    window.carried = new DataTransfer()
+    const box = el.getBoundingClientRect()
+    ;(el.closest('[draggable=true]') ?? el).dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: window.carried, clientX: box.left + 20, clientY: box.top + box.height / 2 }))
+  }, sel)
+  const hear = (x, y, kind = 'dragover') => page.evaluate(([x, y, kind]) => {
+    const target = kind === 'dragleave' ? document.body : document.elementFromPoint(x, y) ?? document.body
+    return !target.dispatchEvent(new DragEvent(kind, { bubbles: true, cancelable: true, dataTransfer: window.carried, clientX: x, clientY: y, relatedTarget: null }))
+  }, [x, y, kind])
+  const centre = async (locator) => { const box = await locator.boundingBox(); return { x: box.x + box.width / 2, y: box.y + box.height / 2, box } }
+  /** Over the note from `from` to `to` in 12 steps, a frame every 50ms. */
+  const across = async (name, from, to) => {
+    const seen = []
+    for (let i = 1; i <= 12; i++) {
+      seen.push({ taken: await hear(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12) })
+      await page.waitForTimeout(50)
+      Object.assign(seen.at(-1), await state())
+      if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-${String(i).padStart(2, '0')}.png`) })
+    }
+    return seen
+  }
+  for (const look of ['light', 'dark']) {
+    await theme(look)
+    await app.reset()
+    const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+    const doc = { type: 'doc', content: [para('First line.'), para('Second line.'), { type: 'image', attrs: { src: map, alt: 'Map', width: '96px' } }, para('Third line.'), { type: 'attachment', attrs: { src: list, name: 'Reading list.txt', mime: 'text/plain', size: 5 } }, para('Fourth line.')] }
+    await page.$eval(EDITOR, (root, doc) => root.editor.commands.setContent(doc), doc)
+    await page.waitForTimeout(500)
+    const was = await tree()
+    // The picture, taken by itself, down past the third line.
+    await start(`${EDITOR} img`)
+    const from = await centre(page.locator(`${EDITOR} img`))
+    const third = await centre(page.locator(`${EDITOR} p`, { hasText: 'Third line.' }))
+    const to = { x: third.box.x + 40, y: third.box.y + third.box.height * 0.8 }
+    const seen = await across(`${look}-picture`, from, to)
+    const live = seen.slice(-4)
+    check(`${look}: a picture carried by itself: the blocks glide aside, the room opens with its one line (carry.tsx's), its own place out of sight`, live.every((one) => one.taken && one.lines === 1 && one.rooms === 1 && one.moved >= 1 && one.carried.length === 1 && one.carried[0] === 'hidden'), JSON.stringify(live))
+    check(`${look}: and nothing else is drawn: no editor drop line, no second card (the system shows the picture in hand)`, seen.every((one) => !one.dropCursor && one.cards === 0), JSON.stringify(seen.map((one) => [one.dropCursor, one.cards])))
+    await hear(to.x, to.y, 'drop')
+    await page.waitForTimeout(300)
+    check(`${look}: let go there, it moved there, once`, (await tree()) === 'First line. / Second line. / Third line. / picture / Reading list.txt / Fourth line.', await tree())
+    const after = await state()
+    check(`${look}: nothing left behind: no band, line, block moved or out of sight`, after.rooms + after.own === 0 && after.lines === 0 && after.moved === 0 && after.carried.length === 0, JSON.stringify(after))
+    const sent = await outs()
+    check(`${look}: it can still leave the app: the system's drag was started with the file`, sent.length === 1 && sent[0].src === map, JSON.stringify(sent))
+    await undo()
+    check(`${look}: ⌘Z puts it back in one step`, (await tree()) === was, await tree())
+
+    // Out of the window: all home, the picture in sight; back in, the room opens again; the drag ending elsewhere leaves the note as it was.
+    await start(`${EDITOR} img`)
+    await across(`${look}-picture-out`, await centre(page.locator(`${EDITOR} img`)), to)
+    await hear(2, 2, 'dragleave')
+    await page.waitForTimeout(400)
+    const out = await state()
+    check(`${look}: carried out of the window: everything at home, the picture back in sight, nothing drawn`, out.rooms + out.own === 0 && out.lines === 0 && out.moved === 0 && out.carried.length === 0, JSON.stringify(out))
+    await hear(to.x, to.y)
+    await page.waitForTimeout(300)
+    const back = await state()
+    check(`${look}: brought back in, the room opens again`, back.rooms === 1 && back.lines === 1, JSON.stringify(back))
+    await hear(2, 2, 'dragleave')
+    await page.mouse.move(30, 30)
+    await page.mouse.move(40, 40)
+    await page.waitForTimeout(300)
+    check(`${look}: let go in another app, the note is as it was and nothing is held`, (await tree()) === was && (await state()).carried.length === 0, await tree())
+    await outs()
+
+    // A file's card, carried by itself, up under the first line.
+    await start(`${EDITOR} .tiptap-attachment`)
+    const first = await centre(page.locator(`${EDITOR} p`, { hasText: 'First line.' }))
+    const up = { x: first.box.x + 40, y: first.box.y + first.box.height * 0.85 }
+    const file = await across(`${look}-file`, await centre(page.locator(`${EDITOR} .tiptap-attachment`)), up)
+    check(`${look}: a file's card carried by itself: the room with its one line opens where it lands`, file.slice(-3).every((one) => one.taken && one.lines === 1 && one.rooms === 1), JSON.stringify(file.slice(-3)))
+    await hear(up.x, up.y, 'drop')
+    await page.waitForTimeout(300)
+    check(`${look}: let go, the file moved there`, (await tree()) === 'First line. / Reading list.txt / Second line. / picture / Third line. / Fourth line.', await tree())
+    await undo()
+    await outs()
+  }
+  // A picture from the web goes by the browser's own drag (no system drag): the same room, the same move.
+  await theme('light')
+  await app.reset()
+  await page.$eval(EDITOR, (root, src) => root.editor.commands.setContent(`<p>Alpha line.</p><img src="${src}" alt="Web" style="width: 96px"><p>Beta line.</p><p>Gamma line.</p>`), `data:image/png;base64,${PNG}`)
+  await page.waitForTimeout(400)
+  await start(`${EDITOR} img`)
+  const gamma = await centre(page.locator(`${EDITOR} p`, { hasText: 'Gamma line.' }))
+  const down = { x: gamma.box.x + 40, y: gamma.box.y + gamma.box.height * 0.8 }
+  const web = await across('light-web-picture', await centre(page.locator(`${EDITOR} img`)), down)
+  check('a picture from the web (the browser\'s own drag): the same room and line', web.slice(-3).every((one) => one.taken && one.lines === 1 && one.rooms === 1 && !one.dropCursor), JSON.stringify(web.slice(-3)))
+  await hear(down.x, down.y, 'drop')
+  await page.waitForTimeout(300)
+  check('let go, it moved there, and no system drag was started for it', (await tree()) === 'Alpha line. / Beta line. / Gamma line. / picture' && (await outs()).length === 0, await tree())
+}
+
+// Scrolling while carrying, the "+" carried, ⌥ carrying a copy (no clipboard), and the smallest window.
+if (PART === 'more') {
+  await theme('light')
+  // Carried to the note's foot and held there: the note scrolls, the room and its line stay on the blocks under the pointer, and it lands there.
+  await app.reset()
+  await page.$eval(EDITOR, (root) => root.editor.commands.setContent(Array.from({ length: 60 }, (_, at) => `<p>Line ${at + 1} of a long note</p>`).join('')))
+  await page.waitForTimeout(300)
+  const scroller = () => page.$eval(EDITOR, (root) => {
+    let el = root
+    while (el && !(el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement
+    if (!el) return null
+    const box = el.getBoundingClientRect()
+    return { top: el.scrollTop, boxTop: box.top, bottom: Math.min(box.bottom, innerHeight), left: box.left }
+  })
+  const box = await scroller()
+  check('the long note scrolls in its own box', !!box, JSON.stringify(box))
+  if (box) {
+    await page.locator(`${EDITOR} p`, { hasText: 'Line 2 of' }).hover()
+    await page.waitForTimeout(220)
+    const grip = await page.locator('.tiptap-drag-handle-grip').boundingBox()
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2)
+    await page.mouse.down()
+    const foot = { x: grip.x + 80, y: box.bottom - 20 }
+    for (let i = 1; i <= 10; i++) (await page.mouse.move(grip.x + 8 + (foot.x - grip.x) * i / 10, grip.y + (foot.y - grip.y) * i / 10), await page.waitForTimeout(40))
+    const during = []
+    for (let t = 0; t < 30; t++) {
+      await page.waitForTimeout(50)
+      const one = await state()
+      during.push({ ...one, top: (await scroller()).top })
+      if (FRAMES && t % 2 === 0) await page.screenshot({ path: join(FRAMES, `scroll-${String(t).padStart(2, '0')}.png`) })
+    }
+    const last = during.at(-1)
+    check('held at the note\'s foot, the note scrolls under the pointer', last.top - box.top > 60, `${box.top} → ${last.top}`)
+    check('and the room and its line stay under the pointer as it scrolls, never left behind', during.slice(5).every((one) => one.lines === 1 && one.rooms === 1 && one.lineY !== null && Math.abs(one.lineY - foot.y) < 40), JSON.stringify(during.slice(5).map((one) => [one.lines, one.rooms, one.lineY && Math.round(one.lineY)])))
+    const lineY = last.lineY
+    await page.mouse.up()
+    await page.waitForTimeout(300)
+    const landed = await page.locator(`${EDITOR} p`, { hasText: 'Line 2 of' }).boundingBox()
+    check('let go, it lands where the line was', !!landed && Math.abs(landed.y + landed.height / 2 - lineY) < 30, `${landed && Math.round(landed.y + landed.height / 2)} vs ${Math.round(lineY)}`)
+  }
+
+  // The "+" carries the block as the grip does; pressed alone, it still adds a line below.
+  await app.reset()
+  await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<p>Plus one</p><p>Plus two</p><p>Plus three</p><p>Plus four</p>'))
+  await page.waitForTimeout(250)
+  const run = await rest('plus', page.locator(`${EDITOR} p`, { hasText: 'Plus one' }), page.locator(`${EDITOR} p`, { hasText: 'Plus four' }), { hold: 300, grip: '[aria-label="Insert a block below"]' })
+  check('the "+" carried: the card with the block\'s words says “Move here”, the room with its one line', run.last.cards === 1 && /Plus one/.test(run.last.title) && run.last.words === 'Move here' && run.last.lines === 1, JSON.stringify(run.last))
+  check('let go, the block moved', (await texts()).join('|').startsWith('Plus two|Plus three') && (await texts()).includes('Plus one'), (await texts()).join('|'))
+  await page.locator(`${EDITOR} p`, { hasText: 'Plus two' }).hover()
+  await page.waitForTimeout(220)
+  await page.locator('[aria-label="Insert a block below"]').click()
+  await page.waitForTimeout(250)
+  const slash = await page.$eval(EDITOR, (root) => root.editor.getJSON().content.map((one) => (one.content ?? []).map((t) => t.text).join('')))
+  check('pressed alone, the "+" still adds a line below with “/”', slash[1] === '/', JSON.stringify(slash))
+  await page.keyboard.press('Escape')
+
+  // ⌥ held: a copy. The card says so, the block stays in sight, only the room where the copy lands opens. No clipboard.
+  await app.reset()
+  await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<p>Copy me</p><p>Second</p><p>Third</p>'))
+  await page.waitForTimeout(250)
+  // Counted and never passed on: were the carry to reach for the clipboard, the Mac's own would still be untouched.
+  await page.evaluate(() => {
+    window.clip = 0
+    for (const name of ['writeText', 'write', 'readText', 'read']) navigator.clipboard[name] = () => (window.clip++, Promise.resolve())
+    const exec = document.execCommand.bind(document)
+    document.execCommand = (name, ...rest) => (/copy|cut|paste/i.test(name) ? (window.clip++, false) : exec(name, ...rest))
+  })
+  await page.keyboard.down('Alt')
+  const copy = await rest('copy', page.locator(`${EDITOR} p`, { hasText: 'Copy me' }), page.locator(`${EDITOR} p`, { hasText: 'Third' }), { hold: 300 })
+  await page.keyboard.up('Alt')
+  const live = copy.seen.slice(-4)
+  check('⌥ held: the card says “Copy here”, the block stays in sight, the room with its line opens where the copy lands', live.every((one) => one.words === 'Copy here' && one.carried.length === 0 && one.lines === 1 && one.rooms === 1 && one.own === 0), JSON.stringify(live))
+  check('let go, the copy is there and the block where it was', JSON.stringify(await texts()) === JSON.stringify(['Copy me', 'Second', 'Copy me', 'Third']) || JSON.stringify(await texts()) === JSON.stringify(['Copy me', 'Second', 'Third', 'Copy me']), (await texts()).join('|'))
+  check('and the clipboard was never touched', (await page.evaluate(() => window.clip)) === 0, String(await page.evaluate(() => window.clip)))
+  await undo()
+  check('⌘Z takes the copy away in one step', JSON.stringify(await texts()) === JSON.stringify(['Copy me', 'Second', 'Third']), (await texts()).join('|'))
+
+  // The smallest window, 560 by 400: the card stays in it, the room and line show, the move lands.
+  await page.setViewportSize?.({ width: 560, height: 400 }).catch(() => {})
+  await app.reset()
+  await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<p>Small one</p><p>Small two</p><p>Small three</p>'))
+  await page.waitForTimeout(250)
+  const small = await rest('narrow', page.locator(`${EDITOR} p`, { hasText: 'Small one' }), page.locator(`${EDITOR} p`, { hasText: 'Small three' }), { hold: 300 })
+  const width = await page.evaluate(() => innerWidth)
+  check('560 by 400: the card stays inside the window, the room and its line show', small.seen.slice(2).every((one) => !one.card || (one.card.right <= width - 4 && one.card.x >= 4)) && small.last.lines === 1 && small.last.rooms === 1, JSON.stringify(small.last))
+  check('560 by 400: let go, it moved', (await texts()).at(-1) === 'Small one' || (await texts())[2] === 'Small one', (await texts()).join('|'))
+}
+
+// A table's row and column carried by their own grips: the row (or column) itself in hand along its line, and where it
+// lands the line every carry draws (carry.tsx DropLine, its dot), a frame every 50ms, light and dark.
+if (PART === 'table') {
+  for (const look of ['light', 'dark']) {
+    await theme(look)
+    await app.reset()
+    await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<table><tbody><tr><th><p>Book</p></th><th><p>Year</p></th><th><p>Shelf</p></th></tr><tr><td><p>Middlemarch</p></td><td><p>1871</p></td><td><p>A</p></td></tr><tr><td><p>Bleak House</p></td><td><p>1853</p></td><td><p>B</p></td></tr><tr><td><p>Persuasion</p></td><td><p>1817</p></td><td><p>C</p></td></tr></tbody></table><p>After the table</p>'))
+    await page.waitForTimeout(300)
+    for (const axis of ['row', 'column']) {
+      const cell = page.locator(`${EDITOR} td`, { hasText: 'Middlemarch' }).first()
+      await cell.hover()
+      await page.waitForTimeout(250)
+      const grip = await page.locator(`.tiptap-table-grip.is-${axis}`).first().boundingBox().catch(() => null)
+      if (!grip) {
+        check(`${look}: the table's ${axis} grip shows`, false, 'no grip')
+        continue
+      }
+      const start = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 }
+      const end = axis === 'row' ? { x: start.x, y: start.y + 70 } : { x: start.x + 220, y: start.y }
+      await page.mouse.move(start.x, start.y)
+      await page.mouse.down()
+      const seen = []
+      for (let i = 1; i <= 10; i++) {
+        await page.mouse.move(start.x + ((end.x - start.x) * i) / 10, start.y + ((end.y - start.y) * i) / 10)
+        await page.waitForTimeout(50)
+        seen.push(await page.evaluate(() => {
+          const lines = [...document.querySelectorAll('[data-drop-line]')]
+          const dot = lines[0] ? getComputedStyle(lines[0], '::before').borderTopWidth : ''
+          return { lines: lines.length, dot, old: document.querySelectorAll('.tiptap-table-landing').length }
+        }))
+        if (FRAMES) await page.screenshot({ path: join(FRAMES, `${look}-table-${axis}-${String(i).padStart(2, '0')}.png`) })
+      }
+      await page.mouse.up()
+      await page.waitForTimeout(400)
+      if (FRAMES) await page.screenshot({ path: join(FRAMES, `${look}-table-${axis}-after.png`) })
+      const late = seen.slice(-3)
+      check(`${look}: a table's ${axis} carried by its grip lands on the one line every carry draws, with its dot`, late.every((one) => one.lines === 1 && one.dot === '2px' && one.old === 0), JSON.stringify(seen))
+      await undo()
+    }
   }
 }
 

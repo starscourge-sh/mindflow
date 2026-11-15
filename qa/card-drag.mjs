@@ -1,7 +1,8 @@
 // Dragging a file block (a voice note, a PDF, a file, a picture) in a note (extensions/drag-out.ts,
 // main/index.ts `drag-out`, ui/title-tips.tsx). The body carries the file out to other apps with a
-// picture of itself (a drawn card, never the app icon), and is never also a move: no drop line in the
-// note, nothing added there. The ⠿ grip moves the block within the note. No tip comes up during a drag.
+// picture of itself (a drawn card, never the app icon). Over its own note it is a move, as the grip's carry is
+// (lib/block-carry.tsx carryAway, qa/block-carry.mjs QA_PART=away): the editor's own drop line never shows, and a drag
+// that ends elsewhere adds nothing. The ⠿ grip moves the block within the note too. No tip comes up during a drag.
 // Main's `drag-out` is replaced by a recorder, so no real system drag starts.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/card-drag.mjs
 import { writeFileSync } from 'node:fs'
@@ -53,7 +54,7 @@ try {
   const start = await order()
 
   for (const [kind, sel] of [['voice note', '.tiptap-attachment.is-audio'], ['PDF', '.tiptap-attachment.is-pdf'], ['file', '.tiptap-attachment:not(.is-audio):not(.is-pdf)'], ['picture', '[data-open] .tiptap img']]) {
-    // --- The body: carried out, never also a move ---------------------------------------
+    // --- The body: carried out, and over its own note the carry's room, never the editor's drop line ---------------
     const ok = await h.evaluate((sel) => {
       const card = document.querySelector(sel)
       if (!card) return 'no block'
@@ -82,8 +83,8 @@ try {
       check(`${kind}: carries a drawn card of itself, not the app icon`, !!sent[0]?.face?.startsWith('data:image/png;base64,'), '')
       if (sent[0]?.face) writeFileSync(`${shots}/card-drag-face-${kind.replace(' ', '-')}.png`, Buffer.from(sent[0].face.split(',')[1], 'base64'))
     }
-    check(`${kind}: no drop line in the note while it is carried out`, ok.line === false, JSON.stringify(ok))
-    check(`${kind}: the note refuses it (not a move)`, ok.allowed === false, JSON.stringify(ok))
+    check(`${kind}: no editor drop line in the note while it is carried`, ok.line === false, JSON.stringify(ok))
+    check(`${kind}: over its own note it is taken as a move (the carry's room opens there)`, ok.allowed === true, JSON.stringify(ok))
     await h.mouse.move(5, 5); await h.mouse.down(); await h.mouse.up(); await wait(150)
   }
   // The drawn card in the dark look too.
