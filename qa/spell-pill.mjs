@@ -131,8 +131,9 @@ try {
   const along = await pill(h, '[data-open] .tiptap', 'recieve')
   check('as the page scrolls the pill goes with its word, right under it', went > 20 && !!still && !!along && Math.abs(along.dx) <= 3 && along.dy >= 0 && along.dy <= 8, `went ${went}px; ${JSON.stringify(still)} then ${JSON.stringify(along)}`)
   const far = await turn(down * 2500)
-  const off = await pill(h, '[data-open] .tiptap', 'recieve')
-  check('scrolled off the screen with its word, the pill goes', far > 600 && !off, `went ${far}px; ${JSON.stringify(off)}`)
+  // Gone from the screen: taken away, or carried off it with its word (both are nothing to see).
+  const off = await h.evaluate(() => { const one = document.querySelector('[data-spell-hint]'); if (!one) return null; const r = one.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight ? { top: Math.round(r.top) } : null })
+  check('scrolled off the screen with its word, the pill goes from the screen', far > 600 && !off, `went ${far}px; ${JSON.stringify(off)}`)
   const backBy = await turn(-down * 2500)
   const back = await pill(h, '[data-open] .tiptap', 'recieve')
   check('scrolled back, the pill comes back under its word', backBy < -600 && !!back && Math.abs(back.dx) <= 3 && back.dy >= 0 && back.dy <= 8, `went ${backBy}px; ${JSON.stringify(back)}`)
