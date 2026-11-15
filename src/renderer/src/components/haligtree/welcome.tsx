@@ -12,7 +12,7 @@ import { AnimatePresence, MotionConfig, motion, useIsPresent } from 'motion/reac
 import { ArrowUp, Compass, CornerDownLeft, FolderInput, Shuffle, Undo2, Volume2, VolumeX } from 'lucide-react'
 import { ReaderCard, drawBookName, seedOf } from './reader-card'
 import { renameBook, useShelf } from '@/lib/books'
-import { useFitText } from '@/lib/fit-text'
+import { useFitPicture, useFitText } from '@/lib/fit-text'
 import { shift, spring, still, still as calm } from '@/lib/motion'
 import { sayName, ARRIVE_MS, BEAT_MS, PENTA, soundOn, ambience, bedHome, bedLift, bedResolve, bedShift, bell, chime, click, fold, pageTurn, quietBed, titleChime } from '@/lib/sound'
 import { applyTheme, currentTheme, type Theme } from '@/lib/theme'
@@ -1138,6 +1138,11 @@ function ThesisChapter({ play, report }: { play: boolean; report: (now: Reel) =>
  */
 function YouChapter({ setup, onChange, still, report, paid, onPaid: setPaid }: { setup: Setup; onChange: (next: Setup) => void; still: boolean; report: (now: Reel) => void; /** The summary is up (kept by the welcome, so coming back shows it again). */ paid: boolean; onPaid: (paid: boolean) => void }): React.JSX.Element {
   const [working, setWorking] = useState(false)
+  // The five questions (or what was done with them) a little smaller where the window is short, so the last one is
+  // never under the footer, the goal's card beside them drawn smaller with them; fitted again as answers make a row wrap.
+  const stage = useRef<HTMLDivElement>(null)
+  const asked = useRef<HTMLDivElement>(null)
+  useFitPicture(asked, stage)
   report({
     done: !working,
     settle: () => undefined,
@@ -1161,10 +1166,12 @@ function YouChapter({ setup, onChange, still, report, paid, onPaid: setPaid }: {
       <Words key={paid ? 'paid' : 'ask'} title={paid ? `${APP_NAME} is shaped for you now.` : `Tell ${APP_NAME} a little about you.`} docked still={still} done>
         {paid ? 'Here is what that means for you.' : 'So it starts out shaped for you. Skip any question.'}
       </Words>
-      <div className="mf-more relative flex min-h-0 flex-1 flex-col justify-center-safe overflow-y-auto pb-2">
-        {paid
-          ? <Payoff setup={setup} onChange={onChange} onBack={() => (chime('page'), setPaid(false))} still={still} />
-          : <YouPage setup={setup} onChange={onChange} still={still} />}
+      <div ref={stage} className="mf-more relative flex min-h-0 flex-1 flex-col justify-center-safe overflow-y-auto pb-2">
+        <div ref={asked} className="w-full">
+          {paid
+            ? <Payoff setup={setup} onChange={onChange} onBack={() => (chime('page'), setPaid(false))} still={still} />
+            : <YouPage setup={setup} onChange={onChange} still={still} />}
+        </div>
       </div>
     </>
   )
