@@ -42,25 +42,29 @@ const measure = (h, scope = null) => h.evaluate((scope) => {
   const page = read(getComputedStyle(document.documentElement).getPropertyValue('--background').trim())
   const FADED = /(?:^|\s)((?:[\w&_[\]-]+:)*text-(?:foreground|muted-foreground)(?:\/\d+)?|text-\(--mf-muted(?:-strong)?\))(?=\s|$)/
   const words = []
-  const one = (el, color, size, weight, text, kind) => {
+  const one = (el, color, size, weight, text, kind, own_fade = 1) => {
     const style = getComputedStyle(el)
     const ink = read(style.getPropertyValue('--foreground').trim())
     const quiet = read(style.getPropertyValue('--muted-foreground').trim())
     const strong = read(style.getPropertyValue('--mf-muted-strong').trim() || style.getPropertyValue('--muted-foreground').trim())
-    // A pill tinted in its kind's or calendar's colour (calendar-events.tsx's recipe, set on the element) is a hue, not a
-    // faded ink, even where its grey comes out near Faded Ink.
-    for (let up = el; up; up = up.parentElement) if (up.style?.color) return
     const own = read(color)
-    // Faded: the ink at any alpha under 1, or Faded Ink or its strong step at any alpha. The ink itself and the hues are not.
-    const faded = (near(own, ink) && own.a < 0.995) || near(own, quiet) || near(own, strong)
+    let fade = own_fade
+    for (let up = el; up; up = up.parentElement) fade *= Number(getComputedStyle(up).opacity)
+    // Faded: the ink at any alpha under 1, or Faded Ink or its strong step at any alpha; and any word drawn see-through,
+    // by an alpha on its own ink (white at 90% over a picture) or by opacity on it or round it (a key at 70%), whatever
+    // its ink. The ink itself and the hues, drawn whole, are not.
+    // A key beside a label is a hint whatever its ink (the fill's own ink on a button): it is measured too.
+    const seen = fade < 0.995 || own.a < 0.995
+    const faded = (near(own, ink) && own.a < 0.995) || near(own, quiet) || near(own, strong) || seen || !!el.closest('kbd, [data-slot="kbd"]')
     if (!faded) return
+    // A pill tinted in its kind's or calendar's colour (calendar-events.tsx's recipe, set on the element) is a hue, not a
+    // faded ink, even where its grey comes out near Faded Ink; drawn see-through, it is measured as drawn.
+    if (!seen) for (let up = el; up; up = up.parentElement) if (up.style?.color) return
     // A word still arriving (a hint typing in, word by word: its opacity or colour still easing) is measured once it has
     // landed, on another look. Only a fade or a change of colour counts: a slide or a drift elsewhere changes no ink.
     const fading = (one) => one.playState === 'running' && one.effect?.getComputedTiming().iterations !== Infinity &&
       (one.transitionProperty ? /opacity|color|filter|all/.test(one.transitionProperty) : (one.effect?.getKeyframes?.() ?? []).some((key) => 'opacity' in key || 'color' in key || 'filter' in key))
     for (let up = el; up; up = up.parentElement) if (up.getAnimations().some(fading)) return
-    let fade = 1
-    for (let up = el; up; up = up.parentElement) fade *= Number(getComputedStyle(up).opacity)
     // Faded out to nothing (a grip that shows on hover): not drawn. A whole row or card dimmed to show its state (a closed
     // question, a paused card) is drawn, and its words are measured as drawn, at that strength.
     if (fade < 0.05) return
@@ -89,11 +93,7 @@ const measure = (h, scope = null) => h.evaluate((scope) => {
     for (let up = el; up && !at; up = up.parentElement) at = [...up.attributes].find((one) => one.name.startsWith('data-') && !['data-state', 'data-qa-row', 'data-fluid-hover-active'].includes(one.name))?.name ?? ''
     words.push({ kind: fade <= 0.6 ? 'dimmed' : kind, cls, at, text: text.slice(0, 40), size, weight, ratio: Math.round(ratio(drawn, ground) * 100) / 100, bar: large ? 3 : 4.5, ground: hex(ground), ink: hex(drawn) })
   }
-  for (const el of (scope ? [...document.querySelectorAll(scope)] : [document.body]).flatMap((root) => [...root.querySelectorAll('*')])) {
-    // A placeholder showing in an empty field, or the element's own words: not a lone dot, arrow or other mark between words.
-    const hint = (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.placeholder && !el.value
-    const text = hint ? el.placeholder : [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim()
-    if (!text || /^[\p{P}\p{S}\s]+$/u.test(text)) continue
+  for (const el of (scope ? [...document.querySelectorAll(scope)] : [document.body]).flatMap((root) => [root, ...root.querySelectorAll('*')])) {
     // Not words to read: drawings, pdf.js's clear words over a page, a disabled control, and a page's example (made-up
     // rows under "Example", drawn faded and inert as a picture of what the page will hold: example.tsx).
     if (el.closest('svg, canvas, .textLayer, :disabled, [aria-disabled="true"], [inert], [data-example]')) continue
@@ -101,6 +101,18 @@ const measure = (h, scope = null) => h.evaluate((scope) => {
     // Drawn, wherever it is scrolled to: a row further down the page is still on it.
     if (!box.width || !box.height) continue
     if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue
+    // An editor's empty line showing its hint ("Write a thought…", TipTap's placeholder): drawn by its ::before, read
+    // there, with the ::before's own colour, size and see-through.
+    const before = el.hasAttribute('data-placeholder') ? getComputedStyle(el, '::before') : null
+    if (before && !/^(none|normal)$/.test(before.content) && before.display !== 'none' && before.visibility !== 'hidden' && Number(before.opacity) > 0.05) {
+      const said = /attr\(|var\(/.test(before.content) || before.content.length < 3 ? el.getAttribute('data-placeholder') : before.content.replace(/^["']|["']$/g, '')
+      if (said?.trim()) one(el, before.color, parseFloat(before.fontSize), Number(before.fontWeight), said.trim(), 'placeholder', Number(before.opacity))
+    }
+    // A placeholder showing in an empty field, or the element's own words: not a lone dot, arrow or other mark between
+    // words (a key is words, a keycap's ⌘↵ too).
+    const hint = (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') && el.placeholder && !el.value
+    const text = hint ? el.placeholder : [...el.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join('').trim()
+    if (!text || (/^[\p{P}\p{S}\s]+$/u.test(text) && !el.closest('kbd, [data-slot="kbd"]'))) continue
     const style = getComputedStyle(el)
     one(el, hint ? getComputedStyle(el, '::placeholder').color : style.color, parseFloat(style.fontSize), Number(style.fontWeight), text, hint ? 'placeholder' : 'words')
   }
@@ -111,20 +123,188 @@ const c = await sandbox({ width: 1300, height: 900 })
 const { h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 /** At rest: a hint typing in, a fade or a colour still easing in is measured once it has landed (endless ones, a shimmer, aside). */
-const settle = (ms) => h.evaluate(async (ms) => {
+const settle = (ms, on = h) => on.evaluate(async (ms) => {
   for (const end = Date.now() + ms; Date.now() < end; await new Promise((done) => setTimeout(done, 100)))
     if (!document.getAnimations().some((one) => one.playState === 'running' && one.effect?.getComputedTiming().iterations !== Infinity)) return
 }, ms)
-const wear = async (theme, style) => {
-  await h.evaluate(([theme, style]) => { localStorage.setItem('theme', theme); localStorage.setItem('style', style); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, [theme, style])
-  await wait(500)
+const wear = async (theme, style, on = h) => {
+  await on.evaluate(([theme, style]) => { localStorage.setItem('theme', theme); localStorage.setItem('style', style); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }, [theme, style])
+  await on.waitForTimeout(500)
   // A surface whose fill eases to the new look (Home's card) is measured on the look it lands on, not half way.
-  await settle(1500)
+  await settle(1500, on)
+}
+
+/**
+ * The places that open (QA_PART=places, 15 Nov): words a key hint, a count, a tooltip's second line or a row's state
+ * had faded with opacity, each measured as drawn, the see-through counted, in each theme in the Soft and Brutal styles,
+ * in each state it shows in. Close the day and the week at rest, a choice pointed at and a choice taken; what fits,
+ * its keyboard row; the Undo notice, its action's key and its ⌘Z; the link box's Save ↵; the selection bar's tooltip;
+ * a note's Mentions and Related; Review's exam line, at rest and pointed at; quick capture's hint card, a vote's tooltip
+ * with its key, and its "Create ⌘↵"; and the editor's empty line's hint, as every placeholder is measured.
+ */
+async function places() {
+  const LOOKS = THEMES.flatMap((theme) => ['soft', 'brutal'].map((style) => [theme, style]))
+  const shown = (scope, on = h) => on.evaluate((scope) => [...document.querySelectorAll(scope)].some((one) => one.checkVisibility()), scope)
+  /** One state of one place: every look, its faded words read on their ground. */
+  const state = async (name, scope, on = h, keep = async () => {}) => {
+    if (!(await shown(scope, on))) return check(`${name}: shows`, false, `nothing at ${scope}`)
+    let count = 0
+    const lows = []
+    for (const [theme, style] of LOOKS) {
+      await wear(theme, style, on)
+      await keep()
+      const words = await measure(on, scope)
+      count = Math.max(count, words.length)
+      for (const one of words) table.push({ page: name, theme, style, ...one })
+      // QA_SHOTS: the place in Paper, Dark and Brutal, cut to it with room round it, to read beside another build's.
+      if (shots && ['paper/soft', 'dark/soft', 'paper/brutal', 'dark/brutal'].includes(`${theme}/${style}`)) {
+        const box = await on.evaluate((scope) => { const all = [...document.querySelectorAll(scope)].filter((one) => one.checkVisibility()).map((one) => one.getBoundingClientRect()); if (!all.length) return null; const l = Math.min(...all.map((b) => b.left)), t = Math.min(...all.map((b) => b.top)), r = Math.max(...all.map((b) => b.right)), b = Math.max(...all.map((b) => b.bottom)); return { x: Math.max(0, l - 16), y: Math.max(0, t - 16), width: Math.min(innerWidth - Math.max(0, l - 16), r - l + 32), height: Math.min(innerHeight - Math.max(0, t - 16), b - t + 32) } }, scope)
+        if (box && box.width > 0 && box.height > 0) await on.screenshot({ path: join(shots, `${name.replace(/[^\w]+/g, '-').replace(/-+$/, '')}-${theme}-${style}.png`), clip: box }).catch(() => {})
+      }
+      for (const one of words.filter((one) => one.ratio < one.bar)) lows.push({ ...one, theme, style })
+    }
+    lows.sort((a, b) => a.ratio - b.ratio)
+    check(`${name}: every faded word reads in every look (${count} words at most, lowest ${lows[0] ? lows[0].ratio : 'none under the bar'})`, count > 0 && !lows.length,
+      lows.slice(0, 4).map((one) => `${one.theme}/${one.style} ${one.cls} “${one.text}” ${one.ratio}:1 on ${one.ground}`).join(' | ') || `${count} words`)
+  }
+  await wear('paper', 'soft')
+  // Open tasks for today, none with a length, so Close the day, the week and what fits have rows to decide.
+  for (const one of ['Return the library books', 'Write to Clerval', 'Mend the lamp']) await v('task:add', one, undefined, true)
+  await wait(600)
+
+  // Close the day: the keys show on the keyboard cursor's row alone, in the ink of the choice they are on.
+  for (const [sheet, event] of [['close-day', 'haligtree:close-day'], ['close-week', 'haligtree:close-week']]) {
+    await h.evaluate((event) => window.dispatchEvent(new CustomEvent(event)), event)
+    await h.waitForSelector(`[data-${sheet}]`, { timeout: 4000 }).catch(() => {})
+    await settle(2000)
+    await state(`${sheet}, at rest (the keys on the cursor's row)`, `[data-${sheet}]`)
+    const first = await h.evaluate((sheet) => { const box = document.querySelector(`[data-${sheet}] [data-close-task] button`)?.getBoundingClientRect(); return box && { x: box.left + box.width / 2, y: box.top + box.height / 2 } }, sheet)
+    if (first) {
+      await h.mouse.move(first.x, first.y, { steps: 2 })
+      await wait(300)
+      await state(`${sheet}, a choice pointed at`, `[data-${sheet}] [data-close-task]`, h, () => h.mouse.move(first.x, first.y))
+      await h.mouse.click(first.x, first.y)
+      await wait(500)
+      await state(`${sheet}, a choice taken (on the ink's fill)`, `[data-${sheet}] [data-close-task] button[aria-pressed="true"]`)
+    }
+    await h.mouse.move(1290, 890)
+    await h.keyboard.press('Escape')
+    await wait(700)
+  }
+
+  // What fits in two hours: the keyboard's row shows its keys on the length choices.
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:fits', { detail: 120 })))
+  await h.waitForSelector('[data-fits]', { timeout: 4000 }).catch(() => {})
+  await settle(2000)
+  for (let n = 0; n < 12 && !(await shown('[data-fit-at] [data-give-length]')); n++) await h.keyboard.press('ArrowDown'), await wait(150)
+  await state('fits, the keyboard row with its keys', '[data-fits] [data-fit-at]')
+  await h.keyboard.press('Escape')
+  await wait(700)
+
+  // The notice with Undo and an action: its keys beside the words, held under the pointer while each look is read.
+  const notice = async () => {
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text: 'Moved to the Bin', undo: () => {}, tone: 'success', action: { label: 'Open', key: '⌘O', run: () => {} } } })))
+    await wait(500)
+    const box = await h.evaluate(() => { const one = document.querySelector('[role="status"][aria-live="polite"]')?.getBoundingClientRect(); return one && { x: one.left + 12, y: one.top + one.height / 2 } })
+    if (box) await h.mouse.move(box.x, box.y)
+  }
+  await notice()
+  await state('the Undo notice', '[role="status"][aria-live="polite"]', h, async () => { if (!(await shown('[role="status"][aria-live="polite"]'))) await notice() })
+  await h.mouse.move(1290, 890)
+  await wait(400)
+
+  // A note with a link, and words to pick: the link box (⌘K in the link) and the selection bar's tooltip.
+  const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+  const text = (words, marks) => ({ type: 'text', text: words, ...(marks ? { marks } : {}) })
+  const doc = (...content) => ({ type: 'doc', content })
+  const p = (...content) => ({ type: 'paragraph', content })
+  const target = await h.evaluate((one) => window.api.captures.create(one), { kind: 'note', body: doc(p(text('Lamplight study #c4probe')), p(text('The chapter on the lamp, and its maker.'))) })
+  const note = await h.evaluate((one) => window.api.captures.create(one), { kind: 'note', body: doc(p(text('Notes on Lamplight study #c4probe')), p(text('Read '), text('www.example.com', [{ type: 'link', attrs: { href: 'https://www.example.com' } }]), text(' about the lamp.')), p(text('The long nights of study, a plain line to pick.'))) })
+  await c.send('capture', note)
+  await h.locator(ED).first().waitFor({ timeout: 8000 }).catch(() => {})
+  await wait(1200)
+  const caret = (words, inside) => h.$eval(ED, (el, [words, inside]) => {
+    const e = el.editor; let at = -1
+    e.state.doc.descendants((n, pos) => { if (at < 0 && n.isText && n.text.includes(words)) at = pos + n.text.indexOf(words) })
+    if (at < 0) return false
+    e.chain().focus().setTextSelection(inside ? at + 3 : { from: at, to: at + words.length }).run()
+    return true
+  }, [words, inside]).catch(() => false)
+  if (await caret('www.example.com', true)) {
+    await wait(200)
+    await h.keyboard.press('Meta+k')
+    await wait(600)
+    await state('the link box (Save ↵ on the accent)', '[data-link-editor]')
+    await h.keyboard.press('Escape')
+    await wait(300)
+  } else check('the link box: the note opened', false)
+  // The line picked as a person picks it (three clicks), then the bar's "Move out" pointed at.
+  await h.locator(`${ED} > p`).nth(2).click({ clickCount: 3 }).catch(() => {})
+  await wait(700)
+  const bar = h.locator('[data-turn-into-page]')
+  if (await bar.isVisible().catch(() => false)) {
+    const point = async () => { await bar.hover().catch(() => {}); await wait(500) }
+    await point()
+    await state('the selection bar\'s tooltip (its second line)', '[data-slot="tooltip-content"]', h, point)
+  } else check('the selection bar\'s tooltip: the bar shows', false)
+  await h.mouse.move(1290, 890)
+  // Mentions and Related under the note it names: "Lamplight study" is named by the other note and shares its tag.
+  await c.send('capture', target)
+  await h.locator(ED).first().waitFor({ timeout: 8000 }).catch(() => {})
+  await wait(2500)
+  await h.evaluate(() => document.querySelector('section[data-chrome]')?.scrollIntoView({ block: 'center' }))
+  await wait(400)
+  await state('a note\'s Mentions and Related', 'section[data-chrome]')
+  // The note's empty line, its hint drawn by TipTap's placeholder.
+  await h.$eval(ED, (el) => el.editor.chain().focus('end').run()).catch(() => {})
+  await h.keyboard.press('Enter')
+  await wait(500)
+  await state('an empty line\'s hint in a note', `${ED} .is-empty[data-placeholder]`)
+  await h.keyboard.press('Meta+z')
+
+  // Review's exam line: a date on the tags of the cards due, its words at rest and pointed at.
+  const tags = await h.evaluate(async () => {
+    const list = (tags) => (Array.isArray(tags) ? tags : typeof tags === 'string' ? (() => { try { return JSON.parse(tags) } catch { return tags.split(/[\s,]+/) } })() : [])
+    return [...new Set((await window.api.haligtree('review:queue')).flatMap((one) => list(one.tags)).filter((one) => typeof one === 'string' && one))].slice(0, 2)
+  }).catch(() => [])
+  const soon = new Date(Date.now() + 12 * 86400000).toISOString().slice(0, 10)
+  for (const tag of tags) await v('tag:set', tag, { examAt: soon })
+  await go('review', ':today')
+  await wait(1500)
+  await state('Review\'s exam line', '[data-review-top]')
+  const chip = await h.evaluate(() => { const box = document.querySelector('[data-exam-chip]')?.getBoundingClientRect(); return box && { x: box.left + box.width / 2, y: box.top + box.height / 2 } })
+  if (chip) await state('Review\'s exam line, pointed at', '[data-exam-chip]', h, () => h.mouse.move(chip.x, chip.y))
+  await h.mouse.move(1290, 890)
+
+  // Quick capture: its "Create ⌘↵", and a hint card come back, a vote's tooltip with its key.
+  const { page } = c
+  await v('settings:set', { hintRate: 1, rotCount: 0 })
+  let card = null
+  for (const roll of [0.05, 0.2, 0.4, 0.6, 0.8]) {
+    await page.evaluate(() => window.api.hidePrompt())
+    await page.waitForTimeout(400)
+    await page.evaluate((r) => { Math.random = () => r }, roll)
+    await page.evaluate(() => window.api.showPrompt())
+    await page.waitForTimeout(1400)
+    card = await page.evaluate(() => document.querySelector('[data-hint-card]') && [...document.querySelectorAll('[data-hint-vote]')].length)
+    if (card) break
+  }
+  await state('quick capture\'s "Create ⌘↵"', '[data-create]', page)
+  await state('quick capture\'s "Create ⌘↵", pointed at', '[data-create]', page, () => page.locator('[data-create]').hover().catch(() => {}))
+  await page.mouse.move(2, 2)
+  if (card) {
+    const vote = await page.evaluate(() => { const card = document.querySelector('[data-hint-card]').getBoundingClientRect(); const one = document.querySelector('[data-hint-vote]').getBoundingClientRect(); return { card: { x: card.left + 20, y: card.top + 20 }, x: one.left + one.width / 2, y: one.top + one.height / 2 } })
+    const point = async () => { await page.mouse.move(vote.card.x, vote.card.y); await page.mouse.move(vote.x, vote.y, { steps: 2 }); await page.waitForTimeout(700) }
+    await point()
+    await state('a hint card\'s vote tooltip (its key)', '[data-slot="tooltip-content"]', page, point)
+  } else check('a hint card shows in quick capture', false, 'no card with votes was dealt')
+  await page.evaluate(() => window.api.hidePrompt())
 }
 
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  for (const id of pages) {
+  if (process.env.QA_PART === 'places') await places()
+  for (const id of process.env.QA_PART === 'places' ? [] : pages) {
     await wear('paper', 'soft')
     await go(id)
     await wait(700)
