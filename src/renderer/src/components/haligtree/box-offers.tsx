@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import type { Editor } from '@tiptap/core'
 import { AnimatePresence, motion } from 'motion/react'
+import { spareTab } from '@/extensions/tab-stays'
 import { KIND_ICON, kindOf } from '@/lib/goal-kind'
 
 import { menuShowing } from '@/lib/menu-keys'
@@ -76,22 +78,23 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, 
   }
   const latest = useRef(take)
   latest.current = take
-  // Tab in the writing adds it, once nothing else has taken Tab (a list's
-  // indent, a word's meaning, a menu of suggestions). Heard on the document, before the window: quick capture's
-  // grown box writes a tab for a Tab no one used, from the window (windows/box.tsx), and that tab took the key
-  // from the offer, so "Add ⇥" wrote a tab into the words instead.
+  // Tab in the writing adds it, once nothing else has taken Tab (a list's indent, a word's meaning, a menu of
+  // suggestions): a Tab with no job in the words (spareTab), taken before the words hear it. Left to them, it stayed
+  // put in the note (TabStays) and quick capture's grown box then wrote it as a tab (windows/box.tsx), so "Add ⇥"
+  // never added it.
   const on = !!best
   useEffect(() => {
     if (!on) return
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Tab' || event.defaultPrevented || event.shiftKey || event.metaKey || event.altKey || event.ctrlKey) return
-      if (!(event.target as HTMLElement | null)?.closest?.('.ProseMirror') || menuShowing('.tiptap-suggestion-popup')) return
+      const editor = (event.target as HTMLElement | null)?.closest?.<HTMLElement & { editor?: Editor }>('.ProseMirror')?.editor
+      if (!editor || !spareTab(editor) || menuShowing('.tiptap-suggestion-popup')) return
       event.preventDefault()
       event.stopPropagation()
       latest.current()
     }
-    document.addEventListener('keydown', onKey)
-    return () => document.removeEventListener('keydown', onKey)
+    document.addEventListener('keydown', onKey, true)
+    return () => document.removeEventListener('keydown', onKey, true)
   }, [on])
   if (all) {
     if (!offers.length) return null
