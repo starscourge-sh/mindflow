@@ -537,10 +537,10 @@ function heardAway(event: Event): void {
     now.heard = true
   }
   if (!held?.away) return
-  // Over its own note's words: anywhere else on the page (a field beside it that takes drops of its own) is not its to take.
-  const over = drag.target instanceof Node && now.view.dom.contains(drag.target)
-  held.x = over ? drag.clientX : -1e4
-  held.y = over ? drag.clientY : -1e4
+  // A field of its own beside the note (quick capture's “Who said it”) takes its own drops: not the note's to take there.
+  const field = drag.target instanceof Element && !now.view.dom.contains(drag.target) && !!drag.target.closest('input, textarea, [contenteditable="true"]')
+  held.x = field ? -1e4 : drag.clientX
+  held.y = field ? -1e4 : drag.clientY
   if (drag.type === 'dragover') point(held)
   // Off its note, or beside a full row: not the note's to take, as for the grip; let go there, it is all home.
   const aim = held.aim

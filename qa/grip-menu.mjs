@@ -95,38 +95,9 @@ const tables = () => page.$eval(EDITOR, (root) => {
   root.editor.state.doc.descendants((node, pos) => void (node.type.name === 'table' && found.push({ pos, first: node.firstChild?.firstChild?.textContent ?? '' })))
   return found
 })
-// As the user had it: quick capture at its own size, a word typed in the table, then straight to its grip.
-await set(NOTE)
-const lamp = page.locator(`${EDITOR} td`, { hasText: 'the old lamp' }).first()
 const safe = (run) => run.catch((error) => `stopped: ${String(error.message).split('\n')[0]}`)
-let said = await safe(fromGrip(lamp, 'Delete', { typed: true }))
-let left = await tables()
-check('the user’s path: a word typed in the table in the list’s item, then its grip: the menu is the table’s (its own rows, not a bare “Block”)', rows.includes('Delete') && rows.some((one) => /row|column/i.test(one)), `${rows.join(', ')} | under the pointer: ${seenAt.join('')}`)
-check('the user’s path: and “Delete” takes that table', said === 'ok' && left.length === 1 && left[0].first === 'room', `${said} ${JSON.stringify(left)}`)
-await set(NOTE)
-said = await safe(fromGrip(page.locator(`${EDITOR} td`, { hasText: 'kitchen' }).first(), 'Delete', { typed: true }))
-left = await tables()
-check('the user’s path: the same for the top-level table', said === 'ok' && left.length === 1 && left[0].first === 'removed', `${said} ${JSON.stringify(left)} ${rows.join(', ')}`)
-// The grip's + after typing, the same record: a line below the table.
-await set(NOTE)
-await lamp.hover()
-await page.waitForTimeout(250)
-const plus = await page.locator('[aria-label="Insert a block below"]').boundingBox()
-await lamp.click()
-await page.keyboard.press('End')
-await page.keyboard.type('s')
-await arrive('.tiptap-drag-handle:not(.is-hidden) [aria-label="Insert a block below"]')
-await page.mouse.down()
-await page.mouse.up()
-await page.waitForTimeout(250)
-const slash = await page.$eval(EDITOR, (root) => {
-  let found = null
-  root.editor.state.doc.descendants((node, pos, parent) => void (node.isTextblock && node.textContent === '/' && (found = parent?.type.name ?? 'doc')))
-  return found
-})
-check('the user’s path: the grip’s + after typing adds a line below the table’s item', slash === 'listItem', String(slash))
-await page.keyboard.press('Escape')
-
+let said
+let left
 await page.setViewportSize?.({ width: 1100, height: 820 }).catch(() => {})
 await set(NOTE)
 const before = await json()
@@ -178,6 +149,44 @@ for (const [holder, wrap] of Object.entries(HOLDERS)) {
   }
 }
 check('“Delete” and “Duplicate” from the grip take or copy exactly the block it stands by, every kind in every holder, and ⌘Z puts each back', failed.length === 0, failed.join(' | '))
+
+
+// --- As the user had it: a word typed in the table, and then its grip -------------------------------------------------
+// The editor's handle lets its record go at any key while the grip stays on show (in a grace of a second, and for good
+// when the pointer reaches the grip without crossing the note's words). Pressed then, the grip's menu was a bare
+// “Block” whose “Delete” did nothing (the user's screenshot of 15 Nov, 18:44). The grip is pressed straight after the
+// key: what it names is then the record alone.
+await page.setViewportSize?.({ width: 1100, height: 820 }).catch(() => {})
+const pressAfterTyping = async (cell, control, row) => {
+  await set(NOTE)
+  await page.mouse.move(5, 5)
+  await cell.hover({ timeout: 3000 })
+  await page.waitForTimeout(250)
+  await cell.click()
+  await page.keyboard.press('End')
+  await page.keyboard.type('s')
+  await page.locator(control).first().dispatchEvent('click')
+  await page.waitForTimeout(300)
+  rows.splice(0, rows.length, ...(await page.$$eval('[role="menuitem"]', (all) => all.map((one) => one.textContent.trim()))))
+  if (row) await page.getByRole('menuitem', { name: row, exact: true }).first().dispatchEvent('click').catch(() => {})
+  await page.waitForTimeout(250)
+}
+const GRIP = '.tiptap-drag-handle .tiptap-drag-handle-grip'
+await safe(pressAfterTyping(page.locator(`${EDITOR} td`, { hasText: 'the old lamp' }).first(), GRIP, 'Delete'))
+left = await tables()
+check('typed in the table in the list’s item, then its grip: the menu is the table’s (its own rows, not a bare “Block”)', rows.includes('Delete') && rows.some((one) => /row|column/i.test(one)), rows.join(', '))
+check('and its “Delete” takes that table', left.length === 1 && left[0].first === 'room', JSON.stringify(left))
+await safe(pressAfterTyping(page.locator(`${EDITOR} td`, { hasText: 'kitchen' }).first(), GRIP, 'Delete'))
+left = await tables()
+check('the same for the top-level table', left.length === 1 && left[0].first === 'removed', `${JSON.stringify(left)} ${rows.join(', ')}`)
+await safe(pressAfterTyping(page.locator(`${EDITOR} td`, { hasText: 'the old lamp' }).first(), '.tiptap-drag-handle [aria-label="Insert a block below"]', null))
+const slash = await page.$eval(EDITOR, (root) => {
+  let found = null
+  root.editor.state.doc.descendants((node, pos, parent) => void (node.isTextblock && node.textContent === '/' && (found = parent?.type.name ?? 'doc')))
+  return found
+})
+check('typed in the table, then the grip’s +: a line below the table’s item', slash === 'listItem', String(slash))
+await page.keyboard.press('Escape')
 
 const errors = app.drain().filter((line) => /PAGE ERROR/.test(line))
 check('no page errors', errors.length === 0, errors.join(' / '))
