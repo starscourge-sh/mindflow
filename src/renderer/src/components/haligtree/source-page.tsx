@@ -605,7 +605,9 @@ export function SourcePageView({ focus, onOpen, onSources }: { focus?: string; o
   const near = useLive(() => (which?.field === 'attribution' ? sources.near(page?.name ?? which.name) : Promise.resolve([])), [] as Near, [focus, page?.name, page?.items.length])
   // A work's notes that cite it, and its details as its citations keep them.
   const citers = useLive(() => (which?.field === 'medium' ? cite.citers(page?.name ?? which.name) : Promise.resolve([] as Citer[])), [] as Citer[], [focus, page?.name])
-  const work = useLive(() => (which?.field === 'medium' ? cite.works().then((all) => all.find((one) => personKey(one.title) === personKey(page?.name ?? which.name)) ?? null) : Promise.resolve(null)), null as Work | null, [focus, page?.name])
+  // Read before the page shows (its `waiting`): who wrote it and its publisher came in a beat after the page, a line dropped in under its name.
+  const workRead = useLive(() => (which?.field === 'medium' ? cite.works().then((all) => ({ one: all.find((one) => personKey(one.title) === personKey(page?.name ?? which.name)) ?? null })) : Promise.resolve({ one: null })), { one: null } as { one: Work | null }, [focus, page?.name])
+  const work = workRead.one
   const voices = useMemo(() => {
     const by: Record<Voice, SourceItem[]> = { theirs: [], understood: [], mine: [] }
     for (const item of page?.items ?? []) by[item.voice].push(item)
@@ -650,7 +652,7 @@ export function SourcePageView({ focus, onOpen, onSources }: { focus?: string; o
   const mine = shown<SourceItem>(said.yours)
   const citing = shown<Citer>(said.cited)
   return (
-    <Page title={name} count={page?.items.length ?? 0} unit={['note', 'notes']}>
+    <Page title={name} count={page?.items.length ?? 0} unit={['note', 'notes']} waiting={unloaded(workRead)}>
       <div className="page-column pb-16" data-source-page={field}>
         {/* Where this page is: "Sources › Lord Henry", the way up one press away, as a folder's path is over Gems and
             Writing (items-view.tsx, the same parts). Reached from a name in the Feed or a note, a source's page had no way
