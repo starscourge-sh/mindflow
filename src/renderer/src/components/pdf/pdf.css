@@ -680,6 +680,9 @@
    and the rest of the room outside it. */
 .web-reader-column {
   --web-measure: 28.5em;
+  /* The page's own marks (the site over the title, its rule, the drop cap): the theme's accent, a quarter of the way to
+     its ink so the small line reads at 4.5:1 or more on every theme's page (the Dark theme's own accent read 2.6:1). */
+  --web-accent: color-mix(in oklab, var(--mf-accent-ink, var(--tt-brand-color-400)) 75%, var(--foreground));
   --web-margin: min(20em, (100cqi - var(--web-measure)) * 0.3);
   flex: 1 0 auto;
   width: 100%;
@@ -717,6 +720,37 @@
   line-height: 1.25;
   letter-spacing: -0.018em;
   text-wrap: balance;
+}
+
+/* A page's marks of its own, after the user's reference (15 Nov 2026, a Gutenberg article in a reader), in the theme's
+   accent: over the title the site and its minutes to read in small spaced capitals, under it a short rule, and a drop
+   cap opening the words. */
+.web-reader-kicker {
+  margin: 0 0 0.6rem;
+  color: var(--web-accent);
+  font-size: 0.75em;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.web-reader-heading::after {
+  content: '';
+  display: block;
+  width: 1.75em;
+  height: 2px;
+  margin-top: 0.5em;
+  background-color: var(--web-accent);
+}
+
+/* Two lines tall, its top on the first line's capitals and its foot on the second line's baseline, a plain letter in the
+   words' own serif with the lines close beside it; only where web-reader.tsx marks the opening as a letter of its own.
+   It stays a letter: Find, highlights and picked words run across it. */
+.web-reader-body > p[data-drop]::first-letter {
+  initial-letter: 2;
+  margin-inline-end: 0.1em;
+  color: var(--web-accent);
 }
 
 /* Who wrote it, the site, the date: the app's quiet ink (4.5:1 or more on every theme's page), at the size of a list's words, growing with the article's. */

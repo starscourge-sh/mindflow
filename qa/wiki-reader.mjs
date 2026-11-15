@@ -65,7 +65,8 @@ try {
     const body = document.querySelector('.web-reader-body')
     return {
       readers: document.querySelectorAll('.web-reader').length,
-      meta: document.querySelector('.web-reader-meta')?.textContent ?? '',
+      // The page's head: the site over the title, the byline under it.
+      meta: [...document.querySelectorAll('.web-reader-kicker, .web-reader-meta')].map((one) => one.textContent).join(' · '),
       kept: [...body.querySelectorAll('img')].map((one) => one.getAttribute('src')),
       credit: [...body.querySelectorAll('[data-credit] a')].map((one) => [one.textContent, one.getAttribute('href')]),
       poster: /film poster/i.test(body.innerHTML),

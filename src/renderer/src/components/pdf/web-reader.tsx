@@ -505,9 +505,12 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const when = article?.published ? new Date(article.published) : null
   // Each date, and the licence, held on one line: the page's narrower column broke "kept 15 / November 2026" in two.
   const whole = (words: string): string => words.replace(/ /g, ' ')
+  // Over the title: the site, and the minutes the article takes (its own words, see minutesOf, counted once a reading);
+  // the site is said there, not again in the byline.
+  const minutes = useMemo(() => (article ? minutesOf(article.html) : 0), [article])
+  const kicker = article ? `${article.site || URL.parse(href)?.hostname || ''} · ${minutes} min read` : ''
   const meta = [
     article?.byline,
-    article?.site,
     when && !Number.isNaN(when.getTime()) ? whole(dayOf(article!.published)) : '',
     // A wiki's words are free to quote with their source, which a gem's citation names.
     /\.(wikipedia|wiktionary)\.org$/.test(URL.parse(href)?.hostname ?? '') ? whole('CC BY-SA 4.0') : '',
@@ -776,6 +779,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                 </p>
               ) : (
                 <>
+                  <p className="web-reader-kicker">{kicker}</p>
                   <h1 className="web-reader-heading">{article.title}</h1>
                   {meta && <p className="web-reader-meta">{meta}</p>}
                   <div
@@ -849,6 +853,10 @@ const tint = (name: string, percent: number, color = 'var(--tt-brand-color-500, 
   `::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${Math.round(percent * 1.6)}%, transparent) }` +
   `:root:is(.light, .paper, [data-light]) ::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${percent}%, transparent) }`
 
+/** Minutes to read an article: its own words (each run between spaces with a letter or a digit in it, the HTML's tags and marks left out) at 230 a minute, rounded up. */
+const minutesOf = (html: string): number =>
+  Math.max(1, Math.ceil(html.replace(/<[^>]*>|&[#\w]+;/g, ' ').split(/\s+/).filter((one) => /[\p{L}\p{N}]/u.test(one)).length / 230))
+
 /** A day as the reader says it: 15 November 2026. */
 const dayOf = (iso: string): string => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -896,6 +904,16 @@ function unwrapped(html: string, href = ''): string {
     }
   }
   lay(page.content)
+  // A drop cap opens the article (pdf.css) when it opens on a paragraph's own letter: not on a picture, a heading, a
+  // quote mark, a number or a link's words. Only a mark is added, so the words stay exactly as they were.
+  // (Comments are passed over: a kept article starts with its cleaning's own, main/web-articles.ts CLEANING.)
+  const opening = [...page.content.childNodes].find((node) => node.nodeType === Node.ELEMENT_NODE || (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()))
+  if (opening?.nodeName === 'P') {
+    const walk = page.ownerDocument.createTreeWalker(opening, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT)
+    let lead: Node | null = walk.nextNode()
+    while (lead && !(lead.nodeType === Node.ELEMENT_NODE && (lead as Element).matches('img, picture, svg, video, iframe')) && !(lead.nodeType === Node.TEXT_NODE && lead.textContent?.trim())) lead = walk.nextNode()
+    if (lead?.nodeType === Node.TEXT_NODE && /^\s*\p{L}/u.test(lead.textContent ?? '') && !lead.parentElement?.closest('a')) (opening as Element).setAttribute('data-drop', '')
+  }
   return page.innerHTML
 }
 

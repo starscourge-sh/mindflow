@@ -102,7 +102,8 @@ try {
     return {
       bar: document.querySelector('.web-reader .pdf-reader-title')?.textContent,
       heading: document.querySelector('.web-reader-heading')?.textContent,
-      meta: document.querySelector('.web-reader-meta')?.textContent,
+      // The page's head: the site over the title, the byline under it.
+      meta: [...document.querySelectorAll('.web-reader-kicker, .web-reader-meta')].map((one) => one.textContent).join(' · '),
       words: body?.textContent ?? '',
       img: body?.querySelector('img')?.getAttribute('src') ?? '',
       imgs: body?.querySelectorAll('img').length,
