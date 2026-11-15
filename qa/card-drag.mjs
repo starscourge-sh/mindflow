@@ -138,7 +138,12 @@ try {
   const name = h.locator('.tiptap-attachment.is-audio .tiptap-attachment-name').first()
   const box = await name.boundingBox()
   await h.mouse.move(box.x + 10, box.y + box.height / 2); await wait(900)
-  check('the name shows its tip at rest (the file name)', /Voice note 31 Oct/.test(await h.evaluate(() => document.querySelector('[data-title-tips]')?.textContent ?? '')), '')
+  // The app's tip never repeats words showing in full (ui/title-tips.tsx): cut short, the name shows whole in a tip; shown in full, nothing.
+  const named = await h.evaluate(() => {
+    const el = document.querySelector('.tiptap-attachment.is-audio .tiptap-attachment-name')
+    return { cut: !!el && el.scrollWidth > el.clientWidth + 1, titled: !!el && (el.hasAttribute('title') || el.hasAttribute('data-title-tip')), tip: document.querySelector('[data-title-tips]')?.textContent ?? '' }
+  })
+  check('the name shows whole at rest: in full on the card, or in a tip when cut short (the file name)', named.titled && (named.cut ? /Voice note 31 Oct/.test(named.tip) : !named.tip), JSON.stringify(named))
   await h.mouse.move(box.x + 200, box.y + 200); await wait(200)
   await h.mouse.move(box.x + 10, box.y + box.height / 2); await wait(100)
   await h.mouse.down()
@@ -173,6 +178,53 @@ try {
     check('grip: the voice note moved within the note, once', moved.indexOf('Voice note 31 Oct 23.32.m4a') > start.indexOf('Voice note 31 Oct 23.32.m4a') && moved.filter((one) => one.startsWith('Voice note')).length === 1, JSON.stringify(moved))
     check('grip: nothing carried out', (await outs()).length === 0, '')
   } else check('grip shows beside the voice note', false, JSON.stringify({ gb, last }))
+
+  // --- A task carried by its grip in the main window: out of sight in the hand; rested on another task, that one lights --
+  const tid = await v('article:new')
+  const task = (text) => ({ type: 'taskItem', attrs: { checked: false }, content: [para(text)] })
+  await v('item:save', tid, { title: 'Tasks carried', body: { type: 'doc', content: [{ type: 'taskList', content: [task('Write the essay'), task('Find three sources'), task('Book the room')] }, para('After the tasks')] } })
+  await c.send('article', tid); await wait(1500)
+  const taskLine = (text) => h.locator('[data-open] .tiptap li p', { hasText: text }).first()
+  // Read off what a person sees there, not only what is marked: a task drawn again kept its old marks off screen and passed before.
+  const held = () => h.evaluate(() => {
+    const seenAt = (text) => {
+      const box = [...document.querySelectorAll('[data-open] .tiptap li p')].find((one) => one.textContent === text)?.getBoundingClientRect()
+      return box ? document.elementFromPoint(box.left + 12, box.top + box.height / 2) : null
+    }
+    return {
+      hidden: [...document.querySelectorAll('[data-open] [data-carried]')].map((one) => getComputedStyle(one).visibility),
+      lit: document.querySelectorAll('[data-open] li [data-drop-hot]').length,
+      // What shows at the carried task's words and at the first task's words.
+      carriedSeen: !!seenAt('Book the room')?.closest('li') && seenAt('Book the room').closest('li').textContent.includes('Book the room'),
+      litSeen: !!seenAt('Write the essay')?.closest('p')?.hasAttribute('data-drop-hot'),
+      words: [...document.querySelectorAll('[data-block-card] [data-drag-label]')].at(-1)?.textContent ?? null,
+      lines: document.querySelectorAll('[data-drop-line]').length,
+    }
+  })
+  const steps = () => h.evaluate(() => (document.querySelector('[data-open] .tiptap')?.editor?.getJSON().content ?? []).map((one) => JSON.stringify(one).match(/"text":"[^"]+"/g)?.join('+') ?? one.type).join(' / '))
+  const tasksBefore = await steps()
+  await h.mouse.move(5, 5)
+  await taskLine('Book the room').hover(); await wait(400)
+  const tgrip = await h.locator('.tiptap-drag-handle-grip').first().boundingBox().catch(() => null)
+  const onto = await taskLine('Write the essay').boundingBox()
+  if (tgrip && onto) {
+    await h.mouse.move(tgrip.x + tgrip.width / 2, tgrip.y + tgrip.height / 2); await wait(120)
+    await h.mouse.down()
+    // First down past “After the tasks”: a move, the task out of sight in the hand, the room's one line.
+    const after = await h.locator('[data-open] .tiptap > p', { hasText: 'After the tasks' }).first().boundingBox()
+    await h.mouse.move(after.x + 60, after.y + after.height * 0.8, { steps: 8 }); await wait(450)
+    const moving = await held()
+    check('a task carried by its grip: out of sight in the hand (its own place the band, nothing of it showing there), the room\'s one line where it lands', moving.hidden.length === 1 && moving.hidden[0] === 'hidden' && !moving.carriedSeen && moving.lines === 1, JSON.stringify(moving))
+    // Then rested on the first task's middle: that task lights and the card says so.
+    await h.mouse.move(onto.x + Math.min(onto.width * 0.4, 120), onto.y + onto.height / 2, { steps: 10 }); await wait(900)
+    const resting = await held()
+    check('rested on another task, that task lights where it shows and the card says “Make it a step of …”, the carried one still out of sight', resting.lit === 1 && resting.litSeen && resting.words === 'Make it a step of “Write the essay”' && resting.hidden[0] === 'hidden' && !resting.carriedSeen, JSON.stringify(resting))
+    await h.screenshot({ path: `${shots}/card-drag-task-step.png` })
+    await h.mouse.up(); await wait(400)
+    check('let go, it is that task\'s step, and nothing stays lit or out of sight', (await held()).lit === 0 && (await held()).hidden.length === 0 && (await h.evaluate(() => document.querySelector('[data-open] .tiptap li li p')?.textContent)) === 'Book the room', await steps())
+    await h.keyboard.press('Meta+z'); await wait(300)
+    check('⌘Z takes the step back out in one step', (await steps()) === tasksBefore, `${await steps()} vs ${tasksBefore}`)
+  } else check('the grip shows beside a task', false, JSON.stringify({ tgrip, onto }))
   check('no page errors', c.errors.length === 0, c.errors.join(' | '))
 } finally {
   await c.close()

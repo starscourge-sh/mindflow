@@ -108,12 +108,20 @@ said = await safe(fromGrip(page.locator(`${EDITOR} th`, { hasText: 'removed' }).
 left = await tables()
 check('the user’s note: “Delete” from the grip beside the table in the list’s item takes that table, and only it', said === 'ok' && left.length === 1 && left[0].first === 'room' && (await count('Boxes for the books')) === 1, `${said} ${JSON.stringify(left)}`)
 await undo()
-check('the user’s note: ⌘Z puts that table back exactly', (await json()) === before, (await json()).slice(0, 300))
+/** Where two notes' JSON first part, a stretch of each: what an inexact ⌘Z changed. */
+const parted = (a, b) => {
+  let at = 0
+  while (at < a.length && a[at] === b[at]) at++
+  return at >= a.length && at >= b.length ? '' : `at ${at}: was …${a.slice(Math.max(0, at - 80), at + 120)}… now …${b.slice(Math.max(0, at - 80), at + 120)}…`
+}
+const back = await json()
+check('the user’s note: ⌘Z puts that table back exactly', back === before, parted(before, back))
 said = await safe(fromGrip(page.locator(`${EDITOR} th`, { hasText: 'room' }).first(), 'Delete'))
 left = await tables()
 check('the user’s note: “Delete” from the grip beside the top-level table takes that table, and only it', said === 'ok' && left.length === 1 && left[0].first === 'removed', `${said} ${JSON.stringify(left)}`)
 await undo()
-check('the user’s note: ⌘Z puts it back exactly', (await json()) === before, '')
+const again = await json()
+check('the user’s note: ⌘Z puts it back exactly', again === before, parted(before, again))
 
 // --- The sweep: every kind of block, in every kind of holder -----------------------------------------------------------
 const KINDS = {

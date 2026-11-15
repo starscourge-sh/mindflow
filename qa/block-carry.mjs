@@ -44,7 +44,13 @@ const state = () => page.evaluate(() => {
   // A list's item lit, as a sidebar folder is when a folder is carried onto it: its own line filled, a ring.
   const lit = [...document.querySelectorAll('.ProseMirror li [data-drop-hot]')]
   const fill = lit[0] ? getComputedStyle(lit[0]).backgroundColor : ''
-  return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width, right: card.right, bottom: card.bottom }, title: cards[0]?.textContent ?? '', words, carried, lines: lines.length, line: lines.length > 0, lineY: at ? at.top + at.height / 2 : null, lineSeen: lines[0] ? Number(getComputedStyle(lines[0]).opacity) : 0, upright: lines.some((one) => one.dataset.dropLine.startsWith('beside')), rooms, own, clear, moved, grip: grip ? getComputedStyle(grip).visibility : 'none', cursor: getComputedStyle(document.body).cursor, refused: document.documentElement.hasAttribute('data-drag-refused'), lit: lit.length, litFilled: !!fill && fill !== 'rgba(0, 0, 0, 0)', dropCursor: !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline') }
+  // What a person sees there, not only what is marked: a mark on a copy of the note out of sight would pass.
+  const hit = (el) => { const box = el?.getBoundingClientRect(); return box && box.width ? document.elementFromPoint(box.left + 12, box.top + Math.min(box.height / 2, 12)) : null }
+  const held = document.querySelector('.ProseMirror [data-carried]')
+  const shown = hit(held)?.closest('li, p, h1, h2, h3, h4')
+  const carriedSeen = !!held && !!shown && !held.contains(shown) && shown.textContent.trim() !== '' && held.textContent.includes(shown.textContent.trim())
+  const litSeen = !!lit[0] && !!hit(lit[0])?.closest('[data-drop-hot]')
+  return { cards: cards.length, card: card && { x: card.left, y: card.top, w: card.width, right: card.right, bottom: card.bottom }, title: cards[0]?.textContent ?? '', words, carried, lines: lines.length, line: lines.length > 0, lineY: at ? at.top + at.height / 2 : null, lineSeen: lines[0] ? Number(getComputedStyle(lines[0]).opacity) : 0, upright: lines.some((one) => one.dataset.dropLine.startsWith('beside')), rooms, own, clear, moved, grip: grip ? getComputedStyle(grip).visibility : 'none', cursor: getComputedStyle(document.body).cursor, refused: document.documentElement.hasAttribute('data-drag-refused'), lit: lit.length, litFilled: !!fill && fill !== 'rgba(0, 0, 0, 0)', dropCursor: !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline'), carriedSeen, litSeen }
 })
 /** The note's lists as a short tree: [item [child], item] / other blocks by their words. */
 const tree = () => page.$eval(EDITOR, (root) => {
@@ -402,7 +408,8 @@ if (PART === 'child') {
     await page.waitForTimeout(250)
     const tasks = await tree()
     run = await rest(`${look}-step`, item('Find three sources'), item('Write the essay'))
-    check(`${look}: a task rested on another: that task lights and the card says “Make it a step of …”`, run.last.lit === 1 && run.last.words === 'Make it a step of “Write the essay”', JSON.stringify(run.last))
+    check(`${look}: a task rested on another: that task lights and the card says “Make it a step of …”, the carried task out of sight`, run.last.lit === 1 && run.last.litSeen && run.last.words === 'Make it a step of “Write the essay”' && run.last.carried.length === 1 && run.last.carried[0] === 'hidden' && !run.last.carriedSeen, JSON.stringify(run.last))
+    check(`${look}: and on its way there, the carried task stays out of sight in every frame`, run.seen.slice(2).every((one) => one.carried.length === 1 && one.carried[0] === 'hidden' && !one.carriedSeen), JSON.stringify(run.seen.map((one) => one.carried)))
     check(`${look}: let go, it is that task's step`, (await tree()) === '[Write the essay [Find three sources]] / After the tasks', await tree())
     await undo()
     check(`${look}: ⌘Z takes the step back out in one step`, (await tree()) === tasks, await tree())
@@ -434,11 +441,16 @@ if (PART === 'away') {
     return !target.dispatchEvent(new DragEvent(kind, { bubbles: true, cancelable: true, dataTransfer: window.carried, clientX: x, clientY: y, relatedTarget: null }))
   }, [x, y, kind])
   const centre = async (locator) => { const box = await locator.boundingBox(); return { x: box.x + box.width / 2, y: box.y + box.height / 2, box } }
-  /** Over the note from `from` to `to` in 12 steps, a frame every 50ms. */
+  /**
+   * Over the note from `from` to `to` in 12 steps, then held there for 6 more (the browser says dragover every 50ms or
+   * so while the pointer rests), a frame every 50ms. Held, the room it opened at the last steps is there to be read: a
+   * picture's own place reaches to just above the line below it, so the room opens only once past that line's middle.
+   */
   const across = async (name, from, to) => {
     const seen = []
-    for (let i = 1; i <= 12; i++) {
-      seen.push({ taken: await hear(from.x + ((to.x - from.x) * i) / 12, from.y + ((to.y - from.y) * i) / 12) })
+    for (let i = 1; i <= 18; i++) {
+      const k = Math.min(i, 12)
+      seen.push({ taken: await hear(from.x + ((to.x - from.x) * k) / 12, from.y + ((to.y - from.y) * k) / 12) })
       await page.waitForTimeout(50)
       Object.assign(seen.at(-1), await state())
       if (FRAMES) await page.screenshot({ path: join(FRAMES, `${name}-${String(i).padStart(2, '0')}.png`) })
@@ -507,14 +519,82 @@ if (PART === 'away') {
   await app.reset()
   await page.$eval(EDITOR, (root, src) => root.editor.commands.setContent(`<p>Alpha line.</p><img src="${src}" alt="Web" style="width: 96px"><p>Beta line.</p><p>Gamma line.</p>`), `data:image/png;base64,${PNG}`)
   await page.waitForTimeout(400)
-  await start(`${EDITOR} img[alt="Web"]`)
-  const gamma = await centre(page.locator(`${EDITOR} p`, { hasText: 'Gamma line.' }))
-  const down = { x: gamma.box.x + 40, y: gamma.box.y + gamma.box.height * 0.8 }
-  const web = await across('light-web-picture', await centre(page.locator(`${EDITOR} img[alt="Web"]`)), down)
-  check('a picture from the web (the browser\'s own drag): the same room and line', web.slice(-3).every((one) => one.taken && one.lines === 1 && one.rooms === 1 && !one.dropCursor), JSON.stringify(web.slice(-3)))
-  await hear(down.x, down.y, 'drop')
+  // Gone from the note as set (the box may take a picture's data address in as a stored file), the case says so and the rest runs on.
+  const webShown = await page.locator(`${EDITOR} img[alt="Web"]`).count()
+  if (!webShown) check('a picture from the web (a data address) is in the note to carry', false, `${await tree()} | ${await page.$eval(EDITOR, (root) => [...root.querySelectorAll('img')].map((one) => `${one.alt}:${one.src.slice(0, 24)}`).join(', '))}`)
+  else {
+    await start(`${EDITOR} img[alt="Web"]`)
+    const gamma = await centre(page.locator(`${EDITOR} p`, { hasText: 'Gamma line.' }))
+    const down = { x: gamma.box.x + 40, y: gamma.box.y + gamma.box.height * 0.8 }
+    const web = await across('light-web-picture', await centre(page.locator(`${EDITOR} img[alt="Web"]`)), down)
+    check('a picture from the web (the browser\'s own drag): the same room and line', web.slice(-3).every((one) => one.taken && one.lines === 1 && one.rooms === 1 && !one.dropCursor), JSON.stringify(web.slice(-3)))
+    await hear(down.x, down.y, 'drop')
+    await page.waitForTimeout(300)
+    check('let go, it moved there, and no system drag was started for it', (await tree()) === 'Alpha line. / Beta line. / Gamma line. / picture' && (await outs()).length === 0, await tree())
+  }
+
+  // Any other block a person takes by its body (a link's card by its picture, an embedded note by its frame): the same
+  // room and line, never the editor's own drop line (it took the drop as something new, a copy); let go, it moves once.
+  const line = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
+  for (const [kind, node, grab] of [
+    ['a link\'s card', { type: 'bookmark', attrs: { href: 'https://example.com/faust', title: 'Faust', image: map } }, `${EDITOR} .tiptap-bookmark-image`],
+    ['an embedded note', { type: 'noteEmbed', attrs: { id: 'elsewhere', label: 'Elsewhere' } }, `${EDITOR} .note-embed`],
+  ]) {
+    await app.reset()
+    await page.$eval(EDITOR, (root, doc) => root.editor.commands.setContent(doc), { type: 'doc', content: [line('Alpha line.'), node, line('Beta line.'), line('Gamma line.')] })
+    await page.waitForTimeout(600)
+    const was = await tree()
+    const grabbed = page.locator(grab).first()
+    if (!(await grabbed.count())) {
+      check(`${kind}: drawn in the note`, false, grab)
+      continue
+    }
+    // On the thing itself, as the browser begins it: a picture is dragged by itself, the frame by the block's own box.
+    await page.evaluate((sel) => {
+      const el = document.querySelector(sel)
+      window.carried = new DataTransfer()
+      const box = el.getBoundingClientRect()
+      const at = el instanceof HTMLImageElement ? el : el.closest('[draggable=true]') ?? el
+      at.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: window.carried, clientX: box.left + 10, clientY: box.top + box.height / 2 }))
+    }, grab)
+    const gamma = await centre(page.locator(`${EDITOR} p`, { hasText: 'Gamma line.' }))
+    const to = { x: gamma.box.x + 40, y: gamma.box.y + gamma.box.height * 0.8 }
+    const seen = await across(`light-body-${node.type}`, await centre(grabbed), to)
+    check(`${kind} carried by its body: the room with its one line (carry.tsx's), its own place out of sight, and no editor drop line`, seen.slice(-3).every((one) => one.taken && one.lines === 1 && one.rooms === 1 && !one.dropCursor && one.carried[0] === 'hidden'), JSON.stringify(seen.slice(-3)))
+    await hear(to.x, to.y, 'drop')
+    await page.waitForTimeout(300)
+    check(`${kind}: let go, it moved there, once, nothing added`, (await tree()) === `Alpha line. / Beta line. / Gamma line. / ${node.type}`, await tree())
+    await undo()
+    check(`${kind}: ⌘Z puts it back in one step`, (await tree()) === was, await tree())
+    await outs()
+  }
+
+  // Words carried land between two letters, where no block can make way: the editor's own line stands up there, as wide
+  // as every carry's line (2px), its dot at its top, in the accent.
+  await app.reset()
+  await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<p>Alpha words here.</p><p>Gamma line of words.</p>'))
   await page.waitForTimeout(300)
-  check('let go, it moved there, and no system drag was started for it', (await tree()) === 'Alpha line. / Beta line. / Gamma line. / picture' && (await outs()).length === 0, await tree())
+  const words = await page.evaluate((sel) => {
+    const editor = document.querySelector(sel).editor
+    editor.commands.setTextSelection({ from: 7, to: 12 })
+    const at = editor.view.coordsAtPos(9)
+    window.carried = new DataTransfer()
+    editor.view.dom.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: window.carried, clientX: at.left, clientY: (at.top + at.bottom) / 2 }))
+    const to = editor.view.coordsAtPos(editor.state.doc.content.size - 6)
+    return { x: to.left, y: (to.top + to.bottom) / 2 }
+  }, EDITOR)
+  await hear(words.x, words.y)
+  await page.waitForTimeout(250)
+  if (FRAMES) await page.screenshot({ path: join(FRAMES, 'light-words.png') })
+  const cursor = await page.evaluate(() => {
+    const el = document.querySelector('.prosemirror-dropcursor-inline')
+    if (!el) return null
+    const dot = getComputedStyle(el, '::before')
+    return { width: el.getBoundingClientRect().width, colour: getComputedStyle(el).backgroundColor, dot: dot.width, ring: dot.borderTopColor, rooms: document.querySelectorAll('[data-drop-room]').length }
+  })
+  check('words carried: the line stands up between two letters, 2px as every carry\'s, its dot at its top, in the accent, no room', !!cursor && Math.round(cursor.width) === 2 && cursor.dot === '8px' && cursor.colour === cursor.ring && cursor.rooms === 0, JSON.stringify(cursor))
+  await hear(2, 2, 'dragleave')
+  await page.evaluate(() => document.body.dispatchEvent(new DragEvent('dragend', { bubbles: true })))
 }
 
 // Scrolling while carrying, the "+" carried, ⌥ carrying a copy (no clipboard), and the smallest window.
@@ -546,7 +626,7 @@ if (PART === 'more') {
       await page.waitForTimeout(50)
       const one = await state()
       during.push({ ...one, top: (await scroller()).top })
-      if (FRAMES && t % 2 === 0) await page.screenshot({ path: join(FRAMES, `scroll-${String(t).padStart(2, '0')}.png`) })
+      if (FRAMES) await page.screenshot({ path: join(FRAMES, `scroll-${String(t).padStart(2, '0')}.png`) })
     }
     const last = during.at(-1)
     check('held at the note\'s foot, the note scrolls under the pointer', last.top - box.top > 60, `${box.top} → ${last.top}`)

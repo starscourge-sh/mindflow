@@ -905,7 +905,8 @@ await part('One look: the sidebar', async () => {
   if (SHOTS) { await c.look('light'); await wait(150) }
   await putBack('The sidebar, a folder', was)
   // Let go below another: it stands there at once, said once with Undo; ⌘Z puts it back.
-  const folderOrder = () => h.evaluate(() => [...document.querySelectorAll('[data-side-folders="article"] [data-side-folder]')].map((one) => ({ id: one.dataset.sideFolder, top: one.getBoundingClientRect().top })).sort((x, y) => x.top - y.top).map((one) => one.id).join())
+  // The three this case seeded, in the order they stand: the folder the Esc case brought back (f-side) still stands first, and is not this case's.
+  const folderOrder = () => h.evaluate(() => [...document.querySelectorAll('[data-side-folders="article"] [data-side-folder]')].filter((one) => ['f-a', 'f-b', 'f-c'].includes(one.dataset.sideFolder)).map((one) => ({ id: one.dataset.sideFolder, top: one.getBoundingClientRect().top })).sort((x, y) => x.top - y.top).map((one) => one.id).join())
   const firstFolders = await folderOrder()
   for (let i = 0; i < 40 && (await notices()).length; i++) await wait(250)
   at = await hold({ x: fa.x + 50, y: fa.y + fa.height / 2 }, { x: fa.x + 50, y: fc.y + fc.height * 0.9 }); await wait(400)
