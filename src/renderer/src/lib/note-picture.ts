@@ -82,6 +82,7 @@ async function drawBlocks(page: HTMLElement, blocks: HTMLElement[]): Promise<Uin
   for (let at = page.parentElement; at && at !== document.body; at = at.parentElement) {
     const shell = at.cloneNode(false) as HTMLElement
     shell.removeAttribute('id')
+    shell.dataset.pictureShell = ''
     shell.style.cssText = 'display:block;position:static;width:auto;height:auto;min-height:0;max-height:none;margin:0;padding:0;border:0;overflow:visible;transform:none;background:none;box-shadow:none;opacity:1;filter:none'
     shell.append(outer)
     outer = shell
@@ -98,7 +99,11 @@ async function drawBlocks(page: HTMLElement, blocks: HTMLElement[]): Promise<Uin
   // In the top layer, shown last: over every menu and bar, even one still fading out as this starts.
   frame.popover = 'manual'
   frame.style.cssText = `position:fixed;inset:auto;left:0;top:0;margin:0;border:0;height:auto;max-width:none;max-height:none;pointer-events:none;visibility:hidden;box-sizing:content-box;width:${column}px;padding:${PAD}px;overflow:hidden;background:${backgroundOf(page)};color:${pageStyle.color};zoom:${SCALE / devicePixelRatio}`
-  frame.append(outer)
+  // The ancestry's own layers are the window's, not the note's: the dark frame's grain (a ::before over the whole frame,
+  // main.css data-frame-grain) laid itself over the picture's ground, a grey grain where the page's colour should be.
+  const bare = document.createElement('style')
+  bare.textContent = '[data-picture-shell]::before,[data-picture-shell]::after{content:none!important}'
+  frame.append(bare, outer)
   document.body.append(frame)
   frame.showPopover()
   const pngs: Uint8Array[] = []
