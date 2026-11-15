@@ -22,6 +22,8 @@ try {
   await h.reload(); await wait(2000)
   // The browser is a stand-in: nothing leaves the machine.
   await electron.evaluate(({ shell }) => { globalThis.__opened = []; shell.openExternal = async (url) => void globalThis.__opened.push(url) })
+  // Nothing leaves the machine: the page's own requests to the internet (the YouTube block's picture) are refused, as qa/final-editor.mjs does.
+  await electron.evaluate(({ session }) => session.defaultSession.webRequest.onBeforeRequest({ urls: ['http://*/*', 'https://*/*'] }, (_, done) => done({ cancel: true })))
   const opened = () => electron.evaluate(() => globalThis.__opened.length)
   const apart = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => !w.isDestroyed() && w.webContents.getURL().includes('note=')).length)
   const closeApart = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((w) => w.webContents.getURL().includes('note=')).forEach((w) => w.close()))
