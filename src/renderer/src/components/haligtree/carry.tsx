@@ -392,9 +392,9 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
  * pieces to make way, as a list's room does. The band is a tint with nothing in it, placed from the page's top (which
  * never scrolls), as a list's band is placed in its row.
  */
-export function RoomAt({ at, how, indent = 0 }: { at: Spot; how: string; indent?: number }): React.JSX.Element {
+export function RoomAt({ at, how, indent = 0, place }: { at: Spot; how: string; indent?: number; /** Which place among the pieces it is, where that is known: a page scrolling under it moves the band with it, never drawing it afresh (each new drawing waits again, and a note scrolling under a still pointer hid it for good). */ place?: string }): React.JSX.Element {
   const wait = at.own ? undefined : roomWait()
-  const key = `${Math.round(at.top)}:${at.own}`
+  const key = place ? `${place}:${at.own}` : `${Math.round(at.top)}:${at.own}`
   return createPortal(
     <Fragment key={key}>
       <span aria-hidden {...(at.own ? { 'data-own-room': '' } : { 'data-drop-room': '1' })} className={cn(ROOM, 'z-[70] inset-x-auto')} style={{ top: at.top, height: at.height - 2, left: at.left + 4, width: at.width - 8, animation: wait }} />

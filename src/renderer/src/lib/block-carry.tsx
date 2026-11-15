@@ -462,7 +462,7 @@ function draw(): void {
           <CarriedCard attrs={{ 'data-block-card': '' }} icon={one.icon} title={one.title} words={words} refused={!!side?.refused} />
         </CardAt>
       )}
-      {room && <RoomAt at={room} how={aim?.kind === 'line' ? `block:${aim.at}` : 'own'} />}
+      {room && <RoomAt at={room} how={aim?.kind === 'line' ? `block:${aim.at}` : 'own'} place={aim?.kind === 'line' ? aim.key : 'own'} />}
       {/* Beside a block: the line stands up at the seam its new column will open at, the height of the block. */}
       {side && !side.refused && (
         <DropLine fixed upright how={`beside:${side.beside.side}`} style={{ top: side.box.top, height: side.box.height, left: side.beside.side === 'left' ? side.box.left - 10 : side.box.left + side.box.width + 8, animation: roomWait() }} />
