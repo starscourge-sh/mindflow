@@ -9,17 +9,19 @@ process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760 })
-const { h, v, send, go } = c
+const { h, v, go } = c
 const PAGE_EDITOR = '[class*="@container/page"] .tiptap.ProseMirror'
 const words = () => h.evaluate((sel) => document.querySelector(sel)?.textContent ?? '', PAGE_EDITOR)
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  const made = await h.evaluate(() => window.api.captures.create({ body: 'The fox saw another fox by the fox den.' }))
-  // Opened from a list that holds captures, as qa/powers-claims-a.mjs opens one (sent from Home, it is not shown).
-  await go('all')
-  await send('capture', made.id)
-  await h.waitForTimeout(1500)
-  await h.locator(PAGE_EDITOR).first().click()
+  // The day's page, emptied and written in, as qa/powers-claims-a.mjs finds and replaces on it.
+  await go('day')
+  await h.click(PAGE_EDITOR)
+  await h.keyboard.press('Meta+a')
+  await h.keyboard.press('Backspace')
+  await h.waitForTimeout(200)
+  await h.keyboard.type('The fox saw another fox by the fox den.', { delay: 10 })
+  await h.waitForTimeout(600)
 
   // 1. ↵ straight after typing.
   await h.keyboard.press('Meta+f')
