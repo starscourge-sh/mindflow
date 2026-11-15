@@ -5,15 +5,6 @@ type Shape = [string, Record<string, string | number>][]
 const escape = (value: string | number): string => String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;")
 
 /**
- * An icon's picture as plain SVG markup, for a place that is plain HTML
- * rather than a React tree (a link inside a note).
- *
- * The same markup React's server renderer gives (test/icon-markup.test.ts
- * holds it to that), built from the icon's own shape list, so no window has to
- * load a whole second React to draw a few icons. Null for anything that is
- * not drawn from such a list.
- */
-/**
  * Elements made from `markup`, a fresh copy each call: the markup is read once and copied after. A note's widgets
  * (a heading's fold arrow, an empty picture's row) are made for every one of its blocks as it opens, and each read
  * its markup afresh: the largest note's 934 arrows and 286 empty pictures took a quarter of a second of its opening.
@@ -29,6 +20,15 @@ export function copyOf(markup: string): DocumentFragment {
   return document.importNode(template.content, true)
 }
 
+/**
+ * An icon's picture as plain SVG markup, for a place that is plain HTML
+ * rather than a React tree (a link inside a note).
+ *
+ * The same markup React's server renderer gives (test/icon-markup.test.ts
+ * holds it to that), built from the icon's own shape list, so no window has to
+ * load a whole second React to draw a few icons. Null for anything that is
+ * not drawn from such a list.
+ */
 export function iconMarkup(icon: LucideIcon): string | null {
   const drawn = (icon as unknown as { render?: (props: object, ref: null) => { props?: { iconNode?: Shape; className?: string } } }).render?.({}, null)
   const shape = drawn?.props?.iconNode
