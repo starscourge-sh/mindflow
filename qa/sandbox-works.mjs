@@ -113,6 +113,8 @@ try {
     return h.evaluate(() => [...document.querySelectorAll('[data-quote-from]')].map((one) => one.textContent.trim()))
   }
   const shelley = await fromLines('Mary Shelley')
+  // Her page beside the works' own, light and dark: the sibling a work's page is read against.
+  if (shots) { for (const name of ['light', 'dark']) { await look(name); await h.screenshot({ path: `${shots}/person-mary-shelley-${name}.png` }) } await look('light') }
   check('Mary Shelley’s quotes: “Frankenstein, chapter 4 (1831)”, never its year twice', shelley.includes('Frankenstein, chapter 4 (1831)') && !shelley.some((one) => /\((\d{4})\)\s*\(\1\)/.test(one)), shelley.join(' | '))
   const austen = await fromLines('Jane Austen')
   check('Jane Austen’s quotes: “Pride and Prejudice, chapter 1 (1813)”, its year given once', austen.includes('Pride and Prejudice, chapter 1 (1813)'), austen.join(' | '))
