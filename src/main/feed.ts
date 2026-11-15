@@ -1,4 +1,5 @@
-import { clipboard, ClipboardItem, dialog, ipcMain, net, shell } from 'electron'
+import { ClipboardItem, dialog, ipcMain, net, shell } from 'electron'
+import { pasteboard } from './pasteboard'
 import { writeFile } from 'fs/promises'
 import { randomUUID } from 'crypto'
 
@@ -245,7 +246,7 @@ export function registerFeed(): void {
     return true
   })
   ipcMain.handle('haligtree:feed:share-x', async (_event, text: string, data: string): Promise<boolean> => {
-    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(pngOf(data))], { type: 'image/png' }) })])
+    await pasteboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(pngOf(data))], { type: 'image/png' }) })])
     void shell.openExternal(`https://x.com/intent/post?text=${encodeURIComponent(String(text))}`)
     return true
   })

@@ -14,6 +14,7 @@ import { homedir, tmpdir } from 'os'
 import { join } from 'path'
 import { isRealFolder } from '../src/main/real-folder.ts'
 import { _electron as electron } from 'playwright'
+import { paste as pasteEvent } from './pasteboard.mjs'
 
 const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 /** Every line of the document, in the order they are read. */
@@ -170,15 +171,9 @@ export async function open() {
      * and the two build different documents from the same characters.
      */
     async paste(text) {
-      await page.evaluate(async (value) => {
-        const target = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')
-        target?.focus()
-        const data = new DataTransfer()
-        data.setData('text/plain', value)
-        target?.dispatchEvent(
-          new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true })
-        )
-      }, text)
+      const editor = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+      await page.evaluate((editor) => document.querySelector(editor)?.focus(), editor)
+      await pasteEvent(page, text, editor)
       await page.waitForTimeout(300)
     },
 

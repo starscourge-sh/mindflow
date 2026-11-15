@@ -6,7 +6,7 @@ import { registerReminders } from './reminders'
 import { registerAway } from './away'
 import { registerMacCalendar } from './mac-calendar'
 import { fileURLToPath, pathToFileURL } from 'url'
-import { app, shell, BrowserWindow, clipboard, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
+import { app, shell, BrowserWindow, ClipboardItem, dialog, globalShortcut, ipcMain, Menu, nativeImage, nativeTheme, net, powerMonitor, protocol, screen, session, systemPreferences, Tray } from 'electron'
 /*
  * app - Control your application's event lifecycle.
  *     - app.on('window-all-closed', () => { app.quit() })
@@ -137,6 +137,7 @@ import { wideThumb } from './video-thumbs'
 import { busy } from './busy'
 import { decodeHTML } from 'entities'
 import { setAppMenu } from './app-menu'
+import { pasteboard } from './pasteboard'
 import { clip, cut, quoted } from './clip'
 import { APP_NAME } from './name'
 import { registerSpelling, wakeSpelling } from './spell-check'
@@ -6723,11 +6724,11 @@ app.whenReady().then(() => {
       // the picture at full size, its first frame for a GIF.
       if (image.isEmpty()) image = await nativeImage.createThumbnailFromPath(path, { width: 4096, height: 4096 }).catch(() => image)
       if (!image.isEmpty()) {
-        await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })])
+        await pasteboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(image.toPNG())], { type: 'image/png' }) })])
         return true
       }
       const bytes = await readFile(path)
-      await clipboard.write([new ClipboardItem({ [mime]: new Blob([bytes], { type: mime }) })])
+      await pasteboard.write([new ClipboardItem({ [mime]: new Blob([bytes], { type: mime }) })])
       return true
     } catch {
       return false
@@ -6746,7 +6747,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('copy-picture', async (_event, bytes: unknown) => {
     if (!(bytes instanceof Uint8Array) || nativeImage.createFromBuffer(Buffer.from(bytes)).isEmpty()) return false
-    await clipboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(bytes)], { type: 'image/png' }) })])
+    await pasteboard.write([new ClipboardItem({ 'image/png': new Blob([new Uint8Array(bytes)], { type: 'image/png' }) })])
     return true
   })
 
@@ -6766,7 +6767,7 @@ app.whenReady().then(() => {
   // extensions/image-drop.ts. Their names were asked here, with a call that waited on main at every paste.)
   ipcMain.handle('clipboard-image', async () => {
     try {
-      for (const item of await clipboard.read()) {
+      for (const item of await pasteboard.read()) {
         const mime = item.types.find((type) => type.startsWith('image/'))
         if (!mime) continue
         const bytes = new Uint8Array(await ((await item.getType(mime)) as Blob).arrayBuffer())

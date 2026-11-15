@@ -1,6 +1,7 @@
-import { BrowserWindow, clipboard, ipcMain, nativeImage, type ClipboardItem, type WebContents } from 'electron'
+import { BrowserWindow, ipcMain, nativeImage, type ClipboardItem, type WebContents } from 'electron'
 import { execFile } from 'child_process'
 import { createHash } from 'crypto'
+import { pasteboard } from './pasteboard'
 
 /**
  * Collect what you copy (Mote's way): while it is on, everything copied
@@ -39,7 +40,7 @@ let busy = false
 /** A format of the Mac's own clipboard, by its macOS name, the way Electron asks after one. */
 const raw = (format: string): string => `electron application/osclipboard;format="${format}"`
 
-const has = (format: string): Promise<boolean> => clipboard.has(raw(format)).catch(() => false)
+const has = (format: string): Promise<boolean> => pasteboard.has(raw(format)).catch(() => false)
 
 /** Whether a password manager or a passing copy put this on the clipboard. */
 export const isSecret = async (): Promise<boolean> => (await Promise.all(SECRET.map(has))).some(Boolean)
@@ -127,7 +128,7 @@ async function tick(): Promise<void> {
   try {
     // A secret copy is passed over whole, before anything of it is read: not read, not sent, not counted.
     if (await isSecret()) return void (last = 'secret')
-    const items = await clipboard.read()
+    const items = await pasteboard.read()
     const now = await summary(items)
     if (now === last) return
     last = now
@@ -155,7 +156,7 @@ export function registerCollect(): void {
     if (into && into !== event.sender && !into.isDestroyed()) into.send('collect:state', false)
     into = event.sender
     // What is on the clipboard already was copied before: only what comes next is collected.
-    last = (await isSecret()) ? 'secret' : await summary(await clipboard.read().catch(() => []))
+    last = (await isSecret()) ? 'secret' : await summary(await pasteboard.read().catch(() => []))
     clearInterval(look)
     look = setInterval(() => void tick(), LOOK_EVERY_MS)
     event.sender.once('destroyed', () => into === event.sender && stop())

@@ -5,6 +5,14 @@ import type { Capture, CaptureMeta, CapturePatch, Change, SaveResult } from '../
 import type { Moment } from '../main/celebrate'
 import type { Slept } from '../main/session-log'
 import type { PictureLines } from '../main/picture-words'
+import { standInClipboard } from './stand-in-clipboard'
+
+// A test run's pages copy to and paste from main's stand-in, never the Mac's clipboard (main/pasteboard.ts).
+if (process.env.HALIGTREE_QA_AWAY)
+  contextBridge.executeInMainWorld({
+    func: standInClipboard,
+    args: [{ write: (items: Record<string, Uint8Array>[]) => ipcRenderer.invoke('qa:pasteboard-write', items), read: () => ipcRenderer.invoke('qa:pasteboard-read') }]
+  })
 
 // Every live view listens for changes; one IPC listener tells them all,
 // rather than one each past Node's limit of ten.
