@@ -751,7 +751,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                   : current
                   ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} />
                   : look
-                  ? <LookPeek key={`${look.site.id}:${look.hit?.href ?? ''}`} one={look} words={lookWords} />
+                  ? <LookPeek key={`${look.site.id}:${look.hit?.href ?? ''}`} one={look} words={lookWords} offline={!!outside?.offline} />
                   : action?.keep
                     // Nothing found: the half says so, and what Enter does with the words.
                     ? <div key={action.label} className="flex flex-col gap-2 p-4">
@@ -854,8 +854,10 @@ function WebPeek({ label, site }: { label: string; site: string }): React.JSX.El
  * the right, and where it opens. A site's line: what picking it sends, and
  * the prefix that searches that site alone. A line saying why there is none: itself.
  */
-function LookPeek({ one, words }: { one: Look; words: string }): React.JSX.Element {
+function LookPeek({ one, words, offline }: { one: Look; words: string; offline: boolean }): React.JSX.Element {
   const { site, hit } = one
+  // The same mark as its row: the way out of reach, nothing found, or a search.
+  const Said = offline ? WifiOff : SearchX
   const named = site.name.replace(/^the /, 'The ')
   if (hit)
     return (
@@ -872,7 +874,7 @@ function LookPeek({ one, words }: { one: Look; words: string }): React.JSX.Eleme
     )
   return (
     <div data-look-peek className="flex flex-col gap-1.5 px-5 pt-5">
-      <ActionIcon label="Search" />
+      {one.said ? <Said aria-hidden className="size-6 shrink-0 text-muted-foreground" /> : <ActionIcon label="Search" />}
       <div>
         <p className="text-lg font-semibold text-pretty text-foreground">{one.said ?? (one.asking ? `Asking ${site.name}…` : `Search ${site.name} for ${quoted(clip(words, 40), 80)}`)}</p>
         {one.said && <p className="mt-0.5 flex flex-wrap items-center gap-1 text-body text-pretty text-muted-foreground"><Kbd>↵</Kbd> asks {site.name} again.</p>}
