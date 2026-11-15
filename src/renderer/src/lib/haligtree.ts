@@ -737,6 +737,16 @@ export function afterPaint(run: () => void): () => void {
 }
 
 /**
+ * A read made ahead of the view that shows it (quick capture's side panel, before ⌘\ opens it), so the view starts on
+ * its answer, drawn whole as it first shows, as when opened again (useLive). Only a read that is the same function each
+ * time can be kept.
+ */
+export function warmLive<T>(read: () => Promise<T>, deps: unknown[] = []): void {
+  const key = keyOf(deps)
+  if (key !== null) void readOnce(read, key, read).then(({ next, json }) => void (said.get(read) ?? said.set(read, new Map()).get(read)!).set(key, { value: next, json }), () => undefined)
+}
+
+/**
  * Something read from the main process, read again whenever any window writes.
  * The one way every view stays current without each one wiring it up.
  */

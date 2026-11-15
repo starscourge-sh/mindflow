@@ -36,7 +36,7 @@ import { BoxGlance, type Glance } from './components/haligtree/box-glance'
 import { selectionActions } from './components/haligtree/selection-actions'
 import { ReviewView } from './components/haligtree/review-view'
 import { SessionFooter } from './components/haligtree/session-footer'
-import { shownName, unloaded, useAppearance, useInboxDays, useLive } from './lib/haligtree'
+import { afterPaint, shownName, unloaded, useAppearance, useInboxDays, useLive, warmLive } from './lib/haligtree'
 import { allRecorded, moveOldRecordable, recordAll } from './lib/recordings'
 import { BackToTop, Empty, Kbd, Remembered, Strip, StripSlot, typing, useListKeys, useReadKey, useSmooth, FocusNote, useFocusMode, startAt, quietly } from './components/haligtree/ui'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip'
@@ -971,6 +971,14 @@ export default function App(): React.JSX.Element {
     if (panelTold.current === null || panelTold.current === panel) return
     setPanel(panel, true)
   }, [chosenPanel]) // eslint-disable-line react-hooks/exhaustive-deps
+  // What the panel shows read ahead, once the box has drawn and again each time it comes up: ⌘\ draws it whole from
+  // the first frame it grows (warmPanel). Quick capture only, never a note's own window.
+  useEffect(() => {
+    if (!window.api.room.left) return
+    const warm = (): void => void afterPaint(warmPanel)
+    warm()
+    return window.api.onShown(warm)
+  }, [])
   // From the writing to the list and back without the mouse: ⌃J (or ⌃K, from outside the words) leaves
   // the note for the panel's list (opening the panel if it is shut), and I
   // comes back, as vim's insert does. A menu open in the note keeps ⌃J and ⌃K.
@@ -3026,6 +3034,20 @@ function InboxDisplay({ captures, onOpen }: { captures: CaptureMeta[]; onOpen: (
   return React.cloneElement(display, { hidden: true, onOpen })
 }
 
+/**
+ * What the side panel's tabs count, and its pins: the panel is drawn only once all are in (useReadsIn), so they are
+ * read ahead (warmPanel) and the panel shows whole in the first frame ⌘\ grows the box, never 100 to 150 ms after it
+ * has landed. Each tab counts what it holds, so a thing sent there visibly arrives: every open task, dated or not (a
+ * list of fourteen made at once reads as fourteen, never as the one due today), every nugget and article; archived
+ * ones are out of sight, so not counted; questions held open count as kept too, settled ones do not.
+ */
+const panelReads = {
+  due: () => window.api.haligtree<number>('review:counts'),
+  open: () => haligtree.tasks().then((tasks) => tasks.filter((task) => task.status === 'open').length),
+  kept: () => Promise.all([haligtree.items('nugget'), haligtree.items('article'), haligtree.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length)
+}
+const warmPanel = (): void => [panelReads.due, panelReads.open, panelReads.kept, haligtree.pins].forEach((read) => warmLive<unknown>(read))
+
 function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab, setTab }: {
   tab: Tab
   setTab: (tab: Tab) => void
@@ -3068,16 +3090,11 @@ function SidePanel({ captures, editing, onOpen, onOpenAny, reading, onRead, tab,
   }
   // The same easing as the main window's lists.
   useSmooth(scroller)
-  const dueRead = useLive(() => window.api.haligtree<number>('review:counts'), null as number | null, [], ['item'])
+  const dueRead = useLive(panelReads.due, null as number | null, [], ['item'])
   const due = dueRead ?? 0
-  // Each tab counts what it holds, so a thing sent there visibly arrives:
-  // every open task, dated or not (a list of fourteen made at once reads as
-  // fourteen, never as the one due today), every nugget and article.
-  const openRead = useLive(() => haligtree.tasks().then((tasks) => tasks.filter((task) => task.status === 'open').length), null as number | null)
+  const openRead = useLive(panelReads.open, null as number | null)
   const openTasks = openRead ?? 0
-  // Archived ones are out of sight, so not counted.
-  // Questions held open count as kept too; settled ones do not.
-  const keptRead = useLive(() => Promise.all([haligtree.items('nugget'), haligtree.items('article'), haligtree.items('question')]).then((all) => all.flat().filter((one) => !one.archivedAt && !one.closedAt).length), null as number | null, [], ['item'])
+  const keptRead = useLive(panelReads.kept, null as number | null, [], ['item'])
   const kept = keptRead ?? 0
   // The panel is drawn once, with its tabs' counts and what the tab shows (lib/reads-in.tsx): never the counts one by one,
   // or the pins arriving over the Inbox a beat after it.
