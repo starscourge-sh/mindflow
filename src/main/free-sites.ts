@@ -109,7 +109,9 @@ export function creditCommons(page: ReturnType<typeof parseHTML>['document'], ba
     const file = commonsFile(src)
     const link = picture.parentElement?.closest('a')
     const bare = !!link && !link.textContent?.trim()
-    if (!file) {
+    // Drawn under 48px (a flag, a logo, a sister project's mark): decoration, not a picture to credit.
+    const small = [picture.getAttribute('width'), picture.getAttribute('height')].some((one) => one && Number(one) < 48)
+    if (!file || small) {
       // With its caption, which would say nothing without it.
       ;(picture.closest('figure') ?? (bare ? link : picture)).remove()
       continue
