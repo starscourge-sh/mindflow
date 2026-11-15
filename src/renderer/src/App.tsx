@@ -159,7 +159,8 @@ import { Apart } from '@/lib/apart'
 const SMALL = new URLSearchParams(location.search).get('small')
 // Its card's look from the first frame (main.css, data-small): the window is see-through until the card is drawn.
 // Clicks in the clear room under the card pass to the app behind, as round a sticky (lib/clear-room.ts).
-if (SMALL) (document.documentElement.dataset.small = '', clearRoom())
+// Growing (data-small-auto) until main says it was resized by hand, so its card never shows filling the window first.
+if (SMALL) (document.documentElement.dataset.small = '', document.documentElement.setAttribute('data-small-auto', ''), clearRoom())
 /**
  * A small window's note taken by a note's own window (one note, one window): its place here says so, with the way to
  * that window and back, as the main window's place does (lib/apart.tsx); back, it is read afresh. Elsewhere, the page.
@@ -1342,7 +1343,7 @@ export default function App(): React.JSX.Element {
     return () => window.removeEventListener('haligtree:small', said)
   }, [])
   // Growing, the card is drawn at its own height in the room below it (main.css); resized by hand, it fills its window.
-  useEffect(() => void document.documentElement.toggleAttribute('data-small-auto', !!small?.auto), [small?.auto])
+  useEffect(() => void (SMALL && small && document.documentElement.toggleAttribute('data-small-auto', small.auto)), [small?.auto])
   const setSmallSwitch = (patch: { auto?: boolean; aside?: boolean; top?: boolean }): void => {
     void window.api.haligtree<{ auto: boolean; aside: boolean; top: boolean } | null>('small:set', patch).then((now) => {
       setSmall(now)
