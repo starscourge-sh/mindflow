@@ -1352,12 +1352,19 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
     const check = (): void => {
       const { innerWidth: width, innerHeight: height } = window
       const boxes: DOMRect[] = []
+      // A menu or a popover is stepped round by holding still and fading, never by moving: a toast that flew up over a
+      // context menu opened on it, then went, read as a glitch (the user, 15 Nov 2026).
+      const menus: DOMRect[] = []
       for (const one of document.querySelectorAll<HTMLElement>(PANELS)) {
         // A menu on its way out (a line in it was just picked, which is often what made the toast)
         // is not stepped round: the toast went over it for a moment, then dropped to the bottom.
         if (one.closest('[data-state="closed"]')) continue
         const at = one.getBoundingClientRect()
         if (!at.width || !at.height) continue
+        if (one.matches('[role="menu"],[data-slot="popover-content"]')) {
+          menus.push(at)
+          continue
+        }
         // Read through, Tidy and Decide are the page itself while they are up: only their footer and Keys count,
         // so a toast sits just above the keys, never over the header's words.
         if (one.getAttribute('aria-label') === 'Reading' || one.hasAttribute('data-pass')) {
@@ -1391,11 +1398,14 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
       const right = width - (parseFloat(lane.current ? getComputedStyle(lane.current).getPropertyValue('--toast-right') : '') || 0)
       const reach = Math.min(576, right - left - 32) / 2
       const meets = party.filter((at) => at.top < low && at.bottom > low - tall && at.right > (left + right) / 2 - reach && at.left < (left + right) / 2 + reach)
-      const next: React.CSSProperties | undefined = !meets.length ? clear
+      const placed: React.CSSProperties | undefined = !meets.length ? clear
         // Moved from where it would be by a transform: the lane's right edge in to the card
         // (its centred toast goes half as far), or the toast lifted to just above the card.
         : Math.min(...meets.map((at) => at.left)) - left >= 360 ? { ...clear, transform: `translateX(${(Math.min(...meets.map((at) => at.left)) - 12 - right) / 2}px)`, transition: STEP_ASIDE }
         : { ...clear, transform: `translateY(${Math.min(...meets.map((at) => at.top)) - 8 - low}px)`, transition: STEP_ASIDE }
+      // Under an open menu where it stands: it fades there and comes back there, never moved.
+      const under = menus.some((at) => at.top < low && at.bottom > low - tall && at.right > middle - half && at.left < middle + half)
+      const next: React.CSSProperties | undefined = under ? { ...placed, opacity: 0, pointerEvents: 'none', transition: [placed?.transition, 'opacity 120ms var(--mf-ease)'].filter(Boolean).join(', ') } : placed
       setSpot((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
     }
     // Read only once a frame is painted, so it reads the page as already laid out: read in the
