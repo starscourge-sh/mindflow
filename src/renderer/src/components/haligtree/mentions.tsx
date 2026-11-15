@@ -239,7 +239,12 @@ function RelatedRow({ cards, onOpen }: { cards: Related; onOpen?: (type: string,
   useLayoutEffect(() => {
     const element = strip.current
     if (!element) return
-    const measure = (): void => setEnds({ start: element.scrollLeft < 2, end: element.scrollLeft + element.clientWidth > element.scrollWidth - 2 })
+    // The same ends as before draw nothing again: the row is not drawn afresh on every frame it scrolls.
+    const measure = (): void => {
+      const start = element.scrollLeft < 2
+      const end = element.scrollLeft + element.clientWidth > element.scrollWidth - 2
+      setEnds((was) => (was.start === start && was.end === end ? was : { start, end }))
+    }
     measure()
     element.addEventListener('scroll', measure, { passive: true })
     const watch = new ResizeObserver(measure)
