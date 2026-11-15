@@ -57,4 +57,11 @@
       color: inherit;
     }
   }
+
+  // Picked whole (⌘A's step after its words, lib/grow-selection.ts): the
+  // selection's tint over the block, as a picked table cell wears it, so the
+  // step reads as the block taken and not as the words let go.
+  .node-codeBlock.ProseMirror-selectednode pre {
+    box-shadow: inset 0 0 0 100vmax var(--tt-selection-color);
+  }
 }
