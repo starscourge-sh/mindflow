@@ -63,7 +63,7 @@ const scrollList = async (page, by) => {
     const card = document.querySelector('[data-pane-front] [data-pane-card]') ?? document.querySelector('[data-pane-card]')
     const list = [...(card?.querySelectorAll('*') ?? [])].filter((one) => !one.closest('.haligtree-editor-content, [data-page-held]') && /auto|scroll/.test(getComputedStyle(one).overflowY) && one.scrollHeight > one.clientHeight + 40).sort((a, b) => b.scrollHeight - a.scrollHeight)[0]
     list?.scrollTo({ top: by, behavior: 'instant' })
-    return list ? list.scrollTop : null
+    return list ? [list.scrollTop, list.scrollHeight] : [null, 0]
   }, by)
 }
 const homes = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((one) => !one.isDestroyed() && one.webContents.getURL().includes('view=home')).map((one) => ({ url: one.webContents.getURL().replace(/^.*\?/, ''), bounds: one.getBounds(), shown: one.isVisible() })))
@@ -77,7 +77,9 @@ try {
   // The first tab: the Inbox, scrolled down.
   await c.go('inbox')
   await h.waitForTimeout(1200)
-  const listAt = await scrollList(h, 900)
+  // Where it was scrolled, and how tall the list was: the same scroll in another list (the Inbox's older captures, put
+  // in its place by a note opened in the other tab) is not the same place.
+  const [listAt, listTallAt] = await scrollList(h, 900)
   await h.waitForTimeout(500)
   // The second tab: the long note, part-way down.
   await h.click('[data-tab-add]')
@@ -155,7 +157,7 @@ try {
   await h2.click(`[data-tab="${before.tabs[0].key}"] [role="tab"]`)
   await h2.waitForTimeout(1500)
   const list = await read(h2)
-  check('the list in the other tab at the same scroll, within 2 px', list.list !== null && Math.abs(list.list - listAt) <= 2, `before ${listAt}, after ${list.list} (of ${list.listTall})`)
+  check('the list in the other tab at the same scroll, within 2 px, the same list (its height within 40 px)', list.list !== null && Math.abs(list.list - listAt) <= 2 && Math.abs(list.listTall - listTallAt) <= 40, `before ${listAt} (of ${listTallAt}), after ${list.list} (of ${list.listTall})`)
   check('no page errors', errors.length === 0, errors.join(' | '))
 } finally {
   await close()
