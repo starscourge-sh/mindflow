@@ -116,6 +116,13 @@ try {
   check('d2j from rye takes exactly three numbered lines (rye, spelt, cheese)', got.words.length === LINES - 3 && !/rye|spelt|cheese/.test(words) && /bread/.test(words) && /first said/.test(words), `${got.words.length} lines; ${words.slice(0, 160)}`)
   await keys(['u']); got = await margin(); words = await text()
   check('u puts the three back', got.words.length === LINES && /rye.*spelt.*cheese/.test(words), `${got.words.length} lines`)
+  // d1j from apples (3) takes apples and bread (3, 4); rye and spelt are lines of their own, not among those two, and stay.
+  await caretIn('apples'); await wait(200); await normal()
+  await keys(['d', '1', 'j']); got = await margin(); words = await text()
+  check('d1j from apples takes apples and bread, and keeps bread\'s sub-bullets rye and spelt', got.words.length === LINES - 2 && !/apples|bread/.test(words) && /rye.*spelt.*cheese/.test(words), `${got.words.length} lines; ${words.slice(400, 460)}`)
+  await keys(['u']); got = await margin()
+  const breadHolds = await h.evaluate(() => { const bread = document.querySelector('[data-open] .tiptap').editor.state.doc.child(2).child(1); return bread.textContent === 'breadryespelt' && bread.childCount === 2 })
+  check('u puts them back as they were, rye and spelt under bread', got.words.length === LINES && breadHolds, `${got.words.length} lines`)
   // >2j from two (2) reaches bread (4): apples cannot go in (first of its list), bread goes in under it, its own
   // sub-bullets with it; walked by rows, two rows down from two's first row stay in two and nothing moved.
   await caretIn('Paragraph two'); await wait(200); await normal()

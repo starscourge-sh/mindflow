@@ -1325,12 +1325,17 @@ function applyToRange(
   //
   // The children are lifted into the item's place first, and the operator then
   // runs again on what is left - a plain item, the line it looked like all
-  // along. Two transactions a moment apart, so undo takes them as one.
-  const item = linewise ? state.doc.nodeAt(from) : null
-  const sub =
-    item && isListItem(item.type) && to === from + item.nodeSize ? subList(item) : null
+  // along. Two transactions a moment apart, so undo takes them as one. The
+  // same for the last of several lines (d2j, V3jd): its sub-bullets are not
+  // among the lines counted, so they stay.
+  const one = linewise ? state.doc.nodeAt(from) : null
+  const last = linewise && operator !== "y" ? state.doc.resolve(to).nodeBefore : null
+  const item =
+    one && isListItem(one.type) && to === from + one.nodeSize ? one : last && isListItem(last.type) ? last : null
+  const sub = item ? subList(item) : null
 
   if (item && sub) {
+    const at = to - item.nodeSize
     const line = withoutSubList(item, sub)
     if (operator === "y") {
       // A yank changes nothing, so there is nothing to lift: only the register
@@ -1346,8 +1351,8 @@ function applyToRange(
 
     const lifted: ProseMirrorNode[] = [line]
     sub.content.forEach((child) => lifted.push(child))
-    view.dispatch(state.tr.replaceWith(from, to, lifted))
-    applyToRange(view, operator, from, from + line.nodeSize, linewise)
+    view.dispatch(state.tr.replaceWith(at, to, lifted))
+    applyToRange(view, operator, from, at + line.nodeSize, linewise)
     return
   }
 
