@@ -131,8 +131,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   // “Back to the last … days” and Back all return to the recent ones.
   // Which of the two lists is on show is the step's own, never this page's: two tabs on the Inbox share one page
   // (home.tsx), and kept here, a note older than the Inbox's days opened in one tab turned the other tab's list into
-  // the older ones, so back on that tab the list it was scrolled in was gone (after midnight the longest note became
-  // one of the older ones, and the replay's Inbox came back on them, at their top).
+  // the older ones, so back on that tab the list it was scrolled in was gone (the replay's long note is one of the
+  // older ones: its first tab came back on 87 older captures, not the 6 recent ones it was scrolled in).
   const showOlder = (on: boolean): void => {
     chime(on ? 'open' : 'fold')
     setChosen([])
@@ -220,7 +220,10 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const [task, setTask] = useState<TaskFull | null>(null)
   const spread = pane === 'wide' && !open && !task
   const narrowed = spread && query.trim() ? arranged.map(([name, list]) => [name, list.filter((one) => matches(one.label, query, one.fields))] as [string, Row[]]).filter(([, list]) => list.length) : arranged
-  const { groups, islands } = island(narrowed)
+  // The older ones fold and show more on their own: an older note open in another tab, shown past "Show more" among
+  // them, opened the recent ones' island of the same kind as well ("Show 1 more" was "Show fewer" back on that tab).
+  const olderIsland = useIslands(`captures:${title}:older`, islandsOn(view) && (density === 'list' || density === 'compact'))
+  const { groups, islands } = (olderShown ? olderIsland : island)(narrowed)
   // Counted whole, islands or not: a folded island still holds its notes.
   const counted = narrowed.reduce((sum, [, list]) => sum + list.length, 0)
   // Graph, beside the Inbox's kinds: what you have been capturing, as a map.
