@@ -129,12 +129,18 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   useKept('tab', sortedToo ? 'sorted' : 'waiting', (tab) => setSortedToo(tab === 'sorted'), 'waiting')
   // The older captures, listed alone: on top, with the list's start in sight. Esc, the line's own
   // “Back to the last … days” and Back all return to the recent ones.
+  // Which of the two lists is on show is the step's own, never this page's: two tabs on the Inbox share one page
+  // (home.tsx), and kept here, a note older than the Inbox's days opened in one tab turned the other tab's list into
+  // the older ones, so back on that tab the list it was scrolled in was gone (after midnight the longest note became
+  // one of the older ones, and the replay's Inbox came back on them, at their top).
   const showOlder = (on: boolean): void => {
     chime(on ? 'open' : 'fold')
     setChosen([])
-    setOlderAsked(on)
-    if (nav && on) nav.step({ tab: OLDER })
-    else if (nav && nav.here.tab === OLDER) nav.step({ tab: undefined })
+    turned.current = on
+    if (!nav) return setOlderAsked(on)
+    if (on) nav.step({ tab: OLDER })
+    // Over an older note sent here, the recent ones asked for are said in the step, or the note would bring its own back.
+    else if (nav.here.tab === OLDER || focusOlder) nav.step({ tab: focusOlder ? RECENT : undefined })
   }
   const everything = inboxPage && sortedToo
   const keep = everything ? keepEverything : given
@@ -143,20 +149,20 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
   const days = useInboxDays()
   const windowed = inboxPage && !everything && days > 0
   const older = windowed ? all.filter((one) => keep(one) && !inInboxWindow(one, days)) : []
-  const [olderAsked, setOlderAsked] = useState(() => nav?.here.tab === OLDER || (!!focus && older.some((one) => one.id === focus)))
-  // Going through the older ones is a step of its own (Back and Forward, the mouse's side buttons), kept as the step's tab.
-  const olderTab = nav?.here.tab === OLDER
-  const [stepTab, setStepTab] = useState(olderTab)
-  if (stepTab !== olderTab) (setStepTab(olderTab), setOlderAsked(olderTab))
-  // Sent to one (a link, a tag's page, ⌘K, Pinned): the list it is in is the one shown, older or newer, so its row is there beside it.
-  const [sentTo, setSentTo] = useState(focus)
-  if (sentTo !== focus) (setSentTo(focus), focus && windowed && all.some((one) => one.id === focus && keep(one)) && setOlderAsked(older.some((one) => one.id === focus)))
-  const olderShown = olderAsked && older.length > 0
+  // Going through the older ones is a step of its own (Back and Forward, the mouse's side buttons), kept as the step's
+  // tab. Sent to one (a link, a tag's page, ⌘K, Pinned), the list it is in is the one shown, older or newer, so its row
+  // is there beside it. Away from the panes (no steps to keep it in), the page's own.
+  const [olderAsked, setOlderAsked] = useState(false)
+  const focusOlder = !!focus && older.some((one) => one.id === focus)
+  const olderShown = older.length > 0 && (nav ? nav.here.tab === OLDER || (focusOlder && nav.here.tab !== RECENT) : olderAsked)
   const inView = (one: CaptureMeta): boolean => !windowed || inInboxWindow(one, days) !== olderShown
   // Pressed at the list's end, the older ones are read from their start: the line saying what they are, at the top.
+  // Only when pressed: a tab or a step shown again on them keeps the place it was left at (panes.tsx).
+  const turned = useRef(false)
   useEffect(() => {
-    if (olderShown) document.querySelector('[data-inbox-older="shown"]')?.scrollIntoView({ block: 'nearest' })
-  }, [olderShown])
+    if (olderShown && turned.current) document.querySelector(inPane ? `[data-pane="${inPane}"] [data-inbox-older="shown"]` : '[data-inbox-older="shown"]')?.scrollIntoView({ block: 'nearest' })
+    turned.current = false
+  }, [olderShown]) // eslint-disable-line react-hooks/exhaustive-deps
   // Esc with nothing open and nothing picked: back to the recent ones.
   useEffect(() => {
     if (!olderShown) return
@@ -904,6 +910,8 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
  */
 /** The step's tab while the Inbox lists its older captures alone. */
 const OLDER = 'older'
+/** The recent ones asked for over an older note sent here ("Back to the last … days" with it open). */
+const RECENT = 'recent'
 
 function OlderLine({ days, older, shown = false, onFlip }: { days: number; older: number; shown?: boolean; onFlip: () => void }): React.JSX.Element {
   const since = dayjs().subtract(days, 'day').format('D MMMM')
