@@ -93,8 +93,8 @@ export function StuckHead<T>({ lines, onFold }: { lines: Line<T>[]; onFold: (par
       asked = 0
       // Under the section's heading, held at the top of the panel too.
       const top = scroller.getBoundingClientRect().top + (list.closest("section")?.querySelector(".read-details-heading")?.getBoundingClientRect().height ?? 0)
-      const rows = [...list.querySelectorAll<HTMLElement>("[data-part], [data-mark-group]:not(.read-details-stuck *)")].filter((one) => one.getBoundingClientRect().bottom > top + 1)
-      const first = rows[0]
+      // The first row still showing below it: read down to it and no further, where every row was read on each frame.
+      const first = [...list.querySelectorAll<HTMLElement>("[data-part], [data-mark-group]:not(.read-details-stuck *)")].find((one) => one.getBoundingClientRect().bottom > top + 1)
       setStuck(first && first.dataset.part && first.getBoundingClientRect().top < top + 30 ? first.dataset.part : null)
     }
     const check = (): void => void (asked ||= requestAnimationFrame(read))
