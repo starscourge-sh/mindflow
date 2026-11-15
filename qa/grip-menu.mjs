@@ -23,7 +23,7 @@ const set = async (html) => {
 /** The grip beside `target` (a locator), its menu, and the row named `row`. `typed`: a letter typed in the block first, then straight to the grip, as a quick hand goes. */
 async function fromGrip(target, row, { typed = false } = {}) {
   await page.mouse.move(5, 5)
-  await target.hover()
+  await target.hover({ timeout: 3000 })
   await page.waitForTimeout(250)
   const grip = page.locator('.tiptap-drag-handle:not(.is-hidden) .tiptap-drag-handle-grip')
   if (!(await grip.count()) || !(await grip.isVisible())) return 'no grip'
@@ -32,7 +32,7 @@ async function fromGrip(target, row, { typed = false } = {}) {
     await target.click()
     await page.keyboard.press('End')
     await page.keyboard.type('s')
-    await page.mouse.move(at.x + at.width / 2, at.y + at.height / 2)
+    await arrive(at)
     await page.mouse.down()
     await page.mouse.up()
   } else {
@@ -52,6 +52,16 @@ async function fromGrip(target, row, { typed = false } = {}) {
 }
 /** The rows the last menu offered. */
 const rows = []
+/**
+ * The pointer arrives at `box` in one move, as a quick hand does: the one move lands on the grip, none in the note on
+ * the way. The move carries its distance, as a real one does (the gutter, put away while typing, comes back on a move).
+ */
+async function arrive(box) {
+  const [x, y] = [box.x + box.width / 2, box.y + box.height / 2]
+  await page.mouse.move(x, y)
+  await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y, movementX: 6, movementY: 2 })), [x, y])
+  await page.waitForTimeout(60)
+}
 const undo = async () => (await page.keyboard.press('Meta+z'), await page.waitForTimeout(200))
 /** How many times the note holds `mark` (a word of the block, or a kind of node). */
 const count = (mark) => page.$eval(EDITOR, (root, mark) => {
@@ -89,7 +99,7 @@ const plus = await page.locator('[aria-label="Insert a block below"]').boundingB
 await lamp.click()
 await page.keyboard.press('End')
 await page.keyboard.type('s')
-await page.mouse.move(plus.x + plus.width / 2, plus.y + plus.height / 2)
+await arrive(plus)
 await page.mouse.down()
 await page.mouse.up()
 await page.waitForTimeout(250)
@@ -141,7 +151,7 @@ for (const [holder, wrap] of Object.entries(HOLDERS)) {
       continue
     }
     for (const [row, want] of [['Delete', 0], ['Duplicate', 2]]) {
-      said = await fromGrip(one.at(), row)
+      said = await fromGrip(one.at(), row).catch((error) => `stopped: ${String(error.message).split('\n')[0]}`)
       const now = await count(one.mark)
       const kept = (await count('Lead line')) === 1 && (await count('After')) === 1
       if (said !== 'ok' || now !== want || !kept) failed.push(`${row} on a ${kind} in ${holder}: ${said}, ${now} left (wanted ${want})${kept ? '' : ', took more than it'}`)

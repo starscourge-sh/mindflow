@@ -455,8 +455,8 @@ if (PART === 'away') {
     await page.waitForTimeout(500)
     const was = await tree()
     // The picture, taken by itself, down past the third line.
-    await start(`${EDITOR} img`)
-    const from = await centre(page.locator(`${EDITOR} img`))
+    await start(`${EDITOR} img[alt="Map"]`)
+    const from = await centre(page.locator(`${EDITOR} img[alt="Map"]`))
     const third = await centre(page.locator(`${EDITOR} p`, { hasText: 'Third line.' }))
     const to = { x: third.box.x + 40, y: third.box.y + third.box.height * 0.8 }
     const seen = await across(`${look}-picture`, from, to)
@@ -474,8 +474,8 @@ if (PART === 'away') {
     check(`${look}: ⌘Z puts it back in one step`, (await tree()) === was, await tree())
 
     // Out of the window: all home, the picture in sight; back in, the room opens again; the drag ending elsewhere leaves the note as it was.
-    await start(`${EDITOR} img`)
-    await across(`${look}-picture-out`, await centre(page.locator(`${EDITOR} img`)), to)
+    await start(`${EDITOR} img[alt="Map"]`)
+    await across(`${look}-picture-out`, await centre(page.locator(`${EDITOR} img[alt="Map"]`)), to)
     await hear(2, 2, 'dragleave')
     await page.waitForTimeout(400)
     const out = await state()
@@ -495,7 +495,7 @@ if (PART === 'away') {
     await start(`${EDITOR} .tiptap-attachment`)
     const first = await centre(page.locator(`${EDITOR} p`, { hasText: 'First line.' }))
     const up = { x: first.box.x + 40, y: first.box.y + first.box.height * 0.85 }
-    const file = await across(`${look}-file`, await centre(page.locator(`${EDITOR} .tiptap-attachment`)), up)
+    const file = await across(`${look}-file`, await centre(page.locator(`${EDITOR} .tiptap-attachment`).first()), up)
     check(`${look}: a file's card carried by itself: the room with its one line opens where it lands`, file.slice(-3).every((one) => one.taken && one.lines === 1 && one.rooms === 1), JSON.stringify(file.slice(-3)))
     await hear(up.x, up.y, 'drop')
     await page.waitForTimeout(300)
@@ -508,10 +508,10 @@ if (PART === 'away') {
   await app.reset()
   await page.$eval(EDITOR, (root, src) => root.editor.commands.setContent(`<p>Alpha line.</p><img src="${src}" alt="Web" style="width: 96px"><p>Beta line.</p><p>Gamma line.</p>`), `data:image/png;base64,${PNG}`)
   await page.waitForTimeout(400)
-  await start(`${EDITOR} img`)
+  await start(`${EDITOR} img[alt="Web"]`)
   const gamma = await centre(page.locator(`${EDITOR} p`, { hasText: 'Gamma line.' }))
   const down = { x: gamma.box.x + 40, y: gamma.box.y + gamma.box.height * 0.8 }
-  const web = await across('light-web-picture', await centre(page.locator(`${EDITOR} img`)), down)
+  const web = await across('light-web-picture', await centre(page.locator(`${EDITOR} img[alt="Web"]`)), down)
   check('a picture from the web (the browser\'s own drag): the same room and line', web.slice(-3).every((one) => one.taken && one.lines === 1 && one.rooms === 1 && !one.dropCursor), JSON.stringify(web.slice(-3)))
   await hear(down.x, down.y, 'drop')
   await page.waitForTimeout(300)
