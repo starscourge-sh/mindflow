@@ -527,13 +527,18 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     const box = scroller.getBoundingClientRect()
     const top = Math.max(box.top, 0)
     const bottom = Math.min(box.bottom, window.innerHeight)
-    const shown = all[band[0]].getBoundingClientRect()
-    const end = all[Math.min(band[1], all.length - 1)].getBoundingClientRect()
+    // Among the drawn ones that are on the page: a change that took blocks off the note's end (a paste's last line
+    // joined, two lines deleted there) leaves the drawn ones reaching past it until they are drawn again, and looked
+    // for there, the window stopped on a block that was gone.
+    const lastDrawn = Math.min(band[1], all.length - 1)
+    const firstDrawn = Math.min(band[0], lastDrawn)
+    const shown = all[firstDrawn].getBoundingClientRect()
+    const end = all[lastDrawn].getBoundingClientRect()
     if (shown.top <= bottom && end.bottom >= top) {
       // Among the drawn ones, by halves.
       const find = (edge: number): number => {
-        let low = band![0]
-        let high = band![1]
+        let low = firstDrawn
+        let high = lastDrawn
         while (low < high) {
           const middle = (low + high) >> 1
           if (all[middle].getBoundingClientRect().bottom < edge) low = middle + 1
