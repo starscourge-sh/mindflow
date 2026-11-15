@@ -156,9 +156,10 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     // Growing (a new line in the pill), into room the window already keeps under the card (main's hintRoom keeps the
     // grown box's under the pill): drawn at its new height in this frame, held there until the window has grown round
     // it. Waiting on main's resize (a message and a setBounds, 40 to 60ms), the second line showed cut off at the
-    // pill's foot for a few frames. Shrinking the same (back to the pill): waiting on main, the pill's one line showed
-    // in the tall card for three frames. Never while ⌘\'s move holds the box (`held`): it draws the shrink itself.
-    else if (ROOM && !below.current && !document.hidden && ((height > cardHeight() + 1 && window.innerHeight - roomTop() >= height) || (height < cardHeight() - 1 && !held.current))) {
+    // pill's foot for a few frames. Becoming the pill the same: waiting on main, the pill's one line showed in the tall
+    // card for three frames. Only the pill: any other height main may keep (the box with its panel, ⌃⇧F's), and a card
+    // held at one it never takes stayed squeezed. Never while ⌘\'s move holds the box (`held`): it draws that itself.
+    else if (ROOM && !below.current && !document.hidden && ((height > cardHeight() + 1 && window.innerHeight - roomTop() >= height) || (height === PILL && pillNow.current && height < cardHeight() - 1 && !held.current))) {
       pin(height)
       grown.current = true
     }
