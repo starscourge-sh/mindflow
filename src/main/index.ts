@@ -7161,10 +7161,11 @@ app.whenReady().then(() => {
   }
   if (!startedAtLogin || firstRun() || process.argv.includes('--show-home')) {
     openHome()
-    // Once it is on screen; should macOS not say so, soon after its first paint.
+    // Once it is on screen; should macOS not say so, a moment after its page has drawn itself (three seconds at most,
+    // whenHomeDrawn), never before it: counted from its first paint, quick capture and the menu bar icon were made
+    // before the main window showed once it waited for its whole first screen (windows/home.tsx).
     makeHome().once('show', () => setImmediate(theRest))
-    makeHome().once('ready-to-show', () => setTimeout(theRest, 1000))
-    setTimeout(theRest, 4000)
+    whenHomeDrawn(() => setTimeout(theRest, 1000))
   } else {
     theRest()
     setTimeout(makeHome, 1500)
