@@ -1,0 +1,176 @@
+import { parseHTML } from 'linkedom'
+
+/**
+ * A page's article, as Readability found it (classes kept), cleaned to read as a page of the book: words, lists,
+ * tables, quotes, code, the article's own pictures and links whole. Each picture is the version a desktop reader sees,
+ * once; icons, logos, badges and a site's buttons go, so nothing reads as a page with broken CSS.
+ */
+
+/** A picture kept here (its haligtree: address) and its size as read from its file; or the site's address it stays at. */
+export type Kept = { kept: string; size: { width?: number; height?: number; type?: string } | null }
+
+/**
+ * What may stay in a kept article: words, lists, tables, quotes, code, pictures and links. Anything else goes, with
+ * what it held: a site's menus and pop-ups too.
+ */
+const DROP = 'script, style, iframe, object, embed, form, input, button, select, textarea, noscript, svg, canvas, video, audio, link, meta, nav, dialog, [role=navigation], [role=dialog], [role=alertdialog], [aria-modal=true]'
+
+/** A picture under this many pixels on both sides is an icon (an arrow, an avatar, an app's mark): kept only inside a line of words, at the words' size. */
+const ICON = 100
+/** One thinner than this with no words to say what it is (alt) is a strip of decoration, a rule or a scribble. */
+const THIN = 48
+
+/** What a desktop reader is shown: a window this wide, at twice the pixels, the column 40rem. */
+const WIDE = 1280
+const SHARP = 1300
+
+/** Whether a `<source>`'s media query is one a wide window on a light page meets. */
+const wide = (media: string | null): boolean =>
+  [...(media ?? '').matchAll(/\(\s*([a-z-]+)\s*:\s*([^)]+)\)/gi)].every(([, feature, value]) => {
+    const px = parseFloat(value) * (/em/.test(value) ? 16 : 1)
+    if (/^min-width$/i.test(feature)) return px <= WIDE
+    if (/^max-width$/i.test(feature)) return px >= WIDE
+    if (/^prefers-color-scheme$/i.test(feature)) return /light/i.test(value)
+    if (/^orientation$/i.test(feature)) return /landscape/i.test(value)
+    return true
+  })
+
+/** Of a srcset, the picture sharp enough for the column at twice the pixels, or its largest. */
+const sharpest = (srcset: string): string | null => {
+  const each = srcset
+    .split(/,\s+/)
+    .map((one) => one.trim().split(/\s+/))
+    .filter(([url]) => url)
+    .map(([url, said = '1x']) => ({ url, size: parseFloat(said) * (/x$/.test(said) ? SHARP / 2 : 1) }))
+    .sort((a, b) => a.size - b.size)
+  return (each.find((one) => one.size >= SHARP) ?? each.at(-1))?.url ?? null
+}
+
+/** Classes that hide a thing on a wide window: Tailwind's, Bootstrap's and the plain words sites use. */
+const hiddenWide = (classes: string): boolean => {
+  const all = classes.split(/\s+/)
+  const has = (re: RegExp): boolean => all.some((one) => re.test(one))
+  if (has(/^(sm|md|lg|xl):hidden$|^d-(sm|md|lg|xl)-none$|^hidden-(md|lg)$|^visible-(xs|sm)$|^(mobile|phone)[-_]?only$|^only[-_](mobile|phone)$|^(show|visible)[-_](on[-_])?(mobile|phone)$|^(hide|hidden)[-_](on[-_])?(desktop|large)$/i)) return true
+  // Hidden everywhere, unless a wider window shows it again.
+  return has(/^(hidden|d-none)$/) && !has(/^(sm|md|lg|xl):(block|inline|inline-block|flex|inline-flex|grid|table)$|^d-(sm|md|lg|xl)-(block|inline|inline-block|flex|inline-flex|grid|table)$/)
+}
+
+/** A picture's name without the words that tell its sizes apart ("-wide", "-mobile", "@2x", "800w"), to find one picture's versions. */
+const stem = (src: string): string =>
+  (URL.parse(src, 'https://x')?.pathname.split('/').pop() ?? '')
+    .replace(/\.[a-z0-9]+$/i, '')
+    .toLowerCase()
+    .split(/[-_.@\s]+/)
+    .filter((word) => word && !/^(wide|narrow|desktop|mobile|tablet|phone|small|medium|large|sm|md|lg|xl|xs|xxl|portrait|landscape|retina|full|half|\d+(w|px|x|x\d+)?)$/.test(word))
+    .join('-')
+
+/** Words of a link or a line, without the arrows and marks sites draw as glyphs. */
+const wordsOf = (one: Element): string => (one.textContent ?? '').replace(/[\s↗→←↑↓›»«‹➔➜⟶•·|]+/g, '')
+
+/** A picture that is decoration, not the article's: a logo, an icon, a badge, a scribble, a spacer. */
+const DECOR = /(^|[-_./])(logo|icon|arrow|badge|seal|spacer|pixel|divider|separator|ornament|flourish|squiggle|scribble|swoosh|sprite|decor)/i
+
+/** The article's HTML, cleaned; `site` is the site's name, `keep` keeps a picture here and says its size. */
+export async function cleanArticle(content: string, base: URL, site: string, keep: (src: string) => Promise<Kept>): Promise<string> {
+  const { document: clean } = parseHTML(`<!doctype html><html><body>${content}</body></html>`)
+  for (const one of clean.querySelectorAll(DROP)) one.remove()
+  // Of each picture's versions, the one a desktop reader sees, read from its sources and classes before they are stripped:
+  // a <picture>'s first source a wide window takes, a srcset's sharpest for the column, and nothing a wide window hides.
+  for (const one of clean.querySelectorAll('picture')) {
+    const source = [...one.querySelectorAll('source[srcset]')].find((each) => wide(each.getAttribute('media')) && /^$|^image\/(webp|avif|png|jpe?g|gif|svg)/.test(each.getAttribute('type') ?? ''))
+    one.querySelector('img')?.setAttribute('srcset', source?.getAttribute('srcset') ?? one.querySelector('img')?.getAttribute('srcset') ?? '')
+    for (const each of one.querySelectorAll('source')) each.remove()
+  }
+  for (const one of clean.querySelectorAll('img[srcset]')) {
+    const best = sharpest(one.getAttribute('srcset') ?? '')
+    if (best) one.setAttribute('src', best)
+  }
+  for (const one of clean.querySelectorAll('[class]')) if (hiddenWide(one.getAttribute('class') ?? '') && !wordsOf(one) && (one.matches('img') || one.querySelector('img'))) one.remove()
+  // A site's own versions side by side (its wide one and its narrow one, a class apart): the widest stays.
+  for (const one of clean.querySelectorAll('img')) {
+    let next = one.nextSibling
+    while (next && next.nodeType === 3 && !next.textContent?.trim()) next = next.nextSibling
+    if (next?.nodeType !== 1 || (next as Element).tagName !== 'IMG' || !stem(one.getAttribute('src') ?? '') || stem(one.getAttribute('src') ?? '') !== stem((next as Element).getAttribute('src') ?? '')) continue
+    const width = (img: Element): number => Number(img.getAttribute('width')) || 0
+    ;(width(next as Element) > width(one) ? one : (next as Element)).remove()
+  }
+  // A link drawn as a site's button ("Download", "Learn more ↗"): kept only where it reads in a sentence.
+  const buttons = new Set([...clean.querySelectorAll('a')].filter((one) => one.hasAttribute('data-cta') || one.getAttribute('role') === 'button' || /(^|[\s_-])(btn|button|cta)($|[\s_-])/i.test(one.getAttribute('class') ?? '')))
+  for (const one of clean.querySelectorAll('*')) {
+    for (const { name } of [...one.attributes]) {
+      if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-|^loading$|^role$|^aria-/i.test(name)) one.removeAttribute(name)
+    }
+  }
+  for (const one of clean.querySelectorAll('a[href]')) {
+    const to = URL.parse(one.getAttribute('href') ?? '', base)
+    if (to && /^https?:$/.test(to.protocol)) one.setAttribute('href', to.href)
+    else one.removeAttribute('href')
+  }
+  // Every picture fetched and kept here, then each judged in reading order with its size known.
+  const pictures = [...clean.querySelectorAll('img')]
+  const got = await Promise.all(
+    pictures.map(async (one) => {
+      const to = URL.parse(one.getAttribute('src') ?? '', base)
+      const { kept, size } = to && /^https?:$/.test(to.protocol) ? await keep(to.href) : { kept: '', size: null }
+      return { kept, size, name: to?.pathname ?? '' }
+    })
+  )
+  const shown = new Set<string>()
+  pictures.forEach((one, at) => {
+    const { kept, size, name } = got[at]
+    const alt = one.getAttribute('alt')?.trim() ?? ''
+    const line = one.closest('p, li, figcaption, td, th, dd, dt, blockquote, h1, h2, h3, h4, h5, h6')
+    const link = one.closest('a')
+    // One on this machine's network goes; one that could not be kept stays a link to it on the site, said by its words.
+    if (!kept || (!kept.startsWith('haligtree:') && !alt)) return void one.remove()
+    if (!kept.startsWith('haligtree:')) {
+      const away = clean.createElement('a')
+      away.setAttribute('href', kept)
+      away.textContent = `Picture: ${alt}`
+      // On a line of its own where the picture stood, unless it stood inside a line of words already.
+      if (line) return void one.replaceWith(away)
+      const own = clean.createElement('p')
+      own.append(away)
+      return void one.replaceWith(own)
+    }
+    // Kept but not a picture a page can show, the same picture again, a logo, or decoration with nothing to say: gone.
+    if (!size?.width || !size.height || shown.has(kept)) return void one.remove()
+    if (/\b(logo|icon|avatar|background|backdrop)\b/i.test(alt) || (alt && alt.toLowerCase() === site.toLowerCase()) || (!alt && (DECOR.test(name) || size.type === 'svg') && !one.closest('figure'))) return void one.remove()
+    // A picture inside a link with words of its own is the link's icon: the words carry the link.
+    if (link && wordsOf(link)) return void one.remove()
+    const declared = Number(one.getAttribute('width')) || 0
+    const scale = declared ? declared / size.width : 1
+    const [w, h] = [size.width * scale, (Number(one.getAttribute('height')) || size.height * scale)]
+    if (Math.min(w, h) < THIN && Math.max(w, h) >= ICON && !alt) return void one.remove()
+    if (Math.max(w, h) < ICON) {
+      // An icon in a sentence stays, at the words' size; on its own it goes.
+      if (!line || !wordsOf(line)) return void one.remove()
+      one.setAttribute('data-inline', '')
+    }
+    shown.add(kept)
+    one.setAttribute('src', kept)
+  })
+  // Links: a block inside one set inline (its arrow then ends its words, never a line of its own); one with no words
+  // goes, its picture staying; a button not in a sentence goes.
+  for (const one of clean.querySelectorAll('a')) for (const block of one.querySelectorAll('div, p, section, article, header, footer, h1, h2, h3, h4, h5, h6')) block.replaceWith(...block.childNodes, ' ')
+  for (const one of clean.querySelectorAll('a')) {
+    const block = one.parentElement?.closest('p, li, td, th, dd, blockquote, h1, h2, h3, h4, h5, h6, figcaption')
+    if (!wordsOf(one)) one.replaceWith(...one.querySelectorAll('img'))
+    else if (buttons.has(one) && (!block || wordsOf(block) === wordsOf(one))) one.remove()
+  }
+  // A thing drawn from letters (a keyboard of keys, a row of marks): six lines or more of a word or a sign each, gone.
+  const sign = (line: Element): boolean => wordsOf(line).length >= 1 && wordsOf(line).length <= 7 && !line.matches('img, table, pre') && !line.querySelector('img, table, pre')
+  for (const one of [...clean.querySelectorAll('div, section')].reverse()) {
+    const lines = [...one.children]
+    if (lines.length >= 6 && lines.filter(sign).length >= lines.length * 0.8) one.remove()
+  }
+  // A heading with nothing after it (a site's closing "Download it free", its buttons gone) introduces nothing: it goes.
+  const last = (): Element | undefined => [...clean.querySelectorAll('p, li, dd, dt, blockquote, pre, table, img, figcaption, h1, h2, h3, h4, h5, h6')].filter((one) => one.matches('img, table') || wordsOf(one)).at(-1)
+  for (let end = last(); end?.matches('h1, h2, h3, h4, h5, h6'); end = last()) end.remove()
+  // What is left with nothing in it: a wrapper whose button or icon went.
+  for (const one of [...clean.querySelectorAll('p, div, span, section, figure, picture, header, footer, aside, li, a')].reverse()) if (!wordsOf(one) && !one.querySelector('img, table, hr, pre')) one.remove()
+  // Readability's own wrappers (a page div, the site's article) unwrapped, so the words sit straight in the reader's column.
+  let inner = clean.body as unknown as Element
+  while (inner.children.length === 1 && /^(div|article|section|main)$/i.test(inner.children[0].tagName) && [...inner.childNodes].every((node) => node.nodeType === 1 || !(node.textContent ?? '').trim())) inner = inner.children[0]
+  return inner.innerHTML
+}

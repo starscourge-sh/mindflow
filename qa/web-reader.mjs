@@ -69,7 +69,8 @@ try {
       if (path === '/pic.png') return new Response(Buffer.from(pic, 'base64'), { headers: { 'content-type': 'image/png' } })
       return new Response('', { status: 404 })
     }
-  }, [SITE, pages, png(60, 140, 60)])
+  // The garden at a photograph's size: one an icon's size alone between paragraphs is dropped (article-clean.ts).
+  }, [SITE, pages, png(60, 140, 60, 640, 360)])
   await v('settings:set', { sounds: false, hintRate: 0, motion: false })
 
   // A note holding a link card to the article, and words of its own to compare the reading type with.

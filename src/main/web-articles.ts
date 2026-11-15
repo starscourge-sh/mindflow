@@ -1,19 +1,23 @@
 import { ipcMain, app } from 'electron'
 import { randomUUID } from 'crypto'
+import { join } from 'path'
 import { Readability } from '@mozilla/readability'
 import { parseHTML } from 'linkedom'
+import { imageSizeFromFile } from 'image-size/fromFile'
 import { database } from './captures'
 import { fetchOutside } from './outside'
 import { begin, end } from './jobs'
 import { WEB_ARTICLES as TABLE } from './find-files'
 import { articleNames } from './article-names'
 import { creditCommons, isWiki, wikiChrome } from './free-sites'
+import { cleanArticle } from './article-clean'
+import { assetsDir } from './pictures'
 
 /** An article kept from the web: its words and pictures, read offline in the reader. */
 export type Article = { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }
 
-/** What may stay in a kept article: words, lists, tables, quotes, code, pictures and links. Anything else goes, with what it held. */
-const DROP = 'script, style, iframe, object, embed, form, input, button, select, textarea, noscript, svg, canvas, video, audio, link, meta'
+/** The cleaning an article was kept by, first in its HTML: one kept by an earlier reader is read again when next opened. */
+const CLEANING = '<!-- reader 2 -->'
 
 /**
  * Why a page gave no article, in plain words: the reader says this in its
@@ -60,7 +64,8 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     if (isWiki(base)) wikiChrome(document)
     const meta = (name: string): string => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute('content')?.trim() ?? ''
     const paywalled = /"isAccessibleForFree"\s*:\s*(false|"False")/i.test(page)
-    const found = new Readability(document as unknown as Document, { charThreshold: 300 }).parse()
+    // Its classes kept for now: they say which of a picture's versions a wide window shows, and which links are buttons.
+    const found = new Readability(document as unknown as Document, { charThreshold: 300, keepClasses: true }).parse()
     const words = found?.textContent?.replace(/\s+/g, ' ').trim() ?? ''
     if (!found?.content || words.length < 300) {
       if (paywalled) return { error: WHY.paid }
@@ -68,42 +73,21 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
       return { error: WHY.script }
     }
 
-    // The cleaned article, with only what reads, every link whole, every picture kept here.
-    const { document: clean } = parseHTML(`<!doctype html><html><body>${found.content}</body></html>`)
-    for (const one of clean.querySelectorAll(DROP)) one.remove()
-    for (const one of clean.querySelectorAll('*')) {
-      for (const { name } of [...one.attributes]) {
-        if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-|^loading$/i.test(name)) one.removeAttribute(name)
-      }
+    // Wikipedia's and Wiktionary's pictures: Commons' alone, each credited (free-sites.ts), read from the page as it
+    // came (each picture's own size marks), before the cleaning chooses and measures what is left.
+    let content = found.content
+    if (isWiki(base)) {
+      const { document: wiki } = parseHTML(`<!doctype html><html><body>${content}</body></html>`)
+      creditCommons(wiki, base)
+      content = wiki.body.innerHTML
     }
-    // Wikipedia's and Wiktionary's pictures: Commons' alone, each credited (free-sites.ts).
-    if (isWiki(base)) creditCommons(clean, base)
-    for (const one of clean.querySelectorAll('a[href]')) {
-      const to = URL.parse(one.getAttribute('href') ?? '', base)
-      if (to && /^https?:$/.test(to.protocol)) one.setAttribute('href', to.href)
-      else one.removeAttribute('href')
-    }
-    await Promise.all(
-      [...clean.querySelectorAll('img')].map(async (one) => {
-        const to = URL.parse(one.getAttribute('src') ?? '', base)
-        const kept = to && /^https?:$/.test(to.protocol) ? await keep(to.href) : ''
-        if (kept.startsWith('haligtree:')) return void one.setAttribute('src', kept)
-        // A picture that could not be kept stays a link to it on the site; one on this machine's network goes.
-        if (!kept) return void one.remove()
-        const link = clean.createElement('a')
-        link.setAttribute('href', kept)
-        link.textContent = `Picture: ${one.getAttribute('alt')?.trim() || 'on the site'}`
-        // On a line of its own where the picture stood, unless it stood inside a line of words already.
-        if (one.closest('p, li, figcaption, td, th, h1, h2, h3, h4, h5, h6')) return void one.replaceWith(link)
-        const line = clean.createElement('p')
-        line.append(link)
-        one.replaceWith(line)
-      })
-    )
-    // Readability's own wrappers (a page div, the site's article) unwrapped, so the words sit straight in the reader's column.
-    let inner = clean.body as unknown as Element
-    while (inner.children.length === 1 && /^(div|article|section|main)$/i.test(inner.children[0].tagName) && [...inner.childNodes].every((node) => node.nodeType === 1 || !(node.textContent ?? '').trim())) inner = inner.children[0]
-    const html = inner.innerHTML
+    // The cleaned article (article-clean.ts): only what reads, every link whole, every picture kept here and measured.
+    const site = meta('og:site_name') || base.hostname.replace(/^www\./, '').split('.')[0]
+    const html = CLEANING + (await cleanArticle(content, base, site, async (src) => {
+      const kept = await keep(src)
+      const size = kept.startsWith('haligtree:') ? await imageSizeFromFile(join(assetsDir(), kept.replace(/^haligtree:\/\/assets\//, ''))).catch(() => null) : null
+      return { kept, size }
+    }))
     // Stopped while its pictures came: nothing of the article is kept.
     if (stop.aborted) return { stopped: true }
     // Its title without the site's name it trails, and the site's own name (article-names.ts).
@@ -143,15 +127,16 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
   ipcMain.handle('article-fetch', async (_event, href: unknown) => {
     if (typeof href !== 'string' || !/^https?:\/\//i.test(href)) return { error: WHY.notPage }
     const known = kept(href)
-    if (known) return { article: known }
+    if (known?.html.startsWith(CLEANING)) return { article: known }
     // “Stop” beside “Reading the page…” (main/jobs.ts): the fetch ends and nothing is kept.
+    // One kept by an earlier reader is read again, as this one keeps a page; offline, it reads as it was kept.
     const name = `article:${href}`
     const stop = begin(name)
     try {
       const done = await read(href, stop)
-      return 'id' in done ? { article: kept(href) } : done
+      return 'id' in done ? { article: kept(href) } : known ? { article: known } : done
     } catch {
-      return stop.aborted ? { stopped: true } : { error: WHY.script }
+      return known ? { article: known } : stop.aborted ? { stopped: true } : { error: WHY.script }
     } finally {
       end(name, stop)
     }

@@ -1,0 +1,5140 @@
+
+
+
+
+
+
+
+
+
+<!doctype html>
+<html 
+      lang="en"
+      dir="ltr">
+  <head>
+    <meta name="google-signin-client-id" content="157101835696-ooapojlodmuabs2do2vuhhnf90bccmoi.apps.googleusercontent.com"><meta name="google-signin-scope"
+          content="profile email https://www.googleapis.com/auth/developerprofiles https://www.googleapis.com/auth/developerprofiles.award https://www.googleapis.com/auth/devprofiles.full_control.firstparty"><meta property="og:site_name" content="web.dev">
+    <meta property="og:type" content="website"><meta name="theme-color" content="#3740ff"><meta charset="utf-8">
+    <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+
+    <link rel="manifest" href="/_pwa/web/manifest.json"
+          crossorigin="use-credentials">
+    <link rel="preconnect" href="//www.gstatic.com" crossorigin>
+    <link rel="preconnect" href="//fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="//www.google-analytics.com" crossorigin><link rel="stylesheet" href="//fonts.googleapis.com/css?family=Google+Sans:400,500|Roboto:400,400italic,500,500italic,700,700italic|Roboto+Mono:400,500,700&display=swap">
+      <link rel="stylesheet"
+            href="//fonts.googleapis.com/css2?family=Material+Icons&family=Material+Symbols+Outlined&display=block"><link rel="stylesheet" href="https://www.gstatic.com/devrel-devsite/prod/v579d635a54d6e1f40caad46ce407560c5106c8915e5ff7e6341f5b13eb245c5a/web/css/app.css">
+      
+        <link rel="stylesheet" href="https://www.gstatic.com/devrel-devsite/prod/v579d635a54d6e1f40caad46ce407560c5106c8915e5ff7e6341f5b13eb245c5a/web/css/dark-theme.css" disabled>
+      <link rel="shortcut icon" href="https://www.gstatic.com/devrel-devsite/prod/v579d635a54d6e1f40caad46ce407560c5106c8915e5ff7e6341f5b13eb245c5a/web/images/favicon.png">
+    <link rel="apple-touch-icon" href="https://www.gstatic.com/devrel-devsite/prod/v579d635a54d6e1f40caad46ce407560c5106c8915e5ff7e6341f5b13eb245c5a/web/images/touchicon-180.png"><link rel="canonical" href="https://web.dev/articles/optimize-lcp"><link rel="search" type="application/opensearchdescription+xml"
+            title="web.dev" href="https://web.dev/s/opensearch.xml">
+      <link rel="alternate" hreflang="en"
+          href="https://web.dev/articles/optimize-lcp" /><link rel="alternate" hreflang="x-default" href="https://web.dev/articles/optimize-lcp" /><link rel="alternate" hreflang="ar"
+          href="https://web.dev/articles/optimize-lcp?hl=ar" /><link rel="alternate" hreflang="bn"
+          href="https://web.dev/articles/optimize-lcp?hl=bn" /><link rel="alternate" hreflang="zh-Hans"
+          href="https://web.dev/articles/optimize-lcp?hl=zh-cn" /><link rel="alternate" hreflang="zh-Hant"
+          href="https://web.dev/articles/optimize-lcp?hl=zh-tw" /><link rel="alternate" hreflang="fa"
+          href="https://web.dev/articles/optimize-lcp?hl=fa" /><link rel="alternate" hreflang="fr"
+          href="https://web.dev/articles/optimize-lcp?hl=fr" /><link rel="alternate" hreflang="de"
+          href="https://web.dev/articles/optimize-lcp?hl=de" /><link rel="alternate" hreflang="he"
+          href="https://web.dev/articles/optimize-lcp?hl=he" /><link rel="alternate" hreflang="hi"
+          href="https://web.dev/articles/optimize-lcp?hl=hi" /><link rel="alternate" hreflang="id"
+          href="https://web.dev/articles/optimize-lcp?hl=id" /><link rel="alternate" hreflang="it"
+          href="https://web.dev/articles/optimize-lcp?hl=it" /><link rel="alternate" hreflang="ja"
+          href="https://web.dev/articles/optimize-lcp?hl=ja" /><link rel="alternate" hreflang="ko"
+          href="https://web.dev/articles/optimize-lcp?hl=ko" /><link rel="alternate" hreflang="pl"
+          href="https://web.dev/articles/optimize-lcp?hl=pl" /><link rel="alternate" hreflang="pt-BR"
+          href="https://web.dev/articles/optimize-lcp?hl=pt-br" /><link rel="alternate" hreflang="ru"
+          href="https://web.dev/articles/optimize-lcp?hl=ru" /><link rel="alternate" hreflang="es-419"
+          href="https://web.dev/articles/optimize-lcp?hl=es-419" /><link rel="alternate" hreflang="th"
+          href="https://web.dev/articles/optimize-lcp?hl=th" /><link rel="alternate" hreflang="tr"
+          href="https://web.dev/articles/optimize-lcp?hl=tr" /><link rel="alternate" hreflang="vi"
+          href="https://web.dev/articles/optimize-lcp?hl=vi" /><link rel="alternate" hreflang="en-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp" /><link rel="alternate" hreflang="x-default" href="https://web.developers.google.cn/articles/optimize-lcp" /><link rel="alternate" hreflang="ar-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=ar" /><link rel="alternate" hreflang="bn-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=bn" /><link rel="alternate" hreflang="zh-Hans-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=zh-cn" /><link rel="alternate" hreflang="zh-Hant-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=zh-tw" /><link rel="alternate" hreflang="fa-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=fa" /><link rel="alternate" hreflang="fr-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=fr" /><link rel="alternate" hreflang="de-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=de" /><link rel="alternate" hreflang="he-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=he" /><link rel="alternate" hreflang="hi-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=hi" /><link rel="alternate" hreflang="id-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=id" /><link rel="alternate" hreflang="it-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=it" /><link rel="alternate" hreflang="ja-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=ja" /><link rel="alternate" hreflang="ko-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=ko" /><link rel="alternate" hreflang="pl-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=pl" /><link rel="alternate" hreflang="pt-BR-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=pt-br" /><link rel="alternate" hreflang="ru-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=ru" /><link rel="alternate" hreflang="es-419-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=es-419" /><link rel="alternate" hreflang="th-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=th" /><link rel="alternate" hreflang="tr-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=tr" /><link rel="alternate" hreflang="vi-cn"
+          href="https://web.developers.google.cn/articles/optimize-lcp?hl=vi" /><link rel="alternate" type="text/markdown" href="https://web.dev/articles/optimize-lcp.md.txt"><title>Optimize Largest Contentful Paint &nbsp;|&nbsp; Articles &nbsp;|&nbsp; web.dev</title>
+
+<meta property="og:title" content="Optimize Largest Contentful Paint &nbsp;|&nbsp; Articles &nbsp;|&nbsp; web.dev"><meta name="description" content="A step-by-step guide on how to break down LCP and identify key areas to improve.">
+  <meta property="og:description" content="A step-by-step guide on how to break down LCP and identify key areas to improve."><meta property="og:url" content="https://web.dev/articles/optimize-lcp"><meta property="og:image" content="https://web.dev/static/articles/optimize-lcp/image/thumbnail.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="675"><meta property="og:locale" content="en"><meta name="twitter:card" content="summary_large_image"><script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "dateModified": "2025-03-31",
+    "headline": "Optimize Largest Contentful Paint"
+  }
+</script><script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [{
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Articles",
+      "item": "https://web.dev/articles"
+    },{
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Optimize Largest Contentful Paint",
+      "item": "https://web.dev/articles/optimize-lcp"
+    }]
+  }
+  </script>
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+
+
+    </head>
+  <body class="color-scheme--light"
+        template="page"
+        theme="web-theme"
+        type="article"
+        
+        appearance
+        
+        layout="docs"
+        
+        
+        
+        
+        
+        display-toc
+        pending>
+  
+    <devsite-progress type="indeterminate" id="app-progress"></devsite-progress>
+  
+  
+    <a href="#main-content" class="skip-link button">
+      
+      Skip to main content
+    </a>
+    <section class="devsite-wrapper">
+      <devsite-cookie-notification-bar></devsite-cookie-notification-bar>
+        <devsite-header role="banner">
+  
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="devsite-header--inner" data-nosnippet>
+  <div class="devsite-top-logo-row-wrapper-wrapper">
+    <div class="devsite-top-logo-row-wrapper">
+      <div class="devsite-top-logo-row">
+        <button type="button" id="devsite-hamburger-menu"
+          class="devsite-header-icon-button button-flat material-icons gc-analytics-event"
+          data-category="Site-Wide Custom Events"
+          data-label="Navigation menu button"
+          visually-hidden
+          aria-label="Open menu">
+        </button>
+        
+<div class="devsite-product-name-wrapper">
+
+  <a href="/" class="devsite-site-logo-link gc-analytics-event"
+   data-category="Site-Wide Custom Events" data-label="Site logo" track-type="globalNav"
+   track-name="webDev" track-metadata-position="nav"
+   track-metadata-eventDetail="nav">
+  
+  <picture>
+    
+    <source srcset="https://www.gstatic.com/devrel-devsite/prod/v579d635a54d6e1f40caad46ce407560c5106c8915e5ff7e6341f5b13eb245c5a/web/images/lockup-dark-theme.svg"
+            media="(prefers-color-scheme: dark)"
+            class="devsite-dark-theme">
+    
+    <img src="https://www.gstatic.com/devrel-devsite/prod/v579d635a54d6e1f40caad46ce407560c5106c8915e5ff7e6341f5b13eb245c5a/web/images/lockup.svg" class="devsite-site-logo" alt="web.dev">
+  </picture>
+  
+</a>
+
+
+
+</div>
+        <div class="devsite-top-logo-row-middle">
+          <div class="devsite-header-upper-tabs">
+            
+              
+              
+  <devsite-tabs class="upper-tabs">
+
+    <nav class="devsite-tabs-wrapper" aria-label="Upper tabs">
+      
+        
+          <tab class="devsite-dropdown
+    devsite-dropdown-full
+    devsite-active
+    
+    ">
+  
+    <a href="https://web.dev/explore/ai"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/ai"
+    
+       track-type="nav"
+       track-metadata-position="nav - resources"
+       track-metadata-module="primary nav"
+       aria-label="Resources, selected" 
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Resources"
+         
+           track-name="resources"
+         
+       >
+    Resources
+  
+    </a>
+    
+      <button
+         aria-haspopup="menu"
+         aria-expanded="false"
+         aria-label="Dropdown menu for Resources"
+         track-type="nav"
+         track-metadata-eventdetail="https://web.dev/explore/ai"
+         track-metadata-position="nav - resources"
+         track-metadata-module="primary nav"
+         
+          
+            data-category="Site-Wide Custom Events"
+          
+            data-label="Tab: Resources"
+          
+            track-name="resources"
+          
+        
+         class="devsite-tabs-dropdown-toggle devsite-icon devsite-icon-arrow-drop-down"></button>
+    
+  
+  <div class="devsite-tabs-dropdown" role="menu" aria-label="submenu" hidden>
+    <div class="devsite-tabs-dropdown-content">
+      
+      
+        <div class="devsite-tabs-dropdown-column
+                    ">
+          
+            <ul class="devsite-tabs-dropdown-section
+                       build-icon web-dev-subnav">
+              
+                <li class="devsite-nav-title" role="heading" tooltip>Web Platform</li>
+              
+              
+                <li class="devsite-nav-description">Dive into the web platform, at your pace.
+</li>
+              
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/html"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/html"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="web platform"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      HTML
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/css"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/css"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="web platform"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      CSS
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/javascript"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/javascript"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="web platform"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      JavaScript
+                    </div>
+                    
+                  </a>
+                </li>
+              
+            </ul>
+          
+        </div>
+      
+        <div class="devsite-tabs-dropdown-column
+                    ">
+          
+            <ul class="devsite-tabs-dropdown-section
+                       build-icon web-dev-subnav">
+              
+                <li class="devsite-nav-title" role="heading" tooltip>User experience</li>
+              
+              
+                <li class="devsite-nav-description">Learn how to build better user experiences.
+</li>
+              
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/performance"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/performance"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="user experience"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Performance
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/accessibility"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/accessibility"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="user experience"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Accessibility
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/identity"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/identity"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="user experience"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Identity
+                    </div>
+                    
+                  </a>
+                </li>
+              
+            </ul>
+          
+        </div>
+      
+        <div class="devsite-tabs-dropdown-column
+                    ">
+          
+            <ul class="devsite-tabs-dropdown-section
+                       productivity-icon web-dev-subnav">
+              
+                <li class="devsite-nav-title" role="heading" tooltip>Learn</li>
+              
+              
+                <li class="devsite-nav-description">Get up to speed on web development.</li>
+              
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/learn/html"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/learn/html"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="learn"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Learn HTML
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/learn/css"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/learn/css"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="learn"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Learn CSS
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/learn/javascript"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/learn/javascript"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="learn"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Learn JavaScript
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/learn/ai"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/learn/ai"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="learn"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Learn AI
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/learn/performance"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/learn/performance"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="learn"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Learn Performance
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/learn/accessibility"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/learn/accessibility"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="learn"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Learn Accessibility
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/learn"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/learn"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="learn"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      More courses
+                    </div>
+                    
+                  </a>
+                </li>
+              
+            </ul>
+          
+        </div>
+      
+        <div class="devsite-tabs-dropdown-column
+                    ">
+          
+            <ul class="devsite-tabs-dropdown-section
+                       experience-icon web-dev-subnav">
+              
+                <li class="devsite-nav-title" role="heading" tooltip>Additional resources</li>
+              
+              
+                <li class="devsite-nav-description">Explore content collections, patterns, and more.</li>
+              
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/explore/ai"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/explore/ai"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="additional resources"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      AI and the web
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/explore"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/explore"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="additional resources"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Explore
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://pagespeed.web.dev/"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://pagespeed.web.dev/"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="additional resources"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      PageSpeed Insights
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/shows"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/shows"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="additional resources"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Podcasts &amp; shows
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/newsletter"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/newsletter"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="additional resources"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      Developer Newsletter
+                    </div>
+                    
+                  </a>
+                </li>
+              
+                <li class="devsite-nav-item">
+                  <a href="https://web.dev/about"
+                    
+                     track-type="nav"
+                     track-metadata-eventdetail="https://web.dev/about"
+                     track-metadata-position="nav - resources"
+                     track-metadata-module="tertiary nav"
+                     
+                       track-metadata-module_headline="additional resources"
+                     
+                     tooltip
+                  >
+                    
+                    <div class="devsite-nav-item-title">
+                      About web.dev
+                    </div>
+                    
+                  </a>
+                </li>
+              
+            </ul>
+          
+        </div>
+      
+    </div>
+  </div>
+</tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/discover"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/discover"
+    
+       track-type="nav"
+       track-metadata-position="nav - discover"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Discover"
+         
+           track-name="discover"
+         
+       >
+    Discover
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/baseline"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/baseline"
+    
+       track-type="nav"
+       track-metadata-position="nav - baseline"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Baseline"
+         
+           track-name="baseline"
+         
+       >
+    Baseline
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/how-to-use-baseline"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/how-to-use-baseline"
+    
+       track-type="nav"
+       track-metadata-position="nav - how to use baseline"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: How to use Baseline"
+         
+           track-name="how to use baseline"
+         
+       >
+    How to use Baseline
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/blog"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/blog"
+    
+       track-type="nav"
+       track-metadata-position="nav - blog"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Blog"
+         
+           track-name="blog"
+         
+       >
+    Blog
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/case-studies"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/case-studies"
+    
+       track-type="nav"
+       track-metadata-position="nav - case studies"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Case Studies"
+         
+           track-name="case studies"
+         
+       >
+    Case Studies
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+    </nav>
+
+  </devsite-tabs>
+
+            
+           </div>
+          
+<devsite-search
+    enable-signin
+    enable-search
+    enable-suggestions
+      enable-query-completion
+    
+    enable-search-summaries
+    project-name="Articles"
+    tenant-name="web.dev"
+    
+    
+    
+    
+    
+    >
+  <form class="devsite-search-form" action="https://web.dev/s/results" method="GET">
+    <div class="devsite-search-container">
+      <button type="button"
+              search-open
+              class="devsite-search-button devsite-header-icon-button button-flat material-icons"
+              
+              aria-label="Open search"></button>
+      <div class="devsite-searchbox">
+        <input
+          aria-activedescendant=""
+          aria-autocomplete="list"
+          
+          aria-label="Search"
+          aria-expanded="false"
+          aria-haspopup="listbox"
+          autocomplete="off"
+          class="devsite-search-field devsite-search-query"
+          name="q"
+          
+          placeholder="Search"
+          role="combobox"
+          type="text"
+          value=""
+          >
+          <div class="devsite-search-image material-icons" aria-hidden="true">
+            
+              <svg class="devsite-search-ai-image" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <g clip-path="url(#clip0_6641_386)">
+                    <path d="M19.6 21L13.3 14.7C12.8 15.1 12.225 15.4167 11.575 15.65C10.925 15.8833 10.2333 16 9.5 16C7.68333 16 6.14167 15.375 4.875 14.125C3.625 12.8583 3 11.3167 3 9.5C3 7.68333 3.625 6.15 4.875 4.9C6.14167 3.63333 7.68333 3 9.5 3C10.0167 3 10.5167 3.05833 11 3.175C11.4833 3.275 11.9417 3.43333 12.375 3.65L10.825 5.2C10.6083 5.13333 10.3917 5.08333 10.175 5.05C9.95833 5.01667 9.73333 5 9.5 5C8.25 5 7.18333 5.44167 6.3 6.325C5.43333 7.19167 5 8.25 5 9.5C5 10.75 5.43333 11.8167 6.3 12.7C7.18333 13.5667 8.25 14 9.5 14C10.6667 14 11.6667 13.625 12.5 12.875C13.35 12.1083 13.8417 11.15 13.975 10H15.975C15.925 10.6333 15.7833 11.2333 15.55 11.8C15.3333 12.3667 15.05 12.8667 14.7 13.3L21 19.6L19.6 21ZM17.5 12C17.5 10.4667 16.9667 9.16667 15.9 8.1C14.8333 7.03333 13.5333 6.5 12 6.5C13.5333 6.5 14.8333 5.96667 15.9 4.9C16.9667 3.83333 17.5 2.53333 17.5 0.999999C17.5 2.53333 18.0333 3.83333 19.1 4.9C20.1667 5.96667 21.4667 6.5 23 6.5C21.4667 6.5 20.1667 7.03333 19.1 8.1C18.0333 9.16667 17.5 10.4667 17.5 12Z" fill="#5F6368"/>
+                  </g>
+                <defs>
+                <clipPath id="clip0_6641_386">
+                <rect width="24" height="24" fill="white"/>
+                </clipPath>
+                </defs>
+              </svg>
+            
+          </div>
+          <div class="devsite-search-shortcut-icon-container" aria-hidden="true">
+            <kbd class="devsite-search-shortcut-icon">/</kbd>
+          </div>
+      </div>
+    </div>
+  </form>
+  <button type="button"
+          search-close
+          class="devsite-search-button devsite-header-icon-button button-flat material-icons"
+          
+          aria-label="Close search"></button>
+</devsite-search>
+
+        </div>
+
+        
+
+          
+
+          
+
+          
+
+          <devsite-appearance-selector></devsite-appearance-selector>
+
+          
+<devsite-language-selector>
+  <ul role="presentation">
+    
+    
+    <li role="presentation">
+      <a role="menuitem" lang="en"
+        >English</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="de"
+        >Deutsch</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="es_419"
+        >Español – América Latina</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="fr"
+        >Français</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="id"
+        >Indonesia</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="it"
+        >Italiano</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="pl"
+        >Polski</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="pt_br"
+        >Português – Brasil</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="vi"
+        >Tiếng Việt</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="tr"
+        >Türkçe</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="ru"
+        >Русский</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="he"
+        >עברית</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="ar"
+        >العربيّة</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="fa"
+        >فارسی</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="hi"
+        >हिंदी</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="bn"
+        >বাংলা</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="th"
+        >ภาษาไทย</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="zh_cn"
+        >中文 – 简体</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="zh_tw"
+        >中文 – 繁體</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="ja"
+        >日本語</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="ko"
+        >한국어</a>
+    </li>
+    
+  </ul>
+</devsite-language-selector>
+
+
+          
+
+        
+
+        
+          <devsite-user 
+                        
+                        
+                          enable-profiles
+                        
+                        
+                        id="devsite-user">
+            
+              
+              <span class="button devsite-top-button" aria-hidden="true" visually-hidden>Sign in</span>
+            
+          </devsite-user>
+        
+        
+        
+      </div>
+    </div>
+  </div>
+
+
+
+  <div class="devsite-collapsible-section
+    ">
+    <div class="devsite-header-background">
+      
+        
+          <div class="devsite-product-id-row"
+           >
+            <div class="devsite-product-description-row">
+              
+                
+                <div class="devsite-product-id">
+                  
+                  
+                  
+                    <ul class="devsite-breadcrumb-list"
+  >
+  
+  <li class="devsite-breadcrumb-item
+             ">
+    
+    
+    
+      
+        
+  <a href="https://web.dev/articles"
+      
+        class="devsite-breadcrumb-link gc-analytics-event"
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Lower Header"
+      
+        data-value="1"
+      
+        track-type="globalNav"
+      
+        track-name="breadcrumb"
+      
+        track-metadata-position="1"
+      
+        track-metadata-eventdetail="Articles"
+      
+    >
+    
+          Articles
+        
+  </a>
+  
+      
+    
+  </li>
+  
+</ul>
+                </div>
+                
+              
+              
+            </div>
+            
+          </div>
+          
+        
+      
+      
+        <div class="devsite-doc-set-nav-row">
+          
+          
+            
+            
+  <devsite-tabs class="lower-tabs">
+
+    <nav class="devsite-tabs-wrapper" aria-label="Lower tabs">
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/ai"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/ai"
+    
+       track-type="nav"
+       track-metadata-position="nav - ai and the web"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: AI and the web"
+         
+           track-name="ai and the web"
+         
+       >
+    AI and the web
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/fast"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/fast"
+    
+       track-type="nav"
+       track-metadata-position="nav - fast load times"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Fast load times"
+         
+           track-name="fast load times"
+         
+       >
+    Fast load times
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  class="devsite-active">
+            
+    <a href="https://web.dev/explore/learn-core-web-vitals"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/learn-core-web-vitals"
+    
+       track-type="nav"
+       track-metadata-position="nav - learn core web vitals"
+       track-metadata-module="primary nav"
+       aria-label="Learn Core Web Vitals, selected" 
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Learn Core Web Vitals"
+         
+           track-name="learn core web vitals"
+         
+       >
+    Learn Core Web Vitals
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/identity"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/identity"
+    
+       track-type="nav"
+       track-metadata-position="nav - identity"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Identity"
+         
+           track-name="identity"
+         
+       >
+    Identity
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/progressive-web-apps"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/progressive-web-apps"
+    
+       track-type="nav"
+       track-metadata-position="nav - progressive web apps"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Progressive Web Apps"
+         
+           track-name="progressive web apps"
+         
+       >
+    Progressive Web Apps
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/payments"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/payments"
+    
+       track-type="nav"
+       track-metadata-position="nav - payments"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Payments"
+         
+           track-name="payments"
+         
+       >
+    Payments
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/notifications"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/notifications"
+    
+       track-type="nav"
+       track-metadata-position="nav - notifications"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Notifications"
+         
+           track-name="notifications"
+         
+       >
+    Notifications
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/how-to-optimize-inp"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/how-to-optimize-inp"
+    
+       track-type="nav"
+       track-metadata-position="nav - how to optimize inp"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: How to optimize INP"
+         
+           track-name="how to optimize inp"
+         
+       >
+    How to optimize INP
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/reliable"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/reliable"
+    
+       track-type="nav"
+       track-metadata-position="nav - network reliability"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Network reliability"
+         
+           track-name="network reliability"
+         
+       >
+    Network reliability
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/react"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/react"
+    
+       track-type="nav"
+       track-metadata-position="nav - react"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: React"
+         
+           track-name="react"
+         
+       >
+    React
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/animations"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/animations"
+    
+       track-type="nav"
+       track-metadata-position="nav - animations"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Animations"
+         
+           track-name="animations"
+         
+       >
+    Animations
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/mini-apps"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/mini-apps"
+    
+       track-type="nav"
+       track-metadata-position="nav - mini apps"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Mini apps"
+         
+           track-name="mini apps"
+         
+       >
+    Mini apps
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/media"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/media"
+    
+       track-type="nav"
+       track-metadata-position="nav - media"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Media"
+         
+           track-name="media"
+         
+       >
+    Media
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/secure"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/secure"
+    
+       track-type="nav"
+       track-metadata-position="nav - safe and secure"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Safe and secure"
+         
+           track-name="safe and secure"
+         
+       >
+    Safe and secure
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/webassembly"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/webassembly"
+    
+       track-type="nav"
+       track-metadata-position="nav - webassembly"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: WebAssembly"
+         
+           track-name="webassembly"
+         
+       >
+    WebAssembly
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/devices"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/devices"
+    
+       track-type="nav"
+       track-metadata-position="nav - devices"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Devices"
+         
+           track-name="devices"
+         
+       >
+    Devices
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/discoverable"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/discoverable"
+    
+       track-type="nav"
+       track-metadata-position="nav - easily discoverable"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Easily discoverable"
+         
+           track-name="easily discoverable"
+         
+       >
+    Easily discoverable
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/test-automation"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/test-automation"
+    
+       track-type="nav"
+       track-metadata-position="nav - test automation"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Test automation"
+         
+           track-name="test automation"
+         
+       >
+    Test automation
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/angular"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/angular"
+    
+       track-type="nav"
+       track-metadata-position="nav - angular"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Angular"
+         
+           track-name="angular"
+         
+       >
+    Angular
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+        
+          <tab  >
+            
+    <a href="https://web.dev/explore/mwg-for-humans"
+    class="devsite-tabs-content gc-analytics-event "
+      track-metadata-eventdetail="https://web.dev/explore/mwg-for-humans"
+    
+       track-type="nav"
+       track-metadata-position="nav - modern web guidance for humans"
+       track-metadata-module="primary nav"
+       
+       
+         
+           data-category="Site-Wide Custom Events"
+         
+           data-label="Tab: Modern Web Guidance for Humans"
+         
+           track-name="modern web guidance for humans"
+         
+       >
+    Modern Web Guidance for Humans
+  
+    </a>
+    
+  
+          </tab>
+        
+      
+    </nav>
+
+  </devsite-tabs>
+
+          
+          
+        </div>
+      
+    </div>
+  </div>
+
+</div>
+
+
+
+  
+
+  
+</devsite-header>
+        <devsite-book-nav scrollbars >
+          
+            
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div class="devsite-book-nav-filter"
+     hidden>
+  <span class="filter-list-icon material-icons" aria-hidden="true"></span>
+  <input type="text"
+         placeholder="Filter"
+         
+         aria-label="Type to filter"
+         role="searchbox">
+  
+  <span class="filter-clear-button hidden"
+        data-title="Clear filter"
+        aria-label="Clear filter"
+        role="button"
+        tabindex="0"></span>
+</div>
+
+<nav class="devsite-book-nav devsite-nav nocontent" data-nosnippet
+     aria-label="Side menu">
+  <div class="devsite-mobile-header">
+    <button type="button"
+            id="devsite-close-nav"
+            class="devsite-header-icon-button button-flat material-icons gc-analytics-event"
+            data-category="Site-Wide Custom Events"
+            data-label="Close navigation"
+            aria-label="Close navigation">
+    </button>
+    <div class="devsite-product-name-wrapper">
+
+  <a href="/" class="devsite-site-logo-link gc-analytics-event"
+   data-category="Site-Wide Custom Events" data-label="Site logo" track-type="globalNav"
+   track-name="webDev" track-metadata-position="nav"
+   track-metadata-eventDetail="nav">
+  
+  <picture>
+    
+    <source srcset="https://www.gstatic.com/devrel-devsite/prod/v579d635a54d6e1f40caad46ce407560c5106c8915e5ff7e6341f5b13eb245c5a/web/images/lockup-dark-theme.svg"
+            media="(prefers-color-scheme: dark)"
+            class="devsite-dark-theme">
+    
+    <img src="https://www.gstatic.com/devrel-devsite/prod/v579d635a54d6e1f40caad46ce407560c5106c8915e5ff7e6341f5b13eb245c5a/web/images/lockup.svg" class="devsite-site-logo" alt="web.dev">
+  </picture>
+  
+</a>
+
+
+</div>
+  </div>
+
+  <div class="devsite-book-nav-wrapper">
+    <div class="devsite-mobile-nav-top">
+      
+        <ul class="devsite-nav-list">
+          
+            <li class="devsite-nav-item">
+              
+  
+  <a href="/explore/ai"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              devsite-nav-active"
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Resources"
+      
+        track-name="resources"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Resources"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Resources
+   </span>
+    
+  
+  </a>
+  
+
+  
+    <ul class="devsite-nav-responsive-tabs devsite-nav-has-menu
+               ">
+      
+<li class="devsite-nav-item">
+
+  
+  <span
+    
+       class="devsite-nav-title"
+       tooltip
+    
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Resources"
+      
+        track-name="resources"
+      
+    >
+  
+    <span class="devsite-nav-text" tooltip menu="Resources">
+      More
+   </span>
+    
+    <span class="devsite-nav-icon material-icons" data-icon="forward"
+          menu="Resources">
+    </span>
+    
+  
+  </span>
+  
+
+</li>
+
+    </ul>
+  
+              
+                <ul class="devsite-nav-responsive-tabs">
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/ai"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: AI and the web"
+      
+        track-name="ai and the web"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: AI and the web"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      AI and the web
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/fast"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Fast load times"
+      
+        track-name="fast load times"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Fast load times"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Fast load times
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/learn-core-web-vitals"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              devsite-nav-active"
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Learn Core Web Vitals"
+      
+        track-name="learn core web vitals"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Learn Core Web Vitals"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip menu="_book">
+      Learn Core Web Vitals
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/identity"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Identity"
+      
+        track-name="identity"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Identity"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Identity
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/progressive-web-apps"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Progressive Web Apps"
+      
+        track-name="progressive web apps"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Progressive Web Apps"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Progressive Web Apps
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/payments"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Payments"
+      
+        track-name="payments"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Payments"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Payments
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/notifications"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Notifications"
+      
+        track-name="notifications"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Notifications"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Notifications
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/how-to-optimize-inp"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: How to optimize INP"
+      
+        track-name="how to optimize inp"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: How to optimize INP"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      How to optimize INP
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/reliable"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Network reliability"
+      
+        track-name="network reliability"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Network reliability"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Network reliability
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/react"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: React"
+      
+        track-name="react"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: React"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      React
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/animations"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Animations"
+      
+        track-name="animations"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Animations"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Animations
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/mini-apps"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Mini apps"
+      
+        track-name="mini apps"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Mini apps"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Mini apps
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/media"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Media"
+      
+        track-name="media"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Media"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Media
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/secure"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Safe and secure"
+      
+        track-name="safe and secure"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Safe and secure"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Safe and secure
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/webassembly"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: WebAssembly"
+      
+        track-name="webassembly"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: WebAssembly"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      WebAssembly
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/devices"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Devices"
+      
+        track-name="devices"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Devices"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Devices
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/discoverable"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Easily discoverable"
+      
+        track-name="easily discoverable"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Easily discoverable"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Easily discoverable
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/test-automation"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Test automation"
+      
+        track-name="test automation"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Test automation"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Test automation
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/angular"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Angular"
+      
+        track-name="angular"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Angular"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Angular
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                    
+                    
+                    
+                    <li class="devsite-nav-item">
+                      
+  
+  <a href="/explore/mwg-for-humans"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Modern Web Guidance for Humans"
+      
+        track-name="modern web guidance for humans"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Modern Web Guidance for Humans"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Modern Web Guidance for Humans
+   </span>
+    
+  
+  </a>
+  
+
+  
+                    </li>
+                  
+                </ul>
+              
+            </li>
+          
+            <li class="devsite-nav-item">
+              
+  
+  <a href="/discover"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Discover"
+      
+        track-name="discover"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Discover"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Discover
+   </span>
+    
+  
+  </a>
+  
+
+  
+              
+            </li>
+          
+            <li class="devsite-nav-item">
+              
+  
+  <a href="/baseline"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Baseline"
+      
+        track-name="baseline"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Baseline"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Baseline
+   </span>
+    
+  
+  </a>
+  
+
+  
+              
+            </li>
+          
+            <li class="devsite-nav-item">
+              
+  
+  <a href="/how-to-use-baseline"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: How to use Baseline"
+      
+        track-name="how to use baseline"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: How to use Baseline"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      How to use Baseline
+   </span>
+    
+  
+  </a>
+  
+
+  
+              
+            </li>
+          
+            <li class="devsite-nav-item">
+              
+  
+  <a href="/blog"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Blog"
+      
+        track-name="blog"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Blog"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Blog
+   </span>
+    
+  
+  </a>
+  
+
+  
+              
+            </li>
+          
+            <li class="devsite-nav-item">
+              
+  
+  <a href="/case-studies"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Tab: Case Studies"
+      
+        track-name="case studies"
+      
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Case Studies"
+     track-type="globalNav"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Case Studies
+   </span>
+    
+  
+  </a>
+  
+
+  
+              
+            </li>
+          
+          
+          
+        </ul>
+      
+    </div>
+    
+      <div class="devsite-mobile-nav-bottom">
+        
+          
+          <ul class="devsite-nav-list" menu="_book">
+            <li class="devsite-nav-item
+           devsite-nav-heading"><div class="devsite-nav-title devsite-nav-title-no-path">
+        <span class="devsite-nav-text" tooltip>Overview</span>
+      </div></li>
+
+  <li class="devsite-nav-item"><a href="/articles/vitals"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Web Vitals</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/case-studies/vitals-business-impact"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>The business impact of Core Web Vitals</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/optimize-cwv-business"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Optimizing Core Web Vitals for business decision makers</span></a></li>
+
+  <li class="devsite-nav-item
+           devsite-nav-heading"><div class="devsite-nav-title devsite-nav-title-no-path">
+        <span class="devsite-nav-text" tooltip>Core Web Vitals Metrics</span>
+      </div></li>
+
+  <li class="devsite-nav-item"><a href="/articles/lcp"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Largest Contentful Paint (LCP)</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/cls"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Cumulative Layout Shift (CLS)</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/inp"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Interaction to Next Paint (INP)</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/defining-core-web-vitals-thresholds"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Defining the Core Web Vitals metrics thresholds</span></a></li>
+
+  <li class="devsite-nav-item
+           devsite-nav-heading"><div class="devsite-nav-title devsite-nav-title-no-path">
+        <span class="devsite-nav-text" tooltip>Measure Core Web Vitals</span>
+      </div></li>
+
+  <li class="devsite-nav-item"><a href="/articles/vitals-measurement-getting-started"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Getting started with measuring Web Vitals</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/vitals-tools"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Core Web Vitals workflows with Google tools</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/vitals-field-measurement-best-practices"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Best practices for measuring Web Vitals in the field</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/crux-and-rum-differences"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Why is CrUX data different from my RUM data?</span></a></li>
+
+  <li class="devsite-nav-item
+           devsite-nav-heading"><div class="devsite-nav-title devsite-nav-title-no-path">
+        <span class="devsite-nav-text" tooltip>Debug Core Web Vitals</span>
+      </div></li>
+
+  <li class="devsite-nav-item"><a href="/articles/lab-and-field-data-differences"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Why lab and field data can be different (and what to do about it)</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/debug-layout-shifts"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Debug layout shifts</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/debug-performance-in-the-field"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Debug performance in the field</span></a></li>
+
+  <li class="devsite-nav-item
+           devsite-nav-heading"><div class="devsite-nav-title devsite-nav-title-no-path">
+        <span class="devsite-nav-text" tooltip>Improve Core Web Vitals</span>
+      </div></li>
+
+  <li class="devsite-nav-item"><a href="/articles/optimize-lcp"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Optimize Largest Contentful Paint</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/optimize-cls"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Optimize Cumulative Layout Shift</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/optimize-inp"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Optimize Interaction to Next Paint</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/top-cwv"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>The most effective ways to improve Core Web Vitals</span></a></li>
+
+  <li class="devsite-nav-item
+           devsite-nav-heading"><div class="devsite-nav-title devsite-nav-title-no-path">
+        <span class="devsite-nav-text" tooltip>Best Practices</span>
+      </div></li>
+
+  <li class="devsite-nav-item"><a href="/articles/carousel-best-practices"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Best practices for carousels</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/cookie-notice-best-practices"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Best practices for cookie notices</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/font-best-practices"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Best practices for fonts</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/tag-best-practices"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Best practices for tags and tag managers</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/embed-best-practices"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Best practices for using third-party embeds</span></a></li>
+
+  <li class="devsite-nav-item"><a href="https://addyosmani.com/blog/infinite-scroll-without-layout-shifts/"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>Infinite scroll without layout shifts</span></a></li>
+
+  <li class="devsite-nav-item"><a href="/articles/css-web-vitals"
+        class="devsite-nav-title"
+      ><span class="devsite-nav-text" tooltip>CSS for Web Vitals</span></a></li>
+          </ul>
+        
+        
+          
+    
+      
+      <ul class="devsite-nav-list" menu="Resources"
+          aria-label="Side menu" hidden>
+        
+          
+            
+              
+<li class="devsite-nav-item devsite-nav-heading">
+
+  
+  <span
+    
+       class="devsite-nav-title"
+       tooltip
+    
+    >
+  
+    <span class="devsite-nav-text" tooltip >
+      Web Platform
+   </span>
+    
+  
+  </span>
+  
+
+</li>
+
+            
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/html"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: HTML"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      HTML
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/css"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: CSS"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      CSS
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/javascript"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: JavaScript"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      JavaScript
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+          
+        
+          
+            
+              
+<li class="devsite-nav-item devsite-nav-heading">
+
+  
+  <span
+    
+       class="devsite-nav-title"
+       tooltip
+    
+    >
+  
+    <span class="devsite-nav-text" tooltip >
+      User experience
+   </span>
+    
+  
+  </span>
+  
+
+</li>
+
+            
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/performance"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Performance"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Performance
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/accessibility"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Accessibility"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Accessibility
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/identity"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Identity"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Identity
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+          
+        
+          
+            
+              
+<li class="devsite-nav-item devsite-nav-heading">
+
+  
+  <span
+    
+       class="devsite-nav-title"
+       tooltip
+    
+    >
+  
+    <span class="devsite-nav-text" tooltip >
+      Learn
+   </span>
+    
+  
+  </span>
+  
+
+</li>
+
+            
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/learn/html"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Learn HTML"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Learn HTML
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/learn/css"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Learn CSS"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Learn CSS
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/learn/javascript"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Learn JavaScript"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Learn JavaScript
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/learn/ai"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Learn AI"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Learn AI
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/learn/performance"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Learn Performance"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Learn Performance
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/learn/accessibility"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Learn Accessibility"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Learn Accessibility
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/learn"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: More courses"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      More courses
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+          
+        
+          
+            
+              
+<li class="devsite-nav-item devsite-nav-heading">
+
+  
+  <span
+    
+       class="devsite-nav-title"
+       tooltip
+    
+    >
+  
+    <span class="devsite-nav-text" tooltip >
+      Additional resources
+   </span>
+    
+  
+  </span>
+  
+
+</li>
+
+            
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/explore/ai"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: AI and the web"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      AI and the web
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/explore"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Explore"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Explore
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="https://pagespeed.web.dev/"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: PageSpeed Insights"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      PageSpeed Insights
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/shows"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Podcasts &amp;amp; shows"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Podcasts &amp;amp; shows
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/newsletter"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: Developer Newsletter"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      Developer Newsletter
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+              
+<li class="devsite-nav-item">
+
+  
+  <a href="/about"
+    
+       class="devsite-nav-title gc-analytics-event
+              
+              "
+    
+
+    
+     data-category="Site-Wide Custom Events"
+     data-label="Responsive Tab: About web.dev"
+     track-type="navMenu"
+     track-metadata-eventDetail="globalMenu"
+     track-metadata-position="nav">
+  
+    <span class="devsite-nav-text" tooltip >
+      About web.dev
+   </span>
+    
+  
+  </a>
+  
+
+</li>
+
+            
+          
+        
+      </ul>
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+        
+        
+          
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+    
+  
+        
+      </div>
+    
+  </div>
+</nav>
+          
+        </devsite-book-nav>
+      
+      <section id="gc-wrapper">
+        <main role="main" id="main-content" class="devsite-main-content"
+            
+              has-book-nav
+              has-sidebar
+            >
+          <div class="devsite-sidebar">
+            <div class="devsite-sidebar-content">
+                
+                <devsite-toc class="devsite-nav"
+                            role="navigation"
+                            aria-label="On this page"
+                            depth="2"
+                            scrollbars
+                            data-nosnippet
+                  ></devsite-toc>
+                <devsite-recommendations-sidebar class="nocontent devsite-nav" data-nosnippet>
+                </devsite-recommendations-sidebar>
+            </div>
+          </div>
+          <devsite-content>
+            
+              
+
+
+
+
+
+
+
+
+
+
+<article class="devsite-article">
+  
+  
+  
+    <div class="devsite-banner devsite-banner-announcement nocontent" data-nosnippet
+      
+        
+      >
+      <div class="devsite-banner-message">
+        <div class="devsite-banner-message-text">
+          <b>Modern Web Guidance is now stable!</b> Upgrade your coding agents with expert-vetted web development best practices. <a href="https://developer.chrome.com/blog/modern-web-guidance-v1">Read the announcement</a>.
+        </div>
+      </div>
+    </div>
+  
+  
+  
+
+  <div class="devsite-article-meta nocontent" role="navigation" data-nosnippet>
+    
+    
+    <ul class="devsite-breadcrumb-list"
+  
+    aria-label="Breadcrumb">
+  
+  <li class="devsite-breadcrumb-item
+             ">
+    
+    
+    
+      
+        
+  <a href="https://web.dev/"
+      
+        class="devsite-breadcrumb-link gc-analytics-event"
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Breadcrumbs"
+      
+        data-value="1"
+      
+        track-type="globalNav"
+      
+        track-name="breadcrumb"
+      
+        track-metadata-position="1"
+      
+        track-metadata-eventdetail=""
+      
+    >
+    
+          Home
+        
+  </a>
+  
+      
+    
+  </li>
+  
+  <li class="devsite-breadcrumb-item
+             ">
+    
+      
+      <div class="devsite-breadcrumb-guillemet material-icons" aria-hidden="true"></div>
+    
+    
+    
+      
+        
+  <a href="https://web.dev/articles"
+      
+        class="devsite-breadcrumb-link gc-analytics-event"
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Breadcrumbs"
+      
+        data-value="2"
+      
+        track-type="globalNav"
+      
+        track-name="breadcrumb"
+      
+        track-metadata-position="2"
+      
+        track-metadata-eventdetail="Articles"
+      
+    >
+    
+          Articles
+        
+  </a>
+  
+      
+    
+  </li>
+  
+  <li class="devsite-breadcrumb-item
+             ">
+    
+      
+      <div class="devsite-breadcrumb-guillemet material-icons" aria-hidden="true"></div>
+    
+    
+    
+      
+        
+  <a href="https://web.dev/explore/ai"
+      
+        class="devsite-breadcrumb-link gc-analytics-event"
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Breadcrumbs"
+      
+        data-value="3"
+      
+        track-type="globalNav"
+      
+        track-name="breadcrumb"
+      
+        track-metadata-position="3"
+      
+        track-metadata-eventdetail=""
+      
+    >
+    
+          Resources
+        
+  </a>
+  
+      
+    
+  </li>
+  
+  <li class="devsite-breadcrumb-item
+             ">
+    
+      
+      <div class="devsite-breadcrumb-guillemet material-icons" aria-hidden="true"></div>
+    
+    
+    
+      
+        
+  <a href="https://web.dev/explore/learn-core-web-vitals"
+      
+        class="devsite-breadcrumb-link gc-analytics-event"
+      
+        data-category="Site-Wide Custom Events"
+      
+        data-label="Breadcrumbs"
+      
+        data-value="4"
+      
+        track-type="globalNav"
+      
+        track-name="breadcrumb"
+      
+        track-metadata-position="4"
+      
+        track-metadata-eventdetail=""
+      
+    >
+    
+          Learn Core Web Vitals
+        
+  </a>
+  
+      
+    
+  </li>
+  
+</ul>
+    
+      
+    <devsite-thumb-rating position="header">
+    </devsite-thumb-rating>
+  
+    
+  </div>
+  
+    <h1 class="devsite-page-title" tabindex="-1">
+      Optimize Largest Contentful Paint<devsite-actions hidden data-nosnippet><devsite-feature-tooltip
+      ack-key="AckCollectionsBookmarkTooltipDismiss"
+      analytics-category="Site-Wide Custom Events"
+      analytics-action-show="Callout Profile displayed"
+      analytics-action-close="Callout Profile dismissed"
+      analytics-label="Create Collection Callout"
+      class="devsite-page-bookmark-tooltip nocontent"
+      data-nosnippet
+      dismiss-button="true"
+      id="devsite-collections-dropdown"
+      
+      dismiss-button-text="Dismiss"
+
+      
+      close-button-text="Got it">
+
+    
+    
+      <devsite-bookmark></devsite-bookmark>
+    
+
+    <span slot="popout-heading">
+      
+      Stay organized with collections
+    </span>
+    <span slot="popout-contents">
+      
+      Save and categorize content based on your preferences.
+    </span>
+  </devsite-feature-tooltip>
+    <devsite-llm-tools></devsite-llm-tools></devsite-actions>
+  
+      
+    </h1>
+  <div class="devsite-page-title-meta"><devsite-view-release-notes></devsite-view-release-notes></div>
+  
+
+  <devsite-toc class="devsite-nav"
+    depth="2"
+    devsite-toc-embedded
+    >
+  </devsite-toc>
+  
+    
+  <div class="devsite-article-body clearfix
+  ">
+
+  
+    
+    
+
+
+
+
+<p>A step-by-step guide on how to break down LCP and identify key areas to improve.</p>
+
+<p>
+
+<div class="wd-authors" translate="no">
+  
+    
+    
+      <div class="wd-author">
+        
+          <img class="devsite-landing-row-item-icon" alt="Philip Walton" 
+            src="https://web.dev/images/authors/philipwalton.jpg" 
+            decoding="async" height="64" loading="lazy" width="64"> 
+        
+        <div>
+          <span> 
+            Philip Walton
+          </span>
+          
+          <div class="wd-author__links">
+            
+              <a href="https://twitter.com/philwalton" aria-label="Philip Walton on X" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 300 271">
+                  <title>X</title>
+                  <path fill="currentColor" d="m236 0h46l-101 115 118 156h-92.6l-72.5-94.8-83 94.8h-46l107-123-113-148h94.9l65.5 86.6zm-16.1 244h25.5l-165-218h-27.4z"></path>
+                </svg></a>
+            
+            
+              <a href="https://github.com/philipwalton" aria-label="Philip Walton on GitHub" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 32.6 31.8">
+                  <title>GitHub</title>
+                  <path d="M16.3 0C7.3 0 0 7.3 0 16.3c0 7.2 4.7 13.3 11.1 15.5.8.1 1.1-.4 1.1-.8v-2.8c-4.5 1-5.5-2.2-5.5-2.2-.7-1.9-1.8-2.4-1.8-2.4-1.5-1 .1-1 .1-1 1.6.1 2.5 1.7 2.5 1.7 1.5 2.5 3.8 1.8 4.7 1.4.1-1.1.6-1.8 1-2.2-3.6-.4-7.4-1.8-7.4-8.1 0-1.8.6-3.2 1.7-4.4-.1-.3-.7-2 .2-4.2 0 0 1.4-.4 4.5 1.7 1.3-.4 2.7-.5 4.1-.5 1.4 0 2.8.2 4.1.5 3.1-2.1 4.5-1.7 4.5-1.7.9 2.2.3 3.9.2 4.3 1 1.1 1.7 2.6 1.7 4.4 0 6.3-3.8 7.6-7.4 8 .6.5 1.1 1.5 1.1 3V31c0 .4.3.9 1.1.8 6.5-2.2 11.1-8.3 11.1-15.5C32.6 7.3 25.3 0 16.3 0z" fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" />
+                </svg></a>
+            
+            
+            
+              <a href="https://www.linkedin.com/in/waltonphilip" aria-label="Philip Walton on LinkedIn" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 200 200">
+                  <title>LinkedIn</title>
+                  <path d="M185.2 0H14.8C6.6 0 0 6.4 0 14.3v171.3c0 7.9 6.6 14.3 14.8 14.3h170.4c8.1 0 14.8-6.4 14.8-14.3V14.3C199.9 6.4 193.3 0 185.2 0zM60.6 167.3H30.4V77.1h30.2v90.2zM45.5 64.8h-.2c-10.1 0-16.7-6.9-16.7-15.6 0-8.8 6.7-15.6 17.1-15.6 10.3 0 16.7 6.7 16.9 15.6 0 8.6-6.5 15.6-17.1 15.6zm124 102.5h-30.2V119c0-12.1-4.4-20.4-15.3-20.4-8.4 0-13.3 5.6-15.5 11-.8 1.9-1 4.6-1 7.3v50.4H77.3s.4-81.8 0-90.3h30.2v12.8c4-6.1 11.2-14.9 27.2-14.9 19.9 0 34.8 12.9 34.8 40.6v51.8zm-62.2-77.1c0-.1.1-.2.2-.3v.3h-.2z" fill="currentColor" />
+                </svg></a>
+            
+            
+              <a href="https://toot.cafe/@philipwalton" aria-label="Philip Walton on Mastodon" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 16 16">
+                  <title>Mastodon</title>
+                  <path fill="currentColor" d="M 15.659 9.592 C 15.424 10.72 13.553 11.956 11.404 12.195 C 10.283 12.32 9.18 12.434 8.003 12.384 C 6.079 12.302 4.56 11.956 4.56 11.956 C 4.56 12.13 4.572 12.297 4.595 12.452 C 4.845 14.224 6.478 14.33 8.025 14.379 C 9.586 14.429 10.976 14.02 10.976 14.02 L 11.04 15.337 C 11.04 15.337 9.948 15.884 8.003 15.984 C 6.93 16.039 5.598 15.959 4.047 15.576 C 0.683 14.746 0.104 11.4 0.015 8.006 C -0.012 6.998 0.005 6.048 0.005 5.253 C 0.005 1.782 2.443 0.765 2.443 0.765 C 3.672 0.238 5.782 0.017 7.975 0 L 8.029 0 C 10.221 0.017 12.332 0.238 13.561 0.765 C 13.561 0.765 15.999 1.782 15.999 5.253 C 15.999 5.253 16.03 7.814 15.659 9.592 Z M 13.124 5.522 L 13.124 9.725 L 11.339 9.725 L 11.339 5.646 C 11.339 4.786 10.951 4.35 10.175 4.35 C 9.317 4.35 8.887 4.867 8.887 5.891 L 8.887 8.124 L 7.113 8.124 L 7.113 5.891 C 7.113 4.867 6.683 4.35 5.825 4.35 C 5.049 4.35 4.661 4.786 4.661 5.646 L 4.661 9.725 L 2.876 9.725 L 2.876 5.522 C 2.876 4.663 3.111 3.981 3.582 3.476 C 4.067 2.971 4.703 2.712 5.493 2.712 C 6.406 2.712 7.098 3.039 7.555 3.695 L 8 4.39 L 8.445 3.695 C 8.902 3.039 9.594 2.712 10.507 2.712 C 11.297 2.712 11.933 2.971 12.418 3.476 C 12.889 3.981 13.124 4.663 13.124 5.522 Z" style="stroke:none;stroke-miterlimit:10;fill-rule:evenodd;"></path>
+                </svg></a>
+            
+            
+              <a href="https://bsky.app/profile/philipwalton.com" aria-label="Philip Walton on Bluesky" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 568 501">
+                  <title>Bluesky</title>
+                  <path fill="currentColor" d="M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.333 453.32c-119.86 122.992-172.272-30.859-185.702-70.281-2.462-7.227-3.614-10.608-3.631-7.733-.017-2.875-1.169.506-3.631 7.733-13.43 39.422-65.842 193.273-185.702 70.281-63.111-64.76-33.89-129.52 80.986-149.071-65.72 11.185-139.6-7.295-159.875-79.748C9.945 203.659 0 75.291 0 57.946 0-28.906 76.135-1.612 123.121 33.664Z"/>
+                </svg>
+              </a>
+            
+            
+              <a href="https://philipwalton.com/" aria-label="Philip Walton's homepage" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 30 30">
+                  <title>Homepage</title>
+                  <circle cx="14.5" cy="14.5" r="13.5" stroke-width="2" stroke-miterlimit="10" fill="none" stroke="currentColor" />
+                  <ellipse cx="14.5" cy="14.5" rx="6.1" ry="13.5" stroke-width="2" stroke-miterlimit="10" fill="none" stroke="currentColor" />
+                  <path d="M1.6 9.6h25.8M1.6 19.4h25.8" stroke-width="2" stroke-miterlimit="10" fill="none" stroke="currentColor" />
+                </svg></a>
+            
+          </div>
+        </div>
+      </div>
+    
+  
+    
+    
+      <div class="wd-author">
+        
+          <img class="devsite-landing-row-item-icon" alt="Barry Pollard" 
+            src="https://web.dev/images/authors/tunetheweb.jpg" 
+            decoding="async" height="64" loading="lazy" width="64"> 
+        
+        <div>
+          <span> 
+            Barry Pollard
+          </span>
+          
+          <div class="wd-author__links">
+            
+              <a href="https://twitter.com/tunetheweb" aria-label="Barry Pollard on X" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 300 271">
+                  <title>X</title>
+                  <path fill="currentColor" d="m236 0h46l-101 115 118 156h-92.6l-72.5-94.8-83 94.8h-46l107-123-113-148h94.9l65.5 86.6zm-16.1 244h25.5l-165-218h-27.4z"></path>
+                </svg></a>
+            
+            
+              <a href="https://github.com/tunetheweb" aria-label="Barry Pollard on GitHub" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 32.6 31.8">
+                  <title>GitHub</title>
+                  <path d="M16.3 0C7.3 0 0 7.3 0 16.3c0 7.2 4.7 13.3 11.1 15.5.8.1 1.1-.4 1.1-.8v-2.8c-4.5 1-5.5-2.2-5.5-2.2-.7-1.9-1.8-2.4-1.8-2.4-1.5-1 .1-1 .1-1 1.6.1 2.5 1.7 2.5 1.7 1.5 2.5 3.8 1.8 4.7 1.4.1-1.1.6-1.8 1-2.2-3.6-.4-7.4-1.8-7.4-8.1 0-1.8.6-3.2 1.7-4.4-.1-.3-.7-2 .2-4.2 0 0 1.4-.4 4.5 1.7 1.3-.4 2.7-.5 4.1-.5 1.4 0 2.8.2 4.1.5 3.1-2.1 4.5-1.7 4.5-1.7.9 2.2.3 3.9.2 4.3 1 1.1 1.7 2.6 1.7 4.4 0 6.3-3.8 7.6-7.4 8 .6.5 1.1 1.5 1.1 3V31c0 .4.3.9 1.1.8 6.5-2.2 11.1-8.3 11.1-15.5C32.6 7.3 25.3 0 16.3 0z" fill-rule="evenodd" clip-rule="evenodd" fill="currentColor" />
+                </svg></a>
+            
+            
+            
+            
+              <a href="https://mastodon.social/@tunetheweb" aria-label="Barry Pollard on Mastodon" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 16 16">
+                  <title>Mastodon</title>
+                  <path fill="currentColor" d="M 15.659 9.592 C 15.424 10.72 13.553 11.956 11.404 12.195 C 10.283 12.32 9.18 12.434 8.003 12.384 C 6.079 12.302 4.56 11.956 4.56 11.956 C 4.56 12.13 4.572 12.297 4.595 12.452 C 4.845 14.224 6.478 14.33 8.025 14.379 C 9.586 14.429 10.976 14.02 10.976 14.02 L 11.04 15.337 C 11.04 15.337 9.948 15.884 8.003 15.984 C 6.93 16.039 5.598 15.959 4.047 15.576 C 0.683 14.746 0.104 11.4 0.015 8.006 C -0.012 6.998 0.005 6.048 0.005 5.253 C 0.005 1.782 2.443 0.765 2.443 0.765 C 3.672 0.238 5.782 0.017 7.975 0 L 8.029 0 C 10.221 0.017 12.332 0.238 13.561 0.765 C 13.561 0.765 15.999 1.782 15.999 5.253 C 15.999 5.253 16.03 7.814 15.659 9.592 Z M 13.124 5.522 L 13.124 9.725 L 11.339 9.725 L 11.339 5.646 C 11.339 4.786 10.951 4.35 10.175 4.35 C 9.317 4.35 8.887 4.867 8.887 5.891 L 8.887 8.124 L 7.113 8.124 L 7.113 5.891 C 7.113 4.867 6.683 4.35 5.825 4.35 C 5.049 4.35 4.661 4.786 4.661 5.646 L 4.661 9.725 L 2.876 9.725 L 2.876 5.522 C 2.876 4.663 3.111 3.981 3.582 3.476 C 4.067 2.971 4.703 2.712 5.493 2.712 C 6.406 2.712 7.098 3.039 7.555 3.695 L 8 4.39 L 8.445 3.695 C 8.902 3.039 9.594 2.712 10.507 2.712 C 11.297 2.712 11.933 2.971 12.418 3.476 C 12.889 3.981 13.124 4.663 13.124 5.522 Z" style="stroke:none;stroke-miterlimit:10;fill-rule:evenodd;"></path>
+                </svg></a>
+            
+            
+              <a href="https://bsky.app/profile/tunetheweb.com" aria-label="Barry Pollard on Bluesky" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 568 501">
+                  <title>Bluesky</title>
+                  <path fill="currentColor" d="M123.121 33.664C188.241 82.553 258.281 181.68 284 234.873c25.719-53.192 95.759-152.32 160.879-201.21C491.866-1.611 568-28.906 568 57.947c0 17.346-9.945 145.713-15.778 166.555-20.275 72.453-94.155 90.933-159.875 79.748C507.222 323.8 536.444 388.56 473.333 453.32c-119.86 122.992-172.272-30.859-185.702-70.281-2.462-7.227-3.614-10.608-3.631-7.733-.017-2.875-1.169.506-3.631 7.733-13.43 39.422-65.842 193.273-185.702 70.281-63.111-64.76-33.89-129.52 80.986-149.071-65.72 11.185-139.6-7.295-159.875-79.748C9.945 203.659 0 75.291 0 57.946 0-28.906 76.135-1.612 123.121 33.664Z"/>
+                </svg>
+              </a>
+            
+            
+              <a href="https://www.tunetheweb.com" aria-label="Barry Pollard's homepage" rel="me">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 30 30">
+                  <title>Homepage</title>
+                  <circle cx="14.5" cy="14.5" r="13.5" stroke-width="2" stroke-miterlimit="10" fill="none" stroke="currentColor" />
+                  <ellipse cx="14.5" cy="14.5" rx="6.1" ry="13.5" stroke-width="2" stroke-miterlimit="10" fill="none" stroke="currentColor" />
+                  <path d="M1.6 9.6h25.8M1.6 19.4h25.8" stroke-width="2" stroke-miterlimit="10" fill="none" stroke="currentColor" />
+                </svg></a>
+            
+          </div>
+        </div>
+      </div>
+    
+  
+</div></p>
+
+<p>
+<p class="wd-pubdates"
+    style="font-size: 90%; border-bottom: 1px solid var(--devsite-ref-palette--grey200);color: var(--devsite-ref-palette--blue-grey700);">
+  Published: April 30, 2020, Last updated: March 31, 2025
+</p>
+</p>
+
+<p><a href="/articles/lcp">Largest Contentful Paint (LCP)</a> is one of the three <a href="/articles/vitals#core_web_vitals">Core Web Vitals</a> metrics, and it represents how quickly the main content of a web page is loaded. Specifically, LCP measures the time from when the user initiates loading the page until the largest image or text block is rendered within the viewport.</p>
+
+<p>To provide a good user experience, <strong>sites should strive to have an LCP of 2.5 seconds or less for at least 75% of page visits.</strong></p>
+
+<figure>
+  <picture>
+    <source
+      srcset="https://web.dev/static/articles/optimize-lcp/image/good-lcp-values.svg"
+      media="(min-width: 640px)"
+      width="800"
+      height="200">
+    <img src="/static/articles/optimize-lcp/image/good-lcp-values-are-25-s-1b759cf7034c7.svg" alt="Good LCP values are 2.5 seconds or less, poor values are greater than 4.0 seconds, and anything in between needs improvement" width="640" height="480">
+  </picture>
+  <figcaption class="wd-caption">
+    A good LCP value is 2.5 seconds or less.
+  </figcaption>
+</figure>
+
+<p>A number of factors can affect how quickly the browser can load and render a web page, and delays across any of them can have a significant impact on LCP.</p>
+
+<p>It&#39;s rare that a quick fix to a single part of a page will result in a meaningful improvement to LCP. To improve LCP, you have to look at the entire loading process and make sure every step along the way is optimized.</p>
+
+<h2 id="understanding_your_lcp_metric" data-text="Understanding your LCP metric" tabindex="-1">Understanding your LCP metric</h2>
+
+<p>Before optimizing LCP, developers should seek to understand if they even have an LCP issue, and the extent of any such issue.</p>
+
+<p>LCP can be measured in a number of tools and not all of these measure LCP in the same way. To understand LCP of real users, we should look at what real users are experiencing, rather than what a lab-based tool like <a href="https://developer.chrome.com/docs/lighthouse">Lighthouse</a> or local testing shows. These lab-based tools can give a wealth of information to explain and help you improve LCP, but be aware that lab tests alone may not be entirely representative of what your actual users experience.</p>
+
+<p>LCP data based on real users can be surfaced from Real User Monitoring (RUM) tools installed on a site, or by using the <a href="https://developer.chrome.com/docs/crux">Chrome User Experience Report (CrUX)</a> which collect anonymous data from real Chrome users for millions of websites.</p>
+
+<h3 id="using_chrome_devtools_crux_lcp_data" data-text="Using Chrome DevTools CrUX LCP data" tabindex="-1">Using Chrome DevTools CrUX LCP data</h3>
+
+<p>The Performance panel of Chrome DevTools shows your local LCP experience next to the page or origin&#39;s CrUX LCP in the <a href="https://developer.chrome.com/docs/devtools/performance/overview#live-metrics">live metrics view</a>, and in the <a href="https://developer.chrome.com/docs/devtools/performance/reference#insights">Insights</a> of a performance trace including a breakdown of the LCP subpart timings (that we will explain shortly).</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/lcp-devtools.png" alt="Local and field LCP in the Chrome DevTools Performance panel" width="1200" height="840" srcset="https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/lcp-devtools_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    Local and field LCP in the Chrome DevTools Performance panel live metrics and trace views.
+  </figcaption>
+</figure>
+
+<p>By layering field data onto the Performance panel, you can assess whether a page has any real-user LCP issues and adapt your local environment settings to better reproduce and debug those issues.</p>
+
+<h3 id="using_pagespeed_insights_crux_lcp_data" data-text="Using PageSpeed Insights CrUX LCP data" tabindex="-1">Using PageSpeed Insights CrUX LCP data</h3>
+
+<p><a href="https://pagespeed.web.dev/">PageSpeed Insights</a> provides access to CrUX data in the top section labeled <strong>Discover what your real users are experiencing</strong>. More detailed lab-based data is available in the bottom section labeled <strong>Diagnose performance issues</strong>. If CrUX data is available for your website, always concentrate on the real user data first.</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated.png" alt="CrUX data shown in PageSpeed Insights" width="800" height="475" srcset="https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/pagespeed-insights-crux-updated_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    CrUX data shown in PageSpeed Insights.
+  </figcaption>
+</figure>
+
+<aside class="note">
+  <b>Note:</b> Where CrUX does not provide data (for example, a page with insufficient traffic to get page-level data), CrUX should be supplemented with RUM data collected using JavaScript APIs running on the web page. This can also provide much more data than CrUX can expose as a public dataset. Later in this guide we will explain how to collect this data using JavaScript.
+</aside>
+
+<p>PageSpeed Insights shows up to four different CrUX data:</p>
+
+<ul>
+<li><strong>Mobile</strong> data for <strong>This URL</strong></li>
+<li><strong>Desktop</strong> data for <strong>This URL</strong></li>
+<li><strong>Mobile</strong> data for the whole <strong>Origin</strong></li>
+<li><strong>Desktop</strong> data for the whole <strong>Origin</strong></li>
+</ul>
+
+<p>You can toggle these in the controls at the top and top right-hand side of this section. If a URL doesn&#39;t have enough data to be shown at the URL level, but does have data for the origin, PageSpeed Insights always shows the origin data.</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/url-level-data-unavailable.png" alt="PageSpeed Insight falling back to origin-level data where url-level data is not available" width="800" height="257" srcset="https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/url-level-data-unavailable_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    When PageSpeed Insights doesn't have URL-level data, it shows
+    origin-level data.
+  </figcaption>
+</figure>
+
+<p>The LCP for the whole origin may be very different to an individual page&#39;s LCP depending on how the LCP is loaded on that page compared to other pages on that origin. It can also be affected by how visitors navigate to these pages. Home pages tend to be visted by new users and so may often be loaded &quot;cold&quot;, without any cached content and so are often the slowest pages on a website.</p>
+
+<p>Looking at the four different categories of CrUX data can help you understand whether an LCP issue is specific to this page, or a more general site-wide issue. Similarly, it can show which device types have LCP issues.</p>
+
+<h3 id="using_pagespeed_insights_crux_supplementary_metrics" data-text="Using PageSpeed Insights CrUX supplementary metrics" tabindex="-1">Using PageSpeed Insights CrUX supplementary metrics</h3>
+
+<p>Those looking to optimize LCP should also use the <a href="/articles/fcp">First Contentful Paint (FCP)</a> and <a href="/articles/ttfb">Time to First Byte (TTFB)</a> timings, which are good diagnostic metrics that can provide valuable insights into LCP.</p>
+
+<p>TTFB is the time when the visitor starting to navigate to a page (for example, clicking on a link), until the first bytes of the HTML document are received. A high TTFB can make achieving a 2.5 second LCP challenging, or even impossible.</p>
+
+<p>A high TTFB can be due to multiple server redirects, visitors located far away from the nearest site server, visitors on poor network conditions, or an inability to use cached content due to query parameters.</p>
+
+<p>Once a page starts rendering, there may be an initial paint (for example, the background color), followed by some content appearing (for example, the site header). The appearance of the initial content is measured by FCP. The delta between FCP and other metrics can be very telling.</p>
+
+<p>A large delta between TTFB and FCP could indicate that the browser needs to download a lot of render-blocking assets. It can also be a sign it must complete a lot of work to render any meaningful content—a classic sign of a site that relies heavily on client-side rendering.</p>
+
+<p>A large delta between FCP and LCP indicates that the LCP resource is either not immediately available for the browser to prioritize (for example, text or images that are managed by JavaScript rather than being available in the initial HTML), or that the browser is completing other work before it can display the LCP content.</p>
+
+<h3 id="using_pagespeed_insights_lighthouse_data" data-text="Using PageSpeed Insights Lighthouse data" tabindex="-1">Using PageSpeed Insights Lighthouse data</h3>
+
+<p>The Lighthouse section of PageSpeed Insights offers some guidance to improving LCP, but first you should check if the LCP given is broadly in agreement with real user data provided by CrUX. If Lighthouse and CrUX disagree, then CrUX likely provides a more accurate picture of your user experience. Make sure your CrUX data is for your page, not the full origin, before you act on it.</p>
+
+<p>If both Lighthouse and CrUX show LCP values that need improvement, the Lighthouse section can provide valuable guidance on ways to improve LCP. Use the LCP filter to only show audits relevant to LCP as follows:</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities.png" alt="Lighthouse LCP Opportunities and Diagnostics" width="800" height="498" srcset="https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/psi-lighthouse-lcp-opportunities_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    Lighthouse diagnostics and suggestions for improving LCP.
+  </figcaption>
+</figure>
+
+<p>As well as the <strong>Opportunities</strong> to improve, there is <strong>Diagnostic</strong> information that may provide more information to help diagnose the issue. The <strong>Largest Contentful Paint element</strong> diagnostic shows a useful breakdown of the various timings that made up the LCP:</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/lighthouse-lcp-subparts.png" alt="LCP subparts in Lighthouse" width="800" height="474" srcset="https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/lighthouse-lcp-subparts_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    Lighthouse's breakdown of LCP elements.
+  </figcaption>
+</figure>
+
+<p>LCP resource types and subparts are also <a href="https://developer.chrome.com/blog/crux-2025-02">available in CrUX</a>.</p>
+
+<p>We will delve into these subparts next.</p>
+
+<h2 id="lcp-breakdown" data-text="LCP breakdown" tabindex="-1">LCP breakdown</h2>
+
+<p>Optimizing for LCP can be a more complex task when PageSpeed Insights does not give you the answer on how to improve this metric. With complex tasks it&#39;s generally better to break them down into smaller, more manageable tasks and address each separately.</p>
+
+<p>This section presents a methodology for how to break down LCP into its most critical subparts and then present specific recommendations and best practices for how to optimize each part.</p>
+
+<aside class="note">
+  <p>
+    <b>Note:</b> For a visual overview of the context presented in this guide, see <a href="https://youtu.be/fWoI9DXmpdk">A Deep Dive into Optimizing LCP</a> from Google I/O '22:
+  </p>
+  <devsite-video video-id="fWoI9DXmpdk"></devsite-video>
+</aside>
+
+<p>Most page loads typically include a number of network requests, but for the purposes of identifying opportunities to improve LCP, you should start by looking at just two:</p>
+
+<ol>
+<li>The initial HTML document</li>
+<li>The LCP resource (if applicable)</li>
+</ol>
+
+<p>While other requests on the page can affect LCP, these two requests—specifically the times when the LCP resource begins and ends—reveal whether or not your page is optimized for LCP.</p>
+
+<p>To identify the LCP resource, you can use developer tools (such as PageSpeed Insights discussed before, <a href="https://developer.chrome.com/docs/devtools">Chrome DevTools</a>, or <a href="https://webpagetest.org/">WebPageTest</a>) to determine the <a href="/articles/lcp#what_elements_are_considered">LCP element</a>. From there you can match the URL (again, if applicable) loaded by the element on a <a href="https://developer.chrome.com/docs/devtools/network/reference">network waterfall</a> of all resources loaded by the page.</p>
+
+<p>For example, the following visualization shows these resources highlighted on a network waterfall diagram from a typical page load, where the LCP element requires an image request to render.</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3.png" alt="A network waterfall with the HTML and LCP resources highlighted" width="800" height="375" srcset="https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-the-919387402b1d3_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    A waterfall diagram showing the loading times for
+    a webpage's HTML and the resources the LCP needs.
+  </figcaption>
+</figure>
+
+<p>For a well-optimized page, you want your LCP resource request to start loading as early as it can, and you want the LCP element to render as quickly as possible after the LCP resource finishes loading. To help visualize whether or not a particular page is following this principle, you can break down the total LCP time into the following subparts:</p>
+
+<dl>
+<dt><a href="/articles/ttfb">Time to First Byte (TTFB)</a></dt>
+<dd>The time from when the user initiates loading the page until the browser
+receives the first byte of the HTML document response.</dd>
+<dt>Resource load delay</dt>
+<dd>The time between TTFB and when the browser starts loading the LCP resource. If
+the LCP element doesn&#39;t require a resource load to render (for example, if the
+element is a text node rendered with a system font), this time is 0.</dd>
+<dt>Resource load duration</dt>
+<dd>The duration of time it takes to load the LCP resource itself. If the LCP
+element doesn&#39;t require a resource load to render, this time is 0.</dd>
+<dt>Element render delay</dt>
+<dd>The time between when the LCP resource finishes loading and the LCP element
+rendering fully.</dd>
+</dl>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts.png" alt="A breakdown of LCP showing the four subparts" width="800" height="450" srcset="https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/lcp-breakdown-four-subparts_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption>
+    The same waterfall diagram, with the four LCP subparts overlaid
+    on the timeline.
+  </figcaption>
+</figure>
+
+<p>Every single page can have its LCP value broken down into these four subparts. There is no overlap or gap between them. Collectively, they add up to the full LCP time.</p>
+
+<p>When optimizing LCP, it&#39;s helpful to try to optimize these subparts individually. But it&#39;s also important to keep in mind that you need to optimize all of them. In some cases, an optimization applied to one part won&#39;t improve LCP, it will just shift the time saved to another part.</p>
+
+<p>For example, in the earlier network waterfall, if you reduced the file size of our image by compressing it more or switching to a more optimal format (such as AVIF or WebP), that would reduce the <strong>resource load duration</strong>, but it wouldn&#39;t actually improve LCP because the time would just shift to the <strong>element render delay</strong> subpart:</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay.png" alt="The same breakdown of LCP shown earlier where the resource load duration subpart is shortened, but the overall LCP time remains the same." width="800" height="450" srcset="https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/the-same-lcp-breakdown-render-delay_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    Shortening the resource load duration increases the element render delay without reducing LCP.
+  </figcaption>
+</figure>
+
+<p>The reason this happens is because, on this page, the LCP element is hidden until the JavaScript code finishes loading, and then everything is revealed at once.</p>
+
+<p>This example helps illustrate the point that you need to optimize all of these subparts in order to achieve the best LCP outcomes.</p>
+
+<h3 id="optimal_sub-part_times" data-text="Optimal subpart times" tabindex="-1">Optimal subpart times</h3>
+
+<p>In order to optimize each subpart of LCP, it&#39;s important to understand what the ideal breakdown of these subparts is on a well-optimized page.</p>
+
+<p>Of the four subparts, two have the word &quot;delay&quot; in their names. That is a clue that you want to get these times as close to zero as possible. The other two parts involve network requests, which by their very nature take time.</p>
+
+<div class="table-wrapper scrollbar">
+  <table>
+    <thead>
+      <tr>
+        <th>LCP subpart</th>
+        <th>% of LCP</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Time to first byte</td>
+        <td>~40%</td>
+      </tr>
+      <tr>
+        <td>Resource load delay</td>
+        <td>&lt;10%</td>
+      </tr>
+      <tr>
+        <td>Resource load duration</td>
+        <td>~40%</td>
+      </tr>
+      <tr>
+        <td>Element render delay</td>
+        <td>&lt;10%</td>
+      </tr>
+      <tr>
+        <td><strong>TOTAL</strong></td>
+        <td><strong>100%</strong></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<p>Note that these time breakdowns are guidelines, not strict rules. If the LCP times on your pages are consistently within 2.5 seconds, then it doesn&#39;t really matter what the relative proportions are. But if you&#39;re spending a lot of unnecessary time in either of the &quot;delay&quot; portions, then it will be very difficult to constantly hit the <a href="/articles/lcp#what_is_a_good_lcp_score">2.5 second target</a>.</p>
+
+<p>A good way to think about the breakdown of LCP time is:</p>
+
+<ul>
+<li>The <strong>vast majority</strong> of the LCP time should be spent loading the HTML document and LCP source.</li>
+<li>Any time before LCP where one of these two resources is <em>not</em> loading is <strong>an opportunity to improve</strong>.</li>
+</ul>
+
+<aside class="warning">
+  <b>Warning: </b> Given the <a href="/articles/lcp#what_is_a_good_lcp_score">2.5 second target</a> for LCP, it may be tempting to try to convert these percentages into absolute numbers, but that is not recommended. These subparts are only meaningful relative to each other, so it's best to always measure them that way.
+</aside>
+
+<h2 id="how-to-optimize-each-part" data-text="How to optimize each part" tabindex="-1">How to optimize each part</h2>
+
+<p>Now that you understand how each of the LCP subpart times should break down on a well-optimized page, you can start optimizing your own pages.</p>
+
+<p>The next four sections will present recommendations and best practices for how to optimize each part. They&#39;re presented in order, starting with the optimizations that are likely to have the biggest impact.</p>
+
+<h3 id="1_eliminate_resource_load_delay" data-text="1. Eliminate resource load delay" tabindex="-1">1. Eliminate <em>resource load delay</em></h3>
+
+<p>The goal in this step is to ensure the LCP resource starts loading as early as possible. While in theory the earliest a resource <em>could</em> start loading is immediately after TTFB, in practice there is always some delay before browsers actually start loading resources.</p>
+
+<p>A good rule of thumb is that your LCP resource should start loading at the same time as the first resource loaded by that page. Or, to put that another way, if the LCP resource starts loading later than the first resource, then there&#39;s opportunity for improvement.</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f.png" alt="A network waterfall diagram showing the LCP resource starting after the first resource, showing the opportunity for improvement" width="800" height="375" srcset="https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-1ee19fc20ee1f_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    On this page, the LCP resource starts loading well after the style
+    sheet that loads first. There's room for improvement here.
+  </figcaption>
+</figure>
+
+<p>Generally speaking, there are two factors that affect how quickly an LCP resource can be loading:</p>
+
+<ul>
+<li>When the resource is discovered.</li>
+<li>What priority the resource is given.</li>
+</ul>
+
+<h4 id="optimize-when-the-resource-is-discovered" data-text="Optimize when the resource is discovered" tabindex="-1">Optimize when the resource is discovered</h4>
+
+<p>To ensure your LCP resource starts loading as early as possible, it&#39;s critical that the resource is discoverable in the initial HTML document response by the browser&#39;s <a href="/articles/preload-scanner">preload scanner</a>. For example, in the following cases, the browser can discover the LCP resource by scanning the HTML document response:</p>
+
+<ul>
+<li>The LCP element is an <code translate="no" dir="ltr">&lt;img&gt;</code> element, and its <code translate="no" dir="ltr">src</code> or <code translate="no" dir="ltr">srcset</code> attributes are present in the initial HTML markup.</li>
+<li>The LCP element requires a <a href="/articles/optimize-css-background-images-with-media-queries">CSS background image</a>, but that image is preloaded using <code translate="no" dir="ltr">&lt;link rel=&quot;preload&quot;&gt;</code> in the HTML markup (or using a <code translate="no" dir="ltr">Link</code> header).</li>
+<li>The LCP element is a text node that requires a web font to render, and the font is loaded using <code translate="no" dir="ltr">&lt;link rel=&quot;preload&quot;&gt;</code> in the HTML markup (or using a <code translate="no" dir="ltr">Link</code> header).</li>
+</ul>
+
+<p>Here are some examples where the LCP resource cannot be discovered from scanning the HTML document response:</p>
+
+<ul>
+<li>The LCP element is an <code translate="no" dir="ltr">&lt;img&gt;</code> that is dynamically added to the page using JavaScript.</li>
+<li>The LCP element is lazily loaded with a JavaScript library that hides its <code translate="no" dir="ltr">src</code> or <code translate="no" dir="ltr">srcset</code> attributes (often as <code translate="no" dir="ltr">data-src</code> or <code translate="no" dir="ltr">data-srcset</code>).</li>
+<li>The LCP element requires a CSS background image.</li>
+</ul>
+
+<p>In each of these cases, the browser needs to run the script or apply the stylesheet—which usually involves waiting for network requests to finish—before it can discover the LCP resource and could start loading it. This is never optimal.</p>
+
+<p>To eliminate unnecessary resource load delay, your LCP resource should be discoverable from the HTML source. In cases where the resource is only referenced from an external CSS or JavaScript file, the LCP resource should be preloaded with a high <a href="#optimize_the_priority_the_resource_is_given">fetch priority</a>, for example:</p>
+<div></div><devsite-code><pre class="devsite-click-to-copy" translate="no" dir="ltr" is-upgraded syntax="HTML"><code translate="no" dir="ltr">&lt;!-- Load the stylesheet that will reference the LCP image. --&gt;
+&lt;link rel="stylesheet" href="/path/to/styles.css"&gt;
+
+&lt;!-- Preload the LCP image with a high fetchpriority so it starts loading with the stylesheet. --&gt;
+&lt;link rel="preload" fetchpriority="high" as="image" href="/path/to/hero-image.webp" type="image/webp"&gt;
+</code></pre></devsite-code>
+<aside class="warning">
+  <b>Warning:</b> On most pages, ensuring that the LCP resource starts loading at the same time as the first resource is good enough, but be aware that it is possible to construct a page where none of the resources are discovered early and all of them start loading significantly later than TTFB. So while comparing with the first resource is a good way to identify opportunities to improve, it may not be sufficient in some cases, so it's still important to measure this time relative to TTFB and ensure it remains small.
+</aside>
+
+<h4 id="optimize_the_priority_the_resource_is_given" data-text="Optimize the priority the resource is given" tabindex="-1">Optimize the priority the resource is given</h4>
+
+<p>Even if the LCP resource is discoverable from the HTML markup, it <em>still</em> may not start loading as early as the first resource. This can happen if the browser preload scanner&#39;s priority heuristics don&#39;t recognize that the resource is important, or if it determines that other resources are more important.</p>
+
+<p>For example, you can delay your LCP image using HTML if you set <a href="/articles/browser-level-image-lazy-loading"><code translate="no" dir="ltr">loading=&quot;lazy&quot;</code></a> on your <code translate="no" dir="ltr">&lt;img&gt;</code> element. Using lazy loading means that the resource won&#39;t be loaded until after layout confirms the image is in the viewport and so may begin loading later than it otherwise would.</p>
+
+<aside class="warning">
+  <b>Warning:</b> Never lazy-load your LCP image, as that will always lead to unnecessary resource load delay, and will have a negative impact on LCP.
+</aside>
+
+<p>Even without lazy loading, images are not initially loaded with the highest priority by browsers as they are not render-blocking resources. You can hint to the browser as to which resources are most important using the <a href="/articles/fetch-priority"><code translate="no" dir="ltr">fetchpriority</code></a> attribute for resources that could benefit from a higher priority:</p>
+<div></div><devsite-code><pre class="devsite-click-to-copy" translate="no" dir="ltr" is-upgraded syntax="HTML"><code translate="no" dir="ltr">&lt;img fetchpriority="high" src="/path/to/hero-image.webp"&gt;
+</code></pre></devsite-code>
+<p>It&#39;s a good idea to set <code translate="no" dir="ltr">fetchpriority=&quot;high&quot;</code> on an <code translate="no" dir="ltr">&lt;img&gt;</code> element if you think it&#39;s likely to be your page&#39;s LCP element. However, setting a high priority on more than one or two images makes priority setting unhelpful in reducing LCP.</p>
+
+<p>You can also lower the priority of images that might be early in the document response but aren&#39;t visible due to styling, such as images in carousel slides that aren&#39;t visible at startup:</p>
+<div></div><devsite-code><pre class="devsite-click-to-copy" translate="no" dir="ltr" is-upgraded syntax="HTML"><code translate="no" dir="ltr">&lt;img fetchpriority="low" src="/path/to/carousel-slide-3.webp"&gt;
+</code></pre></devsite-code>
+<p>Deprioritizing certain resources can afford more bandwidth to resources that need it more—but be careful. Always check resource priority in DevTools and test changes with lab and field tools.</p>
+
+<p>After you have optimized your LCP resource priority and discovery time, your network waterfall should look like this (with the LCP resource starting at the same time as the first resource):</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22.png" alt="A network waterfall diagram showing the LCP resource now starting at the same time as the first resource" width="800" height="375" srcset="https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-b6906b9fce22_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    The LCP resource now starts loading at the same time as the style sheet.
+  </figcaption>
+</figure>
+
+<aside class="key-point" id="different-origin">
+  <b>Key point:</b> Another reason your LCP resource may not start loading as early as possible—even when it's discoverable from the HTML source—is if it's hosted on a different origin, as these requests require the browser to connect to that origin before the resource can start loading. When possible, it's a good idea to host critical resources on the same origin as your HTML document resource because then those resources can save time by reusing the existing connection (more on this point later).
+</aside>
+
+<h3 id="2_eliminate_element_render_delay" data-text="2. Eliminate element render delay" tabindex="-1">2. Eliminate <em>element render delay</em></h3>
+
+<p>The goal in this step is to ensure the LCP element can render <em>immediately</em> after its resource has finished loading, no matter when that happens.</p>
+
+<p>The primary reason the LCP element <em>wouldn&#39;t</em> be able to render immediately after its resource finishes loading is if rendering is <a href="https://developer.chrome.com/docs/lighthouse/performance/render-blocking-resources">blocked</a> for some other reason:</p>
+
+<ul>
+<li>Rendering of the entire page is blocked due to stylesheets or synchronous scripts in the <code translate="no" dir="ltr">&lt;head&gt;</code> that are still loading.</li>
+<li>The LCP resource has finished loading, but the LCP element has not yet been added to the DOM (it&#39;s waiting for some JavaScript code to load).</li>
+<li>The element is being hidden by some other code, such as an A/B testing library that&#39;s still determining what experiment the user should be in.</li>
+<li>The main thread is blocked due to <a href="/articles/long-tasks-devtools#what_are_long_tasks">long tasks</a>, and rendering work needs to wait until those long tasks complete.</li>
+</ul>
+
+<p>The following sections explain how to address the most common causes of unnecessary element render delay.</p>
+
+<h4 id="reduce_or_inline_render-blocking_stylesheets" data-text="Reduce or inline render-blocking stylesheets" tabindex="-1">Reduce or inline render-blocking stylesheets</h4>
+
+<p>Style sheets loaded from the HTML markup will block rendering of all content that follows them, which is good, since you generally don&#39;t want to render unstyled HTML. However, if the style sheet is so large that it takes significantly longer to load than the LCP resource, then it will prevent the LCP element from rendering—even after its resource has finished loading, as shown in this example:</p>
+
+<figure>
+  <img src="/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d.png" alt="A network waterfall diagram showing a large CSS file blocking rendering of the LCP element because it takes longer to load than the LCP resource" width="800" height="450" srcset="https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_36.png 36w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_48.png 48w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_72.png 72w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_96.png 96w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_480.png 480w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_720.png 720w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_856.png 856w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_960.png 960w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_1440.png 1440w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_1920.png 1920w,https://web.dev/static/articles/optimize-lcp/image/a-network-waterfall-diagr-42b740846d30d_2880.png 2880w" sizes="(max-width: 840px) 100vw, 856px">
+  <figcaption class="wd-caption">
+    The image and the style sheet start loading at the same time, but the image can't render until the style sheet is ready.
+  </figcaption>
+</figure>
+
+<p>To fix this, your options are to either:</p>
+
+<ul>
+<li>inline the style sheet into the HTML to avoid the additional network request; or,</li>
+<li>reduce the size of the style sheet.</li>
+</ul>
+
+<p>In general, inlining your style sheet is only recommended if your style sheet is small since inlined content in the HTML cannot benefit from caching in subsequent page loads. If a style sheet is so large that it takes longer to load than the LCP resource, then it&#39;s unlikely to be a good candidate for inlining.</p>
+
+<p>In most cases, the best way to ensure the style sheet does not block rendering of the LCP element is to reduce its size so that it&#39;s smaller than the LCP resource. This should ensure it&#39;s not a bottleneck for most visits.</p>
+
+<p>Some recommendations to reduce the size of the style sheet are:</p>
+
+<ul>
+<li><a href="https://developer.chrome.com/docs/lighthouse/performance/unused-css-rules">Remove unused CSS</a>: use Chrome DevTools to find CSS rules that aren&#39;t being used and can potentially be removed (or deferred).</li>
+<li><a href="/articles/defer-non-critical-css">Defer non-critical CSS</a>: split your style sheet out into styles that are required for initial page load and then styles that can be loaded lazily.</li>
+<li><a href="/articles/reduce-network-payloads-using-text-compression">Minify and compress CSS</a>: for styles that are critical, make sure you&#39;re reducing their <a href="https://developer.mozilla.org/docs/Web/API/PerformanceResourceTiming/transferSize">transfer size</a> as much as possible.</li>
+</ul>
+
+<h4 id="defer_or_inline_render-blocking_javascript" data-text="Defer or inline render-blocking JavaScript" tabindex="-1">Defer or inline render-blocking JavaScript</h4>
+
+<p>It is almost never necessary to add synchronous scripts (scripts without the <code translate="no" dir="ltr">async</code> or <code translate="no" dir="ltr">defer</code> attributes) to the <code translate="no" dir="ltr">&lt;head&gt;</code> of your pages, and doing so will almost always have a negative impact on performance.</p>
+
+<p>In cases where JavaScript code needs to run as early as possible in the page load, it&#39;s best to inline it so rendering isn&#39;t delayed waiting on another network request. As with stylesheets, though, you should only inline scripts if they&#39;re very small.</p>
+
+<div class="wd-compare">
+  <div class="compare-worse">Don't</div>
+  <div></div><devsite-code><pre class="devsite-click-to-copy" translate="no" dir="ltr" is-upgraded syntax="HTML">&lt;head&gt;
+  &lt;script src="/path/to/main.js"&gt;&lt;/script&gt;
+&lt;/head&gt;</pre></devsite-code>
+
+</div>
+
+<div class="wd-compare">
+  <div class="compare-better">Do</div>
+  <div></div><devsite-code><pre class="devsite-click-to-copy" translate="no" dir="ltr" is-upgraded syntax="HTML">&lt;head&gt;
+  &lt;script&gt;
+    // Inline script contents directly in the HTML.
+    // IMPORTANT: only do this for very small scripts.
+  &lt;/script&gt;
+&lt;/head&gt;</pre></devsite-code>
+
+</div>
+
+<h4 id="use_server-side_rendering" data-text="Use server-side rendering" tabindex="-1">Use server-side rendering</h4>
+
+<p><a href="/articles/rendering-on-the-web#server-side_rendering">Server-side rendering</a> (SSR) is the process of running your client-side application logic on the server and responding to HTML document requests with the full HTML markup.</p>
+
+<p>From the perspective of optimizing LCP, there are two primary advantage of SSR:</p>
+
+<ul>
+<li>Your image resources will be discoverable from the HTML source (as discussed in <a href="#1_eliminate_resource_load_delay">step 1</a> earlier).</li>
+<li>Your page content won&#39;t require additional JavaScript requests to finish before it can render.</li>
+</ul>
+
+<p>The main downside of SSR is it requires additional server processing time, which can slow down your TTFB. This trade-off is usually worth it though because server processing times are within your control, whereas the network and device capabilities of your users are not.</p>
+
+<p>A similar option to SSR is called static site generation (SSG) or <a href="/articles/rendering-on-the-web#terminology">prerendering</a>. This is the process of generating your HTML pages in a build step rather than on-demand. If prerendering is possible with your architecture, it&#39;s generally a better choice for performance.</p>
+
+<h4 id="break_up_long_tasks" data-text="Break up long tasks" tabindex="-1">Break up long tasks</h4>
+
+<p>Even if you&#39;ve followed the advice from earlier, and your JavaScript code is not render-blocking nor is it responsible for rendering your elements, it can still delay LCP.</p>
+
+<p>The most common reason this happens is when pages load large JavaScript files, which need to be parsed and executed on the browser&#39;s main thread. This means that, even if your image resource is fully downloaded, it may still have to wait until an unrelated script finishes executing before it can render.</p>
+
+<p>All browsers today render images on the main thread, which means anything that blocks the main thread can also lead to unnecessary <em>element render delay</em>.</p>
+
+<h3 id="reduce-resource-load-duration" data-text="3. Reduce resource load duration" tabindex="-1">3. Reduce resource load duration</h3>
+
+<p>The goal of this step is to reduce the time spent transferring the bytes of the resource over the network to the user&#39;s device. In general, there are four ways to do that:</p>
+
+<ul>
+<li>Reduce the size of the resource.</li>
+<li>Reduce the distance the resource has to travel.</li>
+<li>Reduce contention for network bandwidth.</li>
+<li>Eliminate the network time entirely.</li>
+</ul>
+
+<aside class="warning">
+  <b>Warning:</b> <a href="/blog/common-misconceptions-lcp">Our research</a> shows that the load duration portion of LCP tends not to be a significant bottleneck for most sites. Whenever possible, consult your site's real-user data for help deciding which LCP subpart to focus your efforts on.
+</aside>
+
+<h4 id="reduce-size" data-text="Reduce the size of the resource" tabindex="-1">Reduce the size of the resource</h4>
+
+<p>The LCP resource of a page (if it has one) will either be an image or a web font. The following guides go into great detail about how to reduce the size of both:</p>
+
+<ul>
+<li><a href="https://developer.chrome.com/docs/lighthouse/performance/uses-responsive-images">Serve the optimal image size</a></li>
+<li><a href="https://developer.chrome.com/docs/lighthouse/performance/uses-webp-images">Use modern image formats</a></li>
+<li><a href="https://developer.chrome.com/docs/lighthouse/performance/uses-optimized-images">Compress images</a></li>
+<li><a href="/articles/reduce-webfont-size">Reduce web font size</a></li>
+</ul>
+
+<h4 id="reduce_the_distance_the_resource_has_to_travel" data-text="Reduce the distance the resource has to travel" tabindex="-1">Reduce the distance the resource has to travel</h4>
+
+<p>In addition to reducing the size of a resource, you can also reduce the load times by getting your servers as geographically close to your users as possible. And the best way to do that is to use a <a href="/articles/content-delivery-networks">content delivery network</a> (CDN).</p>
+
+<p><a href="/articles/image-cdns">Image CDNs</a> in particular are especially helpful because they not only reduce the distance the resource has to travel, but they also generally reduce the size of the resource—automatically implementing all of the size-reduction recommendations from earlier for you.</p>
+
+<aside class="key-point">
+  <b>Key point:</b> While image CDNs are a great way to reduce resource load durations, using a third-party domain to host your images comes with an additional connection cost. While preconnecting to the origin can mitigate some of this cost, the best option is to serve images from the same origin as your HTML document. Many CDNs allow you to proxy requests from your origin to theirs, which is a great option to look into if available.
+</aside>
+
+<h4 id="reduce_contention_for_network_bandwidth" data-text="Reduce contention for network bandwidth" tabindex="-1">Reduce contention for network bandwidth</h4>
+
+<p>Even if you&#39;ve reduced the size of your resource and the distance it has to travel, a resource can still take a long time to load if you&#39;re loading many other resources at the same time. This problem is known as <em>network contention</em>.</p>
+
+<p>If you&#39;ve given your LCP resource a <a href="/articles/fetch-priority">high <code translate="no" dir="ltr">fetchpriority</code></a> and <a href="#1_eliminate_resource_load_delay">started loading it as soon as possible</a> then the browser will do its best to prevent lower-priority resources from competing with it. However, if you&#39;re loading many resources with high <code translate="no" dir="ltr">fetchpriority</code>, or if you&#39;re just loading a lot of resources in general, then it could affect how quickly the LCP resource loads.</p>
+
+<h4 id="eliminate_the_network_time_entirely" data-text="Eliminate the network time entirely" tabindex="-1">Eliminate the network time entirely</h4>
+
+<p>The best way to reduce resource load duration is to eliminate the network entirely from the process. If you serve your resources with an <a href="https://developer.chrome.com/docs/lighthouse/performance/uses-long-cache-ttl">efficient cache-control policy</a>, then visitors who request those resources a second time will have them served from the cache—bringing the <em>resource load duration</em> to essentially zero!</p>
+
+<p>If your LCP resource is a web font, in addition to <a href="/articles/reduce-webfont-size">reducing web font size</a>, you should also consider whether you need to block rendering on the web font resource load. If you set a <a href="https://developer.mozilla.org/docs/Web/CSS/@font-face/font-display"><code translate="no" dir="ltr">font-display</code></a> value of anything other than <code translate="no" dir="ltr">auto</code> or <code translate="no" dir="ltr">block</code>, then text will <a href="https://developer.chrome.com/docs/lighthouse/performance/font-display">always be visible during load</a>, and LCP won&#39;t be blocked on an additional network request.</p>
+
+<p>Finally, if your LCP resource is small, it may make sense to inline the resources as a <a href="https://developer.mozilla.org/docs/Web/HTTP/Basics_of_HTTP/Data_URIs">data URL</a>, which will also eliminate the additional network request. However, using data URLs <a href="https://calendar.perfplanet.com/2018/performance-anti-patterns-base64-encoding/">comes with caveats</a> because then the resources cannot be cached and in some cases can lead to longer render delays because of the additional <a href="https://www.catchpoint.com/blog/data-uri">decode cost</a>.</p>
+
+<h3 id="reduce-ttfb" data-text="4. Reduce time to first byte" tabindex="-1">4. Reduce <em>time to first byte</em></h3>
+
+<p>The goal of this step is to deliver the initial HTML as quickly as possible. This step is listed last because it&#39;s often the one developers have the least control over. However, it&#39;s also one of the most important steps because it directly affects every step that comes after it. Nothing can happen on the frontend until the backend delivers that first byte of content, so anything you can do to speed up your TTFB will improve every other load metric as well.</p>
+
+<p>A common cause of a slow TTFB for an otherwise fast site is visitors arriving through multiple redirects, such as from advertisements or <a href="https://en.wikipedia.org/wiki/URL_shortening">shortened links</a>. Always minimize the number of redirects a visitor must wait through.</p>
+
+<p>Another common cause is when cached content cannot be used from a CDN edge server, and all requests must be directed all the way back to the origin server. This can happen if unique URL parameters are used by visitors for analytics—even if they don&#39;t result in different pages.</p>
+
+<p>For specific guidance on optimizing TTFB, consult the <a href="/articles/optimize-ttfb">optimize TTFB guide</a>.</p>
+
+<h2 id="monitor_lcp_breakdown_in_javascript" data-text="Monitor LCP breakdown in JavaScript" tabindex="-1">Monitor LCP breakdown in JavaScript</h2>
+
+<p>The timing information for all of the LCP subparts discussed earlier is available to you in JavaScript through a combination of the following performance APIs:</p>
+
+<ul>
+<li><a href="https://w3c.github.io/largest-contentful-paint/">Largest Contentful Paint API</a></li>
+<li><a href="https://www.w3.org/TR/navigation-timing-2/">Navigation Timing API</a></li>
+<li><a href="https://www.w3.org/TR/resource-timing-2/">Resource Timing API</a></li>
+</ul>
+
+<p>Many RUM products already calculate the subparts using these APIs. The <a href="https://github.com/GoogleChrome/web-vitals">web-vitals library</a> also includes these LCP subpart timings in the attribution build and its code can be referenced for how to calculate these in JavaScript.</p>
+
+<p>Chrome DevTools, and Lighthouse also measures these subparts as shown in the previous screenshots, saving you the need to calculate them manually in JavaScript when using those tools.</p>
+
+<h2 id="summary" data-text="Summary" tabindex="-1">Summary</h2>
+
+<p>LCP is complex, and its timing can be affected by a number of factors. But if you consider that optimizing LCP is primarily about optimizing the load of the LCP resource, it can significantly simplify things.</p>
+
+<p>At a high level, optimizing LCP can be summarized in four steps:</p>
+
+<ol>
+<li>Ensure the LCP resource starts loading as early as possible.</li>
+<li>Ensure the LCP element can render as soon as its resource finishes loading.</li>
+<li>Reduce the load time of the LCP resource as much as you can without sacrificing quality.</li>
+<li>Deliver the initial HTML document as fast as possible.</li>
+</ol>
+
+<p>If you&#39;re able to follow these steps on your pages, then you should feel confident that you&#39;re delivering an optimal loading experience to your users, and you should see that reflected in your real-world LCP scores.</p>
+
+  
+
+  
+</div>
+
+  
+    
+    
+      
+    <devsite-thumb-rating position="footer">
+    </devsite-thumb-rating>
+  
+       
+    
+    
+  
+
+  <div class="devsite-floating-action-buttons"></div></article>
+
+
+<devsite-content-footer class="nocontent" data-nosnippet>
+  <p>Except as otherwise noted, the content of this page is licensed under the <a href="https://creativecommons.org/licenses/by/4.0/">Creative Commons Attribution 4.0 License</a>, and code samples are licensed under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache 2.0 License</a>. For details, see the <a href="https://developers.google.com/site-policies">Google Developers Site Policies</a>. Java is a registered trademark of Oracle and/or its affiliates.</p>
+  <p>Last updated 2025-03-31 UTC.</p>
+</devsite-content-footer>
+
+
+<devsite-notification
+>
+</devsite-notification>
+
+
+  
+<div class="devsite-content-data">
+  
+  
+    <template class="devsite-content-data-template">
+      [[["Easy to understand","easyToUnderstand","thumb-up"],["Solved my problem","solvedMyProblem","thumb-up"],["Other","otherUp","thumb-up"]],[["Missing the information I need","missingTheInformationINeed","thumb-down"],["Too complicated / too many steps","tooComplicatedTooManySteps","thumb-down"],["Out of date","outOfDate","thumb-down"],["Samples / code issue","samplesCodeIssue","thumb-down"],["Other","otherDown","thumb-down"]],["Last updated 2025-03-31 UTC."],[],[]]
+    </template>
+  
+</div>
+            
+          </devsite-content>
+        </main>
+        <devsite-footer-promos class="devsite-footer">
+          
+            
+          
+        </devsite-footer-promos>
+        <devsite-footer-linkboxes class="devsite-footer">
+          
+            
+<nav class="devsite-footer-linkboxes nocontent"
+     aria-label="Footer links"
+     data-nosnippet>
+  
+  <ul class="devsite-footer-linkboxes-list">
+    
+    <li class="devsite-footer-linkbox wd-footer-promo">
+    <h3 class="devsite-footer-linkbox-heading no-link">web.dev</h3>
+      <ul class="devsite-footer-linkbox-list">
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <h3 class="devsite-footer-linkbox-heading no-link">
+          
+            web.dev
+          
+          </h3>
+          
+          
+          <div class="devsite-footer-linkbox-description">We want to help you build beautiful, accessible, fast, and secure websites that work cross-browser, and for all of your users. This site is our home for content to help you on that journey, written by members of the Chrome team, and external experts.</div>
+          
+        </li>
+        
+      </ul>
+    </li>
+    
+    <li class="devsite-footer-linkbox ">
+    <h3 class="devsite-footer-linkbox-heading no-link">Contribute</h3>
+      <ul class="devsite-footer-linkbox-list">
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="https://issuetracker.google.com/issues/new?component=1400680&amp;template=1857359"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 1)"
+            >
+            
+          
+            File a bug
+          
+          </a>
+          
+          
+        </li>
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="https://issuetracker.google.com/issues?q=status:open%20componentid:1400680&amp;s=created_time:desc"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 2)"
+            >
+            
+              
+              
+            
+          
+            See open issues
+          
+          </a>
+          
+          
+        </li>
+        
+      </ul>
+    </li>
+    
+    <li class="devsite-footer-linkbox ">
+    <h3 class="devsite-footer-linkbox-heading no-link">Related Content</h3>
+      <ul class="devsite-footer-linkbox-list">
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="https://developer.chrome.com/"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 1)"
+            >
+            
+          
+            Chrome for Developers
+          
+          </a>
+          
+          
+        </li>
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="https://blog.chromium.org/"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 2)"
+            >
+            
+          
+            Chromium updates
+          
+          </a>
+          
+          
+        </li>
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="/case-studies"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 3)"
+            >
+            
+          
+            Case studies
+          
+          </a>
+          
+          
+        </li>
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="/shows"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 4)"
+            >
+            
+              
+              
+            
+          
+            Podcasts &amp; shows
+          
+          </a>
+          
+          
+        </li>
+        
+      </ul>
+    </li>
+    
+    <li class="devsite-footer-linkbox ">
+    <h3 class="devsite-footer-linkbox-heading no-link">Follow</h3>
+      <ul class="devsite-footer-linkbox-list">
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="https://twitter.com/ChromiumDev"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 1)"
+            >
+            
+          
+            @ChromiumDev on X
+          
+          </a>
+          
+          
+        </li>
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="https://www.youtube.com/user/ChromeDevelopers"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 2)"
+            >
+            
+          
+            YouTube
+          
+          </a>
+          
+          
+        </li>
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="https://www.linkedin.com/showcase/chrome-for-developers"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 3)"
+            >
+            
+          
+            Chrome for Developers on LinkedIn
+          
+          </a>
+          
+          
+        </li>
+        
+        <li class="devsite-footer-linkbox-item">
+          
+          <a href="/static/blog/feed.xml"
+             class="devsite-footer-linkbox-link gc-analytics-event"
+             data-category="Site-Wide Custom Events"
+            
+             data-label="Footer Link (index 4)"
+            >
+            
+              
+              
+            
+          
+            RSS
+          
+          </a>
+          
+          
+        </li>
+        
+      </ul>
+    </li>
+    
+  </ul>
+  
+</nav>
+          
+        </devsite-footer-linkboxes>
+        <devsite-footer-utility class="devsite-footer">
+          
+            
+
+<div class="devsite-footer-utility nocontent" data-nosnippet>
+  
+
+  
+  <nav class="devsite-footer-utility-links" aria-label="Utility links">
+    
+    <ul class="devsite-footer-utility-list">
+      
+      <li class="devsite-footer-utility-item
+                 ">
+        
+        
+        <a class="devsite-footer-utility-link gc-analytics-event"
+           href="//policies.google.com/terms"
+           data-category="Site-Wide Custom Events"
+           data-label="Footer Terms link"
+         >
+          Terms
+        </a>
+        
+      </li>
+      
+      <li class="devsite-footer-utility-item
+                 ">
+        
+        
+        <a class="devsite-footer-utility-link gc-analytics-event"
+           href="//policies.google.com/privacy"
+           data-category="Site-Wide Custom Events"
+           data-label="Footer Privacy link"
+         >
+          Privacy
+        </a>
+        
+      </li>
+      
+      <li class="devsite-footer-utility-item
+                 glue-cookie-notification-bar-control">
+        
+        
+        <a class="devsite-footer-utility-link gc-analytics-event"
+           href="#"
+           data-category="Site-Wide Custom Events"
+           data-label="Footer Manage cookies link"
+         
+           aria-hidden="true"
+         >
+          Manage cookies
+        </a>
+        
+      </li>
+      
+    </ul>
+    
+    
+<devsite-language-selector>
+  <ul role="presentation">
+    
+    
+    <li role="presentation">
+      <a role="menuitem" lang="en"
+        >English</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="de"
+        >Deutsch</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="es_419"
+        >Español – América Latina</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="fr"
+        >Français</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="id"
+        >Indonesia</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="it"
+        >Italiano</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="pl"
+        >Polski</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="pt_br"
+        >Português – Brasil</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="vi"
+        >Tiếng Việt</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="tr"
+        >Türkçe</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="ru"
+        >Русский</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="he"
+        >עברית</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="ar"
+        >العربيّة</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="fa"
+        >فارسی</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="hi"
+        >हिंदी</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="bn"
+        >বাংলা</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="th"
+        >ภาษาไทย</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="zh_cn"
+        >中文 – 简体</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="zh_tw"
+        >中文 – 繁體</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="ja"
+        >日本語</a>
+    </li>
+    
+    <li role="presentation">
+      <a role="menuitem" lang="ko"
+        >한국어</a>
+    </li>
+    
+  </ul>
+</devsite-language-selector>
+
+  </nav>
+</div>
+          
+        </devsite-footer-utility>
+        <devsite-panel>
+          
+        </devsite-panel>
+        
+      </section>
+      </section>
+    <devsite-sitemask></devsite-sitemask>
+    <devsite-snackbar></devsite-snackbar>
+    <devsite-tooltip ></devsite-tooltip>
+    <devsite-heading-link></devsite-heading-link>
+    <devsite-analytics>
+      
+        
+
+      
+    </devsite-analytics>
+    
+      <devsite-badger></devsite-badger>
+    
+    
+    
+    
+    
+
+
+    <devsite-a11y-announce></devsite-a11y-announce>
+  </body>
+</html>
