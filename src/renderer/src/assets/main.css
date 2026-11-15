@@ -3659,10 +3659,8 @@ html[data-overhang] [data-glance-tab]:hover > [data-glance-round] {
   align-self: flex-start;
   margin-top: calc(1rem - 4px);
 }
-.app-container [data-glance-line] { --placeholder-color: color-mix(in srgb, var(--tt-gray-light-a-400), var(--tt-gray-light-a-500)); }
-.dark .app-container [data-glance-line] { --placeholder-color: color-mix(in srgb, var(--tt-gray-dark-a-500), var(--tt-gray-dark-a-600)); }
-html[data-overhang][data-glass] .app-container [data-glance-line] { --placeholder-color: var(--mf-glass-quiet); }
-.app-container [data-glance-line] input::placeholder { color: var(--placeholder-color); opacity: 1; }
+/* The glance line's hint is Faded Ink like every field's (glass sets Faded Ink to its own quiet ink). */
+.app-container [data-glance-line] input::placeholder { color: var(--muted-foreground); opacity: 1; }
 /* The tags offered as one is typed on Today's line (task-input.tsx) hang under the pill from where the words start, as
    the # list does from the writing, over the glance: held inside the pill, they were cut off by its edge. */
 html[data-overhang] [data-glance-line] [data-tag-offers] {

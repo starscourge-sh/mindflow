@@ -1192,7 +1192,7 @@
 }
 
 .read-details-find input::placeholder {
-  color: var(--read-quiet);
+  color: var(--mf-muted);
 }
 
 .read-details-found {

@@ -1,8 +1,9 @@
 .tiptap.ProseMirror {
   --tt-collaboration-carets-label: var(--tt-gray-light-900);
   --link-text-color: var(--tt-brand-color-500);
-  // A hint is meant to look like one, but to be read: over half the ink, near 3:1 on any page.
-  --placeholder-color: color-mix(in srgb, var(--tt-gray-light-a-400), var(--tt-gray-light-a-500));
+  // A hint looks like one and is read: Faded Ink, as every quiet word and field hint is (4.5:1 or more in every theme),
+  // while what is typed is the ink itself. It was a grey near 3:1, 2.9:1 on Paper.
+  --placeholder-color: var(--mf-muted);
 
   // ai
   --tiptap-ai-insertion-color: var(--tt-brand-color-600);
@@ -10,7 +11,6 @@
   .dark & {
     --tt-collaboration-carets-label: var(--tt-gray-dark-100);
     --link-text-color: var(--mf-link, var(--tt-brand-color-400));
-    --placeholder-color: color-mix(in srgb, var(--tt-gray-dark-a-500), var(--tt-gray-dark-a-600));
 
     --tiptap-ai-insertion-color: var(--tt-brand-color-400);
   }
