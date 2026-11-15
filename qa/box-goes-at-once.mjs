@@ -27,7 +27,7 @@ try {
     await page.keyboard.type(`Kept at once ${stamp} number ${i}`)
     await page.waitForTimeout(500)
     // Where the time goes: the key reaching the page, the page's own work until the box is hidden in main.
-    await page.evaluate(() => { window.__keyAt = 0; addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.metaKey && !window.__keyAt) window.__keyAt = Date.now() }, { capture: true, once: true }) })
+    await page.evaluate(() => { window.__keyAt = 0; addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.metaKey && !window.__keyAt) window.__keyAt = Date.now() }, { capture: true }) })
     await electron.evaluate(({ BrowserWindow }) => { const w = BrowserWindow.getAllWindows().find((one) => !/view=/.test(one.webContents.getURL())); globalThis.__hidAt = 0; w?.once('hide', () => (globalThis.__hidAt = Date.now())) })
     const t0 = Date.now()
     await page.keyboard.press('Meta+Enter')
