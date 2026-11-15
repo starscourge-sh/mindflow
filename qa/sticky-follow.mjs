@@ -86,21 +86,25 @@ try {
   const count = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().filter((one) => !one.isDestroyed() && one.webContents.getURL().includes('view=sticky') && one.webContents.getURL().includes('type=today')).length)
   check('each sticky has exactly one window, a stray copy closed', count === 1, `${count} windows for Today`)
 
-  // Dragged by hand toward the goal card's right edge (the goal stands above it at the right): one tap as its own right
-  // edge comes into line with it, none while it stays, one more after leaving and coming back. Every tap comes with the
-  // line it came onto on that same step, and none without one: on its way the card's left edge may pass the goal card's
-  // left edge, a line of its own with its own tap (14 Nov: that tap, read as an extra one, was this line's).
+  // Dragged by hand toward the left edge of a note stuck at a known place above its way: one tap as its own left edge
+  // comes into line with it, none while it stays, one more after leaving and coming back. Every tap comes with the
+  // line it came onto on that same step, and none without one (14 Nov: a tap read as an extra one was another line's).
   const now = await today()
+  const beside = await c.h.evaluate(() => window.api.captures.create({ title: 'Beside Today', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A card to line up with' }] }] } }))
+  await c.h.evaluate((id) => window.api.stick('capture', id, true), beside)
+  let besideId = null
+  for (let i = 0; i < 40 && !besideId; i++) (besideId = await electron.evaluate(({ BrowserWindow }, id) => BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes(`id=${id}`))?.id ?? null, beside)), besideId || (await wait(250))
+  await wait(1500)
+  await electron.evaluate(({ BrowserWindow }, [id, x, y]) => BrowserWindow.fromId(id).setPosition(x, y), [besideId, now.work.x + 400, now.work.y + 200])
+  await wait(300)
   const taps0 = await electron.evaluate(() => globalThis.haligtreeTaps())
-  const { steps, margin } = await electron.evaluate(async ({ BrowserWindow }, [id, work]) => {
+  const { steps, margin } = await electron.evaluate(async ({ BrowserWindow }, [id, work, besideId]) => {
     const w = BrowserWindow.fromId(id)
-    const b = w.getBounds()
-    const goal = BrowserWindow.getAllWindows().find((one) => !one.isDestroyed() && one.isVisible() && one.webContents.getURL().includes('type=goal&'))
-    const g = goal?.getBounds()
+    const note = besideId && BrowserWindow.fromId(besideId)
     const inset = (win) => (win.webContents.getURL().includes('glass=1') ? 0 : 20)
-    // The goal card's right edge, and where Today's window is with its card's right edge on it.
-    const right = g ? g.x + g.width - inset(goal) : work.x + work.width - 16
-    const lineX = right - (b.width - inset(w))
+    // The note's card's left edge, and where Today's window is with its card's left edge on it.
+    const left = note ? note.getBounds().x + inset(note) : work.x + 420
+    const lineX = left - inset(w)
     const path = [lineX - 192, lineX - 112, lineX - 32, lineX + 2, lineX + 5, lineX + 8, lineX - 72, lineX - 152, lineX + 4]
     const out = []
     globalThis.qaButton = true
@@ -115,14 +119,14 @@ try {
       out.push({ taps: globalThis.haligtreeTaps(), lit: JSON.parse(JSON.stringify(guides.on ?? guides.lit)) })
     }
     globalThis.qaButton = false
-    return { steps: out, margin: g ? right : null }
-  }, [now.id, now.work])
-  check('the sandbox has a goal card up beside Today', margin !== null)
+    return { steps: out, margin: note ? left : null }
+  }, [now.id, now.work, besideId])
+  check('a note is stuck beside Today\'s way', margin !== null)
   const onMargin = steps.map((s) => s.lit.some((l) => l.axis === 'x' && l.at === margin))
   const added = steps.map((s, n) => s.taps - (n ? steps[n - 1].taps : taps0))
   const newlyLit = steps.map((s, n) => s.lit.filter((l) => !(n ? steps[n - 1].lit : []).some((k) => k.axis === l.axis && k.at === l.at)))
   const said = JSON.stringify(steps.map((s, n) => `${added[n]} ${s.lit.map((l) => l.axis + l.at).join('+') || '-'}`))
-  check('dragged into line with the goal card\'s right edge: one tap coming onto it, none while it stays in line, one more coming back', onMargin[3] && added[3] === 1 && onMargin[4] && added[4] === 0 && !onMargin[5] && !onMargin[7] && onMargin[8] && added[8] === 1, said)
+  check('dragged into line with the note\'s left edge: one tap coming onto it, none while it stays in line, one more coming back', onMargin[3] && added[3] === 1 && onMargin[4] && added[4] === 0 && !onMargin[5] && !onMargin[7] && onMargin[8] && added[8] === 1, said)
   check('every tap on the way comes with the line it came onto, on that same step, and none without one', steps.every((_, n) => added[n] === (newlyLit[n].length ? 1 : 0)), said)
   check('no errors on the page', !c.errors.length, c.errors.join(' | '))
 } finally {

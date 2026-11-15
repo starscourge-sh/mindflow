@@ -107,12 +107,16 @@ try {
   const frame = async (win) => {
     const now = await read()
     const strokes = await look()
-    const pics = shots ? await electron.evaluate(async ({ BrowserWindow }, id) => {
+    const pics = shots ? await electron.evaluate(async ({ BrowserWindow }, [id, box]) => {
       const sheet = globalThis.haligtreeGuideSheets().find((one) => one.isVisible())
       const card = BrowserWindow.fromId(id)
       const [a, b] = await Promise.all([sheet ? sheet.webContents.capturePage() : null, card.webContents.capturePage()])
-      return { sheet: a && !a.isEmpty() ? a.toDataURL() : null, sheetAt: sheet?.getBounds() ?? null, card: b.toDataURL(), at: card.getBounds() }
-    }, win) : null
+      // The box's window keeps clear room round its card (main's overhang), and its place is its card's: its picture,
+      // the whole window, is laid where the window is, the room round the card.
+      const at = card.getBounds()
+      const room = id === box && process.env.HALIGTREE_BOX_ROOM ? JSON.parse(process.env.HALIGTREE_BOX_ROOM) : null
+      return { sheet: a && !a.isEmpty() ? a.toDataURL() : null, sheetAt: sheet?.getBounds() ?? null, card: b.toDataURL(), at: room ? { x: at.x - room.left, y: at.y - room.top, width: at.width + room.left + room.right, height: at.height + room.top + room.bottom } : at }
+    }, [win, boxId]) : null
     return { now, strokes, pics }
   }
 
@@ -199,14 +203,15 @@ try {
     globalThis.qaCursor = { x: from.x + 80, y: from.y + 30 }
     globalThis.qaButton = true
     w.emit('will-move', { preventDefault() {} }, { ...from })
+    // Read after the hand's watch has seen each step (hand.ts looks every 30 ms).
     const out = []
     for (let i = 1; i <= 12; i++) {
-      await new Promise((r) => setTimeout(r, 16))
       const x = Math.round(from.x + ((to.x - from.x) * i) / 12), y = Math.round(from.y + ((to.y - from.y) * i) / 12)
       w.setPosition(x, y)
       globalThis.qaCursor = { x: x + 80, y: y + 30 }
       w.emit('move')
       w.emit('moved')
+      await new Promise((r) => setTimeout(r, 40))
       out.push(JSON.stringify(globalThis.haligtreeGuides.lines))
     }
     await new Promise((r) => setTimeout(r, 120))
@@ -257,6 +262,32 @@ try {
     await wait(900)
   }
 
+  // ---- Settings' place for the box is its home: “the middle” opens it there, marks it with its guides and is where
+  // ⌃⌘C puts it; “the top middle” the same at the top middle.
+  for (const [boxPlace, label] of [['centre', 'the middle'], ['top', 'the top middle']]) {
+    await v('settings:set', { boxPlace, boxScreen: 'same' })
+    await page.evaluate(() => window.api.hidePrompt())
+    await wait(500)
+    await page.evaluate(() => window.api.showPrompt())
+    await wait(1200)
+    const opened = (await read()).box
+    const at = { x: Math.round(work.x + (work.width - opened.width) / 2), y: Math.round(work.y + (boxPlace === 'centre' ? (work.height - 600) / 2 : Math.max(0, work.height - 600) / 4)) }
+    check(`box, Settings at ${label}: summoned, it opens there`, opened.x === at.x && opened.y === at.y, JSON.stringify({ opened, at }))
+    await place(boxId, work.x + 140, work.y + 120)
+    await wait(200)
+    const { frames } = await boxCarry([[3, 0]])
+    check(`box, Settings at ${label}: its three guides mark that place`, key(frames[0].now.guides.lines) === key([{ axis: 'x', at: at.x }, { axis: 'x', at: at.x + opened.width }, { axis: 'y', at: at.y }]), JSON.stringify(frames[0].now.guides.lines))
+    if (boxPlace === 'centre') {
+      await page.evaluate(() => window.api.centreBox())
+      await wait(800)
+      const centred = (await read()).box
+      check('box: ⌃⌘C puts it at that same middle', centred.x === at.x && centred.y === at.y, JSON.stringify({ centred, at }))
+    }
+  }
+  await v('settings:set', { boxPlace: 'last' })
+  await place(boxId, work.x + 140, work.y + 120)
+  await wait(200)
+
   // ---- Each look: the same two greys, standing out on a white desktop, a black one and the worst there is (the grey
   // where the two stand out least: the square root of their contrast with each other).
   const greys = {}
@@ -298,30 +329,43 @@ try {
   await c.look('light')
 
   // ---- Filmed, with QA_SHOTS: each carry laid over a white desktop and a dark one, a frame each 50 ms.
+  // Beside each, its last frame at full size round where its first two lines cross: what an eye sees of the dashes.
   if (shots) for (const { name, frames } of film) for (const [ground, colour] of [['white', '#ffffff'], ['dark', '#1c1c1e']]) {
-    const png = await h.evaluate(async ([pics, colour, work]) => {
+    const lines = frames.at(-1).now.guides.lines
+    const cross = { x: lines.find((l) => l.axis === 'x')?.at ?? work.x + 240, y: lines.find((l) => l.axis === 'y')?.at ?? work.y + 135 }
+    const pngs = await h.evaluate(async ([pics, colour, work, cross]) => {
       const load = (url) => (url ? new Promise((done) => { const one = new Image(); one.onload = () => done(one); one.onerror = () => done(null); one.src = url }) : null)
+      const out = async (canvas) => { const blob = await canvas.convertToBlob({ type: 'image/png' }); return new Promise((done) => { const r = new FileReader(); r.onload = () => done(String(r.result).split(',')[1]); r.readAsDataURL(blob) }) }
       const scale = 1 / 3, cols = 4
       const fw = Math.round(work.width * scale), fh = Math.round(work.height * scale)
       const sheet = new OffscreenCanvas(fw * cols, fh * Math.ceil(pics.length / cols))
       const pen = sheet.getContext('2d')
+      const near = new OffscreenCanvas(480, 270)
+      const eye = near.getContext('2d')
       for (const [n, f] of pics.entries()) {
         const x0 = (n % cols) * fw, y0 = Math.floor(n / cols) * fh
         pen.fillStyle = colour
         pen.fillRect(x0, y0, fw, fh)
         const card = await load(f.card)
-        const lines = await load(f.sheet)
+        const drawn = await load(f.sheet)
         if (card) pen.drawImage(card, x0 + (f.at.x - work.x) * scale, y0 + (f.at.y - work.y) * scale, f.at.width * scale, f.at.height * scale)
-        if (lines && f.sheetAt) pen.drawImage(lines, x0 + (f.sheetAt.x - work.x) * scale, y0 + (f.sheetAt.y - work.y) * scale, f.sheetAt.width * scale, f.sheetAt.height * scale)
+        if (drawn && f.sheetAt) pen.drawImage(drawn, x0 + (f.sheetAt.x - work.x) * scale, y0 + (f.sheetAt.y - work.y) * scale, f.sheetAt.width * scale, f.sheetAt.height * scale)
         pen.fillStyle = '#888'
         pen.fillText(`${n * 50} ms`, x0 + 6, y0 + 14)
+        if (n === pics.length - 1) {
+          const ox = cross.x - 240, oy = cross.y - 135
+          eye.fillStyle = colour
+          eye.fillRect(0, 0, 480, 270)
+          if (card) eye.drawImage(card, f.at.x - ox, f.at.y - oy, f.at.width, f.at.height)
+          if (drawn && f.sheetAt) eye.drawImage(drawn, f.sheetAt.x - ox, f.sheetAt.y - oy, f.sheetAt.width, f.sheetAt.height)
+        }
       }
-      const blob = await sheet.convertToBlob({ type: 'image/png' })
-      return new Promise((done) => { const r = new FileReader(); r.onload = () => done(String(r.result).split(',')[1]); r.readAsDataURL(blob) })
-    }, [frames.map((f) => f.pics).filter(Boolean), colour, work])
-    const file = join(shots, `snap-guides-${name}-over-${ground}.png`)
-    writeFileSync(file, Buffer.from(png, 'base64'))
-    console.log(`picture: ${file}`)
+      return [await out(sheet), await out(near)]
+    }, [frames.map((f) => f.pics).filter(Boolean), colour, work, cross])
+    for (const [file, png] of [[`snap-guides-${name}-over-${ground}.png`, pngs[0]], [`snap-guides-${name}-close-over-${ground}.png`, pngs[1]]]) {
+      writeFileSync(join(shots, file), Buffer.from(png, 'base64'))
+      console.log(`picture: ${join(shots, file)}`)
+    }
   }
 
   const end = await read()

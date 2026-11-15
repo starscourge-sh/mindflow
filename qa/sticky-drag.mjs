@@ -1,6 +1,6 @@
 // A sticky dragged by hand follows the pointer exactly: no jumps back, no
 // shaking toward an edge, no change of size, held the whole way, and it only
-// settles (lines up with an edge, the paper tap) once it is let go.
+// settles (the paper tap, in line with a card beside it if near one) once it is let go.
 //
 // On a Mac, Electron sends 'moved' at every step of a drag, as 'move'. This
 // drives a drag the way the Mac does (will-move, then move + moved each frame)
