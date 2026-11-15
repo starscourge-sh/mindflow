@@ -2528,8 +2528,8 @@ let floated = false
  * the window back in the middle with where it stood kept again.
  */
 let welcomeTurn = 0
-/** A grow under way: where the window stood before the welcome, and the wait on its resize, ended by a placing too. */
-let growing: { was: ReturnType<typeof windowBeforeWelcome>; settle?: () => void } | null = null
+/** A grow under way: where the window stood before the welcome. */
+let growing: { was: ReturnType<typeof windowBeforeWelcome> } | null = null
 /** What the arrival probes read: the scene's place and clock, and each step as it came (ms of this run). */
 const sceneSteps: { what: string; at: number }[] = []
 const step = (what: string): void => void sceneSteps.push({ what, at: Math.round(performance.now()) })
@@ -2621,7 +2621,6 @@ async function placeForWelcome(rect?: Electron.Rectangle, plain = false): Promis
   const turn = ++welcomeTurn
   if (growing) {
     // Growing back from a welcome just left: stopped where it is, and placed again, where it stood kept as before.
-    growing.settle?.()
     if (growing.was) keepWindowBeforeWelcome(growing.was)
     growing = null
     welcomePlaced = false
@@ -2669,11 +2668,11 @@ function endScene(): void {
  * The welcome over: its window takes the app's own size (where it stood before the welcome; a first run's, where it
  * was last left or the whole usable screen) in one move, is given back to AeroSpace's tiling, and the page is told, to
  * bring the app up in it (welcome.tsx). The page under it is the welcome's plain ground while it grows (the app is not
- * laid out yet), so the move shows nothing being drawn again. Never stepped from here: a resize every frame from a
- * timer stuttered and redrew the window's edges and shadow each time, and under AeroSpace ended in a second jump into
- * its tile (the user, 15 Nov 2026: "expansion from welcome to main app looks wack and laggy, i shouldnt be able to see
- * it glitchily expand"). Under AeroSpace the tiling places it, at once; otherwise the Mac's own animated resize, over
- * when the window says so ('resized').
+ * laid out yet), so the move shows nothing being drawn again. One move, at once: a resize every frame from a timer
+ * stuttered and redrew the window's edges and shadow each time, and under AeroSpace ended in a second jump into its
+ * tile (the user, 15 Nov 2026: "expansion from welcome to main app looks wack and laggy, i shouldnt be able to see it
+ * glitchily expand"); the Mac's own animated resize says it has ended ('resized') only for a window it animates on
+ * screen, so a window off it waited 3 s for an end that never came. Under AeroSpace the tiling places it.
  */
 async function growAfterWelcome(): Promise<void> {
   endScene()
@@ -2694,21 +2693,7 @@ async function growAfterWelcome(): Promise<void> {
   }
   // Where it stood before the welcome; a first run's, the app's own place. Not where tiling has put it already.
   const to = was && !was.maximized ? was.bounds : homePlace()
-  if (!win.isDestroyed() && turn === welcomeTurn && sameBox(win.getBounds(), from) && !sameBox(from, to)) {
-    const animate = process.platform === 'darwin' && (from.width !== to.width || from.height !== to.height)
-    // Over once it stands there, or once the Mac says its resize has ended (short of it, kept on its screen).
-    await new Promise<void>((done) => {
-      const end = (): void => void (win.removeListener('resize', there), win.removeListener('resized', end), done())
-      const there = (): void => void (sameBox(win.getBounds(), to) && end())
-      if (growing) growing.settle = end
-      win.on('resize', there)
-      win.on('resized', end)
-      win.setBounds(to, animate)
-      // Not animated, it stands wherever it was let stand (a screen too small keeps it short of `to`): over now.
-      if (animate) there()
-      else end()
-    })
-  }
+  if (!win.isDestroyed() && turn === welcomeTurn && sameBox(win.getBounds(), from)) win.setBounds(to)
   // A placing took the window over meanwhile (the welcome back at once): it keeps it.
   if (win.isDestroyed() || turn !== welcomeTurn) return
   growing = null
