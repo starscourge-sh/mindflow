@@ -1,10 +1,12 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeImage, shell, systemPreferences } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell, systemPreferences } from 'electron'
 import { LABEL, bookStamp, changed, database, whenAnyChanged } from './captures'
 import { dayName } from './dates'
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { constants, createReadStream, existsSync, readFileSync, statSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
-import { basename, join } from 'node:path'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+import { basename, extname, join } from 'node:path'
 import type { DatabaseSync } from 'node:sqlite'
 import { assetsDir, lookAhead } from './pictures'
 import { wordsOfPicture } from './picture-words'
@@ -590,6 +592,27 @@ async function headOf(path: string): Promise<Uint8Array> {
   }
 }
 
+/**
+ * A HEIC or TIFF as a PNG, made by the Mac's own `sips` in a process of its own (the way scenery.ts turns a WebP): the
+ * PNG's path, to be removed once stored, or null when the Mac cannot read it. Decoded and encoded on main's thread
+ * instead, a 24-megapixel photo held every window for seconds.
+ */
+async function turnedCopy(path: string, bytes: Uint8Array | null, name: string): Promise<string | null> {
+  if (process.platform !== 'darwin') return null
+  const out = join(app.getPath('temp'), `haligtree-turned-${randomUUID()}`)
+  const given = path || `${out}${extname(name)}`
+  try {
+    if (!path) await writeFile(given, bytes!)
+    await promisify(execFile)('sips', ['-s', 'format', 'png', given, '--out', `${out}.png`], { timeout: 60_000 })
+    return (await stat(`${out}.png`)).size ? `${out}.png` : null
+  } catch {
+    await rm(`${out}.png`, { force: true })
+    return null
+  } finally {
+    if (!path) await rm(given, { force: true })
+  }
+}
+
 export type MediaItem = { path?: unknown; name?: unknown; bytes?: unknown; why?: unknown }
 
 /**
@@ -611,32 +634,35 @@ export async function addMedia(items: MediaItem[]): Promise<AddResult> {
     const path = typeof item?.path === 'string' && item.path ? item.path : ''
     const name = typeof item?.name === 'string' && item.name ? item.name : path ? basename(path) : 'That file'
     const refuse = (why: string): void => void out.refused.push({ name, why })
+    let turned: string | null = null
     try {
       if (typeof item?.why === 'string') { refuse(item.why); continue }
-      const size0 = path ? await stat(path) : null
+      let size0 = path ? await stat(path) : null
       if (size0?.isDirectory()) { refuse('a folder, so pick the files in it'); continue }
       let bytes = !path && item?.bytes instanceof Uint8Array ? item.bytes : null
       if (!path && !bytes) { refuse('it could not be read. Drag it in from Finder instead'); continue }
-      // HEIC and TIFF come from the Mac's own apps and no window can draw them: the Mac turns them into a PNG once.
+      // HEIC and TIFF come from the Mac's own apps and no window can draw them: the Mac turns them into a PNG once, in
+      // a program of its own (`sips`), as scenery.ts turns a WebP, never on this thread, which answers every window.
       // One the Mac cannot read either is kept as it came, as a plain file.
-      const turned = TURNED.test(name) ? (path ? nativeImage.createFromPath(path) : nativeImage.createFromBuffer(Buffer.from(bytes!))) : null
-      if (turned && !turned.isEmpty()) bytes = turned.toPNG()
+      turned = TURNED.test(name) ? await turnedCopy(path, bytes, name) : null
+      const from = turned ?? path
+      if (turned) [bytes, size0] = [null, await stat(turned)]
       if ((bytes ? bytes.byteLength : size0!.size) === 0) { refuse('empty'); continue }
-      const looked = sniff(bytes ? bytes.subarray(0, 1024) : await headOf(path), turned && !turned.isEmpty() ? 'turned.png' : name)
-      const hash = bytes ? createHash('sha256').update(bytes).digest('hex') : await hashFile(path)
+      const looked = sniff(bytes ? bytes.subarray(0, 1024) : await headOf(from), turned ? 'turned.png' : name)
+      const hash = bytes ? createHash('sha256').update(bytes).digest('hex') : await hashFile(from)
       const file = `${hash}.${looked.end}`
-      const src = `haligtree://assets/${file}`
       const destination = join(store, file)
       // Beside it and renamed in, so a half-written file is never read. Already whole in the store: left alone.
       if (!existsSync(destination)) {
         const temporary = `${destination}.${randomUUID()}.tmp`
-        await (bytes ? writeFile(temporary, bytes) : copyFile(path, temporary, constants.COPYFILE_FICLONE)).catch(async (error) => {
+        await (bytes ? writeFile(temporary, bytes) : copyFile(from, temporary, constants.COPYFILE_FICLONE)).catch(async (error) => {
           await rm(temporary, { force: true })
           throw error
         })
         await rename(temporary, destination)
       }
       if (looked.kind === 'picture' || looked.kind === 'gif') lookAhead(file)
+      const src = `haligtree://assets/${file}`
       const size = bytes ? bytes.byteLength : size0!.size
       const taken: Taken = { src, name, size, kind: looked.kind }
       const was = binned.get(hash)
@@ -654,6 +680,8 @@ export async function addMedia(items: MediaItem[]): Promise<AddResult> {
       db.prepare("update media_how set how = 'library' where src like ?").run(`%/${hash}.%`)
     } catch (error) {
       refuse(error instanceof Error && 'code' in error && error.code === 'ENOENT' ? 'gone from where it was' : 'it could not be read')
+    } finally {
+      if (turned) await rm(turned, { force: true })
     }
   }
   if (out.added.length || out.revived.length) changed()
