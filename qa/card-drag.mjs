@@ -66,7 +66,8 @@ try {
       // Over the note, at the foot of its last line (a new place for every block here), as the system drag would pass.
       const target = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'Last line.')
       const below = target.getBoundingClientRect()
-      const over = { bubbles: true, cancelable: true, dataTransfer: data, clientX: below.left + 20, clientY: below.bottom - 4 }
+      // Well inside the line's words: its first 20px would put it beside the line, as a row of two (lib/block-carry.tsx NEAR_LEFT).
+      const over = { bubbles: true, cancelable: true, dataTransfer: data, clientX: below.left + 80, clientY: below.bottom - 4 }
       target.dispatchEvent(new DragEvent('dragenter', over))
       const allowed = !target.dispatchEvent(new DragEvent('dragover', over))
       const line = !!document.querySelector('.prosemirror-dropcursor-block, .prosemirror-dropcursor-inline')
@@ -120,7 +121,7 @@ try {
     picture.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer: data, clientX: from.left + 20, clientY: from.top + from.height / 2 }))
     const first = [...document.querySelectorAll('[data-open] .tiptap p')].find((one) => one.textContent === 'First line.')
     const box = first.getBoundingClientRect()
-    window.landing = { bubbles: true, cancelable: true, dataTransfer: data, clientX: box.left + 20, clientY: box.top + box.height * 0.85 }
+    window.landing = { bubbles: true, cancelable: true, dataTransfer: data, clientX: box.left + 80, clientY: box.top + box.height * 0.85 }
     first.dispatchEvent(new DragEvent('dragover', window.landing))
   })
   await wait(350)
