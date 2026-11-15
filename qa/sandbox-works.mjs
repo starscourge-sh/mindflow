@@ -206,6 +206,28 @@ try {
     }
   }
 
+  // At the window's smallest, 560 by 400: the longest work's name and a short one, light and dark.
+  if (shots) {
+    await size(560, 400)
+    const longest = [...listed].sort((a, b) => b.length - a.length)[0]
+    for (const name of [longest, 'Hamlet, Act 1, Scene 3']) {
+      await h.evaluate((name) => window.dispatchEvent(new CustomEvent('haligtree:source', { detail: `medium:${name}` })), name)
+      await wait(900)
+      const file = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-$/, '').slice(0, 40)
+      for (const name of ['light', 'dark']) { await look(name); await wait(250); await h.screenshot({ path: `${shots}/small-${file}-${name}.png` }) }
+      await look('light')
+    }
+    // Any box around the page that scrolls sideways, the window's own included.
+    const sideways = await h.evaluate(() => {
+      const wide = (one) => one.scrollWidth > one.clientWidth + 1 && /auto|scroll/.test(getComputedStyle(one).overflowX)
+      for (let box = document.querySelector('[data-source-page="medium"]'); box; box = box.parentElement) if (wide(box)) return `${box.className.slice(0, 40)}: ${box.scrollWidth} > ${box.clientWidth}`
+      const root = document.scrollingElement
+      return root && root.scrollWidth > root.clientWidth + 1 ? `the window: ${root.scrollWidth} > ${root.clientWidth}` : ''
+    })
+    check('at 560 by 400 a work\'s page has no sideways scroll', !sideways, sideways || 'none')
+    await size(1440, 900)
+  }
+
   // Your own source: nothing is asked when its note is made, and its page asks once when it is first opened.
   const ownBefore = asks.length
   await h.evaluate(() => window.api.captures.create({ kind: 'quote', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A line from a book of my own.' }] }] }, attribution: 'Somebody', medium: 'A Book of My Own' }))
