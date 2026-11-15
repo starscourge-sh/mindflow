@@ -119,7 +119,7 @@ export function Stack({ cards, colors, ink }: { cards: { title: string; note: st
             style={{ background: colors[index % colors.length], color: ink, zIndex: 10 - depth }}
             animate={{ scale: 1 - depth * 0.05, y: depth * -12, rotate: depth === 0 ? 0 : (index % 2 ? 4 : -4) * depth }}
             transition={{ type: 'spring', stiffness: 300, damping: 24 }}>
-            <span className="text-[13px] font-semibold opacity-80 tabular-nums">#{index + 1}</span>
+            <span className="text-[13px] font-semibold tabular-nums">#{index + 1}</span>
             <span className="leading-[1.02] font-black break-words line-clamp-3" style={{ fontSize: cards[index].title.length > 18 ? 18 : cards[index].title.length > 10 ? 22 : 30 }}>{cards[index].title}</span>
             <span className="text-[13px] font-semibold">{cards[index].note}</span>
           </motion.div>
@@ -163,7 +163,7 @@ export function Bands({ n, colors, ink }: { n: number; colors: string[]; ink: st
   return (
     <div className="flex flex-col" data-wrap-bands>
       {colors.map((color, i) => (
-        <motion.div key={i} className="overflow-hidden px-3 text-[clamp(32px,15cqi,64px)] leading-[0.95] font-black tracking-tight tabular-nums" style={{ background: color, color: ink }}
+        <motion.div key={i} className="overflow-hidden px-3 text-[clamp(24px,6.5cqi,60px)] leading-[0.95] font-black tracking-tight tabular-nums" style={{ background: color, color: ink }}
           initial={still() ? false : { clipPath: 'inset(0 100% 0 0)' }} animate={{ clipPath: 'inset(0 0% 0 0)' }} transition={{ delay: 0.15 + i * 0.07, duration: 0.32, ease: EASE }}>
           {num(n)}
         </motion.div>
@@ -175,9 +175,9 @@ export function Bands({ n, colors, ink }: { n: number; colors: string[]; ink: st
 /** A word tiled across the card as a pattern. */
 export function Tiled({ word, color, rows = 9 }: { word: string; color: string; rows?: number }): React.JSX.Element {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-25" aria-hidden>
+    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
       {Array.from({ length: rows }, (_, i) => (
-        <motion.div key={i} className="text-[44px] leading-[0.9] font-black whitespace-nowrap uppercase" style={{ color, marginLeft: i % 2 ? -40 : 0 }}
+        <motion.div key={i} className="text-[44px] leading-[0.9] font-black whitespace-nowrap uppercase" style={{ color: `color-mix(in srgb, ${color} 30%, var(--wrap-bg))`, marginLeft: i % 2 ? -40 : 0 }}
           initial={still() ? false : { x: i % 2 ? 40 : -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.03, duration: 0.3, ease: EASE }}>
           {Array.from({ length: 8 }, () => word).join(' ')}
         </motion.div>
