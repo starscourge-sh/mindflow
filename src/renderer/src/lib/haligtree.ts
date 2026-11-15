@@ -804,8 +804,11 @@ export function useLive<T>(read: () => Promise<T>, initial: T, deps: unknown[] =
       const t0 = performance.now()
       const asking = readOnce(by, key, read)
       void asking.then(() => void (took = performance.now() - t0), () => undefined)
+      // One that fails before anything was read is said (ui.tsx hears it), with a way to ask again: a page never
+      // waits on it in silence. A later one keeps what was read before on screen.
+      void asking.catch((error) => !gone && mine === asked && last === undefined && window.dispatchEvent(new CustomEvent('mf-read-failed', { detail: { error, again: () => load() } })))
       if (changed && took < SLOW_READ) together(asking, take)
-      else void asking.then(take)
+      else void asking.then(take, () => undefined)
     }
     // Started on what it last said, it reads afresh once the page is drawn: asked at once, the
     // reads of everything a page holds (Today's every task, every tag) went ahead of what the page

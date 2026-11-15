@@ -1121,15 +1121,23 @@ export const refuseMic = (denied: boolean): void => {
 /**
  * Why a save failed, in plain words, from the error the main process sent
  * back: the database's own wording means nothing to someone writing a note,
- * so the common ones say what to do instead.
+ * so the common ones say what to do instead. `button`: a "Try again" button
+ * stands beside the words, so they do not say it too.
  */
-export const whyFailed = (error: unknown): string => {
+export const whyFailed = (error: unknown, button = false): string => {
   const raw = String((error as Error | undefined)?.message ?? error ?? '').replace(/^Error invoking remote method[^:]*:\s*(?:\w*Error:\s*)?/, '').split('\n')[0].trim()
   if (/full|SQLITE_FULL|ENOSPC/i.test(raw)) return 'your disk is full. Free up some space, then try again'
-  if (/locked|busy/i.test(raw)) return 'your notes were busy for a moment. Try again'
+  if (/locked|busy/i.test(raw)) return `your notes were busy for a moment${button ? '' : '. Try again'}`
   if (/readonly|read-only|EACCES|EPERM/i.test(raw)) return `${APP_NAME} is not allowed to write to its folder. Check its permissions in Finder, then try again`
-  return `${raw || 'something went wrong'}. Try again, and restart ${APP_NAME} if it keeps happening`
+  return `${raw || 'something went wrong'}. ${button ? 'If it keeps happening, restart' : 'Try again, and restart'} ${APP_NAME}${button ? '' : ' if it keeps happening'}`
 }
+
+// A page's read that failed (lib/haligtree.ts `useLive`): said, with a way to ask again, never a page left waiting in
+// silence (the user, 15 Nov 2026: "why is this hanging?").
+window.addEventListener('mf-read-failed', (event) => {
+  const { error, again } = (event as CustomEvent<{ error: unknown; again: () => void }>).detail
+  toast(`This page could not be read: ${whyFailed(error, true)}`, undefined, 'warning', { label: 'Try again', key: 'T', run: again })
+})
 
 /** How a question is asked: the field it needs, a guess, its ways out, the word on its button, and what opened it. */
 export type AskOptions = {

@@ -16,7 +16,8 @@ import { rowBody } from '@/lib/row-body'
 import { taggedBlocks } from '@/lib/tagged-blocks'
 import { quoted } from '../../../../main/clip'
 import { chime } from '@/lib/sound'
-import { Empty, ask, pin, refuse, sayNow, toast, typing, useListKeys, useReadKey } from './ui'
+import { Empty, ask, pin, refuse, sayNow, toast, typing, useListKeys, useReadKey, whyFailed } from './ui'
+import { Button } from '@/components/ui/button'
 import { RowMenu, copy, type MenuItem, type RowItem } from './row-menu'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DOT_IN_LINE, SessionDot, TaskSpentWords, useTaskTime } from './task-time'
@@ -120,8 +121,9 @@ export const prefetchTag = (tag: string): void => void (kept.has(tag) || readTag
  * changed is dropped: so a slow answer for the tag before can never be shown
  * under the next tag's name, whatever order the answers arrive in.
  */
-export function useLiveFor<T>(key: string, read: () => Promise<T>, first: () => T | null = () => null): T | null {
-  const [got, setGot] = useState<{ key: string; value: T | null }>(() => ({ key, value: first() }))
+export function useLiveFor<T>(key: string, read: () => Promise<T>, first: () => T | null = () => null): { value: T | null; failed: string | null; again: () => void } {
+  const [got, setGot] = useState<{ key: string; value: T | null; failed?: string }>(() => ({ key, value: first() }))
+  const [tries, setTries] = useState(0)
   useEffect(() => {
     let live = true
     let last: string | undefined
@@ -134,9 +136,13 @@ export function useLiveFor<T>(key: string, read: () => Promise<T>, first: () => 
     }
     // Only the newest read's answer counts, so an older one arriving late never wins.
     let asked = 0
+    // A read that fails says why where the notes would be, never a wait without end; what was shown stays shown.
+    const fail = (error: unknown): void => {
+      if (live) setGot((was) => (was.key === key && was.value ? was : { key, value: null, failed: whyFailed(error, true) }))
+    }
     const load = (): void => {
       const mine = ++asked
-      void read().then((value) => mine === asked && take(value))
+      void read().then((value) => mine === asked && take(value), (error) => mine === asked && fail(error))
     }
     load()
     const off = window.api.captures.onChange(load)
@@ -144,8 +150,9 @@ export function useLiveFor<T>(key: string, read: () => Promise<T>, first: () => 
       live = false
       off()
     }
-  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
-  return got.key === key ? got.value : first()
+  }, [key, tries]) // eslint-disable-line react-hooks/exhaustive-deps
+  const mine = got.key === key
+  return { value: mine ? got.value : first(), failed: mine ? got.failed ?? null : null, again: () => setTries((n) => n + 1) }
 }
 
 /** All the words in a note, for the filter to look through. */
@@ -184,7 +191,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
 }): React.JSX.Element {
   // Shown at once from what was read before (a tag gone back to, or pointed
   // at in the sidebar), then read again; never another tag's notes.
-  const items = useLiveFor(tag, () => readTag(tag), () => kept.get(tag) ?? null)
+  const { value: items, failed, again } = useLiveFor(tag, () => readTag(tag), () => kept.get(tag) ?? null)
   const tags = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
   const pins = useLive(haligtree.pins, [] as Pinned[])
   // A task tagged here gets the menu it has on Today: a focus session, done, when.
@@ -309,7 +316,9 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   const chosenIds = ordered.filter((one) => several.picked(one)).map((one) => one.id)
 
   // Its page waits for its notes (lib/reads-in.tsx), and the list of tags beside it with it: one step, not the list and then the tag.
-  useReading(!items)
+  useReading(!items && !failed)
+  if (!items && failed)
+    return <Empty title={`#${tag} could not be read`} action={<Button size="sm" data-read-again onClick={() => (chime('tap'), again())}>Try again</Button>}>{failed.charAt(0).toUpperCase() + failed.slice(1)}.</Empty>
   if (!items) return <Waiting tag={tag} color={color ?? null} />
   if (!items.length)
     return <Empty title={`Nothing carries #${tag} now`}>Whatever had it was moved to the Bin or archived, or the tag was taken off. Write it into anything and it reads here.</Empty>

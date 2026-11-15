@@ -106,7 +106,7 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
   useOpened(chosen ?? undefined, focus, setChosen, () => setChosen(null))
   useStepped(tab, setTab)
   // The open tag's notes, for Manage; never the tag before's while the next is read.
-  const loaded = useLiveFor(chosen ?? '', () => (chosen ? haligtree.tag(chosen) : Promise.resolve([])))
+  const loaded = useLiveFor(chosen ?? '', () => (chosen ? haligtree.tag(chosen) : Promise.resolve([]))).value
   const items = loaded ?? []
   // Manage's rows answer as every list does: the row's own menu, ⇧-click, x, ⌘A, ⌫ to the Bin, Esc.
   const allTasks = useLive(haligtree.tasks, [] as Task[])

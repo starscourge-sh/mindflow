@@ -91,11 +91,18 @@ export function bookTags(db: DatabaseSync) {
   const readOf = new Map<string, { body: string; parsed: unknown }>()
   const read = (stamp: number, tag: string) => {
     const tagsBy = new Map<string, string[]>()
-    for (const one of tagged(stamp)) tagsBy.set(`${one.type}:${one.id}`, [...(tagsBy.get(`${one.type}:${one.id}`) ?? []), one.tag])
+    // Only what carries it is read from the book: the whole book's words read again on every open took 100 to 300 ms
+    // to give back 90 notes on the user's book (15 Nov 2026, "why is this hanging?").
+    const ids = { capture: [] as string[], gem: [] as string[], task: [] as string[] }
+    for (const one of tagged(stamp)) {
+      tagsBy.set(`${one.type}:${one.id}`, [...(tagsBy.get(`${one.type}:${one.id}`) ?? []), one.tag])
+      if (one.tag === tag) ids[one.type === 'capture' || one.type === 'task' ? one.type : 'gem'].push(one.id)
+    }
+    const among = 'and id in (select value from json_each(?)) order by rowid'
     const rows = [
-      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed, ${KEPT_IN} as keptIn, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES}`).all(),
-      ...db.prepare("select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck')").all(),
-      ...db.prepare("select id, 'task' as type, 'task' as kind, status, title, title as label, notes as body, 0 as private, created_at as at, coalesce(completed_at, created_at) as changed, status = 'done' as later from tasks where status != 'dropped'").all()
+      ...db.prepare(`select id, 'capture' as type, kind, status, '' as title, ${LABEL} as label, body, private, captured_at as at, coalesce(edited_at, captured_at) as changed, ${KEPT_IN} as keptIn, (${CAPTURE_LATER}) as later from captures where ${TAG_CAPTURES} ${among}`).all(JSON.stringify(ids.capture)),
+      ...db.prepare(`select id, tier as type, kind, 'open' as status, title, label('', body) as label, body, private, created_at as at, coalesce(updated_at, created_at) as changed, 0 as later, capture_id as fromNote from nuggets where archived_at is null and superseded_by is null and tier not in ('card', 'deck') ${among}`).all(JSON.stringify(ids.gem)),
+      ...db.prepare(`select id, 'task' as type, 'task' as kind, status, title, title as label, notes as body, 0 as private, created_at as at, coalesce(completed_at, created_at) as changed, status = 'done' as later from tasks where status != 'dropped' ${among}`).all(JSON.stringify(ids.task))
     ] as Record<string, string>[]
     return rows.flatMap((row) => {
       const key = `${row.type}:${row.id}`
