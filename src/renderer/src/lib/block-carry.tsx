@@ -514,12 +514,12 @@ function move(event: PointerEvent): void {
  * room with its line, a tick a place, its own place the band, and let go there it moves, one step for ⌘Z. Out of the
  * window everything is at home again, the block back in sight; brought back in, the room opens again.
  */
-let away: { view: EditorView; pos: number; heard: boolean; landed: boolean } | null = null
+let away: { view: EditorView; pos: number; heard: boolean; landed: boolean; x: number; y: number } | null = null
 const AWAY = ['dragover', 'drop', 'dragleave', 'dragend', 'pointerdown', 'pointermove'] as const
 const IN_NOTE = ['dragenter', 'dragover', 'drop'] as const
 export function carryAway(view: EditorView, pos: number): void {
   forget()
-  away = { view, pos, heard: false, landed: false }
+  away = { view, pos, heard: false, landed: false, x: NaN, y: NaN }
   for (const kind of AWAY) window.addEventListener(kind, heardAway, true)
   for (const kind of IN_NOTE) view.dom.addEventListener(kind, inNote, true)
 }
@@ -550,9 +550,13 @@ function heardAway(event: Event): void {
   if (!held?.away) return
   // A field of its own beside the note (quick capture's “Who said it”) takes its own drops: not the note's to take there.
   const field = drag.target instanceof Element && !now.view.dom.contains(drag.target) && !!drag.target.closest('input, textarea, [contenteditable="true"]')
+  // The browser says dragover again and again while the pointer rests: a rest at the note's edge is the note scrolling
+  // under it, a new place the scroll brings (as the grip's carry hears it from the scroll itself).
+  const still = drag.clientX === now.x && drag.clientY === now.y
+  ;[now.x, now.y] = [drag.clientX, drag.clientY]
   held.x = field ? -1e4 : drag.clientX
   held.y = field ? -1e4 : drag.clientY
-  if (drag.type === 'dragover') point(held)
+  if (drag.type === 'dragover') point(held, still)
   // Off its note, or beside a full row: not the note's to take, as for the grip; let go there, it is all home.
   const aim = held.aim
   const takes = !!aim && !(aim.kind === 'beside' && aim.refused)
