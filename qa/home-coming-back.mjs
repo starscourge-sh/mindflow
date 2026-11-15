@@ -11,12 +11,13 @@ import { sandbox } from './sandbox-lib.mjs'
 
 const SHOTS = process.env.SHOTS
 if (SHOTS) mkdirSync(`${SHOTS}/frames`, { recursive: true })
-process.env.QA_ARGS ??= '--sandbox'
+const EMPTY = !!process.env.EMPTY
+if (!EMPTY) process.env.QA_ARGS ??= '--sandbox'
 process.env.QA_DATA ??= mkdtempSync(join(tmpdir(), 'haligtree-coming-'))
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 
-const c = await sandbox({ width: 1280, height: 900 })
+const c = await sandbox({ width: 1280, height: 900, seeded: !EMPTY })
 const { h, v } = c
 try {
   await v('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false })
@@ -28,6 +29,11 @@ try {
   await c.go('home')
   await h.waitForTimeout(1500)
   const feature = h.locator('[data-coming-feature]')
+  if (EMPTY) {
+    check('an empty book shows no Coming back and no errors', (await feature.count()) === 0 && c.errors.length === 0, c.errors.join(' | '))
+    if (SHOTS) await h.screenshot({ path: `${SHOTS}/empty.png` })
+    throw 'done'
+  }
   check('Coming back has its feature card', (await feature.count()) === 1)
   const toRow = () => h.evaluate(() => document.querySelector('[data-coming-feature]')?.closest('section')?.scrollIntoView({ block: 'center' }))
   await toRow()
@@ -67,12 +73,14 @@ try {
   const lead = (await v('home')).due[0] ?? (await v('home')).unseen[0]
   if (lead) {
     const long = 'A very long title that keeps going '.repeat(6).slice(0, 200)
-    await h.evaluate(([id, title, type]) => type === 'capture' ? window.api.captures.update?.(id, { label: title }) : window.api.haligtree('nugget:update', id, { title }), [lead.id, long, lead.type]).catch(() => {})
+    await h.evaluate(([id, title, type]) => type === 'capture' ? window.api.captures.update?.(id, { label: title }) : window.api.haligtree('item:save', id, { title }), [lead.id, long, lead.type]).catch(() => {})
     await c.go('home')
     await h.waitForTimeout(1200)
     await toRow()
     await h.waitForTimeout(400)
-    if (SHOTS) await h.screenshot({ path: `${SHOTS}/long-title.png` })
+    const lines = await feature.locator('.text-title').evaluate((one) => Math.round(one.getBoundingClientRect().height / parseFloat(getComputedStyle(one).lineHeight)))
+    check('a 200 character title is held to 3 lines', (await feature.locator('.text-title').textContent()).length >= 150 && lines <= 3, `${lines} lines`)
+    if (SHOTS) await c.both(`${SHOTS}/long-title`)
   }
   // From this week's Show all: the Week's page, at "Caught this week".
   if (data.week.length) {
@@ -88,6 +96,8 @@ try {
     if (SHOTS) await c.both(`${SHOTS}/week-caught`)
   }
   check('no errors on the page', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
+} catch (error) {
+  if (error !== 'done') throw error
 } finally {
   await c.close()
 }

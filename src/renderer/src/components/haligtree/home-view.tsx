@@ -60,7 +60,7 @@ import { openItems, useHere } from '@/lib/split'
 import { queueItems } from '@/lib/reading-queue'
 import { usePickMixed, type Pickable } from './pick-mixed'
 import { heroOpen } from '@/lib/hero'
-import { ArrowRight, BookOpen, Check, ChevronLeft, ChevronRight, Orbit, Bookmark as Pin, Repeat as Repeat2 } from '@/components/ui/icons'
+import { ArrowRight, BookOpen, Check, Gem, ChevronLeft, ChevronRight, Orbit, Bookmark as Pin, Repeat as Repeat2 } from '@/components/ui/icons'
 
 /**
  * Home: where things come back to you. Laid out the way a music app's home
@@ -105,6 +105,8 @@ const kindOf = (card: Pick<Card, 'type' | 'kind'>): (typeof CAPTURE_TYPES)[numbe
 /** A kept thing's colour is its tier's, as the sidebar gives Gems and Pages theirs. */
 const tintOf = (card: Pick<Card, 'type' | 'kind'>): string =>
   card.type === 'nugget' ? 'var(--tt-color-text-pink)' : card.type === 'article' ? 'var(--tt-color-text-brown)' : card.type === 'question' ? 'var(--tt-color-text-gray)' : kindOf(card).tint
+/** The icon that goes with its label: a Gem's gem, a Page's book, a note's kind. */
+const iconOf = (card: Pick<Card, 'type' | 'kind'>): typeof Orbit => (card.type === 'question' ? Orbit : card.type === 'nugget' ? Gem : card.type === 'article' ? BookOpen : kindOf(card).icon)
 const kindLabel = (card: Card): string => (card.type === 'capture' ? kindOf(card).label : KIND_NAME[card.type])
 /** A card's name without its `#tags`: the heading over it says those. */
 const nameOf = (card: Pick<Card, 'title'>): string => splitTags(card.title).text || card.title || 'New note'
@@ -138,7 +140,7 @@ function Picture({ src, className = '', onBroken }: { src: string; className?: s
  * soft square of that colour.
  */
 function KindMark({ card, className = '', grain = true }: { card: Card; className?: string; grain?: boolean }): React.JSX.Element {
-  const Icon = card.type === 'question' ? Orbit : kindOf(card).icon
+  const Icon = iconOf(card)
   const tint = tintOf(card)
   const cover = useNoteCover(grain ? card.id : null)
   if (cover)
@@ -157,7 +159,7 @@ function KindMark({ card, className = '', grain = true }: { card: Card; classNam
 
 /** The kind's icon alone. */
 function KindIcon({ card, className = '', paper = false }: { card: Card; className?: string; paper?: boolean }): React.JSX.Element {
-  const Icon = card.type === 'question' ? Orbit : kindOf(card).icon
+  const Icon = iconOf(card)
   // On a paper drawing: in ink, not white.
   return <Icon className={paper ? className.replace(/\S*(text-white|drop-shadow)\S*/g, '') : className} style={paper ? onPaper(tintOf(card)) : undefined} aria-hidden />
 }
@@ -399,7 +401,7 @@ function Row({ title, over, lead, onAll, menu, children }: { title: ReactNode; /
         )} />
       </div>
       <div className={lead ? 'flex flex-col gap-3 pt-1 @[44rem]/page:flex-row @[44rem]/page:gap-1' : ''}>
-      {lead && <div className="flex shrink-0 px-5 @[44rem]/page:w-[40%] @[44rem]/page:pr-0 @[44rem]/page:pl-8">{lead}</div>}
+      {lead && <div className="flex min-w-0 shrink-0 items-start px-5 @[44rem]/page:w-[45%] @[44rem]/page:pr-0 @[44rem]/page:pl-8">{lead}</div>}
       <div className="relative min-w-0 flex-1">
         <div ref={scroller} onScroll={measure} className="flex snap-x scroll-px-3.5 items-stretch gap-2 overflow-x-auto overflow-y-hidden overscroll-x-contain px-3.5 py-1 [scrollbar-width:none] @[44rem]/page:scroll-px-6.5 @[44rem]/page:px-6.5 [&::-webkit-scrollbar]:hidden"
           style={{ maskImage: mask, WebkitMaskImage: mask }}>
@@ -601,13 +603,19 @@ function ExampleHome(): React.JSX.Element {
   )
 }
 
+/** A drawing's colour: its first tag's, else a tag colour picked from its id. */
+const coverTint = (card: Card): string => tagColour(splitTags(card.title).tags[0] ?? card.id, null)
+
 /** A card's own picture, or its paper drawing where it has none. */
 function Cover({ card, className = '' }: { card: Card; className?: string }): React.JSX.Element {
   const src = usePicture(card)
   const [broken, setBroken] = useState(false)
+  const real = !!src && !broken
   return (
     <span className={`relative overflow-hidden ${className}`}>
-      {src && !broken ? <Picture src={src} onBroken={() => setBroken(true)} /> : <KindMark card={card} className="size-full [&_svg]:size-6" />}
+      {real ? <Picture src={src} onBroken={() => setBroken(true)} /> : <KindMark card={card} className="size-full [&_svg]:size-6" />}
+      {/* A drawing takes its own colour, so a row of them is never one grey. */}
+      {!real && <span aria-hidden className="absolute inset-0 mix-blend-multiply dark:mix-blend-soft-light" style={{ background: `color-mix(in oklab, ${coverTint(card)} 45%, transparent)` }} />}
     </span>
   )
 }
@@ -621,23 +629,23 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
   const [lead, ...rest] = cards
   const feature = (
     <RowMenu items={() => menuFor(lead, actions, cards, 0)}>
-      <div data-coming-feature className="group/card relative flex w-full" data-private={lead.private ? '' : undefined}>
-        <Lean by={3} className="h-full" inner="relative flex h-full flex-col gap-3 rounded-xl bg-foreground/[0.05] p-3 transition-colors duration-150 hover:bg-foreground/[0.07]">
+      <div data-coming-feature className="group/card relative flex w-full min-w-0" data-private={lead.private ? '' : undefined}>
+        <Lean by={3} className="w-full min-w-0" inner="relative flex flex-col gap-3 overflow-hidden rounded-xl bg-foreground/[0.05] transition-colors duration-150 hover:bg-foreground/[0.07]">
           {/* The whole card opens it; the round buttons sit over it. */}
           <button type="button" aria-label={nameOf(lead)} data-nav data-private={lead.private ? '' : undefined} data-picked={actions.picked?.(lead) || undefined} data-drag-open={`${lead.type}:${lead.id}`} onClick={(event) => actions.open(lead, event)}
             className="absolute inset-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50" />
-          <div className="pointer-events-none relative flex min-h-0 flex-1 items-stretch gap-4">
-            <Cover card={lead} className="aspect-square w-[38%] max-w-[10rem] shrink-0 self-start rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
-            <div className="flex min-w-0 flex-1 flex-col gap-1 pt-1">
+          <div className="pointer-events-none relative flex h-[11rem] items-stretch gap-4 @[44rem]/page:h-[9.5rem] @[60rem]/page:h-[11rem]">
+            <Cover card={lead} className="aspect-square h-full shrink-0" />
+            <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 py-3 pr-4">
               <span className="truncate text-xs text-muted-foreground">{lead.sub ?? 'Coming back'} · {kindLabel(lead)}</span>
               <span className="private-text line-clamp-3 text-title leading-tight font-semibold tracking-[-0.01em] hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(lead)}</span>
               {/* Review now first, then Read, then the menu. */}
-              <span className="pointer-events-auto mt-auto flex items-center gap-2 pt-3">
+              <span className="pointer-events-auto flex items-center gap-2 pt-2 [&_button]:shrink-0">
                 {onReview && (
                   <Tip label="Review now" offset={6}>
                     <button type="button" onClick={() => (chime('tap'), onReview())}
                       className="flex size-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)] transition-[scale] duration-150 motion-safe:hover:scale-[1.04] active:scale-[0.95]">
-                      <Orbit className="size-4" />
+                      <Repeat2 className="size-4" />
                     </button>
                   </Tip>
                 )}
@@ -646,7 +654,7 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
               </span>
             </div>
           </div>
-          {lead.foot && <div className="relative">{lead.foot}</div>}
+          {lead.foot && <div className="relative px-3 pb-3">{lead.foot}</div>}
         </Lean>
       </div>
     </RowMenu>
@@ -1090,7 +1098,7 @@ export function HomeView({ onOpen, onView }: { onOpen: (type: string, id: string
                 </List>
               )}
               {again.length > 0 && (
-                <List title="You keep coming back to this" onAll={() => onView('all')}>
+                <List title="You keep coming back to this">
                   {again.map((card) => (
                     <ListRow key={card.id} card={card} actions={actions} lead={<Repeat2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />}
                       aside={<span className="mt-0.5 shrink-0 rounded-full bg-foreground/[0.06] px-2 py-0.5 text-xs text-muted-foreground tabular-nums">{card.count}×</span>}>
