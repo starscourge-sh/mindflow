@@ -32,6 +32,8 @@ try {
   const words = await h.evaluate(() => document.querySelector('[data-empty]')?.textContent ?? '')
   check('a tag that cannot be read says so and why, where its notes would be', said && /busy for a moment/.test(words), words.slice(0, 160))
   check('and no "Gathering" left waiting', !(await gathering()))
+  // Its look, light and dark, beside the page it stands in for (SHOTS=<folder>).
+  if (process.env.SHOTS) await c.both(`${process.env.SHOTS}/tag-read-fails`)
   check('its words never say "Try again" beside a "Try again" button', !/try again/i.test(words.replace(/Try again$/, '')), words.slice(0, 160))
   await h.locator('[data-read-again]').first().click()
   const back = await h.waitForSelector('[data-tag-page]', { timeout: 8000 }).then(() => true, () => false)
@@ -43,6 +45,7 @@ try {
   const notice = await h.waitForFunction(() => /could not be read/.test(document.body.innerText), null, { timeout: 15000 }).then(() => true, () => false)
   const line = await h.evaluate(() => document.body.innerText.split('\n').find((one) => /could not be read/.test(one)) ?? '')
   check('a list that cannot be read says so, and why, in a notice', notice && /busy for a moment/.test(line), line.slice(0, 160))
+  if (process.env.SHOTS) await c.both(`${process.env.SHOTS}/list-read-fails`)
   const again = h.getByRole('button', { name: 'Try again' }).first()
   check('the notice has "Try again"', (await again.count()) > 0)
   if (await again.count()) await again.click()
