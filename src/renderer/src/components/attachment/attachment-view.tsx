@@ -11,7 +11,7 @@ import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-
 import { Button } from "@/components/tiptap-ui-primitive/button"
 
 import { host } from "@/lib/host"
-import { PdfPages, pdfTitle, showPage } from "@/components/pdf/pdf-pages"
+import { PdfPages, pdfTitle, sheetAt, showPage } from "@/components/pdf/pdf-pages"
 import { learnTitle, openPdf } from "@/components/pdf/pdf-reader"
 import { useDarkPages, usePaperPages } from "@/components/pdf/paper"
 import { usePdfCover } from "@/components/pdf/pdf-cover"
@@ -327,7 +327,9 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
     if (!box || !doc) return
     const read = (): void => {
       const top = box.getBoundingClientRect().top
-      const sheet = [...box.querySelectorAll<HTMLElement>(".pdf-page")].find((one) => one.getBoundingClientRect().bottom > top + 24)
+      // Found by halves, as the reader finds its page (pdf-reader.tsx): a few sheets read on each frame of a scroll,
+      // where every sheet down to this one was.
+      const sheet = sheetAt(box.querySelector(".pdf-pages"), (one) => one.bottom > top + 24)
       if (sheet) setPage(Number(sheet.dataset.page) || 1)
     }
     box.addEventListener("scroll", read, { passive: true })
