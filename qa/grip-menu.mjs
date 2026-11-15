@@ -98,7 +98,10 @@ const tables = () => page.$eval(EDITOR, (root) => {
 const safe = (run) => run.catch((error) => `stopped: ${String(error.message).split('\n')[0]}`)
 let said
 let left
+// QA_PART=typed: the user's own path alone (a word typed in the table, then the grip), without the pointer cases and the sweep.
+const ALL = process.env.QA_PART !== 'typed'
 await page.setViewportSize?.({ width: 1100, height: 820 }).catch(() => {})
+if (ALL) {
 await set(NOTE)
 const before = await json()
 said = await safe(fromGrip(page.locator(`${EDITOR} th`, { hasText: 'removed' }).first(), 'Delete'))
@@ -149,6 +152,7 @@ for (const [holder, wrap] of Object.entries(HOLDERS)) {
   }
 }
 check('“Delete” and “Duplicate” from the grip take or copy exactly the block it stands by, every kind in every holder, and ⌘Z puts each back', failed.length === 0, failed.join(' | '))
+}
 
 
 // --- As the user had it: a word typed in the table, and then its grip -------------------------------------------------
