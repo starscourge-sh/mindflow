@@ -1,11 +1,10 @@
 // A notice in quick capture sits in the footer's row and never over a field:
-// a pasted list's "A list of 5 lines" and its "Make 3 tasks, 2 steps" fit on
+// a typed list's "A list of 3" and its "Make a task with 5 steps" fit on
 // one line (the kind steps back while it is up), and a notice too long for a
 // line, as after Create, has the fields it grows over step back too. Checked
 // with the side panel open and shut.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/box-toast-lane.mjs
 import { sandbox } from './sandbox-lib.mjs'
-import { paste } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const c = await sandbox({ width: 1100, height: 760 })
@@ -16,7 +15,8 @@ await v('settings:set', { hintRate: 0, rotCount: 0, motion: false })
 
 /** The toast, and every field above or beside it that is in sight and under it. */
 const read = () => page.evaluate(() => {
-  const toast = document.querySelector('[role=status]')
+  // The notice itself, the status with words in it: an empty one hidden in the page passed for it before.
+  const toast = [...document.querySelectorAll('[role=status]')].find((one) => one.innerText.trim())
   if (!toast) return null
   const at = toast.getBoundingClientRect()
   const seen = (el) => { if (el.closest('[inert]') || getComputedStyle(el).visibility === 'hidden' || (el.isContentEditable && !el.innerText.trim())) return false; for (let one = el; one; one = one.parentElement) if (getComputedStyle(one).opacity === '0' || getComputedStyle(one).display === 'none') return false; return true }
@@ -40,7 +40,18 @@ try {
     await page.keyboard.type('notes from the talk ', { delay: 5 })
     await page.keyboard.press('Enter')
     await page.waitForTimeout(300)
-    await paste(page, '- water the plants\n- read chapter 4\n- essay two:\n  - outline\n  - draft')
+    // A list typed out to its third line is offered as tasks; a pasted one is offered nothing since af3f8bf5b (4 Nov:
+    // "if i want that ill do it via the selection menu"). Under a line of its own and with steps before its third line,
+    // the offer has the most to say: "A list of 3 · Make a task with 5 steps".
+    const line = async (words) => (await page.keyboard.type(words, { delay: 5 }), await page.keyboard.press('Enter'))
+    await line('- essay two:')
+    await page.keyboard.press('Tab')
+    await line('outline')
+    await page.keyboard.type('draft', { delay: 5 })
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Shift+Tab')
+    await line('water the plants')
+    await page.keyboard.type('read chapter 4', { delay: 5 })
     await page.waitForTimeout(900)
     const hint = await read()
     check(`${where}: the list's notice is on one line`, hint && hint.height <= 40, JSON.stringify(hint))
