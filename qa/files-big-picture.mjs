@@ -39,6 +39,9 @@ const held = async () => ({ page: await h.evaluate(() => window.__long.slice()),
 try {
   await c.v('settings:set', { sounds: false, hintRate: 0 })
   await go('media'); await wait(900)
+  // Every Recent card says what it is first ("Image · Added today"): a picture told from a PDF or a book at a glance.
+  const metas = await h.evaluate(() => [...document.querySelectorAll('[data-recent-file]')].map((one) => [one.getAttribute('data-recent-file'), one.querySelector('.pdf-book-meta')?.textContent ?? '']))
+  check('each Recent card says what it is', metas.length > 0 && metas.every(([kind, meta]) => (kind === 'picture' ? /^Image · / : /^[A-Za-z0-9]{2,12} · /).test(meta)), JSON.stringify(metas.slice(0, 6)))
   await watch()
   await electron.evaluate(({ dialog }, list) => { dialog.showOpenDialog = async () => ({ canceled: false, filePaths: list }) }, [big])
   if (!(await h.locator('[data-media-choose]').count())) await h.locator('[data-media-add]').click()
@@ -48,9 +51,6 @@ try {
   console.log(`(added and shown: the page's frames over 150 ms ${JSON.stringify(adding.page)}, main's worst wait ${adding.main} ms)`)
   check('the huge picture shows its face on Files', shown)
   check('and main is never held 250 ms or more as it does', adding.main < 250, `${adding.main} ms`)
-  // Every Recent card says what it is first ("Image · Added today"): a picture told from a PDF or a book at a glance.
-  const metas = await h.evaluate(() => [...document.querySelectorAll('[data-recent-file]')].map((one) => [one.getAttribute('data-recent-file'), one.querySelector('.pdf-book-meta')?.textContent ?? '']))
-  check('each Recent card says what it is', metas.length > 0 && metas.every(([kind, meta]) => (kind === 'picture' ? /^Image · / : /^[A-Za-z0-9]{2,12} · /).test(meta)), JSON.stringify(metas.slice(0, 6)))
 
   // Opened from its card, then closed.
   await watch()
