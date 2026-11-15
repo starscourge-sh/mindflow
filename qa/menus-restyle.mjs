@@ -178,8 +178,8 @@ try {
   // beside another build's (nothing may move).
   if (process.env.SHOTS) {
     await h.evaluate(() => document.activeElement?.blur())
-    for (const [theme, said] of [['paper', 'light'], ['dark', 'dark']]) {
-      await c.theme(theme)
+    for (const said of ['light', 'dark']) {
+      await c.look(said)
       await h.waitForTimeout(800)
       await h.screenshot({ path: join(process.env.SHOTS, `long-note-${said}.png`) })
     }
