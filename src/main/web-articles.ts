@@ -63,6 +63,8 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     // A wiki's own marks out of the way first, so every section keeps its heading (free-sites.ts).
     if (isWiki(base)) wikiChrome(document)
     const meta = (name: string): string => document.querySelector(`meta[property="${name}"], meta[name="${name}"]`)?.getAttribute('content')?.trim() ?? ''
+    // The page's first heading, read before Readability takes the page apart: a name when its titles say only "Home".
+    const heading = document.querySelector('h1')?.textContent ?? ''
     const paywalled = /"isAccessibleForFree"\s*:\s*(false|"False")/i.test(page)
     // Its classes kept for now: they say which of a picture's versions a wide window shows, and which links are buttons.
     const found = new Readability(document as unknown as Document, { charThreshold: 300, keepClasses: true }).parse()
@@ -90,8 +92,8 @@ export function registerWebArticles(keep: (src: string) => Promise<string>): voi
     }))
     // Stopped while its pictures came: nothing of the article is kept.
     if (stop.aborted) return { stopped: true }
-    // Its title without the site's name it trails, and the site's own name (article-names.ts).
-    const names = articleNames({ title: meta('og:title') || found.title || base.hostname, siteName: meta('og:site_name'), publisher: found.siteName ?? '', hostname: base.hostname })
+    // Its title without the site's name it trails, the first of its names that is not only "Home", and the site's own name (article-names.ts).
+    const names = articleNames({ titles: [meta('og:title'), found.title ?? '', heading], siteName: meta('og:site_name'), publisher: found.siteName ?? '', hostname: base.hostname })
     const id = (db.prepare('select id from web_articles where href = ?').get(href) as { id: string } | undefined)?.id ?? randomUUID()
     db.prepare('insert or replace into web_articles (id, href, title, byline, site, published, html, saved_at) values (?, ?, ?, ?, ?, ?, ?, ?)').run(
       id,
