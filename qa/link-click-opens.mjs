@@ -95,8 +95,13 @@ try {
   /** What a web link's hover box says a click does (haligtree-editor.tsx, LinkPreview), read with a real pointer. */
   const howSaid = async (win) => {
     const r = await win.locator(WEB).first().evaluate((el) => { const one = el.getClientRects()[0]; return [one.left + 8, one.top + one.height / 2] })
-    await win.mouse.move(4, 4); await win.waitForTimeout(200)
-    await win.mouse.move(r[0], r[1], { steps: 3 }); await win.waitForTimeout(500)
+    // Read once it shows, not after a set wait: on a busy Mac the box was read before it came (15 Nov, 32 of 33).
+    // The pointer off and back on once more if it has not come.
+    for (let i = 0; i < 2; i++) {
+      await win.mouse.move(4, 4); await win.waitForTimeout(200)
+      await win.mouse.move(r[0], r[1], { steps: 3 })
+      if (await win.waitForSelector('.tiptap-link-preview-how', { timeout: 2000 }).then(() => true, () => false)) break
+    }
     const said = await win.evaluate(() => document.querySelector('.tiptap-link-preview-how')?.textContent ?? null)
     await win.mouse.move(4, 4); await win.waitForTimeout(200)
     return said
