@@ -18,7 +18,7 @@ import { drawingFor } from './grain'
 import { Struck, Ring as Circled } from './marks'
 import { Chips } from './display'
 import { Button } from '@/components/ui/button'
-import { refuse, toast } from './ui'
+import { Kbd, refuse, toast } from './ui'
 
 /**
  * What a setting will look like, shown where it is chosen: a thumbnail for
@@ -618,9 +618,9 @@ export const LineNumbersSample = ({ on, relative, both = false }: { on: boolean;
 /** Where `2j` lands from the line above these three: on, the line the margin marks 2, past a paragraph's wrapped second row; off, that row. */
 export const LineJumpSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="line-jumps" data-on={on || undefined} className="flex h-9 w-40 items-center gap-2 rounded-md border bg-background px-2">
-    <span className="font-mono text-[11px] leading-none text-(--mf-muted-strong)">2j</span>
+    <span className="flex gap-0.5"><Kbd>2</Kbd><Kbd>j</Kbd></span>
     <span className="flex flex-col justify-center gap-px">
-      {([['1', 88], ['', 40], ['2', 64]] as const).map(([number, width], i) => (
+      {([['1', 64], ['', 32], ['2', 48]] as const).map(([number, width], i) => (
         <span key={i} className="flex items-center gap-1.5">
           <span className="w-4 text-right text-[11px] leading-none tabular-nums text-muted-foreground">{number}</span>
           <span className="relative block h-[2px] rounded-full bg-foreground/40" style={{ width }}>
