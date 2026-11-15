@@ -26,12 +26,16 @@ import { IslandBox, useFold, useIslands } from './haligtree/islands'
 import { CalendarDays, Command, Plus } from 'lucide-react'
 import { Orb } from './haligtree/orb'
 import { isReadable, isWebPdf, openArticle } from './pdf/pdf-reader'
+import { FREE_SITES, prefixed, type FreeHit, type FreeSite } from '@/lib/free-sites'
+import { canSplit } from '@/lib/split'
+import { said as tell } from '@/lib/host'
+import { BookOpenText, SearchX, WifiOff } from 'lucide-react'
 import MagnifierIcon from '@/components/ui/magnifier-icon'
 import LayoutSidebarRightIcon from '@/components/ui/layout-sidebar-right-icon'
 import { Chips } from './haligtree/display'
 import { Highlight, useChosen } from './haligtree/glide'
 import { Tip } from '@/components/haligtree/ui'
-import { useLive, haligtree, whenInLine, type Pin, type Task, type TaskFull } from '@/lib/haligtree'
+import { call, useLive, haligtree, whenInLine, type Pin, type Task, type TaskFull } from '@/lib/haligtree'
 import { RowMenu, type RowItem } from './haligtree/row-menu'
 import { taskMenu, useTaskNow } from './haligtree/tasks-view'
 import { DOT_IN_LINE, SessionDot, spentSaid, useTaskTime } from './haligtree/task-time'
@@ -66,12 +70,15 @@ type Capture = Awaited<ReturnType<typeof window.api.captures.find>>[number]
 /** `choices`: one action that opens a short list in place, "Goal on screen…" and then which goal and how. */
 /** `heard`: words typed that ask for it outright ("20 min"): the action they make goes first, in its place. */
 /** `typedChoice`: in its list of choices, words typed that make one of their own (“40” for 40 minutes), offered first. */
-export type Action = { label: string; /** What it does, said in the preview beside the list (or on the row in focus where there is none), and found by search: the label stays a short name. Every action has one, so the card beside the list is never empty. */ hint: string; /** One of the few offered before anything is typed; the rest are found by typing. */ first?: boolean; /** Other words a person might search for it by, never shown: "dictate" for recording. */ words?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
+export type Action = { label: string; /** What it does, said in the preview beside the list (or on the row in focus where there is none), and found by search: the label stays a short name. Every action has one, so the card beside the list is never empty. */ hint: string; /** What ⌥↵ does instead: the same, to the side ("Open in the reader" on an address). */ aside?: () => void; /** One of the few offered before anything is typed; the rest are found by typing. */ first?: boolean; /** Other words a person might search for it by, never shown: "dictate" for recording. */ words?: string; keys?: string; run: () => void; cue?: Cue | null; own?: boolean; typed?: boolean; themes?: (theme: Theme, was?: Theme) => void; choices?: () => Choice[]; typedChoice?: (typed: string) => Choice | null; heard?: (typed: string) => Action | null; icon?: ComponentProps<typeof AliveIcon>['icon']; /** One of the rows a search with no match offers: what the words become. */ keep?: Keep }
 /** What words that match nothing can be kept as, from ⌘K. `box`: written into quick capture. */
 export type Keep = 'note' | 'task' | 'question' | 'box'
 const KEPT_AS: Record<Keep, string> = { note: 'as a note', task: 'as a task', question: 'as a question', box: 'in quick capture' }
 /** One of an action's choices: what it does, and a quiet word on where it stands now. `mark`: its own drawing before its words (a book's mark in its colour). */
 export type Choice = { label: string; note?: string; mark?: ReactNode; run: () => void }
+
+/** A row of ⌘K's "Look it up": a free site's line, one of its answers, one plain line on why there are none, or its ask under way. */
+type Look = { site: FreeSite; hit?: FreeHit; said?: string; asking?: boolean }
 
 /** Room for the preview beside the list: the box's 640px window has none, so there it never shows. */
 const ROOMY = '(min-width: 700px)'
@@ -124,6 +131,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const [query, setQuery] = useState(initial)
   const [scoped, setScoped] = useState(!!scope)
   const actions = scoped && scope ? scope.actions : everyAction
+  // A free site's prefix and a space before the words ("w roman empire"): that site searched alone, its line the only row.
+  const pre = !scoped && menus ? prefixed(query.trim()) : null
   // The words the list on screen answers. A reply for words since changed is
   // dropped: a slow search must not land over a quicker, newer one.
   const [searched, setSearched] = useState<string | null>(null)
@@ -159,7 +168,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // The Inbox's islands: before typing, one of what was opened and kept last; searched, one a kind, in the Inbox's
   // order, each its best matches first (main/captures.ts ranks them), a few showing and "Show N more" under them.
   const toIslands = useIslands('cmdk', true)
-  const { groups: islandGroups, islands } = toIslands(query.trim() ? byKind(results) : [['Recent', results]])
+  const { groups: islandGroups, islands } = toIslands(pre ? [] : query.trim() ? byKind(results) : [['Recent', results]])
   // The rows the islands show, in order: what the arrows, Enter and ⇧↵ walk.
   const rowsShown = islandGroups.flatMap(([, list]) => list)
   // Raycast's ⌘K: what you can do comes first, matched by the same words,
@@ -174,7 +183,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // when they end in a question mark.
   const typed = query.trim()
   const said = clip(typed, 40)
-  const keeping = !!onKeep && !scoped && !!typed && !typed.startsWith('kind:') && searched === query && !slow && !results.length
+  const keeping = !!onKeep && !scoped && !pre && !!typed && !typed.startsWith('kind:') && searched === query && !slow && !results.length
     ? (typed.endsWith('?') ? [...keeps.filter((one) => one === 'question'), ...keeps.filter((one) => one !== 'question')] : keeps)
       .map((as): Action => ({ label: `Keep ${quoted(said, 80)} ${KEPT_AS[as]}`, hint: 'Nothing is called that yet: Enter keeps it', keep: as, cue: null, run: () => onKeep?.(as, typed) }))
     : []
@@ -188,8 +197,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // A web address typed or pasted: the reader first, as every link's own menu offers it (pdf-reader.tsx, isReadable).
   // Its sound is the reader's own page turn, as it opens.
   const address = !scoped && isReadable(typed) ? typed : null
-  const acting = [
-    ...(address ? [{ label: 'Open in the reader', hint: `${URL.parse(address)?.hostname.replace(/^www\./, '') || 'The page'}, ${isWebPdf(address) ? 'its PDF read here' : 'read here as an article'}, kept with your notes`, cue: null, run: () => openArticle(address) }] : []),
+  const acting: Action[] = pre ? [] : [
+    ...(address ? [{ label: 'Open in the reader', hint: `${URL.parse(address)?.hostname.replace(/^www\./, '') || 'The page'}, ${isWebPdf(address) ? 'its PDF read here' : 'read here as an article'}, kept with your notes`, cue: null, run: () => openArticle(address), aside: canSplit() ? () => openArticle(address, undefined, 'aside') : undefined }] : []),
     ...(asked ? [{ label: `What ${APP_NAME} means by ${asked.forms[0]}`, hint: asked.line, cue: null, run: () => openWord(asked.id) }] : []),
     ...heard,
     ...[...actions, { label: `${APP_NAME}’s words`, hint: 'What its own names mean', typed: true, cue: null, run: () => openWord(ALL_WORDS) }]
@@ -210,6 +219,32 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   const keepingShown = keepIsland.folded ? [] : keeping
   const doing = keepFirst ? [...keepingShown, ...actingShown] : [...actingShown, ...keepingShown]
   const [at, setAt] = useState(0)
+  // Wikipedia and the other free sites, a line each under your own results, as Raycast's fallback commands: nothing
+  // is sent to a site until its line is picked (↵ or a click), then only the words typed. Its answers take the line's
+  // place, or one plain line says it could not be reached; words typed since bring the line back.
+  const lookWords = pre?.words ?? typed
+  const lookSites = pre ? [pre.site] : menus && !scoped && !address && lookWords.length > 1 && !typed.startsWith('kind:') ? FREE_SITES : []
+  const [outside, setOutside] = useState<{ site: FreeSite['id']; words: string; hits: FreeHit[] | null; offline?: boolean } | null>(null)
+  const lookRows: Look[] = lookSites.flatMap((site): Look[] => {
+    const got = outside?.site === site.id && outside.words === lookWords ? outside : null
+    if (!got) return [{ site }]
+    if (got.offline) return [{ site, said: `${site.word} cannot be reached: this Mac seems to be offline` }]
+    if (!got.hits) return [{ site, asking: true }]
+    if (!got.hits.length) return [{ site, said: `${site.word} has nothing by that name` }]
+    return got.hits.map((hit) => ({ site, hit }))
+  })
+  const lookIsland = useFold('cmdk.look', { total: lookRows.length })
+  const lookShown = lookIsland.folded ? [] : lookRows
+  // Asked: the light goes to its first answer (or its line saying why there is none) when it comes.
+  const landOn = useRef<string | null>(null)
+  const askSite = (site: FreeSite): void => {
+    const words = lookWords
+    chime('tap')
+    landOn.current = site.id
+    setOutside({ site: site.id, words, hits: null })
+    void call<{ hits?: FreeHit[]; offline?: true }>('free:search', site.id, words).then((got) =>
+      setOutside((now) => (now?.site === site.id && now.words === words ? { site: site.id, words, hits: got.hits ?? null, offline: !!got.offline } : now)))
+  }
   // Several results picked (⇧-click, or ⌘A once the words are all selected), to make tasks of or queue together.
   // The box keeps ⌘A for its words: the first press selects them, the next picks every result.
   const several = usePickMixed(results.map((one) => ({ type: one.type, id: one.id, title: one.label, status: one.status })), { keys: false })
@@ -227,7 +262,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
     // A journal day found: its page opens.
     if (one.type === 'day') return [{ label: 'Open in the Journal', run: () => onOpen('day', one.id) }]
     // A PDF found: it opens in the reader.
-    if (one.type === 'pdf' || one.type === 'web') return [{ label: 'Open in the reader', run: () => onOpen(one.type, one.id) }]
+    if (one.type === 'pdf' || one.type === 'web') return [{ label: 'Open in the reader', run: () => onOpen(one.type, one.id) }, ...(onAside ? [{ label: 'Open in the reader to the side', run: () => onAside(one.type, one.id) }] : [])]
     if (one.type === 'media') return [{ label: 'Show in Files', run: () => onOpen(one.type, one.id) }]
     const own = task
       ? taskMenu(task, { open: () => onOpen('task', one.id), now: taskNow })
@@ -274,6 +309,20 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   }, [at, rowsShown.length])
   const current = at >= doing.length ? rowsShown[at - doing.length] : undefined
   const action = at < doing.length ? doing[at] : undefined
+  const look = at >= doing.length + rowsShown.length ? lookShown[at - doing.length - rowsShown.length] : undefined
+  useEffect(() => {
+    if (!outside || (!outside.hits && !outside.offline) || landOn.current !== outside.site) return
+    landOn.current = null
+    const first = lookShown.findIndex((one) => one.site.id === outside.site)
+    if (first >= 0) setAt(doing.length + rowsShown.length + first)
+  }, [outside]) // eslint-disable-line react-hooks/exhaustive-deps
+  /** A look row picked: an answer opens in the reader (to the side on ⌥, a new tab on ⌘); a line asks its site. */
+  const runLook = (one: Look, how?: 'aside' | 'tab'): void => {
+    if (one.asking) return
+    if (!one.hit) return askSite(one.site)
+    leave()
+    openArticle(one.hit.href, undefined, how)
+  }
   // An action's own short list, opened in place: typed to narrow, Enter picks.
   const [choosing, setChoosing] = useState<{ action: Action; list: Choice[] } | null>(() => {
     const action = chooseFirst ? everyAction.find((one) => one.label === chooseFirst && one.choices) : undefined
@@ -281,7 +330,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   })
   const [choiceQuery, setChoiceQuery] = useState('')
   const [choiceAt, setChoiceAt] = useState(0)
-  const total = doing.length + rowsShown.length
+  const total = doing.length + rowsShown.length + lookShown.length
   // One size and one shape from the moment it opens: the filters are always
   // there, and the preview half stays put whatever is highlighted, so
   // nothing grows or jumps as the arrows move or a letter is typed.
@@ -360,7 +409,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
   // One light for the rows, travelling to the one the pointer or the arrows reach.
   const rows = useRef<HTMLDivElement>(null)
   const lit = useChosen(rows, '[data-search-at], [data-theme-at], [data-choice-at]', `${picking ? 'theme' : choosing ? 'choice' : 'row'}:${picking ? themeAt : choosing ? choiceAt : at}`)
-  const run = (action: Action): void => {
+  const run = (action: Action, aside = false): void => {
     if (action.themes) return pickTheme(action)
     if (action.choices) {
       chime('slide')
@@ -371,7 +420,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
     // null: the action sounds for itself (the sound switch, the panel).
     if (action.cue !== null) chime(action.cue ?? 'tap')
     leave()
-    action.run()
+    ;(aside && action.aside ? action.aside : action.run)()
   }
 
   // One action's row, at `index` among the rows the arrows walk.
@@ -457,6 +506,42 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                 </Fragment>
               )
   }
+  // One row of "Look it up", `index` among the rows the arrows walk: drawn as a result's row is (its mark, its name, the
+  // site's word at the right edge, and a second line under the name: what it is, beside its picture where it has one).
+  const lookRow = (one: Look, index: number): React.JSX.Element => {
+    const on = index === at
+    const key = `${one.site.id}:${one.hit?.href ?? (one.said ? 'said' : one.asking ? 'asking' : 'line')}`
+    if (one.asking) return <p key={key} data-search-at={on || undefined} data-look-asking={one.site.id} className="relative flex px-2 py-1.5"><Orb label={`Asking ${one.site.name}…`} /></p>
+    const Mark = one.hit ? BookOpen : one.said ? (outside?.offline ? WifiOff : SearchX) : null
+    const hit = one.hit
+    // An answer's right-click: where it can open, as a link's own menu offers them (turn-into/clicked.tsx).
+    const menu: RowItem[] = hit ? [
+      { label: 'Open in the reader', run: () => runLook(one) },
+      ...(canSplit() ? [{ label: 'Open in the reader to the side', run: () => runLook(one, 'aside') }] : []),
+      { label: 'Open in the browser', run: () => (leave(), void window.open(hit.href, '_blank', 'noopener')) },
+      { label: 'Copy address', run: () => void navigator.clipboard.writeText(hit.href).then(() => (chime('copy'), tell('Address copied')), () => tell('Could not copy the address', false)) }
+    ] : []
+    return (
+      <RowMenu key={key} items={menu}>
+      <button type="button" data-search-at={on || undefined} data-look={one.site.id} data-look-kind={one.hit ? 'hit' : one.said ? 'said' : 'line'}
+        className="relative flex w-full flex-col gap-0.5 rounded-md px-2 py-1.5 text-left"
+        onMouseMove={(event) => realMove(event) && setAt(index)}
+        onClick={(event) => (runLook(one, event.altKey ? 'aside' : event.metaKey ? 'tab' : undefined), box.current?.focus())}>
+        <span className="flex h-5 w-full min-w-0 items-center gap-2">
+          {Mark ? <Mark aria-hidden className="size-4 shrink-0" style={{ color: one.hit ? 'var(--tt-color-text-blue)' : 'var(--muted-foreground)' }} /> : <MenuGlyph label="Search" small />}
+          <span data-look-title className="min-w-0 truncate leading-5">{one.hit ? one.hit.title : one.said ?? `Search ${one.site.say} for ${quoted(clip(lookWords, 40), 80)}`}</span>
+          {one.hit && <span className="ml-auto shrink-0 pl-2 text-xs text-muted-foreground">{one.site.word}</span>}
+        </span>
+        {one.hit && (one.hit.line || one.hit.picture) && (
+          <span data-look-line className="flex h-5 min-w-0 items-center gap-2 pl-6 text-sm leading-5 text-muted-foreground">
+            {one.hit.picture && <img src={one.hit.picture} alt="" className="size-5 shrink-0 rounded-[4px] border border-border/60 object-cover" />}
+            <span className="min-w-0 truncate">{one.hit.line}</span>
+          </span>
+        )}
+      </button>
+      </RowMenu>
+    )
+  }
 
   return (
     // A dialog, said so: what is under it (the box's keys, a celebration's Escape) knows to leave the keys alone.
@@ -514,7 +599,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
               else if (event.metaKey && !event.shiftKey && !event.altKey && event.code === 'KeyA' && results.length && event.currentTarget.selectionStart === 0 && event.currentTarget.selectionEnd === event.currentTarget.value.length) several.selectAll()
               // ⇧↵, Arc's instant link: the top result opens, wherever the highlight is.
               else if (event.key === 'Enter' && event.shiftKey && rowsShown[0]) onOpen(rowsShown[0].type, rowsShown[0].id)
-              else if (event.key === 'Enter' && at < doing.length) run(doing[at])
+              else if (event.key === 'Enter' && at < doing.length) run(doing[at], event.altKey)
+              else if (event.key === 'Enter' && look) runLook(look, event.altKey ? 'aside' : event.metaKey ? 'tab' : undefined)
               else if (event.key === 'Enter' && current && event.altKey && onAside) onAside(current.type, current.id)
               else if (event.key === 'Enter' && current && event.metaKey && onTab) onTab(current.type, current.id)
               else if (event.key === 'Enter' && current) (aimAt(current.id, current.line), onOpen(current.type, current.id))
@@ -620,7 +706,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
               // The orb only if it is a real wait: a search back at once never shows it.
               <p className="flex px-2 py-2"><Orb label="Searching…" className="animate-in fade-in-0 duration-200" /></p>
             )}
-            {query.trim() && searched === query && !results.length && !acting.length && !keeping.length && (
+            {!pre && query.trim() && searched === query && !results.length && !acting.length && !keeping.length && (
               <p className="px-2 py-3 text-sm text-muted-foreground">
                 <Typed text={types.length || kinds.length || titleOnly
                   ? 'Nothing matches with those filters. Turn a chip off to widen it.'
@@ -638,6 +724,13 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                 return isle ? <IslandBox key={name} plain name={name} island={isle} shown={list.length} icon={ISLAND_ICON[name]}>{rows}</IslandBox> : <Fragment key={name}>{rows}</Fragment>
               })
             })()}
+            {/* Under your own results: Wikipedia and the other free sites, each asked only when its line is picked. */}
+            {lookRows.length > 0 && (
+              <IslandBox plain name={pre ? pre.site.word : 'Look it up'} island={{ ...lookIsland, whole: false }} shown={lookRows.length} uncounted
+                icon={<BookOpenText aria-hidden className="size-4 shrink-0 text-muted-foreground" />}>
+                {lookShown.map((one, step) => lookRow(one, doing.length + rowsShown.length + step))}
+              </IslandBox>
+            )}
             </>}
           </div>
           {/* The right half, Notion's way: one framed card (its own fill, a hairline, rounded, inset from the edges) that shows
@@ -657,6 +750,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                   )
                   : current
                   ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} />
+                  : look
+                  ? <LookPeek key={`${look.site.id}:${look.hit?.href ?? ''}`} one={look} words={lookWords} />
                   : action?.keep
                     // Nothing found: the half says so, and what Enter does with the words.
                     ? <div key={action.label} className="flex flex-col gap-2 p-4">
@@ -711,10 +806,10 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
         ) : (
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-1.5 text-xs whitespace-nowrap text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
-          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing ? 'pick' : action ? 'use' : 'open'} /></span>
+          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing ? 'pick' : action ? 'use' : look?.hit ? 'read' : look ? 'ask' : 'open'} /></span>
           {!picking && !choosing && rowsShown.length > 0 && current !== rowsShown[0] && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⇧↵</Kbd> open the top result</span>}
-          {onAside && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌥↵</Kbd> to the side</span>}
-          {onTab && !picking && !choosing && !action && current && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘↵</Kbd> new tab</span>}
+          {!picking && !choosing && ((onAside && !action && current) || (canSplit() && look?.hit) || action?.aside) && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌥↵</Kbd> to the side</span>}
+          {!picking && !choosing && ((onTab && !action && current) || (canSplit() && look?.hit)) && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘↵</Kbd> new tab</span>}
           {!picking && !choosing && results.length > 1 && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘</Kbd>-click selects</span>}
           <span className="flex items-center gap-1.5"><Kbd>esc</Kbd> <Rolling text={picking || choosing ? 'back' : inPane ? 'close the tab' : 'close'} /></span>
         </div>
@@ -749,6 +844,41 @@ function WebPeek({ label, site }: { label: string; site: string }): React.JSX.El
     <div className="flex flex-col gap-2 p-4">
       <p className="text-base font-medium text-pretty text-foreground">{label}</p>
       <p className="text-body text-muted-foreground">Article{site ? `, ${site}` : ''}</p>
+    </div>
+  )
+}
+
+/**
+ * Search's preview of a "Look it up" row. An answer as Wikipedia's own hover
+ * card has it: its name in bold, its one line, its picture square-cornered on
+ * the right, and where it opens. A site's line: what picking it sends, and
+ * the prefix that searches that site alone. A line saying why there is none: itself.
+ */
+function LookPeek({ one, words }: { one: Look; words: string }): React.JSX.Element {
+  const { site, hit } = one
+  const named = site.name.replace(/^the /, 'The ')
+  if (hit)
+    return (
+      <div data-look-peek className="flex flex-col gap-3 p-5">
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-lg font-semibold text-pretty text-foreground">{hit.title}</p>
+            {hit.line && <p className="mt-0.5 text-body text-pretty text-muted-foreground">{hit.line}</p>}
+          </div>
+          {hit.picture && <img src={hit.picture} alt="" className="size-16 shrink-0 rounded-[4px] object-cover" />}
+        </div>
+        <p className="text-xs text-pretty text-muted-foreground">From {site.name}{hit.picture ? ', its picture from Wikimedia Commons' : ''}. Read here in the reader and kept with your notes, so it opens again offline.</p>
+      </div>
+    )
+  return (
+    <div data-look-peek className="flex flex-col gap-1.5 px-5 pt-5">
+      <ActionIcon label="Search" />
+      <div>
+        <p className="text-lg font-semibold text-pretty text-foreground">{one.said ?? (one.asking ? `Asking ${site.name}…` : `Search ${site.name} for ${quoted(clip(words, 40), 80)}`)}</p>
+        {one.said && <p className="mt-0.5 flex flex-wrap items-center gap-1 text-body text-pretty text-muted-foreground"><Kbd>↵</Kbd> asks {site.name} again.</p>}
+        {!one.said && <p className="mt-0.5 text-body text-pretty text-muted-foreground">{named}’s own search, asked only when you pick this line, and only with these words: nothing of your notes is sent.</p>}
+        {!one.said && !one.asking && <p className="mt-3 flex flex-wrap items-center gap-1 text-xs text-muted-foreground"><Kbd>↵</Kbd> asks it. To search {site.word} alone, type <Kbd>{site.prefix}</Kbd> and a space before the words.</p>}
+      </div>
     </div>
   )
 }

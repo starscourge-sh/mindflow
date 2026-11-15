@@ -23,9 +23,22 @@ const isInside = (address: string): boolean => {
   return family === 4 ? inside.check(address, 'ipv4') : family === 6 ? inside.check(address, 'ipv6') : true
 }
 
+/**
+ * A test's stand-in for the free sites the reader searches and reads
+ * (free-sites.ts) and Wikimedia's pictures: with a test's data folder and
+ * HALIGTREE_QA_SITES set, they are asked of that server on this machine, so a
+ * test never asks the real ones. Nothing else is ever sent there.
+ */
+const FREE_HOSTS = /^(en\.wikipedia\.org|en\.wiktionary\.org|www\.gutenberg\.org|plato\.stanford\.edu|upload\.wikimedia\.org|thumb\.wikimedia\.org)$/
+const standIn = (url: URL): string | null => {
+  const base = process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_SITES
+  return base && FREE_HOSTS.test(url.hostname) ? `${base}/${url.hostname}${url.pathname}${url.search}` : null
+}
+
 /** Whether an address is out on the internet: by its name, and by every address that name leads to. */
 export async function isOutside(url: URL): Promise<boolean> {
   if (!['http:', 'https:'].includes(url.protocol)) return false
+  if (standIn(url)) return true
   const host = url.hostname.replace(/^\[|\]$/g, '')
   if (/^localhost$|\.localhost$|\.local$/i.test(host)) return false
   if (isIP(host)) return !isInside(host)
@@ -45,7 +58,11 @@ export async function fetchOutside(url: string | URL, init: RequestInit = {}): P
   let at = new URL(url)
   for (let hop = 0; hop < 6; hop++) {
     if (!(await isOutside(at))) throw new Error(`Refused ${at.host}: not on the internet`)
-    const response = await fetch(at, { ...init, redirect: 'manual' })
+    const there = standIn(at)
+    // The stand-in's answer as the site's own: no address of its own, so a page's links are read against the site's.
+    const response = there
+      ? await fetch(there, { ...init, redirect: 'manual' }).then((got) => new Response(got.body, { status: got.status, statusText: got.statusText, headers: got.headers }))
+      : await fetch(at, { ...init, redirect: 'manual' })
     const next = response.status >= 300 && response.status < 400 ? response.headers.get('location') : null
     if (!next) return response
     at = new URL(next, at)

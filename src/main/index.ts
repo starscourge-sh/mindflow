@@ -126,6 +126,7 @@ import { kindByEnd, pdfsToFind } from './find-files'
 import { addMedia } from './media'
 import { addSaid } from './media-words'
 import { registerWebArticles } from './web-articles'
+import { registerFreeSites } from './free-sites'
 import { registerWordLog } from './word-log'
 import { registerSite } from './site'
 import { frostWindow, registerFrost, retellFrost } from './frost'
@@ -7026,6 +7027,8 @@ app.whenReady().then(() => {
   }))
   // A web page in the reader: its article kept offline, its pictures kept as a card's are.
   registerWebArticles(keep)
+  // Wikipedia and the other free sites, searched from ⌘K when asked (free-sites.ts).
+  registerFreeSites()
   // A card made before its pictures were kept, or imported with the site's
   // addresses: the very pictures it shows, kept now. Each one that cannot be
   // fetched comes back as it was.
