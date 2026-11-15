@@ -198,6 +198,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^open .*sandbox|sandbox/i, Shapes],
   [/^open|^go to|^show .*note|^read from here|^read the inbox|^write in it/i, ExternalLink],
   // Groups.
+  // A new folder and a new page side by side in one menu (Writing's, a folder's) each wear their own sign.
+  [/^new folder/i, FolderPlus],
+  [/^new page/i, FilePlus],
   [/^new group|^group with|new note in group/i, FolderPlus],
   [/remove from group|^out of its group/i, FolderMinus],
   [/^move (\d[\d,]* )?to writing/i, FileText],

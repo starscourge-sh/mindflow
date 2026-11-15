@@ -75,11 +75,14 @@ try {
   got = await made(before)
   check('a folder\'s "New page inside" makes the page in it, opened', got.count === 1 && got.opened && got.folder === trips, JSON.stringify(got))
 
-  // 6. Writing's own "New page" button, with the folder open: the page goes in the folder.
+  // 6. Writing's own "New page" button, with the folder open: the page goes in the folder. The page made last is
+  // still open over the list at this width, so Esc first, back to the folder's list, as a person would.
   await folderRow.click()
   await h.waitForTimeout(1200)
+  const newButton = h.locator('[data-new-writing="article"] >> visible=true')
+  if (!(await newButton.count())) { await h.keyboard.press('Escape'); await h.waitForTimeout(800) }
   before = await pages()
-  await h.locator('[data-new-writing="article"]').first().click()
+  await newButton.first().click()
   got = await made(before)
   check('Writing\'s own "New page", inside a folder, makes the page in it', got.count === 1 && got.opened && got.folder === trips, JSON.stringify(got))
 
@@ -92,7 +95,7 @@ try {
     if (await gemsPlus.count()) {
       await gemsPlus.click()
       await h.waitForTimeout(700)
-      check('Gems\' "+" still makes a folder, its name open for typing', (await h.locator('aside [data-folder-name]').count()) === 1)
+      check('Gems\' "+" still makes a folder, its name open for typing', (await h.locator('aside input[data-folder-name]').count()) === 1)
       await h.keyboard.press('Escape')
     } else check('Gems shows its "+" when pointed at', false)
   } else check('Gems is in the sidebar', false)
