@@ -48,42 +48,47 @@ try {
   await go('inbox')
   await wait(800)
   const say = () => h.evaluate((text) => window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text, tone: 'success' } })), WORDS)
-  await say()
-  await wait(700)
-  const before = await read()
-  check('a notice shows at the bottom', !!before.notice && before.opacity === 1 && !before.hidden, JSON.stringify(before))
-  // A row whose menu, opened just above the notice, comes down over its place (the menu keeps inside the window, so
-  // it rises from a click near the foot): the row nearest the notice's middle, low on the page.
-  // Pressed just above the notice and a little left of it, on a row: never on the notice itself (it takes clicks), and
-  // the menu, kept inside the window, comes down over the notice's place from there.
-  const spot = await h.evaluate((n) => {
-    const x = n.left - 20
-    const rows = [...document.querySelectorAll('[data-row]')].map((one) => one.getBoundingClientRect()).filter((r) => r.height && r.left + 10 <= x && r.right - 10 >= x && r.bottom <= n.top - 2)
-    const low = rows.sort((a, b) => b.bottom - a.bottom)[0]
-    return low ? { x, y: Math.round(low.top + low.height / 2) } : null
-  }, before.notice)
-  check('a row to open a menu on, low on the page', !!spot, JSON.stringify(spot))
-  if (spot) {
+  // Two presses on the rows beside the notice, a little left of it (never on the notice: it takes clicks): one just
+  // above it, whose menu opens upward, clear of it; one just below it, whose menu, kept inside the window, rises over
+  // its place (the user's case: a right-click near the foot of the page).
+  for (const way of ['above', 'below']) {
+    await say()
+    await wait(700)
+    const before = await read()
+    check(`${way}: a notice shows at the bottom`, !!before.notice && before.opacity === 1 && !before.hidden, JSON.stringify(before))
+    if (!before.notice) continue
+    const spot = await h.evaluate(([n, way]) => {
+      const x = n.left - 20
+      const y = way === 'below' ? n.top + n.height + 8 : null
+      if (y !== null) {
+        const row = document.elementFromPoint(x, y)?.closest('[data-row]')
+        return row ? { x, y: Math.round(y) } : null
+      }
+      const rows = [...document.querySelectorAll('[data-row]')].map((one) => one.getBoundingClientRect()).filter((r) => r.height && r.left + 10 <= x && r.right - 10 >= x && r.bottom <= n.top - 2)
+      const low = rows.sort((a, b) => b.bottom - a.bottom)[0]
+      return low ? { x, y: Math.round(low.top + low.height / 2) } : null
+    }, [before.notice, way])
+    check(`${way}: a row to open a menu on`, !!spot, JSON.stringify(spot))
+    if (!spot) continue
     await h.mouse.move(spot.x, spot.y)
     await h.mouse.click(spot.x, spot.y, { button: 'right' })
-    const opening = await film('open', 12)
+    const opening = await film(`${way}-open`, 12)
     const shown = opening.filter((f) => f.menu)
-    check('a real right-click menu opened', shown.length > 0, `${shown.length} of ${opening.length} frames`)
-    if (!shown.length) throw new Error('no menu opened: nothing below was proved')
-    const stayed = opening.every((f) => !f.notice || (Math.abs(f.notice.top - before.notice.top) <= 1 && Math.abs(f.notice.left - before.notice.left) <= 1))
-    check('the notice never moves while the menu opens (every frame)', stayed, opening.map((f) => f.notice?.top ?? '-').join(' '))
+    check(`${way}: a real right-click menu opened`, shown.length > 0, `${shown.length} of ${opening.length} frames`)
+    if (!shown.length) continue
+    check(`${way}: the notice never moves while the menu opens (every frame)`, opening.every((f) => !f.notice || (Math.abs(f.notice.top - before.notice.top) <= 1 && Math.abs(f.notice.left - before.notice.left) <= 1)), opening.map((f) => f.notice?.top ?? '-').join(' '))
     const over = shown.filter(covers)
-    console.log(`(the menu ${over.length ? 'covers' : 'does not cover'} the notice's place: menu ${JSON.stringify(shown.at(-1)?.menu)}, notice ${JSON.stringify(before.notice)})`)
+    console.log(`(${way}: the menu ${over.length ? 'covers' : 'does not cover'} the notice's place: menu ${JSON.stringify(shown.at(-1)?.menu)}, notice ${JSON.stringify(before.notice)})`)
     if (over.length) {
       const settled = over.at(-1)
-      check('covered: the notice is hidden where it stands', settled.hidden && settled.opacity < 0.05, JSON.stringify(settled))
-      check('and a click there reaches the menu', settled.click === 'the menu', settled.click)
-    } else check('not covered: the notice stays readable', shown.every((f) => f.notice && !f.hidden && f.opacity > 0.95), JSON.stringify(shown.at(-1)))
+      check(`${way}: covered, the notice is hidden where it stands`, !!settled.notice && settled.hidden && settled.opacity < 0.05, JSON.stringify(settled))
+      check(`${way}: and a click there reaches the menu`, settled.click === 'the menu', settled.click)
+    } else check(`${way}: not covered, the notice stays readable where it is`, shown.every((f) => f.notice && !f.hidden && f.opacity > 0.95), JSON.stringify(shown.at(-1)))
     await h.keyboard.press('Escape')
-    const closing = await film('close', 10)
+    const closing = await film(`${way}-close`, 10)
     const last = closing.at(-1)
-    check('the menu shut: the notice is back in the same place, readable', !last.menu && !!last.notice && !last.hidden && last.opacity > 0.95 && Math.abs(last.notice.top - before.notice.top) <= 1, JSON.stringify(last))
-    check('and it never moved while the menu shut (every frame)', closing.every((f) => !f.notice || Math.abs(f.notice.top - before.notice.top) <= 1), closing.map((f) => f.notice?.top ?? '-').join(' '))
+    check(`${way}: the menu shut, the notice is back in the same place, readable`, !last.menu && !!last.notice && !last.hidden && last.opacity > 0.95 && Math.abs(last.notice.top - before.notice.top) <= 1, JSON.stringify(last))
+    await wait(400)
   }
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } finally {
