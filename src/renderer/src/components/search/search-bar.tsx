@@ -112,14 +112,21 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
     inputRef.current?.select()
   }, [open])
 
+  // The extension searches 250 ms after the last key, and its own steps and replaces take a term still waiting at
+  // once; only the count read here is the old one until then. So ↵ or ⌥↵ straight after typing goes through, and a
+  // miss is told from what the step found (U2, 15 Nov: "Replace all" pressed just after typing did nothing).
+  const waiting = (): boolean => (inputRef.current?.value ?? "") !== (editor?.storage.findAndReplace?.searchTerm ?? "")
+  const none = (): boolean => !waiting() && !editor?.storage.findAndReplace?.results.length
+
   const step = (back: boolean): void => {
-    if (!editor?.storage.findAndReplace?.results.length) return cue("find-miss")
+    if (!editor || none()) return cue("find-miss")
     // A match gone to is a place asked for: the note's kept place gives way to it (the rule is in lib/note-place.ts).
     sentElsewhere(editor)
     const box = scrollerOf(editor.view.dom)
     const was = box?.scrollTop
     if (back) editor.commands.goToPreviousResult()
     else editor.commands.goToNextResult()
+    if (!editor.storage.findAndReplace.results.length) return cue("find-miss")
     cue("find-step", editor.storage.findAndReplace.currentIndex ?? 0)
 
     // The extension scrolls the selection into view, but the very first step
@@ -149,11 +156,11 @@ export function SearchBar({ editor, open, onOpen, onClose }: SearchBarProps): Re
   const replaced = useRef(false)
 
   const replace = (all: boolean): void => {
-    if (!editor?.isEditable) return cue("find-miss")
-    if (!editor.storage.findAndReplace?.results.length) return cue("find-miss")
+    if (!editor?.isEditable || none()) return cue("find-miss")
     // The extension replaces the current match; with none chosen yet, the
     // first is the one you would expect.
-    if (editor.storage.findAndReplace.currentIndex === null) editor.commands.goToNextResult()
+    if (waiting() || editor.storage.findAndReplace.currentIndex === null) editor.commands.goToNextResult()
+    if (!editor.storage.findAndReplace.results.length) return cue("find-miss")
     if (all) editor.commands.replaceAll()
     else editor.commands.replace()
     replaced.current = true
