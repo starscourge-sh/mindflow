@@ -2001,6 +2001,9 @@ export function Home(): React.JSX.Element {
             { label: 'Show the welcome again', hint: 'The first-run tour, from the start', cue: null, run: () => playWelcome() },
             // Either welcome, to feel which is right: played in the sandbox, so your own book is never touched.
             { label: 'Show the welcome in the sandbox', hint: 'Your own notes stay as they are', cue: null, run: () => void tryWelcome() },
+            // Each look of Wrapped on the sandbox's month, to feel which is right.
+            ...(SANDBOX ? ([['Files', 'files'], ['Sticker', 'sticker'], ['Kinetic', 'kinetic'], ['Night', 'night'], ['surprise me', 'surprise']] as const).map(([name, world]) => (
+              { label: `Wrapped: ${name}`, hint: world === 'surprise' ? 'Any look, never the same twice' : `The month's wrap in the ${name} look`, words: 'wrap story month spotify', cue: null, run: () => openWrap(monthToWrap(), world) })) : []),
             { label: 'Try a celebration', hint: 'One of the moments the app marks, like an empty Inbox, shown now', cue: null, run: () => tryCelebration() },
             ...placesTo(),
             { label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', hint: sidebar ? 'More room for the page; ⌘B brings it back' : 'Your pages, folders and pins on the left', keys: '⌘B', cue: sidebar ? 'fold' : 'slide', run: () => (setSidebar(!sidebar), (sidebar ? toast('Sidebar hidden. ⌘B brings it back', () => setSidebar(sidebar)) : quietly(() => setSidebar(sidebar)))) },

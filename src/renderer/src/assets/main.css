@@ -4232,3 +4232,9 @@ html[data-small] [data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-l
 /* A page all in view has nothing scrolling under its bar: the band that blurs what passes under it would only blur the
    last line, which now sits right above the bar. */
 html[data-small] [data-reading-pane] .note-pane[data-all-shown] [data-thought-dock] > .mf-blur-edge { display: none; }
+
+/* Wrapped: a wide card over the dimmed app; on a small window, the whole window, square, as on a phone. */
+.wrap-card { width: 100vw; height: 100vh; border-radius: 0; }
+@media (min-width: 640px) and (min-height: 560px) {
+  .wrap-card { width: min(760px, 86vw); height: min(560px, 86vh); border-radius: 10px; }
+}
