@@ -5,6 +5,7 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import type { MathJsInstance } from "mathjs"
 
 import { cue } from "@/lib/cues"
+import { changedSpan } from "@/lib/text-edit"
 
 /**
  * Math as you type, the way Soulver and Apple's Math Notes do it.
@@ -290,6 +291,17 @@ function answers(doc: ProseMirrorNode): DecorationSet {
   return DecorationSet.create(doc, found)
 }
 
+/** Whether the stretch a change touched (lib/text-edit.ts `changedSpan`) holds a line with an `=`, before it or after it. */
+function sumsTouched(before: ProseMirrorNode, after: ProseMirrorNode): boolean {
+  const span = changedSpan(before, after)
+  if (!span) return false
+  let found = false
+  const look = (doc: ProseMirrorNode, from: number, to: number): void => doc.nodesBetween(from, to, (block) => ((found ||= hasEquals(block)), false))
+  look(before, span.from, span.oldTo)
+  if (!found) look(after, span.from, span.newTo)
+  return found
+}
+
 /** Tab or →, with the caret at the end of a line that has an answer: write it in. */
 function accept(view: EditorView, state: EditorState): boolean {
   const { selection } = state
@@ -316,7 +328,10 @@ export const Calc = Extension.create({
         key,
         state: {
           init: (_, state) => answers(state.doc),
-          apply: (tr, old) => (tr.docChanged || tr.getMeta(key) ? answers(tr.doc) : old),
+          // Worked out again only when a line with an `=` in it was touched, before the change or after it: no other
+          // change can alter an answer, and theirs only move. Worked out again on every change, a long note pasted
+          // in a stretch at a time did it once a stretch over the whole note (678 ms on the largest), and every key.
+          apply: (tr, old) => (tr.getMeta(key) || (tr.docChanged && sumsTouched(tr.before, tr.doc)) ? answers(tr.doc) : tr.docChanged ? old.map(tr.mapping, tr.doc) : old),
         },
         view: (view) => {
           views.add(view)

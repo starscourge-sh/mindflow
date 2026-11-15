@@ -12,6 +12,7 @@ import { toast } from "@/components/haligtree/ui"
 import { chipLabel, citeInto, citedLine, fillChip, looking, loneDoi, type CiteAttrs } from "@/lib/cite"
 import { openSource } from "@/lib/sources"
 import { chime } from "@/lib/sound"
+import { changedSpan } from "@/lib/text-edit"
 import { personKey } from "../../../main/names"
 import { num } from "../../../main/dates"
 
@@ -100,6 +101,17 @@ export function worksCited(doc: PMNode): CiteAttrs[] {
     return false
   })
   return [...seen.values()].sort((a, b) => citedLine(a).localeCompare(citedLine(b)))
+}
+
+/** Whether the stretch a change touched holds a citation, before it or after it. */
+function citesTouched(before: PMNode, after: PMNode): boolean {
+  const span = changedSpan(before, after)
+  if (!span) return false
+  let found = false
+  const look = (doc: PMNode, from: number, to: number): void => doc.nodesBetween(from, to, (node) => !(found ||= node.type.name === "citation"))
+  look(before, span.from, span.oldTo)
+  if (!found) look(after, span.from, span.newTo)
+  return found
 }
 
 /** The "Works cited" list at a note's foot: a fresh element each time it is placed. */
@@ -202,7 +214,9 @@ export const Citation = Node.create({
     return [
       new Plugin<DecorationSet>({
         key,
-        state: { init: (_, state) => place(state.doc), apply: (tr, was) => (tr.docChanged ? place(tr.doc) : was) },
+        // Read again only when a change touched a citation, before or after it (lib/text-edit.ts `changedSpan`); else
+        // the list only moves. Read on every change, a long note pasted a stretch at a time read the whole note each time.
+        state: { init: (_, state) => place(state.doc), apply: (tr, was) => (!tr.docChanged ? was : citesTouched(tr.before, tr.doc) ? place(tr.doc) : was.map(tr.mapping, tr.doc)) },
         props: {
           decorations: (state) => key.getState(state),
           // A DOI pasted alone on a line goes in as its words (a doi.org link, not a link card), and "Make it a citation?" is offered.

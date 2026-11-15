@@ -9,7 +9,7 @@ import { openPdf } from "@/components/pdf/pdf-reader"
 import { labelFor } from "@/components/pdf/pdf-labels"
 import { isAudio } from "@/lib/transcribe"
 import { glideWay } from "@/lib/motion"
-import { linesTyped } from "@/lib/text-edit"
+import { changedSpan, linesTyped } from "@/lib/text-edit"
 import { copyOf } from "@/lib/icon-markup"
 
 /** A video file kept in the note, which its times play too. */
@@ -88,7 +88,7 @@ function marks(doc: ProseMirrorNode): Marked {
  */
 function remark(tr: Transaction, was: Marked): Marked {
   const lines = was.facts.audio ? null : linesTyped(tr)
-  if (!lines) return marks(tr.doc)
+  if (!lines) return was.facts.audio ? marks(tr.doc) : remarkStretch(tr, was)
   let set = was.set.map(tr.mapping, tr.doc)
   for (const { after } of lines) {
     const node = tr.doc.nodeAt(after)
@@ -101,6 +101,38 @@ function remark(tr: Transaction, was: Marked): Marked {
     set = set.add(tr.doc, found)
   }
   return { set, facts: was.facts }
+}
+
+/** A video, a PDF or a recording in a stretch of a note: what the times and pages of every line open by. */
+const bringsFacts = (doc: ProseMirrorNode, from: number, to: number): boolean => {
+  let found = false
+  doc.nodesBetween(from, to, (node) => !(found ||= node.type.name === "youtube" || isVideoFile(node) || isAudio(node) || (node.type.name === "attachment" && /\.pdf$/i.test(String(node.attrs.name ?? "")))))
+  return found
+}
+
+/**
+ * Blocks added, taken away or changed in kind (a paste, a block carried, Enter): only the lines in the stretch where
+ * the note changed (lib/text-edit.ts `changedSpan`) are marked again, when neither what went nor what came holds a
+ * video, a PDF or a recording. Marked whole on every such change, a long note pasted in a stretch at a time was
+ * marked whole once a stretch (606 ms on the largest).
+ */
+function remarkStretch(tr: Transaction, was: Marked): Marked {
+  const span = changedSpan(tr.before, tr.doc)
+  if (!span) return { set: was.set.map(tr.mapping, tr.doc), facts: was.facts }
+  if (bringsFacts(tr.before, span.from, span.oldTo) || bringsFacts(tr.doc, span.from, span.newTo)) return marks(tr.doc)
+  const found: Decoration[] = []
+  let start = span.from
+  let end = span.newTo
+  tr.doc.nodesBetween(span.from, span.newTo, (node, pos) => {
+    if (node.type.name === "codeBlock") return false
+    if (!node.isTextblock) return true
+    start = Math.min(start, pos)
+    end = Math.max(end, pos + node.nodeSize)
+    lineMarks(node, pos, null, was.facts.video, was.facts.pdf, found)
+    return false
+  })
+  const set = was.set.map(tr.mapping, tr.doc)
+  return { set: set.remove(set.find(start, end)).add(tr.doc, found), facts: was.facts }
 }
 
 /** The marks of one line: a transcript's time, a card's "::", a time or page that opens, a PDF link's page. */
