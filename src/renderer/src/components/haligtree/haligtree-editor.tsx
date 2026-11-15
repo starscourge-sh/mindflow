@@ -60,6 +60,7 @@ import { ImageDrop } from "@/extensions/image-drop"
 import { DragOut } from "@/extensions/drag-out"
 import { ImagePlaceholder } from "@/extensions/image-placeholder"
 import { ObsidianEmbeds, readInLine } from "@/extensions/obsidian-embeds"
+import { GripLetsGo } from "@/extensions/grip-lets-go"
 import { BlockColor } from "@/extensions/block-color"
 import { JoinLists } from "@/extensions/join-lists"
 import { OutdentLists } from "@/extensions/outdent-lists"
@@ -1712,6 +1713,8 @@ function Surface({
       ImagePlaceholder,
       // Pictures pasted from Obsidian come in as pictures, not their paths.
       ObsidianEmbeds,
+      // The grip lets its block go when a change takes the block away.
+      GripLetsGo.configure({ kept: () => blockTarget.current }),
       ...extra,
     ],
     // A string is Markdown: what an imported note, or one pasted from a file,
