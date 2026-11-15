@@ -49,15 +49,19 @@ try {
     // Growing, a line at a time.
     await win.click(EDITOR)
     await win.keyboard.type('Distilling the report', { delay: 15 })
-    const heights = [(await numbers(win.url())).height]
+    const card = () => win.evaluate(() => document.querySelector('.app-container')?.offsetHeight ?? 0)
+    const heights = [`${await card()}/${(await numbers(win.url())).height}`]
     for (let i = 1; i <= 6; i++) {
-      await win.keyboard.press('Enter')
       await win.keyboard.type(`The ${i === 1 ? 'first' : i === 2 ? 'second' : `${i}th`} point worth keeping`, { delay: 8 })
-      await wait(250)
-      heights.push((await numbers(win.url())).height)
-      await shot(win, `${theme}-grow-${i}`)
+      // The new row, filmed from the key that makes it: the card and its window read at each picture, so a card drawn
+      // past its window (the edge a frame late) shows in the numbers as well as the pictures.
+      await win.keyboard.press('Enter')
+      for (let k = 0; k < 4; k++) {
+        heights.push(`${await card()}/${(await numbers(win.url())).height}`)
+        await shot(win, `${theme}-grow-${i}-${k}`)
+      }
     }
-    console.log(`${theme} heights as lines are added: ${heights.join(' → ')}`)
+    console.log(`${theme} card/window heights, filmed from each new row's key: ${heights.join(' → ')}`)
     await win.mouse.move(-50, -50); await wait(400)
     await shot(win, `${theme}-rest-written`)
     // Resized by hand: "Auto-size".

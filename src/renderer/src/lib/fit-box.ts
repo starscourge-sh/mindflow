@@ -41,8 +41,16 @@ const MENU_ROOM = window.api.room.menu ?? ROOM
 const roomUnder = (): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mf-room')) || ROOM
 /** All the room the window keeps above and below the card. */
 const roomTop = (): number => parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mf-room-top')) || window.api.room.top
-/** The card's height: with room round it, the window is taller than the card by that room. */
-const cardHeight = (): number => (ROOM ? (document.querySelector<HTMLElement>('.app-container')?.offsetHeight ?? window.innerHeight) : window.innerHeight)
+/** The card's height: with room round it, the window is taller than the card by that room (a small window's below it). */
+const cardHeight = (): number => (ROOM || SMALL ? (document.querySelector<HTMLElement>('.app-container')?.offsetHeight ?? window.innerHeight) : window.innerHeight)
+/**
+ * A small window growing with its words (main/small-window.ts): its card drawn at `height` in this frame, inside the
+ * clear room its window holds below it, the window itself growing only when that room runs short (main.css,
+ * data-small-auto). Never taller than the window has room for: past that its words scroll until the window has grown.
+ */
+const drawSmall = (height: number): void => {
+  if (SMALL && height > 0) document.documentElement.style.setProperty('--mf-small-card', `${Math.min(height, window.innerHeight)}px`)
+}
 
 /** The card held at `height` (quick capture's overhang), whatever room the window keeps under it; and let go. */
 const pin = (height: number): void => {
@@ -146,12 +154,14 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     const height = fullNow.current || (popped && (!ROOM || grewForPop.current)) ? FULL : (needed(column.current) ?? FULL)
     // A small window (main/small-window.ts) grows with the words past the box's full height, as far as the screen
     // allows (main keeps it under that ceiling and over its own short height); a pop-up gives it the box's full height.
-    if (SMALL) return Math.max(popped || fullNow.current ? FULL : 0, needed(column.current) ?? 0)
+    // No words to measure (its note's stand-in in its place): the box's full height, never a card too short for it.
+    if (SMALL) return Math.max(popped || fullNow.current ? FULL : 0, needed(column.current) ?? FULL)
     return Math.min(FULL, Math.max(SHORT, height))
   }, [column])
 
   const send = useCallback((height: number, snap = false): void => {
     clearTimeout(wait.current)
+    drawSmall(height)
     // Already asked for, but gliding there: a snap still lands it at once.
     if (height === sent.current && !snap) return
     sent.current = height
@@ -272,6 +282,9 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
       unpin()
     }
     window.addEventListener('resize', caught)
+    // A small window grown round its card: the card takes the height it was held short of.
+    const regrown = (): void => drawSmall(sent.current)
+    window.addEventListener('resize', regrown)
     const sizes = new ResizeObserver(soon)
     if (column.current) sizes.observe(column.current)
     // A picture or a card's image arriving makes its block taller.
@@ -282,6 +295,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
       sizes.disconnect()
       window.removeEventListener('resize', soon)
       window.removeEventListener('resize', caught)
+      window.removeEventListener('resize', regrown)
       document.removeEventListener('load', soon, true)
       clearTimeout(wait.current)
     }

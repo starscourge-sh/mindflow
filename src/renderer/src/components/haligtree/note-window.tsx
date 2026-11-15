@@ -32,7 +32,7 @@ import { menuOpen } from '@/lib/menu-keys'
 import { noteLinkText, follow, headingIn } from '@/lib/capture-links'
 import { useSameWords } from '@/lib/same-words'
 import { useAppearance, haligtree, shownName, type ItemFull } from '@/lib/haligtree'
-import { openInHaligtree, useCarriedHere } from '@/lib/apart'
+import { Apart, openInHaligtree, useCarriedHere } from '@/lib/apart'
 import { AppWindowMacIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { APP_NAME } from '../../../../main/name'
@@ -195,6 +195,9 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   return (
     // Drawn once every part of it has read what it shows (lib/reads-in.tsx).
     <ReadsIn className="contents">
+    {/* Taken by a small window (one note, one window): its place here says so, with its way there and back, as the
+        main window's does; back, it is read afresh. */}
+    <Apart type="capture" id={id} title={meta.label} hidden={!!meta.private} onBack={() => window.api.captures.get(id).then((found) => found && (setCapture(found), setRev((n) => n + 1)))}>
     <div className="note-pane flex min-w-0 flex-1 flex-col overflow-y-auto [--mf-padding:1rem_3.25rem] @[40rem]/page:flex-row @[40rem]/page:overflow-visible @[40rem]/page:[--mf-padding:1rem_4.75rem]">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <NoteHeader back={<OpenHere />} place={<CapturePlace capture={meta} />} table="captures" id={id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })} onRestored={() => void window.api.captures.get(id).then((found) => {
@@ -226,6 +229,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
       </div>
       {(!boardShown || propsOut) && <CaptureProps capture={meta} onOpen={elsewhere} fold={!boardShown} />}
     </div>
+    </Apart>
     </ReadsIn>
   )
 }

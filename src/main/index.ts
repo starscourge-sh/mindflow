@@ -5439,7 +5439,7 @@ app.whenReady().then(() => {
   registerHome()
   registerSpelling()
   registerNotes({ load, guard, home: (type, id) => sendHome(type, id, undefined, 'window'), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
-  smallWindows = registerSmallWindows({ load, guard, stepAside })
+  smallWindows = registerSmallWindows({ load, guard, stepAside, passThrough })
   smallWindows.restore()
   registerGroups()
   registerSections()

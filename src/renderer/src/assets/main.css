@@ -4148,3 +4148,11 @@ html[data-small] .app-container {
   background-color: var(--mf-glass-fill);
   box-shadow: var(--mf-glass-rim), var(--mf-glass-edge);
 }
+/* Growing with its words, the card is as tall as they need, drawn by the page in the frame they change, in clear room
+   its window already holds below it (lib/fit-box.ts drawSmall; main grows the window only when that room runs short).
+   Resized by hand, it fills its window again. */
+html[data-small][data-small-auto] .app-container {
+  height: var(--mf-small-card, 100%);
+  flex: none;
+  align-self: flex-start;
+}

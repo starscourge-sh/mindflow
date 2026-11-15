@@ -206,7 +206,8 @@ export function Apart({ type, id, title, hidden = false, onBack, children }: {
   children: ReactNode
 }): React.JSX.Element {
   const inWindow = noteWindowLink() !== null
-  const gone = useAway(id) && !inWindow
+  // In a note's own window too: a small window can take its note, and this window holds its place (one note, one window).
+  const gone = useAway(id)
   const pane = usePane()
   // Coming back, the trace holds the place until the note has been read again.
   const [returning, setReturning] = useState(false)
@@ -236,7 +237,6 @@ export function Apart({ type, id, title, hidden = false, onBack, children }: {
     window.addEventListener('keydown', onKey, true)
     return () => window.removeEventListener('keydown', onKey, true)
   }, [inWindow, out, pane, type, id])
-  if (inWindow) return <>{children}</>
   return (
     <div className="contents" data-apart-note={id}>
       {out ? <Trace type={type} id={id} title={title ?? null} hidden={hidden} /> : children}
@@ -265,7 +265,7 @@ function Trace({ type, id, title, hidden }: { type: string; id: string; title: s
       </div>
       <div className="flex flex-wrap items-center justify-center gap-2">
         <Tip label="Bring its window to the front">
-          <Button variant="outline" size="lg" data-apart-show onClick={() => (chime('tap'), void window.api.haligtree('notes:window', type === 'capture' ? 'capture' : type, id))}>
+          <Button variant="outline" size="lg" data-apart-show onClick={() => (chime('tap'), void window.api.haligtree('notes:show', `${type === 'capture' ? 'capture' : type}:${id}`))}>
             <AppWindowIcon />Show its window
           </Button>
         </Tip>

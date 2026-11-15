@@ -21,7 +21,7 @@ import { mdWords } from './md-words'
 import { NOTE_KEY } from './name'
 import { fileLink } from './pdf-highlights'
 import { linkedAmong, mentionsIn } from './links-in'
-import { closeSmall, showSmall } from './small-window'
+import { closeSmall, isSmall, liftSmall, putDownSmall, showSmall } from './small-window'
 
 /**
  * What a note carries beyond its words, for captures and nuggets alike: its
@@ -584,10 +584,12 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
   }
   ipcMain.handle('haligtree:notes:window', (event, type: string, id: string, from?: Box | null, carry?: Carry | null) => {
     const link = `${type}:${id}`
-    // Held by a small window (small-window.ts): that window, brought forward.
-    if (showSmall(link)) return
+    // Held by a small window (small-window.ts): this window takes it, and the small one puts it down, showing its
+    // stand-in, as the main window does (it hears the notes:opened-apart sent below). One note, one window.
     const was = open.get(link)
-    if (was && !was.isDestroyed()) return void (gate().blackout || was.focus())
+    // Its own window open already, the note perhaps out in a small one since: back to that window, the small one closing.
+    if (was && !was.isDestroyed()) return void (closeSmall(link), gate().blackout || was.focus())
+    putDownSmall(link)
     if (carry) carried.set(link, carry)
     // Where it grows from: the note or its row in the window it left, else
     // a small square under the pointer.
@@ -615,6 +617,8 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     for (const other of BrowserWindow.getAllWindows()) if (other !== win && other.webContents !== event.sender) other.webContents.send('notes:opened-apart', id)
     win.on('closed', () => {
       if (open.get(link) === win) open.delete(link)
+      // A small window that had put it down has it again (it hears 'closed' below and reads it afresh).
+      liftSmall(link)
       // Back in its place wherever it had left.
       tell(null, 'closed', link)
     })
@@ -682,12 +686,27 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     landing.done(box)
     landing = null
   })
-  /** "Bring it back", from the place a note left: its window carries it home, caret and all. */
-  handle('notes:bring-back', (link: string) => {
-    if (closeSmall(link)) return true
+  /**
+   * "Bring it back", from the place a note left: its window carries it home, caret and all. A small window holding it
+   * closes, its last words saved as it goes. Asked from a small window whose note this kind of window took, this one
+   * closes, and the note is the small window's again.
+   */
+  ipcMain.handle('haligtree:notes:bring-back', (event, link: string) => {
+    const asker = BrowserWindow.fromWebContents(event.sender)
+    if (closeSmall(link, asker)) return true
     const win = open.get(link)
     if (!win || win.isDestroyed()) return false
+    if (isSmall(asker)) return (win.close(), true)
     win.webContents.send('notes:apart', 'promote', link)
+    return true
+  })
+  /** "Show its window", on a note's stand-in: whichever window has the note now, never the one asking. */
+  ipcMain.handle('haligtree:notes:show', (event, link: string) => {
+    const asker = BrowserWindow.fromWebContents(event.sender)
+    if (showSmall(link, asker)) return true
+    const win = open.get(link)
+    if (!win || win.isDestroyed() || win === asker) return false
+    if (!gate().blackout) win.focus()
     return true
   })
 }

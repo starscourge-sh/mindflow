@@ -14,10 +14,12 @@ import { centredOn, glide, onScreen, stillNow } from './glide'
  * Quick capture's main code (index.ts) asks `isSmall` where a window may be one of these; the rest is here.
  */
 
-type Kept = { link: string; bounds: Electron.Rectangle; auto: boolean; aside: boolean; top: boolean }
+type Kept = { link: string; bounds: Electron.Rectangle; auto: boolean; aside: boolean; top: boolean; /** Its note taken by a note's own window: its stand-in shows. */ down?: boolean }
 type Windows = {
   load: (win: BrowserWindow, query: string) => void
   guard: (win: BrowserWindow) => void
+  /** Clicks through the clear room under the card to the app behind (index.ts, lib/clear-room.ts), as a sticky's. */
+  passThrough: (win: BrowserWindow, on: boolean) => void
   /** Quick capture's step aside (index.ts), for any window kept open: `may` says whether it is on. */
   stepAside: (win: BrowserWindow, may: () => boolean) => void
 }
@@ -36,23 +38,35 @@ let quitting = false
 
 /** One of these, not quick capture or any other window. */
 export const isSmall = (win: BrowserWindow | null | undefined): boolean => !!win && smalls.has(win)
-const holding = (link: string): BrowserWindow | undefined => [...smalls].find(([win, one]) => one.link === link && !win.isDestroyed())?.[0]
+/** The small window that has the note now: not one whose note a note's own window took (`down`), nor `but`. */
+const holding = (link: string, but: BrowserWindow | null = null): BrowserWindow | undefined =>
+  [...smalls].find(([win, one]) => one.link === link && !one.down && win !== but && !win.isDestroyed())?.[0]
 /** A note opened in a window of its own is put down everywhere else, as a note's own window has it (notes.ts). */
 const takeAway = (win: BrowserWindow, link: string): void => {
   const id = link.slice(link.indexOf(':') + 1)
   for (const other of BrowserWindow.getAllWindows()) if (other !== win && !other.isDestroyed()) other.webContents.send('notes:opened-apart', id)
 }
+/**
+ * One note, one window: a note's own window taking a note a small window has puts it down there (the small window
+ * hears notes:opened-apart and shows its stand-in, lib/apart.tsx), and that window closing gives it back.
+ */
+export function putDownSmall(link: string): void {
+  for (const one of smalls.values()) if (one.link === link) one.down = true
+}
+export function liftSmall(link: string): void {
+  for (const one of smalls.values()) if (one.link === link) one.down = false
+}
 /** "Show its window", from the place the note left in the main window: true when a small window holds it. */
-export function showSmall(link: string): boolean {
-  const win = holding(link)
+export function showSmall(link: string, but: BrowserWindow | null = null): boolean {
+  const win = holding(link, but)
   if (!win) return false
   win.showInactive()
   win.focus()
   return true
 }
 /** "Bring it back": the small window holding it closes, its last words saved as its page goes, and the note is there again. */
-export function closeSmall(link: string): boolean {
-  const win = holding(link)
+export function closeSmall(link: string, but: BrowserWindow | null = null): boolean {
+  const win = holding(link, but)
   if (!win) return false
   win.close()
   return true
@@ -104,13 +118,27 @@ export function fitSmall(win: BrowserWindow, height: number): boolean {
   const { workArea } = screen.getDisplayMatching(now)
   const top = workArea.y + MARGIN
   const foot = workArea.y + workArea.height - MARGIN
-  const next = Math.round(Math.max(SHORT, Math.min(height, foot - top)))
+  const card = Math.round(Math.max(SHORT, Math.min(height, foot - top)))
+  // The Mac's shadow follows the card's new shape, not the one it had when the window last changed size.
+  if (process.platform === 'darwin') win.invalidateShadow()
+  // QC2's one mechanism, as quick capture grows (index.ts keptRoom): the page draws the card at its height in the room
+  // the window already holds below it, in the frame the words change; the window changes size only once that room
+  // runs short, in one step a few rows ahead, and gives room back only when it holds a lot more than the card needs.
+  // A window resized for every row showed each row's edge a frame late. The room is clear: clicks pass through it.
+  const lacks = card + AHEAD > now.height
+  const spare = now.height > card + 2 * ROOM
+  const past = now.y + now.height > foot || now.height > foot - top
+  if (!lacks && !spare && !past) return true
+  const next = Math.min(foot - top, card + ROOM)
   const y = Math.max(top, Math.min(now.y, foot - next))
-  if (Math.abs(next - now.height) >= 1 || y !== now.y) win.setBounds({ ...now, y, height: next }, false)
+  if (next !== now.height || y !== now.y) win.setBounds({ ...now, y, height: next }, false)
   return true
 }
+/** Room a growing small window holds below its card, and how close the card may come to its foot before it grows. */
+const ROOM = 240
+const AHEAD = 96
 
-export function registerSmallWindows({ load, guard, stepAside }: Windows): { open: (link: string | null, from?: Electron.Rectangle | null) => void; restore: () => void } {
+export function registerSmallWindows({ load, guard, stepAside, passThrough }: Windows): { open: (link: string | null, from?: Electron.Rectangle | null) => void; restore: () => void } {
   app.on('before-quit', () => {
     quitting = true
     save()
@@ -146,6 +174,8 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
     if (process.env.HALIGTREE_QA_VIRTUAL) win.setBounds(size)
     const state: Kept = kept ?? { link, bounds: size, auto: true, aside: true, top: true }
     smalls.set(win, state)
+    // The clear room under its card lets clicks through until the pointer is on something drawn.
+    passThrough(win, true)
     // Over every app, as quick capture floats ("Keep on top" in its menu), on whichever desktop you are on.
     win.setAlwaysOnTop(state.top, 'floating')
     win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
@@ -214,6 +244,19 @@ export function registerSmallWindows({ load, guard, stepAside }: Windows): { ope
     // The note it held before, left empty, goes as it would on closing.
     if (was !== link) dropIfEmpty(was)
     save()
+  })
+  /** Resized by its card's foot (the page's grip, the window's own foot being clear room): growing stops there. */
+  ipcMain.handle('haligtree:small:height', (event, height: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const kept = win && smalls.get(win)
+    if (!win || !kept || typeof height !== 'number' || !Number.isFinite(height)) return
+    if (kept.auto) {
+      kept.auto = false
+      win.webContents.send('small:said', 'auto', false)
+    }
+    const now = win.getBounds()
+    const { workArea } = screen.getDisplayMatching(now)
+    win.setBounds({ ...now, height: Math.round(Math.max(140, Math.min(height, workArea.y + workArea.height - now.y))) }, false)
   })
   /** Its switches, for its menu. */
   ipcMain.handle('haligtree:small:state', (event) => {

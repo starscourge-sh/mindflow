@@ -40,6 +40,15 @@ const win = (url, fn = 'return w.getBounds()', arg) => electron.evaluate(({ Brow
 }, [url.slice(url.indexOf('?')), fn, arg])
 const holds = (page) => page.evaluate(() => new URLSearchParams(location.search).get('small'))
 const words = (id) => h.evaluate((id) => window.api.captures.get(id).then((one) => JSON.stringify(one?.body ?? null)), id)
+/** The cursor a person sees with the pointer resting on what `selector` finds: read where the pointer is, not from the element. */
+const cursorAt = async (page, selector) => {
+  const box = await page.locator(selector).first().boundingBox().catch(() => null)
+  if (!box) return 'not there'
+  const [x, y] = [box.x + box.width / 2, box.y + box.height / 2]
+  await page.mouse.move(x, y); await page.waitForTimeout(150)
+  return page.evaluate(([x, y]) => { const at = document.elementFromPoint(x, y); return at ? getComputedStyle(at).cursor : 'nothing there' }, [x, y])
+}
+const cardHeight = (page) => page.evaluate(() => document.querySelector('.app-container')?.offsetHeight ?? 0)
 const typeIn = async (page, text) => {
   await page.click(EDITOR)
   await page.keyboard.press('End')
@@ -143,9 +152,22 @@ try {
     if (await openIn.count()) { await openIn.first().hover(); await wait(400) }
     const line = h.getByRole('menuitem', { name: 'Open in a small window' })
     check('a capture row\'s menu says “Open in a small window”', (await line.count()) > 0)
+    check('the hand on that line', (await cursorAt(h, '[role="menuitem"]:has-text("Open in a small window")')) === 'pointer')
     if (await line.count()) await line.first().click()
     const second = await until(() => smalls().length >= 2 && smalls().find((one) => one !== first))
     check('it opens that note in a small window of its own', !!second && (await holds(second)) === `capture:${old?.id}`, second ? await holds(second) : 'none')
+    // 4b. One note, one window: its own window taking the note puts it down in the small window, which says where it
+    // went, as the main window does; "Bring it back" there closes that window and the small one has the note again.
+    await row.click({ button: 'right' }); await wait(500)
+    if (await openIn.count()) { await openIn.first().hover(); await wait(400) }
+    await h.getByRole('menuitem', { name: 'Open in a new window' }).first().click().catch(() => {})
+    const big = await until(() => electron.windows().find((one) => /[?&]note=/.test(one.url())))
+    check('“Open in a new window” on a note a small window holds opens its own window', !!big)
+    const putDown = second ? await until(async () => (await second.locator('[data-apart-trace]').count()) > 0) : null
+    check('and the small window puts it down, saying where it went, with its way there and back', !!putDown && (await second.locator('[data-apart-show]').count()) === 1)
+    if (putDown) await second.locator('[data-apart-back]').click()
+    check('“Bring it back” there closes that window', !!(await until(() => !electron.windows().some((one) => /[?&]note=/.test(one.url())))))
+    check('and the small window has its note again', !!second && !!(await until(async () => (await second.locator('[data-apart-trace]').count()) === 0 && (await second.locator(EDITOR).count()) > 0)))
     // 5. The key from anywhere: a new note, saved as it is written; quick capture untouched.
     await electron.evaluate(() => globalThis.haligtreeChords.get('⌥⌘.')())
     const fresh = await until(() => smalls().find((one) => one !== first && one !== second))
@@ -156,18 +178,33 @@ try {
     const freshId = (freshLink ?? '').replace('capture:', '')
     const title = () => fresh.locator('[data-drag-strip] .text-control').first().innerText().catch(() => '')
     check('empty, its faint title says “Untitled”', /Untitled/.test(await title()), await title())
+    for (const [name, at] of [['window dots’ ×', '.mf-dots button[aria-label="Close"]'], ['new note', 'button[aria-label="New note"]'], ['browse', '[data-small-browse]'], ['menu', 'button[aria-label="Options"]'], ['“Close note”', '[data-create]']]) {
+      const cursor = await cursorAt(fresh, at)
+      check(`the hand on its ${name}, under a resting pointer`, cursor === 'pointer', cursor)
+    }
+    await fresh.mouse.move(-40, -40)
     const short = (await win(fresh.url())).height
     await typeIn(fresh, 'Distilling the report')
     check('typed, the title is its first line', /Distilling the report/.test(await title()), await title())
-    // 6. Auto-size: one line a time, it grows; past the screen, it stops at its ceiling.
-    for (let i = 0; i < 6; i++) await fresh.keyboard.press('Enter'), await fresh.keyboard.type(`point ${i + 1}`, { delay: 10 })
-    await wait(900)
-    const grown = (await win(fresh.url())).height
-    check('it grows as the words grow', grown > short + 60, `${short} → ${grown}`)
+    // 6. Auto-size: one line a time the card grows, drawn by the page in the room its window already holds below it;
+    // the window changes size only when that room runs short, in one step (QC2's mechanism, as quick capture grows).
+    const cards = [await cardHeight(fresh)]
+    const windows = [(await win(fresh.url())).height]
+    for (let i = 0; i < 6; i++) {
+      await fresh.keyboard.press('Enter'); await fresh.keyboard.type(`point ${i + 1}`, { delay: 10 })
+      await wait(350)
+      cards.push(await cardHeight(fresh)); windows.push((await win(fresh.url())).height)
+    }
+    const grown = windows.at(-1)
+    check('the card grows with every row written', cards.every((one, n) => !n || one > cards[n - 1]), cards.join(' → '))
+    check('the card is never taller than its window', cards.every((one, n) => one <= windows[n]), `${cards.join(',')} in ${windows.join(',')}`)
+    const resized = windows.filter((one, n) => n && one !== windows[n - 1]).length
+    check('the window changes size at most once in six rows, never a row at a time', resized <= 1, windows.join(' → '))
     for (let i = 0; i < 70; i++) await fresh.keyboard.press('Enter'), await fresh.keyboard.type(`more ${i + 1}`, { delay: 0 })
     await wait(1200)
     const top = await win(fresh.url(), 'const b = w.getBounds(); const a = screen.getDisplayMatching(b).workArea; return { ...b, ceiling: a.height - 80, foot: a.y + a.height - 40 }')
     check('and stops at the screen\'s height less a margin above and below', top.height === top.ceiling && top.y + top.height === top.foot, JSON.stringify(top))
+    check('the card fills it there, its words scrolling', (await cardHeight(fresh)) === top.height, `${await cardHeight(fresh)} in ${top.height}`)
     check('saved, every line', /more 70/.test(await words(freshId)))
     // 7. Resized by hand: growing stops, and “Auto-size” gives it back.
     await win(fresh.url(), 'w.setBounds({ ...w.getBounds(), height: 300 }); w.emit("will-resize")')
@@ -178,6 +215,7 @@ try {
     check('and it no longer grows with the words', (await win(fresh.url())).height === 300, (await win(fresh.url())).height)
     // Pointed at, as a person reaches for it: the row under the words comes back from its fade while typing.
     await fresh.mouse.move(260, 120); await wait(400)
+    check('the hand on “Auto-size”', (await cursorAt(fresh, '[data-small-auto]')) === 'pointer')
     if (await pill.count()) await pill.click()
     await wait(900)
     check('“Auto-size” gives growing back at once', (await win(fresh.url())).height > 300 && (await pill.count()) === 0, (await win(fresh.url())).height)
@@ -192,6 +230,10 @@ try {
     check('its menu has “Steps aside”, on', (await stepLine.count()) === 1 && (await stepLine.getAttribute('aria-checked')) === 'true')
     check('and “Collect what I copy”', (await fresh.getByRole('menuitem', { name: /Collect what I copy/ }).count()) === 1)
     check('and “Auto-size”', (await fresh.getByRole('menuitemcheckbox', { name: /Auto-size/ }).count()) === 1)
+    for (const [name, at] of [['“Steps aside”', '[role="menuitemcheckbox"]:has-text("Steps aside")'], ['“Collect what I copy”', '[role="menuitem"]:has-text("Collect what I copy")'], ['“Keep on top”', '[role="menuitemcheckbox"]:has-text("Keep on top")']]) {
+      const cursor = await cursorAt(fresh, at)
+      check(`the hand on its menu's ${name}`, cursor === 'pointer', cursor)
+    }
     if (await stepLine.count()) await stepLine.click({ force: true })
     await fresh.keyboard.press('Escape'); await wait(400)
     const still = await win(fresh.url())

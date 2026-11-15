@@ -147,6 +147,8 @@ import { APP_NAME } from '../../main/name'
 import { domOf } from '@/lib/editor-dom'
 import { ArrowUpDown, Layers2 } from 'lucide-react'
 import { isCollecting, startCollect, stopCollect } from '@/extensions/collect'
+import { clearRoom } from '@/lib/clear-room'
+import { Apart } from '@/lib/apart'
 
 /**
  * A small window (main/small-window.ts): this same page in a window of its own that holds one note, saved as it is
@@ -156,7 +158,16 @@ import { isCollecting, startCollect, stopCollect } from '@/extensions/collect'
  */
 const SMALL = new URLSearchParams(location.search).get('small')
 // Its card's look from the first frame (main.css, data-small): the window is see-through until the card is drawn.
-if (SMALL) document.documentElement.dataset.small = ''
+// Clicks in the clear room under the card pass to the app behind, as round a sticky (lib/clear-room.ts).
+if (SMALL) (document.documentElement.dataset.small = '', clearRoom())
+/**
+ * A small window's note taken by a note's own window (one note, one window): its place here says so, with the way to
+ * that window and back, as the main window's place does (lib/apart.tsx); back, it is read afresh. Elsewhere, the page.
+ */
+function SmallHold({ note, title, hidden, onBack, children }: { note: { id: string } | null; title: string; hidden: boolean; onBack: () => void; children: React.ReactNode }): React.JSX.Element {
+  if (!note) return <>{children}</>
+  return <Apart type="capture" id={note.id} title={title || null} hidden={hidden} onBack={onBack}>{children}</Apart>
+}
 /** Put away: quick capture hides; a small window closes, its note kept where it lives. */
 const putWindowAway = (): void => (SMALL ? window.close() : window.api.hideWindow())
 
@@ -1330,6 +1341,8 @@ export default function App(): React.JSX.Element {
     window.addEventListener('haligtree:small', said)
     return () => window.removeEventListener('haligtree:small', said)
   }, [])
+  // Growing, the card is drawn at its own height in the room below it (main.css); resized by hand, it fills its window.
+  useEffect(() => void document.documentElement.toggleAttribute('data-small-auto', !!small?.auto), [small?.auto])
   const setSmallSwitch = (patch: { auto?: boolean; aside?: boolean; top?: boolean }): void => {
     void window.api.haligtree<{ auto: boolean; aside: boolean; top: boolean } | null>('small:set', patch).then((now) => {
       setSmall(now)
@@ -1571,7 +1584,8 @@ export default function App(): React.JSX.Element {
   useEffect(() => {
     // Opened in a window of its own, from here or another window: put down
     // here, so only one editor saves it.
-    const onApart = (event: Event): void => void ((event as CustomEvent).detail === latestEditing.current?.id && fresh(true))
+    // A small window keeps its place instead, saying where the note went (SmallHold, lib/apart.tsx).
+    const onApart = (event: Event): void => void (!SMALL && (event as CustomEvent).detail === latestEditing.current?.id && fresh(true))
     // Version history lives in the main window, where there is room to read
     // back through them: the note goes there, its history open.
     const onVersions = (event: Event): void => {
@@ -2147,6 +2161,21 @@ export default function App(): React.JSX.Element {
   return (
     <TooltipProvider delayDuration={500}>
     <div data-one-line={oneLine || undefined} data-pill={pill || undefined} data-glance={(glanceOn && pill) || undefined} className={`app-container ${pointerIn ? 'pointer-in' : ''} isolate flex flex-col items-center justify-center relative flex h-full w-full flex-col pt-10 color-white`}>
+      {/* A small window growing keeps clear room below its card, so its own foot is not where a hand reaches: the
+          card's foot resizes it, as a window's edge does (main's small:height), and growing stops there. */}
+      {SMALL && (
+        <div data-small-grip aria-hidden className="absolute inset-x-6 bottom-0 z-20 h-1.5 cursor-ns-resize" style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+          onPointerDown={(event) => {
+            if (event.button !== 0) return
+            const grip = event.currentTarget
+            grip.setPointerCapture(event.pointerId)
+            const from = { y: event.screenY, height: grip.parentElement?.offsetHeight ?? window.innerHeight }
+            const move = (moved: PointerEvent): void => void window.api.haligtree('small:height', from.height + moved.screenY - from.y)
+            const up = (): void => (grip.removeEventListener('pointermove', move), grip.removeEventListener('pointerup', up))
+            grip.addEventListener('pointermove', move)
+            grip.addEventListener('pointerup', up)
+          }} />
+      )}
       {/* The pill's two ends: the kind it will be kept as (pressed, the box grows to show the kind picker) and ⌘↵.
           With no header, the room at each end drags the window, as the header does; the line between is for writing. */}
       {/* The glance tabs stand on the pill; a tab other than Write has its own line here, in the writing's place. */}
@@ -2438,7 +2467,7 @@ export default function App(): React.JSX.Element {
                 </div>
               </motion.div>
             ) : (
-            <>
+            <SmallHold note={SMALL ? editing : null} title={first} hidden={secret} onBack={() => editing && openCapture(editing.id, true)}>
             {/* Keyed like the editor, so each note that opens, old or fresh,
                 eases in rather than snapping into place. */}
             <motion.div
@@ -2691,7 +2720,7 @@ export default function App(): React.JSX.Element {
               </div>
             )}
             </motion.div>
-            </>
+            </SmallHold>
             )}
             {/* How quick capture moves, one way for every shape: a small grabber just above the card (a sheet's), shown
                 with the pointer in. Held, the box follows; double-clicked, it goes back to its home (main's boxHome). */}
