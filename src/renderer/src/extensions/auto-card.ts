@@ -14,10 +14,17 @@ import { host } from "@/lib/host"
  *
  * The card is its own undo step, so ⌘Z straight after turns it back into the
  * plain link, and it is not made again: only a paste or an Enter makes one.
+ * The cards of a long paste (a whole note, its addresses among its lines) ride
+ * with the paste in Undo instead: one ⌘Z takes all of it back out, as one ⌘Z
+ * after any paste does, where the cards came back first as a step of their own.
  */
 const BARE = /^https?:\/\/\S+$/
 
-type Pending = { pos: number }[]
+/** A paste this long (in the note's places, about its letters) is a note's worth: its cards ride with it in Undo. */
+const LONG = 20_000
+
+/** The lines waiting to become cards; `quiet`, from a long paste, whose cards ride with it. */
+type Pending = { pos: number; quiet?: true }[]
 const key = new PluginKey<Pending>("auto-card")
 
 /** A paragraph that is a bare address and nothing else, where a card may stand. */
@@ -106,7 +113,7 @@ export const AutoCard = Extension.create({
           apply: (tr: Transaction, pending, old, state) => {
             // The step that makes the cards takes every line waiting.
             if (tr.getMeta(key)) return []
-            const next = pending.map(({ pos }) => ({ pos: tr.mapping.map(pos) }))
+            const next = pending.map((one) => ({ ...one, pos: tr.mapping.map(one.pos) }))
             if (!tr.docChanged || !editor.isEditable || !state.schema.nodes.bookmark) return next
             // Pasted: every bare-address line that arrived.
             if (tr.getMeta("uiEvent") === "paste") {
@@ -119,7 +126,9 @@ export const AutoCard = Extension.create({
                   to = Math.max(to, after.map(end, 1))
                 })
               })
-              return from <= to ? [...next, ...bareBetween(state.doc, from - 1, to + 1).map((pos) => ({ pos }))] : next
+              if (from > to) return next
+              const quiet = to - from >= LONG ? { quiet: true as const } : {}
+              return [...next, ...bareBetween(state.doc, from - 1, to + 1).map((pos) => ({ pos, ...quiet }))]
             }
             // Typed, then Enter: the line just left was a bare address, and the caret was at its end.
             const was = old.selection.$from
@@ -143,8 +152,10 @@ export const AutoCard = Extension.create({
               if (editor.isDestroyed) return
               const state = editor.state
               const still = (key.getState(state) ?? []).filter(({ pos }) => bareAt(state.doc, pos))
-              // A step of its own in the history, never merged with the paste or the Enter.
+              // A step of its own in the history, never merged with the paste or the Enter; a long paste's cards ride
+              // with the paste instead, out of Undo's own count, so one ⌘Z takes all of it out.
               const tr = closeHistory(state.tr).setMeta(key, "made")
+              if (still.length && still.every((one) => one.quiet)) tr.setMeta("addToHistory", false)
               const made: { id: string; href: string }[] = []
               let caretAt: number | null = null
               const seen = new Set<number>()
