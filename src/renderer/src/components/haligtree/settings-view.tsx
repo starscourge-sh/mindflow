@@ -84,7 +84,7 @@ import { Lead, plain } from './lead'
 import { backedUpAgo, chooseBackupFolder } from '@/lib/backups'
 import { ThemeDial } from './theme-dial'
 import { TimeField } from './time-field'
-import { StepAsideSample, BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
+import { StepAsideSample, BarWordsSample, BlurSample, DatesSample, OffersSample, CentredSample, DayHintsSample, FoldSample, LineNumbersSample, TypePauseSample, SpellSample, HomeMonthSample, TimeGoneSample, TitleTopSample, TypewriterSample, Choices, CountSample, ListPictureSample, MarksSample, MiniBubble, MotionSample, PictureSample, POSTCARD_BORDERS, TempusSample, ThemeFileGuide, TuckSample, ThemeTiles, barChoices, boxPlaceChoices, boxScreenChoices, bubbleChoices, highlightChoices, paperChoices, pictureSizeChoices, tagLookChoices, IconColourSample, menuIconChoices, linkChoices, meaningChoices, pillSitsChoices, postcardChoices, saveStarterTheme, stickyChoices, timerShowsChoices, widthChoices, TranscribeSample, TalkSample, TidySample } from './settings-show'
 import { useDeskAway } from '@/lib/desk-away'
 import { BookOpen as BookHeart, Brain, HardDrive, CircleHelp as LifeBuoy, ListTodo as ListChecks, Camera as Mountain, Brush as Palette, Pencil as PenLine, Sparkles, Volume2, X } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
@@ -869,6 +869,10 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           <Setting title="Fold headings" note="Click the arrow beside a heading to fold away what is under it." more="Up to the next heading as big, and nothing in the note changes; ⌥⌘[ folds the one you are in." keywords="fold collapse heading section outline hide">
             <FoldSample on={settings.foldHeadings !== false} />
             <Switch checked={settings.foldHeadings !== false} onCheckedChange={(foldHeadings) => set({ foldHeadings })} />
+          </Setting>
+          <Setting title="Line numbers" note="Each line of a note numbered in its left margin, as Obsidian does: a paragraph is one however it wraps." more={vim ? "With Vim keys on they count out from the line you are on, as Vim's relative numbers do; that line keeps its own number." : 'A list counts each item, a column layout counts once.'} keywords="line numbers gutter margin obsidian count paragraphs relative">
+            <LineNumbersSample on={settings.lineNumbers !== false} relative={vim} />
+            <Switch checked={settings.lineNumbers !== false} onCheckedChange={(lineNumbers) => set({ lineNumbers })} />
           </Setting>
           <Setting title="Title at the top" note="A note's first line shows faintly at the top once it scrolls away." keywords="title in the top bar">
             <TitleTopSample on={!!settings.topTitle} />

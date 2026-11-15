@@ -663,6 +663,8 @@ const DEFAULTS = {
   pinnedQuestions: true,
   // Headings fold away what is under them, as a view: the note never changes.
   foldHeadings: true,
+  // A note's lines numbered in its left margin, as Obsidian does; with Vim keys on, counted out from the caret's line.
+  lineNumbers: true,
   // What the main window's sidebar lists (the same as places.tsx, SHAPE), the same in every book to start;
   // one switched off is not in it at all, still a G or ⌘K away.
   sidebarShown: SIDEBAR_SHAPE as string[],

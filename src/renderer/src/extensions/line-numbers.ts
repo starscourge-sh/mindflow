@@ -1,0 +1,316 @@
+import { Extension } from "@tiptap/core"
+import { Plugin, PluginKey, type EditorState } from "@tiptap/pm/state"
+import type { EditorView } from "@tiptap/pm/view"
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
+import { DRAWN } from "./long-document"
+import { vimPluginKey } from "./vim-mode"
+
+/**
+ * Line numbers in a note's left margin, as Obsidian draws them: one number per line a person reads as one.
+ *
+ * A paragraph is one however it wraps, and so is a heading, a picture, a table, a code block, a divider, a callout
+ * and a whole column layout; each item of a list is one, nested ones too, and each paragraph of a quote. Empty
+ * paragraphs count, as empty lines do in Obsidian. With Vim keys on they count out from the caret's line, Vim's
+ * number and relativenumber together: the caret's own line shows its real number, the rest how far away they are.
+ *
+ * The numbers are drawn in a layer of their own beside the note, never in it: nothing is added to the note's page,
+ * so ProseMirror sees no change and the words never move. Each number stands on the baseline of its block's first
+ * line: its row is set in that line's own size and height, so the small number sits on the same baseline whatever
+ * the font. Only the blocks that are drawn are numbered (long-document.ts draws a band of a long note): a block's
+ * number comes from how many lines the blocks before it hold, kept by block and counted again only from the first
+ * block a change touched, never by walking the note on each key. Moving the caret only rewrites the numbers' words.
+ */
+
+const key = new PluginKey("lineNumbers")
+
+/** Whether notes show their line numbers, for every editor on the page at once (Settings, “Line numbers”). */
+let on = true
+const views = new Set<EditorView>()
+export function setLineNumbers(shown: boolean): void {
+  if (on === shown) return
+  on = shown
+  for (const view of views) view.dispatch(view.state.tr.setMeta(key, true))
+}
+
+const LISTS = new Set(["bulletList", "orderedList", "taskList"])
+const QUOTE = "blockquote"
+
+/** How many numbered lines a block holds, kept by the block itself: an unchanged block is never counted again. */
+const counts = new WeakMap<ProseMirrorNode, number>()
+function linesIn(node: ProseMirrorNode): number {
+  let lines = counts.get(node)
+  if (lines !== undefined) return lines
+  const name = node.type.name
+  if (LISTS.has(name)) {
+    lines = 0
+    node.forEach((item) => void (lines! += itemLines(item)))
+  } else if (name === QUOTE) {
+    lines = 0
+    node.forEach((child) => void (lines! += linesIn(child)))
+    lines = Math.max(1, lines)
+  } else lines = 1
+  counts.set(node, lines)
+  return lines
+}
+/** A list's item: its own line, and the items of the lists inside it. */
+function itemLines(item: ProseMirrorNode): number {
+  let lines = counts.get(item)
+  if (lines !== undefined) return lines
+  lines = 1
+  item.forEach((child) => void (LISTS.has(child.type.name) && (lines! += linesIn(child))))
+  counts.set(item, lines)
+  return lines
+}
+
+/** Which of a block's lines (from 0) holds the caret, `depth` being the block's depth in the note. */
+function lineWithin(node: ProseMirrorNode, state: EditorState, depth: number): number {
+  const { $head } = state.selection
+  if ($head.depth < depth) return 0
+  const name = node.type.name
+  const at = $head.index(depth)
+  if (LISTS.has(name)) {
+    let before = 0
+    for (let i = 0; i < at && i < node.childCount; i++) before += itemLines(node.child(i))
+    const item = node.maybeChild(at)
+    if (!item || $head.depth <= depth) return before
+    // In the item's own words, or in a list inside it.
+    const inner = $head.index(depth + 1)
+    let lines = 1
+    for (let i = 0; i < inner && i < item.childCount; i++) if (LISTS.has(item.child(i).type.name)) lines += linesIn(item.child(i))
+    const child = item.maybeChild(inner)
+    return child && LISTS.has(child.type.name) && $head.depth > depth + 1 ? before + lines + lineWithin(child, state, depth + 2) : before
+  }
+  if (name === QUOTE) {
+    let before = 0
+    for (let i = 0; i < at && i < node.childCount; i++) before += linesIn(node.child(i))
+    const child = node.maybeChild(at)
+    return child && $head.depth > depth ? before + lineWithin(child, state, depth + 1) : before
+  }
+  return 0
+}
+
+/** ProseMirror's own record of what a piece of the page stands for. */
+type Desc = { node?: ProseMirrorNode | null; dom: Node; children: Desc[] }
+const descOf = (dom: Element): Desc | undefined => (dom as unknown as { pmViewDesc?: Desc }).pmViewDesc
+
+/** The elements that carry a block's numbers, in the order of its lines. */
+function rowsOf(desc: Desc, out: HTMLElement[]): void {
+  const name = desc.node!.type.name
+  if (LISTS.has(name)) {
+    for (const item of desc.children) {
+      if (!item.node) continue
+      out.push(item.dom as HTMLElement)
+      for (const child of item.children) if (child.node && LISTS.has(child.node.type.name)) rowsOf(child, out)
+    }
+  } else if (name === QUOTE) {
+    const before = out.length
+    for (const child of desc.children) if (child.node && !child.node.isText) rowsOf(child, out)
+    if (out.length === before) out.push(desc.dom as HTMLElement)
+  } else out.push(desc.dom as HTMLElement)
+}
+
+/** Where a row's first line is set, and in what size: from the block that holds it. */
+type Line = { size: string; height: string; font: string }
+
+function gutter(view: EditorView): { update: (view: EditorView, previous: EditorState) => void; destroy: () => void } {
+  const layer = document.createElement("div")
+  layer.className = "mf-lines"
+  layer.setAttribute("aria-hidden", "true")
+  // Lines before each top-level block: [i] is how many come before block i, good up to its length.
+  let doc = view.state.doc
+  let before = [0]
+  const linesBefore = (index: number): number => {
+    while (before.length <= index) before.push(before[before.length - 1] + linesIn(doc.child(before.length - 1)))
+    return before[index]
+  }
+  // The drawn blocks of a long note, as places among the note's elements; null: every block is drawn.
+  let band: [number, number] | null = null
+  // The numbered elements drawn, and each one's number.
+  let rows: HTMLElement[] = []
+  let numbers: number[] = []
+  let marks: HTMLElement[] = []
+  let caret = 0
+  let relative = false
+  // Each kind of first line's size, read once per size of the note's words.
+  const kinds = new Map<string, Line>()
+  let em = ""
+  let frame = 0
+  let total = 0
+  let idle = 0
+
+  const shown = (): boolean => on && view.editable
+
+  const caretLine = (state: EditorState): number => {
+    const index = state.selection.$head.index(0)
+    const block = state.doc.maybeChild(index)
+    if (!block) return 0
+    return linesBefore(index) + 1 + lineWithin(block, state, 1)
+  }
+
+  /** Which blocks are numbered and with what, from the note and what is drawn of it: nothing is measured here. */
+  const collect = (): void => {
+    rows = []
+    numbers = []
+    // A long note is numbered once it has said which of its blocks are drawn.
+    if (!shown() || (!band && view.dom.hasAttribute("data-long"))) return
+    const all = view.dom.children
+    const from = band ? band[0] : 0
+    const to = band ? Math.min(band[1], all.length - 1) : all.length - 1
+    let index = -1
+    for (let i = from; i <= to; i++) {
+      const element = all[i] as HTMLElement
+      const desc = descOf(element)
+      if (!desc?.node) continue
+      // The first block drawn: its place in the note, once; the rest follow it.
+      index = index < 0 ? doc.resolve((desc as unknown as { posBefore: number }).posBefore).index(0) : index + 1
+      if (element.hasAttribute("data-off") || element.classList.contains("mf-fold-hidden")) continue
+      const first = linesBefore(index) + 1
+      const start = rows.length
+      rowsOf(desc, rows)
+      for (let line = start; line < rows.length; line++) numbers.push(first + line - start)
+    }
+  }
+
+  /** The words of each number: the caret's line its own, the others theirs or, with Vim, how far they are from it. */
+  const label = (): void => {
+    const state = view.state
+    caret = caretLine(state)
+    relative = !!vimPluginKey.getState(state)?.enabled
+    for (let i = 0; i < marks.length; i++) {
+      const n = numbers[i]
+      const words = String(relative && n !== caret ? Math.abs(n - caret) : n)
+      const mark = marks[i]
+      const text = mark.firstChild as HTMLElement
+      if (text.textContent !== words) text.textContent = words
+      mark.toggleAttribute("data-here", n === caret)
+    }
+  }
+
+  /** Each number set on its block's first line: what is drawn is read once, after the browser has laid it out. */
+  const place = (): void => {
+    frame = 0
+    if (!rows.length) {
+      layer.replaceChildren()
+      marks = []
+      return
+    }
+    // Last in the note's scroller, after what a long note keeps at its ends, and laid at the note's own top.
+    if (!layer.isConnected) view.dom.parentElement?.append(layer)
+    const look = getComputedStyle(view.dom)
+    if (look.fontSize !== em) (kinds.clear(), (em = look.fontSize))
+    layer.style.setProperty("--mf-lines-pad", look.paddingLeft)
+    const top = view.dom.getBoundingClientRect().top
+    while (marks.length < rows.length) {
+      const mark = document.createElement("div")
+      mark.className = "mf-line"
+      mark.append(document.createElement("span"))
+      layer.append(mark)
+      marks.push(mark)
+    }
+    while (marks.length > rows.length) marks.pop()!.remove()
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      // Its first line: the block itself, or the first words inside one counted whole (a callout, a table).
+      const first = row.matches("p, h1, h2, h3, h4, h5, h6, li") ? row : (row.querySelector<HTMLElement>("p, h1, h2, h3, h4, h5, h6, pre") ?? row)
+      // By what holds it and what it is: a quote's or a callout's words may be set apart from the page's.
+      const kind = `${first === row ? "" : `${row.tagName}.${row.className.split(" ")[0]}>`}${first.tagName}`
+      let line = kinds.get(kind)
+      if (!line) {
+        const text = first.tagName === "LI" ? (first.querySelector<HTMLElement>("p") ?? first) : first.tagName === "PRE" ? (first.querySelector<HTMLElement>("code") ?? first) : first
+        const style = getComputedStyle(text)
+        line = { size: style.fontSize, height: style.lineHeight, font: style.fontFamily }
+        kinds.set(kind, line)
+      }
+      const mark = marks[i]
+      const pad = first.tagName === "PRE" ? parseFloat(getComputedStyle(first).paddingTop) || 0 : 0
+      const y = `${Math.round((first.getBoundingClientRect().top - top + pad) * 100) / 100}px`
+      if (mark.style.top !== y) mark.style.top = y
+      if (mark.style.fontSize !== line.size) mark.style.fontSize = line.size
+      if (mark.style.lineHeight !== line.height) mark.style.lineHeight = line.height
+      if (mark.style.fontFamily !== line.font) mark.style.fontFamily = line.font
+    }
+    label()
+  }
+
+  const schedule = (): void => {
+    if (!frame) frame = requestAnimationFrame(place)
+  }
+
+  // How many digits the note's last number has, for the column's width: counted when the page has nothing else to do.
+  const count = (): void => {
+    idle = 0
+    const lines = linesBefore(doc.childCount)
+    if (lines === total) return
+    total = lines
+    layer.style.setProperty("--mf-line-digits", String(Math.max(2, String(lines).length)))
+  }
+
+  const redraw = (): void => {
+    collect()
+    if (!rows.length) {
+      cancelAnimationFrame(frame)
+      frame = 0
+      layer.replaceChildren()
+      marks = []
+      layer.remove()
+      return
+    }
+    schedule()
+    if (!idle) idle = requestIdleCallback(count, { timeout: 1000 })
+  }
+
+  const drawn = (event: Event): void => {
+    band = (event as CustomEvent<[number, number] | null>).detail
+    redraw()
+  }
+  const resized = new ResizeObserver(() => rows.length && schedule())
+  resized.observe(view.dom)
+  const fonts = (): void => void (kinds.clear(), (em = ""), rows.length && schedule())
+  document.fonts.addEventListener("loadingdone", fonts)
+  view.dom.addEventListener(DRAWN, drawn)
+  views.add(view)
+  redraw()
+
+  return {
+    update: (view, previous) => {
+      if (view.state.doc !== doc) {
+        const changed = view.state.doc.content.findDiffStart(doc.content)
+        doc = view.state.doc
+        if (changed !== null) before.length = Math.min(before.length, doc.resolve(Math.min(changed, doc.content.size)).index(0) + 1)
+        return redraw()
+      }
+      // Switched on or off (Settings), or the note locked or unlocked.
+      if (!!rows.length !== shown() || (!rows.length && shown())) return redraw()
+      // Only the caret moved, or Vim was switched: the words of the numbers, nothing measured.
+      if ((!view.state.selection.eq(previous.selection) || !!vimPluginKey.getState(view.state)?.enabled !== relative) && !frame && marks.length) label()
+    },
+    destroy: () => {
+      cancelAnimationFrame(frame)
+      cancelIdleCallback(idle)
+      resized.disconnect()
+      document.fonts.removeEventListener("loadingdone", fonts)
+      view.dom.removeEventListener(DRAWN, drawn)
+      views.delete(view)
+      layer.remove()
+      before = [0]
+    },
+  }
+}
+
+/** Line numbers beside a note's words, while Settings' “Line numbers” is on and the note can be written in. */
+export const LineNumbers = Extension.create({
+  name: "lineNumbers",
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key,
+        props: {
+          // Marked for the stylesheet: a narrow note's margin then makes room for the numbers and the grip beside them.
+          attributes: (): Record<string, string> => (on ? { "data-lines": "" } : {}),
+        },
+        view: (view) => gutter(view),
+      }),
+    ]
+  },
+})

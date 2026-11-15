@@ -596,6 +596,18 @@ export const FoldSample = ({ on }: { on: boolean }): React.JSX.Element => (
   </span>
 )
 
+/** Three lines of a note and their numbers in the margin: on, the numbers (with Vim keys, counted out from the middle line, which keeps its own); off, the lines alone. */
+export const LineNumbersSample = ({ on, relative }: { on: boolean; relative: boolean }): React.JSX.Element => (
+  <span data-preview="line-numbers" data-on={on || undefined} className="flex h-9 w-40 flex-col justify-center gap-[3px] rounded-md border bg-background px-2">
+    {([[12, 1, 64], [13, 13, 88], [14, 1, 48]] as const).map(([number, away, width], i) => (
+      <span key={number} className="flex items-center gap-1.5">
+        <span className={`w-3.5 text-right text-[9px] leading-[8px] tabular-nums transition-opacity duration-200 ${i === 1 ? 'text-(--mf-muted-strong)' : 'text-muted-foreground'} ${on ? '' : 'opacity-0'}`}>{relative ? away : number}</span>
+        <span className="block h-[2px] rounded-full bg-foreground/40" style={{ width }} />
+      </span>
+    ))}
+  </span>
+)
+
 /** A video and a line being written under it: on, the video shows paused and the line starts with its time; off, it plays on and the line is plain. */
 export const TypePauseSample = ({ on }: { on: boolean }): React.JSX.Element => (
   <span data-preview="type-pause" data-on={on || undefined} className="flex h-9 w-40 items-center gap-2 rounded-md border bg-background px-2 text-control text-foreground">

@@ -2951,6 +2951,8 @@ const CapturePrompt = ({
         // selection toolbar keeps its default contents.
         toolbar={{ fixed: false, selectionExtra: selectionActions({ captureId: from, from, onLifted: (id) => keepLifted([...lifted, id]), takeOut: !from }) }}
         handles={true}
+        // A capture box, not a page: no line numbers.
+        lineNumbers={false}
         slash={true}
         outline={outline}
         search={!pill}

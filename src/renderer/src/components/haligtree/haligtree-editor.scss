@@ -372,6 +372,67 @@
   }
 }
 
+// Line numbers (extensions/line-numbers.ts), as Obsidian draws them: a quiet column left of the words, each number
+// on the baseline of its block's first line, its right edge where the fold arrow's room begins (1.75rem from the
+// words), so the arrow is never over a number; the handle steps left of the column (`clearOfLines`). A layer of
+// their own laid at the note's own top: the note itself never changes, and the words never move.
+.tiptap.ProseMirror.haligtree-editor {
+  anchor-name: --mf-note;
+}
+
+.mf-lines {
+  position: absolute;
+  position-anchor: --mf-note;
+  top: anchor(top);
+  // As wide as the note's last number, and its right edge the fold arrow's left one.
+  left: calc(anchor(left) + var(--mf-lines-pad, 4.75rem) - 1.75rem - var(--mf-line-digits, 2) * 1ch);
+  width: calc(var(--mf-line-digits, 2) * 1ch);
+  height: 0;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--mf-font, "Fraunces Variable", Georgia, serif);
+  font-size: calc(0.75rem * var(--mf-text-scale, 1));
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+// Set in its block's first line's own size and height (its style, from the code), so the small number inside
+// stands on that line's baseline.
+.mf-line {
+  position: absolute;
+  right: 0;
+  white-space: nowrap;
+
+  > span {
+    font-family: var(--mf-font, "Fraunces Variable", Georgia, serif);
+    font-size: calc(0.75rem * var(--mf-text-scale, 1));
+    font-variation-settings: "SOFT" 20, "WONK" 1;
+    font-variant-numeric: lining-nums tabular-nums;
+    // Faded Ink, 4.5:1 on every page of every theme; the caret's line a step up, as Obsidian brightens its own.
+    color: var(--muted-foreground);
+  }
+
+  &[data-here] > span {
+    color: var(--mf-muted-strong);
+  }
+}
+
+// With numbers on and no room left of them for the + as well, the grip alone, as on a narrow page.
+.tiptap-drag-handle[data-tight] {
+  width: 1.5rem;
+
+  > button:not(.tiptap-drag-handle-grip) {
+    display: none;
+  }
+}
+
+// A narrow note keeps 3.25rem left of its words, room for the grip or the numbers but not both: with numbers on it
+// takes 1.25rem more, the numbers' own room.
+@container note (max-width: 34rem) {
+  .haligtree-editor-wrapper:not(.is-line) .tiptap.ProseMirror.haligtree-editor[data-lines] {
+    --mf-padding: 1rem 1.5rem 1rem 4.5rem;
+  }
+}
+
 // After a folded heading's words: what is hidden, and a click to bring it back.
 .tiptap.ProseMirror.haligtree-editor .mf-fold-more {
   display: inline-flex;

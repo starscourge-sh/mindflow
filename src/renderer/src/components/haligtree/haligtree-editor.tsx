@@ -96,6 +96,7 @@ import { liftBlocks } from "@/lib/lift-blocks"
 import { FootnoteKit } from "@/extensions/footnotes"
 import { Citation } from "@/extensions/citation"
 import { LongDocument } from "@/extensions/long-document"
+import { LineNumbers } from "@/extensions/line-numbers"
 import { codeColours } from "@/extensions/code-colours"
 import { Typewriter } from "@/extensions/typewriter"
 import { useStoredFlag } from "@/lib/use-stored-flag"
@@ -227,7 +228,31 @@ const HANDLE_NESTING = {
 /** Text that says it is Markdown: a heading, a list, a quote, a fence, a table, a rule, maths, a link, bold. */
 const MARKDOWN_SIGNS = /^(#{1,6} |\s*[-*+] |\s*\d+[.)] |> ?|```|~~~|\|.*\|\s*$|(---|\*\*\*|___)\s*$|\$\$|:::\w|<!-- columns -->)|\[\[|\*\*\S|\]\(|!\[|\[\^[^\]\s]+\]|\^\[/m
 
-const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 })] }
+/**
+ * The handle never stands over a line's number (extensions/line-numbers.ts): where its place would cross them, it
+ * goes to the left of them, and where the + and the grip together have no room there, the grip goes alone, as on
+ * a narrow page (haligtree-editor.scss, `data-tight`).
+ */
+const clearOfLines = {
+  name: "clearOfLines",
+  fn: ({ rects, elements }: { rects: { reference: { x: number } }; elements: { reference: unknown; floating: HTMLElement } }) => {
+    const floating = elements.floating
+    const wrapper = floating.closest(".haligtree-editor-wrapper")
+    const lines = wrapper?.querySelector<HTMLElement>(".mf-lines")
+    if (!wrapper || !lines?.childElementCount) return (floating.removeAttribute("data-tight"), {})
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+    const [full, slim, room] = [3 * rem, 1.5 * rem, 4]
+    // From the handle's own coordinates to the window's, and back.
+    const shift = (elements.reference as Element).getBoundingClientRect().left - rects.reference.x
+    const column = lines.getBoundingClientRect()
+    const left = rects.reference.x - full - 24 + shift
+    if (left >= column.right + room || left + full <= column.left - room) return (floating.removeAttribute("data-tight"), { x: left - shift })
+    const tight = column.left - room - full < wrapper.getBoundingClientRect().left + room
+    floating.toggleAttribute("data-tight", tight)
+    return { x: column.left - room - (tight ? slim : full) - shift }
+  },
+}
+const HANDLE_POSITION = { middleware: [offset({ mainAxis: 24, crossAxis: 2 }), clearOfLines] }
 
 /**
  * Anything floating over the editor that moves on its own keys.
@@ -423,6 +448,12 @@ export interface HaligtreeEditorProps {
    * @default true
    */
   handles?: boolean
+  /**
+   * Line numbers beside the words, when Settings' “Line numbers” is on: a page's note, not a small box.
+   *
+   * @default a document with handles
+   */
+  lineNumbers?: boolean
   /**
    * The `/` menu.
    *
@@ -723,6 +754,7 @@ function Surface({
   shape = "document",
   toolbar,
   handles = true,
+  lineNumbers,
   slash = true,
   outline = true,
   search = true,
@@ -1606,6 +1638,8 @@ function Surface({
       // A link on its own line becomes its card, fetched in the background.
       AutoCard,
       LongDocument,
+      // A page's note: never a line, nor a box that asks for none (quick capture, a sticky).
+      ...((lineNumbers ?? (shape === "document" && handles)) ? [LineNumbers] : []),
       PickedStartsUndoStep,
       SelectedNodes,
       BlockControls,
