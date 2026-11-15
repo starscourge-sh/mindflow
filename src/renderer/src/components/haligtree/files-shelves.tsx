@@ -399,7 +399,7 @@ const Square = memo(function Square({ one, here, picked, ways }: { one: Media; h
           <span aria-hidden className="mf-blur-edge files-square-blur"><span /><span /><span /><span /></span>
           {/* A picture with no name of its own is called after its note: then the note is said once. */}
           {nameOf(one) !== one.uses[0]?.title && <span dir="auto" data-media-name className={`relative truncate text-xs font-medium ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>}
-          <span data-media-where className={`relative truncate ${nameOf(one) !== one.uses[0]?.title ? 'text-[11px] text-white/75' : 'text-xs font-medium'}`}>{whereOf(one)}</span>
+          <span data-media-where className={`relative truncate ${nameOf(one) !== one.uses[0]?.title ? 'text-[11px] text-white' : 'text-xs font-medium'}`}>{whereOf(one)}</span>
         </span>
       </button>
     </RowMenu>
@@ -598,7 +598,7 @@ function Front({ one, onWatch, onUse, ...menu }: { one: Media; onWatch: (one: Me
         <span aria-hidden className="files-video-front-play"><Play className="size-4 translate-x-px fill-current" /></span>
         <span className="flex min-w-0 flex-col gap-0.5">
           <span dir="auto" data-media-name className={`truncate font-heading text-title font-medium ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>
-          <span className="flex min-w-0 items-baseline gap-1.5 text-control text-white/85">
+          <span className="flex min-w-0 items-baseline gap-1.5 text-control text-white">
             {note ? (
               <button type="button" data-media-use className="min-w-0 cursor-pointer truncate underline decoration-white/35 underline-offset-2 hover:decoration-white" onClick={() => onUse(note, one.src)}>{note.title || 'New note'}</button>
             ) : <span className="truncate">{whereOf(one)}</span>}

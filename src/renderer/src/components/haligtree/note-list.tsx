@@ -179,7 +179,7 @@ export function Cover({
       {picture !== null && (
         <span
           style={paper ? { color: PAPER_INK } : undefined}
-          className={`private-text relative whitespace-pre-line ${paper ? '' : grain ? 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[11px] leading-snug'}`}
+          className={`private-text relative whitespace-pre-line ${paper ? '' : grain ? 'text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]' : 'text-muted-foreground'} ${large ? 'line-clamp-5 text-xs leading-snug' : 'line-clamp-4 text-[11px] leading-snug'}`}
         >
           {/* A large tile's foot names it: with no more words than its name, the cover says nothing rather than the name twice.
               A question's card says the question itself, never the first words of what it holds (its first line was
@@ -813,7 +813,7 @@ function FolderTile({ entry, large }: { entry: Entry; large: boolean }): React.J
       ) : (
         <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-1 truncate bg-linear-to-t from-black/70 to-transparent px-2 pt-4 pb-1.5 text-[11px] font-semibold text-white">
           <span className="min-w-0 flex-1 truncate">{entry.title}</span>
-          <Count n={folder.count} className="opacity-80" />
+          <Count n={folder.count} />
         </span>
       )}
     </>
@@ -832,7 +832,7 @@ function SmallTile({ entry, words }: { entry: Entry; words?: string }): React.JS
       >
         <Named entry={entry} />
         {/* An answered question's answer, under its name, in the same caption. */}
-        {entry.answer && <span data-tile-answer className="mt-0.5 block font-normal text-white/85 [&_*]:!text-white/85">{entry.answer}</span>}
+        {entry.answer && <span data-tile-answer className="mt-0.5 block font-normal text-white [&_*]:!text-white">{entry.answer}</span>}
       </span>
     </>
   )

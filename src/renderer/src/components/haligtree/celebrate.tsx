@@ -366,7 +366,7 @@ function usePutAway(onDone: () => void): { done: React.RefObject<(hand?: boolean
 }
 
 /** The small round buttons over the picture: solid near-black, so they read on any of them and the picture never shows through. */
-const OVER = 'absolute flex size-6 items-center justify-center rounded-full shrink-0 bg-neutral-900 text-white/90 transition-colors hover:bg-black hover:text-white'
+const OVER = 'absolute flex size-6 items-center justify-center rounded-full shrink-0 bg-neutral-900 text-white transition-colors hover:bg-black'
 
 function Card({ moment, media, origin, fill, docked = false, onDone, onTooLong }: {
   moment: Moment
@@ -453,7 +453,7 @@ function Card({ moment, media, origin, fill, docked = false, onDone, onTooLong }
         </Tip>
         {giphy && (
           // Giphy's terms ask for this wherever one of theirs is shown.
-          <span data-giphy-attribution className="absolute bottom-1.5 left-1.5 rounded-[4px] bg-neutral-900 px-1.5 py-0.5 text-[0.625rem] leading-none font-semibold tracking-[0.02em] text-white/90">
+          <span data-giphy-attribution className="absolute bottom-1.5 left-1.5 rounded-[4px] bg-neutral-900 px-1.5 py-0.5 text-[0.625rem] leading-none font-semibold tracking-[0.02em] text-white">
             Powered by GIPHY
           </span>
         )}

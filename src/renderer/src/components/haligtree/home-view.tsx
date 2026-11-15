@@ -282,7 +282,7 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
                     {/* Its kind, and its first words where a picture would be: white on the dark of the cover. */}
                     <span className={`absolute inset-0 flex flex-col justify-between p-3 ${grain.paper ? '' : 'text-white'}`}>
                       <KindIcon card={card} paper={grain.paper} className="size-4 text-white/80 drop-shadow-[0_1px_2px_rgb(0_0_0/0.35)]" />
-                      {wordsOf(card.excerpt) && <span className={`private-text line-clamp-4 text-xs leading-snug hyphens-auto [overflow-wrap:break-word] ${grain.paper ? '' : 'text-white/90 [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]'}`} style={grain.paper ? { color: PAPER_INK } : undefined}>{wordsOf(card.excerpt)}</span>}
+                      {wordsOf(card.excerpt) && <span className={`private-text line-clamp-4 text-xs leading-snug hyphens-auto [overflow-wrap:break-word] ${grain.paper ? '' : 'text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.4)]'}`} style={grain.paper ? { color: PAPER_INK } : undefined}>{wordsOf(card.excerpt)}</span>}
                     </span>
                   </>
                 )}
