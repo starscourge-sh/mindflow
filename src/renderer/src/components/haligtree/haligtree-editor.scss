@@ -687,10 +687,9 @@
   background-color: var(--mf-muted);
 }
 
-// Drawn as one card with rounded outer corners, as Notion and Apple Notes
-// draw theirs: `separate` borders, because a collapsed table cannot round its
-// corners. Each cell draws only its right and bottom line; the table's own
-// border is the outer edge, so no line is ever doubled.
+// A table's corners are sharp (the user, 15 Nov 2026: "i want tables to have
+// sharp corners"), in every style. Each cell draws only its right and bottom
+// line; the table's own border is the outer edge, so no line is ever doubled.
 .tiptap.ProseMirror.haligtree-editor table,
 .tiptap-table-carried table {
   min-width: 100%;
@@ -698,7 +697,7 @@
   border-spacing: 0;
   table-layout: fixed;
   border: 1px solid var(--tt-border-color);
-  border-radius: var(--radius-md, 0.5rem);
+  border-radius: 0;
 
   td,
   th {
@@ -720,13 +719,6 @@
   tr:last-child > * {
     border-bottom-width: 0;
   }
-
-  // The corner cells follow the table's own corners, so the header's tint and
-  // a picked cell's wash stay inside the curve.
-  tr:first-child > :first-child { border-top-left-radius: calc(var(--radius-md, 0.5rem) - 1px); }
-  tr:first-child > :last-child { border-top-right-radius: calc(var(--radius-md, 0.5rem) - 1px); }
-  tr:last-child > :first-child { border-bottom-left-radius: calc(var(--radius-md, 0.5rem) - 1px); }
-  tr:last-child > :last-child { border-bottom-right-radius: calc(var(--radius-md, 0.5rem) - 1px); }
 
   // A picture fills its cell at most, whatever width it was given.
   td img,

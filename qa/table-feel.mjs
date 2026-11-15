@@ -76,7 +76,9 @@ try {
     return {
       thWeight: Number(a.fontWeight), thBg: a.backgroundColor, tdBg: b.backgroundColor, thImage: a.backgroundImage,
       padTop: parseFloat(b.paddingTop), padLeft: parseFloat(b.paddingLeft), rowH: td.getBoundingClientRect().height,
-      border: b.borderTopColor, radius: parseFloat(getComputedStyle(wrap.querySelector('table')).borderTopLeftRadius) || parseFloat(getComputedStyle(wrap).borderTopLeftRadius),
+      border: b.borderTopColor,
+      // Every corner that could round the table: the table, its scrolling box, and the corner cells (the header's tint).
+      radius: Math.max(...[wrap.querySelector('table'), wrap, th, wrap.querySelector('tr:last-child > :last-child')].map((one) => one ? Math.max(...['TopLeft', 'TopRight', 'BottomLeft', 'BottomRight'].map((at) => parseFloat(getComputedStyle(one)[`border${at}Radius`]) || 0)) : 0)),
       thColor: a.color, tdColor: b.color, thSize: parseFloat(a.fontSize), tdSize: parseFloat(b.fontSize)
     }
   }, sel)
@@ -84,7 +86,7 @@ try {
   console.log('LOOK', JSON.stringify(L))
   check('the header row is set apart: a tint and heavier words, one size with the cells', L.thBg !== L.tdBg && L.thWeight >= 600 && L.thSize === L.tdSize, `${L.thBg} / ${L.tdBg} / ${L.thWeight}`)
   check('cells have room: 8px above, 12px at the sides, rows at least 36px', L.padTop >= 8 && L.padLeft >= 12 && L.rowH >= 36, JSON.stringify(L))
-  check('the table has rounded outer corners like every card', L.radius >= 6, String(L.radius))
+  check('the table has sharp corners (the user, 15 Nov 2026: "i want tables to have sharp corners")', L.radius === 0, String(L.radius))
   await shot('look-paper')
 
   // 3. Hover shows the "+" bars, caret anywhere.
