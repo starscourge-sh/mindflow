@@ -11,7 +11,7 @@
 // QA_FROM: the data to start on, cloned (cp -c) to QA_DATA, which is deleted at the end; without it, QA_DATA as it is.
 // QA_COMPARE=<another build's main/index.js>: that build started in turn with QA_ENTRY's, start for start, on the same
 // data, so the two tables are measured at the same load (the old build and the new back to back).
-// QA_FRAMES=<dir>: the main window's own frames, from the launch to the first key answered, kept from every again.
+// QA_FRAMES=<dir>: the main window's own frames, from the launch to the first key answered, of every start (cold-1…).
 // QA_THEME=<theme> (paper, dark…): worn from the first cold start on (set as the start before it ends), for light and dark frames.
 // QA_PROFILE=<file> with HALIGTREE_QA_PROFILE_START=1: main's CPU profile from its first module to quick capture drawn,
 // of each start, written as <file>-<cold|again>-<n>.cpuprofile (a profiled start is slower: not for the table).
@@ -41,7 +41,7 @@ async function start(label, n) {
     app.windows().forEach(look)
     app.on('window', look)
   })
-  if (FRAMES && label === 'again') frames = await cast(home)
+  if (FRAMES && label !== 'first') frames = await cast(home)
   const main = () => app.evaluate(() => ({ origin: performance.timeOrigin, times: { ...globalThis.haligtreeHomeTimes }, node: performance.nodeTiming?.bootstrapComplete }))
   let seen = await main()
   for (let i = 0; i < 1500 && !seen.times.shown; i++) (await wait(10), (seen = await main()))
@@ -78,12 +78,12 @@ async function start(label, n) {
       new PerformanceObserver((list) => long.push(...list.getEntries().map((one) => [Math.round(one.startTime), Math.round(one.duration)]))).observe({ type: 'longtask', buffered: true })
       const keys = []
       new PerformanceObserver((list) => keys.push(...list.getEntries().filter((one) => one.name === 'keydown').map((one) => ({ at: one.startTime, waited: one.processingStart - one.startTime, ran: one.processingEnd - one.processingStart, painted: one.startTime + one.duration - one.processingEnd })))).observe({ type: 'event', buffered: true, durationThreshold: 16 })
-      setTimeout(() => done({ origin: performance.timeOrigin, html: nav?.responseEnd ?? NaN, scripts, code: at('haligtree:code'), render: at('haligtree:render'), fcp: at('first-contentful-paint'), lcp, long, keys }), 100)
+      setTimeout(() => done({ origin: performance.timeOrigin, html: nav?.responseEnd ?? NaN, scripts, code: at('haligtree:code'), render: at('haligtree:render'), whole: at('haligtree:whole'), fcp: at('first-contentful-paint'), lcp, long, keys }), 100)
     })
   })
   if (frames) {
     const got = await frames.stop()
-    const dir = `${FRAMES}/${n}`
+    const dir = `${FRAMES}/${label}-${n}`
     mkdirSync(dir, { recursive: true })
     for (const [at, data] of got) if (at <= page.origin + key.answered + 400) writeFileSync(`${dir}/${String(Math.round(at - launchedAt)).padStart(5, '0')}ms.jpg`, Buffer.from(data, 'base64'))
   }
@@ -93,7 +93,7 @@ async function start(label, n) {
   const m = (step) => seen.origin + (seen.times[step] ?? NaN) - launchedAt
   const p = (at) => page.origin + at - launchedAt
   return {
-    node: seen.origin + (seen.node ?? NaN) - launchedAt, first: m('first'), code: m('code'), ready: m('ready'), book: m('book'), made: m('made'), pageCode: p(page.code), render: p(page.render), drawn: m('drawn'), shown: m('shown'),
+    node: seen.origin + (seen.node ?? NaN) - launchedAt, first: m('first'), code: m('code'), ready: m('ready'), book: m('book'), made: m('made'), pageCode: p(page.code), render: p(page.render), whole: p(Number.isFinite(page.whole) ? page.whole : page.render), drawn: m('drawn'), shown: m('shown'),
     // Pressed when the probe sent it: the page may never hear a ⌘K the menu bar takes first, though the search still opens.
     pressed: sentAt - launchedAt, answered: p(key.answered), painted: m('painted'), fcp: p(page.fcp), lcp: page.lcp.length ? p(page.lcp.at(-1).at) : NaN, lcpWhat: page.lcp.at(-1)?.what ?? '',
     box: m('box'), boxDrawn: m('boxDrawn'), html: p(page.html), scripts: p(page.scripts), orb: key.orb,
@@ -112,7 +112,8 @@ const STEPS = [
   ['the rest of main set up, to the main window made', 'book', 'made'],
   ['the page loaded and its code read', 'made', 'pageCode'],
   ['its first render', 'pageCode', 'render'],
-  ['drawn, told to main', 'render', 'drawn'],
+  ['its first screen whole (every part\'s reads in)', 'render', 'whole'],
+  ['drawn, told to main', 'whole', 'drawn'],
   ['shown', 'drawn', 'shown'],
   ['the first key (⌘K) answered, from its press', 'pressed', 'answered']
 ]
