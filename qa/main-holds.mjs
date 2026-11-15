@@ -12,7 +12,7 @@
 // Run on a COPY of a book (part 4 needs a real one) or of the seeded sandbox:
 //   QA_DATA=<copy> QA_ARGS= QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/main-holds.mjs
 import { execFileSync } from 'child_process'
-import { chmodSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'fs'
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { loadavg, tmpdir } from 'os'
 import { join } from 'path'
 import { checks } from './harness.mjs'
@@ -58,8 +58,18 @@ try {
     const one = added?.added?.[0]
     return { late, one, size: one ? sizeOf(join(store, one.src.split('/').pop())) : null, refused: added?.refused }
   }
-  for (const [kind, path, name] of [['HEIC', heic, 'Harbour at dusk.heic'], ['TIFF', tiff, 'Harbour at dawn.tiff']]) {
-    const got = await add(path)
+  // The HEIC by its bytes too, as a drag from Photos brings it (no path): turned the same way, it is met as the picture
+  // already kept, under the name it came with.
+  const bytes = [...readFileSync(heic)]
+  for (const [kind, path, name] of [['HEIC', heic, 'Harbour at dusk.heic'], ['TIFF', tiff, 'Harbour at dawn.tiff'], ['HEIC by its bytes', null, 'Harbour at night.heic']]) {
+    const got = path ? await add(path) : await (async () => {
+      await h.waitForTimeout(2500)
+      await stalls()
+      const added = await h.evaluate(([b, n]) => window.api.haligtree('media:add', [{ name: n, bytes: new Uint8Array(b) }]), [bytes, name])
+      const late = (await stalls()).delay.worst
+      const one = added?.added?.[0] ?? added?.met?.[0]
+      return { late, one, size: one ? sizeOf(join(store, one.src.split('/').pop())) : null, refused: added?.refused }
+    })()
     check(`a 24-megapixel ${kind} added to Files never holds main (its loop under ${LATE_MS} ms late)`, got.late < LATE_MS, `${got.late} ms late at worst  [${load()}]`)
     check(`and the ${kind} is kept as a PNG of its own size, a picture every window can draw, under its own name`, /\.png$/.test(got.one?.src ?? '') && got.size === '6000 x 4000' && got.one.name === name, `${(got.one?.src ?? '').slice(-20)} ${got.size} “${got.one?.name}”; refused ${JSON.stringify(got.refused)}`)
   }
