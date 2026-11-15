@@ -46,7 +46,7 @@ try {
     await target.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }))
     const box = await target.evaluate((el) => { const r = el.getClientRects()[0]; return { x: r.left + Math.min(40, r.width / 2), y: r.top + r.height / 2 } })
     await h.mouse.move(box.x, box.y, { steps: 3 }); await wait(200)
-    hit = await h.evaluate(([x, y]) => { const one = document.elementFromPoint(x, y); return one ? `${one.tagName.toLowerCase()}.${String(one.className).split(' ')[0]}` : 'nothing' }, [box.x, box.y])
+    hit = await h.evaluate(([x, y]) => { const one = document.elementFromPoint(x, y); return one ? `${one.tagName.toLowerCase()}.${String(one.className).split(' ')[0]} (${getComputedStyle(one).cursor})` : 'nothing' }, [box.x, box.y])
     for (const key of modifiers) await h.keyboard.down(key)
     await h.mouse.down(); await h.mouse.up()
     for (const key of modifiers) await h.keyboard.up(key)
@@ -59,6 +59,7 @@ try {
   check('link card: ⌥-click opens it in the reader, not the browser', (await opened()) === was && reader.includes(`haligtree:web ${ESSAY}`), `${reader || 'nothing told'} pressed ${hit}`)
   await back(); was = await opened(); await told(); await press(['Meta'])
   check('link card: ⌘-click opens the browser', (await opened()) === was + 1, `pressed ${hit}`)
+  check('link card: the pointer over it is the hand', hit.endsWith('(pointer)'), hit)
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {

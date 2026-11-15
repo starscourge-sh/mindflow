@@ -46,12 +46,15 @@ try {
   check('the board shows the card with both links', (await h.locator(`${WEB}, ${PDF}`).count()) >= 2, String(await h.locator('[data-board]').count()))
 
   let hit = ''
+  const hands = []
   const press = async (selector, modifiers = []) => {
     const target = h.locator(selector).first()
     await target.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }))
     const box = await target.evaluate((el) => { const r = el.getClientRects()[0]; return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
     await h.mouse.move(box.x, box.y, { steps: 3 }); await wait(200)
     hit = await h.evaluate(([x, y]) => { const one = document.elementFromPoint(x, y); return one ? `${one.tagName.toLowerCase()} "${(one.textContent ?? '').slice(0, 30)}"` : 'nothing' }, [box.x, box.y])
+    // The pointer over it, as a person sees it: the hand.
+    hands.push(`${selector.slice(10, 40)} ${await h.evaluate(([x, y]) => getComputedStyle(document.elementFromPoint(x, y)).cursor, [box.x, box.y])}`)
     for (const key of modifiers) await h.keyboard.down(key)
     await h.mouse.down(); await h.mouse.up()
     for (const key of modifiers) await h.keyboard.up(key)
@@ -78,6 +81,7 @@ try {
   await back(); await press(TAG)
   const pages = await h.evaluate(() => [...document.querySelectorAll('[data-pane] > [data-page], [data-page]')].map((one) => one.getAttribute('data-page')))
   check('board: a click on a tag opens its page', pages.includes('tags'), `${JSON.stringify(pages)} pressed ${hit}`)
+  check('board: the pointer is the hand over every link and tag on a card', hands.length >= 5 && hands.every((one) => one.endsWith(' pointer')), hands.join(', '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
 } finally {
