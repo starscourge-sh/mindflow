@@ -1444,7 +1444,16 @@ export default function App(): React.JSX.Element {
   // put down as the window hides, so the box comes back as the one you had.
   const latestEditing = useRef(editing)
   latestEditing.current = editing
-  useEffect(() => window.api.onHiding(() => latestEditing.current && fresh(true)), [])
+  // A box sent and put away is cleared as main hides it (`window:hiding`), so it comes back blank, never on a timer
+  // guessing when the hide has happened.
+  const clearOnHide = useRef(false)
+  useEffect(() => window.api.onHiding(() => {
+    if (latestEditing.current) return fresh(true)
+    if (!clearOnHide.current) return
+    clearOnHide.current = false
+    setSending(false)
+    fresh()
+  }), [])
   // The capture open here is the note ⌘K acts on, as in the main window.
   const editingMeta = editing ? captures.find((one) => one.id === editing.id) : undefined
   // The note open here moved to the Bin (the side panel's Inbox, ⌘K, another
@@ -1572,7 +1581,6 @@ export default function App(): React.JSX.Element {
   const words = useSameWords('captures', editing?.id, editing?.body, (id, words, wordsBase, markdown) => window.api.captures.save(id, { words, wordsBase, markdown }))
 
   // The box closing after a send, still to come: an undo straight after keeps it open.
-  const leaving = useRef<ReturnType<typeof setTimeout>>(undefined)
   // Set by bringBack: the next editor to be ready puts the caret at its end.
   const toEnd = useRef(false)
   /**
@@ -1583,7 +1591,7 @@ export default function App(): React.JSX.Element {
    * box since stays, under the words that came back.
    */
   const bringBack = (sent: { doc: JSONContent; attribution: string; medium: string; kind: CaptureType; chosen: boolean; secret: boolean; pieces: string[]; editor: Editor | null }): void => {
-    clearTimeout(leaving.current)
+    clearOnHide.current = false
     setSending(false)
     // A fresh box started since (⌥⌘↵, Create more) with words in it already.
     const now = editorRef.current !== sent.editor && !latestEditing.current ? editorRef.current?.getJSON() : undefined
@@ -1763,11 +1771,8 @@ export default function App(): React.JSX.Element {
       localStorage.removeItem('capture-draft')
       // Hidden above, before the save: it used to wait for the save and all that follows it (0.3 to 1 s in a built app,
       // about 3 s in the user's dev app, 15 Nov 2026: "it says on screen for another 3 seconds"), and a leave timer of
-      // 180 ms still slipped to 0.4 to 1.1 s behind the box's own redraw. Cleared once it is hidden.
-      leaving.current = setTimeout(() => {
-        setSending(false)
-        fresh()
-      }, 0)
+      // 180 ms still slipped to 0.4 to 1.1 s behind the box's own redraw. Cleared as it hides (`clearOnHide`).
+      clearOnHide.current = true
     }
     void window.api.captures
       .create({ title: plan?.card && !plan.card.loading ? plan.card.title : '', kind: page ? 'note' : sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
