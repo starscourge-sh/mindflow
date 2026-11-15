@@ -191,7 +191,10 @@ export async function morphBox(open: boolean, toPill: boolean, ask: (open: boole
       if (!at?.width || !at.height) return
       // Nowhere kept to go (the box opened grown, never yet the pill): it fades, and is simply there as it lands.
       if (!to || !fromControls[i]) return fade(one, 1 - part(t, 0, 0.35))
-      const now = mixRect(fromControls[i], to, k)
+      // Around the card's corner, never across it: its edge sweeps under the straight way between beside the pill and
+      // above the box (the user's frames: "2 pinned" on the card's corner). Growing, they rise above its top edge first;
+      // shrinking, they come down beside the pill last, once its edge has passed. Each still goes one way.
+      const now = { ...mixRect(fromControls[i], to, k), top: mix(fromControls[i].top, to.top, open ? part(t, 0, 0.15) : part(t, 0.65, 1)) }
       one.style.transformOrigin = '0 0'
       one.style.translate = `${now.left - at.left}px ${now.top - at.top}px`
       one.style.scale = `${now.width / at.width} ${now.height / at.height}`

@@ -161,6 +161,10 @@ try {
     check(`${name}: landed, the frost under the card and every control`, covered, `${frostEnd.length} shapes for ${1 + end.controls.length} surfaces`)
     check(`${name}: none of the other layout drawn past the first 80 ms`, other.length === 0, `${other.length} frames${other[0] ? `, ${other.map((f) => `${f.t - start} ms in: bar ${f.bar}, box ${f.box}, card ${f.card}, clipped ${f.clipped}`).join('; ')}` : ''}`)
     check(`${name}: each round control travels one way`, ways.every(Boolean), ways.map((one) => (one ? 'one way' : 'back and forth')).join(', '))
+    // Never across the card on the way (the user's frames: "2 pinned" on the card's corner): over it by 3px or more.
+    const over = (r, s) => Math.min(r[0] + r[2], s[0] + s[2]) - Math.max(r[0], s[0]) >= 3 && Math.min(r[1] + r[3], s[1] + s[3]) - Math.max(r[1], s[1]) >= 3
+    const across = frames.filter((f) => f.t >= before && f.controls.some((r) => over(r, f.card)))
+    check(`${name}: no round control over the card, any frame`, across.length === 0, `${across.length} frames${across[0] ? `, first ${across[0].t - start} ms in: ${JSON.stringify(across[0].controls.find((r) => over(r, across[0].card)))} over the card at ${across[0].card}` : ''}`)
     // The pinned rows, any frame they are drawn: one under the other, at one left edge (never two on a line, never one
     // arriving late beside or right of the others).
     const offRows = frames.filter((f) => f.t >= before && f.pins.length > 1 && f.pins.some((p, i) => Math.abs(p[0] - f.pins[0][0]) > 1 || (i > 0 && p[1] <= f.pins[i - 1][1])))
