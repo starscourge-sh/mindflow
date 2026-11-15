@@ -122,7 +122,7 @@ function IslandHead({ name, island, icon, extra, unit, uncounted, plain }: { nam
     <button type="button" data-island-head={name} data-total={island.total} aria-expanded={!island.folded} onClick={island.onFold}
       className="group/head flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground">
       <span className="min-w-0 truncate">{name}</span>
-      {!uncounted && <span className="shrink-0 font-normal tabular-nums opacity-70"><Rolling text={island.total} /></span>}
+      {!uncounted && <span className="shrink-0 font-normal tabular-nums text-muted-foreground"><Rolling text={island.total} /></span>}
       <ChevronRight aria-hidden className={`ml-auto size-3.5 shrink-0 transition-[transform,opacity] duration-150 ease-(--mf-ease) ${island.folded ? '' : 'rotate-90 opacity-0 group-hover/head:opacity-100 group-focus-visible/head:opacity-100'}`} />
     </button>
   )

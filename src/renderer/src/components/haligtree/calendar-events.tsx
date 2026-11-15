@@ -377,8 +377,8 @@ function BlockWords({ one, day, at, length, short }: { one: Shown; day: string; 
         {one.noted > 0 && <Tip label="Has notes"><FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" /></Tip>}
         {one.repeat && <RepeatIcon role="img" aria-label="Repeats" className="size-3 shrink-0 opacity-80" />}
       </span>
-      <span className={`shrink-0 truncate text-meta tabular-nums opacity-80 ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? hm(from) : <><span className={`@[104px]:hidden ${length >= 60 ? 'block leading-tight' : ''}`}>{length >= 60 ? <>{hm(from)} –<br />{hm(to)}</> : hm(from)}</span><span className="hidden @[104px]:inline">{span(from, to)}</span></>}</span>
-      {!short && length >= 75 && one.place && <span className="hidden truncate text-meta opacity-80 @[4rem]:block">{one.place}</span>}
+      <span className={`shrink-0 truncate text-meta tabular-nums ${short ? 'hidden @[120px]:inline' : 'hidden @[4rem]:block'}`}>{short ? hm(from) : <><span className={`@[104px]:hidden ${length >= 60 ? 'block leading-tight' : ''}`}>{length >= 60 ? <>{hm(from)} –<br />{hm(to)}</> : hm(from)}</span><span className="hidden @[104px]:inline">{span(from, to)}</span></>}</span>
+      {!short && length >= 75 && one.place && <span className="hidden truncate text-meta @[4rem]:block">{one.place}</span>}
     </span>
   )
 }
@@ -417,7 +417,7 @@ export function EventChip({ one, day, onOpen, onNote, month = false, calendars, 
         onKeyDown={(event) => (event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly && (event.preventDefault(), void dropOne(one))}
         className={`relative flex ${month ? 'mt-0.5 h-[calc(1.25rem-2px)]' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1.5 pl-2.5 text-left text-control`}
         {...{ style: { ...tint(one.color, one.cancelled), ...across } }}>
-        {time && <span className="shrink-0 tabular-nums opacity-80">{time}</span>}
+        {time && <span className="shrink-0 tabular-nums">{time}</span>}
         <span dir="auto" className="truncate font-semibold">{one.title || 'New event'}</span>
         {one.noted > 0 && <FileText data-cal-event-noted aria-label="Has notes" className="size-3 shrink-0" />}
         {one.allDay && !one.readOnly && ends?.start && end('start')}

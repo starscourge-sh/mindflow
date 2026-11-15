@@ -166,7 +166,7 @@ export function TokenHint({ hover }: { hover: { token: BoxToken; rect: DOMRect }
         {said}
       </span>
       {token.guess && <span data-token-guess {...loud('warn')}>A guess: {token.guess.replace(/^Read/, 'read')}</span>}
-      <span className="text-popover-foreground/60">Click to keep as plain text</span>
+      <span className="text-muted-foreground">Click to keep as plain text</span>
     </div>,
     document.body
   )

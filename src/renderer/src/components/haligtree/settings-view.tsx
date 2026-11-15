@@ -785,7 +785,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
                 {/* Its sample: the row, and a folder under it that comes and goes with the switch. */}
                 <span data-folders-sample={list} className="inline-flex flex-col rounded-md border border-border bg-background px-2.5 py-1 text-control text-foreground">
                   <span>{name}</span>
-                  <span className={`overflow-hidden pl-3 transition-[opacity,max-height] duration-200 ${on ? 'max-h-6 opacity-80' : 'max-h-0 opacity-0'}`}>📁 Money</span>
+                  <span className={`overflow-hidden pl-3 transition-[opacity,max-height] duration-200 ${on ? 'max-h-6 text-(--mf-muted-strong)' : 'max-h-0 opacity-0'}`}>📁 Money</span>
                 </span>
                 <Switch checked={on} onCheckedChange={(shown) => set({ sidebarFolders: { ...(settings.sidebarFolders ?? { article: true, nugget: true }), [list]: shown } })} aria-label={`Show groups in the sidebar: ${name}`} />
               </Setting>

@@ -1065,7 +1065,7 @@ function TopLine({ at, total, fresh: today, exams, onPick, onLearn, onTrim }: { 
           {exams.slice(0, 2).map((exam) => (
             <Tip key={exam.tag} label={<span className="block w-60 py-1"><Readiness exam={exam} /></span>}>
               <span data-exam-chip tabIndex={0} className={`${quiet} -ml-1.5 cursor-default`}>
-                #{exam.tag} <span className="opacity-70">{exam.days === 0 ? 'ready today' : exam.days === 1 ? 'ready tomorrow' : `ready in ${num(exam.days)} days`}</span>
+                #{exam.tag} <span className="text-muted-foreground">{exam.days === 0 ? 'ready today' : exam.days === 1 ? 'ready tomorrow' : `ready in ${num(exam.days)} days`}</span>
               </span>
             </Tip>
           ))}
@@ -1608,9 +1608,9 @@ export function ReviewHistory({ id }: { id: string }): React.JSX.Element | null 
         const grade = GRADES[one.grade - 1]
         return (
           <p key={one.at} className="flex gap-2 tabular-nums">
-            <span className="w-24 opacity-70">{when(one.at)}</span>
+            <span className="w-24 text-muted-foreground">{when(one.at)}</span>
             <span className="w-12" style={{ color: grade?.tone }}>{grade?.label}</span>
-            {one.gap && <span className="opacity-70">then {one.gap}</span>}
+            {one.gap && <span className="text-muted-foreground">then {one.gap}</span>}
           </p>
         )
       })}

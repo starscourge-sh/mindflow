@@ -518,7 +518,7 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive, wa
           <p ref={nameLine} data-reader-name className="mt-3 line-clamp-3 leading-[1.12] font-bold tracking-[-0.015em] break-words" style={{ fontFamily: "'Fraunces Variable', Georgia, serif", fontSize: 22 }}>{name || ' '}</p>
           {/* Plain words, not rolled: a roll measures its letters on the page, and on a book turned in 3D (it turns toward the
               pointer) they measure short, so the words were cut through their middles. */}
-          <p data-reader-title={title} className="mt-2 font-mono text-[0.5625rem] font-medium tracking-[0.16em] uppercase opacity-80">{title}</p>
+          <p data-reader-title={title} className="mt-2 font-mono text-[0.5625rem] font-medium tracking-[0.16em] uppercase">{title}</p>
           {/* The foot: the stamps with "Commonplace Book" beside them, and the day's tag under both, so the two never meet
               on a cover narrowed by its spine. */}
           <div className="mt-auto flex flex-col items-stretch gap-2.5 border-t border-current/15 pt-2.5">
@@ -534,11 +534,11 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive, wa
                   </Tip>
                 ))}
               </div>
-              <p aria-hidden data-reader-book className="shrink-0 text-right font-mono text-[0.5rem] leading-[1.3] font-medium tracking-[0.14em] uppercase opacity-70">Commonplace<br />Book</p>
+              <p aria-hidden data-reader-book className="shrink-0 text-right font-mono text-[0.5rem] leading-[1.3] font-medium tracking-[0.14em] uppercase">Commonplace<br />Book</p>
             </div>
             <div className="flex">
               {/* One quiet line, as a member card's "Member since": no box, no hatching. */}
-              <span data-reader-since className="font-mono text-[0.5rem] leading-none font-medium tracking-[0.14em] whitespace-nowrap uppercase opacity-70">
+              <span data-reader-since className="font-mono text-[0.5rem] leading-none font-medium tracking-[0.14em] whitespace-nowrap uppercase">
                 {facts?.since ? `Kept since ${dayMonth(facts.since, 'always')}` : 'Not begun'}
               </span>
             </div>

@@ -221,7 +221,7 @@ const PEEKS: Record<string, PagePeek> = {
     art: () => (<>
       <MTitle count={7}>Tags</MTitle>
       <div className="flex flex-wrap gap-1">
-        {exampleTags().map((one) => <MChip key={one.tag} tint={one.color ?? 'gray'} className="text-[10px]"><Hash className="size-2.5" />{one.tag}<span className="ml-0.5 opacity-70">{one.count}</span></MChip>)}
+        {exampleTags().map((one) => <MChip key={one.tag} tint={one.color ?? 'gray'} className="text-[10px]"><Hash className="size-2.5" />{one.tag}<span className="ml-0.5">{one.count}</span></MChip>)}
       </div>
       <MCard className="mt-2"><div className="mb-0.5 font-medium" style={tinted('brown')}>#book</div><MLines widths={[90, 72]} /></MCard>
     </>)

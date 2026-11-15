@@ -60,7 +60,7 @@ export function WhyLine({ question, note }: { question: string; note: string }):
     return () => void (live = false)
   }, [has, question, note])
   if (!has || !said) return null
-  return <p data-mac-needs="ai" data-ai-why className="text-meta text-muted-foreground"><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />{said} <span className="opacity-80">Written on this Mac.</span></p>
+  return <p data-mac-needs="ai" data-ai-why className="text-meta text-muted-foreground"><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />{said} Written on this Mac.</p>
 }
 
 /** A name for a note that starts with no words of its own (a picture, a recording), from the words further in. */

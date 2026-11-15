@@ -23,7 +23,7 @@ function Tip({ does, keys, children }: { does: string; keys: string; children: R
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent>
         {does} <ShortcutDisplay shortcuts={[keys]} />
-        <span className="block opacity-70">⌘-click keeps it as selected</span>
+        <span className="block text-muted-foreground">⌘-click keeps it as selected</span>
       </TooltipContent>
     </Tooltip>
   )
@@ -90,7 +90,7 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
                 <FileOutput /> <span className="tiptap-button-text">Move out</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent>Move to a new page<span className="block opacity-70">The words go there; a link stays here</span></TooltipContent>
+            <TooltipContent>Move to a new page<span className="block text-muted-foreground">The words go there; a link stays here</span></TooltipContent>
           </Tooltip>
           <Tooltip delay={200}>
             <TooltipTrigger asChild>
@@ -100,7 +100,7 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
                 <Repeat2 /> <span className="tiptap-button-text">Sync</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent>Sync with a new page<span className="block opacity-70">The words stay here and live there too: edit either</span></TooltipContent>
+            <TooltipContent>Sync with a new page<span className="block text-muted-foreground">The words stay here and live there too: edit either</span></TooltipContent>
           </Tooltip>
           </>}
           <CopyAsImage editor={editor} />
@@ -111,7 +111,7 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
                 <Quote /> <span className="tiptap-button-text">Card</span>
               </button>
             </TooltipTrigger>
-            <TooltipContent>Share as card<span className="block opacity-70">These words as a quote card to post, square or story</span></TooltipContent>
+            <TooltipContent>Share as card<span className="block text-muted-foreground">These words as a quote card to post, square or story</span></TooltipContent>
           </Tooltip>
         </ToolbarGroup>
       </>
@@ -135,7 +135,7 @@ export function CopyAsImage({ editor }: { editor: Editor }): React.JSX.Element {
           <Camera /> <span className="tiptap-button-text">Image</span>
         </button>
       </TooltipTrigger>
-      <TooltipContent>Copy as image<span className="block opacity-70">The picked blocks as a picture, ready to paste in a chat</span></TooltipContent>
+      <TooltipContent>Copy as image<span className="block text-muted-foreground">The picked blocks as a picture, ready to paste in a chat</span></TooltipContent>
     </Tooltip>
   )
 }
@@ -164,7 +164,7 @@ function LinesButton({ editor, origin, button }: { editor: Editor; origin: Origi
             <Inbox /> <span className="tiptap-button-text">{lines} captures</span>
           </button>
         </TooltipTrigger>
-        <TooltipContent>Each line its own capture<span className="block opacity-70">Each keeps its words and tags; its kind is read from them</span></TooltipContent>
+        <TooltipContent>Each line its own capture<span className="block text-muted-foreground">Each keeps its words and tags; its kind is read from them</span></TooltipContent>
       </Tooltip>
     )
   // A single word, or a question: what is looked up. Other words keep the bar as it was.
@@ -177,7 +177,7 @@ function LinesButton({ editor, origin, button }: { editor: Editor; origin: Origi
           <Bookmark /> <span className="tiptap-button-text">Look up</span>
         </button>
       </TooltipTrigger>
-      <TooltipContent>Look it up<span className="block opacity-70">Its meaning and Wikipedia, here; Keep puts it in Lookups, a question kept as asked</span></TooltipContent>
+      <TooltipContent>Look it up<span className="block text-muted-foreground">Its meaning and Wikipedia, here; Keep puts it in Lookups, a question kept as asked</span></TooltipContent>
     </Tooltip>
   )
 }
@@ -205,7 +205,7 @@ function TaskButton({ editor, origin, button, words }: { editor: Editor; origin:
             <ListTodo /> <span className="tiptap-button-text first-letter:uppercase">{plan.said}</span>
           </button>
         </TooltipTrigger>
-        <TooltipContent>Make {plan.said}<span className="block opacity-70">Each line a task; an indented line is a step of the line above</span></TooltipContent>
+        <TooltipContent>Make {plan.said}<span className="block text-muted-foreground">Each line a task; an indented line is a step of the line above</span></TooltipContent>
       </Tooltip>
     )
   return (

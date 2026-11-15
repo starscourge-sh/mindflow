@@ -1074,7 +1074,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
                   ) : (
                     // Faint until the list is pointed at, so its room never looks empty; an empty list shows it fully, as it is the only thing to do there.
                     <button type="button" data-add-card="" onClick={() => (chime('tap'), setAdding(at))}
-                      className={`flex h-8 w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-[6px] px-2 text-control text-muted-foreground transition-[opacity,background-color,color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground focus-visible:opacity-100 active:scale-[0.97] ${lane.cards.length ? 'opacity-70 group-hover/lane:opacity-100' : ''}`}>
+                      className={`flex h-8 w-full shrink-0 cursor-pointer items-center gap-1.5 rounded-[6px] px-2 text-control text-muted-foreground transition-[opacity,background-color,color,scale] duration-150 hover:bg-foreground/[0.06] hover:text-foreground focus-visible:opacity-100 active:scale-[0.97]`}>
                       <Plus className="size-3.5" /> Add a card
                     </button>
                   )}

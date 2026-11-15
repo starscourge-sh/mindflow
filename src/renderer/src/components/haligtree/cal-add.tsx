@@ -162,7 +162,7 @@ export function DraftMark({ kind, color, shape, time, style, ref, at, bar }: {
         {kind === 'task' && <span aria-hidden className="size-3 shrink-0 rounded-full border-[1.5px]" style={{ borderColor: TASK_INK }} />}
         <span dir="auto" data-cal-draft-name className="truncate font-semibold">{words || (kind === 'event' ? 'New event' : 'New task')}</span>
       </span>
-      {shape === 'block' && time && <span className="truncate text-meta tabular-nums opacity-80">{time}</span>}
+      {shape === 'block' && time && <span className="truncate text-meta tabular-nums">{time}</span>}
     </div>
   )
 }
