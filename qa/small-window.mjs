@@ -42,6 +42,8 @@ const holds = (page) => page.evaluate(() => new URLSearchParams(location.search)
 const words = (id) => h.evaluate((id) => window.api.captures.get(id).then((one) => JSON.stringify(one?.body ?? null)), id)
 /** The cursor a person sees with the pointer resting on what `selector` finds: read where the pointer is, not from the element. */
 const cursorAt = async (page, selector) => {
+  // In view first, as a person scrolls a long menu to a line before resting on it.
+  await page.locator(selector).first().scrollIntoViewIfNeeded().catch(() => {})
   const box = await page.locator(selector).first().boundingBox().catch(() => null)
   if (!box) return 'not there'
   const [x, y] = [box.x + box.width / 2, box.y + box.height / 2]
@@ -209,13 +211,13 @@ try {
     // 7. Resized by hand: growing stops, and “Auto-size” gives it back.
     await win(fresh.url(), 'w.setBounds({ ...w.getBounds(), height: 300 }); w.emit("will-resize")')
     await wait(500)
-    const pill = fresh.locator('[data-small-auto]')
+    const pill = fresh.locator('button[data-small-auto]')
     check('a resize by hand shows “Auto-size”', (await pill.count()) === 1)
     await fresh.keyboard.type(' x', { delay: 10 }); await wait(600)
     check('and it no longer grows with the words', (await win(fresh.url())).height === 300, (await win(fresh.url())).height)
     // Pointed at, as a person reaches for it: the row under the words comes back from its fade while typing.
     await fresh.mouse.move(260, 120); await wait(400)
-    check('the hand on “Auto-size”', (await cursorAt(fresh, '[data-small-auto]')) === 'pointer')
+    check('the hand on “Auto-size”', (await cursorAt(fresh, 'button[data-small-auto]')) === 'pointer')
     if (await pill.count()) await pill.click()
     await wait(900)
     check('“Auto-size” gives growing back at once', (await win(fresh.url())).height > 300 && (await pill.count()) === 0, (await win(fresh.url())).height)
