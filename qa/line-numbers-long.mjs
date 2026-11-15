@@ -41,17 +41,37 @@ try {
   await send('capture', note.id)
   await h.waitForFunction(() => !!document.querySelector('[data-open] .tiptap[data-long]'), null, { timeout: 60000 })
   await wait(4000)
-  // The caret on a paragraph in the middle of the screen, by a real press.
+  // The caret in the middle of the screen, by a real press at the start of the note's column, whatever block is there.
   const spot = await h.evaluate(() => {
-    const mid = innerHeight / 2
-    const one = [...document.querySelectorAll('[data-open] .tiptap[data-long] > p')].find((p) => { const r = p.getBoundingClientRect(); return r.top > mid - 200 && r.bottom < mid + 200 && p.textContent.trim().length > 3 })
-    const r = one?.getBoundingClientRect()
-    return r ? { x: r.left + 8, y: r.top + 6 } : null
+    const note = document.querySelector('[data-open] .tiptap[data-long]')
+    const r = note.getBoundingClientRect()
+    const pad = parseFloat(getComputedStyle(note).paddingLeft) || 0
+    return { x: r.left + pad + 30, y: Math.round(innerHeight / 2) }
   })
-  if (!spot) throw new Error('No paragraph in the middle of the screen')
   await h.mouse.click(spot.x, spot.y)
   await wait(1200)
   const numbered = await h.evaluate(() => document.querySelectorAll('[data-open] .mf-lines .mf-line').length)
+  // Plain numbers (Vim keys off): the first drawn block's number is how many lines come before it in the note,
+  // counted here again by the same rule (a list's items each, a quote's paragraphs each, any other block one), plus one.
+  if (!VIM) {
+    const lines = await h.evaluate(() => {
+      const ed = document.querySelector('[data-open] .tiptap[data-long]').editor
+      const LISTS = new Set(['bulletList', 'orderedList', 'taskList'])
+      const count = (node) => {
+        let n = 0
+        if (LISTS.has(node.type.name)) node.forEach((item) => { n += 1; item.forEach((child) => { if (LISTS.has(child.type.name)) n += count(child) }) })
+        else if (node.type.name === 'blockquote') { node.forEach((child) => { n += count(child) }); n = Math.max(1, n) } else n = 1
+        return n
+      }
+      const first = [...ed.view.dom.children].find((el) => el.pmViewDesc?.node && !el.hasAttribute('data-off') && !el.classList.contains('mf-fold-hidden'))
+      const index = first ? ed.state.doc.resolve(first.pmViewDesc.posBefore).index(0) : -1
+      let before = 0
+      for (let i = 0; i < index; i++) before += count(ed.state.doc.child(i))
+      const words = [...document.querySelectorAll('[data-open] .mf-lines .mf-line')].map((m) => Number(m.textContent))
+      return { block: index, expected: before + 1, first: words[0] ?? null, drawn: words.length, rising: words.every((n, i) => !i || n > words[i - 1]), blocks: ed.state.doc.childCount }
+    })
+    check('the largest note numbers the blocks it draws, from where they are in the note', lines.drawn > 0 && lines.first === lines.expected && lines.rising, JSON.stringify(lines))
+  }
   const key = VIM ? 'j' : 'ArrowDown'
   // Into Normal mode if the note is not in it yet (Esc in Normal mode takes the keys out of the note).
   if (VIM && (await h.evaluate(() => document.querySelector('[data-open] .tiptap').getAttribute('data-vim-mode'))) !== 'normal') await h.keyboard.press('Escape')

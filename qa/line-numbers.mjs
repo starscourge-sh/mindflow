@@ -120,6 +120,24 @@ try {
   await wait(300); got = await read()
   check('five lines down (j five times), the caret\'s line is 11 and the rest count from it', got.words[10] === '11' && got.here === 10 && got.words[5] === '5', got.words.join(' '))
   if (shots) await h.screenshot({ path: join(shots, 'lines-vim.png') })
+  // Filmed, a frame every 50 ms, when asked (QA_FILM=1 with QA_SHOTS): one more j, then the numbers off and on.
+  const film = async (name, act) => {
+    const started = Date.now()
+    const acting = act()
+    for (let i = 0; Date.now() - started < 500; i++) {
+      const at = Date.now()
+      await h.screenshot({ path: join(shots, `film-${name}-${String(i).padStart(2, '0')}-${String(at - started).padStart(3, '0')}ms.png`), clip: { x: 660, y: 180, width: 420, height: 560 } }).catch(() => {})
+      const left = 50 - (Date.now() - at)
+      if (left > 0) await wait(left)
+    }
+    await acting
+  }
+  if (shots && process.env.QA_FILM) {
+    await film('j', () => h.keyboard.press('j'))
+    await film('off', () => v('settings:set', { lineNumbers: false }))
+    await film('on', () => v('settings:set', { lineNumbers: true }))
+    await h.keyboard.press('k'); await wait(300)
+  }
   // The smallest window (560 by 400): the numbers whole inside the note's pane, the handle clear of them.
   const size = (w, hh) => c.electron.evaluate(({ BrowserWindow }, [w, hh]) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('home.html')).setSize(w, hh), [w, hh])
   await size(560, 400); await wait(1200)
@@ -160,6 +178,18 @@ try {
   await h.evaluate(() => { localStorage.setItem('vim', 'off'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'off' })) }); await wait(400)
   check('pressed on again with Vim keys off: plain numbers 12 13 14', (await v('settings')).lineNumbers === true && (await sample()) === '12@1 13@1 14@1', await sample())
   if (shots) await h.$(row).then((one) => one.screenshot({ path: join(shots, 'lines-setting-on.png') }))
+  // ⌘K: “Turn line numbers off”, its notice, and the notice's Undo putting them back.
+  await h.keyboard.press('Meta+k'); await wait(500)
+  await h.keyboard.type('line numbers', { delay: 20 }); await wait(500)
+  const offered = await h.evaluate(() => [...document.querySelectorAll('[cmdk-item]')].map((one) => one.textContent).find((words) => /Turn line numbers/.test(words)) ?? null)
+  // Pressed with the pointer: a setting of the same name may stand first in the list.
+  if (offered) await h.click('[cmdk-item]:has-text("Turn line numbers off")')
+  await wait(700)
+  const said = await h.evaluate(() => document.body.innerText.includes('Line numbers off'))
+  check('⌘K offers “Turn line numbers off”, and pressing it turns them off with a notice', /Turn line numbers off/.test(offered ?? '') && (await v('settings')).lineNumbers === false && said, `${offered}; notice ${said}`)
+  const undo = await h.evaluate(() => { const button = [...document.querySelectorAll('button')].find((one) => one.textContent.trim() === 'Undo' && one.getBoundingClientRect().height > 0); button?.click(); return !!button })
+  await wait(600)
+  check('the notice\'s Undo turns them back on', undo && (await v('settings')).lineNumbers === true)
   check('no page errors', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('the run finished', false, error.message.split('\n')[0])
