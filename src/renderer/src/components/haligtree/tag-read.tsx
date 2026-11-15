@@ -328,7 +328,7 @@ export function TagStream({ tag, color, onOpen, onTag, onStudy }: {
   }
   const noteMenu = (item: TagRead, index: number): MenuItem[] => [
     { label: 'Open', keys: '↵', run: () => open(item) },
-    { label: 'Open in a new window', keys: '⌘-click', run: () => openApart(item.type, item.id) },
+    { label: 'Open in a new window', keys: '⌥⌘-click', run: () => openApart(item.type, item.id) },
     ...openItems(item.type, item.id),
     ...queueItems(item.id),
     { label: 'Read from here', run: () => read(shown, index) },
