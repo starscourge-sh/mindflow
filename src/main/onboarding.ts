@@ -83,7 +83,9 @@ const nameOf = (): Promise<string> =>
   (firstName ??= new Promise<string>((done) => {
     const [command, args] = process.platform === 'darwin' ? ['id', ['-F']] : process.platform === 'linux' ? ['getent', ['passwd', userInfo().username]] : ['', []]
     if (!command) return done('')
-    execFile(command, args as string[], { timeout: 800 }, (error, out) => {
+    // Two seconds at most: waited for off this thread, so a slow answer costs the welcome a moment, never the app; and a
+    // shorter limit was reached by mistake as the app starts, its loop busy when the answer came (qa/main-holds.mjs).
+    execFile(command, args as string[], { timeout: 2000 }, (error, out) => {
       const full = error ? '' : process.platform === 'linux' ? (String(out).split(':')[4] ?? '').split(',')[0].trim() : String(out).trim()
       done(/^[\p{L}][\p{L}'-]{0,23}$/u.test(full.split(/\s+/)[0] ?? '') ? full.split(/\s+/)[0] : '')
     })
