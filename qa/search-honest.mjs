@@ -24,7 +24,9 @@ const ask = async (words) => {
       text: dialog?.textContent ?? '',
       lit: [...(dialog?.querySelectorAll('[data-cmdk-panel] .find-and-replace-result') ?? [])].map((one) => one.textContent),
       litNow: dialog?.querySelector('[data-cmdk-panel] .find-and-replace-result-current')?.getBoundingClientRect().top ?? null,
-      panel: dialog?.querySelector('[data-cmdk-panel]')?.getBoundingClientRect().bottom ?? null
+      panel: dialog?.querySelector('[data-cmdk-panel]')?.getBoundingClientRect().bottom ?? null,
+      // What the preview holds and its find: to tell a wrong row from a find that never ran.
+      seen: ((ed) => ({ row: document.querySelector('[data-search-at]')?.textContent?.slice(0, 60) ?? null, words: ed?.state.doc.textContent.slice(0, 60) ?? null, term: ed?.storage.findAndReplace?.searchTerm ?? null, results: ed?.storage.findAndReplace?.results?.length ?? null }))(dialog?.querySelector('[data-cmdk-panel] .tiptap')?.editor)
     }
   })
 }
@@ -42,7 +44,7 @@ try {
   check('and what a close spelling found stands under "Close spellings", none under a kind of note', /Close spellings/.test(missing.text), missing.text.slice(0, 300))
 
   const found = await ask('faust')
-  console.log(`(“faust”: lit ${JSON.stringify(found.lit)}, the current one at ${found.litNow}, the panel's foot at ${found.panel})`)
+  console.log(`(“faust”: lit ${JSON.stringify(found.lit)}, the current one at ${found.litNow}, the panel's foot at ${found.panel}; the preview: ${JSON.stringify(found.seen)})`)
   check('a word a note has: no "nothing has" line', !found.none, found.none)
   check('its preview lights the word where it stands', found.lit.some((one) => /faust/i.test(one)), JSON.stringify(found.lit))
   check('and brings it into view, far down a long note', found.litNow !== null && found.panel !== null && found.litNow < found.panel, `${found.litNow} < ${found.panel}`)

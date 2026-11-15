@@ -13,6 +13,7 @@ import { chime, click, step, type Cue } from '@/lib/sound'
 import { allThemes, applyTheme, currentTheme, themeName, type Theme } from '@/lib/theme'
 import { Swatch } from './theme/theme-picker'
 import type { Editor, JSONContent } from '@tiptap/core'
+import { FindAndReplacePluginKey } from '@tiptap/extension-find-and-replace'
 
 import { CAPTURE_TYPES } from './capture-kinds/capture-kind-picker'
 import { whereFrom } from './capture-list'
@@ -968,7 +969,8 @@ function NotePreview({ capture, words }: { capture: Capture; /** The words searc
   const editor = useRef<Editor | null>(null)
   const lit = (one: Editor): void => {
     if (one.isDestroyed) return
-    one.chain().setUseRegex(true).setSearchTerm(words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')).run()
+    // At once, in one step, not after the find bar's pause for typing (250 ms): the first match is gone to right after.
+    one.view.dispatch(one.state.tr.setMeta(FindAndReplacePluginKey, { searchTerm: words.map((word) => word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), useRegex: true }))
     if (!words.length) return
     one.commands.goToNextResult()
     // Brought into view as the note's own find brings it (search-bar.tsx `centre`): at once, or once a long note has drawn it.
