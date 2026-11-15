@@ -2704,7 +2704,9 @@ async function growAfterWelcome(): Promise<void> {
       win.on('resize', there)
       win.on('resized', end)
       win.setBounds(to, animate)
-      there()
+      // Not animated, it stands wherever it was let stand (a screen too small keeps it short of `to`): over now.
+      if (animate) there()
+      else end()
     })
   }
   // A placing took the window over meanwhile (the welcome back at once): it keeps it.
