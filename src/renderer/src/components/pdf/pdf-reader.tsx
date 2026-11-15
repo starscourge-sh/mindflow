@@ -350,6 +350,14 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       // "/" finds too, and n and N step through what it found, as the web reader's do (web-reader.tsx).
       const plain = !event.metaKey && !event.ctrlKey && !event.altKey && !writing()
       const stepping = plain && finding && (event.key === "n" || event.key === "N")
+      // G and g g go to the end and to the start, as in every list (ui.tsx listEnd), and as the web reader's do.
+      const end = plain && !finding ? listEnd(event) : null
+      if (end) {
+        event.preventDefault()
+        event.stopPropagation()
+        const box = scroller.current
+        return void box?.scrollTo({ top: end === "first" ? 0 : box.scrollHeight })
+      }
       if (!stepping && !(plain && event.key === "/") && !(event.metaKey && !event.altKey && !event.shiftKey && event.code === "KeyF")) return
       event.preventDefault()
       event.stopPropagation()

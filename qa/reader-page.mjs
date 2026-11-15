@@ -267,6 +267,21 @@ try {
   await sizeTo(0)
   const full = await page()
   await shoot('2-reader-in-the-pane')
+
+  // --- G and g g, as in every list (the user, 15 Nov 2026: "why doesnt G and gg work in reader mode") ----------------
+  const scrolled = () => h.evaluate(() => {
+    const reader = [...document.querySelectorAll('.web-reader')].find((one) => one.getBoundingClientRect().width > 0)
+    let box = reader?.querySelector('.web-reader-body')?.parentElement ?? null
+    while (box && box !== reader && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement
+    return box ? { top: Math.round(box.scrollTop), end: Math.round(box.scrollHeight - box.clientHeight) } : null
+  })
+  await h.mouse.move(700, 400)
+  await h.keyboard.press('Shift+G'); await wait(500)
+  const atEnd = await scrolled()
+  check('G goes to the end of the article', !!atEnd && atEnd.end > 0 && Math.abs(atEnd.top - atEnd.end) <= 2, JSON.stringify(atEnd))
+  await h.keyboard.press('g'); await h.keyboard.press('g'); await wait(500)
+  const atTop = await scrolled()
+  check('g g goes back to its start', !!atTop && atTop.top === 0, JSON.stringify(atTop))
   check('the reader in the pane the note was in: the lines are there, two, one each side', full?.lines.length === 2, JSON.stringify(full?.lines))
   check(`its words a narrower column than the note's (${noteWords?.chars} characters a line in the note)`, !!full?.words && !!noteWords && full.words.chars <= noteWords.chars - 8, `reader ${full?.words?.chars} over ${full?.words?.lines} lines, note ${noteWords?.chars} over ${noteWords?.lines}`)
   check(`about 60 characters a line (${full?.words?.chars} measured; 55 to 64: a book's measure, where a note runs to about 75)`, full?.words?.chars >= 55 && full?.words?.chars <= 64, JSON.stringify(full?.words))

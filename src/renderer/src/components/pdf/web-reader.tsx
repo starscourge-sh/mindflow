@@ -38,7 +38,7 @@ import { touch } from '@/lib/open-today'
 import { keepWebPlace, webPlaces } from '@/lib/note-place'
 import { said } from '@/lib/host'
 import { Orb } from '@/components/haligtree/orb'
-import { stopJob } from '@/components/haligtree/ui'
+import { listEnd, stopJob } from '@/components/haligtree/ui'
 import './pdf.css'
 import { plural, num } from '../../../../main/dates'
 
@@ -475,6 +475,14 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
         if (stepping) return stepFind(event.key === 'N')
         setFinding(true)
         return void requestAnimationFrame(() => findField.current?.select())
+      }
+      // G and g g go to the end and to the start, as in every list (ui.tsx listEnd): a reader takes no typing.
+      const end = plain && !finding ? listEnd(event) : null
+      if (end) {
+        event.preventDefault()
+        event.stopPropagation()
+        const box = scroller.current
+        return void box?.scrollTo({ top: end === 'first' ? 0 : box.scrollHeight })
       }
       if (!event.metaKey || event.altKey) return
       const way =
