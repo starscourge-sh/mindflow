@@ -2002,6 +2002,11 @@ export function Home(): React.JSX.Element {
               ? { label: 'Stop collecting what I copy', hint: 'What you copy stays on the clipboard only', keys: '⎋', cue: null, run: stopCollect }
               : { label: 'Collect what I copy', hint: 'Everything you copy on this Mac lands in the note in front', cue: null, run: () => void (startCollect() || refuse('Open a note to collect into')) },
             { label: typewriter ? 'Turn typewriter scrolling off' : 'Turn typewriter scrolling on', hint: typewriter ? 'The page scrolls only when the line you write reaches the edge' : 'The line you are writing stays in the middle of the window', cue: typewriter ? 'off' : 'on', run: () => (setTypewriter(!typewriter), toast(typewriter ? 'Typewriter scrolling off' : 'Typewriter scrolling on', () => setTypewriter(typewriter))) },
+            { label: settings?.lineNumbers !== false ? 'Turn line numbers off' : 'Turn line numbers on', hint: settings?.lineNumbers !== false ? 'Notes without the numbers in their left margin' : 'Each line of a note numbered in its left margin', cue: settings?.lineNumbers !== false ? 'off' : 'on', run: () => {
+              const was = settings?.lineNumbers !== false
+              void haligtree.setSettings({ lineNumbers: !was })
+              toast(was ? 'Line numbers off' : 'Line numbers on', () => void haligtree.setSettings({ lineNumbers: was }))
+            } },
             { label: settings?.sounds ? 'Turn sounds off' : 'Turn sounds on', hint: settings?.sounds ? 'Every action happens quietly' : 'A small sound answers each action', cue: null, run: () => {
               soundOn(!settings?.sounds)
               chime(settings?.sounds ? 'off' : 'on')
