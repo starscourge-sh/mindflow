@@ -41,6 +41,10 @@ const sideList = (el: Element): Element | null => {
     if ((overflowY === 'auto' || overflowY === 'scroll') && at.scrollHeight > at.clientHeight) {
       const wide = at.getBoundingClientRect().width
       if (wide >= window.innerWidth * 0.6) return null
+      // A note's own page beside its list (Writing with a page open) is a page as well: the scroller that fills the
+      // note's pane. Taken for a list, a tag's card on the page came up beside it, over the list (the user, 15 Nov).
+      const note = at.closest('.note-pane')
+      if (note && wide >= note.getBoundingClientRect().width * 0.8) return null
       const pane = at.closest('[data-pane]')
       return pane && wide >= pane.getBoundingClientRect().width * 0.8 ? null : at
     }
