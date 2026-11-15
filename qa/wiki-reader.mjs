@@ -10,7 +10,7 @@
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/wiki-reader.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
-import { standIn, ROMAN, BYZANTINE } from './wiki-stand-in.mjs'
+import { standIn, ROMAN, BYZANTINE, CARTHAGE } from './wiki-stand-in.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 const site = await standIn()
 process.env.HALIGTREE_QA_SITES = site.base
@@ -149,6 +149,17 @@ try {
     await c.send('nugget', gem.id); await wait(1200)
     await c.both(`${shots}/w4-gem-citation`)
   }
+
+  // Nothing in the reader's bar moves as a page comes: each tool stands where it stood while the page was read.
+  await h.evaluate((href) => window.dispatchEvent(new CustomEvent('haligtree:web', { detail: { href } })), CARTHAGE)
+  await until(() => h.evaluate(() => !!document.querySelector('.web-reader-reading')))
+  const tools = () => h.evaluate(() => [...document.querySelectorAll('.web-reader .pdf-reader-tools button')].map((one) => `${one.getAttribute('aria-label')}@${Math.round(one.getBoundingClientRect().left)}`))
+  const whileReading = await tools()
+  await until(async () => (await heading()) === 'Carthage', 15000)
+  await wait(400)
+  const onceRead = await tools()
+  check('nothing in the reader\'s bar moves as the page comes', whileReading.length > 4 && whileReading.join() === onceRead.join(), JSON.stringify({ whileReading, onceRead }))
+  check('the section you are in stands beside the title, as a PDF\'s chapter does', (await h.evaluate(() => { [...document.querySelectorAll('.web-reader-body h2')].find((one) => one.textContent === 'Legacy').scrollIntoView({ block: 'start' }); return new Promise((done) => setTimeout(() => done(document.querySelector('.web-reader [data-pdf-chapter]')?.textContent ?? null), 300)) })) === 'Legacy', '')
 
   // Offline: one plain line, never an empty list; the kept article still opens.
   site.offline(true)

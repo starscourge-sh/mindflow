@@ -33,6 +33,8 @@ const article = (title, body) => `<!DOCTYPE html><html lang="en"><head><meta cha
 
 export const ROMAN = 'https://en.wikipedia.org/wiki/Roman_Empire'
 export const BYZANTINE = 'https://en.wikipedia.org/wiki/Byzantine_Empire'
+/** An article the stand-in takes a moment and a half to send, to see the reader while it reads. */
+export const CARTHAGE = 'https://en.wikipedia.org/wiki/Carthage'
 const pages = {
   '/en.wikipedia.org/wiki/Roman_Empire': article('Roman Empire', `
     <p>The <b>Roman Empire</b> was the state ruled by the Romans after Augustus took sole rule, and it lasted in the west until the fifth century and in the east, as the <a href="/wiki/Byzantine_Empire" title="Byzantine Empire">Byzantine Empire</a>, for a thousand years more.<sup class="reference"><a href="#cite_note-1">[1]</a></sup> Its story is told on <a href="https://example.org/rome-elsewhere">a page elsewhere</a> too.</p>
@@ -51,7 +53,9 @@ const pages = {
   '/en.wikipedia.org/wiki/Byzantine_Empire': article('Byzantine Empire', `
     <p>The <b>Byzantine Empire</b>, also called the Eastern Roman Empire, was the continuation of the <a href="/wiki/Roman_Empire">Roman Empire</a> in its eastern provinces, ruled from Constantinople.</p>
     ${para('Byzantium', 1)}${para('Byzantium', 2)}
-    <h2 id="Name">Name</h2>${para('The name', 1)}${para('The name', 2)}`)
+    <h2 id="Name">Name</h2>${para('The name', 1)}${para('The name', 2)}`),
+  '/en.wikipedia.org/wiki/Carthage': article('Carthage', `<p>The city of <b>Carthage</b> stood on the coast of North Africa.</p>${para('Carthage', 1)}${para('Carthage', 2)}
+    ${heading(2, 'History')}${para('Its history', 1)}${heading(2, 'Legacy')}${para('Its legacy', 1)}`)
 }
 const search = {
   'en.wikipedia.org': {
@@ -83,6 +87,7 @@ export async function standIn() {
     if (url.pathname.endsWith('/w/rest.php/v1/search/page') && search[host]) return send(200, 'application/json', JSON.stringify(search[host]))
     if (url.pathname === '/www.gutenberg.org/ebooks/search.opds/') return send(200, 'application/atom+xml', GUTENBERG)
     if (url.pathname === '/plato.stanford.edu/search/searcher.py') return send(200, 'text/html; charset=utf-8', SEP)
+    if (url.pathname === '/en.wikipedia.org/wiki/Carthage') return void setTimeout(() => send(200, 'text/html; charset=utf-8', pages[url.pathname]), 1500)
     if (pages[url.pathname]) return send(200, 'text/html; charset=utf-8', pages[url.pathname])
     if (/^\/(upload|thumb)\.wikimedia\.org\//.test(url.pathname)) return send(200, 'image/png', png(150, 110, 60))
     send(404, 'text/plain', 'not here')

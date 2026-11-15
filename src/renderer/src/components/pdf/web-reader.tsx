@@ -568,32 +568,35 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     <div ref={root} className="pdf-reader web-reader">
       <style>{MARK_COLORS.map((one) => (one.id === "later" ? `::highlight(${markName(names, one.id)}) { text-decoration: underline dashed var(--tt-brand-color-500, #c08a2e) 2px; text-underline-offset: 3px }` : tint(markName(names, one.id), 28, one.css))).join('') + tint(`${names}-found`, 22, '#8b5cf6') + tint(`${names}-found-now`, 45, '#8b5cf6') + tint(`${names}-flash`, 55)}</style>
       <div className="pdf-reader-bar">
-        <span className="pdf-reader-title" title={title}>
-          {title}
+        {/* As the PDF reader's bar: the title takes the free room, so the tools never move as it changes, and the
+            section you are in stands beside it as a PDF's chapter does. */}
+        <span className="pdf-reader-heading" title={outline[sectionHere] ? `${title}: ${outline[sectionHere].title}` : title}>
+          <span className="pdf-reader-title">{title}</span>
+          {outline[sectionHere] && <span data-pdf-chapter className="pdf-reader-chapter">{outline[sectionHere].title}</span>}
         </span>
         <span className="pdf-reader-tools">
-          {outline.length > 1 && (
-            <Button
-              data-style="ghost"
-              aria-label="Contents"
-              title="Contents"
-              data-active-state={railShown ? 'on' : 'off'}
-              onClick={() => (chime(railShown ? 'fold' : 'slide'), setRail(!railShown))}
-            >
-              <PanelLeft className="tiptap-button-icon" />
-            </Button>
-          )}
-          {marks.length > 0 && (
-            <Button
-              data-style="ghost"
-              aria-label="Highlights"
-              title="Highlights"
-              data-active-state={showMarks ? 'on' : 'off'}
-              onClick={() => setShowMarks(!showMarks)}
-            >
-              <Highlighter className="tiptap-button-icon" />
-            </Button>
-          )}
+          {/* Always in its place, so nothing in the bar moves when the article comes; it says why when there is nothing to show. */}
+          <Button
+            data-style="ghost"
+            aria-label="Contents"
+            title={outline.length > 1 ? 'Contents' : article ? 'Contents: this page has no sections' : 'Contents: once the page is read'}
+            disabled={outline.length < 2}
+            data-active-state={railShown ? 'on' : 'off'}
+            onClick={() => (chime(railShown ? 'fold' : 'slide'), setRail(!railShown))}
+          >
+            <PanelLeft className="tiptap-button-icon" />
+          </Button>
+          {/* In its place from the start too: the highlights come after the page, and a button arriving with them pushed the rest along. */}
+          <Button
+            data-style="ghost"
+            aria-label="Highlights"
+            title={marks.length ? 'Highlights' : 'Highlights: none in this page yet'}
+            disabled={!marks.length}
+            data-active-state={showMarks && marks.length ? 'on' : 'off'}
+            onClick={() => setShowMarks(!showMarks)}
+          >
+            <Highlighter className="tiptap-button-icon" />
+          </Button>
           <Button
             data-style="ghost"
             aria-label="Open the page in your browser"
