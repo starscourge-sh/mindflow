@@ -74,7 +74,11 @@ try {
     const target = win.locator(selector).first()
     // Into the middle of its page, as a person scrolls a link into sight before a click: a note's "Add a thought…"
     // bar floats over its page's foot (72c5ea8fa), and a link under it counted as in view, so the press hit the bar.
+    // Playwright's own scrollIntoViewIfNeeded around it waits for the link to be shown and still, as the probe's
+    // first version did: aimed without that wait, a press in quick capture missed its link in 3 runs of 4.
+    await target.scrollIntoViewIfNeeded()
     await target.evaluate((el) => el.scrollIntoView({ block: 'center', behavior: 'instant' }))
+    await target.scrollIntoViewIfNeeded()
     // Aimed at its first line: a link that wraps has a box whose middle is between its lines.
     const box = await target.evaluate((el) => { const r = el.getClientRects()[0]; return { x: r.left, y: r.top, width: r.width, height: r.height } })
     await win.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 3 }); await win.waitForTimeout(200)
