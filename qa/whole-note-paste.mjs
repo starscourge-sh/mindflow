@@ -88,6 +88,9 @@ try {
   // What a person copies out of Obsidian: the note's Markdown (and, for `html`, its HTML too), made by the note's own editor.
   const made = await page(h, (ed, kind) => {
     const { editor } = ed
+    // What the page's own rules refuse from here on, and what asked for it (a page error names only the address).
+    const refused = (window.__wnpRefused = [])
+    document.addEventListener('securitypolicyviolation', (event) => void (refused.length < 6 && refused.push(`${event.violatedDirective} refused ${event.blockedURI.replace(/^(https?:\/\/[^/]+).*/, '$1')} asked by ${event.sourceFile || '(the page itself)'}:${event.lineNumber}:${event.columnNumber}${event.sample ? ` "${event.sample.slice(0, 80)}"` : ''}`)))
     window.__wnpWords = { text: editor.storage.markdown.manager.serialize(editor.getJSON()), html: kind === 'html' ? editor.getHTML() : '' }
     const nav = document.querySelector('nav[aria-label="Document outline"]')
     return { blocks: editor.state.doc.childCount, text: window.__wnpWords.text.length, html: window.__wnpWords.html.length, outline: nav ? nav.querySelectorAll('[data-level]').length : -1, count: document.querySelector('.tiptap-word-count')?.textContent ?? '' }
@@ -230,6 +233,19 @@ try {
       if (log.landed && !log.allIn && !coming()) log.allIn = now
       if (now - log.start < 9000 || (!log.allIn && now - log.start < 60000)) requestAnimationFrame(beat)
     }
+    // Every move of the note's scroller from the paste on, and what made it (said when the caret ends off the screen).
+    const moves = (window.__wnpMoves = [])
+    const moved = (how) => log.start && moves.push({ at: Math.round(performance.now() - log.start), how, top: Math.round(scroller.scrollTop), by: String(new Error().stack ?? '').split('\n').slice(2, 7).map((line) => line.trim().replace(/^at /, '').replace(/\(?[^ ]*\/(?=[^/]+:\d+:\d+\)?$)/, '')).join(' < ') })
+    for (const name of ['scrollTo', 'scrollBy', 'scrollIntoView']) {
+      const was = Element.prototype[name]
+      Element.prototype[name] = function (...args) {
+        if (this === scroller || scroller.contains(this)) moved(name)
+        return was.apply(this, args)
+      }
+    }
+    const top = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollTop')
+    Object.defineProperty(scroller, 'scrollTop', { configurable: true, get() { return top.get.call(this) }, set(value) { moved(`scrollTop = ${Math.round(value)}`); top.set.call(this, value) } })
+    scroller.addEventListener('scroll', () => moved('scrolled'), { passive: true })
     try {
       new PerformanceObserver((list) => {
         // Each long frame's script time and its drawing (style, layout, paint) told apart.
@@ -294,7 +310,7 @@ try {
     const nav = document.querySelector('nav[aria-label="Document outline"]')
     let headings = 0
     doc.forEach((node) => void (node.type.name === 'heading' && headings++))
-    return { blocks: doc.childCount, long: ed.hasAttribute('data-long'), onScreen: window.__wnpOnScreen(), caretShown: caret.top >= r.top && caret.bottom <= r.bottom, headings, outline: nav ? nav.querySelectorAll('[data-level]').length : -1, count: document.querySelector('.tiptap-word-count')?.textContent ?? '', loaders: ed.querySelectorAll('[data-paste-loader]').length }
+    return { blocks: doc.childCount, long: ed.hasAttribute('data-long'), onScreen: window.__wnpOnScreen(), caretShown: caret.top >= r.top && caret.bottom <= r.bottom, caretAt: `the caret at ${Math.round(caret.top)} to ${Math.round(caret.bottom)}, the screen ${Math.round(r.top)} to ${Math.round(r.bottom)}`, moves: window.__wnpMoves.filter((one) => one.how !== 'scrolled').slice(-5).concat(window.__wnpMoves.filter((one) => one.how === 'scrolled').slice(-3)), headings, outline: nav ? nav.querySelectorAll('[data-level]').length : -1, count: document.querySelector('.tiptap-word-count')?.textContent ?? '', loaders: ed.querySelectorAll('[data-paste-loader]').length }
   })
   console.log(`(after: ${after.blocks} blocks, ${after.onScreen} drawn on the screen, the contents list ${after.outline} of ${after.headings} headings; count "${after.count}")`)
   // What the paste made of the note's emoji and Obsidian pictures, once the pictures have been looked for.
@@ -314,7 +330,7 @@ try {
   console.log(`(the note before: ${JSON.stringify(kinds(original))}; after the paste: ${JSON.stringify(kinds(now))})`)
   await h.screenshot({ path: join(shots, 'after-paste.png') })
   check('after the paste the note is long again, words on the screen, no loader left', after.long && after.onScreen > 0 && !after.loaders, JSON.stringify({ long: after.long, onScreen: after.onScreen, loaders: after.loaders }))
-  check('the caret is on the screen', after.caretShown)
+  check('the caret is on the screen', after.caretShown, after.caretShown ? '' : `${after.caretAt}; the scroller's last moves: ${after.moves.map((one) => `+${one.at} ms ${one.how} (top ${one.top})${one.by && one.how !== 'scrolled' ? ` by ${one.by}` : ''}`).join(' | ')}`)
   const onPage = lettersOf(now)
   check('a letter typed while the paste came lands after it, in order', !!typed && onPage === letters + 'z', !typed ? 'the paste never showed' : onPage === letters + 'z' ? `typed ${typed.at} ms in${typed.coming ? ', while it came' : ', after it was all in'}` : parting(letters + 'z', onPage))
   const outline = await within(8000, h.waitForFunction((count) => document.querySelector('nav[aria-label="Document outline"]')?.querySelectorAll('[data-level]').length === count, made.outline, { timeout: 8000 }).then(() => made.outline))
@@ -380,7 +396,8 @@ try {
   const out = steps.findIndex((one) => !one.left)
   check('one ⌘Z takes the whole paste back out', out >= 0 && steps.slice(0, out).every((one) => one.left >= letters.length), steps.map((one) => `${one.left} letters left after ${one.ms} ms`).join(', '))
   check('no freeze log', freezes().length === frozeBefore, freezes().slice(frozeBefore).join(', '))
-  check('no page errors', !errorsOf(c).length, errorsOf(c).slice(0, 3).join(' | '))
+  const refused = await page(h, () => window.__wnpRefused ?? [])
+  check('no page errors', !errorsOf(c).length, `${errorsOf(c).slice(0, 3).join(' | ')}${refused.length ? `; refused by the page's rules: ${refused.join(' | ')}` : ''}`)
   console.log(`(frames in ${shots})`)
 } catch (error) {
   check('ran without throwing', false, String(error?.stack ?? error).slice(0, 600))
