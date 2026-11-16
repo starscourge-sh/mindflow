@@ -13,6 +13,8 @@
 // "Kept in order" (12 Nov): the lists a rule of their own keeps in order carry the same way: Goals (each tab), Writing
 // sorted A to Z and Gems under headings. PART="kept in order" runs those alone, and SKIP="kept in order" everything but
 // them (the two together are the whole probe, for a queue that stops a job after ten minutes).
+// QA_PART=1, 2, 3 or 4 (16 Nov): the whole probe ran past the queue's ten minutes even so; these four runs together are
+// all of it, each a few minutes, each on a fresh copy of the sandbox and passing on its own (QA_PARTS below names them).
 //   npx electron-vite build --outDir out-onedrag
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-onedrag/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=<dir>] node qa/one-drag.mjs
 import { mkdirSync } from 'fs'
@@ -133,7 +135,15 @@ if (process.env.QA_TRACE) {
   })
 }
 /** A part of the probe: a part that cannot even run on old code is a fail, and the rest still runs. */
-const part = async (name, run) => { if ((process.env.PART && !name.includes(process.env.PART)) || (process.env.SKIP && name.includes(process.env.SKIP))) return; try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); for (const one of await binsSince().catch(() => [])) console.log(`BINNED in ${name}: ${JSON.stringify(one)}`); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
+/** The probe in four runs (QA_PART): each part's name starts with one of its run's. */
+const QA_PARTS = {
+  1: ['Groups', "The panel's overshoot", 'Sidebar folders', 'A plain list, a tab', "Today's list", 'A task onto a task makes a step', 'Esc ends the whole press'],
+  2: ['One look: Tasks', 'One look: the Queue', 'One look: the Inbox', 'One look: the sidebar', 'One look: the board', 'A drop is said'],
+  3: ['One look: the Matrix', 'One look: quick capture', 'One look: the main book', 'One look: 560 x 400', 'One look: Writing, the reference', `One look: ${Number(process.env.LONG) > 1 ? Number(process.env.LONG) : 500} rows`],
+  4: ['The Bin, traced', 'One look, kept in order', 'One card', "A term's row", 'Frames'],
+}
+const inRun = (name) => !process.env.QA_PART || (QA_PARTS[process.env.QA_PART] ?? []).some((start) => name.startsWith(start))
+const part = async (name, run) => { if (!inRun(name) || (process.env.PART && !name.includes(process.env.PART)) || (process.env.SKIP && name.includes(process.env.SKIP))) return; try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); for (const one of await binsSince().catch(() => [])) console.log(`BINNED in ${name}: ${JSON.stringify(one)}`); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
 const shot = (name) => (SHOTS ? h.screenshot({ path: `${SHOTS}/${name}.png` }) : null)
 const film = async (name, n = 6) => { if (SHOTS) for (let i = 0; i < n; i++) { await h.screenshot({ path: `${SHOTS}/${name}-${i}.png` }); await wait(50) } }
 const both = async (name) => { if (!SHOTS) return; for (const look of ['light', 'dark']) { await c.look(look); await wait(120); await h.screenshot({ path: `${SHOTS}/${name}-${look}.png` }) } await c.look('light'); await wait(120) }
