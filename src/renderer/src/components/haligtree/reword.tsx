@@ -264,6 +264,8 @@ export const host = (editor: Editor, origin: Origin): void => {
   hosts.set(editor, origin)
   for (const one of hosts.keys()) if (one.isDestroyed) hosts.delete(one)
 }
+/** What words picked in this editor are lifted out of, for a way in that is not its bar (the right click's Writing help). */
+export const originOf = (editor: Editor): Origin => hosts.get(editor) ?? {}
 
 /**
  * ⌃⌘C and ⌃⌘I on selected words open a card as a capture or an idea; ⌘↵ keeps
@@ -321,9 +323,11 @@ function Chip({ kind, onClick }: { kind: Kind; onClick?: () => void }): React.JS
   )
 }
 
-/** Where a card sits by its words: under their paragraph, or over it when there is no room below, always inside the window. */
-function place(draft: Draft, height: number): { left: number; top: number; origin: string } | null {
-  const anchor = draft.anchor
+/**
+ * Where a card sits by its words: under their paragraph, or over it when there is no room below, always inside the
+ * window. The one rule for every card by picked words in a note: this one, and Writing help's (writing-help.tsx).
+ */
+export function placeBy(anchor: { editor: Editor; from: number; to: number } | null, height: number): { left: number; top: number; origin: string } | null {
   if (!anchor || anchor.editor.isDestroyed) return null
   const { view } = anchor.editor
   const size = view.state.doc.content.size
@@ -350,7 +354,7 @@ function Card({ draft, by }: { draft: Draft; by: boolean }): React.JSX.Element {
   const field = useRef<HTMLTextAreaElement>(null)
   const [, redraw] = useState(0)
   const [height, setHeight] = useState(150)
-  const spot = by ? place(draft, height) : null
+  const spot = by ? placeBy(draft.anchor, height) : null
   // Measured once drawn, so a card that would run off the bottom opens above the words instead.
   useLayoutEffect(() => {
     const now = ref.current?.offsetHeight

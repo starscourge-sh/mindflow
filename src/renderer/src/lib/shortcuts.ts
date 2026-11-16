@@ -132,6 +132,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Editing', keys: '⌘E', does: 'Show or hide the source', where: 'In a note' },
   { group: 'Editing', keys: '⌃⌘C', does: 'Selected words: a capture, in a card to reword them first (⌘↵ saves it)', where: 'In a note' },
   { group: 'Editing', keys: '⌃⌘I', does: 'Selected words: a gem, in a card to reword them first, with its review question', where: 'In a note' },
+  { group: 'Editing', keys: '⌃⌘W', does: 'Selected words: Writing help by Apple Intelligence on this Mac (Fix it, Shorter, Make it a card…); 1 to 8 pick one', where: 'In a note' },
   { group: 'Editing', keys: '⌘↵', does: 'Selected words: a capture just as they are (in quick capture, the whole note selected still sends it)', where: 'In a note' },
   { group: 'Editing', keys: '⇧⌘D', does: 'Details of the open capture', where: 'Quick capture' },
   { group: 'Editing', keys: '⌘F', does: 'Find in the note', where: 'In a note' },

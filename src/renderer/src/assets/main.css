@@ -3453,6 +3453,15 @@ html[data-book-hue] [data-book-tint] {
   background: color-mix(in oklab, var(--tt-color-text-blue) 18%, transparent);
   border-radius: 3px; box-shadow: 0 0 0 2px color-mix(in oklab, var(--tt-color-text-blue) 18%, transparent);
 }
+/* Writing help (writing-help.tsx), in Proofread's hue: the picked words lit while Apple Intelligence reads them; a new
+   wording shown after your own, yours struck in Faded Ink, the new on a faint wash; a pulled quote lit, the words round
+   it in Faded Ink. Square, as every mark on words is. */
+.tiptap.ProseMirror .mf-help-reading,
+.tiptap.ProseMirror .mf-help-quote { background: color-mix(in oklab, var(--tt-color-text-blue) 16%, transparent); }
+.tiptap.ProseMirror .mf-help-was { color: var(--muted-foreground); text-decoration: line-through color-mix(in oklab, var(--muted-foreground) 70%, transparent); }
+.tiptap.ProseMirror .mf-help-new { background: color-mix(in oklab, var(--tt-color-text-blue) 10%, transparent); white-space: pre-wrap; }
+.tiptap.ProseMirror .mf-help-around { color: var(--muted-foreground); }
+.tiptap.ProseMirror .mf-help-around.mf-help-quote { color: var(--foreground); }
 
 
 /* A long day's page kept to a height on the Journal (PageCap, day-writing.tsx), its foot fading into "Show the whole

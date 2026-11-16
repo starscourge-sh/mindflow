@@ -26,7 +26,7 @@ type Choice = { label: string; icon: Icon; active: (editor: Editor) => boolean; 
  * page, and the menu, anchored to a button no longer there, opened at the
  * window's top left corner.
  */
-function BarMenu({ label, lit, icon: Shown, bare, column, children }: {
+export function BarMenu({ label, lit, icon: Shown, bare, column, text, openOn, children }: {
   label: string
   lit: boolean
   icon: Icon
@@ -34,10 +34,20 @@ function BarMenu({ label, lit, icon: Shown, bare, column, children }: {
   bare?: boolean
   /** A list of named choices, one under another, rather than a row of icons. */
   column?: boolean
+  /** Its name beside its icon, as the host's buttons on the bar have theirs (Capture, Gem). */
+  text?: string
+  /** A window event that opens it, for its key. */
+  openOn?: string
   children: (close: () => void) => React.ReactNode
 }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!openOn) return
+    const show = (): void => setOpen(true)
+    window.addEventListener(openOn, show)
+    return () => window.removeEventListener(openOn, show)
+  }, [openOn])
   // One menu open at a time in the bar: opening this one closes the others, and theirs closes this.
   useEffect(() => {
     if (open) document.dispatchEvent(new CustomEvent("mf:menu", { detail: label }))
@@ -84,6 +94,7 @@ function BarMenu({ label, lit, icon: Shown, bare, column, children }: {
         onClick={() => setOpen(!open)}
       >
         <Shown className="tiptap-button-icon" />
+        {text && <span className="tiptap-button-text">{text}</span>}
         {column && <ChevronDownIcon className="tiptap-button-dropdown-small" />}
       </Button>
       {open && createPortal(

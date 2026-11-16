@@ -15,6 +15,7 @@ import { FileOutput, Quote, Repeat2 } from 'lucide-react'
 import { turnIntoPage } from '@/lib/turn-into-page'
 import { pickedBlocks, sharePicture } from '@/lib/note-picture'
 import { shareAsCard } from '@/lib/share-card'
+import { WritingHelp } from './writing-help'
 
 /** The bar's own tooltip: what a click does, its keys, and the quick way past the card. */
 function Tip({ does, keys, children }: { does: string; keys: string; children: React.ReactElement }): React.JSX.Element {
@@ -113,6 +114,8 @@ export function selectionActions(origin: Origin, { reading = false }: { reading?
             </TooltipTrigger>
             <TooltipContent>Share as card<span className="block text-muted-foreground">These words as a quote card to post, square or story</span></TooltipContent>
           </Tooltip>
+          {/* Apple Intelligence on this Mac, all in one place (⌃⌘W): only the keeping ones on a note locked for reading. */}
+          <WritingHelp editor={editor} reading={reading} />
         </ToolbarGroup>
       </>
     )

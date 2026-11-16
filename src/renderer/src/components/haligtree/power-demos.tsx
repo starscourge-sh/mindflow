@@ -2045,6 +2045,28 @@ const UntitledDemo: Demo = ({ live }) => {
   )
 }
 
+/** Words picked, Writing help's "Shorter" chosen, the new wording after the old one, then used. */
+const WritingHelpDemo: Demo = ({ live }) => {
+  const at = useSteps([1300, 1500, 2600], live, 2)
+  const was = 'I think that we should probably meet again sometime next week to talk it over.'
+  return (
+    <Col>
+      <div className="rounded-lg border bg-background px-3 py-2 font-serif text-[12px] leading-snug text-foreground">
+        {at < 2 ? (
+          <span className={at === 1 ? 'bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)]' : 'bg-[color-mix(in_oklab,var(--accent)_70%,transparent)]'}>{was}</span>
+        ) : (
+          <><span className="text-muted-foreground line-through">{was}</span><span className="bg-[color-mix(in_oklab,var(--tt-color-text-blue)_10%,transparent)]"> Let’s meet next week to talk it over.</span></>
+        )}
+      </div>
+      <div className="flex items-center gap-2 rounded-lg border bg-background px-2.5 py-1.5 text-meta text-muted-foreground">
+        <Sparkles className="size-3.5 shrink-0" />
+        <b className="font-medium text-foreground">{at === 0 ? 'Writing help' : 'Shorter'}</b>
+        <span className="ml-auto flex items-center gap-1.5">{at === 2 ? <><Btn>Use this</Btn>↵</> : at === 1 ? 'Making it shorter…' : 'Fix it · Shorter · Make it a card…'}</span>
+      </div>
+    </Col>
+  )
+}
+
 /** A picture cut round: first through its middle, then centred on the face. */
 const FacesDemo: Demo = ({ live }) => {
   const at = useSteps([1500, 2600], live, 1)
@@ -2301,7 +2323,7 @@ const FinderDemo: Demo = ({ live }) => {
 }
 
 export const DEMOS: Record<string, Demo> = {
-  calls: CallsDemo, cluewhy: ClueWhyDemo, untitled: UntitledDemo, faces: FacesDemo, reminders: RemindersDemo, away: AwayDemo, meaning: MeaningDemo,
+  calls: CallsDemo, cluewhy: ClueWhyDemo, untitled: UntitledDemo, writinghelp: WritingHelpDemo, faces: FacesDemo, reminders: RemindersDemo, away: AwayDemo, meaning: MeaningDemo,
   hint: HintDemo, chaptercards: ChapterCardsDemo, anotherway: AnotherWayDemo, weekparagraph: WeekParagraphDemo, sun: SunDemo, split: SplitDemo, finder: FinderDemo,
   offers: OffersDemo,
   scan: ScanDemo,

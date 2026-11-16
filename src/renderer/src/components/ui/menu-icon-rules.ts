@@ -16,6 +16,15 @@ import {
  * first rule that fits wins, so the narrow ones come before the broad.
  */
 const RULES: [RegExp, LucideIcon][] = [
+  // Writing help on picked words (writing-help.tsx), Apple Intelligence's on this Mac: the group, then each help.
+  [/^writing help$/i, Sparkles],
+  [/^fix it$/i, SpellCheck],
+  [/^shorter$/i, Scissors],
+  [/^friendlier$/i, Smile],
+  [/^plainer$/i, Type],
+  [/^in my words$/i, PenLine],
+  [/^make it a card$/i, Layers],
+  [/^pull the quote$/i, Quote],
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).
   // Home's goals (the strip's own menu, and ⌘K's “Goals on Home…”): which goals show there, by their day or by your choice.
   [/^choose what shows here/i, ListChecks],
