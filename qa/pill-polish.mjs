@@ -31,8 +31,14 @@ const fresh = async () => {
   await wait(700)
 }
 const vim = (on) => page.evaluate((on) => { localStorage.setItem('vim', on ? 'on' : 'off'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: on ? 'on' : 'off' })) }, on)
+const boxShown = () => electron.evaluate(({ BrowserWindow }) => !!BrowserWindow.getAllWindows().find((w) => !/view=/.test(w.webContents.getURL()))?.isVisible())
+// Frames only of a box on screen, as a person sees it. Taken while the box is put away (from the chip to the grown box
+// below), each capture ran to its time limit and saved nothing, and left the box's page at the size it had while main
+// went on sizing its window: the next ⌘\ waited for a resize that never came, and the journeys began from the box with
+// its panel out (16 Nov, QC3: 13 lines, only with QA_SHOTS).
 const shoot = async (name) => {
   if (!shots) return
+  if (!(await boxShown())) return console.log(`(no frame of "${name}": the box is put away here)`)
   for (const theme of ['paper', 'dark']) {
     await page.evaluate((t) => (localStorage.setItem('theme', t), window.dispatchEvent(new StorageEvent('storage', { key: 'theme' }))), theme)
     await wait(900)
