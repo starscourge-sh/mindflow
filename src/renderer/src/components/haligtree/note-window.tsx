@@ -14,6 +14,8 @@ import { PageThoughts } from './gloss-line'
 import { notePowers } from './note-powers'
 import { Tip, Toaster, pin, useEscapeLeavesEditor } from './ui'
 import { NoteHeader } from './note-extras'
+import { NoteSize } from '@/components/count/note-size'
+import { WordCount } from '@/components/count/word-count'
 import { ThoughtDock } from './thought-bar'
 import { Board, useBoard } from './board-view'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -207,7 +209,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           edited={meta.editedAt} captured={meta.capturedAt} pinned={!!meta.pinnedAt} onPin={() => pin('captures', id, !meta.pinnedAt)}
           copyKey={noteLinkText(meta.id, meta.label)} board={board} details={!boardShown}
           menu={[...(boardShown ? [{ label: propsOut ? 'Hide properties' : 'Show properties', run: () => setPropsOut(!propsOut) }, 'separator' as const] : []), ...captureDots(meta).filter((item) => !item || item === 'separator' || !['Open in a new window', 'Open in a small window'].includes(item.label))]}
-          tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} />
+          tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} size={past ? undefined : <NoteSize editor={editor} />} />
         {past ? (
           <HaligtreeEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
         ) : (
@@ -221,6 +223,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           after={<><SourceFoot who={capture.attribution} where={capture.medium} quote={capture.kind === 'quote'} cite={{ table: 'captures', id, fields: capture.fields }} body={capture.body} /><PageThoughts id={id} /><Mentions id={id} onOpen={elsewhere} /></>}
           onReady={(ready) => (words.ready(ready), setEditor(ready))}
           onChange={words.save}
+          foot={(ready) => <WordCount editor={ready} whole={false} />}
         />
         </div>
         )}

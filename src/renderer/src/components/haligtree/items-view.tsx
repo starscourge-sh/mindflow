@@ -70,6 +70,8 @@ import BookIcon from '@/components/ui/book-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import AlarmClockPlusIcon from '@/components/ui/alarm-clock-plus-icon'
 import { Aliases, KindFields, LocalGraph, NoteHeader, PlaceChip, WritingSpent } from './note-extras'
+import { NoteSize } from '@/components/count/note-size'
+import { WordCount } from '@/components/count/word-count'
 import { RoomFoot, useWritingRoom } from './writing-room'
 import { useWritingSound } from './writing-sound'
 import { writerMenu } from './writer-tools'
@@ -1169,7 +1171,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
           onRestored={() => void haligtree.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
           edited={item.updatedAt} captured={item.createdAt} made={item.tier === 'article' ? 'Started' : 'Saved'}
           pinned={!!item.pinnedAt} onPin={() => pin('nuggets', item.id, !item.pinnedAt)}
-          board={board} details={!boardShown} tools={boardShown ? <span ref={setTools} className="contents" /> : undefined}
+          board={board} details={!boardShown} tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} size={past ? undefined : <NoteSize editor={ready} />}
           menu={[
             ...(boardShown ? [
               ...(place ? [{ label: place.list ? 'Hide the list' : 'Show the list', run: () => (chime(place.list ? 'fold' : 'slide'), place.onList(!place.list)) }] : []),
@@ -1284,6 +1286,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             <PageThoughts id={item.id} />
             {later && <Mentions id={item.id} editor={ready} onOpen={onOpen} />}
           </ReadsIn>}
+          foot={(instance) => <WordCount editor={instance} whole={false} />}
           onReady={(instance) => {
             editor.current = instance
             setReady(instance)

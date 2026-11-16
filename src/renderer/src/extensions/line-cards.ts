@@ -10,6 +10,7 @@ import { labelFor } from "@/components/pdf/pdf-labels"
 import { isAudio } from "@/lib/transcribe"
 import { glideWay } from "@/lib/motion"
 import { changedSpan, linesTyped } from "@/lib/text-edit"
+import { lineText } from "@/lib/note-size"
 import { copyOf } from "@/lib/icon-markup"
 
 /** A video file kept in the note, which its times play too. */
@@ -25,17 +26,6 @@ const mark = (): HTMLElement => {
   span.title = "A review card: Review asks the words before ::"
   span.append(copyOf('<svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true"><rect x="4.5" y="2.5" width="9" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4" opacity="0.55"/><rect x="2.5" y="4" width="9" height="10" rx="2" fill="var(--background, #fff)" stroke="currentColor" stroke-width="1.4"/><path d="M5 8h4M5 10.5h2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>'))
   return span
-}
-
-/** A line's words as the main process reads them (study.ts lineCardsIn): a formula as `$...$`, code in backticks. */
-const lineText = (block: ProseMirrorNode): string => {
-  let text = ""
-  block.forEach((node) => {
-    if (node.type.name === "inlineMath") text += `$${node.attrs.latex ?? ""}$`
-    else if (node.isText) text += node.marks.some((one) => one.type.name === "code") ? `\`${node.text}\`` : node.text
-    else text += node.textContent
-  })
-  return text
 }
 
 /** A video time written in a line: [13:03] or [1:02:45]. */

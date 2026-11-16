@@ -2,49 +2,37 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { useEditorDom } from '@/lib/editor-dom'
 import type { Editor } from "@tiptap/react"
-import type { Node as PMNode } from "@tiptap/pm/model"
+import type { Transaction } from "@tiptap/pm/state"
 import { num } from '../../../../main/dates'
 import { useFormatBarShown } from '@/components/selection/selection-menu'
+import { shown, sizeOf, wordsIn, type Size } from '@/lib/note-size'
 
 /**
- * Words and characters for the whole document, counted on edits only, so a
- * plain caret move never counts the whole document. Shared with the focus
- * session's footer, which counts the words written since it began.
+ * The whole note's size (lib/note-size.ts: lines, words, characters and the rest), counted again on each change from
+ * the blocks it touched alone, so a key typed in the longest note costs its one line and the count is never late.
+ * A plain caret move counts nothing. Shared with the note's bar, the focus session's footer and a word aim.
  */
-export function useCounts(editor: Editor | null): { words: number; characters: number } | null {
-  // Counted once the typing pauses in a long note: each count reads the whole
-  // document, which in a 1 MB note was most of every keystroke. Listened for
-  // rather than drawn from: a redraw on every key in a long note made React
-  // measure the caret through the whole page.
-  const [counts, setCounts] = useState<{ words: number; characters: number } | null>(null)
+export function useCounts(editor: Editor | null): Size | null {
+  // Listened for rather than drawn from: a redraw on every key in a long note made React measure the caret through
+  // the whole page. Only the few small things that show a count draw again, and only when it changed.
+  // Counted at once for an editor already there, so its size is drawn with it; kept with the editor it is of, so
+  // another editor's count is never shown for this one.
+  const [counts, setCounts] = useState<{ of: Editor | null; size: Size | null }>(() => ({ of: editor, size: editor && !editor.isDestroyed ? sizeOf(editor.state.doc) : null }))
   useEffect(() => {
     if (!editor) return
-    let later: ReturnType<typeof setTimeout> | undefined
-    const count = (): void => {
-      // A link to a note counts as the words it shows; the counter's own read
-      // took it for a gap. A `/` on its own is the block menu being opened.
-      const { doc } = editor.state
-      const shown = (node: PMNode): string => (node.type.name === "noteLink" ? String(node.attrs.text || node.attrs.label || " ") : " ")
-      const words = doc.textBetween(0, doc.content.size, " ", (node) => ` ${shown(node)} `).split(/\s+/).filter((word) => word && word !== "/").length
-      const characters = doc.textBetween(0, doc.content.size, undefined, shown).length
-      setCounts((now) => (now?.words === words && now.characters === characters ? now : { words, characters }))
+    const count = (before?: Transaction["before"]): void => {
+      if (editor.isDestroyed) return
+      const size = sizeOf(editor.state.doc, before)
+      setCounts((now) => (now.of === editor && now.size === size ? now : { of: editor, size }))
     }
-    const changed = (): void => {
-      clearTimeout(later)
-      if (editor.state.doc.content.size < 20000) count()
-      else later = setTimeout(count, 500)
+    const transaction = ({ transaction }: { transaction: Transaction }): void => {
+      if (transaction.docChanged) count(transaction.before)
     }
-    const transaction = ({ transaction }: { transaction: { docChanged: boolean } }): void => {
-      if (transaction.docChanged) changed()
-    }
-    changed()
+    count()
     editor.on("transaction", transaction)
-    return () => {
-      clearTimeout(later)
-      editor.off("transaction", transaction)
-    }
+    return () => void editor.off("transaction", transaction)
   }, [editor])
-  return counts
+  return counts.of === editor ? counts.size : null
 }
 
 /**
@@ -61,8 +49,8 @@ function useSelectionCounts(editor: Editor | null): { words: number; characters:
       if (empty || !editor.isFocused) return setCounts(null)
       const { doc } = editor.state
       if (from <= 1 && to >= doc.content.size - 1) return setCounts("whole")
-      const shown = (node: PMNode): string => (node.type.name === "noteLink" ? String(node.attrs.text || node.attrs.label || " ") : " ")
-      const words = doc.textBetween(from, to, " ", (node) => ` ${shown(node)} `).split(/\s+/).filter((word) => word && word !== "/").length
+      // Counted as the note's own count counts them (lib/note-size.ts).
+      const words = wordsIn(doc.textBetween(from, to, " ", (node) => ` ${shown(node)} `))
       const characters = doc.textBetween(from, to, undefined, shown).length
       setCounts((now) => (!words ? null : now !== "whole" && now?.words === words && now.characters === characters ? now : { words, characters }))
     }
@@ -84,18 +72,19 @@ const BOX = !/[?&](?:view|note|drawing)=/.test(window.location.search)
 const BOX_FROM = 40
 
 /**
- * Words and characters for the whole document.
- *
- * The counts live in extension storage, which React has no reason to re-read on
- * its own.
+ * Words and characters for the whole document, under its last line: where nothing else says how long it is (quick
+ * capture, a task's notes). A note whose bar says its size (note-size.tsx) shows only the count of words picked.
  */
-export function WordCount({ editor }: { editor: Editor | null }) {
+export function WordCount({ editor, whole = true }: { editor: Editor | null; /** The whole note's count; false where the note's bar says its size. */ whole?: boolean }) {
   const counts = useCounts(editor)
   // Words picked: their own count, in the count's place, shown while they are picked (the tracker: "shows how many
   // words/characters under a selection"). Over words, on its pill, so it reads.
   const chosen = useSelectionCounts(editor)
   const picked = chosen === "whole" ? counts : chosen
   const barShown = useFormatBarShown()
+  // Nothing to count says nothing: an empty box stays empty. A short note needs no count under it either, in the box
+  // or on a page: the count turns up once it is long.
+  const shows = whole && !!counts && counts.words >= BOX_FROM
 
   // Shown only where nothing is under it: past the last line, which is the
   // end of a long note scrolled down, or anywhere in a short one. Over words
@@ -103,8 +92,9 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   const pill = useRef<HTMLSpanElement>(null)
   const [clear, setClear] = useState(false)
   const dom = useEditorDom(editor)
+  const again = useRef<() => void>(() => {})
   useEffect(() => {
-    if (!dom || !counts) return
+    if (!dom || !shows) return
     let frame = 0
     const look = (): void => {
       frame = 0
@@ -132,27 +122,28 @@ export function WordCount({ editor }: { editor: Editor | null }) {
       if (target instanceof Node && (target.contains(dom) || !!dom.parentElement?.contains(target))) check()
     }
     check()
+    again.current = check
     // The mentions arrive after the words, and fold open and shut.
     const grows = new ResizeObserver(check)
     for (let next = dom.nextElementSibling; next; next = next.nextElementSibling) grows.observe(next)
     document.addEventListener("scroll", scrolled, { capture: true, passive: true })
     window.addEventListener("resize", check)
     return () => {
+      again.current = () => {}
       cancelAnimationFrame(frame)
       grows.disconnect()
       document.removeEventListener("scroll", scrolled, { capture: true })
       window.removeEventListener("resize", check)
     }
-  }, [dom, counts])
+  }, [dom, shows])
+  // Words come or go: whether any now reach the pill is looked at again, in the next frame, once.
+  useEffect(() => again.current(), [counts])
 
   if (!editor || !counts) return null
   // While the format bar is up it is the one floating thing: the count waits.
   if (picked && dom) return barShown ? null : <PickedCount dom={dom} words={picked.words} characters={picked.characters} />
+  if (!shows) return null
   const { words, characters } = counts
-  // Nothing to count says nothing: an empty box stays empty. In the box, a
-  // few lines say nothing either: the count turns up once it is long.
-  // Anywhere else too: a short note needs no count under it.
-  if (!words || words < BOX_FROM) return null
 
   return (
     <span

@@ -6,6 +6,9 @@
  * main's one thread.
  */
 
+/** Words a minute, an adult reading prose silently (Brysbaert 2019): every “min read” and “to read” in the app. */
+export const READING_PACE = 238
+
 type Part = { type?: string; text?: string; content?: Part[] }
 const WORD = /[\p{L}\p{N}][\p{L}\p{N}'’-]*/gu
 const utf8 = new TextDecoder()

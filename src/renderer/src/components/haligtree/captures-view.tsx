@@ -85,6 +85,7 @@ import { Board, useBoard } from './board-view'
 import { dayjs, num } from '../../../../main/dates'
 import { Signed } from './signature'
 import { SessionFooter } from './session-footer'
+import { NoteSize } from '@/components/count/note-size'
 import { keepTitle, useHere, usePane } from '@/lib/split'
 import { ShowAgain, TaskDetail, completeTask, useTaskNow } from './tasks-view'
 import { useTaskTime } from './task-time'
@@ -767,7 +768,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                 beside what it has become, never lost to an edit. One click
                 into the dots, so the row stays quiet. */}
             <NoteHeader table="captures" id={open.id} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
-              board={board} details={!boardShown}
+              board={board} details={!boardShown} size={past ? undefined : <NoteSize editor={editor} />}
               onRestored={() => void window.api.captures.get(open.id).then((found) => {
                 setOpen(found)
                 setRev((n) => n + 1)
@@ -887,7 +888,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
               </ReadsIn>}
               onReady={(ready) => (words.ready(ready), setEditor(ready))}
               onChange={words.save}
-              foot={(editor) => <SessionFooter editor={editor} note={`capture-${open.id}`} />}
+              foot={(editor) => <SessionFooter editor={editor} note={`capture-${open.id}`} whole={false} />}
             />
             {/* Proofread when asked from the note's menu, never checking as you write. */}
             <Proofread editor={editor} ask />

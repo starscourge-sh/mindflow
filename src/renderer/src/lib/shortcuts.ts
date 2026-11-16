@@ -142,6 +142,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Editing', keys: '4 j', does: 'With Vim keys: four rows down on the screen (k up); with “Jump by line numbers” on, to the line the margin marks 4, and 7 G goes to line 7', where: 'In a note' },
   { group: 'Editing', keys: '#', does: 'Tag: offers the tags you already use, most used first', where: 'In a note' },
   { group: 'Editing', keys: '⇧⌘O', does: 'Outline: move with arrows, ↵ to go there', where: 'In a note' },
+  { group: 'Editing', keys: '⇧⌘W', does: 'How long the note is: its lines, words, time to read, and how far in you are', where: 'In a note' },
   { group: 'Editing', keys: '⌥⌘↓', does: 'Next heading', where: 'In a note' },
   { group: 'Editing', keys: '⌥⌘↑', does: 'Heading before', where: 'In a note' },
   { group: 'Editing', keys: '⇥', does: 'Write in the answer after a line ending in =', where: 'In a note' },

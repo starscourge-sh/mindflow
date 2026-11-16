@@ -3,6 +3,7 @@ import { NodeSelection, Plugin, PluginKey, type EditorState } from "@tiptap/pm/s
 import type { EditorView } from "@tiptap/pm/view"
 import type { Node as ProseMirrorNode, ResolvedPos } from "@tiptap/pm/model"
 import { DRAWN } from "./long-document"
+import { LISTS, QUOTE, itemLines, linesIn } from "@/lib/note-size"
 
 /**
  * Line numbers in a note's left margin, as Obsidian draws them: one number per line a person reads as one.
@@ -39,37 +40,6 @@ export function setLineNumbers(shown: boolean, relative: boolean): void {
   on = shown
   counted = relative
   for (const view of views) view.dispatch(view.state.tr.setMeta(key, true))
-}
-
-const LISTS = new Set(["bulletList", "orderedList", "taskList"])
-const QUOTE = "blockquote"
-
-/** How many numbered lines a block holds, kept by the block itself: an unchanged block is never counted again. */
-const counts = new WeakMap<ProseMirrorNode, number>()
-function linesIn(node: ProseMirrorNode): number {
-  let lines = counts.get(node)
-  if (lines !== undefined) return lines
-  const name = node.type.name
-  if (LISTS.has(name)) {
-    lines = 0
-    node.forEach((item) => void (lines! += itemLines(item)))
-  } else if (name === QUOTE) {
-    lines = 0
-    node.forEach((child) => void (lines! += linesIn(child)))
-    lines = Math.max(1, lines)
-  } else lines = 1
-  counts.set(node, lines)
-  return lines
-}
-/** A list's item: its own line, and the items of the lists inside it. */
-const itemCounts = new WeakMap<ProseMirrorNode, number>()
-function itemLines(item: ProseMirrorNode): number {
-  let lines = itemCounts.get(item)
-  if (lines !== undefined) return lines
-  lines = 1
-  item.forEach((child) => void (LISTS.has(child.type.name) && (lines! += linesIn(child))))
-  itemCounts.set(item, lines)
-  return lines
 }
 
 /** Which of a block's lines (from 0) holds a place, `depth` being the block's depth in the note. */

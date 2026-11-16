@@ -3,6 +3,7 @@ import { notePowers } from './note-powers'
 import { QuestionClues } from './offers-about'
 import { PropertyStrip } from './property-strip'
 import { useEffect, useRef, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import { useReading } from '@/lib/reads-in'
 import { binItem } from '@/lib/to-bin'
 import type { JSONContent } from '@tiptap/core'
@@ -26,6 +27,8 @@ import { Lineage } from './lineage'
 import { pinQuestion } from './pinned-questions'
 import { Mentions } from './mentions'
 import { Aliases, LocalGraph, NoteHeader, WritingSpent } from './note-extras'
+import { NoteSize } from '@/components/count/note-size'
+import { WordCount } from '@/components/count/word-count'
 import { RowMenu, copy, copyLinkItem, type MenuItem } from './row-menu'
 import { PICKED_MARK } from './pick-mixed'
 import { usePickLines } from '@/lib/pick-lines'
@@ -370,6 +373,8 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
   useOpenNote({ table: 'nuggets', type: 'question', id: item.id, kind: item.kind, archived: !!item.archivedAt })
   const seen = useRef<string | null>(null)
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
+  // The open editor, for its size in the bar.
+  const [editor, setEditor] = useState<Editor | null>(null)
   const [restored, setRestored] = useState<{ body: unknown; rev: number } | null>(null)
   const inView = useLive(haligtree.pinnedQuestions, [] as Awaited<ReturnType<typeof haligtree.pinnedQuestions>>).some((one) => one.id === item.id)
   const settled = item.closedAt ? `${item.closedHow === 'let go' ? 'Stopped asking' : 'Answered'} ${whenLower(item.closedAt)}` : null
@@ -409,6 +414,7 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
       <div className="flex min-h-0 min-w-0 flex-1 flex-col pt-6">
         <NoteHeader className="-mt-3 mb-1" left={top} back={back} type={item.tier} table="nuggets" id={item.id} copyKey={noteLinkText(`question:${item.id}`, item.title)} onShow={(body, key) => setPast(body === null ? null : { body, key: key ?? '' })}
           onRestored={() => void haligtree.item(item.id).then((fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 })))}
+          size={past ? undefined : <NoteSize editor={editor} />}
           edited={item.updatedAt} captured={item.createdAt} made="Asked" menu={[...ends, 'separator', ...questionMenu(item, inView), 'separator', binItem([{ type: 'question', id: item.id }])]} />
         {reading !== null && (
           <ReadThrough items={clues.map((clue) => ({ type: 'clue', id: clue.id, body: clue.body, title: dayName(clue.createdAt) }))} start={reading} onClose={() => setReading(null)} clueTo={item.id} />
@@ -474,7 +480,8 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
             onOpenNote={(link, heading) => onOpen && follow(link, onOpen, heading)}
             autofocus={false}
             after={<><Clues item={item} onRead={readClues} /><Mentions id={item.id} onOpen={onOpen} /></>}
-            onReady={(instance) => void (seen.current = JSON.stringify(instance.getJSON()))}
+            onReady={(instance) => void ((seen.current = JSON.stringify(instance.getJSON())), setEditor(instance))}
+            foot={(instance) => <WordCount editor={instance} whole={false} />}
             onChange={(body) => {
               // The editor tidying a document as it opens is not an edit.
               const now = JSON.stringify(body)

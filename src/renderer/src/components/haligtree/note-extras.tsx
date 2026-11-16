@@ -602,8 +602,10 @@ export const TOOL = 'flex size-7 shrink-0 items-center justify-center rounded-md
  * right, quietly, when it last changed (a click goes back through its
  * versions), a book to read it, and everything else behind the dots. `looking` takes the right side while an older text is shown.
  */
-export function NoteHeader({ left, place, back, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, board, tools, details = true, className = '', ...versions }: {
+export function NoteHeader({ left, place, back, type = 'capture', edited, captured, made = 'Captured', pinned, onPin, copyKey, menu, looking, board, tools, details = true, size, className = '', ...versions }: {
   left?: React.ReactNode
+  /** How big the note is (`NoteSize`), beside when it was written. */
+  size?: React.ReactNode
   /** Where the note is and where it can go (`PlaceChip`), after its place in the list: the last thing on the left, so its words changing move nothing else in the row. */
   place?: React.ReactNode
   /** In a note's own window: the way back into the main window, among the note's own tools where "Open in its own window" sits in the main one. */
@@ -669,6 +671,7 @@ export function NoteHeader({ left, place, back, type = 'capture', edited, captur
           // On the right even when there is no list position to its left.
           // Beside a place chip the tools keep their width: a long folder's name is what gives way.
           <div className={`ml-auto flex items-center gap-0.5 ${place ? 'shrink-0' : 'min-w-0'}`}>
+            {size}
             <Tip label={moment(at, 'dddd')}>
               <button type="button" aria-label={said} onClick={open} className="mr-1 hidden shrink-0 rounded-md @[26rem]/head:block px-1.5 py-1 text-meta whitespace-nowrap text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <span className="hidden @[30rem]/head:inline">{said}</span>

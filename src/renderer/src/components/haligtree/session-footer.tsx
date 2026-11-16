@@ -26,10 +26,10 @@ const pulsed = new Set<string>()
  * note since the session began. With no session running, or the timer kept to
  * the bubble, it is the plain word count as before.
  */
-export function SessionFooter({ editor, note }: { editor: Editor | null; note: string }): React.JSX.Element {
+export function SessionFooter({ editor, note, whole }: { editor: Editor | null; note: string; /** The whole note's count under it (WordCount): not where the note's bar says its size. */ whole?: boolean }): React.JSX.Element {
   const focus = useLive(haligtree.focusNow, null as Focus | null)
   const shows = useLive(haligtree.settings, null as Settings | null)?.focusShows ?? 'bubble'
-  if (!focus || shows === 'bubble') return <WordCount editor={editor} />
+  if (!focus || shows === 'bubble') return <WordCount editor={editor} whole={whole} />
   return <Foot key={`${focus.id}|${note}`} editor={editor} focus={focus} note={note} />
 }
 
