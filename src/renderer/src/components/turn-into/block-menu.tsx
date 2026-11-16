@@ -135,7 +135,9 @@ export function BlockMenu({
     if (!at || !(dom instanceof HTMLElement)) return 6
     const grip = at.getBoundingClientRect().bottom
     const below = Math.max(6, dom.getBoundingClientRect().bottom - grip + 6)
-    return window.innerHeight - dockRoom() - grip - below >= MENU_ROOM ? below : 6
+    // The menu's own foot: the note's pane it is held in (collisionBoundary below), above the dock's bar.
+    const foot = Math.min(window.innerHeight - dockRoom(), scrollerOf(editor.view.dom)?.getBoundingClientRect().bottom ?? Infinity)
+    return foot - grip - below >= MENU_ROOM ? below : 6
   }
 
   const term = query.trim().toLowerCase()
