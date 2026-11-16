@@ -278,6 +278,9 @@ try {
       if (!typed && state?.shown) {
         await within(15000, h.keyboard.type('z'))
         typed = { at: Date.now() - started, coming: state.coming }
+        // Each drawn block's height, the space kept above them and the scroll, as the letter goes in: told, when the
+        // caret ends off the screen, what changed above it since.
+        await within(8000, page(h, (ed) => void (window.__wnpThen = { sizes: new Map([...ed.children].filter((one) => one.getClientRects().length).map((one) => [one, one.getBoundingClientRect().height])), space: ed.previousElementSibling?.style.height ?? '', top: ed.parentElement.scrollTop })))
       }
       await wait(30)
     }
@@ -308,9 +311,24 @@ try {
     const r = (box ?? document.documentElement).getBoundingClientRect()
     const caret = view.coordsAtPos(selection.head)
     const nav = document.querySelector('nav[aria-label="Document outline"]')
+    // What changed above the caret since the letter was typed: drawn blocks grown or shrunk (the four that moved most,
+    // by kind), blocks drawn since, the space kept above the drawn ones, and the scroll.
+    const then = window.__wnpThen
+    const changed = []
+    let grew = 0
+    let fresh = 0
+    for (const [one, was] of then?.sizes ?? []) {
+      if (!one.isConnected || !one.getClientRects().length || one.getBoundingClientRect().top >= caret.top) continue
+      const by = one.getBoundingClientRect().height - was
+      grew += by
+      if (Math.abs(by) > 1) changed.push({ what: `${one.tagName.toLowerCase()}${one.dataset.type ? `[${one.dataset.type}]` : ''}${one.className ? `.${String(one.className).split(' ')[0]}` : ''}`, by: Math.round(by) })
+    }
+    for (const one of ed.children) if (!then?.sizes.has(one) && one.getClientRects().length && one.getBoundingClientRect().top < caret.top) fresh += one.getBoundingClientRect().height
+    const since = then ? `; since the letter: drawn blocks above the caret ${grew >= 0 ? 'grew' : 'shrank'} ${Math.abs(Math.round(grew))} px (${changed.length} of them${changed.length ? `: ${changed.sort((a, b) => Math.abs(b.by) - Math.abs(a.by)).slice(0, 4).map((one) => `${one.what} ${one.by > 0 ? '+' : ''}${one.by}`).join(', ')}` : ''}), ${Math.round(fresh)} px drawn above it, the space above ${then.space || 'none'} to ${ed.previousElementSibling?.style.height || 'none'}, the scroll ${Math.round(then.top)} to ${Math.round(ed.parentElement.scrollTop)}` : ''
+
     let headings = 0
     doc.forEach((node) => void (node.type.name === 'heading' && headings++))
-    return { blocks: doc.childCount, long: ed.hasAttribute('data-long'), onScreen: window.__wnpOnScreen(), caretShown: caret.top >= r.top && caret.bottom <= r.bottom, caretAt: `the caret at ${Math.round(caret.top)} to ${Math.round(caret.bottom)}, the screen ${Math.round(r.top)} to ${Math.round(r.bottom)}`, moves: window.__wnpMoves.filter((one) => one.how !== 'scrolled').slice(-5).concat(window.__wnpMoves.filter((one) => one.how === 'scrolled').slice(-3)), headings, outline: nav ? nav.querySelectorAll('[data-level]').length : -1, count: document.querySelector('.tiptap-word-count')?.textContent ?? '', loaders: ed.querySelectorAll('[data-paste-loader]').length }
+    return { blocks: doc.childCount, long: ed.hasAttribute('data-long'), onScreen: window.__wnpOnScreen(), caretShown: caret.top >= r.top && caret.bottom <= r.bottom, caretAt: `the caret at ${Math.round(caret.top)} to ${Math.round(caret.bottom)}, the screen ${Math.round(r.top)} to ${Math.round(r.bottom)}${since}`, moves: window.__wnpMoves.filter((one) => one.how !== 'scrolled').slice(-5).concat(window.__wnpMoves.filter((one) => one.how === 'scrolled').slice(-3)), headings, outline: nav ? nav.querySelectorAll('[data-level]').length : -1, count: document.querySelector('.tiptap-word-count')?.textContent ?? '', loaders: ed.querySelectorAll('[data-paste-loader]').length }
   })
   console.log(`(after: ${after.blocks} blocks, ${after.onScreen} drawn on the screen, the contents list ${after.outline} of ${after.headings} headings; count "${after.count}")`)
   // What the paste made of the note's emoji and Obsidian pictures, once the pictures have been looked for.
