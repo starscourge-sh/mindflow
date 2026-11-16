@@ -188,6 +188,22 @@ if (PART === 'pick') {
   await page.waitForTimeout(150)
   const copied = await copiedText(app.electron)
   check('⌘C copies the picked blocks, the line and both items', ['Alpha line', 'First item', 'Second item'].every((words) => copied.includes(words)), `${copied.length} characters`)
+
+  // A link card's menu, in Notion's words: titled "Link card", and "Turn into link" makes it its title, linked.
+  await page.keyboard.press('Escape')
+  await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<p>Before the card</p><a data-bookmark href="https://example.org/faust" title="Faust" description="A link\'s card" site="example.org"></a><p>After the card</p>'))
+  await page.waitForTimeout(300)
+  await page.locator(`${EDITOR} .tiptap-bookmark`).first().hover()
+  await page.waitForTimeout(250)
+  await page.locator('.tiptap-drag-handle-grip').click()
+  await page.waitForTimeout(250)
+  await shot('light-link-card-menu')
+  const cardMenu = await page.evaluate(() => ({ title: document.querySelector('.tiptap-block-menu [data-kind-heading]')?.textContent ?? '', rows: [...document.querySelectorAll('.tiptap-block-menu .tiptap-slash-menu-title')].map((one) => one.textContent) }))
+  check('a link card\'s menu is titled "Link card" and offers "Turn into link"', cardMenu.title === 'Link card' && cardMenu.rows.includes('Turn into link'), JSON.stringify(cardMenu))
+  if (await page.$('.tiptap-block-menu [data-turn-into-link]')) await page.locator('.tiptap-block-menu [data-turn-into-link]').click()
+  await page.waitForTimeout(250)
+  const linked = await page.$eval(EDITOR, (root) => ({ text: root.querySelector('p a[href="https://example.org/faust"]')?.textContent ?? '', cards: root.querySelectorAll('.tiptap-bookmark').length }))
+  check('"Turn into link" leaves its title as a link in a line of its own, the card gone', linked.text === 'Faust' && linked.cards === 0, JSON.stringify(linked))
 }
 
 if (PART === 'carry') {

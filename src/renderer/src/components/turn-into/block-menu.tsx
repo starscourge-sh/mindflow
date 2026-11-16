@@ -695,6 +695,21 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
+        {/* A link card back to a plain link in its line, its title the words (Notion's "Turn into link"). */}
+        {href && thing?.type.name === "bookmark" && editor.isEditable && matches("Turn into link") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-turn-into-link onClick={() => {
+              const found = resolve()
+              if (!found) return
+              const words = String(found.node.attrs.title || href)
+              editor.chain().focus().insertContentAt({ from: found.pos, to: found.pos + found.node.nodeSize }, { type: "paragraph", content: [{ type: "text", text: words, marks: [{ type: "link", attrs: { href } }] }] }).run()
+            }}>
+              <MenuGlyph label="Link it" />
+              <span className="tiptap-slash-menu-title">Turn into link</span>
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+
         {href && matches("Open in the browser") ? (
           <DropdownMenuItem asChild>
             <button type="button" onClick={() => window.open(href)}>
