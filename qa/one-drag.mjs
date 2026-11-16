@@ -1522,6 +1522,8 @@ if (!BOOK) await part('One look, kept in order: Writing and Gems', async () => {
 // --- 6. One card ---
 await part('One card', async () => {
 const names = Object.keys(pads)
+// The cards are gathered by the other parts' drags: a QA_PART run with none of them has none to compare.
+if (!names.length && process.env.QA_PART) return console.log('SKIP  One card: no drags gathered in this part (run the whole probe, or a part with drags, to compare them)')
 console.log('cards:', JSON.stringify(pads))
 check('every drag carries a card', names.every((one) => pads[one]), names.filter((one) => !pads[one]).join())
 check('the carried card has real padding', names.every((one) => pads[one] && parseFloat(padOf(pads[one]).split(' ')[0]) >= 8 && parseFloat(padOf(pads[one]).split(' ')[1]) >= 12), names.map((one) => `${one} ${padOf(pads[one])}`).join('; '))
