@@ -99,7 +99,8 @@ try {
   const src = await h.evaluate((bytes) => window.api.saveImage('image/png', new Uint8Array(bytes)), [...png()])
   const name = String(src).split('/').pop()
   const [look] = await v('pictures:look', [name])
-  check('a new picture is measured: 37 by 23 (image-size, on first use)', look && look.width === 37 && look.height === 23, `${src} ${JSON.stringify(look)}`)
+  // A look is [width, height, hash, top, bottom] (pictures.ts).
+  check('a new picture is measured: 37 by 23 (image-size, on first use)', look?.[0] === 37 && look?.[1] === 23, `${src} ${JSON.stringify(look)}`)
 
   // A link card named from its page (entities reads its words, on first use).
   const card = await h.evaluate((url) => window.api.fetchLinkMetadata(url), ROMAN)
@@ -130,8 +131,9 @@ try {
   await c.close()
   site.close()
   // A restore starts the app again by itself: that run, on this copy, is ended too (it may take a moment to appear).
+  // Only Electron itself running this build: the queue's own waiting jobs name the build too, and were killed with it.
   for (let i = 0; i < 6; i++) {
-    try { execFileSync('pkill', ['-9', '-f', process.env.QA_ENTRY]) } catch {}
+    try { execFileSync('pkill', ['-9', '-f', `MacOS/Electron .*${process.env.QA_ENTRY}`]) } catch {}
     await new Promise((r) => setTimeout(r, 1000))
   }
   rmSync(DATA, { recursive: true, force: true })
