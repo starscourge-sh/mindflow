@@ -49,7 +49,12 @@ try {
   await wait(900)
   const after = await h.evaluate((text) => { const b = [...document.querySelectorAll('[data-day-write] .tiptap > p')].find((p) => p.textContent === text).getBoundingClientRect(); return b.top + b.height / 2 }, target.text)
   check('a click in the words opens it whole', (await page()).open && (await page()).height > 700, JSON.stringify(await page()))
-  check('and the writer\'s line comes back while the caret is in it', (await line()) === '1', await line())
+  // The line comes with writing, never on the caret alone (the user, 15 Nov 2026: it floated over the day's tasks and
+  // cards still in sight): a caret in the words keeps it away, three words written bring it.
+  check('the caret in the words alone: the writer\'s line stays away', (await line()) === '0', await line())
+  await h.keyboard.press('End')
+  await h.keyboard.type(' and so it went on ', { delay: 30 }); await wait(900)
+  check('writing three words there brings the writer\'s line', (await line()) === '1', await line())
   check('and the line clicked does not move', Math.abs(after - target.y) < 3, `${target.y} -> ${after}`)
   check('no page errors', !c.errors?.some((one) => /PAGEERROR/.test(one)), (c.errors ?? []).slice(0, 2).join(' | '))
 } catch (error) {
