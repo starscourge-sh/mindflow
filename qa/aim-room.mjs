@@ -24,7 +24,8 @@ const gaps = () => h.evaluate(() => {
   const scope = document.querySelector('[data-room]') ?? document
   const aim = [...scope.querySelectorAll('[data-word-aim]')].find((one) => one.getBoundingClientRect().height > 0)
   if (!aim) return null
-  const bar = aim.querySelector('.h-\\[3px\\]').getBoundingClientRect()
+  // The aim's bar is the one progress bar every place draws (progress-bar.tsx), known by its role, not its classes.
+  const bar = aim.querySelector('[role="progressbar"]').getBoundingClientRect()
   const count = aim.querySelector('button').getBoundingClientRect()
   const caption = [...scope.querySelectorAll('*')].find((one) => one.children.length === 0 && /pages:/.test(one.textContent) && one.getBoundingClientRect().height > 0)?.getBoundingClientRect()
   const range = document.createRange(); const first = aim.parentElement.querySelector('.tiptap p')
