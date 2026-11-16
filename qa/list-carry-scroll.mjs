@@ -21,10 +21,12 @@ try {
   await h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'manual', group: 'none', filter: {}, density: 'list' })))
   await c.go('articles')
   await wait(900)
-  const row = h.locator('button[data-row]', { hasText: /^Page 02/ }).first()
-  const a = await row.boundingBox()
+  // Each row the list carries (carry.tsx's CarryRow), found by its words.
+  const row = h.locator('[data-sortable-id]', { hasText: 'Page 02 of a long list' }).first()
+  if (!(await row.count())) console.log(`rows on show: ${JSON.stringify(await h.evaluate(() => [...document.querySelectorAll('[data-sortable-id]')].slice(0, 5).map((one) => one.textContent.trim().slice(0, 40))))}  at ${await h.evaluate(() => location.search)}`)
+  const a = await row.boundingBox({ timeout: 5000 })
   const list = await h.evaluate(() => {
-    let el = document.querySelector('button[data-row]')
+    let el = document.querySelector('[data-sortable-id]')
     while (el && !(el.scrollHeight > el.clientHeight + 4 && /auto|scroll/.test(getComputedStyle(el).overflowY))) el = el.parentElement
     if (!el) return null
     el.dataset.qaScroller = ''
