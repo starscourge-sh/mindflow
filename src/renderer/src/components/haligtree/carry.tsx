@@ -160,7 +160,7 @@ function useGlide(y: number, scaleY: number, instant: boolean, kick = 0, over: [
   const el = useRef<HTMLElement | null>(null)
   const me = useRef<Glider>({ y: my, scale: ms, from: [y, scaleY], to: [y, scaleY], at: [y, scaleY], over: [0, 0] })
   const kicked = useRef(kick)
-  const now = instant || still()
+  const now = instant || still() || scrolled
   useLayoutEffect(() => {
     const one = me.current
     gliders.add(one)
@@ -228,7 +228,7 @@ export type Spot = { top: number; height: number; left: number; width: number; o
  * the first), null: nowhere, and everything goes home. `now`: they are there at once (a page scrolling under a still
  * pointer moves everything already, and a glide there would hide the room's line again at every new place).
  */
-export function makeWay(all: HTMLElement[], carried: HTMLElement, gap: number | null, tall: number, quiet: Quiet = aloud, now = false): Spot | null {
+export function makeWay(all: HTMLElement[], carried: HTMLElement, gap: number | null, tall: number, quiet: Quiet = aloud, now = scrolled): Spot | null {
   const laid = all.map((el) => ({ el, ...restBox(el) })).sort((a, b) => a.top - b.top)
   const from = laid.findIndex((one) => one.el === carried)
   if (from < 0) {
@@ -268,7 +268,7 @@ export function clearWay(snap: boolean): void {
 }
 
 /** A room's band and line wait until the pieces have made way, so the line is never drawn across one still moving. */
-export const roomWait = (): string | undefined => (still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both`)
+export const roomWait = (): string | undefined => (still() || scrolled ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both`)
 /** The room's quiet band, wherever one is drawn. */
 const ROOM = 'pointer-events-none absolute inset-x-1 rounded-md bg-[color-mix(in_srgb,var(--tt-brand-color-400)_6%,transparent)]'
 /** A carried thing's own place, while nothing else is open for it: the same quiet band, never a faded copy of it. */
@@ -283,8 +283,8 @@ export const HELD = 'relative [&>*:not([data-own-room])]:opacity-0'
 export const RoomIn = ({ moves, how }: { moves: boolean; how: string }): React.JSX.Element =>
   moves ? (
     <Fragment key={how}>
-      <span aria-hidden data-drop-room="1" className={cn(ROOM, 'inset-y-0')} style={{ animation: still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both` }} />
-      <DropLine how={how} style={{ left: 12, top: '50%', animation: still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both` }} />
+      <span aria-hidden data-drop-room="1" className={cn(ROOM, 'inset-y-0')} style={{ animation: roomWait() }} />
+      <DropLine how={how} style={{ left: 12, top: '50%', animation: roomWait() }} />
     </Fragment>
   ) : <OwnRoom />
 
@@ -469,7 +469,7 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
   const ref = useCallback((node: HTMLElement | null): void => void (setNodeRef(node), glide.ref(node)), [setNodeRef, glide.ref]) // eslint-disable-line react-hooks/exhaustive-deps
   // Anything that moves the room draws it anew, so it never shows while the rows are still making way.
   const place = aim ? `${aim.gap}:${aim.snug}:${aim.fit}:${span}` : ''
-  const wait = still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both`
+  const wait = roomWait()
   // A new group would form here: this row lifts, with a panel around it and the room under it.
   const lifted = forming
   const withOthers = (carry?.along.size ?? 0) > 0
@@ -932,7 +932,16 @@ export function useAim(): { aim: Aim | null; aimed: RefObject<Aim | null>; start
 /** Where the pointer is on the page: a list's own drag reads only up and down. */
 let pointerX = 0
 let pointerY = 0
-if (typeof window !== 'undefined') window.addEventListener('pointermove', (event) => void ((pointerX = event.clientX), (pointerY = event.clientY)), true)
+/**
+ * The page scrolled since the pointer last moved (a list's edge scroll under a still pointer): a place the scroll brings
+ * is there at once, its rows moved and its room and line shown, never gliding or waiting again at each new place, as a
+ * note's carry is (lib/block-carry.tsx `now`). A pointer that moves brings its places on the usual clock.
+ */
+let scrolled = false
+if (typeof window !== 'undefined') {
+  window.addEventListener('pointermove', (event) => void ((pointerX = event.clientX), (pointerY = event.clientY), (scrolled = false)), true)
+  window.addEventListener('scroll', () => void (scrolled = true), { capture: true, passive: true })
+}
 export const pointerNow = (): number => pointerX
 export const pointerAt = (): { x: number; y: number } => ({ x: pointerX, y: pointerY })
 /** Going left alone moves nothing a list's own drag reads, so crossing OUTDENT reads the aim afresh itself. */
