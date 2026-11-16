@@ -114,6 +114,17 @@ function letterOf(font: string, em: number): number {
 /** The column of the last long note drawn in this window: the next one is most likely as wide. */
 let lastColumn: Column | null = null
 
+/** Of `count` elements down the page (the `i`th is `at(i)`), from `low` on, the first whose bottom reaches `y`: by halves. */
+function below(count: number, at: (i: number) => Element, y: number, low = 0): number {
+  let high = count - 1
+  while (low < high) {
+    const middle = (low + high) >> 1
+    if (at(middle).getBoundingClientRect().bottom < y) low = middle + 1
+    else high = middle
+  }
+  return low
+}
+
 /**
  * The page's selection, kept to the blocks that are drawn.
  *
@@ -395,6 +406,9 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     // band cut to the old few was no band at all.
     to = coming === undefined ? Math.min(all.length - 1, to) : Math.max(from, Math.min(coming - 1, to))
     band = [from, to]
+    // Drawn elsewhere with nothing on the screen held (a jump: the screen goes there next), what was held may stand
+    // anywhere now: it is chosen again, never held against (`keep`). Moved with the screen held, it is kept (`shift`).
+    pin = null
     view.dom.dispatchEvent(new CustomEvent(DRAWN, { detail: [from, to] }))
     let above = 0
     let below = 0
@@ -454,6 +468,68 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
   const rested = (event: Event): void => {
     if (event.target instanceof Node && event.target.contains(view.dom)) rest()
   }
+  /**
+   * What the person is looking at, held still while what is above it changes height by itself: a link card filling
+   * in, a picture arriving at its own size, a block drawn late, a fold opening above. It is the block under the
+   * caret while the caret is on the screen, the block last pressed until the caret or the screen moves (a fold
+   * opened by its arrow keeps its heading under the pointer), and else the block under the screen's top line: the
+   * deepest block there, kept as where it stands in the scroller's content (`at`), which no scroll moves. Told
+   * after each layout that changed the note's height, before it is painted, the block is put back by the change
+   * measured, as when the drawn blocks move (`hold`). The browser does this for a short note; for a long one its
+   * way is off (`overflow-anchor`, `rest`), and until this nothing did it: a link card filling in above the screen
+   * carried the words 150 px down, and after a whole note pasted back, what grew above the caret (2,661 px of it
+   * under a busy machine) carried the caret off the screen (qa/hold-the-screen.mjs, qa/whole-note-paste.mjs).
+   */
+  let pin: { el: Element; at: number; own: number } | null = null
+  const deep = (scroller: Element, el: Element): number => el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+  /** The deepest drawn block at height `y`: the block there, or in a list, a quote or a table, its part at that height. */
+  const blockAt = (y: number): Element | null => {
+    const all = blocks()
+    if (!band || !all.length) return null
+    const last = Math.min(band[1], all.length - 1)
+    type Part = { dom: Node; node?: ProseMirrorNode; children: Part[] }
+    let part = (all[below(last + 1, (i) => all[i], y, Math.min(band[0], last))] as unknown as { pmViewDesc?: Part }).pmViewDesc
+    while (part?.node && !part.node.isTextblock) {
+      const parts = part.children.filter((one) => one.node?.isBlock && one.dom instanceof Element && one.dom.getClientRects().length)
+      const next = parts[below(parts.length, (i) => parts[i].dom as Element, y)]
+      if (!next || (next.dom as Element).getBoundingClientRect().top > y) break
+      part = next
+    }
+    return part?.dom instanceof Element && part.dom.getClientRects().length ? part.dom : null
+  }
+  /** What is held from now on: the block under the press at `y`, or under the caret if it is on the screen, or under the screen's top line. */
+  const choose = (y?: number): void => {
+    pin = null
+    const scroller = view.dom.parentElement
+    if (!band || !scroller || !view.dom.isConnected || !(view.dom as HTMLElement).offsetHeight) return
+    const box = scroller.getBoundingClientRect()
+    const top = Math.max(box.top, 0)
+    let el: Element | null = null
+    if (y !== undefined) el = blockAt(y)
+    else {
+      const { $head } = view.state.selection
+      const caret = view.nodeDOM($head.depth ? $head.before() : $head.pos)
+      const shown = caret instanceof Element && caret.getClientRects().length ? caret.getBoundingClientRect() : null
+      if (shown && shown.bottom > top && shown.top < Math.min(box.bottom, window.innerHeight)) el = caret as Element
+    }
+    el ??= blockAt(top)
+    if (el) pin = { el, at: deep(scroller, el), own: scrolledItself(scroller) }
+  }
+  /** The held block put back by what it moved since it was last seen, beyond what the note itself scrolled (`rest`). */
+  const keep = (): void => {
+    const scroller = view.dom.parentElement
+    if (!band || !scroller) return
+    if (!pin || !pin.el.isConnected || !pin.el.getClientRects().length) return choose()
+    const moved = deep(scroller, pin.el) - pin.at - (scrolledItself(scroller) - pin.own)
+    if (Math.abs(moved) >= 0.5) hold(moved)
+    pin.at = deep(scroller, pin.el)
+    pin.own = scrolledItself(scroller)
+  }
+  const sizes = new ResizeObserver(keep)
+  sizes.observe(view.dom)
+  const pointed = (event: PointerEvent): void => {
+    if (band && event.target instanceof Node && view.dom.parentElement?.contains(event.target)) choose(event.clientY)
+  }
   // Before the blocks holding the browser's selection are taken off the page, it is let go of: left in them, the
   // browser looked through the hidden blocks for somewhere to show it, each time it drew. It is told the
   // selection again, as far as it is drawn, straight after (ProseMirror with a change, `resync` with a scroll).
@@ -504,6 +580,7 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
   const clear = (): void => {
     band = null
     slip = 0
+    pin = null
     view.dom.removeAttribute(ARRIVING)
     mark()
     view.dom.dispatchEvent(new CustomEvent(DRAWN, { detail: null }))
@@ -513,10 +590,16 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
   const shift = (from: number, to: number, anchor: Element | null, at?: number): void => {
     measure()
     const before = at ?? anchor?.getBoundingClientRect().top
+    const was = pin
     letGo(from, to)
     draw(from, to)
     // Only when it is still drawn: a band moved far, after the caret, has nothing to keep still.
-    if (anchor && before !== undefined && anchor.getClientRects().length) hold(anchor.getBoundingClientRect().top - before)
+    if (anchor && before !== undefined && anchor.getClientRects().length) {
+      hold(anchor.getBoundingClientRect().top - before)
+      // Held where it was on the screen, so is everything under it: what was held stays held. Not when the screen
+      // stood on space kept for blocks not drawn (`at`): its block is put where the sizes say, not where it was.
+      if (at === undefined) pin = was
+    }
     resync()
   }
   // The block at the top of the screen, as an index into the note, and its element when it is drawn.
@@ -535,17 +618,7 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     const shown = all[firstDrawn].getBoundingClientRect()
     const end = all[lastDrawn].getBoundingClientRect()
     if (shown.top <= bottom && end.bottom >= top) {
-      // Among the drawn ones, by halves.
-      const find = (edge: number): number => {
-        let low = firstDrawn
-        let high = lastDrawn
-        while (low < high) {
-          const middle = (low + high) >> 1
-          if (all[middle].getBoundingClientRect().bottom < edge) low = middle + 1
-          else high = middle
-        }
-        return low
-      }
+      const find = (edge: number): number => below(lastDrawn + 1, (i) => all[i], edge, firstDrawn)
       const first = find(top)
       return { first, last: find(bottom), anchor: all[first] }
     }
@@ -598,8 +671,12 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     shift(band[0], band[1], top?.anchor ?? null, top?.at)
     more()
   }
+  // What changed above the held block before the scroll is put right first; what is held after it is what is on the screen then.
   const scrolled = (event: Event): void => {
-    if (event.target instanceof Node && event.target.contains(view.dom)) follow()
+    if (!(event.target instanceof Node && event.target.contains(view.dom))) return
+    keep()
+    follow()
+    choose()
   }
   // The first and last places inside the drawn blocks.
   const drawnEdges = (): [number, number] | null => {
@@ -816,6 +893,7 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
   view.dom.addEventListener("beforeinput", keyed, true)
   document.addEventListener("scroll", scrolled, { capture: true, passive: true })
   document.addEventListener("scrollend", rested, { capture: true, passive: true })
+  document.addEventListener("pointerdown", pointed, true)
   window.addEventListener("resize", respace)
   window.addEventListener("haligtree:select-all", pickAll)
   // Once the note is on the page: drawn round a caret at the end before it
@@ -912,6 +990,10 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
         const top = onScreen()
         shift(...step(index, index), top?.anchor ?? null, top?.at)
       }
+      // A caret moved is where the person is now: what to hold is chosen once the change is done with, the screen
+      // brought to the caret by ProseMirror too. A change that left the caret where it was (a card's preview kept, a
+      // fold, another window's edit) is held against.
+      if (moved || leapt || !pin) queueMicrotask(choose)
     },
     destroy: () => {
       unclamp()
@@ -924,6 +1006,8 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
       view.dom.removeEventListener("mousedown", press, true)
       document.removeEventListener("scroll", scrolled, { capture: true })
       document.removeEventListener("scrollend", rested, { capture: true })
+      document.removeEventListener("pointerdown", pointed, true)
+      sizes.disconnect()
       window.removeEventListener("resize", respace)
       window.removeEventListener("haligtree:select-all", pickAll)
       cancelIdleCallback(resting)

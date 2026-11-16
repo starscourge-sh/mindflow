@@ -271,10 +271,13 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     // Held there as the note grows above it: told after each layout, before it is painted. And as what stands
     // beside the note in the same scroller changes size (the strip under its title, what comes after its words:
     // filled a moment after the note is on the page, later still while the app is starting): that moves the note
-    // on the screen without changing its size, and nothing was told of it.
+    // on the screen without changing its size, and nothing was told of it. Not a long note's space kept for the
+    // blocks it has not drawn: that is set as the note holds its own screen still, in the same moment
+    // (extensions/long-document.ts `keep`), and watched here too, the browser could not tell of its change in
+    // that frame and said so as an error on the page.
     const grows = new ResizeObserver(() => (holding ? put() : read()))
     grows.observe(dom)
-    const besides = (): void => { if (scroller) for (const one of scroller.children) grows.observe(one) }
+    const besides = (): void => { if (scroller) for (const one of scroller.children) if (!one.hasAttribute('data-long-end')) grows.observe(one) }
     const beside = new MutationObserver(besides)
     if (scroller) (besides(), beside.observe(scroller, { childList: true }))
     const onScroll = (): void => {
