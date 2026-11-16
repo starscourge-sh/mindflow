@@ -4724,7 +4724,17 @@ html[data-block-carry] .mf-lines {
 .tiptap.ProseMirror.haligtree-editor {
   .mf-picked {
     border-radius: 4px;
+    // A hair inside its own line, so blocks picked one under another read as boxes of their own, never one band.
     background-image: linear-gradient(var(--tt-selection-color), var(--tt-selection-color));
+    background-size: 100% calc(100% - 2px);
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  // A list's item takes in its bullet or number, which sits outside its own box, so every picked box starts at the
+  // words' one left edge, as a task's (its tick inside it) and a line's do.
+  li.mf-picked:not([data-type="taskItem"]) {
+    box-shadow: -1em 0 0 -1px var(--tt-selection-color);
   }
 
   .tiptap-callout.mf-picked {
