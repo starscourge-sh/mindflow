@@ -51,7 +51,9 @@ try {
   const notice = await h.waitForFunction(() => /could not be read/.test(document.body.innerText), null, { timeout: 15000 }).then(() => true, () => false)
   const line = await h.evaluate(() => document.body.innerText.split('\n').find((one) => /could not be read/.test(one)) ?? '')
   check('a list that cannot be read says so, and why, in a notice', notice && /busy for a moment/.test(line), line.slice(0, 160))
-  // The notice never lies over the page's hint line (text over text).
+  // The notice never lies over the page's hint line (text over text), read once it has taken its place (it reads the
+  // page every 150 ms).
+  await h.waitForTimeout(600)
   const over = await h.evaluate(() => { const t = [...document.querySelectorAll('[role="status"][aria-live="polite"]')].filter((one) => /could not be read/.test(one.textContent ?? '')).map((one) => one.getBoundingClientRect()).find((r) => r.height); const hint = document.querySelector('[data-hint-line]')?.getBoundingClientRect(); return !!t && !!hint && hint.height > 0 && t.bottom > hint.top && t.top < hint.bottom && t.right > hint.left && t.left < hint.right })
   check('the notice stands clear of the hint line at the foot', !over)
   if (process.env.SHOTS) await c.both(`${process.env.SHOTS}/list-read-fails`)
