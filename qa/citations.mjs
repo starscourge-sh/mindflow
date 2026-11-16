@@ -74,7 +74,7 @@ try {
   check('"/" "cite" picks "Cite a source"', /Cite a source/.test(picked), picked)
   await film('looking', 4)
   const orb = await h.evaluate(() => { const chip = document.querySelector('.mf-citation'); return chip ? `${chip.querySelector('.mf-orb-pill') ? 'mf-orb-pill ' : ''}${chip.textContent}` : 'none' })
-  check('the chip shows the orb with "Looking up…" while Crossref is asked', /mf-orb-pill/.test(orb) && /Looking up/.test(orb), orb)
+  check('the chip shows the orb with "Looking up…" while Crossref is asked', /mf-orb-pill/.test(orb) && /Looking up/.test(orb), `${orb}; asked so far: ${asked.map((one) => one.url).join(', ')}`)
   await type(' and weeps.')
   const typed = await ed((editor) => editor.state.doc.textContent)
   check('typing goes on while it is looked up', typed.endsWith(' and weeps.'), typed)
@@ -146,6 +146,12 @@ try {
     const box = await el.evaluate((one) => { const r = one.getClientRects()[0]; return { x: r.x, y: r.y, width: r.width, height: r.height } })
     await h.mouse.click(box.x + box.width / 2, box.y + box.height / 2, { button: 'right' }); await wait(400)
     const menu = await h.evaluate(() => ({ group: document.querySelector('[data-clicked-group="citation"]')?.textContent ?? '', lines: [...document.querySelectorAll('[data-clicked]')].map((one) => one.textContent.trim()) }))
+    // No line to press: say what the right-click opened and what is under the pointer, with a picture, not only a timeout.
+    if (!(await h.locator('[data-clicked="edit-page"]').count())) {
+      const under = await h.evaluate(([x, y]) => { const one = document.elementFromPoint(x, y); return `${one?.tagName.toLowerCase()}.${String(one?.className).split(' ')[0]} "${one?.textContent?.slice(0, 40)}"` }, [box.x + box.width / 2, box.y + box.height / 2])
+      if (shots) await shot(`no-edit-page-${String(re).replace(/\W+/g, '-')}`)
+      throw new Error(`right-click on "${re}" opened no "Edit the page": menu ${JSON.stringify(menu)}, under the pointer ${under}, chip at ${JSON.stringify(box)}`)
+    }
     await h.click('[data-clicked="edit-page"]', { timeout: 4000 })
     if (shots && name) await film(name, 6)
     await h.waitForSelector('[data-cite-page]', { timeout: 3000 })

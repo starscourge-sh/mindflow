@@ -52,7 +52,12 @@ const gem = async (words, prompt, grades = []) => {
 const reviewTo = async (prompt) => {
   await go('home')
   await go('review', ':today')
-  await h.waitForFunction((p) => [...document.querySelectorAll('h2[contenteditable]')].some((one) => one.textContent?.includes(p)), prompt, { timeout: 8000 })
+  await h.waitForFunction((p) => [...document.querySelectorAll('h2[contenteditable]')].some((one) => one.textContent?.includes(p)), prompt, { timeout: 8000 }).catch(async (error) => {
+    // Said with what Review shows instead (its page, its card's words), and a picture of it.
+    await shot('review-not-found').catch(() => {})
+    const seen = await h.evaluate(() => ({ page: document.querySelector('[data-page]')?.getAttribute('data-page'), h2: [...document.querySelectorAll('h2')].map((one) => `${one.isContentEditable ? 'editable ' : ''}${one.textContent?.slice(0, 50)}`).slice(0, 4), words: document.querySelector('main, [data-page]')?.textContent?.replace(/\s+/g, ' ').slice(0, 200) }))
+    throw new Error(`Review never showed "${prompt}": ${error.message.split('\n')[0]}; it showed ${JSON.stringify(seen)}`)
+  })
   await blur()
 }
 
