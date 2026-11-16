@@ -47,9 +47,12 @@ export function useCounts(editor: Editor | null): { words: number; characters: n
   return counts
 }
 
-/** Words and characters in the selection, null with none: counted as the selection changes, from the selection alone. */
-function useSelectionCounts(editor: Editor | null): { words: number; characters: number } | null {
-  const [counts, setCounts] = useState<{ words: number; characters: number } | null>(null)
+/**
+ * Words and characters in the selection, null with none: counted as the selection changes, from the selection alone.
+ * "whole" for the whole note picked (⌘A): its count is the note's own, not read again from every word of a long note.
+ */
+function useSelectionCounts(editor: Editor | null): { words: number; characters: number } | "whole" | null {
+  const [counts, setCounts] = useState<{ words: number; characters: number } | "whole" | null>(null)
   useEffect(() => {
     if (!editor) return
     const count = (): void => {
@@ -57,10 +60,11 @@ function useSelectionCounts(editor: Editor | null): { words: number; characters:
       // Only while the note has the keys: a selection left behind as you go elsewhere says nothing.
       if (empty || !editor.isFocused) return setCounts(null)
       const { doc } = editor.state
+      if (from <= 1 && to >= doc.content.size - 1) return setCounts("whole")
       const shown = (node: PMNode): string => (node.type.name === "noteLink" ? String(node.attrs.text || node.attrs.label || " ") : " ")
       const words = doc.textBetween(from, to, " ", (node) => ` ${shown(node)} `).split(/\s+/).filter((word) => word && word !== "/").length
       const characters = doc.textBetween(from, to, undefined, shown).length
-      setCounts((now) => (!words ? null : now?.words === words && now.characters === characters ? now : { words, characters }))
+      setCounts((now) => (!words ? null : now !== "whole" && now?.words === words && now.characters === characters ? now : { words, characters }))
     }
     const transaction = ({ transaction }: { transaction: { docChanged: boolean; selectionSet: boolean } }): void => {
       if (transaction.selectionSet || transaction.docChanged) count()
@@ -89,7 +93,8 @@ export function WordCount({ editor }: { editor: Editor | null }) {
   const counts = useCounts(editor)
   // Words picked: their own count, in the count's place, shown while they are picked (the tracker: "shows how many
   // words/characters under a selection"). Over words, on its pill, so it reads.
-  const picked = useSelectionCounts(editor)
+  const chosen = useSelectionCounts(editor)
+  const picked = chosen === "whole" ? counts : chosen
   const barShown = useFormatBarShown()
 
   // Shown only where nothing is under it: past the last line, which is the
