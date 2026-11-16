@@ -22,6 +22,12 @@
 //              letters, block for block.
 //   typefast   the same, closed straight after the last letter with no wait
 //              for the save: says which letters were kept.
+//
+// The very top is reached as a person reaches it (`toTop`): a long note opens
+// where it was last left (after `midscroll`, screens down, where one long list
+// can fill the screen), so the wheel takes it up and a press on the first
+// letter of its first line puts the caret there. FRAMES=<folder> keeps the
+// window at each step of that, FRAMES_BOTH=1 in light and in dark.
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, readFileSync } from 'fs'
 import { loadavg } from 'os'
@@ -204,7 +210,7 @@ async function letter(target, key, vimKey = 'i') {
  * its window, nothing lying over it), so the caret goes into the note by the
  * pointer. Says where it pressed, or null when no press put the caret in.
  */
-async function pressIn(target, { min = 3, only = '^(P|H[1-6])$' } = {}) {
+async function pressIn(target, { min = 3, only = '^(P|H[1-6]|UL|OL|BLOCKQUOTE)$' } = {}) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const spot = await within(8000, page(target, (ed, [skip, min, only]) => {
       let box = ed.parentElement
@@ -212,19 +218,37 @@ async function pressIn(target, { min = 3, only = '^(P|H[1-6])$' } = {}) {
       const view = box.getBoundingClientRect()
       const wanted = new RegExp(only)
       let seen = 0
-      const said = { blocks: ed.children.length, kind: 0, onShow: 0, clear: 0, under: '' }
+      const said = { blocks: ed.children.length, kind: 0, onShow: 0, clear: 0, under: '', seen: [] }
+      // What is on the screen, of any kind: for the line that says why no line was pressed.
       for (const el of ed.children) {
-        if (!wanted.test(el.tagName) || el.hasAttribute('data-far') || el.textContent.trim().length < min) continue
+        const r = el.getBoundingClientRect()
+        if (r.height && r.bottom > view.top && r.top < view.bottom && said.seen.length < 6) said.seen.push(`${el.tagName}${el.hasAttribute('data-off') ? ' off' : ''} ${Math.round(r.top - view.top)}..${Math.round(r.bottom - view.top)} "${el.textContent.trim().slice(0, 16)}"`)
+      }
+      said.scroller = `${box.tagName}.${String(box.className).slice(0, 40)} at ${Math.round(box.scrollTop)} of ${box.scrollHeight - box.clientHeight}, ${Math.round(view.height)} tall`
+      // A line of words on show, pressed on its first letter, as a person presses what they see: in a block of the
+      // kind asked for, whole or not (a long list can fill the screen by itself: a note opened where it was left,
+      // lib/note-place.ts, may show nothing else), its line well inside the window and nothing lying over it.
+      for (const el of ed.children) {
+        if (!wanted.test(el.tagName) || el.hasAttribute('data-off') || el.textContent.trim().length < min) continue
         said.kind++
         const r = el.getBoundingClientRect()
-        if (!r.height || r.top < view.top + 60 || r.bottom > view.bottom - 60) continue
+        if (!r.height || r.bottom < view.top + 60 || r.top > view.bottom - 60) continue
         said.onShow++
-        const [x, y] = [Math.round(r.left + 40), Math.round(r.top + Math.min(r.height / 2, 11))]
-        const hit = document.elementFromPoint(x, y)
-        if (!hit || !el.contains(hit)) { said.under ||= hit ? `${hit.tagName}.${String(hit.className).slice(0, 60)}` : 'nothing'; continue }
-        said.clear++
-        if (seen++ < skip) continue
-        return { x, y, index: ed.editor.state.doc.resolve(ed.editor.view.posAtDOM(el, 0)).index(0), words: el.textContent.trim().slice(0, 40) }
+        const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: (node) => (node.textContent.trim().length >= Math.min(min, 3) && !node.parentElement.closest('[contenteditable="false"], button, summary') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) })
+        for (let text = walk.nextNode(); text; text = walk.nextNode()) {
+          const range = document.createRange()
+          const start = text.textContent.search(/\S/)
+          range.setStart(text, start)
+          range.setEnd(text, start + 1)
+          const letter = range.getBoundingClientRect()
+          if (!letter.height || letter.top < view.top + 60 || letter.bottom > view.bottom - 60) continue
+          const [x, y] = [Math.round(letter.left + Math.min(2, letter.width / 3)), Math.round(letter.top + letter.height / 2)]
+          const hit = document.elementFromPoint(x, y)
+          if (!hit || !el.contains(hit)) { said.under ||= hit ? `${hit.tagName}.${String(hit.className).slice(0, 60)}` : 'nothing'; continue }
+          said.clear++
+          if (seen++ < skip) break
+          return { x, y, index: ed.editor.state.doc.resolve(ed.editor.view.posAtDOM(el, 0)).index(0), words: text.textContent.trim().slice(0, 40) }
+        }
       }
       return { none: said }
     }, [attempt, min, only]))
@@ -238,13 +262,76 @@ async function pressIn(target, { min = 3, only = '^(P|H[1-6])$' } = {}) {
   }
   return null
 }
+/**
+ * FRAMES=<folder>: the window as it is, kept as <folder>/<part>-<name>.png (FRAMES_BOTH=1: in light and in dark,
+ * the theme put back to light after), to read the top of the note by eye after the press and after the letter.
+ */
+const FRAMES = process.env.FRAMES ?? ''
+let framePart = ''
+async function frame(target, name) {
+  if (!FRAMES) return
+  const file = join(FRAMES, `${framePart}-${name}`)
+  if (process.env.FRAMES_BOTH && target === c.h) await c.both(file, target)
+  else await target.screenshot({ path: `${file}.png` }).catch((error) => console.log(`(no frame ${name}: ${error.message.slice(0, 80)})`))
+}
 /** What a window says of itself when a press did not take: for the failing line. */
 const stateOf = (target) => within(5000, target.evaluate(() => JSON.stringify({ windowFocused: document.hasFocus(), shown: document.visibilityState, active: document.activeElement ? `${document.activeElement.tagName}.${String(document.activeElement.className).slice(0, 50)}` : null })))
-/** A press in the note, then ⌘↑: the caret at the very top. */
-async function toTop(target) {
-  const spot = await pressIn(target)
-  await target.keyboard.press('Meta+ArrowUp')
-  await wait(300)
+/**
+ * The caret at the very top of the note, put there as a person puts it. A long note opens where it was last left
+ * (lib/note-place.ts: after `midscroll`, some screens down), so the note's words on show there are looked at first,
+ * then the wheel takes the note up to its top, and a press on the first letter of its first line puts the caret
+ * before it. Says where it pressed, or null (with the failing line said) when it could not.
+ */
+async function toTop(target, part) {
+  await frame(target, 'top-0-opened')
+  const opened = await within(8000, page(target, (ed) => {
+    let box = ed.parentElement
+    while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
+    const view = box.getBoundingClientRect()
+    const words = [...ed.children].filter((el) => { const r = el.getBoundingClientRect(); return r.height && r.bottom > view.top && r.top < view.bottom && el.textContent.trim() }).length
+    return { top: Math.round(box.scrollTop), words }
+  }))
+  check(`${part}: opened where it was left (${opened ? opened.top : '?'}px down), the screen shows the note's words`, !!opened && opened.words > 0, opened ? `${opened.words} blocks with words on show` : 'the window did not answer')
+  const centre = await page(target, scrollOf)
+  await target.mouse.move(centre.x, centre.y)
+  let at = centre
+  let events = 0
+  for (; at && at.top > 0 && events < 300; events++) {
+    if ((await within(8000, target.mouse.wheel(0, -Math.min(3000, at.top + 120)).then(() => true))) === null) break
+    await wait(80)
+    at = await within(8000, page(target, scrollOf))
+  }
+  if (!check(`${part}: the wheel takes the note up to its very top`, !!at && at.top === 0, at ? `${Math.round(at.top)}px from the top after ${events} wheel events, from ${Math.round(centre.top)}px` : 'the window stopped answering')) return null
+  await frame(target, 'top-1-at-top')
+  // The first letter of the note's first line, and nothing lying over it: waited for, as a person waits to see it.
+  const firstLetter = (ed) => {
+    const first = [...ed.children].find((el) => el.pmViewDesc?.node && el.textContent.trim())
+    if (!first) return null
+    // Its own words only: not what is drawn beside them (a heading's "H2" mark, line numbers), which takes no caret.
+    const words = first.pmViewDesc.contentDOM ?? first
+    const walk = document.createTreeWalker(words, NodeFilter.SHOW_TEXT, { acceptNode: (node) => (node.textContent.trim() && !node.parentElement.closest('[contenteditable="false"]') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) })
+    const text = walk.nextNode()
+    if (!text) return null
+    const range = document.createRange()
+    const start = text.textContent.search(/\S/)
+    range.setStart(text, start)
+    range.setEnd(text, start + 1)
+    const r = range.getBoundingClientRect()
+    const [x, y] = [Math.round(r.left + Math.min(2, r.width / 3)), Math.round(r.top + r.height / 2)]
+    const hit = document.elementFromPoint(x, y)
+    return { x, y, clear: !!hit && words.contains(hit), under: hit ? `${hit.tagName}.${String(hit.className).slice(0, 50)}` : 'nothing', index: ed.editor.state.doc.resolve(ed.editor.view.posAtDOM(first, 0)).index(0), words: words.textContent.trim().slice(0, 40) }
+  }
+  const shown = await target.waitForFunction(([code, body]) => {
+    const one = new Function('ed', `return (${body})(ed)`)(new Function(`return ${code}`)())
+    return one?.clear ? one : false
+  }, [pick, firstLetter.toString()], { timeout: 10000 }).then((handle) => handle.jsonValue(), () => null)
+  const spot = shown ?? (await within(8000, page(target, firstLetter)))
+  if (!check(`${part}: the first letter of the note's first line is on show, nothing over it`, !!spot?.clear, spot ? `block ${spot.index + 1} "${spot.words}" at ${spot.x},${spot.y}; under the pointer: ${spot.under}` : 'no words in the first line')) return null
+  await target.mouse.click(spot.x, spot.y)
+  await wait(250)
+  await frame(target, 'top-2-pressed')
+  const after = await within(5000, page(target, (ed) => ({ keys: ed === document.activeElement || ed.contains(document.activeElement), index: ed.editor.state.selection.$head.index(0), offset: ed.editor.state.selection.$head.parentOffset, empty: ed.editor.state.selection.empty })))
+  check(`${part}: a press on the first letter of the first line puts the caret before it`, !!after && after.keys && after.index === spot.index && after.offset === 0 && after.empty, after ? `the note ${after.keys ? 'has' : 'does NOT have'} the keys; caret in block ${after.index + 1} at ${after.offset}` : 'the window did not answer')
   return spot
 }
 
@@ -253,8 +340,9 @@ async function typeThree() {
   const h = c.h
   const typed = new Map()
   // The very top.
-  await toTop(h)
+  await toTop(h, framePart)
   const top = await letter(h, 'q')
+  await frame(h, 'top-3-letter')
   typed.set(top.index, 'q')
   console.log(`(top: caret in block ${top.index + 1} at ${top.pos}, focused ${top.focused}, typed "q")`)
   // The middle: wheeled to, then a press in a paragraph that is really there.
@@ -346,9 +434,48 @@ try {
     await wait(1500)
     const whole = await within(20000, page(c.h, async (ed, id) => {
       const kept = await window.api.captures.get(id)
-      return ed.editor.schema.nodeFromJSON(kept.body).eq(ed.editor.state.doc)
+      const doc = ed.editor.schema.nodeFromJSON(kept.body)
+      const now = ed.editor.state.doc
+      const say = (node) => (node ? `${node.type.name} "${node.textContent.slice(0, 30)}"` : 'none')
+      const bare = (text) => text.replace(/\s+/g, '')
+      // A line that held a picture or a rule among its words (old Obsidian imports) opens split round it, by design,
+      // and is stored so only once the note is edited (lib/lift-blocks.ts): in the editor it is its pictures and
+      // rules, each as stored, and its words, in order (a list item still starts with a line, an empty one if a
+      // picture came first). Anything holding such a line (a list, its item) is the same holder, gone through the
+      // same way. Every other block is the stored one exactly.
+      let lifted = 0
+      const alike = (was, is, where) => {
+        let j = 0
+        for (let i = 0; i < was.childCount; i++) {
+          const one = was.child(i)
+          const next = is.maybeChild(j)
+          const at = `${where}${where ? ' > ' : 'block '}${i + 1}`
+          if (next && one.eq(next)) { j++; continue }
+          if (next && next.type === one.type && !one.inlineContent && one.childCount && one.sameMarkup(next)) {
+            const inside = alike(one, next, at)
+            if (inside !== true) return inside
+            j++
+            continue
+          }
+          const held = []
+          if (one.inlineContent) one.forEach((part) => void (part.isBlock && held.push(part)))
+          if (!held.length) return `${at} stored ${say(one)}, in the editor ${say(next)} (${doc.childCount} blocks stored, ${now.childCount} in the editor)`
+          const words = bare(one.textContent)
+          let [k, got] = [0, '']
+          for (let part = next; part && (k < held.length || got.length < words.length); part = is.maybeChild(++j)) {
+            if (k < held.length && part.eq(held[k])) k++
+            else if (part.type === one.type && words.startsWith(got + bare(part.textContent))) got += bare(part.textContent)
+            else break
+          }
+          if (k < held.length || got !== words) return `${at} stored ${say(one)}, a line holding ${held.length} pictures or rules, is not in the editor split round them (there: ${say(is.maybeChild(j))})`
+          lifted++
+        }
+        return j === is.childCount || `${where || 'the note'}: the editor has ${is.childCount - j} more, from ${say(is.maybeChild(j))}`
+      }
+      const same = alike(doc, now, '')
+      return same === true ? { lifted, blocks: now.childCount, stored: doc.childCount } : same
     }, id))
-    check('opened again, the editor holds the whole stored note, block for block', whole === true, String(whole))
+    check('opened again, the editor holds the whole stored note, block for block', typeof whole === 'object' && !!whole, typeof whole === 'object' && whole ? `${whole.stored} blocks stored, ${whole.blocks} in the editor: ${whole.lifted} lines that held a picture among their words open split round it, by design (lib/lift-blocks.ts), every other block the stored one` : String(whole))
     check('opened again, the window answers', await answers(c.h))
     same('opened again after that close, the stored note is still byte for byte what it was', base, stored())
     check('no page errors after a close in the middle of a scroll', !errorsOf(c).length, errorsOf(c).slice(0, 3).join(' | '))
@@ -360,8 +487,8 @@ try {
     if (!c) await launch()
     await openNote()
     await wait(3000)
-    const first = await page(c.h, (ed) => ({ blocks: ed.editor.state.doc.childCount, far: ed.querySelectorAll(':scope > [data-far]').length, cards: ed.querySelectorAll('.tiptap-bookmark, [data-type="bookmark"]').length }))
-    console.log(`(open: ${first.blocks} blocks, ${first.far} of them stand-ins, ${first.cards} link cards built)`)
+    const first = await page(c.h, (ed) => ({ blocks: ed.editor.state.doc.childCount, far: ed.querySelectorAll(':scope > [data-off]').length, cards: ed.querySelectorAll('.tiptap-bookmark, [data-type="bookmark"]').length }))
+    console.log(`(open: ${first.blocks} blocks, ${first.far} of them off the page, ${first.cards} link cards built)`)
     same('open and looked at for three seconds, the stored note is byte for byte what it was', base, stored())
     await c.send('view', 'today')
     await wait(3500)
@@ -385,8 +512,10 @@ try {
       check('its own window holds the whole note', up === true, `${load()}`)
       const typed = new Map()
       // A letter at the very top, in the main window.
-      await toTop(c.h)
+      framePart = 'two'
+      await toTop(c.h, framePart)
       const top = await letter(c.h, 'q')
+      await frame(c.h, 'top-3-letter')
       typed.set(top.index, 'q')
       const firstWords = () => within(3000, page(win, (ed) => ed.editor.state.doc.child(0).textContent.slice(0, 12)))
       let there = null
@@ -424,6 +553,7 @@ try {
     if (!c) await launch()
     await openNote()
     await wait(800)
+    framePart = part
     const { typed, stopped, at } = await typeThree()
     if (stopped) continue
     let took = null
