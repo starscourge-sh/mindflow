@@ -127,12 +127,23 @@ const spot = (text, offset = 0, scroll = true) => h.evaluate(([ED, text, offset,
 /** Words picked with the pointer, as a person picks them: a press at the start, ⇧ and a press at the end. */
 const pick = async (from, to) => {
   const a = await spot(...from)
+  // What the press lands on, and where the caret is after it: said when the pick goes wrong.
+  const under = (x, y) => h.evaluate(([ED, x, y]) => {
+    const one = document.elementFromPoint(x, y)
+    const view = document.querySelector(ED).editor.view
+    const s = view.state.selection
+    const said = (el) => (el ? `${el.tagName.toLowerCase()}.${String(el.className).split(' ').slice(0, 3).join('.')}` : 'nothing')
+    const open = [...document.querySelectorAll('[role="menu"]:not([data-state="closed"]), [role="dialog"], [data-radix-popper-content-wrapper]')].map(said)
+    return { under: `${said(one)}${one?.closest('.ProseMirror') ? ' in the note' : ''}`, at: view.posAtCoords({ left: x, top: y })?.pos, caret: [s.anchor, s.head], focus: said(document.activeElement), open, body: getComputedStyle(document.body).pointerEvents }
+  }, [ED, x, y])
+  const before = await under(a.x, a.y)
   await h.mouse.click(a.x, a.y); await frame()
+  const pressed = await under(a.x, a.y)
   const b = await spot(...to)
   await h.keyboard.down('Shift'); await h.mouse.click(b.x, b.y); await h.keyboard.up('Shift'); await frame()
   const picked = await h.evaluate((ED) => { const s = document.querySelector(ED).editor.state.selection; return { from: s.from, to: s.to, focused: !!document.activeElement?.closest('.ProseMirror') } }, ED)
   // A press lands on a letter's near or far side: one place either way is the same pick.
-  if (Math.abs(picked.from - a.at) > 1 || Math.abs(picked.to - b.at) > 1 || !picked.focused) throw new Error(`the words were not picked as asked: ${JSON.stringify({ picked, from: a.at, to: b.at })}`)
+  if (Math.abs(picked.from - a.at) > 1 || Math.abs(picked.to - b.at) > 1 || !picked.focused) throw new Error(`the words were not picked as asked: ${JSON.stringify({ picked, from: a.at, to: b.at, before, pressed })}`)
   return trace('pick')
 }
 /** A clipboard event on the note carrying its own data: never the Mac's clipboard. */

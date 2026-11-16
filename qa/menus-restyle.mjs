@@ -95,10 +95,17 @@ try {
         const key = `${e.args.data.reason}: ${(e.args.data.selectors ?? []).map((s) => s.selector).join(' ;; ').slice(0, 200)}`
         hits.set(key, (hits.get(key) ?? 0) + 1)
       }
+      // What was marked for restyle, by what it is (its tag and first class) and why: the elements of the pass.
+      const marked = new Map()
+      for (const e of events.filter((one) => one.name === 'StyleRecalcInvalidationTracking')) {
+        const key = `${String(e.args.data.nodeName ?? '').split(' ')[0].split('#')[0].slice(0, 40)} (${e.args.data.reason ?? ''}${e.args.data.extraData ? `: ${String(e.args.data.extraData).slice(0, 60)}` : ''})`
+        marked.set(key, (marked.get(key) ?? 0) + 1)
+      }
       pass.why = [
         ...whole.map((e) => `whole ${e.args.data.nodeName.slice(0, 70)}: ${(e.args.data.selectors ?? []).map((s) => s.selector).join(' ;; ').slice(0, 300)}`),
         ...(has.length ? [`:has() asked again on ${[...new Set(has)].join(', ')} (${has.length})`] : []),
         ...[...hits].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([key, n]) => `${n} x ${key}`),
+        ...[...marked].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([key, n]) => `marked ${n} x ${key}`),
       ]
     }
     return pass
