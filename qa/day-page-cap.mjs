@@ -31,7 +31,9 @@ try {
   check('back on the page: kept to about a third of the window', !capped.open && capped.height <= Math.max(capped.room * 0.34, 204) + 2, JSON.stringify(capped))
   check('its foot fades into "Show the whole page", saying how much more', capped.faded && /Show the whole page\s*· \d+ more lines/.test(capped.more ?? ''), JSON.stringify(capped))
   check('read, the page ends at its last line (no room kept after it)', parseFloat(capped.pad) < 30, capped.pad)
-  const line = () => h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); return one ? getComputedStyle(one).opacity : 'none' })
+  // The line's words (and its blur) fade, never the line's own frame (day-writing.tsx: faded, the blur would have nothing
+  // to see), so what shows is read from its words.
+  const line = () => h.evaluate(() => { const one = document.querySelector('[data-writer-line] > span:not(.mf-blur-edge)'); return one ? getComputedStyle(one).opacity : 'none' })
   await h.evaluate(() => document.activeElement?.blur()); await wait(600)
   check('read, not written in: the writer\'s line keeps out of the way', ['0', 'none'].includes(await line()), await line())
   if (shots) await h.screenshot({ path: `${shots}/day-capped.png` })
