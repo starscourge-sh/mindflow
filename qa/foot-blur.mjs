@@ -179,10 +179,13 @@ try {
     await h.keyboard.press('Backspace')
     await h.keyboard.press('Escape'); await wait(1200)
   }
-  // --- Today's page, its writer's line, the caret in the words.
+  // --- Today's page, its writer's line, while writing: the line and its blur come only with writing mode (three words
+  // in), never on the caret alone (the user, 15 Nov 2026), so the words are written first.
   {
     await go('inbox'); await go('day'); await wait(1200)
     await h.click('[data-page] [data-day-write] .ProseMirror'); await wait(600)
+    await h.keyboard.press('Meta+ArrowDown')
+    await h.keyboard.type(' and so the day began ', { delay: 30 }); await wait(900)
     await h.mouse.move(600, 400); await h.mouse.move(640, 430); await wait(900)
     const SCROLL = '[data-pane-card] .overflow-y-auto[data-day-path]'
     const seen = await look('[data-writer-line]')
@@ -195,6 +198,7 @@ try {
     report('the Journal\'s writer line', seen, end, passing, fr, flat)
     const line = await h.evaluate(() => { const one = document.querySelector('[data-writer-line]'); return { line: getComputedStyle(one).opacity, mask: getComputedStyle(one.closest('body').querySelector('[data-pane-card] .overflow-y-auto[data-day-path]')).maskImage } })
     check('the Journal: the line itself never fades (its words and blur do), and the page under it is not masked away', line.line === '1' && line.mask === 'none', JSON.stringify(line))
+    await h.keyboard.press('Escape'); await wait(600)
   }
   check('no page errors', !c.errors.some((one) => one.startsWith('PAGEERROR')), c.errors.join(' | '))
 } catch (error) {
