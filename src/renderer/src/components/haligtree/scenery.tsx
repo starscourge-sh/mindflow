@@ -448,10 +448,11 @@ export function PictureCredit({ children, className = '' }: { children: ReactNod
  * the same all that day.
  */
 export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A week's or a month's own, so it is not the same picture as its first day's. */ seed?: string }): React.JSX.Element | null {
-  const { settings, scenes, loading } = useScenery()
-  // Its page waits for it: a banner arriving a beat late pushed the whole page down.
+  const { settings, scenes, loading, scanning } = useScenery()
+  // Its page waits for it: a banner arriving a beat late pushed the whole page down. Its folders still being looked
+  // through, its room is kept, unwaited, and the painting comes in place.
   useReading(!settings || (!!settings.scenery && !!settings.sceneryToday && loading))
-  if (!settings?.scenery || !settings.sceneryToday || !scenes.length) return null
+  if (!settings?.scenery || !settings.sceneryToday || (!scenes.length && !scanning)) return null
   // Named as the day's own picture is: the same scene the banner below picks.
   const named = sceneCredit(choose(scenes, `${seed}:${settings.sceneryShuffle ?? 0}`, ['day', 'dusk', 'night', 'interior'], true))
   // The same band as every empty page's: its corners and its fade into the page, never a framed print (Postcards is for memories).
