@@ -598,8 +598,9 @@ function TagBand({ wash, children }: { wash: string | null; children: React.Reac
       {shown && (
         <div aria-hidden data-backdrop className="pointer-events-none absolute inset-0 overflow-hidden [mask-image:linear-gradient(180deg,transparent_0%,black_18%,black_55%,transparent_100%)]">
           <img src={small(shown, 640)} alt="" draggable={false} onError={() => setBroken(shown)} className="size-full scale-110 object-cover opacity-90 blur-md" />
-          {/* The page's colour over it, so plain and grey words still read on any picture, light theme or dark. */}
-          <div className="absolute inset-0 bg-[color-mix(in_oklab,var(--background)_78%,transparent)]" />
+          {/* The page's colour over it, so plain and grey words still read on any picture, light theme or dark: at 78% the
+              count line read 4.49:1 on the loudest picture's darkest pixel in light (qa/tag-page.mjs), at 80% over 4.5:1. */}
+          <div className="absolute inset-0 bg-[color-mix(in_oklab,var(--background)_80%,transparent)]" />
         </div>
       )}
       <div className="relative">{children}</div>
