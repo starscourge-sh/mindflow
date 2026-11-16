@@ -210,7 +210,7 @@ try {
   const named = await h.evaluate(() => ({ file: document.body.innerText.includes('probe-book'), times: document.body.innerText.split('The Probe Book').length - 1 }))
   check("the window's top bar names it the same, not by its file name", !named.file && named.times >= 2, JSON.stringify(named))
   // G and g g, as in every list and the web reader (the user, 15 Nov 2026: "why doesnt G and gg work in reader mode").
-  const pdfScroll = () => h.evaluate(() => { const box = document.querySelector('.pdf-reader .pdf-page')?.closest('[class*="overflow"]') ?? null; return box ? { top: Math.round(box.scrollTop), end: Math.round(box.scrollHeight - box.clientHeight) } : null })
+  const pdfScroll = () => h.evaluate(() => { const box = document.querySelector('.pdf-reader .pdf-page')?.closest('.pdf-reader-scroll') ?? null; return box ? { top: Math.round(box.scrollTop), end: Math.round(box.scrollHeight - box.clientHeight) } : null })
   await h.mouse.move(600, 400)
   await h.keyboard.press('Shift+G'); await wait(500)
   const pdfEnd = await pdfScroll()
