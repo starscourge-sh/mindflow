@@ -33,7 +33,7 @@ const texts = () => page.$eval(EDITOR, (root) => [...root.querySelectorAll('p')]
 const picked = () => page.$eval(EDITOR, (root) => ({
   kind: root.editor.state.selection.toJSON().type,
   // Its words, as its first line has them (a task's box holds its tick's label too).
-  boxes: [...root.querySelectorAll('.mf-picked')].map((one) => ({ words: (one.querySelector('p') ?? one).textContent.trim().slice(0, 24), radius: getComputedStyle(one).borderTopLeftRadius, wash: getComputedStyle(one).backgroundImage !== 'none', cell: getComputedStyle(one.querySelector('td') ?? one).backgroundImage !== 'none' })),
+  boxes: [...root.querySelectorAll('.mf-picked')].map((one) => ({ words: (one.querySelector('p') ?? one).textContent.trim().slice(0, 24), radius: getComputedStyle(one).borderTopLeftRadius, own: getComputedStyle(one.querySelector('.tiptap-callout') ?? one).borderTopLeftRadius, wash: getComputedStyle(one).backgroundImage !== 'none', cell: getComputedStyle(one.querySelector('td') ?? one).backgroundImage !== 'none' })),
 }))
 const shot = async (name) => FRAMES && page.screenshot({ path: join(FRAMES, `${name}.png`) })
 const block = (words) => page.locator(`${EDITOR} p`, { hasText: words }).first()
@@ -147,7 +147,8 @@ if (PART === 'pick') {
     await shot(`${look}-callout-table-picked`)
     const callout = kinds.boxes.find((one) => one.words.includes('A callout'))
     const table = kinds.boxes.find((one) => one.words.startsWith('Cell one'))
-    check(`${look}: a picked callout's box keeps its 8px corner`, callout?.radius === '8px', JSON.stringify(callout))
+    // The callout's own corner is 0.5rem: 8px at the plain text size, a little more where the app is grown.
+    check(`${look}: a picked callout's box keeps the callout's own corner (8px, 0.5rem)`, !!callout && callout.radius === callout.own && parseFloat(callout.radius) >= 8, JSON.stringify(callout))
     check(`${look}: a picked table's box stays square, its cells wearing the wash`, table?.radius === '0px' && table?.cell, JSON.stringify(table))
     await page.keyboard.press('Escape')
   }
