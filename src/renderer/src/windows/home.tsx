@@ -25,9 +25,11 @@ function Drawn({ children }: { children: ReactNode }): ReactNode {
     performance.mark('haligtree:whole')
     let sent = false
     const send = (): void => void (sent || ((sent = true), window.api.homeDrawn()))
-    // A hidden window may get no frames: a moment's wait stands in for one.
-    requestAnimationFrame(send)
-    setTimeout(send, 50)
+    // Said in the frame after the one with the whole screen, which has been made by then: said in that frame itself, the
+    // window was shown 45 to 140 ms before it was made, on the frame before it (its empty shell). A hidden window that
+    // runs no frames is shown a quarter second on.
+    requestAnimationFrame(() => requestAnimationFrame(send))
+    setTimeout(send, 250)
   }, [whole])
   return provide(children)
 }
