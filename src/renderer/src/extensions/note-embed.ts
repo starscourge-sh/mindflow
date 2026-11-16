@@ -60,7 +60,7 @@ export const NoteEmbed = Node.create({
     }
   },
 
-  // A line copied with "Copy embed of this line" (`![[@id#^line|Name]]`),
+  // A line copied with "Copy embed of block" (`![[@id#^line|Name]]`),
   // pasted on its own: the line shown here, live, not the text.
   addProseMirrorPlugins() {
     const type = this.type

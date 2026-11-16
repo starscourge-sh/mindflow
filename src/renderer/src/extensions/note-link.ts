@@ -927,7 +927,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             }
             return text === " " && from === to && from === at
           },
-          // A link to one line, copied with "Copy link to this line", pasted
+          // A link to one line, copied with "Copy link to block", pasted
           // where nothing is picked: the link itself, not its text.
           handlePaste: (view, event) => {
             const text = event.clipboardData?.getData("text/plain")?.trim() ?? ""

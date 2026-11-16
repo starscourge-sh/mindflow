@@ -4,8 +4,8 @@
 // lists every line, and checks the known misplaced or misnamed lines are gone:
 //   - "Show in list" (about the note) in a block's menu; it lives in the note's ⋯ menu and ⌥⌘L.
 //   - "Download" and "Open in default app" beside a file's "Save a copy" and a link's "Open in the default app".
-//   - "Open link", "Copy link" and "Read it here" on a link card, where a link in the words says
-//     "Open in the browser", "Copy address" and "Open in the reader".
+//   - "Open link" and "Read it here" on a link card, where a link in the words says "Open in the browser" and
+//     "Open in the reader"; both say "Copy link" for the address, as Notion does ("Copy link to block" is the block's).
 //   - "Reschedule all late" in one day's menu; every late task at once is the page's "N late · Reschedule all…".
 // Row, folder, sidebar and pin menus are qa/menu-fit.mjs's.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 QA_ARGS=--sandbox node qa/menus-belong.mjs
@@ -18,7 +18,7 @@ const c = await sandbox({ width: 1300, height: 1000 })
 const { h, v, send, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
-const NEVER_IN_A_BLOCK = /^(Show in list|Download|Open in default app|Open link|Copy link|Read it here)$/
+const NEVER_IN_A_BLOCK = /^(Show in list|Download|Open in default app|Open link|Copy address|Copy link to this line|Read it here)$/
 const text = (t) => [{ type: 'text', text: t }]
 const p = (t) => ({ type: 'paragraph', content: text(t) })
 const lines = () => h.evaluate(() => {
@@ -96,7 +96,7 @@ try {
   }
   // One name for one action, across the block kinds.
   const card = seen['link card'] ?? [], file = seen.file ?? [], picture = seen.picture ?? []
-  check('a link card says what a link in the words says', ['Open in the browser', 'Copy address'].every((one) => card.includes(one)), JSON.stringify(card))
+  check('a link card says what a link in the words says', ['Open in the browser', 'Copy link'].every((one) => card.includes(one)), JSON.stringify(card))
   check('a file says "Save a copy" and "Open in the default app"', ['Save a copy', 'Open in the default app'].every((one) => file.includes(one)), JSON.stringify(file))
   check('a picture says "Save a copy", as a file does', picture.includes('Save a copy'), JSON.stringify(picture))
 

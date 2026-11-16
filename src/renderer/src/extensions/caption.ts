@@ -3,6 +3,7 @@ import { NodeSelection, Plugin, PluginKey, TextSelection, type EditorState } fro
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
 
 import { onlyWordsChanged } from "@/lib/tiptap-utils"
+import { isAudio } from "@/lib/transcribe"
 import { under } from "./block-room"
 
 /** What can carry a caption: a picture, a YouTube video, a stored video or recording. */
@@ -188,6 +189,19 @@ export const Caption = Extension.create({
     if (fixed === json) return
     const doc = editor.schema.nodeFromJSON(fixed)
     editor.view.dispatch(editor.state.tr.replaceWith(0, editor.state.doc.content.size, doc.content).setMeta("addToHistory", false).setMeta("preventUpdate", true))
+  },
+
+  // ⌥⌘M, Notion's key for it, as the grip's "Caption" says: a picked picture, video or file gets its line to write in.
+  addKeyboardShortcuts() {
+    return {
+      "Mod-Alt-m": ({ editor }) => {
+        const { selection, doc } = editor.state
+        const node = doc.nodeAt(selection.from)
+        if (!node || !MEDIA.has(node.type.name) || isAudio(node) || selection.to !== selection.from + node.nodeSize) return false
+        startCaption(editor, selection.from)
+        return true
+      },
+    }
   },
 
   addProseMirrorPlugins() {

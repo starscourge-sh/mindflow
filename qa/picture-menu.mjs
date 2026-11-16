@@ -49,7 +49,7 @@ try {
   }, MENU)
   const has = (title) => menu.titles.includes(title)
   check('one list, nothing folded under "Picture ›"', !menu.folded, JSON.stringify(menu.groups))
-  check('the picture\'s own lines and where its file lives, together', ['Look', 'Add a caption', 'Save a copy', 'Copy image', 'Open in the default app', 'Show in Finder'].every(has), JSON.stringify(menu.titles))
+  check('the picture\'s own lines and where its file lives, together', ['Look', 'Caption', 'Save a copy', 'Copy image', 'Open in the default app', 'Show in Finder'].every(has), JSON.stringify(menu.titles))
   check('and the block\'s lines in the same list, its file\'s two ways out and "Keep in Files"', ['Duplicate', 'Keep in Files', 'Remove from note', 'Remove and move to the Bin'].every(has) && !has('Delete'), JSON.stringify(menu.titles))
   check('no line twice', new Set(menu.titles).size === menu.titles.length, JSON.stringify(menu.titles))
   await h.screenshot({ path: `${shots}/picture-menu.png` })

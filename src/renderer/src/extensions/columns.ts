@@ -252,6 +252,13 @@ export function moveBlocks(tr: Transaction, range: { from: number; to: number },
   return true
 }
 
+/** Blocks from `from` to `to` as blocks that stand anywhere (a column, another note): a list's items in a list of their own kind. */
+export const blocksOf = (doc: Block, from: number, to: number): Fragment => {
+  const list = doc.resolve(from).parent
+  const nodes = doc.slice(from, to).content
+  return LISTS.has(list.type.name) ? Fragment.from(list.type.create(list.attrs, nodes)) : nodes
+}
+
 /**
  * What a column is given for carried blocks (`from` to `to`, side by side in one parent): a list's items come in a
  * list of their own kind, which a column can hold; a column carried by its own grip goes as itself.
@@ -261,9 +268,7 @@ export const columnFor = (doc: Block, from: number, to: number): Block | null =>
   const first = doc.nodeAt(from)
   if (!first) return null
   if (first.type.name === "column" && from + first.nodeSize === to) return first
-  const list = doc.resolve(from).parent
-  const nodes = doc.slice(from, to).content
-  const body = LISTS.has(list.type.name) ? Fragment.from(list.type.create(list.attrs, nodes)) : nodes
+  const body = blocksOf(doc, from, to)
   let fits = true
   body.forEach((one) => void (fits &&= one.type.name !== "columns"))
   return fits && schema.nodes.column.validContent(body) ? schema.nodes.column.create(null, body) : null

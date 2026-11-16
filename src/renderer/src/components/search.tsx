@@ -524,7 +524,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
       { label: 'Open in the reader', run: () => runLook(one) },
       ...(canSplit() ? [{ label: 'Open in the reader to the side', run: () => runLook(one, 'aside') }] : []),
       { label: 'Open in the browser', run: () => (leave(), void window.open(hit.href, '_blank', 'noopener')) },
-      { label: 'Copy address', run: () => void navigator.clipboard.writeText(hit.href).then(() => (chime('copy'), tell('Address copied')), () => tell('Could not copy the address', false)) }
+      { label: 'Copy link', run: () => void navigator.clipboard.writeText(hit.href).then(() => (chime('copy'), tell('Link copied')), () => tell('Could not copy the link', false)) }
     ] : []
     return (
       <RowMenu key={key} items={menu}>

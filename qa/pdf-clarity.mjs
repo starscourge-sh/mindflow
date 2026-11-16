@@ -94,7 +94,7 @@ try {
     const dead = menu ? [...menu.querySelectorAll('[role="menuitem"][data-disabled], [role="menuitem"][aria-disabled="true"]')].filter((one) => !one.title).map((one) => one.textContent.trim()) : []
     return { top, sub: !!menu?.querySelector('[data-block-sub]'), lit, dead }
   })
-  check('right-click on a PDF link folds the block\'s rows behind "Block ›"', linkMenu.sub && !linkMenu.top.some((one) => /Copy link to this line|Duplicate|Delete/.test(one)), JSON.stringify(linkMenu))
+  check('right-click on a PDF link folds the block\'s rows behind "Block ›"', linkMenu.sub && !linkMenu.top.some((one) => /Copy link to block|Duplicate|Delete/.test(one)), JSON.stringify(linkMenu))
   check('opened by the mouse, no row looks picked', linkMenu.lit.length === 0, JSON.stringify(linkMenu.lit))
   check('no greyed row without a reason in its tip', linkMenu.dead.length === 0, JSON.stringify(linkMenu.dead))
   await c.both(`${SHOTS}/pdf-clarity-link-menu`)

@@ -168,6 +168,8 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Editing', keys: '⌥⌘9', does: 'Math, in the line: the selected words, or a new formula', where: 'In a note' },
   { group: 'Editing', keys: '⌥⌘0', does: 'Math block', where: 'In a note' },
   { group: 'Editing', keys: '⌥⌘T', does: 'Table', where: 'In a note' },
+  { group: 'Editing', keys: '⌥⌘M', does: 'Caption the picture, video or file picked', where: 'In a note' },
+  { group: 'Editing', keys: '⇧⌘P', does: 'Move the picked blocks to another note, picked from a search (one Undo puts both notes back)', where: 'In a note' },
   { group: 'Editing', keys: '⌘Z', does: 'Undo the last thing, from its notice', where: 'Both windows' },
   { group: 'Editing', keys: 'O', does: 'While a notice offers a next step, its letter does it: O to open, B to put stickies back, and so on (not while typing)', where: 'Both windows' },
 

@@ -124,7 +124,7 @@ try {
   check('a link out of Wikipedia opens in the browser', (await electron.evaluate(() => globalThis.__opened)).includes('https://example.org/rome-elsewhere') && (await heading()) === 'Roman Empire', `${JSON.stringify(await electron.evaluate(() => globalThis.__opened))} (clicked on ${outUnder})`)
   await h.mouse.click(outAt.x, outAt.y, { button: 'right' }); await wait(500)
   const linkMenu = await h.evaluate(() => [...document.querySelectorAll('[role="menuitem"]')].map((one) => one.textContent.trim()))
-  check('its right-click offers the reader, the reader to the side and the browser', ['Open in the reader', 'Open in the reader to the side', 'Open in the browser', 'Copy address'].every((one) => linkMenu.includes(one)), JSON.stringify(linkMenu))
+  check('its right-click offers the reader, the reader to the side and the browser', ['Open in the reader', 'Open in the reader to the side', 'Open in the browser', 'Copy link'].every((one) => linkMenu.includes(one)), JSON.stringify(linkMenu))
   await h.screenshot({ path: `${shots}/w4-reader-link-menu.png` })
   await h.keyboard.press('Escape'); await wait(300)
 

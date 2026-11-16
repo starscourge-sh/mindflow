@@ -1435,7 +1435,8 @@ export function Home(): React.JSX.Element {
         return openTab(LANDING, frontRef.current, true)
       }
       // ⌘K with the caret in a web link edits the link, as in any editor.
-      if (event.metaKey && (event.key === 'k' || event.key === 'p') && !(event.key === 'k' && caretInLink())) {
+      // ⇧⌘P is picked blocks' "Move to…" (extensions/picked-blocks.ts), never the notes' search.
+      if (event.metaKey && (event.key === 'k' || (event.key === 'p' && !event.shiftKey)) && !(event.key === 'k' && caretInLink())) {
         event.preventDefault()
         return setSearching(event.key === 'k' ? 'all' : 'notes')
       }

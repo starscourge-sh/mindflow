@@ -32,8 +32,19 @@ import { lineUnderMenu } from "@/extensions/meeting"
 import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { canSplit } from "@/lib/split"
 import { ClickedRows, type Clicked } from "./clicked"
-import { binLetGo, isKept, keepInFiles, letGoSaid } from "@/lib/media-files"
-import { duplicatePicked, pickedBlocks } from "@/extensions/picked-blocks"
+import { binLetGo, isKept, keepInFiles, letGoSaid, noteTitle, putAtEnd } from "@/lib/media-files"
+import { MOVE_TO, duplicatePicked, pickRun, pickedBlocks } from "@/extensions/picked-blocks"
+import { blocksOf } from "@/extensions/columns"
+import { NodeRangeSelection } from "@tiptap/extension-node-range"
+import { isHistoryTransaction } from "@tiptap/pm/history"
+import type { JSONContent } from "@tiptap/core"
+import { createPortal } from "react-dom"
+import { Search } from "@/components/search"
+import { refuse, toast } from "@/components/haligtree/ui"
+import { markdownOf } from "@/lib/export"
+import { chime } from "@/lib/sound"
+import { num, plural } from "../../../../main/dates"
+import { quoted } from "../../../../main/clip"
 
 /**
  * What belongs to the whole table rather than to a row or a column.
@@ -118,8 +129,17 @@ export function BlockMenu({
   /** Opened on a picked block (the grip picks its own): the keys a pick answers are shown on their lines. */
   const [keyed, setKeyed] = useState(false)
   const [query, setQuery] = useState("")
+  /** "Move to…": the note picker is up for this many picked blocks (the pick is the editor's own while it waits). */
+  const [moving, setMoving] = useState(0)
   const input = useRef<HTMLInputElement>(null)
   const anchor = useRef<HTMLSpanElement | null>(null)
+  // ⇧⌘P on picked blocks asks for the same picker as the line below (extensions/picked-blocks.ts tells the note).
+  useEffect(() => {
+    if (clickedOnly) return
+    const ask = (event: Event): void => void (event.target === editor.view.dom && setMoving(pickedBlocks(editor.state.selection).length))
+    window.addEventListener(MOVE_TO, ask, true)
+    return () => window.removeEventListener(MOVE_TO, ask, true)
+  }, [editor, clickedOnly])
   // Beside the grip in the margin when the margin holds the menu; else under the grip, so it never
   // covers its own line or the list of notes beside the page.
   const gripSide = () => {
@@ -330,8 +350,9 @@ export function BlockMenu({
    * declare the attributes, so on either of those every swatch was a no-op.
    */
   const colorable = (() => {
-    // A colour is one block's (block-color.ts reads the caret's): not offered on several.
-    const found = many ? null : resolve()
+    // Several picked: each that holds a colour takes it (block-color.ts colours the pick).
+    if (many) return pickedBlocks(editor.state.selection).some((one) => COLORABLE.includes(one.node.type.name))
+    const found = resolve()
     if (!found) return false
     if (COLORABLE.includes(found.node.type.name)) return true
 
@@ -398,7 +419,7 @@ export function BlockMenu({
     if (!block || !note) return said("Could not copy it", false)
     const text = `${embed ? "!" : ""}[[@${note.link}#^${block}|${note.title.replace(/[[\]|\n]+/g, " ").trim().slice(0, 80)}]]`
     await navigator.clipboard.writeText(text).then(
-      () => said(embed ? "Copied: paste it in any note to show this line there, live" : "Link to this line copied: paste it in any note"),
+      () => said(embed ? "Copied: paste it in any note to show this block there, live" : "Link to block copied: paste it in any note"),
       () => said("Could not copy it", false),
     )
   }
@@ -413,6 +434,52 @@ export function BlockMenu({
       .focus()
       .deleteRange({ from: found.pos, to: found.pos + found.node.nodeSize })
       .run()
+  }
+
+  /** "Move to…" chosen: the block the menu is on picked as blocks are (several are already), then the note asked for. */
+  const askMove = () => {
+    const found = many ? null : resolve()
+    if (found) editor.view.dispatch(editor.state.tr.setSelection(pickRun(editor.state.doc, found.pos, found.pos)))
+    setMoving(many || 1)
+  }
+
+  /**
+   * The picked blocks at the end of the note picked, and gone from here: one step, whichever Undo takes it back (the
+   * notice's, ⌘Z here, or ⌘Z away from the note), both notes back as they were.
+   */
+  const moveTo = async (type: string, id: string): Promise<void> => {
+    setMoving(0)
+    const { selection, doc } = editor.state
+    if (!(selection instanceof NodeRangeSelection)) return void refuse("Nothing is picked to move: pick the blocks again")
+    if (String(documentId ?? "") === `${type === "capture" || type === "day" ? type : "item"}-${id}`) return void refuse("They are in that note already: pick another note")
+    const count = pickedBlocks(selection).length
+    const content = blocksOf(doc, selection.from, selection.to)
+    const blocks = content.toJSON() as JSONContent[]
+    const [title, putBack] = await Promise.all([noteTitle(type, id), putAtEnd(type, id, blocks, markdownOf(editor, { type: "doc", content: blocks }), count === 1 ? "A block" : "Blocks")])
+    if (!putBack) return
+    // Changed while the other note was written (closed, or the pick let go): that note is put back, nothing moves.
+    const now = editor.isDestroyed ? null : editor.state.selection
+    if (!(now instanceof NodeRangeSelection) || !blocksOf(editor.state.doc, now.from, now.to).eq(content)) return void putBack().then(() => refuse("The picked blocks changed before they could move: nothing moved"))
+    const before = editor.state.doc
+    editor.chain().focus().deleteSelection().run()
+    const after = editor.state.doc
+    // Taken back here (⌘Z, or the notice's Undo below): out of the other note too, once.
+    const back = ({ transaction }: { transaction: Transaction }): void => {
+      if (!transaction.docChanged || !isHistoryTransaction(transaction) || !editor.state.doc.eq(before)) return
+      editor.off("transaction", back)
+      void putBack().then(() => chime("undo"))
+    }
+    editor.on("transaction", back)
+    chime("noted")
+    toast(`Moved ${count === 1 ? "the block" : plural(count, "block")} to ${quoted(title || "New note", 41)}`, () => {
+      // Closed since: its own Undo went with it, so the blocks stay where they went rather than be lost.
+      if (editor.isDestroyed) return void refuse(`This note was closed: the blocks stay in ${quoted(title || "New note", 41)}`)
+      // Written on since: the blocks come back at the note's end, and the other note is put back as it was.
+      if (editor.state.doc.eq(after)) return void editor.commands.undo()
+      editor.off("transaction", back)
+      editor.chain().focus().insertContentAt(editor.state.doc.content.size, blocks).run()
+      void putBack().then(() => chime("undo"))
+    }, "success", { label: "Open", key: "O", run: () => window.api.openInHome(type, id) })
   }
 
   const conversionRows = conversions.map((item) => (
@@ -453,6 +520,7 @@ export function BlockMenu({
   // Measured only while open: worked out on every draw of every note, it read the page's layout each time.
   const grip = open && !point ? gripSide() : "left"
   return (
+    <>
     <DropdownMenu
       modal={false}
       open={open}
@@ -617,12 +685,13 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
+        {/* One word with the picture's bar and Notion's menu, and its key (extensions/caption.ts). */}
         {captionable && matches("Caption") ? (
           <DropdownMenuItem asChild>
-            <button type="button" onClick={() => at(() => startCaption(editor, editor.state.selection.from))}>
-              {/* A video's are its captions, said so; a picture's or an embed's, a caption. */}
-              <MenuGlyph label={kindName === "Video" ? "Captions" : thing?.attrs.caption ? "Edit caption" : "Add a caption"} />
-              <span className="tiptap-slash-menu-title">{kindName === "Video" ? "Captions" : thing?.attrs.caption ? "Edit caption" : "Add a caption"}</span>
+            <button type="button" data-caption-line onClick={() => at(() => startCaption(editor, editor.state.selection.from))}>
+              <MenuGlyph label="Caption" />
+              <span className="tiptap-slash-menu-title">Caption</span>
+              <span className="tiptap-slash-menu-hint">⌥⌘M</span>
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -740,11 +809,12 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
-        {href && matches("Copy address") ? (
+        {/* Notion's words: "Copy link" is the card's own address, "Copy link to block" a link to the block in this note. */}
+        {href && matches("Copy link") ? (
           <DropdownMenuItem asChild>
-            <button type="button" onClick={() => void navigator.clipboard.writeText(href).then(() => said("Address copied"), () => said("Could not copy the address", false))}>
-              <MenuGlyph label="Copy address" />
-              <span className="tiptap-slash-menu-title">Copy address</span>
+            <button type="button" data-copy-link onClick={() => void navigator.clipboard.writeText(href).then(() => said("Link copied"), () => said("Could not copy the link", false))}>
+              <MenuGlyph label="Copy link" />
+              <span className="tiptap-slash-menu-title">Copy link</span>
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -759,20 +829,20 @@ export function BlockMenu({
           </DropdownMenuItem>
         ) : null}
 
-        {lineable && matches("Copy link to this line") ? (
+        {lineable && matches("Copy link to block") ? (
           <DropdownMenuItem asChild>
             <button type="button" data-copy-line-link onClick={() => void copyLine(false)}>
-              <MenuGlyph label="Copy link to this line" />
-              <span className="tiptap-slash-menu-title">Copy link to this line</span>
+              <MenuGlyph label="Copy link to block" />
+              <span className="tiptap-slash-menu-title">Copy link to block</span>
             </button>
           </DropdownMenuItem>
         ) : null}
 
-        {lineable && matches("Copy embed of this line") ? (
+        {lineable && matches("Copy embed of block") ? (
           <DropdownMenuItem asChild>
             <button type="button" data-copy-line-embed onClick={() => void copyLine(true)}>
-              <MenuGlyph label="Copy embed of this line" />
-              <span className="tiptap-slash-menu-title">Copy embed of this line</span>
+              <MenuGlyph label="Copy embed of block" />
+              <span className="tiptap-slash-menu-title">Copy embed of block</span>
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -784,6 +854,17 @@ export function BlockMenu({
               <MenuGlyph label="Duplicate" />
               <span className="tiptap-slash-menu-title">Duplicate</span>
               {keyed ? <span className="tiptap-slash-menu-hint">⌘D</span> : null}
+            </button>
+          </DropdownMenuItem>
+        ) : null}
+
+        {/* Notion's "Move to": another note, picked from the notes' own search. */}
+        {!isMeeting && editor.isEditable && matches("Move to…") ? (
+          <DropdownMenuItem asChild>
+            <button type="button" data-move-to onClick={askMove}>
+              <MenuGlyph label="Move to…" />
+              <span className="tiptap-slash-menu-title">Move to…</span>
+              {keyed ? <span className="tiptap-slash-menu-hint">⇧⌘P</span> : null}
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -899,5 +980,17 @@ export function BlockMenu({
 
       </DropdownMenuContent>
     </DropdownMenu>
+    {/* "Move to…": the notes' own search as the picker, as "Put in a note…" asks (media-view.tsx); in quick capture, on its card. */}
+    {moving ? createPortal(
+      <Search
+        menus={false}
+        inCard={!new URLSearchParams(location.search).get("view")}
+        placeholder={moving === 1 ? "Move the block to which note?" : `Move ${num(moving)} blocks to which note?`}
+        onClose={() => (setMoving(0), editor.commands.focus())}
+        onOpen={(type, id) => void moveTo(type, id)}
+      />,
+      document.body,
+    ) : null}
+    </>
   )
 }

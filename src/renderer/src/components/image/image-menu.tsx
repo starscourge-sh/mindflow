@@ -136,6 +136,7 @@ export function ImageMenu({ editor }: { editor: Editor | null }): React.JSX.Elem
             <Button
               data-style="ghost"
               tooltip="Caption"
+              shortcutKeys="alt+mod+m"
               data-active-state={attrs.caption ? "on" : "off"}
               aria-label="Caption"
               onClick={() => startCaption(editor, editor.state.selection.from)}

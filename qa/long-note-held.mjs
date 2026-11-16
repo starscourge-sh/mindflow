@@ -74,7 +74,7 @@ const install = () => h.evaluate((sel) => {
       })
       const known = [...first].sort((a, b) => Math.abs(b[1] - from) - Math.abs(a[1] - from))[0]
       if (known && Math.abs(known[1] - from) > 20) return { text: `^${known[0]}`, index: known[1], made: false }
-      // None in this note: a far paragraph is given one, as "Copy link to this line" gives it (a name on the line, no word changed).
+      // None in this note: a far paragraph is given one, as "Copy link to block" gives it (a name on the line, no word changed).
       if (!far || Math.abs(far.index - from) <= 20) return null
       const id = `held${Date.now().toString(36)}`
       e.view.dispatch(e.state.tr.setNodeAttribute(far.offset, 'blockId', id).setMeta('addToHistory', false))

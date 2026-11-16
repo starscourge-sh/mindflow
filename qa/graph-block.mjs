@@ -106,10 +106,10 @@ try {
   b = await box()
   await h.mouse.click(b.x + 20, b.y - 4 - 0, { button: 'right' }); await wait(600)
   const rows = await h.locator('[role="menuitem"]').allInnerTexts().catch(() => [])
-  check('right-click opens the block menu with “Add a caption”', rows.some((r) => /Add a caption/.test(r)), rows.slice(0, 12).join(' | '))
-  await h.locator('[role="menuitem"]', { hasText: 'Add a caption' }).first().click(); await wait(500)
+  check('right-click opens the block menu with “Caption” and its key', rows.some((r) => /^Caption\s*⌥⌘M/.test(r)), rows.slice(0, 12).join(' | '))
+  await h.locator('[role="menuitem"]', { hasText: /^Caption/ }).first().click(); await wait(500)
   await h.keyboard.type('Sine and friends', { delay: 15 }); await h.keyboard.press('Enter'); await wait(500)
-  check('“Add a caption” writes a caption under the graph', (await graphAttrs()).caption === 'Sine and friends' && /Sine and friends/.test(await h.locator('[data-open] .mf-caption').first().innerText().catch(() => '')), String((await graphAttrs()).caption))
+  check('“Caption” writes a caption under the graph', (await graphAttrs()).caption === 'Sine and friends' && /Sine and friends/.test(await h.locator('[data-open] .mf-caption').first().innerText().catch(() => '')), String((await graphAttrs()).caption))
 
   // Pictures, light and dark, and in the Paper style.
   await h.locator('[data-open] .mf-graph').first().scrollIntoViewIfNeeded()

@@ -842,7 +842,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               {isReadable(linkHit) && <ContextMenuItem onSelect={() => openArticle(linkHit, undefined, undefined, pane)}>Open in the reader</ContextMenuItem>}
               {isReadable(linkHit) && canSplit() && <ContextMenuItem onSelect={() => openArticle(linkHit, undefined, 'aside', pane)}>Open in the reader to the side</ContextMenuItem>}
               <ContextMenuItem onSelect={() => window.open(linkHit, '_blank', 'noopener')}>Open in the browser</ContextMenuItem>
-              <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(linkHit).then(() => (chime('copy'), said('Address copied')), () => said('Could not copy the address', false))}>Copy address</ContextMenuItem>
+              <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(linkHit).then(() => (chime('copy'), said('Link copied')), () => said('Could not copy the link', false))}>Copy link</ContextMenuItem>
             </>
           )}
         </ContextMenuContent>

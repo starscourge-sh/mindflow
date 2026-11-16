@@ -4,7 +4,7 @@
 //  22. a [[link]] to nothing makes no page until clicked; clicked, the page is made and opened; left
 //      empty, it goes; renaming a note rewrites ten links to it, one notice, one Undo; export says [[Title]].
 //  19. [[Note# offers its lines; the link lands on one line; pointing at it shows that line; a click opens it there.
-//  28. "Copy embed of this line" pasted elsewhere shows the line live: edited there, saved in its note;
+//  28. "Copy embed of block" pasted elsewhere shows the line live: edited there, saved in its note;
 //      changed in its note, it changes there. A gem shown so stays one gem.
 //   npx electron-vite build --outDir out-links
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-links/main/index.js HALIGTREE_QA_AWAY=1 node qa/links-blocks.mjs
@@ -193,7 +193,7 @@ try {
   await h.locator('.tiptap-drag-handle-grip').first().click(); await wait(500)
   await h.locator('[data-copy-line-embed]').click(); await wait(600)
   const clip = await copiedText(electron)
-  check('28. "Copy embed of this line" copies the line as an embed', /^!\[\[@.+#\^[a-z0-9]+\|Block source note\]\]$/.test(clip), clip)
+  check('28. "Copy embed of block" copies the line as an embed', /^!\[\[@.+#\^[a-z0-9]+\|Block source note\]\]$/.test(clip), clip)
   const shower = await make({ kind: 'note', body: doc(p('Block shower note'), p('Above the line.'), p('')) })
   await open(shower)
   await end()

@@ -4,7 +4,7 @@ import { useNav, useStepped } from '@/lib/nav'
 import { AudioLines, Check, Files, Film, Image as ImageIcon, Layers, LayoutGrid, Plus, Unlink } from 'lucide-react'
 import { openFileLook } from '@/components/attachment/file-look'
 import { FileText } from '@/components/ui/icons'
-import { call, haligtree, unloaded, useLive } from '@/lib/haligtree'
+import { call, unloaded, useLive } from '@/lib/haligtree'
 import { useSmallPicture } from '@/lib/notes'
 import { headingIn } from '@/lib/capture-links'
 import { usePdfCover } from '@/components/pdf/pdf-cover'
@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { MenuGlyph } from '@/components/ui/menu-icon'
 import { Search } from '@/components/search'
-import { addDropped, addFromPicker, binFiles, binUnlinked, keepInFiles, putInNote, takeMediaFile, takeUnlinked } from '@/lib/media-files'
+import { addDropped, addFromPicker, binFiles, binUnlinked, keepInFiles, noteTitle, putInNote, takeMediaFile, takeUnlinked } from '@/lib/media-files'
 import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { useHere } from '@/lib/split'
@@ -34,7 +34,7 @@ import { openedHere } from '@/lib/media-opened'
 import { ListSearch, tileClass } from './note-list'
 import { SoundPlayer, soundTitle } from './sound-player'
 import { RowMenu, type RowItem } from './row-menu'
-import { dayName, num, whenInLine } from '../../../../main/dates'
+import { num, whenInLine } from '../../../../main/dates'
 import type { Media, MediaKind, MediaUse } from '../../../../main/media'
 import { quoted } from '../../../../main/clip'
 
@@ -460,13 +460,6 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     )}
     </div>
   )
-}
-
-/** Its name, to say where a file went. */
-async function noteTitle(type: string, id: string): Promise<string> {
-  if (type === 'day') return dayName(id)
-  if (type === 'capture') return (await window.api.captures.get(id))?.label ?? ''
-  return (await haligtree.item(id))?.title ?? ''
 }
 
 /** A file used by no note, opened as itself: a picture in the app's viewer, a PDF in the reader, a recording played where it sits. */

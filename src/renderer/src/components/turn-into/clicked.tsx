@@ -274,7 +274,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       isWebPage(href) && { label: "Open in the reader", data: "read", run: () => openArticle(href) },
       // Beside the note it was asked from, as "Open to the side" opens a note's link (⌥-click does the same).
       isWebPage(href) && canSplit() && { label: "Open in the reader to the side", data: "read-aside", run: () => openArticle(href, undefined, "aside", editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane")) },
-      { label: "Copy address", data: "copy-address", run: () => copyText(href, "Address copied") },
+      { label: "Copy link", data: "copy-link", run: () => copyText(href, "Link copied") },
       {
         label: "Keep the link",
         hint: "In the Inbox, with its card",
@@ -376,7 +376,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
       // Its words' lines together under one, so the picture's menu stays short enough to show whole.
       clicked.kind === "picture" && pictureLines(src, editor.view.dom).length > 0 && { label: "Text in it", hint: "Read by your Mac", data: "image-words", run: () => undefined, sub: pictureLines(src, editor.view.dom) },
       !own && { label: clicked.kind === "video" ? "Open in the browser" : "Open the picture's address", data: "browser", run: () => void window.open(src) },
-      !own && { label: "Copy address", data: "copy-address", run: () => copyText(src, "Address copied") },
+      !own && { label: "Copy link", data: "copy-link", run: () => copyText(src, "Link copied") },
     ]
     return lines.filter((one): one is Line => !!one)
   }

@@ -1,4 +1,5 @@
 import { Extension } from "@tiptap/core"
+import { pickedBlocks } from "./picked-blocks"
 
 /** The nine both palettes define, in the order the menu shows them. */
 export const BLOCK_COLORS = [
@@ -84,6 +85,18 @@ export const BlockColor = Extension.create({
         ({ background, text }) =>
         ({ state, dispatch }) => {
           const { $from } = state.selection
+          const colored = (attrs: Record<string, unknown>) => ({
+            ...attrs,
+            ...(background !== undefined ? { backgroundColor: background } : {}),
+            ...(text !== undefined ? { textColor: text } : {}),
+          })
+
+          // Blocks picked as blocks (picked-blocks.ts): every one that holds a colour, in one step.
+          const picked = pickedBlocks(state.selection).filter(({ node }) => COLORABLE.includes(node.type.name))
+          if (picked.length) {
+            if (dispatch) dispatch(picked.reduce((tr, { pos, node }) => tr.setNodeMarkup(pos, undefined, colored(node.attrs)), state.tr))
+            return true
+          }
 
           // The block the cursor is in, working outwards from it. Picking the
           // outermost instead tinted a whole list when one bullet was asked
@@ -96,17 +109,7 @@ export const BlockColor = Extension.create({
             const at = parent && WRAPPERS.includes(parent.type.name) ? depth - 1 : depth
             const target = $from.node(at)
 
-            if (dispatch) {
-              dispatch(
-                state.tr.setNodeMarkup($from.before(at), undefined, {
-                  ...target.attrs,
-                  ...(background !== undefined
-                    ? { backgroundColor: background }
-                    : {}),
-                  ...(text !== undefined ? { textColor: text } : {}),
-                })
-              )
-            }
+            if (dispatch) dispatch(state.tr.setNodeMarkup($from.before(at), undefined, colored(target.attrs)))
             return true
           }
 

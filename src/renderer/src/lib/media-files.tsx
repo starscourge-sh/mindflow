@@ -7,7 +7,7 @@ import { call, haligtree } from './haligtree'
 import { notes, smallPicture } from './notes'
 import { chime, tear } from './sound'
 import { seeTheBin } from './to-bin'
-import { clock, dated, num, plural } from '../../../main/dates'
+import { clock, dated, dayName, num, plural } from '../../../main/dates'
 import { quoted } from '../../../main/clip'
 import { addSaid, type AddResult, type MediaKind } from '../../../main/media-words'
 import type { Media } from '../../../main/media'
@@ -97,28 +97,39 @@ const bodyOf = async (type: string, id: string): Promise<unknown> =>
 const writeBody = (type: string, id: string, body: unknown, base: unknown): Promise<unknown> =>
   type === 'capture' ? window.api.captures.save(id, { body, base } as never) : type === 'day' ? notes.saveDay(id, { body }) : haligtree.saveItem(id, { body, base } as never)
 
-const withFiles = (body: unknown, files: Parameters<typeof blockOf>[0][]): unknown => {
-  // Words kept as Markdown, as an import never opened holds them.
-  if (typeof body === 'string') return [body, ...files.map(markdownOf)].join('\n\n')
-  const content = (body as JSONContent | null)?.content ?? []
-  // A note with only its first empty line takes the file there.
+/** A note's name, to say where something went. */
+export async function noteTitle(type: string, id: string): Promise<string> {
+  if (type === 'day') return dayName(id)
+  if (type === 'capture') return (await window.api.captures.get(id))?.label ?? ''
+  return (await haligtree.item(id))?.title ?? ''
+}
+
+/**
+ * Blocks at the end of the note picked ("Put in a note…", "Move to…"), its words kept as they are kept: as Markdown
+ * (`markdown`, an import never opened holds them so), else as blocks, a note with only its first empty line taking
+ * them there. Its Undo, or null once it has said why it could not (`what`: "A file", "A block").
+ */
+export async function putAtEnd(type: string, id: string, blocks: JSONContent[], markdown: string, what: string): Promise<(() => Promise<unknown>) | null> {
+  if (!HOLDS_FILES(type)) return refuse(`${what} goes in a note, a gem, a page or a Journal day. Pick one of those`), null
+  const before = await bodyOf(type, id)
+  const content = (before as JSONContent | null)?.content ?? []
   const kept = content.length === 1 && content[0].type === 'paragraph' && !content[0].content?.length ? [] : content
-  return { type: 'doc', content: [...kept, ...files.map(blockOf)] }
+  const after = typeof before === 'string' ? [before, markdown].join('\n\n') : { type: 'doc', content: [...kept, ...blocks] }
+  try {
+    await writeBody(type, id, after, before)
+  } catch {
+    return refuse('Could not put it there', 'error'), null
+  }
+  return () => writeBody(type, id, before, after)
 }
 
 /** "Put in a note…": the files at the end of the note picked, with Undo and a way there. */
 export async function putInNote(files: Parameters<typeof blockOf>[0][], type: string, id: string, title: string): Promise<void> {
-  if (!HOLDS_FILES(type)) return refuse('A file goes in a note, a gem, a page or a Journal day. Pick one of those')
-  const before = await bodyOf(type, id)
-  const after = withFiles(before, files)
-  try {
-    await writeBody(type, id, after, before)
-  } catch {
-    return refuse('Could not put it there', 'error')
-  }
+  const undo = await putAtEnd(type, id, files.map(blockOf), files.map(markdownOf).join('\n\n'), 'A file')
+  if (!undo) return
   chime('noted')
   toast(`Put ${files.length === 1 ? quoted(files[0].name.replace(/\.[^.]+$/, ''), 41) : plural(files.length, 'file')} in ${quoted(title || 'New note', 41)}`,
-    () => void writeBody(type, id, before, after).then(() => chime('undo')), 'success',
+    () => void undo().then(() => chime('undo')), 'success',
     { label: 'Open', key: 'O', run: () => window.api.openInHome(type, id) })
 }
 
