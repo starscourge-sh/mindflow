@@ -262,7 +262,8 @@ addEventListener('keydown', (event) => {
   if (!combo) return
   if (asked) {
     if (combo === 'Esc' || combo === '⌘Z') return (event.preventDefault(), event.stopImmediatePropagation(), leave(combo === 'Esc'))
-    if (combo === '↵' && asked.said) return (event.preventDefault(), event.stopImmediatePropagation(), void use())
+    // While it writes, ↵ waits with it: it never breaks the line the words are on.
+    if (combo === '↵') return (event.preventDefault(), event.stopImmediatePropagation(), void (asked.said && use()))
     return
   }
   if (combo !== '⌃⌘W') return

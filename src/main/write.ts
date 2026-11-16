@@ -48,9 +48,11 @@ const HELP: Record<string, { instructions: string; stand: (words: string, mine: 
 
 /** A few hundred words of the person's own writing (notes and pages, not private), newest first, for "In my words" to learn their voice from. */
 function ownWriting(db: ReturnType<typeof database>): string[] {
+  // The newest thirty of each read, not the whole book.
   const recent = db.prepare(
-    `select text from (select words(id, body) as text, captured_at as at from captures where kind = 'note' and status != 'discarded' and private = 0
-     union all select words(id, body), created_at from nuggets where tier = 'article' and private = 0 and binned_at is null)
+    `select text from (
+       select * from (select words(id, body) as text, captured_at as at from captures where kind = 'note' and status != 'discarded' and private = 0 order by captured_at desc limit 30)
+       union all select * from (select words(id, body), created_at from nuggets where tier = 'article' and private = 0 and binned_at is null order by created_at desc limit 30))
      where length(text) > 120 order by at desc limit 6`
   ).all() as { text: string }[]
   return recent.map((row) => row.text.replace(/\s+/g, ' ').slice(0, 400))
@@ -110,7 +112,7 @@ export function registerWrite(): void {
  * The quote, as the passage has it: the model's line when it is there word for word, else the passage's sentence
  * that shares most of its words, so a pulled quote is always the author's own words, never a model's rewording.
  */
-export function lineIn(passage: string, line: string): string {
+function lineIn(passage: string, line: string): string {
   if (passage.includes(line)) return line
   const sentences = passage.split(/(?<=[.!?…])\s+|\n+/).map((one) => one.trim()).filter(Boolean)
   const said = new Set(line.toLowerCase().match(/\p{L}+/gu) ?? [])
