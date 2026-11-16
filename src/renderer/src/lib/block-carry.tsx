@@ -180,11 +180,12 @@ function lift(view: EditorView, pos: number, x: number, y: number, copy: boolean
       if (first <= from && to <= last) [from, to] = [first, last]
     }
   }
+  // What goes, as whole blocks: a pick that reaches into a list takes its items in a list of their own.
   const nodes: Block[] = []
+  state.doc.slice(from, to).content.forEach((one) => void nodes.push(one))
   const sources: HTMLElement[] = []
   state.doc.nodesBetween(from, to, (one, at) => {
     if (at < from || at + one.nodeSize > to) return true
-    nodes.push(one)
     const dom = view.nodeDOM(at)
     if (dom instanceof HTMLElement) sources.push(dom)
     return false

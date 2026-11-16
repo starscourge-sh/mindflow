@@ -1,10 +1,11 @@
 import { Extension } from "@tiptap/core"
 import { NodeRangeSelection, getSelectionRanges } from "@tiptap/extension-node-range"
-import { Fragment, type Node as Block } from "@tiptap/pm/model"
+import { Fragment, type Node as Block, type ResolvedPos } from "@tiptap/pm/model"
 import { liftListItem, sinkListItem } from "@tiptap/pm/schema-list"
-import { NodeSelection, Plugin, Selection, TextSelection } from "@tiptap/pm/state"
+import { NodeSelection, Plugin, Selection, SelectionRange, TextSelection } from "@tiptap/pm/state"
 import type { Mappable } from "@tiptap/pm/transform"
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view"
+import { edgeScroll } from "@/lib/edge-scroll"
 import { chime } from "@/lib/sound"
 import { LISTS } from "./columns"
 
@@ -17,17 +18,30 @@ import { LISTS } from "./columns"
  * Esc, Enter or a click in the words lets go.
  *
  * The pick is TipTap's own run of whole blocks (the drag handle's NodeRangeSelection): one run of blocks side by side
- * in one parent. A run that reaches past a list takes the list whole, its items each boxed.
+ * in one parent, except that a list at either end the run reaches only part of gives the items it reached, as Notion
+ * picks them; a list reached whole is the list, its items each boxed.
  */
 
 /** A list's own items: each picked block of its own. */
 export const ITEMS = new Set(["listItem", "taskItem"])
+
+/** Told to a note's own element: "Move to…" asked for its picked blocks by ⇧⌘P. */
+export const MOVE_TO = "haligtree:move-picked"
 
 /**
  * The pick. Read again from where its ends went whenever the note changes under it, at the depth they then share: a
  * change that moves the blocks (a carry out of a list) never leaves it reading a depth that is gone.
  */
 export class Picked extends NodeRangeSelection {
+  constructor($anchor: ResolvedPos, $head: ResolvedPos, depth: number) {
+    super($anchor, $head, depth)
+    // Into a list only as far as the pick's ends reach: its own ends then stand at those items, so it maps and undoes so.
+    const ranges = touched(this.ranges, $anchor.min($head).pos, $anchor.max($head).pos)
+    if (ranges === this.ranges) return
+    const [$first, $last] = [ranges[0].$from, ranges[ranges.length - 1].$to]
+    Object.assign(this, { ranges, ...($head.pos >= $anchor.pos ? { $anchor: $first, $head: $last } : { $anchor: $last, $head: $first }) })
+  }
+
   map(doc: Block, mapping: Mappable): NodeRangeSelection {
     return pickBetween(doc, mapping.map(this.anchor), mapping.map(this.head)) as NodeRangeSelection
   }
@@ -36,6 +50,26 @@ export class Picked extends NodeRangeSelection {
   getBookmark(): ReturnType<NodeRangeSelection["getBookmark"]> {
     return new Mark(this.anchor, this.head) as never
   }
+}
+
+/** A list the pick's ends (`from`, `to`) reach only part of: the items they reach, each a range of its own. */
+function touched(ranges: readonly SelectionRange[], from: number, to: number): readonly SelectionRange[] {
+  let split = false
+  const out = ranges.flatMap((range) => {
+    const list = range.$from.nodeAfter
+    const start = range.$from.pos
+    if (!list || !LISTS.has(list.type.name) || (from <= start && to >= range.$to.pos)) return [range]
+    const items: SelectionRange[] = []
+    list.forEach((item, offset) => {
+      const at = start + 1 + offset
+      if (at + item.nodeSize > from && at < to) items.push(new SelectionRange(range.$from.doc.resolve(at), range.$from.doc.resolve(at + item.nodeSize)))
+    })
+    // Every item reached: the list itself, as before.
+    if (!items.length || items.length === list.childCount) return [range]
+    split = true
+    return items
+  })
+  return split ? out : ranges
 }
 
 class Mark {
@@ -131,8 +165,11 @@ export function duplicatePicked(view: EditorView): boolean {
     return Fragment.from(nodes)
   }
   const content = unnamed(state.doc.slice(selection.from, selection.to).content)
-  const tr = state.tr.insert(selection.to, content)
-  view.dispatch(tr.setSelection(pickBetween(tr.doc, selection.to, selection.to + content.size)).scrollIntoView())
+  // After the run's last block: a pick that reaches into a list ends among its items, where a copy of the rest cannot stand.
+  const depth = selection.depth ?? 0
+  const at = selection.$to.depth > depth ? selection.$to.after(depth + 1) : selection.to
+  const tr = state.tr.insert(at, content)
+  view.dispatch(tr.setSelection(pickBetween(tr.doc, at, at + content.size)).scrollIntoView())
   return true
 }
 
@@ -194,6 +231,8 @@ export const PickedBlocks = Extension.create({
             }
             if (event.key === "Tab" && !event.metaKey && !event.ctrlKey && !event.altKey) return shift(view, selection, event.shiftKey)
             if (event.code === "KeyD" && event.metaKey && !event.shiftKey && !event.altKey && !event.ctrlKey) return duplicatePicked(view)
+            // ⇧⌘P, Notion's "Move to": the grip's menu asks which note (components/turn-into/block-menu.tsx).
+            if (event.code === "KeyP" && event.metaKey && event.shiftKey && !event.altKey && !event.ctrlKey) return view.dom.dispatchEvent(new CustomEvent(MOVE_TO)), true
             return false
           },
         },
@@ -207,7 +246,23 @@ export const PickedBlocks = Extension.create({
 /** How far the pointer goes before a press in the margin starts the box, as the grip's carry lifts. */
 const START = 4
 
-let box: { view: EditorView; x: number; y: number; top: number; scroller: HTMLElement; drawn: HTMLElement | null; onPage: boolean } | null = null
+type Box = {
+  view: EditorView
+  /** Where the press was, and the note's scroll then. */
+  x: number
+  y: number
+  top: number
+  scroller: HTMLElement
+  drawn: HTMLElement | null
+  onPage: boolean
+  /** The pointer, last heard. */
+  at: { x: number; y: number }
+  /** The block the press was level with, read as the box starts, while it is in sight. */
+  anchor: number | null
+  /** Held at the note's top or bottom edge, the note scrolls on, as under a carried block. */
+  edge: ReturnType<typeof edgeScroll>
+}
+let box: Box | null = null
 
 /**
  * The editor whose bare margin was pressed: the page itself in its padding, or a bare box holding it (its scroller,
@@ -232,14 +287,24 @@ function columnOf(view: EditorView): { left: number; right: number; top: number;
   return { left: area.left + (parseFloat(style.paddingLeft) || 0), right: area.right - (parseFloat(style.paddingRight) || 0), top: area.top + (parseFloat(style.paddingTop) || 0), bottom: area.bottom - (parseFloat(style.paddingBottom) || 0) }
 }
 
-/** The block level with a height in the column: a list's item, else the note's own block. */
-function blockAtY(view: EditorView, x: number, y: number): number | null {
+/**
+ * The block level with a height in the column: a list's item, else the note's own block. In the gap between two
+ * blocks, the one the box's edge has reached: above the gap for its foot (`side` -1), below it for its head (1).
+ */
+function blockAtY(view: EditorView, x: number, y: number, side: 1 | -1): number | null {
   const found = view.posAtCoords({ left: x, top: y })
   if (!found) return null
   const { doc } = view.state
   const at = found.inside >= 0 ? found.inside : found.pos
   const node = found.inside >= 0 ? doc.nodeAt(at) : null
   if (node?.isLeaf && node.isBlock && doc.resolve(at).depth === 0) return at
+  const $at = doc.resolve(at)
+  if (!node && !$at.parent.inlineContent) {
+    const next = side > 0 ? $at.nodeAfter ?? $at.nodeBefore : $at.nodeBefore ?? $at.nodeAfter
+    if (!next) return null
+    const start = next === $at.nodeAfter ? at : at - next.nodeSize
+    return next.isLeaf && !$at.depth ? start : blockOf(doc, next.isLeaf ? start : start + 1)
+  }
   return blockOf(doc, node && !node.isLeaf ? at + 1 : at)
 }
 
@@ -255,37 +320,53 @@ function press(event: PointerEvent): void {
   const scroller = (view.dom.closest(".haligtree-editor-content") as HTMLElement | null) ?? view.dom
   // No caret moved and no words picked by the press itself: the box, or a click, decides.
   event.preventDefault()
-  box = { view, x: event.clientX, y: event.clientY, top: scroller.scrollTop, scroller, drawn: null, onPage: event.target === view.dom }
+  const at = { x: event.clientX, y: event.clientY }
+  box = { view, ...at, top: scroller.scrollTop, scroller, drawn: null, onPage: event.target === view.dom, at, anchor: null, edge: edgeScroll(scroller) }
   window.addEventListener("pointermove", move, true)
   window.addEventListener("pointerup", up, true)
   window.addEventListener("pointercancel", stop, true)
   window.addEventListener("keydown", key, true)
+  // The note scrolling under a still pointer (at its edge) grows the box with it.
+  scroller.addEventListener("scroll", scrolled, { passive: true })
 }
 
 function move(event: PointerEvent): void {
   const one = box
   if (!one) return
   if (!(event.buttons & 1)) return stop()
+  one.at = { x: event.clientX, y: event.clientY }
+  draw(one)
+}
+
+const scrolled = (): void => void (box?.drawn && draw(box))
+
+/** The box from the press to the pointer, and the blocks it touches picked. */
+function draw(one: Box): void {
+  const { x, y } = one.at
   // Where the press was, moved with the note's scroll since.
   const y0 = one.y - (one.scroller.scrollTop - one.top)
+  const column = columnOf(one.view)
   if (!one.drawn) {
-    if (Math.hypot(event.clientX - one.x, event.clientY - y0) < START) return
+    if (Math.hypot(x - one.x, y - y0) < START) return
     one.drawn = Object.assign(document.createElement("div"), { className: "mf-pick-box" })
     one.drawn.setAttribute("aria-hidden", "true")
     document.body.append(one.drawn)
+    // The box's head when it is drawn down, its foot when drawn up.
+    one.anchor = blockAtY(one.view, column.left + 1, Math.min(Math.max(y0, column.top + 1), column.bottom - 1), y >= y0 ? 1 : -1)
     one.view.focus()
   }
-  const [left, right, top, bottom] = [Math.min(one.x, event.clientX), Math.max(one.x, event.clientX), Math.min(y0, event.clientY), Math.max(y0, event.clientY)]
-  Object.assign(one.drawn.style, { translate: `${left}px ${top}px`, width: `${right - left}px`, height: `${bottom - top}px` })
-  // What it touches: the blocks level with it, once it reaches the words' column.
-  const column = columnOf(one.view)
+  one.edge.follow(y)
+  const [left, right, top, bottom] = [Math.min(one.x, x), Math.max(one.x, x), Math.min(y0, y), Math.max(y0, y)]
+  // Drawn in the note's own room: what has scrolled out of sight is still in it, never drawn over the page's head.
+  const room = one.scroller.getBoundingClientRect()
+  const [shown, foot] = [Math.max(top, room.top), Math.min(bottom, room.bottom)]
+  Object.assign(one.drawn.style, { translate: `${left}px ${shown}px`, width: `${right - left}px`, height: `${Math.max(0, foot - shown)}px` })
+  // What it touches: the blocks from the press's to the pointer's, once it reaches the words' column.
   const { state } = one.view
   let next: Selection = Selection.near(state.selection.$head)
   if (right >= column.left && left <= column.right && bottom >= column.top && top <= column.bottom) {
-    const x = column.left + 1
-    const first = blockAtY(one.view, x, Math.max(top, column.top + 1))
-    const last = blockAtY(one.view, x, Math.min(bottom, column.bottom - 1))
-    if (first !== null && last !== null) next = event.clientY < y0 ? pickRun(state.doc, last, first) : pickRun(state.doc, first, last)
+    const at = blockAtY(one.view, column.left + 1, Math.min(Math.max(y, column.top + 1, room.top + 1), column.bottom - 1, room.bottom - 1), y >= y0 ? -1 : 1)
+    if (one.anchor !== null && at !== null) next = pickRun(state.doc, one.anchor, at)
   }
   if (!next.eq(state.selection)) one.view.dispatch(state.tr.setSelection(next))
 }
@@ -320,6 +401,8 @@ function key(event: KeyboardEvent): void {
 
 function stop(): void {
   box?.drawn?.remove()
+  box?.edge.stop()
+  box?.scroller.removeEventListener("scroll", scrolled)
   box = null
   window.removeEventListener("pointermove", move, true)
   window.removeEventListener("pointerup", up, true)
