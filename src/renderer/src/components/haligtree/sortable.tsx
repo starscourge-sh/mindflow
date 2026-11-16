@@ -1,7 +1,7 @@
 import { Fragment, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { dragWords } from '@/lib/drag-words'
 import { createPortal } from 'react-dom'
-import { DndContext, DragOverlay, useDndMonitor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragMoveEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
+import { DndContext, DragOverlay, useDndMonitor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { RowSensor } from '@/lib/own-press'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
@@ -496,8 +496,9 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
     ticks.start('stay')
     setShot(carriedOf(String(active.id), activatorEvent))
   }
-  const onDragMove = ({ activatorEvent, delta }: DragMoveEvent): void => {
-    const found = where((activatorEvent as PointerEvent).clientY + delta.y)
+  // The pointer as it is on the page: the drag's delta takes in the list's scroll too (kept-groups.tsx says how it hurt).
+  const onDragMove = (): void => {
+    const found = where(pointerAt().y)
     mark(found === 'refused' ? null : found, found === 'refused')
   }
   const onDragEnd = ({ active }: DragEndEvent): void => {

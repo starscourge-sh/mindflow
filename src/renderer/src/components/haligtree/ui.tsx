@@ -2317,10 +2317,15 @@ function aboveScreen(item: VirtualItem, delta: number, list: Virtualizer<HTMLEle
   return list.itemSizeCache.has(item.key) ? at.bottom - delta <= edge && list.scrollDirection !== 'backward' : at.top < edge
 }
 
-export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, sizeOf, className = '', rowClass = 'pb-0.5', children }: {
+export function VirtualList<T>({ items, keyOf, holds, held, cursor, estimate = 48, sizeOf, className = '', rowClass = 'pb-0.5', children }: {
   items: T[]
   /** Whether a row holds this id, where a row is more than one (a line of tiles): its key is asked otherwise. */
   holds?: (item: T, id: string) => boolean
+  /**
+   * The row in hand while a list's row is carried: kept drawn at its own place however far the list scrolls under the
+   * pointer, as the room it opens and the line through it are drawn by that row (carry.tsx `Carried`).
+   */
+  held?: string | null
   /** A row's height before it is measured, when rows differ (a group's line holds its rows): `estimate` otherwise. */
   sizeOf?: (item: T) => number
   keyOf: (item: T) => string
@@ -2458,6 +2463,9 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
     return () => window.removeEventListener('haligtree:show-row', show)
   }, [scroller]) // eslint-disable-line react-hooks/exhaustive-deps
   const drawn = rows.getVirtualItems()
+  // Out of the rows drawn, the row in hand stands on its own at its place, so the list's flow under it never moves.
+  const heldAt = held ? items.findIndex((one) => keyOf(one) === held || !!holds?.(one, held)) : -1
+  const away = heldAt >= 0 && !drawn.some((one) => one.index === heldAt) ? rows.measurementsCache[heldAt] : undefined
   return (
     // As tall as the rows drawn and the room kept for those above and below them, never a height of its own: a height
     // set from the measure was a frame or two behind a group folding inside it, so the list stayed long while the group
@@ -2476,6 +2484,11 @@ export function VirtualList<T>({ items, keyOf, holds, cursor, estimate = 48, siz
           </div>
         ))}
       </div>
+      {away && (
+        <div key={away.key} data-index={away.index} className={`absolute inset-x-0 ${rowClass}`} style={{ top: away.start - margin }}>
+          {children(items[away.index], away.index)}
+        </div>
+      )}
     </div>
   )
 }

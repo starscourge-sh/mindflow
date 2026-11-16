@@ -275,7 +275,9 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const tall = wrap?.getBoundingClientRect().height
       if (tall && Math.abs(tall - spanRef.current) > 0.5) setSpan(tall)
     }
-    const pointer = activatorEvent instanceof PointerEvent ? { x: activatorEvent.clientX + delta.x, y: activatorEvent.clientY + delta.y } : null
+    // Where the pointer is on the page, never the drag's own delta: that takes in the list's scroll as well, so held still
+    // at the list's foot while it scrolled, it ran on past every row and the room went.
+    const pointer = activatorEvent instanceof PointerEvent ? pointerAt() : null
     // With the split places up, letting go opens it there: nothing in the list lights too, whatever row it is level with.
     if (!pointer || 'splitDrag' in document.documentElement.dataset) return (lightShelf(null), aimAt(null))
     // Several notes over a shelf folder: into that folder, not into whichever list row sits at the same height.
@@ -505,7 +507,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} home={homeOf(carried)} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
           {(hint || ordered) && <DragHint {...(hint ?? OWN_ORDER)} />}
-          <VirtualList items={lines} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0].id)} holds={({ one }, id) => one.entries.some((entry) => entry.id === id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
+          <VirtualList items={lines} held={carried} keyOf={({ one }) => (one.group ? KEY + one.group.id + (shownIn(one) > BIG ? ':big' : '') : one.entries[0].id)} holds={({ one }, id) => one.entries.some((entry) => entry.id === id)} cursor={line >= 0 ? line : undefined} estimate={estimate} className={className}
             // A big group's line is keyed apart from a small one's: emptied in one step (2,500 rows to none), the list
             // would place every row under it by the height it measured before, scroll there and draw it all twice.
             sizeOf={({ one }) => (one.group?.open ? estimate * (1 + shownIn(one)) : estimate)}>
