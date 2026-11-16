@@ -68,7 +68,8 @@ try {
       // On the screen, as a person scrolled to it: a picture lower down is only asked for once it comes near.
       img.scrollIntoView({ block: 'center' })
       // Settled: drawn, or the app's own face in its place saying why not (haligtree-editor.tsx `missing`), or broken.
-      if (img.dataset.missing && img.complete) return { state: 'said', words: img.alt }
+      // The face drawn (it stands in the picture's place once the cause is known), and its words then.
+      if (img.dataset.missing && img.complete && img.src.startsWith('data:')) return { state: 'said', words: img.alt }
       // Failed, and its error not yet told (it comes a moment after): waited for, as a person sees the face then. One
       // that is still the browser's broken picture when the wait runs out never settled.
       if (!img.complete || !img.naturalWidth) return false
