@@ -13,6 +13,12 @@
 // tables are measured at the same load (the old build and the new back to back). With QA_FROM, each on a copy of its
 // own (QA_DATA and QA_DATA-compared): on one copy, each build undid the other's picture index at every start.
 // QA_FRAMES=<dir>: the main window's own frames, from the launch to the first key answered, of every start (cold-1…).
+// QA_FRAMES_UNTIL=<ms>: filmed on to that long after the launch at least (a painting coming in after the first screen),
+// the search box put away once the key is answered.
+// QA_SETTLE=<ms>: the untimed first start of each build left open that long, so its own first-start work (a picture
+// index made afresh) is done before the timed starts.
+// QA_FORGET=<a path in the data>: taken away before each cold start too (sandbox/scenery-cache: the paintings looked
+// through afresh, as on a book's first start).
 // QA_THEME=<theme> (paper, dark…): worn from the first cold start on (set as the start before it ends), for light and dark frames.
 // QA_PROFILE=<file> with HALIGTREE_QA_PROFILE_START=1: main's CPU profile from its first module to quick capture drawn,
 // of each start, written as <file>-<cold|again>-<n>.cpuprofile (a profiled start is slower: not for the table).
@@ -27,6 +33,9 @@ const RUNS = Number(process.env.QA_RUNS ?? 5)
 const FROM = process.env.QA_FROM
 const DATA = process.env.QA_DATA
 const FRAMES = process.env.QA_FRAMES
+const UNTIL = Number(process.env.QA_FRAMES_UNTIL ?? 0)
+const FORGET = process.env.QA_FORGET
+const SETTLE = Number(process.env.QA_SETTLE ?? 0)
 const THEME = process.env.QA_THEME
 if (!DATA || (FROM ? !existsSync(FROM) : !existsSync(DATA))) throw new Error('QA_DATA is needed: a copy to start on, or where QA_FROM is cloned to')
 const BUILDS = [['this build', process.env.QA_ENTRY], ...(process.env.QA_COMPARE ? [['the build compared', process.env.QA_COMPARE]] : [])]
@@ -73,6 +82,8 @@ async function start(label, n) {
   const sentAt = Date.now()
   await home.keyboard.press('Meta+k')
   const key = await answer
+  // Filmed on past the key: the search box put away again, so what comes in after the first screen (a painting) is seen.
+  if (frames && UNTIL) await home.keyboard.press('Escape')
   for (let i = 0; i < 500 && !seen.times.boxDrawn; i++) (await wait(20), (seen = await main()))
   if (process.env.QA_PROFILE) writeFileSync(`${process.env.QA_PROFILE}-${label}-${n}.cpuprofile`, JSON.stringify((await app.evaluate(() => globalThis.mainProfile(false)))?.profile ?? null))
   // What held main's one thread 50ms or more while it started (stalls.ts), for the first start of each kind.
@@ -98,12 +109,14 @@ async function start(label, n) {
   })
   console.log(`(${label} start ${n}: held past the limit: ${heldSaid(page.held)})`)
   if (frames) {
+    await wait(Math.max(0, launchedAt + UNTIL - Date.now()))
     const got = await frames.stop()
     const dir = `${FRAMES}/${label}-${n}`
     mkdirSync(dir, { recursive: true })
-    for (const [at, data] of got) if (at <= page.origin + key.answered + 400) writeFileSync(`${dir}/${String(Math.round(at - launchedAt)).padStart(5, '0')}ms.jpg`, Buffer.from(data, 'base64'))
+    for (const [at, data] of got) if (at <= Math.max(page.origin + key.answered + 400, launchedAt + UNTIL)) writeFileSync(`${dir}/${String(Math.round(at - launchedAt)).padStart(5, '0')}ms.jpg`, Buffer.from(data, 'base64'))
   }
   if (THEME && label !== 'again') await home.evaluate((theme) => localStorage.setItem('theme', theme), THEME)
+  if (label === 'first') await wait(SETTLE)
   await Promise.race([app.close(), wait(6000)])
   try { app.process().kill('SIGKILL') } catch {}
   const m = (step) => seen.origin + (seen.times[step] ?? NaN) - launchedAt
@@ -160,7 +173,7 @@ const backups = (entry) => [`${dataOf(entry)}/backups`, `${dataOf(entry)}/sandbo
 for (let n = 1; n <= RUNS; n++) {
   for (const [name, entry] of BUILDS) {
     as(entry)
-    for (const one of backups(entry)) rmSync(one, { recursive: true, force: true })
+    for (const one of [...backups(entry), ...(FORGET ? [`${dataOf(entry)}/${FORGET}`] : [])]) rmSync(one, { recursive: true, force: true })
     const { cold, again } = runs.get(name)
     cold.push(await start('cold', n))
     // The day's copy of the book, made as it started (backup.ts): there, whole, with no part of one left beside it.
