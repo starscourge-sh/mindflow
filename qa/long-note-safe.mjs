@@ -34,6 +34,7 @@ import { loadavg } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+import { lineOnShow } from './line-on-show.mjs'
 
 const { check, done } = checks()
 const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
@@ -206,52 +207,13 @@ async function letter(target, key, vimKey = 'i') {
   return at
 }
 /**
- * A press on a line of the note that is really on show (built, well inside
- * its window, nothing lying over it), so the caret goes into the note by the
- * pointer. Says where it pressed, or null when no press put the caret in.
+ * A press on a line of the note that is really on show (qa/line-on-show.mjs: built, well inside its window, nothing
+ * lying over it), so the caret goes into the note by the pointer. Says where it pressed, or null when no press put
+ * the caret in.
  */
-async function pressIn(target, { min = 3, only = '^(P|H[1-6]|UL|OL|BLOCKQUOTE)$' } = {}) {
+async function pressIn(target, { min = 3, only } = {}) {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const spot = await within(8000, page(target, (ed, [skip, min, only]) => {
-      let box = ed.parentElement
-      while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
-      const view = box.getBoundingClientRect()
-      const wanted = new RegExp(only)
-      let seen = 0
-      const said = { blocks: ed.children.length, kind: 0, onShow: 0, clear: 0, under: '', seen: [] }
-      // What is on the screen, of any kind: for the line that says why no line was pressed.
-      for (const el of ed.children) {
-        const r = el.getBoundingClientRect()
-        if (r.height && r.bottom > view.top && r.top < view.bottom && said.seen.length < 6) said.seen.push(`${el.tagName}${el.hasAttribute('data-off') ? ' off' : ''} ${Math.round(r.top - view.top)}..${Math.round(r.bottom - view.top)} "${el.textContent.trim().slice(0, 16)}"`)
-      }
-      said.scroller = `${box.tagName}.${String(box.className).slice(0, 40)} at ${Math.round(box.scrollTop)} of ${box.scrollHeight - box.clientHeight}, ${Math.round(view.height)} tall`
-      // A line of words on show, pressed on its first letter, as a person presses what they see: in a block of the
-      // kind asked for, whole or not (a long list can fill the screen by itself: a note opened where it was left,
-      // lib/note-place.ts, may show nothing else), its line well inside the window and nothing lying over it.
-      for (const el of ed.children) {
-        if (!wanted.test(el.tagName) || el.hasAttribute('data-off') || el.textContent.trim().length < min) continue
-        said.kind++
-        const r = el.getBoundingClientRect()
-        if (!r.height || r.bottom < view.top + 60 || r.top > view.bottom - 60) continue
-        said.onShow++
-        const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, { acceptNode: (node) => (node.textContent.trim().length >= Math.min(min, 3) && !node.parentElement.closest('[contenteditable="false"], button, summary') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP) })
-        for (let text = walk.nextNode(); text; text = walk.nextNode()) {
-          const range = document.createRange()
-          const start = text.textContent.search(/\S/)
-          range.setStart(text, start)
-          range.setEnd(text, start + 1)
-          const letter = range.getBoundingClientRect()
-          if (!letter.height || letter.top < view.top + 60 || letter.bottom > view.bottom - 60) continue
-          const [x, y] = [Math.round(letter.left + Math.min(2, letter.width / 3)), Math.round(letter.top + letter.height / 2)]
-          const hit = document.elementFromPoint(x, y)
-          if (!hit || !el.contains(hit)) { said.under ||= hit ? `${hit.tagName}.${String(hit.className).slice(0, 60)}` : 'nothing'; continue }
-          said.clear++
-          if (seen++ < skip) break
-          return { x, y, index: ed.editor.state.doc.resolve(ed.editor.view.posAtDOM(el, 0)).index(0), words: text.textContent.trim().slice(0, 40) }
-        }
-      }
-      return { none: said }
-    }, [attempt, min, only]))
+    const spot = await within(8000, page(target, lineOnShow, { min, only, skip: attempt }))
     if (!spot || spot.none) return void console.log(`(no line to press: ${JSON.stringify(spot?.none ?? 'the window did not answer')})`)
     await target.mouse.click(spot.x, spot.y)
     await wait(250)

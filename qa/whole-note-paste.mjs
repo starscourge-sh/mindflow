@@ -16,6 +16,7 @@ import { loadavg } from 'os'
 import { join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+import { lineOnShow } from './line-on-show.mjs'
 
 process.env.HALIGTREE_FREEZE_CATCH ??= '1'
 const { check, done } = checks()
@@ -90,20 +91,10 @@ try {
   }, KIND)
   console.log(`(open: ${made.blocks} blocks; the copy is ${made.text} characters of Markdown${KIND === 'html' ? ` and ${made.html} of HTML` : ''}; the contents list ${made.outline} headings)`)
 
-  // ⌘A and ⌫, with the keys, the caret put in the note by a press on a line on show.
-  const spot = await page(h, (ed) => {
-    let box = ed.parentElement
-    while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
-    const view = box.getBoundingClientRect()
-    for (const el of ed.children) {
-      if (!/^(P|H[1-4])$/.test(el.tagName) || el.hasAttribute('data-off') || el.textContent.trim().length < 3) continue
-      const r = el.getBoundingClientRect()
-      if (r.top < view.top + 60 || r.bottom > view.bottom - 60) continue
-      return { x: Math.round(r.left + 30), y: Math.round(r.top + Math.min(r.height / 2, 11)) }
-    }
-    return null
-  })
-  if (!check('a line of the note is on show to press in', !!spot)) throw new Error('nothing to press')
+  // ⌘A and ⌫, with the keys, the caret put in the note by a press on a line on show (a list's too: one long list can
+  // fill the screen of a note opened where it was left).
+  const spot = await page(h, lineOnShow)
+  if (!check('a line of the note is on show to press in', !spot.none, spot.none ? JSON.stringify(spot.none) : `block ${spot.index + 1}: "${spot.words}"`)) throw new Error('nothing to press')
   await h.mouse.click(spot.x, spot.y)
   await wait(400)
   const emptying = Date.now()
