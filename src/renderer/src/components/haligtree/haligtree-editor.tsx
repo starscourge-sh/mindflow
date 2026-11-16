@@ -1966,21 +1966,23 @@ function Surface({
   }, [page, editor, handles])
 
   // Writing, the gutter (+ and the grip) steps out of the way, as in Notion: a key typed hides it and the
-  // mouse moved brings it back. On the wrapper, so CSS can say so in one place (data-keyed).
+  // mouse moved brings it back. On the wrapper, so CSS can say so in one place (data-gutter-away). A name of its
+  // own: as "data-keyed", the mark of a popup reached by keys, it had every rule about that mark asked again under the
+  // wrapper on the first key and on the next move of the mouse, the contents list's 934 rows in the largest note.
   useEffect(() => {
     const wrap = wrapperRef.current
     if (!page || !wrap || !handles) return
     const typed = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey || event.key.length !== 1 && event.key !== "Backspace" && event.key !== "Enter") return
-      wrap.setAttribute("data-keyed", "")
+      wrap.setAttribute("data-gutter-away", "")
     }
-    const moved = (event: MouseEvent): void => void ((event.movementX || event.movementY) && wrap.removeAttribute("data-keyed"))
+    const moved = (event: MouseEvent): void => void ((event.movementX || event.movementY) && wrap.removeAttribute("data-gutter-away"))
     page.addEventListener("keydown", typed, true)
     window.addEventListener("mousemove", moved, { passive: true })
     return () => {
       page.removeEventListener("keydown", typed, true)
       window.removeEventListener("mousemove", moved)
-      wrap.removeAttribute("data-keyed")
+      wrap.removeAttribute("data-gutter-away")
     }
   }, [page, handles])
 

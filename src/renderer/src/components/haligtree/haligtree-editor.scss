@@ -2012,8 +2012,8 @@ html[data-motion="off"] :is(.prosemirror-dropcursor-block, .prosemirror-dropcurs
     pointer-events: auto !important;
   }
 
-  // Typing: out of the way until the mouse moves (haligtree-editor.tsx, data-keyed).
-  .haligtree-editor-wrapper[data-keyed] &.is-shown:not([data-dragging]) {
+  // Typing: out of the way until the mouse moves (haligtree-editor.tsx, data-gutter-away).
+  .haligtree-editor-wrapper[data-gutter-away] &.is-shown:not([data-dragging]) {
     opacity: 0;
     pointer-events: none !important;
   }
