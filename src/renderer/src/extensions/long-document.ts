@@ -220,6 +220,15 @@ export const takeHeights = (editor: Editor, kept: KeptHeights): void => void (ed
 const ownScrolls = new WeakMap<Element, number>()
 export const scrolledItself = (scroller: Element): number => ownScrolls.get(scroller) ?? 0
 
+/**
+ * A note put back where it was left is held there by whoever put it back (lib/note-place.ts) until the person moves
+ * it, by the note's own element: meanwhile the note holds nothing of its own (`keep`). Both at once, each held a
+ * block of its own, one by the space kept above and one by a scroll, and the note opened again some blocks and
+ * hundreds of pixels from where it was left (qa/long-note-held.mjs).
+ */
+const placesHeld = new WeakMap<Element, () => boolean>()
+export const placeHeld = (dom: Element, held: (() => boolean) | null): void => void (held ? placesHeld.set(dom, held) : placesHeld.delete(dom))
+
 /** The keys the browser itself answers where its selection is, beside the letters: those that move it or rub out. */
 const LANDS = new Set(["Enter", "Backspace", "Delete", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Process", "Dead"])
 
@@ -480,8 +489,11 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
    * carried the words 150 px down, and after a whole note pasted back, what grew above the caret (2,661 px of it
    * under a busy machine) carried the caret off the screen (qa/hold-the-screen.mjs, qa/whole-note-paste.mjs).
    */
-  let pin: { el: Element; at: number; own: number } | null = null
-  const deep = (scroller: Element, el: Element): number => el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+  let pin: { el: Element; at: number } | null = null
+  // How far down the drawn blocks a block stands: moved only by what is drawn above it changing height, never by a
+  // scroll or by the space kept above the drawn blocks (`hold`, `rest`). Blocks drawn or taken off above it move it
+  // too: that is the drawn blocks moving (`draw`), and what is held is chosen again then.
+  const deep = (el: Element): number => el.getBoundingClientRect().top - view.dom.getBoundingClientRect().top
   /** The deepest drawn block at height `y`: the block there, or in a list, a quote or a table, its part at that height. */
   const blockAt = (y: number): Element | null => {
     const all = blocks()
@@ -513,17 +525,15 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
       if (shown && shown.bottom > top && shown.top < Math.min(box.bottom, window.innerHeight)) el = caret as Element
     }
     el ??= blockAt(top)
-    if (el) pin = { el, at: deep(scroller, el), own: scrolledItself(scroller) }
+    if (el) pin = { el, at: deep(el) }
   }
-  /** The held block put back by what it moved since it was last seen, beyond what the note itself scrolled (`rest`). */
+  /** The held block put back on the screen by what it moved since it was last seen. */
   const keep = (): void => {
-    const scroller = view.dom.parentElement
-    if (!band || !scroller) return
-    if (!pin || !pin.el.isConnected || !pin.el.getClientRects().length) return choose()
-    const moved = deep(scroller, pin.el) - pin.at - (scrolledItself(scroller) - pin.own)
+    if (!band) return
+    if (!pin || !pin.el.isConnected || !pin.el.getClientRects().length || placesHeld.get(view.dom)?.()) return choose()
+    const moved = deep(pin.el) - pin.at
     if (Math.abs(moved) >= 0.5) hold(moved)
-    pin.at = deep(scroller, pin.el)
-    pin.own = scrolledItself(scroller)
+    pin.at = deep(pin.el)
   }
   const sizes = new ResizeObserver(keep)
   sizes.observe(view.dom)
@@ -596,9 +606,10 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     // Only when it is still drawn: a band moved far, after the caret, has nothing to keep still.
     if (anchor && before !== undefined && anchor.getClientRects().length) {
       hold(anchor.getBoundingClientRect().top - before)
-      // Held where it was on the screen, so is everything under it: what was held stays held. Not when the screen
-      // stood on space kept for blocks not drawn (`at`): its block is put where the sizes say, not where it was.
-      if (at === undefined) pin = was
+      // Held where it was on the screen, so is everything under it: what was held stays held, read again among the
+      // blocks drawn now. Not when the screen stood on space kept for blocks not drawn (`at`): its block is put where
+      // the sizes say, not where it was.
+      if (at === undefined && was?.el.isConnected && was.el.getClientRects().length) pin = { el: was.el, at: deep(was.el) }
     }
     resync()
   }
@@ -642,6 +653,8 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
   /** The drawn blocks brought round the screen, when it has come near their edge: whether they moved. */
   const follow = (): boolean => {
     if (!band || !view.dom.isConnected) return false
+    // What grew above the held block since it was last seen is held first, before the screen is read.
+    keep()
     const seen = onScreen()
     if (!seen) return false
     const { first, last, anchor, at } = seen
@@ -671,10 +684,9 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     shift(band[0], band[1], top?.anchor ?? null, top?.at)
     more()
   }
-  // What changed above the held block before the scroll is put right first; what is held after it is what is on the screen then.
+  // What is held after a scroll is what is on the screen then.
   const scrolled = (event: Event): void => {
     if (!(event.target instanceof Node && event.target.contains(view.dom))) return
-    keep()
     follow()
     choose()
   }
@@ -990,10 +1002,11 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
         const top = onScreen()
         shift(...step(index, index), top?.anchor ?? null, top?.at)
       }
-      // A caret moved is where the person is now: what to hold is chosen once the change is done with, the screen
-      // brought to the caret by ProseMirror too. A change that left the caret where it was (a card's preview kept, a
-      // fold, another window's edit) is held against.
-      if (moved || leapt || !pin) queueMicrotask(choose)
+      // A caret moved, or asked to be shown, is where the person is now: what to hold is chosen once the change is done
+      // with and ProseMirror has brought the screen to the caret (held against too, a fold toggled by its command moved
+      // the screen twice: scrolled to the caret, then held). A change that left the caret where it was and asked for
+      // nothing (a card's preview kept, a fold opened by its arrow or for all, another window's edit) is held against.
+      if (moved || leapt || !pin || asks(view.state) !== asks(previous)) queueMicrotask(choose)
     },
     destroy: () => {
       unclamp()

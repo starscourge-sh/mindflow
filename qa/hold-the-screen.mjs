@@ -104,11 +104,32 @@ try {
       }, { anchor })
       if (set.none) return check(`${which}: ${name}`, false, set.none)
       if (theme) await h.screenshot({ path: join(shots, `${which}-${name.replace(/\W+/g, '-')}-${theme}-0-before.png`) })
-      await page(h, (ed, how) => {
+      const did = await page(h, (ed, how) => {
         const view = ed.editor.view
         const where = window.__htsWhere
         const { schema } = view.state
-        if (how === 'card') {
+        if (how === 'fold') {
+          // A heading above the screen whose whole section is above it too, with blocks in it: folded shut (the
+          // space above shrinks), then opened again (it grows), as its arrow or "Unfold all" does it: the caret
+          // left where it is, nothing asked to be shown.
+          const fold = view.state.plugins.find((one) => String(one.key).startsWith('headingFold'))
+          window.__htsToggle = (pos) => view.dispatch(view.state.tr.setMeta(fold, { toggle: pos }))
+          const top = Math.max(window.__htsBox.getBoundingClientRect().top, 0)
+          const above = [...ed.children].filter((one) => !one.hasAttribute('data-off') && one.getClientRects().length && one.pmViewDesc?.node && one.getBoundingClientRect().bottom < top - 40)
+          for (let i = above.length - 1; i >= 0 && window.__htsFold === undefined; i--) {
+            const node = above[i].pmViewDesc.node
+            if (node.type.name !== 'heading') continue
+            for (let j = i + 1; j < above.length; j++) {
+              const next = above[j].pmViewDesc.node
+              if (next.type.name === 'heading' && next.attrs.level <= node.attrs.level) {
+                if (j > i + 1) window.__htsFold = above[i].pmViewDesc.posBefore
+                break
+              }
+            }
+          }
+          if (window.__htsFold === undefined) return { none: 'no heading above the screen with its whole section above it too' }
+          window.__htsToggle(window.__htsFold)
+        } else if (how === 'card') {
           view.dispatch(view.state.tr.insert(where, schema.nodes.bookmark.create({ href: 'https://haligtree.invalid/hold-the-screen', loading: true })))
           window.__htsCard = where
         } else if (how === 'picture') {
@@ -127,10 +148,17 @@ try {
           if (img instanceof HTMLImageElement) img.loading = 'eager'
         }
       }, how)
+      if (did?.none) {
+        await page(h, () => window.__htsStop())
+        // A note with no such heading has no section to fold there: said, not counted.
+        if (how === 'fold') return console.log(`(${which}: ${name}: not run, ${did.none})`)
+        return check(`${which}: ${name}`, false, did.none)
+      }
       if (follow) {
         await wait(250)
-        // The card's preview arrives: its words, a long description, the site.
+        // The card's preview arrives: its words, a long description, the site. Or the folded section opens again.
         await page(h, (ed) => {
+          if (window.__htsFold !== undefined) return void (window.__htsToggle(window.__htsFold), (window.__htsFold = undefined))
           const view = ed.editor.view
           const pos = window.__htsCard
           const node = view.state.doc.nodeAt(pos)
@@ -158,6 +186,7 @@ try {
     }
     await c.look('light')
     await grow("a picture above the screen arriving at its own size holds the caret's line still", 'picture', false)
+    await grow("a section above the screen folded shut and opened again holds the caret's line still", 'fold', true)
     // The caret taken off the screen (the wheel moves on past it): the line at the screen's top is held instead.
     await h.mouse.move(middle.x, middle.y)
     for (let i = 0; i < 2; i++) (await h.mouse.wheel(0, 900), await wait(120))

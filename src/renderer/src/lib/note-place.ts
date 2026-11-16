@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import type { Editor } from '@tiptap/core'
 import type { EditorView } from '@tiptap/pm/view'
 
-import { heightsOf, screenBlocks, scrolledItself, showBlock, takeHeights, type KeptHeights } from '@/extensions/long-document'
+import { heightsOf, placeHeld, screenBlocks, scrolledItself, showBlock, takeHeights, type KeptHeights } from '@/extensions/long-document'
 
 /**
  * Where you were in each note: the block at the top of the screen (and how
@@ -249,6 +249,8 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     const stop = (): void => void (holding = false)
     // Sent somewhere from now on (sentElsewhere, the rule above): the place is let go of there and then.
     lettingGo.set(editor, stop)
+    // Held here, the place is this file's alone while it is: a long note then holds nothing of its own (`placeHeld`).
+    placeHeld(dom, () => holding)
     if (kept) {
       const size = editor.state.doc.content.size
       // The caret where it was, without taking the keys: the next click or key in the note starts there.
@@ -319,6 +321,7 @@ export function useNotePlace(editor: Editor | null, id: string | null, on: boole
     return () => {
       save()
       if (lettingGo.get(editor) === stop) lettingGo.delete(editor)
+      placeHeld(dom, null)
       grows.disconnect()
       beside.disconnect()
       scroller?.removeEventListener('scroll', onScroll)
