@@ -5,7 +5,7 @@
 //   count as a visual selection, a first bullet with nothing to go under stays
 //   while the rest move, one u puts it all back, a code block gets two spaces.
 //   ⌥⌘9 with nothing selected starts a new formula instead of taking the word,
-//   a formula copies as its text, and "$20 and $500" pasted stays money.
+//   a formula copies as its text ($20$, as Markdown writes it), and "$20 and $500" pasted stays money.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/vim-indent.mjs
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
@@ -132,7 +132,9 @@ try {
     return { text: data.getData('text/plain'), html: data.getData('text/html') }
   }, ED)
   await keys('Escape')
-  check('a formula copies as its text', copied.text === 'defaults to 20, fine', JSON.stringify(copied.text))
+  // The plain-text copy is the selection's Markdown (plain-copy.ts, since cdf6ec221), where a formula is written $20$:
+  // its words kept, and pasted back (here or in Obsidian) it is a formula again, as the paste below shows.
+  check('a formula copies as its text, written as Markdown writes one', copied.text === 'defaults to $20$, fine', JSON.stringify(copied.text))
   check('and keeps its text in the copy for other apps', />20</.test(copied.html), copied.html.slice(0, 160))
 
   await start('', '')
