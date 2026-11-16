@@ -72,8 +72,13 @@ try {
   check('…and never covers "Write a thought…" or the recording', cover.shown.every((one) => !one.onPlaceholder && !one.onCard), JSON.stringify(cover))
   // A recording with no words under it says so, with the way to get them.
   const words = await page.evaluate((sel) => [...document.querySelectorAll(`${sel} .tiptap-attachment.is-audio [data-no-words]`)].find((el) => el.offsetParent)?.innerText.replace(/\s+/g, ' ').trim() ?? null, EDITOR)
-  // In a card under 30rem wide (quick capture is one) "Transcribe" alone says it (sound-player.css), never "N…" cut before it.
-  const narrow = await page.evaluate((sel) => (document.querySelector(`${sel} .tiptap-attachment.is-audio .mf-sound-status`)?.getBoundingClientRect().width ?? 999) < 480, EDITOR)
+  // In a player 30rem wide or less (quick capture's is one) "Transcribe" alone says it, never "N…" cut before it: the
+  // rule is sound-player.css's `@container (max-width: 30rem)`, asked of the player (.mf-sound, the container), at the
+  // page's own rem (17px at the usual size), never of the status line inside it in fixed pixels.
+  const narrow = await page.evaluate((sel) => {
+    const player = document.querySelector(`${sel} .tiptap-attachment.is-audio .mf-sound`)
+    return !!player && player.getBoundingClientRect().width <= 30 * parseFloat(getComputedStyle(document.documentElement).fontSize)
+  }, EDITOR)
   check('a recording without words says how to get them ("No transcript · Transcribe", or "Transcribe" when narrow)', words === (narrow ? 'Transcribe' : 'No transcript · Transcribe'), `${words}, narrow ${narrow}`)
   // The header's top right: the "pinned" chip and the window's pill, one shape.
   const header = await page.evaluate(() => {
