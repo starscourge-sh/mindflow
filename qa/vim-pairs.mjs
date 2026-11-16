@@ -50,8 +50,8 @@ for (const [line, at, keys, want] of cases) {
   const got = await run(line, at, keys)
   check(got === want, `${keys.join('')} on ${JSON.stringify(line)} at ${at} → ${JSON.stringify(got)}`)
 }
-// ci[ leaves you typing inside.
-const changed = await run('[libra] fix it', 2, ['c', 'i', '[', 'v', 'i', 'g', 'i', 'l'])
+// ci[ leaves you typing inside: the word typed is the word the check reads back.
+const changed = await run('[libra] fix it', 2, ['c', 'i', '[', ...'haligtree'])
 check(changed === '[haligtree] fix it', `ci[ then typing → ${JSON.stringify(changed)}`)
 
 console.log(`${results.filter(Boolean).length}/${results.length} passed`)
