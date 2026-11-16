@@ -5,6 +5,7 @@
 // it (macos26: Apple Intelligence off) none is offered, ⌃⌘W says what it needs, and What Haligtree can do says so too.
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/writing-help.mjs
 //   LEVELS=ai runs one Mac only; SHOT=<folder> keeps light and dark pictures of the bar, the previews and the results.
+import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 process.env.QA_ARGS ??= '--sandbox'
@@ -24,7 +25,8 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
   const { h, v } = c
   const wait = (ms) => h.waitForTimeout(ms)
   const ai = level === 'ai'
-  const text = () => h.evaluate(() => document.querySelector('[data-open] .tiptap')?.innerText ?? '')
+  // The note's own words, as kept: never the preview's new words drawn among them.
+  const text = () => h.evaluate(() => document.querySelector('[data-open] .tiptap')?.editor?.getText() ?? '')
   const count = (all, one) => all.split(one).length - 1
   const pick = (start) => h.evaluate((start) => {
     const ed = document.querySelector('[data-open] .tiptap').editor
@@ -123,6 +125,65 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       check('ai: too long a pick is said plainly, the words as they were', shown?.state === 'error' && /Too long for Apple Intelligence/.test(shown.text) && /as they were/.test(shown.text), shown?.text)
       await h.keyboard.press('Escape'); await wait(300)
     }
+    // A PDF's picked words: the right click's Writing help holds the three that keep something (a book's words never
+    // change), each shown by the words first, made with ↵ as the reader makes its own, and taken back with ⌘Z.
+    const pdf = await PDFDocument.create()
+    const font = await pdf.embedFont(StandardFonts.Helvetica)
+    pdf.addPage([560, 300]).drawText(TWO, { x: 20, y: 240, size: 9, font })
+    await v('item:save', id, { body: { type: 'doc', content: [{ type: 'paragraph' }] } }); await c.send('article', id); await wait(1200)
+    await h.evaluate((bytes) => {
+      const ed = document.querySelector('[data-open] .tiptap').editor
+      const data = new DataTransfer()
+      data.items.add(new File([new Uint8Array(bytes)], 'stoics.pdf', { type: 'application/pdf' }))
+      const box = ed.view.dom.getBoundingClientRect()
+      ed.view.dom.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true, clientX: box.left + 20, clientY: box.top + 10 }))
+    }, Array.from(await pdf.save()))
+    await h.waitForSelector('.is-pdf button[aria-label="Open stoics.pdf"]', { timeout: 15000 }).catch(() => {})
+    await h.click('.is-pdf button[aria-label="Open stoics.pdf"]')
+    await h.waitForSelector('.pdf-reader .textLayer span', { timeout: 15000 }).catch(() => {})
+    await wait(800)
+    const pickPdf = () => h.evaluate(() => {
+      const span = [...document.querySelectorAll('.pdf-reader .textLayer span')].find((one) => one.textContent.includes('Virtue alone'))
+      if (!span) return null
+      const range = document.createRange()
+      range.selectNodeContents(span)
+      getSelection().removeAllRanges()
+      getSelection().addRange(range)
+      const r = range.getBoundingClientRect()
+      return { x: r.left + 30, y: r.top + r.height / 2 }
+    })
+    const helpInPdf = async (help) => {
+      const where = await pickPdf(); await wait(600)
+      if (!where) return null
+      await h.mouse.click(where.x, where.y, { button: 'right' }); await wait(500)
+      const offered = await h.evaluate(() => !!document.querySelector('[data-writing-help-menu]'))
+      if (!offered || !help) return { offered }
+      await h.hover('[data-writing-help-menu]'); await wait(400)
+      const rows = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [data-help]')].map((one) => one.getAttribute('data-help')))
+      await h.click(`[role="menu"] [data-help="${help}"]`); await wait(150)
+      let shown = await card()
+      for (let t = 0; t < 10000 && shown?.state === 'working'; t += 150) (await wait(150), (shown = await card()))
+      return { offered, rows, shown }
+    }
+    const inPdf = await helpInPdf(ai ? 'card' : null)
+    check(`${level}: a PDF's picked words ${ai ? 'offer' : 'do not offer'} Writing help in the right click`, inPdf?.offered === ai, JSON.stringify(inPdf))
+    if (ai) {
+      check('ai: in a PDF it holds only the three that keep something', inPdf?.rows?.join(',') === 'card,ask,quote', inPdf?.rows?.join(','))
+      if (shot) await c.both(`${shot}/pdf-card-preview`)
+      check('ai: in a PDF, “Make it a card” shows the card by the words first', inPdf?.shown?.state === 'ready' && inPdf.shown.text.includes('What do these words say?'), JSON.stringify(inPdf?.shown))
+      await h.keyboard.press('Enter'); await wait(1200)
+      const cards = async () => (await v('items', 'nugget')).filter((one) => (one.prompt ?? '').startsWith('What do these words say?') && /stoics/i.test(String(one.medium)))
+      const made = await cards()
+      check('ai: in a PDF, ↵ makes the card with the book under it', made.length === 1, JSON.stringify(made.map((one) => [one.title, one.medium])))
+      await h.keyboard.press('Meta+z'); await wait(1200)
+      check('ai: in a PDF, ⌘Z takes the card back', !(await cards()).length)
+      const quote = await helpInPdf('quote')
+      if (shot) await c.both(`${shot}/pdf-quote-preview`)
+      check('ai: in a PDF, “Pull the quote” shows the line worth keeping, as its author wrote it', quote?.shown?.state === 'ready' && quote.shown.text.includes(LONGEST), JSON.stringify(quote?.shown))
+      await h.keyboard.press('Escape'); await wait(400)
+      check('ai: in a PDF, Esc leaves it, nothing kept', !(await card()) && !(await v('items', 'nugget')).some((one) => (one.title ?? '').includes('Judgement is ours')))
+    }
+    await h.keyboard.press('Escape'); await wait(300)
     // What Haligtree can do: the card is there on every Mac, saying what it needs where the Mac lacks it.
     await c.go('powers'); await wait(1200)
     const power = await h.evaluate(() => { const one = document.querySelector('[data-power="writinghelp"]'); return one && { lacking: one.hasAttribute('data-mac-lacking'), says: /Needs Apple Intelligence/.test(one.textContent) } })

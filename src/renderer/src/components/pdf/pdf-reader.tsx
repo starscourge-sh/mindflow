@@ -575,7 +575,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     void call<{ medium: string | null; prompt: string | null }[]>("items", "nugget").then((all) => setCardsHere(all.filter((one) => one.medium === title && one.prompt).length))
   }, [title])
   /** A card from this page: the answer with the book and page under it, so Review's "From" line opens the page. */
-  const cardOf = async (prompt: string, answer: string, page: number, quiet = false, gem = false): Promise<void> => {
+  const cardOf = async (prompt: string, answer: string, page: number, quiet = false, gem = false): Promise<string> => {
     const { author, where } = await whereFrom(page)
     // A study card (Review only), unless ⌥ was held or Settings keeps reading cards as gems.
     const id = await call<string>("nugget:from", `${answer}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${label(page)}`, kind: "quote", card: { gem } })
@@ -585,6 +585,12 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     setCardsHere(count)
     chime("saved")
     if (!quiet) said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt })
+    return id
+  }
+  /** A line kept as a gem with the book and page under it, linked back, as a snip is kept (keepSnip). */
+  const gemOfLine = async (line: string, page: number): Promise<string> => {
+    const { author, where } = await whereFrom(page)
+    return call<string>("nugget:from", `${line}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${label(page)}`, kind: "quote" })
   }
   // Five cards from the chapter you are in, by Apple Intelligence, each kept or dropped by you (chapter-cards.tsx).
   const ai = useStudyAi(useLive(haligtree.settings, null as Settings | null))
@@ -698,6 +704,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       getSelection()?.removeAllRanges()
       setPicked(null)
     },
+    // Writing help's card and quote, from the page the words were picked on.
+    written: picked ? ((page) => ({ where: `${title}, p. ${label(page)}`, card: (question, answer) => cardOf(question, answer, page, true), gem: (line) => gemOfLine(line, page) }))(picked.page) : undefined,
   }
   // The bar's keys, while words are picked here.
   useToolKeys(picked ? (event) => keysHere(pane) && readKey(event, actions) : null)
@@ -1269,7 +1277,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
         </ContextMenuContent>
       </ContextMenu>
       </div>
-      {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={(question, answer, at) => cardOf(question, answer, at, true)} /> : detailsOut && detailsFit && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} scan={<ScanDetail src={src} doc={doc} onRead={readAgain} />} />}
+      {chaptering && doc ? <ChapterCards doc={doc} title={title} outline={outline} page={page} marks={marks.filter((one) => !one.id.startsWith("find:"))} onGo={go} onClose={() => setChaptering(false)} onKeep={async (question, answer, at) => void (await cardOf(question, answer, at, true))} /> : detailsOut && detailsFit && <ReadDetails src={src} name={name} onPage={go} chapters={outline} cover={cover} title={title} author={author} pages={doc?.numPages} page={page} marks={marks} lit={lit} onMark={goToMark} onGather={() => void gather()} onJoin={(group) => void joinStacked(group)} scan={<ScanDetail src={src} doc={doc} onRead={readAgain} />} />}
       </div>
       </PageLabel.Provider>
     </div>

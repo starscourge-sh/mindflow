@@ -301,7 +301,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [article?.title, article?.site])
   /** A card from this article: the answer with "Article title, Site" linked under it. */
-  const cardOf = async (prompt: string, answer: string, gem = false): Promise<void> => {
+  const cardOf = async (prompt: string, answer: string, gem = false, quiet = false): Promise<string> => {
     // A study card (Review only), unless ⌥ was held or Settings keeps reading cards as gems.
     const id = await call<string>('nugget:from', `${answer}\n\n[${whereFrom().replace(/[[\]]/g, '\\$&')}](${articleLink(href, '')})`, { attribution: byline() || null, medium: whereFrom(), kind: 'quote', card: { gem } })
     // Named by its question, as a card is in every list and in ⌘K.
@@ -309,7 +309,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     const count = cardsHere + 1
     setCardsHere(count)
     chime('saved')
-    said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt })
+    if (!quiet) said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt })
+    return id
   }
   // C: the question asked where the words were; Return makes the card.
   const [carding, setCarding] = useState<{ quote: string; x: number; y: number; bottom?: number; gem?: boolean } | null>(null)
@@ -332,6 +333,12 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
       void cardOf(asked, answer, gem)
       getSelection()?.removeAllRanges()
       setPicked(null)
+    },
+    // Writing help's card and quote, with the article under them as its own cards have it.
+    written: {
+      where: whereFrom(),
+      card: (question, answer) => cardOf(question, answer, false, true),
+      gem: (line) => call<string>('nugget:from', `${line}\n\n[${whereFrom().replace(/[[\]]/g, '\\$&')}](${articleLink(href, '')})`, { attribution: byline() || null, medium: whereFrom(), kind: 'quote' })
     },
     lookUp: () => {
       if (!picked) return

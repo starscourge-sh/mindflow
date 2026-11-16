@@ -46,16 +46,24 @@ export const HELPS: Row[] = [
 ]
 
 type Said = { text: string } | { question: string; answer: string } | { error: string }
+/**
+ * Words picked where they cannot change (a PDF's, a web page's): where they are on screen, and how that reader keeps
+ * what is made from them, with its book and page or its article under it, as its own cards and gems are kept.
+ */
+export type Away = { rect: { left: number; top: number; bottom: number }; where: string; card: (question: string, answer: string) => Promise<string>; gem: (line: string) => Promise<string> }
 type Asked = {
   turn: number
   help: Row
-  editor: Editor
-  from: number
-  to: number
   words: string
   said: Said | null
+  /** In a note: its editor, and where the words are in it (kept up as the note changes). */
+  editor?: Editor
+  from: number
+  to: number
   /** A pulled quote's line in the note. */
   line?: { from: number; to: number } | null
+  /** In a reader instead. */
+  away?: Away
 }
 let asked: Asked | null = null
 let turns = 0
@@ -115,27 +123,28 @@ const follow = ({ editor, transaction }: { editor: Editor; transaction: Transact
 }
 
 function set(next: Asked | null): void {
-  const was = asked
+  const was = asked?.editor
+  const now = next?.editor
   asked = next
-  if (was && was.editor !== next?.editor && !was.editor.isDestroyed) {
-    was.editor.view.dispatch(was.editor.state.tr.setMeta(key, null).setMeta('addToHistory', false))
-    was.editor.off('transaction', follow)
-    was.editor.unregisterPlugin(key)
+  if (was && was !== now && !was.isDestroyed) {
+    was.view.dispatch(was.state.tr.setMeta(key, null).setMeta('addToHistory', false))
+    was.off('transaction', follow)
+    was.unregisterPlugin(key)
   }
-  if (next && !next.editor.isDestroyed) {
-    if (was?.editor !== next.editor) (next.editor.registerPlugin(plugin()), next.editor.on('transaction', follow))
-    next.editor.view.dispatch(next.editor.state.tr.setMeta(key, next).setMeta('addToHistory', false))
+  if (next && now && !now.isDestroyed) {
+    if (was !== now) (now.registerPlugin(plugin()), now.on('transaction', follow))
+    now.view.dispatch(now.state.tr.setMeta(key, next).setMeta('addToHistory', false))
   }
   told.forEach((tell) => tell())
 }
 
-/** Ended, nothing changed: with `back` (Esc, "Keep mine"), the words picked again as they were. */
+/** Ended, nothing changed: with `back` (Esc, "Keep mine"), the words in a note picked again as they were. */
 function leave(back = true): void {
   const was = asked
   if (!was) return
   set(null)
   chime('fold')
-  if (back && !was.editor.isDestroyed) was.editor.chain().focus().setTextSelection({ from: was.from, to: was.to }).run()
+  if (back && was.editor && !was.editor.isDestroyed) was.editor.chain().focus().setTextSelection({ from: was.from, to: was.to }).run()
 }
 
 /** The note round the words, for "Ask me about this": asked from the picked words and the note they sit in, nothing else. */
@@ -150,17 +159,31 @@ export function helpWith(id: Help, editor: Editor, range: { from: number; to: nu
   if (!help || !words) return
   if (!meets(capsNow(), 'ai')) return refuse('Writing help needs Apple Intelligence, turned on in System Settings', 'info')
   if (help.edits && !editor.isEditable) return refuse('This note is locked for reading: its words are kept as they are', 'info')
-  mount()
-  const turn = ++turns
   // The words stay lit by the marks, not the selection: the bar steps away, and ↵ and Esc are the card's.
   editor.chain().focus().setTextSelection(to).run()
-  set({ turn, help, editor, from, to, words, said: null })
+  start({ turn: 0, help, editor, from, to, words, said: null }, id === 'ask' ? noteText(editor, from, to) : '')
+}
+
+/** The same on words picked in a reader (read-bar.tsx): only the three that keep something, never a change to the words. */
+export function helpWords(id: Help, words: string, away: Away): void {
+  const help = HELPS.find((one) => one.id === id)
+  if (!help || help.edits || !words.trim()) return
+  if (!meets(capsNow(), 'ai')) return refuse('Writing help needs Apple Intelligence, turned on in System Settings', 'info')
+  start({ turn: 0, help, from: 0, to: 0, words: words.trim(), said: null, away }, '')
+}
+
+/** Shown by the words at once, the orb while the model writes, then what it wrote or why not. */
+function start(first: Asked, note: string): void {
+  mount()
+  const turn = ++turns
+  set({ ...first, turn })
   chime('open')
-  void call<Said>('ai:help', id, words, id === 'ask' ? noteText(editor, from, to) : '')
+  void call<Said>('ai:help', first.help.id, first.words, note)
     .catch((error: unknown) => ({ error: whyFailed(error) }))
     .then((said) => {
       if (asked?.turn !== turn) return
-      set({ ...asked, said, line: 'text' in said && id === 'quote' ? lineAt(editor, asked.from, asked.to, said.text) : undefined })
+      const line = 'text' in said && first.help.id === 'quote' && asked.editor ? lineAt(asked.editor, asked.from, asked.to, said.text) : undefined
+      set({ ...asked, said, line })
       if (!('error' in said)) chime('settled')
     })
 }
@@ -189,40 +212,40 @@ async function use(): Promise<void> {
   const now = asked
   const said = now?.said
   if (!now || !said || 'error' in said) return leave(false)
-  const { editor, from, to, help, words } = now
-  const origin = originOf(editor)
+  const { editor, from, to, help, words, away } = now
+  const origin = editor ? originOf(editor) : {}
   set(null)
-  if ('question' in said) {
-    // A study card from these words, as the note's own drafted questions make one (note-questions.tsx).
-    try {
-      const id = await call<string>('nugget:from', said.answer, { captureId: origin.captureId, passage: words, card: { gem: false } })
-      await call('item:save', id, { prompt: said.question, title: said.question })
+  try {
+    if ('question' in said) {
+      // A study card: in a note as the note's own drafted questions make one (note-questions.tsx); in a reader as its
+      // own cards are, with the book and page or the article under it.
+      const id = away ? await away.card(said.question, said.answer) : await call<string>('nugget:from', said.answer, { captureId: origin.captureId, passage: words, card: { gem: false } })
+      if (!away) await call('item:save', id, { prompt: said.question, title: said.question })
       chime('saved')
-      toast('Card made, in Review: it says which note and line it came from', () => void haligtree.unlift('nugget', id), 'success', undefined, { type: 'nugget', id, title: said.question })
-    } catch (error) {
-      refuse(`Not made: ${whyFailed(error)}`, 'error')
+      return toast(away ? 'Card made, in Review, with where its words came from' : 'Card made, in Review: it says which note and line it came from', () => void haligtree.unlift('nugget', id), 'success', undefined, { type: 'nugget', id, title: said.question })
     }
-    return
-  }
-  if (help.id === 'ask') {
-    // A question you hold, with these words as its first clue, gathering more as you write.
-    try {
+    if (help.id === 'ask') {
+      // A question you hold, with these words as its first clue, gathering more as you write.
       const id = await haligtree.newQuestion(said.text)
-      await haligtree.addClue(id, words)
+      await haligtree.addClue(id, away ? `${words} (${away.where})` : words)
       chime('promote')
-      toast('A question you hold now, with these words as its first clue', () => void haligtree.dropQuestion(id), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', id) })
-    } catch (error) {
-      refuse(`Not made: ${whyFailed(error)}`, 'error')
+      return toast('A question you hold now, with these words as its first clue', () => void haligtree.dropQuestion(id), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', id) })
     }
-    return
+    if (help.id === 'quote' && away) {
+      const id = await away.gem(said.text)
+      chime('promote')
+      return toast('Kept as a gem, with where it came from', () => void haligtree.unlift('nugget', id), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', id) }, { type: 'nugget', id, title: said.text })
+    }
+  } catch (error) {
+    return refuse(`Not made: ${whyFailed(error)}`, 'error')
   }
+  if (!editor || editor.isDestroyed) return
   if (help.id === 'quote') {
     // Kept as a gem, as the bar's Gem keeps words: the line marked in the note, with where it came from.
     const line = now.line ?? { from, to }
     return void keep('nugget', said.text, '', origin, null, { editor, from: line.from, to: line.to })
   }
   // The new words in place of yours, in one change: one ⌘Z puts yours back, and typing after it is a change of its own.
-  if (editor.isDestroyed) return
   const marks = shared(editor, from, to).map((mark) => mark.toJSON())
   const parts = said.text.split(/\n+/).map((one) => one.trim()).filter(Boolean)
   const text = (line: string): { type: 'text'; text: string; marks: unknown[] } => ({ type: 'text', text: line, marks })
@@ -313,6 +336,15 @@ export function helpLines(editor: Editor, from: number, to: number): { label: st
 
 const PRIMARY: Partial<Record<Help, string>> = { card: 'Make the card', ask: 'Hold this question', quote: 'Keep as a gem' }
 
+/** By words picked in a reader: under them, or over them when there is no room below, always inside the window. */
+function under(rect: Away['rect'], height: number): { left: number; top: number; origin: string } {
+  const width = Math.min(360, innerWidth - 24)
+  const left = Math.max(12, Math.min(innerWidth - width - 12, rect.left))
+  const below = rect.bottom + 8
+  const room = below + height <= innerHeight - 12 || rect.top - 8 - height < 12
+  return { left, top: Math.max(12, Math.min(innerHeight - height - 12, room ? below : rect.top - 8 - height)), origin: room ? '0px 0px' : '0px 100%' }
+}
+
 function Card({ now }: { now: Asked }): React.JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   const [height, setHeight] = useState(120)
@@ -329,7 +361,7 @@ function Card({ now }: { now: Asked }): React.JSX.Element {
     addEventListener('resize', again)
     return () => (removeEventListener('scroll', again, true), removeEventListener('resize', again))
   }, [])
-  const spot = placeBy({ editor: now.editor, from: now.from, to: now.to }, height)
+  const spot = now.editor ? placeBy({ editor: now.editor, from: now.from, to: now.to }, height) : now.away ? under(now.away.rect, height) : null
   const { said, help } = now
   const quick = still()
   const count = (text: string): number => text.split(/\s+/).filter(Boolean).length
@@ -360,7 +392,9 @@ function Card({ now }: { now: Asked }): React.JSX.Element {
         </div>
       )}
       {said && 'text' in said && help.id === 'ask' && <p data-help-question className="text-body font-medium text-foreground">{said.text}</p>}
-      {said && 'text' in said && help.id === 'quote' && <p data-help-quote className="text-body text-foreground">Lit in your note: the line worth keeping, as its author wrote it.</p>}
+      {said && 'text' in said && help.id === 'quote' && (now.away
+        ? <p data-help-quote className="font-serif text-body text-foreground">“{said.text}”<span className="mt-1 block font-sans text-meta text-muted-foreground">{now.away.where}</span></p>
+        : <p data-help-quote className="text-body text-foreground">Lit in your note: the line worth keeping, as its author wrote it.</p>)}
       {said && 'text' in said && help.edits && <p data-help-new-said className="text-body text-foreground">Shown in your note after your words: {num(count(now.words))} words become {num(count(said.text))}.</p>}
       <div className="flex items-center justify-end gap-1">
         {said && !('error' in said) ? (

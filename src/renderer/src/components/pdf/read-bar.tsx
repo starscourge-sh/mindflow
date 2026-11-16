@@ -1,9 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { BookOpenText, Copy, Gem, Highlighter, Languages, Quote, SquareDashed, SquareStack, Trash2, Volume2 } from "lucide-react"
+import { BookOpenText, Copy, Gem, Highlighter, Languages, Quote, Sparkles, SquareDashed, SquareStack, Trash2, Volume2 } from "lucide-react"
 import { readToMe } from "@/lib/read-aloud"
 import { translatable, translateWords } from "@/lib/translate"
+import { capsNow, meets } from "@/lib/needs"
 import { Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
-import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@/components/ui/context-menu"
+import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from "@/components/ui/context-menu"
+import { menuIcon } from "@/components/ui/menu-icon-rules"
+import { HELPS, helpWords, type Away } from "@/components/haligtree/writing-help"
 import { MenuPeek, type MenuPeekEntry } from "@/components/haligtree/menu-peeks"
 import { MCard } from "@/components/haligtree/peek"
 import { Pressed } from "@/components/haligtree/ui"
@@ -53,6 +56,8 @@ export type ReadActions = {
   card?: (gem?: boolean) => void
   /** A fill-in-the-blank card: the sentence round the words, the words blanked. `gem` as for `card`. */
   blank?: (gem?: boolean) => void
+  /** How this reader keeps a card or a quote Writing help wrote from the picked words (writing-help.tsx), as it keeps its own. */
+  written?: Omit<Away, "rect">
 }
 
 /** What "Mark for a card" does, said on its swatch wherever it shows. */
@@ -267,6 +272,29 @@ export function PickedMenu({ actions, about }: { actions: ReadActions; about: ()
           <Languages />
           Translate
         </ContextMenuItem>
+      )}
+      {/* Apple Intelligence on this Mac, as a note's Writing help: only what keeps something, a book's words never change. */}
+      {actions.written && meets(capsNow(), "ai") && (
+        <ContextMenuSub>
+          <ContextMenuSubTrigger data-writing-help-menu data-mac-needs="ai">
+            <Sparkles />
+            Writing help
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent>
+            {HELPS.filter((one) => !one.edits).map((one) => {
+              const Icon = menuIcon(one.label)
+              return (
+                <ContextMenuItem key={one.id} data-help={one.id} onSelect={() => {
+                  const range = getSelection()?.rangeCount ? getSelection()!.getRangeAt(0).getBoundingClientRect() : null
+                  helpWords(one.id, about().words, { ...actions.written!, rect: range ?? { left: innerWidth / 2 - 180, top: innerHeight / 3, bottom: innerHeight / 3 } })
+                }}>
+                  <Icon />
+                  {one.label}
+                </ContextMenuItem>
+              )
+            })}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
       )}
       <ContextMenuItem data-peek="cite" onSelect={actions.copy}>
         <Quote />
