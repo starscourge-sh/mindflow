@@ -7,6 +7,7 @@ import { LABEL, changed, database } from './captures'
 import { cut } from './clip'
 import { cardForQuiz, cardWords, dueCards, feedTakesPages, feedTakesPictures, gate, plain } from './haligtree'
 import { LEARN_TAG } from './name'
+import { READING_PACE } from './word-count'
 import { dayKey, dayjs } from './dates'
 import { LESS, bookFeed, fadedSteps, likedSteps, tableOf, type Row, type Takes } from './book-feed'
 import { ask } from './reader'
@@ -83,8 +84,8 @@ export type ReadingPage = {
   from: { kind: 'group'; name: string; icon: string | null; color: string | null } | { kind: 'tag'; name: string } | null
 }
 export type Reading = { day: string; today: string | null; pages: ReadingPage[]; safe: boolean }
-/** Words a minute, read at an easy pace. */
-const PACE = 230
+/** Words a minute: the app's one pace for a "min read" (word-count.ts). */
+const PACE = READING_PACE
 /** Today's read is a read, never a "1 min read": a page of three minutes at least. */
 const ESSAY = PACE * 2.5
 export type Feed = { day: string; posts: FeedPost[]; safe: boolean }

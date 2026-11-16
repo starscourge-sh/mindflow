@@ -10,6 +10,7 @@ import { SlidersHorizontal } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { askProofread, checkingLive, grammarSentence, setCheckingLive } from '@/lib/grammar'
 import { quoted } from '../../../../main/clip'
+import { minutesToRead, sizeOf } from '@/lib/note-size'
 
 /**
  * Writer's tools, as iA Writer and Scrivener have them: a focus band that
@@ -121,8 +122,9 @@ function proseReport(editor: Editor): string {
   const text = editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n', ' ')
   const words = text.match(/[\p{L}\p{M}'’]+/gu) ?? []
   if (!words.length) return 'Nothing written yet.'
-  const minutes = Math.max(1, Math.round(words.length / 238))
-  const out = [`${num(words.length)} words, about ${plural(minutes, 'minute')} to read.`]
+  // Its length as the page's bar says it (lib/note-size.ts): one count for a note, wherever it is told.
+  const size = sizeOf(editor.state.doc)
+  const out = [`${num(size.words)} words, about ${plural(minutesToRead(size.words), 'minute')} to read.`]
   const sentences = text.split(/(?<=[.!?…])\s+|\n+/).map((one) => (one.match(/[\p{L}\p{M}'’]+/gu) ?? []).length).filter(Boolean)
   const long = sentences.filter((n) => n > 30)
   out.push(long.length ? `${long.length === 1 ? 'One sentence runs' : `${num(long.length)} sentences run`} past 30 words; the longest has ${Math.max(...long)}.` : 'No sentence runs past 30 words.')
