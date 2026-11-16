@@ -49,6 +49,9 @@ const TABLE_ACTIONS: Array<[string, (editor: Editor) => void]> = [
   ["Fit to width", (editor) => void fitToWidth(editor)],
 ]
 
+/** The room the menu takes whole: about seven rows and its search (the editor's right-click asks the same, MENU_ROOM). */
+const MENU_ROOM = 320
+
 /** The same conversions `/` offers, minus everything that inserts. */
 const CONVERSIONS = slashItems.filter((item) => item.turnInto)
 
@@ -124,11 +127,15 @@ export function BlockMenu({
     if (!at || !pane) return "left"
     return at.getBoundingClientRect().left - pane.getBoundingClientRect().left >= 236 ? "left" : "bottom"
   }
-  // Under the grip, it clears the whole line: a heading or a wrapped line is taller than the grip.
+  // Under the grip, it clears the whole line: a heading or a wrapped line is taller than the grip. With no room for the
+  // menu whole under the line (a table low in quick capture: its "Delete" was cut by the window's foot), it opens just
+  // under the grip, over its own block, where it fits whole; with no room there either, it opens upward.
   const underLine = () => {
     const at = anchor.current, found = resolve(), dom = found && editor.view.nodeDOM(found.pos)
     if (!at || !(dom instanceof HTMLElement)) return 6
-    return Math.max(6, dom.getBoundingClientRect().bottom - at.getBoundingClientRect().bottom + 6)
+    const grip = at.getBoundingClientRect().bottom
+    const below = Math.max(6, dom.getBoundingClientRect().bottom - grip + 6)
+    return window.innerHeight - dockRoom() - grip - below >= MENU_ROOM ? below : 6
   }
 
   const term = query.trim().toLowerCase()
