@@ -15,7 +15,13 @@ const keep = (url: string, said: string): void => {
  * had each one refused (`ERR_BLOCKED_BY_RESPONSE.NotSameOrigin`), a broken picture where its page showed one. A
  * picture is only shown, never read by the page's code, so that mark is let go for pictures, as a page of that site
  * shows them. One that still cannot be had keeps why, as the answer comes (its status, a page sent in its place, or
- * the connection's error), for the note to say in its place (`pictures:why`, extensions/web-pictures.ts).
+ * the connection's error), for the note to say in its place (`pictures:why`, haligtree-editor.tsx `missing`).
+ *
+ * A site that answers a picture's address with a page (claude.ai's, behind its sign-in) has that answer passed on as
+ * a picture of no kind the note can read, and without what the page asks to be fetched alongside (its own fonts,
+ * named in its `Link` header): passed on as it came, the page's fonts were asked for by the note and refused by the
+ * app's own rules, one error each; refused here instead, each picture was an error line of its own
+ * (`ERR_BLOCKED_BY_CLIENT`). Now it fails as any broken picture does, quietly, and says why in its place.
  */
 export function letWebPictures(session: Session): void {
   const filter = { urls: ['https://*/*', 'http://*/*'] }
@@ -23,13 +29,17 @@ export function letWebPictures(session: Session): void {
     if (details.resourceType !== 'image') return done({})
     const headers = details.responseHeaders ?? {}
     const type = Object.entries(headers).find(([name]) => name.toLowerCase() === 'content-type')?.[1]?.[0] ?? ''
+    const page = !!type && !/^image\//i.test(type) && details.statusCode < 300
     if (details.statusCode >= 400) keep(details.url, `status ${details.statusCode}`)
-    else if (type && !/^image\//i.test(type) && details.statusCode < 300) keep(details.url, `type ${type}`)
+    else if (page) keep(details.url, `type ${type}`)
     else why.delete(details.url)
-    const name = Object.keys(headers).find((one) => one.toLowerCase() === 'cross-origin-resource-policy')
-    if (!name) return done({})
-    const responseHeaders = { ...headers }
-    delete responseHeaders[name]
+    // A picture's answer keeps only what showing it needs: its own-pages mark and its hints to fetch more let go, and
+    // a page's own word for what it is (read as a page, the browser refuses it out loud).
+    const drop = Object.keys(headers).filter((one) => /^(cross-origin-resource-policy|link)$/i.test(one) || (page && /^(content-type|x-content-type-options)$/i.test(one)))
+    if (!drop.length) return done({})
+    const responseHeaders: Record<string, string[]> = { ...headers }
+    for (const name of drop) delete responseHeaders[name]
+    if (page) responseHeaders['Content-Type'] = ['image/png']
     done({ responseHeaders })
   })
   // What the site answered says more than the error it then came to (a page sent for a picture is refused as one).
