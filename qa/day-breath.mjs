@@ -193,7 +193,9 @@ try {
   await wait(9500)
   check('5. and a pause of about nine seconds does not end it either', (await fade()).every((o) => o === 0), JSON.stringify(await fade()))
   const count = await line()
-  check('5. on a pause the line has rolled on to the words so far', Number(count?.text.match(/^\d+/)?.[0]) > Number(writer?.text.match(/^\d+/)?.[0]) && (await lineAt()) === writerAt, JSON.stringify(count))
+  // Both halves said: the count, and where the line was laid out before and now (x, y, width, height).
+  const nowAt = await lineAt()
+  check('5. on a pause the line has rolled on to the words so far', Number(count?.text.match(/^\d+/)?.[0]) > Number(writer?.text.match(/^\d+/)?.[0]) && nowAt === writerAt, `${JSON.stringify(count)}; laid out at ${writerAt}, now ${nowAt}`)
   check('5. the squiggles come back on a pause', await h.evaluate(() => document.querySelector('[data-day-write] .tiptap').getAttribute('spellcheck') === 'true'))
   const caretRest = await h.evaluate(() => { const c = document.querySelector('[data-living-caret]'); return { resting: c.hasAttribute('data-resting'), anim: getComputedStyle(c).animationName, dur: getComputedStyle(c).animationDuration } })
   check('5. resting, the caret blinks slowly', caretRest.resting && caretRest.anim === 'mf-caret-blink' && caretRest.dur === '1.6s', JSON.stringify(caretRest))
