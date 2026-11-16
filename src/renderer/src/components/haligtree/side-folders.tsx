@@ -235,14 +235,9 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
         document.getSelection()?.removeAllRanges()
       }
       setCarried({ id, x: e.clientX, y: e.clientY })
-      at = { x: e.clientX, y: e.clientY }
       point(read(id, e.clientX, e.clientY))
     }
-    // The sidebar scrolled under a still pointer: the place under it is read again and its room is there at once (carry.tsx `scrolled`).
-    let at = { x: x0, y: y0 }
-    const scrolled = (): void => void (lifted && (point(read(id, at.x, at.y)), way(id, aimRef.current)))
     const finish = (): void => {
-      window.removeEventListener('scroll', scrolled, true)
       window.removeEventListener('pointermove', move, true)
       window.removeEventListener('pointerup', up, true)
       window.removeEventListener('pointercancel', cancel, true)
@@ -282,7 +277,6 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     window.addEventListener('pointerup', up, true)
     window.addEventListener('pointercancel', cancel, true)
     window.addEventListener('keydown', key, true)
-    window.addEventListener('scroll', scrolled, true)
   }
   // Read once each change is drawn: folded to its one row in the hand, its subfolders gone from under it.
   useLayoutEffect(() => void (carried && way(carried.id, aim)), [aim, carried?.id]) // eslint-disable-line react-hooks/exhaustive-deps
