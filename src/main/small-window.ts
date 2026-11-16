@@ -202,12 +202,15 @@ export function registerSmallWindows({ load, guard, stepAside, passThrough }: Wi
     })
     // Shown where it came from (centred on the row, the card or the box it left), rising a little into place as it
     // fades in: position and opacity only, as a note's own window arrives (notes.ts), never resized on the way.
+    // Its height read as it is now, never the one it was made at: its page may have asked for more already (fitSmall),
+    // and putting the first size back left a dev build's window 200 px tall until the first row grew it.
     win.once('ready-to-show', () => {
       if (kept || stillNow()) return win.show()
+      const at = win.getBounds()
       win.setOpacity(0)
-      win.setBounds({ ...size, y: size.y + RISE }, false)
+      win.setPosition(at.x, at.y + RISE)
       win.show()
-      void glide(win, { x: size.x, y: size.y }, { ms: 240, opacity: 1 })
+      void glide(win, { x: at.x, y: at.y }, { ms: 240, opacity: 1 })
     })
     // ⌘W closes it, as the red light does: the note stays where it lives.
     win.webContents.on('before-input-event', (event, input) => {

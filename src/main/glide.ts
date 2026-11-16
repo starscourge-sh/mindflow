@@ -21,7 +21,9 @@ export const stillNow = (): boolean => !motionOn() || systemPreferences.getAnima
  * Glide `win` to `to` (any of x, y, width, height) and to `opacity`, over
  * `ms`, easing out (quick off the mark, settling gently). Started again
  * mid-way, it turns round from where the window is now. At once with Motion
- * off or Reduce motion. Resolves when it lands.
+ * off or Reduce motion. Resolves when it lands. Asked only to move, it moves
+ * and never sets the size: a size the window's page asks for meanwhile (a small
+ * window growing as it arrives) is kept, not put back to the one it started at.
  */
 export function glide(win: BrowserWindow, to: Partial<Electron.Rectangle>, { ms = 220, opacity }: { ms?: number; opacity?: number } = {}): Promise<void> {
   clocks.get(win)?.()
@@ -29,8 +31,10 @@ export function glide(win: BrowserWindow, to: Partial<Electron.Rectangle>, { ms 
   const from = win.getBounds()
   const end = { ...from, ...to }
   const fade = opacity === undefined ? null : { from: win.getOpacity(), to: opacity }
+  const moves = to.width === undefined && to.height === undefined
   if (stillNow() || ms <= 0) {
-    win.setBounds(end, false)
+    if (moves) win.setPosition(end.x, end.y)
+    else win.setBounds(end, false)
     if (fade) win.setOpacity(fade.to)
     return Promise.resolve()
   }
@@ -39,7 +43,8 @@ export function glide(win: BrowserWindow, to: Partial<Electron.Rectangle>, { ms 
       if (win.isDestroyed()) return (clocks.delete(win), done(), false)
       const k = outQuart(t)
       const at = (a: number, b: number): number => Math.round(a + (b - a) * k)
-      win.setBounds({ x: at(from.x, end.x), y: at(from.y, end.y), width: at(from.width, end.width), height: at(from.height, end.height) }, false)
+      if (moves) win.setPosition(at(from.x, end.x), at(from.y, end.y))
+      else win.setBounds({ x: at(from.x, end.x), y: at(from.y, end.y), width: at(from.width, end.width), height: at(from.height, end.height) }, false)
       if (fade) win.setOpacity(fade.from + (fade.to - fade.from) * Math.min(1, t * 1.6))
       return true
     }, () => (clocks.delete(win), done()))
