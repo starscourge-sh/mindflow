@@ -207,14 +207,22 @@ export const PickedBlocks = Extension.create({
 /** How far the pointer goes before a press in the margin starts the box, as the grip's carry lifts. */
 const START = 4
 
-let box: { view: EditorView; x: number; y: number; top: number; scroller: HTMLElement; drawn: HTMLElement | null } | null = null
+let box: { view: EditorView; x: number; y: number; top: number; scroller: HTMLElement; drawn: HTMLElement | null; onPage: boolean } | null = null
 
-/** The editor whose bare margin was pressed: the page itself in its padding, or the room round it. */
-function marginOf(target: EventTarget | null): EditorView | null {
+/**
+ * The editor whose bare margin was pressed: the page itself in its padding, or a bare box holding it (its scroller,
+ * the page round it), level with its words and inside the box that holds it. Never a control: those are the target.
+ */
+function marginOf(target: EventTarget | null, x: number, y: number): EditorView | null {
   if (!(target instanceof HTMLElement)) return null
-  const root = target.classList.contains("ProseMirror") ? target : target.matches(".haligtree-editor-wrapper.has-handles, .has-handles > .haligtree-editor-content") ? target.querySelector<HTMLElement>(".ProseMirror") : null
-  const view = (root as (HTMLElement & { editor?: { view: EditorView } }) | null)?.editor?.view
-  return view && view.editable && root?.closest(".has-handles") ? view : null
+  const roots = target.classList.contains("ProseMirror") ? [target] : [...target.querySelectorAll<HTMLElement>(".haligtree-editor-wrapper.has-handles .ProseMirror")]
+  for (const root of roots) {
+    const view = (root as HTMLElement & { editor?: { view: EditorView } }).editor?.view
+    const page = root.closest(".haligtree-editor-wrapper")?.parentElement?.getBoundingClientRect()
+    const box = root.getBoundingClientRect()
+    if (view?.editable && root.closest(".has-handles") && page && x >= page.left && x <= page.right && y >= box.top && y <= box.bottom) return view
+  }
+  return null
 }
 
 /** The words' own column: inside the page's padding. */
@@ -237,15 +245,17 @@ function blockAtY(view: EditorView, x: number, y: number): number | null {
 
 function press(event: PointerEvent): void {
   if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || box) return
-  const view = marginOf(event.target)
+  const view = marginOf(event.target, event.clientX, event.clientY)
   if (!view) return
   const column = columnOf(view)
-  // Beside the words, never on them: a press in the words is the words' own (a caret, a text selection).
+  // Beside the words, never on them: a press in the words is the words' own (a caret, a text selection); and under
+  // the last line is the note's end (lib/press-under.ts).
   if (event.clientX >= column.left - 2 && event.clientX <= column.right + 2) return
+  if (event.clientY > (view.dom.lastElementChild?.getBoundingClientRect().bottom ?? Infinity)) return
   const scroller = (view.dom.closest(".haligtree-editor-content") as HTMLElement | null) ?? view.dom
   // No caret moved and no words picked by the press itself: the box, or a click, decides.
   event.preventDefault()
-  box = { view, x: event.clientX, y: event.clientY, top: scroller.scrollTop, scroller, drawn: null }
+  box = { view, x: event.clientX, y: event.clientY, top: scroller.scrollTop, scroller, drawn: null, onPage: event.target === view.dom }
   window.addEventListener("pointermove", move, true)
   window.addEventListener("pointerup", up, true)
   window.addEventListener("pointercancel", stop, true)
@@ -284,12 +294,15 @@ function up(event: PointerEvent): void {
   const one = box
   stop()
   if (!one) return
-  // A click in the margin, not a box: the caret to the line beside it, as before.
+  // A click in the page's own margin, not a box: the caret to the line beside it, as before. Further out, a click
+  // only lets go of a pick.
   if (!one.drawn) {
     const column = columnOf(one.view)
-    const found = one.view.posAtCoords({ left: Math.min(Math.max(event.clientX, column.left + 1), column.right - 1), top: event.clientY })
-    if (found) one.view.dispatch(one.view.state.tr.setSelection(TextSelection.near(one.view.state.doc.resolve(found.pos))))
-    one.view.focus()
+    const found = one.onPage ? one.view.posAtCoords({ left: Math.min(Math.max(event.clientX, column.left + 1), column.right - 1), top: event.clientY }) : null
+    const { state } = one.view
+    if (found) one.view.dispatch(state.tr.setSelection(TextSelection.near(state.doc.resolve(found.pos))))
+    else if (state.selection instanceof NodeRangeSelection) one.view.dispatch(state.tr.setSelection(Selection.near(state.selection.$head)))
+    if (found) one.view.focus()
     return
   }
   if (one.view.state.selection instanceof NodeRangeSelection) chime("select")

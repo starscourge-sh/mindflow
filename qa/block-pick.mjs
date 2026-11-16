@@ -32,7 +32,8 @@ const texts = () => page.$eval(EDITOR, (root) => [...root.querySelectorAll('p')]
 /** Each picked block's box as drawn: its words, its corner, whether it wears the wash. */
 const picked = () => page.$eval(EDITOR, (root) => ({
   kind: root.editor.state.selection.toJSON().type,
-  boxes: [...root.querySelectorAll('.mf-picked')].map((one) => ({ words: one.textContent.trim().slice(0, 24), radius: getComputedStyle(one).borderTopLeftRadius, wash: getComputedStyle(one).backgroundImage !== 'none', cell: getComputedStyle(one.querySelector('td') ?? one).backgroundImage !== 'none' })),
+  // Its words, as its first line has them (a task's box holds its tick's label too).
+  boxes: [...root.querySelectorAll('.mf-picked')].map((one) => ({ words: (one.querySelector('p') ?? one).textContent.trim().slice(0, 24), radius: getComputedStyle(one).borderTopLeftRadius, wash: getComputedStyle(one).backgroundImage !== 'none', cell: getComputedStyle(one.querySelector('td') ?? one).backgroundImage !== 'none' })),
 }))
 const shot = async (name) => FRAMES && page.screenshot({ path: join(FRAMES, `${name}.png`) })
 const block = (words) => page.locator(`${EDITOR} p`, { hasText: words }).first()
@@ -53,8 +54,8 @@ async function marquee(top, bottom, name) {
   const edge = await column()
   const a = await block(top).boundingBox()
   const b = await block(bottom).boundingBox()
-  // Out past the grip and its +, in the page's own margin.
-  const from = { x: edge.left - 66, y: a.y - 4 }
+  // Out past the grip and its + (beside the block the pointer was last on), in the margin round the page.
+  const from = { x: edge.left - 90, y: a.y - 4 }
   const to = { x: edge.left + 140, y: b.y + b.height - 4 }
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
@@ -158,7 +159,9 @@ if (PART === 'pick') {
   const alpha = await grip('Alpha line')
   await page.mouse.click(alpha.x, alpha.y)
   await page.waitForTimeout(200)
+  // The menu shut, the keys are the note's again.
   await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
   await page.keyboard.press('ControlOrMeta+d')
   await page.waitForTimeout(150)
   const twice = await texts()
@@ -173,6 +176,7 @@ if (PART === 'pick') {
   await page.mouse.click(second.x, second.y)
   await page.waitForTimeout(200)
   await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
   await page.keyboard.press('Tab')
   await page.waitForTimeout(150)
   const nested = await page.$eval(EDITOR, (root) => !!root.querySelector('li li') && root.querySelector('li li')?.textContent.includes('Second item'))
@@ -222,7 +226,7 @@ if (PART === 'carry') {
     for (let i = 1; i <= 14; i++) {
       await page.mouse.move(from.x + ((to.x - from.x) * i) / 14, from.y + ((to.y - from.y) * i) / 14)
       await page.waitForTimeout(50)
-      seen.push(await page.evaluate(() => ({ cards: document.querySelectorAll('[data-block-card]').length, count: document.querySelector('[data-block-carry-layer] [data-carried]')?.textContent ?? '', words: [...document.querySelectorAll('[data-block-card] [data-drag-label]')].at(-1)?.textContent ?? null, lines: document.querySelectorAll('[data-drop-line]').length })))
+      seen.push(await page.evaluate(() => ({ cards: document.querySelectorAll('[data-block-card]').length, count: document.querySelector('[data-block-card]')?.parentElement?.querySelector('[data-carried]')?.textContent ?? '', words: [...document.querySelectorAll('[data-block-card] [data-drag-label]')].at(-1)?.textContent ?? null, lines: document.querySelectorAll('[data-drop-line]').length })))
       if (i === 12) await shot(`${look}-carry-together`)
     }
     await page.waitForTimeout(300)
@@ -245,9 +249,11 @@ if (PART === 'carry') {
     await page.mouse.click(alpha.x, alpha.y)
     await page.waitForTimeout(200)
     await page.keyboard.press('Escape')
+    await page.waitForTimeout(150)
     await page.keyboard.press('Shift+ArrowDown')
     await page.waitForTimeout(100)
     const pair = await picked()
+    check(`${look}: the line and the list under it picked to carry beside`, pair.boxes.map((one) => one.words).join('|') === 'Alpha line|First item|Second item', JSON.stringify(pair.boxes.map((one) => one.words)))
     const target = await block('Last line').boundingBox()
     const edge = await column()
     const start = await grip('Alpha line')
