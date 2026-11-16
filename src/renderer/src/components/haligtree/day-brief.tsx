@@ -310,7 +310,9 @@ export function DayBrief({ day, onOpen, onListed, between }: {
       </div>
       <div className="pt-2.5">
         <div className="flex items-start gap-6">
-          <p data-day-greeting className="relative line-clamp-2 min-h-[2lh] min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground">
+          {/* With a painting, or one coming, the greeting keeps to the room its credit leaves: the credit arriving with the
+              painting rewrapped the words beside it. */}
+          <p data-day-greeting className={`relative line-clamp-2 min-h-[2lh] min-w-0 flex-1 text-[0.9375rem] leading-snug text-pretty text-muted-foreground ${scene || looking ? 'max-w-[calc(65%_-_1.5rem)]' : ''}`}>
             {/* Two lines kept from the first frame, the most it ever shows: a one-line greeting that ran to two as it
                 typed, or as a late read (a review due, a mark coming) made it longer, dropped the page under it 22px.
                 Only once everything it speaks of is read, so it is said once, never changed a moment later. Plain words, not
