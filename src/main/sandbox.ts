@@ -84,9 +84,10 @@ export const packFolder = (): string => (SANDBOX ? join(sandboxRoot(), 'Sandbox 
 /**
  * Whether a chosen folder is Haligtree's own paintings (any copy of them, under this app's support folder, by its
  * old name or new), not a folder of the user's own. A book renamed, moved or carried over kept the path of an old
- * copy, which never got the paintings added since; it is read as the pack wherever it was.
+ * copy, which never got the paintings added since; it is read as the pack wherever it was. The example book's own
+ * folder ("Sandbox scenery", a name only Haligtree gives) is its pack wherever the book was copied from.
  */
-export const isPack = (folder: string): boolean => /\/Application Support\/(haligtree|mindflow|vigil)\/.*\/?(Scenery|Sandbox scenery)$/i.test(folder)
+export const isPack = (folder: string): boolean => /\/Application Support\/(haligtree|mindflow|vigil)\/.*\/?(Scenery|Sandbox scenery)$/i.test(folder) || /\/Sandbox scenery$/.test(folder)
 export const dataRoot = (): string => (SANDBOX ? sandboxRoot() : BOOK ? bookRoot(BOOK) : realRoot())
 /** A test run or the sandbox: no iCloud, no login item, no copies anywhere else. */
 /**

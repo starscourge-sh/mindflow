@@ -5,7 +5,7 @@ import { tmpdir } from 'os'
 import { promisify } from 'util'
 import { mkdir, readFile, readdir, rm, stat, writeFile } from 'fs/promises'
 import { watch, type FSWatcher } from 'fs'
-import { basename, dirname, extname, isAbsolute, join } from 'path'
+import { basename, dirname, extname, isAbsolute, join, relative } from 'path'
 import { changed } from './captures'
 import { isPack, packFolder } from './sandbox'
 import { begin, end } from './jobs'
@@ -41,7 +41,8 @@ export type Scene = {
   /** A copy small enough for a list's tiles: haligtree://scenery/<id>-s.jpg. */
   small?: string
 }
-type Entry = Scene & { path: string; key: string }
+/** `from`: the chosen folder its copy was made from. */
+type Entry = Scene & { path: string; key: string; from?: string }
 
 const PICTURES = new Set(['.jpg', '.jpeg', '.png', '.webp'])
 /** About as wide as a window ever is at 2x, and small enough to load at once. */
@@ -66,6 +67,7 @@ const loading = (): Promise<void> => (index ??= (async () => {
 let scanned = ''
 let scannedAt = 0
 let scanning: Promise<void> | null = null
+let toldLooking = false
 
 /** A pause between pictures, so making copies never holds up the windows. */
 const breathe = (): Promise<void> => new Promise((done) => setTimeout(done, 25))
@@ -161,14 +163,23 @@ async function decode(path: string): Promise<Electron.NativeImage> {
   }
 }
 
+/**
+ * Whether a copy was made from this chosen folder: the same folder, or Haligtree's own paintings where the book was
+ * before it was copied or moved (they go with it, inside it).
+ */
+const madeFrom = (one: Entry, folder: string): boolean => !!one.from && (one.from === folder || (folder === packFolder() && isPack(one.from)))
+
 /** The copy for one picture, made if it is new or has changed since. */
-async function prepare(path: string): Promise<Entry | null> {
+async function prepare(path: string, folder: string): Promise<Entry | null> {
   const facts = await stat(path)
-  const key = createHash('sha1').update(`4\0${path}\0${facts.mtimeMs}\0${facts.size}`).digest('hex').slice(0, 32)
+  // Known by where it sits in its folder, never by where that folder is: a book copied or moved keeps its paintings'
+  // copies, where the whole folder was copied again before.
+  const key = createHash('sha1').update(`5\0${relative(folder, path)}\0${facts.mtimeMs}\0${facts.size}`).digest('hex').slice(0, 32)
   const kept = known.get(key)
   // Kept only while both its copies are still on disk; a lost one is made again.
   const onDisk = (url = ''): Promise<boolean> => stat(join(sceneryDir(), url.split('/').pop() ?? '')).then(() => true, () => false)
-  if (kept && (await onDisk(kept.url)) && (await onDisk(kept.small))) return kept
+  // Where it is now, for a book copied or moved: the same copies, nothing made again.
+  if (kept && (await onDisk(kept.url)) && (await onDisk(kept.small))) return Object.assign(kept, { path, from: folder })
   const image = await decode(path)
   if (image.isEmpty()) return null
   const { width } = image.getSize()
@@ -186,7 +197,7 @@ async function prepare(path: string): Promise<Entry | null> {
   const ext = pixel || clear ? 'png' : 'jpg'
   await writeFile(join(sceneryDir(), `${key}.${ext}`), ext === 'png' ? copy.toPNG() : copy.toJPEG(80))
   const size = copy.getSize()
-  return { id: key, key, path, url: `haligtree://scenery/${key}.${ext}`, small, width: size.width, height: size.height, pixel, ...read(copy) }
+  return { id: key, key, path, from: folder, url: `haligtree://scenery/${key}.${ext}`, small, width: size.width, height: size.height, pixel, ...read(copy) }
 }
 
 /**
@@ -201,20 +212,23 @@ async function scan(folders: string[], whole: boolean): Promise<void> {
     await copyAll(folders, whole, signal)
   } finally {
     end('scenery', signal)
+    // A window told "still looking" with nothing found yet hears the look is over, pictures found or not: a look that
+    // ended on an empty or missing folder said nothing, and the day's page kept the painting's room for good.
+    if (toldLooking) (toldLooking = false, changed())
   }
 }
 
 async function copyAll(folders: string[], whole: boolean, signal: AbortSignal): Promise<void> {
   await loading()
-  const paths: string[] = []
+  const paths: [string, string][] = []
   for (const folder of folders) {
     try {
       for (const one of await readdir(folder, { withFileTypes: true })) {
         const full = join(folder, one.name)
-        if (one.isFile() && PICTURES.has(extname(one.name).toLowerCase())) paths.push(full)
+        if (one.isFile() && PICTURES.has(extname(one.name).toLowerCase())) paths.push([full, folder])
         else if (one.isDirectory() && !one.name.startsWith('.'))
           for (const inner of await readdir(full).catch(() => [] as string[]))
-            if (PICTURES.has(extname(inner).toLowerCase())) paths.push(join(full, inner))
+            if (PICTURES.has(extname(inner).toLowerCase())) paths.push([join(full, inner), folder])
       }
     } catch {
       // A folder that has gone, or was never there: the others still count.
@@ -222,7 +236,7 @@ async function copyAll(folders: string[], whole: boolean, signal: AbortSignal): 
   }
   const next = new Map<string, Entry>()
   let fresh = 0
-  for (const path of paths) {
+  for (const [path, folder] of paths) {
     // Stopped: what is known so far is kept as it is; nothing is cleared, since the rest were never looked at.
     if (signal.aborted) {
       await save(known)
@@ -230,7 +244,7 @@ async function copyAll(folders: string[], whole: boolean, signal: AbortSignal): 
       return
     }
     try {
-      const entry = await prepare(path)
+      const entry = await prepare(path, folder)
       if (entry) next.set(entry.key, entry)
       if (entry && known.get(entry.key) !== entry) {
         known.set(entry.key, entry)
@@ -248,8 +262,8 @@ async function copyAll(folders: string[], whole: boolean, signal: AbortSignal): 
   }
   // Pictures in folders not looked at this time stay, unless this was every
   // folder in use: Covers' copies are never cleared by a look at Scenery's.
-  const inScan = (path: string): boolean => folders.some((folder) => path.startsWith(folder.endsWith('/') ? folder : `${folder}/`))
-  if (!whole) for (const one of known.values()) if (!inScan(one.path) && !next.has(one.key)) next.set(one.key, one)
+  if (!whole) for (const one of known.values()) if (!folders.some((folder) => madeFrom(one, folder)) && !next.has(one.key)) next.set(one.key, one)
+  const gone = [...known.keys()].some((key) => !next.has(key))
   known = next
   await save(next)
   // Copies of pictures no longer in any folder go, so the cache never grows
@@ -257,7 +271,7 @@ async function copyAll(folders: string[], whole: boolean, signal: AbortSignal): 
   const keep = new Set([...next.values()].flatMap((one) => [one.url, one.small ?? ''].map((url) => url.split('/').pop())))
   for (const name of await readdir(sceneryDir()).catch(() => [] as string[]))
     if (name !== 'index.json' && !keep.has(name)) await rm(join(sceneryDir(), name), { force: true })
-  if (fresh) changed()
+  if (fresh || gone) changed()
 }
 
 const save = (entries: Map<string, Entry>): Promise<void> => writeFile(indexFile(), JSON.stringify([...entries.values()]))
@@ -314,11 +328,11 @@ async function list(folders: string[], use = 'scenery'): Promise<{ scenes: Scene
     })
   }
   await loading()
-  const inFolders = (path: string): boolean => folders.some((folder) => path.startsWith(folder.endsWith('/') ? folder : `${folder}/`))
   // Only what the windows need: where a picture lives on disk stays here.
   // `root`: which of the chosen folders it came from, so Settings can show each folder's own pictures.
-  const rootOf = (path: string): string | undefined => folders.find((folder) => path.startsWith(folder.endsWith('/') ? folder : `${folder}/`))
-  const scenes: Scene[] = [...known.values()].filter((one) => inFolders(one.path)).map((one) => ({ id: one.id, url: one.url, mood: one.mood, width: one.width, height: one.height, pixel: one.pixel, color: one.color, light: one.light, name: basename(one.path, extname(one.path)), folder: basename(dirname(one.path)), root: rootOf(one.path), small: one.small }))
+  const rootOf = (one: Entry): string | undefined => folders.find((folder) => madeFrom(one, folder))
+  const scenes: Scene[] = [...known.values()].filter((one) => rootOf(one)).map((one) => ({ id: one.id, url: one.url, mood: one.mood, width: one.width, height: one.height, pixel: one.pixel, color: one.color, light: one.light, name: basename(one.path, extname(one.path)), folder: basename(dirname(one.path)), root: rootOf(one), small: one.small }))
+  if (scanning && !scenes.length) toldLooking = true
   return { scenes, scanning: !!scanning }
 }
 
