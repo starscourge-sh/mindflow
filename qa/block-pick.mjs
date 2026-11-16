@@ -230,7 +230,11 @@ if (PART === 'carry') {
       seen.push(await page.evaluate(() => ({ cards: document.querySelectorAll('[data-block-card]').length, count: document.querySelector('[data-block-card]')?.parentElement?.querySelector('[data-carried]')?.textContent ?? '', words: [...document.querySelectorAll('[data-block-card] [data-drag-label]')].at(-1)?.textContent ?? null, lines: document.querySelectorAll('[data-drop-line]').length })))
       if (i === 12) await shot(`${look}-carry-together`)
     }
+    // Aimed again at where the last line stands now, as a person does: quick capture's box grows while the room opens.
+    const now = await block('Last line').boundingBox()
+    await page.mouse.move(to.x, now.y + now.height * 0.85, { steps: 3 })
     await page.waitForTimeout(300)
+    seen.push(await page.evaluate(() => ({ cards: document.querySelectorAll('[data-block-card]').length, count: document.querySelector('[data-block-card]')?.parentElement?.querySelector('[data-carried]')?.textContent ?? '', words: [...document.querySelectorAll('[data-block-card] [data-drag-label]')].at(-1)?.textContent ?? null, lines: document.querySelectorAll('[data-drop-line]').length })))
     const held = seen.slice(-3)
     check(`${look}: carried by one's grip, the picked blocks go as one card with their count (5)`, held.every((one) => one.cards === 1 && one.count === '5'), JSON.stringify(held))
     check(`${look}: the card says what letting go does ("Move 5 here"), one line where they land`, held.every((one) => one.words === 'Move 5 here' && one.lines === 1), JSON.stringify(held))
@@ -265,11 +269,14 @@ if (PART === 'carry') {
     for (let i = 1; i <= 14; i++) {
       await page.mouse.move(start.x + ((side.x - start.x) * i) / 14, start.y + ((side.y - start.y) * i) / 14)
       await page.waitForTimeout(50)
-      if (i >= 12) upright ||= await page.evaluate(() => [...document.querySelectorAll('[data-drop-line]')].some((one) => one.dataset.dropLine?.startsWith('beside')))
     }
+    // Aimed again at the last line's side as it stands now (quick capture's box grows while something is carried).
+    const there = await block('Last line').boundingBox()
+    const right = (await column()).right
+    await page.mouse.move(right - 30, there.y + there.height / 2, { steps: 3 })
     await page.waitForTimeout(250)
     await shot(`${look}-carry-beside`)
-    upright ||= await page.evaluate(() => [...document.querySelectorAll('[data-drop-line]')].some((one) => one.dataset.dropLine?.startsWith('beside')))
+    upright = await page.evaluate(() => [...document.querySelectorAll('[data-drop-line]')].some((one) => one.dataset.dropLine?.startsWith('beside')))
     check(`${look}: carried near another block's side, the line stands up beside it before the drop`, upright, JSON.stringify(pair.boxes.map((one) => one.words)))
     await page.mouse.up()
     await page.waitForTimeout(300)
