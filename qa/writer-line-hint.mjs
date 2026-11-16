@@ -30,7 +30,10 @@ await h.reload()
 await wait(2000)
 if (!(await h.locator('[data-day-write] .tiptap').count())) { await send('day', today); await wait(1200) }
 await h.locator('[data-day-write] .tiptap').click()
-await wait(700)
+// The line comes with writing mode (three words in), never on the caret alone (the user, 15 Nov 2026).
+await h.keyboard.press('Meta+ArrowDown')
+await h.keyboard.type(' and then the day went on ', { delay: 30 })
+await wait(900)
 const up = await boxes()
 if (shots) await h.screenshot({ path: `${shots}/with-hint-light.png` })
 check('a hint shows under the page', !!up.hint, JSON.stringify(up.hint))
