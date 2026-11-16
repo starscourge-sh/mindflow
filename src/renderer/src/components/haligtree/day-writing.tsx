@@ -180,12 +180,17 @@ export function useWritingQuiet(editor: Editor | null, day: string): number {
       back()
     }
     const off = (): void => quiet()
+    // Leaving the page ends it, as Esc does: a page kept behind another tab came back still in writing mode, its line
+    // over a day only being read (qa/day-page-cap.mjs).
+    const shown = new IntersectionObserver(([one]) => void (one && !one.isIntersecting && root.hasAttribute('data-day-writing') && back()))
+    shown.observe(dom)
     dom.addEventListener('keydown', onKey, true)
     window.addEventListener('keydown', onEsc, true)
     window.addEventListener('pointerdown', onPress, true)
     dom.addEventListener('blur', off)
     window.addEventListener('blur', off)
     return () => {
+      shown.disconnect()
       off()
       back()
       // Run once the page is gone: only the day pages still open keep their way marked.
