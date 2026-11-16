@@ -69,6 +69,15 @@ let scannedAt = 0
 let scanning: Promise<void> | null = null
 let toldLooking = false
 
+/**
+ * New copies wait for the start to be over (`startCopies`, a moment after the main window shows, index.ts): decoding a
+ * picture holds main's one thread, and a first look at a folder as the app started held it up to 645 ms, so the window
+ * showed its empty shell a moment before its first screen. Pictures already copied are known at once all the same.
+ */
+let unblock: () => void = () => undefined
+const started = new Promise<void>((done) => (unblock = done))
+export const startCopies = (): void => unblock()
+
 /** A pause between pictures, so making copies never holds up the windows. */
 const breathe = (): Promise<void> => new Promise((done) => setTimeout(done, 25))
 
@@ -180,6 +189,7 @@ async function prepare(path: string, folder: string): Promise<Entry | null> {
   const onDisk = (url = ''): Promise<boolean> => stat(join(sceneryDir(), url.split('/').pop() ?? '')).then(() => true, () => false)
   // Where it is now, for a book copied or moved: the same copies, nothing made again.
   if (kept && (await onDisk(kept.url)) && (await onDisk(kept.small))) return Object.assign(kept, { path, from: folder })
+  await started
   const image = await decode(path)
   if (image.isEmpty()) return null
   const { width } = image.getSize()

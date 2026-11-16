@@ -82,7 +82,7 @@ import { registerPractices, whenPracticeOffer, type Offer } from './practices'
 import { registerIssues } from './issues'
 import { brief, clock, dayKey, dayMonth, dayName, howLong, num, useTwelveHour, plural } from './dates'
 import { macTwelveHour } from './mac-clock'
-import { registerScenery, sceneryDir } from './scenery'
+import { registerScenery, sceneryDir, startCopies } from './scenery'
 import { celebrationFile, registerCelebrations } from './celebrate'
 import type { Nudge } from './nudge'
 import { firstRun, isWelcoming, keepWindowBeforeWelcome, welcomeName, noteChord, welcomeBoxSpot, windowBeforeWelcome, pretendTaken, registerOnboarding, whenWelcoming, whereTray } from './onboarding'
@@ -7156,8 +7156,8 @@ app.whenReady().then(() => {
     iconReady = true
     wearIcon()
     // Dates, emoji and the check of a save (src/main/lazy), read a moment later while nothing waits, so their first
-    // use is instant; the Mac's spellchecker woken with them (spell-check.ts).
-    setTimeout(() => (warmChrono(), void warmEmoji(), warmZod(), wakeSpelling()), 1000)
+    // use is instant; the Mac's spellchecker woken with them (spell-check.ts), and new pictures' copies begun (scenery.ts).
+    setTimeout(() => (warmChrono(), void warmEmoji(), warmZod(), wakeSpelling(), startCopies()), 1000)
   }
   if (!startedAtLogin || firstRun() || process.argv.includes('--show-home')) {
     openHome()
