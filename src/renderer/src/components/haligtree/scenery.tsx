@@ -1,7 +1,7 @@
 import { MORNING_FROM } from '../../../../main/day-parts'
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { sunMoods } from '@/lib/sun'
-import { useReading } from '@/lib/reads-in'
+import { useReading, useSeen } from '@/lib/reads-in'
 import { decoded, warm, WAIT } from '@/lib/decoded'
 import { contrast } from '@/lib/on-accent'
 import { FilmGrain } from './film-grain'
@@ -226,8 +226,9 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   const [late, setLate] = useState(false)
   if (scene) void warm(scene.url)
   // The page it is on holds its first paint for the picture, a moment at most,
-  // so the first frame is already the painting.
+  // so the first frame is already the painting. One that comes into a page already up fades in.
   useReading(!!scene && !shown && !late)
+  const seen = useSeen()
   useEffect(() => {
     if (!scene || scene.url === shown?.url) return
     if (decoded.has(scene.url)) return void (setFades(!!settings?.motion && !!shown), setShown(scene))
@@ -238,7 +239,7 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
     void warm(scene.url).then((ok) => {
       clearTimeout(budget)
       if (gone) return
-      setFades(!!settings?.motion && (waited || !!shown))
+      setFades(!!settings?.motion && (waited || !!shown || seen))
       setShown(ok ? scene : null)
       setLate(!ok)
     })
@@ -260,7 +261,7 @@ export function Scenery({ place, seed, mood, text = 'none', fade = false, wide =
   return (
     // Nothing stands in for the picture: no blurred small copy, no tinted colour (both read as the picture broken, a
     // flash, for a file on this Mac). Until it is decoded the box is the page itself; then the painting fades in.
-    <div aria-hidden data-scene={place} data-shown={shown ? '' : undefined} className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt }}>
+    <div aria-hidden data-scene={place} data-shown={shown ? '' : undefined} data-fades={fades ? '' : undefined} className={`pointer-events-none overflow-hidden ${rounded} ${className}`} style={{ maskImage: melt }}>
       {/* The painting breathes: a slow pan and zoom, and now and then a wash of
           light (or a cloud's shadow) across it. Transform only, on the
           compositor; still while away, while you type, and under reduced motion (main.css). */}
@@ -470,8 +471,9 @@ export function DayBanner({ day, seed = `day:${day}` }: { day: string; /** A wee
 /** The painting each day showed first, this session (see useDayScene). */
 const dayPicks = new Map<string, string>()
 
-export function useDayScene(day: string): Scene | null | undefined {
+export function useDayScene(day: string): Scene | null | undefined | 'coming' {
   const { settings, scenes, loading, scanning } = useScenery()
+  const seen = useSeen()
   const on = !!settings?.scenery && !!settings.sceneryToday
   const seed = `day:${day}:${settings?.sceneryShuffle ?? 0}`
   // The day keeps the painting it first showed: the folders are read in while they are still being looked through,
@@ -493,10 +495,12 @@ export function useDayScene(day: string): Scene | null | undefined {
     return () => void ((gone = true), clearTimeout(budget))
   }, [url])
   // Not known yet (undefined) is not none (null): the page waits, so the words are not drawn plain and then moved under the picture.
-  // Still looking through the folders with nothing found yet is not known either.
-  if (!settings || (on && (loading || scanning))) return undefined
+  if (!settings || (on && loading)) return undefined
   if (!on) return null
-  if (url && !decoded.has(url) && late !== url) return undefined
+  // Still looking through the folders with nothing found yet: a painting is coming, never waited for (a whole folder
+  // the first time), its room kept. Found after the page is up, it comes in as soon as it is decoded.
+  if (scanning) return 'coming'
+  if (url && !decoded.has(url) && late !== url && !seen) return undefined
   return scene
 }
 

@@ -55,6 +55,8 @@ type Row = { key: string; mark: ReactNode; title: string; text: string; run: () 
 /** A task ticked here: kept in its place, struck through, with what to put back if it is unticked. */
 type Ticked = { task: Task; was?: Finished; /** Ticked with the pointer: its pen line is written, not just there. */ pen?: boolean }
 
+/** The title over a picture: white, with a soft shadow to lift it off any painting. */
+const WHITE = 'text-white [text-shadow:0_1px_2px_rgb(0_0_0/0.25),0_4px_28px_rgb(0_0_0/0.35)]'
 /** The pool under the report's title, by how light the painting is (0 black, 1 white): full on a light painting,
  * a sixth of that on a night one, whose own dark already carries white words. */
 const pool = (light = 0.5): string => {
@@ -90,7 +92,11 @@ export function DayBrief({ day, onOpen, onListed, between }: {
     void haligtree.weatherNow().then((said) => current && setSky(said), () => current && setSky(null))
     return () => void (current = false)
   }, [half])
-  const scene = useDayScene(day)
+  // Its folders still being looked through ('coming', the first time, a whole folder): never waited for. The painting's
+  // room and the title's place are kept, and the painting comes in place when found.
+  const found = useDayScene(day)
+  const looking = found === 'coming'
+  const scene = looking ? undefined : found
   // Scenery off, or no pictures: the day's grain cover, the same all day. Only once that is known: while the paintings
   // were still being read in, the grain cover showed first and the painting replaced it, a flash of a grainy gradient.
   const grain = useCover(scene === null ? `day:${day}` : null)
@@ -127,7 +133,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   // clue and the review line came in one by one and pushed the tasks down. The weather too, as it ends the centred date
   // line and moved it; asked of the internet, it is waited for a quarter of a second at most.
   // The picture too: the words sit centred over it, or plain with none, so whether there is one is known first.
-  useReading(scene === undefined || (!scene && !coversRead) || (sky === undefined && !skyWaited) || !settings || unloaded(tasks) || unloaded(waiting) || due === null || fresh === null || unloaded(questions) || unloaded(back) || unloaded(repeats) || unloaded(marks) || unloaded(mac) || unloaded(sessions))
+  useReading((!looking && (scene === undefined || (!scene && !coversRead))) || (sky === undefined && !skyWaited) || !settings || unloaded(tasks) || unloaded(waiting) || due === null || fresh === null || unloaded(questions) || unloaded(back) || unloaded(repeats) || unloaded(marks) || unloaded(mac) || unloaded(sessions))
   // On Today by the one rule the sidebar and the Today sticky count by: late ones in, "Waiting on" out.
   const open = tasks.filter(onToday)
   const late = open.filter((task) => (dueDay(task) ?? '') < today)
@@ -255,7 +261,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
   const heard = ![tasks, waiting, questions, back, repeats, marks].some(unloaded) && due !== null && !!settings
 
   const named = sceneCredit(scene)
-  const picture = !!scene || !!grain
+  const picture = !!scene || !!grain || looking
   const time = clock(now)
   // Where today sits in the year, as a log is numbered: "Day 302". In December, the count runs down to the new year instead: "T-minus 3".
   const year = dayjs(now).startOf('year')
@@ -270,7 +276,7 @@ export function DayBrief({ day, onOpen, onListed, between }: {
         {/* One height with a picture or without: the day's picture can come a beat after
             the page, and the page under it never moves when it does. */}
         <div className="relative isolate h-[clamp(6rem,20vh,12rem)] overflow-hidden rounded-2xl">
-          {picture && (
+          {(scene || grain) && (
             <>
               {scene
                 ? <Scenery place="today" seed={`day:${day}`} mood={['day', 'dusk', 'night', 'interior']} cloudy={!!sky && /cloud|overcast|rain|drizzle|shower|fog|mist|storm|snow/i.test(sky)} className="absolute inset-0 -z-10" rounded="rounded-2xl" soft />
@@ -286,12 +292,10 @@ export function DayBrief({ day, onOpen, onListed, between }: {
                 style={{ backgroundImage: pool(scene?.light) }} />
             </>
           )}
-          <h2 className={`flex size-full flex-col justify-center px-6 leading-[0.92] ${picture ? 'items-center text-center' : 'items-start'}`}
-            style={{
-              fontFamily: 'var(--font-heading)',
-              color: picture ? 'white' : 'var(--foreground)',
-              textShadow: picture ? '0 1px 2px rgb(0 0 0 / 0.25), 0 4px 28px rgb(0 0 0 / 0.35)' : undefined
-            }}>
+          {/* White over the grain, or over the painting once it is up (turning white as it fades in, when it does); in
+              the page's own colour until then, never white on the bare page. */}
+          <h2 className={`flex size-full flex-col justify-center px-6 leading-[0.92] ${picture ? 'items-center text-center' : 'items-start'} ${grain ? WHITE : 'text-foreground ease-out [[data-scene][data-fades]~&]:transition-[color,text-shadow] [[data-scene][data-fades]~&]:duration-[900ms] [[data-scene][data-shown]~&]:text-white [[data-scene][data-shown]~&]:[text-shadow:0_1px_2px_rgb(0_0_0/0.25),0_4px_28px_rgb(0_0_0/0.35)]'}`}
+            style={{ fontFamily: 'var(--font-heading)' }}>
             {/* The title is simply there: the greeting below is the line that speaks (lib/motion.ts). */}
             <span className="font-semibold tracking-[-0.02em] text-[clamp(1.5rem,6cqi,3rem)] text-balance">The {weekday} Report</span>
             {/* The date, the day of the year, the time (each new minute) and the weather: one calm line under the title. */}
