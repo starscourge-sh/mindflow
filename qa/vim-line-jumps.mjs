@@ -233,6 +233,21 @@ try {
   check('“Relative”, set on above, stays on with Vim keys off: once set it no longer follows them', (await relativeOn()) === 'true' && (await v('settings')).relativeLineNumbers === true, await relativeOn())
   await h.click(`${row('Vim keys')} button[role="switch"]`); await wait(500)
   check('Vim keys on again: it shows, still on', (await shown('Jump by line numbers')) && (await jumpOn()) === true)
+  // The smallest window, 560 by 400: both rows whole, their samples and switches inside the page.
+  const size = (w, hh) => c.electron.evaluate(({ BrowserWindow }, [w, hh]) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('home.html')).setSize(w, hh), [w, hh])
+  await size(560, 400); await wait(1000)
+  const inside = []
+  for (const title of ['Relative', 'Jump by line numbers']) {
+    await into(title)
+    inside.push(await h.$eval(row(title), (one) => {
+      const page = one.closest('[data-setting]').parentElement.getBoundingClientRect()
+      const parts = [...one.querySelectorAll('[data-preview], button[role="switch"]')].map((el) => el.getBoundingClientRect())
+      return parts.length === 2 && parts.every((r) => r.left >= page.left && r.right <= page.right + 0.5 && r.width > 0)
+    }))
+    if (shots) await h.screenshot({ path: join(shots, `v2-narrow-${title.split(' ')[0].toLowerCase()}.png`) })
+  }
+  check('at 560 by 400 both rows stand whole: sample and switch inside the page', inside.every(Boolean), JSON.stringify(inside))
+  await size(1100, 900); await wait(800)
 
   // Quick capture shares the switches: the same jumps by the same lines, with no numbers shown there. Driven where
   // it stands, put away, as qa/vim-visual-line.mjs drives it.
