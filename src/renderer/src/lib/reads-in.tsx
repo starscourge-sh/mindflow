@@ -23,8 +23,8 @@ const AT_MOST = 1500
 // qa/start-time.mjs reads back through the build's source maps), and keeps, for every page whose limit ran out, what it
 // was still waiting for: `window.haligtreeHeld`. Nothing of it in a person's run.
 const TEST = typeof window !== 'undefined' && !!window.api?.testRun
-const held: { page: string; self: boolean; waiting: string[]; at: number }[] = []
-if (TEST) (window as { haligtreeHeld?: typeof held }).haligtreeHeld = held
+const heldPast: { page: string; self: boolean; waiting: string[]; at: number }[] = []
+if (TEST) (window as { haligtreeHeld?: typeof heldPast }).haligtreeHeld = heldPast
 /** The caller of the hook that asks: a fresh stack's fourth line (the error, this, the hook, its caller). */
 const madeAt = (): string => (new Error().stack?.split('\n')[3] ?? '').trim()
 
@@ -66,7 +66,7 @@ export function useReadsIn(reading = false, apart = false, { label = '', pages =
   useEffect(() => {
     if (shown) return
     const late = setTimeout(() => {
-      if (TEST) held.push({ page: me.description ?? '', self: readingNow.current, waiting: [...waiting.current].map((one) => one.description ?? ''), at: Math.round(performance.now()) })
+      if (TEST) heldPast.push({ page: me.description ?? '', self: readingNow.current, waiting: [...waiting.current].map((one) => one.description ?? ''), at: Math.round(performance.now()) })
       setShown(true)
     }, AT_MOST)
     return () => clearTimeout(late)
