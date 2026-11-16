@@ -941,9 +941,6 @@ export default function App(): React.JSX.Element {
    * sound. Every way in comes here: ⌘\, the panel button, the pinned chip, ⌃J, ⌃1 to ⌃5, ⇧⌘Y and Settings.
    */
   const setPanel = (open: boolean, quiet = false): void => {
-    // Already shown, or already away (the pinned chip with the panel out): nothing moves, nothing sounds. It ran the
-    // whole move to the same shape, the frost off and on again under it, with a slide for nothing.
-    if (open === panelTold.current) return
     if (!quiet) chime(open ? 'slide' : 'fold')
     // The panel's move sets the height too; the writing's own waits for it to land.
     box.held.current = true
@@ -2215,10 +2212,11 @@ export default function App(): React.JSX.Element {
             <button type="button" data-waiting style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
-                // The panel out already: a change of list, said as ⌃1 says it.
+                // The panel out already: only a change of list, said as ⌃1 says it. Asked again, the panel ran the
+                // whole move to the same shape, the frost off and on under it, with a slide for nothing.
                 if (panel && tab !== 'inbox') chime('tap')
                 setTab('inbox')
-                setPanel(true)
+                if (!panel) setPanel(true)
               }}
               className={`group/waiting flex items-center gap-1 ${HEADER_SHAPE} pr-1.5 pl-2.5 text-key leading-none text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground`}>
               <span><Rolling text={Math.min(BOX_PINS, pinned.length)} /> pinned</span>
