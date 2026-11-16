@@ -1540,7 +1540,10 @@ function Surface({
       ...(has("superscript") ? [Superscript] : []),
       ...(has("subscript") ? [Subscript] : []),
       Selection,
-      ...(search ? [FindAndReplace.configure({ injectCSS: false })] : []),
+      // In every editor: `search` only says whether find is offered now, and that changes while an editor lives (quick
+      // capture is made as the one-line pill and grows into the box), but an editor's extensions are fixed when it is
+      // made, so a find bar opened over one made without this had none of its commands.
+      FindAndReplace.configure({ injectCSS: false }),
       // Columns never narrower than a few words: a table with many of them
       // grows past the page and scrolls sideways, rather than crushing each.
       // A column is never narrower than about 18 letters: ten columns squeezed long words onto five lines; past the page, the table scrolls.

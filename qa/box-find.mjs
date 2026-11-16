@@ -20,6 +20,15 @@ try {
   await page.evaluate(() => window.api.showPrompt())
   await wait(1200)
   check('quick capture opens as the one-line pill', await page.evaluate(() => !!document.querySelector('.app-container[data-pill]')))
+  // One capture kept first: the next one's editor is made afresh while the box is the pill (its first editor was made
+  // before the settings said “One line to start”, as the box, and had find all along).
+  await page.click(EDITOR)
+  await page.keyboard.type('a first thought, kept')
+  await page.keyboard.press('Meta+Enter')
+  await wait(900)
+  await page.evaluate(() => window.api.showPrompt())
+  await wait(1200)
+  check('the next capture opens as the pill too', await page.evaluate(() => !!document.querySelector('.app-container[data-pill]')))
   await page.click(EDITOR)
   await page.keyboard.type('a lantern by the door')
   await page.keyboard.press('Enter')
@@ -34,9 +43,23 @@ try {
   await wait(600)
   const found = await page.evaluate((sel) => document.querySelector(sel)?.editor?.storage.findAndReplace?.results.length ?? -1, EDITOR)
   check('both lanterns are found', found === 2, String(found))
+  // The bar shut is folded to nothing by its row and marked hidden (search-bar.tsx): Playwright's isVisible counts a
+  // field clipped to nothing as visible, so the bar's own mark is read. The box's own “away” mark says whether Esc put
+  // quick capture away instead (main's isVisible cannot: a parked box loses the keys and steps aside on its own).
+  const errorsBefore = boxErrors.length
+  const awayBefore = await page.evaluate(() => document.documentElement.hasAttribute('data-box-away'))
   await page.keyboard.press('Escape')
   await wait(500)
-  check('Esc closes the find bar, its marks gone', (await field.isVisible().catch(() => false)) === false && (await page.evaluate((sel) => document.querySelector(sel)?.editor?.storage.findAndReplace?.results.length ?? 0, EDITOR)) === 0)
+  const one = await page.evaluate((sel) => ({
+    shut: document.querySelector('.tiptap-find-bar')?.getAttribute('aria-hidden') === 'true',
+    results: document.querySelector(sel)?.editor?.storage.findAndReplace?.results.length ?? -1,
+    lit: document.querySelectorAll('.find-and-replace-result').length,
+    caret: !!document.activeElement?.closest('.ProseMirror'),
+    away: document.documentElement.hasAttribute('data-box-away')
+  }), EDITOR)
+  check('Esc closes the find bar, its marks gone', one.shut && one.results === 0 && one.lit === 0, JSON.stringify(one))
+  check('Esc hands the caret back to the note, with nothing thrown', one.caret && boxErrors.length === errorsBefore, `${JSON.stringify(one)} ${boxErrors.slice(errorsBefore).join(' | ')}`)
+  check('Esc with the bar open leaves quick capture as it was', one.away === awayBefore, `away before ${awayBefore}, after ${one.away}`)
   check('no page errors in quick capture or the main window', !boxErrors.length && !c.errors.length, [...boxErrors, ...c.errors].slice(0, 3).join(' | '))
 } finally {
   await c.close()
