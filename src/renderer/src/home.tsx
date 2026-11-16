@@ -9,7 +9,7 @@ import { useToday } from '@/lib/use-today'
 import { showInList } from '@/lib/show-in-list'
 import { TagColourPick } from './components/haligtree/tag-colour-pick'
 import { themeActions } from '@/lib/theme'
-import { useAbandonAction } from '@/lib/abandon'
+import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
 import { warmBin } from '@/lib/fly-home'
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react'
 import { wearFinish } from './components/haligtree/review-toolbar'
@@ -1050,8 +1050,8 @@ export function Home(): React.JSX.Element {
   }, [])
   useAppearance()
   useFocusMode('home')
-  // ⌘K: notes and every action. ⌘P, Obsidian's quick open: notes only.
-  const [searching, setSearching] = useState<false | 'all' | 'notes'>(false)
+  // ⌘K: notes and every action. ⌘P, Obsidian's quick open: notes only. ⌃⌥⌘S from anywhere: ⌘K on “Start focus”'s lengths.
+  const [searching, setSearching] = useState<false | 'all' | 'notes' | 'focus'>(false)
   // What an @ link to a person searches for: every note with their words.
   const [searchFor, setSearchFor] = useState('')
   // Getting started's last step: ⌘K opened once.
@@ -1582,8 +1582,8 @@ export function Home(): React.JSX.Element {
   useEffect(() => window.api.onSentTo((type, id, heading) => {
     // The shortcuts list asked for from quick capture, opened here (shortcut-sheet.tsx).
     if (type === 'shortcuts') window.dispatchEvent(new CustomEvent('haligtree:shortcuts', { detail: id }))
-    // ⌘K (or ⌘P) from quick capture, opened here (App.tsx).
-    else if (type === 'search') setSearching(id === 'notes' ? 'notes' : 'all')
+    // ⌘K (or ⌘P) from quick capture, opened here (App.tsx); ⌃⌥⌘S from anywhere, on “Start focus”'s lengths (main's askFocus).
+    else if (type === 'search') setSearching(id === 'notes' || id === 'focus' ? id : 'all')
     // The passes lay themselves over whatever is open, rather than being a place.
     else if (type === 'view' && (id === 'tidy' || id === 'decide')) openPass(id)
     // Review on one of its pages (":decks" from an import's notice).
@@ -1886,9 +1886,11 @@ export function Home(): React.JSX.Element {
       <AnimatePresence>
       {searching && (
         <Search
-          key={searchFor}
+          // Opened afresh on the lengths when ⌃⌥⌘S comes with ⌘K already open.
+          key={`${searchFor}:${searching === 'focus'}`}
           // With the Calendar in front and a task picked, ⌘K is about that task (⌫ for everything).
-          scope={searching === 'notes' ? undefined : palette?.scope}
+          scope={searching === 'all' ? palette?.scope : undefined}
+          choose={searching === 'focus' ? START_FOCUS : undefined}
           initial={searchFor}
           // Words that match nothing, kept as something new and opened here; or carried to the box.
           onKeep={(as, text) => {

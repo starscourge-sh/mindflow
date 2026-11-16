@@ -276,12 +276,6 @@ const api = {
     heard.on('focus:placed', relay)
     return () => heard.off('focus:placed', relay)
   },
-  /** ⌃⌥⌘S from anywhere: quick capture opens ⌘K on “Start focus”. */
-  onFocusAsk: (listen: () => void): (() => void) => {
-    const relay = (): void => listen()
-    heard.on('focus:ask', relay)
-    return () => heard.off('focus:ask', relay)
-  },
   /** The Mac woke after sleeping in a session that Settings ended there: what ended, and how. */
   onFocusSlept: (listen: (slept: Slept) => void): (() => void) => {
     const relay = (_event: unknown, slept: Parameters<typeof listen>[0]): void => listen(slept)

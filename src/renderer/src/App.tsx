@@ -4,7 +4,7 @@ import { useReadsIn } from './lib/reads-in'
 import { clock } from '@/lib/clock'
 import { carryWindow } from '@/lib/carry'
 import { useStickiesOut } from '@/lib/stickies-out'
-import { START_FOCUS, useAbandonAction } from '@/lib/abandon'
+import { useAbandonAction } from '@/lib/abandon'
 import { usePracticeActions } from '@/lib/practices'
 import { LivingCaret } from '@/components/haligtree/day-writing'
 import React, { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
@@ -1146,9 +1146,6 @@ export default function App(): React.JSX.Element {
   }, [searching])
   // What search opens with: a clicked tag, or nothing.
   const [searchFrom, setSearchFrom] = useState('')
-  // ⌃⌥⌘S from anywhere: ⌘K opens on “Start focus”'s lengths (lib/abandon.ts).
-  const [searchChoose, setSearchChoose] = useState<string | undefined>(undefined)
-  useEffect(() => window.api.onFocusAsk(() => (setSearchFrom(''), setSearching(false), setTimeout(() => (setSearchChoose(START_FOCUS), setSearching(true)), 0))), [])
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       // ⌘K with the caret in a web link edits the link, as in any editor.
@@ -2248,7 +2245,6 @@ export default function App(): React.JSX.Element {
           // for room below, so the window grew under it and the palette was clipped while it settled).
           inCard
           initial={searchFrom}
-          choose={searchChoose}
           // Words that match nothing: kept here, in the box, as the main window keeps them.
           onKeep={(as, text) => {
             setSearching(false)
@@ -2347,12 +2343,10 @@ export default function App(): React.JSX.Element {
           onClose={() => {
             setSearching(false)
             setSearchFrom('')
-            setSearchChoose(undefined)
           }}
           onOpen={(type, id) => {
             setSearching(false)
             setSearchFrom('')
-            setSearchChoose(undefined)
             openAny(type, id)
           }}
         />

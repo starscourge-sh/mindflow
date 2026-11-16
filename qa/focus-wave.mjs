@@ -166,19 +166,38 @@ try {
   check('25: named after, in its line', renamed?.title === 'Draft the conference talk', renamed?.title)
   check('25: Go again after it is another bare session', (await v('session:last'))?.taskId === '', JSON.stringify(await v('session:last')))
 
-  // --- 25: ⌃⌥⌘S's ask, from anywhere: quick capture's ⌘K opens on the lengths.
-  // As the key does it (index.ts askFocus): quick capture brought up first, then asked; sent to a box still put away,
-  // its lengths were drawn in a window no one could see, and read as missing.
-  await box.evaluate(() => window.api.showPrompt())
-  await box.waitForTimeout(600)
-  await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => !new URL(one.webContents.getURL()).searchParams.get('view'))?.webContents.send('focus:ask'))
-  // Until its lengths are drawn (5 s at most): a fixed 900 ms read nothing on a busy machine (load 30 and over).
-  await box.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].some((one) => /^25 min/.test(one.textContent.trim())), null, { timeout: 5000 }).catch(() => {})
-  const asked =await box.$$eval('[role=dialog] button', (all) => all.map((one) => one.textContent.trim()).filter((t) => /^\d+ (min|h)/.test(t))).catch(() => [])
-  check('25: the key anywhere opens on the lengths to pick', asked.includes('25 min') && asked.includes('1 h'), asked.join(' | '))
-  await box.keyboard.press('Escape')
-  await box.keyboard.press('Escape')
-  await box.waitForTimeout(400)
+  // --- 25: ⌃⌥⌘S from anywhere, pressed by its own path in main, with quick capture put away and with it up: ⌘K opens
+  // on “Start focus”'s lengths where ⌘K in quick capture opens it (the main window's), and a length picked starts it.
+  // Quick capture's window as the harness finds it (its page, no view): the carrying guides' window has no view in its
+  // query either (guides.ts puts it after #), and sending to "the first with no view" reached that one instead.
+  const boxUp = () => electron.evaluate(({ BrowserWindow }) => !!BrowserWindow.getAllWindows().find((one) => /\.html|^https?:/.test(one.webContents.getURL()) && !/[?&]view=/.test(one.webContents.getURL()))?.isVisible())
+  for (const up of [false, true]) {
+    if (up) await box.evaluate(() => window.api.showPrompt())
+    else if (await boxUp()) await box.keyboard.press('Escape')
+    await box.waitForTimeout(900)
+    const was = await boxUp()
+    await electron.evaluate(() => globalThis.haligtreeChords.get('⌃⌥⌘S')())
+    await h.waitForTimeout(900)
+    const asked = await h.$$eval('[role=dialog] button', (all) => all.map((one) => one.textContent.trim()).filter((t) => /^\d+ (min|h)/.test(t))).catch(() => [])
+    const where = up ? 'with quick capture up' : 'with quick capture away'
+    check(`25: the key anywhere opens ⌘K on the lengths to pick, ${where}`, was === up && ['25 min', '45 min', '1 h'].every((one) => asked.includes(one)), `${was} ${asked.join(' | ')}`)
+    check(`25: quick capture is put away for it, as for its own ⌘K, ${where}`, !(await boxUp()))
+    if (!up) {
+      for (const look of ['dark', 'paper']) (await theme(look), await h.screenshot({ path: `${SHOT}/25-key-lengths-${look}.png` }))
+      await h.keyboard.press('Escape')
+      await h.keyboard.press('Escape')
+      await h.waitForTimeout(400)
+      continue
+    }
+    // ↵ on the first length starts it, as a length picked in ⌘K does.
+    await h.keyboard.press('Enter')
+    await h.waitForTimeout(1500)
+    const keyed = await v('focus:now')
+    check('25: a length picked from the key starts a session with no task, 25 minutes', keyed?.kind === 'focus' && keyed.taskId === '' && keyed.plannedMs === 25 * 60000, JSON.stringify(keyed && { kind: keyed.kind, task: keyed.taskId, ms: keyed.plannedMs }))
+    check('25: its ⌘K is put away once picked', !(await h.$('[role=dialog]')))
+    if (keyed) await v('session:abandon', keyed.id)
+    await h.waitForTimeout(600)
+  }
 
   // --- 33: Try it for 5 minutes, and 61: the Sessions panel.
   const task = (await v('tasks')).find((one) => one.status === 'open' && one.title && !one.recurrence)

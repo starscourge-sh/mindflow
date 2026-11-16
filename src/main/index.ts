@@ -1040,19 +1040,14 @@ function sendHome(type: string, id: string, heading?: string, via?: Via): void {
 }
 
 /**
- * ⌃⌥⌘S from anywhere: quick capture comes up on ⌘K's “Start focus”, its
- * lengths to pick from (25, 45, 60 minutes, or one typed). Asked before the
- * box has drawn itself, it waits for it as ⌘. does.
+ * ⌃⌥⌘S from anywhere: ⌘K comes up on “Start focus”'s lengths to pick (25 min,
+ * 45 min, 1 h, or one typed) where quick capture's own ⌘K opens it, in the
+ * main window; quick capture, up or away, is put away as for that ⌘K.
  */
 function askFocus(): void {
   // The focus timer turned off: the key does nothing.
   if (!focusToolsOn()) return
-  const ask = (): void => void (prompt && !prompt.isDestroyed() && prompt.webContents.send('focus:ask'))
-  if (prompt && promptPainted && prompt.isVisible() && prompt.isFocused()) return ask()
-  toggleWindow()
-  if (promptPainted) return ask()
-  const was = promptWaiting
-  promptWaiting = () => (was?.(), ask())
+  sendHome('search', 'focus')
 }
 
 /**
@@ -7217,7 +7212,7 @@ app.whenReady().then(() => {
     take('⌃⌥⌘H', keyed(foldDesk))
     // Ten more minutes on the session or break running, from anywhere; the pill rolls its time up and says so.
     take('⌃⌥⌘=', () => void extendRunning(10 * 60_000))
-    // A bare focus session from anywhere, no task first: quick capture opens on “Start focus”'s lengths.
+    // A bare focus session from anywhere, no task first: ⌘K opens on “Start focus”'s lengths.
     take('⌃⌥⌘S', askFocus)
     // Record a meeting from anywhere; while one records, the same key notes the moment.
     take('⌃⌥⌘M', () => void startMeeting())
