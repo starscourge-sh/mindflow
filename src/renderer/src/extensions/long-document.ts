@@ -489,11 +489,19 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
    * carried the words 150 px down, and after a whole note pasted back, what grew above the caret (2,661 px of it
    * under a busy machine) carried the caret off the screen (qa/hold-the-screen.mjs, qa/whole-note-paste.mjs).
    */
-  let pin: { el: Element; at: number } | null = null
-  // How far down the drawn blocks a block stands: moved only by what is drawn above it changing height, never by a
-  // scroll or by the space kept above the drawn blocks (`hold`, `rest`). Blocks drawn or taken off above it move it
-  // too: that is the drawn blocks moving (`draw`), and what is held is chosen again then.
-  const deep = (el: Element): number => el.getBoundingClientRect().top - view.dom.getBoundingClientRect().top
+  let pin: { el: Element; at: number; among: number } | null = null
+  // Where a block stands in the scroller's content, less what the note has scrolled by itself as it put the space
+  // kept above right (`rest`, where the space and the scroll move together): no scroll moves it.
+  const deep = (el: Element): number => {
+    const scroller = view.dom.parentElement
+    return scroller ? el.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - scrolledItself(scroller) : 0
+  }
+  // And how far down the note's drawn blocks it stands. Something above it that grew moves both by as much; the
+  // note's own sizes and drawn blocks put right move only one (the space kept above, or the blocks shown above it),
+  // and that is never held against. Held on either alone, a note opened by a link to a far heading landed 67 blocks
+  // past it, or a long fling down left blocks on the screen not drawn for 1.4 s after it came to rest
+  // (qa/long-note-held.mjs, qa/long-note-scroll.mjs).
+  const among = (el: Element): number => el.getBoundingClientRect().top - view.dom.getBoundingClientRect().top
   /** The deepest drawn block at height `y`: the block there, or in a list, a quote or a table, its part at that height. */
   const blockAt = (y: number): Element | null => {
     const all = blocks()
@@ -525,15 +533,16 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
       if (shown && shown.bottom > top && shown.top < Math.min(box.bottom, window.innerHeight)) el = caret as Element
     }
     el ??= blockAt(top)
-    if (el) pin = { el, at: deep(el) }
+    if (el) pin = { el, at: deep(el), among: among(el) }
   }
-  /** The held block put back on the screen by what it moved since it was last seen. */
+  /** The held block put back on the screen by what grew above it since it was last seen. */
   const keep = (): void => {
     if (!band) return
     if (!pin || !pin.el.isConnected || !pin.el.getClientRects().length || placesHeld.get(view.dom)?.()) return choose()
     const moved = deep(pin.el) - pin.at
-    if (Math.abs(moved) >= 0.5) hold(moved)
+    if (Math.abs(moved) >= 0.5 && Math.abs(moved - (among(pin.el) - pin.among)) < 1) hold(moved)
     pin.at = deep(pin.el)
+    pin.among = among(pin.el)
   }
   const sizes = new ResizeObserver(keep)
   sizes.observe(view.dom)
@@ -606,10 +615,10 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     // Only when it is still drawn: a band moved far, after the caret, has nothing to keep still.
     if (anchor && before !== undefined && anchor.getClientRects().length) {
       hold(anchor.getBoundingClientRect().top - before)
-      // Held where it was on the screen, so is everything under it: what was held stays held, read again among the
-      // blocks drawn now. Not when the screen stood on space kept for blocks not drawn (`at`): its block is put where
-      // the sizes say, not where it was.
-      if (at === undefined && was?.el.isConnected && was.el.getClientRects().length) pin = { el: was.el, at: deep(was.el) }
+      // Held where it was on the screen, so is everything under it: what was held stays held, where it was. Not when
+      // the screen stood on space kept for blocks not drawn (`at`): its block is put where the sizes say, not where
+      // it was.
+      if (at === undefined && was) pin = { ...was, among: among(was.el) }
     }
     resync()
   }
@@ -653,8 +662,6 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
   /** The drawn blocks brought round the screen, when it has come near their edge: whether they moved. */
   const follow = (): boolean => {
     if (!band || !view.dom.isConnected) return false
-    // What grew above the held block since it was last seen is held first, before the screen is read.
-    keep()
     const seen = onScreen()
     if (!seen) return false
     const { first, last, anchor, at } = seen
@@ -684,9 +691,10 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     shift(band[0], band[1], top?.anchor ?? null, top?.at)
     more()
   }
-  // What is held after a scroll is what is on the screen then.
+  // What grew above the held block before the scroll is held first; what is held after it is what is on the screen then.
   const scrolled = (event: Event): void => {
     if (!(event.target instanceof Node && event.target.contains(view.dom))) return
+    keep()
     follow()
     choose()
   }
