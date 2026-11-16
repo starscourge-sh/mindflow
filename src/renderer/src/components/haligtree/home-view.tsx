@@ -173,7 +173,7 @@ function RoundRead({ onRead, className = '' }: { onRead: () => void; className?:
       <button
         type="button"
         onClick={(event) => (event.stopPropagation(), onRead())}
-        className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)] transition-[opacity,translate,scale] duration-200 ease-(--mf-ease) motion-safe:hover:scale-[1.04] active:scale-[0.95] ${className}`}
+        className={`flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_6px_14px_-6px_color-mix(in_oklab,var(--mf-shadow-ink)_45%,transparent)] transition-[opacity,translate,scale] duration-250 ease-(--mf-ease) motion-safe:hover:scale-[1.04] active:scale-[0.95] ${className}`}
       >
         <BookOpen className="size-3.5" />
       </button>
@@ -320,7 +320,7 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
           // Over the picture's corner, 8px in from both edges; on words, level with the kind.
           <span className={`pointer-events-none absolute flex justify-end ${picture ? 'inset-x-1.5 top-1.5 aspect-square items-end p-2' : 'top-[9px] right-[9px]'}`}>
             <RoundRead onRead={() => actions.read(list, at)}
-              className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
+              className="pointer-events-auto scale-90 opacity-0 group-focus-within/card:scale-100 group-focus-within/card:opacity-100 group-hover/card:scale-100 group-hover/card:opacity-100 group-hover/card:delay-100" />
           </span>
         )}
         </div>
@@ -715,7 +715,7 @@ function ComingTile({ card, list, at, actions }: { card: Card; list: Card[]; at:
           {readable(card) && (
             <span className="pointer-events-none absolute top-3 right-3">
               <RoundRead onRead={() => actions.read(list, at)}
-                className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
+                className="pointer-events-auto scale-90 opacity-0 group-focus-within/card:scale-100 group-focus-within/card:opacity-100 group-hover/card:scale-100 group-hover/card:opacity-100 group-hover/card:delay-100" />
             </span>
           )}
         </div>
@@ -1188,11 +1188,11 @@ function SourcesRow({ onAll }: { onAll: () => void }): React.JSX.Element | null 
         return (
           <div key={`${one.field}:${one.name}`} className="flex w-(--card) shrink-0 snap-start">
             <button type="button" data-home-source={one.name} onClick={(event) => (chime('page'), heroOpen(event, () => openSource(one.field, one.name)))}
-              className="flex w-full flex-col gap-2 rounded-lg p-1.5 text-left outline-none transition-[background-color,scale] duration-200 ease-(--mf-ease) hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985]">
+              className="group/src flex w-full flex-col gap-2 rounded-lg p-1.5 text-left outline-none transition-[background-color,scale] duration-200 ease-(--mf-ease) hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985]">
               {person
                 ? <span className="block aspect-square w-full overflow-hidden rounded-full"><Avatar name={one.name} size={160} className="!size-full" /></span>
                 : (
-                  <span className="relative block aspect-square w-full overflow-hidden rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]"><WordCover seed={`source:${one.name}`} tint={tagColour(one.name, null)} words="" /></span>
+                  <span className="relative block aspect-square w-full overflow-hidden rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)] [filter:brightness(0.82)_contrast(1.35)] transition-[filter] duration-200 ease-(--mf-ease) group-hover/src:[filter:none] group-focus-visible/src:[filter:none]"><WordCover seed={`source:${one.name}`} tint={tagColour(one.name, null)} words="" /></span>
                 )}
               <span className="flex min-w-0 flex-col gap-0.5 px-1 pb-1">
                 <span className="truncate text-control font-medium text-foreground">{one.name}</span>

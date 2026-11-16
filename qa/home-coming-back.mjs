@@ -57,6 +57,11 @@ try {
     for (let n = 0; n < 8; n++) { await h.waitForTimeout(50); if (SHOTS) await h.screenshot({ path: `${SHOTS}/frames/arrow-${n}.png` }) }
   }
   void more
+  // A tile's Read button comes in on hover: frames every 25ms, to see it arrive rather than pop.
+  const tile = h.locator('.group\\/card:has(button[data-nav])').filter({ hasNot: h.locator('[data-coming-feature]') }).nth(1)
+  await tile.scrollIntoViewIfNeeded()
+  await tile.hover({ force: true })
+  for (let n = 0; n < 14; n++) { await h.waitForTimeout(25); if (SHOTS) await tile.screenshot({ path: `${SHOTS}/frames/tilehover-${String(n).padStart(2, '0')}.png` }) }
   await feature.hover({ force: true })
   for (let n = 0; n < 4; n++) { await h.waitForTimeout(50); if (SHOTS) await h.screenshot({ path: `${SHOTS}/frames/hover-${n}.png` }) }
   await feature.locator('button[data-nav]').click({ force: true })
