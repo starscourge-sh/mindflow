@@ -5,7 +5,10 @@
  * list's items and a task each their own. Picked, they answer ⌫ (one ⌘Z back), ⌘D, Tab and ⇧Tab, ⌘C (the app's
  * stand-in clipboard, qa/pasteboard.mjs), a typed letter goes nowhere, Esc lets go. QA_PART=carry: picked blocks
  * carried together by one's grip, under another block (one card with their count, ⌘Z back in one step) and beside
- * another into a column. Frames under FRAMES (a folder), light and dark.
+ * another into a column. QA_PART=rest: a box into a list or out of one picks only the items it touched; "Color" on
+ * several colours them all; a box held at the note's edges scrolls it; the menu in Notion's words ("Copy link",
+ * "Caption" ⌥⌘M, "Move to…" ⇧⌘P), every row under a resting pointer with the hand and its fill; ⇧⌘P moves picked
+ * blocks to another note, one ⌘Z putting both back. Frames under FRAMES (a folder), light and dark.
  */
 import { mkdirSync } from 'fs'
 import { join } from 'path'
@@ -52,13 +55,13 @@ const column = () => page.$eval(EDITOR, (root) => {
   const style = getComputedStyle(root)
   return { left: area.left + parseFloat(style.paddingLeft), right: area.right - parseFloat(style.paddingRight) }
 })
-/** A box drawn from the margin left of the words, from just above `top`'s block to just inside `bottom`'s. */
-async function marquee(top, bottom, name) {
+/** A box drawn from the margin left of the words, from just above `top`'s block (or `dy` from its top) to just inside `bottom`'s. */
+async function marquee(top, bottom, name, dy = -4) {
   const edge = await column()
   const a = await block(top).boundingBox()
   const b = await block(bottom).boundingBox()
   // Out past the grip and its + (beside the block the pointer was last on), in the margin round the page.
-  const from = { x: edge.left - 90, y: a.y - 4 }
+  const from = { x: edge.left - 90, y: a.y + dy }
   const to = { x: edge.left + 140, y: b.y + b.height - 4 }
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
@@ -286,6 +289,218 @@ if (PART === 'carry') {
     const rows = await page.$eval(EDITOR, (root) => root.editor.getJSON().content.filter((one) => one.type === 'columns').length)
     check(`${look}: one ⌘Z puts them back`, JSON.stringify(await texts()) === JSON.stringify(before) && rows === 0, (await texts()).join('|'))
   }
+}
+
+if (PART === 'rest') {
+  /** The blocks the note holds as the editor has them: each block's kind, words and colour. */
+  const blocks = () => page.$eval(EDITOR, (root) => {
+    const out = []
+    root.editor.state.doc.descendants((node) => {
+      if (['paragraph', 'listItem', 'taskItem'].includes(node.type.name)) out.push({ kind: node.type.name, words: node.textContent.slice(0, 20), bg: node.attrs.backgroundColor ?? null })
+      return !node.isTextblock
+    })
+    return out
+  })
+  const menuRows = () => page.evaluate(() => [...document.querySelectorAll('.tiptap-block-menu [role=menuitem]')].map((one) => ({ title: one.querySelector('.tiptap-slash-menu-title')?.textContent ?? one.textContent.trim(), hint: one.querySelector('.tiptap-slash-menu-hint')?.textContent ?? '' })))
+  const scrollTop = () => page.$eval(EDITOR, (root) => (root.closest('.haligtree-editor-content') ?? root).scrollTop)
+  for (const look of ['light', 'dark']) {
+    await theme(look)
+    await seed()
+    const before = await texts()
+
+    // 5. A box from a line into a list's first item: the line and that item only, the list's other item left, as Notion picks.
+    await marquee('Alpha line', 'First item', `${look}-into-list`)
+    await shot(`${look}-into-list-picked`)
+    const into = await picked()
+    check(`${look}: a box reaching into a list picks only the items it touched (the line and the first item)`, into.boxes.map((one) => one.words).join('|') === 'Alpha line|First item', into.boxes.map((one) => one.words).join('|'))
+    await page.keyboard.press('Backspace')
+    await page.waitForTimeout(150)
+    const left = await texts()
+    const still = await page.$eval(EDITOR, (root) => [...root.querySelectorAll('ul:not([data-type]) > li')].map((one) => one.textContent.trim()))
+    check(`${look}: ⌫ takes the line and that item, the other item staying in its list`, !left.includes('Alpha line') && !left.includes('First item') && JSON.stringify(still) === '["Second item"]', `${left.slice(0, 4).join('|')} / list: ${JSON.stringify(still)}`)
+    await page.keyboard.press('ControlOrMeta+z')
+    await page.waitForTimeout(150)
+    check(`${look}: one ⌘Z puts both back`, JSON.stringify(await texts()) === JSON.stringify(before), (await texts()).slice(0, 5).join('|'))
+    await page.keyboard.press('Escape')
+    // Carried by the line's grip under the last line: the line and that item go, the item in a list of its own there.
+    await marquee('Alpha line', 'First item', `${look}-into-list-carry`)
+    const lift = await grip('Alpha line')
+    const foot = await block('Last line').boundingBox()
+    const drop = { x: lift.x + 80, y: foot.y + foot.height * 0.85 }
+    await page.mouse.move(lift.x, lift.y)
+    await page.mouse.down()
+    for (let i = 1; i <= 14; i++) (await page.mouse.move(lift.x + ((drop.x - lift.x) * i) / 14, lift.y + ((drop.y - lift.y) * i) / 14), await page.waitForTimeout(50))
+    await page.waitForTimeout(300)
+    await page.mouse.up()
+    await page.waitForTimeout(300)
+    const shape = await page.$eval(EDITOR, (root) => root.editor.getJSON().content.map((one) => one.type === 'bulletList' ? `list(${one.content.map((li) => li.content?.[0]?.content?.[0]?.text).join('+')})` : one.content?.[0]?.content?.[0]?.text ?? one.content?.[0]?.text ?? one.type).join(' | '))
+    check(`${look}: carried, the line and that item land under the last line, the item in a list of its own, the other item left in its list`, shape.startsWith('list(Second item)') && shape.includes('Last line | Alpha line | list(First item)'), shape.slice(0, 160))
+    await page.keyboard.press('ControlOrMeta+z')
+    await page.waitForTimeout(200)
+    check(`${look}: and one ⌘Z puts them back`, JSON.stringify(await texts()) === JSON.stringify(before), (await texts()).slice(0, 5).join('|'))
+    await page.keyboard.press('Escape')
+    // From inside a list out past it: the item it started on, then what follows, never the item above.
+    await marquee('Second item', 'Omega line', `${look}-out-of-list`, 4)
+    const out = await picked()
+    check(`${look}: a box from a list's second item out past the list picks that item on, not the first`, out.boxes.map((one) => one.words).join('|') === 'Second item|A task to do|Omega line', out.boxes.map((one) => one.words).join('|'))
+    await page.keyboard.press('Escape')
+
+    // 2. "Color" for several picked: every one of them takes it.
+    await marquee('Alpha line', 'Second item', `${look}-color-pick`)
+    const at = await grip('First item')
+    await page.mouse.click(at.x, at.y)
+    await page.waitForTimeout(300)
+    const rows = await menuRows()
+    check(`${look}: three picked, the grip's menu offers "Color"`, rows.some((one) => one.title === 'Color'), rows.map((one) => one.title).join(', '))
+    // The menu holds the keys: the picked words wear their boxes only, never the blurred selection's band over them too.
+    const bands = await page.$$eval(`${EDITOR} .mf-picked .selection`, (all) => all.map((one) => getComputedStyle(one).backgroundColor))
+    check(`${look}: with the menu up, the picked words wear no second band over their boxes`, bands.every((one) => one === 'rgba(0, 0, 0, 0)'), bands.join(', '))
+    const color = page.locator('.tiptap-block-menu [role=menuitem]', { hasText: 'Color' }).first()
+    if (await color.count()) {
+      await color.hover()
+      await page.waitForTimeout(350)
+      await shot(`${look}-color-menu`)
+      await page.locator('.tiptap-block-colors [data-background="blue"]').first().click()
+      await page.waitForTimeout(200)
+    }
+    const tinted = (await blocks()).filter((one) => one.bg === 'blue')
+    check(`${look}: a background picked colours all three: the line and both items`, ['Alpha line', 'First item', 'Second item'].every((words) => tinted.some((one) => one.words === words)) && tinted.every((one) => ['Alpha line', 'First item', 'Second item'].includes(one.words)), JSON.stringify(tinted))
+    await shot(`${look}-color-many`)
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(150)
+    await page.keyboard.press('ControlOrMeta+z')
+    await page.waitForTimeout(150)
+    check(`${look}: one ⌘Z takes the colour off all three`, (await blocks()).every((one) => one.bg === null), JSON.stringify((await blocks()).filter((one) => one.bg)))
+    await page.keyboard.press('Escape')
+
+    // 3. Held at the note's bottom edge, then its top, while the box is drawn: the note scrolls and the box picks on.
+    const LONG = Array.from({ length: 60 }, (_, n) => `<p>Line ${n + 1}</p>`).join('')
+    await page.$eval(EDITOR, (root, html) => { root.editor.commands.setContent(html); (root.closest('.haligtree-editor-content') ?? root).scrollTop = 0 }, LONG)
+    await page.waitForTimeout(300)
+    const room = await page.$eval(EDITOR, (root) => { const box = (root.closest('.haligtree-editor-content') ?? root).getBoundingClientRect(); return { top: box.top, bottom: box.bottom } })
+    const edge = await column()
+    const two = await block('Line 2').boundingBox()
+    const start = { x: edge.left - 90, y: two.y + 4 }
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    const low = { x: edge.left + 120, y: room.bottom - 10 }
+    for (let i = 1; i <= 8; i++) {
+      await page.mouse.move(start.x + ((low.x - start.x) * i) / 8, start.y + ((low.y - start.y) * i) / 8)
+      await page.waitForTimeout(30)
+    }
+    const top0 = await scrollTop()
+    const count0 = (await picked()).boxes.length
+    const counts = []
+    for (let i = 0; i < 10; i++) (await page.waitForTimeout(150), await shot(`${look}-edge-bottom-${i}`), counts.push((await picked()).boxes.length))
+    const top1 = await scrollTop()
+    const count1 = (await picked()).boxes.length
+    check(`${look}: a box held at the note's bottom edge scrolls the note down and picks on (${Math.round(top1 - top0)}px, ${count0} → ${count1} blocks)`, top1 - top0 > 40 && count1 > count0, `${top0} → ${top1}, ${count0} → ${count1}`)
+    check(`${look}: and the pick only grows while it scrolls, never let go between lines`, counts.every((n, i) => n > 0 && n >= (counts[i - 1] ?? 0)), counts.join(' '))
+    const drawn = await page.$eval('.mf-pick-box', (one) => { const box = one.getBoundingClientRect(); return { top: Math.round(box.top), bottom: Math.round(box.bottom) } }).catch(() => null)
+    check(`${look}: the box is drawn inside the note's own room, never past its edges`, !!drawn && drawn.top >= Math.floor(room.top) && drawn.bottom <= Math.ceil(room.bottom), `${JSON.stringify(drawn)} in ${JSON.stringify(room)}`)
+    const high = { x: low.x, y: room.top + 10 }
+    for (let i = 1; i <= 8; i++) (await page.mouse.move(low.x, low.y + ((high.y - low.y) * i) / 8), await page.waitForTimeout(30))
+    const top2 = await scrollTop()
+    for (let i = 0; i < 10; i++) (await page.waitForTimeout(150), await shot(`${look}-edge-top-${i}`))
+    const top3 = await scrollTop()
+    check(`${look}: held at the note's top edge, the note scrolls back up (${Math.round(top2 - top3)}px)`, top2 - top3 > 40, `${top2} → ${top3}`)
+    await page.mouse.up()
+    await page.waitForTimeout(150)
+    check(`${look}: let go, the box goes and the pick stays`, (await page.$$('.mf-pick-box')).length === 0 && (await picked()).boxes.length > 0, '')
+    await page.keyboard.press('Escape')
+  }
+
+  // 1. The menu in Notion's words, every row answering a resting pointer with the hand and its fill.
+  await theme('light')
+  await seed()
+  const alpha = await grip('Alpha line')
+  await page.mouse.click(alpha.x, alpha.y)
+  await page.waitForTimeout(300)
+  const lines = await menuRows()
+  check('a picked line\'s menu offers "Move to…" with ⇧⌘P, after "Duplicate"', lines.some((one) => one.title === 'Move to…' && one.hint === '⇧⌘P') && lines.findIndex((one) => one.title === 'Move to…') === lines.findIndex((one) => one.title === 'Duplicate') + 1, lines.map((one) => `${one.title} ${one.hint}`.trim()).join(', '))
+  const rested = []
+  for (const row of await page.locator('.tiptap-block-menu [role=menuitem]').all()) {
+    const box = await row.boundingBox()
+    if (!box) continue
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.waitForTimeout(60)
+    rested.push(await row.evaluate((one) => ({ title: one.textContent.trim(), cursor: getComputedStyle(one).cursor, fill: getComputedStyle(one).backgroundColor, under: document.elementFromPoint(one.getBoundingClientRect().left + 20, one.getBoundingClientRect().top + one.getBoundingClientRect().height / 2)?.closest('[role=menuitem]') === one })))
+  }
+  await shot('light-menu-rested')
+  check('every row of the menu under a resting pointer shows the hand and its hover fill', rested.length >= 5 && rested.every((one) => one.cursor === 'pointer' && one.under && !/rgba\(0, 0, 0, 0\)|transparent/.test(one.fill)), JSON.stringify(rested.filter((one) => one.cursor !== 'pointer' || !one.under || /rgba\(0, 0, 0, 0\)|transparent/.test(one.fill))))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+  await page.keyboard.press('Escape')
+
+  // A link card: "Copy link", as Notion says it, never "Copy address".
+  await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<p>Before the card</p><a data-bookmark href="https://example.org/faust" title="Faust" description="A link\'s card" site="example.org"></a><p>After the card</p>'))
+  await page.waitForTimeout(300)
+  await page.locator(`${EDITOR} .tiptap-bookmark`).first().hover()
+  await page.waitForTimeout(250)
+  await page.locator('.tiptap-drag-handle-grip').click()
+  await page.waitForTimeout(250)
+  const card = (await menuRows()).map((one) => one.title)
+  check('a link card\'s menu says "Copy link" for its address, never "Copy address"', card.includes('Copy link') && !card.includes('Copy address'), card.join(', '))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(150)
+
+  // "Caption" with its key: on a picture's menu, and ⌥⌘M on the picture picked writes one.
+  await page.$eval(EDITOR, (root) => root.editor.commands.setContent('<p>Above the picture</p><p>Under the picture</p>'))
+  // A picture dropped in, as Finder drops it, so it is the book's own file (qa/picture-menu.mjs).
+  await page.evaluate((sel) => new Promise((done) => {
+    const canvas = Object.assign(document.createElement('canvas'), { width: 320, height: 200 })
+    const pen = canvas.getContext('2d'); pen.fillStyle = '#6a8'; pen.fillRect(0, 0, 320, 200)
+    canvas.toBlob((blob) => {
+      const ed = document.querySelector(sel).editor
+      const data = new DataTransfer()
+      data.items.add(new File([blob], 'square.png', { type: 'image/png' }))
+      const box = ed.view.dom.getBoundingClientRect()
+      ed.view.dom.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true, clientX: box.left + 20, clientY: box.bottom - 4 }))
+      done()
+    })
+  }), EDITOR)
+  await page.waitForSelector(`${EDITOR} img`, { timeout: 15000 }).catch(() => {})
+  await page.waitForTimeout(800)
+  await page.locator(`${EDITOR} img`).first().hover()
+  await page.waitForTimeout(250)
+  await page.locator('.tiptap-drag-handle-grip').click()
+  await page.waitForTimeout(300)
+  const picture = await menuRows()
+  check('a picture\'s menu says "Caption" with its key, ⌥⌘M', picture.some((one) => one.title === 'Caption' && one.hint === '⌥⌘M'), picture.map((one) => `${one.title} ${one.hint}`.trim()).join(', '))
+  await page.keyboard.press('Escape')
+  await page.waitForTimeout(200)
+  await page.keyboard.press('Meta+Alt+KeyM')
+  await page.waitForTimeout(300)
+  await page.keyboard.type('A small square', { delay: 15 })
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(250)
+  const caption = await page.$eval(EDITOR, (root) => root.editor.getJSON().content.find((one) => one.type === 'image')?.attrs.caption ?? null)
+  check('⌥⌘M on the picture picked writes its caption', caption === 'A small square', String(caption))
+
+  // "Move to…" by ⇧⌘P: another note picked from the search, the blocks there and gone from here, one ⌘Z puts both back.
+  const target = await page.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Moving day target' }] }] } }))
+  const targetBody = () => page.evaluate((id) => window.api.captures.get(id).then((one) => JSON.stringify(one?.body ?? '')), target)
+  await seed()
+  const whole = await texts()
+  await marquee('Alpha line', 'First item', 'light-move-pick')
+  await page.keyboard.press('Meta+Shift+KeyP')
+  await page.waitForTimeout(500)
+  const asked = await page.evaluate(() => document.querySelector('input[placeholder$="to which note?"]')?.getAttribute('placeholder') ?? '')
+  check('⇧⌘P on two picked blocks asks which note, in the notes\' own search', asked === 'Move 2 blocks to which note?', asked)
+  await page.keyboard.type('Moving day target', { delay: 20 })
+  await page.waitForTimeout(900)
+  await shot('light-move-picker')
+  await page.keyboard.press('Enter')
+  await page.waitForTimeout(1200)
+  const moved = await texts()
+  const there = await targetBody()
+  const said = await page.evaluate(() => [...document.querySelectorAll('[role=status]')].map((one) => one.textContent.trim()).filter(Boolean).join(' / '))
+  check('the two blocks go: gone from here, at the end of the note picked', !moved.includes('Alpha line') && !moved.includes('First item') && moved.includes('Second item') && there.includes('Alpha line') && there.includes('First item'), `${moved.slice(0, 3).join('|')} / ${there.slice(0, 160)}`)
+  check('the notice says where they went', /Moved 2 blocks to .Moving day target/.test(said), said.slice(0, 200))
+  await page.keyboard.press('ControlOrMeta+z')
+  await page.waitForTimeout(1200)
+  const back = await targetBody()
+  check('one ⌘Z in the note puts them back here and takes them out of the other note', JSON.stringify(await texts()) === JSON.stringify(whole) && !back.includes('Alpha line') && back.includes('Moving day target'), `${(await texts()).slice(0, 4).join('|')} / ${back.slice(0, 160)}`)
 }
 
 const errors = app.drain().filter((line) => /PAGE ERROR/.test(line))
