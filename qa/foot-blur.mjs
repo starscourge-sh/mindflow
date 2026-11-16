@@ -5,6 +5,7 @@
 // scrolling stays inside the frame budget. Light and dark pictures of each with a folder: node qa/foot-blur.mjs <dir>
 //
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/foot-blur.mjs [shots]
+import { writeFileSync } from 'fs'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -58,16 +59,21 @@ const under = (scrollSel, lastSel, bar) => h.evaluate(([scrollSel, lastSel, bar]
  * between any two pixels of the band from the bar's top edge to its foot (0 is one flat colour, the page's). Words
  * showing through, however faintly, are steps. Kept 16px in from each side, clear of the pane's round corners.
  */
-const bare = async (bar) => {
+const bare = async (bar, name) => {
   const clip = await h.evaluate((bar) => {
     const dock = document.querySelector(bar)
     for (const one of dock.children) if (!one.classList.contains('mf-blur-edge')) one.style.visibility = 'hidden'
+    // "Top" floats over the bar on purpose (its own line checks it clears the bar), and its soft shadow falls a few
+    // pixels onto the band's top right: a control's shadow, not words passing under. Put away while the band is read.
+    for (const one of document.querySelectorAll('[data-back-to-top]')) one.style.visibility = 'hidden'
     const r = dock.getBoundingClientRect()
     return { x: Math.ceil(r.left) + 16, y: Math.ceil(r.top) + 1, width: Math.floor(r.width) - 32, height: Math.floor(r.height) - 16 }
   }, bar)
   await wait(150)
   const png = await h.screenshot({ clip })
-  await h.evaluate((bar) => { for (const one of document.querySelector(bar).children) one.style.visibility = '' }, bar)
+  // The band as measured, to read by eye: what made a step, if any.
+  if (SHOTS && name) writeFileSync(join(SHOTS, `band-${name}.png`), png)
+  await h.evaluate((bar) => { for (const one of [...document.querySelector(bar).children, ...document.querySelectorAll('[data-back-to-top]')]) one.style.visibility = '' }, bar)
   const step = await electron.evaluate(({ nativeImage }, b64) => {
     const bits = nativeImage.createFromBuffer(Buffer.from(b64, 'base64')).toBitmap()
     const lo = [255, 255, 255], hi = [0, 0, 0]
@@ -78,7 +84,8 @@ const bare = async (bar) => {
 }
 
 /** The same in light and in dark. */
-const flats = async (bar) => { const seen = []; for (const theme of ['dark', 'light']) { await c.look(theme); seen.push({ theme, ...(await bare(bar)) }) } return seen }
+let measured = 0
+const flats = async (bar) => { const seen = []; measured++; for (const theme of ['dark', 'light']) { await c.look(theme); seen.push({ theme, ...(await bare(bar, `${measured}-${bar.replace(/\W+/g, '')}-${theme}`)) }) } return seen }
 
 /** Frame times while the scroller is wheeled down: the worst and the 95th percentile, in ms. */
 const frames = async (x, y) => {
