@@ -9,8 +9,9 @@
 //   solo ./node_modules/.bin/electron-vite build --outDir out-x
 //   solo --quiet env QA_ENTRY=$PWD/out-x/main/index.js QA_FROM=<seeded sandbox> QA_DATA=<a copy's path> QA_ARGS=--sandbox HALIGTREE_QA_AWAY=1 node qa/start-time.mjs
 // QA_FROM: the data to start on, cloned (cp -c) to QA_DATA, which is deleted at the end; without it, QA_DATA as it is.
-// QA_COMPARE=<another build's main/index.js>: that build started in turn with QA_ENTRY's, start for start, on the same
-// data, so the two tables are measured at the same load (the old build and the new back to back).
+// QA_COMPARE=<another build's main/index.js>: that build started in turn with QA_ENTRY's, start for start, so the two
+// tables are measured at the same load (the old build and the new back to back). With QA_FROM, each on a copy of its
+// own (QA_DATA and QA_DATA-compared): on one copy, each build undid the other's picture index at every start.
 // QA_FRAMES=<dir>: the main window's own frames, from the launch to the first key answered, of every start (cold-1…).
 // QA_THEME=<theme> (paper, dark…): worn from the first cold start on (set as the start before it ends), for light and dark frames.
 // QA_PROFILE=<file> with HALIGTREE_QA_PROFILE_START=1: main's CPU profile from its first module to quick capture drawn,
@@ -149,26 +150,27 @@ function table(label, runs) {
 }
 
 const load = () => execFileSync('uptime').toString().replace(/.*averages?:/, '').trim()
-if (FROM) (rmSync(DATA, { recursive: true, force: true }), execFileSync('cp', ['-cR', FROM, DATA]))
+const dataOf = (entry) => (FROM && entry !== BUILDS[0][1] ? `${DATA}-compared` : DATA)
+if (FROM) for (const [, entry] of BUILDS) (rmSync(dataOf(entry), { recursive: true, force: true }), execFileSync('cp', ['-cR', FROM, dataOf(entry)]))
 const runs = new Map(BUILDS.map(([name]) => [name, { cold: [], again: [] }]))
-const as = (entry) => void (process.env.QA_ENTRY = entry)
+const as = (entry) => void ((process.env.QA_ENTRY = entry), (process.env.QA_DATA = dataOf(entry)))
 for (const [, entry] of BUILDS) (as(entry), await start('first', 0))
 // The day's backups, where a test run keeps them (backup.ts `backupBase`): the sandbox's in its own folder.
-const backups = [`${DATA}/backups`, `${DATA}/sandbox/backups`]
+const backups = (entry) => [`${dataOf(entry)}/backups`, `${dataOf(entry)}/sandbox/backups`]
 for (let n = 1; n <= RUNS; n++) {
   for (const [name, entry] of BUILDS) {
     as(entry)
-    for (const one of backups) rmSync(one, { recursive: true, force: true })
+    for (const one of backups(entry)) rmSync(one, { recursive: true, force: true })
     const { cold, again } = runs.get(name)
     cold.push(await start('cold', n))
     // The day's copy of the book, made as it started (backup.ts): there, whole, with no part of one left beside it.
-    const copies = backups.map((one) => `${one}/database`).filter((dir) => existsSync(dir)).flatMap((dir) => readdirSync(dir))
+    const copies = backups(entry).map((one) => `${one}/database`).filter((dir) => existsSync(dir)).flatMap((dir) => readdirSync(dir))
     cold.at(-1).copied = copies.includes(`haligtree-${new Date().toLocaleDateString('sv')}.db`) && !copies.some((name) => name.endsWith('.part'))
     again.push(await start('again', n))
     console.log(`(${name}, start ${n}: cold shown ${Math.round(cold.at(-1).shown)}ms, again ${Math.round(again.at(-1).shown)}ms; load ${load()})`)
   }
 }
-if (FROM) rmSync(DATA, { recursive: true, force: true })
+if (FROM) for (const [, entry] of BUILDS) rmSync(dataOf(entry), { recursive: true, force: true })
 for (const [name, { cold, again }] of runs) {
   const a = table(`${name}, cold (the first start of a day: its backup still to make)`, cold)
   const b = table(`${name}, again (started again the same day)`, again)
