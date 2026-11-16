@@ -1,4 +1,3 @@
-import { Lean } from './lean'
 import { ContinueReading } from '@/components/pdf/pdf-library'
 import { showMediaKind } from './media-view'
 import { useResumeCards, WelcomeBack } from './resume-cards'
@@ -225,7 +224,6 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
   return (
     <RowMenu items={() => menuFor(card, actions, [card], 0, pinned)}>
       <div className="group/tile relative min-w-0" onPointerEnter={() => onHover(look)} onPointerLeave={() => onHover(null)}>
-        <Lean by={3}>
         <button
           type="button"
           data-nav
@@ -245,7 +243,6 @@ function Tile({ card, pinned, actions, onHover }: { card: Card; pinned: boolean;
           <RoundRead onRead={() => actions.read([card], 0)}
             className="absolute top-1/2 right-2.5 -translate-y-1/2 translate-x-1 opacity-0 group-focus-within/tile:translate-x-0 group-focus-within/tile:opacity-100 group-hover/tile:translate-x-0 group-hover/tile:opacity-100" />
         )}
-        </Lean>
       </div>
     </RowMenu>
   )
@@ -269,7 +266,7 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
   return (
     <RowMenu items={() => menuFor(card, actions, list, at)}>
       <div className="group/card relative flex w-(--card) shrink-0 snap-start">
-        <Lean className="flex w-full" inner="flex">
+        <div className="relative flex w-full">
         <button
           type="button"
           data-nav
@@ -326,7 +323,7 @@ function RowCard({ card, list, at, actions }: { card: Card; list: Card[]; at: nu
               className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
           </span>
         )}
-        </Lean>
+        </div>
       </div>
     </RowMenu>
   )
@@ -662,7 +659,7 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
   const feature = (
     <RowMenu items={() => menuFor(lead, actions, cards, 0)}>
       <div data-coming-feature className="group/card relative flex h-full w-full min-w-0" data-private={lead.private ? '' : undefined}>
-        <Lean by={3} className="h-full w-full min-w-0" inner="relative flex h-full flex-col gap-3 overflow-hidden rounded-lg p-5 transition-colors duration-150 hover:bg-foreground/[0.05]">
+        <div className="relative flex h-full w-full min-w-0 flex-col gap-3 overflow-hidden rounded-lg p-5 transition-colors duration-150 hover:bg-foreground/[0.05]">
           {/* The whole card opens it; the round buttons sit over it. */}
           <button type="button" aria-label={nameOf(lead)} data-nav data-private={lead.private ? '' : undefined} data-picked={actions.picked?.(lead) || undefined} data-drag-open={`${lead.type}:${lead.id}`} onClick={(event) => actions.open(lead, event)}
             className="absolute inset-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50" />
@@ -687,7 +684,7 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
             </div>
           </div>
           {lead.foot && <div className="relative px-3 pb-3">{lead.foot}</div>}
-        </Lean>
+        </div>
       </div>
     </RowMenu>
   )
@@ -703,7 +700,7 @@ function ComingTile({ card, list, at, actions }: { card: Card; list: Card[]; at:
   return (
     <RowMenu items={() => menuFor(card, actions, list, at)}>
       <div className="group/card relative flex w-(--card) shrink-0 snap-start">
-        <Lean className="flex w-full" inner="flex">
+        <div className="relative flex w-full">
           <button type="button" data-nav data-private={card.private ? '' : undefined} data-picked={actions.picked?.(card) || undefined} data-drag-open={`${card.type}:${card.id}`} onClick={(event) => actions.open(card, event)}
             className="flex w-full flex-col gap-2 rounded-lg p-1.5 text-left outline-none transition-[background-color,scale] duration-200 ease-(--mf-ease) hover:bg-foreground/[0.05] focus-visible:ring-2 focus-visible:ring-ring/50 active:scale-[0.985]">
             <span className="relative block aspect-square w-full">
@@ -721,7 +718,7 @@ function ComingTile({ card, list, at, actions }: { card: Card; list: Card[]; at:
                 className="pointer-events-auto translate-y-1 opacity-0 group-focus-within/card:translate-y-0 group-focus-within/card:opacity-100 group-hover/card:translate-y-0 group-hover/card:opacity-100" />
             </span>
           )}
-        </Lean>
+        </div>
       </div>
     </RowMenu>
   )
