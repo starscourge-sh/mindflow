@@ -15,10 +15,12 @@ const wait = (ms) => h.waitForTimeout(ms)
 const today = new Date().toLocaleDateString('en-CA')
 const boxes = () => h.evaluate(() => {
   const box = (one) => { if (!one) return null; const r = one.getBoundingClientRect(); return { top: r.top, bottom: r.bottom } }
-  const words = document.querySelector('[data-writer-line] > span')
+  // The line's words, not the blur under them (BlurEdge, the line's first span since 72c5ea8fa: 3rem taller than the line).
+  const words = document.querySelector('[data-writer-line] > span:not(.mf-blur-edge)')
   const got = [...document.querySelectorAll('button')].find((one) => one.textContent?.trim().startsWith('Got it') && one.closest('.mf-prose, div')?.querySelector('.mf-prose'))
   const hint = got?.closest('.mf-prose, div')?.parentElement?.querySelector('.mf-prose') ?? null
-  return { words: box(words), hint: box(hint), page: box(document.querySelector('[data-day-write]')?.closest('[data-pane-card]')), height: innerHeight, toast: box(document.querySelector('[data-sonner-toast], [data-toast]')) }
+  // The line itself (its band: the words with their room round them), what must keep inside the page and off the hint.
+  return { words: box(words), line: box(document.querySelector('[data-writer-line]')), hint: box(hint), page: box(document.querySelector('[data-day-write]')?.closest('[data-pane-card]')), height: innerHeight, toast: box(document.querySelector('[data-sonner-toast], [data-toast]')) }
 })
 
 await go('inbox')
@@ -38,8 +40,8 @@ const up = await boxes()
 if (shots) await h.screenshot({ path: `${shots}/with-hint-light.png` })
 check('a hint shows under the page', !!up.hint, JSON.stringify(up.hint))
 check('the line shows', !!up.words, JSON.stringify(up.words))
-check('the line sits inside the page', up.words.bottom <= up.page.bottom + 0.5, `${up.words.bottom} of ${up.page.bottom}`)
-check('the line never lies over the hint', up.words.bottom <= up.hint.top || up.words.top >= up.hint.bottom, `${JSON.stringify(up.words)} ${JSON.stringify(up.hint)}`)
+check('the line sits inside the page', up.line.bottom <= up.page.bottom + 0.5, `${up.line.bottom} of ${up.page.bottom}`)
+check('the line never lies over the hint', up.line.bottom <= up.hint.top || up.line.top >= up.hint.bottom, `${JSON.stringify(up.line)} ${JSON.stringify(up.hint)}`)
 await h.evaluate(() => document.documentElement.classList.add('dark'))
 await wait(200)
 if (shots) await h.screenshot({ path: `${shots}/with-hint-dark.png` })
@@ -52,8 +54,8 @@ await h.locator('[data-day-write] .tiptap').click()
 await wait(500)
 const gone = await boxes()
 if (shots) await h.screenshot({ path: `${shots}/no-hint-light.png` })
-check('with the hint gone the line comes down with the page', gone.words.bottom > up.words.bottom + 20, `${up.words.bottom} to ${gone.words.bottom}`)
-check('still inside the page', gone.words.bottom <= gone.page.bottom + 0.5, `${gone.words.bottom} of ${gone.page.bottom}`)
+check('with the hint gone the line comes down with the page', gone.line.bottom > up.line.bottom + 20, `${up.line.bottom} to ${gone.line.bottom}`)
+check('still inside the page', gone.line.bottom <= gone.page.bottom + 0.5, `${gone.line.bottom} of ${gone.page.bottom}`)
 await h.keyboard.press('Meta+Shift+Enter')
 await wait(900)
 const room = await h.evaluate(() => getComputedStyle(document.querySelector('[data-toast-lane]') ?? document.documentElement).getPropertyValue('--toast-bottom').trim())
