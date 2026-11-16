@@ -34,7 +34,9 @@ import { moveToBin } from '@/lib/to-bin'
 import { toast } from './ui'
 import { TagRow } from './pass'
 import { TagChip } from './tag-icon'
-import { dayjs, num, plural } from '../../../../main/dates'
+import { dayjs, howLong, num, plural } from '../../../../main/dates'
+import { useCounts } from '@/components/count/word-count'
+import { minutesToRead } from '@/lib/note-size'
 
 /** Whether the queue panel was left open, for the next time the queue is read. */
 const PANEL = 'readQueuePanel'
@@ -309,8 +311,12 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
   // Where a click landed in the words, so writing starts with the caret there.
   const reader = useRef<Editor | null>(null)
+  // The page's editor as drawn, for its length in the line under the title.
+  const [pageEditor, setPageEditor] = useState<{ id: string; editor: Editor } | null>(null)
   const caret = useRef<number | null>(null)
   const item = items[at]
+  // Its length, from the editor drawing this page alone: the page before's says nothing of this one.
+  const size = useCounts(pageEditor?.id === item?.id ? pageEditor.editor : null)
   // What the composer under the page adds to: the question whose clues these
   // are, or the note in front of you. A question's own page takes clues.
   const composerFor = clueTo ?? (item && item.body === undefined ? item.id : undefined)
@@ -690,7 +696,8 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     caret.current = reader.current?.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? null
   }
   // Its tags read live from the words, so one typed in shows here at once.
-  const metaParts = shown ? [...(shown.meta ?? []), ...tagsOf(shown.body)] : []
+  // How long it takes to read, as the note's bar says it (note-size.tsx) and the Feed's pages do: after its date.
+  const metaParts = shown ? [...(shown.meta ?? []), ...(size?.words ? [`${howLong(minutesToRead(size.words))} read`] : []), ...tagsOf(shown.body)] : []
   const meta = metaParts.join(' · ')
   const linked = own && inPlace && shown ? linkedIn(shown.body, item.type === 'capture' ? item.id : `${item.type}:${item.id}`) : []
   // Over the whole window, not inside the pane it was opened from: no
@@ -852,6 +859,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                     autofocus={writing && openAt === null ? (sorting ? 'start' : 'end') : false}
                     onReady={(editor) => {
                       reader.current = editor
+                      setPageEditor({ id: item.id, editor })
                       // Locked or unlocked, the page stays where it was scrolled to.
                       const kept = keptScroll.current
                       keptScroll.current = null
