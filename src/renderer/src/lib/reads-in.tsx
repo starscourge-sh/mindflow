@@ -10,7 +10,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
  * it in one frame. Never longer than its slowest read, and never again once
  * shown: a part that reads afresh later changes in place, as anything does.
  */
-type Hold = (id: symbol, reading: boolean) => void
+type Hold = (id: symbol, reading: boolean, page?: boolean) => void
 const Holding = createContext<Hold | null>(null)
 /** Whether the page a part is on is on show yet: true outside any page. */
 const Seen = createContext(true)
@@ -31,8 +31,10 @@ const madeAt = (): string => (new Error().stack?.split('\n')[3] ?? '').trim()
 /**
  * `apart`: a part that comes in whole on its own, never holding the page it
  * is on (what sits under a note's words never keeps the words waiting).
+ * `pages`: a page that waits only for the pages on it, never for a part outside any page (the window's first screen,
+ * windows/home.tsx): a part on no page held nothing before the window waited for its screen, and must not hold it now.
  */
-export function useReadsIn(reading = false, apart = false, label = ''): { provide: (children: ReactNode) => ReactNode; style: CSSProperties | undefined; counted: boolean } {
+export function useReadsIn(reading = false, apart = false, { label = '', pages = false }: { label?: string; pages?: boolean } = {}): { provide: (children: ReactNode) => ReactNode; style: CSSProperties | undefined; counted: boolean } {
   const where = useRef('')
   if (TEST && !where.current) where.current = label || madeAt()
   const readingNow = useRef(reading)
@@ -46,12 +48,12 @@ export function useReadsIn(reading = false, apart = false, label = ''): { provid
   const [counted, setCounted] = useState(false)
   const [shown, setShown] = useState(false)
   useLayoutEffect(() => setCounted(true), [])
-  const hold = useCallback<Hold>((id, on) => {
-    if (waiting.current.has(id) === on) return
+  const hold = useCallback<Hold>((id, on, page) => {
+    if ((pages && !page) || waiting.current.has(id) === on) return
     if (on) waiting.current.add(id)
     else waiting.current.delete(id)
     redraw((n) => n + 1)
-  }, [])
+  }, [pages])
   const ready = counted && !reading && waiting.current.size === 0
   useLayoutEffect(() => void (!shown && counted && !reading && waiting.current.size === 0 && setShown(true)))
   // A page inside another (a pane of Tags, Review in quick capture) is one of its parts: the outer one waits for it too.
@@ -59,8 +61,8 @@ export function useReadsIn(reading = false, apart = false, label = ''): { provid
   const parent = apart ? null : held
   const [me] = useState(() => Symbol(TEST ? `page ${where.current}` : 'page'))
   // Said after its own parts have had theirs in this frame, so it is never counted ready a frame too soon.
-  useLayoutEffect(() => void parent?.(me, !(shown || (counted && !reading && waiting.current.size === 0))))
-  useLayoutEffect(() => () => void parent?.(me, false), [parent, me])
+  useLayoutEffect(() => void parent?.(me, !(shown || (counted && !reading && waiting.current.size === 0)), true))
+  useLayoutEffect(() => () => void parent?.(me, false, true), [parent, me])
   useEffect(() => {
     if (shown) return
     const late = setTimeout(() => {
@@ -87,6 +89,6 @@ export function useReading(reading: boolean): void {
 
 /** A page, or a panel, that waits for every part on it: see `useReadsIn`. */
 export function ReadsIn({ reading = false, apart = false, className, children, ...rest }: { reading?: boolean; apart?: boolean; className?: string; children: ReactNode } & Record<`data-${string}`, string | undefined>): React.JSX.Element {
-  const { provide, style } = useReadsIn(reading, apart, TEST ? `ReadsIn ${Object.entries(rest).map(([key, value]) => `${key}=${value}`).join(' ') || className || ''}` : '')
+  const { provide, style } = useReadsIn(reading, apart, { label: TEST ? `ReadsIn ${Object.entries(rest).map(([key, value]) => `${key}=${value}`).join(' ') || className || ''}` : '' })
   return <div className={className} style={style} {...rest}>{provide(children)}</div>
 }

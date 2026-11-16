@@ -15,7 +15,8 @@ import { useReadsIn } from '../lib/reads-in'
  * second later in one jump (qa/start-time.mjs's frames, 16 Nov).
  */
 function Drawn({ children }: { children: ReactNode }): ReactNode {
-  const { provide, style } = useReadsIn()
+  // The pages on it only (the sidebar, the page on show): a part on no page never held the window.
+  const { provide, style } = useReadsIn(false, false, { pages: true })
   const whole = !style
   // The page's own steps, beside main's (qa/start-time.mjs): its code read, its first render, its first screen whole.
   useEffect(() => void performance.mark('haligtree:render'), [])
