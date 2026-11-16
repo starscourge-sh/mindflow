@@ -157,6 +157,7 @@ try {
   await h.waitForTimeout(1200)
   const line = `[data-day-session="${now.id}"]`
   check('25: the day’s page has the bare session’s line', !!(await h.$(`${line}[data-bare]`)))
+  for (const look of ['dark', 'paper']) (await theme(look), await h.screenshot({ path: `${SHOT}/25-day-page-${look}.png` }))
   await h.click(`${line} button`)
   await h.waitForTimeout(300)
   await h.fill('[data-day-session-name]', 'Draft the conference talk')
