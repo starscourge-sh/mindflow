@@ -12,6 +12,8 @@
 // default; one the note has nothing for is said and not counted. The line ways are asked for by name
 // (WAYS=line,openline), on a copy that may be written: a note with no named line has a far paragraph given one.
 // WHY=1 says what is on the page as the note is opened by a link, and the order its place is asked for in.
+// HEADING=<its words> sends the link ways to that heading instead of one picked far from the place kept (a case that
+// failed once is run again as it was: HEADING="Secure Data Engineering Practices" landed 67 blocks past it).
 import { DatabaseSync } from 'node:sqlite'
 import { readFileSync } from 'fs'
 import { loadavg } from 'os'
@@ -59,7 +61,7 @@ const install = () => h.evaluate((sel) => {
     open: (count) => { const e = ed(); return !!e && e.editor.state.doc.childCount >= count },
     caret: () => ed().editor.state.selection.$head.index(0),
     // A heading far from block `from`, said once in the note, and the block it is.
-    heading: (from) => { const seen = new Map(); ed().editor.state.doc.forEach((node, _offset, index) => { if (node.type.name !== 'heading') return; const text = node.textContent.trim(); if (text.length > 6) seen.set(text, seen.has(text) ? -1 : index) }); const far = [...seen].filter(([, index]) => index >= 0 && Math.abs(index - from) > 600); const pick = far[Math.floor(far.length * 0.7)]; return pick ? { text: pick[0], index: pick[1] } : null },
+    heading: ([from, wanted]) => { const seen = new Map(); ed().editor.state.doc.forEach((node, _offset, index) => { if (node.type.name !== 'heading') return; const text = node.textContent.trim(); if (text.length > 6) seen.set(text, seen.has(text) ? -1 : index) }); const far = [...seen].filter(([, index]) => index >= 0 && Math.abs(index - from) > 600); const pick = wanted ? [...seen].find(([text, index]) => text === wanted && index >= 0) : far[Math.floor(far.length * 0.7)]; return pick ? { text: pick[0], index: pick[1] } : null },
     // A stored picture far from block `from` (the first place its address is in the note, which is where the app goes), and a line with a lasting name.
     picture: (from) => { const first = new Map(); ed().editor.state.doc.forEach((node, _offset, index) => { const look = (one) => { const src = one.attrs?.src; if (typeof src === 'string' && /^(haligtree|mindflow):\/\/assets\//.test(src) && !first.has(src)) first.set(src, index) }; look(node); node.descendants((one) => void look(one)) }); const far = [...first].sort((a, b) => Math.abs(b[1] - from) - Math.abs(a[1] - from))[0]; return far && Math.abs(far[1] - from) > 20 ? { text: far[0], index: far[1] } : null },
     line: (from) => {
@@ -113,7 +115,7 @@ try {
     await h.evaluate(() => { const box = window.__held.box(); box.scrollTo({ top: box.scrollHeight * 0.45, behavior: 'instant' }) })
     await rest()
     const left = await h.evaluate(() => window.__held.first())
-    const heading = await h.evaluate((from) => window.__held.heading(from), left.index)
+    const heading = await h.evaluate((asked) => window.__held.heading(asked), [left.index, process.env.HEADING ?? ''])
     // Another place to be sent to: where a stored picture sits, or a line by its lasting name.
     const other = /picture|line/.test(way)
     const place = !other ? null : await h.evaluate(([from, picture]) => (picture ? window.__held.picture(from) : window.__held.line(from)), [left.index, /picture/.test(way)])
