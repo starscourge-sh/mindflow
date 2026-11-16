@@ -78,8 +78,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
   // Only this day's answer: on a quick ← or → the day before's lists, counts
   // and Reviewed would otherwise sit under this day's name for a moment.
   const read = useLive(() => notes.day(day), null as Day | null, [day])
-  // The focus sessions that ended that day: read once, for the page's Sessions and to know the day is not empty.
-  const sessions = useLive(() => haligtree.daySessions(day), [] as DaySession[], [day])
+  // The focus sessions that ended this day: a day with only a session (a bare one started first thing) is not empty.
+  const sessions = useLive(() => haligtree.daySessions(day), null as DaySession[] | null, [day])
   // A row's right click: a task's menu as on Today, a note's as in the sidebar.
   const tasks = useLive(haligtree.tasks, [] as Task[])
   const pins = useLive(haligtree.pins, [] as Pin[])
@@ -151,9 +151,8 @@ export function DayView({ onOpen, start, onScale, onView }: {
     void notes.saveDay(day, { reviewed: on }).then(() =>
       quietly(() => void notes.saveDay(day, { reviewed: !on })))
   }
-  // A first day with nothing in it: what the page gathers, shown with a made-up day under your own words. A focus
-  // session ended today is something in it: a day of only a session showed the made-up day and hid the session.
-  const example = !!data && data.day === day && day === today && !data.exists && !data.captured.length && !data.resolved.length && !data.studied.length && !data.done.length && !sessions.length
+  // A first day with nothing in it: what the page gathers, shown with a made-up day under your own words.
+  const example = !!data && data.day === day && day === today && !data.exists && !data.captured.length && !data.resolved.length && !data.studied.length && !data.done.length && sessions?.length === 0
   const held = example ? exampleDay(day) : data
   const sections: [string, typeof Inbox, DayEntry[]][] = held
     ? [['Captured', Inbox, held.captured], ['Resolved', CheckCircle2, held.resolved], ['Studied', Brain, held.studied],
@@ -328,7 +327,7 @@ export function DayView({ onOpen, start, onScale, onView }: {
           </Island>
         ))}
         {/* The focus sessions that ended this day, each with the timeline of what was logged in it. */}
-        {!example && <DaySessions sessions={sessions} onOpen={onOpen} menuFor={(taskId) => { const task = tasks.find((one) => one.id === taskId); return task && onOpen ? taskMenu(task, { open: () => onOpen('task', taskId), now: taskNow }) : [] }} />}
+        {!example && <DaySessions sessions={sessions ?? []} onOpen={onOpen} menuFor={(taskId) => { const task = tasks.find((one) => one.id === taskId); return task && onOpen ? taskMenu(task, { open: () => onOpen('task', taskId), now: taskNow }) : [] }} />}
         </Example>}
       </div>
       </div>
