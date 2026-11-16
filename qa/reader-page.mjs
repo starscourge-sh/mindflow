@@ -209,7 +209,10 @@ try {
     const frame = await h.evaluate(() => window.__frame())
     if (!frame) return null
     const clip = { x: frame.x, y: frame.y, width: frame.width, height: frame.height }
-    const picture = await h.screenshot({ clip, scale: 'css' })
+    // The page's own lines, read with the desk under it taken away for the picture (pdf.css: squared paper and grain
+    // outside the page), so the desk's squares are never taken for the page's edges.
+    await h.evaluate(() => { const off = document.createElement('style'); off.id = 'qa-no-desk'; off.textContent = '.pdf-reader-scroll { background-image: none !important }'; document.head.append(off) })
+    const picture = await h.screenshot({ clip, scale: 'css' }).finally(() => h.evaluate(() => document.getElementById('qa-no-desk')?.remove()))
     const found = await h.evaluate((b64) => window.__hairlines(b64), picture.toString('base64'))
     const lines = found.lines.map((one) => ({ ...one, x: Math.round((frame.x + one.x) * 10) / 10 }))
     const words = await h.evaluate(() => window.__words('.web-reader-body'))
