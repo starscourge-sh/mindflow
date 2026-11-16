@@ -1,6 +1,7 @@
 // A hard quit (kill -9 of the main process) leaves nothing behind: no helper process still running, and every small
 // state file in the data folder (stickies, the window's place, moments, spots) reads whole, none half-written.
 // Those files are written whole under another name, then named (src/main/write-whole.ts).
+// batch: own launch, it kills the app with kill -9 and reads what the crash left
 //
 //   npx electron-vite build --outDir out-w
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-w/main/index.js HALIGTREE_QA_AWAY=1 node qa/hard-quit.mjs
