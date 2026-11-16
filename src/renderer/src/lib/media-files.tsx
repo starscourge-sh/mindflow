@@ -107,10 +107,10 @@ export async function noteTitle(type: string, id: string): Promise<string> {
 /**
  * Blocks at the end of the note picked ("Put in a note…", "Move to…"), its words kept as they are kept: as Markdown
  * (`markdown`, an import never opened holds them so), else as blocks, a note with only its first empty line taking
- * them there. Its Undo, or null once it has said why it could not (`what`: "A file", "A block").
+ * them there. Its Undo, or null once it has said why it could not (`goes`: "A file goes", "Blocks go").
  */
-export async function putAtEnd(type: string, id: string, blocks: JSONContent[], markdown: string, what: string): Promise<(() => Promise<unknown>) | null> {
-  if (!HOLDS_FILES(type)) return refuse(`${what} goes in a note, a gem, a page or a Journal day. Pick one of those`), null
+export async function putAtEnd(type: string, id: string, blocks: JSONContent[], markdown: string, goes: string): Promise<(() => Promise<unknown>) | null> {
+  if (!HOLDS_FILES(type)) return refuse(`${goes} in a note, a gem, a page or a Journal day. Pick one of those`), null
   const before = await bodyOf(type, id)
   const content = (before as JSONContent | null)?.content ?? []
   const kept = content.length === 1 && content[0].type === 'paragraph' && !content[0].content?.length ? [] : content
@@ -125,7 +125,7 @@ export async function putAtEnd(type: string, id: string, blocks: JSONContent[], 
 
 /** "Put in a note…": the files at the end of the note picked, with Undo and a way there. */
 export async function putInNote(files: Parameters<typeof blockOf>[0][], type: string, id: string, title: string): Promise<void> {
-  const undo = await putAtEnd(type, id, files.map(blockOf), files.map(markdownOf).join('\n\n'), 'A file')
+  const undo = await putAtEnd(type, id, files.map(blockOf), files.map(markdownOf).join('\n\n'), 'A file goes')
   if (!undo) return
   chime('noted')
   toast(`Put ${files.length === 1 ? quoted(files[0].name.replace(/\.[^.]+$/, ''), 41) : plural(files.length, 'file')} in ${quoted(title || 'New note', 41)}`,

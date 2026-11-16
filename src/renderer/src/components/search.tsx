@@ -818,7 +818,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
         ) : (
         <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 border-t px-4 py-1.5 text-xs whitespace-nowrap text-muted-foreground">
           <span className="flex items-center gap-1.5"><span className="flex gap-0.5"><Kbd>↑</Kbd><Kbd>↓</Kbd></span> navigate</span>
-          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing ? 'pick' : action ? 'use' : look?.hit ? 'read' : look ? 'ask' : 'open'} /></span>
+          <span className="flex items-center gap-1.5"><Kbd>↵</Kbd> <Rolling text={picking || action?.keep ? 'keep' : choosing || !menus ? 'pick' : action ? 'use' : look?.hit ? 'read' : look ? 'ask' : 'open'} /></span>
           {!picking && !choosing && rowsShown.length > 0 && current !== rowsShown[0] && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⇧↵</Kbd> open the top result</span>}
           {!picking && !choosing && ((onAside && !action && current) || (canSplit() && look?.hit) || action?.aside) && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌥↵</Kbd> to the side</span>}
           {!picking && !choosing && ((onTab && !action && current) || (canSplit() && look?.hit)) && <span className="flex items-center gap-1.5 [@media(max-height:520px)]:hidden"><Kbd>⌘↵</Kbd> new tab</span>}

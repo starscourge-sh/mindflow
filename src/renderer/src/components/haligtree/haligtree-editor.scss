@@ -1499,6 +1499,11 @@
   display: none;
 }
 
+// Room between a line's words and its key in the widest line ("Move to…  ⇧⌘P"), as a Mac menu keeps it.
+.tiptap-block-menu .tiptap-slash-menu-hint {
+  padding-left: 1rem;
+}
+
 .tiptap-block-menu {
   display: flex;
   flex-direction: column;
@@ -4729,6 +4734,12 @@ html[data-block-carry] .mf-lines {
     background-size: 100% calc(100% - 2px);
     background-position: center;
     background-repeat: no-repeat;
+  }
+
+  // The boxes are the pick: the band TipTap's Selection draws over the words once the note lets go of the keys (to the
+  // grip's menu) stays off inside them, so the words never wear a second, darker band.
+  .mf-picked .selection {
+    background: none;
   }
 
   // A list's item takes in its bullet or number, which sits outside its own box, so every picked box starts at the

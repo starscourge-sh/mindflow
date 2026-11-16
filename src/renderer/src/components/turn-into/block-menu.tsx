@@ -455,11 +455,14 @@ export function BlockMenu({
     const count = pickedBlocks(selection).length
     const content = blocksOf(doc, selection.from, selection.to)
     const blocks = content.toJSON() as JSONContent[]
-    const [title, putBack] = await Promise.all([noteTitle(type, id), putAtEnd(type, id, blocks, markdownOf(editor, { type: "doc", content: blocks }), count === 1 ? "A block" : "Blocks")])
+    const [title, putBack] = await Promise.all([noteTitle(type, id), putAtEnd(type, id, blocks, markdownOf(editor, { type: "doc", content: blocks }), count === 1 ? "A block goes" : "Blocks go")])
     if (!putBack) return
+    const there = quoted(title || "New note", 41)
+    /** The other note as it was, said plainly when it could not be written. */
+    const takeBack = (then: () => void): void => void putBack().then(then, () => refuse(`Could not take them out of ${there} again: they are in both notes`, "error"))
     // Changed while the other note was written (closed, or the pick let go): that note is put back, nothing moves.
     const now = editor.isDestroyed ? null : editor.state.selection
-    if (!(now instanceof NodeRangeSelection) || !blocksOf(editor.state.doc, now.from, now.to).eq(content)) return void putBack().then(() => refuse("The picked blocks changed before they could move: nothing moved"))
+    if (!(now instanceof NodeRangeSelection) || !blocksOf(editor.state.doc, now.from, now.to).eq(content)) return takeBack(() => refuse("The picked blocks changed before they could move: nothing moved"))
     const before = editor.state.doc
     editor.chain().focus().deleteSelection().run()
     const after = editor.state.doc
@@ -467,18 +470,18 @@ export function BlockMenu({
     const back = ({ transaction }: { transaction: Transaction }): void => {
       if (!transaction.docChanged || !isHistoryTransaction(transaction) || !editor.state.doc.eq(before)) return
       editor.off("transaction", back)
-      void putBack().then(() => chime("undo"))
+      takeBack(() => chime("undo"))
     }
     editor.on("transaction", back)
     chime("noted")
-    toast(`Moved ${count === 1 ? "the block" : plural(count, "block")} to ${quoted(title || "New note", 41)}`, () => {
+    toast(`Moved ${count === 1 ? "the block" : plural(count, "block")} to ${there}`, () => {
       // Closed since: its own Undo went with it, so the blocks stay where they went rather than be lost.
-      if (editor.isDestroyed) return void refuse(`This note was closed: the blocks stay in ${quoted(title || "New note", 41)}`)
+      if (editor.isDestroyed) return void refuse(`This note was closed: the blocks stay in ${there}`)
       // Written on since: the blocks come back at the note's end, and the other note is put back as it was.
       if (editor.state.doc.eq(after)) return void editor.commands.undo()
       editor.off("transaction", back)
       editor.chain().focus().insertContentAt(editor.state.doc.content.size, blocks).run()
-      void putBack().then(() => chime("undo"))
+      takeBack(() => chime("undo"))
     }, "success", { label: "Open", key: "O", run: () => window.api.openInHome(type, id) })
   }
 
@@ -519,6 +522,8 @@ export function BlockMenu({
   const title = many ? `${many} blocks` : kindName ?? (thing ? kindTitle(thing.type.name, Number(thing.attrs.level) || undefined) : "")
   // Measured only while open: worked out on every draw of every note, it read the page's layout each time.
   const grip = open && !point ? gripSide() : "left"
+  // Quick capture's card, which its picker is drawn on and no further.
+  const card = moving ? editor.view.dom.closest<HTMLElement>(".app-container") : null
   return (
     <>
     <DropdownMenu
@@ -980,16 +985,16 @@ export function BlockMenu({
 
       </DropdownMenuContent>
     </DropdownMenu>
-    {/* "Move to…": the notes' own search as the picker, as "Put in a note…" asks (media-view.tsx); in quick capture, on its card. */}
+    {/* "Move to…": the notes' own search as the picker, as "Put in a note…" asks (media-view.tsx); in quick capture, on its card, as its own ⌘K was. */}
     {moving ? createPortal(
       <Search
         menus={false}
-        inCard={!new URLSearchParams(location.search).get("view")}
+        inCard={!!card}
         placeholder={moving === 1 ? "Move the block to which note?" : `Move ${num(moving)} blocks to which note?`}
         onClose={() => (setMoving(0), editor.commands.focus())}
         onOpen={(type, id) => void moveTo(type, id)}
       />,
-      document.body,
+      card ?? document.body,
     ) : null}
     </>
   )
