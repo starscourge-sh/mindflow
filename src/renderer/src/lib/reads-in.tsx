@@ -19,11 +19,24 @@ export const useSeen = (): boolean => useContext(Seen)
 /** A safety net: a read that never answers (an error) never keeps a page unseen. */
 const AT_MOST = 1500
 
+// A test run names each page and part by the place in the code that made it (the frame that called the hook, which
+// qa/start-time.mjs reads back through the build's source maps), and keeps, for every page whose limit ran out, what it
+// was still waiting for: `window.haligtreeHeld`. Nothing of it in a person's run.
+const TEST = typeof window !== 'undefined' && !!window.api?.testRun
+const held: { page: string; self: boolean; waiting: string[]; at: number }[] = []
+if (TEST) (window as { haligtreeHeld?: typeof held }).haligtreeHeld = held
+/** The caller of the hook that asks: a fresh stack's fourth line (the error, this, the hook, its caller). */
+const madeAt = (): string => (new Error().stack?.split('\n')[3] ?? '').trim()
+
 /**
  * `apart`: a part that comes in whole on its own, never holding the page it
  * is on (what sits under a note's words never keeps the words waiting).
  */
-export function useReadsIn(reading = false, apart = false): { provide: (children: ReactNode) => ReactNode; style: CSSProperties | undefined; counted: boolean } {
+export function useReadsIn(reading = false, apart = false, label = ''): { provide: (children: ReactNode) => ReactNode; style: CSSProperties | undefined; counted: boolean } {
+  const where = useRef('')
+  if (TEST && !where.current) where.current = label || madeAt()
+  const readingNow = useRef(reading)
+  readingNow.current = reading
   // Kept where a part's say is seen at once: a part that comes in (a section
   // mounted a frame later) says it is reading in its layout effect, which runs
   // before this page's own, so the page never counts itself ready without it.
@@ -44,13 +57,16 @@ export function useReadsIn(reading = false, apart = false): { provide: (children
   // A page inside another (a pane of Tags, Review in quick capture) is one of its parts: the outer one waits for it too.
   const held = useContext(Holding)
   const parent = apart ? null : held
-  const [me] = useState(() => Symbol('page'))
+  const [me] = useState(() => Symbol(TEST ? `page ${where.current}` : 'page'))
   // Said after its own parts have had theirs in this frame, so it is never counted ready a frame too soon.
   useLayoutEffect(() => void parent?.(me, !(shown || (counted && !reading && waiting.current.size === 0))))
   useLayoutEffect(() => () => void parent?.(me, false), [parent, me])
   useEffect(() => {
     if (shown) return
-    const late = setTimeout(() => setShown(true), AT_MOST)
+    const late = setTimeout(() => {
+      if (TEST) held.push({ page: me.description ?? '', self: readingNow.current, waiting: [...waiting.current].map((one) => one.description ?? ''), at: Math.round(performance.now()) })
+      setShown(true)
+    }, AT_MOST)
     return () => clearTimeout(late)
   }, [shown])
   const seen = shown || ready
@@ -62,13 +78,15 @@ export function useReadsIn(reading = false, apart = false): { provide: (children
 /** A part of a page still waiting on a read: the page it is on waits with it. */
 export function useReading(reading: boolean): void {
   const hold = useContext(Holding)
-  const [id] = useState(() => Symbol('reading'))
+  const where = useRef('')
+  if (TEST && !where.current) where.current = madeAt()
+  const [id] = useState(() => Symbol(TEST ? `part ${where.current}` : 'reading'))
   useLayoutEffect(() => void hold?.(id, reading), [hold, id, reading])
   useLayoutEffect(() => () => void hold?.(id, false), [hold, id])
 }
 
 /** A page, or a panel, that waits for every part on it: see `useReadsIn`. */
 export function ReadsIn({ reading = false, apart = false, className, children, ...rest }: { reading?: boolean; apart?: boolean; className?: string; children: ReactNode } & Record<`data-${string}`, string | undefined>): React.JSX.Element {
-  const { provide, style } = useReadsIn(reading, apart)
+  const { provide, style } = useReadsIn(reading, apart, TEST ? `ReadsIn ${Object.entries(rest).map(([key, value]) => `${key}=${value}`).join(' ') || className || ''}` : '')
   return <div className={className} style={style} {...rest}>{provide(children)}</div>
 }

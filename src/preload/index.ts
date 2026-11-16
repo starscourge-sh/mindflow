@@ -106,6 +106,8 @@ const api = {
   twelveHour: process.env.HALIGTREE_TWELVE ? process.env.HALIGTREE_TWELVE === '1' : ipcRenderer.sendSync('clock:twelve') === true,
   /** A test run: nothing is said aloud (read-aloud.ts). */
   quiet: !!process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_SOUND,
+  /** A test run: a page names what held it past its limit, for the probes (lib/reads-in.tsx). */
+  testRun: !!process.env.HALIGTREE_QA_AWAY,
   /** A test run may name the welcome's story (welcome-stories.ts): who the sandbox's characters are depends on which is told. */
   story: (process.env.HALIGTREE_USER_DATA && process.env.HALIGTREE_QA_STORY) || '',
   /** The book open now (or the sandbox), known at once: what a page drew last time is kept per book. */

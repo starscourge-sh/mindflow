@@ -16,7 +16,9 @@
 // QA_PROFILE=<file> with HALIGTREE_QA_PROFILE_START=1: main's CPU profile from its first module to quick capture drawn,
 // of each start, written as <file>-<cold|again>-<n>.cpuprofile (a profiled start is slower: not for the table).
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { SourceMapConsumer } from 'source-map'
 import { checks, launch } from './harness.mjs'
 import { cast } from './cast-lib.mjs'
 
@@ -29,6 +31,18 @@ if (!DATA || (FROM ? !existsSync(FROM) : !existsSync(DATA))) throw new Error('QA
 const BUILDS = [['this build', process.env.QA_ENTRY], ...(process.env.QA_COMPARE ? [['the build compared', process.env.QA_COMPARE]] : [])]
 const { check, done } = checks()
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+/** A frame of the page's stack ("at Xe (file:///…/home-AbC.js:1:2345)") as the source's file and line, read back through the build's map. */
+const maps = new Map()
+const placeOf = (frame) => {
+  const [, url, line, column] = /(file:\/\/[^)\s]+?):(\d+):(\d+)/.exec(frame) ?? []
+  if (!url) return frame || '?'
+  const file = fileURLToPath(url)
+  if (!maps.has(file)) maps.set(file, existsSync(`${file}.map`) ? new SourceMapConsumer(JSON.parse(readFileSync(`${file}.map`, 'utf8'))) : null)
+  const found = maps.get(file)?.originalPositionFor({ line: Number(line), column: Number(column) - 1 })
+  return found?.source ? `${found.source.replace(/^.*src\/renderer\/src\//, '')}:${found.line}` : frame
+}
+/** What each page whose 1.5 s limit ran out was still waiting for (lib/reads-in.tsx, test runs), by file and line. */
+const heldSaid = (held) => held.map((one) => `${one.at}ms ${placeOf(one.page)}${one.self ? ' (its own reads)' : ''} waited for [${one.waiting.map(placeOf).join(', ')}]`).join('; ') || 'nothing: every page was in before its limit'
 const median = (list) => { const s = list.filter(Number.isFinite).sort((a, b) => a - b); return s.length ? (s.length % 2 ? s[(s.length - 1) / 2] : (s[s.length / 2 - 1] + s[s.length / 2]) / 2) : NaN }
 
 /** One start, from the launch to the first key answered and quick capture drawn: every step in ms since the launch. */
@@ -78,9 +92,10 @@ async function start(label, n) {
       new PerformanceObserver((list) => long.push(...list.getEntries().map((one) => [Math.round(one.startTime), Math.round(one.duration)]))).observe({ type: 'longtask', buffered: true })
       const keys = []
       new PerformanceObserver((list) => keys.push(...list.getEntries().filter((one) => one.name === 'keydown').map((one) => ({ at: one.startTime, waited: one.processingStart - one.startTime, ran: one.processingEnd - one.processingStart, painted: one.startTime + one.duration - one.processingEnd })))).observe({ type: 'event', buffered: true, durationThreshold: 16 })
-      setTimeout(() => done({ origin: performance.timeOrigin, html: nav?.responseEnd ?? NaN, scripts, code: at('haligtree:code'), render: at('haligtree:render'), whole: at('haligtree:whole'), fcp: at('first-contentful-paint'), lcp, long, keys }), 100)
+      setTimeout(() => done({ origin: performance.timeOrigin, html: nav?.responseEnd ?? NaN, scripts, code: at('haligtree:code'), render: at('haligtree:render'), whole: at('haligtree:whole'), fcp: at('first-contentful-paint'), lcp, long, keys, held: window.haligtreeHeld ?? [] }), 100)
     })
   })
+  console.log(`(${label} start ${n}: held past the limit: ${heldSaid(page.held)})`)
   if (frames) {
     const got = await frames.stop()
     const dir = `${FRAMES}/${label}-${n}`
@@ -99,6 +114,7 @@ async function start(label, n) {
     box: m('box'), boxDrawn: m('boxDrawn'), html: p(page.html), scripts: p(page.scripts), orb: key.orb,
     // The key's way: sent by the probe, reached the page (main's thread passes it on), waited for the page's thread, ran, painted.
     keyWay: { reached: key.pressed ? Math.round(p(key.pressed) - (sentAt - launchedAt)) : 'not heard by the page', ...Object.fromEntries(Object.entries(page.keys[0] ?? {}).filter(([k]) => k !== 'at').map(([k, v]) => [k, Math.round(v)])) },
+    held: page.held.length,
     busy: page.long.filter(([at, ms]) => p(at) + ms >= m('shown') && p(at) <= p(key.answered)).map(([at, ms]) => `${Math.round(p(at))}+${ms}`)
   }
 }
@@ -162,6 +178,7 @@ for (const [name, { cold, again }] of runs) {
     check(`${name}, ${label}: never shown before the page had drawn itself`, kind.every((r) => r.shown >= r.drawn), kind.map((r) => `${Math.round(r.drawn)}→${Math.round(r.shown)}`).join(' '))
     check(`${name}, ${label}: quick capture made and drawn for ⌘. every time`, kind.every((r) => Number.isFinite(r.boxDrawn)), kind.map((r) => Math.round(r.boxDrawn)).join(' '))
     check(`${name}, ${label}: no loader on the first screen when it was shown`, kind.every((r) => !r.orb))
+    check(`${name}, ${label}: no page waited out its 1.5 s limit (each was whole before it)`, kind.every((r) => !r.held), kind.map((r) => r.held).join(' '))
   }
   check(`${name}: each first start of a day made the day's copy of the book, whole`, cold.every((r) => r.copied), cold.map((r) => r.copied).join(' '))
 }
