@@ -4737,9 +4737,14 @@ html[data-block-carry] .mf-lines {
   }
 
   // The boxes are the pick: the band TipTap's Selection draws over the words once the note lets go of the keys (to the
-  // grip's menu) stays off inside them, so the words never wear a second, darker band.
+  // grip's menu), and the page's own selection over them once a menu line takes the keys, stay off inside them, so the
+  // words never wear a second, darker band. (The page's rule, paragraph-node.scss, is as specific: the class is said twice.)
   .mf-picked .selection {
     background: none;
+  }
+
+  .mf-picked.mf-picked ::selection {
+    background-color: transparent;
   }
 
   // A list's item takes in its bullet or number, which sits outside its own box, so every picked box starts at the
