@@ -876,7 +876,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.lineNumbers !== false} onCheckedChange={(lineNumbers) => set({ lineNumbers })} />
           </Setting>
           {settings.lineNumbers !== false && (
-            <Setting under title="Relative" note={`The line you are on keeps its number; the others show how far away they are, as Vim's relative numbers do.${typeof settings.relativeLineNumbers !== 'boolean' ? ' Until you change it, it follows “Vim keys”: on with them, off without.' : ''}`} keywords="relative line numbers relativenumber distance vim count away">
+            <Setting under title="Relative" note="The line you are on keeps its number; the others show how far away they are, as Vim's relative numbers do. It starts as “Vim keys” are, on or off, and stays where you put it." keywords="relative line numbers relativenumber distance vim count away">
               <LineNumbersSample on both relative={settings.relativeLineNumbers ?? vim} />
               <Switch aria-label="Relative" checked={settings.relativeLineNumbers ?? vim} onCheckedChange={(relativeLineNumbers) => set({ relativeLineNumbers })} />
             </Setting>

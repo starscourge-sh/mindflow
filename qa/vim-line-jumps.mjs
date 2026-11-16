@@ -196,7 +196,10 @@ try {
   check('“Relative” shows under “Line numbers” while they are on', await shown('Relative'))
   const relativeOn = () => h.$eval(`${row('Relative')} button[role="switch"]`, (one) => one.getAttribute('aria-checked'))
   const says = () => h.$eval(row('Relative'), (one) => one.textContent)
-  check('unset, it is on with Vim keys on and says it follows “Vim keys” until changed', (await relativeOn()) === 'true' && /Until you change it, it follows “Vim keys”/.test(await says()), await says())
+  check('unset, it is on with Vim keys on, and says it starts as “Vim keys” are and stays where put', (await relativeOn()) === 'true' && /It starts as “Vim keys” are, on or off, and stays where you put it/.test(await says()), await says())
+  // The switch stands where it stood when pressed: its words stay the same, so the row keeps its height.
+  const place = () => h.$eval(`${row('Relative')} button[role="switch"]`, (one) => { const r = one.getBoundingClientRect(); return `${Math.round(r.left)},${Math.round(r.top)}` })
+  const spot = await place()
   // Each number as drawn: ink for the look chosen, faded ink for the other, told apart by their colours.
   const sample = () => h.$eval(`${row('Relative')} [data-preview="relative-lines"]`, (one) => {
     const ink = getComputedStyle(one.querySelector('[data-chosen]')).color
@@ -204,7 +207,7 @@ try {
   })
   check('its sample shows both looks, relative in ink', (await sample()) === '12@faded/1@ink 13@faded/13@ink 14@faded/1@ink', await sample())
   await film('relative-off', () => h.click(`${row('Relative')} button[role="switch"]`)); await wait(600)
-  check('pressed off: saved off, the plain numbers in ink, no longer said to follow Vim keys', (await v('settings')).relativeLineNumbers === false && (await sample()) === '12@ink/1@faded 13@ink/13@faded 14@ink/1@faded' && !/follows/.test(await says()), await sample())
+  check('pressed off: saved off, the plain numbers in ink, the switch where it was pressed', (await v('settings')).relativeLineNumbers === false && (await sample()) === '12@ink/1@faded 13@ink/13@faded 14@ink/1@faded' && (await place()) === spot, `${await sample()} at ${await place()} (was ${spot})`)
   if (shots) await h.screenshot({ path: join(shots, 'v2-settings-lines.png') })
   const dark = async (name) => {
     await h.evaluate(() => { localStorage.setItem('theme', 'dark'); window.dispatchEvent(new StorageEvent('storage', { key: 'theme' })) }); await wait(600)
