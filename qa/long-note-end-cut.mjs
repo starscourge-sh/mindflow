@@ -54,7 +54,9 @@ try {
   await h.waitForTimeout(1500)
   const back = await now()
   check('⌘Z twice brings every line back', !back.crashed && back.blocks === before.blocks, `${before.blocks} → ${back.blocks}`)
-  check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
+  // A picture the book's notes name but the copy lacks is the book's, not the page's (as long-note-safe.mjs reads them).
+  const errors = c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|status of 404/.test(line))
+  check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } finally {
   await c.close()
 }
