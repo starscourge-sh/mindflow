@@ -36,7 +36,7 @@ const texts = () => page.$eval(EDITOR, (root) => [...root.querySelectorAll('p')]
 const picked = () => page.$eval(EDITOR, (root) => ({
   kind: root.editor.state.selection.toJSON().type,
   // Its words, as its first line has them (a task's box holds its tick's label too).
-  boxes: [...root.querySelectorAll('.mf-picked')].map((one) => ({ words: (one.querySelector('p') ?? one).textContent.trim().slice(0, 24), radius: getComputedStyle(one).borderTopLeftRadius, own: getComputedStyle(one.querySelector('.tiptap-callout') ?? one).borderTopLeftRadius, wash: getComputedStyle(one).backgroundImage !== 'none', cell: getComputedStyle(one.querySelector('td') ?? one).backgroundImage !== 'none' })),
+  boxes: [...root.querySelectorAll('.mf-picked')].map((one) => ({ words: (one.querySelector('p') ?? one).textContent.trim().slice(0, 24), radius: getComputedStyle(one).borderTopLeftRadius, own: getComputedStyle(one.querySelector('.tiptap-callout') ?? one).borderTopLeftRadius, reach: getComputedStyle(one).boxShadow !== 'none', wash: getComputedStyle(one).backgroundImage !== 'none', cell: getComputedStyle(one.querySelector('td') ?? one).backgroundImage !== 'none' })),
 }))
 const shot = async (name) => FRAMES && page.screenshot({ path: join(FRAMES, `${name}.png`) })
 const block = (words) => page.locator(`${EDITOR} p`, { hasText: words }).first()
@@ -129,6 +129,8 @@ if (PART === 'pick') {
     await shot(`${look}-five-picked`)
     check(`${look}: dragging from the margin draws a box`, drawn === 1, `${drawn}`)
     check(`${look}: the box picks every block it touches, five, each its own box with a 4px corner`, boxed.boxes.map((one) => one.words).join('|') === FIVE.join('|') && boxed.boxes.every((one) => one.radius === '4px' && one.wash), JSON.stringify(boxed.boxes))
+    // One left edge: a bullet's box reaches out over its bullet (outside its item), a task's and a line's never past it.
+    check(`${look}: every box starts at the words' one left edge: only the two bullet items reach out over their bullets`, boxed.boxes.map((one) => one.reach).join() === 'false,true,true,false,false', boxed.boxes.map((one) => `${one.words}:${one.reach}`).join(', '))
     check(`${look}: the box is gone once let go, the pick kept`, (await page.$$('.mf-pick-box')).length === 0 && boxed.kind === 'nodeRange', boxed.kind)
     // A letter typed over the pick goes nowhere.
     await page.keyboard.press('x')
