@@ -460,7 +460,7 @@ async function together(item) {
   const begun = Date.now()
   running = slot
   let settled = false
-  als.run(slot, () => import(`${pathToFileURL(item.file).href}?batch=${++imports}`)).then(
+  const unwound = als.run(slot, () => import(`${pathToFileURL(item.file).href}?batch=${++imports}`)).then(
     () => ((settled = true), slot.end(Number(process.exitCode ?? 0) || 0)),
     (error) => {
       settled = true
@@ -475,8 +475,9 @@ async function together(item) {
   }, ALARM * 1000)
   await slot.endedAt
   clearTimeout(alarm)
-  // What it left running: given a moment to unwind, else the app goes with it, as alone it would have.
-  for (let i = 0; !settled && i < 20; i++) await new Promise((done) => setTimeout(done, 100))
+  // Its code, stopped where it ended, unwinds (its finally blocks close what it opened); one still going two seconds
+  // on is left running, so the app goes with it, as alone it would have.
+  if (!settled) await Promise.race([unwound, new Promise((done) => setTimeout(done, 2000))])
   running = null
   for (const id of slot.intervals) clearInterval(id)
   for (const undo of slot.undo.reverse()) await Promise.resolve().then(undo).catch(() => {})
