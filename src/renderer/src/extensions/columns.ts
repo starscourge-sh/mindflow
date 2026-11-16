@@ -1,5 +1,5 @@
 import { Node, type JSONContent } from "@tiptap/core"
-import type { Fragment, Node as Block } from "@tiptap/pm/model"
+import { Fragment, type Node as Block } from "@tiptap/pm/model"
 import { NodeSelection, Plugin, PluginKey, type Transaction } from "@tiptap/pm/state"
 import type { EditorView } from "@tiptap/pm/view"
 import { click } from "@/lib/sound"
@@ -218,59 +218,66 @@ function removeBlock(tr: Transaction, from: number, to: number): void {
  * copy goes in first, then the original comes out, so where it lands is never
  * inside what was taken away.
  */
-function moveOutOfColumn(tr: Transaction, dragged: NodeSelection, target: number, content: Fragment): boolean {
-  const parent = dragged.$from.parent
-  if (parent.type.name !== "column" && !(LISTS.has(parent.type.name) && parent.childCount === 1)) return false
+function moveOutOfColumn(tr: Transaction, range: { from: number; to: number }, target: number, content: Fragment): boolean {
+  const $from = tr.doc.resolve(range.from)
+  const parent = $from.parent
+  // All a list holds (one item, or every item picked) leaves it empty.
+  if (parent.type.name !== "column" && !(LISTS.has(parent.type.name) && range.from === $from.start() && range.to === $from.end())) return false
   // Into itself would take away what was just put in.
-  if (target > dragged.from && target < dragged.to) return true
+  if (target > range.from && target < range.to) return true
   tr.insert(target, content)
-  removeBlock(tr, tr.mapping.map(dragged.from, 1), tr.mapping.map(dragged.to, -1))
+  removeBlock(tr, tr.mapping.map(range.from, 1), tr.mapping.map(range.to, -1))
   return true
 }
 
 /**
- * Take a carried block out of where it was, after its copy went in (`tr` has mapped it): a column carried by its own
- * grip takes its row with it when that leaves a row of one, as a block taken out of its column does.
+ * Take carried blocks out of where they were, after their copy went in (`tr` has mapped them): a column carried by its
+ * own grip (`node`) takes its row with it when that leaves a row of one, as blocks taken out of their column do.
  */
-export function takeOut(tr: Transaction, dragged: NodeSelection): void {
-  const column = dragged.node.type.name === "column" ? 1 : 0
+export function takeOut(tr: Transaction, dragged: { from: number; to: number; node?: Block | null }): void {
+  const column = dragged.node?.type.name === "column" ? 1 : 0
   removeBlock(tr, tr.mapping.map(dragged.from + column, 1), tr.mapping.map(dragged.to - column, -1))
 }
 
 /**
  * Move dragged blocks (`range`; `dragged`, the one block when it is one) to
- * `target`, as one step: out of a column or a list it leaves empty, those go
+ * `target`, as one step: out of a column or a list they leave empty, those go
  * too. False when the target is inside what moves: nothing to do.
  */
 export function moveBlocks(tr: Transaction, range: { from: number; to: number }, dragged: NodeSelection | null, target: number, content: Fragment): boolean {
-  if (dragged && moveOutOfColumn(tr, dragged, target, content)) return true
+  if (moveOutOfColumn(tr, dragged ?? range, target, content)) return true
   if (target > range.from && target < range.to) return false
   tr.delete(range.from, range.to)
   tr.insert(tr.mapping.map(target), content)
   return true
 }
 
-/** What a column is given for a carried block: a list's item comes in a list of its own kind, which a column can hold; a column carried by its own grip goes as itself. */
-export const columnOf = (dragged: NodeSelection): Block | null => {
-  const { schema } = dragged.$from.doc.type
-  const item = dragged.node
-  if (item.type.name === "column") return item
-  const list = dragged.$from.parent
-  const body = LISTS.has(list.type.name) ? list.type.create(list.attrs, item) : item
-  return schema.nodes.column.contentMatch.matchType(body.type) && body.type.name !== "columns" ? schema.nodes.column.create(null, body) : null
+/**
+ * What a column is given for carried blocks (`from` to `to`, side by side in one parent): a list's items come in a
+ * list of their own kind, which a column can hold; a column carried by its own grip goes as itself.
+ */
+export const columnFor = (doc: Block, from: number, to: number): Block | null => {
+  const { schema } = doc.type
+  const first = doc.nodeAt(from)
+  if (!first) return null
+  if (first.type.name === "column" && from + first.nodeSize === to) return first
+  const list = doc.resolve(from).parent
+  const nodes = doc.slice(from, to).content
+  const body = LISTS.has(list.type.name) ? Fragment.from(list.type.create(list.attrs, nodes)) : nodes
+  let fits = true
+  body.forEach((one) => void (fits &&= one.type.name !== "columns"))
+  return fits && schema.nodes.column.validContent(body) ? schema.nodes.column.create(null, body) : null
 }
-
 /**
  * The drop itself, when it is beside a block: one step, so one undo puts it
  * all back. Returns false for an ordinary drop. `beside`: where, when the carry
  * worked it out itself (lib/block-carry.tsx).
  */
-export function dropBeside(view: EditorView, moved: boolean, beside: Beside | null = besideKey.getState(view.state) ?? null): boolean {
-  const dragged = draggedOf(view)
+export function dropBeside(view: EditorView, moved: boolean, beside: Beside | null = besideKey.getState(view.state) ?? null, dragged: { from: number; to: number; node?: Block | null } | null = draggedOf(view)): boolean {
   if (!beside || !moved || !dragged) return false
   const { schema } = view.state
   const tr = view.state.tr
-  const fresh = columnOf(dragged)
+  const fresh = columnFor(view.state.doc, dragged.from, dragged.to)
   if (!fresh) return false
   if (beside.kind === "wrap") {
     const target = tr.doc.nodeAt(beside.pos)

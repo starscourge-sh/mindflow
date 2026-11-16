@@ -25,14 +25,14 @@ import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { DROP_LIT, Overlay, SETTLE, upDown } from './sortable'
-import { CARD, CarriedCard, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, Slid, type Aim, type Parts, type Places } from './carry'
+import { CARD, CarriedCard, CarriedCount, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, Slid, type Aim, type Parts, type Places } from './carry'
 import { Hinted, copy } from './row-menu'
 import { Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
 import { ROW_PAD, ROW_SHAPE, ROW_TILE } from './row-shape'
 /** A group's title bar: as tall as a thumbnail, no taller (the old panels' slim head). */
 const HEAD = 'h-9 py-0'
-import { brief, num } from '../../../../main/dates'
+import { num } from '../../../../main/dates'
 
 
 /**
@@ -647,15 +647,6 @@ function DragHint({ name, said }: { name: string; said: string }): React.JSX.Ele
       <span className="min-w-0 flex-1">{said}</span>
       <button type="button" onClick={done} className="flex h-6 shrink-0 items-center rounded px-1.5 hover:bg-accent hover:text-foreground">Got it</button>
     </p>
-  )
-}
-
-/** How many are carried, in a small badge on the lifted card's corner. */
-function CarriedCount({ n }: { n: number }): React.JSX.Element {
-  return (
-    <span data-carried={n} className="absolute -bottom-3 left-1/2 z-10 flex h-5 -translate-x-1/2 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold mf-on-accent tabular-nums shadow-sm animate-in zoom-in-90 fade-in-0 duration-150">
-      {brief(n)}
-    </span>
   )
 }
 

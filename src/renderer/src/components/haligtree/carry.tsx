@@ -10,6 +10,7 @@ import { slotTicker } from '@/lib/proximity'
 import { isGroup, type How } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { cut } from '../../../../main/clip'
+import { brief } from '../../../../main/dates'
 
 /**
  * Carrying a thing, the one way every list does it: the card under the pointer,
@@ -980,6 +981,15 @@ export function CarriedCard({ icon, title, strong = false, words, tint, refused 
         </span>
       )}
     </motion.div>
+  )
+}
+
+/** How many are carried, in a small badge hanging under the carried card: Writing's lists and a note's picked blocks. */
+export function CarriedCount({ n }: { n: number }): React.JSX.Element {
+  return (
+    <span data-carried={n} className="absolute -bottom-3 left-1/2 z-10 flex h-5 -translate-x-1/2 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold mf-on-accent tabular-nums shadow-sm animate-in zoom-in-90 fade-in-0 duration-150">
+      {brief(n)}
+    </span>
   )
 }
 
