@@ -143,6 +143,7 @@ import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hash
 import { caretInLink } from './extensions/link-tidy'
 import { BIG_PASTE, BigPaste } from './extensions/big-paste'
 import { breath, markdownToDocumentGently } from './lib/markdown-doc'
+import { sizeOfStored } from './lib/note-size'
 import { APP_NAME } from '../../main/name'
 import { domOf } from '@/lib/editor-dom'
 import { ArrowUpDown, Layers2 } from 'lucide-react'
@@ -3064,14 +3065,15 @@ const keepLifted = (ids: string[]): void => {
  */
 async function keepBigPaste(text: string, editor: Editor | null): Promise<void> {
   if (!editor) return
-  const words = text.trim().split(/\s+/).length
-  toast(`Keeping ${num(words)} words as a note of their own…`, undefined, 'info')
+  toast('Keeping these words as a note of their own…', undefined, 'info')
   try {
     const doc = await markdownToDocumentGently(editor, text)
     // Handing it over is one more step of its own.
     await breath()
     const id = await window.api.captures.create({ kind: 'note', body: doc, markdown: text })
-    toast(`${num(words)} words kept as a note in your Inbox: too long for the box`, () => void window.api.captures.save(id, { status: 'discarded' }).then(() => chime('undo')), 'success',
+    // Its size as the note's bar will say it, counted the same way (lib/note-size.ts), never the pasted text's own.
+    const size = await sizeOfStored(editor.schema, doc, breath)
+    toast(`${plural(size.lines, 'line')}, ${plural(size.words, 'word')} kept as a note in your Inbox: too long for the box`, () => void window.api.captures.save(id, { status: 'discarded' }).then(() => chime('undo')), 'success',
       { label: 'Open', key: 'O', run: () => window.api.openInHome('capture', id) }, { type: 'capture', id })
   } catch {
     toast('Those words could not be kept. They are still on your clipboard: paste them into a note in the main window', undefined, 'error')
