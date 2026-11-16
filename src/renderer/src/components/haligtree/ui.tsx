@@ -727,7 +727,7 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
   const colors = useTagColors()
   const box = useRef<HTMLSpanElement>(null)
   const [cut, setCut] = useState<string[]>([])
-  // As narrow as it may get: whole when short, about four letters of a long one.
+  // As narrow as it may get: whole when short, about four letters of a long one, and the "+3" whole beside it.
   const [least, setLeast] = useState(0)
   const shown = tags.slice(0, max)
   const key = shown.join(' ')
@@ -739,7 +739,9 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
       setCut((was) => (was.join(' ') === now.join(' ') ? was : now))
       const parts = [...el.children] as HTMLElement[]
       const natural = parts.reduce((sum, one) => sum + one.scrollWidth, 0) + 8 * Math.max(0, parts.length - 1)
-      setLeast(Math.min(natural, 64))
+      // The count never gives way: squeezed past it, it stood outside the box, cut away unseen (qa/tag-page.mjs at 560).
+      const more = el.querySelector<HTMLElement>('[data-tags-more]')
+      setLeast(Math.min(natural, 64 + (more ? more.offsetWidth + 8 : 0)))
     }
     // Measured by the observer, which reports once as soon as the row is laid
     // out: measured here, every row with tags laid out the page as it was drawn.
@@ -773,7 +775,7 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
       })}
       {rest.length > 0 && (
         <Tip label={rest.map((tag) => `#${tag}`).join('  ')}>
-          <span className="shrink-0 rounded-full bg-accent px-1.5 tabular-nums text-muted-foreground">+{brief(rest.length)}</span>
+          <span data-tags-more className="shrink-0 rounded-full bg-accent px-1.5 tabular-nums text-muted-foreground">+{brief(rest.length)}</span>
         </Tip>
       )}
     </span>

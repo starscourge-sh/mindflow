@@ -781,7 +781,8 @@ function Under({ entry }: { entry: Entry }): React.JSX.Element {
       {(entry.age || entry.alert) && entry.sub && <Dot />}
       {entry.sub && <span className="min-w-0 truncate">{entry.sub}</span>}
       {entry.tags.length > 0 && (entry.age || entry.sub) && <Dot />}
-      <Tags tags={entry.tags} max={2} alone />
+      {/* Not alone on its line: beside the age and the words quoted, so it keeps the room a tag beside words keeps. */}
+      <Tags tags={entry.tags} max={2} />
     </span>
   )
 }
