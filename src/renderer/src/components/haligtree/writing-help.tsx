@@ -220,8 +220,8 @@ async function use(): Promise<void> {
       // A study card: in a note as the note's own drafted questions make one (note-questions.tsx); in a reader as its
       // own cards are, with the book and page or the article under it.
       const id = away ? await away.card(said.question, said.answer) : await call<string>('nugget:from', said.answer, { captureId: origin.captureId, passage: words, card: { gem: false } })
-      if (!away) await call('item:save', id, { prompt: said.question, title: said.question })
-      chime('saved')
+      // A reader's own card making plays its sound already: one action, one sound.
+      if (!away) (await call('item:save', id, { prompt: said.question, title: said.question }), chime('saved'))
       return toast(away ? 'Card made, in Review, with where its words came from' : 'Card made, in Review: it says which note and line it came from', () => void haligtree.unlift('nugget', id), 'success', undefined, { type: 'nugget', id, title: said.question })
     }
     if (help.id === 'ask') {
@@ -233,7 +233,7 @@ async function use(): Promise<void> {
     }
     if (help.id === 'quote' && away) {
       const id = await away.gem(said.text)
-      chime('promote')
+      chime('saved')
       return toast('Kept as a gem, with where it came from', () => void haligtree.unlift('nugget', id), 'success', { label: 'Open', key: 'O', run: () => window.api.openInHome('nugget', id) }, { type: 'nugget', id, title: said.text })
     }
   } catch (error) {

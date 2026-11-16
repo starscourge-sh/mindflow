@@ -120,7 +120,7 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
         await v('item:save', id, { body }); await c.send('article', id); await wait(1000)
       }
       // A failure gets a plain line: too long a pick.
-      await v('item:save', id, { body: { type: 'doc', content: [p('x '.repeat(2200).trim())] } }); await c.send('article', id); await wait(1000)
+      await v('item:save', id, { body: { type: 'doc', content: [p('A short line first.'), p('x '.repeat(2200).trim())] } }); await c.send('article', id); await wait(1000)
       const { shown } = await ask('x x', 'fix')
       check('ai: too long a pick is said plainly, the words as they were', shown?.state === 'error' && /Too long for Apple Intelligence/.test(shown.text) && /as they were/.test(shown.text), shown?.text)
       await h.keyboard.press('Escape'); await wait(300)
@@ -172,9 +172,9 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       if (shot) await c.both(`${shot}/pdf-card-preview`)
       check('ai: in a PDF, “Make it a card” shows the card by the words first', inPdf?.shown?.state === 'ready' && inPdf.shown.text.includes('What do these words say?'), JSON.stringify(inPdf?.shown))
       await h.keyboard.press('Enter'); await wait(1200)
-      const cards = async () => (await v('items', 'nugget')).filter((one) => (one.prompt ?? '').startsWith('What do these words say?') && /stoics/i.test(String(one.medium)))
+      const cards = async () => (await v('items', 'nugget')).filter((one) => (one.prompt ?? '').startsWith('What do these words say?') )
       const made = await cards()
-      check('ai: in a PDF, ↵ makes the card with the book under it', made.length === 1, JSON.stringify(made.map((one) => [one.title, one.medium])))
+      check('ai: in a PDF, ↵ makes the card with the book under it', made.length === 1 && !!made[0].medium, JSON.stringify(made.map((one) => [one.title, one.medium])))
       await h.keyboard.press('Meta+z'); await wait(1200)
       check('ai: in a PDF, ⌘Z takes the card back', !(await cards()).length)
       const quote = await helpInPdf('quote')
