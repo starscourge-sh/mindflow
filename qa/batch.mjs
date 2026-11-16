@@ -95,7 +95,8 @@ function ownLaunch(file) {
   const calls = (name, from) =>
     new RegExp(`import\\s*\\{[^}]*\\b${name}\\b[^}]*\\}\\s*from\\s*['"]\\./${from}['"]`).test(code) ? (code.match(new RegExp(`(?<![\\w.$]|function\\s)${name}\\s*\\(`, 'g'))?.length ?? 0) : 0
   const opens = calls('sandbox', 'sandbox-lib.mjs') + calls('open', 'harness.mjs')
-  return opens > 1 ? `it opens the app in ${opens} places` : null
+  if (opens > 1) return `it opens the app in ${opens} places`
+  return /\b_electron\b/.test(code) ? 'it starts the app itself' : null
 }
 
 let copied = 0
