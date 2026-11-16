@@ -4737,7 +4737,8 @@ html[data-block-carry] .mf-lines {
     box-shadow: -1em 0 0 -1px var(--tt-selection-color);
   }
 
-  .tiptap-callout.mf-picked {
+  // A callout is drawn by its own view, whose holder takes the mark.
+  .node-callout.mf-picked {
     border-radius: 0.5rem;
   }
 
