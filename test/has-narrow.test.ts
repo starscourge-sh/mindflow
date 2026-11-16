@@ -269,13 +269,26 @@ test('no sibling rule leaves its left part unnamed, written out whole as SCSS ne
   assert.deepEqual(found, [], `name the line before by a class, an id or an attribute, or ask its place (:not(:first-child), :nth-child(2)): ${found.join('\n')}`)
 })
 
+/**
+ * Whether a selector asks the style attribute of anything but the element it styles ("[style*='x'] > .y"). Inline
+ * styles change all the time (a scroller's, a spacer's height): Chromium then restyles everything under the changed
+ * element that the rest names, every table of the largest note on each paste and Undo (16 Nov).
+ */
+export const styleAbove = (selector: string): boolean => compounds(selector).slice(0, -1).some((compound) => /\[\s*style\b/.test(compound))
+
+test('the style attribute is asked only of the element styled', () => {
+  assert.equal(styleAbove('body > div[dir][style*="-10000px"] > .tableWrapper'), true)
+  assert.equal(styleAbove('body > div[dir][style*="-10000px"]'), false)
+  assert.equal(styleAbove('html[data-pill-open] [style*="--tilt"]'), false)
+})
+
 test('no place is asked of a note\'s blocks, and no sibling rule sits among them', () => {
   const found: string[] = []
   for (const file of files('src/renderer/src', /\.s?css$/)) {
     const text = readFileSync(file, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
     // An :is() list of places is each its own selector here.
     for (const selector of selectors(text).flatMap((one) => [one, ...[...one.matchAll(/:is\(((?:[^()]|\([^()]*\))*)\)/g)].flatMap((found) => list(found[1]))]))
-      if (placeBroad(selector) || siblingBlocks(selector)) found.push(`${file}: ${selector}`)
+      if (placeBroad(selector) || siblingBlocks(selector) || styleAbove(selector)) found.push(`${file}: ${selector}`)
   }
   // Tailwind's own selectors in class names ("[&>:nth-child(2)]:ml-2"): "&" is the element, "_" a space.
   for (const file of files('src/renderer/src', /\.tsx?$/))

@@ -3700,7 +3700,10 @@ body > div[dir][style*="-10000px"] {
   overflow: hidden;
 }
 
-body > div[dir][style*="-10000px"] > .tableWrapper {
+// A table straight inside a div on the body is only ever in the ghost (Radix's portals hold no table), so the ghost's
+// own place is not asked here: asked of the style attribute ("[style*=-10000px] > .tableWrapper"), every inline style
+// changed above a note had all its tables restyled, its 212 in the largest note on each paste and Undo.
+body > div[dir] > .tableWrapper {
   max-width: 20rem !important;
   max-height: 6rem !important;
   overflow: hidden !important;
