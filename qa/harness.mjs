@@ -71,7 +71,20 @@ export function checks() {
   return { check, done, results }
 }
 
+/**
+ * The app, started for this probe, and the helpers below. Under qa/batch.mjs (several probes in one launch) the
+ * batch hands over its running app instead, put back as it started between two probes.
+ */
 export async function open() {
+  return helpers(globalThis.qaBatch ? await globalThis.qaBatch.open() : await launch())
+}
+
+/**
+ * Start the built app on its data folder and find the box: { app, page }. Anything that fails on the way kills the
+ * app it started, so no window is left behind. A probe run alone is killed with its app however it ends; a batch
+ * (qa/batch.mjs) keeps its own watch.
+ */
+export async function launch() {
   // A fresh folder for the app's data, so a run never touches your real captures.
   // QA_DATA points a run at a copy of real data, to see it with a real corpus.
   const data = process.env.QA_DATA ?? mkdtempSync(join(tmpdir(), 'haligtree-qa-'))
@@ -121,24 +134,41 @@ export async function open() {
   }
   const end = () => { try { child.kill('SIGKILL') } catch {} }
   process.on('exit', end)
-  // SIGALRM is what 'perl -e "alarm 280; exec"' sends when a run takes too long; SIGHUP a closed terminal.
-  for (const signal of ['SIGINT', 'SIGTERM', 'SIGALRM', 'SIGHUP']) process.on(signal, () => { end(); process.exit(1) })
-  process.on('uncaughtException', (error) => { console.error(error); end(); process.exit(1) })
-  process.on('unhandledRejection', (error) => { console.error(error); end(); process.exit(1) })
-  // The box: the window with no view of its own. On a second run over the
-  // same data the main window, left open last time, can come up first.
-  // Waited for generously: the box is made only once the main window is on
-  // screen (up to four seconds on), and probes run side by side load the Mac.
-  await app.firstWindow({ timeout: 60000 })
-  const isBox = (one) => /\.html|^https?:/.test(one.url()) && !/[?&]view=/.test(one.url())
-  let page = app.windows().find(isBox)
-  for (let i = 0; !page && i < 300; i++) (await new Promise((done) => setTimeout(done, 100)), (page = app.windows().find(isBox)))
-  if (!page) throw new Error('no box window')
+  if (!globalThis.qaBatch) {
+    // SIGALRM is what 'perl -e "alarm 280; exec"' sends when a run takes too long; SIGHUP a closed terminal.
+    for (const signal of ['SIGINT', 'SIGTERM', 'SIGALRM', 'SIGHUP']) process.on(signal, () => { end(); process.exit(1) })
+    process.on('uncaughtException', (error) => { console.error(error); end(); process.exit(1) })
+    process.on('unhandledRejection', (error) => { console.error(error); end(); process.exit(1) })
+  }
+  try {
+    // The box: the window with no view of its own. On a second run over the
+    // same data the main window, left open last time, can come up first.
+    // Waited for generously: the box is made only once the main window is on
+    // screen (up to four seconds on), and probes run side by side load the Mac.
+    await app.firstWindow({ timeout: 60000 })
+    const isBox = (one) => /\.html|^https?:/.test(one.url()) && !/[?&]view=/.test(one.url())
+    let page = app.windows().find(isBox)
+    for (let i = 0; !page && i < 300; i++) (await new Promise((done) => setTimeout(done, 100)), (page = app.windows().find(isBox)))
+    if (!page) throw new Error('no box window')
+    const logs = watch(page)
+    await page.waitForSelector(EDITOR, { timeout: 30000 })
+    return { app, page, logs }
+  } catch (error) {
+    end()
+    throw error
+  }
+}
+
+/** The box's console and its page errors, as they come, for `logs` and `drain()`. */
+export function watch(page) {
   const logs = []
   page.on('console', (message) => logs.push(message.text()))
   page.on('pageerror', (error) => logs.push(`PAGE ERROR: ${error.message}`))
-  await page.waitForSelector(EDITOR, { timeout: 30000 })
+  return logs
+}
 
+/** The helpers every probe drives the app with. */
+function helpers({ app, page, logs }) {
   const api = {
     page,
     /** The Electron app itself, for reaching the main process. */

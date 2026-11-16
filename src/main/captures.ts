@@ -339,6 +339,14 @@ export const changed = (what?: Change): void => {
   for (const tell of afterAny) tell()
 }
 
+/**
+ * A test run's hold on the book (qa/batch.mjs, several probes in one launch): this connection, so the book is put
+ * back between two probes through it (its stamp moves, so every list kept by the stamp is read again, and this
+ * connection's own triggers keep its tag index true), and `changed`, to tell every window. Only under a test run, as
+ * the stand-in clipboard (pasteboard.ts).
+ */
+if (process.env.HALIGTREE_QA_AWAY) (globalThis as { qaBook?: unknown }).qaBook = { database: () => db, changed }
+
 export function registerCaptures(): void {
   const file = join(app.getPath('userData'), 'haligtree.db')
   db = openDatabase(file)
