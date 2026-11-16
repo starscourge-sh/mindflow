@@ -24,8 +24,14 @@ const failNext = (channel, times) => electron.evaluate(({ ipcMain }, [channel, t
 const gathering = () => h.evaluate(() => [...document.querySelectorAll('[aria-busy]')].some((one) => /Gathering #/.test(one.textContent ?? '')))
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
-  const tag = (await v('tags')).find((one) => one.count > 0)?.tag
-  check('the sandbox has a tag with notes', !!tag)
+  // A tag of its own, never read in this window: a tag whose notes were read before keeps them on screen when a later
+  // read fails (as it should), so the failing read must be the tag's first (in dev mode the sandbox's tags were read
+  // ahead and the failure was rightly never shown).
+  const tag = `unread${Date.now() % 100000}`
+  const doc = (text) => ({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
+  await h.evaluate((b) => window.api.captures.create({ kind: 'note', body: b }), doc(`a note to read later #${tag}`))
+  await h.waitForTimeout(800)
+  check('a tag of its own with a note', (await v('tags')).some((one) => one.tag === tag && one.count > 0))
   check('a read can be made to fail', await failNext('tag:read', 1))
   await send('tag', tag)
   const said = await h.waitForFunction((tag) => [...document.querySelectorAll('[data-empty]')].some((one) => one.textContent.includes(`#${tag} could not be read`)), tag, { timeout: 8000 }).then(() => true, () => false)
