@@ -4733,7 +4733,7 @@ html[data-block-carry] .mf-lines {
 
   // A list's item takes in its bullet or number, which sits outside its own box, so every picked box starts at the
   // words' one left edge, as a task's (its tick inside it) and a line's do.
-  li.mf-picked:not([data-type="taskItem"]) {
+  :is(ul:not([data-type="taskList"]), ol) > li.mf-picked {
     box-shadow: -1em 0 0 -1px var(--tt-selection-color);
   }
 
