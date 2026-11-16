@@ -167,6 +167,10 @@ try {
   check('25: Go again after it is another bare session', (await v('session:last'))?.taskId === '', JSON.stringify(await v('session:last')))
 
   // --- 25: ⌃⌥⌘S's ask, from anywhere: quick capture's ⌘K opens on the lengths.
+  // As the key does it (index.ts askFocus): quick capture brought up first, then asked; sent to a box still put away,
+  // its lengths were drawn in a window no one could see, and read as missing.
+  await box.evaluate(() => window.api.showPrompt())
+  await box.waitForTimeout(600)
   await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => !new URL(one.webContents.getURL()).searchParams.get('view'))?.webContents.send('focus:ask'))
   // Until its lengths are drawn (5 s at most): a fixed 900 ms read nothing on a busy machine (load 30 and over).
   await box.waitForFunction(() => [...document.querySelectorAll('[role=dialog] button')].some((one) => /^25 min/.test(one.textContent.trim())), null, { timeout: 5000 }).catch(() => {})
