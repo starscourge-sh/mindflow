@@ -81,6 +81,7 @@ import { TaskLinkMenu } from "@/components/haligtree/task-link-menu"
 import { CardLink } from "@/extensions/card-link"
 import { AutoCard } from "@/extensions/auto-card"
 import { SelectedNodes } from "@/extensions/selected-nodes"
+import { PickedBlocks, pickFromGrip } from "@/extensions/picked-blocks"
 import { BlockControls } from "@/extensions/block-controls"
 import { BlockGestures } from "@/extensions/block-gestures"
 import { Bookmark } from "@/extensions/bookmark"
@@ -1688,7 +1689,7 @@ function Surface({
       UndoExact,
       SelectedNodes,
       BlockControls,
-      ...(shape === "line" ? [] : [BlockGestures]),
+      ...(shape === "line" ? [] : [BlockGestures, PickedBlocks]),
       ObsidianShortcuts.configure({
         onToggleSource: () => (toggleSource.current ? toggleSource.current() : setSourceRef.current(!sourceOpenRef.current)),
       }),
@@ -2363,7 +2364,12 @@ function Surface({
               className="tiptap-drag-handle-grip"
               data-silent=""
               aria-label="Block actions"
-              onClick={() => {
+              onClick={(event) => {
+                // Its block picked, as Notion's grip picks it (one of a pick already: the pick kept, the menu acts on
+                // them all); with ⇧, the run from the pick's start to it, and the menu stays shut.
+                const target = blockTarget.current
+                if (target) pickFromGrip(editor.view, target.pos, event.shiftKey)
+                if (event.shiftKey) return
                 setMenuAt(null)
                 setSpelling(null)
                 setClicked(null)

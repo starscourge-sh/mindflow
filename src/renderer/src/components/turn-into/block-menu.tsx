@@ -33,6 +33,7 @@ import { isWebPage, openArticle } from "@/components/pdf/web-reader"
 import { canSplit } from "@/lib/split"
 import { ClickedRows, type Clicked } from "./clicked"
 import { binLetGo, isKept, keepInFiles, letGoSaid } from "@/lib/media-files"
+import { duplicatePicked, pickedBlocks } from "@/extensions/picked-blocks"
 
 /**
  * What belongs to the whole table rather than to a row or a column.
@@ -50,6 +51,15 @@ const TABLE_ACTIONS: Array<[string, (editor: Editor) => void]> = [
 
 /** The same conversions `/` offers, minus everything that inserts. */
 const CONVERSIONS = slashItems.filter((item) => item.turnInto)
+
+/** What the menu is titled for the block it is on, in Notion's words: never "Block". */
+const KIND_NAMES: Record<string, string> = {
+  paragraph: "Paragraph", heading: "Heading", listItem: "List item", taskItem: "Task", bulletList: "List", orderedList: "Numbered list", taskList: "Tasks",
+  blockquote: "Quote", callout: "Callout", codeBlock: "Code", table: "Table", horizontalRule: "Divider", columns: "Columns", bookmark: "Link card",
+  image: "Picture", youtube: "Video", noteEmbed: "Embedded note", details: "Toggle", math: "Maths", blockMath: "Maths",
+}
+const kindTitle = (name: string, level?: number): string =>
+  name === "heading" && level ? `Heading ${level}` : KIND_NAMES[name] ?? name.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (one) => one.toUpperCase())
 
 export interface BlockTarget {
   pos: number
@@ -100,6 +110,10 @@ export function BlockMenu({
   // The handle keeps following the pointer, so read it once, on open, and hold
   // that - otherwise the target drifts out from under the menu.
   const [block, setBlock] = useState<BlockTarget | null>(null)
+  /** Opened on one of several picked blocks (extensions/picked-blocks.ts): how many, and every line acts on them all. */
+  const [many, setMany] = useState(0)
+  /** Opened on a picked block (the grip picks its own): the keys a pick answers are shown on their lines. */
+  const [keyed, setKeyed] = useState(false)
   const [query, setQuery] = useState("")
   const input = useRef<HTMLInputElement>(null)
   const anchor = useRef<HTMLSpanElement | null>(null)
@@ -130,10 +144,17 @@ export function BlockMenu({
   useEffect(() => {
     if (!open) {
       setBlock(null)
+      setMany(0)
       setQuery("")
       return
     }
     setBlock(targetRef.current)
+    const { selection } = editor.state
+    const target = targetRef.current
+    const picked = pickedBlocks(selection).length
+    const holds = !!target && !!picked && target.pos >= selection.from && target.pos < selection.to
+    setKeyed(holds)
+    setMany(holds && picked > 1 ? picked : 0)
     const id = setTimeout(() => input.current?.focus(), 0)
     // A change to the note while the menu is open (a save, a word typed elsewhere) moves the block with it: the menu
     // still acts on the block it was opened for, and on nothing once that block is gone.
@@ -183,6 +204,8 @@ export function BlockMenu({
 
   /** Commands read the selection, so move it into the handle's block first. */
   const at = (run: () => void) => {
+    // Several picked: the pick is what every command reads.
+    if (many) return void (editor.commands.focus(), run())
     const found = resolve()
     if (!found) return
     const { node, pos } = found
@@ -199,7 +222,7 @@ export function BlockMenu({
     run()
   }
 
-  const thing = resolve()?.node
+  const thing = many ? undefined : resolve()?.node
   // A picture or a file kept in the book's own store: it can stay in Files without a note, or go to the Bin with it.
   const stored = (thing?.type.name === "image" || thing?.type.name === "attachment") && /^(haligtree|mindflow):\/\/assets\//.test(String(thing.attrs.src ?? "")) ? String(thing.attrs.src) : null
   const storedWhat = thing?.type.name === "image" ? "Picture" : "File"
@@ -220,10 +243,8 @@ export function BlockMenu({
    * nine conversions that all act on whatever cell the cursor lands in. The
    * question is what the block holds: text, or other blocks.
    */
-  const convertible =
-    !!thing &&
-    (thing.isTextblock ||
-      ["listItem", "taskItem", "blockquote"].includes(thing.type.name))
+  const convertible = (many ? pickedBlocks(editor.state.selection).map((one) => one.node) : thing ? [thing] : []).some((one) =>
+    one.isTextblock || ["listItem", "taskItem", "blockquote"].includes(one.type.name))
   const imageSrc: string | undefined =
     thing?.type.name === "image" ? thing.attrs.src : undefined
   /** On a divider, the look it does not have yet. */
@@ -300,7 +321,8 @@ export function BlockMenu({
    * declare the attributes, so on either of those every swatch was a no-op.
    */
   const colorable = (() => {
-    const found = resolve()
+    // A colour is one block's (block-color.ts reads the caret's): not offered on several.
+    const found = many ? null : resolve()
     if (!found) return false
     if (COLORABLE.includes(found.node.type.name)) return true
 
@@ -313,6 +335,7 @@ export function BlockMenu({
 
   /** A copy of the block, right after it. */
   const duplicate = () => {
+    if (many) return void (duplicatePicked(editor.view), editor.commands.focus())
     const found = resolve()
     if (!found) return
     editor
@@ -333,10 +356,11 @@ export function BlockMenu({
    */
   const copy = () => {
     const found = resolve()
-    if (!found) return
-    editor.chain().focus().setNodeSelection(found.pos).run()
+    if (many) editor.commands.focus()
+    else if (found) editor.chain().focus().setNodeSelection(found.pos).run()
+    else return
     const done = document.execCommand("copy")
-    said(done ? "Block copied" : "Could not copy it", done)
+    said(done ? (many ? `${many} blocks copied` : "Block copied") : "Could not copy it", done)
   }
 
   /** The picture itself on the clipboard, not a link to it. */
@@ -372,6 +396,7 @@ export function BlockMenu({
 
   /** Delete by range: `deleteNode` looks for an ancestor and misses atoms. */
   const remove = () => {
+    if (many) return void editor.chain().focus().deleteSelection().run()
     const found = resolve()
     if (!found) return
     editor
@@ -405,7 +430,7 @@ export function BlockMenu({
       <DropdownMenuSub>
         <DropdownMenuSubTrigger data-block-sub>
           <MenuGlyph label="Block" />
-          <span className="tiptap-slash-menu-title">{kindName ?? "Block"}</span>
+          <span className="tiptap-slash-menu-title">{title}</span>
           <span className="tiptap-slash-menu-hint">&rsaquo;</span>
         </DropdownMenuSubTrigger>
         <DropdownMenuSubContent className="tiptap-block-menu tiptap-block-menu-sub">
@@ -414,6 +439,8 @@ export function BlockMenu({
       </DropdownMenuSub>
     ) : rows
 
+  /** What it is titled for: the block it is on in Notion's words ("Link card", "Picture", "Paragraph"), or "3 blocks". */
+  const title = many ? `${many} blocks` : kindName ?? (thing ? kindTitle(thing.type.name, Number(thing.attrs.level) || undefined) : "")
   // Measured only while open: worked out on every draw of every note, it read the page's layout each time.
   const grip = open && !point ? gripSide() : "left"
   return (
@@ -478,7 +505,7 @@ export function BlockMenu({
         <input
           ref={input}
           type="text"
-          placeholder="Filter…"
+          placeholder="Search actions…"
           data-quiet={!query ? "" : undefined}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -522,7 +549,7 @@ export function BlockMenu({
         {/* Filtered, its conversions are found flat with the rest; otherwise they wait in "Turn into ›", after the actions. */}
         {convertible && term ? conversionRows : null}
 
-        {term ? null : <div className="tiptap-slash-menu-group" data-kind-heading={kindName ?? undefined}>{kindName ?? "Block"}</div>}
+        {term ? null : <div className="tiptap-slash-menu-group" data-kind-heading={title}>{title}</div>}
 
 
         {/* A divider's two looks, each offered on the other. */}
@@ -636,7 +663,6 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
-        {kindName && !term ? <div className="tiptap-slash-menu-group">Block</div> : null}
 
         {thing?.type.name === "table"
           ? TABLE_ACTIONS.filter(([label]) => matches(label)).map(([label, run]) => (
@@ -704,6 +730,7 @@ export function BlockMenu({
             <button type="button" onClick={copy}>
               <MenuGlyph label="Copy" />
               <span className="tiptap-slash-menu-title">Copy</span>
+              {keyed ? <span className="tiptap-slash-menu-hint">⌘C</span> : null}
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -732,6 +759,7 @@ export function BlockMenu({
             <button type="button" onClick={duplicate}>
               <MenuGlyph label="Duplicate" />
               <span className="tiptap-slash-menu-title">Duplicate</span>
+              {keyed ? <span className="tiptap-slash-menu-hint">⌘D</span> : null}
             </button>
           </DropdownMenuItem>
         ) : null}
@@ -837,6 +865,7 @@ export function BlockMenu({
             >
               <MenuGlyph label="Delete" />
               <span className="tiptap-slash-menu-title">Delete</span>
+              {keyed ? <span className="tiptap-slash-menu-hint">⌫</span> : null}
             </button>
           </DropdownMenuItem>
         ) : null}

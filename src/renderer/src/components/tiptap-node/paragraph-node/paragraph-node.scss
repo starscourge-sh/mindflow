@@ -58,10 +58,19 @@
   }
 
   // Selected node styles
-  // Square, as every highlight is in the app.
+  // A block picked whole wears a picked block's corner (haligtree-editor.scss `.mf-picked`): 4px, a callout its own
+  // 8px, a table square (DESIGN.md, the Square Highlight Rule's one exception).
   .ProseMirror-selectednode:not(img):not(pre):not(.react-renderer) {
-    border-radius: 0;
+    border-radius: 4px;
     background-color: var(--tt-selection-color);
+  }
+
+  .tiptap-callout.ProseMirror-selectednode:not(img):not(pre) {
+    border-radius: 0.5rem;
+  }
+
+  .tableWrapper.ProseMirror-selectednode:not(img):not(pre) {
+    border-radius: 0;
   }
 
   .ProseMirror-hideselection {

@@ -373,7 +373,7 @@ The one look for any hover that has content: a 320px Parchment card (14px corner
 
 **The Shared Frost Rule.** Glass comes only from `.mf-frost` or `.mf-blur-edge`; nothing that holds a backdrop blur ever fades its opacity (the blur would draw nothing until the fade ends). Frost is revealed by a clip; only the words fade. Captions over pictures rise out of a frosted foot, two lines at most.
 
-**The Square Highlight Rule.** Highlights, selected blocks and marked lines have square corners; nothing (a playhead, a dot, a grip) touches a highlight's edge.
+**The Square Highlight Rule.** Highlights and marked lines have square corners; nothing (a playhead, a dot, a grip) touches a highlight's edge. Picked blocks are the one exception (the user, 15 Nov): each wears the accent's quiet wash with Notion's slight 4px corner, a picked callout keeps its own 8px corner, and a picked table stays square.
 
 **The One Hover Rule.** Hovers have two looks only, and one hover shows one thing: a label is the Tip, anything with content is the note hover card. Where a card shows, no tip shows; menu rows never get tips.
 
