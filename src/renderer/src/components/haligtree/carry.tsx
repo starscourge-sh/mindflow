@@ -472,9 +472,10 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
   // A new group would form here: this row lifts, with a panel around it and the room under it.
   const lifted = forming
   const withOthers = (carry?.along.size ?? 0) > 0
-  // One row in the hand leaves its title with the card. Several stay readable in the list: hiding the one
-  // under the pointer left a blank row whose name lived only in the pile of cards.
+  // One row in the hand leaves its title with the card. Several stay readable in the list, every one faded the same:
+  // the row under the pointer used to keep its selection look while the others went quiet. Hiding that row left a blank whose name lived only in the pile of cards.
   const room = isDragging && !!aim && aim.gap !== null && !withOthers
+  const fade = isDragging && !withOthers ? 0 : withOthers || faded ? 0.3 : undefined
   return (
     <motion.div
       ref={ref}
@@ -524,7 +525,7 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
       </AnimatePresence>
       <div
         className="transition-[scale,translate,opacity] duration-200 motion-reduce:transition-none"
-        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(isDragging && !withOthers ? { opacity: 0 } : !withOthers && faded ? { opacity: 0.3 } : {}) }}
+        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(fade === undefined ? {} : { opacity: fade }) }}
       >
         {children}
       </div>

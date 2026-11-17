@@ -2816,6 +2816,10 @@ html[data-dragging] [data-grip] { visibility: hidden; }
 html[data-dragging] :is([data-line-tools], [data-add-below]) { visibility: hidden; }
 /* In the hand a row is its one line, as a group folds in the hand: what hangs under it (a task's steps, its question) is put away until it is let go (carry.tsx marks the row). */
 [data-sortable-id][data-held] .mf-held-folds { display: none; }
+/* The pointer stays down on the row in hand, so :active painted the open-row accent on the first selected while the others only faded. It keeps the picked tint. */
+[data-sortable-id][data-held] [data-row]:active {
+  background-color: color-mix(in srgb, var(--tt-brand-color-400) 18%, transparent);
+}
 /* So is a folder carried in the sidebar: its subfolders fold under it until it is let go (side-folders.tsx). */
 [data-carried-folder] + [data-no-twig] { display: none; }
 /* The Month plan's lines alone still use this for a carried line's own place (month-plan.tsx); every other carry draws that band with carry.tsx's OwnRoom. It goes when the Month plan does the same. */

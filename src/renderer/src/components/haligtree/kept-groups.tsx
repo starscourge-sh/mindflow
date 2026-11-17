@@ -550,11 +550,14 @@ function Ghost({ carried, bundles, many, aim, grab, from, rest }: { carried: str
   const group = isGroup(carried) ? bundles.flatMap((one) => (one.group ? [one.group, ...(one.parts ?? []).flatMap((part) => ('group' in part ? [part.group] : []))] : [])).find((one) => KEY + one.id === carried) : undefined
   const entries = bundles.flatMap((one) => one.entries)
   const entry = group ? undefined : entries.find((one) => one.id === carried)
-  // The rest carried, fanned up and to the left behind the one in hand: three at most show, so a handful each keep a title.
-  const behind = many.filter((one) => one !== carried).slice(0, 3).map((id) => entries.find((one) => one.id === id)).filter((one): one is Entry => !!one)
+  // The rest, in list order. What comes before the one in hand sits above it, what comes after sits below, so the stack reads like the list. Three besides it show.
+  const order = many.map((id) => entries.find((one) => one.id === id)).filter((one): one is Entry => !!one)
+  const handAt = Math.max(0, order.findIndex((one) => one.id === carried))
+  const behind = order.filter((one) => one.id !== carried).slice(0, 3)
+  const slotOf = (id: string): number => order.findIndex((one) => one.id === id) - handAt
   return (
     <Hand grab={grab} from={from} rest={rest}>
-      {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} />).reverse()}
+      {behind.slice().sort((a, b) => Math.abs(slotOf(b.id)) - Math.abs(slotOf(a.id))).map((one) => <Fanned key={one.id} entry={one} slot={slotOf(one.id)} />)}
       <CarriedCard attrs={{ 'data-ghost': '' }} icon={group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
         title={group?.name ?? (entry?.title || 'New note')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} refused={!!aim?.refused} />
       {/* How many, hanging just under the stack. */}
@@ -565,14 +568,14 @@ function Ghost({ carried, bundles, many, aim, grab, from, rest }: { carried: str
 }
 
 /**
- * One card behind the one in hand: a full card up and to the left, so each
- * title can be read. With Reduce motion it simply sits there.
+ * One card in the stack, a full card above the one in hand (`slot` negative) or below it (positive), so the titles read in list order. With Reduce motion it simply sits there.
  */
-function Fanned({ entry, depth }: { entry: Entry; depth: number }): React.JSX.Element {
+function Fanned({ entry, slot }: { entry: Entry; slot: number }): React.JSX.Element {
   const calm = still()
+  const away = Math.abs(slot)
   const fan = useRef<HTMLDivElement>(null)
-  const fanX = useMotionValue(-18 * depth)
-  const fanY = useMotionValue(-60 * depth)
+  const fanX = useMotionValue(-18 * away)
+  const fanY = useMotionValue(slot * 60)
   useLayoutEffect(() => {
     const place = (): void => {
       const node = fan.current
@@ -581,38 +584,24 @@ function Fanned({ entry, depth }: { entry: Entry; depth: number }): React.JSX.El
       const box = node.getBoundingClientRect()
       // A full card apart, so the title on each one can be read. A short step piled the names on each other (16 Nov).
       const step = Math.ceil(Math.max(card.getBoundingClientRect().height, card.offsetHeight, 44)) + 12
-      const left = -18 * depth
-      const up = -step * depth
-      const down = step * depth
-      const aimRow = document.querySelector('[data-sortable-id][data-aim]')?.getBoundingClientRect()
-      const covers = (dy: number, dx: number): boolean => {
-        if (!aimRow) return false
-        const top = box.top + dy
-        const bottom = top + step
-        const l = box.left + dx
-        const r = l + card.offsetWidth
-        return top < aimRow.bottom - 6 && bottom > aimRow.top + 6 && l < aimRow.right - 8 && r > aimRow.left + 8
-      }
-      const x = box.left + left >= 8 ? left : box.right + 18 * depth <= window.innerWidth - 8 ? 18 * depth : 0
-      let y = box.top + up >= 8 ? up : down
-      const other = y < 0 ? down : up
-      const otherFits = other < 0 ? box.top + other >= 8 : box.bottom + other <= window.innerHeight - 8
-      if (covers(y, x) && otherFits && !covers(other, x)) y = other
+      const left = -18 * away
+      // Stay on this side of the card in hand. Flipping to the side with room put the last title on top of the stack.
+      const y = slot * step
+      const x = box.left + left >= 8 ? left : box.right + 18 * away <= window.innerWidth - 8 ? 18 * away : 0
       fanX.set(x)
       fanY.set(y)
     }
     place()
     window.addEventListener('pointermove', place, true)
     return () => window.removeEventListener('pointermove', place, true)
-  }, [depth, fanX, fanY])
+  }, [slot, away, fanX, fanY])
   return (
     <motion.div ref={fan} className="absolute inset-0">
       <motion.div
         aria-hidden
-        data-fanned={depth}
+        data-fanned={slot}
         className={cn('absolute inset-0 flex items-center gap-2 overflow-hidden', CARD)}
         initial={calm ? false : { opacity: 0 }}
-        // Up and to the left of the card in hand, unless that edge has no room, in which case the other way.
         // The offset itself does not ease: an ease left the titles piled on each other for the whole carry.
         animate={{ opacity: 1 }}
         style={{ x: fanX, y: fanY }}
