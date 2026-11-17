@@ -76,7 +76,7 @@ import { RECORDING_KINDS } from '@/lib/recordings'
 import { SANDBOX, enterSandbox, leaveSandbox, startSandboxOver } from '@/lib/sandbox'
 import { HoldButton } from './hold-button'
 import { SiteBlockField, openAutomation, useBlockRefused } from './site-block-field'
-import { askBook, deleteBook, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
+import { askBook, deleteBook, markInk, newBook, renameBook, switchBook, useShelf, type Book } from '@/lib/books'
 import { BookMark, HueDots } from './books'
 import { NameInPlace } from './name-in-place'
 import { useHere } from '@/lib/split'
@@ -151,10 +151,16 @@ function BoxPanelSetting({ oneLine }: { oneLine: boolean }): React.JSX.Element {
 /** A slider's value beside it: one width for every slider, so the sliders line up down a section. */
 const SLIDER_VALUE = 'w-24 text-right tabular-nums'
 
-export function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off, naming, mark, anchor }: {
+export function Setting({ title, aka, children, note, more, below, beside, keywords = '', under = false, off, naming, mark, anchor, badge, wash, role }: {
   title: string
   /** Its own drawing before its title (a book's mark in its colour), centred on the title's first line. */
   mark?: ReactNode
+  /** A short status beside the title, for the book that is open. */
+  badge?: string
+  /** A wash of this colour behind the row, so the open book reads as the one in force. */
+  wash?: string
+  /** 'now' is the open book. 'shelf' is one waiting beside it. */
+  role?: 'now' | 'shelf'
   /** A name for its row on the page (data-setting-anchor), to bring it into view when it is asked for from elsewhere. */
   anchor?: string
   /** Its name being typed where the title stands (a book named or renamed), in place of the title. */
@@ -183,12 +189,12 @@ export function Setting({ title, aka, children, note, more, below, beside, keywo
   if (!all && !matches(query, title, plain(note), `${keywords} ${aka ?? ''} ${more ?? ''}`)) return null
   const shown = all ? '' : query
   return (
-    <div data-setting data-setting-title={title} data-setting-anchor={anchor} className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`}>
+    <div data-setting data-setting-title={title} data-setting-anchor={anchor} data-book-role={role} className={`py-3 pr-4 ${under ? 'pl-9' : 'pl-4'}`} style={wash ? { background: `color-mix(in srgb, ${wash} 16%, transparent)` } : undefined}>
       <div className={`flex flex-wrap justify-between gap-x-6 ${beside ? 'items-start gap-y-4' : 'items-center gap-y-2'}`}>
         <div className="min-w-0 flex-[1_1_13rem]">
           <div className="text-body font-medium text-foreground">{mark
             ? <span className={`inline-flex items-start gap-1.5 align-top ${naming ? 'w-full max-w-80' : ''}`}><span className="flex h-[1lh] shrink-0 items-center">{mark}</span>{naming ?? <span className="min-w-0"><Marked text={title} query={shown} /></span>}</span>
-            : naming ?? <Marked text={title} query={shown} />}{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
+            : naming ?? <Marked text={title} query={shown} />}{badge && <span data-setting-badge className="ml-2 inline-flex translate-y-[-1px] items-center rounded-full bg-foreground/10 px-1.5 py-px align-middle text-meta font-medium text-foreground">{badge}</span>}{aka && <span className="ml-1.5 font-normal text-muted-foreground">(<Term>{aka}</Term>)</span>}
             {more && (
               <Tip label={more}>
                 <button type="button" data-setting-more aria-label={`More about ${quoted(title, 80)}`} className="relative after:absolute after:-inset-1 after:rounded-full shrink-0 ml-1.5 inline-grid size-4 translate-y-[-1px] place-items-center rounded-full border border-border align-middle text-[0.625rem] leading-none font-semibold text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">?</button>
@@ -1325,13 +1331,13 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
           </Setting>
         </Group>
 
-        {/* Where a person looks for their book's name and colour: first in Settings' first section. */}
-        <Group section="Your book" title="Books">
-          <BookRows asked={asked} nonce={nonce} />
-        </Group>
+        {/* The card is the face of the book, so it leads. The shelf (this book, then the others) sits under it. */}
         <Group section="Your book" title="Your card" bare>
           <Setting title="Reader card" note="Your book on a card: a title drawn for you, the day it began, and a stamp for each milestone." more="“Randomize” draws another title, colours and shape; the card is kept until you do. Stamps come at 100 and 1,000 notes, a first link, a first gem reviewed, 30 days of Journal and a year in." keywords="reader card member profile name title stamps milestones share picture image randomize arc shape coolshapes"
             beside={<ReaderCard seed={settings.readerSeed} point={asked === 'reader-card' ? nonce : undefined} />} />
+        </Group>
+        <Group section="Your book" title="Books">
+          <BookRows asked={asked} nonce={nonce} />
         </Group>
         <Group section="Help" title="Getting started">
           <WelcomeRow />
@@ -1478,7 +1484,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>' or 'book-rename:<id>',
   return (
     <>
       {open ? (
-        <Setting anchor={`book:${open.id}`} mark={<BookMark hue={open.color} className="size-4" />} title={open.name} naming={naming === open.id ? nameField(open) : undefined}
+        <Setting anchor={`book:${open.id}`} role="now" badge="Open now" wash={markInk(open.color)} mark={<BookMark hue={open.color} className="size-5" />} title={open.name} naming={naming === open.id ? nameField(open) : undefined}
           note="The book open now. Its colour tints the sidebar and takes the accent's place (links, the caret, what is selected), to tell your books apart at a glance."
           more={`${made(open)} ${open.id === 'default' ? `It is where ${APP_NAME} has always kept your notes.` : 'Switch to another book to delete this one.'} ⌘K’s “Book colour…” and a right-click on the book’s name in the sidebar pick a colour too.`}
           keywords="this book name rename colour color accent tint hue space arc books vault workspace"
@@ -1496,7 +1502,7 @@ function BookRows({ asked, nonce = 0 }: { /** 'book:<id>' or 'book-rename:<id>',
         {!SANDBOX && <Button variant="outline" size="sm" data-book-new onClick={() => (chime('open'), setNaming('new'))}>New book</Button>}
       </Setting>
       {others.map((book) => (
-        <Setting key={book.id} under anchor={`book:${book.id}`} mark={<BookMark hue={book.color} />} title={book.name} naming={naming === book.id ? nameField(book) : undefined}
+        <Setting key={book.id} under role="shelf" anchor={`book:${book.id}`} mark={<BookMark hue={book.color} />} title={book.name} naming={naming === book.id ? nameField(book) : undefined}
           note={`${made(book)}${!SANDBOX && book.id !== 'default' ? ' **Deleting it deletes everything in it, for good.**' : ''}`}
           more={book.id === 'default' ? `Where ${APP_NAME} has always kept your notes.` : undefined}
           keywords="book rename delete open switch colour color accent tint hue space arc"
