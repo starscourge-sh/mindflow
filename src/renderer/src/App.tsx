@@ -740,16 +740,22 @@ export default function App(): React.JSX.Element {
     chime('away')
     toast('The draft from earlier is let go', () => (keep.forEach(([key, value]) => value !== null && localStorage.setItem(key, value)), setLeftover(readLeftover())))
   }
-  /** The leftover back in the box: in place of an empty one, or after what is there. */
+  /**
+   * The leftover back in the box: in place of an empty one, or after what is there.
+   * The chip already holds the note. Reading storage again would refuse it: this open
+   * is the one that counted as shown, and the third showing is the last the reader allows,
+   * so the click cleared the chip and put nothing back.
+   */
   const leftoverBack = (): void => {
     const editor = editorRef.current
-    const doc = readLeftover()
+    const doc = leftover
+    if (!editor || !doc) return
+    const empty = !textOf(editor.getJSON()).trim() && !editor.getJSON().content?.some((one) => one.type !== 'paragraph')
+    const ran = empty ? editor.chain().setContent(doc).focus('end').run() : editor.chain().focus('end').insertContent(doc.content ?? []).run()
+    if (!ran) return
     forgetLeftover()
     setLeftover(null)
-    if (!editor || !doc) return
     chime('open')
-    if (!textOf(editor.getJSON()).trim() && !editor.getJSON().content?.some((one) => one.type !== 'paragraph')) editor.chain().setContent(doc).focus('end').run()
-    else editor.chain().focus('end').insertContent(doc.content ?? []).run()
   }
   // A capture opened from the list on the right. Edits save to it as they
   // happen; Cmd+Enter puts it down and brings back the box you had.
