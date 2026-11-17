@@ -818,6 +818,8 @@ function turn(soft: boolean, id?: string): void {
  * `fold`: a pane folded away, the card fold quicker and softer.
  */
 export function paper(kind: 'slide' | 'fold' | 'tap'): void {
+  // Counted with the other cues, sounds on or off, so a close can be checked for one sound.
+  if (askedCues.push(`paper:${kind}`) > 50) askedCues.shift()
   if (kind === 'slide') void recording(slideUrl, 0.14, 'paper-slide')
   // `tap`: a sticky set down on the desk, a quick soft slap. The paper slide sped up read as a page tearing.
   else if (kind === 'tap') click('slap')

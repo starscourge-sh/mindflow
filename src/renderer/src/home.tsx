@@ -851,13 +851,15 @@ export function Home(): React.JSX.Element {
     const gone = pane?.tabs.find((one) => one.key === (tab ?? pane.active))
     if (!pane || !gone) return
     if (lastLanding(key)) return void chime('nope')
-    chime('fold')
+    // A pane folding away is the paper. The ordinary fold on top of it was two sounds for one close (⌘W, 17 Nov).
+    const paneGoes = pane.tabs.length === 1 && now.panes.length > 1
+    if (paneGoes) paper('fold')
+    else chime('fold')
     closed.current = [...closed.current.slice(-19), { tab: gone, pane: key, at: pane.tabs.indexOf(gone), paneAt: now.panes.indexOf(pane) }]
     const next = closeTab(now, key, gone.key, () => newTab([LANDING]))
     tabChosen.current = true
     setSplit(next)
     if (next.panes.length < now.panes.length) {
-      paper('fold')
       lastFocus.current.delete(key)
       toast(`Closed ${quoted(short(shownName(paneName(tabStep(gone)).title)), 80)}, and its split`, () => setSplit(now))
     }
@@ -1775,7 +1777,7 @@ export function Home(): React.JSX.Element {
   const endSplit = (): void => {
     const now = splitRef.current
     if (now.panes.length < 2) return void chime('nope')
-    chime('separate')
+    // The panes fold away: the paper says it. The separate chime on top was a second sound for the same close.
     paper('fold')
     setSplit(now.panes.filter((one) => one.key !== now.front).reduce((left, one) => removePane(left, one.key), now))
     toFront(now.front)
