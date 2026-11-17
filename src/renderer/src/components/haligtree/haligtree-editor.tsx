@@ -44,6 +44,7 @@ import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
 import { lowlight, whenGrammars } from "@/lib/lowlight"
 import { setHost, type HaligtreeHost } from "@/lib/host"
 import { currentVim, onVimChange } from "@/lib/vim"
+import { vimPluginKey } from "@/extensions/vim-mode"
 import { cue } from "@/lib/cues"
 import { byKeys } from "@/lib/motion"
 import "katex/dist/katex.min.css"
@@ -62,6 +63,7 @@ import { ObsidianEmbeds, readInLine } from "@/extensions/obsidian-embeds"
 import { BlockColor } from "@/extensions/block-color"
 import { JoinLists } from "@/extensions/join-lists"
 import { OutdentLists } from "@/extensions/outdent-lists"
+import { UnwrapBareLists } from "@/extensions/unwrap-bare-lists"
 import { TabStays } from "@/extensions/tab-stays"
 import { PlainCopy } from "@/extensions/plain-copy"
 import { CurrentItem } from "@/extensions/current-item"
@@ -298,7 +300,7 @@ import {
 } from "@/components/tiptap-ui/color-highlight-popover"
 import { MarkDropdownMenu } from "@/components/tiptap-ui/mark-dropdown-menu"
 import { TextAlignDropdownMenu } from "@/components/tiptap-ui/text-align-dropdown-menu"
-import { HighlightMenu, MarkMenu } from "./sub-menu"
+import { MarkMenu } from "./sub-menu"
 import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { SearchBar } from "@/components/search/search-bar"
 import { TableMenu } from "@/components/table/table-menu"
@@ -1540,6 +1542,7 @@ function Surface({
       TableDrawnFirst.configure({ resizable: true, cellMinWidth: 160 }),
       TableKit.configure({ table: false }),
       OutdentLists,
+      UnwrapBareLists,
       ...(shape === "line" ? [] : [TabStays]),
       PlainCopy,
       Bookmark,
@@ -2181,7 +2184,6 @@ function Surface({
             {/* Words with no link: "Link" asks for an address; on a link, edit it or take it off. */}
             {editor && <LinkButtons editor={editor} />}
             {editor && <MarkMenu editor={editor} />}
-            {editor && <HighlightMenu editor={editor} />}
             <LinkToBookmarkButton editor={editor} />
           </ToolbarGroup>
     </>
@@ -2404,6 +2406,7 @@ function Surface({
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}
+        {shape === "document" && !readOnly && <VimSaid editor={editor} />}
         {shape === "document" && !readOnly && (foot ? foot(editor) : <WordCount editor={editor} />)}
 
         {/* The dock earns its place only if something is in it. */}
@@ -2539,5 +2542,27 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
       <span className="tiptap-link-preview-how">{link.how}</span>
     </span>,
     document.body
+  )
+}
+
+/** Vim's mode, in words, at the foot of the page. The caret shape was the only sign, and normal mode swallows letters. */
+function VimSaid({ editor }: { editor: Editor | null }) {
+  const [word, setWord] = useState<string | null>(null)
+  useEffect(() => {
+    if (!editor) return
+    const read = (): void => {
+      const vim = vimPluginKey.getState(editor.state)
+      const next = !vim?.enabled ? null : vim.mode === "insert" ? "Insert" : vim.mode === "visual" || vim.mode === "visualLine" ? "Visual" : "Normal"
+      setWord((was) => (was === next ? was : next))
+    }
+    read()
+    editor.on("transaction", read)
+    return () => { editor.off("transaction", read) }
+  }, [editor])
+  if (!word) return null
+  return (
+    <span data-vim-status role="status" className="pointer-events-none absolute bottom-2 left-3 z-10 text-meta text-muted-foreground">
+      {word}
+    </span>
   )
 }

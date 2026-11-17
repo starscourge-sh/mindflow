@@ -2209,8 +2209,14 @@ export default function App(): React.JSX.Element {
               </div>
             )
           })()}
-          <div data-pill-drag="end" className="flex h-full w-[4.5rem] items-center justify-end pr-5" style={pill ? ({ WebkitAppRegion: 'drag' } as CSSProperties) : undefined}>
-            <kbd className="font-sans text-key text-muted-foreground">⌘↵</kbd>
+          <div data-pill-drag="end" className="flex h-full items-center justify-end pr-3" style={pill ? ({ WebkitAppRegion: 'drag' } as CSSProperties) : undefined}>
+            <button type="button" data-pill-keep aria-keyshortcuts="Meta+Enter" disabled={!pill}
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => latestSubmit.current()}
+              style={{ WebkitAppRegion: 'no-drag' } as CSSProperties}
+              className={cn('flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 text-control text-muted-foreground transition-colors hover:text-foreground active:scale-[0.97]', pill && 'pointer-events-auto')}>
+              Keep <kbd className="font-sans text-key">⌘↵</kbd>
+            </button>
           </div>
         </div>
       )}
