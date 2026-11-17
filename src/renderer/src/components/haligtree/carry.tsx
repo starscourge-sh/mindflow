@@ -471,8 +471,10 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
   const wait = still() ? undefined : `mf-room 100ms ${OUT} ${Math.round(SLIDE.duration * 800)}ms both`
   // A new group would form here: this row lifts, with a panel around it and the room under it.
   const lifted = forming
-  // The carried row's own place travels to where it would land: the room the rows open, with a line in it.
-  const room = isDragging && !!aim && aim.gap !== null
+  const withOthers = (carry?.along.size ?? 0) > 0
+  // One row in the hand leaves its title with the card. Several stay readable in the list: hiding the one
+  // under the pointer left a blank row whose name lived only in the pile of cards.
+  const room = isDragging && !!aim && aim.gap !== null && !withOthers
   return (
     <motion.div
       ref={ref}
@@ -522,7 +524,7 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
       </AnimatePresence>
       <div
         className="transition-[scale,translate,opacity] duration-200 motion-reduce:transition-none"
-        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(isDragging ? { opacity: 0 } : faded ? { opacity: 0.3 } : {}) }}
+        style={{ transitionTimingFunction: OUT, scale: lifted ? 1.02 : 1, paddingLeft: indent || undefined, ...inner, ...(isDragging && !withOthers ? { opacity: 0 } : !withOthers && faded ? { opacity: 0.3 } : {}) }}
       >
         {children}
       </div>
@@ -572,29 +574,65 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
   // How far each row slides: every one in the same draw, and its group's panel with it.
   const ys = new Map<string, number>()
   const from = hand ? keys.indexOf(hand) : -1
+  const order = new Map(keys.map((key, index) => [key, index]))
+  const carriedKeys = many.filter((key) => order.has(key))
+  const multi = carriedKeys.length > 1
   // A new group opens room for everything carried, under the row it joins. That has to win over the move:
   // in a list you ordered yourself the gap stays set, and the move then closed the group over the rows still
   // standing in it, so they landed on the notes below (16 Nov, four notes onto one).
   const forming = !!(aim?.make && aim.target && keys.indexOf(aim.target) >= 0)
-  if (!forming && gap !== null && from >= 0 && span) {
-    const h = span + (aim!.fit ?? 0)
-    // Each row's place read off the page as it lies now, its slide left out: dnd-kit's own measures can be from
-    // before a folded group sprang open, and the carried row's room then opened a whole group's rows too low.
-    // Each row read once a draw, and only rows drawn: one search of the page for each of 2,500 keys, several times over, was slow.
-    const drawn = new Map<string, HTMLElement>()
-    for (const node of (within ?? document).querySelectorAll<HTMLElement>('[data-sortable-id]')) drawn.set(node.dataset.sortableId!, node)
-    const read = new Map<string, { top: number; height: number } | undefined>()
-    const box = (key: string | undefined): { top: number; height: number } | undefined => {
-      if (key === undefined) return undefined
-      if (read.has(key)) return read.get(key)
-      const node = drawn.get(key)
-      const r = node?.getBoundingClientRect()
-      const one = node && r ? { top: r.top - new DOMMatrixReadOnly(getComputedStyle(node).transform).m42, height: r.height } : droppableRects.get(key)
-      read.set(key, one)
-      return one
+  const sliding = (multi && forming) || (!forming && gap !== null && from >= 0 && span > 0)
+  // Each row's place read off the page as it lies now, its slide left out. Only while something is actually moving.
+  const drawn = new Map<string, HTMLElement>()
+  if (sliding) for (const node of (within ?? document).querySelectorAll<HTMLElement>('[data-sortable-id]')) drawn.set(node.dataset.sortableId!, node)
+  const read = new Map<string, { top: number; height: number } | undefined>()
+  const box = (key: string | undefined): { top: number; height: number } | undefined => {
+    if (key === undefined) return undefined
+    if (read.has(key)) return read.get(key)
+    const node = drawn.get(key)
+    const r = node?.getBoundingClientRect()
+    const one = node && r ? { top: r.top - new DOMMatrixReadOnly(getComputedStyle(node).transform).m42, height: r.height } : droppableRects.get(key)
+    read.set(key, one)
+    return one
+  }
+  // Several carried move as one block: each keeps its own height, in the order they are read, and only the
+  // rows that stay behind slide. Shifting those others by the whole block, as if they were neighbours, piled
+  // their titles on the rows that closed the hole (16 Nov, four notes in a folder).
+  const packBlock = (after: number, extra: number): void => {
+    const heightOf = (key: string): number => box(key)?.height ?? mid
+    const inOrder = [...carriedKeys].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0))
+    const removedBefore = (index: number): number => inOrder.reduce((sum, key) => ((order.get(key) ?? -1) < index ? sum + heightOf(key) : sum), 0)
+    const packed = inOrder.reduce((sum, key) => sum + heightOf(key), 0)
+    for (const key of keys) {
+      if (inOrder.includes(key)) continue
+      const at = order.get(key) ?? -1
+      const y = -removedBefore(at) + (at > after ? packed + extra : 0)
+      if (y) ys.set(key, y)
     }
+    const anchor = after >= 0 ? box(keys[after]) : box(keys[0])
+    let cursor = anchor ? (after < 0 ? anchor.top - removedBefore(0) : anchor.top - removedBefore(after) + anchor.height + extra) : 0
+    for (const key of inOrder) {
+      const top = box(key)?.top
+      if (top === undefined) continue
+      const y = Math.round(cursor - top)
+      if (y) ys.set(key, y)
+      cursor += heightOf(key)
+    }
+    for (const { id, rows } of blocks) {
+      const all = rows.filter((key) => box(key))
+      if (!all.length) continue
+      const was = Math.max(...all.map((key) => box(key)!.top + box(key)!.height))
+      const now = Math.max(...all.map((key) => box(key)!.top + (ys.get(key) ?? 0) + box(key)!.height))
+      const top = ys.get(rows[0]) ?? 0
+      const bottom = Math.round(now - was)
+      if (top || bottom) shapes.set(id, { top, bottom })
+    }
+  }
+  if (multi && forming && aim?.target && keys.includes(aim.target)) packBlock(keys.indexOf(aim.target), 6)
+  else if (multi && !forming && gap !== null && from >= 0 && span) packBlock(gap, 0)
+  else if (!forming && gap !== null && from >= 0 && span) {
+    const h = span + (aim!.fit ?? 0)
     const slide = slideOf(from, gap, span, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.fit ?? 0) / 2, aim!.until, aim!.fit ?? 0)
-    const order = new Map(keys.map((key, index) => [key, index]))
     const shift = (key: string): number => slide.other(order.get(key) ?? -1)
     for (const key of keys) if (key !== hand && shift(key)) ys.set(key, shift(key))
     if (slide.carried) ys.set(hand!, slide.carried)
@@ -614,7 +652,7 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
   }
   // A new group forming on a row: the panel around it holds the carried row's place under it, so every row
   // after it makes way by that much. Before, they stayed put and the next row sat inside the panel, as if it joined too.
-  if (forming && aim?.target) {
+  if (!multi && forming && aim?.target) {
     const at = keys.indexOf(aim.target)
     // The room is as tall as everything carried, not one row: one row of room under four notes left the notes below sitting on the ones in the hand (16 Nov).
     const down = (span > 0 ? span : mid) + 6

@@ -91,6 +91,8 @@ function sourceOf(target: EventTarget | null): { node: HTMLElement; carried: Car
   // pointer is at the page's very edge: a row nudged up or down in its list,
   // or carried over the task open beside it, never brings the places up, nor
   // lets go into one by surprise. Today's rows sort by a drag and still wait for the edge (data-split-edge).
+  // Several picked travel as one list drag. A split place takes one thing, so it stays down while more than one is picked (16 Nov).
+  if (document.querySelectorAll('[data-row][data-picked]').length > 1) return null
   const sorts = !!listed.closest('[data-sortable-id]')
   return { node: listed, carried: { row: { pane, id: listed.dataset.id! }, title: titleOf(listed), kind: listed.dataset.dragKind }, column: true, edgeOnly: !sorts || !!listed.closest('[data-split-edge]') }
 }

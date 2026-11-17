@@ -7,7 +7,7 @@ import { SortableContext, type SortingStrategy } from '@dnd-kit/sortable'
 
 /** dnd-kit moves no row itself: where each one slides is worked out once, for rows and panels alike (Shaped). */
 const unmoved: SortingStrategy = () => null
-import { motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
+import { motion, useMotionValue, type MotionValue } from 'motion/react'
 import { ChevronRight, GripVertical, ImagePlus, Layers, Plus, X as Cross } from 'lucide-react'
 import { saveImage } from '@/extensions/image-drop'
 
@@ -20,7 +20,7 @@ import { chime, click } from '@/lib/sound'
 import { pastEdge } from '@/lib/drag-edge'
 import { moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
-import { byKeys, spring as springs, still } from '@/lib/motion'
+import { byKeys, still } from '@/lib/motion'
 import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
@@ -178,8 +178,6 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   ] : [])), [bundles, carried]) // eslint-disable-line react-hooks/exhaustive-deps
   // Everything carried, in the order it is read: the row in hand, and the rest picked with it.
   const [many, setMany] = useState<string[]>([])
-  // How far the pointer has carried things: the stack's back cards follow it a moment late.
-  const dragY = useMotionValue(0)
   const manyRef = useRef<string[]>([])
   manyRef.current = many
   // Where the row was taken hold of, across it: the chip sits just past it.
@@ -212,7 +210,6 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     const id = String(active.id)
     const pressed = activatorEvent?.target
     pane.current = pressed instanceof Element ? pressed.closest<HTMLElement>('[data-pane]') : null
-    dragY.jump(0)
     setFrom(activatorEvent instanceof PointerEvent ? activatorEvent.clientX : null)
     inside.current.clear()
     setSnap(false)
@@ -262,7 +259,6 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   const onDragMove = (event: DragMoveEvent): void => {
     lastMove.current = event
     const { active, activatorEvent, delta } = event
-    dragY.set(delta.y)
     const held = active.rect.current.initial
     if (held) card.follow(held.top + held.height / 2 + delta.y)
     const id = String(active.id)
@@ -498,7 +494,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
         </Shaped>
       </SortableContext>
       <Overlay dropAnimation={still() ? null : SETTLE}>
-        {carried && <Ghost carried={carried} bundles={bundles} many={many} aim={aim} grab={grab} from={from} rest={card.rest} dragY={dragY} />}
+        {carried && <Ghost carried={carried} bundles={bundles} many={many} aim={aim} grab={grab} from={from} rest={card.rest} />}
       </Overlay>
     </DndContext>
   )
@@ -512,15 +508,15 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
  * letting go would do nothing, it says why. Several carried show as a stack with a count; a group, by its
  * icon and name.
  */
-function Ghost({ carried, bundles, many, aim, grab, from, rest, dragY }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; from: number | null; rest: MotionValue<number>; dragY: MotionValue<number> }): React.JSX.Element {
+function Ghost({ carried, bundles, many, aim, grab, from, rest }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; from: number | null; rest: MotionValue<number> }): React.JSX.Element {
   const group = isGroup(carried) ? bundles.flatMap((one) => (one.group ? [one.group, ...(one.parts ?? []).flatMap((part) => ('group' in part ? [part.group] : []))] : [])).find((one) => KEY + one.id === carried) : undefined
   const entries = bundles.flatMap((one) => one.entries)
   const entry = group ? undefined : entries.find((one) => one.id === carried)
-  // The rest carried, fanned up and to the left behind the one in hand: two at most show.
-  const behind = many.filter((one) => one !== carried).slice(0, 2).map((id) => entries.find((one) => one.id === id)).filter((one): one is Entry => !!one)
+  // The rest carried, fanned up and to the left behind the one in hand: three at most show, so a handful each keep a title.
+  const behind = many.filter((one) => one !== carried).slice(0, 3).map((id) => entries.find((one) => one.id === id)).filter((one): one is Entry => !!one)
   return (
     <Hand grab={grab} from={from} rest={rest}>
-      {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} dragY={dragY} />).reverse()}
+      {behind.map((one, at) => <Fanned key={one.id} entry={one} depth={at + 1} />).reverse()}
       <CarriedCard attrs={{ 'data-ghost': '' }} icon={group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
         title={group?.name ?? (entry?.title || 'New note')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} refused={!!aim?.refused} />
       {/* How many, hanging just under the stack. */}
@@ -531,30 +527,39 @@ function Ghost({ carried, bundles, many, aim, grab, from, rest, dragY }: { carri
 }
 
 /**
- * One card behind the one in hand: fanned up and to the left, and following
- * the pointer a moment late, the farther the later, like a stack held
- * loosely. With Reduce motion it simply sits there.
+ * One card behind the one in hand: a full card up and to the left, so each
+ * title can be read. With Reduce motion it simply sits there.
  */
-function Fanned({ entry, depth, dragY }: { entry: Entry; depth: number; dragY: MotionValue<number> }): React.JSX.Element {
+function Fanned({ entry, depth }: { entry: Entry; depth: number }): React.JSX.Element {
   const calm = still()
-  const late = useSpring(dragY, { stiffness: 900 - depth * 200, damping: 50, mass: 0.6 })
-  const y = useTransform(() => (calm ? 0 : late.get() - dragY.get()))
   const fan = useRef<HTMLDivElement>(null)
-  const fanX = useMotionValue(-16 * depth)
-  const fanY = useMotionValue(-28 * depth)
+  const fanX = useMotionValue(-18 * depth)
+  const fanY = useMotionValue(-60 * depth)
   useLayoutEffect(() => {
     const place = (): void => {
-      const box = fan.current?.getBoundingClientRect()
-      if (!box) return
-      // The fan sits up and to the left of the card in hand. Near a corner that ran out of the window (16 Nov).
-      // It also will not sit on the row this drop would join: that row's name has to stay readable.
-      const left = -16 * depth
-      const up = -28 * depth
-      const down = 28 * depth
+      const node = fan.current
+      const card = node?.querySelector('[data-fanned]')
+      if (!node || !card) return
+      const box = node.getBoundingClientRect()
+      // A full card apart, so the title on each one can be read. A short step piled the names on each other (16 Nov).
+      const step = Math.ceil(Math.max(card.getBoundingClientRect().height, card.offsetHeight, 44)) + 12
+      const left = -18 * depth
+      const up = -step * depth
+      const down = step * depth
       const aimRow = document.querySelector('[data-sortable-id][data-aim]')?.getBoundingClientRect()
-      const covers = (dy: number): boolean => !!aimRow && box.top + dy < aimRow.bottom - 4 && box.bottom + dy > aimRow.top + 4
-      const x = box.left + left >= 8 ? left : box.right + 16 * depth <= window.innerWidth - 8 ? 16 * depth : 0
-      const y = !covers(up) && box.top + up >= 8 ? up : !covers(down) && box.bottom + down <= window.innerHeight - 8 ? down : 0
+      const covers = (dy: number, dx: number): boolean => {
+        if (!aimRow) return false
+        const top = box.top + dy
+        const bottom = top + step
+        const l = box.left + dx
+        const r = l + card.offsetWidth
+        return top < aimRow.bottom - 6 && bottom > aimRow.top + 6 && l < aimRow.right - 8 && r > aimRow.left + 8
+      }
+      const x = box.left + left >= 8 ? left : box.right + 18 * depth <= window.innerWidth - 8 ? 18 * depth : 0
+      let y = box.top + up >= 8 ? up : down
+      const other = y < 0 ? down : up
+      const otherFits = other < 0 ? box.top + other >= 8 : box.bottom + other <= window.innerHeight - 8
+      if (covers(y, x) && otherFits && !covers(other, x)) y = other
       fanX.set(x)
       fanY.set(y)
     }
@@ -563,16 +568,17 @@ function Fanned({ entry, depth, dragY }: { entry: Entry; depth: number; dragY: M
     return () => window.removeEventListener('pointermove', place, true)
   }, [depth, fanX, fanY])
   return (
-    <motion.div ref={fan} className="absolute inset-0" style={{ y }}>
+    <motion.div ref={fan} className="absolute inset-0">
       <motion.div
         aria-hidden
         data-fanned={depth}
         className={cn('absolute inset-0 flex items-center gap-2 overflow-hidden', CARD)}
         initial={calm ? false : { opacity: 0 }}
         // Up and to the left of the card in hand, unless that edge has no room, in which case the other way.
+        // The offset itself does not ease: an ease left the titles piled on each other for the whole carry.
         animate={{ opacity: 1 }}
         style={{ x: fanX, y: fanY }}
-        transition={calm ? { duration: 0 } : springs.moderate}
+        transition={{ opacity: calm ? { duration: 0 } : { duration: 0.15 }, x: { duration: 0 }, y: { duration: 0 } }}
       >
         <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />
         <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'New note'}</span>
