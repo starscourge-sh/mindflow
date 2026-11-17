@@ -21,11 +21,11 @@ import { pastEdge } from '@/lib/drag-edge'
 import { moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
 import { byKeys, still } from '@/lib/motion'
-import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
+import { GROUP_COLORS, groups, isFolder, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { DROP_LIT, Overlay, SETTLE, upDown } from './sortable'
-import { CARD, CarriedCard, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, Slid, type Aim, type Parts, type Places } from './carry'
+import { CARD, CarriedCard, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, Slid, type Aim, type Parts, type Places } from './carry'
 import { Hinted, copy } from './row-menu'
 import { Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
@@ -180,6 +180,13 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   const [many, setMany] = useState<string[]>([])
   const manyRef = useRef<string[]>([])
   manyRef.current = many
+  const shelfLit = useRef<HTMLElement | null>(null)
+  const lightShelf = (next: HTMLElement | null): void => {
+    if (shelfLit.current === next) return
+    if (shelfLit.current) delete shelfLit.current.dataset.dropHot
+    if (next) next.dataset.dropHot = ''
+    shelfLit.current = next
+  }
   // Where the row was taken hold of, across it: the chip sits just past it.
   const [grab, setGrab] = useState(60)
   const [from, setFrom] = useState<number | null>(null)
@@ -270,7 +277,30 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     }
     const pointer = activatorEvent instanceof PointerEvent ? { x: activatorEvent.clientX + delta.x, y: activatorEvent.clientY + delta.y } : null
     // With the split places up, letting go opens it there: nothing in the list lights too, whatever row it is level with.
-    if (!pointer || 'splitDrag' in document.documentElement.dataset) return aimAt(null)
+    if (!pointer || 'splitDrag' in document.documentElement.dataset) return (lightShelf(null), aimAt(null))
+    // Several notes over a shelf folder: into that folder, not into whichever list row sits at the same height.
+    if (pointer && manyRef.current.length > 1 && !isGroup(id)) {
+      const at = pointerAt()
+      const folder = document.elementsFromPoint(at.x, at.y).reduce<HTMLElement | null>((found, node) => found ?? (node instanceof Element ? node.closest<HTMLElement>('[data-folder-drop]') : null), null)
+      if (folder?.dataset.folderDrop) {
+        const listKind = folder.dataset.folderList
+        const row = document.querySelector<HTMLElement>(`[data-row][data-id="${CSS.escape(id)}"]`)
+        const wrong = !!listKind && !!row?.dataset.type && row.dataset.type !== listKind
+        const called = folder.dataset.folderName || 'this folder'
+        lightShelf(folder)
+        return aimAt({
+          target: `folder:${folder.dataset.folderDrop}`,
+          how: 'join',
+          into: folder.dataset.folderDrop,
+          label: wrong ? (listKind === 'nugget' ? 'Gems folders hold gems: make it a gem first' : 'Writing folders hold writing: make it a page first') : `Move ${num(manyRef.current.length)} into ${called}`,
+          gap: null,
+          around: [],
+          refused: wrong || undefined,
+          act: 'shelf',
+        })
+      }
+    }
+    lightShelf(null)
     // One row carried (not a group, not several) can go to a place on the page or to another part of the list.
     const alone = !isGroup(id) && manyRef.current.length < 2
     // A place on the page (a tab): it lights, and the card says what letting go there does.
@@ -422,13 +452,21 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     sided.current = null
     unspring()
     undwell()
+    lightShelf(null)
     setMany([])
     setCarried(null)
     aimAt(null)
   }
   const onDragEnd = ({ active }: DragEndEvent): void => {
+    const carriedIds = manyRef.current.length > 1 ? manyRef.current.slice() : [String(active.id)]
     const now = aimed.current
     end()
+    if (now?.act === 'shelf') {
+      if (now.refused) return refuse(now.label ?? '')
+      const ids = carriedIds.filter((one) => !isGroup(one))
+      if (now.into && ids.length) window.dispatchEvent(new CustomEvent('haligtree:folder-drop', { detail: { group: now.into, ids } }))
+      return
+    }
     if (!now || now.target === String(active.id)) return chime('stay')
     // A refusal, a tab or another part's heading: said or done by the list's own rule, and no row changes place.
     const done = targets.drop(String(active.id), now)
@@ -992,8 +1030,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
               <button type="button" data-group-empty onClick={() => (chime('open'), onNewNote(group.id))} className={cn(ROW_SHAPE, ROW_PAD, 'hover:bg-accent/60')}>
                 <span className={cn(ROW_TILE, 'border border-dashed border-foreground/20 text-muted-foreground')}><Plus className="size-4" /></span>
                 <span className="flex min-w-0 flex-col">
-                  <span className="text-control text-foreground">Nothing in it yet</span>
-                  <span className="text-meta text-muted-foreground">Drag notes in, or click to start one</span>
+                  <span className="text-control text-foreground">{isFolder(group) ? 'Nothing in it yet' : 'Nothing in this group yet'}</span>
+                  <span className="text-meta text-muted-foreground">{isFolder(group) ? 'Drag notes in, or click to start one' : 'Drag a note onto it, or click to start one'}</span>
                 </span>
               </button>
             </div>
