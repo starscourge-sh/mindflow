@@ -509,14 +509,14 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
             aria-hidden
             data-preview=""
             className="pointer-events-none absolute -inset-x-1 -top-1 -z-10 origin-top rounded-lg bg-[color-mix(in_srgb,var(--foreground)_5%,transparent)] shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--foreground)_8%,transparent)]"
-            style={{ height: `calc(100% + ${height + 6}px)` }}
+            style={{ height: `calc(100% + ${Math.max(height, span) + 6}px)` }}
             initial={{ opacity: 0, scale: 0.97 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.1 } }}
             transition={still() ? { duration: 0 } : springs.moderate}
           >
             {/* Where the carried row would land: a quiet dashed place under the row it joins. */}
-            <span className="absolute inset-x-2 bottom-1.5 rounded-md border border-dashed border-foreground/15" style={{ height: height - 6 }} />
+            <span className="absolute inset-x-2 bottom-1.5 rounded-md border border-dashed border-foreground/15" style={{ height: Math.max(height, span) - 6 }} />
           </motion.div>
         )}
       </AnimatePresence>
@@ -572,7 +572,11 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
   // How far each row slides: every one in the same draw, and its group's panel with it.
   const ys = new Map<string, number>()
   const from = hand ? keys.indexOf(hand) : -1
-  if (gap !== null && from >= 0 && span) {
+  // A new group opens room for everything carried, under the row it joins. That has to win over the move:
+  // in a list you ordered yourself the gap stays set, and the move then closed the group over the rows still
+  // standing in it, so they landed on the notes below (16 Nov, four notes onto one).
+  const forming = !!(aim?.make && aim.target && keys.indexOf(aim.target) >= 0)
+  if (!forming && gap !== null && from >= 0 && span) {
     const h = span + (aim!.fit ?? 0)
     // Each row's place read off the page as it lies now, its slide left out: dnd-kit's own measures can be from
     // before a folded group sprang open, and the carried row's room then opened a whole group's rows too low.
@@ -610,9 +614,10 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
   }
   // A new group forming on a row: the panel around it holds the carried row's place under it, so every row
   // after it makes way by that much. Before, they stayed put and the next row sat inside the panel, as if it joined too.
-  if (aim?.make && aim.target && gap === null) {
+  if (forming && aim?.target) {
     const at = keys.indexOf(aim.target)
-    const down = mid + 6
+    // The room is as tall as everything carried, not one row: one row of room under four notes left the notes below sitting on the ones in the hand (16 Nov).
+    const down = (span > 0 ? span : mid) + 6
     if (at >= 0) {
       for (const key of keys.slice(at + 1)) if (key !== hand) ys.set(key, down)
       // A group after it moves down whole; one it forms inside grows by as much at its foot, so its rows after it stay in its box.

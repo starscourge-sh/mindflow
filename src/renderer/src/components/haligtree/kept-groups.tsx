@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { small } from '@/lib/small-picture'
 import { dragWords } from '@/lib/drag-words'
 import { NameInPlace } from './name-in-place'
@@ -484,7 +484,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
               ) : one.head ? (
                 <>
                   {/* A group forming on a row above it moves every row after that row down: the heading goes with them. */}
-                  <Slid by={aim?.make && aim.gap === null && keys.indexOf(one.entries[0].id) > keys.indexOf(aim.target) ? rowH + 6 : 0}><SectionHead head={one.head} first={start === 0} day={days} /></Slid>
+                  <Slid by={aim?.make && keys.indexOf(one.entries[0].id) > keys.indexOf(aim.target) ? Math.max(rowH, span) + 6 : 0}><SectionHead head={one.head} first={start === 0} day={days} /></Slid>
                   {row(one.entries[0], start)}
                 </>
               ) : airAbove(n) ? (
@@ -524,7 +524,8 @@ function Ghost({ carried, bundles, many, aim, grab, from, rest, dragY }: { carri
       <CarriedCard attrs={{ 'data-ghost': '' }} icon={group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
         title={group?.name ?? (entry?.title || 'New note')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} refused={!!aim?.refused} />
       {/* How many, hanging just under the stack. */}
-      {many.length > 1 && <CarriedCount n={many.length} />}
+      {/* How many this card is talking about. A new group takes the row it rests on as well, so the badge names that group, the same number as the sentence. */}
+      {many.length > 1 && <CarriedCount n={aim?.make ? many.length + 1 : many.length} />}
     </Hand>
   )
 }
@@ -538,15 +539,39 @@ function Fanned({ entry, depth, dragY }: { entry: Entry; depth: number; dragY: M
   const calm = still()
   const late = useSpring(dragY, { stiffness: 900 - depth * 200, damping: 50, mass: 0.6 })
   const y = useTransform(() => (calm ? 0 : late.get() - dragY.get()))
+  const fan = useRef<HTMLDivElement>(null)
+  const fanX = useMotionValue(-16 * depth)
+  const fanY = useMotionValue(-28 * depth)
+  useLayoutEffect(() => {
+    const place = (): void => {
+      const box = fan.current?.getBoundingClientRect()
+      if (!box) return
+      // The fan sits up and to the left of the card in hand. Near a corner that ran out of the window (16 Nov).
+      // It also will not sit on the row this drop would join: that row's name has to stay readable.
+      const left = -16 * depth
+      const up = -28 * depth
+      const down = 28 * depth
+      const aimRow = document.querySelector('[data-sortable-id][data-aim]')?.getBoundingClientRect()
+      const covers = (dy: number): boolean => !!aimRow && box.top + dy < aimRow.bottom - 4 && box.bottom + dy > aimRow.top + 4
+      const x = box.left + left >= 8 ? left : box.right + 16 * depth <= window.innerWidth - 8 ? 16 * depth : 0
+      const y = !covers(up) && box.top + up >= 8 ? up : !covers(down) && box.bottom + down <= window.innerHeight - 8 ? down : 0
+      fanX.set(x)
+      fanY.set(y)
+    }
+    place()
+    window.addEventListener('pointermove', place, true)
+    return () => window.removeEventListener('pointermove', place, true)
+  }, [depth, fanX, fanY])
   return (
-    <motion.div className="absolute inset-0" style={{ y }}>
+    <motion.div ref={fan} className="absolute inset-0" style={{ y }}>
       <motion.div
         aria-hidden
         data-fanned={depth}
         className={cn('absolute inset-0 flex items-center gap-2 overflow-hidden', CARD)}
-        initial={calm ? false : { x: 0, y: 0, opacity: 0 }}
-        // Each about a title's height up and a little to the left, so every title reads above the one before it.
-        animate={{ x: -16 * depth, y: -28 * depth, opacity: 1 }}
+        initial={calm ? false : { opacity: 0 }}
+        // Up and to the left of the card in hand, unless that edge has no room, in which case the other way.
+        animate={{ opacity: 1 }}
+        style={{ x: fanX, y: fanY }}
         transition={calm ? { duration: 0 } : springs.moderate}
       >
         <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />
