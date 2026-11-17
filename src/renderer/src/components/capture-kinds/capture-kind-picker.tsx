@@ -162,11 +162,11 @@ export function CaptureKindPicker({ value, onChange, suggested = false, flat = f
             setOpen(false)
           }}
         >
-          <CommandInput placeholder="Change type…" shortcut="⌃L" />
+          <CommandInput placeholder="Change kind…" shortcut="⌃L" />
           <CommandList
             ref={watchList}
           >
-            <CommandEmpty>No type</CommandEmpty>
+            <CommandEmpty>No kind</CommandEmpty>
             {order.map((id) => {
               const index = CAPTURE_TYPES.findIndex((type) => type.id === id)
               const type = CAPTURE_TYPES[index]
