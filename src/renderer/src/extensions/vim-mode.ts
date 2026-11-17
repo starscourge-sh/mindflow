@@ -245,6 +245,19 @@ function clampToLine(view: EditorView): void {
 }
 
 /**
+ * Escape from insert sits on the character just typed, as vim does.
+ * Mid-line that is the one before the caret insert left behind; at the end of
+ * the line it is the only character a block cursor can sit on. `x` then deletes
+ * what was just written, not the letter after it.
+ */
+function leaveInsert(view: EditorView): void {
+  const { $head, empty } = view.state.selection
+  if (!empty || !$head.parent.isTextblock) return
+  if ($head.pos === $head.start()) return
+  select(view, $head.pos - 1)
+}
+
+/**
  * How vim measures each motion when an operator is waiting on it.
  *
  * Exclusive is the default and stops short of where the cursor lands. Inclusive
@@ -2170,6 +2183,7 @@ export const VimMode = Extension.create<VimModeOptions>({
 
               patch(view, { ...NORMAL, ...heldVisual() })
               if (inVisual) collapseSelection(view)
+              else if (vim.mode === "insert") leaveInsert(view)
               else clampToLine(view)
               return true
             }

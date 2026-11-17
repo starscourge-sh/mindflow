@@ -68,6 +68,25 @@ function attachFile(editor: Editor, accept?: string): void {
   input.click()
 }
 
+/**
+ * A list line turned into text, a quote, a callout or a toggle leaves the list.
+ * Done in the list, the bullet stayed, or the new block sat inside it.
+ */
+function leaveList(editor: Editor): void {
+  for (let guard = 0; guard < 8; guard++) {
+    const item = editor.isActive('taskItem') ? 'taskItem' : editor.isActive('listItem') ? 'listItem' : null
+    if (!item) return
+    if (!editor.chain().focus().liftListItem(item).run()) return
+  }
+}
+
+/** Turn the line into this list. Already that list, it stays: the toggle would have taken the marker off. */
+function asList(editor: Editor, list: 'bulletList' | 'orderedList' | 'taskList', toggle: 'toggleBulletList' | 'toggleOrderedList' | 'toggleTaskList'): void {
+  if (retypeList(editor, list)) return
+  if (editor.isActive(list)) return
+  editor.chain().focus()[toggle]().run()
+}
+
 /** Group the book's own files sit under in `/`: the page is Files now, as @ and ⌘K say. */
 const FROM_MEDIA = 'From Files, in no note yet'
 /**
@@ -100,6 +119,7 @@ export const slashItems: SlashItem[] = [
       // the fold command, which restores the heading rather than flattening it.
       const { $from } = editor.state.selection
       if ($from.parent.type.name !== 'detailsSummary') {
+        leaveList(editor)
         editor.chain().focus().setParagraph().run()
         return
       }
@@ -141,8 +161,7 @@ export const slashItems: SlashItem[] = [
     turnInto: true,
     hint: '-',
     icon: <ListIcon />,
-    run: (editor) =>
-      retypeList(editor, 'bulletList') || editor.chain().focus().toggleBulletList().run()
+    run: (editor) => asList(editor, 'bulletList', 'toggleBulletList')
   },
   {
     title: 'Numbered list',
@@ -151,8 +170,7 @@ export const slashItems: SlashItem[] = [
     turnInto: true,
     hint: '1.',
     icon: <ListOrderedIcon />,
-    run: (editor) =>
-      retypeList(editor, 'orderedList') || editor.chain().focus().toggleOrderedList().run()
+    run: (editor) => asList(editor, 'orderedList', 'toggleOrderedList')
   },
   {
     title: 'Checklist',
@@ -161,8 +179,7 @@ export const slashItems: SlashItem[] = [
     turnInto: true,
     hint: '[]',
     icon: <ListTodoIcon />,
-    run: (editor) =>
-      retypeList(editor, 'taskList') || editor.chain().focus().toggleTaskList().run()
+    run: (editor) => asList(editor, 'taskList', 'toggleTaskList')
   },
   {
     title: 'Quote',
@@ -172,8 +189,12 @@ export const slashItems: SlashItem[] = [
     hint: '>',
     icon: <BlockquoteIcon />,
     // Only where a quote can be made: on a list's line it did nothing at all.
-    when: (editor) => editor.can().toggleBlockquote(),
-    run: (editor) => editor.chain().focus().toggleBlockquote().run()
+    when: (editor) => editor.isActive('listItem') || editor.isActive('taskItem') || editor.can().toggleBlockquote(),
+    run: (editor) => {
+      if (editor.isActive('blockquote')) return
+      leaveList(editor)
+      editor.chain().focus().toggleBlockquote().run()
+    }
   },
   {
     title: 'Code',
@@ -270,7 +291,10 @@ export const slashItems: SlashItem[] = [
     icon: <ToggleIcon />,
     // Not `setDetails`: that leaves the title EMPTY and drops the block you
     // converted into the body. The block you point at should become the head.
-    run: (editor) => editor.commands.toggleHeadingSection()
+    run: (editor) => {
+      if (editor.isActive('listItem') || editor.isActive('taskItem')) leaveList(editor)
+      editor.commands.toggleHeadingSection()
+    }
   },
   {
     title: 'Callout',
@@ -280,8 +304,12 @@ export const slashItems: SlashItem[] = [
     hint: 'aside',
     icon: <CalloutIcon />,
     // Only where a callout can be made: on a list's line it did nothing at all.
-    when: (editor) => editor.can().toggleCallout(),
-    run: (editor) => editor.chain().focus().toggleCallout().run()
+    when: (editor) => editor.isActive('listItem') || editor.isActive('taskItem') || editor.can().toggleCallout(),
+    run: (editor) => {
+      if (editor.isActive('callout')) return
+      leaveList(editor)
+      editor.chain().focus().toggleCallout().run()
+    }
   },
   // Side by side, each column any blocks. Not inside another row: Markdown
   // could not tell where the inner one ends.

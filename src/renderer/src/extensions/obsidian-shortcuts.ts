@@ -1,6 +1,7 @@
 import { Extension, InputRule } from "@tiptap/core"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
-import type { EditorState } from "@tiptap/pm/state"
+import { findWrapping } from "@tiptap/pm/transform"
+import type { EditorState, Transaction } from "@tiptap/pm/state"
 
 // --- Lib ---
 import { retypeList, toggleChecks } from "@/lib/retype-list"
@@ -179,29 +180,89 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
    */
   addInputRules() {
     const { editor } = this
+    const inItem = (state: EditorState, at: number): boolean => {
+      const $from = state.doc.resolve(at)
+      const item = $from.depth > 2 ? $from.node(-1) : null
+      return !!item && ["listItem", "taskItem"].includes(item.type.name) && $from.index(-1) === 0
+    }
+    // A mark typed one letter at a time leaves its start in the document, and deleting that is a real step.
+    // The whole mark arriving together (`# ` pasted, or inserted at once) matches a range that is still empty,
+    // and an empty delete is not a step, so the letters land and the line changes around them.
+    const dropMark = (tr: Transaction, range: { from: number; to: number }): void => {
+      if (range.from < range.to) tr.delete(range.from, range.to)
+      else tr.insertText("\u200b", range.from).delete(range.from, range.from + 1)
+    }
+    // The mark is taken off in this step. The line changes on the next one, once that delete has landed:
+    // doing both here rebuilt the list and then lost the caret.
     const retype = (find: RegExp, list: string): InputRule =>
       new InputRule({
         find,
-        handler: ({ state, range, match, commands }) => {
+        handler: ({ state, range, match }) => {
+          if (!inItem(state, range.from)) return null
           const $from = state.doc.resolve(range.from)
-          const item = $from.depth > 2 ? $from.node(-1) : null
-          if (!item || !["listItem", "taskItem"].includes(item.type.name) || $from.index(-1) !== 0) return null
-          if ($from.node(-2).type.name === list) return null
-          commands.deleteRange(range)
-          // Once the mark is gone, on the document as it then is: inside the
-          // rule's own step the rebuilt list lost the caret. Moments apart,
-          // the two are still one undo.
+          // The same mark again (`- ` on a bullet) only removes itself. Left for the list's own rule, it nested another list.
+          if ($from.node(-2).type.name === list) {
+            dropMark(state.tr, range)
+            return
+          }
+          dropMark(state.tr, range)
           queueMicrotask(() => {
             if (!retypeList(editor, list)) return
             if (list === "taskList" && /x/i.test(match[0])) editor.commands.updateAttributes("taskItem", { checked: true })
           })
-          return undefined
+        },
+      })
+    // A mark on a plain line. The list's own rule is what a list line uses; this one is for a line that is not in a list,
+    // and it only deletes the mark once the wrap is possible, so a failed wrap never eats the letters.
+    const wrapPlain = (find: RegExp, list: string): InputRule =>
+      new InputRule({
+        find,
+        handler: ({ state, range }) => {
+          if (inItem(state, range.from)) return null
+          const type = state.schema.nodes[list]
+          if (!type) return null
+          const tr = state.tr.delete(range.from, range.to)
+          const block = tr.doc.resolve(range.from).blockRange()
+          const wrapping = block && findWrapping(block, type)
+          if (!wrapping || !block) return null
+          tr.wrap(block, wrapping)
+        },
+      })
+    // `# ` and `> ` at the start of a line, including a list line. On a list line the ordinary rule cannot
+    // replace the paragraph, so the mark stayed as words and the bullet stayed with them.
+    const leave = (): void => {
+      const item = editor.isActive("taskItem") ? "taskItem" : editor.isActive("listItem") ? "listItem" : null
+      if (item) editor.chain().focus().liftListItem(item).run()
+    }
+    const marked = (find: RegExp, apply: () => void): InputRule =>
+      new InputRule({
+        find,
+        handler: ({ state, range }) => {
+          dropMark(state.tr, range)
+          queueMicrotask(() => {
+            leave()
+            apply()
+            const { $from } = editor.state.selection
+            const parent = $from.parent
+            if (!parent.isTextblock) return
+            const lead = /^(?:#{1,3} |>)\s/.exec(parent.textContent)
+            if (!lead || lead.index !== 0) return
+            const from = $from.start()
+            editor.commands.deleteRange({ from, to: from + lead[0].length })
+          })
         },
       })
     return [
       retype(/^\s*([-+*])\s$/, "bulletList"),
       retype(/^(\d+)\.\s$/, "orderedList"),
       retype(/^\s*\[([( |x])?\]\s$/i, "taskList"),
+      wrapPlain(/^\s*([-+*])\s$/, "bulletList"),
+      wrapPlain(/^(\d+)\.\s$/, "orderedList"),
+      wrapPlain(/^\s*\[([( |x])?\]\s$/i, "taskList"),
+      marked(/^(#{1})\s$/, () => editor.chain().focus().setHeading({ level: 1 }).run()),
+      marked(/^(#{2})\s$/, () => editor.chain().focus().setHeading({ level: 2 }).run()),
+      marked(/^(#{3})\s$/, () => editor.chain().focus().setHeading({ level: 3 }).run()),
+      marked(/^>\s$/, () => editor.chain().focus().toggleBlockquote().run()),
     ]
   },
 
