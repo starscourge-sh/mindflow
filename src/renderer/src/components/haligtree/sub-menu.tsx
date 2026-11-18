@@ -59,17 +59,22 @@ export function BarMenu({ label, lit, icon: Shown, bare, column, text, tip, open
   }, [open, label])
   const panel = useRef<HTMLDivElement | null>(null)
   // Placed on the page, not inside the bar, which clips what hangs off it:
-  // beneath the button (above it with no room below), kept 8px inside the
-  // window. Measured before it is painted, so it never shows anywhere else.
-  const [at, setAt] = useState<{ left: number; top: number } | null>(null)
+  // beneath the button (above it with no room below), kept as every menu is
+  // from the window's edges (MENU_ROOM: 52 under the title bar, 12 elsewhere);
+  // where neither side has room for all of it, on the roomier side, as tall as
+  // that room, its rows scrolling. Measured before it is painted, so it never
+  // shows anywhere else.
+  const [at, setAt] = useState<{ left: number; top: number; tall?: number } | null>(null)
   useLayoutEffect(() => {
     if (!open || !box.current || !panel.current) return setAt(null)
     const button = box.current.getBoundingClientRect()
-    const { offsetWidth: width, offsetHeight: height } = panel.current
-    const left = Math.min(Math.max(8, column ? button.left : button.left + button.width / 2 - width / 2), window.innerWidth - width - 8)
-    const below = button.bottom + 6
-    const top = below + height <= window.innerHeight - 8 ? below : Math.max(8, button.top - 6 - height)
-    setAt({ left, top })
+    const { offsetWidth: width, scrollHeight: height } = panel.current
+    const left = Math.min(Math.max(12, column ? button.left : button.left + button.width / 2 - width / 2), window.innerWidth - width - 12)
+    const below = window.innerHeight - 12 - (button.bottom + 6)
+    const above = button.top - 6 - 52
+    const down = height <= below || below >= above
+    const tall = Math.min(height, down ? below : above)
+    setAt({ left, top: down ? button.bottom + 6 : button.top - 6 - tall, tall: tall < height ? tall : undefined })
   }, [open, column])
   // Gone on a click anywhere else, or Escape.
   useEffect(() => {
@@ -110,7 +115,7 @@ export function BarMenu({ label, lit, icon: Shown, bare, column, text, tip, open
           role="menu"
           aria-label={label}
           className={`fixed z-[60] flex gap-0.5 ${column ? "flex-col items-stretch" : ""} ${bare ? "" : "mf-frost rounded-lg border bg-popover p-1 shadow-(--mf-panel-shadow)"}`}
-          style={{ left: at?.left ?? -9999, top: at?.top ?? -9999 }}
+          style={{ left: at?.left ?? -9999, top: at?.top ?? -9999, ...(at?.tall ? { maxHeight: at.tall, overflowY: 'auto' } : {}) }}
           onMouseDown={(event) => event.preventDefault()}
         >
           {children(() => setOpen(false))}
