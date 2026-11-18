@@ -3,7 +3,7 @@ import { BookMarked, Image as ImageIcon } from 'lucide-react'
 import { showMediaFile } from '@/lib/media-files'
 import { aimAt } from '@/lib/meeting'
 import { useSeen } from '@/lib/reads-in'
-import { Fragment, memo, useEffect, useId, useRef, useState, useSyncExternalStore, type ComponentProps, type ReactNode } from 'react'
+import { Fragment, memo, useEffect, useId, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from 'react'
 import { smallPicture } from '@/lib/notes'
 import { TASK_KIND } from './haligtree/everything'
 import { FLOAT } from '@/lib/float'
@@ -402,6 +402,22 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
     before.current = null
     setPicking(null)
   }
+  // Esc backs out with the keys anywhere in the window, not only in the box: over another app a press on the box's
+  // row began the window's drag, so the box never had the keys, Esc reached nothing, and the window's own Esc stood
+  // down for this dialog (16 Nov). Inside the search its own rows and boxes answer Esc first, one step at a time.
+  useEffect(() => {
+    if (!present || inPane) return
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape' || event.defaultPrevented) return
+      if (event.target instanceof Element && event.target.closest('[aria-label="Search"]')) return
+      event.preventDefault()
+      if (choosing) unchoose()
+      else if (picking) unpick()
+      else (chime('fold'), onClose())
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
   const keep = (one: Theme): void => {
     const was = before.current ?? undefined
     before.current = null
@@ -565,7 +581,9 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
       <motion.div
         {...(inPane ? {} : sheet.panel)}
         className={inPane ? 'mx-3 mb-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border text-sm' : inCard ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[inherit] bg-background text-sm' : `flex h-[70vh] w-[min(56rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl text-sm ${FLOAT}`} onMouseDown={(event) => event.stopPropagation()}>
-        <label className="flex items-center gap-3 border-b px-4 py-3">
+        {/* The box's row sits under the window's drag strip along the top of quick capture's card: here a press is the
+            box's, never a move of the window (the Mac's drag region, and Haligtree's own carry, lib/carry.ts). */}
+        <label className="flex items-center gap-3 border-b px-4 py-3" style={{ WebkitAppRegion: 'no-drag', '--mf-drag': 0 } as CSSProperties}>
           <span className="text-muted-foreground"><AliveIcon icon={MagnifierIcon} size={16} /></span>
           {scoped && scope && !picking && !choosing && (
             <span data-search-scope className="flex max-w-[40%] shrink-0 items-center gap-1 rounded-md bg-accent px-2 py-0.5 text-body font-medium text-foreground">
