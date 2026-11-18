@@ -5,9 +5,9 @@
  *
  * It was "html[data-dragging] * { cursor: grabbing !important }": a rule under every element, so each flip of the mark
  * on <html> restyled every element in the window, at the start of the drag and again at its end (2.2 to 3.3 s each on a
- * 31,500-element page in the reader). Now <html> carries the cursor, which every element without its own inherits at
- * no cost, and the one element under the pointer carries it too (data-carry-cursor, main.css), moved as the pointer
- * moves: one element restyled per move, never the page.
+ * 31,500-element page in the reader). Now the one element under the pointer carries it (data-carry-cursor, main.css),
+ * moved as the pointer moves: one element restyled per move, never the page. (Not on the body, which the page inherits
+ * its cursor from: a change there restyled every element too, 7.8 s.)
  *
  * Imported by each file that sets one of the marks, so every window that can carry has it.
  */

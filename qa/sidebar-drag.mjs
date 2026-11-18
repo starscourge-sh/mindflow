@@ -38,7 +38,7 @@ async function carry(h, id, y) {
     refused: document.documentElement.hasAttribute('data-drag-refused'),
     // Said on the carried card itself, as every list's refusal is (carry.tsx's CarriedCard).
     said: document.querySelector('[data-carried-card] [data-drag-label][data-refused]')?.textContent ?? '',
-    cursor: getComputedStyle(document.body).cursor
+    cursor: getComputedStyle([...document.querySelectorAll(":hover")].at(-1) ?? document.body).cursor
   }))
   await h.mouse.up()
   await h.waitForTimeout(900)

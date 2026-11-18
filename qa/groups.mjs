@@ -447,7 +447,7 @@ if (c) try {
   await carry(c, row(c, 'Interleaving beats blocking'), head(c, 'Memory'), 0.15, {
     up: false,
     hold: async () => {
-      carrying = await c.h.evaluate(() => getComputedStyle(document.body).cursor)
+      carrying = await c.h.evaluate(() => getComputedStyle([...document.querySelectorAll(":hover")].at(-1) ?? document.body).cursor)
       await c.h.waitForTimeout(800)
       sprung = (await head(c, 'Memory').getAttribute('aria-expanded')) === 'true'
     }
@@ -773,7 +773,7 @@ try {
     // The carried card is a div[data-ghost] (kept-groups.tsx Ghost). A bare [data-ghost] also matched the empty-field
     // placeholders (ghost.tsx, a span), which come and go as the list redraws under the pointer: read as "another ghost".
     await c.h.evaluate(() => void (window.__ghost = document.querySelector('div[data-ghost]')))
-    const started = await c.h.evaluate(() => ({ card: !!document.querySelector('div[data-ghost]'), spans: document.querySelectorAll('span[data-ghost]').length, carrying: getComputedStyle(document.body).cursor }))
+    const started = await c.h.evaluate(() => ({ card: !!document.querySelector('div[data-ghost]'), spans: document.querySelectorAll('span[data-ghost]').length, carrying: getComputedStyle([...document.querySelectorAll(":hover")].at(-1) ?? document.body).cursor }))
     console.log(`sweep start: ${JSON.stringify(started)}`)
     check('the sweep\'s drag has started: the carried card is there', started.card, JSON.stringify(started))
     let swapped = 0, dark = [], inside = null, since = 0, shots = 0

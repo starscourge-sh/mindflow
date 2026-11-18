@@ -2308,11 +2308,8 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   cursor: ew-resize;
 }
 
-/* Its cursor is main.css's, on <html> and the element under the pointer (lib/carry-cursor.ts); nothing is picked meanwhile.
-   On <html> alone, which the page inherits: never "html[data-scrubbing] *", which restyled the whole window. */
-html[data-scrubbing] {
-  user-select: none !important;
-}
+/* While it scrubs, the pointer is main.css's (lib/carry-cursor.ts), never "html[data-scrubbing] *", which restyled the
+   whole window; nothing is picked meanwhile, as the press that starts it is kept from the page (scrub-field.tsx). */
 
 /* A narrow pane squeezes the rail to its narrowest (pdf-reader.tsx): it glides there, a drag never lags. */
 .pdf-reader-body > .pdf-rail {

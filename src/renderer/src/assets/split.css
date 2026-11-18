@@ -108,11 +108,8 @@ html[data-split-drag] [role='dialog'][aria-label='Search'] {
   pointer-events: none;
   transition: opacity 120ms;
 }
-/* Its cursor is main.css's, on <html> and the element under the pointer (lib/carry-cursor.ts). On <html> alone, which
-   the page inherits: never "html[data-split-drag] *", which restyled the whole window at each start and end. */
-html[data-split-drag] {
-  user-select: none !important;
-}
+/* Its pointer is main.css's (lib/carry-cursor.ts), never "html[data-split-drag] *", which restyled the whole window at
+   each start and end; the app's body picks nothing by a drag already (main.css, body). */
 
 /* With Motion off or Reduce motion, a tab is pressed without moving. */
 :root[data-motion='off'] [data-tabs] *:active {
