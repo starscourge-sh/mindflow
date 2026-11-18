@@ -1,7 +1,10 @@
 // ⌘A in a note grows the selection a step at a time, as Obsidian's does (ask 86): the words of the block the caret
 // is in, that block whole, its list, its section, the whole note. From a caret in each kind of block, Vim off and
 // on (normal, insert and visual); Esc, an arrow and a click end a run; the menu bar's Select All picks the whole
-// note at once. SHOTS=dir keeps a frame of each step in Paper and Dark.
+// note at once. Every step past the words that takes whole blocks picks them as a grip or a box does
+// (extensions/picked-blocks.ts): their soft boxes, the grip's menu for them all, "Color" for several, "Move to…" and
+// a carry that takes them together; with Vim on, d takes them and u brings them back. SHOTS=dir keeps a frame of
+// each step in Paper and Dark.
 //   QA_DATA=<copy of the seeded sandbox> QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/grow-selection.mjs
 // BOOK=1 with QA_DATA a copy of a book times each step on its largest note instead (each step but the last under 16 ms).
 import { DatabaseSync } from 'node:sqlite'
@@ -23,11 +26,14 @@ const wait = (ms) => h.waitForTimeout(ms)
 let ED = '[data-open] .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 
-// What is picked: its kind ('text', 'cell', 'node', 'blocks', 'all') and its words, '|' between blocks, '/' between cells, '#' for a rule.
+// What is picked: its kind ('text', 'cell', 'nodeRange' for blocks picked as blocks, 'all') and its words, '|' between
+// blocks, '/' between cells, '#' for a rule; and how many soft boxes the picked blocks wear.
 const picked = () => h.evaluate((sel) => {
-  const ed = document.querySelector(sel).editor
+  const dom = document.querySelector(sel)
+  const ed = dom.editor
   const s = ed.state.selection
-  return { kind: s.toJSON().type, empty: s.empty, words: s.ranges.map((r) => ed.state.doc.textBetween(r.$from.pos, r.$to.pos, '|', '#')).join('/'), from: s.from, to: s.to, mode: ed.view.dom.getAttribute('data-vim-mode') }
+  const kind = s.toJSON().type
+  return { kind, empty: s.empty, words: s.ranges.map((r) => ed.state.doc.textBetween(r.$from.pos, r.$to.pos, '|', '#')).join(kind === 'cell' ? '/' : '|'), from: s.from, to: s.to, mode: dom.getAttribute('data-vim-mode'), boxes: dom.querySelectorAll('.mf-picked').length }
 }, ED)
 // The selection bar, if it shows: and whether it is clear of the words picked (none of them under it).
 const bar = () => h.evaluate((sel) => {
@@ -98,17 +104,18 @@ const body = { type: 'doc', content: [
 const LISTS = 'Lists|apple|berry|blue|black|cherry|water|weed|a1|b1|a2|b2|note one|note two|quoted|let x = 1|left|right|right two'
 const GARDEN = `Garden|first words|${LISTS}|Second|after|#|Third|the end`
 // From a caret in each kind of block, what each ⌘A picks, as [kind, words].
+const B = 'nodeRange'
 const RUNS = [
-  ['berry', 'a list item with its own children', [['text', 'berry'], ['text', 'berry|blue|black'], ['text', 'apple|berry|blue|black|cherry'], ['text', LISTS], ['text', GARDEN], ['all']]],
-  ['blue', 'a nested list item', [['text', 'blue'], ['text', 'blue|black'], ['text', 'berry|blue|black'], ['text', 'apple|berry|blue|black|cherry'], ['text', LISTS], ['text', GARDEN], ['all']]],
-  ['weed', 'a task', [['text', 'weed'], ['text', 'water|weed'], ['text', LISTS], ['text', GARDEN], ['all']]],
-  ['b1', 'a table cell', [['text', 'b1'], ['cell', 'b1'], ['cell', 'a1/b1'], ['cell', 'a1/b1/a2/b2'], ['text', LISTS], ['text', GARDEN], ['all']]],
-  ['note two', "a callout's paragraph", [['text', 'note two'], ['text', 'note one|note two'], ['text', LISTS], ['text', GARDEN], ['all']]],
-  ['quoted', "a quote's only paragraph (the quote whole picks nothing new)", [['text', 'quoted'], ['text', LISTS], ['text', GARDEN], ['all']]],
-  ['x = 1', 'a code block', [['text', 'let x = 1'], ['node', 'let x = 1'], ['text', LISTS], ['text', GARDEN], ['all']]],
-  ['right two', 'a column', [['text', 'right two'], ['text', 'right|right two'], ['text', 'left|right|right two'], ['text', LISTS], ['text', GARDEN], ['all']]],
-  ['after', 'a section that ends on a rule', [['text', 'after'], ['blocks', 'Second|after|#'], ['text', GARDEN], ['all']]],
-  ['Lists', 'a heading', [['text', 'Lists'], ['text', LISTS], ['text', GARDEN], ['all']]],
+  ['berry', 'a list item with its own children', [['text', 'berry'], [B, 'berry|blue|black'], [B, 'apple|berry|blue|black|cherry'], [B, LISTS], [B, GARDEN], ['all']]],
+  ['blue', 'a nested list item', [['text', 'blue'], [B, 'blue|black'], [B, 'berry|blue|black'], [B, 'apple|berry|blue|black|cherry'], [B, LISTS], [B, GARDEN], ['all']]],
+  ['weed', 'a task (the task whole picks nothing new)', [['text', 'weed'], [B, 'water|weed'], [B, LISTS], [B, GARDEN], ['all']]],
+  ['b1', 'a table cell', [['text', 'b1'], ['cell', 'b1'], ['cell', 'a1/b1'], [B, 'a1|b1|a2|b2'], [B, LISTS], [B, GARDEN], ['all']]],
+  ['note two', "a callout's paragraph", [['text', 'note two'], [B, 'note one|note two'], [B, LISTS], [B, GARDEN], ['all']]],
+  ['quoted', "a quote's only paragraph (the quote whole picks nothing new)", [['text', 'quoted'], [B, LISTS], [B, GARDEN], ['all']]],
+  ['x = 1', 'a code block', [['text', 'let x = 1'], [B, 'let x = 1'], [B, LISTS], [B, GARDEN], ['all']]],
+  ['right two', 'a column', [['text', 'right two'], [B, 'right|right two'], [B, 'left|right|right two'], [B, LISTS], [B, GARDEN], ['all']]],
+  ['after', 'a section that ends on a rule', [['text', 'after'], [B, 'Second|after|#'], [B, GARDEN], ['all']]],
+  ['Lists', 'a heading', [['text', 'Lists'], [B, LISTS], [B, GARDEN], ['all']]],
   ['intro', 'a line under no heading', [['text', 'intro line'], ['all']]],
 ]
 
@@ -119,27 +126,30 @@ async function run(word, said, steps, label, shots) {
   if (label.includes('insert')) { await h.keyboard.press('i'); await wait(150) }
   const seen = []
   for (const [i, [kind, words]] of steps.entries()) {
-    const prior = shots && kind === 'text' && i > 0 ? await bar() : null
+    const prior = shots && i > 0 ? await bar() : null
     await h.keyboard.press('Meta+a')
     const gone = prior ? await bar() : null
     // Filmed every 50 ms after the press (Paper): the bar over the words waits, then comes once, whole.
-    if (shots && SHOTS && i === 1) for (let f = 0; f < 6; f++) { await h.screenshot({ path: join(SHOTS, `e4-${word.replace(/\W+/g, '-')}-step${i + 1}-film${f * 50}ms.png`) }); await wait(50) }
+    if (shots && SHOTS && i === 1) for (let f = 0; f < 6; f++) { await h.screenshot({ path: join(SHOTS, `e4b-${word.replace(/\W+/g, '-')}-step${i + 1}-film${f * 50}ms.png`) }); await wait(50) }
     // The bar never sits on what the step took in: gone at the press, back above the new pick once the keys rest
     // (or, where the pick fills the sight, kept away, as for any pick that leaves it no room).
+    // Over blocks picked as blocks the format bar never comes: they have the grip's menu, as a grip's or a box's pick.
     if (gone) {
       await wait(450)
       const back = await bar()
       const roomy = await room()
-      check(`${label}: from ${said}, ⌘A ${i + 1}: the bar leaves at the press and comes back clear of the words`, !gone.shown && (back.shown ? back.clear : !roomy), `before ${JSON.stringify(prior)}, at the press ${JSON.stringify(gone)}, then ${JSON.stringify(back)}, room ${roomy}`)
+      if (kind === B) check(`${label}: from ${said}, ⌘A ${i + 1}: the bar leaves at the press and stays away from the picked blocks`, !gone.shown && !back.shown, `before ${JSON.stringify(prior)}, at the press ${JSON.stringify(gone)}, then ${JSON.stringify(back)}`)
+      else if (kind !== 'cell') check(`${label}: from ${said}, ⌘A ${i + 1}: the bar leaves at the press and comes back clear of the words`, !gone.shown && (back.shown ? back.clear : !roomy), `before ${JSON.stringify(prior)}, at the press ${JSON.stringify(gone)}, then ${JSON.stringify(back)}, room ${roomy}`)
     }
     await wait(120)
     const now = await picked()
     seen.push(now)
     // A table's picked cells come in the order the table hands them over: compared as a set.
     const same = kind === 'cell' ? now.words.split('/').sort().join('/') === words.split('/').sort().join('/') : now.words === words
-    const ok = now.kind === kind && (words === undefined || same) && (!label.includes('visual') || kind !== 'text' || now.mode === 'visual')
+    // Picked blocks wear their soft boxes, a list's items each their own; nothing else picked wears one.
+    const ok = now.kind === kind && (words === undefined || same) && (!label.includes('visual') || kind !== 'text' || now.mode === 'visual') && (kind === B ? now.boxes > 0 : now.boxes === 0)
     check(`${label}: from ${said} ("${word}"), ⌘A ${i + 1} picks ${kind === 'all' ? 'the whole note' : `${kind} "${words.length > 40 ? words.slice(0, 18) + '…' + words.slice(-14) : words}"`}`, ok, ok ? `${now.from}-${now.to}` : JSON.stringify(now).slice(0, 220))
-    if (shots && SHOTS) for (const name of ['light', 'dark']) { await c.look(name); await wait(150); await h.screenshot({ path: join(SHOTS, `e4-${word.replace(/\W+/g, '-')}-step${i + 1}-${name}.png`) }) }
+    if (shots && SHOTS) for (const name of ['light', 'dark']) { await c.look(name); await wait(150); await h.screenshot({ path: join(SHOTS, `e4b-${word.replace(/\W+/g, '-')}-step${i + 1}-${name}.png`) }) }
     if (shots && SHOTS) await c.look('light')
   }
   await h.keyboard.press('Meta+a'); await wait(120)
@@ -147,6 +157,69 @@ async function run(word, said, steps, label, shots) {
   await h.keyboard.press('Escape'); await wait(150)
   if (label.includes('vim') && (await picked()).mode !== 'normal') { await h.keyboard.press('Escape'); await wait(150) }
   return { start, seen }
+}
+
+/** The grip beside the block holding `word`, found as a person finds it: the pointer resting on the block. */
+const gripBy = async (word) => {
+  await h.locator(`${ED} p`, { hasText: word }).first().hover()
+  await wait(250)
+  const box = await h.locator('.tiptap-drag-handle-grip').boundingBox()
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+const tops = () => h.evaluate((sel) => document.querySelector(sel).editor.state.doc.content.content.map((one) => one.type.name === 'bulletList' ? `list(${one.textContent})` : one.textContent || one.type.name).join(' / '), ED)
+const colours = () => h.evaluate((sel) => { const out = []; document.querySelector(sel).editor.state.doc.descendants((node) => void (node.type.name === 'listItem' && out.push(`${node.firstChild.textContent}:${node.attrs.backgroundColor ?? '-'}`))); return out.join(' ') }, ED)
+/** The list ⌘A picked from "apple" (its words, then the list), as the grip and a box pick blocks. */
+const pickList = async () => {
+  await caretIn('apple')
+  await h.keyboard.press('Meta+a'); await wait(100)
+  await h.keyboard.press('Meta+a'); await wait(200)
+  return picked()
+}
+
+/**
+ * Blocks ⌘A picked are picked blocks (extensions/picked-blocks.ts) and offer all they do: the grip's menu for them all,
+ * "Color" for several, "Move to…" by ⇧⌘P, and a carry by one's grip that takes them together, each one ⌘Z back.
+ */
+async function offers() {
+  const before = await tops()
+  const list = await pickList()
+  check('vim off: the list ⌘A picked is picked blocks, its three items each in a soft box', list.kind === B && list.boxes === 3, JSON.stringify(list).slice(0, 160))
+  const at = await gripBy('apple')
+  await h.mouse.click(at.x, at.y); await wait(350)
+  const menu = await h.evaluate(() => { const one = document.querySelector('.tiptap-block-menu'); return { title: one?.querySelector('[data-kind-heading]')?.textContent ?? '', rows: [...(one?.querySelectorAll('[role=menuitem]') ?? [])].map((row) => row.querySelector('.tiptap-slash-menu-title')?.textContent ?? row.textContent.trim()) } })
+  if (SHOTS) await h.screenshot({ path: join(SHOTS, 'e4b-picked-list-menu-light.png') })
+  check('vim off: a picked item\'s grip opens the menu for the whole pick, with "Color" and "Move to…"', /\b3\b/.test(menu.title) && menu.rows.includes('Color') && menu.rows.includes('Move to…'), JSON.stringify(menu).slice(0, 220))
+  const colour = h.locator('.tiptap-block-menu [role=menuitem]', { hasText: 'Color' }).first()
+  await colour.hover(); await wait(400)
+  await h.locator('.tiptap-block-colors [data-background="blue"]').first().click(); await wait(250)
+  const tinted = await colours()
+  check('vim off: "Color" on the picked list colours every item in it', ['apple:blue', 'berry:blue', 'cherry:blue'].every((one) => tinted.includes(one)), tinted)
+  await h.keyboard.press('Escape'); await wait(150)
+  await h.keyboard.press('Meta+z'); await wait(250)
+  check('vim off: one ⌘Z takes the colour off them all', !(await colours()).includes(':blue'), await colours())
+  await h.keyboard.press('Escape'); await wait(150)
+  // ⇧⌘P: the notes' search asks where the picked blocks go.
+  await pickList()
+  await h.keyboard.press('Meta+Shift+KeyP'); await wait(500)
+  const asked = await h.evaluate(() => document.querySelector('input[placeholder$="to which note?"]')?.getAttribute('placeholder') ?? '')
+  check('vim off: ⇧⌘P on the list ⌘A picked asks which note to move its 3 blocks to', asked === 'Move 3 blocks to which note?', asked)
+  await h.keyboard.press('Escape'); await wait(250)
+  // Carried by one item's grip to under "after": all three go together, and one ⌘Z brings them back.
+  await pickList()
+  const lift = await gripBy('apple')
+  const foot = await h.locator(`${ED} p`, { hasText: 'after' }).first().boundingBox()
+  const drop = { x: lift.x + 80, y: foot.y + foot.height * 0.85 }
+  await h.mouse.move(lift.x, lift.y)
+  await h.mouse.down()
+  for (let i = 1; i <= 14; i++) (await h.mouse.move(lift.x + ((drop.x - lift.x) * i) / 14, lift.y + ((drop.y - lift.y) * i) / 14), await wait(50))
+  if (SHOTS) await h.screenshot({ path: join(SHOTS, 'e4b-picked-list-carry-light.png') })
+  await wait(300)
+  await h.mouse.up(); await wait(400)
+  const moved = await tops()
+  check('vim off: carried by one item\'s grip, the list ⌘A picked goes whole, under "after"', moved.includes('after / list(appleberryblueblackcherry) / horizontalRule') && !moved.includes('Lists / list('), moved.slice(0, 200))
+  await h.keyboard.press('Meta+z'); await wait(400)
+  check('vim off: and one ⌘Z puts it back where it was', (await tops()) === before, (await tops()).slice(0, 120))
+  await h.keyboard.press('Escape'); await wait(150)
 }
 
 try {
@@ -228,7 +301,7 @@ try {
       const id = await v('article:new')
       await v('item:save', id, { title: 'Grow', body })
       await c.send('article', id); await wait(1500)
-      for (const [word, said, steps] of RUNS) await run(word, said, steps, `vim ${vim}${vim === 'on' ? ' (normal)' : ''}`, vim === 'off' && ['berry', 'b1', 'x = 1', 'after'].includes(word))
+      for (const [word, said, steps] of RUNS) await run(word, said, steps, `vim ${vim}${vim === 'on' ? ' (normal)' : ''}`, vim === 'off' && ['berry', 'b1', 'x = 1', 'after', 'right two', 'note two'].includes(word))
       if (vim === 'on') {
         await run('berry', 'a list item with its own children', RUNS[0][2], 'vim on (insert)')
         await run('berry', 'a list item with its own children', RUNS[0][2], 'vim on (visual)')
@@ -253,6 +326,7 @@ try {
         const tableWhole = await tableBar()
         check("vim off: the table's row picked by ⌘A offers the row's actions; the whole table picked offers no row's or column's", /Insert row above/.test(rowBar) && tableWhole === '', `row: "${rowBar.slice(0, 40)}", table: "${tableWhole.slice(0, 40)}"`)
         await h.keyboard.press('Escape'); await wait(150)
+        await offers()
         // The section round a folded heading, picked: the folded part goes with it, still folded (its end is in there).
         const third = h.locator(`${ED} h2`, { hasText: 'Third' })
         await caretIn('Third')
