@@ -421,24 +421,15 @@ function leftGhost(documentId: string, editor: Editor): void {
   setTimeout(() => {
     if (showing.has(documentId)) return
     ghosts.delete(documentId)
-    void window.api?.haligtree?.("ghost:drop", ghost.id, ghost.name).then((dropped: unknown) => dropped && unpoint(ghost.id), () => undefined)
+    // Its links let go in the book (main's ghost:drop), the one place that happens: a note open on them follows.
+    void window.api?.haligtree?.("ghost:drop", ghost.id, ghost.name).catch(() => undefined)
   }, 1500)
 }
 
-/**
- * A page gone again: the links to it in the notes open now wait for a page by
- * their name once more, drawn faintly, as the stored notes' links do
- * (main's unresolveLinks), so the next click makes the page afresh.
- */
-function unpoint(id: string): void {
-  for (const editor of showing.values()) {
-    if (editor.isDestroyed) continue
-    const tr = editor.state.tr
-    editor.state.doc.descendants((one, pos) => {
-      if (one.type.name === "noteLink" && one.attrs.id === id && one.attrs.label) tr.setNodeMarkup(pos, undefined, { ...one.attrs, id: "", key: "", kind: "" })
-    })
-    if (tr.docChanged) editor.view.dispatch(tr.setMeta("addToHistory", false))
-  }
+/** The note an editor shows, as a link to it is written, when it is one kept in the book (by the `documentId` notePowers gives it). */
+const keptNote = (editor: Editor): string | null => {
+  const found = /^(capture|item)-(.+)$/.exec([...showing].find(([, one]) => one === editor)?.[0] ?? "")
+  return found ? (found[1] === "capture" ? found[2] : `item:${found[2]}`) : null
 }
 
 /** A `[[name]]` with a note of that name already: pointed at it. One with none stays a link to nothing, drawn faintly. */
@@ -1084,27 +1075,38 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             lookUpKinds(unknown)
             unknown.clear()
           }
-          const resolve = (view: EditorView, from = 0, to = view.state.doc.content.size): void => {
+          // `kept`: the words the note opened on, as the book keeps them. Their waiting links are pointed in the book, the
+          // one place a waiting link is pointed (main's links:point, with the attributes this editor would give), and the
+          // note shows what is kept: pointed here as well, a save of it clashed with the book's own ("This note changed
+          // elsewhere"). Links written here just now (typed, pasted), or in a note the book does not keep, are pointed here.
+          const resolve = (view: EditorView, from = 0, to = view.state.doc.content.size, kept = false): void => {
+            const asked: Promise<[string, NoteSuggestion] | null>[] = []
             view.state.doc.nodesBetween(from, to, (node) => {
               const { id, label } = node.attrs
               if (node.type.name === "noteLink" && id && !kindOfLink(id, node.attrs.kind) && !knownKinds.has(id)) unknown.add(id)
               if (node.type.name === "noteLink" && id && node.attrs.block && !node.attrs.blockText) word(view, id, node.attrs.block)
               if (node.type.name !== "noteLink" || id || !label || tried.has(label)) return
               tried.add(label)
-              void Promise.resolve(findNotes(label, { exact: true })).then((found) => {
+              asked.push(Promise.resolve(findNotes(label, { exact: true })).then((found) => {
                 const note = found.find((one) => one.label.trim().toLowerCase() === label.toLowerCase() && !unsure(one.id))
-                if (!note || view.isDestroyed) return
-                const tr = view.state.tr
-                view.state.doc.descendants((one, pos) => {
-                  if (one.type.name === "noteLink" && !one.attrs.id && one.attrs.label === label) {
-                    tr.setNodeMarkup(pos, undefined, { ...one.attrs, id: note.id, key: note.key ?? "", label: note.label, kind: note.kind ?? "" })
-                  }
-                })
-                if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false))
+                return note ? [label, note] : null
+              }, () => null))
+            })
+            if (!asked.length) return
+            void Promise.all(asked).then((all) => {
+              const found = all.filter((one): one is [string, NoteSuggestion] => !!one)
+              if (!found.length || view.isDestroyed) return
+              const note = kept ? keptNote(editor) : null
+              if (note) return void window.api?.haligtree?.("links:point", note, found.map(([label, one]) => [label, one.id])).catch(() => undefined)
+              const tr = view.state.tr
+              view.state.doc.descendants((one, pos) => {
+                const hit = one.type.name === "noteLink" && !one.attrs.id ? found.find(([label]) => label === one.attrs.label)?.[1] : undefined
+                if (hit) tr.setNodeMarkup(pos, undefined, { ...one.attrs, id: hit.id, key: hit.key ?? "", label: hit.label, kind: hit.kind ?? "" })
               })
+              if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false))
             })
           }
-          resolve(first)
+          resolve(first, 0, first.state.doc.content.size, true)
           lookUp()
           // Only what changed is looked through: walking a long note on every key was slow.
           return {

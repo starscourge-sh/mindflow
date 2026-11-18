@@ -172,7 +172,7 @@ export function shutDatabase(): void {
  * six; a bit and a book are tags now (#bit, #book), an excerpt a long quote, a
  * decision and an experiment a Check back, a goal made from Goals.
  */
-const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'checkback'] as const
+export const KINDS = ['note', 'todo', 'quote', 'word', 'link', 'checkback'] as const
 const makePatch = () => z.object({
   // A title past 500 letters is cut at a word: the words are all in the body.
   title: z.string().transform((title) => fittedTitle(title) ?? title).optional(),

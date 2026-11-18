@@ -101,7 +101,8 @@ export function renamePerson(body: unknown, from: string, to: string, personKey:
  * is given the note's id (`byName`: each name, in small letters, to its link), so it is drawn solid and opens it. Names are
  * compared without capitals; a link that already points somewhere is left. Pure.
  */
-export function resolveLinks(body: unknown, byName: Map<string, string>): { body: unknown; count: number } {
+/** `as`: the attributes a link pointed at `link` takes; by default its id alone. */
+export function resolveLinks(body: unknown, byName: Map<string, string>, as: (link: string) => Record<string, string> = (link) => ({ id: link })): { body: unknown; count: number } {
   const find = (name: string): string | undefined => byName.get(name.trim().toLowerCase())
   if (!byName.size) return { body, count: 0 }
   let count = 0
@@ -121,7 +122,7 @@ export function resolveLinks(body: unknown, byName: Map<string, string>): { body
     const link = (node.type === 'noteLink' || node.type === 'noteEmbed') && node.attrs && !node.attrs.id && typeof node.attrs.label === 'string' ? find(node.attrs.label) : undefined
     if (link) {
       count++
-      next = { ...node, attrs: { ...node.attrs, id: link } }
+      next = { ...node, attrs: { ...node.attrs, ...as(link) } }
     }
     if (!next.content) return next
     const kids = next.content.map(walk)

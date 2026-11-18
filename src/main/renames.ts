@@ -1,7 +1,8 @@
 import { BrowserWindow, ipcMain, type WebContents } from 'electron'
 import { randomUUID } from 'crypto'
 
-import { LABEL, atomically, changed, database, like } from './captures'
+import { KINDS, LABEL, atomically, changed, database, like } from './captures'
+import { NOTE_KEY } from './name'
 import { writeMarkdown } from './backup'
 import { markdown } from './haligtree'
 import { renameLinks, resolveLinks, unresolveLinks } from './link-rename'
@@ -122,6 +123,21 @@ function namesOf(link: string): string[] {
 }
 
 /**
+ * A waiting link pointed at its note the way an editor points one (findCaptures in lib/capture-links.tsx): its id,
+ * its short key and its kind. The book is the one place a waiting link is pointed, so a note open on it is shown
+ * what is kept, never pointed again by its editor, and the two never differ.
+ */
+function pointedAs(link: string): Record<string, string> {
+  const { table, id } = partsOf(link)
+  if (table === 'nuggets') {
+    const tier = link.slice(0, link.indexOf(':'))
+    return { id: link, key: '', kind: tier === 'nugget' ? 'idea' : tier }
+  }
+  const row = database().prepare('select kind, number from captures where id = ?').get(id) as { kind: string | null; number: number | null } | undefined
+  return { id: link, key: row?.number ? `${NOTE_KEY}-${row.number}` : '', kind: (KINDS as readonly string[]).includes(row?.kind ?? '') ? row!.kind! : 'note' }
+}
+
+/**
  * Notes made, renamed, or brought in by a later import: every link in every
  * note still waiting for one of their names (no id, drawn grey and dashed) is
  * given its note's id, so it turns solid and opens it. No Undo: nothing was
@@ -150,7 +166,7 @@ export function resolveWaiting(...links: string[]): number {
       } catch {
         body = row.body
       }
-      const out = resolveLinks(body, byName)
+      const out = resolveLinks(body, byName, pointedAs)
       if (!out.count) continue
       db.prepare(`update ${row.tab} set body = ? where id = ?`).run(JSON.stringify(out.body), row.id)
       count += out.count
@@ -202,6 +218,14 @@ export function resolveWithin(...links: string[]): number {
     ...(db.prepare('select id from nuggets where binned_at is null').all() as { id: string }[]).map((row) => linkOf('nuggets', row.id))
   ]
   for (const link of every) for (const name of namesOf(link)) if (!byName.has(name.toLowerCase())) byName.set(name.toLowerCase(), link)
+  const count = pointIn(links, byName)
+  if (count) changed()
+  return count
+}
+
+/** The waiting links in these notes whose names `byName` knows, pointed as an editor points one (pointedAs); how many. */
+function pointIn(links: string[], byName: Map<string, string>): number {
+  const db = database()
   let count = 0
   atomically(() => {
     for (const link of links) {
@@ -214,14 +238,13 @@ export function resolveWithin(...links: string[]): number {
       } catch {
         body = row.body
       }
-      const out = resolveLinks(body, byName)
+      const out = resolveLinks(body, byName, pointedAs)
       if (!out.count) continue
       db.prepare(`update ${table} set body = ? where id = ?`).run(JSON.stringify(out.body), id)
       count += out.count
       if (table === 'captures' && row.number) void writeMarkdown(row.number, typeof out.body === 'string' ? out.body : markdown(out.body))
     }
   })
-  if (count) changed()
   return count
 }
 
@@ -281,6 +304,21 @@ export function registerRenames(): void {
     forget(String(link))
     changed()
     return true
+  })
+
+  // A note open in an editor holds links waiting for notes that are here (read before the book pointed them, or never
+  // pointed): pointed in the book, the one place a waiting link is pointed, each found by its editor as `[label, link]`
+  // and checked here. The note is told of it either way, so an editor opened on words older than the book's catches up.
+  ipcMain.handle('haligtree:links:point', (_event, note: unknown, found: unknown) => {
+    if (typeof note !== 'string' || !note || !Array.isArray(found)) return 0
+    const byName = new Map<string, string>()
+    for (const pair of found)
+      if (Array.isArray(pair) && typeof pair[0] === 'string' && typeof pair[1] === 'string' && namesOf(pair[1]).some((name) => name.toLowerCase() === pair[0].trim().toLowerCase()))
+        byName.set(pair[0].trim().toLowerCase(), pair[1])
+    const count = byName.size ? pointIn([note], byName) : 0
+    const { table, id } = partsOf(note)
+    changed({ kind: table === 'captures' ? 'capture' : 'item', id })
+    return count
   })
 
   // Undo: each note put back as it was, unless it has been written since.
