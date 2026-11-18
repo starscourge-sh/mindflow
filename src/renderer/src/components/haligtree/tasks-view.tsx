@@ -26,7 +26,7 @@ import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
 import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
 import { useArrivals } from './note-list'
 import { TagRow } from './pass'
-import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
+import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
 import { Display, arrange, openDisplay, useView, type Facet } from './display'
 import { ThreeMark, takeWriteDay } from './day-list'
 import { DayLine, type LineHandle } from './day-line'
@@ -333,11 +333,11 @@ function setDeadline(task: Pick<Task, 'id' | 'deadline' | 'deadlineTimed'>, dead
 }
 
 /** Move a task to a day from now, and say where: one wording for keys, menus and buttons. */
-export const moveTo = (task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, days: number): void => {
+export const moveTo = (task: Pick<Task, 'id' | 'dueAt' | 'allDay' | 'planFor'>, days: number): Promise<unknown> => {
   const due = shiftTo(days, task.dueAt)
   const was = { due: task.dueAt, plan: task.planFor }
   // Undone, the reschedule it counted and the reminder it reset go back too.
-  void haligtree.saveTask(task.id, { due }).then((before) => {
+  return haligtree.saveTask(task.id, { due }).then((before) => {
     chime('tap')
     toast(`Moved to ${whenInLine(due, !task.dueAt || !!task.allDay)}`, () => void haligtree.saveTask(task.id, { ...was, ...(before === true ? {} : before) }))
   })
@@ -732,7 +732,16 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const [writing, setWriting] = useState<{ after: string | null; /** A line above this task (⇧O) rather than under `after`. */ before?: string; step?: string; text: string } | null>(null)
   const example = !writing && !unloaded(real) && !unloaded(held) && !real.some((task) => task.status === 'open' && (mode === 'routines' ? !!task.recurrence : mode === 'later' ? homeOf(task) === 'later' : mode === 'upcoming' ? !task.recurrence : true)) && !held.length
   const examples = useMemo(exampleTasks, [])
-  const tasks = example ? examples : real
+  // A drop's new places, drawn from the moment it is let go until the saved ones come back: the list switching to your
+  // own order on that drop re-sorted it by the old places first, so the task stood back where it was picked up until
+  // the save came back, then jumped (17 Nov 18; 58). Let go of once the tasks read back hold them, or once any read
+  // after the save has come; a save that fails puts the rows back, and says why.
+  const [placing, setPlacing] = useState<{ at: Map<string, Partial<Task>>; saved: boolean } | null>(null)
+  useEffect(() => {
+    if (placing && (placing.saved || [...placing.at].every(([id, patch]) => { const task = real.find((one) => one.id === id); return !!task && Object.entries(patch).every(([key, value]) => task[key as keyof Task] === value) }))) setPlacing(null)
+  }, [real]) // eslint-disable-line react-hooks/exhaustive-deps
+  const placed = useMemo(() => (placing ? real.map((task) => (placing.at.has(task.id) ? { ...task, ...placing.at.get(task.id) } : task)) : real), [real, placing])
+  const tasks = example ? examples : placed
   // Opened from elsewhere with its words already read: on them from the first frame.
   const [open, setOpen] = useState<TaskFull | null>(() => (focus ? readNow<TaskFull>('task', focus) ?? null : null))
   const [draft, setDraft] = useState('')
@@ -904,7 +913,17 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // A task just added (or put back by Undo) eases into its row.
   const arrived = useArrivals(shown.map((task) => task.id), mode)
   // One list for the virtual scroller: each group's heading, then its tasks.
-  const rows: (Task | { heading: string; count: number; key: string } | { writer: true })[] = groups.flatMap(([heading, list, key]) => (key === 'held' ? [{ heading, count: held.length, key }, ...list] : key?.startsWith('fold:') ? [{ heading, count: tagCounts.get(heading) ?? 0, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
+  type Row = Task | { heading: string; count: number; key: string } | { writer: true }
+  /**
+   * The rows with each task's place taken, in turn, by the order the list holds from a drop until its save comes back
+   * (SortableList's held order, as Writing's list reads its held layout): drawn from the view's own order, a task let go
+   * down Today stood back where it was picked up until the save came back, then jumped (17 Nov 18; 58).
+   */
+  const inOrder = (order: Task[]): Row[] => {
+    let at = 0
+    return rows.map((row) => ('id' in row ? order[at++] ?? row : row))
+  }
+  const rows: Row[] = groups.flatMap(([heading, list, key]) => (key === 'held' ? [{ heading, count: held.length, key }, ...list] : key?.startsWith('fold:') ? [{ heading, count: tagCounts.get(heading) ?? 0, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   // The line being written, right under the task it follows (a step is written inside its task's row), or at the end of the day's own tasks.
   if (writing && !writing.step && !example) {
     const above = writing.before ? rows.findIndex((row) => 'id' in row && row.id === writing.before) : -1
@@ -1006,10 +1025,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         const was = view
         if (view.sort !== 'manual') setView({ ...view, sort: 'manual' })
         chime('shift')
-        void haligtree.saveTasks(order.map((one, index) => ({ id: one.id, patch: { sortOrder: index } }))).then(() => {
+        void place(order.map((one) => one.id)).then(() => {
           // Said once it switches, so the sort's label never lies; Undo puts both back.
           if (was.sort !== 'manual') toast('Now in your own order', () => (setView(was), void haligtree.saveTasks(shown.map((one) => ({ id: one.id, patch: { sortOrder: one.sortOrder } })))))
-        })
+        }, () => undefined)
         setCursor(to)
         return
       }
@@ -1040,6 +1059,29 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
 
   // --- dragging on Today ----------------------------------------------------
   const sortable = mode === 'today' && !example && view.group === 'when' && !several.chosen.length
+  /** Your own order saved as these ids stand, drawn so at once (`placing`). */
+  const place = (order: string[], also?: { id: string; patch: Partial<Task>; save: Promise<unknown> }): Promise<unknown> => {
+    const at = new Map<string, Partial<Task>>(order.map((one, n) => [one, { sortOrder: n }]))
+    if (also) at.set(also.id, { ...at.get(also.id), ...also.patch })
+    setPlacing({ at, saved: false })
+    const ordered = order.length ? haligtree.saveTasks(order.map((one, n) => ({ id: one, patch: { sortOrder: n } }))) : Promise.resolve()
+    const saving = also ? Promise.all([ordered, also.save]) : ordered
+    void saving.then(() => setPlacing((now) => (now?.at === at ? { at, saved: true } : now)), (error: unknown) => (setPlacing((now) => (now?.at === at ? null : now)), refuse(`Not moved: ${whyFailed(error)}.`, 'error')))
+    return saving
+  }
+  /**
+   * Carried out of Overdue onto Today's rows: moved to today, and drawn there at once (before the row it was let go on,
+   * when it was let go on one). Saved by its date alone, it stood back in Overdue until the save came back, then jumped (58).
+   */
+  const dropInPart = (id: string, target: string): void => {
+    const task = shown.find((one) => one.id === id)
+    if (!task) return
+    const rest = shown.map((one) => one.id).filter((one) => one !== id)
+    const before = rest.indexOf(target)
+    const order = before >= 0 ? [...rest.slice(0, before), id, ...rest.slice(before)] : []
+    const due = shiftTo(0, task.dueAt)
+    void place(order, { id, patch: { dueAt: due }, save: moveTo(task, 0) }).catch(() => undefined)
+  }
   /** A row dropped among the rows: your own order from now on, with ⌘Z. */
   const moveRow = (id: string, target: string, after: boolean): void => {
     const was = shown.map((task) => ({ id: task.id, patch: { sortOrder: task.sortOrder } }))
@@ -1047,8 +1089,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
     order.splice(order.indexOf(target) + (after ? 1 : 0), 0, id)
     if (view.sort !== 'manual') setView({ ...view, sort: 'manual' })
     chime('shift')
+    const saving = place(order)
     // Said, as a drop in Writing is (“Moved”), with its Undo.
-    sayNow(haligtree.saveTasks(order.map((one, n) => ({ id: one, patch: { sortOrder: n } }))), 'Moved', () => void haligtree.saveTasks(was))
+    sayNow(saving, 'Moved', () => void haligtree.saveTasks(was))
   }
   /** A row rested on another's middle: it may become its step, unless it has steps of its own, repeats, or the other is done. */
   const nests = (id: string, target: string): true | { refused: string } | false => {
@@ -1084,7 +1127,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const dropOnTab = (id: string, place: string): void => {
     const task = shown.find((one) => one.id === id)
     if (!task) return
-    if (place === 'upcoming') return moveTo(task, 1)
+    if (place === 'upcoming') return void moveTo(task, 1)
     const was = { due: task.dueAt ?? null, plan: task.planFor ?? null }
     chime('later')
     sayNow(haligtree.saveTask(id, { due: null, plan: 'someday' }), 'Moved to Later, someday', () => void haligtree.saveTask(id, was))
@@ -1333,10 +1376,10 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           {/* On every list, a row rested on another's middle becomes its step. */}
           <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined} onNest={example || several.chosen.length ? undefined : nestRow} nests={nests}
             places={sortable ? { drop: dropOnTab, said: (place) => (place === 'upcoming' ? 'Move to tomorrow' : 'Move to Later, someday') } : undefined}
-            parts={sortable ? { of: (id) => partOf.get(id), take: takenBy, drop: (id) => { const task = shown.find((one) => one.id === id); if (task) moveTo(task, 0) } } : undefined}>
-          {() => (
+            parts={sortable ? { of: (id) => partOf.get(id), take: takenBy, drop: dropInPart } : undefined}>
+          {(order) => (
           <VirtualList
-            items={rows}
+            items={inOrder(order)}
             keyOf={(row) => ('writer' in row ? 'writer' : 'id' in row ? row.id : `heading-${row.key}`)}
             cursor={shown[cursor] ? rows.indexOf(shown[cursor]) : undefined}
             className="list-edge mb-6"
