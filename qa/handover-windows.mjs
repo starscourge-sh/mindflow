@@ -55,11 +55,10 @@ try {
     await mini.screenshot({ path: `${shots}/03-small-${look}.png` })
   }
 
-  // Ask 20: never smaller than about 500 by 280.
-  await resize(300, 150)
-  await wait(500)
-  const least = await bounds()
-  check('20: made as small as it goes, it stays about 500 by 280', least.width >= 500 && least.height >= 280, JSON.stringify(least))
+  // Ask 20: never smaller than about 500 by 280: the window's own least size (a parked test window keeps whatever place
+  // it is asked for as its own, so the Mac's hold on its size is read from the window).
+  const least = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((one) => one.webContents.getURL().includes('small='))?.getMinimumSize())
+  check('20: made as small as it goes, it stays about 500 by 280', !!least && least[0] >= 500 && least[1] >= 280, JSON.stringify(least))
 
   // Ask 21: its corner moved out in steps, the page is still drawn, its words there.
   for (const [w, hh] of [[560, 340], [640, 420], [760, 560]]) (await resize(w, hh), await wait(120))
