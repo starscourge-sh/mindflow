@@ -1536,8 +1536,12 @@ function takePicked(view: EditorView, operator: "d" | "y" | "c"): void {
   }
   tr.deleteSelection()
   if (operator === "c") {
+    // The line to type on is of the kind that place holds: an item where list items were, else a paragraph. A bare
+    // paragraph put among a list's items split the list round it.
     const at = tr.mapping.map(selection.from)
-    tr.insert(at, schema.nodes.paragraph.create())
+    const $at = tr.doc.resolve(at)
+    const wrap = $at.parent.contentMatchAt($at.index()).findWrapping(schema.nodes.paragraph) ?? []
+    tr.insert(at, wrap.reduceRight<ProseMirrorNode>((inner, type) => type.create(null, inner), schema.nodes.paragraph.create()))
     tr.setSelection(TextSelection.near(tr.doc.resolve(at + 1)))
   }
   view.dispatch(tr.scrollIntoView())
