@@ -412,20 +412,42 @@ export function Clear({ children }: { children: ReactNode }): React.JSX.Element 
   return <motion.div ref={clear.ref} style={{ y: clear.y }}>{children}</motion.div>
 }
 
-/**
- * That card where the pointer is (`x`, `y`): just past it, level with it, over everything, and clear of the line. Never
- * past the window's right edge: carried to the far side of the page (a note's block going beside another), it rides on
- * the pointer's other side, as wide as it would be (CarriedCard's widest).
- */
-export function CardAt({ x, y, children }: { x: number; y: number; children: ReactNode }): React.JSX.Element {
+/** Where a card at the pointer goes: just past it, level with it, never past the window's edges. */
+const cardPlace = (x: number, y: number): { left: number; top: number; translate: string } => {
   const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
   const wide = Math.min(20 * rem, window.innerWidth - 9 * rem)
+  // Level with the pointer, its middle kept a card's half height in from the window's top and foot.
+  const top = Math.min(Math.max(y, 28), window.innerHeight - 28)
   // Room on neither side of the pointer (the smallest window): as far right as it fits whole, never past either edge.
-  const place = x + 18 + wide + 8 <= window.innerWidth ? { left: x + 18, translate: '0 -50%' }
-    : x - 18 - wide >= 8 ? { left: x - 18, translate: '-100% -50%' }
-      : { left: Math.max(8, window.innerWidth - wide - 8), translate: '0 -50%' }
+  return x + 18 + wide + 8 <= window.innerWidth ? { left: x + 18, top, translate: '0 -50%' }
+    : x - 18 - wide >= 8 ? { left: x - 18, top, translate: '-100% -50%' }
+      : { left: Math.max(8, window.innerWidth - wide - 8), top, translate: '0 -50%' }
+}
+
+/**
+ * That card where the pointer is (`x`, `y`; left out, it follows the pointer itself, drawn by nothing else): just past
+ * it, level with it, over everything, and clear of the line. Never past the window's edges: carried to the far side of
+ * the page (a note's block going beside another), it rides on the pointer's other side, as wide as it would be
+ * (CarriedCard's widest). The Calendar's cards had a placing of their own, which ran off the window's right edge.
+ */
+export function CardAt({ x, y, children }: { x?: number; y?: number; children: ReactNode }): React.JSX.Element {
+  const box = useRef<HTMLDivElement>(null)
+  const given = x !== undefined && y !== undefined
+  useLayoutEffect(() => {
+    if (given) return
+    const put = (px: number, py: number): void => {
+      if (!box.current) return
+      const place = cardPlace(px, py)
+      Object.assign(box.current.style, { left: `${place.left}px`, top: `${place.top}px`, translate: place.translate })
+    }
+    const at = pointerAt()
+    put(at.x, at.y)
+    const follow = (event: PointerEvent): void => put(event.clientX, event.clientY)
+    window.addEventListener('pointermove', follow, true)
+    return () => window.removeEventListener('pointermove', follow, true)
+  }, [given])
   return createPortal(
-    <div aria-hidden className="pointer-events-none fixed z-[80]" style={{ ...place, top: y }}>
+    <div ref={box} aria-hidden className="pointer-events-none fixed z-[80]" style={given ? cardPlace(x!, y!) : undefined}>
       <Clear>{children}</Clear>
     </div>,
     document.body

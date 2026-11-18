@@ -1,7 +1,6 @@
 import { memo, startTransition, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { CarriedCard, pointerAt, swallowRelease } from './carry'
+import { CardAt, CarriedCard, swallowRelease } from './carry'
 import { useReading, useReadsIn } from '@/lib/reads-in'
-import { createPortal } from 'react-dom'
 import { motion } from 'motion/react'
 import { CalendarClock, CalendarX2, Check, ChevronDown, PanelLeft, Plus, Repeat as RepeatIcon } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -909,32 +908,16 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       {drawnOpen && <OpenPopover key={`${leftOpen.turn}|${drawnOpen.kind === 'event' ? drawnOpen.key : drawnOpen.id}|${drawnOpen.words ?? ''}`} opened={drawnOpen} onAgain={(words) => (drawnOpen.kind === 'event' ? openEvent(drawnOpen.key, drawnOpen.at, words) : openTask(drawnOpen.id, drawnOpen.at, words))} event={drawnEvent ?? undefined} task={drawnTask ?? undefined} level={level} onClose={() => setOpened(null)} onGone={leftOpen.gone} leaving={!openNow}
         onPage={() => toPage(drawnOpen.kind === 'event' ? { event: drawnOpen.key } : { task: drawnOpen.id })} onKey={(key) => setOpened((was) => (was?.kind === 'event' ? { ...was, key } : was))} />}
       {/* The bar in hand: the one card every carry rides in (carry.tsx), saying what letting go does there. */}
-      {shift && <AtPointer><CarriedCard attrs={{ 'data-cal-bar-card': '' }} title={shift.one.title || 'New event'} words={shift.by ? `Move to ${dayjs(shift.one.start).add(shift.by, 'day').format('ddd D MMM')}` : null}
-        icon={<span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: shift.one.color }} />} /></AtPointer>}
+      {shift && <CardAt><CarriedCard attrs={{ 'data-cal-bar-card': '' }} title={shift.one.title || 'New event'} words={shift.by ? `Move to ${dayjs(shift.one.start).add(shift.by, 'day').format('ddd D MMM')}` : null}
+        icon={<span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: shift.one.color }} />} /></CardAt>}
       {/* A task carried from Unscheduled, off the hours (over them, its block at the slot is where it goes): the same card, saying the day. */}
-      {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && <AtPointer><CarriedCard attrs={{ 'data-cal-carried': '' }} title={taskName(carry.task.title).text}
-        words={carry.to ? `Move to ${dayjs(carry.to.day).format('ddd D MMM')}` : null} icon={<span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: ACCENT }} />} /></AtPointer>}
+      {carry?.kind === 'move' && (!carry.to || carry.to.minute === null) && <CardAt><CarriedCard attrs={{ 'data-cal-carried': '' }} title={taskName(carry.task.title).text}
+        words={carry.to ? `Move to ${dayjs(carry.to.day).format('ddd D MMM')}` : null} icon={<span aria-hidden className="size-2 shrink-0 rounded-[2px]" style={{ background: ACCENT }} />} /></CardAt>}
     </section>
     </Popover>
   ) as React.JSX.Element
 }
 
-/**
- * Where a carried card rides: just past the pointer, following it on its own, so the page is not drawn again for a move
- * that changes nothing else.
- */
-function AtPointer({ children }: { children: React.ReactNode }): React.JSX.Element {
-  const box = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    const place = (x: number, y: number): void => void (box.current && (box.current.style.transform = `translate3d(${x + 10}px, ${y + 10}px, 0)`))
-    const at = pointerAt()
-    place(at.x, at.y)
-    const follow = (event: PointerEvent): void => place(event.clientX, event.clientY)
-    window.addEventListener('pointermove', follow, true)
-    return () => window.removeEventListener('pointermove', follow, true)
-  }, [])
-  return createPortal(<div ref={box} data-cal-bar-carried className="pointer-events-none fixed top-0 left-0 z-50">{children}</div>, document.body)
-}
 
 /**
  * A side panel's width, dragged at its inner edge, held between its least and
