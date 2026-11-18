@@ -861,7 +861,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
       onPointerLeave={() => setOver(false)}
       // At the top level its panel is the rows' own box: folded, it is one row's box, and what is in it starts and ends where every other row does (qa/row-shape.mjs).
       data-folder-row={place ? '' : undefined}
-      className={cn('group/fold relative isolate', inner && !place && 'px-1 py-0.5')}
+      // A group inside a group stands in from its parent's sides, its panel inside the parent's, never edge to edge (16 Nov).
+      className={cn('group/fold relative isolate', inner && !place && 'mx-3 px-1 py-0.5')}
       style={{ '--group-tint': tint ?? 'var(--foreground)' } as CSSProperties}
     >
       {/* The panel: always there, faint, with a hairline round it; deeper while pointed at, or while something is about to happen to it. */}
