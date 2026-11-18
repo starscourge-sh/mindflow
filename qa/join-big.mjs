@@ -232,7 +232,7 @@ try {
   check('the other note is in the Bin', after.other === 'discarded', after.other)
   check('a link elsewhere to the other leads to the copy now', !!after.link.here && !after.link.there, JSON.stringify(after.link))
   check('the one loader shows where the offer was', orbs.offer !== null, JSON.stringify(orbs))
-  check('the notice says what came over and where the other went, with Undo', said.some((one) => new RegExp(`^Joined .*: ${wanted.fresh === 1 ? '1 line' : `${(wanted.fresh ?? 0).toLocaleString('en')} lines`} it had that this note didn't\\. .* is in the Bin`).test(one) && /Undo/.test(one)), said.join(' | '))
+  check('the notice says what came over and where the other went, with Undo', said.some((one) => new RegExp(`^Joined .*: ${wanted.fresh === 1 ? '1 line' : `${(wanted.fresh ?? 0).toLocaleString('en')} lines`} it had that this note didn't\\. It is in the Bin, and the link to it leads here now\\.`).test(one) && /Undo/.test(one)), said.join(' | '))
   check('no frame waits over 1 s from the press until the note is drawn again', j.gap <= 1000, `${j.gap} ms`)
   const differ = [big.id, twin].flatMap((id) => Object.keys(before[id]).filter((name) => before[id][name] !== back[id][name]).map((name) => `${id === twin ? 'copy' : 'other'}.${name}`))
   const u = await gaps(t2, t3)

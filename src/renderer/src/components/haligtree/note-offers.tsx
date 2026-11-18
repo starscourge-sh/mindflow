@@ -390,9 +390,10 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
         setJoining(true)
         try {
           // What came over is said: the lines the other had that this note didn't, and the links now leading here.
+          // Its name said once: twice, with a link sentence after, the notice ran past its three lines and was cut.
           const name = quoted(unquoted(offer.title), 48)
           await joinNotes({ table, id }, sideOf(offer.key), (added, links) =>
-            `Joined ${name}: ${added ? `${plural(added, 'line')} it had that this note didn't` : 'this note had all of it already'}. ${name} is in the Bin.${links === 1 ? ' The link to it leads here now.' : links ? ` The ${num(links)} links to it lead here now.` : ''}`)
+            `Joined ${name}: ${added ? `${plural(added, 'line')} it had that this note didn't` : 'this note had all of it already'}. It is in the Bin${links === 1 ? ', and the link to it leads here now' : links ? `, and the ${num(links)} links to it lead here now` : ''}.`)
         } finally {
           setJoining(false)
         }

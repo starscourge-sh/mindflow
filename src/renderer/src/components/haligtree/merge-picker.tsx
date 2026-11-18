@@ -39,7 +39,7 @@ export function MergePicker({ capture, onClose }: { capture: Pick<CaptureMeta, '
     setOpen(false)
     const name = quoted(into.label || 'New note', 40)
     void joinNotes({ table: 'captures', id: into.id }, { table: 'captures', id: capture.id }, (added, links) =>
-      `Merged into ${name}: ${added ? `${plural(added, 'line')} this one had that it didn't` : 'it had all of this one already'}. This one is in the Bin.${links === 1 ? ' The link to this one leads there now.' : links ? ` The ${num(links)} links to this one lead there now.` : ''}`)
+      `Merged into ${name}: ${added ? `${plural(added, 'line')} this one had that it didn't` : 'it had all of this one already'}. This one is in the Bin${links === 1 ? ', and the link to it leads there now' : links ? `, and the ${num(links)} links to it lead there now` : ''}.`)
   }
   return createPortal(
         <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => setOpen(false)}>
