@@ -1579,6 +1579,16 @@ await part('Several notes', async () => {
     const others = s.faded.filter((o) => o > 0.05)
     check(`Several notes, ${name}: the others carried wait, faded, in their places`, others.length >= Math.min(3, carried - 1) && others.every((o) => Math.abs(o - 0.3) <= 0.05) && s.faded.length - others.length === 1, s.faded.join())
     check(`Several notes, ${name}: the line is by the pointer (within three quarters of the row in hand)`, s.lineY !== null && Math.abs(s.lineY - to.y) <= d.held * 0.75 + 8, `line at ${s.lineY === null ? 'none' : Math.round(s.lineY)}, pointer at ${Math.round(to.y)}, row ${d.held}px`)
+    // The group the card names is the one drawn round the room under the pointer (22-7: “Add 6 to Group 5” over Deep Dive's rows).
+    const named = /to (.+)$/.exec(d.words)?.[1]
+    if (named) {
+      const holds = await h.evaluate(([group, y]) => {
+        const row = [...document.querySelectorAll('[data-pane] [data-group-row]')].find((one) => one.textContent.trim().startsWith(group))
+        const box = row?.closest('[data-group-block]')?.getBoundingClientRect()
+        return !!box && y >= box.top && y <= box.bottom
+      }, [named, s.lineY ?? -1])
+      check(`Several notes, ${name}: the room it names is drawn inside ${named.slice(0, 12)}`, holds)
+    }
     await film(`several-${name.replace(/\W+/g, '-')}`, 4)
   }
   /** Where a group or folder lights and nothing opens (read soon: a folded group held on opens after 600 ms). */
