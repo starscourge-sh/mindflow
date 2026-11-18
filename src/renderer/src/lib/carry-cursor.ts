@@ -37,7 +37,11 @@ const wanted = (): string => {
 
 /** The element under the pointer, and the one holding it if another, carry the look; nothing else does. */
 function mark(): void {
-  const next = look && at.x >= 0 ? [...new Set([document.elementFromPoint(at.x, at.y), held])].filter((one): one is Element => !!one) : []
+  // Inside a note, its editor's own element: ProseMirror reads any attribute changed on an element in its text as an
+  // edit and draws the block again (a block carried in the note lost its place, its words and its drop), but it
+  // leaves its own root alone. What is under the pointer in the note inherits the cursor from there.
+  const own = (one: Element | null): Element | null => one?.closest('.ProseMirror') ?? one
+  const next = look && at.x >= 0 ? [...new Set([own(document.elementFromPoint(at.x, at.y)), own(held)])].filter((one): one is Element => !!one) : []
   for (const one of marked) if (!next.includes(one)) one.removeAttribute('data-carry-cursor')
   for (const one of next) if (one.getAttribute('data-carry-cursor') !== look) one.setAttribute('data-carry-cursor', look)
   marked = next
