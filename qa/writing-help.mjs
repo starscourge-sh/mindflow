@@ -105,6 +105,8 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       await h.keyboard.press('Control+Meta+w'); await wait(300)
       const opened = await menu()
       check('ai: ⌃⌘W opens the bar’s Writing help, its first row lit', !!opened?.startsWith('fix*,shorter,'), opened)
+      const place = await h.evaluate(() => { const one = document.querySelector('[role="menu"][aria-label="Writing help"]')?.getBoundingClientRect(); const words = getSelection().rangeCount ? getSelection().getRangeAt(0).getBoundingClientRect() : null; return one && words && { menuTop: Math.round(one.top), wordsBottom: Math.round(words.bottom) } })
+      check('ai: the menu opens under the picked words, never over them', !!place && place.menuTop >= place.wordsBottom, JSON.stringify(place))
       await h.keyboard.press('ArrowDown'); await wait(150)
       const moved = await menu()
       check('ai: ↓ moves the light to the next row', !!moved?.startsWith('fix,shorter*,'), moved)
