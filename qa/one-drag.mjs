@@ -1562,15 +1562,22 @@ await part('Several notes', async () => {
     if (!words) return -1
     return Math.round(Math.max(0, ...cards.map((r) => Math.max(0, Math.min(r.right, words.right) - Math.max(r.left, words.left)) > 4 ? Math.max(0, Math.min(r.bottom, words.bottom) - Math.max(r.top, words.top)) : 0)))
   }, title)
-  const at = async (title, y = 0.86) => { const r = await row(title).boundingBox(); return { x: r.x + 200, y: r.y + r.height * y } }
-  const headAt = async (name, y = 0.5) => { const r = await h.locator('[data-pane] [data-group-row]', { hasText: name }).first().boundingBox(); return { x: r.x + 200, y: r.y + r.height * y } }
+  // Where a row rests, its slide left out: the list aims at the rows as they lie before anything made way (carry.tsx's
+  // rowAt), so a person reaching a row with the room open elsewhere finds the room coming to the pointer.
+  const restOf = (el) => { const r = el.getBoundingClientRect(); const lift = el.closest('[data-sortable-id]'); const m = lift ? new DOMMatrixReadOnly(getComputedStyle(lift).transform).m42 : 0; return { x: r.x, y: r.y - m, height: r.height } }
+  const at = async (title, y = 0.86) => { const r = await row(title).evaluate(restOf); return { x: r.x + 200, y: r.y + r.height * y } }
+  const headAt = async (name, y = 0.5) => { const r = await h.locator('[data-pane] [data-group-row]', { hasText: name }).first().evaluate(restOf); return { x: r.x + 200, y: r.y + r.height * y } }
+  /** The list scrolled at once, to its top or its foot (a wheel glides there, and a box read on the way was stale). */
+  const scrollList = (to) => h.evaluate((to) => { let box = document.querySelector('[data-list-space]'); while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) box = box.parentElement; if (box) box.scrollTop = to === 'top' ? 0 : box.scrollHeight }, to)
   const glide = async (to) => { await h.mouse.move(to.x, to.y, { steps: 8 }); return to }
   /** Where a room opens: the one look, the count, the others faded in their places, the line by the pointer. */
   const roomHere = async (name, to, words, n, carried) => {
     const d = await oneLook(`Several notes, ${name}`, to, { words })
     const s = await many()
     check(`Several notes, ${name}: the badge says ${n}`, s.badge === String(n), s.badge)
-    check(`Several notes, ${name}: the others carried wait, faded, in their places`, s.faded.filter((o) => Math.abs(o - 0.3) <= 0.05).length === carried - 1, s.faded.join())
+    // (Those drawn: a long list draws only the rows near the screen. The row in hand's own words went with the card.)
+    const others = s.faded.filter((o) => o > 0.05)
+    check(`Several notes, ${name}: the others carried wait, faded, in their places`, others.length >= Math.min(3, carried - 1) && others.every((o) => Math.abs(o - 0.3) <= 0.05) && s.faded.length - others.length === 1, s.faded.join())
     check(`Several notes, ${name}: the line is by the pointer (within three quarters of the row in hand)`, s.lineY !== null && Math.abs(s.lineY - to.y) <= d.held * 0.75 + 8, `line at ${s.lineY === null ? 'none' : Math.round(s.lineY)}, pointer at ${Math.round(to.y)}, row ${d.held}px`)
     await film(`several-${name.replace(/\W+/g, '-')}`, 4)
   }
@@ -1590,7 +1597,7 @@ await part('Several notes', async () => {
   const desk = () => lay(['g:desk'], { desk: ['g:inner', 'g:first', 'g:deep', 'g:five', all.Larch, all.Yew, all.Rowan, all.Spruce, all.Willow, all.Alder, all.Beech, all.Cherry], inner: [all.Pine], first: [all.Fir, all.Hazel], deep: [all.Ash, all.Birch, all.Cedar], five: [all.Elm, all.Oak] }, ['first'])
   const SIX = ['Larch', 'Rowan', 'Willow', 'Alder', 'Beech', 'Cherry']
   /** The list back at its top, the pointer over it (picking the last rows scrolled it down). */
-  const toTop = async () => { await h.mouse.move(500, 500); await h.mouse.wheel(0, -4000); await wait(350) }
+  const toTop = async () => { await scrollList('top'); await wait(350) }
   const liftSix = async () => { await desk(); await into('Desk'); await pick(SIX); await toTop(); const was = await boxes(); await lift(row('Larch')); return was }
   let was = await liftSix()
   await roomHere('over another group’s rows', await glide(await at('Birch')), 'Add 6 to Deep', 6, 6)
@@ -1607,9 +1614,9 @@ await part('Several notes', async () => {
   await roomHere('over an open group’s own row', await glide(await headAt('Deep', 0.66)), 'Add 6 to Deep', 6, 6)
   await litHere('over a folder in it', await glide(await headAt('Inner')), 'Move 6 into Inner', 'inner')
   // The list's foot, the list scrolled to its end under the carry (it is taller than the window).
-  await h.mouse.wheel(0, 4000); await wait(500)
-  const last = await row('Cherry').boundingBox()
-  await roomHere('at the list’s foot', await glide({ x: last.x + 200, y: last.y + last.height + 8 }), 'Move 6 here', 6, 6)
+  await scrollList('foot'); await wait(500)
+  const last = await row('Cherry').evaluate(restOf)
+  await roomHere('at the list’s foot', await glide({ x: last.x + 200, y: last.y + last.height + 8 }), /^Move 6 here/, 6, 6)
   // Out of the window, the button still down: nothing is aimed at; back in, the list answers again.
   await h.mouse.move(-40, last.y, { steps: 6 }); await wait(450)
   const out = await drawn()
@@ -1642,7 +1649,8 @@ await part('Several notes', async () => {
   await glide(await at('Birch')); await wait(450)
   await h.mouse.up(); await wait(1200)
   const landed = (await v('groups', 'article')).find((one) => one.id === 'deep')?.members ?? []
-  check('Several notes, let go in another group: all six are in it, after the row aimed at, in list order', landed.join() === [all.Ash, all.Birch, ...SIX.map((one) => all[one]), all.Cedar].join(), landed.map((id) => Object.keys(all).find((k) => all[k] === id)).join())
+  // Carried up onto Birch, the room opened in Birch's place (Birch made way downward): there they land.
+  check('Several notes, let go in another group: all six are in it, where the room was, in list order', landed.join() === [all.Ash, ...SIX.map((one) => all[one]), all.Birch, all.Cedar].join(), landed.map((id) => Object.keys(all).find((k) => all[k] === id)).join())
   const told = await notices()
   check('Several notes, let go: said once, with Undo', told.length === 1 && /^Added 6 to Deep/.test(told[0]), told.join(' | ') || '(no notice)')
   await h.locator('[role=status] button', { hasText: 'Undo' }).last().click().catch(() => {}); await wait(1200)
