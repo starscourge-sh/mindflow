@@ -180,6 +180,9 @@ function useGlide(y: number, scaleY: number, instant: boolean, kick = 0, over: [
       my.jump(y)
       ms.jump(scaleY)
       if (el.current) el.current.style.transform = y || scaleY !== 1 ? `translateY(${y}px) scaleY(${scaleY})` : 'none'
+      // The row in hand holds the room's line, drawn (and heard of) a moment before the row is moved here: the card riding
+      // clear of it reads it again now, or it stayed on the line until the pointer next moved.
+      if (moves && lineNow && el.current?.contains(lineNow)) for (const tell of lineHeard) tell()
       return
     }
     if (kicks) (one.over = over, kickGive())
