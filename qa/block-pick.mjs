@@ -422,7 +422,14 @@ if (PART === 'rest') {
   for (const row of await page.locator('.tiptap-block-menu [role=menuitem]').all()) {
     const box = await row.boundingBox()
     if (!box) continue
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    // Rested as a hand rests: there, past the menu's 300 ms grace, then the hand's own small move. Leaving a row whose
+    // submenu had opened ("Color ›", "Turn into ›") reads to Radix as heading into that submenu, so the row under the
+    // pointer lights on the next move once the grace is over. Whether the submenu above had opened yet depended on how
+    // fast this probe ran (it opens 100 ms after the pointer comes), so the row below passed or failed by the load.
+    const [x, y] = [box.x + box.width / 2, box.y + box.height / 2]
+    await page.mouse.move(x, y, { steps: 4 })
+    await page.waitForTimeout(350)
+    await page.mouse.move(x + 1, y)
     await page.waitForTimeout(60)
     rested.push(await row.evaluate((one) => ({ title: one.textContent.trim(), cursor: getComputedStyle(one).cursor, fill: getComputedStyle(one).backgroundColor, under: document.elementFromPoint(one.getBoundingClientRect().left + 20, one.getBoundingClientRect().top + one.getBoundingClientRect().height / 2)?.closest('[role=menuitem]') === one })))
   }
