@@ -3898,10 +3898,18 @@ function throwBox(win: BrowserWindow, dx: number, dy: number, speed = 0): void {
   if (win.isDestroyed() || (!dx && !dy)) return
   if (speed > 0) [dx, dy] = fingersWay(dx, dy)
   if (pending?.win === win) (arriving?.(), settle())
-  throwing?.()
   const from = win.getBounds()
   const display = screen.getDisplayMatching(from)
   const to = throwSpot(from, display.workArea, dx, dy)
+  // A small window (the same page, App.tsx's ⌘ and two fingers) is thrown the same way, on the glide that steps it
+  // aside; only quick capture remembers where it was thrown, for the next time it opens.
+  if (win !== prompt) {
+    asides.get(win)?.()
+    const stop = glideTo(win, to, () => asides.delete(win), speed)
+    if (stop) asides.set(win, stop)
+    return
+  }
+  throwing?.()
   const land = (): void => {
     throwing = null
     lastBounds = { ...from, x: to.x, y: to.y }
@@ -5669,13 +5677,15 @@ app.whenReady().then(() => {
   // ⌘ and a two-finger flick, or ⌃⌥ and an arrow, in the box: thrown that way.
   ipcMain.on('box:throw', (event, dx: unknown, dy: unknown, speed: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (win && win === prompt) throwBox(win, Number(dx) || 0, Number(dy) || 0, Number(speed) || 0)
+    // A small window too: "is there a reason cmd+swipe doesnt also move it away" (16 Nov).
+    if (win && (win === prompt || isSmall(win))) throwBox(win, Number(dx) || 0, Number(dy) || 0, Number(speed) || 0)
   })
-  // ⌘ and two fingers moving slowly: the box goes with them, kept on the screen.
+  // ⌘ and two fingers moving slowly: the window goes with them, kept on the screen.
   ipcMain.on('box:nudge', (event, dx: unknown, dy: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win || win !== prompt || win.isDestroyed()) return
-    throwing?.()
+    if (!win || win.isDestroyed() || (win !== prompt && !isSmall(win))) return
+    if (win === prompt) throwing?.()
+    else asides.get(win)?.()
     if (pending?.win === win) (arriving?.(), settle())
     const from = win.getBounds()
     const [x, y] = fingersWay(Number(dx) || 0, Number(dy) || 0)

@@ -200,12 +200,15 @@ export function registerSmallWindows({ load, guard, stepAside, passThrough }: Wi
     // fades in: position and opacity only, as a note's own window arrives (notes.ts), never resized on the way.
     // Its height read as it is now, never the one it was made at: its page may have asked for more already (fitSmall),
     // and putting the first size back left a dev build's window 200 px tall until the first row grew it.
+    // It takes the keys as it comes: one never focused never lost them either, so a click past it did not send it
+    // aside until it had been clicked into once (16 Nov).
     win.once('ready-to-show', () => {
-      if (kept || stillNow()) return win.show()
+      if (kept || stillNow()) return void (win.show(), win.focus())
       const at = win.getBounds()
       win.setOpacity(0)
       win.setPosition(at.x, at.y + RISE)
       win.show()
+      win.focus()
       void glide(win, { x: at.x, y: at.y }, { ms: 240, opacity: 1 })
     })
     // ⌘W closes it, as the red light does: the note stays where it lives.
