@@ -2153,8 +2153,9 @@ export const VimMode = Extension.create<VimModeOptions>({
       const onlyCount = before.count !== "" && isPending({ ...before, count: "" }) === false
       if (plain && key === "." && (!isPending(before) || onlyCount)) {
         typed = null
-        repeat(view, before.count, run)
+        // The count typed before `.` is the repeat's own, not a first digit for it.
         patch(view, CLEARED)
+        repeat(view, before.count, run)
         return true
       }
       if (!plain || key.length !== 1) return ((typed = null), run(event))
