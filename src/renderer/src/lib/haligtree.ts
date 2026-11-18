@@ -450,7 +450,7 @@ export const haligtree = {
   /** `other`'s words under `keep`'s, after a rule, and `other` to the Bin: done in the main process, on the notes as stored. */
   joinNotes: (keep: NoteSide, other: NoteSide, given?: Partial<Record<'keep' | 'other', { doc: unknown; from: string }>>) => call<Joined>('notes:join', keep, other, given),
   /** Both notes exactly as they were before the join. */
-  unjoinNotes: (token: number) => call<boolean>('notes:join:undo', token),
+  unjoinNotes: (token: number) => call<boolean | 'both'>('notes:join:undo', token),
   hintRate: () => call<{ rate: number; tuned: boolean; shown: number; stopped: number }>('hints:rate'),
   tag: (tag: string) => call<{ tag: string; id: string; type: string; title: string; private: boolean }[]>('tag', tag),
   /** Everything carrying a tag, whole, newest first, each with its other tags. */

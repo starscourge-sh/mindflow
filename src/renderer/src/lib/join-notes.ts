@@ -36,8 +36,10 @@ export async function joinNotes(keep: NoteSide, other: NoteSide, said: string): 
   tear()
   binned([other.id])
   toast(said, () => void haligtree.unjoinNotes(token).then((back) => {
-    if (back) window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [other.id] }))
-    else refuse('Too long ago to take back here: the note holds both, and the other is in the Bin')
+    if (!back) return refuse('Too long ago to take back here: the note holds both, and the other is in the Bin')
+    window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [other.id] }))
+    // Written in since the join: its words stay as they are, nothing of them lost, and the other is back beside it.
+    if (back === 'both') refuse('The note was written in since, so it keeps both sets of words; the other is out of the Bin')
   }), 'success', seeTheBin)
   return true
 }

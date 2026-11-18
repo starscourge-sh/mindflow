@@ -2612,7 +2612,7 @@ export function registerHaligtree(): void {
     if (still) rewritten(made.keep, made.rows[0].number)
     // Out of the Bin: its copy is written again, as it had one before.
     rewritten(made.other, made.rows[1].number, false)
-    if (!still) return write(true, changeOf(made.other))
+    if (!still) return write('both', changeOf(made.other))
     changed(changeOf(made.other))
     return write(true, changeOf(made.keep, true))
   })
