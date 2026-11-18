@@ -4,8 +4,19 @@ import { chime } from "@/lib/sound"
 import { markKeyed } from "@/lib/motion"
 import { Dialog as SheetPrimitive } from "radix-ui"
 import { X as XIcon } from "@/components/ui/icons"
+import { useShieldedOpen } from "./context-menu"
 
-function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+/** Whether the sheet is open and modal, for its shade (SheetOverlay): Radix draws its own only for a modal sheet. */
+const SheetOpen = React.createContext<boolean | null>(null)
+
+/**
+ * Modal as before (the window behind takes no hover, press or scroll, a press on the shade closes it, Tab goes round
+ * inside it), but by its own shade, as a menu is by its shield (context-menu.tsx MenuShield), never Radix's modal way:
+ * that sets the body's pointer-events and a scroll lock on the body, and each restyles every element in the window, on
+ * opening and on closing (seconds over a long page in the reader).
+ */
+function Sheet({ modal = true, ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
+  const [open, onOpenChange] = useShieldedOpen(props)
   // A drawer slides out and folds away with the panel's sounds, however it
   // was opened (a click, a key, a menu).
   const was = React.useRef(props.open)
@@ -14,22 +25,32 @@ function Sheet({ ...props }: React.ComponentProps<typeof SheetPrimitive.Root>) {
     was.current = props.open
     chime(props.open ? "slide" : "fold")
   }, [props.open])
-  return <SheetPrimitive.Root data-slot="sheet" {...props} />
+  return (
+    <SheetOpen.Provider value={modal ? open : null}>
+      <SheetPrimitive.Root data-slot="sheet" {...props} modal={false} onOpenChange={onOpenChange} />
+    </SheetOpen.Provider>
+  )
 }
 
 function SheetPortal({ ...props }: React.ComponentProps<typeof SheetPrimitive.Portal>) {
   return <SheetPrimitive.Portal data-slot="sheet-portal" {...props} />
 }
 
-function SheetOverlay({ className, ...props }: React.ComponentProps<typeof SheetPrimitive.Overlay>) {
+// The shade, a child of the portal as the panel is, so it comes and goes with it (the ref lets Radix wait for its fade
+// out). It takes every press and scroll outside the panel; a press on it is outside the panel, so Radix closes the sheet.
+function SheetOverlay({ className, ref }: { className?: string; ref?: React.Ref<HTMLDivElement> }) {
+  const open = React.useContext(SheetOpen)
+  if (open === null) return null
   return (
-    <SheetPrimitive.Overlay
+    <div
+      ref={ref}
       data-slot="sheet-overlay"
+      data-state={open ? "open" : "closed"}
+      aria-hidden
       className={cn(
         "fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className
       )}
-      {...props}
     />
   )
 }

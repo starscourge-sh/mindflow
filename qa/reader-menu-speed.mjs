@@ -102,6 +102,61 @@ try {
   await wait(400)
   const after = await h.evaluate(() => ({ open: !!document.querySelector('[data-slot=context-menu-content][data-state=open]'), followed: window.__followed, shield: document.querySelectorAll('[data-menu-shield]').length }))
   check('while it is open the page under it takes no hover or press, and a press outside only closes it', under && !after.open && after.followed === 0 && after.shield === 0, JSON.stringify({ under, ...after }))
+
+  // A side sheet beside the long page: the window split, the Inbox on the right, its Display as a sheet (its button
+  // hidden, as when it is folded away) opened by F and closed by Esc, timed from the key to the frame after.
+  await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:split-right')))
+  await wait(1500)
+  await c.go('inbox'); await wait(1200)
+  const beside = await h.evaluate(() => ({ panes: document.querySelectorAll('[data-pane]').length, reader: document.querySelectorAll('.web-reader-body *').length }))
+  check('the long page stays in sight beside the Inbox', beside.panes === 2 && beside.reader > 20000, JSON.stringify(beside))
+  await h.evaluate(() => {
+    document.querySelectorAll('[data-display]').forEach((one) => (one.style.display = 'none'))
+    const q = (window.__sheetQa = { tasks: [], at: 0, shown: 0, gone: 0 })
+    new PerformanceObserver((list) => list.getEntries().forEach((one) => q.tasks.push(one.duration))).observe({ entryTypes: ['longtask'] })
+    const sheet = () => document.querySelector('[data-slot=sheet-content][data-state=open]')
+    const frame = () => {
+      if (q.at && !q.shown && sheet()) q.shown = performance.now()
+      else if (q.at && q.shown && !q.gone && !document.querySelector('[data-slot=sheet-content]')) q.gone = performance.now()
+      requestAnimationFrame(frame)
+    }
+    requestAnimationFrame(frame)
+    window.addEventListener('keydown', () => (q.at ||= performance.now()), true)
+  })
+  const sheetOpens = [], sheetCloses = [], sheetTasks = []
+  for (let round = 0; round < 3; round++) {
+    await h.evaluate(() => Object.assign(window.__sheetQa, { tasks: [], at: 0, shown: 0, gone: 0 }))
+    await h.keyboard.press('f')
+    await h.waitForFunction(() => window.__sheetQa.shown > 0, null, { timeout: 20000 })
+    await wait(500)
+    const opened = await h.evaluate(() => ({ ms: window.__sheetQa.shown - window.__sheetQa.at, task: Math.max(0, ...window.__sheetQa.tasks) }))
+    if (round === 0) {
+      if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/reader-sheet-open.png` })
+      // Modal still: over the long page, beside the sheet, the shade is what is under the pointer, and Tab stays in the sheet.
+      const shade = await h.evaluate(() => { const r = document.querySelector('[data-slot=sheet-content]').getBoundingClientRect(); return document.elementFromPoint(r.left / 3, innerHeight / 2)?.getAttribute('data-slot') ?? null })
+      for (let i = 0; i < 25; i++) await h.keyboard.press('Tab')
+      const inside = await h.evaluate(() => !!document.activeElement?.closest('[data-slot=sheet-content]'))
+      check('with the sheet open the page beside it is under its shade, and Tab goes round inside the sheet', shade === 'sheet-overlay' && inside, JSON.stringify({ shade, inside }))
+    }
+    const shownAt = await h.evaluate(() => window.__sheetQa.shown)
+    await h.evaluate((shownAt) => Object.assign(window.__sheetQa, { tasks: [], at: 0, shown: shownAt }), shownAt)
+    await h.keyboard.press('Escape')
+    await h.waitForFunction(() => window.__sheetQa.gone > 0, null, { timeout: 20000 })
+    await wait(400)
+    const closed = await h.evaluate(() => ({ ms: window.__sheetQa.gone - window.__sheetQa.at, task: Math.max(0, ...window.__sheetQa.tasks) }))
+    sheetOpens.push(Math.round(opened.ms)); sheetCloses.push(Math.round(closed.ms)); sheetTasks.push(Math.round(Math.max(opened.task, closed.task)))
+  }
+  const middle = (list) => [...list].sort((a, b) => a - b)[1]
+  console.log(`sheet open ms ${sheetOpens.join(', ')} (middle ${middle(sheetOpens)}); gone ms ${sheetCloses.join(', ')} (middle ${middle(sheetCloses)}); longest task ms ${sheetTasks.join(', ')}`)
+  check('a side sheet beside the long page opens within 150ms', middle(sheetOpens) < 150, `${sheetOpens.join(', ')} ms`)
+  check('and is gone, its slide out included, within 400ms', middle(sheetCloses) < 400, `${sheetCloses.join(', ')} ms`)
+  // A press on the shade closes it, and only that: the page under it takes nothing.
+  await h.keyboard.press('f')
+  await h.waitForSelector('[data-slot=sheet-content][data-state=open]')
+  await wait(400)
+  await h.mouse.click(60, 450)
+  await wait(700)
+  check('a press on the shade only closes the sheet', !(await h.locator('[data-slot=sheet-content]').count()) && (await h.evaluate(() => window.__followed)) === 0)
 } catch (error) {
   check('the probe ran to its end', false, String(error).slice(0, 400))
 } finally {
