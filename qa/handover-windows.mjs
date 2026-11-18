@@ -37,9 +37,8 @@ try {
   await mini.waitForSelector('.tiptap', { timeout: 15000 })
   await wait(900)
 
-  // Ask 6: it has the keys from the start, so the first click past it is a blur.
-  const first = await bounds()
-  check('6: the small window has the keys as it opens', first?.focused === true, JSON.stringify(first))
+  // Ask 6: it takes the keys as it opens. Not read here: a test run's windows never take the Mac's keys from the person
+  // at it (HALIGTREE_QA_AWAY), so isFocused() says no either way.
 
   // Asks 3 and 16: opaque paper, as tall as its card: no room under the thought bar.
   const card = await mini.evaluate(() => {
@@ -68,32 +67,37 @@ try {
   if (shots) await mini.screenshot({ path: `${shots}/21-small-grown.png` })
 
   // Ask 6: ⌘ and two fingers throw it, as they throw quick capture.
+  // Both ways: a test run's window is parked at the screen's edge, where a throw that way goes nowhere, and which way
+  // the fingers went is read the way the Mac scrolls.
   const before = await bounds()
-  await mini.evaluate(() => window.dispatchEvent(new WheelEvent('wheel', { deltaX: 900, deltaY: 8, metaKey: true, bubbles: true, cancelable: true })))
-  await wait(900)
-  const thrown = await bounds()
-  check('6: ⌘ and two fingers throw the small window', Math.abs(thrown.x - before.x) + Math.abs(thrown.y - before.y) > 40, JSON.stringify({ before, thrown }))
+  const places = []
+  for (const dx of [900, -900]) {
+    await mini.evaluate((dx) => window.dispatchEvent(new WheelEvent('wheel', { deltaX: dx, deltaY: 8, metaKey: true, bubbles: true, cancelable: true })), dx)
+    await wait(1100)
+    places.push(await bounds())
+  }
+  check('6: ⌘ and two fingers throw the small window', places.some((one) => Math.abs(one.x - before.x) + Math.abs(one.y - before.y) > 40), JSON.stringify({ before, places }))
 
-  // Ask 7: quick capture's search: its box's row is no window drag, and Esc backs out with the keys anywhere.
-  const box = c.page
-  await electron.evaluate(({ BrowserWindow }) => { const win = BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view=') && !one.webContents.getURL().includes('small=')); win?.show(); win?.focus() })
-  await wait(800)
-  await box.click('.tiptap.ProseMirror.haligtree-editor').catch(() => {})
-  await box.keyboard.press('Meta+k')
-  await wait(900)
-  const row = await box.evaluate(() => {
-    const label = document.querySelector('[aria-label="Search"] label')
+  // Ask 7: the search (⌘K, the main window's, shown over another app): its box's row is no window drag, and Esc backs out
+  // with the keys anywhere.
+  await h.bringToFront()
+  await h.keyboard.press('Meta+k')
+  await h.waitForSelector('[aria-label="Search"][role="dialog"] input', { timeout: 8000 }).catch(() => {})
+  await wait(500)
+  const row = await h.evaluate(() => {
+    const label = document.querySelector('[aria-label="Search"][role="dialog"] label')
     if (!label) return null
     const style = getComputedStyle(label)
     return { region: style.getPropertyValue('-webkit-app-region') || style.webkitAppRegion, carry: style.getPropertyValue('--mf-drag').trim() }
   })
   check('7: the search box\'s row is never the window\'s drag', !!row && row.region === 'no-drag' && row.carry === '0', JSON.stringify(row))
   // As over another app: the press on the row was the window's drag, so the box never had the keys.
-  await box.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
-  await box.keyboard.press('Escape')
-  await wait(600)
-  const shut = await box.evaluate(() => !document.querySelector('[aria-label="Search"][role="dialog"]'))
-  check('7: Esc with the keys outside the box closes the search', shut)
+  await h.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur())
+  const open = await h.evaluate(() => !!document.querySelector('[aria-label="Search"][role="dialog"]'))
+  await h.keyboard.press('Escape')
+  await wait(700)
+  const shut = await h.evaluate(() => !document.querySelector('[aria-label="Search"][role="dialog"]'))
+  check('7: Esc with the keys outside the box closes the search', open && shut, JSON.stringify({ open, shut }))
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('the run finished', false, error.stack?.split('\n').slice(0, 4).join(' | '))
