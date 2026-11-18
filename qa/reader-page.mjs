@@ -298,8 +298,8 @@ try {
     const words = ([...document.querySelectorAll('.web-reader-body')].find((one) => one.getBoundingClientRect().width > 0)?.textContent ?? '').split(/\s+/).filter((one) => /[\p{L}\p{N}]/u.test(one)).length
     return { text: kicker?.textContent ?? null, upper: kicker && getComputedStyle(kicker).textTransform, spaced: kicker && parseFloat(getComputedStyle(kicker).letterSpacing), above: kicker && title ? kicker.getBoundingClientRect().bottom <= title.getBoundingClientRect().top : false, words, rule: rule && { width: parseFloat(rule.width), height: parseFloat(rule.height), fill: rule.backgroundColor } }
   })
-  const minutes = Math.max(1, Math.ceil(head.words / 230))
-  check(`over the title, the site and its minutes to read in spaced capitals ("Probe Times · ${minutes} min read": ${head.words} words at 230 a minute)`, /^Probe Times · \d+ min read$/.test(head.text ?? '') && Math.abs(Number(/(\d+) min/.exec(head.text)?.[1]) - minutes) <= 1 && head.upper === 'uppercase' && head.spaced > 0 && head.above, JSON.stringify(head))
+  const minutes = Math.max(1, Math.round(head.words / 238))
+  check(`over the title, the site and its minutes to read in spaced capitals ("Probe Times · ${minutes} min read": ${head.words} words at the app's 238 a minute)`, /^Probe Times · \d+ min read$/.test(head.text ?? '') && Math.abs(Number(/(\d+) min/.exec(head.text)?.[1]) - minutes) <= 1 && head.upper === 'uppercase' && head.spaced > 0 && head.above, JSON.stringify(head))
   check('under the title, a short rule', !!head.rule && head.rule.width >= 16 && head.rule.width <= 80 && head.rule.height >= 1 && head.rule.fill !== 'rgba(0, 0, 0, 0)', JSON.stringify(head.rule))
   /** Every line rule at one width and size: [ok, why]. */
   const lined = (got) => {
