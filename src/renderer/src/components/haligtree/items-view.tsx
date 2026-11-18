@@ -1983,12 +1983,14 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
   // layout put a folder where its newest note stood, and 30 folders read upside down beside the sidebar's.
   const sideRank = useMemo(() => {
     const ranked = new Set(order)
-    const side = layoutOf([...order, ...list.flatMap((one) => one.members.filter((id) => !ranked.has(id)))], list)
+    // A drop's layout, held until its save comes back, ranks them as it was let go: ranked by the saved order alone, a
+    // group carried to the top was drawn back in its old place until the save came back, then jumped (58).
+    const side = held ?? layoutOf([...order, ...list.flatMap((one) => one.members.filter((id) => !ranked.has(id)))], list)
     const rank = new Map<string, number>()
     const walk = (keys: string[]): void => keys.forEach((key) => isGroup(key) && (rank.set(groupId(key), rank.size), walk(side.groups[groupId(key)] ?? [])))
     walk(side.top)
     return rank
-  }, [order, list])
+  }, [order, list, held])
   // Folders first, then groups, each in the sidebar's order; one just made (not saved yet) after the rest of its kind, so
   // it never shows above the folders for a frame and then jumps down.
   const bySide = (a?: string, b?: string): number => {

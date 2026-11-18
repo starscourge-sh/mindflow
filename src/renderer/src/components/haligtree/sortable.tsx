@@ -166,8 +166,14 @@ function useHeld<T>(items: T[], keyOf: (item: T) => string): { shown: T[]; keys:
   const [sorting, setSorting] = useState(false)
   const settle = useRef<ReturnType<typeof setTimeout>>(undefined)
   const incoming = items.map(keyOf).join('\n')
-  // The saved order (or anything else) has arrived: it is the truth again.
-  useEffect(() => setHeld(null), [incoming])
+  // The saved order has arrived, or the rows themselves changed: the list is the truth again. Not any change of order: a
+  // drop that switches the list to your own order re-sorts it by the old order first, and letting go of the held one
+  // then drew the row back where it was picked up until the save came back (Tasks, 17 Nov 18; 58).
+  useEffect(() => {
+    if (!held) return
+    const ids = incoming.split('\n')
+    if (incoming === held.join('\n') || ids.length !== held.length || ids.some((id) => !held.includes(id))) setHeld(null)
+  }, [incoming]) // eslint-disable-line react-hooks/exhaustive-deps
   // The same list from one draw to the next unless the rows or their held order change: what is drawn from it is kept (Rows).
   const shown = useMemo(() => {
     if (!held) return items
@@ -177,7 +183,7 @@ function useHeld<T>(items: T[], keyOf: (item: T) => string): { shown: T[]; keys:
   const keys = useMemo(() => shown.map(keyOf), [shown]) // eslint-disable-line react-hooks/exhaustive-deps
   return {
     shown, keys, setHeld, sorting,
-    lifting: () => (clearTimeout(settle.current), setSorting(true)),
+    lifting: () => (clearTimeout(settle.current), setHeld(null), setSorting(true)),
     // A row gliding to a new place from a menu stays put until the drop has settled (Sorting).
     landed: () => (clearTimeout(settle.current), void (settle.current = setTimeout(() => setSorting(false), 320)))
   }
