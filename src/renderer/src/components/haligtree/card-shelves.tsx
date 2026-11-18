@@ -1,6 +1,7 @@
 import { CoveredPicture } from './picture-cards'
 import { GroupCover } from './group-cover'
 import { small } from '@/lib/small-picture'
+import { Decoded } from './ui'
 import { deckTitle } from './decks'
 import { useEffect, useRef, useState } from 'react'
 import { chime } from '@/lib/sound'
@@ -138,14 +139,14 @@ export function Poster({ card, over, onTurn, picked, onPick, question, answer, s
               always at the foot, above the deck's name, however long the question is. */}
           <div className="relative mt-auto h-[40%] shrink-0">
             {card.occlusion ? <div className="absolute inset-0 grid place-items-center overflow-hidden rounded"><CoveredPicture occlusion={card.occlusion} shown={false} all={card.occlusion.hide === 'all'} fit="max-h-full" /></div>
-              : card.picture ? <img src={small(card.picture, 640)} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="absolute inset-0 h-full w-full rounded object-cover" />
+              : card.picture ? <Decoded src={small(card.picture, 640)} onError={(event) => (event.currentTarget.hidden = true)} className="absolute inset-0 h-full w-full rounded object-cover" />
               // No picture: a Coolshape in the card's colour, as groups and decks wear, never a line drawing.
               : <GroupCover name={card.id} tint={tint} label={null} lone className="absolute inset-0 rounded" />}
           </div>
         </>)}
         back={face('back', <>
           {card.occlusion ? <div className="mb-3 grid max-h-[55%] place-items-center overflow-hidden rounded"><CoveredPicture occlusion={card.occlusion} shown all={card.occlusion.hide === 'all'} fit="max-h-full" /></div>
-            : card.picture && <img src={small(card.picture, 640)} alt="" onError={(event) => (event.currentTarget.hidden = true)} className="-mx-4 -mt-4 mb-3 max-h-[55%] w-[calc(100%+2rem)] max-w-none object-cover" />}
+            : card.picture && <Decoded src={small(card.picture, 640)} onError={(event) => (event.currentTarget.hidden = true)} className="-mx-4 -mt-4 mb-3 max-h-[55%] w-[calc(100%+2rem)] max-w-none object-cover" />}
           <p className={`text-foreground ${size === 'lg' ? 'text-lg leading-relaxed line-clamp-[10]' : 'text-sm leading-relaxed line-clamp-[8]'}`}>{answer || 'No answer yet'}</p>
         </>)} />
     </div>
