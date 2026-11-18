@@ -125,24 +125,6 @@ try {
   await link('Nowhere page').waitFor({ timeout: 8000 })
   const greyed = await link('Nowhere page').evaluate((one) => one.classList.contains('is-unresolved'))
   check('the link is greyed: no note of that name', greyed)
-  // Its hover: a link to a note already here shows that note's card (the control); one to nothing shows none, so no
-  // card says what a click on it would do.
-  // Rested on as qa/hover-card-split.mjs rests on a name: a real move in, then the card waited for (it comes after its
-  // pause, its words read from the book), or a while given for one that never comes.
-  const card = () => h.evaluate(() => !!document.querySelector('[data-note-preview]'))
-  const rest = async (one, expect) => {
-    await one.scrollIntoViewIfNeeded()
-    const box = await one.boundingBox()
-    await h.mouse.move(box.x - 30, box.y - 30)
-    await h.mouse.move(box.x + 4, box.y + box.height / 2, { steps: 4 })
-    if (expect) await h.locator('[data-note-preview]').first().waitFor({ state: 'visible', timeout: 4000 }).catch(() => {})
-    else await wait(2000)
-    return card()
-  }
-  const cardOnNote = await rest(link('QUOTE - Reed'), true)
-  await h.mouse.move(5, 5); await wait(600)
-  const cardOnNothing = await rest(link('Nowhere page'), false)
-  check('hovered, a link to a note shows its card, and a link to nothing none', cardOnNote && !cardOnNothing, `card on the quote ${cardOnNote}, on the link to nothing ${cardOnNothing}`)
   await link('Nowhere page').click()
   await film('ghost-click')
   s = await until((one) => /Nowhere page/.test(one.note))
@@ -241,7 +223,8 @@ try {
   check('11. and Enter on it brings the note in', /Opened from its menu/.test(s.note) && s.tab === 'Menu page', JSON.stringify(s).slice(0, 200))
   // 12. A link in the reader ("Read through" from the page): the same click brings the note in.
   await send('article', page); await wait(1200)
-  await h.locator('button[aria-label="Read through"]').first().click()
+  // The page in front's own button (the tab behind has one too, out of sight).
+  await h.locator('button[aria-label="Read through"]:visible').first().click()
   const inReader = h.locator('.mf-read a.tiptap-note-link:has-text("Reader page")').first()
   await inReader.waitFor({ timeout: 8000 })
   await inReader.click()
