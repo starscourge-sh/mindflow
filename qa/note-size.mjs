@@ -27,6 +27,10 @@ const file = shelf?.last && shelf.last !== 'default' ? join(root, 'books', shelf
 const db = new DatabaseSync(file, { readOnly: true })
 const largest = db.prepare("select id from captures where status = 'open' and kind = 'note' and body is not null order by length(body) desc limit 1").get()
 const short = db.prepare("select id from captures where status = 'open' and kind = 'note' and body is not null and length(body) between 1500 and 4000 order by id limit 1").get()
+// The same note page elsewhere: Writing's largest page and the longest question, each with the Inbox's own checks.
+const others = [['Writing', 'article'], ['a question', 'question']]
+  .map(([name, tier]) => [name, tier, db.prepare("select id from nuggets where tier = ? and body is not null and binned_at is null and archived_at is null and superseded_by is null order by length(body) desc limit 1").get(tier)])
+  .filter(([, , one]) => one)
 db.close()
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 console.log(`largest ${largest.id.slice(0, 8)}, short ${short?.id.slice(0, 8)}  (${load()})`)
@@ -36,18 +40,27 @@ const c = await sandbox({ ...(PART === 'look' ? WIDE : WIDE), seeded: false })
 const { h, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 
-/** Opened in the Inbox, its words drawn. */
-const open = async (id, long) => {
-  await send('capture', id)
-  await h.waitForFunction(([id, long]) => !!document.querySelector(`[data-open="${id}"] .tiptap${long ? '[data-long]' : ''}`), [id, long], { timeout: 60000 })
+/** Opened (in the Inbox, or where `type` opens), its words drawn. */
+const open = async (id, long, type = 'capture') => {
+  await send(type, id)
+  const drawn = await h.waitForFunction(([id, long]) => !!document.querySelector(`[data-open="${id}"] .tiptap${long ? '[data-long]' : ''}`), [id, long], { timeout: type === 'capture' ? 60000 : 20000 }).then(() => true, () => false)
+  // Not drawn: what the page shows instead, said and kept as a picture, so the run goes on to the next note.
+  if (!drawn) {
+    const there = await h.evaluate(() => ({ url: location.search, open: [...document.querySelectorAll('[data-open]')].map((el) => `${el.getAttribute('data-open')}: ${el.textContent.trim().slice(0, 80)}`).slice(0, 3), view: document.querySelector('[data-view]')?.getAttribute('data-view') ?? null }))
+    mkdirSync(SHOTS, { recursive: true })
+    await h.screenshot({ path: `${SHOTS}/not-opened-${type}-${id.slice(0, 8)}.png` })
+    check(`${type} ${id.slice(0, 8)} opens`, false, JSON.stringify(there))
+    return false
+  }
   await h.waitForFunction(() => !!document.querySelector('[data-open] [data-note-size]'), null, { timeout: 20000 }).catch(() => {})
   await wait(1500)
+  return true
 }
 
 /** What the stored note holds, parsed by the app's own schema, counted here by this probe's own walk. */
-const stored = (id) => h.evaluate(async (id) => {
+const stored = (id, type = 'capture') => h.evaluate(async ([id, type]) => {
   const ed = document.querySelector('[data-open] .tiptap').editor
-  const found = await window.api.captures.get(id)
+  const found = type === 'capture' ? await window.api.captures.get(id) : await window.api.haligtree('item', id)
   const doc = ed.schema.nodeFromJSON(typeof found.body === 'string' ? JSON.parse(found.body) : found.body)
   const shown = (node) => (node.type.name === 'noteLink' ? String(node.attrs.text || node.attrs.label || ' ') : ' ')
   const LISTS = new Set(['bulletList', 'orderedList', 'taskList'])
@@ -93,9 +106,19 @@ const stored = (id) => h.evaluate(async (id) => {
   // As the count was read before it was kept block by block: the whole note's words at once.
   const words = doc.textBetween(0, doc.content.size, ' ', (node) => ` ${shown(node)} `).split(/\s+/).filter((word) => word && word !== '/').length
   const characters = doc.textBetween(0, doc.content.size, undefined, shown).length
-  // The margin's last number, where it is drawn: the gutter's own count of the note's last line.
-  return { lines, words, characters, headings, pictures, links, cards, same: doc.eq(ed.state.doc) }
-}, id)
+  // Not the same as the editor holds it: where the two first part, and the blocks there, so a page that changed the
+  // note as it opened says how.
+  const same = doc.eq(ed.state.doc)
+  let parted = null
+  if (!same) {
+    const now = ed.state.doc
+    let at = 0
+    while (at < Math.min(doc.childCount, now.childCount) && doc.child(at).eq(now.child(at))) at++
+    const cut = (node) => (node ? JSON.stringify(node.toJSON()).slice(0, 360) : null)
+    parted = { blocks: [doc.childCount, now.childCount], at, stored: cut(doc.maybeChild(at)), shown: cut(now.maybeChild(at)), next: [cut(doc.maybeChild(at + 1))?.slice(0, 160), cut(now.maybeChild(at + 1))?.slice(0, 160)] }
+  }
+  return { lines, words, characters, headings, pictures, links, cards, same, parted }
+}, [id, type])
 
 /** The bar's size and, if up, its card. */
 const bar = () => h.evaluate(() => {
@@ -124,13 +147,13 @@ const cardGone = () => h.waitForFunction(() => !document.querySelector('[data-no
 
 try {
   if (PART === 'counts') {
-    for (const [name, note] of [['largest', largest], ['short', short]]) {
+    for (const [name, note, type] of [['largest', largest, 'capture'], ['short', short, 'capture'], ...others]) {
       if (!note) continue
-      await open(note.id, name === 'largest')
-      const want = await stored(note.id)
+      if (!(await open(note.id, name === 'largest', type))) continue
+      const want = await stored(note.id, type)
       const now = await bar()
       console.log(`${name}: stored ${JSON.stringify(want)}; bar ${JSON.stringify({ text: now.text, lines: now.lines, words: now.words })}`)
-      check(`${name}: the editor holds the stored note as it is kept`, want.same, '')
+      check(`${name}: the editor holds the stored note as it is kept`, want.same, JSON.stringify(want.parted))
       check(`${name}: the bar says its lines and words, as the stored note has them`, now.shown && now.lines === want.lines && now.words === want.words, JSON.stringify(now))
       // The margin's own number for the note's last line, when it is drawn: the same as the bar's lines.
       check(`${name}: no count under the last line: the bar holds the size`, now.pill === 0, `pills ${now.pill}`)
@@ -287,6 +310,21 @@ try {
       if (spent < 50) await wait(50 - spent)
     }
     await away()
+    // Its siblings: the same bar on a Writing page and on a question, light and dark, its card up.
+    for (const [name, note, type] of others) {
+      if (!(await open(note.id, false, type))) continue
+      for (const look of ['light', 'dark']) {
+        await c.look(look)
+        await away()
+        if (!(await bar()).shown) { console.log(`${name} ${look}: no size in the bar`); continue }
+        await pointAt()
+        await cardUp()
+        await wait(400)
+        await h.screenshot({ path: `${SHOTS}/size-${type}-card-${look}.png` })
+        await away()
+        await cardGone()
+      }
+    }
   }
   check('no page errors', c.errors.length === 0, c.errors.slice(0, 3).join(' | '))
 } finally {
