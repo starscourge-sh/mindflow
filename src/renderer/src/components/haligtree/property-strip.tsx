@@ -525,10 +525,13 @@ function NewProp({ className, size, names, waiting, onField, onName, onCancel }:
         if (at.height && at.top >= field.bottom) foot = Math.min(foot, at.top - 8)
       }
       const below = foot - field.bottom - 4
-      // Clear of the title bar, as every menu keeps (MENU_ROOM in the menus).
-      const above = field.top - 52 - 4
+      // Clear of the title bar, as every menu keeps (MENU_ROOM in the menus), and of the fade at the top of the page
+      // it scrolls in (main.css, 1.5rem), where its first rows went dim.
+      let page = box.parentElement
+      while (page && !/auto|scroll/.test(getComputedStyle(page).overflowY)) page = page.parentElement
+      const above = field.top - Math.max(52, (page?.getBoundingClientRect().top ?? 0) + 26) - 4
       const up = below < Math.min(box.scrollHeight, 320) && above > below
-      setRoom({ up, tall: Math.max(96, Math.min(320, Math.floor(up ? above : below))) })
+      setRoom({ up, tall: Math.max(72, Math.min(320, Math.floor(up ? above : below))) })
     }
     place()
     window.addEventListener('resize', place)
