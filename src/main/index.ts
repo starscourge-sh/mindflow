@@ -2532,8 +2532,8 @@ function followWorkspace(): void {
     following = null
     const here = await aerospace('list-workspaces', '--focused')
     if (!here) return
-    // Each sticky by AeroSpace's own name for its window: the Mac's window number.
-    const ours = new Set([...stickies].filter(([key, one]) => !one.isDestroyed() && stickyUp(key)).map(([, one]) => one.getMediaSourceId().split(':')[1]))
+    // Each sticky, and each small window, by AeroSpace's own name for its window: the Mac's window number.
+    const ours = new Set([...[...stickies].filter(([key, one]) => !one.isDestroyed() && stickyUp(key)).map(([, one]) => one), ...BrowserWindow.getAllWindows().filter((one) => isSmall(one) && one.isVisible())].map((one) => one.getMediaSourceId().split(':')[1]))
     const rows = await aerospace('list-windows', '--all', '--format', '%{window-id}|%{app-pid}|%{workspace}')
     for (const [id, pid, workspace] of rows.split('\n').map((row) => row.split('|')))
       if (Number(pid) === process.pid && ours.has(id) && workspace !== here) await aerospace('move-node-to-workspace', '--window-id', id, here)
@@ -5449,7 +5449,7 @@ app.whenReady().then(() => {
   registerHome()
   registerSpelling()
   registerNotes({ load, guard, home: (type, id) => sendHome(type, id, undefined, 'window'), homeWindow: () => (home && !home.isDestroyed() ? home : null) })
-  smallWindows = registerSmallWindows({ load, guard, stepAside, passThrough })
+  smallWindows = registerSmallWindows({ load, guard, stepAside, passThrough, parked: parkedBy })
   smallWindows.restore()
   registerGroups()
   registerSections()

@@ -22,6 +22,8 @@ type Windows = {
   passThrough: (win: BrowserWindow, on: boolean) => void
   /** Quick capture's step aside (index.ts), for any window kept open: `may` says whether it is on. */
   stepAside: (win: BrowserWindow, may: () => boolean) => void
+  /** Moved by a window manager, not by hand (AeroSpace hiding it on another workspace): brought to the one in view, as a sticky is (index.ts parkedBy). */
+  parked: (win: BrowserWindow) => void
 }
 
 /** Raycast Notes' size, a little wider: quick capture's own gutters (4.75rem a side) leave a column of words this wide less 152px. */
@@ -131,7 +133,7 @@ export function fitSmall(win: BrowserWindow, height: number): boolean {
   return true
 }
 
-export function registerSmallWindows({ load, guard, stepAside, passThrough }: Windows): { open: (link: string | null, from?: Electron.Rectangle | null) => void; restore: () => void } {
+export function registerSmallWindows({ load, guard, stepAside, passThrough, parked }: Windows): { open: (link: string | null, from?: Electron.Rectangle | null) => void; restore: () => void } {
   app.on('before-quit', () => {
     quitting = true
     save()
@@ -182,7 +184,15 @@ export function registerSmallWindows({ load, guard, stepAside, passThrough }: Wi
       win.webContents.send('small:said', 'auto', false)
       save()
     })
-    win.on('moved', save)
+    // Moved without a hand on it (no will-move first): a window manager hid it on another workspace. It follows you to
+    // the one in view, as quick capture and the stickies do (16 Nov: "it does not follow me through the workspaces").
+    let byHand = false
+    win.on('will-move', () => void (byHand = true))
+    win.on('moved', () => {
+      if (!byHand && process.platform === 'darwin') parked(win)
+      byHand = false
+      save()
+    })
     win.on('resized', save)
     // Kept open and clicked past close by: to the free corner furthest from the pointer, as quick capture does.
     win.on('blur', () => stepAside(win, () => state.aside))
