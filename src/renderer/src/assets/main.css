@@ -3293,6 +3293,16 @@ html[data-book-hue] [data-book-tint] {
     linear-gradient(90deg, var(--reader-desk-line) 1px, transparent 1px);
   background-size: 160px, 24px 24px, 24px 24px;
 }
+/* On that grainy lane every chip wears a faint version of the ring a picked one wears (calendar-view.tsx, RING), so it
+   stands off the paper (the user, 18 Nov: "a very feint version of the border highlight on default"); the picked one
+   keeps its full ring, set with !important over this. "+N more" sits on the page's own colour, so the grain is not under
+   its words. */
+[data-cal-allday-lane] :is([data-cal-event-chip], [data-cal-untimed], [data-study-review], [data-study-book], [data-cal-allday-more]) {
+  outline: 1px solid var(--cal-allday-ring);
+  outline-offset: -1px;
+}
+[data-cal-allday-lane] [data-cal-allday-more]:not(:hover) { background-color: var(--background); }
+:root { --cal-allday-ring: color-mix(in oklab, var(--ring) 25%, transparent); }
 /* Today's empty page: the question it is typing (DayBreath, day-view.tsx). */
 [data-day-write] .tiptap.ProseMirror .is-empty[data-placeholder]:has(> .ProseMirror-trailingBreak:only-child)::before {
   content: var(--mf-day-ph, attr(data-placeholder));
