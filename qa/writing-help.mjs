@@ -77,7 +77,7 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       const lines = await h.evaluate(() => [...document.querySelectorAll('[data-clicked^="help-"]')].map((one) => one.getAttribute('data-clicked')))
       // Where the submenu stands in the window, for the frames: nothing touches an edge (12px).
       const room = await h.evaluate(() => { const r = document.querySelector('[data-clicked^="help-"]')?.closest('[role="menu"]')?.getBoundingClientRect(); return r && { left: Math.round(r.left), top: Math.round(r.top), right: Math.round(innerWidth - r.right), bottom: Math.round(innerHeight - r.bottom) } })
-      check('ai: its submenu holds the eight', lines.length === 8, `${lines.join(',')}; room to the window's edges ${JSON.stringify(room)}`)
+      check('ai: its submenu holds the eight, clear of the window\'s edges', lines.length === 8 && !!room && room.top >= 52 && Math.min(room.left, room.right, room.bottom) >= 10, `${lines.join(',')}; room to the window's edges ${JSON.stringify(room)}`)
       if (shot) await c.both(`${shot}/right-click`)
     }
     await h.keyboard.press('Escape'); await wait(300)
@@ -205,8 +205,9 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       await h.click('[data-help="shorter"]'); await ready()
       const smallCard = await inside('[data-writing-help]')
       if (shot) await h.screenshot({ path: `${shot}/small-card.png` })
-      const clear = (r) => !!r && Math.min(r.left, r.top, r.right, r.bottom) >= 8
-      check('ai: at 560 by 400 the menu and the card stay inside the window, clear of its edges', clear(smallMenu) && clear(smallCard), JSON.stringify({ smallMenu, smallCard }))
+      // As every menu keeps (MENU_ROOM): 52 under the title bar, 12 from the other edges.
+      const clear = (r) => !!r && r.top >= 52 && Math.min(r.left, r.right, r.bottom) >= 12
+      check('ai: at 560 by 400 the menu and the card stay inside the window, 52 under its title bar and 12 from its other edges', clear(smallMenu) && clear(smallCard), JSON.stringify({ smallMenu, smallCard }))
       await h.keyboard.press('Escape'); await wait(300)
       await c.size(1300, 900)
       // A failure gets a plain line: too long a pick.
