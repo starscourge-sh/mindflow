@@ -151,9 +151,10 @@ function entries(editor: Editor): Entry[] {
 }
 
 /**
- * Every cell of a table of several rows and columns picked (⌘A's step after a
- * row, or a drag across them all): no one row or column is meant, and the
- * column's menu it showed ("Delete column", "Sort column A to Z") said otherwise.
+ * Every cell of a table of several rows and columns picked (a drag across them
+ * all; ⌘A's step after a row picks the table as a block): no one row or column
+ * is meant, and the column's menu it showed ("Delete column", "Sort column A to
+ * Z") said otherwise.
  */
 const wholeTable = (cells: CellSelection): boolean => {
   const map = TableMap.get(cells.$anchorCell.node(-1))

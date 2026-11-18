@@ -13,6 +13,7 @@ import { loadavg } from 'os'
 import { join } from 'path'
 import { checks } from './harness.mjs'
 import { topCosts } from './long-note-doc.mjs'
+import { clearBoard, copiedText } from './pasteboard.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 
 const BOOK = !!process.env.BOOK
@@ -200,6 +201,23 @@ async function offers() {
   await h.keyboard.press('Escape'); await wait(150)
   await h.keyboard.press('Meta+z'); await wait(250)
   check('vim off: one ⌘Z takes the colour off them all', !(await colours()).includes(':blue'), await colours())
+  await h.keyboard.press('Escape'); await wait(150)
+  // The keys picked blocks answer, on the list ⌘A picked: ⌘C copies its words, ⌘D a copy of it after it, ⌫ takes it
+  // whole, each ⌘Z back in one step (the stand-in clipboard, qa/pasteboard.mjs, never the Mac's own).
+  await clearBoard(c.electron)
+  await pickList()
+  await h.keyboard.press('Meta+c'); await wait(250)
+  const copied = await copiedText(c.electron)
+  check('vim off: ⌘C on the list ⌘A picked copies its words', ['apple', 'berry', 'blue', 'black', 'cherry'].every((one) => copied.includes(one)) && !copied.includes('Lists'), JSON.stringify(copied.slice(0, 80)))
+  await h.keyboard.press('Meta+d'); await wait(300)
+  const twice = await tops()
+  await h.keyboard.press('Meta+z'); await wait(300)
+  check('vim off: ⌘D puts a copy of the picked list right after it, and ⌘Z takes it away', twice.includes('list(appleberryblueblackcherry) / list(appleberryblueblackcherry)') && (await tops()) === before, twice.slice(0, 160))
+  await pickList()
+  await h.keyboard.press('Backspace'); await wait(300)
+  const gone = await tops()
+  await h.keyboard.press('Meta+z'); await wait(300)
+  check('vim off: ⌫ takes the picked list whole, and one ⌘Z brings it back', !gone.includes('apple') && gone.includes('Lists / waterweed') && (await tops()) === before, gone.slice(0, 160))
   await h.keyboard.press('Escape'); await wait(150)
   // ⇧⌘P: the notes' search asks where the picked blocks go.
   await pickList()
