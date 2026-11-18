@@ -77,8 +77,15 @@ try {
 
   // Ask 24: a group made a folder, and back.
   await h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'manual', group: 'none', filter: {}, density: 'list' })))
+  // A group of two pages, and a group holding a group (the example book's Writing holds folders only).
+  const pages = []
+  for (let i = 0; i < 4; i++) { const id = await v('article:new'); await v('item:save', id, { title: `Probe page ${i + 1}`, body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: `page ${i + 1}` }] }] } }); pages.push(id) }
+  const made = await v('groups:make', 'article', 'Probe group', null, false)
+  const outerMade = await v('groups:make', 'article', 'Deep dives probe', null, false)
+  const innerMade = await v('groups:make', 'article', 'Deep Dive probe', outerMade, false)
+  await v('groups:place', [{ id: pages[0], group: made }, { id: pages[1], group: made }, { id: pages[2], group: outerMade }, { id: pages[3], group: innerMade }])
   const all = await v('groups', 'article')
-  const group = all.find((one) => !one.folder && !one.parent)
+  const group = all.find((one) => one.id === made)
   if (!group) check('24: the sandbox has a group in Writing to convert', false, all.map((one) => `${one.name}:${one.folder}`).join(', '))
   else {
     await go('nuggets')
@@ -89,8 +96,8 @@ try {
     check(`24: ${group.name}'s menu offers "Make it a folder"`, groupMenu.some((one) => one.startsWith('Make it a folder')), groupMenu.join(' | '))
     if (shots) await h.screenshot({ path: `${shots}/24-group-menu.png` })
     await choose('Make it a folder')
-    const made = (await v('groups', 'article')).find((one) => one.id === group.id)
-    check(`24: ${group.name} is a folder now, said with Undo`, made?.folder === 1 && /is a folder now/.test(await toastSaid()), JSON.stringify({ folder: made?.folder, said: await toastSaid() }))
+    const turned = (await v('groups', 'article')).find((one) => one.id === group.id)
+    check(`24: ${group.name} is a folder now, said with Undo`, turned?.folder === 1 && /is a folder now/.test(await toastSaid()), JSON.stringify({ folder: turned?.folder, said: await toastSaid() }))
     await wait(500)
     await rightClick(`${M} [data-group-row="${group.id}"]`)
     const folderMenu = await menu()
