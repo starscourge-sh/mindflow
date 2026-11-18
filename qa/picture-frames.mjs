@@ -12,7 +12,19 @@ export async function pictureWatch(page, rows, ms = 1500) {
     let frames = 0
     const from = performance.now()
     // A row by its note (a list's row, a board's card, a tag's entry), or by its words (a grid's tile).
-    const keyOf = (row) => row.dataset.id ?? row.dataset.sortableId ?? row.querySelector('[data-pick]')?.dataset.pick ?? row.closest('[data-id]')?.dataset.id ?? row.getAttribute('aria-label') ?? row.textContent.trim().slice(0, 40)
+    // A whole grid read as one (its tiles say nothing of their own) goes by its selector.
+    const keyOf = (row) => row.dataset.id ?? row.dataset.sortableId ?? row.querySelector('[data-pick]')?.dataset.pick ?? row.closest('[data-id]')?.dataset.id ?? row.getAttribute('aria-label') ?? (row.textContent.trim().slice(0, 40) || rows)
+    // Seen: in the window and inside every box that scrolls around it (a row far down a scrolling grid is not seen yet).
+    const inView = (row) => {
+      const box = row.getBoundingClientRect()
+      if (box.bottom <= 0 || box.top >= innerHeight || box.right <= 0 || box.left >= innerWidth) return false
+      for (let at = row.parentElement; at && at !== document.body; at = at.parentElement) {
+        if (!/(auto|scroll|hidden)/.test(getComputedStyle(at).overflowY)) continue
+        const around = at.getBoundingClientRect()
+        if (box.bottom <= around.top || box.top >= around.bottom) return false
+      }
+      return true
+    }
     window.__pictureRows = { rows, keyOf }
     const fading = (el, top) => {
       for (let at = el; at && at !== top.parentElement; at = at.parentElement)
@@ -25,7 +37,7 @@ export async function pictureWatch(page, rows, ms = 1500) {
       frames++
       for (const row of document.querySelectorAll(rows)) {
         const key = keyOf(row)
-        if (!key || seen[key] || !row.checkVisibility({ visibilityProperty: true })) continue
+        if (!key || seen[key] || !row.checkVisibility({ visibilityProperty: true }) || !inView(row)) continue
         seen[key] = {
           at: Math.round(performance.now() - from),
           coming: !!row.querySelector('[data-picture-coming]'),
