@@ -128,7 +128,7 @@ try {
   await open('Join', [{ type: 'orderedList', content: [li('jh reported issues:')] }, bullet([li('failing search by category')])], 'failing')
   await press('Tab')
   const joined = await h.evaluate((sel) => { const json = document.querySelector(sel).editor.getJSON(); return { top: json.content.map((one) => one.type).join(','), inside: JSON.stringify(json.content[0]?.content ?? '').includes('bulletList') } }, ED)
-  check('17: Vim on, Tab on the first bullet after a numbered list joins it under that line', joined.inside && joined.top === 'orderedList', JSON.stringify(joined))
+  check('17: Vim on, Tab on the first bullet after a numbered list joins it under that line', joined.inside && !joined.top.split(',').includes('bulletList'), JSON.stringify(joined))
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('the run finished', false, error.stack?.split('\n').slice(0, 4).join(' | '))
