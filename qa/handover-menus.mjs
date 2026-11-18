@@ -48,8 +48,15 @@ try {
 
   // Ask 2: the list's own right-click, on its empty space under the rows.
   const before = (await v('groups', 'article')).length
-  const space = await h.locator(`${M} [data-list-space]`).boundingBox()
-  await h.mouse.click(space.x + space.width / 2, space.y + space.height - 30, { button: 'right' })
+  // Scrolled to the list's foot, as a person does to reach the empty space under the last row.
+  const foot = async () => {
+    await h.evaluate((sel) => { let up = document.querySelector(sel); while (up && !(up.scrollHeight > up.clientHeight + 4 && /(auto|scroll)/.test(getComputedStyle(up).overflowY))) up = up.parentElement; if (up) up.scrollTop = up.scrollHeight }, `${M} [data-list-space]`)
+    await wait(400)
+    const box = await h.locator(`${M} [data-list-space]`).boundingBox()
+    return { x: box.x + box.width / 2, y: Math.min(box.y + box.height - 30, 860 - 40) }
+  }
+  const space = await foot()
+  await h.mouse.click(space.x, space.y, { button: 'right' })
   await wait(500)
   const lines = await menu()
   check('2: a right-click on the list\'s empty space offers New page, New folder and Sort', ['New page', 'New folder', 'Sort'].every((one) => lines.some((line) => line.startsWith(one))), lines.join(' | '))
@@ -58,7 +65,8 @@ try {
   await h.keyboard.press('Escape')
   await wait(400)
   check('2: its "New folder" makes a folder in Writing', (await v('groups', 'article')).length === before + 1, `${before} → ${(await v('groups', 'article')).length}`)
-  await h.mouse.click(space.x + space.width / 2, space.y + space.height - 30, { button: 'right' })
+  const again = await foot()
+  await h.mouse.click(again.x, again.y, { button: 'right' })
   await wait(500)
   await choose('Sort')
   await choose('A to Z')
