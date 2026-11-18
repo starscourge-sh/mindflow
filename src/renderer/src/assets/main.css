@@ -4172,12 +4172,14 @@ textarea[data-talking]::selection {
 :root[data-seeding] [data-writer-line] { display: none; }
 
 /* A small window (main/small-window.ts): quick capture's page holding one note in a window of its own. The window is
-   see-through and the card fills it, in quick capture's own material and corners (above), opaque, with the Mac's
-   shadow round the window rather than one of its own, which the window's edge would cut. */
+   opaque, as a note's own window is, and the card fills it in the page's own paper: the Mac draws its edge, its
+   rounded corners and its shadow. See-through, a corner drag left it blank and its foot showed the desktop (16 Nov). */
+html[data-small],
+html[data-small] body {
+  background: var(--background);
+}
 html[data-small] .app-container {
-  border-radius: var(--mf-box-radius);
-  background-color: var(--mf-glass-fill);
-  box-shadow: var(--mf-glass-rim), var(--mf-glass-edge);
+  background-color: var(--background);
 }
 /* Growing with its words, the card is as tall as they need, drawn by the page in the frame they change, in clear room
    its window already holds below it (lib/fit-box.ts drawSmall; main grows the window only when that room runs short).

@@ -121,22 +121,15 @@ export function fitSmall(win: BrowserWindow, height: number): boolean {
   const card = Math.round(Math.max(SHORT, Math.min(height, foot - top)))
   // The Mac's shadow follows the card's new shape, not the one it had when the window last changed size.
   if (process.platform === 'darwin') win.invalidateShadow()
-  // QC2's one mechanism, as quick capture grows (index.ts keptRoom): the page draws the card at its height in the room
-  // the window already holds below it, in the frame the words change; the window changes size only once that room
-  // runs short, in one step a few rows ahead, and gives room back only when it holds a lot more than the card needs.
-  // A window resized for every row showed each row's edge a frame late. The room is clear: clicks pass through it.
-  const lacks = card + AHEAD > now.height
-  const spare = now.height > card + 2 * ROOM
+  // As tall as its card: the window is opaque now, so room kept under the card for it to grow into (quick capture's way,
+  // index.ts keptRoom) showed as empty paper under the thought bar (16 Nov, shot 03-a).
   const past = now.y + now.height > foot || now.height > foot - top
-  if (!lacks && !spare && !past) return true
-  const next = Math.min(foot - top, card + ROOM)
+  if (now.height === card && !past) return true
+  const next = Math.min(foot - top, card)
   const y = Math.max(top, Math.min(now.y, foot - next))
   if (next !== now.height || y !== now.y) win.setBounds({ ...now, y, height: next }, false)
   return true
 }
-/** Room a growing small window holds below its card, and how close the card may come to its foot before it grows. */
-const ROOM = 240
-const AHEAD = 96
 
 export function registerSmallWindows({ load, guard, stepAside, passThrough }: Windows): { open: (link: string | null, from?: Electron.Rectangle | null) => void; restore: () => void } {
   app.on('before-quit', () => {
@@ -163,8 +156,10 @@ export function registerSmallWindows({ load, guard, stepAside, passThrough }: Wi
       roundedCorners: true,
       hasShadow: true,
       fullscreenable: false,
-      backgroundColor: '#00000000',
-      transparent: true,
+      // Opaque, as a note's own window is (notes.ts). A see-through window is not one the Mac can resize: dragged by its
+      // corner it went blank but for its buttons, and the foot of the card showed the desktop through it (16 Nov). It
+      // is as tall as its card, so there is no clear room under the card to see through.
+      backgroundColor: '#1c1c1c',
       title: 'Note',
       autoHideMenuBar: true,
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }
