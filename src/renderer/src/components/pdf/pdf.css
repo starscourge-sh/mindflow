@@ -368,17 +368,12 @@
      Nov 2026: "can we make the backgrop a grid of boxes and grainy"). Still while the pages scroll over it, so it is
      painted once; the squares sit evenly either side of the middle. The grain is specks of the theme's ink, dark on a
      light page and light on a dark one, so it reads on both (blended softly into a light page it did not show). */
-  --reader-desk-line: color-mix(in oklab, var(--foreground) 7%, transparent);
-  --reader-desk-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .45 0 0 0 -.15'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   background-image:
     var(--reader-desk-grain),
     linear-gradient(var(--reader-desk-line) 1px, transparent 1px),
     linear-gradient(90deg, var(--reader-desk-line) 1px, transparent 1px);
   background-size: 160px, 24px 24px, 24px 24px;
   background-position: 0 0, 50% 0, 50% 0;
-}
-:root:not([data-light]) .pdf-reader-scroll {
-  --reader-desk-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .35 0 0 0 -.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* Paper pages: the white of the page becomes the app's own warm paper, the

@@ -3273,10 +3273,23 @@ html[data-book-hue] [data-book-tint] {
    rows (haligtree-editor.scss `th`): the same fine dot screen, fainter (the user, 13 Nov: "use the same styling ...
    for the table headers, but fainter"). On each day's cell, so a weekend's tint and a carry's light keep their colour
    under it, and on the "All-day" label beside the lane. */
+/* The readers' desk (pdf.css .pdf-reader-scroll): squared paper in the theme's ink under a fine grain, shared so the
+   Calendar's all-day lane wears the same (the user, 18 Nov: "i want the background here to match the background that
+   you used for the reader"). */
+:root {
+  --reader-desk-line: color-mix(in oklab, var(--foreground) 7%, transparent);
+  --reader-desk-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  .45 0 0 0 -.15'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+:root:not([data-light]) {
+  --reader-desk-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  .35 0 0 0 -.12'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
 [data-cal-allday],
 :is(span, div):has(+ [data-cal-allday-lane]) {
-  background-image: radial-gradient(color-mix(in oklab, var(--foreground) 8%, transparent) 0.6px, transparent 0.9px);
-  background-size: 4px 4px;
+  background-image:
+    var(--reader-desk-grain),
+    linear-gradient(var(--reader-desk-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--reader-desk-line) 1px, transparent 1px);
+  background-size: 160px, 24px 24px, 24px 24px;
 }
 /* Today's empty page: the question it is typing (DayBreath, day-view.tsx). */
 [data-day-write] .tiptap.ProseMirror .is-empty[data-placeholder]:has(> .ProseMirror-trailingBreak:only-child)::before {
