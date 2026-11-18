@@ -59,7 +59,7 @@ try {
   // Ask 13: Vim's visual pick stays after Tab, and Tab goes again.
   await open('Lists', [p('intro'), bullet([li('milk'), li('bread'), li('eggs'), li('butter')]), p('outro')], 'bread')
   await vim(true)
-  await press('Escape', 'V', 'j', 'j', 'Tab')
+  await press('V', 'j', 'j', 'Tab')
   const once = await read()
   check('13: Vim on, V over three lines and Tab: they go in and stay picked', once.vim === 'visualLine' && once.sel.includes('bread') && once.sel.includes('butter') && once.out.bread === 2 && once.out.butter === 2, JSON.stringify(once))
   await press('Tab')
@@ -68,24 +68,24 @@ try {
 
   // Ask 12: one picked line goes in alone; its line under it keeps its level, beside it.
   await open('One line', [bullet([li('milk'), li('bread', [bullet([li('jam')])]), li('eggs')])], 'bread')
-  await press('Escape', 'V', 'Tab')
+  await press('V', 'Tab')
   const alone = await read()
   check('12: Vim on, V on a parent and Tab: the parent goes in, its child keeps its level', alone.out.bread === 2 && alone.out.jam === 2 && alone.vim === 'visualLine' && alone.sel.includes('bread'), JSON.stringify(alone))
   await open('Caret carries', [bullet([li('milk'), li('bread', [bullet([li('jam')])]), li('eggs')])], 'bread')
-  await press('Escape', 'Tab')
+  await press('Tab')
   const carried = await read()
   check('12: a caret Tab on the parent carries its child in with it', carried.out.bread === 2 && carried.out.jam === 3, JSON.stringify(carried))
 
   // Asks 12 and 13 with Vim off: picked by keys, the same.
   await vim(false)
   await open('Vim off', [bullet([li('milk'), li('bread', [bullet([li('jam')])]), li('eggs')])], 'bread')
-  await press('Shift+End', 'Tab')
+  await press('Meta+Shift+ArrowRight', 'Tab')
   const off = await read()
   check('12, 13: Vim off, a picked parent line goes in alone and stays picked', off.out.bread === 2 && off.out.jam === 2 && off.sel.includes('bread'), JSON.stringify(off))
 
   // Ask 10: Enter at the end of italic starts a plain line.
   await open('Italic', [bullet([{ type: 'listItem', content: [p('per month', [{ type: 'italic' }])] }])], 'per month')
-  await press('End', 'Enter')
+  await press('Meta+ArrowRight', 'Enter')
   await h.keyboard.type('kdfadf')
   await wait(150)
   const marks = await h.evaluate((sel) => {
@@ -93,12 +93,12 @@ try {
     document.querySelector(sel).editor.state.doc.descendants((node) => { if (node.isText && node.text === 'kdfadf') found = node.marks.map((m) => m.type.name) })
     return found
   }, ED)
-  check('10: Enter after an italic list line, then typing: the new line is plain', Array.isArray(marks) && marks.length === 0, JSON.stringify(marks))
+  check('10: Enter after an italic list line, then typing: the new line is plain', Array.isArray(marks) && marks.length === 0, JSON.stringify({ marks, doc: await h.evaluate((sel) => document.querySelector(sel).editor.getText(), ED) }))
 
   // Ask 11: Vim's w stops on an empty line, and never runs on to the note's end.
   await vim(true)
   await open('Words', [p('projected 48.25'), p(''), p(''), p('later')], 'projected@48')
-  await press('Escape', 'w', 'w')
+  await press('w', 'w')
   const on25 = await read()
   await press('w')
   const blank = await read()
@@ -107,7 +107,7 @@ try {
   const later = await read()
   check('11: w again: the next empty line, then the next word', later.caret === 'later', JSON.stringify(later))
   await open('Words at the end', [p('alpha'), p('projected 48.25'), p(''), p(''), p('')], 'projected@25')
-  await press('Escape', 'w')
+  await press('w')
   const end = await read()
   check('11: w on the last word, empty lines after it: the first of them, not the last line', end.caret === '' && end.index === 2, JSON.stringify(end))
 
@@ -126,7 +126,7 @@ try {
   // Ask 17: Vim's Tab on a bullet straight after a numbered list joins it under the numbered line.
   await vim(true)
   await open('Join', [{ type: 'orderedList', content: [li('jh reported issues:')] }, bullet([li('failing search by category')])], 'failing')
-  await press('Escape', 'Tab')
+  await press('Tab')
   const joined = await h.evaluate((sel) => { const json = document.querySelector(sel).editor.getJSON(); return { top: json.content.map((one) => one.type).join(','), inside: JSON.stringify(json.content[0]?.content ?? '').includes('bulletList') } }, ED)
   check('17: Vim on, Tab on the first bullet after a numbered list joins it under that line', joined.inside && joined.top === 'orderedList', JSON.stringify(joined))
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
