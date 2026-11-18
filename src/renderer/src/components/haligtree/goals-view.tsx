@@ -239,6 +239,20 @@ export function settle(item: { id: string; goalAt?: string | null }, how: 'made 
   })
 }
 
+/**
+ * Its day given or taken away: a someday goal gets a road, a dated one joins the life list ("Make it someday"). Said,
+ * with Undo. One action from its panel and from its right-click menu (16 Nov: the menu had no "Make it someday").
+ */
+function giveDay(item: Pick<Item, 'id' | 'goalAt' | 'goalFrom' | 'createdAt'>, day: string | null, from = item.goalFrom ?? dayKey(item.createdAt)): void {
+  const was = { target: item.goalAt, from }
+  void haligtree.goalDates(item.id, { target: day }).then((ok) => {
+    if (!ok) return chime('nope')
+    chime(day ? 'goal' : 'tap')
+    toast(day ? `Given a day: ${dayMonth(`${day}T12:00`)}, and the countdown starts` : 'No day now: it waits under “Someday”, no countdown',
+      () => void haligtree.goalDates(item.id, was.target ? { target: was.target, from: was.from } : { target: null }))
+  })
+}
+
 /** Off ice and open again, its day moved out by the days it waited; undoable back onto the ice. */
 function thaw(item: Item): void {
   void haligtree.thawGoal(item.id).then((back) => {
@@ -458,6 +472,7 @@ const goalMenu = (item: Item): MenuItem[] => [
   'separator',
   ...endings(item),
   'separator',
+  !item.closedAt && !someday(item) && { label: ACT.someday, hint: 'Off the countdown, onto your someday list', run: () => giveDay(item, null) },
   !item.closedAt && !someday(item) && { label: ACT.home(onHome(item)), hint: onHome(item) ? 'Off the top of Home' : 'At the top of Home', run: () => setOnHome(item, !onHome(item)) },
   { label: ACT.secret(!!item.private), run: () => void haligtree.setPrivate('nuggets', item.id, !item.private) },
   // Goals pause on ice, not in the archive: only one archived before keeps a way back.
@@ -722,16 +737,7 @@ function GoalDetail({ item, top }: { item: ItemFull; top?: React.ReactNode }): R
       toast(mode === 'always' ? 'On screen, on every Space' : mode === 'sometimes' ? 'On screen now and then: it comes out a few times a day' : 'Off screen: the menu bar and Home still show it',
         () => void haligtree.setBeacon(item.id, was)))
   }
-  // Its day given or taken away: a someday goal gets a road, a dated one joins the life list. Said, with Undo.
-  const setDay = (day: string | null): void => {
-    const was = { target: item.goalAt, from: item.goalFrom ?? from }
-    void haligtree.goalDates(item.id, { target: day }).then((ok) => {
-      if (!ok) return chime('nope')
-      chime(day ? 'goal' : 'tap')
-      toast(day ? `Given a day: ${dayMonth(`${day}T12:00`)}, and the countdown starts` : 'No day now: it waits under “Someday”, no countdown',
-        () => void haligtree.goalDates(item.id, was.target ? { target: was.target, from: was.from } : { target: null }))
-    })
-  }
+  const setDay = (day: string | null): void => giveDay(item, day, from)
   const moveDates = (dates: { target?: string; from?: string }): void => {
     const was = { target, from }
     void haligtree.goalDates(item.id, dates).then(() => {
