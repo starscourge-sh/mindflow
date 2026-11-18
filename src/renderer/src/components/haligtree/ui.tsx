@@ -1000,8 +1000,8 @@ export function useEscapeLeavesEditor(): void {
     const before = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return
       const editor = (event.target as Element | null)?.closest?.('.ProseMirror')
-      const mode = editor?.getAttribute('data-vim-mode')
-      free = !!editor && (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) &&
+      // With Vim on, Escape stays in the note, as in vim and Obsidian (18 Nov): only with Vim off does it let go.
+      free = !!editor && !editor.hasAttribute('data-vim-mode') && (window.getSelection()?.isCollapsed ?? true) &&
         !layerOpen('.tiptap-find-bar:not([inert])') && !caretTakesEscape()
     }
     const after = (event: KeyboardEvent): void => {
