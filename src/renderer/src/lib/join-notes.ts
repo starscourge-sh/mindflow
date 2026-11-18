@@ -14,12 +14,14 @@ const NOT = { same: 'It is the same note, so nothing was joined', gone: 'That no
 
 /**
  * Two notes made one, by every way there is: "Join them" under a note that nearly repeats another (note-offers.tsx),
- * and "Merge into another note…" (merge-picker.tsx). `other`'s words go under `keep`'s, after a rule, and `other` to
- * the Bin, in the main process on the notes as stored (haligtree.ts `notes:join`), never through an open editor: an
- * editor showing `keep` opens it again from the book, the way a note opens (lib/same-words.ts). One notice says it,
- * with "Open the Bin", and its Undo (or ⌘Z) puts both back as they were. Gives back whether they were joined.
+ * and "Merge into another note…" (merge-picker.tsx). `keep` stays whole; of `other`'s blocks only those whose words
+ * `keep` holds nowhere come over, under a rule (none, no rule), and `other` goes whole to the Bin; links elsewhere to
+ * `other` lead to `keep`. Done in the main process on the notes as stored (haligtree.ts `notes:join`), never through
+ * an open editor: an editor showing `keep` opens it again from the book, the way a note opens (lib/same-words.ts).
+ * One notice says what came over (`said`: lines added, links led here), with "Open the Bin", and its Undo (or ⌘Z)
+ * puts everything back as it was. Gives back whether they were joined.
  */
-export async function joinNotes(keep: NoteSide, other: NoteSide, said: string): Promise<boolean> {
+export async function joinNotes(keep: NoteSide, other: NoteSide, said: (added: number, links: number) => string): Promise<boolean> {
   // Words typed and not saved yet go first: the join is made of the notes as stored.
   window.dispatchEvent(new Event('haligtree:flush'))
   // The other's row, where one is on screen, crumples now and flies to the Bin once it is there, as every way to the
@@ -27,22 +29,24 @@ export async function joinNotes(keep: NoteSide, other: NoteSide, said: string): 
   const flight = binFlight(other.id)
   const not = (why: string): boolean => (stays([other.id]), refuse(why), false)
   let made = await haligtree.joinNotes(keep, other)
-  if ('markdown' in made) {
-    // One of them is still the Markdown it came in as (main sends it): read here as its editor reads it, without
-    // holding the window, and given back with the words it was read from, used only while those are still stored.
+  // A side still the Markdown it came in as (main sends it; both, one after the other): read here as its editor reads
+  // it, without holding the window, and given back with the words it was read from, used only while those are stored.
+  let given: Partial<Record<'keep' | 'other', { doc: unknown; from: string }>> = {}
+  for (let round = 0; 'markdown' in made && round < 2; round++) {
     const doc = await readMarkdownGently(made.text)
     if (!doc) return not('Its words could not be read here, so nothing was joined')
     const read = { doc, from: made.text }
-    made = await haligtree.joinNotes(keep, other, made.markdown === 'keep' ? { keep: read } : { other: read })
-    if ('markdown' in made) return not('It changed as it was read, so nothing was joined')
+    given = made.markdown === 'keep' ? { ...given, keep: read } : { ...given, other: read }
+    made = await haligtree.joinNotes(keep, other, given)
   }
+  if ('markdown' in made) return not('It changed as it was read, so nothing was joined')
   if ('why' in made) return not(NOT[made.why])
-  const { token } = made
+  const { token, added, links } = made
   // The Bin's one sound, and every page with the other open moves off it (false: one did).
   flight?.()
   tear()
   const stayed = binned([other.id])
-  toast(said, () => (expectBack([other.id]), void haligtree.unjoinNotes(token).then((back) => {
+  toast(said(added, links), () => (expectBack([other.id]), void haligtree.unjoinNotes(token).then((back) => {
     if (!back) return refuse('Too long ago to take back here: the note holds both, and the other is in the Bin')
     // A page that moved off the other opens it again, as Mail selects a message it undeleted (lib/nav.ts); one that
     // stayed on the note that was kept (“Join them” under it) stays there, and that note opens again as it was.

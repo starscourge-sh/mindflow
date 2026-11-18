@@ -2496,7 +2496,7 @@ export function registerHaligtree(): void {
   // properties and who and where it is from, where the one kept has none. An open editor of the one kept is told
   // its words came whole (`whole`), and opens it again from here. One Undo puts both back exactly as they were.
   type Side = { table: 'captures' | 'nuggets'; id: string }
-  type Joined = { keep: Side; other: Side; rows: [Record<string, unknown>, Record<string, unknown>]; joined: string; versions: number }
+  type Joined = { keep: Side; other: Side; rows: [Record<string, unknown>, Record<string, unknown>]; joined: string; versions: number; linking: { table: 'captures' | 'nuggets'; id: string; was: string; now: string }[] }
   const joins = new Map<number, Joined>()
   let joinsMade = 0
   const storedBody = (text: unknown): unknown => {
@@ -2532,22 +2532,37 @@ export function registerHaligtree(): void {
     }
     const one = bodyOf(a, 'keep')
     const two = bodyOf(b, 'other')
-    let joined: unknown
+    // The two "say nearly the same" (the offer), so they are not doubled (the lead, 18 Nov): this note stays whole, and
+    // of the other's blocks only those whose words this note holds nowhere come over, in their order, under a rule.
+    // Nothing new, no rule. Nothing is lost: the other stays whole in the Bin.
+    let joined: unknown = one
+    let added = 0
     if (blank(two)) joined = one
-    else if (blank(one)) joined = two
-    // Both still the Markdown they came in as: joined as Markdown, a rule between, read as the editor reads any.
-    else if (typeof one === 'string' && typeof two === 'string') joined = `${one.trimEnd()}\n\n---\n\n${two.trimStart()}`
-    // One of them still Markdown: the window reads it as its editor would, and asks again with it.
+    else if (blank(one)) (joined = two), (added = typeof two === 'string' ? two.split('\n').filter((line) => line.trim()).length : ((two as Doc).content ?? []).reduce((sum, block) => sum + linesOf(block), 0))
+    // A side still the Markdown it came in as: the window reads it as its editor would, and asks again with it.
     else if (typeof one === 'string' || typeof two === 'string') return typeof one === 'string' ? { markdown: 'keep', text: one } : { markdown: 'other', text: two as string }
     else {
       const first = [...((one as Doc).content ?? [])]
       // The empty line a note ends on is where the other's words would have been typed: they start there.
       while (first.length && first.at(-1)?.type === 'paragraph' && !first.at(-1)?.content?.length) first.pop()
-      joined = { ...(one as Doc), content: [...first, { type: 'horizontalRule' }, ...((two as Doc).content ?? [])] }
+      const held = new Set(first.map(keyOf))
+      const fresh = ((two as Doc).content ?? []).filter((block) => !(block.type === 'paragraph' && !blockWords(block).trim()) && !held.has(keyOf(block)))
+      added = fresh.reduce((sum, block) => sum + linesOf(block), 0)
+      if (fresh.length) joined = { ...(one as Doc), content: [...first, { type: 'horizontalRule' }, ...fresh] }
     }
-    const text = JSON.stringify(joined ?? null)
+    // Its words change only when something came over (or it held none): otherwise they stay as stored, letter for letter.
+    const grew = joined !== one
+    const text = grew ? JSON.stringify(joined ?? null) : String(a.body ?? 'null')
+    // Links elsewhere to the other lead to this one now, as Undo leads them back: every other note's words naming it.
+    const refOf = (side: Side, row: Record<string, unknown>): string => (side.table === 'captures' ? side.id : `${String(row.tier)}:${side.id}`)
+    const from = refOf(other, b)
+    const to = refOf(keep, a)
+    const lead = (body: string): string => body.split(`"id":"${from}"`).join(`"id":"${to}"`).split(`[[@${from}`).join(`[[@${to}`)
+    const linking = (['captures', 'nuggets'] as const).flatMap((table) => (db.prepare(`select id, body from ${table} where instr(body, ?) > 0 and id not in (?, ?)`).all(other.id, keep.id, other.id) as { id: string; body: string }[])
+      .flatMap((row) => { const now = lead(row.body); return now === row.body ? [] : [{ table, id: row.id, was: row.body, now }] }))
+    const links = linking.reduce((sum, one) => sum + one.was.split(`"id":"${from}"`).length - 1 + one.was.split(`[[@${from}`).length - 1, 0)
     // What the other carries, where the one kept has none of its own.
-    const sets: Record<string, unknown> = { body: text }
+    const sets: Record<string, unknown> = grew ? { body: text } : {}
     const both = (name: string): boolean => name in a && name in b
     for (const name of ['attribution', 'medium']) if (both(name) && !String(a[name] ?? '').trim() && String(b[name] ?? '').trim()) sets[name] = b[name]
     const objectOf = (text: unknown): object => { const read = storedBody(text); return read && typeof read === 'object' && !Array.isArray(read) ? read : {} }
@@ -2565,19 +2580,31 @@ export function registerHaligtree(): void {
     atomically(() => {
       const names = Object.keys(sets)
       // An edit of its words like any other: as first written kept, and when (captures.ts `saveOne`).
-      const edit = keep.table === 'captures' ? 'original_body = coalesce(original_body, body), edited_at = ?' : 'updated_at = ?'
-      db.prepare(`update ${keep.table} set ${names.map((name) => `${name} = ?`).join(', ')}, ${edit} where id = ?`).run(...(names.map((name) => sets[name]) as string[]), now(), keep.id)
+      const edit = !grew ? [] : keep.table === 'captures' ? ['original_body = coalesce(original_body, body)', 'edited_at = ?'] : ['updated_at = ?']
+      if (names.length || grew) db.prepare(`update ${keep.table} set ${[...names.map((name) => `${name} = ?`), ...edit].join(', ')} where id = ?`).run(...(names.map((name) => sets[name]) as string[]), ...(grew ? [now()] : []), keep.id)
       if (other.table === 'captures') db.prepare("update captures set binned_was = status, status = 'discarded' where id = ?").run(other.id)
       else putInBin(other.id)
+      for (const one of linking) db.prepare(`update ${one.table} set body = ? where id = ?`).run(one.now, one.id)
     })
-    joins.set(++joinsMade, { keep, other, rows: [a, b], joined: text, versions })
+    joins.set(++joinsMade, { keep, other, rows: [a, b], joined: text, versions, linking })
     // Only the last few are kept for their Undo: each holds both notes as they were.
     for (const token of joins.keys()) if (joins.size > 4) joins.delete(token)
     if (other.table === 'captures') checkMarkdown(other.id)
-    rewritten(keep, a.number)
+    if (grew) rewritten(keep, a.number)
     changed(changeOf(other))
-    return write({ token: joinsMade }, changeOf(keep, true))
+    for (const one of linking) changed(changeOf({ table: one.table, id: one.id }))
+    // Its words put in whole: an editor showing it opens it again from here. Unchanged, only what the list shows.
+    return write({ token: joinsMade, added, links }, changeOf(keep, grew))
   })
+  /** A block's words, all of them, to tell whether a note already holds it. */
+  const blockWords = (node: Doc): string => node.text ?? (node.content ?? []).map(blockWords).join(node.content?.some((one) => one.text !== undefined) ? '' : '\n')
+  /** What a block is matched by: its exact words, or, with none (a picture, a rule), the block itself without its own name. */
+  const keyOf = (block: Doc): string => {
+    const words = blockWords(block).trim()
+    return words ? `w:${words}` : `b:${JSON.stringify({ ...block, attrs: { ...block.attrs, blockId: undefined } })}`
+  }
+  /** How many lines a block is to read: each line of words in it (a list's items each), or one for a picture or a rule. */
+  const linesOf = (block: Doc): number => (block.content?.length && !block.content.some((one) => one.text !== undefined || one.type === 'hardBreak') ? block.content.reduce((sum, one) => sum + linesOf(one), 0) : 1)
   /**
    * What is worked out of a note's words, once a join or its undo has answered: its cards from "question :: answer"
    * lines (`cards`), and a capture's Markdown copy, made here from the stored words as any save without an editor's is.
@@ -2604,17 +2631,23 @@ export function registerHaligtree(): void {
       if (side.table === 'captures') db.prepare('update captures set exited_at = ?, first_used_at = ? where id = ?').run(row.exited_at as string | null, row.first_used_at as string | null, side.id)
     }
     const still = !!db.prepare(`select 1 from ${made.keep.table} where id = ? and body is ?`).get(made.keep.id, made.joined)
+    const grew = made.joined !== String(made.rows[0].body ?? 'null')
+    // The links led here go back to the other, each in a note not written in since.
+    const back = made.linking.filter((one) => !!db.prepare(`select 1 from ${one.table} where id = ? and body is ?`).get(one.id, one.now))
     atomically(() => {
       if (still) put(made.keep, made.rows[0])
       put(made.other, made.rows[1])
-      db.prepare('delete from versions where id > ? and item_id in (?, ?)').run(made.versions, still ? made.keep.id : '', made.other.id)
+      for (const one of back) db.prepare(`update ${one.table} set body = ? where id = ?`).run(one.was, one.id)
+      const ids = [...(still ? [made.keep.id] : []), made.other.id, ...back.map((one) => one.id)]
+      db.prepare(`delete from versions where id > ? and item_id in (${ids.map(() => '?').join(', ')})`).run(made.versions, ...ids)
     })
-    if (still) rewritten(made.keep, made.rows[0].number)
+    if (still && grew) rewritten(made.keep, made.rows[0].number)
     // Out of the Bin: its copy is written again, as it had one before.
     rewritten(made.other, made.rows[1].number, false)
+    for (const one of back) changed(changeOf({ table: one.table, id: one.id }))
     if (!still) return write('both', changeOf(made.other))
     changed(changeOf(made.other))
-    return write(true, changeOf(made.keep, true))
+    return write(true, changeOf(made.keep, grew))
   })
   // A gloss is a row, never an edit: past-you stays readable beside present-you.
   // Any item's: a nugget, an article or a capture, so its id is all it needs.

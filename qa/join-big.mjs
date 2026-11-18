@@ -32,7 +32,9 @@ const file = shelf?.last && shelf.last !== 'default' ? join(root, 'books', shelf
 const db = new DatabaseSync(file)
 // SMALL: an ordinary note of three short paragraphs, written a day ago, put in the book first. (A small note of the
 // book's own was no use: those old enough are put away as the book opens, and a note put away is not offered.)
-const paragraphs = ['Feed the sourdough starter twice a day at room temperature.', 'It is ready when it doubles and smells sour and sweet.', 'Weigh the flour, cups lie. Bake it in a lidded pot, hot.']
+// The last line is the one the copy lacks: in words the note has already, so the two still read as nearly the same
+// (85% of their root words shared both ways, main/roots.ts).
+const paragraphs = ['Feed the sourdough starter twice a day at room temperature.', 'It is ready when it doubles and smells sour and sweet.', 'Weigh the flour, cups lie. Bake it in a lidded pot, hot.', 'Feed it, then weigh the flour.']
 const small = () => {
   const id = randomUUID()
   const body = JSON.stringify({ type: 'doc', content: [...paragraphs.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })), { type: 'paragraph' }] })
@@ -42,9 +44,20 @@ const small = () => {
 const big = process.env.SMALL ? small() : db.prepare("select * from captures where status = 'open' and kind = 'note' and body is not null and private = 0 order by length(body) desc limit 1").get()
 const twin = randomUUID()
 // Every column as the note's own, its time too: a copy made a moment ago would be marked used the first time it is read
-// past its first minute (captures.ts), which a probe's timing, not the join, would decide.
+// past its first minute (captures.ts), which a probe's timing, not the join, would decide. Nearly the same, as the two
+// the offer finds: the copy lacks some lines of the other's (12 paragraphs spread through a long note, its last line in
+// a short one) and has one of its own.
 const cols = Object.keys(big).filter((one) => one !== 'id' && one !== 'number')
-db.prepare(`insert into captures (id, ${cols.join(', ')}) values (?, ${cols.map(() => '?').join(', ')})`).run(twin, ...cols.map((one) => big[one]))
+const theirs = JSON.parse(big.body)
+const words = (node) => node.text ?? (node.content ?? []).map(words).join('')
+const said = theirs.content.flatMap((block, at) => (block.type === 'paragraph' && words(block).trim().length > 20 ? [at] : []))
+const gone = new Set(process.env.SMALL ? [said.at(-1)] : Array.from({ length: 12 }, (_, n) => said[Math.floor(((n + 0.5) * said.length) / 12)]))
+const own = process.env.SMALL ? [] : [{ type: 'paragraph', content: [{ type: 'text', text: 'A line only the copy has, written after.' }] }]
+const mine = { ...theirs, content: [...theirs.content.filter((_, at) => !gone.has(at)), ...own] }
+db.prepare(`insert into captures (id, ${cols.join(', ')}) values (?, ${cols.map(() => '?').join(', ')})`).run(twin, ...cols.map((one) => (one === 'body' ? JSON.stringify(mine) : big[one])))
+// And a note elsewhere that links to the other: after the join its link leads to the copy, after ⌘Z back again.
+const linker = randomUUID()
+db.prepare("insert into captures (id, title, kind, status, body, captured_at) values (?, '', 'note', 'open', ?, ?)").run(linker, JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'See ' }, { type: 'noteLink', attrs: { id: big.id, label: 'the other' } }] }] }), new Date(Date.now() - 86_400_000).toISOString())
 db.close()
 const markdown = big.body.startsWith('"')
 console.log(`twin of ${big.id.slice(0, 8)} (${Math.round(big.body.length / 1024)} KB, kept as ${markdown ? 'Markdown' : 'a document'}): ${twin.slice(0, 8)}  [${load()}]`)
@@ -159,7 +172,7 @@ try {
   const t0 = await h.evaluate(() => performance.now())
   await h.mouse.click(box.x, box.y)
   const joined = await film('join', async () => glance()[big.id].status === 'discarded' && (await drawnAgain()))
-  await quiet()
+  // Until the note is drawn again (the window's own work after that, reading offers for it, counts as the note open).
   const t1 = await h.evaluate(() => performance.now())
   if (cdp) {
     const { profile } = await cdp.send('Profiler.stop')
@@ -181,7 +194,7 @@ try {
   }, [from, to])
   // Read at once and light (the database counts the blocks), with the notice and the frames: ⌘Z is pressed while the
   // notice still offers it, as a hand would, not after seconds of the probe's own reading (it had gone, 18 Nov).
-  const look = () => { const one = book(); try { return { other: one.prepare('select status from captures where id = ?').get(big.id).status, kept: one.prepare("select json_type(body) as type, case when json_type(body) = 'object' then json_array_length(body, '$.content') end as blocks, instr(body, '\"horizontalRule\"') > 0 as rule, length(body) as n from captures where id = ?").get(twin) } } finally { one.close() } }
+  const look = () => { const one = book(); try { return { other: one.prepare('select status from captures where id = ?').get(big.id).status, kept: one.prepare("select json_type(body) as type, case when json_type(body) = 'object' then json_array_length(body, '$.content') end as blocks, instr(body, '\"horizontalRule\"') > 0 as rule, length(body) as n from captures where id = ?").get(twin), link: one.prepare('select instr(body, ?) > 0 as here, instr(body, ?) > 0 as there from captures where id = ?').get(`"id":"${twin}"`, `"id":"${big.id}"`, linker) } } finally { one.close() } }
   const after = look()
   const j = await gaps(t0, t1)
   const orbs = await h.evaluate((at) => ({ offer: window.__orbs.offer === null ? null : Math.round(window.__orbs.offer - at), note: window.__orbs.note === null ? null : Math.round(window.__orbs.note - at) }), t0)
@@ -196,22 +209,28 @@ try {
   const t3 = await h.evaluate(() => performance.now())
   const back = rowsOf()
   // What the join was made of: the copy as Undo put it back (as stored at the press, its typing saved first), and the other.
+  // The copy whole, then a rule and only the other's blocks whose words it held nowhere (matched as the join matches
+  // them: by their words, or a block with none by itself), in their order.
+  const blockWords = (node) => node.text ?? (node.content ?? []).map(blockWords).join(node.content?.some((one) => one.text !== undefined) ? '' : '\n')
+  const keyOf = (block) => { const w = blockWords(block).trim(); return w ? `w:${w}` : `b:${JSON.stringify({ ...block, attrs: { ...block.attrs, blockId: undefined } })}` }
   const wanted = (() => {
     const a = JSON.parse(back[twin].body)
     const b = JSON.parse(back[big.id].body)
-    if (typeof a === 'string' || typeof b === 'string') return { blocks: null }
-    // Its own blocks without the empty lines it ends on, the rule, then the other's.
+    if (typeof a === 'string' || typeof b === 'string') return { blocks: null, fresh: null }
     let own = a.content.length
     while (own && a.content[own - 1].type === 'paragraph' && !a.content[own - 1].content?.length) own--
-    return { blocks: own + 1 + b.content.length }
+    const held = new Set(a.content.slice(0, own).map(keyOf))
+    const fresh = b.content.filter((block) => !(block.type === 'paragraph' && !blockWords(block).trim()) && !held.has(keyOf(block))).length
+    return { blocks: fresh ? own + 1 + fresh : a.content.length, fresh }
   })()
   const kept = after.kept
   console.log(`join: done and drawn again after ${joined ?? 'never'} ms; longest gap between frames ${j.gap} ms (${j.frames} frames), frozen ${j.longest} ms at most, ${j.total} ms in all; the loader in the offer at ${orbs.offer} ms, in the note at ${orbs.note} ms`)
-  console.log(`  kept: ${kept.type === 'object' ? `${kept.blocks} blocks` : `Markdown, ${kept.n} characters`}; notice: ${JSON.stringify(said.join(' | ').slice(0, 160))}`)
-  check('the copy holds both: its words, a rule, then the other\'s', kept.type === 'object' ? (wanted.blocks === null || kept.blocks === wanted.blocks) && !!kept.rule : kept.n > 0, `${kept.blocks ?? kept.n}, wanted ${wanted.blocks}`)
+  console.log(`  kept: ${kept.type === 'object' ? `${kept.blocks} blocks` : `Markdown, ${kept.n} characters`} (wanted ${wanted.blocks}: ${wanted.fresh} of the other's that the copy lacked); notice: ${JSON.stringify(said.join(' | ').slice(0, 200))}`)
+  check('the copy stays whole and gains only the lines it lacked, under a rule', kept.type === 'object' && kept.blocks === wanted.blocks && !!kept.rule === !!wanted.fresh, `${kept.blocks ?? kept.n}, wanted ${wanted.blocks}`)
   check('the other note is in the Bin', after.other === 'discarded', after.other)
+  check('a link elsewhere to the other leads to the copy now', !!after.link.here && !after.link.there, JSON.stringify(after.link))
   check('the one loader shows where the offer was', orbs.offer !== null, JSON.stringify(orbs))
-  check('the notice says they were joined and where the other went, with Undo', said.some((one) => /^Joined .* into this note, and moved it to the Bin/.test(one) && /Undo/.test(one)), said.join(' | '))
+  check('the notice says what came over and where the other went, with Undo', said.some((one) => new RegExp(`^Joined .*: ${wanted.fresh === 1 ? '1 line' : `${(wanted.fresh ?? 0).toLocaleString('en')} lines`} it had that this note didn't\\. .* is in the Bin`).test(one) && /Undo/.test(one)), said.join(' | '))
   check('no frame waits over 1 s from the press until the note is drawn again', j.gap <= 1000, `${j.gap} ms`)
   const differ = [big.id, twin].flatMap((id) => Object.keys(before[id]).filter((name) => before[id][name] !== back[id][name]).map((name) => `${id === twin ? 'copy' : 'other'}.${name}`))
   const u = await gaps(t2, t3)
@@ -219,7 +238,21 @@ try {
   console.log(`undo: both back and drawn again after ${undone ?? 'never'} ms; longest gap between frames ${u.gap} ms, frozen ${u.longest} ms at most; columns not as they were: ${differ.join(', ') || 'none'}  [${load()}]`)
   check('⌘Z puts both notes back exactly as they were, every column', undone !== null && !differ.length, differ.join(', '))
   check('the note shows its own words again after ⌘Z', await drawnAgain())
+  const backLink = look().link
+  check('⌘Z leads the link elsewhere back to the other', !!backLink.there && !backLink.here, JSON.stringify(backLink))
   check('no frame waits over 1 s while it is taken back', u.gap <= 1000, `${u.gap} ms`)
+  // The same open with no join at all: the other note's row pressed with a real pointer, timed the same way. Where the
+  // two match, the reopen is the general cost of opening a long note (queued apart, ask 5), not the join's.
+  if (!process.env.SMALL) {
+    const row = h.locator(`[data-id="${big.id}"]`).first()
+    await row.scrollIntoViewIfNeeded({ timeout: 30_000 }).catch(() => {})
+    const t4 = await h.evaluate(() => performance.now())
+    await row.click({ timeout: 30_000 })
+    await h.waitForSelector(`[data-open="${big.id}"] .ProseMirror`, { timeout: 120_000 }).catch(() => {})
+    const t5 = await h.evaluate(() => performance.now())
+    const o = await gaps(t4, t5 + 50)
+    console.log(`open from its row (the other, the same note, no join): drawn after ${Math.round(t5 - t4)} ms; longest gap between frames ${o.gap} ms, frozen ${o.longest} ms at most  [${load()}]`)
+  }
   // What the page threw (HW1's run threw "Invalid collection of marks for node text: bold,code"), apart from the book's
   // own pictures and files that a copy of it may lack (a missing file is said by the console, and is not the join's).
   const thrown = c.errors.filter((one) => !/^Failed to load resource/.test(one))

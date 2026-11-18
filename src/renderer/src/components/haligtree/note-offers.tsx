@@ -389,7 +389,10 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
         // The one loader where the offer was, from the press until the note opens again (ask 1, 16 Nov).
         setJoining(true)
         try {
-          await joinNotes({ table, id }, sideOf(offer.key), `Joined ${quoted(unquoted(offer.title), 60)} into this note, and moved it to the Bin`)
+          // What came over is said: the lines the other had that this note didn't, and the links now leading here.
+          const name = quoted(unquoted(offer.title), 48)
+          await joinNotes({ table, id }, sideOf(offer.key), (added, links) =>
+            `Joined ${name}: ${added ? `${plural(added, 'line')} it had that this note didn't` : 'this note had all of it already'}. ${name} is in the Bin.${links === 1 ? ' The link to it leads here now.' : links ? ` The ${num(links)} links to it lead here now.` : ''}`)
         } finally {
           setJoining(false)
         }
