@@ -918,6 +918,8 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   const asked = useLastAsked()
   // The one asked for while it is read: its pane and name at once, never the task before (note-coming.tsx).
   const [coming, setComing] = useState<string | null>(() => (focus && !open ? focus : null))
+  // A task open beside the list: the list stands flush in its own column, with no margin for the numbers.
+  const beside = !!open || !!coming
   const pick = (id: string): void => {
     const ready = readNow<TaskFull>('task', id)
     if (ready) return (asked(), setComing(null), setOpen(ready))
@@ -1405,7 +1407,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                         {/* A focus session running on it: the dot stands there instead while it runs, and nothing in the row moves (task-time.tsx). */}
                         {time.running?.taskId === task.id
                           ? <SessionDot id={task.id} time={time} className="absolute right-full mr-1 flex w-3 items-center justify-end top-2 h-5" />
-                          : three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="absolute top-2 right-full mr-1 flex h-5 w-3 items-center justify-end @max-[61rem]/page:hidden" />}
+                          : three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className={`absolute top-2 right-full mr-1 h-5 w-3 items-center justify-end @max-[61rem]/page:hidden ${beside ? 'hidden' : 'flex'}`} />}
                         <Tip label="Complete">
                         <button
                           type="button"
@@ -1428,8 +1430,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                             <span dir="auto" data-title className={`truncate ${leaving(task.id) ? 'mf-strike' : ''}`}>{taskName(task.title).text}</span>
                             <Tags tags={taskName(task.title).tags} />
                             <TaskLength task={task} />
-                            {/* Narrow, with no margin to stand in, the day's number follows the title instead of going: every title keeps one left edge. */}
-                            {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className="hidden shrink-0 rounded bg-accent px-1.5 text-meta @max-[61rem]/page:inline" />}
+                            {/* Narrow, with no margin to stand in, the day's number follows the title instead of going: every title keeps one left edge.
+                                A task open beside the list leaves the list no margin either: there the numbers stood against the pane's edge (16 Nov). */}
+                            {three.includes(task.id) && <ThreeMark n={three.indexOf(task.id) + 1} className={`shrink-0 rounded bg-accent px-1.5 text-meta @max-[61rem]/page:inline ${beside ? 'inline' : 'hidden'}`} />}
                           </span>
                           {(task.dueAt || task.recurrence || task.waitingOn || task.deadline || task.blocker || later || subtasks.length > 0 || task.snoozedUntil || carried(task) > 0 || time.of(task.id)) && (
                             <span data-task-meta className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
