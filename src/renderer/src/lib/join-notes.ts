@@ -38,13 +38,15 @@ export async function joinNotes(keep: NoteSide, other: NoteSide, said: string): 
   }
   if ('why' in made) return not(NOT[made.why])
   const { token } = made
-  // The Bin's one sound, and every page with the other open moves off it.
+  // The Bin's one sound, and every page with the other open moves off it (false: one did).
   flight?.()
   tear()
-  binned([other.id])
+  const stayed = binned([other.id])
   toast(said, () => (expectBack([other.id]), void haligtree.unjoinNotes(token).then((back) => {
     if (!back) return refuse('Too long ago to take back here: the note holds both, and the other is in the Bin')
-    window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [other.id] }))
+    // A page that moved off the other opens it again, as Mail selects a message it undeleted (lib/nav.ts); one that
+    // stayed on the note that was kept (“Join them” under it) stays there, and that note opens again as it was.
+    if (!stayed) window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [other.id] }))
     // Written in since the join: its words stay as they are, nothing of them lost, and the other is back beside it.
     if (back === 'both') refuse('The note was written in since, so it keeps both sets of words; the other is out of the Bin')
   })), 'success', seeTheBin)
