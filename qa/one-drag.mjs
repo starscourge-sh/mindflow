@@ -1555,6 +1555,28 @@ await part('Several notes', async () => {
       fits: (() => { const card = document.querySelector('[data-carried-card]')?.getBoundingClientRect(); const words = document.querySelector('[data-carried-card] [data-drag-label]')?.getBoundingClientRect(); const title = document.querySelector('[data-carried-card] .private-text')?.getBoundingClientRect(); return !card || !words || !title ? null : { out: Math.round(words.right - card.right), title: Math.round(title.width), card: Math.round(card.width) } })()
     }
   })
+  /** Every frame the page draws until `stopWatch()`: where two rows are drawn, the card's box, the settling card and the pointer. */
+  const watch = (a, b) => h.evaluate(([a, b]) => {
+    const seen = (window.__frames = { list: [], on: true, x: window.__frames?.x ?? 0, y: window.__frames?.y ?? 0 })
+    if (!window.__framesHeard) { window.__framesHeard = true; addEventListener('pointermove', (e) => void ((window.__frames.x = e.clientX), (window.__frames.y = e.clientY)), true) }
+    const top = (id) => [...document.querySelectorAll('[data-pane] [data-sortable-id]')].find((el) => el.dataset.sortableId === id)?.getBoundingClientRect().top ?? null
+    const tick = () => {
+      if (!seen.on) return
+      const card = document.querySelector('[data-carried-card]')?.getBoundingClientRect()
+      const fly = document.querySelector('.mf-drag-picture')?.getBoundingClientRect()
+      seen.list.push({ a: a && top(a), b: b && top(b), card: card && { top: card.top, bottom: card.bottom, left: card.left }, fly: fly ? fly.top : null, x: window.__frames.x, y: window.__frames.y })
+      requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, [a, b])
+  const stopWatch = () => h.evaluate(() => { window.__frames.on = false; return window.__frames.list })
+  /** With SHOTS, pictures about 16 ms apart while `run` goes (frames-<name>-NN.png). */
+  const film16 = async (name, run) => { if (!SHOTS) return run(); let n = 0; let going = true; const shots = (async () => { while (going && n < 40) { await h.screenshot({ path: `${SHOTS}/frames-${name}-${String(n++).padStart(2, '0')}.png` }); await wait(16) } })(); await run(); going = false; await shots }
+  /** On each frame of a carry, the card in hand by the pointer: level with it, or just clear of the line beside it. */
+  const nearPointer = (name, frames) => {
+    const off = frames.filter((f) => f.card && f.y).map((f) => Math.round(Math.max(0, f.card.top - f.y, f.y - f.card.bottom)))
+    check(`${name}: on every frame the card in hand is by the pointer (within 60 px of it, up or down)`, off.length > 10 && off.every((dy) => dy <= 60), `${off.length} frames, the farthest ${Math.max(0, ...off)} px`)
+  }
   /** The stack in hand over a row's title, in px of overlap (0: the title is in sight). */
   const coversTitle = (title) => h.evaluate((title) => {
     const words = [...document.querySelectorAll('[data-list-space] button[data-row] .private-text')].find((el) => el.textContent.trim() === title && !el.closest('[data-held]'))?.getBoundingClientRect()
@@ -1665,8 +1687,21 @@ await part('Several notes', async () => {
   check('Several notes, let go out of the window: nothing moves, nothing is said', !outMoved.length && !(await notices()).length && ((await v('groups', 'article')).find((one) => one.id === 'deep')?.members ?? []).length === 3, outMoved.slice(0, 4).join('; '))
   // Let go over another group's rows: all six land there, in list order, said once with Undo.
   was = await liftSix()
+  // Every frame of the carry, the card by the pointer: crossing groups and with the list scrolled under it.
+  await watch(all.Larch, all.Birch)
+  await glide(await at('Oak')); await glide(await at('Elm')); await scrollList(200); await wait(300); await scrollList('top'); await wait(300)
   await glide(await at('Birch')); await wait(450)
-  await h.mouse.up(); await wait(1200)
+  nearPointer('Several notes, six carried across groups and a scroll', await stopWatch())
+  // Let go: no frame after it draws the old order (58: the list drew it for about 80 ms, and the card flew back there).
+  await watch(all.Larch, all.Birch)
+  await film16('drop-in-another-group', async () => { await h.mouse.up(); await wait(400) })
+  const after = (await stopWatch()).filter((f) => f.a !== null && f.b !== null)
+  const backFrames = after.filter((f) => f.a > f.b + 1)
+  check('Several notes, let go in another group: no frame after the drop draws the old order', after.length > 5 && !backFrames.length, `${backFrames.length} of ${after.length} frames had the row back under Birch`)
+  const landTop = after.at(-1)?.a ?? 0
+  const flew = after.map((f) => f.fly).filter((top) => top !== null)
+  check('Several notes, let go: the card settles where the row landed, never back where it was picked up', flew.every((top) => top <= landTop + 60), `card tops ${flew.slice(0, 8).map(Math.round).join(',')}, the row landed at ${Math.round(landTop)}`)
+  await wait(800)
   const landed = (await v('groups', 'article')).find((one) => one.id === 'deep')?.members ?? []
   // Carried up onto Birch, the room opened in Birch's place (Birch made way downward): there they land.
   check('Several notes, let go in another group: all six are in it, where the room was, in list order', landed.join() === [all.Ash, ...SIX.map((one) => all[one]), all.Birch, all.Cedar].join(), landed.map((id) => Object.keys(all).find((k) => all[k] === id)).join())
@@ -1704,6 +1739,39 @@ await part('Several notes', async () => {
   check('Several notes, four on a fifth: the pile in hand leaves that row’s name in sight', (await coversTitle('Ash')) === 0, `${await coversTitle('Ash')}px of “Ash” covered`)
   if (SHOTS) await both('several-subgroup')
   await putBack('Several notes, four on a fifth', was)
+  // Tasks: a task carried down Today, the card by the pointer every frame, and no frame after the drop drawing the old order.
+  for (const title of ['Alpha task', 'Beta task', 'Gamma task', 'Delta task']) await v('task:add', `${title} today`)
+  await c.go('today'); await wait(1200)
+  const order = await h.evaluate(() => [...document.querySelectorAll('[data-pane] [data-sortable-id]')].filter((el) => el.getClientRects().length).map((el) => el.dataset.sortableId))
+  const [ta, , tc] = order
+  const tbox = (id) => h.evaluate((id) => { const r = [...document.querySelectorAll('[data-pane] [data-sortable-id]')].find((el) => el.dataset.sortableId === id)?.getBoundingClientRect(); return r && { x: r.x, y: r.y, h: r.height } }, id)
+  const t1 = ta && (await tbox(ta)), t3 = tc && (await tbox(tc))
+  if (t1 && t3) {
+    const tx = t1.x + 200
+    await h.mouse.move(tx, t1.y + Math.min(16, t1.h / 2)); await h.mouse.down(); await h.mouse.move(tx, t1.y + 24, { steps: 3 }); await wait(200)
+    await watch(ta, tc)
+    for (let i = 1; i <= 10; i++) { await h.mouse.move(tx, t1.y + 24 + ((t3.y + t3.h * 0.8 - t1.y - 24) * i) / 10); await wait(30) }
+    await wait(450)
+    nearPointer('Tasks, a task carried down Today', await stopWatch())
+    await watch(ta, tc)
+    await film16('drop-task-today', async () => { await h.mouse.up(); await wait(400) })
+    const tAfter = (await stopWatch()).filter((f) => f.a !== null && f.b !== null)
+    const tBack = tAfter.filter((f) => f.a < f.b - 1)
+    check('Tasks, a task let go down Today: no frame after the drop draws the old order', tAfter.length > 5 && !tBack.length, `${tBack.length} of ${tAfter.length} frames had it back above the third`)
+  } else check('Tasks: three task rows on Today', false, order.join())
+  // The sidebar: a folder carried down past another, the card by the pointer every frame.
+  await v('groups:arrange', 'article', { top: ['g:sa', 'g:sb', 'g:sc'], groups: { sa: [], sb: [], sc: [] }, revive: ['sa', 'sb', 'sc'].map((id) => ({ id, name: `Side ${id}`, icon: null, color: null, folded: 0, folder: 1 })) })
+  await c.go('articles'); await wait(900)
+  const sa = await h.locator('[data-side-folder="sa"]').boundingBox().catch(() => null), sc = await h.locator('[data-side-folder="sc"]').boundingBox().catch(() => null)
+  if (sa && sc) {
+    const sx = sa.x + 40
+    await h.mouse.move(sx, sa.y + sa.height / 2); await h.mouse.down(); await h.mouse.move(sx, sa.y + sa.height / 2 + 8, { steps: 3 }); await wait(200)
+    await watch(null, null)
+    for (let i = 1; i <= 10; i++) { await h.mouse.move(sx, sa.y + ((sc.y + sc.height * 0.8 - sa.y) * i) / 10); await wait(30) }
+    await wait(400)
+    nearPointer('The sidebar, a folder carried down', await stopWatch())
+    await h.keyboard.press('Escape'); await wait(300); await h.mouse.up(); await wait(300)
+  } else check('The sidebar shows the three folders', false)
   await c.size(1200, 900)
 })
 
