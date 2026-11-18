@@ -8,7 +8,8 @@ import type { Line } from './snap-lines'
  * solid, and the card coming onto one says so with the trackpad's tap alone. One look for every carried window.
  * A dash is 1 point thin, 5 on and 5 off, in two greys taking turns, each filling the other's gaps: the dark one shows
  * on a pale desktop, the pale one on a dark desktop, and on the grey between them both do (1pt dashes in one colour at
- * 70% were hard to see, 10 Nov). They are the same in a light and a dark look: they sit on the desktop, not on a page.
+ * 70% were hard to see, 10 Nov). Both at 40%, so they are there without striking through the screen ("make the lines
+ * fainter", 16 Nov). They are the same in a light and a dark look: they sit on the desktop, not on a page.
  * One see-through window per screen, made before anything can be carried and kept: it never takes a click or the
  * keys, sits over everything, and is put away the moment the drag ends.
  */
@@ -23,7 +24,7 @@ const drawn: { display: number | null; lines: Line[]; on: Line[]; shown: boolean
 const PAGE = `<!doctype html><html><head><meta charset="utf-8"><style>
 html,body{margin:0;height:100%;overflow:hidden;background:transparent}
 svg{position:fixed;inset:0;width:100%;height:100%}
-line{shape-rendering:crispEdges;fill:none;stroke-width:1;stroke-dasharray:5 5}
+line{shape-rendering:crispEdges;fill:none;stroke-width:1;stroke-dasharray:5 5;opacity:.4}
 .ink{stroke:rgb(60,60,60)}
 .halo{stroke:rgb(235,235,235);stroke-dashoffset:5}
 </style></head><body><svg xmlns="http://www.w3.org/2000/svg"></svg><script>
