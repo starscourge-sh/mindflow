@@ -1534,6 +1534,11 @@ function Surface({
       // then. Captured that early, `@` would search an empty list forever.
       NoteLink.configure({
         findNotes: (query, options) => finder.current(query, options),
+        // The note shown, as the book keeps it (its `documentId`, notePowers'): its waiting links are pointed there.
+        kept: () => {
+          const found = /^(capture|item)-(.+)$/.exec(String(documentId ?? ""))
+          return found ? (found[1] === "capture" ? found[2] : `item:${found[2]}`) : null
+        },
         onOpenNote: (id, heading) => opener.current?.(id, heading),
         findHeadings: (id) => headingFinder.current?.(id) ?? [],
         render: noteLinkRenderer,

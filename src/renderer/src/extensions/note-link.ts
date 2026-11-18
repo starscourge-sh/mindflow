@@ -247,6 +247,8 @@ const WIKI = /\[\[([^[\]|#]*)(?:#([^[\]|]+))?(?:\|([^[\]]+))?\]\]/
 export interface NoteLinkOptions {
   /** Which notes match what has been typed after `@`. */
   findNotes: (query: string, options?: { exact?: boolean }) => NoteSuggestion[] | Promise<NoteSuggestion[]>
+  /** The note this editor shows as the book keeps it, written as a link to it is (`item:id`, a capture's bare id); null for words the book does not keep. */
+  kept?: () => string | null
   /**
    * Clicking a link. The editor never navigates; it only reports. A link to a
    * heading says which, and the editor that opens next scrolls to it itself.
@@ -428,12 +430,6 @@ function leftGhost(documentId: string, editor: Editor): void {
     // Its links let go in the book (main's ghost:drop), the one place that happens: a note open on them follows.
     void window.api?.haligtree?.("ghost:drop", ghost.id, ghost.name).catch(() => undefined)
   }, 1500)
-}
-
-/** The note an editor shows, as a link to it is written, when it is one kept in the book (by the `documentId` notePowers gives it). */
-const keptNote = (editor: Editor): string | null => {
-  const found = /^(capture|item)-(.+)$/.exec([...showing].find(([, one]) => one === editor)?.[0] ?? "")
-  return found ? (found[1] === "capture" ? found[2] : `item:${found[2]}`) : null
 }
 
 /** A `[[name]]` with a note of that name already: pointed at it. One with none stays a link to nothing, drawn faintly. */
@@ -1100,7 +1096,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
             void Promise.all(asked).then((all) => {
               const found = all.filter((one): one is [string, NoteSuggestion] => !!one)
               if (!found.length || view.isDestroyed) return
-              const note = kept ? keptNote(editor) : null
+              const note = kept ? this.options.kept?.() ?? null : null
               if (note) return void window.api?.haligtree?.("links:point", note, found.map(([label, one]) => [label, one.id])).catch(() => undefined)
               const tr = view.state.tr
               view.state.doc.descendants((one, pos) => {
