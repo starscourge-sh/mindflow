@@ -91,8 +91,8 @@ export type Folds = {
   /** In your own order: false while sorted some other way, when only joining or leaving a group means anything. */
   ordered: boolean
   /** What a drop would leave, worked out as the drop itself is: the layout before and after, and the rows on show after, in order. Null when nothing would change. */
-  /** `root`: the folder open as the page, if any: being in it is being loose in this list. */
-  preview: (ids: string[], target: string, how: How) => { before: Layout; after: Layout; shown: string[]; root: string | null } | null
+  /** `root`: the folder open as the page, if any: being in it is being loose in this list. `folders`: which groups are folders, the open one too. */
+  preview: (ids: string[], target: string, how: How) => { before: Layout; after: Layout; shown: string[]; root: string | null; folders: Set<string> } | null
   /** A drop, for the list to work out and save: `ids` is everything carried, in the order it is read. */
   onDrop: (ids: string[], target: string, how: How) => void
   /** The rows picked (⌘-click, ⇧-click, x): carrying one of them carries them all. */
@@ -380,7 +380,10 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const going = !!whole && aimed.current?.how === 'join' && aimed.current.target === KEY + whole && side > 0.2 && side < 0.8
       if ((middle || going) && isGroup(id)) {
         if (whole && KEY + whole !== id) tries.push([KEY + whole, 'join'])
-      } else if (middle) tries.push([target, 'join'])
+        // In your own order an open group's own row takes a note in just under it, where the pointer is (its lower half,
+        // `how`): joining it put the room at the group's foot, rows away from the pointer. A folded one takes it in out of
+        // sight and lights, as does any group where the list's own sort places what it holds.
+      } else if (middle && !(ordered && !parts && !ownSort && isGroup(target) && info.get(target.slice(KEY.length))?.open)) tries.push([target, 'join'])
       tries.push([beside, how])
       // Where the list's own rule places its rows, a place beside a group is none: the group's whole row takes the carried one in.
       if ((parts || ownSort) && isGroup(target) && !isGroup(id) && !middle) tries.push([target, 'join'])
@@ -407,11 +410,14 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
       const n = ids.length
       const some = n > 1 ? `${num(n)} ` : ''
       const outer = make ? groupOf(land.after, KEY + into) ?? null : null
-      // Inside a folder a new group is simply a group there; inside a group it is a subgroup, as the old list said.
-      const sub = !!outer && !info.get(outer)?.folder
+      // Inside a folder a new group is simply a group there; inside a group it is a subgroup, as the old list said. The
+      // folder open as the page counts: a new group loose on a folder's own page is a group, never "New subgroup" (22-2).
+      const sub = !!outer && !land.folders.has(outer)
+      // Into a folder the notes leave the list for the folder's own page, as the sidebar's folders say: moved, not added.
+      const away = !!into && land.folders.has(into)
       const words =
         make ? (sub ? (n > 1 ? `New subgroup of ${num(n + 1)}` : `New subgroup in ${name(outer)}`) : n > 1 ? `New group of ${num(n + 1)}` : 'New group')
-        : into !== own ? (into ? (isGroup(lead) ? `Put inside ${name(into)}` : own ? `Move ${some}to ${name(into)}` : `Add ${some}to ${name(into)}`) : isGroup(lead) ? `Move out of ${name(own)}` : `Remove ${some}from ${name(own)}`)
+        : into !== own ? (into ? (isGroup(lead) ? `Put inside ${name(into)}` : away ? `Move ${some}into ${name(into)}` : own ? `Move ${some}to ${name(into)}` : `Add ${some}to ${name(into)}`) : isGroup(lead) ? `Move out of ${name(own)}` : `Remove ${some}from ${name(own)}`)
         : `${n > 1 ? `Move ${num(n)} here` : 'Move here'}${ordered || ownSort ? '' : ' · Custom order'}`
       // In the gap row's own group (or first in the group whose row it is), the room sits close under it.
       const gapRow = gap !== null && gap >= 0 ? keys[gap] : undefined

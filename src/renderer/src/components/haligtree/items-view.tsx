@@ -2302,7 +2302,7 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
       const next = dropMany(base, ids, target, how, shut, () => ({ id: 'new', name: '' }))
       // Where the list's own rule places a row, a drop joins, leaves or makes a group, or moves it among the rows of its own part.
       if (next && !next.make && ids.every((id) => groupOf(base, id) === groupOf(next, id)) && !amongOwn(ids, target)) return null
-      return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) && !folderInGroup(next) ? { before: base, after: next, shown: shownKeys(next, shut, within), root: within ?? null } : null
+      return next && !sameLayout(next, base) && ids.every((id) => inside(next, id)) && !folderInGroup(next) ? { before: base, after: next, shown: shownKeys(next, shut, within), root: within ?? null, folders: new Set([...info].filter(([, one]) => isFolder(one)).map(([id]) => id)) } : null
     },
     onDrop: (ids, target, how) => {
       const seen = dropMany(base, ids, target, how, shut, make([target, ...ids]))
@@ -2318,8 +2318,10 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
       const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the group'
       const n = ids.length > 1 ? ` ${num(ids.length)}` : ''
       // A group made by a drop shows in front of you with its name open for typing, as it always did: no toast, ⌘Z takes it back.
+      // Into a folder they leave the list for its page, as the card said: moved, not added.
+      const away = !!lands && isFolder(info.get(lands))
       commit(next, next.make || (lands && lands !== was) ? 'gather' : was && !lands ? 'separate' : 'shift',
-        next.make ? 'Grouped' : lands && lands !== was ? `Added${n} to ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort)
+        next.make ? 'Grouped' : lands && lands !== was ? `${away ? 'Moved' : 'Added'}${n} ${away ? 'into' : 'to'} ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort)
     },
     picked: chosen,
     onLetGo: () => done(),
