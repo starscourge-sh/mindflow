@@ -5,7 +5,7 @@
 // Learn Haligtree deck. Screenshots in Paper, GitHub Dark and Brutal.
 //
 //   npx electron-vite build --outDir out-study
-//   QA_ENTRY=out-study/main/index.js SHOTS=<dir> node qa/study.mjs
+//   QA_ENTRY=out-study/main/index.js SHOTS=<dir> [SANDBOX=<a copy of the seeded sandbox>] node qa/study.mjs
 //
 // CARDS=1 runs only the lines about cards written in a note, on the data folder given (a copy of the seeded
 // sandbox: QA_ARGS=--sandbox QA_DATA=<the copy>), with no fresh install and no seeding of its own.
@@ -290,10 +290,8 @@ try {
   check('reminder: off says nothing', (await v('review:reminder:now')) === null)
   await v('settings:set', { reviewReminder: '09:00' })
   await go('settings')
-  await h.evaluate(() => localStorage.setItem('settings:section', 'Review'))
-  await go('home')
-  await go('settings')
-  await wait(1200)
+  await h.click('[data-section="Review"]')
+  await wait(800)
   await h.evaluate(() => [...document.querySelectorAll('[data-setting]')].find((one) => one.textContent?.includes('Review reminder'))?.scrollIntoView({ block: 'center' }))
   await wait(500)
   check('Settings has Review reminder', await h.evaluate(() => [...document.querySelectorAll('[data-setting]')].some((one) => one.textContent?.includes('Review reminder') && one.querySelector('[data-time-field]'))))
@@ -350,6 +348,7 @@ try {
   await h.keyboard.type('Lima on the coast')
   await h.keyboard.press('Meta+Enter')
   await wait(900)
+  for (let end = Date.now() + 20000; Date.now() < end && /Checking what it means/.test(await text('[data-typed]'));) await wait(250)
   check('a typed answer says how close it was and suggests a grade', /suggests (Good|Easy|Hard)/.test(await text('[data-typed]')), await text('[data-typed]'))
   check('the suggested grade is marked', await has('[data-suggested]'))
   await h.evaluate(() => document.querySelector('[data-how] summary')?.click())
@@ -466,6 +465,8 @@ try {
   await h.evaluate(() => {
     const target = [...document.querySelectorAll('.tiptap.ProseMirror')].find((one) => one.textContent?.includes('Words'))
     target?.focus()
+    const editor = target?.editor
+    editor?.chain().focus('end').splitBlock().run()
     const data = new DataTransfer()
     data.setData('text/plain', 'Ephemeral - lasting a very short time\nLaconic - using few words\nSanguine - hopeful in a bad time')
     target?.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
@@ -479,7 +480,7 @@ try {
   })
   check('a pasted list offers Make 3 cards', offered)
   await wait(900)
-  const made = (await v('items', 'nugget')).filter((one) => ['Ephemeral', 'Laconic', 'Sanguine'].includes(one.prompt))
+  const made = [...await v('items', 'card'), ...await v('items', 'nugget')].filter((one) => ['Ephemeral', 'Laconic', 'Sanguine'].includes(one.prompt))
   check('Make 3 cards makes three cards', made.length === 3, made.map((one) => one.prompt).join(' | '))
 
   // --- a card's own history -------------------------------------------------------------------
@@ -488,9 +489,14 @@ try {
   await h.evaluate(() => (localStorage.setItem('noteDetails', 'open'), window.dispatchEvent(new Event('mf:details'))))
   await send('nugget', peru)
   await wait(1500)
+  // Folded, "Comes back" is opened as a person opens it; its line is a path since the charts' one ink (11-05).
+  const comes = h.locator('[data-details-group="Comes back"]:visible > div > button').first()
+  if ((await comes.getAttribute('aria-expanded').catch(() => null)) === 'false') await comes.click({ timeout: 5000 }).catch((error) => console.log('  "Comes back" not opened:', error.message.split('\n')[0]))
+  await wait(400)
   await h.evaluate(() => document.querySelector('[data-strength]')?.scrollIntoView({ block: 'center' }))
   await wait(400)
-  check('the gem shows its strength line', await has('[data-strength] polyline'))
+  // The svg in sight with its line drawn (a line as flat as two equal grades has no height, so the path itself never reads as visible).
+  check('the gem shows its strength line', await h.locator('[data-strength]:visible svg').first().isVisible().catch(() => false) && await h.evaluate(() => [...document.querySelectorAll('[data-strength] svg path')].some((one) => one.getAttribute('d')?.length > 1)))
   await shot('strength-line')
 
   // --- days in a row ----------------------------------------------------------------------------
@@ -501,10 +507,9 @@ try {
   for (let i = 0; i < 1000; i += 50) await h.evaluate(async ([id, n]) => { for (let k = 0; k < n; k++) await window.api.haligtree('review:grade', id, 3, 4000) }, [peru, 50])
   const fit = await v('review:fit')
   check('Fit now fits and keeps it', !!fit && (await v('settings')).fsrsFirst?.length === 4, JSON.stringify(fit))
-  await h.evaluate(() => localStorage.setItem('settings:section', 'Review'))
-  await go('home')
   await go('settings')
-  await wait(1200)
+  await h.click('[data-section="Review"]')
+  await wait(800)
   await h.evaluate(() => document.querySelector('[data-fit]')?.scrollIntoView({ block: 'center' }))
   await wait(500)
   check('Settings says it is fitted', (await text('[data-fit]')).includes('Fitted'), await text('[data-fit]'))
@@ -514,7 +519,9 @@ try {
   // --- Learn Haligtree: offered, never forced ----------------------------------------------------
   check('no Learn Haligtree cards until asked', (await v('learn:count')) === 0)
   await go('powers')
-  await wait(1200)
+  await h.click('[data-section="Every page"]')
+  await wait(800)
+  await shot('powers-every-page')
   check('What Haligtree can do offers it', await has('[data-learn="offer"]'))
   await go('home')
   await wait(1200)
@@ -533,15 +540,22 @@ try {
   // --- What Haligtree can do lists each of these ---------------------------------------------------
   await go('powers')
   await wait(1500)
-  const powers = await h.evaluate(() => [...document.querySelectorAll('[data-power]')].map((one) => one.getAttribute('data-power')))
-  check('each feature is on What Haligtree can do', ['linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnhaligtree', 'learnmode', 'typed', 'practisetag', 'star', 'howitdecides', 'tagpriority', 'listcards', 'strength', 'fit', 'daysinarow'].every((id) => powers.includes(id)))
+  const powers = []
+  for (const tab of await h.$$eval('[data-section]', (all) => all.map((one) => one.getAttribute('data-section')))) {
+    await h.click(`[data-section="${tab}"]`)
+    await wait(300)
+    powers.push(...await h.evaluate(() => [...document.querySelectorAll('[data-power]')].map((one) => one.getAttribute('data-power'))))
+  }
+  const wanted = ['linecards', 'slipping', 'practice', 'blurt', 'reviewreminder', 'learnhaligtree', 'learnmode', 'typed', 'practisetag', 'star', 'howitdecides', 'tagpriority', 'listcards', 'strength', 'fit', 'daysinarow']
+  check('each feature is on What Haligtree can do', wanted.every((id) => powers.includes(id)), wanted.filter((id) => !powers.includes(id)).join(', '))
   check('no page errors', !c.errors.some((one) => one.includes('PAGEERROR')), c.errors.filter((one) => one.includes('PAGEERROR')).join(' | '))
 } finally {
   await c.close()
 }
 
 // --- the sandbox: the examples are there ------------------------------------------------------
-process.env.QA_DATA = mkdtempSync(join(tmpdir(), 'haligtree-study-sb-'))
+// SANDBOX=<a copy of the seeded sandbox> starts from it: seeding one afresh is the heaviest thing a probe does.
+process.env.QA_DATA = process.env.SANDBOX ?? mkdtempSync(join(tmpdir(), 'haligtree-study-sb-'))
 process.env.QA_ARGS = '--sandbox'
 c = await sandbox({ width: 1280, height: 860 })
 ;({ h, v, go, send } = c)
