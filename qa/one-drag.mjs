@@ -1656,6 +1656,16 @@ await part('Several notes', async () => {
   await h.locator('[role=status] button', { hasText: 'Undo' }).last().click().catch(() => {}); await wait(1200)
   const back = await v('groups', 'article')
   check('Several notes, “Undo” puts all six back', (back.find((one) => one.id === 'deep')?.members ?? []).join() === [all.Ash, all.Birch, all.Cedar].join() && SIX.every((one) => back.find((g) => g.id === 'desk')?.members.includes(all[one])), (back.find((one) => one.id === 'deep')?.members ?? []).map((id) => Object.keys(all).find((k) => all[k] === id)).join())
+  // Let go on the folder in the list: all six move into it, said as its menu's “Move to” says it, with Undo.
+  for (let i = 0; i < 40 && (await notices()).length; i++) await wait(250)
+  was = await liftSix()
+  await glide(await headAt('Inner')); await wait(450)
+  await h.mouse.up(); await wait(1200)
+  const inner = (await v('groups', 'article')).find((one) => one.id === 'inner')?.members ?? []
+  const toldInner = await notices()
+  check('Several notes, let go on a folder in the list: all six are in it, said “Moved 6 notes to Inner” once, with Undo', SIX.every((one) => inner.includes(all[one])) && toldInner.length === 1 && /^Moved 6 notes to Inner/.test(toldInner[0]), `${inner.length} in Inner; ${toldInner.join(' | ') || '(no notice)'}`)
+  await h.locator('[role=status] button', { hasText: 'Undo' }).last().click().catch(() => {}); await wait(1200)
+  check('Several notes, “Undo” takes all six out of the folder again', ((await v('groups', 'article')).find((one) => one.id === 'inner')?.members ?? []).join() === all.Pine)
   // Three out of a subgroup to the top of the group round it (27): the faded ones stay in the subgroup, never over its head.
   await lay(['g:desk'], { desk: ['g:dives', all.Yew, all.Larch], dives: [all.Ash, 'g:sub', all.Birch, all.Oak], sub: [all.Cedar, all.Elm, all.Fir] })
   await into('Desk'); await pick(['Cedar', 'Elm', 'Fir'])
