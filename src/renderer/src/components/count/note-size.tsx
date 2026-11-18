@@ -3,6 +3,7 @@ import type { Editor } from '@tiptap/react'
 import type { EditorView } from '@tiptap/pm/view'
 import { Ruler } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Pressed } from '@/components/haligtree/ui'
 import { caretLine, lineOf } from '@/extensions/line-numbers'
 import { minutesToRead } from '@/lib/note-size'
 import { domOf } from '@/lib/editor-dom'
@@ -125,9 +126,11 @@ export function NoteSize({ editor }: { editor: Editor | null }): React.JSX.Eleme
       </TooltipTrigger>
       <TooltipContent ref={cue} data-note-size-card side="bottom" align="end" sideOffset={6}
         className="block w-64 max-w-none rounded-xl p-3 text-control">
+        {/* Its key beside its name, as a peek card shows one: the way to ask for it again without the pointer. */}
         <p className="mb-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
           <Ruler aria-hidden className="size-3.5 shrink-0" />
-          Size of this note
+          <span className="min-w-0 flex-1">Size of this note</span>
+          <span className="flex shrink-0 gap-0.5"><Pressed keys={SIZE_KEYS} /></span>
         </p>
         <p data-size-read className="mb-2 font-semibold text-foreground">{minutes ? `About ${howLong(minutes)} to read` : 'Nothing to read yet'}</p>
         <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 tabular-nums">
