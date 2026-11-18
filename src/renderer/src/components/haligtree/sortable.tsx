@@ -1,6 +1,6 @@
 import { Fragment, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { dragWords } from '@/lib/drag-words'
-import { createPortal } from 'react-dom'
+import { createPortal, flushSync } from 'react-dom'
 import { DndContext, DragOverlay, useDndMonitor, closestCenter, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { RowSensor } from '@/lib/own-press'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
@@ -261,6 +261,9 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
     setShot(lift)
     setSpan(lift?.folded ?? 0)
   }
+  // Drawn in the frame it is let go in (flushSync, at the DndContext): dnd-kit hands the drop over from the pointer's own
+  // listener, outside React's events, so React drew it as work spread over frames, and Tasks, slow to draw on a busy
+  // Mac, showed the old order for a frame or more after the drop (57 ms at load 12; one-drag part 5 on the stack).
   const onDragEnd = ({ active }: DragEndEvent): void => {
     const now = aimed.current
     const id = String(active.id)
@@ -280,7 +283,7 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
   return (
     // Its screen-reader lines go to the page's foot, never among the rows (a tree of rows counts its children).
     // Where each row slides is worked out once, for them all (Shaped): dnd-kit moves none itself, and reads no row as under the card.
-    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={nothing} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={() => read.current()} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={nothing} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={() => read.current()} onDragEnd={(event) => flushSync(() => onDragEnd(event))} onDragCancel={() => (end(), chime('stay'))}>
       <SortableContext items={keys} strategy={stayPut}>
         <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={keys.join('\n')}>
           <Shaped aim={aim} keys={keys} hand={shot?.id ?? null} many={shot ? [shot.id] : []} span={span} inset={0} row={span} snap={snap} blocks={[]} footRoom={false} within={shot?.within}>
