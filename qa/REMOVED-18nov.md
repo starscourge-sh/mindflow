@@ -4,12 +4,12 @@ The user, 16 Nov: "My rule now: test by who uses it. My tools get tests where lo
 gets its main journeys tested end to end. Nothing trivial. Nothing twice. write fewer tests and purge unnecessary ones:
 dont lengthen builds for no reason".
 
-qa/ held 1,245 probes; 254 are kept and 991 removed, with 3 files no kept probe reads. Every removed
+qa/ held 1,245 probes; 257 are kept and 988 removed, with 3 files no kept probe reads. Every removed
 file is in git history (`git show c58be03fd:qa/<name>.mjs`). How they were sorted:
-- a fix long merged, its path walked by a kept probe: 673
+- a fix long merged, its path walked by a kept probe: 671
 - one-off pass or diagnostic: 63
 - logic held by a unit test: 31
-- a fix long merged, no journey walks its corner: 152
+- a fix long merged, no journey walks its corner: 151
 - one number: 14
 - a look already read by eye: 58
 - a file only removed probes used: 3
@@ -398,7 +398,6 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/handover-shelf.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 11-17, last changed 11-17; run by no merge check since 14 Nov)
 - `qa/handover-skills.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 11-17, last changed 11-17; run by no merge check since 14 Nov)
 - `qa/haptics-scrub.mjs`: trivial: a fix long merged (written 10-31, last changed 11-02; run by no merge check since 14 Nov); no journey walks its corner of the app
-- `qa/hard-quit.mjs`: trivial: a fix long merged (written 10-30, last changed 11-16; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/head-box-gaps.mjs`: trivial: a fix long merged (written 11-11, last changed 11-11; run by no merge check since 14 Nov); its path is walked by the kept probe one-app
 - `qa/header-heights.mjs`: trivial: a fix long merged (written 11-07, last changed 11-07; run by no merge check since 14 Nov); its path is walked by the kept probe one-app
 - `qa/hero-lands-on-note.mjs`: trivial: a fix long merged (written 11-10, last changed 11-10; run by no merge check since 14 Nov); its path is walked by the kept journey home-coming-back
@@ -559,7 +558,6 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/note-pickers.mjs`: trivial: a fix long merged (written 11-01, last changed 11-01; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
 - `qa/note-place-return.mjs`: trivial: a fix long merged (written 11-11, last changed 11-11; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
 - `qa/note-questions.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
-- `qa/note-sums.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; last run by a merge check 11-16); its path is walked by the kept journey editor-obsidian
 - `qa/notebook-page.swift`: trivial: a helper no probe runs (nothing in qa/ names it)
 - `qa/notes-layout.mjs`: trivial: a fix long merged (written 10-17, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe one-app
 - `qa/notes-polish.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-17, last changed 10-25; run by no merge check since 14 Nov)
@@ -770,7 +768,6 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/sandbox-stickies-return.mjs`: trivial: a fix long merged (written 10-28, last changed 10-28; run by no merge check since 14 Nov); its path is walked by the kept journey sandbox-works
 - `qa/sandbox.mjs`: trivial: a fix long merged (written 10-07, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey sandbox-works
 - `qa/save-asks.mjs`: trivial: a fix long merged (written 11-12, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey save-keeps
-- `qa/save-backup-import.mjs`: trivial: a fix long merged (written 10-11, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept journey save-keeps
 - `qa/scale-book.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/scale-tasks.mjs`: trivial: a fix long merged (written 10-21, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
 - `qa/scenery-breathe.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-26, last changed 10-29; run by no merge check since 14 Nov)
