@@ -114,6 +114,8 @@ const awayAndBack = async (between) => {
 /** The Inbox with a list long enough to scroll: on a book whose last few days are quiet, its older captures, gone through. */
 const inbox = async () => {
   await c.send('view', 'inbox')
+  // Its last month, as set above, once the page has the setting: a long list of its own.
+  await h.waitForFunction(() => { const list = window.__placeList(); return list && list.scrollHeight > list.clientHeight + 300 }, null, { timeout: 6000 }).catch(() => undefined)
   await h.waitForFunction(() => { const list = window.__placeList(); return (list && list.scrollHeight > list.clientHeight + 300) || [...document.querySelectorAll('[data-pane-card] button')].some((one) => one.textContent.trim() === 'Go through them') }, null, { timeout: 30000 })
   const older = await h.evaluate(() => { const list = window.__placeList(); if (list && list.scrollHeight > list.clientHeight + 300) return false; [...document.querySelectorAll('[data-pane-card] button')].find((one) => one.textContent.trim() === 'Go through them').click(); return true })
   if (older) { console.log('the Inbox\'s last days are short: its older captures, gone through'); await wait(800) }
@@ -126,6 +128,9 @@ try {
   await installList()
   await h.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await h.evaluate(() => window.api.haligtree('settings:set', { hintRate: 0 }))
+  // The book's last captures age: its Inbox shows its last month, a long list of its own, as its last week did when this was written
+  // (the day case goes through the older ones on purpose).
+  if (CASE !== 'day') await h.evaluate(() => window.api.haligtree('settings:set', { inboxDays: 30 }))
   if (CASE === 'tab' || CASE === 'day') {
     if (CASE === 'day') await c.send('view', 'inbox'); else await inbox()
     if (CASE === 'day') {
@@ -174,13 +179,16 @@ try {
     await c.send('capture', first)
     await h.waitForFunction(() => !!window.__placeList(), null, { timeout: 30000 })
     await wait(1200)
+    await frame('other')
+    console.log(`the other tab: ${await h.evaluate(() => `${document.querySelectorAll('[data-pane-card] [data-island-more]').length} "Show more" in the page, ${window.__placeList()?.querySelectorAll('[data-island-more]').length ?? 'no'} in its list`)}`)
     // Every "Show N more" above the first tab's row, pressed as a person presses it.
     let pressed = 0
     for (let i = 0; i < 6; i++) {
       const more = await h.evaluate((row) => {
         const list = window.__placeList()
         const kept = row && list?.querySelector(`[data-id="${CSS.escape(row)}"]`)
-        const all = [...(list?.querySelectorAll('[data-island-more]') ?? [])].filter((one) => /show/i.test(one.textContent) && !/fewer/i.test(one.textContent))
+        // In the page's own card, the page being left aside (its list may not be the tallest box beside an open note).
+        const all = [...document.querySelectorAll('[data-pane-card] [data-island-more]')].filter((one) => !one.closest('[data-page-held]') && /show/i.test(one.textContent) && !/fewer/i.test(one.textContent))
         const above = all.find((one) => !kept || (one.compareDocumentPosition(kept) & Node.DOCUMENT_POSITION_FOLLOWING))
         if (!above) return null
         above.scrollIntoView({ block: 'center' })

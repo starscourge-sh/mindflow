@@ -16,9 +16,10 @@ export type PaneApi = { scrolled: () => Scrolled }
 /** A pane as drawn: its tabs, the one open, and that tab's page. `at` names the step on show: when it changes, the page's scroll is put back. */
 type PaneShown = { key: string; tabs: TabShown[]; active: string; at: string; scroll?: Scrolled; width?: PaneWidth; node: ReactNode }
 
-// A list's rows, each named by its id; one inside another is a part of its row, not a row.
-const ROWS = '[data-id]:not([data-id] [data-id])'
-/** The row at a box's top edge (the first whose bottom is below it) and how far below the edge it starts. Rows run down the page in order, so halved, not walked: a long list reads a dozen rows, never all. */
+// A page's rows, each named by what it stands for: a list's row by its id, Home's cards by what they open, a task, a day.
+const NAMES = ['data-id', 'data-drag-open', 'data-task-id', 'data-day']
+const ROWS = NAMES.map((name) => `[${name}]`).join(', ')
+/** The row at a box's top edge (the first whose bottom is below it), named as `attribute=value`, and how far below the edge it starts. Rows run down the page in order, so halved, not walked: a long list reads a dozen rows, never all. */
 const rowAtTop = (box: Element): [string, number] | null => {
   const rows = box.querySelectorAll(ROWS)
   const edge = box.getBoundingClientRect().top
@@ -30,12 +31,13 @@ const rowAtTop = (box: Element): [string, number] | null => {
     else low = mid + 1
   }
   const row = rows[low]
-  const id = row?.getAttribute('data-id')
-  return row && id ? [id, Math.round(row.getBoundingClientRect().top - edge)] : null
+  const name = row && NAMES.find((one) => row.hasAttribute(one))
+  return row && name ? [`${name}=${row.getAttribute(name)}`, Math.round(row.getBoundingClientRect().top - edge)] : null
 }
 /** A box put back where it was: its row at the same distance under its top edge, or, the row not drawn (yet), the same scroll. */
 const putBack = (box: HTMLElement, top: number, row?: string, at?: number): void => {
-  const there = row !== undefined ? box.querySelector(`[data-id="${CSS.escape(row)}"]`) : null
+  const split = row?.indexOf('=') ?? -1
+  const there = row && split > 0 ? box.querySelector(`[${row.slice(0, split)}="${CSS.escape(row.slice(split + 1))}"]`) : null
   const want = there ? box.scrollTop + there.getBoundingClientRect().top - box.getBoundingClientRect().top - (at ?? 0) : top
   if (Math.abs(box.scrollTop - want) > 1) jumpTo(box, want)
 }
@@ -202,13 +204,31 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       // (Kept here too, by distance, Back to a long note was put back twice over, and every scroll event of a
       // note paid for the walk up the page that finds its box's path.)
       if (placedHere(event.target)) return
-      const path = pathTo(root, event.target)
-      const now: Heard = { top: event.target.scrollTop, row: rowAtTop(event.target) ?? undefined }
-      seen.current.set(path, { box: event.target, ...now })
-      heard.current.set(path, now)
+      hear(event.target, pathTo(root, event.target))
     }
+    const hear = (box: Element, path: string): void => {
+      const now: Heard = { top: box.scrollTop, row: rowAtTop(box) ?? undefined }
+      seen.current.set(path, { box, ...now })
+      heard.current.set(path, now)
+      // Its rows can move with no scroll (rows above measured, a group folding): heard again when what it holds changes size.
+      if (!boxes.has(box)) (boxes.add(box), sizes.observe(box), box.firstElementChild && sizes.observe(box.firstElementChild))
+    }
+    const boxes = new WeakSet<Element>()
+    // After layout, so the rows are read where they are drawn; not while the page is being put back (that holds the row it had).
+    const sizes = new ResizeObserver((entries) => {
+      if (!root || root.dataset.placing !== undefined) return
+      for (const { target } of entries) {
+        const box = boxes.has(target) ? target : target.parentElement
+        const was = box && [...seen.current].find(([, one]) => one.box === box)?.[0]
+        if (!box || !was || !root.contains(box) || box.scrollTop <= 0) continue
+        // Where it is in the page now: something opened beside it (a note beside the list) moves it to another place.
+        const path = pathTo(root, box)
+        if (path !== was) seen.current.delete(was)
+        hear(box, path)
+      }
+    })
     root?.addEventListener('scroll', onScroll, true)
-    return () => root?.removeEventListener('scroll', onScroll, true)
+    return () => (root?.removeEventListener('scroll', onScroll, true), sizes.disconnect())
   }, [])
   const landing = useRef<Scrolled | null>(null)
   const api: PaneApi = {
@@ -220,9 +240,14 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       // opens, reading a box's scrollTop made the browser lay out the whole
       // new note early, 20 to 28ms before its words could show.
       const tops: Scrolled = []
-      for (const [path, last] of seen.current) {
+      for (const [kept, last] of [...seen.current]) {
+        // The same box, moved to another place in the page (a note opened beside the list): kept by where it is now,
+        // never let go (the Inbox beside an open note came back with no place kept, its open row in the middle).
+        const moved = atPath(root, kept) !== last.box && root.contains(last.box)
+        const path = moved ? pathTo(root, last.box) : kept
+        if (moved) (seen.current.delete(kept), seen.current.set(path, last))
         // A box swapped for the next note's: the last one heard since the last step is where it was, or nothing.
-        const was = atPath(root, path) === last.box ? last : heard.current.get(path)
+        const was = moved || atPath(root, path) === last.box ? last : heard.current.get(path)
         if (was && was.top > 0) tops.push(was.row ? [path, was.top, ...was.row] : [path, was.top])
         else seen.current.delete(path)
       }
@@ -264,19 +289,25 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       }
     }
     const changed = new MutationObserver(() => (watch(), place()))
+    // Moved by anything but you while held (a long list keeping its own place as rows above it are measured,
+    // ui.tsx): put back by the row again. Your own scroll starts with a wheel, a press or a key, which let go first.
+    const moved = (): void => place()
     // Marked while held, so a list does not also bring its open row into view (ui.tsx showRow): the place kept is
     // where you were, the open row on screen with it if it was, and Back's own ruling, never a second scroll after.
     const letGo = (): void => {
       landing.current = null
       grows.disconnect()
       changed.disconnect()
+      root.removeEventListener('scroll', moved, true)
       delete root.dataset.placing
     }
     landing.current = want
     root.dataset.placing = ''
     watch()
     place()
-    changed.observe(root, { childList: true, subtree: true })
+    // Rows drawn or taken away, and anything that grows by its style (a group unfolding, a row measured).
+    changed.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] })
+    root.addEventListener('scroll', moved, true)
     root.addEventListener('wheel', letGo, { passive: true, capture: true })
     root.addEventListener('pointerdown', letGo, true)
     window.addEventListener('keydown', letGo, true)
