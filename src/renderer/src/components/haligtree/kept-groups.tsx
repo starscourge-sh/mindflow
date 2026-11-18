@@ -25,7 +25,7 @@ import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { DROP_LIT, Overlay, SETTLE, upDown } from './sortable'
-import { CARD, CarriedCard, CarriedCount, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, Slid, type Aim, type Parts, type Places } from './carry'
+import { CARD, CarriedCard, CarriedCount, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, offWindow, Slid, type Aim, type Parts, type Places } from './carry'
 import { Hinted, copy } from './row-menu'
 import { Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
@@ -279,7 +279,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     // at the list's foot while it scrolled, it ran on past every row and the room went.
     const pointer = activatorEvent instanceof PointerEvent ? pointerAt() : null
     // With the split places up, letting go opens it there: nothing in the list lights too, whatever row it is level with.
-    if (!pointer || 'splitDrag' in document.documentElement.dataset) return (lightShelf(null), aimAt(null))
+    // Out of the window, nothing is aimed at, and letting go puts it back.
+    if (!pointer || offWindow() || 'splitDrag' in document.documentElement.dataset) return (unspring(), undwell(), lightShelf(null), aimAt(null))
     // Several notes over a shelf folder: into that folder, not into whichever list row sits at the same height.
     if (manyRef.current.length > 1 && !isGroup(id)) {
       const folder = document.elementsFromPoint(pointer.x, pointer.y).reduce<HTMLElement | null>((found, node) => found ?? (node instanceof Element ? node.closest<HTMLElement>('[data-folder-drop]') : null), null)

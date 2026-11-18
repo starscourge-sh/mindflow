@@ -953,6 +953,11 @@ if (typeof window !== 'undefined') {
 }
 export const pointerNow = (): number => pointerX
 export const pointerAt = (): { x: number; y: number } => ({ x: pointerX, y: pointerY })
+/**
+ * Carried out of the window, the button still down: nothing there is aimed at, and letting go puts it back, as a Mac's
+ * lists do. A list read the row level with the pointer however far outside it was, and the row moved there unseen.
+ */
+export const offWindow = (): boolean => pointerX < 0 || pointerY < 0 || pointerX >= window.innerWidth || pointerY >= window.innerHeight
 /** Going left alone moves nothing a list's own drag reads, so crossing OUTDENT reads the aim afresh itself. */
 export function useCarriedLeft(from: number | null, on: boolean, again: () => void): void {
   const read = useRef(again)

@@ -1,12 +1,12 @@
 import { Fragment, createContext, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { dragWords } from '@/lib/drag-words'
 import { createPortal } from 'react-dom'
-import { DndContext, DragOverlay, useDndMonitor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
+import { DndContext, DragOverlay, useDndMonitor, closestCenter, useSensor, useSensors, type CollisionDetection, type DragEndEvent, type DragStartEvent, type DropAnimation, type Modifier } from '@dnd-kit/core'
 import { RowSensor } from '@/lib/own-press'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { EASING, spring, still } from '@/lib/motion'
-import { CarriedCard, CarryRow, HELD, Hand, OwnRoom, RoomAt, Shaped, clearWay, makeWay, pointerAt, restBox, rowAt, swallowRelease, titleOf, useAim, useRest, useTargets, headRow, type Parts, type Places, type Spot } from './carry'
+import { CarriedCard, CarryRow, HELD, Hand, OwnRoom, RoomAt, Shaped, clearWay, makeWay, pointerAt, restBox, rowAt, swallowRelease, titleOf, useAim, useRest, useTargets, headRow, offWindow, type Parts, type Places, type Spot } from './carry'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { refuse } from './ui'
@@ -211,6 +211,8 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
     if (!lift) return
     const id = lift.id
     const { y } = pointerAt()
+    // Out of the window, nothing is aimed at, and letting go puts it back.
+    if (offWindow()) return (undwell(), targets.dim(), point(null))
     // A place on the page: it lights, and the card says what letting go there does.
     const spot = targets.place(id)
     if (spot) return (undwell(), point(spot))
@@ -296,6 +298,9 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
 }
 
 /** A row of tabs, carried side to side: they slide along to make room, the carried one's place kept quiet where it will land. */
+/** The nearest tab to the one carried; none out of the window, so a tab let go there goes back (quick capture's small window). */
+const inWindow: CollisionDetection = (args) => (offWindow() ? [] : closestCenter(args))
+
 function TabRow<T>({ items, keyOf, onMove, children }: ListProps<T>): React.JSX.Element {
   const sensors = useSensors(useSensor(RowSensor, { activationConstraint: { distance: 5 } }))
   const { shown, keys, setHeld, sorting, lifting, landed } = useHeld(items, keyOf)
@@ -315,7 +320,7 @@ function TabRow<T>({ items, keyOf, onMove, children }: ListProps<T>): React.JSX.
     onMove(String(active.id), String(over.id), to > from)
   }
   return (
-    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCenter} modifiers={[sideways]}
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={inWindow} modifiers={[sideways]}
       onDragStart={({ active, activatorEvent }) => (chime('lift'), lifting(), ticks.start(String(active.id)), setShot(carriedOf(String(active.id), activatorEvent)))}
       onDragOver={({ active, over }) => (ticks(over?.id), setOnto(!!over && over.id !== active.id))} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), setOnto(false), landed(), chime('stay'))}>
       <SortableContext items={keys} strategy={horizontalListSortingStrategy}>
@@ -498,7 +503,8 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   }
   // The pointer as it is on the page: the drag's delta takes in the list's scroll too (kept-groups.tsx says how it hurt).
   const onDragMove = (): void => {
-    const found = where(pointerAt().y)
+    // Out of the window it is over no place: let go there, it goes back.
+    const found = offWindow() ? null : where(pointerAt().y)
     mark(found === 'refused' ? null : found, found === 'refused')
   }
   const onDragEnd = ({ active }: DragEndEvent): void => {

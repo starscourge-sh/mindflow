@@ -28,7 +28,7 @@ import { notes, type NoteTable } from '@/lib/notes'
 import { taskSaid, haligtree } from '@/lib/haligtree'
 import { dayMonth, num } from '../../../../main/dates'
 import { Overlay, SETTLE } from './sortable'
-import { CarriedCard, HELD, Hand, RoomIn, titleOf } from './carry'
+import { CarriedCard, HELD, Hand, RoomIn, offWindow, titleOf } from './carry'
 import { Count, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
 import { followLink } from '@/components/pdf/pdf-reader'
@@ -808,6 +808,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     return () => cancelAnimationFrame(frame)
   }, [draft])
   const collide: CollisionDetection = (args) => {
+    // Carried out of the window, it is over nothing: let go there, it goes back (the nearest list took it before).
+    if (offWindow()) return (lastOver.current = null), []
     if (moved.current) return lastOver.current === null ? [] : [{ id: lastOver.current }]
     const found = closestCorners(args)
     lastOver.current = found[0]?.id ?? null
@@ -815,6 +817,8 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   }
   const onDragOver = ({ active, over }: DragOverEvent): void => {
     ticks(placeOf(over ? real(String(over.id)) : undefined))
+    // Over nothing (out of the window): back in its own list until it is over one again.
+    if (!over) return setDraft(null)
     const from = real(String(active.id))
     if (!from.startsWith('card:') || !over) return
     const to = real(String(over.id))
