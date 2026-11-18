@@ -7,7 +7,7 @@ import { findCaptures, findHeadings, follow } from "@/lib/capture-links"
 import { useSameWords } from "@/lib/same-words"
 import { haligtree } from "@/lib/haligtree"
 import { chime } from "@/lib/sound"
-import { noteNamed } from "@/extensions/note-link"
+import { bringFromVault, chooseNote, noteNamed } from "@/extensions/note-link"
 import { ArrowUpRight, Link } from "@/components/ui/icons"
 import { blockIn } from "../../../../main/blocks"
 import { notePowers } from "@/components/haligtree/note-powers"
@@ -237,8 +237,17 @@ export function NoteEmbedView({ node, updateAttributes, editor, getPos }: NodeVi
     chime("fold")
     editor.chain().focus().insertContentAt({ from: pos, to: pos + node.nodeSize }, { type: "paragraph", content: [{ type: "noteLink", attrs: { id, label, block: block || "" } }] }).run()
   }
-  const make = (): void =>
-    void noteNamed(label, findCaptures).then((found) => found ? (chime("settled"), updateAttributes({ id: found.id, label: found.label })) : chime("nope"))
+  // In the Obsidian vault the book's notes came from: brought in as its import would, and said with Undo (two of
+  // that name: asked which, at the button). Else made, empty, as before.
+  const made = (found: { id: string; label: string } | null): void => (found ? (chime("settled"), updateAttributes({ id: found.id, label: found.label })) : chime("nope"))
+  const make = (event: React.MouseEvent, path?: string): void => {
+    const at = { x: event.clientX, y: event.clientY }
+    void bringFromVault(label, path).then((brought) => {
+      if (brought?.found === "brought" || brought?.found === "here") return made({ id: brought.link, label: brought.title })
+      if (brought?.found === "several" && !path) return chooseNote(brought.paths, at, (one) => make(event, one), () => void noteNamed(label, findCaptures).then(made))
+      void noteNamed(label, findCaptures).then(made)
+    })
+  }
   return (
     <NodeViewWrapper data-note-embed={id} className="note-embed">
       {id && block ? <EmbeddedLine link={id} block={block} label={label} onUnembed={editor.isEditable ? unembed : undefined} />
@@ -246,7 +255,7 @@ export function NoteEmbedView({ node, updateAttributes, editor, getPos }: NodeVi
         : missing ? (
           <div contentEditable={false} className="my-1 flex items-center gap-2 rounded-lg px-3 py-2 text-control ring-1 ring-border">
             <span className="min-w-0 flex-1 text-foreground">{quoted(label, 80)} is not a page yet.</span>
-            {editor.isEditable && <button type="button" data-make-page className="shrink-0 rounded-md px-2 py-0.5 font-medium hover:bg-accent" onClick={make}>Make it</button>}
+            {editor.isEditable && <button type="button" data-make-page className="shrink-0 rounded-md px-2 py-0.5 font-medium hover:bg-accent" onClick={(event) => make(event)}>Make it</button>}
           </div>
         ) : (
         <div className="my-1 rounded-lg px-3 py-2 text-control ring-1 ring-border">Finding {quoted(label, 80)}…</div>

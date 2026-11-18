@@ -113,7 +113,7 @@ import { throwSpot } from './throw-spot'
 import { CORNERS, REST_MS, beside, clearPlace, cornerPlace, overlaps, topPlaces, type Corner } from './step-aside'
 import { cardInView, cardOf, LIFT_MS, onFrames, outCubic, outQuart, outQuint, paceBy, rubber, settle as overshoot, tween, type Inset } from './sticky-place'
 import { registerDefine } from './define'
-import { isVault, registerObsidian, vaultChoices } from './obsidian'
+import { findVaultNotes, isVault, registerObsidian, vaultChoices, vaultRoots } from './obsidian'
 import { bringAppleNotes, notesReader, type NotesFolder } from './apple-notes'
 import { fileIntoGroups, filedSaid, registerNoteImports } from './note-imports'
 import { assetsDir, known, lookAhead, registerPictures, smallCopy } from './pictures'
@@ -4522,12 +4522,31 @@ async function importFolders(from: 'Apple Notes' | 'Obsidian', folders: NotesFol
   }
 }
 
-async function bringVault(root: string, quiet: boolean, pick?: { folders: string[]; signal: AbortSignal }, stop?: AbortSignal): Promise<void> {
+/** The folders this book's imports came from, newest first: where a link to a note not here yet looks (vaultRoots). */
+const VAULTS_KEPT = 'importedVaults'
+const keptVaults = (): string[] => {
+  try {
+    const row = database().prepare('select value from settings where key = ?').get(VAULTS_KEPT) as { value: string } | undefined
+    const list = JSON.parse(row?.value ?? '[]') as unknown
+    return Array.isArray(list) ? list.filter((one): one is string => typeof one === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * `only`: these notes alone (a link to one not here yet, brought in from its
+ * vault), each the way the import brings any note: its pictures and files, its
+ * tags, its links. Hands back what came in.
+ */
+async function bringVault(root: string, quiet: boolean, pick?: { folders: string[]; signal: AbortSignal }, stop?: AbortSignal, only?: string[]): Promise<Imported[]> {
+  // Where it came from, so a link to one of its notes not brought in yet can bring it later.
+  database().prepare('insert or replace into settings (key, value) values (?, ?)').run(VAULTS_KEPT, JSON.stringify([root, ...keptVaults().filter((one) => one !== root)].slice(0, 8)))
   // “Stop” on the chip, chosen folders or the whole folder: each note already in is whole, and stays.
   const signal = pick?.signal ?? stop
   const notes: string[] = []
   // Only the chosen folders' notes, when some were chosen; every file still, for their pictures.
-  const chosen = (path: string): boolean => !pick || pick.folders.includes(relative(root, path).includes('/') ? relative(root, path).split('/')[0] : '')
+  const chosen = (path: string): boolean => (only ? only.includes(path) : !pick || pick.folders.includes(relative(root, path).includes('/') ? relative(root, path).split('/')[0] : ''))
   // Attachments by file name: Obsidian embeds them by name alone, wherever
   // they are; and by their path from the vault's top, for the ones that say it.
   const files = new Map<string, string>()
@@ -4797,7 +4816,10 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   // Filed into Pages: said in place of the Inbox's line.
   if (pick) report.splice(1, 0, filedSaid(filed, made.length - inbox))
   if (!quiet) importProgress(null)
-  if (quiet) return console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
+  if (quiet) {
+    if (!only) console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
+    return made
+  }
   // Said in the main window, on a card of its own, while the notes become documents behind it.
   inHome('haligtree:import-done', {
     from: basename(root),
@@ -4811,6 +4833,42 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     // The card says the count and the Inbox itself: the rest of the report is what is left to say.
     notes: pick ? report.slice(1).filter(Boolean) : report.slice(inbox ? 2 : 1)
   })
+  return made
+}
+
+/**
+ * A link to a note not in the book, clicked: the note of that name in the
+ * vault this book's notes came from (or one Obsidian knows), brought in as the
+ * import brings one, and opened. Several of that name: which, asked by path.
+ * None, or no vault to look in, or the vault gone: said, so the link can make
+ * an empty note and say why. Nothing in a vault is ever written to.
+ */
+async function bringLinked(name: string, path?: string): Promise<{ found: 'brought' | 'here'; link: string; title: string; path: string } | { found: 'several'; paths: string[] } | { found: 'none'; vault: boolean; unread: string[] } | { found: 'busy' }> {
+  const roots = await vaultRoots(keptVaults())
+  if (!roots.length) return { found: 'none', vault: false, unread: [] }
+  const { found, unread } = await findVaultNotes(name, roots)
+  const one = path ? found.find((note) => note.path === path) : found.length === 1 ? found[0] : undefined
+  // Said as unread only when no vault could be looked in: one gone among several that were read changes nothing found.
+  if (!one) return found.length > 1 ? { found: 'several', paths: found.map((note) => note.path) } : { found: 'none', vault: true, unread: unread.length === roots.length ? unread : [] }
+  // Brought in before (and renamed since, so its old name finds nothing): that one.
+  const before = alreadyImported(relative(one.root, one.path))
+  if (before) return { found: 'here', link: before.link, title: before.title, path: one.path }
+  // An import under way has the store: the link waits for it rather than bringing one note in the middle of it.
+  if (stopping) return { found: 'busy' }
+  // As an import: its words become a document once its links are in, in whichever window opens it.
+  setImporting(true)
+  try {
+    const made = await busy(() => bringVault(one.root, true, { folders: [], signal: new AbortController().signal }, undefined, [one.path]))
+    // Nothing came in: the file was empty (as the import skips one).
+    return made[0] ? { found: 'brought', link: made[0].link, title: made[0].title, path: one.path } : { found: 'none', vault: true, unread: [] }
+  } catch {
+    // A folder in it that cannot be read (permissions, a cloud copy not on this Mac): said as the vault unread.
+    return { found: 'none', vault: true, unread: [one.root] }
+  } finally {
+    setImporting(false)
+    changed()
+    for (const win of BrowserWindow.getAllWindows()) win.webContents.send('imports:ready')
+  }
 }
 
 /** Left by a restore for the next start to say "Restored from Tuesday 14:00", then taken away. */
@@ -5507,6 +5565,9 @@ app.whenReady().then(() => {
   registerDictation()
   registerGlass()
   registerObsidian()
+  // A link to a note not here yet, clicked: brought in from its vault if it is there (bringLinked).
+  ipcMain.handle('haligtree:vault:bring', (_event, name: unknown, path?: unknown) =>
+    typeof name === 'string' && name.trim() && name.length <= 1024 ? bringLinked(name, typeof path === 'string' ? path : undefined) : { found: 'none', vault: false, unread: [] })
   registerPictures()
   registerPeople()
   registerSources()

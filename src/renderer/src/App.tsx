@@ -20,6 +20,7 @@ import { convertImports } from './lib/convert-imports'
 import { HaligtreeEditor, TAGS, currentVim, foldEverything, goToHeading, onVimChange, setVim } from './components/haligtree'
 import { settleVim } from './lib/vim'
 import { EXITS, exit, exitMany, findCaptures, findHeadings, follow } from './lib/capture-links'
+import { madeByLink } from './extensions/note-link'
 import { toMarkdown } from './lib/export'
 import { useSameWords } from './lib/same-words'
 import { CaptureList, inInboxWindow, selectionWays, tagCaptures, useCaptures, type CaptureMeta } from './components/capture-list'
@@ -2546,7 +2547,11 @@ export default function App(): React.JSX.Element {
               // A kept note's mentions under it; a new draft has none yet.
               // A new Word's meaning, faint under the word itself, where it lands once kept.
               quietSpelling={!!defining}
-              after={editing ? <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} /> : definition && <DefineGhost definition={meaningWaits ? { ...definition, state: 'looking' } : definition} onKeep={keepDefinition} onHide={hideDefinition} picked={chosen} mode={meanings === 'off' ? 'one-word' : meanings} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
+              after={editing ? <>
+                {/* Made just now by a link to a name found nowhere: why it is empty, said under its name (captures-view.tsx says it over its words). */}
+                {madeByLink(editing.id) && <p data-made-by-link className="mt-1 text-body text-foreground"><strong className="font-semibold">A new note:</strong> {madeByLink(editing.id)}</p>}
+                <Mentions id={editing.id} compact onOpen={(type, id) => openAny(type, id)} />
+              </> : definition && <DefineGhost definition={meaningWaits ? { ...definition, state: 'looking' } : definition} onKeep={keepDefinition} onHide={hideDefinition} picked={chosen} mode={meanings === 'off' ? 'one-word' : meanings} onFix={(fix) => definition && fixIn(editorRef.current, definition.word, fix)} />}
               onSource={() => setSource((open) => !open)}
               // A tag opens its page in the main window, as a note link opens there.
               onTag={(tag) => (chime('open'), window.api.openInHome('tag', tag))}

@@ -13,12 +13,14 @@ import { assetsDir, lookAhead } from './pictures'
  * vault is ever written to.
  */
 
-/** Obsidian's list of vaults. A test points it at a copy of its own. */
-const configPath = (): string =>
-  process.env.HALIGTREE_OBSIDIAN_CONFIG || join(homedir(), 'Library', 'Application Support', 'obsidian', 'obsidian.json')
+/** Obsidian's list of vaults. A test points it at a copy of its own; a test that names none knows no vault, never the Mac's own. */
+const configPath = (): string | null =>
+  process.env.HALIGTREE_OBSIDIAN_CONFIG || (process.env.HALIGTREE_QA_AWAY !== undefined ? null : join(homedir(), 'Library', 'Application Support', 'obsidian', 'obsidian.json'))
 
 /** Bigger than this is left where it is: a note is no place for a film. */
 const MAX_BYTES = 100 * 1024 * 1024
+/** A vault's own notes. */
+const NOTE = /\.md$/i
 /** How many files one vault's index walks at most, and for how long. */
 const INDEX_CAP = Number(process.env.HALIGTREE_VAULT_INDEX_CAP) || 200_000
 const INDEX_MS = 4000
@@ -29,8 +31,10 @@ type Vault = { path: string; open: boolean; ts: number }
 
 /** The vaults Obsidian knows, the open one first, then the most recently used. */
 async function vaults(): Promise<Vault[]> {
+  const list = configPath()
+  if (!list) return []
   try {
-    const read = JSON.parse(await readFile(configPath(), 'utf8')) as { vaults?: Record<string, { path?: unknown; ts?: unknown; open?: unknown }> }
+    const read = JSON.parse(await readFile(list, 'utf8')) as { vaults?: Record<string, { path?: unknown; ts?: unknown; open?: unknown }> }
     return Object.values(read.vaults ?? {})
       .filter((one): one is { path: string; ts?: unknown; open?: unknown } => typeof one?.path === 'string' && one.path.startsWith('/'))
       .map((one) => ({ path: one.path, open: one.open === true, ts: typeof one.ts === 'number' ? one.ts : 0 }))
@@ -75,13 +79,13 @@ export async function vaultChoices(): Promise<VaultChoice[]> {
 /** Whether a folder is one of Obsidian's vaults: the picker may only import those without the folder dialog. */
 export const isVault = async (path: string): Promise<boolean> => (await vaults()).some((vault) => vault.path === path)
 
-/** Each vault's files Haligtree can show, by lowercased name. */
+/** Each vault's files Haligtree can show, and its notes, by lowercased name. */
 const indexes = new Map<string, { at: number; byName: Map<string, string[]>; capped: boolean }>()
 
 /**
- * Walk a vault for files Haligtree shows, folders nearest the top first. Its
- * settings, trash and hidden folders and any node_modules are stepped over,
- * and a huge one is cut short rather than holding the paste up.
+ * Walk a vault for files Haligtree shows and for its notes, folders nearest
+ * the top first. Its settings, trash and hidden folders and any node_modules
+ * are stepped over, and a huge one is cut short rather than holding the paste up.
  */
 async function buildIndex(root: string): Promise<{ at: number; byName: Map<string, string[]>; capped: boolean }> {
   const byName = new Map<string, string[]>()
@@ -101,7 +105,7 @@ async function buildIndex(root: string): Promise<{ at: number; byName: Map<strin
       if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
       const path = join(folder, entry.name)
       if (entry.isDirectory()) queue.push(path)
-      else if (entry.isFile() && SHOWN.test(entry.name)) {
+      else if (entry.isFile() && (SHOWN.test(entry.name) || NOTE.test(entry.name))) {
         const key = entry.name.toLowerCase()
         byName.set(key, [...(byName.get(key) ?? []), path])
       }
@@ -173,6 +177,49 @@ async function findEmbed(raw: string): Promise<string | null> {
     if (found.length) return found.sort((a, b) => Math.floor(a.rank) - Math.floor(b.rank) || b.mtime - a.mtime)[0].path
   }
   return null
+}
+
+/** A note in a vault: the vault's own folder and the note's file, both as the disk names them. */
+export type VaultNote = { root: string; path: string }
+
+/**
+ * The vaults a link to a note not here yet may bring it in from: the ones
+ * this book's imports came from (kept as each import starts), then those
+ * Obsidian knows, the open one first. Read only.
+ */
+export const vaultRoots = async (kept: string[]): Promise<string[]> => [...new Set([...kept, ...(await vaults()).map((one) => one.path)])]
+
+/**
+ * The notes named `name` in these vaults, found as Obsidian finds `[[name]]`:
+ * by the file's name in any folder, or, for a name with a folder in it, by
+ * the end of its path. A vault that is gone or cannot be read is said apart,
+ * so a link can say why it found nothing.
+ */
+export async function findVaultNotes(name: string, roots: string[]): Promise<{ found: VaultNote[]; unread: string[] }> {
+  const wanted = name.trim().replace(/\.md$/i, '').replace(/^\/+/, '')
+  const file = `${wanted.split('/').pop()!.toLowerCase()}.md`
+  const ending = wanted.includes('/') ? `/${wanted.toLowerCase()}.md` : null
+  const found = new Map<string, VaultNote>()
+  const unread: string[] = []
+  for (const root of roots) {
+    const top = await realpath(root).catch(() => null)
+    if (!top || !(await stat(top).then((info) => info.isDirectory(), () => false))) {
+      unread.push(root)
+      continue
+    }
+    // As the picture finder does: the walk kept a while, walked again when it finds nothing.
+    const before = found.size
+    for (const fresh of [false, true]) {
+      const index = await indexOf(top, fresh)
+      for (const path of index.byName.get(file) ?? []) {
+        if (ending && !path.toLowerCase().endsWith(ending)) continue
+        const real = await realpath(path).catch(() => null)
+        if (real?.startsWith(top + sep) && NOTE.test(real) && (await stat(real).then((info) => info.isFile(), () => false))) found.set(real, { root: top, path: real })
+      }
+      if (found.size > before) break
+    }
+  }
+  return { found: [...found.values()], unread }
 }
 
 /** What a found file became in Haligtree's store. */

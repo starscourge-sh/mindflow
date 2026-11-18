@@ -1557,6 +1557,12 @@ export function Home(): React.JSX.Element {
     }
     setTimeout(look, 150)
   }
+  // A note a link brought in from the vault, taken back by the notice's Undo while it is on show: back to where the link was.
+  useEffect(() => {
+    const gone = (event: Event): void => void ((event as CustomEvent<string>).detail === view.focus && step(-1))
+    window.addEventListener('haligtree:unbrought', gone)
+    return () => window.removeEventListener('haligtree:unbrought', gone)
+  }, [view.focus]) // eslint-disable-line react-hooks/exhaustive-deps
   const toScale = (scale: Scale, key?: string): void => (chime('season'), setView({ id: SCALE_VIEW[scale] }, key))
   // A view is sent by name (⌘, sends Settings), anything else as one thing to open.
   // A heading link from a note window lands on its heading once the note is open.

@@ -306,13 +306,83 @@ const ghosts = new Map<string, { id: string; name: string }>()
 /** A page made by a link that may yet go: no other link is pointed at it meanwhile. */
 const unsure = (id: string): boolean => [...ghosts.values()].some((ghost) => ghost.id === id)
 
-/** A link to nothing followed: its page made (or found, made since), and opened. */
-async function openGhost(editor: Editor, label: string, heading: string, findNotes: NoteLinkOptions["findNotes"], open: NoteLinkOptions["onOpenNote"]): Promise<void> {
+/** Why a page a link just made is empty, said over its words while it is new (captures-view.tsx), by its id. */
+const madeWhy = new Map<string, string>()
+export const madeByLink = (id: string): string | null => (unsure(id) ? madeWhy.get(id) ?? null : null)
+
+/** What main found for a link's name in the Obsidian vault (index.ts bringLinked). */
+export type Brought = { found: "brought" | "here"; link: string; title: string; path: string } | { found: "several"; paths: string[] } | { found: "none"; vault: boolean; unread: string[] } | { found: "busy" }
+
+/**
+ * The note of this name in the Obsidian vault the book's notes came from (or
+ * one Obsidian knows), brought in as its import would bring it, and said with
+ * Undo; or what was found instead. For a link followed and an embed's "Make it".
+ */
+export async function bringFromVault(label: string, path?: string): Promise<Brought | null> {
+  const ask = typeof window !== "undefined" ? window.api?.haligtree : undefined
+  const brought = ((await ask?.("vault:bring", label, path).catch(() => null)) ?? null) as Brought | null
+  if (brought?.found !== "brought") return brought
+  const id = brought.link.replace(/^article:/, "")
+  // Undo: back to where it was asked for, if it is on show (home.tsx), then the note goes again, its links waiting for its name once more.
+  const undo = (): void => (window.dispatchEvent(new CustomEvent("haligtree:unbrought", { detail: id })), void ask?.("vault:unbring", brought.link))
+  void import("@/components/haligtree/ui").then(({ toast }) => toast("Brought in from your Obsidian vault", undo, "success", undefined, { type: brought.link.startsWith("article:") ? "article" : "capture", id, title: brought.title }))
+  return brought
+}
+
+/**
+ * A link to nothing followed. A note of that name here since: opened. Else
+ * one in the Obsidian vault the book's notes came from: brought in as its
+ * import would bring it, opened, and said with Undo (two of that name: asked
+ * which, by path, at the link). Else its page made, empty, saying why.
+ */
+async function openGhost(editor: Editor, label: string, heading: string, findNotes: NoteLinkOptions["findNotes"], open: NoteLinkOptions["onOpenNote"], at?: { x: number; y: number }, path?: string): Promise<void> {
+  if (!open) return
+  const go = (id: string): void => {
+    if (editor.isDestroyed) return
+    pending = heading ? { documentId: null, heading } : null
+    open(id, heading || undefined)
+  }
+  const here = await noteNamed(label, findNotes, { make: false })
+  if (here) return go(here.id)
+  const brought = await bringFromVault(label, path)
+  if (brought?.found === "several" && at && !path) return void chooseNote(brought.paths, at, (one) => void openGhost(editor, label, heading, findNotes, open, undefined, one), () => void makeGhost(editor, label, findNotes, go, null))
+  if (brought?.found === "brought" || brought?.found === "here") return go(brought.link)
+  await makeGhost(editor, label, findNotes, go, brought)
+}
+
+/** A link's page made empty, with why: nothing of that name in the book or the vault, no vault known, or the vault gone. */
+async function makeGhost(editor: Editor, label: string, findNotes: NoteLinkOptions["findNotes"], go: (id: string) => void, brought: Brought | null): Promise<void> {
   const note = await noteNamed(label, findNotes)
-  if (!note || !open || editor.isDestroyed) return
-  if (note.made) ghosts.set(`capture-${note.id}`, { id: note.id, name: note.label })
-  pending = heading ? { documentId: null, heading } : null
-  open(note.id, heading || undefined)
+  if (!note || editor.isDestroyed) return
+  if (note.made) {
+    ghosts.set(`capture-${note.id}`, { id: note.id, name: note.label })
+    const unread = brought?.found === "none" ? brought.unread : []
+    // Said after "A new note:".
+    madeWhy.set(note.id, brought?.found === "busy" ? "an import is under way, so nothing was brought in from your vault yet."
+      : brought?.found === "none" && brought.vault
+      ? unread.length ? `your Obsidian vault could not be read at ${unread[0].replace(/^\/Users\/[^/]+/, "~")} (moved or renamed?), so nothing was brought in.` : "nothing named this in your book or your vault yet."
+      : "nothing named this in your book yet.")
+  }
+  go(note.id)
+}
+
+/** Two notes of a link's name in the vault: which, asked at the link with the app's own menu (options-menu.tsx), each by its path. */
+export function chooseNote(paths: string[], at: { x: number; y: number }, pick: (path: string) => void, none: () => void): void {
+  const holder = document.createElement("div")
+  document.body.append(holder)
+  const root = createRoot(holder)
+  // Chosen, the menu closes too: taken down once, whichever comes first.
+  let gone = false
+  const close = (): void => void (gone || ((gone = true), setTimeout(() => (root.unmount(), holder.remove()))))
+  const shown = (path: string): string => path.replace(/^\/Users\/[^/]+/, "~")
+  void import("@/components/haligtree/options-menu").then(({ PointMenu }) => root.render(createElement(PointMenu, {
+    at,
+    onClose: close,
+    sections: [
+      { label: `${paths.length} notes of this name in your vault: which?`, items: paths.map((path) => ({ label: shown(path), run: () => (close(), pick(path)) })) },
+      { items: [{ label: "A new empty note instead", run: () => (close(), none()) }] }
+    ]
+  })))
 }
 
 /** A page made by a link, left: gone again if it holds no more than its name. */
@@ -949,7 +1019,7 @@ export const NoteLink = Node.create<NoteLinkOptions>({
               // A link to this note's own heading or line: here. A link to a
               // page that is not there yet makes it now, and opens it.
               if (heading && !label) goToHeading(editor, heading)
-              else if (label) void openGhost(editor, label, heading, findNotes, onOpenNote)
+              else if (label) void openGhost(editor, label, heading, findNotes, onOpenNote, { x: event.clientX, y: event.clientY })
               return true
             }
             if (!onOpenNote) return false

@@ -1,4 +1,5 @@
 import { notePowers } from './note-powers'
+import { madeByLink } from '@/extensions/note-link'
 import { PropertyStrip } from './property-strip'
 import { SimilarNotes } from './similar-notes'
 import { SameBook, pdfIn } from '@/components/pdf/same-book'
@@ -825,6 +826,12 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
                   <button type="button" data-keep-asking onClick={() => void keepAsking(open.id)}
                     className="rounded-md px-1 py-0.5 font-medium text-foreground/85 transition-colors hover:bg-accent hover:text-foreground">Keep asking</button>
                 </Tip>
+              </p>
+            )}
+            {/* Made just now by a link to a name found nowhere: why it is empty, said over its words while it is new. */}
+            {madeByLink(open.id) && (
+              <p data-chrome data-made-by-link className="note-column mb-1 text-body text-foreground">
+                <strong className="font-semibold">A new note:</strong> {madeByLink(open.id)}
               </p>
             )}
             {past ? (

@@ -26,6 +26,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^make it a card$/i, Layers],
   [/^pull the quote$/i, Quote],
   // Lines found falling back to the dot (test/menu-icons.test.ts lists any new ones).
+  // A link to a name two notes in the vault have (note-link.ts chooseNote): each note by its path, or neither.
+  [/\.md$/i, FileText],
+  [/^a new empty note instead$/i, FilePlus],
   // Home's goals (the strip's own menu, and ⌘K's “Goals on Home…”): which goals show there, by their day or by your choice.
   [/^choose what shows here/i, ListChecks],
   [/^the nearest (\S+ )?goals?$/i, CalendarClock],

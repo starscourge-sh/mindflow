@@ -271,6 +271,18 @@ export function registerRenames(): void {
     return true
   })
 
+  // A note a link brought in from a vault, taken back by the notice's Undo: gone again, its links waiting for its name
+  // once more. The vault still holds it, so it is not the Bin's to keep.
+  ipcMain.handle('haligtree:vault:unbring', (_event, link: string) => {
+    const { table, id } = partsOf(String(link))
+    const db = database()
+    if (!db.prepare(`select 1 from ${table} where id = ? and source != ''`).get(id)) return false
+    db.prepare(`delete from ${table} where id = ?`).run(id)
+    forget(String(link))
+    changed()
+    return true
+  })
+
   // Undo: each note put back as it was, unless it has been written since.
   ipcMain.handle('haligtree:links:rename:undo', (_event, token: string) => {
     const done = undos.get(String(token))
