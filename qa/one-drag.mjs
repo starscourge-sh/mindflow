@@ -1584,8 +1584,11 @@ await part('Several notes', async () => {
     if (named) {
       const holds = await h.evaluate(([group, y]) => {
         const row = [...document.querySelectorAll('[data-pane] [data-group-row]')].find((one) => one.textContent.trim().startsWith(group))
-        const box = row?.closest('[data-group-block]')?.getBoundingClientRect()
-        return !!box && y >= box.top && y <= box.bottom
+        // The panel as drawn: it grows to take in a room at its foot, past the block's own box.
+        const block = row?.closest('[data-group-block]')
+        const box = block?.getBoundingClientRect()
+        const foot = block?.querySelector(':scope > [data-panel] [data-panel-part="bottom"]')?.getBoundingClientRect().bottom ?? box?.bottom ?? 0
+        return !!box && y >= box.top && y <= Math.max(box.bottom, foot)
       }, [named, s.lineY ?? -1])
       check(`Several notes, ${name}: the room it names is drawn inside ${named.slice(0, 12)}`, holds)
     }
