@@ -533,7 +533,9 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   const [readFrom, setReadFrom] = useState<number | null>(null)
   // "Sort these": a pass through imported notes not yet sorted, a group's or every one in the list.
   const [sorting, setSorting] = useState<string[] | null>(null)
-  const unsorted = items.filter((one) => one.unsorted && !one.archivedAt && !isGroup(one.id)).map((one) => one.id)
+  // Every imported note left to sort, those inside folders too: since folders hold their notes, the list's rows are
+  // the folders and loose notes alone, and read from them the count missed every note an import filed.
+  const unsorted = listed.filter((one) => one.unsorted && !one.archivedAt && !isGroup(one.id)).map((one) => one.id)
   const markSorted = (ids: string[], sorted: boolean): void =>
     void haligtree.sorted(ids, sorted).then(() => {
       chime(sorted ? 'done' : 'undo')
