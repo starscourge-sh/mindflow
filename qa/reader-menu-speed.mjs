@@ -71,6 +71,7 @@ try {
     await wait(400)
     const opened = await h.evaluate(() => ({ ms: window.__menuQa.shown - window.__menuQa.at, task: Math.max(0, ...window.__menuQa.tasks.map(([, d]) => d)), rows: [...document.querySelectorAll('[data-slot=context-menu-content] [role=menuitem]')].map((one) => one.textContent) }))
     if (round === 0) check('the link menu offers the reader, the browser and the link', opened.rows.includes('Open in the reader') && opened.rows.includes('Open in the browser') && opened.rows.includes('Copy link'), JSON.stringify(opened.rows))
+    if (round === 0 && process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/reader-menu-open.png` })
     const shownAt = await h.evaluate(() => window.__menuQa.shown)
     await h.evaluate((shownAt) => Object.assign(window.__menuQa, { tasks: [], at: 0, shown: shownAt }), shownAt)
     await h.keyboard.press('Escape')
@@ -83,6 +84,24 @@ try {
   console.log(`menu open ms ${opens.join(', ')} (middle ${mid(opens)}); close ms ${closes.join(', ')} (middle ${mid(closes)}); longest task ms ${longest.join(', ')}`)
   check('the link menu opens within 150ms on the long page', mid(opens) < 150, `${opens.join(', ')} ms`)
   check('and closes within 100ms', mid(closes) < 100, `${closes.join(', ')} ms`)
+
+  // Still modal: a press on another link while the menu is open only closes the menu; the link is not followed.
+  const [one, two] = await h.evaluate(() => {
+    const box = document.querySelector('.web-reader-scroll').getBoundingClientRect()
+    const links = [...document.querySelectorAll('.web-reader-body a')].filter((one) => one.getClientRects().length === 1 && one.getBoundingClientRect().top > box.top + 150 && one.getBoundingClientRect().bottom < box.bottom - 150)
+    window.__followed = 0
+    window.open = () => void (window.__followed += 1)
+    return [links[0], links[links.length - 1]].map((link) => { const r = link.getClientRects()[0]; return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })
+  })
+  await h.mouse.move(one.x, one.y)
+  await h.mouse.click(one.x, one.y, { button: 'right' })
+  await h.waitForSelector('[data-slot=context-menu-content][data-state=open]')
+  await h.mouse.move(two.x, two.y)
+  const under = await h.evaluate(([x, y]) => document.elementFromPoint(x, y)?.hasAttribute('data-menu-shield') ?? false, [two.x, two.y])
+  await h.mouse.click(two.x, two.y)
+  await wait(400)
+  const after = await h.evaluate(() => ({ open: !!document.querySelector('[data-slot=context-menu-content][data-state=open]'), followed: window.__followed, shield: document.querySelectorAll('[data-menu-shield]').length }))
+  check('while it is open the page under it takes no hover or press, and a press outside only closes it', under && !after.open && after.followed === 0 && after.shield === 0, JSON.stringify({ under, ...after }))
 } catch (error) {
   check('the probe ran to its end', false, String(error).slice(0, 400))
 } finally {

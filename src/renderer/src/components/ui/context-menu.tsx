@@ -25,7 +25,7 @@ const MENU_ROOM = { top: 52, right: 12, bottom: 12, left: 12 }
  * again on closing. Over a long page in the reader (a Fandom article, 30,000 elements) each took over two seconds.
  */
 export function MenuShield({ open }: { open: boolean }): React.JSX.Element | null {
-  return open ? createPortal(<div data-menu-shield aria-hidden className="fixed inset-0 z-50" onContextMenu={(event) => event.preventDefault()} />, document.body) : null
+  return open ? createPortal(<div data-menu-shield aria-hidden className="pointer-events-auto fixed inset-0 z-50" onContextMenu={(event) => event.preventDefault()} />, document.body) : null
 }
 
 /** A menu's open state, kept here for its shield whether the menu's owner holds it or Radix does. */
