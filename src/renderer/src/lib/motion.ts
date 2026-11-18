@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { positionalKeys, usePresence, type MotionProps, type TargetAndTransition, type Transition, type Variants } from 'motion/react'
 
 /**
@@ -278,14 +278,17 @@ export function keyedMotion(from: TargetAndTransition, to: TargetAndTransition, 
  * side (`data-state` closed) and let go when that ends. Reached by a key it is simply there; left by a key, or with
  * motion off, it is simply gone, with no clip to wait for. How it leaves is read once, as it leaves.
  */
-export function usePop(): { 'data-state': 'open' | 'closed'; 'data-keyed'?: true; onAnimationEnd: (event: React.AnimationEvent) => void } {
+export function usePop(): { 'data-state': 'open' | 'closed'; 'data-keyed'?: true; hidden?: true; onAnimationEnd: (event: React.AnimationEvent) => void } {
   const [present, safeToRemove] = usePresence()
   const [opened] = useState(byKeys)
   const quiet = useMemo(() => opened || (!present && (keyed || still())), [opened, present])
-  useLayoutEffect(() => void (!present && quiet && safeToRemove?.()), [present, quiet, safeToRemove])
+  // Gone at once (hidden in the frame it is left), and let go after the AnimatePresence has begun to wait for it: its
+  // own layout effect starts that wait after this card's, so a card let go in a layout effect was never taken away.
+  useEffect(() => void (!present && quiet && safeToRemove?.()), [present, quiet, safeToRemove])
   return {
     'data-state': present ? 'open' : 'closed',
     'data-keyed': quiet || undefined,
+    hidden: (!present && quiet) || undefined,
     onAnimationEnd: (event) => void (!present && event.target === event.currentTarget && event.animationName === 'mf-pop-out' && safeToRemove?.())
   }
 }
