@@ -164,14 +164,16 @@ async function settle(view: EditorView, again = false): Promise<void> {
     // so a pass that looks at what changed has nothing to go over.
     else if (!node.attrs.missing) tr.setNodeAttribute(pos, "missing", nameOf(ref))
   }
-  // Not its own undo step: ⌘Z takes back the paste, not the picture arriving in it.
-  if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false))
+  // Not its own undo step: ⌘Z takes back the paste, not the picture arriving in it. As a note opens (`again`) the
+  // pictures found are shown, not saved: the note is written only once the person changes it, and they are found
+  // again (each kept once, by its bytes) every time it opens until then.
+  if (tr.docChanged) view.dispatch(tr.setMeta("addToHistory", false).setMeta("preventUpdate", again))
 }
 
 /**
  * Pictures a note was stored with inside a line of words, put on a line of their own as it was read
- * (lib/lift-blocks.ts), by address. Not looked for in a vault on opening: a picture found is saved at once, and a
- * note is saved in its mended shape only when the person edits it. Once it is, they are found as it next opens.
+ * (lib/lift-blocks.ts), by address. Not looked for in a vault on opening: a note is saved in its mended shape only
+ * when the person edits it. Once it is, they are found as it next opens.
  */
 export const readInLine = new WeakMap<object, Set<string>>()
 
@@ -179,6 +181,7 @@ export const readInLine = new WeakMap<object, Set<string>>()
  * A note already here with a line that is only an Obsidian picture's path,
  * or a picture whose address is one: the picture, if a vault has it. One
  * edit, so ⌘Z puts the path back; one not found is left exactly as it was.
+ * Shown as it opens, saved with the person's next change (settle).
  */
 async function mend(view: EditorView, held?: Set<string>): Promise<void> {
   if (!view.editable || !host().bringEmbeds) return
@@ -213,7 +216,7 @@ async function mend(view: EditorView, held?: Set<string>): Promise<void> {
     const content = fits(parent, index, nodes as ProseMirrorNode[], schema)
     if (content) tr.replaceWith(pos, pos + node.nodeSize, content)
   }
-  if (tr.docChanged) view.dispatch(tr)
+  if (tr.docChanged) view.dispatch(tr.setMeta("preventUpdate", true))
 }
 
 const key = new PluginKey<number>("obsidianEmbeds")

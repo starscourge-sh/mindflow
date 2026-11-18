@@ -1731,8 +1731,12 @@ function Surface({
       if (shape === "document") (readers.add(instance), instance.on("destroy", () => readers.delete(instance)))
       tell(instance)
     },
-    onUpdate: ({ editor: instance }) => {
+    onUpdate: ({ editor: instance, transaction }) => {
       if (!latest.current) return
+      // A note is written only once it is changed. A step that changed nothing itself (a click, a look, a plugin's
+      // own note to itself) was followed by the editor's own shape of it alone: a line after a closing picture, table
+      // or list (trailingNode). Saved, that wrote the note in the editor's shape though nobody had changed it.
+      if (!transaction.docChanged) return
       // Serialising a long document on every keystroke is real work; the caller
       // only needs it when the typing stops.
       clearTimeout(pending.current)

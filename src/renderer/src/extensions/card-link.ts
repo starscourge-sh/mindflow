@@ -46,9 +46,10 @@ export const CardLink = Extension.create({
 
   // On opening too, not only on a change: a note that arrived with cardlink
   // blocks in it showed their YAML until it was first edited.
+  // Shown as cards, not saved as they open: the note is written so with the person's next change (unwrap-bare-lists.ts).
   onCreate() {
     const tr = cards(this.editor.state)
-    if (tr) this.editor.view.dispatch(tr.setMeta("addToHistory", false))
+    if (tr) this.editor.view.dispatch(tr.setMeta("addToHistory", false).setMeta("preventUpdate", true))
   },
 
   addProseMirrorPlugins() {

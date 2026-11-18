@@ -48,9 +48,13 @@ function mend(state: EditorState): Transaction | null {
 export const UnwrapBareLists = Extension.create({
   name: "unwrapBareLists",
 
+  // As it opens, only shown so: saved, the opening wrote the whole note in the editor's shape though nobody had changed
+  // it (18 Nov 2026, the largest note: 7,017 blocks stored, 7,018 written, a letter between two pictures gone, a
+  // version kept, its edited time moved). It is saved so with the person's next change, as a picture lifted out of a
+  // line is (lib/lift-blocks.ts).
   onCreate() {
     const tr = mend(this.editor.state)
-    if (tr) this.editor.view.dispatch(tr.setMeta("addToHistory", false))
+    if (tr) this.editor.view.dispatch(tr.setMeta("addToHistory", false).setMeta("preventUpdate", true))
   },
 
   addProseMirrorPlugins() {
