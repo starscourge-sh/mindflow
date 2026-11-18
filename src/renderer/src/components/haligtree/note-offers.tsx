@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import type { Editor, JSONContent } from '@tiptap/core'
+import type { Editor } from '@tiptap/core'
 import { Copy, FolderInput, Hash, Link2, MessageCircleQuestion, Sparkles, UserRound, UserRoundPlus, UsersRound, VenetianMask, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
 import { follow } from '@/lib/capture-links'
 import { canSplit } from '@/lib/split'
 import { lightWords, type Words } from '@/extensions/offer-slot'
-import { markdownToDocument } from '@/lib/markdown-doc'
-import { moveToBin } from '@/lib/to-bin'
+import { joinNotes, sideOf } from '@/lib/join-notes'
 import { sources } from '@/lib/sources'
 import { chime } from '@/lib/sound'
 import { toast } from './ui'
+import { Orb } from './orb'
 import { Chip } from './display'
 import { TagIcon } from './tag-icon'
 import { NOTE_NAME } from './linked-words'
@@ -209,6 +209,8 @@ let views = 0
 export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 'nuggets'; id: string; editor: Editor | null; onOpen: (type: string, id: string) => void }): React.JSX.Element | null {
   const [offer, setOffer] = useState<Offer | null>(null)
   const [on, setOn] = useState(true)
+  /** "Join them" pressed: the two are being joined (lib/join-notes.ts). */
+  const [joining, setJoining] = useState(false)
   const key = table === 'captures' ? id : null
   const asked = useRef(0)
   const canName = useRef(false)
@@ -300,6 +302,7 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     lightWords(editor, placesOf(editor, wordsOf(offer, off)))
     return () => lightWords(editor, [])
   }, [editor, offer, off, near, celebrating])
+  if (joining) return <div data-note-offer="joining" contentEditable={false} className="mf-note-offer not-prose"><Orb label="Joining the two notes…" /></div>
   if (!offer || !editor || celebrating) return null
   const putAway = (ids: string[]): void => {
     const gone = dismissed()
@@ -380,13 +383,16 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     actions = [
       // Beside this one, to compare the two before joining them (in place where there is no room for a split).
       { label: 'Open it', data: 'open', run: () => (chime('open'), follow(offer.key, onOpen, undefined, { from: editor?.view.dom.closest('[data-pane]')?.getAttribute('data-pane') ?? null })) },
+      // This one keeps both: its words, a rule, the other's; the other to the Bin. Joined in the main process on the
+      // notes as stored, never through this editor (lib/join-notes.ts): the note then opens again from the book.
       { label: 'Join them', data: 'join', run: async () => {
-        const [type, other] = offer.key.includes(':') ? [offer.key.slice(0, offer.key.indexOf(':')), offer.key.slice(offer.key.indexOf(':') + 1)] : ['capture', offer.key]
-        const body = (type === 'capture' ? (await window.api.captures.get(other))?.body : (await haligtree.item(other))?.body) as JSONContent | string | null | undefined
-        // A note kept as Markdown is read as the editor reads it, so its quotes and bold join as quotes and bold, never as > and **.
-        const content: JSONContent[] = typeof body === 'string' ? (markdownToDocument(editor, body).content ?? []) : (body?.content ?? [])
-        editor.chain().focus('end').insertContent([{ type: 'horizontalRule' }, ...content]).run()
-        await moveToBin([{ type: type === 'capture' ? 'capture' : 'item', id: other }])
+        // The one loader where the offer was, from the press until the note opens again (ask 1, 16 Nov).
+        setJoining(true)
+        try {
+          await joinNotes({ table, id }, sideOf(offer.key), `Joined ${quoted(unquoted(offer.title), 60)} into this note, and moved it to the Bin`)
+        } finally {
+          setJoining(false)
+        }
         done()
       } },
     ]

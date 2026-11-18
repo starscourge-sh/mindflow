@@ -308,7 +308,7 @@ const WATCH: Record<string, (args: unknown[], result: unknown) => (Moment | null
   'nugget:from': () => [emptied()],
   clue: () => [emptied(), goalSteps()],
   'notes:archive': (args) => (args[2] && args[0] !== 'nuggets' ? [emptied()] : []),
-  'capture:merge': () => [emptied()],
+  'notes:join': () => [emptied()],
   toTask: () => [emptied()],
   'tasks:from': () => [emptied()],
   'question:new': () => [emptied()],

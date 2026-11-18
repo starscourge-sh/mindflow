@@ -16,13 +16,13 @@ import { reviewsADay } from './review-cost'
 import { createEmptyCard, default_w, forgetting_curve, fsrs, generatorParameters, type Card, type Grade } from 'ts-fsrs'
 
 import { rollOver } from './held'
-import { LABEL, LIST, atomically, bookStamp, changed, database, movedOn, quietly, type Change } from './captures'
+import { LABEL, LIST, atomically, bookStamp, changed, database, movedOn, owedNoMore, quietly, type Change } from './captures'
 import { ask as askReader, left as leftReader } from './reader'
 import { named as timed } from './stalls'
 import { docList, tasksSaid } from './day-lines'
 import { advance, dateIn, leadingTag, readTask } from './task-words'
 import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay, plural } from './dates'
-import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder } from './backup'
+import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder, writeMarkdown } from './backup'
 import { SANDBOX, handedOff } from './sandbox'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { cardWords, plain } from './card-words'
@@ -2488,31 +2488,133 @@ export function registerHaligtree(): void {
     })
     return write(true)
   })
-  // Two captures that are the same thought: this one's words join the other's,
-  // and this one is discarded, so it is still there to restore.
-  // Gives back what its undo needs: the other's words as they were before,
-  // and as they were made, and this one's status.
-  handle('capture:merge', (id: string, intoNumber: number) => {
-    const from = db.prepare('select body, status from captures where id = ?').get(id) as { body: string; status: string } | undefined
-    const into = db.prepare('select id, body from captures where number = ?').get(intoNumber) as { id: string; body: string } | undefined
-    if (!from || !into || into.id === id) return null
-    const a = JSON.parse(into.body ?? 'null'), b = JSON.parse(from.body ?? 'null')
-    const joined = a && b && typeof a === 'object' && typeof b === 'object'
-      ? { ...a, content: [...(a.content ?? []), ...(b.content ?? [])] }
-      : `${plain(a)}\n\n${plain(b)}`
-    db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(joined), into.id)
-    db.prepare("update captures set status = 'discarded' where id = ?").run(id)
-    checkMarkdown(id)
-    return write({ into: into.id, was: a, joined, status: from.status })
+  // Two notes made one, by every way there is (lib/join-notes.ts): "Join them" under a note that nearly repeats
+  // another (note-offers.tsx), and "Merge into another note…" (merge-picker.tsx). Done here, on the notes as
+  // stored, never through an open editor: two 135,000-word notes joined through the editor held its window for
+  // 38 s and never finished (16 Nov). The one kept holds its own words, a rule, then the other's; the other goes to
+  // the Bin. What the other's words hold comes with them (its pictures, tags and links); and its plain tags, its
+  // properties and who and where it is from, where the one kept has none. An open editor of the one kept is told
+  // its words came whole (`whole`), and opens it again from here. One Undo puts both back exactly as they were.
+  type Side = { table: 'captures' | 'nuggets'; id: string }
+  type Joined = { keep: Side; other: Side; rows: [Record<string, unknown>, Record<string, unknown>]; joined: string; versions: number }
+  const joins = new Map<number, Joined>()
+  let joinsMade = 0
+  const storedBody = (text: unknown): unknown => {
+    try {
+      return JSON.parse(String(text ?? 'null'))
+    } catch {
+      return text
+    }
+  }
+  /** Words that hold nothing: no body, an empty string, a document of empty lines. */
+  const blank = (body: unknown): boolean => body == null || (typeof body === 'string' ? !body.trim() : !((body as Doc).content ?? []).some((block) => block.type !== 'paragraph' || block.content?.length))
+  const listOf = (text: unknown): string[] => {
+    const read = storedBody(text)
+    return Array.isArray(read) ? read.map(String) : []
+  }
+  const changeOf = (side: Side, whole = false): Change => ({ kind: side.table === 'captures' ? 'capture' : 'item', id: side.id, ...(whole ? { whole } : {}) })
+  /**
+   * `given`: a side kept as the Markdown it came in as, read by the asking window as its editor reads it (only
+   * a window has the reader), with the stored words it was read from: used only while those are still stored.
+   */
+  handle('notes:join', (keep: Side, other: Side, given?: Partial<Record<'keep' | 'other', { doc: Doc; from: string }>>) => {
+    const tables = ['captures', 'nuggets']
+    if (!tables.includes(keep?.table) || !tables.includes(other?.table) || (keep.table === other.table && keep.id === other.id)) return { why: 'same' }
+    const rowOf = (side: Side): Record<string, unknown> | undefined => db.prepare(`select * from ${side.table} where id = ?`).get(side.id) as Record<string, unknown> | undefined
+    const a = rowOf(keep)
+    const b = rowOf(other)
+    if (!a || !b) return { why: 'gone' }
+    const binnedNow = (side: Side, row: Record<string, unknown>): boolean => (side.table === 'captures' ? row.status === 'discarded' : !!row.binned_at)
+    if (binnedNow(keep, a) || binnedNow(other, b)) return { why: 'bin' }
+    const bodyOf = (row: Record<string, unknown>, side: 'keep' | 'other'): unknown => {
+      const read = given?.[side]
+      return read && row.body === JSON.stringify(read.from) ? read.doc : storedBody(row.body)
+    }
+    const one = bodyOf(a, 'keep')
+    const two = bodyOf(b, 'other')
+    let joined: unknown
+    if (blank(two)) joined = one
+    else if (blank(one)) joined = two
+    // Both still the Markdown they came in as: joined as Markdown, a rule between, read as the editor reads any.
+    else if (typeof one === 'string' && typeof two === 'string') joined = `${one.trimEnd()}\n\n---\n\n${two.trimStart()}`
+    // One of them still Markdown: the window reads it as its editor would, and asks again with it.
+    else if (typeof one === 'string' || typeof two === 'string') return typeof one === 'string' ? { markdown: 'keep', text: one } : { markdown: 'other', text: two as string }
+    else {
+      const first = [...((one as Doc).content ?? [])]
+      // The empty line a note ends on is where the other's words would have been typed: they start there.
+      while (first.length && first.at(-1)?.type === 'paragraph' && !first.at(-1)?.content?.length) first.pop()
+      joined = { ...(one as Doc), content: [...first, { type: 'horizontalRule' }, ...((two as Doc).content ?? [])] }
+    }
+    const text = JSON.stringify(joined ?? null)
+    // What the other carries, where the one kept has none of its own.
+    const sets: Record<string, unknown> = { body: text }
+    const both = (name: string): boolean => name in a && name in b
+    for (const name of ['attribution', 'medium']) if (both(name) && !String(a[name] ?? '').trim() && String(b[name] ?? '').trim()) sets[name] = b[name]
+    const objectOf = (text: unknown): object => { const read = storedBody(text); return read && typeof read === 'object' && !Array.isArray(read) ? read : {} }
+    if (both('fields') && b.fields) {
+      const fields = { ...objectOf(b.fields), ...objectOf(a.fields) }
+      if (JSON.stringify(fields) !== JSON.stringify(objectOf(a.fields))) sets.fields = JSON.stringify(fields)
+    }
+    for (const name of ['plain_tags', 'aliases']) {
+      const all = [...new Set([...listOf(a[name]), ...listOf(b[name])])]
+      if (both(name) && all.length > listOf(a[name]).length) sets[name] = JSON.stringify(all)
+    }
+    // Private words in it make the whole of it private.
+    if (both('private') && Number(b.private) > Number(a.private)) sets.private = b.private
+    const versions = (db.prepare('select coalesce(max(id), 0) as n from versions').get() as { n: number }).n
+    atomically(() => {
+      const names = Object.keys(sets)
+      // An edit of its words like any other: as first written kept, and when (captures.ts `saveOne`).
+      const edit = keep.table === 'captures' ? 'original_body = coalesce(original_body, body), edited_at = ?' : 'updated_at = ?'
+      db.prepare(`update ${keep.table} set ${names.map((name) => `${name} = ?`).join(', ')}, ${edit} where id = ?`).run(...(names.map((name) => sets[name]) as string[]), now(), keep.id)
+      if (other.table === 'captures') db.prepare("update captures set binned_was = status, status = 'discarded' where id = ?").run(other.id)
+      else putInBin(other.id)
+    })
+    joins.set(++joinsMade, { keep, other, rows: [a, b], joined: text, versions })
+    // Only the last few are kept for their Undo: each holds both notes as they were.
+    for (const token of joins.keys()) if (joins.size > 4) joins.delete(token)
+    if (other.table === 'captures') checkMarkdown(other.id)
+    rewritten(keep, a.number)
+    changed(changeOf(other))
+    return write({ token: joinsMade }, changeOf(keep, true))
   })
-  // A merge taken back: the other's words as they were, unless they were
-  // written in since (then nothing of theirs is lost: they stay as they are),
-  // and this one back to the status it had.
-  handle('capture:merge:undo', (id: string, merged: { into: string; was: unknown; joined: unknown; status: string }) => {
-    if (!movedOn('captures', merged.into, JSON.stringify(merged.joined ?? null))) db.prepare('update captures set body = ? where id = ?').run(JSON.stringify(merged.was), merged.into)
-    db.prepare('update captures set status = ? where id = ?').run(merged.status, id)
-    checkMarkdown(id)
-    return write(true)
+  /**
+   * What is worked out of a note's words, once a join or its undo has answered: its cards from "question :: answer"
+   * lines (`cards`), and a capture's Markdown copy, made here from the stored words as any save without an editor's is.
+   */
+  const rewritten = (side: Side, number: unknown, cards = true): void => {
+    if (cards) lineCardsSoon(side.table, side.id)
+    if (side.table === 'captures') owedNoMore(side.id)
+    if (side.table === 'captures') setImmediate(() => {
+      const stored = db.prepare('select body from captures where id = ?').get(side.id) as { body: string | null } | undefined
+      if (stored) void writeMarkdown(Number(number), markdown(storedBody(stored.body)))
+    })
+  }
+  // Taken back: both rows as they were, every column, and the versions of their words the join and this undo kept.
+  // Unless the one kept was written in since: then its words stay as they are (nothing of theirs is lost), and the
+  // other comes back out of the Bin beside it.
+  handle('notes:join:undo', (token: number) => {
+    const made = joins.get(token)
+    if (!made) return false
+    joins.delete(token)
+    const put = (side: Side, row: Record<string, unknown>): void => {
+      const names = Object.keys(row).filter((name) => name !== 'id')
+      db.prepare(`update ${side.table} set ${names.map((name) => `${name} = ?`).join(', ')} where id = ?`).run(...(names.map((name) => row[name]) as string[]), side.id)
+      // What the database sets itself as a status changes (haligtree.ts `capture_exit`, `capture_used`), as it was too.
+      if (side.table === 'captures') db.prepare('update captures set exited_at = ?, first_used_at = ? where id = ?').run(row.exited_at as string | null, row.first_used_at as string | null, side.id)
+    }
+    const still = !!db.prepare(`select 1 from ${made.keep.table} where id = ? and body is ?`).get(made.keep.id, made.joined)
+    atomically(() => {
+      if (still) put(made.keep, made.rows[0])
+      put(made.other, made.rows[1])
+      db.prepare('delete from versions where id > ? and item_id in (?, ?)').run(made.versions, still ? made.keep.id : '', made.other.id)
+    })
+    if (still) rewritten(made.keep, made.rows[0].number)
+    // Out of the Bin: its copy is written again, as it had one before.
+    rewritten(made.other, made.rows[1].number, false)
+    if (!still) return write(true, changeOf(made.other))
+    changed(changeOf(made.other))
+    return write(true, changeOf(made.keep, true))
   })
   // A gloss is a row, never an edit: past-you stays readable beside present-you.
   // Any item's: a nugget, an article or a capture, so its id is all it needs.

@@ -16,6 +16,7 @@ import { Tip, Toaster, pin, useEscapeLeavesEditor } from './ui'
 import { NoteHeader } from './note-extras'
 import { NoteSize } from '@/components/count/note-size'
 import { WordCount } from '@/components/count/word-count'
+import { NoteWaiting } from './note-coming'
 import { ThoughtDock } from './thought-bar'
 import { Board, useBoard } from './board-view'
 import { TooltipProvider } from '@/components/ui/tooltip'
@@ -32,7 +33,7 @@ import { toast, typing } from './ui'
 import { EXITS, exit } from '@/lib/capture-links'
 import { menuOpen } from '@/lib/menu-keys'
 import { noteLinkText, follow, headingIn } from '@/lib/capture-links'
-import { useSameWords } from '@/lib/same-words'
+import { readAgain, useSameWords } from '@/lib/same-words'
 import { useAppearance, haligtree, shownName, type ItemFull } from '@/lib/haligtree'
 import { Apart, openInHaligtree, useCarriedHere } from '@/lib/apart'
 import { AppWindowMacIcon } from 'lucide-react'
@@ -162,8 +163,15 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   const [rev, setRev] = useState(0)
   useEffect(() => void window.api.captures.get(id).then(setCapture), [id])
+  // Its words put in whole by the book (two notes joined, and that taken back): opened again from there, its name and
+  // the one loader in their place meanwhile (note-coming.tsx).
+  const [rereading, setRereading] = useState(false)
+  const reread = (at: string): void => {
+    setRereading(true)
+    void readAgain(window.api.captures.get(at), (found) => (found && setCapture(found), setRev((n) => n + 1), setRereading(false)))
+  }
   // Saved only over the words it was opened on: another window's never lost.
-  const words = useSameWords('captures', capture?.id, capture?.body, (at, words, wordsBase, markdown) => window.api.captures.save(at, { words, wordsBase, markdown }))
+  const words = useSameWords('captures', capture?.id, capture?.body, (at, words, wordsBase, markdown) => window.api.captures.save(at, { words, wordsBase, markdown }), reread)
   const [editor, setEditor] = useState<Editor | null>(null)
   const board = useBoard('captures', capture?.id, editor, capture?.fields)
   const boardShown = board.on && !past && !!editor && !editor.isDestroyed
@@ -212,7 +220,7 @@ function CaptureWindow({ id }: { id: string }): React.JSX.Element | null {
           tools={boardShown ? <span ref={setTools} className="contents" /> : undefined} size={past ? undefined : <NoteSize editor={editor} />} />
         {past ? (
           <HaligtreeEditor key={`past-${past.key}`} defaultContent={(past.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
-        ) : (
+        ) : rereading ? <NoteWaiting title={meta.label} /> : (
         <div className={boardShown ? 'hidden' : 'contents'}>
         <HaligtreeEditor
           key={`${id}-${rev}`}

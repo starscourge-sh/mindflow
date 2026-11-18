@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 
-import { toast } from '@/components/haligtree/ui'
+import { toast, whyFailed } from '@/components/haligtree/ui'
 import { notes, type NoteTable } from '@/lib/notes'
 import { forget } from '@/lib/early-read'
 import { toMarkdown } from '@/lib/export'
@@ -120,6 +120,38 @@ export function showIn(ed: Editor, given: unknown): void {
 }
 
 /**
+ * A note read again from the book for its page's `reread` (below): `then` with what is stored, or, if the read
+ * fails, with null (the page then shows the words it had), the failure said with its own reason.
+ */
+export const readAgain = <T>(read: Promise<T>, then: (found: T | null) => void): Promise<void> =>
+  read.then(then, (error: unknown) => (drawing(false), toast(`The note could not be read again: ${whyFailed(error)}`, undefined, 'error'), then(null)))
+
+/**
+ * The notices' clock (ui.tsx) waits while a note is opened again from the book, so the notice of what changed it
+ * (and its Undo) is still there once it is drawn; the next editor made (haligtree-editor.tsx `onCreate`) lets it go on.
+ */
+const drawing = (on: boolean): boolean => window.dispatchEvent(new CustomEvent('haligtree:note-drawing', { detail: on }))
+
+/**
+ * A note open on a page, opened again from the book (`reread`, the one loader first) when the book puts its words in
+ * whole: two notes joined, and that taken back (Change `whole`). Patched into the open editor instead, a join of two
+ * 135,000-word notes held the window for 38 s (16 Nov); and an editor that saves without looking (a question's page)
+ * would have written its old words back over the join. `useSameWords` takes it for every editor saved through it.
+ */
+export function useWhole(id: string | undefined, reread: ((id: string) => void) | undefined): void {
+  const again = useRef(reread)
+  again.current = reread
+  useEffect(() => {
+    if (!id) return
+    return window.api.captures.onChange((what) => {
+      if (!again.current || !what?.some((one) => one.id === id && one.whole)) return
+      drawing(true)
+      again.current(id)
+    })
+  }, [id])
+}
+
+/**
  * One note's editor saving without ever writing over someone else's words.
  *
  * Each save says which body it was made from; the main process writes it
@@ -129,8 +161,12 @@ export function showIn(ed: Editor, given: unknown): void {
  * kept in the note's history and the editor shows what is there now, with a
  * Restore. And a note open with nothing waiting to save follows changes made
  * elsewhere, so the next keystroke builds on them rather than on old words.
+ *
+ * `reread`: how the page holding the editor opens the note again from the book, the one loader first, for words
+ * the book put in whole (two notes joined, and that taken back: Change `whole`). Patched into this editor instead,
+ * a join of two 135,000-word notes held the window for 38 s (16 Nov). Without it, those are patched in as any change is.
  */
-export function useSameWords(table: NoteTable, id: string | undefined, loaded: unknown, /** `words` and `base` as they are kept (`encoder` above); `markdown` is a capture's copy, when it goes with its words. */ send: (id: string, words: Uint8Array, base: Uint8Array, markdown?: string) => Promise<Answer>): {
+export function useSameWords(table: NoteTable, id: string | undefined, loaded: unknown, /** `words` and `base` as they are kept (`encoder` above); `markdown` is a capture's copy, when it goes with its words. */ send: (id: string, words: Uint8Array, base: Uint8Array, markdown?: string) => Promise<Answer>, reread?: (id: string) => void): {
   ready: (editor: Editor) => void
   save: (body: JSONContent, editor?: Editor) => void
 } {
@@ -197,6 +233,9 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
   }, [])
   const latest = useRef(send)
   latest.current = send
+  const again = useRef(reread)
+  again.current = reread
+  useWhole(id, reread)
   const read = useRef({ id, loaded })
   read.current = { id, loaded }
 
@@ -300,6 +339,8 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
       const note = open.current
       // Another note's write (named) is none of this one's: nothing is read or compared for it.
       if (!note || (what && !what.some((one) => one.id === note.id))) return
+      // Put in whole by the book: opened again from there by its page (`useWhole`, below), never patched in here.
+      if (again.current && what?.some((one) => one.id === note.id && one.whole)) return
       const idle = (): boolean => note === open.current && !note.editor.isDestroyed && !running.current && !queue.current.length && sameWords(wordsOf(note.editor, null), note.sent)
       if (!idle()) return
       // Asked of the book where the words lie, "still these?": they are read back (a long note's 4 MB, rebuilt on

@@ -47,7 +47,7 @@ import { useSelectAll } from '@/lib/select-all'
 import { usePicking } from '@/lib/pick-range'
 import { binItem, moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
-import { useSameWords } from '@/lib/same-words'
+import { readAgain, useSameWords } from '@/lib/same-words'
 import { canMoveTier, moveTier } from './gem-or-card'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, refuse, quietly, sayNow, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, Typed, showTopTitle, Pressed, askClearWho, Rolling } from './ui'
 import { Term } from './term'
@@ -84,7 +84,7 @@ import { openApart, openSmall, smallHolds } from '@/lib/apart'
 import { copyToBookItem } from '@/lib/books'
 import { useOpened } from '@/lib/nav'
 import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-read'
-import { NoteComing } from './note-coming'
+import { NoteComing, NoteWaiting } from './note-coming'
 import { QuestionDetail, questionEntry, questionMenu, startQuestion } from './questions-view'
 import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
 import { ThoughtDock } from './thought-bar'
@@ -1089,8 +1089,15 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
   // opens on them.
   const [past, setPast] = useState<{ body: unknown; key: string } | null>(null)
   const [restored, setRestored] = useState<{ body: unknown; rev: number } | null>(null)
+  // Its words put in whole by the book (two notes joined, and that taken back): read again with a new key, its name
+  // and the one loader in their place meanwhile (note-coming.tsx).
+  const [rereading, setRereading] = useState(false)
+  const reread = (id: string): void => {
+    setRereading(true)
+    void readAgain(haligtree.item(id), (fresh) => (setRestored((was) => ({ body: fresh ? fresh.body : (was ? was.body : item.body), rev: (was?.rev ?? 0) + 1 })), setRereading(false)))
+  }
   // Saved only over the words it was opened on: another window's never lost.
-  const words = useSameWords('nuggets', item.id, restored ? restored.body : item.body, (id, words, wordsBase) => haligtree.saveItem(id, { words, wordsBase }))
+  const words = useSameWords('nuggets', item.id, restored ? restored.body : item.body, (id, words, wordsBase) => haligtree.saveItem(id, { words, wordsBase }), reread)
   useOpenNote({ table: 'nuggets', type: item.tier, id: item.id, kind: item.kind, archived: !!item.archivedAt })
   // Its words seen as a board, in their place, as an Inbox note can be (board-view.tsx).
   const [ready, setReady] = useState<Editor | null>(null)
@@ -1249,7 +1256,7 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
             search={false}
             autofocus={false}
           />
-        ) : (
+        ) : rereading ? <NoteWaiting title={name} /> : (
         <div className={boardShown ? 'hidden' : 'contents'} spellCheck={item.tier === 'article' && settings?.spellWriting === false ? false : undefined}>
         <HaligtreeEditor
           key={restored?.rev ?? 0}

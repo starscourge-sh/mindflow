@@ -1556,13 +1556,18 @@ export function Toaster(): React.JSX.Element | null {
     const blur = (): void => hold('blur')
     const focus = (): void => release('blur')
     const seen = (): void => (document.hidden ? hold('hidden') : release('hidden'))
+    // A note being opened again from the book (lib/same-words.ts `reread`): the notice of what changed it waits until
+    // the note is drawn, so a long one's seconds of reading never use up the time to reach its Undo.
+    const drawing = (event: Event): void => ((event as CustomEvent<boolean>).detail ? hold('drawing') : release('drawing'))
     window.addEventListener('blur', blur)
     window.addEventListener('focus', focus)
     document.addEventListener('visibilitychange', seen)
+    window.addEventListener('haligtree:note-drawing', drawing)
     return () => {
       window.removeEventListener('blur', blur)
       window.removeEventListener('focus', focus)
       document.removeEventListener('visibilitychange', seen)
+      window.removeEventListener('haligtree:note-drawing', drawing)
     }
   }, [hold, release])
   useEffect(() => {

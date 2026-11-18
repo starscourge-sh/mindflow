@@ -13,6 +13,7 @@ import { byKeys, EASE, shift, still, TURN } from '@/lib/motion'
 import { HaligtreeEditor, TAGS } from '../haligtree'
 import { notePowers } from './note-powers'
 import { useLive, haligtree, when } from '@/lib/haligtree'
+import { readAgain, useWhole } from '@/lib/same-words'
 import { cn } from '@/lib/cn'
 import { CAPTURE_TYPES } from '@/components/capture-kinds/capture-kind-picker'
 import { makeTask } from '@/lib/tasks'
@@ -476,6 +477,20 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
     saving.current = { run, timer: setTimeout(() => ((saving.current = null), run()), 400) }
   }
   useEffect(() => flush, [item?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Asked for the words now (a note about to move to another window, two notes about to be joined): this one's save
+  // waiting its 400 ms goes now too, after the editor's own (lib/join-notes.ts).
+  useEffect(() => {
+    const now = (): void => flush()
+    window.addEventListener('haligtree:flush', now)
+    return () => window.removeEventListener('haligtree:flush', now)
+  })
+  // Its words put in whole by the book (two notes joined, and that taken back): read again, with a new key. This
+  // editor saves without looking, so it must never keep the words from before.
+  const [again, setAgain] = useState(0)
+  useWhole(item?.id, (id) => void readAgain<{ body: unknown } | null>(item?.type === 'capture' ? window.api.captures.get(id) : haligtree.item(id), (found) => {
+    if (found) setPage((was) => (was?.id === id ? { ...was, body: found.body as JSONContent } : was))
+    setAgain((n) => n + 1)
+  }))
 
   useEffect(() => {
     if (!item) return
@@ -846,7 +861,7 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                 >
                   {lead && !!meta && <MetaUnderLead host={wordsBox} meta={meta} onTag={openTag} />}
                   <HaligtreeEditor
-                    key={`${item.id}-${writing}`}
+                    key={`${item.id}-${writing}-${again}`}
                     shape="document"
                     typewriter
                     // The same powers as its page in Pages; locked, words can still be kept.

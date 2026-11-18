@@ -40,6 +40,7 @@ import { ago, dayMonth, dayName, heldFor, num, plural } from '../../../../main/d
 import { ReadThrough } from './read-through'
 import { MenuButton } from './collection-header'
 import { call } from '@/lib/haligtree'
+import { readAgain, useWhole } from '@/lib/same-words'
 import { firstSentences, pageFor, useWiki } from '@/lib/wiki'
 import type { Answer } from '../../../../main/define'
 import BulbSvg from '@/components/ui/bulb-svg'
@@ -376,6 +377,9 @@ export function QuestionDetail({ item, onOpen, top, back }: { item: ItemFull; on
   // The open editor, for its size in the bar.
   const [editor, setEditor] = useState<Editor | null>(null)
   const [restored, setRestored] = useState<{ body: unknown; rev: number } | null>(null)
+  // Its words put in whole by the book (two notes joined, and that taken back): read again with a new key, as after a
+  // version is restored; this editor saves without looking, so it must never keep the words from before.
+  useWhole(item.id, (id) => void readAgain(haligtree.item(id), (fresh) => fresh && setRestored((was) => ({ body: fresh.body, rev: (was?.rev ?? 0) + 1 }))))
   const inView = useLive(haligtree.pinnedQuestions, [] as Awaited<ReturnType<typeof haligtree.pinnedQuestions>>).some((one) => one.id === item.id)
   const settled = item.closedAt ? `${item.closedHow === 'let go' ? 'Stopped asking' : 'Answered'} ${whenLower(item.closedAt)}` : null
   const gotIt = (): void => void haligtree.closeQuestion(item.id, 'answered').then((done) => {

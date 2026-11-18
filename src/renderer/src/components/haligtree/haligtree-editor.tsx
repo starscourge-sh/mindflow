@@ -97,7 +97,7 @@ import { ContentsBlock } from "@/extensions/contents-block"
 import { Calc } from "@/extensions/calc"
 import { Collect, CollectPill } from "@/extensions/collect"
 import { TypePause } from "@/extensions/type-pause"
-import { markdownToDocument } from "@/lib/markdown-doc"
+import { markdownToDocument, markdownToDocumentGently } from "@/lib/markdown-doc"
 import { liftBlocks } from "@/lib/lift-blocks"
 import { FootnoteKit } from "@/extensions/footnotes"
 import { Citation } from "@/extensions/citation"
@@ -392,6 +392,15 @@ export function readMarkdown(markdown: string): JSONContent | null {
   for (const reader of readers) {
     if (reader.isDestroyed) readers.delete(reader)
     else return markdownToDocument(reader, markdown)
+  }
+  return null
+}
+
+/** The same, read without holding the window (`markdownToDocumentGently`): a whole note's words, which may be megabytes. */
+export function readMarkdownGently(markdown: string): Promise<JSONContent> | null {
+  for (const reader of readers) {
+    if (reader.isDestroyed) readers.delete(reader)
+    else return markdownToDocumentGently(reader, markdown)
   }
   return null
 }
@@ -1730,6 +1739,8 @@ function Surface({
       // Let go of when it goes, or every editor ever opened stays in memory.
       if (shape === "document") (readers.add(instance), instance.on("destroy", () => readers.delete(instance)))
       tell(instance)
+      // A note opened again from the book is drawn: the notices' clock, held meanwhile, goes on (lib/same-words.ts `useWhole`).
+      window.dispatchEvent(new CustomEvent("haligtree:note-drawing", { detail: false }))
     },
     onUpdate: ({ editor: instance, transaction }) => {
       if (!latest.current) return

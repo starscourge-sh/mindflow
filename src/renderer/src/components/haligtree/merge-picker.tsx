@@ -3,11 +3,11 @@ import { createPortal } from 'react-dom'
 import { Merge } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { captureKey } from '@/lib/capture-links'
-import { haligtree } from '@/lib/haligtree'
+import { joinNotes } from '@/lib/join-notes'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { CAPTURE_TYPES } from '../capture-kinds/capture-kind-picker'
 import { useCaptures, type CaptureMeta } from '../capture-list'
-import { Prop, refuse, toast } from './ui'
+import { Prop } from './ui'
 import { age } from '../../../../main/dates'
 import { clipMiddle, quoted } from '../../../../main/clip'
 import { hoverNote } from './note-preview'
@@ -33,13 +33,11 @@ export function MergePicker({ capture, onClose }: { capture: Pick<CaptureMeta, '
   const setOpen = (_: false): void => onClose()
   const all = useCaptures()
   const others = all.filter((one) => one.id !== capture.id && one.status !== 'discarded')
+  // The same join as "Join them" under a note that nearly repeats another (lib/join-notes.ts): its words under the
+  // picked one's, after a rule, this one to the Bin, one notice and one Undo for both.
   const merge = (into: CaptureMeta): void => {
     setOpen(false)
-    void haligtree.mergeCapture(capture.id, into.number).then((merged) => {
-      if (!merged) return refuse('That note is gone now, so nothing was merged')
-      chime('resolve')
-      toast(`Merged into ${quoted(into.label || 'New note', 40)}`, () => void haligtree.unmerge(capture.id, merged).then(() => chime('undo')))
-    })
+    void joinNotes({ table: 'captures', id: into.id }, { table: 'captures', id: capture.id }, `Merged into ${quoted(into.label || 'New note', 40)}, and moved this one to the Bin`)
   }
   return createPortal(
         <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={() => setOpen(false)}>

@@ -144,6 +144,11 @@ let db: DatabaseSync
 /** The open database, for the rest of the main process. */
 export const database = (): DatabaseSync => db
 /**
+ * A capture whose words the book put in whole (two notes joined, haligtree.ts `notes:join`): the Markdown copy an
+ * editor still owed for its words before is owed no more, so one sent as that editor goes never lands over the join.
+ */
+export let owedNoMore: (id: string) => void = () => undefined
+/**
  * Shut the database cleanly as this run ends: its log (-wal) folded back into
  * the file and gone, so a copy of the file alone is whole. Safe to call twice.
  */
@@ -242,6 +247,11 @@ export function setting<T>(key: string, fallback: T): T {
 export interface Change {
   kind: 'capture' | 'item'
   id: string
+  /**
+   * Its words were put in whole by the book itself (two notes joined, haligtree.ts `notes:join`), so an editor showing
+   * it opens it again from the book, the way a note opens, rather than patching thousands of blocks into its page.
+   */
+  whole?: boolean
 }
 
 // The list every window asks for after each write, kept between writes: a
@@ -622,6 +632,7 @@ export function registerCaptures(): void {
     leftOwed.delete(id)
     quietly(() => unmark.run(id))
   }
+  owedNoMore = settled
   quietly(() => db.exec('delete from copies_owed where id not in (select id from captures)'))
   for (const row of db.prepare('select o.id, c.number from copies_owed o join captures c on c.id = o.id').all() as { id: string; number: number }[]) {
     owed.set(row.id, { number: row.number, copy: ++copies })

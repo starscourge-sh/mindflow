@@ -187,8 +187,13 @@ type Subtask = { text: string; done: boolean }
 export type TaskWas = { reschedules: number; notifiedAt: string | null }
 /** What a task was before it was done, so it can be put back. */
 export type Finished = { dueAt: string | null; doneAt: string; notifiedAt: string | null; deadlineAt?: string | null; skips?: number }
-/** What a merge changed, for its undo: the other capture, its words before and after, and this one's status. */
-export type Merged = { into: string; was: unknown; joined: unknown; status: string }
+/** One side of two notes made one (lib/join-notes.ts): a capture, or a gem, page or other item. */
+export type NoteSide = { table: 'captures' | 'nuggets'; id: string }
+/**
+ * Two notes made one: the token its Undo takes back; or which side is still the Markdown it came in, to be read by
+ * the window's editor and asked again with; or why nothing was joined (one is gone, one is in the Bin).
+ */
+export type Joined = { token: number } | { markdown: 'keep' | 'other'; text: string } | { why: 'same' | 'gone' | 'bin' }
 /** `resolved`: the captures this took out of the inbox, for its undo to open again. */
 /** A task made, or the open one with that name already there, which it joined. */
 export type Made = { id: string; number: number; existed: boolean; resolved?: string[]
@@ -442,9 +447,10 @@ export const haligtree = {
   supersede: (id: string, truth: string) => call<string>('supersede', id, truth),
   /** A correction taken back: the new gem gone, the old one as it was. */
   unsupersede: (id: string, fixed: string, suspended: boolean) => call<boolean>('unsupersede', id, fixed, suspended),
-  mergeCapture: (id: string, intoNumber: number) => call<Merged | null>('capture:merge', id, intoNumber),
-  /** A merge taken back: the other's words as they were, and this one back where it was. */
-  unmerge: (id: string, merged: Merged) => call<boolean>('capture:merge:undo', id, merged),
+  /** `other`'s words under `keep`'s, after a rule, and `other` to the Bin: done in the main process, on the notes as stored. */
+  joinNotes: (keep: NoteSide, other: NoteSide, given?: Partial<Record<'keep' | 'other', { doc: unknown; from: string }>>) => call<Joined>('notes:join', keep, other, given),
+  /** Both notes exactly as they were before the join. */
+  unjoinNotes: (token: number) => call<boolean>('notes:join:undo', token),
   hintRate: () => call<{ rate: number; tuned: boolean; shown: number; stopped: number }>('hints:rate'),
   tag: (tag: string) => call<{ tag: string; id: string; type: string; title: string; private: boolean }[]>('tag', tag),
   /** Everything carrying a tag, whole, newest first, each with its other tags. */

@@ -42,7 +42,7 @@ import { usePicking } from '@/lib/pick-range'
 import { manyTaskItems } from './late-tasks'
 import { binItem, moveToBin, useCameBack } from '@/lib/to-bin'
 import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
-import { useSameWords } from '@/lib/same-words'
+import { readAgain, useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, pageShown, pageTurn } from '@/lib/sound'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
@@ -283,8 +283,19 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
     if (pane === 'wide' && next === 'list' && peek) asked(window.api.captures.get(peek), setOpen)
     setView({ ...view, pane: next })
   }
+  // Its words put in whole by the book (two notes joined, and that taken back): opened again from there as a note
+  // opens, its pane and name with the one loader while it is read and drawn (note-coming.tsx).
+  const [rereading, setRereading] = useState<string | null>(null)
+  const reread = (id: string): void => {
+    setRereading(id)
+    void readAgain(window.api.captures.get(id), (found) => {
+      setRereading((was) => (was === id ? null : was))
+      if (found) setOpen((was) => (was?.id === id ? found : was))
+      setRev((n) => n + 1)
+    })
+  }
   // Saved only over the words it was opened on: another window's never lost.
-  const words = useSameWords('captures', open?.id, open?.body, (id, words, wordsBase, markdown) => window.api.captures.save(id, { words, wordsBase, markdown }))
+  const words = useSameWords('captures', open?.id, open?.body, (id, words, wordsBase, markdown) => window.api.captures.save(id, { words, wordsBase, markdown }), reread)
   // The open note's editor, which its board, when shown, edits in its place.
   const [editor, setEditor] = useState<Editor | null>(null)
   // Opened onto one note, the note is drawn first and the list beside it the
@@ -756,7 +767,7 @@ export function CapturesView({ title, keep: given, focus, onOpen, archived = fal
           <CaptureProps capture={peeked} onOpen={onOpen} className="border-t pt-3 @[40rem]/page:w-full @[40rem]/page:border-t @[40rem]/page:border-l-0" />
         </Peek>
       )}
-      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.label} /> : open && meta ? (
+      {coming && coming !== open?.id ? <NoteComing id={coming} title={all.find((one) => one.id === coming)?.label} /> : open && rereading === open.id ? <NoteComing id={open.id} title={meta?.label} /> : open && meta ? (
         // Opened in a window of its own, its place says so (lib/apart.tsx),
         // and only that window's editor saves it; back, it is read afresh.
         <ShowInListContext.Provider value={showOpen}><Apart type="capture" id={open.id} title={meta.label} hidden={!!meta.private}
