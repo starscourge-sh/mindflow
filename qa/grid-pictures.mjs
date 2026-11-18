@@ -12,7 +12,7 @@
 // The deck and unused parts change the copy before the app opens (a deck of six pictured cards; six pictures no note
 // uses): always a fresh copy. THEME=dark for the dark look; QA_FILM=dir keeps the page's own frames.
 import { execFileSync } from 'child_process'
-import { copyFileSync, readdirSync, statSync } from 'fs'
+import { copyFileSync, readdirSync, statSync, utimesSync } from 'fs'
 import { createHash } from 'crypto'
 import { join } from 'path'
 import { CALM_HOUR, sandbox } from './sandbox-lib.mjs'
@@ -26,29 +26,35 @@ const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${String(detail).slice(0, 600)})` : ''}`), !!ok)
 
 // Before the app opens: the sandbox's stored pictures, the largest last.
-const book = join(process.env.QA_DATA, 'sandbox')
+// On a copy of a real book (QA_ARGS= QA_DATA=<book copy>), its first book's folder; PART=lists there.
+const book = process.env.QA_ARGS.includes('--sandbox') ? join(process.env.QA_DATA, 'sandbox') : join(process.env.QA_DATA, 'books', readdirSync(join(process.env.QA_DATA, 'books')).find((one) => one.startsWith('b-')))
 const assets = readdirSync(join(book, 'assets')).filter((one) => /^[a-f0-9]{64}\.(png|jpe?g|webp)$/.test(one)).sort((a, b) => statSync(join(book, 'assets', a)).size - statSync(join(book, 'assets', b)).size)
 if (parts.includes('deck')) {
   // A shared deck, as an Anki import makes one: cards with a picture each, under one deck name.
-  const sql = assets.slice(-6).map((name, at) => `update nuggets set deck = 'Pictured deck', prompt = '![](haligtree://assets/${name})' where id = (select id from nuggets where deck is null and tier in ('card', 'nugget') order by rowid limit 1 offset ${at});`).join('\n')
+  // Pictures no note leads with, so none was drawn (decoded) by an earlier part.
+  const own = assets.filter((name) => execFileSync('sqlite3', [join(book, 'haligtree.db'), `select count(*) from captures where body like '%${name}%'`]).toString().trim() === '0').slice(-6)
+  const sql = own.map((name, at) => `update nuggets set deck = 'Pictured deck', prompt = '![](haligtree://assets/${name})' where id = (select id from nuggets where deck is null and tier in ('card', 'nugget') order by rowid limit 1 offset ${at});`).join('\n')
   execFileSync('sqlite3', [join(book, 'haligtree.db'), sql])
 }
 if (parts.includes('unused'))
-  // Pictures no note uses: copies of the book's own under names of their own.
-  for (const [at, name] of assets.slice(0, 6).entries())
-    copyFileSync(join(book, 'assets', name), join(book, 'assets', `${createHash('sha256').update(`unused ${at}`).digest('hex')}.${name.split('.').pop()}`))
+  // Pictures no note uses: copies of the book's own under names of their own, a month old (one added in the last day is left alone).
+  for (const [at, name] of assets.slice(0, 6).entries()) {
+    const copy = join(book, 'assets', `${createHash('sha256').update(`unused ${at}`).digest('hex')}.${name.split('.').pop()}`)
+    copyFileSync(join(book, 'assets', name), copy)
+    utimesSync(copy, new Date(Date.now() - 30 * 864e5), new Date(Date.now() - 30 * 864e5))
+  }
 
-const c = await sandbox({ width: 1280, height: 900, at: CALM_HOUR })
+const c = await sandbox({ width: 1280, height: 900, at: process.env.QA_ARGS.includes('--sandbox') ? CALM_HOUR : undefined, seeded: process.env.QA_ARGS.includes('--sandbox') })
 const { h, v, send, go } = c
 if (theme !== 'paper') await c.theme(theme)
 // The book's own pictures, as stored: what a person drops into a card or a note.
 const pictures = [...new Set(Object.values(await v('notes:thumbs')).filter((src) => /^haligtree:\/\/assets\/[a-f0-9]{64}\.(png|jpe?g|webp)$/.test(src)))].slice(0, 9)
-check('the sandbox has stored pictures to use', pictures.length >= 6, pictures.length)
+if (parts.some((one) => one !== 'lists')) check('the book has stored pictures to use', pictures.length >= 6, pictures.length)
 const para = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
 await h.waitForTimeout(1200)
 
-const firstDraw = async (name, rows, act, least = 3) => {
-  await pictureWatch(h, rows, 1800)
+const firstDraw = async (name, rows, act, least = 3, ms = 1800) => {
+  await pictureWatch(h, rows, ms)
   if (film) await (await import('./cast-lib.mjs')).castFrames(h, film, `${theme}-${name.replace(/\W+/g, '-')}-first-draw`, act, 700)
   else await act()
   const { rows: seen, pictured, late, frames } = await pictureVerdict(h)
@@ -81,7 +87,7 @@ if (parts.includes('tag')) {
     await h.evaluate((p) => window.api.captures.create(p), { kind: 'note', body: { type: 'doc', content: [para(`A pictured note ${at + 1} #pictured-stream`), { type: 'image', attrs: { src } }] } })
   await h.evaluate(() => localStorage.setItem('tag:look', 'stream'))
   await h.waitForTimeout(800)
-  await firstDraw('the tag stream', '[data-tag-stream] article', () => send('tag', 'pictured-stream'))
+  await firstDraw('the tag stream', '[data-tag-stream] article', () => send('tag', 'pictured-stream'), 2)
 }
 
 if (parts.includes('deck')) {
@@ -92,27 +98,37 @@ if (parts.includes('deck')) {
   await h.click('[data-deck="Pictured deck"]', { button: 'right' })
   const item = h.getByRole('menuitem', { name: 'Pictures', exact: true })
   await item.waitFor({ timeout: 5000 })
-  await firstDraw('a deck\'s gallery', '[data-deck-pictures]', () => item.click(), 1)
+  // It opens under the shelf, below the window's edge: seen as a person scrolls to it.
+  await firstDraw('a deck\'s gallery', '[data-deck-pictures]', async () => { await item.click(); await (await h.waitForSelector('[data-deck-pictures]')).scrollIntoViewIfNeeded() }, 1)
 }
 
 if (parts.includes('sources')) {
   // "From a picture" on the Decks page: the pictures you already have, as squares.
+  // At the top of the Decks page: "From a picture" in the row, or under "More" when the row is too narrow for it.
   await go('review')
   await h.click('[data-review-tab="decks"]').catch(() => {})
-  await h.waitForSelector('[data-deck-picture]', { timeout: 8000 })
-  await firstDraw('"Or one you already have"', '[data-picture-source]', () => h.click('[data-deck-picture]'))
+  await h.waitForSelector('[data-review-page]', { timeout: 8000 })
+  await h.evaluate(() => document.querySelector('[data-review-page]').scrollIntoView())
+  await h.waitForTimeout(400)
+  if (!(await h.isVisible('[data-deck-picture]'))) await h.click('[data-toolbar-more]')
+  const picture = (await h.isVisible('[data-deck-picture]')) ? h.locator('[data-deck-picture]') : h.getByRole('menuitem', { name: 'From a picture' })
+  await firstDraw('"Or one you already have"', '[data-picture-source]', () => picture.click())
 }
 
 if (parts.includes('scenery')) {
   // Settings' Scenery: Haligtree's paintings, a strip of six.
-  await v('settings:set', { scenery: true })
+  // Its small copies made first, as a folder's first look does behind its orb: the strip is read once they are.
+  // The copy's own paintings folder (the seed names the folder it was made in).
+  const folders = [join(book, 'Sandbox scenery')]
+  await v('settings:set', { scenery: true, sceneryFolders: folders })
+  for (const end = Date.now() + 30_000; Date.now() < end && (await v('scenery', folders, 'scenery')).scanning; ) await h.waitForTimeout(500)
   await go('settings')
   await firstDraw('Scenery\'s folder strip', '[data-scenery-folder]', () => h.click('[data-section="Scenery"]'), 1)
 }
 
 if (parts.includes('unused')) {
   // Asked for from ⌘K or Settings by name: the sheet looks through the book, then shows what no note uses.
-  await firstDraw('the unused files sheet', '[data-unused-grid]', () => h.evaluate(() => window.dispatchEvent(new Event('haligtree:unused'))), 1)
+  await firstDraw('the unused files sheet', '[data-unused-grid]', () => h.evaluate(() => window.dispatchEvent(new Event('haligtree:unused'))), 1, 6000)
 }
 
 if (c.errors.length) console.log(`page errors: ${c.errors.slice(0, 3).join(' | ')}`)

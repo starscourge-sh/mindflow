@@ -37,7 +37,13 @@ export async function pictureWatch(page, rows, ms = 1500) {
       frames++
       for (const row of document.querySelectorAll(rows)) {
         const key = keyOf(row)
-        if (!key || seen[key] || !row.checkVisibility({ visibilityProperty: true }) || !inView(row)) continue
+        // One seen already: the first frame every picture in it is whole, to say how late a late one came.
+        if (key && seen[key]) {
+          const pictures = [...row.querySelectorAll('img')]
+          if (seen[key].whole === undefined && pictures.length && pictures.every((img) => img.complete && img.naturalWidth > 0)) seen[key].whole = Math.round(performance.now() - from)
+          continue
+        }
+        if (!key || !row.checkVisibility({ visibilityProperty: true }) || !inView(row)) continue
         seen[key] = {
           at: Math.round(performance.now() - from),
           coming: !!row.querySelector('[data-picture-coming]'),
@@ -82,7 +88,7 @@ export async function pictureVerdict(page) {
         else if (!then.loaded) wrong.push('not loaded')
         else if (then.fading || Math.abs(then.opacity - one.opacity) > 0.01) wrong.push(`opacity ${then.opacity} of ${one.opacity}${then.fading ? ', fading in' : ''}`)
       }
-      if (wrong.length) late.push({ row: key.slice(0, 12), at: first.at, wrong: [...new Set(wrong)].join(', '), src: rest[0]?.src ?? '' })
+      if (wrong.length) late.push({ row: key.slice(0, 12), at: first.at, whole: first.whole ?? null, wrong: [...new Set(wrong)].join(', '), src: rest[0]?.src ?? '' })
     }
     const first = Math.min(...Object.values(seen).map((one) => one.at))
     const press = window.__picturePress
