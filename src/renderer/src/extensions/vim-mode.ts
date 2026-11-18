@@ -8,7 +8,7 @@ import type { EditorView } from "@tiptap/pm/view"
 import { Fragment } from "@tiptap/pm/model"
 import type { Node as ProseMirrorNode, NodeType, ResolvedPos } from "@tiptap/pm/model"
 import { liftListItem, sinkListItem } from "@tiptap/pm/schema-list"
-import { undo, redo } from "@tiptap/pm/history"
+import { closeHistory, undo, redo } from "@tiptap/pm/history"
 
 // --- Lib ---
 import { wordRangeAt } from "@/lib/word-range"
@@ -37,6 +37,10 @@ import { caretLine, lineOf, lineSpan } from "./line-numbers"
  *   search        / opens the panel, * and # find the word under the
  *                 cursor, n and N step through matches
  *   history       u, Ctrl-r
+ *   repeat        . does the last change again: an operator with its
+ *                 motion (dw, ciw, d$, >>), x and the other shorthands,
+ *                 an insert with the words typed in it (i a A o O, c...),
+ *                 with a count (3.); one u takes it back
  *   insert        jk (typed as a chord) leaves insert mode
  *   Backspace     deletes and enters insert, from normal or visual
  *
@@ -2068,6 +2072,114 @@ export const VimMode = Extension.create<VimModeOptions>({
     /** A key that selects was just pressed, for the change it is about to make. */
     let keyedSelect = false
 
+    /**
+     * `.`: the last change, to do again where the cursor is. Kept as the keys
+     * typed for it from rest (its count apart, so `3.` can put its own), and,
+     * when it opened insert mode, the words written before Escape.
+     */
+    let lastChange: { count: string; keys: string[]; text: string | null } | null = null
+    /** The command being typed from rest, or null when it cannot be repeated (begun on picked words, or not in normal mode). */
+    let typed: { count: string; keys: string[] } | null = null
+    /** An insert a command opened: its keys, and where its words begin, carried through each edit (state.apply). */
+    let inserting: { count: string; keys: string[]; from: number } | null = null
+    let replaying = false
+
+    /** A key pressed by `.` itself: plain, with no modifier. */
+    const pressed = (key: string): KeyboardEvent =>
+      ({ key, ctrlKey: false, metaKey: false, altKey: false, shiftKey: false }) as KeyboardEvent
+
+    /**
+     * Do the last change again, `count` times where it takes one, as one Undo
+     * step: each edit after the first is told it belongs to the first
+     * ("appendedTransaction", as the history reads it), and the step is closed
+     * on both sides so neither the typing before nor after joins it.
+     */
+    const repeat = (view: EditorView, count: string, run: (event: KeyboardEvent) => boolean): void => {
+      const change = lastChange
+      if (!change) return
+      const dispatch = view.dispatch
+      const glue = view.state.tr
+      let first = true
+      replaying = true
+      view.dispatch = (tr) => {
+        if (tr.docChanged) (first ? (first = false) : tr.setMeta("appendedTransaction", glue))
+        dispatch(tr)
+      }
+      try {
+        dispatch(closeHistory(view.state.tr))
+        const times = count || change.count
+        for (const key of [...times, ...change.keys]) run(pressed(key))
+        if (change.text !== null) {
+          // `3i` writes its words three times; a change takes its count itself.
+          const again = /^[iIaA]$/.test(change.keys[0] ?? "") ? Math.max(1, parseInt(times || "1", 10)) : 1
+          for (let n = 0; n < again; n++) {
+            change.text.split("\n").forEach((line, index) => {
+              if (index) editor.commands.keyboardShortcut("Enter")
+              if (line) view.dispatch(view.state.tr.insertText(line).scrollIntoView())
+            })
+          }
+          run(pressed("Escape"))
+        }
+      } finally {
+        view.dispatch = dispatch
+        replaying = false
+      }
+      dispatch(closeHistory(view.state.tr))
+    }
+
+    /** Each key goes to `run` (the commands below), watched for the change it makes, so `.` can make it again. */
+    const repeatable = (view: EditorView, event: KeyboardEvent, run: (event: KeyboardEvent) => boolean): boolean => {
+      const before = vimPluginKey.getState(view.state)
+      if (!before?.enabled || replaying) return run(event)
+      const plain = !event.metaKey && !event.ctrlKey && !event.altKey
+      const { key } = event
+
+      // Insert mode: the words of the change end where Escape (⌃[, or the jk chord) leaves it.
+      if (before.mode === "insert") {
+        const doc = view.state.doc
+        const end = key === "k" && before.pendingJ ? before.pendingJ.pos : view.state.selection.head
+        const result = run(event)
+        if (inserting && vimPluginKey.getState(view.state)?.mode === "normal") {
+          const { count, keys, from } = inserting
+          lastChange = { count, keys, text: end >= from ? doc.textBetween(from, end, "\n", "\n") : "" }
+          inserting = null
+        }
+        return result
+      }
+      // An insert left some other way (a click away, Vim switched off) ends nothing that can be repeated.
+      inserting = null
+      if (before.mode !== "normal") return ((typed = null), run(event))
+
+      const onlyCount = before.count !== "" && isPending({ ...before, count: "" }) === false
+      if (plain && key === "." && (!isPending(before) || onlyCount)) {
+        typed = null
+        repeat(view, before.count, run)
+        patch(view, CLEARED)
+        return true
+      }
+      if (!plain || key.length !== 1) return ((typed = null), run(event))
+
+      if (!isPending(before)) typed = view.state.selection.empty ? { count: "", keys: [] } : null
+      if (typed) {
+        if (!typed.keys.length && (/[1-9]/.test(key) || (key === "0" && typed.count))) typed.count += key
+        else typed.keys.push(key)
+      }
+      const doc = view.state.doc
+      const result = run(event)
+      const after = vimPluginKey.getState(view.state)
+      if (typed && after) {
+        if (after.mode === "insert") {
+          inserting = { ...typed, from: view.state.selection.head }
+          typed = null
+        } else if (!isPending(after)) {
+          // u takes a change back rather than making one.
+          if (view.state.doc !== doc && typed.keys.join("") !== "u") lastChange = { ...typed, text: null }
+          typed = null
+        }
+      }
+      return result
+    }
+
     return [
       new Plugin<VimState>({
         key: vimPluginKey,
@@ -2119,6 +2231,7 @@ export const VimMode = Extension.create<VimModeOptions>({
             // Mapping here is the whole reason `Ctrl-O` still lands where it
             // was pointed after the text around it has been edited.
             if (tr.docChanged) {
+              if (inserting) inserting.from = tr.mapping.map(inserting.from, -1)
               // `gv` too, so it reselects the same words after typing above
               // them. Gone with them when they were deleted.
               const last = next.lastVisual
@@ -2227,7 +2340,7 @@ export const VimMode = Extension.create<VimModeOptions>({
             return !!vim?.enabled && vim.mode !== "insert"
           },
 
-          handleKeyDown: (view, event) => {
+          handleKeyDown: (view, event) => repeatable(view, event, (event) => {
             const before = vimPluginKey.getState(view.state)
             if (!before?.enabled) return false
             keyedSelect =
@@ -3094,7 +3207,7 @@ export const VimMode = Extension.create<VimModeOptions>({
             // Anything else is swallowed, so normal mode never inserts text.
             patch(view, CLEARED)
             return true
-          },
+          }),
         },
       }),
     ]

@@ -141,6 +141,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Editing', keys: '⌥⌘F', does: 'Find and replace in the note', where: 'In a note' },
   { group: 'Editing', keys: '> >', does: 'With Vim keys: move a bullet in a level, its sub-bullets with it (< < moves it out; 3>> takes three lines, >j and >} reach as far as the motion)', where: 'In a note' },
   { group: 'Editing', keys: '>', does: 'With Vim keys and lines selected: move every one in a level (< out), then back to normal mode', where: 'In a note' },
+  { group: 'Editing', keys: '.', does: 'With Vim keys: do the last change again where the cursor is (dw, ciw and the words typed, x, >>, an insert); 3. does it three times, and one ⌘Z takes it back', where: 'In a note' },
   { group: 'Editing', keys: '4 j', does: 'With Vim keys: four rows down on the screen (k up); with “Jump by line numbers” on, to the line the margin marks 4, and 7 G goes to line 7', where: 'In a note' },
   { group: 'Editing', keys: '#', does: 'Tag: offers the tags you already use, most used first', where: 'In a note' },
   { group: 'Editing', keys: '⇧⌘O', does: 'Outline: move with arrows, ↵ to go there', where: 'In a note' },
