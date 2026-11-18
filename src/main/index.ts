@@ -5258,8 +5258,13 @@ function tempusBar(share: number): Electron.NativeImage {
  * The Dock icon's menu (right-click, or a long press): the few things you
  * reach for without the main window, each the same as its menu bar twin.
  */
+let dockShape = ''
 function updateDock(): void {
   if (!app.dock || !app.isReady()) return
+  // Built again only when what it says changed, as the menu bar's is: it was built afresh every half minute and on every write.
+  const shape = JSON.stringify([awayItems().map((item) => [item.label, item.checked]), stickiesTicked()])
+  if (shape === dockShape) return
+  dockShape = shape
   app.dock.setMenu(
     Menu.buildFromTemplate([
       { label: 'Quick capture', click: () => void (prompt?.isFocused() || toggleWindow()) },

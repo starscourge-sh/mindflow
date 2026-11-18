@@ -3066,6 +3066,19 @@ export function registerHaligtree(): void {
       ...body(row), state: undefined, first: !row.state, exam: exam?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam), rate(row))
     }))
   }
+  // How many cards wait, worked out again only when it can have changed: a write to the book (a review, a card, a
+  // setting), a new day, or the next card's moment come. Worked out whole each time (every card's words read for its
+  // tags and exam, the four grades' days for each one due), the menu bar's clock held main for up to 365 ms every
+  // half minute on the main book, and every write anywhere did the same once more (59).
+  let counted: { changes: number; day: string; until: string; n: number } | null = null
+  reviewCount = () => {
+    const changes = (db.prepare('select total_changes() as n').get() as { n: number }).n
+    const at = now()
+    if (counted && counted.changes === changes && counted.day === dayKey() && at < counted.until) return counted.n
+    const next = (db.prepare("select min(due_at) as at from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and due_at > ?").get(at) as { at: string | null }).at
+    counted = { changes, day: dayKey(), until: next ?? '9', n: reviewQueue().length }
+    return counted.n
+  }
   handle('review:queue', () => reviewQueue())
   // How many of today's cards are new ones, from the queue itself, for Home's line.
   handle('review:new-today', () => (reviewQueue() as { first: boolean }[]).filter((one) => one.first).length)
@@ -3100,12 +3113,12 @@ export function registerHaligtree(): void {
     return write(true)
   })
   // The same cards a session would start with, exam sweep and limits included.
-  handle('review:counts', () => reviewQueue().length)
+  handle('review:counts', () => reviewCount())
   // A sitting left part way today: how many were done, how many wait, and when the last was answered (Home's "Continue reading").
   handle('review:sitting', () => {
     const since = new Date(startOfDay()).toISOString()
     const done = db.prepare('select count(*) n, max(reviewed_at) last from review_log where reviewed_at >= ?').get(since) as { n: number; last: string | null }
-    return { done: done.n, left: done.n ? reviewQueue().length : 0, last: done.last }
+    return { done: done.n, left: done.n ? reviewCount() : 0, last: done.last }
   })
   // Only a graded review moves a schedule: not opening, not searching.
   // Hints taken before the answer (Review's "Give me a hint") bring it back sooner (study-ai.ts hintedTimes); the log keeps your own grade and the hints.
@@ -4465,7 +4478,7 @@ export function registerHaligtree(): void {
     for (const { due_at } of rows) load[Math.max(0, daysFromToday(due_at ?? 0))] += 1
     // Today is what a session would really ask, with the daily limits, not
     // every card never seen.
-    if (days > 0) load[0] = reviewQueue().length
+    if (days > 0) load[0] = reviewCount()
     return load
   })
 
@@ -5225,6 +5238,8 @@ export function registerHaligtree(): void {
 
 /** Today's review queue, set once the handlers are registered; the badge counts it too. */
 let reviewQueue: () => unknown[] = () => []
+/** How many cards it holds, kept until it can have changed. */
+let reviewCount: () => number = () => 0
 /** For a card's row, its deck's own retention, or null for the one in Settings. */
 let retentionOf: () => (row: Record<string, unknown>) => number | null = () => () => null
 let quizCard: (id: string) => Record<string, unknown> | null = () => null
@@ -5235,7 +5250,7 @@ export const cardForQuiz = (id: string): Record<string, unknown> | null => quizC
 
 /** What the menu bar says: reviews due, and whether safe mode is on. */
 export function badge(): { due: number; tasks: number; safe: boolean } {
-  const n = reviewQueue().length
+  const n = reviewCount()
   // Quiet push: a task whose time has come is counted in the menu bar, unless
   // it is set to pull, where it only rises in Today.
   // A task's own level wins: a pull one is never counted, a quiet or alert one always is.
@@ -5266,7 +5281,7 @@ function remindNow(): string | null {
   const again = db.prepare("select day from nudges where key = 'review-again'").get() as { day: string } | undefined
   if (again && Date.parse(again.day) <= Date.now()) {
     db.prepare("delete from nudges where key = 'review-again'").run()
-    const waiting = reviewQueue().length
+    const waiting = reviewCount()
     if (!waiting || dayKey(again.day) !== dayKey()) return null
     const said = `${plural(waiting, 'card')} still waiting`
     if (!nudgeTold({ kind: 'review', text: said, again: true }) && Notification.isSupported()) {
@@ -5279,7 +5294,7 @@ function remindNow(): string | null {
   if (Date.now() < set || Date.now() - set > 2 * 3600000) return null
   const day = dayKey()
   if ((db.prepare("select day from nudges where key = 'review-reminder'").get() as { day: string } | undefined)?.day === day) return null
-  const cards = reviewQueue().length
+  const cards = reviewCount()
   if (!cards) return null
   db.prepare("insert or replace into nudges (key, day) values ('review-reminder', ?)").run(day)
   const ms = (db.prepare('select avg(min(ms, 60000)) as ms from (select ms from review_log where ms is not null order by reviewed_at desc limit 200)').get() as { ms: number | null }).ms
