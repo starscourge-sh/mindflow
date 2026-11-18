@@ -1632,6 +1632,9 @@ await part('Several notes', async () => {
   const rest = await many()
   const restWords = await said()
   check('Several notes, rested on a loose row in a folder: “New group of 7”, the badge 7, its dashed place under it', restWords === 'New group of 7' && rest.badge === '7' && rest.forming === 1, JSON.stringify({ restWords, ...rest }))
+  // The list scrolled since the lift: the card still rests on the new group's dashed place, not as far off as the scroll.
+  const rests = await h.evaluate(() => { const place = document.querySelector('[data-preview] > span')?.getBoundingClientRect(); const card = document.querySelector('[data-carried-card]')?.getBoundingClientRect(); return place && card ? { place: [Math.round(place.top), Math.round(place.bottom)], card: Math.round((card.top + card.bottom) / 2) } : null })
+  check('Several notes, rested after the list scrolled: the card rests on the new group’s place', !!rests && rests.card >= rests.place[0] && rests.card <= rests.place[1], JSON.stringify(rests))
   const restLook = await drawn()
   check('Several notes, rested on a loose row: no row over another, and no band left where the row in hand was', restLook.overlap <= 1 && !(await h.evaluate(() => [...document.querySelectorAll('[data-own-room], [data-drop-room]')].filter((one) => one.getClientRects().length && +getComputedStyle(one).opacity > 0.05).length)), `overlap ${restLook.overlap}px`)
   check('Several notes, rested on a loose row: the pile in hand leaves that row’s name in sight', (await coversTitle('Yew')) === 0, `${await coversTitle('Yew')}px of “Yew” covered`)
