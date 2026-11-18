@@ -1562,9 +1562,11 @@ await part('Several notes', async () => {
     const top = (id) => [...document.querySelectorAll('[data-pane] [data-sortable-id]')].find((el) => el.dataset.sortableId === id)?.getBoundingClientRect().top ?? null
     const tick = () => {
       if (!seen.on) return
-      const card = document.querySelector('[data-carried-card]')?.getBoundingClientRect()
+      // Every card drawn in the hand, the pile under the one in hand too: one box round them all.
+      const all = [...document.querySelectorAll('[data-carried-card], [data-fanned]')].map((el) => el.getBoundingClientRect()).filter((r) => r.width > 8)
+      const card = all.length ? { top: Math.min(...all.map((r) => r.top)), bottom: Math.max(...all.map((r) => r.bottom)), left: Math.min(...all.map((r) => r.left)) } : null
       const fly = document.querySelector('.mf-drag-picture')?.getBoundingClientRect()
-      seen.list.push({ a: a && top(a), b: b && top(b), card: card && { top: card.top, bottom: card.bottom, left: card.left }, fly: fly ? fly.top : null, x: window.__frames.x, y: window.__frames.y })
+      seen.list.push({ a: a && top(a), b: b && top(b), card, fly: fly ? fly.top : null, x: window.__frames.x, y: window.__frames.y })
       requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
@@ -1575,7 +1577,7 @@ await part('Several notes', async () => {
   /** On each frame of a carry, the card in hand by the pointer: level with it, or just clear of the line beside it. */
   const nearPointer = (name, frames) => {
     const off = frames.filter((f) => f.card && f.y).map((f) => Math.round(Math.max(0, f.card.top - f.y, f.y - f.card.bottom)))
-    check(`${name}: on every frame the card in hand is by the pointer (within 60 px of it, up or down)`, off.length > 10 && off.every((dy) => dy <= 60), `${off.length} frames, the farthest ${Math.max(0, ...off)} px`)
+    check(`${name}: on every frame every card in the hand (the pile too) is by the pointer (within 60 px of it, up or down)`, off.length > 10 && off.every((dy) => dy <= 60), `${off.length} frames, the farthest ${Math.max(0, ...off)} px`)
   }
   /** The stack in hand over a row's title, in px of overlap (0: the title is in sight). */
   const coversTitle = (title) => h.evaluate((title) => {
