@@ -136,6 +136,7 @@ export async function morphBox(open: boolean, toPill: boolean, ask: (open: boole
     return mine === run
   }
   // The window grown for it (the box carried near a screen's edge since it opened): laid out once the page has that size.
+  // The size main says the window has now, so the resize waited for is one that is coming (main/index.ts within).
   if (Math.abs(room.width - innerWidth) > 1 || Math.abs(room.height - innerHeight) > 1) await new Promise((done) => addEventListener('resize', done, { once: true }))
   if (mine !== run) return false
   // Where everything is drawn now: at rest, or mid-move if this press turned a move round.

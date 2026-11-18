@@ -795,7 +795,10 @@ function within(win: BrowserWindow, to?: Electron.Rectangle): Room & { width: nu
   relimit.get(win)?.()
   if (!sameBox(frame, { x: left, y: top, width: right - left, height: bottom - top })) win.setBounds(next)
   roomInEnv()
-  return { ...room, width: right - left, height: bottom - top }
+  // The size the window has now, not the one asked for: the page waits to be laid out at it (lib/box-morph.ts), and a
+  // size held back (by the window's least or most size) never came, so it waited for ever.
+  const now = BrowserWindow.prototype.getBounds.call(win)
+  return { ...room, width: now.width, height: now.height }
 }
 /**
  * The box's card at a new size inside the frame its window already has (roomForPanel keeps the box with its panel at
