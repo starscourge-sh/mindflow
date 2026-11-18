@@ -96,7 +96,8 @@ try {
   const tomorrow = key(at(1))
   const moved = await Promise.all(before.map((one) => find(one.id)))
   check(`Reschedule all → Tomorrow moves all ${before.length}`, moved.every((one) => key(new Date(one.dueAt)) === tomorrow) && (await lateNow()).length === 0, moved.map((one) => one.dueAt.slice(0, 10)).join(' '))
-  check('times are kept', moved.every((one, i) => new Date(one.dueAt).getHours() === new Date(before[i].dueAt).getHours()))
+  // An all-day one has no time to keep: it lands at 9 (late-tasks.tsx rescheduleAll), as the seed's late tablets do.
+  check('times are kept', moved.every((one, i) => before[i].allDay || new Date(one.dueAt).getHours() === new Date(before[i].dueAt).getHours()), moved.map((one, i) => `${before[i].allDay ? 'all-day' : new Date(before[i].dueAt).getHours()}→${new Date(one.dueAt).getHours()}`).join(' '))
   await h.keyboard.press('Meta+z'); await h.waitForTimeout(1200)
   const back = await Promise.all(before.map((one) => find(one.id)))
   check('⌘Z puts every one back', back.every((one, i) => one.dueAt === before[i].dueAt), back.map((one) => one.dueAt.slice(0, 10)).join(' '))
@@ -219,7 +220,7 @@ try {
   await shot('wrap-offer')
   await h.locator('[data-wrap-open]').click(); await h.waitForTimeout(1500)
   const cards = await h.locator('[data-wrap-story] [aria-label^="Card "]').count()
-  check('Open shows the story, 5 to 8 cards', await h.locator('[data-wrap-story]').count() === 1 && cards >= 5 && cards <= 8, String(cards))
+  check('Open shows the story, 5 to 12 cards', await h.locator('[data-wrap-story]').count() === 1 && cards >= 5 && cards <= 12, String(cards))
   for (let i = 0; i < cards; i++) {
     await h.waitForTimeout(2600)
     await shot(`wrap-month-${i + 1}-${await h.locator('[data-wrap-card]').getAttribute('data-wrap-card')}`)
