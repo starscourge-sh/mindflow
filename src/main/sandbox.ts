@@ -365,7 +365,7 @@ type Age =
   | { openedAt: string }
   | { usedAt: string; captureId: string }
   | { closedAt: string; nuggetId: string }
-  | { sessionAt: string; endedAt: string; taskId: string; pausedMs?: number; plannedMs?: number | null; abandoned?: boolean; recap?: string }
+  | { sessionAt: string; endedAt: string; taskId: string; pausedMs?: number; plannedMs?: number | null; abandoned?: boolean; recap?: string; blocked?: Record<string, number> }
   | { breakAt: string; ms: number }
 
 /** This run began setting the examples out; and whether it has asked to start over because a seed was cut short. */
@@ -498,9 +498,16 @@ export function registerSandbox(): void {
       // A question settled some while ago: only one already closed.
       else if ('closedAt' in move && isIso(move.closedAt)) done += Number(db.prepare('update nuggets set closed_at = ? where id = ? and closed_at is not null').run(move.closedAt, String(move.nuggetId)).changes)
       // A focus session worked some while ago, for a task's numbers and Stats': a row added, on a task that is there.
-      else if ('sessionAt' in move && isIso(move.sessionAt) && isIso(move.endedAt))
-        done += Number(db.prepare('insert into sessions (id, task_id, started_at, ended_at, recap, paused_ms, planned_ms, abandoned_at) select ?, id, ?, ?, ?, ?, ?, ? from tasks where id = ?')
-          .run(randomUUID(), move.sessionAt, move.endedAt, move.recap || null, Math.max(0, Number(move.pausedMs) || 0), Number(move.plannedMs) || null, move.abandoned ? move.endedAt : null, String(move.taskId)).changes)
+      else if ('sessionAt' in move && isIso(move.sessionAt) && isIso(move.endedAt)) {
+        const id = randomUUID()
+        const added = Number(db.prepare('insert into sessions (id, task_id, started_at, ended_at, recap, paused_ms, planned_ms, abandoned_at) select ?, id, ?, ?, ?, ?, ?, ? from tasks where id = ?')
+          .run(id, move.sessionAt, move.endedAt, move.recap || null, Math.max(0, Number(move.pausedMs) || 0), Number(move.plannedMs) || null, move.abandoned ? move.endedAt : null, String(move.taskId)).changes)
+        done += added
+        // The sites it sent away, and how often, as a session's own blocking keeps them (site-block.ts).
+        if (added && move.blocked && typeof move.blocked === 'object')
+          for (const [site, count] of Object.entries(move.blocked))
+            if (typeof site === 'string' && site && Number(count) > 0) db.prepare('insert into session_blocks (session_id, site, count) values (?, ?, ?)').run(id, site, Math.round(Number(count)))
+      }
       // A break taken between them.
       else if ('breakAt' in move && isIso(move.breakAt)) done += Number(db.prepare('insert into focus_breaks (at, ms) values (?, ?)').run(move.breakAt, Math.max(0, Number(move.ms) || 0)).changes)
     }

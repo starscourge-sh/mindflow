@@ -28,7 +28,7 @@ const iconOf = (site: string): Promise<string | null> => {
 }
 
 /** A site's own small picture, or its first letter on a tile of the theme's when it has none (or before it comes). */
-function SiteIcon({ site, size = 16 }: { site: string; size?: number }): React.JSX.Element {
+export function SiteIcon({ site, size = 16 }: { site: string; size?: number }): React.JSX.Element {
   const [src, setSrc] = useState<string | null>(null)
   const [broken, setBroken] = useState(false)
   useEffect(() => {
@@ -373,8 +373,20 @@ export function SessionBlocked({ sessionId }: { sessionId: string }): React.JSX.
   )
 }
 
+/** A session's sites sent away, each with how often and when the session began (main's site-block:since). */
+export type SentAway = { site: string; count: number; at: string }
+export const sentAwaySince = (since: string): Promise<SentAway[]> => call<SentAway[]>('site-block:since', since)
+/** Added up by site for the sessions begun from `from` until `to`, most first: what Stats and Wrapped say. */
+export function bySite(rows: SentAway[], from: string, to: string): { site: string; count: number }[] {
+  const sum = new Map<string, number>()
+  for (const row of rows) if (row.at >= from && row.at < to) sum.set(row.site, (sum.get(row.site) ?? 0) + row.count)
+  return [...sum].map(([site, count]) => ({ site, count })).sort((a, b) => b.count - a.count || a.site.localeCompare(b.site))
+}
+
+/** How often, said as a person says it: once, twice, 3 times. */
+export const timesSaid = (n: number): string => (n === 1 ? 'once' : n === 2 ? 'twice' : `${num(n)} times`)
+
 /** How often a session sent each site away, said in a line: “Kept you off x.com 3 times and youtube.com once”. */
-function blockedSaid(sites: { site: string; count: number }[]): string {
-  const times = (n: number): string => (n === 1 ? 'once' : n === 2 ? 'twice' : `${num(n)} times`)
-  return `Kept you off ${new Intl.ListFormat('en', { type: 'conjunction' }).format(sites.map((one) => `${one.site} ${times(one.count)}`))}`
+export function blockedSaid(sites: { site: string; count: number }[]): string {
+  return `Kept you off ${new Intl.ListFormat('en', { type: 'conjunction' }).format(sites.map((one) => `${one.site} ${timesSaid(one.count)}`))}`
 }

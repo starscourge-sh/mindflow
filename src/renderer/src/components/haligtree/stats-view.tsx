@@ -13,7 +13,7 @@ import { WritingSection } from './writing-stats'
 import { Count, ISLAND, Page, Rolling } from './ui'
 import { Button } from '@/components/ui/button'
 import { useFold } from './islands'
-import { Activity, BookOpen, Brain, CalendarCheck, CalendarDays, CalendarRange, ChevronRight, Clock, FileText, Flag, Hash, Hourglass, LayoutGrid, ListChecks, MessageSquareText, PenLine, Repeat, Search, Shapes, Split, Sun, Target, Timer, type LucideIcon } from 'lucide-react'
+import { Activity, BookOpen, Brain, CalendarCheck, CalendarDays, CalendarRange, ChevronRight, Clock, FileText, Flag, Hash, Hourglass, LayoutGrid, ListChecks, MessageSquareText, PenLine, Repeat, Search, Shapes, ShieldBan, Split, Sun, Target, Timer, type LucideIcon } from 'lucide-react'
 import { Tip } from '@/components/haligtree/ui'
 import { chime } from '@/lib/sound'
 import { Recap } from './recap-view'
@@ -54,7 +54,7 @@ export function N({ children }: { children: ReactNode }): React.JSX.Element {
 const SECTION_ICONS: [RegExp, LucideIcon][] = [
   [/^Writing$/, PenLine], [/^Remembering/, Brain], [/^This week$|^The week, in the work$/, CalendarRange], [/^Days you opened it$/, CalendarCheck],
   [/^Pages you open most$/, FileText], [/^How you find things$/, Search], [/^Today$/, Sun], [/^Focus$/, Timer], [/^How sessions end$/, Flag],
-  [/^When you focus$|^When you capture$/, Clock], [/^Where your focus went$/, Hash], [/^How long each task took$/, Hourglass], [/^Kept up$/, Repeat],
+  [/^When you focus$|^When you capture$/, Clock], [/^Sites it kept you off$/, ShieldBan], [/^Where your focus went$/, Hash], [/^How long each task took$/, Hourglass], [/^Kept up$/, Repeat],
   [/^Habits$/, Repeat], [/^Goals$/, Target], [/^The doing, this week$/, ListChecks], [/^Is it working$/, Activity], [/so far$/, CalendarDays],
   [/^What you capture$/, Shapes], [/^Where captures go$/, Split], [/^By tag$/, Hash], [/in your own words$/, BookOpen]
 ]

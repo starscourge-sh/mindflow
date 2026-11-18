@@ -17,6 +17,7 @@ import type { Task } from '@/lib/haligtree'
 import { N, Section } from './stats-view'
 import { TONES } from './mono-card'
 import { quoted } from '../../../../main/clip'
+import { SiteIcon, bySite, sentAwaySince, timesSaid, type SentAway } from './site-block-field'
 
 /**
  * How focus sessions went, in two places: on a task's panel (how many, how
@@ -45,15 +46,16 @@ const SAID: Record<Outcome, string> = { finished: 'ran its full length', early: 
 /**
  * A row of bars, bottom-aligned, each with its own tip; an empty one keeps a
  * stub so the day is still there. `peak` labels the tallest bar with how much
- * it stands for, so the heights read without pointing at each one.
+ * it stands for, so the heights read without pointing at each one; with
+ * `every`, each bar that has any wears its own (a short row: weeks, months).
  */
-export function Bars({ values, tips, tint, className, highlight, peak }: { values: number[]; tips: string[]; tint?: (index: number) => string; className?: string; highlight?: number; peak?: (value: number) => string }): React.JSX.Element {
+export function Bars({ values, tips, tint, className, highlight, peak, every }: { values: number[]; tips: string[]; tint?: (index: number) => string; className?: string; highlight?: number; peak?: (value: number) => string; every?: boolean }): React.JSX.Element {
   const max = Math.max(1, ...values)
   const top = values.indexOf(Math.max(...values))
   const at = ((top + 0.5) / Math.max(1, values.length)) * 100
   return (
     <div className={cn('relative', peak && values[top] > 0 && 'pt-5')}>
-    {peak && values[top] > 0 && (
+    {peak && !every && values[top] > 0 && (
       <span data-focus-peak className="pointer-events-none absolute top-0 text-xs font-medium whitespace-nowrap text-foreground tabular-nums"
         style={{ left: `${at}%`, transform: `translateX(${at < 12 ? '-10%' : at > 88 ? '-90%' : '-50%'})` }}>{peak(values[top])}</span>
     )}
@@ -62,7 +64,11 @@ export function Bars({ values, tips, tint, className, highlight, peak }: { value
         <Tip key={index} label={tips[index]}>
           {/* Full height, scaled from the foot: a change grows on the compositor, not by laying the row out again each frame. */}
           {/* A pill of the ink, round at both ends, at most 10 px wide so a short row never turns into blocks; a day with none keeps a faint stub. */}
-          <div className="flex h-full flex-1 items-end justify-center">
+          <div className="relative flex h-full flex-1 items-end justify-center">
+            {every && peak && value > 0 && (
+              <span data-bar-label className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-xs font-medium whitespace-nowrap text-foreground tabular-nums"
+                style={{ bottom: `calc(max(6px, ${(value / max) * 100}%) + 4px)` }}>{peak(value)}</span>
+            )}
             <div {...(value ? { 'data-mark': '' } : {})}
               className="w-full max-w-2.5 rounded-none transition-[height] duration-240"
               style={{
@@ -265,6 +271,8 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
         </Section>
       )}
 
+      {!example && <SitesKeptOff />}
+
       {focus.sessions >= 3 && focus.best && (
         <Section title="When you focus" big={{ value: PART[focus.best.part], label: `around ${focus.best.hour}:00` }}>
           <div>
@@ -330,6 +338,66 @@ export function FocusSections({ example }: { example: boolean }): React.JSX.Elem
         )
       })()}
     </>
+  )
+}
+
+/**
+ * The sites focus sessions sent away (site-block.ts keeps how often, per
+ * session): the last eight weeks or six months as bars, each wearing its
+ * count, then this week's or this month's sites ranked, each with its own
+ * picture and its count, and one line saying it. Nothing until a session
+ * first sends one away; a period with none says so.
+ */
+function SitesKeptOff(): React.JSX.Element | null {
+  const [span, setSpan] = useState<'weeks' | 'months'>('weeks')
+  // From the earlier of eight weeks and six months back, so the switch reads nothing more.
+  const since = dayjs().startOf('month').subtract(5, 'month').startOf('week').subtract(1, 'week')
+  const rows = useLive(() => sentAwaySince(since.toISOString()), null as SentAway[] | null, [since.format('YYYY-MM-DD')])
+  useReading(!rows)
+  if (!rows?.length) return null
+  const weeks = span === 'weeks'
+  const unit = weeks ? 'week' : 'month'
+  const count = weeks ? 8 : 6
+  const periods = Array.from({ length: count }, (_, i) => dayjs().startOf(unit).subtract(count - 1 - i, unit))
+  const sums = periods.map((start) => bySite(rows, start.toISOString(), start.add(1, unit).toISOString()))
+  const totals = sums.map((sites) => sites.reduce((n, one) => n + one.count, 0))
+  const now = sums[count - 1]
+  const [total, before] = [totals[count - 1], totals[count - 2]]
+  const name = `this ${unit}`
+  const label = (i: number): string => (i === count - 1 ? `This ${unit}` : weeks ? `Week of ${dated(periods[i])}` : periods[i].format('MMMM YYYY'))
+  const most = Math.max(1, ...now.map((one) => one.count))
+  return (
+    <Section title="Sites it kept you off" big={{ value: num(total), label: `${total === 1 ? 'time' : 'times'} a site was sent away ${name}` }}>
+      <div data-sites-chart data-chart="sites">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <span className="text-sm text-foreground">{weeks ? 'Each week, the last eight' : 'Each month, the last six'}</span>
+          <Chips options={[{ id: 'weeks', label: 'Weeks' }, { id: 'months', label: 'Months' }]} on={(id) => id === span} pick={(id) => (chime('tap'), setSpan(id as 'weeks' | 'months'))} className="" />
+        </div>
+        <Bars className="h-16" values={totals} tips={totals.map((n, i) => `${label(i)} · ${n ? sums[i].map((one) => `${one.site} ${timesSaid(one.count)}`).join(', ') : 'none sent away'}`)} highlight={count - 1} peak={num} every />
+        <div className="mt-1.5 flex justify-between text-xs tabular-nums">
+          <span>{weeks ? `Week of ${dated(periods[0])}` : periods[0].format('MMMM')}</span>
+          <span>{`This ${unit}`}</span>
+        </div>
+      </div>
+      {now.length > 0 && (
+        <div data-sites-ranked className="space-y-2">
+          {now.slice(0, 5).map((one) => (
+            <div key={one.site} data-site-row={one.site} className="flex items-center gap-3 text-sm">
+              <SiteIcon site={one.site} size={16} />
+              <span className="w-40 min-w-0 truncate text-foreground">{one.site}</span>
+              <span className="h-1.5 flex-1"><span data-mark className="block h-full min-w-1.5 rounded-none" style={{ width: `${(one.count / most) * 100}%`, background: INK }} /></span>
+              <span className="min-w-16 shrink-0 text-right font-semibold text-foreground tabular-nums">{timesSaid(one.count)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <p data-sites-said className="text-foreground">
+        {now.length
+          ? <>{weeks ? 'This week' : 'This month'} it kept you off {now.slice(0, 3).map((one, i, all) => <span key={one.site}><strong className="font-semibold">{one.site}</strong> {timesSaid(one.count)}{i < all.length - 2 ? ', ' : i === all.length - 2 ? ' and ' : ''}</span>)}{now.length > 3 ? `, and ${plural(now.length - 3, 'more site', 'more sites')}` : ''}.</>
+          : <>Nothing was sent away {name}.</>}
+        {' '}{before ? <>The {unit} before, <N>{plural(before, 'time', 'times')}</N>.</> : `None the ${unit} before.`}
+      </p>
+    </Section>
   )
 }
 

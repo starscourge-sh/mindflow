@@ -1302,7 +1302,9 @@ The same move works on anything hard. Put what you know beside what you do not. 
       const paused = (n + i) % 5 === 2 ? 3 : 0
       const start = at(-n, `${String(Math.floor(clock / 60)).padStart(2, '0')}:${String(clock % 60).padStart(2, '0')}`)
       const end = new Date(new Date(start).getTime() + (worked + paused) * 60_000).toISOString()
-      focus.push({ sessionAt: start, endedAt: end, taskId: [losAlamos, oxygenator, cuneiform, losAlamos, oxygenator][(n + i) % 5], pausedMs: paused * 60_000, plannedMs: planned * 60_000, abandoned, recap: abandoned ? '' : recaps[(n + i) % 7] ?? '' })
+      // The sites the day's first session sent away, fewer as the weeks went on: Stats' sites chart and Wrapped's card.
+      const blocked = i ? {} : Object.fromEntries(([['youtube.com', n % 2 ? 1 + (n % 3) + Number(n > 35) : 0], ['x.com', n % 3 ? 0 : 1 + (n % 2)], ['reddit.com', n % 5 ? 0 : 1], ['news.ycombinator.com', n % 7 === 1 ? 1 : 0]] as const).filter(([, count]) => count))
+      focus.push({ sessionAt: start, endedAt: end, taskId: [losAlamos, oxygenator, cuneiform, losAlamos, oxygenator][(n + i) % 5], pausedMs: paused * 60_000, plannedMs: planned * 60_000, abandoned, recap: abandoned ? '' : recaps[(n + i) % 7] ?? '', blocked })
       if (i < count - 1) focus.push({ breakAt: end, ms: (n % 4 === 0 ? 10 : 5) * 60_000 })
       clock += worked + paused + 10
     }

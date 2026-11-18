@@ -488,6 +488,9 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
   // How often each site was sent away in a session, most first.
   handle('site-block:session', (sessionId: string) =>
     db.prepare('select site, count from session_blocks where session_id = ? order by count desc, site').all(String(sessionId)))
+  // Each session's sites sent away from a time on, with when the session began: Stats adds them up by week and month, Wrapped over its span.
+  handle('site-block:since', (since: string) =>
+    db.prepare('select b.site, b.count, s.started_at as at from session_blocks b join sessions s on s.id = b.session_id where s.started_at >= ? order by s.started_at').all(String(since)))
   handle('site-block:icon', (site: string) => iconOf(site))
 }
 
