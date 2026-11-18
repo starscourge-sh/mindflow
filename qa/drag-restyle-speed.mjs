@@ -118,7 +118,8 @@ try {
         const button = add('button', 'left:300px;top:300px'); button.className = 'cursor-pointer'; button.textContent = 'a button'
         const link = add('a', 'left:300px;top:400px;display:block'); link.href = '#'; link.textContent = 'a link'
         grip.addEventListener('pointerdown', (event) => { if (capture) grip.setPointerCapture(event.pointerId); document.documentElement.dataset[attr] = ''; event.preventDefault() })
-        grip.addEventListener('pointerup', () => delete document.documentElement.dataset[attr])
+        // Let go wherever the pointer is (uncaptured, the release lands on what is under it, not on the grip).
+        window.addEventListener('pointerup', () => delete document.documentElement.dataset[attr], { once: true, capture: true })
       }, [attr, capture])
       await h.mouse.move(960, 320); await h.mouse.down(); await h.mouse.move(360, 320, { steps: 8 }); await wait(150)
       const overButton = await cursor()
