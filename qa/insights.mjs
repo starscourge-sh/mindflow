@@ -227,7 +227,8 @@ try {
   // The story is up at once, its cards once the week is read: counted after that, never on the loading card.
   await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 15000 }).catch(() => null)
   const count = await h.locator('[data-wrap-story] [aria-label^="Card "]').count()
-  const keepBox = () => h.evaluate(() => JSON.stringify(document.querySelector('[data-wrap-keep]')?.getBoundingClientRect()))
+  // The card's own box: the keep row lies over the card's corner (absolute), so its buttons arriving grow the row, never the card.
+  const keepBox = () => h.evaluate(() => JSON.stringify(document.querySelector('[data-wrap-story]')?.getBoundingClientRect()))
   const roomBefore = await keepBox()
   check('G. not on the first card', !(await h.evaluate(() => !!document.querySelector('[data-wrap-copy]'))) || count === 1)
   for (let i = 0; i < count - 1; i++) { await h.keyboard.press('ArrowRight'); await h.waitForTimeout(260) }
