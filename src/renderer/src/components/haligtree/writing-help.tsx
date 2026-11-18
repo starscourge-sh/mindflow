@@ -269,7 +269,8 @@ addEventListener('keydown', (event) => {
   if (combo !== '⌃⌘W') return
   const dom = (event.target as HTMLElement | null)?.closest?.('.ProseMirror')
   const editor = dom && (dom as HTMLElement & { editor?: Editor }).editor
-  if (!editor || editor.state.selection.empty) return
+  // Only where the bar holds Writing help (a note, a page, a capture): elsewhere the key is not this one's to take.
+  if (!editor || editor.state.selection.empty || !bars.has(editor)) return
   event.preventDefault()
   event.stopImmediatePropagation()
   if (!meets(capsNow(), 'ai')) return refuse('Writing help needs Apple Intelligence, turned on in System Settings', 'info')
@@ -279,6 +280,8 @@ addEventListener('keydown', (event) => {
 /** The event that opens one editor's Writing help, so ⌃⌘W opens the bar of the note it was pressed in, not every bar. */
 const openers = new WeakMap<Editor, string>()
 const opener = (editor: Editor): string => openers.get(editor) ?? (openers.set(editor, `haligtree:writing-help:${crypto.randomUUID()}`), openers.get(editor)!)
+/** The editors whose bar holds Writing help just now (drawn while words are picked), on any Mac: there ⌃⌘W is its key. */
+const bars = new WeakSet<Editor>()
 
 // A press anywhere but the card leaves the words as they are.
 addEventListener('pointerdown', (event) => {
@@ -288,35 +291,44 @@ addEventListener('pointerdown', (event) => {
 /** "Writing help" on the selection bar: the eight, by name, each with its number; nothing at all on a Mac without Apple Intelligence. */
 export function WritingHelp({ editor, reading = false }: { editor: Editor; reading?: boolean }): React.JSX.Element | null {
   const has = useHas('ai')
+  useEffect(() => (bars.add(editor), () => void bars.delete(editor)), [editor])
   if (!has) return null
   const rows = HELPS.filter((one) => !reading || !one.edits)
   return (
     <BarMenu label="Writing help" text="Writing help" icon={Sparkles} lit={false} column openOn={opener(editor)}>
-      {(close) => <Rows rows={rows} pick={(id) => (close(), helpWith(id, editor))} />}
+      {(close) => <Rows rows={rows} pick={(id) => (close(), helpWith(id, editor))} close={close} />}
     </BarMenu>
   )
 }
 
-/** The rows, with 1 to 8 picking while they show. */
-function Rows({ rows, pick }: { rows: Row[]; pick: (id: Help) => void }): React.JSX.Element {
+/**
+ * The rows, as every menu answers keys: the first lit as it opens, ↑ ↓ move the light, ↵ picks it, 1 to 8 pick theirs,
+ * Esc closes the menu and leaves the words picked. Taken before the note hears them, so ↵ never replaces the words.
+ */
+function Rows({ rows, pick, close }: { rows: Row[]; pick: (id: Help) => void; close: () => void }): React.JSX.Element {
+  const [lit, setLit] = useState(0)
   useEffect(() => {
-    const digit = (event: KeyboardEvent): void => {
-      const n = /^Digit([1-9])$/.exec(event.code)
-      const one = n && !event.metaKey && !event.ctrlKey && !event.altKey ? rows[Number(n[1]) - 1] : null
-      if (!one) return
+    const keys = (event: KeyboardEvent): void => {
+      const combo = comboOf(event)
+      const step = combo === '↓' ? 1 : combo === '↑' ? -1 : 0
+      const n = combo && /^[1-9]$/.test(combo) ? Number(combo) - 1 : -1
+      if (!step && combo !== '↵' && combo !== 'Esc' && !rows[n]) return
       event.preventDefault()
       event.stopImmediatePropagation()
-      pick(one.id)
+      if (step) return setLit((at) => (at + step + rows.length) % rows.length)
+      if (combo === 'Esc') return close()
+      pick(rows[n >= 0 ? n : lit].id)
     }
-    addEventListener('keydown', digit, true)
-    return () => removeEventListener('keydown', digit, true)
+    addEventListener('keydown', keys, true)
+    return () => removeEventListener('keydown', keys, true)
   })
   return (
     <>
       {rows.map((one, n) => {
         const Icon = menuIcon(one.label)
         return (
-          <BarButton key={one.id} type="button" variant="ghost" role="menuitem" tabIndex={-1} className="justify-start" data-help={one.id} onClick={() => pick(one.id)}>
+          <BarButton key={one.id} type="button" variant="ghost" role="menuitem" tabIndex={-1} className="justify-start" data-help={one.id}
+            data-highlighted={n === lit ? 'true' : undefined} onPointerMove={() => setLit(n)} onClick={() => pick(one.id)}>
             <Icon className="tiptap-button-icon" />
             <span className="tiptap-button-text">{one.label}</span>
             <Kbd className="ml-auto pl-4">{String(n + 1)}</Kbd>
