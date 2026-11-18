@@ -1695,8 +1695,9 @@ await part('Several notes', async () => {
   await glide(await at('Birch')); await wait(450)
   nearPointer('Several notes, six carried across groups and a scroll', await stopWatch())
   // Let go: no frame after it draws the old order (58: the list drew it for about 80 ms, and the card flew back there).
-  await watch(all.Larch, all.Birch)
-  await film16('drop-in-another-group', async () => { await h.mouse.up(); await wait(400) })
+  // Watched from inside the film: with SHOTS, film16 first puts the look on (400 ms, the button still down), and frames
+  // of the carry itself, the row still in its old place, were counted as frames after the drop.
+  await film16('drop-in-another-group', async () => { await watch(all.Larch, all.Birch); await h.mouse.up(); await wait(400) })
   const after = (await stopWatch()).filter((f) => f.a !== null && f.b !== null)
   const backFrames = after.filter((f) => f.a > f.b + 1)
   check('Several notes, let go in another group: no frame after the drop draws the old order', after.length > 5 && !backFrames.length, `${backFrames.length} of ${after.length} frames had the row back under Birch`)
@@ -1755,8 +1756,7 @@ await part('Several notes', async () => {
     for (let i = 1; i <= 10; i++) { await h.mouse.move(tx, t1.y + 24 + ((t3.y + t3.h * 0.8 - t1.y - 24) * i) / 10); await wait(30) }
     await wait(450)
     nearPointer('Tasks, a task carried down Today', await stopWatch())
-    await watch(ta, tc)
-    await film16('drop-task-today', async () => { await h.mouse.up(); await wait(400) })
+    await film16('drop-task-today', async () => { await watch(ta, tc); await h.mouse.up(); await wait(400) })
     const tAfter = (await stopWatch()).filter((f) => f.a !== null && f.b !== null)
     const tBack = tAfter.filter((f) => f.a < f.b - 1)
     check('Tasks, a task let go down Today: no frame after the drop draws the old order', tAfter.length > 5 && !tBack.length, `${tBack.length} of ${tAfter.length} frames had it back above the third`)
