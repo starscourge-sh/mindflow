@@ -1363,7 +1363,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
         {/* What is late, said once on every tab but Today, where it is dealt with: in the ink, as a key fact is. */}
         {lateHere.length > 0 && !example && (
           <p data-late-line className="list-words mt-3 text-[0.9375rem] text-foreground">
-            <button type="button" onClick={() => (chime('page'), onOpen?.('view', 'today'))} className="cursor-pointer rounded-sm underline decoration-foreground/30 underline-offset-[3px] outline-none hover:decoration-foreground/60 focus-visible:ring-2 focus-visible:ring-ring">
+            <button type="button" onClick={() => (chime('page'), onOpen?.('view', 'today'))} className="mf-hit relative cursor-pointer rounded-sm underline decoration-foreground/30 underline-offset-[3px] outline-none hover:decoration-foreground/60 focus-visible:ring-2 focus-visible:ring-ring">
               {num(lateHere.length)} late, on Today
             </button>
           </p>
@@ -1410,7 +1410,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                   <h2 className="list-ink mt-6 mb-1 border-b pb-1.5 text-meta font-medium text-muted-foreground">
                     <button type="button" data-tag-fold={row.heading} aria-expanded={!folds.includes(row.heading)}
                       onClick={() => (chime(folds.includes(row.heading) ? 'tap' : 'fold'), setFolds(folds.includes(row.heading) ? folds.filter((one) => one !== row.heading) : [...folds, row.heading]))}
-                      className="flex w-full cursor-pointer items-center gap-1 text-left">
+                      className="mf-hit relative flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
                       <ChevronRight className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${folds.includes(row.heading) ? '' : 'rotate-90'}`} style={{ transitionTimingFunction: EASING }} />
                     </button>

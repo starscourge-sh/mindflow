@@ -106,7 +106,7 @@ function OneTab({ tab, group, actions, faint }: { tab: TabShown; group: TabGroup
         {/* Its tip hangs below, into the page: beside, it covered the next tab (10 Nov). */}
         <Tip side="bottom" label={<span className="flex items-center gap-1.5">Close tab <Pressed keys="⌃W" /></span>}>
         <button type="button" data-tab-close data-no-split aria-label={`Close ${tab.label}`} onClick={() => actions.close(group.pane, tab.key)}
-          className={`absolute top-1/2 right-2 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[opacity,scale,color,background-color] duration-[120ms] hover:bg-foreground/[0.07] hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97] ${on ? '' : 'opacity-0 group-hover/tab:opacity-100'}`}>
+          className={`mf-hit absolute top-1/2 right-2 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-muted-foreground transition-[opacity,scale,color,background-color] duration-[120ms] hover:bg-foreground/[0.07] hover:text-foreground focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-[1.5px] focus-visible:ring-ring/70 active:scale-[0.97] ${on ? '' : 'opacity-0 group-hover/tab:opacity-100'}`}>
           <X className="size-3" strokeWidth={2.25} />
         </button>
         </Tip>

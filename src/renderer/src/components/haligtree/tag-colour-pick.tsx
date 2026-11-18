@@ -25,7 +25,7 @@ export function TagColourPick({ tag, color, className }: { tag: string; color?: 
     <Popover open={open} onOpenChange={(next) => (next && chime('open'), setOpen(next))}>
       <PopoverTrigger asChild>
         <span role="button" tabIndex={-1} data-tag-colour={tag} aria-label={`Change the colour of #${tag}`} title="Change colour"
-          className="-m-0.5 grid shrink-0 place-items-center rounded-md p-0.5 transition-colors hover:bg-foreground/10"
+          className="mf-hit relative -m-0.5 grid shrink-0 place-items-center rounded-md p-0.5 transition-colors hover:bg-foreground/10"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => (event.stopPropagation(), event.preventDefault(), setOpen(!open))}>
           <TagIcon tag={tag} color={color} className={className} />

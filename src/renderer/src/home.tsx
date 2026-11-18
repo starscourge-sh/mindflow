@@ -2225,9 +2225,10 @@ export function Home(): React.JSX.Element {
             const noteRow = noteNow && NoteIcon && (
               <RowMenu key="note-row" items={fullMenu(noteNow.type, noteNow.id, () => open(noteNow.type, noteNow.id)) ?? []}>
                 <button type="button" data-side-row data-side-note={noteNow.id} aria-current="page" data-private={noteNow.name.private ? '' : undefined} onClick={() => open(noteNow.type, noteNow.id)}
-                  className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-foreground">
-                  <span className="flex size-4 shrink-0 items-center justify-center"><NoteIcon className="size-3.5 shrink-0" style={{ color: noteNow.name.tint }} /></span>
-                  <Weighted on className="private-text min-w-0 flex-1 truncate text-left">{noteNow.name.title}</Weighted>
+                  className="flex w-full min-w-0 items-start gap-2 rounded-md py-1 pr-2 pl-2 text-foreground">
+                  {/* A long title goes on to a second line, as a folder's name does, rather than being cut; the icon stays on its first. */}
+                  <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center"><NoteIcon className="size-3.5 shrink-0" style={{ color: noteNow.name.tint }} /></span>
+                  <Weighted on className="private-text min-w-0 flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere]">{noteNow.name.title}</Weighted>
                 </button>
               </RowMenu>
             )
@@ -2293,13 +2294,13 @@ export function Home(): React.JSX.Element {
                 <span className="absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0">
                   <Tip label="More">
                     <button type="button" data-side-more={list} aria-label={`${section.label} menu`} onClick={openFromGrip}
-                      className="flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                      className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                       <AliveIcon icon={DotsHorizontalIcon} size={14} />
                     </button>
                   </Tip>
                   <Tip label={list === 'article' ? 'Add a page' : 'New folder'}>
                     <button type="button" data-folder-new={list} aria-label={list === 'article' ? 'Add a page to Writing' : `New folder in ${section.label}`} onClick={() => (list === 'article' ? addPage() : newFolder(list))}
-                      className="flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                      className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                       {/* One sign per act: a page's "+" beside Writing, a folder's own sign where the button makes a folder. */}
                       {list === 'article' ? <Plus className="size-3.5" /> : <FolderPlus className="size-3.5" />}
                     </button>
@@ -2525,10 +2526,10 @@ export function Home(): React.JSX.Element {
                         onClick={() => open(pin.type, pin.id)}
                         // ⌫ unpins, as the menu's line does.
                         onKeyDown={(event) => onRemoveKey(event, menu(), 'Unpin')}
-                        className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? 'justify-center px-0' : 'px-2'}`}
+                        className={`flex min-w-0 flex-1 items-start gap-2.5 rounded-md py-1.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
-                        <kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} />
-                        {!narrow && <Weighted on={light === `pin:${pin.id}`} className="private-text min-w-0 flex-1 truncate text-left">{taskName(pin.title).text || 'New note'}</Weighted>}
+                        <span className="flex h-[1lh] shrink-0 items-center"><kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} /></span>
+                        {!narrow && <Weighted on={light === `pin:${pin.id}`} className="private-text min-w-0 flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere]">{taskName(pin.title).text || 'New note'}</Weighted>}
                       </button>
                       </Tip>
                       </span>
@@ -2556,9 +2557,9 @@ export function Home(): React.JSX.Element {
                       return (
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
                           onClick={() => open(one.type, one.id)}
-                          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-2 py-1.5 text-(--mf-muted-strong)">
-                          <OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" />
-                          <span className="private-text min-w-0 flex-1 truncate text-left">{one.title || 'New note'}</span>
+                          className="flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-(--mf-muted-strong)">
+                          <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" /></span>
+                          <span className="private-text line-clamp-2 min-w-0 flex-1 text-left [overflow-wrap:anywhere]">{one.title || 'New note'}</span>
                         </button>
                       )
                     })}</Branches></Unfold>

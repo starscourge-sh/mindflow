@@ -90,7 +90,7 @@ export function InboxLines({ held = 0 }: { held?: number }): React.JSX.Element |
     deciding && !hidden.includes('decide') && { id: 'decide', text: 'Deciding day: what you set aside waits for a keep or the Bin.', act: 'Decide now', run: () => (chime('open'), openPass('decide')) }
   ].filter((one): one is { id: string; text: string; act: string; run: () => void } => !!one)
   if (!lines.length) return null
-  const link = 'font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60'
+  const link = 'mf-hit relative font-medium text-foreground underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground/60'
   return (
     <div data-inbox-lines className="mx-5 mt-2 flex flex-col">
       {lines.map((line) => (
@@ -100,7 +100,7 @@ export function InboxLines({ held = 0 }: { held?: number }): React.JSX.Element |
             <button type="button" className={link} onClick={line.run}>{line.act}</button>
           </span>
           <button type="button" aria-label="Not today" title="Not today" onClick={() => hide(line.id)}
-            className="rounded-md p-1 text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-100 focus-visible:opacity-100 hover:bg-foreground/[0.05] hover:text-foreground">
+            className="mf-hit relative rounded-md p-1 text-muted-foreground opacity-0 transition-opacity group-hover/line:opacity-100 focus-visible:opacity-100 hover:bg-foreground/[0.05] hover:text-foreground">
             <X className="size-3.5" />
           </button>
         </p>
