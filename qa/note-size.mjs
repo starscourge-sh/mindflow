@@ -207,12 +207,16 @@ try {
     await h.keyboard.type(' sizeword anotherword', { delay: 40 })
     await wait(300)
     const typed = await bar()
-    check('typing two words in the largest note: the bar says two words more at once', typed.words === before.words + 2, `${before.words} → ${typed.words}`)
+    // What the note holds now, counted this probe's own way: where End leaves the caret (a wrapped line's end sits after its
+    // space), the words typed may join the next one, so the count to match is the note's own, not a sum made here.
+    const afterTyping = await stored(largest.id)
+    check('typing two words in the largest note: the bar moves at once to what the note now holds', typed.words > before.words && typed.words === afterTyping.words && typed.lines === afterTyping.lines, `${before.words} → ${typed.words} words (the note: ${afterTyping.words}), ${typed.lines} lines (the note: ${afterTyping.lines})`)
     await h.keyboard.press('Enter')
     await h.keyboard.type('a new line', { delay: 40 })
     await wait(300)
     const lined = await bar()
-    check('a new line typed: the bar says one line and three words more', lined.lines === before.lines + 1 && lined.words === before.words + 5, `${before.lines} → ${lined.lines} lines, ${before.words} → ${lined.words} words`)
+    const afterLine = await stored(largest.id)
+    check('a new line typed: the bar says one line more, and the words the note now holds', lined.lines === typed.lines + 1 && lined.lines === afterLine.lines && lined.words === afterLine.words, `${typed.lines} → ${lined.lines} lines (the note: ${afterLine.lines}), ${typed.words} → ${lined.words} words (the note: ${afterLine.words})`)
 
     // The key, with the caret in the note: the card at once, the caret's own line; Esc puts it away and only it.
     await h.keyboard.press('Meta+Shift+KeyW')
@@ -255,8 +259,9 @@ try {
     await h.keyboard.press('Home')
     await h.keyboard.up('Shift')
     await wait(400)
-    const picked = await h.evaluate(() => document.querySelector('[data-picked-count]')?.textContent ?? null)
-    check('words picked show their own count at the foot of the note', /selected$/.test(picked ?? ''), picked)
+    const picked = await h.evaluate(() => ({ count: document.querySelector('[data-picked-count]')?.textContent ?? null, bar: !!document.querySelector('[data-selection-bar]') }))
+    // While the format bar is up it is the one floating thing, and the picked count waits for it (word-count.tsx).
+    check('words picked: their own count at the foot of the note, or only the format bar while it is up', /selected$/.test(picked.count ?? '') || (picked.bar && !picked.count), JSON.stringify(picked))
     // Undo the typing, so nothing is left as it was not (the copy is thrown away after).
     for (let i = 0; i < 4; i++) await h.keyboard.press('Meta+z')
   }
