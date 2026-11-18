@@ -281,9 +281,8 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     // With the split places up, letting go opens it there: nothing in the list lights too, whatever row it is level with.
     if (!pointer || 'splitDrag' in document.documentElement.dataset) return (lightShelf(null), aimAt(null))
     // Several notes over a shelf folder: into that folder, not into whichever list row sits at the same height.
-    if (pointer && manyRef.current.length > 1 && !isGroup(id)) {
-      const at = pointerAt()
-      const folder = document.elementsFromPoint(at.x, at.y).reduce<HTMLElement | null>((found, node) => found ?? (node instanceof Element ? node.closest<HTMLElement>('[data-folder-drop]') : null), null)
+    if (manyRef.current.length > 1 && !isGroup(id)) {
+      const folder = document.elementsFromPoint(pointer.x, pointer.y).reduce<HTMLElement | null>((found, node) => found ?? (node instanceof Element ? node.closest<HTMLElement>('[data-folder-drop]') : null), null)
       if (folder?.dataset.folderDrop) {
         const listKind = folder.dataset.folderList
         const row = document.querySelector<HTMLElement>(`[data-row][data-id="${CSS.escape(id)}"]`)
