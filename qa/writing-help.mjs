@@ -46,12 +46,14 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
   const card = () => h.evaluate(() => { const one = document.querySelector('[data-writing-help]'); return one ? { help: one.getAttribute('data-writing-help'), state: one.getAttribute('data-help-state'), text: one.textContent, orb: !!one.querySelector('.mf-orb-pill') } : null })
   const marks = () => h.evaluate(() => ({ was: document.querySelector('[data-open] .mf-help-was')?.textContent ?? null, now: document.querySelector('[data-open] [data-help-new]')?.textContent ?? null, lit: document.querySelector('[data-open] .mf-help-quote')?.textContent ?? null }))
   const bar = '[data-selection-bar] button[aria-label="Writing help"]'
+  // The card come up, open (one leaving is not it); it is read as it is the moment it shows, while it writes.
+  const opened = () => h.waitForSelector('[data-writing-help][data-state="open"]', { timeout: 5000 }).catch(() => {})
   /** Pick the words, open Writing help on the bar, choose one; back once it has answered, with what was seen while it wrote. */
   const ask = async (start, help, name) => {
     await pick(start); await wait(600)
     await h.click(bar); await wait(300)
     if (shot && name) await c.both(`${shot}/${name}-menu`)
-    await h.click(`[data-help="${help}"]`); await wait(150)
+    await h.click(`[data-help="${help}"]`); await opened()
     const working = await card()
     if (shot && name) await c.both(`${shot}/${name}-working`)
     let shown = working
@@ -174,6 +176,8 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       // The three that keep something: shown first, made only with ↵, with a notice; ⌘Z takes it back.
       const nuggets = async () => (await v('items', 'nugget')).map((one) => `${one.prompt ?? ''}|${one.title ?? ''}`)
       const questions = async () => (await v('items', 'question')).map((one) => one.title)
+      // What each notice says, in the app's own words (writing-help.tsx use(), reword.tsx keep()).
+      const SAYS = { card: /Card made, in Review/, ask: /A question you hold now, with these words as its first clue/, quote: /Kept as a gem/ }
       const keeps = [
         ['card', 'What do these words say?', nuggets, (all) => all.some((one) => one.startsWith('What do these words say?'))],
         ['ask', 'What follows from', questions, (all) => all.some((one) => one.startsWith('What follows from'))],
@@ -188,9 +192,9 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
         check(`ai: ${help}: Esc leaves it, nothing made, the words as they were`, !(await card()) && !made(await list()) && (await text()) === before)
         await ask('Virtue alone', help)
         await h.keyboard.press('Enter'); await wait(1200)
-        const notice = await h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast]')].map((one) => one.textContent).join(' | '))
+        const notice = await h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent).join(' | '))
         if (shot) await c.both(`${shot}/${help}-made`)
-        check(`ai: ${help}: ↵ makes it, with a notice`, made(await list()) && notice.length > 0, notice.slice(0, 200))
+        check(`ai: ${help}: ↵ makes it, with a notice`, made(await list()) && SAYS[help].test(notice), notice.slice(0, 200))
         await h.keyboard.press('Meta+z'); await wait(1200)
         check(`ai: ${help}: ⌘Z takes it back`, !made(await list()), JSON.stringify((await list()).filter((one) => one.includes('stand-in') || one.includes('Judgement') || one.includes('What do'))))
         await v('item:save', id, { body }); await c.send('article', id); await wait(1000)
@@ -254,7 +258,7 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       if (!offered || !help) return { offered }
       await h.hover('[data-writing-help-menu]'); await wait(400)
       const rows = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [data-help]')].map((one) => one.getAttribute('data-help')))
-      await h.click(`[role="menu"] [data-help="${help}"]`); await wait(150)
+      await h.click(`[role="menu"] [data-help="${help}"]`); await opened()
       let shown = await card()
       for (let t = 0; t < 10000 && shown?.state === 'working'; t += 150) (await wait(150), (shown = await card()))
       return { offered, rows, shown }
