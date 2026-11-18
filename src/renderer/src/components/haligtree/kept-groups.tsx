@@ -25,7 +25,7 @@ import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { DROP_LIT, Overlay, SETTLE, upDown } from './sortable'
-import { CarriedCard, CarriedCount, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, offWindow, atOnce, Slid, type Aim, type Parts, type Places } from './carry'
+import { CarriedCard, CarriedCount, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, offWindow, Slid, type Aim, type Parts, type Places } from './carry'
 import { Hinted, copy } from './row-menu'
 import { Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
@@ -520,7 +520,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   return (
     // The list scrolls by itself only in the last tenth by its top and bottom edges: a row near an edge can still be aimed at.
     <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={collide} modifiers={[upDown]} autoScroll={{ threshold: { x: 0, y: 0.1 } }} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
-      onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={atOnce(onDragEnd)} onDragCancel={() => (end(), shutSprung(null), chime('stay'))}>
+      onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (end(), shutSprung(null), chime('stay'))}>
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} home={homeOf(carried)} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
           {(hint || ordered) && <DragHint {...(hint ?? OWN_ORDER)} />}

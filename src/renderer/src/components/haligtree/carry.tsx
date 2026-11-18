@@ -1,5 +1,5 @@
 import { Fragment, createContext, memo, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefObject } from 'react'
-import { createPortal, flushSync } from 'react-dom'
+import { createPortal } from 'react-dom'
 import { useDndContext } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { AnimatePresence, animate, cubicBezier, motion, motionValue, useMotionValue, useSpring, useTransform, type MotionValue } from 'motion/react'
@@ -1123,14 +1123,6 @@ export const titleOf = (node: HTMLElement): string => {
   // No name of its own anywhere on it: what every list calls a note without one.
   return first(node.innerText) ?? 'New note'
 }
-
-/**
- * A drop drawn in the frame it is let go in. dnd-kit hands a list its drop from the pointer's own listener, outside
- * React's events, so the new order was drawn as ordinary work React may spread over frames: for about 80 ms after
- * letting go the list still drew the old order, and the card's settle measured the row there and flew back to where it
- * was picked up, then the list snapped to the new order (58). Drawn at once, the settle meets the row in its new place.
- */
-export const atOnce = <E,>(drop: (event: E) => void) => (event: E): void => flushSync(() => drop(event))
 
 /** Put back with Esc while still held: the click its release makes opens nothing either. */
 export const swallowRelease = (): void => window.addEventListener('pointerup', swallowClick, { capture: true, once: true })
