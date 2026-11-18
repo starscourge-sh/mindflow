@@ -35,7 +35,7 @@ import { toast } from './ui'
 import { TagRow } from './pass'
 import { TagChip } from './tag-icon'
 import { dayjs, howLong, num, plural } from '../../../../main/dates'
-import { useCounts } from '@/components/count/word-count'
+import { WordCount, useCounts } from '@/components/count/word-count'
 import { minutesToRead } from '@/lib/note-size'
 
 /** Whether the queue panel was left open, for the next time the queue is read. */
@@ -857,6 +857,9 @@ export function ReadThrough({ items: given, start = 0, onClose, queue: started, 
                     // Kept in state, not read from the click's ref at each render: an editor made again (StrictMode) is made with the same spot.
                     // Sorting writes as it reads, so it starts at the top of each note; E asks for the end.
                     autofocus={writing && openAt === null ? (sorting ? 'start' : 'end') : false}
+                    // The line under the title says how long it is, as a note's bar does: no second count under the
+                    // last line while writing here; words picked still show theirs.
+                    foot={(editor) => <WordCount editor={editor} whole={false} />}
                     onReady={(editor) => {
                       reader.current = editor
                       setPageEditor({ id: item.id, editor })
