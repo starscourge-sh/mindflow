@@ -115,6 +115,7 @@ try {
   await h.keyboard.press('Escape')
   await go('articles')
   await h.waitForTimeout(800)
+  await h.screenshot({ path: join(shots, 'writing-first.png') })
   const pills = await h.$$eval('[data-sort-these]', (all) => all.map((one) => one.getAttribute('data-sort-these')))
   check('each import group shows its count to sort', pills.sort().join() === ['11', '18', '20'].sort().join(), pills.join())
   check('the list header counts every one left', (await h.getAttribute('[data-sort-all]', 'data-sort-all')) === '49')
