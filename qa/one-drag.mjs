@@ -1571,7 +1571,7 @@ await part('Several notes', async () => {
   }, [a, b])
   const stopWatch = () => h.evaluate(() => { window.__frames.on = false; return window.__frames.list })
   /** With SHOTS, pictures about 16 ms apart while `run` goes (frames-<name>-NN.png). */
-  const film16 = async (name, run) => { if (!SHOTS) return run(); let n = 0; let going = true; const shots = (async () => { while (going && n < 40) { await h.screenshot({ path: `${SHOTS}/frames-${name}-${String(n++).padStart(2, '0')}.png` }); await wait(16) } })(); await run(); going = false; await shots }
+  const film16 = async (name, run) => { if (!SHOTS) return run(); const look = process.env.LOOK_ALL ?? "light"; await c.look(look); name = `${name}-${look}`; let n = 0; let going = true; const shots = (async () => { while (going && n < 40) { await h.screenshot({ path: `${SHOTS}/frames-${name}-${String(n++).padStart(2, '0')}.png` }); await wait(16) } })(); await run(); going = false; await shots; await c.look("light") }
   /** On each frame of a carry, the card in hand by the pointer: level with it, or just clear of the line beside it. */
   const nearPointer = (name, frames) => {
     const off = frames.filter((f) => f.card && f.y).map((f) => Math.round(Math.max(0, f.card.top - f.y, f.y - f.card.bottom)))
