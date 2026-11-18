@@ -106,10 +106,15 @@ export function rewrite(link: string, from: string, to: string): { count: number
   return { count, token }
 }
 
-/** The names a link may call the note by: its name now, its other names, and the aliases an import kept in its fields. */
+/**
+ * The names a link may call the note by: its name now, its other names, the aliases an import kept in its fields,
+ * and for a note brought in from a vault its path there from any folder up, as Obsidian reads a link naming its
+ * folder ("Archive/Twice page" for Archive/Twice page.md).
+ */
 function namesOf(link: string): string[] {
   const { table, id } = partsOf(link)
-  const row = database().prepare(`select aliases, fields from ${table} where id = ?`).get(id) as { aliases: string | null; fields: string | null } | undefined
+  const row = database().prepare(`select aliases, fields, source from ${table} where id = ?`).get(id) as { aliases: string | null; fields: string | null; source: string | null } | undefined
+  const parts = row?.source && /\.md$/i.test(row.source) ? row.source.replace(/\.md$/i, '').split('/') : []
   const read = (text: string | null | undefined): unknown => {
     try {
       return JSON.parse(text ?? 'null')
@@ -119,7 +124,7 @@ function namesOf(link: string): string[] {
   }
   const listed = (value: unknown): string[] => Array.isArray(value) ? value.map(String) : typeof value === 'string' ? value.split(',') : []
   const fields = read(row?.fields) as { aliases?: unknown } | null
-  return [nameNow(link), ...listed(read(row?.aliases)), ...listed(fields?.aliases)].map((name) => name.trim()).filter(Boolean)
+  return [nameNow(link), ...listed(read(row?.aliases)), ...listed(fields?.aliases), ...parts.slice(0, -1).map((_, at) => parts.slice(at).join('/'))].map((name) => name.trim()).filter(Boolean)
 }
 
 /**
