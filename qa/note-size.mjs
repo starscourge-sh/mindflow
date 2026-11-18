@@ -4,7 +4,7 @@
 //
 //   QA_DATA=<copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/note-size.mjs
 //
-// QA_PART=counts (the default): the bar and the card against the stored note, read again here by the app's own schema
+// QA_PART=counts (the default): the bar and the card against the note as the editor holds it (the stored note read by the app's own schema; its words against the stored copy's, and where the two part said)
 // and the count as it was read before (the whole note's words at once), typing changing them, the pill under the last
 // line gone with the picked words' count kept, the key and Esc. QA_PART=frames: frames while typing in the largest
 // note (QA_FRAMES_OK=1 makes "none over 17.5 ms" a check; otherwise the numbers are said, to set beside another build's).
@@ -29,8 +29,8 @@ const largest = db.prepare("select id from captures where status = 'open' and ki
 const short = db.prepare("select id from captures where status = 'open' and kind = 'note' and body is not null and length(body) between 1500 and 4000 order by id limit 1").get()
 // The same note page elsewhere: Writing's largest page outside a folder and the longest question, each with the Inbox's own checks.
 const others = [['Writing', 'article'], ['a question', 'question']]
-  .map(([name, tier]) => [name, tier, db.prepare("select id from nuggets where tier = ? and body is not null and binned_at is null and archived_at is null and superseded_by is null order by group_id is null desc, length(body) desc limit 1").get(tier)])
-  .filter(([, , one]) => one)
+  .map(([name, tier]) => [name, db.prepare("select id from nuggets where tier = ? and body is not null and binned_at is null and archived_at is null and superseded_by is null order by group_id is null desc, length(body) desc limit 1").get(tier), tier])
+  .filter(([, one]) => one)
 db.close()
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 console.log(`largest ${largest.id.slice(0, 8)}, short ${short?.id.slice(0, 8)}  (${load()})`)
@@ -70,6 +70,7 @@ const stored = (id, type = 'capture') => h.evaluate(async ([id, type]) => {
     else if (node.type.name === 'blockquote') { node.forEach((child) => { n += linesOf(child) }); n = Math.max(1, n) } else n = 1
     return n
   }
+  const count = (doc) => {
   let lines = 0
   doc.forEach((block) => { lines += linesOf(block) })
   let headings = 0
@@ -106,18 +107,22 @@ const stored = (id, type = 'capture') => h.evaluate(async ([id, type]) => {
   // As the count was read before it was kept block by block: the whole note's words at once.
   const words = doc.textBetween(0, doc.content.size, ' ', (node) => ` ${shown(node)} `).split(/\s+/).filter((word) => word && word !== '/').length
   const characters = doc.textBetween(0, doc.content.size, undefined, shown).length
-  // Not the same as the editor holds it: where the two first part, and the blocks there, so a page that changed the
-  // note as it opened says how.
-  const same = doc.eq(ed.state.doc)
+  return { lines, words, characters, headings, pictures, links, cards }
+  }
+  const kept = count(doc)
+  const now = ed.state.doc
+  // Not the same as the editor holds it (it read the stored note into its own shapes as it opened): where the two
+  // first part, and the blocks there, said so it can be read.
+  const same = doc.eq(now)
   let parted = null
   if (!same) {
-    const now = ed.state.doc
     let at = 0
     while (at < Math.min(doc.childCount, now.childCount) && doc.child(at).eq(now.child(at))) at++
     const cut = (node) => (node ? JSON.stringify(node.toJSON()).slice(0, 360) : null)
     parted = { blocks: [doc.childCount, now.childCount], at, stored: cut(doc.maybeChild(at)), shown: cut(now.maybeChild(at)), next: [cut(doc.maybeChild(at + 1))?.slice(0, 160), cut(now.maybeChild(at + 1))?.slice(0, 160)] }
   }
-  return { lines, words, characters, headings, pictures, links, cards, same, parted }
+  // The note as the editor holds it, which the margin numbers: what the bar must say. The stored copy's own counts beside.
+  return { ...(same ? kept : count(now)), kept, same, parted }
 }, [id, type])
 
 /** The bar's size and, if up, its card. */
@@ -152,10 +157,13 @@ try {
       if (!(await open(note.id, name === 'largest', type))) continue
       const want = await stored(note.id, type)
       const now = await bar()
-      console.log(`${name}: stored ${JSON.stringify(want)}; bar ${JSON.stringify({ text: now.text, lines: now.lines, words: now.words })}`)
-      check(`${name}: the editor holds the stored note as it is kept`, want.same, JSON.stringify(want.parted))
-      check(`${name}: the bar says its lines and words, as the stored note has them`, now.shown && now.lines === want.lines && now.words === want.words, JSON.stringify(now))
-      // The margin's own number for the note's last line, when it is drawn: the same as the bar's lines.
+      const { kept, same, parted, ...held } = want
+      console.log(`${name}: as the editor holds it ${JSON.stringify(held)}; bar ${JSON.stringify({ text: now.text, lines: now.lines, words: now.words })}`)
+      // The editor read the stored note into its own shapes as it opened (a picture kept inside a line becomes a
+      // picture of its own): said, with where, and the stored copy's counts, for the report to name.
+      if (!same) console.log(`${name}: the stored copy counts ${JSON.stringify(kept)}; it parts from the editor's at ${JSON.stringify(parted)}`)
+      check(`${name}: the bar says its lines and words, counted this probe's own way from the note it shows (the margin's lines)`, now.shown && now.lines === want.lines && now.words === want.words, JSON.stringify(now))
+      check(`${name}: the bar's words are the stored note's words`, now.words === kept.words, `${now.words} against ${kept.words}`)
       check(`${name}: no count under the last line: the bar holds the size`, now.pill === 0, `pills ${now.pill}`)
       await pointAt()
       const up = await cardUp()
@@ -167,7 +175,7 @@ try {
           const key = { Lines: 'lines', Words: 'words', Characters: 'characters', Headings: 'headings', Pictures: 'pictures', Links: 'links', 'Review cards': 'cards' }[label]
           return (rows[label] ?? 0) === want[key]
         })
-        check(`${name}: every number on the card is the stored note's`, matches, JSON.stringify({ rows, want }))
+        check(`${name}: every number on the card is the note's own`, matches, JSON.stringify({ rows, want: held }))
         const minutes = want.words ? Math.max(1, Math.round(want.words / 238)) : 0
         check(`${name}: the card says how long it takes to read`, minutes ? /About .+ to read/.test(card.read ?? '') : /Nothing/.test(card.read ?? ''), card.read)
         check(`${name}: the card says how far in, of every line`, new RegExp(`^Line [\\d,]+ of ${want.lines.toLocaleString('en')} · \\d+% in$`).test(card.place ?? ''), card.place)
