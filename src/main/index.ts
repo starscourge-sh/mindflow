@@ -39,7 +39,7 @@ import { app, shell, BrowserWindow, ClipboardItem, dialog, globalShortcut, ipcMa
 
 import { createHash, randomUUID } from 'crypto'
 import { execFile } from 'child_process'
-import { constants, copyFileSync, existsSync, mkdirSync, readFileSync } from 'fs'
+import { constants, copyFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'fs'
 import { catchFreezes } from './freeze-catch'
 import { appendFile, copyFile, mkdir, readFile, readdir, rename, rm, stat, writeFile } from 'fs/promises'
 import { writeWhole, writeWholeSync } from './write-whole'
@@ -138,7 +138,8 @@ import { registerWordLog } from './word-log'
 import { registerSite } from './site'
 import { frostWindow, registerFrost, retellFrost } from './frost'
 import { BOOK, SANDBOX, arrived, barsHere, assetElsewhere, carriesWelcome, handedOff, windingDown, onHandOff, readShelf, realRoot, registerSandbox, relaunch, restartNow, useDataFolder, writeShelf } from './sandbox'
-import { MOVED, shortPath, untoldMove, type Moved } from './old-data'
+import { shortPath, untoldMove } from './old-data'
+import { openOutside } from './app-folder'
 import { books, copyBook, here, nameOf, nextImport, registerBooks } from './books'
 import { wideThumb } from './video-thumbs'
 import { busy } from './busy'
@@ -5891,14 +5892,6 @@ app.whenReady().then(() => {
   ipcMain.handle('haligtree:notes-import:stop', () => void stopping?.abort())
   ipcMain.handle('haligtree:notes-import:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'))
   ipcMain.handle('backup:restore', () => restore())
-  ipcMain.handle('old-data:show', () => {
-    try {
-      const { from } = JSON.parse(readFileSync(join(realRoot(), MOVED), 'utf8')) as Moved
-      shell.showItemInFolder(from)
-    } catch {
-      // Nothing was brought in.
-    }
-  })
   ipcMain.on('appearance', (_event, mode: string, solid: unknown) => ((worn = { mode, solid: solid === true }), wear()))
   // The box's backing, as its theme says. A solid theme (Paper, Light,
   // Midnight) paints the page fully, so the frosting under it only ever showed
@@ -6845,25 +6838,18 @@ app.whenReady().then(() => {
     return true
   })
 
-  // Hand a stored file to whatever the system opens it with.
-  ipcMain.handle('open-file', async (_event, src: unknown) => {
-    const name = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
-    if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name)) return false
-
-    const problem = await shell.openPath(join(assetsDir(), name))
-    return problem === ''
-  })
-
-  // A stored picture or file dragged out of a note to another app (Finder, a
-  // chat, a browser): the system drag starts here, with the real file. The
-  // store names files by their hash, so a copy under the name it was dropped
-  // with (or "Picture") goes instead, in a folder of Haligtree's own.
+  // A stored file reaches another app only as a copy outside Haligtree's own
+  // folder (app-folder.ts): the store names files by their hash, so the copy
+  // takes the name it was shown with (or "Picture"), in a temporary folder.
+  // `fresh`: made again from the stored file, so a copy changed in another
+  // app never stands in for it. A clone where the disk can make one (APFS):
+  // no bytes copied, however large the file. null: no such stored file.
   const IMAGE_EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp', 'heic', 'svg'])
-  ipcMain.on('drag-out', async (event, src: unknown, name: unknown, card: unknown) => {
+  const copyOut = (src: unknown, name: unknown, fresh: boolean): { stored: string; from: string; to: string } | null => {
     const stored = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
-    if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(stored)) return
+    if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(stored)) return null
     const from = join(assetsDir(), stored)
-    if (!existsSync(from)) return
+    if (!existsSync(from)) return null
     const extension = stored.split('.').pop()!
     const said = (typeof name === 'string' ? name : '').replace(/[/\\:\0]/g, ' ').trim().slice(0, 120)
     const file = said ? (said.toLowerCase().endsWith(`.${extension}`) || (extension === 'jpg' && /\.jpe?g$/i.test(said)) ? said : `${said}.${extension}`) : `${IMAGE_EXT.has(extension) ? 'Picture' : 'File'}.${extension}`
@@ -6871,11 +6857,27 @@ app.whenReady().then(() => {
     const to = join(dir, file)
     try {
       mkdirSync(dir, { recursive: true })
-      // A clone where the disk can make one (APFS): no bytes copied, however large the file.
+      if (fresh) rmSync(to, { force: true })
       if (!existsSync(to)) copyFileSync(from, to, constants.COPYFILE_FICLONE)
     } catch {
-      return
+      return null
     }
+    return { stored, from, to }
+  }
+
+  // "Open in its app": a copy, never the stored file, handed to whatever the system opens it with.
+  ipcMain.handle('open-file', async (_event, src: unknown, name: unknown) => {
+    const copy = copyOut(src, name, true)
+    return !!copy && (await openOutside(copy.to)) === ''
+  })
+
+  // A stored picture or file dragged out of a note to another app (Finder, a
+  // chat, a browser): the system drag starts here, with a copy (copyOut).
+  ipcMain.on('drag-out', async (event, src: unknown, name: unknown, card: unknown) => {
+    const copy = copyOut(src, name, false)
+    if (!copy) return
+    const { stored, from, to } = copy
+    const extension = stored.split('.').pop()!
     // What follows the pointer: the picture itself, small, or for any other
     // file the small card the note drew of it (drag-out.ts); Haligtree's icon
     // only if neither could be made.
@@ -6892,14 +6894,6 @@ app.whenReady().then(() => {
     if (face.isEmpty()) face = nativeImage.createFromPath(icon).resize({ width: 64 })
     if (face.isEmpty()) face = nativeImage.createFromBitmap(Buffer.alloc(32 * 32 * 4, 128), { width: 32, height: 32 })
     event.sender.startDrag({ file: to, icon: face })
-  })
-
-  // The stored file, picked out in a Finder window.
-  ipcMain.handle('show-file', (_event, src: unknown) => {
-    const name = typeof src === 'string' ? src.replace('haligtree://assets/', '') : ''
-    if (!/^[a-f0-9]{64}\.[a-z0-9]+$/.test(name)) return false
-    shell.showItemInFolder(join(assetsDir(), name))
-    return true
   })
 
   // Put a stored image on the system clipboard, so it can be pasted into any

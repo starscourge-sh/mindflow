@@ -146,14 +146,8 @@ const api = {
   saveFileAs: (src: string, name: string): Promise<boolean> =>
     ipcRenderer.invoke('save-file-as', src, name),
 
-  /** Open a stored file with whatever the system uses for it. */
-  openFile: (src: string): Promise<boolean> => ipcRenderer.invoke('open-file', src),
-
-  /** Show a stored file in Finder. */
-  showFile: (src: string): Promise<boolean> => ipcRenderer.invoke('show-file', src),
-
-  /** Show in Finder the old data folder, kept as a backup, that the notes were brought in from (main/old-data.ts). */
-  showOldCopy: (): Promise<void> => ipcRenderer.invoke('old-data:show'),
+  /** Open a copy of a stored file, under `name`, outside Haligtree's own folder, with whatever the system uses for it. */
+  openFile: (src: string, name?: string): Promise<boolean> => ipcRenderer.invoke('open-file', src, name),
 
   /** What this window shows inside `rect` (CSS pixels), as a PNG: one slice of a note drawn as a picture (lib/note-picture.ts). */
   pictureOfRect: (rect: { x: number; y: number; width: number; height: number }): Promise<Uint8Array | null> =>
@@ -399,7 +393,8 @@ const api = {
     heard.on('goals:gathered', relay)
     return () => heard.off('goals:gathered', relay)
   },
-  showFolder: (path: string): void => ipcRenderer.send('folder:show', path),
+  /** A picture folder of the person's own, from Settings, in Finder: '' when it opened, otherwise why not. */
+  showFolder: (path: string): Promise<string> => ipcRenderer.invoke('folder:show', path),
   /** A sticky's pictures in Haligtree's own Quick Look, in a window over its screen rather than inside the small one. */
   look: (pictures: LookPicture[], at: number): void => ipcRenderer.send('look', pictures, at),
   /** The look window's own: what to show, and that it is done. */

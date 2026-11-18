@@ -8,7 +8,7 @@ import { NodeSelection } from "@tiptap/pm/state"
 import type { Editor } from "@tiptap/react"
 import { animate, motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react"
 import { useFollowLabel, useTilt } from "@/components/haligtree/tilt"
-import { Check, FolderOpen, ScanText } from "lucide-react"
+import { Check, ScanText } from "lucide-react"
 import { AliveIcon } from "@/components/ui/alive-icon"
 import ExpandIcon from "@/components/ui/expand-icon"
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
@@ -783,11 +783,6 @@ export function Viewer({ pictures, start, onClose, awayRef }: {
             {fit.scale < 1 && (
               <Button data-style="ghost" tooltip={view.zoom > 1 ? "Fit to window" : "Full size"} aria-label={view.zoom > 1 ? "Fit to window" : "Full size"} onClick={fullSize}>
                 <AliveIcon icon={ExpandIcon} size={16} className="tiptap-button-icon" />
-              </Button>
-            )}
-            {stored && host().showFile && (
-              <Button data-style="ghost" tooltip="Show in Finder" aria-label="Show in Finder" onClick={() => void host().showFile?.(src).then((shown) => chime(shown ? "open" : "nope"))}>
-                <FolderOpen className="tiptap-button-icon" />
               </Button>
             )}
             {stored && (

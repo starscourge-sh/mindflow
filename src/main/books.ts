@@ -15,7 +15,7 @@ import { cut } from './clip'
 
 /**
  * Books, as the app uses them: the list, a new one, a name changed, one
- * shown in Finder or deleted (a full copy kept first), the switch from one to
+ * deleted (a full copy kept first), the switch from one to
  * another, and a note copied into another book.
  *
  * A book is only ever written by the run that has it open. A note copied

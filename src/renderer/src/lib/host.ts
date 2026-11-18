@@ -40,10 +40,8 @@ export interface HaligtreeHost {
   exportPdf?: (name: string, html: string) => Promise<boolean>
   /** Copy a stored file somewhere the user picks, under its original name. */
   saveFileAs?: (src: string, name: string) => Promise<boolean>
-  /** Open a stored file with whatever the system uses for it. */
-  openFile?: (src: string) => Promise<boolean>
-  /** Show a stored file in Finder. */
-  showFile?: (src: string) => Promise<boolean>
+  /** Open a copy of a stored file, under `name`, with whatever the system uses for it: never the stored file itself, and never shown in Finder. */
+  openFile?: (src: string, name?: string) => Promise<boolean>
   /** Put a stored image on the system clipboard. */
   copyImage?: (src: string) => Promise<boolean>
   /** The words in a stored picture, read by the system: '' with none, null when it could not be read. */

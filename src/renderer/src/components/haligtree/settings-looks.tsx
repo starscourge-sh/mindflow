@@ -18,11 +18,11 @@ import { FilmGrain } from './film-grain'
  * pictures, and Dimness on a strip of a real picture with words over it.
  */
 
-/** A folder's row: open it in Finder. */
+/** A folder's row: open it in Finder (a folder of the person's own; main refuses one inside the app's folder). */
 export function InFinder({ folder }: { folder: string }): React.JSX.Element {
   return (
     <Tip label="Show in Finder">
-      <button type="button" aria-label="Show in Finder" className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => (chime('open'), window.api.showFolder(folder))}>
+      <button type="button" aria-label="Show in Finder" className="relative rounded-full p-0.5 text-muted-foreground after:absolute after:-inset-1 hover:bg-accent hover:text-foreground" onClick={() => void window.api.showFolder(folder).then((why) => (why ? refuse(why) : chime('open')))}>
         <AliveIcon icon={ExternalLinkIcon} size={12} />
       </button>
     </Tip>

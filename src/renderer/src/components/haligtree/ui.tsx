@@ -1520,7 +1520,7 @@ export function Toaster(): React.JSX.Element | null {
   useEffect(() => {
     const onMoved = (event: Event): void => {
       chime('settled')
-      toast(`Your notes from Vigil are here. The old copy is kept in ${(event as CustomEvent<string>).detail} as a backup`, undefined, 'success', { label: 'Show the old copy', key: 'S', run: () => void window.api.showOldCopy() })
+      toast(`Your notes from Vigil are here. The old copy is kept in ${(event as CustomEvent<string>).detail} as a backup`, undefined, 'success')
     }
     window.addEventListener('haligtree:moved-in', onMoved)
     return () => window.removeEventListener('haligtree:moved-in', onMoved)

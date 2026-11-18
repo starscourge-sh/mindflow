@@ -324,7 +324,6 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
         }),
       },
       !!host().openFile && { label: "Open in the default app", data: "default-app", run: () => void host().openFile?.(src) },
-      !!host().showFile && { label: "Show in Finder", data: "finder", run: () => void host().showFile?.(src) },
       linked && { label: "Remove link", edits: true, hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from!, to!), removeLink(editor)) },
       ...viewLines(clicked.block),
     ]
@@ -389,7 +388,6 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     const own = /^(haligtree|mindflow):\/\/assets\//.test(src)
     const lines: Array<Line | false> = [
       own && !!host().openFile && { label: "Open in the default app", data: "default-app", run: () => void host().openFile?.(src) },
-      own && !!host().showFile && { label: "Show in Finder", data: "finder", run: () => void host().showFile?.(src) },
       // Its words' lines together under one, so the picture's menu stays short enough to show whole.
       clicked.kind === "picture" && pictureLines(src, editor.view.dom).length > 0 && { label: "Text in it", hint: "Read by your Mac", data: "image-words", run: () => undefined, sub: pictureLines(src, editor.view.dom) },
       !own && { label: clicked.kind === "video" ? "Open in the browser" : "Open the picture's address", data: "browser", run: () => void window.open(src) },

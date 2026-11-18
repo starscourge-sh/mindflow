@@ -717,7 +717,7 @@ export function BlockMenu({
             </button>
           </DropdownMenuItem>
         ) : null}
-        {/* Where its file lives (Open in the default app, Show in Finder), among the picture's own lines. */}
+        {/* Open in the default app (a copy), among the picture's own lines. */}
         {/* Opened from the grip, the same lines as from a right-click on the picture. */}
         {itself && clicked ? <ClickedRows within editor={editor} clicked={clicked} matches={matches} onDone={() => onOpenChange(false)} />
           : !clicked && imageSrc ? <ClickedRows within editor={editor} clicked={{ kind: "picture", src: imageSrc }} matches={matches} onDone={() => onOpenChange(false)} /> : null}
@@ -740,7 +740,7 @@ export function BlockMenu({
         ) : null}
         {fileSrc && host().openFile && matches("Open in the default app") ? (
           <DropdownMenuItem asChild>
-            <button type="button" data-open-default onClick={() => void host().openFile?.(fileSrc)}>
+            <button type="button" data-open-default onClick={() => void host().openFile?.(fileSrc, String(thing?.attrs.name || ""))}>
               <MenuGlyph label="Open in the default app" />
               <span className="tiptap-slash-menu-title">Open in the default app</span>
             </button>

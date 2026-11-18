@@ -19,7 +19,7 @@ import { TURNED, sniff, type AddResult, type MediaKind, type Taken } from './med
  * where the notes hold them (a capture, a gem, a page, a Journal day), with
  * the note each lives in and the words around it, so a search can find it.
  * Only files in the book's own store count: a picture linked from the web is
- * not kept here, and could not be shown in Finder or copied.
+ * not kept here, and could not be copied.
  *
  * A file can also be added here with no note at all: it goes in the same store
  * as any note's, named by its bytes, and `media_added` remembers that it was

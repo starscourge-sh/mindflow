@@ -185,9 +185,7 @@ export function PdfLibrary({ query, top, files, onPut, keys, only }: { /** Off w
 export function bookMenu(one: Book): RowItem[] {
   return [
     { label: one.page ? `Continue at p. ${labelFor(one.src, one.page)}` : "Open", keys: "↵", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined)) },
-    canSplit() && { label: "Open to the side", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined, undefined, true)) },
-    "separator",
-    { label: "Show in Finder", run: () => void window.api.showFile(one.src) }
+    canSplit() && { label: "Open to the side", run: () => (chime("open"), openPdf(one.src, one.name, one.page ?? undefined, undefined, true)) }
   ]
 }
 

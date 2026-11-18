@@ -293,8 +293,6 @@ export const haligtree = {
   backupStatus: () => call<{ at: number | null; failing: string | null; chosen: boolean }>('backups:status'),
   /** A backup made now, and how they stand after it. */
   backupNow: () => call<{ at: number | null; failing: string | null; chosen: boolean }>('backups:now'),
-  /** The backups' folder, opened in Finder. */
-  showBackups: () => call('backups:show'),
   /** Pick another folder for the backups, or go back to the usual place: a backup runs there at once. Null when the picker was closed. */
   chooseBackups: (usual = false) => call<{ at: number | null; failing: string | null; chosen: boolean } | null>('backups:choose', usual),
   /** The scenes in these folders so far; copies of new pictures are made in the background. */

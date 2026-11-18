@@ -207,7 +207,7 @@ function VideoBlock(props: NodeViewProps): React.JSX.Element {
     <NodeViewWrapper className={`tiptap-attachment is-video${selected ? " is-selected" : ""}${playing ? " is-playing" : ""}`} data-align={align ?? undefined}
       style={{ width: width ?? undefined, maxWidth: ratio ? `min(100%, ${(70 * ratio).toFixed(2)}vh)` : undefined }}>
       <VideoPlayer className="tiptap-video-frame" src={src} poster={face && !face.icon ? face.image : null} length={length} onLength={learn} onPlaying={setPlaying}
-        onShape={(w, h) => ((shape) => (setRead(shape), keep(shape)))(Math.round((w / h) * 1000) / 1000)} onOpenOwn={() => void host().openFile?.(src)} pictureStyle={{ aspectRatio: ratio ?? 16 / 9 }} />
+        onShape={(w, h) => ((shape) => (setRead(shape), keep(shape)))(Math.round((w / h) * 1000) / 1000)} onOpenOwn={() => void host().openFile?.(src, one.name)} pictureStyle={{ aspectRatio: ratio ?? 16 / 9 }} />
       {shown && <MediaToolbar props={props} />}
     </NodeViewWrapper>
   )
@@ -357,7 +357,7 @@ function PdfBlock(props: NodeViewProps): React.JSX.Element {
   })
   // Full size in a pane of the main window; a note's own window has no panes, so the system's viewer there.
   // At the page last read in the block, never the page a hover over its name or cover turned to (that page opens from the preview card).
-  const open = (): void => (canSplit() ? openPdf(src, name, page > 1 ? page : undefined) : void host().openFile?.(src))
+  const open = (): void => (canSplit() ? openPdf(src, name, page > 1 ? page : undefined) : void host().openFile?.(src, name))
   const tool = (label: string, on: boolean, run: () => void, icon: React.ReactNode, title = label): React.JSX.Element => (
     <Button data-style="ghost" aria-label={label} title={title} data-active-state={on ? "on" : "off"} onClick={(event) => (event.stopPropagation(), run())}>{icon}</Button>
   )
@@ -459,7 +459,7 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
         // Opening is a double click on purpose. A single one selects the card,
         // which is what every other block here does, and handing a file to the
         // system is not something to do by brushing past it.
-        onDoubleClick={() => void host().openFile?.(src)}
+        onDoubleClick={() => void host().openFile?.(src, name)}
       >
         <CardFace src={src} name={name} />
         <span className="tiptap-attachment-body">
@@ -473,7 +473,7 @@ export function AttachmentView(props: NodeViewProps): React.JSX.Element {
           className="tiptap-attachment-save"
           onClick={(event) => {
             event.stopPropagation()
-            void host().openFile?.(src)
+            void host().openFile?.(src, name)
           }}
         >
           <AliveIcon icon={ExternalLinkIcon} size={16} />

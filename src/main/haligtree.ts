@@ -4,7 +4,7 @@ import { chipLabel } from './cite-ids'
 import { mediaForget, mediaFromBin, mediaInBin, mediaPeek } from './media'
 import { foldMeeting, transcriptLines, voiceName, type MeetingLine } from './meeting-doc'
 import { awayDays } from './away'
-import { Notification, app, dialog, ipcMain, net, session, shell } from 'electron'
+import { Notification, app, dialog, ipcMain, net, session } from 'electron'
 import { createHash, randomUUID } from 'crypto'
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'fs/promises'
 import { begin, end as endJob } from './jobs'
@@ -24,6 +24,7 @@ import { advance, dateIn, leadingTag, readTask } from './task-words'
 import { clock, dayKey, dayMonth, dayjs, daysFromToday, monthName, noon, num, startOfDay, plural } from './dates'
 import { backUpWatched, backupDir, backupStatus, checkMarkdown, chooseFolder, writeMarkdown } from './backup'
 import { SANDBOX, handedOff } from './sandbox'
+import { openOutside } from './app-folder'
 import { retireKinds, tagged as hasTag, withTag } from './kinds'
 import { cardWords, plain } from './card-words'
 import { noteTags } from './book-tags'
@@ -1159,11 +1160,11 @@ function addTask(text: string, origin: string | null = null, today = false, plai
 // --- the registration -----------------------------------------------------
 
 export function registerHaligtree(): void {
-  // A picture folder in Finder, from its row in Settings: only one of the
-  // folders Settings holds, never a path the window names.
-  ipcMain.on('folder:show', (_event, path: unknown) => {
+  // A picture folder of the person's own in Finder, from its row in Settings: only one of the
+  // folders Settings holds, never a path the window names, and never one inside the app's folder.
+  ipcMain.handle('folder:show', (_event, path: unknown) => {
     const { sceneryFolders, coversFolder, celebrationsFolder } = settings()
-    if (typeof path === 'string' && [...(sceneryFolders ?? []), coversFolder, celebrationsFolder].includes(path)) void shell.openPath(path)
+    return typeof path === 'string' && [...(sceneryFolders ?? []), coversFolder, celebrationsFolder].includes(path) ? openOutside(path) : 'Not a folder Settings holds'
   })
   const db = database()
   const column = (table: string, definition: string): void => {
@@ -1558,8 +1559,6 @@ export function registerHaligtree(): void {
     if (!SANDBOX) await busy(() => backUpWatched())
     return backupStatus()
   })
-  // The backups' folder in Finder: only that folder, never a path the window names.
-  handle('backups:show', () => void shell.openPath(backupDir()))
   // Another folder for the backups (null: back to the usual place), and a copy made there at once, so you know it works.
   handle('backups:choose', async (usual: boolean) => {
     if (SANDBOX) return backupStatus()
@@ -5081,9 +5080,10 @@ export function registerHaligtree(): void {
     copy.at = null
     return copyStatus()
   })
+  // The person's own folder the copy is kept in, in Finder: '' when it opened, otherwise why not.
   handle('markdown-copy:show', () => {
     const folder = settings().markdownCopy
-    if (folder) void shell.openPath(folder)
+    return folder ? openOutside(folder) : 'No folder is kept'
   })
   // The copy brought up to date as the app starts, for changes made while it was kept elsewhere.
   if (settings().markdownCopy) setTimeout(() => void keepCopy(), 5000).unref()

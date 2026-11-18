@@ -1581,7 +1581,6 @@ function BackupPlace(): React.JSX.Element {
       {!SANDBOX && (
         <div className="flex flex-wrap gap-1.5 pt-0.5">
           <Button variant="outline" size="sm" data-backup-now onClick={() => void working(haligtree.backupNow()).then((next) => { setStatus(next); if (next.failing) refuse(`That backup did not work: ${next.failing}`); else chime('done') })}>Back up now</Button>
-          <Button variant="ghost" size="sm" onClick={() => void haligtree.showBackups()}>Show in Finder</Button>
           <Button variant="outline" size="sm" onClick={() => void choose()}>Choose another folder…</Button>
           {status?.chosen && <Button variant="ghost" size="sm" onClick={() => void choose(true)}>Use the usual place</Button>}
         </div>
@@ -2257,7 +2256,7 @@ function MarkdownCopy(): React.JSX.Element {
       ) : undefined}>
       {status?.folder ? (
         <>
-          <Button variant="ghost" size="sm" onClick={() => void window.api.haligtree('markdown-copy:show')}>Show in Finder</Button>
+          <Button variant="ghost" size="sm" onClick={() => void window.api.haligtree('markdown-copy:show').then((why) => (why ? refuse(String(why)) : chime('open')))}>Show in Finder</Button>
           <Button variant="ghost" size="sm" onClick={choose}>Change folder…</Button>
           <Button variant="ghost" size="sm" onClick={stop}>Stop</Button>
         </>

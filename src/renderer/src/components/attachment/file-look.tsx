@@ -1,6 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createRoot } from "react-dom/client"
-import { FolderOpen } from "lucide-react"
 import { Toolbar, ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
 import { Button } from "@/components/tiptap-ui-primitive/button"
 import { AliveIcon } from "@/components/ui/alive-icon"
@@ -23,7 +22,7 @@ type Shown = Pick<Media, "src" | "kind" | "name" | "gone"> & Partial<Pick<Media,
  * Quick Look for a video or a document in Files, as the picture viewer is for a picture (image-look.tsx): the page
  * goes dark, the file comes up in the middle, and Esc or a click outside puts it away. A video plays there in the
  * app's one player (the same as a note's, sound-player.tsx); a document shows its first page as the Mac's Quick
- * Look draws it, large, or, where the Mac draws none, its icon. Either has "Open in its app" and "Show in Finder".
+ * Look draws it, large, or, where the Mac draws none, its icon. Either has "Open in its app", which opens a copy (never the stored file, and never shown in Finder).
  */
 export async function openFileLook(one: Shown, from?: Element | null): Promise<void> {
   markOpened(one.src)
@@ -89,8 +88,7 @@ function FileLook({ one, from, start, onClose }: { one: Shown; from: DOMRect | n
     frame.current.animate([{ transform: start, opacity: from ? 1 : 0 }, { transform: "none", opacity: 1 }], { duration: 280, easing: EASING })
     backdrop.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: EASING })
   }, [])
-  const openOwn = (): void => void window.api.openFile(one.src).then((done) => (done ? (chime("open"), close()) : refuse("No app on this Mac opens it")))
-  const show = (): void => void window.api.showFile(one.src).then((done) => chime(done ? "open" : "nope"))
+  const openOwn = (): void => void window.api.openFile(one.src, one.name).then((done) => (done ? (chime("open"), close()) : refuse("No app on this Mac opens it")))
   return (
     <div ref={box} tabIndex={-1} className="mf-look outline-none" role="dialog" aria-label={`Preview of ${one.name || kindWord(one)}`} aria-modal="true" data-file-look={one.kind}>
       <div ref={backdrop} className="mf-look-backdrop" onClick={close} />
@@ -108,9 +106,6 @@ function FileLook({ one, from, start, onClose }: { one: Shown; from: DOMRect | n
             <Button data-style="ghost" data-file-look-open aria-label="Open in its app" onClick={openOwn}>
               <AliveIcon icon={ExternalLinkIcon} size={16} className="tiptap-button-icon" />
               <span className="tiptap-button-text">Open in its app</span>
-            </Button>
-            <Button data-style="ghost" tooltip="Show in Finder" aria-label="Show in Finder" data-file-look-finder onClick={show}>
-              <FolderOpen className="tiptap-button-icon" />
             </Button>
             <Button data-style="ghost" tooltip="Close" shortcutKeys="Esc" aria-label="Close" onClick={close}>
               <X className="tiptap-button-icon" />

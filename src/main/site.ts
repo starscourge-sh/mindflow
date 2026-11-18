@@ -1,4 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { showOutside } from './app-folder'
 import { copyFile, mkdir, writeFile } from 'fs/promises'
 import { existsSync } from 'fs'
 import { basename, join } from 'path'
@@ -213,7 +214,7 @@ export function registerSite(): void {
     if (typeof id !== 'string' || typeof parent !== 'string' || !parent) return 'gone'
     // A folder that cannot be written to (locked, full, gone) says so, rather than failing without a word.
     const made = await publishSite(id, parent).catch((error: NodeJS.ErrnoException) => ({ failed: error?.code === 'EACCES' || error?.code === 'EPERM' ? 'That folder cannot be written to' : error?.code === 'ENOSPC' ? 'The disk is full' : 'The pages could not be written' }))
-    if (typeof made === 'object' && 'index' in made && !process.env.HALIGTREE_QA_AWAY) shell.showItemInFolder(made.index)
+    if (typeof made === 'object' && 'index' in made && !process.env.HALIGTREE_QA_AWAY) showOutside(made.index)
     return made
   })
 }

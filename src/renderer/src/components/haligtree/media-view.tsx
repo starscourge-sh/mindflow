@@ -509,8 +509,7 @@ export function mediaMenu(one: Media, onOpen: () => void, onPut: () => void, onB
     picture && { label: 'Copy image', run: () => void window.api.copyImage(one.src).then((done) => (done ? (chime('copy'), toast('Copied the picture')) : refuse('Could not copy it', 'error'))) },
     // Its words' lines under one, as on a picture in a note.
     picture && pictureLines(one.src).length > 0 && { label: 'Text in it', items: pictureLines(one.src) },
-    ownApp && { label: 'Open in its app', run: () => void window.api.openFile(one.src).then((done) => (done ? chime('open') : refuse('No app on this Mac opens it'))) },
-    { label: 'Show in Finder', run: () => void window.api.showFile(one.src) },
+    ownApp && { label: 'Open in its app', run: () => void window.api.openFile(one.src, one.name).then((done) => (done ? chime('open') : refuse('No app on this Mac opens it'))) },
     'separator',
     // On, it stays in Files when no note holds it; off, the last note to let it go leaves it under Unlinked.
     !one.gone && { label: 'Keep in Files', hint: one.how === 'library' ? 'On: stays here without a note' : 'Off: waits under Unlinked without a note', trail: one.how === 'library' ? <Check className="size-3.5" /> : undefined, run: () => void keepInFiles(one.src, one.how !== 'library') },
