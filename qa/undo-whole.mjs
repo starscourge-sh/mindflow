@@ -270,7 +270,8 @@ try {
       const grip = await gripOf('A callout about')
       await h.mouse.click(grip.x + grip.width / 2, grip.y + grip.height / 2)
       if (process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/undo-whole-block-menu.png` })
-      await h.locator('.tiptap-block-menu[data-state="open"] button', { hasText: /^Delete$/ }).click()
+      // By its title: the line also shows its key (Delete ⌫) since blocks can be picked.
+      await h.locator('.tiptap-block-menu[data-state="open"] button', { has: h.locator('.tiptap-slash-menu-title', { hasText: /^Delete$/ }) }).click()
     })
     await both(NOTE, 'a block carried to another place', async () => {
       // The last line carried up over the quote: both on the screen at once.
