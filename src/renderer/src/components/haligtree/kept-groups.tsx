@@ -953,7 +953,7 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
                     </button>
                   )}
                 </ContextMenuTrigger>
-                <GroupMenu group={group} members={entries.map((entry) => entry.id)} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} noun={noun === 'goal' ? 'goal' : 'note'} />
+                <GroupMenu group={group} members={entries.map((entry) => entry.id)} holdsGroups={!!parts?.some((one) => 'group' in one)} onOpenFolder={onOpenFolder && (() => (chime('open'), onOpenFolder(group.id)))} onSeparate={separate} onRename={() => onRenaming(true)} onIcon={() => setPicking(true)} onNewNote={onNewNote} onSort={onSort} onSorted={onSorted} noun={noun === 'goal' ? 'goal' : 'note'} />
               </ContextMenu>
               {/* Open until an icon is picked, Esc, or a click elsewhere: the focus moving on as the menu shuts never closes it. */}
               <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
@@ -1074,8 +1074,10 @@ export async function binGroup(id: string): Promise<void> {
   })
 }
 
-export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted, noun = 'note' }: {
+export function GroupMenu({ group, members, holdsGroups = false, onOpenFolder, onSeparate, onRename, onIcon, onNewNote, onSort, onSorted, noun = 'note' }: {
   group: GroupView
+  /** Groups inside it: Separate takes those out with its notes, and says so. */
+  holdsGroups?: boolean
   /** What a new one in it is: a note, a goal. */
   noun?: string
   onOpenFolder?: () => void
@@ -1150,7 +1152,7 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
       {/* Deleting a folder or group takes what is in it to the Bin, as Finder
           and Notion do; keeping the notes is the other choice. Drawn as the
           sidebar's folder menu draws them: a hint under each, the delete last, in red. */}
-      {members.length > 0 && <ContextMenuItem data-folder-delete data-group-separate-item onSelect={onSeparate}>{group.folder ? <Hinted label={`Delete folder, keep its ${noun}s`} hint="They move up a level" /> : <Hinted label="Separate" hint={`Its ${noun}s stay in the list`} />}</ContextMenuItem>}
+      {members.length > 0 && <ContextMenuItem data-folder-delete data-group-separate-item onSelect={onSeparate}>{group.folder ? <Hinted label={`Delete folder, keep its ${noun}s`} hint="They move up a level" /> : <Hinted label="Separate" hint={holdsGroups ? `Its ${noun}s and the groups in it stay in the list` : `Its ${noun}s stay in the list`} />}</ContextMenuItem>}
       <ContextMenuItem data-group-bin variant="destructive" onSelect={() => (members.length ? void binGroup(group.id) : onSeparate())}>{members.length ? <Hinted label={group.folder ? 'Delete folder' : 'Delete group'} hint={`Its ${noun}s go to the Bin too`} /> : group.folder ? 'Delete folder' : 'Delete group'}</ContextMenuItem>
     </ContextMenuContent>
   )
