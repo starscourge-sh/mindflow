@@ -12,7 +12,7 @@ import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
 import { GroupIcon, IconChoice, binGroup, convert } from './kept-groups'
-import { CardAt, CarriedCard, RoomAt, clearWay, makeWay, restBox, swallowClick, swallowRelease, type Spot } from './carry'
+import { CardAt, CarriedCard, RoomAt, clearWay, makeWay, offWindow, restBox, swallowClick, swallowRelease, type Spot } from './carry'
 import { DROP_LIT } from './sortable'
 import { pastEdge } from '@/lib/drag-edge'
 import { slotTicker } from '@/lib/proximity'
@@ -160,8 +160,9 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
   const tooDeep = (id: string, to: Aim): boolean => levelOf(to.how === 'into' ? to.target : parentIn(to.target)) + heightOf(id) > DEPTH
   const read = (id: string, x: number, y: number): Aim | null => {
     const tree = document.querySelector(`[data-side-folders="${list}"]`)?.getBoundingClientRect()
-    // Off the sidebar's side, nothing here takes it; the same for far under the last folder.
-    if (!tree || x < tree.left - 24 || x > tree.right + 24 || y > tree.bottom + 56) return null
+    // Off the sidebar's side, nothing here takes it; the same for far under the last folder, and out of the window
+    // (carried up past the window's top, it went before the first folder unseen).
+    if (!tree || offWindow() || x < tree.left - 24 || x > tree.right + 24 || y > tree.bottom + 56) return null
     const mine = treeOf(id)
     let over: { id: string; top: number; height: number } | null = null
     let far = Infinity
