@@ -4,7 +4,7 @@ The user, 16 Nov: "My rule now: test by who uses it. My tools get tests where lo
 gets its main journeys tested end to end. Nothing trivial. Nothing twice. write fewer tests and purge unnecessary ones:
 dont lengthen builds for no reason".
 
-qa/ held 1,245 probes; 260 are kept and 985 removed (6 of them libraries only removed probes imported), with 3 more files only removed probes read. Every removed
+qa/ held 1,245 probes; 261 are kept and 984 removed (6 of them libraries only removed probes imported), with 3 more files only removed probes read. Every removed
 file is in git history (`git show c58be03fd:qa/<name>.mjs`). How they were sorted:
 - a fix long merged, its path walked by a kept probe: 663
 - one-off pass or diagnostic: 62
@@ -14,7 +14,6 @@ file is in git history (`git show c58be03fd:qa/<name>.mjs`). How they were sorte
 - one number: 14
 - a look already read by eye: 58
 - stale, red on premium-pass, its path walked by a kept probe: 1
-- a duplicate, its useful lines folded into a journey: 1
 
 Kept: the main journeys below; every probe a lead merge check named or ran on 18 Nov; the running helpers' probes (D13's
 drag probes, WR1's Wrapped and Stats probes, HW2's small window and editor probes); probes the rules, DESIGN.md, the app
@@ -791,7 +790,6 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/scenery-watch.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-21, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/screen-access.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/scroll.mjs`: trivial: a fix long merged (written 09-30, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
-- `qa/search-honest.mjs`: duplicate: its lines on a word no note has (“Nothing has … as you typed it”, then “Close spellings”) are folded into the kept journey search-kinds, whose ⌘K rows and previews walk the rest
 - `qa/search-rank.mjs`: trivial: a fix long merged (written 11-08, last changed 11-09; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
 - `qa/search-rows.mjs`: trivial: a fix long merged (written 11-07, last changed 11-07; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
 - `qa/search-snippet-clean.mjs`: trivial: a fix long merged (written 11-06, last changed 11-12; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
