@@ -598,12 +598,11 @@ export function GoalsView({ focus, onOpen }: { focus?: string; onOpen?: (type: s
   const listShown = listFirst || listLater
   letGo.current = several.letGo
   // A row's menu: what to do with it, the group lines, then picking. Right-clicked among several picked, it speaks for them all.
+  // Only this goal's own lines: "Stick all goals" is about every goal, so it lives on the page's bar and in ⌘K, never here.
   const menuFor = (one: Item): MenuItem[] => {
     const many = several.menu(one.id)
     return many ? [...(folding.menu(several.chosen) as MenuItem[]), 'separator', ...many]
-      : [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, ...goalMenu(one), 'separator', ...(folding.menu([one.id]) as MenuItem[]), ...several.rowItems(one.id),
-        // About the whole list, not this goal: at the foot, with the list's other lines.
-        ...(openOnes(all).length > 1 ? ['separator' as const, { label: 'Stick all goals', hint: 'Each in its own colour, with a legend', run: showAllGoals }] : [])]
+      : [{ label: 'Open', keys: '↵', run: () => pick(one.id) }, ...goalMenu(one), 'separator', ...(folding.menu([one.id]) as MenuItem[]), ...several.rowItems(one.id)]
   }
   const entryOf = (one: Item): Entry => goalEntry(one, today, menuFor(one))
   const entries = !listShown ? [] : items.map(entryOf)
