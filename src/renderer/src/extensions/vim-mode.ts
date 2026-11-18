@@ -272,6 +272,18 @@ const LINEWISE_MOTIONS = ["j", "k", "G", "gg"]
 const isListItem = (type: NodeType): boolean =>
   type.name === "listItem" || type.name === "taskItem"
 
+/** The caret on the first item of a list that starts straight after another list (OutdentLists' Tab joins the two). */
+function joinsListAbove(state: EditorView["state"]): boolean {
+  const $from = state.selection.$from
+  let depth = $from.depth
+  while (depth > 0 && !isListItem($from.node(depth).type)) depth--
+  if (depth < 2 || $from.index(depth - 1) !== 0) return false
+  const lists = ["bulletList", "orderedList", "taskList"]
+  if (!lists.includes($from.node(depth - 1).type.name)) return false
+  const above = state.doc.resolve($from.before(depth - 1)).nodeBefore
+  return !!above && lists.includes(above.type.name)
+}
+
 /**
  * Where the line under the cursor begins and ends inside its own textblock.
  *
@@ -2564,7 +2576,11 @@ export const VimMode = Extension.create<VimModeOptions>({
                 const { $head, head } = view.state.selection
                 if (!inList($head)) return false
 
+                const before = view.state.doc
                 indentLines(view, head, head, event.shiftKey, head)
+                // The first item of a list straight after another list cannot go in under an item of its own: Tab there
+                // joins it under the list above (OutdentLists, Vim off). Taken here, Tab did nothing at all (16 Nov).
+                if (view.state.doc.eq(before) && !event.shiftKey && joinsListAbove(view.state)) return false
                 return true
               }
               return BLOCKED_NAMED_KEYS.includes(key)
