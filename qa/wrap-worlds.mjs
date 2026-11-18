@@ -194,7 +194,8 @@ try {
       long: { tags: [{ name: 'the-history-of-the-byzantine-empire-and-its-neighbours-notes', n: 9 }, { name: 'reading', n: 3 }], notes: ['The History of the Decline and Fall of the Roman Empire, Volume the Sixth'], well: ['Finished the first draft of the long chapter on the Byzantine succession, all forty pages of it, before the deadline.'], sites: [{ site: 'news.ycombinator.com', count: 12345 }, { site: 'a-very-long-subdomain.of-a-long-site-name.example.org', count: 3 }], focusTasks: [{ name: 'Write the long chapter on the Byzantine succession and its forty pages of notes', minutes: 12345 }] },
       big: { minutes: 12345, sessions: 412, run: 31, captures: 12345, planned: 12345, did: 9876 }
     }
-    for (const [name, worst] of Object.entries(WORST))
+    // QA_WORST=long,big runs only those (a rerun of part of the list).
+    for (const [name, worst] of Object.entries(WORST).filter(([name]) => !process.env.QA_WORST || process.env.QA_WORST.split(',').includes(name)))
       for (const world of LOOKS)
         for (const [size, w, hh] of SIZES) {
           await c.size(w, hh)
