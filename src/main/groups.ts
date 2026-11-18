@@ -92,8 +92,17 @@ export function registerGroups(): void {
     return true
   })
 
-  handle('groups:set', (id: string, patch: { name?: string; icon?: string | null; color?: string | null; folded?: boolean }) => {
-    const fields = Object.entries({ name: patch.name?.trim() || undefined, icon: patch.icon, color: patch.color, folded: patch.folded === undefined ? undefined : patch.folded ? 1 : 0 })
+  handle('groups:set', (id: string, patch: { name?: string; icon?: string | null; color?: string | null; folded?: boolean; folder?: boolean }) => {
+    // A group made a folder, or a folder a group ("Make it a folder", 16 Nov): only where that kind can stand. A folder
+    // stands at the top or in a folder, never inside a group; a folder with a folder inside it stays a folder.
+    if (patch.folder !== undefined) {
+      const row = db.prepare('select parent_id as parent from note_groups where id = ?').get(id) as { parent: string | null } | undefined
+      if (!row) return false
+      const parent = row.parent ? (db.prepare('select folder from note_groups where id = ?').get(row.parent) as { folder: number } | undefined) : null
+      if (patch.folder && parent && !parent.folder) return false
+      if (!patch.folder && db.prepare('select 1 from note_groups where parent_id = ? and folder = 1 limit 1').get(id)) return false
+    }
+    const fields = Object.entries({ name: patch.name?.trim() || undefined, icon: patch.icon, color: patch.color, folded: patch.folded === undefined ? undefined : patch.folded ? 1 : 0, folder: patch.folder === undefined ? undefined : patch.folder ? 1 : 0 })
       .filter(([, value]) => value !== undefined)
     if (!fields.length) return false
     db.prepare(`update note_groups set ${fields.map(([key]) => `${key} = ?`).join(', ')} where id = ?`).run(...fields.map(([, value]) => value as string | number | null), id)

@@ -746,6 +746,20 @@ export const change = (group: GroupView, patch: Parameters<typeof groups.set>[1]
   })
 }
 
+/**
+ * A group made a folder (its notes then live only in it, and it opens as a place) or a folder made a group (its notes
+ * back in the list, in a panel): said, with Undo. Refused, with the reason, where that kind cannot stand.
+ */
+export const convert = (group: { id: string; name: string; folder: number | boolean }): void => {
+  const folder = !group.folder
+  void groups.set(group.id, { folder }).then((ok) => {
+    if (!ok) return refuse(folder ? 'A folder cannot stand inside a group' : 'It holds a folder: a group cannot')
+    chime('tap')
+    toast(folder ? `${group.name} is a folder now: its notes live only in it` : `${group.name} is a group now: its notes are in the list again`,
+      () => void groups.set(group.id, { folder: !folder }))
+  })
+}
+
 function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carried, renaming, suggested, born, onRenaming, onFold, onNewNote, onOpenFolder, onSort, onSorted, sub, noun = 'note', inner = false }: {
   onOpenFolder?: (id: string) => void
   /** What this list holds, for its count: "17 pages", "17 gems", "17 questions". */
@@ -1127,6 +1141,10 @@ export function GroupMenu({ group, members, onOpenFolder, onSeparate, onRename, 
       <ContextMenuSeparator />
       <ContextMenuItem onSelect={later(onRename)}>Rename…</ContextMenuItem>
       <ContextMenuItem onSelect={later(onIcon)}>Change icon…</ContextMenuItem>
+      {/* The one thing that tells a folder from a group, either way (16 Nov: "convert a group into a folder and vice versa"). */}
+      <ContextMenuItem data-group-kind onSelect={() => convert(group)}>
+        {group.folder ? <Hinted label="Make it a group" hint={`Its ${noun}s back in the list`} /> : <Hinted label="Make it a folder" hint={`Its ${noun}s live only in it`} />}
+      </ContextMenuItem>
       <ContextMenuSeparator />
       <ContextMenuItem onSelect={() => void archive('nuggets', members, true)}>Archive {word}</ContextMenuItem>
       {/* Deleting a folder or group takes what is in it to the Bin, as Finder

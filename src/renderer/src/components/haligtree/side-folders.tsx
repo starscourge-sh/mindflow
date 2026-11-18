@@ -11,7 +11,7 @@ import { chime } from '@/lib/sound'
 import { num } from '../../../../main/dates'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
-import { GroupIcon, IconChoice, binGroup } from './kept-groups'
+import { GroupIcon, IconChoice, binGroup, convert } from './kept-groups'
 import { CardAt, CarriedCard, RoomAt, clearWay, makeWay, restBox, swallowClick, swallowRelease, type Spot } from './carry'
 import { DROP_LIT } from './sortable'
 import { pastEdge } from '@/lib/drag-edge'
@@ -388,6 +388,8 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
     ...openItems('folder', `${list}:${group.id}`),
     { label: 'Rename…', run: onRename },
     { label: 'Change icon…', run: () => setPicking(true) },
+    // The list's own menu offers the same (kept-groups.tsx convert): a folder made a group leaves the sidebar for the list.
+    { label: 'Make it a group', hint: 'Its notes back in the list', run: () => convert(group) },
     onNewPage && { label: 'New page inside', run: () => onNewPage(group.id) },
     depth < DEPTH - 1 && { label: 'New folder inside', run: () => newFolder(list, group.id) },
     group.parent ? { label: 'Move to the top', run: () => onNest(group.id, null) } : null,
