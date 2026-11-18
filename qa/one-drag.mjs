@@ -141,6 +141,7 @@ const QA_PARTS = {
   2: ['One look: Tasks', 'One look: the Queue', 'One look: the Inbox', 'One look: the sidebar', 'One look: the board', 'A drop is said'],
   3: ['One look: the Matrix', 'One look: quick capture', 'One look: the main book', 'One look: 560 x 400', 'One look: Writing, the reference', `One look: ${Number(process.env.LONG) > 1 ? Number(process.env.LONG) : 500} rows`],
   4: ['The Bin, traced', 'One look, kept in order', 'One card', "A term's row", 'Frames'],
+  5: ['Several notes'],
 }
 const inRun = (name) => !process.env.QA_PART || (QA_PARTS[process.env.QA_PART] ?? []).some((start) => name.startsWith(start))
 const part = async (name, run) => { if (!inRun(name) || (process.env.PART && !name.includes(process.env.PART)) || (process.env.SKIP && name.includes(process.env.SKIP))) return; try { await run() } catch (error) { check(`${name} could be driven`, false, String(error.message).split('\n')[0]); for (const one of await binsSince().catch(() => [])) console.log(`BINNED in ${name}: ${JSON.stringify(one)}`); await shot(`broke-${name.replace(/\W+/g, '-')}`); await h.keyboard.press('Escape').catch(() => {}); await h.mouse.up().catch(() => {}); await wait(300) } }
@@ -1517,6 +1518,156 @@ if (!BOOK) await part('One look, kept in order: Writing and Gems', async () => {
   }
   await h.evaluate(() => { localStorage.removeItem('view:nugget'); localStorage.setItem('view:article', JSON.stringify({ sort: 'manual', group: 'none', filter: {}, density: 'list' })) })
   await h.reload(); await wait(1500); await c.go('today'); await wait(900)
+})
+
+// --- 5e. Several notes (16 Nov, the user's 22 and 27): picked notes carried across a folder's groups, its folded group,
+// a folder in it and the list's foot, rested on a loose row, and three out of a subgroup to the top of its group. One
+// look, as one note's: one room, as tall as the row in hand, its line by the pointer, the others faded in their places,
+// no row over another, words naming what the drop does where the pointer is, and the pile in hand off what it aims at.
+await part('Several notes', async () => {
+  for (const one of await v('groups', 'article')) await v('groups:delete', one.id)
+  const more = {}
+  for (const title of ['Larch', 'Maple', 'Rowan', 'Spruce', 'Willow', 'Alder', 'Beech', 'Cherry']) { const id = await v('article:new'); await v('item:save', id, { title }); more[title] = id }
+  const all = { ...ids, ...more }
+  // Five's name is long: the card's words end in an ellipsis inside the card, never past its edge over the title.
+  const NAMES = { desk: 'Desk', first: 'First', deep: 'Deep', five: 'Five, a group whose name runs on for a long while', inner: 'Inner', dives: 'Dives', sub: 'Sub', shelf: 'Shelf' }
+  const FOLDERS = new Set(['desk', 'inner'])
+  const lay = async (top, groups, folded = []) => {
+    await v('groups:arrange', 'article', { top, groups, revive: Object.keys(groups).map((id) => ({ id, name: NAMES[id], icon: null, color: null, folded: 0, folder: FOLDERS.has(id) ? 1 : 0 })) })
+    for (const id of Object.keys(groups)) if (!FOLDERS.has(id)) await v('groups:set', id, { folded: folded.includes(id) })
+    await h.evaluate(() => localStorage.setItem('view:article', JSON.stringify({ sort: 'manual', group: 'none', filter: {}, density: 'list' })))
+    await c.go('articles'); await wait(700)
+  }
+  const into = async (name) => { await h.locator('[data-pane] [data-group-row]', { hasText: name }).first().click(); await wait(900) }
+  const pick = async (titles) => { await h.keyboard.press('Escape'); await wait(150); for (const title of titles) { await row(title).click({ modifiers: ['Meta'], position: { x: 90, y: 14 } }); await wait(120) } }
+  const many = () => h.evaluate(() => {
+    const op = (el) => { let o = 1; for (let at = el; at; at = at.parentElement) o *= +getComputedStyle(at).opacity; return o }
+    const line = document.querySelector('[data-drop-line]')?.getBoundingClientRect()
+    const cards = [...document.querySelectorAll('[data-carried-card], [data-fanned]')].map((el) => el.getBoundingClientRect()).filter((r) => r.width > 8)
+    return {
+      badge: document.querySelector('[data-carried]')?.getAttribute('data-carried') ?? '',
+      faded: [...document.querySelectorAll('[data-list-space] button[data-row][data-picked]')].filter((el) => el.getClientRects().length).map((el) => Math.round(op(el) * 100) / 100),
+      lineY: line ? (line.top + line.bottom) / 2 : null,
+      landing: [...document.querySelectorAll('[data-group-block][data-landing]')].map((el) => el.dataset.groupBlock),
+      forming: document.querySelectorAll('[data-preview]').length,
+      stack: cards.length ? { top: Math.min(...cards.map((r) => r.top)), bottom: Math.max(...cards.map((r) => r.bottom)), left: Math.min(...cards.map((r) => r.left)), right: Math.max(...cards.map((r) => r.right)) } : null,
+      // The card's words inside its edge, and room left for its title.
+      fits: (() => { const card = document.querySelector('[data-carried-card]')?.getBoundingClientRect(); const words = document.querySelector('[data-carried-card] [data-drag-label]')?.getBoundingClientRect(); const title = document.querySelector('[data-carried-card] .private-text')?.getBoundingClientRect(); return !card || !words || !title ? null : { out: Math.round(words.right - card.right), title: Math.round(title.width), card: Math.round(card.width) } })()
+    }
+  })
+  /** The stack in hand over a row's title, in px of overlap (0: the title is in sight). */
+  const coversTitle = (title) => h.evaluate((title) => {
+    const words = [...document.querySelectorAll('[data-list-space] button[data-row] .private-text')].find((el) => el.textContent.trim() === title && !el.closest('[data-held]'))?.getBoundingClientRect()
+    const cards = [...document.querySelectorAll('[data-carried-card], [data-fanned]')].map((el) => el.getBoundingClientRect()).filter((r) => r.width > 8)
+    if (!words) return -1
+    return Math.round(Math.max(0, ...cards.map((r) => Math.max(0, Math.min(r.right, words.right) - Math.max(r.left, words.left)) > 4 ? Math.max(0, Math.min(r.bottom, words.bottom) - Math.max(r.top, words.top)) : 0)))
+  }, title)
+  const at = async (title, y = 0.86) => { const r = await row(title).boundingBox(); return { x: r.x + 200, y: r.y + r.height * y } }
+  const headAt = async (name, y = 0.5) => { const r = await h.locator('[data-pane] [data-group-row]', { hasText: name }).first().boundingBox(); return { x: r.x + 200, y: r.y + r.height * y } }
+  const glide = async (to) => { await h.mouse.move(to.x, to.y, { steps: 8 }); return to }
+  /** Where a room opens: the one look, the count, the others faded in their places, the line by the pointer. */
+  const roomHere = async (name, to, words, n, carried) => {
+    const d = await oneLook(`Several notes, ${name}`, to, { words })
+    const s = await many()
+    check(`Several notes, ${name}: the badge says ${n}`, s.badge === String(n), s.badge)
+    check(`Several notes, ${name}: the others carried wait, faded, in their places`, s.faded.filter((o) => Math.abs(o - 0.3) <= 0.05).length === carried - 1, s.faded.join())
+    check(`Several notes, ${name}: the line is by the pointer (within three quarters of the row in hand)`, s.lineY !== null && Math.abs(s.lineY - to.y) <= d.held * 0.75 + 8, `line at ${s.lineY === null ? 'none' : Math.round(s.lineY)}, pointer at ${Math.round(to.y)}, row ${d.held}px`)
+    await film(`several-${name.replace(/\W+/g, '-')}`, 4)
+  }
+  /** Where a group or folder lights and nothing opens (read soon: a folded group held on opens after 600 ms). */
+  const litHere = async (name, to, words, group, soon = 450) => {
+    await wait(soon)
+    const d = await drawn()
+    const s = await many()
+    check(`Several notes, ${name}: the card says ${words}`, words instanceof RegExp ? words.test(d.words) : d.words === words, d.words || '(no words)')
+    check(`Several notes, ${name}: ${group} lights, no room, no line, no row over another`, s.landing.length === 1 && s.landing[0] === group && !d.lines && !d.rooms && d.overlap <= 1, JSON.stringify({ landing: s.landing, lines: d.lines, rooms: d.rooms, overlap: d.overlap }))
+    if (SHOTS) for (const look of ['light', 'dark']) { await c.look(look); await wait(150); await h.screenshot({ path: `${SHOTS}/several-${name.replace(/\W+/g, '-')}-${look}.png` }) }
+    if (SHOTS) { await c.look('light'); await wait(150) }
+  }
+  await c.size(1280, 1100)
+  // A folder (Desk) open as the page, as the user's Obsidian folder was: a folder in it, a folded group, two open
+  // groups and loose notes, six of those picked with others between them.
+  const desk = () => lay(['g:desk'], { desk: ['g:inner', 'g:first', 'g:deep', 'g:five', all.Larch, all.Yew, all.Rowan, all.Spruce, all.Willow, all.Alder, all.Beech, all.Cherry], inner: [all.Pine], first: [all.Fir, all.Hazel], deep: [all.Ash, all.Birch, all.Cedar], five: [all.Elm, all.Oak] }, ['first'])
+  const SIX = ['Larch', 'Rowan', 'Willow', 'Alder', 'Beech', 'Cherry']
+  /** The list back at its top, the pointer over it (picking the last rows scrolled it down). */
+  const toTop = async () => { await h.mouse.move(500, 500); await h.mouse.wheel(0, -4000); await wait(350) }
+  const liftSix = async () => { await desk(); await into('Desk'); await pick(SIX); await toTop(); const was = await boxes(); await lift(row('Larch')); return was }
+  let was = await liftSix()
+  await roomHere('over another group’s rows', await glide(await at('Birch')), 'Add 6 to Deep', 6, 6)
+  await roomHere('over the first row of a group', await glide(await at('Ash', 0.2)), 'Add 6 to Deep', 6, 6)
+  await roomHere('over another group’s last row', await glide(await at('Oak')), /^Add 6 to Five, a group/, 6, 6)
+  const long = await many()
+  check('Several notes, a long group name: the words end inside the card and leave its title a third of it', !!long.fits && long.fits.out <= 0 && long.fits.title >= long.fits.card / 3, JSON.stringify(long.fits))
+  await litHere('over a folded group', await glide(await headAt('First')), 'Add 6 to First', 'first', 250)
+  // Held on, the folded group opens as a folder does in Finder, and the room opens in it, first, just under its head.
+  await wait(900)
+  check('Several notes, held on a folded group: it opens', (await h.locator('[data-group-row="first"][aria-expanded="true"]').count()) === 1)
+  await roomHere('held on a folded group till it opens', await glide(await headAt('First', 0.8)), 'Add 6 to First', 6, 6)
+  // Its middle too: the room opens just under its head, never at the group's foot, rows from the pointer.
+  await roomHere('over an open group’s own row', await glide(await headAt('Deep', 0.66)), 'Add 6 to Deep', 6, 6)
+  await litHere('over a folder in it', await glide(await headAt('Inner')), 'Move 6 into Inner', 'inner')
+  // The list's foot, the list scrolled to its end under the carry (it is taller than the window).
+  await h.mouse.wheel(0, 4000); await wait(500)
+  const last = await row('Cherry').boundingBox()
+  await roomHere('at the list’s foot', await glide({ x: last.x + 200, y: last.y + last.height + 8 }), 'Move 6 here', 6, 6)
+  // Out of the window, the button still down: nothing is aimed at; back in, the list answers again.
+  await h.mouse.move(-40, last.y, { steps: 6 }); await wait(450)
+  const out = await drawn()
+  check('Several notes, carried out of the window: the card says nothing, no room, no line, nothing lit', !out.words && !out.rooms && !out.lines && !(await many()).landing.length, JSON.stringify({ words: out.words, rooms: out.rooms, lines: out.lines }))
+  await toTop()
+  await roomHere('back into the window', await glide(await at('Birch')), 'Add 6 to Deep', 6, 6)
+  // Rested on the middle of the loose row just under the one in hand: a new group of seven there, in a folder simply a
+  // group, its name in sight, and the place the row in hand was lifted from closed, never an empty band (22-2).
+  await glide(await at('Yew', 0.5)); await wait(1100)
+  const rest = await many()
+  const restWords = await said()
+  check('Several notes, rested on a loose row in a folder: “New group of 7”, the badge 7, its dashed place under it', restWords === 'New group of 7' && rest.badge === '7' && rest.forming === 1, JSON.stringify({ restWords, ...rest }))
+  const restLook = await drawn()
+  check('Several notes, rested on a loose row: no row over another, and no band left where the row in hand was', restLook.overlap <= 1 && !(await h.evaluate(() => [...document.querySelectorAll('[data-own-room], [data-drop-room]')].filter((one) => one.getClientRects().length && +getComputedStyle(one).opacity > 0.05).length)), `overlap ${restLook.overlap}px`)
+  check('Several notes, rested on a loose row: the pile in hand leaves that row’s name in sight', (await coversTitle('Yew')) === 0, `${await coversTitle('Yew')}px of “Yew” covered`)
+  if (SHOTS) await both('several-rested')
+  // Put back with Esc, the folded group it opened on the way is folded again.
+  await putBack('Several notes, carried across the folder', was)
+  check('Several notes, put back: the group it opened on the way is folded again', (await h.locator('[data-group-row="first"][aria-expanded="false"]').count()) === 1)
+  // Let go out of the window: everything back where it was, and nothing said.
+  was = await liftSix()
+  await glide(await at('Birch')); await wait(300)
+  await h.mouse.move(-40, (await row('Yew').boundingBox()).y, { steps: 6 }); await wait(300)
+  await h.mouse.up(); await wait(900)
+  const outBoxes = await boxes()
+  const outMoved = Object.keys(was).filter((id) => was[id] !== outBoxes[id])
+  check('Several notes, let go out of the window: nothing moves, nothing is said', !outMoved.length && !(await notices()).length && ((await v('groups', 'article')).find((one) => one.id === 'deep')?.members ?? []).length === 3, outMoved.slice(0, 4).join('; '))
+  // Let go over another group's rows: all six land there, in list order, said once with Undo.
+  was = await liftSix()
+  await glide(await at('Birch')); await wait(450)
+  await h.mouse.up(); await wait(1200)
+  const landed = (await v('groups', 'article')).find((one) => one.id === 'deep')?.members ?? []
+  check('Several notes, let go in another group: all six are in it, after the row aimed at, in list order', landed.join() === [all.Ash, all.Birch, ...SIX.map((one) => all[one]), all.Cedar].join(), landed.map((id) => Object.keys(all).find((k) => all[k] === id)).join())
+  const told = await notices()
+  check('Several notes, let go: said once, with Undo', told.length === 1 && /^Added 6 to Deep/.test(told[0]), told.join(' | ') || '(no notice)')
+  await h.locator('[role=status] button', { hasText: 'Undo' }).last().click().catch(() => {}); await wait(1200)
+  const back = await v('groups', 'article')
+  check('Several notes, “Undo” puts all six back', (back.find((one) => one.id === 'deep')?.members ?? []).join() === [all.Ash, all.Birch, all.Cedar].join() && SIX.every((one) => back.find((g) => g.id === 'desk')?.members.includes(all[one])), (back.find((one) => one.id === 'deep')?.members ?? []).map((id) => Object.keys(all).find((k) => all[k] === id)).join())
+  // Three out of a subgroup to the top of the group round it (27): the faded ones stay in the subgroup, never over its head.
+  await lay(['g:desk'], { desk: ['g:dives', all.Yew, all.Larch], dives: [all.Ash, 'g:sub', all.Birch, all.Oak], sub: [all.Cedar, all.Elm, all.Fir] })
+  await into('Desk'); await pick(['Cedar', 'Elm', 'Fir'])
+  was = await boxes()
+  await lift(row('Fir'))
+  await roomHere('three out of a subgroup to the top of its group', await glide(await at('Ash')), 'Move 3 to Dives', 3, 3)
+  await putBack('Several notes, three out of a subgroup', was)
+  // Four onto a fifth in a group at the list's top level: a subgroup of five (HW1's case, from qa/multi-drag.mjs).
+  await lay(['g:shelf', all.Yew], { shelf: [all.Ash, all.Birch, all.Cedar, all.Elm, all.Fir] })
+  await pick(['Birch', 'Cedar', 'Elm', 'Fir'])
+  was = await boxes()
+  await lift(row('Fir'))
+  await glide(await at('Ash', 0.5)); await wait(1100)
+  const sub = await many()
+  check('Several notes, four rested on a fifth in a group: “New subgroup of 5”, the badge 5', (await said()) === 'New subgroup of 5' && sub.badge === '5' && sub.forming === 1, JSON.stringify({ said: await said(), ...sub }))
+  check('Several notes, four on a fifth: no row over another', (await drawn()).overlap <= 1)
+  check('Several notes, four on a fifth: the pile in hand leaves that row’s name in sight', (await coversTitle('Ash')) === 0, `${await coversTitle('Ash')}px of “Ash” covered`)
+  if (SHOTS) await both('several-subgroup')
+  await putBack('Several notes, four on a fifth', was)
+  await c.size(1200, 900)
 })
 
 // --- 6. One card ---
