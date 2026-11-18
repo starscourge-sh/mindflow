@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn"
 import { chime, openCue } from "@/lib/sound"
 import { markKeyed } from "@/lib/motion"
 import { blinkThen } from "./menu-blink"
-import { MenuScroll } from "./context-menu"
+import { MenuScroll, MenuShield, useShieldedOpen } from "./context-menu"
 import { DropdownMenu as DropdownMenuPrimitive } from "radix-ui"
 import { notTheOpeningRelease, onlyRealMoves } from "@/lib/real-move"
 import { withMenuIcon } from "./menu-icon"
@@ -17,10 +17,19 @@ type NoTip<P> = Omit<P, 'title'> & { title?: never }
 /** Clear of the window's edges, and of the title bar at the top, where the window's own buttons sit. */
 const MENU_ROOM = { top: 52, right: 12, bottom: 12, left: 12 }
 
+// Modal by the shield under it (context-menu.tsx MenuShield), never by Radix's restyle of the whole window.
 function DropdownMenu({
+  modal = true,
+  children,
   ...props
 }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
-  return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
+  const [open, onOpenChange] = useShieldedOpen(props)
+  return (
+    <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} modal={false} onOpenChange={onOpenChange}>
+      {modal && <MenuShield open={open} />}
+      {children}
+    </DropdownMenuPrimitive.Root>
+  )
 }
 
 function DropdownMenuTrigger({

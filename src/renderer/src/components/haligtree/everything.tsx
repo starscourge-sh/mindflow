@@ -217,10 +217,13 @@ export function TaskStateMenu({ state, onState }: { state: TaskState; onState: (
       <Tip label="Which tasks show: open, done or both">
         <DropdownMenuTrigger asChild>
           <button type="button" data-task-state={state} aria-label={`Which tasks: ${now.label}`}
-            className="group/state mf-hit relative flex h-full items-center gap-0.5 rounded-full pr-2 pl-1 text-foreground/85 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:text-foreground">
+            className="mf-hit relative flex h-full items-center gap-0.5 rounded-full pr-2 pl-1 text-foreground/85 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 data-[state=open]:text-foreground data-[state=open]:[&>svg]:rotate-180">
             <span aria-hidden className="text-muted-foreground">·</span>
             <span className="pl-0.5 font-medium"><Rolling text={now.label} /></span>
-            <Down className="size-3 text-muted-foreground transition-transform duration-150 group-data-[state=open]/state:rotate-180" />
+            {/* Turned by its button's rule, never by group-data-[state=open]: Tailwind writes that as
+                :is([data-state=open] *), and Chromium then restyles everything inside any element whose data-state
+                changes, which is every menu's trigger (the reader's whole article: three seconds). */}
+            <Down className="size-3 text-muted-foreground transition-transform duration-150" />
           </button>
         </DropdownMenuTrigger>
       </Tip>

@@ -1,4 +1,5 @@
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { FLOAT } from '@/lib/float'
 import { quietClose } from "@/lib/quiet-focus"
 import { cn } from "@/lib/cn"
@@ -17,10 +18,35 @@ type NoTip<P> = Omit<P, 'title'> & { title?: never }
 /** Clear of the window's edges, and of the title bar at the top, where the window's own buttons sit. */
 const MENU_ROOM = { top: 52, right: 12, bottom: 12, left: 12 }
 
+/**
+ * A menu open is modal as before (the page behind takes no hover, press or scroll, and a press outside only closes the
+ * menu), but by a clear sheet under the menu, not by Radix's own way: that sets the body's pointer-events and a
+ * scroll-lock style on the body, and a change to the body's style restyles every element in the window, on opening and
+ * again on closing. Over a long page in the reader (a Fandom article, 30,000 elements) each took over two seconds.
+ */
+export function MenuShield({ open }: { open: boolean }): React.JSX.Element | null {
+  return open ? createPortal(<div data-menu-shield aria-hidden className="fixed inset-0 z-50" onContextMenu={(event) => event.preventDefault()} />, document.body) : null
+}
+
+/** A menu's open state, kept here for its shield whether the menu's owner holds it or Radix does. */
+export function useShieldedOpen(props: { open?: boolean; defaultOpen?: boolean; onOpenChange?: (open: boolean) => void }): [boolean, (open: boolean) => void] {
+  const [own, setOwn] = React.useState(props.defaultOpen ?? false)
+  const { onOpenChange } = props
+  return [props.open ?? own, React.useCallback((open: boolean) => (setOwn(open), onOpenChange?.(open)), [onOpenChange])]
+}
+
 function ContextMenu({
+  modal = true,
+  children,
   ...props
 }: React.ComponentProps<typeof ContextMenuPrimitive.Root>) {
-  return <ContextMenuPrimitive.Root data-slot="context-menu" {...props} />
+  const [open, onOpenChange] = useShieldedOpen(props)
+  return (
+    <ContextMenuPrimitive.Root data-slot="context-menu" {...props} modal={false} onOpenChange={onOpenChange}>
+      {modal && <MenuShield open={open} />}
+      {children}
+    </ContextMenuPrimitive.Root>
+  )
 }
 
 function ContextMenuTrigger({
