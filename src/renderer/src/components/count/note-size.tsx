@@ -101,7 +101,6 @@ export function NoteSize({ editor }: { editor: Editor | null }): React.JSX.Eleme
   const words = plural(size.words, 'word')
   const minutes = minutesToRead(size.words)
   const rows: [string, number][] = [
-    ['Lines', size.lines],
     ['Words', size.words],
     ['Characters', size.characters],
     ['Headings', size.headings],
@@ -134,9 +133,9 @@ export function NoteSize({ editor }: { editor: Editor | null }): React.JSX.Eleme
           <span className="min-w-0 flex-1">Size of this note</span>
           <span className="flex shrink-0 gap-0.5"><Pressed keys={SIZE_KEYS} /></span>
         </p>
-        <p data-size-read className="mb-2 font-semibold text-foreground">{minutes ? `About ${howLong(minutes)} to read` : 'Nothing to read yet'}</p>
-        <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-0.5 tabular-nums">
-          {rows.filter(([label, n]) => n || label === 'Words' || label === 'Characters' || label === 'Lines').map(([label, n]) => (
+        <p data-size-read className="mb-1.5 font-semibold text-foreground">{minutes ? `About ${howLong(minutes)} to read` : 'Nothing to read yet'}</p>
+        <dl className="grid grid-cols-[1fr_auto] gap-x-4 tabular-nums">
+          {rows.filter(([label, n]) => n || label === 'Words' || label === 'Characters').map(([label, n]) => (
             <Fragment key={label}>
               <dt className="text-muted-foreground">{label}</dt>
               <dd data-size-row={label} className="text-right text-foreground">{num(n)}</dd>

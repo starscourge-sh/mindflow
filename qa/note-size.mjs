@@ -176,7 +176,7 @@ try {
       check(`${name}: pointed at, the card comes`, up && !!card, '')
       if (card) {
         const rows = card.rows
-        const matches = ['Lines', 'Words', 'Characters', 'Headings', 'Pictures', 'Links', 'Review cards'].every((label) => {
+        const matches = ['Words', 'Characters', 'Headings', 'Pictures', 'Links', 'Review cards'].every((label) => {
           const key = { Lines: 'lines', Words: 'words', Characters: 'characters', Headings: 'headings', Pictures: 'pictures', Links: 'links', 'Review cards': 'cards' }[label]
           return (rows[label] ?? 0) === want[key]
         })
