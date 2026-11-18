@@ -904,13 +904,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // A task just added (or put back by Undo) eases into its row.
   const arrived = useArrivals(shown.map((task) => task.id), mode)
   // One list for the virtual scroller: each group's heading, then its tasks.
-  type Row = Task | { heading: string; count: number; key: string } | { writer: true }
-  /** The rows with each task's place taken, in turn, by the order given (a drop's, held by the sortable list). */
-  const inOrder = (order: Task[]): Row[] => {
-    let at = 0
-    return rows.map((row) => ('id' in row ? order[at++] ?? row : row))
-  }
-  const rows: Row[] = groups.flatMap(([heading, list, key]) => (key === 'held' ? [{ heading, count: held.length, key }, ...list] : key?.startsWith('fold:') ? [{ heading, count: tagCounts.get(heading) ?? 0, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
+  const rows: (Task | { heading: string; count: number; key: string } | { writer: true })[] = groups.flatMap(([heading, list, key]) => (key === 'held' ? [{ heading, count: held.length, key }, ...list] : key?.startsWith('fold:') ? [{ heading, count: tagCounts.get(heading) ?? 0, key }, ...list] : list.length ? [{ heading, count: list.length, key: key ?? heading }, ...list] : []))
   // The line being written, right under the task it follows (a step is written inside its task's row), or at the end of the day's own tasks.
   if (writing && !writing.step && !example) {
     const above = writing.before ? rows.findIndex((row) => 'id' in row && row.id === writing.before) : -1
@@ -1340,11 +1334,9 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
           <SortableList items={shown} keyOf={(task) => task.id} onMove={sortable ? moveRow : undefined} onNest={example || several.chosen.length ? undefined : nestRow} nests={nests}
             places={sortable ? { drop: dropOnTab, said: (place) => (place === 'upcoming' ? 'Move to tomorrow' : 'Move to Later, someday') } : undefined}
             parts={sortable ? { of: (id) => partOf.get(id), take: takenBy, drop: (id) => { const task = shown.find((one) => one.id === id); if (task) moveTo(task, 0) } } : undefined}>
-          {(held) => (
+          {() => (
           <VirtualList
-            // In the order the list holds from a drop until its save comes back: drawn from the view's own rows, a task let
-            // go in a new place stood back where it was picked up until then, and jumped (17 Nov 18; 58).
-            items={inOrder(held)}
+            items={rows}
             keyOf={(row) => ('writer' in row ? 'writer' : 'id' in row ? row.id : `heading-${row.key}`)}
             cursor={shown[cursor] ? rows.indexOf(shown[cursor]) : undefined}
             className="list-edge mb-6"
