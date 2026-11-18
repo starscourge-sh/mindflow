@@ -143,7 +143,7 @@ export const isWebPdf = (href: string | null | undefined): boolean => !!href && 
  */
 export async function openWebPdf(href: string, aside = false): Promise<void> {
   const kept = await host().fetchPdf?.(href)
-  if (!kept) return void (chime("nope"), said("That PDF could not be fetched", false))
+  if (!kept) return void said("That PDF could not be fetched", false)
   if (canSplit()) openPdf(kept.src, kept.name, undefined, undefined, aside)
   else window.api.openInHome("pdf", pdfFocus(kept.src, kept.name))
 }
@@ -442,8 +442,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       ]),
     }
     const id = await window.api.captures.create({ kind: "note", title: `Highlights from ${title}`, body })
-    chime("saved")
-    said(`${plural(sorted.length, 'highlight')} gathered into a note`)
+    said(`${plural(sorted.length, 'highlight')} gathered into a note`, true, undefined, { cue: "saved" })
     window.dispatchEvent(new CustomEvent("haligtree:open", { detail: { type: "capture", id } }))
   }
 
@@ -503,8 +502,9 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       if (gem && !into.gemId) await keepMark({ ...into, color, start, end, quote })
       getSelection()?.removeAllRanges()
       setPicked(null)
-      chime("saved")
-      if (!gem) said(under.length > 1 ? "Highlights joined into one" : start < into.start || end > into.end ? "Highlight extended" : "Highlight colour changed")
+      // One sound: kept as a gem just now, keepMark said so with its own.
+      if (!gem) said(under.length > 1 ? "Highlights joined into one" : start < into.start || end > into.end ? "Highlight extended" : "Highlight colour changed", true, undefined, { cue: "saved" })
+      else if (into.gemId) chime("saved")
       return
     }
     const id = crypto.randomUUID()
@@ -514,8 +514,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     if (gemId) setWhyFor({ id: gemId, x: picked.x, y: picked.y, bottom: picked.bottom })
     getSelection()?.removeAllRanges()
     setPicked(null)
-    chime("saved")
-    said(gem ? "Kept as a gem" : color === "later" ? "Marked for a card" : "Highlighted", true, gemId ? { type: "nugget", id: gemId, title: picked.quote } : undefined)
+    said(gem ? "Kept as a gem" : color === "later" ? "Marked for a card" : "Highlighted", true, gemId ? { type: "nugget", id: gemId, title: picked.quote } : undefined, { cue: "saved" })
   }
   const copyCited = async (quote: string, page: number): Promise<void> => {
     const { author, where } = await whereFrom(page)
@@ -583,8 +582,11 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     await call("item:save", id, { prompt, title: prompt })
     const count = cardsHere + 1
     setCardsHere(count)
-    chime("saved")
-    if (!quiet) said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt })
+    // One sound, and Undo takes the card back, as every other card notice does (note-questions.tsx): a cue played
+    // beside `said` made two, with no Undo. Made in a walk through the marked passages, it is said once at the walk's end.
+    const undo = (): void => void haligtree.unlift("nugget", id).then((gone) => gone && setCardsHere((now) => Math.max(0, now - 1)))
+    if (quiet) chime("saved")
+    else said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt }, { cue: "saved", undo })
     return id
   }
   /** A line kept as a gem with the book and page under it, linked back, as a snip is kept (keepSnip). */
@@ -640,8 +642,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     // Named for what it is, a figure from this page: its first line is the picture, which no list can show as a name.
     await call("item:save", gem, { title: `Figure from ${where}` })
     setSnipped(null)
-    chime("saved")
-    said("Kept as a gem", true, { type: "nugget", id: gem, title: `Figure from ${where}` })
+    said("Kept as a gem", true, { type: "nugget", id: gem, title: `Figure from ${where}` }, { cue: "saved" })
   }
   // Esc leaves snipping, and drops a snip not yet used.
   useEffect(() => {
@@ -733,8 +734,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const layer = document.querySelector(`.pdf-reader .pdf-page[data-page="${fullest.page}"] .textLayer`)
     const quote = over && layer && (start < fullest.start || end > fullest.end) ? wordsIn(layer, start, end) : fullest.quote
     await mergeMarks(into, group, { color: into.color ?? null, start, end, quote })
-    chime("saved")
-    said("Highlights joined into one")
+    said("Highlights joined into one", true, undefined, { cue: "saved" })
   }
   const keepMark = async (one: PdfMark): Promise<void> => {
     const gemId = await gemOf(one)
@@ -743,8 +743,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     const band = scroller.current?.querySelector<HTMLElement>(`.pdf-mark[data-mark="${one.id}"]`)?.getBoundingClientRect()
     const frame = scroller.current?.getBoundingClientRect()
     if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop, bottom: band.bottom - frame.top + scroller.current.scrollTop })
-    chime("saved")
-    said("Kept as a gem", true, { type: "nugget", id: gemId, title: one.quote })
+    said("Kept as a gem", true, { type: "nugget", id: gemId, title: one.quote }, { cue: "saved" })
   }
 
   /**
@@ -761,8 +760,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
       setMarks((all) => all.map((each) => (each.id === one.id ? { ...each, start, end, quote, prefix: "", suffix: "" } : each)))
       getSelection()?.removeAllRanges()
       setPicked(null)
-      chime("saved")
-      said(end - start > one.end - one.start ? "Highlight extended" : "Highlight cut to the words picked")
+      said(end - start > one.end - one.start ? "Highlight extended" : "Highlight cut to the words picked", true, undefined, { cue: "saved" })
     }
     const text = layer?.textContent ?? ""
     const inside = picked.start >= one.start && picked.end <= one.end
@@ -774,8 +772,7 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const remove = async (mark: PdfMark): Promise<void> => {
     await call("pdf:unhighlight", mark.id)
     setMarks((all) => all.filter((one) => one.id !== mark.id))
-    chime("away")
-    said(mark.color === "later" ? "Card mark removed" : "Highlight removed")
+    said(mark.color === "later" ? "Card mark removed" : "Highlight removed", true, undefined, { cue: "away" })
   }
 
   // The page this reader last handed up to the pane, and whether the opening has gone to its place yet.

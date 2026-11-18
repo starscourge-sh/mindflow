@@ -297,7 +297,7 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
         hint: "In the Inbox, with its card",
         data: "keep-link",
         run: () => void window.api.captures.create({ kind: "link", body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: href, marks: [{ type: "link", attrs: { href } }] }] }] }, markdown: href } as never)
-          .then((id: string) => (chime("noted"), said("Kept in the Inbox", true, { type: "capture", id, title: href }), void import("@/lib/link-card").then(({ cardUp }) => window.api.captures.get(id).then((one) => one && cardUp(one as never)))), () => said("Could not keep it", false)),
+          .then((id: string) => (said("Kept in the Inbox", true, { type: "capture", id, title: href }, { cue: "noted" }), void import("@/lib/link-card").then(({ cardUp }) => window.api.captures.get(id).then((one) => one && cardUp(one as never)))), () => said("Could not keep it", false)),
       },
       { label: "Edit link", edits: true, data: "edit-link", run: () => (pick(editor, from, to), editor.view.dom.dispatchEvent(new CustomEvent("mf:edit-link", { bubbles: true }))) },
       { label: "Remove link", edits: true, hint: "Keeps the words", data: "unlink", run: () => (pick(editor, from, to), removeLink(editor)) },

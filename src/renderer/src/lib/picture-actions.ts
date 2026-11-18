@@ -1,6 +1,5 @@
 import { toast } from '@/components/haligtree/ui'
 import { host, said } from '@/lib/host'
-import { chime } from '@/lib/sound'
 import { capsNow, meets } from '@/lib/needs'
 import { copyImageText, readable } from '@/lib/image-text'
 import { canSplit } from '@/lib/split'
@@ -48,8 +47,7 @@ async function makeNote(src: string): Promise<void> {
     kind: 'note',
     body: { type: 'doc', content: [{ type: 'image', attrs: { src } }, ...lines.map((line) => ({ type: 'paragraph', content: line.trim() ? [{ type: 'text', text: line }] : [] }))] }
   })
-  chime('noted')
-  said(lines.length ? `Made a note of its ${lines.length === 1 ? 'line' : `${lines.length} lines`}` : 'Made a note of it', true, { type: 'capture', id, title: lines[0] ?? 'Picture' })
+  said(lines.length ? `Made a note of its ${lines.length === 1 ? 'line' : `${lines.length} lines`}` : 'Made a note of it', true, { type: 'capture', id, title: lines[0] ?? 'Picture' }, { cue: 'noted' })
 }
 
 /** Every note that says what the picture says: the picture's longest line, searched for. */

@@ -18,7 +18,7 @@ import Lenis from 'lenis'
 import { afterPaint, call, useLive, haligtree } from '@/lib/haligtree'
 import { UNATTRIBUTED } from '@/lib/sources'
 import { useReading, useReadsIn, useSeen } from '@/lib/reads-in'
-import { chime, quietFor, setVolume, soundOn } from '@/lib/sound'
+import { chime, quietFor, setVolume, soundOn, type Cue } from '@/lib/sound'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/cn'
 import { useStoredChoice, useStoredFlag } from '@/lib/use-stored-flag'
@@ -1083,9 +1083,10 @@ export const quietly = (undo?: () => void): void => {
 
 // What the editor says it did (a copy, from its own menus), said the app's way.
 addEventListener('haligtree:said', (event) => {
-  const { text, ok, made } = (event as CustomEvent<{ text: string; ok: boolean; made?: Made }>).detail
-  chime(ok ? 'copy' : 'nope')
-  toast(text, undefined, ok ? 'success' : 'error', undefined, made)
+  const { text, ok, made, cue, undo } = (event as CustomEvent<{ text: string; ok: boolean; made?: Made; cue?: Cue; undo?: () => void }>).detail
+  // One sound: the one the act names (lib/host.ts `said`), else a copy's or a refusal's.
+  chime(cue ?? (ok ? 'copy' : 'nope'))
+  toast(text, undo, ok ? 'success' : 'error', undefined, made)
 })
 
 /** The toast up now goes: what it offered to take back was taken back another way. */

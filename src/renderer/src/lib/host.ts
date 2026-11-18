@@ -1,4 +1,5 @@
 import type { LinkMetadata } from '../../../preload/index.d'
+import type { Cue } from './sound'
 export type { LinkMetadata }
 /**
  * What the editor needs from whatever it is running inside.
@@ -158,7 +159,9 @@ export function host(): HaligtreeHost {
  * Something the editor did that has no mark of its own on the page (a copy):
  * said out loud for whatever app holds the editor to show. Haligtree turns it into
  * a toast and a sound (components/haligtree/ui.tsx); anywhere else it is quiet.
+ * `also.cue` is the one sound it plays, for what was done (a gem kept: "saved"), in place of a copy's or a
+ * refusal's; a cue played beside it as well made two for one act (18 Nov 2026). `also.undo` takes it back.
  */
-export function said(text: string, ok = true, made?: { type: string; id: string; title?: string }): void {
-  window.dispatchEvent(new CustomEvent("haligtree:said", { detail: { text, ok, made } }))
+export function said(text: string, ok = true, made?: { type: string; id: string; title?: string }, also?: { cue?: Cue; undo?: () => void }): void {
+  window.dispatchEvent(new CustomEvent("haligtree:said", { detail: { text, ok, made, ...also } }))
 }

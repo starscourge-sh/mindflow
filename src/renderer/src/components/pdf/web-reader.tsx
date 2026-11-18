@@ -270,8 +270,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     if (gemId) setWhyFor({ id: gemId, x: picked.x, y: picked.y, bottom: picked.bottom })
     getSelection()?.removeAllRanges()
     setPicked(null)
-    chime('saved')
-    said(gem ? 'Kept as a gem' : color === 'later' ? 'Marked for a card' : 'Highlighted', true, gemId ? { type: 'nugget', id: gemId, title: picked.quote } : undefined)
+    said(gem ? 'Kept as a gem' : color === 'later' ? 'Marked for a card' : 'Highlighted', true, gemId ? { type: 'nugget', id: gemId, title: picked.quote } : undefined, { cue: 'saved' })
   }
   const copyCited = async (quote: string): Promise<void> => {
     await navigator.clipboard.writeText(cited(quote.replace(/\s+/g, ' ').trim(), [byline(), whereFrom()].filter(Boolean).join(', ')))
@@ -308,8 +307,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     await call('item:save', id, { prompt, title: prompt })
     const count = cardsHere + 1
     setCardsHere(count)
-    chime('saved')
-    if (!quiet) said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt })
+    // One sound, and Undo takes the card back, as the PDF's does (pdf-reader.tsx cardOf).
+    const undo = (): void => void call<boolean>('lifted:undo', 'nugget', id).then((gone) => gone && setCardsHere((now) => Math.max(0, now - 1)))
+    if (quiet) chime('saved')
+    else said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt }, { cue: 'saved', undo })
     return id
   }
   // C: the question asked where the words were; Return makes the card.
@@ -364,8 +365,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     const band = drawn.current.find((each) => each.mark.id === one.id)?.range.getBoundingClientRect()
     const frame = scroller.current?.getBoundingClientRect()
     if (band && frame && scroller.current) setWhyFor({ id: gemId, x: band.left + band.width / 2 - frame.left, y: band.top - frame.top + scroller.current.scrollTop, bottom: band.bottom - frame.top + scroller.current.scrollTop })
-    chime('saved')
-    said('Kept as a gem', true, { type: 'nugget', id: gemId, title: one.quote })
+    said('Kept as a gem', true, { type: 'nugget', id: gemId, title: one.quote }, { cue: 'saved' })
   }
   // Every highlight in the article, in reading order: a click brings it into view, lit.
   const [showMarks, setShowMarks] = useState(false)
@@ -381,15 +381,13 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
       ])
     }
     const id = await window.api.captures.create({ kind: 'note', title: `Highlights from ${article?.title ?? whereFrom()}`, body })
-    chime('saved')
-    said(`${plural(sorted.length, 'highlight')} gathered into a note`)
+    said(`${plural(sorted.length, 'highlight')} gathered into a note`, true, undefined, { cue: 'saved' })
     window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id } }))
   }
   const remove = async (mark: PdfMark): Promise<void> => {
     await call('pdf:unhighlight', mark.id)
     setMarks((all) => all.filter((one) => one.id !== mark.id))
-    chime('away')
-    said(mark.color === 'later' ? 'Card mark removed' : 'Highlight removed')
+    said(mark.color === 'later' ? 'Card mark removed' : 'Highlight removed', true, undefined, { cue: 'away' })
   }
 
   // Asked again (“Read it again” after a stop or a failure): the page is fetched afresh.
@@ -852,7 +850,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
               {isReadable(linkHit) && <ContextMenuItem onSelect={() => openArticle(linkHit, undefined, undefined, pane)}>Open in the reader</ContextMenuItem>}
               {isReadable(linkHit) && canSplit() && <ContextMenuItem onSelect={() => openArticle(linkHit, undefined, 'aside', pane)}>Open in the reader to the side</ContextMenuItem>}
               <ContextMenuItem onSelect={() => window.open(linkHit, '_blank', 'noopener')}>Open in the browser</ContextMenuItem>
-              <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(linkHit).then(() => (chime('copy'), said('Link copied')), () => said('Could not copy the link', false))}>Copy link</ContextMenuItem>
+              <ContextMenuItem onSelect={() => void navigator.clipboard.writeText(linkHit).then(() => said('Link copied'), () => said('Could not copy the link', false))}>Copy link</ContextMenuItem>
             </>
           )}
         </ContextMenuContent>

@@ -3,7 +3,6 @@ import { BookOpen, Gem } from "lucide-react"
 import { openArticle } from "./pdf-reader"
 import { call } from "@/lib/haligtree"
 import { notes } from "@/lib/notes"
-import { chime } from "@/lib/sound"
 import { said } from "@/lib/host"
 import { FLOAT } from "@/lib/float"
 import { cn } from "@/lib/cn"
@@ -91,8 +90,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
     ]
     await window.api.captures.save(id, { body: { ...body, content: [...(body.content ?? []), ...place] } })
     setKept({ id, asking: true })
-    chime("saved")
-    said(`This place added to ${quoted(known!.title, 80)}`, true, { type: "capture", id, title: known!.title })
+    said(`This place added to ${quoted(known!.title, 80)}`, true, { type: "capture", id, title: known!.title }, { cue: "saved" })
   }
 
   /** Kept as one Lookup: the word, its meaning and Wikipedia's summary together, where it was looked up (and the sentence round it). */
@@ -102,8 +100,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
     if (!found && !page) {
       const id = await window.api.captures.create({ kind: "word", body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: words }] }] }, markdown: words, ...(from.origin ? { origin: from.origin } : {}) })
       setKept({ id, asking: true })
-      chime("saved")
-      return said("Kept in Lookups, asked: write the answer when you find it", true, { type: "capture", id, title: words })
+      return said("Kept in Lookups, asked: write the answer when you find it", true, { type: "capture", id, title: words }, { cue: "saved" })
     }
     const word = found ? words : page!.title
     const text = (value: string, link?: string): Record<string, unknown> => ({ type: "text", text: value, ...(link ? { marks: [{ type: "link", attrs: { href: link } }] } : {}) })
@@ -123,8 +120,7 @@ export function LookUpCard({ words, at, from, range, onClose }: { words: string;
     await notes.setField("captures", id, "definition", found ? found.definition : page!.extract)
     if (found?.example) await notes.setField("captures", id, "example", found.example)
     setKept({ id, asking: true })
-    chime("saved")
-    said(`Kept in Lookups: ${quoted(word, 80)}`, true, { type: "capture", id, title: word })
+    said(`Kept in Lookups: ${quoted(word, 80)}`, true, { type: "capture", id, title: word }, { cue: "saved" })
   }
   const done = (): void => setKept((now) => now && { ...now, asking: false })
 
