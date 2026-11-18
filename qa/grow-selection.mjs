@@ -230,7 +230,8 @@ async function offers() {
   await pickList()
   const lift = await gripBy('apple')
   const foot = await h.locator(`${ED} p`, { hasText: 'after' }).first().boundingBox()
-  const drop = { x: lift.x + 80, y: foot.y + foot.height * 0.85 }
+  // Well into the words: a carry let go in the band at a block's left edge or in its right quarter stands beside it.
+  const drop = { x: foot.x + 120, y: foot.y + foot.height * 0.85 }
   await h.mouse.move(lift.x, lift.y)
   await h.mouse.down()
   for (let i = 1; i <= 14; i++) (await h.mouse.move(lift.x + ((drop.x - lift.x) * i) / 14, lift.y + ((drop.y - lift.y) * i) / 14), await wait(50))
