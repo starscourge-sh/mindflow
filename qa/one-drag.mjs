@@ -1558,6 +1558,8 @@ await part('Several notes', async () => {
   /** Every frame the page draws until `stopWatch()`: where two rows are drawn, the card's box, the settling card and the pointer. */
   const watch = (a, b) => h.evaluate(([a, b]) => {
     const seen = (window.__frames = { list: [], on: true, x: window.__frames?.x ?? 0, y: window.__frames?.y ?? 0 })
+    // Whether the release has reached the page: a frame can come between the watch starting and the release.
+    addEventListener('pointerup', () => void (seen.up = true), { capture: true, once: true })
     if (!window.__framesHeard) { window.__framesHeard = true; addEventListener('pointermove', (e) => void ((window.__frames.x = e.clientX), (window.__frames.y = e.clientY)), true) }
     const top = (id) => [...document.querySelectorAll('[data-pane] [data-sortable-id]')].find((el) => el.dataset.sortableId === id)?.getBoundingClientRect().top ?? null
     const tick = () => {
@@ -1566,7 +1568,7 @@ await part('Several notes', async () => {
       const all = [...document.querySelectorAll('[data-carried-card], [data-fanned]')].map((el) => el.getBoundingClientRect()).filter((r) => r.width > 8)
       const card = all.length ? { top: Math.min(...all.map((r) => r.top)), bottom: Math.max(...all.map((r) => r.bottom)), left: Math.min(...all.map((r) => r.left)) } : null
       const fly = document.querySelector('.mf-drag-picture')?.getBoundingClientRect()
-      seen.list.push({ a: a && top(a), b: b && top(b), card, fly: fly ? fly.top : null, x: window.__frames.x, y: window.__frames.y })
+      seen.list.push({ a: a && top(a), b: b && top(b), card, fly: fly ? fly.top : null, x: window.__frames.x, y: window.__frames.y, up: !!seen.up })
       requestAnimationFrame(tick)
     }
     requestAnimationFrame(tick)
@@ -1698,7 +1700,7 @@ await part('Several notes', async () => {
   // Watched from inside the film: with SHOTS, film16 first puts the look on (400 ms, the button still down), and frames
   // of the carry itself, the row still in its old place, were counted as frames after the drop.
   await film16('drop-in-another-group', async () => { await watch(all.Larch, all.Birch); await h.mouse.up(); await wait(400) })
-  const after = (await stopWatch()).filter((f) => f.a !== null && f.b !== null)
+  const after = (await stopWatch()).filter((f) => f.up && f.a !== null && f.b !== null)
   const backFrames = after.filter((f) => f.a > f.b + 1)
   check('Several notes, let go in another group: no frame after the drop draws the old order', after.length > 5 && !backFrames.length, `${backFrames.length} of ${after.length} frames had the row back under Birch`)
   const landTop = after.at(-1)?.a ?? 0
@@ -1757,7 +1759,7 @@ await part('Several notes', async () => {
     await wait(450)
     nearPointer('Tasks, a task carried down Today', await stopWatch())
     await film16('drop-task-today', async () => { await watch(ta, tc); await h.mouse.up(); await wait(400) })
-    const tAfter = (await stopWatch()).filter((f) => f.a !== null && f.b !== null)
+    const tAfter = (await stopWatch()).filter((f) => f.up && f.a !== null && f.b !== null)
     const tBack = tAfter.filter((f) => f.a < f.b - 1)
     check('Tasks, a task let go down Today: no frame after the drop draws the old order', tAfter.length > 5 && !tBack.length, `${tBack.length} of ${tAfter.length} frames had it back above the third`)
   } else check('Tasks: three task rows on Today', false, order.join())
