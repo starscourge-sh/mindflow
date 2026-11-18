@@ -33,8 +33,8 @@ export function LinkButtons({ editor }: { editor: Editor }): React.JSX.Element |
   // A string, so this settles instead of drawing again on every key.
   const href = useEditorState({ editor, selector: ({ editor: instance }) => (instance && linkAround(instance.state) ? String(instance.getAttributes("link").href ?? "") : "") })
   if (!href) return (
-    // Words with no link yet: one button that asks for the address.
-    <Button type="button" variant="ghost" aria-label="Link" data-make-link tooltip="Link" onMouseDown={(event) => event.preventDefault()} onClick={() => askToEdit(editor)}>
+    // Words with no link yet: one button that asks for the address, as ⌘K does.
+    <Button type="button" variant="ghost" aria-label="Link" data-make-link tooltip="Link" shortcutKeys="mod+k" onMouseDown={(event) => event.preventDefault()} onClick={() => askToEdit(editor)}>
       <Link2 className="tiptap-button-icon" />
     </Button>
   )
@@ -58,7 +58,7 @@ export function LinkButtons({ editor }: { editor: Editor }): React.JSX.Element |
 /**
  * The box a link is edited in, under its words: the address, ready to change.
  * Return keeps it, an empty box or "Remove link" takes the link off, Escape
- * leaves it as it was. Opened by ⌘K on a link or the bar's "Edit link".
+ * leaves it as it was. Opened by ⌘K on a link or on picked words, or the bar's "Edit link" and "Link".
  */
 export function LinkEditor({ editor }: { editor: Editor | null }): React.JSX.Element | null {
   const [open, setOpen] = useState<{ from: number; to: number; href: string; left: number; top: number } | null>(null)

@@ -1,6 +1,6 @@
 import { Extension, type Editor } from "@tiptap/core"
 import type { Mark, Node as ProseMirrorNode } from "@tiptap/pm/model"
-import { Plugin, PluginKey, type EditorState, type Transaction } from "@tiptap/pm/state"
+import { Plugin, PluginKey, TextSelection, type EditorState, type Transaction } from "@tiptap/pm/state"
 import { AddMarkStep } from "@tiptap/pm/transform"
 import { attributesOnly, restoring } from "@/lib/undo-exact"
 import { changedSpan } from "@/lib/text-edit"
@@ -58,10 +58,16 @@ export function linkAround(state: EditorState): { from: number; to: number; mark
   return found ? { from: found.from, to: found.to, mark: found.mark } : null
 }
 
-/** True while the caret sits in a web link in the note being written: ⌘K edits it there, rather than opening search. */
-export function caretInLink(): boolean {
+/** Words picked on one line of words, which ⌘K gives a link, as Obsidian, Notion and every editor do. */
+const wordsPicked = (state: EditorState): boolean => {
+  const { selection } = state
+  return selection instanceof TextSelection && !selection.empty && selection.$from.sameParent(selection.$to) && selection.$from.parent.isTextblock && !selection.$from.parent.type.spec.code
+}
+
+/** True while the caret sits in a web link in the note being written, or words are picked there: ⌘K edits the link (or gives them one), rather than opening search. */
+export function kMeansLink(): boolean {
   const editor = (document.activeElement?.closest?.(".ProseMirror") as (Element & { editor?: Editor }) | null)?.editor
-  return !!editor && !editor.isDestroyed && editor.isEditable && !!linkAround(editor.state)
+  return !!editor && !editor.isDestroyed && editor.isEditable && (!!linkAround(editor.state) || wordsPicked(editor.state))
 }
 
 /** Each run of words carrying one link, in a textblock. */
@@ -110,9 +116,9 @@ export const LinkTidy = Extension.create({
         )
         return true
       },
-      // ⌘K on a link: edit it (link-editor.tsx draws the box).
+      // ⌘K on a link: edit it; on words picked: give them one (link-editor.tsx draws the box).
       "Mod-k": () => {
-        if (!linkAround(this.editor.state)) return false
+        if (!linkAround(this.editor.state) && !wordsPicked(this.editor.state)) return false
         this.editor.view.dom.dispatchEvent(new CustomEvent("mf:edit-link", { bubbles: true }))
         return true
       },

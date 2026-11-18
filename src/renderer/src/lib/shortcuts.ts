@@ -159,6 +159,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Editing', keys: '⌘I', does: 'Italic', where: 'In a note' },
   { group: 'Editing', keys: '⌘U', does: 'Underline', where: 'In a note' },
   { group: 'Editing', keys: '⇧⌘S', does: 'Strike through', where: 'In a note' },
+  { group: 'Editing', keys: '⌘K', does: 'Link the selected words, or edit the link the caret is in', where: 'In a note' },
   { group: 'Editing', keys: '*', does: 'Over selected words, as in Obsidian: * italic, again for bold, again for both (_ the same); ` code, = highlight, ~ strike; their words stay', where: 'In a note' },
   { group: 'Editing', keys: '⌥⌘4', does: 'Checklist, or tick the box', where: 'In a note' },
   { group: 'Editing', keys: '⌘L', does: 'Checklist, or tick the box, as in Obsidian (the same as ⌥⌘4)', where: 'In a note' },

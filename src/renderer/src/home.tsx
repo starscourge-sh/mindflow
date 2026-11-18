@@ -152,7 +152,7 @@ import { SwipeBack, placesFrom } from '@/components/haligtree/swipe-back'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
 import { dated, dayjs, dayKey, daysFromToday, noon, num, plural } from '../../main/dates'
 import { WrapOffer, WrapSheet, monthToWrap, openWrap } from '@/components/haligtree/wrap-story'
-import { caretInLink } from './extensions/link-tidy'
+import { kMeansLink } from './extensions/link-tidy'
 import { APP_NAME } from '../../main/name'
 import { countUse, takeWay, via, type Via } from '@/lib/usage'
 import { quoted } from '../../main/clip'
@@ -1434,9 +1434,9 @@ export function Home(): React.JSX.Element {
         event.preventDefault()
         return openTab(LANDING, frontRef.current, true)
       }
-      // ⌘K with the caret in a web link edits the link, as in any editor.
+      // ⌘K with the caret in a web link edits the link, and on words picked gives them one, as in any editor.
       // ⇧⌘P is picked blocks' "Move to…" (extensions/picked-blocks.ts), never the notes' search.
-      if (event.metaKey && (event.key === 'k' || (event.key === 'p' && !event.shiftKey)) && !(event.key === 'k' && caretInLink())) {
+      if (event.metaKey && (event.key === 'k' || (event.key === 'p' && !event.shiftKey)) && !(event.key === 'k' && kMeansLink())) {
         event.preventDefault()
         return setSearching(event.key === 'k' ? 'all' : 'notes')
       }

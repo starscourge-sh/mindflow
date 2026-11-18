@@ -39,6 +39,7 @@ import { Apart, openInHaligtree, useCarriedHere } from '@/lib/apart'
 import { AppWindowMacIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { APP_NAME } from '../../../../main/name'
+import { kMeansLink } from '@/extensions/link-tidy'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
 
@@ -75,7 +76,8 @@ export function NoteWindow({ link }: { link: string }): React.JSX.Element {
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (!event.metaKey || event.altKey || event.ctrlKey || event.shiftKey || (event.code !== 'KeyK' && event.code !== 'KeyP')) return
-      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return
+      // On a link, or on words picked, ⌘K is the note's own (the link's box), as in the main window and quick capture.
+      if (document.querySelector('[role="dialog"][aria-modal="true"]') || (event.code === 'KeyK' && kMeansLink())) return
       event.preventDefault()
       event.stopPropagation()
       setSearching(event.code === 'KeyK' ? 'all' : 'notes')

@@ -141,7 +141,7 @@ import { caretTakesEscape, menuShowing, layerOpen, menuOpen } from '@/lib/menu-k
 import { clip, quoted } from '../../main/clip'
 import { soundTitle } from './components/haligtree/sound-player'
 import { ArrowLeft, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, Tag as Hashtag, X } from '@/components/ui/icons'
-import { caretInLink } from './extensions/link-tidy'
+import { kMeansLink } from './extensions/link-tidy'
 import { BIG_PASTE, BigPaste } from './extensions/big-paste'
 import { breath, markdownToDocumentGently } from './lib/markdown-doc'
 import { sizeOfStored } from './lib/note-size'
@@ -1150,8 +1150,8 @@ export default function App(): React.JSX.Element {
   const [searchFrom, setSearchFrom] = useState('')
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      // ⌘K with the caret in a web link edits the link, as in any editor.
-      if (!event.metaKey || (event.key !== 'k' && event.key !== 'p') || (event.key === 'k' && caretInLink())) return
+      // ⌘K with the caret in a web link edits the link, and on words picked gives them one, as in any editor.
+      if (!event.metaKey || (event.key !== 'k' && event.key !== 'p') || (event.key === 'k' && kMeansLink())) return
       event.preventDefault()
       event.stopPropagation()
       // Quick capture's window is a small see-through card: ⌘K opens in the main window, the same box as everywhere
