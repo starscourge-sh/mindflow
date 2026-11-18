@@ -715,7 +715,9 @@ export function Prop({ icon: Icon, alive, children, onClick, active, tint, secre
 // A thought can carry six routes back to it: a row shows the first few and
 // counts the rest, "+3", named in full on hover.
 // The title always wins the room: the tags take at most two fifths of the
-// row, a long tag ends in "…", and only a cut one names itself in full on hover.
+// row, a long tag ends in "…" at 10rem, and only a cut one names itself in full on hover.
+// A tag shows whole or not at all: where the row has no room for it, it joins the count (at 560 wide two tags
+// shrank to "#r…" and "#…"), down to the count alone, which never gives way.
 /** A tag's page: in the front pane, or beside it with ⌥ held (as every row opens to the side). */
 export const openTag = (tag: string, aside = false): void => {
   chime('open')
@@ -727,38 +729,48 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
   const colors = useTagColors()
   const box = useRef<HTMLSpanElement>(null)
   const [cut, setCut] = useState<string[]>([])
-  // As narrow as it may get: whole when short, about four letters of a long one, and the "+3" whole beside it.
-  const [least, setLeast] = useState(0)
   const shown = tags.slice(0, max)
+  // How many of the shown tags have room to stand whole; the others wait unseen, out of the line, and are counted.
+  const [fit, setFit] = useState(shown.length)
+  // The room every shown tag takes whole (the box asks for it whatever is hidden, so it grows back when the row does),
+  // and the least it takes: the count alone.
+  const [room, setRoom] = useState<{ whole: number; least: number } | null>(null)
   const key = shown.join(' ')
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
     const measure = (): void => {
-      const now = [...el.querySelectorAll<HTMLElement>('[data-tag]')].filter((one) => one.scrollWidth > one.clientWidth + 1).map((one) => one.dataset.tag!)
+      const words = [...el.querySelectorAll<HTMLElement>('[data-tag]')]
+      const now = words.filter((one) => one.scrollWidth > one.clientWidth + 1).map((one) => one.dataset.tag!)
       setCut((was) => (was.join(' ') === now.join(' ') ? was : now))
-      const parts = [...el.children] as HTMLElement[]
-      const natural = parts.reduce((sum, one) => sum + one.scrollWidth, 0) + 8 * Math.max(0, parts.length - 1)
-      // The count never gives way: squeezed past it, it stood outside the box, cut away unseen (qa/tag-page.mjs at 560).
-      const more = el.querySelector<HTMLElement>('[data-tags-more]')
-      setLeast(Math.min(natural, 64 + (more ? more.offsetWidth + 8 : 0)))
+      const widths = words.map((one) => one.offsetWidth)
+      // The widest the count can be ("+N" of every tag), so a tag let in never pushes it out.
+      const count = el.querySelector<HTMLElement>('[data-tags-ruler]')?.offsetWidth ?? 0
+      const need = (n: number): number => widths.slice(0, n).reduce((sum, one) => sum + one, 0) + 8 * Math.max(0, n - 1) + (n < tags.length ? (n ? 8 : 0) + count : 0)
+      let n = widths.length
+      while (n > 0 && need(n) > el.clientWidth + 0.5) n--
+      setFit(n)
+      setRoom((was) => (was?.whole === need(widths.length) && was.least === need(0) ? was : { whole: need(widths.length), least: need(0) }))
     }
     // Measured by the observer, which reports once as soon as the row is laid
     // out: measured here, every row with tags laid out the page as it was drawn.
     const watch = new ResizeObserver(measure)
     watch.observe(el)
     return () => watch.disconnect()
-  }, [key])
+  }, [key, tags.length])
   if (!tags.length) return null
-  const rest = tags.slice(max)
+  const rest = tags.slice(Math.min(fit, shown.length))
+  // Waiting for room: still laid out at its own width, to be measured, but unseen, unreached and out of the line.
+  const away = (at: number): boolean => at >= fit
   return (
     // It gives way far faster than the title beside it, so the title keeps the room.
-    <span ref={box} data-tags style={{ minWidth: (!alone && least) || undefined }} className={`flex min-w-0 ${alone ? 'max-w-full' : 'max-w-[40%]'} shrink-[20] items-center gap-2 overflow-hidden text-xs`}>
-      {shown.map((tag) => {
+    <span ref={box} data-tags style={{ flexBasis: room?.whole, minWidth: room?.least }} className={`relative flex min-w-0 ${alone ? 'max-w-full' : 'max-w-[40%]'} shrink-[20] items-center gap-2 overflow-hidden text-xs`}>
+      {shown.map((tag, at) => {
         const color = { color: `var(--tt-color-text-${tagHue(tag, colors[tag])})` }
+        const hidden = away(at) ? { 'aria-hidden': true, 'data-tag-away': '' } : {}
         if (!go) {
-          const word = <span key={tag} data-tag={tag} className="min-w-0 max-w-[10rem] shrink truncate" style={color}>#{tag}</span>
-          return cut.includes(tag) ? <Tip key={tag} label={<>#{tag}</>}>{word}</Tip> : word
+          const word = <span key={tag} data-tag={tag} {...hidden} className={`max-w-[10rem] shrink-0 truncate ${away(at) ? 'invisible absolute' : ''}`} style={color}>#{tag}</span>
+          return cut.includes(tag) && !away(at) ? <Tip key={tag} label={<>#{tag}</>}>{word}</Tip> : word
         }
         // A tag looks like a link, so it is one: its page, never the row it sits in,
         // and never the start of a drag. Under the pointer it lights in its own colour
@@ -766,11 +778,11 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
         const hold = (event: React.SyntheticEvent): void => event.stopPropagation()
         return (
           // A rest shows the tag's card (note-preview.tsx), as a tag does everywhere.
-          <span key={tag} role="button" tabIndex={0} data-tag={tag} data-tag-go {...hoverNote('tag', tag)}
+          <span key={tag} role="button" tabIndex={away(at) ? -1 : 0} data-tag={tag} data-tag-go {...hidden} {...hoverNote('tag', tag)}
               onPointerDown={hold} onMouseDown={hold}
               onClick={(event) => (event.stopPropagation(), event.preventDefault(), openTag(tag, event.altKey))}
               onKeyDown={(event) => { if (event.key !== 'Enter' && event.key !== ' ') return; event.stopPropagation(); event.preventDefault(); openTag(tag) }}
-              className="-my-1 min-w-0 max-w-[10rem] shrink cursor-pointer truncate rounded px-0.5 py-1 decoration-1 underline-offset-2 transition-colors duration-80 hover:bg-[color-mix(in_oklab,var(--tag-ink)_18%,transparent)] hover:underline focus-visible:bg-[color-mix(in_oklab,var(--tag-ink)_18%,transparent)] focus-visible:outline-none" style={{ ...color, '--tag-ink': color.color } as React.CSSProperties}>#{tag}</span>
+              className={`-my-1 max-w-[10rem] shrink-0 cursor-pointer truncate rounded px-0.5 py-1 decoration-1 underline-offset-2 transition-colors duration-80 hover:bg-[color-mix(in_oklab,var(--tag-ink)_18%,transparent)] hover:underline focus-visible:bg-[color-mix(in_oklab,var(--tag-ink)_18%,transparent)] focus-visible:outline-none ${away(at) ? 'invisible absolute' : ''}`} style={{ ...color, '--tag-ink': color.color } as React.CSSProperties}>#{tag}</span>
         )
       })}
       {rest.length > 0 && (
@@ -778,6 +790,8 @@ export function Tags({ tags, max = 3, alone = false, go = true }: { tags: string
           <span data-tags-more className="shrink-0 rounded-full bg-accent px-1.5 tabular-nums text-muted-foreground">+{brief(rest.length)}</span>
         </Tip>
       )}
+      {/* Its number drawn from an attribute, so it is measured but is never part of the row's words. */}
+      <span data-tags-ruler data-count={`+${brief(tags.length)}`} aria-hidden className="invisible absolute rounded-full px-1.5 tabular-nums after:content-[attr(data-count)]" />
     </span>
   )
 }

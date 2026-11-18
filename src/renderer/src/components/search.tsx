@@ -493,8 +493,8 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                       {/* A task's day, ahead or gone by, so a future one is told from a past one at a glance. */}
                       {capture.type === 'task' && <TaskDay task={tasks.find((one) => one.id === capture.id)} />}
                       {whereFrom(capture.source, capture.label) && <span className="min-w-0 max-w-[30%] shrink-[10] truncate text-xs text-muted-foreground">· {whereFrom(capture.source, capture.label)}</span>}
-                      {/* The tags take only the room the title leaves (at least a few letters), so a short title is never cut for them. */}
-                      {capture.type !== 'day' && taskName(capture.label ?? '').tags.length > 0 && <span className="flex min-w-12 flex-1 basis-0 overflow-hidden"><Tags tags={taskName(capture.label ?? '').tags} max={2} alone go={false} /></span>}
+                      {/* The tags take only the room the title leaves (at least their "+N"), so a short title is never cut for them. */}
+                      {capture.type !== 'day' && taskName(capture.label ?? '').tags.length > 0 && <span className="flex min-w-min flex-1 basis-0 overflow-hidden"><Tags tags={taskName(capture.label ?? '').tags} max={2} alone go={false} /></span>}
                       {/* In quiet words on one right edge for every row: what it is where an island holds many kinds, how old it is, as the Inbox says it, where its island already says what. */}
                       <span className="ml-auto flex shrink-0 items-center gap-2 pl-2 text-xs text-muted-foreground">
                         {on && !asking && !preview && capture.type === 'capture' && <span>{capture.attribution ?? 'Tab: who said it'}</span>}
