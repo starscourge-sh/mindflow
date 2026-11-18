@@ -223,7 +223,9 @@ async function use(): Promise<void> {
       const id = away ? await away.card(said.question, said.answer) : await call<string>('nugget:from', said.answer, { captureId: origin.captureId, passage: words, card: { gem: false } })
       // A reader's own card making plays its sound already: one action, one sound.
       if (!away) (await call('item:save', id, { prompt: said.question, title: said.question }), chime('saved'))
-      return toast(away ? 'Card made, in Review, with where its words came from' : 'Card made, in Review: it says which note and line it came from', () => void haligtree.unlift('nugget', id), 'success', undefined, { type: 'nugget', id, title: said.question })
+      // Where it came from is said only where the card keeps it: words picked in the Journal or an unsaved note have no note to name.
+      const from = away ? ', with where its words came from' : origin.captureId ? ': it says which note and line it came from' : ''
+      return toast(`Card made, in Review${from}`, () => void haligtree.unlift('nugget', id), 'success', undefined, { type: 'nugget', id, title: said.question })
     }
     if (help.id === 'ask') {
       // A question you hold, with these words as its first clue, gathering more as you write.
