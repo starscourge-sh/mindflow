@@ -113,7 +113,7 @@ const openNote = async (title, body, min) => {
   return install()
 }
 /** The middle of where `text` starts plus `offset`, on the screen: brought into view first (`scroll`), as a person scrolls to it. */
-const spot = (text, offset = 0, scroll = true) => h.evaluate(([ED, text, offset, scroll]) => {
+const spot = (text, offset = 0, scroll = true) => h.evaluate(async ([ED, text, offset, scroll]) => {
   const view = document.querySelector(ED).editor.view
   let at = null
   view.state.doc.descendants((node, pos) => { if (at == null && node.isText && node.text.includes(text)) at = pos + node.text.indexOf(text) + offset; return at == null })
@@ -121,6 +121,15 @@ const spot = (text, offset = 0, scroll = true) => h.evaluate(([ED, text, offset,
   const { node } = view.domAtPos(at)
   // At once: the note scrolls smoothly, and a place read while it still moved was pressed somewhere else.
   if (scroll) (node.nodeType === 1 ? node : node.parentElement).scrollIntoView({ block: 'center', behavior: 'instant' })
+  // Read once the note holds still for two frames, as a person aims at what they see: the note eases its own scrolls,
+  // and the one bringing the caret back after ⌘Z still moved it 3 to 9 px two frames on, so under load the press
+  // landed a line lower than the place read.
+  const scroller = view.dom.closest('.haligtree-editor-content')
+  for (let last = NaN, still = 0, n = 0; scroller && still < 2 && n < 60; n++) {
+    await new Promise((done) => requestAnimationFrame(done))
+    still = scroller.scrollTop === last ? still + 1 : 0
+    last = scroller.scrollTop
+  }
   const box = view.coordsAtPos(at)
   return { x: box.left + 1, y: (box.top + box.bottom) / 2, at }
 }, [ED, text, offset, scroll])
