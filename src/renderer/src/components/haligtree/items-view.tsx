@@ -1723,6 +1723,8 @@ const WORDS = 'question:words'
 export function useItemDisplay(name: string, every: Item[], withGroups = false): {
   groups: [string, Item[]][]
   display: React.JSX.Element
+  /** The orders the list can take, as Display's "Sort" offers them: the list's own right-click offers the same. */
+  sorts: { id: string; label: string }[]
   /** The filters set, as chips over the list, and the kinds a click away. */
   chips: React.JSX.Element
   density: Density
