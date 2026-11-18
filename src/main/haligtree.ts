@@ -2624,7 +2624,7 @@ export function registerHaligtree(): void {
   // Taken back: both rows as they were, every column, and the versions of their words the join and this undo kept.
   // Unless the one kept was written in since: then its words stay as they are (nothing of theirs is lost), and the
   // other comes back out of the Bin beside it.
-  handle('notes:join:undo', (token: number, whatever?: boolean) => {
+  handle('notes:join:undo', (token: number) => {
     const made = joins.get(token)
     if (!made) return false
     joins.delete(token)
@@ -2634,9 +2634,7 @@ export function registerHaligtree(): void {
       // What the database sets itself as a status changes (haligtree.ts `capture_exit`, `capture_used`), as it was too.
       if (side.table === 'captures') db.prepare('update captures set exited_at = ?, first_used_at = ? where id = ?').run(row.exited_at as string | null, row.first_used_at as string | null, side.id)
     }
-    // `whatever`: nothing was typed since the notice, so what changed it since is the app's own (its editor tidying the
-    // words as the joined note opened again): it is put back all the same.
-    const still = !!whatever || !!db.prepare(`select 1 from ${made.keep.table} where id = ? and body is ?`).get(made.keep.id, made.joined)
+    const still = !!db.prepare(`select 1 from ${made.keep.table} where id = ? and body is ?`).get(made.keep.id, made.joined)
     const grew = made.joined !== String(made.rows[0].body ?? 'null')
     // The links led here go back to the other, each in a note not written in since.
     const back = made.linking.filter((one) => !!db.prepare(`select 1 from ${one.table} where id = ? and body is ?`).get(one.id, one.now))
