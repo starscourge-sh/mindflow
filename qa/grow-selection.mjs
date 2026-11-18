@@ -226,10 +226,11 @@ async function offers() {
   const asked = await h.evaluate(() => document.querySelector('input[placeholder$="to which note?"]')?.getAttribute('placeholder') ?? '')
   check('vim off: ⇧⌘P on the list ⌘A picked asks which note to move its 3 blocks to', asked === 'Move 3 blocks to which note?', asked)
   await h.keyboard.press('Escape'); await wait(250)
-  // Carried by one item's grip to under "after": all three go together, and one ⌘Z brings them back.
+  // Carried by one item's grip to under "first words", a line in sight above the list: all three go together, and
+  // one ⌘Z brings them back.
   await pickList()
   const lift = await gripBy('apple')
-  const foot = await h.locator(`${ED} p`, { hasText: 'after' }).first().boundingBox()
+  const foot = await h.locator(`${ED} p`, { hasText: 'first words' }).first().boundingBox()
   // Well into the words: a carry let go in the band at a block's left edge or in its right quarter stands beside it.
   const drop = { x: foot.x + 120, y: foot.y + foot.height * 0.85 }
   await h.mouse.move(lift.x, lift.y)
@@ -239,7 +240,7 @@ async function offers() {
   await wait(300)
   await h.mouse.up(); await wait(400)
   const moved = await tops()
-  check('vim off: carried by one item\'s grip, the list ⌘A picked goes whole, under "after"', moved.includes('after / list(appleberryblueblackcherry) / horizontalRule') && !moved.includes('Lists / list('), moved.slice(0, 200))
+  check('vim off: carried by one item\'s grip, the list ⌘A picked goes whole, under "first words"', moved.includes('first words / list(appleberryblueblackcherry) / Lists / waterweed'), moved.slice(0, 200))
   await h.keyboard.press('Meta+z'); await wait(400)
   check('vim off: and one ⌘Z puts it back where it was', (await tops()) === before, (await tops()).slice(0, 120))
   await h.keyboard.press('Escape'); await wait(150)
