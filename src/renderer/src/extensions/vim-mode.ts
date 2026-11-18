@@ -743,6 +743,9 @@ function gotoBlock(view: EditorView, index: number, lines = false): void {
 }
 
 /** Every character of every textblock, paired with its document position. */
+/** Stands in the word stream for an empty line (textStream). */
+const EMPTY_LINE = "\u2029"
+
 function textStream(
   state: EditorState,
   from = 0,
@@ -756,6 +759,12 @@ function textStream(
     // of the first word of the line below. Never landed on, because every
     // motion here steps over anything that is not a word character.
     if (stream.length) stream.push({ pos, ch: "\n" })
+    // An empty line is a word of its own to `w` and `b`, as vim has it: `w` on the last word before empty lines
+    // stopped nowhere and ran on to the note's last line (16 Nov, "projected 48.25").
+    if (node.content.size === 0) {
+      if (pos + 1 >= from && pos + 1 <= to) stream.push({ pos: pos + 1, ch: EMPTY_LINE })
+      return false
+    }
     // A one-character placeholder keeps positions lined up with the text.
     const text = state.doc.textBetween(
       pos + 1,
@@ -889,6 +898,8 @@ function walkWords(
    */
   const kindOf = (at: number): number => {
     const ch = stream[at]?.ch
+    // An empty line: a word for `w` and `b`, a gap for `e` and `ge`, as in vim.
+    if (ch === EMPTY_LINE) return kind === "w" || kind === "b" ? 3 : 0
     if (ch === undefined || /\s/.test(ch)) return 0
     if (big) return 1
     return WORD_CHAR_RE.test(ch) ? 2 : 1
