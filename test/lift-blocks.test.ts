@@ -123,3 +123,19 @@ test('a holder with no room for a block (a one-line editor) is left as it was', 
   const stored = doc(p(text('a'), pic()))
   assert.equal(liftBlocks(stored, line), stored)
 })
+
+// The editor's code mark takes no other (TipTap's `excludes: "_"`): Markdown read in (`**`top_k`**`) gave words bold
+// and code at once, which the editor loads unchecked and then refused at its first checked insert ("Invalid collection
+// of marks for node text: bold,code", "Join them" on the largest note, 16 Nov).
+const coded = new Schema({ nodes: schema.spec.nodes, marks: schema.spec.marks.update('code', { excludes: '_' }) })
+
+test('words marked bold and code, or code and italic, keep the code alone; marks that go together stay', () => {
+  const stored = doc(p(text('lower top_k', [{ type: 'bold' }, { type: 'code' }]), text(' and '), text('main', [{ type: 'code' }, { type: 'italic' }])), { type: 'bulletList', content: [{ type: 'listItem', content: [p(text('inferenceConfig', [{ type: 'bold' }, { type: 'code' }]))] }] })
+  assert.throws(() => valid(stored, coded), /Invalid collection of marks for node text: bold,code/)
+  const fixed = liftBlocks(stored, coded)
+  valid(fixed, coded)
+  assert.deepEqual(fixed.content?.[0].content?.map((one) => one.marks?.map((mark) => mark.type)), [['code'], undefined, ['code']])
+  assert.deepEqual(fixed.content?.[1].content?.[0].content?.[0].content?.[0].marks?.map((mark) => mark.type), ['code'])
+  const fine = doc(p(text('both', [{ type: 'bold' }, { type: 'italic' }]), text('a link', [{ type: 'bold' }, { type: 'link', attrs: { href: 'https://example.org' } }])))
+  assert.equal(liftBlocks(fine, coded), fine)
+})

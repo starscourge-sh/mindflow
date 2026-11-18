@@ -1,5 +1,5 @@
 import type { JSONContent } from "@tiptap/core"
-import type { ContentMatch, NodeType, Schema } from "@tiptap/pm/model"
+import { Mark, type ContentMatch, type NodeType, type Schema } from "@tiptap/pm/model"
 
 /**
  * A block (a picture, a rule) stored inside a line of words, put on a line of its own.
@@ -86,11 +86,37 @@ function fits(holder: NodeType, children: JSONContent[], schema: Schema): boolea
   return match.validEnd
 }
 
+/**
+ * Words whose marks the schema will not put together, as the schema would make them. Code takes no other mark (its
+ * `excludes: "_"`), and Markdown read in (`**\`top_k\`**`, `*\`main\`*`: a paste, quick capture, an import) gave
+ * words bold and code at once. The editor loads that unchecked too, and its first checked insert of them refused the
+ * lot ("Invalid collection of marks for node text: bold,code": "Join them" on the largest note, 16 Nov, which had
+ * 122 such runs). Kept as the code alone; anything the schema does not know is left to it as it was.
+ */
+function marksTogether(node: JSONContent, schema: Schema): JSONContent {
+  const marks = node.marks
+  if (node.type !== "text" || !marks || marks.length < 2) return node
+  try {
+    let set: readonly Mark[] = Mark.none
+    for (const one of marks) {
+      const type = one.type ? schema.marks[one.type] : undefined
+      if (!type) return node
+      set = type.create(one.attrs ?? null).addToSet(set)
+    }
+    return set.length === marks.length ? node : { ...node, marks: set.map((mark) => mark.toJSON() as NonNullable<JSONContent["marks"]>[number]) }
+  } catch {
+    return node
+  }
+}
+
 function lift(node: JSONContent, schema: Schema, moved?: (block: JSONContent) => void): JSONContent {
   if (!node.content?.length) return node
   const holder = typeOf(schema, node)
-  // A line's own children are lifted by its holder, where there is room for them.
-  if (holder?.isTextblock) return node
+  // A line's own children are lifted by its holder, where there is room for them; its words' marks are put right here.
+  if (holder?.isTextblock) {
+    const words = node.content.map((child) => marksTogether(child, schema))
+    return words.every((child, at) => child === node.content![at]) ? node : { ...node, content: words }
+  }
   const kept = node.content.map((child) => lift(child, schema, moved))
   const lifted = kept.flatMap((child) => (typeOf(schema, child)?.isTextblock && split(child, schema, moved)) || [child])
   const same = lifted.length === node.content.length && lifted.every((child, at) => child === node.content![at])
