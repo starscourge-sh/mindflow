@@ -174,7 +174,8 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
         check(`ai: ${help}: one ⌘Z puts yours back`, (await text()) === before, (await text()).slice(0, 240))
       }
       // The three that keep something: shown first, made only with ↵, with a notice; ⌘Z takes it back.
-      const nuggets = async () => (await v('items', 'nugget')).map((one) => `${one.prompt ?? ''}|${one.title ?? ''}`)
+      // A card for Review is a study card (kept apart from gems, as main's items list keeps each tier): looked for in both.
+      const nuggets = async () => [...(await v('items', 'card')), ...(await v('items', 'nugget'))].map((one) => `${one.prompt ?? ''}|${one.title ?? ''}`)
       const questions = async () => (await v('items', 'question')).map((one) => one.title)
       // What each notice says, in the app's own words (writing-help.tsx use(), reword.tsx keep()).
       const SAYS = { card: /Card made, in Review/, ask: /A question you hold now, with these words as its first clue/, quote: /Kept as a gem/ }
@@ -270,7 +271,7 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       if (shot) await c.both(`${shot}/pdf-card-preview`)
       check('ai: in a PDF, “Make it a card” shows the card by the words first', inPdf?.shown?.state === 'ready' && inPdf.shown.text.includes('What do these words say?'), JSON.stringify(inPdf?.shown))
       await h.keyboard.press('Enter'); await wait(1200)
-      const cards = async () => (await v('items', 'nugget')).filter((one) => (one.prompt ?? '').startsWith('What do these words say?') )
+      const cards = async () => [...(await v('items', 'card')), ...(await v('items', 'nugget'))].filter((one) => (one.prompt ?? '').startsWith('What do these words say?'))
       const made = await cards()
       check('ai: in a PDF, ↵ makes the card with the book under it', made.length === 1 && !!made[0].medium, JSON.stringify(made.map((one) => [one.title, one.medium])))
       await h.keyboard.press('Meta+z'); await wait(1200)
