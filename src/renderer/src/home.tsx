@@ -1515,7 +1515,10 @@ export function Home(): React.JSX.Element {
     const read = (): void => void call<Opened[]>('home:recent-opened', 12).then(setRecents)
     read()
     window.addEventListener('haligtree:pdf-title', read)
-    return () => window.removeEventListener('haligtree:pdf-title', read)
+    // And when a note goes: a page a link made, left empty, is dropped a moment after the page changed. Only on a
+    // change of the whole book (`null`), as a drop is, never on one note's save while typing.
+    const off = window.api.captures.onChange((what) => void (what === null && read()), ['capture'])
+    return () => (window.removeEventListener('haligtree:pdf-title', read), off())
   }, [view.focus])
   const open = (type: string, id: string, key = frontRef.current): void => {
     // Which way it goes is read from the click itself, before any wait.
@@ -2535,8 +2538,9 @@ export function Home(): React.JSX.Element {
                 const open1 = inRecent && noteNow ? { id: noteNow.id, type: noteNow.type, title: noteNow.name.title, kind: known.get(noteNow.id)?.capture?.kind ?? known.get(noteNow.id)?.item?.kind ?? null, private: noteNow.name.private ? 1 : 0 } : null
                 const fresh = recents.filter((one) => !pins.some((pin) => pin.id === one.id))
                 // Held in their places, each by its newest name: a web page read for the first time is named by its
-                // site until its article is kept, then by its title ("Roman Empire", not "en.wikipedia.org").
-                const held = recentShown.current.map((one) => recents.find((each) => each.id === one.id) ?? one)
+                // site until its article is kept, then by its title ("Roman Empire", not "en.wikipedia.org"). One no
+                // longer in the book (a page a link made, dropped for being left empty) goes: its row would open nothing.
+                const held = recentShown.current.flatMap((one) => recents.find((each) => each.id === one.id) ?? (one.id === view.focus ? [one] : []))
                 const rows = (view.focus && held.some((one) => one.id === view.focus) ? held : [...(open1 && !pins.some((pin) => pin.id === open1.id) ? [open1] : []), ...fresh.filter((one) => one.id !== open1?.id)].slice(0, 4))
                 recentShown.current = rows
                 if (!recentDrawn || quiet || narrow || !rows.length) return null
