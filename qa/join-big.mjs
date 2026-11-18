@@ -9,10 +9,11 @@
 // Checks: the copy holds both (its words, a rule, the other's), the other is in the Bin, the one loader shows, the
 // notice says it with Undo, ⌘Z puts both rows back exactly (every column), no page errors; and prints the longest gap
 // between two frames of the window from the press until the note is drawn again, and the longest frozen stretch.
-//   SMALL=1   the largest open note under 3,000 characters instead: the meaning, on an ordinary note.
+//   SMALL=1   a note of three short paragraphs and its twin instead: the meaning, on an ordinary note.
 //   TYPED=1   a word typed at the end of the copy's first line first: kept as a document then, while the other may
 //             still be the Markdown it came in as (the window reads that one for the join).
-//   DARK=1    the join and its undo in the dark look.   FRAMES=<folder>  a frame every 50 ms through the join and the undo.
+//   DARK=1    the join and its undo in the dark look.   FRAMES=<folder>  a frame every 50 ms through the join and the undo;
+//             MOMENTS=<folder>  one frame as each state is first seen, and the end in the other look.
 //   PROF=1    where the time went, from the press until the note is drawn again.
 import { DatabaseSync } from 'node:sqlite'
 import { existsSync, mkdirSync, readFileSync } from 'fs'
@@ -29,9 +30,16 @@ if (!root) throw new Error('QA_DATA must be a copy of a book')
 const shelf = existsSync(join(root, 'books.json')) ? JSON.parse(readFileSync(join(root, 'books.json'), 'utf8')) : null
 const file = shelf?.last && shelf.last !== 'default' ? join(root, 'books', shelf.last, 'haligtree.db') : join(root, 'haligtree.db')
 const db = new DatabaseSync(file)
-// SMALL: an ordinary note still kept as the Markdown it came in as (most of a book is), of a few hundred words: a short one of links and a tag has too few words to be said to repeat anything.
-const SMALL = ` and substr(body, 1, 1) = '"' and length(body) between 1500 and 6000`
-const big = db.prepare(`select * from captures where status = 'open' and kind = 'note' and body is not null and private = 0${process.env.SMALL ? SMALL : ''} order by length(body) desc limit 1`).get()
+// SMALL: an ordinary note of three short paragraphs, written a day ago, put in the book first. (A small note of the
+// book's own was no use: those old enough are put away as the book opens, and a note put away is not offered.)
+const paragraphs = ['Feed the sourdough starter twice a day at room temperature.', 'It is ready when it doubles and smells sour and sweet.', 'Weigh the flour, cups lie. Bake it in a lidded pot, hot.']
+const small = () => {
+  const id = randomUUID()
+  const body = JSON.stringify({ type: 'doc', content: [...paragraphs.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })), { type: 'paragraph' }] })
+  db.prepare("insert into captures (id, title, kind, status, body, captured_at) values (?, '', 'note', 'open', ?, ?)").run(id, body, new Date(Date.now() - 86_400_000).toISOString())
+  return db.prepare('select * from captures where id = ?').get(id)
+}
+const big = process.env.SMALL ? small() : db.prepare("select * from captures where status = 'open' and kind = 'note' and body is not null and private = 0 order by length(body) desc limit 1").get()
 const twin = randomUUID()
 // Every column as the note's own, its time too: a copy made a moment ago would be marked used the first time it is read
 // past its first minute (captures.ts), which a probe's timing, not the join, would decide.
