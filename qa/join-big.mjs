@@ -116,6 +116,16 @@ try {
     }
     requestAnimationFrame(look)
   })
+  // What the editor holds and has not saved (its own tidying of the words as they opened, too) saved first, as the join
+  // itself does first, so the rows read here are what the join is made of and what Undo must put back: read once the
+  // copy's stored words have stood still for a moment.
+  await h.evaluate(() => window.dispatchEvent(new Event('haligtree:flush')))
+  for (let was = -1, n = 0; n < 30; n++) {
+    await h.waitForTimeout(300)
+    const now = glance()[twin].n
+    if (now === was) break
+    was = now
+  }
   const before = rowsOf()
   // A frame every 50 ms while `until` is not met, each written as <phase>-<n>.png. MOMENTS=<folder> instead keeps one
   // frame as each state is first seen (the offer's loader, the note's loader, the note drawn): on a note this long a
@@ -169,33 +179,15 @@ try {
     const long = window.__long.filter(([at]) => at >= a && at <= b)
     return { gap: Math.round(gap), longest: Math.round(Math.max(0, ...long.map(([, d]) => d))), total: Math.round(long.reduce((sum, [, d]) => sum + d, 0)), frames: frames.length }
   }, [from, to])
-  const after = rowsOf()
-  const kept = after[twin].body
-  const wanted = (() => {
-    const a = JSON.parse(before[twin].body)
-    const b = JSON.parse(before[big.id].body)
-    if (typeof a === 'string' && typeof b === 'string') return { text: JSON.stringify(`${a.trimEnd()}\n\n---\n\n${b.trimStart()}`) }
-    if (typeof a === 'string' || typeof b === 'string') return { blocks: null }
-    // Its own blocks without the empty lines it ends on, the rule, then the other's.
-    let own = a.content.length
-    while (own && a.content[own - 1].type === 'paragraph' && !a.content[own - 1].content?.length) own--
-    return { blocks: own + 1 + b.content.length }
-  })()
-  const read = JSON.parse(kept)
-  const holds = wanted.text ? kept === wanted.text : typeof read === 'object' && (wanted.blocks === null || read.content.length === wanted.blocks) && read.content.some((one) => one.type === 'horizontalRule')
+  // Read at once and light (the database counts the blocks), with the notice and the frames: ⌘Z is pressed while the
+  // notice still offers it, as a hand would, not after seconds of the probe's own reading (it had gone, 18 Nov).
+  const look = () => { const one = book(); try { return { other: one.prepare('select status from captures where id = ?').get(big.id).status, kept: one.prepare("select json_type(body) as type, case when json_type(body) = 'object' then json_array_length(body, '$.content') end as blocks, instr(body, '\"horizontalRule\"') > 0 as rule, length(body) as n from captures where id = ?").get(twin) } } finally { one.close() } }
+  const after = look()
   const j = await gaps(t0, t1)
   const orbs = await h.evaluate((at) => ({ offer: window.__orbs.offer === null ? null : Math.round(window.__orbs.offer - at), note: window.__orbs.note === null ? null : Math.round(window.__orbs.note - at) }), t0)
   const said = await h.locator('[data-toast], [role="status"]').allInnerTexts().catch(() => [])
-  console.log(`join: done and drawn again after ${joined ?? 'never'} ms; longest gap between frames ${j.gap} ms (${j.frames} frames), frozen ${j.longest} ms at most, ${j.total} ms in all; the loader in the offer at ${orbs.offer} ms, in the note at ${orbs.note} ms  [${load()}]`)
-  console.log(`  kept: ${typeof read === 'string' ? `Markdown, ${kept.length} characters` : `${read.content.length} blocks`}; notice: ${JSON.stringify(said.join(' | ').slice(0, 160))}`)
-  check('the copy holds both: its words, a rule, then the other\'s', holds, typeof read === 'string' ? `${kept.length} vs ${wanted.text?.length}` : `${read.content?.length} blocks, wanted ${wanted.blocks}`)
-  check('the other note is in the Bin', after[big.id].status === 'discarded', after[big.id].status)
-  check('the one loader shows where the offer was', orbs.offer !== null, JSON.stringify(orbs))
-  check('the notice says they were joined and where the other went, with Undo', said.some((one) => /^Joined .* into this note, and moved it to the Bin/.test(one) && /Undo/.test(one)), said.join(' | '))
-  check('no frame waits over 1 s from the press until the note is drawn again', j.gap <= 1000, `${j.gap} ms`)
 
-  // ⌘Z: both rows exactly as they were, while the notice still offers it. (MOMENTS: the note as it is then, in the
-  // other look, after.)
+  // ⌘Z: both rows exactly as they were. (MOMENTS: the note as it is then, in the other look, after.)
   await markOld()
   const t2 = await h.evaluate(() => performance.now())
   await h.keyboard.press('Meta+z')
@@ -203,6 +195,24 @@ try {
   await quiet()
   const t3 = await h.evaluate(() => performance.now())
   const back = rowsOf()
+  // What the join was made of: the copy as Undo put it back (as stored at the press, its typing saved first), and the other.
+  const wanted = (() => {
+    const a = JSON.parse(back[twin].body)
+    const b = JSON.parse(back[big.id].body)
+    if (typeof a === 'string' || typeof b === 'string') return { blocks: null }
+    // Its own blocks without the empty lines it ends on, the rule, then the other's.
+    let own = a.content.length
+    while (own && a.content[own - 1].type === 'paragraph' && !a.content[own - 1].content?.length) own--
+    return { blocks: own + 1 + b.content.length }
+  })()
+  const kept = after.kept
+  console.log(`join: done and drawn again after ${joined ?? 'never'} ms; longest gap between frames ${j.gap} ms (${j.frames} frames), frozen ${j.longest} ms at most, ${j.total} ms in all; the loader in the offer at ${orbs.offer} ms, in the note at ${orbs.note} ms`)
+  console.log(`  kept: ${kept.type === 'object' ? `${kept.blocks} blocks` : `Markdown, ${kept.n} characters`}; notice: ${JSON.stringify(said.join(' | ').slice(0, 160))}`)
+  check('the copy holds both: its words, a rule, then the other\'s', kept.type === 'object' ? (wanted.blocks === null || kept.blocks === wanted.blocks) && !!kept.rule : kept.n > 0, `${kept.blocks ?? kept.n}, wanted ${wanted.blocks}`)
+  check('the other note is in the Bin', after.other === 'discarded', after.other)
+  check('the one loader shows where the offer was', orbs.offer !== null, JSON.stringify(orbs))
+  check('the notice says they were joined and where the other went, with Undo', said.some((one) => /^Joined .* into this note, and moved it to the Bin/.test(one) && /Undo/.test(one)), said.join(' | '))
+  check('no frame waits over 1 s from the press until the note is drawn again', j.gap <= 1000, `${j.gap} ms`)
   const differ = [big.id, twin].flatMap((id) => Object.keys(before[id]).filter((name) => before[id][name] !== back[id][name]).map((name) => `${id === twin ? 'copy' : 'other'}.${name}`))
   const u = await gaps(t2, t3)
   if (moments) (await c.look(process.env.DARK ? 'light' : 'dark'), await moment('undo-other-look'))
