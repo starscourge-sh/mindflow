@@ -1,72 +1,64 @@
 import { Extension } from "@tiptap/core"
-import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
-import { Plugin } from "@tiptap/pm/state"
+import type { Fragment, Node as ProseMirrorNode } from "@tiptap/pm/model"
+import { Plugin, type EditorState, type Transaction } from "@tiptap/pm/state"
+import { ReplaceAroundStep, ReplaceStep } from "@tiptap/pm/transform"
 
 /** A bullet, a number, a checkbox. */
 const ITEMS = new Set(["listItem", "taskItem"])
-/** A bulleted, numbered or checked list. */
-const LISTS = new Set(["bulletList", "orderedList", "taskList"])
 
 /**
- * A list item whose only children are lists: the line of words was lifted out
- * (a heading, a quote) and the item stayed behind, so its bullet or checkbox
- * draws on the first child's line.
- *
- * The item goes, and the lists it held take its place. A list can hold items,
- * not lists, so the list around the item splits: what was before it, then
- * these lists, then what was after it.
+ * An item that opens on anything but its line of words: a list straight inside it ("-" alone on its line over an
+ * indented list, read from Markdown or brought in whole), with no line of its own. Its bullet then drew on its child's
+ * line beside the child's own, two bullets and two line numbers on one line (16 Nov: "◦ ▪ 1.35 storage").
  */
-function bareItems(doc: ProseMirrorNode): number[] {
-  const at: number[] = []
-  doc.descendants((node, pos) => {
-    if (!ITEMS.has(node.type.name) || node.childCount === 0) return true
-    let lists = true
-    node.forEach((child) => {
-      if (!LISTS.has(child.type.name)) lists = false
-    })
-    if (lists) at.push(pos)
-    return true
+const lineless = (node: ProseMirrorNode): boolean => ITEMS.has(node.type.name) && node.firstChild?.type.name !== "paragraph"
+
+/** Whether what came in holds such an item: a typed letter holds no item, so this costs a key nothing. */
+function holdsLineless(content: Fragment): boolean {
+  let found = false
+  content.descendants((node) => {
+    if (found) return false
+    if (lineless(node)) found = true
+    return !node.isTextblock
   })
-  return at
+  return found
 }
 
+/**
+ * Each such item given its empty line back, where it would be had it been written in the editor: an empty bullet with
+ * the list under it, as Obsidian draws the same Markdown. Nothing moves a level and no words change. Last first, so an
+ * item inside another keeps its place while the outer one is mended.
+ */
+function mend(state: EditorState): Transaction | null {
+  const at: number[] = []
+  state.doc.descendants((node, pos) => {
+    if (lineless(node)) at.push(pos)
+    return !node.isTextblock
+  })
+  if (!at.length) return null
+  const tr = state.tr
+  for (const pos of at.reverse()) tr.insert(pos + 1, state.schema.nodes.paragraph.create())
+  return tr
+}
+
+/**
+ * Items always open on a line of words. Mended as a note opens (its first content, or content set in), and whenever
+ * something brought in holds such an item (a paste, a join, a template): never by reading the whole note on a key.
+ */
 export const UnwrapBareLists = Extension.create({
   name: "unwrapBareLists",
+
+  onCreate() {
+    const tr = mend(this.editor.state)
+    if (tr) this.editor.view.dispatch(tr.setMeta("addToHistory", false))
+  },
 
   addProseMirrorPlugins() {
     return [
       new Plugin({
         appendTransaction(transactions, _old, state) {
-          if (!transactions.some((tr) => tr.docChanged)) return null
-          const tr = state.tr
-          let changed = false
-          for (let guard = 0; guard < 12; guard++) {
-            const found = bareItems(tr.doc)
-            if (!found.length) break
-            const pos = found[found.length - 1]
-            const item = tr.doc.nodeAt(pos)
-            const $pos = tr.doc.resolve(pos)
-            const list = $pos.parent
-            if (!item || !LISTS.has(list.type.name)) break
-            const index = $pos.index()
-            const listStart = $pos.before()
-            const before: ProseMirrorNode[] = []
-            const after: ProseMirrorNode[] = []
-            list.forEach((child, _offset, i) => {
-              if (i < index) before.push(child)
-              else if (i > index) after.push(child)
-            })
-            const inner: ProseMirrorNode[] = []
-            item.forEach((child) => inner.push(child))
-            const pieces: ProseMirrorNode[] = [
-              ...(before.length ? [list.type.create(list.attrs, before)] : []),
-              ...inner,
-              ...(after.length ? [list.type.create(list.attrs, after)] : []),
-            ]
-            tr.replaceWith(listStart, listStart + list.nodeSize, pieces)
-            changed = true
-          }
-          return changed ? tr : null
+          const brought = transactions.some((tr) => tr.docChanged && tr.steps.some((step) => (step instanceof ReplaceStep || step instanceof ReplaceAroundStep) && holdsLineless(step.slice.content)))
+          return brought ? mend(state) : null
         },
       }),
     ]

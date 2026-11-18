@@ -192,7 +192,9 @@ function tidyDocument(node: JSONContent, inText = false): JSONContent {
       const said = words.some((part) => part.type !== "text" || part.text?.trim()) ? [{ ...tidied, content: words }] : []
       return [...lead, ...said, ...sounds.map((part) => ({ type: "attachment", attrs: { src: soundOf(part), name: part.text ?? "" } }))]
     }
-    return /^(paragraph|heading)$/.test(child.type ?? "") && tidied.type === "attachment" ? [...lead, tidied] : [tidied]
+    // An item that opens on a list, a heading or anything but its words ("-" alone over an indented list): its empty
+    // line first, or its bullet drew on its child's line beside the child's own (extensions/unwrap-bare-lists.ts).
+    return lead.length && tidied.type !== "paragraph" ? [...lead, tidied] : [tidied]
   })
   return { ...node, content: inline ? marked(content) : absorbCaptions(content) }
 }
