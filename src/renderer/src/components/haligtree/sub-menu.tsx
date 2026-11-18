@@ -26,7 +26,7 @@ type Choice = { label: string; icon: Icon; active: (editor: Editor) => boolean; 
  * page, and the menu, anchored to a button no longer there, opened at the
  * window's top left corner.
  */
-export function BarMenu({ label, lit, icon: Shown, bare, column, text, openOn, children }: {
+export function BarMenu({ label, lit, icon: Shown, bare, column, text, tip, openOn, children }: {
   label: string
   lit: boolean
   icon: Icon
@@ -36,6 +36,8 @@ export function BarMenu({ label, lit, icon: Shown, bare, column, text, openOn, c
   column?: boolean
   /** Its name beside its icon, as the host's buttons on the bar have theirs (Capture, Gem). */
   text?: string
+  /** What it does and its keys, as the bar's other buttons say theirs when their words are not shown; never while it is open. */
+  tip?: React.ReactNode
   /** A window event that opens it, for its key. */
   openOn?: string
   children: (close: () => void) => React.ReactNode
@@ -90,6 +92,8 @@ export function BarMenu({ label, lit, icon: Shown, bare, column, text, openOn, c
         tabIndex={-1}
         aria-label={label}
         aria-expanded={open}
+        tooltip={tip}
+        showTooltip={!open}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setOpen(!open)}
       >

@@ -9,6 +9,7 @@ import { closeHistory } from '@tiptap/pm/history'
 import { Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Button as BarButton } from '@/components/tiptap-ui-primitive/button'
+import { ShortcutDisplay } from '@/components/tiptap-ui-primitive/button/button'
 import { menuIcon } from '@/components/ui/menu-icon-rules'
 import { chime } from '@/lib/sound'
 import { call, haligtree } from '@/lib/haligtree'
@@ -295,7 +296,8 @@ export function WritingHelp({ editor, reading = false }: { editor: Editor; readi
   if (!has) return null
   const rows = HELPS.filter((one) => !reading || !one.edits)
   return (
-    <BarMenu label="Writing help" text="Writing help" icon={Sparkles} lit={false} column openOn={opener(editor)}>
+    <BarMenu label="Writing help" text="Writing help" icon={Sparkles} lit={false} column openOn={opener(editor)}
+      tip={<>Writing help <ShortcutDisplay shortcuts={['⌃⌘W']} /><span className="block text-muted-foreground">Apple Intelligence on this Mac: “Fix it”, “Shorter”, “Make it a card”…</span></>}>
       {(close) => <Rows rows={rows} pick={(id) => (close(), helpWith(id, editor))} close={close} />}
     </BarMenu>
   )
