@@ -110,17 +110,17 @@ export function CoverChoice({ settings, set }: { settings: Settings; set: (patch
   )
 }
 
-/** A strip of a few of a folder's pictures, from Haligtree's small copies: it comes in whole, each picture in its first frame. */
+/** A strip of a few of a folder's pictures, from Haligtree's small copies, each in its first frame (FolderStrips comes in whole). */
 function Strip({ scenes }: { scenes: Scene[] }): React.JSX.Element {
   return (
-    <ReadsIn data-scene-strip="" className="flex gap-1">
+    <span data-scene-strip="" className="flex gap-1">
       {scenes.slice(0, 6).map((scene) => (
         <span key={scene.id} className="relative h-11 flex-1 overflow-hidden rounded-[5px]" style={{ background: scene.color }}>
           {scene.small && <Decoded src={scene.small} className="absolute inset-0 size-full object-cover" />}
         </span>
       ))}
       {Array.from({ length: Math.max(0, 6 - scenes.length) }, (_, n) => <span key={`gap${n}`} className="h-11 flex-1 rounded-[5px] bg-foreground/[0.05]" />)}
-    </ReadsIn>
+    </span>
   )
 }
 
@@ -139,10 +139,15 @@ const stopCopies = (): void => {
   toast('Stopped: the copies made so far are kept, the rest are made next time', undefined, 'info')
 }
 
-export function FolderStrips({ folders, scenes, scanning, onSave }: { folders: string[]; scenes: Scene[]; scanning: boolean; onSave: (folders: string[]) => void }): React.JSX.Element | null {
+/**
+ * `scenes` null while the folders are first read: the strips come in whole once they are, each count and picture in
+ * its first frame (drawn at once, they showed "0 pictures" and empty squares, then the pictures a moment later).
+ */
+export function FolderStrips({ folders, scenes: read, scanning, onSave }: { folders: string[]; scenes: Scene[] | null; scanning: boolean; onSave: (folders: string[]) => void }): React.JSX.Element | null {
   if (!folders.length) return null
+  const scenes = read ?? []
   return (
-    <div className="mt-2 flex flex-col gap-1.5">
+    <ReadsIn reading={!read} className="mt-2 flex flex-col gap-1.5">
       {folders.map((folder) => {
         const own = scenes.filter((one) => one.root === folder)
         return (
@@ -167,7 +172,7 @@ export function FolderStrips({ folders, scenes, scanning, onSave }: { folders: s
           </div>
         )
       })}
-    </div>
+    </ReadsIn>
   )
 }
 

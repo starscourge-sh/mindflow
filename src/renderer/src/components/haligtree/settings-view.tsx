@@ -1729,7 +1729,7 @@ function SceneryFolders({ folders, on, onSave }: { folders: string[]; on: boolea
       title="Folders"
       note="Where the pictures come from; new ones you add show up on their own." more="The pictures stay where they are; small copies are kept to show them quickly. One you take out of the folder goes from here too."
       keywords="scenery folder pictures images add remove choose"
-      below={<FolderStrips folders={folders} scenes={found?.scenes ?? []} scanning={!!found?.scanning} onSave={onSave} />}
+      below={<FolderStrips folders={folders} scenes={on ? (found?.scenes ?? null) : []} scanning={!!found?.scanning} onSave={onSave} />}
     >
       {/* The first look through a folder makes its small copies: a real wait,
           said by the bare orb beside the button. */}
