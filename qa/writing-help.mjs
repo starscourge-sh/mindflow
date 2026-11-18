@@ -3,11 +3,16 @@
 // the eight is offered on the selection bar and in the right click, shows the orb while it writes, shows its result
 // before anything changes, is left with Esc as it was, is used with ↵, and is taken back with one ⌘Z. On a Mac without
 // it (macos26: Apple Intelligence off) none is offered, ⌃⌘W says what it needs, and What Haligtree can do says so too.
+// Its keys: ⌃⌘W opens the bar's Writing help with its first row lit, ↓ moves the light, ↵ or a digit picks, and what a
+// key opened is simply there. Opened by a click, the card comes and goes as every popover does (main.css mf-pop): its
+// entrance and its way out are stopped and stepped by hand, and the card is whole (opacity 1) at every step.
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/writing-help.mjs
-//   LEVELS=ai runs one Mac only; SHOT=<folder> keeps light and dark pictures of the bar, the previews and the results.
+//   LEVELS=ai runs one Mac only; SHOT=<folder> keeps light and dark pictures of the bar, the previews and the results,
+//   and of each step of the card's way in and out.
 import { PDFDocument, StandardFonts } from 'pdf-lib'
 import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
+import { holdEntrance, stepEntrance } from './pop-hold-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 // The stand-in takes its time, as a real model does, so the orb is seen.
 process.env.HALIGTREE_QA_AI_DELAY ??= '700'
@@ -16,6 +21,7 @@ const { check, done } = checks()
 const ONE = 'Teh lecture ran long, and we never got to the part on Stoic judgement.'
 const TWO = 'Virtue alone is good. Judgement is ours, and so the harm we feel from what others do is ours to undo.'
 const LONGEST = 'Judgement is ours, and so the harm we feel from what others do is ours to undo.'
+const SPANISH = 'El que lee mucho y anda mucho, ve mucho y sabe mucho.'
 const p = (text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })
 const body = { type: 'doc', content: [p('Notes from the seminar.'), p(ONE), p(TWO), p('The end.')] }
 const shot = process.env.SHOT
@@ -23,6 +29,8 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
   process.env.HALIGTREE_QA_CAPS = level
   const c = await sandbox({ width: 1300, height: 900 })
   const { h, v } = c
+  // A build without Writing help fails at its first missing control in seconds, not after a half-minute wait for each.
+  h.setDefaultTimeout(10000)
   const wait = (ms) => h.waitForTimeout(ms)
   const ai = level === 'ai'
   // The note's own words, as kept: never the preview's new words drawn among them.
@@ -67,7 +75,9 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
     if (ai && right) {
       await h.hover('[data-clicked="writing-help"]'); await wait(500)
       const lines = await h.evaluate(() => [...document.querySelectorAll('[data-clicked^="help-"]')].map((one) => one.getAttribute('data-clicked')))
-      check('ai: its submenu holds the eight', lines.length === 8, lines.join(','))
+      // Where the submenu stands in the window, for the frames: nothing touches an edge (12px).
+      const room = await h.evaluate(() => { const r = document.querySelector('[data-clicked^="help-"]')?.closest('[role="menu"]')?.getBoundingClientRect(); return r && { left: Math.round(r.left), top: Math.round(r.top), right: Math.round(innerWidth - r.right), bottom: Math.round(innerHeight - r.bottom) } })
+      check('ai: its submenu holds the eight', lines.length === 8, `${lines.join(',')}; room to the window's edges ${JSON.stringify(room)}`)
       if (shot) await c.both(`${shot}/right-click`)
     }
     await h.keyboard.press('Escape'); await wait(300)
@@ -78,6 +88,72 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       check('macos26: ⌃⌘W says what Writing help needs, never nothing', said)
     }
     if (ai) {
+      const ready = async () => { for (let t = 0; t < 10000 && (await card())?.state === 'working'; t += 150) await wait(150) }
+      // Pointed at, the bar's button says what it is and its key in one tip, as its neighbours do with their words hidden.
+      await pick('Teh lecture'); await wait(600)
+      await h.hover(bar); await wait(900)
+      const tips = await h.evaluate(() => [...document.querySelectorAll('.tiptap-tooltip, [role="tooltip"]')].map((one) => one.textContent))
+      if (shot) await c.both(`${shot}/bar-tip`)
+      check('ai: pointed at, the bar’s Writing help says what it is and its key, in one tip', tips.length === 1 && /Writing help/.test(tips[0]) && /⌃⌘W/.test(tips[0]), tips.join(' | '))
+      await h.mouse.move(5, 300); await wait(300)
+      // Its keys, as every menu's: ⌃⌘W opens it with the first row lit, ↓ moves the light, ↵ picks it (never the note's
+      // ↵ over the picked words), a digit picks its own row; what keys opened is simply there, with no entrance.
+      const menu = () => h.evaluate(() => { const one = document.querySelector('[role="menu"][aria-label="Writing help"]'); return one && [...one.querySelectorAll('[data-help]')].map((row) => `${row.getAttribute('data-help')}${row.getAttribute('data-highlighted') === 'true' ? '*' : ''}`).join(',') })
+      await pick('Teh lecture'); await wait(600)
+      await h.keyboard.press('Control+Meta+w'); await wait(300)
+      const opened = await menu()
+      check('ai: ⌃⌘W opens the bar’s Writing help, its first row lit', !!opened?.startsWith('fix*,shorter,'), opened)
+      await h.keyboard.press('ArrowDown'); await wait(150)
+      const moved = await menu()
+      check('ai: ↓ moves the light to the next row', !!moved?.startsWith('fix,shorter*,'), moved)
+      await h.keyboard.press('Enter'); await wait(120)
+      const keyed = await h.evaluate(() => { const one = document.querySelector('[data-writing-help]'); return one && { help: one.getAttribute('data-writing-help'), keyed: one.hasAttribute('data-keyed'), moving: one.getAnimations().length } })
+      check('ai: ↵ picks the lit row, the words untouched, and the card a key opened is simply there', keyed?.help === 'shorter' && keyed.keyed && keyed.moving === 0 && (await text()) === before && !(await menu()), JSON.stringify(keyed))
+      await ready()
+      await h.keyboard.press('Escape'); await wait(300)
+      await h.keyboard.press('Control+Meta+w'); await wait(300)
+      await h.keyboard.press('Digit3'); await wait(150)
+      check('ai: a digit picks its own row (3, “Friendlier”)', (await card())?.help === 'friendlier' && !(await menu()), JSON.stringify(await card()))
+      await ready()
+      await h.keyboard.press('Escape'); await wait(300)
+      check('ai: Esc after keys leaves the words as they were, still picked', !(await card()) && (await text()) === before && (await picked()) === ONE, await picked())
+      // Opened by a click, it comes in as every popover does, and goes the way it came: each stepped by hand.
+      const STEPS = [0, 16, 33, 50, 100, 150]
+      for (const look of ['light', 'dark']) {
+        await c.look(look)
+        await pick('Teh lecture'); await wait(600)
+        await h.click(bar); await wait(300)
+        await holdEntrance(h, '[data-writing-help]')
+        await h.click('[data-help="plainer"]')
+        const seen = await stepEntrance(h, '[data-writing-help]', STEPS, shot ? (t) => `${shot}/card-in-${look}-${String(t).padStart(3, '0')}.png` : null)
+        check(`ai: ${look}: opened by a click, the card is whole at every step of its entrance, never faded`, seen.every((one) => one && one.opacity === 1 && !one.fades), seen.map((one) => one && `${one.opacity} ${one.clip}`).join(' | '))
+        check(`ai: ${look}: and it grows out of the words' side by its clip`, seen[0]?.n > 0 && seen[0].clip !== seen.at(-1).clip, `${seen[0]?.clip} to ${seen.at(-1)?.clip}`)
+        await ready()
+        // Its way out, stopped as it starts (each frame until it does), as the entrance is.
+        await h.evaluate(() => { window.__out = null; const t0 = performance.now(); const tick = () => { const el = document.querySelector('[data-writing-help][data-state="closed"]'); const list = el?.getAnimations() ?? []; if (list.length) (list.forEach((one) => one.pause()), (window.__out = list.length)); else if (performance.now() - t0 < 4000) requestAnimationFrame(tick); else window.__out = -1 }; requestAnimationFrame(tick) })
+        await h.click('[data-help-leave]')
+        await h.waitForFunction(() => window.__out !== null, null, { timeout: 6000 }).catch(() => {})
+        const out = await h.evaluate((steps) => {
+          const el = document.querySelector('[data-writing-help][data-state="closed"]')
+          const list = el?.getAnimations() ?? []
+          return steps.map((t) => (list.forEach((one) => (one.currentTime = t)), el ? { n: list.length, opacity: Number(getComputedStyle(el).opacity), clip: getComputedStyle(el).clipPath.slice(0, 44) } : null))
+        }, [0, 33, 66, 99])
+        for (const t of shot ? [0, 50] : []) {
+          await h.evaluate((t) => document.querySelector('[data-writing-help][data-state="closed"]')?.getAnimations().forEach((one) => (one.currentTime = t)), t)
+          await h.screenshot({ path: `${shot}/card-out-${look}-${String(t).padStart(3, '0')}.png` })
+        }
+        await h.evaluate(() => document.querySelector('[data-writing-help]')?.getAnimations().forEach((one) => one.finish()))
+        await wait(300)
+        check(`ai: ${look}: left by a click, it goes the way it came, whole as it goes, then is gone`, out.every((one) => one && one.n > 0 && one.opacity === 1) && out[0].clip !== out.at(-1).clip && !(await card()) && (await text()) === before, out.map((one) => one && `${one.opacity} ${one.clip}`).join(' | '))
+      }
+      await c.look('light')
+      // Its sibling, the reword card (the bar's “Capture”), comes and goes the same way, and is gone once it has gone.
+      await pick('Teh lecture'); await wait(600)
+      await h.click('[data-selection-bar] button[aria-label="Capture"]'); await wait(400)
+      const sibling = await h.evaluate(() => { const one = document.querySelector('[data-reword]'); return one && { state: one.getAttribute('data-state'), side: one.getAttribute('data-side'), keyed: one.hasAttribute('data-keyed'), pop: one.classList.contains('mf-pop') } })
+      if (shot) await c.both(`${shot}/reword-sibling`)
+      await h.click('[data-reword] button:has-text("Cancel")'); await wait(500)
+      check('ai: its sibling, the reword card, comes in the same way and, cancelled by a click, goes and is gone', sibling?.state === 'open' && sibling.pop && !sibling.keyed && !(await h.locator('[data-reword]').count()) && (await text()) === before, JSON.stringify(sibling))
       // The five that reword: shown after yours, Esc leaves yours, ↵ uses it, one ⌘Z puts yours back.
       for (const help of ['fix', 'shorter', 'friendlier', 'plainer', 'mine']) {
         const { working, shown } = await ask('Teh lecture', help, help === 'shorter' ? 'shorter' : null)
@@ -119,6 +195,20 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
         check(`ai: ${help}: ⌘Z takes it back`, !made(await list()), JSON.stringify((await list()).filter((one) => one.includes('stand-in') || one.includes('Judgement') || one.includes('What do'))))
         await v('item:save', id, { body }); await c.send('article', id); await wait(1000)
       }
+      // At the window's smallest (560 by 400): the bar's menu and the card stay inside the window, clear of its edges.
+      await c.size(560, 400); await c.send('article', id); await wait(1200)
+      await pick('Teh lecture'); await wait(600)
+      const inside = (sel) => h.evaluate((sel) => { const r = document.querySelector(sel)?.getBoundingClientRect(); return r ? { left: Math.round(r.left), top: Math.round(r.top), right: Math.round(innerWidth - r.right), bottom: Math.round(innerHeight - r.bottom) } : null }, sel)
+      await h.click(bar); await wait(300)
+      const smallMenu = await inside('[role="menu"][aria-label="Writing help"]')
+      if (shot) await h.screenshot({ path: `${shot}/small-menu.png` })
+      await h.click('[data-help="shorter"]'); await ready()
+      const smallCard = await inside('[data-writing-help]')
+      if (shot) await h.screenshot({ path: `${shot}/small-card.png` })
+      const clear = (r) => !!r && Math.min(r.left, r.top, r.right, r.bottom) >= 8
+      check('ai: at 560 by 400 the menu and the card stay inside the window, clear of its edges', clear(smallMenu) && clear(smallCard), JSON.stringify({ smallMenu, smallCard }))
+      await h.keyboard.press('Escape'); await wait(300)
+      await c.size(1300, 900)
       // A failure gets a plain line: too long a pick.
       await v('item:save', id, { body: { type: 'doc', content: [p('A short line first.'), p('x '.repeat(2200).trim())] } }); await c.send('article', id); await wait(1000)
       const { shown } = await ask('x x', 'fix')
@@ -129,7 +219,10 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
     // change), each shown by the words first, made with ↵ as the reader makes its own, and taken back with ⌘Z.
     const pdf = await PDFDocument.create()
     const font = await pdf.embedFont(StandardFonts.Helvetica)
-    pdf.addPage([560, 300]).drawText(TWO, { x: 20, y: 240, size: 9, font })
+    const page = pdf.addPage([560, 300])
+    page.drawText(TWO, { x: 20, y: 240, size: 9, font })
+    // A line in another language, for the frame of Writing help beside the app's own Translate in the same right click.
+    page.drawText(SPANISH, { x: 20, y: 200, size: 9, font })
     await v('item:save', id, { body: { type: 'doc', content: [{ type: 'paragraph' }] } }); await c.send('article', id); await wait(1200)
     await h.evaluate((bytes) => {
       const ed = document.querySelector('[data-open] .tiptap').editor
@@ -182,6 +275,18 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       check('ai: in a PDF, “Pull the quote” shows the line worth keeping, as its author wrote it', quote?.shown?.state === 'ready' && quote.shown.text.includes(LONGEST), JSON.stringify(quote?.shown))
       await h.keyboard.press('Escape'); await wait(400)
       check('ai: in a PDF, Esc leaves it, nothing kept', !(await card()) && !(await v('items', 'nugget')).some((one) => (one.title ?? '').includes('Judgement is ours')))
+      // Beside the app's own Translate: words in another language picked, the right click holds both lines, one under
+      // the other (a frame to read, not a line of this probe: whether Translate shows is the Mac's own language check).
+      await h.keyboard.press('Escape'); await wait(300)
+      const spanish = await h.evaluate((line) => { const span = [...document.querySelectorAll('.pdf-reader .textLayer span')].find((one) => one.textContent.includes(line.slice(0, 12))); if (!span) return null; const range = document.createRange(); range.selectNodeContents(span); getSelection().removeAllRanges(); getSelection().addRange(range); const r = range.getBoundingClientRect(); return { x: r.left + 30, y: r.top + r.height / 2 } }, SPANISH)
+      if (spanish) {
+        await wait(900)
+        await h.mouse.click(spanish.x, spanish.y, { button: 'right' }); await wait(600)
+        const both = await h.evaluate(() => ({ translate: !!document.querySelector('[data-translate]'), help: !!document.querySelector('[data-writing-help-menu]') }))
+        console.log(`(frame) a PDF's right click on words in Spanish: ${JSON.stringify(both)}`)
+        if (shot) await c.both(`${shot}/pdf-beside-translate`)
+        await h.keyboard.press('Escape'); await wait(300)
+      }
     }
     await h.keyboard.press('Escape'); await wait(300)
     // What Haligtree can do: the card is there on every Mac, saying what it needs where the Mac lacks it.
