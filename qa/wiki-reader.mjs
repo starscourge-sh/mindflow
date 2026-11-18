@@ -1,4 +1,4 @@
-// Wikipedia searched and read inside Haligtree (part A; qa/wiki-beside.mjs is part B).
+// Wikipedia searched and read inside Haligtree (its part B, the reader beside a note, went on 18 Nov: qa/REMOVED-18nov.md).
 // ⌘K offers "Search Wikipedia for “…”" under your own results and asks Wikipedia
 // nothing until that line is picked, then only the words typed; its answers come
 // with their one line and a free picture; ↵ reads one in the reader, with its

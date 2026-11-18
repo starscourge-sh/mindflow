@@ -50,8 +50,8 @@ const gem = async (words, prompt, grades = []) => {
 }
 /**
  * Review open on its first card, the answer shown; `prompt` may be a list when any of them may come first (the new
- * cards you wrote are shuffled by the day, src/main/haligtree.ts `shuffleNew`, and one note's cards never come back
- * to back), and the one found is returned.
+ * cards you wrote are shuffled by the day and each card's own id, src/main/study.ts `shuffleNew`, so their order
+ * changes from run to run, and one note's cards never come back to back), and the one found is returned.
  */
 const reviewTo = async (prompt) => {
   await go('home')
