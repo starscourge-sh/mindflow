@@ -191,6 +191,8 @@ export function KeptCard({ example }: { example: boolean }): React.JSX.Element |
   const real = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
   const studied = example ? EXAMPLE : real
   const [onKept, sayKept] = useHover()
+  // Stats waits for it: drawn late, it pushed Remembering and all under it down a card's height.
+  useReading(!studied)
   if (!studied) return null
   const keptNow = studied.kept[studied.kept.length - 1]
   const keptMonths = studied.kept.filter((one) => one.notes + one.gems).length
@@ -224,6 +226,8 @@ export function KeptCard({ example }: { example: boolean }): React.JSX.Element |
  */
 export function StudyYear({ compact = false }: { /** Above the decks: the same year, its squares a little smaller. */ compact?: boolean }): React.JSX.Element {
   const studied = useLive(() => window.api.haligtree('study:stats') as Promise<Studied>, null as Studied | null, [], ['item'])
+  // Its numbers come with the page, never "0 days" a beat before the real count.
+  useReading(!studied)
   const [on, setOn] = useState<string | null>(null)
   const [point, setPoint] = useState<number | null>(null)
   const cell = SQUARE

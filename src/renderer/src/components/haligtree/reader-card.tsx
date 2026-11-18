@@ -8,6 +8,7 @@ import CopyIcon from '@/components/ui/copy-icon'
 import DownloadIcon from '@/components/ui/download-icon'
 import { call, haligtree, useLive } from '@/lib/haligtree'
 import { useShelf } from '@/lib/books'
+import { useReading } from '@/lib/reads-in'
 import { useFitText } from '@/lib/fit-text'
 import { chime } from '@/lib/sound'
 import { still } from '@/lib/motion'
@@ -305,6 +306,8 @@ export function ReaderCard({ seed: saved, point, named, bare = false, arrive, wa
 }): React.JSX.Element {
   const shelf = useShelf()
   const facts = useLive(() => call<Facts>('reader:card'), null as Facts | null)
+  // Its "Kept since" line and stamps come with the page, never "Not begun" a beat before them.
+  useReading(facts === null)
   const card = useRef<HTMLDivElement>(null)
   // The card tips toward the pointer as a picture in full screen does (tilt.tsx), a little less far: it is held, not studied.
   const tilt = useTilt(7, 1.02)

@@ -6,6 +6,7 @@ import { ChevronDown, Sparkles, StickyNote } from 'lucide-react'
 import { Tip } from './ui'
 import { chime } from '@/lib/sound'
 import { haligtree, useLive, type Settings } from '@/lib/haligtree'
+import { useReading } from '@/lib/reads-in'
 
 /** Where a tab puts its own controls (Stacks or List, the search, Display): the toolbar's right end. */
 export const ToolbarSlot = createContext<HTMLElement | null>(null)
@@ -35,6 +36,8 @@ export function wearFinish(finish: Finish): void {
 export function FinishPick(): React.JSX.Element {
   const compact = useToolbarCompact()
   const settings = useLive(haligtree.settings, null as Settings | null)
+  // The finish in use is pressed from the first frame: never Satin a beat before a kept Paper.
+  useReading(!settings)
   const [picked, setPicked] = useState<Finish | null>(null)
   // Pressed, it shows at once; the saved choice takes over as it comes back (or as Settings changes it).
   useEffect(() => setPicked(null), [settings?.reviewFinish])

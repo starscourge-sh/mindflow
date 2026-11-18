@@ -27,6 +27,7 @@ import { Coverage, coverageOf, type BrowsedCard } from './card-browser'
 import { TabControls, useToolbarCompact } from './review-toolbar'
 import { Tip } from './ui'
 import { motion } from 'motion/react'
+import { useReading } from '@/lib/reads-in'
 import { EASE, still } from '@/lib/motion'
 import { PileEdges } from './deck-pile'
 import { OnceHint } from './page-hint'
@@ -100,6 +101,8 @@ export function DeckShelf({ place, onPlace, onOpen, onStudy, onPaste, onPicture,
   // A deck being named where it will stand, as Finder names a new folder: a new one (inside another, or not), or one renamed.
   const [naming, setNaming] = useState<{ inside?: string } | { tag: string } | null>(null)
   useNewDeckAsked(() => setNaming({}))
+  // Review's page waits for the decks: the toolbar's New deck and Stacks or List come with it, never a beat after.
+  useReading(unloaded(shelves) || !own)
   if (unloaded(shelves) || !own) return <div />
   const newDeck = (inside?: string): void => setNaming({ inside })
   const renaming = naming && 'tag' in naming ? naming.tag : null
