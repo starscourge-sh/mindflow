@@ -15,8 +15,9 @@
 //  6. a link to a name in neither the book nor the vault: the empty note, its first line saying it is new, and once
 //     left empty it goes, from Recent in the sidebar too; 7. two notes of the name: asked at the link, by path;
 //  8. a link naming its folder: that one, unasked; 10. ⌘-click: brought in, in a new tab; 11. right-click, Enter on
-//     "Open": brought in; 12. a link in the reader: brought in; 9. the vault moved away: the new note says it could
-//     not be read there.
+//     "Open": brought in; 12. a link in the reader: brought in; 13. ⌥-click: brought in, to the side; 14. a link on a
+//     board's card: brought in; 9. the vault moved away: the new note says it could not be read there. And no notice
+//     of words changed elsewhere anywhere on the way (one writer points a waiting link: the book).
 //   QA_DATA=<empty folder> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/ghost-link.mjs
 //   SHOTS=<folder> saves frames of each click, and the pages in light and dark.
 import { mkdirSync, renameSync, writeFileSync, rmSync } from 'node:fs'
@@ -39,6 +40,9 @@ mkdirSync(join(vault, 'Archive'), { recursive: true })
 writeFileSync(join(vault, 'Notes', 'Twice page.md'), 'The first of two.\n')
 writeFileSync(join(vault, 'Notes', 'Menu page.md'), 'Opened from its menu.\n')
 writeFileSync(join(vault, 'Notes', 'Reader page.md'), 'Followed from the reader.\n')
+writeFileSync(join(vault, 'Notes', 'Side page.md'), 'Opened to the side.\n')
+mkdirSync(join(vault, 'Boards'), { recursive: true })
+writeFileSync(join(vault, 'Boards', 'Card page.md'), 'Followed from a board card.\n')
 writeFileSync(join(vault, 'Archive', 'Twice page.md'), 'The second of two.\n')
 writeFileSync(`${vault}.json`, JSON.stringify({ vaults: { a: { path: vault, ts: 1, open: true } } }))
 process.env.HALIGTREE_OBSIDIAN_CONFIG = `${vault}.json`
@@ -95,9 +99,17 @@ try {
     p(t('A quote: '), { type: 'noteLink', attrs: { id: gem, label: 'QUOTE - Reed - Nothing Truly Painful Yet Nothing Truly Satisfying' } }, t('.')),
     p(t('From the vault: '), ghost('Vault page'), t(' and nowhere: '), ghost('Nowhere page'), t('.')),
     p(t('Two of a name: '), ghost('Twice page'), t(', one by its path: '), ghost('Archive/Twice page'), t(', and the vault gone: '), ghost('Gone page'), t('.')),
-    p(t('By its menu: '), ghost('Menu page'), t(', from the reader: '), ghost('Reader page'), t('.'))
+    p(t('By its menu: '), ghost('Menu page'), t(', from the reader: '), ghost('Reader page'), t(', to the side: '), ghost('Side page'), t('.'))
   ] } })
+  // A page kept as a board, a card on it linking to a note only in the vault (qa/board-links.mjs makes its board so).
+  const board = await v('article:new')
+  await v('item:save', board, { title: 'Card board', body: { type: 'doc', content: [
+    { type: 'heading', attrs: { level: 2 }, content: [t('To read')] },
+    { type: 'taskList', content: [{ type: 'taskItem', attrs: { checked: false }, content: [p(t('Read '), ghost('Card page'), t(' next'))] }] }
+  ] } })
+  await v('notes:fields:set', 'nuggets', board, 'kanban-plugin', 'board')
   await h.reload(); await wait(1500)
+  await h.evaluate(() => { window.__clashes = []; window.addEventListener('haligtree:toast', (event) => /changed elsewhere/.test(event.detail?.text ?? '') && window.__clashes.push(event.detail.text)) })
   await graphOn()
 
   // 0. The user's case: a link holding the gem's own id, no kind in front.
@@ -186,6 +198,8 @@ try {
   const after = await h.evaluate(async () => (await window.api.haligtree('items', 'article')).filter((one) => one.title === 'Vault page').length)
   const regreyed = await link('Vault page').evaluate((one) => one.classList.contains('is-unresolved')).catch(() => false)
   check('5. Undo: back on the page with the link, the note gone, the link greyed again', /Reading list/.test(s.note) && after === 0 && regreyed, `${JSON.stringify(s.note.slice(0, 40))}, ${after} left, greyed ${regreyed}`)
+  const folders = await v('groups', 'article')
+  check('5. and the folder bringing it in made ("Notes") is gone with it', !folders.some((one) => one.name === 'Notes'), JSON.stringify(folders.map((one) => `${one.name} ${one.members?.length ?? 0}`)))
 
   // 7. Two notes of the link's name: asked at the link, by path, in the app's own menu; the one chosen comes in.
   await link('Twice page').click()
@@ -202,6 +216,10 @@ try {
   await link('Archive/Twice page').click()
   s = await until((one) => /second of two/.test(one.note), 9000)
   check('8. a link naming its folder brings that one in, unasked', /second of two/.test(s.note), JSON.stringify(s.note.slice(0, 80)))
+  await send('article', page); await wait(1200)
+  await link('Archive/Twice page').waitFor({ timeout: 8000 })
+  const folderLive = !(await link('Archive/Twice page').evaluate((one) => one.classList.contains('is-unresolved')))
+  check('8. and back on the page that link is live: drawn as a link to its note', folderLive, folderLive ? 'solid' : 'still grey')
   // 10. ⌘-click: brought in and opened in a new tab, as ⌘-click opens a note already here.
   await send('article', page); await wait(1200)
   const tabs = () => h.evaluate(() => document.querySelectorAll('[data-tab]').length)
@@ -234,12 +252,31 @@ try {
   const readNotice = await toast()
   check('12. a link in the reader brings the note in, said with Undo', read.length === 1 && /Brought in from your Obsidian vault/.test(readNotice), `${read.length} in the book; ${JSON.stringify(readNotice)}`)
   await h.keyboard.press('Escape'); await wait(500)
+  // 13. ⌥-click: brought in and opened to the side, as ⌥-click opens a note already here.
+  await send('article', page); await wait(1200)
+  const panes = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].filter((one) => one.getClientRects().length).length)
+  const panesBefore = await panes()
+  await link('Side page').click({ modifiers: ['Alt'] })
+  s = await until((one) => /Opened to the side/.test(one.note), 9000)
+  const panesAfter = await panes()
+  check('13. ⌥-click: brought in, in a pane to the side', /Opened to the side/.test(s.note) && panesAfter === panesBefore + 1, `${panesBefore} panes, then ${panesAfter}; ${JSON.stringify(s.note.slice(0, 120))}`)
+  if (shots) await h.screenshot({ path: `${shots}/side.png` })
+  await h.keyboard.press('Meta+w'); await wait(600)
+  // 14. A link on a board's card: the card's click brings it in, as in the note.
+  await send('article', board); await wait(1800)
+  const onCard = h.locator('[data-board] a.tiptap-note-link:has-text("Card page")').first()
+  await onCard.waitFor({ timeout: 8000 })
+  await onCard.click()
+  s = await until((one) => /Followed from a board card/.test(one.note), 9000)
+  check('14. a link on a board card brings the note in and opens it', /Followed from a board card/.test(s.note) && s.tab === 'Card page', JSON.stringify(s).slice(0, 200))
   // 9. The vault gone (moved or renamed): where the import kept it and where Obsidian lists it, both empty. The new note says so.
   renameSync(vault, `${vault}.gone`)
   await send('article', page); await wait(1200)
   await link('Gone page').click()
   s = await until((one) => /Gone page/.test(one.note), 9000)
   check('9. the vault gone: the new note says it could not be read there', /A new note: your Obsidian vault could not be read at .*moved or renamed/.test(s.said ?? ''), JSON.stringify(s.said))
+  const clashes = await h.evaluate(() => window.__clashes ?? [])
+  check('nothing on the way said words changed elsewhere', !clashes.length, JSON.stringify(clashes))
   check('no errors on the page', !c.errors.length, c.errors.slice(0, 2).join(' | '))
 } catch (error) {
   if (shots) await h.screenshot({ path: `${shots}/error.png` }).catch(() => {})
