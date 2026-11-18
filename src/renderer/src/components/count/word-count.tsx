@@ -15,9 +15,11 @@ import { shown, sizeOf, wordsIn, type Size } from '@/lib/note-size'
 export function useCounts(editor: Editor | null): Size | null {
   // Listened for rather than drawn from: a redraw on every key in a long note made React measure the caret through
   // the whole page. Only the few small things that show a count draw again, and only when it changed.
-  // Counted at once for an editor already there, so its size is drawn with it; kept with the editor it is of, so
-  // another editor's count is never shown for this one.
-  const [counts, setCounts] = useState<{ of: Editor | null; size: Size | null }>(() => ({ of: editor, size: editor && !editor.isDestroyed ? sizeOf(editor.state.doc) : null }))
+  const [counts, setCounts] = useState<{ of: Editor | null; size: Size | null }>({ of: null, size: null })
+  // An editor not counted yet (the note's own as it arrives, or the next note's in its place) is counted in this
+  // same draw, so its size comes with it: never a frame of the note before's count, nor of none.
+  let now = counts
+  if (now.of !== editor) setCounts((now = { of: editor, size: editor && !editor.isDestroyed ? sizeOf(editor.state.doc) : null }))
   useEffect(() => {
     if (!editor) return
     const count = (before?: Transaction["before"]): void => {
@@ -32,7 +34,7 @@ export function useCounts(editor: Editor | null): Size | null {
     editor.on("transaction", transaction)
     return () => void editor.off("transaction", transaction)
   }, [editor])
-  return counts.of === editor ? counts.size : null
+  return now.size
 }
 
 /**
