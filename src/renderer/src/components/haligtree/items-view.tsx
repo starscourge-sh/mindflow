@@ -2318,10 +2318,11 @@ export function useFolding(tier: string, every: Item[], ownOrder: (a: Item, b: I
       const name = (id?: string): string => (id && (info.get(id)?.name ?? next.make?.name)) || 'the group'
       const n = ids.length > 1 ? ` ${num(ids.length)}` : ''
       // A group made by a drop shows in front of you with its name open for typing, as it always did: no toast, ⌘Z takes it back.
-      // Into a folder they leave the list for its page, as the card said: moved, not added.
+      // Into a folder they leave the list for its page, as the card said: moved, not added, in the words its menu's
+      // “Move to” and a drop on the sidebar's folder say it.
       const away = !!lands && isFolder(info.get(lands))
       commit(next, next.make || (lands && lands !== was) ? 'gather' : was && !lands ? 'separate' : 'shift',
-        next.make ? 'Grouped' : lands && lands !== was ? `${away ? 'Moved' : 'Added'}${n} ${away ? 'into' : 'to'} ${name(lands)}` : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort)
+        next.make ? 'Grouped' : lands && lands !== was ? (away ? `Moved ${notes(ids.length)} to ${name(lands)}` : `Added${n} to ${name(lands)}`) : was && !lands ? `Removed${n} from ${name(was)}` : `Moved${n}`, unsort)
     },
     picked: chosen,
     onLetGo: () => done(),
