@@ -26,6 +26,7 @@ import { Island, Kbd, Prop, PropInput, Props, Tip, refuse, toast } from './ui'
 import { quoted } from '../../../../main/clip'
 import { IslandBox, useFold } from './islands'
 import type { Place } from './cal-add'
+import { clickOpens } from './month-plan'
 
 /** As the grid draws hours: one hour's height, and the steps a time snaps to. */
 export const HOUR = 56
@@ -255,7 +256,7 @@ type Lift = { mode: 'move' | 'resize'; day: string; start: number; length: numbe
 export function EventBlock({ one, day, at, length, lane, onOpen, onNote, calendars }: {
   one: Shown; day: string; at: number; length: number; lane: { lane: number; of: number; room?: number }
   calendars?: { id: string; name: string; color: string }[]
-  /** Opened: a double-click, ↵ or its menu's “Open”. The popover it opens in is tied to the block (cal-add.tsx). A click only picks it. */
+  /** Opened: a click, ↵ or its menu's “Open”. The popover it opens in is tied to the block (cal-add.tsx). A ⇧- or ⌘-click only picks it. */
   onOpen: (key: string, at: HTMLElement | null) => void
   onNote?: (type: string, id: string) => void
 }): React.JSX.Element {
@@ -339,7 +340,7 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onNote, calenda
         <div ref={self} role="button" tabIndex={0} data-cal-event={one.key} data-cal-calendar={one.calendarId} data-cal-start={at} data-cal-length={length} data-readonly={one.readOnly || undefined} aria-label={said}
           onPointerDown={(event) => start(event, 'move')}
           onMouseDown={(event) => event.button === 0 && (event.preventDefault(), event.currentTarget.focus({ preventScroll: true }))}
-          onDoubleClick={(event) => (event.stopPropagation(), open())}
+          onClick={(event) => clickOpens(event) && open()} onDoubleClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => {
             if (event.key === 'Enter') (event.preventDefault(), open())
             if ((event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly) (event.preventDefault(), void dropOne(one))
@@ -412,8 +413,8 @@ export function EventChip({ one, day, onOpen, onNote, month = false, calendars, 
       <button ref={self} type="button" data-cal-event-chip={one.key} data-cal-calendar={one.calendarId}
         // A press on one of its ends is that end's own (it stretches); the chip's is for the whole of it.
         onPointerDown={(event) => !(event.target as Element).closest('[data-cal-bar-end]') && onCarry?.(event, one, 'move', day)}
-        onClick={(event) => event.detail === 0 && open()}
-        onDoubleClick={(event) => (event.stopPropagation(), open())}
+        onClick={(event) => clickOpens(event) && open()}
+        onDoubleClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => (event.key === 'Backspace' || event.key === 'Delete') && !one.readOnly && (event.preventDefault(), void dropOne(one))}
         className={`relative flex ${month ? 'mt-0.5 h-[calc(1.25rem-2px)]' : 'h-6'} min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1.5 pl-2.5 text-left text-control`}
         {...{ style: { ...tint(one.color, one.cancelled), ...across } }}>

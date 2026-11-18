@@ -24,7 +24,7 @@ import { MORE_STEP } from './show-more'
 import { IslandBox, useFold } from './islands'
 import { RowMenu, type RowItem } from './row-menu'
 import { AddPopover, DraftMark, OpenPopover, addLines as addMenu, daysOf, placeKey, placeOf, stayPut, useLeaving, type Add, type Opened } from './cal-add'
-import { MonthPlan, MonthShowMenu, Passing } from './month-plan'
+import { MonthPlan, MonthShowMenu, Passing, clickOpens } from './month-plan'
 import { crossLevels, crossed, usePinchLevels, type Way } from './cal-pinch'
 import { taskMenu, useTaskNow } from './tasks-view'
 import { DaySide, type SideAsk } from './day-side'
@@ -216,7 +216,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
   // The day a click picked: N, ↵ and “New event” are about it. Marked as the small month marks the days shown.
   const [pickedDay, setPickedDay] = useState<string | null>(null)
   // An event or a task open in the popover a new one is written in (cal-add.tsx), tied to it where it is: a
-  // double-click on it, ↵, its menu's “Open”, ⌘K, a row of Upcoming. A click on the grid only picks.
+  // click on it, ↵, its menu’s “Open”, ⌘K, a row of Upcoming. A ⇧- or ⌘-click on the grid only picks.
   const [opened, setOpened] = useState<Opened | null>(null)
   // What the pointer carries, followed on the window so it keeps up off the grid too.
   const [carry, setCarry] = useState<Carry | null>(null)
@@ -750,7 +750,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
         if (ev) (setChosenEvent(ev.dataset.calEvent ?? ev.dataset.calEventChip ?? null), setChosen(null))
       }}
       onPointerDownCapture={(event) => {
-        // A press on an event or a task picks it: ringed, and what ↵, ⌫, ⌘C and ⌘K are about. A double-click opens it.
+        // A press on an event or a task picks it: ringed, and what ↵, ⌫, ⌘C and ⌘K are about. A click opens it as well, unless ⇧ or ⌘ is held (month-plan.tsx clickOpens).
         // A press in the popover is about the one it is open on, which stays picked.
         const at = event.target as HTMLElement
         if (at.closest('[data-cal-add]')) return
@@ -871,7 +871,7 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
                 {one.mode === 'month' ? (
                   <div className="flex min-h-0 flex-1 flex-col p-3">
                     <MonthPlan bare month={one.anchor} tasks={shownTasks} onOpen={onOpen} extraSaid={[eventsSaid, study, layers.calendars, top && draftAt ? `${draftAt.day}|${draftAt.until ?? ''}|${draftAt.kind}|${draftColor}` : '']}
-                      // A double-click on a day: an event there, all day, written in the popover beside its draft. A task in the month is picked by a click and opens, in that popover, by a double-click.
+                      // A double-click on a day: an event there, all day, written in the popover beside its draft. A task in the month opens in that popover by a click.
                       onSide={setPanel} onTask={openTask} onAddDay={(day) => openAdd({ day, minute: null, length: 0, kind: 'event' })}
                       onPickDay={setPickedDay} dayMenu={(day) => addLines(day, null)}
                       dayExtra={(day) => [
@@ -986,7 +986,7 @@ function usePanelWidth(at: { key: string; home: number; least: number; most: num
 type BlockProps = {
   carry: Carry | null
   start: (event: React.PointerEvent, begin: (x: number, y: number) => Carry | null, click?: () => void) => void
-  /** A task opened (a double-click, ↵, its menu's “Open”): the popover, tied to `at`, the thing it was opened from. A click only picks it. */
+  /** A task opened (a click, ↵, its menu’s “Open”): the popover, tied to `at`, the thing it was opened from. */
   onPick: (id: string, at?: HTMLElement | null) => void
   taskNow: ReturnType<typeof useTaskNow>
   /** What is being made (cal-add.tsx), drawn where it will be, in the colour of the calendar it will be on. */
@@ -1569,7 +1569,7 @@ function Block({ task, day, at, length, lane, lifted, did, carry, start, onPick,
   const plan = task.estimate && (done > 0 || day <= dayKey()) ? <PlanDid planned={task.estimate} did={done} className={short ? 'hidden shrink-0 truncate text-meta @[12rem]:inline' : 'hidden truncate text-meta leading-tight @[5rem]:block'} /> : null
   return (
     <RowMenu items={() => taskMenu(task, { open: () => onPick(task.id), now: taskNow })}>
-      <div role="button" tabIndex={0} data-cal-block={task.id} onDoubleClick={(event) => (event.stopPropagation(), onPick(task.id, event.currentTarget))} data-landed={(landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-start={at} data-cal-length={length} aria-label={`${name}, ${clock(atMinute(day, at))}, ${lengthSaid(length)}`}
+      <div role="button" tabIndex={0} data-cal-block={task.id} onClick={(event) => clickOpens(event) && onPick(task.id, event.currentTarget)} onDoubleClick={(event) => event.stopPropagation()} data-landed={(landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-start={at} data-cal-length={length} aria-label={`${name}, ${clock(atMinute(day, at))}, ${lengthSaid(length)}`}
         onMouseDown={(event) => event.button === 0 && (event.preventDefault(), event.currentTarget.focus({ preventScroll: true }))}
         onPointerDown={(event) => {
           const box = event.currentTarget.getBoundingClientRect()
@@ -1622,9 +1622,9 @@ function Untimed({ task, due, carry, start, onPick, taskNow, landed }: { task: T
       <Tip label={`${due ? 'Due: ' : ''}${name}`}>
       <button type="button" data-cal-untimed={task.id} data-landed={(!due && landed?.id === task.id && landed.due === task.dueAt) || undefined} data-cal-due={due || undefined}
         onPointerDown={due ? undefined : (event) => start(event, (x, y) => ({ kind: 'move', task, grab: 0, length: task.estimate ?? USUAL, x, y, to: null }))}
-        // A click picks it (the page's own press, above); ↵ on it, or a double-click, opens it.
-        onClick={(event) => event.detail === 0 && onPick(task.id, event.currentTarget)}
-        onDoubleClick={(event) => (event.stopPropagation(), onPick(task.id, event.currentTarget))}
+        // A click or ↵ opens it; ⇧- or ⌘-click only picks it (the page's own press, above).
+        onClick={(event) => clickOpens(event) && onPick(task.id, event.currentTarget)}
+        onDoubleClick={(event) => event.stopPropagation()}
         className={`flex h-6 min-w-0 shrink-0 touch-none items-center gap-1 rounded-[5px] pr-1 pl-1.5 text-left text-control text-foreground transition-colors duration-150 motion-reduce:transition-none ${carry?.kind === 'move' && carry.task.id === task.id ? 'opacity-40' : ''}`}
         style={{ background: `color-mix(in oklab, ${color} 14%, var(--background))` }}>
         <span aria-hidden className="size-1.5 shrink-0 rounded-full" style={{ background: color }} />

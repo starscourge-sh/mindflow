@@ -114,7 +114,7 @@ export function MonthShowMenu({ children }: { /** More lines under the switches:
 export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWeek, onMonth, onShown, month: held, bare = false, dayExtra, extraSaid = [], bars = [], onPickDay, dayMenu, onDrawDays }: {
   /** A press on a day's empty part, which dragged across days draws one event over them (the Calendar's). */
   onDrawDays?: (event: React.PointerEvent, day: string) => void
-  /** A task opened from a day (a double-click on its line, ↵): the page's own popover, tied to `at`. Left out, the month opens it in its own. */
+  /** A task opened from a day (a click on its line, ↵): the page's own popover, tied to `at`. Left out, the month opens it in its own. */
   onTask?: (id: string, at: HTMLElement | null) => void
   tasks: Task[]
   /** The page above keeps a picked day (the Calendar): a click on a day's empty part picks it, and a double-click starts something new there. Left out, a click starts it. */
@@ -229,8 +229,8 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
   const [pickedOwn, setPickedOwn] = useState<string | null>(null)
   const openAdd = (to: Add): void => (setMine(null), setOpenedOwn(null), setPickedOwn(to.day), setAdd(to))
   const frame = useRef<HTMLElement>(null)
-  // A task picked by a click on its line (ringed), and the one open in the popover a new one is written in, tied to its
-  // line: a double-click or ↵. “Open” there is its whole page, in the side panel.
+  // A task picked by a ⇧- or ⌘-click on its line (ringed), and the one open in the popover a new one is written in, tied to its
+  // line: a click or ↵. “Open” there is its whole page, in the side panel.
   const [pickedTask, setPickedTask] = useState<string | null>(null)
   const [openedOwn, setOpenedOwn] = useState<{ id: string; at: HTMLElement | null; words?: string } | null>(null)
   // A task's own right-click menu on its line, the one every list has; kept in hand so a week drawn before it changed reads it as it is now.
@@ -762,7 +762,7 @@ function Cell({ wide, day, lines, today, outside, count, caught, flags, adding, 
   /** The day's own right-click menu, on its empty part. */
   menu?: () => RowItem[]
   onDay: (day: string) => void
-  /** A line opened: a double-click on it, or ↵. `at` is the line itself, for its popover to be tied to. */
+  /** A line opened: a click on it, or ↵. `at` is the line itself, for its popover to be tied to. */
   onLine: (line: Line, at?: HTMLElement | null) => void
   /** A line clicked: picked. Left out where the page marks what is picked itself (the Calendar). */
   onPickLine?: (line: Line) => void
@@ -857,10 +857,21 @@ function layBars(bars: Bar[], monday: string, sunday: string): { placed: { bar: 
   return { placed, lanes: ends.length }
 }
 
+/** Where the last press went down, so a click at the end of a carry or a stretch (the pointer far from it) is not a click. */
+let pressed = { x: 0, y: 0 }
+if (typeof window !== 'undefined') window.addEventListener('pointerdown', (event) => void (pressed = { x: event.clientX, y: event.clientY }), true)
+
 /**
- * A task's or a note's line in a day. A task's is dragged to move it, clicked to pick it, and opened by a double-click or
- * ↵, as an event's chip is; in the list "+N more" opens (`drag` off), a click opens it, as a row of any list does. A
- * note coming back opens on a click: it is a way to its note.
+ * A click on a task or an event on the Calendar opens it, as a row of Upcoming does; with ⇧ or ⌘ held it only picks it
+ * (ringed, for ↵, ⌫ and ⌘K), and the click that ends a carry or a stretch opens nothing. ↵ and Space always open.
+ */
+export const clickOpens = (event: React.MouseEvent): boolean =>
+  event.detail === 0 || (!event.shiftKey && !event.metaKey && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) < 4)
+
+/**
+ * A task's or a note's line in a day. A task's is dragged to move it and opened by a click or ↵, as an event's chip is
+ * (⇧- or ⌘-click only picks it); in the list "+N more" opens (`drag` off), a click opens it too, as a row of any list
+ * does. A note coming back opens on a click: it is a way to its note.
  */
 function LineChip({ line, late, onOpen, onPick, menu, drag = true }: { line: Line; late: boolean; onOpen: (line: Line, at?: HTMLElement | null) => void; onPick?: (line: Line) => void; menu?: (line: Line) => RowItem[]; drag?: boolean }): React.JSX.Element {
   const movable = drag && (line.kind === 'planned' || line.kind === 'due')
@@ -873,8 +884,9 @@ function LineChip({ line, late, onOpen, onPick, menu, drag = true }: { line: Lin
   const chip = (
     <Tip label={isDragging ? '' : `${said}${title}`}>
     <button ref={setNodeRef} type="button" data-plan-task={line.kind === 'back' ? '' : line.task.id} data-plan-kind={line.kind} {...(movable ? attributes : {})} {...(movable ? listeners : {})}
-      onClick={(event) => line.kind === 'back' || !drag || event.detail === 0 ? onOpen(line, drag ? event.currentTarget : null) : onPick?.(line)}
-      onDoubleClick={(event) => line.kind !== 'back' && drag && (event.stopPropagation(), onOpen(line, event.currentTarget))}
+      onClick={(event) => line.kind === 'back' || !drag || clickOpens(event) ? onOpen(line, drag ? event.currentTarget : null) : onPick?.(line)}
+      // Its own: a double-click on the day around it starts something new there.
+      onDoubleClick={(event) => event.stopPropagation()}
       {...loud(tone, `mf-hit relative flex h-5 min-w-0 shrink-0 items-center gap-1 rounded-sm px-1 text-left text-control leading-snug transition-colors hover:bg-accent ${tone ? '' : line.kind === 'planned' ? 'text-foreground' : 'text-foreground/85'} ${isDragging ? 'mf-carried-place' : ''} ${movable ? 'touch-none' : ''}`)}>
       {Icon ? <Icon className="size-3 shrink-0" /> : <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current opacity-70" />}
       <span dir="auto" className="truncate">{title}</span>

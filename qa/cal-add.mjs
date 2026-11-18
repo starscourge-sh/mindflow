@@ -15,7 +15,7 @@
 //           double-click that starts a task in the same popover (never the tall side panel), ↵, Undo, right-click.
 //   pinch   the light under a pinch: the week (in a month) or the day (in a week) the fingers are opening is lit while they
 //           are on it, unlit when the pinch comes to nothing, and the level it becomes arrives lit and lets the light go.
-//   open    one way for making and for opening: a click on an event or a task picks it and opens nothing; a double-click,
+//   open    one way for making and for opening: a ⇧-click on an event or a task picks it and opens nothing; a click,
 //           ↵, its menu's "Open" and ⌘K open the same popover on it, tied to it, its name in the line; "Open" there is its
 //           page in the side panel; a name typed over is kept with Undo and ⌘Z. In Month, Week and Day, for an event and
 //           for a task, then from Upcoming, and from Home's month and the Journal's. OPEN=month|week|day|rest runs
@@ -112,6 +112,7 @@ const film = async (name, run, n = 8) => {
 const cast = (name, run, ms = 450) => (dir ? castFrames(h, dir, name, run, ms) : run())
 const toMode = async (key) => { await h.keyboard.press('Escape'); await h.mouse.click(700, 30).catch(() => {}); await h.keyboard.press(key); await wait(700) }
 const dbl = async (x, y) => { await h.mouse.move(x, y); await h.mouse.dblclick(x, y); await wait(600) }
+const shiftClick = async (x, y) => { await h.keyboard.down('Shift'); await h.mouse.click(x, y); await h.keyboard.up('Shift') }
 
 try {
   await v('settings:set', { hintRate: 0 })
@@ -643,22 +644,22 @@ try {
       box = await thing(sel, label, false)
       // Clear of a task's tick at its left and of a block's lower edge, which stretches it.
       const at = [box.x + Math.max(24, Math.min(box.w * 0.6, box.w - 8)), box.y + Math.min(box.h / 2, 10)]
-      const picks = await heard(() => h.mouse.click(...at))
+      const picks = await heard(() => shiftClick(...at))
       box = await thing(sel, label, false)
       let s = await state()
-      check(`${name}: a click on the ${kind} picks it, ringed, and opens nothing`, box.ring === 'solid 2px' && !s.pop && !(await side()) && !picks.includes('open'), `ring ${box.ring}; cues ${picks.join() || 'none'}`)
-      const cuesOpen = await heard(() => film(`open-${name}-${kind}`.toLowerCase().replace(/[^a-z-]/g, ''), () => h.mouse.dblclick(...at)))
+      check(`${name}: a ⇧-click on the ${kind} picks it, ringed, and opens nothing`, box.ring === 'solid 2px' && !s.pop && !(await side()) && !picks.includes('open'), `ring ${box.ring}; cues ${picks.join() || 'none'}`)
+      const cuesOpen = await heard(() => film(`open-${name}-${kind}`.toLowerCase().replace(/[^a-z-]/g, ''), () => h.mouse.click(...at)))
       box = await thing(sel, label, false)
       s = await state()
       let on = await openOn()
       await shot(`open-${name}-${kind}`.toLowerCase().replace(/[^a-z-]/g, ''))
-      check(`${name}: a double-click opens the same popover on the ${kind}, 320 wide, its name in the line with the keys`, s.pop?.kind === kind && !!on?.id && Math.abs(s.pop.w - 320) < 1 && !!s.pop.words?.includes(label) && s.pop.focused, `${s.pop?.w}px; words ${s.pop?.words}; focused ${s.pop?.focused}`)
+      check(`${name}: a click opens the same popover on the ${kind}, 320 wide, its name in the line with the keys`, s.pop?.kind === kind && !!on?.id && Math.abs(s.pop.w - 320) < 1 && !!s.pop.words?.includes(label) && s.pop.focused, `${s.pop?.w}px; words ${s.pop?.words}; focused ${s.pop?.focused}`)
       check(`${name}: it is beside the ${kind}, never over it, inside the window, with its point, and made one sound`, inside(s) && clear(s, box) && !!s.pop?.arrow && cuesOpen.filter((cue) => cue === 'open').length === 1, `side ${s.pop?.side}; cues ${cuesOpen.join()}; ${JSON.stringify(s.pop && [Math.round(s.pop.x), Math.round(s.pop.y), Math.round(s.pop.r), Math.round(s.pop.b)])} by ${JSON.stringify([Math.round(box.x), Math.round(box.y), Math.round(box.r), Math.round(box.b)])}`)
       check(`${name}: the side panel stays shut, and where the ${kind} is reads under the line`, !(await side()) && (kind === 'event' ? /14:00/ : /16:00/).test(s.pop?.said ?? ''), `${await side()}; ${s.pop?.said}`)
       await shut()
       check(`${name}: Esc closes it and the ${kind} stays picked`, !(await state()).pop && (await thing(sel, label, false))?.ring === 'solid 2px')
       // ↵ on the one picked.
-      await h.mouse.click(...at)
+      await shiftClick(...at)
       await wait(250)
       await h.keyboard.press('Enter')
       await wait(650)
@@ -1356,16 +1357,16 @@ try {
       await wait(300)
       const now = await thing('[data-cal-level] [data-cal-event][data-readonly]', 'Mac breakfast', false)
       const at = [now.x + Math.max(16, now.w * 0.6), now.y + Math.min(now.h / 2, 10)]
-      await h.mouse.click(...at)
+      await shiftClick(...at)
       await wait(500)
       let s = await state()
-      check('a click on one of your Mac\'s events picks it, ringed, and opens nothing', (await thing('[data-cal-level] [data-cal-event][data-readonly]', 'Mac breakfast', false))?.ring === 'solid 2px' && !s.pop && !(await side()))
-      await h.mouse.dblclick(...at)
+      check('a ⇧-click on one of your Mac\'s events picks it, ringed, and opens nothing', (await thing('[data-cal-level] [data-cal-event][data-readonly]', 'Mac breakfast', false))?.ring === 'solid 2px' && !s.pop && !(await side()))
+      await h.mouse.click(...at)
       await wait(700)
       s = await state()
       const ro = await h.evaluate(() => { const pop = document.querySelector('[data-cal-add]'); if (!pop) return null; const field = pop.querySelector('input'); return { open: !!pop.getAttribute('data-cal-open'), page: !!pop.querySelector('[data-cal-open-page]'), rows: !!pop.querySelector('[data-event-rows]'), readOnly: !!field?.readOnly, keep: !!pop.querySelector('[data-new-event-add]'), said: pop.textContent } })
       await shot('unhappy-mac')
-      check('a double-click opens the same popover on it, read only: its name in a line that cannot be typed in, no "Open", no rows, no ↵ to keep, and it says whose it is', !!ro?.open && !ro.page && !ro.rows && ro.readOnly && !ro.keep && s.pop?.words === 'Mac breakfast' && /Family/.test(ro.said) && /change it in Calendar/.test(ro.said) && inside(s) && clear(s, await thing('[data-cal-level] [data-cal-event][data-readonly]', 'Mac breakfast', false)), JSON.stringify(ro && { open: ro.open, page: ro.page, rows: ro.rows, readOnly: ro.readOnly, keep: ro.keep }) + ` ${s.pop?.words}`)
+      check('a click opens the same popover on it, read only: its name in a line that cannot be typed in, no "Open", no rows, no ↵ to keep, and it says whose it is', !!ro?.open && !ro.page && !ro.rows && ro.readOnly && !ro.keep && s.pop?.words === 'Mac breakfast' && /Family/.test(ro.said) && /change it in Calendar/.test(ro.said) && inside(s) && clear(s, await thing('[data-cal-level] [data-cal-event][data-readonly]', 'Mac breakfast', false)), JSON.stringify(ro && { open: ro.open, page: ro.page, rows: ro.rows, readOnly: ro.readOnly, keep: ro.keep }) + ` ${s.pop?.words}`)
       await h.keyboard.type('xyz', { delay: 8 })
       await h.keyboard.press('Enter')
       await wait(600)
