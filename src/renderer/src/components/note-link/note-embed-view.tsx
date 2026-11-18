@@ -244,7 +244,7 @@ export function NoteEmbedView({ node, updateAttributes, editor, getPos }: NodeVi
     const at = { x: event.clientX, y: event.clientY }
     void bringFromVault(label, path).then((brought) => {
       if (brought?.found === "brought" || brought?.found === "here") return made({ id: brought.link, label: brought.title })
-      if (brought?.found === "several" && !path) return chooseNote(brought.paths, at, (one) => make(event, one), () => void noteNamed(label, findCaptures).then(made))
+      if (brought?.found === "several" && !path) return chooseNote(brought, at, (one) => make(event, one), () => void noteNamed(label, findCaptures).then(made))
       void noteNamed(label, findCaptures).then(made)
     })
   }

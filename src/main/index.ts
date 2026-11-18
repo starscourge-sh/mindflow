@@ -4843,13 +4843,14 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
  * None, or no vault to look in, or the vault gone: said, so the link can make
  * an empty note and say why. Nothing in a vault is ever written to.
  */
-async function bringLinked(name: string, path?: string): Promise<{ found: 'brought' | 'here'; link: string; title: string; path: string } | { found: 'several'; paths: string[] } | { found: 'none'; vault: boolean; unread: string[] } | { found: 'busy' }> {
+async function bringLinked(name: string, path?: string): Promise<{ found: 'brought' | 'here'; link: string; title: string; path: string } | { found: 'several'; paths: string[]; names: string[] } | { found: 'none'; vault: boolean; unread: string[] } | { found: 'busy' }> {
   const roots = await vaultRoots(keptVaults())
   if (!roots.length) return { found: 'none', vault: false, unread: [] }
   const { found, unread } = await findVaultNotes(name, roots)
   const one = path ? found.find((note) => note.path === path) : found.length === 1 ? found[0] : undefined
   // Said as unread only when no vault could be looked in: one gone among several that were read changes nothing found.
-  if (!one) return found.length > 1 ? { found: 'several', paths: found.map((note) => note.path) } : { found: 'none', vault: true, unread: unread.length === roots.length ? unread : [] }
+  // Several: each named as Obsidian's own list of files names it, by its vault and its folders there.
+  if (!one) return found.length > 1 ? { found: 'several', paths: found.map((note) => note.path), names: found.map((note) => join(basename(note.root), relative(note.root, note.path))) } : { found: 'none', vault: true, unread: unread.length === roots.length ? unread : [] }
   // Brought in before (and renamed since, so its old name finds nothing): that one.
   const before = alreadyImported(relative(one.root, one.path))
   if (before) return { found: 'here', link: before.link, title: before.title, path: one.path }

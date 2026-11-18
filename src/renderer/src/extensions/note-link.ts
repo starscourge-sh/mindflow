@@ -313,7 +313,7 @@ const madeWhy = new Map<string, string>()
 export const madeByLink = (id: string): string | null => (unsure(id) ? madeWhy.get(id) ?? null : null)
 
 /** What main found for a link's name in the Obsidian vault (index.ts bringLinked). */
-export type Brought = { found: "brought" | "here"; link: string; title: string; path: string } | { found: "several"; paths: string[] } | { found: "none"; vault: boolean; unread: string[] } | { found: "busy" }
+export type Brought = { found: "brought" | "here"; link: string; title: string; path: string } | { found: "several"; paths: string[]; names: string[] } | { found: "none"; vault: boolean; unread: string[] } | { found: "busy" }
 
 /**
  * The note of this name in the Obsidian vault the book's notes came from (or
@@ -353,7 +353,7 @@ async function openGhost(editor: Editor, label: string, heading: string, findNot
   const here = await noteNamed(label, findNotes, { make: false })
   if (here) return go(here.id)
   const brought = await bringFromVault(label, path)
-  if (brought?.found === "several" && at && !path) return void chooseNote(brought.paths, at, (one) => void openGhost(editor, label, heading, findNotes, open, undefined, one, as), () => void makeGhost(label, findNotes, go, null))
+  if (brought?.found === "several" && at && !path) return void chooseNote(brought, at, (one) => void openGhost(editor, label, heading, findNotes, open, undefined, one, as), () => void makeGhost(label, findNotes, go, null))
   if (brought?.found === "brought" || brought?.found === "here") return go(brought.link)
   await makeGhost(label, findNotes, go, brought)
 }
@@ -386,8 +386,8 @@ async function makeGhost(label: string, findNotes: NoteLinkOptions["findNotes"],
   go(note.id)
 }
 
-/** Two notes of a link's name in the vault: which, asked at the link with the app's own menu (options-menu.tsx), each by its path. */
-export function chooseNote(paths: string[], at: { x: number; y: number }, pick: (path: string) => void, none: () => void): void {
+/** Two notes of a link's name in the vault: which, asked at the link with the app's own menu (options-menu.tsx), each by its path in its vault. */
+export function chooseNote({ paths, names }: { paths: string[]; names: string[] }, at: { x: number; y: number }, pick: (path: string) => void, none: () => void): void {
   // One holder a window, made at the first question and kept: a menu put away plays its own way out, as every menu's does.
   if (!question) {
     const holder = document.createElement("div")
@@ -395,13 +395,12 @@ export function chooseNote(paths: string[], at: { x: number; y: number }, pick: 
     question = createRoot(holder)
   }
   const root = question
-  const shown = (path: string): string => path.replace(/^\/Users\/[^/]+/, "~")
   // A line chosen closes the menu as any menu's line does, then runs.
   const show = (where: { x: number; y: number } | null): void => void import("@/components/haligtree/options-menu").then(({ PointMenu }) => root.render(createElement(PointMenu, {
     at: where,
     onClose: () => show(null),
     sections: [
-      { label: `${num(paths.length)} notes of this name in your vault: which?`, items: paths.map((path) => ({ label: shown(path), run: () => pick(path) })) },
+      { label: `${num(paths.length)} notes of this name in your vault: which?`, items: paths.map((path, at) => ({ label: names[at] ?? path, run: () => pick(path) })) },
       { items: [{ label: "A new empty note instead", run: none }] }
     ]
   })))
