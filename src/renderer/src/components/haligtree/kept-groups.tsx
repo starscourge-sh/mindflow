@@ -21,7 +21,7 @@ import { pastEdge } from '@/lib/drag-edge'
 import { moveToBin } from '@/lib/to-bin'
 import { archive } from '@/lib/notes'
 import { byKeys, still } from '@/lib/motion'
-import { GROUP_COLORS, groups, isFolder, tintOf } from '@/lib/groups'
+import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { DROP_LIT, Overlay, SETTLE, upDown } from './sortable'
@@ -1019,8 +1019,8 @@ function GroupBlock({ group, entries, parts, start, cursor, estimate, row, carri
               <button type="button" data-group-empty onClick={() => (chime('open'), onNewNote(group.id))} className={cn(ROW_SHAPE, ROW_PAD, 'hover:bg-accent/60')}>
                 <span className={cn(ROW_TILE, 'border border-dashed border-foreground/20 text-muted-foreground')}><Plus className="size-4" /></span>
                 <span className="flex min-w-0 flex-col">
-                  <span className="text-control text-foreground">{isFolder(group) ? 'Nothing in it yet' : 'Nothing in this group yet'}</span>
-                  <span className="text-meta text-muted-foreground">{isFolder(group) ? 'Drag notes in, or click to start one' : 'Drag a note onto it, or click to start one'}</span>
+                  <span className="text-control text-foreground">{group.folder ? 'Nothing in it yet' : 'Nothing in this group yet'}</span>
+                  <span className="text-meta text-muted-foreground">{group.folder ? 'Drag notes in, or click to start one' : 'Drag a note onto it, or click to start one'}</span>
                 </span>
               </button>
             </div>
