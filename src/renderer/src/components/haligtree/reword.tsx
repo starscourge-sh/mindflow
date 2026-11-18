@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { chime } from '@/lib/sound'
 import { haligtree } from '@/lib/haligtree'
 import { comboOf } from '@/lib/keys'
-import { EASE, keyedMotion, shift, still } from '@/lib/motion'
+import { EASE, shift, still, usePop } from '@/lib/motion'
 import { liftFrom } from '@/lib/fly-home'
 import { Kbd, refuse, toast, whyFailed } from './ui'
 import { markKept, type Spot } from '@/extensions/kept'
@@ -387,18 +387,20 @@ function Card({ draft, by }: { draft: Draft; by: boolean }): React.JSX.Element {
     frame = requestAnimationFrame(back)
     return () => cancelAnimationFrame(frame)
   }, [])
-  const quick = still()
+  // By ⌃⌘C or ⌃⌘I it is simply there, and simply goes; by a click it comes and goes as every popover does (main.css
+  // mf-pop): grown out of the side its words are on (in the corner, upwards) by a clip, whole from its first frame,
+  // never faded in over the words. Writing help's card (writing-help.tsx) comes the same way.
+  const pop = usePop()
   return (
-    <motion.div
+    <div
       ref={ref}
       data-reword={draft.key}
       role="dialog"
       aria-label={draft.kind === 'nugget' ? 'Reword as a gem' : 'Reword as a capture'}
-      // By ⌃⌘C or ⌃⌘I it is simply there, and simply goes.
-      {...keyedMotion({ opacity: 0, transform: shift('scale(0.96)') }, { opacity: 1, transform: 'scale(1)' }, { duration: quick ? 0 : 0.16, ease: EASE },
-        { opacity: 0, transform: shift('scale(0.97)'), transition: { duration: quick ? 0 : 0.12, ease: EASE } })}
-      className={`${by ? 'fixed' : 'relative'} z-[56] flex w-[min(360px,calc(100vw-24px))] flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-(--mf-panel-shadow)`}
-      style={{ ...(spot ? { left: spot.left, top: spot.top } : {}), transformOrigin: spot?.origin ?? '0% 100%' }}
+      {...pop}
+      data-side={!spot || spot.origin.endsWith('100%') ? 'top' : 'bottom'}
+      className={`mf-pop ${by ? 'fixed' : 'relative'} z-[56] flex w-[min(360px,calc(100vw-24px))] flex-col gap-2 rounded-xl border bg-popover p-3 text-popover-foreground shadow-(--mf-panel-shadow) data-[state=closed]:pointer-events-none`}
+      style={spot ? { left: spot.left, top: spot.top } : undefined}
     >
       <div className="flex items-center gap-2">
         <Chip kind={draft.kind} onClick={() => (chime('settled'), change(draft.key, { kind: draft.kind === 'capture' ? 'nugget' : 'capture' }))} />
@@ -437,7 +439,7 @@ function Card({ draft, by }: { draft: Draft; by: boolean }): React.JSX.Element {
           Save <Kbd className="ml-1 border-primary-foreground/30 bg-transparent text-primary-foreground">⌘↵</Kbd>
         </Button>
       </div>
-    </motion.div>
+    </div>
   )
 }
 

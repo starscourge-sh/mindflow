@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { positionalKeys, type MotionProps, type TargetAndTransition, type Transition, type Variants } from 'motion/react'
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react'
+import { positionalKeys, usePresence, type MotionProps, type TargetAndTransition, type Transition, type Variants } from 'motion/react'
 
 /**
  * The app's motion in one place: its curve, how far things travel, and when
@@ -269,6 +269,24 @@ export function keyedMotion(from: TargetAndTransition, to: TargetAndTransition, 
     animate: { ...to, transition: enter },
     variants: { gone: () => (keyed ? { opacity: 0, transition: { duration: 0 } } : away) },
     exit: 'gone'
+  }
+}
+
+/**
+ * A card drawn by hand with the popovers' own way in and out (`mf-pop`, main.css), as a child of an AnimatePresence
+ * (the reword card, Writing help's). It comes in by the clip; taken away, it is kept while the clip draws back to its
+ * side (`data-state` closed) and let go when that ends. Reached by a key it is simply there; left by a key, or with
+ * motion off, it is simply gone, with no clip to wait for. How it leaves is read once, as it leaves.
+ */
+export function usePop(): { 'data-state': 'open' | 'closed'; 'data-keyed'?: true; onAnimationEnd: (event: React.AnimationEvent) => void } {
+  const [present, safeToRemove] = usePresence()
+  const [opened] = useState(byKeys)
+  const quiet = useMemo(() => opened || (!present && (keyed || still())), [opened, present])
+  useLayoutEffect(() => void (!present && quiet && safeToRemove?.()), [present, quiet, safeToRemove])
+  return {
+    'data-state': present ? 'open' : 'closed',
+    'data-keyed': quiet || undefined,
+    onAnimationEnd: (event) => void (!present && event.target === event.currentTarget && event.animationName === 'mf-pop-out' && safeToRemove?.())
   }
 }
 
