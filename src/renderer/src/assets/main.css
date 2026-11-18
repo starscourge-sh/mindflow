@@ -3506,9 +3506,12 @@ html[data-book-hue] [data-book-tint] {
 :root[data-icon-colour='off'] { --mf-icon-tint: color-mix(in oklab, var(--foreground) 72%, transparent); }
 :root[data-icon-colour='off'] .mf-emoji-icon { filter: grayscale(1); opacity: 0.85; }
 
-/* Writing mode and the writing room, nothing but the words: no scrollbar anywhere in the window while everything
-   else is faded or covered (the wheel and the keys still scroll). */
-:root:is([data-day-writing], [data-in-room]) * { scrollbar-width: none; }
+/* Writing mode and the writing room, nothing but the words: no scrollbar on what scrolls them while everything
+   else is faded or covered (the wheel and the keys still scroll). Only on those boxes, named: written as `*` under
+   the root, going in or out of either worked out every box in the window again (scrollbar-width is not handed
+   down), the whole of a long note's page with them. The room is its own scroller; writing mode's is a box on the
+   words' way up (data-day-path, day-writing.tsx). What is faded has its bar faded with it. */
+[data-room], :root[data-day-writing] [data-day-path] { scrollbar-width: none; }
 
 /* The hand over everything that is pressed: a row of any list (Writing, Gems, the Inbox, the Bin, tasks), a
    button, a link, a tab, a chip, a switch; over the words inside it too, where the text cursor showed. Weightless
