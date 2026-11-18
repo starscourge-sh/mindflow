@@ -240,19 +240,6 @@ try {
   s = await until((one) => /Opened from its menu/.test(one.note), 9000)
   check('11. right-click a link to a note only in the vault: "Open" first, a new tab and the side after it', lines[0] === 'open' && lines.includes('tab') && lines.includes('aside'), JSON.stringify(lines))
   check('11. and Enter on it brings the note in', /Opened from its menu/.test(s.note) && s.tab === 'Menu page', JSON.stringify(s).slice(0, 200))
-  // 12. A link in the reader ("Read through" from the page): the same click brings the note in.
-  await send('article', page); await wait(1200)
-  // The page in front's own button (the tab behind has one too, out of sight).
-  await h.locator('button[aria-label="Read through"]:visible').first().click()
-  const inReader = h.locator('.mf-read a.tiptap-note-link:has-text("Reader page")').first()
-  await inReader.waitFor({ timeout: 8000 })
-  await inReader.click()
-  const endRead = Date.now() + 9000
-  let read = []
-  while (Date.now() < endRead && !read.length) { await wait(200); read = (await v('items', 'article')).filter((one) => one.title === 'Reader page') }
-  const readNotice = await toast()
-  check('12. a link in the reader brings the note in, said with Undo', read.length === 1 && /Brought in from your Obsidian vault/.test(readNotice), `${read.length} in the book; ${JSON.stringify(readNotice)}`)
-  await h.keyboard.press('Escape'); await wait(500)
   // 13. ⌥-click: brought in and opened to the side, as ⌥-click opens a note already here.
   await send('article', page); await wait(1200)
   const panes = () => h.evaluate(() => [...document.querySelectorAll('[data-pane]')].filter((one) => one.getClientRects().length).length)
@@ -270,6 +257,23 @@ try {
   await onCard.click()
   s = await until((one) => /Followed from a board card/.test(one.note), 9000)
   check('14. a link on a board card brings the note in and opens it', /Followed from a board card/.test(s.note) && s.tab === 'Card page', JSON.stringify(s).slice(0, 200))
+  // 12. A link in the reader (Read through, by ⇧⌘R on the page as by its button): the same click brings the note in.
+  // Last of the ways in, so the vault-gone line still runs if this one cannot.
+  try {
+    await send('article', page); await wait(1200)
+    await h.keyboard.press('Meta+Shift+KeyR')
+    const inReader = h.locator('.mf-read a.tiptap-note-link:has-text("Reader page")').first()
+    await inReader.waitFor({ timeout: 8000 })
+    await inReader.click()
+    const endRead = Date.now() + 9000
+    let read = []
+    while (Date.now() < endRead && !read.length) { await wait(200); read = (await v('items', 'article')).filter((one) => one.title === 'Reader page') }
+    const readNotice = await h.evaluate(() => window.__toasts.join(' | '))
+    check('12. a link in the reader brings the note in, and says so', read.length === 1 && /Brought in from your Obsidian vault/.test(readNotice), `${read.length} in the book; ${JSON.stringify(readNotice.slice(-160))}`)
+    await h.keyboard.press('Escape'); await wait(500)
+  } catch (error) {
+    check('12. a link in the reader brings the note in, and says so', false, error.message.split('\n')[0])
+  }
   // 9. The vault gone (moved or renamed): where the import kept it and where Obsidian lists it, both empty. The new note says so.
   renameSync(vault, `${vault}.gone`)
   await send('article', page); await wait(1200)
