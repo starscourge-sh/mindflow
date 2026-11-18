@@ -6,6 +6,8 @@
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
+// Each window keeps the place the app gives it while really parked off screen, so a throw can be read (index.ts).
+process.env.HALIGTREE_QA_VIRTUAL ??= '1'
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1200, height: 800 })
