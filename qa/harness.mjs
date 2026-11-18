@@ -222,6 +222,13 @@ function helpers({ app, page, logs }) {
       // floats over the text, and the click below lands on it instead.
       await page.keyboard.press('ArrowRight')
       await page.waitForTimeout(120)
+      // A word left alone in the box has its meaning shown under it (word-define.tsx), over the middle of the note,
+      // where the click below lands: Esc, the meaning's own while it is up, puts it away first (qa/vim-more.mjs in a
+      // batch, 18 Nov, waited out its 30 s on the meaning of "hello").
+      if (await page.evaluate(() => !!document.querySelector('[data-define]') && !!document.activeElement?.closest('.ProseMirror'))) {
+        await page.keyboard.press('Escape')
+        await page.waitForFunction(() => !document.querySelector('[data-define]'), null, { timeout: 2000 }).catch(() => {})
+      }
       await page.click(EDITOR)
       // Vim follows the page switch, so it may or may not be on. Insert mode
       // is where typing works either way.
