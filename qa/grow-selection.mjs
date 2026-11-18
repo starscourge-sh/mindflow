@@ -119,6 +119,9 @@ const RUNS = [
   ['intro', 'a line under no heading', [['text', 'intro line'], ['all']]],
 ]
 
+/** The note's own page on the screen, for frames that show the note and not the window round it. */
+const page = () => h.evaluate((sel) => { const r = (document.querySelector(sel).closest('.haligtree-editor-content') ?? document.querySelector(sel)).getBoundingClientRect(); return { x: Math.max(0, r.left), y: Math.max(0, r.top), width: Math.min(innerWidth, r.right) - Math.max(0, r.left), height: Math.min(innerHeight, r.bottom) - Math.max(0, r.top) } }, ED)
+
 async function run(word, said, steps, label, shots) {
   await caretIn(word)
   const start = await picked()
@@ -130,7 +133,7 @@ async function run(word, said, steps, label, shots) {
     await h.keyboard.press('Meta+a')
     const gone = prior ? await bar() : null
     // Filmed every 50 ms after the press (Paper): the bar over the words waits, then comes once, whole.
-    if (shots && SHOTS && i === 1) for (let f = 0; f < 6; f++) { await h.screenshot({ path: join(SHOTS, `e4b-${word.replace(/\W+/g, '-')}-step${i + 1}-film${f * 50}ms.png`) }); await wait(50) }
+    if (shots && SHOTS && i === 1) for (let f = 0; f < 6; f++) { await h.screenshot({ path: join(SHOTS, `e4b-${word.replace(/\W+/g, '-')}-step${i + 1}-film${f * 50}ms.png`), clip: await page() }); await wait(50) }
     // The bar never sits on what the step took in: gone at the press, back above the new pick once the keys rest
     // (or, where the pick fills the sight, kept away, as for any pick that leaves it no room).
     // Over blocks picked as blocks the format bar never comes: they have the grip's menu, as a grip's or a box's pick.
@@ -149,7 +152,7 @@ async function run(word, said, steps, label, shots) {
     // Picked blocks wear their soft boxes, a list's items each their own; nothing else picked wears one.
     const ok = now.kind === kind && (words === undefined || same) && (!label.includes('visual') || kind !== 'text' || now.mode === 'visual') && (kind === B ? now.boxes > 0 : now.boxes === 0)
     check(`${label}: from ${said} ("${word}"), ⌘A ${i + 1} picks ${kind === 'all' ? 'the whole note' : `${kind} "${words.length > 40 ? words.slice(0, 18) + '…' + words.slice(-14) : words}"`}`, ok, ok ? `${now.from}-${now.to}` : JSON.stringify(now).slice(0, 220))
-    if (shots && SHOTS) for (const name of ['light', 'dark']) { await c.look(name); await wait(150); await h.screenshot({ path: join(SHOTS, `e4b-${word.replace(/\W+/g, '-')}-step${i + 1}-${name}.png`) }) }
+    if (shots && SHOTS) for (const name of ['light', 'dark']) { await c.look(name); await wait(150); await h.screenshot({ path: join(SHOTS, `e4b-${word.replace(/\W+/g, '-')}-step${i + 1}-${name}.png`), clip: await page() }) }
     if (shots && SHOTS) await c.look('light')
   }
   await h.keyboard.press('Meta+a'); await wait(120)
@@ -315,6 +318,25 @@ try {
         await h.keyboard.press('u'); await wait(300)
         const back = await h.evaluate((sel) => document.querySelector(sel).editor.state.doc.textContent, ED)
         check('vim on (visual): d after ⌘A ⌘A takes the item with its children, and u brings them back', !left.includes('berry') && !left.includes('blue') && !left.includes('black') && left.includes('apple') && left.includes('cherry') && back.includes('berryblueblack'), `${left.slice(30, 70)} / ${back.slice(30, 70)}`)
+        // In normal mode too, x as d; and c takes the item and leaves a line in the list to type on, in insert mode.
+        const text = () => h.evaluate((sel) => document.querySelector(sel).editor.state.doc.textContent, ED)
+        await caretIn('berry')
+        await h.keyboard.press('Meta+a'); await wait(100)
+        await h.keyboard.press('Meta+a'); await wait(150)
+        await h.keyboard.press('x'); await wait(300)
+        const crossed = await text()
+        await h.keyboard.press('u'); await wait(300)
+        check('vim on (normal): x after ⌘A ⌘A takes the item with its children, and u brings them back', !crossed.includes('berry') && crossed.includes('applecherry') && (await text()).includes('berryblueblack'), crossed.slice(30, 70))
+        await caretIn('berry')
+        await h.keyboard.press('Meta+a'); await wait(100)
+        await h.keyboard.press('Meta+a'); await wait(150)
+        await h.keyboard.press('c'); await wait(300)
+        const mode = (await picked()).mode
+        await h.keyboard.type('kiwi', { delay: 20 }); await wait(200)
+        const changed = await h.evaluate((sel) => document.querySelector(sel).editor.state.doc.content.content.find((one) => one.type.name === 'bulletList')?.textContent ?? '', ED)
+        await h.keyboard.press('Escape'); await wait(150)
+        for (let i = 0; i < 3 && !(await text()).includes('berryblueblack'); i++) (await h.keyboard.press('u'), await wait(250))
+        check('vim on (normal): c after ⌘A ⌘A takes the item, leaves a line in the list in insert mode, and u brings it back', mode === 'insert' && changed === 'applekiwicherry' && (await text()).includes('berryblueblack') && !(await text()).includes('kiwi'), `mode ${mode}, list "${changed}"`)
       } else {
         // The table's own bar says what it does to what is picked: a row's actions on the row, none on the whole table.
         const tableBar = () => h.evaluate(() => { const el = [...document.querySelectorAll('.tiptap-table-menu')].find((one) => one.isConnected && getComputedStyle(one).visibility !== 'hidden' && one.getBoundingClientRect().height > 0); return el ? el.textContent : '' })
