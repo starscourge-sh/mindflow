@@ -22,10 +22,13 @@ async function write(instructions: string, prompt: string, stand: string): Promi
   if (process.env.HALIGTREE_QA_CAPS === 'ai') return new Promise((done) => setTimeout(() => done({ text: stand }), Number(process.env.HALIGTREE_QA_AI_DELAY ?? 0)))
   const have = await caps()
   if (have.ai !== 'available') return { error: 'Needs Apple Intelligence' }
+  // The wait has its "at the latest": the model's answer, or past MOST_MS a line saying it took too long, its clock
+  // stopped as soon as either comes.
+  let late: NodeJS.Timeout | undefined
   const said = await Promise.race([
     understand('write', { instructions, prompt: prompt.slice(0, 8000) }),
-    new Promise<Awaited<ReturnType<typeof understand>>>((done) => setTimeout(() => done({ error: { code: 'busy', message: `Apple Intelligence took too long (over ${MOST_MS / 1000} seconds)` } }), MOST_MS))
-  ])
+    new Promise<Awaited<ReturnType<typeof understand>>>((done) => (late = setTimeout(() => done({ error: { code: 'busy', message: `Apple Intelligence took too long (over ${MOST_MS / 1000} seconds)` } }), MOST_MS)))
+  ]).finally(() => clearTimeout(late))
   return said.error ? { error: said.error.message } : { text: String(said.text ?? '').trim() }
 }
 
