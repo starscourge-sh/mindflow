@@ -3,6 +3,7 @@ import { WhyLine } from './ai-offers'
 import { BookOpen, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
+import { useReading } from '@/lib/reads-in'
 import { chime } from '@/lib/sound'
 import { OfferNote } from './note-offers'
 import { clock } from '@/lib/clock'
@@ -30,16 +31,20 @@ const gone = (): Set<string> => {
 const putAway = (id: string): void => localStorage.setItem(SEEN, JSON.stringify([...gone(), id].slice(-500)))
 
 function useAbout(text: string | null, leave?: string): About[] | null {
-  const [found, setFound] = useState<About[] | null>(null)
-  const [on, setOn] = useState(true)
+  // Found for which words: a line found for the note before is never shown under this one.
+  const [found, setFound] = useState<{ of: string; list: About[] } | null>(null)
+  const [on, setOn] = useState<boolean | null>(null)
   useEffect(() => void haligtree.settings().then((settings) => setOn(settings.noteOffers !== false)), [])
+  const of = `${text}|${leave}`
   useEffect(() => {
-    if (!text || !on) return setFound(null)
+    if (!text || !on) return
     let live = true
-    void call<About[]>('offers:about', text, leave).then((list) => live && setFound(list)).catch(() => undefined)
+    void call<About[]>('offers:about', text, leave).then((list) => live && setFound({ of, list })).catch(() => live && setFound({ of, list: [] }))
     return () => void (live = false)
-  }, [text, leave, on])
-  return found
+  }, [text, leave, on]) // eslint-disable-line react-hooks/exhaustive-deps
+  // The page waits for them: a question's clues from your notes came in over its words and pushed them 148px down.
+  useReading(on === null || (!!text && on && found?.of !== of))
+  return on && text && found?.of === of ? found.list : null
 }
 
 /** On a question's page: notes of yours that may answer it, each kept as a clue only when asked. */

@@ -91,15 +91,17 @@ export function PropertyStrip({ table, id, kind, fields, text, created, updated,
   }
   const read = useLive(() => notes.fields(table, id).then((values) => ({ of: `${table}:${id}`, values: values as Record<string, Value> })), first(), [table, id])
   const names = useLive(() => notes.propNames().then((all) => (namesSeen = all)), namesSeen, [])
-  const tags = useLive(() => notes.tags(table, id), known ?? ([] as string[]), [table, id])
+  // Its tags as read for this note; till then the ones its words name (a gem's tags are not all in its words).
+  const tagsRead = useLive(() => notes.tags(table, id).then((all) => ({ of: `${table}:${id}`, all })), null as { of: string; all: string[] } | null, [table, id])
+  const tags = tagsRead?.of === `${table}:${id}` ? tagsRead.all : (known ?? [])
   const [open, setOpen] = useState<string | null>(null)
   // Folded shut or open, the same for every note, remembered.
   const [shut, setShutState] = useState(() => { try { return localStorage.getItem(SHUT) === '1' } catch { return false } })
   const setShut = (next: boolean): void => { setShutState(next); try { localStorage.setItem(SHUT, next ? '1' : '0') } catch { /* kept for now only */ } }
   const strip = useRef<HTMLDivElement | null>(null)
   const values = read.of === `${table}:${id}` ? read.values : {}
-  // The page waits for the strip's values, so it never pops in after the words.
-  useReading(read.of !== `${table}:${id}`)
+  // The page waits for the strip's values and tags, so it never pops in after the words (a gem's #tag row pushed Add property down).
+  useReading(read.of !== `${table}:${id}` || tagsRead?.of !== `${table}:${id}`)
   const typeFor = (name: string): PropType | null => (names.find((one) => one.name.toLowerCase() === name.toLowerCase())?.type as PropType | null) ?? null
   const optionsFor = (name: string): string[] => names.find((one) => one.name.toLowerCase() === name.toLowerCase())?.options ?? []
   const fromTags: Prop[] = groups.flatMap(([tag, fields]) => fields.filter((field) => field.type !== 'hidden' && !(sourced && field.key === 'location') && !(cited && field.key === 'year')).map((field) => ({ key: field.key, label: field.label, type: typeOf(field), options: field.options ?? [], tag, field, value: values[field.key] })))
@@ -399,11 +401,11 @@ function TagChips({ tags, strip, className, children }: { tags: string[]; strip:
   return (
     <div ref={box} className={className} style={held}>
       {shown.map((tag) => (
-        <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-0.5 rounded-full bg-foreground/[0.06] pr-1 pl-2.5" style={{ color: tagTint(tag), '--mf-tag-dot': tagTint(tag) } as React.CSSProperties}>
+        <span key={tag} data-tag-chip={tag} className="inline-flex h-6 items-center gap-1 rounded-full bg-foreground/[0.06] pr-0.5 pl-2.5" style={{ color: tagTint(tag), '--mf-tag-dot': tagTint(tag) } as React.CSSProperties}>
           {/* The tag is a way to its page, as everywhere (⌥-click beside); the × only takes it off. */}
           <button type="button" data-tag-open={tag} {...hoverNote('tag', tag)} onClick={(event) => openTag(tag, event.altKey)} className="rounded-sm hover:underline">{tag}</button>
           <Tip label={`Take #${tag} off this note`}>
-            <button type="button" aria-label={`Remove #${tag}`} className="grid size-4 place-items-center rounded-full shrink-0 opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
+            <button type="button" aria-label={`Remove #${tag}`} className="mf-hit relative grid size-4 place-items-center rounded-full shrink-0 opacity-70 hover:bg-foreground/10 hover:opacity-100" onClick={() => untag(tag, strip.current)}><X className="size-3" /></button>
           </Tip>
         </span>
       ))}

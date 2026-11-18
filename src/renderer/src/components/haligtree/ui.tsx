@@ -280,10 +280,14 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
   useLayoutEffect(() => {
     const node = leadBox.current?.querySelector<HTMLElement>('[data-list-tabs]')
     if (!aside || !node) return setLeadNeed(0)
-    // The tabs whole, and the count beside them whole too ("5 open", never "5 oper").
+    // The tabs whole, and the count beside them whole too ("5 open", never "5 oper"). The count's room is held
+    // from the first frame, at its widest (three figures, or more once there are more): a list sent here for one
+    // note comes in a beat after it, and taking the count's room then moved the note over (a question, 39px).
     const measure = (): void => {
-      const count = node.closest('header')?.querySelector<HTMLElement>('[data-list-count]')
-      setLeadNeed(node.offsetWidth + (count ? count.scrollWidth + 30 : 0))
+      const header = node.closest('header')
+      const count = header?.querySelector<HTMLElement>('[data-list-count]')
+      const room = header?.querySelector<HTMLElement>('[data-count-room]')
+      setLeadNeed(node.offsetWidth + Math.max(count?.scrollWidth ?? 0, room?.scrollWidth ?? 0) + 30)
     }
     const watch = new ResizeObserver(measure)
     watch.observe(node)
@@ -304,6 +308,7 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
         <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {lead && <span ref={leadBox} className="contents">{lead}</span>}
+          {lead && aside && <span aria-hidden data-count-room className="invisible absolute mr-2 border-l pl-3 text-xs whitespace-nowrap tabular-nums">{num(Math.max(count ?? 0, 888))} {unit[1]}</span>}
           {/* With tabs or a switch at the line's left (lead), the count goes to the right, before the actions, so it is
               never read as one more tab; without, it opens the line. Said plainly when it counts what is picked. */}
           {count && !lead ? countSaid : null}

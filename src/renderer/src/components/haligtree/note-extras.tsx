@@ -1,6 +1,7 @@
 import { useVim } from '@/lib/vim'
 import { ChangedLine } from './changed-line'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useReading } from '@/lib/reads-in'
 import { useShowLine } from '@/lib/show-in-list'
 import { layerOpen } from '@/lib/menu-keys'
 import { createPortal } from 'react-dom'
@@ -137,7 +138,10 @@ const STATUS: Record<string, { said: string; cue: Cue }> = {
 let ownSeen: Record<string, Field[]> = {}
 export function useSuperTags(table: NoteTable, id: string, kind: string, known?: string[]): [name: string, fields: Field[]][] {
   // `known`: the tags as the list already read them, so the first frame has them.
-  const tags = useLive(() => notes.tags(table, id), known ?? ([] as string[]), [table, id])
+  const tagsRead = useLive(() => notes.tags(table, id).then((all) => ({ of: `${table}:${id}`, all })), null as { of: string; all: string[] } | null, [table, id])
+  const tags = tagsRead?.of === `${table}:${id}` ? tagsRead.all : (known ?? [])
+  // The page waits for them: a #book's fields never come in under words already drawn.
+  useReading(tagsRead?.of !== `${table}:${id}`)
   // The tags you gave properties, as last read: the next note opens with them already in hand.
   const own = useLive(() => notes.tagFields().then((all) => (ownSeen = all)), ownSeen, [])
   const seen = new Set<string>()
@@ -665,7 +669,8 @@ export function NoteHeader({ left, place, back, type = 'capture', edited, captur
     <>
     <div data-note-head className={`@container/head flex min-h-7 items-center justify-between gap-2 px-3 @[40rem]/page:px-[clamp(0.75rem,10%,4.25rem)] ${className}`}>
       {reading && <ReadThrough items={[{ type, id: versions.id }]} onClose={() => setReading(false)} />}
-      {place ? <div data-head-left className="flex min-w-0 items-center gap-2">{left}{place}</div> : left ?? <span />}
+      {/* Where it lives first, then the list's stepper: the stepper comes with the list, so nothing beside it ever moves when it does. */}
+      {place ? <div data-head-left className="flex min-w-0 items-center gap-2">{place}{left}</div> : left ?? <span />}
       {looking ?? (
         <Versions {...versions} trigger={(open) => (
           // On the right even when there is no list position to its left.
