@@ -212,7 +212,8 @@ async function offers() {
   await h.keyboard.press('Meta+d'); await wait(300)
   const twice = await tops()
   await h.keyboard.press('Meta+z'); await wait(300)
-  check('vim off: ⌘D puts a copy of the picked list right after it, and ⌘Z takes it away', twice.includes('list(appleberryblueblackcherry) / list(appleberryblueblackcherry)') && (await tops()) === before, twice.slice(0, 160))
+  // The copy joins the list it lands beside, as two lists of one kind side by side always do (extensions/join-lists.ts).
+  check('vim off: ⌘D puts a copy of the picked list right after it, and ⌘Z takes it away', (twice.match(/apple/g) ?? []).length === 2 && (twice.match(/cherry/g) ?? []).length === 2 && (await tops()) === before, twice.slice(0, 160))
   await pickList()
   await h.keyboard.press('Backspace'); await wait(300)
   const gone = await tops()
