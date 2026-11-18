@@ -2857,6 +2857,8 @@ html:is([data-dragging], [data-split-drag]), [data-carry-cursor='grabbing'] { cu
 html:is([data-stretching], [data-scrubbing]), [data-carry-cursor='ew-resize'] { cursor: ew-resize !important; }
 /* Carried over a part that will not take it (Pinned, Tags): the pointer says so. */
 html[data-drag-refused], [data-carry-cursor='not-allowed'] { cursor: not-allowed !important; }
+/* A pane's edge dragged wider or narrower. */
+html[data-resizing], [data-carry-cursor='col-resize'] { cursor: col-resize !important; }
 [data-sortable-id] :is(input, textarea, [contenteditable="true"], [contenteditable="true"] *) { cursor: text; }
 
 /* The box's command words ("5m tea", "+name:", "tomorrow", "#bug"), lit as

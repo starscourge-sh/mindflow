@@ -67,6 +67,7 @@ import { ArrowDown, ArrowUp } from '@/components/ui/icons'
 import { APP_NAME } from '../../../../main/name'
 import { formatBarShown } from '@/components/selection/selection-menu'
 import { NoteQuestions, useQuestionsHere } from './note-questions'
+import '@/lib/carry-cursor'
 
 /**
  * True from a press in the words that picks some of them until the pick is let
@@ -155,9 +156,9 @@ function useListWidth(): [string, React.JSX.Element] {
         const up = (): void => {
           window.removeEventListener('pointermove', move)
           window.removeEventListener('pointerup', up)
-          document.body.style.removeProperty('cursor')
+          delete document.documentElement.dataset.resizing
         }
-        document.body.style.cursor = 'col-resize'
+        document.documentElement.dataset.resizing = ''
         window.addEventListener('pointermove', move)
         window.addEventListener('pointerup', up)
       }}

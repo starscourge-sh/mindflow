@@ -969,9 +969,9 @@ function usePanelWidth(at: { key: string; home: number; least: number; most: num
         const up = (): void => {
           window.removeEventListener('pointermove', move)
           window.removeEventListener('pointerup', up)
-          document.body.style.removeProperty('cursor')
+          delete document.documentElement.dataset.resizing
         }
-        document.body.style.cursor = 'col-resize'
+        document.documentElement.dataset.resizing = ''
         window.addEventListener('pointermove', move)
         window.addEventListener('pointerup', up)
       }}>

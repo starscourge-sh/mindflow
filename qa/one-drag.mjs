@@ -627,7 +627,7 @@ const drawn = () => h.evaluate(() => {
     lineIn: !!line && !!room && line.top >= room.top - 1 && line.bottom <= room.bottom + 1 && Math.abs((line.top + line.bottom) / 2 - (room.top + room.bottom) / 2) <= 2,
     room: room?.height ?? 0, held: held ? box(held).height : 0, overlap: Math.round(overlap * 10) / 10,
     onRoom: room ? list.filter((one) => Math.min(one.bottom, room.bottom) - Math.max(one.top, room.top) > 1.5).length : 0,
-    lit: [...document.querySelectorAll('[data-drop-hot], [data-nest-hot]')].filter(seen).length, pointer: getComputedStyle([...document.querySelectorAll(":hover")].at(-1) ?? document.body).cursor
+    lit: [...document.querySelectorAll('[data-drop-hot], [data-nest-hot]')].filter(seen).length, pointer: getComputedStyle(document.querySelector("[data-carry-cursor]") ?? document.body).cursor
   }
 })
 /**
