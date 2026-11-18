@@ -11,6 +11,7 @@ import { bringFromVault, chooseNote, noteNamed } from "@/extensions/note-link"
 import { ArrowUpRight, Link } from "@/components/ui/icons"
 import { blockIn } from "../../../../main/blocks"
 import { notePowers } from "@/components/haligtree/note-powers"
+import { Orb } from "@/components/haligtree/orb"
 import { quoted } from '../../../../main/clip'
 
 /**
@@ -50,6 +51,8 @@ export function EmbeddedNote({ link, label, onUnembed, powers = false, reading =
   const around = useContext(Around)
   const { table, id } = partsOf(link)
   const [note, setNote] = useState<{ body: unknown; title: string; powers: Omit<Powers, "onOpen"> } | null | undefined>(undefined)
+  // Its words put in whole by the book (two notes joined, and that taken back): read again (the one loader meanwhile), its editor made anew.
+  const [rev, setRev] = useState(0)
   useEffect(() => {
     let live = true
     const read = table === "captures"
@@ -65,9 +68,9 @@ export function EmbeddedNote({ link, label, onUnembed, powers = false, reading =
         } : null)
     void read.then((found) => live && setNote(found), () => live && setNote(null))
     return () => void (live = false)
-  }, [table, id])
+  }, [table, id, rev])
   const words = useSameWords(table, note ? id : undefined, note?.body, (at, words, wordsBase, markdown) =>
-    table === "captures" ? window.api.captures.save(at, { words, wordsBase, markdown }) : haligtree.saveItem(at, { words, wordsBase }))
+    table === "captures" ? window.api.captures.save(at, { words, wordsBase, markdown }) : haligtree.saveItem(at, { words, wordsBase }), () => (setNote(undefined), setRev((n) => n + 1)))
   const name = note?.title || label || "New note"
   const looped = around.includes(link) || around.length >= DEEPEST
   return (
@@ -85,7 +88,7 @@ export function EmbeddedNote({ link, label, onUnembed, powers = false, reading =
         )}
       </div>
       {note === undefined ? (
-        <div className="px-3 py-2 text-control text-muted-foreground">Opening…</div>
+        <div className="px-3 py-2"><Orb label="Opening the note…" /></div>
       ) : note === null ? (
         <div className="px-3 py-2 text-control">This note is not here any more: it may be in the Bin.</div>
       ) : looped ? (
@@ -193,7 +196,7 @@ function EmbeddedLine({ link, block, label, onUnembed }: { link: string; block: 
         )}
       </div>
       {note === undefined ? (
-        <div className="px-3 py-2 text-control text-muted-foreground">Opening…</div>
+        <div className="px-3 py-2"><Orb label="Opening the note…" /></div>
       ) : !note?.line ? (
         <div className="px-3 py-2 text-control text-foreground">{note ? "That line is not in the note any more." : "This note is not here any more: it may be in the Bin."}</div>
       ) : (
