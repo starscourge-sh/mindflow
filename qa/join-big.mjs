@@ -196,6 +196,8 @@ try {
   // notice still offers it, as a hand would, not after seconds of the probe's own reading (it had gone, 18 Nov).
   const look = () => { const one = book(); try { return { other: one.prepare('select status from captures where id = ?').get(big.id).status, kept: one.prepare("select json_type(body) as type, case when json_type(body) = 'object' then json_array_length(body, '$.content') end as blocks, instr(body, '\"horizontalRule\"') > 0 as rule, length(body) as n from captures where id = ?").get(twin), link: one.prepare('select instr(body, ?) > 0 as here, instr(body, ?) > 0 as there from captures where id = ?').get(`"id":"${twin}"`, `"id":"${big.id}"`, linker) } } finally { one.close() } }
   const after = look()
+  // The joined words as stored now: should Undo find them changed, what wrote over them since is said.
+  const joinedText = (() => { const one = book(); try { return one.prepare('select body from captures where id = ?').get(twin).body } finally { one.close() } })()
   const j = await gaps(t0, t1)
   const orbs = await h.evaluate((at) => ({ offer: window.__orbs.offer === null ? null : Math.round(window.__orbs.offer - at), note: window.__orbs.note === null ? null : Math.round(window.__orbs.note - at) }), t0)
   const said = await h.locator('[data-toast], [role="status"]').allInnerTexts().catch(() => [])
@@ -214,8 +216,8 @@ try {
   const blockWords = (node) => node.text ?? (node.content ?? []).map(blockWords).join(node.content?.some((one) => one.text !== undefined) ? '' : '\n')
   const keyOf = (block) => { const w = blockWords(block).trim(); return w ? `w:${w}` : `b:${JSON.stringify({ ...block, attrs: { ...block.attrs, blockId: undefined } })}` }
   const wanted = (() => {
-    const a = JSON.parse(back[twin].body)
-    const b = JSON.parse(back[big.id].body)
+    const a = JSON.parse(before[twin].body)
+    const b = JSON.parse(before[big.id].body)
     if (typeof a === 'string' || typeof b === 'string') return { blocks: null, fresh: null }
     let own = a.content.length
     while (own && a.content[own - 1].type === 'paragraph' && !a.content[own - 1].content?.length) own--
@@ -236,6 +238,14 @@ try {
   check('no frame waits over 1 s from the press until the note is drawn again', j.gap <= 1000, `${j.gap} ms`)
   const differ = [big.id, twin].flatMap((id) => Object.keys(before[id]).filter((name) => before[id][name] !== back[id][name]).map((name) => `${id === twin ? 'copy' : 'other'}.${name}`))
   const u = await gaps(t2, t3)
+  if (back[twin].body !== before[twin].body) {
+    const now = back[twin].body
+    let at = 0
+    while (at < now.length && now[at] === joinedText[at]) at++
+    let end = 0
+    while (end < now.length - at && now[now.length - 1 - end] === joinedText[joinedText.length - 1 - end]) end++
+    console.log(`  the copy after ⌘Z is ${now === joinedText ? 'the joined words unchanged' : `the joined words changed at ${at}: was ${JSON.stringify(joinedText.slice(Math.max(0, at - 60), joinedText.length - end + 60).slice(0, 400))} now ${JSON.stringify(now.slice(Math.max(0, at - 60), now.length - end + 60).slice(0, 400))}`}`)
+  }
   if (moments) (await c.look(process.env.DARK ? 'light' : 'dark'), await moment('undo-other-look'))
   console.log(`undo: both back and drawn again after ${undone ?? 'never'} ms; longest gap between frames ${u.gap} ms, frozen ${u.longest} ms at most; columns not as they were: ${differ.join(', ') || 'none'}  [${load()}]`)
   check('⌘Z puts both notes back exactly as they were, every column', undone !== null && !differ.length, differ.join(', '))
