@@ -77,6 +77,32 @@ export async function systemFonts(): Promise<string[]> {
   }
 }
 
+const FONTS = 'haligtree:fonts'
+type Fonts = Record<'--mf-font' | '--mf-app-font' | '--mf-heading-font' | '--mf-text-scale', string | null>
+
+/**
+ * The fonts and text size on the page, and kept for the next window: each window wears the last ones before its
+ * first paint (`wearSavedFonts`, main.tsx), as it does the theme, so its words are never drawn in one font and then
+ * another once the settings are read (the focus bubble's line moved as its font changed under it).
+ */
+function wearFonts(fonts: Fonts, keep = false): void {
+  const root = document.documentElement.style
+  for (const [name, value] of Object.entries(fonts)) {
+    if (value === null) root.removeProperty(name)
+    else root.setProperty(name, value)
+  }
+  if (keep) localStorage.setItem(FONTS, JSON.stringify(fonts))
+}
+
+export function wearSavedFonts(): void {
+  try {
+    const kept = localStorage.getItem(FONTS)
+    if (kept) wearFonts(JSON.parse(kept) as Fonts)
+  } catch {
+    // None kept yet: the settings bring them.
+  }
+}
+
 /**
  * The editor's settings, applied for every editor in this window: its sounds,
  * math as you type, the font and the text size, and ⌘+ ⌘− ⌘0 to change it.
@@ -111,16 +137,15 @@ export function useEditorSetup(settings: Settings | null): void {
     // “Relative” follows Vim keys until it is set (main, DEFAULTS).
     setLineNumbers(settings.lineNumbers !== false, settings.relativeLineNumbers ?? vim)
     setDatesLit(settings.datesLit !== false)
-    const root = document.documentElement.style
-    root.setProperty('--mf-font', familyOf(settings.noteFont))
-    // The menus, lists and labels too, unless the font is for notes only. The serif is the
-    // notes' own: the app's labels stay in their sans beside it.
-    if (settings.fontNotesOnly) root.removeProperty('--mf-app-font')
-    else root.setProperty('--mf-app-font', familyOf(settings.noteFont === 'default' ? 'system' : settings.noteFont))
-    // Headings, in notes and on the app's own pages, in theirs when one is chosen.
-    if (!settings.headingFont || settings.headingFont === 'same') root.removeProperty('--mf-heading-font')
-    else root.setProperty('--mf-heading-font', familyOf(settings.headingFont))
-    root.setProperty('--mf-text-scale', String(settings.textSize))
+    wearFonts({
+      '--mf-font': familyOf(settings.noteFont),
+      // The menus, lists and labels too, unless the font is for notes only. The serif is the
+      // notes' own: the app's labels stay in their sans beside it.
+      '--mf-app-font': settings.fontNotesOnly ? null : familyOf(settings.noteFont === 'default' ? 'system' : settings.noteFont),
+      // Headings, in notes and on the app's own pages, in theirs when one is chosen.
+      '--mf-heading-font': !settings.headingFont || settings.headingFont === 'same' ? null : familyOf(settings.headingFont),
+      '--mf-text-scale': String(settings.textSize)
+    }, true)
   }, [settings?.calc, settings?.typePause, settings?.foldHeadings, settings?.lineNumbers, settings?.relativeLineNumbers, vim, settings?.datesLit, settings?.noteFont, settings?.fontNotesOnly, settings?.headingFont, settings?.textSize]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⌘+ and ⌘− grow and shrink the whole app, in every window, and ⌘0 puts it

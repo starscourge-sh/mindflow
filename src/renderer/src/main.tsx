@@ -59,6 +59,7 @@ import { installTextUndo } from './lib/text-undo'
 import { APP_NAME } from '../../main/name'
 import { toasters, whyFailed } from './components/haligtree/ui'
 import { chime } from './lib/sound'
+import { wearSavedFonts } from './lib/editor-setup'
 
 // `npm run dev` only (React's development build; the built app has none of this). For its own warnings to name the
 // component that made an element, that build records where each element was made, an Error and a console task
@@ -127,6 +128,8 @@ const wordCount = (): void => {
 }
 wordCount()
 window.addEventListener('storage', wordCount)
+// The fonts last chosen, worn before the first paint (lib/editor-setup.ts).
+wearSavedFonts()
 
 /**
  * A window whose page broke while drawing says so and offers the way back,
