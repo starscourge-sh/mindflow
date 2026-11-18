@@ -148,8 +148,9 @@ export function registerSmallWindows({ load, guard, stepAside, passThrough }: Wi
     const size = kept ? onScreen(kept.bounds) : onScreen(centredOn(seed, WIDTH, SHORT))
     const win = new BrowserWindow({
       ...size,
-      minWidth: 320,
-      minHeight: 140,
+      // The smallest the user wants it (16 Nov, shot 20-a: about 500 by 280): narrower, its words stacked a letter a line.
+      minWidth: 500,
+      minHeight: 280,
       show: false,
       frame: false,
       // The Mac's own rounded corners and shadow, round a page that fills the window: no clear room round a card.
