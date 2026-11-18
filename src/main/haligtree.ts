@@ -2543,12 +2543,16 @@ export function registerHaligtree(): void {
     else if (typeof one === 'string' || typeof two === 'string') return typeof one === 'string' ? { markdown: 'keep', text: one } : { markdown: 'other', text: two as string }
     else {
       const first = [...((one as Doc).content ?? [])]
-      // The empty line a note ends on is where the other's words would have been typed: they start there.
-      while (first.length && first.at(-1)?.type === 'paragraph' && !first.at(-1)?.content?.length) first.pop()
+      // The empty lines a note ends on stay at its end, under what comes over; and a note never ends on anything but a
+      // line of words, as the editor has it (haligtree-editor.tsx `trailingNode`): left to the editor, it added that
+      // line as the joined note opened, a change of its words that Undo then had to leave be (the 135k-word pair, 18 Nov).
+      const ends: Doc[] = []
+      while (first.length && first.at(-1)?.type === 'paragraph' && !first.at(-1)?.content?.length) ends.unshift(first.pop()!)
       const held = new Set(first.map(keyOf))
       const fresh = ((two as Doc).content ?? []).filter((block) => !(block.type === 'paragraph' && !blockWords(block).trim()) && !held.has(keyOf(block)))
       added = fresh.reduce((sum, block) => sum + linesOf(block), 0)
-      if (fresh.length) joined = { ...(one as Doc), content: [...first, { type: 'horizontalRule' }, ...fresh] }
+      const last = ends.length ? ends : ['paragraph', 'footnotes'].includes(fresh.at(-1)?.type ?? '') ? [] : [{ type: 'paragraph' }]
+      if (fresh.length) joined = { ...(one as Doc), content: [...first, { type: 'horizontalRule' }, ...fresh, ...last] }
     }
     // Its words change only when something came over (or it held none): otherwise they stay as stored, letter for letter.
     const grew = joined !== one

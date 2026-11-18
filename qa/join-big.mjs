@@ -220,8 +220,10 @@ try {
     let own = a.content.length
     while (own && a.content[own - 1].type === 'paragraph' && !a.content[own - 1].content?.length) own--
     const held = new Set(a.content.slice(0, own).map(keyOf))
-    const fresh = b.content.filter((block) => !(block.type === 'paragraph' && !blockWords(block).trim()) && !held.has(keyOf(block))).length
-    return { blocks: fresh ? own + 1 + fresh : a.content.length, fresh }
+    const came = b.content.filter((block) => !(block.type === 'paragraph' && !blockWords(block).trim()) && !held.has(keyOf(block)))
+    // Its empty last lines stay last; with none, a last line of words when what came over ends on something else.
+    const ends = a.content.length - own || (['paragraph', 'footnotes'].includes(came.at(-1)?.type) ? 0 : 1)
+    return { blocks: came.length ? own + 1 + came.length + ends : a.content.length, fresh: came.length }
   })()
   const kept = after.kept
   console.log(`join: done and drawn again after ${joined ?? 'never'} ms; longest gap between frames ${j.gap} ms (${j.frames} frames), frozen ${j.longest} ms at most, ${j.total} ms in all; the loader in the offer at ${orbs.offer} ms, in the note at ${orbs.note} ms`)
