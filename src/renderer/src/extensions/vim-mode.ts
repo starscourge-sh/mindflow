@@ -1,7 +1,7 @@
 import { Extension } from "@tiptap/core"
 import { NodeSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
 import { addRowAfter, goToNextCell, isInTable } from "@tiptap/pm/tables"
-import type { EditorState } from "@tiptap/pm/state"
+import type { Command, EditorState } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 import type { EditorView } from "@tiptap/pm/view"
 import { Fragment } from "@tiptap/pm/model"
@@ -322,14 +322,16 @@ function lineDepth($pos: ResolvedPos): number {
  * transaction, so `u` puts the lot back.
  *
  * `caret` is where the cursor should stay, on its own words; without one it
- * goes to the first line moved, as vim's does.
+ * goes to the first line moved, as vim's does. `keep` leaves the lines picked
+ * (visual mode too), so Tab can go again on the same lines.
  */
-function indentLines(
+export function indentLines(
   view: EditorView,
   from: number,
   to: number,
   out: boolean,
-  caret?: number
+  caret?: number,
+  keep = false
 ): void {
   const { doc } = view.state
   const clamp = (pos: number): number => Math.max(0, Math.min(pos, doc.content.size))
@@ -359,16 +361,34 @@ function indentLines(
   const run = out ? liftListItem : sinkListItem
   let state = view.state
   const tr = state.tr
-  for (const item of items) {
-    const at = tr.mapping.map(item.pos, 1)
-    state = state.apply(state.tr.setSelection(TextSelection.near(state.doc.resolve(at + 1))))
-    run(item.type)(state, (step) => {
+  /** One list command at the caret placed in `from`..`to` of the document as it is now, its steps kept in `tr`. */
+  const apply = (command: Command, at: number, end = at): void => {
+    state = state.apply(state.tr.setSelection(TextSelection.between(state.doc.resolve(at), state.doc.resolve(end))))
+    command(state, (step) => {
       for (const one of step.steps) tr.step(one)
       state = state.apply(step)
     })
   }
+  for (const item of items) {
+    apply(run(item.type), tr.mapping.map(item.pos, 1) + 1)
+  }
   if (!tr.docChanged) return
 
+  if (keep) {
+    const a = tr.mapping.map(from)
+    const b = Math.max(a, tr.mapping.map(to, -1))
+    tr.setSelection(TextSelection.between(tr.doc.resolve(a), tr.doc.resolve(b)))
+    // Vim's own edit: it stays in visual mode on the same lines, where an edit from outside vim ends it.
+    const vim = vimPluginKey.getState(view.state)
+    if (vim?.enabled && (vim.mode === "visual" || vim.mode === "visualLine"))
+      tr.setMeta(vimPluginKey, {
+        mode: vim.mode,
+        visualAnchor: vim.visualAnchor === null ? null : tr.mapping.map(vim.visualAnchor),
+        visualHead: vim.visualHead === null ? null : tr.mapping.map(vim.visualHead),
+      })
+    view.dispatch(tr.scrollIntoView())
+    return
+  }
   const first = tr.mapping.map(items[0].pos, 1)
   const target = caret === undefined ? TextSelection.near(tr.doc.resolve(first + 1)) : TextSelection.near(tr.doc.resolve(tr.mapping.map(caret)))
   view.dispatch(tr.setSelection(TextSelection.create(tr.doc, target.head)).scrollIntoView())
@@ -2488,7 +2508,7 @@ export const VimMode = Extension.create<VimModeOptions>({
               if (key === "Tab" && (inVisual || !view.state.selection.empty)) {
                 const { from, to, head } = view.state.selection
                 if (!inList(view.state.doc.resolve(from)) && !inList(view.state.doc.resolve(to))) return false
-                indentLines(view, from, to, event.shiftKey, head)
+                indentLines(view, from, to, event.shiftKey, head, true)
                 return true
               }
 
