@@ -1,12 +1,15 @@
 /**
- * The four looks a wrap can take ("worlds"), their palettes, and the lines
- * each open picks from. Every colour a wrap card paints with lives here, so
- * no component carries a colour of its own.
+ * The two looks a wrap can take ("worlds"), their palettes, and the lines
+ * each open picks from: Files (paper and ink, op-art framing your own
+ * pictures) and Night (a slow silk of light). Every colour a wrap card
+ * paints with lives here, so no component carries a colour of its own.
+ * Sticker and Kinetic were cut (18 Nov): their sunbursts, tiled words and
+ * echoed numbers said nothing about the month and covered its words.
  */
 
-export const WORLDS = ['files', 'sticker', 'kinetic', 'night'] as const
+export const WORLDS = ['files', 'night'] as const
 export type World = (typeof WORLDS)[number]
-export const WORLD_NAMES: Record<World, string> = { files: 'Files', sticker: 'Sticker', kinetic: 'Kinetic', night: 'Night' }
+export const WORLD_NAMES: Record<World, string> = { files: 'Files', night: 'Night' }
 
 /** `bg` the card, `ink` its words, `accent` the one loud colour, `alt` a second, `soft` a quiet third. */
 export type Palette = { bg: string; ink: string; accent: string; alt: string; soft: string; glow: [string, string] }
@@ -17,16 +20,6 @@ export const PALETTES: Record<World, Palette[]> = {
     { bg: '#232321', ink: '#f1efe9', accent: '#c6f24e', alt: '#f1efe9', soft: '#3a3a37', glow: ['#c6f24e', '#6f6f6a'] },
     { bg: '#f1efe9', ink: '#1d1d1b', accent: '#ff5a3c', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#ff5a3c', '#f6c945'] },
     { bg: '#232321', ink: '#f1efe9', accent: '#e8c547', alt: '#f1efe9', soft: '#3a3a37', glow: ['#e8c547', '#8b7cf6'] }
-  ],
-  sticker: [
-    { bg: '#5b2bd6', ink: '#fff7d6', accent: '#f9e14b', alt: '#3ce07a', soft: '#ff7ac3', glow: ['#5b2bd6', '#f9e14b'] },
-    { bg: '#1f8a4c', ink: '#fff7d6', accent: '#ffb3e6', alt: '#f9e14b', soft: '#5b2bd6', glow: ['#3ce07a', '#ffb3e6'] },
-    { bg: '#ff5d2a', ink: '#1a0f3d', accent: '#fff07a', alt: '#5b2bd6', soft: '#ffd0b8', glow: ['#ff5d2a', '#5b2bd6'] }
-  ],
-  kinetic: [
-    { bg: '#ff3b1f', ink: '#111111', accent: '#f4f1e8', alt: '#2246ff', soft: '#ffb199', glow: ['#ff3b1f', '#2246ff'] },
-    { bg: '#2246ff', ink: '#f4f1e8', accent: '#d8ff3c', alt: '#111111', soft: '#7d93ff', glow: ['#2246ff', '#d8ff3c'] },
-    { bg: '#111111', ink: '#f4f1e8', accent: '#ff3b1f', alt: '#d8ff3c', soft: '#444444', glow: ['#ff3b1f', '#111111'] }
   ],
   night: [
     { bg: '#07060c', ink: '#f3eefe', accent: '#b48cff', alt: '#4fd6ff', soft: '#2a2440', glow: ['#6d3cff', '#1fb6ff'] },

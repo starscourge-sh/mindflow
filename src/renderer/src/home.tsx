@@ -2002,7 +2002,7 @@ export function Home(): React.JSX.Element {
             // Either welcome, to feel which is right: played in the sandbox, so your own book is never touched.
             { label: 'Show the welcome in the sandbox', hint: 'Your own notes stay as they are', cue: null, run: () => void tryWelcome() },
             // Each look of Wrapped on the sandbox's month, to feel which is right.
-            ...(SANDBOX ? ([['Files', 'files'], ['Sticker', 'sticker'], ['Kinetic', 'kinetic'], ['Night', 'night'], ['surprise me', 'surprise']] as const).map(([name, world]) => (
+            ...(SANDBOX ? ([['Files', 'files'], ['Night', 'night'], ['surprise me', 'surprise']] as const).map(([name, world]) => (
               { label: `Wrapped: ${name}`, hint: world === 'surprise' ? 'Any look, never the same twice' : `The month's wrap in the ${name} look`, words: 'wrap story month spotify', cue: null, run: () => openWrap(monthToWrap(), world) })) : []),
             { label: 'Try a celebration', hint: 'One of the moments the app marks, like an empty Inbox, shown now', cue: null, run: () => tryCelebration() },
             ...placesTo(),
