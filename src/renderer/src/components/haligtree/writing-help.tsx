@@ -413,22 +413,25 @@ function Card({ now }: { now: Asked }): React.JSX.Element {
         ? <p data-help-quote className="font-serif text-body text-foreground">“{said.text}”<span className="mt-1 block font-sans text-meta text-muted-foreground">{now.away.where}</span></p>
         : <p data-help-quote className="text-body text-foreground">Lit in your note: the line worth keeping, as its author wrote it.</p>)}
       {said && 'text' in said && help.edits && <p data-help-new-said className="text-body text-foreground">Shown in your note after your words: {num(count(now.words))} words become {num(count(said.text))}.</p>}
-      <div className="flex items-center justify-end gap-1">
-        {said && !('error' in said) ? (
-          <>
+      {/* No row of buttons while it writes (the orb has its own Stop): an empty one left a gap under the orb. */}
+      {said && (
+        <div className="flex items-center justify-end gap-1">
+          {!('error' in said) ? (
+            <>
+              <Button variant="ghost" size="sm" className="text-muted-foreground" data-help-leave onClick={() => leave()}>
+                {help.edits ? 'Keep mine' : 'Not now'} <Kbd className="ml-1">Esc</Kbd>
+              </Button>
+              <Button size="sm" data-help-use onClick={() => void use()}>
+                {PRIMARY[help.id] ?? 'Use this'} <Kbd className="ml-1 border-primary-foreground/30 bg-transparent text-primary-foreground">↵</Kbd>
+              </Button>
+            </>
+          ) : (
             <Button variant="ghost" size="sm" className="text-muted-foreground" data-help-leave onClick={() => leave()}>
-              {help.edits ? 'Keep mine' : 'Not now'} <Kbd className="ml-1">Esc</Kbd>
+              Close <Kbd className="ml-1">Esc</Kbd>
             </Button>
-            <Button size="sm" data-help-use onClick={() => void use()}>
-              {PRIMARY[help.id] ?? 'Use this'} <Kbd className="ml-1 border-primary-foreground/30 bg-transparent text-primary-foreground">↵</Kbd>
-            </Button>
-          </>
-        ) : said ? (
-          <Button variant="ghost" size="sm" className="text-muted-foreground" data-help-leave onClick={() => leave()}>
-            Close <Kbd className="ml-1">Esc</Kbd>
-          </Button>
-        ) : null}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
