@@ -330,9 +330,14 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
     let side: 'under' | 'over' | null = null
     const look = (): void => {
       const own = card.current?.getBoundingClientRect()
-      // As it is drawn: a card turned a little in the hand (the Matrix's) reaches past the box that holds it.
+      // As it is drawn: a card turned a little in the hand (the Matrix's) reaches past the box that holds it, and the pile
+      // and count under several carried hang below it (CarriedCount): all of it rides clear of the line.
       const turned = card.current?.firstElementChild?.getBoundingClientRect()
-      const box = own && { top: Math.min(own.top, turned?.top ?? own.top), bottom: Math.max(own.bottom, turned?.bottom ?? own.bottom) }
+      const hung = [...(card.current?.querySelectorAll('[data-fanned], [data-carried]') ?? [])].map((one) => one.getBoundingClientRect())
+      const box = own && { top: Math.min(own.top, turned?.top ?? own.top, ...hung.map((one) => one.top)), bottom: Math.max(own.bottom, turned?.bottom ?? own.bottom, ...hung.map((one) => one.bottom)) }
+      // How far all of it reaches above and below the card's own middle.
+      const [up, down] = own && box ? [(own.top + own.bottom) / 2 - box.top, box.bottom - (own.top + own.bottom) / 2] : [0, 0]
+      const alone = (): number => (own ? (own.top + own.bottom) / 2 - y.get() : 0)
       // A line standing upright beside a block (a note's block going beside another): the card rides under its foot
       // where it would cover it, as it rides clear of a flat line.
       const drawn = lineNow?.isConnected ? lineNow.getBoundingClientRect() : null
@@ -346,8 +351,8 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
       if (box && upright && flat && flat.left < upright.right + CLEAR && flat.right > upright.left - CLEAR) {
         side = null
         const home = card.current?.parentElement?.getBoundingClientRect()
-        const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : (box.top + box.bottom) / 2 - y.get()
-        next = Math.max(0, upright.bottom + CLEAR + (box.bottom - box.top) / 2 - middle)
+        const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : alone()
+        next = Math.max(0, upright.bottom + CLEAR + up - middle)
       } else if (box && box.bottom > box.top && line?.width) {
         const at = line.top + line.height / 2
         // The side the pointer is on, kept through a few pixels round the line so the card never flutters across it.
@@ -355,15 +360,14 @@ function useClear(base?: () => number): { ref: (node: HTMLElement | null) => voi
         // Where its middle would be by the pointer alone, and how far that is from clear of the line. Read off the box that
         // holds it, which its own spring never moves: read off the card itself mid-spring, it came to rest a little short.
         const home = card.current?.parentElement?.getBoundingClientRect()
-        const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : (box.top + box.bottom) / 2 - y.get()
-        const reach = (box.bottom - box.top) / 2 + CLEAR
-        next = side === 'under' ? Math.max(0, at + reach - middle) : Math.min(0, at - reach - middle)
+        const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : alone()
+        next = side === 'under' ? Math.max(0, at + up + CLEAR - middle) : Math.min(0, at - down - CLEAR - middle)
       } else {
         side = null
         if (box && place && place.height <= 48) {
           const home = card.current?.parentElement?.getBoundingClientRect()
-          const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : (box.top + box.bottom) / 2 - y.get()
-          next = Math.max(0, place.bottom + CLEAR + (box.bottom - box.top) / 2 - middle)
+          const middle = home ? (home.top + home.bottom) / 2 + (base?.() ?? 0) : alone()
+          next = Math.max(0, place.bottom + CLEAR + up - middle)
         }
       }
       if (still()) (to.jump(next), y.jump(next))
