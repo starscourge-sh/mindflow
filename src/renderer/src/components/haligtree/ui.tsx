@@ -1358,6 +1358,8 @@ function SureAsker(): React.JSX.Element | null {
 
 /** When anything was last typed into a field or the editor. */
 let lastEdit = 0
+/** Whether anything was typed (or pasted, or dropped) into a field or an editor of this window since `at` (Date.now()). */
+export const typedSince = (at: number): boolean => lastEdit > at
 
 // What a toast must never cover: an open dialog, sheet or menu, and the
 // footer (and its Keys panel) of a view that fills the window, like Read through,

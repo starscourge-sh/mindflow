@@ -4,7 +4,7 @@ import { binFlight } from './fly-home'
 import { expectBack, stays } from './room'
 import { tear } from './sound'
 import { readMarkdownGently } from '@/components/haligtree/haligtree-editor'
-import { refuse, toast } from '@/components/haligtree/ui'
+import { refuse, toast, typedSince } from '@/components/haligtree/ui'
 
 /** A note as an offer or a link names it, its id for a capture or "tier:id" for a gem, a page or the rest: one side of a join. */
 export const sideOf = (key: string): NoteSide => (key.includes(':') ? { table: 'nuggets', id: key.slice(key.indexOf(':') + 1) } : { table: 'captures', id: key })
@@ -46,7 +46,10 @@ export async function joinNotes(keep: NoteSide, other: NoteSide, said: (added: n
   flight?.()
   tear()
   const stayed = binned([other.id])
-  toast(said(added, links), () => (expectBack([other.id]), void haligtree.unjoinNotes(token).then((back) => {
+  // Nothing typed since the notice came: what changed the joined note since is the app's own (its editor tidying the
+  // words as it opened them again: the 135k-word pair, 18 Nov), so Undo puts it back as it was all the same.
+  const at = Date.now()
+  toast(said(added, links), () => (expectBack([other.id]), void haligtree.unjoinNotes(token, !typedSince(at)).then((back) => {
     if (!back) return refuse('Too long ago to take back here: the note holds both, and the other is in the Bin')
     // A page that moved off the other opens it again, as Mail selects a message it undeleted (lib/nav.ts); one that
     // stayed on the note that was kept (“Join them” under it) stays there, and that note opens again as it was.

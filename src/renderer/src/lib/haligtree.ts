@@ -449,8 +449,8 @@ export const haligtree = {
   unsupersede: (id: string, fixed: string, suspended: boolean) => call<boolean>('unsupersede', id, fixed, suspended),
   /** `other`'s words under `keep`'s, after a rule, and `other` to the Bin: done in the main process, on the notes as stored. */
   joinNotes: (keep: NoteSide, other: NoteSide, given?: Partial<Record<'keep' | 'other', { doc: unknown; from: string }>>) => call<Joined>('notes:join', keep, other, given),
-  /** Both notes exactly as they were before the join. */
-  unjoinNotes: (token: number) => call<boolean | 'both'>('notes:join:undo', token),
+  /** Both notes, and the links led to the one kept, exactly as they were before the join; `whatever`: put back though the kept one changed since (nothing was typed in it). */
+  unjoinNotes: (token: number, whatever = false) => call<boolean | 'both'>('notes:join:undo', token, whatever),
   hintRate: () => call<{ rate: number; tuned: boolean; shown: number; stopped: number }>('hints:rate'),
   tag: (tag: string) => call<{ tag: string; id: string; type: string; title: string; private: boolean }[]>('tag', tag),
   /** Everything carrying a tag, whole, newest first, each with its other tags. */
