@@ -472,16 +472,18 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
   const wait = roomWait()
   // A new group would form here: this row lifts, with a panel around it and the room under it.
   const lifted = forming
-  const withOthers = (carry?.along.size ?? 0) > 0
-  // One row in the hand leaves its title with the card. Several stay readable in the list, every one faded the same:
-  // the row under the pointer used to keep its selection look while the others went quiet. Hiding that row left a blank whose name lived only in the pile of cards.
-  const room = isDragging && !!aim && aim.gap !== null && !withOthers
-  const fade = isDragging && !withOthers ? 0 : withOthers || faded ? 0.3 : undefined
+  // The row in hand leaves its title with the card and its place to the room, however many are carried: the others
+  // carried with it wait, faded, in their places, so only one row's room ever opens and no row is drawn over another.
+  // Forming a new group, the room is the dashed place under the row it forms on, and its own place is closed over.
+  const room = isDragging && !!aim && aim.gap !== null && !aim.make
+  const fade = isDragging ? 0 : faded ? 0.3 : undefined
   return (
     <motion.div
       ref={ref}
       data-sortable-id={id}
       data-aim={how}
+      // Where its slide ends: a card resting on a new group's place reads that place where it will be, not where it was.
+      data-slid={y || undefined}
       // In the hand a row is its one line: whatever hangs under it (a task's steps, its question) folds away (main.css).
       data-held={isDragging || undefined}
       // A row that would take the carried one in as its own (a task, its step) lights, and nothing opens.
@@ -505,7 +507,7 @@ const Carried = memo(function Carried({ id, children, inner, indent = 0, grip = 
         </Fragment>
       )}
       {/* Its own place, while nothing else is open for it: the same quiet room, never a faded copy of it. */}
-      {isDragging && !room && <OwnRoom />}
+      {isDragging && !room && !aim?.make && <OwnRoom />}
       <AnimatePresence>
         {forming && (
           <motion.div
@@ -577,13 +579,11 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
   const ys = new Map<string, number>()
   const from = hand ? keys.indexOf(hand) : -1
   const order = new Map(keys.map((key, index) => [key, index]))
-  const carriedKeys = many.filter((key) => order.has(key))
-  const multi = carriedKeys.length > 1
-  // A new group opens room for everything carried, under the row it joins. That has to win over the move:
-  // in a list you ordered yourself the gap stays set, and the move then closed the group over the rows still
-  // standing in it, so they landed on the notes below (16 Nov, four notes onto one).
+  // A new group opens its room under the row it joins. That has to win over the move: in a list you ordered yourself
+  // the gap stays set, and the move then closed the group over the rows still standing in it, so they landed on the
+  // notes below (16 Nov, four notes onto one).
   const forming = !!(aim?.make && aim.target && keys.indexOf(aim.target) >= 0)
-  const sliding = (multi && forming) || (!forming && gap !== null && from >= 0 && span > 0)
+  const sliding = forming || (gap !== null && from >= 0 && span > 0)
   // Each row's place read off the page as it lies now, its slide left out. Only while something is actually moving.
   const drawn = new Map<string, HTMLElement>()
   if (sliding) for (const node of (within ?? document).querySelectorAll<HTMLElement>('[data-sortable-id]')) drawn.set(node.dataset.sortableId!, node)
@@ -597,75 +597,51 @@ export function Shaped({ aim, keys, hand, home = null, many, span, inset, row: m
     read.set(key, one)
     return one
   }
-  // Several carried move as one block: each keeps its own height, in the order they are read, and only the
-  // rows that stay behind slide. Shifting those others by the whole block, as if they were neighbours, piled
-  // their titles on the rows that closed the hole (16 Nov, four notes in a folder).
-  const packBlock = (after: number, extra: number): void => {
-    const heightOf = (key: string): number => box(key)?.height ?? mid
-    const inOrder = [...carriedKeys].sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0))
-    const removedBefore = (index: number): number => inOrder.reduce((sum, key) => ((order.get(key) ?? -1) < index ? sum + heightOf(key) : sum), 0)
-    const packed = inOrder.reduce((sum, key) => sum + heightOf(key), 0)
-    for (const key of keys) {
-      if (inOrder.includes(key)) continue
-      const at = order.get(key) ?? -1
-      const y = -removedBefore(at) + (at > after ? packed + extra : 0)
-      if (y) ys.set(key, y)
-    }
-    const anchor = after >= 0 ? box(keys[after]) : box(keys[0])
-    let cursor = anchor ? (after < 0 ? anchor.top - removedBefore(0) : anchor.top - removedBefore(after) + anchor.height + extra) : 0
-    for (const key of inOrder) {
-      const top = box(key)?.top
-      if (top === undefined) continue
-      const y = Math.round(cursor - top)
-      if (y) ys.set(key, y)
-      cursor += heightOf(key)
-    }
+  // Several carried open the room of the one in hand, as one carried does: the others wait, faded, in their places
+  // (playbook, "One look for every drag"). A room for all of them was a tall empty band with its line far from the
+  // pointer, and the rows that closed over the one place left slid by every carried row's height, onto the rows
+  // under them (16 Nov, six notes across the Obsidian folder's groups); gathering them into a block there moved
+  // half the list at every new place.
+  // A panel follows the rows that stay in it, the faded ones too, and takes in the room where it lands.
+  const panels = (shift: (key: string) => number, room?: { id: (id: string) => boolean; bottom: number }): void => {
     for (const { id, rows } of blocks) {
+      if (rows[0] === hand) continue
       const all = rows.filter((key) => box(key))
-      if (!all.length) continue
+      const staying = all.filter((key) => key !== hand)
+      if (!staying.length) continue
       const was = Math.max(...all.map((key) => box(key)!.top + box(key)!.height))
-      const now = Math.max(...all.map((key) => box(key)!.top + (ys.get(key) ?? 0) + box(key)!.height))
-      const top = ys.get(rows[0]) ?? 0
+      let now = Math.max(...staying.map((key) => box(key)!.top + box(key)!.height + shift(key)))
+      if (room?.id(id)) now = Math.max(now, room.bottom)
+      const top = box(rows[0]) ? shift(rows[0]) : 0
       const bottom = Math.round(now - was)
       if (top || bottom) shapes.set(id, { top, bottom })
     }
   }
-  if (multi && forming && aim?.target && keys.includes(aim.target)) packBlock(keys.indexOf(aim.target), 6)
-  else if (multi && !forming && gap !== null && from >= 0 && span) packBlock(gap, 0)
-  else if (!forming && gap !== null && from >= 0 && span) {
+  if (!forming && gap !== null && from >= 0 && span) {
     const h = span + (aim!.fit ?? 0)
     const slide = slideOf(from, gap, span, (at) => box(keys[at]), aim!.snug ?? true, inset + (aim!.fit ?? 0) / 2, aim!.until, aim!.fit ?? 0)
     const shift = (key: string): number => slide.other(order.get(key) ?? -1)
     for (const key of keys) if (key !== hand && shift(key)) ys.set(key, shift(key))
     if (slide.carried) ys.set(hand!, slide.carried)
     const roomTop = box(hand!) ? box(hand!)!.top - inset + slide.carried - (aim!.fit ?? 0) / 2 : undefined
-    for (const { id, rows } of blocks) {
-      if (rows[0] === hand) continue
-      const all = rows.filter((key) => box(key))
-      const staying = all.filter((key) => key !== hand && !many.includes(key))
-      if (!staying.length) continue
-      const was = Math.max(...all.map((key) => box(key)!.top + box(key)!.height))
-      let now = Math.max(...staying.map((key) => box(key)!.top + box(key)!.height + shift(key)))
-      if (aim!.around.includes(id) && roomTop !== undefined) now = Math.max(now, roomTop + h)
-      const top = box(rows[0]) ? shift(rows[0]) : 0
-      const bottom = Math.round(now - was)
-      if (top || bottom) shapes.set(id, { top, bottom })
-    }
+    panels(shift, roomTop === undefined ? undefined : { id: (id) => aim!.around.includes(id), bottom: roomTop + h })
   }
-  // A new group forming on a row: the panel around it holds the carried row's place under it, so every row
-  // after it makes way by that much. Before, they stayed put and the next row sat inside the panel, as if it joined too.
-  if (!multi && forming && aim?.target) {
+  // A new group forming on a row: the panel around it holds the carried row's place under it, so every row after it
+  // makes way by that much, and the row in hand leaves its own place, which the rows after it close over. Before, they
+  // stayed put and the next row sat inside the panel, as if it joined too; and the place the row was lifted from stayed
+  // open, an empty band over the rows that had made way (22-2).
+  if (forming && aim?.target) {
     const at = keys.indexOf(aim.target)
-    // The room is as tall as everything carried, not one row: one row of room under four notes left the notes below sitting on the ones in the hand (16 Nov).
     const down = (span > 0 ? span : mid) + 6
-    if (at >= 0) {
-      for (const key of keys.slice(at + 1)) if (key !== hand) ys.set(key, down)
-      // A group after it moves down whole; one it forms inside grows by as much at its foot, so its rows after it stay in its box.
-      for (const { id, rows } of blocks) {
-        if (rows.length && keys.indexOf(rows[0]) > at && !rows.includes(aim.target)) shapes.set(id, { top: down, bottom: down })
-        else if (rows.includes(aim.target) && aim.target !== rows[0]) shapes.set(id, { top: 0, bottom: down })
-      }
+    const gone = from >= 0 ? box(hand!)?.height ?? mid : 0
+    const shift = (key: string): number => {
+      const index = order.get(key) ?? -1
+      return (index > at ? down : 0) - (from >= 0 && index > from ? gone : 0)
     }
+    for (const key of keys) if (key !== hand && shift(key)) ys.set(key, shift(key))
+    const target = box(aim.target)
+    // The group it forms inside takes the new group's room in at its foot.
+    panels(shift, target && { id: (id) => !!blocks.find((one) => one.id === id)?.rows.includes(aim.target), bottom: target.top + target.height + shift(aim.target) + down })
   }
   // What would hold it now, and the give each change of that makes.
   const holder = hand ? (aim ? aim.into : home) : null
@@ -1007,12 +983,25 @@ export function CarriedCard({ icon, title, strong = false, words, tint, refused 
   )
 }
 
-/** How many are carried, in a small badge hanging under the carried card: Writing's lists and a note's picked blocks. */
-export function CarriedCount({ n }: { n: number }): React.JSX.Element {
+/**
+ * Several carried, beside the card that stands for them (Writing's lists, a note's picked blocks): it rests on a small
+ * pile, a card a little lower and narrower under it for each one more (two at most), as a Mac's Mail carries several
+ * letters, with how many in a small badge hanging under it. A card a full card apart for each one stood a tall stack
+ * over the very rows it was aimed between (16 Nov, 22-3); the rows themselves, faded in their places, say which they
+ * are. `n`: the number the card's words count (a new group counts the row it forms on too); `carried`: how many are in hand.
+ */
+export function CarriedCount({ n, carried = n }: { n: number; carried?: number }): React.JSX.Element {
+  const calm = still()
   return (
-    <span data-carried={n} className="absolute -bottom-3 left-1/2 z-10 flex h-5 -translate-x-1/2 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold mf-on-accent tabular-nums shadow-sm animate-in zoom-in-90 fade-in-0 duration-150">
-      {brief(n)}
-    </span>
+    <>
+      {(carried > 2 ? [2, 1] : [1]).map((depth) => (
+        <motion.span key={depth} aria-hidden data-fanned={depth} className={cn('absolute inset-0 -z-10', CARD)} style={{ y: depth * 4, scaleX: 1 - depth * 0.04 }}
+          initial={calm ? false : { opacity: 0 }} animate={{ opacity: 1 }} transition={calm ? { duration: 0 } : springs.moderate} />
+      ))}
+      <span data-carried={n} className="absolute -bottom-3 left-1/2 z-10 flex h-5 -translate-x-1/2 min-w-5 items-center justify-center rounded-full bg-(--tt-brand-color-400) px-1.5 text-[11px] font-semibold mf-on-accent tabular-nums shadow-sm animate-in zoom-in-90 fade-in-0 duration-150">
+        {brief(n)}
+      </span>
+    </>
   )
 }
 
@@ -1065,12 +1054,13 @@ export function useCardPlace(aim: Aim | null, takes: (aim: Aim) => boolean): { r
     else y.set(to)
   }
   useLayoutEffect(() => {
-    // The row a new group forms on may still be gliding home: its dashed place is read from where that row rests.
+    // The row a new group forms on may still be gliding: its dashed place is read from where that row's slide ends (it
+    // moves up a row when the row in hand came from above it, that row's place closing).
     const dashed = aim && takes(aim) ? document.querySelector<HTMLElement>('[data-preview] > span') : null
     const row = dashed?.closest<HTMLElement>('[data-sortable-id]')
     const room = aim && takes(aim) ? document.querySelector('[data-drop-room]')?.getBoundingClientRect() : null
     place.current = dashed && row
-      ? row.getBoundingClientRect().bottom - new DOMMatrixReadOnly(getComputedStyle(row).transform).m42 + dashed.offsetHeight / 2 + 5
+      ? row.getBoundingClientRect().bottom - new DOMMatrixReadOnly(getComputedStyle(row).transform).m42 + Number(row.dataset.slid ?? 0) + dashed.offsetHeight / 2 + 5
       : room ? room.top + room.height / 2 : null
     go()
   }, [aim]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1078,12 +1068,14 @@ export function useCardPlace(aim: Aim | null, takes: (aim: Aim) => boolean): { r
 }
 
 /**
- * A thing between a list's rows that is not one of them (a section's heading): it slides `by` on the rows' own clock,
- * so the rows that make way under a group forming above it never leave it behind, under the new group's panel.
+ * A thing between a list's rows that is not one of them (a section's heading): while a new group forms it slides as
+ * the row under it does, on the rows' own clock, so the rows that make way under the group forming above it never leave
+ * it behind, under the new group's panel. Over the row in hand it stays, the rows after it closing over that row's place
+ * under it; and a plain move opens its room under a heading, never over it.
  */
-export function Slid({ by, children }: { by: number; children: ReactNode }): React.JSX.Element {
-  const { snap } = useContext(Carrying)
-  const glide = useGlide(Math.round(by), 1, snap)
+export function Slid({ row, children }: { /** The row it heads. */ row: string; children: ReactNode }): React.JSX.Element {
+  const { snap, ys, hand, aim } = useContext(Carrying)
+  const glide = useGlide(aim?.make && row !== hand ? Math.round(ys.get(row) ?? 0) : 0, 1, snap)
   return <motion.div ref={glide.ref} style={glide.style}>{children}</motion.div>
 }
 

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { small } from '@/lib/small-picture'
 import { dragWords } from '@/lib/drag-words'
 import { NameInPlace } from './name-in-place'
@@ -7,7 +7,7 @@ import { SortableContext, type SortingStrategy } from '@dnd-kit/sortable'
 
 /** dnd-kit moves no row itself: where each one slides is worked out once, for rows and panels alike (Shaped). */
 const unmoved: SortingStrategy = () => null
-import { motion, useMotionValue, type MotionValue } from 'motion/react'
+import type { MotionValue } from 'motion/react'
 import { ChevronRight, GripVertical, ImagePlus, Layers, Plus, X as Cross } from 'lucide-react'
 import { saveImage } from '@/extensions/image-drop'
 
@@ -25,7 +25,7 @@ import { GROUP_COLORS, groups, tintOf } from '@/lib/groups'
 import { KEY, groupOf, groupsAround, isGroup, type How, type Layout } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { DROP_LIT, Overlay, SETTLE, upDown } from './sortable'
-import { CARD, CarriedCard, CarriedCount, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, offWindow, Slid, type Aim, type Parts, type Places } from './carry'
+import { CarriedCard, CarriedCount, CarryRow, Carrying, Hand, useCardPlace, INDENT, OUT, OUTDENT, PanelParts, REST, Shaped, pointerAt, pointerNow, rowAt, sideOf, useAim, useCarriedLeft, useRest, useTall, useTargets, headRow, offWindow, Slid, type Aim, type Parts, type Places } from './carry'
 import { Hinted, copy } from './row-menu'
 import { Count, Rolling, Tip, VirtualList, refuse, toast, quietly } from './ui'
 import type { Entry } from './note-list'
@@ -237,11 +237,10 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     setRowH(row)
     const wrap = isGroup(id) ? document.querySelector<HTMLElement>(`[data-group-block="${CSS.escape(id.slice(KEY.length))}"]`)?.parentElement : null
     setInset(wrap && start ? start.top - wrap.getBoundingClientRect().top : 0)
-    // A group's room is its block folded: as tall as it is less what it holds, from the lift on.
+    // A group's room is its block folded: as tall as it is less what it holds, from the lift on. Several notes carried
+    // open the room of the one in hand (the others wait in their places): a room for all of them was a tall empty band.
     const holds = wrap?.querySelector<HTMLElement>(':scope > [data-group-block] > [data-fold]')?.getBoundingClientRect().height ?? 0
-    // Several carried: each one's own height, so a tall row among short ones makes room for itself, never three of it.
-    const each = !isGroup(id) && picked.includes(id) && picked.length > 1 ? picked.map((one) => document.querySelector<HTMLElement>(`[data-sortable-id="${CSS.escape(one)}"]`)?.offsetHeight ?? row) : [row]
-    setSpan(wrap ? wrap.getBoundingClientRect().height - holds : each.reduce((sum, one) => sum + one, 0))
+    setSpan(wrap ? wrap.getBoundingClientRect().height - holds : row)
     setUnfolded(wrap ? wrap.getBoundingClientRect().height : 0)
   }
   // Held over a folded group's row for a moment, the group opens, as a folder
@@ -520,7 +519,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
               ) : one.head ? (
                 <>
                   {/* A group forming on a row above it moves every row after that row down: the heading goes with them. */}
-                  <Slid by={aim?.make && keys.indexOf(one.entries[0].id) > keys.indexOf(aim.target) ? Math.max(rowH, span) + 6 : 0}><SectionHead head={one.head} first={start === 0} day={days} /></Slid>
+                  <Slid row={one.entries[0].id}><SectionHead head={one.head} first={start === 0} day={days} /></Slid>
                   {row(one.entries[0], start)}
                 </>
               ) : airAbove(n) ? (
@@ -545,74 +544,19 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
  * What is carried: one small card beside the pointer, the same one the whole
  * way, whatever it is over. Its words change in place (Move here, Add to
  * Memory, New group), and it stays under the pointer the whole way. Where
- * letting go would do nothing, it says why. Several carried show as a stack with a count; a group, by its
- * icon and name.
+ * letting go would do nothing, it says why. A group shows by its icon and name;
+ * several notes, the one in hand on a small pile with their count (CarriedCount).
  */
 function Ghost({ carried, bundles, many, aim, grab, from, rest }: { carried: string; bundles: Bundle[]; many: string[]; aim: Aim | null; grab: number; from: number | null; rest: MotionValue<number> }): React.JSX.Element {
   const group = isGroup(carried) ? bundles.flatMap((one) => (one.group ? [one.group, ...(one.parts ?? []).flatMap((part) => ('group' in part ? [part.group] : []))] : [])).find((one) => KEY + one.id === carried) : undefined
-  const entries = bundles.flatMap((one) => one.entries)
-  const entry = group ? undefined : entries.find((one) => one.id === carried)
-  // The rest, in list order. What comes before the one in hand sits above it, what comes after sits below, so the stack reads like the list. Three besides it show.
-  const order = many.map((id) => entries.find((one) => one.id === id)).filter((one): one is Entry => !!one)
-  const handAt = Math.max(0, order.findIndex((one) => one.id === carried))
-  const behind = order.filter((one) => one.id !== carried).slice(0, 3)
-  const slotOf = (id: string): number => order.findIndex((one) => one.id === id) - handAt
+  const entry = group ? undefined : bundles.flatMap((one) => one.entries).find((one) => one.id === carried)
   return (
     <Hand grab={grab} from={from} rest={rest}>
-      {behind.slice().sort((a, b) => Math.abs(slotOf(b.id)) - Math.abs(slotOf(a.id))).map((one) => <Fanned key={one.id} entry={one} slot={slotOf(one.id)} />)}
       <CarriedCard attrs={{ 'data-ghost': '' }} icon={group ? <GroupIcon icon={group.icon} color={group.color} /> : entry ? <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} /> : null}
         title={group?.name ?? (entry?.title || 'New note')} strong={!!group} words={aim?.label ?? (aim ? 'Move here' : null)} tint={aim?.tint} refused={!!aim?.refused} />
-      {/* How many, hanging just under the stack. */}
       {/* How many this card is talking about. A new group takes the row it rests on as well, so the badge names that group, the same number as the sentence. */}
-      {many.length > 1 && <CarriedCount n={aim?.make ? many.length + 1 : many.length} />}
+      {many.length > 1 && <CarriedCount n={aim?.make ? many.length + 1 : many.length} carried={many.length} />}
     </Hand>
-  )
-}
-
-/**
- * One card in the stack, a full card above the one in hand (`slot` negative) or below it (positive), so the titles read in list order. With Reduce motion it simply sits there.
- */
-function Fanned({ entry, slot }: { entry: Entry; slot: number }): React.JSX.Element {
-  const calm = still()
-  const away = Math.abs(slot)
-  const fan = useRef<HTMLDivElement>(null)
-  const fanX = useMotionValue(-18 * away)
-  const fanY = useMotionValue(slot * 60)
-  useLayoutEffect(() => {
-    const place = (): void => {
-      const node = fan.current
-      const card = node?.querySelector<HTMLElement>('[data-fanned]')
-      if (!node || !card) return
-      const box = node.getBoundingClientRect()
-      // A full card apart, so the title on each one can be read. A short step piled the names on each other (16 Nov).
-      const step = Math.ceil(Math.max(card.getBoundingClientRect().height, card.offsetHeight, 44)) + 12
-      const left = -18 * away
-      // Stay on this side of the card in hand. Flipping to the side with room put the last title on top of the stack.
-      const y = slot * step
-      const x = box.left + left >= 8 ? left : box.right + 18 * away <= window.innerWidth - 8 ? 18 * away : 0
-      fanX.set(x)
-      fanY.set(y)
-    }
-    place()
-    window.addEventListener('pointermove', place, true)
-    return () => window.removeEventListener('pointermove', place, true)
-  }, [slot, away, fanX, fanY])
-  return (
-    <motion.div ref={fan} className="absolute inset-0">
-      <motion.div
-        aria-hidden
-        data-fanned={slot}
-        className={cn('absolute inset-0 flex items-center gap-2 overflow-hidden', CARD)}
-        initial={calm ? false : { opacity: 0 }}
-        // The offset itself does not ease: an ease left the titles piled on each other for the whole carry.
-        animate={{ opacity: 1 }}
-        style={{ x: fanX, y: fanY }}
-        transition={{ opacity: calm ? { duration: 0 } : { duration: 0.15 }, x: { duration: 0 }, y: { duration: 0 } }}
-      >
-        <entry.icon className="size-4 shrink-0" style={{ color: entry.tint }} />
-        <span className="private-text min-w-0 flex-1 truncate">{entry.title || 'New note'}</span>
-      </motion.div>
-    </motion.div>
   )
 }
 
