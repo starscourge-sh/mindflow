@@ -1362,7 +1362,9 @@ let lastEdit = 0
 // footer (and its Keys panel) of a view that fills the window, like Read through,
 // and the composer pinned under a page, where you are typing.
 // The page's hint line at its foot is stepped round too: a notice sat over its words, text over text (16 Nov 2026).
-const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="sheet-content"],[data-slot="popover-content"],[data-composer],[data-hint-line]'
+// So are a note's word counts while they show (count/word-count.tsx): the picked words' at the foot of the note, the
+// whole note's past its last line. A notice sat over them (18 Nov 2026).
+const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="sheet-content"],[data-slot="popover-content"],[data-composer],[data-hint-line],[data-picked-count]:not([data-on-words]),.tiptap-word-count[data-clear]'
 
 /**
  * Where the toast goes, clear of open panels: its usual place at the bottom
