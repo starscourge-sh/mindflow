@@ -1,5 +1,7 @@
 import { haligtree, type NoteSide } from './haligtree'
 import { binned, seeTheBin } from './to-bin'
+import { binFlight } from './fly-home'
+import { expectBack, stays } from './room'
 import { tear } from './sound'
 import { readMarkdownGently } from '@/components/haligtree/haligtree-editor'
 import { refuse, toast } from '@/components/haligtree/ui'
@@ -20,26 +22,31 @@ const NOT = { same: 'It is the same note, so nothing was joined', gone: 'That no
 export async function joinNotes(keep: NoteSide, other: NoteSide, said: string): Promise<boolean> {
   // Words typed and not saved yet go first: the join is made of the notes as stored.
   window.dispatchEvent(new Event('haligtree:flush'))
+  // The other's row, where one is on screen, crumples now and flies to the Bin once it is there, as every way to the
+  // Bin shows it (lib/to-bin.ts `moveToBin`); not joined, it is itself again.
+  const flight = binFlight(other.id)
+  const not = (why: string): boolean => (stays([other.id]), refuse(why), false)
   let made = await haligtree.joinNotes(keep, other)
   if ('markdown' in made) {
     // One of them is still the Markdown it came in as (main sends it): read here as its editor reads it, without
     // holding the window, and given back with the words it was read from, used only while those are still stored.
     const doc = await readMarkdownGently(made.text)
-    if (!doc) return (refuse('Its words could not be read here, so nothing was joined'), false)
+    if (!doc) return not('Its words could not be read here, so nothing was joined')
     const read = { doc, from: made.text }
     made = await haligtree.joinNotes(keep, other, made.markdown === 'keep' ? { keep: read } : { other: read })
-    if ('markdown' in made) return (refuse('It changed as it was read, so nothing was joined'), false)
+    if ('markdown' in made) return not('It changed as it was read, so nothing was joined')
   }
-  if ('why' in made) return (refuse(NOT[made.why]), false)
+  if ('why' in made) return not(NOT[made.why])
   const { token } = made
   // The Bin's one sound, and every page with the other open moves off it.
+  flight?.()
   tear()
   binned([other.id])
-  toast(said, () => void haligtree.unjoinNotes(token).then((back) => {
+  toast(said, () => (expectBack([other.id]), void haligtree.unjoinNotes(token).then((back) => {
     if (!back) return refuse('Too long ago to take back here: the note holds both, and the other is in the Bin')
     window.dispatchEvent(new CustomEvent('haligtree:came-back', { detail: [other.id] }))
     // Written in since the join: its words stay as they are, nothing of them lost, and the other is back beside it.
     if (back === 'both') refuse('The note was written in since, so it keeps both sets of words; the other is out of the Bin')
-  }), 'success', seeTheBin)
+  })), 'success', seeTheBin)
   return true
 }
