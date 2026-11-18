@@ -1365,6 +1365,9 @@ html:is([data-width='page'], [data-width='wide']) .haligtree-editor-wrapper:not(
 /* While a change's blocks arrive (a whole note pasted back), before they are marked: none is laid out. */
 .tiptap.ProseMirror.haligtree-editor[data-long][data-arriving] > * { display: none !important; }
 .tiptap.ProseMirror.haligtree-editor[data-long] { overflow-anchor: none; }
+/* And its scroller: holding the keys, the note was held still by the browser as a whole, and each time the note
+   pulled its words up over the scroller's start to hold them (`space`), the browser scrolled back by as much. */
+.haligtree-editor-content:has(> .tiptap.ProseMirror.haligtree-editor[data-long]) { overflow-anchor: none; }
 
 /* A note reads like a page of a wiki: the words in a column of about seventy
    characters (36em of the note's own size, so it grows with ⌘+), centred,

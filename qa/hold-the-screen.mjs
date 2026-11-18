@@ -3,7 +3,7 @@
 // largest note (long: only the blocks near the screen are drawn, extensions/long-document.ts) and in a short one
 // (all of it drawn). With the caret on the screen, its line moves by under 2 px in every frame painted through the
 // growth; with the caret off the screen, the line at the screen's top does. A frame before and after each card
-// growth, light and dark. Run on a COPY of a book (QA_DATA), never the book itself:
+// growth, light and dark, and one about every 50 ms through it. Run on a COPY of a book (QA_DATA), never the book itself:
 //
 //   QA_DATA=<copy> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/hold-the-screen.mjs
 //
@@ -154,8 +154,14 @@ try {
         if (how === 'fold') return console.log(`(${which}: ${name}: not run, ${did.none})`)
         return check(`${which}: ${name}`, false, did.none)
       }
+      // Themed, a frame about every 50 ms through the change as well: a scrollbar shown by a scroll from code stays up
+      // for about a second, so a single frame could miss one.
+      const film = async (ms, tag) => {
+        if (!theme) return wait(ms)
+        for (let n = 0, end = Date.now() + ms; Date.now() < end; n++) await h.screenshot({ path: join(shots, `${which}-${name.replace(/\W+/g, '-')}-${theme}-${tag}-${n}.png`) })
+      }
       if (follow) {
-        await wait(250)
+        await film(250, '0-grew')
         // The card's preview arrives: its words, a long description, the site. Or the folded section opens again.
         await page(h, (ed) => {
           if (window.__htsFold !== undefined) return void (window.__htsToggle(window.__htsFold), (window.__htsFold = undefined))
@@ -169,7 +175,7 @@ try {
       await wait(theme ? 150 : 900)
       if (theme) {
         await h.screenshot({ path: join(shots, `${which}-${name.replace(/\W+/g, '-')}-${theme}-1-after.png`) })
-        await wait(600)
+        await film(600, '2-after')
       }
       const frames = await page(h, () => window.__htsStop())
       const worst = frames.reduce((most, one) => (Math.abs(one) > Math.abs(most) ? one : most), 0)
@@ -197,6 +203,28 @@ try {
       return caret.bottom < box.top || caret.top > box.bottom
     })
     if (check(`${which}: the wheel took the caret off the screen`, off)) await grow("a card above the screen filling in holds the line at the screen's top still, the caret off the screen", 'card', true, { anchor: 'top' })
+    // Near the long note's start, a little way down by the wheel: a card filling in above the screen is held there too,
+    // through the note's words pulled over the scroller's start with no scroll, and ⌘↑ then shows the note's first line,
+    // not a place as far short of it as the card grew. (A short note is held by the browser, by a scroll of its own.)
+    if (which !== 'long') continue
+    await h.keyboard.press('Meta+ArrowUp')
+    await wait(700)
+    await h.mouse.move(middle.x, middle.y)
+    await h.mouse.wheel(0, 300)
+    await wait(900)
+    const near = await page(h, lineOnShow, { min: 3 })
+    if (check(`${which}: near the start, a line of the note is on show to press in`, !near.none, near.none ? JSON.stringify(near.none) : `block ${near.index + 1}, the scroll at ${await page(h, () => window.__htsBox.scrollTop)} px`)) {
+      await h.mouse.click(near.x, near.y)
+      await wait(700)
+      await grow("near the start: a card above the screen filling in holds the caret's line still", 'card', true, { theme: 'light' })
+      await h.keyboard.press('Meta+ArrowUp')
+      await wait(700)
+      const start = await page(h, (ed) => {
+        const box = window.__htsBox
+        return { scroll: Math.round(box.scrollTop), first: Math.round(ed.firstElementChild.getBoundingClientRect().top - box.getBoundingClientRect().top), over: ed.previousElementSibling?.style?.marginBottom ?? '' }
+      })
+      check(`${which}: near the start, ⌘↑ after it shows the note's first line`, start.first >= 0 && start.first < 60 && !start.over, `its first block ${start.first} px down the screen, the scroll at ${start.scroll} px${start.over ? `, words pulled over the start by ${start.over}` : ''}`)
+    }
   }
   check('no page errors', !c.errors.filter((line) => !/ERR_FILE_NOT_FOUND|status of 404|haligtree\.invalid|ERR_NAME_NOT_RESOLVED|ERR_BLOCKED/.test(line)).length, c.errors.slice(0, 3).join(' | '))
   console.log(`(frames in ${shots})`)

@@ -429,15 +429,16 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     for (let i = to + 1; i < all.length; i++) below += tall(all[i])
     spaced = [above, below]
     mark()
-    // Nothing may stand above the note's first block: what the space is out by is put right now.
-    if (from === 0 && slip) rest()
-    else space()
+    fit()
   }
-  // Only the two places' own heights change: no style but theirs is worked out again.
+  // Only the two places' own heights change: no style but theirs is worked out again. Less than none above, the
+  // words there stand over the scroller's start by as much, out of reach until it is put right (`fit`, `rest`).
   const space = (): void => {
     fence()
     const room = [`${Math.max(0, spaced[0] + slip)}px`, `${spaced[1]}px`]
     ends.forEach((end, i) => void (end.style.height !== room[i] && (end.style.height = room[i])))
+    const over = spaced[0] + slip < 0 ? `${spaced[0] + slip}px` : ""
+    if (ends[0].style.marginBottom !== over) ends[0].style.marginBottom = over
   }
   /**
    * The words on screen kept where they are when the blocks just drawn above them stand taller or shorter than
@@ -446,13 +447,29 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
    * wheel lost its place: a scroll set from here replaces what the wheel has moved since the frame began, so
    * the words jumped back against the wheel (319 of 1,020 frames of a push up a 7,017-block note) and more than
    * half of what the wheel sent was thrown away, so the note's end was never reached. What the space is out by
-   * is put right when the scrolling comes to rest (`rest`), or at once where it cannot wait: at the note's
-   * first block, which nothing may stand above, and when the space would have to be less than none.
+   * is put right when the scrolling comes to rest (`rest`), or as the screen comes near it (`fit`, on a scroll).
+   *
+   * Nothing scrolls here, so the scrollbar stays hidden as it does when the browser holds a short note: it was put
+   * right at once at the note's first block and below none, by a scroll on a still screen, and the scrollbar showed
+   * for each. And as the browser holds a short note, nothing is held with the screen at the note's start (whatever
+   * grows there is on the screen), and no space is left above the note's first block where the screen could show it.
    */
   const hold = (moved: number): void => {
-    if (!band || Math.abs(moved) < 0.01) return
+    const scroller = view.dom.parentElement
+    if (!band || !scroller || Math.abs(moved) < 0.01 || scroller.scrollTop - slip < 0.5) return
     slip -= moved
-    if (band[0] === 0 || spaced[0] + slip < 0) rest()
+    if (band[0] === 0) slip = Math.min(slip, scroller.scrollTop)
+    space()
+  }
+  /**
+   * The space kept above made what the sizes say less what it is out by, down to less than none (`space`), as long
+   * as what it is out by stays above the screen: at the note's first block that is the space itself, below none the
+   * words pulled over the scroller's start. Once the screen has come within it, it is put right (`rest`).
+   */
+  const fit = (): void => {
+    const scroller = view.dom.parentElement
+    const out = !band ? 0 : band[0] === 0 ? Math.abs(slip) : Math.max(0, -(spaced[0] + slip))
+    if (slip && scroller && scroller.scrollTop < out) rest()
     else space()
   }
   /**
@@ -469,7 +486,9 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     slip = 0
     space()
     const scroller = view.dom.parentElement
-    if (!scroller) return
+    // At the scroller's start it is the note's start that shows, as a jump there (⌘↑, gg) asked: scrolled by what the
+    // space was out by, it landed that far short, the note's first lines above the screen.
+    if (!scroller || scroller.scrollTop < 0.5) return
     const before = scroller.scrollTop
     scroller.scrollBy({ top: by, behavior: "instant" })
     ownScrolls.set(scroller, scrolledItself(scroller) + scroller.scrollTop - before)
@@ -603,7 +622,7 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     view.dom.removeAttribute(ARRIVING)
     mark()
     view.dom.dispatchEvent(new CustomEvent(DRAWN, { detail: null }))
-    for (const end of ends) end.style.height = "0px"
+    for (const end of ends) ((end.style.height = "0px"), (end.style.marginBottom = ""))
   }
   /** Shift the band, keeping the block at the top of the screen where it is, or where the sizes say it should be. */
   const shift = (from: number, to: number, anchor: Element | null, at?: number): void => {
@@ -691,9 +710,11 @@ function nearScreen(view: EditorView): { view: EditorView; release: () => void; 
     shift(band[0], band[1], top?.anchor ?? null, top?.at)
     more()
   }
-  // What grew above the held block before the scroll is held first; what is held after it is what is on the screen then.
+  // What the space above is out by is put right as the screen comes near the note's start (`fit`); what grew above the
+  // held block before the scroll is held; what is held after it is what is on the screen then.
   const scrolled = (event: Event): void => {
     if (!(event.target instanceof Node && event.target.contains(view.dom))) return
+    fit()
     keep()
     follow()
     choose()
