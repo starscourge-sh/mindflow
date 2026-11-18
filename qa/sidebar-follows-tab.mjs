@@ -221,6 +221,22 @@ try {
     check(`${name}: in the tab on show`, JSON.stringify(got) === '[1]' && (await lit()).length <= 1, JSON.stringify(got) + JSON.stringify(await lit()))
   }
 
+  // Library's heading pressed while on Gems (a page inside it): it folds, as its sound says, and stays folded once you
+  // leave; Gems reached another way (sent, as ⌘K and a link do) opens it again to show where you are.
+  {
+    const head = 'aside [data-side-heading="library"] button[aria-expanded]'
+    const open = () => h.evaluate((s) => document.querySelector(s)?.getAttribute('aria-expanded'), head)
+    const gemsShows = () => h.evaluate(() => { const row = document.querySelector('aside nav button[aria-label="Gems"]'); const r = row?.getBoundingClientRect(); return !!row && !row.closest('[inert]') && !!r && r.height > 4 })
+    if ((await open()) !== 'true') { await h.click(head); await wait(500) }
+    await h.click('aside nav button[aria-label="Gems"]'); await wait(900)
+    await h.click(head); await wait(700)
+    check('on Gems, Library's heading pressed: it folds', (await open()) === 'false' && !(await gemsShows()), `expanded ${await open()}, Gems row shows ${await gemsShows()}`)
+    await h.click('aside nav button[aria-label="Inbox"]'); await wait(900)
+    check('then the Inbox: Library stays folded', (await open()) === 'false' && !(await gemsShows()), `expanded ${await open()}`)
+    await send('view', 'nuggets'); await wait(900)
+    check('Gems sent from elsewhere: Library opens to show where you are', (await open()) === 'true' && (await gemsShows()), `expanded ${await open()}, Gems row shows ${await gemsShows()}`)
+  }
+
   // Narrow: the section's icon only
   await send('article', inFolder.id); await wait(1000)
   await c.size(700, 700); await wait(500)

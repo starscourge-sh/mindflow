@@ -183,10 +183,13 @@ function useRemembered(key: string, start = false): [boolean, (open: boolean) =>
 /**
  * A sidebar group that folds by itself: whether it is open is its own state (remembered under `kept`), so folding
  * it draws its heading and its rows and nothing else. Held by the main window, one fold drew the whole window.
- * `held` keeps it open whatever was chosen (the page you are on is inside it, or the sidebar is its narrow rail).
+ * `held` keeps it open whatever was chosen (the sidebar is its narrow rail, with no headings to press).
+ * `here`: the page you are on is inside it. Arriving there (⌘K, a link, Back) opens it to show where you are, and it
+ * stays open, as Finder reveals a file; pressed while you are there it folds, as its sound says, and stays folded.
  */
-function Folding({ kept, held, head, children }: { kept: string; held: boolean; head: (open: boolean, fold: (open: boolean) => void) => React.ReactNode; children: React.ReactNode }): React.JSX.Element {
+function Folding({ kept, held, here, head, children }: { kept: string; held: boolean; here: boolean; head: (open: boolean, fold: (open: boolean) => void) => React.ReactNode; children: React.ReactNode }): React.JSX.Element {
   const [open, setOpen] = useRemembered(kept)
+  useLayoutEffect(() => void (here && setOpen(true)), [here]) // eslint-disable-line react-hooks/exhaustive-deps
   return <>{head(open || held, setOpen)}<Unfold open={open || held}>{children}</Unfold></>
 }
 
@@ -2595,12 +2598,12 @@ export function Home(): React.JSX.Element {
                   {/* Library, what you keep (Gems, Sources, Files), under a heading of its own that folds as Pinned's does. */}
                   {(block === 'Library' || block === 'Look') && items.length > 0 ? (() => {
                     const [head, id] = block === 'Library' ? [LIBRARY, 'library'] as const : [LOOK_BACK, 'look'] as const
-                    // The page you are on stays in sight: its fold opens when you go there from elsewhere.
+                    // The page you are on is in sight: its fold opens when you go there from elsewhere.
                     const here = items.some((one) => light === `place:${one.id}`)
                     // Library and Look back fold under their headings, folded to start; each stays as you leave it,
                     // and keeps that itself (Folding), so a fold draws the group alone.
                     return (<div data-side-section={id} style={sectionAt(id)} className="flex flex-col">
-                      <Folding kept={`sidebar:${id}`} held={here || narrow} head={(open, fold) => heading(head, open, fold)}>
+                      <Folding kept={`sidebar:${id}`} held={narrow} here={here} head={(open, fold) => heading(head, open, fold)}>
                         {/* Hung off a trunk under its heading, as Pinned's and Recent's are: they are its children. */}
                         <Branches bare={narrow} rows=":scope > [data-drop-list] > *" current={items.findIndex((one) => light === `place:${one.id}`)} className={narrow ? '' : 'ml-5'}>{box}</Branches>
                       </Folding>
