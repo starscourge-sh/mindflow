@@ -1,5 +1,6 @@
 import { Extension } from "@tiptap/core"
 import { NodeSelection, Plugin, PluginKey, TextSelection } from "@tiptap/pm/state"
+import { NodeRangeSelection } from "@tiptap/extension-node-range"
 import { addRowAfter, goToNextCell, isInTable } from "@tiptap/pm/tables"
 import type { Command, EditorState } from "@tiptap/pm/state"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
@@ -1515,6 +1516,34 @@ function changeCase(
   if (tr.docChanged) view.dispatch(tr.scrollIntoView())
 }
 
+/**
+ * Blocks picked whole, by ⌘A's steps, a grip or a box drawn from the margin (extensions/picked-blocks.ts): d and x
+ * take them, y keeps them, c takes them and leaves a line to type on, each as whole lines in the register, as the
+ * same lines picked in visual mode would be. One step for u and ⌘Z.
+ */
+function takePicked(view: EditorView, operator: "d" | "y" | "c"): void {
+  const { state } = view
+  const { selection, schema } = state
+  const nodes = selection.ranges.flatMap((range) => range.$from.nodeAfter ?? [])
+  const tr = state.tr.setMeta(vimPluginKey, {
+    ...CLEARED,
+    register: remember({ kind: "line", nodes: nodes.map((node) => node.toJSON()), text: nodes.map((node) => node.textBetween(0, node.content.size, "\n", leafText)).join("\n") }),
+  })
+  if (operator === "y") {
+    view.dispatch(tr)
+    collapseSelection(view, selection.from)
+    return
+  }
+  tr.deleteSelection()
+  if (operator === "c") {
+    const at = tr.mapping.map(selection.from)
+    tr.insert(at, schema.nodes.paragraph.create())
+    tr.setSelection(TextSelection.near(tr.doc.resolve(at + 1)))
+  }
+  view.dispatch(tr.scrollIntoView())
+  if (operator === "c") patch(view, { mode: "insert" })
+}
+
 /** x - forward within the block, or the whole node when one is selected. */
 function deleteChars(view: EditorView, count: number): void {
   const { state } = view
@@ -2874,6 +2903,13 @@ export const VimMode = Extension.create<VimModeOptions>({
                   if (operator !== "c") collapseSelection(view, from)
                 }
               }
+              return true
+            }
+
+            // Blocks picked whole are what d, x, y and c take, as a visual pick's lines are: left to the switch, d sat
+            // waiting for a motion, and dd took the caret's own line.
+            if (view.state.selection instanceof NodeRangeSelection && /^[dxyc]$/.test(key)) {
+              takePicked(view, key === "x" ? "d" : (key as "d" | "y" | "c"))
               return true
             }
 
