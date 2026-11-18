@@ -59,7 +59,8 @@ export function BarMenu({ label, lit, icon: Shown, bare, column, text, tip, open
   }, [open, label])
   const panel = useRef<HTMLDivElement | null>(null)
   // Placed on the page, not inside the bar, which clips what hangs off it:
-  // beneath the button (above it with no room below), kept as every menu is
+  // beneath the button and the words it acts on (above it with no room
+  // below), kept as every menu is
   // from the window's edges (MENU_ROOM: 52 under the title bar, 12 elsewhere);
   // where neither side has room for all of it, on the roomier side, as tall as
   // that room, its rows scrolling. Measured before it is painted, so it never
@@ -70,11 +71,14 @@ export function BarMenu({ label, lit, icon: Shown, bare, column, text, tip, open
     const button = box.current.getBoundingClientRect()
     const { offsetWidth: width, scrollHeight: height } = panel.current
     const left = Math.min(Math.max(12, column ? button.left : button.left + button.width / 2 - width / 2), window.innerWidth - width - 12)
-    const below = window.innerHeight - 12 - (button.bottom + 6)
+    // Under the picked words rather than over them when the bar sits above them: a menu never hides what it acts on.
+    const words = getSelection()?.rangeCount ? getSelection()!.getRangeAt(0).getBoundingClientRect() : null
+    const from = words && words.bottom > button.bottom && words.bottom < window.innerHeight - 12 ? words.bottom : button.bottom
+    const below = window.innerHeight - 12 - (from + 6)
     const above = button.top - 6 - 52
     const down = height <= below || below >= above
     const tall = Math.min(height, down ? below : above)
-    setAt({ left, top: down ? button.bottom + 6 : button.top - 6 - tall, tall: tall < height ? tall : undefined })
+    setAt({ left, top: down ? from + 6 : button.top - 6 - tall, tall: tall < height ? tall : undefined })
   }, [open, column])
   // Gone on a click anywhere else, or Escape.
   useEffect(() => {
