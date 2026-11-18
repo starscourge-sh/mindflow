@@ -116,23 +116,26 @@ export function currentTheme(): Theme {
  * null when it is see-through over the frosting. Read through a canvas, which
  * turns any colour a theme writes (oklch and all) into plain red, green, blue.
  */
-function solidColour(): string | null {
-  const root = getComputedStyle(document.documentElement)
-  if (root.getPropertyValue("--mf-window-tint").trim() !== "100%") return null
+function pageColour(): string | null {
   const ink = document.createElement("canvas").getContext("2d")
   if (!ink) return null
-  ink.fillStyle = root.getPropertyValue("--background").trim() || "#000"
+  ink.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--background").trim() || "#000"
   ink.fillRect(0, 0, 1, 1)
   const [r, g, b] = ink.getImageData(0, 0, 1, 1).data
   return `#${[r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("")}`
 }
-/** Told to main (it listens only to the box): the window's own colour behind the page. */
-let toldSurface: string | null | undefined
+const solidColour = (): string | null => (getComputedStyle(document.documentElement).getPropertyValue("--mf-window-tint").trim() === "100%" ? pageColour() : null)
+/**
+ * Told to main: the window's own colour behind the page. The box's, only where the theme paints it solid (else its
+ * frosting); a small window's, always the page's, as it is opaque (main/small-window.ts).
+ */
+let toldSurface: string | undefined
 function tellSurface(): void {
-  const colour = solidColour()
-  if (colour === toldSurface) return
-  toldSurface = colour
-  window.api?.setSurface?.(colour)
+  const solid = solidColour()
+  const page = pageColour()
+  if (`${solid} ${page}` === toldSurface) return
+  toldSurface = `${solid} ${page}`
+  window.api?.setSurface?.(solid, page)
 }
 // Once the stylesheet is surely in, should the first telling have come before it.
 if (typeof window !== "undefined") window.addEventListener("load", () => tellSurface())

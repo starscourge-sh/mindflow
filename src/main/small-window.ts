@@ -133,10 +133,23 @@ export function fitSmall(win: BrowserWindow, height: number): boolean {
   return true
 }
 
+/**
+ * The page's colour as the windows tell it (lib/theme.ts tellSurface), the one theme every window wears. A small window
+ * is opaque, its page filling it, so its own colour behind the page is that: dark under a light page, the edge a resize
+ * uncovers flashed dark for a frame (18 Nov 2026). A new one wears it from its first frame.
+ */
+let pageColour = '#1c1c1c'
+
 export function registerSmallWindows({ load, guard, stepAside, passThrough, parked }: Windows): { open: (link: string | null, from?: Electron.Rectangle | null) => void; restore: () => void } {
   app.on('before-quit', () => {
     quitting = true
     save()
+  })
+  ipcMain.on('window:surface', (event, _solid: unknown, page: unknown) => {
+    if (typeof page !== 'string' || !/^#[0-9a-f]{6}$/i.test(page)) return
+    pageColour = page
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win && !win.isDestroyed() && smalls.has(win)) win.setBackgroundColor(page)
   })
 
   /** A small window on `link` ('capture:id', or null for a new note), grown from `from` (a row, the box) when given. */
@@ -161,8 +174,8 @@ export function registerSmallWindows({ load, guard, stepAside, passThrough, park
       fullscreenable: false,
       // Opaque, as a note's own window is (notes.ts). A see-through window is not one the Mac can resize: dragged by its
       // corner it went blank but for its buttons, and the foot of the card showed the desktop through it (16 Nov). It
-      // is as tall as its card, so there is no clear room under the card to see through.
-      backgroundColor: '#1c1c1c',
+      // is as tall as its card, so there is no clear room under the card to see through. In the page's own colour.
+      backgroundColor: pageColour,
       title: 'Note',
       autoHideMenuBar: true,
       webPreferences: { preload: join(__dirname, '../preload/index.js'), sandbox: false, backgroundThrottling: false }

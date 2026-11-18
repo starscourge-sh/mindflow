@@ -601,8 +601,8 @@ const api = {
     heard.on('backup:trouble', relay)
     return () => heard.off('backup:trouble', relay)
   },
-  /** The box's own colour behind the page, or null for the frosted backing: see setSurface in main. */
-  setSurface: (color: string | null): void => ipcRenderer.send('window:surface', color),
+  /** The box's own colour behind the page, or null for the frosted backing: see setSurface in main. `page`: the page's colour, worn by an opaque window (main/small-window.ts). */
+  setSurface: (color: string | null, page?: string | null): void => ipcRenderer.send('window:surface', color, page),
   /** In the box: the welcome starting or ending (it wears no side panel while it runs). */
   onWelcoming: (listen: (on: boolean) => void): (() => void) => {
     const relay = (_event: unknown, on: boolean): void => listen(on)
