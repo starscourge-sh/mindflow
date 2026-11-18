@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { line, curveMonotoneX } from 'd3-shape'
 import { tagsIn } from '../../../../main/tag-words'
 import { byDefault, useToolKeys } from '@/lib/tool-keys'
@@ -177,6 +177,13 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
   // A: "Ask another way" open under this card (its id), closed by moving on.
   const [asking, setAsking] = useState<string | null>(null)
   const heading = useRef<HTMLHeadingElement>(null)
+  // The question in front. A card going out (popLayout) lets go of its question after the next card's took hold:
+  // cleared by whichever let go last, the ref held nothing and E (or "Rewrite it") picked nothing, so only the
+  // question that still holds it clears it.
+  const holdHeading = useCallback((el: HTMLHeadingElement | null): (() => void) => {
+    heading.current = el
+    return () => void (heading.current === el && (heading.current = null))
+  }, [])
   const fresh = (cards: Due[], bucket: Round | null): void => {
     setQueue(cards)
     setRound(bucket)
@@ -410,12 +417,9 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
       return [...rest.slice(0, at), slipped, ...rest.slice(at)]
     })
     chime('tap')
-    setTimeout(() => {
-      const h = heading.current
-      if (!h) return
-      h.focus()
-      getSelection()?.selectAllChildren(h)
-    }, 80)
+    // Its question taken into the keys with its words picked, as E does, once the card in front is drawn.
+    setEditing(true)
+    setEditAsked((n) => n + 1)
   }
   const aside = (): void => {
     if (!slipping) return
@@ -780,7 +784,7 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
               {sides && <p data-side-front className="mb-1 text-sm text-muted-foreground">{sides[0]}</p>}
               <h2
                 key={`${card.id}-${rewrites}`}
-                ref={heading}
+                ref={holdHeading}
                 contentEditable
                 suppressContentEditableWarning
                 // One line: Enter keeps it rather than starting a second. Esc leaves it as it was, as Esc does in
