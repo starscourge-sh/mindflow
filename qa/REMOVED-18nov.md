@@ -4,13 +4,13 @@ The user, 16 Nov: "My rule now: test by who uses it. My tools get tests where lo
 gets its main journeys tested end to end. Nothing trivial. Nothing twice. write fewer tests and purge unnecessary ones:
 dont lengthen builds for no reason".
 
-qa/ held 1,245 probes; 259 are kept and 986 removed (6 of them libraries only removed probes imported), with 3 more files only removed probes read. Every removed
+qa/ held 1,245 probes; 260 are kept and 985 removed (6 of them libraries only removed probes imported), with 3 more files only removed probes read. Every removed
 file is in git history (`git show c58be03fd:qa/<name>.mjs`). How they were sorted:
-- a fix long merged, its path walked by a kept probe: 664
+- a fix long merged, its path walked by a kept probe: 663
 - one-off pass or diagnostic: 62
-- logic held by a unit test: 31
+- logic held by a unit test: 30
 - a fix long merged, no journey walks its corner: 149
-- a file only removed probes used: 9
+- a file only removed probes used: 10
 - one number: 14
 - a look already read by eye: 58
 - stale, red on premium-pass, its path walked by a kept probe: 1
@@ -624,7 +624,6 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/paste-finder-files.mjs`: trivial: a fix long merged (written 11-12, last changed 11-15; run by no merge check since 14 Nov); its path is walked by the kept journey paste-shapes
 - `qa/paste-look.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 11-16, last changed 11-16; last run by a merge check 11-16)
 - `qa/paste-unreadable.mjs`: trivial: a fix long merged (written 10-18, last changed 11-15; run by no merge check since 14 Nov); its path is walked by the kept journey paste-shapes
-- `qa/pasteboard-stand-in.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey paste-shapes
 - `qa/pdf-both-sides.mjs`: trivial: a fix long merged (written 11-10, last changed 11-10; run by no merge check since 14 Nov); its path is walked by the kept journey pdf-reader
 - `qa/pdf-clarity.mjs`: trivial: a fix long merged (written 10-31, last changed 11-16; run by no merge check since 14 Nov); its path is walked by the kept journey pdf-reader
 - `qa/pdf-cover-paper.mjs`: trivial: a fix long merged (written 11-08, last changed 11-10; run by no merge check since 14 Nov); its path is walked by the kept journey pdf-reader
@@ -967,7 +966,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/twopass-2.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-06, last changed 10-23; run by no merge check since 14 Nov)
 - `qa/twopass-3.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-06, last changed 10-18; run by no merge check since 14 Nov)
 - `qa/typed-marks.mjs`: trivial: a fix long merged (written 10-30, last changed 10-30; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
-- `qa/types-migrate.mjs`: logic that can break, held by a unit test (nothing: a one-time move of old kinds, done (no migrations in development)); the probe only drove it through the window (written 10-09, last changed 10-23; run by no merge check since 14 Nov)
+- `qa/types-migrate.mjs`: trivial: a one-time move of the ten old kinds to seven (9 Oct), long done; in development removed options need no migration
 - `qa/types-shots.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-09, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/ui-tasks-more.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-17, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/ui-tasks.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-17, last changed 10-25; run by no merge check since 14 Nov)
