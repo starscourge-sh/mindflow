@@ -15,7 +15,7 @@ import { chime } from '@/lib/sound'
 import { call, haligtree } from '@/lib/haligtree'
 import { comboOf } from '@/lib/keys'
 import { capsNow, meets, useHas } from '@/lib/needs'
-import { usePop } from '@/lib/motion'
+import { byKeys, usePop } from '@/lib/motion'
 import { Kbd, refuse, toast, whyFailed } from './ui'
 import { Orb } from './orb'
 import { BarMenu } from './sub-menu'
@@ -306,11 +306,21 @@ export function WritingHelp({ editor, reading = false }: { editor: Editor; readi
 }
 
 /**
- * The rows, as every menu answers keys: the first lit as it opens, ↑ ↓ move the light, ↵ picks it, 1 to 8 pick theirs,
- * Esc closes the menu and leaves the words picked. Taken before the note hears them, so ↵ never replaces the words.
+ * The rows, as every menu answers keys: opened by a key the first is lit, so ↵ picks it at once (opened by a click
+ * none is, and the pointer lights the one it moves onto); ↑ ↓ move the light, 1 to 8 pick theirs, Esc closes the menu
+ * and leaves the words picked. Taken before the note hears them, so ↵ never replaces the words.
  */
 function Rows({ rows, pick, close }: { rows: Row[]; pick: (id: Help) => void; close: () => void }): React.JSX.Element {
-  const [lit, setLit] = useState(0)
+  const [lit, setLit] = useState(() => (byKeys() ? 0 : -1))
+  const shown = useRef<HTMLButtonElement | null>(null)
+  // The lit row in sight, where a short window lets the menu show only some of them: the menu scrolls, nothing else.
+  useEffect(() => {
+    const row = shown.current
+    const menu = row?.parentElement
+    if (!row || !menu || menu.scrollHeight <= menu.clientHeight) return
+    if (row.offsetTop < menu.scrollTop) menu.scrollTop = row.offsetTop
+    else if (row.offsetTop + row.offsetHeight > menu.scrollTop + menu.clientHeight) menu.scrollTop = row.offsetTop + row.offsetHeight - menu.clientHeight
+  }, [lit])
   useEffect(() => {
     const keys = (event: KeyboardEvent): void => {
       const combo = comboOf(event)
@@ -319,9 +329,10 @@ function Rows({ rows, pick, close }: { rows: Row[]; pick: (id: Help) => void; cl
       if (!step && combo !== '↵' && combo !== 'Esc' && !rows[n]) return
       event.preventDefault()
       event.stopImmediatePropagation()
-      if (step) return setLit((at) => (at + step + rows.length) % rows.length)
+      if (step) return setLit((at) => (at < 0 ? (step > 0 ? 0 : rows.length - 1) : (at + step + rows.length) % rows.length))
       if (combo === 'Esc') return close()
-      pick(rows[n >= 0 ? n : lit].id)
+      const one = rows[n >= 0 ? n : lit]
+      if (one) pick(one.id)
     }
     addEventListener('keydown', keys, true)
     return () => removeEventListener('keydown', keys, true)
@@ -331,7 +342,7 @@ function Rows({ rows, pick, close }: { rows: Row[]; pick: (id: Help) => void; cl
       {rows.map((one, n) => {
         const Icon = menuIcon(one.label)
         return (
-          <BarButton key={one.id} type="button" variant="ghost" role="menuitem" tabIndex={-1} className="justify-start" data-help={one.id}
+          <BarButton key={one.id} ref={n === lit ? shown : undefined} type="button" variant="ghost" role="menuitem" tabIndex={-1} className="justify-start" data-help={one.id}
             data-highlighted={n === lit ? 'true' : undefined} onPointerMove={() => setLit(n)} onClick={() => pick(one.id)}>
             <Icon className="tiptap-button-icon" />
             <span className="tiptap-button-text">{one.label}</span>
