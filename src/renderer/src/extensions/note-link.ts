@@ -338,23 +338,28 @@ export async function bringFromVault(label: string, path?: string): Promise<Brou
  */
 async function openGhost(editor: Editor, label: string, heading: string, findNotes: NoteLinkOptions["findNotes"], open: NoteLinkOptions["onOpenNote"], at?: { x: number; y: number }, path?: string): Promise<void> {
   if (!open) return
+  // The page the link is on, by its document: drawn again meanwhile (a note brought in points this link at itself,
+  // and the page holding it is read again) is still here; only a page left means the answer is too late to act on.
+  const page = [...showing].find(([, one]) => one === editor)?.[0]
+  const stillOn = (): boolean => !editor.isDestroyed || (!!page && !!showing.get(page) && !showing.get(page)!.isDestroyed)
   const go = (id: string): void => {
-    if (editor.isDestroyed) return
+    if (!stillOn()) return
     pending = heading ? { documentId: null, heading } : null
     open(id, heading || undefined)
   }
   const here = await noteNamed(label, findNotes, { make: false })
   if (here) return go(here.id)
   const brought = await bringFromVault(label, path)
-  if (brought?.found === "several" && at && !path) return void chooseNote(brought.paths, at, (one) => void openGhost(editor, label, heading, findNotes, open, undefined, one), () => void makeGhost(editor, label, findNotes, go, null))
+  if (brought?.found === "several" && at && !path) return void chooseNote(brought.paths, at, (one) => void openGhost(editor, label, heading, findNotes, open, undefined, one), () => void makeGhost(label, findNotes, go, null))
   if (brought?.found === "brought" || brought?.found === "here") return go(brought.link)
-  await makeGhost(editor, label, findNotes, go, brought)
+  await makeGhost(label, findNotes, go, brought)
 }
 
 /** A link's page made empty, with why: nothing of that name in the book or the vault, no vault known, or the vault gone. */
-async function makeGhost(editor: Editor, label: string, findNotes: NoteLinkOptions["findNotes"], go: (id: string) => void, brought: Brought | null): Promise<void> {
+async function makeGhost(label: string, findNotes: NoteLinkOptions["findNotes"], go: (id: string) => void, brought: Brought | null): Promise<void> {
   const note = await noteNamed(label, findNotes)
-  if (!note || editor.isDestroyed) return
+  // Whether the page asking is still on show is `go`'s to say: drawn again meanwhile, it still is.
+  if (!note) return
   if (note.made) {
     ghosts.set(`capture-${note.id}`, { id: note.id, name: note.label })
     const unread = brought?.found === "none" ? brought.unread : []
