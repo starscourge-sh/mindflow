@@ -2906,8 +2906,9 @@ function useEscapeToHide(fold: { current: () => boolean }): void {
   useEffect(() => {
     // The editor marks every Escape as handled, so whether it was spent is
     // read before it gets there: in the editor, Escape hides the window only
-    // when nothing else would take it (no menu open, no words selected, and
-    // vim, if on, already at rest in normal mode).
+    // when nothing else would take it (no menu open, no words selected). With
+    // Vim on it never does: Escape stays in the note, as in vim and Obsidian
+    // (18 Nov); the window's close dot puts it away.
     let free = false
     // A menu or picker open when Escape came: that Escape closes it, never the window.
     let layered = false
@@ -2916,8 +2917,7 @@ function useEscapeToHide(fold: { current: () => boolean }): void {
       layered = layerOpen()
       const editor = (event.target as Element | null)?.closest?.('.ProseMirror')
       if (!editor) return void (free = false)
-      const mode = editor.getAttribute('data-vim-mode')
-      free = (!mode || mode === 'normal') && (window.getSelection()?.isCollapsed ?? true) && !layerOpen() && !caretTakesEscape()
+      free = !editor.hasAttribute('data-vim-mode') && (window.getSelection()?.isCollapsed ?? true) && !layerOpen() && !caretTakesEscape()
     }
     const onKey = (event: KeyboardEvent): void => {
       if (event.key !== 'Escape') return

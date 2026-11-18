@@ -136,6 +136,11 @@ try {
   await press('i', 'Control+[')
   const left = await read()
   check('17: Vim on, i then ⌃[: back in normal mode, still in the note', left.vim === 'normal' && (await h.evaluate((sel) => document.querySelector(sel).editor.view.hasFocus(), ED)), JSON.stringify(left))
+  // Ask 17 (the lead's ruling): with Vim on, Escape in normal mode stays in the note, as in vim and Obsidian; pressed
+  // twice by habit it left the note, and the next vim keys (j, dd) went to the page.
+  await press('i', 'Escape', 'Escape', 'j')
+  const stays = { ...(await read()), focused: await h.evaluate((sel) => document.querySelector(sel).editor.view.hasFocus(), ED) }
+  check('17: Vim on, Escape twice: still in the note, in normal mode', stays.vim === 'normal' && stays.focused, JSON.stringify(stays))
 
   // Ask 17: ⌘L, Obsidian's key for a checkbox: a bullet becomes one, and again ticks it (it did nothing).
   await vim(false)

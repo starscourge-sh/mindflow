@@ -111,7 +111,7 @@ export const SHORTCUTS: Shortcut[] = [
   { group: 'Getting around', keys: '⌃⌘C', does: 'Quick capture to the middle of the screen', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌃J', does: 'From the note to the list beside it (⌃K too)', where: 'Quick capture' },
   { group: 'Getting around', keys: 'I', does: 'From the list back to the note', where: 'Quick capture' },
-  { group: 'Getting around', keys: 'Esc', does: 'Hide quick capture (with Vim on: press it twice)', where: 'Quick capture' },
+  { group: 'Getting around', keys: 'Esc', does: 'Hide quick capture (with Vim on, Escape stays in the note: the close dot top left hides it)', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌘O', does: 'Open the main window', where: 'Quick capture' },
   { group: 'Getting around', keys: '⌘O', does: 'The open note to a window of its own, or back from it, the caret where it was', where: 'Main window' },
   { group: 'Getting around', keys: '⌘O', does: 'With no note open in front: search for a page or note to open in the pane in front', where: 'Main window' },

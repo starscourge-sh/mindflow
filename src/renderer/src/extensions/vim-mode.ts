@@ -2272,10 +2272,7 @@ export const VimMode = Extension.create<VimModeOptions>({
 
             // ⌃[ is Escape, as in vim and Obsidian's Vim mode: here it did nothing and stayed in insert mode.
             if (event.key === "Escape" || (event.key === "[" && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey)) {
-              // Nothing to leave: let it go. Normal mode with no half-typed
-              // command is the resting state, and swallowing Escape there
-              // means nothing outside the editor can ever have it - the
-              // window's own Escape included.
+              // Normal mode with no half-typed command is the resting state.
               const idle =
                 vim.mode === "normal" && !vim.operator && !vim.pendingG && !vim.pendingZ && !vim.count
               // The matches `*` lit with no panel to explain them go first, as
@@ -2286,7 +2283,10 @@ export const VimMode = Extension.create<VimModeOptions>({
                 editor.commands.setWholeWord(false)
                 return true
               }
-              if (idle) return false
+              // Resting in normal mode, Escape stays in the note, as in vim and Obsidian's Vim mode: pressed again by habit,
+              // it left the note, and the next vim keys went to the page (the lead's ruling, 18 Nov). With Vim off,
+              // Escape still steps out a layer at a time.
+              if (idle) return true
 
               patch(view, { ...NORMAL, ...heldVisual() })
               if (inVisual) collapseSelection(view)
