@@ -162,6 +162,11 @@ try {
       // The editor read the stored note into its own shapes as it opened (a picture kept inside a line becomes a
       // picture of its own): said, with where, and the stored copy's counts, for the report to name.
       if (!same) console.log(`${name}: the stored copy counts ${JSON.stringify(kept)}; it parts from the editor's at ${JSON.stringify(parted)}`)
+      // Nothing written in it (every question in the user's book so far): nothing to count says nothing.
+      if (!want.words && want.lines < 2) {
+        check(`${name}: nothing written, so no size in its bar, and none under its last line`, !now.shown && now.pill === 0, JSON.stringify(now))
+        continue
+      }
       check(`${name}: the bar says its lines and words, counted this probe's own way from the note it shows (the margin's lines)`, now.shown && now.lines === want.lines && now.words === want.words, JSON.stringify(now))
       check(`${name}: the bar's words are the stored note's words`, now.words === kept.words, `${now.words} against ${kept.words}`)
       check(`${name}: no count under the last line: the bar holds the size`, now.pill === 0, `pills ${now.pill}`)
