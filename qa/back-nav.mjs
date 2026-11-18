@@ -142,6 +142,8 @@ try {
   await run('All: one open, ⌘K to another', async () => { await go('all'); await row(3) }, async () => {
     await keys('Meta+k'); await h.keyboard.type('Dorian Gray', { delay: 40 }); await wait(1200); await h.keyboard.press('Enter'); await wait()
   })
+  // Everything ("Show dealt with too") with a task open beside it: ⌘[ ⌘] and the Back button land alike, the task open.
+  await run('Everything: a task open, then a section', async () => { await go('all'); await nth(tasks.map((one) => `[class*="@container/page"] [data-id="${one.id}"]`).join(', '), 0) }, () => side('Home'))
   await run('All: one open, sent from another window', async () => { await go('all'); await row(3) }, async () => { await send('capture', captureId('The Odyssey')); await wait(1200) })
   await run('Inbox: one open, a task sent from another window', async () => { await side('Inbox'); await row(1) }, async () => { await send('task', tasks.find((one) => one.status === 'open').id); await wait(1200) })
 
@@ -160,7 +162,8 @@ try {
   // --- Tasks ---------------------------------------------------------------------------------
   await run('Today: a task open, then G Y', async () => { await side('Tasks'); await nth('[class*="@container/page"] button[data-row]', 0) }, () => keys('g', 'y'))
   await run('Upcoming: a task open, another', async () => { await go('upcoming'); await nth('[class*="@container/page"] button[data-row]', 0) }, () => nth('[class*="@container/page"] button[data-row]', 1))
-  await run('Week: a task open, then a section', async () => { await go('week'); await click('[data-day] button[data-cursor], [data-day] button') }, () => side('Inbox'))
+  // A task of the probe's own for today: the example book's tasks are dated when it was seeded, and may all be past.
+  await run('Week: a task open, then a section', async () => { await h.evaluate(() => window.api.haligtree('task:add', 'Back and Forward check today 5pm')); await go('week'); await click('[data-day] button[data-cursor], [data-day] button', 'Back and Forward check') }, () => side('Inbox'))
   await run('Matrix: a task open, then a section', async () => { await go('matrix'); await click('[data-quadrant] button') }, () => side('Inbox'))
 
   // --- Days, weeks, months ------------------------------------------------------------------

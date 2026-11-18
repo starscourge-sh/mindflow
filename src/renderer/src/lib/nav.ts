@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useLayoutEffect, useRef } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { inBin, type BinKind } from './to-bin'
 
 /**
@@ -111,9 +111,17 @@ export function useKept<T extends string>(key: 'tab' | 'focus', value: T, set: (
   const page = useRef(nav?.here.id)
   const mine = nav?.here.id === page.current
   const held = mine ? ((nav?.here[key] as T | undefined) ?? start) : value
+  // Back or Forward brought another: followed in this same draw, before any layout effect reads it. Followed a draw
+  // later, the Inbox's "Show dealt with too" came back after the step's open task was looked for among the waiting
+  // captures, so ⌘[ onto Everything with a task open landed with nothing open (the Back button's flight hid it).
+  const [followed, setFollowed] = useState(held)
+  if (followed !== held) {
+    setFollowed(held)
+    if (nav && held !== value) set(held)
+  }
   useEffect(() => {
     if (nav && held !== value) set(held)
-  }, [held]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const said = useRef(value)
   useEffect(() => {
     if (said.current === value) return
