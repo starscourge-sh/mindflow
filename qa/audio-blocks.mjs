@@ -4,7 +4,7 @@
 // hover or when picked: its actions are in its block menu (⋮⋮ or right-click)
 // under "Voice note"; the picked outline goes as soon as the caret leaves.
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/audio-blocks.mjs
-import { checks } from './harness.mjs'
+import { checks, pickAll } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 process.env.QA_ARGS = `${process.env.QA_ARGS ?? '--sandbox'} --use-fake-device-for-media-stream --use-fake-ui-for-media-stream --autoplay-policy=no-user-gesture-required`
 
@@ -168,8 +168,7 @@ try {
   await caretTo('Before'); await wait(300)
   let marks = await blocks()
   check('caret moved out: no outline, no toolbar', marks.every((one) => !one.picked) && (await bars()).length === 0, JSON.stringify(marks))
-  // ⌘A grows the selection a step at a time (qa/grow-selection.mjs): pressed until the whole note is picked.
-  for (let i = 0; i < 16 && (await h.evaluate((sel) => document.querySelector(sel)?.editor?.state.selection.toJSON().type, EDITOR)) !== 'all'; i++) await h.keyboard.press('Meta+KeyA')
+  await pickAll(h)
   await wait(300)
   marks = await blocks()
   check('select all: both outlined, but no toolbar', marks.every((one) => one.picked) && (await bars()).length === 0, JSON.stringify(marks))

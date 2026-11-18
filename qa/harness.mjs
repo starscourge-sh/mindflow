@@ -182,6 +182,17 @@ export async function boxOf(app) {
   }
 }
 
+/**
+ * ⌘A until the whole note with the keys is picked: in a note each press picks a step more (lib/grow-selection.ts),
+ * the line, its block, its list, its section, then the whole note. With no note in focus (a field, a list) one press.
+ */
+export async function pickAll(page) {
+  for (let i = 0; i < 16; i++) {
+    await page.keyboard.press('ControlOrMeta+a')
+    if (await page.evaluate(() => (document.activeElement?.closest('.tiptap')?.editor?.state.selection.toJSON().type ?? 'all') === 'all')) return
+  }
+}
+
 /** The box's console and its page errors, as they come, for `logs` and `drain()`. */
 export function watch(page) {
   const logs = []
@@ -217,11 +228,7 @@ function helpers({ app, page, logs }) {
       if (await page.locator(`${EDITOR}[data-vim-mode="normal"]`).count()) {
         await page.keyboard.press('i')
       }
-      // ⌘A grows the selection a step at a time in a note (qa/grow-selection.mjs): pressed until the whole note is picked.
-      for (let i = 0; i < 16; i++) {
-        await page.keyboard.press('ControlOrMeta+a')
-        if (await page.evaluate((selector) => (document.querySelector(selector)?.editor?.state.selection.toJSON().type ?? 'all') === 'all', EDITOR)) break
-      }
+      await pickAll(page)
       await page.keyboard.press('Backspace')
 
       // Wait until it is genuinely empty. Without this a case starts typing

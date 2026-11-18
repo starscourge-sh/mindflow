@@ -10,8 +10,7 @@
 import { mkdirSync } from 'fs'
 import { sandbox } from './sandbox-lib.mjs'
 import { paste as pasteEvent } from './pasteboard.mjs'
-// ⌘A in a note grows the selection a step at a time (qa/grow-selection.mjs): pressed until the whole note is picked.
-const pickAll = async (page) => { for (let i = 0; i < 16; i++) { await page.keyboard.press('Meta+a'); if (await page.evaluate(() => { const ed = document.activeElement?.closest('.tiptap')?.editor; return !ed || ed.state.selection.toJSON().type === 'all' })) return } }
+import { pickAll } from './harness.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const SHOTS = process.env.SHOTS
