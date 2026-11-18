@@ -2270,7 +2270,8 @@ export const VimMode = Extension.create<VimModeOptions>({
                 ? { lastVisual: { anchor, head: vim.visualHead ?? anchor, linewise } }
                 : {}
 
-            if (event.key === "Escape") {
+            // ⌃[ is Escape, as in vim and Obsidian's Vim mode: here it did nothing and stayed in insert mode.
+            if (event.key === "Escape" || (event.key === "[" && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey)) {
               // Nothing to leave: let it go. Normal mode with no half-typed
               // command is the resting state, and swallowing Escape there
               // means nothing outside the editor can ever have it - the
