@@ -1,7 +1,7 @@
 import { Extension, InputRule } from "@tiptap/core"
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model"
 import { findWrapping } from "@tiptap/pm/transform"
-import type { EditorState, Transaction } from "@tiptap/pm/state"
+import { Plugin, type EditorState, type Transaction } from "@tiptap/pm/state"
 
 // --- Lib ---
 import { retypeList, toggleChecks } from "@/lib/retype-list"
@@ -265,6 +265,22 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
       marked(/^(#{2})\s$/, () => editor.chain().focus().setHeading({ level: 2 }).run()),
       marked(/^(#{3})\s$/, () => editor.chain().focus().setHeading({ level: 3 }).run()),
       marked(/^>\s$/, () => editor.chain().focus().toggleBlockquote().run()),
+    ]
+  },
+
+  addProseMirrorPlugins() {
+    // A new line starts plain, as in Obsidian: Enter at the end of italic (or bold, or any mark) kept it for the next
+    // letters, so a new list line typed italic (16 Nov). Only an empty line just made: a split inside a marked word still
+    // carries its mark, and ⌘I pressed on an empty line still holds, since pressing it changes no words.
+    return [
+      new Plugin({
+        appendTransaction(transactions, _old, state) {
+          if (!state.storedMarks?.length || !transactions.some((tr) => tr.docChanged)) return null
+          const { $from, empty } = state.selection
+          if (!empty || !$from.parent.isTextblock || $from.parent.content.size > 0 || $from.parent.type.spec.code) return null
+          return state.tr.setStoredMarks([])
+        },
+      }),
     ]
   },
 
