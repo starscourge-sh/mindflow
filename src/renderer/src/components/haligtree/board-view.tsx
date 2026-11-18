@@ -28,7 +28,7 @@ import { notes, type NoteTable } from '@/lib/notes'
 import { taskSaid, haligtree } from '@/lib/haligtree'
 import { dayMonth, num } from '../../../../main/dates'
 import { Overlay, SETTLE } from './sortable'
-import { CarriedCard, HELD, Hand, RoomIn, offWindow, titleOf } from './carry'
+import { CarriedCard, HELD, Hand, RoomIn, atOnce, offWindow, titleOf } from './carry'
 import { Count, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
 import { followLink } from '@/components/pdf/pdf-reader'
@@ -1030,7 +1030,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
       <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={collide} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
         autoScroll={{ threshold: { x: 0.08, y: 0.12 }, acceleration: 6 }}
         onDragStart={({ active, activatorEvent }) => (chime('lift'), ticks.start(real(String(active.id))), setLifted(liftOf(String(active.id), activatorEvent)))}
-        onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setDraft(null), setLifted(null), chime('stay'))}>
+        onDragOver={onDragOver} onDragEnd={atOnce(onDragEnd)} onDragCancel={() => (setDraft(null), setLifted(null), chime('stay'))}>
         <SortableContext items={shape.lanes.map((_, at) => sid(laneId(at)))} strategy={horizontalListSortingStrategy}>
           <div ref={strip} data-board-strip="" data-fade-left={ends.left || undefined} data-fade-right={ends.right || undefined}
             style={ends.left || ends.right ? { maskImage: `linear-gradient(to right, ${ends.left ? 'transparent, black 2rem' : 'black'}, ${ends.right ? 'black calc(100% - 2rem), transparent' : 'black'})` } : undefined}

@@ -6,7 +6,7 @@ import { RowSensor } from '@/lib/own-press'
 import { SortableContext, arrayMove, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { motion } from 'motion/react'
 import { EASING, spring, still } from '@/lib/motion'
-import { CarriedCard, CarryRow, HELD, Hand, OwnRoom, RoomAt, Shaped, clearWay, makeWay, pointerAt, restBox, rowAt, swallowRelease, titleOf, useAim, useRest, useTargets, headRow, offWindow, type Parts, type Places, type Spot } from './carry'
+import { CarriedCard, CarryRow, HELD, Hand, OwnRoom, RoomAt, Shaped, clearWay, makeWay, pointerAt, restBox, rowAt, swallowRelease, titleOf, useAim, useRest, useTargets, headRow, offWindow, atOnce, type Parts, type Places, type Spot } from './carry'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { refuse } from './ui'
@@ -280,7 +280,7 @@ function Rows<T>({ items, keyOf, onMove, onNest, nests, places, parts, children 
   return (
     // Its screen-reader lines go to the page's foot, never among the rows (a tree of rows counts its children).
     // Where each row slides is worked out once, for them all (Shaped): dnd-kit moves none itself, and reads no row as under the card.
-    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={nothing} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={() => read.current()} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={nothing} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={() => read.current()} onDragEnd={atOnce(onDragEnd)} onDragCancel={() => (end(), chime('stay'))}>
       <SortableContext items={keys} strategy={stayPut}>
         <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={keys.join('\n')}>
           <Shaped aim={aim} keys={keys} hand={shot?.id ?? null} many={shot ? [shot.id] : []} span={span} inset={0} row={span} snap={snap} blocks={[]} footRoom={false} within={shot?.within}>
@@ -322,7 +322,7 @@ function TabRow<T>({ items, keyOf, onMove, children }: ListProps<T>): React.JSX.
   return (
     <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={inWindow} modifiers={[sideways]}
       onDragStart={({ active, activatorEvent }) => (chime('lift'), lifting(), ticks.start(String(active.id)), setShot(carriedOf(String(active.id), activatorEvent)))}
-      onDragOver={({ active, over }) => (ticks(over?.id), setOnto(!!over && over.id !== active.id))} onDragEnd={onDragEnd} onDragCancel={() => (setShot(null), setOnto(false), landed(), chime('stay'))}>
+      onDragOver={({ active, over }) => (ticks(over?.id), setOnto(!!over && over.id !== active.id))} onDragEnd={atOnce(onDragEnd)} onDragCancel={() => (setShot(null), setOnto(false), landed(), chime('stay'))}>
       <SortableContext items={keys} strategy={horizontalListSortingStrategy}>
         <Axis.Provider value="x"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={keys.join('\n')}>{children(shown)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
@@ -529,7 +529,7 @@ export function BlockList<T>({ blocks, keyOf, onMove, refuse, row, around }: {
   // Round its own place nothing would change: the card says nothing, as a list's does.
   const moves = !!slot && !!shot && !stays(shot.id, slot)
   return (
-    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (mark(null, false), clearWay(false), setShot(null), done())}>
+    <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={closestCenter} modifiers={[upDown]} onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={atOnce(onDragEnd)} onDragCancel={() => (mark(null, false), clearWay(false), setShot(null), done())}>
       <SortableContext items={shown.flatMap((one) => one.items.map(keyOf))} strategy={stayPut}>
         <Axis.Provider value="y"><Sorting.Provider value={sorting}><On.Provider value><Order.Provider value={shown.map((one) => one.key + ':' + one.items.map(keyOf).join(',')).join('\n')}>{shown.map(draw)}</Order.Provider></On.Provider></Sorting.Provider></Axis.Provider>
       </SortableContext>
