@@ -283,6 +283,21 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
           return state.tr.setStoredMarks([])
         },
       }),
+      // Edit > Select All clicked in the menu bar picks the note whole at once: whoever reaches for the menu wants it
+      // all, and the key is the one that steps. Taken from the browser's own select-all (src/preload), which picked
+      // from the first words to the last and left out a picture at either end, and in a long note put the ends among
+      // blocks not drawn, where the browser looked through every hidden block for where to show them.
+      new Plugin({
+        view: (view) => {
+          const pickAll = (event: Event): void => {
+            if (event.defaultPrevented || !view.hasFocus()) return
+            event.preventDefault()
+            view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
+          }
+          window.addEventListener("haligtree:select-all", pickAll)
+          return { destroy: () => window.removeEventListener("haligtree:select-all", pickAll) }
+        },
+      }),
     ]
   },
 
@@ -363,25 +378,4 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
     }
   },
 
-  /**
-   * Edit > Select All clicked in the menu bar picks the note whole at once: whoever reaches for the menu wants it
-   * all, and the key is the one that steps. Taken from the browser's own select-all (src/preload), which picked
-   * from the first words to the last and left out a picture at either end, and in a long note put the ends among
-   * blocks not drawn, where the browser looked through every hidden block for where to show them.
-   */
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        view: (view) => {
-          const pickAll = (event: Event): void => {
-            if (event.defaultPrevented || !view.hasFocus()) return
-            event.preventDefault()
-            view.dispatch(view.state.tr.setSelection(new AllSelection(view.state.doc)))
-          }
-          window.addEventListener("haligtree:select-all", pickAll)
-          return { destroy: () => window.removeEventListener("haligtree:select-all", pickAll) }
-        },
-      }),
-    ]
-  },
 })
