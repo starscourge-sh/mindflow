@@ -210,6 +210,7 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
             if (!retypeList(editor, list)) return
             if (list === "taskList" && /x/i.test(match[0])) editor.commands.updateAttributes("taskItem", { checked: true })
           })
+          return undefined
         },
       })
     // A mark on a plain line. The list's own rule is what a list line uses; this one is for a line that is not in a list,
@@ -226,6 +227,7 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
           const wrapping = block && findWrapping(block, type)
           if (!wrapping || !block) return null
           tr.wrap(block, wrapping)
+          return undefined
         },
       })
     // `# ` and `> ` at the start of a line, including a list line. On a list line the ordinary rule cannot

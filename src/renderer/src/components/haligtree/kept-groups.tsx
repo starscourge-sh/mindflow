@@ -579,7 +579,7 @@ function Fanned({ entry, slot }: { entry: Entry; slot: number }): React.JSX.Elem
   useLayoutEffect(() => {
     const place = (): void => {
       const node = fan.current
-      const card = node?.querySelector('[data-fanned]')
+      const card = node?.querySelector<HTMLElement>('[data-fanned]')
       if (!node || !card) return
       const box = node.getBoundingClientRect()
       // A full card apart, so the title on each one can be read. A short step piled the names on each other (16 Nov).
