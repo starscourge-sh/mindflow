@@ -2464,15 +2464,18 @@ async function bringHere(win: BrowserWindow, here: string): Promise<boolean> {
  * workspace by moving it almost off its screen; a sticky is meant for every
  * workspace, so once it is parked like that each sticky it hid is moved to
  * the workspace in view, which AeroSpace then shows where it was. Without
- * AeroSpace, nothing is done.
+ * AeroSpace, nothing is done. True when it was parked like that.
  */
-function parkedBy(win: BrowserWindow): void {
+function parkedBy(win: BrowserWindow): boolean {
   const b = win.getBounds()
   const area = screen.getDisplayMatching(b).bounds
   const seenW = Math.max(0, Math.min(b.x + b.width, area.x + area.width) - Math.max(b.x, area.x))
   const seenH = Math.max(0, Math.min(b.y + b.height, area.y + area.height) - Math.max(b.y, area.y))
-  if (seenW * seenH > b.width * b.height * 0.1) return
+  if (seenW * seenH > b.width * b.height * 0.1) return false
+  // A glide of ours under way (a small window stepping aside as you left it) would pull it back out of hiding.
+  stopAside(win)
   followWorkspace()
+  return true
 }
 /**
  * Whether AeroSpace has the box filed under a workspace: the box's window number and the AeroSpace that listed it while
@@ -3907,7 +3910,7 @@ function throwBox(win: BrowserWindow, dx: number, dy: number, speed = 0): void {
   // A small window (the same page, App.tsx's ⌘ and two fingers) is thrown the same way, on the glide that steps it
   // aside; only quick capture remembers where it was thrown, for the next time it opens.
   if (win !== prompt) {
-    asides.get(win)?.()
+    stopAside(win)
     const stop = glideTo(win, to, () => asides.delete(win), speed)
     if (stop) asides.set(win, stop)
     return
@@ -3952,6 +3955,8 @@ function glideTo(win: BrowserWindow, to: { x: number; y: number }, land: () => v
  * window where the pointer is, not where another app's clicks or keys land, so this is the moment it can act on.
  */
 const asides = new WeakMap<BrowserWindow, () => void>()
+/** That glide stopped where it is, and forgotten: left in the map, no step aside started again. */
+const stopAside = (win: BrowserWindow): void => void (asides.get(win)?.(), asides.delete(win))
 function stepAside(win: BrowserWindow, may: () => boolean): void {
   setImmediate(() => {
     // Not while it is already on its way (the box thrown, a small window stepping aside).
@@ -5752,7 +5757,7 @@ app.whenReady().then(() => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || win.isDestroyed() || (win !== prompt && !isSmall(win))) return
     if (win === prompt) throwing?.()
-    else asides.get(win)?.()
+    else stopAside(win)
     if (pending?.win === win) (arriving?.(), settle())
     const from = win.getBounds()
     const [x, y] = fingersWay(Number(dx) || 0, Number(dy) || 0)

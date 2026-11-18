@@ -22,8 +22,8 @@ type Windows = {
   passThrough: (win: BrowserWindow, on: boolean) => void
   /** Quick capture's step aside (index.ts), for any window kept open: `may` says whether it is on. */
   stepAside: (win: BrowserWindow, may: () => boolean) => void
-  /** Moved by a window manager, not by hand (AeroSpace hiding it on another workspace): brought to the one in view, as a sticky is (index.ts parkedBy). */
-  parked: (win: BrowserWindow) => void
+  /** Moved by a window manager, not by hand: true when that hid it (AeroSpace, on another workspace), and it is brought to the one in view, as a sticky is (index.ts parkedBy). */
+  parked: (win: BrowserWindow) => boolean
 }
 
 /** Raycast Notes' size, a little wider: quick capture's own gutters (4.75rem a side) leave a column of words this wide less 152px. */
@@ -202,8 +202,10 @@ export function registerSmallWindows({ load, guard, stepAside, passThrough, park
     let byHand = false
     win.on('will-move', () => void (byHand = true))
     win.on('moved', () => {
-      if (!byHand && process.platform === 'darwin') parked(win)
+      const managed = !byHand && process.platform === 'darwin'
       byHand = false
+      // Hidden in the screen's corner is no place you chose: kept where you left it, it comes back there after a restart.
+      if (managed && parked(win)) return
       save()
     })
     win.on('resized', save)
