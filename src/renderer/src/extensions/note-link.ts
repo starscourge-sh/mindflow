@@ -325,8 +325,11 @@ export async function bringFromVault(label: string, path?: string): Promise<Brou
   const brought = ((await ask?.("vault:bring", label, path).catch(() => null)) ?? null) as Brought | null
   if (brought?.found !== "brought") return brought
   const id = brought.link.replace(/^article:/, "")
-  // Its words a document before it opens, as an import's become once its links are in.
-  await import("@/lib/convert-imports").then(({ convertOne }) => convertOne(brought.link.startsWith("article:") ? "nuggets" : "captures", id)).catch(() => undefined)
+  // Its words a document before it opens, as an import's become once its links are in; then read, as a press on a row
+  // reads its note, so its tab and its page name it from their first frame.
+  const type = brought.link.startsWith("article:") ? "article" : "capture"
+  await import("@/lib/convert-imports").then(({ convertOne }) => convertOne(type === "article" ? "nuggets" : "captures", id)).catch(() => undefined)
+  await import("@/lib/early-read").then(({ whenRead }) => whenRead(type, id, 1000)).catch(() => undefined)
   // Undo: back to where it was asked for, if it is on show (home.tsx), then the note goes again, its links waiting for its name once more.
   // The folders filing it made go with it, once they hold nothing.
   const undo = (): void => (window.dispatchEvent(new CustomEvent("haligtree:unbrought", { detail: id })), void ask?.("vault:unbring", brought.link, brought.groups ?? []))

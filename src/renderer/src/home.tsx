@@ -1672,9 +1672,11 @@ export function Home(): React.JSX.Element {
   const noteIn = (view: View): { type: string; id: string; name: PaneName } | null => {
     if (!view.focus || !holdsNotes(view.id)) return null
     const found = known.get(view.focus) ?? {}
-    const { item, task } = found
-    // A capture made a moment ago (by a link) is not in the list yet: its copy read on the press names it from the
-    // first frame, so the tab never says "Inbox" over it while the list catches up.
+    const { task } = found
+    // A capture made a moment ago (by a link), or a page brought in from the vault, is not in the list yet: its copy
+    // read before it opened names it from the first frame, so the tab never says "Inbox" or "Writing" over it while
+    // the list catches up.
+    const item = found.item ?? (!found.capture && !task ? peekRead<NonNullable<typeof found.item>>('article', view.focus) : undefined)
     const capture = found.capture ?? (!item && !task ? peekRead<CaptureMeta>('capture', view.focus) : undefined)
     // A list of captures (the Inbox, Archived, a kind's own list) shows only a capture, and the Inbox a task: never
     // named by a gem or a page that has the same id (an older link's step did that: the tab named the gem over an empty Inbox).
