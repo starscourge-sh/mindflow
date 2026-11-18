@@ -1375,12 +1375,18 @@ const PANELS = '[role="dialog"],[role="alertdialog"],[role="menu"],[data-slot="s
 /** The toast stepping aside for a celebration: a glide on a transform, not a jump. */
 const STEP_ASIDE = 'transform 220ms var(--mf-ease)'
 
-function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>): React.CSSProperties | undefined {
+function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>): { spot: React.CSSProperties | undefined; style: React.CSSProperties | undefined } {
   const [spot, setSpot] = useState<React.CSSProperties>()
+  // Whether it has been placed since it came up: 0 not yet, 1 just now, 2 since. Its place is first read two frames
+  // after it comes (below), and in those frames it stood at its usual place, over the hint line, then glided up over
+  // it (18 Nov 2026). So it waits unseen until it is placed, and its first placing is a jump, not a glide.
+  const [placed, setPlaced] = useState<0 | 1 | 2>(0)
   // When the notice came back out from under a menu (-1 while it is under one, 0 once it is fully back).
   const held = useRef(0)
   useEffect(() => {
-    if (!on) return setSpot(undefined)
+    // Gone: it leaves from where it stood (put back at once, a leaving one glided down over the hint line as it faded),
+    // and the next is placed afresh.
+    if (!on) return void setPlaced(0)
     const check = (): void => {
       const { innerWidth: width, innerHeight: height } = window
       const boxes: DOMRect[] = []
@@ -1447,6 +1453,7 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
         : held.current ? { ...placed, transition: quick }
         : placed
       setSpot((was) => (JSON.stringify(was) === JSON.stringify(next) ? was : next))
+      setPlaced((was) => (was ? 2 : 1))
     }
     // Read only once a frame is painted, so it reads the page as already laid out: read in the
     // frame its toast came with (a move to the Bin opening the next note), it laid that note out
@@ -1456,7 +1463,8 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
     const timer = setInterval(() => (off(), (off = afterPaint(check))), 150)
     return () => (off(), clearInterval(timer))
   }, [on])
-  return spot
+  const style: React.CSSProperties | undefined = !on ? spot : !placed ? { ...spot, visibility: 'hidden', transition: 'none' } : placed === 1 ? { ...spot, transition: 'none' } : spot
+  return { spot, style }
 }
 
 /** How many notice areas this window has up: with none, a failed save is said on the nudge card instead (main.tsx). */
@@ -1691,10 +1699,10 @@ export function Toaster(): React.JSX.Element | null {
   const lane = useRef<HTMLDivElement>(null)
   const trouble = useSaveTrouble()
   const left = useRecordingsLeft()
-  const spot = useClearSpot(!!shown || !!wait || !!trouble || !!left.one, lane)
+  const { spot, style } = useClearSpot(!!shown || !!wait || !!trouble || !!left.one, lane)
   // Hidden under an open menu, the notice's clock stops, as it does with the window away: its words and its Undo are
   // still there to read when the menu goes (its 3.2 s ran out unseen under a menu otherwise).
-  const covered = spot?.visibility === 'hidden'
+  const covered = !!shown && spot?.visibility === 'hidden'
   useEffect(() => (covered ? hold('covered') : release('covered')), [covered, hold, release])
   // Asker always in the same place, so a toast coming or going never
   // remounts it and loses a question being answered.
@@ -1713,12 +1721,12 @@ export function Toaster(): React.JSX.Element | null {
     <MilestoneAsker />
     <RestoreAsker />
     <Beam />
-    {wait && !wait.job && !shown && <div style={spot} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
+    {wait && !wait.job && !shown && <div style={style} className="pointer-events-none fixed right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex justify-center">
       <Orb state={wait.state} label={wait.label} className="bg-popover shadow-(--mf-panel-shadow) animate-in fade-in-0 slide-in-from-bottom-2 duration-200" />
     </div>}
     {/* Centred along the bottom, where the eye drops after acting. It
         leaves the way it came, and a new one takes its place at once. */}
-    <div ref={lane} style={spot} className="pointer-events-none fixed top-[var(--toast-top,auto)] right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex flex-col items-center gap-2 transition-[bottom] duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none">
+    <div ref={lane} style={style} className="pointer-events-none fixed top-[var(--toast-top,auto)] right-[var(--toast-right,0px)] bottom-[var(--toast-bottom,1.25rem)] left-[var(--toast-left,0px)] z-[60] flex flex-col items-center gap-2 transition-[bottom] duration-200 ease-[var(--mf-ease)] motion-reduce:transition-none">
     {/* Words not saved yet: one line above the toasts, up until they are in. */}
     <SaveTroubleLine />
     <ImportProgress />
