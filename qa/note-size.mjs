@@ -27,9 +27,9 @@ const file = shelf?.last && shelf.last !== 'default' ? join(root, 'books', shelf
 const db = new DatabaseSync(file, { readOnly: true })
 const largest = db.prepare("select id from captures where status = 'open' and kind = 'note' and body is not null order by length(body) desc limit 1").get()
 const short = db.prepare("select id from captures where status = 'open' and kind = 'note' and body is not null and length(body) between 1500 and 4000 order by id limit 1").get()
-// The same note page elsewhere: Writing's largest page and the longest question, each with the Inbox's own checks.
+// The same note page elsewhere: Writing's largest page outside a folder and the longest question, each with the Inbox's own checks.
 const others = [['Writing', 'article'], ['a question', 'question']]
-  .map(([name, tier]) => [name, tier, db.prepare("select id from nuggets where tier = ? and body is not null and binned_at is null and archived_at is null and superseded_by is null order by length(body) desc limit 1").get(tier)])
+  .map(([name, tier]) => [name, tier, db.prepare("select id from nuggets where tier = ? and body is not null and binned_at is null and archived_at is null and superseded_by is null order by group_id is null desc, length(body) desc limit 1").get(tier)])
   .filter(([, , one]) => one)
 db.close()
 const load = () => `load ${loadavg()[0].toFixed(1)}`
