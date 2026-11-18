@@ -4758,6 +4758,13 @@ html[data-block-carry] .mf-lines {
     border-radius: 0.5rem;
   }
 
+  // A rule among picked blocks is also a node caught in the selection (extensions/selected-nodes.ts), whose own wash
+  // (paragraph-node.scss) lay over its box: a second, darker band on it alone. Its box is the pick. A picture keeps
+  // its ring, which is drawn on the picture, where the box cannot show.
+  .mf-picked.ProseMirror-selectednode {
+    background-color: transparent;
+  }
+
   .tableWrapper.mf-picked {
     border-radius: 0;
     background-image: none;

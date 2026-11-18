@@ -1,7 +1,6 @@
 import { Extension } from "@tiptap/core"
 import type { NodeViewProps } from "@tiptap/react"
 import { NodeSelection, Plugin, TextSelection } from "@tiptap/pm/state"
-import { NodeRangeSelection } from "@tiptap/extension-node-range"
 import { Decoration, DecorationSet } from "@tiptap/pm/view"
 
 /**
@@ -41,9 +40,7 @@ export const SelectedNodes = Extension.create({
           },
           decorations: (state) => {
             const { from, to, empty } = state.selection
-            // Blocks picked as blocks wear their own boxes (picked-blocks.ts): a picture or a rule among them took this
-            // mark over its box too, a second, darker band on it alone.
-            if (empty || state.selection instanceof NodeRangeSelection) return null
+            if (empty) return null
             if (last && last.doc === state.doc && last.from === from && last.to === to) return last.set
 
             const marked: Decoration[] = []
