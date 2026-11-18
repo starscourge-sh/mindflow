@@ -58,6 +58,16 @@ const wordsOf = (editor: Editor | undefined, body: unknown): Words => (editor &&
 const asText = (words: Words): string => ('text' in words ? words.text : JSON.stringify(words.doc.toJSON()))
 const sameWords = (a: Words, b: Words): boolean => ('doc' in a && 'doc' in b ? a.doc === b.doc || a.doc.eq(b.doc) : asText(a) === asText(b))
 
+/** Two stored bodies the same document once read by this editor (one may spell out attributes the other leaves to their defaults). */
+const sameDoc = (editor: Editor, a: unknown, b: unknown): boolean => {
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false
+  try {
+    return editor.schema.nodeFromJSON(a).eq(editor.schema.nodeFromJSON(b))
+  } catch {
+    return false
+  }
+}
+
 /** Where `b` parts from `a`: the shared start, how much of `a` it cut, and what it put in. */
 const edit = (a: string, b: string): { at: number; cut: number; put: string } => {
   let at = 0
@@ -232,8 +242,15 @@ export function useSameWords(table: NoteTable, id: string | undefined, loaded: u
     // Changed elsewhere first. Read the editor now: it holds any typing since.
     const mine = note.editor.isDestroyed ? body : note.editor.getJSON()
     const theirs = answer.body
-    const merged = foldIn(note.base, mine, theirs)
     queue.current = queue.current.filter((one) => one.note !== note)
+    // Changed elsewhere to the very words held here: the same change made twice, as when a page a link made goes and
+    // its links are let go both in the book and in the note open on them. Nothing to keep apart, and nothing to say.
+    if (!note.editor.isDestroyed && sameDoc(note.editor, mine, theirs)) {
+      rebase(note, theirs)
+      note.sent = wordsOf(note.editor, mine)
+      return
+    }
+    const merged = foldIn(note.base, mine, theirs)
     if (merged) {
       // Shown at once, and saved over what is there now.
       show(note, merged)
