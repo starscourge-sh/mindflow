@@ -2462,12 +2462,15 @@ export default function App(): React.JSX.Element {
           <motion.div ref={column} className="h-full w-full flex flex-col" style={glance !== 'write' ? { visibility: 'hidden' } : undefined}>
             {reading ? (
               <motion.div key={reading.id} initial={byKeys() ? false : { opacity: 0, transform: shift(`translateX(${8 * cameBy.current}px)`) }} animate={{ opacity: 1, transform: shift('translateX(0px)') }} transition={{ duration: 0.1, ease: EASE }} className="flex min-h-0 flex-1 flex-col">
-                <div data-chrome className="flex items-center gap-2 px-[4.25rem] pt-2 text-control text-muted-foreground">
-                  <Button variant="ghost" size="sm" onClick={() => setReading(null)}>
-                    <ArrowLeft className="size-4" /> Back to your note
-                  </Button>
-                  <Kbd>⌘[</Kbd>
-                </div>
+                {/* A small window holds this one page and no note behind it: nothing to go back to but its own Back. */}
+                {!SMALL && (
+                  <div data-chrome className="flex items-center gap-2 px-[4.25rem] pt-2 text-control text-muted-foreground">
+                    <Button variant="ghost" size="sm" onClick={() => setReading(null)}>
+                      <ArrowLeft className="size-4" /> Back to your note
+                    </Button>
+                    <Kbd>⌘[</Kbd>
+                  </div>
+                )}
                 <div ref={setReadPane} data-reading-pane className="@container/page relative flex min-h-0 flex-1">
                   <Reader type={reading.type} id={reading.id} onOpen={openAny} onClose={() => setReading(null)} />
                   {/* The house rules for a long page: edges that fade where more is hidden (main.css), and Top. */}

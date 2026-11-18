@@ -4213,3 +4213,9 @@ html[data-small][data-small-auto] .app-container {
   flex: none;
   align-self: flex-start;
 }
+/* A page in a small window (App.tsx's Reader), as Raycast Notes keeps a note: its own row of controls straight under
+   the window's, and its thought bar straight under its last line (the room under the words as tall as the bar, not a
+   screen's worth more to scroll into), the window as tall as that (lib/fit-box.ts measurePage). */
+html[data-small] [data-reading-pane] [data-voice-edge] { padding-top: 0.25rem; min-height: 0; }
+html[data-small] [data-reading-pane] [data-voice-edge] > [data-note-head] { margin-top: 0; }
+html[data-small] [data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content { padding-bottom: var(--mf-dock-h, 0px); }

@@ -79,7 +79,34 @@ function needed(column: HTMLElement | null): number | null {
     root.style.setProperty('--mf-card-held', held)
   }
 }
+/** Where the writing ends: the last block in the flow (the document itself stretches to fill its box, so its own height says nothing). */
+function wordsEnd(doc: HTMLElement, padTop: number): number {
+  for (let block = doc.lastElementChild; block; block = block.previousElementSibling) {
+    const at = getComputedStyle(block)
+    if (at.position === 'absolute' || at.position === 'fixed' || at.display === 'none') continue
+    return block.getBoundingClientRect().bottom + (parseFloat(at.marginBottom) || 0)
+  }
+  return doc.getBoundingClientRect().top + padTop
+}
+
+/**
+ * A page read in a small window (App.tsx's Reader): the whole page scrolls as one, its own row of controls, title and
+ * properties over the words and its thought bar laid over the room kept under them (main.css, data-docked). As tall
+ * as all of that, so the bar sits right under the last line and nothing is left under the bar (16 Nov, shot 03-a).
+ */
+function measurePage(pane: HTMLElement): number | null {
+  const doc = pane.querySelector<HTMLElement>('.haligtree-editor-content > .ProseMirror')
+  const content = doc?.parentElement
+  if (!doc || !content) return null
+  const style = getComputedStyle(doc)
+  const top = pane.getBoundingClientRect().top - pane.scrollTop
+  const end = wordsEnd(doc, parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0) + (parseFloat(getComputedStyle(content).paddingBottom) || 0)
+  return Math.ceil(cardHeight() - pane.clientHeight + end - top)
+}
+
 function measure(column: HTMLElement | null): number | null {
+  const page = SMALL ? column?.querySelector<HTMLElement>('[data-reading-pane] .note-pane') : null
+  if (page) return measurePage(page)
   const scroller = column?.querySelector<HTMLElement>('.mf-faded .haligtree-editor-content')
   const doc = scroller?.querySelector<HTMLElement>(':scope > .ProseMirror')
   if (!scroller || !doc) return null
@@ -87,15 +114,7 @@ function measure(column: HTMLElement | null): number | null {
   const padTop = parseFloat(style.paddingTop) || 0
   const padBottom = parseFloat(style.paddingBottom) || 0
   const top = doc.getBoundingClientRect().top
-  // Where the writing ends: the last block in the flow (the document itself
-  // stretches to fill its box, so its own height says nothing).
-  let end = top + padTop
-  for (let block = doc.lastElementChild; block; block = block.previousElementSibling) {
-    const at = getComputedStyle(block)
-    if (at.position === 'absolute' || at.position === 'fixed' || at.display === 'none') continue
-    end = block.getBoundingClientRect().bottom + (parseFloat(at.marginBottom) || 0)
-    break
-  }
+  const end = wordsEnd(doc, padTop)
   const line = parseFloat(getComputedStyle(doc.querySelector('p') ?? doc).lineHeight) || 26
   const words = Math.max(end - top + padBottom, padTop + 2 * line + padBottom)
   // What scrolls with the words under them (a kept note's mentions).

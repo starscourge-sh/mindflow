@@ -28,8 +28,9 @@ type Windows = {
 
 /** Raycast Notes' size, a little wider: quick capture's own gutters (4.75rem a side) leave a column of words this wide less 152px. */
 const WIDTH = 520
-/** Empty: the title, a line to write on, and the row under it. */
-const SHORT = 200
+/** The least it is ever made, as the user marked it (16 Nov, shot 20-a: about 500 by 280): narrower, its words stacked a letter a line. */
+const LEAST = 500
+const SHORT = 280
 /** Grown no nearer the screen's foot than this. */
 const MARGIN = 40
 /** How far it rises into place as it arrives, as a note's own window does (notes.ts). */
@@ -163,9 +164,8 @@ export function registerSmallWindows({ load, guard, stepAside, passThrough, park
     const size = kept ? onScreen(kept.bounds) : onScreen(centredOn(seed, WIDTH, SHORT))
     const win = new BrowserWindow({
       ...size,
-      // The smallest the user wants it (16 Nov, shot 20-a: about 500 by 280): narrower, its words stacked a letter a line.
-      minWidth: 500,
-      minHeight: 280,
+      minWidth: LEAST,
+      minHeight: SHORT,
       show: false,
       frame: false,
       // The Mac's own rounded corners and shadow, round a page that fills the window: no clear room round a card.
@@ -281,7 +281,7 @@ export function registerSmallWindows({ load, guard, stepAside, passThrough, park
     }
     const now = win.getBounds()
     const { workArea } = screen.getDisplayMatching(now)
-    win.setBounds({ ...now, height: Math.round(Math.max(140, Math.min(height, workArea.y + workArea.height - now.y))) }, false)
+    win.setBounds({ ...now, height: Math.round(Math.max(SHORT, Math.min(height, workArea.y + workArea.height - now.y))) }, false)
   })
   /** Its switches, for its menu. */
   ipcMain.handle('haligtree:small:state', (event) => {
