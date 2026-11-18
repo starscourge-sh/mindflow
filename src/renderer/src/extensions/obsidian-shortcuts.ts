@@ -352,7 +352,8 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
         // over the new pick once the keys rest.
         const tr = state.tr.setSelection(markGrown(next)).setMeta("selectionMenu", "hide").setMeta("tableMenu", "hide")
         // Vim's visual mode keeps its own ends for y, d and c: told the new ones, they take what ⌘A picked. A pick
-        // that is not words (cells, a code block, the note) is left in normal mode, as ⌘A always left it there.
+        // that is not words (blocks, cells, the note) is left in normal mode, as ⌘A always left it there, where d, x,
+        // y and c take blocks picked whole (extensions/vim-mode.ts).
         const vim = vimPluginKey.getState(state)
         if (vim?.enabled && (vim.mode === "visual" || vim.mode === "visualLine"))
           tr.setMeta(vimPluginKey, next instanceof TextSelection ? { mode: "visual", visualAnchor: next.from, visualHead: next.to - 1 } : { mode: "normal", visualAnchor: null, visualHead: null })
@@ -365,7 +366,8 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
   /**
    * Edit > Select All clicked in the menu bar picks the note whole at once: whoever reaches for the menu wants it
    * all, and the key is the one that steps. Taken from the browser's own select-all (src/preload), which picked
-   * from the first words to the last and left out a picture at either end.
+   * from the first words to the last and left out a picture at either end, and in a long note put the ends among
+   * blocks not drawn, where the browser looked through every hidden block for where to show them.
    */
   addProseMirrorPlugins() {
     return [
