@@ -206,6 +206,9 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^open .*sandbox|sandbox/i, Shapes],
   [/^open|^go to|^show .*note|^read from here|^read the inbox|^write in it/i, ExternalLink],
   // Groups.
+  // A group made a folder (the one place its notes live) wears the folder; a folder made a group, the group's stack.
+  [/^make it a folder$/i, Folder],
+  [/^make it a group$/i, Layers],
   // A new folder and a new page side by side in one menu (Writing's, a folder's) each wear their own sign.
   [/^new folder/i, FolderPlus],
   // A group gathers by a tag and is no folder (it never opens): its own sign, never the folder's beside "New folder".
