@@ -94,10 +94,14 @@ const measure = (w, scope) => w.evaluate((scope) => {
     const style = getComputedStyle(head)
     if (parseFloat(style.borderBottomWidth) > 0) add('heading rule', x(head.getBoundingClientRect().left))
   }
+  // Cards laid out in a grid (Questions opens on its cards, 8a6f493c8): the first column is on the edge, the others beside it.
+  const firsts = []
   for (const row of rows) {
     const tick = row.querySelector('[data-task-tick]')
     const r = row.getBoundingClientRect()
     if (row.closest('[data-week-day], [data-quadrant]')) continue
+    if (firsts.some((one) => Math.abs(one.top - r.top) <= 1 && r.left > one.right - 1)) continue
+    firsts.push(r)
     // A row inside a card (the Inbox's kinds): the card is the box on the edge, and its rows line up inside it.
     const card = cardOf(row)
     if (card) { add('card box', x(card.getBoundingClientRect().left)); continue }
@@ -166,7 +170,10 @@ try {
   await size(1400, 900); await theme('dark'); await go('later'); await h.waitForTimeout(900)
   const empty = await measure(h, '[data-page]:not([hidden])')
   report.push({ at: 'dark-1400', page: 'Later, empty (example)', got: empty })
-  judge('Later empty, its example', empty)
+  // The example is drawn inside the day's picture (e1be062fb), one step in from the page's edges: the page's tabs and
+  // add box share the page's two edges, and the example's line, heading and rows share the picture's two.
+  judge('Later empty, its tabs and add box', empty, { box: ['tab pill', 'add box'], ink: ['tab words', 'add +'] })
+  judge('Later empty, its example in its picture', empty, { box: ['example card', 'heading rule', 'row box'], ink: ['example words', 'heading words', 'row first ink'] })
   if (SHOTS) await h.screenshot({ path: `${SHOTS}/example-later.png` }).catch(() => {})
   // Quick capture's lists.
   await box.evaluate(() => window.api.showPrompt()); await box.waitForTimeout(800)

@@ -56,6 +56,8 @@ const RECORDER = () => {
       if (inner.some((one) => one.contains(el))) continue
       // A page waiting, unseen, for its reads (lib/reads-in.tsx) is not drawn yet.
       if (el.closest('[style*="visibility: hidden"]')) continue
+      // Nor is a part kept in the page while shut (a note's find bar, closed: `inert`, folded to nothing).
+      if (el.closest('[inert]')) continue
       const tag = rolls.has(el) ? 'roll' : el.localName
       const pic = tag === 'img' || tag === 'video' || tag === 'canvas' || tag === 'iframe'
       const field = (tag === 'input' && !['hidden', 'checkbox', 'radio', 'range'].includes(el.type)) || tag === 'textarea'
@@ -125,8 +127,10 @@ const RECORDER = () => {
  * gone, moved, resized or says something else by the end. Rows added below,
  * and words typing in, are fine.
  */
-function faults(frames, { window: sized = true, orderOnly = false, settled = false } = {}) {
+function faults(frames, { window: sized = true, orderOnly = false, settled = false, before = Infinity } = {}) {
   if (!frames?.length) return ['nothing drawn']
+  // Judged up to a moment it is meant to change at (the bubble tucks itself away a second or two after it opens).
+  frames = frames.filter((frame) => frame.at <= before)
   // A window put at its size in steps as it opens (the run parks it out of sight): judged from the frame its size settles.
   if (settled) {
     const size = (frame) => frame.els.find((one) => one[0] === 'w')?.[4]
@@ -337,7 +341,7 @@ try {
       const pill = await winBy((u) => u.includes('view=focus'))
       if (pill) {
         await pill.waitForTimeout(4000)
-        report('the focus bubble', await framesOf(pill), false, { window: false })
+        report('the focus bubble', await framesOf(pill), false, { window: false, before: 1500 })
       } else check('the focus bubble: opens', false)
       await v('session:cancel', id)
       await h.evaluate(() => window.api.showFocus(false))
