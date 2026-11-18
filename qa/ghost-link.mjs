@@ -125,6 +125,24 @@ try {
   await link('Nowhere page').waitFor({ timeout: 8000 })
   const greyed = await link('Nowhere page').evaluate((one) => one.classList.contains('is-unresolved'))
   check('the link is greyed: no note of that name', greyed)
+  // Its hover: a link to a note already here shows that note's card (the control); one to nothing shows none, so no
+  // card says what a click on it would do.
+  // Rested on as qa/hover-card-split.mjs rests on a name: a real move in, then the card waited for (it comes after its
+  // pause, its words read from the book), or a while given for one that never comes.
+  const card = () => h.evaluate(() => !!document.querySelector('[data-note-preview]'))
+  const rest = async (one, expect) => {
+    await one.scrollIntoViewIfNeeded()
+    const box = await one.boundingBox()
+    await h.mouse.move(box.x - 30, box.y - 30)
+    await h.mouse.move(box.x + 4, box.y + box.height / 2, { steps: 4 })
+    if (expect) await h.locator('[data-note-preview]').first().waitFor({ state: 'visible', timeout: 4000 }).catch(() => {})
+    else await wait(2000)
+    return card()
+  }
+  const cardOnNote = await rest(link('QUOTE - Reed'), true)
+  await h.mouse.move(5, 5); await wait(600)
+  const cardOnNothing = await rest(link('Nowhere page'), false)
+  check('hovered, a link to a note shows its card, and a link to nothing none', cardOnNote && !cardOnNothing, `card on the quote ${cardOnNote}, on the link to nothing ${cardOnNothing}`)
   await link('Nowhere page').click()
   await film('ghost-click')
   s = await until((one) => /Nowhere page/.test(one.note))
@@ -143,6 +161,10 @@ try {
   let recent = await recentRows()
   while (Date.now() < end && recent.includes('Nowhere page')) { await wait(150); recent = await recentRows() }
   check('1. left empty, the new note goes, from Recent in the sidebar too', listedBefore.includes('Nowhere page') && !recent.includes('Nowhere page') && recent.includes('Reading list'), `before ${JSON.stringify(listedBefore)}, after ${JSON.stringify(recent)}`)
+  // As it goes, its link on the page open now is let go in the book and in the page alike: the same change, no clash.
+  await wait(1500)
+  const clash = await toast()
+  check('1. and the page with its link says nothing of words changed elsewhere', !/changed elsewhere/.test(clash), JSON.stringify(clash))
 
   // 3. Back: the graph again, no note open. Started from the graph with nothing open: the Inbox is left and come back
   // to, so Back has a step of its own to return to (sent to the Inbox it was already on, the new note stayed open).
@@ -169,6 +191,7 @@ try {
   s = await until((one) => /Words kept in Obsidian/.test(one.note), 9000)
   const notice = await toast()
   check('4. brought in from the vault: its words', /Words kept in Obsidian/.test(s.note), JSON.stringify(s))
+  check('4. and nothing said of words changed elsewhere', !/changed elsewhere/.test(notice), JSON.stringify(notice))
   check('4. and its picture', s.picture, JSON.stringify(s))
   check('4. the notice says so, with Undo', /Brought in from your Obsidian vault/.test(notice) && /Undo/.test(notice), JSON.stringify(notice))
   const brought = await h.evaluate(async () => (await window.api.haligtree('items', 'article')).filter((one) => one.title === 'Vault page').length)
