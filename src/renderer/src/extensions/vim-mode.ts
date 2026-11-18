@@ -317,9 +317,11 @@ function lineDepth($pos: ResolvedPos): number {
  *
  * Each item moves on its own, so one that cannot (the first under its parent
  * has nothing to go under) does not hold the others back, and an item whose
- * parent is in the range is left to ride along with it: a parent carries its
- * children, as a line's indent carries what is under it in vim. One
- * transaction, so `u` puts the lot back.
+ * parent is in the range is left to ride along with it. A caret carries an
+ * item's children in with it; picked lines go in alone, as in Obsidian: the
+ * lines under them that were not picked keep their own level, so they end up
+ * beside the line that went in (16 Nov: "only tab the current line and not
+ * the ones beneath it"). One transaction, so `u` puts the lot back.
  *
  * `caret` is where the cursor should stay, on its own words; without one it
  * goes to the first line moved, as vim's does. `keep` leaves the lines picked
@@ -370,7 +372,13 @@ export function indentLines(
     })
   }
   for (const item of items) {
+    // The lines under it that the range does not reach, read before it moves.
+    const node = doc.nodeAt(item.pos)
+    const left = !out && from < to && node ? linesNotPicked(node, item.pos, to) : null
+    const steps = tr.steps.length
     apply(run(item.type), tr.mapping.map(item.pos, 1) + 1)
+    // Gone in under the line above, they come back out one level: beside it, where they were.
+    if (left && tr.steps.length > steps) apply(liftListItem(left.type), tr.mapping.map(left.from), tr.mapping.map(left.to, -1))
   }
   if (!tr.docChanged) return
 
@@ -392,6 +400,28 @@ export function indentLines(
   const first = tr.mapping.map(items[0].pos, 1)
   const target = caret === undefined ? TextSelection.near(tr.doc.resolve(first + 1)) : TextSelection.near(tr.doc.resolve(tr.mapping.map(caret)))
   view.dispatch(tr.setSelection(TextSelection.create(tr.doc, target.head)).scrollIntoView())
+}
+
+/**
+ * The items in an item's own sub-list that begin at or after `to`, the end of what was picked: from the first of them
+ * to the end of that sub-list, and their kind. Null when the range reaches all of them, or the item holds none.
+ */
+function linesNotPicked(item: ProseMirrorNode, itemPos: number, to: number): { from: number; to: number; type: NodeType } | null {
+  let offset = itemPos + 1
+  for (let i = 0; i < item.childCount; i++) {
+    const child = item.child(i)
+    if (i > 0 && /List$/.test(child.type.name)) {
+      let at = offset + 1
+      for (let k = 0; k < child.childCount; k++) {
+        const kid = child.child(k)
+        if (at >= to) return { from: at + 2, to: offset + child.nodeSize - 2, type: kid.type }
+        at += kid.nodeSize
+      }
+      return null
+    }
+    offset += child.nodeSize
+  }
+  return null
 }
 
 /** `>` and `<` in a code block: two spaces on or off the front of each line touched. */
