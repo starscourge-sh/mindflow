@@ -230,10 +230,11 @@ if (c) try {
         const badge = document.querySelector('[data-carried]')?.getBoundingClientRect()
         const fans = [...document.querySelectorAll('[data-fanned]')].map((one) => one.getBoundingClientRect())
         const room = document.querySelector('[data-drop-room]')
-        return { fans: fans.length, upLeft: fans.every((one) => one.top < ghost.top && one.left < ghost.left), badgeBelow: !!badge && badge.top > ghost.bottom - 12 && Math.abs((badge.left + badge.width / 2) - (ghost.left + ghost.width / 2)) < 4, rows: Number(room?.getAttribute('data-drop-room')), roomHeight: room?.getBoundingClientRect().height, row: document.querySelector('[data-row]')?.getBoundingClientRect().height, picks: [...new Set([...document.querySelectorAll('[data-row][data-picked]')].map((one) => one.closest('[data-sortable-id]')))].reduce((sum, one) => sum + (one?.offsetHeight ?? 0), 0) }
+        return { fans: fans.length, pile: fans.every((one) => one.top > ghost.top && one.bottom > ghost.bottom && one.left > ghost.left && one.right < ghost.right), badgeBelow: !!badge && badge.top > ghost.bottom - 12 && Math.abs((badge.left + badge.width / 2) - (ghost.left + ghost.width / 2)) < 4, rows: Number(room?.getAttribute('data-drop-room')), roomHeight: room?.getBoundingClientRect().height, row: document.querySelector('[data-row]')?.getBoundingClientRect().height, picks: [...new Set([...document.querySelectorAll('[data-row][data-picked]')].map((one) => one.closest('[data-sortable-id]')))].reduce((sum, one) => sum + (one?.offsetHeight ?? 0), 0) }
       })
-      check('three carried show as a fanned stack, the count hanging under it', stack.fans === 2 && stack.upLeft && stack.badgeBelow, JSON.stringify(stack))
-      check('and the room opened is a row for each', stack.rows === 3 && Math.abs(stack.roomHeight - stack.picks) < stack.row * 0.5, JSON.stringify(stack))
+      // One look with one carried (18 Nov, the user's 22 and 27): a small pile under the card, and the room of the one in hand.
+      check('three carried show as a small pile under the card, the count hanging under it', stack.fans === 2 && stack.pile && stack.badgeBelow, JSON.stringify(stack))
+      check('and the room opened is one row, the others waiting in their places', stack.rows === 3 && Math.abs(stack.roomHeight - stack.row) < stack.row * 0.5, JSON.stringify(stack))
       await frames(c, 'p-stack-join', 4, 40)
       // Sideways, the card in hand follows the pointer (a touch late), and what letting go would do is unchanged.
       const before = await c.h.evaluate(() => ({ left: document.querySelector('[data-ghost]').getBoundingClientRect().left, at: window.__pt }))
