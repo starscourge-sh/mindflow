@@ -26,6 +26,7 @@ import { usePdfCover } from "./pdf-cover"
 import { detailsOutHere, showDetails, useDetailsShown } from "@/lib/reading"
 import { ScanDetail, ScanLine } from "./pdf-scan"
 import { PdfPages, forgetPdf, loadPdf, offsetsIn, pdfAuthor, pdfTitle, sheetAt, showPage, wordsIn, type PdfMark } from "./pdf-pages"
+import { pressAway } from "./reader-select"
 import { FitActions, listEnd } from "@/components/haligtree/ui"
 import { LAYOUTS, LOOKS, useDarkPages, useOneInColour, usePageLayout, usePageLook, usePaperPages, type PageLayout, type PageLook } from "./paper"
 import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -916,8 +917,8 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
   const toggleZoom = (event: React.MouseEvent): void => {
     const target = event.target as HTMLElement
     const sheet = target.closest<HTMLElement>(".pdf-page")
-    // A double-click on words picks a word, as everywhere.
-    if (!sheet || snipping || target.closest(".textLayer span")) return
+    // A double-click on words, or near them, picks a word, as everywhere (reader-select.ts).
+    if (!sheet || snipping || !pressAway()) return
     const scale = parseFloat(sheet.style.getPropertyValue("--total-scale-factor")) || zoom
     const actual = 96 / 72 / (scale / zoom)
     const next = Math.abs(zoom - 1) > 0.01 ? 1 : Math.min(ZOOMS[ZOOMS.length - 1], Math.abs(actual - 1) < 0.1 ? 2 : actual)

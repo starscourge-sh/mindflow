@@ -42,6 +42,8 @@ import { listEnd, stopJob } from '@/components/haligtree/ui'
 import { markRoom } from '@/extensions/block-room'
 import { minutesToRead } from '@/lib/note-size'
 import './pdf.css'
+// Picking words in the article, forgiving as in Apple's apps.
+import './reader-select'
 import { plural, num } from '../../../../main/dates'
 
 /** A web page kept as an article: its words and pictures, read offline. */

@@ -4,87 +4,10 @@ import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "rea
 import { GlobalWorkerOptions, OPS, TextLayer, Util, getDocument, type PDFDocumentProxy, type PDFPageProxy } from "pdfjs-dist"
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url"
 import "./pdf.css"
+// Picking words on the pages, forgiving as in Apple's apps.
+import "./reader-select"
 import { markCss } from "./read-bar"
 import { AHEAD as NEXT_TO, IN_VIEW, drawInTurn, keepPage, keptPage, calm, outranked, pagesAt, pagesScrolled, type Turn } from "./pdf-draw"
-
-// A drag begun on a page's words selects across every page of that book: each page's end stretches to take the
-// pointer wherever it goes, until the press ends (pdf.css .textLayer.selecting .endOfContent).
-if (typeof document !== "undefined" && !(window as { __pdfSelecting?: boolean }).__pdfSelecting) {
-  ;(window as { __pdfSelecting?: boolean }).__pdfSelecting = true
-  let held: Element[] = []
-  // Each page's words as drawn, read once a drag: their boxes from the page's top left, and the lowest of them. The
-  // page's own order is not its look (a DK book keeps its "In context" box last, high on the page).
-  type Box = { left: number; right: number; top: number; bottom: number }
-  const pages = new Map<Element, { spans: HTMLElement[]; boxes: Box[]; lowest: number }>()
-  const read = (layer: Element): { spans: HTMLElement[]; boxes: Box[]; lowest: number } => {
-    const known = pages.get(layer)
-    if (known) return known
-    const at = layer.getBoundingClientRect()
-    // The words themselves: a tagged book wraps them in spans of its own, whose boxes are whole paragraphs.
-    const spans = [...layer.querySelectorAll<HTMLElement>("span")].filter((one) => one.textContent && !one.closest(".endOfContent") && !one.querySelector("span"))
-    const boxes = spans.map((one) => { const b = one.getBoundingClientRect(); return { left: b.left - at.left, right: b.right - at.left, top: b.top - at.top, bottom: b.bottom - at.top } })
-    const page = { spans, boxes, lowest: Math.max(...boxes.map((one) => one.bottom)) }
-    pages.set(layer, page)
-    return page
-  }
-  const textIn = (span: Element, last: boolean): Text | undefined => {
-    const all = [...span.childNodes].filter((one): one is Text => one.nodeType === Node.TEXT_NODE)
-    return last ? all.at(-1) : all[0]
-  }
-  const letGo = (): void => void (held.forEach((one) => one.classList.remove("selecting")), (held = []), pages.clear())
-  document.addEventListener("pointerdown", (event) => {
-    const layer = (event.target as Element | null)?.closest?.(".textLayer")
-    if (!layer || event.button !== 0) return
-    const book = layer.closest(".pdf-reader, .tiptap-attachment, [data-pdf-pages]") ?? layer.parentElement
-    held = [...(book?.querySelectorAll(".textLayer") ?? [layer])]
-    held.forEach((one) => one.classList.add("selecting"))
-  }, true)
-  // Past the words, the browser stops at the letter the last move reached, which a quick move leaves short.
-  //   Below the page's lowest words (or off the page below them): to the end of the page's words, as Preview's does.
-  //   The lowest on the page, never the last in its order: measured by the last few in order, a line low on a
-  //   magazine's page counted as past the words, and picking it took everything to the end of the page (the user,
-  //   13 Nov: "why all the selection, because i was just tryign to select this line first").
-  //   Beside the line the selection ends on, over the page and not its words: to that line's end (its start, picking
-  //   backwards). That line only, never a line of another column at the same height.
-  document.addEventListener("pointermove", (event) => {
-    if (!held.length || !(event.buttons & 1)) return
-    const selection = window.getSelection()
-    const focus = selection?.focusNode
-    const layer = (focus instanceof Element ? focus : focus?.parentElement)?.closest(".textLayer")
-    if (!selection || !focus || !layer) return
-    const { spans, boxes, lowest } = read(layer)
-    if (!spans.length) return
-    const at = layer.getBoundingClientRect()
-    const x = event.clientX - at.left
-    const y = event.clientY - at.top
-    const put = (node: Text | undefined, offset: number): void => { if (node && !(selection.focusNode === node && selection.focusOffset === offset)) selection.extend(node, offset) }
-    if (y > lowest + 4) {
-      const end = textIn(spans.at(-1)!, true)
-      return put(end, end?.length ?? 0)
-    }
-    const index = spans.indexOf((focus instanceof Element ? focus : focus.parentElement)?.closest("span") as HTMLElement)
-    if (index < 0) return
-    const line = boxes[index]
-    if (y < line.top - 2 || y > line.bottom + 2 || boxes.some((one) => x >= one.left && x <= one.right && y >= one.top && y <= one.bottom)) return
-    const anchor = selection.anchorNode
-    const forward = !anchor || (anchor === focus ? selection.focusOffset >= selection.anchorOffset : !!(anchor.compareDocumentPosition(focus) & Node.DOCUMENT_POSITION_FOLLOWING))
-    // On the same line: its band, and each word on from the last.
-    const onLine = (n: number, from: number): boolean => boxes[n].bottom > line.top && boxes[n].top < line.bottom && (n > from ? boxes[n].left >= boxes[from].left - 1 : boxes[n].right <= boxes[from].right + 1)
-    if (forward && x > line.right) {
-      let to = index
-      for (let n = index + 1; n < spans.length && onLine(n, n - 1); n++) if (boxes[n].right <= x) to = n
-      const end = textIn(spans[to], true)
-      put(end, end?.length ?? 0)
-    } else if (!forward && x < line.left) {
-      let to = index
-      for (let n = index - 1; n >= 0 && onLine(n, n + 1); n--) if (boxes[n].left >= x) to = n
-      put(textIn(spans[to], false), 0)
-    }
-  }, true)
-  document.addEventListener("pointerup", letGo, true)
-  document.addEventListener("pointercancel", letGo, true)
-  window.addEventListener("blur", letGo)
-}
 
 // The worker ships beside the page as a file of the app's own, so the page's
 // policy (script-src 'self') lets it run.
@@ -773,6 +696,13 @@ export function PdfPages({
         want(page, IN_VIEW)
         for (let away = 1; away <= AHEAD; away++) want(page + heading.current * away, rankAt(away, true))
         for (let away = 1; away <= BEHIND; away++) want(page - heading.current * away, rankAt(away, false))
+      }
+      // The pages holding the ends of what is picked stay drawn: a drag that scrolls on past them keeps where it began
+      // (let go, the page's words went with it, and the picking started again on the page in view).
+      const picked = getSelection()
+      for (const end of [picked?.anchorNode, picked?.focusNode]) {
+        const sheet = end && el.contains(end) ? (end instanceof Element ? end : end.parentElement)?.closest<HTMLElement>(".pdf-page") : null
+        if (sheet && !next.has(Number(sheet.dataset.page))) next.set(Number(sheet.dataset.page), rankAt(BEHIND + 1, false))
       }
       setShown(next)
     }
