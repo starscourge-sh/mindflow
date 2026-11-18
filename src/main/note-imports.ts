@@ -24,7 +24,8 @@ const DEPTH = 3
  * A folder holding only folders is a group too. A group of that name already
  * in the same place (from an earlier import) takes them in after its own.
  */
-export function fileIntoGroups(folders: { path: string[]; ids: string[] }[]): { name: string; count: number }[] {
+/** `made`: given, the folders it had to make are added to it, outermost first. */
+export function fileIntoGroups(folders: { path: string[]; ids: string[] }[], made?: string[]): { name: string; count: number }[] {
   const db = database()
   const named: { name: string; count: number }[] = []
   atomically(() => {
@@ -39,7 +40,7 @@ export function fileIntoGroups(folders: { path: string[]; ids: string[] }[]): { 
       for (const name of path) {
         const parent: string | null = id
         id = (find.get(name, parent ?? '') as { id: string } | undefined)?.id ?? null
-        if (!id) make.run((id = randomUUID()), name, parent, new Date().toISOString())
+        if (!id) (make.run((id = randomUUID()), name, parent, new Date().toISOString()), made?.push(id))
       }
       const after = ((last.get(id) as { at: number | null }).at ?? -1) + 1
       one.ids.forEach((note, at) => put.run(id, after + at, note))

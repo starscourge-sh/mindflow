@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto'
 
 import { KINDS, LABEL, atomically, changed, database, like } from './captures'
 import { NOTE_KEY } from './name'
+import { dropEmptyGroups } from './groups'
 import { writeMarkdown } from './backup'
 import { markdown } from './haligtree'
 import { renameLinks, resolveLinks, unresolveLinks } from './link-rename'
@@ -301,12 +302,14 @@ export function registerRenames(): void {
 
   // A note a link brought in from a vault, taken back by the notice's Undo: gone again, its links waiting for its name
   // once more. The vault still holds it, so it is not the Bin's to keep.
-  ipcMain.handle('haligtree:vault:unbring', (_event, link: string) => {
+  // And the folders that bringing it in made, innermost first, each only once it holds nothing.
+  ipcMain.handle('haligtree:vault:unbring', (_event, link: string, groups?: unknown) => {
     const { table, id } = partsOf(String(link))
     const db = database()
     if (!db.prepare(`select 1 from ${table} where id = ? and source != ''`).get(id)) return false
     db.prepare(`delete from ${table} where id = ?`).run(id)
     forget(String(link))
+    if (Array.isArray(groups)) dropEmptyGroups(groups.filter((one): one is string => typeof one === 'string').reverse())
     changed()
     return true
   })

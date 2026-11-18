@@ -24,6 +24,18 @@ export type Layout = { top: string[]; groups: Record<string, string[]>; make?: {
 const now = (): string => new Date().toISOString()
 const KEY = 'g:'
 
+/** Folders gone, in the order given, each only if it holds no note and no folder (a bring-in's Undo: index.ts bringLinked). */
+export function dropEmptyGroups(ids: string[]): void {
+  const db = database()
+  atomically(() => {
+    for (const id of ids) {
+      if (db.prepare('select 1 from nuggets where group_id = ? limit 1').get(id) || db.prepare('select 1 from note_groups where parent_id = ? limit 1').get(id)) continue
+      db.prepare('delete from note_order where id = ?').run(KEY + id)
+      db.prepare('delete from note_groups where id = ?').run(id)
+    }
+  })
+}
+
 export function registerGroups(): void {
   const db = database()
   const column = (name: string, definition: string): void => {

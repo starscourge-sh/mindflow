@@ -313,7 +313,7 @@ const madeWhy = new Map<string, string>()
 export const madeByLink = (id: string): string | null => (unsure(id) ? madeWhy.get(id) ?? null : null)
 
 /** What main found for a link's name in the Obsidian vault (index.ts bringLinked). */
-export type Brought = { found: "brought" | "here"; link: string; title: string; path: string } | { found: "several"; paths: string[]; names: string[] } | { found: "none"; vault: boolean; unread: string[] } | { found: "busy" }
+export type Brought = { found: "brought" | "here"; link: string; title: string; path: string; groups?: string[] } | { found: "several"; paths: string[]; names: string[] } | { found: "none"; vault: boolean; unread: string[] } | { found: "busy" }
 
 /**
  * The note of this name in the Obsidian vault the book's notes came from (or
@@ -328,7 +328,8 @@ export async function bringFromVault(label: string, path?: string): Promise<Brou
   // Its words a document before it opens, as an import's become once its links are in.
   await import("@/lib/convert-imports").then(({ convertOne }) => convertOne(brought.link.startsWith("article:") ? "nuggets" : "captures", id)).catch(() => undefined)
   // Undo: back to where it was asked for, if it is on show (home.tsx), then the note goes again, its links waiting for its name once more.
-  const undo = (): void => (window.dispatchEvent(new CustomEvent("haligtree:unbrought", { detail: id })), void ask?.("vault:unbring", brought.link))
+  // The folders filing it made go with it, once they hold nothing.
+  const undo = (): void => (window.dispatchEvent(new CustomEvent("haligtree:unbrought", { detail: id })), void ask?.("vault:unbring", brought.link, brought.groups ?? []))
   void import("@/components/haligtree/ui").then(({ toast }) => toast("Brought in from your Obsidian vault", undo, "success", undefined, { type: brought.link.startsWith("article:") ? "article" : "capture", id, title: brought.title }))
   return brought
 }

@@ -4539,7 +4539,7 @@ const keptVaults = (): string[] => {
  * vault), each the way the import brings any note: its pictures and files, its
  * tags, its links. Hands back what came in.
  */
-async function bringVault(root: string, quiet: boolean, pick?: { folders: string[]; signal: AbortSignal }, stop?: AbortSignal, only?: string[]): Promise<Imported[]> {
+async function bringVault(root: string, quiet: boolean, pick?: { folders: string[]; signal: AbortSignal }, stop?: AbortSignal, only?: string[], groups?: string[]): Promise<Imported[]> {
   // Where it came from, so a link to one of its notes not brought in yet can bring it later.
   database().prepare('insert or replace into settings (key, value) values (?, ?)').run(VAULTS_KEPT, JSON.stringify([root, ...keptVaults().filter((one) => one !== root)].slice(0, 8)))
   // “Stop” on the chip, chosen folders or the whole folder: each note already in is whole, and stays.
@@ -4799,7 +4799,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     ? fileIntoGroups([...new Set(made.map((one) => dirOf(one.path)))].filter(Boolean).map((dir) => ({
         path: dir.split('/'),
         ids: made.filter((one) => dirOf(one.path) === dir).map((one) => one.link.replace(/^article:/, ''))
-      })))
+      })), groups)
     : []
   const report = [
     `${num(made.length)} new ${made.length === 1 ? 'note' : 'notes'} from ${basename(root)}, with ${num(pictures)} pictures, ${num(attached)} files and ${num(linked)} links.`,
@@ -4843,7 +4843,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
  * None, or no vault to look in, or the vault gone: said, so the link can make
  * an empty note and say why. Nothing in a vault is ever written to.
  */
-async function bringLinked(name: string, path?: string): Promise<{ found: 'brought' | 'here'; link: string; title: string; path: string } | { found: 'several'; paths: string[]; names: string[] } | { found: 'none'; vault: boolean; unread: string[] } | { found: 'busy' }> {
+async function bringLinked(name: string, path?: string): Promise<{ found: 'brought' | 'here'; link: string; title: string; path: string; groups?: string[] } | { found: 'several'; paths: string[]; names: string[] } | { found: 'none'; vault: boolean; unread: string[] } | { found: 'busy' }> {
   const roots = await vaultRoots(keptVaults())
   if (!roots.length) return { found: 'none', vault: false, unread: [] }
   const { found, unread } = await findVaultNotes(name, roots)
@@ -4859,9 +4859,11 @@ async function bringLinked(name: string, path?: string): Promise<{ found: 'broug
   // As an import: its words become a document once its links are in, in whichever window opens it.
   setImporting(true)
   try {
-    const made = await busy(() => bringVault(one.root, true, { folders: [], signal: new AbortController().signal }, undefined, [one.path]))
+    // The folders filing it made, for the notice's Undo to take back with it.
+    const groups: string[] = []
+    const made = await busy(() => bringVault(one.root, true, { folders: [], signal: new AbortController().signal }, undefined, [one.path], groups))
     // Nothing came in: the file was empty (as the import skips one).
-    return made[0] ? { found: 'brought', link: made[0].link, title: made[0].title, path: one.path } : { found: 'none', vault: true, unread: [] }
+    return made[0] ? { found: 'brought', link: made[0].link, title: made[0].title, path: one.path, groups } : { found: 'none', vault: true, unread: [] }
   } catch {
     // A folder in it that cannot be read (permissions, a cloud copy not on this Mac): said as the vault unread.
     return { found: 'none', vault: true, unread: [one.root] }
