@@ -4,15 +4,17 @@ The user, 16 Nov: "My rule now: test by who uses it. My tools get tests where lo
 gets its main journeys tested end to end. Nothing trivial. Nothing twice. write fewer tests and purge unnecessary ones:
 dont lengthen builds for no reason".
 
-qa/ held 1,245 probes; 257 are kept and 988 removed, with 3 files no kept probe reads. Every removed
+qa/ held 1,245 probes; 256 are kept and 989 removed (6 of them libraries only removed probes imported), with 3 more files only removed probes read. Every removed
 file is in git history (`git show c58be03fd:qa/<name>.mjs`). How they were sorted:
-- a fix long merged, its path walked by a kept probe: 671
-- one-off pass or diagnostic: 63
+- a fix long merged, its path walked by a kept probe: 666
+- one-off pass or diagnostic: 62
 - logic held by a unit test: 31
-- a fix long merged, no journey walks its corner: 151
+- a fix long merged, no journey walks its corner: 150
+- a file only removed probes used: 9
 - one number: 14
 - a look already read by eye: 58
-- a file only removed probes used: 3
+- stale, red on premium-pass, its path walked by a kept probe: 1
+- a duplicate, its useful lines folded into a journey: 1
 
 Kept: the main journeys below; every probe a lead merge check named or ran on 18 Nov; the running helpers' probes (D13's
 drag probes, WR1's Wrapped and Stats probes, HW2's small window and editor probes); probes the rules, DESIGN.md, the app
@@ -22,7 +24,6 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/anki-apkg.mjs`: bringing an Anki deck in
 - `qa/books.mjs`: a second book made, switched to and back, kept across a restart
 - `qa/box-parity.mjs`: capturing from quick capture, outcome by outcome against the main window
-- `qa/calendar.mjs`: the month calendar and the week board
 - `qa/citations.mjs`: citing a source while writing
 - `qa/db-quit.mjs`: quitting closes the database whole
 - `qa/editor-obsidian.mjs`: writing a note as someone coming from Obsidian
@@ -32,11 +33,9 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/folders.mjs`: organising notes and gems in folders
 - `qa/gestures.mjs`: picking, opening and removing on every list with the Mac keys
 - `qa/home-coming-back.mjs`: Home's coming back shelf
-- `qa/line-tasks.mjs`: turning lines into tasks and ticking them
 - `qa/long-note-safe.mjs`: a long note opened, typed in, scrolled and closed, kept exactly
 - `qa/markdown-copy.mjs`: the live Markdown copy of every note
 - `qa/meeting-record.mjs`: recording a call or lecture to its page
-- `qa/note-imports.mjs`: bringing notes in from Apple Notes and Obsidian
 - `qa/paste-shapes.mjs`: pasting text into a note
 - `qa/pdf-export.mjs`: a note exported as a PDF
 - `qa/pdf-reader.mjs`: reading a PDF in a note
@@ -49,7 +48,17 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/undo-whole.mjs`: undo and redo of a whole note
 - `qa/walk-first.mjs`: the first run, from a fresh install through the welcome
 - `qa/web-reader.mjs`: reading a web page in the reader
+- `qa/wiki-reader.mjs`: searching Wikipedia from ⌘K and reading it inside Haligtree
 - `qa/writing-mode.mjs`: writing the day's page in writing mode
+
+## Main paths kept whose probe is red on premium-pass c58be03fd before this branch (owed a fix)
+- `qa/line-tasks.mjs`: turning lines into tasks; red on c58be03fd, alone and in a batch (25 of 27): in quick capture a pasted mixed page shows “Sort this out” and a list typed there is not offered “Make 3 tasks” (27 of 27 on 15 Nov, gate-u2m)
+- `qa/note-imports.mjs`: bringing notes in from Apple Notes and Obsidian; red on c58be03fd: 16 lines pass, then it waits in vain for Writing's "N to sort" button (items-view.tsx shows it only with no note open)
+
+## Logic that can break, kept as a probe until a unit test holds it
+- `qa/hard-quit.mjs`: a kill -9 leaves every small state file whole (src/main/write-whole.ts)
+- `qa/note-sums.mjs`: the sums a line ending in "=" answers (extensions/calc.ts; its evaluate is not exported, so a unit test needs an app change)
+- `qa/save-backup-import.mjs`: a save the database refuses keeps its words and retries; two failed backups warn
 
 ## Every file removed, and why
 - `qa/abandon-no-ask.mjs`: trivial: a fix long merged (written 11-04, last changed 11-04; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
@@ -85,7 +94,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/batch-n.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-30, last changed 11-05; run by no merge check since 14 Nov)
 - `qa/batch-p.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-30, last changed 11-06; run by no merge check since 14 Nov)
 - `qa/behind-answer.mjs`: trivial: a fix long merged (written 10-31, last changed 11-01; run by no merge check since 14 Nov); no journey walks its corner of the app
-- `qa/big-book.mjs`: trivial: a fix long merged (written 10-22, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept journey long-note-safe
+- `qa/big-book.mjs`: trivial: a library only removed probes imported (big-numbers, nav-instant, num-scan)
 - `qa/big-doc.mjs`: trivial: a fix long merged (written 10-09, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept journey long-note-safe
 - `qa/big-group-speed.mjs`: trivial: one number, a timing that counts only on a quiet machine (written 10-25, last changed 10-26; run by no merge check since 14 Nov)
 - `qa/big-note-speed.mjs`: trivial: one number, a timing that counts only on a quiet machine (written 11-11, last changed 11-11; run by no merge check since 14 Nov)
@@ -169,21 +178,22 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/brutal.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-10, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/bullet-rule.mjs`: trivial: a fix long merged (written 10-17, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
 - `qa/cal-allday-look.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 11-13, last changed 11-13; run by no merge check since 14 Nov)
-- `qa/cal-back.mjs`: trivial: a fix long merged (written 11-14, last changed 11-14; last run by a merge check 11-14); its path is walked by the kept journey calendar
-- `qa/cal-daymark.mjs`: trivial: a fix long merged (written 10-18, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/cal-more-events.mjs`: trivial: a fix long merged (written 11-10, last changed 11-10; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/cal-panels.mjs`: trivial: a fix long merged (written 10-18, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/cal-range-switch.mjs`: trivial: a fix long merged (written 11-09, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/cal-snap.mjs`: trivial: a fix long merged (written 11-11, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/cal-tasks-motion.mjs`: trivial: a fix long merged (written 11-09, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/cal-back.mjs`: trivial: a fix long merged (written 11-14, last changed 11-14; last run by a merge check 11-14); its path is walked by the kept probe cal-add
+- `qa/cal-daymark.mjs`: trivial: a fix long merged (written 10-18, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/cal-more-events.mjs`: trivial: a fix long merged (written 11-10, last changed 11-10; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/cal-panels.mjs`: trivial: a fix long merged (written 10-18, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/cal-range-switch.mjs`: trivial: a fix long merged (written 11-09, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/cal-snap.mjs`: trivial: a fix long merged (written 11-11, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/cal-tasks-motion.mjs`: trivial: a fix long merged (written 11-09, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/cal-tasks-shots.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 11-09, last changed 11-09; run by no merge check since 14 Nov)
-- `qa/cal-tasks-worst.mjs`: trivial: a fix long merged (written 11-09, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/cal-tasks-worst.mjs`: trivial: a fix long merged (written 11-09, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/cal3.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-17, last changed 11-12; run by no merge check since 14 Nov)
 - `qa/cal5.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-17, last changed 11-12; run by no merge check since 14 Nov)
-- `qa/calendar-page.mjs`: trivial: a fix long merged (written 10-17, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/calendar-page.mjs`: trivial: a fix long merged (written 10-17, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/calendar-pass.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 11-08, last changed 11-12; run by no merge check since 14 Nov)
-- `qa/callout-image.mjs`: trivial: a fix long merged (written 10-09, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/calm-pack.mjs`: trivial: a fix long merged (written 10-24, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/calendar.mjs`: stale: 12 of its 90 lines fail on premium-pass c58be03fd (out-of-month numbers, the week board's Late row, a busy day's width; the Calendar was reworked on 12 Nov); adding to the Calendar is walked by the kept probe cal-add
+- `qa/callout-image.mjs`: trivial: a fix long merged (written 10-09, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/calm-pack.mjs`: trivial: a fix long merged (written 10-24, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/caption-gap.mjs`: trivial: a fix long merged (written 10-09, last changed 10-25; last run by a merge check 11-16); no journey walks its corner of the app
 - `qa/capture-blocks.mjs`: trivial: a fix long merged (written 10-26, last changed 10-26; run by no merge check since 14 Nov); its path is walked by the kept journey box-parity
 - `qa/capture-goal.mjs`: trivial: a fix long merged (written 10-30, last changed 10-30; run by no merge check since 14 Nov); its path is walked by the kept journey box-parity
@@ -210,7 +220,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/claims.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-29, last changed 10-29; run by no merge check since 14 Nov)
 - `qa/clarity.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-12, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/clear-filters.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
-- `qa/close-day-sizes.mjs`: trivial: a fix long merged (written 10-17, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/close-day-sizes.mjs`: trivial: a fix long merged (written 10-17, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/close-front.mjs`: trivial: a fix long merged (written 10-28, last changed 10-28; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/cmdk-actions.mjs`: trivial: a fix long merged (written 11-08, last changed 11-09; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
 - `qa/cmdk-islands.mjs`: trivial: a fix long merged (written 11-09, last changed 11-09; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
@@ -263,7 +273,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/dock-icon.mjs`: trivial: a fix long merged (written 10-15, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/dock-room.mjs`: trivial: a fix long merged (written 11-01, last changed 11-01; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/dock.mjs`: trivial: a fix long merged (written 10-11, last changed 10-23; run by no merge check since 14 Nov); no journey walks its corner of the app
-- `qa/done-task-bin.mjs`: trivial: a fix long merged (written 10-27, last changed 10-27; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/done-task-bin.mjs`: trivial: a fix long merged (written 10-27, last changed 10-27; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/drawing-offline.mjs`: trivial: a fix long merged (written 11-11, last changed 11-11; last run by a merge check 11-16); no journey walks its corner of the app
 - `qa/drop-anywhere.mjs`: trivial: a fix long merged (written 11-04, last changed 11-04; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/drop-room-tag-rows.mjs`: trivial: a fix long merged (written 10-24, last changed 11-06; run by no merge check since 14 Nov); no journey walks its corner of the app
@@ -274,9 +284,9 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/emoji-colon.mjs`: trivial: a fix long merged (written 10-14, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
 - `qa/empty-folder.mjs`: trivial: a fix long merged (written 10-26, last changed 10-26; last run by a merge check 11-15); its path is walked by the kept journey folders
 - `qa/empty-pages.mjs`: trivial: a fix long merged (written 10-24, last changed 10-24; run by no merge check since 14 Nov); no journey walks its corner of the app
-- `qa/event-fields.mjs`: trivial: a fix long merged (written 10-29, last changed 10-29; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/event-fields.mjs`: trivial: a fix long merged (written 10-29, last changed 10-29; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/event-rename-words.mjs`: logic that can break, held by a unit test (test/event-words.test.ts); the probe only drove it through the window (written 10-29, last changed 10-29; run by no merge check since 14 Nov)
-- `qa/events.mjs`: trivial: a fix long merged (written 10-17, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/events.mjs`: trivial: a fix long merged (written 10-17, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/everything-resolved.mjs`: trivial: a fix long merged (written 10-14, last changed 11-06; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
 - `qa/everything.mjs`: trivial: a fix long merged (written 10-14, last changed 11-06; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
 - `qa/examples.mjs`: trivial: a fix long merged (written 10-09, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept journey sandbox-works
@@ -316,7 +326,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/film-grain.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 11-02, last changed 11-02; run by no merge check since 14 Nov)
 - `qa/filters.mjs`: trivial: a fix long merged (written 10-15, last changed 11-06; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
 - `qa/final-editor.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-21, last changed 10-25; run by no merge check since 14 Nov)
-- `qa/final-measure.mjs`: trivial: a fix long merged (written 10-21, last changed 10-21; run by no merge check since 14 Nov); no journey walks its corner of the app
+- `qa/final-measure.mjs`: trivial: a library only removed probes imported (final-outside)
 - `qa/final-outside.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-21, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/final-pages.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-21, last changed 11-09; last run by a merge check 11-15)
 - `qa/find-quick.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
@@ -362,7 +372,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/g-keys.mjs`: trivial: a fix long merged (written 10-29, last changed 11-07; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
 - `qa/gem-line.mjs`: trivial: a fix long merged (written 10-15, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/gem-panel.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); no journey walks its corner of the app
-- `qa/ghost-link-book.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept journey note-imports
+- `qa/ghost-link-book.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/glide-pill.mjs`: trivial: a fix long merged (written 10-09, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey box-parity
 - `qa/goal-card-down.mjs`: trivial: a fix long merged (written 11-12, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe goal-stickies
 - `qa/goal-card-stays.mjs`: trivial: a fix long merged (written 11-12, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe goal-stickies
@@ -389,9 +399,9 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/groups-scale.mjs`: trivial: a fix long merged (written 11-02, last changed 11-02; run by no merge check since 14 Nov); its path is walked by the kept journey folders
 - `qa/groups-trees-faces.mjs`: trivial: a fix long merged (written 11-09, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey folders
 - `qa/groups.mjs`: trivial: a fix long merged (written 10-08, last changed 11-15; run by no merge check since 14 Nov); its path is walked by the kept journey folders
-- `qa/haligtree-calendar.mjs`: trivial: a fix long merged (written 10-21, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/haligtree-calendar.mjs`: trivial: a fix long merged (written 10-21, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/haligtree-name.mjs`: trivial: a fix long merged (written 10-21, last changed 10-23; run by no merge check since 14 Nov); no journey walks its corner of the app
-- `qa/haligtree-today.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/haligtree-today.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/hand-cursor.mjs`: trivial: a fix long merged (written 10-28, last changed 10-28; run by no merge check since 14 Nov); its path is walked by the kept probe hand-everywhere
 - `qa/handover-menus.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 11-18, last changed 11-18; run by no merge check since 14 Nov)
 - `qa/handover-next.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 11-17, last changed 11-17; run by no merge check since 14 Nov)
@@ -413,14 +423,14 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/hover-click-editor.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); its path is walked by the kept probe context-menu
 - `qa/hover-light.mjs`: trivial: a fix long merged (written 11-12, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe context-menu
 - `qa/hover-scroll-away.mjs`: trivial: a fix long merged (written 10-24, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe context-menu
-- `qa/icloud-imports.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey note-imports
+- `qa/icloud-imports.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe ghost-link
 - `qa/icon-picker-stays.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/icon-styles.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-27, last changed 10-27; run by no merge check since 14 Nov)
 - `qa/idle-frames.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-25, last changed 10-26; run by no merge check since 14 Nov)
 - `qa/image-keep.mjs`: trivial: a fix long merged (written 11-04, last changed 11-04; run by no merge check since 14 Nov); its path is walked by the kept journey files-walk
 - `qa/image-text.mjs`: trivial: a fix long merged (written 11-04, last changed 11-15; run by no merge check since 14 Nov); its path is walked by the kept journey files-walk
 - `qa/img-clip.mjs`: trivial: a fix long merged (written 10-10, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept journey files-walk
-- `qa/import-menu.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey note-imports
+- `qa/import-menu.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe ghost-link
 - `qa/inbox-by-kind.mjs`: trivial: a fix long merged (written 10-27, last changed 10-27; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/inbox-calm.mjs`: trivial: a fix long merged (written 10-27, last changed 10-30; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/inbox-graph-all.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); no journey walks its corner of the app
@@ -433,7 +443,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/journal-measure.mjs`: trivial: a fix long merged (written 11-04, last changed 11-04; run by no merge check since 14 Nov); its path is walked by the kept journey writing-mode
 - `qa/journey-b.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 11-01, last changed 11-01; run by no merge check since 14 Nov)
 - `qa/journey-capture.mjs`: trivial: a fix long merged (written 10-12, last changed 11-10; run by no merge check since 14 Nov); its path is walked by the kept journey box-parity
-- `qa/journey-do.mjs`: trivial: a fix long merged (written 10-12, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/journey-do.mjs`: trivial: a fix long merged (written 10-12, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/keep-gaps.mjs`: trivial: a fix long merged (written 10-12, last changed 11-01; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/key-conflicts.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
 - `qa/keyed-popups.mjs`: trivial: a fix long merged (written 10-29, last changed 10-29; run by no merge check since 14 Nov); its path is walked by the kept probe context-menu
@@ -446,8 +456,8 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/leave-room.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/leftover-offer.mjs`: logic that can break, held by a unit test (test/roots-bench.test.ts); the probe only drove it through the window (written 11-01, last changed 11-01; run by no merge check since 14 Nov)
 - `qa/letter-later.mjs`: trivial: a fix long merged (written 10-22, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey writing-mode
-- `qa/line-numbers-long.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/line-numbers.mjs`: trivial: a fix long merged (written 11-15, last changed 11-16; last run by a merge check 11-15); its path is walked by the kept journey line-tasks
+- `qa/line-numbers-long.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/line-numbers.mjs`: trivial: a fix long merged (written 11-15, last changed 11-16; last run by a merge check 11-15); its path is walked by the kept probe line-tasks
 - `qa/link-card-click.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey editor-obsidian
 - `qa/link-card-faces.mjs`: trivial: a fix long merged (written 11-11, last changed 11-11; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
 - `qa/link-click-opens.mjs`: trivial: a fix long merged (written 10-31, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey editor-obsidian
@@ -536,13 +546,15 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/missed-notes.mjs`: trivial: a fix long merged (written 11-05, last changed 11-05; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/missing-source-ways.mjs`: trivial: a fix long merged (written 11-01, last changed 11-01; run by no merge check since 14 Nov); its path is walked by the kept journey citations
 - `qa/moment-chips.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey writing-mode
-- `qa/month-cells-fit.mjs`: trivial: a fix long merged (written 11-10, last changed 11-11; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/month-run.mjs`: trivial: a fix long merged (written 11-11, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/move-to-clash.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/move-to-today.mjs`: trivial: a fix long merged (written 11-06, last changed 11-06; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/month-add-lib.mjs`: trivial: a library only removed probes imported (cal3, cal5, calendar, day-time-alone and 2 more)
+- `qa/month-cells-fit.mjs`: trivial: a fix long merged (written 11-10, last changed 11-11; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/month-lib.mjs`: trivial: a library only removed probes imported (calendar, calendar-page)
+- `qa/month-run.mjs`: trivial: a fix long merged (written 11-11, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/move-to-clash.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/move-to-today.mjs`: trivial: a fix long merged (written 11-06, last changed 11-06; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/name-offer-titled.mjs`: trivial: a fix long merged (written 11-14, last changed 11-14; last run by a merge check 11-14); its path is walked by the kept journey editor-obsidian
 - `qa/nav-instant.mjs`: trivial: one number, a timing that counts only on a quiet machine (written 10-22, last changed 11-01; run by no merge check since 14 Nov)
-- `qa/nested-tasks.mjs`: trivial: a fix long merged (written 10-12, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/nested-tasks.mjs`: trivial: a fix long merged (written 10-12, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/never-freezes.mjs`: trivial: a fix long merged (written 11-11, last changed 11-15; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/new-deck.mjs`: trivial: a fix long merged (written 10-31, last changed 11-06; run by no merge check since 14 Nov); its path is walked by the kept journey review-walk
 - `qa/new-group-preview.mjs`: trivial: a fix long merged (written 10-24, last changed 11-02; run by no merge check since 14 Nov); no journey walks its corner of the app
@@ -562,7 +574,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/notes-layout.mjs`: trivial: a fix long merged (written 10-17, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe one-app
 - `qa/notes-polish.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-17, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/notes-walk.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-17, last changed 10-25; run by no merge check since 14 Nov)
-- `qa/now-slot-edges.mjs`: trivial: a fix long merged (written 10-24, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/now-slot-edges.mjs`: trivial: a fix long merged (written 10-24, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/nudge-card.mjs`: trivial: a fix long merged (written 10-12, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept probe goal-stickies
 - `qa/nudge-undo.mjs`: trivial: a fix long merged (written 11-10, last changed 11-10; run by no merge check since 14 Nov); its path is walked by the kept probe goal-stickies
 - `qa/num-scan.mjs`: logic that can break, held by a unit test (test/num-format.test.ts); the probe only drove it through the window (written 11-01, last changed 11-01; run by no merge check since 14 Nov)
@@ -687,7 +699,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/press-first.mjs`: trivial: a fix long merged (written 10-30, last changed 10-30; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
 - `qa/press-under-last.mjs`: trivial: a fix long merged (written 11-13, last changed 11-14; last run by a merge check 11-15); its path is walked by the kept journey editor-obsidian
 - `qa/previews.mjs`: trivial: a fix long merged (written 10-10, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
-- `qa/probe-pdf-lib.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-31, last changed 10-31; run by no merge check since 14 Nov)
+- `qa/probe-pdf-lib.mjs`: trivial: a library only removed probes imported (later-swatch, look-up-honest, look-up-known, look-up-marked and 2 more)
 - `qa/profiles.mjs`: trivial: a fix long merged (written 10-24, last changed 11-09; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/proofread-journal.mjs`: trivial: a fix long merged (written 10-30, last changed 10-30; run by no merge check since 14 Nov); its path is walked by the kept journey writing-mode
 - `qa/proofread.mjs`: trivial: a fix long merged (written 10-26, last changed 10-30; run by no merge check since 14 Nov); its path is walked by the kept journey writing-mode
@@ -769,7 +781,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/sandbox.mjs`: trivial: a fix long merged (written 10-07, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey sandbox-works
 - `qa/save-asks.mjs`: trivial: a fix long merged (written 11-12, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey save-keeps
 - `qa/scale-book.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
-- `qa/scale-tasks.mjs`: trivial: a fix long merged (written 10-21, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/scale-tasks.mjs`: trivial: a fix long merged (written 10-21, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/scenery-breathe.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-26, last changed 10-29; run by no merge check since 14 Nov)
 - `qa/scenery-built-in.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-24, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/scenery-first-paint.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-25, last changed 10-25; run by no merge check since 14 Nov)
@@ -777,14 +789,14 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/scenery-watch.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-21, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/screen-access.mjs`: trivial: a fix long merged (written 10-21, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/scroll.mjs`: trivial: a fix long merged (written 09-30, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
-- `qa/search-honest.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
+- `qa/search-honest.mjs`: duplicate: its lines on a word no note has (“Nothing has … as you typed it”, then “Close spellings”) are folded into the kept journey search-kinds, whose ⌘K rows and previews walk the rest
 - `qa/search-rank.mjs`: trivial: a fix long merged (written 11-08, last changed 11-09; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
 - `qa/search-rows.mjs`: trivial: a fix long merged (written 11-07, last changed 11-07; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
 - `qa/search-snippet-clean.mjs`: trivial: a fix long merged (written 11-06, last changed 11-12; last run by a merge check 11-15); its path is walked by the kept journey search-kinds
 - `qa/sections.mjs`: trivial: a fix long merged (written 10-05, last changed 10-05; run by no merge check since 14 Nov); its path is walked by the kept journey folders
 - `qa/select-all-more.mjs`: trivial: a fix long merged (written 10-12, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
 - `qa/select-all.mjs`: trivial: a fix long merged (written 10-12, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
-- `qa/select-tasks.mjs`: trivial: a fix long merged (written 10-13, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey line-tasks
+- `qa/select-tasks.mjs`: trivial: a fix long merged (written 10-13, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept probe line-tasks
 - `qa/selection-bar.mjs`: trivial: a fix long merged (written 10-14, last changed 11-18; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
 - `qa/selection-count.mjs`: trivial: a fix long merged (written 11-04, last changed 11-18; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
 - `qa/selection-toolbar.mjs`: trivial: a fix long merged (written 10-18, last changed 11-18; run by no merge check since 14 Nov); its path is walked by the kept journey gestures
@@ -798,7 +810,7 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/shell-fixes.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 10-17, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/shell-walk.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-17, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/shot-ooze.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-17, last changed 11-06; run by no merge check since 14 Nov)
-- `qa/shots-lib.mjs`: trivial: a fix long merged (written 10-18, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
+- `qa/shots-lib.mjs`: trivial: a library only removed probes imported (dates-shots, numbers-shots, periods-1, twopass-1 and 2 more)
 - `qa/show-by-the-app.mjs`: trivial: a fix long merged (written 11-12, last changed 11-12; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/show-in-list.mjs`: trivial: a fix long merged (written 10-26, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey folders
 - `qa/side-heading-edge.mjs`: trivial: a fix long merged (written 10-14, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey folders
@@ -833,9 +845,9 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/smooth-scroll-switch.mjs`: trivial: a fix long merged (written 11-11, last changed 11-11; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/snip-card-key.mjs`: trivial: a fix long merged (written 10-31, last changed 11-01; run by no merge check since 14 Nov); its path is walked by the kept journey box-parity
 - `qa/snip-in-lists.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); its path is walked by the kept journey box-parity
-- `qa/snooze.mjs`: trivial: a fix long merged (written 10-17, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/snooze.mjs`: trivial: a fix long merged (written 10-17, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/soft-underline.mjs`: trivial: a fix long merged (written 11-01, last changed 11-01; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
-- `qa/someday-goals.mjs`: trivial: a fix long merged (written 10-29, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/someday-goals.mjs`: trivial: a fix long merged (written 10-29, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/sounds.mjs`: trivial: a fix long merged (written 10-10, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept probe one-sound-open
 - `qa/source-islands.mjs`: trivial: a fix long merged (written 11-08, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept journey citations
 - `qa/source-still.mjs`: trivial: a fix long merged (written 11-01, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey citations
@@ -904,20 +916,20 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/tag-switch.mjs`: trivial: a fix long merged (written 10-09, last changed 11-08; last run by a merge check 11-16); its path is walked by the kept probe tag-page
 - `qa/talk-pill.mjs`: trivial: a fix long merged (written 11-01, last changed 11-07; run by no merge check since 14 Nov); its path is walked by the kept journey box-parity
 - `qa/talk-scroll.mjs`: trivial: a fix long merged (written 11-04, last changed 11-04; run by no merge check since 14 Nov); its path is walked by the kept journey meeting-record
-- `qa/task-align.mjs`: trivial: a fix long merged (written 10-14, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/task-back-to-note.mjs`: trivial: a fix long merged (written 10-26, last changed 10-26; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/task-calm.mjs`: trivial: a fix long merged (written 10-17, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/task-from-note.mjs`: trivial: a fix long merged (written 11-04, last changed 11-04; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/task-links.mjs`: trivial: a fix long merged (written 10-12, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/task-align.mjs`: trivial: a fix long merged (written 10-14, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/task-back-to-note.mjs`: trivial: a fix long merged (written 10-26, last changed 10-26; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/task-calm.mjs`: trivial: a fix long merged (written 10-17, last changed 11-08; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/task-from-note.mjs`: trivial: a fix long merged (written 11-04, last changed 11-04; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/task-links.mjs`: trivial: a fix long merged (written 10-12, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/task-name-time.mjs`: logic that can break, held by a unit test (test/task-words.test.ts); the probe only drove it through the window (written 10-29, last changed 11-12; run by no merge check since 14 Nov)
-- `qa/task-panel.mjs`: trivial: a fix long merged (written 10-06, last changed 10-26; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/task-tag-name.mjs`: trivial: a fix long merged (written 10-30, last changed 10-30; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/task-tags-order.mjs`: trivial: a fix long merged (written 10-14, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/task-time-scale.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/tasks-all.mjs`: trivial: a fix long merged (written 10-30, last changed 11-08; last run by a merge check 11-16); its path is walked by the kept journey line-tasks
-- `qa/tasks-bar.mjs`: trivial: a fix long merged (written 10-23, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/task-panel.mjs`: trivial: a fix long merged (written 10-06, last changed 10-26; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/task-tag-name.mjs`: trivial: a fix long merged (written 10-30, last changed 10-30; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/task-tags-order.mjs`: trivial: a fix long merged (written 10-14, last changed 11-12; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/task-time-scale.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/tasks-all.mjs`: trivial: a fix long merged (written 10-30, last changed 11-08; last run by a merge check 11-16); its path is walked by the kept probe line-tasks
+- `qa/tasks-bar.mjs`: trivial: a fix long merged (written 10-23, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/tasks-look.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 11-08, last changed 11-09; last run by a merge check 11-16)
-- `qa/tasks-one-list.mjs`: trivial: a fix long merged (written 11-08, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/tasks-one-list.mjs`: trivial: a fix long merged (written 11-08, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/tasks-walk.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-17, last changed 10-25; last run by a merge check 11-16)
 - `qa/theme-switch-timing.mjs`: trivial: one number, a timing that counts only on a quiet machine (written 10-12, last changed 10-25; run by no merge check since 14 Nov)
 - `qa/themes.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 09-30, last changed 10-23; run by no merge check since 14 Nov)
@@ -938,13 +950,13 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/toast-holds-still.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; last run by a merge check 11-16); its path is walked by the kept probe context-menu
 - `qa/toast-menu-frames.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 11-15, last changed 11-15; last run by a merge check 11-16)
 - `qa/toast-opens.mjs`: trivial: a fix long merged (written 10-31, last changed 11-06; last run by a merge check 11-16); its path is walked by the kept probe context-menu
-- `qa/today-matrix.mjs`: trivial: a fix long merged (written 10-15, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
-- `qa/tomorrow-lines.mjs`: trivial: a fix long merged (written 10-14, last changed 10-28; last run by a merge check 11-15); its path is walked by the kept journey line-tasks
-- `qa/tomorrow-mentions.mjs`: trivial: a fix long merged (written 10-27, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/today-matrix.mjs`: trivial: a fix long merged (written 10-15, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
+- `qa/tomorrow-lines.mjs`: trivial: a fix long merged (written 10-14, last changed 10-28; last run by a merge check 11-15); its path is walked by the kept probe line-tasks
+- `qa/tomorrow-mentions.mjs`: trivial: a fix long merged (written 10-27, last changed 11-09; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/transcribe-feedback.mjs`: trivial: a fix long merged (written 10-31, last changed 11-06; run by no merge check since 14 Nov); its path is walked by the kept journey meeting-record
 - `qa/transcribe-real.mjs`: trivial: a fix long merged (written 11-01, last changed 11-06; run by no merge check since 14 Nov); its path is walked by the kept journey meeting-record
 - `qa/transcribe.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); its path is walked by the kept journey meeting-record
-- `qa/transcript-not-tasks.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); its path is walked by the kept journey line-tasks
+- `qa/transcript-not-tasks.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); its path is walked by the kept probe line-tasks
 - `qa/tray-time.mjs`: trivial: a fix long merged (written 10-19, last changed 11-05; run by no merge check since 14 Nov); its path is walked by the kept journey focus-wave
 - `qa/tree-lines.mjs`: trivial: a fix long merged (written 10-30, last changed 11-02; last run by a merge check 11-15); its path is walked by the kept journey folders
 - `qa/trees-consistent.mjs`: trivial: a fix long merged (written 10-31, last changed 10-31; run by no merge check since 14 Nov); its path is walked by the kept journey folders
@@ -961,11 +973,11 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/undo-steps.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept journey undo-whole
 - `qa/usage-counts.mjs`: trivial: a fix long merged (written 10-22, last changed 10-25; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/v-handles.mjs`: trivial: a fix long merged (written 10-12, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
-- `qa/vault-file-links.mjs`: trivial: a fix long merged (written 10-25, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey note-imports
-- `qa/vault-folders.mjs`: trivial: a fix long merged (written 10-26, last changed 10-26; run by no merge check since 14 Nov); its path is walked by the kept journey note-imports
-- `qa/vault-front-tags.mjs`: trivial: a fix long merged (written 10-25, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey note-imports
-- `qa/vault-picker.mjs`: trivial: a fix long merged (written 10-10, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept journey note-imports
-- `qa/vault-test-book.mjs`: trivial: a fix long merged (written 10-24, last changed 10-24; run by no merge check since 14 Nov); its path is walked by the kept journey note-imports
+- `qa/vault-file-links.mjs`: trivial: a fix long merged (written 10-25, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe ghost-link
+- `qa/vault-folders.mjs`: trivial: a fix long merged (written 10-26, last changed 10-26; run by no merge check since 14 Nov); its path is walked by the kept probe ghost-link
+- `qa/vault-front-tags.mjs`: trivial: a fix long merged (written 10-25, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe ghost-link
+- `qa/vault-picker.mjs`: trivial: a fix long merged (written 10-10, last changed 10-23; run by no merge check since 14 Nov); its path is walked by the kept probe ghost-link
+- `qa/vault-test-book.mjs`: trivial: a fix long merged (written 10-24, last changed 10-24; run by no merge check since 14 Nov); its path is walked by the kept probe ghost-link
 - `qa/video-forms.mjs`: trivial: a fix long merged (written 10-09, last changed 10-09; run by no merge check since 14 Nov); its path is walked by the kept journey files-walk
 - `qa/video-player.mjs`: trivial: a fix long merged (written 11-14, last changed 11-14; last run by a merge check 11-14); its path is walked by the kept journey files-walk
 - `qa/video-type-pause.mjs`: trivial: a fix long merged (written 10-31, last changed 11-05; run by no merge check since 14 Nov); its path is walked by the kept journey files-walk
@@ -980,9 +992,9 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/walk-capture.mjs`: trivial: a fix long merged (written 10-22, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey box-parity
 - `qa/walk-focus.mjs`: trivial: a fix long merged (written 10-22, last changed 11-11; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/walk-pages.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 10-22, last changed 11-15; last run by a merge check 11-16)
-- `qa/week-fit.mjs`: trivial: a fix long merged (written 10-14, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/week-focus-edit.mjs`: trivial: a fix long merged (written 11-07, last changed 11-07; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
-- `qa/week-tick.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept journey calendar
+- `qa/week-fit.mjs`: trivial: a fix long merged (written 10-14, last changed 10-25; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/week-focus-edit.mjs`: trivial: a fix long merged (written 11-07, last changed 11-07; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
+- `qa/week-tick.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; run by no merge check since 14 Nov); its path is walked by the kept probe cal-add
 - `qa/welcome-answers.mjs`: trivial: a fix long merged (written 10-15, last changed 11-14; run by no merge check since 14 Nov); its path is walked by the kept journey walk-first
 - `qa/welcome-arrival-small.mjs`: trivial: a fix long merged (written 11-13, last changed 11-13; last run by a merge check 11-15); its path is walked by the kept journey walk-first
 - `qa/welcome-back.mjs`: trivial: a fix long merged (written 10-15, last changed 11-14; run by no merge check since 14 Nov); its path is walked by the kept journey walk-first
@@ -1023,11 +1035,9 @@ code or a unit test name as the check for something; the shared harness and ever
 - `qa/where-it-goes-look.mjs`: trivial: a look already read by eye (frames or pictures for a person to read; written 11-12, last changed 11-12; run by no merge check since 14 Nov)
 - `qa/where-it-goes.mjs`: trivial: a fix long merged (written 11-12, last changed 11-12; run by no merge check since 14 Nov); no journey walks its corner of the app
 - `qa/where-stuck.mjs`: trivial: a one-off pass or diagnostic named after one investigation (written 11-11, last changed 11-11; run by no merge check since 14 Nov)
-- `qa/wiki-beside.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey web-reader
-- `qa/wiki-in-box.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey web-reader
-- `qa/wiki-reader.mjs`: trivial: a fix long merged (written 11-15, last changed 11-16; last run by a merge check 11-15); its path is walked by the kept journey web-reader
-- `qa/wiki-redirect.mjs`: trivial: a fix long merged (written 11-01, last changed 11-13; last run by a merge check 11-15); its path is walked by the kept journey web-reader
-- `qa/wiki-stand-in.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; run by no merge check since 14 Nov); its path is walked by the kept journey web-reader
+- `qa/wiki-beside.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey wiki-reader
+- `qa/wiki-in-box.mjs`: trivial: a fix long merged (written 11-15, last changed 11-15; last run by a merge check 11-15); its path is walked by the kept journey wiki-reader
+- `qa/wiki-redirect.mjs`: trivial: a fix long merged (written 11-01, last changed 11-13; last run by a merge check 11-15); its path is walked by the kept journey wiki-reader
 - `qa/word-define.mjs`: trivial: a fix long merged (written 10-14, last changed 11-04; last run by a merge check 11-15); its path is walked by the kept journey box-parity
 - `qa/word-forms.mjs`: trivial: a fix long merged (written 11-04, last changed 11-04; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
 - `qa/words-options.mjs`: trivial: a fix long merged (written 10-29, last changed 10-29; run by no merge check since 14 Nov); its path is walked by the kept journey editor-obsidian
