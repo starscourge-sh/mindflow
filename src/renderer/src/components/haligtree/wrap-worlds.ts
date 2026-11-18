@@ -16,9 +16,9 @@ export type Palette = { bg: string; ink: string; accent: string; alt: string; so
 
 export const PALETTES: Record<World, Palette[]> = {
   files: [
-    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#8b7cf6', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#8b7cf6', '#f1efe9'] },
+    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#634ff3', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#8b7cf6', '#f1efe9'] },
     { bg: '#232321', ink: '#f1efe9', accent: '#c6f24e', alt: '#f1efe9', soft: '#3a3a37', glow: ['#c6f24e', '#6f6f6a'] },
-    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#ff5a3c', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#ff5a3c', '#f6c945'] },
+    { bg: '#f1efe9', ink: '#1d1d1b', accent: '#d22000', alt: '#1d1d1b', soft: '#dcd8cf', glow: ['#ff5a3c', '#f6c945'] },
     { bg: '#232321', ink: '#f1efe9', accent: '#e8c547', alt: '#f1efe9', soft: '#3a3a37', glow: ['#e8c547', '#8b7cf6'] }
   ],
   night: [
