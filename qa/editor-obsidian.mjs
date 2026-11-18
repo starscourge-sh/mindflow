@@ -142,6 +142,23 @@ try {
   const stays = { ...(await read()), focused: await h.evaluate((sel) => document.querySelector(sel).editor.view.hasFocus(), ED) }
   check('17: Vim on, Escape twice: still in the note, in normal mode', stays.vim === 'normal' && stays.focused, JSON.stringify(stays))
 
+  // Ask 17: one Escape after words typed leaves insert mode, as in vim and Obsidian (on an earlier build ciw ONE Esc w
+  // gave "ONEw", and A ! Esc x gave "alpha!x": the Escape stayed writing).
+  await open('Change word', [p('alpha beta gamma')], 'alpha')
+  await press('c', 'i', 'w')
+  await h.keyboard.type('ONE', { delay: 30 })
+  await wait(250)
+  await press('Escape', 'w')
+  const changed = await read()
+  check('17: Vim on, ciw ONE Esc w: normal mode, the caret on to the next word, no w typed', Object.keys(changed.out).join(' ') === 'ONE beta gamma' && changed.vim === 'normal', JSON.stringify(changed))
+  await open('Append', [p('alpha')], 'alpha')
+  await press('A')
+  await h.keyboard.type('!', { delay: 30 })
+  await wait(250)
+  await press('Escape', 'x')
+  const appended = await read()
+  check('17: Vim on, A ! Esc x: back in normal mode, x takes the "!"', Object.keys(appended.out).join(' ') === 'alpha' && appended.vim === 'normal', JSON.stringify(appended))
+
   // Ask 17: ⌘L, Obsidian's key for a checkbox: a bullet becomes one, and again ticks it (it did nothing).
   await vim(false)
   await open('Check', [bullet([li('milk')])], 'milk')
