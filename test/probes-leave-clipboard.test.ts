@@ -9,12 +9,8 @@ import { join } from 'node:path'
 
 const probes = readdirSync('qa').filter((name) => name.endsWith('.mjs'))
 
-/** Lines a probe may keep: what each does is said beside it. */
-const KEPT: Record<string, RegExp> = {
-  // The calendar's own ⌘V puts a copied event where the pointer is (calendar-events.tsx `held`): it takes the key
-  // before the browser does, and no clipboard is involved.
-  'cal-daymark.mjs': /keyboard\.press\('Meta\+v'\)/
-}
+/** Lines a probe may keep, what each does said beside it: none since qa/cal-daymark.mjs went on 18 Nov. */
+const KEPT: Record<string, RegExp> = {}
 
 test("no probe reads or writes the Mac's clipboard, or pastes through it", () => {
   const found: string[] = []
