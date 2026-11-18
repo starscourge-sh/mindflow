@@ -48,17 +48,23 @@ const gem = async (words, prompt, grades = []) => {
   if (grades.length) await v('blurt:sooner', [id])
   return id
 }
-/** Review open on its first card, the answer shown. */
+/**
+ * Review open on its first card, the answer shown; `prompt` may be a list when any of them may come first (the new
+ * cards you wrote are shuffled by the day, src/main/haligtree.ts `shuffleNew`, and one note's cards never come back
+ * to back), and the one found is returned.
+ */
 const reviewTo = async (prompt) => {
   await go('home')
   await go('review', ':today')
-  await h.waitForFunction((p) => [...document.querySelectorAll('h2[contenteditable]')].some((one) => one.textContent?.includes(p)), prompt, { timeout: 8000 }).catch(async (error) => {
+  const prompts = [prompt].flat()
+  const shown = await h.waitForFunction((list) => list.find((p) => [...document.querySelectorAll('h2[contenteditable]')].some((one) => one.textContent?.includes(p))), prompts, { timeout: 8000 }).then((found) => found.jsonValue(), async (error) => {
     // Said with what Review shows instead (its page, its card's words), and a picture of it.
     await shot('review-not-found').catch(() => {})
     const seen = await h.evaluate(() => ({ page: document.querySelector('[data-page]')?.getAttribute('data-page'), h2: [...document.querySelectorAll('h2')].map((one) => `${one.isContentEditable ? 'editable ' : ''}${one.textContent?.slice(0, 50)}`).slice(0, 4), words: document.querySelector('main, [data-page]')?.textContent?.replace(/\s+/g, ' ').slice(0, 200) }))
-    throw new Error(`Review never showed "${prompt}": ${error.message.split('\n')[0]}; it showed ${JSON.stringify(seen)}`)
+    throw new Error(`Review never showed "${prompts.join('" or "')}": ${error.message.split('\n')[0]}; it showed ${JSON.stringify(seen)}`)
   })
   await blur()
+  return shown
 }
 
 try {
@@ -103,7 +109,8 @@ try {
   if (!CARDS) await look('paper')
   // In Review: where it is from, and R opens the note at that line.
   // In a book with other cards due (CARDS on the seeded sandbox) another card may come first: said, not failed.
-  const first = await reviewTo('Capital city of Peru').then(() => true, (error) => (CARDS ? false : Promise.reject(error)))
+  // Either of the note's two cards may be the day's first: the other waits for tomorrow (one card of a note a day).
+  const first = await reviewTo(['Capital city of Peru', 'Highest lake']).then((shown) => shown, (error) => (CARDS ? null : Promise.reject(error)))
   if (!first) console.log('SKIP  Review’s two lines (which note a card is from, R opens it at the line): another card is first in this book')
   else {
     check('Review says which note a card is from', (await text('[data-line-from]')).includes('Trip to Peru'), await text('[data-line-from]'))
@@ -115,12 +122,14 @@ try {
       const block = node?.nodeType === 3 ? node.parentElement : node
       return (block?.closest?.('p, li') ?? block)?.textContent ?? ''
     })
-    check('R opens the note at the card’s line', landed.includes('Capital city of Peru'), landed)
+    check('R opens the note at the card’s line', landed.includes(first), `${first}: ${landed}`)
   }
   // A line taken out takes its card with it.
   await h.evaluate(([id, body]) => window.api.captures.save(id, { body }), [note, doc('Trip to Peru', 'Highest lake :: Titicaca')])
   cards = ofNote(await v('items', 'card'))
   check('a line taken out takes its card out of Review', cards.length === 1 && cards[0].prompt === 'Highest lake', cards.map((one) => one.prompt).join(' | '))
+  // Its last card line out too, so the gems below meet Review on their own: a card written today leads the day's cards.
+  await h.evaluate(([id, body]) => window.api.captures.save(id, { body }), [note, doc('Trip to Peru')])
   // A day's page works the same.
   const today = await h.evaluate(() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })
   await v('notes:day:save', today, { body: doc('Longest river :: The Nile') })
