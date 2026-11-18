@@ -20,6 +20,7 @@ import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { FolderPen, FolderHeart, Plus } from 'lucide-react'
 import { Count, Tip, quietly, refuse, sayNow, toast } from './ui'
 import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, tagsSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
+import '@/lib/carry-cursor'
 
 /** Asks the sidebar for a new, empty folder in a list (from the row's +, or its right click), named as it is made. */
 export const newFolder = (list: 'article' | 'nugget', parent: string | null = null): void =>

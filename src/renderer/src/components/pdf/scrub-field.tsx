@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import { stepTap } from "@/lib/haptics"
 import { chime } from "@/lib/sound"
+import '@/lib/carry-cursor'
 
 /** A number you drag sideways to change (ScrubField), drawn as Haligtree"s own field. */
 export const SCRUB = "h-8 w-14 cursor-ew-resize rounded-md border border-input bg-input/20 px-2 text-center text-sm tabular-nums outline-none transition-colors focus:cursor-text focus-visible:border-foreground/25 dark:bg-input/30"

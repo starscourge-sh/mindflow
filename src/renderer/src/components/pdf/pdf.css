@@ -2308,9 +2308,9 @@ html:is([data-width='page'], [data-width='wide']) .pdf-library-column,
   cursor: ew-resize;
 }
 
-html[data-scrubbing],
-html[data-scrubbing] * {
-  cursor: ew-resize !important;
+/* Its cursor is main.css's, on <html> and the element under the pointer (lib/carry-cursor.ts); nothing is picked meanwhile.
+   On <html> alone, which the page inherits: never "html[data-scrubbing] *", which restyled the whole window. */
+html[data-scrubbing] {
   user-select: none !important;
 }
 

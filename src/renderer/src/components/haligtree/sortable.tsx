@@ -10,6 +10,7 @@ import { CarriedCard, CarryRow, HELD, Hand, OwnRoom, RoomAt, Shaped, clearWay, m
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { refuse } from './ui'
+import '@/lib/carry-cursor'
 
 /**
  * Dragging rows into your own order, drawn the one way every list draws a

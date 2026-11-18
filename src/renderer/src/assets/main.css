@@ -2848,11 +2848,14 @@ html[data-dragging] :is([data-line-tools], [data-add-below]) { visibility: hidde
 .mf-carried-place::before { content: ''; position: absolute; inset: 0 0.25rem; border-radius: 0.5rem; background: color-mix(in srgb, var(--tt-brand-color-400) 6%, transparent); }
 /* A list's hover light is out while a row is carried: left on, it stayed where a row was before the rows slid aside. */
 html[data-dragging] [data-glide] { display: none; }
-html[data-dragging], html[data-dragging] * { cursor: grabbing !important; }
-/* An event's bar taken by an end on the Calendar (its days made more or fewer): the pointer says so wherever it goes. */
-html[data-stretching], html[data-stretching] * { cursor: ew-resize !important; }
+/* The pointer while a thing is carried, wherever it goes: on <html>, which everything without a cursor of its own
+   inherits, and on the one element under the pointer (lib/carry-cursor.ts). Never as "html[data-dragging] *": a rule
+   under every element restyled the whole window at each start and end of a drag (seconds on a long page). */
+html:is([data-dragging], [data-split-drag]), [data-carry-cursor='grabbing'] { cursor: grabbing !important; }
+/* An event's bar taken by an end on the Calendar (its days made more or fewer), or the PDF's page number scrubbed: the pointer says so wherever it goes. */
+html:is([data-stretching], [data-scrubbing]), [data-carry-cursor='ew-resize'] { cursor: ew-resize !important; }
 /* Carried over a part that will not take it (Pinned, Tags): the pointer says so. */
-html[data-drag-refused], html[data-drag-refused] * { cursor: not-allowed !important; }
+html[data-drag-refused], [data-carry-cursor='not-allowed'] { cursor: not-allowed !important; }
 [data-sortable-id] :is(input, textarea, [contenteditable="true"], [contenteditable="true"] *) { cursor: text; }
 
 /* The box's command words ("5m tea", "+name:", "tomorrow", "#bug"), lit as

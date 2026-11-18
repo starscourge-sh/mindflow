@@ -10,6 +10,7 @@ import { still } from '@/lib/motion'
 import { chime } from '@/lib/sound'
 import { slotTicker } from '@/lib/proximity'
 import { DropLine } from '@/components/haligtree/carry'
+import '@/lib/carry-cursor'
 
 /** Where each row and column sits, relative to the editor's own box. */
 interface Geometry {

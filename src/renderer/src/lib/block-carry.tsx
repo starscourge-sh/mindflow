@@ -11,6 +11,7 @@ import { chime } from './sound'
 import { slotTicker } from './proximity'
 import { still } from './motion'
 import { cut } from '../../../main/clip'
+import '@/lib/carry-cursor'
 
 /**
  * A note's block carried by its grip, as the sidebar carries a folder (side-folders.tsx), in the one look every carry

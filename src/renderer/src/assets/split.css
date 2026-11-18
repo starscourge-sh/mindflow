@@ -108,9 +108,9 @@ html[data-split-drag] [role='dialog'][aria-label='Search'] {
   pointer-events: none;
   transition: opacity 120ms;
 }
-html[data-split-drag],
-html[data-split-drag] * {
-  cursor: grabbing !important;
+/* Its cursor is main.css's, on <html> and the element under the pointer (lib/carry-cursor.ts). On <html> alone, which
+   the page inherits: never "html[data-split-drag] *", which restyled the whole window at each start and end. */
+html[data-split-drag] {
   user-select: none !important;
 }
 

@@ -4,6 +4,7 @@ import { chime } from './sound'
 import { slotTicker } from './proximity'
 import { toast } from '@/components/haligtree/ui'
 import { clearWay, makeWay, restBox, swallowClick, type Spot } from '@/components/haligtree/carry'
+import '@/lib/carry-cursor'
 
 /** The sidebar's sections under its places, in their usual order. */
 export const SECTIONS_USUAL = ['library', 'look', 'pinned', 'recent', 'tags'] as const

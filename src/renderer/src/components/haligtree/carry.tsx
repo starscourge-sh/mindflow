@@ -11,6 +11,7 @@ import { isGroup, type How } from '@/lib/group-layout'
 import { cn } from '@/lib/cn'
 import { cut } from '../../../../main/clip'
 import { brief } from '../../../../main/dates'
+import '@/lib/carry-cursor'
 
 /**
  * Carrying a thing, the one way every list does it: the card under the pointer,

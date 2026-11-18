@@ -43,6 +43,7 @@ import { DropdownMenu, DropdownMenuCheckboxItem, DropdownMenuContent, DropdownMe
 import { splitTags } from '@/lib/haligtree'
 import { quoted } from '../../../../main/clip'
 import { studyChips, useStudy, type StudyDay } from './study-days'
+import '@/lib/carry-cursor'
 
 type Mode = 'day' | 'week' | 'month'
 /** One level of the Calendar: a month, a week or a day, about a day. */

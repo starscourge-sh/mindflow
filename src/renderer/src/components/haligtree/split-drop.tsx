@@ -12,6 +12,7 @@ import { still } from '@/lib/motion'
 import { refuse } from './ui'
 import { CarriedCard, swallowClick, swallowRelease, titleOf } from './carry'
 import { gapIn, setCarry } from './tab-row'
+import '@/lib/carry-cursor'
 
 /**
  * Drag to split, Dia's way with tabs: carry a row, a Home tile, a pinned
