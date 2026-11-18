@@ -1,15 +1,12 @@
 /**
- * Film grain, adapted from React Bits' Noise (reactbits.dev/animations/noise,
- * by David Haz, MIT + Commons Clause). A fine moving grain laid over a
- * painting, as on a film still: one CSS pixel a grain, faint, about eighteen
- * new frames a second.
- *
- * Changed from React Bits: a few small tiles of grain are made once and
- * shifted about, rather than a full canvas of new random numbers each frame;
- * it moves only while on screen and while the window is looked at
- * (`awakeFrames`), and with Motion off or Reduce motion it is one still frame.
- * It lies over the picture only: put it inside the picture's own box, under
- * any words.
+ * Film grain: a fine moving grain laid over a painting, as on a film still:
+ * one CSS pixel a grain, faint, about eighteen new frames a second. The app's
+ * own: a few small tiles of grey grain are made once for the window and laid
+ * over the picture in turn, each frame at a new place, never a
+ * canvas of fresh random numbers. It moves only while on screen and while the
+ * window is looked at (`awakeFrames`); with Motion off or Reduce motion it is
+ * one still frame. It lies over the picture only: put it inside the picture's
+ * own box, under any words.
  */
 import { useEffect, useRef } from 'react'
 import { awakeFrames, useStill } from '@/lib/motion'
@@ -28,13 +25,11 @@ function tiles(): HTMLCanvasElement[] {
     tile.height = TILE
     const ctx = tile.getContext('2d')!
     const image = ctx.createImageData(TILE, TILE)
-    for (let i = 0; i < image.data.length; i += 4) {
-      const v = (Math.random() * 255) | 0
-      image.data[i] = v
-      image.data[i + 1] = v
-      image.data[i + 2] = v
-      image.data[i + 3] = 255
-    }
+    // One grey a pixel, written as a whole pixel at once (opaque: its alpha byte full).
+    const pixels = new Uint32Array(image.data.buffer)
+    const grey = new Uint8Array(pixels.length)
+    crypto.getRandomValues(grey)
+    for (let i = 0; i < pixels.length; i++) pixels[i] = 0xff000000 | (grey[i] * 0x010101)
     ctx.putImageData(image, 0, 0)
     return tile
   })
