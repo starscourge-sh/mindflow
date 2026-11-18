@@ -26,6 +26,9 @@ function DropdownMenuTrigger({
   )
 }
 
+/** The room a menu and its submenus keep from the window's edges: clear of the title bar's buttons, never touching a side. */
+const ROOM = { top: 52, right: 10, bottom: 10, left: 10 }
+
 function DropdownMenuContent({
   className,
   align = "start",
@@ -36,7 +39,7 @@ function DropdownMenuContent({
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         ref={openChime}
-        collisionPadding={{ top: 52, right: 10, bottom: 10, left: 10 }}
+        collisionPadding={ROOM}
         data-slot="tiptap-dropdown-menu-content"
         sideOffset={sideOffset}
         align={align}
@@ -125,6 +128,7 @@ function DropdownMenuSubContent({
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.SubContent
+        collisionPadding={ROOM}
         data-slot="tiptap-dropdown-menu-sub-content"
         className={cn("tiptap-dropdown-menu-sub-content", className)}
         {...props}
