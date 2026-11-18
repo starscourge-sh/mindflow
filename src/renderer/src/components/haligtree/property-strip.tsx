@@ -507,6 +507,33 @@ function NewProp({ className, size, names, waiting, onField, onName, onCancel }:
   // The arrows run down the kind's fields, then the names in use.
   const choose = (index: number): void => (index < fields.length ? onField(fields[index].key) : pick(offered[index - fields.length]?.name ?? name))
   const count = fields.length + offered.length
+  // The names hang under the field while they fit above the page's "Add a thought…" bar, or the window's foot; else
+  // over it, on the roomier side, never taller than that room (the slash menu's rule, suggestion-renderer.ts): in a
+  // short window they ran under the bar, cut off (16 Nov, shot 03-c). Read as the list opens, as its rows change, and
+  // as the window changes size under it (a small window grows while a list is open, lib/fit-box.ts).
+  const list = useRef<HTMLDivElement>(null)
+  const [room, setRoom] = useState<{ up: boolean; tall: number } | null>(null)
+  useLayoutEffect(() => {
+    const box = list.current
+    if (!box) return
+    const place = (): void => {
+      const field = box.parentElement?.getBoundingClientRect()
+      if (!field) return
+      let foot = window.innerHeight - 12
+      for (const bar of document.querySelectorAll<HTMLElement>('[data-composer]')) {
+        const at = bar.getBoundingClientRect()
+        if (at.height && at.top >= field.bottom) foot = Math.min(foot, at.top - 8)
+      }
+      const below = foot - field.bottom - 4
+      // Clear of the title bar, as every menu keeps (MENU_ROOM in the menus).
+      const above = field.top - 52 - 4
+      const up = below < Math.min(box.scrollHeight, 320) && above > below
+      setRoom({ up, tall: Math.max(96, Math.min(320, Math.floor(up ? above : below))) })
+    }
+    place()
+    window.addEventListener('resize', place)
+    return () => window.removeEventListener('resize', place)
+  }, [count])
   return (
     <div className={className} data-new-property>
       <span className={`relative flex ${size.h} min-w-0 items-center gap-2 ${size.pad} text-muted-foreground`}>
@@ -532,7 +559,8 @@ function NewProp({ className, size, names, waiting, onField, onName, onCancel }:
           className="h-7 min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground" />
         {count > 0 && (
           // In by `mf-pop` (main.css), as a popover is: grown down from the field by a clip, never faded (it is frosted).
-          <div role="listbox" data-name-options data-state="open" data-side="bottom" className={`${FLOAT} mf-pop absolute top-full left-0 z-50 mt-1 flex max-h-80 ${fields.length ? 'w-72' : 'w-56'} flex-col overflow-y-auto rounded-lg p-1`}>
+          <div ref={list} role="listbox" data-name-options data-state="open" data-side={room?.up ? 'top' : 'bottom'} style={room ? { maxHeight: room.tall } : undefined}
+            className={`${FLOAT} mf-pop absolute left-0 z-50 flex max-h-80 ${room?.up ? 'bottom-full mb-1' : 'top-full mt-1'} ${fields.length ? 'w-72' : 'w-56'} flex-col overflow-y-auto rounded-lg p-1`}>
             {fields.map((one, index) => {
               const KindIcon = ICONS[one.type] ?? Text
               return (
