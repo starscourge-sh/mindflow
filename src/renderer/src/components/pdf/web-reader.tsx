@@ -8,6 +8,7 @@ import {
   Minus,
   PanelLeft,
   Plus,
+  RotateCw,
   Search,
   X
 } from 'lucide-react'
@@ -390,24 +391,88 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     said(mark.color === 'later' ? 'Card mark removed' : 'Highlight removed', true, undefined, { cue: 'away' })
   }
 
-  // Asked again (“Read it again” after a stop or a failure): the page is fetched afresh.
+  // Asked again (“Read it again” after a stop or a failure, the bar's “Read the page again”, ⌘R): the page is
+  // fetched afresh from the site, with its loader.
   const [tries, setTries] = useState(0)
+  // The pictures still coming after the words (main/web-articles.ts): this reading's name, and how many are settled.
+  const reading = useRef<string | null>(null)
+  const [coming, setComing] = useState<{ settled: number; total: number } | null>(null)
+  /** What each reading has been told and not yet put in the page: its pictures' places, and its count. */
+  const heard = useRef(new Map<string, { places: { at: number; html: string }[]; count?: { settled: number; total: number } }>())
+  const hear = (name: string): { places: { at: number; html: string }[]; count?: { settled: number; total: number } } => {
+    if (!heard.current.has(name)) heard.current.set(name, { places: [] })
+    return heard.current.get(name)!
+  }
+  /** Each place told for the reading on show put in the page: a picture, its line, or nothing. */
+  const settle = (): void => {
+    const name = reading.current
+    const page = body.current
+    if (!name || !page) return
+    const told = hear(name)
+    for (const { at, html } of told.places.splice(0)) {
+      const place = page.querySelector(`img[data-wait="${at}"]`)
+      if (html) place?.insertAdjacentHTML('beforebegin', html)
+      place?.remove()
+    }
+    if (told.count) setComing(told.count.settled < told.count.total ? told.count : null)
+  }
+  useEffect(() => {
+    const onPlace = (event: Event): void => {
+      const { reading: name, href: of, at, html } = (event as CustomEvent<{ reading: string; href: string; at: number; html: string }>).detail
+      if (of !== href) return
+      hear(name).places.push({ at, html })
+      if (name === reading.current) settle()
+    }
+    const onCount = (event: Event): void => {
+      const { reading: name, href: of, settled, total } = (event as CustomEvent<{ reading: string; href: string; settled: number; total: number }>).detail
+      if (of !== href) return
+      hear(name).count = { settled, total }
+      if (name === reading.current) settle()
+    }
+    window.addEventListener('haligtree:article-picture', onPlace)
+    window.addEventListener('haligtree:article-pictures', onCount)
+    return () => (window.removeEventListener('haligtree:article-picture', onPlace), window.removeEventListener('haligtree:article-pictures', onCount))
+  }, [href])
+  const again = useRef(false)
   useEffect(() => {
     let live = true
+    const fresh = again.current
+    again.current = false
     void host()
-      .fetchArticle?.(href)
+      .fetchArticle?.(href, fresh)
       .then((got) => {
         if (!live) return
         if ('stopped' in got) return setFailed('Stopped: the page was not kept.')
-        if ('error' in got) return setFailed(got.error)
+        if (!('article' in got)) return setFailed(got.error)
+        // Read again and the site would not give it: the copy kept shows, and why it is not new.
+        if (got.error) said(`Not read again: ${got.error} This is the copy kept ${dayOf(got.article.savedAt)}.`)
         titles.set(href, got.article.title)
         window.dispatchEvent(new CustomEvent('haligtree:pdf-title'))
+        reading.current = got.reading ?? null
+        heard.current = new Map(got.reading && heard.current.has(got.reading) ? [[got.reading, heard.current.get(got.reading)!]] : [])
+        setComing(null)
         setArticle(got.article)
       })
     return () => {
       live = false
     }
   }, [href, tries])
+  /** The page read from the site again, as it is there now: the loader while it comes, then the new words. */
+  const readAgain = (): void => {
+    if (!article && !failed) return chime('nope')
+    chime('tap')
+    again.current = true
+    reading.current = null
+    setComing(null)
+    setFailed(null)
+    setArticle(null)
+    setTries((n) => n + 1)
+  }
+  useEffect(() => {
+    const onMenu = (): void => void (keysHere(pane) && readAgain())
+    window.addEventListener('haligtree:read-again', onMenu)
+    return () => window.removeEventListener('haligtree:read-again', onMenu)
+  })
 
   // ⌘F: the words looked for, every place they are, and the one on show, drawn as the browser's own highlights.
   const [finding, setFinding] = useState(false)
@@ -494,6 +559,11 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
         return void box?.scrollTo({ top: end === 'first' ? 0 : box.scrollHeight })
       }
       if (!event.metaKey || event.altKey) return
+      if (event.code === 'KeyR' && !event.shiftKey && !event.ctrlKey) {
+        event.preventDefault()
+        event.stopPropagation()
+        return readAgain()
+      }
       const way =
         event.code === 'Equal' || event.code === 'NumpadAdd'
           ? 1
@@ -544,6 +614,8 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     const found = [...(body.current?.querySelectorAll<HTMLElement>('h2, h3, h4') ?? [])].filter((one) => one.textContent?.trim())
     heads.current = found
     setOutline(found.map((one, at) => ({ title: one.textContent!.replace(/\s+/g, ' ').trim(), depth: Number(one.tagName[1]) - 2, page: at + 1 })))
+    // Pictures told before the words were in the page take their places now.
+    settle()
   }, [words])
   const [sectionHere, setSectionHere] = useState(-1)
   useEffect(() => {
@@ -629,6 +701,15 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           </Button>
           <Button
             data-style="ghost"
+            aria-label="Read the page again"
+            title="Read the page again  ⌘R"
+            disabled={!article && !failed}
+            onClick={readAgain}
+          >
+            <RotateCw className="tiptap-button-icon" />
+          </Button>
+          <Button
+            data-style="ghost"
             aria-label="Open the page in your browser"
             title="Open the page in your browser"
             onClick={() => window.open(href, '_blank', 'noopener')}
@@ -672,6 +753,13 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
           </Button>
         </span>
       </div>
+      {/* The words are in and read; the pictures fill their places as each comes, and “Stop” ends the asking. Under
+          the bar as a scanned PDF's line is (pdf-scan.tsx), so it is there wherever you have read to. */}
+      {coming && (
+        <div data-web-coming className="pdf-scan-line">
+          <Orb label={`Bringing the pictures, ${num(coming.settled)} of ${num(coming.total)}…`} stop={() => stopJob(`article:${href}`)} />
+        </div>
+      )}
       {showMarks && marks.length > 0 && (
         <nav className="pdf-outline pdf-marks-list" aria-label="Highlights">
           {[...marks]
@@ -786,7 +874,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
                       {href}
                     </a>
                   </p>
-                  <Button data-style="ghost" data-read-again="" onClick={() => (chime('tap'), setFailed(null), setTries((n) => n + 1))}>
+                  <Button data-style="ghost" data-read-again="" onClick={readAgain}>
                     Read it again
                   </Button>
                 </div>

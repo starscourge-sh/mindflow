@@ -119,6 +119,8 @@ export function setAppMenu(acts: MenuActs): void {
         { label: 'Continuous Scroll', click: () => acts.inHome('haligtree:pdf-layout', 'continuous') },
         { label: 'Single Page', click: () => acts.inHome('haligtree:pdf-layout', 'single') },
         { label: 'Two Pages', click: () => acts.inHome('haligtree:pdf-layout', 'spread') },
+        // ⌘R is the web reader's own key (web-reader.tsx), pressed there; this is for a click, told to the window in front.
+        { label: 'Read the Page Again', ...shown('Command+R'), click: (_item, win) => (win instanceof BrowserWindow ? win : BrowserWindow.getFocusedWindow())?.webContents.send('menu:read-again') },
         { type: 'separator' },
         { label: 'Safe Mode', accelerator: acts.safeKey, click: acts.safeMode },
         { type: 'separator' },
@@ -130,8 +132,8 @@ export function setAppMenu(acts: MenuActs): void {
         { label: 'Smaller', accelerator: 'CommandOrControl+-', click: appSize(-1) },
         { type: 'separator' },
         { role: 'togglefullscreen' },
-        // For working on Haligtree, never in the built app. No ⌥⌘I (asked for, 5 Nov).
-        ...(app.isPackaged ? [] : [{ type: 'separator' as const }, { role: 'reload' as const }])
+        // For working on Haligtree, never in the built app. No ⌥⌘I (asked for, 5 Nov). ⌥⌘R, as ⌘R reads a web page again.
+        ...(app.isPackaged ? [] : [{ type: 'separator' as const }, { role: 'reload' as const, accelerator: 'Alt+CommandOrControl+R' }])
       ]
     },
     { role: 'windowMenu' },

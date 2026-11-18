@@ -24,7 +24,7 @@ export interface HaligtreeHost {
   /** A PDF on the web, kept in the book's files once: where it is kept now, and its name. */
   fetchPdf?: (href: string) => Promise<{ src: string; name: string } | null>
   /** A web page read into an article and kept offline: its id, or why it could not be read. */
-  fetchArticle?: (href: string) => Promise<{ article: { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string } } | { error: string } | { stopped: true }>
+  fetchArticle?: (href: string, again?: boolean) => Promise<{ article: { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }; /** Its pictures still coming, told by this name (haligtree:article-picture). */ reading?: string; /** Read again and failed: why, over the copy kept. */ error?: string } | { error: string } | { stopped: true }>
   /** Read a linked image the page's own content policy will not fetch. */
   fetchImage?: (href: string) => Promise<{ mime: string; bytes: Uint8Array } | null>
   /**

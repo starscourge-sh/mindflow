@@ -810,6 +810,12 @@
   box-shadow: none !important;
 }
 
+/* A picture still coming (main/web-articles.ts): no place until it is here, so no broken picture and no empty box. */
+.web-reader-body img[data-wait] {
+  /* Over the column's own picture rules (img:not(...) below outweighs a plain attribute). */
+  display: none !important;
+}
+
 /* A picture wider than the words stands out past them, half way into the margins either side and centred on the
    words (moved by half its own width, whatever that is), always 2.5em clear of a line: with narrow margins (or none,
    in a narrow pane) it keeps to the words. One in a table, a list or a line of words keeps to its own place. */

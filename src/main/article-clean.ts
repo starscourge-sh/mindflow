@@ -90,8 +90,78 @@ const wordsOf = (one: Element): string => (one.textContent ?? '').replace(/[\sâ†
 /** A picture that is decoration, not the article's: a logo, an icon, a badge, a scribble, a spacer. */
 const DECOR = /(^|[-_./])(logo|icon|arrow|badge|seal|spacer|pixel|divider|separator|ornament|flourish|squiggle|scribble|swoosh|sprite|decor)/i
 
-/** The article's HTML, cleaned; `site` is the site's name, `keep` keeps a picture here and says its size, `title` is the name it is kept under. */
-export async function cleanArticle(content: string, base: URL, site: string, keep: (src: string) => Promise<Kept>, title = ''): Promise<string> {
+/** Where a site that loads its pictures as they scroll into view keeps each one's real address (lazysizes, WordPress, Fandom). */
+const LAZY = ['data-src', 'data-lazy-src', 'data-original', 'data-lazy', 'data-hi-res-src', 'data-full-src', 'data-url']
+const LAZY_SET = ['data-srcset', 'data-lazy-srcset']
+
+/**
+ * A page made ready before Readability reads it. A picture loaded only as it scrolls into view gets its real address
+ * from the attribute that holds it: Readability guesses from every attribute that ends in ".jpg", and on Fandom, whose
+ * pictures carry their file's bare name too (data-image-key="Harry_infant.jpg"), the guess can land on that name, a
+ * page on the wiki and no picture. A Fandom infobox (an <aside>, which Readability drops with all it holds) becomes its
+ * picture, captioned with its name, and a table of its facts.
+ */
+export function beforeReading(page: ReturnType<typeof parseHTML>['document']): void {
+  for (const one of page.querySelectorAll('img')) {
+    const src = one.getAttribute('src') ?? ''
+    const lazy = /lazy/i.test(one.getAttribute('class') ?? '') || !src || /^data:/i.test(src)
+    const real = LAZY.map((name) => one.getAttribute(name) ?? '').find((value) => value.trim() && !/^data:/i.test(value.trim()))
+    const set = LAZY_SET.map((name) => one.getAttribute(name) ?? '').find((value) => value.trim())
+    if (lazy && real) one.setAttribute('src', real.trim())
+    if (lazy && set) one.setAttribute('srcset', set)
+    if (lazy && (real || set)) one.setAttribute('class', (one.getAttribute('class') ?? '').replace(/\S*lazy\S*/gi, ''))
+  }
+  for (const box of [...page.querySelectorAll('aside.portable-infobox')]) {
+    // The picture on show: the first tab's, when it has tabs (Film, TV series).
+    const picture = box.querySelector('.pi-image img, img')
+    const name = box.querySelector('.pi-title')?.textContent?.trim() ?? ''
+    const facts = [...box.querySelectorAll('.pi-data')].filter((one) => one.querySelector('.pi-data-label') && one.querySelector('.pi-data-value'))
+    const kept = page.createElement('div')
+    if (picture) {
+      const figure = page.createElement('figure')
+      figure.append(picture)
+      if (name) {
+        const caption = page.createElement('figcaption')
+        caption.textContent = name
+        figure.append(caption)
+      }
+      kept.append(figure)
+    }
+    if (facts.length) {
+      const table = page.createElement('table')
+      for (const one of facts) {
+        const row = page.createElement('tr')
+        const label = page.createElement('th')
+        label.textContent = one.querySelector('.pi-data-label')?.textContent?.trim() ?? ''
+        const value = page.createElement('td')
+        value.append(...one.querySelector('.pi-data-value')!.childNodes)
+        row.append(label, value)
+        table.append(row)
+      }
+      kept.append(table)
+    }
+    box.replaceWith(kept)
+  }
+}
+
+/** Why a picture was not kept here: the site would not send it, did not answer, was too slow, or the reading was stopped first. */
+export type Missed = { why: 'refused' | 'unreached' | 'slow' | 'stopped' }
+
+/** The line a picture the site did not send becomes, said plainly: a link to it there. */
+const MISSED: Record<Missed['why'], string> = {
+  refused: 'Picture the site would not send',
+  unreached: 'Picture that could not be reached',
+  slow: 'Picture the site was too slow to send',
+  stopped: 'Picture not brought, as the reading was stopped'
+}
+
+/**
+ * The article cleaned in two steps, so its words show before its pictures come. `html` holds the words, each picture
+ * a stand-in marked `data-wait` with the index of its address in `pictures`; `judge` settles one picture as it arrives
+ * (the same file twice shows where it came first), giving the HTML that takes its stand-in's place ('' when it goes); `finish` gives the whole article once every
+ * picture is settled. `site` is the site's name, `title` the name the article is kept under.
+ */
+export function cleanInParts(content: string, base: URL, site: string, title = ''): { html: string; pictures: string[]; judge: (at: number, got: Kept | Missed) => string; finish: () => string } {
   const { document: clean } = parseHTML(`<!doctype html><html><body>${content}</body></html>`)
   for (const one of clean.querySelectorAll(DROP)) one.remove()
   // A first heading that only repeats the name the article is kept under (the page's own heading, when its titles said
@@ -133,54 +203,77 @@ export async function cleanArticle(content: string, base: URL, site: string, kee
     if (to && /^https?:$/.test(to.protocol)) one.setAttribute('href', to.href)
     else one.removeAttribute('href')
   }
-  // Every picture fetched and kept here, then each judged in reading order with its size known.
-  const pictures = [...clean.querySelectorAll('img')]
-  const got = await Promise.all(
-    pictures.map(async (one) => {
-      const to = URL.parse(one.getAttribute('src') ?? '', base)
-      const { kept, size } = to && /^https?:$/.test(to.protocol) ? await keep(to.href) : { kept: '', size: null }
-      return { kept, size, name: to?.pathname ?? '' }
-    })
-  )
-  const shown = new Set<string>()
-  pictures.forEach((one, at) => {
-    const { kept, size, name } = got[at]
-    const alt = one.getAttribute('alt')?.trim() ?? ''
-    const line = one.closest('p, li, figcaption, td, th, dd, dt, blockquote, h1, h2, h3, h4, h5, h6')
+  // Every picture with an address on the web waits for its file, its place held by a stand-in; one with none goes.
+  // Where it stood (a line of words, a link and the link's words) is read now, before the tidying below moves it.
+  const pictures: string[] = []
+  const stood: { one: Element; line: Element | null; link: Element | null; linkWords: string }[] = []
+  for (const one of clean.querySelectorAll('img')) {
+    const to = URL.parse(one.getAttribute('src') ?? '', base)
+    if (!to || !/^https?:$/.test(to.protocol)) {
+      one.remove()
+      continue
+    }
     const link = one.closest('a')
-    // One on this machine's network goes; one that could not be kept stays a link to it on the site, said by its words.
-    if (!kept || (!kept.startsWith('haligtree:') && !alt)) return void one.remove()
-    if (!kept.startsWith('haligtree:')) {
+    stood.push({ one, line: one.closest('p, li, figcaption, td, th, dd, dt, blockquote, h1, h2, h3, h4, h5, h6'), link, linkWords: link ? wordsOf(link) : '' })
+    one.setAttribute('data-wait', String(pictures.length))
+    one.removeAttribute('src')
+    pictures.push(to.href)
+  }
+  const shown = new Set<string>()
+  // One picture settled, with its size known: shown, said as a line, or gone (null).
+  const judge = (at: number, got: Kept | Missed): Element | null => {
+    const { one, line, link, linkWords } = stood[at]
+    one.removeAttribute('data-wait')
+    const alt = one.getAttribute('alt')?.trim() ?? ''
+    // One on this machine's network goes (kept as ''); one the site did not send stays a link to it there, said by its words.
+    if ('why' in got || !got.kept.startsWith('haligtree:')) {
+      if (('kept' in got && !got.kept) || !alt) return (one.remove(), null)
       const away = clean.createElement('a')
-      away.setAttribute('href', kept)
-      away.textContent = `Picture: ${alt}`
+      away.setAttribute('href', pictures[at])
+      away.textContent = `${MISSED['why' in got ? got.why : 'refused']}: ${alt}`
       // On a line of its own where the picture stood, unless it stood inside a line of words already.
-      if (line) return void one.replaceWith(away)
+      if (line) return (one.replaceWith(away), away)
       const own = clean.createElement('p')
       own.append(away)
-      return void one.replaceWith(own)
+      return (one.replaceWith(own), own)
     }
+    const { kept, size } = got
+    const name = URL.parse(pictures[at])?.pathname ?? ''
     // Kept but not a picture a page can show, the same picture again, a logo, or decoration with nothing to say: gone.
-    if (!size?.width || !size.height || shown.has(kept)) return void one.remove()
-    if (/\b(logo|icon|avatar|background|backdrop)\b/i.test(alt) || (alt && alt.toLowerCase() === site.toLowerCase()) || (!alt && (DECOR.test(name) || size.type === 'svg') && !one.closest('figure'))) return void one.remove()
+    if (!size?.width || !size.height || shown.has(kept)) return (one.remove(), null)
+    if (/\b(logo|icon|avatar|background|backdrop)\b/i.test(alt) || (alt && alt.toLowerCase() === site.toLowerCase()) || (!alt && (DECOR.test(name) || size.type === 'svg') && !one.closest('figure'))) return (one.remove(), null)
     // A picture inside a link with words of its own is the link's icon: the words carry the link.
-    if (link && wordsOf(link)) return void one.remove()
+    if (link && linkWords) return (one.remove(), null)
     // Its size as the site means it shown, never more than its file holds (an icon's large file declared at 24px).
     const scale = Math.min(1, (Number(one.getAttribute('width')) || Infinity) / size.width)
     const [w, h] = [size.width * scale, size.height * scale]
     const icon = Math.max(w, h) < ICON
     const strip = !icon && Math.min(w, h) < THIN
     // A small picture that is a link's whole content is a site's button or badge ("Download on the App Store").
-    if ((icon || strip) && link) return void one.remove()
-    if (strip && !alt) return void one.remove()
+    if ((icon || strip) && link) return (one.remove(), null)
+    if (strip && !alt) return (one.remove(), null)
     if (icon) {
       // An icon in a sentence stays, at the words' size; on its own it goes.
-      if (!line || !wordsOf(line)) return void one.remove()
+      if (!line || !wordsOf(line)) return (one.remove(), null)
       one.setAttribute('data-inline', '')
     }
     shown.add(kept)
     one.setAttribute('src', kept)
-  })
+    return one
+  }
+  return { html: tidy(clean, buttons), pictures, judge: (at, got) => judge(at, got)?.outerHTML ?? '', finish: () => tidy(clean, buttons) }
+}
+
+/** The article's HTML, cleaned at once, every picture fetched first: `keep` keeps a picture here and says its size. */
+export async function cleanArticle(content: string, base: URL, site: string, keep: (src: string) => Promise<Kept>, title = ''): Promise<string> {
+  const parts = cleanInParts(content, base, site, title)
+  const got = await Promise.all(parts.pictures.map(keep))
+  got.forEach((one, at) => parts.judge(at, one))
+  return parts.finish()
+}
+
+/** What is left tidied, with the pictures as they stand (a stand-in counts as one), and its HTML. */
+function tidy(clean: ReturnType<typeof parseHTML>['document'], buttons: Set<Element>): string {
   // Links: a block inside one set inline (its arrow then ends its words, never a line of its own); one with no words
   // goes, its picture staying; a button not in a sentence goes.
   for (const one of clean.querySelectorAll('a')) for (const block of one.querySelectorAll('div, p, section, article, header, footer, h1, h2, h3, h4, h5, h6')) block.replaceWith(...block.childNodes, ' ')

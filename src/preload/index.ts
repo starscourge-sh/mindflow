@@ -61,6 +61,11 @@ heard.on('sandbox:ask-reset', () => window.dispatchEvent(new CustomEvent('haligt
 heard.on('menu:app-size', (_event, way: 1 | -1 | 0) => {
   if (window.dispatchEvent(new CustomEvent('haligtree:zoom-key', { detail: way, cancelable: true }))) window.dispatchEvent(new CustomEvent('haligtree:app-size', { detail: way }))
 })
+// The web reader's pictures, each settled as it comes after the words (main/web-articles.ts), and how many are.
+heard.on('article:picture', (_event, reading: string, href: string, at: number, html: string) => window.dispatchEvent(new CustomEvent('haligtree:article-picture', { detail: { reading, href, at, html } })))
+heard.on('article:pictures', (_event, reading: string, href: string, settled: number, total: number) => window.dispatchEvent(new CustomEvent('haligtree:article-pictures', { detail: { reading, href, settled, total } })))
+// View > Read the Page Again (⌘R): the reader in front takes it.
+heard.on('menu:read-again', () => window.dispatchEvent(new Event('haligtree:read-again')))
 // Edit > Select All from the menu bar: a list with the focus takes it
 // (lib/select-all.ts cancels the event); otherwise the words, as before.
 heard.on('menu:select-all', () => {
@@ -127,7 +132,7 @@ const api = {
     ipcRenderer.invoke('save-file', name, bytes),
   /** A PDF on the web, kept in the book's files once: where it is kept now, and its name. Null when it is not a PDF or cannot be fetched. */
   fetchPdf: (href: string): Promise<{ src: string; name: string } | null> => ipcRenderer.invoke('pdf-fetch', href),
-  fetchArticle: (href: string): Promise<{ article: { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string } } | { error: string } | { stopped: true }> => ipcRenderer.invoke('article-fetch', href),
+  fetchArticle: (href: string, again?: boolean): Promise<{ article: { id: string; href: string; title: string; byline: string; site: string; published: string; html: string; savedAt: string }; reading?: string; error?: string } | { error: string } | { stopped: true }> => ipcRenderer.invoke('article-fetch', href, again),
 
   /** Write text to a file the user picks. */
   exportText: (name: string, text: string): Promise<boolean> =>

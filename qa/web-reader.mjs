@@ -94,6 +94,8 @@ try {
   check('a link card offers "Open in the reader"', await h.evaluate((sel) => !!document.querySelector(sel), button), '')
   await h.click(button)
   await h.waitForSelector('.web-reader-body p', { timeout: 15000 }).catch(() => {})
+  // The words come first; its pictures settle after them (qa/reader-fandom.mjs).
+  await h.waitForFunction(() => !document.querySelector('.web-reader-body img[data-wait], [data-web-coming]'), null, { timeout: 15000 }).catch(() => {})
   await wait(400)
   const shown = await h.evaluate(() => {
     const body = document.querySelector('.web-reader-body')
@@ -117,7 +119,7 @@ try {
   check('with its byline, site and date', /Ada Probe/.test(shown.meta ?? '') && /Probe Times/.test(shown.meta ?? '') && /2026/.test(shown.meta ?? ''), shown.meta)
   check('its words are there, the menus and footer gone', /quiet sentence worth keeping/.test(shown.words) && !/Subscribe|About/.test(shown.words) && shown.scripts === 0, shown.words.slice(0, 120))
   check('its picture is kept with the notes', /^haligtree:\/\/assets\/[a-f0-9]{64}\.png$/.test(shown.img), shown.img)
-  check('a picture that could not be kept stays a link to it on the site', shown.imgs === 1 && shown.missing?.[1] === `${SITE}/missing.png` && shown.missing?.[0] === 'Picture: The old gate', JSON.stringify([shown.imgs, shown.missing]))
+  check('a picture the site would not send stays a link to it there, saying so', shown.imgs === 1 && shown.missing?.[1] === `${SITE}/missing.png` && shown.missing?.[0] === 'Picture the site would not send: The old gate', JSON.stringify([shown.imgs, shown.missing]))
   check("in the note's reading type", noteType && shown.family === noteType.family, `${shown.family} vs ${noteType?.family}`)
   // The page is the theme's (qa/reader-theme.mjs): no paper of its own, as a note has none.
   check('the top bar has find and size, and no paper pages of its own', ['Find', 'Smaller', 'Larger'].every((one) => shown.tools.includes(one)) && !shown.tools.some((one) => one === 'Paper pages' || one === 'White pages'), JSON.stringify(shown.tools))

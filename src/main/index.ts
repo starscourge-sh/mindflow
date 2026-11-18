@@ -131,6 +131,7 @@ import { kindByEnd, pdfsToFind } from './find-files'
 import { addMedia, turnedCopy } from './media'
 import { addSaid } from './media-words'
 import { registerWebArticles } from './web-articles'
+import type { Missed } from './article-clean'
 import { articleNames } from './article-names'
 import { registerFreeSites } from './free-sites'
 import { registerWordLog } from './word-log'
@@ -7163,20 +7164,25 @@ app.whenReady().then(() => {
   // A card's picture and icon are kept with your notes, not fetched each time
   // from the site: offline, or after the site changes, the card still looks
   // as it did. Either one that cannot be fetched stays a link to the site.
-  const keep = async (src: string): Promise<string> => {
+  // The reader's pictures (web-articles.ts) are kept the same way, told why one was not, and stopped with the reading.
+  const keepWhy = async (src: string, stop?: AbortSignal): Promise<string | Missed> => {
     if (!/^https?:/.test(src)) return src
     try {
       // A picture on this machine or its network is not one to show, either.
       if (!(await isOutside(new URL(src)))) return ''
-      const response = await fetchOutside(src, { signal: AbortSignal.timeout(8000) })
+      const response = await fetchOutside(src, { signal: stop ? AbortSignal.any([AbortSignal.timeout(8000), stop]) : AbortSignal.timeout(8000) })
       const mime = (response.headers.get('content-type') ?? '').split(';')[0].trim()
       // Only a picture, and only one of a sane size: a card is no reason to download a film.
-      if (!response.ok || !EXTENSIONS[mime] || Number(response.headers.get('content-length')) > PICTURE_CAP) return src
+      if (!response.ok || !EXTENSIONS[mime] || Number(response.headers.get('content-length')) > PICTURE_CAP) return { why: 'refused' }
       const bytes = new Uint8Array(await response.arrayBuffer())
-      return (bytes.byteLength <= PICTURE_CAP && (await storeImage(mime, bytes))) || src
-    } catch {
-      return src
+      return (bytes.byteLength <= PICTURE_CAP && (await storeImage(mime, bytes))) || { why: 'refused' }
+    } catch (error) {
+      return { why: stop?.aborted ? 'stopped' : (error as Error)?.name === 'TimeoutError' ? 'slow' : 'unreached' }
     }
+  }
+  const keep = async (src: string): Promise<string> => {
+    const kept = await keepWhy(src)
+    return typeof kept === 'string' ? kept : src
   }
   // A YouTube thumbnail in 16:9, without the black bands its 4:3 ones carry:
   // the sharpest size where the video has one, else the size every video has.
@@ -7212,7 +7218,7 @@ app.whenReady().then(() => {
     return { ...found, image, icon, imageSource: found.image, iconSource: found.icon }
   }))
   // A web page in the reader: its article kept offline, its pictures kept as a card's are.
-  registerWebArticles(keep)
+  registerWebArticles(keepWhy)
   // Wikipedia and the other free sites, searched from ⌘K when asked (free-sites.ts).
   registerFreeSites()
   // A card made before its pictures were kept, or imported with the site's
