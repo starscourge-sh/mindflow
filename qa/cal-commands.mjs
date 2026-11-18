@@ -89,6 +89,9 @@ try {
   check('the Calendar says how many are late', (await button.innerText()).replace(/\s+/g, ' ').startsWith(`${before.length} late`), `${await button.innerText()} / ${before.length}`)
   await button.click(); await h.waitForTimeout(400)
   await shot('late-menu')
+  // The pill's menu holds the moves under "Reschedule all…" (late-tasks.tsx LateMenu).
+  const moves = async () => { if (!(await h.locator('[data-late-to]').count())) { await h.getByRole('menuitem', { name: /Reschedule all/ }).first().hover(); await h.waitForTimeout(300) } }
+  await moves()
   await h.locator('[data-late-to="tomorrow"]').click(); await h.waitForTimeout(1200)
   const tomorrow = key(at(1))
   const moved = await Promise.all(before.map((one) => find(one.id)))
@@ -99,6 +102,7 @@ try {
   check('⌘Z puts every one back', back.every((one, i) => one.dueAt === before[i].dueAt), back.map((one) => one.dueAt.slice(0, 10)).join(' '))
   // Spread over three days.
   await h.locator('[data-late-all]').first().click(); await h.waitForTimeout(300)
+  await moves()
   await h.locator('[data-late-to="spread"]').click(); await h.waitForTimeout(1200)
   const spread = new Set((await Promise.all(before.map((one) => find(one.id)))).map((one) => key(new Date(one.dueAt))))
   check('Spread over the next 3 days uses three days from today', [...spread].every((one) => [today, key(at(1)), key(at(2))].includes(one)) && spread.size === Math.min(3, before.length), [...spread].join(' '))
