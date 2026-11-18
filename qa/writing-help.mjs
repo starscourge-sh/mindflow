@@ -14,8 +14,9 @@ import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 import { holdEntrance, stepEntrance } from './pop-hold-lib.mjs'
 process.env.QA_ARGS ??= '--sandbox'
-// The stand-in takes its time, as a real model does, so the orb is seen.
-process.env.HALIGTREE_QA_AI_DELAY ??= '700'
+// The stand-in takes its time, as a real model does, so the orb is seen: long enough that a busy Mac (load 40 and
+// more) still reads the card while it writes; at 700 ms one run in four read it already written.
+process.env.HALIGTREE_QA_AI_DELAY ??= '1500'
 
 const { check, done } = checks()
 const ONE = 'Teh lecture ran long, and we never got to the part on Stoic judgement.'
