@@ -327,6 +327,15 @@ try {
       if (vim === 'on') {
         await run('berry', 'a list item with its own children', RUNS[0][2], 'vim on (insert)')
         await run('berry', 'a list item with its own children', RUNS[0][2], 'vim on (visual)')
+        // How the item ⌘A picked looks with Vim on (normal mode): its box, and no cursor of Vim's drawn beside it.
+        if (SHOTS) {
+          await caretIn('berry')
+          await h.keyboard.press('Meta+a'); await wait(100)
+          await h.keyboard.press('Meta+a'); await wait(200)
+          for (const name of ['light', 'dark']) { await c.look(name); await wait(150); await h.screenshot({ path: join(SHOTS, `e4b-vim-berry-step2-${name}.png`), clip: await page() }) }
+          await c.look('light')
+          await h.keyboard.press('Escape'); await wait(150)
+        }
         // The journey's end in visual mode: d takes what ⌘A picked, and u brings it back.
         await caretIn('berry')
         await h.keyboard.press('v'); await wait(150)
