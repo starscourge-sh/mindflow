@@ -8,7 +8,13 @@ import { inBin, type BinKind } from './to-bin'
  * is kept in the step you are on (`keep`), never a step of its own.
  */
 /** `folder`: a Writing or Gems folder the list is in; a note opened there keeps it, as Finder's window stays in its folder. */
-export type Step = { id: string; focus?: string; folder?: string; nonce?: number; tab?: string; scroll?: [string, number][] }
+/**
+ * How a page was scrolled, box by box: the box's path in the page, its scroll, and the row at its top
+ * (its id, and how far below the box's top edge it starts). Put back by the row, so whatever grew or
+ * shrank above it meanwhile (a fold, "Show more", a resize, a list filling late) never moves it.
+ */
+export type Scrolled = [path: string, top: number, row?: string, at?: number][]
+export type Step = { id: string; focus?: string; folder?: string; nonce?: number; tab?: string; scroll?: Scrolled }
 export type Nav = {
   here: Step
   /** Something else opened in this page, or nothing (null): a step. */

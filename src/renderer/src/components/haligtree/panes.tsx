@@ -3,18 +3,42 @@ import { AnimatePresence, motion, useIsPresent } from 'motion/react'
 
 import '@/assets/split.css'
 import { byKeys, EASE, growFrom, still } from '@/lib/motion'
-import { heroing } from '@/lib/hero'
 import { takeLanding } from './split-drop'
 import { chime } from '@/lib/sound'
 import { PANE_GAP, PANE_MIN, PaneContext, PaneWidthContext, panesFit, type PaneWidth } from '@/lib/split'
 import { jumpTo } from './ui'
 import { placedHere } from '@/lib/note-place'
 import { TabRow, type TabActions, type TabGroup, type TabShown } from './tab-row'
+import type { Scrolled } from '@/lib/nav'
 
 /** What the main window needs of a pane to keep Back exact: how its page is scrolled. */
-export type PaneApi = { scrolled: () => [string, number][] }
+export type PaneApi = { scrolled: () => Scrolled }
 /** A pane as drawn: its tabs, the one open, and that tab's page. `at` names the step on show: when it changes, the page's scroll is put back. */
-type PaneShown = { key: string; tabs: TabShown[]; active: string; at: string; scroll?: [string, number][]; width?: PaneWidth; node: ReactNode }
+type PaneShown = { key: string; tabs: TabShown[]; active: string; at: string; scroll?: Scrolled; width?: PaneWidth; node: ReactNode }
+
+// A list's rows, each named by its id; one inside another is a part of its row, not a row.
+const ROWS = '[data-id]:not([data-id] [data-id])'
+/** The row at a box's top edge (the first whose bottom is below it) and how far below the edge it starts. Rows run down the page in order, so halved, not walked: a long list reads a dozen rows, never all. */
+const rowAtTop = (box: Element): [string, number] | null => {
+  const rows = box.querySelectorAll(ROWS)
+  const edge = box.getBoundingClientRect().top
+  let low = 0
+  let high = rows.length
+  while (low < high) {
+    const mid = (low + high) >> 1
+    if (rows[mid].getBoundingClientRect().bottom > edge + 1) high = mid
+    else low = mid + 1
+  }
+  const row = rows[low]
+  const id = row?.getAttribute('data-id')
+  return row && id ? [id, Math.round(row.getBoundingClientRect().top - edge)] : null
+}
+/** A box put back where it was: its row at the same distance under its top edge, or, the row not drawn (yet), the same scroll. */
+const putBack = (box: HTMLElement, top: number, row?: string, at?: number): void => {
+  const there = row !== undefined ? box.querySelector(`[data-id="${CSS.escape(row)}"]`) : null
+  const want = there ? box.scrollTop + there.getBoundingClientRect().top - box.getBoundingClientRect().top - (at ?? 0) : top
+  if (Math.abs(box.scrollTop - want) > 1) jumpTo(box, want)
+}
 
 // Whether the last thing pressed was Tab: only then does focus arriving in a
 // pane bring it to the front. A menu closing hands the focus back to the row
@@ -165,9 +189,11 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
   // note has already reset the box it showed in. Read once, then let go.
   // Kept by place, so a box swapped for the next note's still counts.
   // With the box it was heard from, to tell a box still there from one swapped for the next note's.
-  const seen = useRef(new Map<string, { box: Element; top: number }>())
+  // The row at its top too, read as it scrolls (the page is laid out then), never as it is left.
+  type Heard = { top: number; row?: [string, number] }
+  const seen = useRef(new Map<string, { box: Element } & Heard>())
   // Heard since the last step was read: only these stand in for a box since swapped.
-  const heard = useRef(new Map<string, number>())
+  const heard = useRef(new Map<string, Heard>())
   useEffect(() => {
     const root = pageRef.current
     const onScroll = (event: Event): void => {
@@ -177,13 +203,14 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       // note paid for the walk up the page that finds its box's path.)
       if (placedHere(event.target)) return
       const path = pathTo(root, event.target)
-      seen.current.set(path, { box: event.target, top: event.target.scrollTop })
-      heard.current.set(path, event.target.scrollTop)
+      const now: Heard = { top: event.target.scrollTop, row: rowAtTop(event.target) ?? undefined }
+      seen.current.set(path, { box: event.target, ...now })
+      heard.current.set(path, now)
     }
     root?.addEventListener('scroll', onScroll, true)
     return () => root?.removeEventListener('scroll', onScroll, true)
   }, [])
-  const landing = useRef<[string, number][] | null>(null)
+  const landing = useRef<Scrolled | null>(null)
   const api: PaneApi = {
     scrolled: () => {
       const root = pageRef.current
@@ -192,17 +219,17 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       // above), as last heard: the page is never read here. Asked as a note
       // opens, reading a box's scrollTop made the browser lay out the whole
       // new note early, 20 to 28ms before its words could show.
-      const tops: [string, number][] = []
+      const tops: Scrolled = []
       for (const [path, last] of seen.current) {
         // A box swapped for the next note's: the last one heard since the last step is where it was, or nothing.
-        const top = atPath(root, path) === last.box ? last.top : heard.current.get(path) || 0
-        if (top > 0) tops.push([path, top])
+        const was = atPath(root, path) === last.box ? last : heard.current.get(path)
+        if (was && was.top > 0) tops.push(was.row ? [path, was.top, ...was.row] : [path, was.top])
         else seen.current.delete(path)
       }
       heard.current.clear()
-      // Left while still being put back (a long note loading): where it is going, not where it has got to.
-      const going = new Map(landing.current ?? [])
-      return [...tops.filter(([path]) => !going.has(path)), ...going]
+      // Left while still held where it was put back (nothing pressed since): where it was put, its row and all.
+      const going = landing.current ?? []
+      return [...tops.filter(([path]) => !going.some(([one]) => one === path)), ...going]
     }
   }
   apis.current.set(pane.key, api)
@@ -213,57 +240,46 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
     apis.current.set(pane.key, api)
     return () => void apis.current.delete(pane.key)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  // Put back where the page was scrolled, frame by frame while it loads.
-  useEffect(() => {
+  // Put back where the page was scrolled: each box by the row at its top. Held there, not by frames or a
+  // timer but as the page changes (rows drawn, anything above growing or shrinking: a fold, "Show more", a
+  // list filling late, the window resized), until you scroll or press something yourself, or the step changes.
+  useLayoutEffect(() => {
     const want = pane.scroll
     const root = pageRef.current
     if (!want?.length || !root) return
-    let frame = 0
-    let timer = 0
-    let tries = 0
-    // Held past landing until the page stops growing: something above that
-    // draws a moment later (a strip of goals) pushed the page down by its
-    // height on every Back. Your own scroll or key lets go at once.
-    let yours = false
-    const letGo = (): void => void ((yours = true), (landing.current = null))
-    let tall = -1
-    let still = 0
-    // Where each box should be, set now; says whether any is not there yet, and how tall they are.
-    const place = (): [left: boolean, height: number] => {
-      let left = false
-      let height = 0
-      for (const [path, top] of want) {
+    const place = (): void => {
+      for (const [path, top, row, at] of want) {
         const box = atPath(root, path)
         // A note's own scroller (a step kept before it was left alone, or another box's path now leading to it): not this one's to move.
-        if (box && placedHere(box)) continue
-        // Through its smooth scrolling, which otherwise takes a plain scrollTop back to the top.
-        if (box && Math.abs(box.scrollTop - top) > 2) jumpTo(box as HTMLElement, top)
-        if (!box || Math.abs(box.scrollTop - top) > 2) left = true
-        height += box?.scrollHeight ?? 0
+        if (box instanceof HTMLElement && !placedHere(box)) putBack(box, top, row, at)
       }
-      return [left, height]
     }
-    const put = (): void => {
-      if (yours) return
-      const [left, height] = place()
-      still = height === tall ? still + 1 : 0
-      tall = height
-      // While Back's flight holds the window's picture (lib/hero.ts) no frame comes: a timer stands in, so the page is
-      // where it was before the flight measures where to land.
-      if ((left || still < 20) && ++tries < 180) heroing() ? (timer = window.setTimeout(put, 16)) : (frame = requestAnimationFrame(put))
-      else landing.current = null
+    const grows = new ResizeObserver(place)
+    const watched = new Set<Element>()
+    // Each box held and what it holds: its size changing is the page growing or shrinking around the row.
+    const watch = (): void => {
+      for (const [path] of want) {
+        const box = atPath(root, path)
+        for (const one of box ? [box, ...box.children] : []) if (!watched.has(one)) (watched.add(one), grows.observe(one))
+      }
+    }
+    const changed = new MutationObserver(() => (watch(), place()))
+    const letGo = (): void => {
+      landing.current = null
+      grows.disconnect()
+      changed.disconnect()
     }
     landing.current = want
+    watch()
+    place()
+    changed.observe(root, { childList: true, subtree: true })
     root.addEventListener('wheel', letGo, { passive: true, capture: true })
     root.addEventListener('pointerdown', letGo, true)
     window.addEventListener('keydown', letGo, true)
     // A list bringing its open row into view (the note Back returned to) wins over where the page was.
     window.addEventListener('haligtree:row-shown', letGo)
-    put()
     return () => {
-      cancelAnimationFrame(frame)
-      clearTimeout(timer)
-      landing.current = null
+      letGo()
       root.removeEventListener('wheel', letGo, true)
       root.removeEventListener('pointerdown', letGo, true)
       window.removeEventListener('keydown', letGo, true)

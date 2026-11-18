@@ -124,7 +124,7 @@ import DotsHorizontalIcon from '@/components/ui/dots-horizontal-icon'
 import { onRemoveKey, pinFromSide, sideMenu, useFullMenu } from '@/components/haligtree/side-menu'
 import { touch as touchOpen } from '@/lib/open-today'
 import { useStoredFlag } from '@/lib/use-stored-flag'
-import { NavContext, type Nav, type Step } from '@/lib/nav'
+import { NavContext, type Nav, type Scrolled, type Step } from '@/lib/nav'
 import { SplitPanes, type PaneApi } from '@/components/haligtree/panes'
 import { SplitDrop, type Carried } from '@/components/haligtree/split-drop'
 import { dropLayout, PinnedSplit, pinLayout, sameLayout, short, usePinnedLayouts, type PaneName } from '@/components/haligtree/split-pairs'
@@ -586,12 +586,12 @@ export function Home(): React.JSX.Element {
   // was scrolled, read as you leave it and put back when you return (panes.tsx).
   // Each tab keeps its own: its step on show holds its scroll while it is not.
   const apis = useRef(new Map<string, PaneApi>())
-  const scrolled = (key: string): [string, number][] => apis.current.get(key)?.scrolled() ?? []
+  const scrolled = (key: string): Scrolled => apis.current.get(key)?.scrolled() ?? []
   /** The trail of a tab of a pane, its open one unless said. */
   const setTrail = (key: string, change: (trail: Trail) => Trail, tab?: string): void =>
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key !== key ? one : { ...one, tabs: one.tabs.map((each) => (each.key === (tab ?? one.active) ? { ...each, trail: change(each.trail) } : each)) })) }))
   /** A pane's open tab, holding how its page is scrolled now: read as it goes off show. */
-  const withScroll = (now: SplitState, key: string, scroll: [string, number][]): SplitState => ({ ...now, panes: now.panes.map((one) => (one.key !== key ? one : {
+  const withScroll = (now: SplitState, key: string, scroll: Scrolled): SplitState => ({ ...now, panes: now.panes.map((one) => (one.key !== key ? one : {
     ...one, tabs: one.tabs.map((each) => (each.key !== one.active ? each : { ...each, trail: { ...each.trail, views: each.trail.views.map((step, at) => (at === each.trail.at ? { ...step, scroll } : step)) } }))
   })) })
   /** Set just before a tab is chosen: its page is simply there, not settling in as a move to another place does. */
@@ -617,7 +617,7 @@ export function Home(): React.JSX.Element {
     return pane.tabs.find((one) => one.key !== pane.active && sameOpen(tabStep(one), next))?.key ?? null
   }
   /** A new step after the one you are on, which keeps its scroll; what was ahead is let go. */
-  const push = (trail: Trail, next: View, scroll: [string, number][]): Trail => ({
+  const push = (trail: Trail, next: View, scroll: Scrolled): Trail => ({
     views: [...trail.views.slice(0, trail.at), { ...trail.views[trail.at], scroll }, next],
     at: trail.at + 1
   })
