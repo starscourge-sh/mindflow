@@ -36,6 +36,7 @@ import { ofTheWriting } from '@/lib/writing-floats'
 import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
 import { EASING, still } from '@/lib/motion'
 import { markRoom } from '@/extensions/block-room'
+import { followGhost } from '@/extensions/note-link'
 
 /**
  * A note seen as a board: each heading a list, side by side, each item under
@@ -1160,6 +1161,8 @@ function useCardClicks(editor: Editor, pos: number): (event: React.MouseEvent) =
       const to = note.getAttribute('data-note')
       const open = editor.extensionManager.extensions.find((one) => one.name === 'noteLink')?.options.onOpenNote as ((id: string, heading?: string) => void) | undefined
       if (to) open?.(to, note.getAttribute('data-heading') || undefined)
+      // A link to a note not here yet, as the click in the note follows it: brought in from the vault, or made.
+      else followGhost(editor, { label: note.getAttribute('data-label') ?? '', heading: note.hasAttribute('data-block') ? `^${note.getAttribute('data-block')}` : note.getAttribute('data-heading') ?? '' }, { x: event.clientX, y: event.clientY })
       return true
     }
     // A link opens as it does in the note (pdf-reader.tsx followLink): a PDF's in the reader at its page, which

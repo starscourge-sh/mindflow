@@ -12,7 +12,11 @@
 // vaults pointed at it (never the real one):
 //  4. the click brings the note in, its words and its picture, and the notice says so; 5. Undo takes it back, back on
 //     the page the link is in, the link greyed again;
-//  6. a link to a name in neither the book nor the vault: the empty note, its first line saying it is new.
+//  6. a link to a name in neither the book nor the vault: the empty note, its first line saying it is new, and once
+//     left empty it goes, from Recent in the sidebar too; 7. two notes of the name: asked at the link, by path;
+//  8. a link naming its folder: that one, unasked; 10. ⌘-click: brought in, in a new tab; 11. right-click, Enter on
+//     "Open": brought in; 12. a link in the reader: brought in; 9. the vault moved away: the new note says it could
+//     not be read there.
 //   QA_DATA=<empty folder> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/ghost-link.mjs
 //   SHOTS=<folder> saves frames of each click, and the pages in light and dark.
 import { mkdirSync, renameSync, writeFileSync, rmSync } from 'node:fs'
@@ -33,6 +37,8 @@ writeFileSync(join(vault, 'Notes', 'Vault page.md'), '---\ntags:\n  - kept\n---\
 // Two notes of one name, in two folders.
 mkdirSync(join(vault, 'Archive'), { recursive: true })
 writeFileSync(join(vault, 'Notes', 'Twice page.md'), 'The first of two.\n')
+writeFileSync(join(vault, 'Notes', 'Menu page.md'), 'Opened from its menu.\n')
+writeFileSync(join(vault, 'Notes', 'Reader page.md'), 'Followed from the reader.\n')
 writeFileSync(join(vault, 'Archive', 'Twice page.md'), 'The second of two.\n')
 writeFileSync(`${vault}.json`, JSON.stringify({ vaults: { a: { path: vault, ts: 1, open: true } } }))
 process.env.HALIGTREE_OBSIDIAN_CONFIG = `${vault}.json`
@@ -88,7 +94,8 @@ try {
     { type: 'heading', attrs: { level: 1 }, content: [t('Reading list')] },
     p(t('A quote: '), { type: 'noteLink', attrs: { id: gem, label: 'QUOTE - Reed - Nothing Truly Painful Yet Nothing Truly Satisfying' } }, t('.')),
     p(t('From the vault: '), ghost('Vault page'), t(' and nowhere: '), ghost('Nowhere page'), t('.')),
-    p(t('Two of a name: '), ghost('Twice page'), t(', one by its path: '), ghost('Archive/Twice page'), t(', and the vault gone: '), ghost('Gone page'), t('.'))
+    p(t('Two of a name: '), ghost('Twice page'), t(', one by its path: '), ghost('Archive/Twice page'), t(', and the vault gone: '), ghost('Gone page'), t('.')),
+    p(t('By its menu: '), ghost('Menu page'), t(', from the reader: '), ghost('Reader page'), t('.'))
   ] } })
   await h.reload(); await wait(1500)
   await graphOn()
@@ -127,6 +134,15 @@ try {
   check('6. nothing named this anywhere: its first line says it is new', s.said === 'A new note: nothing named this in your book or your vault yet.', JSON.stringify(s.said))
   if (shots) for (const name of ['light', 'dark']) { await look(name); await wait(400); await h.screenshot({ path: `${shots}/ghost-${name}.png` }) }
   await look('light')
+  // Left with nothing but its name, the new note is not kept: gone from Recent in the sidebar too, also when the page
+  // gone back to is one Recent holds in its place (the page with the link).
+  const recentRows = () => h.evaluate(() => [...document.querySelectorAll('[data-side-recent-row]')].map((one) => one.textContent.replace(/\s+/g, ' ').trim()))
+  const listedBefore = await recentRows()
+  await send('article', page)
+  const end = Date.now() + 8000
+  let recent = await recentRows()
+  while (Date.now() < end && recent.includes('Nowhere page')) { await wait(150); recent = await recentRows() }
+  check('1. left empty, the new note goes, from Recent in the sidebar too', listedBefore.includes('Nowhere page') && !recent.includes('Nowhere page') && recent.includes('Reading list'), `before ${JSON.stringify(listedBefore)}, after ${JSON.stringify(recent)}`)
 
   // 3. Back: the graph again, no note open. Started from the graph with nothing open: the Inbox is left and come back
   // to, so Back has a step of its own to return to (sent to the Inbox it was already on, the new note stayed open).
@@ -171,7 +187,7 @@ try {
   const rows = h.locator('[role=menuitem]')
   await rows.first().waitFor({ timeout: 8000 }).catch(() => {})
   const offered = await rows.allTextContents()
-  if (shots) await h.screenshot({ path: `${shots}/twice-menu.png` })
+  if (shots) { for (const name of ['light', 'dark']) { await look(name); await h.screenshot({ path: `${shots}/twice-menu-${name}.png` }) } await look('light') }
   check('7. two of that name: the menu offers both, by path, and an empty note instead', offered.some((one) => /Notes\/Twice page\.md/.test(one)) && offered.some((one) => /Archive\/Twice page\.md/.test(one)) && offered.some((one) => /new empty note/.test(one)), JSON.stringify(offered))
   await rows.filter({ hasText: 'Notes/Twice page.md' }).first().click().catch(() => {})
   s = await until((one) => /first of two/.test(one.note), 9000)
@@ -181,6 +197,37 @@ try {
   await link('Archive/Twice page').click()
   s = await until((one) => /second of two/.test(one.note), 9000)
   check('8. a link naming its folder brings that one in, unasked', /second of two/.test(s.note), JSON.stringify(s.note.slice(0, 80)))
+  // 10. ⌘-click: brought in and opened in a new tab, as ⌘-click opens a note already here.
+  await send('article', page); await wait(1200)
+  const tabs = () => h.evaluate(() => document.querySelectorAll('[data-tab]').length)
+  const tabsBefore = await tabs()
+  await link('Vault page').click({ modifiers: ['Meta'] })
+  s = await until((one) => /Words kept in Obsidian/.test(one.note), 9000)
+  const tabsAfter = await tabs()
+  check('10. ⌘-click: brought in, in a new tab of its own', /Words kept in Obsidian/.test(s.note) && s.tab === 'Vault page' && tabsAfter === tabsBefore + 1, `${tabsBefore} tabs, then ${tabsAfter}; ${JSON.stringify(s).slice(0, 200)}`)
+  if (shots) { for (const name of ['light', 'dark']) { await look(name); await wait(400); await h.screenshot({ path: `${shots}/brought-${name}.png` }) } await look('light') }
+  // 11. Right-click, then Enter: its menu's first line is "Open", which brings it in as the click does.
+  await send('article', page); await wait(1200)
+  await link('Menu page').click({ button: 'right' })
+  await h.locator('button[data-clicked]').first().waitFor({ timeout: 6000 })
+  const lines = await h.locator('button[data-clicked]').evaluateAll((all) => all.map((one) => one.getAttribute('data-clicked')))
+  if (shots) await h.screenshot({ path: `${shots}/ghost-menu.png` })
+  await h.keyboard.press('Enter')
+  s = await until((one) => /Opened from its menu/.test(one.note), 9000)
+  check('11. right-click a link to a note only in the vault: "Open" first, a new tab and the side after it', lines[0] === 'open' && lines.includes('tab') && lines.includes('aside'), JSON.stringify(lines))
+  check('11. and Enter on it brings the note in', /Opened from its menu/.test(s.note) && s.tab === 'Menu page', JSON.stringify(s).slice(0, 200))
+  // 12. A link in the reader ("Read through" from the page): the same click brings the note in.
+  await send('article', page); await wait(1200)
+  await h.locator('button[aria-label="Read through"]').first().click()
+  const inReader = h.locator('.mf-read a.tiptap-note-link:has-text("Reader page")').first()
+  await inReader.waitFor({ timeout: 8000 })
+  await inReader.click()
+  const endRead = Date.now() + 9000
+  let read = []
+  while (Date.now() < endRead && !read.length) { await wait(200); read = (await v('items', 'article')).filter((one) => one.title === 'Reader page') }
+  const readNotice = await toast()
+  check('12. a link in the reader brings the note in, said with Undo', read.length === 1 && /Brought in from your Obsidian vault/.test(readNotice), `${read.length} in the book; ${JSON.stringify(readNotice)}`)
+  await h.keyboard.press('Escape'); await wait(500)
   // 9. The vault gone (moved or renamed): where the import kept it and where Obsidian lists it, both empty. The new note says so.
   renameSync(vault, `${vault}.gone`)
   await send('article', page); await wait(1200)

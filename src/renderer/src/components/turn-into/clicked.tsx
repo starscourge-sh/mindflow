@@ -41,6 +41,7 @@ export function lookUpIn(editor: Editor, from: number, to: number, words: string
 import { canSplit, openAside, openNewTab } from "@/lib/split"
 import { openApart, openSmall, smallHolds } from "@/lib/apart"
 import { keptAs } from "@/lib/capture-links"
+import { followGhost } from "@/extensions/note-link"
 import { chime } from "@/lib/sound"
 import { enqueue } from "@/lib/reading-queue"
 import { quoted } from '../../../../main/clip'
@@ -221,12 +222,27 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     const shown = clicked.text || label
     // Where it lands, as a click on it lands (capture-links.tsx keptAs): a bare id may be a gem's or a page's own.
     const landed = (go: (type: string, key: string) => void) => (): void => void (type === "capture" ? keptAs(key).then((to) => go(to.type, to.id)) : go(type, key))
+    // A link to a note not here yet opens as a click on it does: brought in from the vault, asked about, or made empty.
+    // Then where its line opens it, as `landed` does for a note already here.
+    const ghost = !id && !!label && !!open
+    const opened = (go: (type: string, key: string) => void) => (link: string): void => {
+      const [kind, at] = split(link)
+      void (kind === "capture" ? keptAs(at).then((to) => go(to.type, to.id)) : go(kind, at))
+    }
+    // Asked at the link itself, if two vault notes have its name.
+    const follow = (go?: (link: string) => void) => (): void => {
+      const box = editor.view.coordsAtPos(pos)
+      followGhost(editor, { label, heading }, { x: box.left, y: box.bottom }, go)
+    }
     const lines: Array<Line | false> = [
       !!id && !!open && { label: "Open", data: "open", run: () => open(id, heading || undefined) },
+      ghost && { label: "Open", data: "open", run: follow() },
       // The other ways in, together under "Open" and in the order every row's menu keeps them (row-menu.tsx WAYS_TO_OPEN).
       !!id && canSplit() && { label: "Open in a new tab", data: "tab", run: landed(openNewTab) },
+      ghost && canSplit() && { label: "Open in a new tab", data: "tab", run: follow(opened(openNewTab)) },
       // Beside the pane the note is in, not the one in front: that may be the pane last opened beside it.
       !!id && canSplit() && { label: "Open to the side", data: "aside", run: landed((to, at) => openAside(to, at, editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane"))) },
+      ghost && canSplit() && { label: "Open to the side", data: "aside", run: follow(opened((to, at) => openAside(to, at, editor.view.dom.closest("[data-pane]")?.getAttribute("data-pane")))) },
       !!id && own && { label: "Open in a new window", data: "apart", run: landed(openApart) },
       !!id && own && smallHolds(type) && { label: "Open in a small window", hint: "Keeps writing there while quick capture stays free", data: "small", run: landed(openSmall) },
       // A link to one line: that line shown here instead, live (what its preview card once offered).

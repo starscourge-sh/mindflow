@@ -104,6 +104,19 @@ if (typeof window !== 'undefined') {
 export const asideClick = (): boolean => armed === 'aside'
 /** Taken: the click that armed it has been used, so nothing else opens that way too. */
 export const spendAsideClick = (): void => void (armed = null)
+/**
+ * The way the click now being answered asked to open (or `how`, a menu's line), kept for an answer that comes only
+ * after a wait (a link's note brought in from the vault first): `as(open)` opens it that way, as if that click were
+ * still being answered, then lets it go.
+ */
+export const keepClick = (how: 'aside' | 'tab' | null = armed): (<T>(open: () => T) => T) => (open) => {
+  armed = how
+  try {
+    return open()
+  } finally {
+    armed = null
+  }
+}
 /** How the click now being answered asked to open, used up in the asking. */
 export const takeClick = (): 'aside' | 'tab' | null => {
   const how = armed

@@ -19,6 +19,7 @@ import { changedSpan } from "@/lib/text-edit"
 import { iconMarkup } from "@/lib/icon-markup"
 import { nameWithoutTags } from "../../../main/tag-words"
 import { num } from "../../../main/dates"
+import { keepClick } from "@/lib/split"
 
 /** One note the `@` menu can offer. The app decides what is findable. */
 export interface NoteSuggestion {
@@ -336,23 +337,36 @@ export async function bringFromVault(label: string, path?: string): Promise<Brou
  * import would bring it, opened, and said with Undo (two of that name: asked
  * which, by path, at the link). Else its page made, empty, saying why.
  */
-async function openGhost(editor: Editor, label: string, heading: string, findNotes: NoteLinkOptions["findNotes"], open: NoteLinkOptions["onOpenNote"], at?: { x: number; y: number }, path?: string): Promise<void> {
+async function openGhost(editor: Editor, label: string, heading: string, findNotes: NoteLinkOptions["findNotes"], open: NoteLinkOptions["onOpenNote"], at?: { x: number; y: number }, path?: string, as = keepClick()): Promise<void> {
   if (!open) return
   // The page the link is on, by its document: drawn again meanwhile (a note brought in points this link at itself,
   // and the page holding it is read again) is still here; only a page left means the answer is too late to act on.
   const page = [...showing].find(([, one]) => one === editor)?.[0]
   const stillOn = (): boolean => !editor.isDestroyed || (!!page && !!showing.get(page) && !showing.get(page)!.isDestroyed)
+  // Opened the way the click asked (a new tab, to the side), as a link to a note already here opens, though the note
+  // came in only after a wait (`as`, read at the click).
   const go = (id: string): void => {
     if (!stillOn()) return
     pending = heading ? { documentId: null, heading } : null
-    open(id, heading || undefined)
+    as(() => open(id, heading || undefined))
   }
   const here = await noteNamed(label, findNotes, { make: false })
   if (here) return go(here.id)
   const brought = await bringFromVault(label, path)
-  if (brought?.found === "several" && at && !path) return void chooseNote(brought.paths, at, (one) => void openGhost(editor, label, heading, findNotes, open, undefined, one), () => void makeGhost(label, findNotes, go, null))
+  if (brought?.found === "several" && at && !path) return void chooseNote(brought.paths, at, (one) => void openGhost(editor, label, heading, findNotes, open, undefined, one, as), () => void makeGhost(label, findNotes, go, null))
   if (brought?.found === "brought" || brought?.found === "here") return go(brought.link)
   await makeGhost(label, findNotes, go, brought)
+}
+
+/**
+ * A link to a note not here yet, followed from somewhere other than the words it is in (its right-click menu, a
+ * board's card) as a click on it follows it: brought in from the vault, asked about at `at`, or made empty saying
+ * why. `open`: where a menu's line opens it (a new tab, to the side), else where a click would.
+ */
+export function followGhost(editor: Editor, link: { label: string; heading?: string }, at: { x: number; y: number }, open?: (link: string) => void): void {
+  const options = editor.extensionManager.extensions.find((one) => one.name === "noteLink")?.options as NoteLinkOptions | undefined
+  if (!link.label || !options) return
+  void openGhost(editor, link.label, link.heading ?? "", options.findNotes, open ?? options.onOpenNote, at, undefined, open ? keepClick(null) : keepClick())
 }
 
 /** A link's page made empty, with why: nothing of that name in the book or the vault, no vault known, or the vault gone. */
@@ -374,22 +388,27 @@ async function makeGhost(label: string, findNotes: NoteLinkOptions["findNotes"],
 
 /** Two notes of a link's name in the vault: which, asked at the link with the app's own menu (options-menu.tsx), each by its path. */
 export function chooseNote(paths: string[], at: { x: number; y: number }, pick: (path: string) => void, none: () => void): void {
-  const holder = document.createElement("div")
-  document.body.append(holder)
-  const root = createRoot(holder)
-  // Chosen, the menu closes too: taken down once, whichever comes first.
-  let gone = false
-  const close = (): void => void (gone || ((gone = true), setTimeout(() => (root.unmount(), holder.remove()))))
+  // One holder a window, made at the first question and kept: a menu put away plays its own way out, as every menu's does.
+  if (!question) {
+    const holder = document.createElement("div")
+    document.body.append(holder)
+    question = createRoot(holder)
+  }
+  const root = question
   const shown = (path: string): string => path.replace(/^\/Users\/[^/]+/, "~")
-  void import("@/components/haligtree/options-menu").then(({ PointMenu }) => root.render(createElement(PointMenu, {
-    at,
-    onClose: close,
+  // A line chosen closes the menu as any menu's line does, then runs.
+  const show = (where: { x: number; y: number } | null): void => void import("@/components/haligtree/options-menu").then(({ PointMenu }) => root.render(createElement(PointMenu, {
+    at: where,
+    onClose: () => show(null),
     sections: [
-      { label: `${num(paths.length)} notes of this name in your vault: which?`, items: paths.map((path) => ({ label: shown(path), run: () => (close(), pick(path)) })) },
-      { items: [{ label: "A new empty note instead", run: () => (close(), none()) }] }
+      { label: `${num(paths.length)} notes of this name in your vault: which?`, items: paths.map((path) => ({ label: shown(path), run: () => pick(path) })) },
+      { items: [{ label: "A new empty note instead", run: none }] }
     ]
   })))
+  show(at)
 }
+/** Where the question at a link is drawn (chooseNote). */
+let question: Root | null = null
 
 /** A page made by a link, left: gone again if it holds no more than its name. */
 function leftGhost(documentId: string, editor: Editor): void {
