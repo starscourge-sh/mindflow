@@ -246,6 +246,15 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   // Held over a folded group's row for a moment, the group opens, as a folder
   // does in Finder when something is held over it.
   const spring = useRef<{ key: string; timer: ReturnType<typeof setTimeout> } | null>(null)
+  // The groups this carry opened so: shut again when it ends anywhere but in them, as a spring-loaded folder closes
+  // behind you. Put back with Esc, one stayed open (and was kept open), though nothing had gone into it.
+  const sprung = useRef(new Set<GroupView>())
+  const shutSprung = (landing: string | null): void => {
+    const keep = new Set<string>()
+    for (let at = landing; at; at = parentOf.get(at) ?? null) keep.add(at)
+    for (const group of sprung.current) if (!keep.has(group.id)) onFold(group, false)
+    sprung.current.clear()
+  }
   const unspring = (): void => {
     if (spring.current) clearTimeout(spring.current.timer)
     spring.current = null
@@ -332,7 +341,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     if (!shut || shut.open || !isGroup(target!)) unspring()
     else if (spring.current?.key !== target) {
       unspring()
-      spring.current = { key: target!, timer: setTimeout(() => (click('tick'), onFold(shut, true), (spring.current = null)), 600) }
+      spring.current = { key: target!, timer: setTimeout(() => (click('tick'), onFold(shut, true), sprung.current.add(shut), (spring.current = null)), 600) }
     }
     if (!past && manyRef.current.length > 1 && manyRef.current.includes(target)) return aimAt(null)
     const ids = manyRef.current.length > 1 ? manyRef.current : [id]
@@ -468,6 +477,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
     const carriedIds = manyRef.current.length > 1 ? manyRef.current.slice() : [String(active.id)]
     const now = aimed.current
     end()
+    shutSprung(now && !now.refused ? now.into : null)
     if (now?.act === 'shelf') {
       if (now.refused) return refuse(now.label ?? '')
       const ids = carriedIds.filter((one) => !isGroup(one))
@@ -508,7 +518,7 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   return (
     // The list scrolls by itself only in the last tenth by its top and bottom edges: a row near an edge can still be aimed at.
     <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={collide} modifiers={[upDown]} autoScroll={{ threshold: { x: 0, y: 0.1 } }} measuring={{ droppable: { strategy: MeasuringStrategy.WhileDragging } }}
-      onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (end(), chime('stay'))}>
+      onDragStart={onDragStart} onDragMove={onDragMove} onDragEnd={onDragEnd} onDragCancel={() => (end(), shutSprung(null), chime('stay'))}>
       <SortableContext items={keys} strategy={unmoved}>
         <Shaped aim={aim} keys={keys} hand={carried} home={homeOf(carried)} many={many} span={span} inset={inset} row={rowH} snap={snap} blocks={blockRows}>
           {(hint || ordered) && <DragHint {...(hint ?? OWN_ORDER)} />}
