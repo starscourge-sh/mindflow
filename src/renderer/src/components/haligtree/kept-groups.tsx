@@ -273,9 +273,11 @@ export function GroupedList({ bundles, ordered, preview, onDrop, picked, onLetGo
   }
   const onDragMove = (event: DragMoveEvent): void => {
     lastMove.current = event
-    const { active, activatorEvent, delta } = event
+    const { active, activatorEvent } = event
     const held = active.rect.current.initial
-    if (held) card.follow(held.top + held.height / 2 + delta.y)
+    // Where the card's middle is by the pointer alone, read from the pointer: the drag's own delta takes in the list's
+    // scroll too, so after a scroll the card rested that far from the new group's place it was meant to sit on.
+    if (held && activatorEvent instanceof PointerEvent) card.follow(pointerAt().y - (activatorEvent.clientY - held.top) + held.height / 2)
     const id = String(active.id)
     // A group's room is its block folded, measured once it has folded.
     if (isGroup(id)) {
