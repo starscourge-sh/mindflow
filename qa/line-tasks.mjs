@@ -145,6 +145,14 @@ check('one Undo takes it all back', !(await tasks()).some((one) => one.title ===
 
 // Quick capture: a pasted list or mixed page is offered nothing there either.
 const { page } = c
+// ⌘A grows the pick a step at a time, as Obsidian's does (the line, its block, its list, the note): a person clearing
+// the box presses it until all of it is picked, then ⌫.
+const clearBox = async () => {
+  for (let press = 0; press < 8 && await page.evaluate(() => (document.querySelector('.tiptap.ProseMirror[contenteditable="true"]')?.textContent ?? '').length > 0); press++) {
+    for (let step = 0; step < 6; step++) await page.keyboard.press('Meta+a')
+    await page.keyboard.press('Backspace')
+  }
+}
 await page.evaluate(() => window.api.showPrompt())
 await page.waitForTimeout(800)
 await page.evaluate((t) => {
@@ -157,8 +165,7 @@ await page.evaluate((t) => {
 await page.waitForTimeout(700)
 check('the box offers nothing for a pasted list', !(await page.getByRole('button', { name: /Make \d+ tasks/ }).isVisible().catch(() => false)))
 await page.screenshot({ path: `${dir}/4-box-list.png` })
-await page.keyboard.press('Meta+a')
-await page.keyboard.press('Backspace')
+await clearBox()
 await page.evaluate((t) => {
   const editor = document.querySelector('.tiptap.ProseMirror[contenteditable="true"]')
   const data = new DataTransfer()
@@ -166,22 +173,22 @@ await page.evaluate((t) => {
   editor.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }))
 }, ['Now:', '- [ ] Ring the vet', '- [ ] Order the paint', 'Bits:', '"Little by little, a little becomes a lot."', 'Words:', 'sonder', 'Ideas:', 'A shelf for borrowed books'].join('\n'))
 await page.waitForTimeout(900)
+await page.screenshot({ path: `${dir}/5-box-mixed.png` })
 check('the box offers nothing for a pasted mixed page', !(await page.getByRole('button', { name: /Sort this out/ }).isVisible().catch(() => false)))
 
 // A list typed out in quick capture is offered as tasks at its third line.
 await page.evaluate(() => window.api.showPrompt())
 await page.waitForTimeout(700)
-await page.keyboard.press('Meta+a')
-await page.keyboard.press('Backspace')
+await clearBox()
 await page.keyboard.type('- Mend the fence', { delay: 10 })
 await page.keyboard.press('Enter')
 await page.keyboard.type('Paint the gate', { delay: 10 })
 await page.keyboard.press('Enter')
 await page.keyboard.type('Oil the lock', { delay: 10 })
 await page.waitForTimeout(700)
+await page.screenshot({ path: `${dir}/6-box-typed.png` })
 check('a list typed in the box is offered as tasks', await page.getByRole('button', { name: /Make 3 tasks/ }).isVisible().catch(() => false))
-await page.keyboard.press('Meta+a')
-await page.keyboard.press('Backspace')
+await clearBox()
 await page.keyboard.press('Escape')
 
 // A list pasted into Today's “Add a task” line is a task a line.
