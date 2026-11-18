@@ -23,7 +23,7 @@ import { SimilarNotes } from './similar-notes'
 import { chime, pageShown, pageTurn } from '@/lib/sound'
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Editor, JSONContent } from '@tiptap/core'
-import { Archive, ArrowLeft, ArrowUpRight, Calendar, ChevronRight, Library, Plus, SquareDashed } from 'lucide-react'
+import { Archive, ArrowLeft, ArrowUpRight, Calendar, Check, ChevronRight, FolderPlus, Library, Plus, SquareDashed } from 'lucide-react'
 
 import { Unfold } from './glide'
 
@@ -323,7 +323,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
     return all.filter((one) => held.has(one.id))
   }, [all, shelf, opened, gatherer, gathered])
-  const { groups: arranged, display, chips, density, view, setView, move, moveBy, ownOrder, order, mine, heads: sourceHeads, sourceSaid } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly)
+  const { groups: arranged, display, sorts, chips, density, view, setView, move, moveBy, ownOrder, order, mine, heads: sourceHeads, sourceSaid } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
   const [query, setQuery] = useState('')
@@ -631,8 +631,21 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   useEffect(() => window.api.captures.onChange(() => open && pick(open.id)), [open?.id])
   // The right-click menu: the same on a row and on a card.
   // Right-clicked among several picked: the menu speaks for all of them. Made once, not once a row.
-  // The list's own menu, on its empty space (a row's own menu answers on a row): a folder, made here.
-  const listMenu: RowItem[] = folding.rows ? [{ label: 'New folder', keys: '⇧⌘N', run: () => folding.newFolder() }] : []
+  // A new page, in the folder you are in (the sidebar's, or a folder tile opened), as the sidebar's "+" makes it: the
+  // header's "New page" and the list's own right-click both make it here.
+  const newPage = (): void => void haligtree.newArticle().then(async (id) => {
+    const here = folder?.id ?? opened?.id
+    if (here) await noteGroupsApi.place([{ id, group: here }])
+    chime('promote')
+    pick(id)
+  })
+  // The list's own menu, on its empty space (a row's own menu answers on a row): a page or a folder made here, and the
+  // list's order, the same orders as its "Sort".
+  const listMenu: RowItem[] = [
+    writing && !questionsOnly && { label: 'New page', run: newPage },
+    folding.rows && { label: 'New folder', keys: '⇧⌘N', run: () => folding.newFolder() },
+    sorts.length > 1 && { label: 'Sort', items: sorts.map((one) => ({ label: one.label, trail: view.sort === one.id ? <Check className="size-3.5" /> : undefined, run: () => (chime('tap'), setView({ ...view, sort: one.id })) })) },
+  ]
   const manyMenu: RowItem[] | null = chosen.length > 1 ? [
     { label: `Make ${num(chosen.length)} tasks`, run: makeEach },
     'separator',
@@ -825,19 +838,21 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               {/* One button, as wide for either word, so nothing beside it moves when the chip changes. */}
               {writing && (
                 <Button variant="ghost" size="default" data-new-writing={questionsOnly ? 'question' : 'article'}
-                  onClick={() => (questionsOnly ? void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id))) : void haligtree.newArticle().then(async (id) => {
-                    // Made in the folder you are in (the sidebar's, or a folder tile opened), as the sidebar's "+" makes it.
-                    const here = folder?.id ?? opened?.id
-                    if (here) await noteGroupsApi.place([{ id, group: here }])
-                    chime('promote')
-                    pick(id)
-                  }))}>
+                  onClick={() => (questionsOnly ? void startQuestion((type, id) => (type === 'question' ? pick(id) : onOpen?.(type, id))) : newPage())}>
                   <Plus className="size-3.5" />
                   <span className="grid [&>*]:col-start-1 [&>*]:row-start-1">
                     <span className={questionsOnly ? 'invisible' : undefined}>New page</span>
                     <span className={questionsOnly ? undefined : 'invisible'} aria-hidden={!questionsOnly}>New question</span>
                   </span>
                 </Button>
+              )}
+              {/* Beside "New page", as the list's own right-click and ⇧⌘N make one (16 Nov: "why cant i add new folder from this page"). */}
+              {writing && !questionsOnly && folding.rows && (
+                <Tip label="A folder in this list  ⇧⌘N">
+                  <Button variant="ghost" size={open ? 'icon' : 'default'} aria-label="New folder" data-new-folder="" onClick={() => folding.newFolder()}>
+                    <FolderPlus className="size-3.5" />{!open && ' New folder'}
+                  </Button>
+                </Tip>
               )}
               <Tip label="One note at a time, full screen, from the highlighted one  ⇧⌘R">
                 <Button variant="ghost" size={open ? 'icon' : 'default'} aria-label="Read through" onClick={() => setReadFrom(startAt(items, open?.id, cursor))} disabled={!items.length}><AliveIcon icon={BookIcon} size={14} />{!open && ' Read through'}</Button>
@@ -927,8 +942,10 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               Drag notes here, or start one.
             </Empty>
         ) : items.length || (folding.rows && noteGroups.some((one) => one.members.some((id) => all.some((item) => item.id === id && !item.archivedAt)))) ? (
-          <RowMenu list items={listMenu}>
           <SectionHeads.Provider value={sourceHeads}>
+          {/* The menu's trigger is the list's own space: round the context's provider, which draws nothing, a right
+              click on the empty space found nothing to open on. */}
+          <RowMenu list items={listMenu}>
           <div data-list-space="" className="min-h-full pb-24">
           <NoteList groups={entries} density={density} table="nuggets" selected={spread ? peek ?? undefined : coming ?? open?.id} cursor={cursor} onCursor={setCursor} chosen={chosen}
             onPick={spread ? (id) => (isGroup(id) ? pick(id) : (setPeek(id), setCursor(items.findIndex((one) => one.id === id)))) : pickRow} onOpen={spread ? pickRow : undefined}
@@ -937,8 +954,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
               // Already in your own order, under headings: a row moves among the rows under its own.
               ...(view.sort === 'manual' && heads ? { hint: { name: 'grouped-drag', said: 'Drag a row to move it among the rows under its heading. Hold it on another row to make a group.' } } : {}) } : undefined} />
           </div>
-          </SectionHeads.Provider>
           </RowMenu>
+          </SectionHeads.Provider>
         ) : questionsOnly && !unloaded(all) && !all.length ? (
           // No questions yet: the page as it will look, as every other list shows itself.
           // Words has its own: a word with its meaning, kept from Looked up, not a question.
@@ -1844,6 +1861,9 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
   const wide = view.pane === 'wide'
   // Questions open on their cards (the user, 1 Nov); every other list on rows. A choice made in Display is kept.
   const density = (wide ? view.wideDensity ?? 'grid' : view.density) ?? (name === 'question' || name === WORDS ? 'small' : 'list')
+  // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
+  // Named once: Display's "Sort" and the list's own right-click "Sort" offer the same orders.
+  const sorts = [{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]
   const display = (
     <Display
       view={view}
@@ -1852,8 +1872,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
       // Archived ones too, so Marked can still ask for them.
       items={every}
       count={all.length}
-      // By kind only where there is more than one kind; by next review only where something is due for one (pieces of writing never are).
-      sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kinds ? [{ id: 'kind', label: 'Kind' }] : []), ...(all.some((one) => one.dueAt) ? [{ id: 'due', label: 'Next review' }] : []), ...(rated ? [{ id: 'rating', label: 'Highest rated' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
+      sorts={sorts}
       // What the chosen order does with groups, said under the choices.
       sortNote={withGroups ? groupsSaid(view.sort) : undefined}
       // Grouping cuts the loose notes into sections (by kind or date) under the folders: a group is never a folder (qa/list-grouping.mjs).
@@ -1863,7 +1882,7 @@ export function useItemDisplay(name: string, every: Item[], withGroups = false):
     />
   )
   const chips = <FilterChips view={view} onChange={setView} facets={facets} />
-  return { groups, display, chips, density, view, setView, move, moveBy, ownOrder, order: own.order, mine, heads, sourceSaid }
+  return { groups, display, sorts, chips, density, view, setView, move, moveBy, ownOrder, order: own.order, mine, heads, sourceSaid }
 }
 
 /** Where a gem came from, as Sources files it (main/sources.ts): its book or site, else its person; `key` as Sources keys a page, whatever the case. */
