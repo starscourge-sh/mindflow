@@ -868,6 +868,8 @@ export function showRow(row: Element | null | undefined): void {
   watch.observe(row)
 }
 function placeRow(row: Element): void {
+  // A page being put back where it was (Back, another tab: panes.tsx) is already where you left it, open row and all.
+  if (row.closest('[data-placing]')) return
   let box = row.parentElement
   while (box && !/auto|scroll/.test(getComputedStyle(box).overflowY)) box = box.parentElement
   if (!box) return
@@ -875,11 +877,8 @@ function placeRow(row: Element): void {
   // Under a band held at the scroller's top (its scroll-padding, a tag's head), a row is not in view.
   const view = box.getBoundingClientRect()
   const place = rowPlace(at.top, at.bottom, { top: view.top + (parseFloat(getComputedStyle(box).scrollPaddingTop) || 0), bottom: view.bottom })
-  if (place !== 'still') (row.scrollIntoView({ block: place === 'edge' ? 'nearest' : 'center' }), rowShown())
+  if (place !== 'still') row.scrollIntoView({ block: place === 'edge' ? 'nearest' : 'center' })
 }
-
-/** Said when a list scrolls itself to its open row: Back's putting the page where it was lets go then (panes.tsx), so the row stays in sight. */
-const rowShown = (): void => void window.dispatchEvent(new Event('haligtree:row-shown'))
 
 /**
  * Moving through a list the way the editor moves through a document: j and k,
@@ -2486,6 +2485,8 @@ export function VirtualList<T>({ items, keyOf, holds, held, cursor, estimate = 4
     const frame = requestAnimationFrame(() => {
       const row = rows.measurementsCache[cursor]
       if (!row || !scroller.isConnected || !box.current) return
+      // A page being put back where it was (Back, another tab: panes.tsx) is already where you left it.
+      if (scroller.closest('[data-placing]')) return
       // A row that is a list of its own (a group's): that list places the keyboard's row inside it.
       if (box.current.querySelector(`:scope > div > [data-index="${cursor}"] [data-vlist]`)) return
       // Where the list starts, read now: a list under others that just grew (an island opened above it) has moved
@@ -2496,8 +2497,8 @@ export function VirtualList<T>({ items, keyOf, holds, held, cursor, estimate = 4
       // to above it stops just under the band.
       const pad = parseFloat(getComputedStyle(scroller).scrollPaddingTop) || 0
       const place = rowPlace(row.start, row.end, { top: scroller.scrollTop + pad, bottom: scroller.scrollTop + scroller.clientHeight })
-      if (place === 'edge' && pad && row.start < scroller.scrollTop + pad) (scroller.scrollTop = row.start - pad, rowShown())
-      else if (place !== 'still') (rows.scrollToIndex(cursor, { align: place === 'edge' ? 'auto' : 'center' }), rowShown())
+      if (place === 'edge' && pad && row.start < scroller.scrollTop + pad) (scroller.scrollTop = row.start - pad)
+      else if (place !== 'still') rows.scrollToIndex(cursor, { align: place === 'edge' ? 'auto' : 'center' })
     })
     return () => cancelAnimationFrame(frame)
   }, [cursor, scroller, again]) // eslint-disable-line react-hooks/exhaustive-deps

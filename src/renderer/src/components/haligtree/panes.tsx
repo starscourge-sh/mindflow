@@ -264,26 +264,27 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       }
     }
     const changed = new MutationObserver(() => (watch(), place()))
+    // Marked while held, so a list does not also bring its open row into view (ui.tsx showRow): the place kept is
+    // where you were, the open row on screen with it if it was, and Back's own ruling, never a second scroll after.
     const letGo = (): void => {
       landing.current = null
       grows.disconnect()
       changed.disconnect()
+      delete root.dataset.placing
     }
     landing.current = want
+    root.dataset.placing = ''
     watch()
     place()
     changed.observe(root, { childList: true, subtree: true })
     root.addEventListener('wheel', letGo, { passive: true, capture: true })
     root.addEventListener('pointerdown', letGo, true)
     window.addEventListener('keydown', letGo, true)
-    // A list bringing its open row into view (the note Back returned to) wins over where the page was.
-    window.addEventListener('haligtree:row-shown', letGo)
     return () => {
       letGo()
       root.removeEventListener('wheel', letGo, true)
       root.removeEventListener('pointerdown', letGo, true)
       window.removeEventListener('keydown', letGo, true)
-      window.removeEventListener('haligtree:row-shown', letGo)
     }
   }, [pane.at])
   const width = useMemo(() => ({ width: pane.width, set: (next: PaneWidth) => onWidth(pane.key, next) }), [pane.width, pane.key, onWidth])
