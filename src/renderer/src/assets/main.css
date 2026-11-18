@@ -4219,3 +4219,6 @@ html[data-small][data-small-auto] .app-container {
 html[data-small] [data-reading-pane] [data-voice-edge] { padding-top: 0.25rem; min-height: 0; }
 html[data-small] [data-reading-pane] [data-voice-edge] > [data-note-head] { margin-top: 0; }
 html[data-small] [data-docked]:not(.mf-read) .haligtree-editor-wrapper:not(.is-line) > .haligtree-editor-content { padding-bottom: var(--mf-dock-h, 0px); }
+/* A page all in view has nothing scrolling under its bar: the band that blurs what passes under it would only blur the
+   last line, which now sits right above the bar. */
+html[data-small] [data-reading-pane] .note-pane[data-all-shown] [data-thought-dock] > .mf-blur-edge { display: none; }
