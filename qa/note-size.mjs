@@ -309,7 +309,19 @@ try {
         await away()
         await h.screenshot({ path: `${SHOTS}/size-${name}-bar-${look}.png` })
         const now = await bar()
-        if (!now.shown) { console.log(`${name} ${look}: the size is folded away (${dims.width} wide)`); continue }
+        // Folded away with the date (the smallest window): its key still brings the card, under the bar, inside the window.
+        if (!now.shown) {
+          console.log(`${name} ${look}: the size is folded away (${dims.width} wide)`)
+          await h.keyboard.press('Meta+Shift+KeyW')
+          const keyed = await cardUp()
+          await wait(300)
+          await h.screenshot({ path: `${SHOTS}/size-${name}-key-card-${look}.png` })
+          const at = await h.evaluate(() => { const r = document.querySelector('[data-note-size-card]')?.getBoundingClientRect(); const head = document.querySelector('[data-open] [data-note-head]')?.getBoundingClientRect(); return r && head ? { left: r.left, top: r.top, right: innerWidth - r.right, bottom: innerHeight - r.bottom, under: r.top >= head.bottom - 2 } : null })
+          check(`${name} ${look}: folded, ⇧⌘W still shows the card under the bar, 8px clear of the window's edges`, keyed && !!at && at.under && Math.min(at.left, at.top, at.right, at.bottom) >= 8, JSON.stringify(at))
+          await h.keyboard.press('Escape')
+          await cardGone()
+          continue
+        }
         await pointAt()
         await cardUp()
         await wait(400)
