@@ -66,6 +66,9 @@ function mathTarget(state: EditorState): {
   return { from: at, to: at, latex: "x" }
 }
 
+/** A mark's sign typed over picked words, and the mark it gives them ("emphasis": italic, then bold, then both). */
+const WRAPS = new Map([["*", "emphasis"], ["_", "emphasis"], ["`", "code"], ["=", "highlight"], ["~", "strike"]])
+
 interface ObsidianShortcutOptions {
   /** Mod-e, Obsidian's key for source view (⌥⌘S is safe mode, the menu bar's). The panel belongs to the editor, so it only asks. */
   onToggleSource?: () => void
@@ -283,6 +286,29 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
           return state.tr.setStoredMarks([])
         },
       }),
+      // Words picked and a mark's sign typed: the words take the mark and stay picked, as Obsidian wraps them (`*` makes
+      // `*words*`, again `**words**`, again `***words***`; `_` the same; `` ` `` code, `=` highlight, `~` strike). Each
+      // press only adds, as typing the sign again there never takes a mark off. The words were replaced by the sign.
+      // `[` wraps for a link (note-link.ts). With Vim on, only while writing: its other modes give these keys their own jobs.
+      new Plugin({
+        props: {
+          handleTextInput: (view, from, to, text) => {
+            const { state } = view
+            const sign = WRAPS.get(text)
+            if (!sign || from >= to || !(state.selection instanceof TextSelection) || !this.editor.isEditable) return false
+            const vim = vimPluginKey.getState(state)
+            if (vim?.enabled && vim.mode !== "insert") return false
+            const has = (name: string): boolean => !!state.schema.marks[name] && state.doc.rangeHasMark(from, to, state.schema.marks[name])
+            const steps = sign === "emphasis" ? (has("bold") ? ["italic"] : has("italic") ? ["bold"] : ["italic"]) : [sign]
+            const tr = state.tr
+            if (sign === "emphasis" && has("italic") && !has("bold") && state.schema.marks.italic) tr.removeMark(from, to, state.schema.marks.italic)
+            for (const name of steps) if (state.schema.marks[name]) tr.addMark(from, to, state.schema.marks[name].create())
+            if (!tr.docChanged) return true
+            view.dispatch(tr)
+            return true
+          },
+        },
+      }),
       // Edit > Select All clicked in the menu bar picks the note whole at once: whoever reaches for the menu wants it
       // all, and the key is the one that steps. Taken from the browser's own select-all (src/preload), which picked
       // from the first words to the last and left out a picture at either end, and in a long note put the ends among
@@ -332,6 +358,9 @@ export const ObsidianShortcuts = Extension.create<ObsidianShortcutOptions>({
       // checkboxes, which is what makes the fall-through the conversion.
       "Mod-Alt-4": () =>
         toggleChecks(this.editor) || turnInto("toggleTaskList", "taskList")(),
+      // Obsidian's own key for it ("Toggle checkbox status"), pressed by habit: it did nothing in a note. Reading's ⌘L
+      // (unlock to edit) is the page's, where the note is not being written.
+      "Mod-l": () => this.editor.isEditable && (toggleChecks(this.editor) || turnInto("toggleTaskList", "taskList")()),
       "Mod-Alt-5": turnInto("toggleBulletList", "bulletList"),
       "Mod-Alt-6": turnInto("toggleOrderedList", "orderedList"),
       // Notion's numbering: 4 to-do, 5 bulleted, 6 numbered, 7 toggle.

@@ -1,7 +1,8 @@
 // The editor as someone coming from Obsidian writes in it (handover asks 10 to 14 and the Vim Tab join of 17), by keys,
 // Vim on and off: picked list lines stay picked after Tab and go in alone, a caret's Tab carries an item's lines, Enter
 // after italic starts a plain line, Vim's w stops on an empty line, an item that opens on a list keeps a line of its own,
-// and Vim's Tab on a list straight after another joins it under the one above.
+// Vim's Tab on a list straight after another joins it under the one above, a mark's sign typed over picked words
+// wraps them as Obsidian does, and ⌘K on picked words links them.
 //   QA_DATA=<copy of sandbox-seed.noindex/c-tip> QA_ARGS=--sandbox QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/editor-obsidian.mjs
 // Merges the 17 Nov handover's handover-editor.mjs and handover-join.mjs, whose Tab line expected a picked parent's
 // child to come out a level: in Obsidian it keeps its level.
@@ -129,6 +130,63 @@ try {
   await press('Tab')
   const joined = await h.evaluate((sel) => { const json = document.querySelector(sel).editor.getJSON(); return { top: json.content.map((one) => one.type).join(','), inside: JSON.stringify(json.content[0]?.content ?? '').includes('bulletList') } }, ED)
   check('17: Vim on, Tab on the first bullet after a numbered list joins it under that line', joined.inside && !joined.top.split(',').includes('bulletList'), JSON.stringify(joined))
+
+  // Ask 17: ⌃[ leaves insert mode, as Escape does in vim and in Obsidian's Vim mode (here it stayed in insert).
+  await open('Ctrl bracket', [p('alpha')], 'alpha')
+  await press('i', 'Control+[')
+  const left = await read()
+  check('17: Vim on, i then ⌃[: back in normal mode, still in the note', left.vim === 'normal' && (await h.evaluate((sel) => document.querySelector(sel).editor.view.hasFocus(), ED)), JSON.stringify(left))
+
+  // Ask 17: ⌘L, Obsidian's key for a checkbox: a bullet becomes one, and again ticks it (it did nothing).
+  await vim(false)
+  await open('Check', [bullet([li('milk')])], 'milk')
+  await press('Meta+l')
+  const made = await h.evaluate((sel) => JSON.stringify(document.querySelector(sel).editor.getJSON().content[0]), ED)
+  await press('Meta+l')
+  const ticked = await h.evaluate((sel) => JSON.stringify(document.querySelector(sel).editor.getJSON().content[0]), ED)
+  check('17: ⌘L on a bullet makes it a checkbox, and again ticks it', made.includes('"taskItem"') && made.includes('"checked":false') && ticked.includes('"checked":true'), JSON.stringify({ made, ticked }))
+
+  // Ask 17: words picked and a mark's sign typed keep their words and take the mark, as Obsidian wraps them (* italic,
+  // ** bold, ` code, == highlight, ~~ strike). The sign replaced the words.
+  await vim(false)
+  await open('Wrap', [p('alpha beta gamma delta epsilon zeta')], 'beta')
+  const pickWord = (word) => h.evaluate(([sel, word]) => {
+    const ed = document.querySelector(sel).editor
+    ed.state.doc.descendants((node, pos) => { if (node.isText && node.text.includes(word)) { const at = pos + node.text.indexOf(word); ed.chain().focus().setTextSelection({ from: at, to: at + word.length }).run() } })
+  }, [ED, word])
+  const marksOn = (word) => h.evaluate(([sel, word]) => {
+    let found = null
+    document.querySelector(sel).editor.state.doc.descendants((node) => { if (node.isText && node.text.includes(word)) found = node.marks.map((one) => one.type.name).sort().join('+') })
+    return found
+  }, [ED, word])
+  const wrapped = {}
+  for (const [word, signs] of [['beta', '*'], ['gamma', '**'], ['delta', '`'], ['epsilon', '=='], ['zeta', '~~']]) {
+    await pickWord(word)
+    await h.keyboard.type(signs, { delay: 60 })
+    await wait(120)
+    wrapped[`${signs} ${word}`] = await marksOn(word)
+  }
+  const words = await h.evaluate((sel) => document.querySelector(sel).editor.getText(), ED)
+  check('17: picked words and * ** ` == ~~ typed: italic, bold, code, highlight, strike, the words all kept', words === 'alpha beta gamma delta epsilon zeta' && wrapped['* beta'] === 'italic' && wrapped['** gamma'] === 'bold' && wrapped['` delta'] === 'code' && wrapped['== epsilon'] === 'highlight' && wrapped['~~ zeta'] === 'strike', JSON.stringify({ words, wrapped }))
+
+  // Ask 17: ⌘K on picked words opens the box that links them, as in Obsidian and Notion (it opened search), and an address
+  // typed there and ↵ makes them a link.
+  await open('Link', [p('see the docs here')], 'docs')
+  await pickWord('docs')
+  await press('Meta+k')
+  await wait(500)
+  const asked = await h.evaluate(() => ({ box: !!document.querySelector('[data-link-editor]'), search: !!document.querySelector('[aria-label="Search"][role="dialog"]') }))
+  check('17: ⌘K on picked words opens the box to link them, not search', asked.box && !asked.search, JSON.stringify(asked))
+  if (asked.search) await press('Escape')
+  await h.keyboard.type('example.org/docs')
+  await press('Enter')
+  await wait(300)
+  const href = await h.evaluate((sel) => {
+    let found = null
+    document.querySelector(sel).editor.state.doc.descendants((node) => { if (node.isText && node.text === 'docs') found = node.marks.find((one) => one.type.name === 'link')?.attrs.href ?? null })
+    return found
+  }, ED)
+  check('17: an address typed in it and ↵: the picked words link there', href === 'https://example.org/docs', String(href))
   check('no page errors', !c.errors.length, c.errors.slice(0, 3).join(' | '))
 } catch (error) {
   check('the run finished', false, error.stack?.split('\n').slice(0, 4).join(' | '))
