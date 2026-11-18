@@ -109,7 +109,8 @@ try {
   ] } })
   await v('notes:fields:set', 'nuggets', board, 'kanban-plugin', 'board')
   await h.reload(); await wait(1500)
-  await h.evaluate(() => { window.__clashes = []; window.addEventListener('haligtree:toast', (event) => /changed elsewhere/.test(event.detail?.text ?? '') && window.__clashes.push(event.detail.text)) })
+  // Every notice of the run, heard as it comes: one that comes and goes between two looks is still known.
+  await h.evaluate(() => { window.__clashes = []; window.__toasts = []; window.addEventListener('haligtree:toast', (event) => (window.__toasts.push(event.detail?.text ?? ''), /changed elsewhere/.test(event.detail?.text ?? '') && window.__clashes.push(event.detail.text))) })
   await graphOn()
 
   // 0. The user's case: a link holding the gem's own id, no kind in front.
@@ -181,13 +182,13 @@ try {
   await send('article', page); await wait(1200)
   await link('Vault page').waitFor({ timeout: 8000 })
   await link('Vault page').click()
-  await film('vault-click')
+  // Not filmed here: on a loaded Mac the frames took the notice's seconds, and its Undo was gone before step 5.
   s = await until((one) => /Words kept in Obsidian/.test(one.note), 9000)
-  const notice = await toast()
+  const notice = (await h.evaluate(() => window.__toasts.join(' | '))) + ' / on show: ' + (await toast())
   check('4. brought in from the vault: its words', /Words kept in Obsidian/.test(s.note), JSON.stringify(s))
   check('4. and nothing said of words changed elsewhere', !/changed elsewhere/.test(notice), JSON.stringify(notice))
   check('4. and its picture', s.picture, JSON.stringify(s))
-  check('4. the notice says so, with Undo', /Brought in from your Obsidian vault/.test(notice) && /Undo/.test(notice), JSON.stringify(notice))
+  check('4. the notice says so (its Undo is pressed in 5)', /Brought in from your Obsidian vault/.test(notice), JSON.stringify(notice))
   const brought = await h.evaluate(async () => (await window.api.haligtree('items', 'article')).filter((one) => one.title === 'Vault page').length)
   check('4. one note of that name now in the book', brought === 1, `${brought}`)
   // 5. Undo, pressed while the notice is up (it goes after a few seconds): back on the page the link is in, the note
