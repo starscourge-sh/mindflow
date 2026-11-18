@@ -202,6 +202,8 @@ try {
     })
     await h.mouse.click(spot.x, spot.y)
     await h.keyboard.press('End')
+    // With Vim's keys on (the user's book has them), the caret sits in normal mode: into insert mode before typing.
+    if (await h.evaluate(() => !!document.querySelector('[data-open] .tiptap[data-vim-mode="normal"]'))) await h.keyboard.press('i')
     await h.keyboard.type(' sizeword anotherword', { delay: 40 })
     await wait(300)
     const typed = await bar()
@@ -247,6 +249,8 @@ try {
 
     // Words picked: their own count, where it always was.
     await h.mouse.click(spot.x - 40, spot.y)
+    // With Vim's keys on (the user's book has them), the caret sits in normal mode: into insert mode before typing.
+    if (await h.evaluate(() => !!document.querySelector('[data-open] .tiptap[data-vim-mode="normal"]'))) await h.keyboard.press('i')
     await h.keyboard.down('Shift')
     await h.keyboard.press('Home')
     await h.keyboard.up('Shift')
@@ -267,6 +271,8 @@ try {
     })
     await h.mouse.click(spot.x, spot.y)
     await h.keyboard.press('End')
+    // With Vim's keys on (the user's book has them), the caret sits in normal mode: into insert mode before typing.
+    if (await h.evaluate(() => !!document.querySelector('[data-open] .tiptap[data-vim-mode="normal"]'))) await h.keyboard.press('i')
     await wait(1500)
     await h.evaluate(() => {
       window.__frames = []
