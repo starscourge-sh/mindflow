@@ -224,7 +224,8 @@ try {
   // --- G. Wrapped ends on a way to keep it
   await go('home')
   await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:wrap', { detail: `week:${new Date(Date.now() - ((new Date().getDay() + 6) % 7) * 86400000).toISOString().slice(0, 10)}` })))
-  await h.waitForSelector('[data-wrap-story]', { timeout: 8000 }).catch(() => null)
+  // The story is up at once, its cards once the week is read: counted after that, never on the loading card.
+  await h.waitForSelector('[data-wrap-card]:not([data-wrap-card="loading"])', { timeout: 15000 }).catch(() => null)
   const count = await h.locator('[data-wrap-story] [aria-label^="Card "]').count()
   const keepBox = () => h.evaluate(() => JSON.stringify(document.querySelector('[data-wrap-keep]')?.getBoundingClientRect()))
   const roomBefore = await keepBox()
