@@ -40,6 +40,7 @@ import { said } from '@/lib/host'
 import { Orb } from '@/components/haligtree/orb'
 import { listEnd, stopJob } from '@/components/haligtree/ui'
 import { markRoom } from '@/extensions/block-room'
+import { minutesToRead } from '@/lib/note-size'
 import './pdf.css'
 import { plural, num } from '../../../../main/dates'
 
@@ -862,9 +863,12 @@ const tint = (name: string, percent: number, color = 'var(--tt-brand-color-500, 
   `::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${Math.round(percent * 1.6)}%, transparent) }` +
   `:root:is(.light, .paper, [data-light]) ::highlight(${name}) { background-color: color-mix(in srgb, ${color} ${percent}%, transparent) }`
 
-/** Minutes to read an article: its own words (each run between spaces with a letter or a digit in it, the HTML's tags and marks left out) at 230 a minute, rounded up. */
+/**
+ * Minutes to read an article: its own words (each run between spaces with a letter or a digit in it, the HTML's tags
+ * and marks left out), at the app's one pace (lib/note-size.ts), as a note's size and the Feed say it.
+ */
 const minutesOf = (html: string): number =>
-  Math.max(1, Math.ceil(html.replace(/<[^>]*>|&[#\w]+;/g, ' ').split(/\s+/).filter((one) => /[\p{L}\p{N}]/u.test(one)).length / 230))
+  Math.max(1, minutesToRead(html.replace(/<[^>]*>|&[#\w]+;/g, ' ').split(/\s+/).filter((one) => /[\p{L}\p{N}]/u.test(one)).length))
 
 /** A day as the reader says it: 15 November 2026. */
 const dayOf = (iso: string): string => new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
