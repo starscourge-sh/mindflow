@@ -31,6 +31,7 @@ import { Overlay, SETTLE } from './sortable'
 import { CarriedCard, HELD, Hand, RoomIn, offWindow, titleOf } from './carry'
 import { Count, Decoded, Tip, listEnd, refuse, toast, untoast, whyFailed } from './ui'
 import { useHere } from '@/lib/split'
+import { useReadsIn } from '@/lib/reads-in'
 import { followLink } from '@/components/pdf/pdf-reader'
 import { ofTheWriting } from '@/lib/writing-floats'
 import { Check, ChevronDown, ChevronRight, Search, X } from '@/components/ui/icons'
@@ -497,6 +498,9 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
     editor.on('transaction', bump)
     return () => void editor.off('transaction', bump)
   }, [editor])
+  // Drawn once the editor is ready, after its page is already on show: it comes in whole, its covers in its first
+  // frame (each held a moment at most, ui.tsx Decoded), as a deck's gallery does.
+  const { provide, style: held } = useReadsIn()
   const shape = shapeOf(editor.state.doc)
   const [folds, flipFold, renameFold] = useFolds(id)
   const [colours, setColour] = useColours(id)
@@ -993,10 +997,11 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
   const quiet = adding === null && editing === null && !newList
   const done = shape.lanes.reduce((sum, lane) => sum + (isArchive(lane.title) ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
   return (
-    <div ref={root} tabIndex={-1} data-board data-own-keys className="flex min-h-[18rem] min-w-0 flex-1 flex-col outline-none" onPointerDown={(event) => {
+    <div ref={root} tabIndex={-1} data-board data-own-keys style={held} className="flex min-h-[18rem] min-w-0 flex-1 flex-col outline-none" onPointerDown={(event) => {
       // A click on the board keeps its keys; one into a field keeps the field, and a menu it opened (a ⋯, a right click) keeps the keys too.
       if (event.button === 0 && !(event.target as HTMLElement).closest('input, textarea, [contenteditable="true"]')) setTimeout(() => !root.current?.contains(document.activeElement) && !document.activeElement?.closest('[role="menu"]') && root.current?.focus({ preventScroll: true }))
     }}>
+      {provide(<>
       {/* What the note says before its first list, as it reads in the note. */}
       {shape.head.length > 0 && <Head editor={editor} at={shape.head.map((one) => one.pos)} />}
       {/* The first board you open says what it is and its keys, once, on the lists' own left edge. */}
@@ -1125,6 +1130,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
           )}
         </Overlay>
       </DndContext>
+      </>)}
     </div>
   )
 }
@@ -1408,7 +1414,7 @@ function CardBox({ id, place, lane, editor, card, here, editing, disabled, onPic
         // Carried away: the place it left stays open as a faint slot in the list's colour, the size of the card.
         isDragging ? '[&>*:not([data-own-room],[data-drop-room],[data-drop-line])]:invisible' : `${CARD_FILL} shadow-[0_1px_2px_color-mix(in_oklab,var(--mf-shadow-ink)_14%,transparent)] ring-1 ring-foreground/[0.07] hover:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--board-card))]`
       } ${here ? 'ring-2! ring-ring/70!' : ''}`}>
-      {cover && !editing && <Decoded src={small(cover, 640)} data-card-cover="" className="h-20 w-full shrink-0 object-cover" />}
+      {cover && !editing && <Decoded src={small(cover, 640)} data-card-cover="" className="h-20 w-full shrink-0 bg-accent/40 object-cover" />}
       <div className="flex min-w-0 items-start gap-2 px-2.5 py-2">
         {task && (
           <button type="button" role="checkbox" aria-checked={checked} aria-label={checked ? 'Not done' : 'Done'} onClick={(event) => (event.stopPropagation(), onTick())}
