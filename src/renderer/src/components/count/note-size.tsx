@@ -119,7 +119,9 @@ export function NoteSize({ editor }: { editor: Editor | null }): React.JSX.Eleme
           }}
           // Its own click: the tip's would put it away.
           onClick={(event) => (event.preventDefault(), show(true, true))}
-          className="hidden shrink-0 rounded-md px-1.5 py-1 text-meta whitespace-nowrap text-muted-foreground tabular-nums transition-colors hover:bg-accent hover:text-foreground @[26rem]/head:block">
+          // Its lines stay in the smallest window, where the date has folded away; in a bar narrower still it keeps its
+          // place unseen (no width, out of the tab order), so ⇧⌘W's card still opens under the bar, never at a corner.
+          className="invisible w-0 shrink-0 overflow-hidden rounded-md py-1 text-meta whitespace-nowrap text-muted-foreground tabular-nums transition-colors hover:bg-accent hover:text-foreground @[22rem]/head:visible @[22rem]/head:w-auto @[22rem]/head:px-1.5">
           {lines}
           <span className="hidden @[36rem]/head:inline"> · {words}</span>
         </button>
