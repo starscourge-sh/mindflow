@@ -73,10 +73,10 @@ const pc = (n: number): string => `${Math.round(n * 100)}%`
 test('each offer by shared root words is right at least 4 times in 5', { skip: process.platform !== 'darwin' }, async () => {
   const notes = book()
   assert.equal(notes.length, 200)
-  const lemmas = await lemmasOf(notes.map((one) => `${one.title} ${one.text}`))
+  // The Mac reads the roots and the meanings in two helpers at once: neither waits on the other.
+  const [lemmas, meanings] = await Promise.all([lemmasOf(notes.map((one) => `${one.title} ${one.text}`)), meaningsOf(notes.map((one) => `${one.title}. ${one.text}`))])
   const index = new RootIndex(notes.map((one, i) => ({ key: one.key, title: one.title, text: one.text, lemmas: lemmas[i] })))
   const byKey = new Map(notes.map((one) => [one.key, one]))
-  const meanings = await meaningsOf(notes.map((one) => `${one.title}. ${one.text}`))
   const meaningOf = new Map(notes.map((one, i) => [one.key, meanings[i]]))
   const rows: string[] = []
   const result: Record<string, number> = {}
@@ -153,8 +153,7 @@ test('each offer by shared root words is right at least 4 times in 5', { skip: p
   // Everyday events: the note about that very thing is the right one ("Lunch with Ana" and the note on lunch with Ana).
   const everyday = ([['Dentist', 'life-3'], ['Call with the bank', null], ['Lunch with Ana', 'life-4'], ['Car service', 'life-10'], ['Parents’ evening', 'life-19']] as const).map(([text, key]) => ({ text, topic: key ? `life:${key}` : null, kind: 'event' }))
   const all = [...asked, ...everyday]
-  const askedLemmas = await lemmasOf(all.map((one) => one.text))
-  const askedMeanings = await meaningsOf(all.map((one) => one.text))
+  const [askedLemmas, askedMeanings] = await Promise.all([lemmasOf(all.map((one) => one.text)), meaningsOf(all.map((one) => one.text))])
   for (const kind of ['clue', 'event']) {
     made = 0; right = 0; cases = 0; reached = 0
     all.forEach((one, i) => {
