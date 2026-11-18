@@ -1272,8 +1272,9 @@ export default function App(): React.JSX.Element {
   useEffect(() => void (!boxText.trim() && setOpened(false)), [boxText])
   // Esc on a glance tab shuts its glance first (back to Write, the pill alone); the next one puts the box away.
   foldPill.current = () => (glance !== 'write' ? (pickGlance('write', 'fold'), true) : oneLine && opened && !wraps && !plan?.tokens.length ? (chime('fold'), setOpened(false), true) : false)
-  // The window as tall as the writing, from short to full (or one line, as the pill): see fit-box.
-  const box = useFitBox(column, Boolean(reading) || sheetUp, pill, appSettings !== null)
+  // The window as tall as the writing, from short to full (or one line, as the pill): see fit-box. A page read in quick
+  // capture takes its full height; a small window's page is its note, as tall as its words.
+  const box = useFitBox(column, (Boolean(reading) && !SMALL) || sheetUp, pill, appSettings !== null)
   // While it waits, the meaning is still "looking" under the word (the orb, if the wait was long enough to show it),
   // and its place under the writing is kept: made afresh, it came a render after the box was measured, short.
   useEffect(() => {
