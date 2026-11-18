@@ -966,14 +966,16 @@ export function CarriedCard({ icon, title, strong = false, words, tint, refused 
       {icon}
       <span className={cn('private-text min-w-0 flex-1 truncate', strong && 'font-semibold')}>{title}</span>
       {words !== undefined && (
-        <span className={cn('grid justify-items-end text-xs text-muted-foreground', refused ? 'min-w-0 basis-full justify-items-start' : 'shrink-0')}>
+        // At most three fifths of the card, ending in an ellipsis: a long group's name ran on past the card's edge (the
+        // card's width is fixed) and left the title no room at all.
+        <span className={cn('grid min-w-0 justify-items-end text-xs text-muted-foreground', refused ? 'basis-full justify-items-start' : 'max-w-[60%] shrink-0')}>
           <AnimatePresence initial={false}>
             {words && (
               <motion.span key={words} data-drag-label="" data-refused={refused ? '' : undefined} // A refusal says why and what would do it instead: a sentence, which takes a second line inside the card before it runs out of it.
-                className={cn('col-start-1 row-start-1 flex gap-1.5', refused ? 'items-start text-foreground' : 'items-center whitespace-nowrap')}
+                className={cn('col-start-1 row-start-1 flex max-w-full min-w-0 gap-1.5', refused ? 'items-start text-foreground' : 'items-center whitespace-nowrap')}
                 initial={{ opacity: 0, y: 3 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -3, transition: { duration: 0.08 } }} transition={still() ? { duration: 0 } : springs.fast}>
                 <span className={cn('size-1.5 rounded-full shrink-0', refused && 'mt-[0.45em]')} style={{ background: tint ?? 'var(--muted-foreground)' }} />
-                {words}
+                <span className={cn(!refused && 'min-w-0 truncate')}>{words}</span>
               </motion.span>
             )}
           </AnimatePresence>
