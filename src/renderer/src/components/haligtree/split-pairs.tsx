@@ -99,7 +99,7 @@ export function PinnedSplit({ names, narrow, onOpen, onUnpin }: { names: PaneNam
       <RowMenu items={items}>
         <div className="flex flex-col">
           <Peek art={art} text={text}>
-            <button type="button" data-side-row data-pair-row="pinned" aria-label={both} onClick={() => onOpen(0)} className="-mx-1 flex items-center justify-center rounded-md py-1">
+            <button type="button" data-side-row data-pair-row="pinned" aria-label={both} onClick={() => onOpen(0)} className="mx-auto flex size-8 shrink-0 items-center justify-center rounded-full p-0">
               <SplitMark names={names} />
             </button>
           </Peek>

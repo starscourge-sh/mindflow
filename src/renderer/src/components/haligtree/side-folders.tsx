@@ -490,7 +490,7 @@ export function RailFolders({ list, onOpen }: { list: 'article' | 'nugget'; onOp
       <div className="flex w-full">
         <Tip label={`${name}'s folders`} side="right">
           <button type="button" data-side-row data-rail-folders={list} aria-label={`${name}'s folders and groups`} onClick={openFromGrip}
-            className="flex w-full cursor-pointer items-center justify-center rounded-md py-1.5 text-(--mf-muted-strong)">
+            className="mx-auto flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full p-0 text-(--mf-muted-strong)">
             <Icon className="size-4" />
           </button>
         </Tip>
