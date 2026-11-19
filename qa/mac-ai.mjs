@@ -39,7 +39,6 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
     const ask = await h.evaluate(() => !!document.querySelector('[data-ai-week-ask]'))
     check(`${level}: the Week page ${ai ? 'offers' : 'does not offer'} “Your week, in a paragraph”`, ask === ai)
     if (ai) {
-      await wait(400)
       await h.evaluate(() => document.querySelector('[data-ai-week-ask]')?.scrollIntoView({ block: 'center' }))
       await h.click('[data-ai-week-ask]')
       await wait(1500)
