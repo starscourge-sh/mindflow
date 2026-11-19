@@ -34,11 +34,20 @@ const rowAtTop = (box: Element): [string, number] | null => {
   const name = row && NAMES.find((one) => row.hasAttribute(one))
   return row && name ? [`${name}=${row.getAttribute(name)}`, Math.round(row.getBoundingClientRect().top - edge)] : null
 }
-/** A box put back where it was: its row at the same distance under its top edge, or, the row not drawn (yet), the same scroll. */
+/**
+ * A box put back where it was: its row at the same distance under its top edge, or, the row not drawn (yet), the same
+ * scroll. A row drawn twice (Home shows a card in more than one part) is the one nearest where it was.
+ */
 const putBack = (box: HTMLElement, top: number, row?: string, at?: number): void => {
   const split = row?.indexOf('=') ?? -1
-  const there = row && split > 0 ? box.querySelector(`[${row.slice(0, split)}="${CSS.escape(row.slice(split + 1))}"]`) : null
-  const want = there ? box.scrollTop + there.getBoundingClientRect().top - box.getBoundingClientRect().top - (at ?? 0) : top
+  const all = row && split > 0 ? box.querySelectorAll(`[${row.slice(0, split)}="${CSS.escape(row.slice(split + 1))}"]`) : []
+  const edge = box.getBoundingClientRect().top - box.scrollTop
+  const place = (one: Element): number => one.getBoundingClientRect().top - edge - (at ?? 0)
+  let want = top
+  for (let i = 0; i < all.length; i++) {
+    const one = place(all[i])
+    if (i === 0 || Math.abs(one - top) < Math.abs(want - top)) want = one
+  }
   if (Math.abs(box.scrollTop - want) > 1) jumpTo(box, want)
 }
 
