@@ -2586,8 +2586,9 @@ export function Home(): React.JSX.Element {
                       return (
                         <button key={one.id} type="button" data-side-row data-private={one.private ? '' : undefined} title={one.private ? undefined : one.title || undefined} data-side-recent-row={one.id} aria-current={light === `recent:${one.id}` ? 'page' : undefined}
                           onClick={() => open(one.type, one.id)}
-                          className="flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-(--mf-muted-strong)">
-                          <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" /></span>
+                          // Past, so quieter than the places above: the muted ink (never see-through), the row's full ink when pointed at or open.
+                          className="group/recent flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-muted-foreground transition-colors duration-80 hover:text-foreground aria-[current=page]:text-foreground">
+                          <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground group-hover/recent:text-(--mf-muted-strong)" /></span>
                           <span className="private-text min-w-0 flex-1 truncate text-left">{one.title || 'New note'}</span>
                         </button>
                       )
