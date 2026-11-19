@@ -2981,7 +2981,12 @@ export function registerHaligtree(): void {
       return tagsIn(`${row.title ?? ''} ${words}`).some((tag) => tags.has(tag))
     }
   }
-  reviewQueue = () => {
+  // Every card that asks, with its exam: read again only once the book is written to (3,000 cards' rows and words).
+  let testedKept: { at: number; tested: { row: Record<string, unknown>; exam: Exam | null }[] } | null = null
+  // Today's cards in Review's order, without the four grades' days each one shows (worked out only for Review's own
+  // queue): Home, the menu bar's count and the Feed want which cards and how many, and working the days out for
+  // every card due took most of 150 to 300 ms of main a time on a big book.
+  const dueInOrder = (): { row: Record<string, unknown>; exam: Exam | null }[] => {
     const { reviewsPerDay } = settings()
     const newPerDay = newCap().cap
     // Today on your calendar, not London's: a day's limits start at your midnight.
@@ -2993,7 +2998,7 @@ export function registerHaligtree(): void {
     const tagRule = tagRules()
     // Everything tested, so a card with an exam ahead can be called in for the
     // last look even when its own schedule would wait past the date.
-    const tested = (db
+    const tested = testedKept?.at === bookStamp() ? testedKept.tested : (testedKept = { at: bookStamp(), tested: (db
       .prepare(`select ${ITEM}, body, state, source as origin, (select body from glosses where item_id = nuggets.id and author = 'user' order by created_at desc limit 1) as gloss
         from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null`)
       .all() as Record<string, unknown>[])
@@ -3002,7 +3007,7 @@ export function registerHaligtree(): void {
       .filter((one) => {
         const rule = tagRule(one.row)
         return rule !== 'paused' && (!!one.row.state || rule !== 'maintaining')
-      })
+      }) }).tested
     const swept = ({ row, exam }: { row: Record<string, unknown>; exam: Exam | null }): boolean => {
       if (!exam || Date.now() < exam.sweep) return false
       const last = cardOf(row.state as string).last_review
@@ -3057,11 +3062,14 @@ export function registerHaligtree(): void {
       .map((row) => siblingsOf(row.origin)).filter((one): one is string => !!one))
     const queue = burySiblings([...examDue, ...examFresh, ...otherDue, ...fresh], (one) => siblingsOf(one.row.origin as string | null), notesMet)
     const lift = goalLift()
-    const rate = retentionOf()
     const up = lift ? new Set(queue.filter((one) => lift(one.row))) : null
-    const lifted = up ? [...queue.filter((one) => up.has(one)), ...queue.filter((one) => !up.has(one))] : queue
+    return up ? [...queue.filter((one) => up.has(one)), ...queue.filter((one) => !up.has(one))] : queue
+  }
+  reviewOrder = () => dueInOrder().map(({ row }) => ({ id: String(row.id), first: !row.state }))
+  reviewQueue = () => {
+    const rate = retentionOf()
     // `first`: never studied, one of the day's new cards: how many today brings is counted from these, never by a second rule.
-    return lifted.map(({ row, exam }) => ({
+    return dueInOrder().map(({ row, exam }) => ({
       ...body(row), state: undefined, first: !row.state, exam: exam?.tag ?? null, intervals: preview(row.state as string | null, (when) => capped(when, exam), rate(row))
     }))
   }
@@ -3069,18 +3077,19 @@ export function registerHaligtree(): void {
   // setting), a new day, or the next card's moment come. Worked out whole each time (every card's words read for its
   // tags and exam, the four grades' days for each one due), the menu bar's clock held main for up to 365 ms every
   // half minute on the main book, and every write anywhere did the same once more (59).
+  // The book's stamp, not every write: a window shown or a note opened is written too, and changes no card.
   let counted: { changes: number; day: string; until: string; n: number } | null = null
   reviewCount = () => {
-    const changes = (db.prepare('select total_changes() as n').get() as { n: number }).n
+    const changes = bookStamp()
     const at = now()
     if (counted && counted.changes === changes && counted.day === dayKey() && at < counted.until) return counted.n
     const next = (db.prepare("select min(due_at) as at from nuggets where coalesce(prompt, '') != '' and suspended = 0 and archived_at is null and due_at > ?").get(at) as { at: string | null }).at
-    counted = { changes, day: dayKey(), until: next ?? '9', n: reviewQueue().length }
+    counted = { changes, day: dayKey(), until: next ?? '9', n: dueInOrder().length }
     return counted.n
   }
   handle('review:queue', () => reviewQueue())
   // How many of today's cards are new ones, from the queue itself, for Home's line.
-  handle('review:new-today', () => (reviewQueue() as { first: boolean }[]).filter((one) => one.first).length)
+  handle('review:new-today', () => reviewOrder().filter((one) => one.first).length)
   // One card as a session would show it, for a quiz post in the Feed: never one suspended, private or in the Bin.
   quizCard = (id) => {
     const row = db.prepare(`select ${ITEM}, body, state from nuggets where id = ? and coalesce(prompt, '') != '' and suspended = 0 and private = 0 and archived_at is null and binned_at is null`).get(id) as Record<string, unknown> | undefined
@@ -5245,13 +5254,15 @@ export function registerHaligtree(): void {
 
 /** Today's review queue, set once the handlers are registered; the badge counts it too. */
 let reviewQueue: () => unknown[] = () => []
+/** The same cards in the same order, by id, without what Review shows of each (cheap: for counts and Home). */
+let reviewOrder: () => { id: string; first: boolean }[] = () => []
 /** How many cards it holds, kept until it can have changed. */
 let reviewCount: () => number = () => 0
 /** For a card's row, its deck's own retention, or null for the one in Settings. */
 let retentionOf: () => (row: Record<string, unknown>) => number | null = () => () => null
 let quizCard: (id: string) => Record<string, unknown> | null = () => null
 /** The cards due now, in Review's order, for the Feed's quiz posts. */
-export const dueCards = (): { id: string }[] => reviewQueue() as { id: string }[]
+export const dueCards = (): { id: string }[] => reviewOrder()
 /** One card with its grades' next dates, as Review shows it. */
 export const cardForQuiz = (id: string): Record<string, unknown> | null => quizCard(id)
 
@@ -5433,7 +5444,7 @@ export function registerHome(): void {
   ipcMain.handle('haligtree:home', () => {
     const { blackout, held } = gate()
     // Due is Review's own list, its daily limit and paused tags kept, so Home never offers a card Review would not.
-    const due = timed('haligtree:home, what is due', () => (reviewQueue() as { id: string }[]).slice(0, 12).map((one) => one.id))
+    const due = timed('haligtree:home, what is due', () => reviewOrder().slice(0, 12).map((one) => one.id))
     return askReader('home', [{ blackout, hidePrivate: held, due }])
   })
 
