@@ -4,6 +4,8 @@ import { LengthMark } from './length-mark'
 import { DROP_LIT, SortableList, SortableRow } from './sortable'
 import { Branches } from './branches'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import type { Editor } from '@tiptap/core'
+import { showIn } from '@/lib/same-words'
 import { remindersItem } from '@/lib/reminders'
 import { useToday } from '@/lib/use-today'
 import { PractiseIt } from './practise-it'
@@ -1657,6 +1659,17 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
       chime('tap')
       toast(set.said, set.undo)
     })
+  // Its description written elsewhere while this page is open (a long name moved into it, long-names.ts; the other
+  // window): shown here in place, the caret kept, so this editor's next save builds on it instead of writing over it.
+  // Its own saves come back the same as they went and are let be.
+  const notesEditor = useRef<Editor | null>(null)
+  const sentNotes = useRef(JSON.stringify(task.notes ?? null))
+  useEffect(() => {
+    const now = JSON.stringify(task.notes ?? null)
+    if (now === sentNotes.current) return
+    sentNotes.current = now
+    if (notesEditor.current && !notesEditor.current.isDestroyed) showIn(notesEditor.current, task.notes ?? { type: 'doc', content: [] })
+  }, [task.notes])
   // "Pick a date…" from a task's menu: the Scheduled picker opens, here or as this panel first shows.
   const [dating, setDating] = useState(() => (dateWanted(first.id) ? 1 : 0))
   const settings = useLive(haligtree.settings, null as Settings | null)
@@ -1713,7 +1726,8 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           placeholder="Add a description: the details, links and steps that do not fit in the name"
           documentId={`task-${task.id}`}
           defaultContent={(task.notes as JSONContent | null) ?? ''}
-          onChange={(notes) => void haligtree.saveTask(task.id, { notes })}
+          onReady={(editor) => void (notesEditor.current = editor)}
+          onChange={(notes) => ((sentNotes.current = JSON.stringify(notes)), void haligtree.saveTask(task.id, { notes }))}
           foot={(editor) => <SessionFooter editor={editor} note={`task-${task.id}`} />}
         />
         {/* Keyed by the list itself, so a change made elsewhere (the other window, an undo) shows. */}

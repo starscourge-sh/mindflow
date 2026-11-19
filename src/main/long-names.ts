@@ -2,6 +2,8 @@ import { ipcMain } from 'electron'
 import { changed, database } from './captures'
 import { LABEL } from './book-words'
 import { write } from './write'
+import { writeMarkdown } from './backup'
+import { markdown } from './haligtree'
 
 /**
  * Long names made short by Apple Intelligence on this Mac (the user, 17 Nov: "an option to auto rename long notes
@@ -58,7 +60,7 @@ function rename(one: Renamed): Was | null {
     db.prepare('update tasks set title = ?, notes = ? where id = ?').run(one.to, JSON.stringify({ type: 'doc', content: [{ type: 'paragraph', content: [text(row.title)] }, ...kept] }), one.id)
     return { kind: 'task', id: one.id, title: row.title, body: row.notes, aliases: null, named: 0 }
   }
-  const row = db.prepare(`select title, body, named, aliases, ${LABEL} as name from captures where id = ?`).get(one.id) as { title: string; body: string | null; named: number; aliases: string | null; name: string } | undefined
+  const row = db.prepare(`select number, title, body, named, aliases, ${LABEL} as name from captures where id = ?`).get(one.id) as { number: number; title: string; body: string | null; named: number; aliases: string | null; name: string } | undefined
   if (!row || row.name !== one.name) return null
   let aliases: string[] = []
   try { aliases = JSON.parse(row.aliases || '[]') as string[] } catch { /* none readable: started afresh */ }
@@ -68,7 +70,10 @@ function rename(one: Renamed): Was | null {
     // Its first line stays, as the note's opening words: the short name is a title over it.
     const doc = (JSON.parse(row.body || 'null') as Doc | null) ?? { type: 'doc', content: [] }
     const content = (doc.content ?? []).map((block, at) => (at === 0 && block.type === 'heading' ? { type: 'paragraph', content: block.content } : block))
-    db.prepare('update captures set body = ?, aliases = ? where id = ?').run(JSON.stringify({ ...doc, content: [{ type: 'heading', attrs: { level: 1 }, content: [text(one.to)] }, ...content] }), also, one.id)
+    const named = { ...doc, content: [{ type: 'heading', attrs: { level: 1 }, content: [text(one.to)] }, ...content] }
+    db.prepare('update captures set body = ?, aliases = ? where id = ?').run(JSON.stringify(named), also, one.id)
+    // Its Markdown copy at once, as a save writes it: no editor writes it for words put in from here.
+    void writeMarkdown(row.number, markdown(named))
   }
   return { kind: 'capture', id: one.id, title: row.title, body: row.body, aliases: row.aliases, named: row.named }
 }
@@ -77,7 +82,11 @@ function putBack(list: Was[]): void {
   const db = database()
   for (const one of list) {
     if (one.kind === 'task') db.prepare('update tasks set title = ?, notes = ? where id = ?').run(one.title, one.body, one.id)
-    else db.prepare('update captures set title = ?, body = ?, aliases = ?, named = ? where id = ?').run(one.title, one.body, one.aliases, one.named, one.id)
+    else {
+      db.prepare('update captures set title = ?, body = ?, aliases = ?, named = ? where id = ?').run(one.title, one.body, one.aliases, one.named, one.id)
+      const number = (db.prepare('select number from captures where id = ?').get(one.id) as { number: number } | undefined)?.number
+      if (number !== undefined && one.body) void writeMarkdown(number, markdown(JSON.parse(one.body)))
+    }
   }
   changed()
 }
