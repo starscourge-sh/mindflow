@@ -124,8 +124,11 @@ const undatedSaid = (undated: number, of: number): string =>
     : `. ${num(undated)} with no date ${undated === 1 ? 'is' : 'are'} in Later`
 
 /** A list's notice, sent as data so another window can say it: its words, what Undo takes back, and what “Show them” or “Open” opens. */
-export type Said = { text: string; undo: { id: string; existed: boolean; /** The notes it came from: unlinked, and back in the Inbox. */ links?: string[]; reopen?: string[] }[]; open: 'later' | string | null }
+export type Said = { text: string; undo: { id: string; existed: boolean; /** The notes it came from: unlinked, and back in the Inbox. */ links?: string[]; reopen?: string[] }[]; open: 'later' | string | null
+  /** Things kept in a folder from quick capture (lib/folders.ts keepIn): its Undo puts them back where they were. */
+  unfile?: unknown[] }
 function say(said: Said, onUndo?: () => void): void {
+  if (said.unfile) return void toast(said.text, () => void window.api.haligtree('folders:unfile', said.unfile).then(() => chime('separate')))
   toast(said.text,
     () => void Promise.all(said.undo.map((one) => haligtree.unmakeTask(one.id, one.existed, one.links ?? [], one.reopen ?? []))).then(() => onUndo?.()),
     'success',

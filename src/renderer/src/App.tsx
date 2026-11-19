@@ -1995,10 +1995,10 @@ export default function App(): React.JSX.Element {
           // Undone, the capture goes too and the box comes back as it was sent.
           const made = await makeTask({ capture: id, plain: plan?.taskPlain, whole: true }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), box: more ? 'here' : 'away', onUndo: () => (void haligtree.unlift('capture', id), bringBack(sent)) })
           // ">thesis": the task it became kept there, with the one picker's notice and Undo.
-          if (made && folder) await keepIn([{ type: 'task', id: made.id }], folder)
+          if (made && folder) await keepIn([{ type: 'task', id: made.id }], folder, { away: !more })
         } else if (folder) {
           // ">thesis": kept in that folder, out of the Inbox, said and undone as the one picker's keep is (lib/folders.ts).
-          await keepIn([{ type: 'capture', id }], folder)
+          await keepIn([{ type: 'capture', id }], folder, { away: !more })
         } else if (!document.documentElement.hasAttribute('data-welcome-ph')) {
           // A plain note takes back the same way as every other send: the
           // capture goes, and the box comes back as it was sent.

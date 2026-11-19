@@ -113,6 +113,9 @@ try {
     return ids.length ? ids : null
   })
   check('⌘↵ keeps the note in Thesis', !!filed?.length, JSON.stringify(filed))
+  // Said where it can be read: the box has gone, so in the main window, with its Undo.
+  const notices = async () => [...await box.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent)).catch(() => []), ...await h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent))].join(' | ')
+  check('a notice says it was kept in Thesis, with Undo, where it can be seen', /in Thesis/.test(await h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent).join(' | '))), await notices())
   const title = filed?.length ? await h.evaluate((id) => window.api.captures.get(id).then((one) => one?.title || one?.label || JSON.stringify(one?.body)), filed[0]) : ''
   check('the ">thes" is taken off its words', !!title && !/>thes/.test(title) && /Chapter two outline/.test(title), title)
 } finally {

@@ -117,14 +117,16 @@ const said = (things: Thing[]): string => {
  * These things kept in a folder (null: in none), with the notice, sound and Undo every move has. A note from the Inbox
  * leaves it ("out of the Inbox"); taken out of every folder, it goes back there.
  */
-export async function keepIn(things: Thing[], folder: { id: string; name: string } | null): Promise<void> {
+export async function keepIn(things: Thing[], folder: { id: string; name: string } | null, { away = false }: { /** Kept from quick capture as it goes: said in the main window too, where it can be read, with the same Undo. */ away?: boolean } = {}): Promise<void> {
   if (!things.length) return
   const was = await folders.file(things, folder?.id ?? null)
   const moved = was.filter((one) => one.folder !== (folder?.id ?? null))
   if (!moved.length) return refuse(folder ? `Already in ${folder.name}` : 'Already in no folder')
   const fromInbox = folder && was.some((one) => one.type === 'capture' && one.status === 'open')
   chime(folder ? 'gather' : 'separate')
-  toast(folder ? `Kept ${said(moved)} in ${folder.name}${fromInbox ? ', out of the Inbox' : ''}` : `Took ${said(moved)} out of its folder`, () => void folders.unfile(was).then(() => chime(folder ? 'separate' : 'gather')))
+  const text = folder ? `Kept ${said(moved)} in ${folder.name}${fromInbox ? ', out of the Inbox' : ''}` : `Took ${said(moved)} out of its folder`
+  toast(text, () => void folders.unfile(was).then(() => chime(folder ? 'separate' : 'gather')))
+  if (away) window.api.sayInHome({ text, unfile: was, undo: [], open: null })
 }
 
 /** A new folder named `name` (in `parent`), and these things kept in it: one step, one notice, one Undo for both. */
