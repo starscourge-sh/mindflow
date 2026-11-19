@@ -22,6 +22,11 @@ test('most of the titles sharing words is enough', () => {
   assert.equal(sharedWords(['Paris in spring', 'Rome at night', 'Lisbon by day']), null)
 })
 
+test('a name never starts or ends on a little word', () => {
+  assert.equal(sharedWords(['Night pages on courage', 'Morning pages on fear']), 'pages')
+  assert.equal(sharedWords(['The Stoics on anger', 'The Stoics on grief']), 'Stoics')
+})
+
 test('a word inside another word does not count', () => {
   assert.equal(sharedWords(['Rainbow notes', 'Rain plans']), null)
 })

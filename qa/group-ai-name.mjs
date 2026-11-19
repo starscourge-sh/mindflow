@@ -28,7 +28,7 @@ try {
   await v('groups:set', 'qa-old', { name: 'Kept apart one' })
 
   // 2. ⌘G on two picked pages: the field opens, and the model's name arrives in it, picked.
-  const two = [await page('Night pages on courage'), await page('Morning pages on fear')]
+  const two = [await page('Courage at dawn'), await page('Fear before sleep')]
   await go('home'); await go('articles'); await wait(1200)
   const row = (id) => h.locator(`[role="main"] [data-sortable-id="${id}"]`)
   // Picked as the list picks (⌘-click each), the pointer then away from them, as qa/groups.mjs does.
@@ -47,7 +47,7 @@ try {
   if (made) await v('groups:set', made.id, { name: 'Kept apart two' })
 
   // 3. A new group whose field is left before the answer: it takes the name all the same.
-  const three = [await page('Letters on patience'), await page('Letters on anger')]
+  const three = [await page('Patience with friends'), await page('Anger in winter')]
   await go('home'); await go('articles'); await wait(1200)
   // Picked as the list picks (⌘-click each), the pointer then away from them, as qa/groups.mjs does.
   await row(three[0]).click({ modifiers: ['Meta'] }); await row(three[1]).click({ modifiers: ['Meta'] }); await h.mouse.move(900, 700)

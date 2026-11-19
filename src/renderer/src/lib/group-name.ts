@@ -21,6 +21,9 @@ export function sharedWords(titles: string[]): string | null {
       for (let at = 0; at + size <= words.length; at++) {
         const run = words.slice(at, at + size)
         if (!run.some((word) => /\p{L}/u.test(word) && word.length >= 4 && !LITTLE.has(word.toLowerCase()))) continue
+        // A name never starts or ends on a little word: "pages on" from "Night pages on courage" and "Morning pages on fear".
+        const edge = (word: string): boolean => word.length < 3 || LITTLE.has(word.toLowerCase()) || /^(and|the|for|but|nor|yet)$/i.test(word)
+        if (edge(run[0]) || edge(run[run.length - 1])) continue
         const key = ` ${run.join(' ').toLowerCase()} `
         const count = lower.filter((one) => one.includes(key)).length
         if (count >= need && (!best || size > best.size || (size === best.size && count > best.count))) best = { run: run.join(' '), size, count }
