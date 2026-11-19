@@ -121,10 +121,8 @@ try {
   const arrowsAt = (at) => h.locator('[data-tab-arrows]').nth(at).boundingBox()
   const arrowsOne = await arrowsAt(0)
   await h.keyboard.press('Escape')
-  check('the title bar has no ← →, no page name to read, no stray ×', await h.evaluate(() => {
-    const bar = document.querySelector('header[data-drag-strip]')
-    return !bar.querySelector('[aria-label="Back"], [aria-label="Forward"], [aria-label="Close this pane"]') && bar.querySelector('[data-pane-title]').classList.contains('sr-only')
-  }))
+  // The window's top is one row since ask 49 (21a30e264): the tabs are the title bar, so there is no header above them.
+  check('no title bar above the tabs: the tab row is the window\'s top', await h.evaluate(() => !document.querySelector('header[data-drag-strip]')))
   await row('Sources').click(); await wait(800)
   await row('Goals').click({ modifiers: ['Alt'] }); await wait(900)
   await row('Tasks').click(); await wait(800)
