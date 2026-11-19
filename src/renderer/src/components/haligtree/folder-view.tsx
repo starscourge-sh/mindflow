@@ -27,7 +27,7 @@ const iconOf = (type: FolderKind): typeof FileText => (type === 'question' ? Hel
  */
 export function FoldersView({ focus, onOpen, onPlace }: { focus?: string; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
   const all = useFolders()
-  if (!focus) return <AllFolders all={all} onPlace={onPlace} />
+  if (!focus || focus === 'all') return <AllFolders all={all} onPlace={onPlace} />
   return <OneFolder key={focus} id={focus} all={all} onOpen={onOpen} onPlace={onPlace} />
 }
 

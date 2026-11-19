@@ -57,7 +57,8 @@ import { PowersView } from './components/haligtree/powers-view'
 import { TagsView } from './components/haligtree/tags-view'
 import { RailFolders, SideFolders, newFolder } from './components/haligtree/side-folders'
 import { FoldersSection, newFolderHere } from './components/haligtree/side-folder-section'
-import { askFolder, folders, type FolderKind } from '@/lib/folders'
+import { askFolder, folders, useFolders, type FolderKind } from '@/lib/folders'
+import { FolderOpen } from 'lucide-react'
 import { FoldersView } from './components/haligtree/folder-view'
 import { FolderPicker } from './components/haligtree/folder-picker'
 import { GROUP_KEY, newSmartGroup } from '@/lib/smart-groups'
@@ -505,7 +506,7 @@ const PanePage = memo(function PanePage({ does, pane: key, tab, view, recentOpen
       ) : view.id === 'queue' ? (
         <QueueView />
       ) : view.id === 'folders' ? (
-        <FoldersView focus={view.focus} onOpen={go} onPlace={(id) => does.setView({ id: 'folders', focus: id ?? undefined }, key)} />
+        <FoldersView focus={view.focus} onOpen={go} onPlace={(id) => does.setView({ id: 'folders', focus: id ?? 'all' }, key)} />
       ) : view.id === 'tags' ? (
         <TagsView onOpen={go} focus={view.focus} />
       ) : view.id === 'sources' ? (
@@ -1169,6 +1170,7 @@ export function Home(): React.JSX.Element {
   const pinsUsual = useLive(haligtree.pins, [] as Pin[])
   const pins = useInOrder(pinsUsual, 'pinOrder', (pin) => `${pin.type}:${pin.id}`)
   const fullMenu = useFullMenu()
+  const everyFolder = useFolders()
   const tags = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
   // Pinned from a tag's page: those first, then the most used.
   // In your order once dragged (tagOrder), the rest by use after them.
@@ -1646,7 +1648,9 @@ export function Home(): React.JSX.Element {
   }), [])
 
   /** A page's name, for the top bar; a pane is named by its note first (paneName). */
-  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' || view.id === 'lookups' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New tab' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'web' ? articleName(view.focus ?? '') : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
+  // A folder's page is named for the folder in its tab, as a note's is for the note.
+  const folderLabel = (focus?: string): string => (!focus || focus === 'all' ? 'Folders' : focus === 'unfiled' ? 'Not in a folder' : everyFolder.find((one) => one.id === focus)?.name ?? 'Folder')
+  const labelOf = (view: View): string => datedName(view) ?? (view.id === 'folders' ? folderLabel(view.focus) : null) ?? (view.id === 'matrix' ? 'Urgent and important' : TASK_PAGES.includes(view.id) ? 'Tasks' : view.id === 'questions' || view.id === 'lookups' ? 'Questions' : null) ?? SECTIONS.find((section) => section.id === view.id)?.label ?? kind(view)?.label ?? (view.id === 'source' ? view.focus?.slice(view.focus.indexOf(':') + 1) || 'Source' : view.id === 'settings' ? 'Settings' : view.id === 'pick' ? 'New tab' : view.id === 'whatsnew' ? "What's new" : view.id === 'pdf' ? pdfName(fromPdfFocus(view.focus ?? '').src, fromPdfFocus(view.focus ?? '').name) : view.id === 'web' ? articleName(view.focus ?? '') : view.id === 'practices' ? 'Practices' : view.id === 'yearpage' ? 'Year' : view.id === 'day' ? 'Day' : view.id === 'weekpage' ? 'Week' : view.id === 'monthpage' ? 'Month' : '')
   const paneWidth = (key: string, width: PaneWidth): void => {
     chime(width === 'narrow' ? 'fold' : 'slide')
     setSplit((now) => ({ ...now, panes: now.panes.map((one) => (one.key === key ? { ...one, width } : one)) }))
@@ -1661,6 +1665,7 @@ export function Home(): React.JSX.Element {
     if (view.id === 'pdf') return { icon: pdfDrawing(view.focus ?? ''), kind: 'PDF' }
     if (view.id === 'web') return { icon: BookOpen, kind: 'Web page' }
     if (view.id === 'settings') return { icon: placeDrawing(SETTINGS_PLACE) }
+    if (view.id === 'folders') return { icon: FolderOpen }
     const owned = kind(view)
     if (owned) return { icon: owned.icon, tint: owned.tint }
     const place = [...JOURNAL_SCALES, ...SECTIONS].find((one) => one.id === view.id) ?? SECTIONS.find((one) => one.id === litRow(view.id === 'source' ? 'sources' : view.id))
@@ -1880,7 +1885,7 @@ export function Home(): React.JSX.Element {
     <div data-frame={settings?.darkFrame === false ? undefined : 'dark'} data-frame-grain={settings?.frameGrain === false ? undefined : ''} style={{ '--mf-frame-depth': settings?.frameDepth ?? 75 } as CSSProperties} className="isolate flex h-screen flex-col bg-background text-foreground">
       {/* Centred over the page, not the sidebar beside it. */}
       <div data-toast-lane className={`contents ${sidebar ? (right ? (narrow ? '[--toast-right:4rem]' : '[--toast-right:15rem]') : (narrow ? '[--toast-left:4rem]' : '[--toast-left:15rem]')) : ''}`}><Toaster /></div>
-      <FolderPicker onFolders={() => setView({ id: 'folders' })} />
+      <FolderPicker onFolders={() => setView({ id: 'folders', focus: 'all' })} />
       <PracticeAsked onHome={split.panes.some((one) => onShow(one).id === 'home')} />
       <PickDays />
       {/* A note opened from a sticky grows out of where the sticky is (main/grow.ts). */}
@@ -2064,7 +2069,7 @@ export function Home(): React.JSX.Element {
             // Folders: the open note kept in one, a new one, every one.
             ...(noteNow && ['capture', 'article', 'nugget', 'question', 'task'].includes(noteNow.type) ? [{ label: 'Keep in folder…', hint: 'The open note, in a folder you pick or make', keys: '⇧⌘M', cue: null, run: () => askFolder([{ type: noteNow.type as FolderKind, id: noteNow.id }]) }] : []),
             { label: 'New folder', hint: 'In Folders, named as it is made', keys: '⌃⌘N', cue: null, run: () => newFolderHere(null) },
-            { label: 'All folders', hint: 'Every folder, to find one by its name', cue: null, run: () => setView({ id: 'folders' }) },
+            { label: 'All folders', hint: 'Every folder, to find one by its name', cue: null, run: () => setView({ id: 'folders', focus: 'all' }) },
             ...(settings?.safeMode || desk?.hidden ? [] : [{ label: 'Bring sticky notes here', hint: 'Every sticky note, fanned out at the top right of this screen', cue: null, run: () => window.api.gatherStickies() }]),
             ...(settings?.safeMode || !stickiesOut ? [] : [{ label: 'Tidy stickies', hint: 'Line the sticky notes up in a neat column', keys: '⌃⌥⌘T', cue: null, run: () => window.api.tidyStickies() }]),
             { label: 'reveal' in document.documentElement.dataset ? 'Blur private titles again' : 'Show private titles', hint: 'For now', cue: 'reveal' in document.documentElement.dataset ? 'off' : 'on', run: () => {
@@ -2595,7 +2600,7 @@ export function Home(): React.JSX.Element {
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
             const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
             // Folders, where things live, right under the places (what they are): starred ones, as Tags shows favourites.
-            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} here={view.id === 'folders' ? view.focus ?? null : undefined} onOpen={(place) => setView({ id: 'folders', focus: place ?? undefined })} />
+            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} here={view.id === 'folders' ? (!view.focus || view.focus === 'all' ? null : view.focus) : undefined} onOpen={(place) => setView({ id: 'folders', focus: place ?? 'all' })} />
             // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
               <BlockList

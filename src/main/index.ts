@@ -4647,6 +4647,8 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   const byName = new Map<string, string>()
   const known: Imported[] = []
   let already = 0
+  // Brought before and changed in the source since: their words are the new ones (captures.ts `importNote`).
+  let updated = 0
   let empty = 0
   let marked = 0
   const unread: string[] = []
@@ -4752,6 +4754,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     const hidden = looksPrivate(relative(root, path))
     const one = importNote(relative(root, path), text, (await stat(path)).mtime, hidden, !!pick)
     if (one === 'already here') already += 1
+    else if (one === 'updated') updated += 1
     else if (one === 'empty') empty += 1
     else {
       made.push(one)
@@ -4795,7 +4798,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
       }
       const one = importNote(name, shown(stored, basename(path), undefined, false), (await stat(path)).mtime, looksPrivate(relative(root, path)))
       if (one === 'already here') already += 1
-      else if (one !== 'empty') made.push(one)
+      else if (one !== 'empty' && one !== 'updated') made.push(one)
     }
     if (!quiet && !signal?.aborted) importProgress({ done: everyFile.size, total: everyFile.size, what: 'pictures', stop: !!signal })
   }
@@ -4819,6 +4822,8 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     // Where they went, said plainly: the Inbox, with time to sort it.
     inbox ? `${plural(inbox, 'note is', 'notes are')} in your Inbox to sort through; ${inbox === 1 ? 'it' : 'they'} won't come back to you as old notes to tidy for 30 days.` : '',
     already ? `${plural(already, 'was', 'were')} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
+    updated ? `${plural(updated, 'was', 'were')} changed in ${basename(root)} since the last import: ${updated === 1 ? 'its' : 'their'} words are the new ones, where${updated === 1 ? 'ver it is' : 'ver they are'} kept here.` : '',
+    !made.length && !updated && already ? `Everything is already here: ${plural(already, 'note')}.` : '',
     empty ? `${num(empty)} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',
     unshown ? `${plural(unshown, 'picture was', 'pictures were')} skipped: HEIC and TIFF cannot be shown here yet. Export them as JPEG to bring them in.` : '',
     marked ? `${plural(marked, 'note came', 'notes came')} in marked private: ${marked === 1 ? 'its name sounds' : 'their names sound'} like passwords or logins.` : '',
@@ -4830,7 +4835,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   if (pick) report.splice(1, 0, filedSaid(filed, made.length - inbox))
   if (!quiet) importProgress(null)
   if (quiet) {
-    if (!only) console.log(`imported ${made.length} new, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
+    if (!only) console.log(`imported ${made.length} new, ${updated} updated, ${already} already here, ${empty} empty, ${kept.length} left out, ${unshown} pictures of other types skipped, ${marked} marked private, ${pictures} pictures, ${attached} files, ${linked} links${kept.length ? ` [${kept.join(', ')}]` : ''}`)
     return made
   }
   // Said in the main window, on a card of its own, while the notes become documents behind it.
@@ -6688,7 +6693,7 @@ app.whenReady().then(() => {
       const before = alreadyImported(path)
       const made = before ?? importNote(path, await readFile(path, 'utf8'), (await stat(path)).mtime, false, true)
       if (made === 'empty') return inHome('haligtree:toast', { text: `${name} is empty, so there was nothing to bring in.`, tone: 'info' })
-      if (made === 'already here') return
+      if (made === 'already here' || made === 'updated') return
       if (!before) {
         changed()
         for (const win of BrowserWindow.getAllWindows()) win.webContents.send('imports:ready')

@@ -19,7 +19,7 @@ if (shots) mkdirSync(shots, { recursive: true })
 const c = await sandbox({ width: 1180, height: 800 })
 const h = c.h
 const wait = (ms) => h.waitForTimeout(ms)
-const said = () => h.evaluate(() => [...document.querySelectorAll('[data-sonner-toast]')].map((one) => one.textContent?.trim()).filter(Boolean).at(-1) ?? '')
+const said = () => h.evaluate(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent?.trim()).filter(Boolean).join(' | '))
 const menu = async (target, line) => {
   await target.click({ button: 'right' })
   await wait(250)
@@ -27,6 +27,8 @@ const menu = async (target, line) => {
   await wait(350)
 }
 const shot = async (name) => shots && c.both(`${shots}/${name}`)
+// Asked again until it holds (a save and its notice land a moment after the key), for at most 5 s.
+const until = async (ask) => { for (let i = 0; i < 50; i++) { const got = await ask(); if (got) return got; await wait(100) } return ask() }
 const unfiled = async () => Number((await h.locator('[data-side-unfiled]').textContent())?.match(/\d[\d,]*/)?.[0].replace(/,/g, '') ?? NaN)
 try {
   console.log(`load ${loadavg()[0].toFixed(1)}`)
@@ -51,7 +53,7 @@ try {
   // A page in Writing, kept in it with the picker: right-click, type, ↵.
   await c.go('articles')
   const row = h.locator('[data-page="articles"] button[data-row]').first()
-  const page = await row.getAttribute('data-row')
+  const page = await row.getAttribute('data-id')
   await menu(row, 'Keep in folder…')
   check('"Keep in folder…" opens the picker', await h.locator('[data-folder-picker]').isVisible())
   await shot('picker')
@@ -59,40 +61,35 @@ try {
   await wait(200)
   await h.keyboard.press('Enter')
   await wait(700)
-  check('↵ keeps it there, said with its notice', /Kept the page in Thesis/.test(await said()), await said())
-  check('it is in Thesis', (await c.v('folders:of', 'nuggets'))[page] === thesis.id)
-  check('"Not in a folder" counts one fewer', (await unfiled()) === before - 1, `${await unfiled()}`)
-  check('Writing still lists it, with a quiet folder label', (await h.locator(`[data-page="articles"] [data-row="${page}"] [data-row-folder="${thesis.id}"]`).count()) === 1)
+  check('↵ keeps it there, said with its notice', await until(async () => /Kept the page in Thesis/.test(await said())), await said())
+  check('it is in Thesis', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id), JSON.stringify((await c.v('folders:of', 'nuggets'))[page] ?? null))
+  check('"Not in a folder" counts one fewer', await until(async () => (await unfiled()) === before - 1), `${await unfiled()}`)
+  check('Writing still lists it, with a quiet folder label', (await h.locator(`[data-page="articles"] [data-id="${page}"] [data-row-folder="${thesis.id}"]`).count()) === 1)
   await shot('writing')
   // ⌘Z puts it back.
-  await h.locator('body').click({ position: { x: 600, y: 20 } }).catch(() => {})
   await h.keyboard.press('Meta+z')
   await wait(700)
-  check('⌘Z takes it out again', !(await c.v('folders:of', 'nuggets'))[page], JSON.stringify((await c.v('folders:of', 'nuggets'))[page] ?? null))
-  // Again, with ⇧⌘M on the row under the cursor.
-  await row.click()
-  await wait(400)
-  await h.keyboard.press('Escape')
-  await wait(200)
+  check('⌘Z takes it out again', await until(async () => !(await c.v('folders:of', 'nuggets'))[page]), JSON.stringify((await c.v('folders:of', 'nuggets'))[page] ?? null))
+  // Again.
   await menu(row, 'Keep in folder…')
   await h.keyboard.type('Thesis')
   await h.keyboard.press('Enter')
   await wait(700)
-  check('kept in Thesis again', (await c.v('folders:of', 'nuggets'))[page] === thesis.id)
+  check('kept in Thesis again', await until(async () => (await c.v('folders:of', 'nuggets'))[page] === thesis.id))
 
   // A gem, into a new folder made from the picker's last row.
   await c.go('nuggets')
   const gemRow = h.locator('[data-page="nuggets"] button[data-row]').first()
-  const gem = await gemRow.getAttribute('data-row')
+  const gem = await gemRow.getAttribute('data-id')
   await menu(gemRow, 'Keep in folder…')
   await h.keyboard.type('Reading list')
   await wait(200)
   check('the picker\'s last row offers the new folder', /New folder “Reading list”/.test((await h.locator('[data-folder-new-pick]').textContent()) ?? ''))
   await h.keyboard.press('Enter')
   await wait(800)
-  const reading = (await c.v('folders')).find((one) => one.name === 'Reading list')
-  check('one step makes the folder and keeps the gem in it', !!reading && (await c.v('folders:of', 'nuggets'))[gem] === reading.id, await said())
-  check('Gems lists it with its folder label', (await h.locator(`[data-page="nuggets"] [data-row="${gem}"] [data-row-folder="${reading?.id}"]`).count()) === 1)
+  const reading = await until(async () => (await c.v('folders')).find((one) => one.name === 'Reading list'))
+  check('one step makes the folder and keeps the gem in it', await until(async () => !!reading && (await c.v('folders:of', 'nuggets'))[gem] === reading.id), await said())
+  check('Gems lists it with its folder label', (await h.locator(`[data-page="nuggets"] [data-id="${gem}"] [data-row-folder="${reading?.id}"]`).count()) === 1)
 
   // The folder's page: only what is in it, the fact on its own line.
   await h.locator(`[data-side-folder="${thesis.id}"]`).click()
@@ -118,6 +115,7 @@ try {
   // All folders: found by its name.
   await h.locator('[data-side-all-folders]').click()
   await wait(700)
+  if (shots) await h.screenshot({ path: `${shots}/all-folders-click.png` })
   await h.locator('[data-find-folder]').fill('readi')
   await wait(300)
   check('"All folders…" finds a folder by part of its name', (await h.locator('[data-all-folder]').count()) === 1 && (await h.locator(`[data-all-folder="${reading.id}"]`).count()) === 1)

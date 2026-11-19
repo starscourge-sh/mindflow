@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { FolderPlus } from 'lucide-react'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -18,6 +18,7 @@ import { num } from '../../../../main/dates'
 export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice: the Folders page. */ onFolders: () => void }): React.JSX.Element | null {
   const [things, setThings] = useState<Thing[] | null>(null)
   const [typed, setTyped] = useState('')
+  const before = useRef<HTMLElement | null>(null)
   const all = useFolders()
   useEffect(() => {
     const ask = (event: Event): void => {
@@ -25,6 +26,8 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
       if (!asked.length) return
       chime('open')
       setTyped('')
+      // Given back on closing, so the list (and ⌘Z for the move) has the keys again, as before it opened.
+      before.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
       setThings(asked)
     }
     window.addEventListener('haligtree:keep-in-folder', ask)
@@ -50,7 +53,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
       })
   }, [offers])
   if (!things) return null
-  const close = (): void => setThings(null)
+  const close = (): void => (setThings(null), before.current?.isConnected ? before.current.focus({ preventScroll: true }) : (document.activeElement as HTMLElement | null)?.blur())
   const shown = all.filter((one) => !one.archived)
   const name = typed.trim()
   const exact = shown.some((one) => one.name.toLowerCase() === name.toLowerCase())

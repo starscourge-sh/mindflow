@@ -58,7 +58,7 @@ export function FoldersSection({ here, counted, onOpen, style }: { here: FolderP
   const lit = (list: Folder[]): number => list.findIndex((one) => one.id === here || path.includes(one.id))
   const row = (one: Folder, depth: number): React.JSX.Element[] => {
     // A starred folder shows the folders right inside it (and the way down to the one you are in), never deeper.
-    const kids = depth === 0 ? inside(one.id).filter((kid) => !kid.starred || true) : inside(one.id).filter((kid) => path.includes(kid.id))
+    const kids = depth === 0 ? inside(one.id) : inside(one.id).filter((kid) => path.includes(kid.id))
     return [
       <FolderRow key={one.id} folder={one} all={live} here={here === one.id} n={counted ? deepCount(live, one.id) : null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)} onOpen={() => onOpen(one.id)} />,
       ...(kids.length ? [<div key={`${one.id}:in`} data-no-twig=""><Branches current={lit(kids)} className="ml-5 flex flex-col gap-px">{kids.flatMap((kid) => row(kid, depth + 1))}</Branches></div>] : [])

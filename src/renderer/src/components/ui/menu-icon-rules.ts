@@ -225,6 +225,16 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^make it a group$/i, Layers],
   // A new folder and a new page side by side in one menu (Writing's, a folder's) each wear their own sign.
   [/^new folder/i, FolderPlus],
+  // Folders (side-folder-section.tsx, folder-view.tsx): kept in one, taken out, on or off the sidebar, archived, gone.
+  [/^keep (\S+ )?in folder/i, FolderInput],
+  [/^take out of /i, FolderMinus],
+  [/^all folders/i, Folder],
+  [/^show in the sidebar$/i, Star],
+  [/^remove from the sidebar$/i, StarOff],
+  [/^archive folder$/i, Archive],
+  [/^unarchive folder$/i, ArchiveRestore],
+  [/^delete folder, keep what/i, FolderMinus],
+  [/^archive them$/i, Archive],
   // A group gathers by a tag and is no folder (it never opens): its own sign, never the folder's beside "New folder".
   [/^new group by a tag/i, Hash],
   [/^new page/i, FilePlus],

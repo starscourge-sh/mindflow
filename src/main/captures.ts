@@ -1046,7 +1046,7 @@ export type Imported = { link: string; title: string; path: string; private?: bo
  * linking has since done to its words; a file with nothing in it is "empty".
  */
 /** `toWriting`: an article in Pages, not yet sorted, whatever folder it is in (an import that files folders into groups). */
-export function importNote(path: string, text: string, modified: Date, hidden = false, toWriting = false): Imported | 'empty' | 'already here' {
+export function importNote(path: string, text: string, modified: Date, hidden = false, toWriting = false): Imported | 'empty' | 'already here' | 'updated' {
   const front = /^---\n([\s\S]*?)\n---(?:\n|$)/.exec(text)
   const fields = propertiesOf(front?.[1] ?? '')
   // Private by its name, or because an export from here said so.
@@ -1068,7 +1068,16 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
   // A Zettelkasten's permanent notes are finished thinking in your own words:
   // they arrive as articles, not as an inbox to triage.
   if (toWriting || /(^|\/)permanent\//.test(path)) {
-    if (db.prepare("select 1 from nuggets where tier = 'article' and source = ?").get(path)) return 'already here'
+    // Brought before: the same note, never a second copy. Changed in the source since, and not written in here since
+    // it came (its saved time is still the file's), its words are the new ones; wherever the person moved it, it stays.
+    const had = db.prepare("select id, body, updated_at as at from nuggets where tier = 'article' and source = ?").get(path) as { id: string; body: string; at: string } | undefined
+    if (had) {
+      const words = JSON.stringify(body)
+      if (had.body === words || had.at >= modified.toISOString() || Number.isNaN(Date.parse(had.at))) return 'already here'
+      db.prepare('update nuggets set body = ?, updated_at = ? where id = ?').run(words, modified.toISOString(), had.id)
+      changed()
+      return 'updated'
+    }
     const id = randomUUID()
     db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields, private, unsorted) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
       .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept, secret ? 1 : 0, toWriting ? 1 : 0)

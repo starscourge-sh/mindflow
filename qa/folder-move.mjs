@@ -38,7 +38,7 @@ if (!before.folders.length) throw new Error('This copy has no Writing or Gems fo
 const c = await sandbox({ width: 1100, height: 760, seeded: false })
 try {
   // The window asked as it opened: its notice counts what moved.
-  const notice = await c.h.waitForFunction(() => [...document.querySelectorAll('[data-sonner-toast]')].map((one) => one.textContent ?? '').find((one) => /folders are in Folders now/.test(one)), null, { timeout: 30000 }).then((one) => one.jsonValue()).catch(() => '')
+  const notice = await c.h.waitForFunction(() => [...document.querySelectorAll('[role="status"]')].map((one) => one.textContent ?? '').find((one) => /folders are in Folders now/.test(one)), null, { timeout: 30000 }).then((one) => one.jsonValue()).catch(() => '')
   console.log('notice:', notice, `load ${loadavg()[0].toFixed(1)}`)
   check('the move ran, and the window says what moved', new RegExp(`${before.names} folders holding ${before.filed.length} things`).test(notice), notice)
   check('the notice is said only once', (await c.v('folders:moved')) === null)

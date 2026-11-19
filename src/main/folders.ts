@@ -34,17 +34,6 @@ export type Folder = {
 
 const now = (): string => new Date().toISOString()
 
-/** A row's name: its title, or for one with none (a gem) its first words, read from its stored page without parsing it whole. */
-const lineOf = (said: string | null): string => {
-  if (!said || !said.startsWith('{')) return said ?? ''
-  const words: string[] = []
-  for (const match of said.matchAll(/"text":"((?:[^"\\]|\\.)*)"/g)) {
-    words.push(match[1].replace(/\\(.)/g, '$1'))
-    if (words.join('').length > 120) break
-  }
-  return words.join('').slice(0, 160)
-}
-
 /** The table each kind lives in. */
 const tableOf = (type: Kind): 'nuggets' | 'captures' | 'tasks' => (type === 'capture' ? 'captures' : type === 'task' ? 'tasks' : 'nuggets')
 
@@ -104,17 +93,17 @@ export function folderItems(id: string): { type: Kind; id: string; title: string
   const db = database()
   // "Not in a folder": the pages and gems made straight in Writing or Gems, a view, not a folder.
   if (id === 'unfiled')
-    return db.prepare(`select case when tier = 'article' then 'article' else 'nugget' end as type, id, case when trim(title) = '' then substr(body, 1, 4000) else title end as title, coalesce(updated_at, created_at) as at, 0 as archived
+    return db.prepare(`select case when tier = 'article' then 'article' else 'nugget' end as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, coalesce(updated_at, created_at) as at, 0 as archived
       from nuggets where folder_id is null and tier in ('article', 'nugget') and binned_at is null and archived_at is null and superseded_by is null
-      order by coalesce(updated_at, created_at) desc`).all().map((one) => ({ ...(one as { type: Kind; id: string; title: string; at: string; archived: number }), title: lineOf((one as { title: string }).title) }))
+      order by coalesce(updated_at, created_at) desc`).all() as { type: Kind; id: string; title: string; at: string; archived: number }[]
   const kept = db.prepare(`select case when tier = 'article' then 'article' when tier = 'question' then 'question' else 'nugget' end as type, id,
-      case when trim(title) = '' then substr(body, 1, 4000) else title end as title, coalesce(updated_at, created_at) as at, archived_at is not null as archived from nuggets
+      coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, coalesce(updated_at, created_at) as at, archived_at is not null as archived from nuggets
       where folder_id = ? and binned_at is null and superseded_by is null`).all(id)
-  const notes = db.prepare(`select 'capture' as type, id, case when trim(title) = '' then substr(body, 1, 4000) else title end as title, coalesce(edited_at, captured_at) as at, archived_at is not null as archived from captures
+  const notes = db.prepare(`select 'capture' as type, id, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, coalesce(edited_at, captured_at) as at, archived_at is not null as archived from captures
       where folder_id = ? and status != 'discarded'`).all(id)
   const tasks = db.prepare(`select 'task' as type, id, title, coalesce(completed_at, created_at) as at, 0 as archived from tasks
       where folder_id = ? and status != 'dropped'`).all(id)
-  return ([...kept, ...notes, ...tasks] as { type: Kind; id: string; title: string; at: string; archived: number }[]).map((one) => ({ ...one, title: lineOf(one.title) })).sort((a, b) => (a.at < b.at ? 1 : -1))
+  return ([...kept, ...notes, ...tasks] as { type: Kind; id: string; title: string; at: string; archived: number }[]).sort((a, b) => (a.at < b.at ? 1 : -1))
 }
 
 /** Pages and gems in no folder, out of the Bin and in sight: the sidebar's "Not in a folder". */
