@@ -184,12 +184,13 @@ if (c) try {
   await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"]', { hasText: /^Copy$/ }).hover().catch(() => {})
   await c.h.waitForTimeout(300)
   const lines = await c.h.locator('[data-slot="context-menu-content"] [role="menuitem"], [data-slot="context-menu-sub-content"] [role="menuitem"]').allTextContents()
-  check('the menu speaks for the two picked', lines.some((one) => one.startsWith('New folder with 2 notes')) && lines.some((one) => one.startsWith('Duplicate 2 notes')) && lines.some((one) => one.startsWith('Copy 2 links')) && lines.some((one) => one.startsWith('Archive 2 notes')), lines.join(' | '))
+  // Folders live in Folders since c7ca6d0a0: the two are kept in one by “Keep 2 in folder…”, and groups are offered apart.
+  check('the menu speaks for the two picked', lines.some((one) => one.startsWith('Group 2 notes')) && lines.some((one) => one.startsWith('Keep 2 in folder…')) && lines.some((one) => one.startsWith('Duplicate 2 notes')) && lines.some((one) => one.startsWith('Copy 2 links')) && lines.some((one) => one.startsWith('Archive 2 notes')), lines.join(' | '))
   await frames(c, 'g-menu', 1, 0)
-  await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to folder' }).hover()
+  await c.h.locator('[data-slot="context-menu-sub-trigger"]', { hasText: 'Move to group' }).hover()
   await c.h.waitForTimeout(350)
   const sub = await c.h.locator('[data-slot="context-menu-sub-content"] [role="menuitem"]').allTextContents()
-  check('Move to folder offers New folder…, and never the group Memory (a group is not a folder)', !sub.includes('Memory') && sub.includes('New folder…'), sub.join(' | '))
+  check('Move to group offers the group Memory, and no folder (a group is not a folder)', sub.join('|') === 'Memory', sub.join(' | '))
   await frames(c, 'h-submenu', 1, 0)
   // Escape only while a menu is open: one Escape too many clears the picks (the list's own Escape), and whether the
   // submenu and its menu shut on one press or two depends on timing.
@@ -251,7 +252,9 @@ if (c) try {
   })
   await c.h.waitForTimeout(700)
   let members = await memberTitles(c, 'Memory')
-  check('all three join the group, in their order', members.length === 6 && members.slice(1, 4).join('|') === 'Interleaving beats blocking|What The Matrix gets right about choosing|' + "Mnemosyne's problem: how memory fades", members.join(' | '))
+  // Just after the row they were let go on, in the order they are read.
+  const on = members.indexOf('Spaced repetition, a primer')
+  check('all three join the group, in their order', members.length === 6 && members.slice(on + 1, on + 4).join('|') === 'Interleaving beats blocking|What The Matrix gets right about choosing|' + "Mnemosyne's problem: how memory fades", members.join(' | '))
   check('and the picks are let go', (await picked(c)).length === 0)
   await c.h.keyboard.press('Meta+z')
   await c.h.waitForTimeout(800)
@@ -506,7 +509,13 @@ if (c) try {
   check('in another sort, groups still show as groups, at the top, with no chips', heads === 2 && firstRows[0] === 'group' && (await c.h.locator('[data-chip]').count()) === 0, firstRows.slice(0, 4).join(','))
   await c.h.mouse.move(900, 700)
   await frames(c, 'o-newest-dark', 1, 0)
-  const loose = await c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].filter((one) => !one.closest('[data-group-block]')).map((one) => one.textContent.slice(0, 16)))
+  // The loose rows a press reaches: one drawn below the window's foot (or under the sandbox's notice there) was pressed
+  // on the notice, or scrolled to, and the first loose row then sat above the window, so nothing was carried.
+  // The list scrolled so the loose rows start mid-list (by its top edge it scrolls by itself while carrying), then the
+  // last of them a press reaches carried to the first.
+  await c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].find((one) => !one.closest('[data-group-block]'))?.scrollIntoView({ block: 'center' }))
+  await c.h.waitForTimeout(400)
+  const loose = await c.h.evaluate(() => [...document.querySelectorAll('[data-row]:not([data-lifted] *)')].filter((one) => { const box = one.getBoundingClientRect(); return !one.closest('[data-group-block]') && one.contains(document.elementFromPoint(box.left + 60, box.top + box.height / 2)) }).map((one) => one.textContent.slice(0, 16)))
   // A loose row carried to an edge between loose rows: it offers to move there in your own order, and Esc leaves the sort alone.
   await carry(c, row(c, loose[loose.length - 1]), row(c, loose[0]), 0.1, {
     up: false,
@@ -519,7 +528,11 @@ if (c) try {
   // Into a group by its middle still works, sorted or not.
   const grouped = (await groupsNow(c)).reduce((sum, one) => sum + one.members.length, 0)
   await openAll(c)
-  await carry(c, row(c, loose[0]), c.h.locator('[data-group-block]').first().locator('[data-row]').first(), 0.5)
+  // Onto the middle of the last row of the group just above it, both in sight: the first group's first row sat above
+  // the window once the loose rows were scrolled to.
+  await row(c, loose[0]).evaluate((el) => el.scrollIntoView({ block: 'center' }))
+  await c.h.waitForTimeout(400)
+  await carry(c, row(c, loose[0]), c.h.locator('[data-group-block]').last().locator('[data-row]').last(), 0.5)
   await c.h.waitForTimeout(700)
   check('sorted, a row still joins a group, and the sort stays', (await c.h.evaluate(() => JSON.parse(localStorage.getItem('view:article')).sort)) === 'newest' && (await groupsNow(c)).reduce((sum, one) => sum + one.members.length, 0) === grouped + 1)
   // ⌥↓ while sorted some other way asks, and leaves the sort alone.
@@ -662,11 +675,12 @@ try {
   await c.h.waitForTimeout(250)
   await c.h.locator('[role="menuitem"]', { hasText: 'Remove from group' }).click()
   await c.h.waitForTimeout(700)
-  // Out of its group, it is a loose row, after the groups, as the groups stand first.
-  check('a hidden row taken out of a group is loose, under the groups', await c.h.evaluate((id) => {
+  // Out of its group, it is a loose row just under the group it left: in your own order a group stands among the rows.
+  check('a hidden row taken out of a group is loose, just under its group', await c.h.evaluate((id) => {
     const at = document.querySelector(`[data-row][data-id="${id}"]`)
-    const blocks = [...document.querySelectorAll('[data-group-block]')]
-    return !!at && !at.closest('[data-group-block]') && blocks.length > 0 && blocks.every((b) => b.compareDocumentPosition(at) & Node.DOCUMENT_POSITION_FOLLOWING)
+    const lines = [...document.querySelectorAll('[data-group-block], [data-row]')].filter((one) => !one.parentElement?.closest('[data-group-block]'))
+    const before = lines[lines.indexOf(at?.closest('[data-group-block]') ? null : at) - 1]
+    return !!at && !!before?.matches('[data-group-block]')
   }, hide[1].id))
   await unfiltered(true)
   let groupsHere = await c.v('groups', 'nugget')
