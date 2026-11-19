@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { tagTint } from './tag-icon'
 import { AnimatePresence, motion } from 'motion/react'
-import { CalendarDays, Timer } from 'lucide-react'
+import { CalendarDays, Timer, X } from 'lucide-react'
 
 import { chime, step } from '@/lib/sound'
 import { useLive, haligtree, type Task } from '@/lib/haligtree'
@@ -94,8 +94,27 @@ export const TINT: Record<Span['kind'], BlockColor> = { date: 'blue', deadline: 
 export const tintOf = (span: Pick<Span, 'kind' | 'from' | 'to'>, text: string): BlockColor =>
   span.kind === 'priority' ? (PRIORITY_TINT[levelSaid(text.slice(span.from, span.to))] ?? TINT.priority) : TINT[span.kind]
 
-/** What the words were read as, one small chip each: the date, the deadline, the repeat, the priority. */
-function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {
+/**
+ * Words read as a date, a priority or a repeat that the person kept as plain words, by the chip's × or ⌫ just after
+ * them (17 Nov: "why cant i opt out of the inferred date here"): read as words, and the task's name keeps them. Held
+ * by the line that adds the task (`useKept`), and sent with it (lib/tasks.ts makeTask's `plain`).
+ */
+export type Kept = { list: { from: number; to: number; text: string }[]; set: (list: Kept['list']) => void }
+export const useKept = (): Kept => {
+  const [list, set] = useState<Kept['list']>([])
+  return { list, set }
+}
+/** The kept words where they stand in `value` now: found again by their words, nearest where they were; gone with them. */
+export const keptIn = (list: Kept['list'], value: string): Kept['list'] =>
+  list.flatMap((one) => {
+    if (value.slice(one.from, one.to) === one.text) return [one]
+    let best = -1
+    for (let at = value.indexOf(one.text); at >= 0; at = value.indexOf(one.text, at + 1)) if (best < 0 || Math.abs(at - one.from) < Math.abs(best - one.from)) best = at
+    return best < 0 ? [] : [{ ...one, from: best, to: best + one.text.length }]
+  })
+
+/** What the words were read as, one small chip each: the date, the deadline, the repeat, the priority. With `onKeep`, each has an × that keeps its words as words. */
+function TaskChips({ read, value, onKeep }: { read: ReadTask | null; value: string; onKeep?: (kind: Span['kind']) => void }): React.JSX.Element {
   const chips: { key: string; icon: React.ReactNode; label: string; tint: string; guess?: string }[] = []
   // A date only guessed at says so: a "?" and a dashed ring, and why on hover.
   const guess = (kind: string): string | undefined => read?.spans.find((one) => one.kind === kind && one.guess)?.guess
@@ -129,6 +148,14 @@ function TaskChips({ read }: { read: ReadTask | null }): React.JSX.Element {
           >
             {chip.icon}
             <Rolling text={chip.guess ? `${chip.label}?` : chip.label} by="word" />
+            {onKeep && (
+              <button type="button" data-keep-words={chip.key} tabIndex={-1}
+                aria-label={`Keep “${read?.spans.filter((one) => one.kind === chip.key).map((one) => value.slice(one.from, one.to)).join(' ')}” as words`}
+                onMouseDown={(event) => (event.preventDefault(), onKeep(chip.key as Span['kind']))}
+                className="-mr-1 flex size-3.5 cursor-pointer items-center justify-center rounded-sm opacity-60 hover:bg-foreground/10 hover:opacity-100">
+                <X className="size-2.5" />
+              </button>
+            )}
           </motion.span>
         ))}
       </AnimatePresence>
@@ -151,8 +178,10 @@ const TAG_AT = new RegExp(String.raw`(?:^|\s)#((?:${TAG_HERE})?)$`, 'u')
  * input over a copy of its own text, so the typing is the browser's and only
  * the colour is drawn: every key, ⌥3's "#" with it, types as it does anywhere.
  */
-export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, onBlur, autoFocus, label }: {
+export function TaskInput({ value, onChange, inputRef, placeholder, className = '', onKeyDown, onBlur, autoFocus, label, kept }: {
   value: string
+  /** Words kept as plain words (`useKept`): the chips' × and ⌫ just after lit words keep them. */
+  kept?: Kept
   onChange: (value: string) => void
   inputRef?: React.Ref<HTMLInputElement>
   placeholder?: string
@@ -162,7 +191,14 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
   autoFocus?: boolean
   label?: string
 }): React.JSX.Element {
-  const read = useMemo(() => (value.trim() ? readTask(value) : null), [value])
+  const plain = useMemo(() => (kept ? keptIn(kept.list, value) : []), [kept, value])
+  const read = useMemo(() => (value.trim() ? readTask(value, new Date(), plain) : null), [value, plain])
+  // Keep a reading's words as words: one act, its own quiet sound, the chip folding away as the words go plain.
+  const keep = (spans: Span[]): void => {
+    if (!kept || !spans.length) return
+    chime('off')
+    kept.set([...plain, ...spans.map((one) => ({ from: one.from, to: one.to, text: value.slice(one.from, one.to) }))])
+  }
   const mirror = useRef<HTMLDivElement>(null)
   const own = useRef<HTMLInputElement | null>(null)
   const follow = (event: React.SyntheticEvent<HTMLInputElement>): void => void (mirror.current && (mirror.current.scrollLeft = event.currentTarget.scrollLeft))
@@ -237,6 +273,11 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
           onSelect={(event) => (follow(event), where(event))}
           onBlur={(event) => (setCaret(null), onBlur?.(event))}
           onKeyDown={(event) => {
+            // ⌫ just after lit words (as Todoist's): the first press keeps them as words, the next deletes as ever.
+            const el = event.currentTarget
+            const after = kept && event.key === 'Backspace' && !event.metaKey && !event.altKey && !event.ctrlKey && el.selectionStart === el.selectionEnd
+              ? read?.spans.filter((one) => one.to === el.selectionStart) ?? [] : []
+            if (after.length) return (event.preventDefault(), keep(after))
             if (offered.length && !event.metaKey && !event.ctrlKey && !event.altKey) {
               if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                 event.preventDefault()
@@ -265,7 +306,7 @@ export function TaskInput({ value, onChange, inputRef, placeholder, className = 
           </div>
         )}
       </span>
-      <TaskChips read={read} />
+      <TaskChips read={read} value={value} onKeep={kept && ((kind) => keep(read?.spans.filter((one) => one.kind === kind) ?? []))} />
     </span>
   )
 }

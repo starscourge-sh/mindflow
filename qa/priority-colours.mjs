@@ -12,7 +12,7 @@ const { h, v, go } = c
 const shots = process.env.QA_SHOTS
 try {
   await v('settings:set', { sounds: false, hintRate: 0, motion: false })
-  await go('tasks'); await h.waitForTimeout(900)
+  await go('today'); await h.waitForTimeout(900)
   const field = h.locator('[data-task-input]').first()
   const chips = {}
   for (const [flag, name] of [['!!!', 'Urgent'], ['!!', 'High'], ['!', 'Medium']]) {

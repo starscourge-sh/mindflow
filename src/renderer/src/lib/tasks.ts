@@ -10,6 +10,7 @@ import { PRIORITY_NAMES, bucketOf, monthKey, readTask, readySaid } from '../../.
 import { ago, dated, dayjs, dayKey, daysSince, num, startOfDay, whenInLine, plural } from '../../../main/dates'
 import { tasksSaid, type ListTask } from '../../../main/day-lines'
 import { openSort } from './sort-out'
+import { quoted } from '../../../main/clip'
 
 /**
  * Each priority its own colour from the theme, as Todoist's: Urgent red, High orange, Medium blue, Low grey (they were
@@ -19,14 +20,13 @@ import { openSort } from './sort-out'
 export const PRIORITY_TINT: Record<number, 'red' | 'orange' | 'blue' | 'gray'> = { 1: 'red', 2: 'orange', 3: 'blue', 4: 'gray' }
 /** The level a priority's words say: "!!!" or "p1" is Urgent, "!" or "p3" Medium (main/task-words.ts reads them so). */
 export const levelSaid = (words: string): number => (words.trim().startsWith('!') ? 4 - words.trim().length : Number(words.trim()[1]))
-import { quoted } from '../../../main/clip'
 
 /**
  * Everything that becomes a task: words typed, a capture, several captures,
  * a nugget to study, a line picked out of a note.
  */
 type TaskSource =
-  | { text: string; today?: boolean; origin?: string }
+  | { text: string; today?: boolean; origin?: string; /** Words read as a date or a priority kept as plain words (task-input.tsx, the chip's × or ⌫). */ plain?: { from: number; to: number }[] }
   | { capture: string; /** Words in its first line kept as plain text, not read as a date or a priority. */ plain?: { from: number; to: number; text: string }[]
       /** One task however many lines it has; otherwise a list makes a task a line. */ whole?: boolean }
   | { captures: string[]; text: string }
@@ -50,7 +50,7 @@ export async function makeTask(
     'capture' in from ? [await flying(from.capture, 'task', () => haligtree.toTask(from.capture, from.plain, from.whole)), [from.capture]]
     : 'captures' in from ? [await haligtree.taskFrom(from.captures, from.text), from.captures]
     : 'item' in from ? [await haligtree.study(from.item, from.text, from.plain), [from.item]]
-    : [await haligtree.addTask(from.text, from.origin, from.today), from.origin ? [from.origin] : []]
+    : [await haligtree.addTask(from.text, from.origin, from.today, from.plain), from.origin ? [from.origin] : []]
   // A capture that already took an exit (promoted, resolved, let go) keeps it.
   if (got === 'not-open' || (!got && 'captures' in from)) {
     refuse(got === 'not-open' ? 'Only a capture still in the Inbox can become a task' : 'None of those is still in the Inbox, so there is nothing to make a task from')

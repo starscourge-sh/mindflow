@@ -17,7 +17,7 @@ import { ReadsIn } from '@/lib/reads-in'
 import { useThumbsRead, warmThumb } from '@/lib/notes'
 import { readCovers } from './grain'
 import { TabShape } from './tab-row'
-import { TaskInput } from './task-input'
+import { TaskInput, keptIn, useKept, type Kept } from './task-input'
 import { TodayPanel, addTyped, pasteTasks } from './today-panel'
 import { Kbd, Tip, useListKeys } from './ui'
 
@@ -58,6 +58,8 @@ export function BoxGlance({ on, pick, captures, onOpen }: {
   onOpen: (type: string, id: string) => void
 }): React.JSX.Element {
   const [words, setWords] = useState('')
+  // Words the Today line keeps as words (its chips' ×, ⌫ just after them), as Tasks' own line does.
+  const kept = useKept()
   const line = useRef<HTMLInputElement>(null)
   const acts = useRef<Acts>({})
   // Today's tasks and events are read while the tabs stand, the same reads the Today glance makes, so it is drawn
@@ -171,7 +173,7 @@ export function BoxGlance({ on, pick, captures, onOpen }: {
               <span className="flex size-8 items-center justify-center text-muted-foreground [&_svg]:size-5">{Icon && <Icon />}</span>
             </span>
             {on === 'today' ? (
-              <TaskInput inputRef={line} value={words} onChange={setWords} placeholder={tab.line} label={tab.line} onKeyDown={onLineKey} className="mf-glance-words" />
+              <TaskInput inputRef={line} value={words} onChange={setWords} placeholder={tab.line} label={tab.line} onKeyDown={onLineKey} className="mf-glance-words" kept={kept} />
             ) : (
               <input ref={line} data-glance-input value={words} onChange={(event) => setWords(event.target.value)} onKeyDown={onLineKey}
                 placeholder={tab.line} aria-label={tab.line} spellCheck={false} autoComplete="off"
@@ -187,7 +189,7 @@ export function BoxGlance({ on, pick, captures, onOpen }: {
             <Panel on={on} above={above}>
               {on === 'notes'
                 ? <NotesGlance words={words} captures={captures} acts={acts} onOpen={onOpen} onMade={() => setWords('')} onBack={setWords} />
-                : <TodayGlance words={words} acts={acts} onOpen={onOpen} onAdded={() => setWords('')} onBack={(text) => (setWords((now) => (now.trim() ? `${text} ${now}` : text)), line.current?.focus())} />}
+                : <TodayGlance words={words} kept={kept} acts={acts} onOpen={onOpen} onAdded={() => setWords('')} onBack={(text) => (setWords((now) => (now.trim() ? `${text} ${now}` : text)), line.current?.focus())} />}
             </Panel>
           </ReadsIn>
         </>
@@ -318,8 +320,9 @@ function NotesGlance({ words, captures, acts, onOpen, onMade, onBack }: {
  * the side panel's Today list as it is: what is late on top, then today's, each ticked in place. ↵ on the line adds
  * the words as a task for today through the app's one task reader, so a day in the words still wins.
  */
-function TodayGlance({ words, acts, onOpen, onAdded, onBack }: {
+function TodayGlance({ words, kept, acts, onOpen, onAdded, onBack }: {
   words: string
+  kept: Kept
   acts: React.RefObject<Acts>
   onOpen: (type: string, id: string) => void
   onAdded: () => void
@@ -339,7 +342,7 @@ function TodayGlance({ words, acts, onOpen, onAdded, onBack }: {
   ].sort((a, b) => a.start - b.start)
   const typed = words.trim()
   // With words on the line ↵ adds them; with none it is the list's, and opens the task ↓ reached.
-  acts.current = { enter: typed ? () => (onAdded(), addTyped(words, 'today', () => onBack(words))) : undefined }
+  acts.current = { enter: typed ? () => (onAdded(), addTyped(words, 'today', () => onBack(words), (kept.set([]), keptIn(kept.list, words)))) : undefined }
   return (
     <div data-glance-today className="flex flex-col">
       {events.length > 0 && (

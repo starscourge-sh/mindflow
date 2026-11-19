@@ -15,7 +15,7 @@ import { Chips, Display, arrange, useView } from './display'
 import { TaskPriority, TaskWhen, landed, useTickOff, moveTo, taskFacets, taskMenu, useTaskNow } from './tasks-view'
 import { DOT_IN_LINE, SessionDot, TaskSpent, useTaskTime, type TaskTime } from './task-time'
 import { frogOn } from '@/lib/day-plan'
-import { TaskInput, markRoom, setPriority } from './task-input'
+import { TaskInput, keptIn, markRoom, setPriority, useKept } from './task-input'
 import { RowMenu } from './row-menu'
 import { Tip } from '@/components/haligtree/ui'
 import { Rest } from './scenery'
@@ -74,8 +74,8 @@ const SCOPES: Record<Scope, { label: string; test: (task: Task) => boolean }> = 
  * later list, or a routine). Taken back, `onUndo` has the words again. Quick capture's glance line adds through it
  * too (box-glance.tsx), so a task typed there is read, placed and said the same.
  */
-export const addTyped = (text: string, scope: Scope, onUndo: () => void): void =>
-  void makeTask({ text, today: scope === 'today' }, async (made) => {
+export const addTyped = (text: string, scope: Scope, onUndo: () => void, plain?: { from: number; to: number }[]): void =>
+  void makeTask({ text, today: scope === 'today', plain }, async (made) => {
     const task = await haligtree.task(made.id)
     return task && SCOPES[scope].test(task) ? 'Task added' : landed(made, scope)
   }, { onUndo })
@@ -105,6 +105,7 @@ export function TodayPanel({ onOpen, open, glance = false }: { onOpen: (id: stri
   const examples = useMemo(exampleTasks, [])
   const tasks = example ? examples : real
   const [draft, setDraft] = useState('')
+  const kept = useKept()
   const { ticking, tickOff: tick } = useTickOff(260)
   // The row a thought is being written under, without opening the task.
   const [glossing, setGlossing] = useState<string | null>(null)
@@ -219,12 +220,14 @@ export function TodayPanel({ onOpen, open, glance = false }: { onOpen: (id: stri
           event.preventDefault()
           if (!draft.trim()) return
           const text = draft
+          const plain = keptIn(kept.list, text)
           setDraft('')
+          kept.set([])
           // Taken back, the words are in the field again, ahead of anything typed since.
           addTyped(text, scope, () => {
             setDraft((now) => (now.trim() ? `${text} ${now}` : text))
             requestAnimationFrame(() => (add.current?.focus(), add.current?.setSelectionRange(text.length, text.length)))
-          })
+          }, plain)
         }}
       >
         <Plus className="list-plus size-4 text-muted-foreground" />
@@ -233,6 +236,7 @@ export function TodayPanel({ onOpen, open, glance = false }: { onOpen: (id: stri
           onKeyDown={(event) => event.key === 'Escape' && (event.preventDefault(), event.currentTarget.blur())}
           value={draft}
           onChange={setDraft}
+          kept={kept}
           placeholder="Add a task, with the date in the words"
         />
       </form>

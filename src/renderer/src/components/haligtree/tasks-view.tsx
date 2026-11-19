@@ -24,7 +24,7 @@ import { readAhead, readFresh, readNow, useAfterFirstPaint } from '@/lib/early-r
 import { NoteComing } from './note-coming'
 import { fromBefore, BUCKETS, READY_LEADS, bucket, closeTask, gettingReady, makeTask, renameTask, onToday, placed, readySaid, setReady, snooze, snoozeDays, snoozeItems, snoozed, taskName, taskToNote, toNoteItem, yourOrder } from '@/lib/tasks'
 import { dateIn, PRIORITY_NAMES } from '../../../../main/task-words'
-import { PriorityIcon, PriorityMark, TaskInput, markRoom, planFor, setPriority } from './task-input'
+import { PriorityIcon, PriorityMark, TaskInput, keptIn, markRoom, planFor, setPriority, useKept } from './task-input'
 import { useArrivals } from './note-list'
 import { TagRow } from './pass'
 import { Empty, Island, Kbd, Page, Prop, PropInput, Props, Rolling, Tags, sayNow, toast, refuse, whyFailed, useListKeys, typing, VirtualList, Stepper, quietly, CloseBeside } from './ui'
@@ -747,6 +747,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
   // Opened from elsewhere with its words already read: on them from the first frame.
   const [open, setOpen] = useState<TaskFull | null>(() => (focus ? readNow<TaskFull>('task', focus) ?? null : null))
   const [draft, setDraft] = useState('')
+  const kept = useKept()
   const { ticking: leaving, tickOff: complete } = useTickOff(280)
   // The row a thought is being written under, without opening the task.
   const [glossing, setGlossing] = useState<string | null>(null)
@@ -1309,9 +1310,11 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
             event.preventDefault()
             if (!draft.trim()) return
             const text = draft
+            const plain = keptIn(kept.list, text)
             setDraft('')
+            kept.set([])
             // Taken back, the words are in the line again, ahead of anything typed since.
-            void makeTask({ text, today: mode === 'today' }, (made) => landed(made, mode), { onUndo: () => {
+            void makeTask({ text, today: mode === 'today', plain }, (made) => landed(made, mode), { onUndo: () => {
               setDraft((now) => (now.trim() ? `${text} ${now}` : text))
               requestAnimationFrame(() => (addRef.current?.focus(), addRef.current?.setSelectionRange(text.length, text.length)))
             } })
@@ -1322,6 +1325,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
             inputRef={addRef}
             value={draft}
             onChange={setDraft}
+            kept={kept}
             placeholder={mode === 'later' ? 'Add a task: “learn Spanish someday”, “book the holiday this year”' : 'Add a task: “call the accountant tomorrow 10am”, “file taxes by friday !!”'}
           />
           <Kbd>↵</Kbd>
