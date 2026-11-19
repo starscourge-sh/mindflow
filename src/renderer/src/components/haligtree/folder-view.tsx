@@ -125,8 +125,10 @@ function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
   const [writing, setWriting] = useState(false)
   const doc = useMemo(() => { try { return folder.front ? (JSON.parse(folder.front) as JSONContent) : null } catch { return null } }, [folder.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const latest = useRef<JSONContent | null>(doc)
+  // Read off the editor itself as it is left: a change it has not yet told (a dev build's slower editor) is kept too.
+  const editor = useRef<{ state: { doc: { toJSON: () => JSONContent } } } | null>(null)
   const save = (): void => {
-    const next = latest.current
+    const next = editor.current ? editor.current.state.doc.toJSON() : latest.current
     const words = next ? JSON.stringify(next) : null
     if (words === (folder.front ?? null)) return
     const was = folder.front
@@ -175,7 +177,7 @@ function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
         <div data-folder-words="" onBlur={save} className="-mx-1">
           <HaligtreeEditor defaultContent={doc ?? ''} toolbar={false} outline={false} search={false} lineNumbers={false} autofocus={doc ? false : 'end'} placeholder="A few words about this folder, and links to keep with it"
             // Asked for by "Add words": the caret in it at once, as a new page's is (once ready, StrictMode's second editor too).
-            onReady={(editor) => void (!doc && editor.commands.focus('end'))}
+            onReady={(ready) => void ((editor.current = ready), !doc && ready.commands.focus('end'))}
             onChange={(next) => void (latest.current = next)} />
         </div>
       )}
