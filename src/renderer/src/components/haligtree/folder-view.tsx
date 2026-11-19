@@ -1,5 +1,9 @@
-import { useState } from 'react'
-import { ChevronRight, FileStack, FolderPlus } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import type { JSONContent } from '@tiptap/react'
+import { HaligtreeEditor } from './haligtree-editor'
+import { saveImage } from '@/extensions/image-drop'
+import { quietly, sayNow } from './ui'
+import { ChevronRight, FileStack, FolderPlus, ImagePlus, Text } from 'lucide-react'
 import { Island, Page } from './ui'
 import { ItemsView } from './items-view'
 import { CapturesView } from './captures-view'
@@ -72,6 +76,7 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   ) : undefined
   const said = (
     <div data-folder-head="" className="mb-3">
+      {folder && <FolderFront key={folder.id} folder={folder} />}
       <nav aria-label="Where this folder is" data-folder-path="" className="-ml-1.5 flex min-w-0 flex-wrap items-center gap-1 text-control text-muted-foreground">
         <button type="button" onClick={() => onPlace(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Folders</button>
         {path.slice(0, -1).map((one) => (
@@ -108,6 +113,67 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   if (on === 'notes') return <CapturesView key={`${id}:notes`} title={name} keep={(one) => ofCaptures[one.id] === id && one.status !== 'discarded'} focus={note} lead={kinds} said={said} onOpen={onOpen} />
   if (on === 'tasks') return <TasksView key={`${id}:tasks`} mode="alltasks" keep={(one) => ofTasks[one.id] === id} focus={note} lead={kinds} said={said} onOpen={onOpen} />
   return <ItemsView key={`${id}:${on}`} tier={on === 'gems' ? 'nugget' : 'article'} only={on === 'questions' ? 'questions' : undefined} inFolder={box} focus={note} lead={kinds} said={said} onOpen={onOpen} />
+}
+
+/**
+ * A folder's front, as the top of a Notion page: a cover picture and a few words with link cards, both optional,
+ * nothing at all until asked for, and then only a quiet "Add a cover · Add words" while pointed at. The words are a
+ * page's own editor (link cards, pictures, every way a page is written), kept with the folder as it is left.
+ */
+function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
+  const [writing, setWriting] = useState(false)
+  const doc = useMemo(() => { try { return folder.front ? (JSON.parse(folder.front) as JSONContent) : null } catch { return null } }, [folder.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const latest = useRef<JSONContent | null>(doc)
+  const save = (): void => {
+    const next = latest.current
+    const words = next ? JSON.stringify(next) : null
+    if (words === (folder.front ?? null)) return
+    const was = folder.front
+    void folders.set(folder.id, { front: words }).then(() => quietly(() => void folders.set(folder.id, { front: was })))
+  }
+  const cover = (src: string | null): void => {
+    const was = folder.cover
+    chime(src ? 'promote' : 'separate')
+    sayNow(folders.set(folder.id, { cover: src }), src ? `${folder.name} has a cover` : `Took ${folder.name}'s cover away`, () => void folders.set(folder.id, { cover: was }))
+  }
+  const words = !!doc || writing
+  const upload = (label: string): React.JSX.Element => (
+    // The folder icon's own upload (kept-groups.tsx `IconChoice`): the Mac's file sheet, the picture kept as a page's is.
+    <label data-folder-cover-add="" className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">
+      <ImagePlus aria-hidden className="size-3.5" />{label}
+      <input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/avif" className="sr-only"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0]
+          event.currentTarget.value = ''
+          if (file) void saveImage(file).then((src) => src && cover(src), () => chime('nope'))
+        }} />
+    </label>
+  )
+  return (
+    <div data-folder-front="" className="group/front mb-2">
+      {folder.cover && (
+        <div className="relative mb-3">
+          <img data-folder-cover="" src={folder.cover} alt="" draggable={false} className="h-36 w-full rounded-xl object-cover" />
+          <span className="absolute right-2 bottom-2 flex gap-1 rounded-lg bg-popover/95 p-0.5 text-control text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/front:opacity-100 focus-within:opacity-100">
+            {upload('Change cover')}
+            <button type="button" onClick={() => cover(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Remove</button>
+          </span>
+        </div>
+      )}
+      {(!folder.cover || !words) && (
+        <div className="-ml-1.5 flex h-6 items-center gap-1 text-control text-muted-foreground opacity-0 transition-opacity group-hover/front:opacity-100 focus-within:opacity-100">
+          {!folder.cover && upload('Add a cover')}
+          {!words && <button type="button" data-folder-words-add="" onClick={() => (chime('tap'), setWriting(true))} className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><Text aria-hidden className="size-3.5" />Add words</button>}
+        </div>
+      )}
+      {words && (
+        <div data-folder-words="" onBlur={save} className="-mx-1">
+          <HaligtreeEditor defaultContent={doc ?? ''} toolbar={false} outline={false} search={false} autofocus={doc ? false : 'end'} placeholder="A few words about this folder, and links to keep with it"
+            onChange={(next) => void (latest.current = next)} />
+        </div>
+      )}
+    </div>
+  )
 }
 
 /** Every folder, as a tree that folds, or found by its name as you type: 1,000 of them read as fast as 10. */

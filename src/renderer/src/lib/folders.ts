@@ -18,6 +18,11 @@ export type Folder = {
   pages: number; gems: number; notes: number; tasks: number; hidden: number
   /** Frecency: keeps counted, less as they age (folders.ts `listFolders`). */
   used: number
+  /** When anything in it last changed. */
+  edited: string | null
+  /** Its front over its list: a cover picture's address, and its words with link cards (a page's stored shape). */
+  cover: string | null
+  front: string | null
 }
 export type FolderItem = { type: FolderKind; id: string; title: string; at: string; archived: number }
 
@@ -31,7 +36,7 @@ export const folders = {
   file: (things: Thing[], folder: string | null) => call<Was[]>('folders:file', things, folder),
   unfile: (was: Was[]) => call<void>('folders:unfile', was),
   of: (table: 'nuggets' | 'captures' | 'tasks') => call<Record<string, string>>('folders:of', table),
-  set: (id: string, patch: { name?: string; icon?: string | null; color?: string | null; starred?: boolean; archived?: boolean }) => call<boolean>('folders:set', id, patch),
+  set: (id: string, patch: { name?: string; icon?: string | null; color?: string | null; starred?: boolean; archived?: boolean; cover?: string | null; front?: string | null }) => call<boolean>('folders:set', id, patch),
   nest: (id: string, parent: string | null) => call<true | string>('folders:nest', id, parent),
   place: (id: string, target: string, after: boolean) => call<{ ids: string[]; parent: string | null } | null>('folders:place', id, target, after),
   arrange: (id: string, was: { ids: string[]; parent: string | null }) => call<boolean>('folders:arrange', id, was),

@@ -1,16 +1,18 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, ChevronRight, Plus } from 'lucide-react'
+import { ArrowRight, ChevronRight, CircleCheck, FileText, Gem, HelpCircle, MoreHorizontal, Plus, StickyNote } from 'lucide-react'
+import { openItems } from '@/lib/split'
 import { Branches } from './branches'
 import { NameInPlace } from './name-in-place'
 import { GroupIcon, IconChoice } from './kept-groups'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Unfold, Weighted } from './glide'
-import { RowMenu, type RowItem } from './row-menu'
+import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { Count, Tip, quietly, refuse, sayNow, toast, typing } from './ui'
 import { SortableList, SortableRow } from './sortable'
-import { num } from '../../../../main/dates'
+import { age, num } from '../../../../main/dates'
+import { haligtree, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
-import { FOLDER_DEPTH, folders, heldIn, pathOf, useFolders, type Folder } from '@/lib/folders'
+import { FOLDER_DEPTH, askFolder, folders, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem } from '@/lib/folders'
 
 /** Starred folders shown before the rest fold behind "Show all". */
 const SHOWN = 12
@@ -31,7 +33,12 @@ export const deepCount = (all: Folder[], id: string): number =>
  * line per import, not every source's whole tree. Then "Not in a folder N", the pages and gems with no folder, and
  every folder's page from the heading (its arrow, its right-click). A row takes anything dropped on it (split-drop.tsx `keepDrop`).
  */
-export function FoldersSection({ here, counted, onOpen, style, noteIn, noteRow, noteKey }: { here: FolderPlace | undefined; counted: boolean; onOpen: (place: FolderPlace) => void; style?: React.CSSProperties
+export function FoldersSection({ here, counted, unfiled, onOpen, onOpenItem, lit: litItem, style, noteIn, noteRow, noteKey }: { here: FolderPlace | undefined; counted: boolean; /** How many pages and gems are in no folder: read by the sidebar, which waits for it. */ unfiled: number; onOpen: (place: FolderPlace) => void
+  /** A page, note, gem or task in a folder unfolded here, opened as anywhere else. */
+  onOpenItem: (type: string, id: string) => void
+  /** The thing open now, lit where it shows under its folder. */
+  lit?: string
+  style?: React.CSSProperties
   /** The folder the note in front lives in, with its one lit row to hang under that folder, and which note it is. */
   noteIn?: string; noteRow?: React.ReactNode; noteKey?: string }): React.JSX.Element {
   const all = useFolders()
@@ -40,6 +47,16 @@ export function FoldersSection({ here, counted, onOpen, style, noteIn, noteRow, 
   // Folded by hand, it stays folded until focus next comes to something in a folder: then it opens on it, as Writing's did.
   useEffect(() => void (noteKey && noteIn && setOpen(true)), [noteKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [naming, setNaming] = useState<string | null>(null)
+  // Folders unfolded in the tree, Notion's way: what each holds hangs under it. Kept across launches.
+  const [unfolded, setUnfolded] = useState<Set<string>>(() => { try { return new Set(JSON.parse(localStorage.getItem('sidebar:folders-open') ?? '[]') as string[]) } catch { return new Set() } })
+  const foldOne = (id: string): void => setUnfolded((was) => {
+    const next = new Set(was)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    chime(next.has(id) ? 'slide' : 'fold')
+    try { localStorage.setItem('sidebar:folders-open', JSON.stringify([...next])) } catch { /* this run only */ }
+    return next
+  })
   useEffect(() => {
     const make = (event: Event): void => {
       const { parent } = (event as CustomEvent<{ parent: string | null }>).detail
@@ -67,14 +84,23 @@ export function FoldersSection({ here, counted, onOpen, style, noteIn, noteRow, 
   const inside = (id: string): Folder[] => live.filter((one) => one.parent === id)
   const lit = (list: Folder[]): number => list.findIndex((one) => one.id === at || path.includes(one.id))
   const row = (one: Folder, depth: number): React.JSX.Element[] => {
-    // A starred folder shows the folders right inside it (and the way down to the one you are in), never deeper.
-    const kids = depth === 0 ? inside(one.id) : inside(one.id).filter((kid) => path.includes(kid.id))
+    // Unfolded, a folder shows what it holds: its folders, then its pages and notes (Notion's way). Folded, only the
+    // way down to the folder you are in.
+    const open = unfolded.has(one.id)
+    const kids = open ? inside(one.id) : inside(one.id).filter((kid) => path.includes(kid.id))
     return [
       // One light: a note of its own open under it (noteRow) is the lit one, the folder kept beside it is not lit too.
-      <FolderRow key={one.id} folder={one} all={live} here={here === one.id && !(noteRow && noteIn === one.id)} n={counted ? deepCount(live, one.id) : null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)} onOpen={() => onOpen(one.id)} />,
-      ...(kids.length ? [<div key={`${one.id}:in`} data-no-twig=""><Branches current={lit(kids)} className="ml-5 flex flex-col gap-px">{kids.flatMap((kid) => row(kid, depth + 1))}</Branches></div>] : []),
-      // The note in front, under the folder it lives in: only that one row, lit, for as long as it is in front.
-      ...(noteRow && one.id === noteIn ? [<div key={`${one.id}:note`} data-no-twig=""><Branches current={0} className="ml-5 flex flex-col gap-px">{noteRow}</Branches></div>] : [])
+      <FolderRow key={one.id} folder={one} all={live} here={here === one.id && !(noteRow && noteIn === one.id)} n={counted ? deepCount(live, one.id) : null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)} onOpen={() => onOpen(one.id)}
+        open={open} onFold={() => foldOne(one.id)} onAdd={() => void addPageIn(one, onOpenItem)} />,
+      ...(kids.length || open ? [<div key={`${one.id}:in`} data-no-twig="">
+        <Branches current={kids.length ? lit(kids) : -1} className="ml-5 flex flex-col gap-px">
+          {kids.flatMap((kid) => row(kid, depth + 1))}
+          {open && <FolderThings key={`${one.id}:things`} folder={one} lit={litItem} onOpen={onOpenItem} onAll={() => onOpen(one.id)} />}
+        </Branches>
+      </div>] : []),
+      // The note in front, under the folder it lives in, while the folder is folded: only that one row, lit. Unfolded,
+      // the folder's own list shows it, lit there (FolderThings).
+      ...(noteRow && one.id === noteIn && !open ? [<div key={`${one.id}:note`} data-no-twig=""><Branches current={0} className="ml-5 flex flex-col gap-px">{noteRow}</Branches></div>] : [])
     ]
   }
   // Many starred: the first 12, and the one you are in, the rest a press away, so they never push the sidebar long.
@@ -163,19 +189,22 @@ export function FoldersSection({ here, counted, onOpen, style, noteIn, noteRow, 
 export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, onRename: () => void): RowItem[] {
   const level = pathOf(all, folder.id).length
   return [
-    { label: 'Open', run: onOpen },
-    level < FOLDER_DEPTH && { label: 'New folder inside', run: () => newFolderHere(folder.id) },
+    // As Notion's: first what it is to you (in the sidebar), then its name and place, then opening it, then the foot.
+    { label: folder.starred ? 'Remove from the sidebar' : 'Show in the sidebar', hint: folder.starred ? 'Unstar it' : 'Star it', run: () => (chime(folder.starred ? 'off' : 'on'), sayNow(folders.set(folder.id, { starred: !folder.starred }), folder.starred ? `Took ${folder.name} off the sidebar` : `Starred ${folder.name}`, () => void folders.set(folder.id, { starred: !!folder.starred }))) },
     'separator',
     { label: 'Rename…', run: onRename },
-    { label: folder.starred ? 'Remove from the sidebar' : 'Show in the sidebar', hint: folder.starred ? 'Unstar it' : 'Star it', run: () => (chime(folder.starred ? 'off' : 'on'), sayNow(folders.set(folder.id, { starred: !folder.starred }), folder.starred ? `Took ${folder.name} off the sidebar` : `Starred ${folder.name}`, () => void folders.set(folder.id, { starred: !!folder.starred }))) },
+    level < FOLDER_DEPTH && { label: 'New folder inside', run: () => newFolderHere(folder.id) },
     folder.parent ? { label: 'Move to the top', run: () => void folders.nest(folder.id, null).then(() => (chime('gather'), toast(`Moved ${folder.name} to the top`, () => void folders.nest(folder.id, folder.parent)))) } : null,
-    'separator',
     { label: folder.archived ? 'Unarchive folder' : 'Archive folder', hint: folder.archived ? undefined : 'Kept, out of sight', run: () => (chime('tuck'), sayNow(folders.set(folder.id, { archived: !folder.archived }), folder.archived ? `Unarchived ${folder.name}` : `Archived ${folder.name}: kept, out of sight`, () => void folders.set(folder.id, { archived: !!folder.archived }))) },
-    { label: 'Delete folder, keep what’s in it', hint: 'It moves up a level', danger: true, run: () => void folders.remove(folder.id).then((was) => was && (chime('separate'), toast(`Deleted ${folder.name}: what it held stays`, () => void folders.restore(was)))) }
+    { label: 'Delete folder, keep what’s in it', hint: 'It moves up a level', danger: true, run: () => void folders.remove(folder.id).then((was) => was && (chime('separate'), toast(`Deleted ${folder.name}: what it held stays`, () => void folders.restore(was)))) },
+    'separator',
+    { label: 'Open', run: onOpen },
+    ...openItems('folder', `folders:${folder.id}`),
+    folder.edited ? { heading: age(folder.edited) === 'now' ? 'Edited just now' : `Edited ${age(folder.edited)} ago` } : null
   ]
 }
 
-function FolderRow({ folder, all, here, n, naming, onNamed, onRename, onOpen }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void }): React.JSX.Element {
+function FolderRow({ folder, all, here, n, naming, open, onNamed, onRename, onOpen, onFold, onAdd }: { folder: Folder; all: Folder[]; here: boolean; n: number | null; naming: boolean; open: boolean; onNamed: () => void; onRename: () => void; onOpen: () => void; onFold: () => void; onAdd: () => void }): React.JSX.Element {
   const [picking, setPicking] = useState(false)
   const name = (words: string | null): void => {
     onNamed()
@@ -192,7 +221,8 @@ function FolderRow({ folder, all, here, n, naming, onNamed, onRename, onOpen }: 
           className="min-w-0 flex-1 rounded-md bg-accent/60 px-1 text-foreground outline-none ring-1 ring-ring/40" />
       </div>
     )
-  // The icon is pressed to change it, as Notion's is: the app's one chooser (emoji, icons, a picture of your own).
+  // The app's one chooser for its icon (emoji, icons, a picture of your own), from its menu: pointed at, the icon
+  // gives way to the fold, as Notion's does, so the icon is no longer the button that changes it (02ddf7144).
   const pick = (icon: string | null): void => {
     setPicking(false)
     const was = folder.icon
@@ -200,29 +230,102 @@ function FolderRow({ folder, all, here, n, naming, onNamed, onRename, onOpen }: 
     chime('tap')
     void folders.set(folder.id, { icon }).then(() => toast(`Changed ${folder.name}’s icon`, () => void folders.set(folder.id, { icon: was })))
   }
+  const menu = (): RowItem[] => { const all_ = folderMenu(folder, all, onOpen, onRename); const at = all_.findIndex((one) => !!one && typeof one === 'object' && 'label' in one && one.label === 'Rename…'); return [...all_.slice(0, at + 1), { label: 'Change icon…', run: () => setPicking(true) }, ...all_.slice(at + 1)] }
+  // Writing's own row in the sidebar, copied (home.tsx): the icon gives way to its fold on pointing, and its "…" and
+  // "+" take the count's place at the right; while anything is carried, the icon and count stay.
   return (
     <Popover open={picking} onOpenChange={setPicking}>
       <PopoverAnchor asChild>
-        <div className="relative">
-    <RowMenu items={() => folderMenu(folder, all, onOpen, onRename)}>
-      <button type="button" data-side-row data-side-folder={folder.id} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-label={folder.name} aria-current={here ? 'page' : undefined}
-        onClick={() => (chime('page'), onOpen())}
-        className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
-        {/* Room for the icon, which is its own button over this one (the old Writing folders' way, Notion's too). */}
-        <span className="size-4 shrink-0" />
-        <Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted>
-        {n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
-      </button>
+        <div>
+    <RowMenu items={menu}>
+      <div className="group/fold relative flex flex-col">
+        <button type="button" data-side-row data-side-folder={folder.id} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-label={folder.name} aria-current={here ? 'page' : undefined}
+          onClick={() => (chime('page'), onOpen())}
+          className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
+          <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
+          <Weighted on={here} className="flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere]">{folder.name}</Weighted>
+          {n !== null && <span className="transition-opacity duration-80 group-hover/fold:opacity-0 [:root[data-dragging]_&]:!opacity-100"><Count n={n} className="text-xs text-muted-foreground" /></span>}
+        </button>
+        <button type="button" data-folder-fold={folder.id} aria-label={open ? `Fold ${folder.name} away` : `Show what ${folder.name} holds`} aria-expanded={open} onClick={onFold}
+          className="absolute top-[0.1875rem] left-1.5 flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground opacity-0 transition-[opacity,background-color] duration-80 group-hover/fold:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [:root[data-dragging]_&]:!opacity-0">
+          <ChevronRight className={`size-3.5 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />
+        </button>
+        <span className="absolute top-[0.1875rem] right-1.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-80 group-hover/fold:opacity-100 focus-within:opacity-100 [:root[data-dragging]_&]:!opacity-0">
+          <Tip label="More">
+            <button type="button" data-folder-more={folder.id} aria-label={`${folder.name} menu`} onClick={openFromGrip}
+              className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              <MoreHorizontal className="size-3.5" />
+            </button>
+          </Tip>
+          <Tip label="Add a page inside">
+            <button type="button" data-folder-add={folder.id} aria-label={`Add a page inside ${folder.name}`} onClick={onAdd}
+              className="mf-hit relative flex size-5 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+              <Plus className="size-3.5" />
+            </button>
+          </Tip>
+        </span>
+      </div>
     </RowMenu>
-          <button type="button" aria-label={`Change the icon of ${folder.name}`} data-folder-icon={folder.id} onClick={() => setPicking(true)}
-            className="absolute top-1 left-1.5 flex size-5 cursor-pointer items-center justify-center rounded-md transition-colors duration-100 before:absolute before:-inset-1 before:content-[''] hover:bg-foreground/10">
-            <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />
-          </button>
         </div>
       </PopoverAnchor>
       <PopoverContent align="start" className="w-auto gap-0 overflow-hidden p-0" onFocusOutside={(event) => event.preventDefault()}>
         <IconChoice group={folder} onPick={pick} />
       </PopoverContent>
     </Popover>
+  )
+}
+
+/** A new page in Writing, kept in this folder, opened: the folder's "+" (Notion's "Add a page inside"). */
+async function addPageIn(folder: Folder, open: (type: string, id: string) => void): Promise<void> {
+  const id = await haligtree.newArticle()
+  const was = await folders.file([{ type: 'article', id }], folder.id)
+  chime('promote')
+  open('article', id)
+  quietly(() => void folders.unfile(was))
+}
+
+/** Each kind's own sign, as its rows show it elsewhere. */
+const KIND_ICON: Record<string, typeof FileText> = { article: FileText, capture: StickyNote, nugget: Gem, question: HelpCircle, task: CircleCheck }
+const THINGS_SHOWN = 8
+
+/**
+ * What an unfolded folder holds, under its folders on the same trunk: its pages, notes, gems and tasks, each with its
+ * own sign, newest first, the first eight and then "Show N more", which opens the folder's page.
+ */
+function FolderThings({ folder, lit, onOpen, onAll }: { folder: Folder; lit?: string; onOpen: (type: string, id: string) => void; onAll: () => void }): React.JSX.Element | null {
+  const things = useLive(() => folders.items(folder.id), null as FolderItem[] | null, [folder.id], undefined, `folders:items:${folder.id}`)
+  if (!things) return null
+  const shown = things.filter((one) => !one.archived)
+  if (!shown.length) return <p data-folder-empty-row="" className="py-1 pr-2 pl-8 text-control text-muted-foreground">Nothing in it yet</p>
+  return (
+    <>
+      {shown.slice(0, THINGS_SHOWN).map((one) => {
+        const Icon = KIND_ICON[one.type] ?? FileText
+        const here = lit === one.id
+        return (
+          <RowMenu key={one.id} items={() => [
+            { label: 'Open', run: () => onOpen(one.type, one.id) },
+            ...openItems(one.type, one.id),
+            'separator',
+            { label: 'Keep in folder…', run: () => askFolder([{ type: one.type, id: one.id }]) },
+            { label: `Take out of ${folder.name}`, hint: one.type === 'capture' ? 'Back to the Inbox' : one.type === 'task' ? 'Stays in Tasks' : one.type === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([{ type: one.type, id: one.id }], null) }
+          ]}>
+            <button type="button" data-side-row data-side-thing={one.id} data-type={one.type} aria-current={here ? 'page' : undefined} title={one.title}
+              onClick={() => (chime('page'), onOpen(one.type, one.id))}
+              className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>
+              <span className="flex w-4 shrink-0 items-center justify-center"><Icon className="size-3.5 text-muted-foreground" /></span>
+              <Weighted on={here} className="private-text min-w-0 flex-1 truncate text-left">{one.title.trim() || (one.type === 'article' ? 'Untitled' : 'New note')}</Weighted>
+            </button>
+          </RowMenu>
+        )
+      })}
+      {shown.length > THINGS_SHOWN && (
+        <button type="button" data-side-row data-folder-show-more={folder.id} onClick={() => (chime('page'), onAll())}
+          className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
+          <span className="w-4 shrink-0" />
+          <span className="flex-1 text-left">Show {num(shown.length - THINGS_SHOWN)} more</span>
+        </button>
+      )}
+    </>
   )
 }

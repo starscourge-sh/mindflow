@@ -32,6 +32,11 @@ export type Folder = {
   pages: number; gems: number; notes: number; tasks: number; hidden: number
   /** How much and how lately things were kept in it: each keep counts 1, less as it ages (a week old: a half). */
   used: number
+  /** When anything in it last changed, for the foot of its menu ("Edited 2d ago"); null when it holds nothing. */
+  edited: string | null
+  /** Its front: a cover picture's address, and its words (a page's own stored shape), or null for none. */
+  cover: string | null
+  front: string | null
 }
 
 const now = (): string => new Date().toISOString()
@@ -57,6 +62,9 @@ export function folderColumns(): void {
   // An imported page's file time when it was last brought, so bringing it again knows a changed one (captures.ts `importNote`).
   column('nuggets', 'source_at text')
   column('note_groups', 'archived_at text')
+  // A folder's front, over its list, as a Notion page has one: a cover picture, and a few words with link cards.
+  column('note_groups', 'cover text')
+  column('note_groups', 'front text')
   // Each change the one-time move made, so it can be undone: a thing's old group and order, a folder's old list and
   // parent (and its whole row, when it was merged into another of the same name), the lists' old order.
   db.exec('create table if not exists folder_move (thing text not null, what text not null, was text not null)')
@@ -68,7 +76,7 @@ export function folderColumns(): void {
 /** Every folder, in the tree's own order, each with what it holds counted by kind. */
 export function listFolders(): Folder[] {
   const db = database()
-  const rows = db.prepare(`select g.id, g.name, g.icon, g.color, g.parent_id as parent, g.starred, g.archived_at is not null as archived,
+  const rows = db.prepare(`select g.id, g.name, g.icon, g.color, g.parent_id as parent, g.starred, g.archived_at is not null as archived, g.cover, g.front,
       coalesce(o.position, 1e12) as at, g.created_at as made from note_groups g left join note_order o on o.list = '${LIST}' and o.id = 'g:' || g.id
       where g.list = '${LIST}' order by at, made`).all() as (Omit<Folder, 'pages' | 'gems' | 'notes' | 'tasks' | 'hidden'> & { at: number; made: string })[]
   const counts = new Map<string, { pages: number; gems: number; notes: number; tasks: number; hidden: number }>()
@@ -93,7 +101,12 @@ export function listFolders(): Folder[] {
   for (const row of db.prepare("select folder_id as id, count(*) as n from tasks where folder_id is not null and status != 'dropped' group by 1").all() as { id: string; n: number }[])
     tally(row.id).tasks += row.n
   const used = new Map((db.prepare("select folder_id as id, sum(1.0 / (1 + (julianday('now') - julianday(at)) / 7.0)) as score from folder_use group by 1").all() as { id: string; score: number }[]).map((one) => [one.id, one.score]))
-  return rows.map(({ at: _at, made: _made, ...row }) => ({ ...row, ...(counts.get(row.id) ?? { pages: 0, gems: 0, notes: 0, tasks: 0, hidden: 0 }), used: used.get(row.id) ?? 0 }))
+  const edited = new Map<string, string>()
+  for (const one of db.prepare(`select folder_id as id, max(coalesce(updated_at, created_at)) as at from nuggets where folder_id is not null group by 1
+      union all select folder_id, max(coalesce(edited_at, captured_at)) from captures where folder_id is not null group by 1
+      union all select folder_id, max(coalesce(completed_at, created_at)) from tasks where folder_id is not null group by 1`).all() as { id: string; at: string }[])
+    if (!edited.has(one.id) || edited.get(one.id)! < one.at) edited.set(one.id, one.at)
+  return rows.map(({ at: _at, made: _made, ...row }) => ({ ...row, ...(counts.get(row.id) ?? { pages: 0, gems: 0, notes: 0, tasks: 0, hidden: 0 }), used: used.get(row.id) ?? 0, edited: edited.get(row.id) ?? null }))
 }
 
 /** What a folder holds itself (not its folders'), newest first: archived ones too, said so, for "Show archived". */
@@ -311,9 +324,9 @@ export function registerFolders(): void {
   // Where each of these things lives: its folder's id, for the quiet label on Writing's and Gems' rows.
   handle('folders:of', (type: 'nuggets' | 'captures' | 'tasks') =>
     Object.fromEntries((db.prepare(`select id, folder_id as folder from ${type === 'captures' ? 'captures' : type === 'tasks' ? 'tasks' : 'nuggets'} where folder_id is not null`).all() as { id: string; folder: string }[]).map((one) => [one.id, one.folder])))
-  handle('folders:set', (id: string, patch: { name?: string; icon?: string | null; color?: string | null; starred?: boolean; archived?: boolean }) => {
+  handle('folders:set', (id: string, patch: { name?: string; icon?: string | null; color?: string | null; starred?: boolean; archived?: boolean; cover?: string | null; front?: string | null }) => {
     const fields = Object.entries({
-      name: patch.name?.trim() || undefined, icon: patch.icon, color: patch.color,
+      name: patch.name?.trim() || undefined, icon: patch.icon, color: patch.color, cover: patch.cover, front: patch.front,
       starred: patch.starred === undefined ? undefined : patch.starred ? 1 : 0,
       archived_at: patch.archived === undefined ? undefined : patch.archived ? now() : null
     }).filter(([, value]) => value !== undefined)
