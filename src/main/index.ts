@@ -6876,7 +6876,7 @@ app.whenReady().then(() => {
   ipcMain.on('drag-out', async (event, src: unknown, name: unknown, card: unknown) => {
     const copy = copyOut(src, name, false)
     if (!copy) return
-    const { stored, from, to } = copy
+    const { stored, to } = copy
     const extension = stored.split('.').pop()!
     // What follows the pointer: the picture itself, small, or for any other
     // file the small card the note drew of it (drag-out.ts); Haligtree's icon
@@ -6889,7 +6889,8 @@ app.whenReady().then(() => {
     // it out to one. Its shape is the one kept for it (pictures.ts), or taken as square when none is kept yet.
     const [w, h] = known(stored) ?? [1, 1]
     const box = w >= h ? { width: 192, height: Math.max(1, Math.round((192 * h) / w)) } : { width: Math.max(1, Math.round((192 * w) / h)), height: 192 }
-    let face = IMAGE_EXT.has(extension) ? await nativeImage.createThumbnailFromPath(from, box).catch(() => drawn) : drawn
+    const small = IMAGE_EXT.has(extension) ? await smallCopy(stored, 256) : null
+    let face = small ? nativeImage.createFromPath(small).resize(box) : drawn
     if (!face.isEmpty() && face !== drawn) face = face.resize({ width: Math.min(96, face.getSize().width) })
     if (face.isEmpty()) face = nativeImage.createFromPath(icon).resize({ width: 64 })
     if (face.isEmpty()) face = nativeImage.createFromBitmap(Buffer.alloc(32 * 32 * 4, 128), { width: 32, height: 32 })

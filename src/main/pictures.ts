@@ -41,22 +41,27 @@ export const assetsDir = (): string => join(app.getPath('userData'), 'assets')
  * being a local app"). Its path, or null when the Mac draws none (an SVG).
  */
 /**
- * A copy the size of a screen (2048 or more) is made by the Mac's `sips`, in a process of its own: asked for one that
- * big, the thumbnailer handed back the 1,024px JPEG file icon instead of an 8,167 by 9,851 painting, and the viewer
- * showed the icon (the user, 19 Nov 2026). Kept under its own name (`-s`), so an icon kept by an earlier build is never
- * served again.
+ * Every copy is made by the Mac's `sips`, in a process of its own. The thumbnailer, when it cannot draw a picture, hands
+ * back the file's icon as if it were the picture: a JPEG's for a screen-sized copy of an 8,167 by 9,851 painting, a
+ * WebP's for every WebP tile on a MacBook Air (the user, 19 Nov 2026), and both were kept and shown. Kept under their own
+ * name (`-s`), so an icon kept by an earlier build is never served again. The thumbnailer is asked only for what sips
+ * cannot read (an SVG).
  */
-const BY_SIPS = 2048
-/** Where a stored picture's small copy is kept. */
 const copyPath = (name: string, size: number, tall = false): string =>
-  join(assetsDir(), '..', 'thumbs', `${name.replace(/\.[a-z0-9]+$/, '')}-${tall ? 'h' : size >= BY_SIPS ? 's' : ''}${size}.${/\.png$/i.test(name) ? 'png' : 'jpg'}`)
+  join(assetsDir(), '..', 'thumbs', `${name.replace(/\.[a-z0-9]+$/, '')}-s${tall ? 'h' : ''}${size}.${/\.png$/i.test(name) ? 'png' : 'jpg'}`)
 export async function smallCopy(name: string, size: number, tall = false): Promise<string | null> {
   const small = copyPath(name, size, tall)
   if (existsSync(small)) return small
-  if (!tall && size >= BY_SIPS && process.platform === 'darwin') {
-    await mkdir(dirname(small), { recursive: true })
+  const path = join(assetsDir(), name)
+  if (process.platform === 'darwin' && !/\.svg$/i.test(name)) {
+    const read = await imageSizeFromFile(path).catch(() => null)
+    const [w, h] = read?.width && read.height ? ((read.orientation ?? 1) >= 5 ? [read.height, read.width] : [read.width, read.height]) : [0, 0]
+    // The long side at most `size`, or for `tall` the height at most `size` and the width at most three times it; never larger than it is.
+    const long = tall ? (w > h * 3 ? size * 3 : Math.round((size * Math.max(w, h)) / h)) : size
+    const fit = w && h && Math.max(w, h) > long ? ['-Z', String(long)] : []
     const format = small.endsWith('.png') ? ['png'] : ['jpeg', '-s', 'formatOptions', '85']
-    const done = await promisify(execFile)('sips', ['-Z', String(size), '-s', 'format', ...format, join(assetsDir(), name), '--out', small], { timeout: 60_000 }).then(() => true, () => false)
+    await mkdir(dirname(small), { recursive: true })
+    const done = await promisify(execFile)('sips', [...fit, '-s', 'format', ...format, path, '--out', small], { timeout: 60_000 }).then(() => true, () => false)
     if (done && existsSync(small)) return small
   }
   const made = await nativeImage.createThumbnailFromPath(join(assetsDir(), name), tall ? { width: size * 3, height: size } : { width: size, height: size }).catch(() => null)
@@ -116,7 +121,10 @@ async function measure(name: string): Promise<PictureLook | null> {
   // Turned on its side by its camera: drawn the way it is turned.
   const turned = (size.orientation ?? 1) >= 5
   const [width, height] = turned ? [size.height, size.width] : [size.width, size.height]
-  const copy = await nativeImage.createThumbnailFromPath(path, { width: 400, height: 400 }).catch(() => null)
+  // From its small copy (smallCopy), never the thumbnailer straight: where that cannot draw a picture it hands back the file's icon.
+  const twin = await smallCopy(name, 640)
+  const read = twin ? nativeImage.createFromPath(twin) : null
+  const copy = read && !read.isEmpty() ? read.resize(read.getSize().width >= read.getSize().height ? { width: Math.min(400, read.getSize().width) } : { height: Math.min(400, read.getSize().height) }) : null
   if (!copy || copy.isEmpty()) return [width, height, '', 0, 0]
   const { w, h, rgba } = rgbaOf(copy)
   const bands = bandsOf(rgba, w, h)
