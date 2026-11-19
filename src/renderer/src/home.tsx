@@ -2790,9 +2790,15 @@ export function Home(): React.JSX.Element {
       </div>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col gap-2">
-      {/* Clear of the traffic lights whatever sits to the left: nothing, or the folded rail. */}
-      <header data-drag-strip="" data-on-frame className={`@container/bar flex h-8 shrink-0 items-center gap-1 ${!sidebar || right ? 'pl-[84px] [:root[data-fullscreen]_&]:pl-3' : narrow ? 'pl-3' : ''}`} style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+      <div className="flex min-w-0 flex-1 flex-col">
+      {/* The page itself, a card like the sidebar's; the main landmark, for VoiceOver to jump to. */}
+      <div role="main" className="relative flex min-h-0 flex-1 gap-2">
+      <SplitDrop onDrop={dropAside} onRow={dropOnRow} />
+      <SplitPanes
+        // One row at the window's top, as Dia's: the window's own controls ride the tab rows (panes.tsx), the sidebar's
+        // button before the first pane's tabs, clear of the traffic lights whatever sits to the left of it; sound and
+        // New after the last pane's "+ ⌄", New at the very right. Nothing here moves as tabs come and go.
+        lead={<span data-on-frame className={`mb-[2px] flex shrink-0 items-center gap-1 ${!sidebar || right ? 'pl-[76px] [:root[data-fullscreen]_&]:pl-1' : 'pl-1'}`}>
         {[
           { icon: LayoutSidebarRightIcon, flip: !right, label: sidebar ? 'Hide the sidebar' : 'Show the sidebar', keys: '⌘B', run: () => (chime(sidebar ? 'fold' : 'slide'), setSidebar(!sidebar)) },
           // With the sidebar away, its search field comes up here as a button.
@@ -2822,6 +2828,8 @@ export function Home(): React.JSX.Element {
         })()}
         {/* The open note's name, faint, once its first line has scrolled away. */}
         <TopTitle on={settings?.topTitle !== false} />
+        </span>}
+        tail={<span data-on-frame className="mb-[2px] mr-1 flex shrink-0 items-center">
         {/* The window's own setting, quiet: what you hear. How much screen it takes is the green button's (and ⌃⇧F's),
             so the room here goes to the note's own "Read" (note-extras.tsx). */}
         <span className="flex shrink-0 items-center">
@@ -2837,11 +2845,7 @@ export function Home(): React.JSX.Element {
             {!newPage && !inFolderRef.current && <Pressed keys="C" className="ml-1 h-[18px] min-w-[18px] rounded-[5px]" />}
           </button>
         </Tip>
-      </header>
-      {/* The page itself, a card like the sidebar's; the main landmark, for VoiceOver to jump to. */}
-      <div role="main" className="relative flex min-h-0 flex-1 gap-2">
-      <SplitDrop onDrop={dropAside} onRow={dropOnRow} />
-      <SplitPanes
+        </span>}
         apis={apis}
         front={split.front}
         sizes={split.sizes}

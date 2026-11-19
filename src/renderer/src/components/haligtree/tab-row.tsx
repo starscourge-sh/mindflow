@@ -1,5 +1,5 @@
 import { afterLayout } from '@/lib/after-layout'
-import { Fragment, useLayoutEffect, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties } from 'react'
+import { Fragment, useLayoutEffect, useRef, useState, useSyncExternalStore, type ComponentType, type CSSProperties, type ReactNode } from "react"
 import { ChevronDown, Plus, X } from 'lucide-react'
 
 import ArrowNarrowLeftIcon from '@/components/ui/arrow-narrow-left-icon'
@@ -199,20 +199,23 @@ function StepButton({ by, label, keys, icon, pane, actions }: { by: -1 | 1; labe
  * In a window too narrow for two panes, the one on show carries every pane's
  * tabs, a thin line between each pane's.
  */
-export function TabRow({ groups, actions, pane }: { groups: TabGroup[]; actions: TabActions; pane: string }): React.JSX.Element {
+export function TabRow({ groups, actions, pane, lead, tail }: { groups: TabGroup[]; actions: TabActions; pane: string; /** The window's controls before the tabs (the first pane) and after them (the last): panes.tsx. */ lead?: ReactNode; tail?: ReactNode }): React.JSX.Element {
   const all: RowItem[] = groups.flatMap((group, at) => [
     at > 0 && ('separator' as const),
     ...group.tabs.map((tab): RowItem => ({ label: tab.label, icon: <tab.icon className="size-3.5 shrink-0" style={{ color: tab.tint }} />, hint: tab.key === group.active ? 'Open now' : undefined, run: () => actions.select(group.pane, tab.key) }))
   ])
   const count = groups.reduce((sum, group) => sum + group.tabs.length, 0)
   return (
-    <div data-tabs={pane} className="relative z-[1] -mb-px flex h-[34px] shrink-0 items-end gap-0.5">
+    // The window's top row: its empty parts move the window (the tab row is the title bar now, as Dia's is), what is in
+    // it is pressed as ever.
+    <div data-tabs={pane} data-drag-strip="" className="mf-tab-bar relative z-[1] -mb-px flex h-[34px] shrink-0 items-end gap-0.5" style={{ WebkitAppRegion: 'drag' } as CSSProperties}>
+      {lead}
       <span data-tab-arrows className="mf-segs mb-[3px] ml-1 flex h-6 shrink-0 items-center overflow-hidden rounded-full border">
         {([[-1, 'Back', '⌘[', ArrowNarrowLeftIcon], [1, 'Forward', '⌘]', ArrowNarrowRightIcon]] as const).map(([by, label, keys, icon]) => (
           <StepButton key={label} by={by} label={label} keys={keys} icon={icon} pane={pane} actions={actions} />
         ))}
       </span>
-      <div className="flex h-[30px] min-w-0 flex-1">
+      <div data-tab-room className="flex h-[30px] min-w-0 flex-1">
         {groups.map((group, at) => (
           <Fragment key={group.pane}>
             {at > 0 && <span aria-hidden className="my-1.5 w-px shrink-0 bg-foreground/15" />}
@@ -232,6 +235,7 @@ export function TabRow({ groups, actions, pane }: { groups: TabGroup[]; actions:
           </span>
         </RowMenu>
       </span>
+      {tail}
     </div>
   )
 }
