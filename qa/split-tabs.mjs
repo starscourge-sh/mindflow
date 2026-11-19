@@ -123,6 +123,8 @@ try {
   await h.keyboard.press('Escape')
   // The window's top is one row since ask 49 (21a30e264): the tabs are the title bar, so there is no header above them.
   check('no title bar above the tabs: the tab row is the window\'s top', await h.evaluate(() => !document.querySelector('header[data-drag-strip]')))
+  // Sources sits in Library, folded to start (70f7229cb, 8 Nov): its heading opened first, as a person would.
+  for (const fold of await h.locator('[data-side-section-handle="library"][aria-expanded="false"]').all()) (await fold.click(), await wait(400))
   await row('Sources').click(); await wait(800)
   await row('Goals').click({ modifiers: ['Alt'] }); await wait(900)
   await row('Tasks').click(); await wait(800)
@@ -133,7 +135,8 @@ try {
     const hidden = await arrowsAt(0)
     await h.screenshot({ path: `${shots}/arrows-sidebar-hidden-light.png` })
     await h.keyboard.press('Meta+b'); await wait(500)
-    return hidden.y >= 40
+    // The window's top is one row since 21a30e264: the arrows sit in it, clear of the traffic lights to their left.
+    return hidden.y >= 40 || hidden.x >= 80
   })())
   const pagesNow = async () => (await state()).map((one) => one.page)
   const pagesWas = await pagesNow()
@@ -262,11 +265,11 @@ try {
   await h.evaluate(() => document.activeElement?.blur?.())
   await h.keyboard.press('Meta+Backslash'); await wait(1200)
   s = await state()
-  check('the same note may be open in two panes', s.length === 2 && s[0].on === s[1].on && s[0].on !== null && (await h.locator('[data-pane] .tiptap.ProseMirror.haligtree-editor:not(.is-line)').count()) === 2, JSON.stringify(s))
+  check('the same note may be open in two panes', s.length === 2 && s[0].on === s[1].on && s[0].on !== null && (await h.locator('[data-pane] .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)').count()) === 2, JSON.stringify(s))
   const words = `typed-${Date.now()}`
-  const ed = h.locator(`[data-pane="${s[1].key}"] .tiptap.ProseMirror.haligtree-editor:not(.is-line)`).first()
+  const ed = h.locator(`[data-pane="${s[1].key}"] .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)`).first()
   await ed.click(); await h.keyboard.press('Meta+ArrowDown'); await h.keyboard.type(` ${words}`); await wait(1500)
-  check('typed in one, the other follows', ((await h.locator(`[data-pane="${s[0].key}"] .tiptap.ProseMirror.haligtree-editor:not(.is-line)`).first().innerText()).includes(words)))
+  check('typed in one, the other follows', ((await h.locator(`[data-pane="${s[0].key}"] .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)`).first().innerText()).includes(words)))
   await h.keyboard.press('Control+h'); await wait(300)
   await h.keyboard.press('Control+w'); await wait(800)
   check('a note kept open in the other', (await state()).length === 1)
@@ -276,7 +279,7 @@ try {
     await c.send('article', b.id); await wait(1500)
     await row('Calendar').click({ modifiers: ['Meta'] }); await wait(500)
     await h.keyboard.press('Control+Tab'); await wait(900)
-    const editor = h.locator('[data-pane] .tiptap.ProseMirror.haligtree-editor:not(.is-line)').first()
+    const editor = h.locator('[data-pane] .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)').first()
     await editor.click(); await h.keyboard.press('Meta+ArrowDown')
     const mark = `${tag}-${Date.now()}`
     await h.keyboard.type(` ${mark}`)
@@ -299,7 +302,7 @@ try {
   await c.send('article', spoken); await wait(1500)
   await row('Calendar').click({ modifiers: ['Meta'] }); await wait(500)
   await h.keyboard.press('Control+Tab'); await wait(900)
-  await h.locator('[data-pane] .tiptap.ProseMirror.haligtree-editor:not(.is-line)').first().click()
+  await h.locator('[data-pane] .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)').first().click()
   await h.keyboard.press('Meta+ArrowDown'); await h.keyboard.press('Enter')
   await h.keyboard.type('/record', { delay: 60 }); await wait(2000)
   await h.keyboard.press('Enter')
