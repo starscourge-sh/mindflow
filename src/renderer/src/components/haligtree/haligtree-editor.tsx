@@ -45,7 +45,6 @@ import { ReactNodeViewRenderer, type Editor } from "@tiptap/react"
 import { lowlight, whenGrammars } from "@/lib/lowlight"
 import { setHost, type HaligtreeHost } from "@/lib/host"
 import { currentVim, onVimChange } from "@/lib/vim"
-import { vimPluginKey } from "@/extensions/vim-mode"
 import { cue } from "@/lib/cues"
 import { byKeys } from "@/lib/motion"
 import "katex/dist/katex.min.css"
@@ -2410,7 +2409,6 @@ function Surface({
         {!handles && editor && <SpellingMenu editor={editor} spelling={spelling} at={menuAt} onClose={() => setSpelling(null)} />}
 
         {/* How much is written, quietly in the corner of a document. */}
-        {shape === "document" && !readOnly && <VimSaid editor={editor} />}
         {shape === "document" && !readOnly && (foot ? foot(editor) : <WordCount editor={editor} />)}
 
         {/* The dock earns its place only if something is in it. */}
@@ -2549,24 +2547,3 @@ function LinkPreview({ editor }: { editor: Editor | null }): React.JSX.Element |
   )
 }
 
-/** Vim's mode, in words, at the foot of the page. The caret shape was the only sign, and normal mode swallows letters. */
-function VimSaid({ editor }: { editor: Editor | null }) {
-  const [word, setWord] = useState<string | null>(null)
-  useEffect(() => {
-    if (!editor) return
-    const read = (): void => {
-      const vim = vimPluginKey.getState(editor.state)
-      const next = !vim?.enabled ? null : vim.mode === "insert" ? "Insert" : vim.mode === "visual" || vim.mode === "visualLine" ? "Visual" : "Normal"
-      setWord((was) => (was === next ? was : next))
-    }
-    read()
-    editor.on("transaction", read)
-    return () => { editor.off("transaction", read) }
-  }, [editor])
-  if (!word) return null
-  return (
-    <span data-vim-status role="status" className="pointer-events-none absolute bottom-2 left-3 z-10 text-meta text-muted-foreground">
-      {word}
-    </span>
-  )
-}

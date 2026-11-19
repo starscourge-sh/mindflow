@@ -6,6 +6,7 @@ import type { Transaction } from "@tiptap/pm/state"
 import { num } from '../../../../main/dates'
 import { useFormatBarShown } from '@/components/selection/selection-menu'
 import { shown, sizeOf, wordsIn, type Size } from '@/lib/note-size'
+import { vimPluginKey } from '@/extensions/vim-mode'
 
 /**
  * The whole note's size (lib/note-size.ts: lines, words, characters and the rest), counted again on each change from
@@ -85,9 +86,13 @@ export function WordCount({ editor, whole = true }: { editor: Editor | null; /**
   const chosen = useSelectionCounts(editor)
   const picked = chosen === "whole" ? counts : chosen
   const barShown = useFormatBarShown()
+  // Not in quick capture: its one line keeps its own end clear (main.css, [data-pill]).
+  const mode = useVimWord(BOX ? null : editor)
   // Nothing to count says nothing: an empty box stays empty. A short note needs no count under it either, in the box
   // or on a page: the count turns up once it is long.
-  const shows = whole && !!counts && counts.words >= BOX_FROM
+  const counted = whole && !!counts && counts.words >= BOX_FROM
+  // With Vim on, its mode is said here too, short note or long (the caret says it as well: a block in Normal).
+  const shows = counted || !!mode
 
   // Shown only where nothing is under it: past the last line, which is the
   // end of a long note scrolled down, or anywhere in a short one. Over words
@@ -156,7 +161,9 @@ export function WordCount({ editor, whole = true }: { editor: Editor | null; /**
       // Tinted from the ink, so it shows on a page the colour of the background too (Paper).
       // In the box, plain words with no pill: nothing there that looks like a button (Brutal outlines pills).
       className={`tiptap-word-count pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 px-2 py-0.5 text-xs whitespace-nowrap tabular-nums opacity-0 transition-opacity duration-200 data-clear:opacity-100 ${BOX ? 'text-muted-foreground' : 'rounded-full bg-[color-mix(in_oklab,var(--foreground)_7%,var(--background))] text-muted-foreground'}`}>
-      {num(words)} {words === 1 ? "word" : "words"} · {num(characters)} {characters === 1 ? "character" : "characters"}
+      {mode && <span data-vim-status role="status">{mode}</span>}
+      {mode && counted && " · "}
+      {counted && <>{num(words)} {words === 1 ? "word" : "words"} · {num(characters)} {characters === 1 ? "character" : "characters"}</>}
     </span>
   )
 }
@@ -222,4 +229,24 @@ function PickedCount({ dom, words, characters }: { dom: HTMLElement; words: numb
     </span>,
     document.body
   )
+}
+
+/**
+ * Vim's mode in a word, or null with Vim off: said in the count's own pill at the note's foot, where it is never over
+ * the words, a grip or a line number (17 Nov: "Insert" sat under line 1's grip, "Normal" over a line number).
+ */
+function useVimWord(editor: Editor | null): string | null {
+  const [word, setWord] = useState<string | null>(null)
+  useEffect(() => {
+    if (!editor) return
+    const read = (): void => {
+      const vim = vimPluginKey.getState(editor.state)
+      const next = !vim?.enabled ? null : vim.mode === "insert" ? "Insert" : vim.mode === "visual" || vim.mode === "visualLine" ? "Visual" : "Normal"
+      setWord((was) => (was === next ? was : next))
+    }
+    read()
+    editor.on("transaction", read)
+    return () => void editor.off("transaction", read)
+  }, [editor])
+  return word
 }
