@@ -39,6 +39,18 @@ import { Fit as Maximize2, PanelLeftClose, PanelLeftOpen, Search as SearchIcon, 
 import { LinkedWords, unlinked } from './linked-words'
 
 /** How a done thing's words look in every list: struck through, faintly. */
+
+/**
+ * A row's menu as RowMenu takes it: a menu made only when first read (items-view.tsx `itemEntry`) is handed on as
+ * that reading, so it is built as the menu opens, never as the row is drawn. Read while drawing, every row a fling
+ * brought in built its "Move to folder" lines, each folder's name checked against every other: with 300 folders,
+ * frames of 80 to 130 ms while scrolling Writing.
+ */
+const menuOf = (entry: Entry): Entry['menu'] | (() => NonNullable<Entry['menu']>) => {
+  const lazy = Object.getOwnPropertyDescriptor(entry, 'menu')?.get
+  return lazy ? () => entry.menu ?? [] : entry.menu
+}
+
 export const DONE_WORDS = 'line-through decoration-foreground/40'
 
 /**
@@ -549,7 +561,8 @@ export function NoteList({
         )}
       </button>
     )
-    const menued = entry.menu ? <RowMenu items={entry.menu}>{row}</RowMenu> : row
+    const menu = menuOf(entry)
+    const menued = menu ? <RowMenu items={menu}>{row}</RowMenu> : row
     // A tick of its own over the icon's room, a sibling of the row so a press on it never opens the row.
     // At the room's start, not its middle: a task among notes starts on the same ink edge as their pictures.
     return entry.lead && !grid ? (
@@ -969,7 +982,8 @@ export function NoteRail({
                 </Tip>
               </button>
             )
-            return entry.menu ? <RowMenu items={entry.menu}>{face}</RowMenu> : face
+            const menu = menuOf(entry)
+            return menu ? <RowMenu items={menu}>{face}</RowMenu> : face
           }}
         </VirtualList>
       </div>
