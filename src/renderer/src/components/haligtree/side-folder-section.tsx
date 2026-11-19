@@ -70,7 +70,8 @@ export function FoldersSection({ here, counted, onOpen, style, noteIn, noteRow, 
     // A starred folder shows the folders right inside it (and the way down to the one you are in), never deeper.
     const kids = depth === 0 ? inside(one.id) : inside(one.id).filter((kid) => path.includes(kid.id))
     return [
-      <FolderRow key={one.id} folder={one} all={live} here={here === one.id} n={counted ? deepCount(live, one.id) : null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)} onOpen={() => onOpen(one.id)} />,
+      // One light: a note of its own open under it (noteRow) is the lit one, the folder kept beside it is not lit too.
+      <FolderRow key={one.id} folder={one} all={live} here={here === one.id && !(noteRow && noteIn === one.id)} n={counted ? deepCount(live, one.id) : null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)} onOpen={() => onOpen(one.id)} />,
       ...(kids.length ? [<div key={`${one.id}:in`} data-no-twig=""><Branches current={lit(kids)} className="ml-5 flex flex-col gap-px">{kids.flatMap((kid) => row(kid, depth + 1))}</Branches></div>] : []),
       // The note in front, under the folder it lives in: only that one row, lit, for as long as it is in front.
       ...(noteRow && one.id === noteIn ? [<div key={`${one.id}:note`} data-no-twig=""><Branches current={0} className="ml-5 flex flex-col gap-px">{noteRow}</Branches></div>] : [])
