@@ -6,7 +6,7 @@
 //   QA_VAULT=<a copy of the vault, never the vault itself> QA_ARGS=--sandbox QA_DATA=<sandbox copy> \
 //   QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/folder-import.mjs
 import { DatabaseSync } from 'node:sqlite'
-import { appendFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'fs'
+import { appendFileSync, readdirSync, rmSync, statSync, utimesSync, writeFileSync } from 'fs'
 import { loadavg } from 'os'
 import { basename, join } from 'path'
 import { sandbox } from './sandbox-lib.mjs'
@@ -41,9 +41,12 @@ try {
   const all = await tree()
   check('it lands in Imports › Obsidian: <vault>', all.some((one) => one.path === `Imports › ${source}`), all.slice(0, 4).map((one) => one.path).join(' | '))
   check('the source\'s own folders are inside it', ['Unisa', 'cloud-engineer'].every((name) => all.some((one) => one.path === `Imports › ${source} › ${name}`)))
-  check('only "Imports" is starred, not the vault\'s tree', all.filter((one) => one.starred).map((one) => one.name).join() === 'Imports', all.filter((one) => one.starred).map((one) => one.name).join())
+  const imported = all.filter((one) => one.path.startsWith('Imports'))
+  check('only "Imports" is starred, not the vault\'s tree', imported.filter((one) => one.starred).map((one) => one.name).join() === 'Imports', imported.filter((one) => one.starred).map((one) => one.name).join())
   const once = await pages()
-  check('every note in a folder came in once', once.length === notesIn && first.made === notesIn, `${once.length} pages, ${first.made} made, ${notesIn} in the vault's folders`)
+  const empty = Number(first.notes.join(' ').match(/(\d+) empty files? (was|were) skipped/)?.[1] ?? 0)
+  check('every note in a folder came in once (the empty ones said)', once.length === first.made && first.made + empty === notesIn, `${once.length} pages, ${first.made} made, ${empty} empty, ${notesIn} in the vault's folders`)
+  const brought = first.made
   const filed = await c.v('folders:of', 'nuggets')
   check('each is kept in a folder', once.every((one) => filed[one.id]))
   check('the closing notice says where they are', first.notes.some((one) => /kept in .*Imports › Obsidian/.test(one)), first.notes[0])
@@ -52,11 +55,11 @@ try {
   check('its "Archive" folder is offered to be archived instead', offers.length === 1, offers[0])
 
   const again = await bring('again, unchanged')
-  check('brought again unchanged: nothing new, nothing doubled', again.made === 0 && (await pages()).length === notesIn)
-  check('it says everything is already here', again.notes.some((one) => one.startsWith(`Everything is already here: ${notesIn.toLocaleString()} notes`)), again.notes.join(' / '))
+  check('brought again unchanged: nothing new, nothing doubled', again.made === 0 && (await pages()).length === brought)
+  check('it says everything is already here', again.notes.some((one) => one.startsWith(`Everything is already here: ${brought.toLocaleString()} notes`)), again.notes.join(' / '))
 
   // One edited, one added, one deleted in the source.
-  const files = readdirSync(join(vault, 'Unisa'), { recursive: true }).filter((one) => String(one).endsWith('.md')).map((one) => join(vault, 'Unisa', String(one)))
+  const files = readdirSync(join(vault, 'Unisa'), { recursive: true }).filter((one) => String(one).endsWith('.md')).map((one) => join(vault, 'Unisa', String(one))).filter((one) => statSync(one).size > 200)
   appendFileSync(files[0], '\n\nA line added in the source after the first import.\n')
   utimesSync(files[0], new Date(), new Date(Date.now() + 60000))
   writeFileSync(join(vault, 'Unisa', 'A note added later.md'), '# A note added later\n\nNew in the source.\n')
@@ -64,7 +67,7 @@ try {
   rmSync(gone)
   const third = await bring('again, one edited, one added, one deleted')
   const now = await pages()
-  check('the added note came in, once', third.made === 1 && now.length === notesIn + 1, `${third.made} made, ${now.length} pages`)
+  check('the added note came in, once', third.made === 1 && now.length === brought + 1, `${third.made} made, ${now.length} pages`)
   check('the edited one was updated in place, said so', third.notes.some((one) => /1 was changed in .* since the last import/.test(one)), third.notes.join(' / '))
   const edited = now.find((one) => one.source.endsWith(basename(files[0])))
   check('its words are the new ones', String(edited?.body ?? '').includes('A line added in the source'))

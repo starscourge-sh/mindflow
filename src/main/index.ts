@@ -4821,7 +4821,7 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
     `${num(made.length)} new ${made.length === 1 ? 'note' : 'notes'} from ${basename(root)}, with ${num(pictures)} pictures, ${num(attached)} files and ${num(linked)} links.`,
     // Where they went, said plainly: the Inbox, with time to sort it.
     inbox ? `${plural(inbox, 'note is', 'notes are')} in your Inbox to sort through; ${inbox === 1 ? 'it' : 'they'} won't come back to you as old notes to tidy for 30 days.` : '',
-    already ? `${plural(already, 'was', 'were')} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
+    already && (made.length || updated) ? `${plural(already, 'was', 'were')} already here, from an earlier import, and ${already === 1 ? 'was' : 'were'} left as ${already === 1 ? 'it was' : 'they were'}.` : '',
     updated ? `${plural(updated, 'was', 'were')} changed in ${basename(root)} since the last import: ${updated === 1 ? 'its' : 'their'} words are the new ones, where${updated === 1 ? 'ver it is' : 'ver they are'} kept here.` : '',
     !made.length && !updated && already ? `Everything is already here: ${plural(already, 'note')}.` : '',
     empty ? `${num(empty)} empty ${empty === 1 ? 'file was' : 'files were'} skipped.` : '',

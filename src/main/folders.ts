@@ -52,6 +52,8 @@ export function folderColumns(): void {
     db.exec(`create index if not exists ${table}_by_folder on ${table}(folder_id)`)
   }
   column('note_groups', 'starred integer not null default 0')
+  // An imported page's file time when it was last brought, so bringing it again knows a changed one (captures.ts `importNote`).
+  column('nuggets', 'source_at text')
   column('note_groups', 'archived_at text')
   // Each change the one-time move made, so it can be undone: a thing's old group and order, a folder's old list and
   // parent (and its whole row, when it was merged into another of the same name), the lists' old order.

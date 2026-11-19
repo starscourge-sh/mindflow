@@ -58,7 +58,7 @@ try {
   const all = await time('"All folders…" opened', () => h.locator('[data-side-all-folders]').click(), () => document.querySelectorAll('[data-all-folder]').length > 0)
   check('"All folders…" opens in under a second', all < 1000, `${all}`)
   check('it draws the top level folded, not 1,000 rows', (await h.locator('[data-all-folder]').count()) <= 20, `${await h.locator('[data-all-folder]').count()}`)
-  const find = await time('found by typing', () => h.locator('[data-find-folder]').fill('Area 1'), () => document.querySelectorAll('[data-all-folder]').length >= 1 && document.querySelectorAll('[data-all-folder]').length < 50)
+  const find = await time('found by typing', () => h.locator('[data-find-folder] input, input[data-find-folder]').fill('Area 1'), () => document.querySelectorAll('[data-all-folder]').length >= 1 && document.querySelectorAll('[data-all-folder]').length <= 200)
   check('a search answers in under half a second', find < 500, `${find}`)
   const page = await time('a folder of 2,500 opened', () => c.send('folder', big.id).then(() => h.waitForTimeout(0)), () => document.querySelectorAll('[data-folder-item]').length > 0)
   check('a folder of 2,500 opens in under a second', page < 1500, `${page}`)

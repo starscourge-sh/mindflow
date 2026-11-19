@@ -5,11 +5,12 @@ import { Button } from '@/components/ui/button'
 import { GroupIcon } from './kept-groups'
 import { RowMenu } from './row-menu'
 import { Branches } from './branches'
+import { ListSearch } from './note-list'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
 import { askFolder, folders, keepIn, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
 import { deepCount, folderMenu, newFolderHere } from './side-folder-section'
-import { age, num } from '../../../../main/dates'
+import { age, num, plural } from '../../../../main/dates'
 
 /** Each kind in a folder, writing first (order-implies-purpose): its island's name and its icon. */
 const KINDS: { types: FolderKind[]; one: string; many: string; icon: typeof FileText }[] = [
@@ -44,9 +45,9 @@ function OneFolder({ id, all, onOpen, onPlace }: { id: string; all: Folder[]; on
   const islands = KINDS.map((kind) => ({ kind, rows: shown.filter((one) => kind.types.includes(one.type)) })).filter((one) => one.rows.length)
   // The one fact, on its own line: what it holds, every kind counted.
   const fact = unfiled
-    ? `${num(shown.length)} ${shown.length === 1 ? 'page or gem' : 'pages and gems'} in no folder.`
+    ? `${plural(shown.length, 'page or gem', 'pages and gems')} in no folder.`
     : !shown.length && !inside.length ? `Nothing in ${name} yet.`
-    : `${name} holds ${num(shown.length)}${islands.length ? `: ${islands.map(({ kind, rows }) => `${num(rows.length)} ${rows.length === 1 ? kind.one : kind.many}`).join(', ')}` : ''}${inside.length ? `${shown.length ? ', and' : ' things, and'} ${num(inside.length)} ${inside.length === 1 ? 'folder' : 'folders'}` : ''}.`
+    : `${name} holds ${num(shown.length)}${islands.length ? `: ${islands.map(({ kind, rows }) => plural(rows.length, kind.one, kind.many)).join(', ')}` : ''}${inside.length ? `${shown.length ? ', and' : ' things, and'} ${num(inside.length)} ${inside.length === 1 ? 'folder' : 'folders'}` : ''}.`
   const row = (one: FolderItem): React.JSX.Element => {
     const Icon = iconOf(one.type)
     return (
@@ -150,8 +151,8 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
     live.filter((one) => (one.parent ?? null) === parent).flatMap((one) => [line(one, 0), ...(open.has(one.id) ? [<div key={`${one.id}:in`} data-no-twig=""><Branches current={-1} className="ml-6 flex flex-col">{tree(one.id)}</Branches></div>] : [])])
   return (
     <Page title="Folders" count={live.length} unit={['folder', 'folders']}
-      search={<input data-find-folder="" value={typed} onChange={(event) => setTyped(event.target.value)} onKeyDown={(event) => event.key === 'Escape' && typed && (event.stopPropagation(), setTyped(''))} placeholder="Find a folder" aria-label="Find a folder"
-        className="h-7 w-48 rounded-md border border-border/70 bg-transparent px-2 text-control outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring/50" />}
+      // The lists' own search field (note-list.tsx `ListSearch`); ↵ opens the first folder found.
+      search={<span data-find-folder="" className="contents"><ListSearch value={typed} onChange={setTyped} onDone={() => found[0] && onPlace(found[0].id)} placeholder="Find a folder" /></span>}
       actions={<Button variant="ghost" data-folders-new-page="" onClick={() => newFolderHere(null)}><FolderPlus className="size-3.5" /> New folder</Button>}>
       <p className="mt-1 mb-4 px-1 text-[1.0625rem] leading-snug text-foreground">
         {all.length ? 'Where things live. A folder holds any kind: pages, notes, gems and tasks.' : 'Folders hold anything you keep. ⌃⌘N makes one.'}

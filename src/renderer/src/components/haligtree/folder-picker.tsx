@@ -7,7 +7,7 @@ import { chime } from '@/lib/sound'
 import { folders, keepIn, keepInNew, pathSaid, useFolders, type Thing } from '@/lib/folders'
 import { refuse, toast } from './ui'
 import { useLive } from '@/lib/haligtree'
-import { num } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 
 /**
  * "Keep in folder…": the one folder picker. Type to filter (every folder, with its path), ↵ keeps the things there;
@@ -39,7 +39,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
     void folders.moved().then((said) => {
       if (!said) return
       if ('failed' in said) return refuse(`Writing's and Gems' folders were not moved into Folders: ${said.failed}. Nothing was changed.`)
-      toast(`Writing's and Gems' folders are in Folders now: ${num(said.folders)} ${said.folders === 1 ? 'folder' : 'folders'} holding ${num(said.things)} ${said.things === 1 ? 'thing' : 'things'}. Nothing was lost, and a copy of your book from before is in your backups.`, undefined, 'info',
+      toast(`Writing's and Gems' folders are in Folders now: ${plural(said.folders, 'folder')} holding ${plural(said.things, 'thing')}. Nothing was lost, and a copy of your book from before is in your backups.`, undefined, 'info',
         { label: 'Show me', key: 'S', run: onFolders })
     })
   }, [])

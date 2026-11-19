@@ -1070,17 +1070,20 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
   if (toWriting || /(^|\/)permanent\//.test(path)) {
     // Brought before: the same note, never a second copy. Changed in the source since, and not written in here since
     // it came (its saved time is still the file's), its words are the new ones; wherever the person moved it, it stays.
-    const had = db.prepare("select id, body, updated_at as at from nuggets where tier = 'article' and source = ?").get(path) as { id: string; body: string; at: string } | undefined
+    // The file's own time when it was last brought (`source_at`, folders.ts lays the column down): a later one is a change.
+    const had = db.prepare("select id, source_at as at from nuggets where tier = 'article' and source = ?").get(path) as { id: string; at: string | null } | undefined
     if (had) {
-      const words = JSON.stringify(body)
-      if (had.body === words || had.at >= modified.toISOString() || Number.isNaN(Date.parse(had.at))) return 'already here'
-      db.prepare('update nuggets set body = ?, updated_at = ? where id = ?').run(words, modified.toISOString(), had.id)
+      const now = modified.toISOString()
+      // Brought before the time was kept: this import's time is where changes count from.
+      if (!had.at) db.prepare('update nuggets set source_at = ? where id = ?').run(now, had.id)
+      if (!had.at || had.at >= now) return 'already here'
+      db.prepare('update nuggets set body = ?, updated_at = ?, source_at = ? where id = ?').run(JSON.stringify(body), new Date().toISOString(), now, had.id)
       changed()
       return 'updated'
     }
     const id = randomUUID()
-    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields, private, unsorted) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept, secret ? 1 : 0, toWriting ? 1 : 0)
+    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields, private, unsorted, source_at) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept, secret ? 1 : 0, toWriting ? 1 : 0, modified.toISOString())
     if (aliases) db.prepare('update nuggets set aliases = ? where id = ?').run(aliases, id)
     return { link: `article:${id}`, title, path, private: secret }
   }
