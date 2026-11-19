@@ -1248,7 +1248,7 @@ const TypedDemo: Demo = ({ live }) => {
     <Col>
       <div className="text-control text-foreground">What is petrichor?</div>
       <Box text={at === 0 ? text : TYPED} caret={at === 0} />
-      <div className={`px-1 text-meta font-semibold transition-opacity ${at === 1 ? 'opacity-100' : 'opacity-0'}`} style={{ color: 'var(--tt-color-text-green)' }}>About 80% the same: that suggests Good</div>
+      <div className={`px-1 text-meta font-semibold transition-opacity ${at === 1 ? 'opacity-100' : 'opacity-0'}`} style={{ color: 'var(--foreground)' }}>Set it beside the answer and grade it yourself</div>
     </Col>
   )
 }

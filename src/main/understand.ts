@@ -187,6 +187,8 @@ export function registerStudyAi(on: () => boolean): void {
   const ask = async (op: string, body: Record<string, unknown>): Promise<Answer | { error: string }> => {
     if (!meets(await caps(), 'ai')) return { error: 'Needs Apple Intelligence' }
     if (!on()) return { error: 'Apple Intelligence is turned off in Settings' }
+    // A test run standing in for a Mac with the model (HALIGTREE_QA_CAPS=ai): a stand-in's verdict, marked as one.
+    if (op === 'judge' && process.env.HALIGTREE_QA_CAPS === 'ai') return { verdict: 'close', missing: "a stand-in's verdict" } as unknown as Answer
     const said = await understand(op, body)
     return said.error ? { error: said.error.message } : said
   }

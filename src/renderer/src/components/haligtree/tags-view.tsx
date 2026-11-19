@@ -334,9 +334,8 @@ export function TagsView({ onOpen, focus }: { onOpen: (type: string, id: string)
             <span data-tag-typed className="flex flex-wrap items-center gap-1.5 text-xs">
               <span className="whitespace-nowrap font-medium text-foreground">Typed answers:</span>
               <Chips options={[
-                { id: '', label: 'Usual', tip: 'An accent or unit left out is part wrong; a slip of a letter can count; capitals do not' },
-                { id: 'exact', label: 'Exact', tip: 'Every mark counts, capitals too: formulas, symbols, case names' },
-                { id: 'meaning', label: 'Meaning', tip: 'Accents and small slips pass: names, terms, dates in words' }
+                { id: '', label: 'Usual', tip: 'The answer word for word counts at once, capitals and stops aside; anything else you grade, or this Mac judges its meaning' },
+                { id: 'exact', label: 'Exact', tip: 'Only every mark the same, capitals too, counts at once: formulas, symbols, case names' }
               ]}
                 on={(id) => id === (study.typed[chosen] ?? '')}
                 pick={(id) => { const was = study.typed[chosen] ?? null; void haligtree.setTag(chosen, { typed: (id || null) as 'exact' | 'meaning' | null }).then(() => (chime('settled'), quietly(() => void haligtree.setTag(chosen, { typed: was })))) }} />

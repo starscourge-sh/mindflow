@@ -171,75 +171,22 @@ export function minutesFor(cards: number, msPerCard: number | null | undefined):
 }
 
 /**
- * How close a typed answer is to the real one, 0 to 1: for a short answer
- * (three words or fewer) the letters, so a typo still counts; for a longer
- * one the share of its key words you used.
- */
-export function closeness(typed: string, answer: string): number {
-  const flat = (text: string): string => text.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
-  const a = flat(typed)
-  const b = flat(answer)
-  if (!a || !b) return 0
-  if (b.split(' ').length <= 3) {
-    // Edit distance, as a share of the longer one.
-    const row = Array.from({ length: b.length + 1 }, (_, i) => i)
-    for (let i = 1; i <= a.length; i++) {
-      let last = row[0]
-      row[0] = i
-      for (let j = 1; j <= b.length; j++) {
-        const was = row[j]
-        row[j] = Math.min(row[j] + 1, row[j - 1] + 1, last + (a[i - 1] === b[j - 1] ? 0 : 1))
-        last = was
-      }
-    }
-    return Math.max(0, 1 - row[b.length] / Math.max(a.length, b.length))
-  }
-  const want = keyWords(b)
-  if (!want.size) return 0
-  const have = keyWords(a)
-  let hits = 0
-  for (const word of want) if (have.has(word)) hits++
-  return hits / want.size
-}
-
-/** The grade a typed answer suggests: Easy for a match, Good for close, Hard for part of it, Again for little. */
-export function suggestGrade(score: number): 1 | 2 | 3 | 4 {
-  return score >= 0.95 ? 4 : score >= 0.75 ? 3 : score >= 0.4 ? 2 : 1
-}
-
-/**
- * How strictly a tag's typed answers are checked. Usual: an accent or a unit
- * left out is part wrong, a slip of a letter can count, capitals do not.
- * Exact: every mark counts, capitals too (a formula, a chemical symbol, a
- * case name). Meaning: accents and slips pass (a name in history, a term).
+ * How strictly a tag's typed answers are taken as right at once. Usual: the answer word for word, capitals, spaces,
+ * stops and accents aside. Exact: every mark the same (a formula, a chemical symbol, a case name). "Meaning", an older
+ * tag's choice, reads as Usual: what an answer means is judged by Apple Intelligence where the Mac has it, and graded by
+ * you where it does not, never scored by the letters two answers share (19 Nov 2026: not reliable).
  */
 export type Strictness = 'usual' | 'exact' | 'meaning'
 
 /**
- * A typed answer checked the way a careful teacher would, for any subject:
- * the score from `closeness`, then the one thing that is off said in words.
- * Null `said` when there is nothing to add.
+ * A typed answer that is the answer word for word: capitals, runs of spaces and stops aside (accents too), or with
+ * `exact` every mark the same. The one check that may call an answer right without asking; how many letters two answers
+ * share decides nothing (19 Nov: not reliable).
  */
-export function typedCheck(typed: string, answer: string, how: Strictness = 'usual'): { score: number; grade: 1 | 2 | 3 | 4; said: string | null; close: boolean } {
-  const score = closeness(typed, answer)
-  const words = (text: string): string => text.trim().replace(/\s+/g, ' ').replace(/[.!?;,]+$/, '')
-  const a = words(typed)
-  const b = words(answer)
-  const bare = (text: string): string => text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
-  const grade = suggestGrade(score)
-  const none = { score, grade, said: null, close: false }
-  if (!a || !b || b.split(' ').length > 3 || a === b) return none
-  const exact = how === 'exact'
-  const off = (said: string, usual: 1 | 2 | 3 | 4, meaning: 1 | 2 | 3 | 4, close = false): ReturnType<typeof typedCheck> =>
-    exact ? { score, grade: 1, said: `${said.replace(/[.:]?$/, '')}. Exact counts here.`, close: false } : { score, grade: how === 'meaning' ? meaning : usual, said, close }
-  if (a.toLowerCase() === b.toLowerCase()) return exact ? off(`Right apart from capitals: ${b}`, 4, 4) : none
-  if (bare(a).toLowerCase() === bare(b).toLowerCase()) return how === 'meaning' ? { score, grade: 4, said: null, close: false } : off(`Right apart from the accent: ${b}`, 3, 4)
-  // A number with its unit: the number right and the unit left out.
-  const unit = b.match(/^(-?[\d.,]+)\s*(\S.*)$/)
-  if (unit && a.replace(/\s+/g, '') === unit[1]) return off(`Right number, but the unit is missing: ${b}`, 2, 3)
-  // A slip of a letter or two in a word of five or more.
-  if (b.length >= 5 && score >= 0.75 && grade < 4) return off(`Close: you wrote ${a}, it is ${b}.`, 3, 4, how === 'usual')
-  return none
+export function sameAnswer(typed: string, answer: string, exact = false): boolean {
+  if (exact) return typed.trim() === answer.trim()
+  const plain = (text: string): string => text.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[\p{P}\p{S}]+/gu, ' ').replace(/\s+/g, ' ').trim()
+  return !!plain(answer) && plain(typed) === plain(answer)
 }
 
 /**

@@ -1,7 +1,7 @@
 // Run with: node --test test/study.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { balancedDay, bucketOf, closeness, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, shuffleNew, suggestGrade, termLines, thingsIn, typedCheck, withinTagLimits, wordsIn } from '../src/main/study.ts'
+import { balancedDay, bucketOf, daysInARow, fitFirstDays, isEquation, isLeech, keyWords, LEECH_AT, lineCard, lineCardsIn, matchLineCards, mentions, minutesFor, sameAnswer, shuffleNew, termLines, thingsIn, withinTagLimits, wordsIn } from '../src/main/study.ts'
 
 test('a line with :: between words is a card', () => {
   assert.deepEqual(lineCard('Capital of Peru :: Lima'), { question: 'Capital of Peru', answer: 'Lima' })
@@ -93,18 +93,6 @@ test('a review takes about thirty seconds a card unless your reviews say otherwi
   assert.equal(minutesFor(12, 900000), 6)
 })
 
-test('a typed answer: typos still count on a short one, key words on a long one', () => {
-  assert.equal(closeness('Lima', 'Lima'), 1)
-  assert.ok(closeness('lmia', 'Lima') >= 0.5)
-  assert.ok(closeness('Paris', 'Lima') < 0.4)
-  assert.ok(closeness('light cannot escape past it', 'The boundary past which light cannot escape a black hole') >= 0.5)
-  assert.equal(closeness('', 'Lima'), 0)
-  assert.equal(suggestGrade(1), 4)
-  assert.equal(suggestGrade(0.8), 3)
-  assert.equal(suggestGrade(0.5), 2)
-  assert.equal(suggestGrade(0.1), 1)
-})
-
 test('a pasted list of term - meaning lines', () => {
   const list = termLines('Ephemeral - lasting a very short time\nLaconic – using few words\nSanguine: hopeful\n')
   assert.deepEqual(list.map((one) => one.term), ['Ephemeral', 'Laconic', 'Sanguine'])
@@ -187,34 +175,18 @@ test("a note's words, code left out, are where its cards' tags come from", () =>
   assert.equal(wordsIn('Notes #law\n```\n#not\n```').includes('#not'), false)
 })
 
-test('a typed answer says the one thing that is off, for any subject', () => {
-  // An accent left out is part wrong: never Easy.
-  assert.deepEqual(typedCheck('murcielago', 'murciélago'), { score: 1, grade: 3, said: 'Right apart from the accent: murciélago', close: false })
-  assert.equal(typedCheck('Dvorak', 'Dvořák').grade, 3)
-  // Capitals do not count.
-  assert.equal(typedCheck('paris', 'Paris').grade, 4)
-  assert.equal(typedCheck('paris', 'Paris').said, null)
-  // A unit left out: the number right, Hard.
-  assert.deepEqual(typedCheck('9.8', '9.8 m/s²'), { score: typedCheck('9.8', '9.8 m/s²').score, grade: 2, said: 'Right number, but the unit is missing: 9.8 m/s²', close: false })
-  // A slip of a letter in a long word: close, counted as Good if you like.
-  const slip = typedCheck('mitochondira', 'mitochondria')
-  assert.equal(slip.close, true)
-  assert.equal(slip.grade, 3)
-  assert.equal(slip.said, 'Close: you wrote mitochondira, it is mitochondria.')
-  // Exactly right says nothing more.
-  assert.deepEqual(typedCheck('Hastings', 'Hastings'), { score: 1, grade: 4, said: null, close: false })
-})
-
-test('a tag can make typed answers exact or check only the meaning', () => {
-  // Exact: chemistry symbols, formulas, case names. Any mark off is Forgot.
-  assert.equal(typedCheck('co2', 'CO2', 'exact').grade, 1)
-  assert.equal(typedCheck('co2', 'CO2', 'exact').said, 'Right apart from capitals: CO2. Exact counts here.')
-  assert.equal(typedCheck('murcielago', 'murciélago', 'exact').grade, 1)
-  assert.equal(typedCheck('mitochondira', 'mitochondria', 'exact').close, false)
-  // Meaning: a name in history; accents and slips pass.
-  assert.deepEqual(typedCheck('Dvorak', 'Dvořák', 'meaning'), { score: 1, grade: 4, said: null, close: false })
-  assert.equal(typedCheck('Tchaikovksy', 'Tchaikovsky', 'meaning').grade, 4)
-  assert.equal(typedCheck('9.8', '9.8 m/s²', 'meaning').grade, 3)
+test('a typed answer is right at once only word for word; how many letters it shares decides nothing', () => {
+  // Capitals, spaces, stops and accents aside.
+  assert.equal(sameAnswer('paris', 'Paris'), true)
+  assert.equal(sameAnswer('  Hastings. ', 'Hastings'), true)
+  assert.equal(sameAnswer('murcielago', 'murciélago'), true)
+  // A slip, a missing unit, a near word: not the answer; the person or this Mac judges it.
+  assert.equal(sameAnswer('mitochondira', 'mitochondria'), false)
+  assert.equal(sameAnswer('9.8', '9.8 m/s²'), false)
+  assert.equal(sameAnswer('', 'Lima'), false)
+  // Exact: every mark the same.
+  assert.equal(sameAnswer('co2', 'CO2', true), false)
+  assert.equal(sameAnswer('CO2', 'CO2', true), true)
 })
 
 test('a card coming back in 3 days or more lands on the lightest day in reach', () => {

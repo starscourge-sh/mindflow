@@ -37,7 +37,7 @@ import { onboarding } from '@/lib/onboarding'
 import { WithPictures } from './with-pictures'
 import { languageOf, sayAgain, speak } from '@/lib/read-aloud'
 import { LearnMode } from './learn-mode'
-import { isLeech, minutesFor, thingsIn, typedCheck, type Strictness } from '../../../../main/study'
+import { isLeech, minutesFor, sameAnswer, thingsIn, type Strictness } from '../../../../main/study'
 import { Star } from 'lucide-react'
 import { RowMenu, copyLinkItem, type RowItem } from './row-menu'
 import { tierItem } from './gem-or-card'
@@ -485,11 +485,14 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
   // The typed answer, set against the real one once it is shown: how close, and the grade that suggests.
   // The first of the card's tags with a rule for typed answers (a tag under it counts too), the way its language is found.
   const strictness = card ? (languageOf(`${card.title ?? ''} ${card.prompt ?? ''} ${textOf(card.body)}`, tagStudy.typed) ?? 'usual') as Strictness : 'usual'
-  const checked = shown && said.trim() && card ? typedCheck(said, answer ?? textOf(card.body), strictness) : null
-  const typedScore = checked?.score ?? null
+  // Counted right at once only when it is the answer word for word (capitals, spaces and stops aside; under a tag set to
+  // "Exact", every mark the same). Anything else is never graded by how many letters it shares, which proved unreliable
+  // (19 Nov, the user's ruling): with Apple Intelligence this Mac judges it by meaning, as a suggestion; without, your
+  // words stand beside the answer and you grade it yourself, nothing picked for you.
+  const exactly = !!(shown && said.trim() && card && sameAnswer(said, answer ?? textOf(card.body), strictness === 'exact'))
   const { grades, two, name: gradeName } = useGrades()
   // With two grades, Hard and Easy are both Got it: the suggestion is one of the buttons there.
-  const judgeKey = ai && shown && card && answerWords && said.trim() && checked && checked.score < 0.95 ? `${card.id}\n${said}` : null
+  const judgeKey = ai && shown && card && answerWords && said.trim() && !exactly ? `${card.id}\n${said}` : null
   const [meaning, setMeaning] = useState<{ key: string; got: Judged | null } | null>(null)
   useEffect(() => {
     if (!judgeKey) return
@@ -504,8 +507,8 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
   const judged = judgeKey && meaning?.key === judgeKey ? meaning.got : null
   const judging = !!judgeKey && meaning?.key === judgeKey && !meaning.got
   const verdict = judged && 'verdict' in judged ? judged : null
-  // The grade it suggests: by meaning where that was judged, never lower than the letters say.
-  const leaning = typedScore === null ? null : verdict ? Math.max(checked!.grade, meaningGrade(verdict.verdict)) as 1 | 2 | 3 | 4 : checked!.grade
+  // The grade it suggests: Easy for the answer word for word, else this Mac's judgement of its meaning, else none.
+  const leaning = !said.trim() || !shown ? null : exactly ? 4 : verdict ? meaningGrade(verdict.verdict) : null
   const suggested = leaning === null ? null : two ? (leaning === 1 ? 1 : 3) : leaning
   const stopJudge = (): void => setMeaning((was) => (was && !was.got ? { key: was.key, got: { error: 'stopped' } } : was))
   // Split, only the pane in front answers keys.
@@ -882,22 +885,18 @@ export function ReviewView({ compact = false, tag, actions, lead, onLeave }: { c
 
         {shown ? (
           <>
-            {said.trim() && suggested && (
-              <div data-typed className="-mb-2 flex flex-col gap-1 text-sm">
+            {said.trim() && (
+              <div data-typed={exactly ? 'exact' : judgeKey ? 'meaning' : 'self'} className="-mb-2 flex flex-col gap-1 text-sm">
                 {!verdict && !judging && <p className="whitespace-pre-line text-muted-foreground">You wrote: {said}</p>}
                 {judging || verdict ? (
                   // One line, the same height waiting and answered, so the grades under it never move; the why is under the grades.
                   <p data-meaning-slot={verdict ? verdict.verdict : 'wait'} className="flex h-6 items-center whitespace-nowrap">
-                    {verdict ? <strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>{VERDICT_SAID[verdict.verdict]}: that suggests {gradeName(suggested)}.</strong> : <Orb label="Checking what it means, on this Mac…" stop={stopJudge} />}
+                    {verdict && suggested ? <strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>{VERDICT_SAID[verdict.verdict]}: that suggests {gradeName(suggested)}.</strong> : <Orb label="Checking what it means, on this Mac…" stop={stopJudge} />}
                   </p>
+                ) : exactly && suggested ? (
+                  <p><strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>Word for word: that suggests {gradeName(suggested)}.</strong> <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
                 ) : (
-                  <p><strong className="font-semibold" style={{ color: GRADES[suggested - 1].tone }}>About {Math.round((typedScore ?? 0) * 100)}% the same: that suggests {gradeName(suggested)}.</strong> <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
-                )}
-                {checked?.said && (
-                  <p data-typed-said className="flex flex-wrap items-center gap-2 text-body font-medium text-foreground">
-                    {checked.said}
-                    {checked.close && <Button variant="outline" size="sm" data-typed-count onClick={() => grade(3)}>Count it as {gradeName(3)}</Button>}
-                  </p>
+                  <p className="text-foreground">Set it beside the answer and grade it yourself. <span className="text-muted-foreground">Kept as a thought on the card when you grade it.</span></p>
                 )}
               </div>
             )}

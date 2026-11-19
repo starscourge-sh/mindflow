@@ -440,7 +440,7 @@ try {
     await h.keyboard.press('3')
     await wait(900)
     const kept = (await v('glosses', peru)).length === glosses + 1
-    say('typed', /About \d+% the same: that suggests (Again|Hard|Good|Easy)/.test(said) && kept ? 'PASS' : 'FAIL', `"${said.slice(0, 70)}"; kept as a thought: ${kept}`)
+    say('typed', /Word for word: that suggests (Easy|Got it)|grade it yourself|that suggests (Again|Hard|Good|Easy)/.test(said) && kept ? 'PASS' : 'FAIL', `"${said.slice(0, 70)}"; kept as a thought: ${kept}`)
   })
 
   // --- practisetag: Practise on a tag, Space, J, K, nothing scheduled ---------------------------

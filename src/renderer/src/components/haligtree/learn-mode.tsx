@@ -4,7 +4,10 @@ import type { JSONContent } from '@tiptap/core'
 
 import { chime } from '@/lib/sound'
 import { haligtree, type Due, type Item } from '@/lib/haligtree'
-import { closeness, suggestGrade } from '../../../../main/study'
+import { sameAnswer } from '../../../../main/study'
+import { judge, meaningGrade, useStudyAi } from '@/lib/study-ai'
+import { useLive } from '@/lib/haligtree'
+import { Orb } from './orb'
 import { num } from '../../../../main/dates'
 import { textOf } from '../rot-cards'
 import { HaligtreeEditor } from '../haligtree'
@@ -86,13 +89,31 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
     if (!rest.length) chime('reviewed')
     setSteps(rest)
     setSaid(null)
+    setAsking(null)
     setTyped('')
     started.current = Date.now()
   }
+  // A written answer: right at once only word for word (capitals and stops aside). Otherwise this Mac judges what it
+  // means where it can; elsewhere the answer is shown beside your words and you say whether you had it. How many
+  // letters they share decides nothing (19 Nov, the user's ruling: not reliable).
+  const ai = useStudyAi(useLive(haligtree.settings, null as Awaited<ReturnType<typeof haligtree.settings>> | null))
+  const [asking, setAsking] = useState<'judging' | 'yours' | null>(null)
   const check = (): void => {
-    if (!step || said || !typed.trim()) return
-    answer(suggestGrade(closeness(typed, answerLine(step.card))) >= 3)
+    if (!step || said || asking || !typed.trim()) return
+    const line = answerLine(step.card)
+    if (sameAnswer(typed, line)) return answer(true)
+    if (!ai) return setAsking('yours')
+    setAsking('judging')
+    const card = step.card
+    void judge(card.prompt ?? '', line, typed).then((got) => {
+      if (step?.card.id !== card.id) return
+      setAsking(null)
+      if ('verdict' in got) answer(meaningGrade(got.verdict) >= 3)
+      else setAsking('yours')
+    })
   }
+  // Yours to say, beside the answer.
+  const own = (ok: boolean): void => (setAsking(null), answer(ok))
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if (event.metaKey || event.ctrlKey) return
@@ -149,8 +170,8 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
             <div className="flex flex-col gap-2">
               <Input autoFocus value={typed} disabled={!!said} onChange={(event) => setTyped(event.target.value)} placeholder="In your own words is fine"
                 onKeyDown={(event) => event.key === 'Enter' && !said && (event.preventDefault(), event.stopPropagation(), check())} className="h-10 text-base" />
-              {said && (
-                <div className="rounded-lg border px-4 py-3 text-sm [--mf-padding:0] [&_.tiptap-word-count]:hidden">
+              {(said || asking === 'yours') && (
+                <div data-learn-answer className="rounded-lg border px-4 py-3 text-sm [--mf-padding:0] [&_.tiptap-word-count]:hidden">
                   <p className="mb-1 text-xs text-muted-foreground">The answer</p>
                   <HaligtreeEditor defaultContent={(step.card.body as JSONContent | string | null) ?? ''} readOnly toolbar={false} handles={false} slash={false} outline={false} search={false} autofocus={false} />
                 </div>
@@ -171,6 +192,14 @@ export function LearnMode({ onDone }: { onDone: () => void }): React.JSX.Element
               </p>
               <Button size="sm" onClick={next}>Continue</Button>
             </div>
+          ) : step.kind === 'written' && asking === 'yours' ? (
+            <div data-learn-yours className="flex flex-wrap items-center gap-2">
+              <p className="mr-auto text-base text-foreground">Set your words beside the answer: did you have it?</p>
+              <Button size="sm" variant="outline" data-learn-own="no" onClick={() => own(false)}>Not yet</Button>
+              <Button size="sm" data-learn-own="yes" onClick={() => own(true)}>I had it</Button>
+            </div>
+          ) : step.kind === 'written' && asking === 'judging' ? (
+            <p className="h-8"><Orb label="Checking what it means, on this Mac…" /></p>
           ) : step.kind === 'written' && <Button size="sm" className="self-start" onClick={check}>Check</Button>}
         </>
       )}

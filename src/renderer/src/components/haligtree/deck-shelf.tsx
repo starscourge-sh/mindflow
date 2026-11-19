@@ -733,9 +733,8 @@ function MenuDots(): React.JSX.Element {
 /** What each timer and typed-answer check does, said once under its row: the one chosen. */
 const TIMERS = [0, 10, 20, 30, 60]
 const TYPED: { id: string; label: string; says: string }[] = [
-  { id: '', label: 'Usual', says: 'An accent or unit left out is part wrong; a slip of a letter can count; capitals do not.' },
-  { id: 'exact', label: 'Exact', says: 'Every mark counts, capitals too: formulas, symbols, case names.' },
-  { id: 'meaning', label: 'Meaning', says: 'Accents and small slips pass: names, terms, dates in words.' }
+  { id: '', label: 'Usual', says: 'The answer word for word counts at once, capitals and stops aside; anything else you grade, or this Mac judges its meaning.' },
+  { id: 'exact', label: 'Exact', says: 'Only every mark the same, capitals too, counts at once: formulas, symbols, case names.' }
 ]
 
 /** One setting in the sheet: its name, its choices, and what the one chosen does, on a quiet line under. */
