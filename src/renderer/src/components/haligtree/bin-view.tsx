@@ -22,6 +22,7 @@ import { HoldButton } from './hold-button'
 import { CAPTURE_TYPES, byKind } from '../capture-kinds/capture-kind-picker'
 import { Display, FilterChips, arrange, useView, type Facet } from './display'
 import { RowMenu, copy, type MenuItem } from './row-menu'
+import { ListSearch } from './note-list'
 import { num, plural } from '../../../../main/dates'
 import { quoted } from '../../../../main/clip'
 import { linkKinds } from '@/lib/capture-links'
@@ -58,6 +59,9 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
       return { id: kindSaid(one), label: kindSaid(one), icon: type?.icon ?? look?.icon, tint: type?.tint ?? (look ? `var(--tt-color-text-${look.color})` : undefined) }
     }), test: (one, kind) => kindSaid(one) === kind }
   ]
+  // Found by its name as you type, the lists' own search field (note-list.tsx `ListSearch`), as every other list is.
+  const [typed, setTyped] = useState('')
+  const words = typed.trim().toLowerCase()
   // A kind chosen whose last one has gone (restored, deleted) filters nothing: its chip has gone too, so it could not be taken off.
   const kinds = facets[0].options.map((one) => one.id)
   const live = { ...view, filter: { ...view.filter, kind: (view.filter.kind ?? []).filter((one) => kinds.includes(one)) } }
@@ -65,7 +69,7 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
     newest: (a, b) => b.at.localeCompare(a.at),
     'oldest-binned': (a, b) => a.at.localeCompare(b.at),
     name: (a, b) => nameOf(a).text.localeCompare(nameOf(b).text)
-  })[0][1]
+  })[0][1].filter((one) => !words || nameOf(one).text.toLowerCase().includes(words))
   // Some of the Bin left out by a filter: what is shown is what the buttons act on, as ⌘A does.
   const filtered = shown.length < binned.length
   // Picked rows, by type and id; only what is still on show counts.
@@ -192,7 +196,7 @@ export function BinView({ onOpen, focus }: { onOpen?: (type: string, id: string)
   return (
     <>
     {/* Drawn with what is in it (lib/reads-in.tsx): before, the line over it came a beat late, with "Restore all" and "Hold to empty", and pushed the words down. */}
-    <Page aside={!!looked} waiting={unloaded(binned)} title="Bin" count={unloaded(binned) ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['thing', 'things']} actions={
+    <Page aside={!!looked} waiting={unloaded(binned)} title="Bin" search={!unloaded(binned) && binned.length > 0 && <ListSearch value={typed} onChange={setTyped} onDone={() => undefined} placeholder="Find in the Bin" />} count={unloaded(binned) ? undefined : chosen.length || shown.length} unit={chosen.length ? ['selected', 'selected'] : ['thing', 'things']} actions={
       chosen.length ? (
         <span className="flex items-center gap-1">
           <Button size="sm" variant="secondary" onClick={() => restoreMany(pickedRows)}>{chosen.length === 1 ? 'Restore' : `Restore ${num(chosen.length)}`}</Button>
