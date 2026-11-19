@@ -31,10 +31,14 @@ export const deepCount = (all: Folder[], id: string): number =>
  * line per import, not every source's whole tree. Then "Not in a folder N", the pages and gems with no folder, and
  every folder's page from the heading (its arrow, its right-click). A row takes anything dropped on it (split-drop.tsx `keepDrop`).
  */
-export function FoldersSection({ here, counted, onOpen, style }: { here: FolderPlace | undefined; counted: boolean; onOpen: (place: FolderPlace) => void; style?: React.CSSProperties }): React.JSX.Element {
+export function FoldersSection({ here, counted, onOpen, style, noteIn, noteRow, noteKey }: { here: FolderPlace | undefined; counted: boolean; onOpen: (place: FolderPlace) => void; style?: React.CSSProperties
+  /** The folder the note in front lives in, with its one lit row to hang under that folder, and which note it is. */
+  noteIn?: string; noteRow?: React.ReactNode; noteKey?: string }): React.JSX.Element {
   const all = useFolders()
   const [open, setOpen] = useState(() => localStorage.getItem('sidebar:folders') !== 'shut')
   const fold = (next: boolean): void => (chime(next ? 'slide' : 'fold'), setOpen(next), localStorage.setItem('sidebar:folders', next ? 'open' : 'shut'))
+  // Folded by hand, it stays folded until focus next comes to something in a folder: then it opens on it, as Writing's did.
+  useEffect(() => void (noteKey && noteIn && setOpen(true)), [noteKey]) // eslint-disable-line react-hooks/exhaustive-deps
   const [naming, setNaming] = useState<string | null>(null)
   useEffect(() => {
     const make = (event: Event): void => {
@@ -55,23 +59,27 @@ export function FoldersSection({ here, counted, onOpen, style }: { here: FolderP
   const live = all.filter((one) => !one.archived)
   const ids = new Set(live.map((one) => one.id))
   // Starred, and the way down to the one you are in: shown at the top level unless a starred folder above holds it.
-  const path = typeof here === 'string' && here !== 'unfiled' ? pathOf(live, here).map((one) => one.id) : []
+  // The way down to the folder you are in, or to the one holding the note in front.
+  const at = typeof here === 'string' && here !== 'unfiled' ? here : noteIn
+  const path = at ? pathOf(live, at).map((one) => one.id) : []
   const starredAbove = (one: Folder): boolean => pathOf(live, one.parent).some((up) => up.starred)
-  const tops = live.filter((one) => (one.starred && !starredAbove(one)) || (one.id === here && !one.starred && !path.slice(0, -1).some((up) => live.find((f) => f.id === up)?.starred)))
+  const tops = live.filter((one) => (one.starred && !starredAbove(one)) || (one.id === path[0] && !one.starred && !path.slice(0, -1).some((up) => live.find((f) => f.id === up)?.starred)))
   const inside = (id: string): Folder[] => live.filter((one) => one.parent === id)
-  const lit = (list: Folder[]): number => list.findIndex((one) => one.id === here || path.includes(one.id))
+  const lit = (list: Folder[]): number => list.findIndex((one) => one.id === at || path.includes(one.id))
   const row = (one: Folder, depth: number): React.JSX.Element[] => {
     // A starred folder shows the folders right inside it (and the way down to the one you are in), never deeper.
     const kids = depth === 0 ? inside(one.id) : inside(one.id).filter((kid) => path.includes(kid.id))
     return [
       <FolderRow key={one.id} folder={one} all={live} here={here === one.id} n={counted ? deepCount(live, one.id) : null} naming={naming === one.id} onNamed={() => setNaming(null)} onRename={() => setNaming(one.id)} onOpen={() => onOpen(one.id)} />,
-      ...(kids.length ? [<div key={`${one.id}:in`} data-no-twig=""><Branches current={lit(kids)} className="ml-5 flex flex-col gap-px">{kids.flatMap((kid) => row(kid, depth + 1))}</Branches></div>] : [])
+      ...(kids.length ? [<div key={`${one.id}:in`} data-no-twig=""><Branches current={lit(kids)} className="ml-5 flex flex-col gap-px">{kids.flatMap((kid) => row(kid, depth + 1))}</Branches></div>] : []),
+      // The note in front, under the folder it lives in: only that one row, lit, for as long as it is in front.
+      ...(noteRow && one.id === noteIn ? [<div key={`${one.id}:note`} data-no-twig=""><Branches current={0} className="ml-5 flex flex-col gap-px">{noteRow}</Branches></div>] : [])
     ]
   }
   // Many starred: the first 12, and the one you are in, the rest a press away, so they never push the sidebar long.
   const [every, setEvery] = useState(false)
   const starred = tops.filter((one) => ids.has(one.id))
-  const rows = every || starred.length <= SHOWN ? starred : starred.filter((one, at) => at < SHOWN || one.id === here || path.includes(one.id))
+  const rows = every || starred.length <= SHOWN ? starred : starred.filter((one, n) => n < SHOWN || one.id === here || path.includes(one.id))
   // F2 renames the folder whose row has the keys, or the one you are in, in place (Finder's way).
   useEffect(() => {
     const key = (event: KeyboardEvent): void => {
@@ -111,7 +119,8 @@ export function FoldersSection({ here, counted, onOpen, style }: { here: FolderP
     <div data-side-section="folders" data-side-folders-section="" style={style} className="flex flex-col">
       <RowMenu items={[{ label: 'New folder', keys: '⌃⌘N', run: () => newFolderHere(null) }, { label: 'All folders…', run: () => onOpen(null) }]}>
         <div className="group/head relative mt-2.5 mb-0.5 flex min-h-6 items-center gap-1 px-2 py-0.5 text-meta">
-          <button type="button" data-side-row data-side-section-handle="folders" aria-expanded={open} onClick={() => fold(!open)}
+          {/* Folded with the note in front inside it: the heading holds the light, so there is always one. */}
+          <button type="button" data-side-row data-side-section-handle="folders" aria-expanded={open} aria-current={!open && noteRow && noteIn ? 'page' : undefined} onClick={() => fold(!open)}
             className={`absolute inset-0 flex items-center gap-1 rounded-md px-2 text-left transition-colors duration-80 group-hover/head:text-foreground ${here === null ? 'text-foreground' : 'text-muted-foreground'}`}>
             Folders
             <ChevronRight className={`size-3 transition-transform duration-80 ${open ? 'rotate-90' : ''}`} />

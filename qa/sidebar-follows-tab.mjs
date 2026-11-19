@@ -39,13 +39,13 @@ try {
   await clean()
   const articles = await v('items', 'article')
   const gems = await v('items', 'nugget')
-  const folders = await h.evaluate(() => window.api.haligtree('groups', 'article'))
-  const gemFolders = await h.evaluate(() => window.api.haligtree('groups', 'nugget'))
-  const folder = folders.find((one) => one.folder !== 0 && one.members.length > 1)
-  const inFolder = articles.find((one) => folder.members.includes(one.id))
-  const loose = articles.find((one) => !folders.some((f) => f.members.includes(one.id)))
-  const inGems = gemFolders.find((one) => one.folder !== 0 && one.members.length)
-  const gem = inGems && gems.find((one) => inGems.members.includes(one.id))
+  // Folders, one tree for the whole book (since 18 Nov): where each page and gem lives, by Folders' own record.
+  const kept = await h.evaluate(() => window.api.haligtree('folders:of', 'nuggets'))
+  const tree = await h.evaluate(() => window.api.haligtree('folders'))
+  const inFolder = articles.find((one) => kept[one.id] && tree.some((f) => f.id === kept[one.id] && !f.archived))
+  const folder = tree.find((one) => one.id === kept[inFolder.id])
+  const loose = articles.find((one) => !kept[one.id])
+  const gem = gems.find((one) => kept[one.id])
 
   // Places
   for (const [id, label] of [['calendar', 'Calendar'], ['today', 'Tasks'], ['review', 'Review'], ['inbox', 'Inbox']]) {
@@ -69,12 +69,10 @@ try {
   check('its row is in view', await noteRow.evaluate((el) => { const b = el.getBoundingClientRect(); const a = el.closest('aside').getBoundingClientRect(); return b.top >= a.top && b.bottom <= a.bottom }))
   await h.screenshot({ path: `${shots}/note-row-light.png` })
   await c.look('dark'); await wait(300); await h.screenshot({ path: `${shots}/note-row-dark.png` }); await c.look('light'); await wait(200)
-  // Folded by hand
-  await h.locator('[data-tour]').first().hover().catch(() => {})
-  await row('Writing').hover(); await wait(100)
-  await h.locator('[data-folders-fold="article"]').click(); await wait(500)
-  await one('its section folded by hand: Writing takes the light', { kind: 'place', text: 'Writing' })
-  check('it stays folded', (await h.locator('[data-folders-fold="article"]').getAttribute('aria-expanded')) === 'false')
+  // Folded by hand: the Folders section's heading holds the light.
+  await h.locator('[data-side-section-handle="folders"]').click(); await wait(500)
+  await one('its section folded by hand: Folders takes the light', { kind: 'place', text: 'Folders' })
+  check('it stays folded', (await h.locator('[data-side-section-handle="folders"]').getAttribute('aria-expanded')) === 'false')
   await go('calendar')
   await send('article', inFolder.id); await wait(1200)
   await one('focus coming back to something in it unfolds it', { kind: 'note' })
