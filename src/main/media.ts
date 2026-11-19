@@ -466,6 +466,8 @@ export function mediaPeek(src: string): { type: string; id: string; title: strin
 
 /** Every file in the book, one tile each: what notes hold, then what was added with no note, newest first. */
 function allMedia(): Media[] {
+  // Nothing written since the last read: the same answer (Files, the Calendar and Home each ask as they open; a big book's read is 400 ms of main).
+  if (media?.at === bookStamp()) return [...media.all]
   const db = database()
   // Only bodies that point into the store are read at all.
   const HOLDS = "body like '%://assets/%'"
@@ -559,8 +561,11 @@ function allMedia(): Media[] {
   findIndex = index
   // Said with the book's stamp after this read's own writes: until something is written again, the answer stands.
   library = { at: bookStamp(), srcs: all.filter((one) => one.how === 'library').map((one) => one.src) }
-  return all.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0))
+  media = { at: library.at, all: all.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)) }
+  return [...media.all]
 }
+/** The last answer of allMedia, with the book's stamp it holds for. */
+let media: { at: number; all: Media[] } | null = null
 
 /**
  * The library's files (added on purpose or kept in Files), as every window asks for them: on each right-click, and
