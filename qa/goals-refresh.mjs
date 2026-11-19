@@ -1,4 +1,4 @@
-// The Goals page, refreshed: list rows with no flag tile and no dinosaur, a
+// The Goals page, refreshed: list rows with no flag tile and the book's own bar, a
 // line that says the days and the logs, a thin bar of the time gone; goals on
 // the same day under that day's heading; the page's number said once; the
 // road only from the day it was set, every marked dot named on the chart in
@@ -61,7 +61,8 @@ try {
   const row = (id) => rows.find((one) => one.id === id) ?? { text: '', tiles: -1, dino: -1, bar: null }
   check('every dated goal row is on the Goals tab, the someday one is not', [short, year, logged, past, twinA, twinB].every((id) => rows.some((one) => one.id === id)) && !rows.some((one) => one.id === life), rows.length)
   check('no goal row has a flag tile', rows.every((one) => one.tiles === 0), rows.map((one) => one.tiles).join(','))
-  check('no goal row has the dinosaur bar, even with dinosaur bars on', rows.every((one) => one.dino === 0), rows.map((one) => one.dino).join(','))
+  // Since ea6191c2b every bar in the book is drawn the way Settings says, the Goals page's rows too: with dinosaur bars on, the dinosaur.
+  check('every goal row wears the book\'s own bar: the dinosaur, with dinosaur bars on', rows.length > 0 && rows.every((one) => one.dino === 1), rows.map((one) => one.dino).join(','))
   check('a goal with no logs: "N days · nothing logged"', /Pack for Lisbon 9 days · nothing logged$/.test(row(short).text), row(short).text)
   check('a goal with logs: "4 logs, last today"', /Finish chapter three 45 days · 4 logs, last today$/.test(row(logged).text), row(logged).text)
   check('a goal past its day asks how it went', /3 days past: did you make it\?/.test(row(past).text), row(past).text)
