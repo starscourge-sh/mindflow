@@ -106,12 +106,20 @@ const RECORDER = () => {
       if (now !== last && els.length > 1) frames.push({ at: Math.round(performance.now() - t0), els, rows, heads }), (last = now)
       if (performance.now() - t0 < ms) requestAnimationFrame(after)
     }
-    // Read just after each frame is painted: read at the frame's start, a state the frame's own
-    // layout and size observers put right before painting it (a line folding its buttons) was
-    // counted as drawn though it never was.
-    const paint = new MessageChannel()
-    paint.port1.onmessage = tick
-    const after = () => paint.port2.postMessage(0)
+    // Read as each frame is about to be painted, after the page's own size observers have had their say:
+    // read at the frame's start, a state those observers put right before painting it (a line folding
+    // its buttons) was counted as drawn though it never was; read in a task after the frame, the page's
+    // own next task (a list's render) could come first, and a state never painted was counted
+    // ("Stick all goals" drawn then gone 6ms later). A size observer made in the frame is the last
+    // one the frame asks, so it reads what the frame will paint.
+    const mark = document.createElement('div')
+    mark.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;pointer-events:none;opacity:0'
+    document.documentElement.append(mark)
+    const after = () => {
+      if (!mark.isConnected) document.documentElement.append(mark)
+      const last = new ResizeObserver(() => (last.disconnect(), tick()))
+      last.observe(mark)
+    }
     tick()
     requestAnimationFrame(after)
   }
