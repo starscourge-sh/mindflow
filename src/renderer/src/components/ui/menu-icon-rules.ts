@@ -6,7 +6,7 @@ import {
   Library, Lightbulb, Link, List, ListChecks, ListStart, Lock, LockOpen, LogOut, Map as MapIcon, Maximize2, Merge, MessageCircleQuestion, MessageSquare, Minimize2, Monitor,
   MonitorUp, MoveRight, NotebookText, Palette, Languages, Scissors, Pause, Play, Scale, ScanText, PanelLeft, PanelRight, Pencil, Pin, PinOff, Plus, Quote, Repeat, RotateCcw, Search, Settings, Shapes, Shield,
   ShieldCheck, Smile, Snowflake, Sparkles, SquareCheck, SquareKanban, SquarePen, Star, StickyNote, Sun, Tag, Target, Timer, Trash2, Type, Undo2, Ungroup, Upload,
-  PanelTop, PanelsTopLeft, Speech, ThumbsDown, ThumbsUp, Unlink, User, UserCheck, UserX, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, SlidersHorizontal, Minus, Highlighter, Layers, Heart, StarOff, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Users, Magnet, Mountain, PaintBucket, Telescope, type LucideIcon
+  PanelTop, PanelsTopLeft, Speech, ThumbsDown, ThumbsUp, Unlink, User, UserCheck, UserX, Video, Volume2, VolumeX, WandSparkles, Wrench, X, Zap, PenLine, SpellCheck, Mic, ArrowLeftRight, ClipboardPaste, Minus, Highlighter, Layers, Heart, StarOff, ArrowUpToLine, ArrowDownToLine, ToggleLeft, ToggleRight, FlipVertical2, GalleryVertical, File as FileIcon, Moon, ScrollText, Users, Magnet, Mountain, PaintBucket, Telescope, type LucideIcon
 } from 'lucide-react'
 
 /**
@@ -110,7 +110,6 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^switch$/i, ArrowLeftRight],
   [/^collect what i copy/i, ClipboardPaste],
   [/^set it aside/i, Archive],
-  [/^change the rule/i, SlidersHorizontal],
   [/^no length$/i, CircleOff],
   [/^the session$|^i have \d+ min/i, Timer],
   [/^make it a line/i, Minus],
@@ -235,8 +234,6 @@ const RULES: [RegExp, LucideIcon][] = [
   [/^unarchive folder$/i, ArchiveRestore],
   [/^delete folder, keep what/i, FolderMinus],
   [/^archive them$/i, Archive],
-  // A group gathers by a tag and is no folder (it never opens): its own sign, never the folder's beside "New folder".
-  [/^new group by a tag/i, Hash],
   [/^new page/i, FilePlus],
   [/^new group|^group with|new note in group/i, FolderPlus],
   [/remove from group|^out of its group/i, FolderMinus],

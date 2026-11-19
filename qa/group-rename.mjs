@@ -92,8 +92,7 @@ try {
   if (!process.env.QA_SIDE) await surface('nugget', 'nuggets', 'Gems')
   if (!process.env.QA_SIDE) await surface('nugget', 'nuggets', 'Gems, a gem open', { sort: 'newest', open: true })
 
-  // The sidebar: a folder's and a tag group's "Rename…" (right click), typed, Enter; Esc; ⌘Z.
-  await v('settings:set', { smartGroups: [{ id: 'qa-smart', list: 'article', name: 'Rome', tags: ['rome'] }] })
+  // The sidebar: a folder's "Rename…" (right click), typed, Enter; Esc; ⌘Z.
   await go('home'); await go('articles'); await wait(900)
   const sideRename = async (row, words, key = 'Enter') => {
     await h.locator(row).first().click({ button: 'right' }); await wait(300)
@@ -104,14 +103,6 @@ try {
     await h.keyboard.type(words, { delay: 20 }); await h.keyboard.press(key); await wait(700)
     return open
   }
-  const smartName = async () => (await v('settings')).smartGroups?.find((one) => one.id === 'qa-smart')?.name
-  check('sidebar tag group: "Rename…" opens the name for typing', await sideRename('aside [data-side-group="qa-smart"]', 'Roman food'))
-  check('sidebar tag group: Enter keeps it', (await smartName()) === 'Roman food', await smartName())
-  await sideRename('aside [data-side-group="qa-smart"]', 'Not this', 'Escape')
-  check('sidebar tag group: Esc leaves it', (await smartName()) === 'Roman food', await smartName())
-  await h.mouse.click(1250, 880); await h.keyboard.press('Meta+z'); await wait(800)
-  check('sidebar tag group: ⌘Z takes it back', (await smartName()) === 'Rome', await smartName())
-  check('sidebar tag group: the row shows it', (await h.locator('aside [data-side-group="qa-smart"]').textContent())?.includes('Rome'))
   const fid = await h.locator('aside [data-side-folders="article"] [data-side-folder]').first().getAttribute('data-side-folder')
   check('sidebar folder: "Rename…" opens the name for typing', await sideRename(`aside [data-side-folder="${fid}"]`, 'Renamed folder'))
   check('sidebar folder: Enter keeps it', (await nameOf('article', fid)) === 'Renamed folder', await nameOf('article', fid))

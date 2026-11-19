@@ -20,7 +20,6 @@ import { slotTicker } from '@/lib/proximity'
 import { RowMenu, openFromGrip, type RowItem } from './row-menu'
 import { FolderPen, FolderHeart, Plus } from 'lucide-react'
 import { Count, Tip, quietly, refuse, sayNow, toast } from './ui'
-import { GROUP_KEY, GroupMark, changeRule, removeGroup, renameGroup, ruleSaid, tagsSaid, useGathered, useSmartGroups, type SmartGroup } from '@/lib/smart-groups'
 import '@/lib/carry-cursor'
 
 /** A new, empty folder, in Folders (one tree for the whole book), named as it is made. */
@@ -78,9 +77,6 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
   onNewPage?: (folder: string) => void
 }): React.JSX.Element | null {
   const all = useGroups(list)
-  const smart = useSmartGroups(list)
-  // Many groups: the first few, the one open now, and the rest a press away, so they never push the sidebar long.
-  const [everyGroup, setEveryGroup] = useState(false)
   const [naming, setNaming] = useState<string | null>(null)
   // A new folder, empty, its name open for typing.
   useEffect(() => {
@@ -307,16 +303,12 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
   const holds = (id: string): boolean => id === here || kids(id).some((one) => holds(one.id))
   const rows = (parent: string | null, depth: number): React.JSX.Element | null => {
     const these = kids(parent).filter(isFolder)
-    // Groups that gather by a rule hang after the folders, off the same trunk: folders first, as a beginner meets them.
-    const many = smart.length > GROUPS_SHOWN && !everyGroup
-    const gathered = parent === null ? (many ? smart.filter((one, at) => at < GROUPS_SHOWN || here === GROUP_KEY + one.id) : smart) : []
     const noted = !!noteRow && parent === here && parent !== null
-    if (!these.length && !gathered.length && !noted) return null
+    if (!these.length && !noted) return null
     const lit = these.findIndex((one) => holds(one.id))
-    const litGroup = gathered.findIndex((one) => here === GROUP_KEY + one.id)
     const before = these.length
     return (
-      <Branches current={noted ? before : lit >= 0 ? lit : litGroup >= 0 ? before + litGroup : -1} className="ml-5 flex flex-col gap-px">
+      <Branches current={noted ? before : lit} className="ml-5 flex flex-col gap-px">
         {these.flatMap((group) => {
           const inner = rows(group.id, depth + 1)
           return [
@@ -324,15 +316,7 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
             inner && <div key={`${group.id}:in`} data-no-twig="">{inner}</div>
           ]
         })}
-        {gathered.map((group) => <SmartRow key={group.id} group={group} shown={shown} counted={counted} here={here === GROUP_KEY + group.id} onOpen={() => onOpen(GROUP_KEY + group.id)} />)}
         {noted && noteRow}
-        {parent === null && smart.length > GROUPS_SHOWN && (
-          <button type="button" data-side-row data-groups-more={smart.length} onClick={() => (chime(everyGroup ? 'fold' : 'slide'), setEveryGroup(!everyGroup))}
-            className="flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 text-muted-foreground hover:text-foreground">
-            <span className="size-4 shrink-0" />
-            <span className="flex-1 text-left">{everyGroup ? 'Show fewer groups' : `Show all ${num(smart.length)} groups`}</span>
-          </button>
-        )}
       </Branches>
     )
   }
@@ -354,9 +338,6 @@ export function SideFolders({ list, counted, open, shown, here, noteRow, onOpen,
     </Unfold>
   )
 }
-
-/** Groups listed before the rest fold behind "Show all". */
-const GROUPS_SHOWN = 6
 
 type Aim = { target: string; how: 'into' | 'before' | 'after'; /** Its line, where one is drawn. */ y: number; left: number; right: number }
 type Drag = { carried: string | null; aim: Aim | null; carry: (event: React.PointerEvent, id: string) => void }
@@ -486,59 +467,20 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
 }
 
 /**
- * A group in the sidebar, after the folders: its own look (a sparkle where a folder has its icon, its name in
- * italic), its rule said when pointed at, and a count of what it gathers. Nothing is dragged into it: it gathers.
- */
-function SmartRow({ group, shown, counted, here, onOpen }: { group: SmartGroup; shown: Set<string>; counted: boolean; here: boolean; onOpen: () => void }): React.JSX.Element {
-  const gathered = useGathered(group)
-  const n = gathered ? [...gathered].filter((id) => shown.has(id)).length : null
-  const [naming, setNaming] = useState(false)
-  // Renamed in its row, as a folder is: the same field, Enter or a click away keeps it, Esc leaves it.
-  if (naming)
-    return (
-      <div className="flex w-full min-w-0 items-center gap-2 py-1 pr-2 pl-2">
-        <span className="flex size-4 shrink-0 items-center justify-center"><GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} /></span>
-        <NameInPlace initial={group.name} data-group-name={group.id} label="Group name" placeholder="Name the group" onDone={(words) => (setNaming(false), words && void renameGroup(group, words))}
-          className="min-w-0 flex-1 rounded-md bg-accent/60 px-1 text-foreground italic outline-none ring-1 ring-ring/40" />
-      </div>
-    )
-  return (
-    <RowMenu items={[
-      { label: 'Open', run: onOpen },
-      { label: 'Rename…', run: () => setNaming(true) },
-      { label: 'Change the rule…', hint: ruleSaid(group), run: () => void changeRule(group) },
-      'separator',
-      { label: 'Remove the group', hint: 'Its notes stay where they are', run: () => void removeGroup(group) }
-    ]}>
-      <Tip label={`${ruleSaid(group)}. A group gathers; it moves nothing`}>
-        <button type="button" data-side-row data-side-group={group.id} aria-current={here ? 'page' : undefined} onClick={() => (chime('page'), onOpen())}
-          className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>
-          <span className="flex size-4 shrink-0 items-center justify-center"><GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} /></span>
-          <Weighted on={here} className="flex-1 text-left italic">{group.name}</Weighted>
-          {counted && n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
-        </button>
-      </Tip>
-    </RowMenu>
-  )
-}
-
-/**
  * On the sidebar's icon rail, where there is no room for a tree: one button under Writing's or Gems' icon that
  * opens its folders and groups as a menu, folders first, each folder holding its subfolders as a submenu (the
- * tree, kept), then the groups by their rule. A click opens one, as its row in the full sidebar does.
+ * tree, kept). A click opens one, as its row in the full sidebar does.
  */
 export function RailFolders({ list, onOpen }: { list: 'article' | 'nugget'; onOpen: (id: string) => void }): React.JSX.Element | null {
   const all = useGroups(list)
-  const smart = useSmartGroups(list)
-  if (!all.some(isFolder) && !smart.length) return null
+  if (!all.some(isFolder)) return null
   const under = (parent: string | null): RowItem[] => all.filter((one) => isFolder(one) && (one.parent ?? null) === parent).map((group) => {
     const kids = under(group.id)
     const icon = <GroupIcon icon={group.icon} color={group.color} className="size-3.5" />
     return kids.length ? { label: group.name, icon, items: [{ label: `Open ${group.name}`, icon, run: () => onOpen(group.id) }, 'separator', ...kids] } : { label: group.name, icon, run: () => onOpen(group.id) }
   })
   const items: RowItem[] = [
-    ...(all.some(isFolder) ? [{ heading: 'Folders' } as RowItem, ...under(null)] : []),
-    ...(smart.length ? [{ heading: 'Groups: gathered by tags' } as RowItem, ...smart.map((group) => ({ label: group.name, hint: tagsSaid(group.tags), icon: <GroupMark className="size-3.5" style={{ color: 'var(--tt-color-text-purple)' }} />, run: () => onOpen(GROUP_KEY + group.id) }))] : [])
+    { heading: 'Folders' } as RowItem, ...under(null)
   ]
   const name = list === 'article' ? 'Writing' : 'Gems'
   // Each list's own folder: a pen for Writing's, a heart for Gems', each named on hover, so the two are never one icon twice.

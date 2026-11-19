@@ -707,8 +707,6 @@ const DEFAULTS = {
   // Gems, Sources and Files went into Library once, out of whatever run they had been dragged to before it existed.
   libraryOnce: false,
   sidebarByUseOnce: false,
-  // Groups that gather by a rule (a tag), beside the folders a note lives in (lib/smart-groups.tsx).
-  smartGroups: [] as { id: string; list: 'article' | 'nugget'; name: string; tags: string[] }[],
   // Writing's and Gems' groups as folders under their rows in the sidebar.
   sidebarFolders: { article: true, nugget: true } as Record<'article' | 'nugget', boolean>,
   // Writing's and Gems' folders, and the tags, unfolded while their page is open and folded away once you leave it.

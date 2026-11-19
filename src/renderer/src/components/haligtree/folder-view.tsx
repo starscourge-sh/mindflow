@@ -22,10 +22,10 @@ import { num, plural } from '../../../../main/dates'
  * ('unfiled'). A folder shows only what is inside it (folders isolate): the folders in it first, then one island per
  * kind, writing first. What is archived stays in its folder, under "Show archived (N)".
  */
-export function FoldersView({ focus, tab, onTab, onOpen, onPlace }: { focus?: string; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
+export function FoldersView({ focus, note, tab, onTab, onOpen, onPlace }: { focus?: string; /** The page open beside the folder's list (the step's focus, as Writing keeps it). */ note?: string; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
   const all = useFolders()
   if (!focus || focus === 'all') return <AllFolders all={all} onPlace={onPlace} />
-  return <OneFolder key={focus} id={focus} all={all} tab={tab} onTab={onTab} onOpen={onOpen} onPlace={onPlace} />
+  return <OneFolder key={focus} id={focus} note={note} all={all} tab={tab} onTab={onTab} onOpen={onOpen} onPlace={onPlace} />
 }
 
 /** A folder's kinds, writing first (order-implies-purpose): each drawn by the list that kind has everywhere else. */
@@ -45,7 +45,7 @@ const KIND_TABS: { id: KindTab; label: string; types: FolderKind[] }[] = [
  * where the folder is, its one fact and the folders inside it. Never a list of its own (the user, 19 Nov: "what a
  * downgrade", beside Writing).
  */
-function OneFolder({ id, all, tab, onTab, onOpen, onPlace }: { id: string; all: Folder[]; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
+function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string; note?: string; all: Folder[]; tab?: string; onTab: (tab: string) => void; onOpen: (type: string, id: string) => void; onPlace: (id: string | null) => void }): React.JSX.Element {
   const items = useLive(() => folders.items(id), null as FolderItem[] | null, [id], undefined, `folders:items:${id}`)
   const ofCaptures = useLive(() => folders.of('captures'), {} as Record<string, string>, [], undefined, 'folders:of:captures')
   const ofTasks = useLive(() => folders.of('tasks'), {} as Record<string, string>, [], undefined, 'folders:of:tasks')
@@ -105,9 +105,9 @@ function OneFolder({ id, all, tab, onTab, onOpen, onPlace }: { id: string; all: 
   )
   const box = { id, name }
   // Keyed by folder and kind: each its own list, its cursor and its open note, as switching Writing to Gems is.
-  if (on === 'notes') return <CapturesView key={`${id}:notes`} title={name} keep={(one) => ofCaptures[one.id] === id && one.status !== 'discarded'} lead={kinds} said={said} onOpen={onOpen} />
-  if (on === 'tasks') return <TasksView key={`${id}:tasks`} mode="alltasks" keep={(one) => ofTasks[one.id] === id} lead={kinds} said={said} onOpen={onOpen} />
-  return <ItemsView key={`${id}:${on}`} tier={on === 'gems' ? 'nugget' : 'article'} only={on === 'questions' ? 'questions' : undefined} inFolder={box} lead={kinds} said={said} onOpen={onOpen} />
+  if (on === 'notes') return <CapturesView key={`${id}:notes`} title={name} keep={(one) => ofCaptures[one.id] === id && one.status !== 'discarded'} focus={note} lead={kinds} said={said} onOpen={onOpen} />
+  if (on === 'tasks') return <TasksView key={`${id}:tasks`} mode="alltasks" keep={(one) => ofTasks[one.id] === id} focus={note} lead={kinds} said={said} onOpen={onOpen} />
+  return <ItemsView key={`${id}:${on}`} tier={on === 'gems' ? 'nugget' : 'article'} only={on === 'questions' ? 'questions' : undefined} inFolder={box} focus={note} lead={kinds} said={said} onOpen={onOpen} />
 }
 
 /** Every folder, as a tree that folds, or found by its name as you type: 1,000 of them read as fast as 10. */

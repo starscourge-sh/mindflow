@@ -1,5 +1,4 @@
 import { QuestionTabs, QuestionsSaid, type Asked } from './questions-view'
-import { GROUP_KEY, GroupMark, ruleSaid, tagsSaid, useGathered, useSmartGroups } from '@/lib/smart-groups'
 import { askFolder, keepIn, useFolderOf, useFolders, type Folder, type FolderKind } from '@/lib/folders'
 import { newFolderHere } from './side-folder-section'
 import { BlankPanel, cardPerNumber } from './blank-panel'
@@ -320,13 +319,8 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Only what is shown narrows: the layout is still read from every note, so a move inside keeps the rest in place.
   const shelf = useGroups(tier)
   const opened = sideFolder ? shelf.find((one) => one.id === sideFolder) : undefined
-  // A group opened from the sidebar: what its rule gathers, drawn plain, wherever each note lives.
-  const smart = useSmartGroups(tier === 'nugget' ? 'nugget' : 'article')
-  const gatherer = sideFolder?.startsWith(GROUP_KEY) ? smart.find((one) => GROUP_KEY + one.id === sideFolder) : undefined
-  const gathered = useGathered(gatherer)
   const listed = useMemo(() => {
     if (inFolder) return all.filter((one) => (inFolder.id === 'unfiled' ? !folderOfItem[one.id] : folderOfItem[one.id] === inFolder.id))
-    if (gatherer) return all.filter((one) => gathered?.has(one.id))
     if (!opened) return all
     const under = new Set([opened.id])
     for (let grew = true; grew; ) {
@@ -335,7 +329,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     }
     const held = new Set(shelf.filter((one) => under.has(one.id)).flatMap((one) => one.members))
     return all.filter((one) => held.has(one.id))
-  }, [all, shelf, opened, gatherer, gathered, inFolder, folderOfItem])
+  }, [all, shelf, opened, inFolder, folderOfItem])
   const { groups: arranged, display, sorts, chips, density, view, setView, move, moveBy, ownOrder, order, mine, heads: sourceHeads, sourceSaid } = useItemDisplay(questionsOnly ? (onAsk && ask === 'words' ? WORDS : 'question') : tier, listed, !questionsOnly)
   // The list's width: beside the note, over the whole page, or a rail of pictures.
   const pane = view.pane ?? 'list'
@@ -361,7 +355,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // notes, in every order; a folder's notes show only once it is opened. Groups are the one way a note shows twice.
   // Questions is a view by kind, not a place: every question is a plain row there, and a folder (Writing's or Gems')
   // shows only in the section that owns it. A question in one says so on its row (`inFolder`, qa/questions-no-folders.mjs).
-  const folding = useFolding(tier, all, ownOrder, order, !gatherer && !questionsOnly && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? everyShown : null,
+  const folding = useFolding(tier, all, ownOrder, order, !questionsOnly && (density === 'list' || density === 'compact') && !(spread && query.trim()) ? everyShown : null,
     view.sort === 'manual' && plain, () => setChosen([]), chosen, mine, heads, opened?.id, undefined, heads ? (id) => heads.get(id) : undefined)
   // Under headings (by kind, by date) the list's own rule says which heading a row stands under: carried over another
   // heading's rows it is refused in words, as Tasks' rows are (carry.tsx's useTargets), never offered a place it would not keep.
@@ -371,12 +365,12 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     drop: () => undefined
   } : undefined
   // As tiles, each group is one folder card; opened, the grid shows only its notes, under a chip back.
-  const noteGroups = questionsOnly || gatherer ? NO_GROUPS : filed
+  const noteGroups = questionsOnly ? NO_GROUPS : filed
   const tiled = (density === 'grid' || density === 'small') && !(spread && query.trim())
   const [inGroup, setInGroup] = useState<string | null>(null)
   const folder = tiled && inGroup ? noteGroups.find((one) => one.id === inGroup) : undefined
   const flat = groups.flatMap(([, list]) => list)
-  const tiles = tiled && !folder && !gatherer && !questionsOnly ? folding.tiles(flat) : null
+  const tiles = tiled && !folder && !questionsOnly ? folding.tiles(flat) : null
   const folders = new Map(tiles?.flatMap((one) => ('group' in one ? [[KEY + one.group.id, one] as const] : [])))
   const items = folding.rows
     ?? (folder ? flat.filter((one) => folder.members.includes(one.id))
@@ -393,7 +387,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // Recent), the list goes into its folder, where the sidebar already shows it. Left at the top, the list had no row
   // for it while the sidebar named it under its folder (the user, 14 Nov: "notice the sidebar loses its way").
   const intoItsFolder = (id: string): boolean => {
-    const home = onFolder && !questionsOnly && !gatherer ? folding.home(id) : null
+    const home = onFolder && !questionsOnly ? folding.home(id) : null
     if (!home || home.id === sideFolder) return false
     onFolder?.(home.id, true)
     return true
@@ -708,7 +702,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
   // menu has ("Keep in folder…", "Take out of …"), so the move, its notice and its Undo are the one way (lib/folders.ts).
   const placeOf = (one: Item): React.ReactNode => {
     const section = SECTIONS.find((each) => each.id === (one.tier === 'question' ? 'questions' : tier === 'article' ? 'articles' : 'nuggets'))
-    if (gatherer || !section) return null
+    if (!section) return null
     const folder = folderById.get(folderOfItem[one.id] ?? '')
     const thing = { type: (one.tier === 'question' ? 'question' : tier === 'article' ? 'article' : 'nugget') as FolderKind, id: one.id }
     return (
@@ -744,12 +738,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     return () => window.removeEventListener('haligtree:folder-drop', onDrop)
   }, [chosen])
   // A question is drawn as one, with its "?" mark, how long it has been held and its clues.
-  // In a group, gathered from every folder, a row says which folder it lives in, as a small mark before its line.
-  const folderOf = new Map(!gatherer ? [] : filed.flatMap((group) => group.members.map((id) => [id, group] as const)))
-  const groupMarked = (entry: Entry, one: Item): Entry => {
-    const home = folderOf.get(one.id)
-    return home ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-folder={home.id} className="flex shrink-0 items-center gap-1"><GroupIcon icon={home.icon} color={home.color} className="size-3" />{home.name}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
-  }
   // Writing, Gems and Questions list every one of their kind, filed or not (the user, 19 Nov: Gems is "a kind of
   // premium list of things already in my folders"): one in a folder says which, quietly, after its date.
   const placed = (entry: Entry, one: Item): Entry => {
@@ -760,7 +748,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
     const from = sourceSaid(one)
     return from ? { ...entry, sub: <span className="flex min-w-0 items-center gap-1.5"><span data-row-source className="min-w-0 max-w-[50%] shrink truncate">{from}</span>{entry.sub ? <><span aria-hidden>·</span><span className="min-w-0 truncate">{entry.sub}</span></> : null}</span> } : entry
   }
-  const entryOf = (one: Item): Entry => placed(one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : sourced(groupMarked(itemEntry(one, () => menuFor(one)), one), one), one)
+  const entryOf = (one: Item): Entry => placed(one.tier === 'question' ? questionEntry(one, inView.has(one.id), menuFor(one) as MenuItem[], backOn) : sourced(itemEntry(one, () => menuFor(one)), one), one)
   const entries: [string, Entry[]][] = !listShown && !(open && (pane === 'rail' || boarded)) ? [] : tiles || folder
     ? items.reduce<[string, Entry[]][]>((sections, one) => {
         const card = folders.get(one.id)
@@ -775,7 +763,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
       }, [])
     : groups.map(([name, list]) => [name, list.map(entryOf)] as [string, Entry[]])
   // Until the notes, your groups and your own order are read, the list and where a note sits in it are not known.
-  const listUnread = unloaded(all) || unloaded(noteGroups) || unloaded(order) || (writing && unloaded(pinnedQuestions)) || (!!gatherer && !gathered)
+  const listUnread = unloaded(all) || unloaded(noteGroups) || unloaded(order) || (writing && unloaded(pinnedQuestions))
   return (
     // The list and the note open beside it come in together, once both are read (lib/reads-in.tsx); sent here for a note, the note never waits for the list.
     <ReadsIn className="contents">
@@ -895,19 +883,6 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
         <div data-kind-chips className="list-words pt-4 pb-2 empty:hidden">
           {said}
           {questionsOnly && onAsk && <QuestionsSaid on={ask} />}
-          {gatherer && (
-            // A group's own head: the way back, its sparkle and name, and its rule on a line of its own, so what it is shows at once.
-            <div data-group-open={gatherer.id} className="mb-2">
-              <nav aria-label="Group path" className="flex min-w-0 items-center gap-0.5 text-body">
-                <Tip label="Back to everything  ⌘[">
-                  <button type="button" data-folder-back="" onClick={() => (chime('tuck'), onFolder?.(null))} className="flex items-center rounded-md px-1.5 py-0.5 text-muted-foreground hover:bg-accent hover:text-foreground">{tier === 'nugget' ? 'Gems' : 'Writing'}</button>
-                </Tip>
-                <ChevronRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground/60" />
-                <span className="flex min-w-0 items-center gap-1.5 px-1.5 py-0.5 font-medium text-foreground"><GroupMark className="size-3.5 shrink-0" style={{ color: 'var(--tt-color-text-purple)' }} /><span className="truncate italic">{gatherer.name}</span></span>
-              </nav>
-              <p data-group-rule className="mt-1 text-body text-foreground/90"><strong className="font-semibold">A group:</strong> {ruleSaid(gatherer).toLowerCase().replace(/^every/, 'every')}, wherever it lives. Nothing is moved; tag a note {tagsSaid(gatherer.tags)} and it is here.</p>
-            </div>
-          )}
           {opened && !folder && (
             // Finder's path bar: each part a way up to it (and a place to drop notes into), the last one where you are.
             <nav data-path-bar="" data-folder-open={opened.id} aria-label="Folder path" className="mb-2 flex min-w-0 items-center gap-0.5 text-body">
