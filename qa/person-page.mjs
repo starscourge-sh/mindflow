@@ -27,7 +27,10 @@ process.env.HALIGTREE_QA_WIKI = `http://127.0.0.1:${server.address().port}/wiki/
 
 const { check, done } = checks()
 const c = await sandbox({ width: 1300, height: 900 })
-const { h, v, errors } = c
+const { h, v, errors, electron } = c
+// Offline is the Mac being offline (main/outside.ts unreached, 034c419eb): a site that does not answer is "failed", and is
+// not asked again when the Mac comes back. So the Mac itself is made offline too, by its own net.isOnline.
+const mac = (online) => electron.evaluate(({ net }, on) => { net.isOnline = () => on }, online)
 const shots = process.env.QA_SHOTS
 const shot = (name) => shots && h.screenshot({ path: `${shots}/${name}.png` }).catch(() => {})
 const wait = (ms) => h.waitForTimeout(ms)
@@ -73,7 +76,7 @@ try {
 
   // Kept: offline, the page still has it, and Wikipedia is not asked again.
   await v('source:bio', 'attribution', 'Ada Example', 'Ada Example (born 1972) is an English writer of test stories.', 'https://en.wikipedia.org/wiki/Ada_Example')
-  offline = true
+  offline = true; await mac(false)
   const before = asked
   await openPage('attribution', 'Cal Beside')
   await openPage('attribution', 'Ada Example')
@@ -84,7 +87,7 @@ try {
   await openPage('attribution', 'Bo Later')
   check('16. offline and never fetched: no error, a quiet "Add a line about them"', await h.locator('[data-bio-add]').isVisible() && (await h.locator('[data-bio-add]').textContent()) === 'Add a line about them' && await h.locator('[data-sonner-toast]').count() === 0)
   check('17. the offline ask was made', asked > before)
-  offline = false
+  offline = false; await mac(true)
   await h.evaluate(() => window.dispatchEvent(new Event('online')))
   await wait(1200)
   check('18. back online, the bio fills', (await h.locator('[data-bio-text] [contenteditable="true"]').innerText().catch(() => '')) === 'Bo Later is a painter. He paints late.')
