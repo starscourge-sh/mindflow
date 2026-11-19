@@ -50,6 +50,7 @@ type Offer =
   | { kind: 'characters'; list: Cast[] }
   | { kind: 'name'; name: string }
   | ({ kind: 'tag' } & Fit)
+  | { kind: 'deck'; tag: string; language: string }
   | { kind: 'tags'; list: Fit[] }
   | { kind: 'questions'; count: number }
 
@@ -240,7 +241,9 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
       // Every person it names that is not linked or put away, and every tag: two or more come as one offer that lists
       // them all (the user, 14 Nov: "what happens when there are more than 1 name to suggest"), never one at a time.
       const people = found.people.filter((one) => !linked.includes(`person:${one.name}`) && !gone.has(`${own}|person:${one.name}`))
-      const tags = found.tags.filter((one) => !gone.has(`${own}|tag:${one.tag}`))
+      const deck = await call<{ tag: string; language: string } | null>('offers:language', text).catch(() => null)
+      if (!live || turn !== asked.current) return
+      const tags = found.tags.filter((one) => !gone.has(`${own}|tag:${one.tag}`) && one.tag !== deck?.tag)
       const cast = found.characters.filter((one) => !linked.includes(`character:${one.name}`) && !gone.has(`${own}|character:${one.name}`))
       const all: Offer[] = [
         ...(found.same ? [{ kind: 'same' as const, ...found.same }] : []),
@@ -250,6 +253,8 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
         // Someone in a work (named only in its title, or in a note about a book or a film): a character of it, never one of People.
         ...(cast.length > 1 ? [{ kind: 'characters' as const, list: cast }] : cast.map((one) => ({ kind: 'character' as const, ...one }))),
         ...(people.length > 1 ? [{ kind: 'people' as const, list: people }] : people.map((one) => ({ kind: 'person' as const, ...one }))),
+        // Written in another language, where a tag of yours reads aloud in it: that language's deck.
+        ...(deck && !gone.has(`${own}|deck:${deck.tag}`) ? [{ kind: 'deck' as const, ...deck }] : []),
         // The tags the notes most like it carry, last: the offers above are each about words it holds.
         ...(tags.length > 1 ? [{ kind: 'tags' as const, list: tags }] : tags.map((one) => ({ kind: 'tag' as const, ...one }))),
       ]
@@ -433,6 +438,14 @@ export function NoteOffers({ table, id, editor, onOpen }: { table: 'captures' | 
     rest = offer.notes === offer.of ? `The ${offer.of} notes most like it carry it.` : `${offer.notes} of the ${offer.of} notes most like it carry it.`
     // Written in as the strip's "+" writes a tag: after the last tag in the words, or at the end of the title line.
     // The keys go back to the note, as after "Link it", so ⌘Z takes the tag back after its notice has gone too.
+    actions = [{ label: 'Add the tag', data: 'tag', run: () => {
+      if (putTag(editor, offer.tag)) (editor.commands.focus(), chime('noted'), toast(`Tagged #${offer.tag}`, () => editor.commands.undo()))
+      done()
+    } }]
+  } else if (offer.kind === 'deck') {
+    icon = <Hash className="size-4" />
+    lead = `Tag it #${offer.tag}?`
+    rest = `It is written in ${offer.language}, the language #${offer.tag} is read aloud in.`
     actions = [{ label: 'Add the tag', data: 'tag', run: () => {
       if (putTag(editor, offer.tag)) (editor.commands.focus(), chime('noted'), toast(`Tagged #${offer.tag}`, () => editor.commands.undo()))
       done()

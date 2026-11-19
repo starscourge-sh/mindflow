@@ -1078,7 +1078,7 @@ export function SettingsView({ focus: asked, nonce }: { /** 'reader-card', from 
             <Switch checked={settings.backLine !== false} onCheckedChange={(backLine) => set({ backLine })} />
           </Setting>
           <MacCalendarSetting on={!!settings.macCalendar} set={(macCalendar) => set({ macCalendar })} />
-          <Setting title="Offers from your notes" note="One quiet line under a note: a note it names or nearly repeats, a fitting folder or tags, the people it names." more="Also notes that may answer a question, and the notes for your next event on Today. Found by the words they share, on this Mac. Nothing changes until you choose; × puts one away for good." keywords="suggest suggestions related link folder duplicate repeat people tag tags clue question event calendar offers" data-mac-needs="every">
+          <Setting title="Offers from your notes" note="One quiet line under a note: a note it names or nearly repeats, a fitting folder or tags, the people it names." more="Also notes that may answer a question, the notes for your next event on Today, and, for a note in another language, the tag read aloud in it. Found by the words they share, on this Mac. Nothing changes until you choose; × puts one away for good." keywords="suggest suggestions related link folder duplicate repeat people tag tags clue question event calendar offers language deck" data-mac-needs="every">
             <OffersSample on={settings.noteOffers !== false} />
             <Switch checked={settings.noteOffers !== false} onCheckedChange={(noteOffers) => set({ noteOffers })} />
           </Setting>

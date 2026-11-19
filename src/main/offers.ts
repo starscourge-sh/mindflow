@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { changed, database, whenChanged } from './captures'
 import { ask, left } from './reader'
+import { languageName, ownLanguage, understand } from './understand'
 
 /**
  * What a note is quietly offered, from your own book, on this Mac: another
@@ -26,6 +27,21 @@ export function registerOffers(): void {
   const slot = (sender: Electron.WebContents, asker: unknown): string | undefined => (typeof asker === 'string' ? `offers:${sender.id}:${asker}` : undefined)
   ipcMain.handle('haligtree:offers:note', (event, key: unknown, text: unknown, linked: unknown, asker: unknown) =>
     ask('offers:note', [changes, String(key ?? ''), String(text ?? ''), Array.isArray(linked) ? linked.map(String) : []], slot(event.sender, asker)))
+  // Words in another language than yours, where one of your tags reads aloud in it (a deck of that language): that
+  // tag, to offer. Only when the Mac is sure (0.8 or more) of the language, of four words or more, and the note does
+  // not carry the tag already; decks first, then any tag that speaks it. Null otherwise.
+  ipcMain.handle('haligtree:offers:language', async (_event, text: unknown): Promise<{ tag: string; language: string } | null> => {
+    const words = String(text ?? '').trim()
+    if (words.split(/\s+/).length < 4) return null
+    const speaking = database().prepare('select tag, speak from tag_meta where speak is not null order by deck desc, tag').all() as { tag: string; speak: string }[]
+    if (!speaking.length) return null
+    const said = await understand('language', { text: words.slice(0, 2000) })
+    const lang = String(said.lang ?? 'und').split('-')[0].toLowerCase()
+    if (Number(said.confidence ?? 0) < 0.8 || lang === 'und' || lang === ownLanguage()) return null
+    const has = new Set([...words.toLowerCase().matchAll(/#([\p{L}\p{N}_/-]+)/gu)].map((one) => one[1]))
+    const fit = speaking.find((one) => one.speak.split('-')[0].toLowerCase() === lang && !has.has(one.tag.toLowerCase()))
+    return fit ? { tag: fit.tag, language: languageName(lang) } : null
+  })
   ipcMain.handle('haligtree:offers:left', (event, asker: unknown) => { const gone = slot(event.sender, asker); if (gone) left(gone) })
   // Made once the app has settled, so the first offer never waits for the whole book to be read.
   setTimeout(() => void ask('offers:warm', [changes]).catch(() => undefined), 20_000)
