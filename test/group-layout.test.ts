@@ -1,7 +1,7 @@
 // Run with: node --test test/group-layout.test.ts
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { drop, flatten, gather, groupsAround, landsIn, layoutOf, reorderAs, sameLayout, shownKeys, step, tidy } from '../src/renderer/src/lib/group-layout.ts'
+import { drop, flatten, gather, groupsAround, landsIn, layoutOf, reorderAs, sameLayout, step, tidy } from '../src/renderer/src/lib/group-layout.ts'
 
 const make = () => ({ id: 'n', name: 'New group' })
 // a, then group G holding b and c, then d and e.
@@ -179,12 +179,6 @@ test('a list sorted some other way is laid out as it is seen, rows not on show k
   assert.deepEqual(seen.top, ['e', 'g:G', 'a'])
   // c is filtered out: it keeps its slot, the two seen swap round it.
   assert.deepEqual(seen.groups.G, ['d', 'c', 'b'])
-})
-
-test('the rows on show leave out what a folded group holds', () => {
-  const layout = layoutOf(['a', 'b', 'c', 'd'], [{ id: 'G', members: ['b', 'c'] }])
-  assert.deepEqual(shownKeys(layout, new Set()), ['a', 'g:G', 'b', 'c', 'd'])
-  assert.deepEqual(shownKeys(layout, new Set(['G'])), ['a', 'g:G', 'd'])
 })
 
 test('a subgroup let go on another subgroup goes inside it, a third level; beside it, it lands beside', () => {
