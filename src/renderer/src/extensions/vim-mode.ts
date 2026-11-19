@@ -2386,9 +2386,10 @@ export const VimMode = Extension.create<VimModeOptions>({
 
             // ⌃[ is Escape, as in vim and Obsidian's Vim mode: here it did nothing and stayed in insert mode.
             if (event.key === "Escape" || (event.key === "[" && event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey)) {
-              // Normal mode with no half-typed command is the resting state.
-              const idle =
-                vim.mode === "normal" && !vim.operator && !vim.pendingG && !vim.pendingZ && !vim.count
+              // Normal mode with no half-typed command is the resting state. Any half-typed one (a waiting f, t, r,
+              // an operator, a count, a text object's i or a) is cancelled by Escape, as in vim: a waiting f took
+              // Escape as resting and the next key typed as the character to find.
+              const idle = vim.mode === "normal" && !isPending(vim)
               // The matches `*` lit with no panel to explain them go first, as
               // vim's :noh. The panel's own Escape clears the ones it lit.
               if (idle && starred !== null && editor.storage.findAndReplace?.searchTerm === starred) {
