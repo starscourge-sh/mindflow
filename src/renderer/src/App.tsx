@@ -1,5 +1,5 @@
 import { themeActions } from '@/lib/theme'
-import { askFolder } from '@/lib/folders'
+import { askFolder, keepIn, useFolders } from '@/lib/folders'
 import { deskAwayAction, useDeskAway } from '@/lib/desk-away'
 import { useReadsIn } from './lib/reads-in'
 import { clock } from '@/lib/clock'
@@ -877,8 +877,10 @@ export default function App(): React.JSX.Element {
     const rest = window.setTimeout(() => void haligtree.readKind(line).then((kind) => live && setRead({ line, kind })), 700)
     return () => (live = false, window.clearTimeout(rest))
   }, [first, reads, editing, chosen, lesson]) // eslint-disable-line react-hooks/exhaustive-deps
-  boxContext.current = { off: !!editing, kind, chosen, held, actionTags, timers: appSettings?.focusTools === true, read }
-  useEffect(() => void (editorRef.current !== retired.current && replan(editorRef.current)), [editing, kind, chosen, held, actionTags, read])
+  // ">thesis": every folder, to find the one it names (lib/box-tokens.ts).
+  const allFolders = useFolders()
+  boxContext.current = { off: !!editing, kind, chosen, held, actionTags, timers: appSettings?.focusTools === true, read, folders: allFolders }
+  useEffect(() => void (editorRef.current !== retired.current && replan(editorRef.current)), [editing, kind, chosen, held, actionTags, read, allFolders])
   // Its reading arrived after the last key: the kind chip takes it, as it takes the wording's own guess.
   useEffect(() => { if (!chosen && !editing && plan?.readBy && plan.kind !== kind) setKind(plan.kind) }, [plan?.readBy, plan?.kind]) // eslint-disable-line react-hooks/exhaustive-deps
   // "+name" read as a clue, or as a name nothing matches yet.
@@ -1810,7 +1812,10 @@ export default function App(): React.JSX.Element {
     const signed = plan?.signatureKept ? raw : withoutTail(raw, attribution.trim())
     // "@1y" is a command, not words: it is taken off what is kept, as a task's date is.
     const later = plan?.later ?? null
-    const doc = later ? laterOff(signed, later.text) : signed
+    // ">thesis" too: where it is kept, not words of it.
+    const folder = plan?.folder ?? null
+    const unfolded = folder ? laterOff(signed, folder.text) : signed
+    const doc = later ? laterOff(unfolded, later.text) : unfolded
     const text = textOf(doc).trim()
     const asked = loneQuestion(plan, text)
     if (asked) {
@@ -1988,7 +1993,12 @@ export default function App(): React.JSX.Element {
         if (action) {
           // The welcome shows the task it became itself; the box says nothing over it.
           // Undone, the capture goes too and the box comes back as it was sent.
-          await makeTask({ capture: id, plain: plan?.taskPlain, whole: true }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), box: more ? 'here' : 'away', onUndo: () => (void haligtree.unlift('capture', id), bringBack(sent)) })
+          const made = await makeTask({ capture: id, plain: plan?.taskPlain, whole: true }, 'Added to your tasks', { quiet: document.documentElement.hasAttribute('data-welcome-ph'), box: more ? 'here' : 'away', onUndo: () => (void haligtree.unlift('capture', id), bringBack(sent)) })
+          // ">thesis": the task it became kept there, with the one picker's notice and Undo.
+          if (made && folder) await keepIn([{ type: 'task', id: made.id }], folder)
+        } else if (folder) {
+          // ">thesis": kept in that folder, out of the Inbox, said and undone as the one picker's keep is (lib/folders.ts).
+          await keepIn([{ type: 'capture', id }], folder)
         } else if (!document.documentElement.hasAttribute('data-welcome-ph')) {
           // A plain note takes back the same way as every other send: the
           // capture goes, and the box comes back as it was sent.

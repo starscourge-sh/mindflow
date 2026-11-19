@@ -59,7 +59,7 @@ import { stickOnDesktop } from './sticky-note'
 import { Lineage } from './lineage'
 import { ReviewHistory } from './review-view'
 import { Mentions } from './mentions'
-import { Marginalia, namesIn } from './marginalia'
+import { FolderMargin, Marginalia, namesIn } from './marginalia'
 import { datesIn } from '../../../../main/task-words'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
@@ -1342,10 +1342,14 @@ function NuggetDetail({ item, onOpen, top, back, board: place }: { item: ItemFul
         <ThoughtDock id={item.id} hidden={boardShown} />
       </div>
 
+      {/* Written from a folder: what it keeps beside the page to quote from, while its details are put away. */}
+      {item.tier === 'article' && !boardShown && <FolderMargin beside id={item.id} editor={() => editor.current} />}
       {(!boardShown || propsOut) && <Props fold={!boardShown}>
         {/* The note's properties head its details, as Linear's issues have them. */}
         <PropertyStrip panel table="nuggets" id={item.id} kind={item.kind} fields={item.fields} text={item.title} created={item.createdAt} updated={item.updatedAt} sourced={!!(item.attribution?.trim() || item.medium?.trim())} cited={!!item.medium?.trim()} />
         {item.tier === 'article' && <Marginalia id={item.id} names={named} editor={() => editor.current} />}
+        {/* Written from a folder: what it keeps, to quote from (main/folder-gems.ts). */}
+        {item.tier === 'article' && <FolderMargin id={item.id} editor={() => editor.current} />}
         {item.tier === 'nugget' && (
           <>
             <Island compact title="Kind">

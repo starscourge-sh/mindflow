@@ -4,6 +4,8 @@ import type { Editor, JSONContent } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 
 import { chime } from '@/lib/sound'
+import { useDetailsShown } from '@/lib/reading'
+import { folders, type FolderQuote } from '@/lib/folders'
 import { openSource, sources, type Margin } from '@/lib/sources'
 import { saidBy } from '@/lib/welcome-box'
 import { personKey } from '../../../../main/names'
@@ -224,4 +226,79 @@ function MarginPerson({ person, onInsert }: { person: Margin['people'][number]; 
       )}
     </div>
   )
+}
+
+/**
+ * A page written from a folder ("Write from this folder", main/folder-gems.ts): the folder's gems, then the words
+ * highlighted in its notes, in the page's margin to quote from, dragged in or with "Insert", each signed with who
+ * said it or the note it came from, as a person's words in the margin are.
+ */
+export function FolderMargin({ id, editor, beside = false }: { id: string; editor: () => Editor | null
+  /** Its own column beside the page while the details are put away (a page is opened to write, its details folded);
+   * with them out, it is one of their islands instead. */
+  beside?: boolean }): React.JSX.Element | null {
+  const details = useDetailsShown()
+  const [from, setFrom] = useState<Awaited<ReturnType<typeof folders.quotes>>>(null)
+  useEffect(() => {
+    let live = true
+    void folders.quotes(id).then((next) => live && setFrom(next))
+    return () => void (live = false)
+  }, [id])
+  // A quote dropped on the page lands where it was let go, as the people's margin takes one (above).
+  useEffect(() => {
+    const dom = editor()?.view?.dom
+    if (!dom || !from) return
+    const over = (event: DragEvent): void => void (event.dataTransfer?.types.includes(MIME) && event.preventDefault())
+    const drop = (event: DragEvent): void => {
+      const raw = event.dataTransfer?.getData(MIME)
+      const ed = editor()
+      if (!raw || !ed) return
+      event.preventDefault()
+      event.stopPropagation()
+      insertAt(ed, JSON.parse(raw) as Carried, ed.view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? ed.state.doc.content.size)
+    }
+    dom.addEventListener('dragover', over)
+    dom.addEventListener('drop', drop, true)
+    return () => (dom.removeEventListener('dragover', over), dom.removeEventListener('drop', drop, true))
+  }, [editor, from])
+  if (!from || (beside && details)) return null
+  const insert = (carried: Carried): void => {
+    const ed = editor()
+    if (!ed) return
+    const { $from } = ed.state.selection
+    insertAt(ed, carried, ed.isFocused || $from.pos > 1 ? $from.pos : ed.state.doc.content.size)
+  }
+  const row = (quote: FolderQuote): React.JSX.Element => {
+    const carried: Carried = { quote: { type: quote.type, id: quote.id, kind: quote.kind, label: quote.label, medium: quote.who ? quote.medium : null }, name: quote.who || quote.medium || from.folder.name }
+    return (
+      <li key={`${quote.id}:${quote.kind}`} data-folder-quote={quote.id} draggable
+        onDragStart={(event) => {
+          event.dataTransfer.setData(MIME, JSON.stringify(carried))
+          const out = forApps(carried)
+          event.dataTransfer.setData('text/plain', out.text)
+          event.dataTransfer.setData('text/html', out.html)
+          event.dataTransfer.effectAllowed = 'copy'
+          chime('lift')
+        }}
+        className="group/quote relative cursor-grab rounded-md bg-[color-mix(in_oklab,var(--voice-theirs)_12%,transparent)] px-2 py-1 hover:bg-accent active:cursor-grabbing">
+        <p className="line-clamp-4 pr-12 text-control leading-relaxed text-foreground">{wordsOf(quote.label)}</p>
+        {(quote.who || quote.medium) && <p className="truncate text-meta text-muted-foreground">{quote.who || quote.medium}</p>}
+        <button type="button" data-folder-quote-insert onClick={() => insert(carried)}
+          className="absolute top-1 right-1 rounded px-1.5 py-0.5 text-meta font-medium text-foreground opacity-0 transition-opacity duration-150 group-hover/quote:opacity-100 hover:bg-background focus-visible:opacity-100 motion-reduce:transition-none">Insert</button>
+      </li>
+    )
+  }
+  const margin = (
+    <div data-folder-margin={from.folder.id}>
+      <Island compact title={`From ${from.folder.name}`}>
+        <div className="px-2 py-2">
+          {!from.gems.length && !from.highlights.length && <p className="text-control text-foreground">No gems or highlights in {from.folder.name} yet. Keep a line as a gem there, or highlight one, and it is here to quote.</p>}
+          {from.gems.length > 0 && (<><p className="pb-1 text-meta font-medium text-muted-foreground">Gems · {num(from.gems.length)}</p><ul className="space-y-1">{from.gems.map(row)}</ul></>)}
+          {from.highlights.length > 0 && (<><p className="pt-2 pb-1 text-meta font-medium text-muted-foreground">Highlights · {num(from.highlights.length)}</p><ul className="space-y-1">{from.highlights.map(row)}</ul></>)}
+        </div>
+      </Island>
+    </div>
+  )
+  // Beside the page, as the details column stands (ui.tsx `Props`): under it in a narrow window.
+  return beside ? <aside data-chrome data-folder-margin-beside="" className="flex w-full shrink-0 flex-col gap-px overflow-y-auto border-t p-3 pt-4 text-control text-muted-foreground @[40rem]/page:w-64 @[40rem]/page:border-t-0 @[40rem]/page:border-l">{margin}</aside> : margin
 }

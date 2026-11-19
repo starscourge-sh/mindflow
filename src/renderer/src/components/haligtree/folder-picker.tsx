@@ -5,7 +5,7 @@ import { GroupIcon } from './kept-groups'
 import { PickerAt, placeFor } from './picker-at'
 import { importCardUp } from './import-done'
 import { chime } from '@/lib/sound'
-import { folders, keepIn, keepInNew, pathOf, putFoldersBack, useFolders, type Folder, type Thing } from '@/lib/folders'
+import { folders, keepIn, keepInNew, matchFolders, putFoldersBack, useFolders, type Folder, type Thing } from '@/lib/folders'
 import { Pressed, news, refuse, toast, typing } from './ui'
 import { useLive } from '@/lib/haligtree'
 import { num, plural } from '../../../../main/dates'
@@ -106,17 +106,8 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
   const what = things.length === 1 ? 'it' : `these ${num(things.length)}`
   // Found by the words of its name and path, as typed, never by its id; the first 100 drawn. Left to the menu's own
   // fuzzy filter, every key over 1,000 folders sorted all 1,000 rows again (and a "7" matched nearly every id).
-  const words = name.toLowerCase()
-  // Before typing, the folders kept in most and most lately first (frecency); typing, the best match first: a name
-  // that starts so, then one with a word that does, then one that holds it, then a path that does; frecency breaks ties.
-  const fit = (one: Folder, path: string): number => {
-    if (!words) return 1
-    const named = one.name.toLowerCase()
-    return named.startsWith(words) ? 4 : named.split(/[\s/·:-]+/).some((word) => word.startsWith(words)) ? 3 : named.includes(words) ? 2 : path.toLowerCase().includes(words) ? 1 : 0
-  }
-  const found = shown.map((one) => { const path = pathOf(all, one.parent).map((up) => up.name).join(' › '); return { one, path, fit: fit(one, path) } })
-    .filter((one) => one.fit > 0)
-    .sort((a, b) => b.fit - a.fit || b.one.used - a.one.used)
+  // Before typing, the folders kept in most and most lately first (frecency); typing, the best match first (lib/folders.ts).
+  const found = matchFolders(all, name, shown)
   return (
     <PickerAt at={asked.at} label={moving ? 'Move folder' : 'Keep in folder'} onClose={close}>
       <div data-folder-picker="">

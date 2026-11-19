@@ -3,7 +3,8 @@ import type { JSONContent } from '@tiptap/react'
 import { HaligtreeEditor } from './haligtree-editor'
 import { saveImage } from '@/extensions/image-drop'
 import { quietly, sayNow } from './ui'
-import { ChevronRight, FileStack, FolderPlus, ImagePlus, Text } from 'lucide-react'
+import { ChevronRight, FileStack, FolderPlus, ImagePlus, PenLine, Text } from 'lucide-react'
+import { FolderGems } from './folder-gems'
 import { Island, Page } from './ui'
 import { ItemsView } from './items-view'
 import { CapturesView } from './captures-view'
@@ -16,7 +17,7 @@ import { Branches } from './branches'
 import { ListSearch } from './note-list'
 import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
-import { folders, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
+import { folders, pathOf, useFolders, writeFrom, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
 import { deepCount, folderMenu, newFolderHere } from './side-folder-section'
 import { calendarInk, events, useCalendars } from '@/lib/events'
 import { clock } from '@/lib/clock'
@@ -91,13 +92,19 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
         <h1 data-folder-title="" className="flex min-w-0 items-center gap-1.5 truncate px-1 text-control font-medium text-foreground">
           {folder && <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" />}{name}
         </h1>
+        {/* A page in Writing with what this folder keeps beside it to quote from; the folder stays a folder. */}
+        {folder && (
+          <button type="button" data-folder-write-from="" onClick={() => void writeFrom(folder)} className="ml-auto flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><PenLine className="size-3.5" />Write from this folder</button>
+        )}
         {!unfiled && path.length < 6 && (
-          <button type="button" data-folder-new-inside="" onClick={() => newFolderHere(id)} className="ml-auto flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><FolderPlus className="size-3.5" />New folder</button>
+          <button type="button" data-folder-new-inside="" onClick={() => newFolderHere(id)} className={`${folder ? '' : 'ml-auto '}flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground`}><FolderPlus className="size-3.5" />New folder</button>
         )}
       </nav>
       {/* Under its name, its words and link cards, as a Notion page's sit under its title. */}
       {folder && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" />}
       <p data-folder-fact="" className="mt-2 text-[1.0625rem] leading-snug text-foreground">{fact}</p>
+      {/* Lines in its notes that could be gems: one quiet line, once (folder-gems.tsx). */}
+      {folder && <FolderGems key={folder.id} folder={folder} />}
       {!unfiled && !shown.length && !inside.length && <p className="mt-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
       {/* The calendars that keep their notes here: their next four weeks, each opening on the Calendar. */}
       {!!coming?.calendars.length && (

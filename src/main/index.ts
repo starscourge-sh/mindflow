@@ -74,6 +74,7 @@ import { fitSmall, isSmall, registerSmallWindows } from './small-window'
 import { registerGroups } from './groups'
 import { registerSections } from './sections'
 import { registerFolders } from './folders'
+import { registerFolderGems } from './folder-gems'
 import { registerPeriods } from './periods'
 import { nextMilestones, registerMilestones } from './milestones'
 import { peopleNow, registerEvents, whenEvents } from './events'
@@ -5549,6 +5550,7 @@ app.whenReady().then(() => {
   registerGroups()
   registerSections()
   registerFolders()
+  registerFolderGems()
   registerNoteImports()
   registerPeriods()
   // Words written, counted as you save, for Stats: once every page's table is there.

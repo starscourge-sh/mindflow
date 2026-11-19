@@ -155,6 +155,8 @@ const RULES: [RegExp, LucideIcon][] = [
   // Menu lines that once fell back to the dot while the lines beside them had a drawing.
   [/^pause$/i, Pause],
   [/^writing tools/i, PenLine],
+  // A folder's "Write from this folder" (main/folder-gems.ts): a new page, the pen.
+  [/^write from this folder$/i, PenLine],
   [/^how it reads/i, BookOpen],
   [/^try it for/i, Timer],
   [/^how long it takes/i, Hourglass],

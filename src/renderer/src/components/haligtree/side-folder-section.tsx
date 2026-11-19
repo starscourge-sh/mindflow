@@ -12,7 +12,7 @@ import { SortableList, SortableRow } from './sortable'
 import { age, num } from '../../../../main/dates'
 import { haligtree, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
-import { FOLDER_DEPTH, askFolder, askFolderFor, folders, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem } from '@/lib/folders'
+import { FOLDER_DEPTH, askFolder, askFolderFor, folders, writeFrom, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem } from '@/lib/folders'
 import { calendarInk, calendarsNow, events, type Calendar } from '@/lib/events'
 
 /** Starred folders shown before the rest fold behind "Show all". */
@@ -203,6 +203,8 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
     { label: 'Rename…', run: onRename },
     // Into another folder, found in the one folder picker (folder-picker.tsx), as things are kept in one.
     { label: 'Move to…', run: () => askFolderFor(folder) },
+    // A page in Writing with the folder's gems and highlights beside it; the folder stays a folder.
+    { label: 'Write from this folder', run: () => void writeFrom(folder) },
     level < FOLDER_DEPTH && { label: 'New folder inside', run: () => newFolderHere(folder.id) },
     folder.parent ? { label: 'Move to the top', run: () => void folders.nest(folder.id, null).then(() => (chime('gather'), toast(`Moved ${folder.name} to the top`, () => void folders.nest(folder.id, folder.parent)))) } : null,
     { label: folder.archived ? 'Unarchive folder' : 'Archive folder', hint: folder.archived ? undefined : 'Kept, out of sight', run: () => (chime('tuck'), sayNow(folders.set(folder.id, { archived: !folder.archived }), folder.archived ? `Unarchived ${folder.name}` : `Archived ${folder.name}: kept, out of sight`, () => void folders.set(folder.id, { archived: !!folder.archived }))) },

@@ -48,7 +48,46 @@ export const folders = {
   unarchive: (was: { row: Record<string, string | number | null>; things: Thing[]; subs: string[] }) => call<boolean>('folders:unarchive', was),
   unmove: () => call<boolean>('folders:unmove'),
   moveState: () => call<'moved' | 'undone' | null>('folders:move-state'),
-  moveAgain: () => call<{ moved: false; why: string } | { moved: true; folders: number; things: number }>('folders:move-again')
+  moveAgain: () => call<{ moved: false; why: string } | { moved: true; folders: number; things: number }>('folders:move-again'),
+  // What a folder offers out of its own notes (main/folder-gems.ts).
+  gemIdeas: (id: string) => call<{ by: 'ai' | 'rules'; lines: GemIdea[]; offered: boolean }>('folders:gem-ideas', id),
+  gemsOffered: (id: string) => call<boolean>('folders:gems-offered', id),
+  gemIdea: (id: string, idea: GemIdea, keep: boolean) => call<string | null>('folders:gem-idea', id, idea, keep),
+  gemIdeaUndo: (id: string, line: string) => call<boolean>('folders:gem-idea-undo', id, line),
+  writeFrom: (id: string) => call<string | null>('folders:write-from', id),
+  quotes: (page: string) => call<{ folder: { id: string; name: string }; gems: FolderQuote[]; highlights: FolderQuote[] } | null>('folders:quotes', page)
+}
+export type { GemIdea, FolderQuote } from '../../../main/folder-gems'
+import type { GemIdea, FolderQuote } from '../../../main/folder-gems'
+
+/**
+ * "Write from this folder" (its menu, its page): a new page in Writing with the folder's gems and highlights in its
+ * margin to quote from (marginalia.tsx `FolderMargin`); the folder stays a folder, the page in none.
+ */
+export async function writeFrom(folder: { id: string; name: string }): Promise<void> {
+  const id = await folders.writeFrom(folder.id)
+  if (!id) return refuse(`${folder.name} is gone, so there is nothing to write from`)
+  chime('promote')
+  toast(`A page in Writing, with what ${folder.name} keeps beside it to quote from`)
+  window.api.openInHome('article', id)
+}
+
+/**
+ * The folders that fit what was typed, best first: a name that starts so, then one with a word that does, then one
+ * that holds it, then a path that does; how much each is used (frecency) breaks ties, and orders all of them before
+ * anything is typed. The one picker's matching, and quick capture's `>name` (lib/box-tokens.ts).
+ */
+/** `among`: the ones that may be offered (the rest still name the paths). */
+export function matchFolders(all: Folder[], typed: string, among: Folder[] = all): { one: Folder; path: string; fit: number }[] {
+  const words = typed.trim().toLowerCase()
+  const fit = (one: Folder, path: string): number => {
+    if (!words) return 1
+    const named = one.name.toLowerCase()
+    return named.startsWith(words) ? 4 : named.split(/[\s/·:-]+/).some((word) => word.startsWith(words)) ? 3 : named.includes(words) ? 2 : path.toLowerCase().includes(words) ? 1 : 0
+  }
+  return among.map((one) => { const path = pathOf(all, one.parent).map((up) => up.name).join(' › '); return { one, path, fit: fit(one, path) } })
+    .filter((one) => one.fit > 0)
+    .sort((a, b) => b.fit - a.fit || b.one.used - a.one.used)
 }
 
 /** Every folder, drawn from the first frame from what it last said (as the sidebar's groups are). */
