@@ -20,7 +20,10 @@ const seen = () => h.evaluate(() => {
   const shown = Number(getComputedStyle(pill).opacity) > 0.5
   const marks = [...pane.querySelectorAll('[data-drag-handle], .line-number, [data-line-number], .ProseMirror > *')].map((one) => one.getBoundingClientRect()).filter((one) => one.width)
   const overlaps = marks.filter((one) => one.left < box.right && box.left < one.right && one.top < box.bottom && box.top < one.bottom).length
-  return { word: word.textContent, shown, top: Math.round(box.top), lastBottom: Math.round(last.getBoundingClientRect().bottom), overlaps }
+  // Where the words start: the gutter (grips, line numbers) is left of it.
+  const range = document.createRange(); range.selectNodeContents(pane.querySelector('.ProseMirror > :first-child'))
+  const start = Math.round(range.getBoundingClientRect().left)
+  return { word: word.textContent, shown, top: Math.round(box.top), lastBottom: Math.round(last.getBoundingClientRect().bottom), overlaps: overlaps + (shown && box.left < start - 2 ? 1 : 0), left: Math.round(box.left), start }
 })
 try {
   await h.evaluate(() => { localStorage.setItem('vim', 'on'); window.dispatchEvent(new StorageEvent('storage', { key: 'vim', newValue: 'on' })) })
