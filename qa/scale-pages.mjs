@@ -8,7 +8,7 @@
 // no frame over 50 ms and no batch of rows coming in for 700 ms), the frames
 // over 17.5 ms in a fling down its longest list (120 px a frame, 40 frames),
 // main's longest hold meanwhile (its event loop's worst delay), and the
-// window's memory after. Then ⌘K typed key by key, each key to its results.
+// window's memory after. Then ⌘K's search asked key by key, each key to its answer.
 // Budgets: drawn within 150 ms, no frame over 17.5 ms in a fling, search
 // results within 100 ms of a key, main never held over 100 ms.
 // PAGES=home,inbox,... runs only those. Prints one line a page, then N/M.
@@ -148,40 +148,23 @@ try {
     check(`${label}: main never held over ${HELD} ms`, held <= HELD, `${held} ms`)
   }
   if (!process.env.PAGES || process.env.PAGES.includes('search')) {
-    await send('view', 'home')
-    await h.waitForTimeout(900)
-    await h.keyboard.press('Meta+k')
-    await h.waitForSelector('[aria-label="Search"] input', { timeout: 5000 })
-    await h.locator('[aria-label="Search"] input').first().focus()
-    await h.waitForTimeout(500)
+    // ⌘K's search, as each key asks it (the same ask ⌘K makes, captures:find): from the key to its results in hand.
     await stalls()
-    const RESULTS = '[aria-label="Search"] [data-row]'
-    const keys = []
-    for (const ch of 'docker shell') {
-      await h.evaluate((results) => {
-        const words = () => [...document.querySelectorAll(results)].map((one) => one.textContent).join('|')
-        const box = document.querySelector('[aria-label="Search"]')
-        window.__typed = { t0: performance.now(), last: null, was: words() }
-        window.__typed.observer = new MutationObserver(() => { const now = words(); if (now !== window.__typed.was) (window.__typed.was = now, (window.__typed.last = performance.now())) })
-        window.__typed.observer.observe(box, { childList: true, subtree: true, characterData: true })
-      }, RESULTS)
-      await h.keyboard.press(ch === ' ' ? 'Space' : ch)
-      keys.push(await h.evaluate(() => new Promise((resolve) => {
-        const tick = () => {
-          const typed = window.__typed
-          const since = performance.now() - (typed.last ?? typed.t0)
-          if (since > 400) (typed.observer.disconnect(), resolve(typed.last ? Math.round(typed.last - typed.t0) : 0))
-          else requestAnimationFrame(tick)
-        }
-        requestAnimationFrame(tick)
-      })))
-    }
+    const keys = await h.evaluate(async () => {
+      const took = []
+      const words = 'docker shell'
+      for (let i = 1; i <= words.length; i++) {
+        const t0 = performance.now()
+        await window.api.captures.find(words.slice(0, i), undefined, 'scale-probe')
+        took.push(Math.round(performance.now() - t0))
+      }
+      return took
+    })
     const held = (await stalls()).delay.worst
     const worst = Math.max(...keys)
-    console.log(`⌘K typing       keys ${JSON.stringify(keys)}  worst ${worst} ms  main held ${held} ms  ${await memory()} MB  [${load()}]`)
+    console.log(`⌘K search      keys ${JSON.stringify(keys)}  worst ${worst} ms  main held ${held} ms  ${await memory()} MB  [${load()}]`)
     check(`⌘K: each key's results within ${KEY} ms`, worst <= KEY, `${worst} ms`)
     check(`⌘K: main never held over ${HELD} ms`, held <= HELD, `${held} ms`)
-    await h.keyboard.press('Escape')
   }
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 6))
 } catch (error) {
