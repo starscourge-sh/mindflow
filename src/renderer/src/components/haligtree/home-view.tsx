@@ -660,7 +660,8 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
   const feature = (
     <RowMenu items={() => menuFor(lead, actions, cards, 0)}>
       <div data-coming-feature className="group/card relative flex h-full w-full min-w-0" data-private={lead.private ? '' : undefined}>
-        <div className="relative flex h-full w-full min-w-0 flex-col gap-3 overflow-hidden rounded-lg p-5 transition-colors duration-150 hover:bg-foreground/[0.05]">
+        {/* The tiles' own inset (ComingTile, p-1.5): its cover lines up with theirs, and its name gets the room, three lines of it. */}
+        <div className="relative flex h-full w-full min-w-0 flex-col gap-3 overflow-hidden rounded-lg p-1.5 transition-colors duration-150 hover:bg-foreground/[0.05]">
           {/* The whole card opens it; the round buttons sit over it. */}
           <button type="button" aria-label={nameOf(lead)} data-nav data-private={lead.private ? '' : undefined} data-picked={actions.picked?.(lead) || undefined} data-drag-open={`${lead.type}:${lead.id}`} onClick={(event) => actions.open(lead, event)}
             className="absolute inset-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring/50" />
@@ -668,7 +669,7 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
             <Cover card={lead} className="aspect-square h-full shrink-0 rounded-lg shadow-[0_8px_24px_-12px_color-mix(in_oklab,var(--mf-shadow-ink)_35%,transparent)]" />
             <div className="flex min-w-[10rem] flex-1 flex-col justify-center gap-1 py-3 pr-4">
               <span className="truncate text-xs text-muted-foreground">{kindLabel(lead)} · {lead.sub ?? 'Coming back'}</span>
-              <span className="private-text line-clamp-2 text-heading leading-tight font-semibold tracking-[-0.01em] hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(lead)}</span>
+              <span className="private-text line-clamp-3 text-heading leading-tight font-semibold tracking-[-0.01em] hyphens-auto [overflow-wrap:break-word] text-foreground">{nameOf(lead)}</span>
               {/* Review now first, then Read, then the menu. */}
               <span className="pointer-events-auto flex items-center gap-2 pt-2 [&_button]:shrink-0">
                 {onReview && (
@@ -684,7 +685,7 @@ function Quotes({ title, onAll, onReview, cards, actions }: { title: ReactNode; 
               </span>
             </div>
           </div>
-          {lead.foot && <div className="relative px-3 pb-3">{lead.foot}</div>}
+          {lead.foot && <div className="relative px-1.5 pb-1.5">{lead.foot}</div>}
         </div>
       </div>
     </RowMenu>
