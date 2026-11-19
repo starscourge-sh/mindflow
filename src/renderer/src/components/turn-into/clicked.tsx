@@ -46,7 +46,8 @@ import { chime } from "@/lib/sound"
 import { enqueue } from "@/lib/reading-queue"
 import { quoted } from '../../../../main/clip'
 import { makeQuestion, questionsFit } from "@/components/haligtree/note-questions"
-import { helpLines } from "@/components/haligtree/writing-help"
+import { helpLines, helpWith } from "@/components/haligtree/writing-help"
+import { capsNow, meets } from "@/lib/needs"
 
 /**
  * What a right-click landed on, read once at the click: its own lines go at
@@ -401,10 +402,13 @@ export function clickedLines(editor: Editor, clicked: Clicked): Line[] {
     { label: "Look up", hint: "Meaning and Wikipedia", data: "look-up", run: () => lookUpIn(editor, from, to, words) },
     canSplit() && { label: `Search for ${quoted(cut(words, 24), 80)}`, data: "search", run: () => void window.dispatchEvent(new CustomEvent("haligtree:search", { detail: { words } })) },
     {
-      label: "Make a card from it", edits: true,
-      hint: "A new line: these words, then ::",
+      label: "Make a card", edits: true,
+      hint: meets(capsNow(), "ai") ? "Its question written on this Mac, to keep with ↵" : "A new line: these words, then ::",
       data: "card",
       run: () => {
+        // Where the Mac has Apple Intelligence, its question and answer, shown by the words to keep (writing-help.tsx):
+        // the one way to make a card here, never a second line for it in Writing help.
+        if (meets(capsNow(), "ai")) return helpWith("card", editor, { from, to })
         const $to = editor.state.doc.resolve(to)
         const after = $to.after($to.depth)
         const line = `${words.replace(/\s+/g, " ")} :: `

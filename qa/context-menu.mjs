@@ -207,7 +207,7 @@ try {
   check('picked words: look up, search, card, highlight, copy, cut', ['look-up', 'search', 'card', 'highlight', 'copy-words', 'cut-words'].every((one) => wordRows.includes(one)), JSON.stringify(wordRows))
   await h.screenshot({ path: `${SHOTS}/words-light.png` })
   await pick('card')
-  check('"Make a card from it" writes a card line under it', (await text()).includes('breach of duty :: '))
+  check('"Make a card" writes a card line under it', (await text()).includes('breach of duty :: '))
 
   // 5b. The other kinds: a tag, a formula, a "[m:ss]", a video, a web link kept.
   const answer = async (typed) => { await wait(500); await h.keyboard.press('Meta+a'); await h.keyboard.type(typed); await h.keyboard.press('Enter'); await wait(600) }

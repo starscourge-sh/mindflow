@@ -46,6 +46,12 @@ export const HELPS: Row[] = [
   { id: 'quote', label: 'Pull the quote', does: 'The line worth keeping, as a gem', working: 'Finding the line worth keeping on this Mac…' }
 ]
 
+/**
+ * The lines Writing help lists: making a card has one home, "Make a card" (the reader's right click, a note's "Make a
+ * card from it"), which asks the Mac's model for its question where it can; Writing help kept a second copy of it.
+ */
+export const HELP_LINES = HELPS.filter((one) => one.id !== 'card')
+
 type Said = { text: string } | { question: string; answer: string } | { error: string }
 /**
  * Words picked where they cannot change (a PDF's, a web page's): where they are on screen, and how that reader keeps
@@ -296,10 +302,10 @@ export function WritingHelp({ editor, reading = false }: { editor: Editor; readi
   const has = useHas('ai')
   useEffect(() => (bars.add(editor), () => void bars.delete(editor)), [editor])
   if (!has) return null
-  const rows = HELPS.filter((one) => !reading || !one.edits)
+  const rows = HELP_LINES.filter((one) => !reading || !one.edits)
   return (
     <BarMenu label="Writing help" text="Writing help" icon={Sparkles} lit={false} column openOn={opener(editor)}
-      tip={<>Writing help <ShortcutDisplay shortcuts={['⌃⌘W']} /><span className="block text-muted-foreground">Apple Intelligence on this Mac: “Fix it”, “Shorter”, “Make it a card”…</span></>}>
+      tip={<>Writing help <ShortcutDisplay shortcuts={['⌃⌘W']} /><span className="block text-muted-foreground">Apple Intelligence on this Mac: “Fix it”, “Shorter”, “Plainer”…</span></>}>
       {(close) => <Rows rows={rows} pick={(id) => (close(), helpWith(id, editor))} close={close} />}
     </BarMenu>
   )
@@ -357,7 +363,7 @@ function Rows({ rows, pick, close }: { rows: Row[]; pick: (id: Help) => void; cl
 /** The same eight in the right click on picked words (turn-into/clicked.tsx): none on a Mac without Apple Intelligence. */
 export function helpLines(editor: Editor, from: number, to: number): { label: string; hint: string; data: string; run: () => void }[] {
   if (!meets(capsNow(), 'ai')) return []
-  return HELPS.filter((one) => !one.edits || editor.isEditable).map((one) => ({ label: one.label, hint: one.does, data: `help-${one.id}`, run: () => helpWith(one.id, editor, { from, to }) }))
+  return HELP_LINES.filter((one) => !one.edits || editor.isEditable).map((one) => ({ label: one.label, hint: one.does, data: `help-${one.id}`, run: () => helpWith(one.id, editor, { from, to }) }))
 }
 
 // --- the card by the words -------------------------------------------------------

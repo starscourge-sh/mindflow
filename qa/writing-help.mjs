@@ -52,9 +52,17 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
   /** Pick the words, open Writing help on the bar, choose one; back once it has answered, with what was seen while it wrote. */
   const ask = async (start, help, name) => {
     await pick(start); await wait(600)
-    await h.click(bar); await wait(300)
-    if (shot && name) await c.both(`${shot}/${name}-menu`)
-    await h.click(`[data-help="${help}"]`); await opened()
+    if (help === 'card') {
+      // Making a card has one home: the picked words' right click, "Make a card", which asks the Mac for its question.
+      const at = await h.evaluate(() => { const r = getSelection().getRangeAt(0).getBoundingClientRect(); return { x: r.left + Math.min(20, r.width / 2), y: r.top + r.height / 2 } })
+      await h.mouse.click(at.x, at.y, { button: 'right' }); await wait(500)
+      if (shot && name) await c.both(`${shot}/${name}-menu`)
+      await h.locator('[data-clicked="card"]').first().click(); await opened()
+    } else {
+      await h.click(bar); await wait(300)
+      if (shot && name) await c.both(`${shot}/${name}-menu`)
+      await h.click(`[data-help="${help}"]`); await opened()
+    }
     const working = await card()
     if (shot && name) await c.both(`${shot}/${name}-working`)
     let shown = working
@@ -262,7 +270,8 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       if (!offered || !help) return { offered }
       await h.hover('[data-writing-help-menu]'); await wait(400)
       const rows = await h.evaluate(() => [...document.querySelectorAll('[role="menu"] [data-help]')].map((one) => one.getAttribute('data-help')))
-      await h.click(`[role="menu"] [data-help="${help}"]`); await opened()
+      // Making a card has one home now: the menu's own "Make a card", which asks the Mac for its question.
+      if (help === 'card') { await h.click('[role="menu"] [data-make-card]'); await opened() } else { await h.click(`[role="menu"] [data-help="${help}"]`); await opened() }
       let shown = await card()
       for (let t = 0; t < 10000 && shown?.state === 'working'; t += 150) (await wait(150), (shown = await card()))
       return { offered, rows, shown }
@@ -270,9 +279,9 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
     const inPdf = await helpInPdf(ai ? 'card' : null)
     check(`${level}: a PDF's picked words ${ai ? 'offer' : 'do not offer'} Writing help in the right click`, inPdf?.offered === ai, JSON.stringify(inPdf))
     if (ai) {
-      check('ai: in a PDF it holds only the three that keep something', inPdf?.rows?.join(',') === 'card,ask,quote', inPdf?.rows?.join(','))
+      check('ai: in a PDF it holds only the two that keep something, making a card being the menu\'s own line', inPdf?.rows?.join(',') === 'ask,quote', inPdf?.rows?.join(','))
       if (shot) await c.both(`${shot}/pdf-card-preview`)
-      check('ai: in a PDF, “Make it a card” shows the card by the words first', inPdf?.shown?.state === 'ready' && inPdf.shown.text.includes('What do these words say?'), JSON.stringify(inPdf?.shown))
+      check('ai: in a PDF, “Make a card” shows the Mac\'s card by the words first', inPdf?.shown?.state === 'ready' && inPdf.shown.text.includes('What do these words say?'), JSON.stringify(inPdf?.shown))
       await h.keyboard.press('Enter'); await wait(1200)
       const cards = async () => [...(await v('items', 'card')), ...(await v('items', 'nugget'))].filter((one) => (one.prompt ?? '').startsWith('What do these words say?'))
       const made = await cards()

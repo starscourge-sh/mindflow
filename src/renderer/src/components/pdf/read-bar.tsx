@@ -6,7 +6,7 @@ import { capsNow, meets } from "@/lib/needs"
 import { Toolbar } from "@/components/tiptap-ui-primitive/toolbar"
 import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from "@/components/ui/context-menu"
 import { menuIcon } from "@/components/ui/menu-icon-rules"
-import { HELPS, helpWords, type Away } from "@/components/haligtree/writing-help"
+import { HELP_LINES, helpWords, type Away } from "@/components/haligtree/writing-help"
 import { MenuPeek, type MenuPeekEntry } from "@/components/haligtree/menu-peeks"
 import { MCard } from "@/components/haligtree/peek"
 import { Pressed } from "@/components/haligtree/ui"
@@ -222,6 +222,11 @@ function readPeeks(picked: Picked, keyed = true): Record<string, MenuPeekEntry> 
 export function PickedMenu({ actions, about }: { actions: ReadActions; about: () => Picked }): React.JSX.Element {
   const now = lastColor()
   const [peeks] = useState(() => readPeeks(about()))
+  const makeCard = (): void => {
+    if (!actions.written || !meets(capsNow(), "ai")) return actions.card?.()
+    const range = getSelection()?.rangeCount ? getSelection()!.getRangeAt(0).getBoundingClientRect() : null
+    helpWords("card", about().words, { ...actions.written, rect: range ?? { left: innerWidth / 2 - 180, top: innerHeight / 3, bottom: innerHeight / 3 } })
+  }
   return (
     <>
       <MenuPeek entries={peeks} />
@@ -237,25 +242,43 @@ export function PickedMenu({ actions, about }: { actions: ReadActions; about: ()
         Keep as a gem
         <ContextMenuShortcut>K</ContextMenuShortcut>
       </ContextMenuItem>
-      {actions.card && (
-        <ContextMenuItem data-peek="card" onSelect={() => actions.card?.()}>
+      {/* One line for making a card (the user, 18 Nov: four lines did it): a press makes the card, as C does; its other
+          ways wait beside it, each with its own key still. Where the Mac has Apple Intelligence, the question is its,
+          shown by the words to keep with ↵ (writing-help.tsx); Writing help keeps no copy of it. */}
+      {actions.card ? (
+        <ContextMenuSub>
+          <ContextMenuSubTrigger data-peek="card" data-make-card onClick={makeCard}>
+            <SquareStack />
+            Make a card
+            <ContextMenuShortcut>C</ContextMenuShortcut>
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent className="w-60">
+            <ContextMenuItem data-card-way="question" onSelect={makeCard}>
+              <SquareStack />
+              Question and answer
+              <ContextMenuShortcut>C</ContextMenuShortcut>
+            </ContextMenuItem>
+            {actions.blank && (
+              <ContextMenuItem data-card-way="blank" onSelect={() => actions.blank?.()}>
+                <SquareDashed />
+                Fill in the blank
+                <ContextMenuShortcut>⇧C</ContextMenuShortcut>
+              </ContextMenuItem>
+            )}
+            <ContextMenuItem data-card-way="later" onSelect={() => actions.highlight("later")}>
+              <SquareStack />
+              Mark it, to make it later
+              <ContextMenuShortcut>6</ContextMenuShortcut>
+            </ContextMenuItem>
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+      ) : (
+        <ContextMenuItem data-peek="later" onSelect={() => actions.highlight("later")}>
           <SquareStack />
-          Make a card
-          <ContextMenuShortcut>C</ContextMenuShortcut>
+          Mark for a card
+          <ContextMenuShortcut>6</ContextMenuShortcut>
         </ContextMenuItem>
       )}
-      {actions.blank && (
-        <ContextMenuItem data-peek="blank" onSelect={() => actions.blank?.()}>
-          <SquareDashed />
-          Fill-in-the-blank card
-          <ContextMenuShortcut>⇧C</ContextMenuShortcut>
-        </ContextMenuItem>
-      )}
-      <ContextMenuItem data-peek="later" onSelect={() => actions.highlight("later")}>
-        <SquareStack />
-        Mark for a card
-        <ContextMenuShortcut>6</ContextMenuShortcut>
-      </ContextMenuItem>
       {/* No preview: Look up opens its own card in place, and a preview over it fought with it. */}
       <ContextMenuItem onSelect={actions.lookUp}>
         <BookOpenText />
@@ -281,7 +304,7 @@ export function PickedMenu({ actions, about }: { actions: ReadActions; about: ()
             Writing help
           </ContextMenuSubTrigger>
           <ContextMenuSubContent>
-            {HELPS.filter((one) => !one.edits).map((one) => {
+            {HELP_LINES.filter((one) => !one.edits).map((one) => {
               const Icon = menuIcon(one.label)
               return (
                 <ContextMenuItem key={one.id} data-help={one.id} onSelect={() => {
