@@ -19,6 +19,10 @@
 //                             one line, boxes a share of the picture as it is seen (turned upright), from the top left:
 //                             {"lines":[{"text":"MONTHLY MAGAZINE","x":..,"y":..,"w":..,"h":..,"words":[{"text":"MONTHLY","x":..},..]}],
 //                              "width":1200,"height":800}
+//   labels --doc <picture>    a page read whole (macOS 26, Vision's RecognizeDocumentsRequest): its title, paragraphs,
+//                             lists and tables, top to bottom, one line:
+//                             {"blocks":[{"heading":".."},{"paragraph":".."},{"list":["..",".."],"ordered":true},{"table":[["a","b"],..]}]}
+//                             on an older Mac {"error":{"code":"unavailable",...}}, and the caller reads it as --text does
 import CoreText
 import Foundation
 import ImageIO
@@ -40,6 +44,49 @@ var args = CommandLine.arguments
 if args.count > 3 && args[1] == "--pdf" { readPDF(args[2], args[3]) }
 if args.count > 2 && args[1] == "--focus" { focus(args[2]) }
 if args.count > 2 && args[1] == "--lines" { lines(args[2]) }
+if args.count > 2 && args[1] == "--doc" { readDocument(args[2]) }
+
+/** A page read whole: each part with the top of its box, so they are said top to bottom. */
+func readDocument(_ path: String) -> Never {
+  guard #available(macOS 26.0, *) else { fail("unavailable", "Reading a whole page needs macOS 26") }
+  let done = DispatchSemaphore(value: 0)
+  nonisolated(unsafe) var found: [DocumentObservation] = []
+  nonisolated(unsafe) var problem: String? = nil
+  Task {
+    do { found = try await RecognizeDocumentsRequest().perform(on: URL(fileURLWithPath: path)) } catch { problem = error.localizedDescription }
+    done.signal()
+  }
+  done.wait()
+  if let problem { fail("failed", "The page could not be read: \(problem)") }
+  var parts: [(top: CGFloat, block: [String: Any])] = []
+  for observation in found {
+    let page = observation.document
+    let box = { (region: NormalizedRegion) -> CGRect in region.normalizedPath.boundingBox }
+    // A paragraph inside a list or a table is said there, not again on its own.
+    let held = page.lists.map { box($0.boundingRegion) } + page.tables.map { box($0.boundingRegion) }
+    let title = page.title?.transcript.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    if let heading = page.title, !title.isEmpty { parts.append((box(heading.boundingRegion).maxY, ["heading": title])) }
+    for paragraph in page.paragraphs {
+      let text = paragraph.transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+      let at = box(paragraph.boundingRegion)
+      if text.isEmpty || text == title || held.contains(where: { $0.insetBy(dx: -0.005, dy: -0.005).contains(CGPoint(x: at.midX, y: at.midY)) }) { continue }
+      parts.append((at.maxY, ["paragraph": text]))
+    }
+    for list in page.lists {
+      let items = list.items.map { $0.itemString.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+      let marker = list.items.first?.markerType
+      let ordered = marker == .decimal || marker == .decorativeDecimal || marker == .compositeDecimal || marker == .lowercaseLatin || marker == .uppercaseLatin
+      if !items.isEmpty { parts.append((box(list.boundingRegion).maxY, ["list": items, "ordered": ordered])) }
+    }
+    for table in page.tables {
+      let rows = table.rows.map { row in row.map { $0.content.text.transcript.trimmingCharacters(in: .whitespacesAndNewlines) } }
+      if !rows.isEmpty { parts.append((box(table.boundingRegion).maxY, ["table": rows])) }
+    }
+  }
+  // Vision measures from the bottom: the highest box first.
+  say(["blocks": parts.sorted { $0.top > $1.top }.map { $0.block }])
+  exit(0)
+}
 
 /**
  * A small picture drawn up to about 2,000 pixels on its long side (at most 3 times) before it is read:

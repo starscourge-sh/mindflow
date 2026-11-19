@@ -6,6 +6,8 @@ import helper from '../../resources/labels?asset&asarUnpack'
 import { database } from './captures'
 import { assetsDir } from './pictures'
 import { PICTURE, STORED, pictureLines, pictureNamed, type Pictures } from './picture-lines'
+import { meets } from './needs'
+import { caps } from './understand'
 
 /**
  * The words in every picture you keep (a screenshot, a photo of a slide, a
@@ -109,6 +111,28 @@ export function readLines(name: string): Promise<PictureLines | null> {
   return read
 }
 
+/** A page's parts, top to bottom, as native/labels.swift --doc says them. */
+export type PageBlock = { heading: string } | { paragraph: string } | { list: string[]; ordered: boolean } | { table: string[][] }
+/**
+ * A photo of a page read whole (macOS 26, Vision's RecognizeDocumentsRequest): its title, paragraphs, lists and
+ * tables. Null where the Mac cannot (older than macOS 26) or the page could not be read, and the caller makes the
+ * note of its plain lines instead (--text). Under test HALIGTREE_QA_CAPS stands in for the Mac's version.
+ */
+export async function readPage(name: string): Promise<PageBlock[] | null> {
+  if (!PICTURE.test(name) || process.platform !== 'darwin' || !meets(await caps(), 'macos26')) return null
+  const path = join(assetsDir(), name)
+  if (!existsSync(path)) return null
+  return new Promise((done) =>
+    execFile(helper, ['--doc', path], { timeout: 60_000, maxBuffer: 16 * 1024 * 1024 }, (error, out) => {
+      try {
+        const said = JSON.parse(String(out).trim().split('\n').pop() ?? '') as { blocks?: PageBlock[] }
+        done(!error && Array.isArray(said.blocks) ? said.blocks : null)
+      } catch {
+        done(null)
+      }
+    }))
+}
+
 // Pictures waiting to be read, oldest asked first; one at a time.
 const queue = new Set<string>()
 let reading = false
@@ -159,6 +183,11 @@ export function registerPictureWords(forget: () => void): void {
   ipcMain.handle('image-text', (_event, src: unknown) => {
     const name = typeof src === 'string' ? STORED.exec(src)?.[1] : undefined
     return name ? readPicture(name) : null
+  })
+  // "Make it a note" on a Mac that can read a page whole: its headings, lists and tables.
+  ipcMain.handle('image-page', (_event, src: unknown) => {
+    const name = typeof src === 'string' ? STORED.exec(src)?.[1] : undefined
+    return name ? readPage(name) : null
   })
   // Its words where they lie, to select in the picture viewer.
   ipcMain.handle('image-lines', (_event, src: unknown) => {

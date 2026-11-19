@@ -40,6 +40,23 @@ async function wordsOf(src: string): Promise<string | null> {
 
 /** A note of its own: the picture, then its words, typed out, to edit and keep. */
 async function makeNote(src: string): Promise<void> {
+  // On macOS 26 a photo of a page comes back whole: its title a heading, its lists and tables as lists and tables.
+  const page = meets(capsNow(), 'macos26') ? await window.api?.imagePage?.(src).catch(() => null) : null
+  if (page?.length) {
+    const words = (text: string): unknown[] => (text ? [{ type: 'text', text }] : [])
+    const para = (text: string): unknown => ({ type: 'paragraph', content: words(text) })
+    const blocks = page.map((one) =>
+      'heading' in one ? { type: 'heading', attrs: { level: 2 }, content: words(one.heading) }
+      : 'list' in one ? { type: one.ordered ? 'orderedList' : 'bulletList', content: one.list.map((item) => ({ type: 'listItem', content: [para(item)] })) }
+      : 'table' in one ? { type: 'table', content: one.table.map((row, r) => ({ type: 'tableRow', content: row.map((cell) => ({ type: r === 0 ? 'tableHeader' : 'tableCell', content: [para(cell)] })) })) }
+      : para(one.paragraph))
+    const first = page.map((one) => ('heading' in one ? one.heading : 'paragraph' in one ? one.paragraph : '')).find(Boolean)
+    const id = await window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'image', attrs: { src } }, ...blocks] } as never })
+    const tables = page.filter((one) => 'table' in one).length
+    const lists = page.filter((one) => 'list' in one).length
+    const extras = [lists && `${lists === 1 ? 'a list' : `${lists} lists`}`, tables && `${tables === 1 ? 'a table' : `${tables} tables`}`].filter(Boolean).join(' and ')
+    return said(`Made a note of the page${extras ? `, with ${extras}` : ''}`, true, { type: 'capture', id, title: first ?? 'Picture' }, { cue: 'noted' })
+  }
   // A picture with no words still makes a note: the picture alone.
   const text = (await read(src)) ?? ''
   const lines = text.trim() ? text.split('\n') : []

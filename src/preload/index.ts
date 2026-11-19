@@ -164,6 +164,8 @@ const api = {
 
   /** The words in a stored picture, read by the Mac (Apple's Vision): '' with none, null when it could not be read. */
   imageText: (src: string): Promise<string | null> => ipcRenderer.invoke('image-text', src),
+  /** A photo of a page read whole (macOS 26): its title, paragraphs, lists and tables, top to bottom; null elsewhere. */
+  imagePage: (src: string): Promise<({ heading: string } | { paragraph: string } | { list: string[]; ordered: boolean } | { table: string[][] })[] | null> => ipcRenderer.invoke('image-page', src),
   /** The same words with where each lies in the picture, for selecting them in place; kept after the first reading. */
   imageLines: (src: string): Promise<PictureLines | null> => ipcRenderer.invoke('image-lines', src),
 
