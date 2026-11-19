@@ -115,7 +115,16 @@ try {
   await wait(800)
 
   // A link out of Wikipedia: the browser (a stand-in) on a click.
-  await h.evaluate(() => { [...document.querySelectorAll('.web-reader-body a')].find((one) => one.textContent === 'a page elsewhere').scrollIntoView({ block: 'center' }) })
+  // Reached as a person reaches it, by scrolling with the wheel: Back holds the page where you were until you move it
+  // yourself (panes.tsx), so a scroll made by the probe's own code was put straight back, and the link stayed off screen.
+  const scroller = await h.locator('.web-reader-scroll').boundingBox()
+  await h.mouse.move(scroller.x + scroller.width / 2, scroller.y + scroller.height / 2)
+  for (let i = 0; i < 12; i++) {
+    const off = await h.evaluate(() => { const r = [...document.querySelectorAll('.web-reader-body a')].find((one) => one.textContent === 'a page elsewhere').getBoundingClientRect(); const box = document.querySelector('.web-reader-scroll').getBoundingClientRect(); return Math.round(r.top - (box.top + box.height / 2)) })
+    if (Math.abs(off) < 40) break
+    await h.mouse.wheel(0, Math.max(-600, Math.min(600, off)))
+    await wait(250)
+  }
   await wait(400)
   // Its first line: the link wraps, and the middle of its whole box falls between its two lines.
   const outAt = await h.evaluate(() => { const r = [...document.querySelectorAll('.web-reader-body a')].find((one) => one.textContent === 'a page elsewhere').getClientRects()[0]; return { x: r.left + Math.min(12, r.width / 2), y: r.top + r.height / 2 } })
