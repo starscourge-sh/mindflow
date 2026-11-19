@@ -131,13 +131,17 @@ if (part('tabs')) {
       if (!p) return { size, none: true }
       const lh = parseFloat(getComputedStyle(p).lineHeight)
       const said = parseFloat(getComputedStyle(p, '::before').height)
-      return { size, lh: Math.round(lh), p: p.offsetHeight, said: Math.round(said) }
+      const card = document.querySelector('.app-container').getBoundingClientRect()
+      const line = p.getBoundingClientRect()
+      return { size, lh: Math.round(lh), p: p.offsetHeight, said: Math.round(said), card: Math.round(card.height), room: [Math.round(line.top - card.top), Math.round(card.bottom - line.bottom)] }
     }, textSize))
     if (shots) await page.screenshot({ path: `${shots}/glance-hint-${Math.round(textSize * 100)}.png` }).catch(() => {})
   }
   await v('settings:set', { textSize: 1 })
   await wait(500)
   check('the empty line\'s hint is one line tall at text sizes 100% to 160%, nothing of it under the line', hint.every((one) => !one.none && one.p <= one.lh * 1.2 && one.said <= one.lh + 0.5), JSON.stringify(hint))
+  // The pill grows with the text size: its line whole inside it, as far from its top as from its foot (to 4px), 56px at 100%.
+  check('the pill is as tall as its line at every text size (56px at 100%), the line whole inside it and in its middle', hint.every((one) => !one.none && one.room[0] >= 8 && one.room[1] >= 8 && Math.abs(one.room[0] - one.room[1]) <= 4) && hint[0].card === 56, JSON.stringify(hint.map((one) => [one.size, one.card, one.room])))
   // A draft on the line waits behind the other tabs' lines, and is there again on Write.
   await page.click(EDITOR)
   await page.keyboard.type('Call Mu')
@@ -228,7 +232,9 @@ if (part('tabs')) {
   await wait(1200)
   at = await drawn()
   check('a second line still grows the pill into the box, and the tabs go with the pill', !at.pill && at.tabs.length === 0 && at.card.h >= 280, JSON.stringify({ pill: at.pill, tabs: at.tabs.length, h: at.card.h }))
-  await page.keyboard.press('Meta+a')
+  // ⌘A grows the pick a step at a time, as Obsidian's does (obsidian-shortcuts.ts): the line, then the note. Pressed
+  // once it took only the second line's words, and the empty second line rightly kept the box grown.
+  for (let i = 0; i < 4; i++) await page.keyboard.press('Meta+a')
   await page.keyboard.press('Backspace')
   await wait(1700)
   at = await drawn()
