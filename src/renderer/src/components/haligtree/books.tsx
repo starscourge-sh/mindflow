@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useSideEnds } from '@/lib/side-ends'
 import { Book as BookIcon, Plus } from 'lucide-react'
 
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
@@ -263,9 +264,15 @@ export function BookName(): React.JSX.Element {
 /** Books on a shelf stand a little taller or shorter than each other: one of these by its id, the same every time. */
 const TALL = [92, 98, 88, 100, 95]
 export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (book: Book) => void; onMenu: (event: React.MouseEvent, book: Book) => void }): React.JSX.Element {
+  // More books than the menu is wide (30, say): the shelf scrolls sideways under the wheel or the trackpad, the side
+  // with more fading out, opened on the open book; the keys bring the book they reach into view, as focus does.
+  const row = useRef<HTMLDivElement>(null)
+  const { style } = useSideEnds(row)
+  useLayoutEffect(() => row.current?.querySelector('[aria-current]')?.scrollIntoView({ block: 'nearest', inline: 'center' }), [])
   return (
     // Reached by the keys, a book turns at once; by the pointer, it slides out.
-    <div role="group" aria-label="Your books" data-book-shelf className="mf-shelf"
+    <div ref={row} role="group" aria-label="Your books" data-book-shelf className="mf-shelf" style={style}
+      onWheel={(event) => { if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) event.currentTarget.scrollLeft += event.deltaY }}
       onKeyDownCapture={(event) => event.currentTarget.setAttribute('data-keyed', '')} onPointerMove={(event) => event.currentTarget.removeAttribute('data-keyed')}>
       {books.map((book, at) => {
         const said = book.current ? 'Open now' : at === 1 && book.openedAt ? 'You were in it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet'

@@ -1,3 +1,4 @@
+import { useSideEnds } from '@/lib/side-ends'
 import { TOOL } from './note-extras'
 import { small } from '@/lib/small-picture'
 import { dragWords } from '@/lib/drag-words'
@@ -973,26 +974,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
 
   // Lists past the board's width scroll sideways, never squashed: the side with more to see fades out.
   const strip = useRef<HTMLDivElement>(null)
-  const [ends, setEnds] = useState({ left: false, right: false })
-  const readEnds = useRef(() => {})
-  readEnds.current = () => {
-    const box = strip.current
-    if (!box) return
-    const left = box.scrollLeft > 1
-    const right = box.scrollLeft + box.clientWidth < box.scrollWidth - 1
-    setEnds((was) => (was.left === left && was.right === right ? was : { left, right }))
-  }
-  // Read on every draw (a list added, folded or renamed changes how far it reaches), on scrolling and on resizing.
-  useLayoutEffect(() => readEnds.current())
-  useEffect(() => {
-    const box = strip.current
-    if (!box) return
-    const read = (): void => readEnds.current()
-    const watch = new ResizeObserver(read)
-    watch.observe(box)
-    box.addEventListener('scroll', read, { passive: true })
-    return () => (watch.disconnect(), box.removeEventListener('scroll', read))
-  }, [])
+  const { ends, style: fade } = useSideEnds(strip)
   // Only the field being typed in shows focus: the picked card's ring waits while a card or list is written.
   const quiet = adding === null && editing === null && !newList
   const done = shape.lanes.reduce((sum, lane) => sum + (isArchive(lane.title) ? 0 : lane.cards.filter((card) => card.node.attrs.checked).length), 0)
@@ -1038,7 +1020,7 @@ export function Board({ editor, id, tools }: { editor: Editor; id: string; /** W
         onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setDraft(null), setLifted(null), chime('stay'))}>
         <SortableContext items={shape.lanes.map((_, at) => sid(laneId(at)))} strategy={horizontalListSortingStrategy}>
           <div ref={strip} data-board-strip="" data-fade-left={ends.left || undefined} data-fade-right={ends.right || undefined}
-            style={ends.left || ends.right ? { maskImage: `linear-gradient(to right, ${ends.left ? 'transparent, black 2rem' : 'black'}, ${ends.right ? 'black calc(100% - 2rem), transparent' : 'black'})` } : undefined}
+            style={fade}
             className="flex min-h-0 flex-1 items-start gap-3 overflow-x-auto px-3 pt-2 pb-4 @[40rem]/page:px-6">
             {shape.lanes.map((lane, at) => {
               const folded = folds.includes(lane.title)
