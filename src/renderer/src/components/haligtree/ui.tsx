@@ -2776,13 +2776,19 @@ export function Rolling({ text, className = '', by = 'character', eager = false,
 }): React.JSX.Element {
   // A number arriving with its page is not a change you saw: in its first
   // second it simply takes its value (lib/motion.ts, rule 3).
-  const [born] = useState(() => performance.now())
+  // Counted from when its page is on show, not from when it was made: a page held back for its reads (under load,
+  // until its safety net shows it) put a number on show a second after it was made, and it rolled in as if changed
+  // (no-flash: a rolling "2" became a plain "2" at 2.4 s).
+  const seen = useSeen()
+  const [born, setBorn] = useState(() => (seen ? performance.now() : Infinity))
+  if (seen && born === Infinity) setBorn(performance.now())
   const el = useRef<HTMLSpanElement>(null)
   const words = typeof text === 'number' ? num(text) : text
   const [roll, setRoll] = useState<{ now: string; was: string | null; up: boolean; n: number; last: string | number }>(() => ({ now: words, was: null, up: true, n: 0, last: text }))
   if (roll.now !== words) {
     const span = el.current
-    const calm = still() || (!eager && performance.now() - born < 1000) || document.hidden || !span || !inView.get(span)
+    // Nothing shown before is an arrival, not a change: it simply takes its value.
+    const calm = still() || !roll.now.trim() || (!eager && !(performance.now() - born >= 1000)) || document.hidden || !span || !inView.get(span)
     const up = said ?? (typeof text === 'number' && typeof roll.last === 'number' ? text >= roll.last : true)
     setRoll({ now: words, was: calm ? null : roll.now, up, n: roll.n + 1, last: text })
   }
