@@ -7,7 +7,7 @@ import { execFile } from 'child_process'
 import { promisify } from 'util'
 import { rgbaToThumbHash } from 'thumbhash'
 
-import { database } from './captures'
+import { database, quietly } from './captures'
 import { bandsOf, fourThree } from './letterbox'
 
 /**
@@ -143,7 +143,9 @@ export function lookOf(name: string): Promise<PictureLook | null> {
   if (!waiting) {
     waiting = line.then(async () => {
       const look = await measure(name).catch(() => null)
-      if (look) db().prepare('insert or replace into picture_looks (name, width, height, hash, top, bottom) values (?, ?, ?, ?, ?, ?)').run(name, ...look)
+      // Kept quietly (captures.ts): only this file reads a picture's look, so it never moves the book's stamp. Moving it,
+      // each picture a list measured made search read the whole book again (keys of 12 to 19 s on a big book).
+      if (look) quietly(() => db().prepare('insert or replace into picture_looks (name, width, height, hash, top, bottom) values (?, ?, ?, ?, ?, ?)').run(name, ...look))
       return look
     })
     line = waiting.then(() => new Promise((done) => setTimeout(done, PAUSE)))
