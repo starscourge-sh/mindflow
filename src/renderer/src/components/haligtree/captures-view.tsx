@@ -1293,7 +1293,7 @@ export function useCaptureDisplay(name: string, all: CaptureMeta[], filter?: Vie
       items={kept}
       defaults={filter ?? {}}
       sorts={[{ id: 'newest', label: 'Newest' }, { id: 'changed', label: 'Recently changed' }, { id: 'untouched', label: 'Longest unchanged' }, { id: 'name', label: 'A to Z' }, ...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), ...(rated ? [{ id: 'rating', label: 'Rating' }] : []), ...byProp.choices, { id: 'manual', label: 'Custom order' }]}
-      groups={[...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(wordsOnly ? [{ id: 'letter', label: 'First letter' }] : []), ...(books ? [{ id: 'book', label: 'Book looked up in' }] : []), ...(sources > 1 ? [{ id: 'source', label: 'How it came in' }] : []), ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
+      groups={[...(kindsHere > 1 ? [{ id: 'kind', label: 'Kind' }] : []), { id: 'none', label: 'None' }, { id: 'date', label: 'Date' }, ...(wordsOnly ? [{ id: 'letter', label: 'First letter' }] : []), ...(books ? [{ id: 'book', label: 'Book looked up in' }] : []), ...(sources > 1 ? [{ id: 'source', label: 'Came from' }] : []), ...(showArchived ? [{ id: 'folder', label: 'Folder' }] : [])]}
       density={density}
       onDensity={(next) => setView({ ...view, [wide ? 'wideDensity' : 'density']: next })}
     />

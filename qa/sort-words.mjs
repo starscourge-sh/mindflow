@@ -1,6 +1,6 @@
 // The Inbox's "Sort by" and "Grouping" say what they do (the user, 17 Nov: "what is 'by location' or 'example'?
 // where i 'looked up'? 'where from'"). With looked-up words in the list, no "By Definition", "By Example" or
-// "By Location" (the lookup's own fields), and the groupings read "Book looked up in" and "How it came in".
+// "By Location" (the lookup's own fields), and the groupings read "Book looked up in" and "Came from" (as the filter).
 //   QA_ARGS=--sandbox QA_DATA=<copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 [SHOTS=/abs/dir] node qa/sort-words.mjs
 import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
@@ -27,7 +27,7 @@ try {
   await h.waitForTimeout(500)
   const groups = await h.evaluate(() => document.body.innerText)
   check('the grouping by book reads "Book looked up in"', groups.includes('Book looked up in') && !groups.includes('Where looked up'))
-  check('the grouping by where it came in reads "How it came in"', groups.includes('How it came in') && !/\nWhere from\n/.test(groups))
+  check('the grouping by where it came in reads "Came from", as its filter does', groups.includes('Came from') && !/\nWhere from\n/.test(groups))
   if (process.env.SHOTS) await both(`${process.env.SHOTS}/q1-grouping`)
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } finally {
