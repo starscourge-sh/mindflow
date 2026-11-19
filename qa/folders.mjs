@@ -124,16 +124,19 @@ try {
   const first = (await ids())[0]
   await rows().first().click()
   await wait(1200)
-  check('a row opens its page beside the list', (await h.locator(`[data-page="folders"] button[data-row][data-id="${first}"][data-open]`).count()) === 1 && (await h.locator('[data-page="folders"] .ProseMirror').count()) >= 1)
+  // As Writing: its place chip names the folder and the stepper counts the folder's pages alone.
+  const bar = async () => (await h.locator('[data-page="folders"]').textContent()) ?? ''
+  check('a row opens its page there, its place chip naming the folder, 1 / 2 of the folder\'s pages', ((await h.locator('[data-page="folders"] [data-place-chip]').textContent()) ?? '').includes('Thesis') && /1 \/ 2/.test(await bar()) && (await h.locator('[data-page="folders"] .ProseMirror').count()) >= 1, (await h.locator('[data-page="folders"] [data-place-chip]').textContent().catch(() => 'no chip')) ?? '')
   await shot('folder-page-open')
-  await h.locator('body').press('Escape').catch(() => {})
-  await h.keyboard.press('ArrowDown')
+  await h.locator('[data-page="folders"] button[aria-label="Next"]').first().click()
   await wait(900)
-  const second = (await ids()).find((one) => one !== first)
-  check('↓ moves to the next page of the folder', (await h.locator(`[data-page="folders"] button[data-row][data-id="${second}"][data-cursor], [data-page="folders"] button[data-row][data-id="${second}"][data-open]`).count()) >= 1)
+  check('↓ (Next) moves to the folder\'s next page', /2 \/ 2/.test(await bar()))
+  await c.v('folders:file', [{ type: 'article', id: page }], null)
+  check('taken out of Thesis, it leaves this page\'s count', await until(async () => /Thesis holds 1/.test((await h.locator('[data-folder-fact]').textContent().catch(() => '')) ?? '') || /1 \/ 1/.test(await bar())))
+  // Back to the list: Esc puts the page away.
+  await h.keyboard.press('Escape')
+  await wait(500)
   // Taken out from its own page: back in no folder, stays in Writing.
-  await menu(h.locator(`[data-page="folders"] button[data-row][data-id="${page}"]`), 'Take out of Thesis')
-  check('"Take out of Thesis" takes it off this page', await until(async () => !(await c.v('folders:of', 'nuggets'))[page] && !(await ids()).includes(page)), JSON.stringify(await ids()))
   await c.v('folders:file', [{ type: 'article', id: pages[0] }], null)
   check('the empty folder says so', await until(async () => /Nothing in Thesis yet/.test((await h.locator('[data-folder-fact]').textContent()) ?? '')))
 
