@@ -29,8 +29,11 @@ import '@/lib/carry-cursor'
  * puts it all down. With Reduce motion nothing leans or grows; the places
  * still light.
  *
+ * The Matrix's boxes offer no places at all (data-no-split): a card carried
+ * there goes to another box, and across its two columns it left its own.
+ *
  * A row or card that drags inside its own list or board (your own order,
- * the Matrix's boxes, the week's days) keeps doing that, with its own lifted
+ * the week's days) keeps doing that, with its own lifted
  * picture as the only one: the places come up only while the pointer is
  * truly at the page's left or right edge, narrow, so they never cover a box
  * or a day it could be dropped in, and go again when it comes back in.

@@ -1,7 +1,9 @@
 // A card or row carried inside its own list or board shows one lifted
 // picture, never two, and the “Open on the left / right” places come up only
 // while the pointer is at the page's very edge, as narrow strips, and go again
-// when it comes back in. Let go over another box, it lands there. Checked on
+// when it comes back in. The Matrix offers no places at all, even carried
+// across its two columns or to the page's edge, and nothing on the page moves
+// (17 Nov item 15). Let go over another box, it lands there. Checked on
 // the Matrix, the week board, the Inbox and Gems in your own order and the sidebar, out of sight.
 //   QA_DATA=$(mktemp -d) QA_ARGS=--sandbox QA_ENTRY=out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/matrix-drag.mjs
 // SHOTS=dir keeps a picture mid-drag and at the edge.
@@ -37,7 +39,14 @@ async function glide(to, steps = 12) {
   await h.waitForTimeout(250)
 }
 
-async function carry(name, from, to, { land } = {}) {
+// Where the page's tabs and boxes stand, and whether the pages are scaled aside: nothing should move during a carry.
+const stand = () => h.evaluate(() => {
+  const tabs = document.querySelector('[data-tab]')?.getBoundingClientRect()
+  return { tabs: tabs ? Math.round(tabs.left) : null, scaled: getComputedStyle(document.querySelector('[data-split-area]')).transform !== 'none' || 'splitRoom' in document.documentElement.dataset }
+})
+
+async function carry(name, from, to, { land, none } = {}) {
+  const before = await stand()
   const start = await centre(from)
   await h.mouse.move(start.x, start.y)
   at = start
@@ -50,12 +59,16 @@ async function carry(name, from, to, { land } = {}) {
   if (SHOTS) await h.screenshot({ path: `${SHOTS}/${name.replace(/\W+/g, '-').toLowerCase()}-carried.png` })
   check(`${name}: one lifted picture while carried`, s.pictures === 1, `${s.pictures} pictures`)
   check(`${name}: no places over the page while it is inside`, !s.zones.length, `zones ${s.zones.join(', ')}`)
-  // At the page's left edge: the places, narrow, still one picture.
+  // At the page's left edge: the places, narrow, still one picture (the Matrix: none, and nothing moved).
   const box = await area()
   await glide({ x: box.left + 20, y: over.y })
   s = await seen()
   if (SHOTS) await h.screenshot({ path: `${SHOTS}/${name.replace(/\W+/g, '-').toLowerCase()}-edge.png` })
-  check(`${name}: at the edge the places come up, narrow`, s.zones.length === 2 && s.zones.every((width) => width <= 112), `zones ${s.zones.join(', ')}`)
+  if (none) {
+    const now = await stand()
+    check(`${name}: at the edge no places come up`, !s.zones.length, `zones ${s.zones.join(', ')}`)
+    check(`${name}: nothing on the page moved or scaled during the carry`, now.tabs === before.tabs && !now.scaled, `tabs ${before.tabs} to ${now.tabs}, scaled ${now.scaled}`)
+  } else check(`${name}: at the edge the places come up, narrow`, s.zones.length === 2 && s.zones.every((width) => width <= 112), `zones ${s.zones.join(', ')}`)
   check(`${name}: at the edge the places cover no Matrix box`, s.cover === 0, `covers ${s.cover}px`)
   check(`${name}: at the edge, still one picture`, s.pictures === 1, `${s.pictures} pictures`)
   // Back in: they go.
@@ -72,13 +85,14 @@ async function carry(name, from, to, { land } = {}) {
 try {
   await v('settings:set', { sounds: false, hintRate: 0, motion: true })
   await v('onboarding:set', { pageHints: false })
-  // The Matrix: a card from "Drop or later" to "Plan".
+  // The Matrix: a card across its columns, from the left boxes (Do now, Hand off) to the right ones (Plan, Drop or later), as the user's.
   await go('matrix'); await h.waitForTimeout(900)
-  const card = h.locator('[data-quadrant="drop"] [data-row]').first()
+  const fromBox = (await h.locator('[data-quadrant="do"] [data-row]').count()) ? 'do' : 'handoff'
+  const card = h.locator(`[data-quadrant="${fromBox}"] [data-row]`).first()
   const id = await card.getAttribute('data-id')
-  const plan = h.locator('[data-quadrant="plan"]')
+  const plan = h.locator(`[data-quadrant="${fromBox === 'do' ? 'plan' : 'drop'}"]`)
   const planId = await plan.getAttribute('data-quadrant')
-  await carry('Matrix', card, plan, { land: () => h.evaluate(([id, q]) => !!document.querySelector(`[data-quadrant="${q}"] [data-row][data-id="${id}"]`), [id, planId]) })
+  await carry('Matrix', card, plan, { none: true, land: () => h.evaluate(([id, q]) => !!document.querySelector(`[data-quadrant="${q}"] [data-row][data-id="${id}"]`), [id, planId]) })
   // The week board: a card to the next day.
   await go('week'); await h.waitForTimeout(900)
   const days = h.locator('[data-day]')
