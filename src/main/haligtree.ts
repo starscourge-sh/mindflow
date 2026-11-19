@@ -2289,7 +2289,7 @@ export function registerHaligtree(): void {
   })
   // Many at once, picked rows of a list and their Undo: one write and one telling for the lot.
   handle('bin:put-many', (ids: string[]) => {
-    atomically(() => ids.forEach((id) => putInBin(id, `${ids.length} at once`)))
+    atomically(() => ids.forEach((id) => putInBin(id, `${num(ids.length)} at once`)))
     goalsTold()
     return write(true)
   })
