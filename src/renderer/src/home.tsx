@@ -2096,7 +2096,7 @@ export function Home(): React.JSX.Element {
             { label: "Open the year's page", hint: 'Your seasons of life, month by month', cue: 'season', run: () => setView({ id: 'yearpage' }) },
             ...noteActions({ day: false }),
             // The recap, Wrapped's way, over Stats.
-            { label: 'Your month in notes, wrapped', hint: 'What you captured most, your busiest day, focus hours, gems kept, what went well', cue: null, run: () => openWrap(monthToWrap()) },
+            { label: 'Your month in notes, wrapped', hint: 'What you captured most, your busiest day, the hour ideas came, focus hours, gems kept, what went well', cue: null, run: () => openWrap(monthToWrap()) },
             { label: 'Your week, wrapped', hint: 'A few cards on this week', cue: null, run: () => openWrap(`week:${dayKey(dayjs().startOf('week'))}`) },
             { label: 'Your month in study, card by card', hint: 'Cards reviewed, days studied, how much stayed, the book you read most, one line of your own', run: () => setView({ id: 'stats', focus: 'yourmonth', nonce: Date.now() }) },
             { label: 'Your year, wrapped', hint: 'Your year in notes, a card at a time', run: () => setView({ id: 'stats', focus: 'year', nonce: Date.now() }) }

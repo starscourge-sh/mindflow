@@ -3,7 +3,7 @@
 //     smallest window (560 x 400), shot once its line has typed; frames every 50ms through an open, a turn and a close;
 //     the bars and the close never move as cards turn; no word is cut, past the card's edge or inside any box it sits
 //     in (a word cut short on purpose ends in "…"), and none runs under the card's own buttons; the sites card says
-//     what the database holds; two opens of one look differ.
+//     what the database holds, and so does the hours card (the hour ideas came most); two opens of one look differ.
 //   QA_PART=worst: worst-case numbers (break-ui) laid over the real ones in each look, wide and small, with the same
 //     word checks.
 //   QA_PART=stats: Stats' "Sites it kept you off": its line, its big number and its labelled bars, by week and by
@@ -141,6 +141,11 @@ try {
     for (const row of rows) if (row.at >= from && row.at < until) sum.set(row.site, (sum.get(row.site) ?? 0) + row.count)
     const [site, count] = [...sum].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0] ?? []
     check('the sandbox month holds sites sent away', !!site, JSON.stringify([...sum]))
+    // The hour ideas came most, from the database by the same rule as the card (8 or more, one hour clearly ahead).
+    const hours = (await h.evaluate((since) => window.api.haligtree('recap', 'month', since), from)).hours
+    const order = hours.map((n, hour) => [n, hour]).sort((a, b) => b[0] - a[0])
+    const peak = hours.reduce((sum, n) => sum + n, 0) >= 8 && order[0][0] > order[1][0] ? order[0] : null
+    console.log(`(the month's captures by hour: ${hours.join(' ')}; the thinking hour ${peak ? `${peak[1]}:00, ${peak[0]}` : 'none'})`)
     for (const look of ['light', 'dark'])
       for (const world of LOOKS)
         for (const [size, w, hh] of SIZES) {
@@ -150,8 +155,10 @@ try {
           const first = look === 'light' && size === 'wide'
           if (first) await film(`${world}-open`, 600)
           let said = null
+          let hourCard = null
           const { kinds, still, cuts, shown } = await walk(`${world}-${look}-${size}`, async (kind, i) => {
             if (kind === 'sites') said = await h.locator('[data-wrap-card] h2').first().innerText()
+            if (kind === 'hours') hourCard = `${(await h.locator('[data-wrap-card] h2').first().innerText()).replace(/\s+/g, ' ')} | ${await h.locator('[data-wrap-hours] [data-wrap-peak]').innerText()} | ${await h.locator('[data-wrap-hours] > div:first-child > div').count()} bars`
             if (first && i === 2) {
               // A click on the left third turns back, with motion; then on again by key, still.
               const card = await h.locator('[data-wrap-card]').boundingBox()
@@ -163,6 +170,7 @@ try {
           const tag = `${world} ${look} ${size}`
           check(`${tag}: intro first, report last, the sites card among them`, kinds[0] === 'intro' && kinds.at(-1) === 'report' && kinds.includes('sites'), kinds.join(' '))
           check(`${tag}: the sites card says "Kept you off ${site} ${times(count)} this month"`, said?.replace(/\s+/g, ' ') === `Kept you off ${site} ${times(count)} this month`, said)
+          if (peak) check(`${tag}: the hours card says “Ideas came most around ${peak[1]}:00” over 24 bars, ${peak[0]} lit`, hourCard === `Ideas came most around ${peak[1]}:00 | ${peak[0]} | 24 bars` || (!hourCard && kinds.length === 12), hourCard ?? `left out of a full story: ${kinds.join(' ')}`)
           check(`${tag}: the pictures card shows its row of pictures and gems`, shown.length === 1 && shown[0].endsWith('drawn'), shown.join(' '))
           check(`${tag}: no word cut, over another or under the foot, on any card`, !cuts.length, cuts.join('; '))
           check(`${tag}: the bars and the close never move as cards turn`, still)

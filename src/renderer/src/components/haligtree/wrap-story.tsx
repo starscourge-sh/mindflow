@@ -138,8 +138,10 @@ type Facts = {
   pictures: { src: string; title: string; type: string; id: string }[]; notes: string[]; notesLabel: string; gems: number
   run: number; runFrom: string; runTo: string; busy: string[]; days: Record<string, number>
   busiest: { label: string; day: string; n: number } | null; well: string[]; kind: string; sites: { site: string; count: number }[]
+  /** Captures by hour of the day, and the hour most came in; null with too few to say. */
+  hours: number[]; hour: number | null
 }
-type Kind = 'intro' | 'tags' | 'focus' | 'sites' | 'plan' | 'pictures' | 'notes' | 'well' | 'run' | 'busiest' | 'outro' | 'report'
+type Kind = 'intro' | 'tags' | 'focus' | 'sites' | 'plan' | 'pictures' | 'notes' | 'well' | 'run' | 'busiest' | 'hours' | 'outro' | 'report'
 
 /** What the month most was, in a word: the report card's "Top kind". */
 const kindOf = (f: { captures: number; minutes: number; gems: number; planned: number }): string =>
@@ -188,6 +190,8 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
       pictures: flow, notes, notesLabel: recap.sources.length ? 'Top sources' : 'Gems kept', gems: gems.length,
       run: run.n, runFrom: run.from, runTo: run.to, busy, days,
       busiest: recap.busiestDay ? { label: dayName(noon(recap.busiestDay.name), 'never'), day: recap.busiestDay.name, n: recap.busiestDay.n } : null,
+      // An hour is said only with enough caught to mean something, and one hour clearly ahead of the next.
+      hours: recap.hours, hour: thinkingHour(recap.hours),
       well, kind: kindOf({ captures: recap.captures, minutes: focus.minutes, gems: gems.length, planned: plan.planned }), sites,
       ...worst
     }
@@ -208,6 +212,7 @@ function Story({ id, seed, forced, worst, onClose, onLeave }: { id: string; seed
     if (f.well.length) middle.push([5, 'well'])
     if (f.run >= 2) middle.push([5, 'run'])
     if (f.busiest) middle.push([6, 'busiest'])
+    if (f.hour !== null) middle.push([6, 'hours'])
     const order = middle.map(([rank, kind]) => [rank + rand() * 1.5, kind] as const).sort((a, b) => a[0] - b[0]).slice(0, MOST - 3).map(([, kind]) => kind)
     return ['intro', ...order, 'outro', 'report']
   }, [facts, seed])
@@ -427,19 +432,33 @@ function Calendar({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
   )
 }
 
+/** The hour most captures came in, when there are 8 or more and it holds more than the next hour does; else null. */
+const thinkingHour = (hours: number[]): number | null => {
+  const total = hours.reduce((sum, n) => sum + n, 0)
+  const order = hours.map((n, hour) => [n, hour] as const).sort((a, b) => b[0] - a[0])
+  return total >= 8 && order[0][0] > order[1][0] ? order[0][1] : null
+}
+const hourSaid = (hour: number): string => `${hour}:00`
+
 /** Each day of the span as a bar of its captures, the busiest in the loud colour with its count over it; the first and last dates under. */
 function DayBars({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
   const days: string[] = []
   for (let day = dayjs(f.from); dayKey(day) <= f.to; day = day.add(1, 'day')) days.push(dayKey(day))
-  const most = Math.max(1, ...days.map((day) => f.days[day] ?? 0))
+  return <Bars p={p} mark="days" values={days.map((day) => f.days[day] ?? 0)} peak={days.indexOf(f.busiest?.day ?? '')} under={[dayjs(f.from).format('D MMM'), dayjs(f.to).format('D MMM')]} />
+}
+/** The day's 24 hours as bars of the span's captures, the thinking hour lit the same way. */
+const HourBars = ({ f, p }: { f: Facts; p: Palette }): React.JSX.Element => <Bars p={p} mark="hours" values={f.hours} peak={f.hour ?? -1} under={['midnight', 'noon', '23:00']} />
+
+/** A row of bars, `peak` in the loud colour with its count over it, the words `under` spread beneath. */
+function Bars({ p, mark, values, peak, under }: { p: Palette; mark: string; values: number[]; peak: number; under: string[] }): React.JSX.Element {
+  const most = Math.max(1, ...values)
   return (
-    <div data-wrap-days className="grid h-full content-center">
+    <div {...{ [`data-wrap-${mark}`]: '' }} className="grid h-full content-center">
       <div className="flex h-[clamp(72px,20cqi,150px)] items-end gap-[3px] pt-6">
-        {days.map((day, i) => {
-          const n = f.days[day] ?? 0
-          const top = day === f.busiest?.day
+        {values.map((n, i) => {
+          const top = i === peak
           return (
-            <div key={day} className="relative flex h-full flex-1 items-end justify-center">
+            <div key={i} className="relative flex h-full flex-1 items-end justify-center">
               {top && <span data-wrap-peak className="absolute left-1/2 -translate-x-1/2 text-[13px] font-black whitespace-nowrap tabular-nums" style={{ bottom: `calc(${(n / most) * 100}% + 4px)`, color: p.accent }}>{num(n)}</span>}
               <motion.div className="w-full max-w-2 origin-bottom rounded-none" style={{ height: n ? `max(4px, ${(n / most) * 100}%)` : '2px', background: top ? p.accent : n ? `color-mix(in srgb, ${p.ink} 55%, ${p.bg})` : `color-mix(in srgb, ${p.ink} 18%, ${p.bg})` }}
                 initial={still() ? false : { scaleY: 0 }} animate={{ scaleY: 1 }} transition={{ delay: 0.3 + i * 0.012, duration: 0.3, ease: EASE }} />
@@ -447,7 +466,7 @@ function DayBars({ f, p }: { f: Facts; p: Palette }): React.JSX.Element {
           )
         })}
       </div>
-      <div className="mt-2 flex justify-between text-[12px] font-semibold text-(--wrap-quiet)"><span>{dayjs(f.from).format('D MMM')}</span><span>{dayjs(f.to).format('D MMM')}</span></div>
+      <div className="mt-2 flex justify-between text-[12px] font-semibold text-(--wrap-quiet)">{under.map((word) => <span key={word}>{word}</span>)}</div>
     </div>
   )
 }
@@ -538,6 +557,9 @@ function Card({ kind, f, look, variant, seed, wide, open }: { kind: Kind; f: Fac
         return split(<><In at={0.12}><h2 className={BIG}>Your busiest day was <span style={{ color: p.accent }}>{f.busiest?.label}</span></h2></In>
           <In at={0.4}><p className={CAPTION}>{plural(f.busiest?.n ?? 0, 'capture')} in one day{usual && usual < (f.busiest?.n ?? 0) ? `, where a usual day held ${num(usual)}` : ''}.</p></In></>, <DayBars f={f} p={p} />)
       }
+      case 'hours':
+        return split(<><In at={0.12}><h2 className={BIG}>Ideas came most around <span style={{ color: p.accent }}>{hourSaid(f.hour ?? 0)}</span></h2></In>
+          <In at={0.4}><p className={CAPTION}>{num(f.hours[f.hour ?? 0])} of your {plural(f.captures, 'capture')} came in that hour. A good time to keep free for thinking.</p></In></>, <HourBars f={f} p={p} />)
       case 'outro':
         if (night) return <Centre><In><h2 className={`${BIG} text-balance`} style={{ color: p.accent }}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</Centre>
         return split(<><In><h2 className={BIG}><Typed story text={fill(look.outro, f.name)} /></h2></In>{f.period === 'week' && <In at={0.8}><WrappedParagraph monday={f.from} /></In>}</>, cover(f.pictures.at(-1)))
@@ -643,5 +665,5 @@ export function WrapOffer(): React.JSX.Element | null {
 export const WRAP_SETTING: { title: string; note: string; more: string } = {
   title: 'Your month in notes, wrapped',
   note: `After a month ends, the first time you open ${APP_NAME} it offers that month as a few cards, once.`,
-  more: `What you captured most, your busiest day, focus hours and where they went, the sites it kept you off, planned against did, gems kept, your longest run and what went well. The Sunday notification opens the week's. ${num(MOST)} cards at most; nothing leaves this Mac.`
+  more: `What you captured most, your busiest day and the hour ideas came most, focus hours and where they went, the sites it kept you off, planned against did, gems kept, your longest run and what went well. The Sunday notification opens the week's. ${num(MOST)} cards at most; nothing leaves this Mac.`
 }

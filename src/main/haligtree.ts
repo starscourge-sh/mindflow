@@ -4188,6 +4188,8 @@ export function registerHaligtree(): void {
       captures: rows.length,
       words: rows.reduce((sum, row) => sum + plain(JSON.parse(row.body ?? 'null')).split(/\s+/).filter(Boolean).length, 0),
       busiestDay,
+      // Each hour of the day, its captures in the span (local time): when ideas tend to come, for Wrapped.
+      hours: rows.reduce((counts, row) => (counts[new Date(row.at).getHours()] += 1, counts), Array<number>(24).fill(0)),
       busiestMonth: busiestMonth && { name: monthName(Number(busiestMonth.name)), n: busiestMonth.n },
       tags: top(open.flatMap((row) => tagsIn(`${row.title} ${plain(JSON.parse(row.body ?? 'null'))}`))),
       sources: top(open.map((row) => row.attribution ?? '').filter(Boolean)),

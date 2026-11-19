@@ -112,6 +112,8 @@ export type Recap = {
   captures: number
   words: number
   busiestDay: { name: string; n: number } | null
+  /** Captures in each hour of the day (0 to 23), local time. */
+  hours: number[]
   busiestMonth: { name: string; n: number } | null
   tags: { name: string; n: number }[]
   sources: { name: string; n: number }[]
