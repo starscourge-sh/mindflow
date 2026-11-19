@@ -317,7 +317,18 @@ export function registerSources(): void {
   ipcMain.handle('haligtree:source:near', (_event, name: unknown): SourceNear[] => {
     if (typeof name !== 'string' || !personKey(name)) return []
     const key = personKey(name)
-    const tagsOf = (label: string): string[] => [...label.matchAll(/(?:^|\s)#([\p{L}\p{N}_-]+)/gu)].map((match) => match[1].toLowerCase())
+    // A note's own tags, wherever they are in it: a #tag typed in its first line leaves its name (19dc0daf9), so the
+    // name no longer shows them, and two people sharing one were never found "alongside" each other.
+    const tagged = new Map((db.prepare(`select id, note_tags('', body) as tags from captures where coalesce(trim(attribution), '') != ''
+      union all select id, note_tags(title, body) as tags from nuggets where coalesce(trim(attribution), '') != ''`).all() as { id: string; tags: string }[])
+      .map((row) => [row.id, row.tags]))
+    const tagsOf = (id: string): string[] => {
+      try {
+        return (JSON.parse(tagged.get(id) ?? '[]') as string[]).map((tag) => String(tag).replace(/^#/, '').toLowerCase())
+      } catch {
+        return []
+      }
+    }
     const people = new Map<string, { names: string[]; marks: Set<string> }>()
     for (const item of everything()) {
       const who = item.attribution?.trim()
@@ -325,7 +336,7 @@ export function registerSources(): void {
       const one = people.get(personKey(who)) ?? { names: [], marks: new Set<string>() }
       one.names.push(who)
       if (item.medium?.trim()) one.marks.add(`where:${personKey(item.medium.split(',')[0])}`)
-      for (const tag of tagsOf(item.label)) one.marks.add(`tag:${tag}`)
+      for (const tag of tagsOf(item.id)) one.marks.add(`tag:${tag}`)
       people.set(personKey(who), one)
     }
     const mine = people.get(key)?.marks
