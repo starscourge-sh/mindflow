@@ -4,7 +4,7 @@ import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ipcMain, powerMonitor } from 'electron'
 import helper from '../../resources/labels?asset&asarUnpack'
-import { changed, database } from './captures'
+import { database } from './captures'
 import { assetsDir } from './pictures'
 import { PICTURE } from './picture-lines'
 
@@ -72,7 +72,7 @@ function look(name: string): Promise<Sight | null> {
 const unseen = async (): Promise<string[]> => (await readdir(assetsDir()).catch(() => [] as string[])).filter((name) => PICTURE.test(name) && SEEN.test(name) && !sights().has(name))
 
 let looking = false
-/** A few at a time while the Mac is left alone (`now`: a test's turn, at once): each list hears once some are in. */
+/** A few at a time while the Mac is left alone (`now`: a test's turn, at once). */
 async function lookSome(now = false): Promise<number> {
   if (looking) return 0
   looking = true
@@ -86,7 +86,8 @@ async function lookSome(now = false): Promise<number> {
   } finally {
     looking = false
   }
-  if (found) changed()
+  // Nothing is told: a word for a picture changes no note, and telling every list the book changed would reload Home, the
+  // sidebar and the Week page under the person every few seconds while the Mac is idle. Files reads them as it opens.
   return found
 }
 
