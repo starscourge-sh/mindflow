@@ -8,6 +8,9 @@ import { chime } from '@/lib/sound'
 import { applyTheme, currentTheme } from '@/lib/theme'
 import { haligtree } from '@/lib/haligtree'
 import { Button } from '@/components/ui/button'
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu'
+import { ago } from '../../../../main/dates'
+import './shelf.css'
 import { Tip, ask, refuse, toast, whyFailed } from './ui'
 import { Swatch, type RowItem } from './row-menu'
 import { APP_NAME } from '../../../../main/name'
@@ -247,4 +250,39 @@ export function BookName(): React.JSX.Element {
     return () => window.removeEventListener('haligtree:books-changed', load)
   }, [])
   return <>{name || APP_NAME}</>
+}
+
+/**
+ * Your books on a shelf, at the head of the sidebar foot's menu (the user, 17 Nov, of Stripe Press's catalogue: "the
+ * books look like they are on a shelf and hover shows a little more"). Each book stands as a spine in its colour, its
+ * name down it; the one pointed at, or reached by the keys, is pulled out and turned to its face: its whole name, and
+ * whether it is open now or when you were last in it. The open book stands turned when nothing is pointed at, so the
+ * shelf keeps one width and the spines never move out from under the pointer: the one turned widens towards the one
+ * turned before. A press opens the book (the open one: its name and colour in Settings); a right-click, its menu.
+ */
+/** Books on a shelf stand a little taller or shorter than each other: one of these by its id, the same every time. */
+const TALL = [92, 98, 88, 100, 95]
+export function BookShelf({ books, onPick, onMenu }: { books: Book[]; onPick: (book: Book) => void; onMenu: (event: React.MouseEvent, book: Book) => void }): React.JSX.Element {
+  return (
+    // Reached by the keys, a book turns at once; by the pointer, it slides out.
+    <div role="group" aria-label="Your books" data-book-shelf className="mf-shelf"
+      onKeyDownCapture={(event) => event.currentTarget.setAttribute('data-keyed', '')} onPointerMove={(event) => event.currentTarget.removeAttribute('data-keyed')}>
+      {books.map((book, at) => {
+        const said = book.current ? 'Open now' : at === 1 && book.openedAt ? 'You were in it last' : book.openedAt ? `Opened ${ago(book.openedAt)}` : 'Not opened yet'
+        return (
+          <DropdownMenuItem key={book.id} asChild data-book={book.id} aria-current={book.current || undefined} aria-label={`${book.name}, ${said.toLowerCase()}`}
+            onContextMenu={(event) => onMenu(event, book)} onSelect={() => onPick(book)}>
+            <div className="mf-spine" style={{ '--spine': markInk(book.color), '--tall': `${TALL[[...book.id].reduce((sum, char) => sum + char.charCodeAt(0), 0) % TALL.length]}px` } as React.CSSProperties}>
+              <span aria-hidden className="mf-spine-side">{book.name}</span>
+              <span aria-hidden className="mf-spine-face">
+                <span className="mf-spine-name">{book.name}</span>
+                <span className="mf-spine-said">{said}</span>
+              </span>
+              {book.current && <span data-book-open className="sr-only">Open now</span>}
+            </div>
+          </DropdownMenuItem>
+        )
+      })}
+    </div>
+  )
 }

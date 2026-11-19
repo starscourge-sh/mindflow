@@ -78,7 +78,7 @@ import { GrowFrom } from './components/haligtree/grow-from'
 import { FocusScenery } from './components/haligtree/scenery'
 import { TooltipProvider } from './components/ui/tooltip'
 import { SidePeek } from './components/haligtree/page-peeks'
-import { MenuPeek, bookPeeks } from './components/haligtree/menu-peeks'
+import { MenuPeek } from './components/haligtree/menu-peeks'
 import { useStickiesOut } from './lib/stickies-out'
 import { useReadsIn } from './lib/reads-in'
 import { call, unloaded, unread, useAppearance, useLive, haligtree, type Item, type Pin, type Settings, type Task } from './lib/haligtree'
@@ -103,7 +103,7 @@ import { SandboxHost, SandboxPill } from '@/components/haligtree/sandbox'
 import { SANDBOX, enterSandbox, leaveSandbox, resetSandbox } from '@/lib/sandbox'
 import { askBook, switchBook, useShelf, type Book } from '@/lib/books'
 import { nameNewDeck, useMadeDecks } from './components/haligtree/decks'
-import { BookMark, BookName, askNewBook, bookMenu, colourChoices } from '@/components/haligtree/books'
+import { BookMark, BookName, BookShelf, askNewBook, bookMenu, colourChoices } from '@/components/haligtree/books'
 import { Welcome } from '@/components/haligtree/welcome'
 import { PageHint, pageSaid } from '@/components/haligtree/page-hint'
 import { onboarding, playWelcome, tryWelcome } from '@/lib/onboarding'
@@ -151,7 +151,7 @@ import { openCloseWeek } from '@/components/haligtree/close-week'
 import { FIT_CHOICES, FitsSheet, fitsHeard, openFits } from '@/components/haligtree/fits'
 import { openPlaybook } from '@/lib/playbook'
 import { menuShowing } from '@/lib/menu-keys'
-import { ArrowRight, Check, ChevronRight, History } from '@/components/ui/icons'
+import { ArrowRight, ChevronRight, History } from '@/components/ui/icons'
 import { glideWay } from '@/lib/motion'
 import { SwipeBack, placesFrom } from '@/components/haligtree/swipe-back'
 import { calendarAside, calendarPalette, revealOnCalendar } from '@/lib/calendar-scope'
@@ -2690,19 +2690,10 @@ export function Home(): React.JSX.Element {
               // Shut by a right-click on one of its books: the keys go to that book's menu, not back to the button.
               onCloseAutoFocus={(event) => { if (footGave.current) (footGave.current = false, event.preventDefault()) }}>
               {/* Each row's card beside the menu: what it does, before you choose it. A book's says its whole name, however long. */}
-              <MenuPeek more={() => bookPeeks(shelfNow?.books ?? [])} />
-              {/* Your books first, one press each: the open one ticked (pressed, its name and colour in Settings), then the one you were in last. */}
-              {shelfNow?.books.map((book) => (
-                <DropdownMenuItem key={book.id} data-book={book.id} data-peek={`book:${book.id}`} aria-current={book.current || undefined} className={book.current ? 'pr-8' : undefined}
-                  onContextMenu={(event) => openBookMenu(event, book)}
-                  onSelect={() => (book.current ? setView({ id: 'settings', focus: `book:${book.id}`, nonce: Date.now() }) : void switchBook(book.id))}>
-                  <BookMark hue={book.color} />
-                  {/* Cut within the menu's own width, however long: the whole name is in its card beside the menu. */}
-                  <span className="max-w-44 min-w-0 flex-1 truncate">{book.name}</span>
-                  {/* Ticked as every ticked menu line is (dropdown-menu.tsx). */}
-                  {book.current && <span data-book-open className="pointer-events-none absolute right-2 flex items-center justify-center"><Check aria-label="Open now" /></span>}
-                </DropdownMenuItem>
-              ))}
+              <MenuPeek />
+              {/* Your books first, on a shelf: the open one turned to its face, the one pointed at pulled out (books.tsx). */}
+              {!!shelfNow?.books.length && <BookShelf books={shelfNow.books} onMenu={openBookMenu}
+                onPick={(book) => (book.current ? setView({ id: 'settings', focus: `book:${book.id}`, nonce: Date.now() }) : void switchBook(book.id))} />}
               {!SANDBOX && <DropdownMenuItem data-peek="new-book" onSelect={() => void askNewBook()}>New book…</DropdownMenuItem>}
               <DropdownMenuSeparator />
               {/* Customize leads (the user's ask, 928); Settings closes the menu, its ⌘, still beside it. */}

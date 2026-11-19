@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Book, BookOpen, Check, FlaskConical, Keyboard, Lightbulb, Pin, RotateCcw, Settings2, Sparkles, Undo2, Upload } from 'lucide-react'
 import { BesidePeek, MCard, MChip, MRow, MTitle, PeekCard, carrying, previewsOff, tinted } from './peek'
-import { SANDBOX } from '@/lib/sandbox'
 import { APP_NAME } from '../../../../main/name'
 
 /**
@@ -187,23 +186,7 @@ const PEEKS: Record<string, MenuPeekEntry> = {
  * has been highlighted a moment, then swaps at once as you move. Nothing
  * while something is being carried.
  */
-/**
- * A card for each of your books, for its row in the Haligtree menu (`data-peek="book:<id>"`): its whole name,
- * however the row had to cut it, and what a press and a right-click do there. Words alone.
- */
-export const bookPeeks = (books: { id: string; name: string; current: boolean }[]): Record<string, MenuPeekEntry> =>
-  Object.fromEntries(books.map((book) => {
-    // The card's own marks for bold are kept out of a name.
-    const name = book.name.replace(/\*+/g, '')
-    return [`book:${book.id}`, {
-      text: book.current
-        ? `**${name}: the book open now.** Press it for its name and colour in Settings${SANDBOX ? '' : ', or right-click it to pick a colour here'}.`
-        : `**${name}: another of your books.** Press to open it: what you are writing is saved first, and your look comes along.${SANDBOX ? '' : ' Right-click it for its colour and name.'}`
-    }]
-  }))
-
-export function MenuPeek({ entries: given = PEEKS, more }: { /** Another menu's own cards (the readers' menu on picked words); the Haligtree menu's when not given. */ entries?: Record<string, MenuPeekEntry>; /** Cards made as the menu opens, beside its own (one for each of your books): asked for only while the menu is up. */ more?: () => Record<string, MenuPeekEntry> } = {}): React.JSX.Element {
-  const entries = more ? { ...given, ...more() } : given
+export function MenuPeek({ entries = PEEKS }: { /** Another menu's own cards (the readers' menu on picked words); the Haligtree menu's when not given. */ entries?: Record<string, MenuPeekEntry> } = {}): React.JSX.Element {
   const probe = useRef<HTMLSpanElement>(null)
   const [id, setId] = useState<string | null>(null)
   const [ready, setReady] = useState(false)

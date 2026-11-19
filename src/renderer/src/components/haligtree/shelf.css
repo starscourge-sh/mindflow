@@ -1,0 +1,106 @@
+/* Your books on a shelf (books.tsx BookShelf): spines in a row on a ledge, the one pointed at pulled out and turned to
+   its face. Unlayered, so it wins over the menu row's own utilities that the item hands its spine. */
+.mf-shelf {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 118px;
+  margin: 2px 0 6px;
+  padding: 10px 8px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  /* The ledge they stand on: a hairline and a soft shadow under the spines. */
+  border-bottom: 1px solid var(--border);
+  box-shadow: inset 0 -4px 0 color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+.mf-shelf::-webkit-scrollbar { display: none; }
+.mf-shelf .mf-spine {
+  position: relative;
+  flex: none;
+  display: block;
+  width: 26px;
+  min-height: 0;
+  height: var(--tall, 96px);
+  margin-bottom: 4px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 3px 3px 2px 2px;
+  cursor: pointer;
+  color: var(--foreground);
+  background:
+    linear-gradient(90deg, color-mix(in oklab, var(--foreground) 10%, transparent), transparent 22%, transparent 78%, color-mix(in oklab, var(--foreground) 12%, transparent)),
+    color-mix(in oklab, var(--spine) 42%, var(--popover));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--spine) 40%, var(--border)), 0 2px 3px -2px color-mix(in oklab, var(--foreground) 35%, transparent);
+  transition: width 220ms var(--mf-ease, cubic-bezier(0.16, 1, 0.3, 1)), translate 220ms var(--mf-ease, cubic-bezier(0.16, 1, 0.3, 1));
+  outline: none;
+}
+/* Two gilt bands across the spine, top and foot, as a bound book has. */
+.mf-shelf .mf-spine::before,
+.mf-shelf .mf-spine::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: color-mix(in oklab, var(--spine) 70%, var(--foreground));
+  opacity: 0.5;
+}
+.mf-shelf .mf-spine::before { top: 7px; }
+.mf-shelf .mf-spine::after { bottom: 7px; }
+.mf-spine-side {
+  position: absolute;
+  inset: 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  writing-mode: vertical-rl;
+  overflow: hidden;
+  font-family: var(--font-heading);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 26px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* Back on a spine, its name comes once the face has gone: never the two names over each other. */
+  transition: opacity 100ms ease-out 80ms;
+}
+.mf-spine-face {
+  position: absolute;
+  inset: 0;
+  width: 88px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 13px 9px 12px;
+  opacity: 0;
+  transition: opacity 60ms ease-out;
+}
+.mf-spine-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  overflow: hidden;
+  font-family: var(--font-heading);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.15;
+  white-space: normal;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+.mf-spine-said { font-size: 11px; line-height: 1.2; white-space: normal; color: var(--mf-muted-strong); }
+/* Pulled out and turned: the one the pointer or the keys are on, else the open book, so one always stands turned. */
+.mf-shelf .mf-spine[data-highlighted],
+.mf-shelf:not(:has([data-highlighted])) .mf-spine[aria-current] { width: 88px; translate: 0 -5px; }
+.mf-shelf .mf-spine[data-highlighted] .mf-spine-side,
+.mf-shelf:not(:has([data-highlighted])) .mf-spine[aria-current] .mf-spine-side { opacity: 0; transition: opacity 60ms ease-out; }
+.mf-shelf .mf-spine[data-highlighted] .mf-spine-face,
+.mf-shelf:not(:has([data-highlighted])) .mf-spine[aria-current] .mf-spine-face { opacity: 1; transition: opacity 120ms ease-out 70ms; }
+.mf-shelf .mf-spine:active { scale: 0.97; }
+@media (prefers-reduced-motion: reduce) {
+  .mf-shelf .mf-spine, .mf-spine-side, .mf-spine-face { transition: none; }
+}
+:root[data-motion='off'] :is(.mf-shelf .mf-spine, .mf-spine-side, .mf-spine-face),
+.mf-shelf[data-keyed] :is(.mf-spine, .mf-spine-side, .mf-spine-face) { transition: none !important; }
