@@ -4,6 +4,8 @@ import { createHash } from 'crypto'
 import { readdir, realpath, stat } from 'fs/promises'
 import { basename, extname, isAbsolute, join } from 'path'
 import { database } from './captures'
+import { plain } from './card-words'
+import { readKept, textOf, type Kept } from './kept-words'
 import { dayjs, dayKey, num, startOfDay } from './dates'
 import { celebrationPrefs, gate, openGoals } from './haligtree'
 import { daysBetween, daysLeft, wayThrough } from './goal-days'
@@ -145,6 +147,17 @@ const keptCount = (): number => count(`select count(*) as n from captures where 
 const answeredCount = (): number => count("select count(*) as n from nuggets where tier = 'question' and closed_how = 'answered'")
 /** The first answer, then each tenth reached. */
 const answeredStep = (n: number): number => (n < 10 ? Math.min(n, 1) : n - (n % 10))
+
+/** Only lines of words, and no words in them but its name: a note made empty (a page a `[[name]]` link made). */
+const BARE = new Set(['doc', 'paragraph', 'heading', 'text', 'hardBreak'])
+function madeEmpty(id: unknown): boolean {
+  const row = database().prepare('select title, body from captures where id = ?').get(String(id)) as { title: string; body: Kept | null } | undefined
+  if (!row) return false
+  const body = readKept(row.body === null ? null : textOf(row.body))
+  const bare = (node: { type?: string; content?: unknown[] }): boolean => BARE.has(node.type ?? '') && (node.content ?? []).every((one) => bare(one as typeof node))
+  if (body && typeof body === 'object' && !bare(body as { type?: string })) return false
+  return plain(body).replace(row.title, '').trim() === ''
+}
 
 /** The 1st, 10th, 100th, 500th and 1,000th capture, as it is kept. */
 function kept(): Moment | null {
@@ -296,7 +309,8 @@ export function goalPassed(id: string): void {
 /** The channels that can reach a milestone, and which ones each can reach. */
 const WATCH: Record<string, (args: unknown[], result: unknown) => (Moment | null)[]> = {
   // A goal's steps come with time, so they show on the next save that can show one.
-  'captures:create': () => [kept(), streak(), goalSteps()],
+  // A note made with nothing in it is not a capture kept: no card for it (a page a link made, holding only its name).
+  'captures:create': (_args, id) => (madeEmpty(id) ? [] : [kept(), streak(), goalSteps()]),
   'captures:save': (args, result) => {
     const status = (args[1] as { status?: string } | undefined)?.status
     // Moved to the Bin is not dealt with: no celebration for an inbox emptied that way.
