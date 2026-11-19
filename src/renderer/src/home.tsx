@@ -1363,8 +1363,7 @@ export function Home(): React.JSX.Element {
   // The sidebar is drawn whole, once its rows' reads are in too: before, Pinned and the tags came in a beat late and pushed the places down.
   // How many pages and gems are in no folder, the Folders section's last count: read here so the sidebar waits for it
   // too, or its "0" was drawn and became the real number a beat later.
-  const unfiled = useLive(folders.unfiled, null as number | null, [], undefined, 'folders:unfiled')
-  const { style: sideStyle } = useReadsIn(!settings || unloaded(away) || !countsIn || unloaded(pinsUsual) || unloaded(tags) || unloaded(recents) || unfiled === null)
+  const { style: sideStyle } = useReadsIn(!settings || unloaded(away) || !countsIn || unloaded(pinsUsual) || unloaded(tags) || unloaded(recents))
   // Come into from the welcome's "Open my book": the sidebar comes up with Home's parts, a little apart, never simply there.
   const [opened, setOpened] = useState(false)
   useEffect(() => {
@@ -2254,7 +2253,7 @@ export function Home(): React.JSX.Element {
                   className="flex w-full min-w-0 items-start gap-2 rounded-md py-1 pr-2 pl-2 text-foreground">
                   {/* A long title goes on to a second line, as a folder's name does, rather than being cut; the icon stays on its first. */}
                   <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center"><NoteIcon className="size-3.5 shrink-0" style={{ color: noteNow.name.tint }} /></span>
-                  <Weighted on className="private-text min-w-0 flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere]">{noteNow.name.title}</Weighted>
+                  <Weighted on className="private-text min-w-0 flex-1 text-left truncate">{noteNow.name.title}</Weighted>
                 </button>
               </RowMenu>
             )
@@ -2546,7 +2545,7 @@ export function Home(): React.JSX.Element {
                       <button
                         type="button"
                         data-private={pin.private ? '' : undefined}
-                        // Cut after two lines, the whole title shows on pointing (the app's own tip, title-tips.tsx, only when cut).
+                        // Cut to one line with an ellipsis, the whole title shows on pointing (the app's own tip, title-tips.tsx, only when cut).
                         title={narrow || pin.private ? undefined : taskName(pin.title).text || undefined}
                         data-side-row
                         data-drag-open={`${pin.type}:${pin.id}`}
@@ -2559,7 +2558,7 @@ export function Home(): React.JSX.Element {
                         className={`flex min-w-0 flex-1 items-start gap-2.5 rounded-md py-1.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? 'justify-center px-0' : 'px-2'}`}
                       >
                         <span className="flex h-[1lh] shrink-0 items-center"><kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} /></span>
-                        {!narrow && <Weighted on={light === `pin:${pin.id}`} className="private-text min-w-0 flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere]">{taskName(pin.title).text || 'New note'}</Weighted>}
+                        {!narrow && <Weighted on={light === `pin:${pin.id}`} className="private-text min-w-0 flex-1 text-left truncate">{taskName(pin.title).text || 'New note'}</Weighted>}
                       </button>
                       </Tip>
                       </span>
@@ -2589,7 +2588,7 @@ export function Home(): React.JSX.Element {
                           onClick={() => open(one.type, one.id)}
                           className="flex min-w-0 flex-1 items-start gap-2.5 rounded-md px-2 py-1.5 text-(--mf-muted-strong)">
                           <span className="flex h-[1lh] shrink-0 items-center"><OpenedIcon one={one} className="size-4 shrink-0 text-muted-foreground" /></span>
-                          <span className="private-text line-clamp-2 min-w-0 flex-1 text-left [overflow-wrap:anywhere]">{one.title || 'New note'}</span>
+                          <span className="private-text min-w-0 flex-1 truncate text-left">{one.title || 'New note'}</span>
                         </button>
                       )
                     })}</Branches></Unfold>
@@ -2609,7 +2608,7 @@ export function Home(): React.JSX.Element {
             // Tags drawn as their own part, which takes no page dropped on it, as Pinned does not.
             const tagsPart = <div data-side-drop="tags" data-side-section="tags" style={sectionAt('tags')} className="flex flex-col gap-px">{tagsBlock}</div>
             // Folders, where things live, right under the places (what they are): starred ones, as Tags shows favourites.
-            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} unfiled={unfiled ?? 0} here={view.id === 'folders' ? (!view.focus || view.focus === 'all' ? null : view.focus) : undefined} onOpen={(place) => setView({ id: 'folders', focus: place ?? 'all' })} />
+            const foldersPart = !narrow && !quiet && <FoldersSection style={sectionAt('folders')} counted={countsOn} here={view.id === 'folders' ? (!view.focus || view.focus === 'all' ? null : view.focus) : undefined} onOpen={(place) => setView({ id: 'folders', focus: place ?? 'all' })} />
             // Every page row drags as one list, into any block: the line shows where it lands.
             return (<>
               <BlockList

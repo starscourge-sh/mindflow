@@ -55,7 +55,7 @@ const time = async (label, run, done) => {
 try {
   const list = await time('every folder read with its counts', () => c.v('folders'), () => true)
   check('the folders read in under a second', list < 1000)
-  const all = await time('"All folders…" opened', () => h.locator('[data-side-all-folders]').click(), () => document.querySelectorAll('[data-all-folder]').length > 0)
+  const all = await time('"All folders…" opened', () => h.locator('[data-folders-all]').click(), () => document.querySelectorAll('[data-all-folder]').length > 0)
   check('"All folders…" opens in under a second', all < 1000, `${all}`)
   check('it draws the top level folded, not 1,000 rows', (await h.locator('[data-all-folder]').count()) <= 20, `${await h.locator('[data-all-folder]').count()}`)
   const find = await time('found by typing', () => h.locator('[data-find-folder] input, input[data-find-folder]').fill('Area 1'), () => document.querySelectorAll('[data-all-folder]').length >= 1 && document.querySelectorAll('[data-all-folder]').length <= 200)

@@ -28,9 +28,9 @@ export const deepCount = (all: Folder[], id: string): number =>
  * The sidebar's Folders, under its places, as Tags keeps your favourite tags: only the folders you starred (and the
  * one you are in, while you are there), each with the folders right inside it hung under it, so "Imports" shows one
  * line per import, not every source's whole tree. Then "Not in a folder N", the pages and gems with no folder, and
- * "All folders…", the page with every folder. A row takes anything dropped on it (split-drop.tsx `keepDrop`).
+ every folder's page from the heading (its arrow, its right-click). A row takes anything dropped on it (split-drop.tsx `keepDrop`).
  */
-export function FoldersSection({ here, counted, unfiled, onOpen, style }: { here: FolderPlace | undefined; counted: boolean; /** How many pages and gems are in no folder: read by the sidebar, which waits for it. */ unfiled: number; onOpen: (place: FolderPlace) => void; style?: React.CSSProperties }): React.JSX.Element {
+export function FoldersSection({ here, counted, onOpen, style }: { here: FolderPlace | undefined; counted: boolean; onOpen: (place: FolderPlace) => void; style?: React.CSSProperties }): React.JSX.Element {
   const all = useFolders()
   const [open, setOpen] = useState(() => localStorage.getItem('sidebar:folders') !== 'shut')
   const fold = (next: boolean): void => (chime(next ? 'slide' : 'fold'), setOpen(next), localStorage.setItem('sidebar:folders', next ? 'open' : 'shut'))
@@ -131,7 +131,7 @@ export function FoldersSection({ here, counted, unfiled, onOpen, style }: { here
         </div>
       </RowMenu>
       <Unfold open={open}>
-        <Branches rows=":scope > *" current={here === 'unfiled' ? rows.length + (starred.length > SHOWN ? 1 : 0) : here === null ? rows.length + 1 + (starred.length > SHOWN ? 1 : 0) : lit(rows)} className="ml-5 flex flex-col gap-px">
+        <Branches rows=":scope > *" current={lit(rows)} className="ml-5 flex flex-col gap-px">
           <SortableList key={epoch} items={rows} keyOf={(one) => one.id} onMove={place} onNest={nest}>{(items) => items.map((one) => (
             <SortableRow key={one.id} id={one.id} glide={`side-folder-${one.id}`}><div className="flex flex-col gap-px">{row(one, 0)}</div></SortableRow>
           ))}</SortableList>
@@ -142,18 +142,6 @@ export function FoldersSection({ here, counted, unfiled, onOpen, style }: { here
               <span className="flex-1 text-left">{every ? 'Show fewer folders' : `Show all ${num(starred.length)} folders`}</span>
             </button>
           )}
-          <button type="button" data-side-row data-side-unfiled="" aria-current={here === 'unfiled' ? 'page' : undefined} onClick={() => (chime('page'), onOpen('unfiled'))}
-            className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here === 'unfiled' ? 'text-foreground' : 'text-muted-foreground'}`}>
-            <span className="size-4 shrink-0" />
-            <Weighted on={here === 'unfiled'} className="flex-1 text-left">Not in a folder</Weighted>
-            {counted && <Count n={unfiled} className="text-xs text-muted-foreground" />}
-          </button>
-          <button type="button" data-side-row data-side-all-folders="" aria-current={here === null ? 'page' : undefined} onClick={() => (chime('page'), onOpen(null))}
-            className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here === null ? 'text-foreground' : 'text-muted-foreground'}`}>
-            <span className="size-4 shrink-0" />
-            <Weighted on={here === null} className="flex-1 text-left">All folders…</Weighted>
-            {counted && live.length > 0 && <Count n={live.length} className="text-xs text-muted-foreground" />}
-          </button>
         </Branches>
       </Unfold>
     </div>
@@ -198,7 +186,7 @@ function FolderRow({ folder, all, here, n, naming, onNamed, onRename, onOpen }: 
         onClick={() => (chime('page'), onOpen())}
         className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
         <span className="flex h-[1lh] w-4 shrink-0 items-center justify-center"><GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /></span>
-        <Weighted on={here} className="flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere]">{folder.name}</Weighted>
+        <Weighted on={here} className="flex-1 text-left truncate">{folder.name}</Weighted>
         {n !== null && <Count n={n} className="text-xs text-muted-foreground" />}
       </button>
     </RowMenu>

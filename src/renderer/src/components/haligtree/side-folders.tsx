@@ -452,7 +452,7 @@ function Folder({ list, group, depth, n, here, naming, onNamed, onRename, onOpen
               >
                 {/* Room for the icon, which is its own button over this one. */}
                 <span className="size-4 shrink-0" />
-                <Weighted on={here} className={`flex-1 text-left *:line-clamp-2 *:!whitespace-normal *:[overflow-wrap:anywhere] ${n === 0 && !here ? 'text-muted-foreground' : ''}`}>{group.name}</Weighted>
+                <Weighted on={here} className={`flex-1 text-left truncate ${n === 0 && !here ? 'text-muted-foreground' : ''}`}>{group.name}</Weighted>
                 {n !== null && <Count n={n} className={`text-xs text-muted-foreground ${onNewPage ? 'transition-opacity duration-80 group-hover/folder:opacity-0' : ''}`} />}
               </button>
             </RowMenu>

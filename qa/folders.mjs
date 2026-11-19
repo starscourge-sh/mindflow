@@ -29,13 +29,16 @@ const menu = async (target, line) => {
 const shot = async (name) => shots && c.both(`${shots}/${name}`)
 // Asked again until it holds (a save and its notice land a moment after the key), for at most 5 s.
 const until = async (ask) => { for (let i = 0; i < 50; i++) { const got = await ask(); if (got) return got; await wait(100) } return ask() }
-const unfiled = async () => Number((await h.locator('[data-side-unfiled]').textContent())?.match(/\d[\d,]*/)?.[0].replace(/,/g, '') ?? NaN)
+// What has no folder, as the All folders page's own last row counts it (the sidebar lists only folders, as Tags lists only tags).
+const unfiled = async () => Number(await h.evaluate(() => window.api.haligtree('folders:unfiled')))
 try {
   console.log(`load ${loadavg()[0].toFixed(1)}`)
-  // The sidebar's Folders section: under the places, with "Not in a folder" and "All folders…".
+  // The sidebar's Folders section: under the places, folders only; the heading's arrow opens every folder.
   check('the sidebar has its Folders section', await h.locator('[data-side-folders-section]').isVisible())
   const before = await unfiled()
   check('"Not in a folder" counts the pages and gems in none', before > 0 && before === (await c.v('folders:unfiled')), `${before}`)
+  check('the sidebar lists folders only, as Tags lists tags: no "Not in a folder" or "All folders…" row', await h.evaluate(() => ![...document.querySelectorAll('[data-side-folders-section] [data-side-row]')].some((one) => /Not in a folder|All folders/.test(one.textContent ?? ''))))
+  check('every sidebar name is one line, cut with an ellipsis', await h.evaluate(() => [...document.querySelectorAll('aside nav [data-side-row]')].every((one) => one.getBoundingClientRect().height <= 40)))
 
   // Make one from the heading's +, named in place, starred so it shows.
   await h.locator('[data-side-section-handle="folders"]').hover()
@@ -153,7 +156,7 @@ try {
   check('and the sidebar draws it back in its place', await until(drawn))
 
   // All folders: found by its name.
-  await h.locator('[data-side-all-folders]').click()
+  await h.locator('[data-folders-all]').click()
   await wait(700)
   if (shots) await h.screenshot({ path: `${shots}/all-folders-click.png` })
   await h.locator('[data-find-folder] input').fill('to re')

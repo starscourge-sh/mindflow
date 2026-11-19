@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, CircleCheck, FileText, FolderPlus, Gem, HelpCircle, StickyNote } from 'lucide-react'
+import { ChevronRight, CircleCheck, FileStack, FileText, FolderPlus, Gem, HelpCircle, StickyNote } from 'lucide-react'
 import { Island, Page } from './ui'
 import { Button } from '@/components/ui/button'
 import { GroupIcon } from './kept-groups'
@@ -123,6 +123,8 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
   const [typed, setTyped] = useState('')
   const [open, setOpen] = useState<Set<string>>(new Set())
   const [showArchived, setShowArchived] = useState(false)
+  // What has no folder, counted, as the folders' own last row (the sidebar shows only folders, as Tags shows only tags).
+  const unfiled = useLive(folders.unfiled, null as number | null, [], undefined, 'folders:unfiled')
   const live = all.filter((one) => showArchived || !one.archived)
   const archivedN = all.filter((one) => one.archived).length
   const words = typed.trim().toLowerCase()
@@ -164,7 +166,14 @@ function AllFolders({ all, onPlace }: { all: Folder[]; onPlace: (id: string | nu
       </p>
       {all.length > 0 && (
         <Island>
-          {words ? (found.length ? found.map((one) => line(one, 0, pathOf(all, one.parent).map((up) => up.name).join(' / '))) : <p className="px-3 py-2 text-body text-muted-foreground">No folder is named like “{typed.trim()}”.</p>) : <div className="flex flex-col py-1">{tree(null)}</div>}
+          {words ? (found.length ? found.map((one) => line(one, 0, pathOf(all, one.parent).map((up) => up.name).join(' / '))) : <p className="px-3 py-2 text-body text-muted-foreground">No folder is named like “{typed.trim()}”.</p>) : <div className="flex flex-col py-1">{tree(null)}
+            <button type="button" data-all-unfiled="" onClick={() => (chime('page'), onPlace('unfiled'))}
+              className="mt-1 flex min-w-0 cursor-pointer items-center gap-2.5 rounded-md border-t px-2 py-1.5 pl-8 text-left hover:bg-accent/60">
+              <FileStack aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+              <span className="min-w-0 truncate">Not in a folder</span>
+              {unfiled !== null && <span className="ml-auto shrink-0 text-xs text-muted-foreground tabular-nums">{num(unfiled)}</span>}
+            </button>
+          </div>}
         </Island>
       )}
       {archivedN > 0 && (
