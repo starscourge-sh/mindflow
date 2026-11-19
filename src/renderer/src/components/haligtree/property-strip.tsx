@@ -341,7 +341,11 @@ export function putTag(editor: Editor, tag: string | string[]): boolean {
     at = first?.isTextblock ? first.nodeSize - 1 : editor.state.doc.content.size
   }
   const before = editor.state.doc.textBetween(Math.max(0, at - 1), at)
-  editor.view.dispatch(editor.state.tr.insertText(`${before && !/\s/.test(before) ? ' ' : ''}#${name}`, at))
+  // Put where the caret rests (the end of words being typed, in quick capture): a space after it, so the caret stands
+  // past the tag, not at its end, where the tag menu would open over the writing as if "#baking" were being typed.
+  const { selection } = editor.state
+  const after = selection.empty && selection.from === at ? ' ' : ''
+  editor.view.dispatch(editor.state.tr.insertText(`${before && !/\s/.test(before) ? ' ' : ''}#${name}${after}`, at))
   return true
 }
 

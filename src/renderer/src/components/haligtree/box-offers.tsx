@@ -12,6 +12,7 @@ import { GoalChips, goalsToLog } from './goals-view'
 import { Kbd, Tip } from './ui'
 import { clip } from '../../../../main/clip'
 import { Orbit } from '@/components/ui/icons'
+import { Hash } from 'lucide-react'
 import { hoverNote } from './note-preview'
 import { quoted } from '../../../../main/clip'
 
@@ -22,7 +23,7 @@ const COMMON = new Set('this that with from have what when where which will woul
 const stems = (text: string): Set<string> =>
   new Set((text.toLowerCase().match(/\p{L}{4,}/gu) ?? []).filter((word) => !COMMON.has(word)).map((word) => word.slice(0, 4)))
 
-type Offer = { kind: 'question'; one: PinnedQuestion; shared: number } | { kind: 'goal'; one: Item; shared: number } | { kind: 'ask'; one: { id: string; title: string }; shared: number }
+type Offer = { kind: 'question'; one: PinnedQuestion; shared: number } | { kind: 'goal'; one: Item; shared: number } | { kind: 'ask'; one: { id: string; title: string }; shared: number } | { kind: 'tag'; one: { id: string; title: string }; tags: string[]; shared: number }
 
 /** The first line that ends in "?", not a clue line ("+name: …"): what "Keep as a question" would keep. */
 export const askedLine = (words: string): string | null =>
@@ -40,7 +41,7 @@ const short = (text: string, n = 40): string => clip(text, n) || 'New note'
  * `all` shows them all as chips). With none of those, a line ending in "?"
  * is offered as a question of its own: "Keep as a question", on the same key.
  */
-export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, quietAsk = false }: { words: string; /** Said on the line of what it will be (WillDo's "or a question"): Tab still takes it, nothing shown here. */ quietAsk?: boolean; /** The note as saved (JSON): what it links to already. */ linked?: string; all: boolean; onHidden: (count: number) => void; onClue: (question: PinnedQuestion) => void; onLog: (goal: Item) => void; /** Keep the box's words as a new question, this line its name. */ onAsk: (line: string) => void }): React.JSX.Element | null {
+export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, onTag, quietAsk = false }: { words: string; /** Put these tags on the words (the tags the notes most like them carry, from your own). */ onTag?: (tags: string[]) => void; /** Said on the line of what it will be (WillDo's "or a question"): Tab still takes it, nothing shown here. */ quietAsk?: boolean; /** The note as saved (JSON): what it links to already. */ linked?: string; all: boolean; onHidden: (count: number) => void; onClue: (question: PinnedQuestion) => void; onLog: (goal: Item) => void; /** Keep the box's words as a new question, this line its name. */ onAsk: (line: string) => void }): React.JSX.Element | null {
   const settings = useLive(haligtree.settings, null as Settings | null)
   const pinned = useLive(haligtree.pinnedQuestions, [] as PinnedQuestion[])
   const goals = useLive(() => haligtree.items('goal'), [] as Item[], [], ['item'])
@@ -64,9 +65,20 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, 
   const long = words.trim().split(/\s+/).length > 80
   const matched = all || long ? undefined : offers.filter((offer) => strong(offer) && !taken.includes(offer.one.id) && !linked?.includes(offer.one.id)).sort((a, b) => b.shared - a.shared)[0]
   const hidden = all ? 0 : offers.length - (matched ? 1 : 0)
+  // Your own tags the notes most like these words carry (the offer line's “Tag it”, offers.ts), two at most, read
+  // once the words rest: what sorting a capture by hand would give it, offered before it is kept.
+  const [near, setNear] = useState<string[]>([])
+  useEffect(() => {
+    let live = true
+    if (!onTag || all || long || words.trim().split(/\s+/).length < 4) return setNear([])
+    void window.api.haligtree<{ tags: { tag: string }[] } | null>('offers:note', '', words, [], 'box').then((found) => live && setNear((found?.tags ?? []).map((one) => one.tag).slice(0, 2)), () => undefined)
+    return () => void (live = false)
+  }, [words, all, long]) // eslint-disable-line react-hooks/exhaustive-deps
+  const tagged = near.length ? `tag:${near.join(' ')}` : ''
+  const tagOffer: Offer | undefined = tagged && !taken.includes(tagged) ? { kind: 'tag', one: { id: tagged, title: near.map((tag) => `#${tag}`).join(' ') }, tags: near, shared: 0 } : undefined
   // Nothing it is about yet, and a line asks something: it can be a question of its own.
   const asked = askedLine(words)
-  const best: Offer | undefined = matched ?? (all || long || !asked || taken.includes(`ask:${asked}`) ? undefined : { kind: 'ask', one: { id: `ask:${asked}`, title: asked }, shared: 0 })
+  const best: Offer | undefined = matched ?? tagOffer ?? (all || long || !asked || taken.includes(`ask:${asked}`) ? undefined : { kind: 'ask', one: { id: `ask:${asked}`, title: asked }, shared: 0 })
   useEffect(() => onHidden(hidden), [hidden]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => () => onHidden(0), []) // eslint-disable-line react-hooks/exhaustive-deps
   const take = (): void => {
@@ -74,6 +86,7 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, 
     setTaken((was) => [...was, best.one.id])
     if (best.kind === 'question') onClue(best.one)
     else if (best.kind === 'ask') onAsk(best.one.title)
+    else if (best.kind === 'tag') onTag?.(best.tags)
     else onLog(best.one)
   }
   const latest = useRef(take)
@@ -111,7 +124,18 @@ export function BoxOffers({ words, linked, all, onHidden, onClue, onLog, onAsk, 
         <motion.div key={best.kind === 'ask' ? 'ask' : best.one.id} data-chrome data-box-offers data-offer={best.kind}
           initial={{ opacity: 0, transform: shift('translateY(3px)') }} animate={{ opacity: 1, transform: shift('translateY(0px)') }} exit={{ opacity: 0 }} transition={{ duration: 0.2, ease: EASE }}
           className="flex min-w-0 items-center gap-1.5 px-[4.75rem] pb-1 text-xs text-muted-foreground">
-          {best.kind === 'ask' ? (
+          {best.kind === 'tag' ? (
+            <>
+              <Hash className="size-3.5 shrink-0" />
+              <span className="min-w-0 truncate">Tag it <span className="text-(--mf-muted-strong)">{best.one.title}</span></span>
+              <span aria-hidden className="shrink-0">·</span>
+              <Tip label="Your notes most like this one carry it">
+                <button type="button" data-box-tag onClick={take} className="flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1 py-0.5 font-medium text-(--mf-muted-strong) transition-colors hover:bg-accent hover:text-foreground">
+                  Add <Kbd>⇥</Kbd>
+                </button>
+              </Tip>
+            </>
+          ) : best.kind === 'ask' ? (
             <>
               <Orbit className="size-3.5 shrink-0" />
               <span className="min-w-0 truncate text-(--mf-muted-strong)">{quoted(short(best.one.title, 48), 80)}</span>

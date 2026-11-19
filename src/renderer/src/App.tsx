@@ -120,6 +120,7 @@ import { RoundPair, ShotButton, type RoundChoice } from '@/components/haligtree/
 import { talkInto, useTalking } from '@/components/haligtree/talk'
 import { AppWindow, AudioLines, TextCursorInput } from 'lucide-react'
 import type { BoxFrom } from '../../main/site-block'
+import { putTag } from './components/haligtree/property-strip'
 
 /** The microphone's two ways, as the camera's two: a voice note kept as sound, or the words typed as you talk. */
 const VOICE_CHOICES: RoundChoice[] = [
@@ -701,6 +702,13 @@ export default function App(): React.JSX.Element {
   const askPage = (): void => {
     chime('tap')
     void window.api.haligtree<BoxFrom | null>('box:from', true).then((said) => said && setFrom(said))
+  }
+  // The box's offer line's “Tag it”: written in as the strip's “+” writes a tag, one ⌘Z (or the notice's Undo) takes it back.
+  const tagFromBox = (tags: string[]): void => {
+    const editor = editorRef.current
+    if (!editor || !putTag(editor, tags)) return
+    chime('noted')
+    toast(`Tagged ${tags.map((tag) => `#${tag}`).join(' ')}`, () => editor.commands.undo())
   }
   const fromKept = (): BoxFrom | undefined => (from?.app && !fromOff && !SMALL ? from : undefined)
   const fromSaid = (one: BoxFrom): { app: string; title: string; url: string; page: string } => ({ app: one.app, title: one.title, url: one.url, page: one.page })
@@ -2764,7 +2772,7 @@ export default function App(): React.JSX.Element {
             {/* Where else it could go, the questions kept in view and the open goals, on
                 one quiet line, and only once a few words are written: an empty box asks nothing. */}
             {started && !plus && !focus && !lesson && textOf(body).trim().split(/\s+/).length >= 3 && (
-              <div data-under-tall-toast><BoxOffers quietAsk={plan?.kind === 'todo' || !!loneQuestion(plan, boxText)} words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} onAsk={keepAsQuestion} /></div>
+              <div data-under-tall-toast><BoxOffers quietAsk={plan?.kind === 'todo' || !!loneQuestion(plan, boxText)} words={textOf(body)} linked={JSON.stringify(body)} all={offersAll} onHidden={setOffersHidden} onClue={clueToPinned} onLog={logToGoal} onAsk={keepAsQuestion} onTag={tagFromBox} /></div>
             )}
             {/* A hint: a glance at something you wrote once, while you are here to write. Usually empty. In a
                 note's own window it sits at the foot of the card; in quick capture, in the room above it (below). */}
