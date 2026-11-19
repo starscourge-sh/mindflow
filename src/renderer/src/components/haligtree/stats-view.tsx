@@ -11,6 +11,7 @@ import { TONES } from './mono-card'
 import { KeptCard, StudySection } from './study-stats'
 import { WritingSection } from './writing-stats'
 import { ReadingSections } from './reading-stats'
+import { ForgottenSection, GoalStepsSection, TaskTimingSection, UnsortedSection, UntouchedSection } from './more-stats'
 import { Count, ISLAND, Page, Rolling } from './ui'
 import { Button } from '@/components/ui/button'
 import { useFold } from './islands'
@@ -57,7 +58,7 @@ const SECTION_ICONS: [RegExp, LucideIcon][] = [
   [/^Pages you open most$/, FileText], [/^How you find things$/, Search], [/^Today$/, Sun], [/^Focus$/, Timer], [/^How sessions end$/, Flag],
   [/^When you focus$|^When you capture$/, Clock], [/^Sites it kept you off$/, ShieldBan], [/^Where your focus went$/, Hash], [/^How long each task took$/, Hourglass], [/^Kept up$/, Repeat],
   [/^Habits$/, Repeat], [/^Goals$/, Target], [/^The doing, this week$/, ListChecks], [/^Is it working$/, Activity], [/so far$/, CalendarDays],
-  [/^Finished or left part way$/, BookCheck], [/^What reading turned into$/, Sprout], [/^What you capture$/, Shapes], [/^Where captures go$/, Split], [/^By tag$/, Hash], [/in your own words$/, BookOpen]
+  [/^Tasks, on time or late$/, CalendarCheck], [/^Left unsorted$/, Shapes], [/^Cards you keep forgetting$/, Brain], [/^Pages started, never touched again$/, FileText], [/^Steps toward your goals$/, Target], [/^Finished or left part way$/, BookCheck], [/^What reading turned into$/, Sprout], [/^What you capture$/, Shapes], [/^Where captures go$/, Split], [/^By tag$/, Hash], [/in your own words$/, BookOpen]
 ]
 const iconOf = (title: string): LucideIcon | undefined => SECTION_ICONS.find(([test]) => test.test(title))?.[1]
 
@@ -244,6 +245,8 @@ export function StatsView({ recap: asked }: { recap?: string }): React.JSX.Eleme
           </p>
         </Section>
 
+        {/* Each read from what the book keeps (main/stats-more.ts), never guessed. */}
+        {!example && <><TaskTimingSection /><UnsortedSection /><ForgottenSection /><UntouchedSection /><GoalStepsSection /></>}
         {/* Focus time has its own sections just below; this one is what the week gathered around. */}
         <Section title="The week, in the work">
           <p>
