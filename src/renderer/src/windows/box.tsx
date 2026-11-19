@@ -125,8 +125,9 @@ if (window.api.room.left) {
     event.preventDefault()
     if (was.editor.getAttribute('data-vim-mode') !== 'normal' && !event.shiftKey) document.execCommand('insertText', false, '\t')
   })
+  // Let go as it hides, so it never comes back with one still lit and named in the bar for a frame.
+  window.api.onHiding(() => pick(-1))
   window.api.onShown(() => {
-    pick(-1)
     // Each open tries them beside the bar again (the text size or the screen may have changed).
     // Measured at once, not on the next frame: the box can come up before a frame is drawn, and the old answer stood.
     delete root.dataset.controlsAbove

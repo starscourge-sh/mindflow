@@ -633,14 +633,15 @@ export default function App(): React.JSX.Element {
     else document.documentElement.dataset.wordCount = 'off'
   }
   // Private words shown plainly, for a moment you choose: always back to
-  // blurred the next time the box is opened, so it is never left on.
+  // blurred the next time the box is opened, so it is never left on. Blurred
+  // as it hides, so it never comes back plain for a frame.
   const [reveal, setRevealState] = useState(false)
   const setReveal = (on: boolean): void => {
     setRevealState(on)
     if (on) document.documentElement.dataset.reveal = ''
     else delete document.documentElement.dataset.reveal
   }
-  useEffect(() => window.api.onShown(() => setReveal(false)), [])
+  useEffect(() => window.api.onHiding(() => setReveal(false)), [])
   // Which windows show in screen recordings: all at once from ⌘K and the menu here, each on its own in Settings.
   const recordable = allRecorded(appSettings?.inRecordings)
   const setRecordable = (on: boolean): void => recordAll(on, appSettings?.inRecordings)
@@ -1241,7 +1242,8 @@ export default function App(): React.JSX.Element {
   // “Glance tabs” (Settings, on to start with “One line to start”): Write, Notes and Today standing on the pill
   // (box-glance.tsx). Write is the pill as it is; another tab puts its own line where the writing's is and hangs its
   // glance under the pill. Only while it is the pill: grown into the box, by anything, it is Write again. Every open
-  // starts on Write.
+  // starts on Write, put back as the box hides (main keeps it painting while hidden), so its first frame back is Write:
+  // put back as it showed, it came up on the last tab and snapped to Write a frame later.
   const glanceOn = oneLine && appSettings?.boxGlance !== false
   const [glanceTab, setGlance] = useState<Glance>('write')
   const glance: Glance = glanceOn && pill ? glanceTab : 'write'
@@ -1254,7 +1256,7 @@ export default function App(): React.JSX.Element {
     // Back on Write by its tab, its key or Esc, the caret is in the writing again (not when the pill grew into the box).
     if (was !== 'write' && pill) editorRef.current?.commands.focus()
   }, [glance]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => window.api.onShown(() => setGlance('write')), [])
+  useEffect(() => window.api.onHiding(() => setGlance('write')), [])
   // One sound for the change, whichever way it was asked: a tab pressed or its key (a tap), Esc back to Write (a fold).
   const pickGlance = useCallback((to: Glance, cue: Parameters<typeof chime>[0] = 'tap'): void => {
     if (glanceNow.current !== to) chime(cue)
