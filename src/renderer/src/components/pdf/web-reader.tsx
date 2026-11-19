@@ -120,10 +120,15 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   }, [href])
   // Where you were: kept as you read (and leave), put back once the article is drawn tall enough to hold it.
   const placed = useRef(false)
+  // Read again, it starts at its top: the place kept was in the old words, and put back as the new pictures came in
+  // it landed somewhere different each time (the user, 19 Nov 2026: "rather take me back to the beginning").
+  const fromTop = useRef(false)
   useEffect(() => {
     const box = scroller.current
     if (!box || !article) return
-    const kept = webPlaces()[href]
+    const kept = fromTop.current ? undefined : webPlaces()[href]
+    if (fromTop.current) box.scrollTop = 0
+    fromTop.current = false
     placed.current = !kept || !!takenFlash.current
     const put = (): void => {
       if (placed.current || !kept) return
@@ -469,6 +474,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     if (!article && !failed) return chime('nope')
     chime('tap')
     again.current = true
+    fromTop.current = true
     reading.current = null
     setComing(null)
     setFailed(null)
