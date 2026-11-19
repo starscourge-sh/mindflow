@@ -202,7 +202,10 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
   // With the box it was heard from, to tell a box still there from one swapped for the next note's.
   // The row at its top too, read as it scrolls (the page is laid out then), never as it is left.
   type Heard = { top: number; row?: [string, number]; width?: number }
-  const seen = useRef(new Map<string, { box: Element } & Heard>())
+  // `next`: the box as the next step draws it (a note opening beside the list moves and narrows it). The step being
+  // left is read once the next one has begun to draw, so it is given the box as it was; `next` is the following step's.
+  type Next = Heard & { path: string }
+  const seen = useRef(new Map<string, { box: Element; next?: Next } & Heard>())
   // Heard since the last step was read: only these stand in for a box since swapped.
   const heard = useRef(new Map<string, Heard>())
   useEffect(() => {
@@ -215,8 +218,11 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       if (placedHere(event.target)) return
       hear(event.target, pathTo(root, event.target))
     }
+    const read = (box: Element): Heard => ({ top: box.scrollTop, row: rowAtTop(box) ?? undefined, width: box.clientWidth })
+    // Scrolled: where it is now is what you see, under this step's look.
     const hear = (box: Element, path: string): void => {
-      const now: Heard = { top: box.scrollTop, row: rowAtTop(box) ?? undefined, width: box.clientWidth }
+      const now = read(box)
+      for (const [key, one] of seen.current) if (one.box === box && key !== path) seen.current.delete(key)
       seen.current.set(path, { box, ...now })
       heard.current.set(path, now)
       // Its rows can move with no scroll (rows above measured, a group folding): heard again when what it holds changes size.
@@ -228,11 +234,15 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       if (!root || root.dataset.placing !== undefined) return
       for (const { target } of entries) {
         const box = boxes.has(target) ? target : target.parentElement
-        const was = box && [...seen.current].find(([, one]) => one.box === box)
-        // Its rows moved inside it, not it made narrower or wider: a note opening beside the list is the next step's
-        // look, and the place left is the one you saw before it (read then, Back to the Inbox landed 68 px off).
-        if (!box || !was || !root.contains(box) || box.scrollTop <= 0 || box.clientWidth !== was[1].width) continue
-        hear(box, was[0])
+        const found = box && [...seen.current].find(([, one]) => one.box === box)
+        if (!box || !found || !root.contains(box)) continue
+        const [key, entry] = found
+        const path = pathTo(root, box)
+        const latest = entry.next ?? { ...entry, path: key }
+        // Moved or made narrower or wider: the next step's look, kept apart until the step on show is read.
+        if (entry.next || path !== latest.path || box.clientWidth !== latest.width) entry.next = { ...read(box), path }
+        // Only its rows moved inside it: the same look, read again.
+        else hear(box, key)
       }
     })
     root?.addEventListener('scroll', onScroll, true)
@@ -248,14 +258,17 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       // opens, reading a box's scrollTop made the browser lay out the whole
       // new note early, 20 to 28ms before its words could show.
       const tops: Scrolled = []
-      for (const [path, last] of seen.current) {
+      const after: [string, { box: Element } & Heard][] = []
+      for (const [path, last] of [...seen.current]) {
         // A box swapped for the next note's: the last one heard since the last step is where it was, or nothing.
-        // A box that moved in the page as the next step drew (a note opening beside the list) is kept by where it was:
-        // the step being left is read once the next one has begun to draw, and Back returns to the page as it was.
-        const was = atPath(root, path) === last.box || root.contains(last.box) ? last : heard.current.get(path)
+        // A box still in the page is given as this step showed it, even if the next step has begun to move it.
+        const was = root.contains(last.box) ? last : heard.current.get(path)
         if (was && was.top > 0) tops.push(was.row ? [path, was.top, ...was.row] : [path, was.top])
         else seen.current.delete(path)
+        // From now on the box is as the next step draws it.
+        if (last.next) (seen.current.delete(path), after.push([last.next.path, { box: last.box, top: last.next.top, row: last.next.row, width: last.next.width }]))
       }
+      for (const [path, one] of after) seen.current.set(path, one)
       heard.current.clear()
       // Left while still held where it was put back (nothing pressed since): where it was put, its row and all.
       const going = landing.current ?? []
