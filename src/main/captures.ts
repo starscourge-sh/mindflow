@@ -1030,7 +1030,7 @@ export function importAnki(text: string): number {
 /** The vault note at this path, if it came in before: a capture, or an article. */
 export function alreadyImported(path: string): Imported | null {
   const row = (db.prepare("select id as link, title from captures where source = ? and named = 1").get(path) ??
-    db.prepare("select 'article:' || id as link, title from nuggets where tier = 'article' and source = ?").get(path)) as { link: string; title: string } | undefined
+    db.prepare("select case when tier = 'article' then 'article:' else 'nugget:' end || id as link, title from nuggets where tier in ('article', 'nugget') and source = ?").get(path)) as { link: string; title: string } | undefined
   return row ? { ...row, path } : null
 }
 
@@ -1039,7 +1039,7 @@ export function alreadyImported(path: string): Imported | null {
  * to be updated in place (`importNote`). One brought before the time was kept takes this time as where changes count.
  */
 export function sourceChanged(path: string, modified: Date): boolean {
-  const row = db.prepare("select id, source_at as at from nuggets where tier = 'article' and source = ?").get(path) as { id: string; at: string | null } | undefined
+  const row = db.prepare("select id, source_at as at from nuggets where tier in ('article', 'nugget') and source = ?").get(path) as { id: string; at: string | null } | undefined
   if (!row) return false
   if (!row.at) return (db.prepare('update nuggets set source_at = ? where id = ?').run(modified.toISOString(), row.id), false)
   return row.at < modified.toISOString()
@@ -1082,7 +1082,7 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
     // Brought before: the same note, never a second copy. Changed in the source since, and not written in here since
     // it came (its saved time is still the file's), its words are the new ones; wherever the person moved it, it stays.
     // The file's own time when it was last brought (`source_at`, folders.ts lays the column down): a later one is a change.
-    const had = db.prepare("select id, source_at as at from nuggets where tier = 'article' and source = ?").get(path) as { id: string; at: string | null } | undefined
+    const had = db.prepare("select id, source_at as at from nuggets where tier in ('article', 'nugget') and source = ?").get(path) as { id: string; at: string | null } | undefined
     if (had) {
       const now = modified.toISOString()
       // Brought before the time was kept: this import's time is where changes count from.
@@ -1096,10 +1096,14 @@ export function importNote(path: string, text: string, modified: Date, hidden = 
       return 'updated'
     }
     const id = randomUUID()
-    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields, private, unsorted, source_at) values (?, 'article', 'note', ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(id, title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept, secret ? 1 : 0, toWriting ? 1 : 0, modified.toISOString())
+    // A note of one line the capture box would call a quote or a word comes in as a gem of that kind (import.ts
+    // `kindOf`); anything else, or unsure, is a page, as a long note always is.
+    const guess = toWriting && !body.includes('\n') ? kindOf(body.trim()) : null
+    const gem = guess === 'quote' || guess === 'word' ? guess : null
+    db.prepare("insert into nuggets (id, tier, kind, title, body, created_at, updated_at, source, fields, private, unsorted, source_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .run(id, gem ? 'nugget' : 'article', gem ?? 'note', gem ? '' : title, JSON.stringify(body), new Date(at).toISOString(), modified.toISOString(), path, kept, secret ? 1 : 0, toWriting ? 1 : 0, modified.toISOString())
     if (aliases) db.prepare('update nuggets set aliases = ? where id = ?').run(aliases, id)
-    return { link: `article:${id}`, title, path, private: secret }
+    return { link: `${gem ? 'nugget' : 'article'}:${id}`, title, path, private: secret }
   }
   if (db.prepare('select 1 from captures where source = ? and named = 1').get(path)) return 'already here'
   // A kind of ours, as an export from here writes it, comes back as that kind with its fields.
@@ -1139,7 +1143,7 @@ export function linkImported(made: Imported[], byName: Map<string, string>, know
   }
   let linked = 0
   for (const { link, path } of made) {
-    const [table, id] = link.startsWith('article:') ? ['nuggets', link.slice(8)] : ['captures', link]
+    const [table, id] = link.startsWith('article:') ? ['nuggets', link.slice(8)] : link.startsWith('nugget:') ? ['nuggets', link.slice(7)] : ['captures', link]
     const row = db.prepare(`select body from ${table} where id = ?`).get(id) as { body: string } | undefined
     const body = row && (JSON.parse(row.body) as unknown)
     if (typeof body !== 'string') continue
@@ -1228,7 +1232,7 @@ export function registerImportConversion(): void {
   ipcMain.handle('haligtree:properties:drop-duplicate-tags', () => dropDuplicateTags())
   ipcMain.handle('haligtree:imports:pending', () => importing ? [] : [
     ...db.prepare("select 'captures' as tbl, id from captures where named = 1 and body like '\"%'").all(),
-    ...db.prepare("select 'nuggets' as tbl, id from nuggets where tier = 'article' and source != '' and body like '\"%'").all()
+    ...db.prepare("select 'nuggets' as tbl, id from nuggets where tier in ('article', 'nugget') and source != '' and body like '\"%'").all()
   ])
   ipcMain.handle('haligtree:imports:body', (_event, tbl: unknown, id: unknown) =>
     (db.prepare(`select body from ${tbl === 'nuggets' ? 'nuggets' : 'captures'} where id = ?`).get(String(id)) as { body: string } | undefined)?.body ?? null)

@@ -17,6 +17,7 @@ const { check, done } = checks()
 const vault = process.env.QA_VAULT
 if (!vault || /Documents\/obsidian/.test(vault)) throw new Error('QA_VAULT must be a copy of the vault, never the vault itself')
 const folders = readdirSync(vault, { withFileTypes: true }).filter((one) => one.isDirectory() && !one.name.startsWith('.')).map((one) => ({ id: one.name, name: one.name }))
+writeFileSync(join(vault, 'Unisa', 'A line worth keeping.md'), '“The cure for boredom is curiosity.” Dorothy Parker')
 const notesIn = readdirSync(vault, { recursive: true }).filter((one) => String(one).endsWith('.md') && String(one).includes('/')).length
 const c = await sandbox({ width: 1180, height: 800 })
 const h = c.h
@@ -29,7 +30,7 @@ const bring = async (label) => {
   return said
 }
 // Read straight from the copy's database: where each came from and its words.
-const pages = async () => { const db = new DatabaseSync(join(process.env.QA_DATA, 'sandbox', 'haligtree.db'), { readOnly: true }); try { return db.prepare("select id, source, body from nuggets where tier = 'article' and source != '' and binned_at is null").all() } finally { db.close() } }
+const pages = async () => { const db = new DatabaseSync(join(process.env.QA_DATA, 'sandbox', 'haligtree.db'), { readOnly: true }); try { return db.prepare("select id, source, body from nuggets where tier in ('article', 'nugget') and source != '' and binned_at is null").all() } finally { db.close() } }
 const tree = async () => {
   const all = await c.v('folders')
   const path = (one) => (one.parent ? `${path(all.find((up) => up.id === one.parent))} › ${one.name}` : one.name)
@@ -37,6 +38,8 @@ const tree = async () => {
 }
 try {
   const first = await bring('first import')
+  // The closing card, as it lands and once settled, light and dark.
+  if (process.env.QA_SHOTS) { for (let i = 0; i < 8; i++) (await h.screenshot({ path: `${process.env.QA_SHOTS}/import-notice-${String(i * 50).padStart(3, '0')}ms.png` }), await h.waitForTimeout(50)); await h.waitForTimeout(400); await c.both(`${process.env.QA_SHOTS}/import-notice`) }
   const source = `Obsidian: ${basename(vault)}`
   const all = await tree()
   check('it lands in Imports › Obsidian: <vault>', all.some((one) => one.path === `Imports › ${source}`), all.slice(0, 4).map((one) => one.path).join(' | '))
@@ -44,6 +47,10 @@ try {
   const imported = all.filter((one) => one.path.startsWith('Imports'))
   check('only "Imports" is starred, not the vault\'s tree', imported.filter((one) => one.starred).map((one) => one.name).join() === 'Imports', imported.filter((one) => one.starred).map((one) => one.name).join())
   const once = await pages()
+  // A one-line quote in a vault folder comes in as a gem (kindOf), kept in its folder; the long notes stay pages.
+  const quote = once.find((one) => one.source.endsWith('A line worth keeping.md'))
+  const quoteRow = (() => { const db = new DatabaseSync(join(process.env.QA_DATA, 'sandbox', 'haligtree.db'), { readOnly: true }); try { return db.prepare('select tier, kind, folder_id as folder from nuggets where id = ?').get(quote?.id ?? '') } finally { db.close() } })()
+  check('a one-line quote comes in as a gem, in its folder', quoteRow?.tier === 'nugget' && quoteRow.kind === 'quote' && !!quoteRow.folder, JSON.stringify(quoteRow))
   const empty = Number(first.notes.join(' ').match(/(\d+) empty files? (was|were) skipped/)?.[1] ?? 0)
   check('every note in a folder came in once (the empty ones said)', once.length === first.made && first.made + empty === notesIn, `${once.length} pages, ${first.made} made, ${empty} empty, ${notesIn} in the vault's folders`)
   const brought = first.made

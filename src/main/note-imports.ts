@@ -70,8 +70,9 @@ export function filedSaid(groups: { name: string; count: number }[], made: numbe
   const they = made === 1 ? 'It is' : 'They are'
   const where = groups.length === 1 ? `“${groups[0].name}”` : `${groups.length.toLocaleString()} folders under “${groups[0].name.split(' › ').slice(0, 2).join(' › ')}”, one for each of its folders`
   if (!groups.length) return `${they} in Writing, marked not yet sorted.`
-  if (loose <= 0) return `${they} in Writing, kept in ${where}, marked not yet sorted.`
-  return `${they} in Writing, marked not yet sorted: ${grouped.toLocaleString()} kept in ${where}, ${loose.toLocaleString()} in no folder.`
+  // Pages in Writing and the odd quote or word in Gems: said by where they are kept, true of both.
+  if (loose <= 0) return `${they} kept in ${where}, marked not yet sorted.`
+  return `${they} marked not yet sorted: ${grouped.toLocaleString()} kept in ${where}, ${loose.toLocaleString()} in no folder.`
 }
 
 export function registerNoteImports(): void {

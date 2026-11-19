@@ -147,12 +147,14 @@ try {
   check('dragged above Thesis, it stays there', !!now, JSON.stringify((await order()).slice(-3)))
   await h.keyboard.press('Meta+z')
   check('⌘Z puts the order back', await until(async () => (await order()).join() === was.join()))
+  const drawn = () => h.evaluate(([a, b]) => { const all = [...document.querySelectorAll('[data-side-folder]')].map((one) => one.getAttribute('data-side-folder')); return all.indexOf(a) < all.indexOf(b) }, [thesis.id, reading.id])
+  check('and the sidebar draws it back in its place', await until(drawn))
 
   // All folders: found by its name.
   await h.locator('[data-side-all-folders]').click()
   await wait(700)
   if (shots) await h.screenshot({ path: `${shots}/all-folders-click.png` })
-  await h.locator('[data-find-folder] input').fill('readi')
+  await h.locator('[data-find-folder] input').fill('to re')
   await wait(300)
   check('"All folders…" finds a folder by part of its name', (await h.locator('[data-all-folder]').count()) === 1 && (await h.locator(`[data-all-folder="${reading.id}"]`).count()) === 1)
   await shot('all-folders')

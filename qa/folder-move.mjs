@@ -72,7 +72,11 @@ try {
   const differ = back.filter((one) => was.get(one.id)?.group !== one.group || was.get(one.id)?.order !== one.order)
   check('undone, every note is in its old folder and place', !differ.length, `${differ.length} differ`)
   check('undone, the old folders are back', ask((db) => db.prepare("select count(*) as n from note_groups where folder = 1 and list != 'folders'").get().n) === before.folders.length)
-  // Shown where they were: under Writing's and Gems' rows in the sidebar.
+  // Shown where they were: under Writing's row in the sidebar (the copy opens on "Welcome back": every page shown first).
+  await c.v('return:show-all').catch(() => {})
+  await c.h.waitForTimeout(800)
+  const fold = c.h.locator('[data-folders-fold="article"]')
+  if ((await fold.count()) && (await fold.getAttribute('aria-expanded')) !== 'true') (await c.h.locator('[data-side-row][aria-label="Writing"]').hover(), await fold.click(), await c.h.waitForTimeout(500))
   check('undone, the sidebar shows them under Writing again', (await c.h.locator('[data-side-folders="article"] [data-side-folder]').count()) >= 1, `${await c.h.locator('[data-side-folders="article"] [data-side-folder]').count()}`)
   check('Settings > Backups offers the move again', (await c.v('folders:move-state')) === 'undone')
   if (process.env.QA_SHOTS) await c.both(`${process.env.QA_SHOTS}/move-undone`)

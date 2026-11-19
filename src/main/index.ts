@@ -4808,14 +4808,14 @@ async function bringVault(root: string, quiet: boolean, pick?: { folders: string
   resolveWaiting(...made.map((one) => one.link))
   // And what they link to that was here before them, a note made by hand among it.
   resolveWithin(...made.map((one) => one.link))
-  const inbox = made.filter((one) => !one.link.startsWith('article:')).length
+  const inbox = made.filter((one) => !/^(article|nugget):/.test(one.link)).length
   // Chosen folders: each a group in Pages, named for the folder, its subfolders groups inside it; notes at the top
   // of the vault, in no folder, stay loose.
   const dirOf = (path: string): string => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '')
   const filed = pick
     ? fileIntoGroups([...new Set(made.map((one) => dirOf(one.path)))].filter(Boolean).map((dir) => ({
         path: dir.split('/'),
-        ids: made.filter((one) => dirOf(one.path) === dir).map((one) => one.link.replace(/^article:/, ''))
+        ids: made.filter((one) => dirOf(one.path) === dir).map((one) => one.link.replace(/^(article|nugget):/, ''))
       })), groups, `${existsSync(join(root, '.obsidian')) ? 'Obsidian' : 'Markdown'}: ${basename(root)}`)
     : []
   const report = [
@@ -6699,7 +6699,7 @@ app.whenReady().then(() => {
         changed()
         for (const win of BrowserWindow.getAllWindows()) win.webContents.send('imports:ready')
       }
-      const [type, id] = made.link.startsWith('article:') ? ['article', made.link.slice(8)] : ['capture', made.link]
+      const [type, id] = made.link.startsWith('article:') ? ['article', made.link.slice(8)] : made.link.startsWith('nugget:') ? ['nugget', made.link.slice(7)] : ['capture', made.link]
       sendHome(type, id)
     } catch (error) {
       inHome('haligtree:toast', { text: `${name} could not be opened: ${error instanceof Error ? error.message : String(error)}`, tone: 'error' })
