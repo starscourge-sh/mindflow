@@ -1810,7 +1810,21 @@ try {
     const pieces = (sel) => h.evaluate((sel) => [...document.querySelectorAll(`[data-cal-level] ${sel}`)].map((el) => { const r = el.getBoundingClientRect(); return { x: r.left, y: r.top, r: r.right, b: r.bottom, h: r.height } }), sel)
     const ticks = () => h.evaluate(() => (window.haligtreeHeard ?? []).filter((one) => one === 'click:tick').length)
     const press = async (key) => { const [x, y] = corner(await cell(key)); await h.mouse.move(x, y); await h.mouse.down() }
-    const toDay = async (key, steps = 14) => { const [x, y] = corner(await cell(key)); await h.mouse.move(x, y, { steps }) }
+    // A day below the month's fold (a span near the month's end reaches its last row) is scrolled into view first, by
+    // the wheel with the button still held, as a hand on a trackpad does: its corner was off the grid, and the pointer
+    // let go there was over nothing, so the bar kept its days (19 Nov).
+    const inView = (key) => h.evaluate((key) => {
+      const el = document.querySelector(`[data-cal-level] [data-day="${key}"]`)
+      if (!el) return 0
+      let box = { top: 0, bottom: innerHeight }
+      for (let up = el.parentElement; up; up = up.parentElement) if (/auto|scroll/.test(getComputedStyle(up).overflowY) && up.scrollHeight > up.clientHeight) { const r = up.getBoundingClientRect(); box = { top: Math.max(box.top, r.top), bottom: Math.min(box.bottom, r.bottom) }; break }
+      const r = el.getBoundingClientRect()
+      return r.bottom > box.bottom ? r.bottom - box.bottom + 8 : r.top < box.top ? r.top - box.top - 8 : 0
+    }, key)
+    const toDay = async (key, steps = 14) => {
+      for (let tries = 0, by = await inView(key); by && tries < 4; tries++, by = await inView(key)) (await h.mouse.wheel(0, by), await wait(400))
+      const [x, y] = corner(await cell(key)); await h.mouse.move(x, y, { steps })
+    }
     // Day by day, as a hand drawing across them goes (about ten days a second: ticks closer than 70ms are one, lib/sound.ts
     // `often`): every day between taken in once.
     const walk = async (from, to) => {
@@ -1874,7 +1888,7 @@ try {
         await h.keyboard.press('Meta+z')
         await wait(800)
         trip = (await eventsNamed('Trip'))[0]
-        check('span: ⌘Z puts its end back', lastDay(trip) === b, trip.end)
+        check('span: ⌘Z puts its end back', !!trip && lastDay(trip) === b, trip?.end ?? 'the event is gone')
       } else check('span: the bar has an end to take', false)
       // Its start, dragged a day back.
       const start = (await pieces(`[data-cal-event-chip="${key}"] [data-cal-bar-end="start"]`))[0]
