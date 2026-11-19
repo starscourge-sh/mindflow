@@ -34,8 +34,8 @@
 .mf-avatar[data-avatar='initials'],
 .dark:not([data-light]) .mf-avatar[data-avatar='initials'] {
   background:
-    linear-gradient(oklch(0.3 0.06 var(--mf-avatar-hue) / 0.78), oklch(0.3 0.06 var(--mf-avatar-hue) / 0.78)),
-    url('../../assets/faces/torsos.webp') var(--mf-avatar-at, 30% 30%) / 260% auto no-repeat,
+    linear-gradient(oklch(0.3 0.06 var(--mf-avatar-hue) / 0.6), oklch(0.3 0.06 var(--mf-avatar-hue) / 0.6)),
+    url('../../assets/faces/torsos.webp') var(--mf-avatar-at, 30% 30%) / 190% auto no-repeat,
     oklch(0.3 0.06 var(--mf-avatar-hue));
   color: oklch(0.96 0.03 var(--mf-avatar-hue));
   text-shadow: 0 0 calc(var(--s) * 0.12) oklch(0.22 0.05 var(--mf-avatar-hue));
