@@ -204,7 +204,7 @@ function FolderRow({ folder, all, here, n, naming, onNamed, onRename, onOpen }: 
       <PopoverAnchor asChild>
         <div className="relative">
     <RowMenu items={() => folderMenu(folder, all, onOpen, onRename)}>
-      <button type="button" data-side-row data-side-folder={folder.id} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-current={here ? 'page' : undefined}
+      <button type="button" data-side-row data-side-folder={folder.id} data-keep-drop={folder.id} data-folder-name={folder.name} title={folder.name} aria-label={folder.name} aria-current={here ? 'page' : undefined}
         onClick={() => (chime('page'), onOpen())}
         className={`flex w-full min-w-0 items-baseline gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}>
         {/* Room for the icon, which is its own button over this one (the old Writing folders' way, Notion's too). */}
