@@ -58,11 +58,16 @@ const RECORDER = () => {
       if (el.closest('[style*="visibility: hidden"]')) continue
       // Nor is a part kept in the page while shut (a note's find bar, closed: `inert`, folded to nothing).
       if (el.closest('[inert]')) continue
-      const tag = rolls.has(el) ? 'roll' : el.localName
+      // A room held for words still being written (`data-room-held`: the orb, then the words in its place) is one
+      // thing, judged by its box: what fills it may change, the room may not.
+      const held = el.closest('[data-room-held]')
+      if (held && held !== el) continue
+      const tag = held ? 'room' : rolls.has(el) ? 'roll' : el.localName
       const pic = tag === 'img' || tag === 'video' || tag === 'canvas' || tag === 'iframe'
       const field = (tag === 'input' && !['hidden', 'checkbox', 'radio', 'range'].includes(el.type)) || tag === 'textarea'
       let own = ''
-      if (tag === 'roll') own = el.getAttribute('aria-label')
+      if (tag === 'room') own = `${el.offsetWidth}x${el.offsetHeight}`
+      else if (tag === 'roll') own = el.getAttribute('aria-label')
       else if (!pic) for (const n of el.childNodes) if (n.nodeType === 3) own += n.nodeValue
       own = own.replace(/\s+/g, ' ').trim()
       if (!own && !pic && !field) continue

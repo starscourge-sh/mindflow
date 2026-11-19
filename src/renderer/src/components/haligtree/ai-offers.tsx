@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Sparkles } from 'lucide-react'
 
-import { useHas } from '@/lib/needs'
+import { meets, useCaps, useHas } from '@/lib/needs'
+import { useReading } from '@/lib/reads-in'
 import { chime } from '@/lib/sound'
 import { Orb } from './orb'
 
@@ -51,16 +52,28 @@ export function WeekParagraph({ monday, had, onKeep }: { monday: string; had: st
 
 /** Under a clue offered for a question: one line on why it may help, written on this Mac. */
 export function WhyLine({ question, note }: { question: string; note: string }): React.JSX.Element | null {
-  const has = useHas('ai')
-  const [said, setSaid] = useState<string | null>(null)
+  // Whether this Mac can write it is known before the page shows, so its room is there from the first frame or never.
+  const caps = useCaps()
+  useReading(caps === null)
+  const has = meets(caps, 'ai')
+  const [said, setSaid] = useState<Written | null>(null)
   useEffect(() => {
     if (!has) return
     let live = true
-    void window.api.haligtree<Written>('ai:why', question, note).then((one) => live && 'text' in one && setSaid(one.text), () => undefined)
+    setSaid(null)
+    void window.api.haligtree<Written>('ai:why', question, note).then((one) => live && setSaid(one), (error: Error) => live && setSaid({ error: error.message }))
     return () => void (live = false)
   }, [has, question, note])
-  if (!has || !said) return null
-  return <p data-mac-needs="ai" data-ai-why className="text-meta text-muted-foreground"><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />{said} Written on this Mac.</p>
+  if (!has) return null
+  // Two lines held from the first frame: the orb while this Mac writes, then its words in the same room, so nothing
+  // under it moves when they come (they came a second or two after the page and pushed the clues down). A longer
+  // answer ends in "…" and shows whole on pointing (title-tips.tsx).
+  const words = said && 'text' in said ? `${said.text} Written on this Mac.` : said ? `Not written: ${said.error}.` : null
+  return (
+    <p data-mac-needs="ai" data-ai-why data-room-held className="h-[2lh] text-meta text-muted-foreground">
+      {words === null ? <Orb label="Asking this Mac why…" /> : <span title={words} className="line-clamp-2"><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />{words}</span>}
+    </p>
+  )
 }
 
 /** A name for a note that starts with no words of its own (a picture, a recording), from the words further in. */
