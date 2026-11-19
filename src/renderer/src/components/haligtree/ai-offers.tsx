@@ -110,7 +110,8 @@ export function AnswerLine({ question, notes }: { question: string; notes: { tit
 /** A name for a note that starts with no words of its own (a picture, a recording), from the words further in. */
 export async function nameFor(text: string): Promise<string | null> {
   const said = await window.api.haligtree<Written>('ai:name', text).catch(() => null)
-  return said && 'text' in said ? said.text.replace(/^["“']|["”'.]$/g, '').trim() || null : null
+  // Its first line: the Mac's model may answer a name and then a line on why (group-name.ts cleanName).
+  return said && 'text' in said ? (said.text.split('\n').find((one) => one.trim()) ?? '').trim().replace(/^["“']|["”'.]$/g, '').trim() || null : null
 }
 
 /** The last card of a week's Wrapped: the week in a paragraph, written on this Mac (kept from the Week page). */
