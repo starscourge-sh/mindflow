@@ -28,7 +28,7 @@ const pinch = async (x, y, spread) => {
 try {
   await v('settings:set', { sounds: false, hintRate: 0, motion: true })
   await c.go('media'); await h.waitForTimeout(1200)
-  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Pictures' }).first().click().catch(() => {})
+  await h.locator('[data-page=media] [data-media-kinds] button', { hasText: 'Images' }).first().click().catch(() => {})
   await h.waitForTimeout(1200)
   const fit = await across()
   const tile = h.locator('[data-media-grid] [data-src]').nth(4)
