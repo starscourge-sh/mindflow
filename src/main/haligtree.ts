@@ -4671,6 +4671,10 @@ export function registerHaligtree(): void {
   // as a timer's, but kind 'focus', and kept, logged and counted as any
   // session is. Named while it runs or after, on the day's page (session:name).
   db.exec('create table if not exists sessions (id text primary key, task_id text not null, started_at text not null, ended_at text, recap text)')
+  // The last session kept, and the one running, are read newest first: without this each read sorted every session
+  // (70 ms of main with five years of them, on every page that shows a timer).
+  // A task's own sessions, found by it (its time spent, Stats' estimates against time spent) rather than by walking every ended one.
+  db.exec('create index if not exists sessions_by_end on sessions(ended_at); create index if not exists sessions_by_task on sessions(task_id, ended_at)')
   handle('sessions', (taskId: string) =>
     // Its practice's sessions too, once ended (a running one belongs to the practice's own pill), marked so the
     // task's log does not repeat the practice's own line: practice minutes count toward the routine they practise.
@@ -4683,11 +4687,14 @@ export function registerHaligtree(): void {
   // session kept, from its start to its end less its pauses, in whole milliseconds, and how many; one ended early
   // counts for the time it ran, an abandoned one for nothing. And the session running on a task now, if any: a
   // window adds its time itself, by the minute, so nothing is read again as it runs.
+  // Every task's time spent, added up over every session: kept until the book is written to again (each page that
+  // lists tasks asks, and five years of sessions took 60 to 70 ms of main a time).
+  let spentKept: { at: number; spent: Record<string, [number, number]> } | null = null
   handle('sessions:spent', () => ({
-    spent: Object.fromEntries((db.prepare(`select task_id as id, count(*) as n,
+    spent: spentKept?.at === bookStamp() ? spentKept.spent : (spentKept = { at: bookStamp(), spent: Object.fromEntries((db.prepare(`select task_id as id, count(*) as n,
         sum(max(0, cast(round((julianday(ended_at) - julianday(started_at)) * 86400000) as integer) - coalesce(paused_ms, 0))) as ms
       from sessions where task_id != '' and ended_at is not null and abandoned_at is null group by task_id`).all() as { id: string; n: number; ms: number }[])
-      .map((row) => [row.id, [row.ms, row.n]])),
+      .map((row) => [row.id, [row.ms, row.n]])) }).spent,
     running: db.prepare(`select id, task_id as taskId, started_at as startedAt, planned_ms as plannedMs, paused_ms as pausedMs, paused_at as pausedAt
       from sessions where task_id != '' and ended_at is null order by started_at desc limit 1`).get() ?? null
   }))
