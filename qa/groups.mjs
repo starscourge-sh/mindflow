@@ -378,7 +378,8 @@ if (c) try {
   await head(c, 'Memory').click({ button: 'right' })
   await c.h.waitForTimeout(300)
   const line = c.h.locator('[data-group-separate-item]')
-  check('the menu offers Separate', ((await line.textContent()) ?? '') === 'Separate', await line.textContent())
+  // Its line says what Separate keeps under its name (281b46c40): "Separate" then "Its notes stay in the list".
+  check('the menu offers Separate', /^Separate(Its |$)/.test((await line.textContent()) ?? ''), await line.textContent())
   await frames(c, 'k-x-hover', 1, 0)
   await line.click()
   await frames(c, 'l-separate', 8, 35)
@@ -405,7 +406,7 @@ if (c) try {
   check('and Memory is still drawn folded', (await row(c, 'The forgetting curve').count()) === 0)
   const rest = await row(c, 'Interleaving beats blocking').evaluate((el) => getComputedStyle(el).cursor)
   check('a row at rest shows the hand (it opens on a click)', rest === 'pointer', rest)
-  // A faint grip at its left edge, only after a moment's rest on it: from a pointer resting off the list.
+  // A faint grip at its left edge, as the pointer comes onto the row: from a pointer resting off the list.
   // Read in the page itself, timed from the pointer's own arrival: Playwright's hover() can take longer than the 400ms
   // wait under load, so an "early" read taken after it was sometimes already late (1 then 1).
   await c.h.mouse.move(5, 5)
@@ -425,7 +426,8 @@ if (c) try {
   await c.h.mouse.move(target.x + 120, target.y + target.height / 2)
   await c.h.waitForTimeout(1000)
   const { early, late } = await c.h.evaluate(() => window.__grip ?? { early: -1, late: -1 })
-  check('the grip comes in only after resting a moment', early < 0.2 && late > 0.8, `${early} then ${late}`)
+  // Since 7fbc72e46 (5 Nov) the grip shows as soon as the pointer is on the row, no longer after a 0.4 s rest.
+  check('the grip comes in as soon as the pointer is on the row', early > 0.2 && late > 0.8, `${early} then ${late}`)
   await frames(c, 'grip-light', 1, 0)
   // The grip in the margin is the handle: the open hand over it.
   const gripCursor = await c.h.evaluate(() => { const g = document.querySelector('[data-sortable-id] [data-grip]'); return g ? getComputedStyle(g).cursor : 'no grip' })
