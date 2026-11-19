@@ -140,8 +140,9 @@ if (c) try {
   await c.h.mouse.up()
   await c.h.waitForTimeout(400)
 
-  // 4. Over the middle of the group's row: Add to Memory.
-  await carry(c, row(c, 'The forgetting curve'), head(c, 'Memory'), 0.5, {
+  // 4. Over the lower half of the group's row: Add to Memory, first in it. (In your own order the group stands where it
+  // was made, among the rows, so its row's middle is the edge between above it and in it: the side kept from the way in.)
+  await carry(c, row(c, 'The forgetting curve'), head(c, 'Memory'), 0.75, {
     hold: async () => {
       await c.h.waitForTimeout(200)
       check('over a group\'s row, the label offers to add to it', (await said(c)) === 'Add to Memory', await said(c))
