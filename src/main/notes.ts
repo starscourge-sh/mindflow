@@ -17,7 +17,6 @@ import { centredOn, glide, stillNow } from './glide'
 const RISE = 14
 import { defineAgain, garbled } from './define'
 import { cut } from './clip'
-import { mdWords } from './md-words'
 import { NOTE_KEY } from './name'
 import { fileLink } from './pdf-highlights'
 import { linkedAmong, mentionsIn } from './links-in'
@@ -152,17 +151,6 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     db.exec(`create trigger if not exists ${name}_versions_gone after delete on ${name} begin delete from versions where item_id = old.id; end;`)
   db.exec("delete from versions where item_id not like 'day:%' and item_id not in (select id from captures union all select id from nuggets)")
 
-  // What a note's words work out to, kept per note (not per wording, which
-  // would keep one more with every autosave), and worked out again when they change.
-  type Kept<T> = Map<string, { body: string; value: T }>
-  const remember = <T>(kept: Kept<T>, key: string, body: string, make: () => T): T => {
-    const was = kept.get(key)
-    if (was?.body === body) return was.value
-    const value = make()
-    kept.set(key, { body, value })
-    return value
-  }
-
   // --- pictures in lists
   // The first stored picture in each note: every note that holds a file is read for it, so it is asked of the
   // reading thread (first-pictures.ts), never read here.
@@ -220,16 +208,9 @@ export function registerNotes({ load, guard, home, homeWindow }: Windows): void 
     small.set(key, made)
     return made
   })
-  // A card's first lines: only asked for while cards are shown.
-  const glances: Kept<string> = new Map()
-  handle('notes:glance', (name: string) => {
-    const rows = db.prepare(`select id, body from ${table(name)}`).all() as { id: string; body: string }[]
-    return Object.fromEntries(rows.map((row) => [row.id, remember(glances, `${table(name)}:${row.id}`, row.body, () => {
-      // Markdown (an import) read as words, as the editor's JSON is: no "- [ ]", no link's address.
-      const body = parse(row.body)
-      return cut((typeof body === 'string' ? mdWords(body, true) : plain(body, true)).replace(/\n{2,}/g, '\n').trim(), 280)
-    })]))
-  })
+  // A card's first lines: only asked for while cards are shown. Every note's words are read for them, so on the
+  // reading thread (reader-jobs.ts `glance`): on main, 20,000 notes held every window 650 to 750 ms at each ask.
+  handle('notes:glance', (name: string) => ask('glance', [bookStamp(), table(name)]))
 
   // --- your own order, one per list
   handle('notes:order', (list: string) =>

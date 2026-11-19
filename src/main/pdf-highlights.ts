@@ -7,8 +7,9 @@ import { join } from 'path'
 import { assetsDir } from './pictures'
 import { fetchOutside, unreached } from './outside'
 import type { DatabaseSync } from 'node:sqlite'
-import { LABEL, database } from './captures'
-import { PDF_TITLES as TITLES, fileLink, pdfsToFind } from './find-files'
+import { LABEL, bookStamp, database } from './captures'
+import { ask } from './reader'
+import { PDF_TITLES as TITLES, fileLink } from './find-files'
 
 export { fileLink }
 
@@ -148,7 +149,9 @@ export function registerPdfHighlights(): void {
   })
   // The library: every PDF kept, once each, with what its card and inspector say: title, author,
   // pages, where you are, when you last read it, how many highlights and how many notes hold it.
-  ipcMain.handle('haligtree:pdf:library', () => {
+  // Every PDF is found by reading each note that holds a file: on the reading thread, never main (300 ms of a big book).
+  ipcMain.handle('haligtree:pdf:library', async () => {
+    const pdfs = await ask('pdfs', [bookStamp()])
     const reading = new Map((db.prepare('select src, page, pages, read_at as readAt from pdf_reading').all() as { src: string; page: number; pages: number; readAt: string }[]).map((one) => [one.src, one]))
     const marks = new Map((db.prepare('select src, count(*) as n, count(gem_id) as gems from pdf_highlights group by src').all() as { src: string; n: number; gems: number }[]).map((one) => [one.src, one]))
     // How big the file is, read from the store: none when the file has gone.
@@ -159,7 +162,7 @@ export function registerPdfHighlights(): void {
     const days = new Map<string, Day[]>()
     for (const one of db.prepare('select src, day, furthest from pdf_days').all() as (Day & { src: string })[]) days.set(one.src, [...(days.get(one.src) ?? []), one])
     const covers = new Map((db.prepare('select src, author, pages from pdf_covers').all() as { src: string; author: string; pages: number | null }[]).map((one) => [one.src, one]))
-    return pdfsToFind(db).map((one) => {
+    return pdfs.map((one) => {
       const src = one.id.slice(0, one.id.indexOf('|'))
       const read = reading.get(src)
       const cover = covers.get(src)

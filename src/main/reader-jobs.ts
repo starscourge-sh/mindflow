@@ -12,6 +12,11 @@ import { wordCounter } from './word-count'
 import { linesOf } from './kept-words'
 import { firstPictures } from './first-pictures'
 import { pdfIn } from './pdf-in'
+import { LIST } from './book-words'
+import { pdfsToFind } from './find-files'
+import { plain } from './card-words'
+import { mdWords } from './md-words'
+import { cut } from './clip'
 
 /**
  * Everything the reading thread can be asked (reader.ts), by name: search,
@@ -33,6 +38,17 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
   const map = bookMap(db)
   const gained = wordCounter()
   const firstOfEach = firstPictures(db)
+  // Every PDF the book keeps, read again only once the book's stamp has moved (it reads every note that holds a file).
+  let pdfs: { stamp: number; found: ReturnType<typeof pdfsToFind> } | null = null
+  // Each note's first lines on a card (notes:glance), remembered by its words, and the whole answer by the book's stamp.
+  const glanced = new Map<string, { body: string; value: string }>()
+  const glances = new Map<string, { stamp: number; all: Record<string, string> }>()
+  const glance = (body: string): string => {
+    let read: unknown
+    try { read = JSON.parse(body ?? 'null') } catch { read = body }
+    // Markdown (an import) read as words, as the editor's JSON is: no "- [ ]", no link's address.
+    return cut((typeof read === 'string' ? mdWords(read, true) : plain(read, true)).replace(/\n{2,}/g, '\n').trim(), 280)
+  }
   type Gone = () => boolean
   return {
     jobs: {
@@ -68,6 +84,23 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
       'tag:read': (_gone: Gone, stamp: number, name: string) => tags.read(stamp, name),
       /** One note's own #tags. */
       'note:tags': (_gone: Gone, table: 'captures' | 'nuggets', id: string) => tags.ofNote(table, id),
+      /** Every capture as the lists show it (captures.ts `captures:list`): its name is worked out of its words, so a big book's list is read here, never on main. */
+      list: (_gone: Gone) => db.prepare(`select ${LIST} from captures order by captured_at desc`).all() as Record<string, unknown>[],
+      /** Every PDF kept, once each (find-files.ts), for the PDF library; `stamp`: the book's. */
+      pdfs: (_gone: Gone, stamp: number) => (pdfs?.stamp === stamp ? pdfs : (pdfs = { stamp, found: pdfsToFind(db) })).found,
+      /** Every note's first lines in a table, for cards (notes.ts `notes:glance`): every note's words are read, so here, never on main. */
+      glance: (_gone: Gone, stamp: number, table: 'captures' | 'nuggets') => {
+        const kept = glances.get(table)
+        if (kept?.stamp === stamp) return kept.all
+        const all: Record<string, string> = {}
+        for (const row of db.prepare(`select id, body from ${table === 'nuggets' ? 'nuggets' : 'captures'}`).all() as { id: string; body: string }[]) {
+          const key = `${table}:${row.id}`
+          const was = glanced.get(key)
+          all[row.id] = was?.body === row.body ? was.value : (glanced.set(key, { body: row.body, value: glance(row.body) }), glanced.get(key)!.value)
+        }
+        glances.set(table, { stamp, all })
+        return all
+      },
       /** The link cards not looked up yet as they now read (captures.ts keeps which were tried). */
       cards: (_gone: Gone) => db.prepare(`select id, kind, body from captures where (kind = 'link' or body like '%"bookmark"%')
         and not exists (select 1 from card_tries t where t.id = captures.id and t.body = captures.body)`).all() as { id: string; kind: string; body: string }[],

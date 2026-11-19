@@ -261,6 +261,8 @@ export interface Change {
 // sent 4 MB it holds already.
 let listed: { rows: Record<string, unknown>[]; at: number; version: number } | null = null
 let versions = 0
+/** The whole list being read on the reading thread, for the book's stamp `at`. */
+let reading: { at: number; rows: Promise<Record<string, unknown>[]> } | null = null
 // The list as the windows see it: without what is hidden until a later day.
 let sighted: { key: string; rows: Record<string, unknown>[]; version: number } | null = null
 const writes = (): number => (db.prepare('select total_changes() as n').get() as { n: number }).n
@@ -443,11 +445,20 @@ export function registerCaptures(): void {
   registerRenames()
 
   // Null when the window's copy, `held`, is this one still.
-  ipcMain.handle('captures:list', (_event, held?: number) => {
-    // Kept and nothing else has written since: only the rows saved since are read again. Otherwise the whole list is.
+  ipcMain.handle('captures:list', async (_event, held?: number) => {
+    // Kept and nothing else has written since: only the rows saved since are read again. Otherwise the whole list is,
+    // on the reading thread: each row's name is worked out of its words, about half a second of 20,000 notes, which
+    // on main held every window. Windows asking at once share the one read.
     if (listed?.at === bookStamp()) relisted()
     else unlisted.clear()
-    if (!listed || listed.at !== bookStamp()) listed ={ rows: db.prepare(`select ${LIST} from captures order by captured_at desc`).all() as Record<string, unknown>[], at: bookStamp(), version: ++versions }
+    if (!listed || listed.at !== bookStamp()) {
+      const at = bookStamp()
+      if (reading?.at !== at) reading = { at, rows: ask('list', []) }
+      const rows = await reading.rows
+      // Kept as read for its stamp (another window's ask may have kept the same read already): anything written while
+      // it was read moved the stamp past it, so the next ask reads again.
+      if (listed?.at !== at || listed.rows !== rows) listed = { rows, at, version: ++versions }
+    }
     // One hidden until a later day is out of the list, unless snoozed ones are
     // asked for; one in the Bin is there as any other. Kept per day, so it comes back on its own.
     const today = new Date().toLocaleDateString('sv')
