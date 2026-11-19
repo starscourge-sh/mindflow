@@ -46,7 +46,8 @@ try {
   await wait(300)
   check('while the words are still coming, it is a note', /note/i.test(await chip()), await chip())
   await film('read', 30)
-  await wait(400)
+  // The Mac's reading lands in its own time (the model, or its stand-in, after the words rest): waited for, up to 6 s.
+  await page.waitForFunction(() => /task/i.test(document.querySelector('[data-kind-chip]')?.textContent ?? ''), null, { timeout: 6000 }).catch(() => {})
   check('rested, the Mac reads it as a task: the kind chip says so', /task/i.test(await chip()), await chip())
   const will = await page.evaluate(() => document.querySelector('[data-will-do]')?.textContent ?? '')
   check('the line under the box says it will go to your tasks, read on this Mac', /Add to your tasks/.test(will) && /read on this Mac/.test(will), will)

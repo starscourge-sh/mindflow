@@ -31,7 +31,8 @@ try {
   const two = [await page('Night pages on courage'), await page('Morning pages on fear')]
   await go('home'); await go('articles'); await wait(1200)
   const row = (id) => h.locator(`[role="main"] [data-sortable-id="${id}"]`)
-  await row(two[0]).click(); await h.keyboard.down('Meta'); await row(two[1]).click(); await h.keyboard.up('Meta')
+  // Picked as the list picks (⌘-click each), the pointer then away from them, as qa/groups.mjs does.
+  await row(two[0]).click({ modifiers: ['Meta'] }); await row(two[1]).click({ modifiers: ['Meta'] }); await h.mouse.move(900, 700)
   await h.keyboard.press('Meta+g'); await wait(400)
   const field = () => h.evaluate(() => { const f = document.querySelector('[role="main"] [data-name-in-place]'); return f && document.activeElement === f ? { value: f.value, picked: f.selectionEnd - f.selectionStart } : null })
   const at = await field()
@@ -48,7 +49,8 @@ try {
   // 3. A new group whose field is left before the answer: it takes the name all the same.
   const three = [await page('Letters on patience'), await page('Letters on anger')]
   await go('home'); await go('articles'); await wait(1200)
-  await row(three[0]).click(); await h.keyboard.down('Meta'); await row(three[1]).click(); await h.keyboard.up('Meta')
+  // Picked as the list picks (⌘-click each), the pointer then away from them, as qa/groups.mjs does.
+  await row(three[0]).click({ modifiers: ['Meta'] }); await row(three[1]).click({ modifiers: ['Meta'] }); await h.mouse.move(900, 700)
   await h.keyboard.press('Meta+g'); await wait(300)
   await h.keyboard.press('Enter'); await wait(2200)
   const left = (await v('groups', 'article')).find((one) => one.members.includes(three[0]))

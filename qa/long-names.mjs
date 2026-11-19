@@ -27,7 +27,8 @@ try {
 
   // 2. The ones already kept, from Settings.
   const note = await cap('create', { kind: 'note', body: { type: 'doc', content: [{ type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: LONG_NOTE }] }, { type: 'paragraph', content: [{ type: 'text', text: 'Each step a failing test to make pass.' }] }] } })
-  const other = await v('task:add', 'call the bank about the overdraft fee on the joint account before friday')
+  const other = await v('task:add', 'call the bank about the overdraft fee on the joint account and ask about the card')
+  const otherName = (await v('task', other.id)).title
   await go('settings')
   await h.locator('[data-section="Writing"]').first().click(); await wait(500)
   const look = h.locator('[data-long-names-look]')
@@ -47,14 +48,14 @@ try {
   check('its long first line stays, under it', body.includes(LONG_NOTE))
   check('and is listed by its short name', row?.label === 'Build a database in Go', row?.label)
   const renamedTask = (await v('tasks')).find((one) => one.id === other.id)
-  check('a long task is renamed too', renamedTask && renamedTask.title !== 'call the bank about the overdraft fee on the joint account before friday', renamedTask?.title)
+  check('a long task is renamed too', renamedTask && renamedTask.title !== otherName, renamedTask?.title)
   const toast = h.locator('[role="status"]', { hasText: 'Renamed' })
   check('one notice says so', (await toast.count()) === 1, await toast.first().textContent().catch(() => ''))
   await toast.locator('button', { hasText: 'Undo' }).click(); await wait(900)
   const back = await cap('get', note)
   check('Undo puts the note back as it was', !JSON.stringify(back?.body ?? '').includes('Build a database in Go'), JSON.stringify(back?.body ?? '').slice(0, 160))
   const backTask = (await v('tasks')).find((one) => one.id === other.id)
-  check('and the task', backTask?.title === 'call the bank about the overdraft fee on the joint account before friday', backTask?.title)
+  check('and the task', backTask?.title === otherName, backTask?.title)
 } finally {
   await close()
 }
