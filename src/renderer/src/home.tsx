@@ -81,7 +81,7 @@ import { SidePeek } from './components/haligtree/page-peeks'
 import { MenuPeek, bookPeeks } from './components/haligtree/menu-peeks'
 import { useStickiesOut } from './lib/stickies-out'
 import { useReadsIn } from './lib/reads-in'
-import { call, unloaded, useAppearance, useLive, haligtree, type Item, type Pin, type Settings, type Task } from './lib/haligtree'
+import { call, unloaded, unread, useAppearance, useLive, haligtree, type Item, type Pin, type Settings, type Task } from './lib/haligtree'
 import { Button } from '@/components/ui/button'
 import { allRecorded, recordAll } from './lib/recordings'
 import { Tip, showTopTitle, useTopTitle, Pressed, useEscapeLeavesEditor } from '@/components/haligtree/ui'
@@ -1089,7 +1089,9 @@ export function Home(): React.JSX.Element {
   const sectionDrag = useSectionDrag()
   // Recent: the last few notes you opened, under Pinned, a short list (four at most: ⌘K has the rest), kept folded or open as you left it.
   const [recentOpen, setRecentOpen] = useRemembered('sidebar:recent', true)
-  const [recents, setRecents] = useState<Opened[]>([])
+  // Unread until its first answer: the sidebar waits for it (below), or Recent came in a beat late in the place
+  // Tags had been drawn in, and Tags stepped down under it.
+  const [recents, setRecents] = useState<Opened[]>(() => unread([]))
   const recentShown = useRef<Opened[]>([])
   // Writing's and Gems' folders, open to start (side-folders.tsx).
   const [articleKept, keepArticle] = useRemembered('sidebar:folders:article', true)
@@ -1359,7 +1361,7 @@ export function Home(): React.JSX.Element {
   const countsOn = settings?.sidebarCounts !== false
   const countOf = (id: string): number => (countsOn && !(settings?.sidebarCountsOff ?? []).includes(id) && counts[id]) || 0
   // The sidebar is drawn whole, once its rows' reads are in too: before, Pinned and the tags came in a beat late and pushed the places down.
-  const { style: sideStyle } = useReadsIn(!settings || unloaded(away) || !countsIn || unloaded(pinsUsual) || unloaded(tags))
+  const { style: sideStyle } = useReadsIn(!settings || unloaded(away) || !countsIn || unloaded(pinsUsual) || unloaded(tags) || unloaded(recents))
   // Come into from the welcome's "Open my book": the sidebar comes up with Home's parts, a little apart, never simply there.
   const [opened, setOpened] = useState(false)
   useEffect(() => {
