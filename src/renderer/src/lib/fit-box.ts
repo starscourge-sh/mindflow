@@ -304,6 +304,11 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     // A small window grown round its card: the card takes the height it was held short of.
     const regrown = (): void => drawSmall(sent.current)
     window.addEventListener('resize', regrown)
+    // “Text size” is worn on the page's root (editor-setup.ts wearFonts): the pill takes its new height at once, up or
+    // down (--mf-pill-h), as a key asked for it. Only when that height changed: the root's style holds the room too.
+    let tall = pillHeight()
+    const sized = new MutationObserver(() => void (tall !== pillHeight() && ((tall = pillHeight()), refit(true))))
+    sized.observe(document.documentElement, { attributes: true, attributeFilter: ['style'] })
     const sizes = new ResizeObserver(soon)
     if (column.current) sizes.observe(column.current)
     // A picture or a card's image arriving makes its block taller.
@@ -311,6 +316,7 @@ export function useFitBox(column: RefObject<HTMLElement | null>, full: boolean, 
     soon()
     return () => {
       changes.disconnect()
+      sized.disconnect()
       sizes.disconnect()
       window.removeEventListener('resize', soon)
       window.removeEventListener('resize', caught)
