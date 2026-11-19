@@ -1978,9 +1978,11 @@ export function registerHaligtree(): void {
       )
       .get(ago(3), keptKind) as Record<string, string> | undefined)
     if (!hint) return null
-    if (!old) db.prepare('update nuggets set last_visited_at = ? where id = ?').run(now(), hint.id)
+    // That it was shown is kept quietly (captures.ts): no list, search or kept answer reads it, and moving the book's
+    // stamp for it read every list again after each hint (a big book's Inbox, files and focus totals, on every page).
+    if (!old) quietly(() => db.prepare('update nuggets set last_visited_at = ? where id = ?').run(now(), hint.id))
     // A capture's id goes in the same column: either way, what was shown.
-    const { lastInsertRowid } = db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(hint.id, now())
+    const { lastInsertRowid } = quietly(() => db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(hint.id, now()))
     return { ...body(hint), event: Number(lastInsertRowid) }
   })
   // The Luhmann move: two unrelated things side by side, for the connection
@@ -1989,7 +1991,7 @@ export function registerHaligtree(): void {
   // Dwell: how long the hint was in front of you before the window went. The
   // signal every hint produces, where a vote is the rare one.
   ipcMain.handle('hints:dwell', (_event, event: number, ms: number) =>
-    void db.prepare('update hint_events set dwell_ms = ? where rowid = ? and dwell_ms is null').run(Math.round(ms), event))
+    void quietly(() => db.prepare('update hint_events set dwell_ms = ? where rowid = ? and dwell_ms is null').run(Math.round(ms), event)))
   // The hint rate, tuned by its own instrument: if hints have stopped stopping
   // you (under one in ten over the last month, with enough shown to tell),
   // half as many are shown. Legible: it says so, rather than going quiet.
@@ -2007,7 +2009,7 @@ export function registerHaligtree(): void {
     // A hint is a nugget or an old capture, so whichever it is.
     for (const table of ['nuggets', 'captures'])
       db.prepare(`update ${table} set surfacing_weight = surfacing_weight * ? where id = ?`).run(reaction === 'up' ? 1.5 : 1 / 1.5, id)
-    db.prepare('update hint_events set reaction = ? where rowid = ?').run(reaction, event)
+    quietly(() => db.prepare('update hint_events set reaction = ? where rowid = ?').run(reaction, event))
   })
 
   // --- nuggets and articles
@@ -2840,7 +2842,7 @@ export function registerHaligtree(): void {
       where tier = 'question' and closed_at is null and archived_at is null and private = 0 and id not in (select nugget_id from hint_events where shown_at >= ?)
       order by random() limit 1`).get(ago(14)) as { id: string; title: string; createdAt: string; clues: number } | undefined
     if (!row || nudgedToday('question')) return null
-    const { lastInsertRowid } = db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(row.id, now())
+    const { lastInsertRowid } = quietly(() => db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(row.id, now()))
     return { ...row, event: Number(lastInsertRowid) }
   })
 
@@ -3972,7 +3974,7 @@ export function registerHaligtree(): void {
       const found = kind()
       if (!found) continue
       delete found.weight
-      const { lastInsertRowid } = db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(String(found.id), now())
+      const { lastInsertRowid } = quietly(() => db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(String(found.id), now()))
       return { ...body(found), event: Number(lastInsertRowid) }
     }
     return null
@@ -5437,7 +5439,7 @@ export function registerHome(): void {
     const shown = new Set((db.prepare('select nugget_id as id from hint_events where shown_at >= ?').all(new Date(startOfDay()).toISOString()) as { id: string }[]).map((row) => row.id))
     const one = returning().find((row) => !row.private && !shown.has(row.id))
     if (!one) return null
-    db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(one.id, now())
+    quietly(() => db.prepare('insert into hint_events (nugget_id, shown_at) values (?, ?)').run(one.id, now()))
     return one
   })
 
