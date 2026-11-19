@@ -18,7 +18,7 @@ import { Pressed, WithMarks } from './ui'
  */
 
 /** The card's own surface: the one floating material (lib/float.ts). */
-const PEEK_SURFACE = `w-[17rem] rounded-xl p-1.5 ${FLOAT}`
+export const PEEK_SURFACE = `w-[17rem] rounded-xl p-1.5 ${FLOAT}`
 
 /** True while something is being carried: a list row, a note, a split. */
 export const carrying = (): boolean => {

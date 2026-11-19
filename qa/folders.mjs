@@ -64,9 +64,11 @@ try {
     const row = document.querySelector(`[data-row][data-id="${id}"]`)?.getBoundingClientRect()
     const pick = document.querySelector('[data-folder-picker]')?.getBoundingClientRect()
     const dim = [...document.querySelectorAll('body *')].some((one) => { const s = getComputedStyle(one); return s.position === 'fixed' && one.getBoundingClientRect().width >= innerWidth - 2 && one.getBoundingClientRect().height >= innerHeight - 2 && /rgba\(0, 0, 0, 0\.[1-9]/.test(s.backgroundColor) })
-    return row && pick ? { gap: Math.round(Math.min(Math.abs(pick.top - row.bottom), Math.abs(row.top - pick.bottom))), dim } : null
+    const side = document.querySelector('aside')?.getBoundingClientRect()
+    return row && pick ? { top: Math.round(pick.top - row.top), width: Math.round(pick.width), sidebar: Math.round(side?.width ?? 0), right: pick.left > row.left + 40, dim } : null
   }, await row.getAttribute('data-id'))
-  check('the picker stands by the row, the window not dimmed', !!spot && spot.gap <= 12 && !spot.dim, JSON.stringify(spot))
+  // As the sidebar's own cards: about its width, to the right of where it was asked, its top level with the row.
+  check('the picker is the sidebar card: beside the row, its top level with it, the window not dimmed', !!spot && Math.abs(spot.top) <= 8 && spot.width <= spot.sidebar + 40 && spot.right && !spot.dim, JSON.stringify(spot))
   await shot('picker')
   await h.keyboard.type('thes')
   await wait(200)
@@ -181,6 +183,23 @@ try {
   await wait(300)
   check('"All folders…" finds a folder by part of its name', (await h.locator('[data-all-folder]').count()) === 1 && (await h.locator(`[data-all-folder="${reading.id}"]`).count()) === 1)
   await shot('all-folders')
+  // The picker's order and shape: the folder kept in most and most lately first; about seven rows, the rest under
+  // the lists' fade; a folder inside another with its way there, faint, before its name.
+  await c.go('articles')
+  await menu(h.locator('[data-page="articles"] button[data-row]').nth(2), 'Keep in folder…')
+  const pickIds = () => h.locator('[data-folder-pick]').evaluateAll((all) => all.map((one) => one.getAttribute('data-folder-pick')))
+  check('before typing, the folder kept in most and most lately leads', (await pickIds())[0] === thesis.id, JSON.stringify((await c.v('folders')).sort((a, b) => b.used - a.used).slice(0, 3).map((one) => `${one.name} ${one.used.toFixed(2)}`)))
+  const box = await h.locator('[data-folder-pick-list]').evaluate((one) => ({ shown: one.clientHeight, all: one.scrollHeight, row: one.querySelector('[data-folder-pick]')?.getBoundingClientRect().height ?? 0, fades: one.classList.contains('mf-more') }))
+  check('about seven rows show, the rest scroll under the fade', box.fades && box.all > box.shown && box.shown <= box.row * 7.6 && box.shown >= box.row * 6, JSON.stringify(box))
+  if (shots) await c.both(`${shots}/picker-frecency`)
+  await h.keyboard.type('renai')
+  await wait(200)
+  const crumb = await h.locator('[data-folder-pick]').first().evaluate((one) => ({ crumb: one.querySelector('[data-folder-crumb]')?.textContent ?? '', ink: getComputedStyle(one.querySelector('[data-folder-crumb]') ?? one).color, name: [...one.querySelectorAll('span')].at(-1)?.textContent }))
+  check('a folder inside another shows its way there, faint, before its name', /History ›/.test(crumb.crumb) && crumb.name === 'Renaissance', JSON.stringify(crumb))
+  if (shots) await c.both(`${shots}/picker-crumb`)
+  await h.keyboard.press('Escape')
+  await wait(300)
+
   // Frames of the other surfaces this changed: Gems' bar (no "New folder"), Settings > Backups' line for the move.
   await c.go('nuggets')
   await shot('gems')

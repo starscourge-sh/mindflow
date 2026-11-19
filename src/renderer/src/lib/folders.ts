@@ -16,6 +16,8 @@ export type Was = Thing & { folder: string | null; status?: string }
 export type Folder = {
   id: string; name: string; icon: string | null; color: string | null; parent: string | null; starred: number; archived: number
   pages: number; gems: number; notes: number; tasks: number; hidden: number
+  /** Frecency: keeps counted, less as they age (folders.ts `listFolders`). */
+  used: number
 }
 export type FolderItem = { type: FolderKind; id: string; title: string; at: string; archived: number }
 

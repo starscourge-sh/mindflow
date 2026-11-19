@@ -30,6 +30,8 @@ export type Folder = {
   id: string; name: string; icon: string | null; color: string | null; parent: string | null; starred: number; archived: number
   /** What it holds itself, by kind, out of the Bin and in sight; and how many of its things are archived. */
   pages: number; gems: number; notes: number; tasks: number; hidden: number
+  /** How much and how lately things were kept in it: each keep counts 1, less as it ages (a week old: a half). */
+  used: number
 }
 
 const now = (): string => new Date().toISOString()
@@ -58,6 +60,9 @@ export function folderColumns(): void {
   // Each change the one-time move made, so it can be undone: a thing's old group and order, a folder's old list and
   // parent (and its whole row, when it was merged into another of the same name), the lists' old order.
   db.exec('create table if not exists folder_move (thing text not null, what text not null, was text not null)')
+  // Each time something is kept in a folder by a person (a keep, not an import or an Undo): the picker's frecency.
+  db.exec('create table if not exists folder_use (folder_id text not null, at text not null)')
+  db.exec('create index if not exists folder_use_by_folder on folder_use(folder_id)')
 }
 
 /** Every folder, in the tree's own order, each with what it holds counted by kind. */
@@ -87,7 +92,8 @@ export function listFolders(): Folder[] {
   }
   for (const row of db.prepare("select folder_id as id, count(*) as n from tasks where folder_id is not null and status != 'dropped' group by 1").all() as { id: string; n: number }[])
     tally(row.id).tasks += row.n
-  return rows.map(({ at: _at, made: _made, ...row }) => ({ ...row, ...(counts.get(row.id) ?? { pages: 0, gems: 0, notes: 0, tasks: 0, hidden: 0 }) }))
+  const used = new Map((db.prepare("select folder_id as id, sum(1.0 / (1 + (julianday('now') - julianday(at)) / 7.0)) as score from folder_use group by 1").all() as { id: string; score: number }[]).map((one) => [one.id, one.score]))
+  return rows.map(({ at: _at, made: _made, ...row }) => ({ ...row, ...(counts.get(row.id) ?? { pages: 0, gems: 0, notes: 0, tasks: 0, hidden: 0 }), used: used.get(row.id) ?? 0 }))
 }
 
 /** What a folder holds itself (not its folders'), newest first: archived ones too, said so, for "Show archived". */
@@ -295,7 +301,12 @@ export function registerFolders(): void {
   handle('folders:items', (id: string) => folderItems(id))
   handle('folders:unfiled', () => unfiledCount())
   handle('folders:make', (name: string, parent: string | null = null) => makeFolder(name, parent))
-  handle('folders:file', (things: Thing[], folder: string | null) => fileThings(things, folder))
+  handle('folders:file', (things: Thing[], folder: string | null) => {
+    const was = fileThings(things, folder)
+    // A keep, counted once however many it moved: the folders kept in most and most lately lead the picker.
+    if (folder && was.length) db.prepare('insert into folder_use (folder_id, at) values (?, ?)').run(folder, now())
+    return was
+  })
   handle('folders:unfile', (was: Was[]) => unfile(was))
   // Where each of these things lives: its folder's id, for the quiet label on Writing's and Gems' rows.
   handle('folders:of', (type: 'nuggets' | 'captures' | 'tasks') =>
