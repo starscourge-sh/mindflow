@@ -7,6 +7,7 @@ import { gate } from './haligtree'
 import { dayjs } from './dates'
 import { remindSaid } from './event-said'
 import { occurrences, readRepeat, repeatSaid, splitAt, type Repeat } from './event-repeat'
+import { fileThings } from './folders'
 
 /**
  * Calendar events, beside tasks, the way Google Calendar, Notion Calendar and
@@ -21,7 +22,12 @@ import { occurrences, readRepeat, repeatSaid, splitAt, type Repeat } from './eve
  * Every channel starts `haligtree:`, so the preload passes it through.
  */
 
-export type Calendar = { id: string; name: string; color: string; hidden: boolean }
+/**
+ * A calendar, and what it is tied to (the user, 17 Nov: "what exactly is the synergy between 'calendars' and everything
+ * else"): `folder`, a folder its events' notes are kept in, whose page shows its events; `tag`, a tag whose colour it
+ * wears, so a calendar and its tag read as one.
+ */
+export type Calendar = { id: string; name: string; color: string; hidden: boolean; folder: string | null; tag: string | null }
 
 /** One time an event happens: a one-off, one time of a series, or a time of a series changed on its own. */
 export type Occurrence = {
@@ -121,6 +127,13 @@ function tables(): void {
     create table if not exists event_notes (event_key text not null, capture_id text not null, created_at text not null, primary key (event_key, capture_id));
     create table if not exists event_told (key text primary key, at text not null);
     create table if not exists task_remind (task_id text primary key, before integer not null);`)
+  for (const column of ['folder_id text', 'tag text']) {
+    try {
+      db.exec(`alter table calendars add column ${column}`)
+    } catch {
+      // Already there.
+    }
+  }
   // An event's own colour and its being called off, added after the first events were kept.
   const have = new Set((db.prepare('pragma table_info(events)').all() as { name: string }[]).map((one) => one.name))
   if (!have.has('ink')) db.exec('alter table events add column ink text')
@@ -133,7 +146,7 @@ function tables(): void {
 }
 
 export function calendars(): Calendar[] {
-  return (db.prepare('select id, name, color, hidden from calendars where binned_at is null order by sort, created_at').all() as { id: string; name: string; color: string; hidden: number }[])
+  return (db.prepare('select id, name, color, hidden, folder_id as folder, tag from calendars where binned_at is null order by sort, created_at').all() as (Omit<Calendar, 'hidden'> & { hidden: number })[])
     .map((row) => ({ ...row, hidden: !!row.hidden }))
 }
 
@@ -482,7 +495,7 @@ export function registerEvents(open: (type: string, id: string) => void): void {
   handle('calendars', () => calendars())
   // Made or changed: name, colour, shown or hidden. Gives back what it was, for an undo.
   handle('calendar:set', (patch: Partial<Calendar> & { binned?: boolean }) => {
-    const was = patch.id ? (db.prepare('select id, name, color, hidden, binned_at from calendars where id = ?').get(patch.id) as (Calendar & { binned_at: string | null }) | undefined) : undefined
+    const was = patch.id ? (db.prepare('select id, name, color, hidden, binned_at, folder_id as folder, tag from calendars where id = ?').get(patch.id) as (Calendar & { binned_at: string | null }) | undefined) : undefined
     const id = was?.id ?? randomUUID()
     const name = patch.name !== undefined ? clean(patch.name, 40) || was?.name || 'Calendar' : was?.name ?? 'New calendar'
     const color = patch.color && CAL_COLORS.includes(patch.color) ? patch.color : (was?.color ?? CAL_COLORS[calendars().length % CAL_COLORS.length])
@@ -490,10 +503,13 @@ export function registerEvents(open: (type: string, id: string) => void): void {
     const binned = patch.binned === undefined ? (was?.binned_at ?? null) : patch.binned ? now() : null
     // The last calendar stays: an event always has one to be on.
     if (binned && !was?.binned_at && calendars().length <= 1) return null
-    db.prepare(`insert into calendars (id, name, color, hidden, sort, binned_at, created_at) values (?, ?, ?, ?, (select coalesce(max(sort), 0) + 1 from calendars), ?, ?)
-      on conflict (id) do update set name = excluded.name, color = excluded.color, hidden = excluded.hidden, binned_at = excluded.binned_at`).run(id, name, color, hidden, binned, now())
+    // What it is tied to: given, the new; null, untied; left out, as it was.
+    const folder = patch.folder !== undefined ? (patch.folder ? String(patch.folder) : null) : (was?.folder ?? null)
+    const tag = patch.tag !== undefined ? (patch.tag ? String(patch.tag).replace(/^#/, '').toLowerCase() : null) : (was?.tag ?? null)
+    db.prepare(`insert into calendars (id, name, color, hidden, sort, binned_at, created_at, folder_id, tag) values (?, ?, ?, ?, (select coalesce(max(sort), 0) + 1 from calendars), ?, ?, ?, ?)
+      on conflict (id) do update set name = excluded.name, color = excluded.color, hidden = excluded.hidden, binned_at = excluded.binned_at, folder_id = excluded.folder_id, tag = excluded.tag`).run(id, name, color, hidden, binned, now(), folder, tag)
     changed()
-    return { id, was: was ? { id: was.id, name: was.name, color: was.color, hidden: !!was.hidden, binned: !!was.binned_at } : null }
+    return { id, was: was ? { id: was.id, name: was.name, color: was.color, hidden: !!was.hidden, binned: !!was.binned_at, folder: was.folder ?? null, tag: was.tag ?? null } : null }
   })
   // A calendar deleted keeps its events: they move to another, and the ids moved come back for its Undo.
   handle('calendar:move-events', (from: string, to: string, ids?: string[]) => {
@@ -504,6 +520,14 @@ export function registerEvents(open: (type: string, id: string) => void): void {
     return moving
   })
   handle('events', (from: string, to: string) => eventsBetween(String(from), String(to)))
+  // A folder's page: the next four weeks of the calendars that keep their notes in it, and those calendars' names.
+  handle('folder:events', (folder: string) => {
+    const tied = calendars().filter((one) => one.folder === String(folder))
+    if (!tied.length) return { calendars: [], events: [] }
+    const from = new Date(new Date().setHours(0, 0, 0, 0))
+    const ids = new Set(tied.map((one) => one.id))
+    return { calendars: tied.map(({ id, name, color, tag }) => ({ id, name, color, tag })), events: eventsBetween(from.toISOString(), new Date(from.getTime() + 28 * 86_400_000).toISOString()).filter((one) => ids.has(one.calendarId)).slice(0, 30) }
+  })
   handle('event', (key: string) => eventOf(String(key)))
   handle('event:add', (patch: EventPatch) => addEvent(patch ?? {}))
   handle('event:save', (key: string, patch: EventPatch, scope?: Scope) => saveEvent(String(key), patch ?? {}, scope))
@@ -512,6 +536,10 @@ export function registerEvents(open: (type: string, id: string) => void): void {
   // A note for one time of an event: linked by id both ways, so each shows the other.
   handle('event:note:link', (key: string, capture: string) => {
     db.prepare('insert or ignore into event_notes (event_key, capture_id, created_at) values (?, ?, ?)').run(String(key), String(capture), now())
+    // Its calendar keeps its notes in a folder: the note goes there, out of the Inbox, as "Keep in folder" puts it.
+    const folder = (db.prepare(`select c.folder_id as folder from events e join calendars c on c.id = coalesce(e.calendar_id, 'personal')
+      where e.id = ? and c.binned_at is null`).get(String(key).split('@')[0]) as { folder: string | null } | undefined)?.folder
+    if (folder && db.prepare("select 1 from note_groups where id = ? and list = 'folders'").get(folder)) fileThings([{ type: 'capture', id: String(capture) }], folder)
     changed()
     return true
   })

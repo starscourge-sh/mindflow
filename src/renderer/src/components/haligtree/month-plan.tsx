@@ -31,7 +31,7 @@ import { AddPopover, DraftMark, OpenPopover, addLines, placeKey, placeOf, stayPu
 import { monthHere } from '@/lib/calendar-scope'
 import { useHere } from '@/lib/split'
 import { taskMenu, useTaskNow } from './tasks-view'
-import { inkOf, useCalendars } from '@/lib/events'
+import { calendarInk, useCalendars } from '@/lib/events'
 import { unloaded, useLive, haligtree, type Settings, type Stats, type Task } from '@/lib/haligtree'
 import { dayjs, type Dayjs, dayKey, num, plural } from '../../../../main/dates'
 import { APP_NAME } from '../../../../main/name'
@@ -258,7 +258,7 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
   if (openOwn) lastTask.current = openedTask
   const drawnTask = openOwn ? openedTask : lastTask.current
   const calendars = useCalendars()
-  const draftColor = inkOf(calendars.find((one) => one.id === add?.calendar)?.color ?? calendars.find((one) => !one.hidden)?.color ?? calendars[0]?.color)
+  const draftColor = calendarInk(calendars.find((one) => one.id === add?.calendar) ?? calendars.find((one) => !one.hidden) ?? calendars[0])
   const adding = own ? (draftAt?.day ?? null) : null
   // ⌘K is about the task picked here, as on the Calendar's own page (lib/calendar-scope.ts): “Open” opens it in the
   // popover tied to its line, and a thing done to it leaves it picked.

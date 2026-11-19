@@ -5,7 +5,8 @@ import { byKeys, spring, still } from '@/lib/motion'
 import { edgeScroll } from '@/lib/edge-scroll'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
-import { Ban, Bell, CalendarDays, Check, ChevronRight, Clock, Copy, CopyPlus, FileText, Globe, Laptop, Link2, MapPin, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
+import { Ban, Bell, CalendarDays, Check, ChevronRight, Clock, Copy, CopyPlus, FileText, Folder as FolderIcon, Globe, Hash, Laptop, Link2, MapPin, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
+import { folders, type Folder } from '@/lib/folders'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -13,7 +14,7 @@ import { chime } from '@/lib/sound'
 import { clock } from '@/lib/clock'
 import { moveToBin } from '@/lib/to-bin'
 import { useLive, haligtree, type Settings } from '@/lib/haligtree'
-import { changeEvent, events, inZone, inkOf, useCalendars, whenSaid, zoneGap, zoneShort, ZONES, cityOf, type Occurrence, type Repeat, type Scope, type useLayers } from '@/lib/events'
+import { calendarInk, changeEvent, events, inZone, inkOf, useCalendars, type Calendar, whenSaid, zoneGap, zoneShort, ZONES, cityOf, type Occurrence, type Repeat, type Scope, type useLayers } from '@/lib/events'
 import { readEvent } from '../../../../main/event-words'
 import { atOn, timeAlone } from '@/lib/tasks'
 import { readTask } from '../../../../main/task-words'
@@ -233,7 +234,7 @@ function eventMenu(one: Shown, { open, onOpen, calendars = [] }: { open: () => v
     { label: 'Open', keys: '↵', run: open },
     { label: one.noted ? 'Open its notes' : 'Notes for this', icon: <FileText />, run: () => void notesFor(one, onOpen) },
     ...(one.video ? [{ label: 'Join the video call', icon: <Video />, run: () => void events.join(one.video!) }] : []),
-    ...(calendars.length > 1 ? [{ label: 'Block on calendar', icon: <CalendarDays />, items: calendars.map((cal) => ({ label: cal.name, icon: <span aria-hidden className="size-2.5 rounded-[3px]" style={{ background: inkOf(cal.color) }} />, trail: cal.id === one.calendarId ? <Check className="ml-auto size-3.5" /> : undefined, run: () => cal.id !== one.calendarId && void changeOne(one, { calendarId: cal.id }, `On ${cal.name} now`) })) }] : []),
+    ...(calendars.length > 1 ? [{ label: 'Block on calendar', icon: <CalendarDays />, items: calendars.map((cal) => ({ label: cal.name, icon: <span aria-hidden className="size-2.5 rounded-[3px]" style={{ background: calendarInk(cal) }} />, trail: cal.id === one.calendarId ? <Check className="ml-auto size-3.5" /> : undefined, run: () => cal.id !== one.calendarId && void changeOne(one, { calendarId: cal.id }, `On ${cal.name} now`) })) }] : []),
     'separator',
     { label: 'Cut', icon: <Scissors />, keys: '⌘X', run: () => cutEvent(one) },
     { label: 'Copy', icon: <Copy />, keys: '⌘C', run: () => copyEvent(one) },
@@ -450,6 +451,33 @@ export const STUDY_INK = 'var(--tt-color-text-purple)'
 
 export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers> }): React.JSX.Element {
   const [editing, setEditing] = useState<string | null>(null)
+  // What a calendar can be tied to: a folder its event notes go to (and whose page shows its events), a tag whose
+  // colour it wears. Each said with an Undo; the same ties are offered on a folder's own menu (side-folder-section.tsx).
+  const folderList = useLive(folders.list, [] as Folder[])
+  const tagList = useLive(haligtree.tags, [] as Awaited<ReturnType<typeof haligtree.tags>>)
+  const tie = (one: Calendar, patch: { folder?: string | null; tag?: string | null }, said: string): void =>
+    void events.setCalendar({ id: one.id, ...patch }).then((done) => {
+      if (!done) return
+      chime('tap')
+      toast(said, () => void events.setCalendar({ id: one.id, folder: done.was?.folder ?? null, tag: done.was?.tag ?? null }).then(() => chime('undo')))
+    })
+  const tiesOf = (one: Calendar): RowItem[] => {
+    const kept = folderList.find((folder) => folder.id === one.folder)
+    const live = folderList.filter((folder) => !folder.archived)
+    const used = [...tagList].sort((a, b) => b.count - a.count).slice(0, 24)
+    return [
+      { label: kept ? `Its notes go to ${kept.name}` : 'Keep its notes in a folder', icon: <FolderIcon />, items: live.length ? [
+        ...live.slice(0, 40).map((folder) => ({ label: folder.name, icon: <FolderIcon />, trail: folder.id === one.folder ? <Check className="ml-auto size-3.5" /> : undefined,
+          run: () => folder.id !== one.folder && tie(one, { folder: folder.id }, `A note for an event on ${one.name} now goes to ${folder.name}, and ${folder.name} shows its events`) })),
+        ...(kept ? ['separator' as const, { label: 'Notes stay in the Inbox', icon: <X />, run: () => tie(one, { folder: null }, `Notes for ${one.name}'s events stay in the Inbox`) }] : [])
+      ] : [{ heading: 'Make a folder first, in Folders' }] },
+      { label: one.tag ? `Colour of #${one.tag}` : 'Colour from a tag', icon: <Hash />, items: used.length ? [
+        ...used.map((each) => ({ label: `#${each.tag}`, icon: <span aria-hidden className="size-2.5 rounded-[3px]" style={{ background: calendarInk({ color: one.color, tag: each.tag }, tagList) }} />, trail: each.tag === one.tag ? <Check className="ml-auto size-3.5" /> : undefined,
+          run: () => each.tag !== one.tag && tie(one, { tag: each.tag }, `${one.name} wears #${each.tag}'s colour`) })),
+        ...(one.tag ? ['separator' as const, { label: 'Its own colour', icon: <X />, run: () => tie(one, { tag: null }, `${one.name} wears its own colour again`) }] : [])
+      ] : [{ heading: 'No tags in use yet' }] }
+    ]
+  }
   // One press, one calendar: a second click while the first is saving, or on a "New calendar" not yet named, opens that one instead of making another.
   const making = useRef(false)
   const add = async (): Promise<void> => {
@@ -498,10 +526,13 @@ export function CalendarLayers({ layers }: { layers: ReturnType<typeof useLayers
       <ul className="flex flex-col">
         {layers.calendars.map((one) => editing === one.id
           ? <CalendarEdit key={one.id} one={one} onDone={() => setEditing(null)} />
-          : row(one.id, one.name, inkOf(one.color), [
+          : row(one.id, one.name, calendarInk(one, tagList), [
               { label: 'Rename', run: () => setEditing(one.id) },
               { heading: 'Colour' },
-              { swatches: COLORS.map((color) => ({ color: inkOf(color), label: color, on: one.color === color, run: () => void events.setCalendar({ id: one.id, color }).then(() => chime('tap')) })) },
+              // A colour picked here is its own again: one taken from a tag lets go of the tag.
+              { swatches: COLORS.map((color) => ({ color: inkOf(color), label: color, on: !one.tag && one.color === color, run: () => void events.setCalendar({ id: one.id, color, tag: null }).then(() => chime('tap')) })) },
+              'separator',
+              ...tiesOf(one),
               'separator',
               ...(() => {
                 // Its events are kept: they move to the first other calendar, said in the row and in the toast.
@@ -698,7 +729,7 @@ function CalendarPick({ calendars, on, onPick }: { calendars: ReturnType<typeof 
       {calendars.map((cal) => (
         <button key={cal.id} type="button" role="radio" aria-checked={on === cal.id} data-new-event-calendar={cal.id} onClick={() => onPick(cal)}
           className="flex h-7 cursor-pointer items-center gap-1.5 rounded-full px-2.5 text-control text-foreground transition-colors hover:bg-accent aria-checked:bg-accent aria-checked:font-medium motion-reduce:transition-none">
-          <span aria-hidden className="size-2 rounded-full shrink-0" style={{ background: inkOf(cal.color) }} />{cal.name}
+          <span aria-hidden className="size-2 rounded-full shrink-0" style={{ background: calendarInk(cal) }} />{cal.name}
         </button>
       ))}
     </div>
@@ -943,7 +974,7 @@ export function EventDetail({ eventKey, onKey, onClose, onOpen }: { eventKey: st
               <button key={cal.id} type="button" role="radio" aria-checked={one.calendarId === cal.id} data-event-calendar={cal.id}
                 onClick={() => one.calendarId !== cal.id && void save({ calendarId: cal.id }, `On ${cal.name} now`)}
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-control text-foreground hover:bg-accent aria-checked:font-medium">
-                <span aria-hidden className="size-2.5 rounded-full shrink-0" style={{ background: inkOf(cal.color) }} />
+                <span aria-hidden className="size-2.5 rounded-full shrink-0" style={{ background: calendarInk(cal) }} />
                 <span className="flex-1">{cal.name}</span>
                 {one.calendarId === cal.id && <Check className="size-3.5" />}
               </button>

@@ -4,6 +4,7 @@ import { chime } from './sound'
 import { toast } from '@/components/haligtree/ui'
 import type { Calendar, EventPatch, Occurrence, Scope } from '../../../main/events'
 import { dayjs, plural } from '../../../main/dates'
+import { tagHue } from '@/extensions/tokens'
 export type { Calendar, EventPatch, Occurrence, Scope }
 export type { Repeat } from '../../../main/event-repeat'
 
@@ -23,6 +24,8 @@ export const events = {
   drop: (key: string, scope?: Scope) => call<{ undo: string } | null>('event:drop', key, scope),
   undo: (token: string) => call<boolean>('events:undo', token),
   calendars: () => call<Calendar[]>('calendars'),
+  /** A folder's page: the next four weeks of the calendars that keep their notes in it. */
+  ofFolder: (folder: string) => call<{ calendars: Pick<Calendar, 'id' | 'name' | 'color' | 'tag'>[]; events: Occurrence[] }>('folder:events', folder),
   setCalendar: (patch: Partial<Calendar> & { binned?: boolean }) => call<{ id: string; was: (Calendar & { binned: boolean }) | null } | null>('calendar:set', patch),
   moveEvents: (from: string, to: string, ids?: string[]) => call<string[]>('calendar:move-events', from, to, ids),
   link: (key: string, capture: string) => call<boolean>('event:note:link', key, capture),
@@ -51,6 +54,12 @@ export async function changeEvent(run: Promise<{ undo: string } | null>, said: s
   return 'key' in done ? (done as Made).key : null
 }
 
+/**
+ * The colour a calendar wears: its tag's, when it takes its colour from a tag (`tags`, read with each tag's own colour),
+ * else its own. One rule for its tick, its events and its menu.
+ */
+export const calendarInk = (one: { color: string; tag?: string | null } | undefined, tags: { tag: string; color: string | null }[] = []): string =>
+  one?.tag ? `var(--tt-color-text-${tagHue(one.tag, tags.find((each) => each.tag === one.tag)?.color)})` : inkOf(one?.color)
 /** A calendar's colour as the theme draws it: its ink, readable in light and dark. */
 export const inkOf = (color: string | null | undefined): string =>
   !color ? 'var(--tt-color-text-blue)' : color.startsWith('#') ? color : `var(--tt-color-text-${color})`
@@ -60,8 +69,13 @@ export function useEvents(from: string, to: string): Occurrence[] {
   // Kept by name, as the lists are: Back to the Calendar draws it at once from what was read last, and reads afresh.
   return useLive(() => events.between(from, to), [] as Occurrence[], [from, to], undefined, 'events-between')
 }
+/** The calendars as last read, for a menu built in one go (a folder's: side-folder-section.tsx). */
+let known: Calendar[] = []
+export const calendarsNow = (): Calendar[] => known
 export function useCalendars(): Calendar[] {
-  return useLive(events.calendars, [] as Calendar[])
+  const read = useLive(events.calendars, [] as Calendar[])
+  if (!unloaded(read)) known = read
+  return read
 }
 
 /** One of your Mac's calendars, read only, as the Calendar lists it beside your own. */
@@ -86,6 +100,7 @@ export function useLayers(from: Date, to: Date): {
   ready: boolean
 } {
   const calendars = useCalendars()
+  const tags = useLive(haligtree.tags, [] as { tag: string; color: string | null }[])
   const settings = useLive(haligtree.settings, null as Settings | null)
   const hidden = new Set(settings?.calendarHidden ?? [])
   const read = useMacEvents(from, to)
@@ -108,7 +123,7 @@ export function useLayers(from: Date, to: Date): {
     tasks: !hidden.has('tasks'),
     study: !hidden.has('study'),
     toggle,
-    colorOf: (id) => inkOf(calendars.find((one) => one.id === id)?.color),
+    colorOf: (id) => calendarInk(calendars.find((one) => one.id === id), tags),
     ready: !unloaded(calendars) && !!settings && !unloaded(read)
   }
 }

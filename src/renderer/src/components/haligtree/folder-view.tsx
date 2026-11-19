@@ -18,7 +18,9 @@ import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
 import { folders, pathOf, useFolders, type Folder, type FolderItem, type FolderKind } from '@/lib/folders'
 import { deepCount, folderMenu, newFolderHere } from './side-folder-section'
-import { num, plural } from '../../../../main/dates'
+import { calendarInk, events, useCalendars } from '@/lib/events'
+import { clock } from '@/lib/clock'
+import { dayjs, num, plural } from '../../../../main/dates'
 
 
 /**
@@ -53,6 +55,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   const items = useLive(() => folders.items(id), null as FolderItem[] | null, [id], undefined, `folders:items:${id}`)
   const ofCaptures = useLive(() => folders.of('captures'), {} as Record<string, string>, [], undefined, 'folders:of:captures')
   const ofTasks = useLive(() => folders.of('tasks'), {} as Record<string, string>, [], undefined, 'folders:of:tasks')
+  useCalendars()
+  const coming = useLive(() => (id === 'unfiled' ? Promise.resolve(null) : events.ofFolder(id)), null as Awaited<ReturnType<typeof events.ofFolder>> | null, [id])
   const unfiled = id === 'unfiled'
   const folder = all.find((one) => one.id === id)
   const path = unfiled ? [] : pathOf(all, id)
@@ -95,6 +99,19 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
       {folder && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" />}
       <p data-folder-fact="" className="mt-2 text-[1.0625rem] leading-snug text-foreground">{fact}</p>
       {!unfiled && !shown.length && !inside.length && <p className="mt-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
+      {/* The calendars that keep their notes here: their next four weeks, each opening on the Calendar. */}
+      {!!coming?.calendars.length && (
+        <Island title={`Coming up on ${coming.calendars.map((one) => one.name).join(', ')} · ${num(coming.events.length)}`}>
+          {coming.events.length ? coming.events.map((one) => (
+            <button key={one.key} type="button" data-folder-event={one.key} onClick={() => (chime('open'), onOpen('event', one.key))}
+              className="flex w-full min-w-0 cursor-pointer items-center gap-2.5 px-3 py-2 text-left hover:bg-accent/60">
+              <span aria-hidden className="size-2.5 shrink-0 rounded-[3px]" style={{ background: calendarInk(coming.calendars.find((cal) => cal.id === one.calendarId)) }} />
+              <span className="min-w-0 flex-1 truncate">{one.title}</span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{dayjs(one.start).format('ddd D MMM')}{one.allDay ? '' : ` ${clock(one.start)}`}</span>
+            </button>
+          )) : <p className="px-3 py-2 text-body text-muted-foreground">Nothing on {coming.calendars.length === 1 ? 'it' : 'them'} in the next four weeks.</p>}
+        </Island>
+      )}
       {inside.length > 0 && (
         <Island className="mt-3" title={`Folders · ${num(inside.length)}`}>
           {inside.map((one) => (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ArrowRight, ChevronRight, CircleCheck, FileText, Gem, HelpCircle, MoreHorizontal, Plus, StickyNote } from 'lucide-react'
+import { ArrowRight, CalendarDays, Check, ChevronRight, CircleCheck, FileText, Gem, HelpCircle, MoreHorizontal, Plus, StickyNote } from 'lucide-react'
 import { openItems } from '@/lib/split'
 import { Branches } from './branches'
 import { NameInPlace } from './name-in-place'
@@ -13,6 +13,7 @@ import { age, num } from '../../../../main/dates'
 import { haligtree, useLive } from '@/lib/haligtree'
 import { chime } from '@/lib/sound'
 import { FOLDER_DEPTH, askFolder, askFolderFor, folders, heldIn, keepIn, pathOf, useFolders, type Folder, type FolderItem } from '@/lib/folders'
+import { calendarInk, calendarsNow, events, type Calendar } from '@/lib/events'
 
 /** Starred folders shown before the rest fold behind "Show all". */
 const SHOWN = 12
@@ -188,8 +189,12 @@ export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem
 }
 
 /** One folder's lines in a menu, the same in the sidebar and on the All folders page. */
-export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, onRename: () => void): RowItem[] {
+export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, onRename: () => void, cals: Calendar[] = calendarsNow()): RowItem[] {
   const level = pathOf(all, folder.id).length
+  const tied = cals.filter((one) => one.folder === folder.id)
+  // A calendar's event notes kept here, and its events on this folder's page: the calendar's own menu ties it too.
+  const tie = (cal: Calendar, to: string | null, said: string): void =>
+    void events.setCalendar({ id: cal.id, folder: to }).then((done) => done && (chime('tap'), toast(said, () => void events.setCalendar({ id: cal.id, folder: done.was?.folder ?? null }).then(() => chime('undo')))))
   return [
     // As Notion's: first what it is to you (in the sidebar), then its name and place, then opening it, then the foot.
     { label: folder.starred ? 'Remove from the sidebar' : 'Show in the sidebar', hint: folder.starred ? 'Unstar it' : 'Star it', run: () => (chime(folder.starred ? 'off' : 'on'), sayNow(folders.set(folder.id, { starred: !folder.starred }), folder.starred ? `Took ${folder.name} off the sidebar` : `Starred ${folder.name}`, () => void folders.set(folder.id, { starred: !!folder.starred }))) },
@@ -202,6 +207,11 @@ export function folderMenu(folder: Folder, all: Folder[], onOpen: () => void, on
     folder.parent ? { label: 'Move to the top', run: () => void folders.nest(folder.id, null).then(() => (chime('gather'), toast(`Moved ${folder.name} to the top`, () => void folders.nest(folder.id, folder.parent)))) } : null,
     { label: folder.archived ? 'Unarchive folder' : 'Archive folder', hint: folder.archived ? undefined : 'Kept, out of sight', run: () => (chime('tuck'), sayNow(folders.set(folder.id, { archived: !folder.archived }), folder.archived ? `Unarchived ${folder.name}` : `Archived ${folder.name}: kept, out of sight`, () => void folders.set(folder.id, { archived: !!folder.archived }))) },
     { label: 'Delete folder, keep what’s in it', hint: 'It moves up a level', danger: true, run: () => void folders.remove(folder.id).then((was) => was && (chime('separate'), toast(`Deleted ${folder.name}: what it held stays`, () => void folders.restore(was)))) },
+    // A calendar whose event notes are kept here, its events on this folder's page (the calendar's own menu ties it too).
+    cals.length > 0 && { label: tied.length ? `Notes of ${tied.map((one) => one.name).join(', ')}` : 'Keep a calendar’s notes here', icon: <CalendarDays />, items: cals.map((cal) => ({
+      label: cal.name, icon: <span aria-hidden className="size-2.5 rounded-[3px]" style={{ background: calendarInk(cal) }} />, trail: cal.folder === folder.id ? <Check className="ml-auto size-3.5" /> : undefined,
+      run: () => cal.folder === folder.id ? tie(cal, null, `Notes for ${cal.name}'s events stay in the Inbox`) : tie(cal, folder.id, `A note for an event on ${cal.name} now goes to ${folder.name}, and ${folder.name} shows its events`)
+    })) },
     'separator',
     { label: 'Open', run: onOpen },
     ...openItems('folder', `folders:${folder.id}`),

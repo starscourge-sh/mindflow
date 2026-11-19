@@ -10,7 +10,7 @@ const { check, done } = checks()
 const s = await sandbox({ width: 1300, height: 900 })
 const { h, v, go, close } = s
 const wait = (ms) => h.waitForTimeout(ms)
-const posts = () => h.evaluate(() => [...document.querySelectorAll('[data-feed] ol > li[data-feed-at], [data-feed] [data-feed-at]')].map((one) => one.textContent ?? ''))
+const posts = () => h.evaluate(() => [...document.querySelectorAll('[data-feed] ol > li[data-feed-at], [data-feed] [data-feed-at]')].map((one) => one.innerText ?? ''))
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })
   await go('feed'); await wait(2000)
