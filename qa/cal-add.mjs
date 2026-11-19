@@ -1943,6 +1943,13 @@ try {
       await wait(800)
       trip = (await eventsNamed('Trip'))[0]
       check('span: ⌘Z puts it back', !!card && keyOf(new Date(trip.start)) === a, trip.start)
+      // Week: in the all-day lane across its days.
+      await toMode('w')
+      for (let n = 0; n < 2 && !(await h.evaluate((key) => !!document.querySelector(`[data-cal-level] [data-cal-allday-lane] [data-cal-event-chip="${key}"]`), key)); n++) { await h.keyboard.press('ArrowRight'); await wait(500) }
+      const lane = await h.evaluate((key) => { const el = document.querySelector(`[data-cal-level] [data-cal-allday-lane] [data-cal-event-chip="${key}"]`); const col = document.querySelector('[data-cal-level] [data-cal-allday]'); return el && col ? { w: el.getBoundingClientRect().width, day: col.getBoundingClientRect().width } : null }, key)
+      check('span: in Week it sits in the all-day lane across its days', !!card && !!lane && lane.w > lane.day * 1.5, JSON.stringify(lane))
+      await shot('span-week')
+      await toMode('m')
       // Its end held past the grid's bottom edge, no wheel: the weeks scroll under the still pointer (lib/edge-scroll.ts)
       // until a day two weeks below the last one in view comes up, and let go on it the bar ends there (19 Nov, LE1).
       for (let tries = 0, by = await inView(b); by && tries < 4; tries++, by = await inView(b)) (await h.mouse.wheel(0, by), await wait(400))
@@ -1974,13 +1981,36 @@ try {
         await h.keyboard.press('Meta+z')
         await wait(800)
       } else check("span: the bar's end and the grid's bottom edge were found", false)
-      // Week: in the all-day lane across its days.
-      await toMode('w')
-      for (let n = 0; n < 2 && !(await h.evaluate((key) => !!document.querySelector(`[data-cal-level] [data-cal-allday-lane] [data-cal-event-chip="${key}"]`), key)); n++) { await h.keyboard.press('ArrowRight'); await wait(500) }
-      const lane = await h.evaluate((key) => { const el = document.querySelector(`[data-cal-level] [data-cal-allday-lane] [data-cal-event-chip="${key}"]`); const col = document.querySelector('[data-cal-level] [data-cal-allday]'); return el && col ? { w: el.getBoundingClientRect().width, day: col.getBoundingClientRect().width } : null }, key)
-      check('span: in Week it sits in the all-day lane across its days', !!card && !!lane && lane.w > lane.day * 1.5, JSON.stringify(lane))
-      await shot('span-week')
+      // A task carried the same way: past the bottom edge, no wheel, onto a day out of view when it was lifted.
       await toMode('m')
+      const chip = await h.evaluate(() => {
+        const run = document.querySelector('[data-cal-level] [data-month-scroll]').getBoundingClientRect()
+        const today = document.querySelector('[data-cal-level] [data-day] [aria-current]')?.closest('[data-day]')?.dataset.day ?? ''
+        const el = [...document.querySelectorAll('[data-cal-level] [data-plan-task]')].find((el) => { const r = el.getBoundingClientRect(); const day = el.closest('[data-day]')?.dataset.day ?? ''; return day >= today && r.top > run.top + 4 && r.bottom < run.bottom - 4 && getComputedStyle(el).cursor !== 'default' })
+        if (!el) return null
+        const r = el.getBoundingClientRect()
+        const col = [...document.querySelectorAll('[data-cal-level] [data-month-plan] [data-day]')].map((one) => ({ day: one.dataset.day, r: one.getBoundingClientRect() })).filter((one) => one.r.left <= r.left + 10 && one.r.right >= r.left + 10 && one.r.bottom <= run.bottom + 0.5).sort((p, q) => q.r.top - p.r.top)[0]
+        return { id: el.dataset.planTask, x: r.left + 10, y: (r.top + r.bottom) / 2, bottom: run.bottom, last: col?.day }
+      })
+      if (chip?.last) {
+        const goal = keyOf(new Date(new Date(`${chip.last}T12:00:00`).getTime() + 14 * 864e5))
+        await h.mouse.move(chip.x, chip.y)
+        await h.mouse.down()
+        await h.mouse.move(chip.x, chip.bottom + 24, { steps: 12 })
+        let up = null
+        for (const until = Date.now() + 9000; Date.now() < until; await wait(100)) {
+          up = await h.evaluate(({ goal, bottom }) => { const r = document.querySelector(`[data-cal-level] [data-month-plan] [data-day="${goal}"]`)?.getBoundingClientRect(); return r && r.bottom < bottom - 4 ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null }, { goal, bottom: chip.bottom })
+          if (up) break
+        }
+        if (up) await h.mouse.move(up.x, up.y, { steps: 4 })
+        await wait(250)
+        await h.mouse.up()
+        await wait(900)
+        const task = (await v('tasks')).find((one) => one.id === chip.id)
+        const due = task?.dueAt ?? task?.due
+        check(`span: a task carried past the grid's bottom edge (no wheel) scrolls the weeks, and let go on ${goal}, out of view when lifted, it moves there`, !!up && !!due && keyOf(new Date(due)) === goal, `${up ? 'came into view' : 'never came into view'}; due ${due}`)
+        if (due && keyOf(new Date(due)) === goal) (await h.keyboard.press('Meta+z'), await wait(800))
+      } else check('span: a task in view to carry was found', false, JSON.stringify(chip))
     } else for (const name of ['drawn the same way in Month', 'its end dragged', '⌘Z puts its end back', 'its start dragged', 'its middle carried in the one card', 'Esc mid-carry', 'let go, it moves', '⌘Z puts it back', 'in Week across its days']) check(`span: ${name}`, false, 'no event was made from days drawn across')
   }
 

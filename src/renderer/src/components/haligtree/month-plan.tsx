@@ -17,6 +17,7 @@ import { Overlay, SETTLE } from './sortable'
 import { MarkChip } from './milestones'
 import { chime, quietFor } from '@/lib/sound'
 import { taskName } from '@/lib/tasks'
+import { edgeScroll } from '@/lib/edge-scroll'
 import { loud } from '@/lib/loud'
 import { detent, edge } from '@/lib/haptics'
 import { CALM, land, stopFor, type Landing } from '@/lib/snap'
@@ -271,6 +272,20 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
     go: () => undefined
   }) : undefined, [own]) // eslint-disable-line react-hooks/exhaustive-deps
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+  // A task carried past the weeks' top or bottom edge scrolls them (lib/edge-scroll.ts, as the Calendar's bars and a
+  // note's blocks do), so a day out of view is reached in one drag; dnd-kit's own scrolling is off. The pointer's own
+  // place, read from its moves: dnd-kit's move counts the scroll in.
+  const heldAtEdge = useRef<(() => void) | null>(null)
+  const holdEdges = (): void => {
+    const run = frame.current?.querySelector<HTMLElement>('[data-month-run]')
+    if (!run) return
+    const scroll = edgeScroll(run, 0)
+    const move = (event: PointerEvent): void => scroll.follow(event.clientY)
+    window.addEventListener('pointermove', move)
+    heldAtEdge.current = () => (window.removeEventListener('pointermove', move), scroll.stop())
+  }
+  const letEdges = (): void => void (heldAtEdge.current?.(), (heldAtEdge.current = null))
+  useEffect(() => () => heldAtEdge.current?.(), [])
   const item = onOpen ?? ((type: string, id: string): void => window.api.openInHome(type, id))
   const open = (line: Line, at: HTMLElement | null = null): void => line.kind === 'back' ? (chime('open'), window.api.openInHome(line.one.type, line.one.id))
     : onTask ? onTask(line.task.id, at) : (setAdd(null), setMine(null), setPickedTask(line.task.id), setOpenedOwn({ id: line.task.id, at }))
@@ -372,10 +387,11 @@ export function MonthPlan({ tasks, onDay, onSide, onTask, onAddDay, onOpen, onWe
       {/* The days are measured while a task is carried. On the run never before: every week coming into sight measured all
           84 days again (a getBoundingClientRect each, with a restyle), most of a fling's long frames. */}
       <DndContext accessibility={dragWords} sensors={sensors} collisionDetection={pointerWithin} autoScroll={false} measuring={{ droppable: { strategy: bare ? MeasuringStrategy.WhileDragging : MeasuringStrategy.Always, frequency: 120 } }}
-        onDragStart={({ active, activatorEvent }) => { chime('lift'); fromDay.current = true; liftedFrom.current = (activatorEvent.target as Element | null)?.closest<HTMLElement>('[data-day]')?.dataset.day ?? null; setOverDay(null); holding.current = active.data.current as { line?: Line; mark?: Milestone }; setCarried(holding.current.mark ? { kind: 'mark', one: holding.current.mark } : holding.current.line!) }}
+        onDragStart={({ active, activatorEvent }) => { chime('lift'); holdEdges(); fromDay.current = true; liftedFrom.current = (activatorEvent.target as Element | null)?.closest<HTMLElement>('[data-day]')?.dataset.day ?? null; setOverDay(null); holding.current = active.data.current as { line?: Line; mark?: Milestone }; setCarried(holding.current.mark ? { kind: 'mark', one: holding.current.mark } : holding.current.line!) }}
         onDragOver={({ over }) => (fromDay.current ? ticks.start(over?.id) : ticks(over?.id), (fromDay.current = false), setOverDay(over ? String(over.id) : null))}
-        onDragCancel={() => setCarried(null)}
+        onDragCancel={() => (letEdges(), setCarried(null))}
         onDragEnd={({ over }) => {
+          letEdges()
           setCarried(null)
           // Kept from the lift: scrolling to another month takes the chip's own day, and its data, off the screen.
           const { line, mark } = holding.current ?? {}
