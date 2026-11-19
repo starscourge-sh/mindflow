@@ -112,3 +112,29 @@ test("a first heading that only repeats the article's name comes off, so the tit
   assert.deepEqual(await headings('Letters from the North'), ['The Arctic Letters', 'The voyage'])
   assert.deepEqual(await headings(), ['The Arctic Letters', 'The voyage'])
 })
+
+test("code keeps its lines, indents and spaces as written, and a site's live example of it goes (17 Nov, Tailwind's docs)", async () => {
+  // Tailwind's own markup (tailwindcss.com/docs/styling-with-utility-classes, Shiki): each line a span of its own with
+  // no line break between, a highlighted class word in a span and the space after it in another; the card it draws
+  // live just before the code.
+  const s = (words: string, mark = ''): string => `<span style="color:var(--color-sky-300)"${mark ? ' class="highlighted-word relative"' : ''}>${words}</span>`
+  const page = '<p>This component is fully responsive and includes a button with hover and active styles, and is built entirely with utility classes, as the example below shows in full for anyone reading.</p>' +
+    '<div class="not-prose"><div class="card"><img src="https://tailwindcss.com/img/erin.jpg" width="96" height="96"><div><p>Erin Lindford</p><p>Product Engineer</p></div><button>Message</button></div></div>' +
+    '<div><pre class="shiki tailwindcss-theme" tabindex="0"><code>' +
+    `<span class="line">&#x3C;div class=${s('"flex flex-col gap-2 p-8 ')}${s('sm:flex-row', 'x')}${s(' ')}${s('sm:items-center', 'x')}${s('"')}></span>` +
+    `<span class="line">  &#x3C;p class=${s('"text-lg"')}>Erin Lindford&#x3C;/p></span>` +
+    `<span class="line">  &#x3C;p>Product Engineer&#x3C;/p></span>` +
+    `<span class="line">  &#x3C;button>Message&#x3C;/button></span>` +
+    '<span class="line">&#x3C;/div></span></code></pre></div>' +
+    '<pre><code class="language-js">const a = 1;\n  return a</code></pre>'
+  const html = await cleanArticle(page, new URL('https://tailwindcss.com/docs/styling-with-utility-classes'), 'Tailwind CSS', async (src) => ({ kept: `haligtree://assets/${encodeURIComponent(src)}`, size: { width: 96, height: 96, type: 'jpg' } }))
+  const body = parseHTML(`<!doctype html><html><body>${html}</body></html>`).document.body
+  const [shiki, js] = [...body.querySelectorAll('pre')]
+  assert.equal(shiki?.textContent, '<div class="flex flex-col gap-2 p-8 sm:flex-row sm:items-center">\n  <p class="text-lg">Erin Lindford</p>\n  <p>Product Engineer</p>\n  <button>Message</button>\n</div>')
+  assert.equal(js?.textContent, 'const a = 1;\n  return a')
+  assert.equal(js?.querySelector('code')?.getAttribute('data-language'), 'js')
+  // The live card's words are only the code's: it goes, its picture with it; the sentence before it stays.
+  assert.equal(body.querySelector('img'), null)
+  assert.equal([...body.querySelectorAll('p')].filter((one) => /Erin|Product/.test(one.textContent ?? '')).length, 0)
+  assert.match(body.textContent ?? '', /fully responsive/)
+})

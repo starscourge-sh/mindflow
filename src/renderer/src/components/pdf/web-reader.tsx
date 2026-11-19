@@ -15,6 +15,7 @@ import {
 import { PdfOutline, PdfRail, type OutlineRow } from './pdf-rail'
 import { PageLabel } from './pdf-labels'
 import { freeSiteOf } from '@/lib/free-sites'
+import { grammarsIn, lowlight, useGrammars, wantGrammars } from '@/lib/lowlight'
 import { canSplit } from '@/lib/split'
 import { Button } from '@/components/tiptap-ui-primitive/button'
 import { Roll } from '@/lib/roll'
@@ -87,6 +88,10 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const body = useRef<HTMLDivElement>(null)
   const [article, setArticle] = useState<Article | null>(null)
   const [failed, setFailed] = useState<string | null>(null)
+  // Its code is coloured once the grammars are in (lib/lowlight.ts): a page with code is set again then, once a window,
+  // and its highlights found again in it.
+  const grammars = useGrammars()
+  const coloured = grammars && !!article?.html.includes('<pre')
   const [size, setSize] = useState(1)
   const pane = usePane()
   // The article's headings, in reading order: its contents beside it, and the section a gem's citation names.
@@ -178,7 +183,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
     CSS.highlights.set(`${names}-flash`, new Highlight(...(lit ? [lit] : [])))
     lit?.startContainer.parentElement?.scrollIntoView({ block: 'center' })
     return () => (MARK_COLORS.forEach((one) => CSS.highlights.delete(markName(names, one.id))), CSS.highlights.delete(`${names}-flash`), undefined)
-  }, [marks, article, flash, names])
+  }, [marks, article, flash, names, coloured])
 
   // A selection inside the article's words offers "Keep"; anything else hides it.
   const [picked, setPicked] = useState<{
@@ -587,7 +592,7 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   // One object for the article's HTML, kept while the article is: React 19 sets
   // innerHTML again whenever this prop is a new object, which rebuilds every
   // word and empties the highlights and the picked words.
-  const words = useMemo(() => ({ __html: unwrapped(article?.html ?? '', href) }), [article, href])
+  const words = useMemo(() => ({ __html: unwrapped(article?.html ?? '', href) }), [article, href, coloured])
   const title = article?.title ?? articleName(href)
   const when = article?.published ? new Date(article.published) : null
   // Each date, and the licence, held on one line: the page's narrower column broke "kept 15 / November 2026" in two.
@@ -1022,11 +1027,32 @@ function unwrapped(html: string, href = ''): string {
     while (lead && !(lead.nodeType === Node.ELEMENT_NODE && (lead as Element).matches('img, picture, svg, video, iframe')) && !(lead.nodeType === Node.TEXT_NODE && lead.textContent?.trim())) lead = walk.nextNode()
     if (lead?.nodeType === Node.TEXT_NODE && /^\s*\p{L}/u.test(lead.textContent ?? '') && !lead.parentElement?.closest('a')) (opening as Element).setAttribute('data-drop', '')
   }
+  // Code coloured as a note's code block is (the editor's hljs colours reach this body, haligtree-editor.scss), by the
+  // language the page named or the one it looks like; its words stay exactly as they were, so every highlight's place too.
+  const code = [...page.content.querySelectorAll('pre > code')]
+  if (code.length && !grammarsIn()) wantGrammars()
+  else for (const one of code) {
+    const text = one.textContent ?? ''
+    const language = one.getAttribute('data-language')
+    const tree = (language && lowlight.registered(language) ? lowlight.highlight(language, text) : lowlight.highlightAuto(text)) as unknown as CodeTree
+    one.replaceChildren(...painted(tree.children ?? []))
+  }
   // The room over a paragraph after a paragraph or a heading (main.css, the reading rhythm), marked as a note's editor
   // marks its own: a page's paragraphs carry no "mf-p", so since the rhythm named it they sat with no room between them.
   markRoom(page.content)
   return page.innerHTML
 }
+
+/** What lowlight answers: spans naming their colours round the words. */
+type CodeTree = { type: string; value?: string; children?: CodeTree[]; properties?: { className?: string[] } }
+const painted = (parts: CodeTree[]): Node[] =>
+  parts.map((part) => {
+    if (!part.children) return document.createTextNode(part.value ?? '')
+    const span = document.createElement('span')
+    span.className = (part.properties?.className ?? []).join(' ')
+    span.append(...painted(part.children))
+    return span
+  })
 
 /** Every run of words under a node, in reading order. */
 export const textNodes = (root: Node): Text[] => {

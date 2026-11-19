@@ -155,6 +155,65 @@ const MISSED: Record<Missed['why'], string> = {
   stopped: 'Picture not brought, as the reading was stopped'
 }
 
+/** A line of code set as an element of its own (Shiki's and Prism's `span.line`, a `div` a line), not by a line break. */
+const LINE = /(^|\s)(line|code-line|token-line|cm-line|ec-line)(\s|$)/
+/** A code block's line numbers and copy buttons, which are not its code. */
+const NOT_CODE = /(^|[\s-])(line-?numbers?|linenos|gutter|copy)([\s-]|$)/i
+
+/** A code block's words exactly as written: each line on its own line, every space and indent kept. */
+function codeText(pre: Element): string {
+  let out = ''
+  const walk = (node: Node): void => {
+    if (node.nodeType === 3) return void (out += node.textContent ?? '')
+    if (node.nodeType !== 1) return
+    const one = node as Element
+    if (one.tagName === 'BR') return void (out += '\n')
+    if (one.getAttribute('aria-hidden') === 'true' || NOT_CODE.test(one.getAttribute('class') ?? '')) return
+    const line = /^(DIV|P|LI|TR)$/.test(one.tagName) || LINE.test(one.getAttribute('class') ?? '') || /display\s*:\s*(block|flex)/i.test(one.getAttribute('style') ?? '')
+    if (line && out && !out.endsWith('\n')) out += '\n'
+    for (const each of [...one.childNodes]) walk(each)
+    if (line && !out.endsWith('\n')) out += '\n'
+  }
+  walk(pre)
+  return out.replace(/^\n+|\s+$/g, '')
+}
+
+/**
+ * Every code block set as its words alone, before the cleaning strips the classes and styles that drew its lines: a
+ * site that sets each line as an element of its own (Tailwind's docs, any Shiki page) came through as one long line,
+ * and a space held in a span of its own went with the empty spans, so "sm:flex-row sm:items-center" read
+ * "sm:flex-rowsm:items-center". Its language, where the page names it, is kept for the reader to colour it by
+ * (web-reader.tsx). A block just before it whose every word is in the code is the code's own output, drawn live on
+ * the site (Tailwind's "ChitChat" card): it cannot be drawn here, and as loose lines it read as part of the article,
+ * so it goes.
+ */
+function codeAsWritten(clean: ReturnType<typeof parseHTML>['document']): void {
+  for (const pre of [...clean.querySelectorAll('pre')]) {
+    const parts = [pre, ...pre.querySelectorAll('code')]
+    const language = /(?:^|\s)(?:language|lang)-([a-z0-9+#-]+)/i.exec(parts.map((one) => one.getAttribute('class') ?? '').join(' '))?.[1]
+      ?? parts.map((one) => one.getAttribute('data-language') || one.getAttribute('data-lang')).find(Boolean)
+    const text = codeText(pre)
+    const code = clean.createElement('code')
+    code.textContent = text
+    if (language) code.setAttribute('data-language', language.toLowerCase())
+    pre.replaceChildren(code)
+    // The live example: the block before the code (or before what holds it), its every run of words found in the code.
+    let at: Element = pre
+    while (!at.previousElementSibling && at.parentElement && at.parentElement.tagName !== 'BODY') at = at.parentElement
+    const before = at.previousElementSibling
+    if (!before || !/^(DIV|SECTION|FIGURE)$/.test(before.tagName) || before.querySelector('pre, h1, h2, h3, h4, h5, h6')) continue
+    const runs: string[] = []
+    const gather = (node: Node): void => {
+      if (node.nodeType !== 3) return void [...node.childNodes].forEach(gather)
+      const words = (node.textContent ?? '').replace(/\s+/g, ' ').trim()
+      if (words) runs.push(words)
+    }
+    gather(before)
+    const flat = text.replace(/\s+/g, ' ')
+    if (runs.length && runs.every((words) => flat.includes(words))) before.remove()
+  }
+}
+
 /**
  * The article cleaned in two steps, so its words show before its pictures come. `html` holds the words, each picture
  * a stand-in marked `data-wait` with the index of its address in `pictures`; `judge` settles one picture as it arrives
@@ -170,6 +229,7 @@ export function cleanInParts(content: string, base: URL, site: string, title = '
   const words = (text: string): string => text.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '')
   const first = clean.querySelector('h1, h2, h3')
   if (words(title) && first && words(first.textContent ?? '') === words(title)) first.remove()
+  codeAsWritten(clean)
   // Of each picture's versions, the one a desktop reader sees, read from its sources and classes before they are stripped:
   // a <picture>'s first source a wide window takes, a srcset's sharpest for the column, and nothing a wide window hides.
   for (const one of clean.querySelectorAll('picture')) {
@@ -195,7 +255,7 @@ export function cleanInParts(content: string, base: URL, site: string, title = '
   for (const one of clean.querySelectorAll('*')) {
     for (const { name } of [...one.attributes]) {
       // A picture's credit (free-sites.ts creditCommons, marked before the cleaning) is the one mark kept.
-      if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-(?!credit$)|^loading$|^role$|^aria-/i.test(name)) one.removeAttribute(name)
+      if (/^on|^style$|^class$|^id$|^srcset$|^sizes$|^data-(?!credit$|language$)|^loading$|^role$|^aria-/i.test(name)) one.removeAttribute(name)
     }
   }
   for (const one of clean.querySelectorAll('a[href]')) {

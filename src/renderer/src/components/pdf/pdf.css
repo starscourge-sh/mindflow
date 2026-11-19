@@ -684,12 +684,13 @@
   initial-value: 0px;
 }
 
-/* A book's measure, about 60 characters a line where a note's runs to about 75: 28.5em of the article's own size, so
-   Smaller and Larger keep a line's length. Each side of the words, 30% of the room the pane has beyond them (up to
+/* A note's measure, about 70 characters a line (a note's column, 36em, main.css), of the article's own size, so
+   Smaller and Larger keep a line's length. (It was a book's 28.5em, about 60: "maybe we made the content width a
+   little too narrow", 17 Nov 2026.) Each side of the words, 30% of the room the pane has beyond them (up to
    20em) is margin, then the page's edge, a hairline in the theme's own ink at 10% down the reader's whole height,
    and the rest of the room outside it. */
 .web-reader-column {
-  --web-measure: 28.5em;
+  --web-measure: 36em;
   /* The page's own marks (the site over the title, its rule, the drop cap): the theme's accent, a quarter of the way to
      its ink so the small line reads at 4.5:1 or more on every theme's page (the Dark theme's own accent read 2.6:1). */
   --web-accent: color-mix(in oklab, var(--mf-accent-ink, var(--tt-brand-color-400)) 75%, var(--foreground));
@@ -709,10 +710,10 @@
   border-inline-color: color-mix(in oklab, var(--foreground) 10%, transparent);
 }
 
-/* A pane with no room for the margins (under 35.5em of the article's size, where a margin would be under 2.1em and
-   the room outside a line under 1.4em: 603px at the usual size, 966px at 160%): the lines go before the words are
+/* A pane with no room for the margins (under 43em of the article's size, where a margin would be under 2.1em and
+   the room outside a line under 1.4em: 731px at the usual size, 1,170px at 160%): the lines go before the words are
    squeezed, and the words keep the pane with 1.5rem either side. */
-@container web-page (width < 35.5em) {
+@container web-page (width < 43em) {
   .web-reader-column,
   .web-reader-column[data-read] {
     --web-margin: 0px;
@@ -875,8 +876,10 @@
 
 /* Code keeps its lines whole and scrolls sideways inside the column, as a note's code block does (its node view's
    rule in haligtree-editor.scss is not here to do it): a long line never runs on past the words, or the page's edge. */
-.web-reader-body pre {
+.web-reader-body.ProseMirror pre {
   overflow-x: auto;
+  /* Over ProseMirror's own pre-wrap, as the note's code block sets it: a line wrapped read as two lines of code. */
+  white-space: pre;
 }
 
 .web-reader-body a {
