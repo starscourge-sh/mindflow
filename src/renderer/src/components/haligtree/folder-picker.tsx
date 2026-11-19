@@ -63,16 +63,23 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
   }, [])
   // An import's "Archive" folder, offered once: archive what it holds instead (Folders are places, Archive is a state).
   const offers = useLive(folders.offers, [] as { id: string; name: string; n: number }[], [], undefined, 'folders:offers')
+  // Kept until said: the list of offers is emptied as it is read, so an offer met while the card is up waits here.
+  const pending = useRef<{ id: string; name: string; n: number }[]>([])
+  const offered = useRef(new Set<string>())
   useEffect(() => {
-    if (!offers.length) return
-    // Said once the import's own card is put away: never a notice under that card (one floating thing at a time).
-    const say = (): void => { for (const one of offers)
-      toast(`The import brought a folder called “${one.name}”. Archive ${one.n === 1 ? 'its 1 note' : `these ${num(one.n)} notes`} instead?`, undefined, 'info', {
-        label: 'Archive them', key: 'A',
-        run: () => void folders.archiveInstead(one.id).then((was) => was && (chime('tuck'), toast(`Archived ${num(was.things.length)}: kept, out of sight, in the folder that held “${one.name}”`, () => void folders.unarchive(was))))
-      }) }
-    if (!document.querySelector('[data-import-done]')) return say()
-    window.addEventListener('haligtree:import-closed', say, { once: true })
+    const say = (): void => {
+      // Said once the import's own card is put away: never a notice under that card (one floating thing at a time).
+      if (document.querySelector('[data-import-done]')) return
+      for (const one of pending.current.splice(0))
+        toast(`The import brought a folder called “${one.name}”. Archive ${one.n === 1 ? 'its 1 note' : `these ${num(one.n)} notes`} instead?`, undefined, 'info', {
+          label: 'Archive them', key: 'A',
+          run: () => void folders.archiveInstead(one.id).then((was) => was && (chime('tuck'), toast(`Archived ${num(was.things.length)}: kept, out of sight, in the folder that held “${one.name}”`, () => void folders.unarchive(was))))
+        })
+    }
+    // Each once, by its folder: a draw run twice (StrictMode) never says it twice.
+    for (const one of offers) if (!offered.current.has(one.id)) (offered.current.add(one.id), pending.current.push(one))
+    say()
+    window.addEventListener('haligtree:import-closed', say)
     return () => window.removeEventListener('haligtree:import-closed', say)
   }, [offers])
   if (!asked || !things) return null
