@@ -325,6 +325,7 @@ import { NoteLink, kindsAsked, onKindsAsked, showingDocument, takePendingHeading
 import { useReading } from "@/lib/reads-in"
 import { BlockIds } from "@/extensions/block-ids"
 import { LinkTidy, looksLikeAddress } from "@/extensions/link-tidy"
+import { TagsOffName } from "@/extensions/tags-off-name"
 import { LinkButtons, LinkEditor } from "./link-editor"
 import { NoteEmbed } from "@/extensions/note-embed"
 import { embedRenderer, noteLinkRenderer, tagRenderer, wikiRenderer } from "@/components/note-link/note-link-menu"
@@ -1558,6 +1559,8 @@ function Surface({
       NoteEmbed,
       // A line's lasting name, given when a link is made to it.
       BlockIds,
+      // A #tag typed into a note's name goes to its line of tags as the name is left (a capture: a page has a name of its own).
+      TagsOffName.configure({ on: () => /^capture-/.test(String(documentId ?? "")) }),
       // Web links that behave: ⌘Z takes an automatic one back, edited words unlink themselves.
       ...(has("link") ? [LinkTidy] : []),
       // `enableTabIndentation` is the extension's own Tab handling: it indents

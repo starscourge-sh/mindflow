@@ -53,6 +53,20 @@ try {
   check('Undo puts the note’s tag back in its name', /#work\s*$/.test(textOf((await sql('select body from captures where id = ?', oldId))[0].body).split('\n')[0]))
   check('the line goes once undone', !(await h.$('[data-tags-moved]')))
   await sql('update captures set body = ? where id = ?', was, oldId)
+
+  // In an open note: a tag typed at the end of its name stays while it is typed, and moves once the line is left.
+  await h.locator('[class*="@container/page"] button[data-row][data-id]').nth(1).click(); await h.waitForTimeout(1300)
+  const NAME = '[class*="@container/page"] .note-pane .ProseMirror > :first-child'
+  const name = await h.$eval(NAME, (el) => el.textContent.trim())
+  await h.click(NAME); await h.keyboard.press('End'); await h.keyboard.type(' #errand', { delay: 25 }); await h.waitForTimeout(400)
+  const typing = await h.$eval(NAME, (el) => el.textContent.trim())
+  check('a tag being typed into the name stays there while it is typed', typing.endsWith('#errand'), typing)
+  // Into the words under it, as a person leaves the name (its second child is the properties strip, not a line).
+  await h.locator('[class*="@container/page"] .note-pane .ProseMirror > p').first().click(); await h.waitForTimeout(500)
+  const after = await h.evaluate(() => [...document.querySelector('[class*="@container/page"] .note-pane .ProseMirror').children].map((one) => one.textContent.trim()))
+  check('once the name is left, the tag is on the note’s last line and the name is as it was', after[0] === name && after.slice(1).some((line) => line === '#errand' || line.endsWith(' #errand')), JSON.stringify([after[0], after.at(-1)]))
+  await h.keyboard.press('Meta+z'); await h.waitForTimeout(400)
+  check('⌘Z puts the tag back in the name', (await h.$eval(NAME, (el) => el.textContent.trim())).endsWith('#errand'))
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } finally {
   await c.close()
