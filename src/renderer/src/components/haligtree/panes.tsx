@@ -201,7 +201,7 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
   // Kept by place, so a box swapped for the next note's still counts.
   // With the box it was heard from, to tell a box still there from one swapped for the next note's.
   // The row at its top too, read as it scrolls (the page is laid out then), never as it is left.
-  type Heard = { top: number; row?: [string, number] }
+  type Heard = { top: number; row?: [string, number]; width?: number }
   const seen = useRef(new Map<string, { box: Element } & Heard>())
   // Heard since the last step was read: only these stand in for a box since swapped.
   const heard = useRef(new Map<string, Heard>())
@@ -216,7 +216,7 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       hear(event.target, pathTo(root, event.target))
     }
     const hear = (box: Element, path: string): void => {
-      const now: Heard = { top: box.scrollTop, row: rowAtTop(box) ?? undefined }
+      const now: Heard = { top: box.scrollTop, row: rowAtTop(box) ?? undefined, width: box.clientWidth }
       seen.current.set(path, { box, ...now })
       heard.current.set(path, now)
       // Its rows can move with no scroll (rows above measured, a group folding): heard again when what it holds changes size.
@@ -228,11 +228,13 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       if (!root || root.dataset.placing !== undefined) return
       for (const { target } of entries) {
         const box = boxes.has(target) ? target : target.parentElement
-        const was = box && [...seen.current].find(([, one]) => one.box === box)?.[0]
-        if (!box || !was || !root.contains(box) || box.scrollTop <= 0) continue
+        const was = box && [...seen.current].find(([, one]) => one.box === box)
+        // Its rows moved inside it, not it made narrower or wider: a note opening beside the list is the next step's
+        // look, and the place left is the one you saw before it (read then, Back to the Inbox landed 68 px off).
+        if (!box || !was || !root.contains(box) || box.scrollTop <= 0 || box.clientWidth !== was[1].width) continue
         // Where it is in the page now: something opened beside it (a note beside the list) moves it to another place.
         const path = pathTo(root, box)
-        if (path !== was) seen.current.delete(was)
+        if (path !== was[0]) seen.current.delete(was[0])
         hear(box, path)
       }
     })
