@@ -174,7 +174,7 @@ function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
         </div>
       )}
       {words && (
-        <div data-folder-words="" onBlur={save} className="-mx-1">
+        <div data-folder-words="" onBlur={save} style={{ '--mf-padding': '0.25rem 0' } as React.CSSProperties}>
           <HaligtreeEditor defaultContent={doc ?? ''} toolbar={false} outline={false} search={false} lineNumbers={false} handles={false} autofocus={doc ? false : 'end'} placeholder="A few words about this folder, and links to keep with it"
             // Asked for by "Add words": the caret in it at once, as a new page's is (once ready, StrictMode's second editor too).
             onReady={(ready) => void ((editor.current = ready), !doc && ready.commands.focus('end'))}
