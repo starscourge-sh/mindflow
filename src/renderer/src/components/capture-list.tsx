@@ -151,14 +151,12 @@ export type Way = { id: string; label: string; hint?: string; keys?: string; tin
  * In the Inbox: what it can become first, then the ways to be done with it, the Bin last. Out of the Inbox: the way
  * back, and the Bin. `folders`: Writing's folders, offered beside “Move to Writing” where a menu can open them.
  */
-export const captureWays = (capture: Pick<CaptureMeta, 'id' | 'kind' | 'status'>, { onExit, onBack, folders = [], merge }: {
-  /** Once it has taken a way out: on to the next one. */ onExit?: () => void
+export const captureWays = (capture: Pick<CaptureMeta, 'id' | 'kind' | 'status'>, { onBack, folders = [], merge }: {
   /** That way out undone: back on it. */ onBack?: (id: string) => void
   folders?: NoteGroup[]
   /** Opens the picker of the note to merge it into, where one is on the page. */ merge?: () => void
 } = {}): Way[] => {
   const back = onBack && ((): void => onBack(capture.id))
-  const then = (went: Promise<unknown>): void => void went.then((done) => done && onExit?.())
   if (capture.status !== 'open') return [
     // A promoted capture stays out: what it became is where it lives now.
     ...(capture.status !== 'promoted' ? [{ id: 'back', label: 'Back to the Inbox', run: () => void window.api.captures.save(capture.id, { status: 'open' }).then(() => chime('undo')) }] : []),
@@ -167,7 +165,7 @@ export const captureWays = (capture: Pick<CaptureMeta, 'id' | 'kind' | 'status'>
   ]
   const way = (status: string, hint?: string): Way => {
     const one = EXITS.find((each) => each.status === status)!
-    return { id: status, label: one.label, hint, keys: one.key.toUpperCase(), tint: one.tint, run: () => then(exit(capture.id, status, back)) }
+    return { id: status, label: one.label, hint, keys: one.key.toUpperCase(), tint: one.tint, run: () => void exit(capture.id, status, back) }
   }
   // Writing's folders, named as a page's own “Move to folder” names them (items-view.tsx): by name, and two of one
   // name (a "Drafts" in "Notes" and one in "Essays") with the folders they sit in, "Notes / Drafts".
@@ -187,10 +185,10 @@ export const captureWays = (capture: Pick<CaptureMeta, 'id' | 'kind' | 'status'>
       items: [
         { label: 'Writing', hint: 'In no folder', keys: writing.keys, icon: <FileText aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />, run: writing.run },
         'separator',
-        ...places.map((one) => ({ id: `folder-${one.id}`, label: pathOf(one), icon: <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />, run: () => then(toWriting([capture.id], one.id, back)) }))
+        ...places.map((one) => ({ id: `folder-${one.id}`, label: pathOf(one), icon: <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />, run: () => void toWriting([capture.id], one.id, back) }))
       ]
     } : writing,
-    { id: 'task', label: 'Make it a task', tint: 'orange', run: () => then(makeTask({ capture: capture.id }, undefined, { onUndo: back })) },
+    { id: 'task', label: 'Make it a task', tint: 'orange', run: () => void makeTask({ capture: capture.id }, undefined, { onUndo: back }) },
     // A lookup that did not satisfy keeps being asked; anything else can be held as a question.
     capture.kind === 'word'
       ? { id: 'keep', label: 'Keep asking', hint: 'An open question, this its first clue', run: () => void keepAsking(capture.id) }
