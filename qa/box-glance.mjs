@@ -133,15 +133,20 @@ if (part('tabs')) {
       const said = parseFloat(getComputedStyle(p, '::before').height)
       const card = document.querySelector('.app-container').getBoundingClientRect()
       const line = p.getBoundingClientRect()
-      return { size, lh: Math.round(lh), p: p.offsetHeight, said: Math.round(said), card: Math.round(card.height), room: [Math.round(line.top - card.top), Math.round(card.bottom - line.bottom)] }
+      // Each control standing in the pill (its kind, Keep, a round button beside it): its middle, less the pill's.
+      const mid = card.top + card.height / 2
+      const off = [...document.querySelectorAll('[data-pill-kind], [data-pill-keep], .mf-top .mf-pill button, .mf-top [data-aside] > *')]
+        .map((one) => one.getBoundingClientRect()).filter((r) => r.height && r.bottom > card.top && r.top < card.bottom).map((r) => Math.round(r.top + r.height / 2 - mid))
+      return { size, lh: Math.round(lh), p: p.offsetHeight, said: Math.round(said), card: Math.round(card.height), room: [Math.round(line.top - card.top), Math.round(card.bottom - line.bottom)], off }
     }, textSize))
-    if (shots) await page.screenshot({ path: `${shots}/glance-hint-${Math.round(textSize * 100)}.png` }).catch(() => {})
+    if (textSize === 1 || textSize === 1.6) await shoot(`hint-${Math.round(textSize * 100)}`)
   }
   await v('settings:set', { textSize: 1 })
   await wait(500)
   check('the empty line\'s hint is one line tall at text sizes 100% to 160%, nothing of it under the line', hint.every((one) => !one.none && one.p <= one.lh * 1.2 && one.said <= one.lh + 0.5), JSON.stringify(hint))
   // The pill grows with the text size: its line whole inside it, as far from its top as from its foot (to 4px), 56px at 100%.
   check('the pill is as tall as its line at every text size (56px at 100%), the line whole inside it and in its middle', hint.every((one) => !one.none && one.room[0] >= 8 && one.room[1] >= 8 && Math.abs(one.room[0] - one.room[1]) <= 4) && hint[0].card === 56, JSON.stringify(hint.map((one) => [one.size, one.card, one.room])))
+  check('…every control in the pill (its kind, Keep, a round button beside it) has its middle within 2px of the pill\'s', hint.every((one) => one.off?.length >= 2 && one.off.every((d) => Math.abs(d) <= 2)), JSON.stringify(hint.map((one) => [one.size, one.off])))
   // A draft on the line waits behind the other tabs' lines, and is there again on Write.
   await page.click(EDITOR)
   await page.keyboard.type('Call Mu')

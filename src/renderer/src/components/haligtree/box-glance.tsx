@@ -165,7 +165,7 @@ export function BoxGlance({ on, pick, captures, onOpen }: {
         <>
           {/* The tab's own line, where the writing's is: its icon in the kind icon's place, its words where the
               writing's start, the key that acts where ⌘↵ sits. The two ends still move the window (main.css). */}
-          <div data-glance-line={on} data-list-line data-glance-above={above ? '' : undefined} className="absolute inset-x-0 top-0 z-20 flex h-14 items-center"
+          <div data-glance-line={on} data-list-line data-glance-above={above ? '' : undefined} className="absolute inset-x-0 top-0 z-20 flex h-[var(--mf-pill-h)] items-center"
             onPasteCapture={on === 'today' ? (event) => pasteTasks(event, 'today') : undefined}>
             <span data-pill-drag="start" className="flex h-full w-[4.75rem] shrink-0 items-center justify-end pr-1.5">
               <span className="flex size-8 items-center justify-center text-muted-foreground [&_svg]:size-5">{Icon && <Icon />}</span>

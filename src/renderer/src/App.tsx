@@ -2220,7 +2220,7 @@ export default function App(): React.JSX.Element {
         // A note, an event or the Calendar opens in the main window; a task here, in quick capture, as from the side panel.
         onOpen={(type, id) => (type === 'task' ? openAny(type, id) : (type === 'capture' && chime('open'), window.api.openInHome(type, id)))} />}
       {oneLine && !reading && glance === 'write' && (
-        <div data-pill-ends aria-hidden={!pill} className={cn('pointer-events-none absolute inset-x-0 top-0 z-10 flex h-14 items-center justify-between', !pill && 'transition-opacity duration-150 ease-out motion-reduce:transition-none')} style={{ opacity: pill ? 1 : 0 }}>
+        <div data-pill-ends aria-hidden={!pill} className={cn('pointer-events-none absolute inset-x-0 top-0 z-10 flex h-[var(--mf-pill-h)] items-center justify-between', !pill && 'transition-opacity duration-150 ease-out motion-reduce:transition-none')} style={{ opacity: pill ? 1 : 0 }}>
           {/* Back as the pill (by a key: Esc, ⌫, ⌘↵), the ends are simply there; growing, they fade as the row under the writing arrives. */}
           {(() => {
             const Icon = (CAPTURE_TYPES.find((one) => one.id === kind) ?? CAPTURE_TYPES[0]).icon
