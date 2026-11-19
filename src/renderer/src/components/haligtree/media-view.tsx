@@ -1,4 +1,6 @@
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { usePinchLevels } from './cal-pinch'
+import { detent } from '@/lib/haptics'
 import { createPortal } from 'react-dom'
 import { useNav, useStepped } from '@/lib/nav'
 import { AudioLines, Check, Copy, Eye, Files, Film, Image as ImageIcon, Layers, LayoutGrid, Plus, Unlink, X } from 'lucide-react'
@@ -46,6 +48,8 @@ const OWN_VIEW: Record<'all' | Shelf, string> = { all: 'Piles', pdf: 'Shelf', pi
 const later = (...all: (string | null | undefined)[]): string => all.reduce<string>((most, one) => (one && one > most ? one : most), '')
 /** A tile as wide as a note's in Gems' grid, with the same room between. */
 const TILE = 184
+/** Photos' steps for a grid of pictures, pinched: nine, seven, five and three across. */
+const PINCH_STEPS = [9, 7, 5, 3]
 const GAP = 12
 
 const readMedia = (): Promise<Media[]> => call<Media[]>('media:list')
@@ -212,7 +216,46 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
     return () => watch.disconnect()
   }, [all.length > 0, kind])
   const booksAcross = Math.max(1, Math.floor((width + BOOK_GAP) / (BOOK + BOOK_GAP)))
-  const across = table ? 1 : kind === 'picture' || mixed ? Math.max(3, Math.floor((width + PICTURE_GAP) / (PICTURE + PICTURE_GAP))) : kind === 'audio' ? 1 : kind === 'video' ? Math.max(1, Math.floor((width + VIDEO_GAP) / (VIDEO_TILE + VIDEO_GAP))) : Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
+  // Pictures pinched closer or further, as Photos does, in its steps; ⌘0 back to as many as fit (null).
+  const pictures = !table && (kind === 'picture' || mixed)
+  const [pinched, setPinched] = useState<number | null>(null)
+  const fit = Math.max(3, Math.floor((width + PICTURE_GAP) / (PICTURE + PICTURE_GAP)))
+  const across = table ? 1 : pictures ? (pinched ?? fit) : kind === 'audio' ? 1 : kind === 'video' ? Math.max(1, Math.floor((width + VIDEO_GAP) / (VIDEO_TILE + VIDEO_GAP))) : Math.max(1, Math.floor((width + GAP) / (TILE + GAP)))
+  // The picture under the fingers stays where it was as the grid changes step: its place on screen before, put back after.
+  const anchor = useRef<{ src: string; top: number } | null>(null)
+  usePinchLevels(box, (_el, way) => {
+    if (!pictures || !box.current) return null
+    const to = way === 'closer' ? PINCH_STEPS.find((n) => n < across) : [...PINCH_STEPS].reverse().find((n) => n > across)
+    return to ? { body: box.current, to } : null
+  }, () => undefined, (_way, to, at, release) => {
+    const under = document.elementFromPoint(at.x, at.y)?.closest<HTMLElement>('[data-src]')
+    anchor.current = under ? { src: under.dataset.src!, top: under.getBoundingClientRect().top } : null
+    release()
+    detent()
+    setPinched(to === fit ? null : to)
+  })
+  useLayoutEffect(() => {
+    const was = anchor.current
+    anchor.current = null
+    const now = was && box.current?.querySelector<HTMLElement>(`[data-src="${CSS.escape(was.src)}"]`)
+    if (!was || !now) return
+    let scroller: HTMLElement | null = now.parentElement
+    while (scroller && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement
+    if (scroller) scroller.scrollTop += now.getBoundingClientRect().top - was.top
+  }, [across])
+  // ⌘0: as many across as fit again, before it reaches the app's own size (⌘0 there).
+  useEffect(() => {
+    if (pinched === null) return
+    const key = (event: KeyboardEvent): void => {
+      if (!event.metaKey || event.altKey || event.shiftKey || (event.key !== '0' && event.code !== 'Digit0')) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      detent()
+      setPinched(null)
+    }
+    window.addEventListener('keydown', key, true)
+    return () => window.removeEventListener('keydown', key, true)
+  }, [pinched])
   const lines = useMemo(() => {
     const out: { key: string; tiles: Media[] }[] = []
     for (let at = 0; at < shown.length; at += across) out.push({ key: keyOf(shown[at]), tiles: shown.slice(at, at + across) })
