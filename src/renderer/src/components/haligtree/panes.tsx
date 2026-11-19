@@ -232,10 +232,7 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
         // Its rows moved inside it, not it made narrower or wider: a note opening beside the list is the next step's
         // look, and the place left is the one you saw before it (read then, Back to the Inbox landed 68 px off).
         if (!box || !was || !root.contains(box) || box.scrollTop <= 0 || box.clientWidth !== was[1].width) continue
-        // Where it is in the page now: something opened beside it (a note beside the list) moves it to another place.
-        const path = pathTo(root, box)
-        if (path !== was[0]) seen.current.delete(was[0])
-        hear(box, path)
+        hear(box, was[0])
       }
     })
     root?.addEventListener('scroll', onScroll, true)
@@ -251,14 +248,11 @@ function PaneFrame({ pane, apis, split, front, hidden, least, groups, actions, s
       // opens, reading a box's scrollTop made the browser lay out the whole
       // new note early, 20 to 28ms before its words could show.
       const tops: Scrolled = []
-      for (const [kept, last] of [...seen.current]) {
-        // The same box, moved to another place in the page (a note opened beside the list): kept by where it is now,
-        // never let go (the Inbox beside an open note came back with no place kept, its open row in the middle).
-        const moved = atPath(root, kept) !== last.box && root.contains(last.box)
-        const path = moved ? pathTo(root, last.box) : kept
-        if (moved) (seen.current.delete(kept), seen.current.set(path, last))
+      for (const [path, last] of seen.current) {
         // A box swapped for the next note's: the last one heard since the last step is where it was, or nothing.
-        const was = moved || atPath(root, path) === last.box ? last : heard.current.get(path)
+        // A box that moved in the page as the next step drew (a note opening beside the list) is kept by where it was:
+        // the step being left is read once the next one has begun to draw, and Back returns to the page as it was.
+        const was = atPath(root, path) === last.box || root.contains(last.box) ? last : heard.current.get(path)
         if (was && was.top > 0) tops.push(was.row ? [path, was.top, ...was.row] : [path, was.top])
         else seen.current.delete(path)
       }
