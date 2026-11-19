@@ -174,7 +174,8 @@ try {
   })
   check('the replay bar has no stock slider and no round stock thumb', bar.ranges === 0 && bar.thumbs === 0, JSON.stringify(bar))
   check('its timeline shows the notes\' dates as marks', bar.marks >= 10, `${bar.marks} marks`)
-  check('the date is large', bar.date >= 15, `${bar.date}px`)
+  // The replay is a quiet bar at the map's foot since 7389b25e1 (8 Nov), its date at the controls' size, no longer large.
+  check('the date reads at the controls\' size, not small print', bar.date >= 13, `${bar.date}px`)
   await h.keyboard.press('Escape'); await h.waitForTimeout(300)
 
   // ---- Reduce motion: names and growth still fade, nothing springs or travels.
@@ -187,7 +188,9 @@ try {
     const step = (t) => { if (!qa.on) return; qa.frames.push({ t, names: read() }); requestAnimationFrame(step) }
     requestAnimationFrame(step)
   })
-  for (const delta of [30, 30, 30, 30, 30, 30, -30, -30, -30, -30, -30, -30]) { await zoom(delta); await h.waitForTimeout(260) }
+  // In first, as the motion part above does: from the map's fit, out first then back met at most one name's threshold
+  // (1 of 1 eased on a calm run, 0 of 0 at load 10 to 19), so it measured nothing.
+  for (const delta of [-30, -30, -30, -30, -30, 30, 30, 30, 30, 30, 30, 30, 30, -30, -30, -30]) { await zoom(delta); await h.waitForTimeout(260) }
   await h.waitForTimeout(300)
   const calm = study(await take())
   await h.evaluate(() => (window.__names.on = false))
