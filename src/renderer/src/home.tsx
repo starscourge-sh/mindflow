@@ -266,6 +266,8 @@ function landing(view: View): View {
 /** The caret in a note's editor, in any mode (Vim's normal mode too): there ⌘B is Bold, as in Obsidian. */
 const caretInNote = (): boolean => !!document.activeElement?.closest('.ProseMirror[contenteditable="true"]')
 /** Settings as a place: the gear its button at the sidebar's foot draws, for a pane on it. */
+/** An icon alone in the narrow rail (its search, its rows, the book's menu): one round button, lit as a circle at every width (17 Nov: "highlight no longer a circle on small screen"). */
+const NARROW_ICON = 'mx-auto size-8 shrink-0 justify-center rounded-full p-0'
 const SETTINGS_PLACE: Place = { id: 'settings', label: 'Settings', icon: SettingsLine, alive: GearIcon, emoji: '⚙️', tint: 'gray' }
 const holdsNotes = (id: string): boolean => !['pick', 'home', 'day', 'weekpage', 'monthpage', 'yearpage', 'tags', 'sources', 'source', 'stats', 'map', 'feed', 'powers', 'whatsnew', 'settings', 'review', 'queue', 'calendar', 'practices', 'kind:practice', 'pdf', 'web'].includes(id)
 /** A step onto a note (not a task, a day or an event): the page that shows it turns, as a book's does. */
@@ -2181,7 +2183,7 @@ export function Home(): React.JSX.Element {
             data-tour="search"
             aria-label="Search"
             onClick={() => setSearching('all')}
-            className={`flex w-full items-center gap-2 rounded-lg bg-accent/60 py-1.5 text-(--mf-muted-strong) transition-colors hover:bg-accent hover:text-foreground ${narrow ? 'justify-center px-0' : 'px-2.5'}`}
+            className={`flex items-center gap-2 bg-accent/60 text-(--mf-muted-strong) transition-colors hover:bg-accent hover:text-foreground ${narrow ? NARROW_ICON : 'w-full rounded-lg px-2.5 py-1.5'}`}
           >
             <AliveIcon icon={MagnifierIcon} size={16} />
             {!narrow && <span className="flex-1 text-left">Search…</span>}
@@ -2204,11 +2206,12 @@ export function Home(): React.JSX.Element {
           })()}
         </div>
         <div ref={sideList} {...sideHover.handlers}
-          className={`mf-fade-end ${narrow ? 'mf-fade-tall' : ''} relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3`}>
+          className={`mf-fade-end ${narrow ? 'mf-fade-tall snap-y snap-mandatory scroll-pt-1 [&_[data-side-row]]:snap-start' : ''} relative isolate flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pt-1 pb-3`}>
         {/* Rows' previews: once one is up, the next swaps in at once, even after a short pause between rows. */}
         <TooltipProvider delayDuration={600} skipDelayDuration={900}>
-        <Highlight chosen={sideChosen} travel={spring.moderate} className="bg-accent" />
-        <Highlight light={sideHover.light} />
+        {/* In the narrow rail every row is an icon alone, lit as a circle as the icon buttons are, at every width. */}
+        <Highlight chosen={sideChosen} travel={spring.moderate} className={narrow ? 'rounded-full bg-accent' : 'bg-accent'} />
+        <Highlight light={sideHover.light} className={narrow ? 'rounded-full' : undefined} />
         <nav className="flex flex-col gap-px">
           {(() => {
             // Where a promoted capture or a new task flies to (lib/fly-home.ts).
@@ -2292,7 +2295,7 @@ export function Home(): React.JSX.Element {
                 aria-label={section.label}
                 aria-current={here ? 'page' : undefined}
                 onClick={() => open('view', section.id)}
-                className={`group relative flex items-center gap-2.5 rounded-md py-1.5 transition-colors duration-80 ${narrow ? 'justify-center px-0' : 'px-2'} ${here || inFolder || inScale ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
+                className={`group relative flex items-center gap-2.5 transition-colors duration-80 ${narrow ? NARROW_ICON : 'rounded-md px-2 py-1.5'} ${here || inFolder || inScale ? 'text-foreground' : 'text-(--mf-muted-strong)'} data-[queue-hot]:bg-[color-mix(in_oklab,var(--tt-color-text-blue)_16%,transparent)] data-[queue-hot]:text-foreground data-[queue-hot]:ring-1 data-[queue-hot]:ring-[color-mix(in_oklab,var(--tt-color-text-blue)_45%,transparent)]`}
               >
                 {/* While anything is being dragged, a fold row keeps its icon and count: the row moving under a still
                     pointer flipped it to its chevron and back. */}
@@ -2513,7 +2516,7 @@ export function Home(): React.JSX.Element {
                       <span className="flex min-w-0">
                         <Tip label={narrow ? `What ${APP_NAME} can do` : ''}>
                           <button type="button" data-side-row data-powers-pin aria-current={light === 'place:powers' ? 'page' : undefined} onClick={() => (chime('page'), setView({ id: 'powers' }))}
-                            className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md py-1.5 ${light === 'place:powers' ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? 'justify-center px-0' : 'px-2'}`}>
+                            className={`flex min-w-0 items-center gap-2.5 ${light === 'place:powers' ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? NARROW_ICON : 'flex-1 rounded-md px-2 py-1.5'}`}>
                             <Compass className="size-4 shrink-0" style={{ color: 'var(--tt-color-text-green)' }} />
                             {!narrow && <Weighted on={light === 'place:powers'} className="min-w-0 flex-1 truncate text-left">What {APP_NAME} can do</Weighted>}
                           </button>
@@ -2552,7 +2555,7 @@ export function Home(): React.JSX.Element {
                         onClick={() => open(pin.type, pin.id)}
                         // ⌫ unpins, as the menu's line does.
                         onKeyDown={(event) => onRemoveKey(event, menu(), 'Unpin')}
-                        className={`flex min-w-0 flex-1 items-start gap-2.5 rounded-md py-1.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? 'justify-center px-0' : 'px-2'}`}
+                        className={`flex min-w-0 items-start gap-2.5 ${light === `pin:${pin.id}` ? 'text-foreground' : 'text-(--mf-muted-strong)'} ${narrow ? `${NARROW_ICON} items-center` : 'flex-1 rounded-md px-2 py-1.5'}`}
                       >
                         <span className="flex h-[1lh] shrink-0 items-center"><kind.icon className="size-4 shrink-0" style={{ color: kind.tint }} /></span>
                         {!narrow && <Weighted on={light === `pin:${pin.id}`} className="private-text min-w-0 flex-1 text-left truncate">{taskName(pin.title).text || 'New note'}</Weighted>}
@@ -2677,7 +2680,7 @@ export function Home(): React.JSX.Element {
           <DropdownMenu modal={false} open={footMenu} onOpenChange={(open) => (open && setFootCut(false), setFootMenu(open))}>
             <DropdownMenuTrigger asChild>
               <button type="button" aria-label={`${APP_NAME} menu`} onContextMenu={(event) => openBookMenu(event, openBook)}
-                className={`flex min-w-0 items-center gap-2 rounded-md py-1.5 text-(--mf-muted-strong) transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? 'justify-center px-0' : 'flex-1 px-2'}`}>
+                className={`flex min-w-0 items-center gap-2 text-(--mf-muted-strong) transition-colors hover:bg-accent/60 data-[state=open]:bg-accent/60 ${narrow ? NARROW_ICON : 'flex-1 rounded-md px-2 py-1.5'}`}>
                 <AliveIcon icon={GearIcon} size={16} />
                 {!narrow && <span data-sidebar-book-name className="flex-1 truncate text-left">{SANDBOX ? 'Sandbox' : <BookName />}</span>}
                 {!narrow && <AliveIcon icon={DownChevron} size={14} className="text-muted-foreground" />}
