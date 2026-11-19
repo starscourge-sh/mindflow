@@ -11,6 +11,8 @@ import { checks } from './harness.mjs'
 import { sandbox } from './sandbox-lib.mjs'
 import { copiedText } from './pasteboard.mjs'
 process.env.QA_ARGS ??= '--sandbox'
+// A Mac without Apple Intelligence turned on, whatever this one has: a note's "Make a card" then writes its card line (with the model it asks the model first).
+process.env.HALIGTREE_QA_CAPS ??= 'macos26'
 
 const SHOTS = process.env.QA_SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/context-menu-shots'
 mkdirSync(SHOTS, { recursive: true })
@@ -207,7 +209,7 @@ try {
   check('picked words: look up, search, card, highlight, copy, cut', ['look-up', 'search', 'card', 'highlight', 'copy-words', 'cut-words'].every((one) => wordRows.includes(one)), JSON.stringify(wordRows))
   await h.screenshot({ path: `${SHOTS}/words-light.png` })
   await pick('card')
-  check('"Make a card" writes a card line under it', (await text()).includes('breach of duty :: '))
+  check('"Make a card" writes a card line under it (on this Mac, asking Apple Intelligence first where it can, so read with the model stood off)', (await text()).includes('breach of duty :: '))
 
   // 5b. The other kinds: a tag, a formula, a "[m:ss]", a video, a web link kept.
   const answer = async (typed) => { await wait(500); await h.keyboard.press('Meta+a'); await h.keyboard.type(typed); await h.keyboard.press('Enter'); await wait(600) }

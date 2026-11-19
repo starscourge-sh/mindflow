@@ -87,6 +87,8 @@ export function registerWrite(): void {
   ipcMain.handle('haligtree:ai:kind', async (_event, text: unknown) => {
     const line = String(text ?? '').trim()
     if (line.split(/\s+/).length < 4) return null
+    // A test run that stands no model in asks this Mac's none: every quick capture probe would read its lines through it.
+    if (process.env.HALIGTREE_QA_AWAY && !process.env.HALIGTREE_QA_CAPS) return null
     const said = await write('You sort a line someone typed into a quick capture box. Answer with one word: "task" if it is something they mean to do (an errand, a job, a thing to send, buy, call, fix, find or finish), "quote" if it is words someone else said or wrote, or "note" for anything else (an idea, a thought, a fact). Nothing else.',
       line.slice(0, 400), process.env.HALIGTREE_QA_KIND ?? 'note')
     const word = 'text' in said ? said.text.toLowerCase().match(/\b(task|quote|note)\b/)?.[1] : null

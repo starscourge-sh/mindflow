@@ -44,7 +44,8 @@ try {
   // Flung: the pages wheeled fast, many pages passed.
   const pages = await h.locator('.pdf-reader-scroll').boundingBox()
   await h.mouse.move(pages.x + pages.width / 2, pages.y + pages.height / 2)
-  for (let i = 0; i < 12; i++) { await h.mouse.wheel(0, 1600); await wait(16) }
+  // Fast enough to count as a fling (pdf-draw.ts pagesAt: three scrolls over 3px a ms, under 100ms apart).
+  for (let i = 0; i < 24; i++) { await h.mouse.wheel(0, 2400); await wait(10) }
   await wait(1500)
   const frames = await h.evaluate(() => (cancelAnimationFrame(window.__railFrame), window.__rail))
   const steps = frames.slice(1).map((one, at) => Math.abs(one.top - frames[at].top))

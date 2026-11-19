@@ -23,7 +23,7 @@ try {
   const after = (await heard()).slice(before)
   check('picking one plays it, to hear it', after.some((one) => /tick-sample heartbeat/.test(one)), after.join(','))
   check('and keeps it', (await v('settings')).sessionTickSound === 'heartbeat', (await v('settings')).sessionTickSound)
-  check('its volume is beside it', (await h.locator('text=Session sound volume').count()) === 1)
+  check('its volume is beside it', await h.evaluate(() => document.body.innerText.includes('Session sound volume')))
 } finally {
   await close()
 }

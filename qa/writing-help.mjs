@@ -88,7 +88,7 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
       const lines = await h.evaluate(() => [...document.querySelectorAll('[data-clicked^="help-"]')].map((one) => one.getAttribute('data-clicked')))
       // Where the submenu stands in the window, for the frames: nothing touches an edge (12px).
       const room = await h.evaluate(() => { const r = document.querySelector('[data-clicked^="help-"]')?.closest('[role="menu"]')?.getBoundingClientRect(); return r && { left: Math.round(r.left), top: Math.round(r.top), right: Math.round(innerWidth - r.right), bottom: Math.round(innerHeight - r.bottom) } })
-      check('ai: its submenu holds the eight, clear of the window\'s edges', lines.length === 8 && !!room && room.top >= 52 && Math.min(room.left, room.right, room.bottom) >= 10, `${lines.join(',')}; room to the window's edges ${JSON.stringify(room)}`)
+      check('ai: its submenu holds the seven (a card is made from the menu\'s own "Make a card"), clear of the window\'s edges', lines.length === 7 && !lines.includes('help-card') && !!room && room.top >= 52 && Math.min(room.left, room.right, room.bottom) >= 10, `${lines.join(',')}; room to the window's edges ${JSON.stringify(room)}`)
       if (shot) await c.both(`${shot}/right-click`)
     }
     await h.keyboard.press('Escape'); await wait(300)

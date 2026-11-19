@@ -1,6 +1,8 @@
 /* Your books on a shelf (books.tsx BookShelf): spines in a row on a ledge, the one pointed at pulled out and turned to
    its face. Unlayered, so it wins over the menu row's own utilities that the item hands its spine. */
 .mf-shelf {
+  /* As wide as the menu, never widening it: 30 books scroll inside it rather than stretch it across the window. */
+  contain: inline-size;
   display: flex;
   align-items: flex-end;
   gap: 3px;
