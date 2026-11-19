@@ -535,6 +535,8 @@ export const haligtree = {
   /** Puts back exactly what the last rename or merge changed. */
   undoRenameTag: () => call<boolean>('tag:rename:undo'),
   remind: (table: 'captures' | 'nuggets', id: string, at: string | null) => call('remind', table, id, at),
+  /** Quick capture's line as the Mac's own model reads it, where the wording says no kind: a task, a quote, or null. */
+  readKind: (text: string) => call<'todo' | 'quote' | null>('ai:kind', text),
   similar: (text: string) => call<{ id: string; number: number; title: string; score: number } | null>('similar', text),
   /** The open task a note sent as a task would join instead of being made twice (by its name), or null. */
   taskTwin: (doc: unknown, plain?: { from: number; text: string }[]) => call<string | null>('taskTwin', doc, plain),

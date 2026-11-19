@@ -82,6 +82,16 @@ export function registerWrite(): void {
     return write(`You give a note a short title of two to six words, in the note's own language, saying what it is about. Answer with the title alone. ${PLAIN}`, words,
       `${words.split(/\s+/).slice(0, 4).join(' ')} (a stand-in name)`)
   })
+  // Quick capture's line, where the wording's own rules read no kind: something to do, someone's words, or a note.
+  // One word back, read by the Mac's model; anything else is no reading (null), and the box stays a note.
+  ipcMain.handle('haligtree:ai:kind', async (_event, text: unknown) => {
+    const line = String(text ?? '').trim()
+    if (line.split(/\s+/).length < 4) return null
+    const said = await write('You sort a line someone typed into a quick capture box. Answer with one word: "task" if it is something they mean to do (an errand, a job, a thing to send, buy, call, fix, find or finish), "quote" if it is words someone else said or wrote, or "note" for anything else (an idea, a thought, a fact). Nothing else.',
+      line.slice(0, 400), process.env.HALIGTREE_QA_KIND ?? 'note')
+    const word = 'text' in said ? said.text.toLowerCase().match(/\b(task|quote|note)\b/)?.[1] : null
+    return word === 'task' ? 'todo' : word === 'quote' ? 'quote' : null
+  })
   ipcMain.handle('haligtree:ai:why', (_event, question: unknown, note: unknown) =>
     write(`You say in one short sentence why a note may help answer a question, or plainly that it may not. ${PLAIN}`, `Question: ${String(question ?? '')}\nNote: ${String(note ?? '').slice(0, 1500)}`,
       `It speaks of ${String(note ?? '').split(/\s+/).slice(0, 5).join(' ')}. (A stand-in's reason.)`))

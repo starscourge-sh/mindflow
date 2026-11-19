@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { call, haligtree, type Task } from '@/lib/haligtree'
+import { clock, dayjs, short } from '../../../../main/dates'
 
 import type { BoxPlan, BoxToken } from '@/lib/box-tokens'
 import { Kbd, Tip } from './ui'
@@ -69,6 +72,8 @@ export function WillDo({ plan, joins, list, onSort, onKeep, onNotTask, onNewQues
   else if (plan.task && plan.kind === 'todo' && !plan.tokens.some((one) => one.kind === 'task-tag'))
     items.unshift({ key: 'task', effect: joined ?? 'Add to your tasks', color: 'green', tokens: [], notTask: true })
   else if (asks) items.unshift({ key: 'question', effect: 'Keep as a question in Writing', color: 'purple', tokens: [], notTask: true })
+  // Someone's words, as the Mac's model read them: its × keeps it a note.
+  else if (plan.readBy && plan.kind === 'quote') items.unshift({ key: 'quote', effect: 'Keep as a quote', color: 'purple', tokens: [], notTask: true })
   // A link that already made its card: kept as that link, or × for the plain address.
   if (plan.card && plan.url) items.push({ key: 'card', effect: `Save as a link from ${plan.url.hostname.replace(/^www\./, '')}`, color: 'blue', tokens: [], card: true })
   const miss = plan.tokens.find((one) => one.kind === 'clue-miss')
@@ -86,16 +91,22 @@ export function WillDo({ plan, joins, list, onSort, onKeep, onNotTask, onNewQues
           <span className="min-w-0 truncate text-(--mf-muted-strong)">{item.effect}</span>
           {/* No key beside "Keep as a question": it is what Return does already, and a ⇥ there read as a key you
               had to press. The key is shown only where Tab changes something ("or a question"). */}
+          {/* Read by the Mac's own model, not by the wording's rules: said so, as a date read as a guess is. */}
+          {plan.readBy && (item.key === 'task' || item.key === 'quote') && (
+            <Tip label="Read by Apple Intelligence on this Mac, from your words. Check it, or press × to keep it a note.">
+              <span data-will-read {...loud('warn', 'shrink-0 cursor-default')}>read on this Mac</span>
+            </Tip>
+          )}
           {item.tokens.find((one) => one.guess) && (
             <Tip label={`${item.tokens.find((one) => one.guess)!.guess}. Check it, or click the words to keep them plain.`}>
               <span data-will-guess {...loud('warn', 'shrink-0 cursor-default')}>a guess</span>
             </Tip>
           )}
-          {!item.info && <Tip label={item.notTask ? (list || onSort ? 'Keep it all as one note, not tasks' : item.key === 'question' ? 'Keep it as a note, not a question' : 'Keep it as a note, not a task') : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
+          {!item.info && <Tip label={item.notTask ? (list || onSort ? 'Keep it all as one note, not tasks' : item.key === 'question' ? 'Keep it as a note, not a question' : item.key === 'quote' ? 'Keep it as a note, not a quote' : 'Keep it as a note, not a task') : item.card ? 'Back to the plain address' : 'Keep as plain text'}>
             <button
               type="button"
               data-will-off
-              aria-label={item.notTask ? (list || onSort ? 'Keep it as one note' : item.key === 'question' ? 'Not a question' : `Not a task`) : `Keep as plain text: ${item.effect}`}
+              aria-label={item.notTask ? (list || onSort ? 'Keep it as one note' : item.key === 'question' ? 'Not a question' : item.key === 'quote' ? 'Not a quote' : `Not a task`) : `Keep as plain text: ${item.effect}`}
               className="relative after:absolute after:-inset-1 after:rounded-full flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => (item.notTask ? onNotTask() : item.card ? onUncard() : onKeep(item.tokens))}
@@ -175,5 +186,49 @@ export function TokenHint({ hover }: { hover: { token: BoxToken; rect: DOMRect }
       <span className="text-muted-foreground">Click to keep as plain text</span>
     </div>,
     document.body
+  )
+}
+
+type Around = { at: string | null; title: string; kind: 'task' | 'event'; mine?: true }
+/**
+ * A task with a day, seen where it will land before it is kept (the user, 17 Nov, of Woday's launcher: "new event
+ * tomorrow 10:00 Design meeting" previewed in its day): that day's timed tasks and events in order, the new one lit
+ * in its place among them, and how many more are all day. Read once per day typed, not per key.
+ */
+export function DayAround({ due, allDay, title }: { due: string; allDay: boolean; title: string }): React.JSX.Element | null {
+  const key = dayjs(due).format('YYYY-MM-DD')
+  const [day, setDay] = useState<Around[] | null>(null)
+  useEffect(() => {
+    let live = true
+    const from = dayjs(due).startOf('day')
+    void Promise.all([
+      haligtree.tasks().catch(() => [] as Task[]),
+      call<{ title: string; start: string; allDay?: boolean | number }[]>('events', from.toISOString(), from.add(1, 'day').toISOString()).catch(() => [])
+    ]).then(([tasks, events]) => live && setDay([
+      ...tasks.filter((one) => one.status === 'open' && one.dueAt && dayjs(one.dueAt).format('YYYY-MM-DD') === key).map((one): Around => ({ at: one.allDay ? null : one.dueAt, title: one.title, kind: 'task' })),
+      ...events.map((one): Around => ({ at: one.allDay ? null : one.start, title: one.title, kind: 'event' }))
+    ]))
+    return () => void (live = false)
+  }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!day) return null
+  const mine: Around = { at: allDay ? null : due, title: title || 'This task', kind: 'task', mine: true }
+  const all = [...day.filter((one) => one.at), ...(allDay ? [] : [mine])].sort((a, b) => a.at!.localeCompare(b.at!))
+  // The new one and its nearest neighbours: two before it and two after, at most.
+  const here = allDay ? 0 : all.indexOf(mine)
+  const shown = allDay ? all.slice(0, 3) : all.slice(Math.max(0, here - 2), here + 3)
+  const loose = day.filter((one) => !one.at).length + (allDay ? 1 : 0)
+  return (
+    <div data-chrome data-day-around className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 px-[4.75rem] pt-1 text-xs text-muted-foreground animate-in fade-in-0 duration-200">
+      <span>{short(due, true)}:</span>
+      {shown.map((one, at) => (
+        <span key={`${one.kind}:${one.at}:${one.title}:${at}`} data-day-item={one.mine ? 'mine' : one.kind}
+          className={one.mine ? 'inline-flex min-w-0 items-center gap-1 rounded-sm bg-accent px-1 font-medium text-foreground' : 'inline-flex min-w-0 items-center gap-1'}>
+          {at > 0 && <span aria-hidden className="text-muted-foreground/50">·</span>}
+          {one.at && <span className="tabular-nums text-(--mf-muted-strong)">{clock(one.at)}</span>}
+          <span className="max-w-40 truncate">{one.mine ? quoted(one.title, 40) : one.title}</span>
+        </span>
+      ))}
+      {loose > 0 && <span>{shown.length ? '· ' : ''}{allDay ? (loose === 1 ? 'all day, the only one' : `${loose} all day, this one too`) : `${loose} more all day`}</span>}
+    </div>
   )
 }

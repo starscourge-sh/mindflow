@@ -81,7 +81,8 @@ import { usePicking } from './lib/pick-range'
 import { PickDays } from './components/haligtree/late-tasks'
 import { binItem, moveToBin } from './lib/to-bin'
 import TrashIcon from './components/ui/trash-icon'
-import { WillDo, TokenHint } from './components/haligtree/will-do'
+import { DayAround, WillDo, TokenHint } from './components/haligtree/will-do'
+import { useHas } from './lib/needs'
 import { boxTokensPlugin, boxGuess, withoutWord, keepPlain, keptMessage, planNow, rearm, replan, type BoxContext, type BoxPlan, type BoxToken } from './lib/box-tokens'
 import { chime, soundOn } from './lib/sound'
 import { liftFrom } from './lib/fly-home'
@@ -133,6 +134,7 @@ import { ShortcutSheet } from '@/components/haligtree/shortcut-sheet'
 import { WordNotes } from '@/components/haligtree/term'
 import { FocusScenery, Rest } from './components/haligtree/scenery'
 import { brief, dayjs, num, plural } from '../../main/dates'
+import { readTask } from '../../main/task-words'
 import { holdKeys, useLesson, useWelcomePlaceholder, useWelcoming } from './lib/welcome-box'
 import { SandboxChip } from '@/components/haligtree/sandbox'
 import { DefineGhost, defineable, fixIn, useDefinition } from '@/components/haligtree/word-define'
@@ -864,8 +866,21 @@ export default function App(): React.JSX.Element {
   // log for a goal, not a capture. The open questions and goals, to find
   // which one the name means.
   const held = useLive(() => Promise.all([haligtree.items('question'), haligtree.items('goal')]).then((lists) => lists.flat().filter((one) => !one.closedAt && !one.archivedAt)), [] as Item[], [], ['item'])
-  boxContext.current = { off: !!editing, kind, chosen, held, actionTags, timers: appSettings?.focusTools === true }
-  useEffect(() => void (editorRef.current !== retired.current && replan(editorRef.current)), [editing, kind, chosen, held, actionTags])
+  // The Mac's own model reads a line the wording's rules cannot (a task with no date, someone's words), once the
+  // words rest; only where the Mac has Apple Intelligence, and never over a kind picked by hand (main/write.ts `ai:kind`).
+  const reads = useHas('ai')
+  const [read, setRead] = useState<{ line: string; kind: CaptureType | null } | null>(null)
+  useEffect(() => {
+    const line = first.trim()
+    if (!reads || editing || chosen || lesson || read?.line === line || line.split(/\s+/).length < 4 || boxGuess(line)) return
+    let live = true
+    const rest = window.setTimeout(() => void haligtree.readKind(line).then((kind) => live && setRead({ line, kind })), 700)
+    return () => (live = false, window.clearTimeout(rest))
+  }, [first, reads, editing, chosen, lesson]) // eslint-disable-line react-hooks/exhaustive-deps
+  boxContext.current = { off: !!editing, kind, chosen, held, actionTags, timers: appSettings?.focusTools === true, read }
+  useEffect(() => void (editorRef.current !== retired.current && replan(editorRef.current)), [editing, kind, chosen, held, actionTags, read])
+  // Its reading arrived after the last key: the kind chip takes it, as it takes the wording's own guess.
+  useEffect(() => { if (!chosen && !editing && plan?.readBy && plan.kind !== kind) setKind(plan.kind) }, [plan?.readBy, plan?.kind]) // eslint-disable-line react-hooks/exhaustive-deps
   // "+name" read as a clue, or as a name nothing matches yet.
   const plus = editing || !plan ? null : plan.clue ?? plan.miss
   // A Word that is one word: its meaning looked up from the Mac's Dictionary
@@ -2697,6 +2712,11 @@ export default function App(): React.JSX.Element {
                 })}
               />
             )}
+            {/* A task with a day: that day around it, the new one lit in its place. */}
+            {!editing && plan?.task && !listed && (() => {
+              const read = readTask(first, new Date(), plan.taskPlain)
+              return read.due ? <DayAround due={read.due} allDay={read.allDay} title={read.title} /> : null
+            })()}
             <TokenHint hover={tokenHover} />
             {/* Under the writing: what it is, who said it and where you met it. */}
             {/* Wraps onto a second line rather than squeezing a field or a chip. */}

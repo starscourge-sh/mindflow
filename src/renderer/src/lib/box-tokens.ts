@@ -59,6 +59,8 @@ export type BoxContext = {
   actionTags: string[]
   /** The focus timer on (Settings): off, "5m tea" and "4x25" are only words. */
   timers?: boolean
+  /** What the Mac's own model read the first line as, where the wording's rules read nothing (App.tsx, main/write.ts `ai:kind`). */
+  read?: { line: string; kind: CaptureType | null } | null
 }
 
 export type BoxPlan = {
@@ -87,6 +89,8 @@ export type BoxPlan = {
   signatureKept: boolean
   /** A link already made its card, and nothing else written: sent as that link. */
   card: { pos: number; href: string; title: string; loading: boolean } | null
+  /** Its kind was read by the Mac's own model, not by the wording's rules: said so under the box. */
+  readBy?: boolean
   /** "!milestone Exam on 3 Dec": that day marked, nothing captured. */
   milestone?: { title: string; day: string } | null
   /** "@1y", "@6m", "@2w": a letter to future you, out of sight until that day and back then. The words lit, taken off as it is kept. */
@@ -369,7 +373,11 @@ function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now =
   }
   const guessed = boxGuess(first.text, now)
   // The kind the wording suggests until one is picked; a link kept as plain text is a note.
-  let kind: CaptureType = ctx.chosen ? ctx.kind : guessed === 'link' ? (url ? 'link' : 'note') : (guessed ?? 'note')
+  // Where the rules read nothing, the Mac's model may have: a task with no date ("Claude references for the right
+  // reddit groups to market to"), someone's words. Said as its reading (`readBy`), with its × to keep it a note.
+  // Words added after it was read keep its reading until the model has read them too.
+  const read = !ctx.chosen && !guessed && ctx.read && first.text.trim().startsWith(ctx.read.line) ? ctx.read.kind : null
+  let kind: CaptureType = ctx.chosen ? ctx.kind : guessed === 'link' ? (url ? 'link' : 'note') : (guessed ?? read ?? 'note')
 
   // "4x25 essay": pomodoro rounds, not a capture. The same rule as a timer below.
   const rounds = ctx.timers !== false && !ctx.chosen && kind !== 'todo' && single ? roundsFrom(full) : null
@@ -484,7 +492,7 @@ function planBox(doc: ProseMirrorNode, ctx: BoxContext, kept: Kept[] = [], now =
     }
   }
 
-  return { tokens: tokens.sort((a, b) => a.from - b.from), kind, clue: null, miss, timer: null, url, task, taskPlain, ...(listPlain && { listPlain, undated }), plainTags: plainOnly, signature, signatureKept, card: null, later }
+  return { tokens: tokens.sort((a, b) => a.from - b.from), kind, clue: null, miss, timer: null, url, task, taskPlain, ...(listPlain && { listPlain, undated }), plainTags: plainOnly, signature, signatureKept, card: null, later, ...(read && kind === read && { readBy: true }) }
 }
 
 // --- the plugin -------------------------------------------------------------
