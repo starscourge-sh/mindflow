@@ -53,7 +53,7 @@ function OneFolder({ id, all, onOpen, onPlace }: { id: string; all: Folder[]; on
     return (
       <RowMenu key={one.id} items={[
         { label: 'Open', run: () => onOpen(one.type, one.id) },
-        { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([{ type: one.type, id: one.id }]) },
+        { label: 'Keep in folder…', run: () => askFolder([{ type: one.type, id: one.id }]) },
         !unfiled && { label: `Take out of ${name}`, hint: one.type === 'capture' ? 'Back to the Inbox' : one.type === 'task' ? 'Stays in Tasks' : one.type === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([{ type: one.type, id: one.id }], null) }
       ]}>
         <button type="button" data-folder-item={one.id} data-type={one.type} onClick={() => onOpen(one.type, one.id)}

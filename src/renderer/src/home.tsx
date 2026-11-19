@@ -2067,7 +2067,7 @@ export function Home(): React.JSX.Element {
             // The starter lists, found by name too ("Start a list: Overheard"), not only from Gems' right-click.
             ...STARTER_LISTS.map(([icon, name]) => ({ label: `Start a list: ${name}`, hint: `${icon} A folder for what you keep`, cue: null, run: () => void startList(icon, name).then((folder) => setView({ id: 'folders', focus: folder })) })),
             // Folders: the open note kept in one, a new one, every one.
-            ...(noteNow && ['capture', 'article', 'nugget', 'question', 'task'].includes(noteNow.type) ? [{ label: 'Keep in folder…', hint: 'The open note, in a folder you pick or make', keys: '⇧⌘M', cue: null, run: () => askFolder([{ type: noteNow.type as FolderKind, id: noteNow.id }]) }] : []),
+            ...(noteNow && ['capture', 'article', 'nugget', 'question', 'task'].includes(noteNow.type) ? [{ label: 'Keep in folder…', hint: 'The open note, in a folder you pick or make', cue: null, run: () => askFolder([{ type: noteNow.type as FolderKind, id: noteNow.id }]) }] : []),
             { label: 'New folder', hint: 'In Folders, named as it is made', keys: '⌃⌘N', cue: null, run: () => newFolderHere(null) },
             { label: 'All folders', hint: 'Every folder, to find one by its name', cue: null, run: () => setView({ id: 'folders', focus: 'all' }) },
             ...(settings?.safeMode || desk?.hidden ? [] : [{ label: 'Bring sticky notes here', hint: 'Every sticky note, fanned out at the top right of this screen', cue: null, run: () => window.api.gatherStickies() }]),

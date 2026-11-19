@@ -704,7 +704,7 @@ export function ItemsView({ tier, focus, folder: sideFolder, onFolder, onOpen, o
       <PlaceChip label={folder?.name ?? section.label} tip="Keep in folder"
         icon={folder ? <GroupIcon icon={folder.icon} color={folder.color} className="size-3.5" /> : <section.icon aria-hidden className="size-3.5 shrink-0" style={{ color: `var(--mf-icon-tint, var(--tt-color-text-${section.tint}))` }} />}
         items={[
-          { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([thing]) },
+          { label: 'Keep in folder…', run: () => askFolder([thing]) },
           folder && { label: `Take out of ${folder.name}`, hint: tier === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([thing], null) }
         ]} />
     )
@@ -1035,7 +1035,7 @@ export const gemMenu = (item: Item, open: () => void): RowItem[] => [
   { label: 'Open', keys: '↵', run: open },
   'separator',
   { label: item.pinnedAt ? 'Unpin' : 'Pin to the sidebar', run: () => pin('nuggets', item.id, !item.pinnedAt) },
-  { label: 'Keep in folder…', keys: '⇧⌘M', run: () => askFolder([{ type: item.tier === 'question' ? 'question' : item.tier === 'article' ? 'article' : 'nugget', id: item.id }]) },
+  { label: 'Keep in folder…', run: () => askFolder([{ type: item.tier === 'question' ? 'question' : item.tier === 'article' ? 'article' : 'nugget', id: item.id }]) },
   ...itemMenu(item),
   'separator',
   copyLinkItem(`${item.tier}:${item.id}`, item.title),
