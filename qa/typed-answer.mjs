@@ -25,7 +25,13 @@ const onlyDue = async (...ids) => {
 }
 const answerIt = async (prompt, typed) => {
   await go('home'); await go('review', ':today')
-  await h.waitForFunction((p) => [...document.querySelectorAll('h2[contenteditable]')].some((one) => one.textContent?.includes(p)), prompt, { timeout: 8000 })
+  // Any other card still in front (a new one of the day's) is put off with "Not today", as a person would.
+  const front = () => h.evaluate((p) => [...document.querySelectorAll('h2[contenteditable]')].some((one) => one.textContent?.includes(p)), prompt)
+  for (let i = 0; i < 20 && !(await front()); i++) {
+    await wait(500)
+    if (!(await front())) await h.locator('button', { hasText: 'Not today' }).first().click().catch(() => {})
+  }
+  if (!(await front()) && process.env.QA_SHOTS) await h.screenshot({ path: `${process.env.QA_SHOTS}/typed-not-shown.png` })
   await blur()
   await h.focus('textarea')
   await h.keyboard.type(typed)
