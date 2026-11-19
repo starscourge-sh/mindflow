@@ -98,8 +98,11 @@ export function AnswerLine({ question, notes }: { question: string; notes: { tit
   const named = from.length > 1 ? `${from.slice(0, -1).join(', ')} and ${from.at(-1)}` : from[0]
   const words = said && 'text' in said ? `${said.text} From ${named}, written on this Mac.` : said ? `Not answered: ${said.error}.` : null
   return (
-    <p data-mac-needs="ai" data-ai-answer data-room-held className="mt-1 min-h-[2lh] text-body text-foreground">
-      {words === null ? <Orb label="Asking this Mac from your notes…" /> : <span><Sparkles aria-hidden className="mr-1 inline size-3.5 align-[-2px] text-muted-foreground" />{words}</span>}
+    // Two lines held from the first frame, as WhyLine holds its room: the orb while this Mac writes, then its words in the
+    // same room, so nothing under it moves when they come (a three-line answer pushed the clues 21px down). A longer
+    // answer ends in "…" and shows whole on pointing (title-tips.tsx).
+    <p data-mac-needs="ai" data-ai-answer data-room-held className="mt-1 h-[2lh] text-body text-foreground">
+      {words === null ? <Orb label="Asking this Mac from your notes…" /> : <span title={words} className="line-clamp-2"><Sparkles aria-hidden className="mr-1 inline size-3.5 align-[-2px] text-muted-foreground" />{words}</span>}
     </p>
   )
 }
