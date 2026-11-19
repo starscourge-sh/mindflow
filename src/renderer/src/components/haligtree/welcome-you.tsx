@@ -67,14 +67,26 @@ export async function applySetup(setup: Setup): Promise<Setup> {
   made.examTag = exam
   // The goal: made once; a changed name or day makes it again, undone takes it away.
   const title = !off.has('goal') ? setup.goal?.trim() || null : null
-  // No day picked: the three months counted once, when it was made. Counted again from each new today, it read as a
-  // changed answer every day, and leaving a replayed welcome took the goal away (its log too) and made it again (10 Nov).
-  const by = setup.goalBy || setup.exam || !made.goalBy ? goalDay(setup) : made.goalBy
-  if (made.goalId && (title !== made.goalTitle || by !== made.goalBy)) {
-    const there = await haligtree.dropGoal(made.goalId)
-    made.goalId = null
+  // No day picked, or one gone by: the three months counted once, when it was made. Counted again from each new today,
+  // it read as a changed answer every day, and leaving a replayed welcome took the goal away (its log too) and made it
+  // again (10 Nov; 17 to 19 Nov "learn Spanish", picked for 14 Oct, was made again each day the welcome was left).
+  const asked = setup.goalBy ?? setup.exam
+  const by = asked && !dayjs(asked).isBefore(dayjs(), 'day') ? goalDay(setup) : made.goalBy ?? goalDay(setup)
+  if (made.goalId && title && (title !== made.goalTitle || by !== made.goalBy)) {
+    // A changed answer changes the goal it made, in place: its log, card and colour stay. One in the Bin stays there.
+    const goal = await haligtree.item(made.goalId)
+    if (goal && !(goal as { binnedAt?: string | null }).binnedAt) {
+      if (title !== made.goalTitle) await haligtree.saveItem(made.goalId, { title })
+      if (by !== made.goalBy) await haligtree.goalDates(made.goalId, { target: by })
+      made.goalTitle = title
+      made.goalBy = by
+    } else if (goal || title !== made.goalTitle) made.goalId = null
     // Already gone: you took it away yourself, and the welcome never brings it back.
-    if (!there && title === made.goalTitle) return { ...setup, undone: [...off, 'goal'], made: { ...made, goalTitle: null, goalBy: null } }
+    else return { ...setup, undone: [...off, 'goal'], made: { ...made, goalId: null, goalTitle: null, goalBy: null } }
+  } else if (made.goalId && !title) {
+    // Undone on the summary, or its answer cleared: the one thing the welcome takes away, because you asked.
+    await haligtree.dropGoal(made.goalId)
+    made.goalId = null
   }
   if (title && !made.goalId) {
     made.goalId = await haligtree.newGoal(title, by)

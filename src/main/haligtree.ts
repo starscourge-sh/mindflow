@@ -2260,12 +2260,13 @@ export function registerHaligtree(): void {
   column('nuggets', 'unsorted integer not null default 0')
   // A goal in the Bin takes its desktop card with it at once.
   // One into the Bin, or back out: the windows are told by the caller, once for one or for many.
-  const putInBin = (id: string): unknown => {
+  // `how`: which door it came by, said in a goal's line so a goal binned unasked can be traced (17 Nov "learn Spanish").
+  const putInBin = (id: string, how = 'one'): unknown => {
     // A calendar event goes by the same door (events.ts).
     if (eventToBin(id)) return true
     if (practiceToBin(id)) return true
     const done = db.prepare("update nuggets set binned_at = ?, binned_was = json_object('pinned_at', pinned_at, 'archived_at', archived_at), archived_at = coalesce(archived_at, ?), pinned_at = null where id = ?").run(now(), now(), id)
-    goalLog('to the Bin', id, done.changes ? '' : '(no row changed)')
+    goalLog('to the Bin', id, `(${how}${done.changes ? '' : ', no row changed'})`)
     return done
   }
   const outOfBin = (type: string, id: string): void => {
@@ -2288,7 +2289,7 @@ export function registerHaligtree(): void {
   })
   // Many at once, picked rows of a list and their Undo: one write and one telling for the lot.
   handle('bin:put-many', (ids: string[]) => {
-    atomically(() => ids.forEach(putInBin))
+    atomically(() => ids.forEach((id) => putInBin(id, `${ids.length} at once`)))
     goalsTold()
     return write(true)
   })
@@ -2606,7 +2607,7 @@ export function registerHaligtree(): void {
       const edit = !grew ? [] : keep.table === 'captures' ? ['original_body = coalesce(original_body, body)', 'edited_at = ?'] : ['updated_at = ?']
       if (names.length || grew) db.prepare(`update ${keep.table} set ${[...names.map((name) => `${name} = ?`), ...edit].join(', ')} where id = ?`).run(...(names.map((name) => sets[name]) as string[]), ...(grew ? [now()] : []), keep.id)
       if (other.table === 'captures') db.prepare("update captures set binned_was = status, status = 'discarded' where id = ?").run(other.id)
-      else putInBin(other.id)
+      else putInBin(other.id, 'joined into another')
       for (const one of linking) db.prepare(`update ${one.table} set body = ? where id = ?`).run(one.now, one.id)
     })
     joins.set(++joinsMade, { keep, other, rows: [a, b], joined: text, versions, linking })
