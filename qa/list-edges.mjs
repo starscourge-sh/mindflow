@@ -106,7 +106,10 @@ const measure = (w, scope) => w.evaluate((scope) => {
     const card = cardOf(row)
     if (card) { add('card box', x(card.getBoundingClientRect().left)); continue }
     add('row box', x(r.left))
-    add('row first ink', tick ? x(tick.getBoundingClientRect().left) : ink(row))
+    // A list holding today's numbers keeps a column for them before the tick (quick capture's Tasks): that column is
+    // the row's first mark, on the "+" edge, whether its own row has a number or not; with none, the tick is.
+    const column = row.querySelector('[data-rank-column]')
+    add('row first ink', column ? x(column.getBoundingClientRect().left) : tick ? x(tick.getBoundingClientRect().left) : ink(row))
     const title = row.querySelector('[data-task-title]')
     if (title) add('task words', x(title.getBoundingClientRect().left))
     for (const under of row.querySelectorAll('[data-task-meta], [data-task-ask]')) if (seen(under.getBoundingClientRect())) add('under the words', x(under.getBoundingClientRect().left))
@@ -184,6 +187,14 @@ try {
     judge(`Quick capture ${name}`, got, { box: ['row box', 'card box', 'heading rule', 'add box'], ink: ['row first ink', 'heading words', 'chips', 'add +'] })
     if (SHOTS) await box.screenshot({ path: `${SHOTS}/box-${name}.png` }).catch(() => {})
   }
+  // A list with none of today's numbers (Upcoming): no column held for them, the ticks on the "+" edge.
+  await box.evaluate(() => document.activeElement?.blur?.()); await box.keyboard.press('Control+2'); await box.waitForTimeout(600)
+  await box.evaluate(() => [...document.querySelectorAll('button')].find((one) => /^Upcoming\b/.test(one.textContent.trim()))?.click()); await box.waitForTimeout(800)
+  const upcoming = await measure(box, 'body')
+  report.push({ at: 'box', page: 'Quick capture Tasks, Upcoming', got: upcoming })
+  check('Quick capture Tasks, Upcoming: no room held for numbers it does not show', !(await box.evaluate(() => !!document.querySelector('[data-rank-column]'))))
+  judge('Quick capture Tasks, Upcoming', upcoming, { box: ['row box', 'card box', 'heading rule', 'add box'], ink: ['row first ink', 'heading words', 'chips', 'add +'] })
+  if (SHOTS) await box.screenshot({ path: `${SHOTS}/box-Tasks-upcoming.png` }).catch(() => {})
   await box.keyboard.press('Escape')
 } finally {
   await c.close()

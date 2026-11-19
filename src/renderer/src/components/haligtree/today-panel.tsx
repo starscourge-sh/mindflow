@@ -327,7 +327,7 @@ const TaskRow = memo(function TaskRow({ task, act, scope, room, rank, open, curs
       className={`group group/item relative flex flex-wrap items-start gap-2 rounded-md px-2 py-1.5 pr-8 hover:bg-accent/50 ${picked ? PICKED_ROW : open ? "bg-accent" : cursor ? "bg-accent/50" : ""}`}
     >
       {/* A focus session running on it: the dot stands in the number's column while it runs, as in Tasks, and nothing in the row moves. */}
-      {rank !== undefined && <span className="mt-px flex w-2.5 shrink-0 justify-center">{time.running?.taskId === task.id ? <SessionDot id={task.id} time={time} className="relative flex h-[1.125rem] items-center" /> : rank > 0 && <ThreeMark n={rank} />}</span>}
+      {rank !== undefined && <span data-rank-column className="mt-px flex w-2.5 shrink-0 justify-center">{time.running?.taskId === task.id ? <SessionDot id={task.id} time={time} className="relative flex h-[1.125rem] items-center" /> : rank > 0 && <ThreeMark n={rank} />}</span>}
       <Tip label="Complete">
       <button
         type="button"
