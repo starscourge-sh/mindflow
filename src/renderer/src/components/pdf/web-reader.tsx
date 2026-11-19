@@ -1,3 +1,4 @@
+import { BLANK } from '@/lib/blanks'
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useToolKeys } from '@/lib/tool-keys'
 import {
@@ -309,14 +310,15 @@ export function WebReader({ href }: { href: string }): React.JSX.Element {
   const cardOf = async (prompt: string, answer: string, gem = false, quiet = false): Promise<string> => {
     // A study card (Review only), unless ⌥ was held or Settings keeps reading cards as gems.
     const id = await call<string>('nugget:from', `${answer}\n\n[${whereFrom().replace(/[[\]]/g, '\\$&')}](${articleLink(href, '')})`, { attribution: byline() || null, medium: whereFrom(), kind: 'quote', card: { gem } })
-    // Named by its question, as a card is in every list and in ⌘K.
-    await call('item:save', id, { prompt, title: prompt })
+    // Named by its question, as a card is in every list and in ⌘K; a fill-in-the-blank card by its whole sentence.
+    const named = prompt.includes(BLANK) ? answer : prompt
+    await call('item:save', id, { prompt, title: named })
     const count = cardsHere + 1
     setCardsHere(count)
     // One sound, and Undo takes the card back, as the PDF's does (pdf-reader.tsx cardOf).
     const undo = (): void => void call<boolean>('lifted:undo', 'nugget', id).then((gone) => gone && setCardsHere((now) => Math.max(0, now - 1)))
     if (quiet) chime('saved')
-    else said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt }, { cue: 'saved', undo })
+    else said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: named }, { cue: 'saved', undo })
     return id
   }
   // C: the question asked where the words were; Return makes the card.

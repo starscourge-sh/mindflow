@@ -1,3 +1,4 @@
+import { BLANK } from "@/lib/blanks"
 import { markOpened } from '@/lib/media-opened'
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useToolKeys } from "@/lib/tool-keys"
@@ -579,14 +580,16 @@ export function PdfReader({ src, name, page: start, onPage }: { src: string; nam
     // A study card (Review only), unless ⌥ was held or Settings keeps reading cards as gems.
     const id = await call<string>("nugget:from", `${answer}\n\n[${where}](${pdfLink(src, name, page, "")})`, { attribution: author || null, medium: title, passage: `p. ${label(page)}`, kind: "quote", card: { gem } })
     // Named by its question, as a card is in every list and in ⌘K: a snip's first line is its picture, never a name.
-    await call("item:save", id, { prompt, title: prompt })
+    // A fill-in-the-blank card by its whole sentence: the gap is Review's alone.
+    const named = prompt.includes(BLANK) ? answer : prompt
+    await call("item:save", id, { prompt, title: named })
     const count = cardsHere + 1
     setCardsHere(count)
     // One sound, and Undo takes the card back, as every other card notice does (note-questions.tsx): a cue played
     // beside `said` made two, with no Undo. Made in a walk through the marked passages, it is said once at the walk's end.
     const undo = (): void => void haligtree.unlift("nugget", id).then((gone) => gone && setCardsHere((now) => Math.max(0, now - 1)))
     if (quiet) chime("saved")
-    else said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: prompt }, { cue: "saved", undo })
+    else said(count > 15 ? `Card made: ${num(count)} from this source. Most people keep 10 to 15 from an hour; the best ones are enough` : `Card made: ${num(count)} from this source`, true, { type: "nugget", id, title: named }, { cue: "saved", undo })
     return id
   }
   /** A line kept as a gem with the book and page under it, linked back, as a snip is kept (keepSnip). */

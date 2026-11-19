@@ -153,7 +153,8 @@ const rowOf = (item: Item): Entry => {
   // when it comes back, the question it asks (when that is not its own words
   // again), and who said it. A card not reviewed yet is a small hollow dot.
   const same = (a: string, b: string): boolean => a.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim() === b.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim()
-  const asks = recall && item.prompt && !same(item.prompt, text) ? `Asks “${typedAsGaps(item.prompt).replace(/[?.\s]+$/, '')}?”` : null
+  // A fill-in-the-blank card's question is its own sentence with a gap: the row has the sentence, the gap is Review's.
+  const asks = recall && item.prompt && !same(item.prompt, text) && !item.prompt.includes(BLANK) && !clozeNumbers(item.prompt).length ? `Asks “${typedAsGaps(item.prompt).replace(/[?.\s]+$/, '')}?”` : null
   // One paused says so first: it is dimmed for that reason, and comes back only when you choose. The usual way
   // (now and then) is not said on every row: only what differs from it is.
   const comes = item.suspended ? 'Paused: not coming back until you choose' : recall ? (item.dueAt ? (due ? null : `Back in Review ${backIn(item.dueAt)}`) : null) : item.mode === 'pushed' ? 'Comes back often' : null

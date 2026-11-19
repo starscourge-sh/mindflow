@@ -408,8 +408,8 @@ const DEFAULTS = {
   spellJournal: true,
   spellWriting: true,
   spellLanguages: [] as string[],
-  // Notes are written in the app's serif (Fraunces) unless another is chosen.
-  noteFont: 'default' as string,
+  // Notes and the app in the Mac's own font, under headings in Fraunces (headingFont), unless another is chosen.
+  noteFont: 'system' as string,
   // The font is the whole app's unless this says it is only for notes.
   fontNotesOnly: false,
   // Headings in a font of their own, the way Dia sets a serif over plain text; 'same' follows the text.
@@ -2026,7 +2026,9 @@ export function registerHaligtree(): void {
   // --- nuggets and articles
   // A nugget with no name of its own is named from its words, or for what it holds.
   // `line`: one still called the “Untitled” it began with shows its first line in lists instead.
-  const ITEM = `id, tier, kind, coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) as title, case when trim(coalesce(title, '')) in ('', 'Untitled') then label('', body) end as line, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
+  // A fill-in-the-blank card named by its question ("E = _____.") is listed by its whole sentence, its words' first
+  // line: the blank belongs to Review alone.
+  const ITEM = `id, tier, kind, case when instr(title, '_____') > 0 then coalesce(nullif(label('', body), ''), title) else coalesce(nullif(nullif(trim(title), 'Untitled'), ''), label('', body)) end as title, case when trim(coalesce(title, '')) in ('', 'Untitled') then label('', body) end as line, prompt, private, pinned_at as pinnedAt, due_at as dueAt, suspended,
     state is not null as reviewed, created_at as createdAt, updated_at as updatedAt, capture_id as captureId, remind_at as remindAt,
     (select count(*) from review_log where item_id = nuggets.id and grade = 1 and first = 0) as lapses, attribution, medium, context, mode, superseded_by as supersededBy, archived_at as archivedAt, revisions, why,
     closed_at as closedAt, closed_how as closedHow, passage, (select count(*) from glosses where item_id = nuggets.id) as clues,
