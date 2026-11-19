@@ -24,7 +24,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1180, height: 800, at: CALM_HOUR })
 const { page: box, electron, h, v, go } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const LINE = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const LINE = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 
 /** Every overlay open in a window now: its box, whether it fits, cut rows, and whether its surface is opaque. */
 const overlays = (win) => win.evaluate(() => {

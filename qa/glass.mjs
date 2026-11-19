@@ -17,7 +17,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 const { page, v, electron } = c
 const wait = (ms) => page.waitForTimeout(ms)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const glass = () => electron.evaluate(({ BrowserWindow }) => {
   const box = (globalThis.haligtreeGlass?.() ?? []).find(([id]) => { const w = BrowserWindow.fromId(id); return w && /index\.html/.test(w.webContents.getURL()) && !/view=/.test(w.webContents.getURL()) })
   return box ? box[1] : null

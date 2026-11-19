@@ -121,19 +121,19 @@ try {
   await v('settings:set', { sounds: false })
   await page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
   await page.reload()
-  await page.waitForSelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)', { timeout: 15000 })
+  await page.waitForSelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)', { timeout: 15000 })
   await electron.evaluate(({ BrowserWindow }) => {
     const box = BrowserWindow.getAllWindows().find((one) => !one.webContents.getURL().includes('view='))
     box?.setBounds({ x: 60, y: 60, width: 800, height: 700 })
     box?.showInactive()
   })
   await page.waitForTimeout(500)
-  await run(page, '.tiptap.ProseMirror.haligtree-editor:not(.is-line)', 'box')
+  await run(page, '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)', 'box')
 
   const id = await h.evaluate(() => window.api.captures.create({ kind: 'note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Picture probe' }] }] } }))
   await send('capture', id)
   await h.waitForTimeout(1500)
-  const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+  const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
   await h.locator(ED).waitFor({ timeout: 8000 })
   await run(h, ED, 'main window')
   if (c.errors.length) console.log('errors:', c.errors.slice(0, 5).join('\n'))

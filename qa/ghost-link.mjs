@@ -54,7 +54,7 @@ const wait = (ms) => h.waitForTimeout(ms)
 const p = (...content) => ({ type: 'paragraph', content })
 const t = (text) => ({ type: 'text', text })
 const ghost = (label) => ({ type: 'noteLink', attrs: { id: '', label } })
-const NOTE = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const NOTE = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 // What the page shows: the graph, the open note's words, and the front tab's name.
 const shown = () => h.evaluate((sel) => {
   const seen = (el) => { if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 40 && r.height > 40 && getComputedStyle(el).visibility !== 'hidden' }

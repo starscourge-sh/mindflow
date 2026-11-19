@@ -14,7 +14,7 @@ mkdirSync(out, { recursive: true })
 const c = await sandbox({ width: 1100, height: 760 })
 const { page: boxPage, electron } = c
 const wait = (ms) => boxPage.waitForTimeout(ms)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const smalls = () => electron.windows().filter((w) => /[?&]small=/.test(w.url()))
 const until = async (fn, ms = 8000) => { for (let t = 0; t < ms; t += 50) { const got = await fn(); if (got) return got; await wait(50) } return null }
 const numbers = (url) => electron.evaluate(({ BrowserWindow }, tail) => {

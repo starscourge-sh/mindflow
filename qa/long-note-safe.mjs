@@ -37,7 +37,7 @@ import { checks } from './harness.mjs'
 import { lineOnShow } from './line-on-show.mjs'
 
 const { check, done } = checks()
-const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const root = process.env.QA_DATA
 if (!root) throw new Error('QA_DATA must be a copy of a book')
 const parts = (process.env.PART ?? 'leave').split(',').map((one) => one.trim())

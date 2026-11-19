@@ -17,7 +17,7 @@ const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 const { page, v, electron } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const shots = process.env.QA_SHOTS
 const wait = (ms) => page.waitForTimeout(ms)
 const height = () => electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => !/view=/.test(w.webContents.getURL()))?.getBounds().height)

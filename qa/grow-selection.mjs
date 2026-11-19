@@ -24,7 +24,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900 })
 const { h, v } = c
 const wait = (ms) => h.waitForTimeout(ms)
-let ED = '[data-open] .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+let ED = '[data-open] .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 
 // What is picked: its kind ('text', 'cell', 'nodeRange' for blocks picked as blocks, 'all') and its words, '|' between

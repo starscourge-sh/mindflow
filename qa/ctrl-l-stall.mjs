@@ -16,7 +16,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 const { page, electron } = c
 const wait = (ms) => page.waitForTimeout(ms)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 
 /** Frames the page draws in `ms` after `act`. */
 const frames = async (act, ms = 900) => {

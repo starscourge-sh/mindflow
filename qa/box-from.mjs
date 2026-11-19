@@ -14,7 +14,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760 })
 const { page, h, send, both, electron } = c
 const shot = (name) => (process.env.QA_SHOTS ? both(join(process.env.QA_SHOTS, `box-from-${name}`), page) : undefined)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const CHIP = '[data-box-from]'
 const fake = (one) => electron.evaluate((_, f) => void (globalThis.siteBlockFake = f), one)
 const asks = () => electron.evaluate(() => (globalThis.boxFromAsks ?? []).map((one) => one.patient))

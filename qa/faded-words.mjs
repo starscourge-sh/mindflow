@@ -218,7 +218,7 @@ async function places() {
   await wait(400)
 
   // A note with a link, and words to pick: the link box (⌘K in the link) and the selection bar's tooltip.
-  const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+  const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
   const text = (words, marks) => ({ type: 'text', text: words, ...(marks ? { marks } : {}) })
   const doc = (...content) => ({ type: 'doc', content })
   const p = (...content) => ({ type: 'paragraph', content })

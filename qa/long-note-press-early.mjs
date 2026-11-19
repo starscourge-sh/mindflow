@@ -15,7 +15,7 @@ import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
 const { check, done } = checks()
-const SEL = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const SEL = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const root = process.env.QA_DATA
 if (!root) throw new Error('QA_DATA must be a copy of a book')
 const shelf = existsSync(join(root, 'books.json')) ? JSON.parse(readFileSync(join(root, 'books.json'), 'utf8')) : null

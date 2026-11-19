@@ -284,7 +284,7 @@ try {
   // Quick capture, in its own window.
   if (part('box')) {
     const box = c.page
-    const BOX = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+    const BOX = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
     await box.evaluate(() => window.api.showPrompt())
     await box.waitForTimeout(800)
     await box.bringToFront()

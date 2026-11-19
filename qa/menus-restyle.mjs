@@ -32,7 +32,7 @@ const db = new DatabaseSync(file, { readOnly: true })
 const note = db.prepare("select id from captures where status = 'open' and kind = 'note' and body is not null order by length(body) desc limit 1").get()
 db.close()
 const load = () => `load ${loadavg()[0].toFixed(1)}`
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 
 const c = await sandbox({ width: 1300, height: 900, seeded: false })
 const { h, send } = c

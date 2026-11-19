@@ -23,7 +23,7 @@ import { lineOnShow } from './line-on-show.mjs'
 
 process.env.HALIGTREE_FREEZE_CATCH ??= '1'
 const { check, done } = checks()
-const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const KIND = process.env.KIND ?? 'text'
 const root = process.env.QA_DATA
 if (!root) throw new Error('QA_DATA must be a copy of a book')

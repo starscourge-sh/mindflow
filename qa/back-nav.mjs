@@ -26,7 +26,7 @@ const wait = (ms = 900) => h.waitForTimeout(ms)
 const state = () => h.evaluate(() => {
   const page = document.querySelector('[class*="@container/page"]')
   const pane = page?.querySelector('.note-pane')
-  const words = (pane?.querySelector('[data-page-title] [contenteditable], input.font-heading')?.[pane?.querySelector('[data-page-title] [contenteditable]') ? 'textContent' : 'value'] || pane?.querySelector('input')?.value || [...(pane?.querySelectorAll('.ProseMirror') ?? [])].find((one) => !one.closest('[data-plain-field]'))?.firstElementChild?.textContent || '').trim()
+  const words = (pane?.querySelector('[data-page-title] [contenteditable="true"], input.font-heading')?.[pane?.querySelector('[data-page-title] [contenteditable="true"]') ? 'textContent' : 'value'] || pane?.querySelector('input')?.value || [...(pane?.querySelectorAll('.ProseMirror') ?? [])].find((one) => !one.closest('[data-plain-field]'))?.firstElementChild?.textContent || '').trim()
   const tops = page ? [...page.querySelectorAll('*')].map((one) => one.scrollTop).filter(Boolean) : []
   const tabs = page ? [...page.querySelectorAll('[role="tab"][aria-selected="true"], header [aria-pressed="true"]')].map((one) => (one.textContent ?? '').trim() || one.getAttribute('aria-label')) : []
   // The period a day, week, month or year page shows, by its title.

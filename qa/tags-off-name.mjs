@@ -13,7 +13,7 @@ const SHOTS = process.env.SHOTS
 const c = await sandbox({ width: 1280, height: 800 })
 const { electron, page, h, v, go, both, errors } = c
 const sql = (q, ...args) => electron.evaluate((_, [q, args]) => globalThis.qaFeedSql(q, ...args), [q, args])
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const textOf = (body) => { const doc = typeof body === 'string' ? JSON.parse(body) : body; return typeof doc === 'string' ? doc : (doc?.content ?? []).map((block) => (block.content ?? []).map((one) => one.text ?? '').join('')).join('\n') }
 const labelOf = async (id) => (await sql("select label(title, body, named) as name from captures where id = ?", id))[0]?.name
 try {

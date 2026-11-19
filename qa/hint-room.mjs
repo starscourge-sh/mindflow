@@ -18,7 +18,7 @@ const { page, v, h } = c
 const wait = (ms) => page.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS ?? '/tmp/hint'
 const film = process.env.QA_FILM !== '0'
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 
 /** Where the card sits on the screen (main's own record). */
 const screenCard = () => c.electron.evaluate(({ BrowserWindow }) => {

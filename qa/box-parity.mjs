@@ -16,7 +16,7 @@ const c = await sandbox({ width: 1100, height: 760 })
 const { page, h, v, send, both } = c
 // The box's line, light and dark, to read by eye beside each other (QA_SHOTS).
 const shot = (name) => (process.env.QA_SHOTS ? both(join(process.env.QA_SHOTS, `box-parity-${name}`), page) : undefined)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const JOINED = 'Already on your list, so this was linked to that task instead of adding it twice'
 const clear = (win) => win.evaluate(() => void (window.haligtreeCued && (window.haligtreeCued.length = 0)))
 const cues = (win) => win.evaluate(() => [...(window.haligtreeCued ?? [])])

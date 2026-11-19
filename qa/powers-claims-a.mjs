@@ -20,7 +20,7 @@ process.env.QA_ARGS ??= '--sandbox'
 process.env.HALIGTREE_OBSIDIAN_CONFIG = join(mkdtempSync(join(tmpdir(), 'powers-claims-obsidian-')), 'obsidian.json')
 const s = await sandbox({ width: 1200, height: 820 })
 const { h, page: box, electron } = s
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const wait = (ms = 300) => h.waitForTimeout(ms)
 const v = (channel, ...args) => h.evaluate(([c, a]) => window.api.haligtree(c, ...a), [channel, args])
 const captures = () => h.evaluate(() => window.api.captures.list())

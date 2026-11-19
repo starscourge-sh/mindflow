@@ -35,7 +35,7 @@ try {
   await wait(1200)
   await c.send('capture', best.id)
   await h.waitForFunction(() => {
-    const ed = [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')].filter((one) => one.editor).sort((a, b) => b.editor.state.doc.childCount - a.editor.state.doc.childCount)[0]
+    const ed = [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)')].filter((one) => one.editor).sort((a, b) => b.editor.state.doc.childCount - a.editor.state.doc.childCount)[0]
     if (!ed || ed.editor.state.doc.childCount < 2) return false
     window.__wp = ed
     return true

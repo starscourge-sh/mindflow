@@ -11,7 +11,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 const { page, v } = c
 const wait = (ms) => page.waitForTimeout(ms)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const card = () => c.electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('/index.html')).getBounds().height)
 /** Heights of the card every 30ms for `ms` while `act` runs. */
 async function heights(ms, act) {

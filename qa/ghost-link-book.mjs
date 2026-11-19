@@ -25,7 +25,7 @@ writeFileSync(join(vault, 'Personal', `${LINK}.md`), '---\ntags:\n  - personal\n
 const config = `${vault}.json`
 writeFileSync(config, JSON.stringify({ vaults: { a: { path: vault, ts: 1, open: true } } }))
 process.env.HALIGTREE_OBSIDIAN_CONFIG = config
-const NOTE = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const NOTE = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const { check, done } = checks()
 const c = await sandbox({ width: 1400, height: 900, seeded: false })
 const { h, v, send, look } = c

@@ -251,7 +251,7 @@ try {
 
   // Quick capture shares the switches: the same jumps by the same lines, with no numbers shown there. Driven where
   // it stands, put away, as qa/vim-visual-line.mjs drives it.
-  const BOX = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+  const BOX = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
   await page.$eval(BOX, (el, json) => el.editor.commands.setContent(json), body)
   await page.waitForTimeout(400)
   await caretIn('Paragraph one', page, BOX); await page.waitForTimeout(200); await normal(page, BOX)

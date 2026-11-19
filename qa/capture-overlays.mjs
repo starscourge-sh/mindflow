@@ -20,7 +20,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })
 const { page, electron, h } = c
 const wait = (ms) => page.waitForTimeout(ms)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const isBox = (url) => /index\.html/.test(url) && !/view=/.test(url)
 
 /** The blur shapes main was last told for the capture window. */
@@ -139,7 +139,7 @@ async function growAndFold(look) {
   const grown = await film(async () => { await page.keyboard.press('Shift+Enter'); await page.keyboard.type('two') })
   const g = read(grown)
   // The block handle, placed while the pointer was over the pill's line, never left over the writing as it grows.
-  const grip = await page.evaluate(() => { const h = document.querySelector('.tiptap-drag-handle')?.getBoundingClientRect(); const first = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line) > *')?.getBoundingClientRect(); const seen = !!h && Number(getComputedStyle(document.querySelector('.tiptap-drag-handle')).opacity) > 0.05; return { seen, over: !!h && !!first && seen && h.right > first.left && h.bottom > first.top && h.top < first.bottom } })
+  const grip = await page.evaluate(() => { const h = document.querySelector('.tiptap-drag-handle')?.getBoundingClientRect(); const first = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain) > *')?.getBoundingClientRect(); const seen = !!h && Number(getComputedStyle(document.querySelector('.tiptap-drag-handle')).opacity) > 0.05; return { seen, over: !!h && !!first && seen && h.right > first.left && h.bottom > first.top && h.top < first.bottom } })
   check(`${look} grow: the block handle is not left over the first line's words`, !grip.over, JSON.stringify(grip))
   // From the new line to the page drawn as the box (its first frame), and to the box drawn taller as main grows the
   // window round it (the window's own glide starts there, over a frame or two: the page asks main to grow it).

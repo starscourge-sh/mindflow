@@ -17,7 +17,7 @@ import { isRealFolder } from '../src/main/real-folder.ts'
 import { _electron as electron } from 'playwright'
 import { paste as pasteEvent } from './pasteboard.mjs'
 
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 /** Every line of the document, in the order they are read. */
 const LINES = `${EDITOR} li > p, ${EDITOR} li > div > p, ${EDITOR} > p, ${EDITOR} > h1, ${EDITOR} > h2`
 
@@ -259,7 +259,7 @@ function helpers({ app, page, logs }) {
      * and the two build different documents from the same characters.
      */
     async paste(text) {
-      const editor = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+      const editor = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
       await page.evaluate((editor) => document.querySelector(editor)?.focus(), editor)
       await pasteEvent(page, text, editor)
       await page.waitForTimeout(300)

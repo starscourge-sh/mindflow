@@ -25,7 +25,7 @@ const file = shelf?.last && shelf.last !== 'default' ? join(root, 'books', shelf
 const ask = (run, readOnly = true) => { const db = new DatabaseSync(file, { readOnly }); try { return run(db) } finally { db.close() } }
 const wait = (ms) => new Promise((next) => setTimeout(next, ms))
 const load = () => `load ${loadavg()[0].toFixed(1)}`
-const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 
 const LARGEST = ask((db) => db.prepare("select id from captures where status = 'open' and kind = 'note' and body like '{%' order by length(body) desc limit 1").get()).id
 // The short note: every fix-up the editor makes as a note opens, in eight lines.

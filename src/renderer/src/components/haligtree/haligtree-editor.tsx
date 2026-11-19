@@ -1098,7 +1098,8 @@ function Surface({
         // The shape is on the element too. Both editors carry `haligtree-editor`
         // now, so without this there is no way to tell a title from a document
         // in CSS or from outside.
-        class: shape === "line" ? "haligtree-editor is-line" : "haligtree-editor",
+        // A field written in the one editor (a thought, a log: presets.tsx PlainField) says so too, apart from a note's page.
+        class: `haligtree-editor${shape === "line" ? " is-line" : ""}${plain ? " is-plain" : ""}`,
       },
       // A press on the note's bare box under its last line: before ProseMirror's own, which would read the browser's place.
       handleDOMEvents: { mousedown: (view, event) => event.target === view.dom && pressUnderLastLine(view, event) },

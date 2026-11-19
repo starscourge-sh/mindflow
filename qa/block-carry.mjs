@@ -14,7 +14,7 @@ import { open, checks } from './harness.mjs'
 const { check, done } = checks()
 const FRAMES = process.env.FRAMES
 if (FRAMES) mkdirSync(FRAMES, { recursive: true })
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const app = await open()
 const { page } = app
 await page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))
@@ -37,7 +37,7 @@ const state = () => page.evaluate(() => {
   const hidden = level ? Math.max(0, Math.min(card.right, at.right) - Math.max(card.left, at.left)) : 0
   const dot = !at || !level || !(card.left < at.left && card.right > at.left - 8)
   const clear = !at || !card || (at.height > at.width ? card.right <= at.left || card.left >= at.right || !level : dot && hidden / Math.max(1, at.width) <= 1 / 3)
-  const moved = [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line) > *')].filter((one) => /translateY\(-?[1-9]/.test(one.style.transform)).length
+  const moved = [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain) > *')].filter((one) => /translateY\(-?[1-9]/.test(one.style.transform)).length
   const grip = document.querySelector('.tiptap-drag-handle')
   // The words arriving, not those leaving (they cross-fade in place).
   const words = [...(cards[0]?.querySelectorAll('[data-drag-label]') ?? [])].at(-1)?.textContent ?? null
@@ -170,7 +170,7 @@ if (PART === 'carry') {
     await page.mouse.move(grip.x + 8 + (third.x - grip.x) * i / 10, grip.y + (third.y + third.height * 0.8 - grip.y) * i / 10)
     // Read in the frame after the move: a glide would show a step between.
     steps.push(await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done({
-      ys: [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line) > *')].map((one) => Math.round(new DOMMatrixReadOnly(getComputedStyle(one).transform).m42 * 10) / 10).filter(Boolean),
+      ys: [...document.querySelectorAll('.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain) > *')].map((one) => Math.round(new DOMMatrixReadOnly(getComputedStyle(one).transform).m42 * 10) / 10).filter(Boolean),
       line: [...document.querySelectorAll('[data-drop-line]')].map((one) => getComputedStyle(one).animationName).join()
     })))))
   }

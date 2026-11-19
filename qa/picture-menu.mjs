@@ -12,7 +12,7 @@ const c = await sandbox({ width: 1300, height: 900 })
 const { h, v, send } = c
 const wait = (ms) => h.waitForTimeout(ms)
 const shots = process.env.QA_SHOTS ?? process.env.QA_DATA
-const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const MENU = '.tiptap-block-menu'
 try {
   await v('settings:set', { sounds: false, hintRate: 0 })

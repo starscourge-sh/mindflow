@@ -139,7 +139,7 @@ try {
 
   await start('', '')
   await keys('i')
-  await page.evaluate((value) => { const t = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)'); t.focus(); const d = new DataTransfer(); d.setData('text/plain', value); t.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })) }, '- costs $20 and $500 in all\n- and $x^2$ is a formula')
+  await page.evaluate((value) => { const t = document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'); t.focus(); const d = new DataTransfer(); d.setData('text/plain', value); t.dispatchEvent(new ClipboardEvent('paste', { clipboardData: d, bubbles: true, cancelable: true })) }, '- costs $20 and $500 in all\n- and $x^2$ is a formula')
   await page.waitForTimeout(300)
   check('pasted money stays words, a written formula is still one', (await outline()) === 'costs $20 and $500 in all|and [x^2] is a formula', await outline())
 } finally {

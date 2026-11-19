@@ -32,7 +32,7 @@ const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok 
 const c = await sandbox({ width: 1200, height: 820 })
 const { page, h, electron, v, send, go, errors } = c
 const wait = (ms) => h.waitForTimeout(ms)
-const BOX = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const BOX = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const doc = (...lines) => ({ type: 'doc', content: lines.map((text) => ({ type: 'paragraph', content: [{ type: 'text', text }] })) })
 const make = (patch) => h.evaluate((p) => window.api.captures.create(p), patch)
 const get = (id) => h.evaluate((id) => window.api.captures.get(id), id)

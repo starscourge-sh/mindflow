@@ -44,7 +44,7 @@ try {
   await v('source:facts', 'medium', 'Made-up Book', { born: '2001' })
   await openPage('attribution', 'Ada Example')
 
-  check('1. the bio is filled from Wikipedia: its first two sentences', (await h.locator('[data-bio-text] [contenteditable]').innerText()) === 'Ada Example (born 1972) is an English writer of test stories. She is known for her made-up lines.', await h.locator('[data-bio-text] [contenteditable]').innerText().catch(() => 'none'))
+  check('1. the bio is filled from Wikipedia: its first two sentences', (await h.locator('[data-bio-text] [contenteditable="true"]').innerText()) === 'Ada Example (born 1972) is an English writer of test stories. She is known for her made-up lines.', await h.locator('[data-bio-text] [contenteditable="true"]').innerText().catch(() => 'none'))
   check('2. it is credited "From Wikipedia" with its link', (await h.locator('[data-bio-credit]').getAttribute('href')) === 'https://en.wikipedia.org/wiki/Ada_Example')
   check('3. no empty field first: your thoughts starts as one quiet row in its island', await h.locator('[data-thoughts]').count() === 0 && await h.locator('[data-thoughts-add]').isVisible())
   const page = await v('source', 'attribution', 'Ada Example')
@@ -65,7 +65,7 @@ try {
   await theme('light')
 
   // Typed over: your words replace it and the credit goes.
-  await h.locator('[data-bio-text] [contenteditable]').fill('My own line about Ada.')
+  await h.locator('[data-bio-text] [contenteditable="true"]').fill('My own line about Ada.')
   await h.locator('[data-source-name]').click()
   await wait(600)
   const mine = await v('source', 'attribution', 'Ada Example')
@@ -77,7 +77,7 @@ try {
   const before = asked
   await openPage('attribution', 'Cal Beside')
   await openPage('attribution', 'Ada Example')
-  check('15. offline, the kept bio still reads', (await h.locator('[data-bio-text] [contenteditable]').innerText()).startsWith('Ada Example (born 1972)'))
+  check('15. offline, the kept bio still reads', (await h.locator('[data-bio-text] [contenteditable="true"]').innerText()).startsWith('Ada Example (born 1972)'))
 
   // Never fetched and offline: nothing but a quiet way to write one; filled once back online.
   await make({ kind: 'quote', body: doc('Late is still on time'), attribution: 'Bo Later' })
@@ -87,7 +87,7 @@ try {
   offline = false
   await h.evaluate(() => window.dispatchEvent(new Event('online')))
   await wait(1200)
-  check('18. back online, the bio fills', (await h.locator('[data-bio-text] [contenteditable]').innerText().catch(() => '')) === 'Bo Later is a painter. He paints late.')
+  check('18. back online, the bio fills', (await h.locator('[data-bio-text] [contenteditable="true"]').innerText().catch(() => '')) === 'Bo Later is a painter. He paints late.')
 
   // A source: the article for its title, when it matches; otherwise nothing.
   await openPage('medium', 'Made-up Book')

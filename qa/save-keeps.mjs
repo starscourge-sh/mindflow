@@ -18,7 +18,7 @@ import { checks } from './harness.mjs'
 process.env.QA_ARGS ??= '--sandbox'
 
 const { check, done } = checks()
-const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const c = await sandbox({ width: 1300, height: 900 })
 const { h, v, send, electron } = c
 const wait = (ms) => h.waitForTimeout(ms)

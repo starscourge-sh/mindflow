@@ -16,7 +16,7 @@ process.env.HALIGTREE_QA_CAPS ??= 'macos26'
 
 const SHOTS = process.env.QA_SHOTS ?? '/private/tmp/claude-501/-Users-starscourge-Documents-forge-mindflow/703b99ba-c755-40e3-a385-896560d19061/scratchpad/context-menu-shots'
 mkdirSync(SHOTS, { recursive: true })
-const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const MENU = '.tiptap-block-menu'
 const { check, done } = checks()
 const c = await sandbox({ width: 1300, height: 900 })

@@ -19,7 +19,7 @@ const { check, done } = checks()
 const FRAMES = process.env.FRAMES
 if (FRAMES) mkdirSync(FRAMES, { recursive: true })
 const PART = process.env.QA_PART ?? 'pick'
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const app = await open()
 const { page } = app
 await page.evaluate(() => window.api.haligtree('onboarding:set', { welcomed: new Date().toISOString(), newsSeen: true, welcoming: false, pageHints: false }))

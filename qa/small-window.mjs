@@ -30,7 +30,7 @@ const keptBefore = keptFile ? JSON.parse(readFileSync(keptFile, 'utf8')) : []
 const c = await sandbox({ width: 1100, height: 760 })
 const { page: boxPage, h, v, electron } = c
 const wait = (ms) => boxPage.waitForTimeout(ms)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const smalls = () => electron.windows().filter((w) => /[?&]small=/.test(w.url()))
 const until = async (fn, ms = 6000) => { for (let t = 0; t < ms; t += 100) { const got = await fn(); if (got) return got; await wait(100) } return null }
 /** A small window's main-process side: its bounds as the app keeps them, and whether it is open. */

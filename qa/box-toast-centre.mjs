@@ -10,7 +10,7 @@ const { page, h, v } = c
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 await v('settings:set', { hintRate: 0, rotCount: 0, motion: false })
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 // A notice sent as the app sends any (ui.tsx listens for it in every window).
 const say = (target, text) => target.evaluate((words) => window.dispatchEvent(new CustomEvent('haligtree:toast', { detail: { text: words, tone: 'info' } })), text)
 // The box's notice against its footer's row: centred on it, and clear of Create.

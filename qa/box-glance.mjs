@@ -22,7 +22,7 @@ if (shots) mkdirSync(shots, { recursive: true })
 if (film) mkdirSync(film, { recursive: true })
 const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${String(detail).slice(0, 500)})` : ''}`), !!ok)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const LINES = { write: 'Write a thought, a quote, a link… or type / for more', notes: 'Find a note, or name a new one…', today: 'Add a task for today…' }
 
 let c = await sandbox({ width: 1100, height: 760, at: CALM_HOUR })

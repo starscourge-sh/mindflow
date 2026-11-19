@@ -11,9 +11,9 @@ process.env.QA_ARGS ??= '--sandbox'
 const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760 })
 const { page, h, v, both } = c
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const make = (text) => h.evaluate((body) => window.api.captures.create({ kind: 'note', body }), { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text }] }] })
-const words = () => page.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line)')?.textContent ?? '')
+const words = () => page.evaluate(() => document.querySelector('.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)')?.textContent ?? '')
 const offer = () => page.waitForSelector('[data-box-offers][data-offer="tag"]', { timeout: 30000 }).then(async (el) => ((await el.textContent()) ?? '').replace(/\s+/g, ' ').trim(), () => '')
 const SOURDOUGH = 'My sourdough starter doubled overnight, so I folded the dough and baked the loaf in the lidded pot.'
 

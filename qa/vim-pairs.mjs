@@ -7,7 +7,7 @@
  */
 import { open } from './harness.mjs'
 
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const qa = await open()
 const { page } = qa
 const results = []

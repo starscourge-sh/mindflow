@@ -47,7 +47,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { format } from 'node:util'
 import { boxOf, launch, watch } from './harness.mjs'
 
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const QA = fileURLToPath(new URL('.', import.meta.url))
 const ALARM = Number(process.env.QA_ALARM) || 285
 /** Chromium's own files in a data folder, never put back (it holds them open), and the book, put back through SQLite. */

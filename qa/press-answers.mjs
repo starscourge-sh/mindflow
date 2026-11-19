@@ -71,7 +71,7 @@ const INSTRUMENT = `(() => {
   const stamp = (set) => requestAnimationFrame(() => { const m = new MessageChannel(); m.port1.onmessage = () => set(performance.now()); m.port2.postMessage(0) })
   const onShow = (el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth }
   pa.find = (sel, pick = 0) => { const all = [...document.querySelectorAll(sel)].filter(onShow); return all[pick < 0 ? all.length + pick : pick] ?? null }
-  const NOTE = '.tiptap.ProseMirror.haligtree-editor:not(.is-line), [data-first-screen]'
+  const NOTE = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain), [data-first-screen]'
   // What a press is for, told without measuring anything: each is asked as the page changes.
   pa.kinds = {
     any: () => null,

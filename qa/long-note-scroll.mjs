@@ -39,7 +39,7 @@ import { sandbox } from './sandbox-lib.mjs'
 import { checks } from './harness.mjs'
 
 const { check, done } = checks()
-const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const root = process.env.QA_DATA
 if (!root) throw new Error('QA_DATA must be a copy of a book')
 const PART = process.env.PART ?? 'fling'

@@ -10,7 +10,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760, seeded: false })
 const { h, page, v } = c
 const wait = (ms) => page.waitForTimeout(ms)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 // A card in either window that can show one (the box, the main window).
 // The milestones the book has had, as main wrote them down when it sent each card.
 const had = () => execFileSync('sqlite3', [join(process.env.QA_DATA, 'haligtree.db'), "select id from celebrations where id not like 'seeded:%'"], { encoding: 'utf8' }).trim()

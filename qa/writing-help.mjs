@@ -35,15 +35,15 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
   const wait = (ms) => h.waitForTimeout(ms)
   const ai = level === 'ai'
   // The note's own words, as kept: never the preview's new words drawn among them.
-  const text = () => h.evaluate(() => document.querySelector('[data-open] .tiptap')?.editor?.getText() ?? '')
+  const text = () => h.evaluate(() => document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)')?.editor?.getText() ?? '')
   const count = (all, one) => all.split(one).length - 1
   const pick = (start) => h.evaluate((start) => {
-    const ed = document.querySelector('[data-open] .tiptap').editor
+    const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
     let from = 0, to = 0
     ed.state.doc.descendants((node, pos) => void (node.isText && node.text.startsWith(start) && ((from = pos), (to = pos + node.nodeSize))))
     ed.chain().focus().setTextSelection({ from, to }).run()
   }, start)
-  const picked = () => h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap').editor; const { from, to } = ed.state.selection; return ed.state.doc.textBetween(from, to) })
+  const picked = () => h.evaluate(() => { const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor; const { from, to } = ed.state.selection; return ed.state.doc.textBetween(from, to) })
   const card = () => h.evaluate(() => { const one = document.querySelector('[data-writing-help]'); return one ? { help: one.getAttribute('data-writing-help'), state: one.getAttribute('data-help-state'), text: one.textContent, orb: !!one.querySelector('.mf-orb-pill') } : null })
   const marks = () => h.evaluate(() => ({ was: document.querySelector('[data-open] .mf-help-was')?.textContent ?? null, now: document.querySelector('[data-open] [data-help-new]')?.textContent ?? null, lit: document.querySelector('[data-open] .mf-help-quote')?.textContent ?? null }))
   const bar = '[data-selection-bar] button[aria-label="Writing help"]'
@@ -242,7 +242,7 @@ for (const level of (process.env.LEVELS ?? 'macos26,ai').split(',')) {
     page.drawText(SPANISH, { x: 20, y: 200, size: 9, font })
     await v('item:save', id, { body: { type: 'doc', content: [{ type: 'paragraph' }] } }); await c.send('article', id); await wait(1200)
     await h.evaluate((bytes) => {
-      const ed = document.querySelector('[data-open] .tiptap').editor
+      const ed = document.querySelector('[data-open] .tiptap:not(.is-line):not(.is-plain)').editor
       const data = new DataTransfer()
       data.items.add(new File([new Uint8Array(bytes)], 'stoics.pdf', { type: 'application/pdf' }))
       const box = ed.view.dom.getBoundingClientRect()

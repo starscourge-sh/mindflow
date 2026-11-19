@@ -70,7 +70,7 @@ const firstFrame = (name, how = 'event') => h.evaluate(([name, how]) => new Prom
     const room = head.parentElement.parentElement.getBoundingClientRect().right - head.getBoundingClientRect().left - 24
     const cut = head.scrollWidth > head.clientWidth + 1 && head.scrollWidth <= room
     return { cut, line: line ? (line.hasAttribute('data-bio-room') ? 'looking up' : line.hasAttribute('data-bio') ? 'words' : 'add') : 'none', kind: fact('Kind'), year: fact('Year'),
-      by: page.querySelector('[data-work-line]')?.textContent.trim() ?? '', words: page.querySelector('[data-bio-text] [contenteditable]')?.textContent?.slice(0, 60) ?? '' }
+      by: page.querySelector('[data-work-line]')?.textContent.trim() ?? '', words: page.querySelector('[data-bio-text] [contenteditable="true"]')?.textContent?.slice(0, 60) ?? '' }
   }
   let first = null
   let steady = true

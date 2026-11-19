@@ -19,7 +19,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1280, height: 860 })
 const { h, electron, v, send, go, errors } = c
 const wait = (ms = 500) => h.waitForTimeout(ms)
-const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const p = (text) => ({ type: 'paragraph', content: text ? [{ type: 'text', text }] : [] })
 const hd = (level, text) => ({ type: 'heading', attrs: { level }, content: [{ type: 'text', text }] })
 const shoot = async (name) => { if (SHOTS) await h.screenshot({ path: `${SHOTS}/${name}.png` }).catch(() => {}) }

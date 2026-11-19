@@ -26,7 +26,7 @@ const db = new DatabaseSync(join(root, 'books', shelf.last, 'haligtree.db'), { r
 const note = db.prepare("select id, body from captures where status = 'open' and kind = 'note' and body is not null order by length(body) desc limit 1").get()
 db.close()
 const size = JSON.parse(note.body).content.length
-const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const WAYS = (process.env.WAYS ?? 'top,cmdup,rail,link,openat,find,picture,openpicture').split(',').filter(Boolean)
 const load = () => `load ${loadavg()[0].toFixed(1)}`
 const results = []

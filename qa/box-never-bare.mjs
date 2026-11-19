@@ -11,7 +11,7 @@ const { check, done } = checks()
 const c = await sandbox({ width: 1100, height: 760 })
 const { page, v } = c
 const wait = (ms) => page.waitForTimeout(ms)
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 /** What of quick capture is on the screen: the window (main's own record, opacity as asked), and in it the card and its controls. */
 const seen = async () => {
   const win = await c.electron.evaluate(({ BrowserWindow, screen }) => {

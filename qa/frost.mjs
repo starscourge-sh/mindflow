@@ -15,7 +15,7 @@ const results = []
 const check = (name, ok, detail = '') => (results.push(!!ok), console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`))
 const c = await sandbox({ width: 1200, height: 820 })
 const { h, v, go, look, send } = c
-const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const ED = '.note-pane .tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 const wait = (ms) => h.waitForTimeout(ms)
 const cdp = await h.context().newCDPSession(h)
 const transparency = (reduce) => cdp.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-transparency', value: reduce ? 'reduce' : 'no-preference' }] })

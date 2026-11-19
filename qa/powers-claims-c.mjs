@@ -34,7 +34,7 @@ const details = async () => {
   if (await open.count() && (await open.getAttribute('aria-pressed')) !== 'true') await open.click()
 }
 const shot = async (name, target = h) => SHOTS && target.screenshot({ path: `${SHOTS}/${name}.png` })
-const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line)'
+const EDITOR = '.tiptap.ProseMirror.haligtree-editor:not(.is-line):not(.is-plain)'
 /** Quick capture: opened, emptied, the words typed, then ⌥⌘↵ (saves, and a fresh box for the next). */
 const box = async (words, send = true) => {
   await page.evaluate(() => window.api.showPrompt())
