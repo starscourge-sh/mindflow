@@ -5,7 +5,7 @@ import { chime } from '@/lib/sound'
 import { useLive } from '@/lib/haligtree'
 import { folders, type Folder, type GemIdea } from '@/lib/folders'
 import { Island, Pressed, toast } from './ui'
-import { plural } from '../../../../main/dates'
+import { num, plural } from '../../../../main/dates'
 
 /**
  * A folder's gem suggestions (main/folder-gems.ts): one quiet line at the top of its page, "14 lines here could be
@@ -45,7 +45,7 @@ export function FolderGems({ folder }: { folder: Folder }): React.JSX.Element | 
     toast(keep ? `Kept as a gem in ${folder.name}` : 'Let go: not offered again', () => void folders.gemIdeaUndo(folder.id, idea.line))
   }
   return (
-    <Island className="mt-3" title={`Could be gems · ${lines.length}`} actions={<button type="button" aria-label="Close" onClick={() => (chime('fold'), setOpen(false))} className="cursor-pointer rounded-md p-1 hover:bg-accent"><X className="size-3.5" /></button>}>
+    <Island className="mt-3" title={`Could be gems · ${num(lines.length)}`} actions={<button type="button" aria-label="Close" onClick={() => (chime('fold'), setOpen(false))} className="cursor-pointer rounded-md p-1 hover:bg-accent"><X className="size-3.5" /></button>}>
       <div ref={list} tabIndex={-1} data-folder-gems-list="" role="listbox" aria-label="Lines that could be gems" className="outline-none"
         onKeyDown={(event) => {
           const idea = lines[at]
