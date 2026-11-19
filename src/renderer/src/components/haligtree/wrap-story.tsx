@@ -395,7 +395,8 @@ function Ranked({ rows, accent }: { rows: { name: string; n: number }[]; accent:
 }
 
 /** Bars, one a row, each with its name and what it stands for in words: the first in the loud colour. */
-function Rows({ rows: all, p, wide }: { rows: { name: ReactNode; key: string; said: string; n: number }[]; p: Palette; wide: boolean }): React.JSX.Element {
+// `of`: each row's own whole (a read's minutes of its reading time), so a bar is its share of that, never of the longest row.
+function Rows({ rows: all, p, wide }: { rows: { name: ReactNode; key: string; said: string; n: number; of?: number }[]; p: Palette; wide: boolean }): React.JSX.Element {
   // Three on a small card, so the list never reaches the card's foot.
   const rows = all.slice(0, wide ? 5 : 3)
   const most = Math.max(1, ...rows.map((row) => row.n))
@@ -404,7 +405,7 @@ function Rows({ rows: all, p, wide }: { rows: { name: ReactNode; key: string; sa
       {rows.map((row, i) => (
         <In key={row.key} at={0.3 + i * 0.07} from="left" className="min-w-0">
           <p className="flex items-baseline gap-3 text-[15px] font-semibold"><span className="min-w-0 flex-1 truncate" dir="auto">{row.name}</span><span className="shrink-0 tabular-nums">{row.said}</span></p>
-          <motion.div className="mt-1.5 h-2 origin-left rounded-none" style={{ width: `${Math.max(2, (row.n / most) * 100)}%`, background: i ? `color-mix(in srgb, ${p.ink} 55%, ${p.bg})` : p.accent }}
+          <motion.div className="mt-1.5 h-2 origin-left rounded-none" style={{ width: `${Math.max(2, Math.min(1, row.n / (row.of ?? most)) * 100)}%`, background: i ? `color-mix(in srgb, ${p.ink} 55%, ${p.bg})` : p.accent }}
             initial={still() ? false : { scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ delay: 0.4 + i * 0.07, duration: 0.4, ease: EASE }} />
         </In>
       ))}
@@ -533,7 +534,7 @@ function Card({ kind, f, look, variant, seed, wide, open }: { kind: Kind; f: Fac
         const { total, finished, left } = f.reads
         return split(<><In at={0.12}><h2 className={BIG}>You finished {num(finished)} of {plural(total, 'article')} you opened.</h2></In>
           <In at={0.45}><p className={CAPTION}>{`Finished means its end reached with at least half its reading time spent on it.${left.length ? ` ${num(left.length)} left part way, to pick back up.` : ''}`}</p></In></>,
-          left.length ? <Rows p={p} wide={wide} rows={left.slice(0, 5).map((one, i) => ({ key: `${one.title}${i}`, name: one.title, said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`, n: Math.max(1, one.minutes) }))} /> : cover())
+          left.length ? <Rows p={p} wide={wide} rows={left.slice(0, 5).map((one, i) => ({ key: `${one.title}${i}`, name: one.title, said: `${one.minutes < 1 ? 'under a minute' : `${num(one.minutes)} min`} of ${num(Math.max(1, one.needs))}`, n: one.minutes, of: Math.max(1, one.needs) }))} /> : cover())
       }
       case 'plan': {
         const rows = [...f.planRows].sort((a, b) => Math.abs(b.did - b.planned) - Math.abs(a.did - a.planned)).slice(0, wide ? 4 : 2)
