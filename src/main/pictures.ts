@@ -1,7 +1,7 @@
-import { app, ipcMain, nativeImage } from 'electron'
+import { app, ipcMain, nativeImage, powerMonitor } from 'electron'
 import { imageSizeFromFile } from 'image-size/fromFile'
 import { existsSync } from 'fs'
-import { mkdir, writeFile } from 'fs/promises'
+import { mkdir, readdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { rgbaToThumbHash } from 'thumbhash'
 
@@ -38,8 +38,11 @@ export const assetsDir = (): string => join(app.getPath('userData'), 'assets')
  * seconds on every run (the user, 15 Nov 2026: "this page struggles to display content e.g images quickly despite it
  * being a local app"). Its path, or null when the Mac draws none (an SVG).
  */
+/** Where a stored picture's small copy is kept. */
+const copyPath = (name: string, size: number, tall = false): string =>
+  join(assetsDir(), '..', 'thumbs', `${name.replace(/\.[a-z0-9]+$/, '')}-${tall ? 'h' : ''}${size}.${/\.png$/i.test(name) ? 'png' : 'jpg'}`)
 export async function smallCopy(name: string, size: number, tall = false): Promise<string | null> {
-  const small = join(assetsDir(), '..', 'thumbs', `${name.replace(/\.[a-z0-9]+$/, '')}-${tall ? 'h' : ''}${size}.${/\.png$/i.test(name) ? 'png' : 'jpg'}`)
+  const small = copyPath(name, size, tall)
   if (existsSync(small)) return small
   const made = await nativeImage.createThumbnailFromPath(join(assetsDir(), name), tall ? { width: size * 3, height: size } : { width: size, height: size }).catch(() => null)
   if (!made || made.isEmpty()) return null
@@ -134,10 +137,63 @@ export function lookOf(name: string): Promise<PictureLook | null> {
   return waiting
 }
 
-/** For a picture just stored: its look worked out now, in the background. */
-export const lookAhead = (url: string): void => void lookOf(url.replace(/^haligtree:\/\/assets\//, ''))
+/**
+ * The small copy a grid, a board's card or a deck's gallery draws (`?w=640`, index.ts), made ahead: a picture whose
+ * copy was first asked for as its board opened came in frames after its card, the Mac's thumbnailer not done within
+ * the 150 ms a page waits. One at a time, so an import of a thousand pictures never runs a thousand at once.
+ */
+const AHEAD = 640
+const SHRINKS = /\.(png|jpe?g|webp|heic|tiff?)$/i
+const copying = new Set<string>()
+/** Pictures the Mac drew no copy of: never asked again in this run. */
+const undrawable = new Set<string>()
+let copies: Promise<unknown> = Promise.resolve()
+const copyAhead = (name: string): void => {
+  if (!PICTURE.test(name) || !SHRINKS.test(name) || copying.has(name)) return
+  copying.add(name)
+  copies = copies.then(() => smallCopy(name, AHEAD)).catch(() => null).then((made) => (made || undrawable.add(name), copying.delete(name)))
+}
+
+/** For a picture just stored: its look worked out now, and its small copy made, in the background. */
+export const lookAhead = (url: string): void => {
+  const name = url.replace(/^haligtree:\/\/assets\//, '')
+  void lookOf(name)
+  copyAhead(name)
+}
+
+/**
+ * The small copies older pictures lack (stored before copies were made ahead, or by another app), filled in a few
+ * at a time, and only while the person has left the Mac alone for a minute, so the work never competes with them.
+ * Each book's store is looked through until it has none missing.
+ */
+const IDLE = 60
+const FEW = 4
+const filled = new Set<string>()
+let filling = false
+async function fill(): Promise<void> {
+  const store = assetsDir()
+  if (filling || filled.has(store)) return
+  filling = true
+  try {
+    // A few, then look again: the moment the person is back, the rest wait for the next quiet minute.
+    while (powerMonitor.getSystemIdleTime() >= IDLE && assetsDir() === store) {
+      const missing = (await readdir(store)).filter((name) => PICTURE.test(name) && SHRINKS.test(name) && !undrawable.has(name) && !existsSync(copyPath(name, AHEAD)))
+      if (!missing.length) return void filled.add(store)
+      missing.slice(0, FEW).forEach(copyAhead)
+      await copies
+    }
+  } catch {
+    // A store not made yet (a new book): looked at again next time.
+  } finally {
+    filling = false
+  }
+}
+function fillCopies(): void {
+  setInterval(() => void fill(), 15_000)
+}
 
 export function registerPictures(): void {
+  fillCopies()
   // Every look known so far, at once, so a note opened later has them all to hand.
   ipcMain.handle('haligtree:pictures:looks', () =>
     Object.fromEntries((db().prepare('select name, width, height, hash, top, bottom from picture_looks').all() as (Row & { name: string })[]).map((row) => [row.name, lookFrom(row)])))
