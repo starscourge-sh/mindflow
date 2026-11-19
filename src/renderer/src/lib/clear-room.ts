@@ -12,6 +12,15 @@
 const clear = (at: EventTarget | null): boolean =>
   !(at instanceof Element) || at === document.documentElement || at === document.body || at.id === 'root' || at.hasAttribute('data-clear')
 
+/** How far out from anything drawn the window takes the pointer back: a fast move covers about this much between two moves. */
+const NEAR = 12
+/** Whether anything drawn lies within NEAR points of this point: the eight points round it, read as the page would hit them. */
+const nearDrawn = (x: number, y: number): boolean => {
+  for (const [dx, dy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]])
+    if (!clear(document.elementFromPoint(x + dx * NEAR, y + dy * NEAR))) return true
+  return false
+}
+
 export function clearRoom(): void {
   let solid: boolean | null = null
   const say = (now: boolean): void => {
@@ -20,7 +29,11 @@ export function clearRoom(): void {
     window.api.solid(now)
   }
   // A button held down (a drag, a selection running past the card) keeps the window's hold on the pointer until let go.
-  window.addEventListener('mousemove', (event) => say(event.buttons !== 0 || !clear(event.target)), true)
+  // The hold is taken a little before the pointer reaches anything drawn (NEAR points out): taken only once it was on
+  // the card, a pointer coming straight onto a corner button kept the arrow, since the Mac sets a window's cursor as
+  // the pointer moves in, and a window letting clicks through has none. Taken in the clear room just outside, the
+  // card's own cursors (the hand on its buttons) come with the pointer's next move onto them.
+  window.addEventListener('mousemove', (event) => say(event.buttons !== 0 || !clear(event.target) || nearDrawn(event.clientX, event.clientY)), true)
   // A file dragged in from another app sends no moves: main asks instead, point by point. Never while a button of
   // our own is held (a selection run past the card keeps its hold, as above).
   let held = false
