@@ -4250,9 +4250,16 @@ export function registerHaligtree(): void {
       where c.status != 'discarded'
     union select t.id, c.id, t.status = 'dropped' from task_links l join tasks t on t.id = l.task_id join captures c on c.id = l.item_id
       where c.status != 'discarded'`).all())
+  // A task held by a fresh start comes back only when asked ("Bring it back"): opening it once brought it back, and the
+  // list moved it, and itself, out from under the pointer (the user, 17 Nov: "it abruptly snaps me and the task back up").
+  handle('task:back', (id: string) => {
+    const was = db.prepare('select held_at as at from tasks where id = ? and held_at is not null').get(String(id)) as { at: string } | undefined
+    if (!was) return null
+    db.prepare('update tasks set held_at = null where id = ?').run(String(id))
+    return write(was.at)
+  })
+  handle('task:hold', (id: string, at: string) => write(db.prepare("update tasks set held_at = ? where id = ? and status = 'open'").run(String(at), String(id)).changes))
   handle('task', (id: string) => {
-    // Opened, a task held by a fresh start is back: you went looking for it.
-    if (db.prepare('update tasks set held_at = null where id = ? and held_at is not null').run(id).changes) changed()
     const row = db.prepare(`select ${TASK}, notes, subtasks, pickup from tasks where id = ?`).get(id) as Record<string, unknown> | undefined
     if (!row) return null
     // Made from a capture before tasks carried what it held: given it now, once, so its pictures and words are here.

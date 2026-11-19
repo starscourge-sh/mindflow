@@ -525,7 +525,16 @@ const byHow = (list: Task[]): [string, Task[]][] => {
   return [...tags.map((tag): [string, Task[]] => [howSaid(tag), list.filter((task) => first(task) === tag)]), ['No tag yet', list.filter((task) => !first(task))]]
 }
 
-/** A fresh start: every open task on hold in one move, nothing deleted. Each comes back on its day, or when you open it. */
+/** One task back from a fresh start's hold, asked for by name: said where it went, with Undo. */
+export function bringBack(task: Pick<Task, 'id' | 'title'>): void {
+  void call<string | null>('task:back', task.id).then((at) => {
+    if (!at) return
+    chime('unshelve')
+    toast(`Brought back from on hold: ${quoted(splitTags(task.title).text, 48)}`, () => void call('task:hold', task.id, at).then(() => chime('away')))
+  })
+}
+
+/** A fresh start: every open task on hold in one move, nothing deleted. Each comes back on its day, or when you bring it back. */
 function freshStart(): void {
   void call<{ at: string; held: number }>('tasks:fresh-start').then(({ at, held }) => {
     if (!held) return void (chime('nope'), toast('Nothing open to put on hold'))
@@ -614,6 +623,7 @@ export function taskMenu(task: Task, { open, complete = () => void completeTask(
   ]
   const opening: RowItem[] = [
     { label: 'Open', keys: '↵', run: open },
+    open_ && !!task.heldAt && { label: 'Bring it back', hint: 'Out of “On hold”, to its own place in the list', run: () => bringBack(task) },
     ...openItems('task', task.id),
     // The note under its name, to read or change (the tracker: "so how do i edit that attached file here?").
     !!task.fromId && { label: `Open ${quoted(splitTags(task.fromTitle ?? '').text || 'New note', 80)}`, hint: 'The note it came from', run: () => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:open', { detail: { type: 'capture', id: task.fromId } }))) },
@@ -1408,7 +1418,7 @@ export function TasksView({ mode, focus, onOpen }: { mode: 'today' | 'tomorrow' 
                     <button type="button" data-on-hold aria-expanded={heldShown} onClick={() => (chime(heldShown ? 'off' : 'tap'), heldShown || unfold(held), setHeldOpen(!heldShown))} className="flex w-full cursor-pointer items-center gap-1 text-left">
                       {row.heading} <span className="font-normal"><Rolling text={row.count} /></span>
                       <ChevronRight className={`size-3.5 transition-transform duration-150 motion-reduce:transition-none ${heldShown ? 'rotate-90' : ''}`} style={{ transitionTimingFunction: EASING }} />
-                      <span className="ml-auto font-normal text-(--mf-muted-strong)">From a fresh start · open one to bring it back</span>
+                      <span className="ml-auto font-normal text-(--mf-muted-strong)">From a fresh start · right-click one to bring it back</span>
                     </button>
                   </h2>
                 ) : row.key.startsWith('fold:') ? (
@@ -1680,6 +1690,13 @@ export function TaskDetail({ task: first, onClose, onOpen, top }: { task: TaskFu
           <TagRow tags={named.tags} field={tagField} onAdd={(tag) => void saveName(title.current?.value ?? named.text, [...named.tags, tag])}
             onRemove={(tag) => void saveName(title.current?.value ?? named.text, named.tags.filter((one) => one !== tag))} onDone={() => tagField.current?.blur()} />
         </div>
+        {/* Held by a fresh start: opening it leaves it there, and this says so, with the one press that brings it back. */}
+        {task.heldAt && task.status === 'open' && (
+          <p data-task-held className="page-narrow mx-auto mt-1 flex w-full items-center gap-2 px-12 text-body text-foreground">
+            <span><strong className="font-semibold">On hold</strong> since a fresh start.</span>
+            <Button size="sm" variant="outline" data-bring-back className="h-7 cursor-pointer px-2.5" onClick={() => bringBack(task)}>Bring it back</Button>
+          </p>
+        )}
         <HaligtreeEditor
           toolbar={{ fixed: false }}
           // A task's details, not a note: no line numbers.
