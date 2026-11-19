@@ -265,6 +265,10 @@ export function Welcome(): React.JSX.Element | null {
   const sweep = useRef<Animation | null>(null)
   // The welcome over: this window grows to the app's own size (main: growAfterWelcome) before the app comes up in it.
   const [grown, setGrown] = useState(false)
+  // Grown, and the app under it laid out and drawn once: the paper may go now.
+  const [bare, setBare] = useState(false)
+  // The first welcome's name has risen on the paper (Finale): the app may be laid out under it now.
+  const [risen, setRisen] = useState(false)
   const finaleName = useRef<string | null>(null)
   /** The arrival's light is whole (the gradient's bloom, or out of the desktop the spark's burst in the mist): the title may come. */
   const bloom = (): void => {
@@ -407,15 +411,21 @@ export function Welcome(): React.JSX.Element | null {
   // Grown to the app's own size: the ground goes (the dialog's fade), the first welcome's name is carried to the sidebar,
   // and the welcome is gone once the name has landed.
   useEffect(() => {
-    if (!closing || !grown) return
+    // The first welcome's name rises on the paper before the app is laid out under it (that first layout stalls a
+    // quarter of a second: the name would come up already over Home's own lines).
+    if (!closing || !grown || (finale && !risen)) return
     // The app laid out at the window's own size first (it is not drawn while covered), then the name carried to where
     // its sidebar now really is, a frame later.
     document.documentElement.removeAttribute('data-welcoming')
-    const frame = requestAnimationFrame(() => void (finaleName.current && setFinale(finaleName.current)))
+    // The paper fades, and the name is carried, only once the app has been laid out and drawn under it: the app's
+    // first layout takes a quarter of a second, and a fade begun in that frame was cut to a jump, the page there one
+    // frame and Home the next (19 Nov film, 82.2s). Two frames: the one that lays it out, then one drawn after it.
+    let second = 0
+    const first = requestAnimationFrame(() => (second = requestAnimationFrame(() => setBare(true))))
     clearTimeout(closeTimer.current)
     closeTimer.current = setTimeout(closed, quiet ? 450 : 1500)
-    return () => cancelAnimationFrame(frame)
-  }, [closing, grown]) // eslint-disable-line react-hooks/exhaustive-deps
+    return () => (cancelAnimationFrame(first), cancelAnimationFrame(second))
+  }, [closing, grown, risen]) // eslint-disable-line react-hooks/exhaustive-deps
   useCarriedWelcome()
   useEffect(() => {
     // Once a page: a first mount undone at once (React's StrictMode, in a dev build) leaves it to the second, so the chord plays once.
@@ -500,7 +510,7 @@ export function Welcome(): React.JSX.Element | null {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [at < 0])
 
-  const closed = (): void => (clearTimeout(closeTimer.current), setClosing(false), setGrown(false), setFinale(null), setAt(-1))
+  const closed = (): void => (clearTimeout(closeTimer.current), setClosing(false), setGrown(false), setBare(false), setRisen(false), setFinale(null), setAt(-1))
   const leave = (how: 'fresh' | 'sandbox' | 'notes' | 'closed'): void => {
     if (closing) return
     if (picked.current) applyTheme(picked.current)
@@ -525,6 +535,9 @@ export function Welcome(): React.JSX.Element | null {
       // cross-fade to Home, never a cut. Not told the window has grown (main gone quiet): it comes up all the same.
       setClosing(true)
       finaleName.current = ending ? (book && book.name !== DEFAULT_BOOK ? book.name : APP_NAME) : null
+      // The name comes up now, on the paper, as its words go (Finale): only carried to the sidebar once the window has
+      // grown and the paper fades. Raised only then, it stood over Home's own lines, the paper already gone (19 Nov film).
+      if (finaleName.current) setFinale(finaleName.current)
       closeTimer.current = setTimeout(closed, quiet ? 450 : 3200)
     }
     if (how !== 'sandbox') {
@@ -708,7 +721,7 @@ export function Welcome(): React.JSX.Element | null {
       onPointerDown={(event) => void (closing ? closed() : scened && !swept && event.isTrusted && !(event.target as HTMLElement).closest('button') && rush())}
       // Leaving: the words go first (the page's parts below); the ground stays while the window grows (main:
       // growAfterWelcome), then goes too, the app there under it at its own size.
-      initial={false} animate={{ opacity: closing && (grown || quiet) ? 0 : 1 }} transition={closing ? (quiet ? { duration: 0.4, ease: 'easeOut' } : { duration: 0.55, ease: MOVE }) : { duration: 0 }}
+      initial={false} animate={{ opacity: closing && (bare || quiet) ? 0 : 1 }} transition={closing ? (quiet ? { duration: 0.4, ease: 'easeOut' } : { duration: 0.55, ease: MOVE }) : { duration: 0 }}
       // Played again: nothing of the welcome shows until the window is in its place under the scene's fog.
       style={scened && !scened.covered ? { visibility: 'hidden' } : undefined}
       className="mf-welcome fixed inset-0 z-[70] flex outline-none flex-col overflow-clip bg-background text-foreground [container-type:inline-size]">
@@ -817,7 +830,7 @@ export function Welcome(): React.JSX.Element | null {
         </footer>
       </div>
     </motion.div>
-    {finale && <Finale name={finale} />}
+    {finale && <Finale name={finale} carry={bare} onRisen={() => setRisen(true)} />}
     </MotionConfig>
   )
 }
@@ -831,15 +844,20 @@ export function Welcome(): React.JSX.Element | null {
  * here takes a click or a key, and any key or click ends it at once (Welcome,
  * closing). With the sidebar folded it settles where it is and fades.
  */
-function Finale({ name }: { name: string }): React.JSX.Element {
+function Finale({ name, carry, onRisen }: { name: string; /** The window has grown and the paper is going: carried down now. */ carry: boolean; onRisen: () => void }): React.JSX.Element {
+  const risen = useRef(onRisen)
+  risen.current = onRisen
   const self = useRef<HTMLParagraphElement>(null)
+  // When it was let go to the sidebar, on the page's clock (read by its frames); until then it holds where it rose.
+  const carried = useRef<number | null>(null)
+  useEffect(() => void (carry && carried.current === null && (carried.current = performance.now())), [carry])
   useEffect(() => {
     const el = self.current
     if (!el) return
-    const t0 = performance.now()
+    const RISE = 350
     const TOTAL = 1400
     const rise = (p: number): number => 1 - (1 - p) ** 3
-    const carry = (p: number): number => (p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2)
+    const along = (p: number): number => (p < 0.5 ? 4 * p ** 3 : 1 - (-2 * p + 2) ** 3 / 2)
     // Its own place, untransformed: the middle of the window, as laid out (read each frame, as the window settles).
     const place = (): { left: number; top: number; width: number; height: number } => ({ left: el.offsetLeft, top: el.offsetTop, width: el.offsetWidth, height: el.offsetHeight })
     const big = parseFloat(getComputedStyle(el).fontSize)
@@ -847,8 +865,13 @@ function Finale({ name }: { name: string }): React.JSX.Element {
     let frame = 0
     // Followed every frame, not measured once: the first welcome's window is still settling to its size as it ends,
     // and the sidebar's foot moves with it.
+    const t0 = performance.now()
+    let told = false
     const tick = (now: number): void => {
-      const t = Math.min(1, (now - t0) / TOTAL)
+      // Risen, it holds until carried: its clock stands at the end of its rise, then runs on from there.
+      const held = carried.current === null ? Math.min(now - t0, RISE) : RISE + Math.max(0, now - Math.max(carried.current, t0 + RISE))
+      const t = Math.min(1, held / TOTAL)
+      if (held >= RISE && !told) (told = true), risen.current()
       const home = place()
       const target = document.querySelector<HTMLElement>('[data-sidebar-book-name]')
       const box = target?.getBoundingClientRect()
@@ -856,7 +879,7 @@ function Finale({ name }: { name: string }): React.JSX.Element {
       // Fading as it arrives, gone the moment it is over the sidebar's own name: never two names on top of each other.
       const shown = t < 0.25 ? rise(t / 0.25) : t < 0.66 ? 1 : Math.max(0, 1 - (t - 0.66) / 0.24)
       const up = t < 0.25 ? 10 * (1 - rise(t / 0.25)) : 0
-      const go = t < 0.25 ? 0 : carry(Math.min(1, (t - 0.25) / 0.65))
+      const go = t < 0.25 ? 0 : along(Math.min(1, (t - 0.25) / 0.65))
       let x = 0
       let y = up
       let scale = 0.96 + 0.04 * Math.min(1, rise(t / 0.25))
@@ -1431,10 +1454,12 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
   // Its own quote marks dropped (a quote keeps them), cut at a word with “…” when long.
   const first = mine?.label.split('\n')[0].trim() ? quoted(mine.label.split('\n')[0], 44, (text, n) => fittedTitle(text, n) ?? text) : ''
   // A different key, offered where the keys are asked for: Your turn.
+  // It comes with the line it follows (Action's own 0.2s), never before it, alone at the row's end.
   const other = (
-    <button type="button" onClick={() => (chime('tap'), setChoosing(true))} className={`${QUIET} rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60`}>
+    <motion.button type="button" onClick={() => (chime('tap'), setChoosing(true))} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.35, ease: EASE, delay: 0.2 }}
+      className={`${QUIET} rounded-sm underline decoration-current/30 underline-offset-4 transition-colors hover:text-foreground hover:decoration-current/60`}>
       Use a different key
-    </button>
+    </motion.button>
   )
   const said: Record<Turn, ReactNode> = {
     idle: <><Action>Now you: press {box} and write anything</Action>{other}</>,
@@ -1484,15 +1509,20 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
         <motion.div className="relative z-10 min-w-[14rem] flex-1" initial={false} animate={{ opacity: s.keys ? 0 : 1 }} transition={{ duration: 0.3, ease: ENTER }}>
           <Caught kinds={CAUGHT} filled={s.filled} said={s.said} lines={AHA} />
         </motion.div>
-        {/* Your turn, once it has all played: in the real box, with nothing to pick (the box guesses the kind). */}
-        <AnimatePresence>
-          {show.done && (
-            <motion.div key={turn} role="status" data-turn={turn} className="relative z-10 flex w-full shrink-0 flex-wrap items-baseline gap-x-5 gap-y-1 text-[clamp(1rem,min(2vw,2.9vh),1.375rem)] leading-snug text-foreground"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={{ duration: 0.25, ease: ENTER }}>
-              {said[turn]}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Your turn, once it has all played: in the real box, with nothing to pick (the box guesses the kind). Its row
+            is kept from the start, an unseen copy of its longest line under it: the stage is centred in its room, and
+            a row added at the end lifted the box and its column 11px as the line came (19 Nov film, Catch 34.4s). */}
+        <div className="relative z-10 grid w-full shrink-0 text-[clamp(1rem,min(2vw,2.9vh),1.375rem)] leading-snug text-foreground">
+          <div aria-hidden inert className="invisible col-start-1 row-start-1 flex flex-wrap items-baseline gap-x-5 gap-y-1">{said.idle}</div>
+          <AnimatePresence>
+            {show.done && (
+              <motion.div key={turn} role="status" data-turn={turn} className="col-start-1 row-start-1 flex flex-wrap items-baseline gap-x-5 gap-y-1"
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, transition: spring.fast.exit }} transition={{ duration: 0.25, ease: ENTER }}>
+                {said[turn]}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </>
   )

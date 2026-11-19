@@ -2566,7 +2566,8 @@ button.mf-signed:hover .mf-signature { text-decoration: underline; text-decorati
 /* The app under the welcome is covered whole: it is not drawn or restyled
    while the welcome is up, so a theme change (the dial) restyles only the
    welcome, a third of the work, and its frames stay smooth. */
-:root[data-welcoming] .mf-welcome ~ * { content-visibility: hidden; }
+/* The book's name at the end (welcome.tsx Finale) rises on the paper before the app is shown: never hidden with it. */
+:root[data-welcoming] .mf-welcome ~ :not([data-finale]) { content-visibility: hidden; }
 :root[data-welcoming]::view-transition-old(mf-theme-dial) { display: none; }
 :root[data-welcoming]::view-transition-new(mf-theme-dial), :root[data-welcoming]::view-transition-group(mf-theme-dial) { animation: none; }
 /* The words that carry the point, in the welcome: the accent with a lighter
