@@ -111,7 +111,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
         }}>
           <CommandInput autoFocus value={typed} onValueChange={setTyped} placeholder="Find or make a folder…" />
           {/* About seven rows, the rest a scroll away under the lists' own fades at either edge (main.css .mf-more). */}
-          <CommandList data-note-side data-folder-pick-list="" className="mf-more max-h-[calc(7*2.25rem)]">
+          <CommandList data-note-side data-folder-pick-list="" className="mf-more max-h-[13rem]">
             {!name && !shown.length && <CommandEmpty>No folders yet. Type a name to make one.</CommandEmpty>}
             {found.length > 100 && <p className="px-3 py-1.5 text-xs text-muted-foreground">{num(found.length - 100)} more: type more of the name</p>}
             {found.slice(0, 100).map(({ one, path }) => {
