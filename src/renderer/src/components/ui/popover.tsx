@@ -45,6 +45,10 @@ function PopoverContent({
   theirs.current = ref
   const opened = React.useCallback((node: HTMLDivElement | null) => {
     openCue(node)
+    // A bare box takes no clicks, nor does the wrapper Radix places it in, as large as the box: its empty room below
+    // the Calendar's popover took the click meant for a notice's Undo under it.
+    const wrapper = node?.parentElement
+    if (node?.classList.contains("mf-pop-hold") && wrapper?.hasAttribute("data-radix-popper-content-wrapper")) wrapper.style.pointerEvents = "none"
     const own = theirs.current
     if (typeof own === "function") own(node)
     else if (own) own.current = node

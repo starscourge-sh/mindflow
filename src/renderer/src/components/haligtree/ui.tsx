@@ -1404,7 +1404,10 @@ function useClearSpot(on: boolean, lane: React.RefObject<HTMLDivElement | null>)
         // A menu on its way out (a line in it was just picked, which is often what made the toast)
         // is not stepped round: the toast went over it for a moment, then dropped to the bottom.
         if (one.closest('[data-state="closed"]')) continue
-        const at = one.getBoundingClientRect()
+        // A box that is only placed (a bare popover, components/ui/popover.tsx) is as tall as its card's tallest state:
+        // what is drawn is its card. Read by the box, a notice under the empty room below the Calendar's popover was
+        // hidden, its Undo out of reach while the popover held words.
+        const at = (one.classList.contains('mf-pop-hold') ? one.querySelector(':scope > .mf-pop-card') ?? one : one).getBoundingClientRect()
         if (!at.width || !at.height) continue
         if (one.matches('[role="menu"],[data-slot="popover-content"]')) {
           menus.push(at)
