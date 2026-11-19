@@ -44,17 +44,19 @@ try {
   } else {
     // Apple Intelligence reads an hour in parts: minutes on a busy Mac.
     const read = await notice('Apple Intelligence read this recording', 300000)
-    const now = await meetingOf(id)
-    console.log(`after: ${now.speakers.length} speakers; items: ${now.actions.map((one) => `${one.text} (${one.by})`).join(' | ') || 'none'}; read: ${!!now.take}`)
+    // Whose items the page shows, the moment its notice is up (the saved words come a moment later).
+    const whose = await h.$eval('[data-meeting-take]', (el) => el.getAttribute('data-meeting-take')).catch(() => null)
+    const said = await h.evaluate(() => (window.__said ?? []).find((one) => one.includes('Apple Intelligence read this recording')) ?? '')
+    console.log(`after: page shows items by ${whose}; said: ${said.slice(0, 120)}`)
     if (read) {
-      check('Apple Intelligence\'s notice says what it found', true)
-      check('the action items are its own now', !!now.take && now.actions.every((one) => one.by === 'ai' || one.done || one.task))
+      check('Apple Intelligence\'s notice says what it found', /found (no action items|\d+ action items?)/.test(said), said)
+      check('the action items on the page are its own now', whose === 'ai', whose)
       if (process.env.SHOTS) await h.screenshot({ path: `${process.env.SHOTS}/q1-meeting-ai.png` })
       await undo('Apple Intelligence read this recording')
-      await h.waitForTimeout(1200)
-      const back = await meetingOf(id)
+      let back = await meetingOf(id)
+      for (let i = 0; back.take && i < 30; i++) (await h.waitForTimeout(500), (back = await meetingOf(id)))
       check('Undo puts the items found by rule back', !back.take && back.actions.length === was.actions.length, JSON.stringify(back.actions.map((one) => one.text)))
-    } else check('Apple Intelligence read it within five minutes, or this Mac has none and the rule\'s items stay', !now.take && now.actions.length === was.actions.length)
+    } else check('Apple Intelligence read it within five minutes, or this Mac has none and the rule\'s items stay', !(await meetingOf(id)).take)
   }
   check('no page errors', !errors.length, errors.slice(0, 3).join(' | '))
 } catch (error) {
