@@ -194,7 +194,8 @@ function ThisMac({ caps, missing }: { caps: Caps | null; missing: number }): Rea
       {caps && (
         <>
           <strong className="font-semibold text-foreground">On this Mac{caps.major ? ` (macOS ${caps.macos.replace(/\.0$/, '')})` : ''}.</strong>{' '}
-          {missing ? `${plural(missing, 'feature needs', 'features need')} a newer Mac or Apple Intelligence, and ${missing === 1 ? 'says' : 'say'} so on ${missing === 1 ? 'its card' : 'their cards'}; the rest work here.` : 'Everything here works.'}
+          {missing ? `${plural(missing, 'feature needs', 'features need')} a newer Mac or Apple Intelligence, and ${missing === 1 ? 'says' : 'say'} so on ${missing === 1 ? 'its card' : 'their cards'}; the rest work here.` : 'Everything here works.'}{' '}
+          <span data-not-yet>Not on any Mac yet: Siri and Shortcuts, a widget, and keeping quiet in a Focus, which need parts this build of {APP_NAME} cannot carry.</span>
         </>
       )}
     </p>
