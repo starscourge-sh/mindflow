@@ -64,7 +64,11 @@ async function surface(list, view, label, { sort = 'manual', density = 'list', o
   await menuRename(gid)
   check(`${label}: "Rename…" opens it a second time`, await fieldOpen())
   await h.keyboard.type('From the menu', { delay: 20 })
-  await h.mouse.click(1250, 880); await wait(600)
+  // Into the open note's words when one is open: the window's bottom right corner is the thought dock's bare edge
+  // there, which keeps the keys where they are by design (b9739ba53).
+  const away = h.locator('[data-open] .tiptap.haligtree-editor:not(.is-line):not(.is-plain)').first()
+  if (await away.count()) await away.click(); else await h.mouse.click(1250, 880)
+  await wait(600)
   check(`${label}: a click away keeps it`, (await nameOf(list, gid)) === 'From the menu', await nameOf(list, gid))
 
   // F2 on its row (reached with the keyboard focus on it), type, Enter.
@@ -103,12 +107,16 @@ try {
     await h.keyboard.type(words, { delay: 20 }); await h.keyboard.press(key); await wait(700)
     return open
   }
-  const fid = await h.locator('aside [data-side-folders="article"] [data-side-folder]').first().getAttribute('data-side-folder')
+  // The sidebar's folders are the Folders section's since the folders page (1850d2a32, 7650ed4c8): Writing keeps none
+  // of its own in the sandbox, so the first folder there is renamed; its name is read from the folder itself.
+  const fid = await h.locator('aside [data-side-folder][data-folder-name]').first().getAttribute('data-side-folder', { timeout: 8000 })
+  const folderName = () => h.evaluate((id) => window.api.haligtree('folders').then((all) => all.find((one) => one.id === id)?.name).catch(() => document.querySelector(`aside [data-side-folder="${id}"]`)?.getAttribute('data-folder-name')), fid)
+  const was = await folderName()
   check('sidebar folder: "Rename…" opens the name for typing', await sideRename(`aside [data-side-folder="${fid}"]`, 'Renamed folder'))
-  check('sidebar folder: Enter keeps it', (await nameOf('article', fid)) === 'Renamed folder', await nameOf('article', fid))
+  check('sidebar folder: Enter keeps it', (await folderName()) === 'Renamed folder', await folderName())
   check('sidebar folder: the row shows it', (await h.locator(`aside [data-side-folder="${fid}"]`).textContent())?.includes('Renamed folder'))
-  await h.mouse.click(1250, 880); await h.keyboard.press('Meta+z'); await wait(800)
-  check('sidebar folder: ⌘Z takes it back', (await nameOf('article', fid)) !== 'Renamed folder', await nameOf('article', fid))
+  await h.evaluate(() => document.activeElement?.blur?.()); await h.keyboard.press('Meta+z'); await wait(800)
+  check('sidebar folder: ⌘Z takes it back', (await folderName()) === was, await folderName())
 
   // Review's decks: a deck's right click "Rename…", typed in its tile, Enter.
   await go('review'); await wait(1200)
