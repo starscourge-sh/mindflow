@@ -33,7 +33,7 @@ export const deepCount = (all: Folder[], id: string): number =>
  * line per import, not every source's whole tree. Then "Not in a folder N", the pages and gems with no folder, and
  every folder's page from the heading (its arrow, its right-click). A row takes anything dropped on it (split-drop.tsx `keepDrop`).
  */
-export function FoldersSection({ here, counted, unfiled, onOpen, onOpenItem, lit: litItem, style, noteIn, noteRow, noteKey }: { here: FolderPlace | undefined; counted: boolean; /** How many pages and gems are in no folder: read by the sidebar, which waits for it. */ unfiled: number; onOpen: (place: FolderPlace) => void
+export function FoldersSection({ here, counted, onOpen, onOpenItem, lit: litItem, style, noteIn, noteRow, noteKey }: { here: FolderPlace | undefined; counted: boolean; onOpen: (place: FolderPlace) => void
   /** A page, note, gem or task in a folder unfolded here, opened as anywhere else. */
   onOpenItem: (type: string, id: string) => void
   /** The thing open now, lit where it shows under its folder. */
