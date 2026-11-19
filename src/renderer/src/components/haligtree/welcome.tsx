@@ -1441,7 +1441,14 @@ function CatchChapter({ play, report, state, onState, setup, turn, mine }: { pla
   // After every change on the stage (the frame moves as lines come and go), and as the window changes size.
   useEffect(tellSpot)
   useEffect(() => {
-    const watch = new ResizeObserver(() => tellSpot())
+    // The frame never gives back room it has taken: the stage is centred in its room, so a box that grew shorter
+    // (sent, its words gone) moved the box, its column and its line 6 to 10px each time (Catch, 19 Nov film, 25.3s, 35.0s).
+    let most = 0
+    const watch = new ResizeObserver(() => {
+      const el = frame.current
+      if (el && el.offsetHeight > most) (most = el.offsetHeight), (el.style.minHeight = `${most}px`)
+      tellSpot()
+    })
     if (frame.current) watch.observe(frame.current)
     watch.observe(document.documentElement)
     return () => (watch.disconnect(), void onboarding.set({ boxSpot: null }))

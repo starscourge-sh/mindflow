@@ -3,6 +3,7 @@
 // "Open my book" turning it over onto Home. Run on an empty data folder for a first run, or with `replay` on the seeded
 // sandbox, opened from Settings as a person replays it. Writes <folder>/<ms>.jpg and <folder>/steps.json (when each
 // chapter was asked for), for contact sheets read by eye. A film, not a check.
+//   (replay: "Show the welcome again", as its menu line and ⌘K ask for it)
 //   QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-w/main/index.js HALIGTREE_QA_AWAY=1 node qa/welcome-film.mjs <folder> [light|dark] [1440|1180] [first|replay]
 import { mkdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
@@ -58,14 +59,12 @@ try {
     await c.look(THEME)
   }
   if (MODE === 'replay') {
-    // As a person replays it: Settings, then its "Replay the welcome".
-    await c.go('settings')
-    mark('settings')
-    const replay = h.locator('button:has-text("welcome")').first()
-    await replay.scrollIntoViewIfNeeded()
-    await h.waitForTimeout(400)
-    mark('replay pressed')
-    await replay.click()
+    // As a person replays it: "Show the welcome again", from the settings menu at the sidebar's foot or ⌘K (both
+    // playWelcome, lib/onboarding.ts), over Home.
+    await c.go('home')
+    await h.waitForTimeout(800)
+    mark('replay asked')
+    await h.evaluate(() => window.dispatchEvent(new CustomEvent('haligtree:welcome')))
   }
   await h.waitForSelector('.mf-welcome', { timeout: 15000 })
   mark('welcome up')

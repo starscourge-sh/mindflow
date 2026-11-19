@@ -286,8 +286,10 @@ export function FlowTree({ shot, quiet }: { shot: FlowShot; quiet: boolean }): R
   const leave: Record<string, number> = {}
   let above = -Infinity
   for (const one of PICKS.filter((pick) => sels[pick]).sort((a, b) => sels[a].y1 - sels[b].y1)) above = leave[one] = Math.max(sels[one].y1, above + APART)
+  // Grown from the top of its room, under the page's words: centred in it, each card set down moved every card already
+  // there up by half its height (the page 12px as the gems came, Write, 19 Nov film, 53.3s).
   return (
-    <figure ref={room} data-story={words.id} aria-label="The thought caught on a walk becomes a page; a phrase in it becomes a task, one sentence a gem that comes back now and then, and another a gem with a question for Review" className="flex min-h-0 w-full flex-1 flex-col justify-center-safe">
+    <figure ref={room} data-story={words.id} aria-label="The thought caught on a walk becomes a page; a phrase in it becomes a task, one sentence a gem that comes back now and then, and another a gem with a question for Review" className="flex min-h-0 w-full flex-1 flex-col justify-start">
       <div ref={root} className="relative flex shrink-0 flex-col">
         {/* Over the cards. A picked phrase's line starts at the page's right edge, level with the phrase's last line of words (marked in place by its
             highlight and icon), and curves across to its card: it never runs through or under the paragraph. The cards stand in the order their phrases

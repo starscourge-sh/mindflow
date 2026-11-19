@@ -2334,7 +2334,12 @@ input[type='number']::-webkit-outer-spin-button {
   background: var(--primary);
   animation: mf-blink 1.06s steps(1, end) infinite;
 }
-.mf-caret-typing { animation: none; }
+/* Typing words in whose rest is laid out unseen (welcome-flow.tsx): the caret takes no room in the line and is no
+   place to break it. As a box of its own (2px, between two letters of a word), it let the line break there, so the
+   card grew a line and shrank back as the caret went on through the word, the card jumping 11px each time (Write,
+   19 Nov film, 39.5s). Drawn over the line instead, from an empty span that is not a box of its own. */
+.mf-caret-typing { animation: none; display: inline; position: relative; width: auto; height: auto; margin: 0; background: none; }
+.mf-caret-typing::before { content: ''; position: absolute; left: 0.06em; top: 50%; width: 2px; height: 0.92em; translate: 0 -50%; border-radius: 1px; background: var(--primary); }
 .mf-caret-gone { opacity: 0; transition: opacity 300ms var(--mf-ease); animation: none; }
 @keyframes mf-blink { 50% { opacity: 0; } }
 /* Waiting on you: a small dot that breathes, slowly enough to be calm. */
