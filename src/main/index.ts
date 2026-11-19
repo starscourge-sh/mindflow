@@ -5491,14 +5491,16 @@ app.whenReady().then(() => {
   registerCaptures()
   reached('book')
   registerImportConversion()
-  // Notes imported before front-matter tags stopped coming in twice: tidied as it starts, a no-op once done.
+  registerUsage()
+  registerHaligtree()
+  // Notes imported before front-matter tags stopped coming in twice: tidied as it starts, a no-op once done. After
+  // registerHaligtree, which gives a new book's notes their `fields` column: before it, every new book's first start
+  // printed "no such column: fields".
   try {
     dropDuplicateTags()
   } catch (error) {
     console.error('Could not tidy imported tags', error)
   }
-  registerUsage()
-  registerHaligtree()
   whenIcon(wearIcon)
   registerSessionLog()
   // The Mac slept while this book's session was kept running from another book: the sleep rule applies now, as it would have then.
