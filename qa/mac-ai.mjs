@@ -2,7 +2,8 @@
 // note with none, why a clue may help) run as four Macs (HALIGTREE_QA_CAPS=every|macos15|macos26|ai). On the
 // first three none is drawn anywhere (What Haligtree can do says "Needs Apple Intelligence"); on "ai" a
 // stand-in model answers (main/write.ts), and each is driven to its end: the week's paragraph read, then kept
-// as its summary; a name offered for a note that starts with a picture, then used; a why line under a clue.
+// as its summary; a name offered for a note that starts with a picture, then used; a why line under a clue; a
+// question answered in one sentence from the notes found for it, the notes named (ask your book).
 // These were never seen running on real Apple Intelligence: the build Mac has it turned off.
 //   QA_ARGS=--sandbox QA_DATA=$(mktemp -d) QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/mac-ai.mjs
 import { readFileSync } from 'node:fs'
@@ -60,6 +61,13 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
       if (state.why || (!ai && state.clues)) why = state.why ?? ''
     }
     check(`${level}: a clue offered for a question ${ai ? 'says why it may help, written on this Mac' : 'has no why line'}`, ai ? /stand-in's reason/.test(why ?? '') && /Written on this Mac/.test(why) : why === '', why)
+    // Ask your book: every Mac gets the notes; with the model, one sentence from those notes only, the notes named.
+    let answer = null
+    for (let t = 0; t < 8000 && ai && !/stand-in's answer|Not answered/.test(answer ?? ''); t += 300) (await wait(300), (answer = await h.evaluate(() => document.querySelector('[data-ai-answer]')?.textContent ?? null)))
+    if (!ai) answer = await h.evaluate(() => document.querySelector('[data-ai-answer]')?.textContent ?? null)
+    const named = await h.evaluate(() => [...document.querySelectorAll('[data-offer-clue] [data-offer-note]')].slice(0, 3).map((one) => one.textContent.trim()))
+    check(`${level}: the question's notes ${ai ? 'come with one sentence from them, naming them, written on this Mac' : 'come alone, no answer line'}`,
+      ai ? /stand-in's answer/.test(answer ?? '') && named.every((title) => (answer ?? '').includes(`“${title}”`)) && /written on this Mac/.test(answer ?? '') : answer === null, `${answer} | ${named.join(' / ')}`)
     if (ai && process.env.SHOT) await c.both(`${process.env.SHOT}/ai-why`)
     // What Haligtree can do.
     // The page opens in tabs (27d91f0ff): each tab clicked in turn, its Apple Intelligence cards read.

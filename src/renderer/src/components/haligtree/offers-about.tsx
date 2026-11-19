@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { WhyLine } from './ai-offers'
+import { AnswerLine, WhyLine } from './ai-offers'
 import { BookOpen, X } from 'lucide-react'
 
 import { call, haligtree } from '@/lib/haligtree'
@@ -56,6 +56,7 @@ export function QuestionClues({ id, title, onOpen }: { id: string; title: string
   return (
     <section data-offer-clues aria-label="From your notes" className="mt-4 rounded-xl border bg-[color-mix(in_oklab,var(--foreground)_2.5%,transparent)] px-3.5 py-3">
       <p className="text-control text-muted-foreground"><b className="font-medium text-foreground">From your notes.</b> A clue for this question?</p>
+      <AnswerLine question={title} notes={list} />
       <ul className="mt-1.5 flex flex-col gap-1">
         {list.map((one) => (
           <li key={one.key} data-offer-clue={one.key} className="flex items-center gap-2">

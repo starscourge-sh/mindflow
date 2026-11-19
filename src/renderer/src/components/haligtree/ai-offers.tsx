@@ -76,6 +76,34 @@ export function WhyLine({ question, note }: { question: string; note: string }):
   )
 }
 
+/**
+ * Ask your book, on a question's page: one sentence answering it from the notes found for it, those only, each named.
+ * Only where the Mac has Apple Intelligence; elsewhere the notes alone are the answer (offers-about.tsx).
+ */
+export function AnswerLine({ question, notes }: { question: string; notes: { title: string; words: string }[] }): React.JSX.Element | null {
+  const caps = useCaps()
+  useReading(caps === null)
+  const has = meets(caps, 'ai') && notes.length > 0
+  const asked = notes.map((one) => `${one.title}. ${one.words}`)
+  const [said, setSaid] = useState<Written | null>(null)
+  useEffect(() => {
+    if (!has) return
+    let live = true
+    setSaid(null)
+    void window.api.haligtree<Written>('ai:answer', question, asked).then((one) => live && setSaid(one), (error: Error) => live && setSaid({ error: error.message }))
+    return () => void (live = false)
+  }, [has, question, asked.join('|')]) // eslint-disable-line react-hooks/exhaustive-deps
+  if (!has) return null
+  const from = notes.slice(0, 3).map((one) => `“${one.title}”`)
+  const named = from.length > 1 ? `${from.slice(0, -1).join(', ')} and ${from.at(-1)}` : from[0]
+  const words = said && 'text' in said ? `${said.text} From ${named}, written on this Mac.` : said ? `Not answered: ${said.error}.` : null
+  return (
+    <p data-mac-needs="ai" data-ai-answer data-room-held className="mt-1 min-h-[2lh] text-body text-foreground">
+      {words === null ? <Orb label="Asking this Mac from your notes…" /> : <span><Sparkles aria-hidden className="mr-1 inline size-3.5 align-[-2px] text-muted-foreground" />{words}</span>}
+    </p>
+  )
+}
+
 /** A name for a note that starts with no words of its own (a picture, a recording), from the words further in. */
 export async function nameFor(text: string): Promise<string | null> {
   const said = await window.api.haligtree<Written>('ai:name', text).catch(() => null)

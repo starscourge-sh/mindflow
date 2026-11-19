@@ -85,6 +85,14 @@ export function registerWrite(): void {
   ipcMain.handle('haligtree:ai:why', (_event, question: unknown, note: unknown) =>
     write(`You say in one short sentence why a note may help answer a question, or plainly that it may not. ${PLAIN}`, `Question: ${String(question ?? '')}\nNote: ${String(note ?? '').slice(0, 1500)}`,
       `It speaks of ${String(note ?? '').split(/\s+/).slice(0, 5).join(' ')}. (A stand-in's reason.)`))
+  // Ask your book: a question answered in one sentence from the notes found for it (offers.ts `about`), those only.
+  ipcMain.handle('haligtree:ai:answer', (_event, question: unknown, notes: unknown) => {
+    const list = (Array.isArray(notes) ? notes : []).map((one) => String(one ?? '').slice(0, 1200)).filter(Boolean).slice(0, 5)
+    if (!list.length) return { error: 'No notes to answer from' }
+    return write(`You answer a question in one sentence, from the NOTES alone. If they do not answer it, say plainly that your notes do not say. ${PLAIN}`,
+      `Question: ${String(question ?? '')}\n${list.map((one, at) => `NOTE ${at + 1}: ${one}`).join('\n')}`,
+      `Your notes say: ${list[0].split(/\s+/).slice(0, 8).join(' ')}. (A stand-in's answer.)`)
+  })
   // Writing help on picked words: the words alone (and, for "Ask me about this", the note they sit in), or the
   // person's own writing beside them for "In my words". Every refusal says what it found, never a catch-all.
   ipcMain.handle('haligtree:ai:help', async (_event, op: unknown, text: unknown, note: unknown) => {
