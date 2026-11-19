@@ -347,8 +347,12 @@ export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, o
   files: Media[]; across: number; cursor: number; chosen: string[]; keyOf: (one: Media) => string
   menuFor: (one: Media) => RowItem[]; onClick: (one: Media, event: React.MouseEvent) => void
 }): React.JSX.Element {
-  const lines = useMemo(() => grouped(files, (one) => monthOf(one.at), across), [files, across])
   const ways = useTileWays(menuFor, onClick)
+  const lines = useMemo(() => grouped(files, (one) => monthOf(one.at), across), [files, across])
+  // Pinched in past Photos' nine across: every picture in one close mosaic, no headings, as Photos' "Years" and
+  // "Months": the first picture of each month (or year) carries its name on a small pill over it.
+  const dense = across >= DENSE.years ? 'years' : across >= DENSE.months ? 'months' : null
+  if (dense) return <PictureMosaic files={files} across={across} by={dense} cursor={cursor} chosen={chosen} keyOf={keyOf} ways={ways} />
   const cursorKey = files[cursor] ? keyOf(files[cursor]) : null
   return (
     <>
@@ -374,6 +378,47 @@ export function PictureMonths({ files, across, cursor, chosen, keyOf, menuFor, o
   )
 }
 
+/** How many across a grid of pictures turns into Photos' close mosaics: by month, then by year. */
+export const DENSE = { months: 15, years: 30 }
+const YEAR = new Intl.DateTimeFormat('en-GB', { year: 'numeric' })
+const MONTH_SHORT = new Intl.DateTimeFormat('en-GB', { month: 'short', year: 'numeric' })
+
+/**
+ * Pictures as Photos' "Months" and "Years": one close mosaic of small squares, a hairline apart, newest first, only
+ * the rows in sight drawn; a small pill names each month ("Feb 2026") or year ("2024") on its first picture. Each
+ * square is the same tile (its menu, its click, its pick), only smaller and without its name rising on hover.
+ */
+function PictureMosaic({ files, across, by, cursor, chosen, keyOf, ways }: { files: Media[]; across: number; by: 'months' | 'years'; cursor: number; chosen: string[]; keyOf: (one: Media) => string; ways: TileWays }): React.JSX.Element {
+  const name = (one: Media): string => (one.at ? (by === 'years' ? YEAR : MONTH_SHORT).format(new Date(one.at)) : 'Undated')
+  const lines = useMemo(() => {
+    const out: { key: string; files: Media[]; from: number }[] = []
+    for (let from = 0; from < files.length; from += across) out.push({ key: files[from].src, files: files.slice(from, from + across), from })
+    return out
+  }, [files, across])
+  const gap = by === 'years' ? 1 : 2
+  const cursorKey = files[cursor] ? keyOf(files[cursor]) : null
+  return (
+    <VirtualList items={lines} keyOf={(line) => line.key} rowClass="" estimate={40}
+      holds={(line, key) => line.files.some((one) => keyOf(one) === key)}
+      cursor={cursorKey ? lines.findIndex((line) => line.files.some((one) => keyOf(one) === cursorKey)) : undefined}>
+      {(line) => (
+        <div data-mosaic={by} className="grid" style={{ gridTemplateColumns: `repeat(${across}, minmax(0, 1fr))`, gap, paddingBottom: gap }}>
+          {line.files.map((one, at) => {
+            const index = line.from + at
+            const label = index === 0 || name(files[index - 1]) !== name(one) ? name(one) : null
+            return (
+              <span key={keyOf(one)} className="relative block">
+                <Square one={one} here={index === cursor} picked={chosen.includes(keyOf(one))} ways={ways} small />
+                {label && <span data-mosaic-label className="pointer-events-none absolute top-1 left-1 z-[1] rounded-full bg-background/90 px-1.5 py-px text-[11px] font-semibold whitespace-nowrap text-foreground shadow-sm">{label}</span>}
+              </span>
+            )
+          })}
+        </div>
+      )}
+    </VirtualList>
+  )
+}
+
 /** The page's ways in, held still for its tiles, as FilesTable holds them for its rows. */
 type Ways = { menuFor: (one: Media) => RowItem[]; onClick: (one: Media, event: React.MouseEvent) => void; onUse?: (use: MediaUse, src: string) => void }
 export type TileWays = React.RefObject<Ways>
@@ -388,21 +433,21 @@ export const useTileWays = (menuFor: Ways['menuFor'], onClick: Ways['onClick'], 
  * only when what it shows changes, its menu made as it opens: drawn afresh on each frame of a scroll, with a menu
  * built for each, the squares in sight cost a frame its whole budget (qa/files-table.mjs).
  */
-const Square = memo(function Square({ one, here, picked, ways }: { one: Media; here: boolean; picked: boolean; ways: TileWays }): React.JSX.Element {
+const Square = memo(function Square({ one, here, picked, ways, small = false }: { one: Media; here: boolean; picked: boolean; ways: TileWays; /** In a close mosaic: squarer corners, and no name rising on hover. */ small?: boolean }): React.JSX.Element {
   return (
     <RowMenu items={() => ways.current.menuFor(one)}>
       <button type="button" data-media={one.kind} data-src={one.src} data-id={one.src} data-cursor={here || undefined} data-picked={picked || undefined}
         onClick={(event) => ways.current.onClick(one, event)}
-        className={`files-square group/sq relative block aspect-square w-full cursor-pointer overflow-hidden rounded-[6px] bg-accent text-left outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[6px] after:ring-inset ${picked ? 'after:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] after:ring-2 after:ring-[var(--tt-brand-color-400)]' : here ? 'after:ring-2 after:ring-ring' : 'after:ring-1 after:ring-foreground/10'}`}>
+        className={`files-square group/sq relative block aspect-square w-full cursor-pointer overflow-hidden ${small ? 'rounded-[2px]' : 'rounded-[6px]'} bg-accent text-left outline-none after:pointer-events-none after:absolute after:inset-0 after:rounded-[6px] after:ring-inset ${picked ? 'after:bg-[color-mix(in_srgb,var(--tt-brand-color-400)_22%,transparent)] after:ring-2 after:ring-[var(--tt-brand-color-400)]' : here ? 'after:ring-2 after:ring-ring' : 'after:ring-1 after:ring-foreground/10'}`}>
         <Cover one={one} className="size-full" />
         {(one.kind === 'gif' || one.kind === 'video') && <span className="absolute top-1.5 left-1.5 rounded-[3px] bg-background px-1 text-[11px] font-medium">{kindWord(one)}</span>}
         {/* Pointed at, its name rises out of a frosted foot, the blur thinning as it rises (the Map's own): no band. */}
-        <span data-square-foot className="files-square-foot pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end px-2 pt-8 pb-1.5 text-white">
+        {!small && <span data-square-foot className="files-square-foot pointer-events-none absolute inset-x-0 bottom-0 flex flex-col justify-end px-2 pt-8 pb-1.5 text-white">
           <span aria-hidden className="mf-blur-edge files-square-blur"><span /><span /><span /><span /></span>
           {/* A picture with no name of its own is called after its note: then the note is said once. */}
           {nameOf(one) !== one.uses[0]?.title && <span dir="auto" data-media-name className={`relative truncate text-xs font-medium ${one.private ? 'private-text' : ''}`}>{nameOf(one)}</span>}
           <span data-media-where className={`relative truncate ${nameOf(one) !== one.uses[0]?.title ? 'text-[11px] text-white' : 'text-xs font-medium'}`}>{whereOf(one)}</span>
-        </span>
+        </span>}
       </button>
     </RowMenu>
   )

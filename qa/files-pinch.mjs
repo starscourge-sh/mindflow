@@ -48,6 +48,21 @@ try {
   const twice = await across()
   await h.keyboard.press('Meta+0'); await h.waitForTimeout(500)
   check('item 41: ⌘0 puts it back to as many as fit', twice < back && (await across()) === fit, `${twice}, then ${await across()} (fit ${fit})`)
+  // Pinched further in, past nine: Photos' "Months", then "Years", one close mosaic with each month's (year's) name on a pill.
+  const mosaic = async () => h.evaluate(() => ({ by: document.querySelector('[data-mosaic]')?.getAttribute('data-mosaic') ?? null, labels: [...document.querySelectorAll('[data-mosaic-label]')].map((one) => one.textContent), heads: document.querySelectorAll('[data-media-grid] h2, [data-media-grid] h3').length }))
+  const seen = []
+  for (let i = 0; i < 6; i++) {
+    await pinch(at.x, at.y, -8)
+    const now = await mosaic()
+    seen.push(now.by ?? String(await across()))
+    if (now.by === 'months' && !seen.months) seen.months = now
+    if (now.by === 'years') { seen.years = now; break }
+  }
+  check('item 41: pinched in past nine, the months mosaic, each month named on a pill', !!seen.months && seen.months.labels.length > 0 && seen.months.labels.every((one) => /^[A-Z][a-z]{2} \d{4}$|^Undated$/.test(one)), JSON.stringify({ seen, months: seen.months }))
+  check('item 41: and then the years mosaic, each year on a pill', !!seen.years && seen.years.labels.length > 0 && seen.years.labels.every((one) => /^\d{4}$|^Undated$/.test(one)), JSON.stringify(seen.years))
+  if (shots) await c.both(`${shots}/files-years`)
+  await h.keyboard.press('Meta+0'); await h.waitForTimeout(500)
+  check('item 41: ⌘0 from the mosaic puts the grid back', !(await mosaic()).by && (await across()) === fit, String(await across()))
 } finally {
   await c.close()
 }

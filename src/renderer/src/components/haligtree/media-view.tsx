@@ -29,7 +29,7 @@ import { pictureLines } from '@/lib/picture-actions'
 import { Empty, Kbd, Page, refuse, toast, typing, useListKeys, VirtualList } from './ui'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
 import { heroOpen } from '@/lib/hero'
-import { AudioDays, BOOK, BOOK_GAP, FileFace, kindWord, letGoWhen, useFileFace, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RECENT_CARD, RECENT_GAP, RecentGrid, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, useTileWays, VIDEO_GAP, VIDEO_TILE, VideoFront, VideoTile, type Shelf, type TileWays } from './files-shelves'
+import { DENSE, AudioDays, BOOK, BOOK_GAP, FileFace, kindWord, letGoWhen, useFileFace, PICTURE, PICTURE_GAP, Pile, PictureMonths, pictureSpans, RECENT_CARD, RECENT_GAP, RecentGrid, SHELVES, shelfOf, stepLine, UnlinkedDays, unlinkedOrder, unlinkedSpans, useTileWays, VIDEO_GAP, VIDEO_TILE, VideoFront, VideoTile, type Shelf, type TileWays } from './files-shelves'
 import { Chip, Display, arrange, useView, type Density, type Facet } from './display'
 import { FILE_SORTS, FilesTable, fileOrder, playFile, stopFile, type FileFacts } from './files-table'
 import { openedHere } from '@/lib/media-opened'
@@ -48,8 +48,8 @@ const OWN_VIEW: Record<'all' | Shelf, string> = { all: 'Piles', pdf: 'Shelf', pi
 const later = (...all: (string | null | undefined)[]): string => all.reduce<string>((most, one) => (one && one > most ? one : most), '')
 /** A tile as wide as a note's in Gems' grid, with the same room between. */
 const TILE = 184
-/** Photos' steps for a grid of pictures, pinched: nine, seven, five and three across. */
-const PINCH_STEPS = [9, 7, 5, 3]
+/** Photos' steps for a grid of pictures, pinched: its years and months mosaics (files-shelves.tsx), then nine, seven, five and three across. */
+const PINCH_STEPS = [DENSE.years, DENSE.months, 9, 7, 5, 3]
 const GAP = 12
 
 const readMedia = (): Promise<Media[]> => call<Media[]>('media:list')
@@ -225,7 +225,9 @@ export function MediaView({ onOpen }: { onOpen: (type: string, id: string) => vo
   const anchor = useRef<{ src: string; top: number } | null>(null)
   usePinchLevels(box, (_el, way) => {
     if (!pictures || !box.current) return null
-    const to = way === 'closer' ? PINCH_STEPS.find((n) => n < across) : [...PINCH_STEPS].reverse().find((n) => n > across)
+    // The mosaics are the pictures' own shelf's: a mixed page of files keeps to the grid's steps.
+    const steps = kind === 'picture' ? PINCH_STEPS : PINCH_STEPS.filter((n) => n < DENSE.months)
+    const to = way === 'closer' ? steps.find((n) => n < across) : [...steps].reverse().find((n) => n > across)
     return to ? { body: box.current, to } : null
   }, () => undefined, (_way, to, at, release) => {
     const under = document.elementFromPoint(at.x, at.y)?.closest<HTMLElement>('[data-src]')
