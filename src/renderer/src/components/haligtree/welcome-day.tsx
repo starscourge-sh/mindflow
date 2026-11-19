@@ -150,8 +150,10 @@ export function ComeBack({ shot, quiet, said }: { shot: BackShot; quiet: boolean
                   </span>
                 ))}
               </span>
-              {/* Down to how it comes back, drawn as it does. */}
-              <motion.span aria-hidden className="ml-4 h-[clamp(0.5rem,calc(4vh-1.25rem),1.5rem)] w-[2px] origin-top rounded-full" style={{ background: `color-mix(in oklab, ${TINT[one.kind]} 60%, transparent)` }}
+              {/* Down to how it comes back, drawn as it does: a thread hung from the chip's own foot (across the column's gap)
+                  down to the moment's time, in the chip's ink mixed toward the page's text so it reads in dark too.
+                  Short and apart from both, it read as a stray tick (17 Nov). */}
+              <motion.span aria-hidden data-moment-thread className="-mt-[clamp(0.5rem,1.6vh,0.875rem)] ml-5 h-[calc(clamp(0.5rem,calc(4vh-1.25rem),1.5rem)+clamp(0.5rem,1.6vh,0.875rem))] w-[2px] origin-top rounded-full" style={{ background: `color-mix(in oklab, ${TINT[one.kind]} 70%, var(--foreground))` }}
                 initial={false} animate={{ scaleY: on ? 1 : 0 }} transition={fade} />
               <motion.div className="flex w-full flex-col gap-1" initial={false} animate={{ opacity: on ? 1 : 0, y: on ? 0 : 6 }} transition={fade}>
                 <p data-stamp className="text-[clamp(0.875rem,min(1.5vw,2.2vh),1rem)] font-medium tabular-nums text-(--mf-wl-quiet)">{one.when}</p>
