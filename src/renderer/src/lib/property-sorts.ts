@@ -8,7 +8,9 @@
 export const propSaid = (name: string): string => name.charAt(0).toUpperCase() + name.slice(1)
 
 // kanban-plugin is the switch that draws a note as a board (board-view.tsx), Obsidian's own name for it: not a property to sort by.
-const KEPT = new Set(['_kept', '_meaningRead', 'decidedAt', 'heldAt', 'answeredAt', 'rating', 'status', 'kanban-plugin'])
+// A looked-up word's meaning, example and Kindle location are the lookup's own (define.ts, the Kindle import): sorting
+// by a meaning's words A to Z ("By Definition", "By Example", "By Location") meant nothing to anyone (the user, 17 Nov).
+const KEPT = new Set(['_kept', '_meaningRead', 'decidedAt', 'heldAt', 'answeredAt', 'rating', 'status', 'kanban-plugin', 'definition', 'example', 'location'])
 
 const read = (fields: string | null | undefined): Record<string, unknown> => {
   try {
