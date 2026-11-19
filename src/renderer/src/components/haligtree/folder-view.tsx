@@ -76,6 +76,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
   ) : undefined
   const said = (
     <div data-folder-head="" className="mb-3">
+      {/* Over its name, its cover, as a Notion page's. */}
+      {folder && <FolderFront key={`${folder.id}:cover`} folder={folder} part="cover" />}
       <nav aria-label="Where this folder is" data-folder-path="" className="-ml-1.5 flex min-w-0 flex-wrap items-center gap-1 text-control text-muted-foreground">
         <button type="button" onClick={() => onPlace(null)} className="cursor-pointer rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground">Folders</button>
         {path.slice(0, -1).map((one) => (
@@ -89,8 +91,8 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
           <button type="button" data-folder-new-inside="" onClick={() => newFolderHere(id)} className="ml-auto flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><FolderPlus className="size-3.5" />New folder</button>
         )}
       </nav>
-      {/* Under its name, as a Notion page's cover and words sit with its title. */}
-      {folder && <FolderFront key={folder.id} folder={folder} />}
+      {/* Under its name, its words and link cards, as a Notion page's sit under its title. */}
+      {folder && <FolderFront key={`${folder.id}:words`} folder={folder} part="words" />}
       <p data-folder-fact="" className="mt-2 text-[1.0625rem] leading-snug text-foreground">{fact}</p>
       {!unfiled && !shown.length && !inside.length && <p className="mt-1 text-body text-muted-foreground">Drag anything onto {name} in the sidebar, or choose “Keep in folder…” on a note.</p>}
       {inside.length > 0 && (
@@ -121,13 +123,15 @@ function OneFolder({ id, note, all, tab, onTab, onOpen, onPlace }: { id: string;
  * nothing at all until asked for, and then only a quiet "Add a cover · Add words" while pointed at. The words are a
  * page's own editor (link cards, pictures, every way a page is written), kept with the folder as it is left.
  */
-function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
+function FolderFront({ folder, part }: { folder: Folder; /** The cover goes over the folder's name, its words under it (Notion's page). */ part: 'cover' | 'words' }): React.JSX.Element {
   const [writing, setWriting] = useState(false)
   const doc = useMemo(() => { try { return folder.front ? (JSON.parse(folder.front) as JSONContent) : null } catch { return null } }, [folder.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const latest = useRef<JSONContent | null>(doc)
   // Read off the editor itself as it is left: a change it has not yet told (a dev build's slower editor) is kept too.
   const editor = useRef<{ state: { doc: { toJSON: () => JSONContent } } } | null>(null)
   const save = (): void => {
+    // The words' own part only: the cover's part never holds them (it would put back what it read at first).
+    if (part !== 'words') return
     const next = editor.current ? editor.current.state.doc.toJSON() : latest.current
     const words = next ? JSON.stringify(next) : null
     if (words === (folder.front ?? null)) return
@@ -157,8 +161,8 @@ function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
     </label>
   )
   return (
-    <div data-folder-front="" className="group/front mt-1">
-      {folder.cover && (
+    <div data-folder-front={part} className="group/front">
+      {part === 'cover' && folder.cover && (
         <div className="relative mb-3">
           <img data-folder-cover="" src={folder.cover} alt="" draggable={false} className="h-36 w-full rounded-xl object-cover" />
           <span className="absolute right-2 bottom-2 flex gap-1 rounded-lg bg-popover p-0.5 text-control text-muted-foreground opacity-0 shadow-sm transition-opacity group-hover/front:opacity-100 focus-within:opacity-100">
@@ -167,13 +171,13 @@ function FolderFront({ folder }: { folder: Folder }): React.JSX.Element {
           </span>
         </div>
       )}
-      {(!folder.cover || !words) && (
+      {((part === 'cover' && !folder.cover) || (part === 'words' && !words)) && (
         <div className="-ml-1.5 flex h-6 items-center gap-1 text-control text-muted-foreground opacity-0 transition-opacity group-hover/front:opacity-100 focus-within:opacity-100">
-          {!folder.cover && upload('Add a cover')}
-          {!words && <button type="button" data-folder-words-add="" onClick={() => (chime('tap'), setWriting(true))} className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><Text aria-hidden className="size-3.5" />Add words</button>}
+          {part === 'cover' && upload('Add a cover')}
+          {part === 'words' && <button type="button" data-folder-words-add="" onClick={() => (chime('tap'), setWriting(true))} className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 hover:bg-accent hover:text-foreground"><Text aria-hidden className="size-3.5" />Add words</button>}
         </div>
       )}
-      {words && (
+      {part === 'words' && words && (
         <div data-folder-words="" onBlur={save} style={{ '--mf-padding': '0.25rem 0' } as React.CSSProperties}>
           <HaligtreeEditor defaultContent={doc ?? ''} toolbar={false} outline={false} search={false} lineNumbers={false} handles={false} autofocus={doc ? false : 'end'} placeholder="A few words about this folder, and links to keep with it"
             // Asked for by "Add words": the caret in it at once, as a new page's is (once ready, StrictMode's second editor too).
