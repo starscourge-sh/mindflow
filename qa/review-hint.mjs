@@ -83,7 +83,10 @@ for (const level of ['every', 'ai']) {
       // One and two hints, on a card not seen before and on one seen before: the four times stay four, in order.
       const done = new Set()
       for (let i = 0; i < 40 && done.size < 4; i++) {
-        await waitFor(() => h.evaluate(() => !!document.querySelector('[data-typed-lines]')))
+        // Again pressed on the same card a fourth time brings "This one keeps slipping" (study.tsx, since 052f9f080), whose
+        // choices take the keys: Esc leaves the card as it is and the sitting goes on.
+        await waitFor(() => h.evaluate(() => !!document.querySelector('[data-typed-lines], [data-slipping]')))
+        if (await h.evaluate(() => !!document.querySelector('[data-slipping]'))) { await h.keyboard.press('Escape'); await h.waitForTimeout(400); continue }
         await h.evaluate(() => document.activeElement?.blur())
         const front = (await v('review:queue')).find((one) => one.prompt && h) // the queue's order is Review's
         const prompt = await h.evaluate(() => document.querySelector('h2')?.textContent ?? '')
