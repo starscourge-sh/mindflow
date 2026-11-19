@@ -45,6 +45,7 @@ import { ShowInListContext, useShowInList } from '@/lib/show-in-list'
 import { readAgain, useSameWords } from '@/lib/same-words'
 import { Apart } from '@/lib/apart'
 import { chime, pageShown, pageTurn } from '@/lib/sound'
+import { quoted } from '../../../../main/clip'
 import { Empty, focusField, Island, Page, Prop, Props, Remembered, Rolling, refuse, toast, useListKeys, useReadKey, typing, pin, Stepper, startAt, showTopTitle, Pressed, quietly, askClearWho } from './ui'
 import { Term } from './term'
 import { GlossTimeline, PageThoughts, useRowGloss } from './gloss-line'
@@ -91,7 +92,7 @@ import { keepTitle, useHere, usePane } from '@/lib/split'
 import { ShowAgain, TaskDetail, completeTask, useTaskNow } from './tasks-view'
 import { useTaskTime } from './task-time'
 import { MadeChip, MadeCue, SnoozedChip, TASK_KIND, TaskStateMenu, becameSaid, doneTasks, emptyFor, fromSaid, showsTask, taskEntry, taskGroups, taskRow, useMadeShown, useSources, useTaskState, type Row } from './everything'
-import { ArchiveRestore, CloudSun, Download, Eye, EyeOff, FileText, Tag as Hash, Laptop, Orbit, Bookmark as Pin, Timer, Trash2, X } from '@/components/ui/icons'
+import { ArchiveRestore, CloudSun, Download, Eye, EyeOff, FileText, Tag as Hash, Laptop, Link, Orbit, Bookmark as Pin, Timer, Trash2, X } from '@/components/ui/icons'
 import { menuOpen } from '@/lib/menu-keys'
 
 type Capture = NonNullable<Awaited<ReturnType<typeof window.api.captures.get>>>
@@ -1140,7 +1141,9 @@ export function CaptureProps({ capture, onOpen, className, fold, onExit, onBack 
         {capture.weather && <Prop icon={CloudSun}><Lead>Weather then</Lead>{capture.weather}</Prop>}
         {/* Time to write it: here and in the quick capture, one line; a note written in one go keeps its "Took". */}
         <WritingSpent id={capture.id} took={capture.elapsedMs ?? 0} fallback={capture.elapsedMs ? <Prop icon={Timer}><Lead>Took</Lead>{capture.elapsedMs < 60000 ? `${Math.round(capture.elapsedMs / 1000)} sec` : hoursSaid(capture.elapsedMs / 60000)} to write</Prop> : null} />
-        {capture.source && <Prop icon={FileText}><Lead>Came from</Lead>{capture.source.replace(/\.md$/, '')}</Prop>}
+        {capture.source && <Prop icon={FileText}><Lead>Came from</Lead>{capture.source.replace(/\.md$/, '')}{capture.windowTitle ? `: ${quoted(capture.windowTitle, 60)}` : ''}</Prop>}
+        {/* The page quick capture was opened over, its address opened in the browser. */}
+        {capture.pageUrl && <Prop icon={Link} onClick={() => (chime('page'), void window.open(capture.pageUrl!))}><Lead>Page</Lead><span className="truncate">{capture.pageUrl.replace(/^https?:\/\/(www\.)?/, '')}</span></Prop>}
         {/* Editable, because a system you can catch up on beats one you
             cannot fall behind in: a note from last Tuesday can say so. */}
         <DatePicker key={capture.id} value={capture.capturedAt} lead="Caught" className="w-full" onChange={(at) => at && void haligtree.setCapture(capture.id, 'capturedAt', at)} />

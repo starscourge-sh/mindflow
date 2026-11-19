@@ -96,6 +96,8 @@ type Layer = {
   away: (app: string, page: string) => Promise<{ win: unknown; tab: unknown } | null>
   /** `open`: the tab gone or moved on, open the address in a new tab instead (only when asked to allow it). */
   back: (sent: Sent, open: boolean) => Promise<Back>
+  /** The app in front, its front window's name, and (for the browsers named) its tab's address and name: quick capture's "From". */
+  from: (browsers: string, patient: boolean) => Promise<Record<string, unknown> | null>
 }
 
 // One small script, one run per look: the app in front (NSWorkspace, which
@@ -105,6 +107,7 @@ type Layer = {
 // tab back, which never starts a browser that is not running.
 const SCRIPT = `function run(argv) {
   ObjC.import('AppKit')
+  if (argv[0] === 'from') return JSON.stringify(from(JSON.parse(argv[1])))
   if (argv[0] === 'back') return JSON.stringify({ back: back(JSON.parse(argv[2]), JSON.parse(argv[1])[JSON.parse(argv[2]).app], argv[3] === 'open') })
   var front = $.NSWorkspace.sharedWorkspace.frontmostApplication
   var id = front ? ObjC.unwrap(front.bundleIdentifier) || '' : ''
@@ -123,6 +126,26 @@ const SCRIPT = `function run(argv) {
     var n = e.errorNumber
     return JSON.stringify({ app: id, url: null, denied: n === -1743 || n === -1744 })
   }
+}
+function from(kinds) {
+  ObjC.import('CoreGraphics')
+  var front = $.NSWorkspace.sharedWorkspace.frontmostApplication
+  if (!front) return {}
+  var id = ObjC.unwrap(front.bundleIdentifier) || '', pid = front.processIdentifier
+  // The front window's name, which macOS gives only with Screen Recording allowed (never asked for here): else none.
+  var list = ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionOnScreenOnly | $.kCGWindowListExcludeDesktopElements, $.kCGNullWindowID))) || []
+  var win = list.find(function (one) { return one.kCGWindowOwnerPID === pid && one.kCGWindowLayer === 0 && one.kCGWindowName })
+  var said = { app: id, name: ObjC.unwrap(front.localizedName) || '', pid: pid, title: win ? win.kCGWindowName : '' }
+  var kind = kinds[id]
+  if (!kind) return said
+  try {
+    var tab = kind === 'safari' ? Application(id).windows[0].currentTab : Application(id).windows[0].activeTab
+    said.url = tab.url()
+    said.page = kind === 'safari' ? tab.name() : tab.title()
+  } catch (e) {
+    said.denied = e.errorNumber === -1743 || e.errorNumber === -1744
+  }
+  return said
 }
 function back(sent, kind, open) {
   try {
@@ -186,10 +209,12 @@ const realLayer: Layer = {
   back: async (sent, open) => {
     const said = await ask(['back', kindsOf([sent.app]), JSON.stringify(sent), open ? 'open' : 'only'], 5000)
     return said?.back === 'restored' || said?.back === 'opened' ? said.back : 'missed'
-  }
+  },
+  // The first ask of a browser may bring the Mac's question: waited on, as a look does.
+  from: (browsers, patient) => ask(['from', browsers], patient ? 90_000 : 2500)
 }
 /** `win`, `tab`: which tab is in front; `back`: what putting a tab back finds, by default its tab still blank (restored). */
-type Fake = { app: string; url?: string | null; denied?: boolean; win?: number; tab?: number; back?: Back }
+type Fake = { app: string; url?: string | null; denied?: boolean; win?: number; tab?: number; back?: Back; name?: string; title?: string; page?: string }
 const fake = (): Fake | null => (globalThis as { siteBlockFake?: Fake | null }).siteBlockFake ?? null
 const fakeLayer: Layer = {
   // Each look counted, so a test can see one run a tick.
@@ -215,9 +240,59 @@ const fakeLayer: Layer = {
     ;(store.siteBlockBack ??= []).push({ ...sent, open, result, at: Date.now() })
     if (result !== 'missed' && now?.app === sent.app && (now.url === 'about:blank' || isBlockPage(now.url))) now.url = sent.url
     return result
+  },
+  // The browser read only when named, as the real one is; each ask kept, with whether it waited for the Mac's question.
+  from: async (browsers, patient) => {
+    const now = fake()
+    const store = globalThis as { boxFromAsks?: { patient: boolean; at: number }[] }
+    ;(store.boxFromAsks ??= []).push({ patient, at: Date.now() })
+    if (!now) return null
+    const said: Record<string, unknown> = { app: now.app, name: now.name ?? '', title: now.title ?? '', pid: 0 }
+    return now.app in JSON.parse(browsers) ? { ...said, ...(now.denied ? { denied: true } : { url: now.url ?? '', page: now.page ?? '' }) } : said
   }
 }
 const layer = TEST ? fakeLayer : realLayer
+
+/**
+ * What you were in when quick capture came up, for its "From" chip: the app in front (never Haligtree), its front
+ * window's name where the Mac gives it (only with Screen Recording already allowed; never asked for here), and, for a
+ * browser that has let Haligtree read it once, its tab's address and name. A browser not asked yet is not spoken to
+ * until `asking` (the chip's "Add the page"), which brings the Mac's own question; `ask` says which the chip offers.
+ */
+export type BoxFrom = { app: string; title: string; url: string; page: string; browser: string; ask: '' | 'ask' | 'denied' }
+/** The browsers that answered once, by bundle id, kept with the settings so the next capture reads them unasked. */
+const pageFrom = {
+  read: (): string[] => {
+    try {
+      const said = JSON.parse((database().prepare("select value from settings where key = 'pageFrom'").get() as { value: string } | undefined)?.value ?? '[]')
+      return Array.isArray(said) ? said.filter((one): one is string => typeof one === 'string') : []
+    } catch {
+      return []
+    }
+  },
+  write: (ids: string[]): void => void database().prepare("insert or replace into settings (key, value) values ('pageFrom', ?)").run(JSON.stringify(ids))
+}
+export async function boxFrom(asking: boolean): Promise<BoxFrom | null> {
+  const allowed = pageFrom.read()
+  let said = await layer.from(kindsOf(allowed), false)
+  const id = typeof said?.app === 'string' ? said.app : ''
+  if (!said || !id || said.pid === process.pid) return null
+  const browser = BROWSERS[id]
+  if (asking && browser && !allowed.includes(id)) said = (await layer.from(kindsOf([id]), true)) ?? said
+  const url = typeof said.url === 'string' && /^https?:\/\//i.test(said.url) ? said.url : ''
+  // Answered: read unasked from now on. Refused since: asked again only from the chip.
+  if (browser && url && !allowed.includes(id)) pageFrom.write([...allowed, id])
+  if (browser && said.denied && allowed.includes(id)) pageFrom.write(allowed.filter((one) => one !== id))
+  const text = (value: unknown): string => (typeof value === 'string' ? value.trim().slice(0, 300) : '')
+  return {
+    app: text(said.name) || browser?.name || '',
+    title: text(said.title),
+    url,
+    page: url ? text(said.page) : '',
+    browser: browser?.name ?? '',
+    ask: !browser || url ? '' : said.denied ? 'denied' : allowed.includes(id) ? '' : 'ask'
+  }
+}
 
 /** The block page's address, this run's or an earlier run's (another port). */
 const isBlockPage = (url: string | null | undefined): boolean => /^http:\/\/127\.0\.0\.1:\d+\/haligtree-blocked/.test(url ?? '')
@@ -485,6 +560,8 @@ export function registerSiteBlock({ notify }: { notify: (notice: BlockNotice) =>
   })
   // The Mac's Privacy & Security, at Automation: where a browser is allowed again.
   handle('site-block:privacy', () => void shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_Automation'))
+  // Quick capture's "From": what you were in as it came up; `asking`, the chip's "Add the page", may bring the Mac's question.
+  handle('box:from', (asking: boolean) => boxFrom(asking === true))
   // How often each site was sent away in a session, most first.
   handle('site-block:session', (sessionId: string) =>
     db.prepare('select site, count from session_blocks where session_id = ? order by count desc, site').all(String(sessionId)))

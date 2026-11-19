@@ -65,7 +65,7 @@ export const FOCUS_POWERS = new Set(['timer', 'rounds', 'focus', 'pickup', 'coun
 
 export const POWERS: Power[] = [
   // Catching
-  { id: 'box', group: 'Catching', name: 'Quick capture, from any app', line: 'One key opens quick capture over whatever you are doing, and ⌘↵ puts it away.', keys: ['⌘.'],
+  { id: 'box', group: 'Catching', name: 'Quick capture, from any app', line: 'One key opens quick capture over whatever you are doing, and ⌘↵ puts it away. It notes the app you were in, and the page open in your browser once you let it; × leaves it off a note.', keys: ['⌘.'],
     show: { box: true, text: 'Write anything and press ⌘↵.' }, used: (s) => s.steps.catch },
   { id: 'services', group: 'Catching', name: 'Send to Haligtree, from any app', needs: 'every', tryIt: 'Pick some words in Safari, right-click them, and choose “Services”, then “Send to Haligtree”.', line: 'Pick words in any app, right-click, and “Send to Haligtree” puts them in your Inbox as a quote, saying the app and page they came from, with nothing copied. macOS lists it once Haligtree is in your Applications folder.',
     show: { view: 'inbox', at: ROW, text: 'What you send lands at the top of the Inbox, as a quote.' } },

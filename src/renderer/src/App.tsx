@@ -118,7 +118,8 @@ import PenIcon from '@/components/ui/pen-icon'
 import { AliveIcon } from '@/components/ui/alive-icon'
 import { RoundPair, ShotButton, type RoundChoice } from '@/components/haligtree/shot-button'
 import { talkInto, useTalking } from '@/components/haligtree/talk'
-import { AudioLines, TextCursorInput } from 'lucide-react'
+import { AppWindow, AudioLines, TextCursorInput } from 'lucide-react'
+import type { BoxFrom } from '../../main/site-block'
 
 /** The microphone's two ways, as the camera's two: a voice note kept as sound, or the words typed as you talk. */
 const VOICE_CHOICES: RoundChoice[] = [
@@ -687,6 +688,22 @@ export default function App(): React.JSX.Element {
   }, [setCreateMore])
   // When the box was opened, for how long a capture took to write.
   const openedAt = useRef(Date.now())
+  // What you were in as the box came up (main's boxFrom): kept with the capture, said on its chip first, × leaves it off.
+  const [from, setFrom] = useState<BoxFrom | null>(null)
+  const [fromOff, setFromOff] = useState(false)
+  useEffect(() => window.api.onShown(() => {
+    // Asked again only for a new note: words already begun keep where they were begun.
+    if (latestEditing.current || (editorRef.current && !editorRef.current.isEmpty)) return
+    setFromOff(false)
+    void window.api.haligtree<BoxFrom | null>('box:from', false).then(setFrom, () => setFrom(null))
+  }), [])
+  // "Add the page": the browser asked once (the Mac's own question), read unasked after that.
+  const askPage = (): void => {
+    chime('tap')
+    void window.api.haligtree<BoxFrom | null>('box:from', true).then((said) => said && setFrom(said))
+  }
+  const fromKept = (): BoxFrom | undefined => (from?.app && !fromOff && !SMALL ? from : undefined)
+  const fromSaid = (one: BoxFrom): { app: string; title: string; url: string; page: string } => ({ app: one.app, title: one.title, url: one.url, page: one.page })
   // Each time the window comes up, the box has the caret, ready to type, not
   // whichever button the focus was last left on.
   useEffect(() => window.api.onShown(() => {
@@ -1664,7 +1681,7 @@ export default function App(): React.JSX.Element {
     setSending(true)
     try {
       const id = await window.api.captures.create({ kind: chosen && kind !== 'todo' ? kind : 'note', elapsedMs: Date.now() - openedAt.current, body: doc,
-        markdown: editor ? toMarkdown(editor) : undefined, attribution: attribution.trim(), medium: medium || undefined, private: secret })
+        markdown: editor ? toMarkdown(editor) : undefined, attribution: attribution.trim(), medium: medium || undefined, private: secret, from: fromKept() && fromSaid(fromKept()!) })
       await haligtree.linkSession(id)
       localStorage.removeItem('capture-draft')
       // A new capture kept: the draft from earlier is not offered again.
@@ -1915,7 +1932,7 @@ export default function App(): React.JSX.Element {
     }
     void window.api.captures
       .create({ title: plan?.card && !plan.card.loading ? plan.card.title : '', kind: page ? 'note' : sorted, elapsedMs: Date.now() - openedAt.current, body: hasContent(doc) ? doc : null, markdown,
-        attribution: attribution.trim(), medium: where || undefined, private: secret, plainTags: plan?.plainTags.length ? plan.plainTags : undefined })
+        attribution: attribution.trim(), medium: where || undefined, private: secret, plainTags: plan?.plainTags.length ? plan.plainTags : undefined, from: fromKept() && fromSaid(fromKept()!) })
       .then(async (id) => {
         land?.()
         await haligtree.linkSession(id)
@@ -2702,6 +2719,26 @@ export default function App(): React.JSX.Element {
                     <EyeOff />
                   </Button>
                 </Tip>
+              )}
+              {/* Where you were as the box came up: said before it is kept, left off with ×. */}
+              {started && !editing && !lesson && fromKept() && (
+                <span data-box-from={from!.app} className="flex min-h-6 min-w-0 max-w-full shrink items-center gap-1.5 rounded-full border border-border bg-muted py-0.5 pl-2.5 pr-0.5 text-xs text-muted-foreground animate-in fade-in-0 duration-200">
+                  <AppWindow className="size-3.5 shrink-0" />
+                  <span className="truncate">From <span className="text-foreground">{from!.app}</span>{from!.page || from!.title ? <>: {quoted(from!.page || from!.title, 48)}</> : null}</span>
+                  {from!.ask === 'ask' && (
+                    <Tip label={`Keeps the address of the page open in ${from!.browser}. Your Mac asks you once`}>
+                      <button type="button" data-box-from-ask onClick={askPage} className="shrink-0 cursor-pointer rounded-full px-1.5 font-medium text-foreground hover:bg-accent">Add the page</button>
+                    </Tip>
+                  )}
+                  {from!.ask === 'denied' && (
+                    <Tip label={`Your Mac does not let Haligtree read ${from!.browser}'s page. Turn it on under Privacy & Security, Automation`}>
+                      <button type="button" data-box-from-allow onClick={() => (chime('tap'), void window.api.haligtree('site-block:privacy'))} className="shrink-0 cursor-pointer rounded-full px-1.5 font-medium text-foreground hover:bg-accent">Allow the page…</button>
+                    </Tip>
+                  )}
+                  <Tip label="Leave it off this note">
+                    <button type="button" aria-label="Leave it off this note" data-box-from-off onClick={() => (chime('off'), setFromOff(true))} className="grid size-5 shrink-0 cursor-pointer place-items-center rounded-full hover:bg-accent hover:text-foreground"><X className="size-3" /></button>
+                  </Tip>
+                </span>
               )}
               {like && !plus && !lesson && !listed && !twin && (
                 <Tip label={`Open it: ${like.title}`}>

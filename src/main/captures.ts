@@ -57,6 +57,9 @@ export interface CaptureMeta {
   elapsedMs: number | null
   /** The weather when it was caught, "12°C, light rain", when that setting is on. */
   weather: string | null
+  /** The window or page you were in as quick capture came up ("Chapter 3.pdf"), and that page's address. */
+  windowTitle?: string | null
+  pageUrl?: string | null
   /** Where you met it: "YouTube", "book", "meeting". Free text. */
   medium: string | null
   /** When it took an exit; null while open. */
@@ -109,6 +112,8 @@ export type CapturePatch = Partial<Pick<Capture, 'title' | 'kind' | 'status' | '
   /** With `markdown` alone: the copy an editor owes for the save that answered with this number (SaveResult `copy`). */
   copy?: number
   plainTags?: string[]
+  /** What you were in as quick capture came up: the app, its window's name, a browser's page and its name. */
+  from?: { app: string; title: string; url: string; page: string }
   /**
    * Moved to the Bin, or back out of it, from wherever it is: a capture
    * resolved or saved as a gem can go to the Bin too, and comes back as it was.
@@ -198,7 +203,9 @@ const makePatch = () => z.object({
   wordsBase: z.instanceof(Uint8Array).optional(),
   copy: z.number().optional(),
   /** Tags the box was told to keep as plain text: "#bit" that does not make it private, "#book" that is not a book. */
-  plainTags: z.array(z.string()).optional()
+  plainTags: z.array(z.string()).optional(),
+  /** What you were in as quick capture came up (its "From" chip): the app, its window's name, a browser's page. */
+  from: z.object({ app: z.string().max(300), title: z.string().max(300), url: z.string().max(4000), page: z.string().max(300) }).optional()
 })
 let madePatch: ReturnType<typeof makePatch> | undefined
 /** Made the first time a save is checked, not as Haligtree opens (src/main/lazy/zod.ts). */
@@ -586,6 +593,9 @@ export function registerCaptures(): void {
       hostname().replace(/\.local$/, ''), patch.elapsedMs ?? null, patch.attribution || null, patch.medium || null, patch.private ? 1 : 0, id)
     // Lifted out of something else: it points back, and inherits the source,
     // never one invented at the point of selection.
+    // Where you were: the app as Send to Haligtree keeps it (said beside it in lists, not an import), and the window and page.
+    if (patch.from?.app)
+      db.prepare('update captures set source = ?, window_title = ?, page_url = ? where id = ?').run(patch.from.app, patch.from.page || patch.from.title || null, /^https?:\/\//i.test(patch.from.url) ? patch.from.url : null, id)
     if (patch.origin)
       db.prepare(`update captures set origin_id = ?, attribution = coalesce(
         (select attribution from captures where id = ?), (select attribution from nuggets where id = ?)) where id = ?`).run(patch.origin, patch.origin, patch.origin, id)

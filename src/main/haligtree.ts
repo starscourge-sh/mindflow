@@ -1222,6 +1222,9 @@ export function registerHaligtree(): void {
   column('captures', 'original_body text')
   column('captures', 'elapsed_ms integer')
   column('captures', 'weather text')
+  // What you were in as quick capture came up: its window's (or page's) name, and the page's address.
+  column('captures', 'window_title text')
+  column('captures', 'page_url text')
   column('captures', 'surfacing_weight real not null default 1')
   column('captures', 'origin_id text')
   // Tags the box was told to keep as plain text when it was sent ("#book"
