@@ -467,12 +467,14 @@ export function SplitDrop({ onDrop, onRow }: { onDrop: (carried: Carried, at: nu
         dropListDrag()
         event.preventDefault()
         window.dispatchEvent(new CustomEvent('haligtree:to-writing', { detail: { ids: [what.row.id], folder: queued?.dataset.folderDrop ?? null } }))
-      } else if (!side && queued?.dataset.keepDrop && what.row) {
+      } else if (!side && queued?.dataset.keepDrop && (what.row || what.open)) {
         // Onto a folder of Folders: kept there, any kind; a list with picked rows answers for all of them (items-view.tsx).
+        // A page or note carried from under another folder in the sidebar comes by what it opens (`data-drag-open`).
         dropListDrag()
         event.preventDefault()
-        const type = down.source.node?.dataset.type
-        const thing = { type: (['article', 'nugget', 'question', 'capture', 'task'].includes(type ?? '') ? type : down.source.node?.closest('[data-task-row]') ? 'task' : 'nugget') as FolderKind, id: what.row.id }
+        const opened = !what.row && what.open ? [what.open.slice(0, what.open.indexOf(':')), what.open.slice(what.open.indexOf(':') + 1)] : null
+        const type = opened ? opened[0] : down.source.node?.dataset.type
+        const thing = { type: (['article', 'nugget', 'question', 'capture', 'task'].includes(type ?? '') ? type : down.source.node?.closest('[data-task-row]') ? 'task' : 'nugget') as FolderKind, id: opened ? opened[1] : what.row!.id }
         const folder = { id: queued.dataset.keepDrop, name: queued.dataset.folderName ?? 'the folder' }
         if (window.dispatchEvent(new CustomEvent('haligtree:keep-drop', { cancelable: true, detail: { folder, thing } }))) void keepIn([thing], folder)
       } else if (!side && queued?.dataset.folderNo !== undefined && what.row) {

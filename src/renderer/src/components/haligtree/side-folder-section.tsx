@@ -310,7 +310,8 @@ function FolderThings({ folder, lit, onOpen, onAll }: { folder: Folder; lit?: st
             { label: 'Keep in folder…', run: () => askFolder([{ type: one.type, id: one.id }]) },
             { label: `Take out of ${folder.name}`, hint: one.type === 'capture' ? 'Back to the Inbox' : one.type === 'task' ? 'Stays in Tasks' : one.type === 'article' ? 'Stays in Writing' : 'Stays in Gems', run: () => void keepIn([{ type: one.type, id: one.id }], null) }
           ]}>
-            <button type="button" data-side-row data-side-thing={one.id} data-type={one.type} aria-current={here ? 'page' : undefined} title={one.title}
+            {/* Carried as a pin is (split-drop.tsx `data-drag-open`): onto another folder, into the page beside, the one card. */}
+            <button type="button" data-side-row data-side-thing={one.id} data-type={one.type} data-drag-open={`${one.type}:${one.id}`} data-drag-kind={one.type} aria-current={here ? 'page' : undefined} title={one.title}
               onClick={() => (chime('page'), onOpen(one.type, one.id))}
               className={`flex w-full min-w-0 items-center gap-2 rounded-md py-1 pr-2 pl-2 ${here ? 'text-foreground' : 'text-(--mf-muted-strong)'}`}>
               <span className="flex w-4 shrink-0 items-center justify-center"><Icon className="size-3.5 text-muted-foreground" /></span>
