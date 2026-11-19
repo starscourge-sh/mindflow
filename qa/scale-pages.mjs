@@ -149,6 +149,8 @@ try {
   }
   if (!process.env.PAGES || process.env.PAGES.includes('search')) {
     // ⌘K's search, as each key asks it (the same ask ⌘K makes, captures:find): from the key to its results in hand.
+    // SEARCH_AFTER=<ms>: searched that long after the pages (or the start), once the app has settled.
+    if (process.env.SEARCH_AFTER) await new Promise((go) => setTimeout(go, Number(process.env.SEARCH_AFTER)))
     await stalls()
     const keys = await h.evaluate(async () => {
       const took = []
