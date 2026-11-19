@@ -26,7 +26,7 @@ try {
   check('item 37: ↵ makes it and the caret is on a new row for the next', stay === 'new' && (await focused()) === 'new' && (await steps(made.id)).join('|') === 'exercise|shake shower', `${stay}, ${(await steps(made.id)).join('|')}`)
   // ⇧↵ in "shake shower" after "shake": two subtasks.
   await h.locator('[data-subtask="1"]').click()
-  await h.keyboard.press('End')
+  await h.keyboard.press('Meta+ArrowRight')
   for (let i = 0; i < ' shower'.length; i++) await h.keyboard.press('ArrowLeft')
   await h.keyboard.press('Shift+Enter'); await h.waitForTimeout(500)
   check('item 37: ⇧↵ splits a subtask where the caret is', (await steps(made.id)).join('|') === 'exercise|shake|shower' && (await focused()) === '2', `${(await steps(made.id)).join('|')}, caret in ${await focused()}`)
