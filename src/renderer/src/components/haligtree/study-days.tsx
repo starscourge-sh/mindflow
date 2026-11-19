@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { BookOpen, GraduationCap } from 'lucide-react'
 import { chime } from '@/lib/sound'
 import { call, useLive } from '@/lib/haligtree'
+import { useReading } from '@/lib/reads-in'
 import { readLibrary, type Book } from '@/components/pdf/book-head'
 import { openPdf } from '@/components/pdf/pdf-reader'
 import { num, plural } from '../../../../main/dates'
@@ -19,8 +20,12 @@ export type StudyDay = { reviews: number; books: Book[] }
 export function useStudy(from: string, to: string, on: boolean): Map<string, StudyDay> {
   const end = new Date(`${to}T00:00:00`)
   end.setDate(end.getDate() + 1)
-  const due = useLive(() => (on ? call<Record<string, number>>('study:days', new Date(`${from}T00:00:00`).toISOString(), end.toISOString()) : Promise.resolve({})), {} as Record<string, number>, [from, to, on])
-  const books = useLive(() => (on ? readLibrary() : Promise.resolve([] as Book[])), [] as Book[], [on])
+  const dueRead = useLive(() => (on ? call<Record<string, number>>('study:days', new Date(`${from}T00:00:00`).toISOString(), end.toISOString()) : Promise.resolve({})), null as Record<string, number> | null, [from, to, on])
+  const booksRead = useLive(() => (on ? readLibrary() : Promise.resolve([] as Book[])), null as Book[] | null, [on])
+  // The Calendar waits for them: a day's "Review · 16 cards" came in over the hours a beat late and pushed them down.
+  useReading(dueRead === null || booksRead === null)
+  const due = dueRead ?? {}
+  const books = booksRead ?? []
   return useMemo(() => {
     const days = new Map<string, StudyDay>()
     const at = (key: string): StudyDay => days.get(key) ?? (days.set(key, { reviews: 0, books: [] }), days.get(key)!)

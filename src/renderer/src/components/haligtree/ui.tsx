@@ -287,7 +287,8 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
       const header = node.closest('header')
       const count = header?.querySelector<HTMLElement>('[data-list-count]')
       const room = header?.querySelector<HTMLElement>('[data-count-room]')
-      setLeadNeed(node.offsetWidth + Math.max(count?.scrollWidth ?? 0, room?.scrollWidth ?? 0) + 30)
+      const said = Math.max(count?.scrollWidth ?? 0, room?.scrollWidth ?? 0)
+      setLeadNeed(node.offsetWidth + (said ? said + 30 : 0))
     }
     const watch = new ResizeObserver(measure)
     watch.observe(node)
@@ -308,7 +309,7 @@ export function Page({ title, lead, count, unit = ['item', 'items'], actions, se
         <header data-chrome={aside || undefined} className={`${wide ? '' : 'page-column '}flex h-10 min-w-0 shrink-0 items-center gap-2 overflow-hidden border-b px-5 text-muted-foreground`}>
           {typeof title === 'string' && title.startsWith('#') ? <span className="font-medium text-foreground">{title}</span> : null}
           {lead && <span ref={leadBox} className="contents">{lead}</span>}
-          {lead && aside && <span aria-hidden data-count-room className="invisible absolute mr-2 border-l pl-3 text-xs whitespace-nowrap tabular-nums">{num(Math.max(count ?? 0, 888))} {unit[1]}</span>}
+          {lead && aside && count !== undefined && <span aria-hidden data-count-room className="invisible absolute mr-2 border-l pl-3 text-xs whitespace-nowrap tabular-nums">{num(Math.max(count ?? 0, 888))} {unit[1]}</span>}
           {/* With tabs or a switch at the line's left (lead), the count goes to the right, before the actions, so it is
               never read as one more tab; without, it opens the line. Said plainly when it counts what is picked. */}
           {count && !lead ? countSaid : null}
