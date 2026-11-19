@@ -180,6 +180,8 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
   let rows: HTMLElement[] = []
   let numbers: number[] = []
   let marks: HTMLElement[] = []
+  // What the editor draws between blocks that is no block (a widget), watched with the rows.
+  let widgets: HTMLElement[] = []
   let caret = 0
   let relative = false
   // Each kind of first line's size, read once per size of the note's words.
@@ -252,9 +254,16 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     while (marks.length > rows.length) marks.pop()!.remove()
     // Each numbered block watched for its size: one that grows a line moves those under it, and one made again by
     // its own view (a task, as the style or Vim changes) is told by the old one going to nothing.
-    const now = new Set(rows)
+    // And what the editor draws between blocks that is no block (a widget: the Properties strip under the title):
+    // it growing moves every block under it without any of them changing size, and the note itself keeps its least
+    // height, so nothing else is told; its numbers stood a frame where the lines had been.
+    const between = (widgets = [...view.dom.children].filter((one): one is HTMLElement => one instanceof HTMLElement && !descOf(one)?.node))
+    const now = new Set([...rows, ...between])
     for (const row of watched) if (!now.has(row)) (resized.unobserve(row), watched.delete(row), fresh.delete(row))
+    // A widget's first report is heard too: its holder is made afresh each time the editor places it (property-lines.ts),
+    // so a strip grown as it was placed again is told only by that first report.
     for (const row of rows) if (!watched.has(row)) (resized.observe(row), watched.add(row), fresh.add(row))
+    for (const one of between) if (!watched.has(one)) (resized.observe(one), watched.add(one))
     // Every place read first, then every number set: a number set between two readings had the browser lay the
     // page out again for the next one, once per row (some 300 times in the largest note, as it opened and as its
     // drawn blocks moved under a scroll).
@@ -420,7 +429,7 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
       }
       // Switched on or off (Settings), or the note locked or unlocked; or a block made again by its own view (a
       // task, as Vim's line comes or goes): numbered and set again. A glance at each row, nothing laid out.
-      if (!!rows.length !== shown() || (!rows.length && shown()) || rows.some((row) => !row.isConnected)) return redraw()
+      if (!!rows.length !== shown() || (!rows.length && shown()) || rows.some((row) => !row.isConnected) || widgets.some((one) => !one.isConnected)) return redraw()
       // Only the caret moved, or “Relative” was switched: the words of the numbers, nothing measured.
       if ((!view.state.selection.eq(previous.selection) || counted !== relative) && !frame && marks.length) label()
     },
