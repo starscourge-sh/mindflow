@@ -18,6 +18,7 @@ import { backIn } from '@/lib/back-in'
 import { openSource, sources, type SourceSummary } from '@/lib/sources'
 import { distinctInitials } from '@/lib/people'
 import { Kbd, Page, Tip, jumpTo, openTag, quietly, toast, typing } from './ui'
+import { ListSearch, matches } from './note-list'
 import { Switch } from '@/components/ui/switch'
 import { Avatar } from './avatar'
 import { GlossLine, cutWords, openGloss } from './gloss-line'
@@ -352,6 +353,11 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
   const rest = most.slice(3).reduce((sum, [, n]) => sum + n, 0)
   const listed = rest ? `${top.join(', ')} and ${num(rest)} more` : top.length > 1 ? `${top.slice(0, -1).join(', ')} and ${top.at(-1)}` : (top[0] ?? '')
   const holds = feed.posts.length && !feed.safe && !preview ? listed : null
+  // Search, as Writing's and the Inbox's lists have it (ListSearch): the posts that hold every word typed, in their
+  // words, who said them, their tags and your thoughts on them; the rest step out, and the line says how many are left.
+  const [query, setQuery] = useState('')
+  const searching = !!query.trim() && !thread
+  const posts = searching ? feed.posts.filter((post) => matches([post.title, post.text, post.who ?? '', post.tags.join(' '), post.gloss?.body ?? ''].join(' '), query)) : feed.posts
   // J and K move a cursor between posts, L likes, R replies, Enter opens; on a quiz card, Space shows the answer and 1 to 4 grade it, as in Review.
   const [cursor, setCursor] = useState(-1)
   // The first time the row is met, one line under the first post says what it is for; never again after.
@@ -362,7 +368,7 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
       return false
     }
   })
-  const plain = preview || feed.safe ? -1 : feed.posts.findIndex((post) => !post.poll && !post.quiz)
+  const plain = preview || feed.safe ? -1 : posts.findIndex((post) => !post.poll && !post.quiz)
   useEffect(() => {
     if (!explain || plain < 0) return
     try {
@@ -374,17 +380,17 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
   const here = useHere()
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
-      if (thread || !here() || !feed.posts.length || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
+      if (thread || !here() || !posts.length || typing() || event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) return
       if (document.querySelector('[role="dialog"], [role="menu"]')) return
       const by = event.code === 'KeyJ' || event.key === 'ArrowDown' ? 1 : event.code === 'KeyK' || event.key === 'ArrowUp' ? -1 : 0
       if (by) {
         event.preventDefault()
-        const next = Math.max(0, Math.min(feed.posts.length - 1, cursor + by))
+        const next = Math.max(0, Math.min(posts.length - 1, cursor + by))
         setCursor(next)
         root.current?.querySelector(`[data-feed-at="${next}"]`)?.scrollIntoView({ block: 'nearest' })
         return
       }
-      const post = feed.posts[cursor]
+      const post = posts[cursor]
       const node = root.current?.querySelector<HTMLElement>(`[data-feed-at="${cursor}"]`)
       if (!post || !node) return
       const press = (what: string): void => (event.preventDefault(), node.querySelector<HTMLElement>(what)?.click())
@@ -418,7 +424,13 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
     return () => window.removeEventListener('keydown', onKey, true)
   })
   return (
-    <Page title="Feed" waiting={unloaded(feed) || real === null} lead={tabs} search={holds ? <FeedSaid data-feed-holds>{holds}</FeedSaid> : undefined} actions={extra}>
+    <Page title="Feed" waiting={unloaded(feed) || real === null} lead={tabs} actions={extra} search={holds ? (
+      <span className="flex min-w-0 items-center gap-3">
+        <ListSearch value={query} onChange={(words) => (setQuery(words), setCursor(-1))} onDone={() => setCursor(0)} placeholder="Search today's Feed"
+          onStep={(by) => { const next = Math.max(0, Math.min(posts.length - 1, cursor + by)); setCursor(next); root.current?.querySelector(`[data-feed-at="${next}"]`)?.scrollIntoView({ block: 'nearest' }) }} />
+        <FeedSaid data-feed-holds>{searching ? `${num(posts.length)} of ${plural(feed.posts.length, 'post')}` : holds}</FeedSaid>
+      </span>
+    ) : undefined}>
       {/* A narrow column of posts with the side column beside it, as a social feed. */}
       <FeedColumns side={!feed.safe && !preview && feed.posts.length > 0 ? <SideColumn onOpen={onOpen} /> : null}>
       <div ref={root} data-feed className="flex min-w-0 flex-col px-5 pt-4 pb-16">
@@ -437,8 +449,15 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
         ) : (
           <>
             {moment && <ReadyMoment said="Your Feed is ready" more="Each day it brings back about twenty of your own things, longest unseen first. A new set comes every morning." />}
+            {searching && !posts.length && (
+              <p data-feed-none className="py-10 text-body text-foreground">
+                <strong className="font-semibold">Nothing in today's Feed has “{query.trim()}”.</strong>{' '}
+                <button type="button" data-feed-search-all className="cursor-pointer text-(--mf-muted-strong) underline decoration-foreground/25 underline-offset-2 hover:text-foreground"
+                  onClick={() => (chime('open'), window.dispatchEvent(new CustomEvent('haligtree:search', { detail: { words: query.trim() } })))}>Search your whole book for it</button>
+              </p>
+            )}
             <ol className="flex flex-col">
-              {feed.posts.map((post, at) => {
+              {posts.map((post, at) => {
                 const mark = { at, cursor: at === cursor, onPoint: () => startTransition(() => setCursor(at)) }
                 return post.pair ? <PairPost key={`pair:${post.id}`} post={post} mark={mark} onOpen={open} />
                   : post.poll ? <PollPost key={`poll:${post.id}`} post={post} mark={mark} onOpen={() => open(post.poll!.open.type, post.poll!.open.id)} />
@@ -446,11 +465,11 @@ function FeedNotes({ onOpen, tabs, extra, pages }: { onOpen: (type: string, id: 
                   : <Post key={`${post.type}:${post.id}`} post={post} mark={mark} onOpen={() => open(post.type, post.id)} onOpenOther={open} onThread={() => openThread(post)} explain={explain && at === plain} />
               })}
             </ol>
-            <footer ref={endRef} data-feed-end className="flex flex-col items-center gap-1.5 py-12 text-center">
+            {!searching && <footer ref={endRef} data-feed-end className="flex flex-col items-center gap-1.5 py-12 text-center">
               <p className="text-lead font-semibold tracking-[-0.01em] text-foreground">You're all caught up</p>
               <p data-feed-summary className="max-w-[44ch] text-body text-foreground/85">{listed} came up today.</p>
               <p data-feed-next className="text-body text-muted-foreground">A new set in {until}.</p>
-            </footer>
+            </footer>}
           </>
         )}
       </div>
