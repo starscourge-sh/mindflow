@@ -39,6 +39,7 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
     const ask = await h.evaluate(() => !!document.querySelector('[data-ai-week-ask]'))
     check(`${level}: the Week page ${ai ? 'offers' : 'does not offer'} “Your week, in a paragraph”`, ask === ai)
     if (ai) {
+      await wait(400)
       await h.evaluate(() => document.querySelector('[data-ai-week-ask]')?.scrollIntoView({ block: 'center' }))
       await h.click('[data-ai-week-ask]')
       await wait(1500)
@@ -68,6 +69,12 @@ for (const level of ['every', 'macos15', 'macos26', 'ai']) {
     const named = await h.evaluate(() => [...document.querySelectorAll('[data-offer-clue] [data-offer-note]')].slice(0, 3).map((one) => one.textContent.trim()))
     check(`${level}: the question's notes ${ai ? 'come with one sentence from them, naming them, written on this Mac' : 'come alone, no answer line'}`,
       ai ? /stand-in's answer/.test(answer ?? '') && named.every((title) => (answer ?? '').includes(`“${title}”`)) && /written on this Mac/.test(answer ?? '') : answer === null, `${answer} | ${named.join(' / ')}`)
+    // Shown whole (19 Nov): the room held for two lines opens to the answer's own height, never cut with "…".
+    if (ai) {
+      await wait(400)
+      const whole = await h.evaluate(() => [...document.querySelectorAll('[data-ai-answer], [data-ai-why]')].map((one) => ({ clamp: getComputedStyle(one.querySelector('span') ?? one).webkitLineClamp, cut: one.scrollHeight > one.clientHeight + 1 })))
+      check(`${level}: the answer and the why line show whole, never cut to two lines`, whole.length === 2 && whole.every((one) => (one.clamp === 'none' || !one.clamp) && !one.cut), JSON.stringify(whole))
+    }
     if (ai && process.env.SHOT) await c.both(`${process.env.SHOT}/ai-why`)
     // What Haligtree can do.
     // The page opens in tabs (27d91f0ff): each tab clicked in turn, its Apple Intelligence cards read.

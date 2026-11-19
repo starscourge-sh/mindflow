@@ -50,6 +50,13 @@ export function WeekParagraph({ monday, had, onKeep }: { monday: string; had: st
   )
 }
 
+/**
+ * The room an answer written on this Mac is held in: two lines from the first frame, then its own height once its
+ * words are in, the height eased (interpolate-size lets `auto` ease) so the lines under it glide down rather than jump.
+ * With Reduce motion, or Motion off, it is simply its height.
+ */
+const WORDS_ROOM = 'overflow-hidden [interpolate-size:allow-keywords] transition-[height] duration-200 ease-(--mf-ease) motion-reduce:transition-none [[data-motion=off]_&]:transition-none'
+
 /** Under a clue offered for a question: one line on why it may help, written on this Mac. */
 export function WhyLine({ question, note }: { question: string; note: string }): React.JSX.Element | null {
   // Whether this Mac can write it is known before the page shows, so its room is there from the first frame or never.
@@ -65,13 +72,12 @@ export function WhyLine({ question, note }: { question: string; note: string }):
     return () => void (live = false)
   }, [has, question, note])
   if (!has) return null
-  // Two lines held from the first frame: the orb while this Mac writes, then its words in the same room, so nothing
-  // under it moves when they come (they came a second or two after the page and pushed the clues down). A longer
-  // answer ends in "…" and shows whole on pointing (title-tips.tsx).
+  // Two lines held from the first frame: the orb while this Mac writes, then its words in that room, whole: a longer
+  // answer opens the room to its own height, eased, so what is under it moves on smoothly and never jumps (WORDS_ROOM).
   const words = said && 'text' in said ? `${said.text} Written on this Mac.` : said ? `Not written: ${said.error}.` : null
   return (
-    <p data-mac-needs="ai" data-ai-why data-room-held className="h-[2lh] text-meta text-muted-foreground">
-      {words === null ? <Orb label="Asking this Mac why…" /> : <span title={words} className="line-clamp-2"><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />{words}</span>}
+    <p data-mac-needs="ai" data-ai-why data-room-held className={`${WORDS_ROOM} ${words === null ? 'h-[2lh]' : 'h-auto min-h-[2lh]'} text-meta text-muted-foreground`}>
+      {words === null ? <Orb label="Asking this Mac why…" /> : <span><Sparkles aria-hidden className="mr-1 inline size-3 align-[-1px]" />{words}</span>}
     </p>
   )
 }
@@ -98,11 +104,10 @@ export function AnswerLine({ question, notes }: { question: string; notes: { tit
   const named = from.length > 1 ? `${from.slice(0, -1).join(', ')} and ${from.at(-1)}` : from[0]
   const words = said && 'text' in said ? `${said.text} From ${named}, written on this Mac.` : said ? `Not answered: ${said.error}.` : null
   return (
-    // Two lines held from the first frame, as WhyLine holds its room: the orb while this Mac writes, then its words in the
-    // same room, so nothing under it moves when they come (a three-line answer pushed the clues 21px down). A longer
-    // answer ends in "…" and shows whole on pointing (title-tips.tsx).
-    <p data-mac-needs="ai" data-ai-answer data-room-held className="mt-1 h-[2lh] text-body text-foreground">
-      {words === null ? <Orb label="Asking this Mac from your notes…" /> : <span title={words} className="line-clamp-2"><Sparkles aria-hidden className="mr-1 inline size-3.5 align-[-2px] text-muted-foreground" />{words}</span>}
+    // Two lines held from the first frame, as WhyLine holds its room: the orb while this Mac writes, then the answer
+    // whole, the room opening to it eased (WORDS_ROOM): it was cut to two lines with "…", the rest only on pointing.
+    <p data-mac-needs="ai" data-ai-answer data-room-held className={`mt-1 ${WORDS_ROOM} ${words === null ? 'h-[2lh]' : 'h-auto min-h-[2lh]'} text-body text-foreground`}>
+      {words === null ? <Orb label="Asking this Mac from your notes…" /> : <span><Sparkles aria-hidden className="mr-1 inline size-3.5 align-[-2px] text-muted-foreground" />{words}</span>}
     </p>
   )
 }
