@@ -1,3 +1,5 @@
+import { useRef } from "react"
+import type { Editor, JSONContent } from "@tiptap/core"
 import { MarkButton } from "@/components/tiptap-ui/mark-button"
 import { LinkPopover } from "@/components/tiptap-ui/link-popover"
 import { ToolbarGroup, ToolbarSeparator } from "@/components/tiptap-ui-primitive/toolbar"
@@ -89,5 +91,64 @@ export function LineEditor(props: HaligtreeEditorProps): React.JSX.Element {
       toolbar={{ fixed: false, selection: MARKS }}
       {...props}
     />
+  )
+}
+
+/** Plain words as the editor's document: one paragraph a line, the empty ones kept. */
+const plainDoc = (text: string, line: boolean): JSONContent => {
+  const para = (words: string): JSONContent => (words ? { type: "paragraph", content: [{ type: "text", text: words }] } : { type: "paragraph" })
+  return { type: "doc", content: line ? [para(text.replace(/\n+/g, " "))] : text.split("\n").map(para) }
+}
+
+/**
+ * A field of plain words on a page (a month's focus, a week's intentions), written in the one editor, so it keys as
+ * a note does: Vim when Vim is on, the same undo, selection and spelling. It hands back plain text, a line each
+ * paragraph, when the caret leaves it. `line` holds one line, and Return leaves it.
+ */
+export function PlainField({ value, placeholder, label, line = false, className = "", onSave }: {
+  value: string
+  placeholder: string
+  label: string
+  line?: boolean
+  className?: string
+  onSave: (text: string) => void
+}): React.JSX.Element {
+  const editor = useRef<Editor | null>(null)
+  const kept = useRef(value)
+  kept.current = value
+  const leave = (): void => {
+    const one = editor.current
+    if (!one || one.isDestroyed) return
+    const text = one.state.doc.textBetween(0, one.state.doc.content.size, "\n").trim()
+    if (text !== kept.current.trim()) onSave(text)
+  }
+  return (
+    <div data-plain-field={label} aria-label={label} className={`min-w-0 ${className}`}
+      onBlur={(event) => {
+        // Into its own menu or the selection bar: still being written.
+        const into = event.relatedTarget as Element | null
+        if (into && (event.currentTarget.contains(into) || into.closest("[role=menu], .tiptap-suggestion-popup"))) return
+        leave()
+      }}
+      onKeyDown={(event) => {
+        if (line && event.key === "Enter" && !event.shiftKey) editor.current?.commands.blur()
+      }}>
+      <HaligtreeEditor
+        {...BARE}
+        vim={undefined}
+        shape={line ? "line" : "document"}
+        lineNumbers={false}
+        math={false}
+        marks={[]}
+        toolbar={false}
+        defaultContent={plainDoc(value, line)}
+        placeholder={placeholder}
+        // A field, not a page: no word count, no page furniture at its foot.
+        foot={() => null}
+        smoothScroll={false}
+        style={{ "--mf-padding": "0" } as React.CSSProperties}
+        onReady={(one) => void (editor.current = one)}
+      />
+    </div>
   )
 }

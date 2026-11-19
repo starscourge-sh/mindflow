@@ -54,6 +54,8 @@ export const NOTE_FONTS: { id: string; label: string; family: string }[] = [
   { id: 'default', label: 'Fraunces', family: '"Fraunces Variable", Georgia, serif' },
   { id: 'system', label: 'System', family: '-apple-system, BlinkMacSystemFont, system-ui, sans-serif' },
   { id: 'serif', label: 'New York', family: '"New York", ui-serif, Georgia, serif' },
+  // Dia's display serif is Exposure, sold under licence only; Instrument Serif (OFL) is its open look-alike.
+  { id: 'instrument', label: 'Instrument Serif', family: '"Instrument Serif", "New York", Georgia, serif' },
   { id: 'mono', label: 'Monospace', family: 'ui-monospace, "SF Mono", Menlo, monospace' },
   { id: 'comic', label: 'Comic Sans', family: '"Comic Sans MS", "Comic Sans", cursive' },
   { id: 'dyslexic', label: 'OpenDyslexic', family: '"OpenDyslexic", sans-serif' }

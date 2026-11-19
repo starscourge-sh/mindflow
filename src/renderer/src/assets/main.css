@@ -2389,6 +2389,40 @@ input[type='number']::-webkit-outer-spin-button {
 :root:not([data-marks='off']) .mf-hand-struck { text-decoration-line: none; }
 :root:not([data-marks='off']) .mf-hand-ruled { border-top-color: transparent; }
 :root:not([data-marks='off']) .mf-ringed { margin-inline: 0.45em; }
+/* Instrument Serif (OFL, assets/fonts): a font choice for headings, the open look-alike of Dia's display serif,
+   Exposure (205TF, sold under licence only). Bundled, so nothing is fetched. */
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/instrument-serif-latin-400-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/instrument-serif-latin-ext-400-normal.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/instrument-serif-latin-400-italic.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Instrument Serif';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./fonts/instrument-serif-latin-ext-400-italic.woff2') format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
 /* A quote's signature: "said by" in the app's font, the name in a pen's hand,
    the way Dia signs its changelog. Only the name, never body text. Bundled
    (OFL, assets/fonts), so nothing is fetched. Off with the marks: the name
@@ -2886,8 +2920,14 @@ html[data-resizing], [data-carry-cursor='col-resize'] { cursor: col-resize !impo
 .box-token:hover { filter: saturate(1.25) brightness(0.97); }
 /* One quiet offer under a note (note-offers.tsx): the hint line's own surface (page-hint.tsx: 14px corner, a 3% ink
    tint, a 7% ink hairline), its lead in bold, its action a soft button with a focus ring; it fades in, never slides. */
-.mf-note-offer { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0 0.5rem; padding: 0.25rem 0.375rem 0.25rem 0.875rem; min-height: 2.75rem; border-radius: 0.875rem; border: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent); background: color-mix(in oklab, var(--foreground) 3%, transparent); font-size: var(--text-control, 0.8125rem); color: var(--muted-foreground); line-height: 1.35; animation: mf-offer-in 180ms cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes mf-offer-in { from { opacity: 0; } }
+.mf-note-offer { display: flex; align-items: center; gap: 0.75rem; margin: 1.25rem 0 0.5rem; padding: 0.25rem 0.375rem 0.25rem 0.875rem; min-height: 2.75rem; border-radius: 0.875rem; border: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent); background: color-mix(in oklab, var(--foreground) 3%, transparent); font-size: var(--text-control, 0.8125rem); color: var(--muted-foreground); line-height: 1.35; interpolate-size: allow-keywords; animation: mf-offer-in 280ms var(--mf-ease) both; }
+/* An offer arrives as a row does in a list (mf-arrive): its room opens first, from nothing, so what is under it eases
+   down rather than being shoved, then it shows in that room, settling down 4px. Never over the words above it. */
+@keyframes mf-offer-in {
+  from { height: 0; min-height: 0; margin-top: 0; margin-bottom: 0; padding-top: 0; padding-bottom: 0; opacity: 0; transform: translateY(-4px); clip-path: inset(0 0 100% 0); }
+  45% { opacity: 0; transform: translateY(-4px); }
+  70% { clip-path: inset(0 0 0 0); }
+}
 @media (prefers-reduced-motion: reduce) { .mf-note-offer { animation: none; } }
 :root[data-motion="off"] .mf-note-offer { animation: none; }
 .mf-note-offer-icon { flex: none; display: grid; color: var(--muted-foreground); }
@@ -3653,6 +3693,13 @@ html[data-pill-open='left'] #root { right: 0; }
 /* Keep sits in the right end, wider than the kind mark, so the line stops before it. The mode word is for a page, not this one line. */
 .app-container[data-pill] .tiptap.ProseMirror.haligtree-editor { padding-right: 7.5rem; }
 .app-container[data-pill] [data-vim-status] { display: none; }
+/* A field on a page (presets.tsx PlainField) keys as a note does, but the page's mode word is the note's, not a field's. */
+[data-plain-field] [data-vim-status] { display: none; }
+/* Its words at the field's own size, as the plain field before it was: a field, not a page. No typewriter room after
+   the last line, and no band on the caret's line (too loud in a field, as on a sticky). Its hint in italic, as before. */
+[data-plain-field] .haligtree-editor-content > .tiptap.ProseMirror.haligtree-editor { font-size: calc(var(--text-body) * var(--mf-text-scale, 1)); line-height: 1.5; padding: 0; }
+[data-plain-field] .vim-cursor-line::before { display: none; }
+[data-plain-field] .tiptap.ProseMirror .is-empty[data-placeholder]::before { font-style: italic; }
 /* Its round controls stand beside its right end at its own height, in the room main keeps there (hint-room.ts).
    Grown into the box, they go in a row above it, level with its right edge, at their usual size (note 57aa1710),
    gliding there from beside the pill (windows/box.tsx). Only they show of the strip.

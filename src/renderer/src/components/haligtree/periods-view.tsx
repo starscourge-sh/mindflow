@@ -5,6 +5,7 @@ import { AliveIcon } from '@/components/ui/alive-icon'
 import HistoryCircleIcon from '@/components/ui/history-circle-icon'
 
 import { HaligtreeEditor, TAGS } from '../haligtree'
+import { PlainField } from './presets'
 import { Button } from '@/components/ui/button'
 import { findCaptures, findHeadings, follow } from '@/lib/capture-links'
 import { dayOf } from '@/lib/notes'
@@ -122,6 +123,19 @@ export function PeriodSteps({ scale, onScale, atNow, go }: { scale: Scale; onSca
   )
 }
 
+/** A press on a field's name or hint writes in its words, as a label's would, the caret at their end. */
+const writeHere = (event: React.MouseEvent<HTMLElement>): void => {
+  const words = event.currentTarget.querySelector<HTMLElement>('[contenteditable="true"]')
+  if (!words || words.contains(event.target as Node) || event.button !== 0) return
+  event.preventDefault()
+  words.focus()
+  const end = document.createRange()
+  end.selectNodeContents(words)
+  end.collapse(false)
+  getSelection()?.removeAllRanges()
+  getSelection()?.addRange(end)
+}
+
 /**
  * One field of a period's page: a name, why it is there, and room to write.
  * Kept on leaving it, never required.
@@ -134,22 +148,14 @@ function Field({ label, hint, value, placeholder, long = false, onSave }: {
   long?: boolean
   onSave: (text: string) => void
 }): React.JSX.Element {
-  const keep = (text: string): void => {
-    if (text.trim() !== value) onSave(text.trim())
-  }
   return (
-    <label className="flex cursor-text flex-col gap-1 px-4 py-3 focus-within:bg-accent/40">
+    // Written in the one editor (PlainField), so it keys as a note does, Vim and all.
+    <div className="flex cursor-text flex-col gap-1 px-4 py-3 focus-within:bg-accent/40" onMouseDown={writeHere}>
       <span className="text-control font-medium text-foreground">{label}</span>
       {hint && <span className="text-xs text-muted-foreground">{hint}</span>}
-      {long ? (
-        <textarea defaultValue={value} placeholder={placeholder} aria-label={label} onBlur={(event) => keep(event.target.value)}
-          className="mf-ruled mt-1 min-h-[3lh] resize-none bg-transparent text-body text-foreground outline-none [field-sizing:content] placeholder:text-muted-foreground" />
-      ) : (
-        <input defaultValue={value} placeholder={placeholder} aria-label={label} onBlur={(event) => keep(event.target.value)}
-          onKeyDown={(event) => event.key === 'Enter' && event.currentTarget.blur()}
-          className="mf-ruled mt-0.5 bg-transparent text-body text-foreground outline-none placeholder:text-muted-foreground" />
-      )}
-    </label>
+      <PlainField value={value} placeholder={placeholder} label={label} line={!long} onSave={(text) => text !== value && onSave(text)}
+        className={`mf-ruled text-body text-foreground ${long ? 'mt-1 min-h-[3lh]' : 'mt-0.5'}`} />
+    </div>
   )
 }
 
@@ -190,11 +196,10 @@ function CarriedOver({ lines }: { lines: ([string, string] | [string, string, { 
     <Island className="mt-0">
       {shown.map(([label, text, home]) => home ? (
         // Still the month's own words, written here or there: the same field, kept where it lives.
-        <label key={label} data-carried={label} className="flex cursor-text flex-col gap-0.5 px-4 py-2.5 focus-within:bg-accent/40">
+        <div key={label} data-carried={label} className="flex cursor-text flex-col gap-0.5 px-4 py-2.5 focus-within:bg-accent/40" onMouseDown={writeHere}>
           <span className="text-control font-medium text-(--mf-muted-strong)">{label}</span>
-          <textarea key={text} defaultValue={text} aria-label={label} onBlur={(event) => event.target.value !== text && saveField(home.period, home.field, event.target.value)}
-            className="resize-none bg-transparent text-body text-foreground outline-none [field-sizing:content]" />
-        </label>
+          <PlainField key={text} value={text} placeholder="" label={label} className="text-body text-foreground" onSave={(words) => saveField(home.period, home.field, words)} />
+        </div>
       ) : (
         <p key={label} data-carried={label} className="flex flex-col gap-0.5 px-4 py-2.5">
           <span className="text-control font-medium text-(--mf-muted-strong)">{label}</span>
