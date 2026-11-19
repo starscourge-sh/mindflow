@@ -10,6 +10,7 @@ import { chime } from '@/lib/sound'
 import { detent, slotTicker } from '@/lib/proximity'
 import { EASING, byKeys, glideWay, still } from '@/lib/motion'
 import { taskName } from '@/lib/tasks'
+import { edgeScroll } from '@/lib/edge-scroll'
 import { moveToBin } from '@/lib/to-bin'
 import { useHere } from '@/lib/split'
 import { useStepped } from '@/lib/nav'
@@ -543,7 +544,16 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
     if (!pass) event.stopPropagation()
     const [x0, y0] = [event.clientX, event.clientY]
     let now: Carry | null = null
+    // Held at the grid's top or bottom edge, Month's weeks or the hours scroll (lib/edge-scroll.ts, as a note's blocks
+    // do), and what is under the still pointer is read again as they pass. Not the hours under a bar of whole days or a
+    // task over the all-day lane: neither can land in them. Month's weeks only once the pointer is past their edge.
+    const box = level.current?.querySelector<HTMLElement>('[data-cal-body]')
+    const edge = box ? edgeScroll(box, box.hasAttribute('data-month-run') ? 0 : undefined) : null
+    let [x, y] = [x0, y0]
+    const scrolled = (): void => void (now && ((now = follow(now, x, y)), setCarry(now)))
+    box?.addEventListener('scroll', scrolled, { passive: true })
     const moveTo = (e: PointerEvent): void => {
+      [x, y] = [e.clientX, e.clientY]
       if (!now && Math.hypot(e.clientX - x0, e.clientY - y0) < 4) return
       if (!now) {
         now = begin(x0, y0)
@@ -557,8 +567,13 @@ export function CalendarView({ focus, onOpen }: { focus?: string; onOpen?: (type
       }
       now = follow(now, e.clientX, e.clientY)
       setCarry(now)
+      const hours = box?.hasAttribute('data-cal-scroll')
+      if (hours && (now.kind === 'span' || (now.kind === 'move' && now.to?.minute === null))) edge?.stop()
+      else edge?.follow(e.clientY)
     }
     const done = (): void => {
+      edge?.stop()
+      box?.removeEventListener('scroll', scrolled)
       delete document.documentElement.dataset.dragging
       delete document.documentElement.dataset.stretching
       window.removeEventListener('pointermove', moveTo)

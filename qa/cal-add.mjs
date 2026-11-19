@@ -50,7 +50,8 @@
 //   span    a press dragged across Month's days: the bar drawn day by day into the next week's row (a tick each), Esc
 //           puts it back, drawn backwards and let go the popover is at the bar's end reading the days; ↵ makes it; the
 //           event's bar in Month and Week's all-day lane; its end and start dragged, its middle carried in the one card
-//           ("Move to …", the days lit), Esc, Undo and ⌘Z. With FRAMES=dir, the bar drawn across a week's end, filmed.
+//           ("Move to …", the days lit), Esc, Undo and ⌘Z; its end held past the grid's bottom edge, no wheel, scrolls
+//           the weeks to a day that was out of view. With FRAMES=dir, the bar drawn across a week's end, filmed.
 //   frames  with FRAMES=dir: a picture every 50ms through the popover growing, Event to Task, adding, and a pinch with its
 //           lit block, light and dark; and the popover beside two of the app's own (the small month, an event's card).
 //   QA_ARGS=--sandbox QA_DATA=<a copy of the seeded sandbox> QA_ENTRY=$PWD/out-x/main/index.js HALIGTREE_QA_AWAY=1 node qa/cal-add.mjs
@@ -1942,6 +1943,37 @@ try {
       await wait(800)
       trip = (await eventsNamed('Trip'))[0]
       check('span: ⌘Z puts it back', !!card && keyOf(new Date(trip.start)) === a, trip.start)
+      // Its end held past the grid's bottom edge, no wheel: the weeks scroll under the still pointer (lib/edge-scroll.ts)
+      // until a day two weeks below the last one in view comes up, and let go on it the bar ends there (19 Nov, LE1).
+      for (let tries = 0, by = await inView(b); by && tries < 4; tries++, by = await inView(b)) (await h.mouse.wheel(0, by), await wait(400))
+      const tail = (await pieces(`[data-cal-event-chip="${key}"] [data-cal-bar-end="end"]`)).at(-1)
+      const far = tail && await h.evaluate((x) => {
+        const run = document.querySelector('[data-cal-level] [data-month-scroll]')?.getBoundingClientRect()
+        const col = [...document.querySelectorAll('[data-cal-level] [data-month-plan] [data-day]')].map((el) => ({ day: el.dataset.day, r: el.getBoundingClientRect() })).filter((one) => one.r.left <= x && one.r.right >= x && one.r.bottom <= run.bottom + 0.5).sort((p, q) => q.r.top - p.r.top)[0]
+        return run && col ? { bottom: run.bottom, last: col.day } : null
+      }, tail.x + 3)
+      if (far) {
+        const goal = keyOf(new Date(new Date(`${far.last}T12:00:00`).getTime() + 14 * 864e5))
+        const scrollTop = () => h.evaluate(() => document.querySelector('[data-cal-level] [data-month-scroll]')?.scrollTop ?? 0)
+        const top0 = await scrollTop()
+        await h.mouse.move(tail.x + 3, (tail.y + tail.b) / 2)
+        await h.mouse.down()
+        await h.mouse.move(tail.x + 3, far.bottom + 24, { steps: 12 })
+        let up = null
+        for (const until = Date.now() + 9000; Date.now() < until; await wait(100)) {
+          up = await h.evaluate(({ goal, bottom }) => { const r = document.querySelector(`[data-cal-level] [data-month-plan] [data-day="${goal}"]`)?.getBoundingClientRect(); return r && r.bottom < bottom - 4 ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null }, { goal, bottom: far.bottom })
+          if (up) break
+        }
+        const scrolled = (await scrollTop()) - top0
+        if (up) await h.mouse.move(up.x, up.y, { steps: 2 })
+        await h.mouse.up()
+        await wait(900)
+        trip = (await eventsNamed('Trip'))[0]
+        s = await state()
+        check(`span: its end held past the grid's bottom edge (no wheel) scrolls the weeks, and let go on ${goal}, out of view when pressed, it ends there`, !!up && scrolled > 0 && lastDay(trip) === goal && keyOf(new Date(trip.start)) === a && /Lasts until/.test(s.toast), `scrolled ${Math.round(scrolled)}px; ${up ? 'came into view' : 'never came into view'}; ${trip.start} to ${trip.end}; ${s.toast.slice(0, 50)}`)
+        await h.keyboard.press('Meta+z')
+        await wait(800)
+      } else check("span: the bar's end and the grid's bottom edge were found", false)
       // Week: in the all-day lane across its days.
       await toMode('w')
       for (let n = 0; n < 2 && !(await h.evaluate((key) => !!document.querySelector(`[data-cal-level] [data-cal-allday-lane] [data-cal-event-chip="${key}"]`), key)); n++) { await h.keyboard.press('ArrowRight'); await wait(500) }

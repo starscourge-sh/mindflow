@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'motion/react'
 import { byKeys, spring, still } from '@/lib/motion'
+import { edgeScroll } from '@/lib/edge-scroll'
 import { createPortal } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { Ban, Bell, CalendarDays, Check, ChevronRight, Clock, Copy, CopyPlus, FileText, Globe, Laptop, Link2, MapPin, Plus, Repeat as RepeatIcon, Scissors, Trash2, Users, Video, X } from 'lucide-react'
@@ -273,6 +274,13 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onNote, calenda
     const box = (event.currentTarget.closest('[data-cal-event]') ?? event.currentTarget).getBoundingClientRect()
     const grab = ((y0 - box.top) / HOUR) * 60
     let now: Lift | null = null
+    // Held at the hours' top or bottom edge, they scroll (lib/edge-scroll.ts, as the Calendar's other carries), and the
+    // time under the still pointer is read again as they pass; not while it is over the all-day lane.
+    const hours = event.currentTarget.closest<HTMLElement>('[data-cal-scroll]')
+    const edge = hours ? edgeScroll(hours) : null
+    let [x, y] = [x0, y0]
+    const scrolled = (): void => void (now && ((now = follow(x, y)), setLift(now)))
+    hours?.addEventListener('scroll', scrolled, { passive: true })
     const follow = (x: number, y: number): Lift | null => {
       if (mode === 'resize') {
         const col = document.querySelector<HTMLElement>(`[data-cal-col="${day}"]`)
@@ -287,11 +295,16 @@ export function EventBlock({ one, day, at, length, lane, onOpen, onNote, calenda
     }
     const move = (e: PointerEvent): void => {
       if (!now && Math.hypot(e.clientX - x0, e.clientY - y0) < 4) return
+      ;[x, y] = [e.clientX, e.clientY]
       if (!now) chime('lift')
       now = follow(e.clientX, e.clientY)
       setLift(now)
+      if (now?.allDay) edge?.stop()
+      else edge?.follow(e.clientY)
     }
     const done = (): void => {
+      edge?.stop()
+      hours?.removeEventListener('scroll', scrolled)
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', cancel)

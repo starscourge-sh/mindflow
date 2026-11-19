@@ -675,8 +675,9 @@ function WeekRun({ body, row, held, still, bars, lines, sign, onShown, week }: {
     // way. So without the Mac's word it waits until the wheel has been quiet a moment and the scroll has stopped. Done
     // here rather than by CSS scroll snap, which snaps only to weeks already drawn and so, sent a year away, pulled back
     // to the weeks it left. `tap`: one light tap as a run let go of lands on its week.
+    // Nor while something carried holds it at an edge (lib/edge-scroll.ts): it rests once let go of.
     const ended = (landed = false, tap = landed): void => {
-      if (!row || landing.current || touching.current) return
+      if (!row || landing.current || touching.current || 'edgeHeld' in el.dataset) return
       if (performance.now() - wheeled.current < IDLE && !landed) {
         if (quiet.current) return
         // Read from the events' own times, never the scroll's place: read each frame, that made the page lay itself out again.

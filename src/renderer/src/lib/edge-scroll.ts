@@ -7,13 +7,20 @@
  * the edge and wait, and an event that only fires on movement stops the moment you do. A wide band, so the edge is easy
  * to find; pixels a second at the very edge, easing to none at the inside of the band. Per second rather than per
  * frame: per frame, a 120Hz screen scrolled twice as fast as a 60Hz one.
+ *
+ * The Calendar's grids use it too (Month's weeks, Week and Day's hours). While something is held over a box it carries
+ * `data-edge-held`, so a box that comes to rest on its own (Month's weeks onto a week, month-plan.tsx) waits; let go
+ * after it scrolled, the box hears `scrollend` once, as at the end of any scroll, and comes to rest then.
+ *
+ * `band`: how far inside the edge it starts. Month's weeks give none: a day there is one large target, and weeks
+ * creeping under a pointer aimed at the last row moved the drop a week on; they scroll once the pointer is past the edge.
  */
-export function edgeScroll(box: HTMLElement): { follow: (y: number) => void; stop: () => void } {
-  const EDGE = 96
+export function edgeScroll(box: HTMLElement, band = 96): { follow: (y: number) => void; stop: () => void } {
   const SPEED = 100
   let at: number | null = null
   let frame = 0
   let last = 0
+  let moved = false
 
   // `instant`, spelled out: the box may be easing its own scrolls, and a frame loop that asks for an eased step every
   // frame never arrives.
@@ -30,14 +37,19 @@ export function edgeScroll(box: HTMLElement): { follow: (y: number) => void; sto
     const above = at - top
     const below = bottom - at
     const rate = SPEED * seconds
-    if (above < EDGE) by(-rate * (1 - Math.max(0, above) / EDGE))
-    else if (below < EDGE) by(rate * (1 - Math.max(0, below) / EDGE))
+    // Full speed at the edge and past it, easing to none at the inside of the band.
+    const pace = (gap: number): number => (gap >= band ? 0 : band ? 1 - Math.max(0, gap) / band : 1)
+    const was = box.scrollTop
+    if (above < band) by(-rate * pace(above))
+    else if (below < band) by(rate * pace(below))
+    if (box.scrollTop !== was) moved = true
   }
 
   return {
     follow: (y) => {
       at = y
       if (frame) return
+      box.dataset.edgeHeld = ""
       last = performance.now()
       frame = requestAnimationFrame(step)
     },
@@ -45,6 +57,10 @@ export function edgeScroll(box: HTMLElement): { follow: (y: number) => void; sto
       at = null
       cancelAnimationFrame(frame)
       frame = 0
+      if (!("edgeHeld" in box.dataset)) return
+      delete box.dataset.edgeHeld
+      if (moved) box.dispatchEvent(new Event("scrollend"))
+      moved = false
     },
   }
 }
