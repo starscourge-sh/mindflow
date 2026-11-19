@@ -61,7 +61,8 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/40 pt-[22vh]" onMouseDown={close}>
       <div role="dialog" aria-modal="true" aria-label="Keep in folder" data-folder-picker="" className="w-[min(30rem,90vw)] overflow-hidden rounded-xl bg-popover shadow-(--mf-panel-shadow)" onMouseDown={(event) => event.stopPropagation()}>
-        <Command loop onKeyDown={(event) => {
+        {/* Found by the words of its name and path, as typed: never by its id (a fuzzy match on "7" found nearly all of 1,000). */}
+        <Command loop filter={(_value, search, keywords) => (!search.trim() || (keywords ?? []).join(' ').toLowerCase().includes(search.trim().toLowerCase()) ? 1 : 0)} onKeyDown={(event) => {
           event.stopPropagation()
           if (event.key === 'Escape') close()
         }}>
@@ -71,7 +72,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
             {shown.map((one) => {
               const path = pathSaid(all, one.parent)
               return (
-                <CommandItem key={one.id} data-folder-pick={one.id} value={`${one.name} ${path} ${one.id}`} onSelect={() => (close(), void keepIn(things, one))}>
+                <CommandItem key={one.id} data-folder-pick={one.id} value={one.id} keywords={[one.name, path]} onSelect={() => (close(), void keepIn(things, one))}>
                   <GroupIcon icon={one.icon} color={one.color} className="size-3.5" />
                   <span className="min-w-0 flex-1 truncate">{one.name}</span>
                   {path && <span className="max-w-[45%] shrink-0 truncate text-xs text-muted-foreground">{path}</span>}
@@ -80,7 +81,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
             })}
             {/* Always last, whatever the filter: the folder made and filled in one step. */}
             {name && !exact && (
-              <CommandItem forceMount data-folder-new-pick="" value={`new-folder ${name}`} onSelect={() => (close(), void keepInNew(things, name))}>
+              <CommandItem forceMount data-folder-new-pick="" value="new-folder" keywords={[name]} onSelect={() => (close(), void keepInNew(things, name))}>
                 <FolderPlus className="size-3.5" />
                 <span className="min-w-0 flex-1 truncate">New folder “{name}”</span>
               </CommandItem>
