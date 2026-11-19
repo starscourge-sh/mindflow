@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { forgives, wordsOf } from './near'
+import { forgiven, wordsOf } from './near'
 import { passes, propertyFilters } from './property-words'
 import { RETIRED } from './kinds'
 import { NOTE_KEY } from './name'
@@ -35,7 +35,8 @@ const fieldsOf = (db: DatabaseSync, type: string, id: string): Record<string, un
 
 type Found = { type: string; id: string; number: number | null; kind: string; status: string; source: string; attribution: string | null; label: string; capturedAt: string }
 type Searchable = Found & { text: string; raw?: string; there?: string[] }
-export type FoundRow = Found & { line?: string; picture?: string; match?: 'name' | 'words' | 'picture' | 'near' }
+/** `near`: for a row found by close spellings only, the words in it that stood in for those typed (near.ts). */
+export type FoundRow = Found & { line?: string; picture?: string; match?: 'name' | 'words' | 'picture' | 'near'; near?: string[] }
 /** What a link written by name, or `@`, is offered: notes by name, gems and pages by name, and the PDFs and kept articles of that name. */
 export type Named = { captures: Record<string, unknown>[]; items: Record<string, unknown>[]; files: FoundRow[] }
 
@@ -128,7 +129,7 @@ export function bookFinder(db: DatabaseSync, pictures: Pictures): {
     }
     // The line the words were found on, as it reads, with a little either side: so a row says why it
     // came up. None when the name alone holds them, as the name already shows it.
-    const lineOf = (one: Searchable): string | undefined => {
+    const lineOf = (one: Searchable, terms: string[]): string | undefined => {
       const raw = one.raw ?? ''
       const name = (one.label ?? '').trim()
       // The words only, never the who, where and properties after them (char 31 marks where they start), nor the
@@ -178,8 +179,9 @@ export function bookFinder(db: DatabaseSync, pictures: Pictures): {
       return `${said.startsWith(IN_PICTURE) ? IN_PICTURE : ''}${cut > 0 ? '…' : ''}${shownLine}${cut + 160 < line.length ? '…' : ''}`
     }
     // A line read in a picture says so, and brings the picture to show beside it.
-    const shown = ({ text: _, there: __, raw: ___, ...one }: Searchable): Found & { line?: string; picture?: string } => {
-      const line = lineOf({ text: _, raw: ___, ...one })
+    // `near`: the words a close spelling found, the line they are on shown in place of the words typed.
+    const shown = ({ text: _, there: __, raw: ___, ...one }: Searchable, near = terms): Found & { line?: string; picture?: string } => {
+      const line = lineOf({ text: _, raw: ___, ...one }, near)
       if (!line?.startsWith(IN_PICTURE)) return { ...one, line }
       return { ...one, line: line.slice(1), picture: pictureHolding(pictures.known(), line.slice(1)) }
     }
@@ -189,20 +191,25 @@ export function bookFinder(db: DatabaseSync, pictures: Pictures): {
     const all = take((one) => terms.every((term) => one.text.includes(term)), 600)
     const named = (one: Searchable): boolean => terms.every((term) => (one.label ?? '').toLowerCase().includes(term))
     const titled = all.filter(named)
-    const rest = all.filter((one) => !named(one)).slice(0, 120).map(shown)
+    const rest = all.filter((one) => !named(one)).slice(0, 120).map((one) => shown(one))
     const found = once([
-      ...titled.slice(0, 60).map(shown).map((one) => ({ ...one, match: 'name' as const })),
+      ...titled.slice(0, 60).map((one) => shown(one)).map((one) => ({ ...one, match: 'name' as const })),
       ...rest.filter((one) => !one.picture).map((one) => ({ ...one, match: 'words' as const })),
       ...rest.filter((one) => one.picture).map((one) => ({ ...one, match: 'picture' as const }))
     ]).slice(0, 60)
     if (filters.length) return found.filter((one) => one.type !== 'task' && one.type !== 'event' && one.type !== 'day' && passes(fieldsOf(db, one.type, one.id), filters))
-    // Few or none as typed: spelling forgiven (near.ts), the closest words standing in for a slip of the keys.
-    // Read over the newest 3000 only, so a slip in a big book never stalls the typing; the Bin is left out as above.
+    // Nothing as typed: spelling forgiven (near.ts), a word a slip of the keys away standing in. Only then, as ⌘K's
+    // own line says ("Nothing has … as you typed it"): with one real match, 52 notes holding "fault" and "fast" stood
+    // under "faust" (17 Nov 2026). The fewest slips first, then the newest, never the longest notes; each row names
+    // the words that stood in. Read over the newest 3000 only, so a slip in a big book never stalls the typing.
     const plain = words.filter((word) => !word.startsWith('kind:'))
-    if (found.length >= 5 || !plain.some((word) => word.length >= 4)) return found
-    const seen = new Set(found.map((one) => `${one.type}:${one.id}`))
-    const forgiven = rows.slice(0, 3000).filter((one) => !seen.has(`${one.type}:${one.id}`) && forgives(plain, one.text, (one.there ??= wordsOf(one.text)))).slice(0, 60 - found.length).map((one) => ({ ...shown(one), match: 'near' as const }))
-    return once([...found, ...forgiven])
+    if (found.length || !plain.some((word) => word.length >= 4)) return found
+    const close = rows.slice(0, 3000).flatMap((one, at) => {
+      const by = forgiven(plain, one.text, (one.there ??= wordsOf(one.text)))
+      return by ? [{ one, at, ...by }] : []
+    })
+    close.sort((a, b) => a.slips - b.slips || a.at - b.at)
+    return once(close.slice(0, 60).map(({ one, near }) => ({ ...shown(one, [...near, ...plain.filter((word) => one.text.includes(word))]), match: 'near' as const, near })))
   }
 
   // What `@` offers: a title containing the text, or a handle starting with it,

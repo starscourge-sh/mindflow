@@ -1,3 +1,5 @@
+import { slips } from '../../../main/near.ts'
+
 /** What the `/` menu needs of an item to find it. */
 export interface Findable {
   title: string
@@ -16,17 +18,8 @@ const startsWords = (typed: string[], text: string): boolean => {
   return typed.every((word) => own.some((that) => that.startsWith(word)))
 }
 
-/** Two words one slip apart (a letter missed, added, changed or swapped): `dicate` is `dictate`. Short words must match exactly. */
-const near = (a: string, b: string): boolean => {
-  // The first letter is never the slip, so the middle of a word (`able`) still finds nothing.
-  if (a.length < 4 || Math.abs(a.length - b.length) > 1 || a[0] !== b[0]) return false
-  if (a === b) return true
-  let i = 0
-  while (i < a.length && a[i] === b[i]) i++
-  const rest = (x: string, y: string): boolean => x === y
-  return rest(a.slice(i + 1), b.slice(i + 1)) || rest(a.slice(i), b.slice(i + 1)) || rest(a.slice(i + 1), b.slice(i)) ||
-    (a[i] === b[i + 1] && a[i + 1] === b[i] && rest(a.slice(i + 2), b.slice(i + 2)))
-}
+/** Two words one slip of the keys apart (main/near.ts `slips`, the rule every search shares): `dicate` is `dictate`. Short words must match exactly. */
+const near = (a: string, b: string): boolean => a.length >= 4 && slips(a, b) <= 1
 /** Every word typed is one slip from some word here, or starts it. */
 const nearWords = (typed: string[], text: string): boolean => {
   const own = parts(text)

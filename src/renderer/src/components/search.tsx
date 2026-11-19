@@ -501,12 +501,13 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                         <span data-row-kind>{island === 'Recent' || island === 'Gems' ? (capture.type === 'capture' ? (CAPTURE_TYPES.find((type) => type.id === capture.kind) ?? CAPTURE_TYPES[0]).label : typeSaid(capture.type)) : capture.type === 'task' || capture.type === 'event' ? null : age(capture.capturedAt)}</span>
                       </span>
                     </span>
-                    {/* Why it came up: the line the words are on, the words marked, under the name and starting where it starts. */}
-                    {capture.line && (
+                    {/* Why it came up: the line the words are on, the words marked, under the name and starting where it starts.
+                        Found by a close spelling, the line first names the word that stood in ("Has “bargain”"), so it never reads as the words typed. */}
+                    {(capture.line || capture.near?.length) && (
                       <span data-found-line data-found-picture={capture.picture ? '' : undefined} className="flex h-5 min-w-0 items-center gap-2 pl-6 text-sm leading-5 text-muted-foreground">
                         {/* Words read in a picture: the picture itself, small, beside them. */}
                         {capture.picture && <img src={capture.picture} alt="" className="size-5 shrink-0 rounded-[4px] border border-border/60 object-cover" />}
-                        <span className="min-w-0 truncate">{capture.picture && <span className="text-muted-foreground">In a picture: </span>}<Marked text={capture.line} query={words.join(' ')} /></span>
+                        <span className="min-w-0 truncate">{capture.near?.length ? <span data-near-word className="text-(--mf-muted-strong)">Has {capture.near.map((one) => quoted(one, 30)).join(', ')}{capture.line ? ': ' : ''}</span> : null}{capture.picture && <span className="text-muted-foreground">In a picture: </span>}{capture.line && <Marked text={capture.line} query={(capture.near?.length ? capture.near : words).join(' ')} />}</span>
                       </span>
                     )}
                   </button>
@@ -779,7 +780,7 @@ export function Search({ onOpen: told, onAside: toldAside, onTab: toldTab, onClo
                     </div>
                   )
                   : current
-                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} words={current.match === 'near' ? [] : words} />
+                  ? current.type === 'task' ? <TaskPreview id={current.id} /> : current.type === 'pdf' ? <PdfPeek label={current.label} id={current.id} /> : current.type === 'web' || current.type === 'work' ? <WebPeek label={current.label} site={current.source} /> : current.type === 'media' ? <MediaPeek label={current.label} id={current.id} kind={current.kind} /> : current.type === 'event' ? <EventPeek id={current.id} /> : <NotePreview capture={current} words={current.near ?? words} />
                   : look
                   ? <LookPeek key={`${look.site.id}:${look.hit?.href ?? ''}`} one={look} words={lookWords} offline={!!outside?.offline} />
                   : action?.keep
@@ -980,7 +981,7 @@ function PreviewHead({ capture, named }: { capture: Capture; named: boolean }): 
   )
 }
 
-function NotePreview({ capture, words }: { capture: Capture; /** The words searched for: lit where they stand, the first brought into view (none for a close spelling). */ words: string[] }): React.JSX.Element | null {
+function NotePreview({ capture, words }: { capture: Capture; /** The words searched for: lit where they stand, the first brought into view (for a close spelling, the words that stood in). */ words: string[] }): React.JSX.Element | null {
   const { type, id } = capture
   // Lit as a note's own find lights them, the first in view: where it matches is shown, never only said (the user, 15 Nov
   // 2026: "why is it lying about occurence?").
