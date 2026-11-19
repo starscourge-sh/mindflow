@@ -348,8 +348,12 @@ function gutter(view: EditorView): { update: (view: EditorView, previous: Editor
     const holder = view.dom.closest(".haligtree-editor-wrapper")
     if (!holder || !layer.isConnected) return
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-    // The fold arrow's room, the column, 4px, the grip where the note has one, and 2px from the edge.
-    const grip = holder.querySelector(".tiptap-drag-handle") ? 4 + 1.5 * rem : 0
+    // The fold arrow's room, the column, 4px, the grip where the note has one, and 2px from the edge. Whether it has
+    // one is the holder's own say, drawn with it (`has-handles`): the grip itself joins the holder only once its plugin
+    // is registered, in an effect after the note is made, so asked of the grip the room was counted without it, and
+    // a font arriving or the pane's width settling counted it again with it: the Week page's words stepped 29px
+    // right a beat after they were drawn (qa/no-flash.mjs, 19 Nov 2026).
+    const grip = holder.classList.contains("has-handles") ? 4 + 1.5 * rem : 0
     const need = 1.75 * rem + layer.getBoundingClientRect().width + grip + 2
     // The stylesheet's own room, read with the room given here taken off: it is another at another width of pane
     // (a narrow note's is smaller), and the room given at the last width is no part of it.
