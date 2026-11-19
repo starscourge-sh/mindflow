@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { randomUUID } from 'crypto'
 
 import { atomically, changed, database } from './captures'
+import { ask } from './reader'
 
 /**
  * Groups in a kept list, the way a browser gathers tabs: a named run of
@@ -194,18 +195,10 @@ export function registerGroups(): void {
     return { id: copy, ids: made }
   })
 
-  // Every web address a group's notes hold (or these notes'), once each, in order.
-  handle('groups:links', (id: string | string[]) => {
-    type Row = { attribution: string | null; body: string | null; fields: string | null }
-    const rows = Array.isArray(id)
-      ? id.flatMap((one) => (db.prepare('select attribution, body, fields from nuggets where id = ?').all(one) as Row[]))
-      : (db.prepare('select attribution, body, fields from nuggets where group_id = ? order by group_order').all(id) as Row[])
-    const seen = new Set<string>()
-    for (const row of rows)
-      for (const found of `${row.attribution ?? ''} ${row.fields ?? ''} ${row.body ?? ''}`.matchAll(/https?:\/\/[^\s"'<>)\]\\]+/g))
-        seen.add(found[0].replace(/[.,;:]+$/, ''))
-    return [...seen]
-  })
+  // Every web address a group's notes hold (or these notes'), once each, in order: every word of every note in it is
+  // read, so on the reading thread (reader-jobs.ts `links`). Each folder row asks as the page draws (its menu offers
+  // "Copy all links" only when there are some), and on main a folder of 2,000 notes held the app 107 to 186 ms.
+  handle('groups:links', (id: string | string[]) => ask('links', [id]))
 
   // Copies of these notes, each just after its own (in its group, if it has one). Undo takes them away again.
   handle('groups:clone', (list: string, ids: string[]) => {

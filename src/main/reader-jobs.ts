@@ -101,6 +101,18 @@ export function bookJobs(db: DatabaseSync, pictures: Pictures, needs: OffersNeed
         glances.set(table, { stamp, all })
         return all
       },
+      /** Every web address a group's notes hold (or these notes'), once each, in order (groups.ts `groups:links`). */
+      links: (_gone: Gone, id: string | string[]) => {
+        type Row = { attribution: string | null; body: string | null; fields: string | null }
+        const rows = Array.isArray(id)
+          ? id.flatMap((one) => db.prepare('select attribution, body, fields from nuggets where id = ?').all(one) as Row[])
+          : (db.prepare('select attribution, body, fields from nuggets where group_id = ? order by group_order').all(id) as Row[])
+        const seen = new Set<string>()
+        for (const row of rows)
+          for (const found of `${row.attribution ?? ''} ${row.fields ?? ''} ${row.body ?? ''}`.matchAll(/https?:\/\/[^\s"'<>)\]\\]+/g))
+            seen.add(found[0].replace(/[.,;:]+$/, ''))
+        return [...seen]
+      },
       /** The link cards not looked up yet as they now read (captures.ts keeps which were tried). */
       cards: (_gone: Gone) => db.prepare(`select id, kind, body from captures where (kind = 'link' or body like '%"bookmark"%')
         and not exists (select 1 from card_tries t where t.id = captures.id and t.body = captures.body)`).all() as { id: string; kind: string; body: string }[],
