@@ -14,6 +14,9 @@ import { hoverNote } from './note-preview'
 
 type Progress = { done: number; total: number; what: 'notes' | 'opening' | 'pictures' | 'cards' | 'files'; stop?: boolean }
 
+/** Whether an import's closing card is up now: what would float under it waits (folder-picker.tsx). */
+export const importCardUp = { now: false }
+
 /** What an import says it did, sent by main once it is over (main/index.ts). */
 type ImportDone = {
   from: string
@@ -125,7 +128,11 @@ export function ImportDoneCard(): React.JSX.Element {
   useEffect(() => void (done && setTimeout(() => card.current?.querySelector<HTMLElement>('[data-autofocus]')?.focus(), 30)), [done])
   const close = (): void => setDone(null)
   // Put away: what waited for it (an import's "Archive" offer, folder-picker.tsx) may speak now, one float at a time.
-  useEffect(() => void (done === null && window.dispatchEvent(new CustomEvent('haligtree:import-closed'))), [done])
+  // Told as it changes, not read off the page: the card stays drawn while it leaves (AnimatePresence).
+  useEffect(() => {
+    importCardUp.now = !!done
+    if (!done) window.dispatchEvent(new CustomEvent('haligtree:import-closed'))
+  }, [done])
   // Escape puts it away wherever the focus is: the page under it can take the focus back as the import ends.
   useEffect(() => {
     if (!done) return

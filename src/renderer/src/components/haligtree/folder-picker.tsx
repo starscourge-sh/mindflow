@@ -3,6 +3,7 @@ import { FolderPlus } from 'lucide-react'
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { GroupIcon } from './kept-groups'
 import { PickerAt, placeFor } from './picker-at'
+import { importCardUp } from './import-done'
 import { chime } from '@/lib/sound'
 import { folders, keepIn, keepInNew, pathSaid, putFoldersBack, useFolders, type Thing } from '@/lib/folders'
 import { refuse, toast, typing } from './ui'
@@ -69,7 +70,7 @@ export function FolderPicker({ onFolders }: { /** "Show me" on the move's notice
   useEffect(() => {
     const say = (): void => {
       // Said once the import's own card is put away: never a notice under that card (one floating thing at a time).
-      if (document.querySelector('[data-import-done]')) return
+      if (importCardUp.now) return
       for (const one of pending.current.splice(0))
         toast(`The import brought a folder called “${one.name}”. Archive ${one.n === 1 ? 'its 1 note' : `these ${num(one.n)} notes`} instead?`, undefined, 'info', {
           label: 'Archive them', key: 'A',
